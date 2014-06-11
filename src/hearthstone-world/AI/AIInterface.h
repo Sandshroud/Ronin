@@ -112,14 +112,7 @@ public:
     SpellEntry * totemspell;
 
     HEARTHSTONE_INLINE Unit* GetNextTarget() { return m_nextTarget; }
-    HEARTHSTONE_INLINE void SetNextTarget(Unit* nextTarget)
-    {
-        m_nextTarget = nextTarget;
-        if(nextTarget)
-            m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, m_nextTarget->GetGUID());
-        else
-            m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, 0);
-    }
+    HEARTHSTONE_INLINE void SetNextTarget(Unit* nextTarget);
 
     void WipeReferences();
     HEARTHSTONE_INLINE void SetPetOwner(Unit* owner) { m_PetOwner = owner; }

@@ -4212,9 +4212,8 @@ void Aura::SpellAuraReflectSpells(bool apply)
             else
                 ++i;
         }
-        ReflectSpellSchool *rss = NULL;
-        rss = new ReflectSpellSchool;
 
+        ReflectSpellSchool *rss = new ReflectSpellSchool();
         rss->chance = mod->m_amount;
         rss->spellId = GetSpellId();
         rss->school = -1;

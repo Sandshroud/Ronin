@@ -23,7 +23,6 @@ struct Modifier
     float fixed_float_amount[7];
 };
 
-
 struct ProcTriggerSpellOnSpell
 {
     uint32 origId;

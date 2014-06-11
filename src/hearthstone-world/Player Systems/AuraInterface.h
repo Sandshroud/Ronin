@@ -4,6 +4,11 @@
 
 #pragma once
 
+#define MAX_POSITIVE_AURAS 48 // ?
+#define MAX_AURAS 80 // 48 buff slots, 32 debuff slots.
+#define MAX_PASSIVE_AURAS 165
+#define TOTAL_AURAS MAX_AURAS+MAX_PASSIVE_AURAS
+
 class Unit;
 
 struct AuraCheckResponse

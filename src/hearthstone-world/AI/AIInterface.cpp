@@ -221,6 +221,14 @@ void AIInterface::Update(uint32 p_time)
         MovementHandler.HandleEvade();
 }
 
+void AIInterface::SetNextTarget(Unit* nextTarget)
+{
+    m_nextTarget = nextTarget;
+    if(nextTarget)
+        m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, m_nextTarget->GetGUID());
+    else m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, 0);
+}
+
 void AIInterface::AttackReaction(Unit* pUnit, uint32 damage_dealt, uint32 spellId)
 {
     ASSERT(m_Unit != NULL);

@@ -107,11 +107,11 @@ using namespace std;
 #include "EventableObject.h"
 #include "LootMgr.h"
 #include "Object.h"
+#include "AI_Headers.h"
 #include "AuraInterface.h"
 #include "Unit.h"
 
 #include "AddonMgr.h"
-#include "AI_Headers.h"
 #include "AreaTrigger.h"
 #include "BattlegroundMgr.h"
 #include "AlteracValley.h"
