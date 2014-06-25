@@ -99,14 +99,17 @@ enum EnchantmentSlot
     SOCK_ENCHANTMENT_SLOT3          = 4,
     BONUS_ENCHANTMENT_SLOT          = 5,
     PRISMATIC_ENCHANTMENT_SLOT      = 6,
-    MAX_INSPECTED_ENCHANTMENT_SLOT  = 7,
+    // No clue what 7 is yet..
+    REFORGE_ENCHANTMENT_SLOT        = 8,
+    TRANSMOG_ENCHANTMENT_SLOT       = 9,
+    MAX_INSPECTED_ENCHANTMENT_SLOT  = 10,
 
-    PROP_ENCHANTMENT_SLOT_0         = 7, // used with RandomSuffix
-    PROP_ENCHANTMENT_SLOT_1         = 8, // used with RandomSuffix
-    PROP_ENCHANTMENT_SLOT_2         = 9, // used with RandomSuffix and RandomProperty
-    PROP_ENCHANTMENT_SLOT_3         = 10, // used with RandomProperty
-    PROP_ENCHANTMENT_SLOT_4         = 11, // used with RandomProperty
-    MAX_ENCHANTMENT_SLOT            = 12
+    PROP_ENCHANTMENT_SLOT_0         = 10, // used with RandomSuffix
+    PROP_ENCHANTMENT_SLOT_1         = 11, // used with RandomSuffix
+    PROP_ENCHANTMENT_SLOT_2         = 12, // used with RandomSuffix and RandomProperty
+    PROP_ENCHANTMENT_SLOT_3         = 13, // used with RandomProperty
+    PROP_ENCHANTMENT_SLOT_4         = 14, // used with RandomProperty
+    MAX_ENCHANTMENT_SLOT            = 15
 };
 
 typedef map< uint32, EnchantmentInstance > EnchantmentMap;
@@ -128,6 +131,9 @@ public:
     void Create( uint32 itemid, Player* owner );
     void DeleteMe();
 
+    uint32 CalcMinDamage();
+    uint32 CalcMaxDamage();
+
     HEARTHSTONE_INLINE ItemPrototype* GetProto() const { return m_itemProto; }
     HEARTHSTONE_INLINE void SetProto( ItemPrototype* pr ) { m_itemProto = pr; }
 
@@ -135,6 +141,8 @@ public:
     void SetOwner( Player* owner );
 
     HEARTHSTONE_INLINE bool IsContainer(){ return ( m_objectTypeId == TYPEID_CONTAINER ) ? true : false; }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     void SetOwnerGUID(uint64 GUID) { SetUInt64Value(ITEM_FIELD_OWNER, GUID);   }
     uint64 GetOwnerGUID() { return GetUInt64Value(ITEM_FIELD_OWNER);  }
@@ -261,7 +269,6 @@ public:
     //! Adds an enchantment to the item.
     int32 AddEnchantment( EnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
     uint32 GetMaxSocketsCount();
-    uint32 Gems[3];
 
     const char* ConstructItemLink() { return m_itemProto->ConstructItemLink(GetItemRandomPropertyId(), GetItemRandomSuffixFactor(), GetStackCount()).c_str(); }
 

@@ -266,7 +266,6 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /* Calculate the timestamp of the packet we have to send out            */
     /************************************************************************/
     size_t pos = (size_t)m_MoverWoWGuid.GetNewGuidLen() + 1;
-    int32 move_time;
     if(m_clientTimeDelay == 0)
         m_clientTimeDelay = mstime - _player->movement_info.moveTime;
 
@@ -275,7 +274,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /************************************************************************/
     if(_player->m_inRangePlayers.size())
     {
-        move_time = (_player->movement_info.moveTime - (mstime - m_clientTimeDelay)) + MOVEMENT_PACKET_TIME_DELAY + mstime;
+        int32 move_time = (_player->movement_info.moveTime - (mstime - m_clientTimeDelay)) + MOVEMENT_PACKET_TIME_DELAY + mstime;
         ByteBuffer distBuffer(recv_data.size());
         distBuffer.append(recv_data.contents(), recv_data.size());
 
@@ -287,7 +286,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             if( (*itr)->GetSession() && (*itr)->IsInWorld() )
             {
                 distBuffer.put<uint32>(pos+6, (move_time + (*itr)->GetSession()->m_moveDelayTime));
-                (*itr)->GetSession()->OutPacket(recv_data.GetOpcode(), uint16(recv_data.size() + pos), distBuffer.contents());
+                (*itr)->GetSession()->OutPacket(recv_data.GetOpcode(), distBuffer.size(), distBuffer.contents());
             }
         }
     }
@@ -684,16 +683,6 @@ void WorldSession::HandleMoveHoverWaterFlyAckOpcode( WorldPacket & recv_data )
 
     _player->movement_info.read(recv_data);
     recv_data >> unk2;
-
-    switch(recv_data.GetOpcode())
-    {
-    case CMSG_MOVE_SET_CAN_FLY_ACK:
-        _player->FlyCheat = _player->m_setflycheat; // TODO: Send unfly if wrong.
-        break;
-
-    default:
-        break;
-    }
 }
 
 void WorldSession::HandleMoveKnockbackAckOpcode( WorldPacket & recv_data )

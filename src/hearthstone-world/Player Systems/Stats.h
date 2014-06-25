@@ -4,24 +4,26 @@
 
 #pragma once
 
-enum Stats
+enum Stats : uint8
 {
-    STAT_STRENGTH,
+    STAT_STRENGTH=0,
     STAT_AGILITY,
     STAT_STAMINA,
     STAT_INTELLECT,
     STAT_SPIRIT,
+    MAX_STAT
 };
 
-enum Resistances
+enum Resistances : uint8
 {
-    RESISTANCE_ARMOR,
+    RESISTANCE_ARMOR=0,
     RESISTANCE_HOLY,
     RESISTANCE_FIRE,
     RESISTANCE_NATURE,
     RESISTANCE_FROST,
     RESISTANCE_SHADOW,
-    RESISTANCE_ARCANE
+    RESISTANCE_ARCANE,
+    MAX_RESISTANCE
 };
 
 SERVER_DECL uint32 getConColor(uint16 AttackerLvl, uint16 VictimLvl);

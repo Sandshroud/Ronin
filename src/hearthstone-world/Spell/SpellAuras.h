@@ -188,6 +188,7 @@ public:
 
     // Aura Handlers
     void SpellAuraNULL(bool apply);
+    void SpellAuraUtilized(bool apply);
     void SpellAuraBindSight(bool apply);
     void SpellAuraModPossess(bool apply);
     void SpellAuraPeriodicDamage(bool apply);
@@ -209,7 +210,6 @@ public:
     void SpellAuraModInvisibilityDetection(bool apply);
     void SpellAuraModTotalHealthRegenPct(bool apply);
     void SpellAuraModTotalManaRegenPct(bool apply);
-    void SpellAuraModResistance(bool apply);
     void SpellAuraPeriodicTriggerSpell(bool apply);
     void SpellAuraPeriodicEnergize(bool apply);
     void SpellAuraModPacify(bool apply);
@@ -267,7 +267,6 @@ public:
     void SpellAuraModPercStat(bool apply);
     void SpellAuraSplitDamage(bool apply);
     void SpellAuraWaterBreathing(bool apply);
-    void SpellAuraModBaseResistance(bool apply);
     void SpellAuraModRegen(bool apply);
     void SpellAuraModPowerRegen(bool apply);
     void SpellAuraModHealingPct(bool apply);
@@ -286,7 +285,6 @@ public:
     void SpellAuraSkillTalent(bool apply);
     void SpellAuraModAttackPower(bool apply);
     void SpellAuraVisible(bool apply);
-    void SpellAuraModResistancePCT(bool apply);
     void SpellAuraModCreatureAttackPower(bool apply);
     void SpellAuraModTotalThreat(bool apply);
     void SpellAuraWaterWalk(bool apply);
@@ -324,8 +322,6 @@ public:
     void SpellAuraForceReaction(bool apply);
     void SpellAuraModRangedHaste(bool apply);
     void SpellAuraModRangedAmmoHaste(bool apply);
-    void SpellAuraModBaseResistancePerc(bool apply);
-    void SpellAuraModResistanceExclusive(bool apply);
     void SpellAuraSafeFall(bool apply);
     void SpellAuraRetainComboPoints(bool apply);
     void SpellAuraResistPushback(bool apply);

@@ -1550,7 +1550,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
         if(i > ((sockenchgloves || sockenchbracer || sockenchbelt) ? TargetItem->GetMaxSocketsCount() + 1 : TargetItem->GetMaxSocketsCount()))
             continue;
 
-        ColorMatch[i] = false;
+        ColorMatch[i] = true;
 
         EnchantmentInstance * EI = TargetItem->GetEnchantment(2+i);
         if(EI)
@@ -1650,8 +1650,6 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
                         TargetItem->AddEnchantment(Enchantment, 0, true,apply,false,2+i,0,true);
                 }
             }
-
-            TargetItem->Gems[i] = ip->ItemId;
         }
     }
 

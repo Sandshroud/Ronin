@@ -106,6 +106,9 @@ void World::Destruct()
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
 
+    sLog.Notice("TicketMgr", "~TicketMgr()");
+    delete TicketMgr::getSingletonPtr();
+
     sLog.Notice("WarnSys", "~WarnSystem()");
     delete WarnSystem::getSingletonPtr();
 
@@ -391,6 +394,7 @@ bool World::SetInitialWorldSettings()
     }
 
     new ObjectMgr();
+    new TicketMgr();
     new QuestMgr();
     new LootMgr();
     (new LfgMgr())->LoadRandomDungeonRewards();
@@ -441,7 +445,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadVendors);
     MAKE_TASK(ObjectMgr, LoadAIThreatToSpellId);
     MAKE_TASK(ObjectMgr, LoadSpellFixes);
-    MAKE_TASK(ObjectMgr, LoadGMTickets);
+    MAKE_TASK(TicketMgr, Load);
     MAKE_TASK(ObjectMgr, LoadPetLevelupSpellMap);
     MAKE_TASK(AddonMgr,  LoadFromDB);
     MAKE_TASK(ObjectMgr, SetHighestGuids);

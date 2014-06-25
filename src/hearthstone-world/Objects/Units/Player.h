@@ -17,6 +17,8 @@ class Pet;
 class Charter;
 class LFGMatch;
 struct LevelInfo;
+struct PlayerCreateInfo;
+
 #define MAX_PET_NO 3
 #define PLAYER_NORMAL_RUN_SPEED 7.0f
 #define PLAYER_NORMAL_SWIM_SPEED 4.722222f
@@ -254,39 +256,6 @@ struct CreateInfo_ActionBarStruct
     uint8  button;
     uint32  action;
     uint8  type;
-};
-
-struct PlayerCreateInfo
-{
-    uint8   index;
-    uint8   race;
-    uint32  factiontemplate;
-    uint8   class_;
-    uint32  mapId;
-    uint32  zoneId;
-    float   positionX;
-    float   positionY;
-    float   positionZ;
-    float   Orientation;
-    uint16  displayId;
-    uint8   strength;
-    uint8   ability;
-    uint8   stamina;
-    uint8   intellect;
-    uint8   spirit;
-    uint32  health;
-    uint32  mana;
-    uint32  rage;
-    uint32  focus;
-    uint32  energy;
-    uint32  runic;
-    uint32  attackpower;
-    float   mindmg;
-    float   maxdmg;
-    std::list<CreateInfo_ItemStruct> items;
-    std::list<CreateInfo_SkillStruct> skills;
-    std::list<CreateInfo_ActionBarStruct> actionbars;
-    std::set<uint32> spell_list;
 };
 
 struct DamageSplit
@@ -576,84 +545,6 @@ enum SPELL_INDEX
     NUM_SPELL_TYPE_INDEX            = 13,
 };
 
-#define PLAYER_RATING_MODIFIER_RANGED_SKILL                     PLAYER_FIELD_COMBAT_RATING_1
-#define PLAYER_RATING_MODIFIER_DEFENCE                          PLAYER_FIELD_COMBAT_RATING_1+1
-#define PLAYER_RATING_MODIFIER_DODGE                            PLAYER_FIELD_COMBAT_RATING_1+2
-#define PLAYER_RATING_MODIFIER_PARRY                            PLAYER_FIELD_COMBAT_RATING_1+3
-#define PLAYER_RATING_MODIFIER_BLOCK                            PLAYER_FIELD_COMBAT_RATING_1+4
-#define PLAYER_RATING_MODIFIER_MELEE_HIT                        PLAYER_FIELD_COMBAT_RATING_1+5
-#define PLAYER_RATING_MODIFIER_RANGED_HIT                       PLAYER_FIELD_COMBAT_RATING_1+6
-#define PLAYER_RATING_MODIFIER_SPELL_HIT                        PLAYER_FIELD_COMBAT_RATING_1+7
-#define PLAYER_RATING_MODIFIER_MELEE_CRIT                       PLAYER_FIELD_COMBAT_RATING_1+8
-#define PLAYER_RATING_MODIFIER_RANGED_CRIT                      PLAYER_FIELD_COMBAT_RATING_1+9
-#define PLAYER_RATING_MODIFIER_SPELL_CRIT                       PLAYER_FIELD_COMBAT_RATING_1+10
-#define PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE              PLAYER_FIELD_COMBAT_RATING_1+11 // GUESSED
-#define PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE             PLAYER_FIELD_COMBAT_RATING_1+12 // GUESSED
-#define PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE              PLAYER_FIELD_COMBAT_RATING_1+13 // GUESSED
-#define PLAYER_RATING_MODIFIER_MELEE_RESILIENCE                 PLAYER_FIELD_COMBAT_RATING_1+14
-#define PLAYER_RATING_MODIFIER_RANGED_RESILIENCE                PLAYER_FIELD_COMBAT_RATING_1+15
-#define PLAYER_RATING_MODIFIER_SPELL_RESILIENCE                 PLAYER_FIELD_COMBAT_RATING_1+16
-#define PLAYER_RATING_MODIFIER_MELEE_HASTE                      PLAYER_FIELD_COMBAT_RATING_1+17
-#define PLAYER_RATING_MODIFIER_RANGED_HASTE                     PLAYER_FIELD_COMBAT_RATING_1+18
-#define PLAYER_RATING_MODIFIER_SPELL_HASTE                      PLAYER_FIELD_COMBAT_RATING_1+19
-#define PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL            PLAYER_FIELD_COMBAT_RATING_1+20
-#define PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL             PLAYER_FIELD_COMBAT_RATING_1+21
-#define PLAYER_RATING_MODIFIER_HIT_AVOIDANCE_RATING             PLAYER_FIELD_COMBAT_RATING_1+22
-#define PLAYER_RATING_MODIFIER_EXPERTISE                        PLAYER_FIELD_COMBAT_RATING_1+23
-#define PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING         PLAYER_FIELD_COMBAT_RATING_1+24
-
-static uint32 ItemRatingValues[BLOCK_VALUE+1] = {
-    0, // POWER
-    0, // HEALTH
-    0, // UNK
-    0, // AGILITY
-    0, // STRENGTH
-    0, // INTELLECT
-    0, // SPIRIT
-    0, // STAMINA
-    0, // WEAPON_SKILL_RATING
-    0, // UNK8
-    0, // UNK9
-    0, // UNK10
-    PLAYER_RATING_MODIFIER_DEFENCE, // DEFENSE RATING
-    PLAYER_RATING_MODIFIER_DODGE, // DODGE RATING
-    PLAYER_RATING_MODIFIER_PARRY, // PARRY RATING
-    PLAYER_RATING_MODIFIER_BLOCK, // SHIELD_BLOCK_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HIT, // MELEE HIT_RATING
-    PLAYER_RATING_MODIFIER_RANGED_HIT, // RANGED HIT_RATING
-    PLAYER_RATING_MODIFIER_SPELL_HIT, // SPELL HIT_RATING
-    PLAYER_RATING_MODIFIER_MELEE_CRIT, // MELEE_CRITICAL_STRIKE_RATING
-    PLAYER_RATING_MODIFIER_RANGED_CRIT, // RANGED_CRITICAL_STRIKE_RATING
-    PLAYER_RATING_MODIFIER_SPELL_CRIT, // SPELL_CRITICAL_STRIKE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, // MELEE_HIT_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE, // RANGED_HIT_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE, // SPELL_HIT_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, // MELEE_CRITICAL_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, // RANGED_CRITICAL_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, // SPELL_CRITICAL_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HASTE, // MELEE_HASTE_RATING
-    PLAYER_RATING_MODIFIER_RANGED_HASTE, // RANGED_HASTE_RATING
-    PLAYER_RATING_MODIFIER_SPELL_HASTE, // SPELL_HASTE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HIT, // HIT_RATING
-    PLAYER_RATING_MODIFIER_MELEE_CRIT, // CRITICAL_STRIKE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, // HIT_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, // CRITICAL_AVOIDANCE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, // RESILIENCE_RATING
-    PLAYER_RATING_MODIFIER_MELEE_HASTE, // HASTE_RATING
-    PLAYER_RATING_MODIFIER_EXPERTISE, // EXPERTISE_RATING
-    0, // ATTACK_POWER
-    0, // RANGED_ATTACK_POWER
-    0, // FERAL_ATTACK_POWER
-    0, // SPELL_HEALING_DONE
-    0, // SPELL_DAMAGE_DONE
-    0, // MANA_REGENERATION
-    PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING, // ARMOR_PENETRATION_RATING
-    0, // SPELL_POWER
-    0, // HEALTH_REGEN
-    0, // SPELL_PENETRATION
-    0  // BLOCK_VALUE
-};
-
 class ArenaTeam;
 struct PlayerCooldown
 {
@@ -661,6 +552,45 @@ struct PlayerCooldown
     uint32 ItemId;
     uint32 SpellId;
 };
+
+enum ItemBonusModSlot
+{
+    MOD_SLOT_STAT_1 = 0,
+    MOD_SLOT_STAT_2,
+    MOD_SLOT_STAT_3,
+    MOD_SLOT_STAT_4,
+    MOD_SLOT_STAT_5,
+    MOD_SLOT_STAT_6,
+    MOD_SLOT_STAT_7,
+    MOD_SLOT_STAT_8,
+    MOD_SLOT_STAT_9,
+    MOD_SLOT_STAT_10,
+    MOD_SLOT_ARMOR,
+    MOD_SLOT_MAX_STAT = 11,
+
+    // Define this here ahead of time, as these are based on item enchant slots
+    MOD_SLOT_MAX_ENCHANT = MOD_SLOT_MAX_STAT+MAX_ENCHANTMENT_SLOT,
+
+    // Start our item enchantment mod slots
+    MOD_SLOT_PERM_ENCHANT = 11,
+    MOD_SLOT_TEMP_ENCHANT,
+    MOD_SLOT_SOCKET_ENCHANT_1,
+    MOD_SLOT_SOCKET_ENCHANT_2,
+    MOD_SLOT_SOCKET_ENCHANT_3,
+    MOD_SLOT_BONUS_ENCHANT,
+    MOD_SLOT_PRISMATIC_ENCHANT,
+    MOD_SLOT_UNKNOWN_ENCHANT,
+    MOD_SLOT_REFORGE_ENCHANT,
+    MOD_SLOT_TRANSMOG_ENCHANT,
+    MOD_SLOT_PROPRETY_ENCHANT_0,
+    MOD_SLOT_PROPRETY_ENCHANT_1,
+    MOD_SLOT_PROPRETY_ENCHANT_2,
+    MOD_SLOT_PROPRETY_ENCHANT_3,
+    MOD_SLOT_PROPRETY_ENCHANT_4,
+};
+
+typedef std::map<std::pair<uint64, uint32>, std::pair<uint32, uint32>> ItemBonusModMap;
+typedef std::map<uint32, ItemBonusModMap> ItemBonusModByType;
 
 //====================================================================
 //  Player
@@ -784,7 +714,9 @@ public:
 
     //void KilledMonster(uint32 entry, const uint64 &guid);
     void GiveXP(uint32 xp, const uint64 &guid, bool allowbonus);   // to stop rest xp being given
-    void ModifyBonuses(uint32 type,int32 val);
+    void ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val);
+    ItemBonusModMap itemBonusMap;
+    ItemBonusModByType itemBonusMapByType;
     std::map<uint32, uint32> m_wratings;
 
     /************************************************************************/
@@ -1436,6 +1368,7 @@ public:
 
     uint32 m_moltenFuryDamageIncreasePct;
 
+    int32 GetBaseResistance(uint8 school);
     void CalcResistance(uint32 type);
     HEARTHSTONE_INLINE float res_M_crit_get(){return m_resist_critical[0];}
     HEARTHSTONE_INLINE void res_M_crit_set(float newvalue){m_resist_critical[0]=newvalue;}
@@ -1825,7 +1758,6 @@ public:
 
     Mailbox* m_mailBox;
     bool m_setwaterwalk;
-    bool m_setflycheat;
     uint64 m_areaSpiritHealer_guid;
     bool m_finishingmovesdodge;
 

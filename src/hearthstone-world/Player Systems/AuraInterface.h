@@ -10,6 +10,7 @@
 #define TOTAL_AURAS MAX_AURAS+MAX_PASSIVE_AURAS
 
 class Unit;
+class Modifier;
 
 struct AuraCheckResponse
 {
@@ -138,4 +139,40 @@ public:
 private:
     Unit* m_Unit;
     map<uint32, Aura*> m_auras;
+
+    /*******************
+    **** Modifiers
+    ********/
+public:
+    void UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply);
+
+    class ModifierHolder
+    {
+    public:
+        ModifierHolder(uint32 slot,SpellEntry* info) : auraSlot(slot),spellInfo(info) {for(uint8 i=0;i<3;i++)mod[i]=NULL;};
+
+        uint32 auraSlot;
+        SpellEntry *spellInfo;
+        Modifier *mod[3];
+    };
+
+    struct ModifierType
+    {
+        explicit ModifierType(uint32 type) : auraType(type), auraSlot(0), auraIndex(0) {}
+        ModifierType(uint32 slot, uint32 type, uint32 index) : auraType(type), auraSlot(slot), auraIndex(index) {}
+
+        bool operator<(const ModifierType& val) const { return auraType < val.auraType; }
+        bool operator==(const ModifierType& val) const { return auraType == val.auraType && auraSlot == val.auraSlot && auraIndex == val.auraIndex; }
+        uint32 auraType, auraSlot, auraIndex;
+    };
+
+    typedef std::map<std::pair<uint32, uint32>, Modifier*> modifierMap;
+    typedef std::map<uint32, modifierMap > modiferTypeMap;
+
+    modifierMap GetModHolderMapByType(uint32 type) { return m_modifierHoldersByType[type]; }
+
+private:
+    // Ordered by aura slot
+    std::map<uint32, ModifierHolder*> m_modifierHolders;
+    modiferTypeMap m_modifierHoldersByType;
 };

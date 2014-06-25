@@ -124,13 +124,6 @@ Unit::Unit()
     m_oldEmote = 0;
     m_charmtemp = 0;
 
-    BaseDamage[0]=0;
-    BaseOffhandDamage[0]=0;
-    BaseRangedDamage[0]=0;
-    BaseDamage[1]=0;
-    BaseOffhandDamage[1]=0;
-    BaseRangedDamage[1]=0;
-
     m_CombatUpdateTimer = 0;
     HealDoneBonusBySpell.clear();
 
@@ -350,6 +343,7 @@ void Unit::SetDiminishTimer(uint32 index)
 void Unit::Update( uint32 p_time )
 {
     _UpdateSpells( p_time );
+    UpdateResistance(p_time);
 
     if(!isDead())
     {
@@ -415,6 +409,76 @@ void Unit::Update( uint32 p_time )
         }
         if(!count)
             m_diminishActive = false;
+    }
+}
+
+void Unit::UpdateResistance(uint32 time)
+{
+    int32 basepos,baseneg,pos,neg;
+    AuraInterface::modifierMap resistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE),
+        ResistPCTMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_PCT),
+        baseResistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_BASE_RESISTANCE),
+        baseResistPCTMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_BASE_RESISTANCE_PCT),
+        exclusiveResistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
+    for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+    {
+        basepos = GetBaseResistance(s);
+        baseneg=pos=neg=0;
+        for(AuraInterface::modifierMap::iterator itr = baseResistMod.begin(); itr != baseResistMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue & (1 << s))
+            {
+                if(itr->second->m_amount > 0)
+                    basepos += itr->second->m_amount;
+                else baseneg -= itr->second->m_amount;
+            }
+        }
+        for(AuraInterface::modifierMap::iterator itr = baseResistPCTMod.begin(); itr != baseResistPCTMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue & (1 << s))
+            {
+                if(itr->second->m_amount > 0)
+                    basepos = float(basepos)*(float(itr->second->m_amount)/100.0f);
+                else baseneg = float(baseneg)*(float(abs(itr->second->m_amount))/100.0f);
+            }
+        }
+
+        for(AuraInterface::modifierMap::iterator itr = resistMod.begin(); itr != resistMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue & (1 << s))
+            {
+                if(itr->second->m_amount > 0)
+                    pos += itr->second->m_amount;
+                else neg -= itr->second->m_amount;
+            }
+        }
+
+        for(AuraInterface::modifierMap::iterator itr = ResistPCTMod.begin(); itr != ResistPCTMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue & (1 << s))
+            {
+                if(itr->second->m_amount > 0)
+                    pos = float(pos)*(float(itr->second->m_amount)/100.0f);
+                else neg = float(neg)*(float(itr->second->m_amount)/100.0f);
+            }
+        }
+
+        pos += basepos;
+        neg += baseneg;
+        for(AuraInterface::modifierMap::iterator itr = exclusiveResistMod.begin(); itr != exclusiveResistMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue & (1 << s))
+            {
+                if(itr->second->m_amount >= 0)
+                    pos = ((pos < itr->second->m_amount) ? itr->second->m_amount : pos);
+                else neg = ((neg > itr->second->m_amount) ? itr->second->m_amount : neg);
+            }
+        }
+
+        int32 res = pos+neg;
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, pos);
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, neg);
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, res > 0 ? res : 0);
     }
 }
 
@@ -2981,33 +3045,6 @@ void Unit::MoveToWaypoint(uint32 wp_id)
     }
 }
 
-void Unit::CalcDamage()
-{
-    if( IsPlayer() )
-        TO_PLAYER(this)->UpdateStats();
-    else
-    {
-        float r;
-        float delta;
-        float mult;
-
-        float ap_bonus = float(GetAP())/14000.0f;
-
-        float bonus = ap_bonus*GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
-
-        delta = float(DamageDonePosMod[0]) - float(DamageDoneNegMod[0]);
-        mult = DamageDonePctMod[0];
-        r = BaseDamage[0]*mult+delta+bonus;
-        // give some diversity to pet damage instead of having a 77-78 damage range (as an example)
-        SetFloatValue(UNIT_FIELD_MINDAMAGE,r > 0 ? ( IsPet() ? r * 0.9f : r ) : 0 );
-        r = BaseDamage[1]*mult+delta+bonus;
-        SetFloatValue(UNIT_FIELD_MAXDAMAGE, r > 0 ? ( IsPet() ? r * 1.1f : r ) : 0 );
-
-//      SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE,BaseRangedDamage[0]*mult+delta);
-//      SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE,BaseRangedDamage[1]*mult+delta);
-    }
-}
-
 //returns absorbed dmg
 uint32 Unit::ManaShieldAbsorb(uint32 dmg, SpellEntry* sp)
 {
@@ -3452,7 +3489,7 @@ uint32 Unit::GetPoisonDosesCount( uint32 poison_type )
 
 void Unit::EnableFlight()
 {
-    WorldPacket data(SMSG_MOVE_SET_CAN_FLY, 13);
+    WorldPacket data(SMSG_MOVE_SET_CAN_FLY, 12);
     data << GetNewGUID();
     data << uint32(2);
     SendMessageToSet(&data, true);
@@ -3465,7 +3502,7 @@ void Unit::EnableFlight()
 
     if( IsPlayer() )
     {
-        TO_PLAYER(this)->m_setflycheat = true;
+        TO_PLAYER(this)->FlyCheat = true;
         TO_PLAYER(this)->GetSession()->m_isFalling = false;
         TO_PLAYER(this)->GetSession()->m_isJumping = false;
         TO_PLAYER(this)->GetSession()->m_isKnockedback = false;
@@ -3487,8 +3524,8 @@ void Unit::DisableFlight()
 
     if( IsPlayer() )
     {
+        TO_PLAYER(this)->FlyCheat = false;
         TO_PLAYER(this)->z_axisposition = 0.0f;
-        TO_PLAYER(this)->m_setflycheat = false;
     }
 }
 
@@ -4342,14 +4379,6 @@ void Unit::EventModelChange()
         m_modelhalfsize = boundData->High[2]/2;
     else
         m_modelhalfsize = 1.0f;
-}
-
-bool Unit::HasAurasOfNameHashWithCaster(uint32 namehash, Unit* caster)
-{
-    if( !namehash )
-        return false;
-
-    return m_AuraInterface.HasAurasOfNameHashWithCaster(namehash, caster ? caster->GetGUID() : 0);
 }
 
 void Creature::UpdateLootAnimation(Player* Looter)

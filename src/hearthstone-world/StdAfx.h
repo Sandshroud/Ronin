@@ -167,6 +167,7 @@ using namespace std;
 #include "WeatherMgr.h"
 #include "ItemInterface.h"
 #include "Stats.h"
+#include "TicketMgr.h"
 #include "ObjectMgr.h"
 #include "GuildDefines.h"
 #include "GuildManager.h"

@@ -4,41 +4,37 @@
 
 #pragma once
 
-HEARTHSTONE_INLINE bool FindXinYString(std::string x, std::string y)
+struct PlayerCreateInfo
 {
-    return y.find(x) != std::string::npos;
-}
-
-struct GM_Ticket
-{
-    uint64 guid;
-    uint64 playerGuid;
-    std::string name;
-    uint32 level;
-    uint32 map;
-    float posX;
-    float posY;
-    float posZ;
-    std::string message;
-    uint32 timestamp;
-    bool deleted;
-    uint64 assignedToPlayer;
-    std::string comment;
-};
-
-enum
-{
-    GM_TICKET_CHAT_OPCODE_NEWTICKET         = 1,
-    GM_TICKET_CHAT_OPCODE_LISTSTART         = 2,
-    GM_TICKET_CHAT_OPCODE_LISTENTRY         = 3,
-    GM_TICKET_CHAT_OPCODE_CONTENT           = 4,
-    GM_TICKET_CHAT_OPCODE_APPENDCONTENT     = 5,
-    GM_TICKET_CHAT_OPCODE_REMOVED           = 6,
-    GM_TICKET_CHAT_OPCODE_UPDATED           = 7,
-    GM_TICKET_CHAT_OPCODE_ASSIGNED          = 8,
-    GM_TICKET_CHAT_OPCODE_RELEASED          = 9,
-    GM_TICKET_CHAT_OPCODE_COMMENT           = 10,
-    GM_TICKET_CHAT_OPCODE_ONLINESTATE       = 11
+    uint8   index;
+    uint8   race;
+    uint32  factiontemplate;
+    uint8   class_;
+    uint32  mapId;
+    uint32  zoneId;
+    float   positionX;
+    float   positionY;
+    float   positionZ;
+    float   Orientation;
+    uint16  displayId;
+    uint8   strength;
+    uint8   ability;
+    uint8   stamina;
+    uint8   intellect;
+    uint8   spirit;
+    uint32  health;
+    uint32  mana;
+    uint32  rage;
+    uint32  focus;
+    uint32  energy;
+    uint32  runic;
+    uint32  attackpower;
+    float   mindmg;
+    float   maxdmg;
+    std::list<CreateInfo_ItemStruct> items;
+    std::list<CreateInfo_SkillStruct> skills;
+    std::list<CreateInfo_ActionBarStruct> actionbars;
+    std::set<uint32> spell_list;
 };
 
 #pragma pack(PRAGMA_PACK)
@@ -291,7 +287,6 @@ protected:
 
 typedef std::map<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
 typedef HM_NAMESPACE::hash_map<uint32, Player* >                    PlayerStorageMap;
-typedef std::list<GM_Ticket*>                                       GmTicketList;
 
 #ifndef WIN32
 #ifndef TRHAX
@@ -403,8 +398,7 @@ public:
     // WMO tables
     typedef std::map<std::pair<uint32, std::pair<uint32, uint32> >, WMOAreaTableEntry*> WMOAreaTableMap;
 
-    // object holders
-    GmTicketList        GM_TicketList;
+    // object holder
     TotemSpellMap       m_totemSpells;
     OverrideIdMap       mOverrideIdMap;
     QuestPOIMap         mQuestPOIMap;
@@ -496,16 +490,6 @@ public:
 
     uint32 GetGossipTextForNpc(uint32 ID);
 
-    // Gm Tickets
-    void AddGMTicket(GM_Ticket *ticket, bool startup = false);
-    void UpdateGMTicket(GM_Ticket *ticket);
-    void RemoveGMTicketByPlayer(uint64 playerGuid);
-    void RemoveGMTicket(uint64 ticketGuid);
-    void DeleteGMTicketPermanently(uint64 ticketGuid);
-    void DeleteAllRemovedGMTickets();
-    GM_Ticket* GetGMTicket(uint64 ticketGuid);
-    GM_Ticket* GetGMTicketByPlayer(uint64 playerGuid);
-
     SkillLineSpell* GetSpellSkill(uint32 id);
 
     //Vendors
@@ -553,8 +537,6 @@ public:
     void LoadPlayerCreateInfo();
     Corpse* LoadCorpse(uint32 guid);
     void LoadCorpses(MapMgr* mgr);
-    void LoadGMTickets();
-    void SaveGMTicket(GM_Ticket* ticket, QueryBuffer * buf);
     void LoadAuctions();
     void LoadAuctionItems();
     void LoadSpellSkills();
@@ -573,7 +555,6 @@ public:
     void ListGuidAmounts();
     uint32 GenerateLowGuid(uint32 guidhigh);
     uint32 GenerateMailID();
-    uint64 GenerateTicketID();
 
     uint64 GenerateEquipmentSetGuid();
 
@@ -669,7 +650,6 @@ protected:
     WMOAreaTableMap WMOAreaTables;
     RWLock playernamelock;
     uint32 m_mailid;
-    uint64 m_ticketid;
     uint64 m_equipmentSetGuid;
     // highest GUIDs, used for creating new objects
     Mutex m_guidGenMutex;

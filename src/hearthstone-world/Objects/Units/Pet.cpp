@@ -430,12 +430,6 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     }
     ApplyStatsForLevel();
 
-    BaseDamage[0]=GetFloatValue(UNIT_FIELD_MINDAMAGE);
-    BaseDamage[1]=GetFloatValue(UNIT_FIELD_MAXDAMAGE);
-    BaseOffhandDamage[0]=GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE);
-    BaseOffhandDamage[1]=GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE);
-    BaseRangedDamage[0]=GetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE);
-    BaseRangedDamage[1]=GetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE);
     //SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
     m_PetNumber = m_PlayerPetInfo->number;
@@ -771,17 +765,17 @@ uint32 Pet::GetNextLevelXP(uint32 currentlevel)
     else
     {
         // 2.2
-        //double MXP = 45 + ( 5 * level );
+        //float MXP = 45 + ( 5 * level );
         // 2.3
-        double MXP = 235 + ( 5 * Level );
-        double DIFF = Level < 29 ? 0.0 : Level < 30 ? 1.0 : Level < 31 ? 3.0 : Level < 32 ? 6.0 : 5.0 * ( double( Level ) - 30.0 );
-        double XP = ( ( 8.0 * double( Level ) ) + DIFF ) * MXP;
+        float MXP = 235 + ( 5 * Level );
+        float DIFF = Level < 29 ? 0.0 : Level < 30 ? 1.0 : Level < 31 ? 3.0 : Level < 32 ? 6.0 : 5.0 * ( float( Level ) - 30.0 );
+        float XP = ( ( 8.0 * float( Level ) ) + DIFF ) * MXP;
         nextLvlXP = (int)( ( XP / 100.0 ) + 0.5 ) * 100;
     }
     // Source: http://www.wow-petopia.com/ Previously, pets needed 1/6th (or about 16%) of the experience
     // that a character of the same level would need.
     // Now they only need 1/10th (or about 10%) -- which is a 66% improvement!
-    double xp = double(nextLvlXP) / 10.0;
+    float xp = float(nextLvlXP) / 10.0;
     return FL2UINT(xp);
 }
 
@@ -1074,14 +1068,13 @@ void Pet::Rename(string NewName)
 void Pet::ApplySummonLevelAbilities()
 {
     uint32 level = m_uint32Values[UNIT_FIELD_LEVEL];
-    double pet_level = (double)level;
 
     // Determine our stat index.
     int stat_index = -1;
     //float scale = 1;
     bool has_mana = true;
 
-    switch(m_uint32Values[OBJECT_FIELD_ENTRY])
+    switch(GetEntry())
     {
     case 416: //Imp
         stat_index = 0;
@@ -1096,8 +1089,9 @@ void Pet::ApplySummonLevelAbilities()
     case 417: //Felhunter
         stat_index = 3;
         break;
-    case 11859: // Doomguard
     case 89:    // Infernal
+        has_mana = false;
+    case 11859: // Doomguard
     case 17252: // Felguard
         stat_index = 4;
         break;
@@ -1106,92 +1100,84 @@ void Pet::ApplySummonLevelAbilities()
         m_aiInterface->disable_melee = true;
         break;
     }
-    if(m_uint32Values[OBJECT_FIELD_ENTRY] == 89)
-        has_mana = false;
-
     if(stat_index < 0)
     {
         sLog.outDebug("PETSTAT: No stat index found for entry %u, `%s`!", GetEntry(), creature_info->Name);
         return;
     }
 
-    static double R_base_str[6] = {18.1884058, -15, -15, -15, -15, -15};
-    static double R_mod_str[6] = {1.811594203, 2.4, 2.4, 2.4, 2.4, 2.4};
-    static double R_base_agi[6] = {19.72463768, -1.25, -1.25, -1.25, -1.25, -1.25};
-    static double R_mod_agi[6] = {0.275362319, 1.575, 1.575, 1.575, 1.575, 1.575};
-    static double R_base_sta[6] = {17.23188406, -17.75, -17.75, -17.75, -17.75, 0};
-    static double R_mod_sta[6] = {2.768115942, 4.525, 4.525, 4.525, 4.525, 4.044};
-    static double R_base_int[6] = {19.44927536, 12.75, 12.75, 12.75, 12.75, 20};
-    static double R_mod_int[6] = {4.550724638, 1.875, 1.875, 1.875, 1.875, 2.8276};
-    static double R_base_spr[6] = {19.52173913, -2.25, -2.25, -2.25, -2.25, 20.5};
-    static double R_mod_spr[6] = {3.47826087, 1.775, 1.775, 1.775, 1.775, 3.5};
-    static double R_base_pwr[6] = {7.202898551, -101, -101, -101, -101, -101};
-    static double R_mod_pwr[6] = {2.797101449, 6.5, 6.5, 6.5, 6.5, 6.5};
-    static double R_base_armor[6] = {-11.69565217, -702, -929.4, -1841.25, -1157.55, -1000};
-    static double R_mod_armor[6] = {31.69565217, 139.6, 74.62, 89.175, 101.1316667, 100};
-    static double R_pet_sta_to_hp[6] = {6.405982906, 15.91304348, 7.956521739, 10.79813665, 11.55590062, 10.0};
-    static double R_base_min_dmg[6] = {0.550724638, 4.566666667, 26.82, 29.15, 20.17888889, 20};
-    static double R_mod_min_dmg[6] = {1.449275362, 1.433333333, 2.18, 1.85, 1.821111111, 1};
-    static double R_base_max_dmg[6] = {1.028985507, 7.133333333, 36.16, 39.6, 27.63111111, 20};
-    static double R_mod_max_dmg[6] = {1.971014493, 1.866666667, 2.84, 2.4, 2.368888889, 1.1};
+    static float R_base_str[6] = {18.1884058f, -15.f, -15.f, -15.f, -15.f, -15.f};
+    static float R_mod_str[6] = {1.811594203f, 2.4f, 2.4f, 2.4f, 2.4f, 2.4f};
+    static float R_base_agi[6] = {19.72463768f, -1.25f, -1.25f, -1.25f, -1.25f, -1.25f};
+    static float R_mod_agi[6] = {0.275362319f, 1.575f, 1.575f, 1.575f, 1.575f, 1.575f};
+    static float R_base_sta[6] = {17.23188406f, -17.75f, -17.75f, -17.75f, -17.75f, 0.f};
+    static float R_mod_sta[6] = {2.768115942f, 4.525f, 4.525f, 4.525f, 4.525f, 4.044f};
+    static float R_base_int[6] = {19.44927536f, 12.75f, 12.75f, 12.75f, 12.75f, 20.f};
+    static float R_mod_int[6] = {4.550724638f, 1.875f, 1.875f, 1.875f, 1.875f, 2.8276f};
+    static float R_base_spr[6] = {19.52173913f, -2.25f, -2.25f, -2.25f, -2.25f, 20.5f};
+    static float R_mod_spr[6] = {3.47826087f, 1.775f, 1.775f, 1.775f, 1.775f, 3.5f};
+    static float R_base_pwr[6] = {7.202898551f, -101.f, -101.f, -101.f, -101.f, -101.f};
+    static float R_mod_pwr[6] = {2.797101449f, 6.5f, 6.5f, 6.5f, 6.5f, 6.5f};
+    static float R_base_armor[6] = {-11.69565217f, -702.f, -929.4f, -1841.25f, -1157.55f, -1000.f};
+    static float R_mod_armor[6] = {31.69565217f, 139.6f, 74.62f, 89.175f, 101.1316667f, 100.f};
+    static float R_pet_sta_to_hp[6] = {6.405982906f, 15.91304348f, 7.956521739f, 10.79813665f, 11.55590062f, 10.0f};
+    static float R_base_min_dmg[6] = {0.550724638f, 4.566666667f, 26.82f, 29.15f, 20.17888889f, 20.f};
+    static float R_mod_min_dmg[6] = {1.449275362f, 1.433333333f, 2.18f, 1.85f, 1.821111111f, 1.f};
+    static float R_base_max_dmg[6] = {1.028985507f, 7.133333333f, 36.16f, 39.6f, 27.63111111f, 20.f};
+    static float R_mod_max_dmg[6] = {1.971014493f, 1.866666667f, 2.84f, 2.4f, 2.368888889f, 1.1f};
 
-    double base_str = R_base_str[stat_index];
-    double mod_str = R_mod_str[stat_index];
-    double base_agi = R_base_agi[stat_index];
-    double mod_agi = R_mod_agi[stat_index];
-    double base_sta = R_base_sta[stat_index];
-    double mod_sta = R_mod_sta[stat_index];
-    double base_int = R_base_int[stat_index];
-    double mod_int = R_mod_int[stat_index];
-    double base_spr = R_base_spr[stat_index];
-    double mod_spr = R_mod_spr[stat_index];
-    double base_pwr = R_base_pwr[stat_index];
-    double mod_pwr = R_mod_pwr[stat_index];
-    double base_armor = R_base_armor[stat_index];
-    double mod_armor = R_mod_armor[stat_index];
-    double base_min_dmg = R_base_min_dmg[stat_index];
-    double mod_min_dmg = R_mod_min_dmg[stat_index];
-    double base_max_dmg = R_base_max_dmg[stat_index];
-    double mod_max_dmg = R_mod_max_dmg[stat_index];
-    double pet_sta_to_hp = R_pet_sta_to_hp[stat_index];
+    float base_str = R_base_str[stat_index];
+    float mod_str = R_mod_str[stat_index];
+    float base_agi = R_base_agi[stat_index];
+    float mod_agi = R_mod_agi[stat_index];
+    float base_sta = R_base_sta[stat_index];
+    float mod_sta = R_mod_sta[stat_index];
+    float base_int = R_base_int[stat_index];
+    float mod_int = R_mod_int[stat_index];
+    float base_spr = R_base_spr[stat_index];
+    float mod_spr = R_mod_spr[stat_index];
+    float base_pwr = R_base_pwr[stat_index];
+    float mod_pwr = R_mod_pwr[stat_index];
+    float base_armor = R_base_armor[stat_index];
+    float mod_armor = R_mod_armor[stat_index];
+    float base_min_dmg = R_base_min_dmg[stat_index];
+    float mod_min_dmg = R_mod_min_dmg[stat_index];
+    float base_max_dmg = R_base_max_dmg[stat_index];
+    float mod_max_dmg = R_mod_max_dmg[stat_index];
+    float pet_sta_to_hp = R_pet_sta_to_hp[stat_index];
 
     // Calculate bonuses
-    double pet_sta_bonus = 0.3 * (double)m_Owner->BaseStats[STAT_STAMINA];    // + sta_buffs
-    double pet_int_bonus = 0.3 * (double)m_Owner->BaseStats[STAT_INTELLECT];    // + int_buffs
-    double pet_arm_bonus = 0.35 * (double)m_Owner->BaseResistance[RESISTANCE_ARMOR];           // + arm_buffs
+    float pet_sta_bonus = 0.3 * (float)m_Owner->BaseStats[STAT_STAMINA];    // + sta_buffs
+    float pet_int_bonus = 0.3 * (float)m_Owner->BaseStats[STAT_INTELLECT];    // + int_buffs
+    float pet_arm_bonus = 0.35 * (float)m_Owner->BaseResistance[RESISTANCE_ARMOR];           // + arm_buffs
 
-    double pet_str = base_str + pet_level * mod_str;
-    double pet_agi = base_agi + pet_level * mod_agi;
-    double pet_sta = base_sta + pet_level * mod_sta + pet_sta_bonus;
-    double pet_int = base_int + pet_level * mod_int + pet_int_bonus;
-    double pet_spr = base_spr + pet_level * mod_spr;
-    double pet_pwr = base_pwr + pet_level * mod_pwr;
-    double pet_arm = base_armor + pet_level * mod_armor + pet_arm_bonus;
+    float pet_str = base_str + float(level) * mod_str;
+    float pet_agi = base_agi + float(level) * mod_agi;
+    float pet_sta = base_sta + float(level) * mod_sta + pet_sta_bonus;
+    float pet_int = base_int + float(level) * mod_int + pet_int_bonus;
+    float pet_spr = base_spr + float(level) * mod_spr;
+    float pet_pwr = base_pwr + float(level) * mod_pwr;
+    float pet_arm = base_armor + float(level) * mod_armor + pet_arm_bonus;
 
     // Calculate values
-    BaseStats[STAT_STRENGTH] = FL2UINT(pet_str);
-    BaseStats[STAT_AGILITY] = FL2UINT(pet_agi);
-    BaseStats[STAT_STAMINA] = FL2UINT(pet_sta);
-    BaseStats[STAT_INTELLECT] = FL2UINT(pet_int);
-    BaseStats[STAT_SPIRIT] = FL2UINT(pet_spr);
+    SetUInt32Value(UNIT_FIELD_STRENGTH, FL2UINT(pet_str));
+    SetUInt32Value(UNIT_FIELD_AGILITY, FL2UINT(pet_agi));
+    SetUInt32Value(UNIT_FIELD_STAMINA, FL2UINT(pet_sta));
+    SetUInt32Value(UNIT_FIELD_INTELLECT, FL2UINT(pet_int));
+    SetUInt32Value(UNIT_FIELD_SPIRIT, FL2UINT(pet_spr));
 
-    double pet_min_dmg = base_min_dmg + pet_level * mod_min_dmg;
-    double pet_max_dmg = base_max_dmg + pet_level * mod_max_dmg;
-    BaseDamage[0] = float(pet_min_dmg);
-    BaseDamage[1] = float(pet_max_dmg);
-
-    for(uint32 x = 0; x < 5; ++x)
-        CalcStat(x);
+    float pet_min_dmg = base_min_dmg + float(level) * mod_min_dmg;
+    float pet_max_dmg = base_max_dmg + float(level) * mod_max_dmg;
+    SetFloatValue(UNIT_FIELD_MINDAMAGE, pet_min_dmg);
+    SetFloatValue(UNIT_FIELD_MAXDAMAGE, pet_max_dmg);
 
     // Apply armor and attack power.
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, FL2UINT(pet_pwr));
-    BaseResistance[RESISTANCE_ARMOR] = FL2UINT(pet_arm);
-    CalcResistance(RESISTANCE_ARMOR);
-    CalcDamage();
+    SetUInt32Value(UNIT_FIELD_RESISTANCES, FL2UINT(pet_arm));
 
     // Calculate health / mana
-    double health = pet_sta * pet_sta_to_hp;
-    double mana = has_mana ? (pet_int * 15) : 0.0;
+    float health = pet_sta * pet_sta_to_hp;
+    float mana = has_mana ? (pet_int * 15) : 0.0;
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, FL2UINT(health));
     SetUInt32Value(UNIT_FIELD_BASE_MANA, FL2UINT(mana));
 }
@@ -1199,15 +1185,15 @@ void Pet::ApplySummonLevelAbilities()
 void Pet::ApplyPetLevelAbilities()
 {
     uint32 level = m_uint32Values[UNIT_FIELD_LEVEL];
-    double dlevel = (double)level;
+    float dlevel = (float)level;
 
     // All pets have identical 5% bonus. http://www.wowwiki.com/Hunter_pet
-    double pet_mod_sta = 1.05, pet_mod_arm = 1.05, pet_mod_dps = 1.05;
+    float pet_mod_sta = 1.05, pet_mod_arm = 1.05, pet_mod_dps = 1.05;
 
     // As of patch 3.0 the pet gains 45% of the hunters stamina
-    double pet_sta_bonus = 0.45 * (double)m_Owner->GetUInt32Value(UNIT_FIELD_STAT2);
-    double pet_arm_bonus = 0.35 * (double)m_Owner->BaseResistance[RESISTANCE_ARMOR];       // Armor
-    double pet_ap_bonus = 0.22 * (double)m_Owner->GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER);
+    float pet_sta_bonus = 0.45 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_STAT2);
+    float pet_arm_bonus = 0.35 * (float)m_Owner->BaseResistance[RESISTANCE_ARMOR];       // Armor
+    float pet_ap_bonus = 0.22 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER);
 
     //Base attributes from http://petopia.brashendeavors.net/html/art...ttributes.shtml
     static uint32 R_pet_base_armor[80] = {
@@ -1220,7 +1206,7 @@ void Pet::ApplyPetLevelAbilities()
         4091, 4391, 4691, 4991, 5291, 5591, 5892, 6192, 6492, 6792,
         7092, 7392, 7692, 7992, 8292, 8592, 8892, 9192, 9492, 9792 };
 
-    static double R_pet_base_hp[80] = {
+    static float R_pet_base_hp[80] = {
         42, 55, 71, 86, 102, 120, 137, 156, 176, 198,
         222, 247, 273, 300, 328, 356, 386, 417, 449, 484,
         521, 562, 605, 651, 699, 750, 800, 853, 905, 955,
@@ -1232,8 +1218,8 @@ void Pet::ApplyPetLevelAbilities()
 
     // Calculate HP
     //patch from darken
-    double pet_hp;
-    double pet_armor;
+    float pet_hp;
+    float pet_armor;
     if(level-1<80)
     {
         pet_hp= ( ( ( R_pet_base_hp[level-1]) + ( pet_sta_bonus * 10 ) ) * pet_mod_sta);
@@ -1245,31 +1231,23 @@ void Pet::ApplyPetLevelAbilities()
         pet_armor = ( ( -75 + 50 * dlevel ) * pet_mod_arm + pet_arm_bonus );
     }
 
-    double pet_attack_power = ( ( 7.9 * ( ( dlevel * dlevel ) / ( dlevel * 3 ) ) ) + ( pet_ap_bonus ) ) * pet_mod_dps;
+    float pet_attack_power = ( ( 7.9 * ( ( dlevel * dlevel ) / ( dlevel * 3 ) ) ) + ( pet_ap_bonus ) ) * pet_mod_dps;
 
     if(pet_attack_power <= 0.0f) pet_attack_power = 1;
     if(pet_armor <= 0.0f) pet_armor = 1;
 
     // Set base values.
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, FL2UINT(pet_hp));
-    BaseResistance[RESISTANCE_ARMOR] = FL2UINT(pet_armor);
+    SetUInt32Value(UNIT_FIELD_RESISTANCES, FL2UINT(pet_armor));
     // source www.wow-petopia.com
     // Pets now get a base resistance to all elements equal to their level.
     // For example, a level 11 pet will have a base of 11 resistance to Arcane,
     // Fire, Frost, Nature and Shadow damage.
-    BaseResistance[RESISTANCE_ARCANE] = getLevel();
-    BaseResistance[RESISTANCE_FIRE] = getLevel();
-    BaseResistance[RESISTANCE_FROST] = getLevel();
-    BaseResistance[RESISTANCE_NATURE] = getLevel();
-    BaseResistance[RESISTANCE_SHADOW] = getLevel();
-    for(uint8 x = 0; x < 7; x++)
-    {
-        CalcResistance(x);
-    }
+    for(uint8 i = 1; i < 7; i++)
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+i, getLevel());
 
     // Calculate damage.
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, FL2UINT(pet_attack_power));
-    CalcDamage();
 
     // These are just for visuals, no other actual purpose.
     BaseStats[STAT_STRENGTH] = uint32(20+getLevel()*1.55);
@@ -1278,10 +1256,6 @@ void Pet::ApplyPetLevelAbilities()
     BaseStats[STAT_STAMINA] = FL2UINT(pet_hp / 10);
     BaseStats[STAT_INTELLECT] = uint32(20+getLevel()*0.18);
     BaseStats[STAT_SPIRIT] = uint32(20+getLevel()*0.36);
-
-
-    for(uint32 x = 0; x < 5; ++x)
-        CalcStat(x);
 
     LearnLevelupSpells();
 }

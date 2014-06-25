@@ -48,19 +48,6 @@ Creature::Creature(uint64 guid)
     m_enslaveCount = 0;
     m_enslaveSpell = 0;
 
-    for(uint32 x = 0; x < 7; x++)
-    {
-        FlatResistanceMod[x] = 0;
-        BaseResistanceModPct[x] = 0;
-        ResistanceModPct[x] = 0;
-    }
-    for(uint32 x = 0; x < 5; x++)
-    {
-        StatModPct[x] = 0;
-        FlatStatMod[x] = 0;
-        TotalStatModPct[x] = 0;
-    }
-
     m_TaxiNode = 0;
     original_emotestate = 0;
     m_custom_waypoint_map = 0;
@@ -587,28 +574,6 @@ void Creature::ClearInRangeSet()
     Unit::ClearInRangeSet();
 }
 
-void Creature::CalcResistance(uint32 type)
-{
-    int32 res = (BaseResistance[type] * (100 + BaseResistanceModPct[type])) / 100;
-    res += FlatResistanceMod[type];
-    res += (res * ResistanceModPct[type]) / 100;
-    if(type==0)res+=GetUInt32Value(UNIT_FIELD_STAT1)*2;//fix armor from agi
-    SetUInt32Value(UNIT_FIELD_RESISTANCES + type, res > 0 ? res : 0);
-}
-
-void Creature::CalcStat(uint32 type)
-{
-    int32 res = (BaseStats[type]*(100+StatModPct[type]))/100;
-
-    res += FlatStatMod[type];
-    if(res < 0)
-        res = 0;
-
-    res += ((res*TotalStatModPct[type])/100);
-    SetUInt32Value(UNIT_FIELD_STAT0+type, ((res > 0) ? res : 0));
-}
-
-
 void Creature::RegenerateHealth(bool isinterrupted)
 {
     if(m_limbostate || !m_canRegenerateHP || isinterrupted)
@@ -998,13 +963,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
         BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
     for(uint32 x=0;x<5;x++)
         BaseStats[x]=GetUInt32Value(UNIT_FIELD_STAT0+x);
-
-    BaseDamage[0]=GetFloatValue(UNIT_FIELD_MINDAMAGE);
-    BaseDamage[1]=GetFloatValue(UNIT_FIELD_MAXDAMAGE);
-    BaseOffhandDamage[0]=GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE);
-    BaseOffhandDamage[1]=GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE);
-    BaseRangedDamage[0]=GetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE);
-    BaseRangedDamage[1]=GetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE);
     BaseAttackType=proto->AttackType;
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
@@ -1352,13 +1310,6 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
         BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
     for(uint32 x=0;x<5;x++)
         BaseStats[x]=GetUInt32Value(UNIT_FIELD_STAT0+x);
-
-    BaseDamage[0]=GetFloatValue(UNIT_FIELD_MINDAMAGE);
-    BaseDamage[1]=GetFloatValue(UNIT_FIELD_MAXDAMAGE);
-    BaseOffhandDamage[0]=GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE);
-    BaseOffhandDamage[1]=GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE);
-    BaseRangedDamage[0]=GetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE);
-    BaseRangedDamage[1]=GetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE);
     BaseAttackType=proto->AttackType;
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one

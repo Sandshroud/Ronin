@@ -9,6 +9,7 @@ initialiseSingleton(HookInterface);
 
 ScriptMgr::ScriptMgr()
 {
+    _baseproclimits = NULL;
     DefaultGossipScript = new GossipScript();
 }
 
@@ -553,7 +554,7 @@ bool ScriptMgr::HandleScriptedProcLimits(Unit *target, uint32 &uSpellId, int32 &
 {
     HandleScriptProclimitMap::iterator itr = _proclimits.find(uSpellId);
     if(itr == _proclimits.end())
-        return _baseproclimits(target, uSpellId, damage, targets, triggered, dataHolder);
+        return true;
 
     exp_handle_script_proclimit ptr = itr->second;
     return (ptr)(target, uSpellId, damage, targets, triggered, dataHolder);

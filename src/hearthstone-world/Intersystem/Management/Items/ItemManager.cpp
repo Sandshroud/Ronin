@@ -519,7 +519,8 @@ void ItemPrototypeSystem::LoadItemOverrides()
     sLog.Notice("ItemPrototypeSystem", "Setting static dbc data...");
     uint8 i = 0;
     ItemArmorQuality *ArmorQ = NULL; ItemArmorShield *ArmorS = NULL;
-    ItemArmorTotal *ArmorT = NULL; ItemDamageEntry *Damage = NULL;
+    ItemArmorTotal *ArmorT = NULL; ArmorLocationEntry *ArmorE = NULL;
+    ItemDamageEntry *Damage = NULL;
     for(iterator itr = begin(); itr != end(); ++itr)
     {
         proto = (*itr)->second;
@@ -527,10 +528,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
         if(Quality >= ITEM_QUALITY_DBC_MAX)
             continue;
 
-        ArmorQ = NULL;
-        ArmorS = NULL;
-        ArmorT = NULL;
-        Damage = NULL;
+        ArmorQ = NULL, ArmorS = NULL, ArmorT = NULL, ArmorE = NULL, Damage = NULL;
         if(proto->Class == ITEM_CLASS_WEAPON)
         {
             switch(proto->InventoryType)
@@ -576,19 +574,24 @@ void ItemPrototypeSystem::LoadItemOverrides()
                         break;
                     }
                 }break;
-            default:
-                break;
+            default: break;
             }
         }
-        if (proto->Class == ITEM_CLASS_ARMOR && proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD)
-            ArmorS = dbcArmorShield.LookupEntry(proto->ItemLevel);
-        else if(!(proto->InventoryType != INVTYPE_HEAD && proto->InventoryType != INVTYPE_CHEST && proto->InventoryType != INVTYPE_SHOULDERS
-                && proto->InventoryType != INVTYPE_LEGS && proto->InventoryType != INVTYPE_FEET && proto->InventoryType != INVTYPE_WRISTS
-                && proto->InventoryType != INVTYPE_HANDS && proto->InventoryType != INVTYPE_WAIST && proto->InventoryType != INVTYPE_CLOAK
-                && proto->InventoryType != INVTYPE_ROBE))
+        else if(proto->Class == ITEM_CLASS_ARMOR)
         {
-            ArmorQ = dbcArmorQuality.LookupEntry(proto->ItemLevel);
-            ArmorT = dbcArmorTotal.LookupEntry(proto->ItemLevel);
+            uint32 inventoryType = proto->InventoryType;
+            if (proto->InventoryType == INVTYPE_ROBE)
+                inventoryType = INVTYPE_CHEST;
+            if (proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD)
+                ArmorS = dbcArmorShield.LookupEntry(proto->ItemLevel);
+            else if(ArmorE = dbcArmorLocation.LookupEntry(inventoryType))
+            {
+                if(proto->SubClass && proto->SubClass <= 5)
+                {
+                    ArmorQ = dbcArmorQuality.LookupEntry(proto->ItemLevel);
+                    ArmorT = dbcArmorTotal.LookupEntry(proto->ItemLevel);
+                }
+            }
         }
 
         if(Damage)
@@ -601,14 +604,8 @@ void ItemPrototypeSystem::LoadItemOverrides()
 
         if(ArmorS)
             proto->Armor = ArmorS->mod_Resist[Quality];
-        else if(ArmorQ && proto->SubClass <= 4)
-        {
-            uint8 armorClass = 0;
-            if(proto->SubClass)
-                armorClass = proto->SubClass-1;
-            if(ArmorLocationEntry* entry = dbcArmorLocation.LookupEntry(proto->InventoryType))
-                proto->Armor = uint32(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[armorClass] * entry->Value[armorClass] + 0.5f);
-        }
+        else if(ArmorQ && ArmorT && ArmorE)
+            proto->Armor = uint32(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f);
     }
 }
 

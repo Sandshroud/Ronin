@@ -336,7 +336,6 @@ void Player::Init()
     m_setwaterwalk                  = false;
     m_areaSpiritHealer_guid         = 0;
     m_CurrentTaxiPath               = NULL;
-    m_setflycheat                   = false;
     m_fallDisabledUntil             = 0;
     m_lfgMatch                      = NULL;
     m_lfgInviterGuid                = 0;
@@ -2672,9 +2671,9 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         _SaveQuestLogEntry(buf);
 
     // GM Ticket
-    GM_Ticket* ticket = objmgr.GetGMTicketByPlayer(GetGUID());
+    GM_Ticket* ticket = sTicketMgr.GetGMTicketByPlayer(GetGUID());
     if(ticket != NULL)
-        objmgr.SaveGMTicket(ticket, buf);
+        sTicketMgr.SaveGMTicket(ticket, buf);
 
     // Cooldown Items
     if(sWorld.DisableBufferSaving)
@@ -3995,7 +3994,6 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
 void Player::AddToWorld(bool loggingin /* = false */)
 {
     FlyCheat = false;
-    m_setflycheat = false;
 
     // check transporter
     if(GetTransportGuid() && m_CurrentTransporter)
@@ -4032,7 +4030,6 @@ void Player::AddToWorld(bool loggingin /* = false */)
 void Player::AddToWorld(MapMgr* pMapMgr)
 {
     FlyCheat = false;
-    m_setflycheat = false;
     // check transporter
     if(GetTransportGuid() && m_CurrentTransporter)
     {
@@ -4577,107 +4574,15 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
         }
     }
 
-    // Armor
-    if( proto->Armor )
+    if(proto->Armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, proto->Armor);
+
+    // Stats
+    for( int i = 0; i < 10; i++ )
     {
-        if( apply )
-        {
-            BaseResistance[RESISTANCE_ARMOR]+= proto->Armor;
-        }
-        else
-        {
-            BaseResistance[RESISTANCE_ARMOR] -= proto->Armor;
-        }
-        CalcResistance(RESISTANCE_ARMOR);
-    }
-
-    /*if(proto->ScalingStatsEntry != 0) // This item is an Heirloom, we need to calculate it differently.
-    {
-        // This is Dfighter's code for Heirlooms, modified slightly. Danke Dfighter.
-        ScalingStatDistributionEntry *ssdrow = dbcScalingStatDistribution.LookupEntry( proto->ScalingStatsEntry );
-        ScalingStatValuesEntry *ssvrow = dbcScalingStatValues.LookupEntry(getLevel() > 80 ? 80 : getLevel());
-
-        int i = 0;
-        int32 StatValue;
-        for(i = 0; ssdrow->StatMod[i] != -1; i++)
-        {
-            uint32 StatType = ssdrow->StatMod[i];
-            StatValue = (ssdrow->Modifier[i])/10000;
-            ModifyBonuses(StatType, (apply ? StatValue : -StatValue));
-        }
-
-        if((proto->ScalingStatsFlag & 32768) && i < 10)
-        {
-            StatValue = (ssdrow->Modifier[i]*GetscalestatSpellBonus(ssvrow))/10000;
-            ModifyBonuses(SPELL_POWER, (apply ? StatValue : -StatValue));
-        }
-
-        int32 scaledarmorval = GetDBCscalestatArmorMod(ssvrow, proto->ScalingStatsFlag);
-        BaseResistance[0] += (apply ? scaledarmorval : -scaledarmorval);
-        CalcResistance(0);
-
-        uint32 scaleddps = GetDBCscalestatDPSMod(ssvrow, proto->ScalingStatsFlag);
-        float dpsmod = 1.0;
-
-        if (proto->ScalingStatsFlag & 0x1400)
-            dpsmod = 0.2f;
-        else
-            dpsmod = 0.3f;
-
-        float scaledmindmg = (scaleddps - (scaleddps * dpsmod)) * (proto->Delay/1000);
-        float scaledmaxdmg = (scaleddps * (dpsmod+1.0f)) * (proto->Delay/1000);
-
-        if( proto->InventoryType == INVTYPE_RANGED || proto->InventoryType == INVTYPE_RANGEDRIGHT || proto->InventoryType == INVTYPE_THROWN )
-        {
-            BaseRangedDamage[0] += apply ? scaledmindmg : -scaledmindmg;
-            BaseRangedDamage[1] += apply ? scaledmaxdmg : -scaledmaxdmg;
-        }
-        else
-        {
-            if( slot == EQUIPMENT_SLOT_OFFHAND )
-            {
-                BaseOffhandDamage[0] = apply ? scaledmindmg : 0;
-                BaseOffhandDamage[1] = apply ? scaledmaxdmg : 0;
-            }
-            else
-            {
-                BaseDamage[0] = apply ? scaledmindmg : 0;
-                BaseDamage[1] = apply ? scaledmaxdmg : 0;
-            }
-        }
-    }
-    else // Normal Items.*/
-    {   // Stats
-        for( int i = 0; i < 10; i++ )
-        {
-            int32 val = proto->Stats[i].Value;
-            if( val == 0 )
-                continue;
-            ModifyBonuses( proto->Stats[i].Type, apply ? val : -val );
-        }
-
-        // Damage
-        if( proto->minDamage && proto->maxDamage )
-        {
-            if( proto->InventoryType == INVTYPE_RANGED || proto->InventoryType == INVTYPE_RANGEDRIGHT || proto->InventoryType == INVTYPE_THROWN )
-            {
-                BaseRangedDamage[0] += apply ? proto->minDamage : -proto->minDamage;
-                BaseRangedDamage[1] += apply ? proto->maxDamage : -proto->maxDamage;
-            }
-            else
-            {
-                if( slot == EQUIPMENT_SLOT_OFFHAND )
-                {
-                    BaseOffhandDamage[0] = apply ? proto->minDamage : 0;
-                    BaseOffhandDamage[1] = apply ? proto->maxDamage : 0;
-                }
-                else
-                {
-                    BaseDamage[0] = apply ? proto->minDamage : 0;
-                    BaseDamage[1] = apply ? proto->maxDamage : 0;
-                }
-            }
-        }
+        int32 val = proto->Stats[i].Value;
+        if( val == 0 )
+            continue;
+        ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
     }
 
     // Misc
@@ -4686,7 +4591,7 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
         // Apply all enchantment bonuses
         item->ApplyEnchantmentBonuses();
 
-        for( int k = 0; k < 5; k++ )
+        for( int8 k = 0; k < 5; k++ )
         {
             // stupid fucked dbs
             if( item->GetProto()->Spells[k].Id == 0 )
@@ -4735,7 +4640,7 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
     {
         // Remove all enchantment bonuses
         item->RemoveEnchantmentBonuses();
-        for( int k = 0; k < 5; k++ )
+        for( int8 k = 0; k < 5; k++ )
         {
             if( item->GetProto()->Spells[k].Trigger == ON_EQUIP )
             {
@@ -7602,12 +7507,58 @@ void Player::Reset_ToLevel1()
 
 }
 
+static uint32 schooltoModBonus[MAX_RESISTANCE] =
+{
+    ITEM_STAT_PHYSICAL_RESISTANCE,
+    ITEM_STAT_HOLY_RESISTANCE,
+    ITEM_STAT_FIRE_RESISTANCE,
+    ITEM_STAT_NATURE_RESISTANCE,
+    ITEM_STAT_FROST_RESISTANCE,
+    ITEM_STAT_SHADOW_RESISTANCE,
+    ITEM_STAT_ARCANE_RESISTANCE
+};
+
+int32 Player::GetBaseResistance(uint8 school)
+{
+    int32 baseRes = 0;
+    for(ItemBonusModMap::iterator itr = itemBonusMapByType[schooltoModBonus[school]].begin(); itr != itemBonusMapByType[schooltoModBonus[school]].end(); itr++)
+        baseRes += itr->second.second;
+    return baseRes;
+}
+
 void Player::CalcResistance(uint32 type)
 {
+    return;
     ASSERT(type < 7);
 
-    int32 pos = FlatResistanceModifierPos[type]+float2int32( BaseResistance[type] * (float)( BaseResistanceModPctPos[ type ] / 100.0f ) );
-    int32 neg = FlatResistanceModifierNeg[type]+float2int32( BaseResistance[type] * (float)( BaseResistanceModPctNeg[ type ] / 100.0f ) );
+    int32 pos = 0, neg = 0;
+    AuraInterface::modifierMap mods = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE);
+    for(AuraInterface::modifierMap::iterator itr = mods.begin(); itr != mods.end(); itr++)
+    {
+        printf("Mod %u\n", itr->second->m_miscValue);
+        if(itr->second->m_miscValue & (1 << type))
+        {
+            if(itr->second->m_amount > 0)
+                pos += itr->second->m_amount;
+            else neg -= itr->second->m_amount;
+        }
+    }
+
+    mods = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
+    for(AuraInterface::modifierMap::iterator itr = mods.begin(); itr != mods.end(); itr++)
+    {
+        printf("Mod2 %u %u\n", itr->second->m_miscValue, type);
+        if(itr->second->m_miscValue & (1 << type))
+        {
+            printf("Adding amount %u\n", itr->second->m_amount);
+            if(itr->second->m_amount > 0)
+                pos += itr->second->m_amount;
+            else neg -= itr->second->m_amount;
+        }
+    }
+
+    pos += float2int32( BaseResistance[type] * (float)( BaseResistanceModPctPos[ type ] / 100.0f ) );
+    neg += float2int32( BaseResistance[type] * (float)( BaseResistanceModPctNeg[ type ] / 100.0f ) );
 
     int32 res = BaseResistance[type] + pos - neg;
     if( type == 0 )
@@ -9708,205 +9659,211 @@ void Player::OnWorldPortAck()
     ResetHeartbeatCoords();
 }
 
-void Player::ModifyBonuses(uint32 type,int32 val)
+void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val)
 {
+    std::pair<uint64, uint32> guid_slot = std::make_pair(guid, slot);
+    if(apply)
+    {
+        printf("Adding mod %u|%u type %u val %u\n", uint32(guid), slot, type, val);
+        if(itemBonusMap.find(guid_slot) == itemBonusMap.end())
+            itemBonusMap.insert(std::make_pair(guid_slot, std::make_pair(type, val)));
+        if(itemBonusMapByType[type].find(guid_slot) == itemBonusMapByType[type].end())
+            itemBonusMapByType[type].insert(std::make_pair(guid_slot, std::make_pair(type, val)));
+    }
+    else
+    {
+        printf("removing mod %u|%u\n", uint32(guid), slot);
+        itemBonusMap.erase(guid_slot);
+        itemBonusMapByType[type].erase(guid_slot);
+    }
+
     // Added some updateXXXX calls so when an item modifies a stat they get updated
     // also since this is used by auras now it will handle it for those
+    int32 modVal = (apply ? val : -val);
     switch (type)
     {
-    case POWER:
-        ModUnsigned32Value( UNIT_FIELD_MAXPOWER1, val );
-        m_manafromitems += val;
+    case ITEM_STAT_POWER:
+        ModUnsigned32Value( UNIT_FIELD_MAXPOWER1, modVal );
+        m_manafromitems += modVal;
         break;
-    case HEALTH:
-        ModUnsigned32Value( UNIT_FIELD_MAXHEALTH, val );
-        m_healthfromitems += val;
+    case ITEM_STAT_HEALTH:
+        ModUnsigned32Value( UNIT_FIELD_MAXHEALTH, modVal );
+        m_healthfromitems += modVal;
         break;
-    case AGILITY: // modify agility
-        FlatStatModPos[1] += val;
+    case ITEM_STAT_AGILITY: // modify agility
+        FlatStatModPos[1] += modVal;
         CalcStat( 1 );
         break;
-    case STRENGTH: //modify strength
-        FlatStatModPos[0] += val;
+    case ITEM_STAT_STRENGTH: //modify strength
+        FlatStatModPos[0] += modVal;
         CalcStat( 0 );
         break;
-    case INTELLECT: //modify intellect
-        FlatStatModPos[3] += val;
+    case ITEM_STAT_INTELLECT: //modify intellect
+        FlatStatModPos[3] += modVal;
         CalcStat( 3 );
         break;
-     case SPIRIT: //modify spirit
-        FlatStatModPos[4] += val;
+     case ITEM_STAT_SPIRIT: //modify spirit
+        FlatStatModPos[4] += modVal;
         CalcStat( 4 );
         break;
-    case STAMINA: //modify stamina
-        FlatStatModPos[2] += val;
+    case ITEM_STAT_STAMINA: //modify stamina
+        FlatStatModPos[2] += modVal;
         CalcStat( 2 );
         break;
-    case WEAPON_SKILL_RATING:
+    case ITEM_STAT_DEFENSE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_SKILL, val ); // ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL, val ); // melee main hand
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL, val ); // melee off hand
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_DEFENCE, modVal );
         }break;
-    case DEFENSE_RATING:
+    case ITEM_STAT_DODGE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_DEFENCE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_DODGE, modVal );
         }break;
-    case DODGE_RATING:
+    case ITEM_STAT_PARRY_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_DODGE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_PARRY, modVal );
         }break;
-    case PARRY_RATING:
+    case ITEM_STAT_MELEE_HIT_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_PARRY, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT, modVal );
         }break;
-    case SHIELD_BLOCK_RATING:
+    case ITEM_STAT_RANGED_HIT_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_BLOCK, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT, modVal );
         }break;
-    case MELEE_HIT_RATING:
+    case ITEM_STAT_SPELL_HIT_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT, modVal );
         }break;
-    case RANGED_HIT_RATING:
+    case ITEM_STAT_MELEE_CRITICAL_STRIKE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_CRIT, modVal );
         }break;
-    case SPELL_HIT_RATING:
+    case ITEM_STAT_RANGED_CRITICAL_STRIKE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_CRIT, modVal );
         }break;
-    case MELEE_CRITICAL_STRIKE_RATING:
+    case ITEM_STAT_SPELL_CRITICAL_STRIKE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_CRIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_CRIT, modVal );
         }break;
-    case RANGED_CRITICAL_STRIKE_RATING:
+    case ITEM_STAT_MELEE_HIT_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_CRIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, modVal );
         }break;
-    case SPELL_CRITICAL_STRIKE_RATING:
+    case ITEM_STAT_RANGED_HIT_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_CRIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE, modVal );
         }break;
-    case MELEE_HIT_AVOIDANCE_RATING:
+    case ITEM_STAT_SPELL_HIT_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE, modVal );
         }break;
-    case RANGED_HIT_AVOIDANCE_RATING:
+    case ITEM_STAT_MELEE_CRITICAL_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, modVal );//melee
         }break;
-    case SPELL_HIT_AVOIDANCE_RATING:
+    case ITEM_STAT_RANGED_CRITICAL_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, modVal );//ranged
         }break;
-    case MELEE_CRITICAL_AVOIDANCE_RATING:
+    case ITEM_STAT_SPELL_CRITICAL_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, val );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, modVal );//spell
         }break;
-    case RANGED_CRITICAL_AVOIDANCE_RATING:
+    case ITEM_STAT_MELEE_HASTE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, val );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HASTE, modVal );//melee
         }break;
-    case SPELL_CRITICAL_AVOIDANCE_RATING:
+    case ITEM_STAT_RANGED_HASTE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, val );//spell
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HASTE, modVal );//ranged
         }break;
-    case MELEE_HASTE_RATING:
+    case ITEM_STAT_SPELL_HASTE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HASTE, val );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HASTE, modVal );//spell
         }break;
-    case RANGED_HASTE_RATING:
+    case ITEM_STAT_HIT_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HASTE, val );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT, modVal );
         }break;
-    case SPELL_HASTE_RATING:
+    case ITEM_STAT_CRITICAL_STRIKE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HASTE, val );//spell
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_CRIT, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_CRIT, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_CRIT, modVal );
         }break;
-    case HIT_RATING:
+    case ITEM_STAT_HIT_REDUCTION_RATING:// this is guessed based on layout of other fields
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT, val );//melee
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT, val );//ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE, modVal );//spell
         }break;
-    case CRITICAL_STRIKE_RATING:
+    case ITEM_STAT_CRITICAL_REDUCTION_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_CRIT, val );//melee
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_CRIT, val );//ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_CRIT, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, modVal );//spell
         }break;
-    case HIT_AVOIDANCE_RATING:// this is guessed based on layout of other fields
+    case ITEM_STAT_EXPERTISE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HIT_AVOIDANCE, val );//melee
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HIT_AVOIDANCE, val );//ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HIT_AVOIDANCE, val );//spell
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_EXPERTISE, modVal );
         }break;
-    case CRITICAL_AVOIDANCE_RATING:
+    case ITEM_STAT_RESILIENCE_RATING:
         {
-            // todo. what is it?
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, modVal );//spell
         }break;
-    case EXPERTISE_RATING:
+    case ITEM_STAT_HASTE_RATING:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_EXPERTISE, val );
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HASTE, modVal );//melee
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HASTE, modVal );//ranged
+            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HASTE, modVal );
         }break;
-    case RESILIENCE_RATING:
+    case ITEM_STAT_ATTACK_POWER:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE, val );//melee
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_RESILIENCE, val );//ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE, val );//spell
+            ModUnsigned32Value( UNIT_FIELD_ATTACK_POWER_MOD_POS, modVal );
+            ModUnsigned32Value( UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, modVal );
         }break;
-    case HASTE_RATING:
+    case ITEM_STAT_RANGED_ATTACK_POWER:
         {
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_MELEE_HASTE, val );//melee
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_RANGED_HASTE, val );//ranged
-            ModUnsigned32Value( PLAYER_RATING_MODIFIER_SPELL_HASTE, val );
+            ModUnsigned32Value( UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, modVal );
         }break;
-    case ATTACK_POWER:
+    case ITEM_STAT_SPELL_HEALING_DONE:
         {
-            ModUnsigned32Value( UNIT_FIELD_ATTACK_POWER_MOD_POS, val );
-            ModUnsigned32Value( UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, val );
+            HealDoneBase += modVal;
         }break;
-    case RANGED_ATTACK_POWER:
-        {
-            ModUnsigned32Value( UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, val );
-        }break;
-    case FERAL_ATTACK_POWER:
-        {
-            m_feralAP += val;
-        }break;
-    case SPELL_HEALING_DONE:
-        {
-            HealDoneBase += val;
-        }break;
-    case SPELL_DAMAGE_DONE:
+    case ITEM_STAT_SPELL_DAMAGE_DONE:
         {
             for( uint8 school = 1; school < 7; ++school )
-                DamageDonePosMod[school] += val;
+                DamageDonePosMod[school] += modVal;
         }break;
-    case MANA_REGENERATION:
+    case ITEM_STAT_MANA_REGENERATION:
         {
-            m_ModInterrMRegen += val;
+            m_ModInterrMRegen += modVal;
         }break;
-    case ARMOR_PENETRATION_RATING:
+    case ITEM_STAT_ARMOR_PENETRATION_RATING:
         {
-            ModUnsigned32Value(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING, val);
+            ModUnsigned32Value(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING, modVal);
         }break;
-    case SPELL_POWER:
-        {
-            for( uint8 school = 1; school < 7; ++school )
-                DamageDonePosMod[ school ] += val;
-            HealDoneBase += val;
-        }break;
-    case HEALTH_REGEN:
-        {
-            PctRegenModifier += val;
-        }break;
-    case SPELL_PENETRATION:
+    case ITEM_STAT_SPELL_POWER:
         {
             for( uint8 school = 1; school < 7; ++school )
-                PowerCostPctMod[school] += val;
+                DamageDonePosMod[ school ] += modVal;
+            HealDoneBase += modVal;
         }break;
+    case ITEM_STAT_HEALTH_REGEN:
+        {
+            PctRegenModifier += modVal;
+        }break;
+    case ITEM_STAT_SPELL_PENETRATION:
+        {
+            for( uint8 school = 1; school < 7; ++school )
+                PowerCostPctMod[school] += modVal;
+        }break;
+    default: break;
     }
     UpdateStats();
 }
@@ -9983,53 +9940,28 @@ void Player::SetShapeShift(uint8 ss)
 
 void Player::CalcDamage()
 {
-    int ss = GetShapeShift();
     float ap_bonus = GetAP()/14000.0f, r = 0.0f, delta = (float)GetUInt32Value( PLAYER_FIELD_MOD_DAMAGE_DONE_POS ) - (float)GetUInt32Value( PLAYER_FIELD_MOD_DAMAGE_DONE_NEG );
 
-/////////////////MAIN HAND
+//////no druid ss
     if(IsInFeralForm())
     {
-        uint32 lev = getLevel();
-
-        if(ss == FORM_CAT)
-            r = lev + delta + ap_bonus * 1000.0f;
-        else
-            r = lev + delta + ap_bonus * 2500.0f;
-
-        //SetFloatValue(UNIT_FIELD_MINDAMAGE,r);
-        //SetFloatValue(UNIT_FIELD_MAXDAMAGE,r);
-
-        r *= 0.9f;
-        r *= 1.1f;
-
+        r = ((getLevel() + delta + ap_bonus * (GetShapeShift() == FORM_CAT ? 1000.0f : 2500.0f))*0.9f)*1.1f;
         SetFloatValue(UNIT_FIELD_MINDAMAGE,r>0?r:0);
         SetFloatValue(UNIT_FIELD_MAXDAMAGE,r>0?r:0);
-
         return;
     }
-//////no druid ss
-    uint32 speed=2000;
-    Item* it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+/////////////// MAIN HAND
+    Item* it = disarmed ? NULL : GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+    uint32 speed = (it ? it->GetProto()->Delay : 2000);
+    float bonus = ap_bonus*speed, tmp = GetDamageDonePctMod(SCHOOL_NORMAL);
 
-    if(!disarmed && it != NULL)
-        speed = it->GetProto()->Delay;
-
-    float bonus = ap_bonus*speed;
-    float tmp = GetDamageDonePctMod(SCHOOL_NORMAL);
-
-    r = BaseDamage[0]+delta+bonus;
-    r *= tmp;
-    if( it )
-        r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
-
+    r = delta+bonus+(it ? it->CalcMinDamage() : 0);
+    r *= tmp * (it ? m_WeaponSubClassDamagePct[it->GetProto()->SubClass] : 1.0f);
     SetFloatValue(UNIT_FIELD_MINDAMAGE,r>0?r:0);
 
-    r = BaseDamage[1]+delta+bonus;
-    r *= tmp;
-    if( it )
-        r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
-
-    SetFloatValue(UNIT_FIELD_MAXDAMAGE,r>0?r:0);
+    r = delta+bonus+(it ? it->CalcMaxDamage() : 0);
+    r *= tmp * (it ? m_WeaponSubClassDamagePct[it->GetProto()->SubClass] : 1.0f);
+    SetFloatValue(UNIT_FIELD_MAXDAMAGE, r > 0 ? r : 0);
 
     uint32 cr = 0;
     if( it )
@@ -10046,23 +9978,18 @@ void Player::CalcDamage()
 
 /////////////// OFF HAND START
     cr = 0;
-    it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
-    if(it)
+    r = 0.0f;
+    if(it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND))
     {
-        if(!disarmed)
-        {
-            speed =it->GetProto()->Delay;
-        }
-        else speed  = 2000;
-
+        speed = disarmed ? 2000 : it->GetProto()->Delay;
         bonus = ap_bonus * speed;
 
-        r = (BaseOffhandDamage[0]+delta+bonus)*offhand_dmg_mod;
+        r = (it->CalcMinDamage()+delta+bonus)*offhand_dmg_mod;
         r *= tmp;
         r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
         SetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE,r>0?r:0);
 
-        r = (BaseOffhandDamage[1]+delta+bonus)*offhand_dmg_mod;
+        r = (it->CalcMaxDamage()+delta+bonus)*offhand_dmg_mod;
         r *= tmp;
         r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
         SetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE,r>0?r:0);
@@ -10075,26 +10002,24 @@ void Player::CalcDamage()
         }
     }
     SetUInt32Value( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL, cr );
+/////////////// OFF HAND END
 
-/////////////second hand end
-///////////////////////////RANGED
+/////////////// RANGED
     cr = 0;
-    if((it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)))
+    if(it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED))
     {
-        if(it->GetProto()->SubClass != 19)//wands do not have bonuses from RAP & ammo
+        if(it->GetProto()->SubClass != ITEM_SUBCLASS_WEAPON_WAND)//wands do not have bonuses from RAP & ammo
         {
-//              ap_bonus = (GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER)+(int32)GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MODS))/14000.0;
-            //modified by Zack : please try to use premade functions if possible to avoid forgetting stuff
             ap_bonus = GetRAP()/14000.0f;
             bonus = ap_bonus*it->GetProto()->Delay;
         }else bonus = 0;
 
-        r = BaseRangedDamage[0]+delta+bonus;
+        r = it->CalcMinDamage()+delta+bonus;
         r *= tmp;
         r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
         SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE,r>0?r:0);
 
-        r = BaseRangedDamage[1]+delta+bonus;
+        r = it->CalcMaxDamage()+delta+bonus;
         r *= tmp;
         r *= m_WeaponSubClassDamagePct[it->GetProto()->SubClass];
         SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE,r>0?r:0);
@@ -10108,7 +10033,7 @@ void Player::CalcDamage()
 
     }
     SetUInt32Value( PLAYER_RATING_MODIFIER_RANGED_SKILL, cr );
-/////////////////////////////////RANGED end
+/////////////// RANGED END
 }
 
 uint32 Player::GetMainMeleeDamage(uint32 AP_owerride)
@@ -10136,28 +10061,23 @@ uint32 Player::GetMainMeleeDamage(uint32 AP_owerride)
         return float2int32(std::max((min_dmg + max_dmg)/2.0f,0.0f));
     }
 //////no druid ss
-    uint32 speed=2000;
-    Item* it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-    if(!disarmed)
-    {
-        if(it)
-            speed = it->GetProto()->Delay;
-    }
+    Item* it = disarmed ? NULL : GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+    uint32 speed = it ? it->GetProto()->Delay : 2000;
+
     float bonus = ap_bonus*speed;
-    float tmp = 1;
+    float tmp = 1.0f;
     map<uint32, WeaponModifier>::iterator i;
     for(i = damagedone.begin();i!=damagedone.end();++i)
     {
-        if((i->second.wclass == (uint32)-1) || //any weapon
-            (it && ((1 << it->GetProto()->SubClass) & i->second.subclass) )
-            )
-                tmp+=i->second.value/100.0f;
+        if((i->second.wclass == 0xFFFFFFFF) || //any weapon
+            (it && ((1 << it->GetProto()->SubClass) & i->second.subclass) ))
+                tmp += i->second.value/100.0f;
     }
 
-    r = BaseDamage[0]+delta+bonus;
+    r = delta+bonus+(it ? it->CalcMinDamage() : 0);
     r *= tmp;
     min_dmg = r * 0.9f;
-    r = BaseDamage[1]+delta+bonus;
+    r = delta+bonus+(it ? it->CalcMaxDamage() : 0);
     r *= tmp;
     max_dmg = r * 1.1f;
 

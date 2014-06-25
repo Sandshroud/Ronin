@@ -54,7 +54,6 @@ struct DamageSplitTarget
     uint32 m_spellId;
     float m_pctDamageSplit; // % of taken damage to transfer (i.e. Soul Link)
     uint32 m_flatDamageSplit; // flat damage to transfer (i.e. Blessing of Sacrifice)
-    uint8 damage_type; // bitwise 0-127 thingy
     bool active;
 };
 
@@ -470,7 +469,9 @@ public:
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
+    virtual int32 GetBaseResistance(uint8 school) { return 0; }
 
+    void UpdateResistance(uint32 time);
     void setAttackTimer(int32 time, bool offhand);
     bool isAttackReady(bool offhand);
     bool __fastcall canReachWithAttack(Unit* pVictim);
@@ -479,6 +480,7 @@ public:
     {
         m_duelWield = enabled;
     }
+
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
     HEARTHSTONE_INLINE void addStateFlag(uint32 f) { m_state |= f; };
@@ -625,6 +627,7 @@ public:
 
     // Has
     HEARTHSTONE_INLINE bool HasAura(uint32 spellid) { return m_AuraInterface.HasAura(spellid); };
+    HEARTHSTONE_INLINE bool HasAurasOfNameHashWithCaster(uint32 namehash, Unit* caster) { return m_AuraInterface.HasAurasOfNameHashWithCaster(namehash, caster ? caster->GetGUID() : 0); };
 
     // Remove
     HEARTHSTONE_INLINE void RemoveAura(Aura* aur) { m_AuraInterface.RemoveAura(aur); };
@@ -739,10 +742,6 @@ public:
     float CritRangedDamageTakenPctMod[7];
     int32 RangedDamageTaken;
 
-    void CalcDamage();
-    float BaseDamage[2];
-    float BaseOffhandDamage[2];
-    float BaseRangedDamage[2];
     SchoolAbsorb Absorbs[7];
 
     uint32 AbsorbDamage(Object* Attacker, uint32 School,uint32 * dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
@@ -1194,7 +1193,6 @@ public:
     HEARTHSTONE_INLINE uint32 GetPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
     HEARTHSTONE_INLINE uint32 GetPower(uint8 power) const { return GetUInt32Value(UNIT_FIELD_POWER1 + power); }
 
-    bool HasAurasOfNameHashWithCaster(uint32 namehash, Unit* caster);
     bool mAngerManagement;
     bool mRecentlyBandaged;
 

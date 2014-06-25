@@ -457,8 +457,6 @@ public:
     HEARTHSTONE_INLINE void SetSheatheForAttackType(uint8 type) { SetByte(UNIT_FIELD_BYTES_2, 0, type); }
     HEARTHSTONE_INLINE bool isQuestGiver() { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ); };
 
-    void CalcResistance(uint32 type);
-    void CalcStat(uint32 type);
     void RegenerateHealth(bool isinterrupted);
     void RegenerateMana(bool isinterrupted);
 
@@ -675,10 +673,4 @@ public: // values
     uint32 original_MountedDisplayID;
     int8 BaseAttackType;
     int8 m_lootMethod;
-    int32 FlatResistanceMod[7];
-    int32 BaseResistanceModPct[7];
-    int32 ResistanceModPct[7];
-    int32 FlatStatMod[5];
-    int32 StatModPct[5];
-    int32 TotalStatModPct[5];
 };

@@ -1783,3 +1783,34 @@ bool AuraInterface::SetAuraDuration(uint32 spellId, int32 duration)
     aur->SetTimeLeft(duration);
     return true;
 }
+
+void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
+{
+    std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
+    if(apply)
+    {
+        ModifierHolder *modHolder = NULL;
+        if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
+            modHolder = m_modifierHolders.at(auraSlot);
+        else if(m_auras.find(auraSlot) != m_auras.end())
+        {
+            modHolder = new ModifierHolder(auraSlot,m_auras.at(auraSlot)->GetSpellProto());
+            m_modifierHolders.insert(std::make_pair(auraSlot, modHolder));
+        }
+        if(modHolder == NULL || modHolder->mod[index] == mod)
+            return;
+        m_modifierHoldersByType[mod->m_type].insert(std::make_pair(mod_index, mod));
+        modHolder->mod[index] = mod;
+    }
+    else if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
+    {
+        m_modifierHoldersByType[mod->m_type].erase(mod_index);
+        ModifierHolder *modHolder = m_modifierHolders.at(auraSlot);
+        modHolder->mod[index] = NULL;
+        for(uint8 i=0;i<3;i++)
+            if(modHolder->mod[i])
+                return;
+        m_modifierHolders.erase(auraSlot);
+        delete modHolder;
+    }
+}

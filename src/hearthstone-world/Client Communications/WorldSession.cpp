@@ -280,7 +280,7 @@ void WorldSession::LogoutPlayer(bool Save)
         }
 
 #ifndef GM_TICKET_MY_MASTER_COMPATIBLE
-        GM_Ticket * ticket = objmgr.GetGMTicketByPlayer(_player->GetGUID());
+        GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(_player->GetGUID());
         if(ticket != NULL)
         {
             //Send status change to gm_sync_channel
