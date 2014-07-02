@@ -902,10 +902,10 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
         *data << uint8(pPlayer->GetPowerType());
 
     if(Flags & GROUP_UPDATE_FLAG_POWER)
-        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_POWER1 + pPlayer->GetPowerType()));
+        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_MANA + pPlayer->GetPowerType()));
 
     if(Flags & GROUP_UPDATE_FLAG_MAXPOWER)
-        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_MAXPOWER1 + pPlayer->GetPowerType()));
+        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_MAX_MANA + pPlayer->GetPowerType()));
 
     if(Flags & GROUP_UPDATE_FLAG_LEVEL)
         *data << uint16(pPlayer->getLevel());
@@ -978,7 +978,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     if (Flags & GROUP_UPDATE_FLAG_PET_POWER)
     {
         if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->GetPowerType() < MAX_POWER_TYPE)
-            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_POWER1 + pPlayer->GetSummon()->GetPowerType()));
+            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MANA + pPlayer->GetSummon()->GetPowerType()));
         else
             *data << uint16(0);
     }
@@ -986,7 +986,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     if (Flags & GROUP_UPDATE_FLAG_PET_MAXPOWER)
     {
         if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->GetPowerType() < MAX_POWER_TYPE)
-            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MAXPOWER1 + pPlayer->GetSummon()->GetPowerType()));
+            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MAX_MANA + pPlayer->GetSummon()->GetPowerType()));
         else
             *data << uint16(0);
     }
@@ -1081,25 +1081,25 @@ void Group::HandleUpdateFieldChange(uint32 Index, Player* pPlayer)
         Flags = GROUP_UPDATE_FLAG_MAXHEALTH;
         break;
 
-    case UNIT_FIELD_POWER1:
-    case UNIT_FIELD_POWER2:
-    case UNIT_FIELD_POWER3:
-    case UNIT_FIELD_POWER4:
-    case UNIT_FIELD_POWER7:
-    case UNIT_FIELD_POWER8:
-    case UNIT_FIELD_POWER9:
-    case UNIT_FIELD_POWER10:
+    case UNIT_FIELD_MANA:
+    case UNIT_FIELD_RAGE:
+    case UNIT_FIELD_FOCUS:
+    case UNIT_FIELD_ENERGY:
+    case UNIT_FIELD_RUNIC_POWER:
+    case UNIT_FIELD_SOUL_SHARDS:
+    case UNIT_FIELD_ECLIPSE_POWER:
+    case UNIT_FIELD_HOLY_POWER:
         Flags = GROUP_UPDATE_FLAG_POWER;
         break;
 
-    case UNIT_FIELD_MAXPOWER1:
-    case UNIT_FIELD_MAXPOWER2:
-    case UNIT_FIELD_MAXPOWER3:
-    case UNIT_FIELD_MAXPOWER4:
-    case UNIT_FIELD_MAXPOWER7:
-    case UNIT_FIELD_MAXPOWER8:
-    case UNIT_FIELD_MAXPOWER9:
-    case UNIT_FIELD_MAXPOWER10:
+    case UNIT_FIELD_MAX_MANA:
+    case UNIT_FIELD_MAX_RAGE:
+    case UNIT_FIELD_MAX_FOCUS:
+    case UNIT_FIELD_MAX_ENERGY:
+    case UNIT_FIELD_MAX_RUNIC_POWER:
+    case UNIT_FIELD_MAX_SOUL_SHARDS:
+    case UNIT_FIELD_MAX_ECLIPSE_POWER:
+    case UNIT_FIELD_MAX_HOLY_POWER:
         Flags = GROUP_UPDATE_FLAG_MAXPOWER;
         break;
 

@@ -604,8 +604,8 @@ void Creature::RegenerateMana(bool isinterrupted)
     if (m_interruptRegen || isinterrupted)
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_POWER1);
-    uint32 mm = GetUInt32Value(UNIT_FIELD_MAXPOWER1);
+    uint32 cur = GetUInt32Value(UNIT_FIELD_MANA);
+    uint32 mm = GetUInt32Value(UNIT_FIELD_MAX_MANA);
     if(cur >= mm)
         return;
 
@@ -614,7 +614,7 @@ void Creature::RegenerateMana(bool isinterrupted)
         cur++;
     else
         cur += (uint32)amt;
-    SetUInt32Value(UNIT_FIELD_POWER1,(cur>=mm)?mm:cur);
+    SetUInt32Value(UNIT_FIELD_MANA,(cur>=mm)?mm:cur);
 }
 
 void Creature::AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, uint32 ec)
@@ -962,7 +962,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     for(uint32 x=0;x<7;x++)
         BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
     for(uint32 x=0;x<5;x++)
-        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STAT0+x);
+        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STATS+x);
     BaseAttackType=proto->AttackType;
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
@@ -1026,7 +1026,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     case POWER_TYPE_MANA:
         {
             SetPowerType(POWER_TYPE_MANA);
-            SetUInt32Value(UNIT_FIELD_POWER1, power);
+            SetUInt32Value(UNIT_FIELD_MANA, power);
             SetMaxPower(POWER_TYPE_MANA,power);
             SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
         }break;
@@ -1309,7 +1309,7 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
     for(uint32 x=0;x<7;x++)
         BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
     for(uint32 x=0;x<5;x++)
-        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STAT0+x);
+        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STATS+x);
     BaseAttackType=proto->AttackType;
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one

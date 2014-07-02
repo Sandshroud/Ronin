@@ -589,7 +589,7 @@ enum ItemBonusModSlot
     MOD_SLOT_PROPRETY_ENCHANT_4,
 };
 
-typedef std::map<std::pair<uint64, uint32>, std::pair<uint32, uint32>> ItemBonusModMap;
+typedef std::map<std::pair<uint64, uint32>, std::pair<uint32, int32>> ItemBonusModMap;
 typedef std::map<uint32, ItemBonusModMap> ItemBonusModByType;
 
 //====================================================================
@@ -715,6 +715,10 @@ public:
     //void KilledMonster(uint32 entry, const uint64 &guid);
     void GiveXP(uint32 xp, const uint64 &guid, bool allowbonus);   // to stop rest xp being given
     void ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val);
+
+    int32 GetBonusesFromItems(uint32 statType);
+
+    UpdateMask itemBonusMask;
     ItemBonusModMap itemBonusMap;
     ItemBonusModByType itemBonusMapByType;
     std::map<uint32, uint32> m_wratings;
@@ -1880,7 +1884,7 @@ protected:
     uint8 m_duelState;
     // Played time
     uint32 m_playedtime[3];
-    uint8 m_isResting;
+    bool m_isResting;
     uint8 m_restState;
     uint32 m_restAmount;
     AreaTrigger* LastAreaTrigger;

@@ -1675,14 +1675,14 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, ui
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
 
     pCreature->SetUInt32Value(UNIT_FIELD_HEALTH, 100000);
-    pCreature->SetUInt32Value(UNIT_FIELD_POWER1, 4868);
-    pCreature->SetUInt32Value(UNIT_FIELD_POWER3, 200);
-    pCreature->SetUInt32Value(UNIT_FIELD_POWER5, 2000000);
+    pCreature->SetUInt32Value(UNIT_FIELD_MANA, 4868);
+    pCreature->SetUInt32Value(UNIT_FIELD_FOCUS, 200);
+    pCreature->SetUInt32Value(UNIT_FIELD_HAPPINESS, 2000000);
 
     pCreature->SetUInt32Value(UNIT_FIELD_MAXHEALTH, 10000);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAXPOWER1, 4868);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAXPOWER3, 200);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAXPOWER5, 2000000);
+    pCreature->SetUInt32Value(UNIT_FIELD_MAX_MANA, 4868);
+    pCreature->SetUInt32Value(UNIT_FIELD_MAX_FOCUS, 200);
+    pCreature->SetUInt32Value(UNIT_FIELD_MAX_HAPPINESS, 2000000);
 
     pCreature->SetUInt32Value(UNIT_FIELD_LEVEL, 60);
     pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 84 - horde);
@@ -1787,8 +1787,8 @@ void CBattleground::EventResurrectPlayers()
                 plr->ResurrectPlayer();
                 plr->SpawnCorpseBones();
                 plr->SetUInt32Value(UNIT_FIELD_HEALTH, plr->GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-                plr->SetUInt32Value(UNIT_FIELD_POWER1, plr->GetUInt32Value(UNIT_FIELD_MAXPOWER1));
-                plr->SetUInt32Value(UNIT_FIELD_POWER4, plr->GetUInt32Value(UNIT_FIELD_MAXPOWER4));
+                plr->SetUInt32Value(UNIT_FIELD_MANA, plr->GetUInt32Value(UNIT_FIELD_MAX_MANA));
+                plr->SetUInt32Value(UNIT_FIELD_ENERGY, plr->GetUInt32Value(UNIT_FIELD_MAX_ENERGY));
                 plr->CastSpell(plr, BG_REVIVE_PREPARATION, true);
             }
         }

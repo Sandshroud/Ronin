@@ -1250,7 +1250,7 @@ void Object::SetUInt32Value( const uint32 index, const uint32 value )
 
     if(IsUnit())
     {
-        if(index > UNIT_FIELD_POWER1 && index < UNIT_FIELD_POWER11)
+        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
             static_cast< Unit* >( this )->SendPowerUpdate();
     }
 }
@@ -1290,7 +1290,7 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
 
     if(IsUnit())
     {
-        if(index > UNIT_FIELD_POWER1 && index < UNIT_FIELD_POWER11)
+        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
             static_cast< Unit* >( this )->SendPowerUpdate();
     }
 }
@@ -1325,7 +1325,7 @@ void Object::ModUnsigned32Value(uint32 index, int32 mod)
 
     if(m_objectTypeId == TYPEID_PLAYER)
     {
-        if(index > UNIT_FIELD_POWER1 && index < UNIT_FIELD_POWER11)
+        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
             static_cast< Unit* >( this )->SendPowerUpdate();
     }
 }
@@ -1905,13 +1905,13 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     {
         float level = (float)pVictim->getLevel();
         float c = 0.0091107836f * level * level + 3.225598133f * level + 4.2652911f;
-        uint32 rage = pVictim->GetUInt32Value( UNIT_FIELD_POWER2 );
+        uint32 rage = pVictim->GetUInt32Value( UNIT_FIELD_RAGE );
         float val = 2.5f * damage / c;
         rage += float2int32(val) * 10;
-        if( rage > pVictim->GetUInt32Value(UNIT_FIELD_MAXPOWER2) )
-            rage = pVictim->GetUInt32Value(UNIT_FIELD_MAXPOWER2);
+        if( rage > pVictim->GetUInt32Value(UNIT_FIELD_MAX_RAGE) )
+            rage = pVictim->GetUInt32Value(UNIT_FIELD_MAX_RAGE);
 
-        pVictim->SetUInt32Value(UNIT_FIELD_POWER2, rage);
+        pVictim->SetUInt32Value(UNIT_FIELD_RAGE, rage);
         pVictim->SendPowerUpdate();
     }
 
@@ -3235,7 +3235,7 @@ int32 Object::GetSpellBaseCost(SpellEntry *sp)
     {
     case SPELL_HASH_LIFE_TAP:
         {
-            cost = (sp->EffectBasePoints[0]+1)+(1.5f*GetUInt32Value(UNIT_FIELD_STAT4));
+            cost = (sp->EffectBasePoints[0]+1)+(1.5f*GetUInt32Value(UNIT_FIELD_SPIRIT));
         }break;
     }
 

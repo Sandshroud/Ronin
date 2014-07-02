@@ -236,7 +236,7 @@ public:
     void HandleAutoCastEvent(uint32 Type);
     AI_Spell *HandleAutoCastEvent();
     void SetAutoCast(AI_Spell*sp, bool on);
-    uint32 GetHappiness() { return GetUInt32Value(UNIT_FIELD_POWER5); };
+    uint32 GetHappiness() { return GetUInt32Value(UNIT_FIELD_HAPPINESS); };
     void SetHappiness(float amount) { SetPower(POWER_TYPE_HAPPINESS, amount); };
     void IncreaseHappiness(float amount) { SetHappiness(amount + GetHappiness()); };
     float GetHappinessDmgMod() { return 0.25f * GetHappinessState() + 0.5f; };

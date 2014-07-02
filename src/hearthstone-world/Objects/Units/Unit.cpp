@@ -1013,13 +1013,13 @@ void Unit::RegenerateEnergy()
     if( m_interruptRegen > 0 )
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_POWER4);
-    uint32 mp = GetUInt32Value(UNIT_FIELD_MAXPOWER4);
+    uint32 cur = GetUInt32Value(UNIT_FIELD_ENERGY);
+    uint32 mp = GetUInt32Value(UNIT_FIELD_MAX_ENERGY);
     if( cur >= mp )
         return;
 
     cur += float2int32(floor(float(0.01f * m_P_regenTimer * PctPowerRegenModifier[POWER_TYPE_ENERGY])));
-    SetUInt32Value(UNIT_FIELD_POWER4, (cur >= mp) ? mp : cur);
+    SetUInt32Value(UNIT_FIELD_ENERGY, (cur >= mp) ? mp : cur);
 }
 
 void Unit::RegenerateFocus()
@@ -1027,13 +1027,13 @@ void Unit::RegenerateFocus()
     if (m_interruptRegen)
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_POWER3);
-    uint32 mp = GetUInt32Value(UNIT_FIELD_MAXPOWER3);
+    uint32 cur = GetUInt32Value(UNIT_FIELD_FOCUS);
+    uint32 mp = GetUInt32Value(UNIT_FIELD_MAX_FOCUS);
     if( cur >= mp )
         return;
 
     cur += float2int32(floor(float(1.0f * PctPowerRegenModifier[POWER_TYPE_FOCUS])));
-    SetUInt32Value(UNIT_FIELD_POWER3, (cur >= mp)? mp : cur);
+    SetUInt32Value(UNIT_FIELD_FOCUS, (cur >= mp)? mp : cur);
 }
 
 void Unit::LosePower(uint32 powerField, int32 decayValue)
@@ -1080,22 +1080,22 @@ void Unit::RegeneratePower(bool isinterrupted)
             {
                 m_P_regenTimer = 3000;
                 if(!CombatStatus.IsInCombat())
-                    LosePower(UNIT_FIELD_POWER2, 30);
+                    LosePower(UNIT_FIELD_RAGE, 30);
             }break;
         case POWER_TYPE_RUNE:
             {
                 m_P_regenTimer = 3000;
                 if(!CombatStatus.IsInCombat())
-                    LosePower(UNIT_FIELD_POWER6, 50);
+                    LosePower(UNIT_FIELD_RUNIC_POWER, 50);
                 else
-                    LosePower(UNIT_FIELD_POWER6, -100);
+                    LosePower(UNIT_FIELD_RUNIC_POWER, -100);
             }break;
         case POWER_TYPE_RUNIC:
             {
                 if(!CombatStatus.IsInCombat())
                 {
                     m_P_regenTimer = 800;
-                    LosePower(UNIT_FIELD_POWER7, 10);
+                    LosePower(UNIT_FIELD_RUNIC_POWER, 10);
                 }
             }break;
         }
@@ -1589,7 +1589,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     else
     {
         if( weapon_damage_type != RANGED )
-            dodge = pVictim->GetUInt32Value( UNIT_FIELD_STAT1 ) / 14.5f; // what is this value? (Agility)
+            dodge = pVictim->GetUInt32Value( UNIT_FIELD_AGILITY ) / 14.5f; // what is this value? (Agility)
 
         victim_skill = pVictim->getLevel() * 5;
         if( pVictim->m_objectTypeId == TYPEID_UNIT )
@@ -2348,7 +2348,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         {
             Player* owner = GetMapMgr()->GetPlayer((uint32)GetUInt64Value(UNIT_FIELD_SUMMONEDBY));
             if ( owner != NULL )    // restore 4% of max mana on each hit
-                Energize(owner, 34433, owner->GetUInt32Value(UNIT_FIELD_MAXPOWER1) / 25, POWER_TYPE_MANA );
+                Energize(owner, 34433, owner->GetUInt32Value(UNIT_FIELD_MAX_MANA) / 25, POWER_TYPE_MANA );
         }
     }
 
@@ -2491,9 +2491,9 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         //float p = ( 1 + ( TO_PLAYER(this)->rageFromDamageDealt / 100.0f ) );
         //sLog.outDebug( "Rd(%i) d(%i) c(%f) f(%f) s(%f) p(%f) r(%f) rage = %f", realdamage, dmg.full_damage, c, f, s, p, r, val );
 
-        ModUnsigned32Value( UNIT_FIELD_POWER2, (int32)val );
-        if( GetUInt32Value( UNIT_FIELD_POWER2 ) > 1000 )
-            ModUnsigned32Value( UNIT_FIELD_POWER2, 1000 - GetUInt32Value( UNIT_FIELD_POWER2 ) );
+        ModUnsigned32Value( UNIT_FIELD_RAGE, (int32)val );
+        if( GetUInt32Value( UNIT_FIELD_RAGE ) > 1000 )
+            ModUnsigned32Value( UNIT_FIELD_RAGE, 1000 - GetUInt32Value( UNIT_FIELD_RAGE ) );
 
         SendPowerUpdate();
     }
@@ -2512,9 +2512,9 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
         //sLog.outDebug( "Rd(%i) d(%i) c(%f) rage = %f", realdamage, dmg.full_damage, c, val );
 
-        pVictim->ModUnsigned32Value( UNIT_FIELD_POWER2, (int32)val );
-        if( pVictim->GetUInt32Value( UNIT_FIELD_POWER2) > 1000 )
-            pVictim->ModUnsigned32Value( UNIT_FIELD_POWER2, 1000 - pVictim->GetUInt32Value( UNIT_FIELD_POWER2 ) );
+        pVictim->ModUnsigned32Value( UNIT_FIELD_RAGE, (int32)val );
+        if( pVictim->GetUInt32Value( UNIT_FIELD_RAGE) > 1000 )
+            pVictim->ModUnsigned32Value( UNIT_FIELD_RAGE, 1000 - pVictim->GetUInt32Value( UNIT_FIELD_RAGE ) );
         pVictim->SendPowerUpdate();
     }
 
@@ -3054,7 +3054,7 @@ uint32 Unit::ManaShieldAbsorb(uint32 dmg, SpellEntry* sp)
     if( sp && sp->c_is_flags & SPELL_FLAG_PIERCES_ABSORBTION_EFF )
         return 0;
 
-    uint32 mana = GetUInt32Value(UNIT_FIELD_POWER1);
+    uint32 mana = GetUInt32Value(UNIT_FIELD_MANA);
     //int32 effectbonus = SM_PEffectBonus ? SM_PEffectBonus[16] : 0;
 
     int32 potential = (mana*50)/((100));
@@ -3066,7 +3066,7 @@ uint32 Unit::ManaShieldAbsorb(uint32 dmg, SpellEntry* sp)
 
     uint32 cost = (potential*(100))/50;
 
-    SetUInt32Value(UNIT_FIELD_POWER1, mana - cost);
+    SetUInt32Value(UNIT_FIELD_MANA, mana - cost);
     m_manashieldamt -= potential;
     if(!m_manashieldamt)
         RemoveAura(m_manaShieldSpell->Id);
@@ -3816,8 +3816,8 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     {
         /* MANA */
         p->SetPowerType(POWER_TYPE_MANA);
-        p->SetUInt32Value(UNIT_FIELD_MAXPOWER1,p->GetUInt32Value(UNIT_FIELD_MAXPOWER1)+28+10*lvl);
-        p->SetUInt32Value(UNIT_FIELD_POWER1,p->GetUInt32Value(UNIT_FIELD_POWER1)+28+10*lvl);
+        p->SetUInt32Value(UNIT_FIELD_MAX_MANA,p->GetUInt32Value(UNIT_FIELD_MAX_MANA)+28+10*lvl);
+        p->SetUInt32Value(UNIT_FIELD_MANA,p->GetUInt32Value(UNIT_FIELD_MANA)+28+10*lvl);
         /* HEALTH */
         p->SetUInt32Value(UNIT_FIELD_MAXHEALTH,p->GetUInt32Value(UNIT_FIELD_MAXHEALTH)+28+30*lvl);
         p->SetUInt32Value(UNIT_FIELD_HEALTH,p->GetUInt32Value(UNIT_FIELD_HEALTH)+28+30*lvl);
@@ -4291,8 +4291,8 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     if( !target || !SpellId )
         return;
 
-    uint32 cm = target->GetUInt32Value(UNIT_FIELD_POWER1+type);
-    uint32 mm = target->GetUInt32Value(UNIT_FIELD_MAXPOWER1+type);
+    uint32 cm = target->GetUInt32Value(UNIT_FIELD_MANA+type);
+    uint32 mm = target->GetUInt32Value(UNIT_FIELD_MAX_MANA+type);
     if(mm != cm)
     {
         if( !amount )
@@ -4301,11 +4301,11 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
         cm += amount;
         if(cm > mm)
         {
-            target->SetUInt32Value(UNIT_FIELD_POWER1+type, mm);
+            target->SetUInt32Value(UNIT_FIELD_MANA+type, mm);
             amount = mm - cm;
         }
         else
-            target->SetUInt32Value(UNIT_FIELD_POWER1+type, cm);
+            target->SetUInt32Value(UNIT_FIELD_MANA+type, cm);
 
         Spell::SendHealManaSpellOnPlayer(this,target, amount, type, SpellId);
         target->SendPowerUpdate();
@@ -4476,7 +4476,7 @@ void Creature::Tag(Player* plr)
 
 void Unit::SetPower(uint32 type, int32 value)
 {
-    SetUInt32Value(UNIT_FIELD_POWER1 + type, value);
+    SetUInt32Value(UNIT_FIELD_MANA + type, value);
     SendPowerUpdate(type);
 }
 
@@ -4527,7 +4527,7 @@ void Unit::SendPowerUpdate(int8 power)
     for (int32 i = 0; i < updateCount; ++i)
     {
         data << uint8(PowerType);
-        data << GetUInt32Value(UNIT_FIELD_POWER1+PowerType);
+        data << GetUInt32Value(UNIT_FIELD_MANA+PowerType);
     }
     SendMessageToSet(&data, true);
 }

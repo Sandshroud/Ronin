@@ -8,7 +8,7 @@ UpdateMask Player::m_visibleUpdateMask;
 
 #define COLLISION_MOUNT_CHECK_INTERVAL 1000
 
-static const uint32 DKNodesMask[12] = {4294967295,4093640703,830406655,0,33570816,1310944,3250593812,73752,896,67111952,0,0};//all old continents are available to DK's by default.
+static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
 Player::Player( uint32 guid )
 {
@@ -27,6 +27,7 @@ Player::Player( uint32 guid )
     SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(guid, 0, HIGHGUID_TYPE_PLAYER));
     m_wowGuid.Init(GetGUID());
     m_deathRuneMasteryChance = 0;
+    itemBonusMask.SetCount(ITEM_STAT_MAXIMUM);
 }
 
 Player::~Player ( )
@@ -737,23 +738,23 @@ bool Player::Create(WorldPacket& data )
     AddTaximaskNode(100-m_team);
 
     // Set Starting stats for char
-    SetUInt32Value(UNIT_FIELD_STAT0, info->strength );
-    SetUInt32Value(UNIT_FIELD_STAT1, info->ability );
-    SetUInt32Value(UNIT_FIELD_STAT2, info->stamina );
-    SetUInt32Value(UNIT_FIELD_STAT3, info->intellect );
-    SetUInt32Value(UNIT_FIELD_STAT4, info->spirit );
+    SetUInt32Value(UNIT_FIELD_STRENGTH, info->strength );
+    SetUInt32Value(UNIT_FIELD_AGILITY, info->agility );
+    SetUInt32Value(UNIT_FIELD_STAMINA, info->stamina );
+    SetUInt32Value(UNIT_FIELD_INTELLECT, info->intellect );
+    SetUInt32Value(UNIT_FIELD_SPIRIT, info->spirit );
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-    SetUInt32Value(UNIT_FIELD_POWER3, info->focus );
-    SetUInt32Value(UNIT_FIELD_POWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_POWER6, getClass() == DEATHKNIGHT ? 8 : 0);
-    SetUInt32Value(UNIT_FIELD_POWER7, 0 );
+    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus );
+    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_RUNE_POWER, getClass() == DEATHKNIGHT ? 8 : 0);
+    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0 );
 
-    SetUInt32Value(UNIT_FIELD_MAXPOWER2, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER3, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER6, 8);
-    SetUInt32Value(UNIT_FIELD_MAXPOWER7, 1000 );
+    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
+    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
+    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_MAX_RUNE_POWER, 8);
+    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
 
     if(sWorld.StartLevel > 1)
@@ -780,8 +781,8 @@ bool Player::Create(WorldPacket& data )
     SetUInt32Value(UNIT_FIELD_BASE_MANA, lvlinfo ? lvlinfo->BaseMana : info->mana );
     SetUInt32Value(UNIT_FIELD_HEALTH, lvlinfo ? lvlinfo->HP : info->health);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, lvlinfo ? lvlinfo->HP : info->health);
-    SetUInt32Value(UNIT_FIELD_POWER1, lvlinfo ? lvlinfo->Mana : info->mana );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER1, lvlinfo ? lvlinfo->Mana : info->mana );
+    SetUInt32Value(UNIT_FIELD_MANA, lvlinfo ? lvlinfo->Mana : info->mana );
+    SetUInt32Value(UNIT_FIELD_MAX_MANA, lvlinfo ? lvlinfo->Mana : info->mana );
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, info->factiontemplate );
 
     SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
@@ -894,7 +895,7 @@ bool Player::Create(WorldPacket& data )
     sHookInterface.OnCharacterCreate(TO_PLAYER(this));
 
     load_health = m_uint32Values[UNIT_FIELD_HEALTH];
-    load_mana = m_uint32Values[UNIT_FIELD_POWER1];
+    load_mana = m_uint32Values[UNIT_FIELD_MANA];
     return true;
 }
 
@@ -2285,28 +2286,28 @@ void Player::InitVisibleUpdateBits()
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_0);
 
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_HEALTH);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER2);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER3);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER4);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER5);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER6);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER7);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER8);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER9);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWER10);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MANA);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_RAGE);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FOCUS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_ENERGY);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_HAPPINESS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_RUNIC_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_RUNIC_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_SOUL_SHARDS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_ECLIPSE_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_HOLY_POWER);
 
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXHEALTH);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER2);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER3);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER4);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER5);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER6);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER7);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER8);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER9);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWER10);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_MANA);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_RAGE);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_FOCUS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_ENERGY);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_HAPPINESS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_RUNE_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_RUNIC_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_SOUL_SHARDS);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_ECLIPSE_POWER);
+    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAX_HOLY_POWER);
 
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_LEVEL);
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FACTIONTEMPLATE);
@@ -2507,7 +2508,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
 
     ss << m_zoneId << ", '";
 
-    for(uint8 i = 0; i < 14; i++ )
+    for(uint8 i = 0; i < MAX_TAXI; i++ )
         ss << m_taximask[i] << " ";
     ss << "', "
 
@@ -3357,15 +3358,15 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     // Initialize 'normal' fields
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-    SetUInt32Value(UNIT_FIELD_POWER3, info->focus);
-    SetUInt32Value(UNIT_FIELD_POWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_POWER6, getClass() == DEATHKNIGHT ? 8 : 0);
-    SetUInt32Value(UNIT_FIELD_POWER7, 0);
-    SetUInt32Value(UNIT_FIELD_MAXPOWER2, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER3, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER6, 8);
-    SetUInt32Value(UNIT_FIELD_MAXPOWER7, 1000 );
+    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus);
+    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, getClass() == DEATHKNIGHT ? 8 : 0);
+    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0);
+    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
+    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
+    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_MAX_RUNE_POWER, 8);
+    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
 
@@ -4156,10 +4157,10 @@ void Player::OnPushToWorld()
             SetUInt32Value(UNIT_FIELD_HEALTH, load_health);
     }
 
-    if( load_mana > m_uint32Values[UNIT_FIELD_MAXPOWER1] )
-        SetUInt32Value( UNIT_FIELD_POWER1, m_uint32Values[UNIT_FIELD_MAXPOWER1] );
+    if( load_mana > m_uint32Values[UNIT_FIELD_MAX_MANA] )
+        SetUInt32Value( UNIT_FIELD_MANA, m_uint32Values[UNIT_FIELD_MAX_MANA] );
     else
-        SetUInt32Value(UNIT_FIELD_POWER1, load_mana);
+        SetUInt32Value(UNIT_FIELD_MANA, load_mana);
 
     if( m_mapMgr != NULL && m_mapMgr->m_battleground != NULL && m_bg != m_mapMgr->m_battleground )
     {
@@ -4279,7 +4280,7 @@ void Player::RemoveFromWorld()
     }
 
     load_health = m_uint32Values[UNIT_FIELD_HEALTH];
-    load_mana = m_uint32Values[UNIT_FIELD_POWER1];
+    load_mana = m_uint32Values[UNIT_FIELD_MANA];
 
     sHookInterface.OnPlayerChangeArea(this, 0, 0, GetAreaId());
     CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnChangeArea )( this, 0, 0, GetAreaId() );
@@ -4942,7 +4943,7 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULLPLR */)
     if( m_resurrectHealth )
         SetUInt32Value(UNIT_FIELD_HEALTH, (uint32)min( m_resurrectHealth, m_uint32Values[UNIT_FIELD_MAXHEALTH] ) );
     if( m_resurrectMana )
-        SetUInt32Value( UNIT_FIELD_POWER1, (uint32)min( m_resurrectMana, m_uint32Values[UNIT_FIELD_MAXPOWER1] ) );
+        SetUInt32Value( UNIT_FIELD_MANA, (uint32)min( m_resurrectMana, m_uint32Values[UNIT_FIELD_MAX_MANA] ) );
 
     m_resurrectHealth = m_resurrectMana = 0;
 
@@ -5006,9 +5007,9 @@ void Player::KillPlayer()
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED); //player death animation, also can be used with DYNAMIC_FLAGS <- huh???
     SetUInt32Value( UNIT_DYNAMIC_FLAGS, 0x00 );
     if(getClass() == WARRIOR) //rage resets on death
-        SetUInt32Value(UNIT_FIELD_POWER2, 0);
+        SetUInt32Value(UNIT_FIELD_RAGE, 0);
     if(getClass() == DEATHKNIGHT)
-        SetUInt32Value(UNIT_FIELD_POWER7, 0);
+        SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0);
 
     // combo points reset upon death
     NullComboPoints();
@@ -5408,7 +5409,7 @@ float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level
     gtFloat* CritPerAgi = dbcMeleeCrit.LookupEntry((_class-1)*100+(_level - 1));
     if(baseCrit == NULL || CritPerAgi == NULL)
         return 0.0f;
-    uint32 agility = GetUInt32Value(UNIT_FIELD_STAT1);
+    uint32 agility = GetUInt32Value(UNIT_FIELD_AGILITY);
     float base = 100*baseCrit->val, ratio = 100*CritPerAgi->val;
     if(ratio < 0.0f) ratio = 0.00001f;
     return (base + float(agility*ratio));
@@ -5420,7 +5421,7 @@ float Player::CalculateDefenseFromAgilForClassAndLevel(uint32 _class, uint32 _le
     if(CritPerAgi == NULL)
         return 0.0f;
     float class_multiplier = (_class == WARRIOR ? 1.1f : _class == HUNTER ? 1.6f : _class == ROGUE ? 2.0f : _class == DRUID ? 1.7f : 1.0f);
-    uint32 agility = GetUInt32Value(UNIT_FIELD_STAT1)*class_multiplier;
+    uint32 agility = GetUInt32Value(UNIT_FIELD_AGILITY)*class_multiplier;
     float base = baseDodge[_class], ratio = 100*CritPerAgi->val;
     return (base + (agility*ratio));
 }
@@ -5470,7 +5471,7 @@ void Player::UpdateChances()
     //parry
     tmp = 5.0f + CalcRating( PLAYER_RATING_MODIFIER_PARRY ) + GetParryFromSpell();
     if(pClass == DEATHKNIGHT) // DK gets 1/4 of strength as parry rating
-        tmp += CalcPercentForRating(PLAYER_RATING_MODIFIER_PARRY, GetUInt32Value(UNIT_FIELD_STAT0) / 4);
+        tmp += CalcPercentForRating(PLAYER_RATING_MODIFIER_PARRY, GetUInt32Value(UNIT_FIELD_STRENGTH) / 4);
     tmp += defence_contribution;
 
     SetFloatValue( PLAYER_PARRY_PERCENTAGE, std::max( 5.0f, std::min( tmp, 95.0f ) ) ); //let us not use negative parry. Some spells decrease it
@@ -5502,7 +5503,7 @@ void Player::UpdateChances()
     gtFloat* SpellCritBase  = dbcSpellCritBase.LookupEntry(pClass-1);
     gtFloat* SpellCritPerInt = dbcSpellCrit.LookupEntry(pLevel - 1 + (pClass-1)*100);
 
-    spellcritperc = 100*(SpellCritBase->val + (GetUInt32Value( UNIT_FIELD_STAT3 ) * SpellCritPerInt->val)) +
+    spellcritperc = 100*(SpellCritBase->val + (GetUInt32Value( UNIT_FIELD_INTELLECT ) * SpellCritPerInt->val)) +
         GetSpellCritFromSpell() + CalcRating( PLAYER_RATING_MODIFIER_SPELL_CRIT );
 
     UpdateChanceFields();
@@ -5618,8 +5619,8 @@ void Player::UpdateStats()
     int32 stam = 0;
     int32 intl = 0;
 
-    uint32 str = GetUInt32Value(UNIT_FIELD_STAT0);
-    uint32 agi = GetUInt32Value(UNIT_FIELD_STAT1);
+    uint32 str = GetUInt32Value(UNIT_FIELD_STRENGTH);
+    uint32 agi = GetUInt32Value(UNIT_FIELD_AGILITY);
     uint32 lev = getLevel(), levmax = sWorld.GetMaxLevelStatCalc();
     if(levmax && levmax < lev)
         lev = levmax;
@@ -5750,7 +5751,7 @@ void Player::UpdateStats()
     }
 
     /* modifiers */
-    RAP += int32((float(m_rap_mod_pct) * (float(m_uint32Values[UNIT_FIELD_STAT3]) / 100.0f)));
+    RAP += int32((float(m_rap_mod_pct) * (float(m_uint32Values[UNIT_FIELD_INTELLECT]) / 100.0f)));
 
     if( RAP < 0 )
         RAP = 0;
@@ -5768,7 +5769,6 @@ void Player::UpdateStats()
     }
 
     int32 hp = GetUInt32Value( UNIT_FIELD_BASE_HEALTH );
-    stam += GetUInt32Value( UNIT_FIELD_POSSTAT2 ) - GetUInt32Value( UNIT_FIELD_NEGSTAT2 );
     int32 res = hp + std::max(20, stam) + std::max(0, stam - 20) * 10 + m_healthfromspell + m_healthfromitems;
 
     if (res < 1)
@@ -5791,18 +5791,16 @@ void Player::UpdateStats()
     int32 mana = GetUInt32Value( UNIT_FIELD_BASE_MANA );
     if(cl != WARRIOR && cl != ROGUE && cl != DEATHKNIGHT)
     {
-        intl += GetUInt32Value( UNIT_FIELD_POSSTAT3 ) - GetUInt32Value( UNIT_FIELD_NEGSTAT3 );
-
         res = mana + std::max(20, intl) + std::max(0, intl - 20) * 15 + m_manafromspell + m_manafromitems;
         if( res < mana )
             res = mana;
     }
     else res = mana;
 
-    SetUInt32Value(UNIT_FIELD_MAXPOWER1, res);
+    SetUInt32Value(UNIT_FIELD_MAX_MANA, res);
 
-    if((int32)GetUInt32Value(UNIT_FIELD_POWER1) > res)
-        SetUInt32Value(UNIT_FIELD_POWER1, res);
+    if((int32)GetUInt32Value(UNIT_FIELD_MANA) > res)
+        SetUInt32Value(UNIT_FIELD_MANA, res);
 
     uint32 lvl = getLevel();
     if(lvl > 100)
@@ -7483,24 +7481,24 @@ void Player::Reset_ToLevel1()
     ASSERT(info);
 
     SetUInt32Value(UNIT_FIELD_HEALTH, info->health);
-    SetUInt32Value(UNIT_FIELD_POWER1, info->mana );
-    SetUInt32Value(UNIT_FIELD_POWER2, 0 ); // this gets devided by 10
-    SetUInt32Value(UNIT_FIELD_POWER3, info->focus );
-    SetUInt32Value(UNIT_FIELD_POWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_POWER7, 0 );
+    SetUInt32Value(UNIT_FIELD_MANA, info->mana );
+    SetUInt32Value(UNIT_FIELD_RAGE, 0 ); // this gets devided by 10
+    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus );
+    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0 );
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, info->health);
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, info->health);
     SetUInt32Value(UNIT_FIELD_BASE_MANA, info->mana);
-    SetUInt32Value(UNIT_FIELD_MAXPOWER1, info->mana );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER2, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER3, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER4, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAXPOWER7, 1000 );
-    SetUInt32Value(UNIT_FIELD_STAT0, info->strength );
-    SetUInt32Value(UNIT_FIELD_STAT1, info->ability );
-    SetUInt32Value(UNIT_FIELD_STAT2, info->stamina );
-    SetUInt32Value(UNIT_FIELD_STAT3, info->intellect );
-    SetUInt32Value(UNIT_FIELD_STAT4, info->spirit );
+    SetUInt32Value(UNIT_FIELD_MAX_MANA, info->mana );
+    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
+    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
+    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
+    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
+    SetUInt32Value(UNIT_FIELD_STRENGTH, info->strength );
+    SetUInt32Value(UNIT_FIELD_AGILITY, info->agility );
+    SetUInt32Value(UNIT_FIELD_STAMINA, info->stamina );
+    SetUInt32Value(UNIT_FIELD_INTELLECT, info->intellect );
+    SetUInt32Value(UNIT_FIELD_SPIRIT, info->spirit );
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, info->attackpower );
     for(uint32 x=0;x<7;x++)
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.00);
@@ -7520,10 +7518,7 @@ static uint32 schooltoModBonus[MAX_RESISTANCE] =
 
 int32 Player::GetBaseResistance(uint8 school)
 {
-    int32 baseRes = 0;
-    for(ItemBonusModMap::iterator itr = itemBonusMapByType[schooltoModBonus[school]].begin(); itr != itemBonusMapByType[schooltoModBonus[school]].end(); itr++)
-        baseRes += itr->second.second;
-    return baseRes;
+    return GetBonusesFromItems(schooltoModBonus[school]);
 }
 
 void Player::CalcResistance(uint32 type)
@@ -7562,7 +7557,7 @@ void Player::CalcResistance(uint32 type)
 
     int32 res = BaseResistance[type] + pos - neg;
     if( type == 0 )
-        res += m_uint32Values[UNIT_FIELD_STAT1] * 2;//fix armor from agi
+        res += m_uint32Values[UNIT_FIELD_AGILITY] * 2;//fix armor from agi
     if( res < 0 )
         res = 0;
 
@@ -7570,7 +7565,7 @@ void Player::CalcResistance(uint32 type)
     neg += float2int32( res * (float)( ResistanceModPctNeg[type] / 100.0f ) );
     res = pos - neg + BaseResistance[type];
     if( type == 0 )
-        res += m_uint32Values[UNIT_FIELD_STAT1] * 2;//fix armor from agi
+        res += m_uint32Values[UNIT_FIELD_AGILITY] * 2;//fix armor from agi
 
     res = res < 0 ? 0 : res;
     SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+type,pos);
@@ -7875,9 +7870,9 @@ void Player::CalcStat(uint32 type)
             res = 1;
     }
 
-    SetUInt32Value( UNIT_FIELD_POSSTAT0 + type, pos );
-    SetUInt32Value( UNIT_FIELD_NEGSTAT0 + type, neg );
-    SetUInt32Value( UNIT_FIELD_STAT0 + type, res > 0 ? res : 0 );
+    SetUInt32Value( UNIT_FIELD_POSSTATS + type, pos );
+    SetUInt32Value( UNIT_FIELD_NEGSTATS + type, neg );
+    SetUInt32Value( UNIT_FIELD_STATS + type, res > 0 ? res : 0 );
     if( type == 1 )
         CalcResistance(RESISTANCE_ARMOR);
 }
@@ -7985,7 +7980,7 @@ void Player::PlayerRegeneratePower(bool is_interrupted)
             SetPower(power, curValue);
         }
         else
-            m_uint32Values[UNIT_FIELD_POWER1 + power] = curValue;
+            m_uint32Values[UNIT_FIELD_MANA + power] = curValue;
         continue;
     }
 }
@@ -7997,7 +7992,7 @@ void Player::RegenerateHealth( bool inCombat )
     if(cur >= mh)
         return;
 
-    float Spirit = (float) GetUInt32Value(UNIT_FIELD_STAT4);
+    float Spirit = (float) GetUInt32Value(UNIT_FIELD_SPIRIT);
     uint8 Class = getClass(), level = ((getLevel() > MAXIMUM_ATTAINABLE_LEVEL) ? MAXIMUM_ATTAINABLE_LEVEL : getLevel());
     gtFloat *HPRegen = dbcHPRegen.LookupEntry((Class-1)*MAXIMUM_ATTAINABLE_LEVEL + (level-1));
     if(HPRegen == NULL)
@@ -8871,8 +8866,8 @@ void Player::DuelCountdown()
     if( m_duelCountdownTimer == 0 )
     {
         // Start Duel.
-        SetUInt32Value( UNIT_FIELD_POWER2, 0 );
-        DuelingWith->SetUInt32Value( UNIT_FIELD_POWER2, 0 );
+        SetUInt32Value( UNIT_FIELD_RAGE, 0 );
+        DuelingWith->SetUInt32Value( UNIT_FIELD_RAGE, 0 );
 
         //Give the players a Team
         DuelingWith->SetUInt32Value( PLAYER_DUEL_TEAM, 1 ); // Duel Requester
@@ -9078,7 +9073,7 @@ void Player::ApplyLevelInfo(uint32 Level)
         }
 
         SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-        SetUInt32Value(UNIT_FIELD_POWER1, GetUInt32Value(UNIT_FIELD_MAXPOWER1));
+        SetUInt32Value(UNIT_FIELD_MANA, GetUInt32Value(UNIT_FIELD_MAX_MANA));
 
         GetAchievementInterface()->HandleAchievementCriteriaLevelUp( getLevel() );
         InitGlyphsForLevel();
@@ -9491,7 +9486,7 @@ void Player::CalculateBaseStats()
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, lvlinfo->BaseHP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, lvlinfo->HP);
     SetUInt32Value(UNIT_FIELD_BASE_MANA, lvlinfo->BaseMana);
-    SetUInt32Value(UNIT_FIELD_MAXPOWER1, lvlinfo->Mana);
+    SetUInt32Value(UNIT_FIELD_MAX_MANA, lvlinfo->Mana);
 }
 
 void Player::CompleteLoading()
@@ -9659,8 +9654,17 @@ void Player::OnWorldPortAck()
     ResetHeartbeatCoords();
 }
 
+int32 Player::GetBonusesFromItems(uint32 statType)
+{
+    int32 bonus = 0;
+    for(ItemBonusModMap::iterator itr = itemBonusMapByType[statType].begin(); itr != itemBonusMapByType[statType].end(); itr++)
+        bonus += itr->second.second;
+    return bonus;
+}
+
 void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val)
 {
+    itemBonusMask.SetBit(type);
     std::pair<uint64, uint32> guid_slot = std::make_pair(guid, slot);
     if(apply)
     {
@@ -9683,7 +9687,7 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     switch (type)
     {
     case ITEM_STAT_POWER:
-        ModUnsigned32Value( UNIT_FIELD_MAXPOWER1, modVal );
+        ModUnsigned32Value( UNIT_FIELD_MAX_MANA, modVal );
         m_manafromitems += modVal;
         break;
     case ITEM_STAT_HEALTH:
@@ -11909,8 +11913,8 @@ void Player::FullHPMP()
         ResurrectPlayer();
 
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-    SetUInt32Value(UNIT_FIELD_POWER1, GetUInt32Value(UNIT_FIELD_MAXPOWER1));
-    SetUInt32Value(UNIT_FIELD_POWER4, GetUInt32Value(UNIT_FIELD_MAXPOWER4));
+    SetUInt32Value(UNIT_FIELD_MANA, GetUInt32Value(UNIT_FIELD_MAX_MANA));
+    SetUInt32Value(UNIT_FIELD_ENERGY, GetUInt32Value(UNIT_FIELD_MAX_ENERGY));
     sEventMgr.RemoveEvents(this, EVENT_PLAYER_FULL_HPMP);
 }
 

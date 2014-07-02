@@ -201,13 +201,13 @@ void Pet::CreateAsSummon(CreatureProto* proto, CreatureInfo *ci, Creature* creat
     {
         // These need to be checked.
         SetHappiness(PET_HAPPINESS_UPDATE_VALUE >> 1);//happiness
-        SetUInt32Value(UNIT_FIELD_MAXPOWER5, 1000000);
+        SetUInt32Value(UNIT_FIELD_MAX_HAPPINESS, 1000000);
         SetUInt32Value(UNIT_FIELD_PETEXPERIENCE, 0);
         SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, GetNextLevelXP(getLevel()));
 
         // Focus
-        SetUInt32Value(UNIT_FIELD_POWER3, 100);
-        SetUInt32Value(UNIT_FIELD_MAXPOWER3, 100);
+        SetUInt32Value(UNIT_FIELD_FOCUS, 100);
+        SetUInt32Value(UNIT_FIELD_MAX_FOCUS, 100);
 
         // 0x3 -> Enable pet rename.
         SetUInt32Value(UNIT_FIELD_BYTES_2, 1 | (0x3 << 16));
@@ -1191,7 +1191,7 @@ void Pet::ApplyPetLevelAbilities()
     float pet_mod_sta = 1.05, pet_mod_arm = 1.05, pet_mod_dps = 1.05;
 
     // As of patch 3.0 the pet gains 45% of the hunters stamina
-    float pet_sta_bonus = 0.45 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_STAT2);
+    float pet_sta_bonus = 0.45 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_STAMINA);
     float pet_arm_bonus = 0.35 * (float)m_Owner->BaseResistance[RESISTANCE_ARMOR];       // Armor
     float pet_ap_bonus = 0.22 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER);
 

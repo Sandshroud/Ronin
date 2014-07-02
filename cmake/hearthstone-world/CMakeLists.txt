@@ -172,7 +172,7 @@ SET(group_sources ${group_sources} ${spell_fixes_sources})
 
 FILE(GLOB sources "${prefix}/*.h" "${prefix}/*.cpp"
 "${ROOT_PATH}/src/hearthstone-shared/MemAllocator.*")
-source_group("System" FILES ${sources})
+source_group("Mainframe\\System" FILES ${sources})
 
 #Remove already added files from our main source files
 list(REMOVE_ITEM sources ${group_sources})

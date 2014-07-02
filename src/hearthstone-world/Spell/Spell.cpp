@@ -2565,7 +2565,7 @@ bool Spell::TakePower()
         return true;
     }
 
-    if(powerField == UNIT_FIELD_POWER6)
+    if(powerField == UNIT_FIELD_RUNIC_POWER)
     {
         if(cost)
         {
@@ -2621,14 +2621,14 @@ int32 Spell::CalculateCost(int32 &powerField)
     switch(GetSpellProto()->powerType)
     {
     case POWER_TYPE_HEALTH:     { powerField = UNIT_FIELD_HEALTH; }break;
-    case POWER_TYPE_MANA:       { powerField = UNIT_FIELD_POWER1; m_usesMana = true; }break;
-    case POWER_TYPE_RAGE:       { powerField = UNIT_FIELD_POWER2; }break;
-    case POWER_TYPE_FOCUS:      { powerField = UNIT_FIELD_POWER3; }break;
-    case POWER_TYPE_ENERGY:     { powerField = UNIT_FIELD_POWER4; }break;
-    case POWER_TYPE_RUNIC:      { powerField = UNIT_FIELD_POWER7; }break;
-    case POWER_TYPE_SOUL_SHARDS:{ powerField = UNIT_FIELD_POWER8; }break;
-    case POWER_TYPE_ECLIPSE:    { powerField = UNIT_FIELD_POWER9; }break;
-    case POWER_TYPE_HOLY_POWER: { powerField = UNIT_FIELD_POWER10; }break;
+    case POWER_TYPE_MANA:       { powerField = UNIT_FIELD_MANA; m_usesMana = true; }break;
+    case POWER_TYPE_RAGE:       { powerField = UNIT_FIELD_RAGE; }break;
+    case POWER_TYPE_FOCUS:      { powerField = UNIT_FIELD_FOCUS; }break;
+    case POWER_TYPE_ENERGY:     { powerField = UNIT_FIELD_ENERGY; }break;
+    case POWER_TYPE_RUNIC:      { powerField = UNIT_FIELD_RUNIC_POWER; }break;
+    case POWER_TYPE_SOUL_SHARDS:{ powerField = UNIT_FIELD_SOUL_SHARDS; }break;
+    case POWER_TYPE_ECLIPSE:    { powerField = UNIT_FIELD_ECLIPSE_POWER; }break;
+    case POWER_TYPE_HOLY_POWER: { powerField = UNIT_FIELD_HOLY_POWER; }break;
     case POWER_TYPE_RUNE:
         {
             if(GetSpellProto()->RuneCostID && p_caster)
@@ -2636,7 +2636,7 @@ int32 Spell::CalculateCost(int32 &powerField)
                 SpellRuneCostEntry * runecost = dbcSpellRuneCost.LookupEntry(GetSpellProto()->RuneCostID);
                 if( !p_caster->CanUseRunes( runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost) )
                     return 0;
-                powerField = UNIT_FIELD_POWER6;
+                powerField = UNIT_FIELD_RUNIC_POWER;
                 return GetSpellProto()->RuneCostID;
             }
             return 0;
@@ -3389,7 +3389,7 @@ uint8 Spell::CanCast(bool tolerate)
             if( GetSpellProto()->c_is_flags & SPELL_FLAG_IS_HEALING_SPELL && p_caster->GetUInt32Value(UNIT_FIELD_HEALTH) == p_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH) )
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
 
-            if( p_caster->GetPowerType() == POWER_TYPE_MANA && GetSpellProto()->c_is_flags & SPELL_FLAG_IS_HEALING_MANA_SPELL && p_caster->GetUInt32Value(UNIT_FIELD_POWER1) == p_caster->GetUInt32Value(UNIT_FIELD_MAXPOWER1) )
+            if( p_caster->GetPowerType() == POWER_TYPE_MANA && GetSpellProto()->c_is_flags & SPELL_FLAG_IS_HEALING_MANA_SPELL && p_caster->GetUInt32Value(UNIT_FIELD_MANA) == p_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA) )
                 return SPELL_FAILED_ALREADY_AT_FULL_MANA;
         }
 
@@ -4649,7 +4649,7 @@ void Spell::Heal(int32 amount)
         {
             SpellEntry *spellInfo = dbcSpell.LookupEntry( 47755 );
             Spell* sp(new Spell( u_caster, spellInfo, true, NULLAURA ));
-            uint32 maxmana = u_caster->GetUInt32Value(UNIT_FIELD_MAXPOWER1);
+            uint32 maxmana = u_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA);
             float rapture_mod = u_caster->GetDummyAura( SPELL_HASH_RAPTURE )->RankNumber * 0.005f;
             sp->forced_basepoints[0] = float2int32( maxmana * rapture_mod );
             SpellCastTargets tgt;

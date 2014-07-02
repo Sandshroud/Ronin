@@ -148,6 +148,7 @@ int WorldSession::Update(uint32 InstanceID)
                             packet->opcodename = sOpcodeMgr.GetOpcodeName(packet->GetOpcode()); // Needed for ByteBuffer
                             try
                             {
+                                printf("Handling packet %u(%s)\n", packet->GetOpcode(), packet->opcodename);
                                 (this->*Handler->handler)(*packet);
                             }
                             catch (ByteBufferException &)
@@ -343,7 +344,7 @@ void WorldSession::LogoutPlayer(bool Save)
 
         // Save HP/Mana
         _player->load_health = _player->GetUInt32Value( UNIT_FIELD_HEALTH );
-        _player->load_mana = _player->GetUInt32Value( UNIT_FIELD_POWER1 );
+        _player->load_mana = _player->GetUInt32Value( UNIT_FIELD_MANA );
 
         objmgr.RemovePlayer( _player );
         _player->ok_to_remove = true;

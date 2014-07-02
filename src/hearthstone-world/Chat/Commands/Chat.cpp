@@ -211,12 +211,12 @@ void CommandTableStorage::Init()
     {
         { "hp",                         COMMAND_LEVEL_M, NULL,                                          "Health Points/HP",         NULL, UNIT_FIELD_HEALTH,            UNIT_FIELD_MAXHEALTH,   1 },
         { "gender",                     COMMAND_LEVEL_M, &ChatHandler::HandleGenderChanger,             "Changes gender",           NULL, 0,                            0,                      0 },
-        { "mana",                       COMMAND_LEVEL_M, NULL,                                          "Mana Points/MP",           NULL, UNIT_FIELD_POWER1,            UNIT_FIELD_MAXPOWER1,   1 },
-        { "rage",                       COMMAND_LEVEL_M, NULL,                                          "Rage Points",              NULL, UNIT_FIELD_POWER2,            UNIT_FIELD_MAXPOWER2,   1 },
-        { "runicpower",                 COMMAND_LEVEL_M, NULL,                                          "Runic Power",              NULL, UNIT_FIELD_POWER7,            UNIT_FIELD_MAXPOWER7,   1 },
-        { "energy",                     COMMAND_LEVEL_M, NULL,                                          "Energy Points",            NULL, UNIT_FIELD_POWER4,            UNIT_FIELD_MAXPOWER4,   1 },
+        { "mana",                       COMMAND_LEVEL_M, NULL,                                          "Mana Points/MP",           NULL, UNIT_FIELD_MANA,            UNIT_FIELD_MAX_MANA,   1 },
+        { "rage",                       COMMAND_LEVEL_M, NULL,                                          "Rage Points",              NULL, UNIT_FIELD_RAGE,            UNIT_FIELD_MAX_RAGE,   1 },
+        { "runicpower",                 COMMAND_LEVEL_M, NULL,                                          "Runic Power",              NULL, UNIT_FIELD_RUNIC_POWER,            UNIT_FIELD_MAX_RUNIC_POWER,   1 },
+        { "energy",                     COMMAND_LEVEL_M, NULL,                                          "Energy Points",            NULL, UNIT_FIELD_ENERGY,            UNIT_FIELD_MAX_ENERGY,   1 },
         { "level",                      COMMAND_LEVEL_M, &ChatHandler::HandleModifyLevelCommand,        "Level",                    NULL, 0,                            0,                      0 },
-        { "armor",                      COMMAND_LEVEL_M, NULL,                                          "Armor",                    NULL, UNIT_FIELD_STAT1,             0,                      1 },
+        { "armor",                      COMMAND_LEVEL_M, NULL,                                          "Armor",                    NULL, UNIT_FIELD_RESISTANCES,       0,                      1 },
         { "holy",                       COMMAND_LEVEL_M, NULL,                                          "Holy Resistance",          NULL, UNIT_FIELD_RESISTANCES+1,     0,                      1 },
         { "fire",                       COMMAND_LEVEL_M, NULL,                                          "Fire Resistance",          NULL, UNIT_FIELD_RESISTANCES+2,     0,                      1 },
         { "nature",                     COMMAND_LEVEL_M, NULL,                                          "Nature Resistance",        NULL, UNIT_FIELD_RESISTANCES+3,     0,                      1 },
@@ -233,8 +233,8 @@ void CommandTableStorage::Init()
         { "faction",                    COMMAND_LEVEL_M, &ChatHandler::HandleModifyFactionCommand,      "Faction Template",         NULL, 0,                            0,                      1 },
         { "dynamicflags",               COMMAND_LEVEL_M, NULL,                                          "Dynamic Flags",            NULL, UNIT_DYNAMIC_FLAGS,           0,                      1 },
         { "talentpoints",               COMMAND_LEVEL_M, &ChatHandler::HandleModifyTPsCommand,          "Talent points",            NULL, 0,                            0,                      0 },
-        { "happiness",                  COMMAND_LEVEL_M, NULL,                                          "Happiness",                NULL, UNIT_FIELD_POWER5,            UNIT_FIELD_MAXPOWER5,   1 },
-        { "spirit",                     COMMAND_LEVEL_M, NULL,                                          "Spirit",                   NULL, UNIT_FIELD_STAT0,             0,                      1 },
+        { "happiness",                  COMMAND_LEVEL_M, NULL,                                          "Happiness",                NULL, UNIT_FIELD_HAPPINESS,            UNIT_FIELD_MAX_HAPPINESS,   1 },
+        { "spirit",                     COMMAND_LEVEL_M, NULL,                                          "Spirit",                   NULL, UNIT_FIELD_SPIRIT,            0,                      1 },
         { "boundingraidius",            COMMAND_LEVEL_M, NULL,                                          "Bounding Radius",          NULL, UNIT_FIELD_BOUNDINGRADIUS,    0,                      2 },
         { "combatreach",                COMMAND_LEVEL_M, NULL,                                          "Combat Reach",             NULL, UNIT_FIELD_COMBATREACH,       0,                      2 },
         { "bytes",                      COMMAND_LEVEL_M, NULL,                                          "Bytes",                    NULL, UNIT_FIELD_BYTES_0,           0,                      1 },
@@ -1256,7 +1256,6 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
             GreenSystemMessageToPlr(plr, "%s set your %s to %d.", m_session->GetPlayer()->GetName(), fieldname, av);
         }
 
-        if(field == UNIT_FIELD_STAT1) av /= 2;
         if(field == UNIT_FIELD_BASE_HEALTH)
             plr->SetUInt32Value(UNIT_FIELD_HEALTH, av);
 
@@ -1276,10 +1275,6 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
 
             switch(field)
             {
-            case UNIT_FIELD_STAT1:
-                {
-                    av /= 2;
-                }break;
             case UNIT_FIELD_BASE_HEALTH:
                 {
                     cr->SetUInt32Value(UNIT_FIELD_HEALTH, av);

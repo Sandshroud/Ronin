@@ -460,7 +460,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
         pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->displayId = fields[fieldcount++].GetUInt16();
         pPlayerCreateInfo->strength = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->ability = fields[fieldcount++].GetUInt8();
+        pPlayerCreateInfo->agility = fields[fieldcount++].GetUInt8();
         pPlayerCreateInfo->stamina = fields[fieldcount++].GetUInt8();
         pPlayerCreateInfo->intellect = fields[fieldcount++].GetUInt8();
         pPlayerCreateInfo->spirit = fields[fieldcount++].GetUInt8();
@@ -1571,7 +1571,7 @@ void ObjectMgr::GenerateLevelUpInfo()
             lvl0->HP = PCI->health;
             lvl0->Mana = PCI->mana;
             lvl0->Stat[0] = PCI->strength;
-            lvl0->Stat[1] = PCI->ability;
+            lvl0->Stat[1] = PCI->agility;
             lvl0->Stat[2] = PCI->stamina;
             lvl0->Stat[3] = PCI->intellect;
             lvl0->Stat[4] = PCI->spirit;
@@ -1598,7 +1598,7 @@ void ObjectMgr::GenerateLevelUpInfo()
                     case STAT_INTELLECT:    lvl->Stat[s] += PCI->intellect; break;
                     case STAT_STAMINA:      lvl->Stat[s] += PCI->stamina; break;
                     case STAT_SPIRIT:       lvl->Stat[s] += PCI->spirit; break;
-                    case STAT_AGILITY:      lvl->Stat[s] += PCI->ability; break;
+                    case STAT_AGILITY:      lvl->Stat[s] += PCI->agility; break;
                     }
                 }
 

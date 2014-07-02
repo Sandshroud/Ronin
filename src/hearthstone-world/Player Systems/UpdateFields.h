@@ -85,29 +85,9 @@ enum EUnitFields
     UNIT_CHANNEL_SPELL                        = OBJECT_END + 0x0010, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_BYTES_0                        = OBJECT_END + 0x0011, // Size: 1, Type: BYTES, Flags: PUBLIC
     UNIT_FIELD_HEALTH                         = OBJECT_END + 0x0012, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER1                         = OBJECT_END + 0x0013, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER2                         = OBJECT_END + 0x0014, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER3                         = OBJECT_END + 0x0015, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER4                         = OBJECT_END + 0x0016, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER5                         = OBJECT_END + 0x0017, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER6                         = OBJECT_END + 0x0018, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER7                         = OBJECT_END + 0x0019, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER8                         = OBJECT_END + 0x001A, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER9                         = OBJECT_END + 0x001B, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER10                        = OBJECT_END + 0x001C, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER11                        = OBJECT_END + 0x001D, // Size: 1, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_POWER                          = OBJECT_END + 0x0013, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_MAXHEALTH                      = OBJECT_END + 0x001E, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER1                      = OBJECT_END + 0x001F, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER2                      = OBJECT_END + 0x0020, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER3                      = OBJECT_END + 0x0021, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER4                      = OBJECT_END + 0x0022, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER5                      = OBJECT_END + 0x0023, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER6                      = OBJECT_END + 0x0024, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER7                      = OBJECT_END + 0x0025, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER8                      = OBJECT_END + 0x0026, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER9                      = OBJECT_END + 0x0027, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER10                     = OBJECT_END + 0x0028, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER11                     = OBJECT_END + 0x0029, // Size: 1, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_MAXPOWER                       = OBJECT_END + 0x001F, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER      = OBJECT_END + 0x002A, // Size: 11, Type: FLOAT, Flags: PRIVATE, OWNER
     UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER = OBJECT_END + 0x0035, // Size: 11, Type: FLOAT, Flags: PRIVATE, OWNER
     UNIT_FIELD_LEVEL                          = OBJECT_END + 0x0040, // Size: 1, Type: INT, Flags: PUBLIC
@@ -137,21 +117,9 @@ enum EUnitFields
     UNIT_CREATED_BY_SPELL                     = OBJECT_END + 0x005B, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_NPC_FLAGS                            = OBJECT_END + 0x005C, // Size: 1, Type: INT, Flags: UNUSED2
     UNIT_NPC_EMOTESTATE                       = OBJECT_END + 0x005D, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_STAT0                          = OBJECT_END + 0x005E, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_STAT1                          = OBJECT_END + 0x005F, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_STAT2                          = OBJECT_END + 0x0060, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_STAT3                          = OBJECT_END + 0x0061, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_STAT4                          = OBJECT_END + 0x0062, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTAT0                       = OBJECT_END + 0x0063, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTAT1                       = OBJECT_END + 0x0064, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTAT2                       = OBJECT_END + 0x0065, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTAT3                       = OBJECT_END + 0x0066, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTAT4                       = OBJECT_END + 0x0067, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTAT0                       = OBJECT_END + 0x0068, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTAT1                       = OBJECT_END + 0x0069, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTAT2                       = OBJECT_END + 0x006A, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTAT3                       = OBJECT_END + 0x006B, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTAT4                       = OBJECT_END + 0x006C, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_STATS                          = OBJECT_END + 0x005E, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_POSSTATS                       = OBJECT_END + 0x0063, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_NEGSTATS                       = OBJECT_END + 0x0068, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_RESISTANCES                    = OBJECT_END + 0x006D, // Size: 7, Type: INT, Flags: PRIVATE, OWNER, ITEM_OWNER
     UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE     = OBJECT_END + 0x0074, // Size: 7, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE     = OBJECT_END + 0x007B, // Size: 7, Type: INT, Flags: PRIVATE, OWNER
@@ -189,198 +157,6 @@ enum EUnitFields
     PLAYER_QUEST_LOG_1_2                      = UNIT_END + 0x000C, // Size: 1, Type: INT, Flags: PARTY_LEADER
     PLAYER_QUEST_LOG_1_3                      = UNIT_END + 0x000D, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
     PLAYER_QUEST_LOG_1_4                      = UNIT_END + 0x000F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_2_1                      = UNIT_END + 0x0010, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_2_2                      = UNIT_END + 0x0011, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_2_3                      = UNIT_END + 0x0012, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_2_5                      = UNIT_END + 0x0014, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_3_1                      = UNIT_END + 0x0015, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_3_2                      = UNIT_END + 0x0016, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_3_3                      = UNIT_END + 0x0017, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_3_5                      = UNIT_END + 0x0019, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_4_1                      = UNIT_END + 0x001A, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_4_2                      = UNIT_END + 0x001B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_4_3                      = UNIT_END + 0x001C, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_4_5                      = UNIT_END + 0x001E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_5_1                      = UNIT_END + 0x001F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_5_2                      = UNIT_END + 0x0020, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_5_3                      = UNIT_END + 0x0021, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_5_5                      = UNIT_END + 0x0023, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_6_1                      = UNIT_END + 0x0024, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_6_2                      = UNIT_END + 0x0025, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_6_3                      = UNIT_END + 0x0026, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_6_5                      = UNIT_END + 0x0028, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_7_1                      = UNIT_END + 0x0029, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_7_2                      = UNIT_END + 0x002A, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_7_3                      = UNIT_END + 0x002B, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_7_5                      = UNIT_END + 0x002D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_8_1                      = UNIT_END + 0x002E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_8_2                      = UNIT_END + 0x002F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_8_3                      = UNIT_END + 0x0030, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_8_5                      = UNIT_END + 0x0032, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_9_1                      = UNIT_END + 0x0033, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_9_2                      = UNIT_END + 0x0034, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_9_3                      = UNIT_END + 0x0035, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_9_5                      = UNIT_END + 0x0037, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_10_1                     = UNIT_END + 0x0038, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_10_2                     = UNIT_END + 0x0039, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_10_3                     = UNIT_END + 0x003A, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_10_5                     = UNIT_END + 0x003C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_11_1                     = UNIT_END + 0x003D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_11_2                     = UNIT_END + 0x003E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_11_3                     = UNIT_END + 0x003F, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_11_5                     = UNIT_END + 0x0041, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_12_1                     = UNIT_END + 0x0042, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_12_2                     = UNIT_END + 0x0043, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_12_3                     = UNIT_END + 0x0044, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_12_5                     = UNIT_END + 0x0046, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_13_1                     = UNIT_END + 0x0047, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_13_2                     = UNIT_END + 0x0048, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_13_3                     = UNIT_END + 0x0049, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_13_5                     = UNIT_END + 0x004B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_14_1                     = UNIT_END + 0x004C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_14_2                     = UNIT_END + 0x004D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_14_3                     = UNIT_END + 0x004E, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_14_5                     = UNIT_END + 0x0050, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_15_1                     = UNIT_END + 0x0051, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_15_2                     = UNIT_END + 0x0052, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_15_3                     = UNIT_END + 0x0053, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_15_5                     = UNIT_END + 0x0055, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_16_1                     = UNIT_END + 0x0056, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_16_2                     = UNIT_END + 0x0057, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_16_3                     = UNIT_END + 0x0058, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_16_5                     = UNIT_END + 0x005A, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_17_1                     = UNIT_END + 0x005B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_17_2                     = UNIT_END + 0x005C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_17_3                     = UNIT_END + 0x005D, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_17_5                     = UNIT_END + 0x005F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_18_1                     = UNIT_END + 0x0060, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_18_2                     = UNIT_END + 0x0061, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_18_3                     = UNIT_END + 0x0062, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_18_5                     = UNIT_END + 0x0064, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_19_1                     = UNIT_END + 0x0065, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_19_2                     = UNIT_END + 0x0066, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_19_3                     = UNIT_END + 0x0067, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_19_5                     = UNIT_END + 0x0069, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_20_1                     = UNIT_END + 0x006A, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_20_2                     = UNIT_END + 0x006B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_20_3                     = UNIT_END + 0x006C, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_20_5                     = UNIT_END + 0x006E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_21_1                     = UNIT_END + 0x006F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_21_2                     = UNIT_END + 0x0070, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_21_3                     = UNIT_END + 0x0071, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_21_5                     = UNIT_END + 0x0073, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_22_1                     = UNIT_END + 0x0074, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_22_2                     = UNIT_END + 0x0075, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_22_3                     = UNIT_END + 0x0076, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_22_5                     = UNIT_END + 0x0078, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_23_1                     = UNIT_END + 0x0079, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_23_2                     = UNIT_END + 0x007A, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_23_3                     = UNIT_END + 0x007B, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_23_5                     = UNIT_END + 0x007D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_24_1                     = UNIT_END + 0x007E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_24_2                     = UNIT_END + 0x007F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_24_3                     = UNIT_END + 0x0080, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_24_5                     = UNIT_END + 0x0082, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_25_1                     = UNIT_END + 0x0083, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_25_2                     = UNIT_END + 0x0084, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_25_3                     = UNIT_END + 0x0085, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_25_5                     = UNIT_END + 0x0087, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_26_1                     = UNIT_END + 0x0088, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_26_2                     = UNIT_END + 0x0089, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_26_3                     = UNIT_END + 0x008A, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_26_5                     = UNIT_END + 0x008C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_27_1                     = UNIT_END + 0x008D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_27_2                     = UNIT_END + 0x008E, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_27_3                     = UNIT_END + 0x008F, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_27_5                     = UNIT_END + 0x0091, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_28_1                     = UNIT_END + 0x0092, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_28_2                     = UNIT_END + 0x0093, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_28_3                     = UNIT_END + 0x0094, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_28_5                     = UNIT_END + 0x0096, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_29_1                     = UNIT_END + 0x0097, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_29_2                     = UNIT_END + 0x0098, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_29_3                     = UNIT_END + 0x0099, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_29_5                     = UNIT_END + 0x009B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_30_1                     = UNIT_END + 0x009C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_30_2                     = UNIT_END + 0x009D, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_30_3                     = UNIT_END + 0x009E, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_30_5                     = UNIT_END + 0x00A0, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_31_1                     = UNIT_END + 0x00A1, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_31_2                     = UNIT_END + 0x00A2, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_31_3                     = UNIT_END + 0x00A3, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_31_5                     = UNIT_END + 0x00A5, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_32_1                     = UNIT_END + 0x00A6, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_32_2                     = UNIT_END + 0x00A7, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_32_3                     = UNIT_END + 0x00A8, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_32_5                     = UNIT_END + 0x00AA, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_33_1                     = UNIT_END + 0x00AB, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_33_2                     = UNIT_END + 0x00AC, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_33_3                     = UNIT_END + 0x00AD, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_33_5                     = UNIT_END + 0x00AF, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_34_1                     = UNIT_END + 0x00B0, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_34_2                     = UNIT_END + 0x00B1, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_34_3                     = UNIT_END + 0x00B2, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_34_5                     = UNIT_END + 0x00B4, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_35_1                     = UNIT_END + 0x00B5, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_35_2                     = UNIT_END + 0x00B6, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_35_3                     = UNIT_END + 0x00B7, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_35_5                     = UNIT_END + 0x00B9, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_36_1                     = UNIT_END + 0x00BA, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_36_2                     = UNIT_END + 0x00BB, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_36_3                     = UNIT_END + 0x00BC, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_36_5                     = UNIT_END + 0x00BE, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_37_1                     = UNIT_END + 0x00BF, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_37_2                     = UNIT_END + 0x00C0, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_37_3                     = UNIT_END + 0x00C1, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_37_5                     = UNIT_END + 0x00C3, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_38_1                     = UNIT_END + 0x00C4, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_38_2                     = UNIT_END + 0x00C5, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_38_3                     = UNIT_END + 0x00C6, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_38_5                     = UNIT_END + 0x00C8, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_39_1                     = UNIT_END + 0x00C9, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_39_2                     = UNIT_END + 0x00CA, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_39_3                     = UNIT_END + 0x00CB, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_39_5                     = UNIT_END + 0x00CD, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_40_1                     = UNIT_END + 0x00CE, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_40_2                     = UNIT_END + 0x00CF, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_40_3                     = UNIT_END + 0x00D0, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_40_5                     = UNIT_END + 0x00D2, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_41_1                     = UNIT_END + 0x00D3, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_41_2                     = UNIT_END + 0x00D4, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_41_3                     = UNIT_END + 0x00D5, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_41_5                     = UNIT_END + 0x00D7, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_42_1                     = UNIT_END + 0x00D8, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_42_2                     = UNIT_END + 0x00D9, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_42_3                     = UNIT_END + 0x00DA, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_42_5                     = UNIT_END + 0x00DC, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_43_1                     = UNIT_END + 0x00DD, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_43_2                     = UNIT_END + 0x00DE, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_43_3                     = UNIT_END + 0x00DF, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_43_5                     = UNIT_END + 0x00E1, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_44_1                     = UNIT_END + 0x00E2, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_44_2                     = UNIT_END + 0x00E3, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_44_3                     = UNIT_END + 0x00E4, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_44_5                     = UNIT_END + 0x00E6, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_45_1                     = UNIT_END + 0x00E7, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_45_2                     = UNIT_END + 0x00E8, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_45_3                     = UNIT_END + 0x00E9, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_45_5                     = UNIT_END + 0x00EB, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_46_1                     = UNIT_END + 0x00EC, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_46_2                     = UNIT_END + 0x00ED, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_46_3                     = UNIT_END + 0x00EE, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_46_5                     = UNIT_END + 0x00F0, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_47_1                     = UNIT_END + 0x00F1, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_47_2                     = UNIT_END + 0x00F2, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_47_3                     = UNIT_END + 0x00F3, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_47_5                     = UNIT_END + 0x00F5, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_48_1                     = UNIT_END + 0x00F6, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_48_2                     = UNIT_END + 0x00F7, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_48_3                     = UNIT_END + 0x00F8, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_48_5                     = UNIT_END + 0x00FA, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_49_1                     = UNIT_END + 0x00FB, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_49_2                     = UNIT_END + 0x00FC, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_49_3                     = UNIT_END + 0x00FD, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_49_5                     = UNIT_END + 0x00FF, // Size: 1, Type: INT, Flags: PARTY_LEADER
     PLAYER_QUEST_LOG_50_1                     = UNIT_END + 0x0100, // Size: 1, Type: INT, Flags: PARTY_LEADER
     PLAYER_QUEST_LOG_50_2                     = UNIT_END + 0x0101, // Size: 1, Type: INT, Flags: PARTY_LEADER
     PLAYER_QUEST_LOG_50_3                     = UNIT_END + 0x0102, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
@@ -538,11 +314,33 @@ enum ECorpseFields
 /************************************************************************/
 /* Manual Fields                                                        */
 /************************************************************************/
-#define UNIT_FIELD_STRENGTH                     UNIT_FIELD_STAT0
-#define UNIT_FIELD_AGILITY                      UNIT_FIELD_STAT1
-#define UNIT_FIELD_STAMINA                      UNIT_FIELD_STAT2
-#define UNIT_FIELD_INTELLECT                    UNIT_FIELD_STAT3
-#define UNIT_FIELD_SPIRIT                       UNIT_FIELD_STAT4
+#define UNIT_FIELD_STRENGTH                     UNIT_FIELD_STATS
+#define UNIT_FIELD_AGILITY                      UNIT_FIELD_STATS+1
+#define UNIT_FIELD_STAMINA                      UNIT_FIELD_STATS+2
+#define UNIT_FIELD_INTELLECT                    UNIT_FIELD_STATS+3
+#define UNIT_FIELD_SPIRIT                       UNIT_FIELD_STATS+4
+
+#define UNIT_FIELD_MANA                         UNIT_FIELD_POWER
+#define UNIT_FIELD_RAGE                         UNIT_FIELD_POWER+1
+#define UNIT_FIELD_FOCUS                        UNIT_FIELD_POWER+2
+#define UNIT_FIELD_ENERGY                       UNIT_FIELD_POWER+3
+#define UNIT_FIELD_HAPPINESS                    UNIT_FIELD_POWER+4
+#define UNIT_FIELD_RUNE_POWER                   UNIT_FIELD_POWER+5
+#define UNIT_FIELD_RUNIC_POWER                  UNIT_FIELD_POWER+6
+#define UNIT_FIELD_SOUL_SHARDS                  UNIT_FIELD_POWER+7
+#define UNIT_FIELD_ECLIPSE_POWER                UNIT_FIELD_POWER+8
+#define UNIT_FIELD_HOLY_POWER                   UNIT_FIELD_POWER+9
+
+#define UNIT_FIELD_MAX_MANA                     UNIT_FIELD_MAXPOWER
+#define UNIT_FIELD_MAX_RAGE                     UNIT_FIELD_MAXPOWER+1
+#define UNIT_FIELD_MAX_FOCUS                    UNIT_FIELD_MAXPOWER+2
+#define UNIT_FIELD_MAX_ENERGY                   UNIT_FIELD_MAXPOWER+3
+#define UNIT_FIELD_MAX_HAPPINESS                UNIT_FIELD_MAXPOWER+4
+#define UNIT_FIELD_MAX_RUNE_POWER               UNIT_FIELD_MAXPOWER+5
+#define UNIT_FIELD_MAX_RUNIC_POWER              UNIT_FIELD_MAXPOWER+6
+#define UNIT_FIELD_MAX_SOUL_SHARDS              UNIT_FIELD_MAXPOWER+7
+#define UNIT_FIELD_MAX_ECLIPSE_POWER            UNIT_FIELD_MAXPOWER+8
+#define UNIT_FIELD_MAX_HOLY_POWER               UNIT_FIELD_MAXPOWER+9
 
 #define GAMEOBJECT_ROTATION                     GAMEOBJECT_PARENTROTATION
 #define GAMEOBJECT_ROTATION_01                  GAMEOBJECT_PARENTROTATION+1

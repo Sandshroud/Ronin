@@ -18,7 +18,7 @@ struct PlayerCreateInfo
     float   Orientation;
     uint16  displayId;
     uint8   strength;
-    uint8   ability;
+    uint8   agility;
     uint8   stamina;
     uint8   intellect;
     uint8   spirit;

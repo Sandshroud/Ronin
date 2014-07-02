@@ -214,8 +214,8 @@ bool ChatHandler::HandleReviveCommand(const char* args, WorldSession *m_session)
         SelectedPlayer->ResurrectPlayer();
 
     SelectedPlayer->SetUInt32Value(UNIT_FIELD_HEALTH, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
-    SelectedPlayer->SetUInt32Value(UNIT_FIELD_POWER1, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAXPOWER1) );
-    SelectedPlayer->SetUInt32Value(UNIT_FIELD_POWER4, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAXPOWER4) );
+    SelectedPlayer->SetUInt32Value(UNIT_FIELD_MANA, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAX_MANA) );
+    SelectedPlayer->SetUInt32Value(UNIT_FIELD_ENERGY, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAX_ENERGY) );
     return true;
 }
 
@@ -430,7 +430,7 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
         GreenSystemMessage(m_session, "Combat Support: 0x%.3X", crt->m_factionTemplate->FriendlyMask);
     GreenSystemMessage(m_session, "Base Health: %u", crt->GetUInt32Value(UNIT_FIELD_BASE_HEALTH));
     GreenSystemMessage(m_session, "Base Armor: %u", crt->GetUInt32Value(UNIT_FIELD_RESISTANCES));
-    GreenSystemMessage(m_session, "Base Mana: %u", crt->GetUInt32Value(UNIT_FIELD_MAXPOWER1));
+    GreenSystemMessage(m_session, "Base Mana: %u", crt->GetUInt32Value(UNIT_FIELD_MAX_MANA));
 
     SystemMessage(m_session, "|cff00ff00Resistance:|r|cffffffff %u|r|cffff0000 %u|r|cff00ff00 %u|r|cff00ccff %u|r|cffda70d6 %u|r|cff8B8B83 %u|r", crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+1), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+2),
         crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+3), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+4), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+5), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+6));

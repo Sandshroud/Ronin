@@ -627,7 +627,7 @@ void Spell::SpellEffectPowerDrain(uint32 i)  // Power Drain
     if( unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    uint32 powerField = UNIT_FIELD_POWER1;
+    uint32 powerField = UNIT_FIELD_MANA;
     if(GetSpellProto()->EffectMiscValue[i] < 7)
         powerField += GetSpellProto()->EffectMiscValue[i];
     uint32 curPower = unitTarget->GetUInt32Value(powerField);
@@ -738,11 +738,11 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
                     playerTarget->GetShapeShift() != FORM_DIREBEAR))
                     break;
 
-                uint32 val = playerTarget->GetUInt32Value(UNIT_FIELD_POWER2);
+                uint32 val = playerTarget->GetUInt32Value(UNIT_FIELD_RAGE);
                 if (val > 100)
                     val = 100;
 
-                playerTarget->SetUInt32Value(UNIT_FIELD_POWER2, playerTarget->GetUInt32Value(UNIT_FIELD_POWER2) - val);
+                playerTarget->SetUInt32Value(UNIT_FIELD_RAGE, playerTarget->GetUInt32Value(UNIT_FIELD_RAGE) - val);
                 if (val)
                     playerTarget->Heal(playerTarget, 22845, ( playerTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * 0.003f ) * (val / 10) );
 
@@ -1354,7 +1354,7 @@ void Spell::SpellEffectEnergize(uint32 i) // Energize
     case 58883: //Rapid Recuperation
     case 57669: // replenishment
         {
-            modEnergy = float2int32(0.01f * unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1));
+            modEnergy = float2int32(0.01f * unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA));
         }break;
     case 31930:
         {
@@ -1395,7 +1395,7 @@ void Spell::SpellEffectEnergize(uint32 i) // Energize
         {
             if( unitTarget != NULL )
             {
-                modEnergy = float2int32(unitTarget->GetUInt32Value( UNIT_FIELD_MAXPOWER1 ) * 0.02f);
+                modEnergy = float2int32(unitTarget->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.02f);
             }
         }break;
     case 20272:
@@ -2749,12 +2749,12 @@ void Spell::SpellEffectPowerBurn(uint32 i) // power burn
     }
 
     //this is pct...
-    int32 mana = float2int32( unitTarget->GetUInt32Value( UNIT_FIELD_POWER1 ) * (damage/100.0f));
+    int32 mana = float2int32( unitTarget->GetUInt32Value( UNIT_FIELD_MANA ) * (damage/100.0f));
     if( GetSpellProto()->Id == 8129 )
-        if( mana > u_caster->GetUInt32Value( UNIT_FIELD_MAXPOWER1 ) * 0.26 )
-            mana = int32(u_caster->GetUInt32Value( UNIT_FIELD_MAXPOWER1 ) * 0.26);
+        if( mana > u_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.26 )
+            mana = int32(u_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.26);
 
-    unitTarget->ModUnsigned32Value(UNIT_FIELD_POWER1,-mana);
+    unitTarget->ModUnsigned32Value(UNIT_FIELD_MANA,-mana);
 
     float coef = GetSpellProto()->EffectValueMultiplier[i]; // damage per mana burned
     if(u_caster)
@@ -3197,14 +3197,14 @@ void Spell::SpellEffectSelfResurrect(uint32 i)
     case 21169: //Reincarnation. Ressurect with 20% health and mana
         {
             health = uint32((unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)*damage)/100);
-            mana = uint32((unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1)*damage)/100);
+            mana = uint32((unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)*damage)/100);
         }
         break;
     default:
         {
             if(damage < 0) return;
             health = uint32(unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)*damage/100);
-            mana = uint32(unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1)*damage/100);
+            mana = uint32(unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)*damage/100);
         }break;
         }
 
@@ -3739,7 +3739,7 @@ void Spell::SpellEffectResurrect(uint32 i) // Resurrect (Flat)
                 if(unitTarget->GetTypeId()==TYPEID_UNIT && unitTarget->IsPet() && unitTarget->isDead())
                 {
                     uint32 hlth = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) : (uint32)GetSpellProto()->EffectBasePoints[i];
-                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1) : (uint32)GetSpellProto()->EffectBasePoints[i];
+                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
 
                     if(!unitTarget->IsPet())
                     {
@@ -3751,7 +3751,7 @@ void Spell::SpellEffectResurrect(uint32 i) // Resurrect (Flat)
                         sEventMgr.RemoveEvents(unitTarget, EVENT_CREATURE_REMOVE_CORPSE);
                     }
                     unitTarget->SetUInt32Value(UNIT_FIELD_HEALTH, hlth);
-                    unitTarget->SetUInt32Value(UNIT_FIELD_POWER1, mana);
+                    unitTarget->SetUInt32Value(UNIT_FIELD_MANA, mana);
                     unitTarget->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
                     unitTarget->setDeathState(ALIVE);
                     unitTarget->ClearLoot();
@@ -4061,7 +4061,7 @@ void Spell::SpellEffectResurrectNew(uint32 i)
                 if(unitTarget->GetTypeId()==TYPEID_UNIT && unitTarget->IsPet() && unitTarget->isDead())
                 {
                     uint32 hlth = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) : (uint32)GetSpellProto()->EffectBasePoints[i];
-                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1) : (uint32)GetSpellProto()->EffectBasePoints[i];
+                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
 
                     if(!unitTarget->IsPet())
                     {
@@ -4073,7 +4073,7 @@ void Spell::SpellEffectResurrectNew(uint32 i)
                         sEventMgr.RemoveEvents(unitTarget, EVENT_CREATURE_REMOVE_CORPSE);
                     }
                     unitTarget->SetUInt32Value(UNIT_FIELD_HEALTH, hlth);
-                    unitTarget->SetUInt32Value(UNIT_FIELD_POWER1, mana);
+                    unitTarget->SetUInt32Value(UNIT_FIELD_MANA, mana);
                     unitTarget->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
                     unitTarget->setDeathState(ALIVE);
                     unitTarget->ClearLoot();
@@ -4269,7 +4269,7 @@ void Spell::SpellEffectRestoreManaPct(uint32 i)
     if( u_caster == NULL || unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    uint32 maxMana = (uint32)unitTarget->GetUInt32Value(UNIT_FIELD_MAXPOWER1);
+    uint32 maxMana = (uint32)unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA);
     uint32 modMana = damage * maxMana / 100;
 
     u_caster->Energize(unitTarget, pSpellId ? pSpellId : GetSpellProto()->Id, modMana, POWER_TYPE_MANA);

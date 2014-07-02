@@ -1054,7 +1054,7 @@ void Vehicle::ChangePowerType()
     case POWER_TYPE_MANA:
         {
             SetPowerType(POWER_TYPE_MANA);
-            SetUInt32Value(UNIT_FIELD_POWER1, proto ? proto->MaxPower : 100);
+            SetUInt32Value(UNIT_FIELD_MANA, proto ? proto->MaxPower : 100);
             SetMaxPower(POWER_TYPE_MANA,proto ? proto->MaxPower : 100);
             SetUInt32Value(UNIT_FIELD_BASE_MANA, proto ? proto->MaxPower : 100);
         }break;

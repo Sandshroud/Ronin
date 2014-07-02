@@ -231,7 +231,7 @@ enum INV_ERR
     INV_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED
 };
 
-enum ITEM_STAT_TYPE
+enum ItemStatType : unsigned
 {
     ITEM_STAT_POWER                           = 0,
     ITEM_STAT_HEALTH                          = 1,
@@ -286,6 +286,7 @@ enum ITEM_STAT_TYPE
     ITEM_STAT_SHADOW_RESISTANCE               = 54,
     ITEM_STAT_NATURE_RESISTANCE               = 55,
     ITEM_STAT_ARCANE_RESISTANCE               = 56,
+    ITEM_STAT_MAXIMUM
 };
 
 

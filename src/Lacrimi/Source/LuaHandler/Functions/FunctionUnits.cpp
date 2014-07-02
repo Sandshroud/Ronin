@@ -131,7 +131,7 @@ int LuaUnit_GetManaPct(lua_State * L, Unit * ptr)
     if (ptr->GetPowerType() != POWER_TYPE_MANA)
         RET_NIL(true);
 
-    lua_pushnumber(L, (int)(ptr->GetUInt32Value(UNIT_FIELD_POWER1) * 100.0f / ptr->GetUInt32Value(UNIT_FIELD_MAXPOWER1)));
+    lua_pushnumber(L, (int)(ptr->GetUInt32Value(UNIT_FIELD_MANA) * 100.0f / ptr->GetUInt32Value(UNIT_FIELD_MAX_MANA)));
     return 1;
 }
 
@@ -1303,16 +1303,16 @@ int LuaUnit_SetMana(lua_State * L, Unit * ptr)
 {
     int val = luaL_checkint( L, 1);
     if( ptr != NULL)
-        ptr->SetUInt32Value( UNIT_FIELD_POWER1, val );
+        ptr->SetUInt32Value( UNIT_FIELD_MANA, val );
     return 1;
 }
 int LuaUnit_SetMaxMana(lua_State * L, Unit * ptr)
 {
     int val = luaL_checkint( L, 1);
     if( ptr != NULL && val > 0 )
-        if( (uint32)val < ptr->GetUInt32Value( UNIT_FIELD_POWER1) )
-            ptr->SetUInt32Value( UNIT_FIELD_POWER1, val);
-        ptr->SetUInt32Value( UNIT_FIELD_MAXPOWER1, val );
+        if( (uint32)val < ptr->GetUInt32Value( UNIT_FIELD_MANA) )
+            ptr->SetUInt32Value( UNIT_FIELD_MANA, val);
+        ptr->SetUInt32Value( UNIT_FIELD_MAX_MANA, val );
     return 1;
 }
 int LuaUnit_GetPlayerRace(lua_State * L, Unit * ptr)
@@ -1478,7 +1478,7 @@ int LuaUnit_GetMana(lua_State * L, Unit * ptr)
     if( ptr == NULL )
         lua_pushinteger( L, 0 );
     else
-        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_POWER1 ) );
+        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_MANA ) );
 
     return 1;
 }
@@ -1488,7 +1488,7 @@ int LuaUnit_GetMaxMana(lua_State * L, Unit * ptr)
     if( ptr == NULL )
         lua_pushinteger( L, 0 );
     else
-        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_MAXPOWER1 ) );
+        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_MAX_MANA ) );
 
     return 1;
 }

@@ -538,7 +538,7 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
 
         //When revived by spirit healer, set health/mana at 50%
         _player->m_resurrectHealth = _player->GetUInt32Value(UNIT_FIELD_MAXHEALTH)/2;
-        _player->m_resurrectMana = _player->GetUInt32Value(UNIT_FIELD_MAXPOWER1)/2;
+        _player->m_resurrectMana = _player->GetUInt32Value(UNIT_FIELD_MAX_MANA)/2;
 
         _player->ResurrectPlayer();
 
