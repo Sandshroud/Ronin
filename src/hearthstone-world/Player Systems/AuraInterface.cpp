@@ -6,7 +6,7 @@
 
 AuraInterface::AuraInterface()
 {
-
+    m_modifierMask.SetCount(SPELL_AURA_TOTAL);
 }
 
 AuraInterface::~AuraInterface()
@@ -414,7 +414,7 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
                 int32 resistchance = 0;
                 Unit* caster = aur->GetUnitCaster();
                 if( caster )
-                    SM_FIValue(caster->SM[SMT_RESIST_DISPEL][0], &resistchance, aur->GetSpellProto()->SpellGroupType);
+                    caster->SM_FIValue(SMT_RESIST_DISPEL, &resistchance, aur->GetSpellProto()->SpellGroupType);
 
                 if( !Rand(resistchance) )
                 {
@@ -970,7 +970,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
         }
         else if(aur->GetSpellId() == curAura->GetSpellId() && info->always_apply)
             m_aurasToRemove.insert(x);
-        else if( aur->IsPositive() && curAura->GetSpellId() == aur->GetSpellId() && curAura->GetCasterGUID() == aur->GetCasterGUID())
+        else if((curAura->IsPositive() == aur->IsPositive()) && curAura->GetSpellId() == aur->GetSpellId() && curAura->GetCasterGUID() == aur->GetCasterGUID())
         {
             if(info->Unique)
                 continue;
@@ -1786,6 +1786,8 @@ bool AuraInterface::SetAuraDuration(uint32 spellId, int32 duration)
 
 void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
+    m_modifierMask.SetBit(mod->m_type);
+
     std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
     if(apply)
     {
@@ -1799,12 +1801,14 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
         }
         if(modHolder == NULL || modHolder->mod[index] == mod)
             return;
-        m_modifierHoldersByType[mod->m_type].insert(std::make_pair(mod_index, mod));
+
+        m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
         modHolder->mod[index] = mod;
     }
     else if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
     {
-        m_modifierHoldersByType[mod->m_type].erase(mod_index);
+        m_modifiersByModType[mod->m_type].erase(mod_index);
+
         ModifierHolder *modHolder = m_modifierHolders.at(auraSlot);
         modHolder->mod[index] = NULL;
         for(uint8 i=0;i<3;i++)
@@ -1812,5 +1816,108 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
                 return;
         m_modifierHolders.erase(auraSlot);
         delete modHolder;
+    }
+
+    if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER)
+        UpdateSpellGroupModifiers(apply, mod);
+}
+
+void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
+{
+    assert(mod->m_miscValue < SPELL_MODIFIERS);
+    packetSMSG_SET_SPELL_MODIFIER data;
+    uint8 pct = (mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0);
+    std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue & 0x7F), pct);
+    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
+    {
+        if(bit && (bit%32 == 0)) ++intbit;
+        if( ( 1 << bit%32 ) & mod->m_spellInfo->EffectSpellClassMask[mod->i][intbit] )
+        {
+            if(apply) groupModMap[bit] += mod->m_amount;
+            else groupModMap[bit] -= mod->m_amount;
+            // Only send modifiers to players
+            if(!m_Unit->IsPlayer())
+                continue;
+
+            data.group = bit;
+            data.type = mod->m_miscValue;
+            data.v = groupModMap[bit];
+            TO_PLAYER(m_Unit)->GetSession()->OutPacket( SMSG_SET_FLAT_SPELL_MODIFIER+pct, sizeof( packetSMSG_SET_SPELL_MODIFIER ), &data );
+        }
+    }
+}
+
+uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group)
+{
+    group = uint8(float2int32(floor(float(value)/32.f)));
+    return value%32;
+}
+
+void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
+{
+    assert(modifier < SPELL_MODIFIERS);
+    std::pair<uint8, uint8> index = std::make_pair(modifier, 0);
+    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    if(groupModMap.size() == 0)
+        return;
+
+    uint32 flag;
+    uint8 groupOffset;
+    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    {
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        if(flag & group[groupOffset]) (*v) += itr->second;
+    }
+}
+
+void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
+{
+    assert(modifier < SPELL_MODIFIERS);
+    std::pair<uint8, uint8> index = std::make_pair(modifier, 0);
+    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    if(groupModMap.size() == 0)
+        return;
+
+    uint32 flag;
+    uint8 groupOffset;
+    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    {
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        if(flag & group[groupOffset]) (*v) += itr->second;
+    }
+}
+
+void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
+{
+    assert(modifier < SPELL_MODIFIERS);
+    std::pair<uint8, uint8> index = std::make_pair(modifier, 1);
+    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    if(groupModMap.size() == 0)
+        return;
+
+    uint32 flag;
+    uint8 groupOffset;
+    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    {
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        if(flag & group[groupOffset]) (*v) += float2int32(floor((float(*v)*float(itr->second))/100.f));
+    }
+}
+
+void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
+{
+    assert(modifier < SPELL_MODIFIERS);
+    std::pair<uint8, uint8> index = std::make_pair(modifier, 1);
+    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    if(groupModMap.size() == 0)
+        return;
+
+    uint32 flag;
+    uint8 groupOffset;
+    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    {
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        if(flag & group[groupOffset]) (*v) += ((*v)*float(itr->second))/100.f;
     }
 }

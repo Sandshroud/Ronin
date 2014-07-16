@@ -17,7 +17,6 @@ ObjectMgr::ObjectMgr()
     m_hiCorpseGuid = 0;
     m_hiArenaTeamId = 0;
     m_equipmentSetGuid = 0;
-    mQuestPOIMap.clear();
 }
 
 ObjectMgr::~ObjectMgr()
@@ -165,7 +164,6 @@ ObjectMgr::~ObjectMgr()
         itr->second.clear();
     }
     mPetLevelupSpellMap.clear();
-    mQuestPOIMap.clear();
 }
 
 void ObjectMgr::LoadAchievements()
@@ -398,7 +396,7 @@ void ObjectMgr::LoadPlayersInfo()
             m_playersinfo[(uint32)pn->guid] = pn;
 
             if( !((++c) % period) )
-                sLog.Notice("PlayerInfo", "Done %u/%u, %u%% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
+                sLog.Notice("PlayerInfo", "Done %u/%u, %u% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
         } while( result->NextRow() );
 
         delete result;
@@ -604,56 +602,6 @@ void ObjectMgr::DelinkPlayerCorpses(Player* pOwner)
         return;
     sEventMgr.AddEvent(c, &Corpse::Delink, EVENT_CORPSE_SPAWN_BONES, 1, 1, 0);
     CorpseAddEventDespawn(c);
-}
-
-void ObjectMgr::LoadQuestPOI()
-{
-    uint32 count = 0;
-    uint32 pointcount = 0;
-    map< uint32, map<uint32, vector<QuestPOIPoint*> > > PoiMap;
-    PoiMap.clear();
-    QueryResult *points = WorldDatabase.Query("SELECT * FROM quest_poi_points ORDER BY questId, id, internalIndex ASC");
-    if (points)
-    {
-        do
-        {
-            Field *pointFields = points->Fetch();
-            uint32 questId = pointFields[0].GetUInt32();
-            uint32 poiId = pointFields[1].GetUInt32();
-            int32 x = pointFields[3].GetInt32();
-            int32 y = pointFields[4].GetInt32();
-            QuestPOIPoint* point = new QuestPOIPoint(x, y);
-            PoiMap[questId][poiId].push_back(point);
-            pointcount++;
-        }while (points->NextRow());
-        delete points;
-    }
-
-    QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi ORDER BY questId, id ASC");
-    if(result)
-    {
-        do
-        {
-            Field *fields = result->Fetch();
-            uint32 questId          = fields[0].GetUInt32();
-            uint32 id               = fields[1].GetUInt32();
-            int32 objIndex          = fields[2].GetInt32();
-            uint32 mapId            = fields[3].GetUInt32();
-            uint32 WorldMapAreaId   = fields[4].GetUInt32();
-            uint32 FloorId          = fields[5].GetUInt32();
-            uint32 unk3             = fields[6].GetUInt32();
-            uint32 unk4             = fields[7].GetUInt32();
-            QuestPOI POI(id, objIndex, mapId, WorldMapAreaId, FloorId, unk3, unk4);
-            if(PoiMap[questId][id].size())
-                for(vector<QuestPOIPoint*>::iterator itr = PoiMap[questId][id].begin(); itr != PoiMap[questId][id].end(); itr++)
-                    POI.points.push_back(*(*itr));
-            mQuestPOIMap[questId].push_back(POI);
-            count++;
-        } while (result->NextRow());
-        delete result;
-    }
-    PoiMap.clear();
-    sLog.Notice("ObjectMgr", "%u quest POI definitions, %u POI points", count, pointcount);
 }
 
 void ObjectMgr::LoadRecallPoints()
@@ -1544,9 +1492,6 @@ Trainer* ObjectMgr::GetTrainer(uint32 Entry)
     return iter->second;
 }
 
-uint32 GetBaseHPForLevel(uint32 level, uint32 Class);
-uint32 GetBaseManaForLevel(uint32 level, uint32 Class);
-
 void ObjectMgr::GenerateLevelUpInfo()
 {
     // Generate levelup information for each class.
@@ -1604,76 +1549,64 @@ void ObjectMgr::GenerateLevelUpInfo()
 
                 uint32 BaseHP = 0;
                 uint32 BaseMana = 0;
-                if(Level <= MAX_PREDEFINED_NEXTLEVELXP)
-                {
-                    // Description: We're calculating the Base Mana and HP that we get per level. These are based off of
-                    // the total value at level 80 and are probably incorrect at lower levels.
-                    // At a future date, we should attempt to correct them for those levels by decreasing the amount at
-                    // lower levels.
-                    // The first attempt at doing so is below.
-                    switch(Class)
-                    {
-                    case PRIEST:
-                        {
-                            BaseHP = uint32(87 * Level);
-                            BaseMana = uint32(48.2875f * Level);
-                        }break;
-                    case WARRIOR:
-                        {
-                            BaseHP = uint32(101.5125f * Level);
-                            BaseMana = 0;
-                        }break;
-                    case DEATHKNIGHT:
-                        {
-                            BaseHP = uint32(101.5125f * Level);
-                            BaseMana = 0;
-                        }break;
-                    case HUNTER:
-                        {
-                            BaseHP = uint32(91.55f * Level);
-                            BaseMana = uint32(63.075f * Level);
-                        }break;
-                    case ROGUE:
-                        {
-                            BaseHP = uint32(95.05f * Level);
-                            BaseMana = 0;
-                        }break;
-                    case SHAMAN:
-                        {
-                            BaseHP = uint32(81.0625f * Level);
-                            BaseMana = uint32(54.95f * Level);
-                        }break;
-                    case DRUID:
-                        {
-                            BaseHP = uint32(92.7125f * Level);
-                            BaseMana = uint32(43.7f * Level);
-                        }break;
-                    case PALADIN:
-                        {
-                            BaseHP = uint32(86.675f * Level);
-                            BaseMana = uint32(54.925f * Level);
-                        }break;
-                    case MAGE:
-                        {
-                            BaseHP = uint32(87.0375f * Level);
-                            BaseMana = uint32(40.85f * Level);
-                        }break;
-                    case WARLOCK:
-                        {
-                            BaseHP = uint32(89.55f * Level);
-                            BaseMana = uint32(48.2f * Level);
-                        }break;
-                    }
 
-                    float perlevmod = 4.0f + (Level / 16.0f);
-                    BaseMana = uint32(BaseMana / (perlevmod - (Level / 10.0f)));
-                    BaseHP = uint32(BaseHP / (perlevmod - (Level / 10.0f)));
-                }
-                else
+                switch(Class)
                 {
-                    BaseHP = GetBaseHPForLevel(Level, Class);
-                    BaseMana = GetBaseManaForLevel(Level, Class);
+                case PRIEST:
+                    {
+                        BaseHP = uint32(87 * Level);
+                        BaseMana = uint32(48.2875f * Level);
+                    }break;
+                case WARRIOR:
+                    {
+                        BaseHP = uint32(101.5125f * Level);
+                        BaseMana = 0;
+                    }break;
+                case DEATHKNIGHT:
+                    {
+                        BaseHP = uint32(101.5125f * Level);
+                        BaseMana = 0;
+                    }break;
+                case HUNTER:
+                    {
+                        BaseHP = uint32(91.55f * Level);
+                        BaseMana = 0;
+                    }break;
+                case ROGUE:
+                    {
+                        BaseHP = uint32(95.05f * Level);
+                        BaseMana = 0;
+                    }break;
+                case SHAMAN:
+                    {
+                        BaseHP = uint32(81.0625f * Level);
+                        BaseMana = uint32(54.95f * Level);
+                    }break;
+                case DRUID:
+                    {
+                        BaseHP = uint32(92.7125f * Level);
+                        BaseMana = uint32(43.7f * Level);
+                    }break;
+                case PALADIN:
+                    {
+                        BaseHP = uint32(86.675f * Level);
+                        BaseMana = uint32(54.925f * Level);
+                    }break;
+                case MAGE:
+                    {
+                        BaseHP = uint32(87.0375f * Level);
+                        BaseMana = uint32(40.85f * Level);
+                    }break;
+                case WARLOCK:
+                    {
+                        BaseHP = uint32(89.55f * Level);
+                        BaseMana = uint32(48.2f * Level);
+                    }break;
                 }
+
+                float perlevmod = 4.0f + (Level / 16.0f);
+                BaseMana = uint32(BaseMana / (perlevmod - (Level / 10.0f)));
+                BaseHP = uint32(BaseHP / (perlevmod - (Level / 10.0f)));
 
                 // Apply HP/Mana
                 uint32 HP = BaseHP;
@@ -1681,9 +1614,8 @@ void ObjectMgr::GenerateLevelUpInfo()
                 {
                     HP += 20;
                     HP += ( (lvl->Stat[STAT_STAMINA]-20) * 10);
-                }
-                else
-                    HP += lvl->Stat[STAT_STAMINA];
+                } else HP += lvl->Stat[STAT_STAMINA];
+
                 uint32 Mana = BaseMana;
                 if(BaseMana)
                 {
@@ -1691,9 +1623,7 @@ void ObjectMgr::GenerateLevelUpInfo()
                     {
                         Mana += 20;
                         Mana += ((lvl->Stat[STAT_INTELLECT]-20) * 10);
-                    }
-                    else
-                        Mana += lvl->Stat[STAT_INTELLECT];
+                    } else Mana += lvl->Stat[STAT_INTELLECT];
                 }
 
                 lvl->HP = HP;
@@ -1701,23 +1631,17 @@ void ObjectMgr::GenerateLevelUpInfo()
                 lvl->BaseHP = BaseHP;
                 lvl->BaseMana = BaseMana;
 
-                // Calculate next level XP
-                uint32 nextLvlXP = 0;
-
                 // This is a fixed table taken from 3.3.5 wow. This can't get more blizzlike with the "if" cases ;)
                 if( ( Level ) < MAX_PREDEFINED_NEXTLEVELXP )
-                    nextLvlXP = NextLevelXp[(Level)];
-                else // Crow: (80-81: 1687591) (81-82: 1704273) (82-83: 1720846) (83-84: 1737310) (84-85: 1753665)
-                    nextLvlXP = uint32(Level*(21149.3671f-((Level-(MAX_PREDEFINED_NEXTLEVELXP-1))*54.4791f)));
-
-                lvl->XPToNextLevel = nextLvlXP;
+                    lvl->XPToNextLevel = NextLevelXp[(Level)];
+                else lvl->XPToNextLevel = NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-1]+(((Level-MAX_PREDEFINED_NEXTLEVELXP)+1)*(NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-1]-NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-2]));
 
                 // Apply to map.
                 lMap->insert( LevelMap::value_type( Level, lvl ) );
             }
 
             // Insert back into the main map.
-            mLevelInfo.insert(make_pair(make_pair(Race, Class), lMap));
+            mLevelInfo.insert(std::make_pair(std::make_pair(Race, Class), lMap));
         }
     }
     sLog.Notice("ObjectMgr", "%u level up information generated.", mLevelInfo.size());
@@ -1804,90 +1728,28 @@ void ObjectMgr::SetVendorList(uint32 Entry, std::map<uint32, CreatureItem>* list
     mVendors[Entry] = list_;
 }
 
-struct SpawnCoords
-{
-    uint32 spawnid;
-    float x, y, z, o;
-};
-
 void ObjectMgr::LoadCreatureWaypoints()
 {
-    Field *fields;
-    std::map<uint32, SpawnCoords*> SpawnCoordMap;
-    QueryResult *result = WorldDatabase.Query("SELECT id, position_x, position_y, position_z, orientation FROM creature_spawns ORDER BY id");
-    if(result == NULL)
-        return;
-    SpawnCoords* sp = NULL;
-    do
-    {
-        fields = result->Fetch();
-        sp = new SpawnCoords();
-        sp->spawnid = fields[0].GetUInt32();
-        sp->x = fields[1].GetFloat();
-        sp->y = fields[2].GetFloat();
-        sp->z = fields[3].GetFloat();
-        sp->o = fields[4].GetFloat();
-        SpawnCoordMap.insert(make_pair(sp->spawnid, sp));
-        fields = NULL;
-        sp = NULL;
-    }while( result->NextRow() );
-    delete result;
-    result = NULL;
-
-
-    uint16 count = 0;
-    map<uint32, uint16> WaypointCount;
+    uint32 waypointcounter = 0, start = getMSTime();
     HM_NAMESPACE::hash_map<uint32, WayPointMap*>::const_iterator i;
-    uint32 lastspawnid = 0, spawnid = 0, waypointcounter = 0, start = getMSTime();
-    result = WorldDatabase.Query("SELECT spawnid, COUNT(waypointid) FROM creature_waypoints GROUP BY spawnid ORDER BY spawnid, waypointid");
+    QueryResult *result = WorldDatabase.Query("SELECT creature_waypoints.spawnid, creature_waypoints.waypointid, creature_waypoints.position_x, creature_waypoints.position_y, creature_waypoints.position_z, "
+        "creature_waypoints.orientation, creature_waypoints.waittime, creature_waypoints.flags, creature_waypoints.forwardemoteoneshot, creature_waypoints.forwardemoteid, creature_waypoints.backwardemoteoneshot, "
+        "creature_waypoints.backwardemoteid, creature_waypoints.forwardskinid, creature_waypoints.backwardskinid, creature_waypoints.forwardStandState, creature_waypoints.backwardStandState, creature_waypoints.forwardSpellToCast, "
+        "creature_waypoints.backwardSpellToCast, creature_waypoints.forwardSayText, creature_waypoints.backwardSayText, creature_spawns.position_x, creature_spawns.position_y, creature_spawns.position_z, creature_spawns.orientation "
+        "FROM creature_waypoints, creature_spawns WHERE creature_waypoints.spawnid = creature_spawns.id ORDER BY creature_waypoints.spawnid, creature_waypoints.waypointid");
     if(result == NULL)
-    {
-        for(std::map<uint32, SpawnCoords*>::iterator itr = SpawnCoordMap.begin(); itr != SpawnCoordMap.end(); itr++)
-            delete itr->second;
-        SpawnCoordMap.clear();
         return;
-    }
 
     do
     {
-        fields = result->Fetch();
-        WaypointCount.insert(make_pair(fields[0].GetUInt32(), fields[1].GetUInt16()));
-        fields = NULL;
-    }while( result->NextRow() );
-    delete result;
-    result = NULL;
+        Field *fields = result->Fetch();
+        uint32 spawnid = fields[0].GetUInt32();
 
-    result = WorldDatabase.Query("SELECT * FROM creature_waypoints ORDER BY spawnid, waypointid");
-    if(result == NULL)
-    {
-        for(std::map<uint32, SpawnCoords*>::iterator itr = SpawnCoordMap.begin(); itr != SpawnCoordMap.end(); itr++)
-            delete itr->second;
-        SpawnCoordMap.clear();
-        return;
-    }
-
-    set<uint32> skip;
-    WayPoint* wp = NULL;
-    WayPointMap* m = NULL;
-    do
-    {
-        fields = result->Fetch();
-
-        wp = new WayPoint();
-        spawnid = fields[0].GetUInt32();
-        if(SpawnCoordMap.find(spawnid) == SpawnCoordMap.end())
-            continue;
-
-        if(skip.find(spawnid) != skip.end())
-        {
-            delete wp;
-            wp = NULL;
-            continue;
-        }
-
+        WayPoint *wp = new WayPoint();
         wp->id = fields[1].GetUInt32();
         if(wp->id < 0)
         {
+            delete wp;
             sLog.Error("ObjectMgr", "Waypoints cannot start below 0, waypoint skipped for %u\n", spawnid);
             continue;
         }
@@ -1920,37 +1782,25 @@ void ObjectMgr::LoadCreatureWaypoints()
             wp->backwardInfo = NULL;
         }
 
-        wp->count = WaypointCount.at(spawnid);
-
         i = m_waypoints.find(spawnid);
         if(i == m_waypoints.end())
         {
             m_waypoints[spawnid] = new WayPointMap();
             WayPoint* wp2 = new WayPoint();
             wp2->id = 0;
-            wp2->x = SpawnCoordMap[spawnid]->x;
-            wp2->y = SpawnCoordMap[spawnid]->y;
-            wp2->z = SpawnCoordMap[spawnid]->z;
-            wp2->orientation = SpawnCoordMap[spawnid]->o;
+            wp2->x = fields[20].GetFloat();
+            wp2->y = fields[21].GetFloat();
+            wp2->z = fields[22].GetFloat();
+            wp2->orientation = fields[23].GetFloat();
             wp2->waittime = 0;
             wp2->flags = wp->flags;
-            wp2->count = WaypointCount.at(spawnid);
             m_waypoints[spawnid]->push_back(wp2);
             m_waypoints[spawnid]->push_back(wp);
-        }
-        else
-            i->second->push_back(wp);
+        }else i->second->push_back(wp);
 
-        wp = NULL;
-        fields = NULL;
         waypointcounter++;
     }while( result->NextRow() );
-    WaypointCount.clear();
     delete result;
-
-    for(std::map<uint32, SpawnCoords*>::iterator itr = SpawnCoordMap.begin(); itr != SpawnCoordMap.end(); itr++)
-        delete itr->second;
-    SpawnCoordMap.clear();
 
     sLog.Notice("ObjectMgr", "%u waypoints cached in %ums.", waypointcounter, getMSTime()-start);
 }
@@ -1971,8 +1821,7 @@ Pet* ObjectMgr::CreatePet()
     guid = ++m_hiPetGuid;
     m_petlock.Release();
 
-    uint64 fullguid = ((uint64)HIGHGUID_TYPE_PET << 32) | ((uint64)guid << 24) | guid;
-    Pet* pet(new Pet(fullguid));
+    Pet* pet = new Pet(MAKE_NEW_GUID(guid, guid, HIGHGUID_TYPE_PET));
     pet->Init();
     return pet;
 }
@@ -2849,97 +2698,4 @@ QueryResult* ObjectMgr::SQLCheckExists(const char* tablename, const char* column
 
     QueryResult* result = WorldDatabase.Query("SELECT %s FROM %s WHERE %s = '%u' LIMIT 1", columnname, tablename, columnname, columnvalue);
     return result;
-}
-
-/* Crow: This is for my server, but feel free to change it if you want.
-This is an attempt to maintain a blizzlike health gain after the blizz cap. */
-uint32 GetBaseHPForLevel(uint32 level, uint32 Class)
-{
-    uint32 coeff = 0;
-    switch(Class)
-    {
-    case PRIEST:
-        {
-            coeff = 4.35f;
-        }break;
-    case WARRIOR:
-    case DEATHKNIGHT:
-        {
-            coeff = 5.075625f;
-        }break;
-    case HUNTER:
-        {
-            coeff = 4.5775f;
-        }break;
-    case ROGUE:
-        {
-            coeff = 4.7525f;
-        }break;
-    case SHAMAN:
-        {
-            coeff = 4.053125f;
-        }break;
-    case DRUID:
-        {
-            coeff = 4.635625f;
-        }break;
-    case PALADIN:
-        {
-            coeff = 4.33375f;
-        }break;
-    case MAGE:
-        {
-            coeff = 4.351875f;
-        }break;
-    case WARLOCK:
-        {
-            coeff = 4.4775f;
-        }break;
-    }
-
-    return ((200+((level-(MAX_PREDEFINED_NEXTLEVELXP))*coeff))*level)/2;
-}
-
-uint32 GetBaseManaForLevel(uint32 level, uint32 Class)
-{
-    uint32 coeff = 0;
-    switch(Class)
-    {
-    case WARRIOR:
-    case ROGUE:
-    case DEATHKNIGHT:
-        {
-            return 0;
-        }break;
-    case PRIEST:
-        {
-            coeff = 2.4432f;
-        }break;
-    case HUNTER:
-        {
-            coeff = 3.15375f;
-        }break;
-    case SHAMAN:
-        {
-            coeff = 2.7475f;
-        }break;
-    case DRUID:
-        {
-            coeff = 2.185f;
-        }break;
-    case PALADIN:
-        {
-            coeff = 2.74625f;
-        }break;
-    case MAGE:
-        {
-            coeff = 2.0425f;
-        }break;
-    case WARLOCK:
-        {
-            coeff = 2.41f;
-        }break;
-    }
-
-    return ((100+((level-(MAX_PREDEFINED_NEXTLEVELXP))*coeff))*level)/2;
 }

@@ -783,7 +783,7 @@ void WorldSession::HandleQuestPOI(WorldPacket& recvPacket)
     uint32 count;
     recvPacket >> count;
 
-    if (count >= 25)
+    if (count >= 50)
         return;
 
     sLog.Debug( "WORLD"," Received MSG_QUEST_PUSH_RESULT " );
@@ -805,28 +805,26 @@ void WorldSession::HandleQuestPOI(WorldPacket& recvPacket)
 
         if (questOk)
         {
-            QuestPOIVector const *POI = objmgr.GetQuestPOIVector(questId);
-
+            std::vector<QuestPOI*> const *POI = sQuestMgr.GetQuestPOIVector(questId);
             if (POI)
             {
                 data << uint32(questId);
                 data << uint32(POI->size());
 
-                for (QuestPOIVector::const_iterator itr = POI->begin(); itr != POI->end(); ++itr)
+                for (std::vector<QuestPOI*>::const_iterator itr = POI->begin(); itr != POI->end(); ++itr)
                 {
-                    data << uint32(itr->Id);
-                    data << int32(itr->ObjectiveIndex);
-                    data << uint32(itr->MapId);
-                    data << uint32(itr->AreaId);
-                    data << uint32(itr->MapFloorId);
-                    data << uint32(itr->Unk3);
-                    data << uint32(itr->Unk4);
-                    data << uint32(itr->points.size());
+                    data << uint32((*itr)->PoIID);
+                    data << int32((*itr)->questObjectIndex);
+                    data << uint32((*itr)->mapId);
+                    data << uint32((*itr)->areaId);
+                    data << uint32((*itr)->MapFloorId);
+                    data << uint32(0) << uint32(1);
+                    data << uint32((*itr)->points.size());
 
-                    for (std::vector<QuestPOIPoint>::const_iterator itr2 = itr->points.begin(); itr2 != itr->points.end(); ++itr2)
+                    for (std::vector<std::pair<int32, int32>>::const_iterator itr2 = (*itr)->points.begin(); itr2 != (*itr)->points.end(); ++itr2)
                     {
-                        data << int32(itr2->x);
-                        data << int32(itr2->y);
+                        data << int32(itr2->first);
+                        data << int32(itr2->second);
                     }
                 }
             }

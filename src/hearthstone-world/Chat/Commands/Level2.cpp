@@ -254,7 +254,7 @@ bool ChatHandler::HandleItemRemoveCommand(const char* args, WorldSession *m_sess
     if(slot != -1)
     {
         std::stringstream ss;
-        ss << "DELETE FROM vendors WHERE entry = '" << pCreature->GetEntry() << "' AND vendormask = '" << pCreature->VendorMask << "' AND item = " << itemguid << " LIMIT 1;";
+        ss << "DELETE FROM vendors WHERE entry = '" << pCreature->GetEntry() << "' AND vendormask = '" << pCreature->GetVendorMask() << "' AND item = " << itemguid << " LIMIT 1;";
         WorldDatabase.Execute( ss.str().c_str() );
 
         pCreature->RemoveVendorItem(itemguid);
@@ -488,13 +488,13 @@ bool ChatHandler::HandleNPCSaveCommand(const char * args, WorldSession * m_sessi
 bool ChatHandler::HandleNPCSetVendorMaskCommand(const char * args, WorldSession * m_session)
 {
     Creature* crt = getSelectedCreature(m_session, false);
-    if(crt == NULL)
+    if(crt == NULL || crt->m_spawn)
     {
-        RedSystemMessage(m_session, "Please select a creature before using this command.");
+        RedSystemMessage(m_session, "Please select a saved creature before using this command.");
         return true;
     }
 
-    crt->VendorMask = atol(args);
+    crt->m_spawn->vendormask = atol(args);
     crt->SaveToDB();
     return true;
 }
@@ -515,9 +515,7 @@ bool ChatHandler::HandleCastSpellNECommand(const char* args, WorldSession *m_ses
     }
     BlueSystemMessage(m_session, "Casting spell %d on target.", spellId);
 
-    WorldPacket data;
-
-    data.Initialize( SMSG_SPELL_START );
+    WorldPacket data(SMSG_SPELL_START, 40);
     data << caster->GetNewGUID();
     data << caster->GetNewGUID();
     data << spellId;
@@ -1066,10 +1064,10 @@ bool ChatHandler::HandleVendorClearCommand(const char* args, WorldSession *m_ses
     for(itr = begin; itr != end;)
     {
         itr2 = itr++;
-        if(itr2->second.vendormask < 0 || pCreature->VendorMask < 0 || itr2->second.vendormask == pCreature->VendorMask)
+        if(itr2->second.vendormask < 0 || pCreature->GetVendorMask() < 0 || itr2->second.vendormask == pCreature->GetVendorMask())
         {
             first = false;
-            qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->VendorMask, itr2->second.itemid);
+            qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->GetVendorMask(), itr2->second.itemid);
             pCreature->RemoveSellItem(itr2);
         }
     }
@@ -1077,8 +1075,8 @@ bool ChatHandler::HandleVendorClearCommand(const char* args, WorldSession *m_ses
     if(!first)
     {
         WorldDatabase.AddQueryBuffer(qb);
-        SystemMessage(m_session, "removed all items with vendor mask %u", pCreature->VendorMask);
-        sWorld.LogGM(m_session, "removed all items with vendor mask %u from vendor %u", pCreature->VendorMask, pCreature->GetEntry());
+        SystemMessage(m_session, "removed all items with vendor mask %u", pCreature->GetVendorMask());
+        sWorld.LogGM(m_session, "removed all items with vendor mask %u from vendor %u", pCreature->GetVendorMask(), pCreature->GetEntry());
     }
     else
         RedSystemMessage(m_session, "No items found");
@@ -1193,7 +1191,7 @@ bool ChatHandler::HandleItemSetRemoveCommand(const char* args, WorldSession *m_s
             continue;
 
         first = false;
-        qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->VendorMask, (*itr)->ItemId);
+        qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->GetVendorMask(), (*itr)->ItemId);
         pCreature->RemoveVendorItem((*itr)->ItemId);
     }
 

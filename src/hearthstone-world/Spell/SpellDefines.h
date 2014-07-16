@@ -117,7 +117,7 @@ enum MOD_TYPES
     SPELL_AURA_SCHOOL_ABSORB = 69,
     SPELL_AURA_EXTRA_ATTACKS = 70,
     SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL = 71,
-    SPELL_AURA_MOD_POWER_COST_SCHOOL_PCT = 72,
+    SPELL_AURA_MOD_POWER_COST = 72,
     SPELL_AURA_MOD_POWER_COST_SCHOOL = 73,
     SPELL_AURA_REFLECT_SPELLS_SCHOOL = 74,
     SPELL_AURA_MOD_LANGUAGE = 75,
@@ -146,7 +146,7 @@ enum MOD_TYPES
     SPELL_AURA_MOD_ATTACK_POWER = 99,
     SPELL_AURA_AURAS_VISIBLE = 100,
     SPELL_AURA_MOD_RESISTANCE_PCT = 101,
-    SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS = 102,
+    SPELL_AURA_MOD_CREATURE_ATTACK_POWER = 102,
     SPELL_AURA_MOD_TOTAL_THREAT = 103,
     SPELL_AURA_WATER_WALK = 104,
     SPELL_AURA_FEATHER_FALL = 105,
@@ -174,7 +174,7 @@ enum MOD_TYPES
     SPELL_AURA_MOD_POSSESS_PET = 128,
     SPELL_AURA_MOD_SPEED_ALWAYS = 129,
     SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS = 130,
-    SPELL_AURA_MOD_RANGED_ATTACK_POWER_VERSUS = 131,
+    SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER = 131,
     SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT = 132,
     SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT = 133,
     SPELL_AURA_MOD_MANA_REGEN_INTERRUPT = 134,
@@ -190,7 +190,7 @@ enum MOD_TYPES
     SPELL_AURA_SAFE_FALL = 144,
     SPELL_AURA_MOD_PET_TALENT_POINTS = 145,
     SPELL_AURA_ALLOW_TAME_PET_TYPE = 146,
-    SPELL_AURA_MECHANIC_IMMUNITY_MASK = 147,
+    SPELL_AURA_ADD_CREATURE_IMMUNITY = 147,
     SPELL_AURA_RETAIN_COMBO_POINTS = 148,
     SPELL_AURA_REDUCE_PUSHBACK  = 149,
     SPELL_AURA_MOD_SHIELD_BLOCKVALUE_PCT = 150,
@@ -265,6 +265,7 @@ enum MOD_TYPES
     SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE = 227,
     SPELL_AURA_DETECT_STEALTH = 228,
     SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE = 229,
+    SPELL_AURA_MOD_INCREASE_MAX_HEALTH = 230,
     SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE = 231,
     SPELL_AURA_MECHANIC_DURATION_MOD = 232,
     SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK = 234,
@@ -617,78 +618,6 @@ enum SPELL_MODIFIER_TYPE
     SMT_RESIST_DISPEL           = 28,// GOOD
     // 29 Mod Crowd Damage Test 45365 - Increases the critical strike damage bonus of your Frost spells by 100%
 };
-
-static void SM_FFValue( int32* m, float* v, uint32* group )
-{
-    if( m == 0 )
-        return;
-
-    uint32 intbit = 0, groupnum = 0;
-    for(uint32 bit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
-    {
-        if(intbit == 32)
-        {
-            ++groupnum;
-            intbit = 0;
-        }
-        if( ( 1 << intbit ) & group[groupnum] )
-            (*v) += m[bit];
-    }
-}
-
-static void SM_FIValue( int32* m, int32* v, uint32* group )
-{
-    if( m == 0 )
-        return;
-
-    uint32 intbit = 0, groupnum = 0;
-    for(uint32 bit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
-    {
-        if(intbit == 32)
-        {
-            ++groupnum;
-            intbit = 0;
-        }
-        if( ( 1 << intbit ) & group[groupnum] )
-            (*v) += m[bit];
-    }
-}
-
-static void SM_PIValue( int32* m, int32* v, uint32* group )
-{
-    if( m == 0 )
-        return;
-
-    uint32 intbit = 0, groupnum = 0;
-    for(uint32 bit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
-    {
-        if(intbit == 32)
-        {
-            ++groupnum;
-            intbit = 0;
-        }
-        if( ( 1 << intbit ) & group[groupnum] )
-            (*v) += ( (*v) * m[bit] ) / 100;
-    }
-}
-
-static void SM_PFValue( int32* m, float* v, uint32* group )
-{
-    if( m == 0 )
-        return;
-
-    uint32 intbit = 0, groupnum = 0;
-    for(uint32 bit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
-    {
-        if(intbit == 32)
-        {
-            ++groupnum;
-            intbit = 0;
-        }
-        if( ( 1 << intbit ) & group[groupnum] )
-            (*v) += ( (*v) * m[bit] ) / 100.0f;
-    }
-}
 
 enum DBC_SummonControlTypes
 {

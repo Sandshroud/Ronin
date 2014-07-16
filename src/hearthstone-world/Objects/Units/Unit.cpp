@@ -13,6 +13,7 @@ Unit::Unit()
     m_attackTimer = 0;
     m_attackTimer_1 = 0;
     m_duelWield = false;
+    m_statValuesChanged = true;
 
     memset(&movement_info, 0, sizeof(MovementInfo));
     m_ignoreArmorPct = 0.0f;
@@ -52,17 +53,6 @@ Unit::Unit()
     m_slowdown = 0;
     m_mountedspeedModifier=0;
     m_maxSpeed = 0;
-    for(uint32 x=0;x<MECHANIC_COUNT;x++)
-    {
-        MechanicsDispels[x]=0;
-        MechanicsResistancesPCT[x]=0;
-        ModDamageTakenByMechPCT[x]=0;
-    }
-
-    for (uint32 i=0; i<NUM_DISPELS; i++)
-        DispelResistancesPCT[i] = 0;
-    //SM
-    memset(SM, 0, 2*SPELL_MODIFIERS*sizeof(int32 *));
 
     m_pacified = 0;
     m_interruptRegen = 0;
@@ -85,20 +75,6 @@ Unit::Unit()
     m_modelhalfsize = 1.0f; //worst case unit size. (Should be overwritten)
 
     m_useAI = false;
-    for(uint32 x=0;x<10;x++)
-        dispels[x]=0;
-
-    for(uint32 x=0;x<12;x++)
-    {
-        CreatureAttackPowerMod[x] = 0;
-        CreatureRangedAttackPowerMod[x] = 0;
-    }
-    //REMIND:Update these if you make any changes
-    CreatureAttackPowerMod[UNIT_TYPE_MISC] = 0;
-    CreatureRangedAttackPowerMod[UNIT_TYPE_MISC] = 0;
-    CreatureAttackPowerMod[11] = 0;
-    CreatureRangedAttackPowerMod[11] = 0;
-
     m_invisible = false;
     m_invisFlag = INVIS_FLAG_NORMAL;
 
@@ -112,7 +88,6 @@ Unit::Unit()
 
     for(uint32 x=0;x<5;x++)
     {
-        BaseStats[x] = 0;
         SpellHealDoneByAttribute[x] = 0;
         for(uint32 i = 0; i < 7; i++)
             SpellDmgDoneByAttribute[x][i] = 0;
@@ -138,25 +113,17 @@ Unit::Unit()
     for(uint32 x=0;x<7;x++)
     {
         SchoolImmunityList[x] = 0;
-        BaseResistance[x] = 0;
         DamageDoneMod[x] = 0;
         DamageDonePosMod[x] = 0;
         DamageDoneNegMod[x] = 0;
         DamageDonePctMod[x] = 1.0f;
-        DamageTakenMod[x] = 0;
         SchoolCastPrevent[x] = 0;
-        DamageTakenPctMod[x] = 1;
         SpellCritChanceSchool[x] = 0;
         SpellDamageFromAP[x] = 0;
         PowerCostMod[x] = 0;
         PowerCostPctMod[x] = 0; // armor penetration & spell penetration
         AttackerCritChanceMod[x] = 0;
-        CritMeleeDamageTakenPctMod[x] = 0;
-        CritRangedDamageTakenPctMod[x] = 0;
     }
-
-    RangedDamageTaken = 0;
-    AOEDmgMod = 1.0f;
 
     for(int i = 0; i < 5; i++)
     {
@@ -171,7 +138,6 @@ Unit::Unit()
     // diminishing return stuff
     memset(m_diminishAuraCount, 0, DIMINISH_GROUPS);
     memset(m_diminishCount, 0, DIMINISH_GROUPS*sizeof(uint16));
-    memset(m_diminishTimer, 0, DIMINISH_GROUPS*sizeof(uint16));
 
     m_diminishActive = false;
     pLastSpell = 0;
@@ -183,7 +149,6 @@ Unit::Unit()
     spellcritperc = 0;
 
     polySpell = 0;
-    RangedDamageTaken = 0;
     m_procCounter = 0;
     m_procOverspill = 0;
     m_damgeShieldsInUse = false;
@@ -247,6 +212,185 @@ Unit::~Unit()
 
 }
 
+uint32 Unit::GetMechanicDispels(uint8 mechanic)
+{
+    uint32 count = m_AuraInterface.GetModMapByModType(SPELL_AURA_ADD_CREATURE_IMMUNITY).size();
+    if( mechanic == 16 || mechanic == 19 || mechanic == 25 || mechanic == 31 ) count = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_IMMUNITY);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == mechanic) count++;
+    if(mechanic == MECHANIC_POLYMORPHED && GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID))
+        count++;
+    return count;
+}
+
+float Unit::GetMechanicResistPCT(uint8 mechanic)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_RESISTANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == mechanic)
+            resist += itr->second->m_amount;
+    return resist;
+}
+
+float Unit::GetDamageTakenByMechPCTMod(uint8 mechanic)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == mechanic)
+            resist += float(itr->second->m_amount)/100.f;
+    return resist;
+}
+
+float Unit::GetMechanicDurationPctMod(uint8 mechanic)
+{
+    float resist = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == mechanic) resist *= float(itr->second->m_amount)/100.f;
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+    {
+        if(itr->second->m_miscValue == mechanic)
+        {
+            float val = float(itr->second->m_amount)/100.f;
+            if(resist < val)
+                resist = val;
+        }
+    }
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+    {
+        if(itr->second->m_miscValue == mechanic)
+        {
+            float val = float(itr->second->m_amount)/100.f;
+            if(resist < val)
+                resist = val;
+        }
+    }
+    return resist;
+}
+
+uint32 Unit::GetDispelImmunity(uint8 dispel)
+{
+    uint32 count = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_DISPEL_IMMUNITY);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == dispel) count++;
+    return count;
+}
+
+float Unit::GetDispelResistancesPCT(uint8 dispel)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DEBUFF_RESISTANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue == dispel)
+            resist += itr->second->m_amount;
+    return resist;
+}
+
+int32 Unit::GetCreatureRangedAttackPowerMod(uint32 creatureType)
+{
+    if(creatureType == 0)
+        return 0;
+
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue & (1<<creatureType-1))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetCreatureAttackPowerMod(uint32 creatureType)
+{
+    if(creatureType == 0)
+        return 0;
+
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_ATTACK_POWER);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue & (1<<creatureType-1))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetRangedDamageTakenMod()
+{
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod += itr->second->m_amount;
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod *= itr->second->m_amount;
+    return mod;
+}
+
+float Unit::GetCritMeleeDamageTakenModPct(uint32 school)
+{
+    float mod = 0.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue & (1<<school))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+float Unit::GetCritRangedDamageTakenModPct(uint32 school)
+{
+    float mod = 0.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue & (1<<school))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetDamageTakenMod(uint32 school)
+{
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue & (1<<school))
+            mod += itr->second->m_amount;
+    if(school == 0)
+    {
+        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN);
+        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+            mod += itr->second->m_amount;
+    }
+    return mod;
+}
+
+float Unit::GetDamageTakenModPct(uint32 school)
+{
+    float mod = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue & (1<<school))
+            mod *= float(itr->second->m_amount)/100.f;
+    if(school == 0)
+    {
+        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT);
+        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+            mod += itr->second->m_amount;
+    }
+    return mod;
+}
+
+float Unit::GetAreaOfEffectDamageMod()
+{
+    float mod = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod *= float(itr->second->m_amount)/100.f;
+    return mod;
+}
+
 void Unit::Init()
 {
     Object::Init();
@@ -268,13 +412,6 @@ void Unit::Destruct()
 
     if (IsInWorld())
         RemoveFromWorld(true);
-
-    for(uint32 x = 0; x < SPELL_MODIFIERS; ++x)
-    {
-        for(uint32 y = 0; y < 2; ++y)
-            if(SM[x][y])
-                delete [] SM[x][y];
-    }
 
     delete m_aiInterface;
 
@@ -343,7 +480,7 @@ void Unit::SetDiminishTimer(uint32 index)
 void Unit::Update( uint32 p_time )
 {
     _UpdateSpells( p_time );
-    UpdateResistance(p_time);
+    UpdateFieldValues();
 
     if(!isDead())
     {
@@ -385,45 +522,255 @@ void Unit::Update( uint32 p_time )
             m_aiInterface->Update(p_time);
     }
 
-    if(m_diminishActive)
+    for(std::map<uint8, uint16>::iterator itr = m_diminishTimer.begin(); itr != m_diminishTimer.end();)
     {
-        uint32 count = 0;
-        for(uint32 x = 0; x < DIMINISH_GROUPS; ++x)
+        if(itr->second && !m_diminishAuraCount[itr->first])
         {
             // diminishing return stuff
-            if(m_diminishTimer[x] && !m_diminishAuraCount[x])
+            if(p_time >= itr->second)
             {
-                if(p_time >= m_diminishTimer[x])
-                {
-                    // resetting after 15 sec
-                    m_diminishTimer[x] = 0;
-                    m_diminishCount[x] = 0;
-                }
-                else
-                {
-                    // reducing, still.
-                    m_diminishTimer[x] -= p_time;
-                    ++count;
-                }
+                // resetting after 15 sec
+                m_diminishCount[itr->first] = 0;
+                itr = m_diminishTimer.erase(itr);
+                continue;
+            }
+            else
+            {
+                // reducing, still.
+                itr->second -= p_time;
             }
         }
-        if(!count)
-            m_diminishActive = false;
+        itr++;
     }
 }
 
-void Unit::UpdateResistance(uint32 time)
+void Unit::UpdateFieldValues()
 {
+    // Update base stats first
+    UpdateStatValues();
+    UpdateHealthValues();
+    UpdatePowerValues();
+    UpdateResistanceValues();
+    UpdateAttackPowerValues();
+    UpdateRangedAttackPowerValues();
+    UpdatePowerCostValues();
+    UpdateHoverValues();
+    m_statValuesChanged = false;
+}
+
+bool Unit::StatUpdateRequired()
+{
+    bool res = false;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_STAT))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_PERCENT_STAT))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE))
+        res = true;
+    return res;
+}
+
+bool Unit::HealthUpdateRequired()
+{
+    bool res = m_statValuesChanged;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_BASE_HEALTH_PCT))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_MAX_HEALTH))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH_2))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT))
+        res = true;
+    return res;
+}
+
+bool Unit::PowerUpdateRequired()
+{
+    bool res = m_statValuesChanged;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY))
+        res = true;
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT))
+        res = true;
+    return res;
+}
+
+bool Unit::APUpdateRequired()
+{
+    bool res = m_statValuesChanged;
+    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT))
+        res = true;
+    return res;
+}
+
+bool Unit::RAPUpdateRequired()
+{
+    bool res = m_statValuesChanged;
+    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
+        res = true;
+    return res;
+}
+
+#define MAX_RESISTANCE_AURA_MODS 5
+static MOD_TYPES resistanceAuraMods[MAX_RESISTANCE_AURA_MODS] = { SPELL_AURA_MOD_RESISTANCE, SPELL_AURA_MOD_RESISTANCE_PCT,
+    SPELL_AURA_MOD_BASE_RESISTANCE, SPELL_AURA_MOD_BASE_RESISTANCE_PCT, SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE };
+
+bool Unit::ResUpdateRequired()
+{
+    bool res = false;
+    for(uint8 i = 0; i < MAX_RESISTANCE_AURA_MODS; i++)
+        res = (res || m_AuraInterface.GetAndUnsetModMaskBit(resistanceAuraMods[i]));
+    return res;
+}
+
+void Unit::UpdateStatValues()
+{
+    if(!StatUpdateRequired())
+        return;
+
+    int32 basepos,pos,neg;
+    AuraInterface::modifierMap statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
+        statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
+        totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
+    for(uint8 s = 0; s < MAX_STAT; s++)
+    {
+        basepos=GetBaseStat(s),pos=neg=0;
+        for(AuraInterface::modifierMap::iterator itr = statMod.begin(); itr != statMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue == -1 || itr->second->m_miscValue == s)
+            {
+                if(itr->second->m_amount > 0)
+                    pos += itr->second->m_amount;
+                else neg -= itr->second->m_amount;
+            }
+        }
+        for(AuraInterface::modifierMap::iterator itr = statPCTMod.begin(); itr != statPCTMod.end(); itr++)
+        {
+            if(itr->second->m_miscValue == -1 || itr->second->m_miscValue == s)
+            {
+                if(itr->second->m_amount > 0)
+                    pos = float(pos)*(float(itr->second->m_amount)/100.0f);
+                else neg = float(neg)*(float(abs(itr->second->m_amount))/100.0f);
+            }
+        }
+
+        int32 res = basepos+pos+neg;
+        if(res > 0)
+        {
+            for(AuraInterface::modifierMap::iterator itr = totalStatMod.begin(); itr != totalStatMod.end(); itr++)
+            {
+                if(itr->second->m_miscValue == -1 || itr->second->m_miscValue == s)
+                {
+                    if(itr->second->m_amount > 0)
+                        pos += float(res)*(float(itr->second->m_amount)/100.0f);
+                    else neg -= float(res)*(float(abs(itr->second->m_amount))/100.0f);
+                }
+            }
+            res = basepos+pos+neg;
+        }
+
+        SetUInt32Value(UNIT_FIELD_STATS+s, res > 0 ? res : 0);
+        SetUInt32Value(UNIT_FIELD_POSSTATS+s, pos);
+        SetUInt32Value(UNIT_FIELD_NEGSTATS+s, neg);
+    }
+    // Set stat values as updated to update affected auras
+    m_statValuesChanged = true;
+}
+
+void Unit::UpdateHealthValues()
+{
+    if(!HealthUpdateRequired())
+        return;
+
+    uint32 HP = GetBaseHealth();
+    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, HP);
+    AuraInterface::modifierMap increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_HEALTH_PCT);
+    for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
+        HP *= float(abs(itr->second->m_amount))/100.f;
+
+    int32 stam = GetStamina(), baseStam = stam < 20 ? stam : 20;
+    stam = (stam <= baseStam ? 0 : stam-baseStam);
+    if(GetEntry() == 6091)
+        printf("Class: %u BaseHP: %u, stam: %u base: %u\n", getClass(), HP, stam, baseStam);
+
+    HP += baseStam;
+    if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1)))
+        HP += stam*HPPerStam->val;
+    increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH);
+    for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
+        HP += itr->second->m_amount;
+    increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MAX_HEALTH);
+    for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
+        HP += itr->second->m_amount;
+    increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH_2);
+    for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
+        HP += itr->second->m_amount;
+    increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT);
+    for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
+        HP *= float(abs(itr->second->m_amount))/100.f;
+
+    if(GetUInt32Value(UNIT_FIELD_HEALTH) > HP)
+        SetUInt32Value(UNIT_FIELD_HEALTH, HP);
+    SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
+}
+
+static uint32 basePowerValues[MAX_POWER_TYPE] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
+void Unit::UpdatePowerValues()
+{
+    if(!PowerUpdateRequired())
+        return;
+
+    uint32 power = GetBaseMana();
+    SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
+    if(power)
+    {
+        int32 intellect = GetIntellect(), baseIntellect = intellect < 20 ? intellect : 20;
+        intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
+        power += baseIntellect + intellect*15.0f;
+        AuraInterface::modifierMap increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY);
+        for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
+            if(itr->second->m_miscValue == 0) power += itr->second->m_amount;
+        increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
+        for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
+            if(itr->second->m_miscValue == 0) power *= float(abs(itr->second->m_amount))/100.f;
+        if(GetUInt32Value(UNIT_FIELD_MANA) > power)
+            SetUInt32Value(UNIT_FIELD_MANA, power);
+        SetUInt32Value( UNIT_FIELD_MAX_MANA, power);
+    }
+
+    if(uint8 powerType = GetPowerType())
+    {
+        power = basePowerValues[powerType];
+        if(powerType <= POWER_TYPE_RUNIC)
+        {
+            AuraInterface::modifierMap increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY);
+            for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
+                if(itr->second->m_miscValue == powerType) power += itr->second->m_amount;
+            increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
+            for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
+                if(itr->second->m_miscValue == powerType) power *= float(abs(itr->second->m_amount))/100.f;
+        }
+        if(GetUInt32Value(UNIT_FIELD_MANA+powerType) > power)
+            SetUInt32Value(UNIT_FIELD_MANA+powerType, power);
+        SetUInt32Value( UNIT_FIELD_MAX_MANA+powerType, power);
+    }
+}
+
+void Unit::UpdateResistanceValues()
+{
+    if(!ResUpdateRequired())
+        return;
+
     int32 basepos,baseneg,pos,neg;
-    AuraInterface::modifierMap resistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE),
-        ResistPCTMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_PCT),
-        baseResistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_BASE_RESISTANCE),
-        baseResistPCTMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_BASE_RESISTANCE_PCT),
-        exclusiveResistMod = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
+    AuraInterface::modifierMap resistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE),
+        ResistPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_PCT),
+        baseResistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_RESISTANCE),
+        baseResistPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_RESISTANCE_PCT),
+        exclusiveResistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
     for(uint8 s = 0; s < MAX_RESISTANCE; s++)
     {
-        basepos = GetBaseResistance(s);
-        baseneg=pos=neg=0;
+        basepos=GetBaseResistance(s),baseneg=pos=neg=0;
         for(AuraInterface::modifierMap::iterator itr = baseResistMod.begin(); itr != baseResistMod.end(); itr++)
         {
             if(itr->second->m_miscValue & (1 << s))
@@ -442,7 +789,6 @@ void Unit::UpdateResistance(uint32 time)
                 else baseneg = float(baseneg)*(float(abs(itr->second->m_amount))/100.0f);
             }
         }
-
         for(AuraInterface::modifierMap::iterator itr = resistMod.begin(); itr != resistMod.end(); itr++)
         {
             if(itr->second->m_miscValue & (1 << s))
@@ -452,19 +798,15 @@ void Unit::UpdateResistance(uint32 time)
                 else neg -= itr->second->m_amount;
             }
         }
-
         for(AuraInterface::modifierMap::iterator itr = ResistPCTMod.begin(); itr != ResistPCTMod.end(); itr++)
         {
             if(itr->second->m_miscValue & (1 << s))
             {
                 if(itr->second->m_amount > 0)
                     pos = float(pos)*(float(itr->second->m_amount)/100.0f);
-                else neg = float(neg)*(float(itr->second->m_amount)/100.0f);
+                else neg = float(neg)*(float(abs(itr->second->m_amount))/100.0f);
             }
         }
-
-        pos += basepos;
-        neg += baseneg;
         for(AuraInterface::modifierMap::iterator itr = exclusiveResistMod.begin(); itr != exclusiveResistMod.end(); itr++)
         {
             if(itr->second->m_miscValue & (1 << s))
@@ -475,11 +817,111 @@ void Unit::UpdateResistance(uint32 time)
             }
         }
 
-        int32 res = pos+neg;
+        int32 res = basepos+baseneg+pos+neg;
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, res > 0 ? res : 0);
         SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, pos);
         SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, neg);
-        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, res > 0 ? res : 0);
     }
+}
+
+void Unit::UpdateAttackPowerValues()
+{
+    if(!APUpdateRequired())
+        return;
+
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT))
+    {
+        float val = 100.0f;
+        AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT);
+        for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
+            val += float(itr->second->m_amount);
+        SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, val/100.0f);
+    }
+
+    int32 attackPower = GetBaseAttackPower();
+    switch(getClass())
+    {
+    case DRUID: { attackPower += GetStrength() * 2 - 20; }break;
+    case HUNTER: case ROGUE: case SHAMAN: { attackPower += GetStrength()+GetAgility()+getLevel()*2-20; }break;
+    case WARRIOR: case DEATHKNIGHT: case PALADIN: { attackPower += GetStrength()*2+getLevel()*3-20; }break;
+    default: { attackPower += GetAgility() - 10; }break;
+    }
+
+    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, attackPower);
+    SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
+    SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
+}
+
+void Unit::UpdateRangedAttackPowerValues()
+{
+    if(!RAPUpdateRequired())
+        return;
+
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
+    {
+        float val = 100.0f;
+        AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
+        for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
+            val += float(itr->second->m_amount);
+        SetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, val/100.0f);
+    }
+
+    int32 rangedAttackPower = GetBaseRangedAttackPower();
+    switch (getClass())
+    {
+    case WARRIOR: case DEATHKNIGHT: case ROGUE: { rangedAttackPower += getLevel()+GetAgility()-10; }break;
+    case HUNTER: { rangedAttackPower += getLevel()*2+GetAgility()-10; }break;
+    default: { rangedAttackPower += GetAgility()-10; }break;
+    }
+
+    SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER, rangedAttackPower);
+    SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, 0);
+    SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
+}
+
+void Unit::UpdatePowerCostValues()
+{
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_POWER_COST_SCHOOL))
+    {
+        AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST_SCHOOL);
+        for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+        {
+            int32 val = 0;
+            for(AuraInterface::modifierMap::iterator itr = powerCostMods.begin(); itr != powerCostMods.end(); itr++)
+            {
+                if(itr->second->m_miscValue & (1 << s))
+                    val += itr->second->m_amount;
+            }
+            SetFloatValue(UNIT_FIELD_POWER_COST_MODIFIER+s,val);
+        }
+    }
+
+    if(m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_MOD_POWER_COST))
+    {
+        AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST);
+        for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+        {
+            float val = 0.f;
+            for(AuraInterface::modifierMap::iterator itr = powerCostMods.begin(); itr != powerCostMods.end(); itr++)
+            {
+                if(itr->second->m_miscValue & (1 << s))
+                    val += itr->second->m_amount;
+            }
+            SetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER+s,val/100.0f);
+        }
+    }
+}
+
+void Unit::UpdateHoverValues()
+{
+    if(!m_AuraInterface.GetAndUnsetModMaskBit(SPELL_AURA_HOVER))
+        return;
+
+    float val = 0.0f;
+    AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_HOVER);
+    for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
+        val += float(itr->second->m_amount)/2.0f;
+    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, val);
 }
 
 bool Unit::canReachWithAttack(Unit* pVictim)
@@ -762,7 +1204,7 @@ uint32 Unit::HandleProc( uint32 flag, uint32 flag2, Unit* victim, SpellEntry* Ca
             }
 
             if(ospinfo != NULL)
-                SM_FIValue( SM[SMT_PROC_CHANCE][0], (int32*)&proc_Chance, ospinfo->SpellGroupType );
+                SM_FIValue(SMT_PROC_CHANCE, (int32*)&proc_Chance, ospinfo->SpellGroupType );
 
             if( spellId && Rand( proc_Chance ) )
             {
@@ -945,35 +1387,35 @@ void Unit::HandleProcDmgShield(uint32 flag, Unit* attacker)
 
     m_damgeShieldsInUse = true;
     //charges are already removed in handleproc
-    WorldPacket data(24);
-    std::list<DamageProc>::iterator i;
-    std::list<DamageProc>::iterator i2;
+    WorldPacket data(SMSG_SPELLDAMAGESHIELD, 24);
+    std::list<DamageProc*>::iterator i;
+    std::list<DamageProc*>::iterator i2;
     for(i = m_damageShields.begin();i != m_damageShields.end();)     // Deal Damage to Attacker
     {
         i2 = i; //we should not proc on proc.. not get here again.. not needed.Better safe then sorry.
         ++i;
-        if( ((*i2).m_flags) & flag )
+        if( ((*i2)->m_flags) & flag )
         {
-            if( (*i2).destination )
+            if( (*i2)->destination )
             {
-                uint32 overkill = attacker->computeOverkill((*i2).m_damage);
+                uint32 overkill = attacker->computeOverkill((*i2)->m_damage);
                 data.Initialize(SMSG_SPELLDAMAGESHIELD);
                 data << GetGUID();
                 data << attacker->GetGUID();
-                data << (*i2).m_spellId;
-                data << (*i2).m_damage;
+                data << (*i2)->m_spellId;
+                data << (*i2)->m_damage;
                 data << uint32(overkill);
-                data << SchoolMask((*i2).m_school);
+                data << SchoolMask((*i2)->m_school);
                 SendMessageToSet(&data,true);
-                DealDamage(attacker,(*i2).m_damage,0,0,(*i2).m_spellId);
+                DealDamage(attacker,(*i2)->m_damage,0,0,(*i2)->m_spellId);
             }
             else
             {
-                SpellEntry *ability = dbcSpell.LookupEntry((*i2).m_spellId);
+                SpellEntry *ability = dbcSpell.LookupEntry((*i2)->m_spellId);
                 if(!ability)
                     continue;
 
-                Strike( attacker, RANGED, ability, 0, 0, (*i2).m_damage, false, true );
+                Strike( attacker, RANGED, ability, 0, 0, (*i2)->m_damage, false, true );
             }
         }
     }
@@ -1374,8 +1816,8 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
 
     if( ability && ability->SpellGroupType )
     {
-        SM_FFValue( SM[SMT_HITCHANCE][0], &hitchance, ability->SpellGroupType );
-        SM_PFValue( SM[SMT_HITCHANCE][1], &hitchance, ability->SpellGroupType );
+        SM_FFValue( SMT_HITCHANCE, &hitchance, ability->SpellGroupType );
+        SM_PFValue( SMT_HITCHANCE, &hitchance, ability->SpellGroupType );
     }
 
     // overpower nana
@@ -1427,8 +1869,8 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, u
 
     if(m_spellEntry->SpellGroupType)
     {
-        SM_FFValue(SM[SMT_HITCHANCE][0], &hitchance, m_spellEntry->SpellGroupType);
-        SM_PFValue(SM[SMT_HITCHANCE][1], &hitchance, m_spellEntry->SpellGroupType);
+        SM_FFValue(SMT_HITCHANCE, &hitchance, m_spellEntry->SpellGroupType);
+        SM_PFValue(SMT_HITCHANCE, &hitchance, m_spellEntry->SpellGroupType);
     }
 
     //rating bonus
@@ -1456,13 +1898,13 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, u
 
     resistchance = 100.0f-hitchance;
     if (m_spellEntry->DispelType < NUM_DISPELS)
-        resistchance += pVictim->DispelResistancesPCT[m_spellEntry->DispelType];
+        resistchance += pVictim->GetDispelResistancesPCT(m_spellEntry->DispelType);
 
     // Our resist to dispel
     if( m_spellEntry->Effect[index] == SPELL_EFFECT_DISPEL && m_spellEntry->SpellGroupType)
     {
-        SM_FFValue(pVictim->SM[SMT_RESIST_DISPEL][0], &resistchance, m_spellEntry->SpellGroupType);
-        SM_PFValue(pVictim->SM[SMT_RESIST_DISPEL][1], &resistchance, m_spellEntry->SpellGroupType);
+        pVictim->SM_FFValue(SMT_RESIST_DISPEL, &resistchance, m_spellEntry->SpellGroupType);
+        pVictim->SM_PFValue(SMT_RESIST_DISPEL, &resistchance, m_spellEntry->SpellGroupType);
     }
 
     if(Spell::IsBinary(m_spellEntry))
@@ -1801,10 +2243,10 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
     if(ability && ability->SpellGroupType)
     {
-        SM_FFValue(SM[SMT_CRITICAL][0],&crit,ability->SpellGroupType);
-        SM_PFValue(SM[SMT_CRITICAL][1],&crit,ability->SpellGroupType);
-        SM_FFValue(SM[SMT_HITCHANCE][0],&hitchance,ability->SpellGroupType);
-        SM_PFValue(SM[SMT_HITCHANCE][1],&hitchance,ability->SpellGroupType);
+        SM_FFValue(SMT_CRITICAL,&crit,ability->SpellGroupType);
+        SM_PFValue(SMT_CRITICAL,&crit,ability->SpellGroupType);
+        SM_FFValue(SMT_HITCHANCE,&hitchance,ability->SpellGroupType);
+        SM_PFValue(SMT_HITCHANCE,&hitchance,ability->SpellGroupType);
     }
 
     //Hackfix for Surprise Attacks
@@ -1865,7 +2307,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------roll------------------------------------------------------
     float Roll = RandomFloat(100.0f);
     uint32 r = 0;
-    while (r<7&&Roll>chances[r])
+    while (r < 7 && Roll > chances[r])
     {
         r++;
     }
@@ -2001,9 +2443,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                 dmg.full_damage = CalculateDamage( TO_UNIT(this), pVictim, weapon_damage_type, ability );
 
             if( weapon_damage_type == RANGED )
-            {
-                dmg.full_damage += pVictim->RangedDamageTaken;
-            }
+                dmg.full_damage += pVictim->GetRangedDamageTakenMod();
 
             if( ability && ability->MechanicsType == MECHANIC_BLEEDING )
                 disable_dR = true;
@@ -2019,7 +2459,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             else
             {
                 dmg.full_damage += GetDamageDoneMod(SCHOOL_NORMAL);
-                dmg.full_damage *= pVictim->DamageTakenPctMod[SCHOOL_NORMAL];
+                dmg.full_damage *= pVictim->GetDamageTakenModPct(SCHOOL_NORMAL);
             }
 
             //pet happiness state dmg modifier
@@ -2117,7 +2557,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     hit_status |= HITSTATUS_CRICTICAL;
                     float dmg_bonus_pct = 100.0f;
                     if(ability && ability->SpellGroupType)
-                        SM_FFValue(SM[SMT_CRITICAL_DAMAGE][1],&dmg_bonus_pct,ability->SpellGroupType);
+                        SM_PFValue(SMT_CRITICAL_DAMAGE,&dmg_bonus_pct,ability->SpellGroupType);
 
                     if( IsPlayer() )
                     {
@@ -2157,15 +2597,14 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
                     // SpellAuraReduceCritRangedAttackDmg
                     if( weapon_damage_type == RANGED )
-                        dmg_bonus_pct -= CritRangedDamageTakenPctMod[dmg.school_type];
-                    else
-                        dmg_bonus_pct -= CritMeleeDamageTakenPctMod[dmg.school_type];
+                        dmg_bonus_pct -= GetCritRangedDamageTakenModPct(dmg.school_type);
+                    else dmg_bonus_pct -= GetCritMeleeDamageTakenModPct(dmg.school_type);
 
                     // actual crit damage?
                     if( dmg_bonus_pct > 0 )
                         dmg.full_damage += float2int32( float(dmg.full_damage) * (dmg_bonus_pct / 100.0f));
 
-                    if(pVictim->IsPlayer())
+                    if(IsPlayer() && pVictim->IsPlayer())
                     {
                         //Resilience is a special new rating which was created to reduce the effects of critical hits against your character.
                         float dmg_reduction_pct = 2.2f * TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
@@ -2183,7 +2622,6 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                         vproc |= PROC_ON_RANGED_CRIT_ATTACK_VICTIM;
                         aproc |= PROC_ON_RANGED_CRIT_ATTACK;
                     }
-
 
                     CALL_SCRIPT_EVENT(pVictim, OnTargetCritHit)(TO_UNIT(this), float(dmg.full_damage));
                     CALL_SCRIPT_EVENT(TO_UNIT(this), OnCritHit)(pVictim, float(dmg.full_damage));
@@ -2247,9 +2685,11 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //==========================================================================================
 //--------------------------special states processing---------------------------------------
 
-    if(pVictim->bInvincible == true)
+    if(pVictim->bInvincible == true) //godmode
     {
-        dmg.resisted_damage = dmg.full_damage; //godmode
+        abs = dmg.resisted_damage = dmg.full_damage;
+        dmg.full_damage = realdamage = 0;
+        hit_status |= HITSTATUS_ABSORBED;
     }
 
 //--------------------------dirty fixes-----------------------------------------------------
@@ -2693,8 +3133,8 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
             }
         }
 
-        SM_FFValue( caster->SM[SMT_SP_BONUS][0], &modifier, spellInfo->SpellGroupType );
-        SM_FFValue( caster->SM[SMT_SP_BONUS][1], &modifier, spellInfo->SpellGroupType );
+        caster->SM_FFValue( SMT_SP_BONUS, &modifier, spellInfo->SpellGroupType );
+        caster->SM_FFValue( SMT_SP_BONUS, &modifier, spellInfo->SpellGroupType );
         coefficient += modifier / 100.0f;
     }
 
@@ -2711,7 +3151,7 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
     {
         if(coefficient) // Saves us some time.
             bonus_damage += caster->GetDamageDoneMod(school) * coefficient * levelPenalty;
-        bonus_damage += pVictim->DamageTakenMod[school] * levelPenalty;
+        bonus_damage += pVictim->GetDamageTakenMod(school) * levelPenalty;
     }
     else
     {
@@ -2735,9 +3175,9 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
     if( spellInfo->SpellGroupType )
     {
         float dmg_bonus_pct = 0;
-        SM_FIValue(caster->SM[SMT_DAMAGE_DONE][0], &bonus_damage, spellInfo->SpellGroupType);
-        SM_FFValue(caster->SM[SMT_SPELL_VALUE_PCT][1], &dmg_bonus_pct, spellInfo->SpellGroupType);
-        SM_FFValue(caster->SM[SMT_DAMAGE_DONE][1], &dmg_bonus_pct, spellInfo->SpellGroupType);
+        caster->SM_FFValue(SMT_SPELL_VALUE_PCT, &dmg_bonus_pct, spellInfo->SpellGroupType);
+        caster->SM_FFValue(SMT_DAMAGE_DONE, &dmg_bonus_pct, spellInfo->SpellGroupType);
+        caster->SM_FIValue(SMT_DAMAGE_DONE, &bonus_damage, spellInfo->SpellGroupType);
 
         // Molten Fury - Should be done in SpellAuraOverrideClassScripts, but heh xD
         if(IsPlayer() && pVictim->GetHealthPct() <= 35)
@@ -2784,7 +3224,7 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
     }
 
     if( (spellInfo->c_is_flags & SPELL_FLAG_IS_DAMAGING) && (spellInfo->isAOE) )
-        bonus_damage *= pVictim->AOEDmgMod;
+        bonus_damage *= pVictim->GetAreaOfEffectDamageMod();
 
     if( pVictim->RAPvModifier && spellInfo->is_ranged_spell )
         bonus_damage += float2int32(pVictim->RAPvModifier * (GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME) / 14000.0f));
@@ -2798,9 +3238,9 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
 
     if( !healing )
     {
-        summaryPCTmod += caster->GetDamageDonePctMod(school)-1; //value is initialized with 1
-        summaryPCTmod += pVictim->DamageTakenPctMod[school]-1;//value is initialized with 1
-        summaryPCTmod += pVictim->ModDamageTakenByMechPCT[Spell::GetMechanic(spellInfo)];
+        summaryPCTmod += caster->GetDamageDonePctMod(school)-1.f; //value is initialized with 1
+        summaryPCTmod += pVictim->GetDamageTakenModPct(school)-1.f;//value is initialized with 1
+        summaryPCTmod += pVictim->GetDamageTakenByMechPCTMod(Spell::GetMechanic(spellInfo));
     }
     else
     {
@@ -3113,65 +3553,55 @@ uint32 Unit::AbsorbDamage( Object* Attacker, uint32 School, uint32* dmg, SpellEn
 {
     if( dmg == NULL || Attacker == NULL  || School > 6 )
         return 0;
-
     if( pSpell && (pSpell->Id == 59653 || pSpell->c_is_flags & SPELL_FLAG_PIERCES_ABSORBTION_EFF ))
         return 0;
 
-    SchoolAbsorb::iterator i, j;
     uint32 abs = 0;
-    int32 reflect_pct = 0;
+    float reflect_pct = 0.f;
 
-    for( i = Absorbs[School].begin(); i != Absorbs[School].end(); )
+    std::set<Aura*> m_removeAuras;
+    AuraInterface::modifierMap absorbMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_SCHOOL_ABSORB);
+    for(AuraInterface::modifierMap::iterator itr = absorbMap.begin(); itr != absorbMap.end(); itr++)
     {
-        if( (int32)(*dmg) >= (*i)->amt)//remove this absorb
+        if(itr->second->m_miscValue & (1<<School))
         {
-            (*dmg) -= (*i)->amt;
-            abs += (*i)->amt;
-            reflect_pct += (*i)->reflect_pct;
-            j = i;
-            ++i;
+            if(itr->second->fixed_amount == 0)
+                continue;
 
-            if( i != Absorbs[School].end() )
+            if( (int32)(*dmg) >= itr->second->fixed_amount)//remove this absorb
             {
-                while( (*i)->spellid == (*j)->spellid )
-                {
-                    ++i;
-                    if( i == Absorbs[School].end() )
-                        break;
-                }
-            }
+                (*dmg) -= itr->second->fixed_amount;
 
-            RemoveAura((*j)->spellid); //,(*j)->caster);
-            if(!*dmg)//absorbed all dmg
+                if((*dmg) == 0)
+                    break;
+            }
+            else
+            {
+                abs += *dmg;
+                reflect_pct += itr->second->fixed_float_amount;
+                itr->second->fixed_amount -= *dmg;
+                *dmg = 0;
                 break;
-        }
-        else //absorb full dmg
-        {
-            abs += *dmg;
-            reflect_pct += (*i)->reflect_pct;
-            (*i)->amt -= *dmg;
-            *dmg=0;
-            break;
+            }
         }
     }
 
     if( abs > 0 )
     {
-        if(reflect_pct > 0 && Attacker && Attacker->IsUnit() )
+        if(reflect_pct > 0.f && Attacker && Attacker->IsUnit() )
         {
-            int32 amt = float2int32(abs * (reflect_pct / 100.0f ));
+            int32 amt = float2int32(abs * reflect_pct);
             DealDamage( TO_UNIT( Attacker ), amt, 0, 0, 0 );
         }
+
         if(m_incanterAbsorption > 0)
         {
             SpellEntry *spInfo = dbcSpell.LookupEntry(44413);
             if(spInfo)
             {
-                Spell* sp = NULLSPELL;
-                sp = (new Spell(this, spInfo, true, NULLAURA));
                 SpellCastTargets tgt;
-                int spamount = std::min(float2int32(GetUInt32Value(UNIT_FIELD_HEALTH) * 0.05f), float2int32((abs * m_incanterAbsorption) / 100));
-                sp->forced_basepoints[0] = spamount;
+                Spell* sp = new Spell(this, spInfo, true, NULLAURA);
+                sp->forced_basepoints[0] = std::min(float2int32(GetUInt32Value(UNIT_FIELD_HEALTH) * 0.05f), float2int32((abs * m_incanterAbsorption) / 100));
                 tgt.m_unitTarget=GetGUID();
                 sp->prepare(&tgt);
             }
@@ -4312,22 +4742,6 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     }
 }
 
-void Unit::InheritSMMods(Unit* inherit_from)
-{
-    for(uint32 x = 0; x < SPELL_MODIFIERS; x++)
-    {
-        for(uint32 y = 0; y < 2; y++)
-        {
-            if(inherit_from->SM[x][y])
-            {
-                if(SM[x][y] == 0)
-                    SM[x][y] = new int32[SPELL_GROUPS];
-                memcpy(SM[x][y], inherit_from->SM[x][y], sizeof(int32)*SPELL_GROUPS);
-            }
-        }
-    }
-}
-
 void Unit::EventCancelSpell(Spell* ptr)
 {
     if(ptr != NULL)
@@ -4354,16 +4768,14 @@ void Unit::setAttackTimer(int32 time, bool offhand)
 
     if(offhand)
         m_attackTimer_1 = getMSTime() + time;
-    else
-        m_attackTimer = getMSTime() + time;
+    else m_attackTimer = getMSTime() + time;
 }
 
 bool Unit::isAttackReady(bool offhand)
 {
     if(offhand)
         return (getMSTime() >= m_attackTimer_1) ? true : false;
-    else
-        return (getMSTime() >= m_attackTimer) ? true : false;
+    return (getMSTime() >= m_attackTimer) ? true : false;
 }
 
 void Unit::ReplaceAIInterface(AIInterface *new_interface)
@@ -4377,8 +4789,7 @@ void Unit::EventModelChange()
     CreatureBoundData *boundData = dbcCreatureBoundData.LookupEntry(GetUInt32Value(UNIT_FIELD_DISPLAYID));
     if(boundData) //TODO: if has mount, grab mount model and add the z value of attachment 0
         m_modelhalfsize = boundData->High[2]/2;
-    else
-        m_modelhalfsize = 1.0f;
+    else m_modelhalfsize = 1.0f;
 }
 
 void Creature::UpdateLootAnimation(Player* Looter)

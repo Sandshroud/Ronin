@@ -386,8 +386,8 @@ public:
         Rad[i] = ::GetDBCRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
         if(GetSpellProto()->SpellGroupType && u_caster)
         {
-            SM_FFValue(u_caster->SM[SMT_RADIUS][0],&Rad[i],GetSpellProto()->SpellGroupType);
-            SM_PFValue(u_caster->SM[SMT_RADIUS][1],&Rad[i],GetSpellProto()->SpellGroupType);
+            u_caster->SM_FFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
+            u_caster->SM_PFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
         }
 
         return Rad[i];
@@ -401,8 +401,8 @@ public:
         Rad[i] = ::GetDBCFriendlyRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
         if(GetSpellProto()->SpellGroupType && u_caster)
         {
-            SM_FFValue(u_caster->SM[SMT_RADIUS][0],&Rad[i],GetSpellProto()->SpellGroupType);
-            SM_PFValue(u_caster->SM[SMT_RADIUS][1],&Rad[i],GetSpellProto()->SpellGroupType);
+            u_caster->SM_FFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
+            u_caster->SM_PFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
         }
 
         return Rad[i];
@@ -554,14 +554,14 @@ private:
     SpellTargetMap ManagedTargets;
 
     // adds a target to the list, performing DidHit checks
-    void _AddTarget(const Unit* target, const uint32 effectid);
+    void _AddTarget(Unit* target, const uint32 effectid);
 
     // adds a target to the list, negating DidHit checks
     void _AddTargetForced(const uint64& guid, const uint32 effectid);
     void _AddTargetForced(Object * target, const uint32 effectid) { if(target) _AddTargetForced(target->GetGUID(), effectid); }
 
     // didhit checker
-    uint8 _DidHit(uint32 index, const Unit* target, uint8 &reflectout);
+    uint8 _DidHit(uint32 index, Unit* target, uint8 &reflectout);
 
     // gets the pointer of an object (optimized for spell system)
     Object* _LookupObject(const uint64& guid);

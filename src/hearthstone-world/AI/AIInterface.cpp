@@ -270,8 +270,8 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
     // apply spell modifiers
     if (sp != NULL && sp->SpellGroupType)
     {
-        SM_FIValue(caster->SM[SMT_THREAT_REDUCED][0],(int32*)&amount,sp->SpellGroupType);
-        SM_PIValue(caster->SM[SMT_THREAT_REDUCED][1],(int32*)&amount,sp->SpellGroupType);
+        caster->SM_FIValue(SMT_THREAT_REDUCED,(int32*)&amount,sp->SpellGroupType);
+        caster->SM_PIValue(SMT_THREAT_REDUCED,(int32*)&amount,sp->SpellGroupType);
     }
     amount += (amount * caster->GetGeneratedThreatModifier() / 100);
 
@@ -291,7 +291,7 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
     if(!casterInList && victimInList) // caster is not yet in Combat but victim is
     {
         // get caster into combat if he's hostile
-        if(sFactionSystem.isHostile(m_Unit, caster))
+        if(sFactionSystem.CanEitherUnitAttack(m_Unit, caster))
         {
             ai_TargetLock.Acquire();
             m_aiTargets.insert(make_pair(caster, amount));
@@ -316,7 +316,7 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
             {
                 // get victim into combat since they are both
                 // in the same party
-                if( sFactionSystem.isHostile( m_Unit, victim ) )
+                if( sFactionSystem.CanEitherUnitAttack( m_Unit, victim ) )
                 {
                     ai_TargetLock.Acquire();
                     m_aiTargets.insert( make_pair( victim, 1 ) );
@@ -371,7 +371,7 @@ bool AIInterface::FindFriends(float dist)
             continue;
         if(pUnit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9))
             continue;
-        if( !sFactionSystem.isHostile(GetMostHated(), pUnit) )
+        if( !sFactionSystem.CanEitherUnitAttack(GetMostHated(), pUnit) )
             continue;
         if( !m_Unit->PhasedCanInteract(pUnit) )
             continue;
@@ -487,7 +487,7 @@ void AIInterface::CallGuards()
             if(spawned >= 3)
                 break;
 
-            if(!sFactionSystem.isHostile(*hostileItr, m_Unit))
+            if(!sFactionSystem.CanEitherUnitAttack(*hostileItr, m_Unit))
                 continue;
 
             Creature* guard = m_Unit->GetMapMgr()->CreateCreature(guardId);

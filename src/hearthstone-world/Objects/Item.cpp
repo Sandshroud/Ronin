@@ -466,7 +466,7 @@ uint32 Item::GetBuyPriceForItem( ItemPrototype* proto, uint32 count, Player* plr
 
     if( plr != NULL && vendor != NULL )
     {
-        Standing plrstanding = plr->GetStandingRank( vendor->m_factionTemplate->Faction );
+        Standing plrstanding = plr->GetStandingRank( vendor->GetFactionID() );
         cost = float2int32( ceilf( float( proto->BuyPrice ) * pricemod[plrstanding] ) );
     }
 
@@ -625,10 +625,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
     // Apply the visual on the player.
     uint32 ItemSlot = m_owner->GetItemInterface()->GetInventorySlotByGuid( GetGUID() );
     if(ItemSlot < EQUIPMENT_SLOT_END && Slot < 1)
-    {
-        uint32 VisibleBase = PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + ItemSlot * PLAYER_VISIBLE_ITEM_LENGTH;
-        m_owner->SetUInt16Value( VisibleBase, Slot, Apply ? Entry->Id : 0 );
-    }
+        m_owner->SetUInt16Value( (PLAYER_VISIBLE_ITEM+1 + ItemSlot * PLAYER_VISIBLE_ITEM_LENGTH), Slot, Apply ? Entry->Id : 0 );
 
     if( Apply )
     {
@@ -788,7 +785,6 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                         m_owner->FlatResistanceModifierPos[Entry->spell[c]] += val;
                     else
                         m_owner->FlatResistanceModifierPos[Entry->spell[c]] -= val;
-                    m_owner->CalcResistance( Entry->spell[c] );
                 }break;
 
             case 5:  //Modify rating ...order is PLAYER_FIELD_COMBAT_RATING_1 and above

@@ -262,7 +262,7 @@ namespace VMAP
         char chunk[10];
         if(!readChunk(rf, chunk, VMAP_MAGIC, 10))
         {
-            bLog.outError("VMap magic does not match!");
+            sLog.outError("VMap magic does not match!");
             return false;
         }
 
@@ -278,7 +278,7 @@ namespace VMAP
 
         iIsTiled = bool(tiled);
         if(!success)
-            bLog.outError("StaticMapTree::InitMap() : failed reading data!");
+            sLog.outError("StaticMapTree::InitMap() : failed reading data!");
         else
         {
             // global model spawns
@@ -300,7 +300,7 @@ namespace VMAP
                     else
                     {
                         success = false;
-                        bLog.outError("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", spawn.name.c_str());
+                        sLog.outError("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", spawn.name.c_str());
                     }
                 }
             }

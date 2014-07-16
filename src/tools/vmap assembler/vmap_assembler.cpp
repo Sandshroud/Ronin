@@ -28,9 +28,7 @@
 //=======================================================
 int main(int argc, char* argv[])
 {
-    basicLog::InitializeBasicLog();
-    bLog.Init(7);
-
+    sLog.Init(7);
     if(argc != 3)
     {
         std::cout << "usage: " << argv[0] << " <raw data dir> <vmap dest dir>" << std::endl;

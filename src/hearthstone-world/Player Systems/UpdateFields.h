@@ -85,9 +85,9 @@ enum EUnitFields
     UNIT_CHANNEL_SPELL                        = OBJECT_END + 0x0010, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_BYTES_0                        = OBJECT_END + 0x0011, // Size: 1, Type: BYTES, Flags: PUBLIC
     UNIT_FIELD_HEALTH                         = OBJECT_END + 0x0012, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_POWER                          = OBJECT_END + 0x0013, // Size: 1, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_POWER                          = OBJECT_END + 0x0013, // Size: 11, Type: INT, Flags: PUBLIC
     UNIT_FIELD_MAXHEALTH                      = OBJECT_END + 0x001E, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_MAXPOWER                       = OBJECT_END + 0x001F, // Size: 1, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_MAXPOWER                       = OBJECT_END + 0x001F, // Size: 11, Type: INT, Flags: PUBLIC
     UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER      = OBJECT_END + 0x002A, // Size: 11, Type: FLOAT, Flags: PRIVATE, OWNER
     UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER = OBJECT_END + 0x0035, // Size: 11, Type: FLOAT, Flags: PRIVATE, OWNER
     UNIT_FIELD_LEVEL                          = OBJECT_END + 0x0040, // Size: 1, Type: INT, Flags: PUBLIC
@@ -153,52 +153,8 @@ enum EUnitFields
     PLAYER_BYTES_3                            = UNIT_END + 0x0008, // Size: 1, Type: BYTES, Flags: PUBLIC
     PLAYER_DUEL_TEAM                          = UNIT_END + 0x0009, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_GUILD_TIMESTAMP                    = UNIT_END + 0x000A, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_QUEST_LOG_1_1                      = UNIT_END + 0x000B, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_1_2                      = UNIT_END + 0x000C, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_1_3                      = UNIT_END + 0x000D, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_1_4                      = UNIT_END + 0x000F, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_50_1                     = UNIT_END + 0x0100, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_50_2                     = UNIT_END + 0x0101, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_50_3                     = UNIT_END + 0x0102, // Size: 2, Type: TWO_SHORT, Flags: PARTY_LEADER
-    PLAYER_QUEST_LOG_50_5                     = UNIT_END + 0x0104, // Size: 1, Type: INT, Flags: PARTY_LEADER
-    PLAYER_VISIBLE_ITEM_1_ENTRYID             = UNIT_END + 0x0105, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_1_ENCHANTMENT         = UNIT_END + 0x0106, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_2_ENTRYID             = UNIT_END + 0x0107, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_2_ENCHANTMENT         = UNIT_END + 0x0108, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_3_ENTRYID             = UNIT_END + 0x0109, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_3_ENCHANTMENT         = UNIT_END + 0x010A, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_4_ENTRYID             = UNIT_END + 0x010B, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_4_ENCHANTMENT         = UNIT_END + 0x010C, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_5_ENTRYID             = UNIT_END + 0x010D, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_5_ENCHANTMENT         = UNIT_END + 0x010E, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_6_ENTRYID             = UNIT_END + 0x010F, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_6_ENCHANTMENT         = UNIT_END + 0x0110, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_7_ENTRYID             = UNIT_END + 0x0111, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_7_ENCHANTMENT         = UNIT_END + 0x0112, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_8_ENTRYID             = UNIT_END + 0x0113, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_8_ENCHANTMENT         = UNIT_END + 0x0114, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_9_ENTRYID             = UNIT_END + 0x0115, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_9_ENCHANTMENT         = UNIT_END + 0x0116, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_10_ENTRYID            = UNIT_END + 0x0117, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_10_ENCHANTMENT        = UNIT_END + 0x0118, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_11_ENTRYID            = UNIT_END + 0x0119, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_11_ENCHANTMENT        = UNIT_END + 0x011A, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_12_ENTRYID            = UNIT_END + 0x011B, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_12_ENCHANTMENT        = UNIT_END + 0x011C, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_13_ENTRYID            = UNIT_END + 0x011D, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_13_ENCHANTMENT        = UNIT_END + 0x011E, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_14_ENTRYID            = UNIT_END + 0x011F, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_14_ENCHANTMENT        = UNIT_END + 0x0120, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_15_ENTRYID            = UNIT_END + 0x0121, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_15_ENCHANTMENT        = UNIT_END + 0x0122, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_16_ENTRYID            = UNIT_END + 0x0123, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_16_ENCHANTMENT        = UNIT_END + 0x0124, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_17_ENTRYID            = UNIT_END + 0x0125, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_17_ENCHANTMENT        = UNIT_END + 0x0126, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_18_ENTRYID            = UNIT_END + 0x0127, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_18_ENCHANTMENT        = UNIT_END + 0x0128, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_19_ENTRYID            = UNIT_END + 0x0129, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_19_ENCHANTMENT        = UNIT_END + 0x012A, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
+    PLAYER_QUEST_LOG                          = UNIT_END + 0x000B, // Size: 250, Type: INT, Flags: PARTY_LEADER
+    PLAYER_VISIBLE_ITEM                       = UNIT_END + 0x0105, // Size: 38, Type: INT, Flags: PUBLIC
     PLAYER_CHOSEN_TITLE                       = UNIT_END + 0x012B, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_FAKE_INEBRIATION                   = UNIT_END + 0x012C, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_FIELD_PAD_0                        = UNIT_END + 0x012D, // Size: 1, Type: INT, Flags: NONE
@@ -347,10 +303,13 @@ enum ECorpseFields
 #define GAMEOBJECT_ROTATION_02                  GAMEOBJECT_PARENTROTATION+2
 #define GAMEOBJECT_ROTATION_03                  GAMEOBJECT_PARENTROTATION+3
 
-#define PLAYER_VISIBLE_ITEM_LENGTH              (PLAYER_VISIBLE_ITEM_2_ENTRYID - PLAYER_VISIBLE_ITEM_1_ENTRYID)
 #define PLAYER_GUILDID                          OBJECT_FIELD_DATA
 #define PLAYER_FIELD_LIFETIME_HONORABLE_KILLS   PLAYER_FIELD_LIFETIME_HONORBALE_KILLS
 #define PLAYER_MAX_SKILL_INFO_FIELD             PLAYER_SKILL_INFO_1_1+384 // PLAYER_CHARACTER_POINTS
+#define PLAYER_QUEST_LOG_END                    PLAYER_QUEST_LOG+250
+
+#define PLAYER_VISIBLE_ITEM_LENGTH              2
+#define PLAYER_VISIBLE_ITEM_END                 PLAYER_VISIBLE_ITEM+38
 
 #define PLAYER_RATING_MODIFIER_RANGED_SKILL                     PLAYER_FIELD_COMBAT_RATING_1
 #define PLAYER_RATING_MODIFIER_DEFENCE                          PLAYER_FIELD_COMBAT_RATING_1+1

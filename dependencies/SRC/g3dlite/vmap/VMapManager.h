@@ -16,7 +16,7 @@
 #define VMAP_MAX_HEIGHT             100000.0f            // for other checks
 
 #ifdef DEBUG
-#define OUT_DEBUG bLog.outDebug
+#define OUT_DEBUG sLog.outDebug
 #else
 #define OUT_DEBUG
 #endif

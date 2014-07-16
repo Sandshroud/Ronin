@@ -4,7 +4,6 @@
 
 #include "LogonStdAfx.h"
 #include "LogonConsole.h"
-#include "hearthstone_log.h"
 
 initialiseSingleton(LogonConsole);
 bool Rehash();

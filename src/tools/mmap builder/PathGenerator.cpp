@@ -18,7 +18,7 @@
 
 #include "PathCommon.h"
 #include "MapBuilder.h"
-#include "consolelog/consolelog.h"
+#include <threading/Threading.h>
 
 using namespace MMAP;
 
@@ -242,7 +242,6 @@ int finish(const char* message, int returnValue)
 
 int main(int argc, char** argv)
 {
-    basicLog::InitializeBasicLog();
     int threads = 3, mapnum = -1;
     float maxAngle = 55.0f;
     int tileX = -1, tileY = -1;
@@ -279,7 +278,7 @@ int main(int argc, char** argv)
     if (!checkDirectories(debugOutput))
         return silent ? -3 : finish("Press any key to close...", -3);
 
-    bLog.Init(1);
+    sLog.Init(1);
     MapBuilder builder(maxAngle, skipLiquid, skipContinents, skipJunkMaps,
                        skipBattlegrounds, debugOutput, bigBaseUnit, offMeshInputPath);
 
@@ -294,6 +293,6 @@ int main(int argc, char** argv)
         builder.buildAllMaps(threads);
 
     if (!silent)
-        printf("Finished. MMAPS were built in %u ms!\n", GetMSTimeDiffToNow(start));
+        printf("Finished. MMAPS were built in %u ms!\n", getMSTime()-start);
     return 0;
 }

@@ -161,7 +161,7 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool In
         return;
     if(res == OUTPACKET_RESULT_PACKET_ERROR)
     { // Track packets that cause packet errors
-        if(!sLog.isOutDevelopment())
+        if(sLog.GetLogLevel() < 4)
             return;
 
         FILE *codeLog = NULL;
@@ -584,7 +584,7 @@ void WorldSocket::OnRecvData()
             }break;
         case MSG_NULL_ACTION:
             { // We need to log opcodes that are non existent
-                if(!sLog.isOutDevelopment())
+                if(sLog.GetLogLevel() < 4)
                     return;
 
                 FILE *codeLog = NULL;

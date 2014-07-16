@@ -638,7 +638,6 @@ struct WayPoint
     float orientation;
     uint32 waittime; //ms
     uint32 flags;
-    uint16 count;
 
     ConditionalData* forwardInfo;
     ConditionalData* backwardInfo;
@@ -690,7 +689,6 @@ HEARTHSTONE_INLINE bool FindXinYString(std::string x, std::string y)
 bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits);
 unsigned int MakeIP(const char * str);
 
-#include "hearthstone_log.h"
 #include "ByteConverter.h"
 #include "Console/CConsole.h"
 

@@ -26,29 +26,31 @@
 
 #endif
 
-class basicLog
+class SERVER_DECL consoleLog : public Singleton<consoleLog>
 {
 public:
     void Init(int log_Level);
     void SetLoggingLevel(int loglevel) { m_logLevel = loglevel; };
     void SetCLoggingLevel(int cloglevel) { m_clogLevel = cloglevel; };
     void SetAllLoggingLevel(int tloglevel) { m_logLevel = m_clogLevel = tloglevel; };
+    int GetLogLevel() { return m_logLevel; }
+    int GetCLogLevel() { return m_clogLevel; }
 
 private:
     void PrintTime();
     virtual time_t GetTime();
     void SetColor(int color);
 
-    virtual void AcquireLock() {};
-    virtual void ReleaseLock() {};
+    void AcquireLock() { logLock.Acquire(); };
+    void ReleaseLock() { logLock.Release(); };
 
 public: // String outputs
-    virtual void outString( const char * str, ... );
-    virtual void outError( const char * err, ... );
-    virtual void outDetail( const char * str, ... );
-    virtual void outDebug( const char * str, ... );
-    virtual void outDebugInLine( const char * str, ... );
-    virtual void outColor(int color, const char * str, ...);
+    void outString( const char * str, ... );
+    void outError( const char * err, ... );
+    void outDetail( const char * str, ... );
+    void outDebug( const char * str, ... );
+    void outDebugInLine( const char * str, ... );
+    void outColor(int color, const char * str, ...);
 
 public: // Console outputs
     void Line();
@@ -62,20 +64,13 @@ public: // Console outputs
 
     void LargeErrorMessage(int color, ...);
 
-public:
-    static basicLog GetBasicLog() { return *basicLogExistence; };
-
-    // Call at system start
-    static void InitializeBasicLog() { basicLogExistence = new basicLog(); };
-    static void SetBasicLog(basicLog* basicBase) { basicLogExistence = basicBase; };
-
 private:
 #if PLATFORM == PLATFORM_WIN
     HANDLE stdout_handle;
 #endif
 
+    Mutex logLock;
     int m_logLevel, m_clogLevel;
-    static basicLog *basicLogExistence;
 };
 
-#define bLog basicLog::GetBasicLog()
+#define sLog consoleLog::getSingleton()

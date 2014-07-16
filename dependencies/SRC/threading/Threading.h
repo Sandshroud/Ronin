@@ -10,9 +10,6 @@
 // Include our tick timer
 #include "TickTimer.h"
 
-// Include log header from dependencies
-#include "../consolelog/consolelog.h"
-
 // We need to be able to anticipate crashes
 #include "StackWalker.h"
 #include "CrashHandler.h"
@@ -49,3 +46,6 @@
 
 // Thread Pool
 #include "ThreadPool.h"
+
+// Thread safe console log
+#include "ConsoleLog.h"

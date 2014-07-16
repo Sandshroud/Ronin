@@ -311,46 +311,6 @@ typedef HM_NAMESPACE::hash_map<string, PlayerInfo*> PlayerNameStringIndexMap;
 typedef std::map<uint32, uint32> PetLevelupSpellSet;
 typedef std::map<uint32, PetLevelupSpellSet> PetLevelupSpellMap;
 
-struct QuestPOIPoint
-{
-    int32 x;
-    int32 y;
-    QuestPOIPoint() : x(0), y(0) {}
-    QuestPOIPoint(int32 _x, int32 _y) : x(_x), y(_y) {}
-};
-
-/* Some Research:
-**
-** Id: Quest Id
-** ObjectiveIndex: Should be ObjectiveType
-****************** -1 for turning in, 0, 1, 2 and 3 are for creatures, 4, 5, 6, 7, 8, and 9 are for items from creatures
-****************** 10, 11, 12, 13, 14 and 15 are for items from gameobjects, 16, 17, 18, and 19 are for gameobjects.
-** MapId: Easy enough to understand, map id for objective.
-** AreaId: This is the WorldMap Area id, not the normal area id.
-** MapFloorId: For maps which use multiple floors or areas(Instances), it's used to designate which floor.
-** Unk3: No clue
-** Unk4: No clue, set it to 1 when I use it.
-**
-******/
-struct QuestPOI
-{
-    uint32 Id;
-    int32 ObjectiveIndex;
-    uint32 MapId;
-    uint32 AreaId;
-    uint32 MapFloorId;
-    uint32 Unk3;
-    uint32 Unk4;
-    std::vector<QuestPOIPoint> points;
-
-    QuestPOI() : Id(0), ObjectiveIndex(0), MapId(0), AreaId(0), MapFloorId(0), Unk3(0), Unk4(1) {}
-
-    QuestPOI(uint32 id, int32 objIndex, uint32 mapId, uint32 areaId, uint32 floorId, uint32 unk3, uint32 unk4) : Id(id), ObjectiveIndex(objIndex), MapId(mapId), AreaId(areaId), MapFloorId(floorId), Unk3(unk3), Unk4(unk4) {}
-};
-
-typedef std::vector<QuestPOI> QuestPOIVector;
-typedef std::tr1::unordered_map<uint32, QuestPOIVector> QuestPOIMap;
-
 struct RecallLocation
 {
     uint32 mapId;
@@ -401,7 +361,6 @@ public:
     // object holder
     TotemSpellMap       m_totemSpells;
     OverrideIdMap       mOverrideIdMap;
-    QuestPOIMap         mQuestPOIMap;
 
     Player* GetPlayer(const char* name, bool caseSensitive = true);
     Player* GetPlayer(uint32 guid);
@@ -524,14 +483,6 @@ public:
     void AddPlayer(Player* p);//add it to global storage
     void RemovePlayer(Player* p);
 
-    QuestPOIVector const* GetQuestPOIVector(uint32 questId)
-    {
-        QuestPOIMap::const_iterator itr = mQuestPOIMap.find(questId);
-        if (itr != mQuestPOIMap.end())
-            return &itr->second;
-        return NULL;
-    }
-
     // Serialization
     void LoadPlayersInfo();
     void LoadPlayerCreateInfo();
@@ -547,7 +498,6 @@ public:
     void LoadSpellFixes();
     void LoadReputationModifierTable(const char * tablename, ReputationModMap * dmap);
     void LoadReputationModifiers();
-    void LoadQuestPOI();
     void LoadRecallPoints();
     ReputationModifier * GetReputationModifier(uint32 entry_id, uint32 faction_id);
 

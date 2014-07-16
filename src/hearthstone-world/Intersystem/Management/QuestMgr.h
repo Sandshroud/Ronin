@@ -24,11 +24,25 @@ struct QuestAssociation
     uint8 item_count;
 };
 
+struct QuestPOI
+{
+    QuestPOI() : questId(0), PoIID(0), questObjectIndex(0), mapId(0), areaId(0), MapFloorId(0) {}
+
+    uint32 questId, PoIID;
+    int32 questObjectIndex;
+    uint32 mapId;
+    uint32 areaId;
+    uint32 MapFloorId;
+    std::vector<std::pair<int32, int32>> points;
+};
+
+
 class Item;
 
 typedef std::map<uint32, Quest*> QuestStorageMap;
 typedef std::list<QuestRelation *> QuestRelationList;
 typedef std::list<QuestAssociation *> QuestAssociationList;
+typedef std::map<uint32, std::vector<QuestPOI*> > QuestPOIStorageMap;
 
 class SERVER_DECL QuestMgr :  public Singleton < QuestMgr >
 {
@@ -39,8 +53,18 @@ public:
     Mutex LoadLocks;
     void LoadQuests(); // Actually load our quests, do not call outside startup.
     void LoadExtraQuestStuff();
+    void LoadQuestPOI();
+
     bool QuestExists(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return true; return false; };
     Quest* GetQuestPointer(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return QuestStorage.at(entry); return NULL; };
+
+    std::vector<QuestPOI*> const *GetQuestPOIVector(uint32 questId)
+    {
+        QuestPOIStorageMap::const_iterator itr = mQuestPOIMap.find(questId);
+        if (itr != mQuestPOIMap.end())
+            return &itr->second;
+        return NULL;
+    }
 
     QuestStorageMap::iterator GetQuestStorageBegin() { return QuestStorage.begin(); };
     QuestStorageMap::iterator GetQuestStorageEnd() { return QuestStorage.end(); };
@@ -129,6 +153,7 @@ public:
 
 private:
     QuestStorageMap QuestStorage;
+    QuestPOIStorageMap mQuestPOIMap;
 
     HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > m_npc_quests;
     HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > m_obj_quests;

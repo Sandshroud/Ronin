@@ -116,7 +116,7 @@ int WorldSession::Update(uint32 InstanceID)
     {
         WorldPacket *packet;
         OpcodeHandler * Handler;
-        while (_socket && (packet = _recvQueue.Pop()))
+        while (_socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
 
@@ -145,19 +145,14 @@ int WorldSession::Update(uint32 InstanceID)
                         else
                         {
                             bool fail = false;
-                            packet->opcodename = sOpcodeMgr.GetOpcodeName(packet->GetOpcode()); // Needed for ByteBuffer
-                            try
-                            {
-                                printf("Handling packet %u(%s)\n", packet->GetOpcode(), packet->opcodename);
-                                (this->*Handler->handler)(*packet);
-                            }
+                            try { (this->*Handler->handler)(*packet); }
                             catch (ByteBufferException &)
                             {
                                 fail = true;
                                 sLog.Error("WorldSession", "Incorrect handling of opcode %s (0x%.4X) REPORT TO DEVS", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
                             }
 
-                            if(!fail && sLog.isOutProcess() && (packet->rpos() < packet->wpos()))
+                            if(!fail && sLog.GetLogLevel() >= 5 && (packet->rpos() < packet->wpos()))
                                 LogUnprocessedTail(packet);
 
                             if(Handler->status == STATUS_AUTHED)
@@ -169,10 +164,8 @@ int WorldSession::Update(uint32 InstanceID)
             }
 
             delete packet;
-            packet = NULL;
             if(InstanceID != instanceId)
                 return 2; // If we hit this it means that an opcode has changed our map.
-
             if( bDeleted )
                 return 1;
         }

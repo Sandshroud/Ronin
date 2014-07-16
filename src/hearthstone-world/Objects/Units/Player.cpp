@@ -38,6 +38,7 @@ Player::~Player ( )
 void Player::Init()
 {
     Unit::Init();
+    m_forceStatUpdate               = false;
     m_lastAreaUpdateMap             = -1;
     m_oldZone                       = 0;
     m_oldArea                       = 0;
@@ -92,10 +93,6 @@ void Player::Init()
     m_meleeattackspeedmod           = 1.0f;
     m_rangedattackspeedmod          = 1.0f;
     m_cheatDeathRank                = 0;
-    m_healthfromspell               = 0;
-    m_manafromspell                 = 0;
-    m_healthfromitems               = 0;
-    m_manafromitems                 = 0;
     m_talentresettimes              = 0;
     ForceSaved                      = false;
     m_nextSave                      = 120000;
@@ -116,8 +113,6 @@ void Player::Init()
     m_AutoAddMem                = false;
     LfmDungeonId                = 0;
     LfmType                     = 0;
-    for(int32 i = 0; i < NUM_MECHANIC; i++)
-        MechanicDurationPctMod[i] = 1.0f;
     m_invitersGuid                  = 0;
     forget                          = 0;
     m_currentMovement               = MOVE_UNROOT;
@@ -203,8 +198,6 @@ void Player::Init()
 
     for(uint8 x = 0; x < 5; ++x)
     {
-        FlatStatModPos[x] = 0;
-        FlatStatModNeg[x] = 0;
         StatModPctPos[x] = 0;
         StatModPctNeg[x] = 0;
         TotalStatModPctPos[x] = 0;
@@ -282,8 +275,6 @@ void Player::Init()
     AnnihilationProcChance          = 0;
     m_comboTarget                   = 0;
     m_comboPoints                   = 0;
-    SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, 0.0f);
-    SetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, 0.0f);
     UpdateLastSpeeds();
     m_resist_critical[0] = m_resist_critical[1] = 0;
     for (uint8 x = 0; x < 3; ++x)
@@ -1084,6 +1075,120 @@ void Player::Update( uint32 p_time )
                 RemovePvPFlag();
         m_mallCheckTimer = mstime + 2000;
     }
+}
+
+void Player::UpdateFieldValues()
+{
+    Unit::UpdateFieldValues();
+
+}
+
+static uint32 statToModBonus[MAX_STAT] = 
+{
+    ITEM_STAT_STRENGTH,
+    ITEM_STAT_AGILITY,
+    ITEM_STAT_STAMINA,
+    ITEM_STAT_INTELLECT,
+    ITEM_STAT_SPIRIT
+};
+
+bool Player::StatUpdateRequired()
+{
+    bool res = m_forceStatUpdate;
+    for(uint8 i = 0; i < MAX_STAT; i++)
+    {
+        if(itemBonusMask.GetBit(statToModBonus[i]))
+        {
+            res = true;
+            itemBonusMask.UnsetBit(statToModBonus[i]);
+        }
+    }
+
+    // Only force one stat update
+    m_forceStatUpdate = false;
+    return res || Unit::StatUpdateRequired();
+}
+
+bool Player::APUpdateRequired()
+{
+    bool res = false;
+    if(itemBonusMask.GetBit(ITEM_STAT_ATTACK_POWER))
+    {
+        res = true;
+        itemBonusMask.UnsetBit(ITEM_STAT_ATTACK_POWER);
+    }
+    return res || Unit::APUpdateRequired();
+}
+
+bool Player::RAPUpdateRequired()
+{
+    bool res = false;
+    if(itemBonusMask.GetBit(ITEM_STAT_RANGED_ATTACK_POWER))
+    {
+        res = true;
+        itemBonusMask.UnsetBit(ITEM_STAT_RANGED_ATTACK_POWER);
+    }
+    return res || Unit::RAPUpdateRequired();
+}
+
+static uint32 schooltoResModBonus[MAX_RESISTANCE] =
+{
+    ITEM_STAT_PHYSICAL_RESISTANCE,
+    ITEM_STAT_HOLY_RESISTANCE,
+    ITEM_STAT_FIRE_RESISTANCE,
+    ITEM_STAT_NATURE_RESISTANCE,
+    ITEM_STAT_FROST_RESISTANCE,
+    ITEM_STAT_SHADOW_RESISTANCE,
+    ITEM_STAT_ARCANE_RESISTANCE
+};
+
+bool Player::ResUpdateRequired()
+{
+    bool res = false;
+    for(uint8 i = 0; i < MAX_RESISTANCE; i++)
+    {
+        if(itemBonusMask.GetBit(schooltoResModBonus[i]))
+        {
+            res = true;
+            itemBonusMask.UnsetBit(schooltoResModBonus[i]);
+        }
+    }
+    return res || Unit::ResUpdateRequired();
+}
+
+int32 Player::GetBaseStat(uint8 stat)
+{
+    ASSERT(lvlinfo);
+    return lvlinfo->Stat[stat]+GetBonusesFromItems(statToModBonus[stat]);
+}
+
+int32 Player::GetBaseResistance(uint8 school)
+{
+    return GetBonusesFromItems(schooltoResModBonus[school]);
+}
+
+int32 Player::GetBaseAttackPower()
+{
+    ASSERT(info);
+    return info->attackpower+GetBonusesFromItems(ITEM_STAT_ATTACK_POWER);
+}
+
+int32 Player::GetBaseRangedAttackPower()
+{
+    ASSERT(info);
+    return info->attackpower+GetBonusesFromItems(ITEM_STAT_ATTACK_POWER)+GetBonusesFromItems(ITEM_STAT_RANGED_ATTACK_POWER);
+}
+
+int32 Player::GetBaseHealth()
+{
+    ASSERT(lvlinfo);
+    return lvlinfo->BaseHP+GetBonusesFromItems(ITEM_STAT_HEALTH);
+}
+
+int32 Player::GetBaseMana()
+{
+    ASSERT(lvlinfo);
+    return lvlinfo->BaseMana+GetBonusesFromItems(ITEM_STAT_POWER);
 }
 
 void Player::HandleBreathing(uint32 time_diff)
@@ -2311,9 +2416,6 @@ void Player::InitVisibleUpdateBits()
 
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_LEVEL);
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FACTIONTEMPLATE);
-    Player::m_visibleUpdateMask.SetBit(UNIT_VIRTUAL_ITEM_SLOT_ID);
-    Player::m_visibleUpdateMask.SetBit(UNIT_VIRTUAL_ITEM_SLOT_ID+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_VIRTUAL_ITEM_SLOT_ID+2);
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_0);
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FLAGS);
     Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FLAGS_2);
@@ -2350,7 +2452,7 @@ void Player::InitVisibleUpdateBits()
     Player::m_visibleUpdateMask.SetBit(PLAYER_DUEL_ARBITER);
     Player::m_visibleUpdateMask.SetBit(PLAYER_DUEL_ARBITER+1);
 
-    for(uint32 i = PLAYER_QUEST_LOG_1_1; i <= PLAYER_QUEST_LOG_50_1; i += 5)
+    for(uint32 i = PLAYER_QUEST_LOG; i < PLAYER_QUEST_LOG_END; i += 5)
         Player::m_visibleUpdateMask.SetBit(i);
 
     for(uint8 i = 0; i < EQUIPMENT_SLOT_END; i++)
@@ -2358,9 +2460,9 @@ void Player::InitVisibleUpdateBits()
         uint32 offset = i * PLAYER_VISIBLE_ITEM_LENGTH;
 
         // item entry
-        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM_1_ENTRYID + offset);
+        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM + offset);
         // enchant
-        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + offset);
+        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM+1 + offset);
     }
 
     Player::m_visibleUpdateMask.SetBit(PLAYER_CHOSEN_TITLE);
@@ -3187,6 +3289,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     lvlinfo = objmgr.GetLevelInfo(getRace(), getClass(), getLevel());
 
     CalculateBaseStats();
+    // Queue next stat update
+    m_forceStatUpdate = true;
 
     m_XPoff = get_next_field.GetBool();
     // set xp
@@ -3346,8 +3450,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_zoneId                                            = get_next_field.GetUInt32();
 
     // Calculate the base stats now they're all loaded
-    for(uint32 i = 0; i < 5; i++)
-        CalcStat(i);
+    if(lvlinfo) for(uint32 i = 0; i < 5; i++)
+        SetUInt32Value(UNIT_FIELD_STATS+i, lvlinfo->Stat[i]);
     for(uint32 x = 0; x < 7; x++)
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.f);
 
@@ -3475,7 +3579,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     uint32 transGuid = get_next_field.GetUInt32();
-    GetMovementInfo()->SetTransportData(uint64(transGuid ? (uint64(HIGHGUID_TYPE_TRANSPORTER)<<32 | uint64(transGuid)) : 0), get_next_field.GetFloat(), get_next_field.GetFloat(), get_next_field.GetFloat(), 0.0f, 0);
+    GetMovementInfo()->SetTransportData(uint64(transGuid ? MAKE_NEW_GUID(transGuid, 0, HIGHGUID_TYPE_TRANSPORTER) : 0), get_next_field.GetFloat(), get_next_field.GetFloat(), get_next_field.GetFloat(), 0.0f, 0);
 
     // Load Reputatation CSV Data
     start =(char*) get_next_field.GetString();
@@ -3922,7 +4026,7 @@ void Player::_LoadQuestLogEntry(QueryResult * result)
     // clear all fields
     for(int i = 0; i < 50; i++)
     {
-        baseindex = PLAYER_QUEST_LOG_1_1 + (i * 5);
+        baseindex = PLAYER_QUEST_LOG + (i * 5);
         SetUInt32Value(baseindex + 0, 0);
         SetUInt32Value(baseindex + 1, 0);
         SetUInt64Value(baseindex + 2, 0);
@@ -5511,9 +5615,6 @@ void Player::UpdateChances()
 
 void Player::UpdateChanceFields()
 {
-    uint32 stat = 0;
-    for(; stat < 5; stat++)
-        CalcStat(stat);
 
     // Update spell crit values in fields
     for(uint32 i = 0; i < 7; i++)
@@ -5522,7 +5623,7 @@ void Player::UpdateChanceFields()
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT + i, DamageDonePctMod[i] );
 
         int32 damagedonepos = DamageDonePosMod[i], damagedoneneg = DamageDoneNegMod[i];
-        for(stat = 0; stat < 5; stat++)
+        for(uint8 stat = 0; stat < 5; stat++)
         {
             if(SpellDmgDoneByAttribute[stat][i] && GetStat(stat) > 0)
             {
@@ -5538,7 +5639,7 @@ void Player::UpdateChanceFields()
     }
 
     HealDoneModPos = HealDoneBase;
-    for(stat = 0; stat < 5; stat++)
+    for(uint8 stat = 0; stat < 5; stat++)
     {
         if(SpellHealDoneByAttribute[stat] && GetStat(stat) > 0)
         {
@@ -5614,194 +5715,6 @@ void Player::UpdateStats()
 {
     UpdateAttackSpeed();
 
-    int32 AP = 0;
-    int32 RAP = 0;
-    int32 stam = 0;
-    int32 intl = 0;
-
-    uint32 str = GetUInt32Value(UNIT_FIELD_STRENGTH);
-    uint32 agi = GetUInt32Value(UNIT_FIELD_AGILITY);
-    uint32 lev = getLevel(), levmax = sWorld.GetMaxLevelStatCalc();
-    if(levmax && levmax < lev)
-        lev = levmax;
-    if(lev > MAXIMUM_ATTAINABLE_LEVEL)
-        lev = MAXIMUM_ATTAINABLE_LEVEL;
-
-    // Attack power
-    uint32 cl = getClass();
-    switch (cl)
-    {
-    case DRUID:
-        {
-            //(Strength x 2) - 20
-            AP = str * 2 - 20;
-            //Agility - 10
-            RAP = agi - 10;
-        }break;
-
-    case ROGUE:
-        {
-            //Strength + Agility + (Character Level x 2) - 20
-            AP = str + agi + (lev *2) - 20;
-            //Character Level + Agility - 10
-            RAP = lev + agi - 10;
-        }break;
-
-    case HUNTER:
-        {
-            //Strength + Agility + (Character Level x 2) - 20
-            AP = str + agi + (lev *2) - 20;
-            //(Character Level x 2) + Agility - 10
-            RAP = (lev *2) + agi - 10;
-        }break;
-
-    case SHAMAN:
-        {
-            //(Strength) + (Agility) + (Character Level x 2) - 20
-            AP = str + agi + (lev *2) - 20;
-            //Agility - 10
-            RAP = agi - 10;
-        }break;
-
-    case PALADIN:
-        {
-            //(Strength x 2) + (Character Level x 3) - 20
-            AP = (str *2) + (lev *3) - 20;
-            //Agility - 10
-            RAP = agi - 10;
-        }break;
-    case WARRIOR:
-    case DEATHKNIGHT:
-        {
-            AP = (str *2) + (lev *3) - 20; //(Strength x 2) + (Character Level x 3) - 20
-            RAP = lev + agi - 10; //Character Level + Agility - 10
-        }break;
-
-    default: //mage,priest,warlock
-        {
-            AP = agi - 10;
-        }
-    }
-
-    if( GetShapeShift() == FORM_CAT )
-    {
-        // Checked 3.3.2, Agil + 40
-        AP += agi + 40;
-        SetPowerType(POWER_TYPE_ENERGY);
-    }
-    else if( GetShapeShift() == FORM_DIREBEAR)
-    {
-        // Checked 3.3.2, 120
-        AP += 120;
-        SetPowerType(myClass->power_type);
-        SetPowerType(POWER_TYPE_RAGE);
-    }
-    else if( GetShapeShift() == FORM_BEAR)
-    {
-        // Checked 3.3.2, 30
-        AP += 30;
-        SetPowerType(myClass->power_type);
-        SetPowerType(POWER_TYPE_RAGE);
-    }
-    else // set power type
-        SetPowerType(myClass->power_type);
-
-    if( IsInFeralForm() )
-    {
-        AP += m_feralAP;
-
-        // counting and adding AP from weapon to total AP.
-        Item* it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-        float dps = 0;
-        if(it)
-        {
-            ItemPrototype *ip = it->GetProto();
-            if(ip)
-            {
-                /*if(ip->ScalingStatsEntry) // Heirlooms
-                {   // Crow: This could be done easier, but I'm lazy.
-                    ScalingStatValuesEntry *ssvrow = dbcScalingStatValues.LookupEntry(getLevel() > 80 ? 80 : getLevel());
-                    uint32 scaleddps = GetDBCscalestatDPSMod(ssvrow, ip->ScalingStatsFlag);
-                    float dpsmod = 1.0;
-
-                    if (ip->ScalingStatsFlag & 0x1400)
-                        dpsmod = 0.2f;
-                    else
-                        dpsmod = 0.3f;
-
-                    float wpnspeed = (float(ip->Delay)/1000);
-                    float scaledmindmg = (scaleddps - (scaleddps * dpsmod)) * wpnspeed;
-                    float scaledmaxdmg = (scaleddps * (dpsmod+1.0f)) * wpnspeed;
-                    dps = (((scaledmindmg + scaledmaxdmg)/2)/wpnspeed);
-                }
-                else*/
-                {
-                    float wpndmg = ((ip->maxDamage + ip->minDamage)/2);
-                    float wpnspeed = (float(ip->Delay)/1000);
-                    dps = wpndmg/wpnspeed;
-                }
-            }
-
-            if(dps > 54.8)
-            {
-                dps = ((dps - 54.8) * 14);
-                AP += float2int32(dps);
-            }
-        }
-    }
-
-    /* modifiers */
-    RAP += int32((float(m_rap_mod_pct) * (float(m_uint32Values[UNIT_FIELD_INTELLECT]) / 100.0f)));
-
-    if( RAP < 0 )
-        RAP = 0;
-    if( AP < 0 )
-        AP = 0;
-
-    SetUInt32Value( UNIT_FIELD_ATTACK_POWER, AP );
-    SetUInt32Value( UNIT_FIELD_RANGED_ATTACK_POWER, RAP );
-
-    LevelInfo* lvlinfo = objmgr.GetLevelInfo( getRace(), getClass(), lev );
-    if( lvlinfo != NULL )
-    {
-        stam = lvlinfo->Stat[STAT_STAMINA];
-        intl = lvlinfo->Stat[STAT_INTELLECT];
-    }
-
-    int32 hp = GetUInt32Value( UNIT_FIELD_BASE_HEALTH );
-    int32 res = hp + std::max(20, stam) + std::max(0, stam - 20) * 10 + m_healthfromspell + m_healthfromitems;
-
-    if (res < 1)
-        res = 1;
-
-    int32 oldmaxhp = GetUInt32Value( UNIT_FIELD_MAXHEALTH );
-
-    if( res < hp ) res = hp;
-    SetUInt32Value( UNIT_FIELD_MAXHEALTH, res );
-
-    if( ( int32 )GetUInt32Value( UNIT_FIELD_HEALTH ) > res )
-        SetUInt32Value(UNIT_FIELD_HEALTH, res );
-    else if( ( cl == DRUID) && ( GetShapeShift() == FORM_BEAR || GetShapeShift() == FORM_DIREBEAR ) )
-    {
-        res = float2int32( ( float )GetUInt32Value( UNIT_FIELD_MAXHEALTH ) * ( float )GetUInt32Value( UNIT_FIELD_HEALTH ) / float( oldmaxhp ) );
-        SetUInt32Value(UNIT_FIELD_HEALTH, res );
-    }
-
-    // MP
-    int32 mana = GetUInt32Value( UNIT_FIELD_BASE_MANA );
-    if(cl != WARRIOR && cl != ROGUE && cl != DEATHKNIGHT)
-    {
-        res = mana + std::max(20, intl) + std::max(0, intl - 20) * 15 + m_manafromspell + m_manafromitems;
-        if( res < mana )
-            res = mana;
-    }
-    else res = mana;
-
-    SetUInt32Value(UNIT_FIELD_MAX_MANA, res);
-
-    if((int32)GetUInt32Value(UNIT_FIELD_MANA) > res)
-        SetUInt32Value(UNIT_FIELD_MANA, res);
-
     uint32 lvl = getLevel();
     if(lvl > 100)
         lvl = 100;
@@ -5838,7 +5751,7 @@ void Player::UpdateStats()
         if( block_multiplier < 1.0f )
             block_multiplier = 1.0f;
 
-        int32 blockable_damage = float2int32(( float( m_modblockvaluefromspells + GetUInt32Value(PLAYER_RATING_MODIFIER_BLOCK))*block_multiplier)+((float(str)/2.0f))), max_blockable_damage = float2int32(float(lvl)*34.5f);
+        int32 blockable_damage = float2int32(( float( m_modblockvaluefromspells + GetUInt32Value(PLAYER_RATING_MODIFIER_BLOCK))*block_multiplier)+((float(GetStrength())/2.0f))), max_blockable_damage = float2int32(float(lvl)*34.5f);
         if(blockable_damage > max_blockable_damage)
             blockable_damage = max_blockable_damage;
         SetUInt32Value( PLAYER_SHIELD_BLOCK, blockable_damage );
@@ -6193,7 +6106,7 @@ void Player::AddInRangeObject(Object* pObj)
             m_CurrentTaxiPath->SendMoveForTime( TO_PLAYER(this), TO_PLAYER( pObj ), m_taxi_ride_time - ntime);*/
     }
 
-    if( pObj->IsCreature() && pObj->m_faction && pObj->m_factionTemplate->FactionFlags & 0x1000 )
+    if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
         m_hasInRangeGuards++;
 
     Unit::AddInRangeObject(pObj);
@@ -6224,7 +6137,7 @@ void Player::AddInRangeObject(Object* pObj)
 
 void Player::OnRemoveInRangeObject(Object* pObj)
 {
-    if( pObj->IsCreature() && pObj->m_faction && pObj->m_factionTemplate->FactionFlags & 0x1000 )
+    if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
         m_hasInRangeGuards--;
 
     if(m_tempSummon == pObj)
@@ -6764,8 +6677,8 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot 
 
     if( spellinfo->SpellGroupType )
     {
-        SM_FFValue( SM[SMT_RANGE][0], &maxr, spellinfo->SpellGroupType );
-        SM_PFValue( SM[SMT_RANGE][1], &maxr, spellinfo->SpellGroupType );
+        SM_FFValue(SMT_RANGE, &maxr, spellinfo->SpellGroupType );
+        SM_PFValue(SMT_RANGE, &maxr, spellinfo->SpellGroupType );
     }
 
     maxr += 4.0f; // Matches client range
@@ -7505,74 +7418,6 @@ void Player::Reset_ToLevel1()
 
 }
 
-static uint32 schooltoModBonus[MAX_RESISTANCE] =
-{
-    ITEM_STAT_PHYSICAL_RESISTANCE,
-    ITEM_STAT_HOLY_RESISTANCE,
-    ITEM_STAT_FIRE_RESISTANCE,
-    ITEM_STAT_NATURE_RESISTANCE,
-    ITEM_STAT_FROST_RESISTANCE,
-    ITEM_STAT_SHADOW_RESISTANCE,
-    ITEM_STAT_ARCANE_RESISTANCE
-};
-
-int32 Player::GetBaseResistance(uint8 school)
-{
-    return GetBonusesFromItems(schooltoModBonus[school]);
-}
-
-void Player::CalcResistance(uint32 type)
-{
-    return;
-    ASSERT(type < 7);
-
-    int32 pos = 0, neg = 0;
-    AuraInterface::modifierMap mods = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE);
-    for(AuraInterface::modifierMap::iterator itr = mods.begin(); itr != mods.end(); itr++)
-    {
-        printf("Mod %u\n", itr->second->m_miscValue);
-        if(itr->second->m_miscValue & (1 << type))
-        {
-            if(itr->second->m_amount > 0)
-                pos += itr->second->m_amount;
-            else neg -= itr->second->m_amount;
-        }
-    }
-
-    mods = m_AuraInterface.GetModHolderMapByType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
-    for(AuraInterface::modifierMap::iterator itr = mods.begin(); itr != mods.end(); itr++)
-    {
-        printf("Mod2 %u %u\n", itr->second->m_miscValue, type);
-        if(itr->second->m_miscValue & (1 << type))
-        {
-            printf("Adding amount %u\n", itr->second->m_amount);
-            if(itr->second->m_amount > 0)
-                pos += itr->second->m_amount;
-            else neg -= itr->second->m_amount;
-        }
-    }
-
-    pos += float2int32( BaseResistance[type] * (float)( BaseResistanceModPctPos[ type ] / 100.0f ) );
-    neg += float2int32( BaseResistance[type] * (float)( BaseResistanceModPctNeg[ type ] / 100.0f ) );
-
-    int32 res = BaseResistance[type] + pos - neg;
-    if( type == 0 )
-        res += m_uint32Values[UNIT_FIELD_AGILITY] * 2;//fix armor from agi
-    if( res < 0 )
-        res = 0;
-
-    pos += float2int32( res * (float)( ResistanceModPctPos[type] / 100.0f ) );
-    neg += float2int32( res * (float)( ResistanceModPctNeg[type] / 100.0f ) );
-    res = pos - neg + BaseResistance[type];
-    if( type == 0 )
-        res += m_uint32Values[UNIT_FIELD_AGILITY] * 2;//fix armor from agi
-
-    res = res < 0 ? 0 : res;
-    SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+type,pos);
-    SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+type,neg);
-    SetUInt32Value(UNIT_FIELD_RESISTANCES+type,res);
-}
-
 void Player::UpdateNearbyGameObjects()
 {
     GameObject* Gobj = NULL;
@@ -7849,34 +7694,6 @@ void Player::RemoveSpellsFromLine(uint32 skill_line)
     }
 }
 
-void Player::CalcStat(uint32 type)
-{
-    int32 res;
-    ASSERT( type < 5 );
-    int32 pos = float2int32(((int32)BaseStats[type] * (int32)StatModPctPos[type] ) / 100.0f + (int32)FlatStatModPos[type]);
-    int32 neg = float2int32(((int32)BaseStats[type] * (int32)StatModPctNeg[type] ) / 100.0f + (int32)FlatStatModNeg[type]);
-    res = pos + int32(BaseStats[type]) - neg;
-
-    if( res <= 0 )
-    {
-        res = 1;
-    }
-    else
-    {
-        pos += float2int32(( res * (int32)TotalStatModPctPos[type] ) / 100.0f);
-        neg += float2int32(( res * (int32)TotalStatModPctNeg[type] ) / 100.0f);
-        res = pos + int32(BaseStats[type]) - neg;
-        if( res <= 0 )
-            res = 1;
-    }
-
-    SetUInt32Value( UNIT_FIELD_POSSTATS + type, pos );
-    SetUInt32Value( UNIT_FIELD_NEGSTATS + type, neg );
-    SetUInt32Value( UNIT_FIELD_STATS + type, res > 0 ? res : 0 );
-    if( type == 1 )
-        CalcResistance(RESISTANCE_ARMOR);
-}
-
 void Player::PlayerRegeneratePower(bool is_interrupted)
 {
     uint32 m_regenTimer = m_P_regenTimer; //set next regen time
@@ -7994,14 +7811,11 @@ void Player::RegenerateHealth( bool inCombat )
 
     float Spirit = (float) GetUInt32Value(UNIT_FIELD_SPIRIT);
     uint8 Class = getClass(), level = ((getLevel() > MAXIMUM_ATTAINABLE_LEVEL) ? MAXIMUM_ATTAINABLE_LEVEL : getLevel());
-    gtFloat *HPRegen = dbcHPRegen.LookupEntry((Class-1)*MAXIMUM_ATTAINABLE_LEVEL + (level-1));
-    if(HPRegen == NULL)
-        return;
 
     // This has some bad naming. HPRegen* is actually out of combat base, while HPRegenBase* is mana per spirit.
     float basespirit = ((Spirit > 50) ? 50 : Spirit);
     float basespiritdiff = Spirit - basespirit;
-    float amt = ((basespiritdiff *HPRegen->val)+basespirit);
+    float amt = ((basespiritdiff *0.2f)+basespirit);
 
     if(PctRegenModifier)
         amt += (amt * PctRegenModifier) / 100;
@@ -9045,16 +8859,6 @@ void Player::ApplyLevelInfo(uint32 Level)
 
     CalculateBaseStats();
 
-    // Set stats
-    if(lvlinfo != NULL)
-    {
-        for(uint32 i = 0; i < 5; i++)
-        {
-            BaseStats[i] = lvlinfo->Stat[i];
-            CalcStat(i);
-        }
-    }
-
     _UpdateMaxSkillCounts();
     if (m_playerInfo)
         m_playerInfo->lastLevel = Level;
@@ -9480,8 +9284,6 @@ void Player::CalculateBaseStats()
     if(!lvlinfo)
         return;
 
-    memcpy(BaseStats, lvlinfo->Stat, sizeof(uint32) * 5);
-
     SetUInt32Value(PLAYER_NEXT_LEVEL_XP, lvlinfo->XPToNextLevel);
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, lvlinfo->BaseHP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, lvlinfo->HP);
@@ -9686,34 +9488,6 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     int32 modVal = (apply ? val : -val);
     switch (type)
     {
-    case ITEM_STAT_POWER:
-        ModUnsigned32Value( UNIT_FIELD_MAX_MANA, modVal );
-        m_manafromitems += modVal;
-        break;
-    case ITEM_STAT_HEALTH:
-        ModUnsigned32Value( UNIT_FIELD_MAXHEALTH, modVal );
-        m_healthfromitems += modVal;
-        break;
-    case ITEM_STAT_AGILITY: // modify agility
-        FlatStatModPos[1] += modVal;
-        CalcStat( 1 );
-        break;
-    case ITEM_STAT_STRENGTH: //modify strength
-        FlatStatModPos[0] += modVal;
-        CalcStat( 0 );
-        break;
-    case ITEM_STAT_INTELLECT: //modify intellect
-        FlatStatModPos[3] += modVal;
-        CalcStat( 3 );
-        break;
-     case ITEM_STAT_SPIRIT: //modify spirit
-        FlatStatModPos[4] += modVal;
-        CalcStat( 4 );
-        break;
-    case ITEM_STAT_STAMINA: //modify stamina
-        FlatStatModPos[2] += modVal;
-        CalcStat( 2 );
-        break;
     case ITEM_STAT_DEFENSE_RATING:
         {
             ModUnsigned32Value( PLAYER_RATING_MODIFIER_DEFENCE, modVal );
@@ -10884,7 +10658,6 @@ void Player::EventTalentHeartOfWildChange(bool apply)
     if(SS == FORM_BEAR || SS == FORM_DIREBEAR)
     {
         TotalStatModPctPos[STAT_STAMINA] += tval;
-        CalcStat(STAT_STAMINA);
         UpdateStats();
     }
     //increase attackpower if :
@@ -11099,8 +10872,8 @@ void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
         cool_time = pSpell->CategoryRecoveryTime;
         if( pSpell->SpellGroupType )
         {
-            SM_FIValue(SM[SMT_COOLDOWN_DECREASE][0], &cool_time, pSpell->SpellGroupType);
-            SM_PIValue(SM[SMT_COOLDOWN_DECREASE][1], &cool_time, pSpell->SpellGroupType);
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
         }
 
         _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->Category, mstime + cool_time, pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
@@ -11111,8 +10884,8 @@ void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
         cool_time = pSpell->RecoveryTime;
         if( pSpell->SpellGroupType )
         {
-            SM_FIValue(SM[SMT_COOLDOWN_DECREASE][0], &cool_time, pSpell->SpellGroupType);
-            SM_PIValue(SM[SMT_COOLDOWN_DECREASE][1], &cool_time, pSpell->SpellGroupType);
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
         }
 
         _Cooldown_Add( COOLDOWN_TYPE_SPELL, pSpell->Id, mstime + cool_time, pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
@@ -11133,8 +10906,8 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
 
     if( pSpell->SpellGroupType )
     {
-        SM_FIValue(SM[SMT_GLOBAL_COOLDOWN][0], &atime, pSpell->SpellGroupType);
-        SM_PIValue(SM[SMT_GLOBAL_COOLDOWN][1], &atime, pSpell->SpellGroupType);
+        SM_FIValue(SMT_GLOBAL_COOLDOWN, &atime, pSpell->SpellGroupType);
+        SM_PIValue(SMT_GLOBAL_COOLDOWN, &atime, pSpell->SpellGroupType);
     }
 
     if( atime <= 0 )
@@ -11814,7 +11587,7 @@ void Player::VampiricSpell(uint32 dmg, Unit* pTarget, SpellEntry *spellinfo)
     {
         int32 pct = 15;
         uint32 sgt[3] = {4,0,0};
-        SM_PIValue(SM[SMT_MISC_EFFECT][1],&pct,sgt);
+        SM_PIValue(SMT_MISC_EFFECT,&pct,sgt);
         bonus = float2int32(fdmg * pct/100.0f);
         if( bonus > 0 )
         {
@@ -12277,7 +12050,7 @@ void Player::SetTaximaskNode(uint32 nodeidx, bool Unset)
 uint16 Player::FindQuestSlot( uint32 questid )
 {
     for(uint16 i = 0; i < 50; i++)
-        if( (GetUInt32Value(PLAYER_QUEST_LOG_1_1 + i * 5)) == questid )
+        if( (GetUInt32Value(PLAYER_QUEST_LOG + i * 5)) == questid )
             return i;
 
     return 50;

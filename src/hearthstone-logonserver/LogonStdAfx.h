@@ -15,7 +15,6 @@
 #include <Network/Network.h>
 
 #include "../hearthstone-shared/git_version.h"
-#include "../hearthstone-shared/hearthstone_log.h"
 #include "../hearthstone-shared/Util.h"
 #include "../hearthstone-shared/ByteBuffer.h"
 #include "../hearthstone-shared/Config/IniFiles.h"

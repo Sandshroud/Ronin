@@ -69,7 +69,6 @@ using namespace std;
 #include "../hearthstone-shared/Common.h"
 #include "../hearthstone-shared/MersenneTwister.h"
 #include "../hearthstone-shared/WorldPacket.h"
-#include "../hearthstone-shared/hearthstone_log.h"
 #include "../hearthstone-shared/ByteBuffer.h"
 #include "../hearthstone-shared/Config/IniFiles.h"
 #include "../hearthstone-shared/crc32.h"

@@ -3,7 +3,6 @@
  */
 
 #include "StdAfx.h"
-using namespace std;
 
 //#define DEG2RAD (M_PI/180.0)
 #ifdef M_PI
@@ -61,12 +60,10 @@ Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
     m_mapCell = 0;
 
     m_factionTemplate = NULL;
-    m_faction = NULL;
 
     m_instanceId = 0;
     Active = false;
     m_inQueue = false;
-    m_extensions = NULL;
     m_loadedFromDB = false;
     m_loot.gold = 0;
     m_looted = false;
@@ -115,9 +112,6 @@ void Object::Destruct()
     // for linux
     m_instanceId = -1;
     m_objectTypeId = TYPEID_UNUSED;
-
-    if( m_extensions != NULL )
-        delete m_extensions;
 
     sEventMgr.RemoveEvents(this);
     delete this;
@@ -1745,20 +1739,11 @@ bool Object::isInRange(Object* target, float range)
 void Object::_setFaction()
 {
     // Clear our old faction info
-    m_factionTemplate = NULL;
-    m_faction = NULL;
-
-    FactionTemplateEntry* factionTemplate = NULL;
-
     if(GetTypeId() == TYPEID_UNIT || IsPlayer())
-        factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+        m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     else if(GetTypeId() == TYPEID_GAMEOBJECT)
-        factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(GAMEOBJECT_FACTION));
-    if(factionTemplate)
-    {
-        m_factionTemplate = factionTemplate;
-        m_faction = dbcFaction.LookupEntry(factionTemplate->Faction);
-    }
+        m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(GAMEOBJECT_FACTION));
+
     //Lets update our faction sets since we have changed faction.
     UpdateOppFactionSet();
 }
@@ -2617,8 +2602,8 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 
                 if( spellInfo->SpellGroupType )
                 {
-                    SM_FFValue(caster->SM[SMT_CRITICAL][0], &CritChance, spellInfo->SpellGroupType);
-                    SM_PFValue(caster->SM[SMT_CRITICAL][1], &CritChance, spellInfo->SpellGroupType);
+                    caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                    caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
                 }
 
                 CritChance += AdditionalCritChance;
@@ -2647,7 +2632,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
             {
                 int32 critical_bonus = 100;
                 if( spellInfo->SpellGroupType )
-                    SM_FIValue( caster->SM[SMT_CRITICAL_DAMAGE][1], &critical_bonus, spellInfo->SpellGroupType );
+                    caster->SM_PIValue(SMT_CRITICAL_DAMAGE, &critical_bonus, spellInfo->SpellGroupType );
 
                 if( critical_bonus > 0 )
                 {
@@ -3054,14 +3039,6 @@ void Object::PlaySoundToSet(uint32 sound_entry)
     SendMessageToSet(&data, true);
 }
 
-void Object::_SetExtension(const string& name, void* ptr)
-{
-    if( m_extensions == NULL )
-        m_extensions = new ExtensionSet;
-
-    m_extensions->insert( make_pair( name, ptr ) );
-}
-
 void Object::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate )
 {
     if (!Target || !dmg)
@@ -3223,13 +3200,8 @@ int32 Object::GetSpellBaseCost(SpellEntry *sp)
     {
         if( sp->powerType == POWER_TYPE_MANA)
             cost = GetUInt32Value(UNIT_FIELD_BASE_MANA) * (sp->ManaCostPercentage / 100.0f);
-        else
-            cost = GetUInt32Value(UNIT_FIELD_BASE_HEALTH) * (sp->ManaCostPercentage / 100.0f);
-    }
-    else
-    {
-        cost = (float)sp->ManaCost;
-    }
+        else cost = GetUInt32Value(UNIT_FIELD_BASE_HEALTH) * (sp->ManaCostPercentage / 100.0f);
+    } else cost = (float)sp->ManaCost;
 
     switch(sp->NameHash)
     {
@@ -3247,31 +3219,22 @@ void Object::CastSpell( Object* Target, SpellEntry* Sp, bool triggered )
     if( Sp == NULL )
         return;
 
-    Spell* newSpell(new Spell(this, Sp, triggered, NULLAURA));
+    Spell* newSpell = new Spell(this, Sp, triggered, NULLAURA);
     SpellCastTargets targets(0);
     if(Target)
     {
         if(Target->IsUnit())
-        {
             targets.m_targetMask |= TARGET_FLAG_UNIT;
-        }
-        else
-        {
-            targets.m_targetMask |= TARGET_FLAG_OBJECT;
-        }
+        else targets.m_targetMask |= TARGET_FLAG_OBJECT;
         targets.m_unitTarget = Target->GetGUID();
-    }
-    else
-    {
-        newSpell->GenerateTargets(&targets);
-    }
+    } else newSpell->GenerateTargets(&targets);
     newSpell->prepare(&targets);
 }
 
 void Object::CastSpell( Object* Target, uint32 SpellID, bool triggered )
 {
     SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
-    if(ent == 0) return;
+    if(ent == NULL) return;
 
     CastSpell(Target, ent, triggered);
 }

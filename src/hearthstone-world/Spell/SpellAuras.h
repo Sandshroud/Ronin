@@ -16,11 +16,11 @@ struct Modifier
     ///needed for per level effect
     int32 realamount;
 
-    //need this to store % values or they cannot be reverted corectly (i think :D )
-    int32 fixed_amount[7];
+    /// For storing custom values in the mod
+    int32 fixed_amount;
+    float fixed_float_amount;
 
-    // float fixed amounts
-    float fixed_float_amount[7];
+    SpellEntry *m_spellInfo;
 };
 
 struct ProcTriggerSpellOnSpell
@@ -423,8 +423,6 @@ public:
         uint32 procFlags2, int32 procCharges = 0, uint32 wdtype = 0, uint32 SCM1 = 0, uint32 SCM2 = 0, uint32 SCM3 = 0, int32 procValue = 0);
 
     void UpdateAuraModDecreaseSpeed();
-    void SendModifierLog(int32 ** m,int32 v,uint32 *mask,uint8 type,bool pct = false);
-    void SendDummyModifierLog(std::map<SpellEntry*,uint32> * m,SpellEntry * spellInfo,uint32 i,bool apply,bool pct = false);
 
     // Events
     void EventPeriodicDamage(uint32);
@@ -452,7 +450,7 @@ public:
     bool WasCastInDuel() { return m_castInDuel; }
 
     SpellEntry * m_spellProto;
-    Modifier * mod;
+    Modifier *mod;
     AreaAuraList targets;//this is only used for AA
 
     uint8 m_auraSlot;

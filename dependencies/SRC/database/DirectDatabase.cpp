@@ -35,7 +35,7 @@ bool DirectDatabase::Initialize(const char* Hostname, unsigned int port, const c
     mPassword = strdup(Password);
     mDatabaseName = strdup(DatabaseName);
 
-    bLog.Notice("MySQLDatabase", "Connecting to `%s`, database `%s`...", Hostname, DatabaseName);
+    sLog.Notice("MySQLDatabase", "Connecting to `%s`, database `%s`...", Hostname, DatabaseName);
 
     m_connections = new DatabaseConnection[ConnectionCount];
     for( i = 0; i < ConnectionCount; ++i )
@@ -45,15 +45,15 @@ bool DirectDatabase::Initialize(const char* Hostname, unsigned int port, const c
             continue;
 
         if(mysql_options(temp, MYSQL_SET_CHARSET_NAME, "utf8"))
-            bLog.Error("MySQLDatabase", "Could not set utf8 character set.");
+            sLog.Error("MySQLDatabase", "Could not set utf8 character set.");
 
         if (mysql_options(temp, MYSQL_OPT_RECONNECT, &my_true))
-            bLog.Error("MySQLDatabase", "MYSQL_OPT_RECONNECT could not be set, connection drops may occur but will be counteracted.");
+            sLog.Error("MySQLDatabase", "MYSQL_OPT_RECONNECT could not be set, connection drops may occur but will be counteracted.");
 
         temp2 = mysql_real_connect( temp, Hostname, Username, Password, DatabaseName, port, NULL, 0 );
         if( temp2 == NULL )
         {
-            bLog.Error("MySQLDatabase", "Connection failed due to: `%s`", mysql_error( temp ) );
+            sLog.Error("MySQLDatabase", "Connection failed due to: `%s`", mysql_error( temp ) );
             return false;
         }
 
@@ -184,7 +184,7 @@ void DirectDatabase::PerformQueryBuffer(QueryBuffer * b, DatabaseConnection * cc
     {
         result = _SendQuery(con, *itr, false);
         if(!result)
-            bLog.Error("Database","Sql query failed due to [%s], Query: [%s]", mysql_error( con->conn ), *itr);
+            sLog.Error("Database","Sql query failed due to [%s], Query: [%s]", mysql_error( con->conn ), *itr);
     }
 
     for(std::vector<char*>::iterator itr = b->queries.begin(); itr != b->queries.end(); itr++)
@@ -418,7 +418,7 @@ bool DirectDatabase::_SendQuery(DatabaseConnection *con, const char* Sql, bool S
             result = _SendQuery(con, Sql, true);
         }
         else
-            bLog.Error("Database","Sql query failed due to [%s], Query: [%s]\n", mysql_error( con->conn ), Sql);
+            sLog.Error("Database","Sql query failed due to [%s], Query: [%s]\n", mysql_error( con->conn ), Sql);
     }
 
     return (result == 0 ? true : false);
@@ -494,7 +494,7 @@ bool DirectDatabase::_Reconnect(DatabaseConnection * conn)
     temp2 = mysql_real_connect( temp, mHostname.c_str(), mUsername.c_str(), mPassword.c_str(), mDatabaseName.c_str(), mPort, NULL , 0 );
     if( temp2 == NULL )
     {
-        bLog.Error("Database", "Could not reconnect to database because of `%s`", mysql_error( temp ) );
+        sLog.Error("Database", "Could not reconnect to database because of `%s`", mysql_error( temp ) );
         mysql_close( temp );
         return false;
     }

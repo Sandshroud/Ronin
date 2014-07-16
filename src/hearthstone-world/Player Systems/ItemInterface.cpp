@@ -272,16 +272,16 @@ AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 s
 
     if ( slot < EQUIPMENT_SLOT_END && ContainerSlot == INVENTORY_SLOT_NOT_SET )
     {
-        int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
-        if( VisibleBase > PLAYER_VISIBLE_ITEM_19_ENTRYID )
-        {
-            printf("Slot warning: slot: %d\n", slot);
-            OutputCrashLogLine("Slot warning: slot: %d\n", slot);
-        }
-        else
+        int VisibleBase = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
+        if( VisibleBase < PLAYER_VISIBLE_ITEM_END )
         {
             m_pOwner->SetUInt32Value( VisibleBase, item->GetUInt32Value( OBJECT_FIELD_ENTRY ) );
             m_pOwner->SetUInt32Value( VisibleBase + 1, item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1 ) );
+        }
+        else
+        {
+            printf("Slot warning: slot: %d\n", slot);
+            OutputCrashLogLine("Slot warning: slot: %d\n", slot);
         }
     }
 
@@ -343,7 +343,7 @@ Item* ItemInterface::SafeRemoveAndRetreiveItemFromSlot(int16 ContainerSlot, int1
             if ( slot < EQUIPMENT_SLOT_END )
             {
                 m_pOwner->ApplyItemMods( pItem, slot, false );
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, 0 );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
             }
@@ -594,7 +594,7 @@ bool ItemInterface::SafeFullRemoveItemFromSlot(int16 ContainerSlot, int16 slot)
             if ( slot < EQUIPMENT_SLOT_END )
             {
                 m_pOwner->ApplyItemMods(pItem, slot, false );
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, 0 );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
             }
@@ -2665,7 +2665,7 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
             // Bags aren't considered "visible".
             if( srcslot < EQUIPMENT_SLOT_END )
             {
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, m_pItems[srcslot]->GetEntry() );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, m_pItems[srcslot]->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1 ) );
             }
@@ -2684,7 +2684,7 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
             // Bags aren't considered "visible".
             if( srcslot < EQUIPMENT_SLOT_END )
             {
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, 0 );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
             }
@@ -2698,7 +2698,7 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
             // Bags aren't considered "visible".
             if( dstslot < EQUIPMENT_SLOT_END )
             {
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, m_pItems[dstslot]->GetEntry() );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, m_pItems[dstslot]->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1 ) );
             }
@@ -2711,7 +2711,7 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
             // bags aren't considered visible
             if( dstslot < EQUIPMENT_SLOT_END )
             {
-                int VisibleBase = PLAYER_VISIBLE_ITEM_1_ENTRYID + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
+                int VisibleBase = PLAYER_VISIBLE_ITEM + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, 0 );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
             }

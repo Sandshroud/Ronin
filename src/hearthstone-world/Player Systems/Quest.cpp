@@ -367,7 +367,7 @@ void QuestLogEntry::UpdatePlayerFields()
     if(!m_plr)
         return;
 
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG_1_1 + m_slot*5 + 0, m_quest->id);
+    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 0, m_quest->id);
 
     uint32 i = 0, field0 = 0x04;
     uint64 field1 = 0;
@@ -410,9 +410,9 @@ void QuestLogEntry::UpdatePlayerFields()
     else if(CanBeFinished() || Quest_Status == QUEST_STATUS__COMPLETE )
         field0 |= 0x01000001;
 
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG_1_1 + m_slot*5 + 1, field0);
-    m_plr->SetUInt64Value(PLAYER_QUEST_LOG_1_1 + m_slot*5 + 2, field1);
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG_1_1 + m_slot*5 + 4, ( m_time_left ? static_cast<uint32>(time(NULL) + (m_time_left/1000)) : 0 ));
+    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 1, field0);
+    m_plr->SetUInt64Value(PLAYER_QUEST_LOG + m_slot*5 + 2, field1);
+    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 4, ( m_time_left ? static_cast<uint32>(time(NULL) + (m_time_left/1000)) : 0 ));
 
     // Timed quest handler.
     if(m_time_left && !sEventMgr.HasEvent( m_plr,EVENT_TIMED_QUEST_EXPIRE ))

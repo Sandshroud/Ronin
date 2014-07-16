@@ -108,8 +108,6 @@ void AIInterface::_UpdateCombat(uint32 p_time)
         if(pPet->GetPetAction() != PET_ACTION_ATTACK || pPet->GetPetState() == PET_STATE_PASSIVE)
             return;
     }
-    if(!m_Unit->CombatStatus.IsInCombat())
-        return;
 
     BehaviorType LastBehavior = unitBehavior;
     if( m_nextTarget != NULL && m_nextTarget->isAlive() && m_AIState != STATE_EVADE && !m_Unit->isCasting())
@@ -285,9 +283,8 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                                 m_Unit->Strike( m_nextTarget, MELEE, NULL, 0, 0, 0, false, false, true );
                                 //now if the target is facing his back to us then we could just cast dazed on him :P
                                 //as far as i know dazed is casted by most of the creatures but feel free to remove this code if you think otherwise
-                                if(m_nextTarget != NULL && !(m_Unit->m_faction->RepListId == -1 && m_Unit->m_factionTemplate->FriendlyMask==0 && m_Unit->m_factionTemplate->HostileMask==0) /* neutral creature */
-                                        && m_nextTarget->IsPlayer() && !m_Unit->IsPet() && health_before_strike>m_nextTarget->GetUInt32Value(UNIT_FIELD_HEALTH)
-                                        && Rand(m_Unit->CalculateDazeCastChance(m_nextTarget)))
+                                if(m_nextTarget != NULL && m_nextTarget->IsPlayer() && !m_Unit->IsPet() && health_before_strike > m_nextTarget->GetUInt32Value(UNIT_FIELD_HEALTH)
+                                    && Rand(m_Unit->CalculateDazeCastChance(m_nextTarget)))
                                 {
                                     float our_facing = m_Unit->calcRadAngle(m_Unit->GetPositionX(),m_Unit->GetPositionY(),m_nextTarget->GetPositionX(),m_nextTarget->GetPositionY());
                                     float his_facing = m_nextTarget->GetOrientation();
@@ -460,8 +457,8 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         {
             it2 = itr++;
 
-            if( it2->first->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || !m_Unit->PhasedCanInteract(it2->first) ||
-                !sFactionSystem.CanEitherUnitAttack(m_Unit, it2->first) || m_Unit->GetDistanceSq(it2->first) >= 6400.0f)
+            if( it2->first->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || m_Unit->GetDistanceSq(it2->first) >= 6400.0f
+                || !sFactionSystem.CanEitherUnitAttack(m_Unit, it2->first))
             {
                 m_aiTargets.erase( it2 );
             }
@@ -478,8 +475,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
                 Unit* target = FindTarget();
                 if(target)
                     AttackReaction(target, 1, 0);
-                else
-                    firstLeaveCombat = false;
+                else firstLeaveCombat = false;
             }
         }
         else if( m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && TO_PET(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
@@ -503,7 +499,7 @@ Unit* AIInterface::FindTarget()
 {
     ASSERT(m_Unit != NULL);
     // Faction check
-    if(m_Unit->m_faction == NULL)
+    if(m_Unit->GetFaction() == NULL)
         return NULLUNIT;
     // find nearest hostile Target to attack
     if( !m_AllowedToEnterCombat || m_fleeTimer || m_Unit->isDead() )
@@ -540,6 +536,9 @@ Unit* AIInterface::FindTarget()
             continue;
         // Check if units can engage in combat
         if(!sFactionSystem.CanEitherUnitAttack(m_Unit, pUnit, true))
+            continue;
+        // Check if our unit is hostile against the target
+        if(!sFactionSystem.isHostile(m_Unit, pUnit))
             continue;
         // Check LOS if we're in range
         if( !m_Unit->IsInLineOfSight(pUnit) )
@@ -646,7 +645,7 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         ++it2;
 
         /* check the target is valid */
-        if(itr->first->GetInstanceID() != m_Unit->GetInstanceID() || !itr->first->isAlive() || !sFactionSystem.isAttackable(m_Unit, itr->first))
+        if(itr->first->GetInstanceID() != m_Unit->GetInstanceID() || !itr->first->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, itr->first))
         {
             m_aiTargets.erase(itr);
             continue;
@@ -955,7 +954,7 @@ bool AIInterface::taunt(Unit* caster, bool apply)
         }
 
         //check if we can attack taunter. Maybe it's a hack or a bug if we fail this test
-        if(sFactionSystem.isHostile(m_Unit, caster))
+        if(sFactionSystem.CanEitherUnitAttack(m_Unit, caster))
         {
             //check if we have to add him to our agro list
             //GetMostHated(); //update our most hated list/ Note that at this point we do not have a taunter yet. If we would have then this funtion will not give real mosthated
@@ -1080,8 +1079,8 @@ uint32 AIInterface::_CalcThreat(uint32 damage, SpellEntry * sp, Unit* Attacker)
 
     if (sp != NULL && sp->SpellGroupType && Attacker)
     {
-        SM_FIValue(Attacker->SM[SMT_THREAT_REDUCED][0],&mod,sp->SpellGroupType);
-        SM_PIValue(Attacker->SM[SMT_THREAT_REDUCED][1],&mod,sp->SpellGroupType);
+        Attacker->SM_FIValue(SMT_THREAT_REDUCED,&mod,sp->SpellGroupType);
+        Attacker->SM_PIValue(SMT_THREAT_REDUCED,&mod,sp->SpellGroupType);
     }
 
     // modify mod by Affects

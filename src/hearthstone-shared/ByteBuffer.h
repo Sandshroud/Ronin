@@ -7,7 +7,6 @@
 #include "Common.h"
 #include "WoWGuid.h"
 #include "LocationVector.h"
-#include "hearthstone_log.h"
 #include "int24.h"
 
 class ByteBufferException
@@ -34,7 +33,6 @@ private:
 class SERVER_DECL ByteBuffer
 {
 public:
-    const char* opcodename;
     const static size_t DEFAULT_SIZE = 0x1000;
 
     ByteBuffer(): _rpos(0), _wpos(0)
@@ -54,7 +52,6 @@ public:
     {
         _storage.clear();
         _rpos = _wpos = 0;
-        opcodename = "";
     }
 
     //template <typename T> void insert(size_t pos, T value) {
@@ -410,7 +407,7 @@ public:
 
     void hexlike()
     {
-        if(sLog.isOutProcess())
+        if(sLog.GetLogLevel() >= 5)
         {
             uint32 j = 1, k = 1;
             printf("STORAGE_SIZE: %u\n", (unsigned int)size() );

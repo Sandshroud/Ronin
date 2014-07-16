@@ -46,8 +46,8 @@ link_directories( ${DEPENDENCY_DLLS} ${DEPENDENCY_LIBS} )
 
 ADD_LIBRARY( ${PROJECT_NAME} STATIC ${SRCS} )
 
-add_dependencies( ${PROJECT_NAME} g3dlite recast detour pcre zlib consolelog database dbclib network threading )
-target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} g3dlite recast detour pcre zlib consolelog database dbclib network threading ${EXTRA_LIBS} )
+add_dependencies( ${PROJECT_NAME} g3dlite recast detour pcre zlib database dbclib network threading )
+target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} g3dlite recast detour pcre zlib database dbclib network threading ${EXTRA_LIBS} )
 
 #Set our compile information
 set_property(TARGET ${PROJECT_NAME} PROPERTY COMPILE_DEFINITIONS SHARED_LIB_BUILDER)

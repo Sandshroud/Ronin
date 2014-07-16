@@ -85,21 +85,21 @@ public:
         FILE *f = fopen(filename, "rb");
         if(!f)
         {
-            bLog.Error("DB2", "DB2 %s doesn't exist!\n", filename);
+            sLog.Error("DB2", "DB2 %s doesn't exist!\n", filename);
             return false;
         }
 
         if(fread(header.title, 4, 1, f) != 1)
         {
             fclose(f);
-            bLog.Error("DB2", "DB2 %s has incorrect header size!\n", filename);
+            sLog.Error("DB2", "DB2 %s has incorrect header size!\n", filename);
             return false;
         }
 
         if(strcmp(header.title, "WDB2"))
         {
             fclose(f);
-            bLog.Error("DB2", "DB2 %s has incorrect header %s!\n", filename, header.title);
+            sLog.Error("DB2", "DB2 %s has incorrect header %s!\n", filename, header.title);
             return false;
         }
 
@@ -107,7 +107,7 @@ public:
              || (fread(&header.fieldcount, 4, 1, f) != 1) || (fread(&header.stringsize, 4, 1, f) != 1))
         {
             fclose(f);
-            bLog.Error("DB2", "DB2 %s doesn't contain the correct structure info!\n", filename, header.title);
+            sLog.Error("DB2", "DB2 %s doesn't contain the correct structure info!\n", filename, header.title);
             return false;
         }
 
@@ -115,7 +115,7 @@ public:
              || (fread(&header.unk1, 4, 1, f) != 1))
         {
             fclose(f);
-            bLog.Error("DB2", "DB2 %s doesn't contain the correct db2 data!\n", filename, header.title);
+            sLog.Error("DB2", "DB2 %s doesn't contain the correct db2 data!\n", filename, header.title);
             return false;
         }
 
@@ -126,7 +126,7 @@ public:
                  || (fread(&header.locale, 4, 1, f) != 1) || (fread(&header.unk3, 4, 1, f) != 1))
             {
                 fclose(f);
-                bLog.Error("DB2", "DB2 %s doesn't contain the extended db2 data like it should!\n", filename, header.title);
+                sLog.Error("DB2", "DB2 %s doesn't contain the extended db2 data like it should!\n", filename, header.title);
                 return false;
             }
 
@@ -140,7 +140,7 @@ public:
         if(strlen(CFormat) != header.cols)
         {
             fclose(f);
-            bLog.Error("DBC", "DBC %s has an incorrect format!\n", filename);
+            sLog.Error("DBC", "DBC %s has an incorrect format!\n", filename);
             return false;
         }
         uint32 pos = ftell(f);
@@ -222,7 +222,7 @@ public:
         for(uint32 i = 0; i < header.rows; ++i)
             Entries[*(uint32*)&Blocks[i]] = &Blocks[i];
 
-        bLog.Notice("DB2", "Loaded %s (%u rows build %u)", name, header.rows, header.build);
+        sLog.Notice("DB2", "Loaded %s (%u rows build %u)", name, header.rows, header.build);
         return true;
     }
 
@@ -246,7 +246,7 @@ public:
     {
         if(index > m_max || Entries[index] == NULL)
         {
-            bLog.Error("DBC", "LookupTest for %s failed on %u", name, index);
+            sLog.Error("DBC", "LookupTest for %s failed on %u", name, index);
             return NULL;
         }
         return Entries[index];

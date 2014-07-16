@@ -246,8 +246,6 @@ static const char * default_config_file = (char*)CONFDIR "/hearthstone-logonserv
 
 void LogonServer::Run(int argc, char ** argv)
 {
-    sLog.InitializeUnderlayingLog();
-
     UNIXTIME = time(NULL);
     g_localTime = *localtime(&UNIXTIME);
     char *config_file = (char*)default_config_file;

@@ -134,7 +134,6 @@ public:
     typedef unordered_set< Object* > InRangeSet;
     typedef unordered_set< Unit* >   InRangeUnitSet;
     typedef unordered_set< Player* > InRangePlayerSet;
-    typedef std::map<string, void*> ExtensionSet;
 
     virtual ~Object ( );
     virtual void Init();
@@ -295,14 +294,12 @@ public:
 
     HEARTHSTONE_INLINE void SetNewGuid(uint32 Guid)
     {
-        uint64 new_full_guid = Guid;
+        uint32 highGuid = HIGHGUID_TYPE_PLAYER;
         if( m_objectTypeId == TYPEID_GAMEOBJECT )
-            new_full_guid |= ((uint64)GetEntry() << 24) | ((uint64)HIGHGUID_TYPE_GAMEOBJECT << 32);
-
-        if( m_objectTypeId == TYPEID_UNIT )
-            new_full_guid |= ((uint64)GetEntry() << 24) | ((uint64)HIGHGUID_TYPE_CREATURE << 32);
-
-        SetUInt64Value(OBJECT_FIELD_GUID, new_full_guid);
+            highGuid = HIGHGUID_TYPE_GAMEOBJECT;
+        else if( m_objectTypeId == TYPEID_UNIT )
+            highGuid = HIGHGUID_TYPE_CREATURE;
+        SetUInt64Value(OBJECT_FIELD_GUID, MAKE_NEW_GUID(Guid, GetEntry(), highGuid));
         m_wowGuid.Init(GetGUID());
     }
 
@@ -520,13 +517,9 @@ public:
 
     //object faction
     void _setFaction();
-    uint32 _getFaction() { return m_factionTemplate ? m_factionTemplate->Faction : 0; }
-    uint32 GetFaction() { return _getFaction(); }
-
-    FactionTemplateEntry *m_factionTemplate;
-    FactionEntry *m_faction;
-
-    uint32 VendorMask;
+    FactionTemplateEntry *GetFactionTemplate() { return m_factionTemplate; };
+    uint32 GetFactionID() { return m_factionTemplate ? m_factionTemplate->Faction : 0; }
+    FactionEntry *GetFaction() { return m_factionTemplate ? m_factionTemplate->GetFaction() : NULL; }
 
     HEARTHSTONE_INLINE void SetInstanceID(int32 instance) { m_instanceId = instance; }
     HEARTHSTONE_INLINE int32 GetInstanceID() { return m_instanceId; }
@@ -603,6 +596,8 @@ protected:
     MapMgr* m_mapMgr;
     //! Current map cell
     MapCell *m_mapCell;
+    //! Current object faction
+    FactionTemplateEntry *m_factionTemplate;
 
     LocationVector m_position;
     LocationVector m_lastMapUpdatePosition;
@@ -627,7 +622,6 @@ protected:
     bool m_objectUpdated;
 
     //! Set of Objects in range.
-    //! TODO: that functionality should be moved into WorldServer.
     unordered_set<Object* > m_objectsInRange;
     unordered_set<Player* > m_inRangePlayers;
     unordered_set<Unit* > m_oppFactsInRange;
@@ -635,32 +629,7 @@ protected:
 
     int32 m_instanceId;
 
-    ExtensionSet * m_extensions;
-    void _SetExtension(const string& name, void* ptr);      // so we can set from scripts. :)
-
 public:
-
-    template<typename T>
-        void SetExtension(const string& name, T ptr)
-    {
-        _SetExtension(name, ((void*)ptr));
-    }
-
-    template<typename T>
-        T GetExtension(const string& name)
-    {
-        if( m_extensions == NULL )
-            return ((T)NULL);
-        else
-        {
-            ExtensionSet::iterator itr = m_extensions->find( name );
-            if( itr == m_extensions->end() )
-                return ((T)NULL);
-            else
-                return ((T)itr->second);
-        }
-    }
-
     bool m_loadedFromDB;
 
     /************************************************************************/

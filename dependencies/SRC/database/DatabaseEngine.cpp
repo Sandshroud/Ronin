@@ -98,7 +98,7 @@ void DBEngine::Init(bool MultiThreaded)
         StartThreads();
     else
     {
-        bLog.Notice("DBEngine", "Starting engine with parallel threads...");
+        sLog.Notice("DBEngine", "Starting engine with parallel threads...");
         ThreadPool.ExecuteTask("QueryThread", m_QueryThread = new QThread());
         ThreadPool.ExecuteTask("Database Execute Thread", m_DatabaseThread = new DBThread());
     }
@@ -113,7 +113,7 @@ void DBEngine::StartThreads()
     number_of_cpus = si.dwNumberOfProcessors/2;
 #endif // WIN32
 
-    bLog.Notice("DBEngine", "Starting engine with %u threads...", number_of_cpus*2);
+    sLog.Notice("DBEngine", "Starting engine with %u threads...", number_of_cpus*2);
     m_QueryThreads = new DBThreadHolder< QThread >*[number_of_cpus];
     m_DatabaseThreads = new DBThreadHolder< DBThread >*[number_of_cpus];
 
@@ -175,7 +175,7 @@ void DBEngine::AddQueryThread(QueryThread* m_QThread)
 
 void DBEngine::EndThreads()
 {
-    bLog.Notice("DBEngine", "Closing ordinances...");
+    sLog.Notice("DBEngine", "Closing ordinances...");
     if(m_MThreaded)
     {
         for(uint32 i = 0; i < ThreadCount; i++)

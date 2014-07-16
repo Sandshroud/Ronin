@@ -332,6 +332,13 @@ public:
     virtual void Init();
     virtual void Destruct();
 
+    /// Updates
+    virtual void Update( uint32 time );
+
+    int32 GetBaseResistance(uint8 school) { if(LoadedProto) return LoadedProto->Resistances[school]; return proto->Resistances[school]; }
+    int32 GetBaseHealth() { if(LoadedProto) return LoadedProto->Minhealth; return proto->MinHealth; }
+    int32 GetBaseMana() { if(proto->Powertype != POWER_TYPE_MANA) return 0; return proto->MinPower; }
+
     bool Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info);
     bool Load(CreatureProto * proto_, uint32 mode, float x, float y, float z, float o = 0.0f);
 
@@ -346,9 +353,6 @@ public:
     /// Arena organizers
     HEARTHSTONE_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
 
-    /// Updates
-    virtual void Update( uint32 time );
-
     HEARTHSTONE_INLINE uint32 GetSQL_id() { return spawnid; };
 
     /// Creature inventory
@@ -356,15 +360,16 @@ public:
     HEARTHSTONE_INLINE uint32 GetItemAmountBySlot(uint32 slot) { return m_SellItems->at(slot).amount; }
 
     HEARTHSTONE_INLINE bool HasItems() { return ((m_SellItems != NULL) ? true : false); }
+    HEARTHSTONE_INLINE int32 GetVendorMask() { return (m_spawn ? m_spawn->vendormask : 0x01); }
 
     int32 GetSlotByItemId(uint32 itemid)
     {
         uint32 slot = 0;
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
         {
-            if(VendorMask > 0 && itr->second.vendormask > 0)
+            if(GetVendorMask() > 0 && itr->second.vendormask > 0)
             {
-                if(VendorMask != itr->second.vendormask)
+                if(GetVendorMask() != itr->second.vendormask)
                 {
                     ++slot;
                     continue;
@@ -373,8 +378,7 @@ public:
 
             if(itr->second.itemid == itemid)
                 return slot;
-            else
-                ++slot;
+            ++slot;
         }
         return -1;
     }

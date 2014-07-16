@@ -453,7 +453,7 @@ namespace VMAP
         }
 
         fclose(model_list_file);
-        bLog.outDetail("Loaded %u GameObject models", G3D::g3d_uint32(GOModelList.size()));
+        sLog.outDetail("Loaded %u GameObject models", G3D::g3d_uint32(GOModelList.size()));
     }
 
 } // namespace VMAP

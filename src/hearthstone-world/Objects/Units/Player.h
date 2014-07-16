@@ -624,9 +624,29 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    void EventGroupFullUpdate();
-    void GroupUninvite(Player* player, PlayerInfo *info);
+    void Update( uint32 time );
 
+    /************************************************************************/
+    /* Update fields System                                                 */
+    /************************************************************************/
+    void UpdateFieldValues();
+    bool StatUpdateRequired();
+    bool APUpdateRequired();
+    bool RAPUpdateRequired();
+    bool ResUpdateRequired();
+
+    int32 GetBaseStat(uint8 type);
+    int32 GetBaseResistance(uint8 school);
+    int32 GetBaseAttackPower();
+    int32 GetBaseRangedAttackPower();
+    int32 GetBaseHealth();
+    int32 GetBaseMana();
+
+
+private:
+    bool m_forceStatUpdate;
+
+public:
     /************************************************************************/
     /* Skill System                                                         */
     /************************************************************************/
@@ -703,8 +723,6 @@ public:
     void AddToWorld(MapMgr* pMapMgr);
     void RemoveFromWorld();
     bool Create ( WorldPacket &data );
-
-    void Update( uint32 time );
 
     void BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag);
     std::string m_afk_reason;
@@ -798,7 +816,7 @@ public:
     void                RemoveQuestsFromLine(uint32 skill_line);
     void                ResetDailyQuests();
     uint16              FindQuestSlot(uint32 questid);
-    uint32 GetQuestSlotQuestId(uint16 slot) const { return GetUInt32Value(PLAYER_QUEST_LOG_1_1 + slot * 5 + (uint32)NULL); }
+    uint32 GetQuestSlotQuestId(uint16 slot) const { return GetUInt32Value(PLAYER_QUEST_LOG + slot * 5 + (uint32)NULL); }
 
     //Quest related variables
     QuestLogEntry*      m_questlog[QUEST_LOG_COUNT];
@@ -942,6 +960,9 @@ public:
     /************************************************************************/
     /* Groups                                                               */
     /************************************************************************/
+    void EventGroupFullUpdate();
+    void GroupUninvite(Player* player, PlayerInfo *info);
+
     void                            SetInviter(uint32 pInviter) { m_GroupInviter = pInviter; }
     HEARTHSTONE_INLINE uint32       GetInviter() { return m_GroupInviter; }
     HEARTHSTONE_INLINE bool         InGroup() { return (m_playerInfo->m_Group != NULL && !m_GroupInviter); }
@@ -1210,10 +1231,6 @@ public:
     void SetDodgeFromSpell(float value) { m_dodgefromspell = value; }
     void SetHitFromMeleeSpell(float value) { m_hitfrommeleespell = value; }
     void SetHitFromSpell(float value) { m_hitfromspell = value; }
-    HEARTHSTONE_INLINE int32 GetHealthFromSpell() { return m_healthfromspell; }
-    HEARTHSTONE_INLINE uint32 GetManaFromSpell() { return m_manafromspell; }
-    void SetHealthFromSpell(int32 value) { m_healthfromspell = value;}
-    void SetManaFromSpell(uint32 value) { m_manafromspell = value;}
     uint32 CalcTalentResetCost(uint32 resetnum);
     void SendTalentResetConfirm();
     void SendPetUntrainConfirm();
@@ -1372,8 +1389,6 @@ public:
 
     uint32 m_moltenFuryDamageIncreasePct;
 
-    int32 GetBaseResistance(uint8 school);
-    void CalcResistance(uint32 type);
     HEARTHSTONE_INLINE float res_M_crit_get(){return m_resist_critical[0];}
     HEARTHSTONE_INLINE void res_M_crit_set(float newvalue){m_resist_critical[0]=newvalue;}
     HEARTHSTONE_INLINE float res_R_crit_get(){return m_resist_critical[1];}
@@ -1395,8 +1410,6 @@ public:
     int32 m_ModInterrMRegen;
     uint32 m_casted_amount[7]; //Last casted spells amounts. Need for some spells. Like Ignite etc. DOesn't count HoTs and DoTs. Only directs
 
-    uint32 FlatStatModPos[5];
-    uint32 FlatStatModNeg[5];
     uint32 StatModPctPos[5];
     uint32 StatModPctNeg[5];
     uint32 TotalStatModPctPos[5];
@@ -1408,7 +1421,6 @@ public:
     float PctIgnoreRegenModifier;
     uint32 m_retainedrage;
     HEARTHSTONE_INLINE uint32* GetPlayedtime() { return m_playedtime; };
-    void CalcStat(uint32 t);
     HEARTHSTONE_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, m_uint32Values[index]); };
     float CalcPercentForRating(uint32 index, uint32 rating);
     void RecalcAllRatings();
@@ -1897,11 +1909,6 @@ protected:
     float m_parryfromspell;
     float m_hitfromspell;
     float m_hitfrommeleespell;
-    //stats mods
-    int32 m_healthfromspell;
-    uint32 m_manafromspell;
-    uint32 m_healthfromitems;
-    uint32 m_manafromitems;
 
     uint32 armor_proficiency;
     uint32 weapon_proficiency;

@@ -1147,9 +1147,9 @@ void Pet::ApplySummonLevelAbilities()
     float pet_sta_to_hp = R_pet_sta_to_hp[stat_index];
 
     // Calculate bonuses
-    float pet_sta_bonus = 0.3 * (float)m_Owner->BaseStats[STAT_STAMINA];    // + sta_buffs
-    float pet_int_bonus = 0.3 * (float)m_Owner->BaseStats[STAT_INTELLECT];    // + int_buffs
-    float pet_arm_bonus = 0.35 * (float)m_Owner->BaseResistance[RESISTANCE_ARMOR];           // + arm_buffs
+    float pet_sta_bonus = 0.3 * (float)m_Owner->GetBaseStat(STAT_STAMINA);      // + sta_buffs
+    float pet_int_bonus = 0.3 * (float)m_Owner->GetBaseStat(STAT_INTELLECT);    // + int_buffs
+    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBaseResistance(RESISTANCE_ARMOR);   // + arm_buffs
 
     float pet_str = base_str + float(level) * mod_str;
     float pet_agi = base_agi + float(level) * mod_agi;
@@ -1192,7 +1192,7 @@ void Pet::ApplyPetLevelAbilities()
 
     // As of patch 3.0 the pet gains 45% of the hunters stamina
     float pet_sta_bonus = 0.45 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_STAMINA);
-    float pet_arm_bonus = 0.35 * (float)m_Owner->BaseResistance[RESISTANCE_ARMOR];       // Armor
+    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBaseResistance(RESISTANCE_ARMOR);       // Armor
     float pet_ap_bonus = 0.22 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER);
 
     //Base attributes from http://petopia.brashendeavors.net/html/art...ttributes.shtml
@@ -1249,13 +1249,13 @@ void Pet::ApplyPetLevelAbilities()
     // Calculate damage.
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, FL2UINT(pet_attack_power));
 
-    // These are just for visuals, no other actual purpose.
+    /* These are just for visuals, no other actual purpose.
     BaseStats[STAT_STRENGTH] = uint32(20+getLevel()*1.55);
     BaseStats[STAT_AGILITY] = uint32(20+getLevel()*0.64);
     // Reverse the health value to calculate stamina
     BaseStats[STAT_STAMINA] = FL2UINT(pet_hp / 10);
     BaseStats[STAT_INTELLECT] = uint32(20+getLevel()*0.18);
-    BaseStats[STAT_SPIRIT] = uint32(20+getLevel()*0.36);
+    BaseStats[STAT_SPIRIT] = uint32(20+getLevel()*0.36);*/
 
     LearnLevelupSpells();
 }

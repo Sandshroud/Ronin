@@ -5,6 +5,8 @@
 
 #include "StdAfx.h"
 
+initialiseSingleton(DBCLoader);
+
 #define DECLARE_CLASS_INTERNAL_DBC_MACRO(EntryClass, DeclaredClass) SERVER_DECL DBStorage<EntryClass, DBC<EntryClass>> DeclaredClass
 #define DECLARE_CLASS_INTERNAL_DB2_MACRO(EntryClass, DeclaredClass) SERVER_DECL DBStorage<EntryClass, DB2<EntryClass>> DeclaredClass
 
@@ -164,7 +166,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCrit);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCritBase);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegen);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegenBase);
-DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPRegen);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPPerStam);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 const char* gtFloatFormat = "uf";
 
@@ -267,111 +269,110 @@ const char* worldmapoverlayFormat="uxuuuuxxxxxxxxx";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
 const char* worldsafeLocationsFormat="nifffx";
 
-template<class T>
-bool loader_stub(const char * filename, const char * format, T& l)
+template<class T> void DBCLoader::LoadDBC(bool *result, std::string filename, const char * format, T *l)
 {
-    return l.Load(filename, format);
+    if(!l->Load(filename.c_str(), format))
+        *result = false;
 }
 
-#define LOAD_DB(filename, format, stor) if(!loader_stub(filename, format, stor)) { return false; } 
+#define ADD_LOAD_DB(filename, format, stor) tl.AddTask(new Task(new CallbackP4<DBCLoader, bool*, std::string, const char*, decltype(stor)*>(this, &DBCLoader::LoadDBC, result, filename, format, &stor)))
 
-bool LoadDBCs(const char* datapath)
+void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result)
 {
-    LOAD_DB(format("%s/Achievement.dbc", datapath).c_str(), achievementFormat, dbcAchievement);
-    LOAD_DB(format("%s/Achievement_Criteria.dbc", datapath).c_str(), achievementcriteriaFormat, dbcAchievementCriteria);
-    LOAD_DB(format("%s/AreaGroup.dbc", datapath).c_str(), areagroupFormat, dbcAreaGroup);
-    LOAD_DB(format("%s/AreaTable.dbc", datapath).c_str(), areatableFormat, dbcAreaTable);
-    LOAD_DB(format("%s/AreaTrigger.dbc", datapath).c_str(), AreaTriggerFormat, dbcAreaTrigger);
-    LOAD_DB(format("%s/ArmorLocation.dbc", datapath).c_str(), ArmorLocationFormat, dbcArmorLocation);
-    LOAD_DB(format("%s/AuctionHouse.dbc", datapath).c_str(), auctionhousedbcFormat, dbcAuctionHouse);
-    LOAD_DB(format("%s/BankBagSlotPrices.dbc", datapath).c_str(), bankslotpriceformat, dbcBankSlotPrices);
-    LOAD_DB(format("%s/BarberShopStyle.dbc", datapath).c_str(), barbershopstyleFormat, dbcBarberShopStyle);
-    LOAD_DB(format("%s/BattlemasterList.dbc", datapath).c_str(), battlemasterlistFormat, dbcBattleMasterList);
-    LOAD_DB(format("%s/ChatChannels.dbc", datapath).c_str(), chatchannelformat, dbcChatChannels);
-    LOAD_DB(format("%s/ChrClasses.dbc", datapath).c_str(), charclassFormat, dbcCharClass);
-    LOAD_DB(format("%s/ChrRaces.dbc", datapath).c_str(), charraceFormat, dbcCharRace);
-    LOAD_DB(format("%s/CreatureBoundInformation.dbc", datapath).c_str(), creatureboundFormat, dbcCreatureBoundData);
-    LOAD_DB(format("%s/CreatureDisplayInfo.dbc", datapath).c_str(), creaturedisplayFormat, dbcCreatureDisplayInfo);
-    LOAD_DB(format("%s/CreatureFamily.dbc", datapath).c_str(), creaturefamilyFormat, dbcCreatureFamily);
-    LOAD_DB(format("%s/CreatureSpellData.dbc", datapath).c_str(), creaturespelldataFormat, dbcCreatureSpellData);
-    LOAD_DB(format("%s/CharTitles.dbc", datapath).c_str(), chartitlesFormat, dbcCharTitles);
-    LOAD_DB(format("%s/DurabilityCosts.dbc", datapath).c_str(), durabilitycostsFormat, dbcDurabilityCosts);
-    LOAD_DB(format("%s/DurabilityQuality.dbc", datapath).c_str(), durabilityqualityFormat, dbcDurabilityQuality);
-    LOAD_DB(format("%s/EmotesText.dbc", datapath).c_str(), EmoteEntryFormat, dbcEmoteEntry);
-    LOAD_DB(format("%s/Faction.dbc", datapath).c_str(), factionFormat, dbcFaction);
-    LOAD_DB(format("%s/FactionTemplate.dbc", datapath).c_str(), factiontemplateFormat, dbcFactionTemplate);
-    LOAD_DB(format("%s/GemProperties.dbc", datapath).c_str(), gempropertyFormat, dbcGemProperty);
-    LOAD_DB(format("%s/Item.db2", datapath).c_str(), ItemFormat, db2Item);
-    LOAD_DB(format("%s/Item-sparse.db2", datapath).c_str(), ItemSparseformat, db2ItemSparse);
-    LOAD_DB(format("%s/ItemArmorQuality.dbc", datapath).c_str(), ArmorQualityFormat, dbcArmorQuality);
-    LOAD_DB(format("%s/ItemArmorShield.dbc", datapath).c_str(), ArmorShieldFormat, dbcArmorShield);
-    LOAD_DB(format("%s/ItemArmorTotal.dbc", datapath).c_str(), ArmorTotalFormat, dbcArmorTotal);
-    LOAD_DB(format("%s/ItemDamageAmmo.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageAmmo);
-    LOAD_DB(format("%s/ItemDamageOneHand.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageOneHand);
-    LOAD_DB(format("%s/ItemDamageOneHandCaster.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageOneHandCaster);
-    LOAD_DB(format("%s/ItemDamageRanged.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageRanged);
-    LOAD_DB(format("%s/ItemDamageThrown.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageThrown);
-    LOAD_DB(format("%s/ItemDamageTwoHand.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageTwoHand);
-    LOAD_DB(format("%s/ItemDamageTwoHandCaster.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageTwoHandCaster);
-    LOAD_DB(format("%s/ItemDamageWand.dbc", datapath).c_str(), ItemDamageFormat, dbcDamageDamageWand);
-    LOAD_DB(format("%s/ItemExtendedCost.dbc", datapath).c_str(), itemextendedcostFormat, dbcItemExtendedCost);
-    LOAD_DB(format("%s/ItemLimitCategory.dbc", datapath).c_str(), itemlimitcategoryFormat, dbcItemLimitCategory);
-    LOAD_DB(format("%s/ItemRandomProperties.dbc", datapath).c_str(), itemrandompropertiesFormat, dbcItemRandomProperties);
-    LOAD_DB(format("%s/ItemRandomSuffix.dbc", datapath).c_str(), itemrandomsuffixFormat, dbcItemRandomSuffix);
-    LOAD_DB(format("%s/ItemSet.dbc", datapath).c_str(), ItemSetFormat, dbcItemSet);
-    LOAD_DB(format("%s/Lock.dbc", datapath).c_str(), LockFormat, dbcLock);
-    LOAD_DB(format("%s/LFGDungeons.dbc", datapath).c_str(), lfgdungeonsFormat, dbcLFGDungeons);
-    LOAD_DB(format("%s/Map.dbc", datapath).c_str(), mapentryFormat, dbcMap);
-    LOAD_DB(format("%s/GlyphProperties.dbc", datapath).c_str(), glypepropertiesFormat, dbcGlyphProperties);
-    LOAD_DB(format("%s/NumTalentsAtLevel.dbc", datapath).c_str(), numtalentsFormat, dbcNumTalents);
-    LOAD_DB(format("%s/SkillLine.dbc", datapath).c_str(), SkillLineEntryFormat, dbcSkillLine);
-    LOAD_DB(format("%s/SkillLineAbility.dbc", datapath).c_str(), SkillLineSpellFormat, dbcSkillLineSpell);
-    LOAD_DB(format("%s/gtBarberShopCostBase.dbc", datapath).c_str(), gtFloatFormat, dbcBarberShopPrices);
-    LOAD_DB(format("%s/gtChanceToMeleeCrit.dbc", datapath).c_str(), gtFloatFormat, dbcMeleeCrit);
-    LOAD_DB(format("%s/gtChanceToMeleeCritBase.dbc", datapath).c_str(), gtFloatFormat, dbcMeleeCritBase);
-    LOAD_DB(format("%s/gtChanceToSpellCrit.dbc", datapath).c_str(), gtFloatFormat, dbcSpellCrit);
-    LOAD_DB(format("%s/gtChanceToSpellCritBase.dbc", datapath).c_str(), gtFloatFormat, dbcSpellCritBase);
-    LOAD_DB(format("%s/gtCombatRatings.dbc", datapath).c_str(), gtFloatFormat, dbcCombatRating);
-    LOAD_DB(format("%s/gtOCTHpPerStamina.dbc", datapath).c_str(), gtFloatFormat, dbcHPRegen);
-    LOAD_DB(format("%s/gtOCTRegenMP.dbc", datapath).c_str(), gtFloatFormat, dbcManaRegen);
-    LOAD_DB(format("%s/gtRegenMPPerSpt.dbc", datapath).c_str(), gtFloatFormat, dbcManaRegenBase);
-    LOAD_DB(format("%s/gtOCTClassCombatRatingScalar.dbc", datapath).c_str(), gtFloatFormat, dbcCombatRatingScaling);
-    LOAD_DB(format("%s/Spell.dbc", datapath).c_str(), spellentryFormat, dbcSpell);
-    LOAD_DB(format("%s/SpellAuraOptions.dbc", datapath).c_str(), spellauraoptionFormat, dbcSpellAuraOptions);
-    LOAD_DB(format("%s/SpellAuraRestrictions.dbc", datapath).c_str(), spellaurarestrictionFormat, dbcSpellAuraRestrictions);
-    LOAD_DB(format("%s/SpellCastingRequirements.dbc", datapath).c_str(), spellcastingrequirementFormat, dbcSpellCastingRequirements);
-    LOAD_DB(format("%s/SpellCastTimes.dbc", datapath).c_str(), spellcasttimeFormat, dbcSpellCastTime);
-    LOAD_DB(format("%s/SpellCategories.dbc", datapath).c_str(), spellcategoryFormat, dbcSpellCategories);
-    LOAD_DB(format("%s/SpellClassOptions.dbc", datapath).c_str(), spellclassoptionFormat, dbcSpellClassOptions);
-    LOAD_DB(format("%s/SpellCooldowns.dbc", datapath).c_str(), spellcooldownFormat, dbcSpellCooldowns);
-    LOAD_DB(format("%s/SpellDifficulty.dbc", datapath).c_str(), spelldifficultyFormat, dbcSpellDifficulty);
-    LOAD_DB(format("%s/SpellDuration.dbc", datapath).c_str(), spelldurationFormat, dbcSpellDuration);
-    LOAD_DB(format("%s/SpellEffect.dbc", datapath).c_str(), spelleffectFormat, dbcSpellEffect);
-    LOAD_DB(format("%s/SpellEquippedItems.dbc", datapath).c_str(), spellequippeditemFormat, dbcSpellEquippedItems);
-    LOAD_DB(format("%s/SpellInterrupts.dbc", datapath).c_str(), spellinterruptFormat, dbcSpellInterrupts);
-    LOAD_DB(format("%s/SpellItemEnchantment.dbc", datapath).c_str(), EnchantEntryFormat, dbcEnchant);
-    LOAD_DB(format("%s/SpellLevels.dbc", datapath).c_str(), spelllevelFormat, dbcSpellLevels);
-    LOAD_DB(format("%s/SpellPower.dbc", datapath).c_str(), spellpowerFormat, dbcSpellPower);
-    LOAD_DB(format("%s/SpellRadius.dbc", datapath).c_str(), spellradiusFormat, dbcSpellRadius);
-    LOAD_DB(format("%s/SpellRange.dbc", datapath).c_str(), spellrangeFormat, dbcSpellRange);
-    LOAD_DB(format("%s/SpellReagents.dbc", datapath).c_str(), spellreagentFormat, dbcSpellReagents);
-    LOAD_DB(format("%s/SpellRunecost.dbc", datapath).c_str(), spellrunecostFormat, dbcSpellRuneCost);
-    LOAD_DB(format("%s/SpellScaling.dbc", datapath).c_str(), spellscalingFormat, dbcSpellScaling);
-    LOAD_DB(format("%s/SpellShapeshift.dbc", datapath).c_str(), spellshapeshiftFormat, dbcSpellShapeshift);
-    LOAD_DB(format("%s/SpellShapeshiftForm.dbc", datapath).c_str(), spellshapeshiftformFormat, dbcSpellShapeshiftForm);
-    LOAD_DB(format("%s/SpellTargetRestrictions.dbc", datapath).c_str(), spelltargetrestrictionFormat, dbcSpellTargetRestrictions);
-    LOAD_DB(format("%s/SpellTotems.dbc", datapath).c_str(), spelltotemFormat, dbcSpellTotems);
-    LOAD_DB(format("%s/SummonProperties.dbc", datapath).c_str(), summonpropertiesFormat, dbcSummonProperties);
-    LOAD_DB(format("%s/Talent.dbc", datapath).c_str(), talententryFormat, dbcTalent);
-    LOAD_DB(format("%s/TalentTab.dbc", datapath).c_str(), talenttabentryFormat, dbcTalentTab);
-    LOAD_DB(format("%s/TalentTreePrimarySpells.dbc", datapath).c_str(), talenttreeFormat, dbcTreePrimarySpells);
-    LOAD_DB(format("%s/TaxiNodes.dbc", datapath).c_str(), dbctaxinodeFormat, dbcTaxiNode);
-    LOAD_DB(format("%s/TaxiPath.dbc", datapath).c_str(), dbctaxipathFormat, dbcTaxiPath);
-    LOAD_DB(format("%s/TaxiPathNode.dbc", datapath).c_str(), dbctaxipathnodeFormat, dbcTaxiPathNode);
-    LOAD_DB(format("%s/Vehicle.dbc", datapath).c_str(), vehicleentryFormat, dbcVehicle);
-    LOAD_DB(format("%s/VehicleSeat.dbc", datapath).c_str(), vehicleseatentryFormat, dbcVehicleSeat);
-    LOAD_DB(format("%s/WMOAreaTable.dbc", datapath).c_str(), wmoareatableFormat, dbcWMOAreaTable);
-    LOAD_DB(format("%s/WorldMapOverlay.dbc", datapath).c_str(), worldmapoverlayFormat, dbcWorldMapOverlay);
-    LOAD_DB(format("%s/WorldSafeLocs.dbc", datapath).c_str(), worldsafeLocationsFormat, dbcWorldSafeLocs);
-    return true;
+    ADD_LOAD_DB(format("%s/Achievement.dbc", datapath), achievementFormat, dbcAchievement);
+    ADD_LOAD_DB(format("%s/Achievement_Criteria.dbc", datapath), achievementcriteriaFormat, dbcAchievementCriteria);
+    ADD_LOAD_DB(format("%s/AreaGroup.dbc", datapath), areagroupFormat, dbcAreaGroup);
+    ADD_LOAD_DB(format("%s/AreaTable.dbc", datapath), areatableFormat, dbcAreaTable);
+    ADD_LOAD_DB(format("%s/AreaTrigger.dbc", datapath), AreaTriggerFormat, dbcAreaTrigger);
+    ADD_LOAD_DB(format("%s/ArmorLocation.dbc", datapath), ArmorLocationFormat, dbcArmorLocation);
+    ADD_LOAD_DB(format("%s/AuctionHouse.dbc", datapath), auctionhousedbcFormat, dbcAuctionHouse);
+    ADD_LOAD_DB(format("%s/BankBagSlotPrices.dbc", datapath), bankslotpriceformat, dbcBankSlotPrices);
+    ADD_LOAD_DB(format("%s/BarberShopStyle.dbc", datapath), barbershopstyleFormat, dbcBarberShopStyle);
+    ADD_LOAD_DB(format("%s/BattlemasterList.dbc", datapath), battlemasterlistFormat, dbcBattleMasterList);
+    ADD_LOAD_DB(format("%s/ChatChannels.dbc", datapath), chatchannelformat, dbcChatChannels);
+    ADD_LOAD_DB(format("%s/ChrClasses.dbc", datapath), charclassFormat, dbcCharClass);
+    ADD_LOAD_DB(format("%s/ChrRaces.dbc", datapath), charraceFormat, dbcCharRace);
+    ADD_LOAD_DB(format("%s/CreatureBoundInformation.dbc", datapath), creatureboundFormat, dbcCreatureBoundData);
+    ADD_LOAD_DB(format("%s/CreatureDisplayInfo.dbc", datapath), creaturedisplayFormat, dbcCreatureDisplayInfo);
+    ADD_LOAD_DB(format("%s/CreatureFamily.dbc", datapath), creaturefamilyFormat, dbcCreatureFamily);
+    ADD_LOAD_DB(format("%s/CreatureSpellData.dbc", datapath), creaturespelldataFormat, dbcCreatureSpellData);
+    ADD_LOAD_DB(format("%s/CharTitles.dbc", datapath), chartitlesFormat, dbcCharTitles);
+    ADD_LOAD_DB(format("%s/DurabilityCosts.dbc", datapath), durabilitycostsFormat, dbcDurabilityCosts);
+    ADD_LOAD_DB(format("%s/DurabilityQuality.dbc", datapath), durabilityqualityFormat, dbcDurabilityQuality);
+    ADD_LOAD_DB(format("%s/EmotesText.dbc", datapath), EmoteEntryFormat, dbcEmoteEntry);
+    ADD_LOAD_DB(format("%s/Faction.dbc", datapath), factionFormat, dbcFaction);
+    ADD_LOAD_DB(format("%s/FactionTemplate.dbc", datapath), factiontemplateFormat, dbcFactionTemplate);
+    ADD_LOAD_DB(format("%s/GemProperties.dbc", datapath), gempropertyFormat, dbcGemProperty);
+    ADD_LOAD_DB(format("%s/Item.db2", datapath), ItemFormat, db2Item);
+    ADD_LOAD_DB(format("%s/Item-sparse.db2", datapath), ItemSparseformat, db2ItemSparse);
+    ADD_LOAD_DB(format("%s/ItemArmorQuality.dbc", datapath), ArmorQualityFormat, dbcArmorQuality);
+    ADD_LOAD_DB(format("%s/ItemArmorShield.dbc", datapath), ArmorShieldFormat, dbcArmorShield);
+    ADD_LOAD_DB(format("%s/ItemArmorTotal.dbc", datapath), ArmorTotalFormat, dbcArmorTotal);
+    ADD_LOAD_DB(format("%s/ItemDamageAmmo.dbc", datapath), ItemDamageFormat, dbcDamageAmmo);
+    ADD_LOAD_DB(format("%s/ItemDamageOneHand.dbc", datapath), ItemDamageFormat, dbcDamageOneHand);
+    ADD_LOAD_DB(format("%s/ItemDamageOneHandCaster.dbc", datapath), ItemDamageFormat, dbcDamageOneHandCaster);
+    ADD_LOAD_DB(format("%s/ItemDamageRanged.dbc", datapath), ItemDamageFormat, dbcDamageRanged);
+    ADD_LOAD_DB(format("%s/ItemDamageThrown.dbc", datapath), ItemDamageFormat, dbcDamageThrown);
+    ADD_LOAD_DB(format("%s/ItemDamageTwoHand.dbc", datapath), ItemDamageFormat, dbcDamageTwoHand);
+    ADD_LOAD_DB(format("%s/ItemDamageTwoHandCaster.dbc", datapath), ItemDamageFormat, dbcDamageTwoHandCaster);
+    ADD_LOAD_DB(format("%s/ItemDamageWand.dbc", datapath), ItemDamageFormat, dbcDamageDamageWand);
+    ADD_LOAD_DB(format("%s/ItemExtendedCost.dbc", datapath), itemextendedcostFormat, dbcItemExtendedCost);
+    ADD_LOAD_DB(format("%s/ItemLimitCategory.dbc", datapath), itemlimitcategoryFormat, dbcItemLimitCategory);
+    ADD_LOAD_DB(format("%s/ItemRandomProperties.dbc", datapath), itemrandompropertiesFormat, dbcItemRandomProperties);
+    ADD_LOAD_DB(format("%s/ItemRandomSuffix.dbc", datapath), itemrandomsuffixFormat, dbcItemRandomSuffix);
+    ADD_LOAD_DB(format("%s/ItemSet.dbc", datapath), ItemSetFormat, dbcItemSet);
+    ADD_LOAD_DB(format("%s/Lock.dbc", datapath), LockFormat, dbcLock);
+    ADD_LOAD_DB(format("%s/LFGDungeons.dbc", datapath), lfgdungeonsFormat, dbcLFGDungeons);
+    ADD_LOAD_DB(format("%s/Map.dbc", datapath), mapentryFormat, dbcMap);
+    ADD_LOAD_DB(format("%s/GlyphProperties.dbc", datapath), glypepropertiesFormat, dbcGlyphProperties);
+    ADD_LOAD_DB(format("%s/NumTalentsAtLevel.dbc", datapath), numtalentsFormat, dbcNumTalents);
+    ADD_LOAD_DB(format("%s/SkillLine.dbc", datapath), SkillLineEntryFormat, dbcSkillLine);
+    ADD_LOAD_DB(format("%s/SkillLineAbility.dbc", datapath), SkillLineSpellFormat, dbcSkillLineSpell);
+    ADD_LOAD_DB(format("%s/gtBarberShopCostBase.dbc", datapath), gtFloatFormat, dbcBarberShopPrices);
+    ADD_LOAD_DB(format("%s/gtChanceToMeleeCrit.dbc", datapath), gtFloatFormat, dbcMeleeCrit);
+    ADD_LOAD_DB(format("%s/gtChanceToMeleeCritBase.dbc", datapath), gtFloatFormat, dbcMeleeCritBase);
+    ADD_LOAD_DB(format("%s/gtChanceToSpellCrit.dbc", datapath), gtFloatFormat, dbcSpellCrit);
+    ADD_LOAD_DB(format("%s/gtChanceToSpellCritBase.dbc", datapath), gtFloatFormat, dbcSpellCritBase);
+    ADD_LOAD_DB(format("%s/gtCombatRatings.dbc", datapath), gtFloatFormat, dbcCombatRating);
+    ADD_LOAD_DB(format("%s/gtOCTHpPerStamina.dbc", datapath), gtFloatFormat, dbcHPPerStam);
+    ADD_LOAD_DB(format("%s/gtOCTRegenMP.dbc", datapath), gtFloatFormat, dbcManaRegen);
+    ADD_LOAD_DB(format("%s/gtRegenMPPerSpt.dbc", datapath), gtFloatFormat, dbcManaRegenBase);
+    ADD_LOAD_DB(format("%s/gtOCTClassCombatRatingScalar.dbc", datapath), gtFloatFormat, dbcCombatRatingScaling);
+    ADD_LOAD_DB(format("%s/Spell.dbc", datapath), spellentryFormat, dbcSpell);
+    ADD_LOAD_DB(format("%s/SpellAuraOptions.dbc", datapath), spellauraoptionFormat, dbcSpellAuraOptions);
+    ADD_LOAD_DB(format("%s/SpellAuraRestrictions.dbc", datapath), spellaurarestrictionFormat, dbcSpellAuraRestrictions);
+    ADD_LOAD_DB(format("%s/SpellCastingRequirements.dbc", datapath), spellcastingrequirementFormat, dbcSpellCastingRequirements);
+    ADD_LOAD_DB(format("%s/SpellCastTimes.dbc", datapath), spellcasttimeFormat, dbcSpellCastTime);
+    ADD_LOAD_DB(format("%s/SpellCategories.dbc", datapath), spellcategoryFormat, dbcSpellCategories);
+    ADD_LOAD_DB(format("%s/SpellClassOptions.dbc", datapath), spellclassoptionFormat, dbcSpellClassOptions);
+    ADD_LOAD_DB(format("%s/SpellCooldowns.dbc", datapath), spellcooldownFormat, dbcSpellCooldowns);
+    ADD_LOAD_DB(format("%s/SpellDifficulty.dbc", datapath), spelldifficultyFormat, dbcSpellDifficulty);
+    ADD_LOAD_DB(format("%s/SpellDuration.dbc", datapath), spelldurationFormat, dbcSpellDuration);
+    ADD_LOAD_DB(format("%s/SpellEffect.dbc", datapath), spelleffectFormat, dbcSpellEffect);
+    ADD_LOAD_DB(format("%s/SpellEquippedItems.dbc", datapath), spellequippeditemFormat, dbcSpellEquippedItems);
+    ADD_LOAD_DB(format("%s/SpellInterrupts.dbc", datapath), spellinterruptFormat, dbcSpellInterrupts);
+    ADD_LOAD_DB(format("%s/SpellItemEnchantment.dbc", datapath), EnchantEntryFormat, dbcEnchant);
+    ADD_LOAD_DB(format("%s/SpellLevels.dbc", datapath), spelllevelFormat, dbcSpellLevels);
+    ADD_LOAD_DB(format("%s/SpellPower.dbc", datapath), spellpowerFormat, dbcSpellPower);
+    ADD_LOAD_DB(format("%s/SpellRadius.dbc", datapath), spellradiusFormat, dbcSpellRadius);
+    ADD_LOAD_DB(format("%s/SpellRange.dbc", datapath), spellrangeFormat, dbcSpellRange);
+    ADD_LOAD_DB(format("%s/SpellReagents.dbc", datapath), spellreagentFormat, dbcSpellReagents);
+    ADD_LOAD_DB(format("%s/SpellRunecost.dbc", datapath), spellrunecostFormat, dbcSpellRuneCost);
+    ADD_LOAD_DB(format("%s/SpellScaling.dbc", datapath), spellscalingFormat, dbcSpellScaling);
+    ADD_LOAD_DB(format("%s/SpellShapeshift.dbc", datapath), spellshapeshiftFormat, dbcSpellShapeshift);
+    ADD_LOAD_DB(format("%s/SpellShapeshiftForm.dbc", datapath), spellshapeshiftformFormat, dbcSpellShapeshiftForm);
+    ADD_LOAD_DB(format("%s/SpellTargetRestrictions.dbc", datapath), spelltargetrestrictionFormat, dbcSpellTargetRestrictions);
+    ADD_LOAD_DB(format("%s/SpellTotems.dbc", datapath), spelltotemFormat, dbcSpellTotems);
+    ADD_LOAD_DB(format("%s/SummonProperties.dbc", datapath), summonpropertiesFormat, dbcSummonProperties);
+    ADD_LOAD_DB(format("%s/Talent.dbc", datapath), talententryFormat, dbcTalent);
+    ADD_LOAD_DB(format("%s/TalentTab.dbc", datapath), talenttabentryFormat, dbcTalentTab);
+    ADD_LOAD_DB(format("%s/TalentTreePrimarySpells.dbc", datapath), talenttreeFormat, dbcTreePrimarySpells);
+    ADD_LOAD_DB(format("%s/TaxiNodes.dbc", datapath), dbctaxinodeFormat, dbcTaxiNode);
+    ADD_LOAD_DB(format("%s/TaxiPath.dbc", datapath), dbctaxipathFormat, dbcTaxiPath);
+    ADD_LOAD_DB(format("%s/TaxiPathNode.dbc", datapath), dbctaxipathnodeFormat, dbcTaxiPathNode);
+    ADD_LOAD_DB(format("%s/Vehicle.dbc", datapath), vehicleentryFormat, dbcVehicle);
+    ADD_LOAD_DB(format("%s/VehicleSeat.dbc", datapath), vehicleseatentryFormat, dbcVehicleSeat);
+    ADD_LOAD_DB(format("%s/WMOAreaTable.dbc", datapath), wmoareatableFormat, dbcWMOAreaTable);
+    ADD_LOAD_DB(format("%s/WorldMapOverlay.dbc", datapath), worldmapoverlayFormat, dbcWorldMapOverlay);
+    ADD_LOAD_DB(format("%s/WorldSafeLocs.dbc", datapath), worldsafeLocationsFormat, dbcWorldSafeLocs);
 }

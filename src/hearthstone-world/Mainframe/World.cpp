@@ -167,6 +167,13 @@ void World::Destruct()
     Storage_Cleanup();
 }
 
+void World::ParseFactionTemplate()
+{
+    sLog.Notice("World", "Setting %u faction pointers in template class", dbcFactionTemplate.GetNumRows());
+    for(ConstructDBCStorageIterator(FactionTemplateEntry) itr = dbcFactionTemplate.begin(); itr != dbcFactionTemplate.end(); ++itr)
+        (*itr)->m_faction = dbcFaction.LookupEntry((*itr)->Faction);
+}
+
 WorldSession* World::FindSession(uint32 id)
 {
     m_sessionlock.AcquireReadLock();
@@ -350,54 +357,35 @@ bool World::SetInitialWorldSettings()
     strftime( minute, 3, "%M", tmPtr );
     strftime( second, 3, "%S", tmPtr );
     m_gameTime = (3600*atoi(hour))+(atoi(minute)*60)+(atoi(second)); // server starts at noon
-
-    // TODO: clean this
-    // fill in emotes table
-    // it appears not every emote has an animation
-    mPrices[1] = 10;
-    mPrices[4] = 80;
-    mPrices[6] = 150;
-    mPrices[8] = 200;
-    mPrices[10] = 300;
-    mPrices[12] = 800;
-    mPrices[14] = 900;
-    mPrices[16] = 1800;
-    mPrices[18] = 2200;
-    mPrices[20] = 2300;
-    mPrices[22] = 3600;
-    mPrices[24] = 4200;
-    mPrices[26] = 6700;
-    mPrices[28] = 7200;
-    mPrices[30] = 8000;
-    mPrices[32] = 11000;
-    mPrices[34] = 14000;
-    mPrices[36] = 16000;
-    mPrices[38] = 18000;
-    mPrices[40] = 20000;
-    mPrices[42] = 27000;
-    mPrices[44] = 32000;
-    mPrices[46] = 37000;
-    mPrices[48] = 42000;
-    mPrices[50] = 47000;
-    mPrices[52] = 52000;
-    mPrices[54] = 57000;
-    mPrices[56] = 62000;
-    mPrices[58] = 67000;
-    mPrices[60] = 72000;
-
-    // Start
     uint32 start_time = getMSTime();
-    if( !LoadDBCs(sWorld.DBCPath.c_str()) )
+
+    new DBCLoader();
+
+    // Fill the task list with jobs to do.
+    TaskList tl; bool dbcResult = true;
+
+    // Fill tasklist with load tasks
+    sDBCLoader.FillDBCLoadList(tl, DBCPath.c_str(), &dbcResult);
+
+    // spawn worker threads (2 * number of cpus)
+    tl.spawn();
+
+    // Wait for our DBCs to be finished loading
+    tl.wait();
+
+    if( !dbcResult)
     {
         sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "One or more of the DBC files are missing.", "These are absolutely necessary for the server to function.", "The server will not start without them.", NULL);
         return false;
     }
+    // Unload the DBC loader
+    delete DBCLoader::getSingletonPtr();
 
     new ObjectMgr();
     new TicketMgr();
     new QuestMgr();
     new LootMgr();
-    (new LfgMgr())->LoadRandomDungeonRewards();
+    new LfgMgr();
     new WeatherMgr();
     new TaxiMgr();
     new AddonMgr();
@@ -407,18 +395,13 @@ bool World::SetInitialWorldSettings()
     new GuildMgr();
     new ItemPrototypeSystem();
 
-    // Fill the task list with jobs to do.
-    TaskList tl;
-
     Storage_FillTaskList(tl);
 
 #define MAKE_TASK(sp, ptr) tl.AddTask(new Task(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr)))
+    MAKE_TASK(ItemPrototypeSystem, Init);
+    MAKE_TASK(World, ParseFactionTemplate);
 
-    // spawn worker threads (2 * number of cpus)
-    tl.spawn();
-
-    /* storage stuff has to be loaded first */
-    tl.wait();
+    tl.wait(); // Load all the storage first
 
     MAKE_TASK(QuestMgr, LoadQuests);
 
@@ -427,15 +410,15 @@ bool World::SetInitialWorldSettings()
     ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(),
         &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
+    MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, LoadSpellSkills);
     tl.wait();
 
     ApplyNormalFixes();
-    ItemPrototypeStorage.Init();
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
-    MAKE_TASK(ObjectMgr, LoadQuestPOI);
+    MAKE_TASK(QuestMgr, LoadQuestPOI);
     MAKE_TASK(ObjectMgr, LoadRecallPoints);
     MAKE_TASK(ObjectMgr, LoadAchievements);
     MAKE_TASK(ObjectMgr, LoadCreatureWaypoints);

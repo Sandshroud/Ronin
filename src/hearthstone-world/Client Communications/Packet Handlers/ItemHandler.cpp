@@ -976,7 +976,8 @@ void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
     if(unit->GetAIInterface())
         unit->GetAIInterface()->StopMovement(180000);
 
-    _player->Reputation_OnTalk(unit->m_faction);
+    if(FactionEntry *faction = unit->GetFaction())
+        _player->Reputation_OnTalk(faction);
     SendInventoryList(unit);
 }
 
@@ -1012,7 +1013,7 @@ void WorldSession::SendInventoryList(Creature* unit)
         {
             if((curItem = ItemPrototypeStorage.LookupEntry(itr->second.itemid)))
             {
-                if(!(itr->second.vendormask & unit->VendorMask))
+                if(!(itr->second.vendormask & unit->GetVendorMask()))
                     continue;
 
                 if(!_player->ignoreitemreq_cheat)

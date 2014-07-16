@@ -107,7 +107,7 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             GOSpawn * gs = new GOSpawn;
             gs->entry = go->GetEntry();
             gs->facing = go->GetOrientation();
-            gs->faction = go->GetFaction();
+            gs->faction = go->GetFactionID();
             gs->flags = go->GetUInt32Value(GAMEOBJECT_FLAGS);
             gs->id = objmgr.GenerateGameObjectSpawnID();
             gs->scale = go->GetUInt32Value(OBJECT_FIELD_SCALE_X);

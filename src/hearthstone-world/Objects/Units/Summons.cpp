@@ -61,7 +61,7 @@ void Summon::Load(CreatureProto* proto, Unit* m_owner, LocationVector & position
 
     GetAIInterface()->Init(TO_UNIT(this), AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
-    SetFaction(m_owner->GetFaction());
+    SetFaction(m_owner->GetFactionID());
     SetPhaseMask(m_owner->GetPhaseMask());
     SetZoneId(m_owner->GetZoneId());
     setLevel(m_owner->getLevel());
@@ -177,8 +177,6 @@ void TotemSummon::Load(CreatureProto* proto, Unit* owner, LocationVector & posit
     m_summon->SetNativeDisplayId(m_summon->creature_info->Male_DisplayID);
     m_summon->SetCastSpeedMod(1.0f);
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-
-    m_summon->InheritSMMods(owner);
 
     for(uint8 school = 0; school < 7; school++)
     {

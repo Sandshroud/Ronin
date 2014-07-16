@@ -124,7 +124,7 @@ namespace VMAP
         // EoF?
         if (!check)
         {
-            bLog.outDetail("Error reading ModelSpawn flags!");
+            sLog.outDetail("Error reading ModelSpawn flags!");
             return false;
         }
         check += fread(&spawn.adtId, sizeof(G3D::g3d_uint16), 1, rf);
@@ -143,19 +143,19 @@ namespace VMAP
         check += fread(&nameLen, sizeof(G3D::g3d_uint32), 1, rf);
         if (check != G3D::g3d_uint32(has_bound ? 17 : 11))
         {
-            bLog.outDetail("Error reading ModelSpawn data!");
+            sLog.outDetail("Error reading ModelSpawn data!");
             return false;
         }
         char nameBuff[500];
         if (nameLen > 500) // file names should never be that long, must be file error
         {
-            bLog.outDetail("Error reading ModelSpawn, file name too long!");
+            sLog.outDetail("Error reading ModelSpawn, file name too long!");
             return false;
         }
         check = fread(nameBuff, sizeof(char), nameLen, rf);
         if (check != nameLen)
         {
-            bLog.outDetail("Error reading ModelSpawn!");
+            sLog.outDetail("Error reading ModelSpawn!");
             return false;
         }
         spawn.name = std::string(nameBuff, nameLen);

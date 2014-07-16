@@ -224,7 +224,7 @@ public:
 
     HEARTHSTONE_INLINE uint32 GetBaseField(uint32 slot)
     {
-        return PLAYER_QUEST_LOG_1_1 + (slot * 5);
+        return PLAYER_QUEST_LOG + (slot * 5);
     }
 
     uint32 Quest_Status;

@@ -75,8 +75,6 @@ ThreadContext * GetConsoleListener();
 
 bool Master::Run(int argc, char ** argv)
 {
-    sLog.InitializeUnderlayingLog();
-
     m_stopEvent = false;
     char * config_file = (char*)default_config_file;
     int screen_log_level = DEF_VALUE_NOT_SET;

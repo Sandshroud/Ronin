@@ -19,33 +19,8 @@
 #ifndef _MMAP_COMMON_H
 #define _MMAP_COMMON_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <time.h>
-#include <math.h>
-#include <errno.h>
-
-#if defined( __WIN32__ ) || defined( WIN32 ) || defined( _WIN32 ) || defined(_WIN64)
-#  define WIN32_LEAN_AND_MEAN
-#  define _WIN32_WINNT 0x0500
-#  define NOMINMAX
-#  include <windows.h>
-#else
-#  include <string.h>
-#  define MAX_PATH 1024
-#endif
-
+#include "SharedDependencyDefines.h"
 #include "G3D.h"
-
-#ifndef _WIN32
-    #include <stddef.h>
-    #include <dirent.h>
-#endif
-
-#ifdef __linux__
-    #include <errno.h>
-#endif
 
 enum NavTerrain
 {
@@ -147,25 +122,6 @@ namespace MMAP
     #endif
 
         return LISTFILE_OK;
-    }
-
-    inline G3D::g3d_uint32 getMSTime()
-    {
-        return GetTickCount();
-    }
-
-    inline G3D::g3d_uint32 getMSTimeDiff(G3D::g3d_uint32 oldMSTime, G3D::g3d_uint32 newMSTime)
-    {
-        // getMSTime() have limited data range and this is case when it overflow in this tick
-        if (oldMSTime > newMSTime)
-            return (0xFFFFFFFF - oldMSTime) + newMSTime;
-        else
-            return newMSTime - oldMSTime;
-    }
-
-    inline G3D::g3d_uint32 GetMSTimeDiffToNow(G3D::g3d_uint32 oldMSTime)
-    {
-        return getMSTimeDiff(oldMSTime, getMSTime());
     }
 }
 

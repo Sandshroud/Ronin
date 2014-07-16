@@ -167,12 +167,36 @@ public:
     };
 
     typedef std::map<std::pair<uint32, uint32>, Modifier*> modifierMap;
-    typedef std::map<uint32, modifierMap > modiferTypeMap;
+    typedef std::map<uint32, modifierMap > modifierTypeMap;
 
-    modifierMap GetModHolderMapByType(uint32 type) { return m_modifierHoldersByType[type]; }
+    modifierMap GetModMapByModType(uint32 modType) { return m_modifiersByModType[modType]; }
+
+    // Update Mask
+    UpdateMask &getModMask() { return m_modifierMask; }
+    bool GetModMaskBit(uint32 type) { return m_modifierMask.GetBit(type); }
+    void SetModMaskBit(uint32 type) { m_modifierMask.SetBit(type); };
+    void UnsetModMaskBit(uint32 type) { m_modifierMask.UnsetBit(type); };
+    bool GetAndUnsetModMaskBit(uint32 type)
+    {
+        bool res = false;
+        if(res = m_modifierMask.GetBit(type))
+            m_modifierMask.UnsetBit(type);
+        return res;
+    }
+
+    void SM_FIValue( uint32 modifier, int32* v, uint32* group );
+    void SM_FFValue( uint32 modifier, float* v, uint32* group );
+    void SM_PIValue( uint32 modifier, int32* v, uint32* group );
+    void SM_PFValue( uint32 modifier, float* v, uint32* group );
 
 private:
     // Ordered by aura slot
+    UpdateMask m_modifierMask;
     std::map<uint32, ModifierHolder*> m_modifierHolders;
-    modiferTypeMap m_modifierHoldersByType;
+    // Storage is <ModType, <Index, Modifier> >
+    modifierTypeMap m_modifiersByModType;
+    // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
+    std::map<std::pair<uint8, uint8>, std::map<uint8, int32>> m_spellGroupModifiers;
+
+    void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };

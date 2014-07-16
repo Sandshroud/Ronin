@@ -34,16 +34,6 @@ struct ReflectSpellSchool
 typedef struct
 {
     uint32 spellid;
-    uint64 caster;//not yet in use
-    int32 amt;
-    int32 reflect_pct;
-}Absorb;
-
-typedef std::list<Absorb*> SchoolAbsorb;
-
-typedef struct
-{
-    uint32 spellid;
     uint32 mindmg;
     uint32 maxdmg;
 } OnHitSpell;
@@ -463,15 +453,38 @@ public:
     virtual void Destruct();
 
     virtual void Update( uint32 time );
+    virtual void UpdateFieldValues();
+
+    virtual bool StatUpdateRequired();
+    virtual bool HealthUpdateRequired();
+    virtual bool PowerUpdateRequired();
+    virtual bool ResUpdateRequired();
+    virtual bool APUpdateRequired();
+    virtual bool RAPUpdateRequired();
+
+    void UpdateStatValues();
+    void UpdateHealthValues();
+    void UpdatePowerValues();
+    void UpdateResistanceValues();
+    void UpdateAttackPowerValues();
+    void UpdateRangedAttackPowerValues();
+    void UpdatePowerCostValues();
+    void UpdateHoverValues();
+
+    bool m_statValuesChanged;
+    virtual int32 GetBaseStat(uint8 type) { return 100; }
+    virtual int32 GetBaseResistance(uint8 school) { return 0; }
+    virtual int32 GetBaseAttackPower() { return 0; }
+    virtual int32 GetBaseRangedAttackPower() { return 0; }
+    virtual int32 GetBaseHealth() { return 0; }
+    virtual int32 GetBaseMana() { return 0; }
 
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld(bool free_guid);
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
-    virtual int32 GetBaseResistance(uint8 school) { return 0; }
 
-    void UpdateResistance(uint32 time);
     void setAttackTimer(int32 time, bool offhand);
     bool isAttackReady(bool offhand);
     bool __fastcall canReachWithAttack(Unit* pVictim);
@@ -499,20 +512,6 @@ public:
     HEARTHSTONE_INLINE uint8 getGender() { return GetByte(UNIT_FIELD_BYTES_0,2); }
     HEARTHSTONE_INLINE void setGender(uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
     HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)m_uint32Values[UNIT_FIELD_BYTES_1]); }
-    HEARTHSTONE_INLINE char* GetClassNamec(bool FullCaps = false)
-    {
-        char* _class = "UNKNOWN";
-        switch(getClass()) {
-        case 1: { _class = "Warrior"; }break; case 2: { _class = "Paladin"; }break;
-        case 3: { _class = "Hunter"; }break; case 4: { _class = "Rogue"; }break;
-        case 5: { _class = "Priest"; }break; case 6: { _class = "Deathknight"; }break;
-        case 7: { _class = "Shaman"; }break; case 8: { _class = "Mage"; }break;
-        case 9: { _class = "Warlock"; }break; case 11: { _class = "Druid"; }break; }
-        if(FullCaps)
-            for(size_t i = 0; i < strlen(_class); ++i)
-                _class[i] = (char)toupper(_class[i]);
-        return _class;
-    };
 
     HEARTHSTONE_INLINE string GetClassNames(bool FullCaps = false)
     {
@@ -668,7 +667,7 @@ public:
     // Spell Effect Variables
     int32 m_silenced;
     bool m_damgeShieldsInUse;
-    std::list<struct DamageProc> m_damageShields;
+    std::list<struct DamageProc*> m_damageShields;
     std::list<struct ReflectSpellSchool*> m_reflectSpellSchool;
     std::list<struct ProcTriggerSpell> m_procSpells;
     bool HasProcSpell(uint32 spellid);
@@ -728,36 +727,40 @@ public:
     uint32 Heal(Unit* target,uint32 SpellId, uint32 amount, bool silent = false);
     void Energize(Unit* target,uint32 SpellId, uint32 amount, uint32 type);
 
-    int32 DamageTakenMod[7];
-    float DamageTakenPctMod[7];
     uint32 SchoolCastPrevent[7];
-    float MechanicDurationPctMod[NUM_MECHANIC];
+
     HEARTHSTONE_INLINE int32 GetDamageDoneMod(uint32 school) { if(DamageDoneMod[school]) return DamageDoneMod[school]; return DamageDonePosMod[school] - DamageDoneNegMod[school]; };
     HEARTHSTONE_INLINE float GetDamageDonePctMod(uint32 school) { return DamageDonePctMod[school]; };
     HEARTHSTONE_INLINE int32 GetHealingDoneMod() { return HealDoneModPos; };
     HEARTHSTONE_INLINE int32 GetHealingTakenMod() { return HealTakenMod; };
 
-    //float DamageTakenPctModOnHP35; DEPRECATED, YAY!
-    float CritMeleeDamageTakenPctMod[7];
-    float CritRangedDamageTakenPctMod[7];
-    int32 RangedDamageTaken;
-
-    SchoolAbsorb Absorbs[7];
-
     uint32 AbsorbDamage(Object* Attacker, uint32 School,uint32 * dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
     int32 RAPvModifier;
     int32 APvModifier;
     uint64 stalkedby;
-    uint32 dispels[10];
-    uint32 MechanicsDispels[NUM_MECHANIC];
-    float MechanicsResistancesPCT[NUM_MECHANIC];
-    float ModDamageTakenByMechPCT[NUM_MECHANIC];
-    float DispelResistancesPCT[10];
-    //int32 RangedDamageTakenPct;
+    uint32 GetMechanicDispels(uint8 mechanic);
+    float GetMechanicResistPCT(uint8 mechanic);
+    float GetDamageTakenByMechPCTMod(uint8 mechanic);
+    float GetMechanicDurationPctMod(uint8 mechanic);
+
+    uint32 GetDispelImmunity(uint8 dispel);
+    float GetDispelResistancesPCT(uint8 dispel);
+    int32 GetCreatureRangedAttackPowerMod(uint32 creatureType);
+    int32 GetCreatureAttackPowerMod(uint32 creatureType);
+    int32 GetRangedDamageTakenMod();
+    float GetCritMeleeDamageTakenModPct(uint32 school);
+    float GetCritRangedDamageTakenModPct(uint32 school);
+    int32 GetDamageTakenMod(uint32 school);
+    float GetDamageTakenModPct(uint32 school);
+    float GetAreaOfEffectDamageMod();
 
     //SM
-    int32 * SM[SPELL_MODIFIERS][2]; // 0 = flat, 1 = percent
-    void InheritSMMods(Unit* inherit_from);
+    void SM_FIValue( uint32 modifier, int32* v, uint32* group ) { m_AuraInterface.SM_FIValue(modifier, v, group); }
+    void SM_FFValue( uint32 modifier, float* v, uint32* group ) { m_AuraInterface.SM_FFValue(modifier, v, group); }
+    void SM_PIValue( uint32 modifier, int32* v, uint32* group ) { m_AuraInterface.SM_PIValue(modifier, v, group); }
+    void SM_PFValue( uint32 modifier, float* v, uint32* group ) { m_AuraInterface.SM_PFValue(modifier, v, group); }
+
+
     // Multimap used to handle aura 271
     // key is caster GUID and value is a pair of SpellMask pointer and mod value
     typedef tr1::unordered_multimap<uint64, pair<uint32*, int32> > DamageTakenPctModPerCasterType;
@@ -876,9 +879,6 @@ public:
 
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
-    uint32 BaseResistance[7]; //there are resistances for silence, fear, mechanics ....
-    uint32 BaseStats[5];
-
     int32 DamageDoneMod[7];
     int32 DamageDonePosMod[7];
     int32 DamageDoneNegMod[7];
@@ -902,9 +902,6 @@ public:
     float PowerCostPctMod[7]; // armor penetration & spell penetration
     int32 AttackerCritChanceMod[7];
     uint32 SpellDelayResist[7];
-    int32 CreatureAttackPowerMod[12];
-    int32 CreatureRangedAttackPowerMod[12];
-    float AOEDmgMod;
 
     int32 PctRegenModifier;
     float PctPowerRegenModifier[4];
@@ -1014,7 +1011,7 @@ public:
 
     uint16 m_diminishCount[DIMINISH_GROUPS];
     uint8  m_diminishAuraCount[DIMINISH_GROUPS];
-    uint16 m_diminishTimer[DIMINISH_GROUPS];
+    std::map<uint8, uint16> m_diminishTimer;
     bool   m_diminishActive;
 
     void SetDiminishTimer(uint32 index);
@@ -1144,12 +1141,6 @@ public:
     HEARTHSTONE_INLINE void SetResistance(uint32 type, uint32 amt) { SetUInt32Value(UNIT_FIELD_RESISTANCES + type, amt); }
     HEARTHSTONE_INLINE uint32 GetResistance(uint32 type) { return GetUInt32Value(UNIT_FIELD_RESISTANCES + type); }
 
-    HEARTHSTONE_INLINE void SetBaseMana(uint32 amt) { SetUInt32Value(UNIT_FIELD_BASE_MANA, amt); }
-    HEARTHSTONE_INLINE uint32 GetBaseMana() { return GetUInt32Value(UNIT_FIELD_BASE_MANA); }
-
-    HEARTHSTONE_INLINE void SetBaseHealth(uint32 amt) { SetUInt32Value(UNIT_FIELD_BASE_HEALTH, amt); }
-    HEARTHSTONE_INLINE uint32 GetBaseHealth() { return GetUInt32Value(UNIT_FIELD_BASE_HEALTH); }
-
     HEARTHSTONE_INLINE void SetPowerCostMultiplier(uint32 school, float amt) { SetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school, amt); }
     HEARTHSTONE_INLINE void ModPowerCostMultiplier(uint32 school, float amt) { ModFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school, amt); }
     HEARTHSTONE_INLINE float GetPowerCostMultiplier(uint32 school) { return GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school); }
@@ -1190,7 +1181,7 @@ public:
 
     void SetPowerType(uint8 type);
     void SetPower(uint32 type, int32 value);
-    HEARTHSTONE_INLINE uint32 GetPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
+    HEARTHSTONE_INLINE uint8 GetPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
     HEARTHSTONE_INLINE uint32 GetPower(uint8 power) const { return GetUInt32Value(UNIT_FIELD_POWER + power); }
 
     bool mAngerManagement;

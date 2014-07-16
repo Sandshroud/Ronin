@@ -59,7 +59,7 @@ namespace VMAP
             // build global map tree
             std::vector<ModelSpawn*> mapSpawns;
             UniqueEntryMap::iterator entry;
-            bLog.outDetail("Calculating model bounds for map %u...", map_iter->first);
+            sLog.outDetail("Calculating model bounds for map %u...", map_iter->first);
             for (entry = map_iter->second->UniqueEntries.begin(); entry != map_iter->second->UniqueEntries.end(); ++entry)
             {
                 // M2 models don't have a bound set in WDT/ADT placement data, i still think they're not used for LoS at all on retail
@@ -78,7 +78,7 @@ namespace VMAP
                 spawnedModelFiles.insert(entry->second.name);
             }
 
-            bLog.outDetail("Creating map tree for map %u...", map_iter->first);
+            sLog.outDetail("Creating map tree for map %u...", map_iter->first);
             BIH pTree;
             pTree.build(mapSpawns, BoundsTrait<ModelSpawn*>::getBounds);
 
@@ -94,7 +94,7 @@ namespace VMAP
             if (!mapfile)
             {
                 success = false;
-                bLog.outDetail("Cannot open %s", mapfilename.str().c_str());
+                sLog.outDetail("Cannot open %s", mapfilename.str().c_str());
                 break;
             }
 
@@ -155,13 +155,13 @@ namespace VMAP
         exportGameobjectModels();
 
         // export objects
-        bLog.outDetail("\nConverting Model Files");
+        sLog.outDetail("\nConverting Model Files");
         for (std::set<std::string>::iterator mfile = spawnedModelFiles.begin(); mfile != spawnedModelFiles.end(); ++mfile)
         {
-            bLog.outDetail("Converting %s", (*mfile).c_str());
+            sLog.outDetail("Converting %s", (*mfile).c_str());
             if (!convertRawFile(*mfile))
             {
-                bLog.outDetail("error converting %s", (*mfile).c_str());
+                sLog.outDetail("error converting %s", (*mfile).c_str());
                 success = false;
                 break;
             }
@@ -181,10 +181,10 @@ namespace VMAP
         FILE *dirf = fopen(fname.c_str(), "rb");
         if (!dirf)
         {
-            bLog.outDetail("Could not read dir_bin file!");
+            sLog.outDetail("Could not read dir_bin file!");
             return false;
         }
-        bLog.outDetail("Read coordinate mapping...");
+        sLog.outDetail("Read coordinate mapping...");
         G3D::g3d_uint32 mapID, tileX, tileY, check=0;
         G3D::Vector3 v1, v2;
         ModelSpawn spawn;
@@ -204,7 +204,7 @@ namespace VMAP
             MapData::iterator map_iter = mapData.find(mapID);
             if (map_iter == mapData.end())
             {
-                bLog.outDetail("spawning Map %d", mapID);
+                sLog.outDetail("spawning Map %d", mapID);
                 mapData[mapID] = current = new MapSpawns();
             }
             else current = (*map_iter).second;
@@ -233,7 +233,7 @@ namespace VMAP
 
         G3D::g3d_uint32 groups = raw_model.groupsArray.size();
         if (groups != 1)
-            bLog.outDetail("Warning: '%s' does not seem to be a M2 model!", modelFilename.c_str());
+            sLog.outDetail("Warning: '%s' does not seem to be a M2 model!", modelFilename.c_str());
 
         AABox modelBound;
         bool boundEmpty=true;
@@ -244,7 +244,7 @@ namespace VMAP
 
             if (vertices.empty())
             {
-                bLog.outDetail("error: model %s has no geometry!", spawn.name);
+                sLog.outDetail("error: model %s has no geometry!", spawn.name);
                 continue;
             }
 
@@ -330,7 +330,7 @@ namespace VMAP
                 || name_length >= sizeof(buff)
                 || fread(&buff, sizeof(char), name_length, model_list) != name_length)
             {
-                bLog.outDetail("\nFile 'temp_gameobject_models' seems to be corrupted");
+                sLog.outDetail("\nFile 'temp_gameobject_models' seems to be corrupted");
                 break;
             }
 
@@ -370,11 +370,11 @@ namespace VMAP
     }
         // temporary use defines to simplify read/check code (close file and return at fail)
         #define READ_OR_RETURN(V, S) if (fread((V), (S), 1, rf) != 1) { \
-                                        fclose(rf); bLog.outDetail("readfail, op = %i", readOperation); return(false); }
+                                        fclose(rf); sLog.outDetail("readfail, op = %i", readOperation); return(false); }
         #define READ_OR_RETURN_WITH_DELETE(V, S) if (fread((V), (S), 1, rf) != 1) { \
-                                        fclose(rf); bLog.outDetail("readfail, op = %i", readOperation); delete[] V; return(false); };
+                                        fclose(rf); sLog.outDetail("readfail, op = %i", readOperation); delete[] V; return(false); };
         #define CMP_OR_RETURN(V, S)  if (strcmp((V), (S)) != 0)        { \
-                                        fclose(rf); bLog.outDetail("cmpfail, %s!=%s", V, S);return(false); }
+                                        fclose(rf); sLog.outDetail("cmpfail, %s!=%s", V, S);return(false); }
 
     bool GroupModel_Raw::Read(FILE* rf)
     {
@@ -471,7 +471,7 @@ namespace VMAP
         FILE* rf = fopen(path, "rb");
         if (!rf)
         {
-            bLog.outDetail("ERROR: Can't open raw model file: %s", path);
+            sLog.outDetail("ERROR: Can't open raw model file: %s", path);
             return false;
         }
 

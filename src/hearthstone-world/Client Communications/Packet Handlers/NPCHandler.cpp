@@ -99,7 +99,8 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
     if(train == NULL)
         return;
 
-    _player->Reputation_OnTalk(train->m_faction);
+    if(FactionEntry *faction = train->GetFaction())
+        _player->Reputation_OnTalk(faction);
     SendTrainerList(train);
 }
 

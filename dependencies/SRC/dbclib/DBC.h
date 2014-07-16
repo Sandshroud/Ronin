@@ -68,21 +68,21 @@ public:
         FILE *f = fopen(filename, "rb");
         if(!f)
         {
-            bLog.Error("DBC", "DBC %s doesn't exist!\n", filename);
+            sLog.Error("DBC", "DBC %s doesn't exist!\n", filename);
             return false;
         }
 
         if(fread(header.title, 4, 1, f) != 1)
         {
             fclose(f);
-            bLog.Error("DBC", "DBC %s has incorrect header size!\n", filename);
+            sLog.Error("DBC", "DBC %s has incorrect header size!\n", filename);
             return false;
         }
 
         if(strcmp(header.title, "WDBC"))
         {
             fclose(f);
-            bLog.Error("DBC", "DBC %s has incorrect header %s!\n", filename, header.title);
+            sLog.Error("DBC", "DBC %s has incorrect header %s!\n", filename, header.title);
             return false;
         }
 
@@ -90,14 +90,14 @@ public:
              || (fread(&header.fieldcount, 4, 1, f) != 1) || (fread(&header.stringsize, 4, 1, f) != 1))
         {
             fclose(f);
-            bLog.Error("DBC", "DBC %s doesn't contain the correct structure info!\n");
+            sLog.Error("DBC", "DBC %s doesn't contain the correct structure info!\n");
             return false;
         }
 
         if(strlen(CFormat) != header.cols)
         {
             fclose(f);
-            bLog.Error("DBC", "DBC %s has an incorrect format!\n", filename);
+            sLog.Error("DBC", "DBC %s has an incorrect format!\n", filename);
             return false;
         }
         uint32 pos = ftell(f);
@@ -179,7 +179,7 @@ public:
         for(uint32 i = 0; i < header.rows; ++i)
             Entries[*(uint32*)&Blocks[i]] = &Blocks[i];
 
-        bLog.Notice("DBC", "Loaded %s (%u rows)", name, header.rows);
+        sLog.Notice("DBC", "Loaded %s (%u rows)", name, header.rows);
         return true;
     }
 
@@ -203,7 +203,7 @@ public:
     {
         if(index > m_max || Entries[index] == NULL)
         {
-            bLog.Error("DBC", "LookupTest for %s failed on %u", name, index);
+            sLog.Error("DBC", "LookupTest for %s failed on %u", name, index);
             return NULL;
         }
         return Entries[index];

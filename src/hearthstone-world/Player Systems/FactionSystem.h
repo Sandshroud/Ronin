@@ -15,9 +15,10 @@ enum FactionMasks
 
 enum FactionInteractionStatus
 {
-    FI_STATUS_NONE      = 0,
-    FI_STATUS_FRIENDLY  = 1,
-    FI_STATUS_HOSTILE   = 2
+    FI_STATUS_NONE      = 0, // Internal error, or not attackable
+    FI_STATUS_FRIENDLY  = 1, // Not attackable, unless set in faction list
+    FI_STATUS_NEUTRAL   = 2, // Attackable, but will not attack unless attacked
+    FI_STATUS_HOSTILE   = 3  // Always attackable/attacks
 };
 
 class SERVER_DECL FactionSystem : public Singleton<FactionSystem>
@@ -28,33 +29,33 @@ public:
 
     void LoadFactionInteractionData();
 
-public:
-    bool CanEitherUnitAttack(Object* objA, Object* objB, bool CheckStealth = true);
-
+    // System checks
+    bool CanEitherUnitAttack(Unit* objA, Unit* objB, bool CheckStealth = true);
     bool AC_GetAttackableStatus(Player* plr, Unit *target);
 
-//private:
-    // 0 - friendly, 1 - hostile
-    int GetAreaInteractionStatus(Unit *unitA, Unit *unitB);
-    int GetFactionsInteractStatus(Unit *unitA, Unit *unitB);
-
-    int intisAttackable(Object* objA, Object* objB, bool CheckStealth);
-
-    // System checks
     bool isHostile(Object* objA, Object* objB);
     bool isAttackable(Object* objA, Object* objB, bool CheckStealth = true);
     bool isCombatSupport(Object* objA, Object* objB); // B combat supports A?;
     bool isAlliance(Object* objA); // A is alliance?
+
+//private:
+    bool IsInteractionLocked(Object *obj);
+    FactionInteractionStatus GetFactionsInteractStatus(Object *objA, Object *objB);
+
+    FactionInteractionStatus GetPlayerAttackStatus(Player *plrA, Player *plrB);
+    FactionInteractionStatus GetUnitAreaInteractionStatus(Unit *unitA, Unit *unitB);
+    FactionInteractionStatus GetAttackableStatus(Object* objA, Object* objB, bool CheckStealth);
+
     Player* GetPlayerFromObject(Object* obj);
 
     HEARTHSTONE_INLINE bool isFriendly(Object *objA, Object *objB) { return !isHostile(objA, objB); }
     HEARTHSTONE_INLINE bool isSameFaction(Object* objA, Object* objB)
     {
         // shouldn't be necessary but still
-        if( objA->m_factionTemplate == NULL || objB->m_factionTemplate == NULL )
+        if( objA->GetFactionTemplate() == NULL || objB->GetFactionTemplate() == NULL )
             return false;
 
-        return (objB->m_factionTemplate->Faction == objA->m_factionTemplate->Faction);
+        return (objB->GetFaction() == objA->GetFaction());
     }
 
 };

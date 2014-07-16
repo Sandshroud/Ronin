@@ -398,12 +398,6 @@ void Transporter::Init()
 void Transporter::Destruct()
 {
     sEventMgr.RemoveEvents(this);
-    for(TransportNPCMap::iterator itr = m_npcs.begin(); itr != m_npcs.end(); itr++)
-    {
-        if(itr->second->GetTypeId()==TYPEID_UNIT)
-            TO_CREATURE( itr->second )->GetMovementInfo()->ClearTransportData();
-        delete itr->second;
-    }
     GameObject::Destruct();
 }
 
@@ -422,7 +416,7 @@ void ObjectMgr::LoadTransporters()
     {
         entry = QR->Fetch()[0].GetUInt32();
 
-        pTransporter = new Transporter((uint64)HIGHGUID_TYPE_TRANSPORTER<<32 | entry);
+        pTransporter = new Transporter(MAKE_NEW_GUID(entry, entry, HIGHGUID_TYPE_TRANSPORTER));
         pTransporter->Init();
         if(!pTransporter->CreateAsTransporter(entry, ""))
         {
@@ -433,19 +427,6 @@ void ObjectMgr::LoadTransporters()
         else
         {
             AddTransport(pTransporter);
-
-            QueryResult * result2 = WorldDatabase.Query("SELECT * FROM transport_creatures WHERE transport_entry = %u", entry);
-            if(result2)
-            {
-                do
-                {
-                    pTransporter->AddNPC(result2->Fetch()[1].GetUInt32(), result2->Fetch()[2].GetFloat(),
-                        result2->Fetch()[3].GetFloat(), result2->Fetch()[4].GetFloat(),
-                        result2->Fetch()[5].GetFloat());
-
-                } while (result2->NextRow());
-                delete result2;
-            }
         }
 
     } while(QR->NextRow());
@@ -458,56 +439,9 @@ void Transporter::OnPushToWorld()
     sEventMgr.AddEvent(this, &Transporter::UpdatePosition, EVENT_TRANSPORTER_NEXT_WAYPOINT, 100, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Transporter::AddNPC(uint32 Entry, float offsetX, float offsetY, float offsetZ, float offsetO)
-{
-    if(!this)
-        return;
-
-    uint32 guid;
-    m_transportGuidGen.Acquire();
-    guid = ++m_transportGuidMax;
-    m_transportGuidGen.Release();
-
-    CreatureInfo * inf = CreatureNameStorage.LookupEntry(Entry);
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(Entry);
-    if(inf == NULL || proto == NULL)
-        return;
-
-    Creature* pCreature(new Creature((uint64)HIGHGUID_TYPE_TRANSPORTER<<32 | guid));
-    pCreature->Init();
-    pCreature->Load(proto, GetMapMgr()->iInstanceMode, offsetX, offsetY, offsetZ, offsetO);
-    pCreature->GetMovementInfo()->SetTransportData(GetGUID(), offsetX, offsetY, offsetZ, offsetO, 0);
-    m_npcs.insert(make_pair(guid,pCreature));
-}
-
-Creature* Transporter::GetCreature(uint32 Guid)
-{
-    TransportNPCMap::iterator itr = m_npcs.find(Guid);
-    if(itr==m_npcs.end())
-        return NULLCREATURE;
-    if(itr->second->GetTypeId()==TYPEID_UNIT)
-        return TO_CREATURE( itr->second );
-    else
-        return NULLCREATURE;
-}
-
 uint32 Transporter::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
 {
-    uint32 cnt = Object::BuildCreateUpdateBlockForPlayer(data, target);
-
-    // add all the npcs to the packet
-    for(TransportNPCMap::iterator itr = m_npcs.begin(); itr != m_npcs.end(); itr++)
-    {
-        LocationVector v_offset;
-        TO_CREATURE(itr->second)->GetMovementInfo()->GetTransportPosition(v_offset);
-        v_offset.x += GetPositionX();
-        v_offset.y += GetPositionY();
-        v_offset.z += GetPositionZ();
-        itr->second->SetPosition(v_offset);
-        cnt += itr->second->BuildCreateUpdateBlockForPlayer(data, target);
-    }
-
-    return cnt;
+    return Object::BuildCreateUpdateBlockForPlayer(data, target);
 }
 
 void Transporter::EventClusterMapChange( uint32 mapid, LocationVector l )

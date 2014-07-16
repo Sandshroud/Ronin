@@ -1314,7 +1314,7 @@ bool MoonScriptCreatureAI::IsValidUnitTarget( Object *pObject, TargetFilters pFi
         {
             if ( !UnitTarget->CombatStatus.IsInCombat() )
                 return false; //Skip not-in-combat targets if friendly
-            if ( sFactionSystem.isHostile( _unit, UnitTarget ) || _unit->GetAIInterface()->getThreatByPtr( UnitTarget ) > 0 )
+            if ( sFactionSystem.CanEitherUnitAttack( _unit, UnitTarget ) || _unit->GetAIInterface()->getThreatByPtr( UnitTarget ) > 0 )
                 return false;
         };
     };

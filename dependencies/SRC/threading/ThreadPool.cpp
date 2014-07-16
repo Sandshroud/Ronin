@@ -48,9 +48,9 @@ void CThreadPool::ExecuteTask(const char* ThreadName, ThreadContext * ExecutionT
 
     // add the thread to the active set
 #ifdef WIN32
-    bLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at 0x%p.", t->name, t->ThreadId, ExecutionTarget);
+    sLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at 0x%p.", t->name, t->ThreadId, ExecutionTarget);
 #else
-    bLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at %p.", t->name, t->ThreadId, ExecutionTarget);
+    sLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at %p.", t->name, t->ThreadId, ExecutionTarget);
 #endif
     m_activeThreads.insert(t);
     _mutex.Release();
@@ -59,7 +59,7 @@ void CThreadPool::ExecuteTask(const char* ThreadName, ThreadContext * ExecutionT
 void CThreadPool::Shutdown()
 {
     _mutex.Acquire();
-    bLog.Debug("ThreadPool", "Shutting down %u threads.", uint32(m_activeThreads.size()));
+    sLog.Debug("ThreadPool", "Shutting down %u threads.", uint32(m_activeThreads.size()));
 
     for(ThreadSet::iterator itr = m_activeThreads.begin(), itr2; itr != m_activeThreads.end();)
     {
@@ -79,10 +79,10 @@ void CThreadPool::Shutdown()
         {
             listcount = 0;
             totallistcount++;
-            bLog.Debug("ThreadPool", "Listing threads" );
+            sLog.Debug("ThreadPool", "Listing threads" );
             if(m_activeThreads.size())
                 for(ThreadSet::iterator itr = m_activeThreads.begin(); itr != m_activeThreads.end(); ++itr)
-                    bLog.Debug("ActiveThreadPool", "%u(%s) thread...", (*itr)->ThreadId, (*itr)->name );
+                    sLog.Debug("ActiveThreadPool", "%u(%s) thread...", (*itr)->ThreadId, (*itr)->name );
 
             if(totallistcount > 2)
                 Suicide();
@@ -90,7 +90,7 @@ void CThreadPool::Shutdown()
 
         if(m_activeThreads.size())
         {
-            bLog.Debug("ThreadPool", "%u active threads remaining...", m_activeThreads.size() );
+            sLog.Debug("ThreadPool", "%u active threads remaining...", m_activeThreads.size() );
             _mutex.Release();
             listcount++;
             Sleep(1000);
@@ -133,9 +133,9 @@ static unsigned long WINAPI thread_proc(void* param)
 
     ThreadPool.ThreadExit(t);
     if(strlen(tName))
-        bLog.Debug("ThreadPool", "Thread %s(%u) exiting.", tName, tid);
+        sLog.Debug("ThreadPool", "Thread %s(%u) exiting.", tName, tid);
     else
-        bLog.Debug("ThreadPool", "Thread %u exiting.", tid);
+        sLog.Debug("ThreadPool", "Thread %u exiting.", tid);
 
     // at this point the t pointer has already been freed, so we can just cleanly exit.
     ExitThread(0);

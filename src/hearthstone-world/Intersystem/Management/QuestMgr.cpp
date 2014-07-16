@@ -101,6 +101,17 @@ QuestMgr::~QuestMgr()
         delete MapQuestIterator->second;
     }
     QuestStorage.clear();
+
+    for(QuestPOIStorageMap::iterator itr = mQuestPOIMap.begin(); itr != mQuestPOIMap.end(); itr++)
+    {
+        while(!itr->second.empty())
+        {
+            QuestPOI *poi = itr->second.back();
+            itr->second.pop_back();
+            poi->points.clear();
+            delete poi;
+        }
+    }
 }
 
 void QuestMgr::LoadQuests()
@@ -2165,6 +2176,52 @@ void QuestMgr::LoadExtraQuestStuff()
 
     //Proccess the stuff
     objmgr.ProcessGameobjectQuests();
+}
+
+void QuestMgr::LoadQuestPOI()
+{
+    QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi ORDER BY questId, id ASC"), *points = WorldDatabase.Query("SELECT * FROM quest_poi_points ORDER BY questId, id, internalIndex ASC");
+    if(result == NULL || points == NULL)
+    {
+        sLog.Error("QuestMgr", "Failed to load Quest POI, %s", result ? "no points exist in DB" : "no Quest objectives exist in DB");
+        if(result) delete result;
+        if(points) delete points;
+        return;
+    }
+
+    uint32 count = 0;
+    uint32 pointcount = 0;
+    std::map<std::pair<uint32, uint32>, QuestPOI*> m_orderedQuestPOI;
+    do
+    {
+        Field *fields = result->Fetch();
+        QuestPOI *PoI = new QuestPOI();
+        PoI->questId = fields[0].GetUInt32();
+        PoI->PoIID = fields[1].GetUInt32();
+        PoI->questObjectIndex = fields[2].GetInt32();
+        PoI->mapId = fields[3].GetUInt32();
+        PoI->areaId = fields[4].GetUInt32();
+        PoI->MapFloorId = fields[5].GetUInt32();
+        mQuestPOIMap[PoI->questId].push_back(PoI);
+        m_orderedQuestPOI[std::make_pair(PoI->questId, PoI->PoIID)] = PoI;
+        count++;
+    } while (result->NextRow());
+    delete result;
+
+    do
+    {
+        Field *pointFields = points->Fetch();
+        std::pair<uint32, uint32> questPOID = std::make_pair(pointFields[0].GetUInt32(), pointFields[1].GetUInt32());
+        if(m_orderedQuestPOI.find(questPOID) != m_orderedQuestPOI.end())
+        {
+            m_orderedQuestPOI.at(questPOID)->points.push_back(std::make_pair(pointFields[3].GetInt32(), pointFields[4].GetInt32()));
+            pointcount++;
+        }
+    }while (points->NextRow());
+    delete points;
+    m_orderedQuestPOI.clear();
+
+    sLog.Notice("QuestMgr", "%u quest POI definitions, %u POI points", count, pointcount);
 }
 
 bool QuestMgr::SkippedKills( uint32 QuestID )

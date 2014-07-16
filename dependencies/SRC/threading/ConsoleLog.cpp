@@ -1,7 +1,7 @@
 
-#include "consolelog.h"
+#include "Threading.h"
 
-basicLog *basicLog::basicLogExistence = NULL;
+createFileSingleton(consoleLog);
 
 #if PLATFORM != PLATFORM_WIN
 static const char* colorstrings[TPURPLE+1] = {
@@ -16,7 +16,7 @@ static const char* colorstrings[TPURPLE+1] = {
 };
 #endif
 
-void basicLog::Init(int log_Level)
+void consoleLog::Init(int log_Level)
 {
     m_logLevel = log_Level;
     m_clogLevel = log_Level;
@@ -27,19 +27,19 @@ void basicLog::Init(int log_Level)
 #endif
 }
 
-void basicLog::PrintTime()
+void consoleLog::PrintTime()
 {
     time_t now = GetTime();
     tm local = *localtime(&now);
     printf("%02u:%02u:%02u ", local.tm_hour, local.tm_min, local.tm_sec);
 }
 
-time_t basicLog::GetTime()
+time_t consoleLog::GetTime()
 {
     return time(NULL);
 }
 
-void basicLog::SetColor(int color)
+void consoleLog::SetColor(int color)
 {
 #if PLATFORM != PLATFORM_WIN
     fputs(colorstrings[color], stdout);
@@ -48,7 +48,7 @@ void basicLog::SetColor(int color)
 #endif
 }
 
-void basicLog::outString( const char * str, ... )
+void consoleLog::outString( const char * str, ... )
 {
     if(m_logLevel < 0)
         return;
@@ -65,7 +65,7 @@ void basicLog::outString( const char * str, ... )
     ReleaseLock();
 }
 
-void basicLog::outError( const char * err, ... )
+void consoleLog::outError( const char * err, ... )
 {
     if(m_logLevel < 1)
         return;
@@ -84,7 +84,7 @@ void basicLog::outError( const char * err, ... )
     ReleaseLock();
 }
 
-void basicLog::outDetail( const char * str, ... )
+void consoleLog::outDetail( const char * str, ... )
 {
     if(m_logLevel < 2)
         return;
@@ -101,7 +101,7 @@ void basicLog::outDetail( const char * str, ... )
     ReleaseLock();
 }
 
-void basicLog::outDebug( const char * str, ... )
+void consoleLog::outDebug( const char * str, ... )
 {
     if(m_logLevel < 3)
         return;
@@ -118,7 +118,7 @@ void basicLog::outDebug( const char * str, ... )
     ReleaseLock();
 }
 
-void basicLog::outDebugInLine(const char * str, ...)
+void consoleLog::outDebugInLine(const char * str, ...)
 {
     if(m_logLevel < 3)
         return;
@@ -134,7 +134,7 @@ void basicLog::outDebugInLine(const char * str, ...)
     ReleaseLock();
 }
 
-void basicLog::outColor(int color, const char * str, ...)
+void consoleLog::outColor(int color, const char * str, ...)
 {
     va_list ap;
     char buf[32768];
@@ -150,14 +150,14 @@ void basicLog::outColor(int color, const char * str, ...)
     ReleaseLock();
 }
 
-void basicLog::Line()
+void consoleLog::Line()
 {
     AcquireLock();
     printf("\n");
     ReleaseLock();
 }
 
-void basicLog::Notice(const char * source, const char * format, ...)
+void consoleLog::Notice(const char * source, const char * format, ...)
 {
     if(m_clogLevel < 0)
         return;
@@ -170,7 +170,7 @@ void basicLog::Notice(const char * source, const char * format, ...)
     CNotice(TNORMAL, source, msg0);
 }
 
-void basicLog::Info(const char * source, const char * format, ...)
+void consoleLog::Info(const char * source, const char * format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -180,7 +180,7 @@ void basicLog::Info(const char * source, const char * format, ...)
     CNotice(TPURPLE, source, msg0);
 }
 
-void basicLog::Error(const char * source, const char * format, ...)
+void consoleLog::Error(const char * source, const char * format, ...)
 {
     if(m_clogLevel < 1)
         return;
@@ -193,7 +193,7 @@ void basicLog::Error(const char * source, const char * format, ...)
     CNotice(TRED, source, msg0);
 }
 
-void basicLog::Warning(const char * source, const char * format, ...)
+void consoleLog::Warning(const char * source, const char * format, ...)
 {
     if(m_clogLevel < 2)
         return;
@@ -207,7 +207,7 @@ void basicLog::Warning(const char * source, const char * format, ...)
     CNotice(TYELLOW, source, msg0);
 }
 
-void basicLog::Success(const char * source, const char * format, ...)
+void consoleLog::Success(const char * source, const char * format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -217,7 +217,7 @@ void basicLog::Success(const char * source, const char * format, ...)
     CNotice(TGREEN, source, msg0);
 }
 
-void basicLog::Debug(const char * source, const char * format, ...)
+void consoleLog::Debug(const char * source, const char * format, ...)
 {
     if(m_clogLevel != 3 && m_clogLevel != 6)
         return;
@@ -230,7 +230,7 @@ void basicLog::Debug(const char * source, const char * format, ...)
     CNotice(TBLUE, source, msg0);
 }
 
-void basicLog::CNotice(int color, const char * source, const char * message)
+void consoleLog::CNotice(int color, const char * source, const char * message)
 {
     AcquireLock();
     PrintTime();
@@ -249,7 +249,7 @@ void basicLog::CNotice(int color, const char * source, const char * message)
     ReleaseLock();
 }
 
-void basicLog::LargeErrorMessage(int Colour, ...)
+void consoleLog::LargeErrorMessage(int Colour, ...)
 {
     std::vector<char*> lines;
     char * pointer;

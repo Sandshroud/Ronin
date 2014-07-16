@@ -282,6 +282,9 @@ struct FactionTemplateEntry
     uint32 HostileMask;
     uint32 EnemyFactions[4];
     uint32 FriendlyFactions[4];
+
+    FactionEntry *m_faction;
+    FactionEntry *GetFaction() { return m_faction; }
 };
 
 struct GemPropertyEntry
@@ -1411,7 +1414,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCrit);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCritBase);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegen);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPRegen);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 DBC_STORAGE_EXTERN_DBC_MACRO(Lock, dbcLock);
 DBC_STORAGE_EXTERN_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
@@ -1455,4 +1458,18 @@ DBC_STORAGE_EXTERN_DBC_MACRO(WMOAreaTableEntry, dbcWMOAreaTable);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldMapOverlayEntry, dbcWorldMapOverlay);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
 
-bool LoadDBCs(const char* datapath);
+class TaskList;
+
+class DBCLoader : public Singleton<DBCLoader>
+{
+public:
+    DBCLoader() {};
+    ~DBCLoader() {};
+
+    void FillDBCLoadList(TaskList &tl, const char* datapath, bool *result);
+
+private:
+    template<class T> void LoadDBC(bool *result, std::string filename, const char * format, T *l);
+};
+
+#define sDBCLoader DBCLoader::getSingleton()

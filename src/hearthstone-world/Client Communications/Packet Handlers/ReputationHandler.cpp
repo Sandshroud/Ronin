@@ -106,8 +106,7 @@ void Player::smsg_InitialFactions()
         rep = reputationByListId[i];
         if ( rep == NULL )
             data << uint8(0) << uint32(0);
-        else
-            data << rep->flag << rep->CalcStanding();
+        else data << rep->flag << rep->CalcStanding();
     }
     m_session->SendPacket(&data);
 }
@@ -117,8 +116,7 @@ uint32 Player::GetInitialFactionId()
     PlayerCreateInfo * pci = objmgr.GetPlayerCreateInfo(getRace(), getClass());
     if( pci )
         return pci->factiontemplate;
-    else
-        return 35;
+    else return 35;
 }
 
 void Player::_InitialReputation()
@@ -166,9 +164,7 @@ void Player::SetStanding(uint32 Faction, int32 Value)
         {
             itr->second->standing = Value;
             UpdateInrangeSetsBasedOnReputation();
-        }
-        else
-            itr->second->standing = Value;
+        } else itr->second->standing = Value;
         
         OnModStanding( faction, itr->second );
     }
@@ -193,7 +189,7 @@ bool Player::IsHostileBasedOnReputation(FactionEntry *faction)
     if( itr != m_forcedReactions.end() )
         return ( itr->second <= STANDING_HOSTILE );
 
-    return ( AtWar( rep->flag ) || GetReputationRankFromStanding( rep->standing ) <= STANDING_HOSTILE );
+    return GetReputationRankFromStanding( rep->standing ) <= STANDING_HOSTILE;
 }
 
 void Player::ModStanding(uint32 Faction, int32 Value)
@@ -254,6 +250,16 @@ void Player::SetAtWar(uint32 Faction, bool Set)
     }
 }
 
+bool Player::IsAtWar(uint32 factionId)
+{
+    if( factionId >= 128 )
+        return false;
+    FactionReputation *rep = reputationByListId[factionId];
+    if(rep == NULL)
+        return false;
+    return AtWar(rep->flag);
+}
+
 void WorldSession::HandleSetAtWarOpcode(WorldPacket& recv_data)
 {
     uint32 id;
@@ -270,8 +276,7 @@ void WorldSession::HandleSetAtWarOpcode(WorldPacket& recv_data)
 
     if(state == 1)
         _player->SetAtWar(id, true);
-    else
-        _player->SetAtWar(id, false);
+    else _player->SetAtWar(id, false);
 }
 
 void Player::UpdateInrangeSetsBasedOnReputation()
@@ -287,10 +292,13 @@ void Player::UpdateInrangeSetsBasedOnReputation()
             continue;
 
         pUnit = TO_UNIT( *itr );
-        if(pUnit->m_faction == NULL || pUnit->m_faction->RepListId < 0)
+        FactionEntry *faction = pUnit->GetFaction();
+        if(faction == NULL)
+            continue;
+        if(faction->RepListId < 0)
             continue;
 
-        rep_value = IsHostileBasedOnReputation( pUnit->m_faction );
+        rep_value = IsAtWar(faction->ID) ||  IsHostileBasedOnReputation( faction );
         enemy_current = IsInRangeOppFactSet( pUnit );
 
         if( rep_value && !enemy_current ) // We are now enemies.
@@ -303,7 +311,7 @@ void Player::UpdateInrangeSetsBasedOnReputation()
 void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
 {
     // add rep for on kill
-    if ( pUnit->GetTypeId() != TYPEID_UNIT || pUnit->IsPet() || !pUnit->m_faction )
+    if ( pUnit->GetTypeId() != TYPEID_UNIT || pUnit->IsPet() || pUnit->GetFaction() == NULL )
         return;
 
     Group * m_Group = GetGroup();
@@ -327,7 +335,7 @@ void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
     }
 
     uint32 team = GetTeam();
-    ReputationModifier * modifier = objmgr.GetReputationModifier( pUnit->GetEntry(), pUnit->m_faction->ID );
+    ReputationModifier * modifier = objmgr.GetReputationModifier( pUnit->GetEntry(), pUnit->GetFactionID() );
     if( modifier != 0 )
     {
         // Apply this data.
@@ -353,11 +361,12 @@ void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
         if ( IS_INSTANCE( GetMapId() ) && objmgr.HandleInstanceReputationModifiers( this, pUnit ) )
             return;
 
-        if ( pUnit->m_faction->RepListId < 0 )
+        FactionEntry *faction = pUnit->GetFaction();
+        if ( faction == NULL || faction->RepListId < 0 )
             return;
 
         int32 change = int32( -5.0f * sWorld.getRate( RATE_KILLREPUTATION ) );
-        ModStanding( pUnit->m_faction->ID, change );
+        ModStanding( faction->ID, change );
     }
 }
 

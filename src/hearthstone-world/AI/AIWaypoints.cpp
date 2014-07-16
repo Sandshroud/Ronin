@@ -112,8 +112,7 @@ bool AI_Movement::showWayPoints(Player* pPlayer, bool Backwards)
             wp = *itr;
 
             //Create
-            Creature* pWayPoint = NULLCREATURE;
-            pWayPoint = new Creature((uint64)HIGHGUID_TYPE_WAYPOINT << 32 | wp->id);
+            Creature* pWayPoint = new Creature(MAKE_NEW_GUID(wp->id, 0, HIGHGUID_TYPE_WAYPOINT));
             pWayPoint->Init();
             pWayPoint->CreateWayPoint(wp->id, pPlayer->GetMapId(), wp->x, wp->y, wp->z, wp->orientation);
             pWayPoint->SetUInt32Value(OBJECT_FIELD_ENTRY, 300000);
@@ -196,7 +195,7 @@ bool AI_Movement::hideWayPoints(Player* pPlayer)
         if( (*itr) != NULL )
         {
             // avoid C4293
-            guid = ((uint64)HIGHGUID_TYPE_WAYPOINT << 32) | (*itr)->id;
+            guid = MAKE_NEW_GUID((*itr)->id, 0, HIGHGUID_TYPE_WAYPOINT);
             WoWGuid wowguid(guid);
             pPlayer->PushOutOfRange(wowguid);
         }

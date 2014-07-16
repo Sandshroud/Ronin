@@ -659,8 +659,8 @@ void Spell::SpellEffectHealthLeech(uint32 i) // Health Leech
     float coef = GetSpellProto()->EffectValueMultiplier[i]; // how much health is restored per damage dealt
     if( u_caster && GetSpellProto() )
     {
-        SM_FFValue(u_caster->SM[SMT_MULTIPLE_VALUE][0], &coef, GetSpellProto()->SpellGroupType);
-        SM_PFValue(u_caster->SM[SMT_MULTIPLE_VALUE][1], &coef, GetSpellProto()->SpellGroupType);
+        u_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, GetSpellProto()->SpellGroupType);
+        u_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, GetSpellProto()->SpellGroupType);
     }
 
     amt = float2int32((float)amt * coef);
@@ -2759,8 +2759,8 @@ void Spell::SpellEffectPowerBurn(uint32 i) // power burn
     float coef = GetSpellProto()->EffectValueMultiplier[i]; // damage per mana burned
     if(u_caster)
     {
-        SM_FFValue(u_caster->SM[SMT_MULTIPLE_VALUE][0], &coef, GetSpellProto()->SpellGroupType);
-        SM_PFValue(u_caster->SM[SMT_MULTIPLE_VALUE][1], &coef, GetSpellProto()->SpellGroupType);
+        u_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, GetSpellProto()->SpellGroupType);
+        u_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, GetSpellProto()->SpellGroupType);
     }
     mana = float2int32((float)mana * coef);
 

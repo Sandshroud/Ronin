@@ -296,7 +296,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
     m_spawn->phase = m_phaseMask;
     m_spawn->vehicle = IsVehicle();
     m_spawn->CanMove = GetCanMove();
-    m_spawn->vendormask = VendorMask;
+    m_spawn->vendormask = newspawn ? 1 : GetVendorMask();
 
     std::stringstream ss;
     ss << "REPLACE INTO creature_spawns VALUES("
@@ -445,12 +445,8 @@ void Creature::AddToWorld()
     }
 
     // force set faction
-    if(m_factionTemplate == NULL || m_faction == NULL)
-    {
-        _setFaction();
-        if(m_factionTemplate == NULL || m_faction == NULL)
-            return;
-    }
+    if(!CanAddToWorld())
+        return;
 
     Object::AddToWorld();
 }
@@ -465,12 +461,8 @@ void Creature::AddToWorld(MapMgr* pMapMgr)
     }
 
     // force set faction
-    if(m_factionTemplate == NULL || m_faction == NULL)
-    {
-        _setFaction();
-        if(m_factionTemplate == NULL || m_faction == NULL)
-            return;
-    }
+    if(!CanAddToWorld())
+        return;
 
     Object::AddToWorld(pMapMgr);
 }
@@ -481,10 +473,10 @@ bool Creature::CanAddToWorld()
         return false;
 
     // force set faction
-    if(m_factionTemplate == NULL || m_faction == NULL)
+    if(GetFaction() == NULL)
     {
         _setFaction();
-        if(m_factionTemplate == NULL || m_faction == NULL)
+        if(GetFaction() == NULL)
             return false;
     }
 
@@ -757,7 +749,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     m_runSpeed = m_base_runSpeed = proto->run_speed; //set speeds
     m_flySpeed = proto->fly_speed;
     m_phaseMask = spawn->phase;
-    VendorMask = spawn->vendormask;
 
     original_flags = spawn->flags;
     original_emotestate = spawn->emote_state;
@@ -893,6 +884,8 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     uint32 model;
     uint32 gender = creature_info->GenerateModelId(&model);
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
+    SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
+    if(power) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
 
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
@@ -932,13 +925,10 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     if(m_factionTemplate)
     {
         // not a neutral creature
-        m_faction = dbcFaction.LookupEntry(m_factionTemplate->Faction);
-        if(!((!m_faction || m_faction->RepListId == -1) && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0))
+        FactionEntry *faction = m_factionTemplate->GetFaction();
+        if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
             GetAIInterface()->m_canCallForHelp = true;
-    }
-    else
-        sLog.Warning("Creature","Creature is missing a valid faction template for entry %u.", spawn->entry);
-
+    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", spawn->entry);
 
 //SETUP NPC FLAGS
     SetUInt32Value(UNIT_NPC_FLAGS,proto->NPCFLags);
@@ -958,13 +948,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
-    //load resistances
-    for(uint32 x=0;x<7;x++)
-        BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
-    for(uint32 x=0;x<5;x++)
-        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STATS+x);
     BaseAttackType=proto->AttackType;
-
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
 
 ////////////AI
@@ -1158,7 +1142,6 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
 
     m_walkSpeed = m_base_walkSpeed = proto->walk_speed; //set speeds
     m_runSpeed = m_base_runSpeed = proto->run_speed; //set speeds
-    VendorMask = 1;
 
     //Set fields
     SetUInt32Value(OBJECT_FIELD_ENTRY,proto->Id);
@@ -1243,6 +1226,8 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
     uint32 model = 0;
     uint32 gender = creature_info->GenerateModelId(&model);
     setGender(gender);
+    SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
+    if(power) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
 
     float dbcscale = GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model ));
     float realscale = (proto->Scale > 0.0f ? proto->Scale : dbcscale);
@@ -1279,12 +1264,10 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
     m_factionTemplate = dbcFactionTemplate.LookupEntry(proto->Faction);
     if(m_factionTemplate)
     {
-        m_faction = dbcFaction.LookupEntry(m_factionTemplate->Faction);
+        FactionEntry *faction = m_factionTemplate->GetFaction();
         // not a neutral creature
-        if(!(m_faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0))
-        {
+        if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
             GetAIInterface()->m_canCallForHelp = true;
-        }
     }
 
     //SETUP NPC FLAGS
@@ -1305,11 +1288,6 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
-    //load resistances
-    for(uint32 x=0;x<7;x++)
-        BaseResistance[x]=GetUInt32Value(UNIT_FIELD_RESISTANCES+x);
-    for(uint32 x=0;x<5;x++)
-        BaseStats[x]=GetUInt32Value(UNIT_FIELD_STATS+x);
     BaseAttackType=proto->AttackType;
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one

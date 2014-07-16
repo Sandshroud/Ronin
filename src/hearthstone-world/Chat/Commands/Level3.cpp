@@ -42,7 +42,7 @@ bool ChatHandler::HandleClearCooldownsCommand(const char *args, WorldSession *m_
         return false;
 
     plr->ResetAllCooldowns();
-    BlueSystemMessage(m_session, "Cleared all %s cooldowns.", plr->GetClassNamec());
+    BlueSystemMessage(m_session, "Cleared all %s cooldowns.", plr->GetClassNames().c_str());
     return true;
 }
 
@@ -409,25 +409,20 @@ bool ChatHandler::HandleAddSkillCommand(const char* args, WorldSession *m_sessio
 
 bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session)
 {
-    char msg[512];
-    uint32 guid = GUID_LOPART(m_session->GetPlayer()->GetSelection());
     Creature* crt = getSelectedCreature(m_session);
-    if(!crt)
+    if(crt == NULL)
         return false;
     if(crt->GetCreatureInfo())
         BlueSystemMessage(m_session, "Showing creature info for %s", crt->GetCreatureInfo()->Name);
-    uint32 FactionID = 0, FactionTemplate = 0;
-    if(crt->m_faction)
-    {
-        FactionID = crt->m_factionTemplate->Faction;
-        FactionTemplate = crt->m_factionTemplate->ID;
-    }
+    FactionTemplateEntry *factionTemplate = crt->GetFactionTemplate();
 
-    snprintf(msg,512,"GUID: %u\nFaction: %u|%u\nNPCFlags: %u\nDisplayID: %u\n Scale %f", guid, FactionTemplate, FactionID, crt->GetUInt32Value(UNIT_NPC_FLAGS), crt->GetUInt32Value(UNIT_FIELD_DISPLAYID), crt->proto->Scale);
-    SystemMessage(m_session, msg);
+    SystemMessage(m_session, "LowGUID %u", crt->GetLowGUID());
+    if(factionTemplate)
+        SystemMessage(m_session, "Faction: %u|%u", factionTemplate->ID, factionTemplate->Faction);
+    SystemMessage(m_session, "NPCFlags %u", crt->GetUInt32Value(UNIT_NPC_FLAGS));
+    SystemMessage(m_session, "DisplayID %u", crt->GetUInt32Value(UNIT_FIELD_DISPLAYID));
+    SystemMessage(m_session, "Scale %f", crt->GetFloatValue(OBJECT_FIELD_SCALE_X));
     SystemMessage(m_session, "EmoteState: %u", crt->GetUInt32Value(UNIT_NPC_EMOTESTATE));
-    if(crt->m_faction)
-        GreenSystemMessage(m_session, "Combat Support: 0x%.3X", crt->m_factionTemplate->FriendlyMask);
     GreenSystemMessage(m_session, "Base Health: %u", crt->GetUInt32Value(UNIT_FIELD_BASE_HEALTH));
     GreenSystemMessage(m_session, "Base Armor: %u", crt->GetUInt32Value(UNIT_FIELD_RESISTANCES));
     GreenSystemMessage(m_session, "Base Mana: %u", crt->GetUInt32Value(UNIT_FIELD_MAX_MANA));
@@ -1898,19 +1893,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
     //Are we on a transporter?
     if(plr->GetTransportGuid() != 0 )
     {
-        uint64 transGuid = plr->GetTransportGuid();
-        Transporter* t = objmgr.GetTransporter(GUID_LOPART(transGuid));
-        if(t == NULL)
-            BlueSystemMessage(m_session, "Incorrect transportguid %u. Spawn has been denied", GUID_LOPART(transGuid));
-        else
-        {
-            float tx, ty, tz, to;
-            plr->GetMovementInfo()->GetTransportPosition(tx, ty, tz, to);
-            WorldDatabase.Execute("INSERT INTO transport_creatures VALUES(%u, %u, '%f', '%f', '%f', '%f')", GUID_LOPART(transGuid), entry, tx, ty, tz, to);
-            t->AddNPC(entry, tx, ty, tz, to);
-            BlueSystemMessage(m_session, "Spawned crew-member %u on transport %u. You might need to relog.", entry, GUID_LOPART(transGuid));
-            sWorld.LogGM(m_session, "spawned crew-member %u on transport %u.", entry, GUID_LOPART(transGuid));
-        }
+        BlueSystemMessage(m_session, "Spawning on transports is not allowed. Spawn has been denied");
         return true;
     }
 

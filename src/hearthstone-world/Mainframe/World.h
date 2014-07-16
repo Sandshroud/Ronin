@@ -408,6 +408,7 @@ public:
     ~World();
 
     void Destruct();
+    void ParseFactionTemplate();
 
     uint32 GetMaxLevel(Player* plr);
     uint32 GetMaxLevelStatCalc();
@@ -475,9 +476,6 @@ public:
         return regen_values[index];
     }
 
-    // map text emote to spell prices
-    typedef std::map< uint32, uint32> SpellPricesMap;
-    SpellPricesMap mPrices;
     uint32 MaxLevelCalc;
 
     struct NameGenData

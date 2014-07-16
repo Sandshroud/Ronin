@@ -3,7 +3,6 @@ if(BUILD_TOOLS)
 add_subdirectory(bzip2)
 endif()
 
-add_subdirectory(consolelog)
 add_subdirectory(database)
 add_subdirectory(dbclib)
 add_subdirectory(detour)

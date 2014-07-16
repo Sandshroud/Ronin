@@ -94,8 +94,8 @@ bool AIInterface::CanCastAISpell(AI_Spell* toCast, uint32 currentTime)
         //apply modifiers
         if( toCast->info->SpellGroupType )
         {
-            SM_FIValue(m_Unit->SM[SMT_COST][0], &cost, toCast->info->SpellGroupType);
-            SM_PIValue(m_Unit->SM[SMT_COST][1], &cost, toCast->info->SpellGroupType);
+            m_Unit->SM_FIValue(SMT_COST, &cost, toCast->info->SpellGroupType);
+            m_Unit->SM_PIValue(SMT_COST, &cost, toCast->info->SpellGroupType);
         }
 
         if(cost > currentPower)
@@ -232,7 +232,7 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
         {
             if ( !UnitTarget->CombatStatus.IsInCombat() )
                 return false; //Skip not-in-combat targets if friendly
-            if ( sFactionSystem.isHostile( m_Unit, UnitTarget ) || getThreatByPtr( UnitTarget ) > 0 )
+            if ( sFactionSystem.CanEitherUnitAttack( m_Unit, UnitTarget ) || getThreatByPtr( UnitTarget ) > 0 )
                 return false;
         }
     }

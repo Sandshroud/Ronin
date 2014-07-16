@@ -325,19 +325,19 @@ namespace VMAP
         DynamicTreeIntersectionCallback(G3D::g3d_int32 phasemask, bool pStopAtFirstHit=true) : did_hit(false), phase_mask(phasemask), stopAtFirstHit(pStopAtFirstHit)
         {
 #ifdef _DEBUG
-            bLog.Debug("DynamicTreeIntersection", "Dynamic Intersection initialization");
+            sLog.Debug("DynamicTreeIntersection", "Dynamic Intersection initialization");
 #endif
         }
 
         bool operator()(const G3D::Ray& r, const GOModelInstance& obj, float& distance)
         {
 #ifdef _DEBUG
-            bLog.Debug("DynamicTreeIntersection", "testing intersection with %s", obj.name.c_str());
+            sLog.Debug("DynamicTreeIntersection", "testing intersection with %s", obj.name.c_str());
 #endif
             did_hit = obj.intersectRay(r, distance, stopAtFirstHit, phase_mask);
 #ifdef _DEBUG
             if(did_hit)
-                bLog.Debug("DynamicTreeIntersection", "result: intersects");
+                sLog.Debug("DynamicTreeIntersection", "result: intersects");
 #endif
             return did_hit;
         }

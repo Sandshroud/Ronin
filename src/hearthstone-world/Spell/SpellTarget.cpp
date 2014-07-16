@@ -13,7 +13,7 @@ uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
     //CHAIN SPELLS ALWAYS CHAIN!
     uint32 jumps = m_spellInfo->EffectChainTarget[i];
     if(u_caster != NULL)
-        SM_FIValue(u_caster->SM[SMT_JUMP_REDUCE][0], (int32*)&jumps, m_spellInfo->SpellGroupType);
+        u_caster->SM_FIValue(SMT_JUMP_REDUCE, (int32*)&jumps, m_spellInfo->SpellGroupType);
     if(jumps != 0)
         type |= SPELL_TARGET_AREA_CHAIN;
     return type;
@@ -344,7 +344,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     range /= jumps; //hacky, needs better implementation!
 
     if(m_spellInfo->SpellGroupType && u_caster != NULL)
-        SM_FIValue(u_caster->SM[SMT_JUMP_REDUCE][0], (int32*)&jumps, m_spellInfo->SpellGroupType);
+        u_caster->SM_FIValue(SMT_JUMP_REDUCE, (int32*)&jumps, m_spellInfo->SpellGroupType);
 
     AddTarget(i, TargetType, firstTarget);
 

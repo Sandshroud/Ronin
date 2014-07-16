@@ -6,7 +6,7 @@
 
 #pragma pack(push, 1)
 
-struct packetSMSG_SET_FLAT_SPELL_MODIFIER
+struct packetSMSG_SET_SPELL_MODIFIER
 {
     uint8 group;
     uint8 type;

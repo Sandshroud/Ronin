@@ -82,8 +82,8 @@ int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, Unit* u_caster, Unit* unitTa
 
             if(m_spellInfo->SpellGroupType)
             {
-                SM_FIValue(u_caster->SM[SMT_DURATION][0], (int32*)&m_duration, m_spellInfo->SpellGroupType);
-                SM_PIValue(u_caster->SM[SMT_DURATION][1], (int32*)&m_duration, m_spellInfo->SpellGroupType);
+                u_caster->SM_FIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
+                u_caster->SM_PIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
             }
         }
 
@@ -648,8 +648,8 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
         r = GetSpellProto()->base_range_or_radius_sqr;
         if( GetSpellProto()->SpellGroupType && u_caster)
         {
-            SM_FFValue(u_caster->SM[SMT_RADIUS][0],&r,GetSpellProto()->SpellGroupType);
-            SM_PFValue(u_caster->SM[SMT_RADIUS][1],&r,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FFValue(SMT_RADIUS,&r,GetSpellProto()->SpellGroupType);
+            u_caster->SM_PFValue(SMT_RADIUS,&r,GetSpellProto()->SpellGroupType);
         }
     }
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
@@ -696,8 +696,8 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
         r = GetSpellProto()->base_range_or_radius_sqr;
         if( GetSpellProto()->SpellGroupType && u_caster)
         {
-            SM_FFValue(u_caster->SM[SMT_RADIUS][0],&r,GetSpellProto()->SpellGroupType);
-            SM_PFValue(u_caster->SM[SMT_RADIUS][1],&r,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FFValue(SMT_RADIUS,&r,GetSpellProto()->SpellGroupType);
+            u_caster->SM_PFValue(SMT_RADIUS,&r,GetSpellProto()->SpellGroupType);
         }
     }
     float srcx=m_caster->GetPositionX(),srcy=m_caster->GetPositionY(),srcz=m_caster->GetPositionZ();
@@ -732,7 +732,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
     return 0;
 }
 
-uint8 Spell::_DidHit(uint32 index, const Unit* target, uint8 &reflectout)
+uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 &reflectout)
 {
     //note resistchance is vise versa, is full hit chance
     if( target == NULL )
@@ -765,7 +765,7 @@ uint8 Spell::_DidHit(uint32 index, const Unit* target, uint8 &reflectout)
     /*************************************************************************/
     /* Check if the target is immune to this mechanic                       */
     /*************************************************************************/
-    if(target->MechanicsDispels[GetSpellProto()->MechanicsType])
+    if(target->GetMechanicDispels(GetSpellProto()->MechanicsType))
         return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
 
     /************************************************************************/
@@ -773,7 +773,7 @@ uint8 Spell::_DidHit(uint32 index, const Unit* target, uint8 &reflectout)
     /************************************************************************/
     if( GetSpellProto()->MechanicsType < MECHANIC_COUNT)
     {
-        float res = target->MechanicsResistancesPCT[Spell::GetMechanic(m_spellInfo)];
+        float res = target->GetMechanicResistPCT(Spell::GetMechanic(m_spellInfo));
         if( !(GetSpellProto()->c_is_flags & SPELL_FLAG_IS_NOT_RESISTABLE) && Rand(res))
             return SPELL_DID_HIT_RESIST;
     }
@@ -1055,8 +1055,8 @@ uint8 Spell::prepare( SpellCastTargets * targets )
         m_castTime = m_ForcedCastTime ? m_ForcedCastTime : GetDBCCastTime( dbcSpellCastTime.LookupEntry( GetSpellProto()->CastingTimeIndex ) );
         if( m_castTime && GetSpellProto()->SpellGroupType && u_caster != NULL )
         {
-            SM_FIValue( u_caster->SM[SMT_CAST_TIME][0], (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
-            SM_PIValue( u_caster->SM[SMT_CAST_TIME][1], (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
+            u_caster->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
+            u_caster->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
         }
 
         // handle MOD_CAST_TIME
@@ -1996,7 +1996,7 @@ void Spell::AddTime(uint32 type)
         if( GetSpellProto()->SpellGroupType && u_caster)
         {
             float ch = 0;
-            SM_FFValue(u_caster->SM[SMT_NONINTERRUPT][1], &ch, GetSpellProto()->SpellGroupType);
+            u_caster->SM_FFValue(SMT_NONINTERRUPT, &ch, GetSpellProto()->SpellGroupType);
             if(Rand(ch))
                 return;
         }
@@ -2670,8 +2670,8 @@ int32 Spell::CalculateCost(int32 &powerField)
     //apply modifiers
     if( GetSpellProto()->SpellGroupType && u_caster)
     {
-        SM_FIValue(u_caster->SM[SMT_COST][0],&cost,GetSpellProto()->SpellGroupType);
-        SM_PIValue(u_caster->SM[SMT_COST][1],&cost,GetSpellProto()->SpellGroupType);
+        u_caster->SM_FIValue(SMT_COST,&cost,GetSpellProto()->SpellGroupType);
+        u_caster->SM_PIValue(SMT_COST,&cost,GetSpellProto()->SpellGroupType);
     }
     return cost;
 }
@@ -3674,8 +3674,8 @@ uint8 Spell::CanCast(bool tolerate)
 
     if( GetSpellProto()->SpellGroupType && u_caster != NULL )
     {
-        SM_FFValue( u_caster->SM[SMT_RANGE][0], &maxRange, GetSpellProto()->SpellGroupType );
-        SM_PFValue( u_caster->SM[SMT_RANGE][1], &maxRange, GetSpellProto()->SpellGroupType );
+        u_caster->SM_FFValue(SMT_RANGE, &maxRange, GetSpellProto()->SpellGroupType );
+        u_caster->SM_PFValue(SMT_RANGE, &maxRange, GetSpellProto()->SpellGroupType );
     }
 
     // Targeted Location Checks (AoE spells)
@@ -3708,7 +3708,7 @@ uint8 Spell::CanCast(bool tolerate)
                 if(target->SchoolImmunityList[GetSpellProto()->School])
                     return SPELL_FAILED_DAMAGE_IMMUNE;
 
-                if(target->MechanicsDispels[GetSpellProto()->MechanicsType])
+                if(target->GetMechanicDispels(GetSpellProto()->MechanicsType))
                     return SPELL_FAILED_DAMAGE_IMMUNE;
             }
 
@@ -3924,7 +3924,7 @@ uint8 Spell::CanCast(bool tolerate)
                         return SPELL_FAILED_BAD_TARGETS ;
                 }
 
-                if(target->dispels[GetSpellProto()->DispelType])
+                if(target->GetDispelImmunity(GetSpellProto()->DispelType))
                     return SPELL_FAILED_PREVENTED_BY_MECHANIC-1;            // hackfix - burlex
             }
 
@@ -4297,24 +4297,24 @@ int32 Spell::CalculateEffect(uint32 i, Unit* target)
         int32 spell_flat_modifers=0;
         int32 spell_pct_modifers=0;
 
-        SM_FIValue(caster->SM[SMT_MISC_EFFECT][0],&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-        SM_FIValue(caster->SM[SMT_MISC_EFFECT][1],&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+        caster->SM_FIValue(SMT_MISC_EFFECT,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+        caster->SM_FIValue(SMT_MISC_EFFECT,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
 
         if( i == 0 )
         {
-            SM_FIValue(caster->SM[SMT_FIRST_EFFECT_BONUS][0],&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            SM_FIValue(caster->SM[SMT_FIRST_EFFECT_BONUS][1],&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
         else if( i == 1 )
         {
-            SM_FIValue(caster->SM[SMT_SECOND_EFFECT_BONUS][0],&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            SM_FIValue(caster->SM[SMT_SECOND_EFFECT_BONUS][1],&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
 
         if( ( i == 2 ) || ( i == 1 && GetSpellProto()->Effect[2] == 0 ) || ( i == 0 && GetSpellProto()->Effect[1] == 0 && GetSpellProto()->Effect[2] == 0 ) )
         {
-            SM_FIValue(caster->SM[SMT_LAST_EFFECT_BONUS][0],&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            SM_FIValue(caster->SM[SMT_LAST_EFFECT_BONUS][1],&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
         value += float2int32(value * (float)(spell_pct_modifers / 100.0f)) + spell_flat_modifers;
     }
@@ -4574,8 +4574,8 @@ void Spell::Heal(int32 amount)
             critchance = u_caster->spellcritperc + u_caster->SpellCritChanceSchool[GetSpellProto()->School];
             if( GetSpellProto()->SpellGroupType )
             {
-                SM_FFValue(u_caster->SM[SMT_CRITICAL][0], &critchance, GetSpellProto()->SpellGroupType);
-                SM_PFValue(u_caster->SM[SMT_CRITICAL][1], &critchance, GetSpellProto()->SpellGroupType);
+                u_caster->SM_FFValue(SMT_CRITICAL, &critchance, GetSpellProto()->SpellGroupType);
+                u_caster->SM_PFValue(SMT_CRITICAL, &critchance, GetSpellProto()->SpellGroupType);
             }
 
             // Sacred Shield HOAX
@@ -4592,7 +4592,7 @@ void Spell::Heal(int32 amount)
 
             int32 critical_bonus = 100;
             if( GetSpellProto()->SpellGroupType )
-                SM_FIValue( u_caster->SM[SMT_CRITICAL_DAMAGE][1], &critical_bonus, GetSpellProto()->SpellGroupType );
+                u_caster->SM_FIValue(SMT_CRITICAL_DAMAGE, &critical_bonus, GetSpellProto()->SpellGroupType );
 
             if( critical_bonus > 0 )
             {
@@ -4648,7 +4648,7 @@ void Spell::Heal(int32 amount)
             u_caster->HasDummyAura( SPELL_HASH_RAPTURE ) && u_caster->m_CustomTimers[CUSTOM_TIMER_RAPTURE] <= getMSTime() )
         {
             SpellEntry *spellInfo = dbcSpell.LookupEntry( 47755 );
-            Spell* sp(new Spell( u_caster, spellInfo, true, NULLAURA ));
+            Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
             uint32 maxmana = u_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA);
             float rapture_mod = u_caster->GetDummyAura( SPELL_HASH_RAPTURE )->RankNumber * 0.005f;
             sp->forced_basepoints[0] = float2int32( maxmana * rapture_mod );
@@ -5094,7 +5094,7 @@ uint32 GetDiminishingGroup(uint32 NameHash)
     return ret;
 }
 
-void Spell::_AddTarget(const Unit* target, const uint32 effectid)
+void Spell::_AddTarget(Unit* target, const uint32 effectid)
 {
     // Check if we're in the current list already, and if so, don't readd us.
     if(ManagedTargets.find(target->GetGUID()) != ManagedTargets.end())

@@ -150,15 +150,6 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     }
 
     uint32 mstime = getMSTime();
-    /************************************************************************/
-    /* Make sure the packet is the correct size range. 77 is real number    */
-    /************************************************************************/
-    if(recv_data.size() > 90)
-    {
-        Disconnect();
-        return;
-    }
-
     if(sEventMgr.HasEvent(_player, EVENT_PLAYER_FORCE_LOGOUT))
     {
         if(_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
