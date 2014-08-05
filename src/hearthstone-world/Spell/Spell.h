@@ -139,7 +139,7 @@ public:
     // Removes reagents, ammo, and items/charges
     void RemoveItems();
     // Calculates the i'th effect value
-    int32 CalculateEffect(uint32, Unit* target);
+    int32 CalculateEffect(uint32 effIndex, Unit* target, int32 &bonusPoints);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Determines how much skill caster going to gain
@@ -457,10 +457,9 @@ public:
     bool IsStealthSpell();
     bool IsInvisibilitySpell();
 
-    int32 damage;
+    int32 damage, bdamage;
     int32 TotalDamage;
     Aura* m_triggeredByAura;
-    signed int forced_basepoints[3]; //some talent inherit base points from previous caster spells
     uint32 AdditionalCritChance;
 
     bool static_damage;

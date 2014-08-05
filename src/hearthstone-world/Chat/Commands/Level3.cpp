@@ -568,7 +568,7 @@ bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_se
     if(plr == NULL)
         return true;
 
-    plr->Reset_Talents();
+    plr->ResetSpec(plr->m_talentInterface.GetActiveSpec());
 
     SystemMessage(m_session, "Reset talents of %s.", plr->GetName());
     BlueSystemMessageToPlr(plr, "%s reset all your talents.", m_session->GetPlayer()->GetName());
@@ -1075,16 +1075,9 @@ bool ChatHandler::HandleModifyLevelCommand(const char* args, WorldSession* m_ses
         GreenSystemMessageToPlr(TO_PLAYER(u), "%s set your level to %u.", m_session->GetPlayer()->GetName(), Level);
 
     sWorld.LogGM(m_session, "used modify level on %s %s, level %u", u->IsPlayer() ? "Player" : "Unit", u->GetName(), Level);
-    if(u->IsPlayer())
-    {
-        Player * p = TO_PLAYER(u);
-        // lookup level information
-        p->lvlinfo = objmgr.GetLevelInfo(p->getRace(), p->getClass(), Level);
-        p->ApplyLevelInfo(Level);
-        p->SetUInt32Value(PLAYER_XP, 0);
-    }
-    else
-        u->SetUInt32Value(UNIT_FIELD_LEVEL, Level);
+    u->setLevel(Level);
+    // If we're a player set our XP to 0
+    if(u->IsPlayer()) u->SetUInt32Value(PLAYER_XP, 0);
     return true;
 }
 
@@ -1249,49 +1242,6 @@ bool ChatHandler::HandleRemovePetSpellCommand(const char* args, WorldSession* m_
 
     pPet->RemoveSpell(SpellId);
     GreenSystemMessage(m_session, "Added spell %u to your pet.", SpellId);
-    return true;
-}
-
-bool ChatHandler::HandleAddPetTalentPoints(const char* args, WorldSession* m_session)
-{
-    if(!args)
-        return false;
-
-    uint32 talentPointsToAdd = atol(args);
-
-    Player* plr = getSelectedChar(m_session, true);
-    if(!plr)
-    {
-        plr = m_session->GetPlayer();
-        if(!plr)
-            return true;
-    }
-    Pet * pPet = plr->GetSummon();
-    if(!pPet)
-        return true;
-
-    pPet->SetUnspentPetTalentPoints(pPet->GetUnspentPetTalentPoints() + talentPointsToAdd);
-    plr->smsg_TalentsInfo(true);
-
-    GreenSystemMessage(m_session, "Added %u talent points to your pet.", talentPointsToAdd);
-    return true;
-}
-
-bool ChatHandler::HandleResetPetTalents(const char* args, WorldSession* m_session)
-{
-    Player* plr = getSelectedChar(m_session, true);
-    if(!plr)
-    {
-        plr = m_session->GetPlayer();
-        if(!plr)
-            return true;
-    }
-    Pet * pPet = plr->GetSummon();
-    if(!pPet)
-        return true;
-
-    pPet->ResetTalents(true);
-    GreenSystemMessage(m_session, "Reset your pets talents.");
     return true;
 }
 

@@ -454,10 +454,13 @@ public:
 
     virtual void Update( uint32 time );
     virtual void UpdateFieldValues();
+    virtual void ClearFieldUpdateValues();
 
     virtual bool StatUpdateRequired();
     virtual bool HealthUpdateRequired();
     virtual bool PowerUpdateRequired();
+    virtual bool RegenUpdateRequired();
+    virtual bool AttackTimeUpdateRequired(uint8 weaponType);
     virtual bool ResUpdateRequired();
     virtual bool APUpdateRequired();
     virtual bool RAPUpdateRequired();
@@ -465,19 +468,26 @@ public:
     void UpdateStatValues();
     void UpdateHealthValues();
     void UpdatePowerValues();
+    void UpdateRegenValues();
+    void UpdateAttackTimeValues();
+    void UpdateAttackDamageValues();
     void UpdateResistanceValues();
     void UpdateAttackPowerValues();
     void UpdateRangedAttackPowerValues();
     void UpdatePowerCostValues();
     void UpdateHoverValues();
 
+    bool m_needStatRecalculation;
     bool m_statValuesChanged;
-    virtual int32 GetBaseStat(uint8 type) { return 100; }
-    virtual int32 GetBaseResistance(uint8 school) { return 0; }
-    virtual int32 GetBaseAttackPower() { return 0; }
-    virtual int32 GetBaseRangedAttackPower() { return 0; }
-    virtual int32 GetBaseHealth() { return 0; }
-    virtual int32 GetBaseMana() { return 0; }
+    virtual int32 GetBonusMana() = 0;
+    virtual int32 GetBonusHealth() = 0;
+    virtual int32 GetBonusStat(uint8 type) = 0;
+    virtual int32 GetBaseAttackTime(uint8 weaponType) = 0;
+    virtual int32 GetBaseMinDamage(uint8 weaponType) = 0;
+    virtual int32 GetBaseMaxDamage(uint8 weaponType) = 0;
+    virtual int32 GetBonusAttackPower() = 0;
+    virtual int32 GetBonusRangedAttackPower() = 0;
+    virtual int32 GetBonusResistance(uint8 school) = 0;
 
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld(bool free_guid);
@@ -494,24 +504,27 @@ public:
         m_duelWield = enabled;
     }
 
-
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
     HEARTHSTONE_INLINE void addStateFlag(uint32 f) { m_state |= f; };
     HEARTHSTONE_INLINE bool hasStateFlag(uint32 f) { return (m_state & f ? true : false); }
     HEARTHSTONE_INLINE void clearStateFlag(uint32 f) { m_state &= ~f; };
 
     /// Stats
-    HEARTHSTONE_INLINE void setLevel(uint32 level) { SetUInt32Value(UNIT_FIELD_LEVEL, level); };
+    virtual void setLevel(uint32 level);
+    HEARTHSTONE_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
+    HEARTHSTONE_INLINE void setClass(uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
+    HEARTHSTONE_INLINE void setGender(uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
+
+    UnitBaseStats *baseStats;
+
     HEARTHSTONE_INLINE uint32 getLevel() { return m_uint32Values[ UNIT_FIELD_LEVEL ]; };
     HEARTHSTONE_INLINE uint8 getRace() { return GetByte(UNIT_FIELD_BYTES_0,0); }
     HEARTHSTONE_INLINE uint8 getClass() { return GetByte(UNIT_FIELD_BYTES_0,1); }
-    HEARTHSTONE_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
-    HEARTHSTONE_INLINE void setClass(uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
     HEARTHSTONE_INLINE uint32 getClassMask() { return 1 << (getClass() - 1); }
     HEARTHSTONE_INLINE uint32 getRaceMask() { return 1 << (getRace() - 1); }
     HEARTHSTONE_INLINE uint8 getGender() { return GetByte(UNIT_FIELD_BYTES_0,2); }
-    HEARTHSTONE_INLINE void setGender(uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
     HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)m_uint32Values[UNIT_FIELD_BYTES_1]); }
+    HEARTHSTONE_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
     HEARTHSTONE_INLINE string GetClassNames(bool FullCaps = false)
     {
@@ -527,6 +540,30 @@ public:
         return _class;
     };
 
+    HEARTHSTONE_INLINE bool IsInFeralForm()
+    {
+        uint8 s = GetShapeShift();
+        // Fight forms that do not use player's weapon
+        return ( s == 1 || s == 5 || s == 8 );
+    }
+
+    bool GetsDamageBonusFromOwner(uint8 school)
+    {
+        bool result = false;
+        switch(school)
+        {
+        case 4: // Frost
+            result |= (GetEntry() == 510); // WaterElemental
+            break;
+        }
+        return result;
+    }
+
+    HEARTHSTONE_INLINE int32 GetDamageDoneMod(uint8 school);
+    HEARTHSTONE_INLINE float GetDamageDonePctMod(uint8 school);
+    HEARTHSTONE_INLINE int32 GetHealingDoneMod();
+    HEARTHSTONE_INLINE float GetHealingDonePctMod();
+    int32 GetHealingTakenMod() { return HealTakenMod; }
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 &reflectout );
@@ -539,8 +576,8 @@ public:
     void RemoveExtraStrikeTarget(SpellEntry *spell_info);
     void AddExtraStrikeTarget(SpellEntry *spell_info, uint32 charges);
 
-    int32 GetAP();
-    int32 GetRAP();
+    int32 CalculateAttackPower();
+    int32 CalculateRangedAttackPower();
 
     HEARTHSTONE_INLINE float GetSize() { return GetFloatValue(OBJECT_FIELD_SCALE_X) * GetFloatValue(UNIT_FIELD_BOUNDINGRADIUS); }
 
@@ -729,11 +766,6 @@ public:
 
     uint32 SchoolCastPrevent[7];
 
-    HEARTHSTONE_INLINE int32 GetDamageDoneMod(uint32 school) { if(DamageDoneMod[school]) return DamageDoneMod[school]; return DamageDonePosMod[school] - DamageDoneNegMod[school]; };
-    HEARTHSTONE_INLINE float GetDamageDonePctMod(uint32 school) { return DamageDonePctMod[school]; };
-    HEARTHSTONE_INLINE int32 GetHealingDoneMod() { return HealDoneModPos; };
-    HEARTHSTONE_INLINE int32 GetHealingTakenMod() { return HealTakenMod; };
-
     uint32 AbsorbDamage(Object* Attacker, uint32 School,uint32 * dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
     int32 RAPvModifier;
     int32 APvModifier;
@@ -879,12 +911,7 @@ public:
 
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
-    int32 DamageDoneMod[7];
-    int32 DamageDonePosMod[7];
-    int32 DamageDoneNegMod[7];
     float DamageDonePctMod[7];
-    int32 SpellDmgDoneByAttribute[5][7];
-    int32 SpellDamageFromAP[7];
 
     map<uint32, uint32> HealDoneBonusBySpell;
     int32 HealDoneModPos;
@@ -892,9 +919,6 @@ public:
     float HealDonePctMod;
     int32 HealTakenMod;
     float HealTakenPctMod;
-    int32 SpellHealDoneByAttribute[5];
-    int32 SpellHealFromAP;
-    int32 Expertise[2];
 
     uint32 SchoolImmunityList[7];
     float SpellCritChanceSchool[7];
@@ -905,7 +929,6 @@ public:
 
     int32 PctRegenModifier;
     float PctPowerRegenModifier[4];
-    void RemoveSoloAura(uint32 type);
 
     // Auras Modifiers
     int32 m_pacified;
@@ -1007,8 +1030,6 @@ public:
 
     bool IsPoisoned();
 
-    uint32 GetPoisonDosesCount( uint32 poison_type );
-
     uint16 m_diminishCount[DIMINISH_GROUPS];
     uint8  m_diminishAuraCount[DIMINISH_GROUPS];
     std::map<uint8, uint16> m_diminishTimer;
@@ -1028,17 +1049,7 @@ public:
     //! Removal
     void RemovePvPFlag();
 
-    struct {
-        uint32 amt;
-        uint32 max;
-    } m_soulSiphon;
-
     //solo target auras
-    uint32 m_hotStreakCount;
-    uint32 m_incanterAbsorption;
-    uint32 m_frozenTargetCharges;
-    uint32 m_frozenTargetId;
-    uint32 polySpell;
     uint32 m_special_state; //flags for special states (stunned,rooted etc)
 
 //  uint32 fearSpell;
@@ -1049,143 +1060,77 @@ public:
     Unit* mThreatRTarget;
     float mThreatRAmount;
 
-    uint32 m_vampiricTouch;
-
     void EventCancelSpell(Spell* ptr);
     void EventStrikeWithAbility(uint64 guid, SpellEntry * sp, uint32 damage);
 
     /////////////////////////////////////////////////////// Unit properties ///////////////////////////////////////////////////
-    HEARTHSTONE_INLINE void SetCharmedUnitGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHARM, GUID); }
-    HEARTHSTONE_INLINE void SetSummonedUnitGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_SUMMON, GUID); }
-    HEARTHSTONE_INLINE void SetSummonedCritterGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CRITTER, GUID); }
-
-    HEARTHSTONE_INLINE void SetCharmedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHARMEDBY, GUID); }
-    HEARTHSTONE_INLINE void SetSummonedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GUID); }
-    HEARTHSTONE_INLINE void SetCreatedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CREATEDBY, GUID); }
-
 
     HEARTHSTONE_INLINE uint64 GetCharmedUnitGUID() { return GetUInt64Value(UNIT_FIELD_CHARM); }
     HEARTHSTONE_INLINE uint64 GetSummonedUnitGUID() { return GetUInt64Value(UNIT_FIELD_SUMMON); }
     HEARTHSTONE_INLINE uint64 GetSummonedCritterGUID() { return GetUInt64Value(UNIT_FIELD_CRITTER); }
-
     HEARTHSTONE_INLINE uint64 GetCharmedByGUID() { return GetUInt64Value(UNIT_FIELD_CHARMEDBY); }
     HEARTHSTONE_INLINE uint64 GetSummonedByGUID() { return GetUInt64Value(UNIT_FIELD_SUMMONEDBY); }
     HEARTHSTONE_INLINE uint64 GetCreatedByGUID() { return GetUInt64Value(UNIT_FIELD_CREATEDBY); }
-
-    HEARTHSTONE_INLINE void SetTargetGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_TARGET, GUID); }
     HEARTHSTONE_INLINE uint64 GetTargetGUID() { return GetUInt64Value(UNIT_FIELD_TARGET); }
-
-    HEARTHSTONE_INLINE void SetChannelSpellTargetGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, GUID); }
-    HEARTHSTONE_INLINE void SetChannelSpellId(uint32 SpellId) { SetUInt32Value(UNIT_CHANNEL_SPELL, SpellId); }
-
     HEARTHSTONE_INLINE uint64 GetChannelSpellTargetGUID() { return GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT); }
     HEARTHSTONE_INLINE uint32 GetChannelSpellId() { return GetUInt32Value(UNIT_CHANNEL_SPELL); }
-
-    HEARTHSTONE_INLINE void SetEquippedItem(uint8 slot, uint32 id) { SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + slot, id); }
     HEARTHSTONE_INLINE uint32 GetEquippedItem(uint8 slot) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + slot); }
-
-    HEARTHSTONE_INLINE void SetBaseAttackTime(uint8 slot, uint32 time) { SetUInt32Value(UNIT_FIELD_BASEATTACKTIME + slot, time); }
-    HEARTHSTONE_INLINE uint32 GetBaseAttackTime(uint8 slot) { return GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + slot); }
-    HEARTHSTONE_INLINE void ModBaseAttackTime(uint8 slot, int32 mod) { ModUnsigned32Value(UNIT_FIELD_BASEATTACKTIME + slot, mod); }
-
-    HEARTHSTONE_INLINE void SetBoundingRadius(float rad) { SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, rad); }
     HEARTHSTONE_INLINE float GetBoundingRadius() { return GetFloatValue(UNIT_FIELD_BOUNDINGRADIUS); }
-
-    HEARTHSTONE_INLINE void SetCombatReach(float len) { SetFloatValue(UNIT_FIELD_COMBATREACH, len); }
     HEARTHSTONE_INLINE float GetCombatReach() { return GetFloatValue(UNIT_FIELD_COMBATREACH); }
-
-    HEARTHSTONE_INLINE void SetDisplayId(uint32 id) { SetUInt32Value(UNIT_FIELD_DISPLAYID, id); }
     HEARTHSTONE_INLINE uint32 GetDisplayId() { return GetUInt32Value(UNIT_FIELD_DISPLAYID); }
-
-    HEARTHSTONE_INLINE void SetNativeDisplayId(uint32 id) { SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, id); }
     HEARTHSTONE_INLINE uint32 GetNativeDisplayId() { return GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID); }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    HEARTHSTONE_INLINE void SetMinDamage(float amt) { SetFloatValue(UNIT_FIELD_MINDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMinDamage() { return GetFloatValue(UNIT_FIELD_MINDAMAGE); }
-
-    HEARTHSTONE_INLINE void SetMaxDamage(float amt) { SetFloatValue(UNIT_FIELD_MAXDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMaxDamage() { return GetFloatValue(UNIT_FIELD_MAXDAMAGE); }
-
-    HEARTHSTONE_INLINE void SetMinOffhandDamage(float amt) { SetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMinOffhandDamage() { return GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE); }
-
-    HEARTHSTONE_INLINE void SetMaxOffhandDamage(float amt) { SetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMaxOffhandDamage() { return GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE); }
-
-    HEARTHSTONE_INLINE void SetMinRangedDamage(float amt) { SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMinRangedDamage() { return GetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE); }
-
-    HEARTHSTONE_INLINE void SetMaxRangedDamage(float amt) { SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE, amt); }
-    HEARTHSTONE_INLINE float GetMaxRangedDamage() { return GetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE); }
+    HEARTHSTONE_INLINE void SetCharmedUnitGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHARM, GUID); }
+    HEARTHSTONE_INLINE void SetSummonedUnitGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_SUMMON, GUID); }
+    HEARTHSTONE_INLINE void SetSummonedCritterGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CRITTER, GUID); }
+    HEARTHSTONE_INLINE void SetCharmedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHARMEDBY, GUID); }
+    HEARTHSTONE_INLINE void SetSummonedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GUID); }
+    HEARTHSTONE_INLINE void SetCreatedByGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CREATEDBY, GUID); }
+    HEARTHSTONE_INLINE void SetTargetGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_TARGET, GUID); }
+    HEARTHSTONE_INLINE void SetChannelSpellTargetGUID(uint64 GUID) { SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, GUID); }
+    HEARTHSTONE_INLINE void SetChannelSpellId(uint32 SpellId) { SetUInt32Value(UNIT_CHANNEL_SPELL, SpellId); }
+    HEARTHSTONE_INLINE void SetEquippedItem(uint8 slot, uint32 id) { SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + slot, id); }
+    HEARTHSTONE_INLINE void SetBoundingRadius(float rad) { SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, rad); }
+    HEARTHSTONE_INLINE void SetCombatReach(float len) { SetFloatValue(UNIT_FIELD_COMBATREACH, len); }
+    HEARTHSTONE_INLINE void SetDisplayId(uint32 id) { SetUInt32Value(UNIT_FIELD_DISPLAYID, id); }
+    HEARTHSTONE_INLINE void SetNativeDisplayId(uint32 id) { SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, id); }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    HEARTHSTONE_INLINE void SetMount(uint32 id) { SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, id); }
     HEARTHSTONE_INLINE uint32 GetMount() { return GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID); }
-
-    HEARTHSTONE_INLINE void SetCastSpeedMod(float amt) { SetFloatValue(UNIT_MOD_CAST_SPEED, amt); }
     HEARTHSTONE_INLINE float GetCastSpeedMod() { return GetFloatValue(UNIT_MOD_CAST_SPEED); }
-    HEARTHSTONE_INLINE void ModCastSpeedMod(float mod) { ModFloatValue(UNIT_MOD_CAST_SPEED, mod); }
-
-    HEARTHSTONE_INLINE void SetCreatedBySpell(uint32 id) { SetUInt32Value(UNIT_CREATED_BY_SPELL, id); }
     HEARTHSTONE_INLINE uint32 GetCreatedBySpell() { return GetUInt32Value(UNIT_CREATED_BY_SPELL); }
-
-    HEARTHSTONE_INLINE void SetEmoteState(uint32 id) { SetUInt32Value(UNIT_NPC_EMOTESTATE, id); }
     HEARTHSTONE_INLINE uint32 GetEmoteState() { return GetUInt32Value(UNIT_NPC_EMOTESTATE); }
-
-    HEARTHSTONE_INLINE void SetStat(uint32 stat, uint32 amt) { SetUInt32Value(UNIT_FIELD_STATS + stat, amt); }
     HEARTHSTONE_INLINE uint32 GetStat(uint32 stat) { return GetUInt32Value(UNIT_FIELD_STATS + stat); }
-
-    HEARTHSTONE_INLINE void SetResistance(uint32 type, uint32 amt) { SetUInt32Value(UNIT_FIELD_RESISTANCES + type, amt); }
     HEARTHSTONE_INLINE uint32 GetResistance(uint32 type) { return GetUInt32Value(UNIT_FIELD_RESISTANCES + type); }
-
-    HEARTHSTONE_INLINE void SetPowerCostMultiplier(uint32 school, float amt) { SetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school, amt); }
-    HEARTHSTONE_INLINE void ModPowerCostMultiplier(uint32 school, float amt) { ModFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school, amt); }
     HEARTHSTONE_INLINE float GetPowerCostMultiplier(uint32 school) { return GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + school); }
 
+    HEARTHSTONE_INLINE void SetMount(uint32 id) { SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, id); }
+    HEARTHSTONE_INLINE void SetCreatedBySpell(uint32 id) { SetUInt32Value(UNIT_CREATED_BY_SPELL, id); }
+    HEARTHSTONE_INLINE void SetEmoteState(uint32 id) { SetUInt32Value(UNIT_NPC_EMOTESTATE, id); }
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    HEARTHSTONE_INLINE uint32 GetAttackPower() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER); }
+    HEARTHSTONE_INLINE uint32 GetAttackPowerPositiveMods() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS); }
+    HEARTHSTONE_INLINE uint32 GetAttackPowerNegativeMods() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG); }
+    HEARTHSTONE_INLINE float GetAttackPowerMultiplier() { return GetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER); }
 
     HEARTHSTONE_INLINE void SetAttackPower(uint32 amt) { SetUInt32Value(UNIT_FIELD_ATTACK_POWER, amt); }
-    HEARTHSTONE_INLINE uint32 GetAttackPower() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER); }
-
-    HEARTHSTONE_INLINE void SetAttackPowerPositiveMods(uint32 amt) { SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, amt); }
-    HEARTHSTONE_INLINE uint32 GetAttackPowerPositiveMods() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS); }
-    HEARTHSTONE_INLINE void ModAttackPowerPositiveMods(uint32 amt) { ModUnsigned32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, amt); }
-
-    HEARTHSTONE_INLINE void SetAttackPowerNegativeMods(uint32 amt) { SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, amt); }
-    HEARTHSTONE_INLINE uint32 GetAttackPowerNegativeMods() { return GetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG); }
-    HEARTHSTONE_INLINE void ModAttackPowerNegativeMods(uint32 amt) { ModUnsigned32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, amt); }
-
-    HEARTHSTONE_INLINE void SetAttackPowerMultiplier(float amt) { SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, amt); }
-    HEARTHSTONE_INLINE float GetAttackPowerMultiplier() { return GetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER); }
-    HEARTHSTONE_INLINE void ModAttackPowerMultiplier(float amt) { ModFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, amt); }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    HEARTHSTONE_INLINE void SetRangedAttackPower(uint32 amt) { SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER, amt); }
     HEARTHSTONE_INLINE uint32 GetRangedAttackPower() { return GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER); }
-
-    HEARTHSTONE_INLINE void SetRangedAttackPowerPositiveMods(uint32 amt) { SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, amt); }
     HEARTHSTONE_INLINE uint32 GetRangedAttackPowerPositiveMods() { return GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS); }
-    HEARTHSTONE_INLINE void ModRangedAttackPowerPositiveMods(uint32 amt) { ModUnsigned32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, amt); }
-
-    HEARTHSTONE_INLINE void SetRangedAttackPowerNegativeMods(uint32 amt) { SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, amt); }
     HEARTHSTONE_INLINE uint32 GetRangedAttackPowerNegativeMods() { return GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG); }
-    HEARTHSTONE_INLINE void ModRangedAttackPowerNegativeMods(uint32 amt) { ModUnsigned32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, amt); }
-
-    HEARTHSTONE_INLINE void SetRangedAttackPowerMultiplier(float amt) { SetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, amt); }
     HEARTHSTONE_INLINE float GetRangedAttackPowerMultiplier() { return GetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER); }
-    HEARTHSTONE_INLINE void ModRangedAttackPowerMultiplier(float amt) { ModFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, amt); }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     void SetPowerType(uint8 type);
     void SetPower(uint32 type, int32 value);
     HEARTHSTONE_INLINE uint8 GetPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
     HEARTHSTONE_INLINE uint32 GetPower(uint8 power) const { return GetUInt32Value(UNIT_FIELD_POWER + power); }
-
-    bool mAngerManagement;
-    bool mRecentlyBandaged;
 
     float m_ignoreArmorPctMaceSpec;
     float m_ignoreArmorPct;

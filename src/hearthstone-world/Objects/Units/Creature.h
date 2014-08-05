@@ -335,9 +335,15 @@ public:
     /// Updates
     virtual void Update( uint32 time );
 
-    int32 GetBaseResistance(uint8 school) { if(LoadedProto) return LoadedProto->Resistances[school]; return proto->Resistances[school]; }
-    int32 GetBaseHealth() { if(LoadedProto) return LoadedProto->Minhealth; return proto->MinHealth; }
-    int32 GetBaseMana() { if(proto->Powertype != POWER_TYPE_MANA) return 0; return proto->MinPower; }
+    int32 GetBonusMana() { if(proto->Powertype != POWER_TYPE_MANA) return 0; return proto->MinPower; }
+    int32 GetBonusHealth() { if(LoadedProto) return LoadedProto->Minhealth; return proto->MinHealth; }
+    int32 GetBonusStat(uint8 type) { return 0; };
+    int32 GetBaseAttackTime(uint8 weaponType);
+    int32 GetBaseMinDamage(uint8 weaponType) { if(LoadedProto) return LoadedProto->Mindmg; return proto->MinDamage; }
+    int32 GetBaseMaxDamage(uint8 weaponType) { if(LoadedProto) return LoadedProto->Maxdmg; return proto->MaxDamage; }
+    int32 GetBonusAttackPower() { return 0; };
+    int32 GetBonusRangedAttackPower() { return 0; };
+    int32 GetBonusResistance(uint8 school) { if(LoadedProto) return LoadedProto->Resistances[school]; return proto->Resistances[school]; }
 
     bool Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info);
     bool Load(CreatureProto * proto_, uint32 mode, float x, float y, float z, float o = 0.0f);

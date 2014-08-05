@@ -6,20 +6,18 @@
 
 struct Modifier
 {
-//  uint32 m_actamt;        // actual amt, for percent and stuff
+    // SpellEffect index
+    uint32 i;
+    // Modifier values
     uint32 m_type;          // What does it modify? (str,int,hp)
     int32 m_amount;         // By how much does it mod? always should be m_baseAmount * stackSize
     int32 m_baseAmount;     // amount per one stack
-    int32 m_miscValue;      // Misc Value
-    uint32 i;
-
-    ///needed for per level effect
-    int32 realamount;
-
+    int32 m_miscValue[2];   // Misc Value
+    int32 m_bonusAmount;    // Calculated bonus amount at application
     /// For storing custom values in the mod
     int32 fixed_amount;
     float fixed_float_amount;
-
+    // Base spell data
     SpellEntry *m_spellInfo;
 };
 
@@ -93,10 +91,11 @@ public:
     Aura(SpellEntry *proto, int32 duration, Object* caster, Unit* target);
     ~Aura();
 
+    void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
     void ExpireRemove();
     void Remove();
     void Expire();
-    void AddMod(uint32 t, int32 a,uint32 miscValue,uint32 i);
+    void AddMod(uint32 t, int32 a,uint32 miscValue,uint32 miscValueB,uint32 i);
 
     HEARTHSTONE_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
     HEARTHSTONE_INLINE uint32 GetSpellId() const { return m_spellProto ? m_spellProto->Id : 0; }
@@ -181,6 +180,7 @@ public:
     void SetProcCharges(int32 mod);
     uint32 stackSize;
     void ModStackSize(int32 mod);
+    void RecalculateModBaseAmounts();
     void UpdateModAmounts();
 
     // Ignore that shit.
@@ -439,7 +439,6 @@ public:
     void EventPeriodicManaPct(float);
     void EventPeriodicRegenManaStatPct(uint32 perc,uint32 stat);
     void EventPeriodicSpeedModify(int32 mod);
-    void EventModAttackPowerByArmorUpdate(uint32 i);
     void RelocateEvents();
     int32 event_GetInstanceID();
 
@@ -499,17 +498,15 @@ private:
     void SetCasterFaction(uint32 faction){ m_casterfaction = faction; }
     HEARTHSTONE_INLINE void DurationPctMod(uint32 mechanic);
 
-    HEARTHSTONE_INLINE bool IsInrange(float x1,float y1, float z1, Object* o,float square_r)
+    HEARTHSTONE_INLINE bool IsInrange(float x1, float y1, float z1, Object* obj, float square_r)
     {
-        float t;
-        float r;
-        t=x1-o->GetPositionX();
-        r=t*t;
-        t=y1-o->GetPositionY();
+        float t = x1-obj->GetPositionX();
+        float r = t*t;
+        t=y1-obj->GetPositionY();
         r+=t*t;
-        t=z1-o->GetPositionZ();
+        t=z1-obj->GetPositionZ();
         r+=t*t;
-        return ( r<=square_r);
+        return (r <= square_r);
     }
 
     Unit* m_target;

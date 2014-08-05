@@ -26,6 +26,36 @@ enum Resistances : uint8
     MAX_RESISTANCE
 };
 
+struct UnitBaseStats
+{
+    uint8 race;
+    uint8 class_;
+    uint16 level;
+
+    uint32 baseHP;
+    uint32 basePower;
+    uint32 baseStat[5];
+};
+
+class Unit;
+class Player;
+class Creature;
+
+class SERVER_DECL StatSystem : public Singleton<StatSystem>
+{
+public:
+    StatSystem();
+    ~StatSystem();
+
+    bool LoadUnitStats();
+    UnitBaseStats *GetUnitBaseStats(uint8 race, uint8 _class, uint16 level);
+
+private:
+    std::map<uint32, UnitBaseStats*> m_UnitBaseStats;
+};
+
+#define sStatSystem StatSystem::getSingleton()
+
 SERVER_DECL uint32 getConColor(uint16 AttackerLvl, uint16 VictimLvl);
 SERVER_DECL uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker);
 SERVER_DECL uint32 CalculateStat(uint16 level, float inc);

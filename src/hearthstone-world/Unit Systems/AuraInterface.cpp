@@ -35,6 +35,19 @@ void AuraInterface::RelocateEvents()
     }
 }
 
+void AuraInterface::OnChangeLevel(uint32 newLevel)
+{
+    // On target level change recalculate modifiers where caster is unit
+    for(map<uint32, Aura*>::iterator itr = m_auras.begin(); itr != m_auras.end(); itr++)
+    {
+        // For now, we'll only update auras we've casted on ourself
+        if(itr->second->GetCasterGUID() != m_Unit->GetGUID())
+            continue;
+
+        itr->second->OnTargetChangeLevel(newLevel, m_Unit->GetGUID());
+    }
+}
+
 void AuraInterface::SaveAuras(stringstream& ss)
 {
     for(uint8 x = 0; x < MAX_AURAS; x++) // Crow: Changed to max auras in r1432, since we skip passive auras.
@@ -249,7 +262,7 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                     for( uint32 m = 0; m < aur->GetModCount(); ++m )
                     {
                         Modifier *mod = aur->GetMod(m);
-                        aura->AddMod(mod->m_type, mod->m_baseAmount, mod->m_miscValue, mod->i);
+                        aura->AddMod(mod->m_type, mod->m_baseAmount, mod->m_miscValue[0], mod->m_miscValue[1], mod->i);
                     }
 
                     caster->AddAura(aura);
@@ -257,25 +270,6 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                     if( --spells_to_steal <= 0 )
                         break; //exit loop now
                 }
-            }
-        }
-    }
-}
-
-void AuraInterface::UpdateDeadlyPoisons(uint32 eatcount)
-{
-    uint32 doses = GetPoisonDosesCount( POISON_TYPE_DEADLY );
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            if(m_auras.at(x)->m_spellProto->poison_type == POISON_TYPE_DEADLY )
-            {
-                if (eatcount >= doses)
-                    m_auras.at(x)->Remove();
-                else
-                    m_auras.at(x)->ModStackSize(-int32(eatcount));
-                break;
             }
         }
     }
@@ -294,22 +288,6 @@ void AuraInterface::UpdateAuraStateAuras(uint32 oldflag)
                 m_auras.at(i)->RemoveIfNecessary();
         }
     }
-}
-
-uint32 AuraInterface::GetPoisonDosesCount( uint32 poison_type )
-{
-    uint32 doses = 0;
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            if(m_auras.at(x)->m_spellProto->poison_type == poison_type )
-            {
-                doses += m_auras.at(x)->stackSize;
-            }
-        }
-    }
-    return doses;
 }
 
 void AuraInterface::UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS)
@@ -1825,10 +1803,12 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
 void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
 {
     assert(mod->m_miscValue < SPELL_MODIFIERS);
-    packetSMSG_SET_SPELL_MODIFIER data;
-    uint8 pct = (mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0);
-    std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue & 0x7F), pct);
+    std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue[0] & 0x7F), uint8(mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0));
     std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+
+    uint32 count = 0;
+    WorldPacket data(SMSG_SET_FLAT_SPELL_MODIFIER+index.second, 20);
+    data << uint32(1) << count << uint8(index.first);
     for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
     {
         if(bit && (bit%32 == 0)) ++intbit;
@@ -1836,16 +1816,14 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
         {
             if(apply) groupModMap[bit] += mod->m_amount;
             else groupModMap[bit] -= mod->m_amount;
-            // Only send modifiers to players
-            if(!m_Unit->IsPlayer())
-                continue;
-
-            data.group = bit;
-            data.type = mod->m_miscValue;
-            data.v = groupModMap[bit];
-            TO_PLAYER(m_Unit)->GetSession()->OutPacket( SMSG_SET_FLAT_SPELL_MODIFIER+pct, sizeof( packetSMSG_SET_SPELL_MODIFIER ), &data );
+            data << uint8(bit);
+            data << groupModMap[bit];
+            count++;
         }
     }
+    data.put<uint32>(4, count);
+    if(m_Unit->IsPlayer())
+        TO_PLAYER(m_Unit)->SendPacket(&data);
 }
 
 uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group)

@@ -1006,7 +1006,7 @@ void WorldSession::HandleSetActionButtonOpcode(WorldPacket& recv_data)
     if(PackedAction == 0)
     {
         sLog.outDebug( "MISC: Remove action from button %u", button );
-        GetPlayer()->setAction(button, 0, 0);
+        GetPlayer()->m_talentInterface.setAction(button, 0, 0);
     }
     else
     {
@@ -1015,29 +1015,27 @@ void WorldSession::HandleSetActionButtonOpcode(WorldPacket& recv_data)
         case ACTION_BUTTON_SPELL:
             {
                 sLog.outDebug( "MISC: Added Spell %u into button %u", action, button );
-                GetPlayer()->setAction(button,action,type);
             }break;
         case ACTION_BUTTON_EQSET:
             {
                 sLog.outDebug( "MISC: Added EquipmentSet %u into button %u", action, button );
-                GetPlayer()->setAction(button,action,type);
             }break;
         case ACTION_BUTTON_MACRO:
         case ACTION_BUTTON_CMACRO:
             {
                 sLog.outDebug( "MISC: Added Macro %u into button %u", action, button );
-                GetPlayer()->setAction(button,action,type);
             }break;
         case ACTION_BUTTON_ITEM:
             {
                 sLog.outDebug( "MISC: Added Item %u into button %u", action, button );
-                GetPlayer()->setAction(button,action,type);
             }break;
         default:
             {
                 sLog.outDebug( "Unknown Action Type %u for button %u", action, button );
+                return;
             }break;
         }
+        GetPlayer()->m_talentInterface.setAction(button,action,type);
     }
 }
 
@@ -1158,7 +1156,7 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
 
     WorldPacket data(SMSG_INSPECT_TALENT, 1000);
     data << player->GetNewGUID();
-    player->BuildPlayerTalentsInfo(&data);
+    data << uint32(0) << uint16(0);
 
     // build items inspect part. could be sent separately as SMSG_INSPECT
     uint32 slotUsedMask = 0;
@@ -1167,8 +1165,7 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
     data << uint32(slotUsedMask);   // will be replaced later
     for(uint32 slot = 0; slot < EQUIPMENT_SLOT_END; slot++)
     {
-        Item* item = player->GetItemInterface()->GetInventoryItem(slot);
-        if( item )
+        if( Item* item = player->GetItemInterface()->GetInventoryItem(slot) )
         {
             slotUsedMask |= (1 << slot);
 
@@ -1745,9 +1742,7 @@ void WorldSession::HandleRemoveGlyph(WorldPacket & recv_data)
 {
     uint32 glyphSlot;
     recv_data >> glyphSlot;
-    _player->UnapplyGlyph(glyphSlot);
-    if(glyphSlot < GLYPHS_COUNT)
-        _player->m_specs[_player->m_talentActiveSpec].glyphs[glyphSlot] = 0;
+    _player->m_talentInterface.UnapplyGlyph(glyphSlot);
 }
 
 void WorldSession::HandleWorldStateUITimerUpdate(WorldPacket& recv_data)
@@ -1803,7 +1798,7 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
     CHECK_INWORLD_RETURN();
 
     uint32 playerGold = _player->GetUInt32Value( PLAYER_FIELD_COINAGE );
-    uint32 price = _player->CalcTalentResetCost(_player->GetTalentResetTimes());
+    uint32 price = _player->CalcTalentResetCost(_player->m_talentInterface.GetTalentResets());
 
     if( playerGold < price )
         return;

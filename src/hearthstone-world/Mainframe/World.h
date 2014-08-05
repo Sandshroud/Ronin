@@ -476,6 +476,11 @@ public:
         return regen_values[index];
     }
 
+    uint32 GetXPToNextLevel(uint32 level)
+    {
+        return 400;
+    }
+
     uint32 MaxLevelCalc;
 
     struct NameGenData

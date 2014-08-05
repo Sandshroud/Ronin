@@ -381,6 +381,13 @@ bool World::SetInitialWorldSettings()
     // Unload the DBC loader
     delete DBCLoader::getSingletonPtr();
 
+    new StatSystem();
+    if(!sStatSystem.LoadUnitStats())
+    {
+        sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "Unit stat system failed to construct.", "Server cannnot properly function without these stats.", "The server will not start because of this.", NULL);
+        return false;
+    }
+
     new ObjectMgr();
     new TicketMgr();
     new QuestMgr();

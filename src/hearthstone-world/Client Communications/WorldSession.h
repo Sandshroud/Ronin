@@ -115,21 +115,6 @@ enum AreaTriggerFailures
     AREA_TRIGGER_FAILURE_WRONG_GROUP    = 14,
 };
 
-enum ActionButtonType
-{
-    ACTION_BUTTON_SPELL     = 0x00,
-    ACTION_BUTTON_C         = 0x01,
-    ACTION_BUTTON_EQSET     = 0x20,
-    ACTION_BUTTON_MACRO     = 0x40,
-    ACTION_BUTTON_CMACRO    = ACTION_BUTTON_C | ACTION_BUTTON_MACRO,
-    ACTION_BUTTON_ITEM      = 0x80
-};
-
-#define ACTION_BUTTON_ACTION(X) (uint32(X) & 0x00FFFFFF)
-#define ACTION_BUTTON_TYPE(X) ((uint32(X) & 0xFF000000) >> 24)
-#define ACTION_PACK_BUTTION(action, type) uint32(action | (uint32(type) << 24))
-#define MAX_ACTION_BUTTON_ACTION_VALUE (0x00FFFFFF+1)
-
 struct OpcodeHandler
 {
     uint16 status;

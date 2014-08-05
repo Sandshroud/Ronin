@@ -449,8 +449,6 @@ protected:
     bool HandleCreatePetCommand(const char* args, WorldSession* m_session);
     bool HandleAddPetSpellCommand(const char* args, WorldSession* m_session);
     bool HandleRemovePetSpellCommand(const char* args, WorldSession* m_session);
-    bool HandleAddPetTalentPoints(const char* args, WorldSession* m_session);
-    bool HandleResetPetTalents(const char* args, WorldSession* m_session);
     bool HandleRenamePetCommand(const char* args, WorldSession* m_session);
 
     // Shutdown

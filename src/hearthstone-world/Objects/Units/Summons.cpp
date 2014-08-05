@@ -169,20 +169,11 @@ void TotemSummon::Load(CreatureProto* proto, Unit* owner, LocationVector & posit
     m_summon->setClass(1);
     m_summon->setGender(2);
     m_summon->SetPowerType(1);
-    m_summon->SetBaseAttackTime(MELEE, 2000);
-    m_summon->SetBaseAttackTime(OFFHAND, 2000);
     m_summon->SetBoundingRadius(1.0f);
     m_summon->SetCombatReach(1.0f);
     m_summon->SetDisplayId(displayID);
     m_summon->SetNativeDisplayId(m_summon->creature_info->Male_DisplayID);
-    m_summon->SetCastSpeedMod(1.0f);
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-
-    for(uint8 school = 0; school < 7; school++)
-    {
-        m_summon->DamageDoneMod[school] = owner->GetDamageDoneMod(school);
-        m_summon->HealDoneBase = owner->GetHealingDoneMod();
-    }
 
     m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, MOVEMENTTYPE_NONE, owner);
     m_summon->DisableAI();

@@ -322,7 +322,6 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
     pSpellId = 0;
     m_cancelled = false;
     ProcedOnSpell = NULL;
-    forced_basepoints[0] = forced_basepoints[1] = forced_basepoints[2] = 0;
     extra_cast_number = 0;
     m_glyphIndex = 0;
     m_reflectedParent = NULLSPELL;
@@ -1132,6 +1131,12 @@ uint8 Spell::prepare( SpellCastTargets * targets )
         return ccr;
     }
 
+    if( m_triggeredSpell && (!GetSpellProto()->IsChannelSpell() || !GetSpellInfoDuration(GetSpellProto(), u_caster, NULL)))
+    {
+        cast( false );
+        return ccr;
+    }
+
     if( !HasPower() )
     {
         SendCastResult(SPELL_FAILED_NO_POWER);
@@ -1140,12 +1145,6 @@ uint8 Spell::prepare( SpellCastTargets * targets )
             u_caster->SendPowerUpdate();
 
         return SPELL_FAILED_NO_POWER;
-    }
-
-    if( m_triggeredSpell && (!GetSpellProto()->IsChannelSpell() || !GetSpellInfoDuration(GetSpellProto(), u_caster, NULL)))
-    {
-        cast( false );
-        return ccr;
     }
 
     SendSpellStart();
@@ -1740,9 +1739,8 @@ void Spell::cast(bool check)
                         SpellEntry * spellInfo = dbcSpell.LookupEntry( 51178 );
                         if( spellInfo )
                         {
-                            Spell* spell = NULLSPELL;
-                            spell = (new Spell(p_caster, spellInfo ,true, NULLAURA));
-                            spell->forced_basepoints[0] = p_caster->GetDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE)->RankNumber * 20;
+                            Spell* spell = new Spell(p_caster, spellInfo ,true, NULLAURA);
+                            //spell->forced_basepoints[0] = p_caster->GetDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE)->RankNumber * 20;
                             SpellCastTargets targets(p_caster->GetGUID());
                             spell->prepare(&targets);
                         }
@@ -2826,8 +2824,8 @@ void Spell::_SetTargets(uint64 guid)
 void Spell::HandleEffects(uint32 i)
 {
     static_damage = false;
-    AdditionalCritChance = 0;
-    damage = CalculateEffect(i, unitTarget);
+    bdamage = AdditionalCritChance = 0;
+    damage += CalculateEffect(i, unitTarget, bdamage);
     sLog.Debug( "Spell","Handling Effect id = %u, damage = %d", GetSpellProto()->Effect[i], damage);
 
     uint32 effect = GetSpellProto()->Effect[i];
@@ -2861,8 +2859,7 @@ void Spell::HandleAddAura(uint64 guid)
         {
             if( !p_caster->IsPvPFlagged() )
                 p_caster->PvPToggle();
-            else
-                p_caster->SetPvPFlag();
+            else p_caster->SetPvPFlag();
         }
     }
 
@@ -2911,9 +2908,8 @@ void Spell::HandleAddAura(uint64 guid)
         if(!spellInfo)
             return;
 
-        Spell* spell = NULLSPELL;
-        spell = (new Spell(p_caster, spellInfo ,true, NULLAURA));
-        spell->forced_basepoints[0] = p_caster->GetDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE)->RankNumber * 5;
+        Spell* spell = new Spell(p_caster, spellInfo ,true, NULLAURA);
+        //spell->forced_basepoints[0] = p_caster->GetDummyAura(SPELL_HASH_KING_OF_THE_JUNGLE)->RankNumber * 5;
         SpellCastTargets targets(p_caster->GetGUID());
         spell->prepare(&targets);
     }
@@ -2944,11 +2940,7 @@ void Spell::HandleAddAura(uint64 guid)
         if(!spellInfo)
             return;
 
-        Spell* spell = NULLSPELL;
-        spell = (new Spell(Target, spellInfo ,true, NULLAURA));
-        if( spellid == 31665 && Target->HasDummyAura(SPELL_HASH_MASTER_OF_SUBTLETY) )
-            spell->forced_basepoints[0] = Target->GetDummyAura(SPELL_HASH_MASTER_OF_SUBTLETY)->EffectBasePoints[0];
-
+        Spell* spell = new Spell(Target, spellInfo ,true, NULLAURA);
         SpellCastTargets targets(Target->GetGUID());
         spell->prepare(&targets);
     }
@@ -3952,7 +3944,7 @@ uint8 Spell::CanCast(bool tolerate)
                 case SPELL_HASH_DIVINE_SHIELD:
                 case SPELL_HASH_HAND_OF_PROTECTION:
                     {
-                        if( TO_PLAYER(target)->mForbearance )
+                        if( TO_PLAYER(target)->HasAura(25771) ) // Forbearance
                             return SPELL_FAILED_DAMAGE_IMMUNE;
 
                         if( !TO_PLAYER(target)->mAvengingWrath )
@@ -3967,36 +3959,31 @@ uint8 Spell::CanCast(bool tolerate)
 
                 case SPELL_HASH_ICE_BLOCK:
                     {
-                        if( TO_PLAYER(target)->mHypothermia )
+                        if( TO_PLAYER(target)->HasAura(41425) ) // Hypothermia
                             return SPELL_FAILED_DAMAGE_IMMUNE;
 
                     }break;
 
                 case SPELL_HASH_POWER_WORD__SHIELD:
                     {
-                        if( TO_PLAYER(target)->mWeakenedSoul )
+                        if( TO_PLAYER(target)->HasAura(6788) ) // Weakened Soul
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 
                 case SPELL_HASH_FIRST_AID:
                     {
-                        if( TO_PLAYER(target)->mRecentlyBandaged )
-                            return SPELL_FAILED_DAMAGE_IMMUNE;
-                    }break;
-                case SPELL_HASH_HEROISM:
-                    {
-                        if( TO_PLAYER(target)->mExhaustion )
+                        if( TO_PLAYER(target)->HasAura(11196) ) // Recently Bandaged
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
                 case SPELL_HASH_BLOODLUST:
                     {
-                        if( TO_PLAYER(target)->mSated )
+                        if( TO_PLAYER(target)->HasAurasOfNameHashWithCaster(SPELL_HASH_SATED, NULL) )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
                 }
             }
 
-            if (GetSpellProto()->MechanicsType == 16 && target->mRecentlyBandaged)
+            if (GetSpellProto()->MechanicsType == 16 && target->HasAura(11196))
                 return SPELL_FAILED_DAMAGE_IMMUNE;
         }
     }
@@ -4199,81 +4186,11 @@ void Spell::RemoveItems()
     }
 }
 
-int32 Spell::CalculateEffect(uint32 i, Unit* target)
+int32 Spell::CalculateEffect(uint32 i, Unit* target, int32 &bonusPoints)
 {
-    int32 value = 0;
-    int32 randomPoints = GetSpellProto()->EffectDieSides[i];
-    int32 basePoints = (forced_basepoints[i] ? forced_basepoints[i] : (GetSpellProto()->EffectBasePoints[i]+1));
-    float basePointsPerLevel = GetSpellProto()->EffectRealPointsPerLevel[i];
-
-    if( u_caster != NULL )
-    {
-        uint32 level = u_caster->getLevel();
-        if(level < m_spellInfo->spellLevel)
-            level = m_spellInfo->baseLevel;
-        else
-        {
-            level -= m_spellInfo->spellLevel;
-            if(level < m_spellInfo->baseLevel)
-                level = m_spellInfo->baseLevel;
-        }
-        if (m_spellInfo->maxLevel > 0 && level > m_spellInfo->maxLevel)
-            level = m_spellInfo->maxLevel;
-        basePoints += float2int32(level * basePointsPerLevel);
-    }
-
-    if(randomPoints <= 1)
-        value = basePoints;
-    else
-        value = basePoints + rand() % randomPoints;
-
+    int32 value = GetSpellProto()->CalculateSpellPoints(i, u_caster ? u_caster->getLevel() : 0, p_caster ? p_caster->m_comboPoints : 0);
     if( p_caster != NULL )
     {
-        int32 comboDamage = (int32)GetSpellProto()->EffectPointsPerComboPoint[i];
-        if(comboDamage)
-        {
-            value += ( comboDamage * p_caster->m_comboPoints );
-            //this is ugly so i will explain the case maybe someone ha a better idea :
-            // while casting a spell talent will trigger uppon the spell prepare faze
-            // the effect of the talent is to add 1 combo point but when triggering spell finishes it will clear the extra combo point
-            p_caster->m_spellcomboPoints = 0;
-        }
-
-        if( GetSpellProto()->Id == 49020 )
-        {
-            if( u_caster != NULL )
-            {
-                Player* plr = NULL;
-                if(u_caster->IsPlayer())
-                    plr = TO_PLAYER(u_caster);
-
-                uint32 diseasecount = 0;
-                uint32 diseases[2] = { 55078, 55095 };
-                for(int8 i = 0; i < 2; i++)
-                {
-                    if(unitTarget->HasAura(diseases[i]))
-                    {
-                        diseasecount++;
-                        if(plr != NULL)
-                        {
-                            uint32 keepchance = plr->AnnihilationProcChance;
-                            if(keepchance > 0)
-                            {
-                                if(!Rand(keepchance))
-                                    unitTarget->RemoveAura(diseases[i]);
-                            }
-                            else
-                                unitTarget->RemoveAura(diseases[i]);
-                        }
-                        else
-                            unitTarget->RemoveAura(diseases[i]);
-                    }
-                }
-                if(diseasecount)
-                    value += value*(0.125f*diseasecount);
-            }
-        }
-
         SpellOverrideMap::iterator itr = p_caster->mSpellOverrideMap.find(GetSpellProto()->Id);
         if(itr != p_caster->mSpellOverrideMap.end())
         {
@@ -4283,38 +4200,27 @@ int32 Spell::CalculateEffect(uint32 i, Unit* target)
         }
     }
 
-    Unit* caster = u_caster;
-    if( i_caster != NULL && target && target->GetMapMgr() && i_caster->GetUInt64Value( ITEM_FIELD_CREATOR ) )
+    if( u_caster != NULL )
     {
-        //we should inherit the modifiers from the conjured food caster
-        Unit* item_creator = target->GetMapMgr()->GetUnit( i_caster->GetUInt64Value( ITEM_FIELD_CREATOR ) );
-        if( item_creator != NULL )
-            caster = item_creator;
-    }
-
-    if( caster != NULL )
-    {
-        int32 spell_flat_modifers=0;
-        int32 spell_pct_modifers=0;
-
-        caster->SM_FIValue(SMT_MISC_EFFECT,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-        caster->SM_FIValue(SMT_MISC_EFFECT,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+        int32 spell_flat_modifers = 0, spell_pct_modifers = 0;
+        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_flat_modifers,GetSpellProto()->SpellGroupType);
+        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_pct_modifers, GetSpellProto()->SpellGroupType);
 
         if( i == 0 )
         {
-            caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
         else if( i == 1 )
         {
-            caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
 
         if( ( i == 2 ) || ( i == 1 && GetSpellProto()->Effect[2] == 0 ) || ( i == 0 && GetSpellProto()->Effect[1] == 0 && GetSpellProto()->Effect[2] == 0 ) )
         {
-            caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
-            caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_flat_modifers,GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS,&spell_pct_modifers,GetSpellProto()->SpellGroupType);
         }
         value += float2int32(value * (float)(spell_pct_modifers / 100.0f)) + spell_flat_modifers;
     }
@@ -4558,8 +4464,8 @@ void Spell::Heal(int32 amount)
                     if(unitTarget->GetDistanceSq((*itr)) <= 64.0f)
                     {
                         SpellEntry* HLH = dbcSpell.LookupEntry( 54968 );
-                        Spell* pSpell(new Spell(u_caster, HLH, true, NULLAURA));
-                        pSpell->forced_basepoints[0] = GHL;
+                        Spell* pSpell = new Spell(u_caster, HLH, true, NULLAURA);
+                        //pSpell->forced_basepoints[0] = GHL;
                         SpellCastTargets tgt;
                         tgt.m_unitTarget = (*itr)->GetGUID();
                         pSpell->prepare(&tgt);
@@ -4611,8 +4517,8 @@ void Spell::Heal(int32 amount)
                 if( Rand( chance ) )
                 {
                     SpellEntry *spellInfo = dbcSpell.LookupEntry( 48504 );
-                    Spell* sp(new Spell( u_caster, spellInfo, true, NULLAURA ));
-                    sp->forced_basepoints[0] = float2int32(amount * 0.3f);
+                    Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
+                    //sp->forced_basepoints[0] = float2int32(amount * 0.3f);
                     SpellCastTargets tgt;
                     tgt.m_unitTarget = unitTarget->GetGUID();
                     sp->prepare(&tgt);
@@ -4622,8 +4528,8 @@ void Spell::Heal(int32 amount)
             if( playerTarget && u_caster->HasDummyAura(SPELL_HASH_DIVINE_AEGIS) )
             {
                 SpellEntry * spellInfo = dbcSpell.LookupEntry( 47753 );
-                Spell* sp(new Spell( u_caster, spellInfo, true, NULLAURA ));
-                sp->forced_basepoints[0] = float2int32(amount * ( 0.1f * u_caster->GetDummyAura(SPELL_HASH_DIVINE_AEGIS)->RankNumber ));
+                Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
+                //sp->forced_basepoints[0] = float2int32(amount * ( 0.1f * u_caster->GetDummyAura(SPELL_HASH_DIVINE_AEGIS)->RankNumber ));
                 SpellCastTargets tgt;
                 tgt.m_unitTarget = playerTarget->GetGUID();
                 sp->prepare(&tgt);
@@ -4632,8 +4538,8 @@ void Spell::Heal(int32 amount)
             if( u_caster->HasDummyAura(SPELL_HASH_SHEATH_OF_LIGHT) && unitTarget )
             {
                 SpellEntry * spellInfo = dbcSpell.LookupEntry( 54203 );
-                Spell* sp(new Spell( u_caster, spellInfo, true, NULLAURA ));
-                sp->forced_basepoints[0] = float2int32(amount * ( 0.05f * u_caster->GetDummyAura(SPELL_HASH_SHEATH_OF_LIGHT)->RankNumber ));
+                Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
+                //sp->forced_basepoints[0] = float2int32(amount * ( 0.05f * u_caster->GetDummyAura(SPELL_HASH_SHEATH_OF_LIGHT)->RankNumber ));
                 SpellCastTargets tgt;
                 tgt.m_unitTarget = unitTarget->GetGUID();
                 sp->prepare(&tgt);
@@ -4651,7 +4557,7 @@ void Spell::Heal(int32 amount)
             Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
             uint32 maxmana = u_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA);
             float rapture_mod = u_caster->GetDummyAura( SPELL_HASH_RAPTURE )->RankNumber * 0.005f;
-            sp->forced_basepoints[0] = float2int32( maxmana * rapture_mod );
+            //sp->forced_basepoints[0] = float2int32( maxmana * rapture_mod );
             SpellCastTargets tgt;
             tgt.m_unitTarget = unitTarget->GetGUID();
             sp->prepare(&tgt);
@@ -4679,9 +4585,8 @@ void Spell::Heal(int32 amount)
         SpellEntry* SpellInfo = dbcSpell.LookupEntry( 47762 );
         if( SpellInfo )
         {
-            Spell* sp = NULLSPELL;
-            sp = (new Spell( u_caster, SpellInfo, true, NULLAURA ));
-            sp->forced_basepoints[0] = amt;
+            Spell* sp = new Spell( u_caster, SpellInfo, true, NULLAURA );
+            //sp->forced_basepoints[0] = amt;
             SpellCastTargets tgt;
             tgt.m_unitTarget = u_caster->GetGUID();
             sp->prepare( &tgt );
@@ -4693,8 +4598,8 @@ void Spell::Heal(int32 amount)
         SpellEntry* SpellInfo = dbcSpell.LookupEntry( 31786 );
         if( SpellInfo )
         {
-            Spell* sp(new Spell( u_caster, SpellInfo, true, NULLAURA ));
-            sp->forced_basepoints[0] = amt;
+            Spell* sp = new Spell( u_caster, SpellInfo, true, NULLAURA );
+            //sp->forced_basepoints[0] = amt;
             SpellCastTargets tgt;
             tgt.m_unitTarget = unitTarget->GetGUID();
             sp->prepare( &tgt );
@@ -4865,10 +4770,8 @@ bool Spell::Reflect(Unit* refunit)
                     }
 
                     SpellEntry *spellInfo = dbcSpell.LookupEntry( 57776 );
-                    Spell* spell = NULLSPELL;
-                    spell = (new Spell( refunit, spellInfo, true, NULLAURA));
-                    uint32 manaregenamt = CalculateEffect(effectid, refunit);
-                    spell->forced_basepoints[0] = manaregenamt;
+                    Spell* spell = new Spell(refunit, spellInfo, true, NULLAURA);
+                    //spell->forced_basepoints[0] = CalculateEffect(effectid, refunit);
                     SpellCastTargets targets;
                     targets.m_unitTarget = refunit->GetGUID();
                     spell->prepare( &targets );
@@ -4876,12 +4779,8 @@ bool Spell::Reflect(Unit* refunit)
                 else if( (*i)->infront )
                 {
                     if( m_caster->isInFrontOfTarget(refunit) )
-                    {
                         canreflect = true;
-                    }
-                }
-                else
-                    canreflect = true;
+                } else canreflect = true;
 
                 refspellid = (*i)->spellId;
                 if( !(*i)->infinity )
@@ -5272,4 +5171,304 @@ bool Spell::UseMissileDelay()
         HasSpellEffect(SPELL_EFFECT_PLAYER_PULL))
         return false;
     return true;
+}
+
+
+bool CanAgroHash(uint32 spellhashname)
+{
+    if (spellhashname == SPELL_HASH_HUNTER_S_MARK || spellhashname == SPELL_HASH_SAP || spellhashname == SPELL_HASH_EAGLE_EYE || spellhashname == SPELL_HASH_FAR_SIGHT )    //hunter's mark
+        return false;
+    return true;
+}
+
+bool IsCastedOnFriends(SpellEntry *sp)
+{
+    for( int frloop = 0; frloop < 3; frloop++ )
+    {
+        switch (sp->EffectImplicitTargetA[frloop])
+        {
+            case 1:     //EFF_TARGET_SELF
+            case 4:
+            case 5:     //EFF_TARGET_PET
+            case 20:    //EFF_TARGET_ALL_PARTY_AROUND_CASTER
+            case 21:    //EFF_TARGET_SINGLE_FRIEND
+            case 27:    //EFF_TARGET_PET_MASTER
+            case 30:    //EFF_TARGET_ALL_FRIENDLY_IN_AREA
+            case 31:    //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS_OVER_TIME
+            case 32:    //EFF_TARGET_MINION
+            case 33:    //EFF_TARGET_ALL_PARTY_IN_AREA
+            case 35:    //EFF_TARGET_SINGLE_PARTY
+            case 37:    //EFF_TARGET_ALL_PARTY
+            case 41:    //EFF_TARGET_TOTEM_EARTH
+            case 42:    //EFF_TARGET_TOTEM_WATER
+            case 43:    //EFF_TARGET_TOTEM_AIR
+            case 44:    //EFF_TARGET_TOTEM_FIRE
+            case 45:    //EFF_TARGET_CHAIN
+            case 56:
+            case 57:    //EFF_TARGET_PARTY_MEMBER
+            case 61:    //EFF_TARGET_AREAEFFECT_PARTY_AND_CLASS
+                return true;
+        }
+
+        switch (sp->EffectImplicitTargetB[frloop])
+        {
+            case 1:     //EFF_TARGET_SELF
+            case 4:
+            case 5:     //EFF_TARGET_PET
+            case 20:    //EFF_TARGET_ALL_PARTY_AROUND_CASTER
+            case 21:    //EFF_TARGET_SINGLE_FRIEND
+            case 27:    //EFF_TARGET_PET_MASTER
+            case 30:    //EFF_TARGET_ALL_FRIENDLY_IN_AREA
+            case 31:    //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS_OVER_TIME
+            case 32:    //EFF_TARGET_MINION
+            case 33:    //EFF_TARGET_ALL_PARTY_IN_AREA
+            case 35:    //EFF_TARGET_SINGLE_PARTY
+            case 37:    //EFF_TARGET_ALL_PARTY
+            case 41:    //EFF_TARGET_TOTEM_EARTH
+            case 42:    //EFF_TARGET_TOTEM_WATER
+            case 43:    //EFF_TARGET_TOTEM_AIR
+            case 44:    //EFF_TARGET_TOTEM_FIRE
+            case 45:    //EFF_TARGET_CHAIN
+            case 56:
+            case 57:    //EFF_TARGET_PARTY_MEMBER
+            case 61:    //EFF_TARGET_AREAEFFECT_PARTY_AND_CLASS
+                return true;
+        }
+    }
+    return false;
+}
+
+bool IsCastedOnEnemies(SpellEntry *sp)
+{
+    for( int frloop = 0; frloop < 3; frloop++ )
+    {
+        switch (sp->EffectImplicitTargetA[frloop])
+        {
+            case 6:     //EFF_TARGET_SINGLE_ENEMY
+            case 8:     //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS
+            case 15:    //EFF_TARGET_ALL_ENEMY_IN_AREA
+            case 16:    //EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
+            case 22:    //EFF_TARGET_ALL_ENEMIES_AROUND_CASTER
+            case 24:    //EFF_TARGET_IN_FRONT_OF_CASTER
+            case 28:    //EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED
+            case 54:    //EFF_TARGET_TARGET_AT_ORIENTATION_TO_CASTER
+            case 77:    //EFF_TARGET_SELECTED_ENEMY_CHANNELED
+                return true;
+        }
+
+        switch (sp->EffectImplicitTargetB[frloop])
+        {
+            case 6:     //EFF_TARGET_SINGLE_ENEMY
+            case 8:     //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS
+            case 15:    //EFF_TARGET_ALL_ENEMY_IN_AREA
+            case 16:    //EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
+            case 22:    //EFF_TARGET_ALL_ENEMIES_AROUND_CASTER
+            case 24:    //EFF_TARGET_IN_FRONT_OF_CASTER
+            case 28:    //EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED
+            case 54:    //EFF_TARGET_TARGET_AT_ORIENTATION_TO_CASTER
+            case 77:    //EFF_TARGET_SELECTED_ENEMY_CHANNELED
+                return true;
+        }
+    }
+    return false;
+}
+
+/************************************************************************/
+/* IsDamagingSpell, this function seems slow, its only used rarely      */
+/************************************************************************/
+bool IsDamagingSpell(SpellEntry *sp)
+{
+    if( sp->NameHash == SPELL_HASH_MUTILATE )
+        return true;
+
+    for (uint32 i = 0; i < 3; i++)
+    {
+        switch (sp->Effect[i])
+        {
+        case SPELL_EFFECT_SCHOOL_DAMAGE:
+        case SPELL_EFFECT_ENVIRONMENTAL_DAMAGE:
+        case SPELL_EFFECT_HEALTH_LEECH:
+        case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
+        case SPELL_EFFECT_ADD_EXTRA_ATTACKS:
+        case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE:
+        case SPELL_EFFECT_WEAPON_DAMAGE:
+        case SPELL_EFFECT_POWER_BURN:
+        case SPELL_EFFECT_ATTACK:
+        case SPELL_EFFECT_DUMMYMELEE:
+            return true;
+
+        case SPELL_EFFECT_APPLY_AURA:
+        case SPELL_EFFECT_APPLY_AREA_AURA:
+            {
+                switch (sp->EffectApplyAuraName[i])
+                {
+                case SPELL_AURA_PERIODIC_DAMAGE://SPELL_AURA_PERIODIC_DAMAGE:
+                case SPELL_AURA_PROC_TRIGGER_DAMAGE://SPELL_AURA_PROC_TRIGGER_DAMAGE:
+                case SPELL_AURA_PERIODIC_LEECH://SPELL_AURA_PERIODIC_LEECH:
+                case SPELL_AURA_PERIODIC_DAMAGE_PERCENT://SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
+                case SPELL_AURA_POWER_BURN_MANA://SPELL_AURA_POWER_BURN:
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool IsHealingSpell(SpellEntry *sp)
+{
+    for(uint32 i = 0; i < 3; i++)
+    {
+        switch( sp->Effect[i] )
+        {
+        case SPELL_EFFECT_SCHOOL_DAMAGE:
+            return false;
+            break;
+
+        case SPELL_EFFECT_HEAL:
+        case SPELL_EFFECT_HEALTH_FUNNEL:
+        case SPELL_EFFECT_HEAL_MAX_HEALTH:
+            return true;
+            break;
+
+        case SPELL_EFFECT_APPLY_AURA:
+        case SPELL_EFFECT_APPLY_AREA_AURA:
+            {
+                switch( sp->EffectApplyAuraName[i] )
+                {
+                case SPELL_AURA_PERIODIC_HEAL:
+                case SPELL_AURA_PERIODIC_HEALTH_FUNNEL:
+                    return true;
+                    break;
+
+                case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
+                    {
+                        SpellEntry * triggered = dbcSpell.LookupEntry(sp->EffectTriggerSpell[i]);
+                        if(triggered && triggered != sp && IsHealingSpell(triggered))
+                            return true;
+                    }break;
+                }
+            }break;
+        }
+    }
+
+    //flash of light, holy light uses a scripted effect which is not necessarily a heal spell
+    if( sp->NameHash == SPELL_HASH_HOLY_LIGHT || sp->NameHash == SPELL_HASH_FLASH_OF_LIGHT )
+        return true;
+
+    return false;
+}
+
+bool IsInrange(LocationVector & location, Object* o, float square_r)
+{
+    float r = o->GetDistanceSq(location);
+    return ( r<=square_r);
+}
+
+bool IsInrange(float x1,float y1, float z1, Object* o,float square_r)
+{
+    float r = o->GetDistanceSq(x1, y1, z1);
+    return ( r<=square_r);
+}
+
+bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r)
+{
+    float t;
+    float r;
+    t=x1-x2;
+    r=t*t;
+    t=y1-y2;
+    r+=t*t;
+    t=z1-z2;
+    r+=t*t;
+    return ( r<=square_r);
+}
+
+bool IsInrange(Object* o1,Object* o2,float square_r)
+{
+    return IsInrange(o1->GetPositionX(),o1->GetPositionY(),o1->GetPositionZ(),
+        o2->GetPositionX(),o2->GetPositionY(),o2->GetPositionZ(),square_r);
+}
+
+bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask)
+{
+    if( !ReqCreatureTypeMask )
+        return true;
+
+    if( obj->GetTypeId() == TYPEID_UNIT )
+    {
+        Creature* cr = TO_CREATURE(obj);
+        CreatureInfo* inf = cr->GetCreatureInfo();
+        if( inf == NULL || !( 1 << ( inf->Type - 1 ) & ReqCreatureTypeMask ) )
+            return false;
+    }
+    else if(obj->IsPlayer() && !(UNIT_TYPE_HUMANOID_BIT & ReqCreatureTypeMask))
+        return false;
+    else return false;//omg, how in the hack did we cast it on a GO ? But who cares ?
+    return true;
+}
+
+bool IsFlyingSpell(SpellEntry *sp)
+{
+    if( sp->EffectApplyAuraName[0] == 206 ||
+        sp->EffectApplyAuraName[1] == 206 ||
+        sp->EffectApplyAuraName[1] == 206 ||
+
+        sp->EffectApplyAuraName[0] == 207 ||
+        sp->EffectApplyAuraName[1] == 207 ||
+        sp->EffectApplyAuraName[1] == 207 ||
+
+        sp->EffectApplyAuraName[0] == 208 ||
+        sp->EffectApplyAuraName[1] == 208 ||
+        sp->EffectApplyAuraName[1] == 208 ||
+
+        sp->NameHash == SPELL_HASH_SWIFT_FLIGHT_FORM ||
+        sp->NameHash == SPELL_HASH_FLIGHT_FORM ||
+        sp->NameHash == SPELL_HASH_MAGNIFICENT_FLYING_CARPET ||
+        sp->NameHash == SPELL_HASH_FLYING_CARPET )
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool IsTargetingStealthed(SpellEntry *sp)
+{
+    if( sp->Id == 3600 )
+        return false;
+
+    if(     sp->EffectImplicitTargetA[0]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+            sp->EffectImplicitTargetA[1]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+            sp->EffectImplicitTargetA[2]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+            sp->EffectImplicitTargetB[0]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+            sp->EffectImplicitTargetB[1]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+            sp->EffectImplicitTargetB[2]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
+
+            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
+
+            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
+
+            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
+            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
+            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
+            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
+            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
+            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
+        )
+    {
+        return true;
+    }
+
+    return false;
 }

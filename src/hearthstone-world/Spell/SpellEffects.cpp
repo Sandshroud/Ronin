@@ -377,7 +377,7 @@ void Spell::SpellEffectSchoolDMG(uint32 i) // dmg school
                 MWS = it->GetProto()->Delay / 1000.0f;
             }   // Crow: Do not randomize 0, it will crash.
 
-            dmg = float2int32(((WMIN + RandomUInt(WMAX-WMIN)) / (2 * MWS)) * 4 + (u_caster->GetStrength() / 5.5f) * 4 + (u_caster->GetAP() / 14) * 4);
+            dmg = float2int32(((WMIN + RandomUInt(WMAX-WMIN)) / (2 * MWS)) * 4 + (u_caster->GetStrength() / 5.5f) * 4 + (u_caster->CalculateAttackPower() / 14) * 4);
         }
         else
         {
@@ -529,7 +529,7 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
     //check if we already have stronger aura
     Aura* pAura = NULL;
 
-    std::map<uint32,Aura* >::iterator itr=unitTarget->tmpAura.find(GetSpellProto()->Id);
+    std::map<uint32,Aura* >::iterator itr = unitTarget->tmpAura.find(GetSpellProto()->Id);
     //if we do not make a check to see if the aura owner is the same as the caster then we will stack the 2 auras and they will not be visible client sided
     if(itr == unitTarget->tmpAura.end())
     {
@@ -544,18 +544,14 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
 
         if(g_caster && g_caster->GetUInt32Value(OBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
             pAura = new Aura(GetSpellProto(), Duration, g_caster->m_summoner, unitTarget);
-        else
-            pAura = new Aura(GetSpellProto(), Duration, m_caster, unitTarget);
-
+        else pAura = new Aura(GetSpellProto(), Duration, m_caster, unitTarget);
         if(pAura == NULL)
             return;
 
         pAura->pSpellId = pSpellId; //this is required for triggered spells
 
         unitTarget->tmpAura[GetSpellProto()->Id] = pAura;
-    }
-    else
-         pAura=itr->second;
+    } else pAura = itr->second;
 
     int32 miscValue = GetSpellProto()->EffectMiscValue[i];
 
@@ -619,7 +615,7 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
         }break;
     }
 
-    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],damage,miscValue,i);
+    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],damage,miscValue,GetSpellProto()->EffectMiscValueB[i],i);
 }
 
 void Spell::SpellEffectPowerDrain(uint32 i)  // Power Drain
@@ -754,13 +750,14 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
                 Aura* taura = unitTarget->m_AuraInterface.FindPositiveAuraByNameHash( SPELL_HASH_REGROWTH ); //Regrowth
                 if( taura != NULL && taura->GetSpellProto() != NULL)
                 {
+                    int32 healamount = 0;
                     uint32 amplitude = taura->GetSpellProto()->EffectAmplitude[1] / 1000;
                     if( !amplitude )
                         amplitude = 3;
 
                     //our hapiness is that we did not store the aura mod amount so we have to recalc it
                     Spell* spell = new Spell( m_caster, taura->GetSpellProto(), false, NULLAURA );
-                    uint32 healamount = spell->CalculateEffect( 1, unitTarget );
+                    healamount += spell->CalculateEffect( 1, unitTarget, healamount );
                     spell->Destruct();
                     spell = NULLSPELL;
                     new_dmg = healamount * 18 / amplitude;
@@ -779,13 +776,14 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
                     taura = unitTarget->m_AuraInterface.FindPositiveAuraByNameHash( SPELL_HASH_REJUVENATION );//Rejuvenation
                     if( taura != NULL && taura->GetSpellProto() != NULL )
                     {
+                        int32 healamount = 0;
                         uint32 amplitude = taura->GetSpellProto()->EffectAmplitude[0] / 1000;
                         if( !amplitude )
                             amplitude = 3;
 
                         //our hapiness is that we did not store the aura mod amount so we have to recalc it
                         Spell* spell = new Spell( m_caster, taura->GetSpellProto(), false, NULLAURA );
-                        uint32 healamount = spell->CalculateEffect( 0, unitTarget );
+                        healamount += spell->CalculateEffect( 0, unitTarget, healamount );
                         spell->Destruct();
                         spell = NULLSPELL;
                         new_dmg = healamount * 12 / amplitude;
@@ -822,7 +820,7 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
                     {
                         Unit* orgcstr = u_caster->m_AuraInterface.FindAura(20185)->GetUnitCaster();
                         if( orgcstr )
-                            Heal( float2int32(orgcstr->GetAP() * 0.10f + orgcstr->GetDamageDoneMod(SCHOOL_HOLY) * 0.10f) );
+                            Heal( float2int32(orgcstr->CalculateAttackPower() * 0.10f + orgcstr->GetDamageDoneMod(SCHOOL_HOLY) * 0.10f) );
                     }
                 }
             }break;
@@ -831,7 +829,7 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
         case 54172: // Divine storm heal
         case 54968: // Glyph of Holy Light
             {
-                Heal((int32)forced_basepoints[0]);
+                //Heal((int32)forced_basepoints[0]);
             }break;
 
         case 23880: // Bloodthirst
@@ -1401,7 +1399,7 @@ void Spell::SpellEffectEnergize(uint32 i) // Energize
     case 20272:
     case 47755:
         {
-            modEnergy = forced_basepoints[0];
+            //modEnergy = forced_basepoints[0];
         }break;
     default:
         {
@@ -1754,7 +1752,7 @@ void Spell::SpellEffectApplyAA(uint32 i) // Apply Area Aura
     else
         pAura = itr->second;
 
-    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],damage,GetSpellProto()->EffectMiscValue[i],i);
+    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],damage,GetSpellProto()->EffectMiscValue[i],GetSpellProto()->EffectMiscValueB[i],i);
 }
 
 void Spell::SpellEffectLearnSpell(uint32 i) // Learn Spell
@@ -2790,7 +2788,6 @@ void Spell::SpellEffectTriggerSpell(uint32 i) // Trigger Spell
         return;
 
     Spell* sp = new Spell( m_caster,spe,true,NULLAURA);
-    memcpy(sp->forced_basepoints, GetSpellProto()->EffectBasePoints, sizeof(uint32)*3);
     SpellCastTargets tgt((spe->procflags2 & PROC_TARGET_SELF) ? m_caster->GetGUID() : unitTarget->GetGUID());
     sp->prepare(&tgt);
 }
@@ -2923,19 +2920,17 @@ void Spell::SpellEffectResetTalents(uint32 i) // Used by Trainers.
     if( !playerTarget )
         return;
 
-    playerTarget->Reset_Talents();
+    playerTarget->ResetSpec(playerTarget->m_talentInterface.GetActiveSpec());
 }
 
 void Spell::SpellEffectUseGlyph(uint32 i)
 {
     if( p_caster == NULL )
         return;
-    uint8 result = 0;
-    result = p_caster->SetGlyph(m_glyphIndex, GetSpellProto()->EffectMiscValue[i]);
-    if(result) // there was an error
+
+    if(uint8 result = p_caster->m_talentInterface.ApplyGlyph(m_glyphIndex, GetSpellProto()->EffectMiscValue[i])) // there was an error
         SendCastResult(result);
-    else // success, need to update client display
-        p_caster->smsg_TalentsInfo(false);
+    else p_caster->m_talentInterface.SendTalentInfo();
 }
 
 void Spell::SpellEffectHealMechanical(uint32 i)
@@ -3318,9 +3313,9 @@ void Spell::SpellEffectPlaceTotemsOnBar(uint32 i)
     uint32 button_count = m_spellInfo->EffectMiscValueB[i];
     for (uint32 slot = button; slot < button+button_count; slot++)
     {
-        if(p_caster->GetActionButton(slot).GetType() != ACTION_BUTTON_SPELL)
+        if(p_caster->m_talentInterface.GetActionButton(slot).GetType() != ACTION_BUTTON_SPELL)
              continue;
-        uint32 spell = p_caster->GetActionButton(slot).GetAction();
+        uint32 spell = p_caster->m_talentInterface.GetActionButton(slot).GetAction();
         if(spell == 0)
             continue;
         SpellEntry* sp = dbcSpell.LookupEntry(spell);
@@ -3425,7 +3420,9 @@ void Spell::SpellEffectPull( uint32 i )
     else
         arc = 10.0f;
 
-    uint32 time = uint32((CalculateEffect(i, unitTarget) / arc) * 100);
+    int32 basePoints = 0;
+    basePoints += CalculateEffect(i, unitTarget, basePoints);
+    uint32 time = uint32((basePoints / arc) * 100);
     unitTarget->GetAIInterface()->StopMovement(time);
     unitTarget->SetPosition(pullX, pullY, pullZ, 0.0f);
     unitTarget->GetAIInterface()->SendJumpTo(pullX, pullY, pullZ, time, arc);
@@ -3528,7 +3525,7 @@ void Spell::SpellEffectFeedPet(uint32 i)  // Feed Pet
 
     SpellEntry *spellInfo = dbcSpell.LookupEntry(GetSpellProto()->EffectTriggerSpell[i]);
     Spell* sp = new Spell(p_caster, spellInfo, true, NULLAURA);
-    sp->forced_basepoints[0] = damage - 1;
+    //sp->forced_basepoints[0] = damage - 1;
     SpellCastTargets tgt;
     tgt.m_unitTarget = pPet->GetGUID();
     sp->prepare(&tgt);
@@ -4314,12 +4311,6 @@ void Spell::SpellEffectTriggerSpellWithValue(uint32 i)
         return;
 
     Spell* sp= new Spell(m_caster,dbcSpell.LookupEntry(TriggeredSpell->Id),true,NULLAURA);
-
-    for(uint32 x=0;x<3;x++)
-    {
-        sp->forced_basepoints[x] = TriggeredSpell->EffectBasePoints[i];
-    }
-
     SpellCastTargets tgt(unitTarget->GetGUID());
     sp->prepare(&tgt);
 }
@@ -4373,7 +4364,9 @@ void Spell::SpellEffectJump(uint32 i)
     else
         arc = 10.0f;
 
-    uint32 time = uint32((CalculateEffect(i, unitTarget) / arc) * 100);
+    int32 basePoints = 0;
+    basePoints += CalculateEffect(i, unitTarget, basePoints);
+    uint32 time = uint32((basePoints / arc) * 100);
     u_caster->GetAIInterface()->StopMovement(time);
     u_caster->SetPosition(x, y, z, ang);
     u_caster->GetAIInterface()->SendJumpTo(x, y, z, time, arc);
@@ -4665,17 +4658,12 @@ void Spell::SpellEffectSetTalentSpecsCount(uint32 i)
     if(p_caster == NULL)
         return;
 
-    if(p_caster->m_talentActiveSpec >= damage) // activate primary spec
-        p_caster->ApplySpec(0, false);
-
-    p_caster->m_talentSpecsCount = damage;
-
-    // Send update
-    p_caster->smsg_TalentsInfo(false);
+    p_caster->m_talentInterface.UnlockSpec(damage);
 }
 
 void Spell::SpellEffectActivateTalentSpec(uint32 i)
 {
+    damage -= 1; // Add our negative offset
     if(p_caster == NULL)
         return;
 
@@ -4685,25 +4673,9 @@ void Spell::SpellEffectActivateTalentSpec(uint32 i)
         return;
     }
 
-    // 1 = primary, 2 = secondary
-    p_caster->ApplySpec(uint8(damage - 1), false);
-
-    // Use up all our power.
-    switch(p_caster->GetPowerType())
-    {
-    case POWER_TYPE_MANA:
-        p_caster->SetPower(POWER_TYPE_MANA, 0);
-        break;
-    case POWER_TYPE_RAGE:
-        p_caster->SetPower(POWER_TYPE_RAGE, 0);
-        break;
-    case POWER_TYPE_ENERGY:
-        p_caster->SetPower(POWER_TYPE_ENERGY, 0);
-        break;
-    case POWER_TYPE_RUNE:
-        p_caster->SetPower(POWER_TYPE_RUNE, 0);
-        break;
-    }
+    // 0 = primary, 1 = secondary
+    p_caster->m_talentInterface.ApplySpec(damage, false);
+    p_caster->SetPower(p_caster->GetPowerType(), 0);
 }
 
 void Spell::SpellEffectDisengage(uint32 i)
@@ -4733,8 +4705,10 @@ void Spell::SpellEffectApplyDemonAura( uint32 i )
     pAura->targets.insert(TO_PET(u_caster)->GetPetOwner()->GetUIdFromGUID());
     for (uint32 j=0; j<3; ++j)
     {
-        pAura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget), GetSpellProto()->EffectMiscValue[j], j);
-        otheraura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget), GetSpellProto()->EffectMiscValue[j], j);
+        int32 basePoints = 0;
+        basePoints += CalculateEffect(j, unitTarget, basePoints);
+        pAura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget, basePoints), GetSpellProto()->EffectMiscValue[j],GetSpellProto()->EffectMiscValueB[i], j);
+        otheraura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget, basePoints), GetSpellProto()->EffectMiscValue[j],GetSpellProto()->EffectMiscValueB[i], j);
     }
 
     u_caster->AddAura(pAura);

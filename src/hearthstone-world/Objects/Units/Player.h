@@ -25,10 +25,6 @@ struct PlayerCreateInfo;
 #define PLAYER_NORMAL_FLIGHT_SPEED 7.0f
 #define PLAYER_HONORLESS_TARGET_SPELL 2479
 #define MONSTER_NORMAL_RUN_SPEED 8.0f
-/* action button defines */
-#define PLAYER_ACTION_BUTTON_COUNT 144
-#define MAX_SPEC_COUNT 2
-#define GLYPHS_COUNT 9
 
 #define ALLIANCE 0
 #define HORDE 1
@@ -85,6 +81,21 @@ enum Races
     RACE_TROLL = 8,
     RACE_BLOODELF = 10,
     RACE_DRAENEI = 11
+};
+
+static const uint32 TalentTreesPerClass[DRUID+1][3] =  {
+    { 409, 410, 411 },  // PETS
+    { 746, 815, 845 },  // WARRIOR
+    { 831, 839, 855 },  // PALADIN
+    { 811, 807, 809 },  // HUNTER
+    { 182, 181, 183 },  // ROGUE
+    { 760, 813, 795 },  // PRIEST
+    { 398, 399, 400 },  // DEATH KNIGHT
+    { 261, 263, 262 },  // SHAMAN
+    { 799, 851, 823 },  // MAGE
+    { 871, 867, 865 },  // WARLOCK
+    { 0, 0, 0 },        // NONE
+    { 752, 750, 748 },  // DRUID
 };
 
 enum PlayerStatus
@@ -226,17 +237,6 @@ struct spells
     uint16  slotId;
 };
 
-#pragma pack(PRAGMA_PACK)
-
-struct ActionButton
-{
-    uint32 PackedData;
-    uint8 GetType() { return ACTION_BUTTON_TYPE(PackedData); };
-    uint32 GetAction() { return ACTION_BUTTON_ACTION(PackedData); };
-};
-
-#pragma pack(PRAGMA_POP)
-
 struct CreateInfo_ItemStruct
 {
     uint32  protoid;
@@ -274,21 +274,6 @@ struct LoginAura
 {
     uint32 id;
     int32 dur;
-};
-
-static const uint32 TalentTreesPerClass[DRUID+1][3] =  {
-    { 0, 0, 0 },        // NONE
-    { 161, 163, 164 },  // WARRIOR
-    { 382, 383, 381 },  // PALADIN
-    { 361, 363, 362 },  // HUNTER
-    { 182, 181, 183 },  // ROGUE
-    { 201, 202, 203 },  // PRIEST
-    { 398, 399, 400 },  // DEATH KNIGHT
-    { 261, 263, 262 },  // SHAMAN
-    { 81, 41, 61 },     // MAGE
-    { 302, 303, 301 },  // WARLOCK
-    { 0, 0, 0 },        // NONE
-    { 283, 281, 282 },  // DRUID
 };
 
 struct AreaPhaseData
@@ -566,13 +551,16 @@ enum ItemBonusModSlot
     MOD_SLOT_STAT_9,
     MOD_SLOT_STAT_10,
     MOD_SLOT_ARMOR,
-    MOD_SLOT_MAX_STAT = 11,
+    MOD_SLOT_MINDAMAGE,
+    MOD_SLOT_MAXDAMAGE,
+    MOD_SLOT_WEAPONDELAY,
+    MOD_SLOT_MAX_STAT = 14,
 
     // Define this here ahead of time, as these are based on item enchant slots
     MOD_SLOT_MAX_ENCHANT = MOD_SLOT_MAX_STAT+MAX_ENCHANTMENT_SLOT,
 
     // Start our item enchantment mod slots
-    MOD_SLOT_PERM_ENCHANT = 11,
+    MOD_SLOT_PERM_ENCHANT = 14,
     MOD_SLOT_TEMP_ENCHANT,
     MOD_SLOT_SOCKET_ENCHANT_1,
     MOD_SLOT_SOCKET_ENCHANT_2,
@@ -630,23 +618,49 @@ public:
     /* Update fields System                                                 */
     /************************************************************************/
     void UpdateFieldValues();
+    void UpdatePlayerRatings();
+    void ClearFieldUpdateValues() {}; // Players clear field update values manually
+
     bool StatUpdateRequired();
+    bool HealthUpdateRequired();
+    bool PowerUpdateRequired();
+    bool AttackTimeUpdateRequired(uint8 weaponType);
     bool APUpdateRequired();
     bool RAPUpdateRequired();
     bool ResUpdateRequired();
+    bool CombatRatingUpdateRequired(uint32 combatRating);
 
-    int32 GetBaseStat(uint8 type);
-    int32 GetBaseResistance(uint8 school);
-    int32 GetBaseAttackPower();
-    int32 GetBaseRangedAttackPower();
-    int32 GetBaseHealth();
-    int32 GetBaseMana();
+    int32 GetBonusMana();
+    int32 GetBonusHealth();
+    int32 GetBonusStat(uint8 type);
+    int32 GetBaseAttackTime(uint8 weaponType);
+    int32 GetBaseMinDamage(uint8 weaponType);
+    int32 GetBaseMaxDamage(uint8 weaponType);
+    int32 GetBonusAttackPower();
+    int32 GetBonusRangedAttackPower();
+    int32 GetBonusResistance(uint8 school);
 
+    float GetRatioForCombatRating(uint32 combatRating);
+    int32 CalculatePlayerCombatRating(uint8 combatRating);
 
 private:
     bool m_forceStatUpdate;
 
 public:
+    virtual void setLevel(uint32 level);
+
+    /************************************************************************/
+    /* Talent System                                                        */
+    /************************************************************************/
+    bool LearnTalent(uint32 talent_id, uint8 requested_rank) { return m_talentInterface.LearnTalent(talent_id, requested_rank); }
+    bool HasTalent(uint32 talentid, int8 rank = -1) { return m_talentInterface.HasTalent(talentid, rank); }
+    void ResetSpec(uint8 spec) { m_talentInterface.ResetSpec(spec, false); }
+
+    uint32 CalcTalentResetCost(uint32 resetnum);
+    void SendTalentResetConfirm();
+
+    TalentInterface m_talentInterface;
+
     /************************************************************************/
     /* Skill System                                                         */
     /************************************************************************/
@@ -739,7 +753,6 @@ public:
     UpdateMask itemBonusMask;
     ItemBonusModMap itemBonusMap;
     ItemBonusModByType itemBonusMapByType;
-    std::map<uint32, uint32> m_wratings;
 
     /************************************************************************/
     /* Taxi                                                                 */
@@ -834,16 +847,6 @@ public:
     HEARTHSTONE_INLINE void SetTeam(uint32 t) { m_team = t; m_bgTeam=t; }
     HEARTHSTONE_INLINE void ResetTeam() { m_team = myRace->TeamId; m_bgTeam=m_team; }
 
-    HEARTHSTONE_INLINE bool IsInFeralForm()
-    {
-        int s = GetShapeShift();
-        if( s <= 0 )
-            return false;
-
-        // Fight forms that do not use player's weapon
-        //          Cat       Bear      Dire Bear
-        return ( s == 1 || s == 5 || s == 8 );
-    }
     void CalcDamage();
     uint32 GetMainMeleeDamage(uint32 AP_owerride); //i need this for windfury
 
@@ -857,11 +860,8 @@ public:
     SpellEntry* GetSpellWithNamehash(uint32 namehash);
     bool HasHigherSpellForSkillLine(SpellEntry* sp);
     void smsg_InitialSpells();
-    void smsg_TalentsInfo(bool pet);
-    void BuildPlayerTalentsInfo(WorldPacket *data);
-    void BuildPetTalentsInfo(WorldPacket *data);
     void addSpell(uint32 spell_idy);
-    void removeSpellByHashName(uint32 hash);
+    void removeSpellByNameHash(uint32 hash);
     bool removeSpell(uint32 SpellID);
     uint32 FindSpellWithNamehash(uint32 namehash);
     uint32 FindHigherRankingSpellWithNamehash(uint32 namehash, uint32 minimumrank);
@@ -901,18 +901,6 @@ public:
 
     void AddShapeShiftSpell(uint32 id);
     void RemoveShapeShiftSpell(uint32 id);
-
-    /************************************************************************/
-    /* Talents                                                              */
-    /************************************************************************/
-    bool HasTalent(uint8 spec, uint32 talentid);
-
-    /************************************************************************/
-    /* Actionbar                                                            */
-    /************************************************************************/
-    void                setAction(uint8 button, uint32 action, uint8 type, int8 SpecOverride = -1);
-    void                SendInitialActions();
-    bool                m_actionsDirty;
 
     /************************************************************************/
     /* Reputation                                                           */
@@ -1145,8 +1133,6 @@ public:
     // These functions build a specific type of A9 packet
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     virtual void DestroyForPlayer( Player* target, bool anim = false);
-    void SetTalentHearthOfWildPCT(int value){hearth_of_wild_pct=value;}
-    void EventTalentHeartOfWildChange(bool apply);
 
     std::list<LoginAura> loginauras;
 
@@ -1213,7 +1199,6 @@ public:
     float CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level);
     float CalculateDefenseFromAgilForClassAndLevel(uint32 _class, uint32 _level);
     float SpellHasteRatingBonus;
-    void UpdateAttackSpeed();
     void UpdateChances();
     void UpdateStats();
     void UpdateHit(int32 hit);
@@ -1231,12 +1216,8 @@ public:
     void SetDodgeFromSpell(float value) { m_dodgefromspell = value; }
     void SetHitFromMeleeSpell(float value) { m_hitfrommeleespell = value; }
     void SetHitFromSpell(float value) { m_hitfromspell = value; }
-    uint32 CalcTalentResetCost(uint32 resetnum);
-    void SendTalentResetConfirm();
     void SendPetUntrainConfirm();
     void SendXPToggleConfirm();
-    uint32 GetTalentResetTimes() { return m_talentresettimes; }
-    HEARTHSTONE_INLINE void SetTalentResetTimes(uint32 value) { m_talentresettimes = value; }
     void SetPlayerStatus(uint8 pStatus) { m_status = pStatus; }
     void CheckPlayerStatus(uint8 pStatus) { if(m_status == pStatus) m_status = NONE; }
     HEARTHSTONE_INLINE uint8 GetPlayerStatus() { return m_status; }
@@ -1245,11 +1226,6 @@ public:
     const float& GetBindPositionZ( ) const { return m_bind_pos_z; }
     const uint32& GetBindMapId( ) const { return m_bind_mapid; }
     const uint32& GetBindZoneId( ) const { return m_bind_zoneid; }
-    HEARTHSTONE_INLINE uint8 GetShapeShift()
-    {
-        return GetByte(UNIT_FIELD_BYTES_2, 3);
-    }
-
     void delayAttackTimer(int32 delay)
     {
         if(!delay)
@@ -1342,8 +1318,6 @@ public:
     uint32 m_modblockvaluefromspells;
     void SendInitialLogonPackets();
     void Reset_Spells();
-    void LearnTalent(uint32 talent_id, uint32 requested_rank);
-    void Reset_Talents(bool all = false);
     void Reset_ToLevel1();
     void RetroactiveCompleteQuests();
 
@@ -1393,12 +1367,7 @@ public:
     HEARTHSTONE_INLINE void res_M_crit_set(float newvalue){m_resist_critical[0]=newvalue;}
     HEARTHSTONE_INLINE float res_R_crit_get(){return m_resist_critical[1];}
     HEARTHSTONE_INLINE void res_R_crit_set(float newvalue){m_resist_critical[1]=newvalue;}
-    uint32 FlatResistanceModifierPos[7];
-    uint32 FlatResistanceModifierNeg[7];
-    uint32 BaseResistanceModPctPos[7];
-    uint32 BaseResistanceModPctNeg[7];
-    uint32 ResistanceModPctPos[7];
-    uint32 ResistanceModPctNeg[7];
+
     float m_resist_critical[2];//when we are a victim we can have talents to decrease chance for critical hit. This is a negative value and it's added to critchances
     float m_resist_hit[3]; // 0 = melee; 1= ranged; 2=spells
     uint32 m_modphyscritdmgPCT;
@@ -1568,7 +1537,6 @@ public:
     {
         EventTeleport(mapid, x, y, z, 0.0f, phase);
     }
-    void ApplyLevelInfo(uint32 Level);
     void BroadcastMessage(const char* Format, ...);
     map<uint32, set<uint32> > SummonSpells;
     map<uint32, PetSpellMap*> PetSpells;
@@ -1633,8 +1601,6 @@ public:
     HEARTHSTONE_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     HEARTHSTONE_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
-    LevelInfo * lvlinfo;
-    void CalculateBaseStats();
     uint32 load_health;
     uint32 load_mana;
     set<SpellEntry *> castSpellAtLogin;
@@ -1743,8 +1709,6 @@ public:
     void ResetSpeedHack();
     void DelaySpeedHack(uint32 ms);
 
-    float m_WeaponSubClassDamagePct[21];
-
     LocationVector m_last_group_position;
     int32 m_rap_mod_pct;
     void SummonRequest(Object* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position);
@@ -1797,16 +1761,6 @@ public:
     std::map<uint32, PlayerPet*> m_Pets;
     uint8 m_StableSlotCount;
 
-    //Player Action Bar
-    ActionButton mActions[2][PLAYER_ACTION_BUTTON_COUNT];
-
-    ActionButton GetActionButton(uint32 button)
-    {
-        if(button > PLAYER_ACTION_BUTTON_COUNT)
-            return mActions[0][0];
-        return mActions[GetActiveSpec()][button];
-    }
-
 protected:
     uint32 m_timeLogoff;
     LocationVector m_summonPos;
@@ -1838,12 +1792,6 @@ protected:
 
     void _LoadSpells(QueryResult * result);
     void _SaveSpellsToDB(QueryBuffer * buf);
-
-    void _LoadTalents(QueryResult * result);
-    void _SaveTalentsToDB(QueryBuffer * buf);
-
-    void _LoadGlyphs(QueryResult * result);
-    void _SaveGlyphsToDB(QueryBuffer * buf);
 
     void _LoadPet(QueryResult * result);
 
@@ -1912,8 +1860,6 @@ protected:
 
     uint32 armor_proficiency;
     uint32 weapon_proficiency;
-    // Talents
-    uint32 m_talentresettimes;
     // STATUS
     uint8 m_status;
     // guid of current selection
@@ -1942,7 +1888,6 @@ protected:
     uint32 _fields[PLAYER_END];
     uint32 trigger_on_stun;         //bah, warrior talent but this will not get triggered on triggered spells if used on proc so i'm forced to used a special variable
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
-    int hearth_of_wild_pct;         //druid hearth of wild talent used on shapeshifting. We eighter know what is last talent level or memo on learn
 
     uint32 m_team;
     float m_lastRunSpeed;
@@ -2002,11 +1947,9 @@ public:
 
     PlayerInfo * m_playerInfo;
     PlayerInfo * getPlayerInfo() const {return m_playerInfo;}
+    PlayerCreateInfo *getPlayerCreateInfo() const {return info; }
     uint32 m_skipCastCheck[3];  // spell group relation of spell types that should ignore some cancast checks
     uint32 m_castFilter[3];     // spell group relation of only spells that player can currently cast
-
-    uint32 m_vampiricEmbrace;
-    void VampiricSpell(uint32 dmg, Unit* pTarget, SpellEntry *spellinfo);
 
     // grounding totem
     Aura* m_magnetAura;
@@ -2018,37 +1961,9 @@ public:
     HEARTHSTONE_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
     void SetKnownTitle( int32 title, bool set );
 
-    // debuffs
-    bool mWeakenedSoul;
-    bool mForbearance;
-    bool mHypothermia;
-    bool mExhaustion;
-    bool mSated;
-
     // Avenging Wrath...
     bool mAvengingWrath;
     void AvengingWrath() { mAvengingWrath = true; }
-    // Talent Specs
-    uint16 m_maxTalentPoints;
-    uint16 GetMaxTalentPoints();
-    void ApplySpec(uint8 spec, bool init);
-    void ApplyTalent(uint32 spellId);
-    void RemoveTalent(uint32 spellid);
-    uint8 m_talentSpecsCount;
-    uint8 m_talentActiveSpec;
-    HEARTHSTONE_INLINE uint8 GetActiveSpec() { uint8 spec = m_talentActiveSpec; if(spec > 1) spec = 0; return spec; };
-    struct PlayerSpec
-    {
-        std::map<uint32, uint8> talents;    // map of <talentId, talentRank>
-        uint16  glyphs[GLYPHS_COUNT];
-    };
-    PlayerSpec m_specs[MAX_SPEC_COUNT];
-
-    // Glyphs
-    void UnapplyGlyph(uint32 slot);
-    uint8 SetGlyph(uint32 slot, uint32 glyphId);
-    void InitGlyphSlots();
-    void InitGlyphsForLevel();
 
     // Equipment Sets
     void SendEquipmentSets();

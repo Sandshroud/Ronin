@@ -184,7 +184,8 @@ SET(HEARTHSTONE_SOURCE_DIRECTORIES
 "${ROOT_PATH}/src/hearthstone-world/Objects"
 "${ROOT_PATH}/src/hearthstone-world/Objects/Units"
 "${ROOT_PATH}/src/hearthstone-world/Mainframe"
-"${ROOT_PATH}/src/hearthstone-world/Player Systems"
+"${ROOT_PATH}/src/hearthstone-world/Unit Systems"
+"${ROOT_PATH}/src/hearthstone-world/Unit Systems/Player Systems"
 "${ROOT_PATH}/src/hearthstone-world/ScriptInterface"
 "${ROOT_PATH}/src/hearthstone-world/Spell"
 "${ROOT_PATH}/src/hearthstone-world/Spell/Spellfixes")

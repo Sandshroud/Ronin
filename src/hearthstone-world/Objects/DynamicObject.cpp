@@ -147,7 +147,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
                 {
                     if(m_spellProto->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
                     {
-                        pAura->AddMod(m_spellProto->EffectApplyAuraName[i], m_spellProto->EffectBasePoints[i]+1, m_spellProto->EffectMiscValue[i], i);
+                        pAura->AddMod(m_spellProto->EffectApplyAuraName[i], m_spellProto->EffectBasePoints[i]+1, m_spellProto->EffectMiscValue[i], m_spellProto->EffectMiscValueB[i], i);
                     }
                 }
 

@@ -130,6 +130,17 @@ void Creature::Update( uint32 p_time )
     }
 }
 
+int32 Creature::GetBaseAttackTime(uint8 weaponType)
+{
+    switch(weaponType)
+    {
+    case 0: return proto->AttackTime;
+    case 1: return 0;
+    case 2: return proto->RangedAttackTime;
+    }
+    return 2000;
+}
+
 void Creature::SafeDelete()
 {
     sEventMgr.RemoveEvents(this);
@@ -865,10 +876,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
             SetUInt32Value(UNIT_FIELD_RESISTANCES+i,proto->Resistances[i]);
     }
 
-    for(uint32 i = 1; i < 7; i++)
-        DamageDoneMod[i] = proto->Damage_Bonus[i-1];
-    HealDoneModPos = proto->Healing_Bonus;
-
     SetUInt32Value(UNIT_FIELD_HEALTH, health);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, health);
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, health);
@@ -883,9 +890,10 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     //Use proto displayid (random + gender generator), unless there is an id  specified in spawn->displayid
     uint32 model;
     uint32 gender = creature_info->GenerateModelId(&model);
-    SetByte(UNIT_FIELD_BYTES_0, 2, gender);
+    SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
     SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
     if(power) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
+    SetByte(UNIT_FIELD_BYTES_0, 2, gender);
 
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
@@ -896,9 +904,9 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     sLog.Debug("Creatures","NPC %u (model %u) got scale %f", proto->Id, model, realscale);
     SetFloatValue(OBJECT_FIELD_SCALE_X, realscale);
 
+    setLevel(level);
     SetUInt32Value(UNIT_NPC_EMOTESTATE, original_emotestate);
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID,original_MountedDisplayID);
-    SetUInt32Value(UNIT_FIELD_LEVEL, level);
     SetUInt32Value(UNIT_FIELD_BASEATTACKTIME,proto->AttackTime);
     SetFloatValue(UNIT_FIELD_MINDAMAGE, mindmg);
     SetFloatValue(UNIT_FIELD_MAXDAMAGE, maxdmg);
@@ -1215,19 +1223,16 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
             SetUInt32Value(UNIT_FIELD_RESISTANCES+i,proto->Resistances[i]);
     }
 
-    for(uint32 i = 1; i < 7; i++)
-        DamageDoneMod[i] = proto->Damage_Bonus[i-1];
-    HealDoneModPos = proto->Healing_Bonus;
-
     SetUInt32Value(UNIT_FIELD_HEALTH, health);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, health);
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, health);
 
     uint32 model = 0;
     uint32 gender = creature_info->GenerateModelId(&model);
-    setGender(gender);
+    SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
     SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
     if(power) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
+    SetByte(UNIT_FIELD_BYTES_0, 2, gender);
 
     float dbcscale = GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model ));
     float realscale = (proto->Scale > 0.0f ? proto->Scale : dbcscale);
@@ -1239,7 +1244,7 @@ bool Creature::Load(CreatureProto * proto_, uint32 mode, float x, float y, float
 
     EventModelChange();
 
-    SetUInt32Value(UNIT_FIELD_LEVEL, level);
+    setLevel(level);
 
     SetUInt32Value(UNIT_FIELD_BASEATTACKTIME,proto->AttackTime);
     SetFloatValue(UNIT_FIELD_MINDAMAGE, mindmg);

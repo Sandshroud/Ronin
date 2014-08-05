@@ -313,13 +313,13 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
     ss << m_uint32Values[ITEM_FIELD_CREATOR] << ",";
 
     ss << GetUInt32Value(ITEM_FIELD_STACK_COUNT) << ",";
-    ss << (int32)GetChargesLeft() << ",";
+    ss << int32(GetChargesLeft()) << ",";
     ss << GetUInt32Value(ITEM_FIELD_FLAGS) << ",";
     ss << random_prop << "," << random_suffix << ",";
     ss << GetTextID() << ",";
     ss << GetUInt32Value(ITEM_FIELD_DURABILITY) << ",";
-    ss << static_cast<int>(containerslot) << ",";
-    ss << static_cast<int>(slot) << ",'";
+    ss << int32(containerslot) << ",";
+    ss << int32(slot) << ",'";
 
     // Pack together enchantment fields
     if( Enchantments.size() > 0 )
@@ -347,15 +347,9 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
 
     ss << "',' ')";
 
-    if( firstsave )
-        CharacterDatabase.WaitExecute( ss.str().c_str() );
-    else
-    {
-        if( buf == NULL )
-            CharacterDatabase.Execute( ss.str().c_str() );
-        else
-            buf->AddQueryStr( ss.str() );
-    }
+    if( firstsave || buf == NULL )
+        CharacterDatabase.Execute( ss.str().c_str() );
+    else buf->AddQueryStr( ss.str() );
 
     m_isDirty = false;
 }
@@ -736,11 +730,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
-                    if( Apply )
-                        m_owner->DamageDonePosMod[0] += val;
-                    else
-                        m_owner->DamageDonePosMod[0] -= val;
-                    m_owner->UpdateStats();
+                    m_owner->ModifyBonuses( Apply, GetGUID(), MOD_SLOT_PERM_ENCHANT+Slot, ITEM_STAT_MOD_DAMAGE_PHYSICAL, val);
                 }break;
 
             case 3:      // Cast spell (usually means apply aura)
@@ -781,10 +771,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
-                    if( Apply )
-                        m_owner->FlatResistanceModifierPos[Entry->spell[c]] += val;
-                    else
-                        m_owner->FlatResistanceModifierPos[Entry->spell[c]] -= val;
+                    m_owner->ModifyBonuses( Apply, GetGUID(), MOD_SLOT_PERM_ENCHANT+Slot, ITEM_STAT_PHYSICAL_RESISTANCE+Entry->spell[c], val);
                 }break;
 
             case 5:  //Modify rating ...order is PLAYER_FIELD_COMBAT_RATING_1 and above
@@ -800,26 +787,13 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
 
             case 6:  // Rockbiter weapon (increase damage per second... how the hell do you calc that)
                 {
-                    if( Apply )
-                    {
-                        //if i'm not wrong then we should apply DMPS formula for this. This will have somewhat a larger value 28->34
-                        int32 val = Entry->min[c];
-                        if( RandomSuffixAmount )
-                            val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
+                    //if i'm not wrong then we should apply DMPS formula for this. This will have somewhat a larger value 28->34
+                    int32 val = Entry->min[c];
+                    if( RandomSuffixAmount )
+                        val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
-                        //int32 value = GetProto()->Delay * val / 1000;
-                        m_owner->DamageDonePosMod[0] += val;
-                    }
-                    else
-                    {
-                        int32 val = Entry->min[c];
-                        if( RandomSuffixAmount )
-                            val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
-
-                        //int32 value =- (int32)(GetProto()->Delay * val / 1000 );
-                        m_owner->DamageDonePosMod[0] += val;
-                    }
-                    m_owner->UpdateStats();
+                    //int32 value = GetProto()->Delay * val / 1000;
+                    m_owner->ModifyBonuses( Apply, GetGUID(), MOD_SLOT_PERM_ENCHANT+Slot, ITEM_STAT_MOD_DAMAGE_PHYSICAL, val);
                 }break;
 
             case 7:

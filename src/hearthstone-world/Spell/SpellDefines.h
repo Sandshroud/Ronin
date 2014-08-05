@@ -924,8 +924,8 @@ static const uint32 spellMaskArray[SCHOOL_ALL+1] = {
 
 HEARTHSTONE_INLINE uint8 SchoolMask(uint8 school)
 {
-    if(school > SCHOOL_ALL)
-        return uint8(0);
+    if(school >= SCHOOL_ALL)
+        return spellMaskArray[SCHOOL_ALL];
     return spellMaskArray[school];
 }
 
@@ -1313,240 +1313,6 @@ enum SpellFamilyNames
     SPELLFAMILY_PET         = 17
 };
 
-HEARTHSTONE_INLINE bool CanAgroHash(uint32 spellhashname)
-{
-    if (spellhashname == SPELL_HASH_HUNTER_S_MARK || spellhashname == SPELL_HASH_SAP || spellhashname == SPELL_HASH_EAGLE_EYE || spellhashname == SPELL_HASH_FAR_SIGHT )    //hunter's mark
-        return false;
-    return true;
-}
-
-HEARTHSTONE_INLINE bool IsCastedOnFriends(SpellEntry *sp)
-{
-    for( int frloop = 0; frloop < 3; frloop++ )
-    {
-        switch (sp->EffectImplicitTargetA[frloop])
-        {
-            case 1:     //EFF_TARGET_SELF
-            case 4:
-            case 5:     //EFF_TARGET_PET
-            case 20:    //EFF_TARGET_ALL_PARTY_AROUND_CASTER
-            case 21:    //EFF_TARGET_SINGLE_FRIEND
-            case 27:    //EFF_TARGET_PET_MASTER
-            case 30:    //EFF_TARGET_ALL_FRIENDLY_IN_AREA
-            case 31:    //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS_OVER_TIME
-            case 32:    //EFF_TARGET_MINION
-            case 33:    //EFF_TARGET_ALL_PARTY_IN_AREA
-            case 35:    //EFF_TARGET_SINGLE_PARTY
-            case 37:    //EFF_TARGET_ALL_PARTY
-            case 41:    //EFF_TARGET_TOTEM_EARTH
-            case 42:    //EFF_TARGET_TOTEM_WATER
-            case 43:    //EFF_TARGET_TOTEM_AIR
-            case 44:    //EFF_TARGET_TOTEM_FIRE
-            case 45:    //EFF_TARGET_CHAIN
-            case 56:
-            case 57:    //EFF_TARGET_PARTY_MEMBER
-            case 61:    //EFF_TARGET_AREAEFFECT_PARTY_AND_CLASS
-                return true;
-        }
-
-        switch (sp->EffectImplicitTargetB[frloop])
-        {
-            case 1:     //EFF_TARGET_SELF
-            case 4:
-            case 5:     //EFF_TARGET_PET
-            case 20:    //EFF_TARGET_ALL_PARTY_AROUND_CASTER
-            case 21:    //EFF_TARGET_SINGLE_FRIEND
-            case 27:    //EFF_TARGET_PET_MASTER
-            case 30:    //EFF_TARGET_ALL_FRIENDLY_IN_AREA
-            case 31:    //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS_OVER_TIME
-            case 32:    //EFF_TARGET_MINION
-            case 33:    //EFF_TARGET_ALL_PARTY_IN_AREA
-            case 35:    //EFF_TARGET_SINGLE_PARTY
-            case 37:    //EFF_TARGET_ALL_PARTY
-            case 41:    //EFF_TARGET_TOTEM_EARTH
-            case 42:    //EFF_TARGET_TOTEM_WATER
-            case 43:    //EFF_TARGET_TOTEM_AIR
-            case 44:    //EFF_TARGET_TOTEM_FIRE
-            case 45:    //EFF_TARGET_CHAIN
-            case 56:
-            case 57:    //EFF_TARGET_PARTY_MEMBER
-            case 61:    //EFF_TARGET_AREAEFFECT_PARTY_AND_CLASS
-                return true;
-        }
-    }
-    return false;
-}
-
-HEARTHSTONE_INLINE bool IsCastedOnEnemies(SpellEntry *sp)
-{
-    for( int frloop = 0; frloop < 3; frloop++ )
-    {
-        switch (sp->EffectImplicitTargetA[frloop])
-        {
-            case 6:     //EFF_TARGET_SINGLE_ENEMY
-            case 8:     //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS
-            case 15:    //EFF_TARGET_ALL_ENEMY_IN_AREA
-            case 16:    //EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
-            case 22:    //EFF_TARGET_ALL_ENEMIES_AROUND_CASTER
-            case 24:    //EFF_TARGET_IN_FRONT_OF_CASTER
-            case 28:    //EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED
-            case 54:    //EFF_TARGET_TARGET_AT_ORIENTATION_TO_CASTER
-            case 77:    //EFF_TARGET_SELECTED_ENEMY_CHANNELED
-                return true;
-        }
-
-        switch (sp->EffectImplicitTargetB[frloop])
-        {
-            case 6:     //EFF_TARGET_SINGLE_ENEMY
-            case 8:     //EFF_TARGET_ALL_TARGETABLE_AROUND_LOCATION_IN_RADIUS
-            case 15:    //EFF_TARGET_ALL_ENEMY_IN_AREA
-            case 16:    //EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
-            case 22:    //EFF_TARGET_ALL_ENEMIES_AROUND_CASTER
-            case 24:    //EFF_TARGET_IN_FRONT_OF_CASTER
-            case 28:    //EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED
-            case 54:    //EFF_TARGET_TARGET_AT_ORIENTATION_TO_CASTER
-            case 77:    //EFF_TARGET_SELECTED_ENEMY_CHANNELED
-                return true;
-        }
-    }
-    return false;
-}
-
-/************************************************************************/
-/* IsDamagingSpell, this function seems slow, its only used rarely      */
-/************************************************************************/
-HEARTHSTONE_INLINE bool IsDamagingSpell(SpellEntry *sp)
-{
-    if( sp->NameHash == SPELL_HASH_MUTILATE )
-        return true;
-
-    for (uint32 i = 0; i < 3; i++)
-    {
-        switch (sp->Effect[i])
-        {
-        case SPELL_EFFECT_SCHOOL_DAMAGE:
-        case SPELL_EFFECT_ENVIRONMENTAL_DAMAGE:
-        case SPELL_EFFECT_HEALTH_LEECH:
-        case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
-        case SPELL_EFFECT_ADD_EXTRA_ATTACKS:
-        case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE:
-        case SPELL_EFFECT_WEAPON_DAMAGE:
-        case SPELL_EFFECT_POWER_BURN:
-        case SPELL_EFFECT_ATTACK:
-        case SPELL_EFFECT_DUMMYMELEE:
-            return true;
-
-        case SPELL_EFFECT_APPLY_AURA:
-        case SPELL_EFFECT_APPLY_AREA_AURA:
-            {
-                switch (sp->EffectApplyAuraName[i])
-                {
-                case SPELL_AURA_PERIODIC_DAMAGE://SPELL_AURA_PERIODIC_DAMAGE:
-                case SPELL_AURA_PROC_TRIGGER_DAMAGE://SPELL_AURA_PROC_TRIGGER_DAMAGE:
-                case SPELL_AURA_PERIODIC_LEECH://SPELL_AURA_PERIODIC_LEECH:
-                case SPELL_AURA_PERIODIC_DAMAGE_PERCENT://SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
-                case SPELL_AURA_POWER_BURN_MANA://SPELL_AURA_POWER_BURN:
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-
-HEARTHSTONE_INLINE bool IsHealingSpell(SpellEntry *sp)
-{
-    for(uint32 i = 0; i < 3; i++)
-    {
-        switch( sp->Effect[i] )
-        {
-        case SPELL_EFFECT_SCHOOL_DAMAGE:
-            return false;
-            break;
-
-        case SPELL_EFFECT_HEAL:
-        case SPELL_EFFECT_HEALTH_FUNNEL:
-        case SPELL_EFFECT_HEAL_MAX_HEALTH:
-            return true;
-            break;
-
-        case SPELL_EFFECT_APPLY_AURA:
-        case SPELL_EFFECT_APPLY_AREA_AURA:
-            {
-                switch( sp->EffectApplyAuraName[i] )
-                {
-                case SPELL_AURA_PERIODIC_HEAL:
-                case SPELL_AURA_PERIODIC_HEALTH_FUNNEL:
-                    return true;
-                    break;
-
-                case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
-                    {
-                        SpellEntry * triggered = dbcSpell.LookupEntry(sp->EffectTriggerSpell[i]);
-                        if(triggered && triggered != sp && IsHealingSpell(triggered))
-                            return true;
-                    }break;
-                }
-            }break;
-        }
-    }
-
-    //flash of light, holy light uses a scripted effect which is not necessarily a heal spell
-    if( sp->NameHash == SPELL_HASH_HOLY_LIGHT || sp->NameHash == SPELL_HASH_FLASH_OF_LIGHT )
-        return true;
-
-    return false;
-}
-
-HEARTHSTONE_INLINE bool IsInrange(LocationVector & location, Object* o, float square_r)
-{
-    float r = o->GetDistanceSq(location);
-    return ( r<=square_r);
-}
-
-HEARTHSTONE_INLINE bool IsInrange(float x1,float y1, float z1, Object* o,float square_r)
-{
-    float r = o->GetDistanceSq(x1, y1, z1);
-    return ( r<=square_r);
-}
-
-HEARTHSTONE_INLINE bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r)
-{
-    float t;
-    float r;
-    t=x1-x2;
-    r=t*t;
-    t=y1-y2;
-    r+=t*t;
-    t=z1-z2;
-    r+=t*t;
-    return ( r<=square_r);
-}
-
-HEARTHSTONE_INLINE bool IsInrange(Object* o1,Object* o2,float square_r)
-{
-    return IsInrange(o1->GetPositionX(),o1->GetPositionY(),o1->GetPositionZ(),
-        o2->GetPositionX(),o2->GetPositionY(),o2->GetPositionZ(),square_r);
-}
-
-HEARTHSTONE_INLINE bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask)
-{
-    if( !ReqCreatureTypeMask )
-        return true;
-
-    if( obj->GetTypeId() == TYPEID_UNIT )
-    {
-        Creature* cr = TO_CREATURE(obj);
-        CreatureInfo* inf = cr->GetCreatureInfo();
-        if( inf == NULL || !( 1 << ( inf->Type - 1 ) & ReqCreatureTypeMask ) )
-            return false;
-    }
-    else if(obj->IsPlayer() && !(UNIT_TYPE_HUMANOID_BIT & ReqCreatureTypeMask))
-        return false;
-    else return false;//omg, how in the hack did we cast it on a GO ? But who cares ?
-    return true;
-}
-
 enum SpellState
 {
     SPELL_STATE_NULL        = 0,
@@ -1738,71 +1504,6 @@ typedef enum SpellEffectTarget
     TOTAL_SPELL_TARGET                                  = 111   // note: This is the highest known as of 3.3.3
 } SpellEffectTarget;
 
-HEARTHSTONE_INLINE bool IsFlyingSpell(SpellEntry *sp)
-{
-    if( sp->EffectApplyAuraName[0] == 206 ||
-        sp->EffectApplyAuraName[1] == 206 ||
-        sp->EffectApplyAuraName[1] == 206 ||
-
-        sp->EffectApplyAuraName[0] == 207 ||
-        sp->EffectApplyAuraName[1] == 207 ||
-        sp->EffectApplyAuraName[1] == 207 ||
-
-        sp->EffectApplyAuraName[0] == 208 ||
-        sp->EffectApplyAuraName[1] == 208 ||
-        sp->EffectApplyAuraName[1] == 208 ||
-
-        sp->NameHash == SPELL_HASH_SWIFT_FLIGHT_FORM ||
-        sp->NameHash == SPELL_HASH_FLIGHT_FORM ||
-        sp->NameHash == SPELL_HASH_MAGNIFICENT_FLYING_CARPET ||
-        sp->NameHash == SPELL_HASH_FLYING_CARPET )
-    {
-        return true;
-    }
-
-    return false;
-}
-
-HEARTHSTONE_INLINE bool IsTargetingStealthed(SpellEntry *sp)
-{
-    if( sp->Id == 3600 )
-        return false;
-
-    if(     sp->EffectImplicitTargetA[0]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-            sp->EffectImplicitTargetA[1]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-            sp->EffectImplicitTargetA[2]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-            sp->EffectImplicitTargetB[0]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-            sp->EffectImplicitTargetB[1]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-            sp->EffectImplicitTargetB[2]==EFF_TARGET_INVISIBLE_OR_HIDDEN_ENEMIES_AT_LOCATION_RADIUS ||
-
-            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMIES_AROUND_CASTER ||
-
-            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_CHANNELED ||
-
-            sp->EffectImplicitTargetA[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
-            sp->EffectImplicitTargetA[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
-            sp->EffectImplicitTargetA[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
-            sp->EffectImplicitTargetB[0]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
-            sp->EffectImplicitTargetB[1]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT ||
-            sp->EffectImplicitTargetB[2]==EFF_TARGET_ALL_ENEMY_IN_AREA_INSTANT
-        )
-    {
-        return true;
-    }
-
-    return false;
-}
-
 enum SpellImplicitTargetType
 {
     SPELL_TARGET_NONE                   = 0x00000000,
@@ -1845,3 +1546,16 @@ enum SpellDidHitResult
     SPELL_DID_HIT_ABSORB                    = 10,
     SPELL_DID_HIT_REFLECT                   = 11,
 };
+
+bool CanAgroHash(uint32 spellhashname);
+bool IsCastedOnFriends(SpellEntry *sp);
+bool IsCastedOnEnemies(SpellEntry *sp);
+bool IsDamagingSpell(SpellEntry *sp);
+bool IsHealingSpell(SpellEntry *sp);
+bool IsInrange(LocationVector & location, Object* o, float square_r);
+bool IsInrange(float x1,float y1, float z1, Object* o,float square_r);
+bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r);
+bool IsInrange(Object* o1,Object* o2,float square_r);
+bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask);
+bool IsFlyingSpell(SpellEntry *sp);
+bool IsTargetingStealthed(SpellEntry *sp);

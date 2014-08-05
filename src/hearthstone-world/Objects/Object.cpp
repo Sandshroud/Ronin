@@ -1183,7 +1183,7 @@ void Object::SetByte(uint32 index, uint32 index1,uint8 value)
 {
     ASSERT( index < m_valuesCount );
 
-    if(index1 > 4)
+    if(index1 >= 4)
     {
         sLog.outError("Object::SetByteValue: wrong offset %u", index1);
         return;
@@ -2454,22 +2454,19 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                     TO_CREATURE( pVictim )->GetAIInterface()->AttackReaction( TO_UNIT(this), damage, spellId );
 
             if( IsUnit() && TO_UNIT( this )->HasDummyAura( SPELL_HASH_MARK_OF_BLOOD ) )
-            {
-                SpellEntry * tmpsp = dbcSpell.LookupEntry(50424);
-                CastSpell(pVictim, tmpsp, true);
-            }
+                CastSpell(pVictim, dbcSpell.LookupEntry(50424), true);
             else if( IsPlayer() && spellId )
             {
                 Player* plra = TO_PLAYER(this);
                 SpellEntry *spentry = dbcSpell.LookupEntry( spellId );
                 if( (spentry->NameHash == SPELL_HASH_CORRUPTION || spentry->NameHash == SPELL_HASH_UNSTABLE_AFFLICTION) && plra->HasDummyAura(SPELL_HASH_PANDEMIC) )
                 {
-                    if( Rand( plra->GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE1+5) ) && pVictim )
+                    if( Rand( plra->GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+5) ) && pVictim )
                     {
-                        Spell* sp(new Spell(this, dbcSpell.LookupEntry(58691), true, NULLAURA));
+                        Spell* sp = new Spell(this, dbcSpell.LookupEntry(58691), true, NULLAURA);
                         SpellCastTargets targets;
                         targets.m_unitTarget = pVictim->GetGUID();
-                        sp->forced_basepoints[0] = float2int32(damage * ( plra->GetDummyAura(SPELL_HASH_PANDEMIC)->RankNumber * 0.33f + 0.01f));
+                        //sp->forced_basepoints[0] = float2int32(damage * ( plra->GetDummyAura(SPELL_HASH_PANDEMIC)->RankNumber * 0.33f + 0.01f));
                         sp->prepare(&targets);
                     }
                 }
@@ -2667,17 +2664,6 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     // Special cases
     if (caster)
     {
-        if (caster->m_frozenTargetCharges > 0 && spellInfo->School == SCHOOL_FROST)
-        {
-            caster->m_frozenTargetCharges--;
-            if (caster->m_frozenTargetCharges <= 0)
-                caster->RemoveAura(caster->m_frozenTargetId);
-        }
-
-        // [Mage] Hot Streak
-        if (!(aproc2 & PROC_ON_SPELL_CRIT_HIT))
-            caster->m_hotStreakCount = 0;
-
         if( aproc2 & PROC_ON_SPELL_CRIT_HIT && caster->HasDummyAura(SPELL_HASH_ECLIPSE))
         {
             if( caster->m_CustomTimers[CUSTOM_TIMER_ECLIPSE] <= getMSTime() )
@@ -2782,9 +2768,6 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 
     if( school == SHADOW_DAMAGE )
     {
-        if( IsPlayer() && TO_UNIT(this)->isAlive() && TO_PLAYER(this)->getClass() == PRIEST )
-            TO_PLAYER(this)->VampiricSpell(float2int32(res), pVictim, dbcSpell.LookupEntry(spellID));
-
         if( pVictim->isAlive() && IsUnit() )
         {
             //Shadow Word: Death

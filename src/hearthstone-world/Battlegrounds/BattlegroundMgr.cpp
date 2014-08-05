@@ -1684,7 +1684,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, ui
     pCreature->SetUInt32Value(UNIT_FIELD_MAX_FOCUS, 200);
     pCreature->SetUInt32Value(UNIT_FIELD_MAX_HAPPINESS, 2000000);
 
-    pCreature->SetUInt32Value(UNIT_FIELD_LEVEL, 60);
+    pCreature->setLevel(60);
     pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 84 - horde);
     pCreature->SetUInt32Value(UNIT_FIELD_BYTES_0, 0 | (2 << 8) | (1 << 16));
 

@@ -4,231 +4,124 @@
 
 #include "StdAfx.h"
 
-uint32 getConColor(uint16 AttackerLvl, uint16 VictimLvl)
+initialiseSingleton(StatSystem);
+
+StatSystem::StatSystem()
 {
 
-#define PLAYER_LEVEL_CAP 85
-    const uint32 grayLevel[PLAYER_LEVEL_CAP+1] = {0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,13,14,15,16,17,18,19,20,21,22,22,23,24,25,26,27,28,29,30,31,31,32,33,34,35,35,36,37,38,39,39,40,41,42,43,43,44,45,46,47,47,48,49,50,51,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,65,66,66,67,68,69};
-    if(AttackerLvl + 5 <= VictimLvl)
+}
+
+StatSystem::~StatSystem()
+{
+
+}
+
+bool StatSystem::LoadUnitStats()
+{
+    QueryResult *result = WorldDatabase.Query("SELECT * FROM unit_base_stats");
+    if(result == NULL)
     {
-        if(AttackerLvl + 10 <= VictimLvl)
+        sLog.Error("StatMgr", "No unit stats loaded, server will not function without proper unit stat data!");
+        return false;
+    }
+
+    do
+    {
+        Field *fields = result->Fetch();
+        uint8 race = fields[0].GetUInt8();
+        uint8 _class = fields[1].GetUInt8();
+        uint16 level = fields[2].GetUInt16();
+        uint32 index = uint32(level) | uint32(uint32(race)<<16) | uint32(uint32(_class)<<24);
+        UnitBaseStats *baseStats = new UnitBaseStats();
+        baseStats->baseHP = fields[3].GetUInt32();
+        baseStats->basePower = fields[4].GetUInt32();
+        baseStats->baseStat[0] = fields[5].GetUInt32();
+        baseStats->baseStat[1] = fields[6].GetUInt32();
+        baseStats->baseStat[2] = fields[7].GetUInt32();
+        baseStats->baseStat[3] = fields[8].GetUInt32();
+        baseStats->baseStat[4] = fields[9].GetUInt32();
+        m_UnitBaseStats.insert(std::make_pair(index, baseStats));
+    }while(result->NextRow());
+    return true;
+}
+
+UnitBaseStats *StatSystem::GetUnitBaseStats(uint8 race, uint8 _class, uint16 level)
+{
+    uint32 index = uint32(level) | uint32(uint32(race)<<16) | uint32(uint32(_class)<<24);
+    if(m_UnitBaseStats.find(index) == m_UnitBaseStats.end())
+        return NULL;
+    return m_UnitBaseStats.at(index);
+}
+
+uint32 getGrayLevel(uint16 unitLevel)
+{
+    if (unitLevel > 5 && unitLevel <= 39)
+        return unitLevel - 5 - unitLevel / 10;
+    else if (unitLevel <= 59)
+        return unitLevel - 1 - unitLevel / 5;
+    return unitLevel - 9;
+}
+
+inline uint8 GetZeroDifference(uint8 pl_level)
+{
+    uint8 diff=0;
+    if(pl_level >= 10)
+    {
+        if(pl_level <= 20)
+            diff += float2int32(floor((float(pl_level)-8.f)/2.f));
+        else
         {
-            return 5;
+            for(uint8 i = 2; i <= 5; i++)
+            {
+                diff += 4;
+                if(pl_level <= (20*i))
+                {
+                    diff += float2int32(floor((float(pl_level)-float((20*(i-1))-2))/2.f));
+                    break;
+                }
+                if(i == 5) diff *= 2;
+            }
         }
+    }
+    return diff;
+}
+
+uint32 getConColor(uint16 AttackerLvl, uint16 VictimLvl)
+{
+    if (VictimLvl >= AttackerLvl + 10)
+        return 5;
+    else if (VictimLvl >= AttackerLvl + 5)
         return 4;
-    }
-    else
-    {
-        switch(VictimLvl - AttackerLvl)
-        {
-        case 4:
-        case 3:
-            return 3;
-            break;
-        case 2:
-        case 1:
-        case 0:
-        case -1:
-        case -2:
-            return 2;
-            break;
-        default:
-            // More adv formula for grey/green lvls:
-            if(AttackerLvl <= 6)
-            {
-                return 1; //All others are green.
-            }
-            else
-            {
-                if(AttackerLvl > PLAYER_LEVEL_CAP)
-                    return 1;//gm
-                if(AttackerLvl<PLAYER_LEVEL_CAP && VictimLvl <= grayLevel[AttackerLvl])
-                    return 0;
-                else
-                    return 1;
-            }
-        }
-    }
-#undef PLAYER_LEVEL_CAP
+    else if (VictimLvl >= AttackerLvl + 3)
+        return 3;
+    else if (VictimLvl >= AttackerLvl - 2)
+        return 2;
+    else if (VictimLvl > getGrayLevel(AttackerLvl))
+        return 1;
+    return 0;
 }
 
 uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker)
 {
-    if(pVictim->IsPlayer())
-        return 0;
+    uint32 baseGain = 0, nBaseExp = 45+(611*3); // 3 is zone expansion
 
-    if( TO_CREATURE(pVictim)->IsTotem())
-        return 0;
-
-    CreatureInfo *victimI;
-    victimI = TO_CREATURE(pVictim)->GetCreatureInfo();
-
-    if(victimI)
-        if(victimI->Type == CRITTER)
-            return 0;
-    uint32 VictimLvl = pVictim->getLevel();
-    uint32 AttackerLvl = pAttacker->getLevel();
-
-    if( pAttacker->IsPet() && TO_PET(pAttacker)->GetPetOwner() )
+    if (pVictim->getLevel() >= pAttacker->getLevel())
     {
-        // based on: http://www.wowwiki.com/Talk:Formulas:Mob_XP#Hunter.27s_pet_XP (2008/01/12)
-        uint32 ownerLvl = TO_PET( pAttacker )->GetPetOwner()->getLevel();
-        VictimLvl += ownerLvl - AttackerLvl;
-        AttackerLvl = ownerLvl;
-    }
-    else if( (int32)VictimLvl - (int32)AttackerLvl > 10 ) //not wowwikilike but more balanced
-        return 0;
-
-    // Partha: this screws things up for pets and groups
-
-    float zd = 5;
-    float g = 5;
-
-    // get zero diff
-    // get grey diff
-
-    if(AttackerLvl >= 100)
-    {
-        zd = 23;
-        g = 19;
-    }
-    else if(AttackerLvl >= 90)
-    {
-        zd = 22;
-        g = 18;
-    }
-    else if(AttackerLvl >= 80)
-    {
-        zd = 21;
-        g = 17;
-    }
-    else if(AttackerLvl >= 75)
-    {
-        zd = 20;
-        g = 16;
-    }
-    else if(AttackerLvl >= 70)
-    {
-        zd = 19;
-        g = 15;
-    }
-    else if(AttackerLvl >= 65)
-    {
-        zd = 18;
-        g = 14;
-    }
-    else if(AttackerLvl >= 60)
-    {
-        zd = 17;
-        g = 13;
-    }
-    else if(AttackerLvl >= 55)
-    {
-        zd = 16;
-        g = 12;
-    }
-    else if(AttackerLvl >= 50)
-    {
-        zd = 15;
-        g = 11;
-    }
-    else if(AttackerLvl >= 45)
-    {
-        zd = 14;
-        g = 10;
-    }
-    else if(AttackerLvl >= 40)
-    {
-        zd = 13;
-        g = 9;
-    }
-    else if(AttackerLvl >= 30)
-    {
-        zd = 12;
-        g = 8;
-    }
-    else if(AttackerLvl >= 20)
-    {
-        zd = 11;
-        g = 7;
-    }
-    else if(AttackerLvl >= 16)
-    {
-        zd = 9;
-        g = 6;
-    }
-    else if(AttackerLvl >= 12)
-    {
-        zd = 8;
-        g = 6;
-    }
-    else if(AttackerLvl >= 10)
-    {
-        zd = 7;
-        g = 6;
-    }
-    else if(AttackerLvl >= 8)
-    {
-        zd = 6;
-        g = 5;
+        uint8 nLevelDiff = pVictim->getLevel() - pAttacker->getLevel();
+        if (nLevelDiff > 4) nLevelDiff = 4;
+        baseGain = ((pAttacker->getLevel() * 5 + nBaseExp) * (20 + nLevelDiff) / 10 + 1) / 2;
     }
     else
     {
-        zd = 5;
-        g = 5;
-    }
-
-    float xp = 0.0f;
-    float fVictim = float(VictimLvl);
-    float fAttacker = float(AttackerLvl);
-
-    if(VictimLvl == AttackerLvl)
-        xp = float( ((fVictim * 5.0f) + 45.0f) );
-    else if(VictimLvl > AttackerLvl)
-    {
-        float j = 1.0f + (0.25f * (fVictim - fAttacker));
-        xp = float( ((AttackerLvl * 5.0f) + 45.0f) * j );
-    }
-    else
-    {
-        if((AttackerLvl - VictimLvl) < g)
+        uint8 gray_level = getGrayLevel(pAttacker->getLevel());
+        if (pVictim->getLevel() > gray_level)
         {
-            float j = (1.0f - float((fAttacker - fVictim) / zd));
-            xp = (AttackerLvl * 5.0f + 45.0f) * j;
-        }
+            uint8 ZD = GetZeroDifference(pAttacker->getLevel());
+            baseGain = (pAttacker->getLevel() * 5 + nBaseExp) * (ZD + pVictim->getLevel() - pAttacker->getLevel()) / ZD;
+        } else baseGain = 0;
     }
 
-    // multiply by global XP rate
-    if(xp == 0.0f)
-        return 0;
-
-    xp *= sWorld.getRate(RATE_XP);
-
-    // elite boss multiplier
-    if(victimI)
-    {
-        switch(victimI->Rank)
-        {
-        case 0: // normal mob
-            break;
-        case 1: // elite
-            xp *= 2.0f;
-            break;
-        case 2: // rare elite
-            xp *= 2.0f;
-            break;
-        case 3: // world boss
-            xp *= 2.5f;
-            break;
-        default:    // rare or higher
-            //          xp *= 7.0f;
-            break;
-        }
-    }
-    if( xp < 0 )//probably caused incredible wrong exp
-        xp = 0;
-
-    return (uint32)xp;
+    return baseGain;
 }
 
 /*
@@ -659,11 +552,6 @@ uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_typ
         BonusItem = TO_PLAYER(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
     }
 
-    if( pAttacker->IsPlayer() && BonusItem )
-    {
-        appbonuspct = TO_PLAYER(pAttacker)->m_WeaponSubClassDamagePct[ BonusItem->GetProto()->SubClass  ];
-    }
-
     if(offset == UNIT_FIELD_MINRANGEDDAMAGE)
     {
         //starting from base attack power then we apply mods on it
@@ -764,7 +652,7 @@ uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_typ
 
             if(ability && ability->SpellGroupType)
             {
-                int32 apall = pAttacker->GetAP();
+                int32 apall = pAttacker->CalculateAttackPower();
                 /* this spell modifier doesn't exist. also need to clear up how the AP is used here
                 int32 apb=0;
                 SM_FIValue(pAttacker->SM[SMT_ATTACK_POWER_BONUS][1],&apb,ability->SpellGroupType);

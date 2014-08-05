@@ -34,6 +34,7 @@ public:
     void Init(Unit* unit);
     void DeInit();
     void RelocateEvents();
+    void OnChangeLevel(uint32 newlevel);
     void SaveAuras(stringstream&);
     uint8 GetFreeSlot(bool ispositive);
     void OnAuraRemove(Aura* aura, uint8 aura_slot);
@@ -42,9 +43,7 @@ public:
     bool IsPoisoned();
     void UpdateDuelAuras();
     void BuildAllAuraUpdates();
-    void UpdateDeadlyPoisons(uint32 eatcount);
     void UpdateAuraStateAuras(uint32 oldflag);
-    uint32 GetPoisonDosesCount(uint32 poison_type);
     bool BuildAuraUpdateAllPacket(WorldPacket* data);
     void SpellStealAuras(Unit* caster, int32 MaxSteals);
     void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);
@@ -176,6 +175,7 @@ public:
     bool GetModMaskBit(uint32 type) { return m_modifierMask.GetBit(type); }
     void SetModMaskBit(uint32 type) { m_modifierMask.SetBit(type); };
     void UnsetModMaskBit(uint32 type) { m_modifierMask.UnsetBit(type); };
+    void ClearModMaskBits() { m_modifierMask.Clear(); };
     bool GetAndUnsetModMaskBit(uint32 type)
     {
         bool res = false;

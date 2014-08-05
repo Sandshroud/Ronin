@@ -68,20 +68,15 @@ void TicketMgr::SaveGMTicket(GM_Ticket* ticket, QueryBuffer * buf)
     ss << ticket->posZ << ", '";
     ss << CharacterDatabase.EscapeString(ticket->message) << "', ";
     ss << ticket->timestamp << ", ";
-
-    if( ticket->deleted  )
-        ss << uint32( 1 );
-    else
-        ss << uint32( 0 );
+    ss << uint32( ticket->deleted ? 1 : 0);
     ss << ",";
 
     ss << ticket->assignedToPlayer << ", '";
     ss << CharacterDatabase.EscapeString(ticket->comment) << "');";
 
-    if(buf == NULL)
-        CharacterDatabase.ExecuteNA(ss.str( ).c_str( ));
-    else
-        buf->AddQueryStr(ss.str());
+    if(buf) buf->AddQueryStr(ss.str());
+    else CharacterDatabase.ExecuteNA(ss.str( ).c_str( ));
+    
 }
 
 void TicketMgr::AddGMTicket(GM_Ticket *ticket, bool startup)

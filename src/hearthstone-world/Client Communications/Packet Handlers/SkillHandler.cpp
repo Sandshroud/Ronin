@@ -15,34 +15,44 @@ void WorldSession::HandleLearnTalentOpcode( WorldPacket & recv_data )
     recv_data >> talent_id >> requested_rank;
 
     _player->LearnTalent(talent_id, requested_rank);
-
-    _player->smsg_TalentsInfo(false);
 }
 
 void WorldSession::HandleLearnPreviewTalents( WorldPacket & recv_data )
 {
-    uint32 count = 0;
+    int32 tabPage, count;
+    recv_data >> tabPage >> count;
+    if(tabPage >= 0)
+    {
+        uint8 activeTab =  _player->m_talentInterface.GetActiveTalentTab();
+        if(tabPage != activeTab && activeTab != 0xFF)
+            return;
+
+        printf("TabPage: %i count %i\n", tabPage, count);
+        _player->m_talentInterface.SetActiveTalentTab(tabPage);
+    }
+
     uint32 talent_id, requested_rank;
-    recv_data >> count;
-    for(uint32 i = 0; i < count && recv_data.rpos() < recv_data.size(); i++)
+    for(uint32 i = 0; i < count; i++)
     {
         recv_data >> talent_id >> requested_rank;
-        _player->LearnTalent(talent_id, requested_rank);
+        printf("Attempting talent %u rank %u\n", talent_id, requested_rank);
+        if(!_player->LearnTalent(talent_id, requested_rank))
+            break;
+        printf("Talent learned\n");
     }
-    _player->smsg_TalentsInfo(false);
+    _player->m_talentInterface.SendTalentInfo();
 }
 
 void WorldSession::HandleUnlearnTalents( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
     uint32 playerGold = GetPlayer()->GetUInt32Value( PLAYER_FIELD_COINAGE );
-    uint32 price = GetPlayer()->CalcTalentResetCost(GetPlayer()->GetTalentResetTimes());
+    uint32 price = GetPlayer()->CalcTalentResetCost(GetPlayer()->m_talentInterface.GetTalentResets());
 
     if( playerGold < price ) return;
 
-    GetPlayer()->SetTalentResetTimes(GetPlayer()->GetTalentResetTimes() + 1);
+    GetPlayer()->ResetSpec(_player->m_talentInterface.GetActiveSpec());
     GetPlayer()->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
-    GetPlayer()->Reset_Talents();
 
     GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCostTotal( price );
     GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCount();

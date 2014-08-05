@@ -146,11 +146,17 @@ FILE(GLOB object_unit_sources
 source_group("Objects\\Units" FILES ${object_unit_sources})
 SET(group_sources ${group_sources} ${object_unit_sources})
 
-FILE(GLOB player_system_sources
-"${prefix}/Player Systems/*.h"
-"${prefix}/Player Systems/*.cpp")
-source_group("Player Systems" FILES ${player_system_sources})
-SET(group_sources ${group_sources} ${player_system_sources})
+FILE(GLOB unit_system_sources
+"${prefix}/Unit Systems/*.h"
+"${prefix}/Unit Systems/*.cpp")
+source_group("Unit Systems" FILES ${unit_system_sources})
+SET(group_sources ${group_sources} ${unit_system_sources})
+
+FILE(GLOB unit_system_player_system_sources
+"${prefix}/Unit Systems/Player Systems/*.h"
+"${prefix}/Unit Systems/Player Systems/*.cpp")
+source_group("Unit Systems\\Player Systems" FILES ${unit_system_player_system_sources})
+SET(group_sources ${group_sources} ${unit_system_player_system_sources})
 
 FILE(GLOB script_sources
 "${prefix}/ScriptInterface/*.h"

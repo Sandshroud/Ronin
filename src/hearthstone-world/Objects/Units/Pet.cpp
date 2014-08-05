@@ -510,20 +510,7 @@ void Pet::InitializeMe()
     // Load our spells
     SetDefaultSpells();
 
-    if(Summon)
-    {
-        // Adds parent +frost spell damage
-        if(m_uint32Values[OBJECT_FIELD_ENTRY] == WATER_ELEMENTAL)
-        {
-            float parentfrost = (float)m_Owner->GetDamageDoneMod(SCHOOL_FROST);
-            parentfrost *= 0.40f;
-            if(parentfrost > 0)
-                DamageDonePosMod[SCHOOL_FROST] = (uint32)parentfrost;
-            else
-                DamageDoneNegMod[SCHOOL_FROST] = (uint32)parentfrost;
-        }
-    }
-    else
+    if(Summon == false)
     {
         // Pull from database... :/
         QueryResult * query = CharacterDatabase.Query("SELECT * FROM playerpetspells WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
@@ -577,9 +564,6 @@ void Pet::InitializeMe()
     SetDefaultActionbar();
 
     SendSpellsToOwner();
-
-    if(!Summon)
-        m_Owner->smsg_TalentsInfo(true);
 
     // set to active
     if(!bExpires)
@@ -1147,9 +1131,9 @@ void Pet::ApplySummonLevelAbilities()
     float pet_sta_to_hp = R_pet_sta_to_hp[stat_index];
 
     // Calculate bonuses
-    float pet_sta_bonus = 0.3 * (float)m_Owner->GetBaseStat(STAT_STAMINA);      // + sta_buffs
-    float pet_int_bonus = 0.3 * (float)m_Owner->GetBaseStat(STAT_INTELLECT);    // + int_buffs
-    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBaseResistance(RESISTANCE_ARMOR);   // + arm_buffs
+    float pet_sta_bonus = 0.3 * (float)m_Owner->GetBonusStat(STAT_STAMINA);      // + sta_buffs
+    float pet_int_bonus = 0.3 * (float)m_Owner->GetBonusStat(STAT_INTELLECT);    // + int_buffs
+    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBonusResistance(RESISTANCE_ARMOR);   // + arm_buffs
 
     float pet_str = base_str + float(level) * mod_str;
     float pet_agi = base_agi + float(level) * mod_agi;
@@ -1192,7 +1176,7 @@ void Pet::ApplyPetLevelAbilities()
 
     // As of patch 3.0 the pet gains 45% of the hunters stamina
     float pet_sta_bonus = 0.45 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_STAMINA);
-    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBaseResistance(RESISTANCE_ARMOR);       // Armor
+    float pet_arm_bonus = 0.35 * (float)m_Owner->GetBonusResistance(RESISTANCE_ARMOR);       // Armor
     float pet_ap_bonus = 0.22 * (float)m_Owner->GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER);
 
     //Base attributes from http://petopia.brashendeavors.net/html/art...ttributes.shtml
@@ -1488,8 +1472,6 @@ bool Pet::ResetTalents(bool costs)
     if (GetSpentPetTalentPoints() == 0)
     {
         SetUnspentPetTalentPoints(talentPointsForLevel);
-
-        m_Owner->smsg_TalentsInfo(true);
         return false;
     }
 
@@ -1545,7 +1527,6 @@ bool Pet::ResetTalents(bool costs)
     }
 
     SetUnspentPetTalentPoints(talentPointsForLevel);
-    m_Owner->smsg_TalentsInfo(true);
 
     if(costs)
         m_Owner->ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)money);
@@ -1623,8 +1604,6 @@ void Pet::InitializeTalents()
         // add the talent spell to our pet
         LearnSpell( spellId );
     }
-    if( m_Owner)
-        m_Owner->smsg_TalentsInfo(true);
 }
 
 void Pet::SendActionFeedback( PetActionFeedback value )

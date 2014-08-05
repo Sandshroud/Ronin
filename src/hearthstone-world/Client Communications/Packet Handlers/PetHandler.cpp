@@ -459,7 +459,6 @@ void WorldSession::HandlePetUnlearn(WorldPacket & recv_data)
     }
     _player->ModUnsigned32Value( PLAYER_FIELD_COINAGE, -cost );
     pPet->WipeSpells();
-    _player->smsg_TalentsInfo(true);
 }
 
 void WorldSession::HandleTotemDestroyed(WorldPacket & recv_data)
@@ -566,7 +565,6 @@ void WorldSession::HandlePetLearnTalent( WorldPacket & recvPacket )
         // finally re-send our actionbar/spells to the player xD
         pPet->SendSpellsToOwner();
     }
-    _player->smsg_TalentsInfo(true);
 }
 
 void WorldSession::HandleCancelPetAura(WorldPacket& recvPacket)

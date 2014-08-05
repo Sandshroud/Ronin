@@ -790,6 +790,30 @@ struct SpellEntry
     // Queries/Commands:
     bool IsChannelSpell() { return ((AttributesEx & (0x04|0x40)) ? true : (ChannelInterruptFlags != 0 ? true : false)); }
     bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); };
+
+    int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
+    {
+        int32 points = EffectBasePoints[effIndex], calcLevel = level;
+        if(EffectRealPointsPerLevel[effIndex])
+        {
+            if(calcLevel < spellLevel)
+                calcLevel = baseLevel;
+            else
+            {
+                calcLevel -= spellLevel;
+                if(calcLevel < baseLevel)
+                    calcLevel = baseLevel;
+                else if (maxLevel && calcLevel > maxLevel)
+                    calcLevel = maxLevel;
+            }
+            points += float2int32(float(calcLevel)*EffectRealPointsPerLevel[effIndex]);
+        }
+        if(EffectDieSides[effIndex] > 1)
+            points += rand() % EffectDieSides[effIndex];
+        if(EffectPointsPerComboPoint[effIndex] >= 1)
+            points += comboPoints*EffectPointsPerComboPoint[effIndex];
+        return points;
+    }
 };
 
 // SpellAuraOptions.dbc

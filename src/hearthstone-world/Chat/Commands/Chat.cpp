@@ -507,8 +507,6 @@ void CommandTableStorage::Init()
         { "renamepet",              COMMAND_LEVEL_M, &ChatHandler::HandleRenamePetCommand,      "Renames a pet to <name>.",     NULL, 0, 0, 0 },
         { "addspell",               COMMAND_LEVEL_M, &ChatHandler::HandleAddPetSpellCommand,    "Teaches pet <spell>.",         NULL, 0, 0, 0 },
         { "removespell",            COMMAND_LEVEL_M, &ChatHandler::HandleRemovePetSpellCommand, "Removes pet spell <spell>.",   NULL, 0, 0, 0 },
-        { "addtalentpoints",        COMMAND_LEVEL_M, &ChatHandler::HandleAddPetTalentPoints,    "Adds <x> talent points to pet",NULL, 0, 0, 0 },
-        { "resettalents",           COMMAND_LEVEL_M, &ChatHandler::HandleResetPetTalents,       "Resets the pets talents",      NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                      "",                             NULL, 0, 0, 0 },
     };
     dupe_command_table(petCommandTable, _petCommandTable);

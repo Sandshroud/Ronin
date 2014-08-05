@@ -2520,10 +2520,7 @@ int LuaUnit_SetPlayerLevel(lua_State * L, Unit * ptr)
 {
     CHECK_TYPEID_RET(TYPEID_PLAYER);
     uint32 level = luaL_checkint(L,1);
-    LevelInfo * Info = objmgr.GetLevelInfo(ptr->getRace(),ptr->getClass(),level);
-    if (Info != NULL)
-        TO_PLAYER(ptr)->lvlinfo = Info;
-    TO_PLAYER(ptr)->ApplyLevelInfo(level);
+    TO_PLAYER(ptr)->setLevel(level);
     return 1;
 }
 int LuaUnit_AddSkill(lua_State * L, Unit * ptr)
@@ -2976,7 +2973,7 @@ int LuaUnit_ClearAllCooldowns(lua_State * L, Unit * ptr)
 int LuaUnit_ResetAllTalents(lua_State * L, Unit * ptr)
 {
     TEST_PLAYER();
-    TO_PLAYER(ptr)->Reset_Talents(true);
+    TO_PLAYER(ptr)->m_talentInterface.ResetAllSpecs();
     return 1;
 }
 
@@ -4230,7 +4227,7 @@ int LuaUnit_ResetTalents(lua_State * L, Unit * ptr)
 {
     TEST_PLAYER();
     Player * plr = TO_PLAYER(ptr);
-    plr->Reset_Talents();
+    plr->m_talentInterface.ResetAllSpecs();
     return 1;
 }
 

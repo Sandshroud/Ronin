@@ -792,7 +792,7 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
                 if( pTrainer->RequiredClass == Plr->getClass() && pCreature->getLevel() > 10 && Plr->getLevel() > 11 )
                 {
                     Menu->AddItem(GOSSIP_ICON_GOSSIP_NORMAL, "I would like to reset my talents.", 11);
-                    if( Plr->getLevel() >= 40 && Plr->m_talentSpecsCount < 2)
+                    if( Plr->getLevel() >= 40 && Plr->m_talentInterface.GetSpecCount() < 2)
                         Menu->AddItem(GOSSIP_ICON_GOSSIP_NORMAL, "Learn about Dual Talent Specialization.", 16);
                 }
             }
