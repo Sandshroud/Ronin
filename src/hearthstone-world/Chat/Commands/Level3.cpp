@@ -412,8 +412,8 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
     Creature* crt = getSelectedCreature(m_session);
     if(crt == NULL)
         return false;
-    if(crt->GetCreatureInfo())
-        BlueSystemMessage(m_session, "Showing creature info for %s", crt->GetCreatureInfo()->Name);
+    if(crt->GetCreatureData())
+        BlueSystemMessage(m_session, "Showing creature info for %s", crt->GetCreatureData()->Name);
     FactionTemplateEntry *factionTemplate = crt->GetFactionTemplate();
 
     SystemMessage(m_session, "LowGUID %u", crt->GetLowGUID());
@@ -432,8 +432,8 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
 
     GreenSystemMessage(m_session, "Damage min/max: %f/%f", crt->GetFloatValue(UNIT_FIELD_MINDAMAGE),crt->GetFloatValue(UNIT_FIELD_MAXDAMAGE));
     GreenSystemMessage(m_session, "Phase: %i", crt->GetPhaseMask());
-    if(crt->m_spawn)
-        GreenSystemMessage(m_session, "Vendor Mask: %i", crt->m_spawn->vendormask);
+    if(crt->IsSpawn())
+        GreenSystemMessage(m_session, "Vendor Mask: %i", crt->GetVendorMask());
     ColorSystemMessage(m_session, MSG_COLOR_RED, "Entry ID: %u", crt->GetUInt32Value(OBJECT_FIELD_ENTRY));
     ColorSystemMessage(m_session, MSG_COLOR_RED, "SQL Entry ID: %u", crt->GetSQL_id());
 
@@ -963,15 +963,15 @@ bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
             if(strcmp(args, "on") == 0)
             {
                 ctr->EnableFlight();
-                if(ctr->GetCreatureInfo())
-                    BlueSystemMessage(m_session, "Enabling fly mode on %s", ctr->GetCreatureInfo()->Name);
+                if(ctr->GetCreatureData())
+                    BlueSystemMessage(m_session, "Enabling fly mode on %s", ctr->GetCreatureData()->Name);
                 return true;
             }
             else if(strcmp(args, "off") == 0)
             {
                 ctr->DisableFlight();
-                if(ctr->GetCreatureInfo())
-                    BlueSystemMessage(m_session, "Disabling fly mode on %s", ctr->GetCreatureInfo()->Name);
+                if(ctr->GetCreatureData())
+                    BlueSystemMessage(m_session, "Disabling fly mode on %s", ctr->GetCreatureData()->Name);
                 return true;
             }
 
@@ -1173,9 +1173,8 @@ bool ChatHandler::HandleCreatePetCommand(const char* args, WorldSession* m_sessi
     if(player == NULL)
         return false;
 
-    CreatureProto * pTemplate = CreatureProtoStorage.LookupEntry(Entry);
-    CreatureInfo * pCreatureInfo = CreatureNameStorage.LookupEntry(Entry);
-    if(!pTemplate || !pCreatureInfo || !pCreatureInfo->Family)
+    CreatureData * ctrData = sCreatureDataMgr.GetCreatureData(Entry);
+    if(ctrData == NULL || !ctrData->Family)
     {
         RedSystemMessage(m_session, "Invalid creature for pet: %u", Entry);
         return true;
@@ -1186,13 +1185,13 @@ bool ChatHandler::HandleCreatePetCommand(const char* args, WorldSession* m_sessi
     else if(player->GetSummon() || player->GetUnstabledPetNumber())
         return false;
 
-    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(pCreatureInfo->Family);
+    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(ctrData->Family);
     if(cf && !cf->tameable)
         return false;
 
-    Pet* pPet = objmgr.CreatePet();
+    Pet* pPet = objmgr.CreatePet(ctrData);
     pPet->SetInstanceID(player->GetInstanceID());
-    pPet->CreateAsSummon(pTemplate, pCreatureInfo, NULL, player, NULL, NULL, 2, 0);
+    pPet->CreateAsSummon(NULL, player, NULL, NULL, 2, 0);
     sWorld.LogGM(m_session, "used create pet entry %u", Entry);
     return true;
 }
@@ -1450,7 +1449,7 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
             }
             else
             {
-                Spell* sp(new Spell(plr, info, true, NULLAURA));
+                Spell* sp = new Spell(plr, info, true, NULLAURA);
                 SpellCastTargets targets(plr->GetGUID());
                 sp->prepare(&targets);
             }
@@ -1465,20 +1464,14 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
 bool ChatHandler::HandleNpcReturnCommand(const char* args, WorldSession* m_session)
 {
     Creature* creature = getSelectedCreature(m_session);
-    if(!creature || !creature->m_spawn) 
+    if(!creature || !creature->IsSpawn()) 
         return true;
-
-    // return to respawn coords
-    float x = creature->m_spawn->x;
-    float y = creature->m_spawn->y;
-    float z = creature->m_spawn->z;
-    float o = creature->m_spawn->o;
 
     // restart movement
     creature->GetAIInterface()->SetAIState(STATE_IDLE);
     creature->GetAIInterface()->WipeHateList();
     creature->GetAIInterface()->WipeTargetList();
-    creature->GetAIInterface()->MoveTo(x, y, z, o);
+    creature->GetAIInterface()->MoveTo(creature->GetSpawnX(), creature->GetSpawnY(), creature->GetSpawnZ(), creature->GetSpawnO());
     return true;
 }
 
@@ -1815,6 +1808,8 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
     Player* plr = m_session->GetPlayer();
     if(m_session == NULL || plr == NULL)
         return true;
+    if(!plr->IsInWorld())
+        return false;
 
     uint32 entry, save;
     if( sscanf(args, "%u %u", &entry, &save) != 2 )
@@ -1831,10 +1826,9 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(entry);
-    CreatureInfo * info = CreatureNameStorage.LookupEntry(entry);
-    if(proto == NULL || info == NULL || (objmgr.SQLCheckExists("creature_names", "entry", entry) == NULL)
-        || (objmgr.SQLCheckExists("creature_proto", "entry", entry) == NULL))
+    MapMgr *mgr = plr->GetMapMgr();
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL)
     {
         RedSystemMessage(m_session, "Invalid entry id(%u).", entry);
         return true;
@@ -1847,21 +1841,17 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    bool spVehicle = proto->vehicle_entry > 0 ? true : false;
-
-    Creature* p = spVehicle ? NULLCREATURE : plr->GetMapMgr()->CreateCreature(entry);
-    Vehicle* vp = spVehicle ? plr->GetMapMgr()->CreateVehicle(entry) : NULLVEHICLE;
-    if(vp != NULL)
-        p = TO_CREATURE(vp);
+    bool spVehicle = ctrData->Vehicle_entry > 0 ? true : false;
+    Creature* p = spVehicle ? plr->GetMapMgr()->CreateVehicle(entry) : plr->GetMapMgr()->CreateCreature(entry);
     if(p == NULLCREATURE)
     {
         RedSystemMessage(m_session, "Could not create spawn.");
         return true;
     }
-
-    uint32 mode = plr->GetMapMgr()->iInstanceMode;
-    CreatureSpawn * sp = NULL;
     ASSERT(p);
+
+    uint32 mode = mgr->iInstanceMode;
+    CreatureSpawn * sp = NULL;
     if( save )
     {
         sp = new CreatureSpawn();
@@ -1871,64 +1861,48 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->y = plr->GetPositionY();
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
-        sp->factionid = proto->Faction;
+        sp->factionid = ctrData->Faction;
         sp->phase = 1;
         sp->vehicle = spVehicle;
-        sp->CanMove = proto->CanMove;
+        sp->CanMove = ctrData->CanMove;
         sp->vendormask = 1;
         sp->Bytes = NULL;
         sp->ChannelData = NULL;
-        sp->MountedDisplay = NULL;
+        sp->emote_state = 0;
+        sp->flags = 0;
+        sp->stand_state = 0;
+        sp->MountedDisplayID = 0;
 
-        CreatureInfoExtra* extrainfo = CreatureInfoExtraStorage.LookupEntry(entry);
-        if(extrainfo != NULL)
+        if(CreatureInfoExtra* extrainfo = CreatureInfoExtraStorage.LookupEntry(entry))
         {
             sp->emote_state = extrainfo->default_emote_state;
             sp->flags = extrainfo->default_flags;
             sp->stand_state = extrainfo->default_stand_state;
-            if(extrainfo->default_MountedDisplayID)
-                sp->MountedDisplay = new SpawnMountedDisplay(extrainfo->default_MountedDisplayID);
-        }
-        else
-        {
-            sp->emote_state = 0;
-            sp->flags = 0;
-            sp->stand_state = 0;
+            sp->MountedDisplayID = extrainfo->default_MountedDisplayID;
         }
 
-        if(spVehicle)
-            vp->Load(sp, mode, NULL);
-        else
-            p->Load(sp, mode, NULL);
+        p->Load(sp, mode);
     }
-    else
-    {
-        if(spVehicle)
-            vp->Load(proto, mode, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation());
-        else
-            p->Load(proto, mode, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation());
-    }
+    else p->Load(mode, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation());
 
     p->SetPhaseMask(plr->GetPhaseMask());
-    p->PushToWorld(plr->GetMapMgr());
+    p->PushToWorld(mgr);
 
-    BlueSystemMessage(m_session, "Spawned a creature `%s` with entry %u at %f %f %f on map %u in phase %u", info->Name,
+    BlueSystemMessage(m_session, "Spawned a creature `%s` with entry %u at %f %f %f on map %u in phase %u", ctrData->Name,
         entry, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId(), plr->GetPhaseMask());
 
     // Save it to the database.
     if( save )
     {
-        uint32 x = plr->GetMapMgr()->GetPosX(plr->GetPositionX());
-        uint32 y = plr->GetMapMgr()->GetPosY(plr->GetPositionY());
+        uint32 x = mgr->GetPosX(plr->GetPositionX());
+        uint32 y = mgr->GetPosY(plr->GetPositionY());
 
         // Add spawn to map
-        plr->GetMapMgr()->AddSpawn(x, y, sp);
+        mgr->AddSpawn(x, y, sp);
         p->SaveToDB(true);
     }
 
-    sWorld.LogGM(m_session, "spawned a %s at %u %f %f %f",
-        info->Name, plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ() );
-
+    sWorld.LogGM(m_session, "spawned a %s at %u %f %f %f", ctrData->Name, plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ() );
     return true;
 }
 
@@ -1950,8 +1924,8 @@ bool ChatHandler::HandleCreatureRespawnCommand(const char *args, WorldSession *m
     if(cCorpse->GetSQL_id() != 0)
     {
         sEventMgr.RemoveEvents( cCorpse, EVENT_CREATURE_RESPAWN );
-        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetCreatureInfo()->Name, cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
-        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetCreatureInfo()->Name, cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
+        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetCreatureData()->Name, cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
+        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetCreatureData()->Name, cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
         cCorpse->Despawn(0, 1);
         return true;
     }
@@ -2373,35 +2347,24 @@ bool ChatHandler::HandleLookupCreatureCommand(const char * args, WorldSession * 
         return true;
     }
 
-    StorageContainerIterator<CreatureInfo> * itr = CreatureNameStorage.MakeIterator();
-
     GreenSystemMessage(m_session, "Starting search of creature `%s`...", x.c_str());
-    uint32 t = getMSTime();
-    CreatureInfo * i;
-    uint32 count = 0;
-    while(!itr->AtEnd())
+    uint32 t = getMSTime(), count = 0;
+    CreatureDataManager::iterator itr = sCreatureDataMgr.begin(), end = sCreatureDataMgr.end();
+    while(itr != end)
     {
-        i = itr->Get();
-        if(CreatureProtoStorage.LookupEntry(i->Id))
+        CreatureData *ctrData = (*itr)->second;
+        if(FindXinYString(x, ctrData->lowercase_name))
         {
-            if(FindXinYString(x, i->lowercase_name))
+            // Print out the name in a cool highlighted fashion
+            SendHighlightedName(m_session, ctrData->Name, ctrData->lowercase_name, x, ctrData->Entry, false);
+            if(++count == 25)
             {
-                // Print out the name in a cool highlighted fashion
-                SendHighlightedName(m_session, i->Name, i->lowercase_name, x, i->Id, false);
-
-                ++count;
-                if(count == 25)
-                {
-                    RedSystemMessage(m_session, "More than 25 results returned. aborting.");
-                    break;
-                }
+                RedSystemMessage(m_session, "More than 25 results returned. aborting.");
+                break;
             }
         }
-        if(!itr->Inc())
-            break;
+        ++itr;
     }
-    itr->Destruct();
-
     GreenSystemMessage(m_session, "Search completed in %u ms.", getMSTime() - t);
     return true;
 }
@@ -2492,20 +2455,13 @@ bool ChatHandler::HandleNpcUnPossessCommand(const char * args, WorldSession * m_
 
     if( creature != NULL )
     {
-            // restart movement
-            creature->GetAIInterface()->SetAIState(STATE_IDLE);
-            creature->GetAIInterface()->WipeHateList();
-            creature->GetAIInterface()->WipeTargetList();
+        // restart movement
+        creature->GetAIInterface()->SetAIState(STATE_IDLE);
+        creature->GetAIInterface()->WipeHateList();
+        creature->GetAIInterface()->WipeTargetList();
 
-            if(creature->m_spawn)
-            {
-                // return to respawn coords
-                float x = creature->m_spawn->x;
-                float y = creature->m_spawn->y;
-                float z = creature->m_spawn->z;
-                float o = creature->m_spawn->o;
-                creature->GetAIInterface()->MoveTo(x, y, z, o);
-            }
+        if(creature->IsSpawn()) // return to respawn coords
+            creature->GetAIInterface()->MoveTo(creature->GetSpawnX(), creature->GetSpawnY(), creature->GetSpawnZ(), creature->GetSpawnO());
     }
     GreenSystemMessage(m_session, "Removed any possessed targets.");
     return true;
@@ -2745,22 +2701,19 @@ bool ChatHandler::HandleFixScaleCommand(const char * args, WorldSession * m_sess
         return true;
 
     float sc = (float)atof(args);
-    uint32 model;
-    uint32 gender = pCreature->creature_info->GenerateModelId(&model);
-    pCreature->setGender(gender);
+    uint8 gender; uint32 model;
+    if(!pCreature->GetCreatureData()->GenerateModelId(gender, model))
+        return false;
 
+    pCreature->setGender(gender);
+    pCreature->SetDisplayId(model);
     if(sc < 0.1f)
     {
         sc = GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model ));
         SystemMessage(m_session, "Using scale %f from DBCDisplayInfo.", sc);
-    }
-    else
-        SystemMessage(m_session, "Scale override set to %f (DBCDisplayInfo = %f).", sc, GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model )));
-
+    } else SystemMessage(m_session, "Scale override set to %f (DBCDisplayInfo = %f).", sc, GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model )));
 
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, sc);
-    pCreature->proto->Scale = sc;
-    WorldDatabase.Execute("UPDATE creature_proto SET scale = '%f' WHERE entry = %u", sc, pCreature->GetEntry());
     return true;
 }
 

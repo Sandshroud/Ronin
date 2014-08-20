@@ -9,7 +9,7 @@ Corpse::Corpse(uint32 high, uint32 low)
     m_objectTypeId = TYPEID_CORPSE;
     m_valuesCount = CORPSE_END;
     m_uint32Values = _fields;
-    memset(m_uint32Values, 0,(CORPSE_END)*sizeof(uint32));
+    memset(m_uint32Values, 0, (CORPSE_END)*sizeof(uint32));
     m_updateMask.SetCount(CORPSE_END);
     SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_CORPSE|TYPEMASK_OBJECT);
     SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));

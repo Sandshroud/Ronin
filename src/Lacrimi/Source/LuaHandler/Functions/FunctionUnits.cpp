@@ -142,7 +142,7 @@ int LuaUnit_GetName(lua_State * L, Unit * ptr)
     switch(ptr->GetTypeId())
     {
     case TYPEID_UNIT:
-        lua_pushstring(L, ((Creature*)ptr)->GetCreatureInfo() ? ((Creature*)ptr)->GetCreatureInfo()->Name : "Unknown");
+        lua_pushstring(L, ((Creature*)ptr)->GetCreatureData()->Name);
         break;
     case TYPEID_PLAYER:
         lua_pushstring(L, ((Player*)ptr)->GetName());
@@ -283,17 +283,15 @@ int LuaUnit_SpawnCreature(lua_State * L, Unit * ptr)
     if( !x || !y || !z || !entry_id || !faction /*|| !duration*/) //Shady: is it really required?
         RET_NIL(true);
 
-    CreatureProto *p = CreatureProtoStorage.LookupEntry(entry_id);
-    if(p == NULL)
+    Creature * pCreature = ptr->GetMapMgr()->GetMapScript()->SpawnCreature(entry_id,x,y,z,o);
+    if(pCreature == NULL)
         RET_NIL(true);
 
-    Creature * pCreature = ptr->GetMapMgr()->GetMapScript()->SpawnCreature(entry_id,x,y,z,o);
     pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,faction);
     pCreature->_setFaction();
     pCreature->SetInstanceID(ptr->GetInstanceID());
     pCreature->SetMapId(ptr->GetMapId());
-    if(duration)
-        pCreature->Despawn(duration,0);
+    if(duration) pCreature->Despawn(duration,0);
     Lunar<Unit>::push(L,pCreature);
     return 1;
 }
@@ -2284,14 +2282,6 @@ int LuaUnit_SetDeathState(lua_State * L, Unit * ptr)
     }
     return 1;
 }
-int LuaUnit_SetCreatureName(lua_State * L, Unit * ptr)
-{
-    uint32 id = luaL_checkint(L,1);
-    if(!ptr|!id)
-        return 0;
-    static_cast<Creature*>(ptr)->SetCreatureName(CreatureNameStorage.LookupEntry(id));
-    return 1;
-}
 int LuaUnit_GetSpellId(lua_State * L, Unit * ptr)
 {
     uint32 spellid = luaL_checkint(L,1);
@@ -3151,7 +3141,6 @@ int LuaUnit_SendLootWindow(lua_State * L, Unit * ptr)
     if (guidtype == HIGHGUID_TYPE_UNIT)
     {
         Unit* pUnit = plr->GetMapMgr()->GetUnit(guid);
-        CreatureProto * proto = TO_CREATURE(pUnit)->GetProto();
         switch (loot_type) 
         {
         case 2:
@@ -3164,7 +3153,7 @@ int LuaUnit_SendLootWindow(lua_State * L, Unit * ptr)
             break;
         default:
             lootmgr.FillCreatureLoot(&pUnit->m_loot, pUnit->GetEntry(), (pUnit->GetMapMgr() ? ( pUnit->GetMapMgr()->iInstanceMode ? true : false ) : false), plr->GetTeam());
-            pUnit->m_loot.gold = proto ? proto->money : 0;
+            pUnit->m_loot.gold = TO_CREATURE(pUnit)->GetCreatureData()->Money;
             loot_type2 = 1;
             break;
         }
@@ -3484,20 +3473,17 @@ int LuaUnit_SpawnVehicle(lua_State * L, Unit * ptr)
     uint32 duration = (uint32)luaL_checknumber(L,7);
     uint32 phase = luaL_optint(L, 8, ptr->GetPhaseMask());
     uint32 mode = ptr->GetMapMgr()->iInstanceMode;
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL || ctrData->Vehicle_entry == 0)
+        RET_NIL(true);
+    Vehicle * p = ptr->GetMapMgr()->CreateVehicle(entry);
+    if(p == NULL)
+        RET_NIL(true);
 
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(entry);
-    CreatureInfo * info = CreatureNameStorage.LookupEntry(entry);
-    if(proto != NULL && info != NULL && proto->vehicle_entry > 0) // Only allow the creation of vehicles that are vehicles.
-    {
-        Vehicle * p = ptr->GetMapMgr()->CreateVehicle(entry);
-        ASSERT(p);
-        p->Load(proto, mode, x, y, z, o);
-        p->SetPhaseMask(phase);
-        p->PushToWorld(ptr->GetMapMgr());
-        Lunar<Unit>::push(L,p);
-    }
-    else
-        lua_pushnil(L);
+    p->Load(mode, x, y, z, o);
+    p->SetPhaseMask(phase);
+    p->PushToWorld(ptr->GetMapMgr());
+    Lunar<Unit>::push(L,p);
     return 1;
 }
 
@@ -4722,14 +4708,7 @@ int LuaUnit_GetNativeFaction(lua_State * L, Unit * ptr)
         PlayerCreateInfo * pci = objmgr.GetPlayerCreateInfo(plr->getRace(), plr->getClass());
         if( pci )
             faction = pci->factiontemplate;
-    }
-    else
-    {
-        if (TO_CREATURE(ptr)->GetProto())
-            faction = TO_CREATURE(ptr)->GetProto()->Faction;
-        else
-            faction = ptr->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE);
-    }
+    } else faction = TO_CREATURE(ptr)->GetCreatureData()->Faction;
     RET_INT(faction)
 }
 
@@ -5120,8 +5099,8 @@ int LuaUnit_PhaseSet(lua_State * L, Unit * ptr)
         {
             Creature* crt = TO_CREATURE(ptr);
             crt->SetPhaseMask(newphase);
-            if (crt->m_spawn)
-                crt->m_spawn->phase = newphase;
+            if (crt->IsSpawn())
+                crt->GetSpawn()->phase = newphase;
 
             if(Save)
             {
@@ -5153,8 +5132,8 @@ int LuaUnit_PhaseAdd(lua_State * L, Unit * ptr)
         {
             Creature* crt = TO_CREATURE(ptr);
             crt->EnablePhase(newphase);
-            if (crt->m_spawn)
-                crt->m_spawn->phase |= newphase;
+            if (crt->IsSpawn())
+                crt->GetSpawn()->phase |= newphase;
 
             if(Save)
             {
@@ -5186,9 +5165,8 @@ int LuaUnit_PhaseDelete(lua_State * L, Unit * ptr)
         {
             Creature* crt = TO_CREATURE(ptr);
             crt->DisablePhase(newphase);
-            if (crt->m_spawn)
-                crt->m_spawn->phase &= newphase;
-
+            if (crt->IsSpawn())
+                crt->GetSpawn()->phase &= newphase;
             if(Save)
             {
                 crt->SaveToDB();

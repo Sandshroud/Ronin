@@ -181,7 +181,7 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
 
     if ( pFilter & TargetFilter_Corpse )
     {   //Skip dead ( if required ), feign death or invisible targets
-        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || TO_CREATURE( UnitTarget )->creature_info->Rank == ELITE_WORLDBOSS )
+        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || TO_CREATURE( UnitTarget )->GetCreatureData()->Rank == ELITE_WORLDBOSS )
             return false;
     }
     else if ( !UnitTarget->isAlive() )

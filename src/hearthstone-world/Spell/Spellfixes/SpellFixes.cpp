@@ -1098,21 +1098,6 @@ void GenerateNameHashesFile()
     fclose(f);
 }
 
-// Copies effect number 'fromEffect' in 'fromSpell' to effect number 'toEffect' in 'toSpell'
-void CopyEffect(SpellEntry *fromSpell, uint8 fromEffect, SpellEntry *toSpell, uint8 toEffect)
-{
-    if(!fromSpell || !toSpell || fromEffect > 2 || toEffect > 2)
-        return;
-
-    uint32 *from = fromSpell->Effect;
-    uint32 *to = toSpell->Effect;
-    // Copy 20 values starting at Effect
-    for(uint8 index = 0;index < 20;index++)
-    {
-        to[index * 3 + toEffect] = from[index * 3 + fromEffect];
-    }
-}
-
 void SetSingleSpellDefaults(SpellEntry *sp)
 {
     /// 4.0.6 field copies

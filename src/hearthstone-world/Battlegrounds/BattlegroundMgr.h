@@ -381,7 +381,7 @@ public:
     void Close();
     virtual void OnClose() {}
 
-    Creature* SpawnSpiritGuide(float x, float y, float z, float o, uint32 horde);
+    Creature* SpawnSpiritGuide(float x, float y, float z, float o, bool horde);
 
     HEARTHSTONE_INLINE uint32 GetLastResurrect() { return m_lastResurrect; }
     void AddSpiritGuide(Creature* pCreature);

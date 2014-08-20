@@ -93,6 +93,7 @@ void TalentInterface::Initialize(Player *plr)
     m_Player = plr;
     m_specCount = 1;
     m_activeSpec = 0;
+    m_queuedActions = false;
     m_talentResetCounter = m_availableTalentPoints = 0;
     m_specs[0].ActiveTalentTab = m_specs[1].ActiveTalentTab = 0xFF;
     memset(&m_specs[0].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
@@ -123,7 +124,8 @@ void TalentInterface::InitActiveSpec()
 
     // Apply glyphs
     for(uint8 i = 0; i < GLYPHS_COUNT; i++)
-        ApplyGlyph(i, m_specs[m_activeSpec].Glyphs[i]);
+        if(uint16 glyphId = m_specs[m_activeSpec].Glyphs[i])
+            ApplyGlyph(i, glyphId);
 
     SendTalentInfo();
     SendInitialActions();
@@ -167,10 +169,11 @@ void TalentInterface::BuildPlayerTalentInfo(WorldPacket *packet)
 
 void TalentInterface::BuildPlayerActionInfo(WorldPacket *packet)
 {
-    *packet << uint8(1); // Action button list packet
+    *packet << uint8(m_queuedActions ? 1 : 0); // Action button list packet
     m_specLock.Acquire();
     for(uint8 i = 0; i < PLAYER_ACTION_BUTTON_COUNT; i++)
         *packet << m_specs[m_activeSpec].m_actions[i].PackedData;
+    m_queuedActions = false;
     m_specLock.Release();
 }
 
@@ -242,13 +245,14 @@ void TalentInterface::UnlockSpec(uint8 spec)
     SendTalentInfo();
 }
 
-void TalentInterface::ApplySpec(uint8 spec, bool init)
+void TalentInterface::ApplySpec(uint8 spec)
 {
     ASSERT(spec < MAX_SPEC_COUNT);
     if(spec == m_activeSpec)
         return;
 
-    WorldPacket data(SMSG_ACTION_BUTTONS, PLAYER_ACTION_BUTTON_COUNT*4 + 1);
+    m_queuedActions = true;
+    WorldPacket data(SMSG_ACTION_BUTTONS, 1);
     data << uint8(2);
     m_Player->SendPacket(&data);
 
@@ -260,6 +264,8 @@ void TalentInterface::ApplySpec(uint8 spec, bool init)
 
         RemoveTalent(talentInfo->RankID[itr->second]);
     }
+    for(uint8 i = 0; i < GLYPHS_COUNT; i++)
+        UnapplyGlyph(i);
 
     m_activeSpec = spec;
     InitActiveSpec();
@@ -486,11 +492,9 @@ void TalentInterface::SaveGlyphData(QueryBuffer * buf)
 }
 
 // Update glyphs after level change
-void TalentInterface::InitGlyphsForLevel()
+void TalentInterface::InitGlyphsForLevel(uint32 level)
 {
-    // Enable number of glyphs depending on level
-    uint32 level = m_Player->getLevel();
-    uint32 glyph_mask = 0;
+    uint32 glyph_mask = 0; // Enable number of glyphs depending on level
     if (level >= 25) glyph_mask |= 0x01 | 0x02 | 0x40;
     if (level >= 50) glyph_mask |= 0x04 | 0x08 | 0x80;
     if (level >= 75) glyph_mask |= 0x10 | 0x20 | 0x100;
@@ -525,6 +529,7 @@ static const uint32 glyphType[9] = {0, 1, 1, 0, 1, 0, 2, 2, 2};
 
 uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
 {
+    printf("Glyph slot %u : Glyph %u\n", slot, glyphId);
     if(slot >= GLYPHS_COUNT || glyphId==0)
         return SPELL_FAILED_INVALID_GLYPH;
 
@@ -539,10 +544,12 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
             return SPELL_FAILED_UNIQUE_GLYPH;
     }
 
+    printf("TypeCheck! %u|%u\n", glyphType[slot], glyph->TypeFlags);
     if( glyphType[slot] != glyph->TypeFlags || // Glyph type doesn't match
             (m_Player->GetUInt32Value(PLAYER_GLYPHS_ENABLED) & (1 << slot)) == 0) // slot is not enabled
         return SPELL_FAILED_INVALID_GLYPH;
 
+    printf("Application!\n");
     UnapplyGlyph(slot);
     m_Player->SetUInt32Value(PLAYER_FIELD_GLYPHS_1 + slot, glyphId);
     m_specs[m_activeSpec].Glyphs[slot] = glyphId;

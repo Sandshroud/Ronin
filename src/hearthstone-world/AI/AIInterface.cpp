@@ -87,7 +87,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt)
         un->m_swimSpeed = 0.0f;
     }
 
-    if( m_Unit->IsCreature() && TO_CREATURE(m_Unit)->GetCreatureInfo() && TO_CREATURE(m_Unit)->GetCreatureInfo()->Type == CRITTER )
+    if( m_Unit->IsCreature() && TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER )
         disable_targeting = true;
 
     m_guardTimer = getMSTime();
@@ -115,7 +115,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
         un->m_swimSpeed = 0.0f;
     }
 
-    if( TO_CREATURE(m_Unit)->GetCreatureInfo() && TO_CREATURE(m_Unit)->GetCreatureInfo()->Type == CRITTER )
+    if( TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER )
         disable_targeting = true;
 
     MovementHandler.Initialize(this, un, mt);
@@ -140,7 +140,7 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
             return;
         }
 
-        if(TO_CREATURE(m_Unit)->GetCreatureInfo() && TO_CREATURE(m_Unit)->GetCreatureInfo()->Type == CRITTER)
+        if(TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER)
             return;
     }
 
@@ -392,8 +392,8 @@ bool AIInterface::FindFriends(float dist)
     }
 
     // check if we're a civillan, in which case summon guards on a despawn timer
-    CreatureInfo * ci = TO_CREATURE(m_Unit)->GetCreatureInfo();
-    if( ci && ci->Type == HUMANOID && ci->Civilian )
+    CreatureData * ctrData = TO_CREATURE(m_Unit)->GetCreatureData();
+    if( ctrData && ctrData->Type == HUMANOID && ctrData->Civilian )
         CallGuards();
     return result;
 }
@@ -465,12 +465,9 @@ void AIInterface::CallGuards()
             return;
 
         uint32 team = sFactionSystem.isAlliance(m_Unit) ? 0 : 1; // Set team
-        uint32 guardId = 0;
-        guardId = team ? zoneSpawn->HordeEntry : zoneSpawn->AllianceEntry;
-        guardId = guardId ? guardId : team ? 3296 : 68;
-
-        CreatureProto * cp = CreatureProtoStorage.LookupEntry( guardId );
-        if(cp == NULL || m_Unit->GetEntry() == guardId)
+        uint32 guardId = team ? (zoneSpawn->HordeEntry ? zoneSpawn->HordeEntry : 3296) : (zoneSpawn->AllianceEntry ? zoneSpawn->AllianceEntry : 68);
+        CreatureData * ctrData = sCreatureDataMgr.GetCreatureData( guardId );
+        if(ctrData == NULL || m_Unit->GetEntry() == guardId)
             return; // Do not let guards spawn themselves.
 
         float x = m_Unit->GetPositionX() + (float((rand() % 150) + 100) / 1000.0f );
@@ -494,12 +491,11 @@ void AIInterface::CallGuards()
             if(guard == NULL)
                 continue;
 
-            guard->Load(cp, m_Unit->GetMapMgr()->iInstanceMode, x, y, z);
+            guard->Load(m_Unit->GetMapMgr()->iInstanceMode, x, y, z);
             guard->SetInstanceID(m_Unit->GetInstanceID());
             guard->SetZoneId(m_Unit->GetZoneId());
             guard->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP); /* shitty DBs */
-            guard->m_noRespawn = true;
-            guard->m_isGuard = true;
+            guard->m_noRespawn = guard->m_isGuard = true;
             if(!guard->CanAddToWorld())
             {
                 guard->SafeDelete();
@@ -509,8 +505,7 @@ void AIInterface::CallGuards()
             uint32 t = spawned ? 0 : RandomUInt(8)*1000;
             if( t == 0 )
                 guard->PushToWorld(m_Unit->GetMapMgr());
-            else
-                sEventMgr.AddEvent(guard,&Creature::AddToWorld, m_Unit->GetMapMgr(), EVENT_UNK, t, 1, 0);
+            else sEventMgr.AddEvent(guard,&Creature::AddToWorld, m_Unit->GetMapMgr(), EVENT_UNK, t, 1, 0);
 
             //despawn after 5 minutes.
             sEventMgr.AddEvent(guard, &Creature::SafeDelete, EVENT_CREATURE_SAFE_DELETE, 60*5*1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
@@ -667,22 +662,20 @@ void AIInterface::CheckHeight()
 uint32 AIInterface::GetWeaponEmoteType(bool ranged)
 {
     uint32 emotetype = EMOTE_STATE_READYUNARMED;
-    if(ranged)
-        emotetype = EMOTE_STATE_READYBOW;
+    if(ranged) emotetype = EMOTE_STATE_READYBOW;
+    if(!m_Unit->IsCreature())
+        return emotetype;
 
-    if(m_Unit != NULL && m_Unit->IsCreature())
+    if(CreatureData *ctrData = TO_CREATURE(m_Unit)->GetCreatureData())
     {
-        Creature* ctr = TO_CREATURE(m_Unit);
-        if(ctr->GetProto())
+        if(ranged == false)
         {
-            ItemDataEntry* ItemE = NULL;
-            if(!ranged)
+            uint32 weaponids[2] = { ctrData->Item1, ctrData->Item2 };
+            for(uint8 i = 0; i < 2; i++)
             {
-                uint32 weaponids[2] = { ctr->GetProto()->Item1, ctr->GetProto()->Item2 };
-                if(weaponids[0])
+                if(weaponids[i])
                 {
-                    ItemE = db2Item.LookupEntry(weaponids[0]);
-                    if(ItemE != NULL)
+                    if(ItemDataEntry* ItemE = db2Item.LookupEntry(weaponids[i]))
                     {
                         switch(ItemE->InventoryType)
                         {
@@ -698,48 +691,14 @@ uint32 AIInterface::GetWeaponEmoteType(bool ranged)
                             }break;
                         }
                     }
-                    ItemE = NULL;
-                }
-                if(weaponids[1])
-                {
-                    ItemE = db2Item.LookupEntry(weaponids[1]);
-                    if(ItemE != NULL)
-                    {
-                        switch(ItemE->InventoryType)
-                        {
-                        case INVTYPE_WEAPON:
-                        case INVTYPE_WEAPONMAINHAND:
-                        case INVTYPE_WEAPONOFFHAND:
-                            {
-                                emotetype = EMOTE_STATE_READY1H;
-                            }break;
-                        case INVTYPE_2HWEAPON:
-                            {
-                                if(!weaponids[0])
-                                    emotetype = EMOTE_STATE_READY2H;
-                                else
-                                    emotetype = EMOTE_STATE_READY1H;
-                            }break;
-                        case INVTYPE_SHIELD:
-                            {
-                                emotetype = EMOTE_STATE_READY1H;
-                            }break;
-                        }
-                    }
-                    ItemE = NULL;
                 }
             }
-            else
-            {
-                if(ctr->GetProto()->Item3)
-                {
-                    ItemE = db2Item.LookupEntry(ctr->GetProto()->Item3);
-                    if(ItemE != NULL && (ItemE->SubClass == ITEM_SUBCLASS_WEAPON_GUN || ItemE->SubClass == ITEM_SUBCLASS_WEAPON_CROSSBOW))
-                    {
-                        emotetype = EMOTE_STATE_READYRIFLE;
-                    }
-                }
-            }
+        }
+        else if(ctrData->Item3)
+        {
+            if(ItemDataEntry* ItemE = db2Item.LookupEntry(ctrData->Item3))
+                if(ItemE->SubClass == ITEM_SUBCLASS_WEAPON_GUN || ItemE->SubClass == ITEM_SUBCLASS_WEAPON_CROSSBOW)
+                    emotetype = EMOTE_STATE_READYRIFLE;
         }
     }
     return emotetype;

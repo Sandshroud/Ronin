@@ -1992,23 +1992,18 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     /*------------------------------------ DUEL HANDLERS END--------------------------*/
 
     bool isCritter = false;
-    if(pVictim->GetTypeId() == TYPEID_UNIT && TO_CREATURE(pVictim)->GetCreatureInfo())
+    if(pVictim->GetTypeId() == TYPEID_UNIT && TO_CREATURE(pVictim)->GetCreatureData())
     {
-        if(TO_CREATURE(pVictim)->GetCreatureInfo()->Type == CRITTER)
+        if(TO_CREATURE(pVictim)->GetCreatureData()->Type == CRITTER)
             isCritter = true;
-        else if(TO_CREATURE(pVictim)->proto)
-        {
-            //Dummy trainers can't die
-            if(isTargetDummy(TO_CREATURE(pVictim)->proto->Id) && health <= damage)
-            {
-                // Just limit to 5HP (can't use 1HP here).
-                uint32 newh = 5;
-                if(pVictim->GetMaxHealth() < 5)
-                    newh = pVictim->GetMaxHealth();
+        else if(isTargetDummy(TO_CREATURE(pVictim)->GetCreatureData()->Entry) && health <= damage)
+        {   //Dummy trainers can't die
+            uint32 newh = 5; // Just limit to 5HP (can't use 1HP here).
+            if(pVictim->GetMaxHealth() < 5)
+                newh = pVictim->GetMaxHealth();
 
-                pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, newh);
-                return health-5;
-            }
+            pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, newh);
+            return health-5;
         }
     }
 
@@ -2449,36 +2444,8 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 TO_CREATURE(this)->GetAIInterface()->AttackReaction( pVictim, damage, spellId );
 
             // Send AI Victim Reaction
-            if( IsUnit() )
-                if( pVictim->IsCreature() )
-                    TO_CREATURE( pVictim )->GetAIInterface()->AttackReaction( TO_UNIT(this), damage, spellId );
-
-            if( IsUnit() && TO_UNIT( this )->HasDummyAura( SPELL_HASH_MARK_OF_BLOOD ) )
-                CastSpell(pVictim, dbcSpell.LookupEntry(50424), true);
-            else if( IsPlayer() && spellId )
-            {
-                Player* plra = TO_PLAYER(this);
-                SpellEntry *spentry = dbcSpell.LookupEntry( spellId );
-                if( (spentry->NameHash == SPELL_HASH_CORRUPTION || spentry->NameHash == SPELL_HASH_UNSTABLE_AFFLICTION) && plra->HasDummyAura(SPELL_HASH_PANDEMIC) )
-                {
-                    if( Rand( plra->GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+5) ) && pVictim )
-                    {
-                        Spell* sp = new Spell(this, dbcSpell.LookupEntry(58691), true, NULLAURA);
-                        SpellCastTargets targets;
-                        targets.m_unitTarget = pVictim->GetGUID();
-                        //sp->forced_basepoints[0] = float2int32(damage * ( plra->GetDummyAura(SPELL_HASH_PANDEMIC)->RankNumber * 0.33f + 0.01f));
-                        sp->prepare(&targets);
-                    }
-                }
-            }
-        }
-
-        if(IsUnit() && pVictim->GetVehicle() != NULL)
-        {
-            if(pVictim->GetVehicle() == TO_UNIT(this))
-                return 0;
-            if(pVictim->GetVehicle() == TO_UNIT(this)->GetVehicle())
-                return 0;
+            if( IsUnit() && pVictim->IsCreature() )
+                TO_CREATURE( pVictim )->GetAIInterface()->AttackReaction( TO_UNIT(this), damage, spellId );
         }
 
         pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );

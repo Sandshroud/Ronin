@@ -121,19 +121,19 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             data << uint8(!fields[14].GetUInt8()); // Rest State
 
             QueryResult *res = NULL;
-            CreatureInfo *petInfo = NULL;
+            CreatureData *petData = NULL;
             if( _class == WARLOCK || _class == HUNTER )
             {
                 res = CharacterDatabase.Query("SELECT entry FROM playerpets WHERE ownerguid="I64FMTD" AND ( active MOD 10 ) =1", guid);
                 if(res)
                 {
-                    petInfo = CreatureNameStorage.LookupEntry(res->Fetch()[0].GetUInt32());
+                    petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32());
                     delete res;
                 }
             }
 
-            if(petInfo)  //PET INFO uint32 displayid,  uint32 level,        uint32 familyid
-                data << uint32(petInfo->Male_DisplayID) << uint32(10) << uint32(petInfo->Family);
+            if(petData)  //PET INFO uint32 displayid,  uint32 level,        uint32 familyid
+                data << uint32(petData->DisplayInfo[0]) << uint32(10) << uint32(petData->Family);
             else data << uint32(0) << uint32(0) << uint32(0);
 
             res = CharacterDatabase.Query("SELECT containerslot, slot, entry, enchantments FROM playeritems WHERE ownerguid=%u", GUID_LOPART(guid));
@@ -616,12 +616,6 @@ void WorldSession::FullLogin(Player* plr)
     }
 
     plr->m_playerInfo = info;
-    if(plr->m_playerInfo->GuildId)
-    {
-        plr->SetGuildId(plr->m_playerInfo->GuildId);
-        plr->SetGuildRank(plr->m_playerInfo->GuildRank);
-    }
-
     for(uint32 z = 0; z < NUM_ARENA_TEAM_TYPES; ++z)
     {
         if(plr->m_playerInfo->arenaTeam[z] != NULL)
@@ -741,7 +735,7 @@ void WorldSession::FullLogin(Player* plr)
         }
     }
 
-    if(enter_world && !plr->GetMapMgr())
+    if(enter_world && !plr->IsInWorld())
         plr->AddToWorld(true);
 
     sTracker.CheckPlayerForTracker(plr, true);
@@ -763,9 +757,7 @@ bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_sessio
     if(strlen(args) > 100)
         return false;
 
-    char name1[100];
-    char name2[100];
-
+    char name1[100], name2[100];
     if(sscanf(args, "%s %s", name1, name2) != 2)
         return false;
 

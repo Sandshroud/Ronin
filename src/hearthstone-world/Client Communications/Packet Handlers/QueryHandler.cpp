@@ -65,48 +65,46 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
     if(entry == 300000)
     {
         data << (uint32)entry;
-        data << "WayPoint";
-        data << uint8(0) << uint8(0) << uint8(0);
+        data << "WayPoint" << uint8(0) << uint8(0) << uint8(0);
         data << "Level is WayPoint ID";
+        data << uint8(0);
         for(uint32 i = 0; i < 10; i++)
             data << uint32(0);
         data << float(0.0f);
         data << float(0.0f);
         data << uint8(0);
-        for(uint32 i = 0; i < 7; i++)
+        for(uint32 i = 0; i < 8; i++)
             data << uint32(0);
         SendPacket( &data );
         return;
     }
 
-    CreatureInfo* ci = CreatureNameStorage.LookupEntry(entry);
-    if(ci == NULL)
-        return;
-
-    sLog.Debug("WORLD","HandleCreatureQueryOpcode CMSG_CREATURE_QUERY '%s'", ci->Name);
-    data << entry;
-    data << ci->Name << uint8(0) << uint8(0) << uint8(0);
-    data << ci->SubName;
-    data << ci->info_str; //!!! this is a string in 2.3.0 Example: stormwind guard has : "Direction"
-    data << ci->Flags1;
-    data << ci->Type;
-    data << ci->Family;
-    data << ci->Rank;
-    data << ci->Unk[0];
-    data << ci->Unk[1];
-    data << ci->Male_DisplayID;
-    data << ci->Female_DisplayID;
-    data << ci->Male_DisplayID2;
-    data << ci->Female_DisplayID2;
-    data << ci->modHealth;
-    data << ci->modMana;
-    data << ci->Leader;
-    ObjectQuestLoot* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry);
-    for(uint32 i = 0; i < 6; i++)
-        data << uint32(objQuestLoot ? objQuestLoot->QuestLoot[i] : 0); // QuestItems
-    data << uint32(0);  // CreatureMovementInfo.dbc
-    data << uint32(0);
-    SendPacket( &data );
+    if(CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry))
+    {
+        data << entry;
+        data << ctrData->Name << uint8(0) << uint8(0) << uint8(0);
+        data << ctrData->SubName;
+        data << ctrData->InfoStr;
+        data << ctrData->Flags;
+        data << ctrData->Type;
+        data << ctrData->Family;
+        data << ctrData->Rank;
+        data << ctrData->KillCredit[0];
+        data << ctrData->KillCredit[1];
+        data << ctrData->DisplayInfo[0];
+        data << ctrData->DisplayInfo[1];
+        data << ctrData->DisplayInfo[2];
+        data << ctrData->DisplayInfo[3];
+        data << ctrData->HealthMod;
+        data << ctrData->PowerMod;
+        data << ctrData->Leader;
+        ObjectQuestLoot* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry);
+        for(uint32 i = 0; i < 6; i++)
+            data << uint32(objQuestLoot ? objQuestLoot->QuestLoot[i] : 0); // QuestItems
+        data << uint32(0);  // CreatureMovementInfo.dbc
+        data << uint32(0);
+        SendPacket( &data );
+    }
 }
 
 //////////////////////////////////////////////////////////////

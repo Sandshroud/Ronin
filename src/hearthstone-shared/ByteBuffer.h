@@ -343,6 +343,32 @@ public:
             v.o = read<float>();
     }
 
+    void packguid(uint64 oldGuid)
+    {
+        size_t pos = wpos();
+        uint8 *buff = ((uint8*)&oldGuid), mask = 0;
+        append<uint8>(0);
+        for(uint8 i = 0; i < 8; i++)
+        {
+            if(oldGuid & (uint64(0xFF)<<(8*i)))
+            {
+                mask |= 0x01<<i;
+                append<uint8>(buff[i]);
+            }
+        }
+        put<uint8>(pos, mask);
+    }
+
+    uint64 unpackguid()
+    {
+        uint64 val=0;
+        uint8 mask = read<uint8>();
+        for(uint8 i = 0; i < 8; i++)
+            if(mask & 0x01<<i)
+                ((uint8*)&val)[i] = read<uint8>();
+        return val;
+    }
+
     const uint8 *contents() const { return &_storage[0]; };
 
     HEARTHSTONE_INLINE size_t size() const { return _storage.size(); };

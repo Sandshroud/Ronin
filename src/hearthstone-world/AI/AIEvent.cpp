@@ -32,7 +32,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
         if( cr->has_combat_text )
             objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ENTER_COMBAT );
 
-        if( cr->m_spawn && cr->m_spawn->ChannelData )
+        if( cr->IsSpawn() && cr->GetSpawn()->ChannelData )
         {
             m_Unit->SetUInt32Value(UNIT_CHANNEL_SPELL, 0);
             m_Unit->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, 0);
@@ -45,7 +45,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     MovementHandler.EventEnterCombat(misc1);
 
     // dismount if mounted
-    if(m_Unit->IsCreature() && !(TO_CREATURE(m_Unit)->GetCreatureInfo()->Flags1 & 2048))
+    if(m_Unit->IsCreature() && !(TO_CREATURE(m_Unit)->GetCreatureData()->Flags & 2048))
         m_Unit->Dismount();
 
     if(m_AIState != STATE_ATTACKING)
@@ -63,7 +63,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     if(m_Unit->IsCreature())
         if(m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->GetMapInfo() && m_Unit->GetMapMgr()->GetdbcMap()->IsRaid())
             if(Creature* cr = TO_CREATURE(m_Unit))
-                if(cr->GetCreatureInfo() && (cr->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || cr->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS))
+                if(cr->GetCreatureData() && (cr->GetCreatureData()->Rank == ELITE_WORLDBOSS || cr->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                     m_Unit->GetMapMgr()->AddCombatInProgress(m_Unit->GetGUID());
 
     if(pUnit->IsPlayer() && TO_PLAYER(pUnit)->InGroup())
@@ -107,20 +107,20 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
         if( cr->has_combat_text )
             objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ON_COMBAT_STOP );
 
-        if(cr->m_spawn)
+        if(cr->IsSpawn())
         {
-            if(cr->m_spawn->ChannelData)
+            if(cr->GetSpawn()->ChannelData)
             {
-                if(cr->m_spawn->ChannelData->channel_target_go)
-                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpGO, cr->m_spawn->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
+                if(cr->GetSpawn()->ChannelData->channel_target_go)
+                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpGO, cr->GetSpawn()->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
 
-                if(cr->m_spawn->ChannelData->channel_target_creature)
-                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpCreature, cr->m_spawn->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
+                if(cr->GetSpawn()->ChannelData->channel_target_creature)
+                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpCreature, cr->GetSpawn()->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
             }
 
             // Remount if mounted
-            if( cr->m_spawn->MountedDisplay )
-                m_Unit->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, cr->m_spawn->MountedDisplay->MountedDisplayID );
+            if( cr->GetSpawn()->MountedDisplayID )
+                m_Unit->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, cr->GetSpawn()->MountedDisplayID );
         }
         m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, cr->original_emotestate);
     }
@@ -344,12 +344,11 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
     if(m_Unit->IsCreature() && !m_Unit->IsPet())
     {
         //only save creature which exist in db (don't want to save 0 values in db)
-        if( m_Unit->m_loadedFromDB && TO_CREATURE(m_Unit)->m_spawn != NULL )
+        if( m_Unit->m_loadedFromDB && TO_CREATURE(m_Unit)->IsSpawn() )
         {
-            MapMgr* GMap = m_Unit->GetMapMgr();
-            if(GMap != NULL)
+            if(MapMgr* GMap = m_Unit->GetMapMgr())
             {
-                if( GMap && GMap->pInstance && GMap->GetMapInfo()->type != INSTANCE_PVP )
+                if( GMap->pInstance && GMap->GetMapInfo()->type != INSTANCE_PVP )
                 {
                     GMap->pInstance->m_killedNpcs.insert( TO_CREATURE(m_Unit)->GetSQL_id() );
                     GMap->pInstance->SaveToDB();

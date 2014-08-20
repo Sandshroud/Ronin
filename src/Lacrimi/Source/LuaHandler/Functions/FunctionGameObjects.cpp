@@ -346,24 +346,18 @@ int LuaGameObject_SpawnCreature(lua_State * L, GameObject * ptr)
     if( !x || !y || !z || !entry_id || !faction)
         RET_NIL(true);
 
-    CreatureProto *p = CreatureProtoStorage.LookupEntry(entry_id);
-    if(p == NULL)
+    Creature *pCreature = ptr->GetMapMgr()->CreateCreature(entry_id);
+    if(pCreature == NULL)
         RET_NIL(true);
 
-    Creature *pCreature = ptr->GetMapMgr()->CreateCreature(entry_id);
-    pCreature->m_spawn = 0;
-    pCreature->Load(p,x,y,z,0);
-    if(faction)
-        pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,faction);
-    pCreature->_setFaction();
+    pCreature->Load(ptr->GetMapMgr()->iInstanceMode, x, y, z, 0.f);
+    pCreature->SetFaction(faction, false);
     pCreature->SetMapId(ptr->GetMapId());
     pCreature->SetOrientation(o);
-    pCreature->Despawn(duration, 0);
+    pCreature->SetPhaseMask(ptr->GetPhaseMask());
     pCreature->SetInstanceID(ptr->GetInstanceID());
     pCreature->PushToWorld(ptr->GetMapMgr());
-    if(duration)
-        pCreature->Despawn(duration,0);
-
+    if(duration) pCreature->Despawn(duration,0);
     Lunar<Unit>::push(L,pCreature);
     return 1;
 }

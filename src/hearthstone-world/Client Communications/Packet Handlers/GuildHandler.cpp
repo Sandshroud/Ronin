@@ -9,10 +9,9 @@ void WorldSession::HandleGuildQuery(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
     CHECK_PACKET_SIZE(recv_data, 4);
 
-    uint32 guildId;
-    recv_data >> guildId;
-
-    guildmgr.Packet_SendGuildQuery(this, guildId);
+    uint64 guildId, playerGuid;
+    recv_data >> guildId >> playerGuid;
+    guildmgr.Packet_SendGuildQuery(this, GUID_LOPART(guildId));
 }
 
 void WorldSession::HandleInviteToGuild(WorldPacket & recv_data)

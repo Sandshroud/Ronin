@@ -7,20 +7,20 @@
 class SpellCastTargets
 {
 public:
-    void read ( WorldPacket & data,uint64 caster, uint8 castFlags = 0 );
+    void read ( WorldPacket & data, uint64 caster );
     void write ( WorldPacket & data);
 
-    SpellCastTargets() : m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
+    SpellCastTargets() : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
         m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
 
-    SpellCastTargets(uint16 TargetMask, uint64 unitTarget, uint64 itemTarget, float srcX, float srcY, float srcZ, float destX, float destY, float destZ)
-        : m_targetMask(TargetMask), m_unitTarget(unitTarget), m_itemTarget(itemTarget), m_srcX(srcX), m_srcY(srcY), m_srcZ(srcZ),
+    SpellCastTargets(uint8 castFlags, uint32 targetIndex, uint32 TargetMask, uint64 unitTarget, uint64 itemTarget, float srcX, float srcY, float srcZ, float destX, float destY, float destZ)
+        : m_castFlags(castFlags), m_targetIndex(targetIndex), m_targetMask(TargetMask), m_unitTarget(unitTarget), m_itemTarget(itemTarget), m_srcX(srcX), m_srcY(srcY), m_srcZ(srcZ),
         m_destX(destX), m_destY(destY), m_destZ(destZ), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
 
-    SpellCastTargets(uint64 unitTarget) : m_targetMask(0x2), m_unitTarget(unitTarget), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
+    SpellCastTargets(uint64 unitTarget) : m_castFlags(0), m_targetIndex(0), m_targetMask(0x2), m_unitTarget(unitTarget), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
         m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
 
-    SpellCastTargets(WorldPacket & data, uint64 caster) : m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
+    SpellCastTargets(WorldPacket & data, uint64 caster) : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
         m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid()
     {
         read(data, caster);
@@ -28,6 +28,8 @@ public:
 
     SpellCastTargets& operator=(const SpellCastTargets &target)
     {
+        m_castFlags = target.m_castFlags;
+        m_targetIndex = target.m_targetIndex;
         m_targetMask = target.m_targetMask;
         m_unitTarget = target.m_unitTarget;
         m_itemTarget = target.m_itemTarget;
@@ -50,9 +52,9 @@ public:
         return *this;
     }
 
-    uint32 m_targetMask;
-    uint64 m_unitTarget;
-    uint64 m_itemTarget;
+    uint8 m_castFlags;
+    uint32 m_targetIndex, m_targetMask;
+    uint64 m_unitTarget, m_itemTarget;
 
     WoWGuid m_src_transGuid, m_dest_transGuid;
     float m_srcX, m_srcY, m_srcZ;
@@ -319,13 +321,13 @@ public:
     void SpellEffectRemoveAura(uint32 i);
 
     // Summons
-    void SummonWild(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonTotem(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonGuardian(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonTemporaryPet(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonPossessed(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonCompanion(uint32 i, SummonPropertiesEntry* spe, CreatureProto* proto, LocationVector & v);
-    void SummonVehicle( uint32 i, SummonPropertiesEntry *spe, CreatureProto *proto, LocationVector &v );
+    void SummonWild(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonTotem(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonGuardian(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonTemporaryPet(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonPossessed(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonCompanion(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonVehicle( uint32 i, SummonPropertiesEntry *spe, CreatureData *proto, LocationVector &v );
 
     // Spell Targets
     void HandleTargetNoObject();
@@ -474,7 +476,6 @@ public:
     int32 damageToHit;
     uint32 castedItemId;
     uint8 extra_cast_number;
-    uint32 m_glyphIndex;
     uint32 m_pushbackCount;
 
     bool duelSpell;

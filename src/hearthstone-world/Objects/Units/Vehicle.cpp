@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Vehicle::Vehicle(uint64 guid) : Creature(guid)
+Vehicle::Vehicle(CreatureData *data, uint64 guid) : Creature(data, guid)
 {
     m_ppassengerCount = NULL;
     m_maxPassengers = NULL;
@@ -36,11 +36,8 @@ void Vehicle::Destruct()
 void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
 {
     DisableAI();
-    m_maxPassengers = 0;
-    m_seatSlotMax = 0;
-    SetVehicleEntry(vehicleEntry);
-    vehicleData = dbcVehicle.LookupEntry( GetVehicleEntry() );
-    if(!vehicleData)
+    m_maxPassengers = m_seatSlotMax = 0;
+    if((vehicleData = dbcVehicle.LookupEntry((m_vehicleEntry=vehicleEntry))) == NULL)
     {
         sLog.outDebug("Attempted to create non-existant vehicle %u.", vehicleEntry);
         return;
@@ -76,7 +73,7 @@ void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
 
 void Vehicle::InstallAccessories()
 {
-    CreatureProtoVehicle* acc = CreatureProtoVehicleStorage.LookupEntry(GetEntry());
+    CreatureVehicleData* acc = CreatureVehicleDataStorage.LookupEntry(GetEntry());
     if(acc == NULL)
     {
         sLog.outDetail("Vehicle %u has no accessories.", GetEntry());
@@ -100,93 +97,59 @@ void Vehicle::InstallAccessories()
         }
 
         // Load the Proto
-        CreatureProto* proto = CreatureProtoStorage.LookupEntry(seatinfo.accessoryentry);
-        CreatureInfo* info = CreatureNameStorage.LookupEntry(seatinfo.accessoryentry);
-
-        if(!proto || !info)
+        CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(seatinfo.accessoryentry);
+        if(ctrData)
         {
             sLog.outError("No proto/info for vehicle accessory %u in vehicle %u", seatinfo.accessoryentry, GetEntry());
             continue;
         }
 
+
         // Remove any passengers.
         if(m_passengers[i])
             RemovePassenger(m_passengers[i]);
 
-        if(proto->vehicle_entry > 0)
+        Creature *passenger = ((ctrData->Vehicle_entry > 0) ? map->CreateVehicle(seatinfo.accessoryentry) : map->CreateCreature(seatinfo.accessoryentry));
+        if(passenger == NULL)
+            continue;
+
+        float offsetX = m_vehicleSeats[i]->m_attachmentOffsetX, offsetY = m_vehicleSeats[i]->m_attachmentOffsetY, offsetZ = m_vehicleSeats[i]->m_attachmentOffsetZ;
+        if(!passenger->Load((IsInInstance() ? map->iInstanceMode : MODE_5PLAYER_NORMAL), GetPositionX()+offsetX, GetPositionY()+offsetY, GetPositionZ()+offsetZ))
         {
-            // Create the Vehicle!
-            Vehicle* pass = map->CreateVehicle(seatinfo.accessoryentry);
-            if(pass != NULL && pass)
-            {
-                pass->Load(proto, (IsInInstance() ? map->iInstanceMode : MODE_5PLAYER_NORMAL),
-                    GetPositionX()+m_vehicleSeats[i]->m_attachmentOffsetX,
-                    GetPositionY()+m_vehicleSeats[i]->m_attachmentOffsetY,
-                    GetPositionZ()+m_vehicleSeats[i]->m_attachmentOffsetZ);
-
-                pass->Init();
-                pass->GetMovementInfo()->SetTransportLock(true);
-                pass->movement_info.movementFlags |= MOVEFLAG_TAXI;
-                pass->GetMovementInfo()->SetTransportData(GetGUID(),
-                    m_vehicleSeats[i]->m_attachmentOffsetX,
-                    m_vehicleSeats[i]->m_attachmentOffsetY,
-                    m_vehicleSeats[i]->m_attachmentOffsetZ, 0.0f, i);
-                pass->InitSeats(proto->vehicle_entry);
-                if(pass->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK))
-                    pass->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK); // Accessory
-
-                AddPassenger(pass, i, true);
-                pass->PushToWorld(map);
-            }
+            delete passenger;
+            continue;
         }
-        else
+
+        passenger->Init();
+        passenger->GetMovementInfo()->SetTransportLock(true);
+        passenger->movement_info.movementFlags |= MOVEFLAG_TAXI;
+        passenger->GetMovementInfo()->SetTransportData(GetGUID(), offsetX, offsetY, offsetZ, 0.0f, i);
+
+        if(passenger->IsVehicle())
         {
-            // Create the Unit!
-            Creature* pass = map->CreateCreature(seatinfo.accessoryentry);
-            if(pass != NULL)
-            {
-                pass->Load(proto, map->iInstanceMode,
-                    GetPositionX()+m_vehicleSeats[i]->m_attachmentOffsetX,
-                    GetPositionY()+m_vehicleSeats[i]->m_attachmentOffsetY,
-                    GetPositionZ()+m_vehicleSeats[i]->m_attachmentOffsetZ);
-
-                pass->Init();
-                pass->GetMovementInfo()->SetTransportLock(true);
-                pass->movement_info.movementFlags |= MOVEFLAG_TAXI;
-                pass->GetMovementInfo()->SetTransportData(GetGUID(),
-                    m_vehicleSeats[i]->m_attachmentOffsetX,
-                    m_vehicleSeats[i]->m_attachmentOffsetY,
-                    m_vehicleSeats[i]->m_attachmentOffsetZ, 0.0f, i);
-                AddPassenger(pass, i, true);
-                pass->PushToWorld(map);
-            }
+            TO_VEHICLE(passenger)->InitSeats(ctrData->Vehicle_entry);
+            if(passenger->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK))
+                passenger->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK); // Accessory
         }
+
+        AddPassenger(passenger, i, true);
+        passenger->PushToWorld(map);
     }
 }
 
-void Vehicle::Load(CreatureProto * proto_, uint32 mode, float x, float y, float z, float o /* = 0.0f */)
+bool Vehicle::Load(uint32 mode, float x, float y, float z, float o /* = 0.0f */)
 {
-    proto = proto_;
-    if(!proto)
-        return;
-
-    if(proto->vehicle_entry != -1)
-    {
-        m_vehicleEntry = proto->vehicle_entry;
-    }
-    else
+    if((m_vehicleEntry = _creatureData->Vehicle_entry) == -1)
     {
         m_vehicleEntry = 124;
-        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", proto->Id);
+        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", _creatureData->Entry);
     }
 
-    m_maxPassengers = 0;
-    m_seatSlotMax = 0;
-    vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry );
-    if(!vehicleData)
+    m_maxPassengers = m_seatSlotMax = 0;
+    if((vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry )) == NULL)
     {
         sLog.outDebug("Attempted to create non-existant vehicle %u.", GetVehicleEntry());
-        return;
+        return false;
     }
 
     for( uint32 i = 0; i < 8; i++ )
@@ -206,29 +169,19 @@ void Vehicle::Load(CreatureProto * proto_, uint32 mode, float x, float y, float 
 
     Initialised = true;
 
-    Creature::Load(proto_, mode, x, y, z, o);
+    return Creature::Load(mode, x, y, z, o);
 }
 
-bool Vehicle::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
+bool Vehicle::Load(CreatureSpawn *spawn, uint32 mode)
 {
-    proto = CreatureProtoStorage.LookupEntry(spawn->entry);
-    if(!proto)
-        return false;
-
-    if(proto->vehicle_entry != -1)
-    {
-        m_vehicleEntry = proto->vehicle_entry;
-    }
-    else
+    if((m_vehicleEntry = _creatureData->Vehicle_entry) == -1)
     {
         m_vehicleEntry = 124;
-        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", proto->Id);
+        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", _creatureData->Entry);
     }
 
-    m_maxPassengers = 0;
-    m_seatSlotMax = 0;
-    vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry );
-    if(!vehicleData)
+    m_maxPassengers = m_seatSlotMax = 0;
+    if((vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry )) == NULL)
     {
         sLog.outDebug("Attempted to create non-existant vehicle %u.", GetVehicleEntry());
         return false;
@@ -250,7 +203,7 @@ bool Vehicle::Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info)
     }
     Initialised = true;
 
-    return Creature::Load(spawn, mode, info);
+    return Creature::Load(spawn, mode);
 }
 
 void Vehicle::OnPushToWorld()
@@ -261,7 +214,7 @@ void Vehicle::OnPushToWorld()
 
 void Vehicle::SendSpells(uint32 entry, Player* plr)
 {
-    CreatureProtoVehicle* acc = CreatureProtoVehicleStorage.LookupEntry(GetEntry());
+    CreatureVehicleData* acc = CreatureVehicleDataStorage.LookupEntry(GetEntry());
     if(!acc)
     {
         WorldPacket data(SMSG_PET_SPELLS, 12);
@@ -300,11 +253,9 @@ void Vehicle::SendSpells(uint32 entry, Player* plr)
                 SpellDifficultyEntry * sd = dbcSpellDifficulty.LookupEntry(spellInfo->SpellDifficulty);
                 if( sd->SpellId[GetMapMgr()->iInstanceMode] == 0 )
                 {
-                    uint32 mode;
+                    uint32 mode = 0;
                     if( GetMapMgr()->iInstanceMode == 3 )
                         mode = 1;
-                    else
-                        mode = 0;
 
                     if( sd->SpellId[mode] == 0 )
                         spellId = sd->SpellId[0];
@@ -568,27 +519,26 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
         data << uint32(0);
         plr->GetSession()->SendPacket(&data);
 
-        CreatureProtoVehicle* vehicleproto = CreatureProtoVehicleStorage.LookupEntry(GetEntry());
-        if(vehicleproto && vehicleproto->healthfromdriver)
+        CreatureVehicleData* vehicledata = CreatureVehicleDataStorage.LookupEntry(GetEntry());
+        if(vehicledata && vehicledata->healthfromdriver)
         {
             if(slot == 0)
             {
                 uint32 health = GetUInt32Value(UNIT_FIELD_HEALTH);
                 uint32 maxhealth = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-                uint32 protomaxhealth = GetProto()->MaxHealth;
+                uint32 protomaxhealth = _creatureData->MaxHealth;
                 uint32 healthdiff = maxhealth - health;
                 uint32 plritemlevel = plr->GetTotalItemLevel();
-                uint32 convrate = vehicleproto->healthunitfromitemlev;
+                uint32 convrate = vehicledata->healthunitfromitemlev;
 
                 if(plritemlevel != 0 && convrate != 0)
                 {
                     uint32 healthloss = healthdiff+plritemlevel*convrate;
-                    SetUInt32Value(UNIT_FIELD_HEALTH, GetProto()->MaxHealth - healthloss);
+                    SetUInt32Value(UNIT_FIELD_HEALTH, _creatureData->MaxHealth - healthloss);
                 }
                 else if(protomaxhealth > healthdiff)
                     SetUInt32Value(UNIT_FIELD_HEALTH, protomaxhealth-healthdiff);
-                else
-                    SetUInt32Value(UNIT_FIELD_HEALTH, 1);
+                else SetUInt32Value(UNIT_FIELD_HEALTH, 1);
                 SetUInt32Value(UNIT_FIELD_MAXHEALTH, protomaxhealth);
             }
         }
@@ -662,7 +612,7 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
         return;
     }
 
-    CreatureProtoVehicle* vehicleproto = CreatureProtoVehicleStorage.LookupEntry(GetEntry());
+    CreatureVehicleData* vehicledata = CreatureVehicleDataStorage.LookupEntry(GetEntry());
     m_passengers[slot] = pPassenger;
 
     LocationVector v;
@@ -733,13 +683,11 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
         data << v.z;                                            // GetTransOffsetZ();
         SendMessageToSet(&data, true);
 
-        if(vehicleproto)
+        if(vehicledata)
         {   // We have proto, no accessory in slot, and slot sets unselectable, unlike some seats
-            if(!vehicleproto->seats[slot].accessoryentry && vehicleproto->seats[slot].unselectableaccessory)
+            if(!vehicledata->seats[slot].accessoryentry && vehicledata->seats[slot].unselectableaccessory)
                 pPlayer->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
-        }
-        else
-            pPlayer->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
+        } else pPlayer->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
 
         if(slot == 0)
         {
@@ -766,14 +714,14 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
                     SetFaction(pPlayer->GetFactionID());
                 }
 
-                if(vehicleproto && vehicleproto->healthfromdriver)
+                if(vehicledata && vehicledata->healthfromdriver)
                 {
                     uint32 health = GetUInt32Value(UNIT_FIELD_HEALTH);
                     uint32 maxhealth = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
                     uint32 healthdiff = maxhealth - health;
 
-                    SetUInt32Value(UNIT_FIELD_MAXHEALTH, (maxhealth+((pPlayer->GetTotalItemLevel())*(vehicleproto->healthunitfromitemlev))));
-                    SetUInt32Value(UNIT_FIELD_HEALTH, (health+((pPlayer->GetTotalItemLevel())*(vehicleproto->healthunitfromitemlev))) - healthdiff);
+                    SetUInt32Value(UNIT_FIELD_MAXHEALTH, (maxhealth+((pPlayer->GetTotalItemLevel())*(vehicledata->healthunitfromitemlev))));
+                    SetUInt32Value(UNIT_FIELD_HEALTH, (health+((pPlayer->GetTotalItemLevel())*(vehicledata->healthunitfromitemlev))) - healthdiff);
                 }
 
                 SendSpells(GetEntry(), pPlayer);
@@ -804,9 +752,9 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
     else
     {
         pPassenger->SetVehicle(this);
-        if(vehicleproto != NULL)
-            if(vehicleproto->seats[slot].accessoryentry == pPassenger->GetEntry())
-                if(vehicleproto->seats[slot].unselectableaccessory == true)
+        if(vehicledata != NULL)
+            if(vehicledata->seats[slot].accessoryentry == pPassenger->GetEntry())
+                if(vehicledata->seats[slot].unselectableaccessory == true)
                     pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
             else
                 pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION));
@@ -828,13 +776,13 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
 
 void Vehicle::VehicleSetDeathState(DeathState s)
 {
-    CreatureProtoVehicle* vehicleproto = CreatureProtoVehicleStorage.LookupEntry(GetEntry());
+    CreatureVehicleData* vehicledata = CreatureVehicleDataStorage.LookupEntry(GetEntry());
 
     for (uint8 i = 0; i < m_seatSlotMax; i++)
     {
         if(m_passengers[i] != NULL)
         {
-            if(m_passengers[i]->IsPlayer() || (vehicleproto && vehicleproto->seats[i].ejectfromvehicleondeath))
+            if(m_passengers[i]->IsPlayer() || (vehicledata && vehicledata->seats[i].ejectfromvehicleondeath))
                 RemovePassenger(m_passengers[i]);
             else
                 m_passengers[i]->setDeathState(s);
@@ -905,11 +853,10 @@ void WorldSession::HandleSpellClick( WorldPacket & recv_data )
             }
             return;
         }
-        SpellEntry * sp = dbcSpell.LookupEntry(ctr->GetProto()->SpellClickid);
+        SpellEntry * sp = dbcSpell.LookupEntry(ctr->GetCreatureData()->SpellClickid);
         if(sp != NULL)
             unit->CastSpell(_player, sp, true);
-        else
-            sLog.outDebug("[SPELLCLICK]: Invalid Spell ID %u creature %u", ctr->GetProto()->SpellClickid, ctr->GetEntry());
+        else sLog.outDebug("[SPELLCLICK]: Invalid Spell ID %u creature %u", ctr->GetCreatureData()->SpellClickid, ctr->GetEntry());
         return;
     }
 
@@ -1054,15 +1001,15 @@ void Vehicle::ChangePowerType()
     case POWER_TYPE_MANA:
         {
             SetPowerType(POWER_TYPE_MANA);
-            SetUInt32Value(UNIT_FIELD_MANA, proto ? proto->MaxPower : 100);
-            SetMaxPower(POWER_TYPE_MANA,proto ? proto->MaxPower : 100);
-            SetUInt32Value(UNIT_FIELD_BASE_MANA, proto ? proto->MaxPower : 100);
+            SetUInt32Value(UNIT_FIELD_MANA, _creatureData->MaxPower);
+            SetMaxPower(POWER_TYPE_MANA, _creatureData->MaxPower);
+            SetUInt32Value(UNIT_FIELD_BASE_MANA, _creatureData->MaxPower);
         }break;
     case POWER_TYPE_ENERGY:
         {
             SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY, proto ? proto->MaxPower : 100);
-            SetMaxPower(POWER_TYPE_ENERGY,proto ? proto->MaxPower : 100);
+            SetPower(POWER_TYPE_ENERGY,  _creatureData->MaxPower);
+            SetMaxPower(POWER_TYPE_ENERGY, _creatureData->MaxPower);
         }break;
     case POWER_TYPE_STEAM:
     case POWER_TYPE_HEAT:

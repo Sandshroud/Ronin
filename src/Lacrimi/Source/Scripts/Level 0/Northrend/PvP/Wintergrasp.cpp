@@ -140,8 +140,8 @@ void WintergraspScript::UpdateWarZones()
         }
     }
 
-    CreatureProto* ctrp = NULL;
     SpawnInfo* spawnInfo = NULL;
+    CreatureData* ctrdata = NULL;
     for(std::set<SpawnInfo*>::iterator itr = m_WarriorSoulPool.begin(), itr2; itr != m_WarriorSoulPool.end();)
     {
         itr2 = itr++;
@@ -149,8 +149,7 @@ void WintergraspScript::UpdateWarZones()
         spawnInfo = (*itr2);
         if(spawnInfo->RespawnTime < CurrentTime)
         {
-            ctrp = CreatureProtoStorage.LookupEntry((*itr2)->CreatureEntry);
-            if(ctrp == NULL)
+            if(sCreatureDataMgr.GetCreatureData((*itr2)->CreatureEntry) == NULL)
                 continue;
 
             float x = Wintergrasp_WarZones[spawnInfo->locationId][spawnInfo->SpawnId].mX, y = Wintergrasp_WarZones[spawnInfo->locationId][spawnInfo->SpawnId].mY,
@@ -165,8 +164,7 @@ void WintergraspScript::UpdateWarZones()
 
             spawnInfo->m_Spawn->SetMapId(mgr->GetMapId());
             spawnInfo->m_Spawn->SetInstanceID(mgr->GetInstanceID());
-
-            if(spawnInfo->m_Spawn->Load(ctrp, mgr->iInstanceMode, x, y, z, o))
+            if(spawnInfo->m_Spawn->Load(mgr->iInstanceMode, x, y, z, o))
             {
                 if(!spawnInfo->m_Spawn->CanAddToWorld())
                 {
@@ -198,23 +196,19 @@ void WintergraspScript::SpawnWarZones(bool apply)
         Herald("Multiple Battle groups have engaged!");
 
         uint32 Entry = 0, percent = 100;
-        CreatureProto* ctrp = NULL;
         for(uint32 i = 0; i < MAX_BATTLE_ZONES; i++)
         {
             for(uint32 t = 0; t < MAX_UNITS_PER_ZONE/2; t++)
             {
-                float x = Wintergrasp_WarZones[i][t].mX, y = Wintergrasp_WarZones[i][t].mY, z = Wintergrasp_WarZones[i][t].mZ, o = Wintergrasp_WarZones[i][t].mO;
-                if(x == 0.0f || y == 0.0f || z == 0.0f)
-                    continue;
-
                 if(RandomUInt(percent) > (percent/2))
                     Entry = 00000;
-                else
-                    Entry = 00000;
+                else Entry = 00000;
                 percent += 1;
+                if(sCreatureDataMgr.GetCreatureData(Entry) == NULL)
+                    continue;
 
-                ctrp = CreatureProtoStorage.LookupEntry(Entry);
-                if(ctrp == NULL)
+                float x = Wintergrasp_WarZones[i][t].mX, y = Wintergrasp_WarZones[i][t].mY, z = Wintergrasp_WarZones[i][t].mZ, o = Wintergrasp_WarZones[i][t].mO;
+                if(x == 0.0f || y == 0.0f || z == 0.0f)
                     continue;
 
                 Creature* ctr = mgr->CreateCreature(Entry);
@@ -224,7 +218,7 @@ void WintergraspScript::SpawnWarZones(bool apply)
                 ctr->SetMapId(mgr->GetMapId());
                 ctr->SetInstanceID(mgr->GetInstanceID());
 
-                if(ctr->Load(ctrp, mgr->iInstanceMode, x, y, z, o))
+                if(ctr->Load(mgr->iInstanceMode, x, y, z, o))
                 {
                     if(!ctr->CanAddToWorld())
                     {
@@ -247,18 +241,15 @@ void WintergraspScript::SpawnWarZones(bool apply)
 
             for(uint32 t = MAX_UNITS_PER_ZONE/2; t < MAX_UNITS_PER_ZONE; t++)
             {
-                float x = Wintergrasp_WarZones[i][t].mX, y = Wintergrasp_WarZones[i][t].mY, z = Wintergrasp_WarZones[i][t].mZ, o = Wintergrasp_WarZones[i][t].mO;
-                if(x == 0.0f || y == 0.0f || z == 0.0f)
-                    continue;
-
                 if(RandomUInt(percent) > (percent/2))
                     Entry = 00000;
-                else
-                    Entry = 00000;
+                else Entry = 00000;
                 percent += 1;
+                if(sCreatureDataMgr.GetCreatureData(Entry) == NULL)
+                    continue;
 
-                ctrp = CreatureProtoStorage.LookupEntry(Entry);
-                if(ctrp == NULL)
+                float x = Wintergrasp_WarZones[i][t].mX, y = Wintergrasp_WarZones[i][t].mY, z = Wintergrasp_WarZones[i][t].mZ, o = Wintergrasp_WarZones[i][t].mO;
+                if(x == 0.0f || y == 0.0f || z == 0.0f)
                     continue;
 
                 Creature* ctr = mgr->CreateCreature(Entry);
@@ -268,7 +259,7 @@ void WintergraspScript::SpawnWarZones(bool apply)
                 ctr->SetMapId(mgr->GetMapId());
                 ctr->SetInstanceID(mgr->GetInstanceID());
 
-                if(ctr->Load(ctrp, mgr->iInstanceMode, x, y, z, o))
+                if(ctr->Load(mgr->iInstanceMode, x, y, z, o))
                 {
                     if(!ctr->CanAddToWorld())
                     {

@@ -427,7 +427,7 @@ void IsleOfConquest::CaptureControlPoint(uint32 Id, uint32 Team)
     }
 
     // spawn the spirit guide for our faction
-    m_spiritGuides[Id] = SpawnSpiritGuide(GraveyardLocations[Id][0], GraveyardLocations[Id][1], GraveyardLocations[Id][2], 0.0f, Team);
+    m_spiritGuides[Id] = SpawnSpiritGuide(GraveyardLocations[Id][0], GraveyardLocations[Id][1], GraveyardLocations[Id][2], 0.0f, Team > 0);
     AddSpiritGuide(m_spiritGuides[Id]);
 
     // send the chat message/sounds out
@@ -685,8 +685,8 @@ void IsleOfConquest::OnCreate()
     SpawnCreature(34922, 1296.57f, -765.78f, 69.98f, 6.22f);    // Overlord Agmar (not sure this is the good general) (HORDE)
 
     // Spawn const spiritguides
-    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[0][0], NoBaseGYLocations[0][1], NoBaseGYLocations[0][2], NoBaseGYLocations[0][3], 0));
-    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[1][0], NoBaseGYLocations[1][1], NoBaseGYLocations[1][2], NoBaseGYLocations[1][3], 1));
+    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[0][0], NoBaseGYLocations[0][1], NoBaseGYLocations[0][2], NoBaseGYLocations[0][3], false));
+    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[1][0], NoBaseGYLocations[1][1], NoBaseGYLocations[1][2], NoBaseGYLocations[1][3], true));
 
 
     // Spawn Teleporters

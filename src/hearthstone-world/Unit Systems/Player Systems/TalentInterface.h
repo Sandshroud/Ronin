@@ -55,7 +55,7 @@ public:
     void ResetSpec(uint8 spec, bool silent=false);
 
     void UnlockSpec(uint8 spec);
-    void ApplySpec(uint8 spec, bool init);
+    void ApplySpec(uint8 spec);
 
     int32 CalculateSpentPoints(uint8 spec);
 
@@ -82,7 +82,7 @@ public:
     void LoadGlyphData(QueryResult *result);
 
     void InitGlyphSlots();
-    void InitGlyphsForLevel();
+    void InitGlyphsForLevel(uint32 level);
 
     uint8 ApplyGlyph(uint8 glyphSlot, uint32 glyphID);
     void UnapplyGlyph(uint8 glyphSlot);
@@ -108,6 +108,8 @@ public:
 
 private:
     Player *m_Player;
+
+    bool m_queuedActions;
 
     // Talent specs
     uint32 m_talentResetCounter;

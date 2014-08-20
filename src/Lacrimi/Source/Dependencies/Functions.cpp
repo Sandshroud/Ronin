@@ -27,22 +27,18 @@ Creature* CreateAndLoadCreature(MapMgr* mgr, uint32 entry, uint32 instancemode, 
     if(x == 0.0f && y == 0.0f)
         return NULL;
 
-    CreatureInfo* cn = CreatureNameStorage.LookupEntry(entry);
-    if(cn == NULL)
-        return NULL;
-
-    CreatureProto* cp = CreatureProtoStorage.LookupEntry(entry);
-    if(cp == NULL)
+    if(sCreatureDataMgr.GetCreatureData(entry) == NULL)
         return NULL;
 
     if(instancemode > 3)
         instancemode = 0;
 
     Creature* ctr = mgr->CreateCreature(entry);
-    ctr->Load(cp, instancemode, x, y, z, o);
+    if(ctr == NULL)
+        return NULL;
 
-    if(phase == 0)
-        phase = 1;
+    ctr->Load(instancemode, x, y, z, o);
+    if(phase == 0) phase = 1;
     ctr->SetPhaseMask(phase);
     if(push == true)
         ctr->PushToWorld(mgr);

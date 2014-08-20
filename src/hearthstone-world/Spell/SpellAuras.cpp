@@ -3421,13 +3421,11 @@ void Aura::SpellAuraTransform(bool apply)
         return;
 
     uint32 displayId = 0;
-    CreatureInfo* ci = NULL;
-    ci = CreatureNameStorage.LookupEntry(mod->m_miscValue[0]);
+    CreatureData* data = sCreatureDataMgr.GetCreatureData(mod->m_miscValue[0]);
 
-    if(ci == NULL)
-        sLog.Debug("Aura","SpellAuraTransform cannot find CreatureInfo for id %d",mod->m_miscValue[0]);
-    else
-        displayId = ci->Male_DisplayID;
+    if(data == NULL)
+        sLog.Debug("Aura","SpellAuraTransform cannot find CreatureData for id %d",mod->m_miscValue[0]);
+    else displayId = data->DisplayInfo[0];
 
     if( m_target->IsPlayer() && TO_PLAYER(m_target)->IsMounted() )
         m_target->Dismount();
@@ -4260,21 +4258,20 @@ void Aura::SpellAuraMounted(bool apply)
 
         m_target->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
 
-        CreatureInfo* ci = CreatureNameStorage.LookupEntry(mod->m_miscValue[0]);
-        if(ci == NULL || ci->Male_DisplayID == 0)
+        CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(mod->m_miscValue[0]);
+        if(ctrData == NULL || ctrData->DisplayInfo[0] == 0)
         {   // 2 sec negative aura, so they know.
             SetNegative();
             SetDuration(2000);
             return;
         }
 
-        m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID , ci->Male_DisplayID);
+        m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->DisplayInfo[0]);
         pPlayer->m_MountSpellId = m_spellProto->Id;
         pPlayer->m_FlyingAura = 0;
 
-        if( pPlayer->GetShapeShift() &&
-                !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ) &&
-                pPlayer->m_ShapeShifted != m_spellProto->Id )
+        if( pPlayer->GetShapeShift() && pPlayer->m_ShapeShifted != m_spellProto->Id && 
+            !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
             m_target->RemoveAura( pPlayer->m_ShapeShifted );
     }
     else
@@ -4551,9 +4548,9 @@ void Aura::SpellAuraChannelDeathItem(bool apply)
     }
     else
     {
-        if(m_target->GetTypeId() == TYPEID_UNIT && TO_CREATURE(m_target)->GetCreatureInfo())
+        if(m_target->GetTypeId() == TYPEID_UNIT && TO_CREATURE(m_target)->GetCreatureData())
         {
-            if(TO_CREATURE(m_target)->GetCreatureInfo()->Type != CRITTER)
+            if(TO_CREATURE(m_target)->GetCreatureData()->Type != CRITTER)
             {
                 if(m_target->isDead())
                 {

@@ -25,151 +25,6 @@ struct CreatureItem
 };
 
 #pragma pack(PRAGMA_PACK)
-struct CreatureInfo
-{
-    uint32 Id;
-    char * Name;
-    char * SubName;
-    char * info_str;
-    uint32 Flags1;
-    uint32 Type;
-    uint32 TypeFlags;
-    uint32 Family;
-    uint32 Rank;
-    uint32 Unk[2];
-    uint32 Male_DisplayID;
-    uint32 Female_DisplayID;
-    uint32 Male_DisplayID2;
-    uint32 Female_DisplayID2;
-    float  modHealth;
-    float  modMana;
-    uint8  Civilian;
-    uint8  Leader;
-
-    std::string lowercase_name;
-
-    uint32 GenerateModelId(uint32 * dest)
-    {
-        uint32 models[] = { Male_DisplayID, Male_DisplayID2, Female_DisplayID, Female_DisplayID2 };
-        if(!models[0] && !models[1] && !models[2] && !models[3])
-        {
-            // All models are invalid.
-            sLog.Warning("CreatureSpawn", "Creature %u has no model_id", Id);
-            return 0;
-        }
-
-        uint32 modelchoices[4];
-        uint32 max = 0;
-
-        if( Male_DisplayID )
-        {
-            modelchoices[max] = Male_DisplayID;
-            ++max;
-        }
-
-        if( Male_DisplayID2 )
-        {
-            modelchoices[max] = Male_DisplayID2;
-            ++max;
-        }
-
-        if( Female_DisplayID )
-        {
-            modelchoices[max] = Female_DisplayID;
-            ++max;
-        }
-
-        if( Female_DisplayID2 )
-        {
-            modelchoices[max] = Female_DisplayID2;
-            ++max;
-        }
-
-        uint32 r = max > 1 ? RandomUInt(max-1) : 0;
-        *dest = modelchoices[r];
-
-        if( *dest == Male_DisplayID || *dest == Male_DisplayID2 )
-            return 0;
-        return 1;
-    }
-};
-
-struct TeleportInfo
-{
-//  uint32 entry;
-    uint8 intid;
-    uint8 iconid;
-    bool teleport;
-    string textinfo;
-    uint32 teleportmapid;
-    float teleportx;
-    float teleporty;
-    float teleportz;
-    float teleporto;
-    uint32 castspellid;
-    uint32 removetargetaura;
-    bool sndchtmessage;
-    uint8 messagetype;
-    string Message;
-};
-
-struct CreatureProtoMode
-{
-//  uint32 entry; // Woot, not needed inside core.
-    uint32 Minlevel;
-    uint32 Maxlevel;
-    uint32 Minhealth;
-    uint32 Maxhealth;
-    float Mindmg;
-    float Maxdmg;
-    uint32 Power;
-    uint32 Resistances[7];
-//  char * aura_string; // We just convert directly.
-    uint32 auraimmune_flag;
-
-    set<uint32> start_auras;
-};
-
-struct CreatureProto
-{
-    uint32 Id;
-    uint32 MinLevel, MaxLevel;
-    uint32 Faction;
-    uint32 MinHealth, MaxHealth;
-    uint8 Powertype;
-    uint32 MinPower, MaxPower;
-    float  Scale;
-    uint32  NPCFLags;
-    uint32 AttackTime;
-    uint32 AttackType;
-    float MinDamage, MaxDamage;
-    uint32 RangedAttackTime;
-    float RangedMinDamage, RangedMaxDamage;
-    uint32 Item1, Item2, Item3;
-    uint32 RespawnTime;
-    uint32 Resistances[7];
-    float CombatReach;
-    float BoundingRadius;
-    char* aura_string;
-    uint32 boss;
-    int32 money;
-    uint32 invisibility_type;
-    float walk_speed, run_speed, fly_speed;
-    uint32 extra_a9_flags;
-    uint32 auraimmune_flag;
-    int32 vehicle_entry;
-    uint32 BattleMasterType;
-    uint32 SpellClickid;
-    uint32 CanMove;
-    uint32 Damage_Bonus[6];
-    uint32 Healing_Bonus;
-
-    set<uint32> start_auras;
-    list<AI_Spell*> spells;
-    HM_NAMESPACE::hash_map<uint8, CreatureProtoMode*> ModeProto;
-    std::set<TeleportInfo*> TeleportInfoList;
-};
-
 struct SeatInfo
 {
     uint32 accessoryentry;
@@ -177,7 +32,7 @@ struct SeatInfo
     bool unselectableaccessory;
 };
 
-struct CreatureProtoVehicle
+struct CreatureVehicleData
 {
     uint32 vehicle_creature_entry; // Entry.
     bool healthfromdriver; // Effects only driver.
@@ -290,7 +145,6 @@ enum CreatureFlags1
     CREATURE_FLAGS1_ENGINEERLOOT = 0x08000,
 };
 
-
 enum ELITE
 {
     ELITE_NORMAL = 0,
@@ -325,9 +179,7 @@ struct Trainer;
 class SERVER_DECL Creature : public Unit
 {
 public:
-    friend class Player;
-
-    Creature(uint64 guid);
+    Creature(CreatureData *data, uint64 guid);
     virtual ~Creature();
     virtual void Init();
     virtual void Destruct();
@@ -335,31 +187,30 @@ public:
     /// Updates
     virtual void Update( uint32 time );
 
-    int32 GetBonusMana() { if(proto->Powertype != POWER_TYPE_MANA) return 0; return proto->MinPower; }
-    int32 GetBonusHealth() { if(LoadedProto) return LoadedProto->Minhealth; return proto->MinHealth; }
+    int32 GetBonusMana() { if(_creatureData->Powertype != POWER_TYPE_MANA) return 0; return _creatureData->MinPower; }
+    int32 GetBonusHealth() { return _creatureData->MinHealth; }
     int32 GetBonusStat(uint8 type) { return 0; };
     int32 GetBaseAttackTime(uint8 weaponType);
-    int32 GetBaseMinDamage(uint8 weaponType) { if(LoadedProto) return LoadedProto->Mindmg; return proto->MinDamage; }
-    int32 GetBaseMaxDamage(uint8 weaponType) { if(LoadedProto) return LoadedProto->Maxdmg; return proto->MaxDamage; }
+    int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->MinDamage; }
+    int32 GetBaseMaxDamage(uint8 weaponType) { return _creatureData->MaxDamage; }
     int32 GetBonusAttackPower() { return 0; };
     int32 GetBonusRangedAttackPower() { return 0; };
-    int32 GetBonusResistance(uint8 school) { if(LoadedProto) return LoadedProto->Resistances[school]; return proto->Resistances[school]; }
+    int32 GetBonusResistance(uint8 school) { return _creatureData->Resistances[school]; }
 
-    bool Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info);
-    bool Load(CreatureProto * proto_, uint32 mode, float x, float y, float z, float o = 0.0f);
+    virtual bool Load(CreatureSpawn *spawn, uint32 mode);
+    virtual bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);
 
     void AddToWorld();
     void AddToWorld(MapMgr* pMapMgr);
     void RemoveFromWorld(bool addrespawnevent, bool free_guid);
 
     /// Creation
-    void Create ( const char* creature_name, uint32 mapid, float x, float y, float z, float ang);
-    void CreateWayPoint ( uint32 WayPointID, uint32 mapid, float x, float y, float z, float ang);
+    void Create ( uint32 mapid, float x, float y, float z, float ang);
 
     /// Arena organizers
     HEARTHSTONE_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
 
-    HEARTHSTONE_INLINE uint32 GetSQL_id() { return spawnid; };
+    HEARTHSTONE_INLINE uint32 GetSQL_id() { return IsSpawn() ? GetSpawn()->id : 0; };
 
     /// Creature inventory
     HEARTHSTONE_INLINE uint32 GetItemIdBySlot(uint32 slot) { return m_SellItems->at(slot).itemid; }
@@ -559,18 +410,12 @@ public:
     void LoadScript();
 
     uint32 m_TaxiNode;
-    CreatureInfo *creature_info;
-    const char* GetName()
-    {
-        return creature_info->Name;
-    }
-    // left this function for backwards compatibility with scripts
-    // please use GetCreatureInfo()
-    HEARTHSTONE_INLINE CreatureInfo *GetCreatureInfo()
-    {
-        return creature_info;
-    }
-    HEARTHSTONE_INLINE void SetCreatureName(CreatureInfo *ci) { creature_info = ci; }
+    const char* GetName() { return _creatureData->Name;  }
+
+    HEARTHSTONE_INLINE bool IsSpawn() { return m_spawn != NULL; }
+    HEARTHSTONE_INLINE CreatureSpawn *GetSpawn() { return m_spawn; }
+    HEARTHSTONE_INLINE CreatureData *GetCreatureData() { return _creatureData; }
+    HEARTHSTONE_INLINE CreatureInfoExtra *GetExtraInfo() { return _extraInfo; }
     HEARTHSTONE_INLINE Trainer* GetTrainer() { return mTrainer; }
 
     CreatureFamilyEntry * myFamily;
@@ -578,14 +423,7 @@ public:
     void ChannelLinkUpGO(uint32 SqlId);
     void ChannelLinkUpCreature(uint32 SqlId);
     WayPoint * CreateWaypointStruct();
-    CreatureProto * proto;
-    HEARTHSTONE_INLINE CreatureProto *GetProto() { return proto; }
-    CreatureProtoMode* LoadedProto;
-    HEARTHSTONE_INLINE CreatureProtoMode *GetLoadedProto() { return LoadedProto; }
-    CreatureInfoExtra * ExtraInfo;
-    HEARTHSTONE_INLINE CreatureInfoExtra *GetExtraInfo() { return ExtraInfo; }
-    uint32 GetRespawnTime() { if(proto != NULL) return proto->RespawnTime; else return 0; }
-    CreatureSpawn * m_spawn;
+    uint32 GetRespawnTime() { if(_creatureData != NULL) return _creatureData->RespawnTime; else return 0; }
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
     void TriggerScriptEvent(int);
@@ -607,10 +445,8 @@ public:
     {
         if(m_spawn)
             return m_spawn->CanMove;
-        else if(proto)
-            return proto->CanMove;
-        return 1;
-    };
+        return _creatureData->CanMove;
+    }
 
     bool HasNpcFlag(uint32 Flag)
     {
@@ -620,12 +456,14 @@ public:
     }
 
 protected:
+    CreatureSpawn * m_spawn;
+    CreatureData *_creatureData;
+    CreatureInfoExtra * _extraInfo;
+
     CreatureAIScript *_myScriptClass;
     bool m_limbostate;
     Trainer* mTrainer;
 
-    void _LoadGoods();
-    void _LoadGoods(std::list<CreatureItem*>* lst);
     void _LoadMovement();
 
     /// Vendor data
@@ -677,7 +515,6 @@ public: // values
     bool m_noDeleteAfterDespawn;
     uint32 m_taggingGroup;
     uint32 m_taggingPlayer;
-    uint32 spawnid;
     uint32 original_flags;
     uint32 original_emotestate;
     uint32 original_MountedDisplayID;

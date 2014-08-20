@@ -153,33 +153,29 @@ Creature *MapManagerScript::FindClosestLivingCreature( uint32 pEntry, float pX, 
 
 Creature *MapManagerScript::SpawnCreature( uint32 pEntry, float pX, float pY, float pZ, float pO, int32 PhaseMask )
 {
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(pEntry);
-    CreatureInfo * info = CreatureNameStorage.LookupEntry(pEntry);
-    if(proto == NULL || info == NULL)
-        return NULLCREATURE;
-
-    Creature * p = _manager->CreateCreature(pEntry);
-    p->SetInstanceID(_manager->GetInstanceID());
-    p->Load(proto, pX, pY, pZ, pO);
-    p->SetPhaseMask(PhaseMask);
-    p->PushToWorld(_manager);
-    return p;
+    if(Creature *p = _manager->CreateCreature(pEntry))
+    {
+        p->SetInstanceID(_manager->GetInstanceID());
+        p->Load(_manager->iInstanceMode, pX, pY, pZ, pO);
+        p->SetPhaseMask(PhaseMask);
+        p->PushToWorld(_manager);
+        return p;
+    }
+    return NULLCREATURE;
 }
 
 Creature *MapManagerScript::SpawnCreature( uint32 pEntry, float pX, float pY, float pZ, float pO, uint32 pFactionId, int32 PhaseMask )
 {
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(pEntry);
-    CreatureInfo * info = CreatureNameStorage.LookupEntry(pEntry);
-    if(proto == NULL || info == NULL)
-        return NULLCREATURE;
-
-    Creature * p = _manager->CreateCreature(pEntry);
-    p->SetInstanceID(_manager->GetInstanceID());
-    p->Load(proto, pX, pY, pZ, pO);
-    p->SetPhaseMask(PhaseMask);
-    p->SetFaction(pFactionId);
-    p->PushToWorld(_manager);
-    return p;
+    if(Creature *p = _manager->CreateCreature(pEntry))
+    {
+        p->SetInstanceID(_manager->GetInstanceID());
+        p->Load(_manager->iInstanceMode, pX, pY, pZ, pO);
+        p->SetPhaseMask(PhaseMask);
+        p->SetFaction(pFactionId);
+        p->PushToWorld(_manager);
+        return p;
+    }
+    return NULLCREATURE;
 }
 
 GameObject *MapManagerScript::GetGameObjectBySqlId( uint32 pSqlId )

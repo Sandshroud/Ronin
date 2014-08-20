@@ -16,7 +16,6 @@ struct GuildRank;
 class Pet;
 class Charter;
 class LFGMatch;
-struct LevelInfo;
 struct PlayerCreateInfo;
 
 #define MAX_PET_NO 3
@@ -999,16 +998,11 @@ public:
     HEARTHSTONE_INLINE bool IsInGuild() { return (GetUInt32Value(PLAYER_GUILDID) > 0); }
     HEARTHSTONE_INLINE uint32 GetGuildId() { return GetUInt32Value(PLAYER_GUILDID); }
     HEARTHSTONE_INLINE uint32 GetGuildRank() { return GetUInt32Value(PLAYER_GUILDRANK); }
+    HEARTHSTONE_INLINE uint32 GetGuildLevel() { return GetUInt32Value(PLAYER_GUILDLEVEL); }
 
-    void SetGuildId(uint32 guildId)
-    {
-        uint32 objectType = GetUInt32Value(OBJECT_FIELD_TYPE);
-        if(guildId) objectType |= TYPEMASK_IN_GUILD;
-        else objectType &= ~TYPEMASK_IN_GUILD;
-        SetUInt64Value(PLAYER_GUILDID, guildId ? MAKE_NEW_GUID(guildId, 0, HIGHGUID_TYPE_GUILD) : 0);
-        SetUInt32Value(OBJECT_FIELD_TYPE, objectType);
-    }
-    void SetGuildRank(uint32 guildRank) { SetUInt32Value(PLAYER_GUILDRANK, guildRank); }
+    void SetGuildId(uint32 guildId);
+    HEARTHSTONE_INLINE void SetGuildRank(uint32 guildRank) { SetUInt32Value(PLAYER_GUILDRANK, guildRank); }
+    HEARTHSTONE_INLINE void SetGuildLevel(uint32 guildLevel) { SetUInt32Value(PLAYER_GUILDLEVEL, guildLevel); }
 
     uint32 GetGuildInvitersGuid() { return m_invitersGuid; }
     void SetGuildInvitersGuid( uint32 guid ) { m_invitersGuid = guid; }
@@ -1979,6 +1973,7 @@ public:
     void RemoveTaximaskNode(uint32 nodeidx){SetTaximaskNode(nodeidx, true);}
 
     uint8 GetChatTag() const;
+    uint8 GetGuildMemberFlags();
     void AddArenaPoints( uint32 arenapoints );
     bool PreventRes;
 

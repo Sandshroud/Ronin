@@ -558,9 +558,9 @@ uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_typ
         //ap += pAttacker->GetRAP();
         ap += pVictim->RAPvModifier;
 
-        if(!pVictim->IsPlayer() && TO_CREATURE(pVictim)->GetCreatureInfo())
+        if(!pVictim->IsPlayer() && TO_CREATURE(pVictim)->GetCreatureData())
         {
-            uint32 creatType = TO_CREATURE(pVictim)->GetCreatureInfo()->Type;
+            uint32 creatType = TO_CREATURE(pVictim)->GetCreatureData()->Type;
             ap += (float)pAttacker->GetCreatureRangedAttackPowerMod(creatType);
 
             if(pAttacker->IsPlayer())
@@ -624,9 +624,9 @@ uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_typ
         //ap += pAttacker->GetAP();
         ap += pVictim->APvModifier;
 
-        if(!pVictim->IsPlayer() && TO_CREATURE(pVictim)->GetCreatureInfo())
+        if(!pVictim->IsPlayer() && TO_CREATURE(pVictim)->GetCreatureData())
         {
-            uint32 creatType = TO_CREATURE(pVictim)->GetCreatureInfo()->Type;
+            uint32 creatType = TO_CREATURE(pVictim)->GetCreatureData()->Type;
             ap += (float)pAttacker->GetCreatureAttackPowerMod(creatType);
 
             if(pAttacker->IsPlayer())

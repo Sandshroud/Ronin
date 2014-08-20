@@ -113,6 +113,7 @@ using namespace std;
 #include "StatSystem.h"
 #include "Unit.h"
 
+#include "CreatureDataMgr.h"
 #include "AddonMgr.h"
 #include "AreaTrigger.h"
 #include "BattlegroundMgr.h"

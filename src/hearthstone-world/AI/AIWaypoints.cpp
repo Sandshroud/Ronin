@@ -111,65 +111,7 @@ bool AI_Movement::showWayPoints(Player* pPlayer, bool Backwards)
         {
             wp = *itr;
 
-            //Create
-            Creature* pWayPoint = new Creature(MAKE_NEW_GUID(wp->id, 0, HIGHGUID_TYPE_WAYPOINT));
-            pWayPoint->Init();
-            pWayPoint->CreateWayPoint(wp->id, pPlayer->GetMapId(), wp->x, wp->y, wp->z, wp->orientation);
-            pWayPoint->SetUInt32Value(OBJECT_FIELD_ENTRY, 300000);
-            pWayPoint->SetFloatValue(OBJECT_FIELD_SCALE_X, 0.5f);
 
-            bool ModelChange = false;
-            if(!Backwards)
-            {
-                if(wp->forwardInfo)
-                {
-                    uint32 DisplayID = (wp->forwardInfo->SkinID == 0) ? m_Unit->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID) : wp->forwardInfo->SkinID;
-                    if(DisplayID != m_Unit->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID))
-                        ModelChange = true;
-
-                    pWayPoint->SetUInt32Value(UNIT_FIELD_DISPLAYID, DisplayID);
-                    pWayPoint->SetUInt32Value(UNIT_NPC_EMOTESTATE, wp->forwardInfo->EmoteID);
-                    pWayPoint->SetStandState(wp->forwardInfo->StandState);
-                }
-            }
-            else
-            {
-                if(wp->backwardInfo)
-                {
-                    uint32 DisplayID = (wp->backwardInfo->SkinID == 0) ? m_Unit->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID) : wp->backwardInfo->SkinID;
-                    if(DisplayID != m_Unit->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID))
-                        ModelChange = true;
-
-                    pWayPoint->SetUInt32Value(UNIT_FIELD_DISPLAYID, DisplayID);
-                    pWayPoint->SetUInt32Value(UNIT_NPC_EMOTESTATE, wp->backwardInfo->EmoteID);
-                    pWayPoint->SetStandState(wp->backwardInfo->StandState);
-                }
-            }
-            if(ModelChange)
-                pWayPoint->EventModelChange();
-
-            pWayPoint->SetUInt32Value(UNIT_FIELD_LEVEL, wp->id);
-            pWayPoint->SetUInt32Value(UNIT_NPC_FLAGS, 0);
-//          pWayPoint->SetUInt32Value(UNIT_FIELD_AURA+32, 8326); //invisable & deathworld look
-            pWayPoint->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE , pPlayer->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-            pWayPoint->SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-            pWayPoint->SetUInt32Value(UNIT_FIELD_MAXHEALTH, 1);
-            pWayPoint->SetUInt32Value(UNIT_FIELD_STRENGTH, wp->flags);
-
-            //Create on client
-            ByteBuffer buf(2500);
-            uint32 count = pWayPoint->BuildCreateUpdateBlockForPlayer(&buf, pPlayer);
-            pPlayer->PushUpdateData(&buf, count);
-
-            //root the object
-            WorldPacket data1;
-            data1.Initialize(SMSG_FORCE_MOVE_ROOT);
-            data1 << pWayPoint->GetNewGUID();
-            pPlayer->GetSession()->SendPacket( &data1 );
-
-            //Cleanup
-            delete pWayPoint;
-            pWayPoint = NULL;
         }
     }
     return true;
@@ -210,7 +152,7 @@ bool AI_Movement::saveWayPoints()
         return false;
     if(!m_Unit->IsCreature())
         return false;
-    if(TO_CREATURE(m_Unit)->m_spawn == NULL)
+    if(!TO_CREATURE(m_Unit)->IsSpawn())
         return false;
 
     WorldDatabase.Execute("DELETE FROM creature_waypoints WHERE spawnid = %u", TO_CREATURE(m_Unit)->GetSQL_id());

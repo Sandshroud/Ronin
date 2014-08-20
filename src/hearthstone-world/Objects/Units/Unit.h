@@ -19,7 +19,7 @@ class Spell;
 class AIInterface;
 class GameObject;
 class Creature;
-struct CreatureInfo;
+struct CreatureData;
 
 struct ReflectSpellSchool
 {
@@ -461,6 +461,7 @@ public:
     virtual bool PowerUpdateRequired();
     virtual bool RegenUpdateRequired();
     virtual bool AttackTimeUpdateRequired(uint8 weaponType);
+    virtual bool AttackDamageUpdateRequired(uint8 weaponType);
     virtual bool ResUpdateRequired();
     virtual bool APUpdateRequired();
     virtual bool RAPUpdateRequired();

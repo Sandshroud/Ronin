@@ -43,35 +43,25 @@ struct SpawnChannelData
     uint32 channel_target_creature;
 };
 
-struct SpawnMountedDisplay
-{
-    SpawnMountedDisplay(uint32 _MountedDisplayID = 0)
-    {
-        MountedDisplayID = _MountedDisplayID;
-    }
-
-    uint32 MountedDisplayID;
-};
-
 typedef struct
 {
-    uint32  id;//spawn ID
-    uint32  entry;
-    float   x, y, z, o;
+    uint32 id;//spawn ID
+    uint32 entry;
+    float  x, y, z, o;
 
-    uint32  flags;
-    uint32  factionid;
-    uint32  emote_state;
-    uint8   stand_state;
-    int32   phase;
-    bool    vehicle;
-    uint32  CanMove;
-    int32   vendormask;
+    uint32 flags;
+    uint32 factionid;
+    uint32 emote_state;
+    uint8  stand_state;
+    int32  phase;
+    bool   vehicle;
+    uint32 CanMove;
+    int32  vendormask;
     uint16 death_state;
+    uint32 MountedDisplayID;
 
     SpawnBytes *Bytes;
     SpawnChannelData *ChannelData;
-    SpawnMountedDisplay *MountedDisplay;
 }CreatureSpawn;
 
 typedef struct GOSpawn

@@ -247,7 +247,6 @@ RegType<Unit> UnitMethods[] =
     { "KickPlayer", &LuaUnit_KickPlayer },
     { "CanCallForHelp", &LuaUnit_CanCallForHelp },
     { "CallForHelpHp", &LuaUnit_CallForHelpHp },
-    { "SetCreatureNameById", &LuaUnit_SetCreatureName },
     { "GetInRangePlayers", &LuaUnit_GetInRangePlayers },
     { "GetUnitByGUID", &LuaUnit_GetUnitByGUID },
     { "RemoveFromWorld", &LuaUnit_RemoveFromWorld },

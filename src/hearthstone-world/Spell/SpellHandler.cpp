@@ -15,9 +15,8 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     uint8 bagIndex, slot, castFlags;
     uint8 castCount;
     uint64 itemGUID;
-    uint32 glyphIndex;
     uint32 spellId;
-    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID >> glyphIndex >> castFlags;
+    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID >> castFlags;
 
     Item* tmpItem = NULLITEM;
     tmpItem = _player->GetItemInterface()->GetInventoryItem(bagIndex,slot);
@@ -176,7 +175,6 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
     Spell* spell = new Spell(_player, spellInfo, false, NULLAURA);
     spell->extra_cast_number= castCount;
-    spell->m_glyphIndex = glyphIndex;
     spell->i_caster = tmpItem;
     if( spell->prepare(&targets) == SPELL_CANCAST_OK )
         _player->Cooldown_AddItem( itemProto, x );
@@ -188,23 +186,26 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
+    uint8 cn;
     uint32 spellId;
-    uint8  cn, castFlags;
-    recvPacket >> cn >> spellId >> castFlags;
-
-    if(!spellId)
+    recvPacket >> cn >> spellId;
+    if(spellId == 0)
     {
         sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
         return;
     }
-    // check for spell id
-    SpellEntry *spellInfo = dbcSpell.LookupEntry(spellId);
 
-    if(!spellInfo || !sHookInterface.OnCastSpell(_player, spellInfo))
+    // check for spell id
+    SpellEntry *spellInfo = NULL;
+    if((spellInfo = dbcSpell.LookupEntry(spellId)) == NULL)
+    {
+        sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
+        SKIP_READ_PACKET(recvPacket);
+        return;
+    }
+    if(!sHookInterface.OnCastSpell(_player, spellInfo))
     {
         SKIP_READ_PACKET(recvPacket);
-        if(spellInfo == NULL)
-            sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
         return;
     }
 
@@ -216,8 +217,8 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 
     if(_player->GetUInt32Value(UNIT_FIELD_CHARMEDBY))
     {
-        SKIP_READ_PACKET(recvPacket);
         _player->SendCastResult(spellInfo->Id, SPELL_FAILED_CHARMED, cn, 0);
+        SKIP_READ_PACKET(recvPacket);
         return;
     }
     if(_player->m_CurrentCharm)
@@ -402,7 +403,6 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
         caster = _player->m_Summon;
     else if (_player->GetVehicle() != NULL)
         caster = _player->GetVehicle();
-
     if (caster == NULL)
         return;
 
@@ -410,11 +410,10 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
     uint32 spellid;
     uint8 castnumber;
     uint8 castFlags;
-    recvPacket >> guid >> castnumber >> spellid >> castFlags;
+    recvPacket >> guid >> castnumber >> spellid;
 
     SpellEntry* sp = dbcSpell.LookupEntry(spellid);
-    SpellCastTargets targets;
-    targets.read(recvPacket, caster->GetGUID(), castFlags);
+    SpellCastTargets targets(recvPacket, caster->GetGUID());
 
     // Summoned Elemental's Freeze
     if (spellid == 33395)

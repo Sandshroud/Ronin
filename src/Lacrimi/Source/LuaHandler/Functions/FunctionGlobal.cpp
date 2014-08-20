@@ -36,13 +36,15 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
     {
         if (spawntype == 1) //Unit
         { 
-            CreatureProto *p = CreatureProtoStorage.LookupEntry(entry);
-            CreatureInfo *i = CreatureNameStorage.LookupEntry(entry);
-            if (p == NULL || i == NULL)
+            CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+            if (ctrData == NULL)
                 RET_NIL(true);
 
             MapMgr *mapMgr = sInstanceMgr.GetMapMgr(map);
             if (mapMgr == NULL)
+                RET_NIL(true);
+            Creature * pCreature = ((ctrData->Vehicle_entry > 0) ? mapMgr->CreateVehicle(entry) : mapMgr->CreateCreature(entry));
+            if(pCreature == NULL)
                 RET_NIL(true);
 
             int32 instanceid = luaL_optint(L, 13, mapMgr->GetInstanceID());
@@ -58,23 +60,12 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             sp->factionid = faction;
             sp->stand_state = 0;
             sp->phase = 1;
-            sp->vehicle = p->vehicle_entry > 0 ? true : false;
+            sp->vehicle = pCreature->IsVehicle();
+            sp->MountedDisplayID = 0;
             sp->Bytes = NULL;
             sp->ChannelData = NULL;
-            sp->MountedDisplay = NULL;
 
-            Creature * pCreature = NULL;
-            if(sp->vehicle)
-            {
-                pCreature = TO_CREATURE(mapMgr->CreateVehicle(entry));
-                TO_VEHICLE(pCreature)->Load(sp, mapMgr->iInstanceMode, NULL);
-            }
-            else
-            {
-                pCreature = mapMgr->CreateCreature(entry);
-                pCreature->Load(sp, mapMgr->iInstanceMode, NULL);
-            }
-
+            pCreature->Load(sp, mapMgr->iInstanceMode);
             pCreature->m_loadedFromDB = true;
             pCreature->SetFaction(faction);
             pCreature->SetInstanceID(instanceid);
@@ -83,8 +74,7 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             pCreature->PushToWorld(mapMgr);
             if (duration>0) 
                 pCreature->Despawn(duration,0);
-            if (save)
-                pCreature->SaveToDB();
+            if (save) pCreature->SaveToDB();
             Lunar<Unit>::push(L,TO_UNIT(pCreature));
         }
         else if (spawntype == 2) //GO
@@ -297,11 +287,7 @@ int LuaGlobalFunctions_ReloadTable(lua_State * L)
     }
     else
     {
-        if (!stricmp(TableName, "creature_proto"))     // Creature Proto
-            CreatureProtoStorage.Reload();
-        else if (!stricmp(TableName, "creature_names"))     // Creature Names
-            CreatureNameStorage.Reload();
-        else if (!stricmp(TableName, "gameobject_names"))   // GO Names
+        if (!stricmp(TableName, "gameobject_names"))   // GO Names
             GameObjectNameStorage.Reload();
         else if (!stricmp(TableName, "areatriggers"))       // Areatriggers
             AreaTriggerStorage.Reload();

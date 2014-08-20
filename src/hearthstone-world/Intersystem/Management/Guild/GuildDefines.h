@@ -127,23 +127,23 @@ enum GuildRankRights
 
 enum GuildEvent
 {
-    GUILD_EVENT_PROMOTION           = 0x0,
-    GUILD_EVENT_DEMOTION            = 0x1,
-    GUILD_EVENT_MOTD                = 0x2,
-    GUILD_EVENT_JOINED              = 0x3,
-    GUILD_EVENT_LEFT                = 0x4,
-    GUILD_EVENT_REMOVED             = 0x5,
-    GUILD_EVENT_LEADER_IS           = 0x6,
-    GUILD_EVENT_LEADER_CHANGED      = 0x7,
-    GUILD_EVENT_DISBANDED           = 0x8,
-    GUILD_EVENT_TABARDCHANGE        = 0x9,
-    GUILD_EVENT_UNK1                = 0xA,
-    GUILD_EVENT_UNK2                = 0xB,
-    GUILD_EVENT_HASCOMEONLINE       = 0xC,
-    GUILD_EVENT_HASGONEOFFLINE      = 0xD,
-    GUILD_EVENT_BANKTABBOUGHT       = 0xF,
-    GUILD_EVENT_SETNEWBALANCE       = 0x11,
-    GUILD_EVENT_TABINFO             = 0x13,
+    GUILD_EVENT_PROMOTION           = 0x01,
+    GUILD_EVENT_DEMOTION            = 0x02,
+    GUILD_EVENT_MOTD                = 0x03,
+    GUILD_EVENT_JOINED              = 0x04,
+    GUILD_EVENT_LEFT                = 0x05,
+    GUILD_EVENT_REMOVED             = 0x06,
+    GUILD_EVENT_LEADER_IS           = 0x07,
+    GUILD_EVENT_LEADER_CHANGED      = 0x08,
+    GUILD_EVENT_DISBANDED           = 0x09,
+    GUILD_EVENT_TABARDCHANGE        = 0x0A,
+    GUILD_EVENT_UNK1                = 0x0B,
+    GUILD_EVENT_UPDATEROSTER        = 0x0C,
+    GUILD_EVENT_HASCOMEONLINE       = 0x10,
+    GUILD_EVENT_HASGONEOFFLINE      = 0x11,
+    GUILD_EVENT_BANKTABBOUGHT       = 0x12,
+    GUILD_EVENT_SETNEWBALANCE       = 0x15,
+    GUILD_EVENT_TABINFO             = 0x17
 };
 
 enum GuildLogEventE

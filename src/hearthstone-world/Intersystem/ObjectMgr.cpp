@@ -57,18 +57,6 @@ ObjectMgr::~ObjectMgr()
         delete t;
     }
 
-    sLog.Notice("ObjectMgr", "Deleting Level Information...");
-    for( LevelInfoMap::iterator i = mLevelInfo.begin(); i != mLevelInfo.end(); i++)
-    {
-        LevelMap * l = i->second;
-        for(LevelMap::iterator i2 = l->begin(); i2 != l->end(); i2++)
-        {
-            delete i2->second;
-        }
-        l->clear();
-        delete l;
-    }
-
     sLog.Notice("ObjectMgr", "Deleting Waypoint Cache...");
     for(HM_NAMESPACE::hash_map<uint32, WayPointMap*>::iterator i = m_waypoints.begin(); i != m_waypoints.end(); i++)
     {
@@ -457,20 +445,6 @@ void ObjectMgr::LoadPlayerCreateInfo()
         pPlayerCreateInfo->positionZ = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->displayId = fields[fieldcount++].GetUInt16();
-        pPlayerCreateInfo->strength = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->agility = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->stamina = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->intellect = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->spirit = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->health = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->mana = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->rage = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->focus = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->energy = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->runic = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->attackpower = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->mindmg = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->maxdmg = fields[fieldcount++].GetFloat();
 
         QueryResult *sk_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid = %u", pPlayerCreateInfo->index);
         if(sk_sql)
@@ -532,7 +506,6 @@ void ObjectMgr::LoadPlayerCreateInfo()
     delete result;
 
     sLog.Notice("ObjectMgr", "%u player create infos loaded.", mPlayerCreateInfo.size());
-    GenerateLevelUpInfo();
 }
 
 Corpse* ObjectMgr::LoadCorpse(uint32 guid)
@@ -1395,7 +1368,6 @@ void ObjectMgr::LoadTrainers()
     }while(result2->NextRow());
     delete result2;
 
-    Trainer* tr = NULL;
     GossipText* text;
     const char* temp;
     size_t len;
@@ -1404,8 +1376,8 @@ void ObjectMgr::LoadTrainers()
     {
         Field * fields = result->Fetch();
         uint32 entry = fields[0].GetUInt32();
-        CreatureInfo* trainer_info = CreatureNameStorage.LookupEntry(entry);
-        if(!trainer_info)
+        CreatureData* trainer_info = sCreatureDataMgr.GetCreatureData(entry);
+        if(trainer_info == NULL)
         {
             sLog.Warning("Trainers", "NPC id for Trainer %u does not exist, skipping.", entry);
             if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
@@ -1416,7 +1388,7 @@ void ObjectMgr::LoadTrainers()
             continue;
         }
 
-        tr = new Trainer;
+        Trainer *tr = new Trainer;
         tr->RequiredSkill = fields[1].GetUInt32();
         tr->RequiredSkillLine = fields[2].GetUInt32();
         tr->RequiredClass = fields[3].GetUInt32();
@@ -1424,11 +1396,8 @@ void ObjectMgr::LoadTrainers()
 
         temp = fields[5].GetString();
         len = strlen(temp);
-        if(!len)
-        {
-            temp = "What can I teach you $N?";
-            len = strlen(temp);
-        }
+        if(!len) len = strlen((temp = "What can I teach you $N?"));
+
         tr->UIMessage = new char[len+1];
         strncpy(tr->UIMessage, temp, len);
         tr->UIMessage[len] = 0;
@@ -1490,181 +1459,6 @@ Trainer* ObjectMgr::GetTrainer(uint32 Entry)
         return NULL;
 
     return iter->second;
-}
-
-void ObjectMgr::GenerateLevelUpInfo()
-{
-    // Generate levelup information for each class.
-    PlayerCreateInfo * PCI;
-    LevelInfo* lvl0 = NULL;
-    LevelInfo* lvl = NULL;
-    for(uint32 Class = WARRIOR; Class <= DRUID; ++Class)
-    {
-        // These are empty.
-        if(Class == 10)
-            continue;
-
-        // Search for a playercreateinfo.
-        for(uint32 Race = RACE_HUMAN; Race <= RACE_DRAENEI; Race++ )
-        {
-            PCI = GetPlayerCreateInfo(Race, Class);
-            if(PCI == NULL)
-                continue;   // Class not valid for this race.
-
-            // Generate each level's information
-            lvl0 = new LevelInfo();
-            lvl0->HP = PCI->health;
-            lvl0->Mana = PCI->mana;
-            lvl0->Stat[0] = PCI->strength;
-            lvl0->Stat[1] = PCI->agility;
-            lvl0->Stat[2] = PCI->stamina;
-            lvl0->Stat[3] = PCI->intellect;
-            lvl0->Stat[4] = PCI->spirit;
-            lvl0->XPToNextLevel = 400;
-            lvl0->BaseHP = PCI->health;
-            lvl0->BaseMana = PCI->mana;
-            LevelMap * lMap = new LevelMap;
-
-            // Insert into map
-            lMap->insert( LevelMap::value_type( 1, lvl0 ) );
-
-            for(uint32 Level = 2; Level <= sWorld.GetMaxLevelStatCalc(); Level++)
-            {
-                lvl = new LevelInfo;
-                memset(lvl, 0, sizeof(LevelInfo));
-
-                // Calculate Stats
-                for(uint32 s = 0; s < 5; ++s)
-                {
-                    lvl->Stat[s] = CalcStatForLevel( Level, Race, Class, s );
-                    switch(s)
-                    {
-                    case STAT_STRENGTH:     lvl->Stat[s] += PCI->strength; break;
-                    case STAT_INTELLECT:    lvl->Stat[s] += PCI->intellect; break;
-                    case STAT_STAMINA:      lvl->Stat[s] += PCI->stamina; break;
-                    case STAT_SPIRIT:       lvl->Stat[s] += PCI->spirit; break;
-                    case STAT_AGILITY:      lvl->Stat[s] += PCI->agility; break;
-                    }
-                }
-
-                uint32 BaseHP = 0;
-                uint32 BaseMana = 0;
-
-                switch(Class)
-                {
-                case PRIEST:
-                    {
-                        BaseHP = uint32(87 * Level);
-                        BaseMana = uint32(48.2875f * Level);
-                    }break;
-                case WARRIOR:
-                    {
-                        BaseHP = uint32(101.5125f * Level);
-                        BaseMana = 0;
-                    }break;
-                case DEATHKNIGHT:
-                    {
-                        BaseHP = uint32(101.5125f * Level);
-                        BaseMana = 0;
-                    }break;
-                case HUNTER:
-                    {
-                        BaseHP = uint32(91.55f * Level);
-                        BaseMana = 0;
-                    }break;
-                case ROGUE:
-                    {
-                        BaseHP = uint32(95.05f * Level);
-                        BaseMana = 0;
-                    }break;
-                case SHAMAN:
-                    {
-                        BaseHP = uint32(81.0625f * Level);
-                        BaseMana = uint32(54.95f * Level);
-                    }break;
-                case DRUID:
-                    {
-                        BaseHP = uint32(92.7125f * Level);
-                        BaseMana = uint32(43.7f * Level);
-                    }break;
-                case PALADIN:
-                    {
-                        BaseHP = uint32(86.675f * Level);
-                        BaseMana = uint32(54.925f * Level);
-                    }break;
-                case MAGE:
-                    {
-                        BaseHP = uint32(87.0375f * Level);
-                        BaseMana = uint32(40.85f * Level);
-                    }break;
-                case WARLOCK:
-                    {
-                        BaseHP = uint32(89.55f * Level);
-                        BaseMana = uint32(48.2f * Level);
-                    }break;
-                }
-
-                float perlevmod = 4.0f + (Level / 16.0f);
-                BaseMana = uint32(BaseMana / (perlevmod - (Level / 10.0f)));
-                BaseHP = uint32(BaseHP / (perlevmod - (Level / 10.0f)));
-
-                // Apply HP/Mana
-                uint32 HP = BaseHP;
-                if( lvl->Stat[STAT_STAMINA] > 20 )
-                {
-                    HP += 20;
-                    HP += ( (lvl->Stat[STAT_STAMINA]-20) * 10);
-                } else HP += lvl->Stat[STAT_STAMINA];
-
-                uint32 Mana = BaseMana;
-                if(BaseMana)
-                {
-                    if( lvl->Stat[STAT_INTELLECT] > 20 )
-                    {
-                        Mana += 20;
-                        Mana += ((lvl->Stat[STAT_INTELLECT]-20) * 10);
-                    } else Mana += lvl->Stat[STAT_INTELLECT];
-                }
-
-                lvl->HP = HP;
-                lvl->Mana = Mana;
-                lvl->BaseHP = BaseHP;
-                lvl->BaseMana = BaseMana;
-
-                // This is a fixed table taken from 3.3.5 wow. This can't get more blizzlike with the "if" cases ;)
-                if( ( Level ) < MAX_PREDEFINED_NEXTLEVELXP )
-                    lvl->XPToNextLevel = NextLevelXp[(Level)];
-                else lvl->XPToNextLevel = NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-1]+(((Level-MAX_PREDEFINED_NEXTLEVELXP)+1)*(NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-1]-NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP-2]));
-
-                // Apply to map.
-                lMap->insert( LevelMap::value_type( Level, lvl ) );
-            }
-
-            // Insert back into the main map.
-            mLevelInfo.insert(std::make_pair(std::make_pair(Race, Class), lMap));
-        }
-    }
-    sLog.Notice("ObjectMgr", "%u level up information generated.", mLevelInfo.size());
-}
-
-LevelInfo* ObjectMgr::GetLevelInfo(uint32 Race, uint32 Class, uint32 Level)
-{
-    // Let's check that our level is valid first.
-    if( Level > MAXIMUM_ATTAINABLE_LEVEL ) // too far.
-        Level = MAXIMUM_ATTAINABLE_LEVEL;
-
-    // Iterate levelinfo map until we find the right class+race.
-    LevelInfoMap::iterator itr = mLevelInfo.find(make_pair(Race, Class));
-    if(itr != mLevelInfo.end())
-    {
-        // Pull the level information from the second map.
-        LevelMap::iterator it2 = itr->second->find( Level );
-        if(it2 != itr->second->end())
-            return it2->second;
-        return itr->second->at((uint)itr->second->size());
-    }
-
-    return NULL;
 }
 
 uint32 ObjectMgr::GetPetSpellCooldown(uint32 SpellId)
@@ -1814,14 +1608,17 @@ WayPointMap*ObjectMgr::GetWayPointMap(uint32 spawnid)
     else return NULL;
 }
 
-Pet* ObjectMgr::CreatePet()
+Pet* ObjectMgr::CreatePet(CreatureData *ctrData)
 {
+    if(ctrData == NULL)
+        return NULLPET;
+
     uint32 guid;
     m_petlock.Acquire();
     guid = ++m_hiPetGuid;
     m_petlock.Release();
 
-    Pet* pet = new Pet(MAKE_NEW_GUID(guid, guid, HIGHGUID_TYPE_PET));
+    Pet* pet = new Pet(ctrData, MAKE_NEW_GUID(guid, guid, HIGHGUID_TYPE_PET));
     pet->Init();
     return pet;
 }
@@ -2124,12 +1921,11 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
     if(itr == m_reputation_instance.end())
         return false;
 
-    is_boss = (TO_CREATURE( pVictim )->proto && TO_CREATURE( pVictim )->proto->boss) ? true : false;
+    is_boss = TO_CREATURE( pVictim )->GetCreatureData()->Boss > 0;
 
     if(map->IsRaid()) // We are good here I guess.
         is_heroic = (pPlayer->IsInWorld() && pPlayer->iRaidType >= MODE_10PLAYER_HEROIC && pPlayer->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL) ? true : false;
-    else
-        is_heroic = (pPlayer->IsInWorld() && pPlayer->iInstanceType == MODE_5PLAYER_HEROIC && pPlayer->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL) ? true : false;
+    else is_heroic = (pPlayer->IsInWorld() && pPlayer->iInstanceType == MODE_5PLAYER_HEROIC && pPlayer->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL) ? true : false;
 
     // Apply the bonuses as normal.
     int32 replimit;

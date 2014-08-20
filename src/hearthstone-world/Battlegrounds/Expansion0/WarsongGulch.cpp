@@ -570,9 +570,9 @@ void WarsongGulch::OnCreate()
 
     /* spawn spirit guides */
     // Alliance Spirit Guide (13116)
-    AddSpiritGuide(SpawnSpiritGuide(1415.33f, 1554.79f, 343.156f, 3.14159f, 0));
+    AddSpiritGuide(SpawnSpiritGuide(1415.33f, 1554.79f, 343.156f, 3.14159f, false));
     // Horde Spirit Guide (13117)
-    AddSpiritGuide(SpawnSpiritGuide(1029.14f, 1387.49f, 340.836f, 3.14159f, 1));
+    AddSpiritGuide(SpawnSpiritGuide(1029.14f, 1387.49f, 340.836f, 3.14159f, true));
 }
 
 void WarsongGulch::OnStart()

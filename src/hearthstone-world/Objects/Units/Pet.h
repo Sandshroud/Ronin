@@ -125,13 +125,13 @@ class SERVER_DECL Pet : public Creature
     friend class WorldSession;
 
 public:
-    Pet(uint64 guid);
+    Pet(CreatureData *ctrData, uint64 guid);
     ~Pet();
     virtual void Init();
     virtual void Destruct();
 
     void LoadFromDB(Player* owner, PlayerPet * pi);
-    void CreateAsSummon(CreatureProto* proto, CreatureInfo *ci, Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry *created_by_spell, uint32 type, uint32 expiretime);
+    void CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry *created_by_spell, uint32 type, uint32 expiretime);
 
     virtual void Update(uint32 time);
 

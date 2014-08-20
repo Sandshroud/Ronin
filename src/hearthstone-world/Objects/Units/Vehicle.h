@@ -42,15 +42,16 @@ enum VehicleSeatFlagsB
 class SERVER_DECL Vehicle : public Creature
 {
 public:
-    Vehicle(uint64 guid);
+    Vehicle(CreatureData *data, uint64 guid);
     ~Vehicle();
     virtual void Init();
     virtual void Destruct();
 
     void InitSeats(uint32 vehicleEntry, Player* pRider = NULLPLR);
     virtual void Update(uint32 time);
-    bool Load(CreatureSpawn *spawn, uint32 mode, MapInfo *info);
-    void Load(CreatureProto * proto_, uint32 mode, float x, float y, float z, float o = 0.0f);
+    bool Load(CreatureSpawn *spawn, uint32 mode);
+    bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);
+
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
     void DeleteMe();

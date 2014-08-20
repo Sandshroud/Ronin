@@ -1265,7 +1265,7 @@ bool MoonScriptCreatureAI::IsValidUnitTarget( Object *pObject, TargetFilters pFi
     //Skip dead ( if required ), feign death or invisible targets
     if ( pFilter & TargetFilter_Corpse )
     {
-        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || TO_CREATURE( UnitTarget )->creature_info->Rank == ELITE_WORLDBOSS )
+        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || TO_CREATURE( UnitTarget )->GetCreatureData()->Rank == ELITE_WORLDBOSS )
             return false;
     }
     else if ( !UnitTarget->isAlive() )

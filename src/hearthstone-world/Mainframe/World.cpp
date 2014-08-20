@@ -401,11 +401,13 @@ bool World::SetInitialWorldSettings()
     new Tracker();
     new GuildMgr();
     new ItemPrototypeSystem();
+    new CreatureDataManager();
 
     Storage_FillTaskList(tl);
 
 #define MAKE_TASK(sp, ptr) tl.AddTask(new Task(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr)))
     MAKE_TASK(ItemPrototypeSystem, Init);
+    MAKE_TASK(CreatureDataManager, LoadFromDB);
     MAKE_TASK(World, ParseFactionTemplate);
 
     tl.wait(); // Load all the storage first
@@ -446,8 +448,6 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(WeatherMgr,LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadGroups);
     MAKE_TASK(Tracker,   LoadFromDB);
-    MAKE_TASK(ObjectMgr, LoadExtraGameObjectStuff);
-    MAKE_TASK(ObjectMgr, LoadExtraCreatureProtoStuff);
     MAKE_TASK(ObjectMgr, LoadExtraItemStuff);
     MAKE_TASK(ObjectMgr, LoadArenaTeams);
     MAKE_TASK(ObjectMgr, LoadProfessionDiscoveries);

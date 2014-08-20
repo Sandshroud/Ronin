@@ -67,11 +67,6 @@ Map::~Map()
                         cs->ChannelData = NULL;
                     }
 
-                    if(cs->MountedDisplay != NULL)
-                    {
-                        delete cs->MountedDisplay;
-                        cs->MountedDisplay = NULL;
-                    }
                     delete cs;
                     cs = NULL;
                 }
@@ -167,11 +162,6 @@ void Map::LoadSpawns(bool reload /* = false */)
                             cs->ChannelData = NULL;
                         }
 
-                        if(cs->MountedDisplay != NULL)
-                        {
-                            delete cs->MountedDisplay;
-                            cs->MountedDisplay = NULL;
-                        }
                         delete cs;
                     }
 
@@ -234,13 +224,7 @@ void Map::LoadSpawns(bool reload /* = false */)
                         cspawn->Bytes = NULL;
                     }
 
-                    cspawn->MountedDisplay = new SpawnMountedDisplay(fields[18].GetUInt32());
-                    if(cspawn->MountedDisplay->MountedDisplayID == 0)
-                    {
-                        delete cspawn->MountedDisplay;
-                        cspawn->MountedDisplay = NULL;
-                    }
-
+                    cspawn->MountedDisplayID = fields[18].GetUInt32();
                     uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x);
                     uint32 celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
                     GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);

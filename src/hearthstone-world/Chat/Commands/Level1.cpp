@@ -643,7 +643,7 @@ bool ChatHandler::HandleEmoteCommand(const char* args, WorldSession *m_session)
 
     target->original_emotestate = emote;
     target->SetUInt32Value(UNIT_NPC_EMOTESTATE, emote);
-    if(target->m_spawn && m_session->CanUseCommand('z'))
+    if(target->IsSpawn() && m_session->CanUseCommand('z'))
         target->SaveToDB();
     return true;
 }
@@ -656,7 +656,7 @@ bool ChatHandler::HandleStandStateCommand(const char* args, WorldSession *m_sess
         return false;
 
     target->SetStandState(state);
-    if(target->m_spawn && m_session->CanUseCommand('z'))
+    if(target->IsSpawn() && m_session->CanUseCommand('z'))
         target->SaveToDB();
     return true;
 }
@@ -671,8 +671,7 @@ bool ChatHandler::HandleGenderChanger(const char* args, WorldSession *m_session)
     }
     if (!*args)
         gender = (target->getGender()== 1 ? 0 : 1);
-    else
-        gender = ( min((int)atoi((char*)args),1) > 0 ? 1: 0);
+    else gender = ( min((int)atoi((char*)args),1) > 0 ? 1: 0);
 
     target->setGender(gender);
     SystemMessage(m_session, "Gender changed to %u",gender);
@@ -783,15 +782,12 @@ bool ChatHandler::HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_se
         return false;
 
     int valcount = sscanf(args, "%u", (unsigned int*)&id);
-    if(valcount && target->m_spawn != NULL)
+    if(valcount && target->IsSpawn())
     {
         snprintf(sql, 512, "UPDATE creature_spawns SET respawnlink = '%u' WHERE id = '%u'", id, target->GetSQL_id());
         WorldDatabase.Execute( sql );
         BlueSystemMessage(m_session, "Spawn linking for this NPC has been updated: %u", id);
-    }
-    else
-        RedSystemMessage(m_session, "Sql entry invalid %u", id);
-
+    } else RedSystemMessage(m_session, "Sql entry invalid %u", id);
     return true;
 }
 

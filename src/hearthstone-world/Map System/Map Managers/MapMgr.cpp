@@ -66,7 +66,6 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
     ActiveLock.Release();
 
     m_corpses.clear();
-    _sqlids_vehicles.clear();
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
     _reusable_guids_creature.clear();
@@ -184,7 +183,6 @@ void MapMgr::Destruct()
     activeGameObjects.clear();
     ActiveLock.Release();
 
-    _sqlids_vehicles.clear();
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
     _reusable_guids_vehicle.clear();
@@ -325,10 +323,8 @@ void MapMgr::PushObject(Object* obj)
             {
                 ASSERT((obj->GetUIdFromGUID()) <= m_CreatureHighGuid);
                 m_CreatureStorage[obj->GetUIdFromGUID()] = TO_CREATURE(obj);
-                if(TO_CREATURE(obj)->m_spawn != NULL)
-                {
-                    _sqlids_creatures.insert(make_pair( TO_CREATURE(obj)-> GetSQL_id(), TO_CREATURE(obj) ) );
-                }
+                if(TO_CREATURE(obj)->IsSpawn())
+                    _sqlids_creatures.insert(make_pair( TO_CREATURE(obj)->GetSQL_id(), TO_CREATURE(obj) ) );
                 CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( TO_CREATURE(obj) );
             }break;
 
@@ -336,10 +332,8 @@ void MapMgr::PushObject(Object* obj)
             {
                 ASSERT((obj->GetUIdFromGUID()) <= m_VehicleHighGuid);
                 m_VehicleStorage[obj->GetUIdFromGUID()] = TO_VEHICLE(obj);
-                if(TO_VEHICLE(obj)->m_spawn != NULL)
-                {
-                    _sqlids_vehicles.insert(make_pair( TO_VEHICLE(obj)->m_spawn->id, TO_VEHICLE(obj) ) );
-                }
+                if(TO_VEHICLE(obj)->IsSpawn())
+                    _sqlids_creatures.insert(make_pair( TO_VEHICLE(obj)->GetSQL_id(), TO_VEHICLE(obj) ) );
                 CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( TO_CREATURE(obj) );
             }break;
         case HIGHGUID_TYPE_GAMEOBJECT:
@@ -347,9 +341,7 @@ void MapMgr::PushObject(Object* obj)
                 GameObject* go = TO_GAMEOBJECT(obj);
                 m_gameObjectStorage.insert(make_pair(obj->GetUIdFromGUID(), go));
                 if( go->m_spawn != NULL)
-                {
                     _sqlids_gameobjects.insert(make_pair(go->m_spawn->id, go ) );
-                }
                 CALL_INSTANCE_SCRIPT_EVENT( this, OnGameObjectPushToWorld )( go );
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
@@ -445,18 +437,18 @@ void MapMgr::RemoveObject(Object* obj, bool free_guid)
     case HIGHGUID_TYPE_VEHICLE:
         {
             ASSERT(obj->GetUIdFromGUID() <= m_VehicleHighGuid);
-            if(TO_VEHICLE(obj)->m_spawn != NULL)
-                _sqlids_vehicles.erase(TO_VEHICLE(obj)->m_spawn->id);
+            if(TO_VEHICLE(obj)->IsSpawn())
+                _sqlids_creatures.erase(TO_VEHICLE(obj)->GetSQL_id());
             if(free_guid)
                 _reusable_guids_vehicle.push_back(obj->GetUIdFromGUID());
-            m_CreatureStorage.erase(obj->GetUIdFromGUID());
-            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( TO_CREATURE(obj) );
+            m_VehicleStorage.erase(obj->GetUIdFromGUID());
+            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( TO_VEHICLE(obj) );
         }break;
 
     case HIGHGUID_TYPE_CREATURE:
         {
             ASSERT(obj->GetUIdFromGUID() <= m_CreatureHighGuid);
-            if(TO_CREATURE(obj)->m_spawn != NULL)
+            if(TO_CREATURE(obj)->IsSpawn())
                 _sqlids_creatures.erase(TO_CREATURE(obj)->GetSQL_id());
             if(free_guid)
                 _reusable_guids_creature.push_back(obj->GetUIdFromGUID());
@@ -1969,12 +1961,6 @@ void MapMgr::SendChatMessageToCellPlayers(Object* obj, WorldPacket * packet, uin
     }
 }
 
-Vehicle* MapMgr::GetSqlIdVehicle(uint32 sqlid)
-{
-    VehicleSqlIdMap::iterator itr = _sqlids_vehicles.find(sqlid);
-    return (itr == _sqlids_vehicles.end()) ? NULLVEHICLE : itr->second;
-}
-
 Creature* MapMgr::GetSqlIdCreature(uint32 sqlid)
 {
     CreatureSqlIdMap::iterator itr = _sqlids_creatures.find(sqlid);
@@ -2002,6 +1988,13 @@ void MapMgr::HookOnAreaTrigger(Player* plr, uint32 id)
 
 Vehicle* MapMgr::CreateVehicle(uint32 entry)
 {
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL || ctrData->Vehicle_entry == 0)
+    {
+        sLog.Warning("MapMgr", "Skipping CreateCreature for entry %u due to incomplete database.", entry);
+        return NULLVEHICLE;
+    }
+
     uint32 low_guid = 0;
     if(_reusable_guids_vehicle.size())
     {
@@ -2009,7 +2002,7 @@ Vehicle* MapMgr::CreateVehicle(uint32 entry)
         _reusable_guids_vehicle.pop_front();
     } else low_guid = ++m_VehicleHighGuid;
 
-    Vehicle *v = new Vehicle(MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_VEHICLE));
+    Vehicle *v = new Vehicle(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_VEHICLE));
     v->Init();
 
     ASSERT( v->GetTypeFromGUID() == HIGHGUID_TYPE_VEHICLE );
@@ -2019,6 +2012,13 @@ Vehicle* MapMgr::CreateVehicle(uint32 entry)
 
 Creature* MapMgr::CreateCreature(uint32 entry)
 {
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL)
+    {
+        sLog.Warning("MapMgr", "Skipping CreateCreature for entry %u due to incomplete database.", entry);
+        return NULLCREATURE;
+    }
+
     uint32 low_guid = 0;
     if(_reusable_guids_creature.size())
     {
@@ -2026,7 +2026,7 @@ Creature* MapMgr::CreateCreature(uint32 entry)
         _reusable_guids_creature.pop_front();
     } else low_guid = ++m_CreatureHighGuid;
 
-    Creature *cr = new Creature(MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
+    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
     cr->Init();
     ASSERT( cr->GetTypeFromGUID() == HIGHGUID_TYPE_CREATURE );
     return cr;
@@ -2034,6 +2034,13 @@ Creature* MapMgr::CreateCreature(uint32 entry)
 
 Summon* MapMgr::CreateSummon(uint32 entry)
 {
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL)
+    {
+        sLog.Warning("MapMgr", "Skipping CreateSummon for entry %u due to incomplete database.", entry);
+        return NULLSUMMON;
+    }
+
     uint32 low_guid = 0;
     if(_reusable_guids_creature.size())
     {
@@ -2041,7 +2048,7 @@ Summon* MapMgr::CreateSummon(uint32 entry)
         _reusable_guids_creature.pop_front();
     } else low_guid = ++m_CreatureHighGuid;
 
-    Summon *sum = new Summon(MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
+    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
     sum->Init();
     ASSERT( sum->GetTypeFromGUID() == HIGHGUID_TYPE_CREATURE );
     return sum;
@@ -2054,8 +2061,6 @@ GameObject* MapMgr::CreateGameObject(uint32 entry)
     if( goi == NULL )
     {
         sLog.Warning("MapMgr", "Skipping CreateGameObject for entry %u due to incomplete database.", entry);
-        if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-            WorldDatabase.Execute("DELETE FROM gameobject_spawns WHERE entry = '%u';", entry);
         return NULLGOB;
     }
 

@@ -300,7 +300,7 @@ public:
 
     void OnLoad()
     {
-        if(_unit->m_spawn)
+        if(_unit->IsSpawn())
         {
             active = true;
             Reset();

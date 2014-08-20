@@ -1385,19 +1385,13 @@ GameObject* CBattleground::SpawnGameObject(uint32 entry,float x, float y, float 
 
 Creature* CBattleground::SpawnCreature(uint32 entry,float x, float y, float z, float o)
 {
-    CreatureProto *cp = CreatureProtoStorage.LookupEntry(entry);
-    CreatureInfo *ci = CreatureNameStorage.LookupEntry(entry);
-    Creature* c = NULLCREATURE;
-    if (cp && ci)
+    if (Creature *c = m_mapMgr->CreateCreature(entry))
     {
-        c = m_mapMgr->CreateCreature(entry);
-        if (c != NULLCREATURE)
-        {
-            c->Load(cp, m_mapMgr->iInstanceMode, x, y, z, o);
-            c->PushToWorld(m_mapMgr);
-        }
+        c->Load(m_mapMgr->iInstanceMode, x, y, z, o);
+        c->PushToWorld(m_mapMgr);
+		return c;
     }
-    return c;
+    return NULL;
 }
 
 void CBattleground::SendChatMessage(uint32 Type, uint64 Guid, const char * Format, ...)
@@ -1648,28 +1642,13 @@ void CBattleground::Close()
     m_mainLock.Release();
 }
 
-Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, uint32 horde)
+Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bool horde)
 {
-    if(horde > 1)
-        horde = 1;
-
-    CreatureInfo * pInfo = CreatureNameStorage.LookupEntry(13116 + horde);
-    if(pInfo == 0)
-        return NULLCREATURE;
-
-    CreatureProto *pProto = CreatureProtoStorage.LookupEntry(13116 + horde);
-    if( pProto == NULL )
-        return NULLCREATURE;
-
-    Creature* pCreature = NULLCREATURE;
-    pCreature = m_mapMgr->CreateCreature(pInfo->Id);
+    Creature* pCreature = m_mapMgr->CreateCreature(13116 + horde);
     if (pCreature == NULLCREATURE)
         return NULLCREATURE;
 
-    pCreature->Create(pInfo->Name, m_mapMgr->GetMapId(), x, y, z, o);
-    pCreature->proto = pProto;
-    pCreature->creature_info = pInfo;
-
+    pCreature->Create(m_mapMgr->GetMapId(), x, y, z, o);
     pCreature->SetInstanceID(m_mapMgr->GetInstanceID());
     pCreature->SetUInt32Value(OBJECT_FIELD_ENTRY, 13116 + horde);
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);

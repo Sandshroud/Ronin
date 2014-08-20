@@ -295,8 +295,8 @@ void ArathiBasin::OnCreate()
     SpawnBuff(AB_BUFF_FARM);
 
     // spawn the h/a base spirit guides
-    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[0][0],NoBaseGYLocations[0][1],NoBaseGYLocations[0][2], 0.0f, 0));
-    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[1][0],NoBaseGYLocations[1][1],NoBaseGYLocations[1][2], 0.0f, 1));
+    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[0][0],NoBaseGYLocations[0][1],NoBaseGYLocations[0][2], 0.0f, false));
+    AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[1][0],NoBaseGYLocations[1][1],NoBaseGYLocations[1][2], 0.0f, true));
 
     // w00t
     WorldStateManager &sm = m_mapMgr->GetStateManager();
@@ -740,7 +740,7 @@ void ArathiBasin::CaptureControlPoint(uint32 Id, uint32 Team)
     }
 
     // spawn the spirit guide for our faction
-    m_spiritGuides[Id] = SpawnSpiritGuide(GraveyardLocations[Id][0], GraveyardLocations[Id][1], GraveyardLocations[Id][2], 0.0f, Team);
+    m_spiritGuides[Id] = SpawnSpiritGuide(GraveyardLocations[Id][0], GraveyardLocations[Id][1], GraveyardLocations[Id][2], 0.0f, Team > 0);
     AddSpiritGuide(m_spiritGuides[Id]);
 
     // send the chat message/sounds out

@@ -461,17 +461,11 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
 
     if(objectResult1)
     {
-        Field *fields = objectResult1->Fetch();
-        std::string creatureId1 = MyConvertIntToString(fields[0].GetUInt32());
-
+        std::string creatureId1 = MyConvertIntToString(objectResult1->Fetch()[0].GetUInt32());
         delete objectResult1;
 
-        std::string creatureName1 = "N/A";
-        CreatureInfo *creatureResult1 = CreatureNameStorage.LookupEntry(atol(creatureId1.c_str()));
-        if (creatureResult1)
+        if (CreatureData *creatureData = sCreatureDataMgr.GetCreatureData(atol(creatureId1.c_str())))
         {
-            creatureName1 = creatureResult1->Name;
-
             my_query1 = "SELECT id FROM creature_spawns WHERE entry = " + creatureId1;
             QueryResult *spawnResult1 = WorldDatabase.Query(my_query1.c_str());
 
@@ -494,7 +488,7 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
             recout += ", ";
             recout += spawnId1.c_str();
             recout += ", ";
-            recout += creatureName1.c_str();
+            recout += creatureData->Name;
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }
@@ -516,17 +510,11 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
 
     if(objectResult2)
     {
-        Field *fields = objectResult2->Fetch();
-        std::string itemId2 = MyConvertIntToString(fields[0].GetUInt32());
-
+        std::string itemId2 = MyConvertIntToString(objectResult2->Fetch()[0].GetUInt32());
         delete objectResult2;
 
-        std::string itemName2 = "N/A";
-        ItemPrototype *itemResult2 = ItemPrototypeStorage.LookupEntry(atol(itemId2.c_str()));
-        if (itemResult2)
+        if (ItemPrototype *itemResult2 = ItemPrototypeStorage.LookupEntry(atol(itemId2.c_str())))
         {
-            itemName2 = itemResult2->Name1;
-
             my_query2 = "SELECT id FROM gameobject_spawns WHERE entry = " + itemId2;
             QueryResult *spawnResult2 = WorldDatabase.Query(my_query2.c_str());
 
@@ -549,7 +537,7 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
             recout += ", ";
             recout += spawnId2.c_str();
             recout += ", ";
-            recout += itemName2.c_str();
+            recout += itemResult2->Name1;
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }
@@ -1138,7 +1126,7 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
         delete objectResult1;
 
         std::string creatureName1 = "N/A";
-        CreatureInfo *creatureResult1 = CreatureNameStorage.LookupEntry(atol(creatureId1.c_str()));
+        CreatureData *creatureResult1 = sCreatureDataMgr.GetCreatureData(atol(creatureId1.c_str()));
 
         if(creatureResult1)
         {
@@ -1264,7 +1252,7 @@ bool ChatHandler::HandleQuestSpawnCommand(const char * args, WorldSession * m_se
     delete objectResult;
 
     std::string starterName = "N/A";
-    CreatureInfo *creatureResult = CreatureNameStorage.LookupEntry(atol(starterId.c_str()));
+    CreatureData *creatureResult = sCreatureDataMgr.GetCreatureData(atol(starterId.c_str()));
 
     if(creatureResult)
         starterName = creatureResult->Name;

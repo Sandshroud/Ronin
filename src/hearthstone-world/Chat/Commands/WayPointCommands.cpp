@@ -45,7 +45,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
             return true;
         }
 
-        if( pCreature->m_spawn == NULL )
+        if( !pCreature->IsSpawn() )
         {
             SystemMessage(m_session, "You cannot add waypoints to a creature that is not saved.");
             return true;
@@ -155,7 +155,7 @@ bool ChatHandler::HandleWPMoveTypeCommand(const char* args, WorldSession *m_sess
         return true;
     }
 
-    if( pCreature->m_spawn == NULL )
+    if( !pCreature->IsSpawn() )
     {
         SystemMessage(m_session, "You cannot add waypoints to a creature that is not saved.");
         return true;
@@ -188,7 +188,7 @@ bool ChatHandler::HandleWPShowCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    if( pCreature->m_spawn == NULL )
+    if( !pCreature->IsSpawn() )
     {
         SystemMessage(m_session, "You cannot add waypoints to a creature that is not saved.");
         return true;
@@ -1038,7 +1038,7 @@ bool ChatHandler::HandleWPHideCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    if( pCreature->m_spawn == NULL )
+    if( !pCreature->IsSpawn() )
     {
         SystemMessage(m_session, "You cannot add waypoints to a creature that is not saved.");
         return true;
@@ -1077,7 +1077,7 @@ bool ChatHandler::HandleGenerateWaypoints(const char* args, WorldSession * m_ses
         return true;
     }
 
-    if( cr->m_spawn == NULL )
+    if( !cr->IsSpawn() )
     {
         SystemMessage(m_session, "You cannot add waypoints to a creature that is not saved.");
         return true;
@@ -1314,6 +1314,6 @@ bool ChatHandler::HandleNpcSelectCommand(const char * args, WorldSession * m_ses
     }
 
     plr->SetSelection(un->GetGUID());
-    SystemMessage(m_session, "Set selection to "I64FMT" (%s)", un->GetGUID(), un->GetCreatureInfo() ? un->GetCreatureInfo()->Name : "Unknown");
+    SystemMessage(m_session, "Set selection to "I64FMT" (%s)", un->GetGUID(), un->GetCreatureData() ? un->GetCreatureData()->Name : "Unknown");
     return true;
 }

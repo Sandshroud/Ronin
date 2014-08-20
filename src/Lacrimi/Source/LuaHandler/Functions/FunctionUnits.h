@@ -208,7 +208,6 @@ int LuaUnit_KickPlayer(lua_State * L, Unit * ptr);
 int LuaUnit_CanCallForHelp(lua_State * L, Unit * ptr);
 int LuaUnit_CallForHelpHp(lua_State * L, Unit * ptr);
 int LuaUnit_SetDeathState(lua_State * L, Unit * ptr);
-int LuaUnit_SetCreatureName(lua_State * L, Unit * ptr);
 int LuaUnit_GetSpellId(lua_State * L, Unit * ptr);
 int LuaUnit_Possess(lua_State * L, Unit * ptr);
 int LuaUnit_Unpossess(lua_State * L, Unit * ptr);

@@ -200,6 +200,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     else if( GetWriteBuffer()->GetSpace() < (len+4) )
         return OUTPACKET_RESULT_NO_ROOM_IN_BUFFER;
 
+    //printf("Sending packet %s\n", sOpcodeMgr.GetOpcodeName(opcode));
     LockWriteBuffer();
     // Encrypt the packet
     // First, create the header.
@@ -223,6 +224,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
 
 void WorldSocket::OnConnect()
 {
+    printf("Connection\n");
     sWorld.mAcceptedConnections++;
     _latency = getMSTime();
 
@@ -310,14 +312,12 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
 
     // Extract account information from the packet.
     string AccountName, GMFlags;
-    const string * ForcedPermissions;
     uint32 AccountID;
     uint8 AccountFlags;
     string lang = "enUS";
 
     recvData >> AccountID >> AccountName >> GMFlags >> AccountFlags;
-    ForcedPermissions = sLogonCommHandler.GetForcedPermissions(AccountName);
-    if( ForcedPermissions != NULL )
+    if( const string *ForcedPermissions = sLogonCommHandler.GetForcedPermissions(AccountName))
         GMFlags.assign(ForcedPermissions->c_str());
 
     sLog.Debug( "WorldSocket","Received information packet from logon: `%s` ID %u (request %u)", AccountName.c_str(), AccountID, mRequestID);
@@ -326,9 +326,6 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     uint8 K[40];
     recvData.read(K, 40);
     _crypt.Init(K);
-
-    BigNumber BNK;
-    BNK.SetBinary(K, 40);
 
     recvData.read((uint8*)lang.data(), 4);
 
@@ -378,7 +375,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     sha.UpdateData((uint8 *)&t, 4);
     sha.UpdateData((uint8 *)&mClientSeed, 4);
     sha.UpdateData((uint8 *)&mSeed, 4);
-    sha.UpdateBigNumbers(&BNK, NULL);
+    sha.UpdateData((uint8 *)&K, 40);
     sha.Finalize();
 
     if (memcmp(sha.GetDigest(), hashDigest, 20))

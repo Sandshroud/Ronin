@@ -71,10 +71,10 @@ void WorldSession::HandleBattleMasterHelloOpcode(WorldPacket &recv_data)
 
     CHECK_INWORLD_RETURN();
     Creature* pCreature = _player->GetMapMgr()->GetCreature( GUID_LOPART(guid) );
-    if( pCreature == NULL || !pCreature->GetProto() )
+    if( pCreature == NULL )
         return;
 
-    SendBattlegroundList( pCreature, pCreature->GetProto()->BattleMasterType );
+    SendBattlegroundList( pCreature, pCreature->GetCreatureData()->BattleMasterType );
 }
 
 void WorldSession::HandleLeaveBattlefieldOpcode(WorldPacket &recv_data)

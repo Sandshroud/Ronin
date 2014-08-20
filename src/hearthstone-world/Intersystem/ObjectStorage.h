@@ -4,10 +4,8 @@
 
 #pragma once
 
-extern SERVER_DECL SQLStorage<CreatureInfo, HashMapStorageContainer<CreatureInfo> >                 CreatureNameStorage;
 extern SERVER_DECL SQLStorage<GameObjectInfo, HashMapStorageContainer<GameObjectInfo> >             GameObjectNameStorage;
-extern SERVER_DECL SQLStorage<CreatureProto, HashMapStorageContainer<CreatureProto> >               CreatureProtoStorage;
-extern SERVER_DECL SQLStorage<CreatureProtoVehicle, HashMapStorageContainer<CreatureProtoVehicle> > CreatureProtoVehicleStorage;
+extern SERVER_DECL SQLStorage<CreatureVehicleData, HashMapStorageContainer<CreatureVehicleData> >   CreatureVehicleDataStorage;
 extern SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<CreatureInfoExtra> >       CreatureInfoExtraStorage;
 extern SERVER_DECL SQLStorage<AreaTrigger, HashMapStorageContainer<AreaTrigger> >                   AreaTriggerStorage;
 extern SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                         ItemPageStorage;

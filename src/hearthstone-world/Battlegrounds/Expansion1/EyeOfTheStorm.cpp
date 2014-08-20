@@ -739,7 +739,7 @@ void EyeOfTheStorm::UpdateCPs()
                     m_spiritGuides[i] = NULLCREATURE;
                 }
 
-                m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, 1 );
+                m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, true );
                 AddSpiritGuide( m_spiritGuides[i] );
                 SendChatMessage(CHAT_MSG_BG_SYSTEM_HORDE, 0, "The Horde have captured the %s.", EOTSCPNames[i]);
 
@@ -766,7 +766,7 @@ void EyeOfTheStorm::UpdateCPs()
                     m_spiritGuides[i] = NULLCREATURE;
                 }
 
-                m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, 0 );
+                m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, false );
                 AddSpiritGuide( m_spiritGuides[i] );
                 SendChatMessage(CHAT_MSG_BG_SYSTEM_ALLIANCE, 0, "The Alliance have captured the %s.", EOTSCPNames[i]);
 
@@ -1113,8 +1113,8 @@ void EyeOfTheStorm::OnStart()
     sEventMgr.AddEvent(TO_EYEOFTHESTORM(this), &EyeOfTheStorm::UpdateCPs, EVENT_EOTS_CHECK_CAPTURE_POINT_STATUS, 5000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     /* spirit guides */
-    AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[0][0], EOTSStartLocations[0][1], EOTSStartLocations[0][2], 0, 0 ));
-    AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[1][0], EOTSStartLocations[1][1], EOTSStartLocations[1][2], 0, 1 ));
+    AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[0][0], EOTSStartLocations[0][1], EOTSStartLocations[0][2], 0, false ));
+    AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[1][0], EOTSStartLocations[1][1], EOTSStartLocations[1][2], 0, true ));
 
     /* remove the bubbles */
     for( i = 0; i < 2; i++ )

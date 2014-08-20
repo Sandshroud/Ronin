@@ -82,7 +82,7 @@ uint32 GetAutoCastTypeForSpell(SpellEntry * ent)
     return AUTOCAST_EVENT_NONE;
 }
 
-Pet::Pet(uint64 guid) : Creature(guid)
+Pet::Pet(CreatureData *ctrData, uint64 guid) : Creature(ctrData, guid)
 {
     m_PetXP = 0;
     Summon = false;
@@ -146,26 +146,20 @@ void Pet::Destruct()
     Creature::Destruct();
 }
 
-void Pet::CreateAsSummon(CreatureProto* proto, CreatureInfo *ci, Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry* created_by_spell, uint32 type, uint32 expiretime)
+void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry* created_by_spell, uint32 type, uint32 expiretime)
 {
-    if(ci == NULL || proto == NULL)
-        return;
-
     if(Position != NULL)
-        Load(proto, 0, Position->x, Position->y, Position->z, Position->o);
-    else
-        Load(proto, 0, owner->GetPositionX(), owner->GetPositionY(), owner->GetPositionZ(), owner->GetOrientation());
+        Load(0, Position->x, Position->y, Position->z, Position->o);
+    else Load(0, owner->GetPositionX(), owner->GetPositionY(), owner->GetPositionZ(), owner->GetOrientation());
 
     EventModelChange();
     SetIsPet(true);
     m_Owner = TO_PLAYER(owner);
     m_OwnerGuid = owner->GetGUID();
-    creature_info = ci;
-    myFamily = dbcCreatureFamily.LookupEntry(creature_info->Family);
+    myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
     if( myFamily == NULL || myFamily->name == NULL )
         m_name = "Pet";
-    else
-        m_name.assign( myFamily->name );
+    else m_name.assign( myFamily->name );
 
     // Fields common to both lock summons and pets
     uint32 level = (m_Owner->GetUInt32Value( UNIT_FIELD_LEVEL ) + (m_Owner->getClass() == HUNTER ? - 5 : 0)) < 1 ?
@@ -413,14 +407,10 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     m_Owner = owner;
     m_OwnerGuid = m_Owner->GetGUID();
     m_PlayerPetInfo = playerPetInfo;
-    proto = CreatureProtoStorage.LookupEntry(m_PlayerPetInfo->entry);
-    creature_info = CreatureNameStorage.LookupEntry(m_PlayerPetInfo->entry);
-    if( creature_info == NULL || proto == NULL )
-        return;
 
-    myFamily = dbcCreatureFamily.LookupEntry(creature_info->Family);
-    Load(proto, 0, owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
-    Create(playerPetInfo->name.c_str(), owner->GetMapId(), owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
+    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->Family);
+    Load(0, owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
+    Create(owner->GetMapId(), owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
 
     LoadValues(m_PlayerPetInfo->fields.c_str());
     if(getLevel() == 0)
@@ -481,21 +471,17 @@ void Pet::InitializeMe()
         // 2 pets???!
 //      m_Owner->GetSummon()->Remove(true, true, true);
 //      m_Owner->SetSummon( TO_PET(this) );
-    }
-    else
-        m_Owner->SetSummon( TO_PET(this) );
+    } else m_Owner->SetSummon( TO_PET(this) );
 
     // set up ai and shit
     GetAIInterface()->Init(TO_UNIT(this) ,AITYPE_PET,MOVEMENTTYPE_NONE,m_Owner);
     GetAIInterface()->SetUnitToFollow(m_Owner);
     GetAIInterface()->SetFollowDistance(3.0f);
 
-    SetCreatureName(CreatureNameStorage.LookupEntry(GetEntry()));
-    proto = CreatureProtoStorage.LookupEntry(GetEntry());
     m_Owner->SetUInt64Value(UNIT_FIELD_SUMMON, GetGUID());
     SetUInt32Value(UNIT_FIELD_PETNUMBER, GetUIdFromGUID());
     SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, (uint32)UNIXTIME);
-    myFamily = dbcCreatureFamily.LookupEntry(creature_info->Family);
+    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->Family);
     SetPetDiet();
     _setFaction();
     m_State = 1;        // dont set agro on spawn
@@ -1086,7 +1072,7 @@ void Pet::ApplySummonLevelAbilities()
     }
     if(stat_index < 0)
     {
-        sLog.outDebug("PETSTAT: No stat index found for entry %u, `%s`!", GetEntry(), creature_info->Name);
+        sLog.outDebug("PETSTAT: No stat index found for entry %u, `%s`!", GetEntry(), _creatureData->Name);
         return;
     }
 

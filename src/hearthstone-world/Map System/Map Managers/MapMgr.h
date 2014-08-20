@@ -337,11 +337,9 @@ public:
     EventableObjectHolder eventHolder;
     CBattleground* m_battleground;
     unordered_set<Corpse* > m_corpses;
-    VehicleSqlIdMap _sqlids_vehicles;
     CreatureSqlIdMap _sqlids_creatures;
     GameObjectSqlIdMap _sqlids_gameobjects;
 
-    Vehicle* GetSqlIdVehicle(uint32 sqlid);
     Creature* GetSqlIdCreature(uint32 sqlid);
     GameObject* GetSqlIdGameObject(uint32 sqlid);
     deque<uint32> _reusable_guids_creature;

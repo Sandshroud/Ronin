@@ -506,6 +506,7 @@ inline bool IsGuidHaveEnPart(uint64 guid)
 {
     switch (GUID_HIPART(guid))
     {
+    case 0x1000:
     case 0xF110:
     case 0xF120:
     case 0xF130:

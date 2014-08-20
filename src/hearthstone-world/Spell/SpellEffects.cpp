@@ -501,16 +501,10 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
     //Aura Immune Flag Check
     if ( playerTarget == NULL)
     {
-        Creature* c = TO_CREATURE( unitTarget );
-        if(c != NULL)
+        if(Creature* c = TO_CREATURE( unitTarget ))
         {
-            if(c->LoadedProto != NULL)
-            {
-                if(c->LoadedProto->auraimmune_flag && (c->LoadedProto->auraimmune_flag & GetSpellProto()->auraimmune_flag))
-                    return;
-            }
-            else if(c->proto != NULL)
-                if( c->proto->auraimmune_flag && (c->proto->auraimmune_flag & GetSpellProto()->auraimmune_flag ))
+            if(c->GetCreatureData()->Auraimmune_flag)
+                if(c->GetCreatureData()->Auraimmune_flag & GetSpellProto()->auraimmune_flag)
                     return;
         }
     }
@@ -2560,19 +2554,18 @@ bool isExotic(uint32 family)
 
 void Spell::SpellEffectTameCreature(uint32 i)
 {
-    Creature* tame = NULL;
-    tame = (unitTarget->IsCreature() ? TO_CREATURE(unitTarget) : NULLCREATURE);
-    if(tame== NULL)
+    Creature* tame = (unitTarget->IsCreature() ? TO_CREATURE(unitTarget) : NULLCREATURE);
+    if(tame== NULLCREATURE)
         return;
 
-    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(tame->GetCreatureInfo()->Family);
+    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(tame->GetCreatureData()->Family);
     uint8 result = SPELL_CANCAST_OK;
 
     if(!tame || !p_caster || !p_caster->isAlive() || !tame->isAlive() || p_caster->getClass() != HUNTER )
         result = SPELL_FAILED_BAD_TARGETS;
-    else if(!tame->GetCreatureInfo())
+    else if(!tame->GetCreatureData())
         result = SPELL_FAILED_BAD_TARGETS;
-    else if(tame->GetCreatureInfo()->Type != BEAST)
+    else if(tame->GetCreatureData()->Type != BEAST)
         result = SPELL_FAILED_BAD_TARGETS;
     else if(tame->getLevel() > p_caster->getLevel())
         result = SPELL_FAILED_HIGHLEVEL;
@@ -2594,10 +2587,10 @@ void Spell::SpellEffectTameCreature(uint32 i)
     // Remove target
     tame->GetAIInterface()->HandleEvent(EVENT_LEAVECOMBAT, p_caster, 0);
 
-    Pet* pPet = objmgr.CreatePet();
+    Pet* pPet = objmgr.CreatePet(tame->GetCreatureData());
     pPet->SetInstanceID(p_caster->GetInstanceID());
     pPet->SetPosition(p_caster->GetPosition());
-    pPet->CreateAsSummon(tame->GetProto(), tame->GetCreatureInfo(), tame, p_caster, NULL, NULL, 2, 0);
+    pPet->CreateAsSummon(tame, p_caster, NULL, NULL, 2, 0);
 
     // Add removal event.
     sEventMgr.AddEvent(tame, &Creature::Despawn, uint32(1), tame->GetRespawnTime(), EVENT_CORPSE_DESPAWN, 5, 0, 0);
@@ -2642,33 +2635,29 @@ void Spell::SpellEffectSummonPet(uint32 i) //summon - pet
         return;
 
     // remove old pet
-    Pet* old = NULL;
-    old = TO_PLAYER(m_caster)->GetSummon();
+    Pet* old = TO_PLAYER(m_caster)->GetSummon();
     if(old != NULL)
         old->Dismiss(false);
 
-    CreatureInfo *ci = CreatureNameStorage.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
-    CreatureProto* proto = CreatureProtoStorage.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
-    if(ci && proto)
-    {
-        //if demonic sacrifice auras are still active, remove them
-        //uint32 spids[] = { 18789, 18790, 18791, 18792, 35701, 0 };
-        //p_caster->RemoveAuras(spids);
-        p_caster->RemoveAura(18789);
-        p_caster->RemoveAura(18790);
-        p_caster->RemoveAura(18791);
-        p_caster->RemoveAura(18792);
-        p_caster->RemoveAura(35701);
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(GetSpellProto()->EffectMiscValue[i]);
+    if(ctrData == NULL)
+        return;
 
-        Pet* summon = objmgr.CreatePet();
-        if(summon == NULL)
-            return;
-        summon->SetInstanceID(m_caster->GetInstanceID());
-        summon->SetPosition(m_caster->GetPosition());
-        summon->CreateAsSummon(proto, ci, NULL, p_caster, NULL, GetSpellProto(), 1, 0);
-        if( u_caster->IsPvPFlagged() )
-            summon->SetPvPFlag();
-    }
+    //if demonic sacrifice auras are still active, remove them
+    //uint32 spids[] = { 18789, 18790, 18791, 18792, 35701, 0 };
+    //p_caster->RemoveAuras(spids);
+    p_caster->RemoveAura(18789);
+    p_caster->RemoveAura(18790);
+    p_caster->RemoveAura(18791);
+    p_caster->RemoveAura(18792);
+    p_caster->RemoveAura(35701);
+
+    Pet* summon = objmgr.CreatePet(ctrData);
+    summon->SetInstanceID(m_caster->GetInstanceID());
+    summon->SetPosition(m_caster->GetPosition());
+    summon->CreateAsSummon(NULL, p_caster, NULL, GetSpellProto(), 1, 0);
+    if( u_caster->IsPvPFlagged() )
+        summon->SetPvPFlag();
 }
 
 void Spell::SpellEffectWeapondamage( uint32 i ) // Weapon damage +
@@ -2836,7 +2825,7 @@ void Spell::SpellEffectInterruptCast(uint32 i) // Interrupt Cast
     if(unitTarget->GetTypeId() == TYPEID_UNIT)
     {
         Creature* c = TO_CREATURE( unitTarget );
-        if (c && c->GetCreatureInfo() && (c->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || c->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS))
+        if (c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
             return;
     }
     // FIXME:This thing prevent target from spell casting too but cant find.
@@ -2882,7 +2871,7 @@ void Spell::SpellEffectPickpocket(uint32 i) // pickpocket
 
     //Show random loot based on roll,
     Creature* target = TO_CREATURE( unitTarget );
-    if(target->IsPickPocketed() || (target->GetCreatureInfo() && target->GetCreatureInfo()->Type != HUMANOID))
+    if(target->IsPickPocketed() || (target->GetCreatureData() && target->GetCreatureData()->Type != HUMANOID))
     {
         SendCastResult(SPELL_FAILED_TARGET_NO_POCKETS);
         return;
@@ -2890,7 +2879,7 @@ void Spell::SpellEffectPickpocket(uint32 i) // pickpocket
 
     lootmgr.FillPickpocketingLoot(&target->m_loot, target->GetEntry());
 
-    uint32 _rank = target->GetCreatureInfo() ? target->GetCreatureInfo()->Rank : 0;
+    uint32 _rank = target->GetCreatureData() ? target->GetCreatureData()->Rank : 0;
     unitTarget->m_loot.gold = float2int32((_rank+1) * target->getLevel() * (RandomUInt(5) + 1) * sWorld.getRate(RATE_MONEY));
 
     p_caster->SendLoot(target->GetGUID(), target->GetMapId(), LOOT_PICKPOCKETING);
@@ -2928,7 +2917,7 @@ void Spell::SpellEffectUseGlyph(uint32 i)
     if( p_caster == NULL )
         return;
 
-    if(uint8 result = p_caster->m_talentInterface.ApplyGlyph(m_glyphIndex, GetSpellProto()->EffectMiscValue[i])) // there was an error
+    if(uint8 result = p_caster->m_talentInterface.ApplyGlyph(m_targets.m_targetIndex, GetSpellProto()->EffectMiscValue[i])) // there was an error
         SendCastResult(result);
     else p_caster->m_talentInterface.SendTalentInfo();
 }
@@ -3241,7 +3230,7 @@ void Spell::SpellEffectSkinning(uint32 i)
         cr->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
         cr->Skinned = true;
         //double chance from elite
-        if(cr->GetCreatureInfo()->Rank > 0)
+        if(cr->GetCreatureData()->Rank > 0)
             DetermineSkillUp(skill ,sk < lvl * 5 ? sk/5 : lvl, 2);
         else
             DetermineSkillUp(skill ,sk < lvl * 5 ? sk/5 : lvl, 1);
@@ -3360,12 +3349,10 @@ void Spell::SpellEffectSendTaxi( uint32 i )
         if( !mount_entry )
             mount_entry = taxinode->alliance_mount;
 
-        CreatureInfo* ci = CreatureNameStorage.LookupEntry( mount_entry );
-        if( !ci )
+        CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( mount_entry );
+        if( ctrData == NULL )
             return;
-
-        modelid = ci->Female_DisplayID;
-        if( !modelid )
+        if((modelid = ctrData->DisplayInfo[1]) == 0)
             return;
     }
     else                                // ALLIANCE
@@ -3374,12 +3361,10 @@ void Spell::SpellEffectSendTaxi( uint32 i )
         if( !mount_entry )
             mount_entry = taxinode->horde_mount;
 
-        CreatureInfo* ci = CreatureNameStorage.LookupEntry( mount_entry );
-        if( !ci )
+        CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( mount_entry );
+        if( ctrData == NULL )
             return;
-
-        modelid = ci->Male_DisplayID;
-        if( !modelid )
+        if((modelid = ctrData->DisplayInfo[0]) == 0)
             return;
     }
 
@@ -3703,14 +3688,13 @@ void Spell::SpellEffectSummonDemonOld(uint32 i)
         pPet = NULL;
     }
 
-    CreatureInfo *ci = CreatureNameStorage.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
-    CreatureProto* proto = CreatureProtoStorage.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
-    if(ci && proto)
-    {
-        pPet = objmgr.CreatePet();
-        pPet->SetInstanceID(p_caster->GetInstanceID());
-        pPet->CreateAsSummon(proto, ci, NULL, p_caster, NULL, GetSpellProto(), 1, 300000);
-    }
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(GetSpellProto()->EffectMiscValue[i]);
+    if(ctrData == NULL)
+        return;
+
+    pPet = objmgr.CreatePet(ctrData);
+    pPet->SetInstanceID(p_caster->GetInstanceID());
+    pPet->CreateAsSummon(NULL, p_caster, NULL, GetSpellProto(), 1, 300000);
 
     //Create Enslave Aura if its inferno spell
     if(GetSpellProto()->Id == 1122)
@@ -4256,8 +4240,10 @@ void Spell::SpellEffectPlayMusic(uint32 i)
 
 void Spell::SpellEffectKillCredit( uint32 i )
 {
-    CreatureProto * cp = CreatureProtoStorage.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
-    if ( playerTarget != NULL && cp != NULL )
+    if(playerTarget == NULL)
+        return;
+
+    if(CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(GetSpellProto()->EffectMiscValue[i]))
         sQuestMgr._OnPlayerKill( playerTarget, GetSpellProto()->EffectMiscValue[i]);
 }
 
@@ -4438,14 +4424,12 @@ void Spell::SpellEffectCreatePet(uint32 i)
     if( playerTarget->GetSummon() )
         playerTarget->GetSummon()->Remove( true, true, true );
 
-    CreatureInfo *ci = CreatureNameStorage.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
-    CreatureProto* proto = CreatureProtoStorage.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
-    if( ci != NULL && proto != NULL )
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData( GetSpellProto()->EffectMiscValue[i] );
+    if( ctrData != NULL )
     {
-        Pet *pPet = objmgr.CreatePet();
-        if(pPet != NULL)
+        if(Pet *pPet = objmgr.CreatePet(ctrData))
         {
-            pPet->CreateAsSummon( proto, ci, NULL, playerTarget, NULL, GetSpellProto(), 2, 0 );
+            pPet->CreateAsSummon( NULL, playerTarget, NULL, GetSpellProto(), 2, 0 );
             if(!pPet->IsInWorld())
             {
                 pPet->Destruct();
@@ -4674,7 +4658,7 @@ void Spell::SpellEffectActivateTalentSpec(uint32 i)
     }
 
     // 0 = primary, 1 = secondary
-    p_caster->m_talentInterface.ApplySpec(damage, false);
+    p_caster->m_talentInterface.ApplySpec(damage);
     p_caster->SetPower(p_caster->GetPowerType(), 0);
 }
 

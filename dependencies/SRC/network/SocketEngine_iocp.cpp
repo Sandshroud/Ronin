@@ -9,7 +9,9 @@
 iocpEngine::iocpEngine(int TLimit)
 {
     WSADATA wsadata;
-    WSAStartup(MAKEWORD(2,0), &wsadata);
+    WSAStartup(0xFF02, &wsadata); // Request the highest available version of winSock2.X
+    sLog.Debug("IOCP", "Windows Socket version started with %u.%u", LOBYTE(wsadata.wVersion), HIBYTE(wsadata.wVersion));
+
     m_completionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 
     ThreadLimit = TLimit;

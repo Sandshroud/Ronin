@@ -20,6 +20,7 @@ struct GuildInfo
     uint32 m_borderColor;
     uint32 m_backgroundColor;
     uint32 m_guildLeader;
+    uint32 m_guildLevel;
     uint32 m_creationTimeStamp;
     uint64 m_bankBalance;
     bool m_commandLogging;
@@ -27,6 +28,9 @@ struct GuildInfo
     string m_guildName;
     string m_guildInfo;
     string m_motd;
+
+    Mutex m_guildRosterBufferLock;
+    ByteBuffer m_guildRosterBuffer;
 };
 
 struct GuildRankTabPermissions
@@ -250,7 +254,7 @@ public:
     uint32 RemoveGuildRank(uint32 GuildId);
     bool HasGuildRights(Player* plr, uint32 Rights);
     bool HasGuildBankRights(Player* plr, uint8 tabId, uint32 Rights);
-    uint32 CalculateAvailableAmount(GuildMember* gMember);
+    uint64 CalculateAvailableAmount(GuildMember* gMember);
     void OnMoneyWithdraw(GuildMember* gMember, uint32 amount);
     void OnItemWithdraw(GuildMember* gMember, uint32 tab);
     uint32 CalculateAllowedItemWithdraws(GuildMember* gMember, uint32 tab);
@@ -393,6 +397,7 @@ public: // Guild Functions and calls
     bool Disband(uint32 guildId);
     void PlayerLoggedIn(PlayerInfo* plr);
     void PlayerLoggedOff(PlayerInfo* plr);
+    void RebuildGuildRosterBuffer(uint32 guildId);
     void SendMotd(PlayerInfo* plr, uint32 guildid = 0);
     void RemoveMember(Player* remover, PlayerInfo* removee);
     void ForceRemoveMember(Player* remover, PlayerInfo* removee);

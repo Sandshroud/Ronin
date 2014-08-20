@@ -389,15 +389,14 @@ void ScriptMgr::ReloadScripts()
 
 void ScriptMgr::register_creature_script(uint32 entry, exp_create_creature_ai callback)
 {
-    CreatureProto* cn = CreatureProtoStorage.LookupEntry(entry);
-    if( cn )
+    if( CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry) )
     {
-        if( !cn->spells.empty() )
+        if( !ctrData->spells.empty() )
         {
-            for(list<AI_Spell*>::iterator it = cn->spells.begin(); it != cn->spells.end(); it++)
+            for(list<AI_Spell*>::iterator it = ctrData->spells.begin(); it != ctrData->spells.end(); it++)
                 delete (*it);
 
-            cn->spells.clear();
+            ctrData->spells.clear();
         }
     }
     _creatures.insert( CreatureCreateMap::value_type( entry, callback ) );
@@ -467,17 +466,12 @@ void ScriptMgr::register_spell_effect_modifier(uint32 entry, exp_handle_spell_ef
 
 void ScriptMgr::register_gossip_script(uint32 entry, GossipScript * gs)
 {
-    CreatureInfo * ci = CreatureNameStorage.LookupEntry(entry);
-    if(ci == NULL)
-        return;
-
-    CreatureProto * cp = CreatureProtoStorage.LookupEntry(entry);
-    if(cp == NULL)
-        return;
-
-    GossipMaps[GTYPEID_CTR][entry] = gs;
-    if(_customgossipscripts.find(gs) == _customgossipscripts.end())
-        _customgossipscripts.insert(gs);
+    if(CreatureData * ctrData = sCreatureDataMgr.GetCreatureData(entry))
+    {
+        GossipMaps[GTYPEID_CTR][entry] = gs;
+        if(_customgossipscripts.find(gs) == _customgossipscripts.end())
+            _customgossipscripts.insert(gs);
+    }
 }
 
 void ScriptMgr::register_item_gossip_script(uint32 entry, GossipScript * gs)
@@ -678,7 +672,7 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
 
             if(pTrainer != NULL && (flags & UNIT_NPC_FLAG_TRAINER || flags & UNIT_NPC_FLAG_TRAINER_PROF))
             {
-                string name = pCreature->GetCreatureInfo()->Name;
+                string name = pCreature->GetCreatureData()->Name;
                 string::size_type pos = name.find(" ");   // only take first name
                 if(pos != string::npos)
                     name = name.substr(0, pos);
@@ -776,10 +770,9 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
 
             if(flags & UNIT_NPC_FLAG_BATTLEFIELDPERSON)
             {
-                if(pCreature->GetProto() && pCreature->GetProto()->BattleMasterType)
+                if(pCreature->GetCreatureData()->BattleMasterType)
                 {
-                    BattleMasterListEntry* Battlemaster = dbcBattleMasterList.LookupEntry(pCreature->GetProto()->BattleMasterType);
-                    if(Battlemaster != NULL)
+                    if(BattleMasterListEntry* Battlemaster = dbcBattleMasterList.LookupEntry(pCreature->GetCreatureData()->BattleMasterType))
                     {   // Do people even use battlemasters anymore?
                         if(Plr->getLevel() >= Battlemaster->minLevel)
                             Menu->AddItem(GOSSIP_ICON_GOSSIP_ARENA, "I would like to enter the battleground.", 10);
@@ -840,8 +833,6 @@ void GossipScript::GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, u
         return;
 
     Creature* pCreature = TO_CREATURE( pObject );
-    std::set<TeleportInfo*> Telelist = pCreature->GetProto()->TeleportInfoList;
-
     switch( IntId )
     {
     case 1: // vendor
@@ -874,8 +865,7 @@ void GossipScript::GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, u
     case 10:
         {
             // battlefield
-            uint32 battlegroundid = pCreature->GetProto() ? pCreature->GetProto()->BattleMasterType : 0;
-            if(battlegroundid)
+            if(uint32 battlegroundid = pCreature->GetCreatureData()->BattleMasterType)
                 Plr->GetSession()->SendBattlegroundList(pCreature, battlegroundid);
         }break;
     case 11: // switch to talent reset message

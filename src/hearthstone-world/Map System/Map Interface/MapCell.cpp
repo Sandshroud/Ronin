@@ -171,68 +171,29 @@ void MapCell::LoadObjects(CellSpawns * sp)
     Instance * pInstance = _mapmgr->pInstance;
     if(sp->CreatureSpawns.size())//got creatures
     {
-        Vehicle* v = NULLVEHICLE;
         Creature* c = NULLCREATURE;
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
-            if(pInstance)
+            if(pInstance && pInstance->m_killedNpcs.find((*i)->id) != pInstance->m_killedNpcs.end())
+                continue;
+
+            c = (*i)->vehicle ? _mapmgr->CreateVehicle((*i)->entry) : _mapmgr->CreateCreature((*i)->entry);
+            if(c == NULLCREATURE)
+                continue;
+
+            c->SetMapId(_mapmgr->GetMapId());
+            c->SetInstanceID(_mapmgr->GetInstanceID());
+            if(c->Load(*i, _mapmgr->iInstanceMode))
             {
-                if(pInstance->m_killedNpcs.find((*i)->id) != pInstance->m_killedNpcs.end())
-                    continue;
-            }
-
-            if((*i)->vehicle)
-            {
-                v =_mapmgr->CreateVehicle((*i)->entry);
-                if(v == NULLVEHICLE)
-                    continue;
-
-                v->SetMapId(_mapmgr->GetMapId());
-                v->SetInstanceID(_mapmgr->GetInstanceID());
-
-                if(v->Load(*i, _mapmgr->iInstanceMode, _mapmgr->GetMapInfo()))
+                if(c->CanAddToWorld())
                 {
-                    if(!v->CanAddToWorld())
-                    {
-                        v->Destruct();
-                        v = NULLVEHICLE;
-                        continue;
-                    }
-
-                    v->PushToWorld(_mapmgr);
-                }
-                else
-                {
-                    v->Destruct();
-                    v = NULLVEHICLE;
-                }
-            }
-            else
-            {
-                c = _mapmgr->CreateCreature((*i)->entry);
-                if(c == NULLCREATURE)
-                    continue;
-
-                c->SetMapId(_mapmgr->GetMapId());
-                c->SetInstanceID(_mapmgr->GetInstanceID());
-
-                if(c->Load(*i, _mapmgr->iInstanceMode, _mapmgr->GetMapInfo()))
-                {
-                    if(!c->CanAddToWorld())
-                    {
-                        c->Destruct();
-                        c = NULLCREATURE;
-                        continue;
-                    }
-
                     c->PushToWorld(_mapmgr);
-                }
-                else
-                {
-                    c->Destruct();
-                    c = NULLCREATURE;
+                    continue;
                 }
             }
+
+            c->Destruct();
+            c = NULLCREATURE;
         }
     }
 

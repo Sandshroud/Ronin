@@ -1311,7 +1311,7 @@ void AchievementInterface::HandleAchievementCriteriaDoEmote(uint32 emoteId, Unit
         if( pTarget && pTarget->IsCreature() )
         {
             Creature* pCreature = TO_CREATURE(pTarget);
-            if( !(!ace->name || strlen(ace->name) == 0 || !pCreature->GetCreatureInfo() || stricmp(pCreature->GetCreatureInfo()->Name, ace->name) != 0) )
+            if( !(!ace->name || strlen(ace->name) == 0 || !pCreature->GetCreatureData() || stricmp(pCreature->GetCreatureData()->Name, ace->name) != 0) )
             {
                 scriptOk = true;
             }

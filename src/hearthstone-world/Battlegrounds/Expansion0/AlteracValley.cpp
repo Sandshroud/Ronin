@@ -322,17 +322,14 @@ AVNode::AVNode( AlteracValley* parent, AVNodeTemplate *tmpl, uint32 nodeid) : m_
     {
         // then we are probably a tower.
         const AVSpawnLocation *spi = g_initalGuardLocations[nodeid];
-        CreatureInfo *ci = CreatureNameStorage.LookupEntry(m_template->m_initialSpawnId);
-        CreatureProto *cp = CreatureProtoStorage.LookupEntry(m_template->m_initialSpawnId);
-        Creature* sp = NULLCREATURE;
-        sLog.outDebug("spawning guards at bunker %s of %s (%u)", m_template->m_name, ci->Name, ci->Id);
+        CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(m_template->m_initialSpawnId);
+        sLog.outDebug("spawning guards at bunker %s of %s (%u)", m_template->m_name, ctrData->Name, ctrData->Entry);
 
         while(spi->x != 0.0f)
         {
-            sp = m_bg->GetMapMgr()->CreateCreature(ci->Id);
-            if(sp != NULLCREATURE)
+            if(Creature *sp = m_bg->GetMapMgr()->CreateCreature(ctrData->Entry))
             {
-                sp->Load(cp, MODE_5PLAYER_NORMAL, spi->x, spi->y, spi->z, spi->o);
+                sp->Load(MODE_5PLAYER_NORMAL, spi->x, spi->y, spi->z, spi->o);
                 sp->PushToWorld(m_bg->GetMapMgr());
             }
             ++spi;
@@ -644,7 +641,7 @@ void AVNode::Spawn()
 
             // spawn new spirit guide
             m_spiritGuide = m_bg->SpawnSpiritGuide(m_template->m_graveyardLocation.x, m_template->m_graveyardLocation.y,
-                m_template->m_graveyardLocation.z, m_template->m_graveyardLocation.z, 0);
+                m_template->m_graveyardLocation.z, m_template->m_graveyardLocation.z, false);
 
             // add
             m_bg->AddSpiritGuide(m_spiritGuide);
@@ -655,7 +652,7 @@ void AVNode::Spawn()
 
             // spawn new spirit guide
             m_spiritGuide = m_bg->SpawnSpiritGuide(m_template->m_graveyardLocation.x, m_template->m_graveyardLocation.y,
-                m_template->m_graveyardLocation.z, m_template->m_graveyardLocation.z, 1);
+                m_template->m_graveyardLocation.z, m_template->m_graveyardLocation.z, true);
 
             // add
             m_bg->AddSpiritGuide(m_spiritGuide);
@@ -921,8 +918,8 @@ void AlteracValley::OnCreate()
     SpawnCreature(AV_NPC_CAPTAIN_GALVANGAR, -537.177429f, -168.004944f, 57.008938f, 2.749793f);
 
     // home spirit guides
-    AddSpiritGuide(SpawnSpiritGuide(876.434448f, -489.599579f, 96.517174f, 0.0f, 0));
-    AddSpiritGuide(SpawnSpiritGuide(-1433.550903f, -608.329529f, 51.149689f, 0.0f, 1));
+    AddSpiritGuide(SpawnSpiritGuide(876.434448f, -489.599579f, 96.517174f, 0.0f, false));
+    AddSpiritGuide(SpawnSpiritGuide(-1433.550903f, -608.329529f, 51.149689f, 0.0f, true));
 }
 
 void AlteracValley::OnStart()

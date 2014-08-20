@@ -140,24 +140,25 @@ StrandOfTheAncients::StrandOfTheAncients(MapMgr* mgr, uint32 id, uint32 lgroup, 
 
     m_relic->PushToWorld(m_mapMgr);
 
-    CreatureProto* prto = CreatureProtoStorage.LookupEntry(27894);
-    if(prto != NULL)
+    //Spawn the Cannons
+    for(uint32 x = 0; x < 10; x++)
     {
-        //Spawn the Cannons
-        for(uint32 x = 0; x < 10; x++)
+        if(m_cannons[x] = m_mapMgr->CreateCreature(27894))
         {
-            m_cannons[x] = m_mapMgr->CreateCreature(27894);
-            if(m_cannons[x] != NULL)
+            if(!m_cannons[x]->Load(m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]))
             {
-                m_cannons[x]->Load(prto, m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]);
-                m_cannons[x]->PushToWorld(m_mapMgr);
-
-                //Change Cannon Factions
-                if(Attackers == HORDE)
-                    m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
-                else if(Attackers == ALLIANCE)
-                    m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
+                delete m_cannons[x];
+                m_cannons[x] = NULL;
+                continue;
             }
+
+            m_cannons[x]->PushToWorld(m_mapMgr);
+
+            //Change Cannon Factions
+            if(Attackers == HORDE)
+                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
+            else if(Attackers == ALLIANCE)
+                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
         }
     }
 
@@ -307,32 +308,27 @@ void StrandOfTheAncients::Respawn()
 
     m_endgate->Destruct();
 
-    CreatureProto* prto = CreatureProtoStorage.LookupEntry(27894);
-    if(prto != NULL)
+    //Spawn the Cannons
+    for(uint32 x = 0; x < 10; x++)
     {
-        //Spawn the Cannons
-        for(uint32 x = 0; x < 10; x++)
+        if(m_cannons[x] = m_mapMgr->CreateCreature(27894))
         {
-            m_cannons[x] = m_mapMgr->CreateCreature(27894);
-            if(m_cannons[x] != NULL)
-            {
-                m_cannons[x]->Load(prto, m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]);
-                m_cannons[x]->PushToWorld(m_mapMgr);
+            m_cannons[x]->Load(m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]);
+            m_cannons[x]->PushToWorld(m_mapMgr);
 
-                //Change Cannon Factions
-                if(Attackers == HORDE)
-                    m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
-                else if(Attackers == ALLIANCE)
-                    m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
-            }
+            //Change Cannon Factions
+            if(Attackers == HORDE)
+                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
+            else if(Attackers == ALLIANCE)
+                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
         }
     }
 
     // Spawn Transporters
     for(uint32 i = 0; i < 5; i++)
     {
-        m_gateTransporters[i] = m_mapMgr->CreateGameObject(192819);
-        if(m_gateTransporters[i] == NULL || !m_gateTransporters[i]->CreateFromProto(192819, m_mapMgr->GetMapId() , m_gateTransportersLocations[i][0] ,m_gateTransportersLocations[i][1], m_gateTransportersLocations[i][2], m_gateTransportersLocations[i][3]))
+        if((m_gateTransporters[i] = m_mapMgr->CreateGameObject(192819)) == NULL ||
+            !m_gateTransporters[i]->CreateFromProto(192819, m_mapMgr->GetMapId() , m_gateTransportersLocations[i][0] ,m_gateTransportersLocations[i][1], m_gateTransportersLocations[i][2], m_gateTransportersLocations[i][3]))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "SOTA is being created and you are missing gameobjects. Terminating.");
             abort();
@@ -344,15 +340,14 @@ void StrandOfTheAncients::Respawn()
             m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
         else if(Attackers == ALLIANCE)
             m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
-
         m_gateTransporters[i]->PushToWorld(m_mapMgr);
     }
 
     //Spawn Gates
     for(uint32 gates = 0; gates < 5; gates++)
     {
-        m_gates[gates] = m_mapMgr->CreateGameObject(m_gatesLocations[gates][0]);
-        if(m_gates[gates] == NULL || !m_gates[gates]->CreateFromProto(m_gatesLocations[gates][0], m_mapMgr->GetMapId() , m_gatesLocations[gates][1] ,m_gatesLocations[gates][2], m_gatesLocations[gates][3], m_gatesLocations[gates][4]))
+        if((m_gates[gates] = m_mapMgr->CreateGameObject(m_gatesLocations[gates][0])) == NULL ||
+            !m_gates[gates]->CreateFromProto(m_gatesLocations[gates][0], m_mapMgr->GetMapId() , m_gatesLocations[gates][1] ,m_gatesLocations[gates][2], m_gatesLocations[gates][3], m_gatesLocations[gates][4]))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "SOTA is being created and you are missing gameobjects. Terminating.");
             abort();
@@ -363,7 +358,6 @@ void StrandOfTheAncients::Respawn()
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
         else if(Attackers == ALLIANCE)
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
-
         m_gates[gates]->PushToWorld(m_mapMgr);
     }
 

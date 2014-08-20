@@ -703,30 +703,13 @@ bool Player::Create(WorldPacket& data )
     // team dependant taxi node
     AddTaximaskNode(100-m_team);
 
-    // Set Starting stats for char
-    SetUInt32Value(UNIT_FIELD_STRENGTH, info->strength );
-    SetUInt32Value(UNIT_FIELD_AGILITY, info->agility );
-    SetUInt32Value(UNIT_FIELD_STAMINA, info->stamina );
-    SetUInt32Value(UNIT_FIELD_INTELLECT, info->intellect );
-    SetUInt32Value(UNIT_FIELD_SPIRIT, info->spirit );
+    uint32 level = std::max(uint8(1), sWorld.StartLevel);
+    if(class_ == DEATHKNIGHT && level < 55) level = 55;
+    setLevel(level);
+    UpdateFieldValues();
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus );
-    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_RUNE_POWER, getClass() == DEATHKNIGHT ? 8 : 0);
-    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0 );
-
-    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAX_RUNE_POWER, 8);
-    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
-
-    uint32 level = std::max(uint8(1), sWorld.StartLevel);
-    if(class_ == DEATHKNIGHT && level < 55)
-        level = 55;
-    setLevel(level);
 
     SetFaction( info->factiontemplate );
 
@@ -751,7 +734,6 @@ bool Player::Create(WorldPacket& data )
     }
     EventModelChange();
 
-    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, info->attackpower );
     SetByte(PLAYER_BYTES, 0, skin);
     SetByte(PLAYER_BYTES, 1, face);
     SetByte(PLAYER_BYTES, 2, hairStyle);
@@ -762,10 +744,6 @@ bool Player::Create(WorldPacket& data )
 
     SetUInt32Value(PLAYER_NEXT_LEVEL_XP, 400);// sWorld.GetXPToNextLevel(getLevel()));
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(TO_PLAYER(this)));
-
-    for(uint32 x = 0; x < 7; x++)
-        SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.f);
-    SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, 1.f);
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 
     m_StableSlotCount = 0;
@@ -786,8 +764,7 @@ bool Player::Create(WorldPacket& data )
         {
             if( sWorld.StartLevel > 1 )
                 _AddSkillLine(se->id, sWorld.StartLevel * 5, sWorld.StartLevel * 5 );
-            else
-                _AddSkillLine(se->id, ss->currentval, ss->maxval);
+            else _AddSkillLine(se->id, ss->currentval, ss->maxval);
         }
     }
     _UpdateMaxSkillCounts();
@@ -830,12 +807,8 @@ bool Player::Create(WorldPacket& data )
 
             EquipInit(GMinfo);
             delete GMinfo;
-        }
-        else
-            EquipInit(info);
-    }
-    else
-        EquipInit(info);
+        } else EquipInit(info);
+    } else EquipInit(info);
 
     sHookInterface.OnCharacterCreate(TO_PLAYER(this));
 
@@ -1308,7 +1281,6 @@ int32 Player::GetBaseAttackTime(uint8 weaponType)
         if(Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType))
             speed = item->GetProto()->Delay;
     }
-    speed *= 1.0f;
     return speed;
 }
 
@@ -1352,8 +1324,8 @@ void Player::setLevel(uint32 level)
     if(IsInWorld())
     {
         UpdateStats();
-        GetAchievementInterface()->HandleAchievementCriteriaLevelUp( getLevel() );
-        m_talentInterface.InitGlyphsForLevel();
+        GetAchievementInterface()->HandleAchievementCriteriaLevelUp( level );
+        m_talentInterface.InitGlyphsForLevel(level);
         if(currLevel > 9 || level > 9)
         {
             if(level <= 9)
@@ -1703,8 +1675,7 @@ void Player::_EventCharmAttack()
                 SpellEntry *spellInfo = dbcSpell.LookupEntry(m_CurrentCharm->GetOnMeleeSpell());
                 uint8 cn = m_meleespell_cn;
                 m_CurrentCharm->SetOnMeleeSpell(0, 0);
-                Spell* spell = NULLSPELL;
-                spell = (new Spell(m_CurrentCharm,spellInfo,true,NULLAURA));
+                Spell* spell = new Spell(m_CurrentCharm,spellInfo,true,NULLAURA);
                 SpellCastTargets targets;
                 targets.m_unitTarget = GetSelection();
                 spell->extra_cast_number = cn;
@@ -2306,12 +2277,18 @@ void Player::SpawnPet(uint32 pet_number)
         m_Summon = NULLPET;
     }
 
-    // Crow: Should be that it recasts summon spell, but without cost.
-    Pet* pPet = objmgr.CreatePet();
-    pPet->SetInstanceID(GetInstanceID());
-    pPet->LoadFromDB(TO_PLAYER(this), itr->second);
-    if( IsPvPFlagged() )
-        pPet->SetPvPFlag();
+    if(CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(itr->second->entry))
+    {
+        // Crow: Should be that it recasts summon spell, but without cost.
+        if(Pet* pPet = objmgr.CreatePet(ctrData))
+        {
+            pPet->SetPhaseMask(GetPhaseMask());
+            pPet->SetInstanceID(GetInstanceID());
+            pPet->LoadFromDB(TO_PLAYER(this), itr->second);
+            if( IsPvPFlagged() )
+                pPet->SetPvPFlag();
+        }
+    }
     PetLocks.Release();
 }
 
@@ -3160,8 +3137,12 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         return;
     }
 
-    SetGuildId(m_playerInfo->GuildId);
-    SetGuildRank(m_playerInfo->GuildRank);
+    if(GuildInfo *gInfo = guildmgr.GetGuildInfo(m_playerInfo->GuildId))
+    {
+        SetGuildId(m_playerInfo->GuildId);
+        SetGuildRank(m_playerInfo->GuildRank);
+        SetGuildLevel(gInfo->m_guildLevel);
+    }
 
     m_bgTeam = m_team = myRace->TeamId;
 
@@ -3180,11 +3161,12 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
     assert(info);
 
-    m_talentInterface.InitGlyphSlots();
-
     // set level
     uint8 plvl = get_next_field.GetUInt32();
     SetUInt32Value(UNIT_FIELD_LEVEL, plvl);
+
+    m_talentInterface.InitGlyphSlots();
+    m_talentInterface.InitGlyphsForLevel(plvl);
 
     // level dependant taxi node
     SetTaximaskNode( 213, plvl >= 68 ? false : true );  //Add 213 (Shattered Sun Staging Area) if lvl >=68
@@ -3357,15 +3339,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     // Initialize 'normal' fields
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus);
-    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, getClass() == DEATHKNIGHT ? 8 : 0);
-    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0);
-    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAX_RUNE_POWER, 8);
-    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
 
@@ -6602,11 +6575,13 @@ void Player::SendInitialLogonPackets()
     data << uint32(0);                                      // count, for (count) uint32;
     GetSession()->SendPacket(&data);
 
-    // Send our talent info
-    m_talentInterface.SendTalentInfo();
-
-    //Initial Actions
-    m_talentInterface.SendInitialActions();
+    if(sWorld.m_useAccountData)
+    {   //Lock Initial Actions
+        data.Initialize(SMSG_ACTION_BUTTONS, PLAYER_ACTION_BUTTON_COUNT*4+1);
+        m_talentInterface.BuildPlayerActionInfo(&data);
+        data.put<uint8>(0, 0);
+        SendPacket(&data);
+    }
 
     //Factions
     smsg_InitialFactions();
@@ -6717,33 +6692,8 @@ void Player::Reset_ToLevel1()
 {
     m_AuraInterface.RemoveAllAuras();
 
-    SetUInt32Value(UNIT_FIELD_LEVEL, 1);
-    PlayerCreateInfo *info = objmgr.GetPlayerCreateInfo(getRace(), getClass());
-    ASSERT(info);
-
-    SetUInt32Value(UNIT_FIELD_HEALTH, info->health);
-    SetUInt32Value(UNIT_FIELD_MANA, info->mana );
-    SetUInt32Value(UNIT_FIELD_RAGE, 0 ); // this gets devided by 10
-    SetUInt32Value(UNIT_FIELD_FOCUS, info->focus );
-    SetUInt32Value(UNIT_FIELD_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_RUNIC_POWER, 0 );
-    SetUInt32Value(UNIT_FIELD_MAXHEALTH, info->health);
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, info->health);
-    SetUInt32Value(UNIT_FIELD_BASE_MANA, info->mana);
-    SetUInt32Value(UNIT_FIELD_MAX_MANA, info->mana );
-    SetUInt32Value(UNIT_FIELD_MAX_RAGE, info->rage );
-    SetUInt32Value(UNIT_FIELD_MAX_FOCUS, info->focus );
-    SetUInt32Value(UNIT_FIELD_MAX_ENERGY, info->energy );
-    SetUInt32Value(UNIT_FIELD_MAX_RUNIC_POWER, 1000 );
-    SetUInt32Value(UNIT_FIELD_STRENGTH, info->strength );
-    SetUInt32Value(UNIT_FIELD_AGILITY, info->agility );
-    SetUInt32Value(UNIT_FIELD_STAMINA, info->stamina );
-    SetUInt32Value(UNIT_FIELD_INTELLECT, info->intellect );
-    SetUInt32Value(UNIT_FIELD_SPIRIT, info->spirit );
-    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, info->attackpower );
-    for(uint32 x=0;x<7;x++)
-        SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.00);
-
+    setLevel(1);
+    UpdateFieldValues();
 }
 
 void Player::UpdateNearbyGameObjects()
@@ -7880,6 +7830,15 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
             chn->AttemptJoin(this, "");
         }
     }
+}
+
+void Player::SetGuildId(uint32 guildId)
+{
+    uint32 objectType = GetUInt32Value(OBJECT_FIELD_TYPE);
+    if(guildId) objectType |= TYPEMASK_IN_GUILD;
+    else objectType &= ~TYPEMASK_IN_GUILD;
+    SetUInt32Value(OBJECT_FIELD_TYPE, objectType);
+    SetUInt64Value(PLAYER_GUILDID, guildId ? MAKE_NEW_GUID(guildId, 0, HIGHGUID_TYPE_GUILD) : 0);
 }
 
 void Player::SendTradeUpdate()
@@ -11070,6 +11029,15 @@ uint8 Player::GetChatTag() const
     else if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
         return 1;
     return 0;
+}
+
+uint8 Player::GetGuildMemberFlags()
+{
+    if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
+        return 0x04;
+    else if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
+        return 0x02;
+    return 0x01;
 }
 
 void Player::AddArenaPoints( uint32 arenapoints )

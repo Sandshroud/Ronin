@@ -127,27 +127,16 @@ enum SpellTargetSpecification
     TARGET_SPEC_DEAD        = 2,
 };
 
-void SpellCastTargets::read( WorldPacket & data, uint64 caster, uint8 castFlags )
+void SpellCastTargets::read( WorldPacket & data, uint64 caster )
 {
-    WoWGuid guid;
-    m_unitTarget = m_itemTarget = 0;
-    m_srcX = m_srcY = m_srcZ = m_destX = m_destY = m_destZ = missilespeed = missilepitch = traveltime = 0.0f;
-    m_strTarget = "";
-
-    data >> m_targetMask;
+    data >> m_targetIndex >> m_castFlags >> m_targetMask;
     if( m_targetMask == TARGET_FLAG_SELF || m_targetMask & TARGET_FLAG_GLYPH )
         m_unitTarget = caster;
 
     if( m_targetMask & (TARGET_FLAG_OBJECT | TARGET_FLAG_UNIT | TARGET_FLAG_CORPSE | TARGET_FLAG_CORPSE2 ) )
-    {
-        data >> guid;
-        m_unitTarget = guid.GetOldGuid();
-    }
+        m_unitTarget = data.unpackguid();
     else if( m_targetMask & ( TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM ) )
-    {
-        data >> guid;
-        m_itemTarget = guid.GetOldGuid();
-    }
+        m_unitTarget = data.unpackguid();
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
     {
@@ -176,16 +165,11 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster, uint8 castFlags 
     if( m_targetMask & TARGET_FLAG_STRING )
         data >> m_strTarget;
 
-    if(castFlags & 0x2)
+    if(m_castFlags & 0x2)
     {
-        uint8 missileunkcheck;
-        data >> missilepitch >> missilespeed >> missileunkcheck;
-        if(missileunkcheck == 1)
-        {
-            uint32 unkdoodah, unkdoodah2;
-            data >> unkdoodah;
-            data >> unkdoodah2;
-        }
+        data >> missilepitch >> missilespeed;
+        if(data.read<uint8>() == 1)
+            data.read_skip<uint64>();
 
         float dx = m_destX - m_srcX;
         float dy = m_destY - m_srcY;
@@ -323,7 +307,6 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
     m_cancelled = false;
     ProcedOnSpell = NULL;
     extra_cast_number = 0;
-    m_glyphIndex = 0;
     m_reflectedParent = NULLSPELL;
     m_isCasting = false;
     m_hitTargetCount = 0;
@@ -2524,7 +2507,7 @@ void Spell::SendChannelStart(int32 duration)
 
 void Spell::SendResurrectRequest(Player* target)
 {
-    const char* name = m_caster->IsCreature() ? TO_CREATURE(m_caster)->GetCreatureInfo()->Name : "";
+    const char* name = m_caster->IsCreature() ? TO_CREATURE(m_caster)->GetCreatureData()->Name : "";
     WorldPacket data(SMSG_RESURRECT_REQUEST, 12+strlen(name)+3);
     data << m_caster->GetGUID();
     data << uint32(strlen(name) + 1);
@@ -3042,7 +3025,7 @@ uint8 Spell::CanCast(bool tolerate)
             if(target->IsCreature())
             {
                 Creature* cTarget = TO_CREATURE(target);
-                if(isTargetDummy(cTarget->GetProto()->Id))
+                if(isTargetDummy(cTarget->GetEntry()))
                 {
                     switch(m_spellInfo->Id)
                     {
@@ -3730,8 +3713,8 @@ uint8 Spell::CanCast(bool tolerate)
                     if( !target->IsCreature() )
                         return SPELL_FAILED_BAD_TARGETS;
 
-                    if( TO_CREATURE( target )->GetCreatureInfo() != NULL )
-                        if( GetSpellProto()->forced_creature_target != TO_CREATURE( target )->GetCreatureInfo()->Id )
+                    if( TO_CREATURE( target )->GetCreatureData() != NULL )
+                        if( GetSpellProto()->forced_creature_target != TO_CREATURE( target )->GetEntry() )
                             return SPELL_FAILED_BAD_TARGETS;
                 }
 
@@ -3780,7 +3763,7 @@ uint8 Spell::CanCast(bool tolerate)
                         else if(target->GetTypeId() == TYPEID_UNIT)
                         {
                             Creature* c =  TO_CREATURE(target);
-                            if (c&&c->GetCreatureInfo()&&c->GetCreatureInfo()->Rank >ELITE_ELITE)
+                            if (c&&c->GetCreatureData()&&c->GetCreatureData()->Rank >ELITE_ELITE)
                                 return SPELL_FAILED_HIGHLEVEL;
                         }
                     }
@@ -5398,7 +5381,7 @@ bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask)
     if( obj->GetTypeId() == TYPEID_UNIT )
     {
         Creature* cr = TO_CREATURE(obj);
-        CreatureInfo* inf = cr->GetCreatureInfo();
+        CreatureData* inf = cr->GetCreatureData();
         if( inf == NULL || !( 1 << ( inf->Type - 1 ) & ReqCreatureTypeMask ) )
             return false;
     }

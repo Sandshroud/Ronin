@@ -583,6 +583,15 @@ bool Unit::RegenUpdateRequired()
 bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
 {
     bool res = false;
+    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACKSPEED);
+    return res;
+}
+
+bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
+{
+    bool res = m_statValuesChanged|AttackTimeUpdateRequired(weaponType);
+    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_DONE);
+    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
 
     return res;
 }
@@ -805,6 +814,27 @@ void Unit::UpdateAttackTimeValues()
             continue;
 
         uint32 baseAttack = GetBaseAttackTime(i);
+        if(baseAttack || i == 0) // Force an attack time for mainhand
+        {
+            float attackSpeedMod = 1.0f;
+            AuraInterface::modifierMap attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKSPEED);
+            for(AuraInterface::modifierMap::iterator itr = attackTimeMod.begin(); itr != attackTimeMod.end(); itr++)
+                attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
+
+            if(i == 2) attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_HASTE);
+            else attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_HASTE);
+            for(AuraInterface::modifierMap::iterator itr = attackTimeMod.begin(); itr != attackTimeMod.end(); itr++)
+                attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
+
+            if(IsPlayer() && i == 2) attackSpeedMod *= (1.f+(TO_PLAYER(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
+            else attackSpeedMod *= (1.f+(TO_PLAYER(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
+
+            baseAttack = float2int32(floor(float(baseAttack)/attackSpeedMod));
+            if(baseAttack < 500)
+                baseAttack = 500;
+            else if(baseAttack > 12000)
+                baseAttack = 12000;
+        }
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
     }
 }
@@ -815,6 +845,9 @@ void Unit::UpdateAttackDamageValues()
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
     for(uint8 i = 0; i < 3; i++)
     {
+        if(!AttackDamageUpdateRequired(i))
+            continue;
+
         if(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i) == 0.0f)
         {
             SetFloatValue(minAttackPowers[i], 0);
@@ -843,18 +876,15 @@ void Unit::UpdateAttackDamageValues()
         {
             if(IsPlayer() && itr->second->m_spellInfo->EquippedItemClass != -1)
             {
-                Item *item = TO_PLAYER(this)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i);
-                if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
-                    baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
+                if(Item *item = TO_PLAYER(this)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
+                    if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
+                        baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
                 continue;
             }
             if(itr->second->m_miscValue[0] & 0x01)
                 baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
-
         }
 
-        if(IsPlayer())
-            printf("Damage: %u, %u %f\n", baseMinDamage, baseMaxDamage, apBonus);
         SetFloatValue(minAttackPowers[i], baseMinDamage);
         SetFloatValue(minAttackPowers[i]+1, baseMaxDamage);
     }
@@ -1061,25 +1091,27 @@ int32 Unit::GetDamageDoneMod(uint8 school)
     for(AuraInterface::modifierMap::iterator itr = damageMod.begin(); itr != damageMod.end(); itr++)
         if(itr->second->m_miscValue[0] & (1<<school))
             res += itr->second->m_amount;
-    if((damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT)).size())
-    {
-        float statMods[5] = {0,0,0,0,0};
-        for(AuraInterface::modifierMap::iterator itr = damageMod.begin(); itr != damageMod.end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<school))
-                statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-        for(uint8 i = 0; i < 5; i++)
-            if(statMods[i])
-                res += statMods[i]*GetStat(i);
-    }
-
     if(school != SCHOOL_NORMAL)
     {
-        float attackPowerMod = 0.0f;
-        damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER);
-        for(AuraInterface::modifierMap::iterator itr = damageMod.begin(); itr != damageMod.end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<school))
-                attackPowerMod += float(itr->second->m_amount)/100.f;
-        res += float2int32(float(CalculateAttackPower())*attackPowerMod);
+        if((damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT)).size())
+        {
+            float statMods[5] = {0,0,0,0,0};
+            for(AuraInterface::modifierMap::iterator itr = damageMod.begin(); itr != damageMod.end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<school))
+                    statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
+            for(uint8 i = 0; i < 5; i++)
+                if(statMods[i])
+                    res += statMods[i]*GetStat(i);
+        }
+
+        if((damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER)).size())
+        {
+            float attackPowerMod = 0.0f;
+            for(AuraInterface::modifierMap::iterator itr = damageMod.begin(); itr != damageMod.end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<school))
+                    attackPowerMod += float(itr->second->m_amount)/100.f;
+            res += float2int32(float(CalculateAttackPower())*attackPowerMod);
+        }
     }
     return res;
 }
@@ -1099,12 +1131,44 @@ float Unit::GetDamageDonePctMod(uint8 school)
 
 int32 Unit::GetHealingDoneMod()
 {
-    return 0;
+    // If we're a player, this is already precalculated
+    if(IsPlayer()) return GetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS);
+
+    int32 result = 0;
+    AuraInterface::modifierMap healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE);
+    for(AuraInterface::modifierMap::iterator itr = healingMod.begin(); itr != healingMod.end(); itr++)
+        result += itr->second->m_amount;
+
+    if((healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT)).size())
+    {
+        float statMods[5] = {0,0,0,0,0};
+        for(AuraInterface::modifierMap::iterator itr = healingMod.begin(); itr != healingMod.end(); itr++)
+            statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
+        for(uint8 i = 0; i < 5; i++)
+            if(statMods[i])
+                result += statMods[i]*GetStat(i);
+    }
+
+    if((healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER)).size())
+    {
+        float attackPowerMod = 0.0f;
+        for(AuraInterface::modifierMap::iterator itr = healingMod.begin(); itr != healingMod.end(); itr++)
+            attackPowerMod += float(itr->second->m_amount)/100.f;
+        result += float2int32(float(CalculateAttackPower())*attackPowerMod);
+    }
+    return result;
 }
 
 float Unit::GetHealingDonePctMod()
 {
-    return 1.f;
+    // If we're a player, this is already precalculated
+    if(IsPlayer()) return GetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT);
+
+    float result = 1.f;
+    AuraInterface::modifierMap healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE_PERCENT);
+    for(AuraInterface::modifierMap::iterator itr = healingMod.begin(); itr != healingMod.end(); itr++)
+        result += itr->second->m_amount;
+    return result;
 }
 
 bool Unit::canReachWithAttack(Unit* pVictim)
@@ -1171,13 +1235,9 @@ bool Unit::canReachWithAttack(Unit* pVictim)
 
 void Unit::setLevel(uint32 level)
 {
-    uint32 currLevel = GetUInt32Value(UNIT_FIELD_LEVEL);
-    SetUInt32Value(UNIT_FIELD_LEVEL, level);
-    if(currLevel == level)
-        return;
-
     m_needStatRecalculation = true;
     m_AuraInterface.OnChangeLevel(level);
+    SetUInt32Value(UNIT_FIELD_LEVEL, level);
     baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level);
 }
 
@@ -1865,7 +1925,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
             dodge = pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f; // what is this value?
 
         victim_skill = pVictim->getLevel() * 5;
-        if(c && c->GetCreatureInfo() && (c->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || c->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS))
+        if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
         {
             victim_skill = std::max(victim_skill,((int32)getLevel()+3)*5); //used max to avoid situation when lowlvl hits boss.
         }
@@ -1943,7 +2003,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         if(m_objectTypeId == TYPEID_UNIT)
         {
             Creature* c = TO_CREATURE(this);
-            if(c && c->GetCreatureInfo() && (c->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || c->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS))
+            if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
     }
@@ -2232,7 +2292,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         if( pVictim->m_objectTypeId == TYPEID_UNIT )
         {
             Creature* c = TO_CREATURE( pVictim );
-            if( c != NULL && c->GetCreatureInfo() && (c->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || c->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS) )
+            if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS) )
             {
                 victim_skill = std::max( victim_skill, ( (int32)getLevel() + 3 ) * 5 ); //used max to avoid situation when lowlvl hits boss.
             }
@@ -2308,7 +2368,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         if(m_objectTypeId == TYPEID_UNIT)
         {
             Creature* c = TO_CREATURE(this);
-            if(c && c->GetCreatureInfo() && (c->GetCreatureInfo()->Rank == ELITE_WORLDBOSS || c->GetCreatureInfo()->Flags1 & CREATURE_FLAGS1_BOSS))
+            if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
         crit = 5.0f; //will be modified later
@@ -2765,7 +2825,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                         // IncreaseCriticalByTypePct
                         if( !pVictim->IsPlayer() )
                         {
-                            CreatureInfo *pCreatureName = TO_CREATURE(pVictim)->GetCreatureInfo();
+                            CreatureData *pCreatureName = TO_CREATURE(pVictim)->GetCreatureData();
                             if( pCreatureName != NULL )
                                 dmg_bonus_pct += TO_PLAYER( this )->IncreaseCricticalByTypePCT[pCreatureName->Type];
                         }
@@ -3299,8 +3359,8 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
     // victim type
     //---------------------------------------------------------
 
-    if( pVictim->IsCreature() && TO_CREATURE(pVictim)->GetCreatureInfo() && caster->IsPlayer() && !pVictim->IsPlayer() )
-        bonus_damage += TO_PLAYER(caster)->IncreaseDamageByType[TO_CREATURE(pVictim)->GetCreatureInfo()->Type];
+    if( pVictim->IsCreature() && TO_CREATURE(pVictim)->GetCreatureData() && caster->IsPlayer() && !pVictim->IsPlayer() )
+        bonus_damage += TO_PLAYER(caster)->IncreaseDamageByType[TO_CREATURE(pVictim)->GetCreatureData()->Type];
 
     //---------------------------------------------------------
     // coefficient
@@ -3309,6 +3369,9 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_
 
     if(spellInfo->SP_coef_override > 0.0f)
         coefficient = spellInfo->SP_coef_override;
+    for(uint8 i = 0; i < 3; i++)
+        if(spellInfo->EffectBonusCoefficient[i])
+            printf("Bonus coeff %u\n", spellInfo->EffectBonusCoefficient[i]);
 
     //---------------------------------------------------------
     // modifiers (increase spell dmg by spell power)
@@ -3528,76 +3591,62 @@ void Unit::Emote(EmoteType emote)
 
 void Unit::SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Player* plr)
 {
-    size_t UnitNameLength = 0, MessageLength = 0;
-    CreatureInfo *ci = (m_objectTypeId == TYPEID_UNIT) ? TO_CREATURE(this)->creature_info : NULL;
+    ASSERT(plr);
 
-    if(ci == NULL || plr == NULL)
+    char* name = IsPlayer() ? TO_PLAYER(this)->GetName() : "";
+    if(IsCreature()) name = TO_CREATURE(this)->GetCreatureData()->Name;
+    size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
+    if(nameLen == 1 || msgLen == 1)
         return;
 
-    UnitNameLength = strlen((char*)ci->Name) + 1;
-    MessageLength = strlen((char*)msg) + 1;
-
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + UnitNameLength + MessageLength);
-    data << type;
-    data << lang;
+    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
+    data << type << lang;
     data << GetGUID();
     data << uint32(0);          // new in 2.1.0
-    data << uint32(UnitNameLength);
-    data << ci->Name;
+    data << uint32(nameLen);
+    data << name;
     data << uint64(0);
-    data << uint32(MessageLength);
-    data << msg;
-    data << uint8(0x00);
+    data << uint32(msgLen);
+    data << msg << uint8(0x00);
     plr->GetSession()->SendPacket(&data);
 }
 
 void Unit::SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, const char * msg)
 {
-    size_t UnitNameLength = 0, MessageLength = 0;
-    CreatureInfo *ci;
-
-    ci = CreatureNameStorage.LookupEntry(entry);
-    if(!ci)
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
+    if(ctrData == NULL)
         return;
 
-    UnitNameLength = strlen((char*)ci->Name) + 1;
-    MessageLength = strlen((char*)msg) + 1;
-
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + UnitNameLength + MessageLength);
-    data << type;
-    data << lang;
+    size_t nameLen = strlen(ctrData->Name)+1, msgLen = strlen(msg)+1;
+    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
+    data << type << lang;
     data << GetGUID();
     data << uint32(0);          // new in 2.1.0
-    data << uint32(UnitNameLength);
-    data << ci->Name;
+    data << uint32(nameLen);
+    data << ctrData->Name;
     data << uint64(0);
-    data << uint32(MessageLength);
-    data << msg;
-    data << uint8(0x00);
+    data << uint32(msgLen);
+    data << msg << uint8(0x00);
     SendMessageToSet(&data, true);
 }
 
 void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
 {
-    size_t UnitNameLength = 0, MessageLength = 0;
-    CreatureInfo *ci = IsCreature() ? TO_CREATURE(this)->GetCreatureInfo() : NULL;
-    if(ci == NULL)
+    char* name = IsPlayer() ? TO_PLAYER(this)->GetName() : "";
+    if(IsCreature()) name = TO_CREATURE(this)->GetCreatureData()->Name;
+    size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
+    if(nameLen == 1 || msgLen == 1)
         return;
 
-    UnitNameLength = strlen((char*)ci->Name) + 1;
-    MessageLength = strlen((char*)msg) + 1;
-
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + UnitNameLength + MessageLength);
-    data << type;
-    data << lang;
+    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
+    data << type << lang;
     data << GetGUID();
     data << uint32(0);          // new in 2.1.0
-    data << uint32(UnitNameLength);
-    data << ci->Name;
+    data << uint32(nameLen);
+    data << name;
     data << uint64(0);
-    data << uint32(MessageLength);
-    data << msg;
-    data << uint8(0x00);
+    data << uint32(msgLen);
+    data << msg << uint8(0x00);
     SendMessageToSet(&data, true);
 }
 
@@ -3610,7 +3659,7 @@ void Unit::AddInRangeObject(Object* pObj)
     }
 
     Object::AddInRangeObject(pObj);
-}//427
+}
 
 void Unit::OnRemoveInRangeObject(Object* pObj)
 {
@@ -3619,21 +3668,13 @@ void Unit::OnRemoveInRangeObject(Object* pObj)
 
     if(pObj->GetTypeId() == TYPEID_UNIT || pObj->IsPlayer())
     {
-        /*if(m_useAI)*/
-
         Unit* pUnit = TO_UNIT(pObj);
         GetAIInterface()->CheckTarget(pUnit);
 
         if(GetUInt64Value(UNIT_FIELD_CHARM) == pObj->GetGUID())
-            if(m_currentSpell)
-                m_currentSpell->cancel();
-
-        Object::OnRemoveInRangeObject(pObj);
+            if(m_currentSpell) m_currentSpell->cancel();
     }
-    else
-    {
-        Object::OnRemoveInRangeObject(pObj);
-    }
+    Object::OnRemoveInRangeObject(pObj);
 }
 
 void Unit::ClearInRangeSet()
@@ -4353,9 +4394,8 @@ void Unit::SetFacing(float newo)
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
 Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, uint32 lvl, uint8 Slot)
 {
-    CreatureProto * proto = CreatureProtoStorage.LookupEntry(guardian_entry);
-    CreatureInfo * info = CreatureNameStorage.LookupEntry(guardian_entry);
-    if(!proto || !info)
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(guardian_entry);
+    if(ctrData == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);
         return NULLUNIT;
@@ -4366,13 +4406,12 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
 
-    Creature* p = NULLCREATURE;
-    p = GetMapMgr()->CreateCreature(guardian_entry);
+    Creature* p = GetMapMgr()->CreateCreature(guardian_entry);
     if(p == NULLCREATURE)
         return NULLUNIT;
 
     p->SetInstanceID(GetMapMgr()->GetInstanceID());
-    p->Load(proto, GetMapMgr()->iInstanceMode, x, y, v.z, angle);
+    p->Load(GetMapMgr()->iInstanceMode, x, y, v.z, angle);
 
     if (lvl != 0)
     {
@@ -5003,7 +5042,7 @@ void Creature::Tag(Player* plr)
     if( m_taggingPlayer != 0 )
         return;
 
-    if(GetCreatureInfo() && GetCreatureInfo()->Type == CRITTER || IsPet())
+    if(GetCreatureData() && GetCreatureData()->Type == CRITTER || IsPet())
         return;
 
     m_taggingPlayer = plr->GetLowGUID();
@@ -5019,7 +5058,12 @@ void Creature::Tag(Player* plr)
 
 void Unit::SetPower(uint32 type, int32 value)
 {
-    SetUInt32Value(UNIT_FIELD_MANA + type, value);
+    if(GetPower(type) == value)
+        return;
+
+    SetUInt32Value(UNIT_FIELD_POWER + type, value);
+    if(IsCreature())
+        return;
     SendPowerUpdate(type);
 }
 
@@ -5070,7 +5114,7 @@ void Unit::SendPowerUpdate(int8 power)
     for (int32 i = 0; i < updateCount; ++i)
     {
         data << uint8(PowerType);
-        data << GetUInt32Value(UNIT_FIELD_MANA+PowerType);
+        data << GetUInt32Value(UNIT_FIELD_POWER+PowerType);
     }
     SendMessageToSet(&data, true);
 }
@@ -5339,7 +5383,7 @@ void Unit::SetFaction(uint32 faction, bool save)
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, faction);
     _setFaction();
 
-    if(save && IsCreature() && TO_CREATURE(this)->m_spawn)
+    if(save && IsCreature() && TO_CREATURE(this)->IsSpawn())
         TO_CREATURE(this)->SaveToDB();
 }
 
@@ -5347,14 +5391,9 @@ void Unit::ResetFaction()
 {
     uint32 faction = 35;
     if(IsPlayer())
-    {
         faction = TO_PLAYER(this)->GetInfo()->factiontemplate;
-    }
-    else
-    {
-        CreatureProto* cp = CreatureProtoStorage.LookupEntry(GetEntry());
-        faction = cp->Faction;
-    }
+    else if(IsCreature()) faction = TO_CREATURE(this)->GetCreatureData()->Faction;
+
     SetFaction(faction);
 }
 
@@ -5363,27 +5402,19 @@ void Unit::knockback(int32 basepoint, uint32 miscvalue, bool disengage )
     float dx, dy;
     float value1 = float( basepoint );
     float value2 = float( miscvalue );
-    float proportion;
-    float multiplier;
-
+    float proportion = 0.f, multiplier = 1.f;
     if( disengage )
         multiplier = -1.0f;
-    else
-        multiplier = 1.0f;
-
     if( value2 != 0 )
         proportion = value1 / value2;
-    else
-        proportion = 0;
-
     if(proportion)
     {
-        value1 = value1 / (10 * proportion);
-        value2 = value2 / 10 * proportion;
+        value1 = value1 / (10.f * proportion);
+        value2 = value2 / 10.f * proportion;
     }
     else
     {
-        value2 = value1 / 10;
+        value2 = value1 / 10.f;
         value1 = 0.1f;
     }
 
@@ -5556,7 +5587,7 @@ uint32 Unit::GetCreatureType()
 {
     if(IsCreature())
     {
-        CreatureInfo * ci = TO_CREATURE(this)->GetCreatureInfo();
+        CreatureData * ci = TO_CREATURE(this)->GetCreatureData();
         if(ci && ci->Type)
             return ci->Type;
         else

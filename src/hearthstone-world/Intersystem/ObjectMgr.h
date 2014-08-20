@@ -17,20 +17,7 @@ struct PlayerCreateInfo
     float   positionZ;
     float   Orientation;
     uint16  displayId;
-    uint8   strength;
-    uint8   agility;
-    uint8   stamina;
-    uint8   intellect;
-    uint8   spirit;
-    uint32  health;
-    uint32  mana;
-    uint32  rage;
-    uint32  focus;
-    uint32  energy;
-    uint32  runic;
-    uint32  attackpower;
-    float   mindmg;
-    float   maxdmg;
+
     std::list<CreateInfo_ItemStruct> items;
     std::list<CreateInfo_SkillStruct> skills;
     std::list<CreateInfo_ActionBarStruct> actionbars;
@@ -154,16 +141,6 @@ struct Trainer
     uint32 TrainerType;
     uint32 Can_Train_Gossip_TextId;
     uint32 Cannot_Train_GossipTextId;
-};
-
-struct LevelInfo
-{
-    uint32 HP;
-    uint32 Mana;
-    uint32 BaseHP;
-    uint32 BaseMana;
-    uint32 Stat[5];
-    uint32 XPToNextLevel;
 };
 
 struct ReputationMod
@@ -347,8 +324,6 @@ public:
     typedef HM_NAMESPACE::hash_map<uint32, Group*>                              GroupMap;
 
     // Map typedef's
-    typedef std::map<uint32, LevelInfo*>                                        LevelMap;
-    typedef std::map<pair<uint32, uint32>, LevelMap* >                          LevelInfoMap;
     typedef std::map<uint32, std::list<ItemPrototype*>* >                       ItemSetContentMap;
     typedef std::map<uint32, uint32>                                            NpcToGossipTextMap;
     typedef std::map<uint32, uint32>                                            PetSpellCooldownMap;
@@ -460,7 +435,7 @@ public:
 
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
-    Pet* CreatePet();
+    Pet* CreatePet(CreatureData *ctrData);
     uint32 m_hiPetGuid;
     uint32 m_hiArenaTeamId;
     uint32 GenerateArenaTeamId()
@@ -516,8 +491,6 @@ public:
     Trainer* GetTrainer(uint32 Entry);
 
     void LoadExtraItemStuff();
-    void LoadExtraGameObjectStuff();
-    void LoadExtraCreatureProtoStuff();
     void LoadProfessionDiscoveries();
     void LoadRandomItemCreation();
     void LoadRandomCardCreation();
@@ -525,8 +498,6 @@ public:
     void CreateGossipMenuForPlayer(GossipMenu** Location, uint64 Guid, uint32 TextID, Player* Plr);
 
     QueryResult* SQLCheckExists(const char* tablename, const char* columnname, uint64 columnvalue);
-    LevelInfo * GetLevelInfo(uint32 Race, uint32 Class, uint32 Level);
-    void GenerateLevelUpInfo();
     uint32 GetPetSpellCooldown(uint32 SpellId);
     void LoadPetSpellCooldowns();
     WayPointMap * GetWayPointMap(uint32 spawnid);
@@ -654,7 +625,6 @@ protected:
     ItemSetContentMap mItemSets;
 
     TrainerMap mTrainers;
-    LevelInfoMap mLevelInfo;
     PetSpellCooldownMap mPetSpellCooldowns;
     PetLevelupSpellMap  mPetLevelupSpellMap;
 };

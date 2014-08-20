@@ -1267,7 +1267,7 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
         Creature* cr = getSelectedCreature(m_session, false);
         if(cr)
         {
-            std::string creaturename = cr->GetCreatureInfo() ? cr->GetCreatureInfo()->Name : "Unknown Being";
+            std::string creaturename = cr->GetCreatureData() ? cr->GetCreatureData()->Name : "Unknown Being";
 
             sWorld.LogGM(m_session, "used modify field value: [creature]%s, %u on %s", fieldname, av, creaturename.c_str());
 
@@ -1362,8 +1362,8 @@ bool ChatHandler::CmdSetFloatField(WorldSession *m_session, uint32 field, uint32
         {
             if(!(field < UNIT_END && fieldmax < UNIT_END)) return false;
             std::string creaturename = "Unknown Being";
-            if(cr->GetCreatureInfo())
-                creaturename = cr->GetCreatureInfo()->Name;
+            if(cr->GetCreatureData())
+                creaturename = cr->GetCreatureData()->Name;
             if(fieldmax)
                 BlueSystemMessage(m_session, "Setting %s of %s to %.1f/%.1f.", fieldname, creaturename.c_str(), av, mv);
             else
@@ -1414,7 +1414,7 @@ bool ChatHandler::HandleModifyFactionCommand(const char *args, WorldSession *m_s
 
     uint32 faction = atol(args);
     if(!faction && unit->IsCreature())
-        faction = TO_CREATURE(unit)->GetProto()->Faction;
+        faction = TO_CREATURE(unit)->GetCreatureData()->Faction;
 
     BlueSystemMessage(m_session, "Set target's faction to %u", faction);
 
@@ -1441,7 +1441,7 @@ bool ChatHandler::HandleModifyScaleCommand(const char *args, WorldSession *m_ses
         return false;
 
     if(!scale && unit->IsCreature())
-        scale = TO_CREATURE(unit)->GetProto() ? TO_CREATURE(unit)->GetProto()->Scale : 1.0f;
+        scale = TO_CREATURE(unit)->GetCreatureData()->Scale;
 
     BlueSystemMessage(m_session, "Set target's scale to %f", scale);
     unit->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);

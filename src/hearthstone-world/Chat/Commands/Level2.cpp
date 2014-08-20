@@ -102,7 +102,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    if( unit->m_spawn != NULL && !m_session->CanUseCommand('z') )
+    if( unit->IsSpawn() && !m_session->CanUseCommand('z') )
     {
         SystemMessage(m_session, "You do not have permission to do that. Please contact higher staff for removing of saved spawns.");
         return true;
@@ -124,22 +124,17 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         }
     }
 
-    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f",
-        unit->m_spawn ? unit->m_spawn->id : 0, unit->GetCreatureInfo() ? unit->GetCreatureInfo()->Name : "wtfbbqhax", unit->GetPositionX(), unit->GetPositionY(),
-        unit->GetPositionZ());
-
-    BlueSystemMessage(m_session, "Deleted creature ID %u", unit->spawnid);
-
+    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetSQL_id(), unit->GetCreatureData() ? unit->GetCreatureData()->Name : "wtfbbqhax", unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
+    BlueSystemMessage(m_session, "Deleted creature ID %u", unit->GetSQL_id());
     unit->DeleteFromDB();
-
     if(!unit->IsInWorld())
         return true;
 
     MapMgr* unitMgr = unit->GetMapMgr();
-    if(unit->m_spawn)
+    if(unit->IsSpawn())
     {
-        uint32 cellx = unitMgr->GetPosX(unit->m_spawn->x);
-        uint32 celly = unitMgr->GetPosX(unit->m_spawn->y);
+        uint32 cellx = unitMgr->GetPosX(unit->GetSpawn()->x);
+        uint32 celly = unitMgr->GetPosX(unit->GetSpawn()->y);
         if(cellx <= _sizeX && celly <= _sizeY )
         {
             CellSpawns *c = unitMgr->GetBaseMap()->GetSpawnsList(cellx, celly);
@@ -147,24 +142,13 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
             {
                 CreatureSpawnList::iterator itr, itr2;
                 for(itr = c->CreatureSpawns.begin(); itr != c->CreatureSpawns.end();)
-                {
-                    itr2 = itr++;
-                    if((*itr2) == unit->m_spawn)
-                    {
+                    if((*(itr2 = itr++)) == unit->GetSpawn())
                         c->CreatureSpawns.erase(itr2);
-                        delete unit->m_spawn;
-                        break;
-                    }
-                }
             }
         }
     }
     unit->RemoveFromWorld(false, true);
-
-    if(unit->IsVehicle())
-        TO_VEHICLE(unit)->Destruct();
-    else
-        unit->Destruct();
+    unit->Destruct();
 
     m_session->GetPlayer()->SetSelection(NULL);
     return true;
@@ -185,7 +169,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
         return false;
 
     Creature* pCreature = getSelectedCreature(m_session, false);
-    if(!pCreature || !pCreature->m_spawn || !(pCreature->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) || pCreature->HasNpcFlag(UNIT_NPC_FLAG_ARMORER)))
+    if(!pCreature || !pCreature->IsSpawn() || !(pCreature->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) || pCreature->HasNpcFlag(UNIT_NPC_FLAG_ARMORER)))
     {
         SystemMessage(m_session, "You should select a vendor.");
         return true;
@@ -204,7 +188,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
         return false;
 
     if(vendormask == 0)
-        vendormask = pCreature->m_spawn->vendormask;
+        vendormask = pCreature->GetVendorMask();
 
     ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(item);
     std::stringstream sstext;
@@ -217,9 +201,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
         pCreature->AddVendorItem(item, amount, vendormask, extendedcost);
 
         sstext << "Item '" << item << "' '" << tmpItem->Name1 << "' Added to list" << '\0';
-    }
-    else
-        sstext << "Item '" << item << "' Not Found in Database." << '\0';
+    } else sstext << "Item '" << item << "' Not Found in Database." << '\0';
 
     sWorld.LogGM(m_session, "added item %u to vendor %u", item, pCreature->GetEntry());
     SystemMessage(m_session,  sstext.str().c_str());
@@ -440,7 +422,7 @@ bool ChatHandler::HandleNPCEquipCommand(const char * args, WorldSession * m_sess
         return false;
 
     crt->SetWeaponDisplayId(slot, itemid);
-    if(crt->m_spawn)
+    if(crt->IsSpawn())
         crt->SaveToDB();
 
     BlueSystemMessage(m_session, "Equipped item %u in creature's %s", itemid, ((slot == 0) ? "Main hand" : (slot == 1) ? "Off hand" : "Ranged slot"));
@@ -457,17 +439,17 @@ bool ChatHandler::HandleNPCSetOnObjectCommand(const char * args, WorldSession * 
         return true;
     }
 
-    if(crt->m_spawn == NULL)
+    if(!crt->IsSpawn())
     {
         RedSystemMessage(m_session, "Creature must be a valid spawn.");
         return true;
     }
 
-    crt->m_spawn->CanMove |= LIMIT_ON_OBJ;
+    crt->GetSpawn()->CanMove |= LIMIT_ON_OBJ;
     crt->SaveToDB();
 
     BlueSystemMessage(m_session, "Setting creature on Object(%u)", crt->GetCanMove());
-    sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->m_spawn->id);
+    sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->GetSQL_id());
     return true;
 }
 
@@ -488,13 +470,13 @@ bool ChatHandler::HandleNPCSaveCommand(const char * args, WorldSession * m_sessi
 bool ChatHandler::HandleNPCSetVendorMaskCommand(const char * args, WorldSession * m_session)
 {
     Creature* crt = getSelectedCreature(m_session, false);
-    if(crt == NULL || crt->m_spawn)
+    if(crt == NULL || !crt->IsSpawn())
     {
         RedSystemMessage(m_session, "Please select a saved creature before using this command.");
         return true;
     }
 
-    crt->m_spawn->vendormask = atol(args);
+    crt->GetSpawn()->vendormask = atol(args);
     crt->SaveToDB();
     return true;
 }
@@ -1052,7 +1034,7 @@ bool ChatHandler::HandleVendorClearCommand(const char* args, WorldSession *m_ses
         return true;
     }
 
-    if(!pCreature->m_spawn)
+    if(!pCreature->IsSpawn())
     {
         SystemMessage(m_session, "You should select a saved creature.");
         return true;
@@ -1102,7 +1084,7 @@ bool ChatHandler::HandleItemSetCommand(const char* args, WorldSession *m_session
         return true;
     }
 
-    if(!pCreature->m_spawn)
+    if(!pCreature->IsSpawn())
     {
         SystemMessage(m_session, "You should select a saved creature.");
         return true;
@@ -1124,7 +1106,7 @@ bool ChatHandler::HandleItemSetCommand(const char* args, WorldSession *m_session
     }
 
     if(vendormask == 0)
-        vendormask = pCreature->m_spawn->vendormask;
+        vendormask = pCreature->GetVendorMask();
 
     std::stringstream sstext;
     for(std::list<ItemPrototype*>::iterator itr = l->begin(); itr != l->end(); itr++)
