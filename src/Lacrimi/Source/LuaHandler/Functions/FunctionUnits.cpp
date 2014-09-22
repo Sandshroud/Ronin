@@ -1901,7 +1901,7 @@ int LuaUnit_Strike(lua_State * L, Unit * ptr)
 
     if(!target||!weapon_damage_type||!sp||!adddmg||!pct_dmg_mod)
         return 0;
-    ptr->Strike(target,weapon_damage_type,dbcSpell.LookupEntry(sp),adddmg,pct_dmg_mod,exclusive_damage,false,false);
+    ptr->Strike(target,weapon_damage_type,dbcSpell.LookupEntry(sp), 0,adddmg,pct_dmg_mod,exclusive_damage,false,false);
     return 1;
 }
 int LuaUnit_SetAttackTimer(lua_State * L, Unit * ptr)

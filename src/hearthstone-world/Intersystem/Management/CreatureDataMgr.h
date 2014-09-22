@@ -52,7 +52,7 @@ struct CreatureData
     float  Run_speed;
     float  Fly_speed;
     uint32 Extra_a9_flags;
-    uint32 Auraimmune_flag;
+    uint32 AuraMechanicImmunity;
     int32  Vehicle_entry;
     uint32 BattleMasterType;
     uint32 SpellClickid;

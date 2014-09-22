@@ -353,21 +353,17 @@ void Pet::InitializeSpells()
             continue;
 
         // Check that the spell isn't passive
-        if( info->Attributes & ATTRIBUTES_PASSIVE )
+        if( info->isPassiveSpell() )
         {
             // Cast on self..
-            Spell* sp(new Spell(TO_OBJECT(this), info, true, NULLAURA));
+            Spell* sp = new Spell(this, info, true, NULLAURA);
             SpellCastTargets targets(GetGUID());
             sp->prepare(&targets);
-
             continue;
         }
 
         AI_Spell*sp = CreateAISpell(info);
-        if(itr->second == AUTOCAST_SPELL_STATE)
-            SetAutoCast(sp, true);
-        else
-            SetAutoCast(sp,false);
+        SetAutoCast(sp, itr->second == AUTOCAST_SPELL_STATE);
     }
 }
 
@@ -380,24 +376,17 @@ AI_Spell*Pet::CreateAISpell(SpellEntry * info)
 
     AI_Spell *sp = new AI_Spell();
     sp->info = info;
-    if(!info->buffType)
-        sp->TargetType = TargetGen_Current;
+    sp->TargetType = TargetGen_Current;
 
     sp->casttime = GetDBCCastTime(dbcSpellCastTime.LookupEntry( info->CastingTimeIndex ));
 
     sp->maxdist2cast = GetDBCMaxRange( dbcSpellRange.LookupEntry( info->rangeIndex ) );
-    if( sp->maxdist2cast < sqrt( info->base_range_or_radius_sqr ) )
-        sp->maxdist2cast = sqrt( info->base_range_or_radius_sqr );
     sp->mindist2cast = GetDBCMinRange( dbcSpellRange.LookupEntry( info->rangeIndex ) );
 
     sp->cooldown = objmgr.GetPetSpellCooldown(info->Id);
-    if(sp->cooldown == 0)
-        sp->cooldown = info->StartRecoveryTime; //avoid spell spamming
-    if(sp->cooldown == 0)
-        sp->cooldown = info->StartRecoveryCategory; //still 0 ?
-    if(sp->cooldown == 0)
-        sp->cooldown = 2000; //omg, avoid spamming at least
-
+    if(sp->cooldown == 0) sp->cooldown = info->StartRecoveryTime; //avoid spell spamming
+    if(sp->cooldown == 0) sp->cooldown = info->StartRecoveryCategory; //still 0 ?
+    if(sp->cooldown == 0) sp->cooldown = 2000; // avoid spell spam
     m_AISpellStore[info->Id] = sp;
     return sp;
 }
@@ -745,7 +734,7 @@ uint32 Pet::GetNextLevelXP(uint32 currentlevel)
     // Source: http://www.wow-petopia.com/ Previously, pets needed 1/6th (or about 16%) of the experience
     // that a character of the same level would need.
     // Now they only need 1/10th (or about 10%) -- which is a 66% improvement!
-    float xp = float(nextLvlXP) / 10.0;
+    float xp = float(nextLvlXP) / 10.f;
     return FL2UINT(xp);
 }
 
@@ -784,7 +773,7 @@ void Pet::SetDefaultSpells()
 void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
 {
     // Cast on self if we're a passive spell
-    if( sp->Attributes & ATTRIBUTES_PASSIVE )
+    if( sp->isPassiveSpell() )
     {
         if(IsInWorld())
         {
@@ -870,9 +859,7 @@ void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
 
                 if(asp->autocast_type==AUTOCAST_EVENT_ON_SPAWN)
                     CastSpell(TO_UNIT(this), sp, false);
-            }
-            else
-                mSpells[sp] = DEFAULT_SPELL_STATE;
+            } else mSpells[sp] = DEFAULT_SPELL_STATE;
         }
     }
     if(IsInWorld() && sendspells)
@@ -1271,23 +1258,16 @@ void Pet::AddPetSpellToOwner(uint32 spellId)
     //exit if owner hasn't Beast training ability (id 5149)
     if(!m_Owner || !m_Owner->HasSpell(5149))
         return;
+
     //find appropriate teaching spell...
-    uint32 TeachingSpellID = 0;
-    TeachingSpellID = sWorld.GetTeachingSpell(spellId);
-    if(TeachingSpellID)
+    if(uint32 TeachingSpellID = 0)//sWorld.GetTeachingSpell(spellId))
     {
         if(m_Owner->HasSpell(TeachingSpellID))
             return;
-        else
-        {
-            //...and add it to pet owner to be able teach other pets
-            m_Owner->addSpell(TeachingSpellID);
-            return;
-        }
-
-    }
-    else
-        sLog.outDebug("WORLD: Could not find teaching spell for spell %u", spellId);
+        //...and add it to pet owner to be able teach other pets
+        m_Owner->addSpell(TeachingSpellID);
+        return;
+    } else sLog.outDebug("WORLD: Could not find teaching spell for spell %u", spellId);
 }
 
 uint32 Pet::GetHighestRankSpell(uint32 spellId)

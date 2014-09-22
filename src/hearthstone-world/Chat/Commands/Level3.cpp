@@ -452,8 +452,7 @@ bool ChatHandler::HandleIncreaseWeaponSkill(const char *args, WorldSession *m_se
     uint32 cnt = 0;
     if(!pMin)
         cnt = 1;
-    else
-        cnt = atol(pMin);
+    else cnt = atol(pMin);
 
     Player* pr = getSelectedChar(m_session, true);
 
@@ -565,11 +564,8 @@ bool ChatHandler::HandleIncreaseWeaponSkill(const char *args, WorldSession *m_se
 bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = getSelectedChar(m_session);
-    if(plr == NULL)
-        return true;
-
-    plr->ResetSpec(plr->m_talentInterface.GetActiveSpec());
-
+    if(plr == NULL) return true;
+    plr->m_talentInterface.ResetAllSpecs();
     SystemMessage(m_session, "Reset talents of %s.", plr->GetName());
     BlueSystemMessageToPlr(plr, "%s reset all your talents.", m_session->GetPlayer()->GetName());
     sWorld.LogGM(m_session, "reset talents of %s", plr->GetName());

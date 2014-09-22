@@ -88,7 +88,7 @@ int LuaAura_SetNegative(lua_State * L, Aura * aura)
 {
     TEST_AURA_RET();
     uint32 negativery = luaL_optint(L, 1, 1);
-    aura->SetNegative(negativery);
+    aura->SetNegative();
     RET_BOOL(true);
 }
 
@@ -96,7 +96,7 @@ int LuaAura_SetPositive(lua_State * L, Aura * aura)
 {
     TEST_AURA_RET();
     uint32 positivery = luaL_optint(L, 1, 1);
-    aura->SetPositive(positivery);
+    aura->SetPositive();
     RET_BOOL(true);
 }
 

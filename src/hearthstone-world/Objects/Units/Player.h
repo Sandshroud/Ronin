@@ -512,23 +512,6 @@ struct PlayerSkill
     bool Reset(uint32 Id);
 };
 
-enum SPELL_INDEX
-{
-    SPELL_TYPE_INDEX_MARK           = 1,
-    SPELL_TYPE_INDEX_POLYMORPH      = 2,
-    SPELL_TYPE_INDEX_FEAR           = 3,
-    SPELL_TYPE_INDEX_SAP            = 4,
-    SPELL_TYPE_INDEX_SCARE_BEAST    = 5,
-    SPELL_TYPE_INDEX_HIBERNATE      = 6,
-    SPELL_TYPE_INDEX_EARTH_SHIELD   = 7,
-    SPELL_TYPE_INDEX_CYCLONE        = 8,
-    SPELL_TYPE_INDEX_BANISH         = 9,
-    SPELL_TYPE_INDEX_JUDGEMENT      = 10,
-    SPELL_TYPE_INDEX_REPENTANCE     = 11,
-    SPELL_TYPE_INDEX_SLOW           = 12,
-    NUM_SPELL_TYPE_INDEX            = 13,
-};
-
 class ArenaTeam;
 struct PlayerCooldown
 {
@@ -723,11 +706,7 @@ protected:
 public:
 
     bool ok_to_remove;
-    uint64 m_spellIndexTypeTargets[NUM_SPELL_TYPE_INDEX];
     void EquipInit(PlayerCreateInfo *EquipInfo);
-    void RemoveSpellTargets(uint32 Type);
-    void RemoveSpellIndexReferences(uint32 Type);
-    void SetSpellTargetType(uint32 Type, Unit* target);
     void SendMeetingStoneQueue(uint32 DungeonId, uint8 Status);
     void SendDungeonDifficulty();
     void SendRaidDifficulty();
@@ -1128,7 +1107,7 @@ public:
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     virtual void DestroyForPlayer( Player* target, bool anim = false);
 
-    std::list<LoginAura> loginauras;
+    std::list<LoginAura*> m_loginAuras;
 
     std::set<uint32> OnMeleeAuras;
 
@@ -1355,8 +1334,6 @@ public:
 
     bool m_massSummonEnabled;
 
-    uint32 m_moltenFuryDamageIncreasePct;
-
     HEARTHSTONE_INLINE float res_M_crit_get(){return m_resist_critical[0];}
     HEARTHSTONE_INLINE void res_M_crit_set(float newvalue){m_resist_critical[0]=newvalue;}
     HEARTHSTONE_INLINE float res_R_crit_get(){return m_resist_critical[1];}
@@ -1369,8 +1346,6 @@ public:
     uint32 m_Illumination_amount; // Class Script Override: Illumination
     float Damageshield_amount; // Damage Shield
 
-    uint32 m_ModInterrMRegenPCT;
-    int32 m_ModInterrMRegen;
     uint32 m_casted_amount[7]; //Last casted spells amounts. Need for some spells. Like Ignite etc. DOesn't count HoTs and DoTs. Only directs
 
     uint32 StatModPctPos[5];

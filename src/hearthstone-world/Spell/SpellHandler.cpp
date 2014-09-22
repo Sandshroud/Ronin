@@ -209,7 +209,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    if(!_player->isAlive() && !(spellInfo->Attributes & ATTRIBUTES_CASTABLE_WHILE_DEAD))
+    if(!_player->isAlive() && !spellInfo->isCastableWhileDead())
     {
         SKIP_READ_PACKET(recvPacket);
         return;
@@ -232,8 +232,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     // Cheat Detection only if player and not from an item
     // this could fuck up things but meh it's needed ALOT of the newbs are using WPE now
     // WPE allows them to mod the outgoing packet and basicly choose what ever spell they want :(
-
-    if((!GetPlayer()->HasSpell(spellId) || spellInfo->Attributes & ATTRIBUTES_PASSIVE) && !IsException(_player, spellId))
+    if((!GetPlayer()->HasSpell(spellId) || spellInfo->isPassiveSpell()) && !IsException(_player, spellId))
     {
         // Some spells the player doesn't actually know, but are given to him by his current shapeshift.
         // These spells should be allowed to be cast.
@@ -253,7 +252,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     if (GetPlayer()->GetOnMeleeSpell() != spellId)
     {
         //autoshot 75
-        if((spellInfo->Flags3 & FLAGS3_ACTIVATE_AUTO_SHOT) /*spellInfo->Attributes == 327698*/) // auto shot..
+        if((spellInfo->isAutoRepeatSpell()) /*spellInfo->Attributes == 327698*/) // auto shot..
         {
             //sLog.outString( "HandleSpellCast: Auto Shot-type spell cast (id %u, name %s)" , spellInfo->Id , spellInfo->Name );
             Item* weapon = GetPlayer()->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
@@ -322,7 +321,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         }
 
         // some anticheat stuff
-        if( spellInfo->self_cast_only == true )
+        if( spellInfo->isSpellSelfCastOnly() )
         {
             if( targets.m_unitTarget && targets.m_unitTarget != _player->GetGUID() )
             {
@@ -332,7 +331,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             }
         }
 
-        if( targets.m_unitTarget && GetPlayer()->GetMapMgr() && spellInfo->c_is_flags & SPELL_FLAG_IS_DAMAGING )
+        if( targets.m_unitTarget && GetPlayer()->GetMapMgr() && spellInfo->isSpellDamagingEffect() )
         {
             Unit* pUnit = GetPlayer()->GetMapMgr()->GetUnit( targets.m_unitTarget );
             if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ) && !pUnit->IsInRangeOppFactSet(GetPlayer()) && !pUnit->CombatStatus.DidDamageTo(GetPlayer()->GetGUID()))

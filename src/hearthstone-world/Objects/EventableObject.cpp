@@ -26,10 +26,7 @@ void EventableObject::Destruct()
         {
             itr->second->deleted = true;
             itr->second->cb->execute();
-        }
-        else
-            itr->second->deleted = true;
-
+        } else itr->second->deleted = true;
         itr->second->DecRef();
     }
 

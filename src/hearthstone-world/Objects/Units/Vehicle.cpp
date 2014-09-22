@@ -238,10 +238,10 @@ void Vehicle::SendSpells(uint32 entry, Player* plr)
         if (!spellId)
             continue;
 
-        SpellEntry const *spellInfo = dbcSpell.LookupEntry( spellId );
+        SpellEntry *spellInfo = dbcSpell.LookupEntry( spellId );
         if (!spellInfo)
             continue;
-        if(spellInfo->Attributes & ATTRIBUTES_PASSIVE)
+        if(spellInfo->isPassiveSpell())
         {
             CastSpell(GetGUID(), spellId, true);
             data << uint16(0) << uint8(0) << uint8(i+8);

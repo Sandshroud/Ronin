@@ -38,7 +38,7 @@ void AuraInterface::RelocateEvents()
 void AuraInterface::OnChangeLevel(uint32 newLevel)
 {
     // On target level change recalculate modifiers where caster is unit
-    for(map<uint32, Aura*>::iterator itr = m_auras.begin(); itr != m_auras.end(); itr++)
+    for(map<uint8, Aura*>::iterator itr = m_auras.begin(); itr != m_auras.end(); itr++)
     {
         // For now, we'll only update auras we've casted on ourself
         if(itr->second->GetCasterGUID() != m_Unit->GetGUID())
@@ -50,47 +50,11 @@ void AuraInterface::OnChangeLevel(uint32 newLevel)
 
 void AuraInterface::SaveAuras(stringstream& ss)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++) // Crow: Changed to max auras in r1432, since we skip passive auras.
+    for(uint8 x = 0; x < MAX_AURAS; x++)
     {
         if(m_auras.find(x) != m_auras.end())
         {
             Aura* aur = m_auras.at(x);
-
-            // skipped spells due to bugs
-            switch(aur->m_spellProto->Id)
-            {
-            case 642:
-            case 1020:              // Divine Shield
-            case 11129:             // Combustion
-            case 12043:             // Presence of mind
-            case 16188:             // Natures Swiftness
-            case 17116:             // Natures Swiftness
-            case 23333:             // WSG
-            case 23335:             // WSG
-            case 28682:             // Combustion proc
-            case 31665:             // Master of Subtlety (buff)
-            case 32724:             // Gold Team
-            case 32725:             // Green Team
-            case 32727:             // Arena Preparation
-            case 32728:             // Arena Preparation
-            case 32071:             // Hellfire Superority
-            case 32049:             // Hellfire Superority
-            case 34936:             // Backlash
-            case 35076:             // Blessing of A'dal
-            case 35774:             // Gold Team
-            case 35775:             // Green Team
-            case 44521:             // Preparation?
-            case 44683:             // Team A
-            case 44684:             // Team B
-            case 45438:             // Ice Block
-            case 48418:             // Master Shapeshifter Damage (buff)
-            case 48420:             // Master Shapeshifter Critical Strike (buff)
-            case 48421:             // Master Shapeshifter Spell Damage (buff)
-            case 48422:             // Master Shapeshifter Healing (buff)
-                continue;
-                break;
-            }
-
             bool stop = false;
             for(uint32 i = 0; i < 3; i++)
             {
@@ -109,7 +73,7 @@ void AuraInterface::SaveAuras(stringstream& ss)
                 continue;
 
             // We are going to cast passive spells anyway on login so no need to save auras for them
-            if( aur->IsPassive() || aur->m_spellProto->c_is_flags & SPELL_FLAG_IS_EXPIREING_WITH_PET || aur->m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
+            if( aur->IsPassive() || aur->m_spellProto->isSpellExpiringWithPet() || aur->m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
                 continue; // To prevent food/drink bug
 
             ss << aur->GetSpellId() << "," << aur->GetTimeLeft() << ",";
@@ -119,26 +83,13 @@ void AuraInterface::SaveAuras(stringstream& ss)
 
 uint8 AuraInterface::GetFreeSlot(bool ispositive)
 {
-    if (ispositive)
+    uint8 begin = ispositive ? 0 : MAX_POSITIVE_AURAS, end = ispositive ? MAX_POSITIVE_AURAS : MAX_AURAS;
+    for (uint8 i = begin; i < end; i++)
     {
-        for (uint8 i = 0; i < MAX_POSITIVE_AURAS; i++)
+        if(m_auras.find(i) == m_auras.end())
         {
-            if(m_auras.find(i) == m_auras.end())
-            {
-                return i;
-                break;
-            }
-        }
-    }
-    else
-    {
-        for (uint8 i = MAX_POSITIVE_AURAS; i < MAX_AURAS; i++)
-        {
-            if(m_auras.find(i) == m_auras.end())
-            {
-                return i;
-                break;
-            }
+            // Return the index
+            return i;
         }
     }
 
@@ -147,7 +98,7 @@ uint8 AuraInterface::GetFreeSlot(bool ispositive)
 
 void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
 {
-    map<uint32, Aura*>::iterator itr;
+    map<uint8, Aura*>::iterator itr;
     if(aura_slot > TOTAL_AURAS)
     {
         for(itr = m_auras.begin(); itr != m_auras.end(); itr++)
@@ -166,6 +117,7 @@ void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
             if(itr->second == aura)
                 m_auras.erase(itr);
         }
+        m_auras.erase(aura_slot);
     }
 }
 
@@ -191,10 +143,10 @@ bool AuraInterface::IsDazed()
 
 bool AuraInterface::IsPoisoned()
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; ++x)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
     {
         if(m_auras.find(x) != m_auras.end())
-            if( m_auras.at(x)->GetSpellProto()->poison_type )
+            if( m_auras.at(x)->GetSpellProto()->isSpellPoisonType() )
                 return true;
     }
 
@@ -222,14 +174,12 @@ bool AuraInterface::BuildAuraUpdateAllPacket(WorldPacket* data)
         return false;
 
     bool res = false;
-    Aura* aur = NULL;
     for (uint8 i = 0; i < MAX_AURAS; i++)
     {
         if(m_auras.find(i) != m_auras.end())
         {
             res = true;
-            aur = m_auras.at(i);
-            aur->BuildAuraUpdatePacket(data);
+            m_auras.at(i)->BuildAuraUpdatePacket(data);
         }
     }
     return res;
@@ -387,35 +337,29 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
             aur = m_auras.at(x);
 
             //Nothing can dispel resurrection sickness;
-            if(aur != NULL && !aur->IsPassive() && !(aur->GetSpellProto()->Attributes & ATTRIBUTES_IGNORE_INVULNERABILITY))
+            if(aur != NULL && !aur->IsPassive() && !(aur->GetSpellProto()->isUnstoppableForce2()))
             {
                 int32 resistchance = 0;
-                Unit* caster = aur->GetUnitCaster();
-                if( caster )
+                if(Unit* caster = aur->GetUnitCaster())
+                {
                     caster->SM_FIValue(SMT_RESIST_DISPEL, &resistchance, aur->GetSpellProto()->SpellGroupType);
 
-                if( !Rand(resistchance) )
-                {
-                    if(Dispelling->DispelType == DISPEL_ALL)
+                    if( !Rand(resistchance) )
                     {
-                        m_Unit->HandleProc( PROC_ON_DISPEL_AURA_VICTIM, NULL, caster, Dispelling, aur->GetSpellId() );
-                        data.clear();
-                        data << caster->GetNewGUID();
-                        data << m_Unit->GetNewGUID();
-                        data << (uint32)1;//probably dispel type
-                        data << aur->GetSpellId();
-                        caster->SendMessageToSet(&data,true);
-                        aur->AttemptDispel( caster );
-                        if(!--MaxDispel)
-                            return;
-                    }
-                    else if(aur->GetSpellProto()->DispelType == Dispelling->EffectMiscValue[index])
-                    {
-                        if( (aur->GetSpellProto()->NameHash != SPELL_HASH_ICE_BARRIER &&
-                            aur->GetSpellProto()->NameHash != SPELL_HASH_DIVINE_SHIELD)
-                            || Dispelling->NameHash == SPELL_HASH_MASS_DISPEL )
+                        if(Dispelling->DispelType == DISPEL_ALL)
                         {
-                            m_Unit->HandleProc( PROC_ON_DISPEL_AURA_VICTIM, NULL, caster, Dispelling, aur->GetSpellId() );
+                            data.clear();
+                            data << caster->GetNewGUID();
+                            data << m_Unit->GetNewGUID();
+                            data << (uint32)1;//probably dispel type
+                            data << aur->GetSpellId();
+                            caster->SendMessageToSet(&data,true);
+                            aur->AttemptDispel( caster );
+                            if(!--MaxDispel)
+                                return;
+                        }
+                        else if(aur->GetSpellProto()->DispelType == Dispelling->EffectMiscValue[index])
+                        {
                             data.clear();
                             data << caster->GetNewGUID();
                             data << m_Unit->GetNewGUID();
@@ -427,9 +371,9 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
                                 return;
                         }
                     }
+                    else if( !--MaxDispel )
+                        return;
                 }
-                else if( !--MaxDispel )
-                    return;
             }
         }
     }
@@ -445,13 +389,13 @@ void AuraInterface::RemoveAllAurasWithDispelType(uint32 DispelType)
     }
 }
 
-void AuraInterface::RemoveAllAurasWithAttributes(uint32 attributeFlag)
+void AuraInterface::RemoveAllAurasWithAttributes(uint8 index, uint32 attributeFlag)
 {
     for(uint8 x=0;x<MAX_AURAS;x++)
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(m_auras.at(x)->m_spellProto && (m_auras.at(x)->m_spellProto->Attributes & attributeFlag))
+            if(m_auras.at(x)->m_spellProto && (m_auras.at(x)->m_spellProto->Attributes[index] & attributeFlag))
             {
                 RemoveAuraBySlot(x);
             }
@@ -465,7 +409,7 @@ void AuraInterface::RemoveAllAurasOfSchool(uint32 School, bool Positive, bool Im
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(!Immune && (m_auras.at(x)->GetSpellProto()->Attributes & ATTRIBUTES_IGNORE_INVULNERABILITY))
+            if(!Immune && (m_auras.at(x)->GetSpellProto()->isUnstoppableForce2()))
                 continue;
             if(m_auras.at(x)->GetSpellProto()->School == School && (!m_auras.at(x)->IsPositive() || Positive))
                 RemoveAuraBySlot(x);
@@ -486,134 +430,8 @@ void AuraInterface::RemoveAllAurasByInterruptFlagButSkip(uint32 flag, uint32 ski
         if( a->GetDuration() > 0 && (int32)(a->GetTimeLeft()+500) > a->GetDuration() )
             continue;//pretty new aura, don't remove
 
-        //some spells do not get removed all the time only at specific intervals
-        if((a->m_spellProto->AuraInterruptFlags & flag) && (a->m_spellProto->Id != skip) && a->m_spellProto->proc_interval==0)
-        {
-            //the black sheeps of sociaty
-            if(a->m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_CAST_SPELL)
-            {
-                switch(a->GetSpellProto()->Id)
-                {
-                // priest - holy conc
-                case 34754:
-                    {
-                        if( m_Unit->GetCurrentSpell() !=NULL &&
-                                !(m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_FLASH_HEAL ||
-                                m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_BINDING_HEAL ||
-                                m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_GREATER_HEAL))
-                            continue;
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_FLASH_HEAL && spi->NameHash != SPELL_HASH_BINDING_HEAL && spi->NameHash != SPELL_HASH_GREATER_HEAL)
-                            continue;
-                    }break;
-                //Arcane Potency
-                case 57529:
-                case 57531:
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && !(m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_PRESENCE_OF_MIND
-                            || m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_CLEARCASTING ))
-                            continue;
-
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL || !(spi->c_is_flags & SPELL_FLAG_IS_DAMAGING) )
-                            continue;
-
-                    }break;
-                //paladin - Art of war
-                case 53489:
-                case 59578:
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_FLASH_OF_LIGHT )
-                            continue;
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_FLASH_OF_LIGHT )
-                            continue;
-                    }break;
-                //paladin - Infusion of light
-                case 53672:
-                case 54149:
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && !(m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_FLASH_OF_LIGHT
-                            || m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_HOLY_LIGHT))
-                            continue;
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_FLASH_OF_LIGHT && spi->NameHash != SPELL_HASH_HOLY_LIGHT)
-                            continue;
-                    }break;
-                //Mage - Firestarter
-                case 54741:
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_FLAMESTRIKE )
-                            continue;
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_FLAMESTRIKE )
-                            continue;
-                    }break;
-                case 34936:     // Backlash
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_SHADOW_BOLT && spi->NameHash != SPELL_HASH_INCINERATE )
-                            continue;
-                    }break;
-
-                case 17941: //Shadow Trance
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_SHADOW_BOLT )
-                            continue;
-                    }break;
-                // Glyph of Revenge Proc
-                case 58363:
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_HEROIC_STRIKE )
-                            continue;
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_HEROIC_STRIKE )
-                            continue;
-                    }break;
-                case 18708: //Fel Domination
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_SUMMON_IMP &&
-                            spi->NameHash != SPELL_HASH_SUMMON_VOIDWALKER &&
-                            spi->NameHash != SPELL_HASH_SUMMON_SUCCUBUS &&
-                            spi->NameHash != SPELL_HASH_SUMMON_FELHUNTER &&
-                            spi->NameHash != SPELL_HASH_SUMMON_FELGUARD )
-                            continue;
-                    }break;
-                case 46916: // Bloodsurge
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_SLAM )
-                            continue;
-                    }break;
-                case 14177: // Cold Blood
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && !(spi->c_is_flags & SPELL_FLAG_IS_DAMAGING) && spi->NameHash != SPELL_HASH_MUTILATE )
-                            continue;
-                    }break;
-                case 31834: // Light's Grace
-                    {
-                        if( m_Unit->GetCurrentSpell() != NULL && m_Unit->GetCurrentSpell()->GetSpellProto()->NameHash == SPELL_HASH_HOLY_LIGHT )
-                            continue;
-
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && spi->NameHash != SPELL_HASH_HOLY_LIGHT )
-                            continue;
-                    }break;
-                // Shadowstep
-                case 44373:
-                case 36563:
-                    {
-                        SpellEntry *spi = dbcSpell.LookupEntry( skip );
-                        if( spi != NULL && !(spi->c_is_flags & SPELL_FLAG_IS_DAMAGING) )
-                            continue;
-                    }break;
-                }
-            }
+        if((a->m_spellProto->AuraInterruptFlags & flag) && (a->m_spellProto->Id != skip))
             RemoveAuraBySlot(x);
-        }
     }
 }
 
@@ -624,7 +442,7 @@ uint32 AuraInterface::GetSpellIdFromAuraSlot(uint32 slot)
     return 0;
 }
 
-AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info)
+AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info, uint64 casterGuid)
 {
     AuraCheckResponse resp;
 
@@ -638,27 +456,20 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info)
     {
         if( m_auras.find(x) == m_auras.end() )
             continue;
+        if(casterGuid == m_auras.at(x)->GetCasterGUID())
+            continue; // We can skip auras cast by ourself
 
-        for( uint32 loop = 0; loop < 3; loop++ )
+        SpellEntry *currInfo = m_auras.at(x)->GetSpellProto();
+        if(info->NameHash == currInfo->NameHash || info->isSpellBuffType() && currInfo->isSpellSameBuffType(info))
         {
-            if( m_auras.at(x)->GetSpellProto()->Effect[loop] == info->Effect[loop] && info->Effect[loop] > 0 )
+            if(info->RankNumber < currInfo->RankNumber)
+                stronger = true;
+            else if(info->maxstack > 1 && m_auras.at(x)->stackSize > 1)
+                stronger = true;
+            else
             {
-                if( info->EffectBasePoints[loop] < 0 )
-                {
-                    if( info->EffectBasePoints[loop] <= m_auras.at(x)->GetSpellProto()->EffectBasePoints[loop] )
-                    {
-                        stronger = true;
-                        break;
-                    }
-                }
-                else if( info->EffectBasePoints[loop] > 0 )
-                {
-                    if( info->EffectBasePoints[loop] >= m_auras.at(x)->GetSpellProto()->EffectBasePoints[loop] )
-                    {
-                        stronger = true;
-                        break;
-                    }
-                }
+                resp.Error = AURA_CHECK_RESULT_LOWER_BUFF_PRESENT;
+                resp.Misc = x;
             }
         }
 
@@ -669,7 +480,6 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info)
         }
     }
 
-    resp.Error = AURA_CHECK_RESULT_LOWER_BUFF_PRESENT;
     return resp; // return it back to our caller
 }
 
@@ -863,26 +673,6 @@ bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, uint64 casterg
     return false;
 }
 
-bool AuraInterface::HasAurasOfBuffType(uint32 buff_type, const uint64 &guid, uint32 skip)
-{
-    uint64 sguid = (buff_type == SPELL_TYPE_BLESSING || buff_type == SPELL_TYPE_WARRIOR_SHOUT) ? guid : 0;
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            if(m_auras.at(x)->GetSpellProto()->buffType & buff_type && m_auras.at(x)->GetSpellId() != skip)
-            {
-                if(!sguid || (sguid && m_auras.at(x)->GetCasterGUID() == sguid))
-                {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
 bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 {
     uint32 maxStack = aur->GetSpellProto()->maxstack;
@@ -896,70 +686,78 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
         if(m_auras.find(x) == m_auras.end())
             continue;
         Aura* curAura = m_auras.at(x);
-        if(curAura == NULL || curAura->m_deleted)
+        if(curAura == NULL || aur == curAura || curAura->m_deleted)
             continue;
 
-        //if this is a proc spell then it should not remove it's mother : test with combustion later
-        if( curAura->GetSpellProto()->Id != aur->GetSpellId() && aur->pSpellId != curAura->GetSpellProto()->Id)
+        SpellEntry *currSP = curAura->GetSpellProto();
+        if(info->NameHash == currSP->NameHash)
         {
-            if(info->buffType && curAura->GetSpellProto()->buffType && (info->buffType & curAura->GetSpellProto()->buffType) != 0)
+            if(aur->IsPositive() == curAura->IsPositive())
             {
-                bool needsRemoval = false;
-                if( curAura->GetSpellProto()->buffType & SPELL_TYPE_BLESSING )
-                {
-                    // Shouldn't happen, aura should be rejected at cast
-                    if(curAura->GetSpellProto()->NameHash == info->NameHash && info->RankNumber < curAura->GetSpellProto()->RankNumber)
-                        return false;
-                }
-                else if( curAura->GetSpellProto()->buffType & SPELL_TYPE_AURA )
-                {
-                    if( curAura->GetUnitCaster() != aur->GetUnitCaster() && curAura->GetSpellProto()->NameHash != info->NameHash )
-                        continue;
-                }
-                m_aurasToRemove.insert(x);
-            }
-            else if( info->poison_type && curAura->GetSpellProto()->poison_type == info->poison_type )
-            {
-                if( curAura->GetSpellProto()->RankNumber < info->RankNumber || maxStack == 0)
-                {
-                    RemoveAuraBySlot(x);
-                    continue;
-                }
-                else if( curAura->GetSpellProto()->RankNumber > info->RankNumber )
-                {
-                    RemoveAuraBySlot(x);
-                    break;
-                }
-            }
-            else if( curAura->GetSpellProto()->NameHash == info->NameHash )
-            {
-                if( curAura->GetUnitCaster() == aur->GetUnitCaster() )
+                if(info->always_apply)
                     m_aurasToRemove.insert(x);
-                else if( curAura->GetSpellProto()->Unique )
+                else if( curAura->GetCasterGUID() == aur->GetCasterGUID() )
                 {
-                    if( curAura->GetSpellProto()->RankNumber <= info->RankNumber )
+                    if(maxStack > 1)
+                    {
+                        // target already has this aura. Update duration, time left, procCharges
+                        curAura->SetDuration(aur->GetDuration());
+                        curAura->SetTimeLeft(aur->GetDuration());
+                        curAura->procCharges = curAura->GetMaxProcCharges(caster);
+                        curAura->UpdateModifiers();
+                        curAura->ModStackSize(1);   // increment stack size
+                        return false;
+                    }
+                    m_aurasToRemove.insert(x);
+                }
+                else
+                {
+                    if( currSP->RankNumber <= info->RankNumber )
                     {
                         m_aurasToRemove.insert(x);
                         continue;
                     }
-                    return false;
+                    else if(info->isSpellBuffType() && info->isSpellSameBuffType(currSP))
+                    {
+                        if(maxStack > 1 && curAura->stackSize > 1)
+                            return false;
+                        m_aurasToRemove.insert(x);
+                    }
+                    else if(info->isUnique)
+                    {
+                        // Unique spells need to rebound, otherwise we can just apply
+                        return false;
+                    }
                 }
             }
+            else if(curAura->IsPositive())
+                m_aurasToRemove.insert(x);
+            else return false;
         }
-        else if(aur->GetSpellId() == curAura->GetSpellId() && info->always_apply)
-            m_aurasToRemove.insert(x);
-        else if((curAura->IsPositive() == aur->IsPositive()) && curAura->GetSpellId() == aur->GetSpellId() && curAura->GetCasterGUID() == aur->GetCasterGUID())
+        else
         {
-            if(info->Unique)
-                continue;
-
-            // target already has this aura. Update duration, time left, procCharges
-            curAura->SetDuration(aur->GetDuration());
-            curAura->SetTimeLeft(aur->GetDuration());
-            curAura->procCharges = curAura->GetMaxProcCharges(caster);
-            curAura->UpdateModifiers();
-            curAura->ModStackSize(1);   // increment stack size
-            return false;
+            if(info->isSpellBuffType() && currSP->isSpellBuffType() && info->isSpellSameBuffType(currSP))
+            {
+                if( currSP->isSpellAuraBuff() )
+                {
+                    if( curAura->GetUnitCaster() != aur->GetUnitCaster() )
+                        continue;
+                }
+                m_aurasToRemove.insert(x);
+            }
+            else if( info->isSpellPoisonType() && currSP->isSpellPoisonType() && info->isSpellSameBuffType(currSP) )
+            {
+                if( currSP->RankNumber < info->RankNumber || maxStack == 0)
+                {
+                    m_aurasToRemove.insert(x);
+                    continue;
+                }
+                else if( currSP->RankNumber > info->RankNumber )
+                {
+                    m_aurasToRemove.insert(x);
+                    break;
+                }
+            }
         }
     }
 
@@ -988,13 +786,13 @@ void AuraInterface::AddAura(Aura* aur)
     }
 
     ////////////////////////////////////////////////////////
-    if( aur->m_auraSlot != 255 && aur->m_auraSlot < TOTAL_AURAS)
+    if( aur->m_auraSlot != 0xFF && aur->m_auraSlot < TOTAL_AURAS)
     {
         if( m_auras.find(aur->m_auraSlot) != m_auras.end() )
             RemoveAuraBySlot(aur->m_auraSlot);
     }
 
-    aur->m_auraSlot = 255;
+    aur->m_auraSlot = 0xFF;
 
     Unit* target = aur->GetUnitTarget();
     if(target == NULL)
@@ -1008,11 +806,36 @@ void AuraInterface::AddAura(Aura* aur)
 
     aur->SetAuraLevel(aur->GetUnitCaster() != NULL ? aur->GetUnitCaster()->getLevel() : MAXIMUM_ATTAINABLE_LEVEL);
 
+    if(aur->GetSpellId() == 15007) //Resurrection sickness
+    {
+        aur->SetNegative(); //we're negative
+        aur->SetDuration(target->getLevel() > 19 ? 600000 : 60000);
+    }
+
     uint8 x;
-    if(!aur->IsPassive())
+    if(aur->IsPassive())
+    {
+        for(x = MAX_AURAS; x < TOTAL_AURAS; x++)
+        {
+            if(m_auras.find(x) == m_auras.end())
+            {
+                m_auras.insert(make_pair(x, aur));
+                aur->m_auraSlot = x;
+                break;
+            }
+        }
+
+        if(aur->m_auraSlot == 0xFF)
+        {
+            sLog.Debug("Unit","AddAura error in passive aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
+            RemoveAura(aur);
+            return;
+        }
+    }
+    else
     {
         aur->AddAuraVisual();
-        if(aur->m_auraSlot == 255)
+        if(aur->m_auraSlot == 0xFF)
         {
             //add to invisible slot
             for(x = MAX_AURAS; x < TOTAL_AURAS; x++)
@@ -1025,45 +848,13 @@ void AuraInterface::AddAura(Aura* aur)
                 }
             }
 
-            if(aur->m_auraSlot == 255)
+            if(aur->m_auraSlot == 0xFF)
             {
                 sLog.Debug("Unit","AddAura error in active aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
                 RemoveAura(aur);
                 return;
             }
-        }
-        else
-        {
-            m_auras.insert(make_pair(aur->m_auraSlot, aur));
-        }
-    }
-    else
-    {
-        if(aur->m_spellProto->AttributesEx & 1024)
-            aur->AddAuraVisual();
-
-        for(x = MAX_AURAS; x < TOTAL_AURAS; x++)
-        {
-            if(m_auras.find(x) == m_auras.end())
-            {
-                m_auras.insert(make_pair(x, aur));
-                aur->m_auraSlot = x;
-                break;
-            }
-        }
-
-        if(aur->m_auraSlot == 255)
-        {
-            sLog.Debug("Unit","AddAura error in passive aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
-            RemoveAura(aur);
-            return;
-        }
-    }
-
-    if(aur->GetSpellId() == 15007) //Resurrection sickness
-    {
-        aur->SetNegative(100); //we're negative
-        aur->SetDuration(target->getLevel() > 19 ? 600000 : 60000);
+        } else m_auras.insert(make_pair(aur->m_auraSlot, aur));
     }
 
     aur->ApplyModifiers(true);
@@ -1101,13 +892,6 @@ void AuraInterface::AddAura(Aura* aur)
 
         target->SendMessageToSet(&data, true);
     }
-
-    m_Unit->m_chargeSpellsInUse = true;
-    if( aur->procCharges > 0 && !(aur->GetSpellProto()->procflags2 & PROC_REMOVEONUSE))
-        m_Unit->m_chargeSpells.push_back(aur);
-    m_Unit->m_chargeSpellsInUse = false;
-
-    aur->m_added = true;
 
     // Reaction from enemy AI
     if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
@@ -1308,10 +1092,11 @@ void AuraInterface::RemoveAllExpiringAuras()
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(m_auras.at(x)->GetSpellProto()->DurationIndex && !(m_auras.at(x)->GetSpellProto()->Flags4 & FLAGS4_DEATH_PERSISTENT))
-            {
-                RemoveAuraBySlot(x);
-            }
+            if(m_auras.at(x)->GetSpellProto()->DurationIndex == 0)
+                continue;
+            if(m_auras.at(x)->GetSpellProto()->isDeathPersistentAura())
+                continue;
+            RemoveAuraBySlot(x);
         }
     }
 }
@@ -1322,10 +1107,9 @@ void AuraInterface::RemoveAllNegativeAuras()
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(!(m_auras.at(x)->GetSpellProto()->Flags4 & FLAGS4_DEATH_PERSISTENT))
-            {
-                RemoveAuraBySlot(x);
-            }
+            if(m_auras.at(x)->GetSpellProto()->isDeathPersistentAura())
+                continue;
+            RemoveAuraBySlot(x);
         }
     }
 }
@@ -1436,11 +1220,11 @@ bool AuraInterface::RemoveAllAurasByNameHash(uint32 namehash, bool passive)
     return res;
 }
 
-void AuraInterface::RemoveAllAurasByCIsFlag(uint32 c_is_flag)
+void AuraInterface::RemoveAllAurasExpiringWithPet()
 {
     for(uint8 x = 0; x < TOTAL_AURAS; x++)
         if(m_auras.find(x) != m_auras.end())
-            if(m_auras.at(x)->GetSpellProto()->c_is_flags & c_is_flag)
+            if(m_auras.at(x)->GetSpellProto()->isSpellExpiringWithPet())
                 RemoveAuraBySlot(x);
 }
 
@@ -1451,7 +1235,7 @@ void AuraInterface::RemoveAllAurasByInterruptFlag(uint32 flag)
         if(m_auras.find(x) == m_auras.end())
             continue;
         //some spells do not get removed all the time only at specific intervals
-        if((m_auras.at(x)->m_spellProto->AuraInterruptFlags & flag) && !(m_auras.at(x)->m_spellProto->procflags2 & PROC_REMOVEONUSE))
+        if(m_auras.at(x)->m_spellProto->AuraInterruptFlags & flag)
             RemoveAuraBySlot(x);
     }
 }
@@ -1486,8 +1270,7 @@ void AuraInterface::RemoveAllAurasWithSpEffect(uint32 EffectId)
                 {
                     if(m_auras.at(i)->GetCasterGUID() == m_Unit->GetGUID())
                         m_auras.at(i)->RemoveAA();
-                    else
-                        RemoveAuraBySlot(i);
+                    else RemoveAuraBySlot(i);
                     break;
                 }
             }
@@ -1544,38 +1327,6 @@ bool AuraInterface::RemoveAllAuras(uint32 spellId, uint64 guid)
         }
     }
     return res;
-}
-
-void AuraInterface::RemoveAllAurasByBuffIndexType(uint32 buff_index_type, const uint64 &guid)
-{
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            if(m_auras.at(x)->GetSpellProto()->buffIndexType == buff_index_type)
-            {
-                if(!guid || (guid && m_auras.at(x)->GetCasterGUID() == guid))
-                    RemoveAuraBySlot(x);
-            }
-        }
-    }
-}
-
-void AuraInterface::RemoveAllAurasByBuffType(uint32 buff_type, const uint64 &guid, uint32 skip)
-{
-    uint64 sguid = buff_type >= SPELL_TYPE_BLESSING ? guid : 0;
-
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            if((m_auras.at(x)->GetSpellProto()->buffType & buff_type) && m_auras.at(x)->GetSpellId() != skip)
-            {
-                if(!sguid || m_auras.at(x)->GetCasterGUID() == sguid)
-                    RemoveAuraBySlot(x);
-            }
-        }
-    }
 }
 
 uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily, uint32 SkillLine)
@@ -1732,7 +1483,7 @@ void AuraInterface::EventDeathAuraRemoval()
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(m_auras.at(x)->GetSpellProto()->Flags4 & FLAGS4_DEATH_PERSISTENT)
+            if(m_auras.at(x)->GetSpellProto()->isDeathPersistentAura())
                 continue;
 
             RemoveAuraBySlot(x);

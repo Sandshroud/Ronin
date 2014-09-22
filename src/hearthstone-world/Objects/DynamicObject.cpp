@@ -66,7 +66,7 @@ void DynamicObject::Create(Object* caster, Spell* pSpell, float x, float y, floa
     else
         PushToWorld(caster->GetMapMgr());
 
-    if(caster->IsUnit() && m_spellProto->IsChannelSpell())
+    if(caster->IsUnit() && m_spellProto->isChanneledSpell())
     {
         TO_UNIT(caster)->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, GetGUID());
         TO_UNIT(caster)->SetUInt32Value(UNIT_CHANNEL_SPELL, m_spellProto->Id);
@@ -106,7 +106,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
     }
 
     // If we're a channelled spell, we are required to be the caster channel target
-    if(m_spellProto->IsChannelSpell() && u_caster)
+    if(m_spellProto->IsSpellChannelSpell() && u_caster)
     {
         if(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT) != GetGUID())
             m_aliveDuration = 0;
@@ -133,7 +133,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
             if(!target->isAlive())
                 continue;
 
-            if(!sFactionSystem.isAttackable(u_caster, target, !(m_spellProto->c_is_flags & SPELL_FLAG_IS_TARGETINGSTEALTHED)))
+            if(!sFactionSystem.isAttackable(u_caster, target, !m_spellProto->isSpellStealthTargetCapable()))
                 continue;
 
             // skip units already hit, their range will be tested later
@@ -152,7 +152,6 @@ void DynamicObject::UpdateTargets(uint32 p_time)
                 }
 
                 target->AddAura(pAura);
-                u_caster->HandleProc(PROC_ON_CAST_SPECIFIC_SPELL | PROC_ON_CAST_SPELL, NULL, target, m_spellProto);
 
                 // add to target list
                 targets.insert(target->GetGUID());
@@ -203,7 +202,7 @@ void DynamicObject::Remove()
         data << GetGUID() << uint8(1);
         SendMessageToSet(&data, true);
 
-        if(m_spellProto->IsChannelSpell() && GUID_HIPART(casterGuid) != HIGHGUID_TYPE_GAMEOBJECT)
+        if(m_spellProto->IsSpellChannelSpell() && GUID_HIPART(casterGuid) != HIGHGUID_TYPE_GAMEOBJECT)
         {
             if(Unit* u_caster = GetMapMgr()->GetUnit(casterGuid))
             {

@@ -85,7 +85,7 @@ void CreatureDataManager::LoadFromDB()
         ctrData->Run_speed = feilds[field_count++].GetFloat();
         ctrData->Fly_speed = feilds[field_count++].GetFloat();
         ctrData->Extra_a9_flags = feilds[field_count++].GetUInt32();
-        ctrData->Auraimmune_flag = feilds[field_count++].GetUInt32();
+        ctrData->AuraMechanicImmunity = feilds[field_count++].GetUInt32();
         ctrData->Vehicle_entry = feilds[field_count++].GetInt32();
         ctrData->BattleMasterType = feilds[field_count++].GetUInt32();
         ctrData->SpellClickid = feilds[field_count++].GetUInt32();

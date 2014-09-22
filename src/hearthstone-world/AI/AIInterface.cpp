@@ -26,17 +26,16 @@ AIInterface::AIInterface()
     m_updateTargetsTimer = TARGET_UPDATE_INTERVAL;
 
     m_nextTarget = NULLUNIT;
-    totemspell = NULL;
     m_Unit = NULLUNIT;
     m_PetOwner = NULLUNIT;
     firstLeaveCombat = true;
     m_outOfCombatRange = 10000;
+    m_totemSpell = NULL;
+    m_totemSpellTimer = m_totemSpellTime = 0;
 
     tauntedBy = NULLUNIT;
     isTaunted = false;
     m_AllowedToEnterCombat = true;
-    m_totemspelltime = 0;
-    m_totemspelltimer = 0;
     m_currentHighestThreat = 0;
 
     disable_combat = false;
@@ -150,46 +149,9 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
 
 void AIInterface::Update(uint32 p_time)
 {
-    if(m_AIType == AITYPE_TOTEM)
+    if(m_AIType == AITYPE_TOTEM && m_Unit->IsTotem())
     {
-        assert(totemspell != 0);
-        if(p_time >= m_totemspelltimer)
-        {
-            Spell* pSpell = NULLSPELL;
-            pSpell = new Spell(m_Unit, totemspell, true, NULLAURA);
-
-            SpellCastTargets targets(0);
-            if(!m_nextTarget || (m_nextTarget && (!m_Unit->GetMapMgr()->GetUnit(m_nextTarget->GetGUID()) || !m_nextTarget->isAlive()
-                || (m_nextTarget->GetTypeId() == TYPEID_UNIT && TO_CREATURE(m_nextTarget)->IsTotem()) ||
-                !IsInrange(m_Unit, m_nextTarget, pSpell->GetSpellProto()->base_range_or_radius_sqr) ||
-                !sFactionSystem.CanEitherUnitAttack(m_Unit, m_nextTarget, !(pSpell->GetSpellProto()->c_is_flags & SPELL_FLAG_IS_TARGETINGSTEALTHED)))))
-            {
-                //we set no target and see if we managed to fid a new one
-                SetNextTarget(NULLUNIT);
-
-                //something happend to our target, pick another one
-                pSpell->GenerateTargets(&targets);
-                if(targets.m_targetMask & TARGET_FLAG_UNIT)
-                    SetNextTarget(m_Unit->GetMapMgr()->GetUnit(targets.m_unitTarget));
-            }
-
-            if(m_nextTarget)
-            {
-                SpellCastTargets targets(m_nextTarget->GetGUID());
-                pSpell->prepare(&targets);
-                // need proper cooldown time!
-                m_totemspelltimer = m_totemspelltime;
-            }
-            else
-            {
-                delete pSpell;
-                pSpell = NULL;
-            }
-        }
-        else
-        {
-            m_totemspelltimer -= p_time;
-        }
+        _UpdateTotem(p_time);
         return;
     }
 
@@ -219,6 +181,47 @@ void AIInterface::Update(uint32 p_time)
 
     if(!m_fleeTimer && m_AIState == STATE_EVADE)
         MovementHandler.HandleEvade();
+}
+
+void AIInterface::_UpdateTotem(uint32 p_time)
+{
+    if(m_totemSpell == NULL)
+        return;
+    if(m_totemSpellTime == 0)
+        return;
+
+    if(m_totemSpellTimer <= p_time)
+    {
+        SpellCastTargets targets;
+        if(false)//m_totemSpell->IsAreaOfEffectSpell())
+        {
+            m_nextTarget = NULL;
+            targets.m_targetMask = TARGET_FLAG_SELF|TARGET_FLAG_SOURCE_LOCATION|TARGET_FLAG_DEST_LOCATION;
+            targets.m_unitTarget = m_Unit->GetGUID();
+            targets.m_srcX = targets.m_destX = m_Unit->GetPositionX();
+            targets.m_srcY = targets.m_destY = m_Unit->GetPositionY();
+            targets.m_srcZ = targets.m_destZ = m_Unit->GetPositionZ();
+        }
+        else
+        {
+            if(m_nextTarget == NULL) // Find a totem target
+                SetNextTarget(FindTarget());
+            else if(!m_nextTarget->IsInWorld() || !IsInrange(m_Unit, m_nextTarget, m_Unit->GetCombatReach())
+                || !sFactionSystem.CanEitherUnitAttack(m_Unit, m_nextTarget, false))
+                SetNextTarget(NULL);
+            if(m_nextTarget==NULL)
+                return;
+        }
+
+        Spell *pSpell = new Spell(m_Unit, m_totemSpell, true, NULLAURA);
+        if(m_nextTarget)
+        {
+            targets.m_targetMask = TARGET_FLAG_OBJECT|TARGET_FLAG_UNIT;
+            targets.m_unitTarget = m_nextTarget->GetGUID();
+        }
+        pSpell->prepare(&targets);
+        m_totemSpellTimer = m_totemSpellTime;
+    } else m_totemSpellTimer -= p_time;
 }
 
 void AIInterface::SetNextTarget(Unit* nextTarget)

@@ -11,7 +11,7 @@
 #undef max
 #endif
 
-#define _GAME // You just lost the game
+#define _GAME
 
 #ifdef _DEBUG
 #ifdef WIN32

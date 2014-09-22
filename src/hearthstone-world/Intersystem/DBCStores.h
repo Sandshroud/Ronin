@@ -585,18 +585,12 @@ struct SkillLineSpell //SkillLineAbility.dbc
     uint32 RankMin;
 };
 
+struct SpellDuration;
+struct SpellAttributes;
 struct SpellEntry
 {
     uint32 Id;
-    uint32 Attributes;
-    uint32 AttributesEx;
-    uint32 Flags3;
-    uint32 Flags4;
-    uint32 Flags5;
-    uint32 Flags6;
-    uint32 Flags7;
-    uint32 Flags8;
-    uint32 Flags9;
+    uint32 Attributes[9];
     //uint32 Unk400
     uint32 CastingTimeIndex;
     uint32 DurationIndex;
@@ -635,162 +629,121 @@ struct SpellEntry
     //uint32 Unk400
 
     //SpellAuraOptionsEntry
-        uint32    maxstack;
-        uint32    procChance;
-        uint32    procCharges;
-        uint32    procFlags;
+    uint32 maxstack;
+    uint32 procChance;
+    uint32 procCharges;
+    uint32 procFlags;
 
     //SpellAuraRestrictionsEntry
-        uint32    CasterAuraState;
-        uint32    TargetAuraState;
-        uint32    CasterAuraStateNot;
-        uint32    TargetAuraStateNot;
-        //uint32    CasterAuraSpell;
-        //uint32    TargetAuraSpell;
-        //uint32    ExcludeCasterAuraSpell;
-        //uint32    ExcludeTargetAuraSpell;
+    uint32 CasterAuraState;
+    uint32 TargetAuraState;
+    uint32 CasterAuraStateNot;
+    uint32 TargetAuraStateNot;
+    //uint32 CasterAuraSpell;
+    //uint32 TargetAuraSpell;
+    //uint32 ExcludeCasterAuraSpell;
+    //uint32 ExcludeTargetAuraSpell;
 
     // SpellCastingRequirementsEntry
-        uint32    FacingCasterFlags;
-        int32     AreaGroupId;
-        uint32    RequiresSpellFocus;
+    uint32 FacingCasterFlags;
+    int32 AreaGroupId;
+    uint32 RequiresSpellFocus;
 
     // SpellCategoriesEntry
-        uint32    Category;
-        uint32    Spell_Dmg_Type;
-        uint32    DispelType;
-        uint32    MechanicsType;
-        uint32    PreventionType;
-        uint32    StartRecoveryCategory;
+    uint32 Category;
+    uint32 Spell_Dmg_Type;
+    uint32 DispelType;
+    uint32 MechanicsType;
+    uint32 PreventionType;
+    uint32 StartRecoveryCategory;
 
     // SpellClassOptionsEntry
-        uint32    SpellGroupType[3];
-        uint32    SpellFamilyName;
+    uint32 SpellGroupType[3];
+    uint32 SpellFamilyName;
 
     // SpellCooldownsEntry
-        uint32    CategoryRecoveryTime;
-        uint32    RecoveryTime;
-        uint32    StartRecoveryTime;
+    uint32 CategoryRecoveryTime;
+    uint32 RecoveryTime;
+    uint32 StartRecoveryTime;
 
     // SpellEffectEntry
-        uint32    Effect[3];
-        float     EffectValueMultiplier[3];
-        uint32    EffectApplyAuraName[3];
-        uint32    EffectAmplitude[3];
-        int32     EffectBasePoints[3];
-        float     EffectBonusCoefficient[3];
-        float     EffectDamageMultiplier[3];
-        uint32    EffectChainTarget[3];
-        int32     EffectDieSides[3];
-        uint32    EffectItemType[3];
-        uint32    EffectMechanic[3];
-        int32     EffectMiscValue[3];
-        int32     EffectMiscValueB[3];
-        float     EffectPointsPerComboPoint[3];
-        uint32    EffectRadiusIndex[3];
-        float     EffectRealPointsPerLevel[3];
-        uint32    EffectSpellClassMask[3][3];
-        uint32    EffectTriggerSpell[3];
-        uint32    EffectImplicitTargetA[3];
-        uint32    EffectImplicitTargetB[3];
+    uint32 Effect[3];
+    float EffectValueMultiplier[3];
+    uint32 EffectApplyAuraName[3];
+    uint32 EffectAmplitude[3];
+    int32 EffectBasePoints[3];
+    float EffectBonusCoefficient[3];
+    float EffectDamageMultiplier[3];
+    uint32 EffectChainTarget[3];
+    int32 EffectDieSides[3];
+    uint32 EffectItemType[3];
+    uint32 EffectMechanic[3];
+    int32 EffectMiscValue[3];
+    int32 EffectMiscValueB[3];
+    float EffectPointsPerComboPoint[3];
+    uint32 EffectRadiusIndex[3];
+    float EffectRealPointsPerLevel[3];
+    uint32 EffectSpellClassMask[3][3];
+    uint32 EffectTriggerSpell[3];
+    uint32 EffectImplicitTargetA[3];
+    uint32 EffectImplicitTargetB[3];
 
     // SpellEquippedItemsEntry
-        int32     EquippedItemClass;
-        int32     RequiredItemFlags;
-        int32     EquippedItemSubClass;
+    int32 EquippedItemClass;
+    int32 RequiredItemFlags;
+    int32 EquippedItemSubClass;
 
     // SpellInterruptsEntry
-        uint32    AuraInterruptFlags;
-        uint32    ChannelInterruptFlags;
-        uint32    InterruptFlags;
+    uint32 AuraInterruptFlags;
+    uint32 ChannelInterruptFlags;
+    uint32 InterruptFlags;
 
     // SpellLevelsEntry
-        uint32    baseLevel;
-        uint32    maxLevel;
-        uint32    spellLevel;
+    uint32 baseLevel;
+    uint32 maxLevel;
+    uint32 spellLevel;
 
     // SpellPowerEntry
-        uint32    ManaCost;
-        uint32    ManaCostPerlevel;
-        uint32    ManaCostPercentage;
-        uint32    ManaPerSecond;
+    uint32 ManaCost;
+    uint32 ManaCostPerlevel;
+    uint32 ManaCostPercentage;
+    uint32 ManaPerSecond;
 
     // SpellReagentsEntry
-        int32     Reagent[8];
-        uint32    ReagentCount[8];
+    int32 Reagent[8];
+    uint32 ReagentCount[8];
 
     // SpellShapeshiftEntry
-        uint32    RequiredShapeShift;
-        uint32    ShapeshiftExclude;
+    uint32 RequiredShapeShift;
+    uint32 ShapeshiftExclude;
 
     // SpellTargetRestrictionsEntry
-        uint32    MaxTargets;
-        uint32    MaxTargetLevel;
-        uint32    TargetCreatureType;
-        uint32    Targets;
+    uint32 MaxTargets;
+    uint32 MaxTargetLevel;
+    uint32 TargetCreatureType;
+    uint32 Targets;
 
     // SpellTotemsEntry
-        //uint32    TotemCategory[2];    // 162-163  m_requiredTotemCategoryID
-        uint32    Totem[2];                      // 52-53    m_totem
+    //uint32 TotemCategory[2];
+    uint32 Totem[2];
 
-    /// CUSTOM: these fields are used for the modifications made in the world.cpp
+    // SpellDurationEntry
+    uint32 Duration[3];
+
+    // SpellRangeEntry
+    float Range[4]; // minEnemy, minFriend, maxEnemy, maxFriend
+
+    // Custom
+    uint32 Class;
     uint32 School;
-    uint32 proc_interval;               //!!! CUSTOM, Time(In MS) between proc's.
-    float ProcsPerMinute;               //!!! CUSTOM, number of procs per minute
-    uint32 buffIndexType;               //!!! CUSTOM, Tells us what type of buff it is, so we can limit the amount of them.
-    uint32 c_is_flags;                  //!!! CUSTOM, store spell checks in a static way : isdamageind,ishealing
-    uint32 buffType;                    //!!! CUSTOM, these are related to creating a item through a spell
-    uint32 RankNumber;                  //!!! CUSTOM, this protects players from having >1 rank of a spell
-    uint32 NameHash;                    //!!! CUSTOM, related to custom spells, summon spell quest related spells
-    float base_range_or_radius;         //!!! CUSTOM, needed for aoe spells most of the time
-    float base_range_or_radius_sqr;     //!!! CUSTOM, needed for aoe spells most of the time
-    float base_range_or_radius_friendly;//!!! CUSTOM, needed for aoe spells most of the time
-    float base_range_or_radius_sqr_friendly;//!!! CUSTOM, needed for aoe spells most of the time
-    uint32 talent_tree;                 //!!! CUSTOM, Used for dumping class spells.
-    bool is_melee_spell;                //!!! CUSTOM, Obvious.
-    bool is_ranged_spell;               //!!! CUSTOM, Obvious.
-    bool spell_can_crit;                //!!! CUSTOM, Obvious.
-    uint32 trnr_req_clsmsk;             //!!! CUSTOM, Required class mask to learn at a trainer.
+    uint32 NameHash;
+    uint32 RankNumber;
+    uint32 GeneratedThreat;
+    uint32 SpellSkillLine;
+    uint32 CustomAttributes[3];
+    bool isUnique, always_apply;
 
-    /* Crow:
-    Custom: The amount of threat the spell will generate.
-    This is loaded from a DB table, and if it isn't there, threat is always damage. */
-    uint32 ThreatForSpell;
-    float cone_width; // love me or hate me, all "In a cone in front of the caster" spells don't necessarily mean "in front"
-    //Spell Coefficient
-    bool isAOE;                         //!!! CUSTOM, Obvious.
-    float SP_coef_override;             //!!! CUSTOM, overrides any spell coefficient calculation and use this value
-    float AP_coef_override;             //!!! CUSTOM, Additional coef from ap
-    float RAP_coef_override;            //!!! CUSTOM, Additional coef from RAP
-    bool self_cast_only;                //!!! CUSTOM, Obvious.
-    bool apply_on_shapeshift_change;    //!!! CUSTOM, Obvious.
-    bool always_apply;                  //!!! CUSTOM, Obvious.
-    uint32 auraimmune_flag;             //!!! CUSTOM, this var keeps aura effects in binary format.
-    bool Unique;                        //!!! CUSTOM, Is this a unique effect? ex: Mortal Strike -50% healing.
-
-    uint32 area_aura_update_interval;
-    uint32 skilline;
-    /* Crow:
-    SpellId used to send log to client for this spell
-    This is overwritten sometimes with proc's */
-    uint32 logsId;
-    uint32 AdditionalAura;
-    uint32 forced_creature_target;
-    uint32 AreaAuraTarget;
-
-    //poisons type...
-    uint32 poison_type;                 //!!! CUSTOM, Type of poison it is.
-
-    //backattack
-    bool AllowBackAttack;               //!!! CUSTOM, Obvious.
-
-    // Crow: The following are customs made by me, mostly duplicate fields for handling more information.
-    uint32 procflags2; // We get two now, hurray. One does not take the place of the other.
-
-    // Queries/Commands:
-    bool IsChannelSpell() { return ((AttributesEx & (0x04|0x40)) ? true : (ChannelInterruptFlags != 0 ? true : false)); }
-    bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); };
-
+    // Calculations
     int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
     {
         int32 points = EffectBasePoints[effIndex], calcLevel = level;
@@ -814,6 +767,194 @@ struct SpellEntry
             points += comboPoints*EffectPointsPerComboPoint[effIndex];
         return points;
     }
+
+    float CalculateRange(bool friendly)
+    {
+
+    }
+
+    // Functions
+    bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 9) return false; return (Attributes[index] & attributeFlag); }
+    bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
+    bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); }
+
+    // Attribute parsing
+    bool reqAmmoForSpell() { return HasAttribute(0, 0x02); }
+    bool isNextMeleeAttack1() { return HasAttribute(0, 0x04); }
+    bool isAbilitySpell() { return HasAttribute(0, 0x10); }
+    bool isTradeSpell() { return HasAttribute(0, 0x20); }
+    bool isPassiveSpell() { return HasAttribute(0, 0x40); }
+    bool isHiddenSpell() { return HasAttribute(0, 0x80); }
+    bool isCombatLogInvisible() { return HasAttribute(0, 0x100); }
+    bool isautoTargetMainHand() { return HasAttribute(0, 0x200); }
+    bool isNextMeleeAttack2() { return HasAttribute(0, 0x400); }
+    bool isOutdoorOnly() { return HasAttribute(0, 0x8000); }
+    bool isAntiShapeshift() { return HasAttribute(0, 0x10000); }
+    bool isStealthOnly() { return HasAttribute(0, 0x20000); }
+    bool isStealthStateUnaffecting() { return HasAttribute(0, 0x40000); }
+    bool isDamageLevelBased() { return HasAttribute(0, 0x80000); }
+    bool isAttackInterrupting() { return HasAttribute(0, 0x100000); }
+    bool isUnstoppableForce() { return HasAttribute(0, 0x200000); }
+    bool isForcedTargetTracking() { return HasAttribute(0, 0x400000); }
+    bool isCastableWhileDead() { return HasAttribute(0, 0x800000); }
+    bool isCastableWhileMounted() { return HasAttribute(0, 0x1000000); }
+    bool isDisabledWhileActive() { return HasAttribute(0, 0x2000000); }
+    bool isNegativeSpell1() { return HasAttribute(0, 0x4000000); }
+    bool isCastableWhileSitting() { return HasAttribute(0, 0x8000000); }
+    bool isUnavailableInCombat() { return HasAttribute(0, 0x10000000); }
+    bool isUnstoppableForce2() { return HasAttribute(0, 0x20000000); }
+    bool isBreakableByDamage() { return HasAttribute(0, 0x40000000); }
+    bool isForcedApplication() { return HasAttribute(0, 0x80000000); }
+    bool isExhaustingPowerSpell() { return HasAttribute(1, 0x02); }
+    bool isChanneledSpell() { return HasAttribute(1, 0x04); }
+    bool isNotRedirectable() { return HasAttribute(1, 0x08); }
+    bool isStealthUnaffecting() { return HasAttribute(1, 0x20); }
+    bool isChanneledSpell2() { return HasAttribute(1, 0x40); }
+    bool isUnreflectable() { return HasAttribute(1, 0x80); }
+    bool isNonCombatTarget() { return HasAttribute(1, 0x100); }
+    bool isMeleeCombatTrigger() { return HasAttribute(1, 0x200); }
+    bool isThreatlessSpell() { return HasAttribute(1, 0x400); }
+    bool isFarsightDetrigger() { return HasAttribute(1, 0x2000); }
+    bool isChannelTrackTarget() { return HasAttribute(1, 0x4000); }
+    bool isDispelOnImmunityAura() { return HasAttribute(1, 0x8000); }
+    bool isImmunityPiercing() { return HasAttribute(1, 0x10000); }
+    bool isManualCastPetSpell() { return HasAttribute(1, 0x20000); }
+    bool isNotSelfTargettable() { return HasAttribute(1, 0x80000); }
+    bool isComboPointReqSpell() { return HasAttribute(1, 0x100000); }
+    bool isComboPointUsingSpell() { return HasAttribute(1, 0x200000); }
+    bool isSpellEnabledAtDodge() { return HasAttribute(1, 0x400000); }
+    bool isUncastableWhileDead() { return HasAttribute(2, 0x01); }
+    bool isLineOfSiteIngorant() { return HasAttribute(2, 0x04); }
+    bool isStanceBarSpell() { return HasAttribute(2, 0x10); }
+    bool isAutoRepeatSpell() { return HasAttribute(2, 0x20); }
+    bool reqHonorableTarget() { return HasAttribute(2, 0x40); }
+    bool isHealthFunnelSpell() { return HasAttribute(2, 0x800); }
+    bool isTargetOwnItemsOnly() { return HasAttribute(2, 0x2000); }
+    bool isTameBeastSpell() { return HasAttribute(2, 0x10000); }
+    bool isMeleeTimerUnaffecting() { return HasAttribute(2, 0x20000); }
+    bool isShapeShiftIgnorant() { return HasAttribute(2, 0x40000); }
+    bool reqCasterIsBehindTarget() { return HasAttribute(2, 0x100000); }
+    bool isDamageAbsorbingAura() { return HasAttribute(2, 0x200000); }
+    bool isUncrittableSpell() { return HasAttribute(2, 0x20000000); }
+    bool isTriggerableOnTrigger() { return HasAttribute(2, 0x40000000); }
+    bool isFoodBuffAura() { return HasAttribute(2, 0x80000000); }
+    bool isBlockableSpell() { return HasAttribute(3, 0x08); }
+    bool isResurrectionTimerIgnorant() { return HasAttribute(3, 0x10); };
+    bool isMultiCasterStackable() { return HasAttribute(3, 0x80); }
+    bool isPlayerTargetRequired() { return HasAttribute(3, 0x100); }
+    bool isTriggerableOnTrigger2() { return HasAttribute(3, 0x200); }
+    bool reqMainHandWeapon() { return HasAttribute(3, 0x400); }
+    bool reqInBattleground() { return HasAttribute(3, 0x800); }
+    bool isGhostTargetRequired() { return HasAttribute(3, 0x1000); }
+    bool isUnableToTriggerProcs() { return HasAttribute(3, 0x10000); }
+    bool isNonInitialAggroSpell() { return HasAttribute(3, 0x20000); }
+    bool isIgnorantOfHitResult() { return HasAttribute(3, 0x40000); }
+    bool isProcPausingSpell() { return HasAttribute(3, 0x80000); }
+    bool isDeathPersistentAura() { return HasAttribute(3, 0x100000); }
+    bool reqWandForSpell() { return HasAttribute(3, 0x400000); }
+    bool reqOffHandWeapon() { return HasAttribute(3, 0x1000000); }
+    bool isTriggerableOnTrigger3() { return HasAttribute(3, 0x4000000); }
+    bool isDrainSoulSpell() { return HasAttribute(3, 0x8000000); }
+    bool isSpellPowerIgnorant() { return HasAttribute(3, 0x20000000); }
+    bool isSpellResistanceIgnorant() { return HasAttribute(4, 0x01); }
+    bool isProcLimitedToDummyEffect() { return HasAttribute(4, 0x02); }
+    bool isSpellAuraNotStealable() { return HasAttribute(4, 0x40); }
+    bool isSpellForceProcTriggered() { return HasAttribute(4, 0x80); }
+    bool isSpellDamageNotAuraBreaking() { return HasAttribute(4, 04000); }
+    bool isSpellNotAvailableInArena() { return HasAttribute(4, 0x10000); }
+    bool isSpellAvailableInArena() { return HasAttribute(4, 0x20000); }
+    bool isDelayedSpellChainProcing() { return HasAttribute(4, 0x40000); }
+    bool isSelfCastIgnorantOfExistingRank() { return HasAttribute(4, 0x100000); }
+    bool isSpellCastableOnlyInOutlands() { return HasAttribute(4, 0x4000000); }
+    bool isAwareOfPreparation() { return HasAttribute(5, 0x02); }
+    bool isUsableWhileStunned() { return HasAttribute(5, 0x08); }
+    bool isSingleTargetSpell() { return HasAttribute(5, 0x20); }
+    bool isPeriodicAtApplication() { return HasAttribute(5, 0x200); }
+    bool isSpellDurationHidden() { return HasAttribute(5, 0x400); }
+    bool isTargetOfTargetCapable() { return HasAttribute(5, 0x800); }
+    bool isDurationAffectedByHaste() { return HasAttribute(5, 0x2000); }
+    bool reqSpecialItemClassCheck() { return HasAttribute(5, 0x10000); }
+    bool isAvailableWhileFeared() { return HasAttribute(5, 0x20000); }
+    bool isAvailableWhileConfused() { return HasAttribute(5, 0x40000); }
+    bool isSpellIgnorantOfcasterAuras() { return HasAttribute(6, 0x04); }
+    bool reqNonCrowdControlledTarget() { return HasAttribute(6, 0x100); }
+    bool reqCasterInNonRaidInstance() { return HasAttribute(6, 0x800); }
+    bool isCastableWhileMountedInVehicle() { return HasAttribute(6, 0x1000); }
+    bool isCastableOnInivsible() { return HasAttribute(6, 0x2000); }
+    bool isSpellCastedByCharmOwner() { return HasAttribute(6, 0x4000); }
+    bool isUntargettableTargetCapable() { return HasAttribute(6, 0x1000000); }
+    bool isIgnorantOfDamagePctMods() { return HasAttribute(6, 0x20000000); }
+    bool isSpellCheatSpell() { return HasAttribute(7, 0x08); }
+    bool isSpellIgnorantOfPushback() { return HasAttribute(7, 0x40); }
+    bool isSpellHordeRacesOnly() { return HasAttribute(7, 0x100); }
+    bool isSpellAllianceRacesOnly() { return HasAttribute(7, 0x200); }
+    bool isSpellChargeDispelling() { return HasAttribute(7, 0x400); }
+    bool isSpellIgnorantOfPeriodicTimer() { return HasAttribute(8, 0x200); }
+    bool isEffectAmountSentFromAura() { return HasAttribute(8, 0x1000); }
+    bool isMountAuraUsableInWater() { return HasAttribute(8, 0x8000); }
+    bool isSpellHealingSpell() { return HasAttribute(8, 0x1000000); }
+    bool isSpellMasterySpecializationBased() { return HasAttribute(8, 0x20000000); }
+    //Custom
+    bool isSpellStealthTargetCapable() { return HasCustomAttribute(0, 0x01); }
+    bool isSpellBackAttackCapable() { return HasCustomAttribute(0, 0x02); }
+    bool isSpellExpiringWithPet() { return HasCustomAttribute(0, 0x04); }
+    bool isSpellAppliedOnShapeshift() { return HasCustomAttribute(0, 0x08); }
+    bool isSpellCastOnPetOwnerOnSummon() { return HasCustomAttribute(0, 0x10); }
+    bool isSpellCastOnPetOnSummon() { return HasCustomAttribute(0, 0x20); }
+    bool isSpellSelfCastOnly() { return HasCustomAttribute(0, 0x40); }
+
+    bool isSpellDamagingEffect() { return HasCustomAttribute(1, 0x01); }
+    bool isSpellHealingEffect() { return HasCustomAttribute(1, 0x02); }
+    bool isSpellEnergizingEffect() { return HasCustomAttribute(1, 0x04); }
+    bool isSpellAreaOfEffect() { return HasCustomAttribute(1, 0x08); }
+    bool isSpellRangedSpell() { return HasCustomAttribute(1, 0x10); }
+    bool isSpellFinishingMove() { return HasCustomAttribute(1, 0x20); }
+    bool isSpellFlyingSpell() { return HasCustomAttribute(1, 0x40); }
+
+    // Custom attribute 3 is buff types
+    bool isSpellBuffType() { return HasCustomAttribute(2, 0x01); }
+    bool isSpellPoisonType() { return HasCustomAttribute(2, 0x02); }
+
+    // Mage buffs
+    bool isSpellMageArmorBuff() { return (SpellFamilyName == 3 && HasCustomAttribute(2, 0x0100)); }
+
+    // Warrior buffs
+
+    // Warlock buffs
+    bool isSpellWarlockArmorBuff() { return (SpellFamilyName == 5 && HasCustomAttribute(2, 0x0100)); }
+
+    // Priest buffs
+
+    // Druid buffs
+
+    // Rogue buffs
+
+    // Hunter buffs
+    bool isSpellAspectBuff() { return (SpellFamilyName == 9 && HasCustomAttribute(2, 0x0100)); }
+
+    // Paladin buffs
+    bool isSpellSealBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0100)); }
+    bool isSpellAuraBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0200)); }
+    bool isSpellBlessingBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0400)); }
+
+    // Shaman buffs
+
+    // Deathknight buffs
+
+    bool isSpellSameBuffType(SpellEntry *sp)
+    {
+        if(SpellFamilyName != sp->SpellFamilyName)
+            return false;
+        return ((CustomAttributes[2]&0xFF00) & (sp->CustomAttributes[2]&0xFF00));
+    }
+
+
+    // Combo
+    bool IsSpellAnyArmorBuffType() { return (isSpellMageArmorBuff() || isSpellWarlockArmorBuff()); }
+    bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }
+    bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
+    bool IsSpellWeaponSpell() { return (IsSpellMeleeSpell() || reqAmmoForSpell() || reqWandForSpell()); }
+
 };
 
 // SpellAuraOptions.dbc
@@ -904,7 +1045,7 @@ struct SpellDifficultyEntry
 struct SpellDuration
 {
     uint32 ID;
-    uint32 Duration1;
+    int32 Duration1;
     uint32 Duration2;
     uint32 Duration3;
 };

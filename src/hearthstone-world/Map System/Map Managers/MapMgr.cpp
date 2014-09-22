@@ -29,7 +29,6 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
     m_VehicleHighGuid = 0;
     m_DynamicObjectHighGuid=0;
     lastUnitUpdate = getMSTime();
-    lastDynamicUpdate = getMSTime();
     lastGameobjectUpdate = getMSTime();
     m_battleground = NULLBATTLEGROUND;
 
@@ -1635,14 +1634,41 @@ bool MapMgr::CanUseCollision(Object* obj)
 
 void MapMgr::_PerformObjectDuties()
 {
-    ++mLoopCounter;
-    uint32 mstime = getMSTime();
-    uint32 difftime = mstime - lastUnitUpdate;
-    if(difftime > 500)
-        difftime = 500;
+    uint32 mstime = getMSTime(); // Get our ms time
+    ++mLoopCounter; // Inc loop counter
+    // Calculate loop diff
+    uint32 diff = mstime - lastDutyUpdate;
+    if(diff > 500) diff = 500;
+    // Update duty timer
+    lastDutyUpdate = mstime;
+
+    // Update any events.
+    eventHolder.Update(diff);
+
+    // Update our collision system via singular map system
+    sVMapInterface.UpdateSingleMap(_mapId, m_instanceID, diff);
+
+    // Call our script's update function.
+    _script->Update(diff);
+
+    // Update players.
+    Player* ptr4;
+    __player_iterator = m_PlayerStorage.begin();
+    for(; __player_iterator != m_PlayerStorage.end();)
+    {
+        ptr4 = __player_iterator->second;
+        ++__player_iterator;
+
+        ptr4->Update( diff );
+    }
+
+    if(!SetThreadState(THREADSTATE_AWAITING))
+        return;
 
     // Update our objects.
+    if( (mLoopCounter % 2) == 0 )
     {
+        diff = mstime - lastUnitUpdate;
         ActiveLock.Acquire();
         if(activeCreatures.size())
         {
@@ -1653,7 +1679,7 @@ void MapMgr::_PerformObjectDuties()
                 ptr = *__creature_iterator;
                 ++__creature_iterator;
 
-                ptr->Update(difftime);
+                ptr->Update(diff);
             }
         }
 
@@ -1669,64 +1695,22 @@ void MapMgr::_PerformObjectDuties()
                 ptr3 = *__vehicle_iterator;
                 ++__vehicle_iterator;
 
-                ptr3->Update(difftime);
+                ptr3->Update(diff);
             }
         }
 
-        if(!SetThreadState(THREADSTATE_AWAITING))
-            return;
-
-        if(m_PetStorage.size())
-        {
-            Pet* ptr2;
-            __pet_iterator = m_PetStorage.begin();
-            for(; __pet_iterator != m_PetStorage.end();)
-            {
-                ptr2 = __pet_iterator->second;
-                ++__pet_iterator;
-
-                ptr2->Update(difftime);
-            }
-        }
         ActiveLock.Release();
+        lastUnitUpdate = mstime;
     }
 
-    // Update any events.
-    eventHolder.Update(difftime);
     if(!SetThreadState(THREADSTATE_AWAITING))
         return;
 
-    // Update our collision system via singular map system
-    sVMapInterface.UpdateSingleMap(_mapId, m_instanceID, difftime);
-    if(!SetThreadState(THREADSTATE_AWAITING))
-        return;
-
-    // Call our script's update function.
-    _script->Update(difftime);
-    if(!SetThreadState(THREADSTATE_AWAITING))
-        return;
-
-    // Update players.
-    Player* ptr4;
-    __player_iterator = m_PlayerStorage.begin();
-    for(; __player_iterator != m_PlayerStorage.end();)
+    // Update gameobjects every 4 ticks(planned 200ms)
+    if( (mLoopCounter % 4) == 0 )
     {
-        ptr4 = __player_iterator->second;
-        ++__player_iterator;
-        if(GetThreadState() == THREADSTATE_TERMINATE)
-            return;
-
-        ptr4->Update( difftime );
-    }
-
-    lastUnitUpdate = mstime;
-    if(!SetThreadState(THREADSTATE_AWAITING))
-        return;
-
-    // Update gameobjects (every 2nd tick only).
-    if( mLoopCounter % 2 )
-    {
-        difftime = mstime - lastGameobjectUpdate;
+        diff = mstime - lastGameobjectUpdate;
+        ActiveLock.Acquire();
 
         GameObject* ptr5;
         __gameobject_iterator = activeGameObjects.begin();
@@ -1735,14 +1719,10 @@ void MapMgr::_PerformObjectDuties()
             ptr5 = *__gameobject_iterator;
             ++__gameobject_iterator;
 
-            ptr5->Update( difftime );
+            ptr5->Update( diff );
         }
-        lastGameobjectUpdate = mstime;
+        ActiveLock.Release();
 
-        if(!SetThreadState(THREADSTATE_AWAITING))
-            return;
-
-        difftime = mstime - lastDynamicUpdate;
         DynamicObject* ptr6;
         DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.begin();
         for(; itr != m_DynamicObjectStorage.end(); )
@@ -1750,9 +1730,9 @@ void MapMgr::_PerformObjectDuties()
             ptr6 = itr->second;
             ++itr;
 
-            ptr6->UpdateTargets( difftime );
+            ptr6->UpdateTargets( diff );
         }
-        lastDynamicUpdate = mstime;
+        lastGameobjectUpdate = mstime;
     }
 
     if(!SetThreadState(THREADSTATE_AWAITING))
@@ -1793,6 +1773,9 @@ void MapMgr::_PerformObjectDuties()
             }
         }
     }
+
+    if(!SetThreadState(THREADSTATE_AWAITING))
+        return;
 
     // Finally, A9 Building/Distribution
     _UpdateObjects();

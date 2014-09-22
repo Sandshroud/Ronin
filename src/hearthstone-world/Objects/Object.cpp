@@ -2028,14 +2028,6 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         {
             if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapMgr->m_battleground && m_mapMgr->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
                 TO_ALTERACVALLEY(m_mapMgr->m_battleground)->HookOnUnitKill( TO_PLAYER(this), pVictim );
-            SpellEntry *killerspell;
-            if( spellId )
-                killerspell = dbcSpell.LookupEntry( spellId );
-            else
-                killerspell = NULL;
-
-            pVictim->HandleProc( NULL, PROC_ON_DIE, TO_UNIT(this), killerspell );
-            TO_UNIT(this)->HandleProc( PROC_ON_TARGET_DIE, NULL, pVictim, killerspell );
         }
 
         // check if pets owner is combat participant
@@ -2472,38 +2464,8 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 //==========================================================================================
     uint32 school = spellInfo->School;
     float res = float(damage);
-    uint32 aproc = PROC_ON_ANY_HOSTILE_ACTION;
-    uint32 aproc2 = NULL;
-    uint32 vproc = PROC_ON_ANY_HOSTILE_ACTION | PROC_ON_ANY_DAMAGE_VICTIM;
-    uint32 vproc2 = NULL;
     bool critical = false;
-    float dmg_reduction_pct;
-
-    float res_after_spelldmg;
-
-    Unit* caster = NULLUNIT;
-    if( IsUnit() )
-        caster = TO_UNIT(this);
-
-    //A school damage is not necessarily magic
-    switch( spellInfo->Spell_Dmg_Type )
-    {
-    case SPELL_DMG_TYPE_RANGED:
-        {
-            aproc |= PROC_ON_RANGED_ATTACK;
-            vproc |= PROC_ON_RANGED_ATTACK_VICTIM;
-        }break;
-    case SPELL_DMG_TYPE_MELEE:
-        {
-            aproc |= PROC_ON_MELEE_ATTACK;
-            vproc |= PROC_ON_MELEE_ATTACK_VICTIM;
-        }break;
-    case SPELL_DMG_TYPE_MAGIC:
-        {
-            aproc |= PROC_ON_SPELL_LAND;
-            vproc |= PROC_ON_SPELL_HIT_VICTIM;
-        }break;
-    }
+    Unit* caster = IsUnit() ? TO_UNIT(this) : NULLUNIT;
 
 //==========================================================================================
 //==============================+Spell Damage Bonus Calculations============================
@@ -2513,7 +2475,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     {
         caster->m_AuraInterface.RemoveAllAurasByInterruptFlag( AURA_INTERRUPT_ON_START_ATTACK );
 
-        res = caster->GetSpellBonusDamage( pVictim, spellInfo, ( int )res, false );
+        res = caster->GetSpellBonusDamage( pVictim, spellInfo, 0, ( int )res, false );
 
         // Aura 271 - Mods Damage for particular casters spells
         Unit::DamageTakenPctModPerCasterType::iterator it = pVictim->DamageTakenPctModPerCaster.find(GetGUID());
@@ -2528,35 +2490,25 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
             it++;
         }
 
-        res_after_spelldmg = res;
 //==========================================================================================
 //==============================Post +SpellDamage Bonus Modifications=======================
 //==========================================================================================
         if( res < 0 )
             res = 0;
-        else if( spellInfo->spell_can_crit == true )
+        else if( !spellInfo->isUncrittableSpell() )
         {
 //------------------------------critical strike chance--------------------------------------
             // lol ranged spells were using spell crit chance
             float CritChance;
-            if( spellInfo->is_ranged_spell || spellInfo->is_melee_spell )
+            if( spellInfo->IsSpellWeaponSpell() )
             {
-
-                if( IsPlayer() )
-                {
-                    CritChance = GetFloatValue( PLAYER_RANGED_CRIT_PERCENTAGE );
-                    if( pVictim->IsPlayer() )
-                        CritChance += TO_PLAYER(pVictim)->res_R_crit_get();
-
-                    CritChance += (float)(pVictim->AttackerCritChanceMod[spellInfo->School]);
-                }
-                else
-                    CritChance = 5.0f; // static value for mobs.. not blizzlike, but an unfinished formula is not fatal :)
-
+                CritChance = GetFloatValue( PLAYER_RANGED_CRIT_PERCENTAGE );
+                if( pVictim->IsPlayer() )
+                    CritChance += TO_PLAYER(pVictim)->res_R_crit_get();
+                CritChance += float(pVictim->AttackerCritChanceMod[spellInfo->School]);
                 CritChance += AdditionalCritChance;
                 CritChance -= pVictim->IsPlayer() ? TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
-                if( spellInfo->is_melee_spell )
-                    CritChance += (float)(pVictim->AttackerCritChanceMod[0]);
+                if( spellInfo->IsSpellMeleeSpell() ) CritChance += (float)(pVictim->AttackerCritChanceMod[0]);
             }
             else
             {
@@ -2571,24 +2523,16 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
                 }
 
                 CritChance += AdditionalCritChance;
-                if( pVictim->IsPlayer() )
-                    CritChance -= TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE );
+                CritChance -= pVictim->IsPlayer() ? TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
             }
-            if( CritChance < 0 )
-                CritChance = 0;
-            if( CritChance > 95 )
-                CritChance = 95;
-            critical = Rand(CritChance);
 
-            //sLog.outString( "SpellNonMeleeDamageLog: Crit Chance %f%%, WasCrit = %s" , CritChance , critical ? "Yes" : "No" );
-            Aura* fs = NULLAURA;
-            fs = spellInfo->NameHash == SPELL_HASH_LAVA_BURST ? pVictim->m_AuraInterface.FindNegativeAuraByNameHash(SPELL_HASH_FLAME_SHOCK): NULL;
-            if( fs != NULL)
+            if( CritChance > 0.f )
             {
-                critical = true;
-                if(caster && !caster->HasAura(55447))   // Glyph of Flame Shock
-                    pVictim->RemoveAura(fs);
+                if( CritChance > 95.f )
+                    CritChance = 95.f;
+                critical = Rand(CritChance);
             }
+
 //==========================================================================================
 //==============================Spell Critical Hit==========================================
 //==========================================================================================
@@ -2602,16 +2546,14 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
                 {
                     // the bonuses are halved by 50% (funky blizzard math :S)
                     float b;
-                    if( spellInfo->School == 0 || spellInfo->is_melee_spell || spellInfo->is_ranged_spell )     // physical || hackfix SoCommand/JoCommand
+                    if( spellInfo->School == 0 || spellInfo->IsSpellWeaponSpell() )     // physical || hackfix SoCommand/JoCommand
                         b = ( ( float(critical_bonus) ) / 100.0f ) + 1.0f;
-                    else
-                        b = ( ( float(critical_bonus) / 2.0f ) / 100.0f ) + 1.0f;
-
+                    else b = ( ( float(critical_bonus) / 2.0f ) / 100.0f ) + 1.0f;
                     res *= b;
 
                     if( pVictim->IsPlayer() )
                     {
-                        dmg_reduction_pct = 2.2f * TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
+                        float dmg_reduction_pct = 2.2f * TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
                         if( dmg_reduction_pct > 0.33f )
                             dmg_reduction_pct = 0.33f; // 3.0.3
 
@@ -2620,58 +2562,21 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
                 }
 
                 pVictim->Emote( EMOTE_ONESHOT_WOUNDCRITICAL );
-                aproc2 |= PROC_ON_SPELL_CRIT_HIT;
-                vproc |= PROC_ON_SPELL_CRIT_HIT_VICTIM;
             }
         }
     }
 //==========================================================================================
 //==============================Post Roll Calculations======================================
 //==========================================================================================
-    // Special cases
-    if (caster)
-    {
-        if( aproc2 & PROC_ON_SPELL_CRIT_HIT && caster->HasDummyAura(SPELL_HASH_ECLIPSE))
-        {
-            if( caster->m_CustomTimers[CUSTOM_TIMER_ECLIPSE] <= getMSTime() )
-            {
-                caster->m_CustomTimers[CUSTOM_TIMER_ECLIPSE] = getMSTime() + MSTIME_SECOND*30;
-                if( spellInfo->NameHash == SPELL_HASH_STARFIRE )
-                {
-                    caster->CastSpell( caster, 48517, true );
-                }else if( spellInfo->NameHash == SPELL_HASH_WRATH )
-                {
-                    caster->CastSpell( caster, 48518, true );
-                }
-            }
-        }
-    }
 
 //------------------------------absorption--------------------------------------------------
-    uint32 ress = (uint32)res;
-    uint32 abs_dmg = pVictim->AbsorbDamage(this, school, &ress, dbcSpell.LookupEntry(spellID));
-    uint32 ms_abs_dmg= pVictim->ManaShieldAbsorb(ress, dbcSpell.LookupEntry(spellID));
-    if (ms_abs_dmg)
-    {
-        if(ms_abs_dmg > ress)
-            ress = 0;
-        else
-            ress -= ms_abs_dmg;
+    uint32 abs_dmg = pVictim->AbsorbDamage(this, school, float2int32(floor(res)), dbcSpell.LookupEntry(spellID));
+    res -= abs_dmg; if(res < 1.0f) res = 0.f;
 
-        abs_dmg += ms_abs_dmg;
-    }
-
-    if(ress < 0)
-        ress = 0;
-
-    res = (float)ress;
     dealdamage dmg;
     dmg.school_type = school;
-    dmg.full_damage = ress;
-    dmg.resisted_damage = 0;
-
-    if(res <= 0)
-        dmg.resisted_damage = dmg.full_damage;
+    dmg.full_damage = res;
+    dmg.resisted_damage = abs_dmg;
 
     //------------------------------resistance reducing-----------------------------------------
     if(res > 0 && IsUnit())
@@ -2679,8 +2584,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
         TO_UNIT(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
         if((int32)dmg.resisted_damage >= dmg.full_damage)
             res = 0;
-        else
-            res = float(dmg.full_damage - dmg.resisted_damage);
+        else res = float(dmg.full_damage - dmg.resisted_damage);
     }
     //------------------------------special states----------------------------------------------
     if(pVictim->bInvincible == true)
@@ -2711,12 +2615,6 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
             TO_UNIT(this)->CombatStatus.OnDamageDealt(pVictim, 1);
     }
 
-    if( IsUnit() && allowProc && spellInfo->Id != 25501 )
-    {
-        pVictim->HandleProc( vproc, vproc2, TO_UNIT(this), spellInfo, float2int32( res ) );
-        TO_UNIT(this)->HandleProc( aproc, aproc2, pVictim, spellInfo, float2int32( res ) );
-    }
-
     if( IsPlayer() )
         TO_PLAYER(this)->m_casted_amount[school] = ( uint32 )res;
 
@@ -2730,29 +2628,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 //==========================================================================================
 //==============================Post Damage Processing======================================
 //==========================================================================================
-    if( caster && (int32)dmg.resisted_damage == dmg.full_damage && !abs_dmg )
-        caster->HandleProc(NULL, PROC_ON_FULL_RESIST, pVictim, spellInfo);
 
-    if( school == SHADOW_DAMAGE )
-    {
-        if( pVictim->isAlive() && IsUnit() )
-        {
-            //Shadow Word: Death
-            if( spellID == 32379 || spellID == 32996 || spellID == 48157 || spellID == 48158 )
-            {
-                uint32 damage = (uint32)( res + abs_dmg );
-
-                if( TO_UNIT( this )->HasDummyAura(SPELL_HASH_PAIN_AND_SUFFERING) )
-                    damage += float2int32(damage * ((TO_UNIT( this )->GetDummyAura(SPELL_HASH_PAIN_AND_SUFFERING)->EffectBasePoints[1]+1) / 100.0f));
-
-                uint32 absorbed = TO_UNIT(this)->AbsorbDamage(this, school, &damage, dbcSpell.LookupEntry(spellID) );
-                DealDamage( TO_UNIT(this), damage, 2, 0, spellID );
-                SendSpellNonMeleeDamageLog( this, TO_UNIT(this), spellID, damage, school, absorbed, 0, false, 0, false, IsPlayer() );
-            }
-            else if( spellInfo->NameHash == SPELL_HASH_HAUNT )
-                caster->m_lastHauntInitialDamage = res;
-        }
-    }
     return res;
 }
 
@@ -2782,9 +2658,8 @@ void Object::SendSpellNonMeleeDamageLog( Object* Caster, Unit* Target, uint32 Sp
     SpellEntry *sp = dbcSpell.LookupEntry(SpellID);
     if( !sp )
         return;
-    SpellID = sp->logsId ? sp->logsId : sp->Id;
-    uint32 overkill = Target->computeOverkill(Damage);
 
+    uint32 overkill = Target->computeOverkill(Damage);
     uint32 Hit_flags = (0x00001|0x00004|0x00020);
     if(CriticalHit)
         Hit_flags |= 0x00002;

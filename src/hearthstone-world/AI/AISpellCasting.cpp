@@ -28,31 +28,16 @@ void AIInterface::CancelSpellCast()
 void AIInterface::addSpellToList(AI_Spell *sp)
 {
     ASSERT(m_Unit != NULL);
-    if(sp->info == NULL)
-        return;
-    if(sp->info->Id == 0)
+    if(sp->info == NULL || sp->info->Id == 0)
         return;
 
     AI_Spell* nSP = new AI_Spell(sp, sp->cooldown, sp->procCounter);
-    if(nSP->info->buffType)
-        if(nSP->TargetType != TargetGen_SummonOwner)
-            nSP->TargetType = TargetGen_Self;
-    if(nSP->casttime == 0)
-        nSP->casttime = GetDBCCastTime(dbcSpellCastTime.LookupEntry( nSP->info->CastingTimeIndex ));
-    if(nSP->maxdist2cast == 0.0f)
-    {
-        nSP->maxdist2cast = GetDBCMaxRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
-        if( nSP->maxdist2cast < sqrt( nSP->info->base_range_or_radius_sqr ) )
-            nSP->maxdist2cast = sqrt( nSP->info->base_range_or_radius_sqr );
-    }
-    if(nSP->mindist2cast == 0.0f)
-        nSP->mindist2cast = GetDBCMinRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
-    if(nSP->cooldown == 0)
-        nSP->cooldown = nSP->info->StartRecoveryTime; //avoid spell spamming
-    if(nSP->cooldown == 0)
-        nSP->cooldown = nSP->info->StartRecoveryCategory; //still 0 ?
-    if(nSP->cooldown == 0)
-        nSP->cooldown = 4000; //omg, avoid spamming at least
+    if(nSP->casttime == 0) nSP->casttime = GetDBCCastTime(dbcSpellCastTime.LookupEntry( nSP->info->CastingTimeIndex ));
+    if(nSP->maxdist2cast == 0.0f) nSP->maxdist2cast = GetDBCMaxRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
+    if(nSP->mindist2cast == 0.0f) nSP->mindist2cast = GetDBCMinRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
+    if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryTime; //avoid spell spamming
+    if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryCategory; //still 0 ?
+    if(nSP->cooldown == 0) nSP->cooldown = 4000; //omg, avoid spamming at least
     m_spells.insert(make_pair(nSP->info->Id, nSP));
 }
 
@@ -119,7 +104,7 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     if(toCast->ProcLimit)
         toCast->procCounter++;
 
-    if(toCast->info->IsChannelSpell())
+    if(toCast->info->IsSpellChannelSpell())
     {
         m_CastTimer = 1000;
         int32 duration = GetSpellInfoDuration(toCast->info, m_Unit, Target);

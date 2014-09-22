@@ -55,7 +55,7 @@ public:
     ************ Info ************
     ******************************/
     uint32 GetSpellIdFromAuraSlot(uint32 slot);
-    AuraCheckResponse AuraCheck(SpellEntry *info);
+    AuraCheckResponse AuraCheck(SpellEntry *info, uint64 casterGuid);
     uint32 GetAuraSpellIDWithNameHash(uint32 name_hash);
 
     bool HasAura(uint32 spellid);
@@ -69,7 +69,6 @@ public:
     bool HasNegativeAuraWithNameHash(uint32 name_hash); //just to reduce search range in some cases
     bool HasCombatStatusAffectingAuras(uint64 checkGuid);
     bool HasAurasOfNameHashWithCaster(uint32 namehash, uint64 casterguid);
-    bool HasAurasOfBuffType(uint32 buff_type, const uint64 &guid,uint32 skip);
 
     /*****************************
     ************ Add *************
@@ -101,12 +100,12 @@ public:
     void RemoveAllExpiringAuras();
     void RemoveAllNegativeAuras();
     void RemoveAllNonPassiveAuras();
+    void RemoveAllAurasExpiringWithPet();
     void RemoveAllAreaAuras(uint64 skipguid);
     bool RemoveAllAurasFromGUID(uint64 guid); //remove if they come from the same caster.
     void RemoveAllAurasOfType(uint32 auratype);//ex:to remove morph spells
     bool RemoveAllPosAurasFromGUID(uint64 guid); //remove if they come from the same caster.
     bool RemoveAllNegAurasFromGUID(uint64 guid); //remove if they come from the same caster.
-    void RemoveAllAurasByCIsFlag(uint32 c_is_flag);
     void RemoveAllAurasByInterruptFlag(uint32 flag);
     void RemoveAllAurasWithAuraName(uint32 auraName);
     void RemoveAllAurasWithSpEffect(uint32 EffectId);
@@ -114,12 +113,10 @@ public:
     bool RemoveAllNegAurasByNameHash(uint32 namehash);//required to remove weaker instances of a spell
     bool RemoveAllAuras(uint32 spellId, uint64 guid = 0); //remove stacked auras but only if they come from the same caster. Shaman purge If GUID = 0 then removes all auras with this spellid
     void RemoveAllAurasWithDispelType(uint32 DispelType);
-    void RemoveAllAurasWithAttributes(uint32 attributeFlag);
+    void RemoveAllAurasWithAttributes(uint8 index, uint32 attributeFlag);
     bool RemoveAllAurasByNameHash(uint32 namehash, bool passive);//required to remove weaker instances of a spell
     void RemoveAllAurasByInterruptFlagButSkip(uint32 flag, uint32 skip);
     void RemoveAllAurasOfSchool(uint32 School, bool Positive, bool Immune);
-    void RemoveAllAurasByBuffIndexType(uint32 buff_index_type, const uint64 &guid);
-    void RemoveAllAurasByBuffType(uint32 buff_type, const uint64 &guid,uint32 skip);
     uint32 GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily, uint32 SkillLine);
     bool RemoveAllAurasByMechanic( uint32 MechanicType, int32 MaxDispel = -1, bool HostileOnly = true ); // Removes all (de)buffs on unit of a specific mechanic type.
 
@@ -137,7 +134,7 @@ public:
 
 private:
     Unit* m_Unit;
-    map<uint32, Aura*> m_auras;
+    map<uint8, Aura*> m_auras;
 
     /*******************
     **** Modifiers
@@ -169,6 +166,7 @@ public:
     typedef std::map<uint32, modifierMap > modifierTypeMap;
 
     modifierMap GetModMapByModType(uint32 modType) { return m_modifiersByModType[modType]; }
+    bool HasAurasWithModType(uint32 modType) { return m_modifiersByModType[modType].size(); }
 
     // Update Mask
     UpdateMask &getModMask() { return m_modifierMask; }

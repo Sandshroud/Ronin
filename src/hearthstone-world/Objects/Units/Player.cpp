@@ -284,8 +284,6 @@ void Player::Init()
     m_modphyscritdmgPCT             = 0;
     m_RootedCritChanceBonus         = 0;
     m_Illumination_amount           = 0;
-    m_ModInterrMRegenPCT            = 0;
-    m_ModInterrMRegen               = 0;
     m_rap_mod_pct                   = 0;
     m_modblockabsorbvalue           = 0;
     m_modblockvaluefromspells       = 0;
@@ -304,7 +302,6 @@ void Player::Init()
     m_speedChangeCounter            = 1;
     memset(&m_bgScore,0,sizeof(BGScore));
     m_arenaPoints                   = 0;
-    memset(&m_spellIndexTypeTargets, 0, sizeof(uint64)*NUM_SPELL_TYPE_INDEX);
     m_base_runSpeed                 = m_runSpeed;
     m_base_walkSpeed                = m_walkSpeed;
     m_arenateaminviteguid           = 0;
@@ -338,7 +335,6 @@ void Player::Init()
     m_mageInvisibility          = false;
     mAvengingWrath              = true;
     m_bgFlagIneligible          = 0;
-    m_moltenFuryDamageIncreasePct = 0;
     m_insigniaTaken             = true;
     m_BeastMaster               = false;
 
@@ -348,7 +344,7 @@ void Player::Init()
     m_finishedDailyQuests.clear();
     quest_spells.clear();
     quest_mobs.clear();
-    loginauras.clear();
+    m_loginAuras.clear();
     OnMeleeAuras.clear();
     m_Pets.clear();
     m_itemsets.clear();
@@ -482,7 +478,7 @@ void Player::Destruct()
     m_finishedQuests.clear();
     quest_spells.clear();
     quest_mobs.clear();
-    loginauras.clear();
+    m_loginAuras.clear();
     OnMeleeAuras.clear();
 
     for(std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin(); itr != m_Pets.end(); itr++)
@@ -960,9 +956,9 @@ void Player::Update( uint32 p_time )
         }
     }
 
-    if (GetMapMgr())
+    if (IsInWorld() && GetMapMgr()->CanUseCollision(this))
     {
-        if( GetMapMgr()->CanUseCollision(this) && mstime >= m_mountCheckTimer )
+        if( mstime >= m_mountCheckTimer )
         {
             if( sVMapInterface.IsIndoor( m_mapId, m_position.x, m_position.y, m_position.z ) )
             {
@@ -975,7 +971,7 @@ void Player::Update( uint32 p_time )
                 }
 
                 // Now remove all auras that are only usable outdoors (e.g. Travel form)
-                m_AuraInterface.RemoveAllAurasWithAttributes(ATTRIBUTES_ONLY_OUTDOORS);
+                m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
             }
             m_mountCheckTimer = mstime + COLLISION_MOUNT_CHECK_INTERVAL;
         }
@@ -1535,7 +1531,7 @@ void Player::_EventAttack( bool offhand )
 {
     if (m_currentSpell)
     {
-        if(m_currentSpell->GetSpellProto()->IsChannelSpell()) // this is a channeled spell - ignore the attack event
+        if(m_currentSpell->GetSpellProto()->IsSpellChannelSpell()) // this is a channeled spell - ignore the attack event
             return;
 
         m_currentSpell->cancel();
@@ -1912,8 +1908,6 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
 
     // Set the update bit
     SetUInt32Value(PLAYER_XP, newxp);
-
-    HandleProc(PROC_ON_GAIN_EXPIERIENCE, NULL, TO_PLAYER(this), NULL);
 }
 
 void Player::smsg_InitialSpells()
@@ -3517,17 +3511,18 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         if(!end)
             break;
         *end=0;
-        LoginAura la;
-        la.id = atol(start);
+        LoginAura *la = new LoginAura();
+        la->id = atol(start);
         start = end +1;
         end = strchr(start,',');
         if(!end)
             break;
         *end=0;
-        la.dur = atol(start);
+        la->dur = atol(start);
         start = end +1;
-        if(la.id != 43869 && la.id != 43958)
-            loginauras.push_back(la);
+        if(la->id == 43869 || la->id == 43958)
+            delete la;
+        else m_loginAuras.push_back(la);
     } while(true);
 
     // Load saved finished quests
@@ -3739,7 +3734,7 @@ bool Player::HasHigherSpellForSkillLine(SpellEntry* sp)
         if(HasSpell(9634))
             return true; // We should only have 1 bear form.
 
-    uint32 oskillline = sp->skilline;
+    uint32 oskillline = sp->SpellSkillLine;
     if(oskillline == 0)
         return false;
 
@@ -3759,10 +3754,9 @@ bool Player::HasHigherSpellForSkillLine(SpellEntry* sp)
     {
         for(itr = mSpells.begin(); itr != mSpells.end(); itr++)
         {
-            spell = NULL;
             if((spell = dbcSpell.LookupEntry(*itr)) != NULL)
             {
-                if(spell->skilline == oskillline)
+                if(spell->SpellSkillLine == oskillline)
                     if(spell->RankNumber > sp->RankNumber)
                         return true;
             }
@@ -4530,7 +4524,6 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
 
         for( int8 k = 0; k < 5; k++ )
         {
-            // stupid fucked dbs
             if( item->GetProto()->Spells[k].Id == 0 )
                 continue;
 
@@ -4545,8 +4538,7 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
                         continue;
                     }
 
-                    Spell* spell = NULLSPELL;
-                    spell = (new Spell( TO_PLAYER(this), spells ,true, NULLAURA ));
+                    Spell* spell = new Spell( TO_PLAYER(this), spells ,true, NULLAURA );
                     SpellCastTargets targets;
                     targets.m_unitTarget = GetGUID();
                     spell->castedItemId = item->GetEntry();
@@ -4555,21 +4547,7 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
             }
             else if( item->GetProto()->Spells[k].Trigger == CHANCE_ON_HIT )
             {
-                ProcTriggerSpell ts;
-                memset(&ts, 0, sizeof(ProcTriggerSpell));
-                ts.origId = 0;
-                ts.spellId = item->GetProto()->Spells[k].Id;
-                ts.procChance = 5;
-                ts.caster = GetGUID();
-                ts.procFlags = PROC_ON_MELEE_ATTACK;
-                if(slot == EQUIPMENT_SLOT_MAINHAND)
-                    ts.weapon_damage_type = 1; // Proc only on main hand attacks
-                else if(slot == EQUIPMENT_SLOT_OFFHAND)
-                    ts.weapon_damage_type = 2; // Proc only on off hand attacks
-                else
-                    ts.weapon_damage_type = 0; // Doesn't depend on weapon
-                ts.deleted = false;
-                m_procSpells.push_front( ts );
+                // Todo:PROC
             }
         }
     }
@@ -4592,20 +4570,7 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
             }
             else if( item->GetProto()->Spells[k].Trigger == CHANCE_ON_HIT )
             {
-                std::list<struct ProcTriggerSpell>::iterator i;
-                // Debug: i changed this a bit the if was not indented to the for
-                // so it just set last one to deleted looks like unintended behaviour
-                // because you can just use end()-1 to remove last so i put the if
-                // into the for
-                for( i = m_procSpells.begin(); i != m_procSpells.end(); i++ )
-                {
-                    if( (*i).spellId == item->GetProto()->Spells[k].Id && !(*i).deleted )
-                    {
-                        //m_procSpells.erase(i);
-                        i->deleted = true;
-                        break;
-                    }
-                }
+                // Todo:PROC
             }
         }
     }
@@ -5857,13 +5822,6 @@ void Player::OnRemoveInRangeObject(Object* pObj)
             m_Summon->ClearPetOwner();
             m_Summon = NULLPET;
         }
-    }
-
-    if(pObj->IsUnit())
-    {
-        for(uint32 x = 0; x < NUM_SPELL_TYPE_INDEX; ++x)
-            if(m_spellIndexTypeTargets[x] == pObj->GetGUID())
-                m_spellIndexTypeTargets[x] = 0;
     }
 
     if( pObj == DuelingWith )
@@ -8529,7 +8487,7 @@ void Player::CompleteLoading()
     for(SpellSet::iterator itr = mSpells.begin(); itr != mSpells.end(); itr++)
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
-        if( info  && (info->Attributes & ATTRIBUTES_PASSIVE) && !( info->c_is_flags & SPELL_FLAG_IS_EXPIREING_WITH_PET ))
+        if( info  && info->isPassiveSpell() && !( info->isSpellExpiringWithPet() ))
         {
             if( info->RequiredShapeShift )
             {
@@ -8546,34 +8504,33 @@ void Player::CompleteLoading()
 
     if(!isDead())//only add aura's to the living (death aura set elsewhere)
     {
-        std::list<LoginAura>::iterator i,i2;
-        for(i = loginauras.begin(); i != loginauras.end();)
+        for(std::list<LoginAura*>::iterator i = m_loginAuras.begin(); i != m_loginAuras.end();)
         {
-            i2 = i;
-            ++i;
+            LoginAura *lAura = *i;
+            i = m_loginAuras.erase(i);
 
             // this stuff REALLY needs to be fixed - Burlex
-            SpellEntry* sp = dbcSpell.LookupEntry((*i2).id);
+            SpellEntry* sp = dbcSpell.LookupEntry(lAura->id);
 
             //do not load auras that only exist while pet exist. We should recast these when pet is created anyway
-            if ( sp->c_is_flags & SPELL_FLAG_IS_EXPIREING_WITH_PET )
+            if ( sp->isSpellExpiringWithPet() )
                 continue;
 
-            Aura* a = new Aura(sp, (*i2).dur, TO_OBJECT(this),TO_UNIT(this));
+            Aura* a = new Aura(sp, lAura->dur, TO_OBJECT(this),TO_UNIT(this));
             for(uint32 x = 0; x < 3; x++)
             {
                 if(sp->Effect[x] == SPELL_EFFECT_APPLY_AURA)
                     a->AddMod(sp->EffectApplyAuraName[x], sp->EffectBasePoints[x]+1, sp->EffectMiscValue[x], sp->EffectMiscValueB[x], x);
             }
             AddAura(a);
-            loginauras.erase(i2);
+            delete lAura;
         }
-        loginauras.clear();
 
         // warrior has to have battle stance
         if( getClass() == WARRIOR && !HasAura(2457))
             CastSpell(TO_UNIT(this), dbcSpell.LookupEntry(2457), true);
     }
+    m_loginAuras.clear();
     // this needs to be after the cast of passive spells, because it will cast ghost form, after the remove making it in ghost alive, if no corpse.
 
     // Update our field values
@@ -8750,11 +8707,11 @@ void Player::SetShapeShift(uint8 ss)
         sp = dbcSpell.LookupEntry( *itr );
         if( sp == NULL)
             continue;
-        if( sp->apply_on_shapeshift_change || sp->Attributes & ATTRIBUTES_PASSIVE )     // passive/talent
+        if( sp->isSpellAppliedOnShapeshift() || sp->isPassiveSpell() )     // passive/talent
         {
             if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
             {
-                spe = (new Spell( this, sp, true, NULLAURA ));
+                spe = new Spell( this, sp, true, NULLAURA );
                 spe->prepare( &t );
             }
         }
@@ -9584,28 +9541,6 @@ void Player::_ModifySkillMaximum(uint32 SkillLine, uint32 NewMax)
     }
 }
 
-void Player::RemoveSpellTargets(uint32 Type)
-{
-    if(m_spellIndexTypeTargets[Type] != 0)
-    {
-        Unit* pUnit = m_mapMgr ? m_mapMgr->GetUnit(m_spellIndexTypeTargets[Type]) : NULLUNIT;
-        if(pUnit)
-            pUnit->m_AuraInterface.RemoveAllAurasByBuffIndexType(Type, GetGUID());
-
-        m_spellIndexTypeTargets[Type] = 0;
-    }
-}
-
-void Player::RemoveSpellIndexReferences(uint32 Type)
-{
-    m_spellIndexTypeTargets[Type] = 0;
-}
-
-void Player::SetSpellTargetType(uint32 Type, Unit* target)
-{
-    m_spellIndexTypeTargets[Type] = target->GetGUID();
-}
-
 void Player::RecalculateHonor()
 {
     HonorHandler::RecalculateHonorFields(TO_PLAYER(this));
@@ -9723,26 +9658,24 @@ void Player::EventSummonPet( Pet* new_pet )
         it = iter++;
         uint32 SpellID = *it;
         SpellEntry *spellInfo = dbcSpell.LookupEntry(SpellID);
-        if( spellInfo->c_is_flags & SPELL_FLAG_IS_CASTED_ON_PET_SUMMON_PET_OWNER )
+        if( spellInfo->isSpellCastOnPetOwnerOnSummon() )
         {
             m_AuraInterface.RemoveAllAuras( SpellID, GetGUID() ); //this is required since unit::addaura does not check for talent stacking
             SpellCastTargets targets( GetGUID() );
-            Spell* spell = NULLSPELL;
-            spell = (new Spell(TO_PLAYER(this), spellInfo ,true, NULLAURA));    //we cast it as a proc spell, maybe we should not !
+            Spell* spell = new Spell(TO_PLAYER(this), spellInfo ,true, NULLAURA);    //we cast it as a proc spell, maybe we should not !
             spell->prepare(&targets);
         }
-        if( spellInfo->c_is_flags & SPELL_FLAG_IS_CASTED_ON_PET_SUMMON_ON_PET )
+        if( spellInfo->isSpellCastOnPetOnSummon() )
         {
             m_AuraInterface.RemoveAllAuras( SpellID, GetGUID() ); //this is required since unit::addaura does not check for talent stacking
             SpellCastTargets targets( new_pet->GetGUID() );
-            Spell* spell = NULLSPELL;
-            spell = (new Spell(TO_PLAYER(this), spellInfo ,true, NULLAURA));    //we cast it as a proc spell, maybe we should not !
+            Spell* spell = new Spell(TO_PLAYER(this), spellInfo ,true, NULLAURA);    //we cast it as a proc spell, maybe we should not !
             spell->prepare(&targets);
         }
     }
 
     //there are talents that stop working after you gain pet
-    m_AuraInterface.RemoveAllAurasByCIsFlag(SPELL_FLAG_IS_EXPIREING_ON_PET);
+    m_AuraInterface.RemoveAllAurasExpiringWithPet();
 
     //pet should inherit some of the talents from caster
     //new_pet->InheritSMMods(); //not required yet. We cast full spell to have visual effect too
@@ -9752,7 +9685,7 @@ void Player::EventSummonPet( Pet* new_pet )
 //!! note function might get called multiple times :P
 void Player::EventDismissPet()
 {
-    m_AuraInterface.RemoveAllAurasByCIsFlag(SPELL_FLAG_IS_EXPIREING_ON_PET);
+    m_AuraInterface.RemoveAllAurasExpiringWithPet();
 }
 
 void Player::AddShapeShiftSpell(uint32 id)
@@ -9762,8 +9695,7 @@ void Player::AddShapeShiftSpell(uint32 id)
 
     if( sp->RequiredShapeShift && ((uint32)1 << (GetShapeShift()-1)) & sp->RequiredShapeShift )
     {
-        Spell* spe = NULLSPELL;
-        spe = (new Spell( TO_PLAYER(this), sp, true, NULLAURA ));
+        Spell* spe = new Spell( TO_PLAYER(this), sp, true, NULLAURA );
         SpellCastTargets t(GetGUID());
         spe->prepare( &t );
     }
@@ -11193,203 +11125,178 @@ uint32 Player::GenerateShapeshiftModelId(uint32 form)
 {
     switch(form)
     {
-        case FORM_CAT:
-            // Based on Hair color
-            if (getRace() == RACE_NIGHTELF)
+    case FORM_CAT:
+        {
+            if (GetTeam() == ALLIANCE) // Based on Hair color
             {
                 uint8 hairColor = GetByte(PLAYER_BYTES, 3);
                 switch (hairColor)
                 {
-                    case 7: // Violet
-                    case 8:
-                        return 29405;
-                    case 3: // Light Blue
-                        return 29406;
-                    case 0: // Green
-                    case 1: // Light Green
-                    case 2: // Dark Green
-                        return 29407;
-                    case 4: // White
-                        return 29408;
-                    default: // original - Dark Blue
-                        return 892;
+                case 7: // Violet
+                case 8:
+                    return 29405;
+                case 3: // Light Blue
+                    return 29406;
+                case 0: // Green
+                case 1: // Light Green
+                case 2: // Dark Green
+                    return 29407;
+                case 4: // White
+                    return 29408;
+                default: // original - Dark Blue
+                    return 892;
                 }
             }
-            // Based on Skin color
-            else if (getRace() == RACE_TAUREN)
+            else if (getRace() == RACE_TAUREN) // Based on Skin color
             {
                 uint8 skinColor = GetByte(PLAYER_BYTES, 0);
-                // Male
-                if (getGender() == 0)
+                if (getGender() == 0) // Male
                 {
                     switch(skinColor)
                     {
-                        case 12: // White
-                        case 13:
-                        case 14:
-                        case 18: // Completly White
-                            return 29409;
-                        case 9: // Light Brown
-                        case 10:
-                        case 11:
-                            return 29410;
-                        case 6: // Brown
-                        case 7:
-                        case 8:
-                            return 29411;
-                        case 0: // Dark
-                        case 1:
-                        case 2:
-                        case 3: // Dark Grey
-                        case 4:
-                        case 5:
-                            return 29412;
-                        default: // original - Grey
-                            return 8571;
-                    }
-                }
-                // Female
-                else switch (skinColor)
-                {
-                    case 10: // White
+                    case 12: // White
+                    case 13:
+                    case 14:
+                    case 18: // Completly White
                         return 29409;
-                    case 6: // Light Brown
-                    case 7:
+                    case 9: // Light Brown
+                    case 10:
+                    case 11:
                         return 29410;
-                    case 4: // Brown
-                    case 5:
+                    case 6: // Brown
+                    case 7:
+                    case 8:
                         return 29411;
                     case 0: // Dark
                     case 1:
                     case 2:
-                    case 3:
+                    case 3: // Dark Grey
+                    case 4:
+                    case 5:
                         return 29412;
                     default: // original - Grey
                         return 8571;
+                    }
+                }
+                else switch (skinColor) // Female
+                {
+                case 10: // White
+                    return 29409;
+                case 6: // Light Brown
+                case 7:
+                    return 29410;
+                case 4: // Brown
+                case 5:
+                    return 29411;
+                case 0: // Dark
+                case 1:
+                case 2:
+                case 3:
+                    return 29412;
+                default: // original - Grey
+                    return 8571;
                 }
             }
-            else if (GetTeam() == 0)
-                return 892;
-            else
-                return 8571;
-            break;
-        case FORM_DIREBEAR:
-        case FORM_BEAR:
-            // Based on Hair color
+        }break;
+    case FORM_DIREBEAR:
+    case FORM_BEAR:
+        {
             if (getRace() == RACE_NIGHTELF)
             {
+                // Based on Hair color
                 uint8 hairColor = GetByte(PLAYER_BYTES, 3);
                 switch (hairColor)
                 {
-                    case 0: // Green
-                    case 1: // Light Green
-                    case 2: // Dark Green
-                        return 29413; // 29415?
-                    case 6: // Dark Blue
-                        return 29414;
-                    case 4: // White
-                        return 29416;
-                    case 3: // Light Blue
-                        return 29417;
-                    default: // original - Violet
-                        return 2281;
+                case 0: // Green
+                case 1: // Light Green
+                case 2: // Dark Green
+                    return 29413; // 29415?
+                case 6: // Dark Blue
+                    return 29414;
+                case 4: // White
+                    return 29416;
+                case 3: // Light Blue
+                    return 29417;
+                default: // original - Violet
+                    return 2281;
                 }
             }
-            // Based on Skin color
             else if (getRace() == RACE_TAUREN)
             {
+                // Based on Skin color
                 uint8 skinColor = GetByte(PLAYER_BYTES, 0);
-                // Male
-                if (getGender() == 0)
+                if (getGender() == 0) // Male
                 {
                     switch (skinColor)
                     {
-                        case 0: // Dark (Black)
-                        case 1:
-                        case 2:
-                            return 29418;
-                        case 3: // White
-                        case 4:
-                        case 5:
-                        case 12:
-                        case 13:
-                        case 14:
-                            return 29419;
-                        case 9: // Light Brown/Grey
-                        case 10:
-                        case 11:
-                        case 15:
-                        case 16:
-                        case 17:
-                            return 29420;
-                        case 18: // Completly White
-                            return 29421;
-                        default: // original - Brown
-                            return 2289;
-                    }
-                }
-                // Female
-                else switch (skinColor)
-                {
                     case 0: // Dark (Black)
                     case 1:
+                    case 2:
                         return 29418;
-                    case 2: // White
-                    case 3:
+                    case 3: // White
+                    case 4:
+                    case 5:
+                    case 12:
+                    case 13:
+                    case 14:
                         return 29419;
-                    case 6: // Light Brown/Grey
-                    case 7:
-                    case 8:
-                    case 9:
+                    case 9: // Light Brown/Grey
+                    case 10:
+                    case 11:
+                    case 15:
+                    case 16:
+                    case 17:
                         return 29420;
-                    case 10: // Completly White
+                    case 18: // Completly White
                         return 29421;
                     default: // original - Brown
                         return 2289;
+                    }
+                }
+                else switch (skinColor) // Female
+                {
+                case 0: // Dark (Black)
+                case 1:
+                    return 29418;
+                case 2: // White
+                case 3:
+                    return 29419;
+                case 6: // Light Brown/Grey
+                case 7:
+                case 8:
+                case 9:
+                    return 29420;
+                case 10: // Completly White
+                    return 29421;
+                default: // original - Brown
+                    return 2289;
                 }
             }
-            else if (GetTeam() == 0)
-                return 2281;
-            else
-                return 2289;
-        case FORM_TRAVEL:
-            return 632;
-        case FORM_AQUA:
-            if (GetTeam() == 0)
-                return 2428;
-            else
-                return 2428;
-        case FORM_GHOUL:
-            return 24994;
-        case FORM_CREATUREBEAR:
-            return 902;
-        case FORM_GHOSTWOLF:
-            return 4613;
-        case FORM_FLIGHT:
-            if (GetTeam() == 0)
-                return 20857;
-            else
-                return 20872;
-        case FORM_MOONKIN:
-            if (GetTeam() == 0)
-                return 15374;
-            else
-                return 15375;
-        case FORM_SWIFT:
-            if (GetTeam() == 0)
-                return 21243;
-            else
-                return 21244;
-        case FORM_DEMON:
-            return 25277;
-        case FORM_MASTER_ANGLER:
-            return 15234;
-        case FORM_TREE:
-            return 864;
-        case FORM_SPIRITOFREDEMPTION:
-            return 16031;
-        default:
-            break;
+        }break;
+    case FORM_FLIGHT:
+        return GetTeam() ? 20872 : 20857;
+    case FORM_MOONKIN:
+        return GetTeam() ? 15375 : 15374;
+    case FORM_SWIFT:
+        return GetTeam() ? 21244 : 21243;
+    case FORM_TRAVEL:
+        return 632;
+    case FORM_AQUA:
+        return 2428;
+    case FORM_GHOUL:
+        return 24994;
+    case FORM_CREATUREBEAR:
+        return 902;
+    case FORM_GHOSTWOLF:
+        return 4613;
+    case FORM_DEMON:
+        return 25277;
+    case FORM_MASTER_ANGLER:
+        return 15234;
+    case FORM_TREE:
+        return 864;
+    case FORM_SPIRITOFREDEMPTION:
+        return 16031;
     }
     return 0;
 }

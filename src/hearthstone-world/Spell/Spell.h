@@ -162,13 +162,6 @@ public:
     HEARTHSTONE_INLINE void SetUnitTarget(Unit* punit){unitTarget=punit;}
     HEARTHSTONE_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
 
-    HEARTHSTONE_INLINE bool RequiresComboPoints(SpellEntry const* spellInfo)
-    {
-        if(spellInfo->AttributesEx & ATTRIBUTESEX_REQ_COMBO_POINTS1 || spellInfo->AttributesEx & ATTRIBUTESEX_REQ_COMBO_POINTS2 || spellInfo->c_is_flags & SPELL_FLAG_IS_FINISHING_MOVE)
-            return true;
-        return false;
-    }
-
     // Send Packet functions
     bool IsNeedSendToClient();
     void SendCastResult(uint8 result);
@@ -187,7 +180,7 @@ public:
     void writeSpellGoTargets( WorldPacket * data );
 
     SpellEntry* m_spellInfo;
-    uint32 pSpellId;
+    uint32 m_triggeredSpellId;
     SpellEntry *ProcedOnSpell;  //some spells need to know the origins of the proc too
     SpellCastTargets m_targets;
 
@@ -295,7 +288,6 @@ public:
     void SpellEffectEnchantHeldItem(uint32 i);
     void SpellEffectAddHonor(uint32 i);
     void SpellEffectSpawn(uint32 i);
-    void SpellEffectApplyAura128(uint32 i);
     void SpellEffectRedirectThreat(uint32 i);
     void SpellEffectPlayMusic(uint32 i);
     void SpellEffectTriggerSpellWithValue(uint32 i);
@@ -341,7 +333,7 @@ public:
 
     uint64 static FindLowestHealthRaidMember(Player* Target, uint32 dist);
 
-    void Heal(int32 amount);
+    void Heal(uint8 effIndex, int32 amount);
 
     GameObject*         g_caster;
     Unit*               u_caster;
@@ -367,7 +359,6 @@ public:
 
     bool IsAspect();
     bool IsSeal();
-    static bool IsTotemSpell(SpellEntry* sp);
     static bool IsBinary(SpellEntry * sp);
 
     int32 GetDuration()
@@ -456,6 +447,7 @@ public:
         return 0;
     }
 
+    bool IsAuraApplyingSpell();
     bool IsStealthSpell();
     bool IsInvisibilitySpell();
 

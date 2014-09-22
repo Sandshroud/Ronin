@@ -392,7 +392,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
         //is Creature in range
         if(m_caster->isInRange(TO_UNIT(*itr), GetRadius(i)))
         {
-            if(m_spellInfo->cone_width ? m_caster->isInArc(TO_UNIT(*itr), m_spellInfo->cone_width) : m_caster->isTargetInFront(TO_UNIT(*itr)))  // !!! is the target within our cone ?
+            if(m_caster->isTargetInFront(TO_UNIT(*itr)))  // !!! is the target within our cone ?
             {
                 AddTarget(i, TargetType, (*itr));
             }

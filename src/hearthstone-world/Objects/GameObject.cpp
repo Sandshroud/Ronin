@@ -179,11 +179,6 @@ void GameObject::Update(uint32 p_time)
                 tgt.m_destY = GetPositionY();
                 tgt.m_destZ = GetPositionZ();
                 sp->prepare(&tgt);
-                if(pInfo->Type == 6)
-                {
-                    if(m_summoner != NULL)
-                        m_summoner->HandleProc(PROC_ON_TRAP_TRIGGER, NULL, pUnit, spell);
-                }
 
                 if(m_summonedGo)
                 {

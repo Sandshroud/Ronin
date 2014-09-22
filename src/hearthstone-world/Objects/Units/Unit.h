@@ -21,16 +21,6 @@ class GameObject;
 class Creature;
 struct CreatureData;
 
-struct ReflectSpellSchool
-{
-    uint32 spellId;
-    int32 school;
-    int32 chance;
-    int32 require_aura_hash;
-    bool infinity;
-    bool infront;
-};
-
 typedef struct
 {
     uint32 spellid;
@@ -52,6 +42,7 @@ typedef struct
     SpellEntry *spell_info;
     uint32 charges;
     bool deleted;
+    uint32 i;
 } ExtraStrike;
 
 typedef struct
@@ -284,7 +275,6 @@ enum FIELD_PADDING//Since this field isnt used you can expand it for you needs
 enum CUSTOM_TIMERS
 {
     CUSTOM_TIMER_CHIMERA_SCORPID,
-    CUSTOM_TIMER_ECLIPSE,
     CUSTOM_TIMER_ERADICATION,
     CUSTOM_TIMER_CHEATDEATH,
     CUSTOM_TIMER_RAPTURE,
@@ -568,14 +558,10 @@ public:
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 &reflectout );
-    int32 Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
-
-    uint32 m_procCounter, m_procOverspill;
-    uint32 HandleProc(uint32 flag, uint32 flag2, Unit* victim, SpellEntry* CastingSpell, int32 dmg = -1, uint32 abs = 0, uint32 weapon_damage_type = 0);
-    void HandleProcDmgShield(uint32 flag, Unit* attacker);//almost the same as handleproc :P
+    int32 Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     void RemoveExtraStrikeTarget(SpellEntry *spell_info);
-    void AddExtraStrikeTarget(SpellEntry *spell_info, uint32 charges);
+    void AddExtraStrikeTarget(SpellEntry *spell_info, uint8 effIndex, uint32 charges);
 
     int32 CalculateAttackPower();
     int32 CalculateRangedAttackPower();
@@ -608,7 +594,6 @@ public:
     HEARTHSTONE_INLINE void DelayPowerRegeneration(uint32 time) { m_p_DelayTimer = time; }
 
     void DeMorph();
-    uint32 ManaShieldAbsorb(uint32 dmg, SpellEntry* sp);
     void smsg_AttackStart(Unit* pVictim);
     void smsg_AttackStop(Unit* pVictim);
     void smsg_AttackStop(uint64 victimGuid);
@@ -680,7 +665,7 @@ public:
     void InterruptCurrentSpell();
 
     //caller is the caster
-    int32 GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo,int32 base_dmg, bool healing);
+    int32 GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effIndex, int32 base_dmg, bool healing);
 
     //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
     Unit* CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, uint32 lvl, uint8 Slot);
@@ -704,15 +689,7 @@ public:
 
     // Spell Effect Variables
     int32 m_silenced;
-    bool m_damgeShieldsInUse;
-    std::list<struct DamageProc*> m_damageShields;
-    std::list<struct ReflectSpellSchool*> m_reflectSpellSchool;
-    std::list<struct ProcTriggerSpell> m_procSpells;
-    bool HasProcSpell(uint32 spellid);
 
-    bool m_chargeSpellsInUse;
-    std::deque<Aura*> m_chargeSpellRemoveQueue;
-    std::list<Aura*> m_chargeSpells;
     HEARTHSTONE_INLINE void SetOnMeleeSpell(uint32 spell, uint8 cast_number ) { m_meleespell = spell; m_meleespell_cn = cast_number; }
     HEARTHSTONE_INLINE uint32 GetOnMeleeSpell() { return m_meleespell; }
     uint8 GetOnMeleeSpellEcn() { return m_meleespell_cn; }
@@ -767,7 +744,7 @@ public:
 
     uint32 SchoolCastPrevent[7];
 
-    uint32 AbsorbDamage(Object* Attacker, uint32 School,uint32 * dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
+    uint32 AbsorbDamage(Object* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
     int32 RAPvModifier;
     int32 APvModifier;
     uint64 stalkedby;
@@ -1062,7 +1039,6 @@ public:
     float mThreatRAmount;
 
     void EventCancelSpell(Spell* ptr);
-    void EventStrikeWithAbility(uint64 guid, SpellEntry * sp, uint32 damage);
 
     /////////////////////////////////////////////////////// Unit properties ///////////////////////////////////////////////////
 

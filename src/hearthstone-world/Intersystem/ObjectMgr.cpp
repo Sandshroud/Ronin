@@ -953,32 +953,23 @@ SpellEntry* ObjectMgr::GetTotemSpell(uint32 spellId)
 void ObjectMgr::LoadAIThreatToSpellId()
 {
     QueryResult *result = WorldDatabase.Query( "SELECT * FROM ai_threattospellid" );
-
     if(result == NULL)
         return;
 
-    uint32 spellid;
     SpellEntry * sp;
-
     do
     {
         Field *fields = result->Fetch();
-        spellid = fields[0].GetUInt32();
-        sp = dbcSpell.LookupEntry( spellid );
-        if( sp != NULL )
-            sp->ThreatForSpell = fields[1].GetUInt32();
-        else
+        uint32 spellid = fields[0].GetUInt32();
+        if( (sp = dbcSpell.LookupEntry( spellid )) == NULL )
         {
             if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-            {
                 WorldDatabase.Execute( "DELETE FROM ai_threattospellid where spell = '%u'", spellid);
-            }
             sLog.Warning("AIThreatSpell", "Cannot apply to spell %u; spell is nonexistant.", spellid);
+            continue;
         }
-        spellid = 0;
-
+        sp->GeneratedThreat = fields[1].GetUInt32();
     } while( result->NextRow() );
-
     delete result;
 }
 

@@ -240,8 +240,8 @@ public:
 
     void _PerformObjectDuties();
     uint32 mLoopCounter;
+    uint32 lastDutyUpdate;
     uint32 lastGameobjectUpdate;
-    uint32 lastDynamicUpdate;
     uint32 lastUnitUpdate;
     void EventCorpseDespawn(uint64 guid);
 

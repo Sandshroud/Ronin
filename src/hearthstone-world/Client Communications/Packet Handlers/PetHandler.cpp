@@ -137,14 +137,14 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
             if( sp != NULL )
             {
                 // Check the cooldown
-                if(sp->cooldown && getMSTime() < entry2->RecoveryTime)
+                if(entry2->RecoveryTime && getMSTime() < sp->lastcast+sp->cooldown)
                 {
                     pPet->SendCastFailed( misc, SPELL_FAILED_NOT_READY );
                     return;
                 }
                 else
                 {
-                    if( !sp->info->buffType )
+                    if( sp->info->isNegativeSpell1() )
                     {
                         // make sure the target is attackable
                         if( pTarget == pPet || !sFactionSystem.isAttackable( pPet, pTarget ) )

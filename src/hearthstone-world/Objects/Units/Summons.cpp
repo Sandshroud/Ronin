@@ -205,8 +205,6 @@ void TotemSummon::SetupSpells()
     if(!castingtotem)
     {
         // We're an area aura. Simply cast the spell.
-        m_summon->GetAIInterface()->totemspell = creatorspell;
-
         SpellCastTargets targets;
 
         if(!SP_AppliesAura(TotemSpell, SPELL_AURA_PERIODIC_TRIGGER_SPELL))
@@ -216,16 +214,13 @@ void TotemSummon::SetupSpells()
             targets.m_destZ = m_summon->GetPositionZ();
             targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
         }
-        Spell* pSpell = new Spell(m_summon, TotemSpell, true, 0);
-        pSpell->prepare(&targets);
+        (new Spell(m_summon, TotemSpell, true, 0))->prepare(&targets);
     }
     else
-    {
-        // We're a casting totem. Switch AI on, and tell it to cast this spell.
+    {   // We're a casting totem. Switch AI on, and tell it to cast this spell.
         m_summon->EnableAI();
-        m_summon->GetAIInterface()->totemspell = TotemSpell;
-        m_summon->GetAIInterface()->m_totemspelltimer = 0;
-        m_summon->GetAIInterface()->m_totemspelltime  = 3 * MSTIME_SECOND;
+        m_summon->GetAIInterface()->m_totemSpell = TotemSpell;
+        m_summon->GetAIInterface()->m_totemSpellTime = 3 * MSTIME_SECOND;
     }
 }
 

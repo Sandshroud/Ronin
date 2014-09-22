@@ -33,17 +33,6 @@ struct ProcTriggerSpellOnSpell
     void  *owner;//mark the owner of this proc to know which one to delete
 };
 
-struct DamageProc
-{
-    uint32 m_spellId;
-    uint32 m_damage;
-//  uint64 m_caster;//log is: some reflects x arcane/nature damage to 'attacker' no matter who casted
-    uint32 m_school;
-    uint32 m_flags;
-    bool destination;
-    void  *owner;//mark the owner of this proc to know which one to delete
-};
-
 struct ProcTriggerSpell
 {
     uint32 origId;
@@ -98,8 +87,8 @@ public:
     void AddMod(uint32 t, int32 a,uint32 miscValue,uint32 miscValueB,uint32 i);
 
     HEARTHSTONE_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
-    HEARTHSTONE_INLINE uint32 GetSpellId() const { return m_spellProto ? m_spellProto->Id : 0; }
-    HEARTHSTONE_INLINE bool IsPassive(){ if(!m_spellProto) return false; return (m_spellProto->Attributes & ATTRIBUTES_PASSIVE && !m_areaAura);}
+    HEARTHSTONE_INLINE uint32 GetSpellId() const { return m_spellProto->Id; }
+    HEARTHSTONE_INLINE bool IsPassive() { return (m_spellProto->isPassiveSpell() || m_spellProto->isHiddenSpell()) && !m_areaAura; }
 
     HEARTHSTONE_INLINE int32 GetBaseDuration() { if(!base_set) { base_set = true; base_duration = GetSpellInfoDuration(m_spellProto, GetUnitCaster(), GetUnitTarget()); } return base_duration; };
     HEARTHSTONE_INLINE int32 GetDuration() const { return m_duration; }
@@ -117,9 +106,9 @@ public:
     HEARTHSTONE_INLINE uint8 GetAuraLevel() const { return m_auraLevel; }
     void SetAuraLevel(uint8 level) { m_auraLevel = level; }
 
-    HEARTHSTONE_INLINE bool IsPositive() { return m_positive>0; }
-    void SetNegative(signed char value=1) { m_positive -= value; }
-    void SetPositive(signed char value=1) { m_positive += value; }
+    HEARTHSTONE_INLINE bool IsPositive() { return m_positive; }
+    void SetNegative() { m_positive = false; }
+    void SetPositive() { m_positive = true; }
 
     bool m_applied;
 
@@ -182,6 +171,7 @@ public:
     void ModStackSize(int32 mod);
     void RecalculateModBaseAmounts();
     void UpdateModAmounts();
+    void CalculateBonusAmount(Unit *caster, uint8 index);
 
     // Ignore that shit.
     void SpellAuraIgnore(bool apply) {};
@@ -419,9 +409,6 @@ public:
     void SpellAuraPreventResurrection(bool apply);
     void SpellAuraConvertRune(bool apply);
 
-    static void CreateProcTriggerSpell(Unit* target, uint64 m_caster, uint32 origid, uint32 spellid, uint32 procChance, uint32 procFlags,
-        uint32 procFlags2, int32 procCharges = 0, uint32 wdtype = 0, uint32 SCM1 = 0, uint32 SCM2 = 0, uint32 SCM3 = 0, int32 procValue = 0);
-
     void UpdateAuraModDecreaseSpeed();
 
     // Events
@@ -458,7 +445,7 @@ public:
     bool m_areaAura;        // Area aura stuff -> never passive.
     uint8 m_auraFlags;
     uint8 m_auraLevel;
-    uint32 pSpellId; //this represents the triggering spell id
+    uint32 m_triggeredSpellId; //this represents the triggering spell id
 
     // this stuff can be cached in spellproto.
     HEARTHSTONE_INLINE bool IsCombatStateAffecting()
@@ -517,8 +504,7 @@ private:
     int32 m_duration; // in msec
     bool base_set;
     int32 base_duration;
-//  bool m_positive;
-    signed char m_positive;
+    bool m_positive;
 
     uint32 m_modcount;
     Modifier m_modList[3];
@@ -535,7 +521,6 @@ protected:
     void SpecialCases();
 public:
     bool m_deleted;
-    bool m_added;
     bool m_tmpAuradeleted;
     bool m_creatureAA;
     int16 m_interrupted;

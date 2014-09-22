@@ -686,6 +686,17 @@ HEARTHSTONE_INLINE bool FindXinYString(std::string x, std::string y)
     return y.find(x) != std::string::npos;
 }
 
+template<typename T> HEARTHSTONE_INLINE T FirstBitValue(T value)
+{
+    assert(sizeof(T)<=8); // Limit to 8 bytes
+    if(value)
+    {   // for each byte we have 8 bit stacks
+        for(T i = 0; i < sizeof(T)*8; i++)
+            if(value & (T(1)<<i))
+                return i;
+    } return static_cast<T>(NULL);
+}
+
 // returns true if the ip hits the mask, otherwise false
 bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits);
 unsigned int MakeIP(const char * str);

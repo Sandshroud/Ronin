@@ -717,48 +717,6 @@ enum SpellCastTargetFlags
     TARGET_FLAG_GLYPH               = 0x20000,
 };
 
-enum procFlags
-{
-    PROC_NULL                           = 0x0,
-    PROC_ON_ANY_HOSTILE_ACTION          = 0x1,
-    PROC_ON_GAIN_EXPIERIENCE            = 0x2,
-    PROC_ON_MELEE_ATTACK                = 0x4,
-    PROC_ON_CRIT_HIT_VICTIM             = 0x8,
-    PROC_ON_CAST_SPELL                  = 0x10,
-    PROC_ON_PHYSICAL_ATTACK_VICTIM      = 0x20,
-    PROC_ON_RANGED_ATTACK               = 0x40,
-    PROC_ON_RANGED_CRIT_ATTACK          = 0x80,
-    PROC_ON_PHYSICAL_ATTACK             = 0x100,
-    PROC_ON_MELEE_ATTACK_VICTIM         = 0x200,
-    PROC_ON_SPELL_LAND                  = 0x400,
-    PROC_ON_RANGED_CRIT_ATTACK_VICTIM   = 0x800,
-    PROC_ON_CRIT_ATTACK                 = 0x1000,
-    PROC_ON_RANGED_ATTACK_VICTIM        = 0x2000,
-    PROC_ON_DISPEL_AURA_VICTIM          = 0x4000,
-    PROC_ON_SPELL_LAND_VICTIM           = 0x8000,//custom flag. PROC only when spell landed on victim
-    PROC_ON_CAST_SPECIFIC_SPELL         = 0x10000,
-    PROC_ON_SPELL_HIT_VICTIM            = 0x20000,
-    PROC_ON_SPELL_CRIT_HIT_VICTIM       = 0x40000,
-    PROC_ON_TARGET_DIE                  = 0x80000,
-    PROC_ON_ANY_DAMAGE_VICTIM           = 0x100000,
-    PROC_ON_TRAP_TRIGGER                = 0x200000, //triggers on trap activation)
-    PROC_ON_AUTO_SHOT_HIT               = 0x400000,
-    PROC_ON_ABSORB                      = 0x800000
-};
-
-// Crow: Lets create really complicated ones :D
-enum procFlags2
-{
-    PROC_ON_FULL_RESIST                 = 0x1, // Custom
-    PROC_ON_DODGE_VICTIM                = 0x2, // Custom
-    PROC_ON_DIE                         = 0x4, // Custom
-    PROC_REMOVEONUSE                    = 0x8, // remove proccharge only when it is used
-    PROC_MISC                           = 0x10, // Unused.
-    PROC_ON_BLOCK_VICTIM                = 0x20, // Custom
-    PROC_ON_SPELL_CRIT_HIT              = 0x40, // Custom
-    PROC_TARGET_SELF                    = 0x80, // Custom
-};
-
 enum CastInterruptFlags
 {
     CAST_INTERRUPT_NULL                 = 0x0,
@@ -842,66 +800,6 @@ enum Attributes
     ATTRIBUTES_REQ_OOC                          = 0x10000000,   // ATTRIBUTES_REQ_OUT_OF_COMBAT
     ATTRIBUTES_IGNORE_INVULNERABILITY           = 0x20000000,   // debuffs that can't be removed by any spell and spells that can't be resisted in any case
     ATTRIBUTES_CANT_CANCEL                      = 0x80000000
-};
-
-enum AttributesEx
-{
-    ATTRIBUTESEX_DRAIN_WHOLE_MANA           = 0x2,
-    ATTRIBUTESEX_CHANNELED_1                = 0x4,
-    ATTRIBUTESEX_IGNORE_IN_FRONT            = 0x10, // stealth effects but Rockbiter wtf 0_0
-    ATTRIBUTESEX_NOT_BREAK_STEALTH          = 0x20,
-    ATTRIBUTESEX_CHANNELED_2                = 0x40,
-    ATTRIBUTESEX_NEGATIVE                   = 0x80,
-    ATTRIBUTESEX_NOT_IN_COMBAT_TARGET       = 0x100,
-    ATTRIBUTESEX_DISPEL_AURAS_ON_IMMUNITY   = 0x8000,   // remove auras on immunity
-    ATTRIBUTESEX_UNAFFECTED_SCHOOL_IMMUNE   = 0x10000,  // on immunity
-    ATTRIBUTESEX_REMAIN_OOC                 = 0x20000,
-    ATTRIBUTESEX_REQ_COMBO_POINTS1          = 0x100000, // related to "Finishing move" and "Instantly overpowers"
-    ATTRIBUTESEX_REQ_COMBO_POINTS2          = 0x400000, // only related to "Finishing move"
-};
-
-enum Flags3
-{
-    FLAGS3_PARTY_EFFECTING_AURA = 0x10, // Party affecting aura's
-    FLAGS3_ACTIVATE_AUTO_SHOT   = 0x20, // spell that enable's auto shoot
-    FLAGS3_TAME_X               = 0x400,    // tame [creature]
-    FLAGS3_FUNNEL               = 0x800,    // only funnel spells
-    FLAGS3_ENCHANT_OWN_ONLY     = 0x2000,   // no trade window targets, BoE items get soulbound to you
-    FLAGS3_SPELL_PLAYER_EVENT   = 0x4000,   // Player event's like logging in, finishing quests, triggering cinematic, being adored, Heartbroken etc
-    FLAGS3_CONTROL_UNIT         = 0x10000,  // PvP Controller, RC, Creature taming, Taming Lesson
-    FLAGS3_REQ_RANGED_WEAPON    = 0x20000,  // this is shit and has nothing to do with auto shot
-    FLAGS3_REVIVE_PET           = 0x40000,  // actually 1 spell, revive pet
-    FLAGS3_NOT_NEED_SHAPESHIFT  = 0x80000,
-    FLAGS3_REQ_BEHIND_TARGET    = 0x100000,
-    FLAGS3_CANT_CRIT            = 0x20000000,
-};
-
-enum Flags4
-{
-    FLAGS4_BG_ONLY                  = 0x800,
-    FLAGS4_PLAYER_RANGED_SPELLS     = 0x8000,
-    FLAGS4_IGNORE_HIT_RESULT        = 0x40000,
-    FLAGS4_DEATH_PERSISTENT         = 0x100000,
-    FLAGS4_PLAYER_RANGED_WAND       = 0x400000,
-    FLAGS4_OFFHAND                  = 0x1000000,
-    FLAGS4_NO_HEALING_BONUS         = 0x2000000,
-    FLAGS4_CAN_PROC_ON_TRIGGERED    = 0x4000000,
-};
-
-enum Flags5
-{
-    FLAGS5_PROCCHANCE_COMBOBASED        = 0x2,
-    FLAGS5_NOT_USABLE_IN_ARENA          = 0x10000,
-    FLAGS5_ONLY_IN_OUTLAND              = 0x4000000,
-};
-
-enum Flags6
-{
-    FLAGS6_NO_REAGENT_WHILE_PREP        = 0x2,
-    FLAGS6_USABLE_WHILE_STUNNED         = 0x8,
-    FLAGS6_SINGLE_TARGET_SPELL          = 0x20,
-    FLAGS6_USABLE_WHILE_FEARED          = 0x20000,
-    FLAGS6_USABLE_WHILE_CONFUSED        = 0x40000,
 };
 
 enum SpellCastFlags
@@ -1206,101 +1104,6 @@ enum SpellEffects
     TOTAL_SPELL_EFFECTS                     //  165
 };
 
-// target type flags
-enum SpellTargetTypes
-{
-    SPELL_TARGET_TYPE_NONE              = 0x01,
-    SPELL_TARGET_TYPE_PROFESSION        = 0x02,
-    SPELL_TARGET_TYPE_NONE1             = 0x04,
-    SPELL_TARGET_TYPE_NONE2             = 0x08,
-    SPELL_TARGET_TYPE_ENCHANTABLE_ITEM  = 0x10,
-    SPELL_TARGET_TYPE_UNK               = 0x20,     // seems to be scripted stuff
-    SPELL_TARGET_TYPE_UNK0              = 0x40,     // lots of spells interesting to research this one further
-    SPELL_TARGET_TYPE_UNK1              = 0x80,     // something todo with scripted and GM stuff
-    SPELL_TARGET_TYPE_UNK2              = 0x100,    // lots of spells interesting to research this one further...
-    SPELL_TARGET_TYPE_PLAYER_CORPSE     = 0x200,
-    SPELL_TARGET_TYPE_DEATHx            = 0x400,
-    SPELL_TARGET_TYPE_NONE3             = 0x800,
-    SPELL_TARGET_TYPE_NONE4             = 0x1000,
-    SPELL_TARGET_TYPE_NONE5             = 0x2000,
-    SPELL_TARGET_TYPE_GAME_OBJECTS      = 0x4000,   // like chests and mining
-    SPELL_TARGET_TYPE_DEATH             = 0x8000,
-};
-
-enum SpellTypes // SPELL_ENTRY_buffType
-{
-    SPELL_TYPE_NONE                 = 0x00000000,
-    SPELL_TYPE_SEAL                 = 0x00000001,
-    SPELL_TYPE_ASPECT               = 0x00000002,
-    SPELL_TYPE_BLESSING             = 0x00000004,
-    SPELL_TYPE_CURSE                = 0x00000008,
-    SPELL_TYPE_STING                = 0x00000010,
-    SPELL_TYPE_ARMOR                = 0x00000020,
-    SPELL_TYPE_AURA                 = 0x00000040,
-    //hmm these could be named simply incompatible spells. One active at a time
-    SPELL_TYPE_MARK_GIFT            = 0x00000080,
-    SPELL_TYPE_TRACK                = 0x00000100,
-    SPELL_TYPE_HUNTER_TRAP          = 0x00000200,
-    SPELL_TYPE_MAGE_INTEL           = 0x00000400,
-    SPELL_TYPE_MAGE_MAGI            = 0x00000800,
-    SPELL_TYPE_MAGE_WARDS           = 0x00001000,
-    SPELL_TYPE_PRIEST_SH_PPROT      = 0x00002000,
-    SPELL_TYPE_SHIELD               = 0x00004000,
-    SPELL_TYPE_FORTITUDE            = 0x00008000,
-    SPELL_TYPE_SPIRIT               = 0x00010000,
-    SPELL_TYPE_MAGE_AMPL_DUMP       = 0x00020000,
-    SPELL_TYPE_WARLOCK_IMMOLATE     = 0x00040000,   //maybe there is a better way to trigger the aura state for immolate spell
-    SPELL_TYPE_ELIXIR_BATTLE        = 0x00080000,
-    SPELL_TYPE_ELIXIR_GUARDIAN      = 0x00100000,
-    SPELL_TYPE_ELIXIR_FLASK         = SPELL_TYPE_ELIXIR_BATTLE | SPELL_TYPE_ELIXIR_GUARDIAN,    //weee, this contains both battle and guardian elixirs ;)
-    SPELL_TYPE_HUNTER_MARK          = 0x00200000,
-    SPELL_TYPE_WARRIOR_SHOUT        = 0x00400000,
-    SPELL_TYPE_DK_PRESENCE          = 0x00800000,
-    SPELL_TYPE_JUDGEMENT            = 0x01000000,
-    SPELL_TYPE_HASTE                = 0x02000000,
-};
-
-//custom stuff generated for spells that will not change in time
-enum SpellIsFlags
-{
-    SPELL_FLAG_IS_DAMAGING                          = 0x00000001,
-    SPELL_FLAG_IS_HEALING                           = 0x00000002,
-    SPELL_FLAG_IS_TARGETINGSTEALTHED                = 0x00000004,
-    SPELL_FLAG_IS_REQUIRECOOLDOWNUPDATE             = 0x00000008,   //it started with rogue cold blood but i'm sure others will come
-    SPELL_FLAG_IS_POISON                            = 0x00000010,   //rogue has a few spells that can stack so can't use the spell_type enum ;)
-    SPELL_FLAG_IS_FINISHING_MOVE                    = 0x00000020,   //rogue has a few spells that can stack so can't use the spell_type enum ;)
-    // UNUSED                                       = 0x00000040,
-    SPELL_FLAG_IS_CHILD_SPELL                       = 0x00000080,   //auras proc auras that have same name, these should not remove mother aura when adding to target
-    SPELL_FLAG_IS_CASTED_ON_PET_SUMMON_ON_PET       = 0x00000100,   //we should cast these on pet too
-    SPELL_FLAG_IS_CASTED_ON_PET_SUMMON_PET_OWNER    = 0x00000200,   //we should cast these on owner too
-    SPELL_FLAG_IS_EXPIREING_WITH_PET                = 0x00000400,   //when pet dies, we remove this too
-    SPELL_FLAG_IS_EXPIREING_ON_PET                  = 0x00000800,   //when pet is summoned
-    SPELL_FLAG_IS_DISPEL_SPELL                      = 0x00001000,
-    SPELL_FLAG_CAN_BE_REFLECTED                     = 0x00002000,
-    SPELL_FLAG_IS_HEALING_SPELL                     = 0x00004000,
-    SPELL_FLAG_IS_HEALING_MANA_SPELL                = 0x00008000,
-    SPELL_FLAG_CANNOT_PROC_ON_SELF                  = 0x00010000,
-    SPELL_FLAG_IS_FLYING                            = 0x00020000,
-    SPELL_FLAG_IS_FORCEDDEBUFF                      = 0x00040000,
-    SPELL_FLAG_IS_FORCEDBUFF                        = 0x00080000,
-    SPELL_FLAG_ON_ONLY_ONE_TARGET                   = 0x00100000,
-    SPELL_FLAG_IS_NOT_RESISTABLE                    = 0x00200000,
-    SPELL_FLAG_PIERCES_ABSORBTION_EFF               = 0x00400000,
-    SPELL_FLAG_CASTED_ON_FRIENDS                    = 0x00800000,
-    SPELL_FLAG_CASTED_ON_ENEMIES                    = 0x01000000,
-};
-
-enum PoisonTypes
-{
-    POISON_TYPE_DEADLY          = 1,
-    POISON_TYPE_WOUND           = 2,
-    POISON_TYPE_INSTANT         = 3,
-    POISON_TYPE_MIND_NUMBING    = 4,
-    POISON_TYPE_CRIPPLING       = 5,
-    POISON_TYPE_SCORPID         = 6,
-
-};
-
 enum AreaAuraTargets
 {
     AA_TARGET_PARTY             = 0x01,
@@ -1569,10 +1372,10 @@ bool IsCastedOnFriends(SpellEntry *sp);
 bool IsCastedOnEnemies(SpellEntry *sp);
 bool IsDamagingSpell(SpellEntry *sp);
 bool IsHealingSpell(SpellEntry *sp);
-bool IsInrange(LocationVector & location, Object* o, float square_r);
-bool IsInrange(float x1,float y1, float z1, Object* o,float square_r);
-bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r);
-bool IsInrange(Object* o1,Object* o2,float square_r);
+bool IsInrange(LocationVector & location, Object* o, float square_r, float square_min = 0.f);
+bool IsInrange(float x1,float y1, float z1, Object* o,float square_r, float square_min = 0.f);
+bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r, float square_min = 0.f);
+bool IsInrange(Object* o1,Object* o2,float square_r, float square_min = 0.f);
 bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask);
 bool IsFlyingSpell(SpellEntry *sp);
 bool IsTargetingStealthed(SpellEntry *sp);

@@ -1063,18 +1063,15 @@ void AIInterface::CheckTarget(Unit* target)
 uint32 AIInterface::_CalcThreat(uint32 damage, SpellEntry * sp, Unit* Attacker)
 {
     ASSERT(m_Unit != NULL);
-
     if (sFactionSystem.isSameFaction(m_Unit,Attacker))
         return 0;
 
-    int32 mod = 0;
-    if( sp != NULL && sp->ThreatForSpell != 0 )
+    int32 mod = damage;
+    if(sp)
     {
-        mod = sp->ThreatForSpell;
-    }
-    else
-    {
-        mod = damage;
+        if(sp->isThreatlessSpell()) mod = 0;
+        else if(sp->GeneratedThreat >= 0)
+            mod = sp->GeneratedThreat;
     }
 
     if (sp != NULL && sp->SpellGroupType && Attacker)
@@ -1085,7 +1082,6 @@ uint32 AIInterface::_CalcThreat(uint32 damage, SpellEntry * sp, Unit* Attacker)
 
     // modify mod by Affects
     mod += (mod * Attacker->GetGeneratedThreatModifier() / 100);
-
     return mod;
 }
 

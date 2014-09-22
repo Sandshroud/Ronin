@@ -107,9 +107,8 @@ public:
     int sendflee_message;
     string flee_message;
 
-    uint32 m_totemspelltimer;
-    uint32 m_totemspelltime;
-    SpellEntry * totemspell;
+    uint32 m_totemSpellTimer, m_totemSpellTime;
+    SpellEntry * m_totemSpell;
 
     HEARTHSTONE_INLINE Unit* GetNextTarget() { return m_nextTarget; }
     HEARTHSTONE_INLINE void SetNextTarget(Unit* nextTarget);
@@ -155,14 +154,15 @@ public:
     void CallGuards();
     void setGuardTimer(uint32 timer) { m_guardTimer = timer; }
     uint32 m_guardCallTimer;
-    void _UpdateCombat(uint32 p_time);
     void CheckNextTargetFlyingStatus();
 
 protected:
     bool m_AllowedToEnterCombat;
 
     // Update
+    void _UpdateTotem(uint32 p_time);
     void _UpdateTargets(uint32 p_time);
+    void _UpdateCombat(uint32 p_time);
 
     uint32 m_updateListTimer;
     uint32 m_updateTargetsTimer;

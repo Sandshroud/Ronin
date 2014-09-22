@@ -48,6 +48,7 @@ public:
     void BuildPlayerTalentInfo(WorldPacket *data);
     void BuildPlayerActionInfo(WorldPacket *data);
 
+    void ResetAvailableTalentPoints();
     void ModAvailableTalentPoints(int32 talentPoints);
 
     // Specs
@@ -57,7 +58,7 @@ public:
     void UnlockSpec(uint8 spec);
     void ApplySpec(uint8 spec);
 
-    int32 CalculateSpentPoints(uint8 spec);
+    int32 CalculateSpentPoints(uint8 spec, int32 talentTree = -1);
 
     uint8 GetActiveTalentTab() { return m_specs[m_activeSpec].ActiveTalentTab; }
     void SetActiveTalentTab(uint8 talentTree) { m_specs[m_activeSpec].ActiveTalentTab = talentTree; }

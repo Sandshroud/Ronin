@@ -16,8 +16,12 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf, std::stringstream &saveS
     ASSERT(m_specCount > 0);
     m_specLock.Acquire();
 
+    int32 savedTalents = m_availableTalentPoints;
+    if(savedTalents < 0) savedTalents = 0;
+    if(savedTalents > 0xFFF) savedTalents = 0xFFF;
+
     // Append spec data to our save string
-    saveString << uint32(m_activeSpec) << ", " << uint32(m_specCount) << ", " << m_talentResetCounter << ", " << m_availableTalentPoints << ", ";
+    saveString << uint32(m_activeSpec) << ", " << uint32(m_specCount) << ", " << m_talentResetCounter << ", " << uint32(savedTalents) << ", ";
     for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
         saveString << uint32(m_specs[i].ActiveTalentTab) << ", ";
 
@@ -177,29 +181,46 @@ void TalentInterface::BuildPlayerActionInfo(WorldPacket *packet)
     m_specLock.Release();
 }
 
+void TalentInterface::ResetAvailableTalentPoints()
+{
+    m_availableTalentPoints = 0;
+    if(m_Player->getLevel() >= 10)
+        m_availableTalentPoints += m_Player->getLevel()-9;
+    SendTalentInfo();
+}
+
 void TalentInterface::ModAvailableTalentPoints(int32 talentPoints)
 {
     if(talentPoints == 0)
         return;
 
-    m_availableTalentPoints += talentPoints;
     if(talentPoints < 0)
     {
+        bool forceReset = false;
+        if(m_availableTalentPoints < abs(talentPoints))
+        { forceReset=true; m_availableTalentPoints = 0; }
+        else m_availableTalentPoints += talentPoints;
         for(uint8 i = 0; i < m_specCount; i++)
         {
-            if(m_availableTalentPoints < CalculateSpentPoints(i))
+            if(forceReset || m_availableTalentPoints < CalculateSpentPoints(i))
                 ResetSpec(i, true);
             else if(i == m_activeSpec)
                 m_currentTalentPoints += talentPoints;
         }
-    } else m_currentTalentPoints += talentPoints;
+    }
+    else
+    {
+        m_availableTalentPoints += talentPoints;
+        m_currentTalentPoints += talentPoints;
+    }
     SendTalentInfo();
 }
 
 void TalentInterface::ResetAllSpecs()
 {
     for(uint8 i = 0; i < m_specCount; i++)
-        ResetSpec(i, false);
+        ResetSpec(i, true);
+    ResetAvailableTalentPoints();
 }
 
 void TalentInterface::ResetSpec(uint8 spec, bool silent)
@@ -271,7 +292,7 @@ void TalentInterface::ApplySpec(uint8 spec)
     InitActiveSpec();
 }
 
-int32 TalentInterface::CalculateSpentPoints(uint8 spec)
+int32 TalentInterface::CalculateSpentPoints(uint8 spec, int32 talentTree)
 {
     int32 spentPoints = 0;
     for(TalentStorageMap::iterator itr = m_specs[spec].m_talents.begin(); itr != m_specs[spec].m_talents.end(); itr++)
@@ -280,6 +301,9 @@ int32 TalentInterface::CalculateSpentPoints(uint8 spec)
         TalentEntry *talentInfo = dbcTalent.LookupEntry(itr->first);
         if(talentInfo == NULL || itr->second > 4)
             continue;
+        if(talentTree > 0 && talentInfo->TalentTree != talentTree)
+            continue;
+
         spentPoints += itr->second; // Add our talent rank to the cost
     }
     return spentPoints;
@@ -291,7 +315,7 @@ void TalentInterface::ApplyTalent(uint32 spellid)
     if(!spellInfo)
         return; // not found
 
-    if((spellInfo->Attributes & ATTRIBUTES_PASSIVE) == 0)
+    if(!spellInfo->isPassiveSpell())
     {
         if(spellInfo->RankNumber)
         {
@@ -301,8 +325,7 @@ void TalentInterface::ApplyTalent(uint32 spellid)
         return;
     }
 
-    if( spellInfo->HasEffect(SPELL_EFFECT_LEARN_SPELL) && ((spellInfo->c_is_flags & SPELL_FLAG_IS_EXPIREING_WITH_PET) == 0
-        || ((spellInfo->c_is_flags & SPELL_FLAG_IS_EXPIREING_WITH_PET) && m_Player->GetSummon())))
+    if(spellInfo->HasEffect(SPELL_EFFECT_LEARN_SPELL))
     {
         for(uint8 i = 0; i < 3; i++)
         {
@@ -409,10 +432,11 @@ bool TalentInterface::LearnTalent(uint32 talentId, uint8 talentRank)
     }
 
     uint32 spentPoints = CalculateSpentPoints(m_activeSpec);
-    // We require that for each row a player spends 5 talents before reaching the next
-    if (talentInfo->Row > 0 && spentPoints < (talentInfo->Row * 5))
-        return false;
     if(spentPoints < REQ_PRIMARY_TREE_TALENTS && talentInfo->TalentTree != TalentTreesPerClass[m_Player->getClass()][m_specs[m_activeSpec].ActiveTalentTab])
+        return false;
+    // We require that for each row a player spends 5 talents before reaching the next
+    spentPoints = CalculateSpentPoints(m_activeSpec, talentInfo->TalentTree);
+    if (talentInfo->Row > 0 && spentPoints < (talentInfo->Row * 5))
         return false;
 
     uint32 spellid = talentInfo->RankID[talentRank];
