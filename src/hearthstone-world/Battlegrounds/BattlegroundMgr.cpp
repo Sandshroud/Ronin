@@ -1109,7 +1109,7 @@ void CBattleground::OnPlayerPushed(Player* plr)
     if( plr->GetGroup() && !Rated() )
         plr->GetGroup()->RemovePlayer(plr->m_playerInfo);
 
-    plr->ProcessPendingUpdates(&plr->GetMapMgr()->m_updateBuildBuffer, &plr->GetMapMgr()->m_compressionBuffer);
+    plr->PopPendingUpdates();
 
     if( plr->GetGroup() == NULL && !plr->m_isGmInvisible )
         m_groups[plr->m_bgTeam]->AddMember( plr->m_playerInfo );

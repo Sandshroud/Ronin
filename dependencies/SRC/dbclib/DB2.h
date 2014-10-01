@@ -63,6 +63,8 @@ public:
         Entries = NULL;
         m_firstEntry = NULL;
         m_max = 0;
+        m_int32Values = NULL;
+        m_floatValues = NULL;
         m_stringData = NULL;
     };
 
@@ -70,6 +72,8 @@ public:
     {
         if(m_int32Values)
             delete [] m_int32Values;
+        if(m_floatValues)
+            delete [] m_floatValues;
         if(m_stringData)
             delete [] m_stringData;
         if(Blocks)

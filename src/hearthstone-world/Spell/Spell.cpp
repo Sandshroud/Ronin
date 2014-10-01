@@ -292,6 +292,9 @@ void Spell::Destruct()
 {
     if( u_caster != NULL && u_caster->GetCurrentSpell() == this )
         u_caster->SetCurrentSpell(NULLSPELL);
+    for(std::map<uint64, Aura*>::iterator itr = m_tempAuras.begin(); itr != m_tempAuras.end(); itr++)
+        delete itr->second;
+    m_tempAuras.clear();
 
     v_caster = NULLVEHICLE;
     g_caster = NULLGOB;
@@ -1672,7 +1675,7 @@ void Spell::HandleRemoveDestTarget(uint64 guid)
 {
     TargetMap.erase(guid);
     if(!TargetMap.size())
-        delete this;
+        Destruct();
 }
 
 bool Spell::HandleDestTargetHit(uint64 guid, uint32 MSTime)
@@ -1766,9 +1769,8 @@ bool Spell::HandleDestTargetHit(uint64 guid, uint32 MSTime)
     if(!TargetMap.size())
     {
         if(m_spellState == SPELL_STATE_FINISHED)
-            delete this;
-        else
-            m_projectileWait = false;
+            Destruct();
+        else m_projectileWait = false;
     }
     return true;
 }
@@ -2617,10 +2619,10 @@ void Spell::HandleEffects(uint32 i)
 
 void Spell::HandleAddAura(uint64 guid)
 {
-    Unit* Target = NULLUNIT;
     if(guid == 0)
         return;
 
+    Unit* Target = NULLUNIT;
     if(u_caster && u_caster->GetGUID() == guid)
         Target = u_caster;
     else if(m_caster->IsInWorld())
@@ -2647,31 +2649,24 @@ void Spell::HandleAddAura(uint64 guid)
     if(Target->GetInstanceID() != m_caster->GetInstanceID())
         return;
 
-    std::map<uint32,Aura* >::iterator itr=Target->tmpAura.find(GetSpellProto()->Id);
-    if(itr!=Target->tmpAura.end())
+    if(m_tempAuras.find(guid) != m_tempAuras.end())
     {
-        Aura* aura = itr->second;
-        if(aura != NULL)
+        Aura *aur = m_tempAuras.at(guid);
+
+        // did our effects kill the target?
+        if( Target->isDead() && !GetSpellProto()->isDeathPersistentAura())
         {
-            // did our effects kill the target?
-            if( Target->isDead() && !GetSpellProto()->isDeathPersistentAura())
-            {
-                // free pointer
-                aura->m_tmpAuradeleted = true;
-                Target->RemoveAura(aura);
-                itr->second = NULLAURA;
-                Target->tmpAura.erase(itr);
-                return;
-            }
-
-            //make sure bg/arena preparation aura's are positive.
-            if(GetSpellProto()->Id == 32727 || GetSpellProto()->Id == 44521)
-                aura->SetPositive();
-
-            Target->AddAura(aura);
-            if(!aura->m_tmpAuradeleted && !Target->tmpAura.empty())
-                Target->tmpAura.erase(itr);
+            // free pointer
+            Target->RemoveAura(aur);
+            m_tempAuras.erase(guid);
+            return;
         }
+
+        //make sure bg/arena preparation aura's are positive.
+        if(GetSpellProto()->Id == 32727 || GetSpellProto()->Id == 44521)
+            aur->SetPositive();
+        Target->AddAura(aur);
+        m_tempAuras.erase(guid);
     }
 }
 

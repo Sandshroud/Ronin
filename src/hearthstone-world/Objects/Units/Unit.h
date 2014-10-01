@@ -885,8 +885,6 @@ public:
 
     HEARTHSTONE_INLINE void setcanperry(bool newstatus){can_parry=newstatus;}
 
-    std::map<uint32,Aura* > tmpAura;
-
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
     float DamageDonePctMod[7];

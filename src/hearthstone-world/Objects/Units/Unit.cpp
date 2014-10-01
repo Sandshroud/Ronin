@@ -156,7 +156,6 @@ Unit::Unit() : m_AuraInterface()
 
     m_onAuraRemoveSpells.clear();
 
-    tmpAura.clear();
     m_DummyAuras.clear();
     m_LastSpellManaCost = 0;
 
@@ -395,16 +394,6 @@ void Unit::Destruct()
         SetVehicle(NULLVEHICLE);
     }
 
-    // clear tmpAura pointers
-    for(map<uint32, Aura* >::iterator itr = tmpAura.begin(); itr != tmpAura.end(); itr++)
-    {
-        if( itr->second )
-        {
-            itr->second->m_tmpAuradeleted = true;
-            itr->second->Remove();
-        }
-    }
-    tmpAura.clear();
     m_DummyAuras.clear();
 
     for(std::list<ExtraStrike*>::iterator itr = m_extraStrikeTargets.begin();itr != m_extraStrikeTargets.end();itr++)
@@ -3639,7 +3628,7 @@ void Unit::UpdateVisibility()
                 {
                     buf.clear();
                     count = pObj->BuildCreateUpdateBlockForPlayer( &buf, plr );
-                    plr->PushUpdateData(&buf, count);
+                    plr->PushCreateBlock(&buf, count);
                     plr->AddVisibleObject(pObj);
                 }
             }
@@ -3663,7 +3652,7 @@ void Unit::UpdateVisibility()
                     {
                         buf.clear();
                         count = plr->BuildCreateUpdateBlockForPlayer( &buf, pl );
-                        pl->PushUpdateData(&buf, count);
+                        pl->PushCreateBlock(&buf, count);
                         pl->AddVisibleObject(plr);
                     }
                 }
@@ -3698,7 +3687,7 @@ void Unit::UpdateVisibility()
                 {
                     buf.clear();
                     count = BuildCreateUpdateBlockForPlayer(&buf, *it2);
-                    (*it2)->PushUpdateData(&buf, count);
+                    (*it2)->PushCreateBlock(&buf, count);
                     (*it2)->AddVisibleObject(TO_OBJECT(this));
                 }
             }

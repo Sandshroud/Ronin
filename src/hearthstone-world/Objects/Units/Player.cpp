@@ -219,10 +219,13 @@ void Player::Init()
     m_currentLoot                   = (uint64)NULL;
     pctReputationMod                = 0;
     roll                            = 0;
+    mCreateDataCount                = 0;
     mUpdateDataCount                = 0;
+    mOutOfRangeIdCount              = 0;
+    bCreateDataBuffer.reserve(65000);
     bUpdateDataBuffer.reserve(65000);
     mOutOfRangeIds.reserve(1000);
-    mOutOfRangeIdCount              = 0;
+    mOutOfRangeIds.appendNull(5);
     bProcessPending                 = false;
 
     for(int i = 0; i < QUEST_LOG_COUNT; i++)
@@ -3996,7 +3999,7 @@ void Player::OnPushToWorld()
     GetItemInterface()->CheckAreaItems();
 
     // Process create packet
-    ProcessPendingUpdates(NULL, NULL);
+    PopPendingUpdates();
 
     if(m_TeleportState == 2)   // Worldport Ack
         OnWorldPortAck();
@@ -4160,7 +4163,7 @@ void Player::SendObjectUpdate(uint64 guid)
     data.put<uint32>(2, count);
     // send uncompressed because it's specified
     m_session->SendPacket(&data);
-    ProcessPendingUpdates(NULL, NULL);
+    PopPendingUpdates();
 }
 
 void Player::ResetHeartbeatCoords()
@@ -4168,8 +4171,7 @@ void Player::ResetHeartbeatCoords()
     m_lastHeartbeatPosition = m_position;
     if( m_isMoving )
         m_startMoveTime = m_lastMoveTime;
-    else
-        m_startMoveTime = 0;
+    else m_startMoveTime = 0;
 
     m_cheatEngineChances = 2;
     //_lastHeartbeatT = getMSTime();
@@ -6666,7 +6668,7 @@ void Player::UpdateNearbyGameObjects()
             Gobj->SetUpdateField(OBJECT_FIELD_GUID);
             Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
             Gobj->BuildValuesUpdateBlockForPlayer(&buff, this);
-            PushUpdateData(&buff, 1);
+            PushUpdateBlock(&buff, 1);
         }
     }
 }
@@ -7450,36 +7452,6 @@ void Player::sendMOTD()
     guildmgr.PlayerLoggedIn(m_playerInfo);
 }
 
-void Player::PushUpdateData(ByteBuffer *data, uint32 updatecount)
-{
-    // imagine the bytebuffer getting appended from 2 threads at once! :D
-    _bufferS.Acquire();
-
-    // unfortunately there is no guarantee that all data will be compressed at a ratio
-    // that will fit into 2^16 bytes ( stupid client limitation on server packets )
-    // so if we get more than 63KB of update data, force an update and then append it
-    // to the clean buffer.
-    if( (data->size() + bUpdateDataBuffer.size() ) >= 45000 )
-    {
-        if( IsInWorld() ) // With our allocated resources already existing, use those instead
-            ProcessPendingUpdates(&m_mapMgr->m_updateBuildBuffer, &m_mapMgr->m_compressionBuffer);
-        else
-            ProcessPendingUpdates(NULL, NULL);
-    }
-
-    mUpdateDataCount += updatecount;
-    bUpdateDataBuffer.append(*data);
-
-    // add to process queue
-    if(m_mapMgr && !bProcessPending)
-    {
-        bProcessPending = true;
-        m_mapMgr->PushToProcessed(TO_PLAYER(this));
-    }
-
-    _bufferS.Release();
-}
-
 void Player::PushOutOfRange(const WoWGuid & guid)
 {
     _bufferS.Acquire();
@@ -7495,68 +7467,100 @@ void Player::PushOutOfRange(const WoWGuid & guid)
     _bufferS.Release();
 }
 
-void Player::ProcessPendingUpdates(ByteBuffer *pBuildBuffer, ByteBuffer *pCompressionBuffer)
+void Player::PushCreateBlock(ByteBuffer *data, uint32 updatecount)
+{
+    // imagine the bytebuffer getting appended from 2 threads at once! :D
+    _bufferS.Acquire();
+
+    // Set data size for limiting creation blocks to 2^15+2^13
+    if( (data->size() + bCreateDataBuffer.size() ) >= 0x9FFF )
+        ProcessUpdates(&bCreateDataBuffer, mCreateDataCount);
+
+    mCreateDataCount += updatecount;
+    bCreateDataBuffer.append(*data);
+
+    // add to process queue
+    if(m_mapMgr && !bProcessPending)
+    {
+        bProcessPending = true;
+        m_mapMgr->PushToProcessed(TO_PLAYER(this));
+    }
+
+    _bufferS.Release();
+}
+
+void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
+{
+    // imagine the bytebuffer getting appended from 2 threads at once! :D
+    _bufferS.Acquire();
+
+    // Set data size for limiting update blocks to 2^15
+    if( (data->size() + bUpdateDataBuffer.size() ) >= 0x7FFF )
+        ProcessUpdates(&bUpdateDataBuffer, mUpdateDataCount);
+
+    mUpdateDataCount += updatecount;
+    bUpdateDataBuffer.append(*data);
+
+    // add to process queue
+    if(m_mapMgr && !bProcessPending)
+    {
+        bProcessPending = true;
+        m_mapMgr->PushToProcessed(TO_PLAYER(this));
+    }
+
+    _bufferS.Release();
+}
+
+void Player::ProcessUpdates(ByteBuffer *pUpdatebuffer, uint32 &updateCount)
+{
+    if(!pUpdatebuffer->size())
+        return;
+
+    size_t bBuffer_size = 6 + pUpdatebuffer->size();
+    uint8 *update_buffer = NULL;
+    if(IsInWorld())
+    {
+        GetMapMgr()->m_updateBuildBuffer.resize(bBuffer_size);
+        update_buffer = (uint8*)GetMapMgr()->m_updateBuildBuffer.contents();
+    } else update_buffer = new uint8[bBuffer_size];
+
+    size_t c = 0;
+    *(uint16*)&update_buffer[c] = uint16(GetMapId()); c += 2;
+    *(uint32*)&update_buffer[c] = updateCount; c += 4;
+
+    memcpy(&update_buffer[c], pUpdatebuffer->contents(), pUpdatebuffer->size());
+    c += pUpdatebuffer->size();
+    // clear our update buffer and count
+    pUpdatebuffer->clear();
+    updateCount = 0;
+
+    // compress update packet
+    if(c < size_t(500) || !CompressAndSendUpdateBuffer((uint32)c, update_buffer, (IsInWorld() ? &GetMapMgr()->m_compressionBuffer : NULL)))
+        m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer); // send uncompressed packet -> because we failed
+
+    if(IsInWorld())
+        GetMapMgr()->m_updateBuildBuffer.clear();
+    else delete [] update_buffer;
+}
+
+void Player::ProcessOutOfRangeBuffer()
+{
+    // Put the count after the update type
+    mOutOfRangeIds.put<uint8>(0, UPDATETYPE_OUT_OF_RANGE_OBJECTS);
+    mOutOfRangeIds.put<uint32>(1, mOutOfRangeIdCount);
+    mOutOfRangeIdCount = 1; // Reset Out of range counter to 1 since we're sending one update
+    ProcessUpdates(&mOutOfRangeIds, mOutOfRangeIdCount);
+    mOutOfRangeIds.appendNull(5);
+}
+
+void Player::PopPendingUpdates()
 {
     _bufferS.Acquire();
-    if(!bUpdateDataBuffer.size() && !mOutOfRangeIds.size() && !delayedPackets.size())
-    {
-        _bufferS.Release();
-        return;
-    }
-
-    if(bUpdateDataBuffer.size() || mOutOfRangeIds.size())
-    {
-        size_t bBuffer_size = 6 + bUpdateDataBuffer.size() + (4 + 1 + mOutOfRangeIds.size() * 9);
-        uint8 *update_buffer = NULL;
-        if(pBuildBuffer != NULL)
-        {
-            pBuildBuffer->resize(bBuffer_size);
-            update_buffer = (uint8*)pBuildBuffer->contents();
-        }
-        else update_buffer = new uint8[bBuffer_size];
-        size_t c = 0;
-
-        *(uint16*)&update_buffer[c] = (uint16)GetMapId();
-        c += 2;
-        *(uint32*)&update_buffer[c] = mUpdateDataCount + (mOutOfRangeIds.size() ? 1 : 0);
-        c += 4;
-
-        // append any out of range updates
-        if(mOutOfRangeIdCount)
-        {
-            update_buffer[c] = UPDATETYPE_OUT_OF_RANGE_OBJECTS;
-            ++c;
-            *(uint32*)&update_buffer[c]  = mOutOfRangeIdCount;
-            c += 4;
-            memcpy(&update_buffer[c], mOutOfRangeIds.contents(), mOutOfRangeIds.size());
-            c += mOutOfRangeIds.size();
-            mOutOfRangeIds.clear();
-            mOutOfRangeIdCount = 0;
-        }
-
-        if(mUpdateDataCount)
-        {
-            memcpy(&update_buffer[c], bUpdateDataBuffer.contents(), bUpdateDataBuffer.size());
-            c += bUpdateDataBuffer.size();
-            // clear our creation buffer
-            bUpdateDataBuffer.clear();
-            mUpdateDataCount = 0;
-        }
-
-        // compress update packet
-        //if(c < size_t(500) || !CompressAndSendUpdateBuffer((uint32)c, update_buffer, pCompressionBuffer))
-        {
-            // send uncompressed packet -> because we failed
-            m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer);
-        }
-
-        bProcessPending = false;
-        _bufferS.Release();
-        if(pBuildBuffer != NULL)
-            pBuildBuffer->clear();
-        else
-            delete [] update_buffer;
-    }
+    ProcessUpdates(&bCreateDataBuffer, mCreateDataCount);
+    ProcessUpdates(&bUpdateDataBuffer, mUpdateDataCount);
+    ProcessOutOfRangeBuffer();
+    bProcessPending = false;
+    _bufferS.Release();
 
     // send any delayed packets
     WorldPacket * pck;
@@ -7579,9 +7583,7 @@ void Player::ProcessPendingUpdates(ByteBuffer *pBuildBuffer, ByteBuffer *pCompre
 bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer)
 {
     uint32 destsize = compressBound(size);
-    int rate = 3;
-    if(size >= 40000 && rate < 6)
-        rate = 6;
+    int rate = 2 + float2int32(float(size)/15000.f);
     if(rate < 1 || rate > 9)
         rate = 1;
 
@@ -7617,8 +7619,7 @@ bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer
         sLog.outDebug("deflate failed.");
         if(pCompressionBuffer != NULL)
             pCompressionBuffer->clear();
-        else
-            delete [] buffer;
+        else delete [] buffer;
         return false;
     }
 
@@ -7628,8 +7629,7 @@ bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer
         sLog.outDebug("deflate failed: did not end stream");
         if(pCompressionBuffer != NULL)
             pCompressionBuffer->clear();
-        else
-            delete [] buffer;
+        else delete [] buffer;
         return false;
     }
 
@@ -7639,8 +7639,7 @@ bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer
         sLog.outDebug("deflateEnd failed.");
         if(pCompressionBuffer != NULL)
             pCompressionBuffer->clear();
-        else
-            delete [] buffer;
+        else delete [] buffer;
         return false;
     }
 
@@ -7655,8 +7654,7 @@ bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer
     // cleanup memory
     if(pCompressionBuffer != NULL)
         pCompressionBuffer->clear();
-    else
-        delete [] buffer;
+    else delete [] buffer;
     return true;
 }
 
@@ -7664,8 +7662,9 @@ void Player::ClearAllPendingUpdates()
 {
     _bufferS.Acquire();
     bProcessPending = false;
-    mUpdateDataCount = 0;
+    mCreateDataCount=mUpdateDataCount=0;
     bUpdateDataBuffer.clear();
+    bCreateDataBuffer.clear();
     _bufferS.Release();
 }
 

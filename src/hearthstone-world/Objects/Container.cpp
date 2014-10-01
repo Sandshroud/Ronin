@@ -153,7 +153,7 @@ bool Container::AddItem(int16 slot, Item* item)
 
         ByteBuffer buf(2500);
         uint32 count = item->BuildCreateUpdateBlockForPlayer(&buf, m_owner);
-        m_owner->PushUpdateData(&buf, count);
+        m_owner->PushCreateBlock(&buf, count);
     }
     return true;
 }
@@ -283,7 +283,7 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint32 * r_slot)
                 pItem->PushToWorld(m_owner->GetMapMgr());
                 ByteBuffer buf(2500);
                 uint32 count = pItem->BuildCreateUpdateBlockForPlayer( &buf, m_owner );
-                m_owner->PushUpdateData(&buf, count);
+                m_owner->PushCreateBlock(&buf, count);
             }
             if(r_slot)
                 *r_slot = slot;

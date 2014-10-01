@@ -595,7 +595,7 @@ void Object::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
 {
     ByteBuffer buf(500);
     BuildFieldUpdatePacket(&buf, Index, Value);
-    Target->PushUpdateData(&buf, 1);
+    Target->PushUpdateBlock(&buf, 1);
 }
 
 void Object::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)

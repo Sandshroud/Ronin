@@ -341,6 +341,7 @@ public:
     Player*             p_caster;
     Object*             m_caster;
     Vehicle*            v_caster;
+    std::map<uint64, Aura*> m_tempAuras;
 
     bool SpellEffectUpdateQuest(uint32 questid);
 

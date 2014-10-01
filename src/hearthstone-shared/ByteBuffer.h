@@ -57,6 +57,11 @@ public:
     //template <typename T> void insert(size_t pos, T value) {
     //  insert(pos, (uint8 *)&value, sizeof(value));
     //}
+    void appendNull(size_t size)
+    {
+        for(size_t i = 0; i < size; i++)
+            append<uint8>(0);
+    }
     template <typename T> void append(T value)
     {
         EndianConvert(value);

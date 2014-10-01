@@ -353,7 +353,6 @@ Aura::Aura( SpellEntry* proto, int32 duration, Object* caster, Unit* target )
     stackSize = 1;
     procCharges = m_spellProto->procCharges;
     m_deleted = false;
-    m_tmpAuradeleted = false;
     m_creatureAA = false;
     m_casterGuid = caster->GetGUID();
     m_target = target;
@@ -428,16 +427,6 @@ void Aura::Remove()
 
     sEventMgr.RemoveEvents( this );
 
-    if (!m_tmpAuradeleted && m_target->tmpAura.find(m_spellProto->Id) != m_target->tmpAura.end())
-    {
-        if (m_target->tmpAura[m_spellProto->Id] != this)
-        {
-            m_target->tmpAura[m_spellProto->Id]->m_tmpAuradeleted = true;
-            m_target->tmpAura[m_spellProto->Id]->Remove();
-        }
-        m_target->tmpAura.erase(m_spellProto->Id);
-        m_tmpAuradeleted = true;
-    }
     stackSize = 0;
 
     if( !IsPassive() )

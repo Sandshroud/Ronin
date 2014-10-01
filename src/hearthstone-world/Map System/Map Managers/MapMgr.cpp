@@ -296,7 +296,7 @@ void MapMgr::PushObject(Object* obj)
     {
         sLog.Debug("MapMgr","Creating player "I64FMT" for himself.", obj->GetGUID());
         count = plObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj);
-        plObj->PushUpdateData(&m_createBuffer, count);
+        plObj->PushCreateBlock(&m_createBuffer, count);
         m_createBuffer.clear();
     }
 
@@ -369,7 +369,7 @@ void MapMgr::PushObject(Object* obj)
             for(set<Object* >::iterator itr = _mapWideStaticObjects.begin(); itr != _mapWideStaticObjects.end(); itr++)
             {
                 count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj);
-                plObj->PushUpdateData(&m_createBuffer, count);
+                plObj->PushCreateBlock(&m_createBuffer, count);
                 m_createBuffer.clear();
             }
         }
@@ -774,11 +774,8 @@ void MapMgr::UpdateInRangeSet( Object* obj, Player* plObj, MapCell* cell )
             uint32 type = TO_GAMEOBJECT(curObj)->GetInfo()->Type;
             if( type == GAMEOBJECT_TYPE_TRANSPORT || type == GAMEOBJECT_TYPE_MAP_OBJECT || type == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING )
                 fRange = 0.0f;
-            else
-                fRange = m_UpdateDistance; // normal distance
-        }
-        else
-            fRange = m_UpdateDistance; // normal distance
+            else fRange = m_UpdateDistance; // normal distance
+        } else fRange = m_UpdateDistance; // normal distance
 
         // Add if we are not ourself and range == 0 or distance is withing range.
         if ( curObj != obj && (fRange == 0.0f || IsInRange(fRange, obj, curObj)))
@@ -796,7 +793,7 @@ void MapMgr::UpdateInRangeSet( Object* obj, Player* plObj, MapCell* cell )
                     if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
                     {
                         count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateData(&m_createBuffer, count);
+                        plObj2->PushCreateBlock(&m_createBuffer, count);
                         plObj2->AddVisibleObject(obj);
                         m_createBuffer.clear();
                     }
@@ -807,7 +804,7 @@ void MapMgr::UpdateInRangeSet( Object* obj, Player* plObj, MapCell* cell )
                     if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateData( &m_createBuffer, count );
+                        plObj->PushCreateBlock( &m_createBuffer, count );
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -829,7 +826,7 @@ void MapMgr::UpdateInRangeSet( Object* obj, Player* plObj, MapCell* cell )
                     else if(cansee && !isvisible)
                     {
                         count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateData(&m_createBuffer, count);
+                        plObj2->PushCreateBlock(&m_createBuffer, count);
                         plObj2->AddVisibleObject(obj);
                         m_createBuffer.clear();
                     }
@@ -847,7 +844,7 @@ void MapMgr::UpdateInRangeSet( Object* obj, Player* plObj, MapCell* cell )
                     else if(cansee && !isvisible)
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateData( &m_createBuffer, count );
+                        plObj->PushCreateBlock( &m_createBuffer, count );
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -896,11 +893,8 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
             uint32 type = TO_GAMEOBJECT(curObj)->GetInfo()->Type;
             if( type == GAMEOBJECT_TYPE_TRANSPORT || type == GAMEOBJECT_TYPE_MAP_OBJECT || type == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING )
                 fRange = 0.0f;
-            else
-                fRange = m_UpdateDistance; // normal distance
-        }
-        else
-            fRange = m_UpdateDistance; // normal distance
+            else fRange = m_UpdateDistance; // normal distance
+        } else fRange = m_UpdateDistance; // normal distance
 
         // Add if we are not ourself and range == 0 or distance is withing range.
         if ( curObj != obj && (fRange == 0.0f || IsInRange(fRange, obj, curObj)))
@@ -918,7 +912,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
                     {
                         count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateData(&m_createBuffer, count);
+                        plObj2->PushCreateBlock(&m_createBuffer, count);
                         plObj2->AddVisibleObject(obj);
                         m_createBuffer.clear();
                     }
@@ -929,7 +923,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateData( &m_createBuffer, count );
+                        plObj->PushCreateBlock( &m_createBuffer, count );
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -951,7 +945,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     else if(cansee && !isvisible)
                     {
                         count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateData(&m_createBuffer, count);
+                        plObj2->PushCreateBlock(&m_createBuffer, count);
                         plObj2->AddVisibleObject(obj);
                         m_createBuffer.clear();
                     }
@@ -969,7 +963,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     else if(cansee && !isvisible)
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateData( &m_createBuffer, count );
+                        plObj->PushCreateBlock( &m_createBuffer, count );
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -1014,7 +1008,7 @@ void MapMgr::_UpdateObjects()
                 // send update to owner
                 if( count )
                 {
-                    pOwner->PushUpdateData( &m_updateBuffer, count );
+                    pOwner->PushUpdateBlock( &m_updateBuffer, count );
                     m_updateBuffer.clear();
                 }
             }
@@ -1030,7 +1024,7 @@ void MapMgr::_UpdateObjects()
                     count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, TO_PLAYER( pObj ) );
                     if( count )
                     {
-                        TO_PLAYER( pObj )->PushUpdateData( &m_updateBuffer, count );
+                        TO_PLAYER( pObj )->PushUpdateBlock( &m_updateBuffer, count );
                         m_updateBuffer.clear();
                     }
                 }
@@ -1050,7 +1044,7 @@ void MapMgr::_UpdateObjects()
                         ++itr;
                         // Make sure that the target player can see us.
                         if( lplr->IsVisible( pObj ) )
-                            lplr->PushUpdateData( &m_updateBuffer, count );
+                            lplr->PushUpdateBlock( &m_updateBuffer, count );
                     }
                     m_updateBuffer.clear();
                 }
@@ -1069,7 +1063,7 @@ void MapMgr::_UpdateObjects()
         ++it;
         _processQueue.erase(eit);
         if(plyr->GetMapMgr() == this)
-            plyr->ProcessPendingUpdates(&m_updateBuildBuffer, &m_compressionBuffer);
+            plyr->PopPendingUpdates();
     }
     m_updateMutex.Release();
 }
@@ -1317,7 +1311,7 @@ void MapMgr::ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply)
                         {
                             ByteBuffer buf;
                             count = obj->BuildCreateUpdateBlockForPlayer(&buf, plr);
-                            plr->PushUpdateData(&buf, count);
+                            plr->PushCreateBlock(&buf, count);
                             plr->m_visibleFarsightObjects.insert(obj);
                         }
                     }
@@ -1370,7 +1364,7 @@ void MapMgr::ChangeFarsightLocation(Player* plr, float X, float Y, bool apply)
                         {
                             ByteBuffer buf;
                             count = obj->BuildCreateUpdateBlockForPlayer(&buf, plr);
-                            plr->PushUpdateData(&buf, count);
+                            plr->PushCreateBlock(&buf, count);
                             plr->m_visibleFarsightObjects.insert(obj);
                         }
                     }

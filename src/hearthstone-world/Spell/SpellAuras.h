@@ -521,7 +521,6 @@ protected:
     void SpecialCases();
 public:
     bool m_deleted;
-    bool m_tmpAuradeleted;
     bool m_creatureAA;
     int16 m_interrupted;
 

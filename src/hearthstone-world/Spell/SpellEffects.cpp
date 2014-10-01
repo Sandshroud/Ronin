@@ -518,10 +518,7 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
 
     //check if we already have stronger aura
     Aura* pAura = NULL;
-
-    std::map<uint32,Aura* >::iterator itr = unitTarget->tmpAura.find(GetSpellProto()->Id);
-    //if we do not make a check to see if the aura owner is the same as the caster then we will stack the 2 auras and they will not be visible client sided
-    if(itr == unitTarget->tmpAura.end())
+    if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
     {
         int32 Duration = GetDuration();
 
@@ -539,11 +536,10 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
             return;
 
         pAura->m_triggeredSpellId = m_triggeredSpellId; //this is required for triggered spells
-        unitTarget->tmpAura[GetSpellProto()->Id] = pAura;
-    } else pAura = itr->second;
+        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
+    } else pAura = m_tempAuras.at(unitTarget->GetGUID());
 
     int32 miscValue = GetSpellProto()->EffectMiscValue[i];
-
     if(i_caster && m_caster->IsPlayer() && GetSpellProto()->EffectApplyAuraName[i]==SPELL_AURA_PROC_TRIGGER_SPELL)
         miscValue = p_caster->GetItemInterface()->GetInventorySlotByGuid( i_caster->GetGUID() ); // Need to know on which hands attacks spell should proc
 
@@ -1645,15 +1641,14 @@ void Spell::SpellEffectApplyAA(uint32 i) // Apply Area Aura
     if(!unitTarget || !unitTarget->isAlive() || u_caster != unitTarget)
         return;
 
-    Aura* pAura;
-    std::map<uint32,Aura* >::iterator itr = unitTarget->tmpAura.find(GetSpellProto()->Id);
-    if(itr == unitTarget->tmpAura.end())
+    //check if we already have stronger aura
+    Aura* pAura = NULL;
+    if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
     {
         pAura = new Aura(GetSpellProto(),GetDuration(),m_caster,unitTarget);
+        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
 
-        unitTarget->tmpAura[GetSpellProto()->Id] = pAura;
-
-        float r=GetRadius(i);
+        float r = GetRadius(i);
         r *= r;
 
         if( u_caster->IsPlayer() || ( u_caster->GetTypeId() == TYPEID_UNIT && (TO_CREATURE(u_caster)->IsTotem() || TO_CREATURE(u_caster)->IsPet()) ) )
@@ -1663,9 +1658,9 @@ void Spell::SpellEffectApplyAA(uint32 i) // Apply Area Aura
             sEventMgr.AddEvent(pAura, &Aura::EventUpdateCreatureAA, r, EVENT_AREAAURA_UPDATE, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             pAura->m_creatureAA = true;
         }
-    } else pAura = itr->second;
+    } else pAura = m_tempAuras.at(unitTarget->GetGUID());
 
-    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],damage,GetSpellProto()->EffectMiscValue[i],GetSpellProto()->EffectMiscValueB[i],i);
+    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i], damage, GetSpellProto()->EffectMiscValue[i], GetSpellProto()->EffectMiscValueB[i], i);
 }
 
 void Spell::SpellEffectLearnSpell(uint32 i) // Learn Spell

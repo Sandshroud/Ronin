@@ -1434,12 +1434,15 @@ public:
 
     bool sentMOTD;
     void sendMOTD();
-    bool bProcessPending;
-    Mutex _bufferS;
-    void PushUpdateData(ByteBuffer *data, uint32 updatecount);
+
     void PushOutOfRange(const WoWGuid & guid);
-    void ProcessPendingUpdates(ByteBuffer *pBuildBuffer, ByteBuffer *pCompressionBuffer);
-    bool __fastcall CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer);
+    void PushCreateBlock(ByteBuffer *data, uint32 updatecount);
+    void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
+    void ProcessUpdates(ByteBuffer *pUpdatebuffer, uint32 &updateCount);
+    void ProcessOutOfRangeBuffer();
+    void PopPendingUpdates();
+
+    bool CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer);
     void ClearAllPendingUpdates();
 
     uint32 GetArmorProficiency() { return armor_proficiency; }
@@ -1742,10 +1745,10 @@ protected:
     void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
 
     /* Update system components */
-    uint32 mUpdateDataCount;
-    ByteBuffer bUpdateDataBuffer;
-    uint32 mOutOfRangeIdCount;
-    ByteBuffer mOutOfRangeIds;
+    Mutex _bufferS;
+    bool bProcessPending;
+    uint32 mCreateDataCount, mUpdateDataCount, mOutOfRangeIdCount;
+    ByteBuffer bCreateDataBuffer, bUpdateDataBuffer, mOutOfRangeIds;
     /* End update system */
 
     void _LoadTutorials(QueryResult * result);
