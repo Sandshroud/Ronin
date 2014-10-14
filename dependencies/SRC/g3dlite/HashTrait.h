@@ -32,38 +32,38 @@ template <> struct HashTrait <int> {
 };
 #endif
 
-template <> struct HashTrait <G3D::g3d_int16> {
-    static size_t hashCode(G3D::g3d_int16 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::int16> {
+    static size_t hashCode(G3D::int16 k) { return static_cast<size_t>(k); }
 };
 
-template <> struct HashTrait <G3D::g3d_uint16> {
-    static size_t hashCode(G3D::g3d_uint16 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::uint16> {
+    static size_t hashCode(G3D::uint16 k) { return static_cast<size_t>(k); }
 };
 
 //template <> struct HashTrait <int> {
 //    static size_t hashCode(int k) { return static_cast<size_t>(k); }
 //};
 
-template <> struct HashTrait <G3D::g3d_int32> {
-    static size_t hashCode(G3D::g3d_int32 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::int32> {
+    static size_t hashCode(G3D::int32 k) { return static_cast<size_t>(k); }
 };
 
-template <> struct HashTrait <G3D::g3d_uint32> {
-    static size_t hashCode(G3D::g3d_uint32 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::uint32> {
+    static size_t hashCode(G3D::uint32 k) { return static_cast<size_t>(k); }
 };
 
 #ifdef G3D_OSX
 template <> struct HashTrait <long unsigned int> {
-    static size_t hashCode(G3D::g3d_uint32 k) { return static_cast<size_t>(k); }
+    static size_t hashCode(G3D::uint32 k) { return static_cast<size_t>(k); }
 };
 #endif
 
-template <> struct HashTrait <G3D::g3d_int64> {
-    static size_t hashCode(G3D::g3d_int64 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::int64> {
+    static size_t hashCode(G3D::int64 k) { return static_cast<size_t>(k); }
 };
 
-template <> struct HashTrait <G3D::g3d_uint64> {
-    static size_t hashCode(G3D::g3d_uint64 k) { return static_cast<size_t>(k); }
+template <> struct HashTrait <G3D::uint64> {
+    static size_t hashCode(G3D::uint64 k) { return static_cast<size_t>(k); }
 };
 
 template <> struct HashTrait <std::string> {
@@ -83,8 +83,8 @@ template <> struct HashTrait<G3D::uint128> {
             hash ^= (mask & key);
             key >>= 8;
         }
-    
-        G3D::g3d_uint64 foldedHash = hash.hi ^ hash.lo;
+	
+        G3D::uint64 foldedHash = hash.hi ^ hash.lo;
         return static_cast<size_t>((foldedHash >> 32) ^ (foldedHash & 0xFFFFFFFF));
     }
 };

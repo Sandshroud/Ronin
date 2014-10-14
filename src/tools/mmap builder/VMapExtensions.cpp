@@ -29,7 +29,7 @@ namespace VMAP
     // maybe add MapBuilder as friend to all of the below classes would be better?
 
     // declared in src/shared/vmap/MapTree.h
-    void StaticMapTree::getModelInstances(ModelInstance* &models, G3D::g3d_uint32 &count)
+    void StaticMapTree::getModelInstances(ModelInstance* &models, G3D::uint32 &count)
     {
         models = iTreeValues;
         count = iNTreeValues;
@@ -62,7 +62,7 @@ namespace VMAP
     }
 
     // declared in src/shared/vmap/WorldModel.h
-    void WmoLiquid::getPosInfo(G3D::g3d_uint32 &tilesX, G3D::g3d_uint32 &tilesY, G3D::Vector3 &corner) const
+    void WmoLiquid::getPosInfo(G3D::uint32 &tilesX, G3D::uint32 &tilesY, G3D::Vector3 &corner) const
     {
         tilesX = iTilesX;
         tilesY = iTilesY;

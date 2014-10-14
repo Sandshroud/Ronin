@@ -1402,6 +1402,9 @@ void GuildMgr::RebuildGuildRosterBuffer(uint32 guildId)
         gInfo->m_guildRosterBuffer << gInfo->m_motd.c_str();
     else gInfo->m_guildRosterBuffer << uint8(0);
 
+    // Send member count
+    gInfo->m_guildRosterBuffer << uint32(memberMap->MemberMap.size());
+
     // Packed uint8 - each bit resembles some flag.
     uint32 totalBytesToSend = uint32(ceil(float(memberMap->MemberMap.size()) / 8.0f));
     for (uint32 i = 0; i < totalBytesToSend; ++i)
@@ -1476,7 +1479,6 @@ void GuildMgr::RebuildGuildRosterBuffer(uint32 guildId)
         else gInfo->m_guildRosterBuffer << float(float(time(NULL) - itr->second->pPlayer->lastOnline) / TIME_DAY);
     }
 
-    printf("Guild roster buffer size: %u members: %u\n", gInfo->m_guildRosterBuffer.size(), memberMap->MemberMap.size());
     gInfo->m_guildRosterBufferLock.Release();
     memberMap->MemberMapLock.Release();
 }

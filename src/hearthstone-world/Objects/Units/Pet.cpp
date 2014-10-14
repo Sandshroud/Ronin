@@ -188,20 +188,14 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
         m_name = "Shadowfiend";
     else if(GetEntry() == 30230)
         m_name = "Risen Ally";
-    else
-        m_name = sWorld.GenerateName();
+    else m_name = sWorld.GenerateName();
 
     if(type & 0x2)
     {
         // These need to be checked.
         SetHappiness(PET_HAPPINESS_UPDATE_VALUE >> 1);//happiness
-        SetUInt32Value(UNIT_FIELD_MAX_HAPPINESS, 1000000);
         SetUInt32Value(UNIT_FIELD_PETEXPERIENCE, 0);
         SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, GetNextLevelXP(getLevel()));
-
-        // Focus
-        SetUInt32Value(UNIT_FIELD_FOCUS, 100);
-        SetUInt32Value(UNIT_FIELD_MAX_FOCUS, 100);
 
         // 0x3 -> Enable pet rename.
         SetUInt32Value(UNIT_FIELD_BYTES_2, 1 | (0x3 << 16));
@@ -1236,7 +1230,7 @@ void Pet::ApplyStatsForLevel()
         SetScale(scale);
     }
 
-    SetHealth(m_uint32Values[ UNIT_FIELD_MAXHEALTH ]);
+    SetHealth(m_uint32Values[UNIT_FIELD_MAXHEALTH]);
     SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));   // mana
     SetPower(POWER_TYPE_FOCUS, GetMaxPower(POWER_TYPE_FOCUS));   // focus
 }
@@ -1304,7 +1298,7 @@ AI_Spell * Pet::HandleAutoCastEvent()
         {
             // spells still spammed, I think the cooldowntime is being set incorrectly somewhere else
             if( chance && itr->second->info && getMSTime() >= itr->second->cooldown && //cebernic:crashfix
-                GetPower(itr->second->info->powerType) >= itr->second->info->ManaCost )
+                GetPower(PowerType(itr->second->info->powerType)) >= itr->second->info->ManaCost )
             {
                 return itr->second;
             }

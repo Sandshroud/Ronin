@@ -89,7 +89,7 @@ public:
     /**
      Initialize from an HTML-style color (e.g. 0xFFFF0000 == RED)
      */
-    static Color4 fromARGB(g3d_uint32);
+    static Color4 fromARGB(uint32);
 
     /**
      * Channel values.
@@ -145,11 +145,11 @@ public:
     std::string toString() const;
 
     inline Color4 max(const Color4& other) const {
-        return Color4(G3D::G3D_max(r, other.r), G3D::G3D_max(g, other.g), G3D::G3D_max(b, other.b), G3D::G3D_max(a, other.a));
+        return Color4(G3D::max(r, other.r), G3D::max(g, other.g), G3D::max(b, other.b), G3D::max(a, other.a));
     }
 
     inline Color4 min(const Color4& other) const {
-        return Color4(G3D::G3D_min(r, other.r), G3D::G3D_min(g, other.g), G3D::G3D_min(b, other.b), G3D::G3D_min(a, other.a));
+        return Color4(G3D::min(r, other.r), G3D::min(g, other.g), G3D::min(b, other.b), G3D::min(a, other.a));
     }
 
     /** r + g + b + a */

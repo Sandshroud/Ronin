@@ -12,11 +12,11 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     if(_player->getDeathState()==CORPSE)
         return;
 
-    uint8 bagIndex, slot, castFlags;
+    uint8 bagIndex, slot;
     uint8 castCount;
     uint64 itemGUID;
     uint32 spellId;
-    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID >> castFlags;
+    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID;
 
     Item* tmpItem = NULLITEM;
     tmpItem = _player->GetItemInterface()->GetInventoryItem(bagIndex,slot);

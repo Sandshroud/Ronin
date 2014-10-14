@@ -35,17 +35,17 @@ class SERVER_DECL ByteBuffer
 public:
     const static size_t DEFAULT_SIZE = 0x1000;
 
-    ByteBuffer(): _rpos(0), _wpos(0)
+    ByteBuffer(): _rpos(0), _wpos(0), _bitpos(8), _curbitval(0)
     {
         _storage.reserve(DEFAULT_SIZE);
     }
 
-    ByteBuffer(size_t res): _rpos(0), _wpos(0)
+    ByteBuffer(size_t res): _rpos(0), _wpos(0), _bitpos(8), _curbitval(0)
     {
         _storage.reserve(res);
     }
 
-    ByteBuffer(const ByteBuffer &buf): _rpos(buf._rpos), _wpos(buf._wpos), _storage(buf._storage) { }
+    ByteBuffer(const ByteBuffer &buf): _rpos(buf._rpos), _wpos(buf._wpos), _bitpos(buf._bitpos), _curbitval(buf._curbitval), _storage(buf._storage) { }
     virtual ~ByteBuffer() {}
 
     void clear()
@@ -57,15 +57,79 @@ public:
     //template <typename T> void insert(size_t pos, T value) {
     //  insert(pos, (uint8 *)&value, sizeof(value));
     //}
-    void appendNull(size_t size)
-    {
-        for(size_t i = 0; i < size; i++)
-            append<uint8>(0);
-    }
     template <typename T> void append(T value)
     {
+        FlushBits();
         EndianConvert(value);
         append((uint8 *)&value, sizeof(value));
+    }
+
+    void FlushBits()
+    {
+        if (_bitpos == 8)
+            return;
+
+        append((uint8 *)&_curbitval, sizeof(uint8));
+        _curbitval = 0;
+        _bitpos = 8;
+    }
+
+    bool WriteBit(uint32 bit)
+    {
+        --_bitpos;
+        if (bit) _curbitval |= (1 << (_bitpos));
+        if (_bitpos == 0)
+            FlushBits();
+        return (bit != 0);
+    }
+
+    // Will flush bits after writing
+    void WriteBitString(uint32 count, ...)
+    {
+        va_list vl;
+        va_start(vl, count);
+        for(uint32 i = 0; i < count; i++)
+            WriteBit(va_arg(vl, uint32));
+        va_end(vl);
+    }
+
+    bool ReadBit()
+    {
+        ++_bitpos;
+        if (_bitpos > 7)
+        {
+            _bitpos = 0;
+            _curbitval = read<uint8>();
+        }
+
+        return ((_curbitval >> (7-_bitpos)) & 1) != 0;
+    }
+
+    template <typename T> void WriteBits(T value, size_t bits)
+    {
+        for (int32 i = bits-1; i >= 0; --i)
+            WriteBit((value >> i) & 1);
+    }
+
+    uint32 ReadBits(size_t bits)
+    {
+        uint32 value = 0;
+        for (int32 i = bits-1; i >= 0; --i)
+            if (ReadBit()) value |= (1 << (i));
+        return value;
+    }
+
+    // Reads a byte (if needed) in-place
+    void ReadByteSeq(uint8& b)
+    {
+        if (b != 0)
+            b ^= read<uint8>();
+    }
+
+    void WriteByteSeq(uint8 b)
+    {
+        if (b != 0)
+            append<uint8>(b ^ 1);
     }
 
     template <typename T> void put(size_t pos,T value)
@@ -395,8 +459,8 @@ public:
     void zerofill(size_t len) { for(size_t i = 0; i < len; i++) append<uint8>(0); }
 
     // appending to the end of buffer
-    void append(const std::string& str) { append((uint8 *)str.c_str(),str.size() + 1); }
-    void append(const char *src, size_t cnt) { return append((const uint8 *)src, cnt); }
+    void append(const std::string& str) { FlushBits(); append((uint8 *)str.c_str(),str.size() + 1); }
+    void append(const char *src, size_t cnt) { FlushBits(); return append((const uint8 *)src, cnt); }
     void append(const uint8 *src, size_t cnt)
     {
         if(!cnt)
@@ -416,7 +480,7 @@ public:
         _wpos += cnt;
     }
 
-    void append(const ByteBuffer& buffer) { if(buffer.size() > 0) append(buffer.contents(),buffer.size()); }
+    void append(const ByteBuffer& buffer) { FlushBits(); if(buffer.size() > 0) append(buffer.contents(),buffer.size()); }
     void appendvector(const LocationVector &v, bool orientation = false)
     {
         append<float>(v.x);
@@ -435,6 +499,27 @@ public:
     //void insert(size_t pos, const uint8 *src, size_t cnt) {
     //  std::copy(src, src + cnt, inserter(_storage, _storage.begin() + pos));
     //}
+
+    // Reads a string without a null terminator
+    std::string ReadString(uint32 length)
+    {
+        std::string retval;
+        if(length)
+        {
+            char* buffer = new char[length + 1]();
+            read((uint8*)buffer, length);
+            retval.append(buffer);
+            delete[] buffer;
+        }
+        return retval;
+    }
+
+    // Does not write null terminator
+    void WriteString(std::string const& str)
+    {
+        if (size_t len = str.length())
+            append(str.c_str(), len);
+    }
 
     void hexlike()
     {
@@ -558,8 +643,9 @@ public:
     }
 
 protected:
+    uint8 _curbitval; // bit operation val
     // read and write positions
-    size_t _rpos, _wpos;
+    size_t _rpos, _wpos, _bitpos;
     std::vector<uint8> _storage;
 };
 

@@ -218,7 +218,7 @@ void Image3::save(const std::string& filename, GImage::Format fmt) {
 }
 
 
-const ImageFormat* Image3::G3D_format() const {
+const ImageFormat* Image3::format() const {
     return ImageFormat::RGB32F();
 }
 

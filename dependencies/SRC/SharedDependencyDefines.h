@@ -27,6 +27,8 @@
 #define PLATFORM_APPLE 2
 #define PLATFORM_INTEL 3
 
+#define __STORMLIB_SELF__
+
 #if defined( __WIN32__ ) || defined( WIN32 ) || defined( _WIN32 ) || defined(_WIN64)
 #  define PLATFORM PLATFORM_WIN
 #elif defined( __INTEL_COMPILER )
@@ -39,7 +41,9 @@
 
 #if PLATFORM == PLATFORM_WIN
 #define WIN32_LEAN_AND_MEAN
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
+#endif
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif

@@ -27,7 +27,7 @@ public:
     std::string     filename;
     
     /** For a binary file, the location of the parse error. -1 if unknown.*/
-    g3d_int64           byte;
+    int64           byte;
 
     /** For a text file, the line number is the line number of start of token which caused the exception.  1 is
         the first line of the file.  -1 means unknown.  Note that you can use 
@@ -50,7 +50,7 @@ public:
     ParseError(const std::string& f, int l, int c, const std::string& m) :
         filename (f),  byte(UNKNOWN), line(l), character(c), message(m) {}
 
-    ParseError(const std::string& f, g3d_int64 b, const std::string& m) :
+    ParseError(const std::string& f, int64 b, const std::string& m) :
         filename (f),  byte(b), line(UNKNOWN), character(UNKNOWN), message(m) {}
 };
 

@@ -47,7 +47,7 @@ protected:
 
 public:
 
-    const class ImageFormat* G3D_format() const;
+    const class ImageFormat* format() const;
 
     /** Creates an all-zero width x height image. */
     static Ref createEmpty(int width, int height, WrapMode wrap = WrapMode::ERROR);
@@ -57,7 +57,7 @@ public:
 
     static Ref fromFile(const std::string& filename, WrapMode wrap = WrapMode::ERROR, GImage::Format fmt = GImage::AUTODETECT);
     
-    static Ref fromArray(const class Color1uint8* ptr, int width, int height, WrapMode wrap = WrapMode::ERROR);
+	static Ref fromArray(const class Color1uint8* ptr, int width, int height, WrapMode wrap = WrapMode::ERROR);
     static Ref fromArray(const class Color3uint8* ptr, int width, int height, WrapMode wrap = WrapMode::ERROR);
     static Ref fromArray(const class Color4uint8* ptr, int width, int height, WrapMode wrap = WrapMode::ERROR);
     static Ref fromArray(const class Color1* ptr, int width, int height, WrapMode wrap = WrapMode::ERROR);

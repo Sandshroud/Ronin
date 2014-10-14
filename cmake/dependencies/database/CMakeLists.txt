@@ -8,7 +8,7 @@ FILE(GLOB sources
 source_group("${PROJECT_NAME}" FILES ${sources})
 SET(SRCS ${SRCS} ${sources} )
 
-include_directories( ${prefix} ${MYSQL_INCLUDE_DIR})
+include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} ${MYSQL_INCLUDE_DIR})
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
 
 #Set it to the project name.

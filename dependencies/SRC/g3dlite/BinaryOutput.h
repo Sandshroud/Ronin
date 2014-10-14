@@ -60,7 +60,7 @@ private:
     /** The current string of bits being built up by beginBits...endBits.
         This string is treated semantically, as if the lowest bit was
         on the left and the highest was on the right.*/
-    g3d_int8            m_bitString;
+    int8            m_bitString;
 
     /** Position (from the lowest bit) currently used in bitString.*/
     int             m_bitPos;
@@ -70,7 +70,7 @@ private:
 
     G3DEndian       m_fileEndian;
 
-    g3d_uint8*          m_buffer;
+    uint8*          m_buffer;
     
     /** Size of the elements used */
     int             m_bufferLen;
@@ -147,7 +147,7 @@ public:
     /**
      Returns a pointer to the internal memory buffer.
      */
-    inline const g3d_uint8* getCArray() const {
+    inline const uint8* getCArray() const {
         return m_buffer;
     }
 
@@ -180,7 +180,7 @@ public:
      Write the bytes to memory (which must be of
      at least size() bytes).
      */
-    void commit(g3d_uint8*);
+    void commit(uint8*);
 
     /**
       A memory BinaryOutput may be reset so that it can be written to again
@@ -226,8 +226,8 @@ public:
      Returns the current byte position in the file,
      where 0 is the beginning and getLength() - 1 is the end.
      */
-    inline g3d_int64 position() const {
-        return (g3d_int64)m_pos + (g3d_int64)m_alreadyWritten;
+    inline int64 position() const {
+        return (int64)m_pos + (int64)m_alreadyWritten;
     }
 
 
@@ -238,11 +238,11 @@ public:
 
      May throw a char* exception when seeking backwards on a huge file.
      */
-    inline void setPosition(g3d_int64 p) {
-        p = p - (g3d_int64)m_alreadyWritten;
+    inline void setPosition(int64 p) {
+        p = p - (int64)m_alreadyWritten;
 
         if (p > m_bufferLen) {
-            setLength((int)(p + (g3d_int64)m_alreadyWritten));
+            setLength((int)(p + (int64)m_alreadyWritten));
         }
 
         if (p < 0) {
@@ -267,9 +267,9 @@ public:
     /**
      Writes a signed 8-bit integer to the current position.
      */
-    inline void writeInt8(g3d_int8 i) {
+    inline void writeInt8(int8 i) {
         reserveBytes(1);
-        m_buffer[m_pos] = *(g3d_uint8*)&i;
+        m_buffer[m_pos] = *(uint8*)&i;
         m_pos++;
     }
 
@@ -277,36 +277,36 @@ public:
         writeInt8(b ? 1 : 0);
     }
 
-    inline void writeUInt8(g3d_uint8 i) {
+    inline void writeUInt8(uint8 i) {
         reserveBytes(1);
         m_buffer[m_pos] = i;
         m_pos++;
     }
 
-    void writeUInt16(g3d_uint16 u);
+    void writeUInt16(uint16 u);
 
-    inline void writeInt16(g3d_int16 i) {
-        writeUInt16(*(g3d_uint16*)&i);
+    inline void writeInt16(int16 i) {
+        writeUInt16(*(uint16*)&i);
     }
 
-    void writeUInt32(g3d_uint32 u);
+    void writeUInt32(uint32 u);
 
-    inline void writeInt32(g3d_int32 i) {
+    inline void writeInt32(int32 i) {
         debugAssert(m_beginEndBits == 0);
-        writeUInt32(*(g3d_uint32*)&i);
+        writeUInt32(*(uint32*)&i);
     }
 
-    void writeUInt64(g3d_uint64 u);
+    void writeUInt64(uint64 u);
 
-    inline void writeInt64(g3d_int64 i) {
-        writeUInt64(*(g3d_uint64*)&i);
+    inline void writeInt64(int64 i) {
+        writeUInt64(*(uint64*)&i);
     }
 
     inline void writeFloat32(float32 f) {
         debugAssert(m_beginEndBits == 0);
         union {
             float32 a;
-            g3d_uint32 b;
+            uint32 b;
         };
         a = f;
         writeUInt32(b);
@@ -315,7 +315,7 @@ public:
     inline void writeFloat64(float64 f) {
         union {
             float64 a;
-            g3d_uint64 b;
+            uint64 b;
         };
         a = f;
         writeUInt64(b);
@@ -385,7 +385,7 @@ public:
         0xAB to the second byte.  However, if used with BinaryInput::readBits, the ordering
         is transparent to the caller.
       */
-    void writeBits(g3d_uint32 bitString, int numBits);
+    void writeBits(uint32 bitString, int numBits);
 
     /** Call after a series of BinaryOutput::writeBits calls. This will
         finish out with zeros the last byte into which bits were written.*/
@@ -398,14 +398,14 @@ public:
     void write##ucase(const Array<lcase>& out, int n);
 
     DECLARE_WRITER(Bool8,   bool)
-    DECLARE_WRITER(UInt8,   g3d_uint8)
-    DECLARE_WRITER(Int8,    g3d_int8)
-    DECLARE_WRITER(UInt16,  g3d_uint16)
-    DECLARE_WRITER(Int16,   g3d_int16)
-    DECLARE_WRITER(UInt32,  g3d_uint32)
-    DECLARE_WRITER(Int32,   g3d_int32)
-    DECLARE_WRITER(UInt64,  g3d_uint64)
-    DECLARE_WRITER(Int64,   g3d_int64)
+    DECLARE_WRITER(UInt8,   uint8)
+    DECLARE_WRITER(Int8,    int8)
+    DECLARE_WRITER(UInt16,  uint16)
+    DECLARE_WRITER(Int16,   int16)
+    DECLARE_WRITER(UInt32,  uint32)
+    DECLARE_WRITER(Int32,   int32)
+    DECLARE_WRITER(UInt64,  uint64)
+    DECLARE_WRITER(Int64,   int64)
     DECLARE_WRITER(Float32, float32)
     DECLARE_WRITER(Float64, float64)    
 #   undef DECLARE_WRITER

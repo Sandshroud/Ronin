@@ -19,6 +19,7 @@ public:
 
     // Open database. It must be openened before it can be used.
     bool open(const char*);
+    bool openFromMPQ(HANDLE);
 
     // Dump the 
     bool DumpBufferToFile(const char*fn);
@@ -116,29 +117,17 @@ public:
     class Iterator
     {
     public:
-        Iterator(DBCFile &file, unsigned char *offset): 
-            record(file, offset) {}
-        /// Advance (prefix only)
-        Iterator & operator++() { 
-            record.offset += record.file.recordSize;
-            return *this; 
-        }   
-        /// Return address of current instance
-        Record const & operator*() const { return record; }
-        const Record* operator->() const {
-            return &record;
-        }
+        Iterator(DBCFile *file, size_t offset = 0) : m_dbcFile(file), m_offset(offset) {}
+        Iterator & operator++() { m_offset += m_dbcFile->recordSize; return *this; }
+        Record getRecord() { return Record(*m_dbcFile, m_dbcFile->data+m_offset); }
+        Record operator*() const { return Record(*m_dbcFile, m_dbcFile->data+m_offset); }
+        const Record* operator->() const { return &Record(*m_dbcFile, m_dbcFile->data+m_offset); }
         /// Comparison
-        bool operator==(const Iterator &b) const
-        {
-            return record.offset == b.record.offset;
-        }
-        bool operator!=(const Iterator &b) const
-        {
-            return record.offset != b.record.offset;
-        }
+        bool operator==(const Iterator &b) const { return m_offset == b.m_offset; }
+        bool operator!=(const Iterator &b) const { return m_offset != b.m_offset; }
     private:
-        Record record;
+        DBCFile *m_dbcFile;
+        size_t m_offset;
     };
 
     // Get record by id
@@ -157,6 +146,7 @@ public:
     int GetRecordSize() { return recordSize; }
 ////////////////////////////////////////////////////////////////////////////////////////////
 private:
+    void CalcMaxId();
     std::string filename;
     unsigned int recordSize;
     unsigned int recordCount;

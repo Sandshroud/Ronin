@@ -44,7 +44,7 @@ bool RegistryUtil::keyExists(const std::string& key) {
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
 
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
@@ -69,11 +69,11 @@ bool RegistryUtil::valueExists(const std::string& key, const std::string& value)
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
-        g3d_uint32 dataSize = 0;
+        uint32 dataSize = 0;
         result = RegQueryValueExA(openKey, value.c_str(), NULL, NULL, NULL, reinterpret_cast<LPDWORD>(&dataSize));
 
         debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
@@ -83,7 +83,7 @@ bool RegistryUtil::valueExists(const std::string& key, const std::string& value)
 }
 
 
-bool RegistryUtil::readInt32(const std::string& key, const std::string& value, g3d_int32& data) {
+bool RegistryUtil::readInt32(const std::string& key, const std::string& value, int32& data) {
     size_t pos = key.find('\\', 0);
     if (pos == std::string::npos) {
         return false;
@@ -96,11 +96,11 @@ bool RegistryUtil::readInt32(const std::string& key, const std::string& value, g
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
-        g3d_uint32 dataSize = sizeof(g3d_int32);
+        uint32 dataSize = sizeof(int32);
         result = RegQueryValueExA(openKey, value.c_str(), NULL, NULL, reinterpret_cast<LPBYTE>(&data), reinterpret_cast<LPDWORD>(&dataSize));
 
         debugAssertM(result == ERROR_SUCCESS, "Could not read registry key value.");
@@ -110,7 +110,7 @@ bool RegistryUtil::readInt32(const std::string& key, const std::string& value, g
     return (result == ERROR_SUCCESS);
 }
 
-bool RegistryUtil::readBytes(const std::string& key, const std::string& value, g3d_uint8* data, g3d_uint32& dataSize) {
+bool RegistryUtil::readBytes(const std::string& key, const std::string& value, uint8* data, uint32& dataSize) {
     size_t pos = key.find('\\', 0);
     if (pos == std::string::npos) {
         return false;
@@ -123,7 +123,7 @@ bool RegistryUtil::readBytes(const std::string& key, const std::string& value, g
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
@@ -153,11 +153,11 @@ bool RegistryUtil::readString(const std::string& key, const std::string& value, 
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_READ, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
-        g3d_uint32 dataSize = 0;
+        uint32 dataSize = 0;
 
         result = RegQueryValueExA(openKey, value.c_str(), NULL, NULL, NULL, reinterpret_cast<LPDWORD>(&dataSize));
         debugAssertM(result == ERROR_SUCCESS, "Could not read registry key value.");
@@ -183,7 +183,7 @@ bool RegistryUtil::readString(const std::string& key, const std::string& value, 
     return (result == ERROR_SUCCESS);
 }
 
-bool RegistryUtil::writeInt32(const std::string& key, const std::string& value, g3d_int32 data) {
+bool RegistryUtil::writeInt32(const std::string& key, const std::string& value, int32 data) {
     size_t pos = key.find('\\', 0);
     if (pos == std::string::npos) {
         return false;
@@ -196,11 +196,11 @@ bool RegistryUtil::writeInt32(const std::string& key, const std::string& value, 
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
-        result = RegSetValueExA(openKey, value.c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&data), sizeof(g3d_int32));
+        result = RegSetValueExA(openKey, value.c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&data), sizeof(int32));
 
         debugAssertM(result == ERROR_SUCCESS, "Could not write registry key value.");
 
@@ -209,7 +209,7 @@ bool RegistryUtil::writeInt32(const std::string& key, const std::string& value, 
     return (result == ERROR_SUCCESS);
 }
 
-bool RegistryUtil::writeBytes(const std::string& key, const std::string& value, const g3d_uint8* data, g3d_uint32 dataSize) {
+bool RegistryUtil::writeBytes(const std::string& key, const std::string& value, const uint8* data, uint32 dataSize) {
     debugAssert(data);
 
     size_t pos = key.find('\\', 0);
@@ -224,7 +224,7 @@ bool RegistryUtil::writeBytes(const std::string& key, const std::string& value, 
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {
@@ -252,7 +252,7 @@ bool RegistryUtil::writeString(const std::string& key, const std::string& value,
     }
 
     HKEY openKey;
-    g3d_int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
+    int32 result = RegOpenKeyExA(hkey, (key.c_str() + pos + 1), 0, KEY_WRITE, &openKey);
     debugAssert(result == ERROR_SUCCESS || result == ERROR_FILE_NOT_FOUND);
 
     if (result == ERROR_SUCCESS) {

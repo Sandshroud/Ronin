@@ -29,14 +29,14 @@ void GUniqueID::serialize(TextOutput& t) const {
 
 void GUniqueID::deserialize(TextInput& t) {
     t.readSymbol("(");
-    id = (((g3d_uint64)t.readNumber()) << 32) + (g3d_uint64)t.readNumber();
+    id = (((uint64)t.readNumber()) << 32) + (uint64)t.readNumber();
     t.readSymbol(")");
 }
 
 
-GUniqueID GUniqueID::create(g3d_uint16 tag) {
-    static g3d_uint64 counter = 0;
-    static g3d_uint64 systemID = 0;
+GUniqueID GUniqueID::create(uint16 tag) {
+    static uint64 counter = 0;
+    static uint64 systemID = 0;
     
     if (systemID == 0) {
         // Create a unique ID for this machine/program instance
@@ -50,13 +50,13 @@ GUniqueID GUniqueID::create(g3d_uint16 tag) {
         
         union {
             float64 ft;
-            g3d_uint64 ut;
+            uint64 ut;
         };
         ft = System::time();
         systemID = ut << 22;
-        systemID ^= ((g3d_uint64)iRandom(0, 32768)) << 8;
+        systemID ^= ((uint64)iRandom(0, 32768)) << 8;
         
-        systemID &= ~((g3d_uint64)1023 << 54);
+        systemID &= ~((uint64)1023 << 54);
 
         // Ensure that the systemID is non-zero (vanishingly small probability)
         if (systemID == 0) {
@@ -70,7 +70,7 @@ GUniqueID GUniqueID::create(g3d_uint16 tag) {
     
     GUniqueID i;
     
-    i.id = (((g3d_uint64)(tag & 1023)) << 54) | (counter ^ systemID);
+    i.id = (((uint64)(tag & 1023)) << 54) | (counter ^ systemID);
     
     return i;
 }

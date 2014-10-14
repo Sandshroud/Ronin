@@ -35,16 +35,16 @@ namespace VMAP
     {
         public:
             //mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
-            G3D::g3d_uint32 flags;
-            G3D::g3d_uint16 adtId;
-            G3D::g3d_uint32 ID;
+            G3D::uint32 flags;
+            G3D::uint16 adtId;
+            G3D::uint32 ID;
             G3D::Vector3 iPos;
             G3D::Vector3 iRot;
             float iScale;
             G3D::AABox iBound;
             std::string name;
             bool operator==(const ModelSpawn &other) const { return ID == other.ID; }
-            //uint32 hashCode() const { return ID; }
+            //G3D::uint32 hashCode() const { return ID; }
             // temp?
             const G3D::AABox& getBounds() const { return iBound; }
 
@@ -74,18 +74,18 @@ namespace VMAP
     {
         public:
             GameobjectModelInstance() : iInvScale(0.0f), iScale(0.0f), iModel(0), m_PhaseMask(-1), iOrientation(0.0f) {}
-            GameobjectModelInstance(const GameobjectModelSpawn &spawn, WorldModel* model, G3D::g3d_int32 m_phase);
+            GameobjectModelInstance(const GameobjectModelSpawn &spawn, WorldModel* model, G3D::int32 m_phase);
 
             void setUnloaded() { iModel = NULL; iBound = G3D::AABox(G3D::Vector3(0, 0, 0)); }
             void LoadModel(WorldModel* m, G3D::AABox& bound) { if(m != NULL) { iModel = m; BoundBase = bound; }};
             void SetData(float x, float y, float z, float orientation, float scale);
-            bool intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit, G3D::g3d_int32 m_phase) const;
+            bool intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit, G3D::int32 m_phase) const;
             const float GetOrientation() const { return iOrientation; };
             const G3D::Vector3& getPosition() const { return iPos;}
             const G3D::AABox& getBounds() const { return iBound; };
             const float GetScale() const { return iScale; };
         protected:
-            G3D::g3d_int32 m_PhaseMask;
+            G3D::int32 m_PhaseMask;
             WorldModel* iModel;
 
             float iInvScale;

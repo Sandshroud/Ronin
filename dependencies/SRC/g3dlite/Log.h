@@ -45,7 +45,7 @@ void logLazyPrintf(const char* fmt, ...);
  method common().  If you access common() and a common log
  does not yet exist, one is created for you.
  */
-class G3D_Log {
+class Log {
 private:
 
     /**
@@ -55,7 +55,7 @@ private:
 
     std::string             filename;
 
-    static G3D_Log*             commonLog;
+    static Log*             commonLog;
 
     int                     stripFromStackBottom;
 
@@ -68,10 +68,10 @@ public:
      be opened for some reason, tries to open "c:/tmp/log.txt" or
      "c:/temp/log.txt" instead.
      */
-    G3D_Log(const std::string& filename = "log.txt",
+    Log(const std::string& filename = "log.txt",
         int stripFromStackBottom    = 0);
 
-    virtual ~G3D_Log();
+    virtual ~Log();
 
     /**
      Returns the handle to the file log.
@@ -94,7 +94,7 @@ public:
     /** Does not flush */
     void __cdecl lazyvprintf(const char*, va_list argPtr) G3D_CHECK_VPRINTF_METHOD_ARGS;
 
-    static G3D_Log* common();
+    static Log* common();
 
     static std::string getCommonLogFilename();
 

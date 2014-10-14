@@ -15,12 +15,6 @@
 #define VMAP_INVALID_HEIGHT        -100000.0f            // for check
 #define VMAP_MAX_HEIGHT             100000.0f            // for other checks
 
-#ifdef DEBUG
-#define OUT_DEBUG sLog.outDebug
-#else
-#define OUT_DEBUG
-#endif
-
 enum VMAP_gWMOFlags
 {
     // WMO exists at this location
@@ -71,16 +65,16 @@ namespace VMAP
             int iRefCount;
     };
 
-    typedef std::map< G3D::g3d_uint64, GameobjectModelInstance*> ModelGUIDEs;
+    typedef std::map< G3D::uint64, GameobjectModelInstance*> ModelGUIDEs;
     struct GOMapGuides
     {
         ModelGUIDEs ModelsByGuid;
     };
 
-    typedef std::map<G3D::g3d_uint32, GOMapGuides* > GOModelInstanceByGUID;
-    typedef std::map<G3D::g3d_uint32, GameobjectModelSpawn> GOModelSpawnList;
-    typedef std::map<std::pair<G3D::g3d_uint32, G3D::g3d_uint32>, DynamicMapTree*> DynamicTreeMap;
-    typedef std::map<G3D::g3d_uint32, StaticMapTree*> InstanceTreeMap;
+    typedef std::map<G3D::uint32, GOMapGuides* > GOModelInstanceByGUID;
+    typedef std::map<G3D::uint32, GameobjectModelSpawn> GOModelSpawnList;
+    typedef std::map<std::pair<G3D::uint32, G3D::uint32>, DynamicMapTree*> DynamicTreeMap;
+    typedef std::map<G3D::uint32, StaticMapTree*> InstanceTreeMap;
     typedef std::map<std::string, ManagedModel> ModelFileMap;
 
     class VMapManager
@@ -98,7 +92,7 @@ namespace VMAP
             // Mutex for iLoadedModelFiles
             G3D::GMutex LoadedModelFilesLock;
 
-            bool _loadObject(DynamicMapTree* tree, G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::g3d_int32 m_phase);
+            bool _loadObject(DynamicMapTree* tree, G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::int32 m_phase);
 
         public:
             // public for debug
@@ -110,7 +104,7 @@ namespace VMAP
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }
 
-            void updateDynamicMapTree(G3D::g3d_uint32 t_diff, G3D::g3d_int32 mapid = -1, G3D::g3d_uint32 instanceId = 0);
+            void updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid = -1, G3D::uint32 instanceId = 0);
             void LoadGameObjectModelList();
 
             // Static collision
@@ -120,22 +114,22 @@ namespace VMAP
             void unloadMap(unsigned int mapId, int x, int y);
 
             // Dynamic collision
-            bool loadObject(G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::g3d_uint32 m_instance, G3D::g3d_int32 m_phase);
-            bool changeObjectModel(G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_uint32 DisplayID);
-            void unloadObject(unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_uint64 guid);
+            bool loadObject(G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::uint32 m_instance, G3D::int32 m_phase);
+            bool changeObjectModel(G3D::uint64 guid, unsigned int mapId, G3D::uint32 m_instance, G3D::uint32 DisplayID);
+            void unloadObject(unsigned int mapId, G3D::uint32 m_instance, G3D::uint64 guid);
 
             // Functionality
-            bool isInLineOfSight(unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2);
+            bool isInLineOfSight(unsigned int mapId, G3D::uint32 m_instance, G3D::int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2);
             /**
             fill the hit pos and return true, if an object was hit
             */
-            bool getObjectHitPos(unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist);
-            float getHeight(unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_int32 m_phase, float x, float y, float z, float maxSearchDist);
+            bool getObjectHitPos(unsigned int mapId, G3D::uint32 m_instance, G3D::int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist);
+            float getHeight(unsigned int mapId, G3D::uint32 m_instance, G3D::int32 m_phase, float x, float y, float z, float maxSearchDist);
 
             bool processCommand(char *) { return false; } // for debug and extensions
 
-            bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, G3D::g3d_uint32& flags, G3D::g3d_int32& adtId, G3D::g3d_int32& rootId, G3D::g3d_int32& groupId) const;
-            void GetLiquidData(G3D::g3d_uint32 pMapId, float x, float y, float z, G3D::g3d_uint16 &type, float &level) const;
+            bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, G3D::uint32& flags, G3D::int32& adtId, G3D::int32& rootId, G3D::int32& groupId) const;
+            void GetLiquidData(G3D::uint32 pMapId, float x, float y, float z, G3D::uint16 &type, float &level) const;
 
             WorldModel* acquireModelInstance(const std::string& filename);
             void releaseModelInstance(const std::string& filename);

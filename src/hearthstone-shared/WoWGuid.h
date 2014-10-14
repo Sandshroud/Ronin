@@ -26,6 +26,16 @@ public:
         Init(uint64(guid));
     }
 
+    WoWGuid(uint32 high, uint32 low)
+    {
+        Clear();
+        if(uint64 guid = low)
+        {
+            low |= (uint64(high)<<32);
+            Init(guid);
+        }
+    }
+
     WoWGuid(uint32 guid)
     {
         Clear();
@@ -121,6 +131,9 @@ public:
     void operator =(uint8 someval) { Clear(); Init(uint64(someval)); }
     void operator =(uint32 someval) { Clear(); Init(uint64(someval)); }
     void operator =(uint64 someval) { Clear(); Init(uint64(someval)); }
+    // WoWGuid byte checks
+    uint8& operator[](uint32 index) { ASSERT(index < sizeof(uint64)); return guidfields[index]; }
+    uint8 const& operator[](uint32 index) const { ASSERT(index < sizeof(uint64)); return guidfields[index]; }
     // WoWGuid check
     operator bool() { return (oldguid > 0); }
     operator uint64() { return oldguid; }

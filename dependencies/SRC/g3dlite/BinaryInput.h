@@ -87,7 +87,7 @@ private:
         Contains at most 8 (low) bits.  Note that
         beginBits/readBits actually consumes one extra byte, which
         will be restored by writeBits.*/
-    g3d_uint32          m_bitString;
+    uint32          m_bitString;
 
     /** 1 when between beginBits and endBits, 0 otherwise. */
     int             m_beginEndBits;
@@ -95,22 +95,22 @@ private:
     /** When operating on huge files, we cannot load the whole file into memory.
         This is the file position to which buffer[0] corresponds.
         */
-    g3d_int64           m_alreadyRead;
+    int64           m_alreadyRead;
 
     /**
      Length of the entire file, in bytes.  
      For the length of the buffer, see bufferLength
      */
-    g3d_int64           m_length;
+    int64           m_length;
 
     /** Length of the array referenced by buffer. May go past the end of the file!*/
-    g3d_int64           m_bufferLength;
-    g3d_uint8*          m_buffer;
+    int64           m_bufferLength;
+    uint8*          m_buffer;
 
     /**
      Next byte in file, relative to buffer.
      */
-    g3d_int64           m_pos;
+    int64           m_pos;
 
     /**
      When true, the buffer is freed in the destructor.
@@ -119,10 +119,10 @@ private:
 
     /** Ensures that we are able to read at least minLength from startPosition (relative
         to start of file). */
-    void loadIntoMemory(g3d_int64 startPosition, g3d_int64 minLength = 0);
+    void loadIntoMemory(int64 startPosition, int64 minLength = 0);
 
     /** Verifies that at least this number of bytes can be read.*/
-    inline void prepareToRead(g3d_int64 nbytes) {
+    inline void prepareToRead(int64 nbytes) {
         debugAssertM(m_length > 0, m_filename + " not found or corrupt.");
         debugAssertM(m_pos + nbytes + m_alreadyRead <= m_length, "Read past end of file.");
 
@@ -178,8 +178,8 @@ public:
      </PRE>
      */
     BinaryInput(
-        const g3d_uint8*        data,
-        g3d_int64               dataLen,
+        const uint8*        data,
+        int64               dataLen,
         G3DEndian           dataEndian,
         bool                compressed = false,
         bool                copyMemory = true);
@@ -203,7 +203,7 @@ public:
      Returns a pointer to the internal memory buffer.
      May throw an exception for huge files.
      */
-    const g3d_uint8* getCArray() const {
+    const uint8* getCArray() const {
         if (m_alreadyRead > 0) {
             throw "Cannot getCArray for a huge file";
         }
@@ -216,7 +216,7 @@ public:
      Seeks to the new position before reading (and leaves 
      that as the current position)
      */
-    inline g3d_uint8 operator[](g3d_int64 n) {
+    inline uint8 operator[](int64 n) {
         setPosition(n);
         return readUInt8();
     }
@@ -224,11 +224,11 @@ public:
     /**
      Returns the length of the file in bytes.
      */
-    inline g3d_int64 getLength() const {
+    inline int64 getLength() const {
         return m_length;
     }
 
-    inline g3d_int64 size() const {
+    inline int64 size() const {
         return getLength();
     }
 
@@ -236,7 +236,7 @@ public:
      Returns the current byte position in the file,
      where 0 is the beginning and getLength() - 1 is the end.
      */
-    inline g3d_int64 getPosition() const {
+    inline int64 getPosition() const {
         return m_pos + m_alreadyRead;
     }
 
@@ -244,7 +244,7 @@ public:
      Sets the position.  Cannot set past length.
      May throw a char* when seeking backwards more than 10 MB on a huge file.
      */
-    inline void setPosition(g3d_int64 p) {
+    inline void setPosition(int64 p) {
         debugAssertM(p <= m_length, "Read past end of file");
         m_pos = p - m_alreadyRead;
         if ((m_pos < 0) || (m_pos > m_bufferLength)) {
@@ -259,7 +259,7 @@ public:
         setPosition(0);
     }
 
-    inline g3d_int8 readInt8() {
+    inline int8 readInt8() {
         prepareToRead(1);
         return m_buffer[m_pos++];
     }
@@ -268,79 +268,79 @@ public:
         return (readInt8() != 0);
     }
 
-    inline g3d_uint8 readUInt8() {
+    inline uint8 readUInt8() {
         prepareToRead(1);
-        return ((g3d_uint8*)m_buffer)[m_pos++];
+        return ((uint8*)m_buffer)[m_pos++];
     }
 
-    g3d_uint16 inline readUInt16() {
+    uint16 inline readUInt16() {
         prepareToRead(2);
 
         m_pos += 2;
         if (m_swapBytes) {
-            g3d_uint8 out[2];
+            uint8 out[2];
             out[0] = m_buffer[m_pos - 1];
             out[1] = m_buffer[m_pos - 2];
-            return *(g3d_uint16*)out;
+            return *(uint16*)out;
         } else {
             #ifdef G3D_ALLOW_UNALIGNED_WRITES
-                return *(g3d_uint16*)(&m_buffer[m_pos - 2]);
+                return *(uint16*)(&m_buffer[m_pos - 2]);
             #else
-                g3d_uint8 out[2];
+                uint8 out[2];
                 out[0] = m_buffer[m_pos - 2];
                 out[1] = m_buffer[m_pos - 1];
-                return *(g3d_uint16*)out;
+                return *(uint16*)out;
             #endif
         }
 
     }
 
-    inline g3d_int16 readInt16() {
-        g3d_uint16 a = readUInt16();
-        return *(g3d_int16*)&a;
+    inline int16 readInt16() {
+        uint16 a = readUInt16();
+        return *(int16*)&a;
     }
 
-    inline g3d_uint32 readUInt32() {
+    inline uint32 readUInt32() {
         prepareToRead(4);
 
         m_pos += 4;
         if (m_swapBytes) {
-            g3d_uint8 out[4];
+            uint8 out[4];
             out[0] = m_buffer[m_pos - 1];
             out[1] = m_buffer[m_pos - 2];
             out[2] = m_buffer[m_pos - 3];
             out[3] = m_buffer[m_pos - 4];
-            return *(g3d_uint32*)out;
+            return *(uint32*)out;
         } else {
             #ifdef G3D_ALLOW_UNALIGNED_WRITES
-                return *(g3d_uint32*)(&m_buffer[m_pos - 4]);
+                return *(uint32*)(&m_buffer[m_pos - 4]);
             #else
-                g3d_uint8 out[4];
+                uint8 out[4];
                 out[0] = m_buffer[m_pos - 4];
                 out[1] = m_buffer[m_pos - 3];
                 out[2] = m_buffer[m_pos - 2];
                 out[3] = m_buffer[m_pos - 1];
-                return *(g3d_uint32*)out;
+                return *(uint32*)out;
             #endif
         }
     }
 
 
-    inline g3d_int32 readInt32() {
-        g3d_uint32 a = readUInt32();
-        return *(g3d_int32*)&a;
+    inline int32 readInt32() {
+        uint32 a = readUInt32();
+        return *(int32*)&a;
     }
 
-    g3d_uint64 readUInt64();
+    uint64 readUInt64();
 
-    inline g3d_int64 readInt64() {
-        g3d_uint64 a = readUInt64();
-        return *(g3d_int64*)&a;
+    inline int64 readInt64() {
+        uint64 a = readUInt64();
+        return *(int64*)&a;
     }
 
     inline float32 readFloat32() {
         union {
-            g3d_uint32 a;
+            uint32 a;
             float32 b;
         };
         a = readUInt32();
@@ -349,21 +349,21 @@ public:
 
     inline float64 readFloat64() {
         union {
-            g3d_uint64 a;
+            uint64 a;
             float64 b;
         };
         a = readUInt64();
         return b;
     }
 
-    void readBytes(void* bytes, g3d_int64 n);
+    void readBytes(void* bytes, int64 n);
 
     /**
      Reads an n character string.  The string is not
      required to end in NULL in the file but will
      always be a proper std::string when returned.
      */
-    std::string readString(g3d_int64 n);
+    std::string readString(int64 n);
 
     /**
      Reads until NULL or the end of the file is encountered.
@@ -393,7 +393,7 @@ public:
     /**
      Skips ahead n bytes.
      */
-    inline void skip(g3d_int64 n) {
+    inline void skip(int64 n) {
         setPosition(m_pos + m_alreadyRead + n);
     }
 
@@ -401,7 +401,7 @@ public:
       Returns true if the position is not at the end of the file
     */
     inline bool hasMore() const {
-    return m_pos + m_alreadyRead < m_length;
+	return m_pos + m_alreadyRead < m_length;
     }
 
     /** Prepares for bit reading via readBits.  Only readBits can be
@@ -410,25 +410,25 @@ public:
     void beginBits();
 
     /** Can only be called between beginBits and endBits */
-    g3d_uint32 readBits(int numBits);
+    uint32 readBits(int numBits);
 
     /** Ends bit-reading. */
     void endBits();
 
 #   define DECLARE_READER(ucase, lcase)\
-    void read##ucase(lcase* out, g3d_int64 n);\
-    void read##ucase(std::vector<lcase>& out, g3d_int64 n);\
-    void read##ucase(Array<lcase>& out, g3d_int64 n);
+    void read##ucase(lcase* out, int64 n);\
+    void read##ucase(std::vector<lcase>& out, int64 n);\
+    void read##ucase(Array<lcase>& out, int64 n);
 
     DECLARE_READER(Bool8,   bool)
-    DECLARE_READER(UInt8,   g3d_uint8)
-    DECLARE_READER(Int8,    g3d_int8)
-    DECLARE_READER(UInt16,  g3d_uint16)
-    DECLARE_READER(Int16,   g3d_int16)
-    DECLARE_READER(UInt32,  g3d_uint32)
-    DECLARE_READER(Int32,   g3d_int32)
-    DECLARE_READER(UInt64,  g3d_uint64)
-    DECLARE_READER(Int64,   g3d_int64)
+    DECLARE_READER(UInt8,   uint8)
+    DECLARE_READER(Int8,    int8)
+    DECLARE_READER(UInt16,  uint16)
+    DECLARE_READER(Int16,   int16)
+    DECLARE_READER(UInt32,  uint32)
+    DECLARE_READER(Int32,   int32)
+    DECLARE_READER(UInt64,  uint64)
+    DECLARE_READER(Int64,   int64)
     DECLARE_READER(Float32, float32)
     DECLARE_READER(Float64, float64)    
 #   undef DECLARE_READER

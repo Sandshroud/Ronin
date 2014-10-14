@@ -64,7 +64,7 @@ void png_warning(
 
     (void)png_ptr;
     debugAssert( warning_msg != NULL );
-    G3D_Log::common()->println(warning_msg);
+    Log::common()->println(warning_msg);
 }
 
 
@@ -201,8 +201,8 @@ void GImage::decodePNG(
         throw GImage::Error("Unsupported PNG color type - PNG_COLOR_TYPE_GRAY_ALPHA.", input.getFilename());
     }
 
-    m_width  = static_cast<g3d_uint32>(png_width);
-    m_height = static_cast<g3d_uint32>(png_height);
+    m_width  = static_cast<uint32>(png_width);
+    m_height = static_cast<uint32>(png_height);
 
     //swap bytes of 16 bit files to least significant byte first
     png_set_swap(png_ptr);
@@ -234,13 +234,13 @@ void GImage::decodePNG(
         ((color_type == PNG_COLOR_TYPE_PALETTE) && (png_ptr->num_trans > 0)) ) {
 
         m_channels = 4;
-        m_byte = (g3d_uint8*)m_memMan->alloc(m_width * m_height * 4);
+        m_byte = (uint8*)m_memMan->alloc(m_width * m_height * 4);
 
     } else if ((color_type == PNG_COLOR_TYPE_RGB) || 
                (color_type == PNG_COLOR_TYPE_PALETTE)) {
 
         m_channels = 3;
-        m_byte = (g3d_uint8*)System::malloc(m_width * m_height * 3);
+        m_byte = (uint8*)System::malloc(m_width * m_height * 3);
 
     } else if (color_type == PNG_COLOR_TYPE_GRAY) {
 
@@ -249,19 +249,19 @@ void GImage::decodePNG(
         // Round up to the nearest 8 rows to avoid a bug in the PNG decoder
         int h = iCeil(m_height / 8) * 8;
         int sz = m_width * h;
-        m_byte = (g3d_uint8*)m_memMan->alloc(sz);
+        m_byte = (uint8*)m_memMan->alloc(sz);
 
     } else {
         throw GImage::Error("Unsupported PNG bit-depth or type.", input.getFilename());
     }
 
     //since we are reading row by row, required to handle interlacing
-    g3d_uint32 number_passes = png_set_interlace_handling(png_ptr);
+    uint32 number_passes = png_set_interlace_handling(png_ptr);
 
     png_read_update_info(png_ptr, info_ptr);
 
-    for (g3d_uint32 pass = 0; pass < number_passes; ++pass) {
-        for (g3d_uint32 y = 0; y < (g3d_uint32)m_height; ++y) {
+    for (uint32 pass = 0; pass < number_passes; ++pass) {
+        for (uint32 y = 0; y < (uint32)m_height; ++y) {
             png_bytep rowPointer = &m_byte[m_width * m_channels * y]; 
             png_read_rows(png_ptr, &rowPointer, NULL, 1);
         }

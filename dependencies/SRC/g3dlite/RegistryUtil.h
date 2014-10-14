@@ -58,7 +58,7 @@ public:
     static bool valueExists(const std::string& key, const std::string& value);
 
     /** returns false if the key could not be read for any reason. */
-    static bool readInt32(const std::string& key, const std::string& value, g3d_int32& data);
+    static bool readInt32(const std::string& key, const std::string& value, int32& data);
 
     /** 
       Reads an arbitrary amount of data from a binary registry key.
@@ -68,13 +68,13 @@ public:
       @param data pointer to the output buffer of sufficient size. Pass NULL as data in order to have available data size returned in dataSize.
       @param dataSize size of the output buffer.  When NULL is passed for data, contains the size of available data on successful return.
     */
-    static bool readBytes(const std::string& key, const std::string& value, g3d_uint8* data, g3d_uint32& dataSize);
+    static bool readBytes(const std::string& key, const std::string& value, uint8* data, uint32& dataSize);
 
     /** returns false if the key could not be read for any reason. */
     static bool readString(const std::string& key, const std::string& value, std::string& data);
 
     /** returns false if the key could not be written for any reason. */
-    static bool writeInt32(const std::string& key, const std::string& value, g3d_int32 data);
+    static bool writeInt32(const std::string& key, const std::string& value, int32 data);
 
     /** 
       Writes an arbitrary amount of data to a binary registry key.
@@ -83,7 +83,7 @@ public:
       @param data pointer to the input buffer
       @param dataSize size of the input buffer that should be written
     */
-    static bool writeBytes(const std::string& key, const std::string& value, const g3d_uint8* data, g3d_uint32 dataSize);
+    static bool writeBytes(const std::string& key, const std::string& value, const uint8* data, uint32 dataSize);
 
     /** returns false if the key could not be written for any reason. */
     static bool writeString(const std::string& key, const std::string& value, const std::string& data);

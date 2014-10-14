@@ -394,13 +394,13 @@ inline float Vector2::dot (const Vector2& rkVector) const {
 
 
 inline Vector2 Vector2::min(const Vector2 &v) const {
-    return Vector2(G3D::G3D_min(v.x, x), G3D::G3D_min(v.y, y));
+    return Vector2(G3D::min(v.x, x), G3D::min(v.y, y));
 }
 
 
 
 inline Vector2 Vector2::max(const Vector2 &v) const {
-    return Vector2(G3D::G3D_max(v.x, x), G3D::G3D_max(v.y, y));
+    return Vector2(G3D::max(v.x, x), G3D::max(v.y, y));
 }
 
 

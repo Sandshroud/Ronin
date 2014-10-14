@@ -76,7 +76,7 @@ Color3::operator Any() const {
 }
 
 
-Color3 Color3::ansiMap(g3d_uint32 i) {
+Color3 Color3::ansiMap(uint32 i) {
     static const Color3 map[] = 
         {Color3::black(), Color3::red() * 0.75f, Color3::green() * 0.75f, Color3::yellow() * 0.75f, 
          Color3::blue() * 0.75f, Color3::purple() * 0.75f, Color3::cyan() * 0.75f, Color3::white() * 0.75f,
@@ -87,8 +87,8 @@ Color3 Color3::ansiMap(g3d_uint32 i) {
 }
 
 
-Color3 Color3::pastelMap(g3d_uint32 i) {
-    g3d_uint32 x = Crypto::crc32(&i, sizeof(g3d_uint32));
+Color3 Color3::pastelMap(uint32 i) {
+    uint32 x = Crypto::crc32(&i, sizeof(uint32));
     // Create fairly bright, saturated colors
     Vector3 v(((x >> 22) & 1023) / 1023.0f,
               (((x >> 11) & 2047) / 2047.0f) * 0.5f + 0.25f, 
@@ -231,7 +231,7 @@ Color3::Color3(const class Color3uint8& other) {
 }
 
 
-Color3 Color3::fromARGB(g3d_uint32 x) {
+Color3 Color3::fromARGB(uint32 x) {
     return Color3((float)((x >> 16) & 0xFF), (float)((x >> 8) & 0xFF), (float)(x & 0xFF)) / 255.0f;
 }
 
@@ -247,7 +247,7 @@ Color3 Color3::random() {
 //----------------------------------------------------------------------------
 Color3& Color3::operator/= (float fScalar) {
     if (fScalar != 0.0f) {
-        float fInvScalar = 1.0f / fScalar;
+		float fInvScalar = 1.0f / fScalar;
         r *= fInvScalar;
         g *= fInvScalar;
         b *= fInvScalar;
@@ -262,10 +262,10 @@ Color3& Color3::operator/= (float fScalar) {
 
 //----------------------------------------------------------------------------
 float Color3::unitize (float fTolerance) {
-    float fLength = length();
+	float fLength = length();
 
     if ( fLength > fTolerance ) {
-        float fInvLength = 1.0f / fLength;
+		float fInvLength = 1.0f / fLength;
         r *= fInvLength;
         g *= fInvLength;
         b *= fInvLength;
@@ -313,56 +313,56 @@ Color3 Color3::fromHSV(const Vector3& _hsv) {
 
 
 Vector3 Color3::toHSV(const Color3& _rgb) {
-    debugAssertM((_rgb.r <= 1.0f && _rgb.r >= 0.0f) 
-            && (_rgb.g <= 1.0f && _rgb.g >= 0.0f)
-            && (_rgb.b <= 1.0f && _rgb.b >= 0.0f), "R,G,B must be between [0,1]");
-    Vector3 hsv = Vector3::zero();
-    hsv.z = G3D::G3D_max(G3D::G3D_max(_rgb.r, _rgb.g), _rgb.b);
-    if (G3D::fuzzyEq(hsv.z, 0.0f)) {
-        return hsv;
-    }
-    
-    const float x =  G3D::G3D_min(G3D::G3D_min(_rgb.r, _rgb.g), _rgb.b);
-    hsv.y = (hsv.z - x) / hsv.z; 
+	debugAssertM((_rgb.r <= 1.0f && _rgb.r >= 0.0f) 
+			&& (_rgb.g <= 1.0f && _rgb.g >= 0.0f)
+			&& (_rgb.b <= 1.0f && _rgb.b >= 0.0f), "R,G,B must be between [0,1]");
+	Vector3 hsv = Vector3::zero();
+	hsv.z = G3D::max(G3D::max(_rgb.r, _rgb.g), _rgb.b);
+	if (G3D::fuzzyEq(hsv.z, 0.0f)) {
+		return hsv;
+	}
+	
+    const float x =  G3D::min(G3D::min(_rgb.r, _rgb.g), _rgb.b);
+	hsv.y = (hsv.z - x) / hsv.z; 
 
     if (G3D::fuzzyEq(hsv.y, 0.0f)) {
-        return hsv;
-    }
+		return hsv;
+	}
 
-    Vector3 rgbN;
-    rgbN.x = (hsv.z - _rgb.r) / (hsv.z - x);
-    rgbN.y = (hsv.z - _rgb.g) / (hsv.z - x);
-    rgbN.z = (hsv.z - _rgb.b) / (hsv.z - x);
+	Vector3 rgbN;
+	rgbN.x = (hsv.z - _rgb.r) / (hsv.z - x);
+	rgbN.y = (hsv.z - _rgb.g) / (hsv.z - x);
+	rgbN.z = (hsv.z - _rgb.b) / (hsv.z - x);
 
-    if (_rgb.r == hsv.z) {  // note from the max we know that it exactly equals one of the three.
-        hsv.x = (_rgb.g == x)? 5.0f + rgbN.z : 1.0f - rgbN.y;
-    } else if (_rgb.g == hsv.z) {
-        hsv.x = (_rgb.b == x)? 1.0f + rgbN.x : 3.0f - rgbN.z;
-    } else {
-        hsv.x = (_rgb.r == x)? 3.0f + rgbN.y : 5.0f - rgbN.x;
-    }
-    
+	if (_rgb.r == hsv.z) {  // note from the max we know that it exactly equals one of the three.
+		hsv.x = (_rgb.g == x)? 5.0f + rgbN.z : 1.0f - rgbN.y;
+	} else if (_rgb.g == hsv.z) {
+		hsv.x = (_rgb.b == x)? 1.0f + rgbN.x : 3.0f - rgbN.z;
+	} else {
+		hsv.x = (_rgb.r == x)? 3.0f + rgbN.y : 5.0f - rgbN.x;
+	}
+	
     hsv.x /= 6.0f;
 
-    return hsv;
+	return hsv;
 }
 
 Color3 Color3::jetColorMap(const float& val) {
-    debugAssertM(val <= 1.0f && val >= 0.0f , "value should be in [0,1]");
+	debugAssertM(val <= 1.0f && val >= 0.0f , "value should be in [0,1]");
 
-    //truncated triangles where sides have slope 4
-    Color3 jet;
+	//truncated triangles where sides have slope 4
+	Color3 jet;
 
-    jet.r = G3D::G3D_min(4.0f * val - 1.5f,-4.0f * val + 4.5f) ;
-    jet.g = G3D::G3D_min(4.0f * val - 0.5f,-4.0f * val + 3.5f) ;
-    jet.b = G3D::G3D_min(4.0f * val + 0.5f,-4.0f * val + 2.5f) ;
+	jet.r = G3D::min(4.0f * val - 1.5f,-4.0f * val + 4.5f) ;
+	jet.g = G3D::min(4.0f * val - 0.5f,-4.0f * val + 3.5f) ;
+	jet.b = G3D::min(4.0f * val + 0.5f,-4.0f * val + 2.5f) ;
 
 
-    jet.r = G3D::clamp(jet.r, 0.0f, 1.0f);
-    jet.g = G3D::clamp(jet.g, 0.0f, 1.0f);
-    jet.b = G3D::clamp(jet.b, 0.0f, 1.0f);
+	jet.r = G3D::clamp(jet.r, 0.0f, 1.0f);
+	jet.g = G3D::clamp(jet.g, 0.0f, 1.0f);
+	jet.b = G3D::clamp(jet.b, 0.0f, 1.0f);
 
-    return jet;
+	return jet;
 }
 
 
@@ -370,7 +370,7 @@ Color3 Color3::jetColorMap(const float& val) {
 
 
 std::string Color3::toString() const {
-    return G3D::G3D_format("(%g, %g, %g)", r, g, b);
+    return G3D::format("(%g, %g, %g)", r, g, b);
 }
 
 //----------------------------------------------------------------------------

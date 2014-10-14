@@ -214,8 +214,6 @@ bool ChatHandler::HandleReviveCommand(const char* args, WorldSession *m_session)
         SelectedPlayer->ResurrectPlayer();
 
     SelectedPlayer->SetUInt32Value(UNIT_FIELD_HEALTH, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
-    SelectedPlayer->SetUInt32Value(UNIT_FIELD_MANA, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAX_MANA) );
-    SelectedPlayer->SetUInt32Value(UNIT_FIELD_ENERGY, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAX_ENERGY) );
     return true;
 }
 
@@ -425,7 +423,6 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
     SystemMessage(m_session, "EmoteState: %u", crt->GetUInt32Value(UNIT_NPC_EMOTESTATE));
     GreenSystemMessage(m_session, "Base Health: %u", crt->GetUInt32Value(UNIT_FIELD_BASE_HEALTH));
     GreenSystemMessage(m_session, "Base Armor: %u", crt->GetUInt32Value(UNIT_FIELD_RESISTANCES));
-    GreenSystemMessage(m_session, "Base Mana: %u", crt->GetUInt32Value(UNIT_FIELD_MAX_MANA));
 
     SystemMessage(m_session, "|cff00ff00Resistance:|r|cffffffff %u|r|cffff0000 %u|r|cff00ff00 %u|r|cff00ccff %u|r|cffda70d6 %u|r|cff8B8B83 %u|r", crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+1), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+2),
         crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+3), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+4), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+5), crt->GetUInt32Value(UNIT_FIELD_RESISTANCES+6));
@@ -762,7 +759,7 @@ bool ChatHandler::HandleParalyzeCommand(const char* args, WorldSession *m_sessio
 
     BlueSystemMessage(m_session, "Rooting target.");
     BlueSystemMessageToPlr( TO_PLAYER( plr ), "You have been rooted by %s.", m_session->GetPlayer()->GetName() );
-    WorldPacket data(SMSG_FORCE_MOVE_ROOT, 12);
+    WorldPacket data(SMSG_MOVE_ROOT, 12);
     data << plr->GetNewGUID();
     data << uint32(1);
     plr->SendMessageToSet(&data, true);
@@ -783,7 +780,7 @@ bool ChatHandler::HandleUnParalyzeCommand(const char* args, WorldSession *m_sess
     BlueSystemMessage(m_session, "Unrooting target.");
     BlueSystemMessageToPlr( TO_PLAYER( plr ), "You have been unrooted by %s.", m_session->GetPlayer()->GetName() );
     WorldPacket data;
-    data.Initialize(SMSG_FORCE_MOVE_UNROOT);
+    data.Initialize(SMSG_MOVE_UNROOT);
     data << plr->GetNewGUID();
     data << uint32(5);
 
@@ -1042,7 +1039,7 @@ bool ChatHandler::HandleFlySpeedCheatCommand(const char* args, WorldSession* m_s
     BlueSystemMessage(m_session, "Setting the fly speed of %s to %f.", plr->GetName(), Speed);
     GreenSystemMessage(plr->GetSession(), "%s set your fly speed to %f.", m_session->GetPlayer()->GetName(), Speed);
 
-    WorldPacket data(SMSG_FORCE_FLIGHT_SPEED_CHANGE, 16);
+    WorldPacket data(SMSG_MOVE_SET_FLIGHT_SPEED, 16);
     data << plr->GetNewGUID();
     data << uint32(0) << Speed;
     plr->SendMessageToSet(&data, true);
@@ -2584,25 +2581,10 @@ bool ChatHandler::HandleWhisperBlockCommand(const char * args, WorldSession * m_
 
 bool ChatHandler::HandleShowItems(const char * args, WorldSession * m_session)
 {
-    Player* plr = getSelectedChar(m_session, true);
-    if(!plr)
-        return true;
-
-    ItemIterator itr(plr->GetItemInterface());
-    itr.BeginSearch();
-    for(; !itr.End(); itr.Increment())
+    if(Player* plr = getSelectedChar(m_session, true))
     {
-        SystemMessage(m_session, "Item %s count %u", (*itr)->GetProto()->Name1, (*itr)->GetUInt32Value(ITEM_FIELD_STACK_COUNT));
-    }
-    itr.EndSearch();
 
-    SkillIterator itr2(plr);
-    itr2.BeginSearch();
-    for(; !itr2.End(); itr2.Increment())
-    {
-        SystemMessage(m_session, "Skill %u %u/%u", itr2->Skill->id, itr2->CurrentValue, itr2->MaximumValue);
     }
-    itr2.EndSearch();
 
     return true;
 }
@@ -2619,12 +2601,8 @@ bool ChatHandler::HandleCollisionTestIndoor(const char * args, WorldSession * m_
                 const LocationVector & loc = plr->GetPosition();
                 bool res = sVMapInterface.IsIndoor(plr->GetMapId(), loc.x, loc.y, loc.z + 2.0f);
                 SystemMessage(m_session, "Result was: %s.", res ? "indoors" : "outside");
-            }
-            else
-                SystemMessage(m_session, "Collision is not available here.");
-        }
-        else
-            SystemMessage(m_session, "Hearthstone was does not have collision enabled.");
+            } else SystemMessage(m_session, "Collision is not available here.");
+        } else SystemMessage(m_session, "Hearthstone was does not have collision enabled.");
     }
     return true;
 }

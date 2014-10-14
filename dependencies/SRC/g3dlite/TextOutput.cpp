@@ -17,11 +17,11 @@
 namespace G3D {
 
 TextOutput::TextOutput(const TextOutput::Settings& opt) :
-    startingNewLine(true),
+	startingNewLine(true),
     currentColumn(0),
-    inDQuote(false),
-    filename(""),
-    indentLevel(0)
+	inDQuote(false),
+	filename(""),
+	indentLevel(0)
 {
     setOptions(opt);
 }
@@ -30,9 +30,9 @@ TextOutput::TextOutput(const TextOutput::Settings& opt) :
 TextOutput::TextOutput(const std::string& fil, const TextOutput::Settings& opt) :
     startingNewLine(true),
     currentColumn(0),
-    inDQuote(false),
-    filename(fil),
-    indentLevel(0) 
+	inDQuote(false),
+	filename(fil),
+	indentLevel(0) 
 {
 
     setOptions(opt);
@@ -173,7 +173,7 @@ void TextOutput::convertNewlines(const std::string& in, std::string& out) {
 
     if (option.convertNewlines) {
         out = "";
-        for (g3d_uint32 i = 0; i < in.size(); ++i) {
+        for (uint32 i = 0; i < in.size(); ++i) {
             if (in[i] == '\n') {
                 // Unix newline
                 out += newline;
@@ -192,7 +192,7 @@ void TextOutput::convertNewlines(const std::string& in, std::string& out) {
 
 
 void TextOutput::writeNewline() {
-    for (g3d_uint32 i = 0; i < newline.size(); ++i) {
+    for (uint32 i = 0; i < newline.size(); ++i) {
         indentAppend(newline[i]);
     }
 }
@@ -216,7 +216,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
         // Add one character at a time.
         // TODO: optimize for strings without newlines to add multiple
         // characters.
-        for (g3d_uint32 i = 0; i < str.size(); ++i) {
+        for (uint32 i = 0; i < str.size(); ++i) {
             indentAppend(str[i]);
         }
         return;
@@ -227,7 +227,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
     
     // Copy forward until we exceed the column size, 
     // and then back up and try to insert newlines as needed.
-    for (g3d_uint32 i = 0; i < str.size(); ++i) {
+    for (uint32 i = 0; i < str.size(); ++i) {
 
         indentAppend(str[i]);
         if ((str[i] == '\r') && (i + 1 < str.size()) && (str[i + 1] == '\n')) {
@@ -256,11 +256,11 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
             //     search backwards for a space, then execute case 2.
 
             // Index of most recent space
-            g3d_uint32 lastSpace = data.size() - 1;
+            uint32 lastSpace = data.size() - 1;
 
             // How far back we had to look for a space
-            g3d_uint32 k = 0;
-            g3d_uint32 maxLookBackward = currentColumn - indentSpaces;
+            uint32 k = 0;
+            uint32 maxLookBackward = currentColumn - indentSpaces;
 
             // Search backwards (from current character), looking for a space.
             while ((k < maxLookBackward) &&
@@ -296,7 +296,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
 
                 // Find the start of the spaces.  firstSpace is the index of the
                 // first non-space, looking backwards from lastSpace.
-                g3d_uint32 firstSpace = lastSpace;
+                uint32 firstSpace = lastSpace;
                 while ((k < maxLookBackward) &&
                     (firstSpace > 0) &&
                     (data[firstSpace] == ' ')) {
@@ -308,7 +308,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
                     ++firstSpace;
                 }
 
-                if (lastSpace == (g3d_uint32)data.size() - 1) {
+                if (lastSpace == (uint32)data.size() - 1) {
                     // Spaces continued up to the new string
                     data.resize(firstSpace + 1);
                     writeNewline();
@@ -323,7 +323,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
 
                     // Copy over the characters that should be saved
                     Array<char> temp;
-                    for (g3d_uint32 j = lastSpace + 1; j < (g3d_uint32)data.size(); ++j) {
+                    for (uint32 j = lastSpace + 1; j < (uint32)data.size(); ++j) {
                         char c = data[j];
 
                         if (c == '\"') {
@@ -339,7 +339,7 @@ void TextOutput::wordWrapIndentAppend(const std::string& str) {
                     writeNewline();
 
                     // Write them back
-                    for (g3d_uint32 j = 0; j < (g3d_uint32)temp.size(); ++j) {
+                    for (uint32 j = 0; j < (uint32)temp.size(); ++j) {
                         indentAppend(temp[j]);
                     }
 
@@ -383,7 +383,7 @@ void TextOutput::indentAppend(char c) {
 
 
 void TextOutput::vprintf(const char* formatString, va_list argPtr) {
-    std::string str = G3D_vformat(formatString, argPtr);
+    std::string str = vformat(formatString, argPtr);
 
     std::string clean;
     convertNewlines(str, clean);
@@ -440,7 +440,7 @@ void serialize(const int& b, TextOutput& to) {
 }
 
 
-void serialize(const g3d_uint8& b, TextOutput& to) {
+void serialize(const uint8& b, TextOutput& to) {
     to.writeNumber(b);
 }
 

@@ -293,7 +293,7 @@ public:
             timediff = UNIXTIME;
             _unit->SetUInt32Value(UNIT_NPC_FLAGS, 1);
             _unit->SetStandState(STANDSTATE_DEAD);
-            _unit->setDeathState(CORPSE);
+            _unit->SetDeathState(CORPSE);
             _unit->GetAIInterface()->setCanMove(false);
         }
     }

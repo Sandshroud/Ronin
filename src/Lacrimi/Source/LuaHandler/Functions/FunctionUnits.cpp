@@ -128,10 +128,10 @@ int LuaUnit_Emote(lua_State * L, Unit * ptr)
 int LuaUnit_GetManaPct(lua_State * L, Unit * ptr)
 {
     TEST_UNITPLAYER_RET_NULL();
-    if (ptr->GetPowerType() != POWER_TYPE_MANA)
+    if (ptr->getPowerType() != POWER_TYPE_MANA)
         RET_NIL(true);
 
-    lua_pushnumber(L, (int)(ptr->GetUInt32Value(UNIT_FIELD_MANA) * 100.0f / ptr->GetUInt32Value(UNIT_FIELD_MAX_MANA)));
+    lua_pushnumber(L, (int)ptr->GetPowerPct(POWER_TYPE_MANA));
     return 1;
 }
 
@@ -780,7 +780,7 @@ int LuaUnit_GetRandomPlayer(lua_State * L, Unit * ptr)
             for(unordered_set< Player* >::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); ++itr)
             {
                 Player* obj = TO_PLAYER(*itr);
-                if(obj && obj->GetPowerType() == POWER_TYPE_MANA)
+                if(obj && obj->getPowerType() == POWER_TYPE_MANA)
                     players.push_back(obj);
             }
             if(players.size() == 1)
@@ -794,7 +794,7 @@ int LuaUnit_GetRandomPlayer(lua_State * L, Unit * ptr)
             for(unordered_set< Player* >::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); ++itr)
             {
                 Player* obj = TO_PLAYER(*itr);
-                if(obj && obj->GetPowerType() == POWER_TYPE_ENERGY)
+                if(obj && obj->getPowerType() == POWER_TYPE_ENERGY)
                     players.push_back(obj);
             }
             if(players.size() == 1)
@@ -808,7 +808,7 @@ int LuaUnit_GetRandomPlayer(lua_State * L, Unit * ptr)
             for(unordered_set< Player* >::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); ++itr)
             {
                 Player* obj = TO_PLAYER(*itr);
-                if(obj && obj->GetPowerType() == POWER_TYPE_RAGE)
+                if(obj && obj->getPowerType() == POWER_TYPE_RAGE)
                     players.push_back(obj);
             }
             if(players.size() == 1)
@@ -991,13 +991,7 @@ int LuaUnit_GetHealthPct(lua_State * L, Unit * ptr)
 
     return 1;
 }
-int LuaUnit_SetHealthPct(lua_State * L, Unit * ptr)
-{
-    int val = luaL_checkint(L,1);
-    if (val>0)
-        ptr->SetHealthPct(val);
-    return 1;
-}
+
 int LuaUnit_GetItemCount(lua_State * L, Unit * ptr)
 {
     CHECK_TYPEID_RET_INT(TYPEID_PLAYER);
@@ -1301,16 +1295,18 @@ int LuaUnit_SetMana(lua_State * L, Unit * ptr)
 {
     int val = luaL_checkint( L, 1);
     if( ptr != NULL)
-        ptr->SetUInt32Value( UNIT_FIELD_MANA, val );
+        ptr->SetPower(POWER_TYPE_MANA, val);
     return 1;
 }
 int LuaUnit_SetMaxMana(lua_State * L, Unit * ptr)
 {
     int val = luaL_checkint( L, 1);
     if( ptr != NULL && val > 0 )
-        if( (uint32)val < ptr->GetUInt32Value( UNIT_FIELD_MANA) )
-            ptr->SetUInt32Value( UNIT_FIELD_MANA, val);
-        ptr->SetUInt32Value( UNIT_FIELD_MAX_MANA, val );
+    {
+        if( (uint32)val < ptr->GetPower(POWER_TYPE_MANA) )
+            ptr->SetPower(POWER_TYPE_MANA, val);
+        ptr->SetMaxPower(POWER_TYPE_MANA, val);
+    }
     return 1;
 }
 int LuaUnit_GetPlayerRace(lua_State * L, Unit * ptr)
@@ -1475,9 +1471,7 @@ int LuaUnit_GetMana(lua_State * L, Unit * ptr)
 {
     if( ptr == NULL )
         lua_pushinteger( L, 0 );
-    else
-        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_MANA ) );
-
+    else lua_pushinteger(L, ptr->GetPower(POWER_TYPE_MANA));
     return 1;
 }
 
@@ -1485,8 +1479,7 @@ int LuaUnit_GetMaxMana(lua_State * L, Unit * ptr)
 {
     if( ptr == NULL )
         lua_pushinteger( L, 0 );
-    else
-        lua_pushinteger( L, ptr->GetUInt32Value( UNIT_FIELD_MAX_MANA ) );
+    else lua_pushinteger(L, ptr->GetMaxPower(POWER_TYPE_MANA));
 
     return 1;
 }
@@ -2264,22 +2257,7 @@ int LuaUnit_CallForHelpHp(lua_State * L, Unit * ptr)
 int LuaUnit_SetDeathState(lua_State * L, Unit * ptr)
 {
     int state = luaL_checkint(L, 1);
-    if(ptr)
-        switch(state)
-    {
-        case 0:
-            ptr->setDeathState (ALIVE);
-            break;
-        case 1:
-            ptr->setDeathState (JUST_DIED);
-            break;
-        case 2:
-            ptr->setDeathState (CORPSE);
-            break;
-        case 3:
-            ptr->setDeathState (DEAD);
-            break;
-    }
+    if(ptr) ptr->SetDeathState (DeathState(state));
     return 1;
 }
 int LuaUnit_GetSpellId(lua_State * L, Unit * ptr)
@@ -5674,8 +5652,8 @@ int LuaUnit_GetPower(lua_State * L, Unit * ptr)
     }
     int powertype = luaL_optint(L, 1, -1);
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
-    lua_pushnumber(L, ptr->GetPower(powertype));
+        powertype = ptr->getPowerType();
+    lua_pushnumber(L, ptr->GetPower(PowerType(powertype)));
     return 1;
 }
 
@@ -5688,8 +5666,8 @@ int LuaUnit_GetMaxPower(lua_State * L, Unit * ptr)
     }
     int powertype = luaL_optint(L, 1, -1);
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
-    lua_pushnumber(L, ptr->GetMaxPower(powertype));
+        powertype = ptr->getPowerType();
+    lua_pushnumber(L, ptr->GetMaxPower(PowerType(powertype)));
     return 1;
 }
 
@@ -5721,7 +5699,7 @@ int LuaUnit_SetMaxPower(lua_State * L, Unit * ptr)
         return 0;
 
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
+        powertype = ptr->getPowerType();
 
     ptr->SetMaxPower(powertype, amount);
     return 1;
@@ -5736,7 +5714,7 @@ int LuaUnit_SetPower(lua_State * L, Unit * ptr)
         return 0;
 
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
+        powertype = ptr->getPowerType();
 
     ptr->SetPower(powertype, amount);
     return 1;
@@ -5751,7 +5729,7 @@ int LuaUnit_SetPowerPct(lua_State * L, Unit * ptr)
         return 0;
 
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
+        powertype = ptr->getPowerType();
 
     ptr->SetPower( powertype, (int)(amount/100) * (ptr->GetMaxPower(powertype)) );
     return 1;
@@ -5760,7 +5738,7 @@ int LuaUnit_SetPowerPct(lua_State * L, Unit * ptr)
 int LuaUnit_GetPowerType(lua_State * L, Unit * ptr)
 {
     TEST_UNIT();
-    lua_pushinteger(L, ptr->GetPowerType());
+    lua_pushinteger(L, ptr->getPowerType());
     return 1;
 }
 
@@ -5773,7 +5751,7 @@ int LuaUnit_GetPowerPct(lua_State * L, Unit * ptr)
     }
     int powertype = luaL_optint(L, 1, -1);
     if (powertype == -1)
-        powertype = ptr->GetPowerType();
+        powertype = ptr->getPowerType();
     lua_pushnumber(L, (int)(ptr->GetPower(powertype) * 100.0f / ptr->GetMaxPower(powertype)));
     return 1;
 }

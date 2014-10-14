@@ -60,7 +60,7 @@ void GImage::encodeTGA(
         // Pixels are upside down in BGR format.
         for (int y = m_height - 1; y >= 0; --y) {
             for (int x = 0; x < m_width; ++x) {
-                g3d_uint8 p = (m_byte[(y * m_width + x)]);
+                uint8 p = (m_byte[(y * m_width + x)]);
                 out.writeUInt8(p);
                 out.writeUInt8(p);
                 out.writeUInt8(p);
@@ -70,7 +70,7 @@ void GImage::encodeTGA(
         // Pixels are upside down in BGR format.
         for (int y = m_height - 1; y >= 0; --y) {
             for (int x = 0; x < m_width; ++x) {
-                g3d_uint8* p = &(m_byte[3 * (y * m_width + x)]);
+                uint8* p = &(m_byte[3 * (y * m_width + x)]);
                 out.writeUInt8(p[2]);
                 out.writeUInt8(p[1]);
                 out.writeUInt8(p[0]);
@@ -80,7 +80,7 @@ void GImage::encodeTGA(
         // Pixels are upside down in BGRA format.
         for (int y = m_height - 1; y >= 0; --y) {
             for (int x = 0; x < m_width; ++x) {
-                g3d_uint8* p = &(m_byte[4 * (y * m_width + x)]);
+                uint8* p = &(m_byte[4 * (y * m_width + x)]);
                 out.writeUInt8(p[2]);
                 out.writeUInt8(p[1]);
                 out.writeUInt8(p[0]);
@@ -94,7 +94,7 @@ void GImage::encodeTGA(
     out.writeString("TRUEVISION-XFILE ");
 }
 
-inline static void readBGR(g3d_uint8* byte, BinaryInput& bi) {
+inline static void readBGR(uint8* byte, BinaryInput& bi) {
     int b = bi.readUInt8();
     int g = bi.readUInt8();
     int r = bi.readUInt8();
@@ -104,7 +104,7 @@ inline static void readBGR(g3d_uint8* byte, BinaryInput& bi) {
     byte[2] = b;
 }
 
-inline static void readBGRA(g3d_uint8* byte, BinaryInput& bi) {
+inline static void readBGRA(uint8* byte, BinaryInput& bi) {
     readBGR(byte, bi);
     byte[3] = bi.readUInt8();
 }
@@ -129,12 +129,12 @@ void GImage::decodeTGA(
     int imageType    = input.readUInt8();
 
     (void)colorMapType;
-    
+	
     // 2 is the type supported by this routine.
     if (imageType != 2 && imageType != 10) {
         throw Error("TGA images must be type 2 (Uncompressed truecolor) or 10 (Run-length truecolor)", input.getFilename());
     }
-    
+	
     // Color map specification
     input.skip(5);
 
@@ -162,13 +162,13 @@ void GImage::decodeTGA(
     // as data indicating where the origin is
     int imageDescriptor = input.readUInt8();
     (void)imageDescriptor;
-    
+	
     // Image ID
     input.skip(IDLength);
 
-    m_byte = (g3d_uint8*)m_memMan->alloc(m_width * m_height * m_channels);
+    m_byte = (uint8*)m_memMan->alloc(m_width * m_height * m_channels);
     debugAssert(m_byte);
-    
+	
     // Pixel data
     int x;
     int y;
@@ -196,15 +196,15 @@ void GImage::decodeTGA(
         for (y = m_height - 1; y >= 0; --y) {
             for (int x = 0; x < m_width; /* intentionally no x increment */) {
                 // The specification guarantees that no packet will wrap past the end of a row
-                const g3d_uint8 repetitionCount = input.readUInt8();
-                const g3d_uint8 numValues = (repetitionCount & (~128)) + 1;
+                const uint8 repetitionCount = input.readUInt8();
+                const uint8 numValues = (repetitionCount & (~128)) + 1;
                 int byteOffset = (x + y * m_width) * 3;
 
                 if (repetitionCount & 128) {
                     // When the high bit is 1, this is a run-length packet
                     if (m_channels == 3) {
                         Color3uint8 value;
-                        readBGR((g3d_uint8*)(&value), input);
+                        readBGR((uint8*)(&value), input);
                         for (int i = 0; i < numValues; ++i, ++x) {
                             for (int b = 0; b < 3; ++b, ++byteOffset) {
                                 m_byte[byteOffset] = value[b];
@@ -212,7 +212,7 @@ void GImage::decodeTGA(
                         }
                     } else {
                         Color4uint8 value;
-                        readBGRA((g3d_uint8*)(&value), input);
+                        readBGRA((uint8*)(&value), input);
                         for (int i = 0; i < numValues; ++i, ++x) {
                             for (int b = 0; b < 3; ++b, ++byteOffset) {
                                 m_byte[byteOffset] = value[b];

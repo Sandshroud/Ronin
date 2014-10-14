@@ -2343,15 +2343,12 @@ bool Spell::TakePower()
         return true;
     }
 
-    if(powerField == UNIT_FIELD_RUNIC_POWER)
+    if(GetSpellProto()->powerType == POWER_TYPE_RUNIC)
     {
-        if(cost)
-        {
-            SpellRuneCostEntry *runecost = dbcSpellRuneCost.LookupEntry(cost);
-            p_caster->UseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost, m_spellInfo);
-            if(runecost->runePowerGain)
-                u_caster->SetPower(POWER_TYPE_RUNIC, runecost->runePowerGain + u_caster->GetPower(POWER_TYPE_RUNIC));
-        }
+        SpellRuneCostEntry *runecost = dbcSpellRuneCost.LookupEntry(cost);
+        p_caster->UseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost, m_spellInfo);
+        if(runecost->runePowerGain)
+            u_caster->SetPower(POWER_TYPE_RUNIC, runecost->runePowerGain + u_caster->GetPower(POWER_TYPE_RUNIC));
     }
     else
     {
@@ -2387,44 +2384,16 @@ int32 Spell::CalculateCost(int32 &powerField)
 {
     // Initialize powerfield
     powerField = -1;
-    // Failed with no caster
-    if(m_caster == NULL)
-        return 0;
+    // Only units use power, items do not
+    if(u_caster == NULL || i_caster)
+        return (powerField = 0);
     // Trainers can always cast, same with players with powercheat
-    if((u_caster != NULL && u_caster->HasFlag(UNIT_NPC_FLAGS,UNIT_NPC_FLAG_TRAINER)) || (p_caster && p_caster->PowerCheat))
+    if(u_caster->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER) || (p_caster && p_caster->PowerCheat))
         return (powerField = 0);
-    // Items and GO's use charges, not power
-    if(i_caster || g_caster)
-        return (powerField = 0);
-    switch(GetSpellProto()->powerType)
-    {
-    case POWER_TYPE_HEALTH:     { powerField = UNIT_FIELD_HEALTH; }break;
-    case POWER_TYPE_MANA:       { powerField = UNIT_FIELD_MANA; m_usesMana = true; }break;
-    case POWER_TYPE_RAGE:       { powerField = UNIT_FIELD_RAGE; }break;
-    case POWER_TYPE_FOCUS:      { powerField = UNIT_FIELD_FOCUS; }break;
-    case POWER_TYPE_ENERGY:     { powerField = UNIT_FIELD_ENERGY; }break;
-    case POWER_TYPE_RUNIC:      { powerField = UNIT_FIELD_RUNIC_POWER; }break;
-    case POWER_TYPE_SOUL_SHARDS:{ powerField = UNIT_FIELD_SOUL_SHARDS; }break;
-    case POWER_TYPE_ECLIPSE:    { powerField = UNIT_FIELD_ECLIPSE_POWER; }break;
-    case POWER_TYPE_HOLY_POWER: { powerField = UNIT_FIELD_HOLY_POWER; }break;
-    case POWER_TYPE_RUNE:
-        {
-            if(GetSpellProto()->RuneCostID && p_caster)
-            {
-                SpellRuneCostEntry * runecost = dbcSpellRuneCost.LookupEntry(GetSpellProto()->RuneCostID);
-                if( !p_caster->CanUseRunes( runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost) )
-                    return 0;
-                powerField = UNIT_FIELD_RUNIC_POWER;
-                return GetSpellProto()->RuneCostID;
-            }
-            return 0;
-        }break;
-    default:
-        {
-            sLog.Debug("Spell","Unknown power type %u for spell %u", GetSpellProto()->powerType, GetSpellProto()->Id);
-            return 0;
-        }break;
-    }
+    if((powerField = u_caster->GetPowerFieldForType(GetSpellProto()->powerType)) == -1)
+        return 0;
+    else if(GetSpellProto()->powerType == POWER_TYPE_MANA)
+        m_usesMana = true;
 
     int32 cost = m_caster->GetSpellBaseCost(m_spellInfo);
     int32 currentPower = m_caster->GetUInt32Value(powerField);
@@ -2435,14 +2404,6 @@ int32 Spell::CalculateCost(int32 &powerField)
 
         cost += u_caster->PowerCostMod[ m_usesMana ? GetSpellProto()->School : 0 ];//this is not percent!
         cost += float2int32(float(cost)* u_caster->GetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER + GetSpellProto()->School));
-    }
-
-    //Stupid shiv
-    if( GetSpellProto()->NameHash == SPELL_HASH_SHIV )
-    {
-        Item* Offhand = p_caster->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND);
-        if( Offhand != NULL && Offhand->GetProto() != NULL )
-            cost += Offhand->GetProto()->Delay / 100;
     }
 
     //apply modifiers
@@ -2766,7 +2727,7 @@ uint8 Spell::CanCast(bool tolerate)
 
         if( GetSpellProto()->NameHash == SPELL_HASH_LIFE_TAP )
         {
-            if(p_caster->GetManaPct() == 100)
+            if(p_caster->GetPowerPct(POWER_TYPE_MANA) == 100)
                 return SPELL_FAILED_ALREADY_AT_FULL_POWER;
         }
 
@@ -3047,7 +3008,7 @@ uint8 Spell::CanCast(bool tolerate)
             if( GetSpellProto()->isSpellHealingEffect() && p_caster->GetUInt32Value(UNIT_FIELD_HEALTH) == p_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH) )
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
 
-            if( p_caster->GetPowerType() == POWER_TYPE_MANA && GetSpellProto()->isSpellEnergizingEffect() && p_caster->GetUInt32Value(UNIT_FIELD_MANA) == p_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA) )
+            if( p_caster->getPowerType() == POWER_TYPE_MANA && GetSpellProto()->isSpellEnergizingEffect() && p_caster->GetPowerPct(POWER_TYPE_MANA) == 100 )
                 return SPELL_FAILED_ALREADY_AT_FULL_MANA;
         }
 
@@ -4100,43 +4061,8 @@ void Spell::Heal(uint8 effIndex, int32 amount)
     if( u_caster != NULL )
     {
         // All calculations are done in getspellbonusdamage
-        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, effIndex, amount, true); // 3.0.2 Spellpower change: In order to keep the effective amount healed for a given spell the same, we’d expect the original coefficients to be multiplied by 1/0.532 or 1.88.
-
-        // Healing Way fix
-        if(GetSpellProto()->NameHash == SPELL_HASH_HEALING_WAVE)
-        {
-            if(unitTarget->m_AuraInterface.HasActiveAura(29203))
-                amount += amount * 18 / 100;
-        }
-        else if( GetSpellProto()->NameHash == SPELL_HASH_HOLY_LIGHT )
-        {
-            if( unitTarget->HasDummyAura(SPELL_HASH_GLYPH_OF_HOLY_LIGHT) )
-            {
-                uint32 GHL = float2int32(amount * 0.1f);
-                uint32 targetcnt = 0;
-                unordered_set<Object* >::iterator itr;
-                for( itr = unitTarget->GetInRangeSetBegin(); itr != unitTarget->GetInRangeSetEnd(); itr++ )
-                {
-                    if( !(*itr)->IsUnit() || !TO_UNIT(*itr)->isAlive() || sFactionSystem.isAttackable(u_caster, (*itr), true) )
-                        continue;
-
-                    if( targetcnt > 4 )
-                        break;
-
-                    if(unitTarget->GetDistanceSq((*itr)) <= 64.0f)
-                    {
-                        SpellEntry* HLH = dbcSpell.LookupEntry( 54968 );
-                        Spell* pSpell = new Spell(u_caster, HLH, true, NULLAURA);
-                        //pSpell->forced_basepoints[0] = GHL;
-                        SpellCastTargets tgt;
-                        tgt.m_unitTarget = (*itr)->GetGUID();
-                        pSpell->prepare(&tgt);
-                        targetcnt++;
-                    }
-                }
-            }
-        }
-
+        // 3.0.2 Spellpower change: In order to keep the effective amount healed for a given spell the same, we’d expect the original coefficients to be multiplied by 1/0.532 or 1.88.
+        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, effIndex, amount, true);
         if(!GetSpellProto()->isUncrittableSpell())
         {
             critchance = u_caster->spellcritperc + u_caster->SpellCritChanceSchool[GetSpellProto()->School];
@@ -4145,19 +4071,10 @@ void Spell::Heal(uint8 effIndex, int32 amount)
                 u_caster->SM_FFValue(SMT_CRITICAL, &critchance, GetSpellProto()->SpellGroupType);
                 u_caster->SM_PFValue(SMT_CRITICAL, &critchance, GetSpellProto()->SpellGroupType);
             }
-
-            // Sacred Shield HOAX
-            if( unitTarget->HasDummyAura(SPELL_HASH_SACRED_SHIELD) && GetSpellProto()->NameHash == SPELL_HASH_FLASH_OF_LIGHT )
-                critchance += 50.0f;
         }
 
         if(critical = Rand(critchance))
         {
-            /*int32 critbonus = amount >> 1;
-            if( GetSpellProto()->SpellGroupType)
-                    SM_PIValue(TO_UNIT(u_caster)->SM[SMT_CRITICAL_DAMAGE][1], &critbonus, GetSpellProto()->SpellGroupType);
-            amount += critbonus;*/
-
             int32 critical_bonus = 100;
             if( GetSpellProto()->SpellGroupType )
                 u_caster->SM_FIValue(SMT_CRITICAL_DAMAGE, &critical_bonus, GetSpellProto()->SpellGroupType );
@@ -4168,60 +4085,6 @@ void Spell::Heal(uint8 effIndex, int32 amount)
                 float b = ( ( float(critical_bonus) / 2.0f ) / 100.0f );
                 amount += float2int32( float(amount) * b );
             }
-
-            if( u_caster->HasDummyAura(SPELL_HASH_LIVING_SEED) &&
-                ( GetSpellProto()->NameHash == SPELL_HASH_SWIFTMEND ||
-                GetSpellProto()->NameHash == SPELL_HASH_REGROWTH ||
-                GetSpellProto()->NameHash == SPELL_HASH_NOURISH ||
-                GetSpellProto()->NameHash == SPELL_HASH_HEALING_TOUCH) )
-            {
-                uint32 chance = ( u_caster->GetDummyAura(SPELL_HASH_LIVING_SEED)->RankNumber * 33 ) + 1;
-                if( Rand( chance ) )
-                {
-                    SpellEntry *spellInfo = dbcSpell.LookupEntry( 48504 );
-                    Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
-                    //sp->forced_basepoints[0] = float2int32(amount * 0.3f);
-                    SpellCastTargets tgt;
-                    tgt.m_unitTarget = unitTarget->GetGUID();
-                    sp->prepare(&tgt);
-                }
-            }
-
-            if( playerTarget && u_caster->HasDummyAura(SPELL_HASH_DIVINE_AEGIS) )
-            {
-                SpellEntry * spellInfo = dbcSpell.LookupEntry( 47753 );
-                Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
-                //sp->forced_basepoints[0] = float2int32(amount * ( 0.1f * u_caster->GetDummyAura(SPELL_HASH_DIVINE_AEGIS)->RankNumber ));
-                SpellCastTargets tgt;
-                tgt.m_unitTarget = playerTarget->GetGUID();
-                sp->prepare(&tgt);
-            }
-
-            if( u_caster->HasDummyAura(SPELL_HASH_SHEATH_OF_LIGHT) && unitTarget )
-            {
-                SpellEntry * spellInfo = dbcSpell.LookupEntry( 54203 );
-                Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
-                //sp->forced_basepoints[0] = float2int32(amount * ( 0.05f * u_caster->GetDummyAura(SPELL_HASH_SHEATH_OF_LIGHT)->RankNumber ));
-                SpellCastTargets tgt;
-                tgt.m_unitTarget = unitTarget->GetGUID();
-                sp->prepare(&tgt);
-            }
-        }
-
-        if( unitTarget != NULL && (GetSpellProto()->NameHash == SPELL_HASH_GREATER_HEAL ||
-            GetSpellProto()->NameHash == SPELL_HASH_FLASH_HEAL ||
-            GetSpellProto()->NameHash == SPELL_HASH_PENANCE ) &&
-            u_caster->HasDummyAura( SPELL_HASH_RAPTURE ) && u_caster->m_CustomTimers[CUSTOM_TIMER_RAPTURE] <= getMSTime() )
-        {
-            SpellEntry *spellInfo = dbcSpell.LookupEntry( 47755 );
-            Spell* sp = new Spell( u_caster, spellInfo, true, NULLAURA );
-            uint32 maxmana = u_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA);
-            float rapture_mod = u_caster->GetDummyAura( SPELL_HASH_RAPTURE )->RankNumber * 0.005f;
-            //sp->forced_basepoints[0] = float2int32( maxmana * rapture_mod );
-            SpellCastTargets tgt;
-            tgt.m_unitTarget = unitTarget->GetGUID();
-            sp->prepare(&tgt);
-            u_caster->m_CustomTimers[CUSTOM_TIMER_RAPTURE] = getMSTime() + 12000;
         }
     }
 
@@ -4235,36 +4098,7 @@ void Spell::Heal(uint8 effIndex, int32 amount)
     {
         unitTarget->SetUInt32Value(UNIT_FIELD_HEALTH, maxHealth);
         overheal = curHealth + amount - maxHealth;
-    } else
-        unitTarget->ModUnsigned32Value(UNIT_FIELD_HEALTH, amount);
-
-    if( overheal && u_caster && u_caster->HasDummyAura(SPELL_HASH_SERENDIPITY) && u_caster->m_LastSpellManaCost &&
-        ( GetSpellProto()->NameHash == SPELL_HASH_GREATER_HEAL || GetSpellProto()->NameHash == SPELL_HASH_FLASH_HEAL ) )
-    {
-        int32 amt = float2int32( u_caster->m_LastSpellManaCost * ( 0.08f * u_caster->GetDummyAura(SPELL_HASH_SERENDIPITY)->RankNumber ));
-        SpellEntry* SpellInfo = dbcSpell.LookupEntry( 47762 );
-        if( SpellInfo )
-        {
-            Spell* sp = new Spell( u_caster, SpellInfo, true, NULLAURA );
-            //sp->forced_basepoints[0] = amt;
-            SpellCastTargets tgt;
-            tgt.m_unitTarget = u_caster->GetGUID();
-            sp->prepare( &tgt );
-        }
-    }
-    if( u_caster && unitTarget && u_caster != unitTarget && unitTarget->HasDummyAura(SPELL_HASH_SPIRITUAL_ATTUNEMENT) && amount)
-    {
-        int32 amt = float2int32( amount * ( (unitTarget->GetDummyAura(SPELL_HASH_SPIRITUAL_ATTUNEMENT)->EffectBasePoints[0]+1) / 100.0f ));
-        SpellEntry* SpellInfo = dbcSpell.LookupEntry( 31786 );
-        if( SpellInfo )
-        {
-            Spell* sp = new Spell( u_caster, SpellInfo, true, NULLAURA );
-            //sp->forced_basepoints[0] = amt;
-            SpellCastTargets tgt;
-            tgt.m_unitTarget = unitTarget->GetGUID();
-            sp->prepare( &tgt );
-        }
-    }
+    } else unitTarget->ModUnsigned32Value(UNIT_FIELD_HEALTH, amount);
 
     if( m_caster )
         SendHealSpellOnPlayer( m_caster, unitTarget, amount, critical, overheal, (m_triggeredSpellId ? m_triggeredSpellId : GetSpellProto()->Id));
@@ -4292,10 +4126,7 @@ void Spell::Heal(uint8 effIndex, int32 amount)
 
                         beaconoverheal = p_caster->Heal(HealTarget, GetSpellProto()->Id, amount);
                         p_caster->m_bgScore.HealingDone += amount - beaconoverheal;
-                        HealTarget = NULL;
-                    }
-                    else
-                        beaconmap.erase(itr->first);
+                    } else beaconmap.erase(itr->first);
                 }
             }
         }

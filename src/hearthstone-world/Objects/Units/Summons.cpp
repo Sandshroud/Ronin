@@ -241,7 +241,7 @@ void Spell::SpellEffectSummon(uint32 i)
     uint32 entry = m_spellInfo->EffectMiscValue[ i ];
 
     CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry);
-    if(ctrData = NULL)
+    if(ctrData == NULL)
     {
         sLog.outError("Spell %u ( %s ) tried to summon creature %u without database data", m_spellInfo->Id, m_spellInfo->Name, entry);
         return;
@@ -254,8 +254,7 @@ void Spell::SpellEffectSummon(uint32 i)
 
     if((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) != 0)
         v = LocationVector(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ);
-    else
-        v = u_caster->GetPosition();
+    else v = u_caster->GetPosition();
 
     // Client adds these spells to the companion window, it's weird but then it happens anyways
     if(spe->slot == 5)

@@ -16,7 +16,7 @@ namespace VMAP
     {
         public:
             MapRayCallback(ModelInstance* val): prims(val), hit(false) {}
-            bool operator()(const G3D::Ray& ray, G3D::g3d_uint32 entry, float& distance, bool pStopAtFirstHit=true)
+            bool operator()(const G3D::Ray& ray, G3D::uint32 entry, float& distance, bool pStopAtFirstHit=true)
             {
                 bool result = prims[entry].intersectRay(ray, distance, pStopAtFirstHit);
                 if (result)
@@ -33,7 +33,7 @@ namespace VMAP
     {
         public:
             AreaInfoCallback(ModelInstance* val): prims(val) {}
-            void operator()(const Vector3& point, G3D::g3d_uint32 entry)
+            void operator()(const Vector3& point, G3D::uint32 entry)
             {
                 OUT_DEBUG("MapTree::AreaInfoCallback: trying to intersect '%s'", prims[entry].name.c_str());
                 prims[entry].intersectPoint(point, aInfo);
@@ -47,7 +47,7 @@ namespace VMAP
     {
         public:
             LocationInfoCallback(ModelInstance* val, LocationInfo &info): prims(val), locInfo(info), result(false) {}
-            void operator()(const Vector3& point, G3D::g3d_uint32 entry)
+            void operator()(const Vector3& point, G3D::uint32 entry)
             {
                 OUT_DEBUG("MapTree::LocationInfoCallback: trying to intersect '%s'", prims[entry].name.c_str());
                 if (prims[entry].GetLocationInfo(point, locInfo))
@@ -61,7 +61,7 @@ namespace VMAP
 
     //=========================================================
 
-    std::string StaticMapTree::getTileFileName(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY)
+    std::string StaticMapTree::getTileFileName(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
     {
         std::stringstream tilefilename;
         tilefilename.fill('0');
@@ -71,7 +71,7 @@ namespace VMAP
         return tilefilename.str();
     }
 
-    bool StaticMapTree::getAreaInfo(Vector3 &pos, G3D::g3d_uint32 &flags, G3D::g3d_int32 &adtId, G3D::g3d_int32 &rootId, G3D::g3d_int32 &groupId) const
+    bool StaticMapTree::getAreaInfo(Vector3 &pos, G3D::uint32 &flags, G3D::int32 &adtId, G3D::int32 &rootId, G3D::int32 &groupId) const
     {
         AreaInfoCallback intersectionCallBack(iTreeValues);
         iTree.intersectPoint(pos, intersectionCallBack);
@@ -94,7 +94,7 @@ namespace VMAP
         return intersectionCallBack.result;
     }
 
-    StaticMapTree::StaticMapTree(G3D::g3d_uint32 mapID, const std::string &basePath)
+    StaticMapTree::StaticMapTree(G3D::uint32 mapID, const std::string &basePath)
         : iMapID(mapID), iIsTiled(false), iTreeValues(0), iNTreeValues(0), iBasePath(basePath)
     {
         if (iBasePath.length() > 0 && iBasePath[iBasePath.length()-1] != '/' && iBasePath[iBasePath.length()-1] != '\\')
@@ -213,7 +213,7 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::CanLoadMap(const std::string &vmapPath, G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY)
+    bool StaticMapTree::CanLoadMap(const std::string &vmapPath, G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
     {
         std::string basePath = vmapPath;
         if (basePath.length() > 0 && basePath[basePath.length()-1] != '/' && basePath[basePath.length()-1] != '\\')
@@ -262,7 +262,7 @@ namespace VMAP
         char chunk[10];
         if(!readChunk(rf, chunk, VMAP_MAGIC, 10))
         {
-            sLog.outError("VMap magic does not match!");
+            OUT_ERROR("VMap magic does not match!");
             return false;
         }
 
@@ -278,12 +278,12 @@ namespace VMAP
 
         iIsTiled = bool(tiled);
         if(!success)
-            sLog.outError("StaticMapTree::InitMap() : failed reading data!");
+            OUT_ERROR("StaticMapTree::InitMap() : failed reading data!");
         else
         {
             // global model spawns
             // only non-tiled maps have them, and if so exactly one (so far at least...)
-            OUT_DEBUG("StaticMapTree::InitMap() : map isTiled: %u", static_cast<G3D::g3d_uint32>(iIsTiled));
+            OUT_DEBUG("StaticMapTree::InitMap() : map isTiled: %u", static_cast<G3D::uint32>(iIsTiled));
             if(!iIsTiled)
             {
                 ModelSpawn spawn;
@@ -300,7 +300,7 @@ namespace VMAP
                     else
                     {
                         success = false;
-                        sLog.outError("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", spawn.name.c_str());
+                        OUT_ERROR("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", spawn.name.c_str());
                     }
                 }
             }
@@ -317,7 +317,7 @@ namespace VMAP
         for (loadedSpawnMap::iterator i = iLoadedSpawns.begin(); i != iLoadedSpawns.end(); ++i)
         {
             iTreeValues[i->first].setUnloaded();
-            for (G3D::g3d_uint32 refCount = 0; refCount < i->second; ++refCount)
+            for (G3D::uint32 refCount = 0; refCount < i->second; ++refCount)
                 vm->releaseModelInstance(iTreeValues[i->first].name);
         }
         iLoadedSpawns.clear();
@@ -326,7 +326,7 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::LoadMapTile(G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, VMapManager* vm)
+    bool StaticMapTree::LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm)
     {
         if (!iIsTiled)
         {
@@ -349,10 +349,10 @@ namespace VMAP
             char chunk[10];
             if (!readChunk(tf, chunk, VMAP_MAGIC, 10))
                 result = false;
-            G3D::g3d_uint32 numSpawns = 0;
-            if (result && fread(&numSpawns, sizeof(G3D::g3d_uint32), 1, tf) != 1)
+            G3D::uint32 numSpawns = 0;
+            if (result && fread(&numSpawns, sizeof(G3D::uint32), 1, tf) != 1)
                 result = false;
-            for (G3D::g3d_uint32 i=0; i<numSpawns && result; ++i)
+            for (G3D::uint32 i=0; i<numSpawns && result; ++i)
             {
                 // read model spawns
                 ModelSpawn spawn;
@@ -367,9 +367,9 @@ namespace VMAP
                         OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
 
                     // update tree
-                    G3D::g3d_uint32 referencedVal;
+                    G3D::uint32 referencedVal;
 
-                    if (fread(&referencedVal, sizeof(G3D::g3d_uint32), 1, tf) == 1)
+                    if (fread(&referencedVal, sizeof(G3D::uint32), 1, tf) == 1)
                     {
                         if (!iLoadedSpawns.count(referencedVal))
                         {
@@ -405,9 +405,9 @@ namespace VMAP
 
     //=========================================================
 
-    void StaticMapTree::UnloadMapTile(G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, VMapManager* vm)
+    void StaticMapTree::UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm)
     {
-        G3D::g3d_uint32 tileID = packTileID(tileX, tileY);
+        G3D::uint32 tileID = packTileID(tileX, tileY);
         loadedTileMap::iterator tile = iLoadedTiles.find(tileID);
         if (tile == iLoadedTiles.end())
         {
@@ -424,10 +424,10 @@ namespace VMAP
                 char chunk[10];
                 if (!readChunk(tf, chunk, VMAP_MAGIC, 10))
                     result = false;
-                G3D::g3d_uint32 numSpawns;
-                if (fread(&numSpawns, sizeof(G3D::g3d_uint32), 1, tf) != 1)
+                G3D::uint32 numSpawns;
+                if (fread(&numSpawns, sizeof(G3D::uint32), 1, tf) != 1)
                     result = false;
-                for (G3D::g3d_uint32 i=0; i<numSpawns && result; ++i)
+                for (G3D::uint32 i=0; i<numSpawns && result; ++i)
                 {
                     // read model spawns
                     ModelSpawn spawn;
@@ -438,9 +438,9 @@ namespace VMAP
                         vm->releaseModelInstance(spawn.name);
 
                         // update tree
-                        G3D::g3d_uint32 referencedNode;
+                        G3D::uint32 referencedNode;
 
-                        if (fread(&referencedNode, sizeof(G3D::g3d_uint32), 1, tf) != 1)
+                        if (fread(&referencedNode, sizeof(G3D::uint32), 1, tf) != 1)
                             result = false;
                         else
                         {

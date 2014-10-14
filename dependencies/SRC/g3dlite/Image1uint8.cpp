@@ -205,7 +205,7 @@ void Image1uint8::save(const std::string& filename, GImage::Format fmt) {
 }
 
 
-const ImageFormat* Image1uint8::G3D_format() const {
+const ImageFormat* Image1uint8::format() const {
     return ImageFormat::L8();
 }
 

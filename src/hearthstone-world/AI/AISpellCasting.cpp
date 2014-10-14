@@ -304,11 +304,9 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->GetPowerType() == POWER_TYPE_MANA)
+                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
                         TargetSet.insert( TO_UNIT( *ObjectIter ) );
-                }
-                else
-                    TargetSet.insert( TO_UNIT( *ObjectIter ) );
+                } else TargetSet.insert( TO_UNIT( *ObjectIter ) );
             }
         }
 
@@ -323,11 +321,9 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->GetPowerType() == POWER_TYPE_MANA)
+                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
                         TargetSet.insert( TO_UNIT( *ObjectIter ) );
-                }
-                else
-                    TargetSet.insert( TO_UNIT( *ObjectIter ) );
+                } else TargetSet.insert( TO_UNIT( *ObjectIter ) );
             }
         }
     }

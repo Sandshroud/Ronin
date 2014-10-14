@@ -10,7 +10,7 @@
 
 namespace G3D {
 
-g3d_int32 byteSize(BinaryFormat f) {
+int32 byteSize(BinaryFormat f) {
     switch (f) {
     case BOOL8_BINFMT:
     case UINT8_BINFMT:

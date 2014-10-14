@@ -26,17 +26,17 @@
 #include "DetourNavMesh.h"
 #include "DetourCommon.h"
 
-G3D::g3d_uint32 GetLiquidFlags(G3D::g3d_uint32 /*liquidType*/) { return 0; }
+G3D::uint32 GetLiquidFlags(G3D::uint32 /*liquidType*/) { return 0; }
 
 #define MMAP_MAGIC 0x4d4d4150   // 'MMAP'
 #define MMAP_VERSION 4
 
 struct MmapTileHeader
 {
-    G3D::g3d_uint32 mmapMagic;
-    G3D::g3d_uint32 dtVersion;
-    G3D::g3d_uint32 mmapVersion;
-    G3D::g3d_uint32 size;
+    G3D::uint32 mmapMagic;
+    G3D::uint32 dtVersion;
+    G3D::uint32 mmapVersion;
+    G3D::uint32 size;
     bool usesLiquids : 1;
 
     MmapTileHeader() : mmapMagic(MMAP_MAGIC), dtVersion(DT_NAVMESH_VERSION),
@@ -82,29 +82,29 @@ namespace MMAP
     void MapBuilder::discoverTiles()
     {
         std::vector<std::string> files;
-        G3D::g3d_uint32 mapID, tileX, tileY, tileID, count = 0;
+        G3D::uint32 mapID, tileX, tileY, tileID, count = 0;
         char filter[12];
 
         printf("Discovering maps... ");
         getDirContents(files, "maps", ".bin");
-        for (G3D::g3d_uint32 i = 0; i < files.size(); ++i)
+        for (G3D::uint32 i = 0; i < files.size(); ++i)
         {
-            mapID = G3D::g3d_uint32(atoi(files[i].substr(4,3).c_str()));
+            mapID = G3D::uint32(atoi(files[i].substr(4,3).c_str()));
             if (m_tiles.find(mapID) == m_tiles.end())
             {
-                m_tiles.insert(std::make_pair(mapID, new std::set<G3D::g3d_uint32>));
+                m_tiles.insert(std::make_pair(mapID, new std::set<G3D::uint32>));
                 count++;
             }
         }
 
         files.clear();
         getDirContents(files, "vmaps", "*.vmtree");
-        for (G3D::g3d_uint32 i = 0; i < files.size(); ++i)
+        for (G3D::uint32 i = 0; i < files.size(); ++i)
         {
-            mapID = G3D::g3d_uint32(atoi(files[i].substr(0,3).c_str()));
+            mapID = G3D::uint32(atoi(files[i].substr(0,3).c_str()));
             if (m_tiles.find(mapID) == m_tiles.end())
             {
-                m_tiles.insert(std::make_pair(mapID, new std::set<G3D::g3d_uint32>));
+                m_tiles.insert(std::make_pair(mapID, new std::set<G3D::uint32>));
                 count++;
             }
         }
@@ -115,15 +115,15 @@ namespace MMAP
         for (TileList::iterator itr = m_tiles.begin(); itr != m_tiles.end(); ++itr)
         {
             mapID = (*itr).first;
-            std::set<G3D::g3d_uint32>* tiles = itr->second;
+            std::set<G3D::uint32>* tiles = itr->second;
 
             sprintf(filter, "%03u*.vmtile", mapID);
             files.clear();
             getDirContents(files, "vmaps", filter);
-            for (G3D::g3d_uint32 i = 0; i < files.size(); ++i)
+            for (G3D::uint32 i = 0; i < files.size(); ++i)
             {
-                tileX = G3D::g3d_uint32(atoi(files[i].substr(7,2).c_str()));
-                tileY = G3D::g3d_uint32(atoi(files[i].substr(4,2).c_str()));
+                tileX = G3D::uint32(atoi(files[i].substr(7,2).c_str()));
+                tileY = G3D::uint32(atoi(files[i].substr(4,2).c_str()));
                 tileID = StaticMapTree::packTileID(tileY, tileX);
 
                 tiles->insert(tileID);
@@ -138,13 +138,13 @@ namespace MMAP
             if(mapFile == NULL)
                 continue;
 
-            G3D::g3d_uint32 offsets[64][64];
+            G3D::uint32 offsets[64][64];
             if(fread(offsets, 1, 16384, mapFile) != 16384)
                 continue;
 
-            for(G3D::g3d_uint8 tileX = 0; tileX < 64; tileX++)
+            for(G3D::uint8 tileX = 0; tileX < 64; tileX++)
             {
-                for(G3D::g3d_uint8 tileY = 0; tileY < 64; tileY++)
+                for(G3D::uint8 tileY = 0; tileY < 64; tileY++)
                 {
                     if(!offsets[tileX][tileY])
                         continue;
@@ -159,14 +159,14 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    std::set<G3D::g3d_uint32>* MapBuilder::getTileList(G3D::g3d_uint32 mapID)
+    std::set<G3D::uint32>* MapBuilder::getTileList(G3D::uint32 mapID)
     {
         TileList::iterator itr = m_tiles.find(mapID);
         if (itr != m_tiles.end())
             return (*itr).second;
 
-        std::set<G3D::g3d_uint32>* tiles = new std::set<G3D::g3d_uint32>();
-        m_tiles.insert(std::pair<G3D::g3d_uint32, std::set<G3D::g3d_uint32>*>(mapID, tiles));
+        std::set<G3D::uint32>* tiles = new std::set<G3D::uint32>();
+        m_tiles.insert(std::pair<G3D::uint32, std::set<G3D::uint32>*>(mapID, tiles));
         return tiles;
     }
 
@@ -175,7 +175,7 @@ namespace MMAP
     {
         for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
         {
-            G3D::g3d_uint32 mapID = it->first;
+            G3D::uint32 mapID = it->first;
             if (!shouldSkipMap(mapID))
             {
                 buildMap(mapID);
@@ -184,7 +184,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::getGridBounds(G3D::g3d_uint32 mapID, G3D::g3d_uint32 &minX, G3D::g3d_uint32 &minY, G3D::g3d_uint32 &maxX, G3D::g3d_uint32 &maxY)
+    void MapBuilder::getGridBounds(G3D::uint32 mapID, G3D::uint32 &minX, G3D::uint32 &minY, G3D::uint32 &maxX, G3D::uint32 &maxY)
     {
         maxX = INT_MAX;
         maxY = INT_MAX;
@@ -259,14 +259,14 @@ namespace MMAP
             return;
         }
 
-        G3D::g3d_uint32 verticesCount, indicesCount;
-        if (fread(&verticesCount, sizeof(G3D::g3d_uint32), 1, file) != 1)
+        G3D::uint32 verticesCount, indicesCount;
+        if (fread(&verticesCount, sizeof(G3D::uint32), 1, file) != 1)
         {
             fclose(file);
             return;
         }
 
-        if (fread(&indicesCount, sizeof(G3D::g3d_uint32), 1, file) != 1)
+        if (fread(&indicesCount, sizeof(G3D::uint32), 1, file) != 1)
         {
             fclose(file);
             return;
@@ -293,11 +293,11 @@ namespace MMAP
 
         MeshData data;
 
-        for (G3D::g3d_uint32 i = 0; i < verticesCount; ++i)
+        for (G3D::uint32 i = 0; i < verticesCount; ++i)
             data.solidVerts.append(verts[i]);
         delete[] verts;
 
-        for (G3D::g3d_uint32 i = 0; i < indicesCount; ++i)
+        for (G3D::uint32 i = 0; i < indicesCount; ++i)
             data.solidTris.append(inds[i]);
         delete[] inds;
 
@@ -312,7 +312,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::buildSingleTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY)
+    void MapBuilder::buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
     {
         dtNavMesh* navMesh = NULL;
         buildNavMesh(mapID, navMesh);
@@ -329,23 +329,23 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::buildMap(G3D::g3d_uint32 mapID)
+    void MapBuilder::buildMap(G3D::uint32 mapID)
     {
         printf("Building map %03u:\n", mapID);
         m_terrainBuilder->InitializeVMap(mapID);
 
-        std::set<G3D::g3d_uint32>* tiles = getTileList(mapID);
+        std::set<G3D::uint32>* tiles = getTileList(mapID);
 
         // make sure we process maps which don't have tiles
         if (!tiles->size())
         {
             // convert coord bounds to grid bounds
-            G3D::g3d_uint32 minX, minY, maxX, maxY;
+            G3D::uint32 minX, minY, maxX, maxY;
             getGridBounds(mapID, minX, minY, maxX, maxY);
 
             // add all tiles within bounds to tile list.
-            for (G3D::g3d_uint32 i = minX; i <= maxX; ++i)
-                for (G3D::g3d_uint32 j = minY; j <= maxY; ++j)
+            for (G3D::uint32 i = minX; i <= maxX; ++i)
+                for (G3D::uint32 j = minY; j <= maxY; ++j)
                     tiles->insert(StaticMapTree::packTileID(i, j));
         }
 
@@ -360,9 +360,9 @@ namespace MMAP
             {
                 // now start building mmtiles for each tile
                 printf("We have %u tiles.                          \n", (unsigned int)tiles->size());
-                for (std::set<G3D::g3d_uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
+                for (std::set<G3D::uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
                 {
-                    G3D::g3d_uint32 tileX, tileY;
+                    G3D::uint32 tileX, tileY;
 
                     // unpack tile coords
                     StaticMapTree::unpackTileID((*it), tileX, tileY);
@@ -381,7 +381,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::buildTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, dtNavMesh* navMesh)
+    void MapBuilder::buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh)
     {
         printf("Building tile [%02u,%02u]\r", mapID, tileX, tileY);
 
@@ -420,9 +420,9 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::buildNavMesh(G3D::g3d_uint32 mapID, dtNavMesh* &navMesh)
+    void MapBuilder::buildNavMesh(G3D::uint32 mapID, dtNavMesh* &navMesh)
     {
-        std::set<G3D::g3d_uint32>* tiles = getTileList(mapID);
+        std::set<G3D::uint32>* tiles = getTileList(mapID);
 
         // old code for non-statically assigned bitmask sizes:
         ///*** calculate number of bits needed to store tiles & polys ***/
@@ -437,8 +437,8 @@ namespace MMAP
 
         /***          calculate bounds of map         ***/
 
-        G3D::g3d_uint32 tileXMin = 64, tileYMin = 64, tileXMax = 0, tileYMax = 0, tileX, tileY;
-        for (std::set<G3D::g3d_uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
+        G3D::uint32 tileXMin = 64, tileYMin = 64, tileXMax = 0, tileYMax = 0, tileX, tileY;
+        for (std::set<G3D::uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
         {
             StaticMapTree::unpackTileID(*it, tileX, tileY);
 
@@ -495,7 +495,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::buildMoveMapTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY,
+    void MapBuilder::buildMoveMapTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY,
         MeshData &meshData, float bmin[3], float bmax[3],
         dtNavMesh* navMesh)
     {
@@ -515,7 +515,7 @@ namespace MMAP
         int lVertCount = meshData.liquidVerts.size() / 3;
         int* lTris = meshData.liquidTris.getCArray();
         int lTriCount = meshData.liquidTris.size() / 3;
-        G3D::g3d_uint8* lTriFlags = meshData.liquidType.getCArray();
+        G3D::uint8* lTriFlags = meshData.liquidType.getCArray();
 
         // these are WORLD UNIT based metrics
         // this are basic unit dimentions
@@ -832,7 +832,7 @@ namespace MMAP
             // write header
             MmapTileHeader header;
             header.usesLiquids = m_terrainBuilder->usesLiquids();
-            header.size = G3D::g3d_uint32(navDataSize);
+            header.size = G3D::uint32(navDataSize);
             fwrite(&header, sizeof(MmapTileHeader), 1, file);
 
             // write data
@@ -860,7 +860,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::getTileBounds(G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, float* verts, int vertCount, float* bmin, float* bmax)
+    void MapBuilder::getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, float* verts, int vertCount, float* bmin, float* bmax)
     {
         // this is for elevation
         if (verts && vertCount)
@@ -879,7 +879,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool MapBuilder::shouldSkipMap(G3D::g3d_uint32 mapID)
+    bool MapBuilder::shouldSkipMap(G3D::uint32 mapID)
     {
         if (m_skipContinents)
             switch (mapID)
@@ -932,7 +932,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool MapBuilder::isTransportMap(G3D::g3d_uint32 mapID)
+    bool MapBuilder::isTransportMap(G3D::uint32 mapID)
     {
         switch (mapID)
         {
@@ -972,7 +972,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool MapBuilder::shouldSkipTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY)
+    bool MapBuilder::shouldSkipTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
     {
         char fileName[255];
         sprintf(fileName, "mmaps/%03u%02i%02i.mmtile", mapID, tileY, tileX);
@@ -986,7 +986,7 @@ namespace MMAP
         if (count != 1)
             return false;
 
-        if (header.mmapMagic != MMAP_MAGIC || header.dtVersion != G3D::g3d_uint32(DT_NAVMESH_VERSION))
+        if (header.mmapMagic != MMAP_MAGIC || header.dtVersion != G3D::uint32(DT_NAVMESH_VERSION))
             return false;
 
         if (header.mmapVersion != MMAP_VERSION)

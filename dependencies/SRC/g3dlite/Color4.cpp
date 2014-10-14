@@ -112,7 +112,7 @@ size_t Color4::hashCode() const {
     return rhash + (ghash * 37) + (bhash * 101) + (ahash * 241);
 }
 
-Color4 Color4::fromARGB(g3d_uint32 x) {
+Color4 Color4::fromARGB(uint32 x) {
     return Color4(
         (float)((x >> 16) & 0xFF), 
         (float)((x >> 8) & 0xFF),
@@ -148,7 +148,7 @@ Color4 Color4::operator/ (float fScalar) const {
     Color4 kQuot;
 
     if (fScalar != 0.0f) {
-        float fInvScalar = 1.0f / fScalar;
+		float fInvScalar = 1.0f / fScalar;
         kQuot.r = fInvScalar * r;
         kQuot.g = fInvScalar * g;
         kQuot.b = fInvScalar * b;
@@ -165,7 +165,7 @@ Color4 Color4::operator/ (float fScalar) const {
 
 Color4& Color4::operator/= (float fScalar) {
     if (fScalar != 0.0f) {
-        float fInvScalar = 1.0f / fScalar;
+		float fInvScalar = 1.0f / fScalar;
         r *= fInvScalar;
         g *= fInvScalar;
         b *= fInvScalar;
@@ -183,7 +183,7 @@ Color4& Color4::operator/= (float fScalar) {
 //----------------------------------------------------------------------------
 
 std::string Color4::toString() const {
-    return G3D::G3D_format("(%g, %g, %g, %g)", r, g, b, a);
+    return G3D::format("(%g, %g, %g, %g)", r, g, b, a);
 }
 
 //----------------------------------------------------------------------------

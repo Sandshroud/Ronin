@@ -38,7 +38,7 @@
 #include "fileutils.h"
 #include "Log.h"
 #include "FileSystem.h"
-#include "../zlib/zlib.h"
+#include <zlib/zlib.h>
 #if _HAVE_ZIP /* G3DFIX: Use ZIP-library only if defined */
   #include "zip.h"
 #endif
@@ -46,42 +46,42 @@
 
 namespace G3D {
 
-void BinaryInput::readBool8(std::vector<bool>& out, g3d_int64 n) {
+void BinaryInput::readBool8(std::vector<bool>& out, int64 n) {
     out.resize((int)n);
     // std::vector optimizes bool in a way that prevents fast reading
-    for (g3d_int64 i = 0; i < n ; ++i) {
+    for (int64 i = 0; i < n ; ++i) {
         out[i] = readBool8();
     }
 }
 
 
-void BinaryInput::readBool8(Array<bool>& out, g3d_int64 n) {
+void BinaryInput::readBool8(Array<bool>& out, int64 n) {
     out.resize(n);
     readBool8(out.begin(), n);
 }
 
 
 #define IMPLEMENT_READER(ucase, lcase)\
-void BinaryInput::read##ucase(std::vector<lcase>& out, g3d_int64 n) {\
+void BinaryInput::read##ucase(std::vector<lcase>& out, int64 n) {\
     out.resize(n);\
     read##ucase(&out[0], n);\
 }\
 \
 \
-void BinaryInput::read##ucase(Array<lcase>& out, g3d_int64 n) {\
+void BinaryInput::read##ucase(Array<lcase>& out, int64 n) {\
     out.resize(n);\
     read##ucase(out.begin(), n);\
 }
 
 
-IMPLEMENT_READER(UInt8,   g3d_uint8)
-IMPLEMENT_READER(Int8,    g3d_int8)
-IMPLEMENT_READER(UInt16,  g3d_uint16)
-IMPLEMENT_READER(Int16,   g3d_int16)
-IMPLEMENT_READER(UInt32,  g3d_uint32)
-IMPLEMENT_READER(Int32,   g3d_int32)
-IMPLEMENT_READER(UInt64,  g3d_uint64)
-IMPLEMENT_READER(Int64,   g3d_int64)
+IMPLEMENT_READER(UInt8,   uint8)
+IMPLEMENT_READER(Int8,    int8)
+IMPLEMENT_READER(UInt16,  uint16)
+IMPLEMENT_READER(Int16,   int16)
+IMPLEMENT_READER(UInt32,  uint32)
+IMPLEMENT_READER(Int32,   int32)
+IMPLEMENT_READER(UInt64,  uint64)
+IMPLEMENT_READER(Int64,   int64)
 IMPLEMENT_READER(Float32, float32)
 IMPLEMENT_READER(Float64, float64)    
 
@@ -90,27 +90,27 @@ IMPLEMENT_READER(Float64, float64)
 // Data structures that are one byte per element can be 
 // directly copied, regardles of endian-ness.
 #define IMPLEMENT_READER(ucase, lcase)\
-void BinaryInput::read##ucase(lcase* out, g3d_int64 n) {\
+void BinaryInput::read##ucase(lcase* out, int64 n) {\
     if (sizeof(lcase) == 1) {\
         readBytes(out, n);\
     } else {\
-        for (g3d_int64 i = 0; i < n ; ++i) {\
+        for (int64 i = 0; i < n ; ++i) {\
             out[i] = read##ucase();\
         }\
     }\
 }
 
 IMPLEMENT_READER(Bool8,   bool)
-IMPLEMENT_READER(UInt8,   g3d_uint8)
-IMPLEMENT_READER(Int8,    g3d_int8)
+IMPLEMENT_READER(UInt8,   uint8)
+IMPLEMENT_READER(Int8,    int8)
 
 #undef IMPLEMENT_READER
 
 
 #define IMPLEMENT_READER(ucase, lcase)\
-void BinaryInput::read##ucase(lcase* out, g3d_int64 n) {\
+void BinaryInput::read##ucase(lcase* out, int64 n) {\
     if (m_swapBytes) {\
-        for (g3d_int64 i = 0; i < n; ++i) {\
+        for (int64 i = 0; i < n; ++i) {\
             out[i] = read##ucase();\
         }\
     } else {\
@@ -119,22 +119,22 @@ void BinaryInput::read##ucase(lcase* out, g3d_int64 n) {\
 }
 
 
-IMPLEMENT_READER(UInt16,  g3d_uint16)
-IMPLEMENT_READER(Int16,   g3d_int16)
-IMPLEMENT_READER(UInt32,  g3d_uint32)
-IMPLEMENT_READER(Int32,   g3d_int32)
-IMPLEMENT_READER(UInt64,  g3d_uint64)
-IMPLEMENT_READER(Int64,   g3d_int64)
+IMPLEMENT_READER(UInt16,  uint16)
+IMPLEMENT_READER(Int16,   int16)
+IMPLEMENT_READER(UInt32,  uint32)
+IMPLEMENT_READER(Int32,   int32)
+IMPLEMENT_READER(UInt64,  uint64)
+IMPLEMENT_READER(Int64,   int64)
 IMPLEMENT_READER(Float32, float32)
 IMPLEMENT_READER(Float64, float64)    
 
 #undef IMPLEMENT_READER
 
-void BinaryInput::loadIntoMemory(g3d_int64 startPosition, g3d_int64 minLength) {
+void BinaryInput::loadIntoMemory(int64 startPosition, int64 minLength) {
     // Load the next section of the file
     debugAssertM(m_filename != "<memory>", "Read past end of file.");
 
-    g3d_int64 absPos = m_alreadyRead + m_pos;
+    int64 absPos = m_alreadyRead + m_pos;
 
     if (m_bufferLength < minLength) {
         // The current buffer isn't big enough to hold the chunk we want to read.
@@ -142,7 +142,7 @@ void BinaryInput::loadIntoMemory(g3d_int64 startPosition, g3d_int64 minLength) {
         // read but more memory has since been freed.
         m_bufferLength = minLength;
         debugAssert(m_freeBuffer);
-        m_buffer = (g3d_uint8*)System::realloc(m_buffer, m_bufferLength);
+        m_buffer = (uint8*)System::realloc(m_buffer, m_bufferLength);
         if (m_buffer == NULL) {
             throw "Tried to read a larger memory chunk than could fit in memory. (2)";
         }
@@ -155,7 +155,7 @@ void BinaryInput::loadIntoMemory(g3d_int64 startPosition, g3d_int64 minLength) {
         debugAssert(file);
         int ret = fseek(file, (off_t)m_alreadyRead, SEEK_SET);
         debugAssert(ret == 0);
-        size_t toRead = (size_t)G3D::G3D_min(m_bufferLength, m_length - m_alreadyRead);
+        size_t toRead = (size_t)G3D::min(m_bufferLength, m_length - m_alreadyRead);
         ret = fread(m_buffer, 1, toRead, file);
         debugAssert(ret == toRead);
         fclose(file);
@@ -166,7 +166,7 @@ void BinaryInput::loadIntoMemory(g3d_int64 startPosition, g3d_int64 minLength) {
         debugAssert(file);
         int ret = fseeko(file, (off_t)m_alreadyRead, SEEK_SET);
         debugAssert(ret == 0);
-        size_t toRead = (size_t)G3D::G3D_min<g3d_int64>(m_bufferLength, m_length - m_alreadyRead);
+        size_t toRead = (size_t)G3D::min<int64>(m_bufferLength, m_length - m_alreadyRead);
         ret = fread(m_buffer, 1, toRead, file);
         debugAssert((size_t)ret == (size_t)toRead);
         fclose(file);
@@ -187,16 +187,16 @@ static bool needSwapBytes(G3DEndian fileEndian) {
 
 
 /** Helper used by the constructors for decompression */
-static g3d_uint32 readUInt32(const g3d_uint8* data, bool swapBytes) {
+static uint32 readUInt32(const uint8* data, bool swapBytes) {
     if (swapBytes) {
-        g3d_uint8 out[4];
+        uint8 out[4];
         out[0] = data[3];
         out[1] = data[2];
         out[2] = data[1];
         out[3] = data[0];
-        return *((g3d_uint32*)out);
+        return *((uint32*)out);
     } else {
-        return *((g3d_uint32*)data);
+        return *((uint32*)data);
     }
 }
 
@@ -208,8 +208,8 @@ void BinaryInput::setEndian(G3DEndian e) {
 
 
 BinaryInput::BinaryInput(
-    const g3d_uint8*        data,
-    g3d_int64               dataLen,
+    const uint8*        data,
+    int64               dataLen,
     G3DEndian           dataEndian,
     bool                compressed,
     bool                copyMemory) :
@@ -230,24 +230,24 @@ BinaryInput::BinaryInput(
         m_length = G3D::readUInt32(data, m_swapBytes);
 
         debugAssert(m_freeBuffer);
-        m_buffer = (g3d_uint8*)System::alignedMalloc(m_length, 16);
+        m_buffer = (uint8*)System::alignedMalloc(m_length, 16);
 
         unsigned long L = m_length;
         // Decompress with zlib
-        g3d_int64 result = uncompress(m_buffer, (unsigned long*)&L, data + 4, dataLen - 4);
+        int64 result = uncompress(m_buffer, (unsigned long*)&L, data + 4, dataLen - 4);
         m_length = L;
         m_bufferLength = L;
         debugAssert(result == Z_OK); (void)result;
 
     } else {
-        m_length = dataLen;
+    	m_length = dataLen;
         m_bufferLength = m_length;
         if (! copyMemory) {
-            debugAssert(!m_freeBuffer);
-            m_buffer = const_cast<g3d_uint8*>(data);
+ 	        debugAssert(!m_freeBuffer);
+            m_buffer = const_cast<uint8*>(data);
         } else {
-            debugAssert(m_freeBuffer);
-            m_buffer = (g3d_uint8*)System::alignedMalloc(m_length, 16);
+	        debugAssert(m_freeBuffer);
+            m_buffer = (uint8*)System::alignedMalloc(m_length, 16);
             System::memcpy(m_buffer, data, dataLen);
         }
     }
@@ -289,10 +289,10 @@ BinaryInput::BinaryInput(
             zip_stat(z, internalFile.c_str(), ZIP_FL_NOCASE, &info);
             m_bufferLength = m_length = info.size;
             // sets machines up to use MMX, if they want
-            m_buffer = reinterpret_cast<g3d_uint8*>(System::alignedMalloc(m_length, 16));
+            m_buffer = reinterpret_cast<uint8*>(System::alignedMalloc(m_length, 16));
             struct zip_file* zf = zip_fopen( z, internalFile.c_str(), ZIP_FL_NOCASE );
             {
-                g3d_int64 test = zip_fread( zf, m_buffer, m_length );
+                int64 test = zip_fread( zf, m_buffer, m_length );
                 debugAssertM(test == m_length,
                              internalFile + " was corrupt because it unzipped to the wrong size.");
                 (void)test;
@@ -316,7 +316,7 @@ BinaryInput::BinaryInput(
     FILE* file = fopen(m_filename.c_str(), "rb");
 
     if (! file || (m_length == -1)) {
-        throw G3D_format("File not found: \"%s\"", m_filename.c_str());
+        throw format("File not found: \"%s\"", m_filename.c_str());
         return;
     }
 
@@ -331,7 +331,7 @@ BinaryInput::BinaryInput(
     }
 
     debugAssert(m_freeBuffer);
-    m_buffer = (g3d_uint8*)System::alignedMalloc(m_bufferLength, 16);
+    m_buffer = (uint8*)System::alignedMalloc(m_bufferLength, 16);
     if (m_buffer == NULL) {
         if (compressed) {
             throw "Not enough memory to load compressed file. (1)";
@@ -341,12 +341,12 @@ BinaryInput::BinaryInput(
         // Give up if we can't allocate even 1k.
         while ((m_buffer == NULL) && (m_bufferLength > 1024)) {
             m_bufferLength /= 2;
-            m_buffer = (g3d_uint8*)System::alignedMalloc(m_bufferLength, 16);
+            m_buffer = (uint8*)System::alignedMalloc(m_bufferLength, 16);
         }
     }
     debugAssert(m_buffer);
     
-    fread(m_buffer, m_bufferLength, sizeof(g3d_int8), file);
+    fread(m_buffer, m_bufferLength, sizeof(int8), file);
     fclose(file);
     file = NULL;
 
@@ -364,21 +364,21 @@ void BinaryInput::decompress() {
     // Use the existing buffer as the source, allocate
     // a new buffer to use as the destination.
     
-    g3d_int64 tempLength = m_length;
+    int64 tempLength = m_length;
     m_length = G3D::readUInt32(m_buffer, m_swapBytes);
     
     // The file couldn't have better than 500:1 compression
     alwaysAssertM(m_length < m_bufferLength * 500, "Compressed file header is corrupted");
     
-    g3d_uint8* tempBuffer = m_buffer;
-    m_buffer = (g3d_uint8*)System::alignedMalloc(m_length, 16);
+    uint8* tempBuffer = m_buffer;
+    m_buffer = (uint8*)System::alignedMalloc(m_length, 16);
     
     debugAssert(m_buffer);
     debugAssert(isValidHeapPointer(tempBuffer));
     debugAssert(isValidHeapPointer(m_buffer));
     
     unsigned long L = m_length;
-    g3d_int64 result = uncompress(m_buffer, &L, tempBuffer + 4, tempLength - 4);
+    int64 result = uncompress(m_buffer, &L, tempBuffer + 4, tempLength - 4);
     m_length = L;
     m_bufferLength = m_length;
     
@@ -389,7 +389,7 @@ void BinaryInput::decompress() {
 }
 
 
-void BinaryInput::readBytes(void* bytes, g3d_int64 n) {
+void BinaryInput::readBytes(void* bytes, int64 n) {
     prepareToRead(n);
     debugAssert(isValidPointer(bytes));
 
@@ -407,9 +407,9 @@ BinaryInput::~BinaryInput() {
 }
 
 
-g3d_uint64 BinaryInput::readUInt64() {
+uint64 BinaryInput::readUInt64() {
     prepareToRead(8);
-    g3d_uint8 out[8];
+    uint8 out[8];
 
     if (m_swapBytes) {
         out[0] = m_buffer[m_pos + 7];
@@ -421,15 +421,15 @@ g3d_uint64 BinaryInput::readUInt64() {
         out[6] = m_buffer[m_pos + 1];
         out[7] = m_buffer[m_pos + 0];
     } else {
-        *(g3d_uint64*)out = *(g3d_uint64*)(m_buffer + m_pos);
+        *(uint64*)out = *(uint64*)(m_buffer + m_pos);
     }
 
     m_pos += 8;
-    return *(g3d_uint64*)out;
+    return *(uint64*)out;
 }
 
 
-std::string BinaryInput::readString(g3d_int64 n) {
+std::string BinaryInput::readString(int64 n) {
     prepareToRead(n);
     debugAssertM((m_pos + n) <= m_length, "Read past end of file");
     
@@ -453,7 +453,7 @@ std::string BinaryInput::readString(g3d_int64 n) {
 
 
 std::string BinaryInput::readString() {
-    g3d_int64 n = 0;
+    int64 n = 0;
 
     if ((m_pos + m_alreadyRead + n) < (m_length - 1)) {
         prepareToRead(1);
@@ -482,7 +482,7 @@ static bool isNewline(char c) {
 }
 
 std::string BinaryInput::readStringNewline() {
-    g3d_int64 n = 0;
+    int64 n = 0;
 
     if ((m_pos + m_alreadyRead + n) < (m_length - 1)) {
         prepareToRead(1);
@@ -580,10 +580,10 @@ void BinaryInput::beginBits() {
 }
 
 
-g3d_uint32 BinaryInput::readBits(int numBits) {
+uint32 BinaryInput::readBits(int numBits) {
     debugAssert(m_beginEndBits == 1);
 
-    g3d_uint32 out = 0;
+    uint32 out = 0;
 
     const int total = numBits;
     while (numBits > 0) {

@@ -1,5 +1,5 @@
 /**
-  @file filter.h
+  @file G3D/filter.h
 
   @author Morgan McGuire, http://graphics.cs.williams.edu
   @created 2007-03-01

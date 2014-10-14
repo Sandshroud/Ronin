@@ -23,7 +23,7 @@ namespace VMAP
 {
     struct NodeID
     {
-        G3D::g3d_uint32 x, y;
+        G3D::uint32 x, y;
         // < operator required for std::set ordering
         bool operator < (const NodeID& c2) const { return ((x == c2.x) ? (y < c2.y) : (x < c2.x)); }
         bool operator == (const NodeID& c2) const { return x == c2.x && y == c2.y; }
@@ -32,7 +32,7 @@ namespace VMAP
         static float NodeSize() { return CELL_SIZE; }
         static NodeID ComputeNodeID(float fx, float fy)
         {
-            NodeID c = { G3D::g3d_uint32((_maxPos-fx)/CELL_SIZE), G3D::g3d_uint32((_maxPos-fy)/CELL_SIZE) };
+            NodeID c = { G3D::uint32((_maxPos-fx)/CELL_SIZE), G3D::uint32((_maxPos-fy)/CELL_SIZE) };
             return c;
         }
 
@@ -52,11 +52,11 @@ namespace VMAP
     struct TimeTrackerSmall
     {
     public:
-        TimeTrackerSmall(G3D::g3d_uint32 expiry = 0) : i_expiryTime(expiry) {}
+        TimeTrackerSmall(G3D::uint32 expiry = 0) : i_expiryTime(expiry) {}
         bool Passed() const { return i_expiryTime == 0; }
-        void Reset(G3D::g3d_uint32 interval) { i_expiryTime = interval; }
-        G3D::g3d_int32 GetExpiry() const { return i_expiryTime; }
-        void Update(G3D::g3d_int32 diff)
+        void Reset(G3D::uint32 interval) { i_expiryTime = interval; }
+        G3D::int32 GetExpiry() const { return i_expiryTime; }
+        void Update(G3D::int32 diff)
         {
             if(i_expiryTime > diff)
                 i_expiryTime -= diff;
@@ -64,12 +64,12 @@ namespace VMAP
         }
 
     private:
-        G3D::g3d_int32 i_expiryTime;
+        G3D::int32 i_expiryTime;
     };
 
     struct DynTreeImpl
     {
-        uint32 nodeCountX, nodeCountY;
+        G3D::uint32 nodeCountX, nodeCountY;
     public:
         DynTreeImpl() : rebalance_timer(CHECK_TREE_PERIOD), unbalanced_times(0)
         {
@@ -155,7 +155,7 @@ namespace VMAP
             unbalanced_times = 0;
         }
 
-        void update(G3D::g3d_uint32 difftime)
+        void update(G3D::uint32 difftime)
         {
             if (!size())
                 return;
@@ -313,7 +313,7 @@ namespace VMAP
         return impl->size();
     }
 
-    void DynamicMapTree::update(G3D::g3d_uint32 t_diff)
+    void DynamicMapTree::update(G3D::uint32 t_diff)
     {
         impl->update(t_diff);
     }
@@ -321,8 +321,8 @@ namespace VMAP
     struct DynamicTreeIntersectionCallback
     {
         bool did_hit, stopAtFirstHit;
-        G3D::g3d_int32 phase_mask;
-        DynamicTreeIntersectionCallback(G3D::g3d_int32 phasemask, bool pStopAtFirstHit=true) : did_hit(false), phase_mask(phasemask), stopAtFirstHit(pStopAtFirstHit)
+        G3D::int32 phase_mask;
+        DynamicTreeIntersectionCallback(G3D::int32 phasemask, bool pStopAtFirstHit=true) : did_hit(false), phase_mask(phasemask), stopAtFirstHit(pStopAtFirstHit)
         {
 #ifdef _DEBUG
             sLog.Debug("DynamicTreeIntersection", "Dynamic Intersection initialization");
@@ -345,7 +345,7 @@ namespace VMAP
     };
 
     bool DynamicMapTree::getIntersectionTime(const G3D::Ray& ray, const G3D::Vector3& endPos,
-                                             float& maxDist, bool pStopAtFirstHit, G3D::g3d_int32 phasemask) const
+                                             float& maxDist, bool pStopAtFirstHit, G3D::int32 phasemask) const
     {
         float distance = maxDist;
         DynamicTreeIntersectionCallback callback(phasemask);
@@ -357,7 +357,7 @@ namespace VMAP
 
     bool DynamicMapTree::getObjectHitPos(const G3D::Vector3& startPos, const G3D::Vector3& endPos,
                                          G3D::Vector3& resultHit, float modifyDist,
-                                         G3D::g3d_int32 phasemask) const
+                                         G3D::int32 phasemask) const
     {
         bool result = false;
         float maxDist = (endPos - startPos).magnitude();
@@ -395,7 +395,7 @@ namespace VMAP
         return result;
     }
 
-    bool DynamicMapTree::isInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, G3D::g3d_int32 phasemask) const
+    bool DynamicMapTree::isInLineOfSight(float x1, float y1, float z1, float x2, float y2, float z2, G3D::int32 phasemask) const
     {
         G3D::Vector3 v1(x1, y1, z1), v2(x2, y2, z2);
 
@@ -411,7 +411,7 @@ namespace VMAP
         return !callback.did_hit;
     }
 
-    float DynamicMapTree::getHeight(float x, float y, float z, float maxSearchDist, G3D::g3d_int32 phasemask) const
+    float DynamicMapTree::getHeight(float x, float y, float z, float maxSearchDist, G3D::int32 phasemask) const
     {
         G3D::Vector3 v(x, y, z);
         G3D::Ray r(v, G3D::Vector3(0, 0, -1));

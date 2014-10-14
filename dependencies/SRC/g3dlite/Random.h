@@ -56,7 +56,7 @@ protected:
     Spinlock     lock;
 
     /** State vector (these are the next N values that will be returned) */
-    g3d_uint32*      state;
+    uint32*      state;
 
     /** Index into state */
     int          index;
@@ -77,13 +77,13 @@ public:
         will only be used on a single thread.  This eliminates the
         lock and improves performance on some platforms.
      */
-    Random(g3d_uint32 seed = 0xF018A4D2, bool threadsafe = true);
+    Random(uint32 seed = 0xF018A4D2, bool threadsafe = true);
 
     virtual ~Random();
 
     /** Each bit is random.  Subclasses can choose to override just 
        this method and the other methods will all work automatically. */
-    virtual g3d_uint32 bits();
+    virtual uint32 bits();
 
     /** Uniform random integer on the range [min, max] */
     virtual int integer(int min, int max);

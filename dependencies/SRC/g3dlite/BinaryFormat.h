@@ -104,14 +104,14 @@ namespace G3D {                                      \
 
 DECLARE_BINARYFORMATOF( bool,          BOOL8_BINFMT )
 
-DECLARE_BINARYFORMATOF( g3d_uint8,         UINT8_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_int8,          INT8_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_uint16,        UINT16_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_int16,         INT16_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_uint32,        UINT32_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_int32,         INT32_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_uint64,        UINT64_BINFMT )
-DECLARE_BINARYFORMATOF( g3d_int64,         INT64_BINFMT )
+DECLARE_BINARYFORMATOF( uint8,         UINT8_BINFMT )
+DECLARE_BINARYFORMATOF( int8,          INT8_BINFMT )
+DECLARE_BINARYFORMATOF( uint16,        UINT16_BINFMT )
+DECLARE_BINARYFORMATOF( int16,         INT16_BINFMT )
+DECLARE_BINARYFORMATOF( uint32,        UINT32_BINFMT )
+DECLARE_BINARYFORMATOF( int32,         INT32_BINFMT )
+DECLARE_BINARYFORMATOF( uint64,        UINT64_BINFMT )
+DECLARE_BINARYFORMATOF( int64,         INT64_BINFMT )
 
 DECLARE_BINARYFORMATOF( float32,       FLOAT32_BINFMT )
 DECLARE_BINARYFORMATOF( float64,       FLOAT64_BINFMT )
@@ -132,7 +132,7 @@ namespace G3D {
 
 /** Returns -1 if the format is custom, otherwise the byte size
     of a single element in this format.*/ 
-g3d_int32 byteSize(BinaryFormat f);
+int32 byteSize(BinaryFormat f);
 
 
 } //G3D

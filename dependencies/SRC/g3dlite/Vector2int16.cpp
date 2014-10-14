@@ -17,8 +17,8 @@
 namespace G3D {
 
 Vector2int16::Vector2int16(const class Vector2& v) {
-    x = (g3d_int16)iFloor(v.x + 0.5);
-    y = (g3d_int16)iFloor(v.y + 0.5);
+    x = (int16)iFloor(v.x + 0.5);
+    y = (int16)iFloor(v.y + 0.5);
 }
 
 

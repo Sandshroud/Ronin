@@ -41,30 +41,30 @@ private:
     bool operator>=(const Color4uint8&) const;
 
 public:
-    g3d_uint8       r;
-    g3d_uint8       g;
-    g3d_uint8       b;
-    g3d_uint8       a;
+    uint8       r;
+    uint8       g;
+    uint8       b;
+    uint8       a;
 
     Color4uint8() : r(0), g(0), b(0), a(0) {}
 
     Color4uint8(const class Color4& c);
 
     Color4uint8 max(const Color4uint8 x) const {
-        return Color4uint8(G3D::G3D_max(r, x.r), G3D::G3D_max(g, x.g), G3D::G3D_max(b, x.b), G3D::G3D_max(a, x.a));
+        return Color4uint8(G3D::max(r, x.r), G3D::max(g, x.g), G3D::max(b, x.b), G3D::max(a, x.a));
     }
 
     Color4uint8 min(const Color4uint8 x) const {
-        return Color4uint8(G3D::G3D_min(r, x.r), G3D::G3D_min(g, x.g), G3D::G3D_min(b, x.b), G3D::G3D_min(a, x.a));
+        return Color4uint8(G3D::min(r, x.r), G3D::min(g, x.g), G3D::min(b, x.b), G3D::min(a, x.a));
     }
 
-    Color4uint8(const g3d_uint8 _r, const g3d_uint8 _g, const g3d_uint8 _b, const g3d_uint8 _a) : r(_r), g(_g), b(_b), a(_a) {}
+    Color4uint8(const uint8 _r, const uint8 _g, const uint8 _b, const uint8 _a) : r(_r), g(_g), b(_b), a(_a) {}
 
-    Color4uint8(const Color3uint8& c, const g3d_uint8 _a) : r(c.r), g(c.g), b(c.b), a(_a) {}
+    Color4uint8(const Color3uint8& c, const uint8 _a) : r(c.r), g(c.g), b(c.b), a(_a) {}
 
     Color4uint8(class BinaryInput& bi);
 
-    inline static Color4uint8 fromARGB(g3d_uint32 i) {
+    inline static Color4uint8 fromARGB(uint32 i) {
         Color4uint8 c;
         c.a = (i >> 24) & 0xFF;
         c.r = (i >> 16) & 0xFF;
@@ -73,8 +73,8 @@ public:
         return c;
     }
 
-    inline g3d_uint32 asUInt32() const {
-        return ((g3d_uint32)a << 24) + ((g3d_uint32)r << 16) + ((g3d_uint32)g << 8) + b;
+    inline uint32 asUInt32() const {
+        return ((uint32)a << 24) + ((uint32)r << 16) + ((uint32)g << 8) + b;
     }
 
     // access vector V as V[0] = V.r, V[1] = V.g, V[2] = V.b
@@ -82,16 +82,16 @@ public:
     // WARNING.  These member functions rely on
     // (1) Color4uint8 not having virtual functions
     // (2) the data packed in a 3*sizeof(uint8) memory block
-    g3d_uint8& operator[] (int i) const {
-        return ((g3d_uint8*)this)[i];
+    uint8& operator[] (int i) const {
+        return ((uint8*)this)[i];
     }
 
-    operator g3d_uint8* () {
-        return (g3d_uint8*)this;
+    operator uint8* () {
+        return (uint8*)this;
     }
 
-    operator const g3d_uint8* () const {
-        return (g3d_uint8*)this;
+    operator const uint8* () const {
+        return (uint8*)this;
     }
 
 
@@ -108,11 +108,11 @@ public:
     }
 
     bool operator==(const Color4uint8& other) const {
-        return *reinterpret_cast<const g3d_uint32*>(this) == *reinterpret_cast<const g3d_uint32*>(&other);
+        return *reinterpret_cast<const uint32*>(this) == *reinterpret_cast<const uint32*>(&other);
     }
 
     bool operator!=(const Color4uint8& other) const {
-        return *reinterpret_cast<const g3d_uint32*>(this) != *reinterpret_cast<const g3d_uint32*>(&other);
+        return *reinterpret_cast<const uint32*>(this) != *reinterpret_cast<const uint32*>(&other);
     }
 
 }

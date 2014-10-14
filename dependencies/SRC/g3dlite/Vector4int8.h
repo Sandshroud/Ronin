@@ -38,12 +38,12 @@ private:
   
     /** For fast operations, treat this packed data structure as 
       an int32 */
-    inline g3d_uint32& asInt32() {
-        return *reinterpret_cast<g3d_uint32*>(this);
+    inline uint32& asInt32() {
+        return *reinterpret_cast<uint32*>(this);
     }
 
-    inline const g3d_uint32& asInt32() const {
-        return *reinterpret_cast<const g3d_uint32*>(this);
+    inline const uint32& asInt32() const {
+        return *reinterpret_cast<const uint32*>(this);
     }
 
 public:
@@ -54,23 +54,23 @@ public:
     Vector4int8(const Vector4& source);
 
     /** Multiplies the source by 127 and clamps to (-128, 127) when converting */
-    Vector4int8(const Vector3& source, g3d_int8 w);
+    Vector4int8(const Vector3& source, int8 w);
 
-    inline Vector4int8(g3d_int8 x, g3d_int8 y, g3d_int8 z, g3d_int8 w) : x(x), y(y), z(z), w(w) {}
+    inline Vector4int8(int8 x, int8 y, int8 z, int8 w) : x(x), y(y), z(z), w(w) {}
 
     Vector4int8(class BinaryInput& b);
     void serialize(class BinaryOutput& b) const;
     void deserialize(class BinaryInput& b);
 
     // coordinates
-    g3d_int8 x, y, z, w;
+    int8 x, y, z, w;
 
-    inline operator g3d_int8* () {
-        return reinterpret_cast<g3d_int8*>(this);
+    inline operator int8* () {
+        return reinterpret_cast<int8*>(this);
     }
 
-    inline operator const g3d_int8* () const {
-        return reinterpret_cast<const g3d_int8*>(this);
+    inline operator const int8* () const {
+        return reinterpret_cast<const int8*>(this);
     }
 
     // access vector V as V[0] = V.x, V[1] = V.y, V[2] = V.z, etc.
@@ -78,14 +78,14 @@ public:
     // WARNING.  These member functions rely on
     // (1) Vector4int8 not having virtual functions
     // (2) the data packed in a 4*sizeof(int8) memory block
-    inline g3d_int8& operator[] (int i) {
+    inline int8& operator[] (int i) {
         debugAssert(i >= 0 && i <= 4);
-        return ((g3d_int8*)this)[i];
+        return ((int8*)this)[i];
     }
 
-    const g3d_int8& operator[] (int i) const {
+    const int8& operator[] (int i) const {
         debugAssert(i >= 0 && i <= 4);
-        return ((const g3d_int8*)this)[i];
+        return ((const int8*)this)[i];
     }
 
     // assignment and comparison

@@ -879,20 +879,6 @@ void AuraInterface::AddAura(Aura* aur)
 
     aur->RelocateEvents();
 
-    // Send log to client
-    if (target != NULL)
-    {
-        //send the aura log
-        WorldPacket data(SMSG_AURACASTLOG, 28);
-
-        data << aur->GetCasterGUID();
-        data << aur->GetTargetGUID();
-        data << aur->m_spellProto->Id;
-        data << uint64(0);
-
-        target->SendMessageToSet(&data, true);
-    }
-
     // Reaction from enemy AI
     if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
     {

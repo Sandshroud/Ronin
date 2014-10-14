@@ -179,7 +179,7 @@ void Image3uint8::copyArray(const Color4uint8* ptr, int w, int h) {
     resize(w, h);
     
     // Copy 3/4 bytes
-    GImage::RGBAtoRGB((const G3D::g3d_uint8*)ptr, (G3D::g3d_uint8*)getCArray(), w * h);
+    GImage::RGBAtoRGB((const uint8*)ptr, (uint8*)getCArray(), w * h);
 }
 
 
@@ -218,7 +218,7 @@ ReferenceCountedPointer<class Image1uint8> Image3uint8::getChannel(int c) const 
 }
 
 
-const ImageFormat* Image3uint8::G3D_format() const {
+const ImageFormat* Image3uint8::format() const {
     return ImageFormat::RGB8();
 }
 

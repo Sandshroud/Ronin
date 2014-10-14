@@ -61,7 +61,9 @@ enum DeathState
     DEAD        // Unit is dead and his corpse is gone from the world
 };
 
-enum PowerType
+#define MAX_POWER_FIELDS 5
+
+enum PowerType : int8
 {
     POWER_TYPE_HEALTH       = -2,
     POWER_TYPE_MANA         = 0,
@@ -74,7 +76,9 @@ enum PowerType
     POWER_TYPE_SOUL_SHARDS  = 7,
     POWER_TYPE_ECLIPSE      = 8,
     POWER_TYPE_HOLY_POWER   = 9,
-    MAX_POWER_TYPE          = 10,
+    POWER_TYPE_ALTERNATE    = 10,
+    POWER_TYPE_MAX          = 11,
+    POWER_TYPE_ALL          = 127
 };
 
 enum SpeedTypes
@@ -88,16 +92,6 @@ enum SpeedTypes
     FLY             = 6,
     FLYBACK         = 7,
     PITCH_RATE      = 8
-};
-
-enum VehiclePowerType
-{
-    POWER_TYPE_PYRITE   = 41,
-    POWER_TYPE_STEAM    = 61,
-    POWER_TYPE_HEAT     = 101,
-    POWER_TYPE_OOZ      = 121,
-    POWER_TYPE_BLOOD    = 141,
-    POWER_TYPE_WRATH    = 142,
 };
 
 enum StandState
@@ -272,15 +266,6 @@ enum FIELD_PADDING//Since this field isnt used you can expand it for you needs
     PADDING_NONE
 };
 
-enum CUSTOM_TIMERS
-{
-    CUSTOM_TIMER_CHIMERA_SCORPID,
-    CUSTOM_TIMER_ERADICATION,
-    CUSTOM_TIMER_CHEATDEATH,
-    CUSTOM_TIMER_RAPTURE,
-    NUM_CUSTOM_TIMERS
-};
-
 typedef std::list<struct ProcTriggerSpellOnSpell> ProcTriggerSpellOnSpellList;
 
 /************************************************************************/
@@ -364,6 +349,75 @@ protected:
 /************************************************************************/
 /* Movement Handler                                                     */
 /************************************************************************/
+enum MoveFlags : uint32
+{
+    // Byte 1 (Resets on Movement Key Press)
+    MOVEFLAG_MOVE_STOP                  = 0x00,         //verified
+    MOVEFLAG_MOVE_FORWARD               = 0x01,         //verified
+    MOVEFLAG_MOVE_BACKWARD              = 0x02,         //verified
+    MOVEFLAG_STRAFE_LEFT                = 0x04,         //verified
+    MOVEFLAG_STRAFE_RIGHT               = 0x08,         //verified
+    MOVEFLAG_TURN_LEFT                  = 0x10,         //verified
+    MOVEFLAG_TURN_RIGHT                 = 0x20,         //verified
+    MOVEFLAG_PITCH_DOWN                 = 0x40,         //Unconfirmed
+    MOVEFLAG_PITCH_UP                   = 0x80,         //Unconfirmed
+
+    // Byte 2 (Resets on Situation Change)
+    MOVEFLAG_WALK                       = 0x0100,       //verified
+    MOVEFLAG_TAXI                       = 0x0200,
+    MOVEFLAG_NO_COLLISION               = 0x0400,
+    MOVEFLAG_FLYING                     = 0x0800,       //verified
+    MOVEFLAG_REDIRECTED                 = 0x1000,       //Jumping
+    MOVEFLAG_FALLING                    = 0x2000,       //verified
+    MOVEFLAG_FALLING_FAR                = 0x4000,       //verified
+    MOVEFLAG_FREE_FALLING               = 0x8000,       //half verified
+
+    // Byte 3 (Set by server. TB = Third Byte. Completely unconfirmed.)
+    MOVEFLAG_TB_PENDING_STOP            = 0x010000,     // (MOVEFLAG_PENDING_STOP)
+    MOVEFLAG_TB_PENDING_UNSTRAFE        = 0x020000,     // (MOVEFLAG_PENDING_UNSTRAFE)
+    MOVEFLAG_TB_PENDING_FALL            = 0x040000,     // (MOVEFLAG_PENDING_FALL)
+    MOVEFLAG_TB_PENDING_FORWARD         = 0x080000,     // (MOVEFLAG_PENDING_FORWARD)
+    MOVEFLAG_TB_PENDING_BACKWARD        = 0x100000,     // (MOVEFLAG_PENDING_BACKWARD)
+    MOVEFLAG_SWIMMING                   = 0x200000,     //  verified
+    MOVEFLAG_FLYING_PITCH_UP            = 0x400000,     // (half confirmed)(MOVEFLAG_PENDING_STR_RGHT)
+    MOVEFLAG_TB_MOVED                   = 0x800000,     // Send to client on entervehicle
+
+    // Byte 4 (Script Based Flags. Never reset, only turned on or off.)
+    MOVEFLAG_AIR_SUSPENSION             = 0x01000000,   // confirmed allow body air suspension(good name? lol).
+    MOVEFLAG_AIR_SWIMMING               = 0x02000000,   // confirmed while flying.
+    MOVEFLAG_SPLINE_MOVER               = 0x04000000,   // Unconfirmed
+    MOVEFLAG_SPLINE_ENABLED             = 0x08000000,
+    MOVEFLAG_WATER_WALK                 = 0x10000000,
+    MOVEFLAG_FEATHER_FALL               = 0x20000000,   // Does not negate fall damage.
+
+    // Masks
+    MOVEFLAG_MOVING_MASK                = 0x03,
+    MOVEFLAG_STRAFING_MASK              = 0x0C,
+    MOVEFLAG_TURNING_MASK               = 0x30,
+    MOVEFLAG_FALLING_MASK               = 0x6000,
+    MOVEFLAG_MOTION_MASK                = 0xE00F,       // Forwards, Backwards, Strafing, Falling
+    MOVEFLAG_PENDING_MASK               = 0x7F0000,
+    MOVEFLAG_PENDING_STRAFE_MASK        = 0x600000,
+    MOVEFLAG_PENDING_MOVE_MASK          = 0x180000,
+    MOVEFLAG_FULL_FALLING_MASK          = 0xE000,
+};
+
+enum MoveFlags2 : uint16
+{
+    MOVEFLAG2_NONE                      = 0x0000,
+    MOVEFLAG2_NO_STRAFE                 = 0x0001,
+    MOVEFLAG2_NO_JUMPING                = 0x0002,
+    MOVEFLAG2_UNK3                      = 0x0004, // Overrides various clientside checks
+    MOVEFLAG2_FULL_SPEED_TURNING        = 0x0008,
+    MOVEFLAG2_FULL_SPEED_PITCHING       = 0x0010,
+    MOVEFLAG2_ALWAYS_ALLOW_PITCHING     = 0x0020,
+    MOVEFLAG2_UNK7                      = 0x0040,
+    MOVEFLAG2_UNK8                      = 0x0080,
+    MOVEFLAG2_UNK9                      = 0x0100,
+    MOVEFLAG2_UNK10                     = 0x0200,
+    MOVEFLAG2_INTERPOLATED_MOVEMENT     = 0x0400,
+    MOVEFLAG2_INTERPOLATED_TURNING      = 0x0800,
+};
 
 class MovementInfo
 {
@@ -382,6 +436,8 @@ public:
     void SetPosition(LocationVector loc) { m_position.ChangeCoords(loc.x, loc.y, loc.z, loc.o); };
     void GetPosition(LocationVector &loc) { loc.ChangeCoords(m_position.x, m_position.y, m_position.z, m_position.o); };
     void GetPosition(float &_x, float &_y, float &_z, float &_o) { _x = m_position.x; _y = m_position.y; _z = m_position.z; _o = m_position.o; };
+    float GetPositionX() { return m_position.x; } float GetPositionY() { return m_position.y; }
+    float GetPositionZ() { return m_position.z; } float GetPositionO() { return m_position.o; }
 
     // Transport data
     void GetTransportPosition(LocationVector &loc) { loc.x = t_x; loc.y = t_y; loc.z = t_z; loc.o = t_orient; };
@@ -390,6 +446,15 @@ public:
     void ClearTransportData() { transGuid.Clear(); t_x = t_y = t_z = t_orient = 0.0f; transTime = 0; transSeat = 0; };
     void SetTransportLock(bool locked) { m_lockTransport = locked; }
     bool GetTransportLock() { return m_lockTransport; }
+    float GetTPositionX() { return t_x; } float GetTPositionY() { return t_y; }
+    float GetTPositionZ() { return t_z; } float GetTPositionO() { return t_orient; }
+
+    bool HasFallData() { return ((movementFlags & MOVEFLAG_FALLING) || fallTime > 0); }
+    bool HasPitchFlags() { return ((movementFlags & (MOVEFLAG_SWIMMING | MOVEFLAG_FLYING)) || (movementFlags2 & MOVEFLAG2_ALWAYS_ALLOW_PITCHING)); };
+
+public: // Spline data
+    bool HasSplineInfo() { return false; } // Todo
+    bool HasElevatedSpline() { return (movementFlags & MOVEFLAG_AIR_SWIMMING); }
 
 public:
     void HandleBreathing(Player* _player, WorldSession * pSession);
@@ -415,12 +480,12 @@ private:
     float t_x, t_y, t_z, t_orient;
 
 public:
-    uint32 transTime, transTime2;
+    uint32 transTime, transTime2, transTime3;
     uint8 transSeat;
     float pitch;
     uint32 fallTime;
     float j_sin, j_cos, j_vel, j_speed;
-    float splineAngle;
+    float splineAngle, splineElevation;
 
 private:
     bool m_lockTransport;
@@ -501,6 +566,12 @@ public:
     HEARTHSTONE_INLINE void clearStateFlag(uint32 f) { m_state &= ~f; };
 
     /// Stats
+    uint32 GetStrength() { return GetUInt32Value(UNIT_FIELD_STRENGTH); }
+    uint32 GetAgility() { return GetUInt32Value(UNIT_FIELD_AGILITY); }
+    uint32 GetStamina() { return GetUInt32Value(UNIT_FIELD_STAMINA); }
+    uint32 GetIntellect() { return GetUInt32Value(UNIT_FIELD_INTELLECT); }
+    uint32 GetSpirit() { return GetUInt32Value(UNIT_FIELD_SPIRIT); }
+
     virtual void setLevel(uint32 level);
     HEARTHSTONE_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
     HEARTHSTONE_INLINE void setClass(uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
@@ -514,6 +585,7 @@ public:
     HEARTHSTONE_INLINE uint32 getClassMask() { return 1 << (getClass() - 1); }
     HEARTHSTONE_INLINE uint32 getRaceMask() { return 1 << (getRace() - 1); }
     HEARTHSTONE_INLINE uint8 getGender() { return GetByte(UNIT_FIELD_BYTES_0,2); }
+    HEARTHSTONE_INLINE uint8 getPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
     HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)m_uint32Values[UNIT_FIELD_BYTES_1]); }
     HEARTHSTONE_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
@@ -583,8 +655,7 @@ public:
     void RegenerateEnergy();
     void RegenerateFocus();
     void RegeneratePower(bool isinterrupted);
-    void LosePower(uint32 powerField, int32 value);
-    void SendPowerUpdate(int8 power = -1);
+    void SendPowerUpdate(EUnitFields powerField = UNIT_END);
 
     void EventModelChange();
     HEARTHSTONE_INLINE float GetModelHalfSize() { return m_modelhalfsize * m_floatValues[OBJECT_FIELD_SCALE_X]; }
@@ -632,7 +703,7 @@ public:
     HEARTHSTONE_INLINE bool isAlive() { return m_deathState == ALIVE; };
     HEARTHSTONE_INLINE bool isDead() { return  m_deathState != ALIVE; };
     HEARTHSTONE_INLINE DeathState getDeathState() { return m_deathState; }
-    void setDeathState(DeathState s);
+    virtual void SetDeathState(DeathState s);
     void OnDamageTaken();
 
     bool IsFFAPvPFlagged();
@@ -714,9 +785,6 @@ public:
     HEARTHSTONE_INLINE bool HasDummyAura( uint32 namehash ) { return m_DummyAuras[namehash] != NULL; }
     HEARTHSTONE_INLINE SpellEntry* GetDummyAura( uint32 namehash ) { return m_DummyAuras[namehash]; }
     HEARTHSTONE_INLINE void RemoveDummyAura( uint32 namehash ) { m_DummyAuras[namehash] = NULL; }
-
-    //Custom timers
-    uint32 m_CustomTimers[NUM_CUSTOM_TIMERS];
 
     // AIInterface
     HEARTHSTONE_INLINE AIInterface *GetAIInterface() { return m_aiInterface; }
@@ -816,7 +884,6 @@ public:
     HEARTHSTONE_INLINE void ModMaxHealth(int32 val) { ModUnsigned32Value(UNIT_FIELD_MAXHEALTH, val); }
     HEARTHSTONE_INLINE int32 GetHealthPct() { return (int32)(GetUInt32Value(UNIT_FIELD_HEALTH) * 100 / std::max(1, (int32)GetUInt32Value(UNIT_FIELD_MAXHEALTH))); }
     HEARTHSTONE_INLINE void SetHealthPct(uint32 val) { if (val>0) SetUInt32Value(UNIT_FIELD_HEALTH,float2int32(val*0.01f*GetUInt32Value(UNIT_FIELD_MAXHEALTH))); }
-    HEARTHSTONE_INLINE int32 GetManaPct() { return (int32)(GetUInt32Value(UNIT_FIELD_MANA) * 100 / std::max(1, (int32)GetUInt32Value(UNIT_FIELD_MAX_MANA))); }
     HEARTHSTONE_INLINE float GetStat(uint32 stat) const { return float(GetUInt32Value(UNIT_FIELD_STATS+stat)); }
 
     uint32 m_teleportAckCounter;
@@ -1103,9 +1170,23 @@ public:
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     void SetPowerType(uint8 type);
-    void SetPower(uint32 type, int32 value);
-    HEARTHSTONE_INLINE uint8 GetPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
-    HEARTHSTONE_INLINE uint32 GetPower(uint8 power) const { return GetUInt32Value(UNIT_FIELD_POWER + power); }
+    int32 GetPowerPct(uint8 power);
+    void LosePower(uint8 powerType, int32 value);
+
+    uint32 GetPower(uint8 type);
+    uint32 GetMaxPower(uint8 type);
+    void ModPower(uint8 type, int32 value);
+    void SetPower(uint8 type, uint32 value);
+    void SetMaxPower(uint8 type, uint32 value);
+
+    uint32 GetPower(EUnitFields powerField);
+    uint32 GetMaxPower(EUnitFields powerField);
+    void ModPower(EUnitFields powerField, int32 value);
+    void SetPower(EUnitFields powerField, uint32 value);
+    void SetMaxPower(EUnitFields powerField, uint32 value);
+
+    EUnitFields GetPowerFieldForType(uint8 type);
+    EUnitFields GetMaxPowerFieldForType(uint8 type);
 
     float m_ignoreArmorPctMaceSpec;
     float m_ignoreArmorPct;
@@ -1116,9 +1197,6 @@ public:
     void Dismount();
     //  custom functions for scripting
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
-
-    HEARTHSTONE_INLINE uint32 GetMaxPower( uint32 index ){ return GetUInt32Value( UNIT_FIELD_MAXPOWER + index ); }
-    HEARTHSTONE_INLINE void SetMaxPower( uint32 index, uint32 value ){SetUInt32Value(UNIT_FIELD_MAXPOWER+index,value );}
 
 public: // Movement Info.
     uint64 GetTransportGuid() { return movement_info.transGuid.GetOldGuid(); };

@@ -649,13 +649,9 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
                 return;
 
             Trainer *pTrainer = pCreature->GetTrainer();
-            uint32 Text = objmgr.GetGossipTextForNpc(pCreature->GetEntry());
-            if(Text != 0)
-            {
-                GossipText* text = NpcTextStorage.LookupEntry(Text);
-                if(text != NULL)
+            if(uint32 Text = objmgr.GetGossipTextForNpc(pCreature->GetEntry()))
+                if(GossipText* text = NpcTextStorage.LookupEntry(Text))
                     TextID = Text;
-            }
 
             objmgr.CreateGossipMenuForPlayer(&Menu, pCreature->GetGUID(), TextID, Plr);
             uint32 flags = pCreature->GetUInt32Value(UNIT_NPC_FLAGS);
@@ -665,9 +661,7 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
                 {
                     if(CanTrainAt(Plr, pTrainer) || Plr->vendorpass_cheat)
                         Menu->AddItem(GOSSIP_ICON_GOSSIP_VENDOR, "I would like to browse your goods", 1);
-                }
-                else
-                    Menu->AddItem(GOSSIP_ICON_GOSSIP_VENDOR, "I would like to browse your goods", 1);
+                } else Menu->AddItem(GOSSIP_ICON_GOSSIP_VENDOR, "I would like to browse your goods", 1);
             }
 
             if(pTrainer != NULL && (flags & UNIT_NPC_FLAG_TRAINER || flags & UNIT_NPC_FLAG_TRAINER_PROF))
@@ -790,10 +784,8 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
                 }
             }
 
-            if( pTrainer &&
-                    pTrainer->TrainerType == TRAINER_TYPE_PET &&    // pet trainer type
-                    Plr->getClass() == HUNTER &&                    // hunter class
-                    Plr->GetSummon() != NULL )                      // have pet
+            if( pTrainer && pTrainer->TrainerType == TRAINER_TYPE_PET &&    // pet trainer type
+                Plr->getClass() == HUNTER && Plr->GetSummon() != NULL )     // have summoned pet
                 Menu->AddItem(GOSSIP_ICON_GOSSIP_NORMAL, "I would like to untrain my pet.", 13);
 
             if( pCreature->GetEntry() == 35364 || pCreature->GetEntry() == 35365 )

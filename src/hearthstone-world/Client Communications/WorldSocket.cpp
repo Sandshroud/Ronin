@@ -200,6 +200,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     else if( GetWriteBuffer()->GetSpace() < (len+4) )
         return OUTPACKET_RESULT_NO_ROOM_IN_BUFFER;
 
+    printf("Sending packet 0x%.4X as 0x%.4X\n", opcode, newOpcode);
     //printf("Sending packet %s\n", sOpcodeMgr.GetOpcodeName(opcode));
     LockWriteBuffer();
     // Encrypt the packet
@@ -224,15 +225,11 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
 
 void WorldSocket::OnConnect()
 {
-    printf("Connection\n");
     sWorld.mAcceptedConnections++;
     _latency = getMSTime();
 
-    WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
-    data.append(sWorld.authSeed1.AsByteArray(), 16);
-    data << uint8(1);
-    data << mSeed;
-    data.append(sWorld.authSeed2.AsByteArray(), 16);
+    WorldPacket data (MSG_VERIFY_CONNECTIVITY, 37);
+    data << "RLD OF WARCRAFT CONNECTION - SERVER TO CLIENT";
     SendPacket(&data);
 }
 
@@ -244,24 +241,21 @@ void WorldSocket::_HandleAuthSession(WorldPacket* recvPacket)
 
     try
     {
-        *recvPacket >> hashDigest[14] >> hashDigest[7] >> hashDigest[16];
-        *recvPacket >> hashDigest[9] >> hashDigest[4] >> hashDigest[5] >> hashDigest[15];
         recvPacket->read_skip<uint32>();
-        *recvPacket >> hashDigest[18];
+        recvPacket->read_skip<uint32>();
+        recvPacket->read_skip<uint8>();
+        *recvPacket >> hashDigest[10] >> hashDigest[18] >> hashDigest[12] >> hashDigest[5];
         recvPacket->read_skip<uint64>();
+        *recvPacket >> hashDigest[15] >> hashDigest[9] >> hashDigest[19] >> hashDigest[4];
+        *recvPacket >> hashDigest[7] >> hashDigest[16] >> hashDigest[3];
+        *recvPacket >> mClientBuild >> hashDigest[8];
         recvPacket->read_skip<uint32>();
-        *recvPacket >> hashDigest[13];
         recvPacket->read_skip<uint8>();
-        *recvPacket >> hashDigest[10] >> hashDigest[6];
-        *recvPacket >> mClientSeed;
+        *recvPacket >> hashDigest[17] >> hashDigest[6] >> hashDigest[0];
+        *recvPacket >> hashDigest[1] >> hashDigest[11];
+        *recvPacket >> mClientSeed >> hashDigest[2];
         recvPacket->read_skip<uint32>();
-        *recvPacket >> hashDigest[19] >> hashDigest[11] >> hashDigest[17];
-        *recvPacket >> hashDigest[8] >> hashDigest[12] >> hashDigest[0];
-        *recvPacket >> mClientBuild;
-        *recvPacket >> hashDigest[3];
-        recvPacket->read_skip<uint8>();
-        recvPacket->read_skip<uint32>();
-        *recvPacket >> hashDigest[1] >> hashDigest[2];
+        *recvPacket >> hashDigest[14] >> hashDigest[13];
 
         *recvPacket >> addonSize;
         if(addonSize)
@@ -273,7 +267,9 @@ void WorldSocket::_HandleAuthSession(WorldPacket* recvPacket)
             delete addonBytes;
         }
 
-        *recvPacket >> account;
+        isBattleNetAccount = recvPacket->ReadBit();
+        uint16 accountLen = recvPacket->ReadBits(12);
+        account = recvPacket->ReadString(accountLen);
     }
     catch(ByteBufferException &)
     {
@@ -283,7 +279,7 @@ void WorldSocket::_HandleAuthSession(WorldPacket* recvPacket)
 
     if(mClientBuild != CL_BUILD_SUPPORT)
     {
-        OutPacket(SMSG_AUTH_RESPONSE, 1, "\x14");
+        SendAuthResponse(AUTH_VERSION_MISMATCH, false);
         return;
     }
 
@@ -306,7 +302,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     if(error != 0 || requestid != mRequestID)
     {
         // something happened wrong @ the logon server
-        OutPacket(SMSG_AUTH_RESPONSE, 1, "\x0D");
+        SendAuthResponse(AUTH_UNKNOWN_ACCOUNT, false);
         return;
     }
 
@@ -337,7 +333,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
         if(session->IsHighPriority())
         {
             // Fail authentification until the player is finally added to world
-            OutPacket(SMSG_AUTH_RESPONSE, 1, "\x15");
+            SendAuthResponse(AUTH_ALREADY_LOGGING_IN, false);
             return;
         }
         else if(session->GetPlayer())
@@ -380,8 +376,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
 
     if (memcmp(sha.GetDigest(), hashDigest, 20))
     {
-        // AUTH_UNKNOWN_ACCOUNT = 21
-        OutPacket(SMSG_AUTH_RESPONSE, 1, "\x15");
+        SendAuthResponse(AUTH_UNKNOWN_ACCOUNT, false);
         return;
     }
 
@@ -433,13 +428,7 @@ void WorldSocket::Authenticate()
     }
 
     SendAuthResponse(AUTH_OK, false);
-
-    if(addonPacket)
-    {
-        sAddonMgr.SendAddonInfoPacket(addonPacket, pSession);
-        delete addonPacket;
-        addonPacket = NULL;
-    }
+    SendAddonPacket(pSession);
 
     WorldPacket data(SMSG_CLIENTCACHE_VERSION, 4);
     data << uint32(CL_BUILD_SUPPORT);
@@ -447,7 +436,7 @@ void WorldSocket::Authenticate()
 
     if(ItemPrototypeStorage.HotfixBegin() != ItemPrototypeStorage.HotfixEnd())
     {
-        WorldPacket hotFix(true ? SMSG_HOTFIX_NOTIFY : SMSG_HOTFIX_NOTIFY_BLOP, 100); // Blop or not, client will accept the info
+        WorldPacket hotFix(SMSG_HOTFIX_NOTIFY, 100); // Blop or not, client will accept the info
         hotFix << uint32(0); // count
         hotFix << uint32(true ? 0x919BE54E : 0x50238EC2); // This can be either, the client will ask for both if no current db2 info is found
         uint32 count = 0;
@@ -476,11 +465,22 @@ void WorldSocket::SendAuthResponse(uint8 code, bool holdsPosition, uint32 positi
 {
     uint8 expansion = mSession ? mSession->GetHighestExpansion() : 0;
     WorldPacket data(SMSG_AUTH_RESPONSE, 15);
-    data << uint8(code) << uint32(0) << uint8(0) << uint32(0);
-    data << uint8(expansion) << uint8(expansion);
-    if(holdsPosition)
-        data << position << uint8(0);
+    if(holdsPosition) data.WriteBitString(3, 1, 0, 1);
+    else data.WriteBitString(2, 0, 1);
+    data << uint32(0) << uint8(expansion) << uint32(0) << uint8(expansion);
+    data << uint32(0) << uint8(0) << uint8(code);
+    if(holdsPosition) data << uint32(position);
     SendPacket(&data);
+}
+
+void WorldSocket::SendAddonPacket(WorldSession *pSession)
+{
+    if(addonPacket == NULL)
+        return;
+
+    sAddonMgr.SendAddonInfoPacket(addonPacket, pSession);
+    delete addonPacket;
+    addonPacket = NULL;
 }
 
 void WorldSocket::_HandlePing(WorldPacket* recvPacket)
@@ -573,7 +573,22 @@ void WorldSocket::OnRecvData()
         case CMSG_PING:
             {
                 _HandlePing(Packet);
-                delete Packet;
+            }break;
+        case MSG_VERIFY_CONNECTIVITY_RESPONSE:
+            {
+                if(strcmp(((char*)Packet->contents()), "D OF WARCRAFT CONNECTION - CLIENT TO SERVER"))
+                {
+                    delete Packet;
+                    Disconnect();
+                    return;
+                }
+
+                WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
+                data.append(sWorld.authSeed1.AsByteArray(), 16);
+                data.append(sWorld.authSeed2.AsByteArray(), 16);
+                data << mSeed;
+                data << uint8(1);
+                SendPacket(&data);
             }break;
         case CMSG_AUTH_SESSION:
             {
@@ -592,20 +607,17 @@ void WorldSocket::OnRecvData()
                     Packet->hexlike(codeLog);
                     fclose(codeLog);
                 }
-                delete Packet;
-                Packet = NULL;
             }break;
         default:
             {
                 if(mSession)
-                    mSession->QueuePacket(Packet);
-                else
                 {
-                    delete Packet;
-                    Packet = NULL;
+                    printf("Queued packet 0x%.4X as 0x%.4X\n", Packet->GetOpcode(), mUnaltered);
+                    mSession->QueuePacket(Packet);
+                    continue;
                 }
             }break;
         }
-        mUnaltered = 0;
+        delete Packet;
     }
 }

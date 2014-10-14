@@ -419,8 +419,7 @@ public: // Direct Packet Handlers
     // Requests
     void Packet_SendGuildLog(WorldSession* m_session);
     void Packet_SendGuildRoster(WorldSession* m_session);
-    void Packet_SendGuildInformation(WorldSession* m_session);
-    void Packet_SendGuildPermissions(WorldSession* m_session);
+    void Packet_SendGuildRankInfo(WorldSession *m_session);
     void Packet_SendGuildQuery(WorldSession* m_session, uint32 guildid);
     void Packet_SendGuildBankLog(WorldSession* m_session, uint32 slotid);
     void Packet_SendGuildBankText(WorldSession* m_session, uint8 TabSlot);

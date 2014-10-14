@@ -226,7 +226,7 @@ void System::init() {
         }
 
         m_numCores = systemInfo.dwNumberOfProcessors;
-        g3d_uint32 maxAddr = (g3d_uint32)systemInfo.lpMaximumApplicationAddress;
+        uint32 maxAddr = (uint32)systemInfo.lpMaximumApplicationAddress;
         {
             char c[1024];
             sprintf(c, "%d x %d-bit %s processor",
@@ -294,30 +294,30 @@ void System::init() {
         m_secondsPerNS = 1.0 / 1.0e9;
         
         // System Architecture:
-    const NXArchInfo* pInfo = NXGetLocalArchInfo();
-        
-    if (pInfo) {
-        m_cpuArch = pInfo->description;
-            
-        switch (pInfo->cputype) {
-        case CPU_TYPE_POWERPC:
-            switch(pInfo->cpusubtype){
-        case CPU_SUBTYPE_POWERPC_750:
-        case CPU_SUBTYPE_POWERPC_7400:
-        case CPU_SUBTYPE_POWERPC_7450:
-            m_cpuVendor = "Motorola";
-            break;
-        case CPU_SUBTYPE_POWERPC_970:
-            m_cpuVendor = "IBM";
-            break;
-        }
-        break;
-        
+	const NXArchInfo* pInfo = NXGetLocalArchInfo();
+		
+	if (pInfo) {
+	    m_cpuArch = pInfo->description;
+			
+	    switch (pInfo->cputype) {
+	    case CPU_TYPE_POWERPC:
+	        switch(pInfo->cpusubtype){
+		case CPU_SUBTYPE_POWERPC_750:
+		case CPU_SUBTYPE_POWERPC_7400:
+		case CPU_SUBTYPE_POWERPC_7450:
+		    m_cpuVendor = "Motorola";
+		    break;
+		case CPU_SUBTYPE_POWERPC_970:
+		    m_cpuVendor = "IBM";
+		    break;
+		}
+		break;
+	    
             case CPU_TYPE_I386:
                 m_cpuVendor = "Intel";
                 break;
-        }
-    }
+	    }
+	}
 #   endif
 
     initTime();
@@ -511,8 +511,8 @@ const std::string& System::build() {
 
 
 static G3DEndian checkEndian() {
-    g3d_int32 a = 1;
-    if (*(g3d_uint8*)&a == 1) {
+    int32 a = 1;
+    if (*(uint8*)&a == 1) {
         return G3D_LITTLE_ENDIAN;
     } else {
         return G3D_BIG_ENDIAN;
@@ -535,7 +535,7 @@ void System::getStandardProcessorExtensions() {
         return;
     }
 
-    g3d_uint32 eaxreg = 0, ebxreg = 0, ecxreg = 0, features = 0;
+    uint32 eaxreg = 0, ebxreg = 0, ecxreg = 0, features = 0;
 
     cpuid(CPUID_PROCESSOR_FEATURES, eaxreg, ebxreg, ecxreg, features);
 
@@ -608,8 +608,8 @@ void memcpyMMX(void* dst, const void* src, int nbytes) {
 
     if (remainingBytes > 0) {
         // Memcpy the rest
-        memcpy((g3d_uint8*)dst + (nbytes - remainingBytes),
-               (const g3d_uint8*)src + (nbytes - remainingBytes), remainingBytes); 
+        memcpy((uint8*)dst + (nbytes - remainingBytes),
+               (const uint8*)src + (nbytes - remainingBytes), remainingBytes); 
     }
 }
 #endif
@@ -657,15 +657,15 @@ void memfill(void *dst, int n32, unsigned long i) {
     }
 
     if (bytesRemaining > 0) {
-        ::memset((g3d_uint8*)dst + (originalSize - bytesRemaining), n32, bytesRemaining); 
+        ::memset((uint8*)dst + (originalSize - bytesRemaining), n32, bytesRemaining); 
     }
 }
 #endif
 
 
-void System::memset(void* dst, g3d_uint8 value, size_t numBytes) {
+void System::memset(void* dst, uint8 value, size_t numBytes) {
 #if defined(G3D_WIN32) && !defined(G3D_64BIT) && !defined(__MINGW32__) /* G3DFIX: Don't check if on 64-bit Windows platforms or using MinGW */
-    g3d_uint32 v = value;
+    uint32 v = value;
     v = v + (v << 8) + (v << 16) + (v << 24); 
     G3D::memfill(dst, v, numBytes);
 #else
@@ -772,7 +772,7 @@ void System::sleep(RealTime t) {
 
         if (remainingTime > minRealSleepTime * 2.5) {
             // Safe to use Sleep with a time... sleep for half the remaining time
-            sleepTime = G3D::G3D_max(remainingTime * 0.5, 0.0005);
+            sleepTime = max(remainingTime * 0.5, 0.0005);
         } else if (remainingTime > minRealSleepTime) {
             // Safe to use Sleep with a zero time;
             // causes the program to yield only
@@ -925,11 +925,11 @@ RealTime System::time() {
 ////////////////////////////////////////////////////////////////
 
 
-#define REALPTR_TO_USERPTR(x)   ((g3d_uint8*)(x) + sizeof(g3d_uint32))
-#define USERPTR_TO_REALPTR(x)   ((g3d_uint8*)(x) - sizeof(g3d_uint32))
-#define USERSIZE_TO_REALSIZE(x)       ((x) + sizeof(g3d_uint32))
-#define REALSIZE_FROM_USERPTR(u) (*(g3d_uint32*)USERPTR_TO_REALPTR(ptr) + sizeof(g3d_uint32))
-#define USERSIZE_FROM_USERPTR(u) (*(g3d_uint32*)USERPTR_TO_REALPTR(ptr))
+#define REALPTR_TO_USERPTR(x)   ((uint8*)(x) + sizeof(uint32))
+#define USERPTR_TO_REALPTR(x)   ((uint8*)(x) - sizeof(uint32))
+#define USERSIZE_TO_REALSIZE(x)       ((x) + sizeof(uint32))
+#define REALSIZE_FROM_USERPTR(u) (*(uint32*)USERPTR_TO_REALPTR(ptr) + sizeof(uint32))
+#define USERSIZE_FROM_USERPTR(u) (*(uint32*)USERPTR_TO_REALPTR(ptr))
 
 class BufferPool {
 public:
@@ -1056,7 +1056,7 @@ private:
     bool inTinyHeap(UserPtr ptr) {
         return 
             (ptr >= tinyHeap) && 
-            (ptr < (g3d_uint8*)tinyHeap + maxTinyBuffers * tinyBufferSize);
+            (ptr < (uint8*)tinyHeap + maxTinyBuffers * tinyBufferSize);
     }
 
     void tinyFree(UserPtr ptr) {
@@ -1156,7 +1156,7 @@ public:
         // pre-allocated buffer.
         tinyHeap = ::malloc(maxTinyBuffers * tinyBufferSize);
         for (int i = 0; i < maxTinyBuffers; ++i) {
-            tinyPool[i] = (g3d_uint8*)tinyHeap + (tinyBufferSize * i);
+            tinyPool[i] = (uint8*)tinyHeap + (tinyBufferSize * i);
         }
         tinyPoolSize = maxTinyBuffers;
 
@@ -1303,7 +1303,7 @@ public:
             return NULL;
         }
 
-        *(g3d_uint32*)ptr = bytes;
+        *(uint32*)ptr = bytes;
 
         return REALPTR_TO_USERPTR(ptr);
     }
@@ -1324,7 +1324,7 @@ public:
             return;
         }
 
-        g3d_uint32 bytes = USERSIZE_FROM_USERPTR(ptr);
+        uint32 bytes = USERSIZE_FROM_USERPTR(ptr);
 
         lock();
         if (bytes <= smallBufferSize) {
@@ -1357,7 +1357,7 @@ public:
 
             int total = totalMallocs;
 
-            return G3D_format("malloc performance: %5.1f%% <= %db, %5.1f%% <= %db, "
+            return format("malloc performance: %5.1f%% <= %db, %5.1f%% <= %db, "
                           "%5.1f%% <= %db, %5.1f%% > %db",
                           100.0 * mallocsFromTinyPool  / total,
                           BufferPool::tinyBufferSize,
@@ -1373,7 +1373,7 @@ public:
     }
 
     std::string status() const {
-        return G3D_format("preallocated shared buffers: %5d/%d x %db",
+        return format("preallocated shared buffers: %5d/%d x %db",
             maxTinyBuffers - tinyPoolSize, maxTinyBuffers, tinyBufferSize);
     }
 };
@@ -1494,7 +1494,7 @@ void* System::alignedMalloc(size_t bytes, size_t alignment) {
     size_t  alignedPtr = truePtr + sizeof(void*);
 
     // 2^n - 1 has the form 1111... in binary.
-    g3d_uint32 bitMask = (alignment - 1);
+    uint32 bitMask = (alignment - 1);
 
     // Advance forward until we reach an aligned location.
     while ((alignedPtr & bitMask) != 0) {
@@ -1673,7 +1673,7 @@ std::string System::getClipboardText() {
             if (h) {
                 char* temp = (char*)GlobalLock(h);
                 if (temp) {
-                    s = temp;
+    	            s = temp;
                 }
                 temp = NULL;
                 GlobalUnlock(h);
@@ -1689,20 +1689,20 @@ std::string System::currentDateString() {
     time_t t1;
     ::time(&t1);
     tm* t = localtime(&t1);
-    return G3D_format("%d-%02d-%02d", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday); 
+    return format("%d-%02d-%02d", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday); 
 }
 
 #ifdef _MSC_VER
 
 // VC on Intel
-void System::cpuid(CPUIDFunction func, g3d_uint32& areg, g3d_uint32& breg, g3d_uint32& creg, g3d_uint32& dreg) {
+void System::cpuid(CPUIDFunction func, uint32& areg, uint32& breg, uint32& creg, uint32& dreg) {
 #if !defined(G3D_64BIT) && !defined(__MINGW32__) /* G3DFIX: Don't check if on 64-bit platforms or using MinGW */
     // Can't copy from assembler direct to a function argument (which is on the stack) in VC.
-    g3d_uint32 a,b,c,d;
+    uint32 a,b,c,d;
 
     // Intel assembler syntax
     __asm {
-        mov   eax, func      //  eax <- func
+        mov	  eax, func      //  eax <- func
         mov   ecx, 0
         cpuid              
         mov   a, eax   
@@ -1727,7 +1727,7 @@ void System::cpuid(CPUIDFunction func, g3d_uint32& areg, g3d_uint32& breg, g3d_u
 #elif defined(G3D_OSX) && ! defined(G3D_OSX_INTEL)
 
 // non-intel OS X; no CPUID
-void System::cpuid(CPUIDFunction func, g3d_uint32& eax, g3d_uint32& ebx, g3d_uint32& ecx, g3d_uint32& edx) {
+void System::cpuid(CPUIDFunction func, uint32& eax, uint32& ebx, uint32& ecx, uint32& edx) {
     eax = 0;
     ebx = 0;
     ecx = 0;
@@ -1739,7 +1739,7 @@ void System::cpuid(CPUIDFunction func, g3d_uint32& eax, g3d_uint32& ebx, g3d_uin
 // See http://sam.zoy.org/blog/2007-04-13-shlib-with-non-pic-code-have-inline-assembly-and-pic-mix-well
 // for a discussion of why the second version saves ebx; it allows 32-bit code to compile with the -fPIC option.
 // On 64-bit x86, PIC code has a dedicated rip register for PIC so there is no ebx conflict.
-void System::cpuid(CPUIDFunction func, g3d_uint32& eax, g3d_uint32& ebx, g3d_uint32& ecx, g3d_uint32& edx) {
+void System::cpuid(CPUIDFunction func, uint32& eax, uint32& ebx, uint32& ecx, uint32& edx) {
 #if ! defined(__PIC__) || defined(__x86_64__)
     // AT&T assembler syntax
     asm volatile(

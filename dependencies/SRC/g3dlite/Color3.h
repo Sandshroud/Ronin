@@ -90,7 +90,7 @@ public:
     /**
      Initialize from an HTML-style color (e.g. 0xFF0000 == RED)
      */
-    static Color3 fromARGB(g3d_uint32);
+    static Color3 fromARGB(uint32);
 
     /** Returns one of the color wheel colors (e.g. RED, GREEN, CYAN).
         Does not include white, black, or gray. */
@@ -98,7 +98,7 @@ public:
 
     /** Generate colors according to the ANSI color set, mod 16.
      \sa pastelMap */
-    static Color3 ansiMap(g3d_uint32 i);
+    static Color3 ansiMap(uint32 i);
 
     /**
        Generate colors using a hash such that adjacent values
@@ -110,7 +110,7 @@ public:
 
        \sa ansiMap
      */
-    static Color3 pastelMap(g3d_uint32 i);
+    static Color3 pastelMap(uint32 i);
 
     /**
      * Channel value.
@@ -174,21 +174,21 @@ public:
     }
 
     inline Color3 max(const Color3& other) const {
-        return Color3(G3D::G3D_max(r, other.r), G3D::G3D_max(g, other.g), G3D::G3D_max(b, other.b));
+        return Color3(G3D::max(r, other.r), G3D::max(g, other.g), G3D::max(b, other.b));
     }
 
     inline Color3 min(const Color3& other) const {
-        return Color3(G3D::G3D_min(r, other.r), G3D::G3D_min(g, other.g), G3D::G3D_min(b, other.b));
+        return Color3(G3D::min(r, other.r), G3D::min(g, other.g), G3D::min(b, other.b));
     }
 
     /** Smallest element */
     inline float min() const {
-        return G3D::G3D_min(G3D::G3D_min(r, g), b);
+        return G3D::min(G3D::min(r, g), b);
     }
 
     /** Largest element */
     inline float max() const {
-        return G3D::G3D_max(G3D::G3D_max(r, g), b);
+        return G3D::max(G3D::max(r, g), b);
     }
 
     inline Color3 lerp(const Color3& other, float a) const {

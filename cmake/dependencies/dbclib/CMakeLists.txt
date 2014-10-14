@@ -8,8 +8,11 @@ FILE(GLOB sources
 source_group("${PROJECT_NAME}" FILES ${sources})
 SET(SRCS ${SRCS} ${sources} )
 
-include_directories( ${prefix} )
+include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
+
+add_dependencies( ${PROJECT_NAME} stormlib )
+target_link_libraries( ${PROJECT_NAME} ${STORMLIB_LIBRARIES} stormlib )
 
 #Set it to the project name.
 set(DBCLIB_LIBRARIES ${PROJECT_NAME} CACHE INTERNAL "${PROJECT_NAME} Libraries")

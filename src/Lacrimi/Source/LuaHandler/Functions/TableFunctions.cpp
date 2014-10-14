@@ -114,7 +114,6 @@ RegType<Unit> UnitMethods[] =
     { "SetTauntedBy", &LuaUnit_SetTauntedBy },
     { "ChangeTarget", &LuaUnit_ChangeTarget },
     { "GetHealthPct", &LuaUnit_GetHealthPct },
-    { "SetHealthPct", &LuaUnit_SetHealthPct },
     { "GetManaPct", &LuaUnit_GetManaPct },
     { "Despawn", &LuaUnit_Despawn },
     { "GetUnitBySqlId", &LuaUnit_GetUnitBySqlId },

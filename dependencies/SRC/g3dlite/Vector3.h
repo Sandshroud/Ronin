@@ -87,14 +87,14 @@ public:
     explicit Vector3(float coordinate[3]);
     explicit Vector3(double coordinate[3]);
     Vector3(const class Vector3int16& v);
-    explicit Vector3(class TextInput& t);
+	explicit Vector3(class TextInput& t);
     explicit Vector3(const class Color3& c);
 
-    /** Format is three float32's */
+	/** Format is three float32's */
     void serialize(class BinaryOutput& b) const;
     void deserialize(class BinaryInput& b);
 
-    /** Format is "(%f, %f, %f)" */
+	/** Format is "(%f, %f, %f)" */
     void serialize(class TextOutput& t) const;
     void deserialize(class TextInput& t);
 
@@ -153,7 +153,7 @@ public:
     Vector3& __fastcall operator/= (const Vector3& v);
 
     /** Same as magnitude */
-    float length() const;
+	float length() const;
 
     float magnitude() const;
     
@@ -265,7 +265,7 @@ public:
     float squaredLength() const;
 
     float squaredMagnitude () const;
-    
+	
     float __fastcall dot(const Vector3& rkVector) const;
     
     float unitize(float tolerance = 1e-06);
@@ -291,12 +291,12 @@ public:
 
     /** Smallest element */
     inline float min() const {
-        return G3D::G3D_min(G3D::G3D_min(x, y), z);
+        return G3D::min(G3D::min(x, y), z);
     }
 
     /** Largest element */
     inline float max() const {
-        return G3D::G3D_max(G3D::G3D_max(x, y), z);
+        return G3D::max(G3D::max(x, y), z);
     }
 
     std::string toString() const;
@@ -756,12 +756,12 @@ inline Vector3 Vector3::unitCross (const Vector3& rkVector) const {
 
 //----------------------------------------------------------------------------
 inline Vector3 Vector3::min(const Vector3 &v) const {
-    return Vector3(G3D::G3D_min(v.x, x), G3D::G3D_min(v.y, y), G3D::G3D_min(v.z, z));
+    return Vector3(G3D::min(v.x, x), G3D::min(v.y, y), G3D::min(v.z, z));
 }
 
 //----------------------------------------------------------------------------
 inline Vector3 Vector3::max(const Vector3 &v) const {
-    return Vector3(G3D::G3D_max(v.x, x), G3D::G3D_max(v.y, y), G3D::G3D_max(v.z, z));
+    return Vector3(G3D::max(v.x, x), G3D::max(v.y, y), G3D::max(v.z, z));
 }
 
 //----------------------------------------------------------------------------

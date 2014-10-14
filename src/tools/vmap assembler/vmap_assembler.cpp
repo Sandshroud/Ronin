@@ -19,7 +19,8 @@
 #include <string>
 #include <iostream>
 
-#include "G3DAll.h"
+#include "threading/Threading.h"
+#include <g3dlite\G3DAll.h>
 #include "TileAssembler.h"
 #include "VMapDefinitions.h"
 

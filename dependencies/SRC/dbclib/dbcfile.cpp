@@ -6,12 +6,14 @@
 
 DBCFile::DBCFile()
 {
+    maxId=0;
     data = NULL;
     stringTable = NULL;
 }
 
 DBCFile::~DBCFile()
 {
+    maxId=0;
     if( data )
         delete[] data;
     if ( stringTable )
@@ -20,11 +22,18 @@ DBCFile::~DBCFile()
 
 bool DBCFile::open(const char*fn)
 {
+    maxId=0;
     if(data)
     {
         delete [] data;
         data = NULL;
     }
+    if ( stringTable )
+    {
+        delete[] stringTable;
+        stringTable = NULL;
+    }
+
     FILE*pf=fopen(fn,"rb");
     if(!pf)return false;
 
@@ -44,16 +53,66 @@ bool DBCFile::open(const char*fn)
     fread( stringTable , stringSize,1,pf);
     fclose(pf);
 
+    CalcMaxId();
+    return true;
+}
+
+bool DBCFile::openFromMPQ(HANDLE fileHandle)
+{
+    maxId=0;
     if(data)
     {
-        for(size_t i = 0; i < recordCount; ++i)
-        {
-            Record m_rec(*this, data + i*recordSize);
-            if(maxId < m_rec.getUInt(0))
-                maxId = m_rec.getUInt(0);
-        }
+        delete [] data;
+        data = NULL;
     }
+    if ( stringTable )
+    {
+        delete[] stringTable;
+        stringTable = NULL;
+    }
+
+    DWORD read = 0;
+    if(!SFileReadFile(fileHandle, header, 4, &read, NULL) || read != 4)
+        return false;
+    if (header[0] != 'W' || header[1] != 'D' || header[2] != 'B' || header[3] != 'C')
+        return false;
+    if(!SFileReadFile(fileHandle, &recordCount, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(fileHandle, &fieldCount, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(fileHandle, &recordSize, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(fileHandle, &stringSize, 4, &read, NULL) || read != 4)
+        return false;
+
+    data = new unsigned char[recordSize*recordCount];
+    stringTable = new unsigned char[stringSize];
+
+    if(!SFileReadFile(fileHandle, data, recordSize*recordCount, &read, NULL))
+        return false;
+    if(read != recordSize*recordCount)
+        return false;
+    if(!SFileReadFile(fileHandle, stringTable, stringSize, &read, NULL))
+        return false;
+    if(read != stringSize)
+        return false;
+
+    CalcMaxId();
     return true;
+}
+
+void DBCFile::CalcMaxId()
+{
+    maxId = 0;
+    if(data == NULL)
+        return;
+
+    for(size_t i = 0; i < recordCount; ++i)
+    {
+        Record m_rec(*this, data + i*recordSize);
+        if(maxId < m_rec.getUInt(0))
+            maxId = m_rec.getUInt(0);
+    }
 }
 
 DBCFile::Record DBCFile::getRecord(size_t id)
@@ -65,12 +124,13 @@ DBCFile::Record DBCFile::getRecord(size_t id)
 DBCFile::Iterator DBCFile::begin()
 {
     assert(data);
-    return Iterator(*this, data);
+    return Iterator(this);
 }
+
 DBCFile::Iterator DBCFile::end()
 {
     assert(data);
-    return Iterator(*this, stringTable);
+    return Iterator(this, recordCount*recordSize);
 }
 
 bool DBCFile::DumpBufferToFile(const char*fn)

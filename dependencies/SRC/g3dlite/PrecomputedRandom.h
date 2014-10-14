@@ -44,7 +44,7 @@ public:
         float   sphereX;
         float   sphereY;
         float   sphereZ;
-        g3d_uint32  bits;
+        uint32  bits;
     };
 
 protected:
@@ -67,18 +67,18 @@ public:
       \param dataSize Must be a power of 2
       \param data Will NOT be deleted by the destructor.
      */
-    PrecomputedRandom(const HemiUniformData* data1, const SphereBitsData* data2, int dataSize, g3d_uint32 seed = 0xF018A4D2);
+    PrecomputedRandom(const HemiUniformData* data1, const SphereBitsData* data2, int dataSize, uint32 seed = 0xF018A4D2);
 
     /**
       \param dataSize Number of random numbers that can be requested before periodicity.  Must be a power of 2.
       */
-    PrecomputedRandom(int dataSize, g3d_uint32 seed = 0xF018A4D2);
+    PrecomputedRandom(int dataSize, uint32 seed = 0xF018A4D2);
 
     ~PrecomputedRandom();
 
     /** Each bit is random.  Subclasses can choose to override just 
        this method and the other methods will all work automatically. */
-    virtual g3d_uint32 bits();
+    virtual uint32 bits();
 
     // integer is inherited
 

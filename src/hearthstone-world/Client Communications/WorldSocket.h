@@ -41,7 +41,8 @@ public:
     void Authenticate();
     void InformationRetreiveCallback(WorldPacket & recvData, uint32 requestid);
 
-    void __fastcall SendAuthResponse(uint8 code, bool holdsPosition, uint32 position = 0);
+    void SendAuthResponse(uint8 code, bool holdsPosition, uint32 position = 0);
+    void SendAddonPacket(WorldSession *pSession);
 
     void OnRecvData();
     void OnConnect();
@@ -57,9 +58,7 @@ protected:
 
 private:
     uint32 mOpcode, mRemaining, mUnaltered;
-
-    uint32 mSeed;
-    uint32 mRequestID;
+    uint32 mSeed, mRequestID;
     uint8 hashDigest[20];
     uint32 mClientSeed;
     uint16 mClientBuild;
@@ -74,5 +73,6 @@ private:
     bool m_authed;
     bool mQueued;
     bool m_nagleEanbled;
+    bool isBattleNetAccount;
     string * m_fullAccountName;
 };

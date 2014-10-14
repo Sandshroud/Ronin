@@ -114,11 +114,11 @@ public:
     }
 
     inline Color1 max(const Color1& other) const {
-        return Color1(G3D::G3D_max(value, other.value));
+        return Color1(G3D::max(value, other.value));
     }
 
     inline Color1 min(const Color1& other) const {
-        return Color1(G3D::G3D_min(value, other.value));
+        return Color1(G3D::min(value, other.value));
     }
 
     inline Color1 lerp(const Color1& other, float a) const {

@@ -33,22 +33,22 @@ private:
     bool operator>=(const Vector2int16&) const;
 
 public:
-    G3D::g3d_int16              x;
-    G3D::g3d_int16              y;
+    G3D::int16              x;
+    G3D::int16              y;
 
     Vector2int16() : x(0), y(0) {}
-    Vector2int16(G3D::g3d_int16 _x, G3D::g3d_int16 _y) : x(_x), y(_y){}
+    Vector2int16(G3D::int16 _x, G3D::int16 _y) : x(_x), y(_y){}
     Vector2int16(const class Vector2& v);
     Vector2int16(class BinaryInput& bi);
 
-    inline G3D::g3d_int16& operator[] (int i) {
+    inline G3D::int16& operator[] (int i) {
         debugAssert(((unsigned int)i) <= 1);
-        return ((G3D::g3d_int16*)this)[i];
+        return ((G3D::int16*)this)[i];
     }
 
-    inline const G3D::g3d_int16& operator[] (int i) const {
+    inline const G3D::int16& operator[] (int i) const {
         debugAssert(((unsigned int)i) <= 1);
-        return ((G3D::g3d_int16*)this)[i];
+        return ((G3D::int16*)this)[i];
     }
 
     inline Vector2int16 operator+(const Vector2int16& other) const {
@@ -98,11 +98,11 @@ public:
     Vector2int16 clamp(const Vector2int16& lo, const Vector2int16& hi);
 
     inline bool operator== (const Vector2int16& rkVector) const {
-        return ((g3d_int32*)this)[0] == ((g3d_int32*)&rkVector)[0];
+        return ((int32*)this)[0] == ((int32*)&rkVector)[0];
     }
 
     inline bool operator!= (const Vector2int16& rkVector) const {
-        return ((g3d_int32*)this)[0] != ((g3d_int32*)&rkVector)[0];
+        return ((int32*)this)[0] != ((int32*)&rkVector)[0];
     }
 
     Vector2int16 max(const Vector2int16& v) const {

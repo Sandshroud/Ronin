@@ -365,7 +365,7 @@ public:
 
 #ifdef G3D_32BIT
     /** NUMBER constructor */
-    Any(g3d_int64 x);
+    Any(int64 x);
 #endif    // G3D_32BIT
 
 #if 0

@@ -138,7 +138,7 @@ private:
     /** The Real-World time of System::getTick() time 0.  Set by initTime */
     RealTime       m_realWorldGetTickTime0;
 
-    g3d_uint32         m_highestCPUIDFunction;
+    uint32         m_highestCPUIDFunction;
 
     /** @brief Used for the singleton instance only. */
     System();
@@ -165,7 +165,7 @@ private:
 
        for description of the arguments.
     */
-    static void cpuid(CPUIDFunction func, g3d_uint32& areg, g3d_uint32& breg, g3d_uint32& creg, g3d_uint32& dreg);
+    static void cpuid(CPUIDFunction func, uint32& areg, uint32& breg, uint32& creg, uint32& dreg);
 
     void init();
 
@@ -301,7 +301,7 @@ public:
     /** An implementation of memset that may be up to 2x as fast as the C library
         one on some processors.  Guaranteed to have the same behavior as memset
         in all cases. */
-    static void memset(void* dst, g3d_uint8 value, size_t numBytes);
+    static void memset(void* dst, uint8 value, size_t numBytes);
     
     /**
      Returns the fully qualified filename for the currently running executable.
@@ -378,10 +378,10 @@ public:
      // count now contains the cycle count for the intervening operation.
      </PRE>
      */
-    /* static void beginCycleCount(g3d_uint64& cycleCount);
-    static void endCycleCount(g3d_uint64& cycleCount);
+    /* static void beginCycleCount(uint64& cycleCount);
+    static void endCycleCount(uint64& cycleCount);
 
-    static g3d_uint64 getCycleCount(); */
+    static uint64 getCycleCount(); */
 
     inline static void setOutOfMemoryCallback(OutOfMemoryCallback c) {
         instance().m_outOfMemoryCallback = c;
@@ -404,7 +404,7 @@ public:
 
     /** Set an environment variable for the current process */
     static void setEnv(const std::string& name, const std::string& value);
-    
+	
     /** Get an environment variable for the current process.  Returns NULL if the variable doesn't exist. */
     static const char* getEnv(const std::string& name);
 
@@ -443,8 +443,8 @@ public:
 
 /* don't need that for MaNGOS, not portable to Win64...
 #ifdef _MSC_VER
-    inline g3d_uint64 System::getCycleCount() {
-        g3d_uint32 timehi, timelo;
+    inline uint64 System::getCycleCount() {
+        uint32 timehi, timelo;
 
         // Use the assembly instruction rdtsc, which gets the current
         // cycle count (since the process started) and puts it in edx:eax.
@@ -455,13 +455,13 @@ public:
                 mov timelo, eax;
             }
 
-        return ((g3d_uint64)timehi << 32) + (g3d_uint64)timelo;
+        return ((uint64)timehi << 32) + (uint64)timelo;
     }
 
 #elif defined(G3D_LINUX)
 
-    inline g3d_uint64 System::getCycleCount() {
-        g3d_uint32 timehi, timelo;
+    inline uint64 System::getCycleCount() {
+        uint32 timehi, timelo;
 
         __asm__ __volatile__ (
             "rdtsc            "
@@ -469,29 +469,29 @@ public:
               "=d" (timehi)
             : );
 
-        return ((g3d_uint64)timehi << 32) + (g3d_uint64)timelo;
+        return ((uint64)timehi << 32) + (uint64)timelo;
     }
 
 #elif defined(G3D_OSX)
 
-    inline g3d_uint64 System::getCycleCount() {
-        //Note:  To put off extra processing until the end, this does not 
-        //return the actual clock cycle count.  It is a bus cycle count.
-        //When endCycleCount() is called, it converts the two into a difference
-        //of clock cycles
-        
-        return (g3d_uint64) UnsignedWideToUInt64(UpTime());
-        //return (g3d_uint64) mach_absolute_time();
+    inline uint64 System::getCycleCount() {
+		//Note:  To put off extra processing until the end, this does not 
+		//return the actual clock cycle count.  It is a bus cycle count.
+		//When endCycleCount() is called, it converts the two into a difference
+		//of clock cycles
+		
+        return (uint64) UnsignedWideToUInt64(UpTime());
+		//return (uint64) mach_absolute_time();
     }
 
 #endif
 
-inline void System::beginCycleCount(g3d_uint64& cycleCount) {
+inline void System::beginCycleCount(uint64& cycleCount) {
     cycleCount = getCycleCount();
 }
 
 
-inline void System::endCycleCount(g3d_uint64& cycleCount) {
+inline void System::endCycleCount(uint64& cycleCount) {
 #ifndef G3D_OSX
     cycleCount = getCycleCount() - cycleCount;
 #else
@@ -499,7 +499,7 @@ inline void System::endCycleCount(g3d_uint64& cycleCount) {
     Nanoseconds diffNS =
         AbsoluteDeltaToNanoseconds(end, UInt64ToUnsignedWide(cycleCount));
     cycleCount =
-        (g3d_uint64) ((double) (instance().m_OSXCPUSpeed) *
+        (uint64) ((double) (instance().m_OSXCPUSpeed) *
                   (double) UnsignedWideToUInt64(diffNS) * instance().m_secondsPerNS);
 #endif
 }

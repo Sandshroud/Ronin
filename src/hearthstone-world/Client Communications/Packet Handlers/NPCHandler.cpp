@@ -203,7 +203,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
 
         pck.guid = _player->GetGUID();
         pck.visualid = 0x16a;
-        _player->OutPacketToSet( SMSG_PLAY_SPELL_IMPACT, sizeof(packetSMSG_PLAY_SPELL_VISUAL), &pck, true );
+        _player->OutPacketToSet( SMSG_PLAY_SPELL_VISUAL_KIT, sizeof(packetSMSG_PLAY_SPELL_VISUAL), &pck, true );
 
         uint32 i;
         _player->forget = pSpell->DeleteSpell;
@@ -512,9 +512,7 @@ void WorldSession::HandleGossipSelectOptionOpcode( WorldPacket & recv_data )
             recv_data >> BoxMessage;
 
         Script->GossipSelectOption(qst_giver, _player, option, IntId, BoxMessage.c_str());
-    }
-    else
-        Script->GossipSelectOption(qst_giver, _player, option, IntId, NULL);
+    } else Script->GossipSelectOption(qst_giver, _player, option, IntId, NULL);
 }
 
 //////////////////////////////////////////////////////////////
@@ -533,7 +531,6 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
 
         //When revived by spirit healer, set health/mana at 50%
         _player->m_resurrectHealth = _player->GetUInt32Value(UNIT_FIELD_MAXHEALTH)/2;
-        _player->m_resurrectMana = _player->GetUInt32Value(UNIT_FIELD_MAX_MANA)/2;
 
         _player->ResurrectPlayer();
 

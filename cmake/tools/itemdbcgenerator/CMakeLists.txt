@@ -15,8 +15,8 @@ SET( SRCS ${SRCS} "${ROOT_PATH}/src/tools/Icon.ico" "${ROOT_PATH}/src/tools/reso
 include_directories( ${GLOBAL_INCLUDE_DIRS} )
 link_directories( ${EXTRA_LIBS_PATH} ${DEPENDENCY_LIBS} )
 add_executable( ${PROJECT_NAME} ${SRCS} )
-add_dependencies( ${PROJECT_NAME} pcre zlib )
-target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} pcre zlib )
+add_dependencies( ${PROJECT_NAME} pcre zlib dbclib )
+target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} pcre zlib dbclib )
 #Set the solution folder to tools
 SET_PROPERTY(TARGET ItemDBCGenerator PROPERTY FOLDER "Tools")
 #Set the output folder to bin/tools

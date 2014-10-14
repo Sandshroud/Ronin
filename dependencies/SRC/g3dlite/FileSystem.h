@@ -221,7 +221,7 @@ private:
     std::string _currentDirectory();
 
     /** Returns the length of the file in bytes, or -1 if the file could not be opened. */
-    g3d_int64 _size(const std::string& path);
+    int64 _size(const std::string& path);
 
     /** Called from list() */
     void listHelper(const std::string& shortSpec, const std::string& parentPath, Array<std::string>& result, const ListSettings& settings);
@@ -358,7 +358,7 @@ public:
     }
 
     /** \copydoc _size */
-    static g3d_int64 size(const std::string& path) {
+    static int64 size(const std::string& path) {
         return instance()._size(path);
     }
 

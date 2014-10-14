@@ -16,10 +16,10 @@ private:
     friend class ReliableConduit;
 
     /** Host byte order */
-    void init(g3d_uint32 host, g3d_uint16 port);
-    void init(const std::string& hostname, g3d_uint16 port);
+    void init(uint32 host, uint16 port);
+    void init(const std::string& hostname, uint16 port);
     NetAddress(const SOCKADDR_IN& a);
-    NetAddress(const struct in_addr& addr, g3d_uint16 port = 0);
+    NetAddress(const struct in_addr& addr, uint16 port = 0);
 
     SOCKADDR_IN                 addr;
 
@@ -27,12 +27,12 @@ public:
     /**
      In host byte order
      */
-    NetAddress(g3d_uint32 host, g3d_uint16 port = 0);
+    NetAddress(uint32 host, uint16 port = 0);
 
     /**
      @param port Specified in host byte order (i.e., don't worry about endian issues)
      */
-    NetAddress(const std::string& hostname, g3d_uint16 port);
+    NetAddress(const std::string& hostname, uint16 port);
 
     /**
        @param hostnameAndPort in the form "hostname:port" or "ip:port"
@@ -52,7 +52,7 @@ public:
      protocol abstracted by G3D::ReliableConduit; use multisend
      instead.
      */
-    static NetAddress broadcastAddress(g3d_uint16 port);
+    static NetAddress broadcastAddress(uint16 port);
 
     NetAddress();
 
@@ -64,12 +64,12 @@ public:
 
     /** @brief Returns a value in host format (i.e., don't worry about
         endian issues) */
-    inline g3d_uint32 ip() const {
+    inline uint32 ip() const {
         return ntohl(addr.sin_addr.s_addr);
         //return ntohl(addr.sin_addr.S_un.S_addr);
     }
 
-    inline g3d_uint16 port() const {
+    inline uint16 port() const {
         return ntohs(addr.sin_port);
     }
 
@@ -84,7 +84,7 @@ std::ostream& operator<<(std::ostream& os, const NetAddress&);
 
 template <> struct HashTrait<G3D::NetAddress> {
     static size_t hashCode(const G3D::NetAddress& key) { 
-        return static_cast<size_t>(key.ip() + (static_cast<G3D::g3d_uint32>(key.port()) << 16));
+        return static_cast<size_t>(key.ip() + (static_cast<G3D::uint32>(key.port()) << 16));
     }
 };
 
@@ -95,7 +95,7 @@ namespace G3D {
  they have different IP's.
  */
 inline bool operator==(const NetAddress& a, const NetAddress& b) {
-    return (a.ip() == b.ip()) && (a.port() == b.port());
+	return (a.ip() == b.ip()) && (a.port() == b.port());
 }
 
 

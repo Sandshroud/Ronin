@@ -5,7 +5,7 @@
 #pragma once
 
 #ifndef _VERSION
-# define _VERSION "4.0.6.x"
+# define _VERSION "4.3.4.x"
 #endif
 
 #if PLATFORM == PLATFORM_WIN32

@@ -13,6 +13,7 @@
 #include "Table.h"
 #include "MeshAlg.h"
 #include "Set.h"
+#include "Stopwatch.h"
 #include "SmallArray.h"
 #include "AreaMemoryManager.h"
 

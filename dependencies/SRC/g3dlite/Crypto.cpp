@@ -11,7 +11,7 @@
 #include "platform.h"
 #include "Crypto.h"
 #include "g3dmath.h"
-#include "../zlib/zlib.h"
+#include <zlib/zlib.h>
 
 namespace G3D {
     
@@ -63,7 +63,7 @@ int Crypto::numSmallPrimes() {
     return 303;
 }
 
-g3d_uint32 Crypto::crc32(const void* byte, size_t numBytes) {
+uint32 Crypto::crc32(const void* byte, size_t numBytes) {
     return ::crc32(::crc32(0, Z_NULL, 0), static_cast<const Bytef *>(byte), numBytes);
 }
 

@@ -476,6 +476,8 @@ enum DUEL_WINNER
 #define PLAYER_ATTACK_TIMEOUT_INTERVAL  5000
 #define PLAYER_FORCED_RESURECT_INTERVAL 360000 // 1000*60*6= 6 minutes
 
+#define MAX_EQUIPMENT_SET_INDEX 10  // client limit
+
 // Crow: Equipment set shit.
 enum EquipmentSetUpdateState
 {
@@ -500,16 +502,18 @@ struct EquipmentSet
     EquipmentSetUpdateState state;
 };
 
-#define MAX_EQUIPMENT_SET_INDEX 10  // client limit
+#define MAX_PLAYER_SKILLS 128
 
 struct PlayerSkill
 {
-    SkillLineEntry * Skill;
+    SkillLineEntry *Skill;
     uint32 CurrentValue;
     uint32 MaximumValue;
     uint32 BonusValue;
+    uint32 BonusTalent;
     float GetSkillUpChance();
     bool Reset(uint32 Id);
+    uint8 SkillPos;
 };
 
 class ArenaTeam;
@@ -579,6 +583,7 @@ typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
 typedef std::unordered_map<uint32, PlayerSkill>     SkillMap;
+typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
 typedef std::set<Player* *>                         ReferenceSet;
 typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
 
@@ -680,9 +685,11 @@ protected:
 
 protected:
 
+    uint8 GetFreeSkillPosition();
     void _UpdateSkillFields();
 
     SkillMap m_skills;
+    SkillReferenceMap m_skillsByIndex;
 
     // COOLDOWNS
     PlayerCooldownMap m_cooldownMap[NUM_COOLDOWN_TYPES];
@@ -707,7 +714,6 @@ public:
 
     bool ok_to_remove;
     void EquipInit(PlayerCreateInfo *EquipInfo);
-    void SendMeetingStoneQueue(uint32 DungeonId, uint8 Status);
     void SendDungeonDifficulty();
     void SendRaidDifficulty();
 
@@ -1357,7 +1363,6 @@ public:
     float IncreaseCricticalByTypePCT[12];
     int32 DetectedRange;
     float PctIgnoreRegenModifier;
-    uint32 m_retainedrage;
     HEARTHSTONE_INLINE uint32* GetPlayedtime() { return m_playedtime; };
     HEARTHSTONE_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, m_uint32Values[index]); };
     float CalcPercentForRating(uint32 index, uint32 rating);
@@ -1436,10 +1441,7 @@ public:
     void sendMOTD();
 
     void PushOutOfRange(const WoWGuid & guid);
-    void PushCreateBlock(ByteBuffer *data, uint32 updatecount);
     void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
-    void ProcessUpdates(ByteBuffer *pUpdatebuffer, uint32 &updateCount);
-    void ProcessOutOfRangeBuffer();
     void PopPendingUpdates();
 
     bool CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer);
@@ -1573,8 +1575,7 @@ public:
     HEARTHSTONE_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     HEARTHSTONE_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
-    uint32 load_health;
-    uint32 load_mana;
+    uint32 load_health, load_power[5];
     set<SpellEntry *> castSpellAtLogin;
 
     /////
@@ -1747,8 +1748,8 @@ protected:
     /* Update system components */
     Mutex _bufferS;
     bool bProcessPending;
-    uint32 mCreateDataCount, mUpdateDataCount, mOutOfRangeIdCount;
-    ByteBuffer bCreateDataBuffer, bUpdateDataBuffer, mOutOfRangeIds;
+    uint32 mUpdateDataCount, mOutOfRangeIdCount;
+    ByteBuffer bUpdateDataBuffer, mOutOfRangeIds;
     /* End update system */
 
     void _LoadTutorials(QueryResult * result);
@@ -1996,55 +1997,4 @@ private:
 
     uint32 m_deathRuneMasteryChance;
 
-};
-
-class SkillIterator
-{
-    SkillMap::iterator m_itr;
-    SkillMap::iterator m_endItr;
-    bool m_searchInProgress;
-    Player* m_target;
-public:
-    SkillIterator(Player* target) : m_searchInProgress(false),m_target(target) {}
-    ~SkillIterator() { if(m_searchInProgress) { EndSearch(); } if(m_target) { m_target = NULLPLR; } }
-
-    void BeginSearch()
-    {
-        // iteminterface doesn't use mutexes, maybe it should :P
-        ASSERT(!m_searchInProgress);
-        m_itr = m_target->m_skills.begin();
-        m_endItr = m_target->m_skills.end();
-        m_searchInProgress=true;
-    }
-
-    void EndSearch()
-    {
-        // nothing here either
-        ASSERT(m_searchInProgress);
-        m_searchInProgress=false;
-    }
-
-    PlayerSkill* operator*() const
-    {
-        return &m_itr->second;
-    }
-
-    PlayerSkill* operator->() const
-    {
-        return &m_itr->second;
-    }
-
-    void Increment()
-    {
-        if(!m_searchInProgress)
-            BeginSearch();
-
-        if(m_itr==m_endItr)
-            return;
-
-        ++m_itr;
-    }
-
-    HEARTHSTONE_INLINE PlayerSkill* Grab() { return &m_itr->second; }
-    HEARTHSTONE_INLINE bool End() { return (m_itr==m_endItr)?true:false; }
 };

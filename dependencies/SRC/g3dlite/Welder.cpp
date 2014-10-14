@@ -13,6 +13,7 @@
 #include "Sphere.h"
 #include "PointHashGrid.h"
 #include "Welder.h"
+#include "Stopwatch.h" // for profiling
 #include "AreaMemoryManager.h"
 #include "Any.h"
 #include "stringutils.h"

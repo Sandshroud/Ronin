@@ -83,7 +83,6 @@ int LuaUnit_GetUnitBySqlId(lua_State * L, Unit * ptr);
 int LuaUnit_Despawn(lua_State * L, Unit * ptr);
 int LuaUnit_GetInRangeFriends(lua_State * L, Unit * ptr);
 int LuaUnit_GetHealthPct(lua_State * L, Unit * ptr);
-int LuaUnit_SetHealthPct(lua_State * L, Unit * ptr);
 int LuaUnit_GetItemCount(lua_State * L, Unit * ptr);
 int LuaUnit_GetMainTank(lua_State * L, Unit * ptr);
 int LuaUnit_GetAddTank(lua_State * L, Unit * ptr);

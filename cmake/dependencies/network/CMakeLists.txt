@@ -8,7 +8,7 @@ FILE(GLOB sources
 source_group("${PROJECT_NAME}" FILES ${sources})
 SET(SRCS ${SRCS} ${sources} )
 
-include_directories( ${prefix} )
+include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
 
 #Set it to the project name.

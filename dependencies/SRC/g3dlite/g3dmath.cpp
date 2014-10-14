@@ -71,11 +71,11 @@ float fnan() {
 }
 
 
-int highestBit(g3d_uint32 x) {
+int highestBit(uint32 x) {
     // Binary search.
     int base = 0;
 
-    if (x & 0xffff0000) {
+    if (x & 0xffff0000)	{
         base = 16;
         x >>= 16;
     }

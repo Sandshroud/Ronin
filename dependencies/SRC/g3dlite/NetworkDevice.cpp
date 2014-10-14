@@ -29,7 +29,7 @@ std::ostream& operator<<(std::ostream& os, const NetAddress& a) {
 
 
 static void logSocketInfo(const SOCKET& sock) {
-    g3d_uint32 val;
+    uint32 val;
     socklen_t sz = 4;
     int ret;
 
@@ -140,7 +140,7 @@ NetworkDevice::~NetworkDevice() {
 std::string NetworkDevice::localHostName() const {   
     char ac[128];
     if (gethostname(ac, sizeof(ac)) == -1) {
-        G3D_Log::common()->printf("Error while getting local host name\n");
+        Log::common()->printf("Error while getting local host name\n");
         return "localhost";
     }
     return gethostbyname(ac)->h_name;
@@ -232,14 +232,14 @@ void NetworkDevice::addAdapter(const EthernetAdapter& a) {
 }
 
 
-std::string NetworkDevice::formatIP(g3d_uint32 addr) {
-    return G3D_format("%3d.%3d.%3d.%3d", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF,
+std::string NetworkDevice::formatIP(uint32 addr) {
+    return format("%3d.%3d.%3d.%3d", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF,
            (addr >> 8) & 0xFF, addr & 0xFF);
 }
 
 
-std::string NetworkDevice::formatMAC(const g3d_uint8 MAC[6]) {
-    return G3D_format("%02x:%02x:%02x:%02x:%02x:%02x", MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
+std::string NetworkDevice::formatMAC(const uint8 MAC[6]) {
+    return format("%02x:%02x:%02x:%02x:%02x:%02x", MAC[0], MAC[1], MAC[2], MAC[3], MAC[4], MAC[5]);
 }
 
 
@@ -250,7 +250,7 @@ bool NetworkDevice::init() {
 
     logPrintf("Network Startup");
     logPrintf("Starting WinSock networking.\n");
-    WSADATA wsda;           
+    WSADATA wsda;		    
     WSAStartup(MAKEWORD(G3D_WINSOCK_MAJOR_VERSION, G3D_WINSOCK_MINOR_VERSION), &wsda);
         
     std::string hostname = "localhost";
@@ -320,7 +320,7 @@ const sockaddr_in* castToIP4(const sockaddr* addr) {
     }
 }
 
-g3d_uint32 getIP(const sockaddr_in* addr) {
+uint32 getIP(const sockaddr_in* addr) {
     if (addr != NULL) {
         return ntohl(addr->sin_addr.s_addr);
     } else {
@@ -385,9 +385,9 @@ bool NetworkDevice::init() {
             const sockaddr_in* broadcastAddress = castToIP4(current->ifa_dstaddr);
             const sockaddr_in* subnetMask       = castToIP4(current->ifa_netmask);
 
-            g3d_uint32 ip = getIP(interfaceAddress);
-            g3d_uint32 ba = getIP(broadcastAddress);
-            g3d_uint32 sn = getIP(subnetMask);
+            uint32 ip = getIP(interfaceAddress);
+            uint32 ba = getIP(broadcastAddress);
+            uint32 sn = getIP(subnetMask);
             
             if (ip != 0) {
                 adapter.ip = ip;
@@ -401,7 +401,7 @@ bool NetworkDevice::init() {
                 adapter.subnet = sn;
             }
 
-            g3d_uint8_t* MAC = NULL;
+            uint8_t* MAC = NULL;
             // Extract MAC address
             if ((current->ifa_addr != NULL) && (current->ifa_addr->sa_family == AF_LINK)) {
 #               ifdef __linux__
@@ -416,7 +416,7 @@ bool NetworkDevice::init() {
                     ioctl(fd, SIOCGIFHWADDR, &ifr);
                     close(fd);
                     
-                    MAC = reinterpret_cast<g3d_uint8_t*>(ifr.ifr_hwaddr.sa_data);
+                    MAC = reinterpret_cast<uint8_t*>(ifr.ifr_hwaddr.sa_data);
                 }
 #               else
                 {
@@ -425,7 +425,7 @@ bool NetworkDevice::init() {
                     
                     // Posix/FreeBSD/Mac OS
                     sockaddr_dl* sdl = (struct sockaddr_dl *)current->ifa_addr;
-                    MAC = reinterpret_cast<g3d_uint8_t*>(LLADDR(sdl));
+                    MAC = reinterpret_cast<uint8_t*>(LLADDR(sdl));
                 }
 #               endif
                 
@@ -479,18 +479,18 @@ void NetworkDevice::_cleanup() {
 }
 
 bool NetworkDevice::bind(SOCKET sock, const NetAddress& addr) const {
-    G3D_Log::common()->printf("Binding socket %d on port %d ", 
+    Log::common()->printf("Binding socket %d on port %d ", 
                      sock, htons(addr.addr.sin_port));
     if (::bind(sock, (struct sockaddr*)&(addr.addr), sizeof(addr.addr)) == 
         SOCKET_ERROR) {
 
-        G3D_Log::common()->println("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("FAIL");
+        Log::common()->println(socketErrorCode());
         closesocket(sock);
         return false;
     }
 
-    G3D_Log::common()->println("Ok");
+    Log::common()->println("Ok");
     return true;
 }
 
@@ -503,7 +503,7 @@ void NetworkDevice::closesocket(SOCKET& sock) const {
             close(sock);
         #endif
 
-        G3D_Log::common()->printf("Closed socket %d\n", sock);
+        Log::common()->printf("Closed socket %d\n", sock);
         sock = 0;
     }
 }
@@ -515,13 +515,13 @@ void NetworkDevice::localHostAddresses(Array<NetAddress>& array) const {
     char ac[128];
 
     if (gethostname(ac, sizeof(ac)) == SOCKET_ERROR) {
-        G3D_Log::common()->printf("Error while getting local host name\n");
+        Log::common()->printf("Error while getting local host name\n");
         return;
     }
 
     struct hostent* phe = gethostbyname(ac);
     if (phe == 0) {
-        G3D_Log::common()->printf("Error while getting local host address\n");
+        Log::common()->printf("Error while getting local host address\n");
         return;
     }
 
@@ -548,22 +548,22 @@ Conduit::~Conduit() {
 }
 
 
-g3d_uint64 Conduit::bytesSent() const {
+uint64 Conduit::bytesSent() const {
     return bSent;
 }
 
 
-g3d_uint64 Conduit::bytesReceived() const {
+uint64 Conduit::bytesReceived() const {
     return bReceived;
 }
 
 
-g3d_uint64 Conduit::messagesSent() const {
+uint64 Conduit::messagesSent() const {
     return mSent;
 }
 
 
-g3d_uint64 Conduit::messagesReceived() const {
+uint64 Conduit::messagesReceived() const {
     return mReceived;
 }
 
@@ -586,19 +586,19 @@ static void increaseBufferSize(SOCKET sock) {
     // Increase the buffer size; the default (8192) is too easy to
     // overflow when the network latency is high.
     {
-        g3d_uint32 val = 1024 * 1024 * 2;
+        uint32 val = 1024 * 1024 * 2;
         if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, 
                        (char*)&val, sizeof(val)) == SOCKET_ERROR) {
-            G3D_Log::common()->printf("WARNING: Increasing socket "
+            Log::common()->printf("WARNING: Increasing socket "
                                  "receive buffer to %d failed.\n", val);
-            G3D_Log::common()->println(socketErrorCode());
+            Log::common()->println(socketErrorCode());
         }
 
         if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, 
                        (char*)&val, sizeof(val)) == SOCKET_ERROR) {
-            G3D_Log::common()->printf("WARNING: Increasing socket "
+            Log::common()->printf("WARNING: Increasing socket "
                                  "send buffer to %d failed.\n", val);
-            G3D_Log::common()->println(socketErrorCode());
+            Log::common()->println(socketErrorCode());
         }
     }
 }
@@ -619,17 +619,17 @@ ReliableConduit::ReliableConduit(
     messageType         = 0;
 
     addr = _addr;
-    G3D_Log::common()->print("Creating a TCP socket       ");
+    Log::common()->print("Creating a TCP socket       ");
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     
     if (sock == SOCKET_ERROR) {
-        G3D_Log::common()->println("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("FAIL");
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         return;
     }
 
-    G3D_Log::common()->println("Ok");
+    Log::common()->println("Ok");
 
     // Setup socket options (both constructors should set the same options)
 
@@ -638,11 +638,11 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, 
                    (const char*)&T, sizeof(T)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Disabling Nagel's "
+        Log::common()->println("WARNING: Disabling Nagel's "
                               "algorithm failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Disabled Nagel's algorithm.");
+        Log::common()->println("Disabled Nagel's algorithm.");
     }
 
     // Set the NO LINGER option so the socket doesn't hang around if
@@ -653,10 +653,10 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, SOL_SOCKET, SO_LINGER, 
                    (const char*)&ling, sizeof(ling)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Setting socket no linger failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Setting socket no linger failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Set socket option no_linger.");
+        Log::common()->println("Set socket option no_linger.");
     }
 
     // Set reuse address so that a new server can start up soon after
@@ -664,10 +664,10 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
                    (const char*)&T, sizeof(T)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Setting socket reuseaddr failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Setting socket reuseaddr failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Set socket option reuseaddr.");
+        Log::common()->println("Set socket option reuseaddr.");
     }
 
     // Ideally, we'd like to specify IPTOS_LOWDELAY as well.
@@ -676,10 +676,10 @@ ReliableConduit::ReliableConduit(
 
     increaseBufferSize(sock);
 
-    G3D_Log::common()->printf("Created TCP socket %d\n", sock);
+    Log::common()->printf("Created TCP socket %d\n", sock);
 
     std::string x = addr.toString();
-    G3D_Log::common()->printf("Connecting to %s on TCP socket %d   ", x.c_str(), sock);
+    Log::common()->printf("Connecting to %s on TCP socket %d   ", x.c_str(), sock);
 
     int ret = connect(sock, (struct sockaddr *) &(addr.addr), sizeof(addr.addr));
 
@@ -694,12 +694,12 @@ ReliableConduit::ReliableConduit(
 
     } else if (ret != 0) {
         sock = (SOCKET)SOCKET_ERROR;
-        G3D_Log::common()->println("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("FAIL");
+        Log::common()->println(socketErrorCode());
         return;
     }
 
-    G3D_Log::common()->println("Ok");
+    Log::common()->println("Ok");
 }
 
 
@@ -722,10 +722,10 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, 
                    (const char*)&T, sizeof(T)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Disabling Nagel's algorithm failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Disabling Nagel's algorithm failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Disabled Nagel's algorithm.");
+        Log::common()->println("Disabled Nagel's algorithm.");
     }
 
     // Set the NO LINGER option so the socket doesn't hang around if
@@ -736,10 +736,10 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, SOL_SOCKET, SO_LINGER, 
                    (const char*)&ling, sizeof(ling)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Setting socket no linger failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Setting socket no linger failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Set socket option no_linger.");
+        Log::common()->println("Set socket option no_linger.");
     }
 
     // Set reuse address so that a new server can start up soon after
@@ -747,10 +747,10 @@ ReliableConduit::ReliableConduit(
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
                    (const char*)&T, sizeof(T)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Setting socket reuseaddr failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Setting socket reuseaddr failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Set socket option reuseaddr.");
+        Log::common()->println("Set socket option reuseaddr.");
     }
 
     // Ideally, we'd like to specify IPTOS_LOWDELAY as well.
@@ -817,7 +817,7 @@ bool ReliableConduit::messageWaiting() {
 }
 
 
-g3d_uint32 ReliableConduit::waitingMessageType() {
+uint32 ReliableConduit::waitingMessageType() {
     // The messageWaiting call is what actually receives the message.
     if (messageWaiting()) {
         return messageType;
@@ -832,8 +832,8 @@ void ReliableConduit::sendBuffer(const BinaryOutput& b) {
     int ret = ::send(sock, (const char*)b.getCArray(), b.size(), 0);
     
     if (ret == SOCKET_ERROR) {
-        G3D_Log::common()->println("Error occured while sending message.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("Error occured while sending message.");
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         return;
     }
@@ -854,7 +854,7 @@ public:
 };
 
 
-void ReliableConduit::send(g3d_uint32 type) {
+void ReliableConduit::send(uint32 type) {
     static Dummy dummy;
     send(type, dummy);
 }
@@ -871,7 +871,7 @@ void ReliableConduit::receiveHeader() {
     debugAssert(state == RECEIVING);
 
     // Read the type
-    g3d_uint32 tmp;
+    uint32 tmp;
     int ret = recv(sock, (char*)&tmp, sizeof(tmp), 0);
 
     // The type is the first four bytes.  It is little endian.
@@ -885,10 +885,10 @@ void ReliableConduit::receiveHeader() {
     }
 
     if ((ret == SOCKET_ERROR) || (ret != sizeof(messageType))) {
-        G3D_Log::common()->printf("Call to recv failed.  ret = %d,"
+        Log::common()->printf("Call to recv failed.  ret = %d,"
                              " sizeof(messageType) = %d\n", 
                              (int)ret, (int)sizeof(messageType));
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         messageType = 0;
         return;
@@ -898,10 +898,10 @@ void ReliableConduit::receiveHeader() {
     ret = recv(sock, (char*)&messageSize, sizeof(messageSize), 0);
 
     if ((ret == SOCKET_ERROR) || (ret != sizeof(messageSize))) {
-        G3D_Log::common()->printf("Call to recv failed.  ret = %d,"
+        Log::common()->printf("Call to recv failed.  ret = %d,"
                              " sizeof(len) = %d\n", (int)ret,
                              (int)sizeof(messageSize));
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         messageType = 0;
         return;
@@ -919,7 +919,7 @@ void ReliableConduit::receiveHeader() {
     }
 
     if (receiveBuffer == NULL) {
-        G3D_Log::common()->println("Could not allocate a memory buffer "
+        Log::common()->println("Could not allocate a memory buffer "
                               "during receivePacket.");
         nd->closesocket(sock);
     }
@@ -938,7 +938,7 @@ void ReliableConduit::receiveIntoBuffer() {
 
     // Read the data itself
     int ret = 0;
-    g3d_uint32 left = messageSize - receiveBufferUsedSize;
+    uint32 left = messageSize - receiveBufferUsedSize;
     int count = 0;
     while ((ret != SOCKET_ERROR) && (left > 0) && (count < 100)) {
 
@@ -965,11 +965,11 @@ void ReliableConduit::receiveIntoBuffer() {
     if ((ret == 0) || (ret == SOCKET_ERROR)) {
 
         if (ret == SOCKET_ERROR) {
-            G3D_Log::common()->printf("Call to recv failed.  ret = %d,"
+            Log::common()->printf("Call to recv failed.  ret = %d,"
                  " sizeof(messageSize) = %d\n", ret, messageSize);
-            G3D_Log::common()->println(socketErrorCode());
+            Log::common()->println(socketErrorCode());
         } else {
-            G3D_Log::common()->printf("recv returned 0\n");
+            Log::common()->printf("recv returned 0\n");
         }
         nd->closesocket(sock);
         return;
@@ -981,7 +981,7 @@ void ReliableConduit::receiveIntoBuffer() {
 
 ///////////////////////////////////////////////////////////////////////////////
 LightweightConduitRef LightweightConduit::create(
-    g3d_uint16                      receivePort,
+    uint16                      receivePort,
     bool                        enableReceive,
     bool                        enableBroadcast) {
     
@@ -989,21 +989,21 @@ LightweightConduitRef LightweightConduit::create(
 }
 
 LightweightConduit::LightweightConduit(
-    g3d_uint16 port,
+    uint16 port,
     bool enableReceive, 
     bool enableBroadcast) {
     NetworkDevice* nd = NetworkDevice::instance();
 
-    G3D_Log::common()->print("Creating a UDP socket        ");
+    Log::common()->print("Creating a UDP socket        ");
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     if (sock == SOCKET_ERROR) {
         sock = 0;
-        G3D_Log::common()->println("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("FAIL");
+        Log::common()->println(socketErrorCode());
         return;
     }
-    G3D_Log::common()->println("Ok");
+    Log::common()->println("Ok");
 
     if (enableReceive) {
         debugAssert(port != 0);
@@ -1023,15 +1023,15 @@ LightweightConduit::LightweightConduit(
         int TR = true;
         if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, 
                        (const char*)&TR, sizeof(TR)) != 0) {
-            G3D_Log::common()->println("Call to setsockopt failed");
-            G3D_Log::common()->println(socketErrorCode());
+            Log::common()->println("Call to setsockopt failed");
+            Log::common()->println(socketErrorCode());
             nd->closesocket(sock);
             sock = 0;
             return;
         }
     }
 
-    G3D_Log::common()->printf("Done creating UDP socket %d\n", sock);
+    Log::common()->printf("Done creating UDP socket %d\n", sock);
 
     alreadyReadMessage = false;
 }
@@ -1045,7 +1045,7 @@ bool LightweightConduit::receive(NetAddress& sender) {
     // This both checks to ensure that a message was waiting and
     // actively consumes the message from the network stream if
     // it has not been read yet.
-    g3d_uint32 t = waitingMessageType();
+    uint32 t = waitingMessageType();
     if (t == 0) {
         return false;
     }
@@ -1066,9 +1066,9 @@ void LightweightConduit::sendBuffer(const NetAddress& a, BinaryOutput& b) {
     NetworkDevice* nd = NetworkDevice::instance();
     if (sendto(sock, (const char*)b.getCArray(), b.size(), 0,
        (struct sockaddr *) &(a.addr), sizeof(a.addr)) == SOCKET_ERROR) {
-        G3D_Log::common()->printf("Error occured while sending packet "
+        Log::common()->printf("Error occured while sending packet "
                              "to %s\n", inet_ntoa(a.addr.sin_addr));
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
     } else {
         ++mSent;
@@ -1083,7 +1083,7 @@ bool LightweightConduit::messageWaiting() {
 }
 
 
-g3d_uint32 LightweightConduit::waitingMessageType() {
+uint32 LightweightConduit::waitingMessageType() {
     NetworkDevice* nd = NetworkDevice::instance();
     if (! messageWaiting()) {
         return 0;
@@ -1100,9 +1100,9 @@ g3d_uint32 LightweightConduit::waitingMessageType() {
             (socklen_t*)&iRemoteAddrLen);
 
         if (ret == SOCKET_ERROR) {
-            G3D_Log::common()->println("Error: recvfrom failed in "
+            Log::common()->println("Error: recvfrom failed in "
                     "LightweightConduit::waitingMessageType().");
-            G3D_Log::common()->println(socketErrorCode());
+            Log::common()->println(socketErrorCode());
             nd->closesocket(sock);
             messageBuffer.resize(0);
             messageSender = NetAddress();
@@ -1119,7 +1119,7 @@ g3d_uint32 LightweightConduit::waitingMessageType() {
 
         // The type is the first four bytes.  It is little endian.
         if (System::machineEndian() == G3D_LITTLE_ENDIAN) {
-            messageType = *((g3d_uint32*)messageBuffer.getCArray());
+            messageType = *((uint32*)messageBuffer.getCArray());
         } else {
             // Swap the byte order
             for (int i = 0; i < 4; ++i) {
@@ -1136,24 +1136,24 @@ g3d_uint32 LightweightConduit::waitingMessageType() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-NetListenerRef NetListener::create(const g3d_uint16 port) {
+NetListenerRef NetListener::create(const uint16 port) {
     return new NetListener(port);
 }
 
 
-NetListener::NetListener(g3d_uint16 port) {
+NetListener::NetListener(uint16 port) {
     NetworkDevice* nd = NetworkDevice::instance();
 
     // Start the listener socket
-    G3D_Log::common()->print("Creating a listener            ");
+    Log::common()->print("Creating a listener            ");
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     
     if (sock == SOCKET_ERROR) {
-        G3D_Log::common()->printf("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->printf("FAIL");
+        Log::common()->println(socketErrorCode());
         return;
     }
-    G3D_Log::common()->println("Ok");
+    Log::common()->println("Ok");
 
     const int T = true;
 
@@ -1162,35 +1162,35 @@ NetListener::NetListener(g3d_uint16 port) {
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
                    (const char*)&T, sizeof(T)) == SOCKET_ERROR) {
         
-        G3D_Log::common()->println("WARNING: Setting socket reuseaddr failed.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("WARNING: Setting socket reuseaddr failed.");
+        Log::common()->println(socketErrorCode());
     } else {
-        G3D_Log::common()->println("Set socket option reuseaddr.");
+        Log::common()->println("Set socket option reuseaddr.");
     }
 
     
     if (! nd->bind(sock, NetAddress(0, port))) {
-        G3D_Log::common()->printf("Unable to bind!\n");
+        Log::common()->printf("Unable to bind!\n");
         nd->closesocket(sock);
         sock = (SOCKET)SOCKET_ERROR;
         return;
     }
 
-    G3D_Log::common()->printf("Listening on port %5d        ", port);
+    Log::common()->printf("Listening on port %5d        ", port);
 
     // listen is supposed to return 0 when there is no error.
     // The 2nd argument is the number of connections to allow pending
     // at any time.
     int L = listen(sock, 100);
     if (L == SOCKET_ERROR) {
-        G3D_Log::common()->println("FAIL");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("FAIL");
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         sock = (SOCKET)SOCKET_ERROR;
         return;
     }
-    G3D_Log::common()->println("Ok");
-    G3D_Log::common()->printf("Now listening on socket %d.\n\n", sock);
+    Log::common()->println("Ok");
+    Log::common()->printf("Now listening on socket %d.\n\n", sock);
 }
 
 
@@ -1206,19 +1206,19 @@ ReliableConduitRef NetListener::waitForConnection() {
     SOCKADDR_IN    remote_addr;
     int iAddrLen = sizeof(remote_addr);
 
-    G3D_Log::common()->println("Blocking in NetListener::waitForConnection().");
+    Log::common()->println("Blocking in NetListener::waitForConnection().");
 
     SOCKET sClient = accept(sock, (struct sockaddr*) &remote_addr, 
                             (socklen_t*)&iAddrLen);
 
     if (sClient == SOCKET_ERROR) {
-        G3D_Log::common()->println("Error in NetListener::acceptConnection.");
-        G3D_Log::common()->println(socketErrorCode());
+        Log::common()->println("Error in NetListener::acceptConnection.");
+        Log::common()->println(socketErrorCode());
         nd->closesocket(sock);
         return NULL;
     }
 
-    G3D_Log::common()->printf("%s connected, transferred to socket %d.\n", 
+    Log::common()->printf("%s connected, transferred to socket %d.\n", 
                          inet_ntoa(remote_addr.sin_addr), sClient);
 
     #ifndef G3D_WIN32

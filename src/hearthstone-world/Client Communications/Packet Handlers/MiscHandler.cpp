@@ -820,30 +820,15 @@ void WorldSession::HandleCorpseReclaimOpcode(WorldPacket& recv_data)
 
     // Check that we're reviving from a corpse, and that corpse is associated with us.
     if( pCorpse->GetUInt32Value( CORPSE_FIELD_OWNER ) != _player->GetLowGUID() && pCorpse->GetUInt32Value( CORPSE_FIELD_FLAGS ) == 5 )
-    {
-        WorldPacket data( SMSG_RESURRECT_FAILED, 4 );
-        data << uint32(1); // this is a real guess!
-        SendPacket(&data);
         return;
-    }
 
     // Check we are actually in range of our corpse
     if ( pCorpse->GetDistance2dSq( _player ) > CORPSE_MINIMUM_RECLAIM_RADIUS_SQ || GetPlayer()->PreventRes)
-    {
-        WorldPacket data( SMSG_RESURRECT_FAILED, 4 );
-        data << uint32(1);
-        SendPacket(&data);
         return;
-    }
 
     // Check death clock before resurrect they must wait for release to complete
     if( pCorpse->GetDeathClock() + (_player->ReclaimCount*15) > time( NULL ) )
-    {
-        WorldPacket data( SMSG_RESURRECT_FAILED, 4 );
-        data << uint32(1);
-        SendPacket(&data);
         return;
-    }
 
     GetPlayer()->ResurrectPlayer();
     GetPlayer()->SetUInt32Value(UNIT_FIELD_HEALTH, GetPlayer()->GetUInt32Value(UNIT_FIELD_MAXHEALTH)/2 );
@@ -1144,7 +1129,6 @@ void WorldSession::HandlePlayedTimeOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE( recv_data, 8 );
     CHECK_INWORLD_RETURN();
 
     uint64 guid;
@@ -1456,10 +1440,9 @@ void WorldSession::HandleLootRollOpcode(WorldPacket& recv_data)
 void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 2);
+
     int8 slot, containerslot;
     recv_data >> containerslot >> slot;
-
     Item* pItem = _player->GetItemInterface()->GetInventoryItem(containerslot, slot);
     if(!pItem)
         return;

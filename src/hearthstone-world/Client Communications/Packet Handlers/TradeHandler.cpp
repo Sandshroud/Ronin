@@ -12,8 +12,6 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    CHECK_PACKET_SIZE(recv_data, 8);
-
     uint64 guid;
     recv_data >> guid;
 
@@ -203,8 +201,6 @@ void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
     if(!_player->IsInWorld() || _player->mTradeTarget == 0)
         return;
 
-    CHECK_PACKET_SIZE(recv_data, 3);
-
     uint8 TradeSlot = recv_data.contents()[0];
     int8 SourceBag = recv_data.contents()[1];
     uint8 SourceSlot = recv_data.contents()[2];
@@ -268,7 +264,6 @@ void WorldSession::HandleSetTradeGold(WorldPacket & recv_data)
 
 void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
 {
-    CHECK_PACKET_SIZE(recv_data, 1);
     if(!_player->IsInWorld() || _player->mTradeTarget == 0)
         return;
 

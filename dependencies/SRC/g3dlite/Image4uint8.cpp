@@ -176,7 +176,7 @@ void Image4uint8::copyArray(const Color4* src, int w, int h) {
 void Image4uint8::copyArray(const Color3uint8* ptr, int w, int h) {
     resize(w, h);
     
-    GImage::RGBtoRGBA((const g3d_uint8*)ptr, (g3d_uint8*)getCArray(), w * h);
+    GImage::RGBtoRGBA((const uint8*)ptr, (uint8*)getCArray(), w * h);
 }
 
 
@@ -215,7 +215,7 @@ ReferenceCountedPointer<class Image1uint8> Image4uint8::getChannel(int c) const 
 }
 
 
-const ImageFormat* Image4uint8::G3D_format() const {
+const ImageFormat* Image4uint8::format() const {
     return ImageFormat::RGBA8();
 }
 

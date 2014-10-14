@@ -7,10 +7,9 @@
 void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 8);
+
     uint64 guid;
     recv_data >> guid;
-
     if(!guid)
     {
         // does this mean cancel combat?

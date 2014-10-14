@@ -76,7 +76,7 @@ private:
     bool                    _bool;
     int                     _line;
     int                     _character;
-    g3d_uint64                  _bytePosition;
+    uint64                  _bytePosition;
     Type                    _type;
     ExtendedType            _extendedType;
 
@@ -91,10 +91,10 @@ public:
         _type(END), 
         _extendedType(END_TYPE) {}
 
-    Token(Type t, ExtendedType e, const std::string& s, int L, int c, g3d_uint64 byte)
+    Token(Type t, ExtendedType e, const std::string& s, int L, int c, uint64 byte)
         : _string(s), _bool(false), _line(L), _character(c), _bytePosition(byte), _type(t), _extendedType(e) {}
 
-    Token(Type t, ExtendedType e, const std::string& s, bool b, int L, int c, g3d_uint64 byte)
+    Token(Type t, ExtendedType e, const std::string& s, bool b, int L, int c, uint64 byte)
         : _string(s), _bool(b), _line(L), _character(c), _bytePosition(byte), _type(t), _extendedType(e) {}
 
     Type type() const {
@@ -136,7 +136,7 @@ public:
 
     /** Number of bytes from the beginning of the buffer that this token was parsed from. 
       Begins at 0 */
-    g3d_uint64 bytePosition() const {
+    uint64 bytePosition() const {
         return _bytePosition;
     }
 
@@ -398,7 +398,7 @@ public:
 
         Settings();
     };
-    
+	
 private:
 
     std::deque<Token>       stack;
@@ -817,7 +817,7 @@ public:
 
 void deserialize(bool& b, TextInput& ti);
 void deserialize(int& b, TextInput& ti);
-void deserialize(g3d_uint8& b, TextInput& ti);
+void deserialize(uint8& b, TextInput& ti);
 void deserialize(double& b, TextInput& ti);
 void deserialize(float& b, TextInput& ti);
 void deserialize(std::string& b, TextInput& ti);

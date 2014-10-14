@@ -67,7 +67,7 @@ namespace MMAP
 
         G3D::Array<float> liquidVerts;
         G3D::Array<int> liquidTris;
-        G3D::Array<G3D::g3d_uint8> liquidType;
+        G3D::Array<G3D::uint8> liquidType;
 
         // offmesh connection data
         G3D::Array<float> offMeshConnections;   // [p0y,p0z,p0x,p1y,p1z,p1x] - per connection
@@ -83,11 +83,11 @@ namespace MMAP
             TerrainBuilder(bool skipLiquid);
             ~TerrainBuilder();
 
-            bool InitializeVMap(G3D::g3d_uint32 mapID);
-            void loadMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData);
-            bool loadVMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData);
-            void loadOffMeshConnections(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData, const char* offMeshFilePath);
-            void UnloadVMap(G3D::g3d_uint32 mapID);
+            bool InitializeVMap(G3D::uint32 mapID);
+            void loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
+            bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
+            void loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath);
+            void UnloadVMap(G3D::uint32 mapID);
 
             bool usesLiquids() { return !m_skipLiquid; }
 
@@ -100,7 +100,7 @@ namespace MMAP
             static void cleanVertices(G3D::Array<float> &verts, G3D::Array<int> &tris);
         private:
             /// Loads a portion of a map's terrain
-            bool loadMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData, Spot portion);
+            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, Spot portion);
 
             /// Sets loop variables for selecting only certain parts of a map's terrain
             void getLoopVars(Spot portion, int &loopStart, int &loopEnd, int &loopInc);
@@ -112,7 +112,7 @@ namespace MMAP
             VMAP::VMapManager* vmapManager;
 
             /// Load the map terrain from file
-            bool loadHeightMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, G3D::Array<float> &vertices, G3D::Array<int> &triangles, Spot portion);
+            bool loadHeightMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, G3D::Array<float> &vertices, G3D::Array<int> &triangles, Spot portion);
 
             /// Get the vector coordinate for a specific position
             void getHeightCoord(int index, Grid grid, float xOffset, float yOffset, float* coord, float* v);
@@ -127,10 +127,10 @@ namespace MMAP
             void getLiquidCoord(float x, float y, float &coordz, float* v);
 
             /// Get the liquid type for specific coords
-            G3D::g3d_uint16 getLiquidType(float x, float y, const G3D::g3d_uint16 liquid_type[256]);
+            G3D::uint16 getLiquidType(float x, float y, const G3D::uint16 liquid_type[256]);
 
             /// Get the liquid type for a specific position
-            G3D::g3d_uint16 getLiquidType(int square, const G3D::g3d_uint16 liquid_type[256]);
+            G3D::uint16 getLiquidType(int square, const G3D::uint16 liquid_type[256]);
 
             // hide parameterless and copy constructor
             TerrainBuilder();

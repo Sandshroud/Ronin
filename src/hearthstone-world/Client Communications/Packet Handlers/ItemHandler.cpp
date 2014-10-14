@@ -7,7 +7,7 @@
 void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 5);
+
     int8 DstInvSlot=0, DstSlot=0, SrcInvSlot=0, SrcSlot=0;
     uint8 count=0;
 
@@ -131,14 +131,10 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 4);
-    WorldPacket data;
-    WorldPacket packet;
-    Item* SrcItem = NULLITEM;
-    Item* DstItem = NULLITEM;
 
+    WorldPacket data, packet;
+    Item* SrcItem = NULLITEM, *DstItem = NULLITEM;
     int8 DstInvSlot=0, DstSlot=0, SrcInvSlot=0, SrcSlot=0, error=0;
-
     recv_data >> DstInvSlot >> DstSlot >> SrcInvSlot >> SrcSlot;
 
     sLog.outDebug("ITEM: swap, DstInvSlot %i DstSlot %i SrcInvSlot %i SrcSlot %i", DstInvSlot, DstSlot, SrcInvSlot, SrcSlot);
@@ -258,7 +254,6 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
 void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 2);
     WorldPacket data;
     int8 srcslot=0, dstslot=0;
     int8 error=0;
@@ -378,7 +373,6 @@ void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
 void WorldSession::HandleDestroyItemOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 2);
 
     int8 SrcInvSlot, SrcSlot;
     uint32 data;
@@ -471,7 +465,6 @@ void WorldSession::HandleDestroyItemOpcode( WorldPacket & recv_data )
 void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 2);
 
     AddItemResult result;
     int8 SrcInvSlot, SrcSlot, error = 0;
@@ -629,8 +622,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
 void WorldSession::HandleBuyBackOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 8);
-    WorldPacket data(16);
+    WorldPacket data(SMSG_BUY_ITEM, 16);
     uint64 guid;
     int32 stuff;
     Item* add ;
@@ -667,7 +659,7 @@ void WorldSession::HandleBuyBackOpcode( WorldPacket & recv_data )
         int32 cost =_player->GetUInt32Value(PLAYER_FIELD_BUYBACK_PRICE_1 + stuff);
         if((int32)_player->GetUInt32Value(PLAYER_FIELD_COINAGE) < cost )
         {
-            WorldPacket data(SMSG_BUY_FAILED, 12);
+            data.Initialize( SMSG_BUY_FAILED );
             data << uint64(guid);
             data << uint32(itemid);
             data << uint8(2); //not enough money
@@ -720,10 +712,7 @@ void WorldSession::HandleBuyBackOpcode( WorldPacket & recv_data )
 void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 17);
     sLog.Debug( "WORLD"," Received CMSG_SELL_ITEM" );
-    if(!GetPlayer())
-        return;
 
     uint64 vendorguid=0, itemguid=0;
     int32 amount=0;
@@ -821,11 +810,7 @@ void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
 void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click on item
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 14);
     sLog.Debug( "WORLD"," Received CMSG_BUY_ITEM" );
-
-    if(!GetPlayer())
-        return;
 
     uint64 vendorGuid;
     uint32 itemid, slot, count;
@@ -963,10 +948,8 @@ void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    CHECK_PACKET_SIZE(recv_data, 8);
     sLog.Debug( "WORLD"," Recvd CMSG_LIST_INVENTORY" );
     uint64 guid;
-
     recv_data >> guid;
 
     Creature* unit = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
@@ -1059,7 +1042,6 @@ void WorldSession::SendInventoryList(Creature* unit)
 
 void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 3);
     sLog.Debug( "WORLD"," Recvd CMSG_AUTO_STORE_BAG_ITEM" );
 
     if(!GetPlayer())
@@ -1178,7 +1160,6 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
 void WorldSession::HandleReadItemOpcode(WorldPacket &recvPacket)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recvPacket, 2);
     int8 uslot=0, slot=0;
     recvPacket >> uslot >> slot;
 
@@ -1251,7 +1232,6 @@ HEARTHSTONE_INLINE void RepairItem(Player* pPlayer, Item* pItem, bool guild = fa
 void WorldSession::HandleRepairItemOpcode(WorldPacket &recvPacket)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recvPacket, 12);
 
     uint64 npcguid, itemguid;
     bool guildmoney;
@@ -1396,7 +1376,6 @@ void WorldSession::HandleBuyBankSlotOpcode(WorldPacket& recvPacket)
 void WorldSession::HandleAutoBankItemOpcode(WorldPacket &recvPacket)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recvPacket, 2);
     sLog.Debug("WorldSession","Received CMSG_AUTO_BANK_ITEM");
 
     //WorldPacket data;
@@ -1444,7 +1423,6 @@ void WorldSession::HandleAutoBankItemOpcode(WorldPacket &recvPacket)
 void WorldSession::HandleAutoStoreBankItemOpcode(WorldPacket &recvPacket)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recvPacket, 2);
     sLog.outDebug("WORLD: CMSG_AUTOSTORE_BANK_ITEM");
 
     //WorldPacket data;

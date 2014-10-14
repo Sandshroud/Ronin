@@ -64,7 +64,7 @@ class BinaryOutput;
     // Saving to memory:
     G3D::GImage im3(width, height);
     // (Set the pixels of im3...) 
-    g3d_uint8* data2;
+    uint8* data2;
     int    len2;
     im3.encode(G3D::GImage::JPEG, data2, len2);
 
@@ -89,7 +89,7 @@ private:
     /** Used exclusively for allocating m_byte; this may be an 
      implementation that allocates directly on a GPU.*/
     MemoryManager::Ref      m_memMan;
-    g3d_uint8*                  m_byte;
+    uint8*                  m_byte;
 
     int                     m_channels;
     int                     m_width;
@@ -130,7 +130,7 @@ public:
         return m_height;
     }
 
-    inline const g3d_uint8* byte() const {
+    inline const uint8* byte() const {
         return m_byte;
     }
 
@@ -150,12 +150,12 @@ public:
     }
 
     inline const Color1uint8* pixel1() const {
-        debugAssertM(m_channels == 1, G3D_format("Tried to call GImage::pixel1 on an image with %d channels", m_channels));            
+        debugAssertM(m_channels == 1, format("Tried to call GImage::pixel1 on an image with %d channels", m_channels));            
         return (Color1uint8*)m_byte;
     }
 
     inline Color1uint8* pixel1() {
-        debugAssertM(m_channels == 1, G3D_format("Tried to call GImage::pixel1 on an image with %d channels", m_channels));            
+        debugAssertM(m_channels == 1, format("Tried to call GImage::pixel1 on an image with %d channels", m_channels));            
         return (Color1uint8*)m_byte;
     }
 
@@ -163,7 +163,7 @@ public:
         as Color4uint8.
      */
     inline const Color4uint8* pixel4() const {
-        debugAssertM(m_channels == 4, G3D_format("Tried to call GImage::pixel4 on an image with %d channels", m_channels));            
+        debugAssertM(m_channels == 4, format("Tried to call GImage::pixel4 on an image with %d channels", m_channels));            
         return (Color4uint8*)m_byte;
     }
 
@@ -176,7 +176,7 @@ public:
         as Color3uint8.
      */
     inline const Color3uint8* pixel3() const {
-         debugAssertM(m_channels == 3, G3D_format("Tried to call GImage::pixel3 on an image with %d channels", m_channels));            
+         debugAssertM(m_channels == 3, format("Tried to call GImage::pixel3 on an image with %d channels", m_channels));            
          return (Color3uint8*)m_byte;
     }
 
@@ -225,7 +225,7 @@ public:
         return pixel4()[x + y * m_width];
     }
 
-    inline g3d_uint8* byte() {
+    inline uint8* byte() {
         return m_byte;
     }
 
@@ -289,7 +289,7 @@ private:
      */
     static Format resolveFormat(
         const std::string&  filename,
-        const g3d_uint8*        data,
+        const uint8*        data,
         int                 dataLen,
         Format              maybeFormat);
 
@@ -439,7 +439,7 @@ public:
      */
     void encode(
         Format              format,
-        g3d_uint8*&             outData,
+        uint8*&             outData,
         int&                outLength) const;
 
     /**
@@ -461,10 +461,10 @@ public:
     int sizeInMemory() const;
 
     /** Ok for in == out */
-    static void R8G8B8_to_Y8U8V8(int width, int height, const g3d_uint8* in, g3d_uint8* out);
+    static void R8G8B8_to_Y8U8V8(int width, int height, const uint8* in, uint8* out);
 
     /** Ok for in == out */
-    static void Y8U8V8_to_R8G8B8(int width, int height, const g3d_uint8* in, g3d_uint8* out);
+    static void Y8U8V8_to_R8G8B8(int width, int height, const uint8* in, uint8* out);
 
     /**
     @param in        RGB buffer of numPixels * 3 bytes
@@ -472,50 +472,50 @@ public:
     @param numPixels Number of RGB pixels to convert
     */
     static void RGBtoRGBA(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     numPixels);
 
     static void RGBtoARGB(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     numPixels);
 
     static void LtoRGB
-    (const g3d_uint8*            in,
-     g3d_uint8*                  out,
+    (const uint8*            in,
+     uint8*                  out,
      int                     numPixels);
 
     static void LtoRGBA
-    (const g3d_uint8*            in,
-     g3d_uint8*                  out,
+    (const uint8*            in,
+     uint8*                  out,
      int                     numPixels);
     
     /** Safe for in == out */
     static void RGBtoBGR(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     numPixels);
 
     /**
     Win32 32-bit HDC format.
     */
     static void RGBtoBGRA(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     numPixels);
 
     static void RGBAtoRGB(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     numPixels);
     /**
     Uses the red channel of the second image as an alpha channel.
     */
     static void RGBxRGBtoRGBA(
-        const g3d_uint8*            colorRGB,
-        const g3d_uint8*            alphaRGB,
-        g3d_uint8*                  out,
+        const uint8*            colorRGB,
+        const uint8*            alphaRGB,
+        uint8*                  out,
         int                     numPixels);
         
     /**
@@ -523,14 +523,14 @@ public:
     Safe for in == out.
     */
     static void flipRGBVertical(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     width,
         int                     height);
 
     static void flipRGBAVertical(
-        const g3d_uint8*            in,
-        g3d_uint8*                  out,
+        const uint8*            in,
+        uint8*                  out,
         int                     width,
         int                     height);
 
@@ -543,9 +543,9 @@ public:
 
     Particularly useful as part of the idiom:
     <PRE>
-        GImage normal;
-        computeNormalMap(GImage(filename), normal);
-        return Texture::fromGImage(filename, normal);
+ 	    GImage normal;
+	    computeNormalMap(GImage(filename), normal);
+	    return Texture::fromGImage(filename, normal);
     </PRE>
 
       */
@@ -558,7 +558,7 @@ public:
        (int                 width,
         int                 height,
         int                 channels,
-        const g3d_uint8*        src,
+        const uint8*        src,
         GImage&             normal,
         const BumpMapPreprocess& preprocess = BumpMapPreprocess());
 
@@ -572,18 +572,18 @@ public:
 
     Assumes in != out.
     */
-    static void BAYER_G8B8_R8G8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out);
-    static void BAYER_G8R8_B8G8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out);
-    static void BAYER_R8G8_G8B8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out);
-    static void BAYER_B8G8_G8R8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out);
+    static void BAYER_G8B8_R8G8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out);
+    static void BAYER_G8R8_B8G8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out);
+    static void BAYER_R8G8_G8B8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out);
+    static void BAYER_B8G8_G8R8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out);
 
     /** Fast conversion; the output has 1/2 the size of the input in each direction. Assumes in != out.
     See G3D::BAYER_G8B8_R8G8_to_R8G8B8_MHC for a much better result. */
     static void BAYER_G8B8_R8G8_to_Quarter_R8G8B8
        (int inWidth,
         int inHeight, 
-        const g3d_uint8* in, 
-        g3d_uint8* out);
+        const uint8* in, 
+        uint8* out);
 
     /** Attempt to undo fast conversion of G3D::BAYER_G8B8_R8G8_to_Quarter_R8G8B8; 
         the green channel will lose data. Assumes in != out 
@@ -593,8 +593,8 @@ public:
     static void Quarter_R8G8B8_to_BAYER_G8B8_R8G8
        (int inWidth, 
         int inHeight, 
-        const g3d_uint8* in, 
-        g3d_uint8* out);
+        const uint8* in, 
+        uint8* out);
 
     /** Overwrites every pixel with one of the two colors in a checkerboard pattern.
         The fields used from the two colors depend on the current number of channels in @a im. 

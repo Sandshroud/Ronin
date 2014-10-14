@@ -35,7 +35,7 @@ namespace G3D {
 std::string CoordinateFrame::toXYZYPRDegreesString() const {
     UprightFrame uframe(*this);
     
-    return G3D_format("CFrame::fromXYZYPRDegrees(% 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff)", 
+    return format("CFrame::fromXYZYPRDegrees(% 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff, % 5.1ff)", 
                   uframe.translation.x, uframe.translation.y, uframe.translation.z, 
                   toDegrees(uframe.yaw), toDegrees(uframe.pitch), 0.0f);
 }
@@ -224,7 +224,7 @@ Matrix4 CoordinateFrame::toMatrix4() const {
 
 
 std::string CoordinateFrame::toXML() const {
-    return G3D::G3D_format(
+    return G3D::format(
         "<COORDINATEFRAME>\n  %lf,%lf,%lf,%lf,\n  %lf,%lf,%lf,%lf,\n  %lf,%lf,%lf,%lf,\n  %lf,%lf,%lf,%lf\n</COORDINATEFRAME>\n",
         rotation[0][0], rotation[0][1], rotation[0][2], translation.x,
         rotation[1][0], rotation[1][1], rotation[1][2], translation.y,

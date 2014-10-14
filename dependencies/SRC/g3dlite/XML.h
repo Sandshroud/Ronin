@@ -81,11 +81,11 @@ public:
 
     XML(const std::string& v) : m_type(VALUE), m_value(v) {}
 
-    XML(const double& v) : m_type(VALUE), m_value(G3D_format("%f", v)) {}
+    XML(const double& v) : m_type(VALUE), m_value(format("%f", v)) {}
 
-    XML(float v) : m_type(VALUE), m_value(G3D_format("%f", v)) {}
+    XML(float v) : m_type(VALUE), m_value(format("%f", v)) {}
 
-    XML(int v) : m_type(VALUE), m_value(G3D_format("%d", v)) {}
+    XML(int v) : m_type(VALUE), m_value(format("%d", v)) {}
 
     /** \param tagType Must be XML::TAG to dismbiguate from the string constructor */
     XML(Type tagType, const std::string& name, const AttributeTable& at, const Array<XML>& ch = Array<XML>()) : m_type(TAG), m_name(name), m_attribute(at), m_child(ch) {
@@ -127,7 +127,7 @@ public:
     }
 
     /** Attribute table size; zero for a TAG */
-    unsigned int numAttributes() const {
+    int numAttributes() const {
         return m_attribute.size();
     }
 

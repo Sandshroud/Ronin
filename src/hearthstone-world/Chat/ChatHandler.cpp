@@ -474,16 +474,11 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 16);
     if(!_player->IsInWorld() || !_player->isAlive())
         return;
 
     uint64 guid;
-    uint32
-        text_emote,
-        unk,
-        namelen =1;
-    const char* name =" ";
+    uint32 text_emote, unk, namelen =1;
 
     recv_data >> text_emote;
     recv_data >> unk;
@@ -539,6 +534,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         }
     }
 
+    const char* name =" ";
     Unit* pUnit = _player->GetMapMgr()->GetUnit(guid);
     if(pUnit)
     {
@@ -610,8 +606,6 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleReportSpamOpcode(WorldPacket & recvPacket)
 {
-    CHECK_PACKET_SIZE(recvPacket, 29);
-
     // the 0 in the out packet is unknown
     GetPlayer()->GetSession()->OutPacket(SMSG_COMPLAIN_RESULT, 1, 0 );
 

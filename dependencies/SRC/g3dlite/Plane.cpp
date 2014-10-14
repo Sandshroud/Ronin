@@ -16,19 +16,19 @@
 namespace G3D {
 
 Plane::Plane(class BinaryInput& b) {
-    deserialize(b);
+	deserialize(b);
 }
 
 
 void Plane::serialize(class BinaryOutput& b) const {
-    _normal.serialize(b);
-    b.writeFloat64(_distance);
+	_normal.serialize(b);
+	b.writeFloat64(_distance);
 }
 
 
 void Plane::deserialize(class BinaryInput& b) {
-    _normal.deserialize(b);
-    _distance = (float)b.readFloat64();
+	_normal.deserialize(b);
+	_distance = (float)b.readFloat64();
 }
 
 
@@ -143,7 +143,7 @@ void Plane::getEquation(double& a, double& b, double& c, double& d) const {
 
 
 std::string Plane::toString() const {
-    return G3D_format("Plane(%g, %g, %g, %g)", _normal.x, _normal.y, _normal.z, _distance);
+    return format("Plane(%g, %g, %g, %g)", _normal.x, _normal.y, _normal.z, _distance);
 }
 
 }

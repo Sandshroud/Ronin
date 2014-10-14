@@ -17,7 +17,7 @@ namespace G3D {
 
 AreaMemoryManager::Buffer::Buffer(size_t size) : m_size(size), m_used(0) {
     // Allocate space for a lot of buffers.
-    m_first = (g3d_uint8*)::malloc(m_size);
+    m_first = (uint8*)::malloc(m_size);
 }
 
 
@@ -66,7 +66,7 @@ void* AreaMemoryManager::alloc(size_t s) {
     void* n = (m_bufferArray.size() > 0) ? m_bufferArray.last()->alloc(s) : NULL;
     if (n == NULL) {
         // This buffer is full
-        m_bufferArray.append(new Buffer(G3D_max(s, m_sizeHint)));
+        m_bufferArray.append(new Buffer(max(s, m_sizeHint)));
         return m_bufferArray.last()->alloc(s);
     } else {
         return n;

@@ -509,17 +509,17 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     case TYPEID_UNIT:
     case TYPEID_PLAYER:
         {
-            updateFlags = UPDATEFLAG_LIVING|UPDATEFLAG_HAS_POSITION;
+            updateFlags = UPDATEFLAG_LIVING;
         }break;
     case TYPEID_GAMEOBJECT:
         {
-            updateFlags = UPDATEFLAG_HAS_POSITION|UPDATEFLAG_POSITION|UPDATEFLAG_ROTATION;
+            updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
             switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
             {
             case GAMEOBJECT_TYPE_TRANSPORT:
             case GAMEOBJECT_TYPE_MO_TRANSPORT:
                 {
-                    updateFlags |= UPDATEFLAG_TRANSPORT;
+                    updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
                 }break;
             case GAMEOBJECT_TYPE_TRAP:
             case GAMEOBJECT_TYPE_DUEL_ARBITER:
@@ -532,9 +532,10 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
                 }break;
             }
         }break;
+    case TYPEID_AREATRIGGER:
     case TYPEID_CORPSE:
     case TYPEID_DYNAMICOBJECT:
-        updateFlags = UPDATEFLAG_HAS_POSITION|UPDATEFLAG_POSITION;
+        updateFlags = UPDATEFLAG_STATIONARY_POS;
         break;
     }
 
@@ -672,82 +673,183 @@ void Object::DestroyForPlayer(Player* target, bool anim)
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
-    *data << uint16(flags);
+    ByteBuffer bytes;
+
+    uint32 loopCounter = 0;
+    for(uint32 i = 0; i < loopCounter; i++)
+        bytes << uint32(0);
+    bytes << uint16(flags);
+    data->WriteBit(0);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_ROTATION);
+    data->WriteBit(flags & UPDATEFLAG_ANIMKITS);
+    data->WriteBit(flags & UPDATEFLAG_HAS_TARGET);
+    data->WriteBit(flags & UPDATEFLAG_SELF);
+    data->WriteBit(flags & UPDATEFLAG_VEHICLE);
+    data->WriteBit(flags & UPDATEFLAG_LIVING);
+    data->WriteBits(loopCounter, 24);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
+    data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
+    data->WriteBit(flags & UPDATEFLAG_UNK5);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
+
 
     if(flags & UPDATEFLAG_LIVING)
     {
         if(!IsUnit())
             return;
 
-        size_t pos = data->wpos();
-        TO_UNIT(this)->GetMovementInfo()->write(*data);
-        data->put<uint8>(pos, 0);   // Clear our movement bits
-        *data << m_walkSpeed;       // walk speed
-        *data << m_runSpeed;        // run speed
-        *data << m_backWalkSpeed;   // backwards run speed
-        *data << m_swimSpeed;       // swim speed
-        *data << m_backSwimSpeed;   // backwards swim speed
-        *data << m_flySpeed;        // fly speed
-        *data << m_backFlySpeed;    // back fly speed
-        *data << m_turnRate;        // turn rate
-        *data << m_pitchRate;       // pitch rate
-    }
-    else if(flags & UPDATEFLAG_POSITION)
-    {
-        *data << uint8(0);              // unk PGUID!
-        *data << float(m_position.x);
-        *data << float(m_position.y);
-        *data << float(m_position.z);
-        *data << float(m_position.x);
-        *data << float(m_position.y);
-        *data << float(m_position.z);
-        *data << float(m_position.o);
-        *data << float(0);
-    }
-    else if(flags & UPDATEFLAG_HAS_POSITION)
-    {
-        if(flags & UPDATEFLAG_TRANSPORT && (GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) == GAMEOBJECT_TYPE_MO_TRANSPORT))
+        MovementInfo *moveInfo = TO_UNIT(this)->GetMovementInfo();
+        data->WriteBit(moveInfo->movementFlags == 0);
+        data->WriteBit(G3D::fuzzyEq(GetOrientation(), 0.0f));                   // Has Orientation
+        data->WriteBitString(3, m_wowGuid[7], m_wowGuid[3], m_wowGuid[2]);
+        if (moveInfo->movementFlags) data->WriteBits(moveInfo->movementFlags, 30);
+
+        data->WriteBit(moveInfo->HasSplineInfo() && IsPlayer());
+        data->WriteBit(!moveInfo->HasPitchFlags());
+        data->WriteBit(moveInfo->HasSplineInfo());
+        data->WriteBit(moveInfo->HasFallData());
+        data->WriteBit(!moveInfo->HasElevatedSpline());
+        data->WriteBit(m_wowGuid[5]);
+        data->WriteBit(moveInfo->transGuid.GetOldGuid());
+        data->WriteBit(false);
+
+        bytes.WriteByteSeq(m_wowGuid[4]);
+        bytes << m_backWalkSpeed;   // backwards run speed
+        if (moveInfo->HasFallData())
         {
-            *data << float(0);
-            *data << float(0);
-            *data << float(0);
+            if (moveInfo->movementFlags & MOVEFLAG_FALLING)
+            {
+                bytes << float(moveInfo->j_vel);
+                bytes << float(moveInfo->j_sin);
+                bytes << float(moveInfo->j_cos);
+            }
+
+            bytes << uint32(moveInfo->fallTime);
+            bytes << float(moveInfo->j_speed);
         }
-        else
+        bytes << m_backSwimSpeed;   // backwards swim speed
+        if(moveInfo->HasElevatedSpline())
+            bytes << moveInfo->splineElevation;
+        if(moveInfo->HasSplineInfo());// Write spline data
+        bytes << float(GetPositionZ());
+        bytes.WriteByteSeq(m_wowGuid[5]);
+
+        if (moveInfo->transGuid.GetOldGuid())
         {
-            *data << float(m_position.x);
-            *data << float(m_position.y);
-            *data << float(m_position.z);
+            data->WriteBit(moveInfo->transGuid[1]);
+            data->WriteBit(moveInfo->transTime2); // Transport time 2
+            data->WriteBit(moveInfo->transGuid[4]);
+            data->WriteBit(moveInfo->transGuid[0]);
+            data->WriteBit(moveInfo->transGuid[6]);
+            data->WriteBit(false); // Transport time 3
+            data->WriteBit(moveInfo->transGuid[7]);
+            data->WriteBit(moveInfo->transGuid[5]);
+            data->WriteBit(moveInfo->transGuid[3]);
+            data->WriteBit(moveInfo->transGuid[2]);
+
+            bytes.WriteByteSeq(moveInfo->transGuid[5]);
+            bytes.WriteByteSeq(moveInfo->transGuid[7]);
+            bytes << uint32(moveInfo->transTime);
+            bytes << float(moveInfo->GetTPositionO());
+            if (moveInfo->transTime2) bytes << uint32(moveInfo->transTime2);
+            bytes << float(moveInfo->GetTPositionY());
+            bytes << float(moveInfo->GetTPositionX());
+            bytes.WriteByteSeq(moveInfo->transGuid[3]);
+            bytes << float(moveInfo->GetTPositionZ());
+            bytes.WriteByteSeq(moveInfo->transGuid[0]);
+            if (false) bytes << uint32(moveInfo->transTime3);
+            bytes << int8(moveInfo->transSeat);
+            bytes.WriteByteSeq(moveInfo->transGuid[1]);
+            bytes.WriteByteSeq(moveInfo->transGuid[6]);
+            bytes.WriteByteSeq(moveInfo->transGuid[2]);
+            bytes.WriteByteSeq(moveInfo->transGuid[4]);
         }
-        *data << float(m_position.o);
+        data->WriteBit(m_wowGuid[4]);
+        // Write spline bits
+        data->WriteBit(m_wowGuid[6]);
+        if (moveInfo->HasFallData()) data->WriteBit((moveInfo->movementFlags & MOVEFLAG_FALLING));
+        data->WriteBit(m_wowGuid[0]);
+        data->WriteBit(m_wowGuid[1]);
+        data->WriteBit(false);
+        data->WriteBit(moveInfo->movementFlags2 == 0);
+        if (moveInfo->movementFlags2)
+            data->WriteBits(moveInfo->movementFlags2, 12);
+
+        bytes << float(GetPositionX());
+        bytes << m_pitchRate;       // pitch rate
+        bytes.WriteByteSeq(m_wowGuid[3]);
+        bytes.WriteByteSeq(m_wowGuid[0]);
+        bytes << m_swimSpeed;       // swim speed
+        bytes << float(GetPositionY());
+        bytes.WriteByteSeq(m_wowGuid[7]);
+        bytes.WriteByteSeq(m_wowGuid[1]);
+        bytes.WriteByteSeq(m_wowGuid[2]);
+        bytes << m_walkSpeed;       // walk speed
+        bytes << uint32(getMSTime());
+        bytes << m_turnRate;        // turn rate
+        bytes.WriteByteSeq(m_wowGuid[6]);
+        bytes << m_flySpeed;        // fly speed
+        if(!G3D::fuzzyEq(GetOrientation(), 0.0f))
+            bytes << GetOrientation();
+        bytes << m_runSpeed;        // run speed
+        if(moveInfo->HasPitchFlags())
+            bytes << moveInfo->pitch;
+        bytes << m_backFlySpeed;    // back fly speed
+    }
+
+    if(flags & UPDATEFLAG_VEHICLE)
+        bytes << float(TO_VEHICLE(this)->GetOrientation()) << TO_VEHICLE(this)->GetVehicleEntry();
+
+    if(flags & UPDATEFLAG_ROTATION)
+    {
+        uint64 rotation = 0;
+        if(IsGameObject()) rotation = TO_GAMEOBJECT(this)->m_rotation;
+        bytes << uint64(rotation); //blizz 64bit rotation
+    }
+
+    if (flags & UPDATEFLAG_STATIONARY_POS)
+    {
+        *data << float(GetOrientation());
+        *data << float(GetPositionX());
+        *data << float(GetPositionY());
+        *data << float(GetPositionZ());
     }
 
     if(flags & UPDATEFLAG_HAS_TARGET)
-        FastGUIDPack(*data, GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
+    {
+        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
+        data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
+        data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
+        bytes.WriteByteSeq(targetGuid[4]);
+        bytes.WriteByteSeq(targetGuid[0]);
+        bytes.WriteByteSeq(targetGuid[3]);
+        bytes.WriteByteSeq(targetGuid[5]);
+        bytes.WriteByteSeq(targetGuid[7]);
+        bytes.WriteByteSeq(targetGuid[6]);
+        bytes.WriteByteSeq(targetGuid[2]);
+        bytes.WriteByteSeq(targetGuid[1]);
+    }
+
+    if (flags & UPDATEFLAG_ANIMKITS)
+    {
+        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
+        if(false) bytes << uint32(0); // AnimKit1
+        if(false) bytes << uint32(0); // AnimKit2
+        if(false) bytes << uint32(0); // AnimKit3
+    }
 
     if(flags & UPDATEFLAG_TRANSPORT)
     {
         if(IsTransport())
-            *data << TO_TRANSPORT(this)->m_timer;
-        else *data << (uint32)getMSTime();
+            bytes << TO_TRANSPORT(this)->m_timer;
+        else bytes << (uint32)getMSTime();
     }
 
-    if(flags & UPDATEFLAG_VEHICLE)
-        *data << TO_VEHICLE(this)->GetVehicleEntry() << float(TO_VEHICLE(this)->GetOrientation());
-
-    if(flags & UPDATEFLAG_ANIMKITS)
-        *data << uint16(0) << uint16(0) << uint16(0);
-
-    // 0x200
-    if(flags & UPDATEFLAG_ROTATION)
-    {
-        uint64 rotation = 0;
-        if(IsGameObject())
-            rotation = TO_GAMEOBJECT(this)->m_rotation;
-        *data << uint64(rotation); //blizz 64bit rotation
-    }
-
-    if(flags & UPDATEFLAG_UNK5)
-        *data << uint8(0);
+    data->FlushBits();
+    data->append(bytes);
 }
 
 //=======================================================================================
@@ -1220,10 +1322,11 @@ void Object::SetUInt32Value( const uint32 index, const uint32 value )
 
     m_uint32Values[ index ] = value;
 
-    if(IsInWorld())
+    if(IsUnit() && index >= UNIT_FIELD_POWERS && index < UNIT_FIELD_MAXHEALTH)
+        TO_UNIT(this)->SendPowerUpdate(EUnitFields(index));
+    else if(IsInWorld())
     {
         m_updateMask.SetBit( index );
-
         if(!m_objectUpdated)
         {
             m_mapMgr->ObjectUpdated(this);
@@ -1232,21 +1335,9 @@ void Object::SetUInt32Value( const uint32 index, const uint32 value )
     }
 
     // Group update handling
-    if(m_objectTypeId == TYPEID_PLAYER)
-    {
-        if(IsInWorld())
-        {
-            Group* pGroup = TO_PLAYER(this)->GetGroup();
-            if( pGroup != NULL )
-                pGroup->HandleUpdateFieldChange( index, TO_PLAYER(this) );
-        }
-    }
-
-    if(IsUnit())
-    {
-        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
-            static_cast< Unit* >( this )->SendPowerUpdate();
-    }
+    if(IsInWorld() && m_objectTypeId == TYPEID_PLAYER)
+        if(Group* pGroup = TO_PLAYER(this)->GetGroup())
+            pGroup->HandleUpdateFieldChange( index, TO_PLAYER(this) );
 }
 
 //! Set uint16 property
@@ -1281,12 +1372,6 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
                 pGroup->HandleUpdateFieldChange( index, TO_PLAYER(this) );
         }
     }
-
-    if(IsUnit())
-    {
-        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
-            static_cast< Unit* >( this )->SendPowerUpdate();
-    }
 }
 
 uint32 Object::GetModPUInt32Value(const uint32 index, const int32 value)
@@ -1306,7 +1391,9 @@ void Object::ModUnsigned32Value(uint32 index, int32 mod)
     if( (int32)m_uint32Values[index] < 0 )
         m_uint32Values[index] = 0;
 
-    if(IsInWorld())
+    if(IsUnit() && index >= UNIT_FIELD_POWERS && index < UNIT_FIELD_MAXHEALTH)
+        TO_UNIT(this)->SendPowerUpdate();
+    else if(IsInWorld())
     {
         m_updateMask.SetBit( index );
 
@@ -1315,12 +1402,6 @@ void Object::ModUnsigned32Value(uint32 index, int32 mod)
             m_mapMgr->ObjectUpdated(this);
             m_objectUpdated = true;
         }
-    }
-
-    if(m_objectTypeId == TYPEID_PLAYER)
-    {
-        if(index >= UNIT_FIELD_MANA && index < UNIT_FIELD_MAXHEALTH)
-            static_cast< Unit* >( this )->SendPowerUpdate();
     }
 }
 
@@ -1890,13 +1971,13 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     {
         float level = (float)pVictim->getLevel();
         float c = 0.0091107836f * level * level + 3.225598133f * level + 4.2652911f;
-        uint32 rage = pVictim->GetUInt32Value( UNIT_FIELD_RAGE );
+        uint32 rage = pVictim->GetPower(POWER_TYPE_RAGE);
         float val = 2.5f * damage / c;
         rage += float2int32(val) * 10;
-        if( rage > pVictim->GetUInt32Value(UNIT_FIELD_MAX_RAGE) )
-            rage = pVictim->GetUInt32Value(UNIT_FIELD_MAX_RAGE);
+        if( rage > pVictim->GetMaxPower(POWER_TYPE_RAGE) )
+            rage = pVictim->GetMaxPower(POWER_TYPE_RAGE);
 
-        pVictim->SetUInt32Value(UNIT_FIELD_RAGE, rage);
+        pVictim->SetPower(POWER_TYPE_RAGE, rage);
         pVictim->SendPowerUpdate();
     }
 
@@ -1911,28 +1992,6 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     }
 
     uint32 health = pVictim->GetUInt32Value(UNIT_FIELD_HEALTH );
-    if(pVictim->getClass() == ROGUE && health <= damage && pVictim->IsPlayer() && pVictim->m_CustomTimers[CUSTOM_TIMER_CHEATDEATH] <= getMSTime() )
-    {
-        Player* plrVictim = TO_PLAYER(pVictim);
-        uint32 rank = plrVictim->m_cheatDeathRank;
-
-        uint32 chance = rank == 3 ? 100 : rank * 33;
-        if(Rand(chance))
-        {
-            // Proc that cheating death!
-            SpellEntry *spellInfo = dbcSpell.LookupEntry(45182);
-            Spell* spell(new Spell(pVictim, spellInfo, true, NULLAURA));
-            SpellCastTargets targets;
-            targets.m_unitTarget = pVictim->GetGUID();
-            spell->prepare(&targets);
-            TO_PLAYER(pVictim)->m_CustomTimers[CUSTOM_TIMER_CHEATDEATH] = getMSTime() + 60000;
-
-            // Why return? So this damage isn't counted. ;)
-            // On official, it seems Blizzard applies it's Cheating Death school absorb aura for 1 msec, but it's too late
-            // for us by now.
-            return 0;
-        }
-    }
 
     /*------------------------------------ DUEL HANDLERS --------------------------*/
     if(pVictim->IsPlayer() && TO_PLAYER(pVictim)->DuelingWith != NULL) //Both Players
@@ -2074,7 +2133,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         }
         else
         {
-            pVictim->setDeathState( JUST_DIED );
+            pVictim->SetDeathState( JUST_DIED );
             /* Remove all Auras */
             pVictim->m_AuraInterface.EventDeathAuraRemoval();
             /* Set victim health to 0 */
@@ -3027,14 +3086,6 @@ int32 Object::GetSpellBaseCost(SpellEntry *sp)
             cost = GetUInt32Value(UNIT_FIELD_BASE_MANA) * (sp->ManaCostPercentage / 100.0f);
         else cost = GetUInt32Value(UNIT_FIELD_BASE_HEALTH) * (sp->ManaCostPercentage / 100.0f);
     } else cost = (float)sp->ManaCost;
-
-    switch(sp->NameHash)
-    {
-    case SPELL_HASH_LIFE_TAP:
-        {
-            cost = (sp->EffectBasePoints[0]+1)+(1.5f*GetUInt32Value(UNIT_FIELD_SPIRIT));
-        }break;
-    }
 
     return float2int32(cost); // Truncate zeh decimals!
 }

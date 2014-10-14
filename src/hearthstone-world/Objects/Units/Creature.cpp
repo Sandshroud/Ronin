@@ -165,7 +165,7 @@ void Creature::OnRemoveCorpse()
             else RemoveFromWorld(false, true);
         }
 
-        setDeathState(DEAD);
+        SetDeathState(DEAD);
         SetPosition(m_spawnLocation);
     }
 }
@@ -196,7 +196,7 @@ void Creature::OnRespawn( MapMgr* m)
         SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
     }
 
-    setDeathState(ALIVE);
+    SetDeathState(ALIVE);
     GetAIInterface()->StopMovement(0); // after respawn monster can move
     m_PickPocketed = false;
     PushToWorld(m);
@@ -398,8 +398,9 @@ void Creature::_LoadQuests()
     sQuestMgr.LoadNPCQuests(TO_CREATURE(this));
 }
 
-void Creature::CreatureSetDeathState(DeathState s)
+void Creature::SetDeathState(DeathState s)
 {
+    Unit::SetDeathState(s);
     if(s == JUST_DIED)
     {
         GetAIInterface()->SetUnitToFollow(NULLUNIT);
@@ -566,8 +567,8 @@ void Creature::RegenerateMana(bool isinterrupted)
     if (m_interruptRegen)
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_MANA);
-    uint32 mm = GetUInt32Value(UNIT_FIELD_MAX_MANA);
+    uint32 cur = GetPower(POWER_TYPE_MANA);
+    uint32 mm = GetMaxPower(POWER_TYPE_MANA);
     if(cur >= mm)
         return;
 
@@ -577,13 +578,13 @@ void Creature::RegenerateMana(bool isinterrupted)
         if(amt <= 1.0)//this fixes regen like 0.98
             cur++;
         else cur += (uint32)amt;
-        SetUInt32Value(UNIT_FIELD_MANA, (cur>=mm)?mm:cur);
+        SetPower(POWER_TYPE_MANA, (cur>=mm)?mm:cur);
         return;
     }
 
     cur += float2int32(ceil(float(mm)/10.f));
     if(cur >= mm || (mm-cur < mm/16)) cur = mm;
-    SetUInt32Value(UNIT_FIELD_MANA, cur);
+    SetPower(POWER_TYPE_MANA, cur);
 }
 
 void Creature::AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, uint32 ec)
@@ -792,7 +793,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", spawn->entry);
 
 //SETUP NPC FLAGS
-    SetUInt32Value(UNIT_NPC_FLAGS,_creatureData->NPCFLags);
+    SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
         m_SellItems = objmgr.GetVendorList(GetEntry());
@@ -868,7 +869,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     case POWER_TYPE_MANA:
         {
             SetPowerType(POWER_TYPE_MANA);
-            SetUInt32Value(UNIT_FIELD_MANA, _creatureData->MaxPower);
+            SetPower(POWER_TYPE_MANA, _creatureData->MaxPower);
             SetMaxPower(POWER_TYPE_MANA,_creatureData->MaxPower);
             SetUInt32Value(UNIT_FIELD_BASE_MANA, _creatureData->MaxPower);
         }break;
@@ -901,23 +902,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
             SetPowerType(POWER_TYPE_RUNIC);
             SetPower(POWER_TYPE_RUNIC, _creatureData->MaxPower*10);
             SetMaxPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
-        }break;
-        //Special vehicle power type cases.
-    case POWER_TYPE_STEAM:
-    case POWER_TYPE_HEAT:
-    case POWER_TYPE_OOZ:
-    case POWER_TYPE_BLOOD:
-    case POWER_TYPE_WRATH:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY, 100);
-            SetMaxPower(POWER_TYPE_ENERGY,100);
-        }break;
-    case POWER_TYPE_PYRITE:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetMaxPower(POWER_TYPE_ENERGY,50);
-            m_interruptRegen = true;
         }break;
     default:
         {
@@ -1168,23 +1152,6 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
             SetPowerType(POWER_TYPE_RUNIC);
             SetPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
             SetMaxPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
-        }break;
-        //Special vehicle power type cases.
-    case POWER_TYPE_STEAM:
-    case POWER_TYPE_HEAT:
-    case POWER_TYPE_OOZ:
-    case POWER_TYPE_BLOOD:
-    case POWER_TYPE_WRATH:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY,100);
-            SetMaxPower(POWER_TYPE_ENERGY,100);
-        }break;
-    case POWER_TYPE_PYRITE:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetMaxPower(POWER_TYPE_ENERGY,50);
-            m_interruptRegen = true;
         }break;
     default:
         {

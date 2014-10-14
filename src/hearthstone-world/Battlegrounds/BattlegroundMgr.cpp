@@ -961,7 +961,7 @@ void CBattleground::BuildPvPUpdateDataPacket(WorldPacket * data)
     if(IsArena() && !m_ended)
         return;
 
-    data->Initialize(MSG_PVP_LOG_DATA);
+    data->Initialize(SMSG_PVP_LOG_DATA);
     data->reserve(1+1+4+40*(m_players[0].size()+m_players[1].size()));
 
     BGScore * bs;
@@ -1454,7 +1454,7 @@ void CBattlegroundManager::SendBattlegroundQueueStatus(Player* plr, uint32 queue
     //if( queueSlot > 3 )
         return;
 
-    WorldPacket data(SMSG_BATTLEFIELD_STATUS1, 40);
+    WorldPacket data(SMSG_BATTLEFIELD_STATUS, 40);
     data << uint32(queueSlot);
     plr->GetSession()->SendPacket(&data);
 }
@@ -1654,14 +1654,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
 
     pCreature->SetUInt32Value(UNIT_FIELD_HEALTH, 100000);
-    pCreature->SetUInt32Value(UNIT_FIELD_MANA, 4868);
-    pCreature->SetUInt32Value(UNIT_FIELD_FOCUS, 200);
-    pCreature->SetUInt32Value(UNIT_FIELD_HAPPINESS, 2000000);
-
     pCreature->SetUInt32Value(UNIT_FIELD_MAXHEALTH, 10000);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAX_MANA, 4868);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAX_FOCUS, 200);
-    pCreature->SetUInt32Value(UNIT_FIELD_MAX_HAPPINESS, 2000000);
 
     pCreature->setLevel(60);
     pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 84 - horde);
@@ -1766,8 +1759,6 @@ void CBattleground::EventResurrectPlayers()
                 plr->ResurrectPlayer();
                 plr->SpawnCorpseBones();
                 plr->SetUInt32Value(UNIT_FIELD_HEALTH, plr->GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-                plr->SetUInt32Value(UNIT_FIELD_MANA, plr->GetUInt32Value(UNIT_FIELD_MAX_MANA));
-                plr->SetUInt32Value(UNIT_FIELD_ENERGY, plr->GetUInt32Value(UNIT_FIELD_MAX_ENERGY));
                 plr->CastSpell(plr, BG_REVIVE_PREPARATION, true);
             }
         }
@@ -1899,9 +1890,6 @@ void CBattlegroundManager::HandleArenaJoin(WorldSession * m_session, uint32 Batt
                     return;
                 }
             }
-            WorldPacket data(SMSG_GROUP_JOINED_BATTLEGROUND, 4);
-            data << uint32(6);      // all arenas
-            m_session->SendPacket(&data);
 
             for(itx = pGroup->GetSubGroup(0)->GetGroupMembersBegin(); itx != pGroup->GetSubGroup(0)->GetGroupMembersEnd(); itx++)
             {
@@ -1912,7 +1900,6 @@ void CBattlegroundManager::HandleArenaJoin(WorldSession * m_session, uint32 Batt
                     (*itx)->m_loggedInPlayer->m_bgQueueInstanceId[0] = 0;
                     (*itx)->m_loggedInPlayer->m_bgQueueType[0] = BattlegroundType;
                     (*itx)->m_loggedInPlayer->m_bgQueueTime[0] = (uint32)UNIXTIME;
-                    (*itx)->m_loggedInPlayer->GetSession()->SendPacket(&data);
                     (*itx)->m_loggedInPlayer->m_bgEntryPointX=(*itx)->m_loggedInPlayer->GetPositionX();
                     (*itx)->m_loggedInPlayer->m_bgEntryPointY=(*itx)->m_loggedInPlayer->GetPositionY();
                     (*itx)->m_loggedInPlayer->m_bgEntryPointZ=(*itx)->m_loggedInPlayer->GetPositionZ();

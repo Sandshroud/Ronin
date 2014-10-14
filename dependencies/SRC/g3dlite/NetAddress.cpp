@@ -44,7 +44,7 @@ NetAddress::NetAddress() {
     System::memset(&addr, 0, sizeof(addr));
 }
 
-void NetAddress::init(g3d_uint32 host, g3d_uint16 port) {
+void NetAddress::init(uint32 host, uint16 port) {
     if ((host != 0) || (port != 0)) {
         addr.sin_family      = AF_INET;
         addr.sin_port        = htons(port);
@@ -60,16 +60,16 @@ void NetAddress::init(g3d_uint32 host, g3d_uint16 port) {
 
 NetAddress::NetAddress(
     const std::string&          hostname,
-    g3d_uint16                      port) {
+    uint16                      port) {
     init(hostname, port);
 }
 
 
 void NetAddress::init(
     const std::string&          hostname,
-    g3d_uint16                      port) {
+    uint16                      port) {
 
-    g3d_uint32 addr;
+    uint32 addr;
     
     if (hostname == "") {
         addr = INADDR_NONE;
@@ -77,7 +77,7 @@ void NetAddress::init(
         addr = inet_addr(hostname.c_str());
     }
 
-    // The address wasn't in numeric form, resolve it
+	// The address wasn't in numeric form, resolve it
     if (addr == INADDR_NONE) {
         // Get the IP address of the server and store it in host
         struct hostent* host = gethostbyname(hostname.c_str());
@@ -97,12 +97,12 @@ void NetAddress::init(
 }
 
 
-NetAddress::NetAddress(g3d_uint32 hostip, g3d_uint16 port) {
+NetAddress::NetAddress(uint32 hostip, uint16 port) {
     init(hostip, port);
 }
 
 
-NetAddress NetAddress::broadcastAddress(g3d_uint16 port) {
+NetAddress NetAddress::broadcastAddress(uint16 port) {
     return NetAddress(NetworkDevice::instance()->broadcastAddressArray()[0], port);
 }
 
@@ -121,7 +121,7 @@ NetAddress::NetAddress(const SOCKADDR_IN& a) {
 }
 
 
-NetAddress::NetAddress(const struct in_addr& addr, g3d_uint16 port) {
+NetAddress::NetAddress(const struct in_addr& addr, uint16 port) {
     #ifdef G3D_WIN32
         init(ntohl(addr.S_un.S_addr), port);
     #else
@@ -137,8 +137,8 @@ void NetAddress::serialize(class BinaryOutput& b) const {
 
 
 void NetAddress::deserialize(class BinaryInput& b) {
-    g3d_uint32 i;
-    g3d_uint16 p;
+    uint32 i;
+    uint16 p;
 
     i = b.readUInt32();
     p = b.readUInt16();
@@ -153,12 +153,12 @@ bool NetAddress::ok() const {
 
 
 std::string NetAddress::ipString() const {
-    return G3D_format("%s", inet_ntoa(*(in_addr*)&(addr.sin_addr)));
+    return format("%s", inet_ntoa(*(in_addr*)&(addr.sin_addr)));
 }
 
 
 std::string NetAddress::toString() const {
-    return ipString() + G3D_format(":%d", ntohs(addr.sin_port));
+    return ipString() + format(":%d", ntohs(addr.sin_port));
 }
 
 }

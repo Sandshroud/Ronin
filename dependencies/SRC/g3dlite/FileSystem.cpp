@@ -295,10 +295,10 @@ bool FileSystem::_isZipfile(const std::string& filename) {
     if (f == NULL) {
         return false;
     }
-    g3d_uint8 header[4];
+    uint8 header[4];
     fread(header, 4, 1, f);
     
-    const g3d_uint8 zipHeader[4] = {0x50, 0x4b, 0x03, 0x04};
+    const uint8 zipHeader[4] = {0x50, 0x4b, 0x03, 0x04};
     for (int i = 0; i < 4; ++i) {
         if (header[i] != zipHeader[i]) {
             fclose(f);
@@ -528,7 +528,7 @@ bool FileSystem::_isNewer(const std::string& src, const std::string& dst) {
 }
 
 
-g3d_int64 FileSystem::_size(const std::string& filename) {
+int64 FileSystem::_size(const std::string& filename) {
     struct stat64 st;
     int result = stat64(filename.c_str(), &st);
     
@@ -536,7 +536,7 @@ g3d_int64 FileSystem::_size(const std::string& filename) {
 #if _HAVE_ZIP /* G3DFIX: Use ZIP-library only if defined */
         std::string zip, contents;
         if (zipfileExists(filename, zip, contents)) {
-            g3d_int64 requiredMem;
+            int64 requiredMem;
             
             struct zip *z = zip_open( zip.c_str(), ZIP_CHECKCONS, NULL );
             debugAssertM(z != NULL, zip + ": zip open failed.");

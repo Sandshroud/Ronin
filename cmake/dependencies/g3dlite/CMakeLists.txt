@@ -17,7 +17,9 @@ SET(skipFiles
 "${prefix}/GImage_tga.cpp"
 "${prefix}/ImageFormat.h"
 "${prefix}/ImageFormat.cpp"
-"${prefix}/ImageFormat_convert.cpp")
+"${prefix}/ImageFormat_convert.cpp"
+"${prefix}/Stopwatch.h"
+"${prefix}/Stopwatch.cpp")
 list(REMOVE_ITEM sources ${skipFiles})
 source_group("G3D" FILES ${sources})
 SET( SRCS ${SRCS} ${sources} )
@@ -26,8 +28,11 @@ FILE(GLOB vmap "${prefix}/vmap/*.*")
 source_group("vMap" FILES ${vmap})
 SET( SRCS ${SRCS} ${vmap} )
 
-include_directories( ${prefix} )
+include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
+
+add_dependencies( ${PROJECT_NAME} zlib )
+target_link_libraries( ${PROJECT_NAME} ${ZLIB_LIBRARIES} zlib )
 
 #Set it to the project name.
 set(G3DLITE_LIBRARIES ${PROJECT_NAME} CACHE INTERNAL "${PROJECT_NAME} Libraries")

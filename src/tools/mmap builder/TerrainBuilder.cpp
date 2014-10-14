@@ -76,7 +76,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void TerrainBuilder::loadMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData)
+    void TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
     {
         if (loadMap(mapID, tileX, tileY, meshData, ENTIRE))
         {
@@ -89,15 +89,15 @@ namespace MMAP
 
     struct MapData
     {
-        G3D::g3d_uint16 AreaInfo[256];
-        G3D::g3d_uint16 LiquidInfo[256];
+        G3D::uint16 AreaInfo[256];
+        G3D::uint16 LiquidInfo[256];
         float V8[V8_SIZE_SQ];
         float V9[V9_SIZE_SQ];
         float liquid_height[V9_SIZE_SQ];
     };
 
     /**************************************************************************/
-    bool TerrainBuilder::loadMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData, Spot portion)
+    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, Spot portion)
     {
         char FileName[255];
         sprintf(FileName, "maps/Map_%03u.bin", mapID);
@@ -108,7 +108,7 @@ namespace MMAP
             return false;
 
         fseek(mapFile, 0, SEEK_SET);
-        G3D::g3d_uint32 offsets[64][64];
+        G3D::uint32 offsets[64][64];
         if(fread(offsets, 1, 16384, mapFile) != 16384)
         {
             fclose(mapFile);
@@ -132,8 +132,8 @@ namespace MMAP
         MapData *mapInfo = new MapData();
 
         // Read from our file into this newly created struct.
-        fread(&mapInfo->AreaInfo, sizeof(G3D::g3d_uint16), 256, mapFile);
-        fread(&mapInfo->LiquidInfo, sizeof(G3D::g3d_uint16), 256, mapFile);
+        fread(&mapInfo->AreaInfo, sizeof(G3D::uint16), 256, mapFile);
+        fread(&mapInfo->LiquidInfo, sizeof(G3D::uint16), 256, mapFile);
         fread(&mapInfo->V8, sizeof(float), 16384, mapFile);
         fread(&mapInfo->V9, sizeof(float), 16641, mapFile);
         fread(&mapInfo->liquid_height, sizeof(float), 16641, mapFile);
@@ -190,7 +190,7 @@ namespace MMAP
         {
             coord[0] = (xoffset + i%(V9_SIZE)*GRID_PART_SIZE) * -1.f;
             coord[1] = (yoffset + (int)(i/(V9_SIZE))*GRID_PART_SIZE) * -1.f;
-            G3D::g3d_uint16 liquidType = getLiquidType(coord[0], coord[1], mapInfo->LiquidInfo);
+            G3D::uint16 liquidType = getLiquidType(coord[0], coord[1], mapInfo->LiquidInfo);
             if(liquidType == 0)
                 continue;
             else
@@ -211,7 +211,7 @@ namespace MMAP
             {
                 coord[0] = (xoffset + i%(V9_SIZE)*GRID_PART_SIZE) * -1.f;
                 coord[1] = (yoffset + (int)(i/(V9_SIZE))*GRID_PART_SIZE) * -1.f;
-                G3D::g3d_uint16 liquidType = getLiquidType(coord[0], coord[1], mapInfo->LiquidInfo);
+                G3D::uint16 liquidType = getLiquidType(coord[0], coord[1], mapInfo->LiquidInfo);
                 if(liquidType == 0)
                     coord[2] = INVALID_MAP_LIQ_HEIGHT;
                 else
@@ -276,7 +276,7 @@ namespace MMAP
                 // default is true, will change to false if needed
                 useTerrain = true;
                 useLiquid = true;
-                G3D::g3d_uint16 liquidType = MAP_LIQUID_TYPE_NO_WATER;
+                G3D::uint16 liquidType = MAP_LIQUID_TYPE_NO_WATER;
                 // FIXME: "warning: the address of ‘liquid_type’ will always evaluate as ‘true’"
 
                 // if there is no liquid, don't use liquid
@@ -309,8 +309,8 @@ namespace MMAP
                 if (useLiquid)
                 {
                     float quadHeight = 0;
-                    G3D::g3d_uint32 validCount = 0;
-                    for(G3D::g3d_uint32 idx = 0; idx < 3; idx++)
+                    G3D::uint32 validCount = 0;
+                    for(G3D::uint32 idx = 0; idx < 3; idx++)
                     {
                         float h = lverts_copy[ltris[idx]*3 + 1];
                         if (h != INVALID_MAP_LIQ_HEIGHT && h < INVALID_MAP_LIQ_HEIGHT_MAX)
@@ -324,7 +324,7 @@ namespace MMAP
                     if (validCount > 0 && validCount < 3)
                     {
                         quadHeight /= validCount;
-                        for(G3D::g3d_uint32 idx = 0; idx < 3; idx++)
+                        for(G3D::uint32 idx = 0; idx < 3; idx++)
                         {
                             float h = lverts[ltris[idx]*3 + 1];
                             if (h == INVALID_MAP_LIQ_HEIGHT || h > INVALID_MAP_LIQ_HEIGHT_MAX)
@@ -342,7 +342,7 @@ namespace MMAP
                 {
                     float minLLevel = INVALID_MAP_LIQ_HEIGHT_MAX;
                     float maxLLevel = INVALID_MAP_LIQ_HEIGHT;
-                    for(G3D::g3d_uint32 x = 0; x < 3; x++)
+                    for(G3D::uint32 x = 0; x < 3; x++)
                     {
                         float h = lverts[ltris[x]*3 + 1];
                         if (minLLevel > h)
@@ -354,7 +354,7 @@ namespace MMAP
 
                     float maxTLevel = INVALID_MAP_LIQ_HEIGHT;
                     float minTLevel = INVALID_MAP_LIQ_HEIGHT_MAX;
-                    for(G3D::g3d_uint32 x = 0; x < 6; x++)
+                    for(G3D::uint32 x = 0; x < 6; x++)
                     {
                         float h = tverts[ttris[x]*3 + 1];
                         if (maxTLevel < h)
@@ -485,7 +485,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    G3D::g3d_uint16 TerrainBuilder::getLiquidType(float x, float y, const G3D::g3d_uint16 liquid_type[256])
+    G3D::uint16 TerrainBuilder::getLiquidType(float x, float y, const G3D::uint16 liquid_type[256])
     {
         x = 16 * (32 - x / 533.3333333f);
         y = 16 * (32 - y / 533.3333333f);
@@ -495,7 +495,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    G3D::g3d_uint16 TerrainBuilder::getLiquidType(int square, const G3D::g3d_uint16 liquid_type[256])
+    G3D::uint16 TerrainBuilder::getLiquidType(int square, const G3D::uint16 liquid_type[256])
     {
         int row = square / 128;
         int col = square % 128;
@@ -508,7 +508,7 @@ namespace MMAP
 
     // DBC ids are stored in vmaps currently, so convert to terrain water flags
     // We could use DBC file, but this workaround is sufficient.
-    G3D::g3d_uint16 convertWaterIDToFlags(G3D::g3d_uint16 wmoType)
+    G3D::uint16 convertWaterIDToFlags(G3D::uint16 wmoType)
     {
         switch(wmoType)
         {
@@ -533,7 +533,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::InitializeVMap(G3D::g3d_uint32 mapID)
+    bool TerrainBuilder::InitializeVMap(G3D::uint32 mapID)
     {
         vmapManager = new VMapManager("vmaps");
         if(!vmapManager->loadMap(mapID))
@@ -542,7 +542,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void TerrainBuilder::UnloadVMap(G3D::g3d_uint32 mapID)
+    void TerrainBuilder::UnloadVMap(G3D::uint32 mapID)
     {
         if(vmapManager)
         {
@@ -553,7 +553,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::loadVMap(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData)
+    bool TerrainBuilder::loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
     {
         if(vmapManager == NULL)
             return false;
@@ -570,12 +570,12 @@ namespace MMAP
                 break;
 
             ModelInstance* models = NULL;
-            G3D::g3d_uint32 count = 0;
+            G3D::uint32 count = 0;
             instanceTrees[mapID]->getModelInstances(models, count);
             if (!models)
                 break;
 
-            for (G3D::g3d_uint32 i = 0; i < count; ++i)
+            for (G3D::uint32 i = 0; i < count; ++i)
             {
                 ModelInstance instance = models[i];
 
@@ -622,14 +622,14 @@ namespace MMAP
                     {
                         std::vector<G3D::Vector3> liqVerts;
                         std::vector<int> liqTris;
-                        G3D::g3d_uint32 tilesX, tilesY, vertsX, vertsY;
+                        G3D::uint32 tilesX, tilesY, vertsX, vertsY;
                         G3D::Vector3 corner;
                         liquid->getPosInfo(tilesX, tilesY, corner);
                         vertsX = tilesX + 1;
                         vertsY = tilesY + 1;
-                        G3D::g3d_uint8* flags = liquid->GetFlagsStorage();
+                        G3D::uint8* flags = liquid->GetFlagsStorage();
                         float* data = liquid->GetHeightStorage();
-                        G3D::g3d_uint8 type = NAV_EMPTY;
+                        G3D::uint8 type = NAV_EMPTY;
 
                         // convert liquid type to NavTerrain
                         switch (convertWaterIDToFlags(liquid->GetType()))
@@ -653,9 +653,9 @@ namespace MMAP
                         // flag   = y*tilesY+x
 
                         G3D::Vector3 vert;
-                        for (G3D::g3d_uint32 x = 0; x < vertsX; ++x)
+                        for (G3D::uint32 x = 0; x < vertsX; ++x)
                         {
-                            for (G3D::g3d_uint32 y = 0; y < vertsY; ++y)
+                            for (G3D::uint32 y = 0; y < vertsY; ++y)
                             {
                                 vert = G3D::Vector3(corner.x + x * GRID_PART_SIZE, corner.y + y * GRID_PART_SIZE, data[y*vertsX + x]);
                                 vert = vert * rotation * scale + position;
@@ -666,10 +666,10 @@ namespace MMAP
                         }
 
                         int idx1, idx2, idx3, idx4;
-                        G3D::g3d_uint32 square;
-                        for (G3D::g3d_uint32 x = 0; x < tilesX; ++x)
+                        G3D::uint32 square;
+                        for (G3D::uint32 x = 0; x < tilesX; ++x)
                         {
-                            for (G3D::g3d_uint32 y = 0; y < tilesY; ++y)
+                            for (G3D::uint32 y = 0; y < tilesY; ++y)
                             {
                                 if ((flags[x+y*tilesX] & 0x0f) != 0x0f)
                                 {
@@ -691,11 +691,11 @@ namespace MMAP
                             }
                         }
 
-                        G3D::g3d_uint32 liqOffset = meshData.liquidVerts.size() / 3;
-                        for (G3D::g3d_uint32 i = 0; i < liqVerts.size(); ++i)
+                        G3D::uint32 liqOffset = meshData.liquidVerts.size() / 3;
+                        for (G3D::uint32 i = 0; i < liqVerts.size(); ++i)
                             meshData.liquidVerts.append(liqVerts[i].y, liqVerts[i].z, liqVerts[i].x);
 
-                        for (G3D::g3d_uint32 i = 0; i < liqTris.size() / 3; ++i)
+                        for (G3D::uint32 i = 0; i < liqTris.size() / 3; ++i)
                         {
                             meshData.liquidTris.append(liqTris[i*3+1] + liqOffset, liqTris[i*3+2] + liqOffset, liqTris[i*3] + liqOffset);
                             meshData.liquidType.append(type);
@@ -761,7 +761,7 @@ namespace MMAP
     void TerrainBuilder::copyIndices(G3D::Array<int> &source, G3D::Array<int> &dest, int offset)
     {
         int* src = source.getCArray();
-        for (G3D::g3d_int32 i = 0; i < source.size(); ++i)
+        for (G3D::int32 i = 0; i < source.size(); ++i)
             dest.append(src[i] + offset);
     }
 
@@ -809,7 +809,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void TerrainBuilder::loadOffMeshConnections(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData, const char* offMeshFilePath)
+    void TerrainBuilder::loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath)
     {
         // no meshfile input given?
         if (offMeshFilePath == NULL)
@@ -828,7 +828,7 @@ namespace MMAP
         while(fgets(buf, 512, fp))
         {
             float p0[3], p1[3];
-            G3D::g3d_uint32 mid, tx, ty;
+            G3D::uint32 mid, tx, ty;
             float size;
             if (sscanf(buf, "%d %d,%d (%f %f %f) (%f %f %f) %f", &mid, &tx, &ty,
                 &p0[0], &p0[1], &p0[2], &p1[0], &p1[1], &p1[2], &size) != 10)

@@ -3,6 +3,8 @@
 
 #include "../SharedDependencyDefines.h"
 
+#include <stormlib/StormLib.h>
+
 #include "dbcfile.h"
 
 #include "DBC.h"

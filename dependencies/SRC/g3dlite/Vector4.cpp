@@ -134,7 +134,7 @@ Vector4 Vector4::operator/ (float fScalar) const {
     Vector4 kQuot;
 
     if ( fScalar != 0.0 ) {
-        float fInvScalar = 1.0f / fScalar;
+		float fInvScalar = 1.0f / fScalar;
         kQuot.x = fInvScalar * x;
         kQuot.y = fInvScalar * y;
         kQuot.z = fInvScalar * z;
@@ -148,13 +148,13 @@ Vector4 Vector4::operator/ (float fScalar) const {
 //----------------------------------------------------------------------------
 Vector4& Vector4::operator/= (float fScalar) {
     if (fScalar != 0.0f) {
-        float fInvScalar = 1.0f / fScalar;
+		float fInvScalar = 1.0f / fScalar;
         x *= fInvScalar;
         y *= fInvScalar;
         z *= fInvScalar;
         w *= fInvScalar;
     } else {
-        *this = Vector4::inf();
+		*this = Vector4::inf();
     }
 
     return *this;
@@ -164,7 +164,7 @@ Vector4& Vector4::operator/= (float fScalar) {
 //----------------------------------------------------------------------------
 
 std::string Vector4::toString() const {
-    return G3D::G3D_format("(%g, %g, %g, %g)", x, y, z, w);
+    return G3D::format("(%g, %g, %g, %g)", x, y, z, w);
 }
 // 2-char swizzles
 

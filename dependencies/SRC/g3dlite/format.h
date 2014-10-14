@@ -27,14 +27,14 @@ namespace G3D {
   string is under 160 characters (not including terminator) and slower
   when the string is longer.
  */
-    std::string   __cdecl G3D_format(
+std::string   __cdecl format(
     const char*                 fmt
     ...) G3D_CHECK_PRINTF_ARGS;
 
 /**
   Like format, but can be called with the argument list from a ... function.
  */
-std::string G3D_vformat(
+std::string vformat(
     const char*                 fmt,
     va_list                     argPtr) G3D_CHECK_VPRINTF_ARGS;
 

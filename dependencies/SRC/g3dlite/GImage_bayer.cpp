@@ -9,7 +9,7 @@
 
 namespace G3D {
 
-void GImage::BAYER_G8B8_R8G8_to_Quarter_R8G8B8(int width, int height, const g3d_uint8* in, g3d_uint8* out) {
+void GImage::BAYER_G8B8_R8G8_to_Quarter_R8G8B8(int width, int height, const uint8* in, uint8* out) {
     debugAssert(in != out);
 
     int halfHeight = height / 2;
@@ -30,7 +30,7 @@ void GImage::BAYER_G8B8_R8G8_to_Quarter_R8G8B8(int width, int height, const g3d_
 }
 
 
-void GImage::Quarter_R8G8B8_to_BAYER_G8B8_R8G8(int inWidth, int inHeight, const g3d_uint8* in, g3d_uint8* out) {
+void GImage::Quarter_R8G8B8_to_BAYER_G8B8_R8G8(int inWidth, int inHeight, const uint8* in, uint8* out) {
     // Undo quarter-size Bayer as best we can.  This code isn't very efficient, but it
     // also isn't used very frequently.
 
@@ -42,7 +42,7 @@ void GImage::Quarter_R8G8B8_to_BAYER_G8B8_R8G8(int inWidth, int inHeight, const 
     for (int y = 0; y < outHeight; ++y) {
         for (int x = 0; x < outWidth; ++x) {
             const Color3uint8* inp = ((const Color3uint8*)in) + ((x/2) + (y/2)* inWidth);
-            g3d_uint8* outp = out + x + y * outWidth;
+            uint8* outp = out + x + y * outWidth;
 
             if (isEven(y)) {
                 // GB row
@@ -69,8 +69,8 @@ void GImage::Quarter_R8G8B8_to_BAYER_G8B8_R8G8(int inWidth, int inHeight, const 
 
 
 /** Applies a 5x5 filter to monochrome image I (wrapping at the boundaries) */
-static g3d_uint8 applyFilter(
-    const g3d_uint8*    I,
+static uint8 applyFilter(
+    const uint8*    I,
     int             x,
     int             y,
     int             w,
@@ -93,7 +93,7 @@ static g3d_uint8 applyFilter(
         }
     }
 
-    return (g3d_uint8)iClamp(iRound(sum / denom), 0, 255);
+    return (uint8)iClamp(iRound(sum / denom), 0, 255);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -161,7 +161,7 @@ static const float R_BGB[5][5] =
 #define B_GRR R_BGB
 
 
-void GImage::BAYER_R8G8_G8B8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out) {
+void GImage::BAYER_R8G8_G8B8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out) {
     debugAssert(in != _out);
 
     Color3uint8* out = (Color3uint8*)_out;
@@ -214,13 +214,13 @@ void GImage::BAYER_R8G8_G8B8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3
 
 static void swapRedAndBlue(int N, Color3uint8* out) {
     for (int i = N - 1; i >= 0; --i) {
-        g3d_uint8 tmp = out[i].r;
+        uint8 tmp = out[i].r;
         out[i].r = out[i].b;
         out[i].b = tmp;
     }
 }
 
-void GImage::BAYER_G8R8_B8G8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out) {
+void GImage::BAYER_G8R8_B8G8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out) {
     // Run the equivalent function for red
     BAYER_G8B8_R8G8_to_R8G8B8_MHC(w, h, in, _out);
 
@@ -229,7 +229,7 @@ void GImage::BAYER_G8R8_B8G8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3
 }
 
 
-void GImage::BAYER_B8G8_G8R8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out) {
+void GImage::BAYER_B8G8_G8R8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out) {
     // Run the equivalent function for red
     BAYER_R8G8_G8B8_to_R8G8B8_MHC(w, h, in, _out);
 
@@ -238,7 +238,7 @@ void GImage::BAYER_B8G8_G8R8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3
 }
 
 
-void GImage::BAYER_G8B8_R8G8_to_R8G8B8_MHC(int w, int h, const g3d_uint8* in, g3d_uint8* _out) {
+void GImage::BAYER_G8B8_R8G8_to_R8G8B8_MHC(int w, int h, const uint8* in, uint8* _out) {
 
     debugAssert(in != _out);
 

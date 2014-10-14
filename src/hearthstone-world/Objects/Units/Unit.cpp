@@ -159,11 +159,6 @@ Unit::Unit() : m_AuraInterface()
     m_DummyAuras.clear();
     m_LastSpellManaCost = 0;
 
-    for (uint32 x = 0;x<NUM_CUSTOM_TIMERS;x++)
-    {
-        m_CustomTimers[x] = 0;
-    }
-
     m_mountSpell = 0;
     m_vehicleEntry = 0;
     for(uint8 i = 0; i < 8; i++)
@@ -660,7 +655,7 @@ void Unit::UpdateHealthValues()
     for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
         HP *= float(abs(itr->second->m_amount))/100.f;
 
-    int32 stam = GetStamina(), baseStam = stam < 20 ? stam : 20;
+    int32 stam = GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
     stam = (stam <= baseStam ? 0 : stam-baseStam);
     HP += GetBonusHealth() + baseStam;
     if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1)))
@@ -683,7 +678,7 @@ void Unit::UpdateHealthValues()
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
 }
 
-static uint32 basePowerValues[MAX_POWER_TYPE] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
+static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
     if(!PowerUpdateRequired())
@@ -694,7 +689,7 @@ void Unit::UpdatePowerValues()
     {
         SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
 
-        int32 intellect = GetIntellect(), baseIntellect = intellect < 20 ? intellect : 20;
+        int32 intellect = GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
         intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
         power += GetBonusMana() + baseIntellect + intellect*15.0f;
         AuraInterface::modifierMap increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY);
@@ -703,12 +698,12 @@ void Unit::UpdatePowerValues()
         increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
         for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
             if(itr->second->m_miscValue[0] == 0) power *= float(abs(itr->second->m_amount))/100.f;
-        if(GetUInt32Value(UNIT_FIELD_MANA) > power)
-            SetUInt32Value(UNIT_FIELD_MANA, power);
-        SetUInt32Value(UNIT_FIELD_MAX_MANA, power);
+        if(GetPower(POWER_TYPE_MANA) > power)
+            SetPower(POWER_TYPE_MANA, power);
+        SetMaxPower(POWER_TYPE_MANA, power);
     }
 
-    if(uint8 powerType = GetPowerType())
+    if(uint8 powerType = getPowerType())
     {
         power = basePowerValues[powerType];
         if(powerType <= POWER_TYPE_RUNIC)
@@ -720,13 +715,13 @@ void Unit::UpdatePowerValues()
             for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
                 if(itr->second->m_miscValue[0] == powerType) power *= float(abs(itr->second->m_amount))/100.f;
         }
-        if(GetUInt32Value(UNIT_FIELD_MANA+powerType) > power)
-            SetUInt32Value(UNIT_FIELD_MANA+powerType, power);
-        SetUInt32Value( UNIT_FIELD_MAX_MANA+powerType, power);
+        if(GetPower(powerType) > power)
+            SetPower(powerType, power);
+        SetMaxPower(powerType, power);
     }
 }
 
-static uint32 baseRegenValues[MAX_POWER_TYPE] = { 0, 10, 5, 5, 250, 10, 0, 0, 0, 0 };
+static uint32 baseRegenValues[POWER_TYPE_MAX] = { 0, 10, 5, 5, 250, 10, 0, 0, 0, 0 };
 void Unit::UpdateRegenValues()
 {
     if(!RegenUpdateRequired())
@@ -759,7 +754,7 @@ void Unit::UpdateRegenValues()
         SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, base_regen + (spirit_regen * (interruptMod / 100.0f)));
     }
 
-    if(uint8 powerType = GetPowerType())
+    if(uint8 powerType = getPowerType())
     {
         if(base_regen = baseRegenValues[powerType])
         {
@@ -1346,13 +1341,12 @@ void Unit::RegenerateEnergy()
     if( m_interruptRegen > 0 )
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_ENERGY);
-    uint32 mp = GetUInt32Value(UNIT_FIELD_MAX_ENERGY);
+    uint32 cur = GetPower(POWER_TYPE_ENERGY), mp = GetMaxPower(POWER_TYPE_ENERGY);
     if( cur >= mp )
         return;
 
     cur += float2int32(floor(float(0.01f * m_P_regenTimer * PctPowerRegenModifier[POWER_TYPE_ENERGY])));
-    SetUInt32Value(UNIT_FIELD_ENERGY, (cur >= mp) ? mp : cur);
+    SetPower(POWER_TYPE_ENERGY, (cur >= mp) ? mp : cur);
 }
 
 void Unit::RegenerateFocus()
@@ -1360,26 +1354,12 @@ void Unit::RegenerateFocus()
     if (m_interruptRegen)
         return;
 
-    uint32 cur = GetUInt32Value(UNIT_FIELD_FOCUS);
-    uint32 mp = GetUInt32Value(UNIT_FIELD_MAX_FOCUS);
+    uint32 cur = GetPower(POWER_TYPE_FOCUS), mp = GetMaxPower(POWER_TYPE_FOCUS);
     if( cur >= mp )
         return;
 
     cur += float2int32(floor(float(1.0f * PctPowerRegenModifier[POWER_TYPE_FOCUS])));
-    SetUInt32Value(UNIT_FIELD_FOCUS, (cur >= mp)? mp : cur);
-}
-
-void Unit::LosePower(uint32 powerField, int32 decayValue)
-{
-    if( m_interruptRegen > 0 )
-        return;
-
-    uint32 cur = GetUInt32Value(powerField);
-    uint32 newpower = ((int)cur <= decayValue) ? 0 : cur-decayValue;
-    if (newpower > 1000 )
-        newpower = 1000;
-
-    SetUInt32Value(powerField,newpower);
+    SetPower(POWER_TYPE_FOCUS, (cur >= mp)? mp : cur);
 }
 
 void Unit::RegeneratePower(bool isinterrupted)
@@ -1392,46 +1372,7 @@ void Unit::RegeneratePower(bool isinterrupted)
         TO_PLAYER(this)->PlayerRegeneratePower(isinterrupted);
     else
     {
-        // This is only 100 IF the power is not rage
-        m_P_regenTimer = 100; //set next regen time
 
-        uint32 powertype = GetPowerType();
-        switch(powertype)
-        {
-        case POWER_TYPE_MANA:
-            TO_CREATURE(this)->RegenerateMana(isinterrupted);
-            break;
-        case POWER_TYPE_ENERGY:
-            {
-                if(!IsVehicle() || TO_VEHICLE(this)->GetVehiclePowerType() != POWER_TYPE_PYRITE)
-                    RegenerateEnergy();
-            }break;
-        case POWER_TYPE_FOCUS:
-            RegenerateFocus();
-            break;
-        case POWER_TYPE_RAGE:
-            {
-                m_P_regenTimer = 3000;
-                if(!CombatStatus.IsInCombat())
-                    LosePower(UNIT_FIELD_RAGE, 30);
-            }break;
-        case POWER_TYPE_RUNE:
-            {
-                m_P_regenTimer = 3000;
-                if(!CombatStatus.IsInCombat())
-                    LosePower(UNIT_FIELD_RUNIC_POWER, 50);
-                else
-                    LosePower(UNIT_FIELD_RUNIC_POWER, -100);
-            }break;
-        case POWER_TYPE_RUNIC:
-            {
-                if(!CombatStatus.IsInCombat())
-                {
-                    m_P_regenTimer = 800;
-                    LosePower(UNIT_FIELD_RUNIC_POWER, 10);
-                }
-            }break;
-        }
     }
 }
 
@@ -2307,8 +2248,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------base damage calculation-----------------------------------
             if(exclusive_damage)
                 dmg.full_damage = exclusive_damage;
-            else
-                dmg.full_damage = CalculateDamage( TO_UNIT(this), pVictim, weapon_damage_type, ability );
+            else dmg.full_damage = sStatSystem.CalculateDamage( TO_UNIT(this), pVictim, weapon_damage_type, ability );
 
             if( weapon_damage_type == RANGED )
                 dmg.full_damage += pVictim->GetRangedDamageTakenMod();
@@ -2692,7 +2632,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     //--------------------------rage processing-------------------------------------------------
     //http://www.wowwiki.com/Formulas:Rage_generation
 
-    if( dmg.full_damage && IsPlayer() && GetPowerType() == POWER_TYPE_RAGE && !ability)
+    if( dmg.full_damage && IsPlayer() && getPowerType() == POWER_TYPE_RAGE && !ability)
     {
         float level = (float)getLevel();
 
@@ -2734,15 +2674,12 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         //float p = ( 1 + ( TO_PLAYER(this)->rageFromDamageDealt / 100.0f ) );
         //sLog.outDebug( "Rd(%i) d(%i) c(%f) f(%f) s(%f) p(%f) r(%f) rage = %f", realdamage, dmg.full_damage, c, f, s, p, r, val );
 
-        ModUnsigned32Value( UNIT_FIELD_RAGE, (int32)val );
-        if( GetUInt32Value( UNIT_FIELD_RAGE ) > 1000 )
-            ModUnsigned32Value( UNIT_FIELD_RAGE, 1000 - GetUInt32Value( UNIT_FIELD_RAGE ) );
-
+        ModPower(POWER_TYPE_RAGE, val);
         SendPowerUpdate();
     }
 
     // I am receiving damage!
-    if( dmg.full_damage && pVictim->IsPlayer() && pVictim->GetPowerType() == POWER_TYPE_RAGE && pVictim->CombatStatus.IsInCombat() )
+    if( dmg.full_damage && pVictim->IsPlayer() && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->CombatStatus.IsInCombat() )
     {
         float val;
         float level = (float)getLevel();
@@ -2753,12 +2690,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         val = 2.5f * dmg.full_damage / c;
         val *= 10;
 
-        //sLog.outDebug( "Rd(%i) d(%i) c(%f) rage = %f", realdamage, dmg.full_damage, c, val );
-
-        pVictim->ModUnsigned32Value( UNIT_FIELD_RAGE, (int32)val );
-        if( pVictim->GetUInt32Value( UNIT_FIELD_RAGE) > 1000 )
-            pVictim->ModUnsigned32Value( UNIT_FIELD_RAGE, 1000 - pVictim->GetUInt32Value( UNIT_FIELD_RAGE ) );
-        pVictim->SendPowerUpdate();
+        pVictim->ModPower(POWER_TYPE_RAGE, (int32)val );
     }
 
     m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_START_ATTACK);
@@ -3628,7 +3560,7 @@ void Unit::UpdateVisibility()
                 {
                     buf.clear();
                     count = pObj->BuildCreateUpdateBlockForPlayer( &buf, plr );
-                    plr->PushCreateBlock(&buf, count);
+                    plr->PushUpdateBlock(&buf, count);
                     plr->AddVisibleObject(pObj);
                 }
             }
@@ -3652,7 +3584,7 @@ void Unit::UpdateVisibility()
                     {
                         buf.clear();
                         count = plr->BuildCreateUpdateBlockForPlayer( &buf, pl );
-                        pl->PushCreateBlock(&buf, count);
+                        pl->PushUpdateBlock(&buf, count);
                         pl->AddVisibleObject(plr);
                     }
                 }
@@ -3687,7 +3619,7 @@ void Unit::UpdateVisibility()
                 {
                     buf.clear();
                     count = BuildCreateUpdateBlockForPlayer(&buf, *it2);
-                    (*it2)->PushCreateBlock(&buf, count);
+                    (*it2)->PushUpdateBlock(&buf, count);
                     (*it2)->AddVisibleObject(TO_OBJECT(this));
                 }
             }
@@ -3827,9 +3759,12 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     if (lvl != 0)
     {
         /* MANA */
-        p->SetPowerType(POWER_TYPE_MANA);
-        p->SetUInt32Value(UNIT_FIELD_MAX_MANA,p->GetUInt32Value(UNIT_FIELD_MAX_MANA)+28+10*lvl);
-        p->SetUInt32Value(UNIT_FIELD_MANA,p->GetUInt32Value(UNIT_FIELD_MANA)+28+10*lvl);
+        if(uint32 maxMana = p->GetMaxPower(POWER_TYPE_MANA)+28+10*lvl)
+        {
+            p->SetPowerType(POWER_TYPE_MANA);
+            p->SetMaxPower(POWER_TYPE_MANA, maxMana);
+            p->SetPower(POWER_TYPE_MANA, maxMana);
+        }
         /* HEALTH */
         p->SetUInt32Value(UNIT_FIELD_MAXHEALTH,p->GetUInt32Value(UNIT_FIELD_MAXHEALTH)+28+30*lvl);
         p->SetUInt32Value(UNIT_FIELD_HEALTH,p->GetUInt32Value(UNIT_FIELD_HEALTH)+28+30*lvl);
@@ -4303,25 +4238,9 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     if( !target || !SpellId )
         return;
 
-    uint32 cm = target->GetUInt32Value(UNIT_FIELD_MANA+type);
-    uint32 mm = target->GetUInt32Value(UNIT_FIELD_MAX_MANA+type);
-    if(mm != cm)
-    {
-        if( !amount )
-            return;
-
-        cm += amount;
-        if(cm > mm)
-        {
-            target->SetUInt32Value(UNIT_FIELD_MANA+type, mm);
-            amount = mm - cm;
-        }
-        else
-            target->SetUInt32Value(UNIT_FIELD_MANA+type, cm);
-
-        Spell::SendHealManaSpellOnPlayer(this,target, amount, type, SpellId);
-        target->SendPowerUpdate();
-    }
+    target->ModPower(type, amount);
+    Spell::SendHealManaSpellOnPlayer(this,target, amount, type, SpellId);
+    target->SendPowerUpdate();
 }
 
 void Unit::EventCancelSpell(Spell* ptr)
@@ -4460,17 +4379,6 @@ void Creature::Tag(Player* plr)
     UpdateLootAnimation(plr);
 }
 
-void Unit::SetPower(uint32 type, int32 value)
-{
-    if(GetPower(type) == value)
-        return;
-
-    SetUInt32Value(UNIT_FIELD_POWER + type, value);
-    if(IsCreature())
-        return;
-    SendPowerUpdate(type);
-}
-
 void Unit::RemoveStealth()
 {
     if( m_stealth != 0 )
@@ -4507,36 +4415,37 @@ void Unit::SetTriggerStunOrImmobilize(uint32 newtrigger,uint32 new_chance)
     trigger_on_stun_chance = new_chance;
 }
 
-void Unit::SendPowerUpdate(int8 power)
+void Unit::SendPowerUpdate(EUnitFields powerField)
 {
-    uint32 updateCount = 1;
-    uint8 PowerType = (power == -1 ? GetPowerType() : power);
+    int8 pIndex = uint8(uint32((powerField == UNIT_END ? GetPowerFieldForType(getPowerType()) : powerField))-UNIT_FIELD_POWERS);
+    if(pIndex < 0)
+        return;
 
+    uint32 updateCount = 1;
     WorldPacket data(SMSG_POWER_UPDATE, 20);
     data << GetNewGUID();
     data << uint32(updateCount); // iteration count
     for (int32 i = 0; i < updateCount; ++i)
     {
-        data << uint8(PowerType);
-        data << GetUInt32Value(UNIT_FIELD_POWER+PowerType);
+        data << uint8(pIndex);
+        data << GetUInt32Value(UNIT_FIELD_POWERS+pIndex);
     }
     SendMessageToSet(&data, true);
 }
 
 uint32 Unit::DoDamageSplitTarget(uint32 res, uint32 school_type, bool melee_dmg)
 {
-    Unit* splittarget;
-    uint32 splitdamage, tmpsplit;
-    DamageSplitTarget * ds = &m_damageSplitTarget;
+    if(res == 0)
+        return 0;
 
-    splittarget = (GetMapMgr() != NULL) ? GetMapMgr()->GetUnit( ds->m_target ) : NULLUNIT;
-    if( splittarget != NULL && res > 0 )
+    DamageSplitTarget * ds = &m_damageSplitTarget;
+    if( Unit *splitTarget = (IsInWorld() ? GetMapMgr()->GetUnit(ds->m_target) : NULLUNIT) )
     {
         // calculate damage
-        tmpsplit = ds->m_flatDamageSplit;
+        uint32 tmpsplit = ds->m_flatDamageSplit;
         if( tmpsplit > res)
             tmpsplit = res; // prevent < 0 damage
-        splitdamage = tmpsplit;
+        uint32 splitdamage = tmpsplit;
         res -= tmpsplit;
         tmpsplit = float2int32( ds->m_pctDamageSplit * res );
         if( tmpsplit > res )
@@ -4546,22 +4455,17 @@ uint32 Unit::DoDamageSplitTarget(uint32 res, uint32 school_type, bool melee_dmg)
 
         if( splitdamage )
         {
-            splittarget->DealDamage(splittarget, splitdamage, 0, 0, 0);
+            splitTarget->DealDamage(splitTarget, splitdamage, 0, 0, 0);
 
             // Send damage log
             if (melee_dmg)
             {
                 dealdamage sdmg;
-
                 sdmg.full_damage = splitdamage;
                 sdmg.resisted_damage = 0;
                 sdmg.school_type = school_type;
-                SendAttackerStateUpdate(splittarget, &sdmg, splitdamage, 0, 0, 0, ATTACK);
-            }
-            else
-            {
-                SendSpellNonMeleeDamageLog(TO_UNIT(this), splittarget, ds->m_spellId, splitdamage, school_type, 0, 0, true, 0, 0, true);
-            }
+                SendAttackerStateUpdate(splitTarget, &sdmg, splitdamage, 0, 0, 0, ATTACK);
+            } else SendSpellNonMeleeDamageLog(TO_UNIT(this), splitTarget, ds->m_spellId, splitdamage, school_type, 0, 0, true, 0, 0, true);
         }
     }
 
@@ -4704,13 +4608,123 @@ void Unit::SetPowerType(uint8 type)
     }
 }
 
-void Unit::setDeathState(DeathState s)
+int32 Unit::GetPowerPct(uint8 type)
+{
+    EUnitFields field = GetPowerFieldForType(type), maxField = EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));
+    if(field == UNIT_END || maxField == UNIT_END)
+        return 0;
+
+    uint32 power = GetPower(field), maxPower = GetMaxPower(maxField);
+    if(maxPower <= 0) maxPower = 1;
+    return int32(ceil(float(power)*100.f/float(maxPower)));
+}
+
+void Unit::LosePower(uint8 type, int32 decayValue)
+{
+    if( m_interruptRegen > 0 )
+        return;
+
+    ModPower(type, -decayValue);
+}
+
+uint32 Unit::GetPower(uint8 type)
+{
+    EUnitFields field = GetPowerFieldForType(type);
+    if(field == UNIT_END)
+        return 0;
+    return GetUInt32Value(field);
+}
+
+uint32 Unit::GetMaxPower(uint8 type)
+{
+    EUnitFields field = GetMaxPowerFieldForType(type);
+    if(field == UNIT_END)
+        return 0;
+    return GetUInt32Value(field);
+}
+
+void Unit::ModPower(uint8 type, int32 value)
+{
+    EUnitFields field = GetPowerFieldForType(type);
+    if(field == UNIT_END)
+        return;
+    ModPower(field, value);
+}
+
+void Unit::SetPower(uint8 type, uint32 value)
+{
+    EUnitFields field = GetPowerFieldForType(type);
+    if(field == UNIT_END)
+        return;
+    SetPower(field, value);
+}
+
+void Unit::SetMaxPower(uint8 type, uint32 value)
+{
+    EUnitFields field = GetMaxPowerFieldForType(type);
+    if(field == UNIT_END)
+        return;
+    SetMaxPower(field, value);
+}
+
+uint32 Unit::GetPower(EUnitFields field)
+{
+    return GetUInt32Value(field);
+}
+
+uint32 Unit::GetMaxPower(EUnitFields field)
+{
+    return GetUInt32Value(field);
+}
+
+void Unit::ModPower(EUnitFields field, int32 value)
+{
+    EUnitFields maxfield = EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));
+    int32 val = GetUInt32Value(field)+value;
+    if(val < 0.0f) val = 0.0f;
+    if(val > GetUInt32Value(maxfield))
+        val = GetUInt32Value(maxfield);
+    SetUInt32Value(field, val);
+}
+
+void Unit::SetPower(EUnitFields field, uint32 value)
+{
+    if(GetPower(field) == value)
+        return;
+
+    SetUInt32Value(field, value);
+}
+
+void Unit::SetMaxPower(EUnitFields field, uint32 value)
+{
+    if(GetMaxPower(field) == value)
+        return;
+
+    SetUInt32Value(field, value);
+}
+
+EUnitFields Unit::GetPowerFieldForType(uint8 type)
+{
+    if(type == POWER_TYPE_HEALTH)
+        return UNIT_FIELD_HEALTH;
+    uint32 _class = IsPet() ? HUNTER : getClass();
+    return sStatSystem.GetPowerFieldForClassAndType(_class, type);
+}
+
+EUnitFields Unit::GetMaxPowerFieldForType(uint8 type)
+{
+    if(type == POWER_TYPE_HEALTH)
+        return UNIT_FIELD_MAXHEALTH;
+    uint32 _class = IsPet() ? HUNTER : getClass();
+    EUnitFields field = sStatSystem.GetPowerFieldForClassAndType(_class, type);
+    if(field == UNIT_END)
+        return UNIT_END;
+    return EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));
+}
+
+void Unit::SetDeathState(DeathState s)
 {
     m_deathState = s;
-    if(IsCreature())
-        TO_CREATURE(this)->CreatureSetDeathState(s);
-    if(IsVehicle())
-        TO_VEHICLE(this)->VehicleSetDeathState(s);
 }
 
 //  custom functions for scripting
@@ -4894,7 +4908,7 @@ void Unit::SetSpeed(uint8 SpeedType, float value)
     if( value < 0.1f )
         value = 0.1f;
 
-    WorldPacket data(SMSG_FORCE_RUN_SPEED_CHANGE, 400);
+    WorldPacket data(SMSG_MOVE_SET_RUN_SPEED, 400);
 
     if( SpeedType != SWIMBACK )
     {
@@ -4923,42 +4937,42 @@ void Unit::SetSpeed(uint8 SpeedType, float value)
     {
     case RUN:
         {
-            data.SetOpcode(SMSG_FORCE_RUN_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_RUN_SPEED);
             m_runSpeed = value;
         }break;
     case RUNBACK:
         {
-            data.SetOpcode(SMSG_FORCE_RUN_BACK_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_RUN_BACK_SPEED);
             m_backWalkSpeed = value;
         }break;
     case SWIM:
         {
-            data.SetOpcode(SMSG_FORCE_SWIM_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_SWIM_SPEED);
             m_swimSpeed = value;
         }break;
     case SWIMBACK:
         {
-            data.SetOpcode(SMSG_FORCE_SWIM_BACK_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_SWIM_BACK_SPEED);
             m_backSwimSpeed = value;
         }break;
     case TURN:
         {
-            data.SetOpcode(SMSG_FORCE_TURN_RATE_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_TURN_RATE);
             m_turnRate = value;
         }break;
     case FLY:
         {
-            data.SetOpcode(SMSG_FORCE_FLIGHT_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_SPEED);
             m_flySpeed = value;
         }break;
     case FLYBACK:
         {
-            data.SetOpcode(SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_BACK_SPEED);
             m_backFlySpeed = value;
         }break;
     case PITCH_RATE:
         {
-            data.SetOpcode(SMSG_FORCE_PITCH_RATE_CHANGE);
+            data.SetOpcode(SMSG_MOVE_SET_PITCH_RATE);
             m_pitchRate = value;
         }break;
     default:

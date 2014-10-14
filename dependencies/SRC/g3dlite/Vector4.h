@@ -661,12 +661,12 @@ inline float Vector4::dot(const Vector4& rkVector) const {
 
 //----------------------------------------------------------------------------
 inline Vector4 Vector4::min(const Vector4 &v) const {
-    return Vector4(G3D::G3D_min(v.x, x), G3D::G3D_min(v.y, y), G3D::G3D_min(v.z, z), G3D::G3D_min(v.w, w));
+    return Vector4(G3D::min(v.x, x), G3D::min(v.y, y), G3D::min(v.z, z), G3D::min(v.w, w));
 }
 
 //----------------------------------------------------------------------------
 inline Vector4 Vector4::max(const Vector4 &v) const {
-    return Vector4(G3D::G3D_max(v.x, x), G3D::G3D_max(v.y, y), G3D::G3D_max(v.z, z), G3D::G3D_max(v.w, w));
+    return Vector4(G3D::max(v.x, x), G3D::max(v.y, y), G3D::max(v.z, z), G3D::max(v.w, w));
 }
 
 //----------------------------------------------------------------------------

@@ -249,8 +249,8 @@ protected:
             const Vector3& pLo = point[p]->bounds.low();
             const Vector3& pHi = point[p]->bounds.high();
             for (int a = 0; a < 3; ++a) {
-                lo[a] = G3D::G3D_min(lo[a], pLo[a]);
-                hi[a] = G3D::G3D_max(hi[a], pHi[a]);
+                lo[a] = G3D::min(lo[a], pLo[a]);
+                hi[a] = G3D::max(hi[a], pHi[a]);
             }
         }
 
@@ -260,11 +260,11 @@ protected:
     /** Compares centers */
     class CenterComparator {
     public:
-        Vector3::Axis sortAxis;
+	    Vector3::Axis sortAxis;
 
-        CenterComparator(Vector3::Axis a) : sortAxis(a) {}
+	    CenterComparator(Vector3::Axis a) : sortAxis(a) {}
 
-        inline int operator()(Handle* A, const Handle* B) const {
+	    inline int operator()(Handle* A, const Handle* B) const {
             float a = A->center[sortAxis];
             float b = B->center[sortAxis];
 
@@ -275,18 +275,18 @@ protected:
             } else {
                 return 0;
             }
-        }
+	    }
     };
 
 
     /** Compares bounds for strict >, <, or overlap*/
     class BoundsComparator {
     public:
-        Vector3::Axis sortAxis;
+	    Vector3::Axis sortAxis;
 
-        BoundsComparator(Vector3::Axis a) : sortAxis(a) {}
+	    BoundsComparator(Vector3::Axis a) : sortAxis(a) {}
 
-        inline int operator()(Handle* A, const Handle* B) const {
+	    inline int operator()(Handle* A, const Handle* B) const {
             const AABox& a = A->bounds;
             const AABox& b = B->bounds;
 
@@ -297,34 +297,34 @@ protected:
             } else {
                 return 0;
             }
-        }
+	    }
     };
 
 
     /** Compares bounds to the sort location */
     class Comparator {
     public:
-        Vector3::Axis sortAxis;
-        float sortLocation;
+	    Vector3::Axis sortAxis;
+	    float sortLocation;
 
-        Comparator(Vector3::Axis a, float l) : sortAxis(a), sortLocation(l) {}
+	    Comparator(Vector3::Axis a, float l) : sortAxis(a), sortLocation(l) {}
 
-        inline int operator()(Handle* ignore, const Handle* handle) const {
+	    inline int operator()(Handle* ignore, const Handle* handle) const {
             (void)ignore;
             const AABox& box = handle->bounds;
             debugAssert(ignore == NULL);
 
-            if (box.high()[sortAxis] < sortLocation) {
+		    if (box.high()[sortAxis] < sortLocation) {
                 // Box is strictly below the sort location
                 return -1;
-            } else if (box.low()[sortAxis] > sortLocation) {
+		    } else if (box.low()[sortAxis] > sortLocation) {
                 // Box is strictly above the sort location
-                return 1;
-            } else {
+			    return 1;
+		    } else {
                 // Box overlaps the sort location
-                return 0;
-            }
-        }
+			    return 0;
+		    }
+	    }
     };
 
     // Using System::malloc with this class provided no speed improvement.
@@ -433,11 +433,11 @@ protected:
         }
 
         void verifyNode(const Vector3& lo, const Vector3& hi) {
-            //      debugPrintf("Verifying: split %d @ %f [%f, %f, %f], [%f, %f, %f]\n",
-            //              splitAxis, splitLocation, lo.x, lo.y, lo.z, hi.x, hi.y, hi.z);
+            //		debugPrintf("Verifying: split %d @ %f [%f, %f, %f], [%f, %f, %f]\n",
+            //			    splitAxis, splitLocation, lo.x, lo.y, lo.z, hi.x, hi.y, hi.z);
             
             debugAssertM(lo == splitBounds.low(),
-                         G3D_format("lo = %s, splitBounds.lo = %s",
+                         format("lo = %s, splitBounds.lo = %s",
                                 lo.toString().c_str(), splitBounds.low().toString().c_str()));
             debugAssert(hi == splitBounds.high());
             
@@ -714,27 +714,27 @@ protected:
         int numMeanSplits,
         Array<Handle*>& temp)  {
 
-        Node* node = NULL;
-        
-        if (source.size() <= valuesPerNode) {
-            // Make a new leaf node
-            node = new Node(source);
-            
-            // Set the pointers in the memberTable
-            for (int i = 0; i < source.size(); ++i) {
-                memberTable.set(Member(source[i]), node);
-            }
+	    Node* node = NULL;
+	    
+	    if (source.size() <= valuesPerNode) {
+		    // Make a new leaf node
+		    node = new Node(source);
+		    
+		    // Set the pointers in the memberTable
+		    for (int i = 0; i < source.size(); ++i) {
+			    memberTable.set(Member(source[i]), node);
+		    }
             source.clear();
-            
+		    
         } else {
-            // Make a new internal node
-            node = new Node();
-            
+		    // Make a new internal node
+		    node = new Node();
+		    
             const AABox& bounds = computeBounds(source, 0, source.size() - 1);
-            const Vector3& extent = bounds.high() - bounds.low();
-            
-            Vector3::Axis splitAxis = extent.primaryAxis();
-            
+		    const Vector3& extent = bounds.high() - bounds.low();
+		    
+		    Vector3::Axis splitAxis = extent.primaryAxis();
+		    
             float splitLocation;
 
             // Arrays for holding the children
@@ -829,20 +829,20 @@ protected:
             for (int i = 0; i < node->valueArray.size(); ++i) {
                 Handle* v = node->valueArray[i];
                 node->boundsArray[i] = v->bounds;
-                memberTable.set(Member(v), node);
+			    memberTable.set(Member(v), node);
             }
 
-            if (lt.size() > 0) {            
-                node->child[0] = makeNode(lt, valuesPerNode, numMeanSplits - 1, temp);
-            }
-            
-            if (gt.size() > 0) {
-                node->child[1] = makeNode(gt, valuesPerNode, numMeanSplits - 1, temp);
-            }
-            
-        }
-        
-        return node;
+            if (lt.size() > 0) {		    
+			    node->child[0] = makeNode(lt, valuesPerNode, numMeanSplits - 1, temp);
+		    }
+		    
+		    if (gt.size() > 0) {
+			    node->child[1] = makeNode(gt, valuesPerNode, numMeanSplits - 1, temp);
+		    }
+		    
+	    }
+	    
+	    return node;
     }
 
     /**
@@ -1149,7 +1149,7 @@ protected:
         const Array<Plane>&         plane,
         Array<T*>&                  members,
         Node*                       node,
-        g3d_uint32                      parentMask) {
+        uint32                      parentMask) {
 
         int dummy;
 
@@ -1174,7 +1174,7 @@ protected:
                 }
             }
 
-            g3d_uint32 childMask  = 0xFFFFFF;
+            uint32 childMask  = 0xFFFFFF;
 
             // Iterate through child nodes
             for (int c = 0; c < 2; ++c) {

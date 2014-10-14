@@ -100,7 +100,7 @@ namespace VMAP
     }
 
     // load one tile (internal use only)
-    bool VMapManager::loadObject(G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::g3d_uint32 instanceId, G3D::g3d_int32 m_phase)
+    bool VMapManager::loadObject(G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::uint32 instanceId, G3D::int32 m_phase)
     {
         DynamicTreeMap::iterator DIT = iDynamicMapTrees.find(std::make_pair(mapId, instanceId));
         if (DIT == iDynamicMapTrees.end())
@@ -115,7 +115,7 @@ namespace VMAP
     }
 
     // Load our object into our dynamic tree(Internal only please!)
-    bool VMapManager::_loadObject(DynamicMapTree* tree, G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::g3d_int32 m_phase)
+    bool VMapManager::_loadObject(DynamicMapTree* tree, G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::int32 m_phase)
     {
         GOModelSpawnList::const_iterator it = GOModelList.find(DisplayID);
         if (it == GOModelList.end())
@@ -155,7 +155,7 @@ namespace VMAP
         return true;
     }
 
-    bool VMapManager::changeObjectModel(G3D::g3d_uint64 guid, unsigned int mapId, G3D::g3d_uint32 instanceId, G3D::g3d_uint32 DisplayID)
+    bool VMapManager::changeObjectModel(G3D::uint64 guid, unsigned int mapId, G3D::uint32 instanceId, G3D::uint32 DisplayID)
     {
         DynamicTreeMap::iterator DIT = iDynamicMapTrees.find(std::make_pair(mapId, instanceId));
         if (DIT == iDynamicMapTrees.end())
@@ -207,7 +207,7 @@ namespace VMAP
         }
     }
 
-    void VMapManager::unloadObject(unsigned int mapId, G3D::g3d_uint32 m_instance, G3D::g3d_uint64 guid)
+    void VMapManager::unloadObject(unsigned int mapId, G3D::uint32 m_instance, G3D::uint64 guid)
     {
         GOModelInstanceByGUID::iterator itr = GOModelTracker.find(mapId);
         if(itr == GOModelTracker.end())
@@ -233,7 +233,7 @@ namespace VMAP
         }
     }
 
-    bool VMapManager::isInLineOfSight(unsigned int mapId, G3D::g3d_uint32 instanceId, G3D::g3d_int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2)
+    bool VMapManager::isInLineOfSight(unsigned int mapId, G3D::uint32 instanceId, G3D::int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2)
     {
         bool result = true;
         if(fuzzyEq(x1, x2) && fuzzyEq(y1, y2) && fuzzyEq(z1, z2))
@@ -265,7 +265,7 @@ namespace VMAP
     get the hit position and return true if we hit something
     otherwise the result pos will be the dest pos
     */
-    bool VMapManager::getObjectHitPos(unsigned int mapId, G3D::g3d_uint32 instanceId, G3D::g3d_int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float &ry, float& rz, float modifyDist)
+    bool VMapManager::getObjectHitPos(unsigned int mapId, G3D::uint32 instanceId, G3D::int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float &ry, float& rz, float modifyDist)
     {
         bool result = false;
         rx = x2; ry = y2; rz = z2;
@@ -297,7 +297,7 @@ namespace VMAP
     get height or INVALID_HEIGHT if no height available
     */
 
-    float VMapManager::getHeight(unsigned int mapId, G3D::g3d_uint32 instanceId, G3D::g3d_int32 m_phase, float x, float y, float z, float maxSearchDist)
+    float VMapManager::getHeight(unsigned int mapId, G3D::uint32 instanceId, G3D::int32 m_phase, float x, float y, float z, float maxSearchDist)
     {
         float height = VMAP_INVALID_HEIGHT;
         InstanceTreeMap::iterator instanceTree = iInstanceMapTrees.find(mapId);
@@ -320,7 +320,7 @@ namespace VMAP
         return height;
     }
 
-    bool VMapManager::getAreaInfo(unsigned int mapId, float x, float y, float& z, G3D::g3d_uint32& flags, G3D::g3d_int32& adtId, G3D::g3d_int32& rootId, G3D::g3d_int32& groupId) const
+    bool VMapManager::getAreaInfo(unsigned int mapId, float x, float y, float& z, G3D::uint32& flags, G3D::int32& adtId, G3D::int32& rootId, G3D::int32& groupId) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree != iInstanceMapTrees.end())
@@ -335,7 +335,7 @@ namespace VMAP
         return false;
     }
 
-    void VMapManager::GetLiquidData(G3D::g3d_uint32 mapId, float x, float y, float z, G3D::g3d_uint16 &type, float &level) const
+    void VMapManager::GetLiquidData(G3D::uint32 mapId, float x, float y, float z, G3D::uint16 &type, float &level) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree != iInstanceMapTrees.end())
@@ -403,7 +403,7 @@ namespace VMAP
         return StaticMapTree::CanLoadMap(std::string(basePath), mapId, x, y);
     }
 
-    void VMapManager::updateDynamicMapTree(G3D::g3d_uint32 t_diff, G3D::g3d_int32 mapid, G3D::g3d_uint32 instanceId)
+    void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid, G3D::uint32 instanceId)
     {
         if(mapid == -1)
         {
@@ -427,16 +427,16 @@ namespace VMAP
             return;
         }
 
-        G3D::g3d_uint32 name_length, displayId;
+        G3D::uint32 name_length, displayId;
         char buff[500];
         while (true)
         {
             Vector3 v1, v2;
-            if (fread(&displayId, sizeof(G3D::g3d_uint32), 1, model_list_file) != 1)
+            if (fread(&displayId, sizeof(G3D::uint32), 1, model_list_file) != 1)
                 if (feof(model_list_file))  // EOF flag is only set after failed reading attempt
                     break;
 
-            if (fread(&name_length, sizeof(G3D::g3d_uint32), 1, model_list_file) != 1
+            if (fread(&name_length, sizeof(G3D::uint32), 1, model_list_file) != 1
                 || name_length >= sizeof(buff)
                 || fread(&buff, sizeof(char), name_length, model_list_file) != name_length
                 || fread(&v1, sizeof(Vector3), 1, model_list_file) != 1
@@ -453,7 +453,7 @@ namespace VMAP
         }
 
         fclose(model_list_file);
-        sLog.outDetail("Loaded %u GameObject models", G3D::g3d_uint32(GOModelList.size()));
+        OUT_DETAIL("Loaded %u GameObject models", G3D::uint32(GOModelList.size()));
     }
 
 } // namespace VMAP

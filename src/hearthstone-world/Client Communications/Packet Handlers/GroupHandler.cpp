@@ -11,19 +11,13 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    CHECK_PACKET_SIZE(recv_data, 1);
-    WorldPacket data(100);
     std::string membername;
     uint32 serverid; // Sent as of 3.3 multiserver parties
-    Player* player = NULLPLR;
-    Group *group = NULL;
+    recv_data >> membername >> serverid;
+    if(_player->HasBeenInvited())
+        return;
 
-    recv_data >> membername;
-    recv_data >> serverid;
-    if(_player->HasBeenInvited())return;
-
-    player = objmgr.GetPlayer(membername.c_str(), false);
-
+    Player *player = objmgr.GetPlayer(membername.c_str(), false);
     if ( player == NULL)
     {
         SendPartyCommandResult(_player, 0, membername, ERR_PARTY_CANNOT_FIND);
@@ -41,8 +35,7 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
         return;
     }
 
-    group = _player->GetGroup();
-    if ( group != NULL )
+    if ( Group *group = _player->GetGroup() )
     {
         if (group->IsFull())
         {
@@ -51,6 +44,7 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
         }
     }
 
+    WorldPacket data(100);
     if ( player->InGroup() )
     {
         SendPartyCommandResult(_player, player->GetGroup()->GetGroupType(), membername, ERR_PARTY_ALREADY_IN_GROUP);
@@ -117,7 +111,6 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
 
     uint32 serverid; // Sent as of 3.3 multiserver parties
     recv_data >> serverid;
-
     Player* player = objmgr.GetPlayer(_player->GetInviter());
     if(!player)
         return;
@@ -162,16 +155,16 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGroupDeclineOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    WorldPacket data(SMSG_GROUP_DECLINE, 100);
 
-    Player* player = objmgr.GetPlayer(_player->GetInviter());
-    if(!player) return;
+    if(Player* player = objmgr.GetPlayer(_player->GetInviter()))
+    {
+        WorldPacket data(SMSG_GROUP_DECLINE, 100);
+        data << GetPlayer()->GetName();
+        player->GetSession()->SendPacket( &data );
 
-    data << GetPlayer()->GetName();
-
-    player->GetSession()->SendPacket( &data );
-    player->SetInviter(0);
-    _player->SetInviter(0);
+        player->SetInviter(0);
+        _player->SetInviter(0);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -180,16 +173,12 @@ void WorldSession::HandleGroupDeclineOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGroupUninviteOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
+
     std::string membername;
-    Player* player;
-    PlayerInfo * info;
-
     recv_data >> membername;
-
-    player = objmgr.GetPlayer(membername.c_str(), false);
-    info = objmgr.GetPlayerInfoByName(membername.c_str());
-    _player->GroupUninvite(player, info);
+    if(PlayerInfo *info = objmgr.GetPlayerInfoByName(membername.c_str()))
+        if(Player *player = objmgr.GetPlayer(membername.c_str(), false))
+            _player->GroupUninvite(player, info);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -197,17 +186,13 @@ void WorldSession::HandleGroupUninviteOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////////////////////////////////
 void WorldSession::HandleGroupUninviteGUIDOpcode( WorldPacket & recv_data )
 {
-    if(!_player->IsInWorld()) return;
-    CHECK_PACKET_SIZE(recv_data, 1);
-    std::string membername;
-    Player* player;
-    PlayerInfo * info;
+    CHECK_INWORLD_RETURN();
+
     uint64 guid;
     recv_data >> guid;
-
-    player = objmgr.GetPlayer(guid);
-    info = objmgr.GetPlayerInfo(guid);
-    _player->GroupUninvite(player, info);
+    if(PlayerInfo *info = objmgr.GetPlayerInfo(guid))
+        if(Player *player = objmgr.GetPlayer(guid))
+            _player->GroupUninvite(player, info);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -216,19 +201,13 @@ void WorldSession::HandleGroupUninviteGUIDOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGroupSetLeaderOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    // important note _player->GetName() can be wrong.
-    CHECK_PACKET_SIZE(recv_data, 1);
-    WorldPacket data;
-    uint64 MemberGuid;
-    Player* player;
 
+    uint64 MemberGuid;
     recv_data >> MemberGuid;
 
-    player = objmgr.GetPlayer((uint32)MemberGuid);
-
+    Player* player = objmgr.GetPlayer((uint32)MemberGuid);
     if ( player == NULL )
     {
-        //SendPartyCommandResult(_player, 0, membername, ERR_PARTY_CANNOT_FIND);
         SendPartyCommandResult(_player, 0, _player->GetName(), ERR_PARTY_CANNOT_FIND);
         return;
     }
@@ -241,14 +220,12 @@ void WorldSession::HandleGroupSetLeaderOpcode( WorldPacket & recv_data )
 
     if(player->GetGroup() != _player->GetGroup())
     {
-        //SendPartyCommandResult(_player, 0, membername, ERR_PARTY_IS_NOT_IN_YOUR_PARTY);
         SendPartyCommandResult(_player, 0, _player->GetName(), ERR_PARTY_IS_NOT_IN_YOUR_PARTY);
         return;
     }
 
     Group *pGroup = _player->GetGroup();
-    if(pGroup)
-        pGroup->SetLeader(player,false);
+    if(pGroup) pGroup->SetLeader(player,false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -277,11 +254,9 @@ void WorldSession::HandleGroupDisbandOpcode( WorldPacket & recv_data )
 void WorldSession::HandleLootMethodOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 16);
-    uint32 lootMethod;
-    uint64 lootMaster;
-    uint32 threshold;
 
+    uint64 lootMaster;
+    uint32 lootMethod, threshold;
     recv_data >> lootMethod >> lootMaster >>threshold;
 
     if(!_player->IsGroupLeader())
@@ -301,19 +276,16 @@ void WorldSession::HandleLootMethodOpcode( WorldPacket & recv_data )
 void WorldSession::HandleMinimapPingOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 8);
-    if(!_player->InGroup())
-    return;
-    Group * party= _player->GetGroup();
-    if(!party)return;
 
-    float x,y;
-    recv_data >> x >>y;
-    WorldPacket data;
-    data.SetOpcode(MSG_MINIMAP_PING);
-    data << _player->GetGUID();
-    data << x << y;
-    party->SendPacketToAllButOne(&data, _player);
+    float x, y;
+    recv_data >> x >> y;
+    if(Group *party = _player->GetGroup())
+    {
+        WorldPacket data(MSG_MINIMAP_PING, 16);
+        data << _player->GetGUID();
+        data << x << y;
+        party->SendPacketToAllButOne(&data, _player);
+    }
 }
 
 void WorldSession::HandleSetPlayerIconOpcode(WorldPacket& recv_data)

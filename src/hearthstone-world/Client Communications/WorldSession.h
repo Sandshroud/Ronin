@@ -19,83 +19,6 @@ struct TrainerSpell;
 
 //#define SESSION_CAP 5
 
-// MovementFlags Contribution by Tenshi
-enum MovementFlags
-{
-    // Byte 1 (Resets on Movement Key Press)
-    MOVEFLAG_MOVE_STOP                  = 0x00,         //verified
-    MOVEFLAG_MOVE_FORWARD               = 0x01,         //verified
-    MOVEFLAG_MOVE_BACKWARD              = 0x02,         //verified
-    MOVEFLAG_STRAFE_LEFT                = 0x04,         //verified
-    MOVEFLAG_STRAFE_RIGHT               = 0x08,         //verified
-    MOVEFLAG_TURN_LEFT                  = 0x10,         //verified
-    MOVEFLAG_TURN_RIGHT                 = 0x20,         //verified
-    MOVEFLAG_PITCH_DOWN                 = 0x40,         //Unconfirmed
-    MOVEFLAG_PITCH_UP                   = 0x80,         //Unconfirmed
-
-    // Byte 2 (Resets on Situation Change)
-    MOVEFLAG_WALK                       = 0x100,        //verified
-    MOVEFLAG_TAXI                       = 0x200,
-    MOVEFLAG_NO_COLLISION               = 0x400,
-    MOVEFLAG_FLYING                     = 0x800,        //verified
-    MOVEFLAG_REDIRECTED                 = 0x1000,       //Jumping
-    MOVEFLAG_FALLING                    = 0x2000,       //verified
-    MOVEFLAG_FALLING_FAR                = 0x4000,       //verified
-    MOVEFLAG_FREE_FALLING               = 0x8000,       //half verified
-
-    // Byte 3 (Set by server. TB = Third Byte. Completely unconfirmed.)
-    MOVEFLAG_TB_PENDING_STOP            = 0x10000,      // (MOVEFLAG_PENDING_STOP)
-    MOVEFLAG_TB_PENDING_UNSTRAFE        = 0x20000,      // (MOVEFLAG_PENDING_UNSTRAFE)
-    MOVEFLAG_TB_PENDING_FALL            = 0x40000,      // (MOVEFLAG_PENDING_FALL)
-    MOVEFLAG_TB_PENDING_FORWARD         = 0x80000,      // (MOVEFLAG_PENDING_FORWARD)
-    MOVEFLAG_TB_PENDING_BACKWARD        = 0x100000,     // (MOVEFLAG_PENDING_BACKWARD)
-    MOVEFLAG_SWIMMING                   = 0x200000,     //  verified
-    MOVEFLAG_FLYING_PITCH_UP            = 0x400000,     // (half confirmed)(MOVEFLAG_PENDING_STR_RGHT)
-    MOVEFLAG_TB_MOVED                   = 0x800000,     // Send to client on entervehicle
-
-    // Byte 4 (Script Based Flags. Never reset, only turned on or off.)
-    MOVEFLAG_AIR_SUSPENSION             = 0x1000000,    // confirmed allow body air suspension(good name? lol).
-    MOVEFLAG_AIR_SWIMMING               = 0x2000000,    // confirmed while flying.
-    MOVEFLAG_SPLINE_MOVER               = 0x4000000,    // Unconfirmed
-    MOVEFLAG_SPLINE_ENABLED             = 0x8000000,
-    MOVEFLAG_WATER_WALK                 = 0x10000000,
-    MOVEFLAG_FEATHER_FALL               = 0x20000000,   // Does not negate fall damage.
-    MOVEFLAG_LEVITATE                   = 0x40000000,
-    MOVEFLAG_LOCAL                      = 0x80000000,   // This flag defaults to on. (Assumption)
-
-    // Masks
-    MOVEFLAG_MOVING_MASK                = 0x03,
-    MOVEFLAG_STRAFING_MASK              = 0x0C,
-    MOVEFLAG_TURNING_MASK               = 0x30,
-    MOVEFLAG_FALLING_MASK               = 0x6000,
-    MOVEFLAG_MOTION_MASK                = 0xE00F,       // Forwards, Backwards, Strafing, Falling
-    MOVEFLAG_PENDING_MASK               = 0x7F0000,
-    MOVEFLAG_PENDING_STRAFE_MASK        = 0x600000,
-    MOVEFLAG_PENDING_MOVE_MASK          = 0x180000,
-    MOVEFLAG_FULL_FALLING_MASK          = 0xE000,
-};
-
-enum MovementFlags2
-{
-    MOVEMENTFLAG2_NONE                      = 0x00000000,
-    MOVEMENTFLAG2_NO_STRAFE                 = 0x00000001,
-    MOVEMENTFLAG2_NO_JUMPING                = 0x00000002,
-    MOVEMENTFLAG2_UNK3                      = 0x00000004, // Overrides various clientside checks
-    MOVEMENTFLAG2_FULL_SPEED_TURNING        = 0x00000008,
-    MOVEMENTFLAG2_FULL_SPEED_PITCHING       = 0x00000010,
-    MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING     = 0x00000020,
-    MOVEMENTFLAG2_UNK7                      = 0x00000040,
-    MOVEMENTFLAG2_UNK8                      = 0x00000080,
-    MOVEMENTFLAG2_UNK9                      = 0x00000100,
-    MOVEMENTFLAG2_UNK10                     = 0x00000200,
-    MOVEMENTFLAG2_INTERPOLATED_MOVEMENT     = 0x00000400,
-    MOVEMENTFLAG2_INTERPOLATED_TURNING      = 0x00000800,
-    MOVEMENTFLAG2_INTERPOLATED_PITCHING     = 0x00001000,
-    MOVEMENTFLAG2_UNK14                     = 0x00002000,
-    MOVEMENTFLAG2_UNK15                     = 0x00004000,
-    MOVEMENTFLAG2_UNK16                     = 0x00008000,
-};
-
 enum AreaTriggerFailures
 {
     AREA_TRIGGER_FAILURE_OK             = 0,
@@ -163,8 +86,6 @@ typedef struct Cords {
 #define PLAYER_LOGOUT_DELAY (sWorld.LogoutDelay*1000)
 
 #define CHECK_INWORLD_RETURN() if(_player == NULL || !_player->IsInWorld()) { return; }
-#define CHECK_GUID_EXISTS(guidx) if(_player->GetMapMgr()->GetUnit((guidx)) == NULL) { return; }
-#define CHECK_PACKET_SIZE(pckp, ssize) if(ssize && pckp.size() < ssize) { Disconnect(); return; }
 #define SKIP_READ_PACKET(pckt) pckt.rpos(pckt.wpos())
 
 #define NOTIFICATION_MESSAGE_NO_PERMISSION "You do not have permission to perform that function."
@@ -585,8 +506,8 @@ protected:
     void HandleInviteToGuild(WorldPacket & recv_data);
     void HandleGuildAccept(WorldPacket & recv_data);
     void HandleGuildDecline(WorldPacket & recv_data);
-    void HandleGuildInfo(WorldPacket & recv_data);
     void HandleGuildRoster(WorldPacket & recv_data);
+    void HandleGuildRanks(WorldPacket & recv_data);
     void HandleGuildPromote(WorldPacket & recv_data);
     void HandleGuildDemote(WorldPacket & recv_data);
     void HandleGuildLeave(WorldPacket & recv_data);
@@ -621,7 +542,6 @@ protected:
     void HandleGuildBankWithdrawItem(WorldPacket & recv_data);
     void HandleGuildBankGetAvailableAmount(WorldPacket & recv_data);
     void HandleGuildBankModifyTab(WorldPacket & recv_data);
-    void HandleGuildGetFullPermissions(WorldPacket & recv_data);
 
     // Pet
     void HandlePetAction(WorldPacket & recv_data);

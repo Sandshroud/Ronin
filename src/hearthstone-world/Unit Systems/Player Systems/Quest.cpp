@@ -440,7 +440,7 @@ uint32 QuestLogEntry::GetRequiredSpell()
         {
             SpellEntry* reqspell = dbcSpell.LookupEntry(m_quest->required_spell);
              // Spell has a power type, so we check if player has spells with the same namehash, and replace it with that.
-            if(reqspell && (reqspell->powerType != m_plr->GetPowerType()))
+            if(reqspell && (reqspell->powerType != m_plr->getPowerType()))
             {
                 uint32 newspell = m_plr->FindSpellWithNamehash(reqspell->NameHash);
                 if(newspell != 0) return newspell;

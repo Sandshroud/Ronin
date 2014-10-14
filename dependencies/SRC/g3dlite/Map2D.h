@@ -50,15 +50,15 @@ namespace G3D {                                                   \
 DECLARE_COMPUTE_TYPE( float32,  float64)
 DECLARE_COMPUTE_TYPE( float64,  float64)
 
-DECLARE_COMPUTE_TYPE( g3d_int8,     float32)
-DECLARE_COMPUTE_TYPE( g3d_int16,    float32)
-DECLARE_COMPUTE_TYPE( g3d_int32,    float64)
-DECLARE_COMPUTE_TYPE( g3d_int64,    float64)
+DECLARE_COMPUTE_TYPE( int8,     float32)
+DECLARE_COMPUTE_TYPE( int16,    float32)
+DECLARE_COMPUTE_TYPE( int32,    float64)
+DECLARE_COMPUTE_TYPE( int64,    float64)
 
-DECLARE_COMPUTE_TYPE( g3d_uint8,     float32)
-DECLARE_COMPUTE_TYPE( g3d_uint16,    float32)
-DECLARE_COMPUTE_TYPE( g3d_uint32,    float64)
-DECLARE_COMPUTE_TYPE( g3d_uint64,    float64)
+DECLARE_COMPUTE_TYPE( uint8,     float32)
+DECLARE_COMPUTE_TYPE( uint16,    float32)
+DECLARE_COMPUTE_TYPE( uint32,    float64)
+DECLARE_COMPUTE_TYPE( uint64,    float64)
 
 DECLARE_COMPUTE_TYPE( Vector2,  Vector2)
 DECLARE_COMPUTE_TYPE( Vector2int16,  Vector2)
@@ -103,20 +103,20 @@ namespace G3D {
   the type operated on by computation.  The Compute::Compute(Storage&) constructor
   is used to convert between storage and computation types.
   @a Storage is often an integer version of @a Compute, for example 
-  <code>Map2D<double, g3d_uint8></code>.  By default, the computation type is:
+  <code>Map2D<double, uint8></code>.  By default, the computation type is:
 
   <pre>
      Storage       Computation
 
-     g3d_uint8          float32
-     g3d_uint16         float32
-     g3d_uint32         float64
-     g3d_uint64         float64
+     uint8          float32
+     uint16         float32
+     uint32         float64
+     uint64         float64
 
-     g3d_int8           float32
-     g3d_int16          float32
-     g3d_int32          float64
-     g3d_int64          float64
+     int8           float32
+     int16          float32
+     int32          float64
+     int64          float64
 
      float32        float64
      float64        float64
@@ -188,10 +188,10 @@ protected:
     Storage ZERO;
 
     /** Width, in pixels. */
-    g3d_uint32              w;
+    uint32              w;
 
     /** Height, in pixels. */
-    g3d_uint32              h;
+    uint32              h;
 
     WrapMode            _wrapMode;
 
@@ -214,8 +214,8 @@ protected:
             return ZERO;
 
         case WrapMode::ERROR:
-            alwaysAssertM(((g3d_uint32)x < w) && ((g3d_uint32)y < h), 
-                G3D_format("Index out of bounds: (%d, %d), w = %d, h = %d",
+            alwaysAssertM(((uint32)x < w) && ((uint32)y < h), 
+                format("Index out of bounds: (%d, %d), w = %d, h = %d",
                 x, y, w, h));
 
             // intentionally fall through
@@ -233,13 +233,13 @@ public:
 
     /** Unsafe access to the underlying data structure with no wrapping support; requires that (x, y) is in bounds. */
     inline const Storage& fastGet(int x, int y) const {
-        debugAssert(((g3d_uint32)x < w) && ((g3d_uint32)y < h));
+        debugAssert(((uint32)x < w) && ((uint32)y < h));
         return data[x + y * w];
     }
 
     /** Unsafe access to the underlying data structure with no wrapping support; requires that (x, y) is in bounds. */
     inline void fastSet(int x, int y, const Storage& v) {
-        debugAssert(((g3d_uint32)x < w) && ((g3d_uint32)y < h));
+        debugAssert(((uint32)x < w) && ((uint32)y < h));
         data[x + y * w] = v;
     }
 
@@ -301,7 +301,7 @@ public:
 
     /** Resizes without clearing, leaving garbage.
       */
-    void resize(g3d_uint32 newW, g3d_uint32 newH) {
+    void resize(uint32 newW, uint32 newH) {
         if ((newW != w) || (newH != h)) {
             w = newW;
             h = newH;
@@ -348,7 +348,7 @@ public:
 
     /** is (x, y) strictly within the image bounds, or will it trigger some kind of wrap mode */
     inline bool inBounds(int x, int y) const {
-        return (((g3d_uint32)x < w) && ((g3d_uint32)y < h));
+        return (((uint32)x < w) && ((uint32)y < h));
     }
 
     /** is (x, y) strictly within the image bounds, or will it trigger some kind of wrap mode */
@@ -365,7 +365,7 @@ public:
         returned by Map2D::nearest.
       */
     inline const Storage& get(int x, int y, WrapMode wrap) const {
-        if (((g3d_uint32)x < w) && ((g3d_uint32)y < h)) {
+        if (((uint32)x < w) && ((uint32)y < h)) {
             return data[x + y * w];
         } else {
             // Remove the const to allow a slowGet on this object
@@ -421,7 +421,7 @@ public:
     /** Sets the changed flag to true */
     void set(int x, int y, const Storage& v, WrapMode wrap) {
         setChanged(true);
-        if (((g3d_uint32)x < w) && ((g3d_uint32)y < h)) {
+        if (((uint32)x < w) && ((uint32)y < h)) {
             // In bounds, wrapping isn't an issue.
             data[x + y * w] = v;
         } else {
@@ -448,37 +448,37 @@ public:
         }
     }
 
-    virtual void flipVertical() {
-        int halfHeight = h/2;
-        Storage* d = data.getCArray();
-        for (int y = 0; y < halfHeight; ++y) {
-            int o1 = y * w;
-            int o2 = (h - y - 1) * w;
-            for (int x = 0; x < (int)w; ++x) {
-                int i1 = o1 + x;
-                int i2 = o2 + x;
-                Storage temp = d[i1];
-                d[i1] = d[i2];
-                d[i2] = temp;
-            }
-        }
+	virtual void flipVertical() {
+		int halfHeight = h/2;
+		Storage* d = data.getCArray();
+		for (int y = 0; y < halfHeight; ++y) {
+			int o1 = y * w;
+			int o2 = (h - y - 1) * w;
+			for (int x = 0; x < (int)w; ++x) {
+				int i1 = o1 + x;
+				int i2 = o2 + x;
+				Storage temp = d[i1];
+				d[i1] = d[i2];
+				d[i2] = temp;
+			}
+		}
         setChanged(true);
-    }
+	}
 
-    virtual void flipHorizontal() {
-        int halfWidth = w / 2;
-        Storage* d = data.getCArray();
-        for (int x = 0; x < halfWidth; ++x) {
-            for (int y = 0; y < (int)h; ++y) {
-                int i1 = y * w + x;
-                int i2 = y * w + (w - x - 1);
-                Storage temp = d[i1];
-                d[i1] = d[i2];
-                d[i2] = temp;
-            }
-        }
+	virtual void flipHorizontal() {
+		int halfWidth = w / 2;
+		Storage* d = data.getCArray();
+		for (int x = 0; x < halfWidth; ++x) {
+			for (int y = 0; y < (int)h; ++y) {
+				int i1 = y * w + x;
+				int i2 = y * w + (w - x - 1);
+				Storage temp = d[i1];
+				d[i1] = d[i2];
+				d[i2] = temp;
+			}
+		}
         setChanged(true);
-    }
+	}
 
     /**
      Crops this map so that it only contains pixels between (x, y) and (x + w - 1, y + h - 1) inclusive.
@@ -623,14 +623,14 @@ public:
     }
 
     /** Pixel width */
-    inline g3d_int32 width() const {
-        return (g3d_int32)w;
+    inline int32 width() const {
+        return (int32)w;
     }
 
 
     /** Pixel height */
-    inline g3d_int32 height() const {
-        return (g3d_int32)h;
+    inline int32 height() const {
+        return (int32)h;
     }
 
 

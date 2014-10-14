@@ -120,7 +120,7 @@ double frand() {
 }
 
 Vector3::Vector3(TextInput& t) {
-    deserialize(t);
+	deserialize(t);
 }
 
 Vector3::Vector3(BinaryInput& b) {
@@ -313,12 +313,12 @@ void Vector3::orthonormalize (Vector3 akVector[3]) {
     akVector[0].unitize();
 
     // compute u1
-    float fDot0 = akVector[0].dot(akVector[1]);
+	float fDot0 = akVector[0].dot(akVector[1]);
     akVector[1] -= akVector[0] * fDot0;
     akVector[1].unitize();
 
     // compute u2
-    float fDot1 = akVector[1].dot(akVector[2]);
+	float fDot1 = akVector[1].dot(akVector[2]);
     fDot0 = akVector[0].dot(akVector[2]);
     akVector[2] -= akVector[0] * fDot0 + akVector[1] * fDot1;
     akVector[2].unitize();
@@ -348,7 +348,7 @@ void Vector3::generateOrthonormalBasis (Vector3& rkU, Vector3& rkV,
 //----------------------------------------------------------------------------
 
 std::string Vector3::toString() const {
-    return G3D::G3D_format("(%g, %g, %g)", x, y, z);
+    return G3D::format("(%g, %g, %g)", x, y, z);
 }
 
 
@@ -362,7 +362,7 @@ Matrix3 Vector3::cross() const {
 
 
 void serialize(const Vector3::Axis& a, class BinaryOutput& bo) {
-    bo.writeUInt8((g3d_uint8)a);
+    bo.writeUInt8((uint8)a);
 }
 
 void deserialize(Vector3::Axis& a, class BinaryInput& bi) {

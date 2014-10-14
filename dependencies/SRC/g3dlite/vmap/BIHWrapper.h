@@ -12,11 +12,11 @@ namespace VMAP
         {
             const T* const* objects;
             RayCallback& _callback;
-            G3D::g3d_uint32 objects_size;
+            G3D::uint32 objects_size;
 
-            MDLCallback(RayCallback& callback, const T* const* objects_array, G3D::g3d_uint32 objects_size ) : objects(objects_array), _callback(callback), objects_size(objects_size) {}
+            MDLCallback(RayCallback& callback, const T* const* objects_array, G3D::uint32 objects_size ) : objects(objects_array), _callback(callback), objects_size(objects_size) {}
 
-            bool operator() (const G3D::Ray& ray, G3D::g3d_uint32 Idx, float& MaxDist, bool /*stopAtFirst*/)
+            bool operator() (const G3D::Ray& ray, G3D::uint32 Idx, float& MaxDist, bool /*stopAtFirst*/)
             {
                 if (Idx >= objects_size)
                     return false;
@@ -25,7 +25,7 @@ namespace VMAP
                 return false;
             }
 
-            void operator() (const G3D::Vector3& p, G3D::g3d_uint32 Idx)
+            void operator() (const G3D::Vector3& p, G3D::uint32 Idx)
             {
                 if (Idx >= objects_size)
                     return false;
@@ -38,7 +38,7 @@ namespace VMAP
 
         BIH m_tree;
         ObjArray m_objects;
-        G3D::Table<const T*, G3D::g3d_uint32> m_obj2Idx;
+        G3D::Table<const T*, G3D::uint32> m_obj2Idx;
         G3D::Set<const T*> m_objects_to_push;
         int unbalanced_times;
         G3D::GMutex mutex;
@@ -58,7 +58,7 @@ namespace VMAP
         {
             mutex.lock();
             ++unbalanced_times;
-            G3D::g3d_uint32 Idx = 0;
+            G3D::uint32 Idx = 0;
             const T * temp;
             if (m_obj2Idx.getRemove(&obj, temp, Idx))
                 m_objects[Idx] = NULL;

@@ -219,7 +219,7 @@ void Image4::save(const std::string& filename, GImage::Format fmt) {
     im.save(filename, fmt);
 }
 
-const ImageFormat* Image4::G3D_format() const {
+const ImageFormat* Image4::format() const {
     return ImageFormat::RGBA32F();
 }
 

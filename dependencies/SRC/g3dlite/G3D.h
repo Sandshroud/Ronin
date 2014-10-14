@@ -18,12 +18,13 @@
 
 #ifndef NOMINMAX
 #define NOMINMAX 1
+#endif
+
 #ifdef min
     #undef min
 #endif
 #ifdef max
     #undef max
-#endif
 #endif
 
 #include "platform.h"

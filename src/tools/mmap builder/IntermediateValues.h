@@ -39,7 +39,7 @@ namespace MMAP
                                 contours(NULL), polyMesh(NULL), polyMeshDetail(NULL) {}
         ~IntermediateValues();
 
-        void writeIV(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY);
+        void writeIV(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY);
 
         void debugWrite(FILE* file, const rcHeightfield* mesh);
         void debugWrite(FILE* file, const rcCompactHeightfield* chf);
@@ -47,7 +47,7 @@ namespace MMAP
         void debugWrite(FILE* file, const rcPolyMesh* mesh);
         void debugWrite(FILE* file, const rcPolyMeshDetail* mesh);
 
-        void generateObjFile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData);
+        void generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
     };
 }
 #endif

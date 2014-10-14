@@ -14,7 +14,7 @@
 #include "FileSystem.h"
 #include "stringutils.h"
 #include "Array.h"
-#include "../zlib/zlib.h"
+#include <zlib/zlib.h>
 #include "Log.h"
 #include <cstring>
 
@@ -57,14 +57,14 @@ void BinaryOutput::write##ucase(const Array<lcase>& out, int n) {\
 }
 
 
-IMPLEMENT_WRITER(UInt8,   g3d_uint8)
-IMPLEMENT_WRITER(Int8,    g3d_int8)
-IMPLEMENT_WRITER(UInt16,  g3d_uint16)
-IMPLEMENT_WRITER(Int16,   g3d_int16)
-IMPLEMENT_WRITER(UInt32,  g3d_uint32)
-IMPLEMENT_WRITER(Int32,   g3d_int32)
-IMPLEMENT_WRITER(UInt64,  g3d_uint64)
-IMPLEMENT_WRITER(Int64,   g3d_int64)
+IMPLEMENT_WRITER(UInt8,   uint8)
+IMPLEMENT_WRITER(Int8,    int8)
+IMPLEMENT_WRITER(UInt16,  uint16)
+IMPLEMENT_WRITER(Int16,   int16)
+IMPLEMENT_WRITER(UInt32,  uint32)
+IMPLEMENT_WRITER(Int32,   int32)
+IMPLEMENT_WRITER(UInt64,  uint64)
+IMPLEMENT_WRITER(Int64,   int64)
 IMPLEMENT_WRITER(Float32, float32)
 IMPLEMENT_WRITER(Float64, float64)    
 
@@ -84,8 +84,8 @@ void BinaryOutput::write##ucase(const lcase* out, int n) {\
 }
 
 IMPLEMENT_WRITER(Bool8,   bool)
-IMPLEMENT_WRITER(UInt8,   g3d_uint8)
-IMPLEMENT_WRITER(Int8,    g3d_int8)
+IMPLEMENT_WRITER(UInt8,   uint8)
+IMPLEMENT_WRITER(Int8,    int8)
 
 #undef IMPLEMENT_WRITER
 
@@ -102,12 +102,12 @@ void BinaryOutput::write##ucase(const lcase* out, int n) {\
 }
 
 
-IMPLEMENT_WRITER(UInt16,  g3d_uint16)
-IMPLEMENT_WRITER(Int16,   g3d_int16)
-IMPLEMENT_WRITER(UInt32,  g3d_uint32)
-IMPLEMENT_WRITER(Int32,   g3d_int32)
-IMPLEMENT_WRITER(UInt64,  g3d_uint64)
-IMPLEMENT_WRITER(Int64,   g3d_int64)
+IMPLEMENT_WRITER(UInt16,  uint16)
+IMPLEMENT_WRITER(Int16,   int16)
+IMPLEMENT_WRITER(UInt32,  uint32)
+IMPLEMENT_WRITER(Int32,   int32)
+IMPLEMENT_WRITER(UInt64,  uint64)
+IMPLEMENT_WRITER(Int64,   int64)
 IMPLEMENT_WRITER(Float32, float32)
 IMPLEMENT_WRITER(Float64, float64)    
 
@@ -118,14 +118,14 @@ void BinaryOutput::reallocBuffer(size_t bytes, size_t oldBufferLen) {
     //debugPrintf("reallocBuffer(%d, %d)\n", bytes, oldBufferLen);
 
     size_t newBufferLen = (int)(m_bufferLen * 1.5) + 100;
-    g3d_uint8* newBuffer = NULL;
+    uint8* newBuffer = NULL;
 
     if ((m_filename == "<memory>") || (newBufferLen < MAX_BINARYOUTPUT_BUFFER_SIZE)) {
         // We're either writing to memory (in which case we *have* to try and allocate)
         // or we've been asked to allocate a reasonable size buffer.
 
         //debugPrintf("  realloc(%d)\n", newBufferLen); 
-        newBuffer = (g3d_uint8*)System::realloc(m_buffer, newBufferLen);
+        newBuffer = (uint8*)System::realloc(m_buffer, newBufferLen);
         if (newBuffer != NULL) {
             m_maxBufferLen = newBufferLen;
         }
@@ -280,11 +280,11 @@ void BinaryOutput::compress() {
 
     // Old buffer size
     int L = m_bufferLen;
-    g3d_uint8* convert = (g3d_uint8*)&L;
+    uint8* convert = (uint8*)&L;
 
     // Zlib requires the output buffer to be this big
     unsigned long newSize = iCeil(m_bufferLen * 1.01) + 12;
-    g3d_uint8* temp = (g3d_uint8*)System::malloc(newSize);
+    uint8* temp = (uint8*)System::malloc(newSize);
     int result = compress2(temp, &newSize, m_buffer, m_bufferLen, 9); 
 
     debugAssert(result == Z_OK); (void)result;
@@ -303,9 +303,9 @@ void BinaryOutput::compress() {
     }
 
     // Write the data
-    if ((g3d_int64)newSize + 4 > (g3d_int64)m_maxBufferLen) {
+    if ((int64)newSize + 4 > (int64)m_maxBufferLen) {
         m_maxBufferLen = newSize + 4;
-        m_buffer = (g3d_uint8*)System::realloc(m_buffer, m_maxBufferLen);
+        m_buffer = (uint8*)System::realloc(m_buffer, m_maxBufferLen);
     }
     m_bufferLen = newSize + 4;
     System::memcpy(m_buffer + 4, temp, newSize);
@@ -359,7 +359,7 @@ void BinaryOutput::commit(bool flush) {
 
 
 void BinaryOutput::commit(
-    g3d_uint8*                  out) {
+    uint8*                  out) {
     debugAssertM(! m_committed, "Cannot commit twice");
     m_committed = true;
 
@@ -367,26 +367,26 @@ void BinaryOutput::commit(
 }
 
 
-void BinaryOutput::writeUInt16(g3d_uint16 u) {
+void BinaryOutput::writeUInt16(uint16 u) {
     reserveBytes(2);
 
-    g3d_uint8* convert = (g3d_uint8*)&u;
+    uint8* convert = (uint8*)&u;
 
     if (m_swapBytes) {
         m_buffer[m_pos]     = convert[1];
         m_buffer[m_pos + 1] = convert[0];
     } else {
-        *(g3d_uint16*)(m_buffer + m_pos) = u;
+        *(uint16*)(m_buffer + m_pos) = u;
     }
 
     m_pos += 2;
 }
 
 
-void BinaryOutput::writeUInt32(g3d_uint32 u) {
+void BinaryOutput::writeUInt32(uint32 u) {
     reserveBytes(4);
 
-    g3d_uint8* convert = (g3d_uint8*)&u;
+    uint8* convert = (uint8*)&u;
 
     debugAssert(m_beginEndBits == 0);
 
@@ -396,17 +396,17 @@ void BinaryOutput::writeUInt32(g3d_uint32 u) {
         m_buffer[m_pos + 2] = convert[1];
         m_buffer[m_pos + 3] = convert[0];
     } else {
-        *(g3d_uint32*)(m_buffer + m_pos) = u;
+        *(uint32*)(m_buffer + m_pos) = u;
     }
 
     m_pos += 4;
 }
 
 
-void BinaryOutput::writeUInt64(g3d_uint64 u) {
+void BinaryOutput::writeUInt64(uint64 u) {
     reserveBytes(8);
 
-    g3d_uint8* convert = (g3d_uint8*)&u;
+    uint8* convert = (uint8*)&u;
 
     if (m_swapBytes) {
         m_buffer[m_pos]     = convert[7];
@@ -418,7 +418,7 @@ void BinaryOutput::writeUInt64(g3d_uint64 u) {
         m_buffer[m_pos + 6] = convert[1];
         m_buffer[m_pos + 7] = convert[0];
     } else {
-        *(g3d_uint64*)(m_buffer + m_pos) = u;
+        *(uint64*)(m_buffer + m_pos) = u;
     }
 
     m_pos += 8;
@@ -501,7 +501,7 @@ void BinaryOutput::beginBits() {
 }
 
 
-void BinaryOutput::writeBits(g3d_uint32 value, int numBits) {
+void BinaryOutput::writeBits(uint32 value, int numBits) {
 
     while (numBits > 0) {
         // Extract the current bit of value and

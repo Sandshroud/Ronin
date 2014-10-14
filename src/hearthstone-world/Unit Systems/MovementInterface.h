@@ -1,0 +1,6 @@
+/***
+ * Demonstrike Core
+ */
+
+#pragma once
+

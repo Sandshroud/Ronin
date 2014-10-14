@@ -32,8 +32,8 @@
 namespace G3D {
 
 void GImage::LtoRGBA(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int             numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -49,8 +49,8 @@ void GImage::LtoRGBA(
 
 
 void GImage::LtoRGB(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int             numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -65,8 +65,8 @@ void GImage::LtoRGB(
 
    
 void GImage::RGBtoRGBA(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int             numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -82,8 +82,8 @@ void GImage::RGBtoRGBA(
 
 
 void GImage::RGBAtoRGB(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int             numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -98,8 +98,8 @@ void GImage::RGBAtoRGB(
 
 
 void GImage::RGBtoBGRA(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int                     numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -116,8 +116,8 @@ void GImage::RGBtoBGRA(
 
 
 void GImage::RGBtoBGR(
-    const g3d_uint8*    in,
-    g3d_uint8*          out,
+    const uint8*    in,
+    uint8*          out,
     int             numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -135,9 +135,9 @@ void GImage::RGBtoBGR(
 
 
 void GImage::RGBxRGBtoRGBA(
-    const g3d_uint8*            colorRGB,
-    const g3d_uint8*            alphaRGB,
-    g3d_uint8*                  out,
+    const uint8*            colorRGB,
+    const uint8*            alphaRGB,
+    uint8*                  out,
     int                     numPixels) {
 
     for (int i = numPixels - 1; i >= 0; --i) {
@@ -153,8 +153,8 @@ void GImage::RGBxRGBtoRGBA(
 
 
 void GImage::RGBtoARGB(
-    const g3d_uint8*            in,
-    g3d_uint8*                  out,
+    const uint8*            in,
+    uint8*                  out,
     int                     numPixels) {
 
     for (int i = 0; i < numPixels; ++i) {
@@ -170,15 +170,15 @@ void GImage::RGBtoARGB(
 
 
 void GImage::flipRGBVertical(
-    const g3d_uint8*            in,
-    g3d_uint8*                  out,
+    const uint8*            in,
+    uint8*                  out,
     int                     width,
     int                     height) {
 
     
     // Allocate a temp row so the operation
     // is still safe if in == out
-    g3d_uint8* temp = (g3d_uint8*)System::malloc(width * 3);
+    uint8* temp = (uint8*)System::malloc(width * 3);
     alwaysAssertM(temp != NULL, "Out of memory"); 
 
     int oneRow = width * 3;
@@ -198,15 +198,15 @@ void GImage::flipRGBVertical(
 
 
 void GImage::flipRGBAVertical(
-    const g3d_uint8*            in,
-    g3d_uint8*                  out,
+    const uint8*            in,
+    uint8*                  out,
     int                     width,
     int                     height) {
 
     
     // Allocate a temp row so the operation
     // is still safe if in == out
-    g3d_uint8* temp = (g3d_uint8*)System::malloc(width * 4);
+    uint8* temp = (uint8*)System::malloc(width * 4);
     alwaysAssertM(temp != NULL, "Out of memory");
 
     int oneRow = width * 4;
@@ -276,27 +276,27 @@ void GImage::decode(
 void GImage::decodePCX(
     BinaryInput&                input) {
 
-    g3d_uint8  manufacturer = input.readUInt8();
-    g3d_uint8  version      = input.readUInt8();
-    g3d_uint8  encoding     = input.readUInt8();
-    g3d_uint8  bitsPerPixel = input.readUInt8();
+    uint8  manufacturer = input.readUInt8();
+    uint8  version      = input.readUInt8();
+    uint8  encoding     = input.readUInt8();
+    uint8  bitsPerPixel = input.readUInt8();
 
-    g3d_uint16 xmin         = input.readUInt16();
-    g3d_uint16 ymin         = input.readUInt16();
-    g3d_uint16 xmax         = input.readUInt16();
-    g3d_uint16 ymax         = input.readUInt16();
+    uint16 xmin         = input.readUInt16();
+    uint16 ymin         = input.readUInt16();
+    uint16 xmax         = input.readUInt16();
+    uint16 ymax         = input.readUInt16();
 
-    g3d_uint16 horizDPI     = input.readUInt16();
-    g3d_uint16 vertDPI      = input.readUInt16();
+    uint16 horizDPI     = input.readUInt16();
+    uint16 vertDPI      = input.readUInt16();
 
     Color3uint8 colorMap[16];
     input.readBytes(colorMap, 48);
 
     input.skip(1);
 
-    g3d_uint8  planes       = input.readUInt8();
-    g3d_uint16 bytesPerLine = input.readUInt16();
-    g3d_uint16 paletteType  = input.readUInt16();
+    uint8  planes       = input.readUInt8();
+    uint16 bytesPerLine = input.readUInt16();
+    uint16 paletteType  = input.readUInt16();
     input.skip(4 + 54);
 
     (void)bytesPerLine;
@@ -317,8 +317,8 @@ void GImage::decodePCX(
         throw GImage::Error("Only 8-bit paletted and 24-bit PCX files supported.", input.getFilename());
     }
 
-    // Prepare the pointer object for the pixel data
-    m_byte = (g3d_uint8*)m_memMan->alloc(m_width * m_height * 3);
+	// Prepare the pointer object for the pixel data
+    m_byte = (uint8*)m_memMan->alloc(m_width * m_height * 3);
 
     if ((paletteType == 1) && (planes == 3)) {
 
@@ -331,7 +331,7 @@ void GImage::decodePCX(
                 int p = row * m_width;
                 int p1 = p + m_width;
                 while (p < p1) {
-                    g3d_uint8 value = input.readUInt8();
+                    uint8 value = input.readUInt8();
                     int length = 1;
             
                     if (value >= 192) {
@@ -359,11 +359,11 @@ void GImage::decodePCX(
 
         input.setPosition(paletteBeginning);
 
-        g3d_uint8 dummy = input.readUInt8();
+        uint8 dummy = input.readUInt8();
 
         if (dummy != 12) {
-            G3D_Log::common()->println("\n*********************");
-            G3D_Log::common()->printf("Warning: Corrupted PCX file (palette marker byte was missing) \"%s\"\nLoading anyway\n\n", input.getFilename().c_str());
+            Log::common()->println("\n*********************");
+            Log::common()->printf("Warning: Corrupted PCX file (palette marker byte was missing) \"%s\"\nLoading anyway\n\n", input.getFilename().c_str());
         }
 
         input.readBytes(palette, sizeof(palette));
@@ -374,8 +374,8 @@ void GImage::decodePCX(
         // The palette indices are run length encoded.
         int p = 0;
         while (p < m_width * m_height) {
-            g3d_uint8 index  = input.readUInt8();
-            g3d_uint8 length = 1;
+            uint8 index  = input.readUInt8();
+            uint8 length = 1;
 
             if (index >= 192) {
                 // This is the length, not the index.  Mask off
@@ -414,7 +414,7 @@ GImage::Format GImage::resolveFormat(const std::string&  filename) {
 
 GImage::Format GImage::resolveFormat(
     const std::string&  filename,
-    const g3d_uint8*        data,
+    const uint8*        data,
     int                 dataLen,
     Format              maybeFormat) {
 
@@ -525,7 +525,7 @@ void GImage::load(
 
 
 GImage::GImage(
-    const g3d_uint8*        data,
+    const uint8*        data,
     int                 length,
     Format              format,
     const MemoryManager::Ref& m) : 
@@ -576,7 +576,7 @@ void GImage::resize(
     size_t sz = width * height * channels;
 
     if (sz > 0) {
-        m_byte = (g3d_uint8*)m_memMan->alloc(sz);
+        m_byte = (uint8*)m_memMan->alloc(sz);
         if (zero) {
             System::memset(m_byte, 0, sz);
         }
@@ -593,18 +593,18 @@ void GImage::_copy(
     m_width  = other.m_width;
     m_height = other.m_height;
     m_channels = other.m_channels;
-    int s  = m_width * m_height * m_channels * sizeof(g3d_uint8);
-    m_byte  = (g3d_uint8*)m_memMan->alloc(s);
+    int s  = m_width * m_height * m_channels * sizeof(uint8);
+    m_byte  = (uint8*)m_memMan->alloc(s);
     debugAssert(isValidHeapPointer(m_byte));
     memcpy(m_byte, other.m_byte, s);
 }
 
 
 void GImage::flipHorizontal() {
-    g3d_uint8 temp[4];
+    uint8 temp[4];
     int rowBytes = m_width * m_channels;
     for (int y = 0; y < m_height; ++y) {
-        g3d_uint8* row = m_byte + y * rowBytes; 
+        uint8* row = m_byte + y * rowBytes; 
         for (int x = 0; x < m_width / 2; ++x) { 
             System::memcpy(temp, row + x * m_channels, m_channels);
             System::memcpy(row + x * m_channels, row + (m_width - x - 1) * m_channels, m_channels);
@@ -615,8 +615,8 @@ void GImage::flipHorizontal() {
 
 
 void GImage::flipVertical() {
-    g3d_uint8* old = m_byte;
-    m_byte = (g3d_uint8*)m_memMan->alloc(m_width * m_height * m_channels);
+    uint8* old = m_byte;
+    m_byte = (uint8*)m_memMan->alloc(m_width * m_height * m_channels);
 
     // We could do this with only a single-row temp buffer, but then
     // we'd have to copy twice as much data.
@@ -631,14 +631,14 @@ void GImage::flipVertical() {
 
 void GImage::rotate90CW(int numTimes) {
 
-    g3d_uint8* old = NULL;
+    uint8* old = NULL;
     numTimes = iWrap(numTimes, 4);
     if (numTimes > 0) {
-        (g3d_uint8*)m_memMan->alloc(m_width * m_height * m_channels);
+        (uint8*)m_memMan->alloc(m_width * m_height * m_channels);
     }
     for (int j = 0; j < numTimes; ++j) {
         {
-            g3d_uint8* temp = old;
+            uint8* temp = old;
             old = m_byte;
             m_byte = temp;
         }
@@ -652,8 +652,8 @@ void GImage::rotate90CW(int numTimes) {
         int rowBytes = m_width * m_channels;
         for (int y = 0; y < m_height; ++y) {
             for (int x = 0; x < m_width; ++x) {
-                g3d_uint8* dst = m_byte + x + y * rowBytes;
-                g3d_uint8* src = old + y + (m_height - x - 1) * rowBytes;
+                uint8* dst = m_byte + x + y * rowBytes;
+                uint8* src = old + y + (m_height - x - 1) * rowBytes;
                 System::memcpy(dst, src, m_channels);
             }
         }
@@ -730,9 +730,9 @@ bool GImage::pasteSubImage(
     }
 
     for (int i = 0; i < srcHeight; i++) {
-        const g3d_uint8* srcRow = src.byte() +
+        const uint8* srcRow = src.byte() +
             ((i + srcY) * src.m_width + srcX) * src.channels();
-        g3d_uint8* destRow = dest.byte() +
+        uint8* destRow = dest.byte() +
             ((i + destY) * dest.width() + destX) * dest.channels();
         memcpy(destRow, srcRow, srcWidth * src.m_channels);
     }
@@ -784,14 +784,14 @@ void GImage::save(
 
 void GImage::encode(
     Format              format,
-    g3d_uint8*&             outData,
+    uint8*&             outData,
     int&                outLength) const {
 
     BinaryOutput out;
 
     encode(format, out);
 
-    outData = (g3d_uint8*)System::malloc(out.size());
+    outData = (uint8*)System::malloc(out.size());
     debugAssert(outData);
     outLength = out.size();
 
@@ -885,7 +885,7 @@ void GImage::computeNormalMap(
     int                 width,
     int                 height,
     int                 channels,
-    const g3d_uint8*        src,
+    const uint8*        src,
     GImage&             normal,
     const BumpMapPreprocess& preprocess) {
 
@@ -909,7 +909,7 @@ void GImage::computeNormalMap(
 
     normal.resize(w, h, 4);
 
-    const g3d_uint8* const B = src;
+    const uint8* const B = src;
     Color4uint8* const N = normal.pixel4();
 
     // 1/s for the scale factor that each ELEVATION should be multiplied by.
@@ -999,7 +999,7 @@ void GImage::convertToL8() {
             resize(m_width, m_height, 1);
             for (int i = m_width * m_height - 1; i >= 0; --i) {
                 const Color3uint8   s = src[i];
-                g3d_uint8&              d = m_byte[i]; 
+                uint8&              d = m_byte[i]; 
                 d = ((int)s.r + (int)s.g + (int)s.b) / 3;
             }
             m_memMan->free(src);
@@ -1014,7 +1014,7 @@ void GImage::convertToL8() {
             resize(m_width, m_height, 1);
             for (int i = m_width * m_height - 1; i >= 0; --i) {
                 const Color4uint8   s = src[i];
-                g3d_uint8&              d = m_byte[i]; 
+                uint8&              d = m_byte[i]; 
                 d = ((int)s.r + (int)s.g + (int)s.b) / 3;
             }
             m_memMan->free(src);
@@ -1032,11 +1032,11 @@ void GImage::convertToRGBA() {
     case 1:
         {            
             // Spread
-            g3d_uint8* old = m_byte;
+            uint8* old = m_byte;
             m_byte = NULL;
             resize(m_width, m_height, 4);
             for (int i = m_width * m_height - 1; i >= 0; --i) {
-                const g3d_uint8  s = old[i];
+                const uint8  s = old[i];
                 Color4uint8& d = ((Color4uint8*)m_byte)[i]; 
                 d.r = d.g = d.b = s;
                 d.a = 255;
@@ -1078,11 +1078,11 @@ void GImage::convertToRGB() {
     case 1:
         {            
             // Spread
-            g3d_uint8* old = m_byte;
+            uint8* old = m_byte;
             m_byte = NULL;
             resize(m_width, m_height, 3);
             for (int i = m_width * m_height - 1; i >= 0; --i) {
-                const g3d_uint8  s = old[i];
+                const uint8  s = old[i];
                 Color3uint8& d = ((Color3uint8*)m_byte)[i]; 
                 d.r = d.g = d.b = s;
             }
@@ -1091,10 +1091,10 @@ void GImage::convertToRGB() {
         break;
 
     case 3:
-        return;
+		return;
 
     case 4:
-        // Strip alpha
+		// Strip alpha
         {            
             Color4uint8* old = (Color4uint8*)m_byte;
             m_byte = NULL;
@@ -1116,7 +1116,7 @@ void GImage::convertToRGB() {
 }
 
 
-void GImage::R8G8B8_to_Y8U8V8(int width, int height, const g3d_uint8* _in, g3d_uint8* _out) {
+void GImage::R8G8B8_to_Y8U8V8(int width, int height, const uint8* _in, uint8* _out) {
     const Color3uint8* in = reinterpret_cast<const Color3uint8*>(_in);
     Color3uint8* out = reinterpret_cast<Color3uint8*>(_out);
 
@@ -1133,7 +1133,7 @@ void GImage::R8G8B8_to_Y8U8V8(int width, int height, const g3d_uint8* _in, g3d_u
 
 
 
-void GImage::Y8U8V8_to_R8G8B8(int width, int height, const g3d_uint8* _in, g3d_uint8* _out) {
+void GImage::Y8U8V8_to_R8G8B8(int width, int height, const uint8* _in, uint8* _out) {
     const Color3uint8* in = reinterpret_cast<const Color3uint8*>(_in);
     Color3uint8* out = reinterpret_cast<Color3uint8*>(_out);
 
@@ -1155,7 +1155,7 @@ void GImage::makeCheckerboard(GImage& im, int checkerSize, const Color4uint8& A,
             bool checker = isOdd((x / checkerSize) + (y / checkerSize));
             const Color4uint8& color = checker ? A : B;
             for (int c = 0; c < im.m_channels; ++c) {
-                g3d_uint8* v = im.byte() + (x + y * im.m_width) * im.m_channels + c;
+                uint8* v = im.byte() + (x + y * im.m_width) * im.m_channels + c;
                 *v = color[c];
             }
         }

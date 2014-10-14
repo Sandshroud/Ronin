@@ -29,7 +29,7 @@ namespace MMAP
         rcFreePolyMeshDetail(polyMeshDetail);
     }
 
-    void IntermediateValues::writeIV(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY)
+    void IntermediateValues::writeIV(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
     {
         char fileName[255];
         char tileString[25];
@@ -199,7 +199,7 @@ namespace MMAP
         fwrite(mesh->meshes, sizeof(int), mesh->nmeshes*4, file);
     }
 
-    void IntermediateValues::generateObjFile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, MeshData &meshData)
+    void IntermediateValues::generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
     {
         char objFileName[255];
         sprintf(objFileName, "meshes/map%03u%02u%02u.obj", mapID, tileY, tileX);

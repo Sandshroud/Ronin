@@ -19,9 +19,9 @@
 namespace G3D {
 
 Vector3int32::Vector3int32(const class Vector3& v) {
-    x = (g3d_int32)iFloor(v.x + 0.5);
-    y = (g3d_int32)iFloor(v.y + 0.5);
-    z = (g3d_int32)iFloor(v.z + 0.5);
+    x = (int32)iFloor(v.x + 0.5);
+    y = (int32)iFloor(v.y + 0.5);
+    z = (int32)iFloor(v.z + 0.5);
 }
 
 
@@ -51,7 +51,7 @@ void Vector3int32::deserialize(class BinaryInput& bi) {
 }
 
 std::string Vector3int32::toString() const {
-    return G3D::G3D_format("(%d, %d, %d)", x, y, z);
+    return G3D::format("(%d, %d, %d)", x, y, z);
 }
 
 }

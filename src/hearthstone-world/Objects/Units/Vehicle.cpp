@@ -753,13 +753,14 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
     {
         pPassenger->SetVehicle(this);
         if(vehicledata != NULL)
+        {
             if(vehicledata->seats[slot].accessoryentry == pPassenger->GetEntry())
+            {
                 if(vehicledata->seats[slot].unselectableaccessory == true)
                     pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
-            else
-                pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION));
-        else
-            pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
+                else pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION));
+            } else pPassenger->SetFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
+        }
 
         pPassenger->SetPosition(GetPositionX()+v.x, GetPositionY()+v.y, GetPositionZ()+v.z, GetOrientation());
     }
@@ -774,18 +775,17 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
     _setFaction();
 }
 
-void Vehicle::VehicleSetDeathState(DeathState s)
+void Vehicle::SetDeathState(DeathState s)
 {
+    Creature::SetDeathState(s);
     CreatureVehicleData* vehicledata = CreatureVehicleDataStorage.LookupEntry(GetEntry());
-
     for (uint8 i = 0; i < m_seatSlotMax; i++)
     {
         if(m_passengers[i] != NULL)
         {
             if(m_passengers[i]->IsPlayer() || (vehicledata && vehicledata->seats[i].ejectfromvehicleondeath))
                 RemovePassenger(m_passengers[i]);
-            else
-                m_passengers[i]->setDeathState(s);
+            else m_passengers[i]->SetDeathState(s);
         }
     }
 
@@ -817,8 +817,6 @@ to that vehicle*/
 void WorldSession::HandleSpellClick( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-
-    CHECK_PACKET_SIZE(recv_data, 8);
 
     uint64 guid;
     recv_data >> guid;
@@ -994,44 +992,7 @@ void WorldSession::HandleVehicleMountEnter( WorldPacket & recv_data )
 
 void Vehicle::ChangePowerType()
 {
-    if(vehicleData == NULL)
-        return;
-    switch(vehicleData->m_powerType)
-    {
-    case POWER_TYPE_MANA:
-        {
-            SetPowerType(POWER_TYPE_MANA);
-            SetUInt32Value(UNIT_FIELD_MANA, _creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_MANA, _creatureData->MaxPower);
-            SetUInt32Value(UNIT_FIELD_BASE_MANA, _creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_ENERGY:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY,  _creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_ENERGY, _creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_STEAM:
-    case POWER_TYPE_HEAT:
-    case POWER_TYPE_OOZ:
-    case POWER_TYPE_BLOOD:
-    case POWER_TYPE_WRATH:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY, 100);
-            SetMaxPower(POWER_TYPE_ENERGY,100);
-        }break;
-    case POWER_TYPE_PYRITE:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetMaxPower(POWER_TYPE_ENERGY,50);
-            m_interruptRegen = true;
-        }break;
-    default:
-        {
-            sLog.outError("Vehicle %u, Vehicle Entry %u has an unknown powertype %u.", GetEntry(), GetVehicleEntry(), vehicleData->m_powerType);
-        }break;
-    }
+
 }
 
 uint16 Vehicle::GetAddMovement2Flags()

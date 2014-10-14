@@ -186,8 +186,8 @@ Sphere GLight::effectSphere(float cutoff) const {
         return Sphere(Vector3::zero(), finf());
     } else {
         // Avoid divide by zero
-        cutoff = G3D_max(cutoff, 0.00001f);
-        float maxIntensity = G3D_max(color.r, G3D_max(color.g, color.b));
+        cutoff = max(cutoff, 0.00001f);
+        float maxIntensity = max(color.r, max(color.g, color.b));
 
         float radius = finf();
             
@@ -215,7 +215,7 @@ Sphere GLight::effectSphere(float cutoff) const {
                         radius = r2;
                     }
                 } else if (r2 > 0) {
-                    radius = G3D_min(r1, r2);
+                    radius = min(r1, r2);
                 } else {
                     radius = r1;
                 }
@@ -229,7 +229,7 @@ Sphere GLight::effectSphere(float cutoff) const {
             // r = (I / cutoff - a[0]) / a[1]
 
             float radius = (maxIntensity / cutoff - attenuation[0]) / attenuation[1];
-            radius = G3D_max(radius, 0.0f);
+            radius = max(radius, 0.0f);
         }
 
         return Sphere(position.xyz(), radius);

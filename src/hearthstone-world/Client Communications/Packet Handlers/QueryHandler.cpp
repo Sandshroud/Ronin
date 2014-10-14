@@ -9,7 +9,6 @@
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 8);
     uint64 guid;
     recv_data >> guid;
     if(GUID_HIPART(guid) != HIGHGUID_TYPE_PLAYER)
@@ -54,7 +53,6 @@ void WorldSession::HandleQueryTimeOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 12);
     uint32 entry;
     uint64 guid;
 
@@ -112,9 +110,6 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 12);
-    WorldPacket data(SMSG_GAMEOBJECT_QUERY_RESPONSE, 150);
-
     uint32 entryID;
     uint64 guid;
     recv_data >> entryID;
@@ -126,6 +121,7 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     if(goinfo == NULL)
         return;
 
+    WorldPacket data(SMSG_GAMEOBJECT_QUERY_RESPONSE, 150);
     data << entryID;
     data << goinfo->Type;
     data << goinfo->DisplayID;
@@ -184,7 +180,6 @@ void WorldSession::HandleCorpseQueryOpcode(WorldPacket &recv_data)
 
 void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
 {
-    CHECK_PACKET_SIZE(recv_data, 4);
     uint32 pageid = 0;
     uint64 itemguid;
     recv_data >> pageid;

@@ -119,16 +119,16 @@ namespace VMAP
 
     bool ModelSpawn::readFromFile(FILE* rf, ModelSpawn &spawn)
     {
-        G3D::g3d_uint32 check = 0, nameLen;
-        check += fread(&spawn.flags, sizeof(G3D::g3d_uint32), 1, rf);
+        G3D::uint32 check = 0, nameLen;
+        check += fread(&spawn.flags, sizeof(G3D::uint32), 1, rf);
         // EoF?
         if (!check)
         {
-            sLog.outDetail("Error reading ModelSpawn flags!");
+            OUT_DETAIL("Error reading ModelSpawn flags!");
             return false;
         }
-        check += fread(&spawn.adtId, sizeof(G3D::g3d_uint16), 1, rf);
-        check += fread(&spawn.ID, sizeof(G3D::g3d_uint32), 1, rf);
+        check += fread(&spawn.adtId, sizeof(G3D::uint16), 1, rf);
+        check += fread(&spawn.ID, sizeof(G3D::uint32), 1, rf);
         check += fread(&spawn.iPos, sizeof(float), 3, rf);
         check += fread(&spawn.iRot, sizeof(float), 3, rf);
         check += fread(&spawn.iScale, sizeof(float), 1, rf);
@@ -140,22 +140,22 @@ namespace VMAP
             check += fread(&bHigh, sizeof(float), 3, rf);
             spawn.iBound = G3D::AABox(bLow, bHigh);
         }
-        check += fread(&nameLen, sizeof(G3D::g3d_uint32), 1, rf);
-        if (check != G3D::g3d_uint32(has_bound ? 17 : 11))
+        check += fread(&nameLen, sizeof(G3D::uint32), 1, rf);
+        if (check != G3D::uint32(has_bound ? 17 : 11))
         {
-            sLog.outDetail("Error reading ModelSpawn data!");
+            OUT_DETAIL("Error reading ModelSpawn data!");
             return false;
         }
         char nameBuff[500];
         if (nameLen > 500) // file names should never be that long, must be file error
         {
-            sLog.outDetail("Error reading ModelSpawn, file name too long!");
+            OUT_DETAIL("Error reading ModelSpawn, file name too long!");
             return false;
         }
         check = fread(nameBuff, sizeof(char), nameLen, rf);
         if (check != nameLen)
         {
-            sLog.outDetail("Error reading ModelSpawn!");
+            OUT_DETAIL("Error reading ModelSpawn!");
             return false;
         }
         spawn.name = std::string(nameBuff, nameLen);
@@ -164,10 +164,10 @@ namespace VMAP
 
     bool ModelSpawn::writeToFile(FILE* wf, const ModelSpawn &spawn)
     {
-        G3D::g3d_uint32 check=0;
-        check += fwrite(&spawn.flags, sizeof(G3D::g3d_uint32), 1, wf);
-        check += fwrite(&spawn.adtId, sizeof(G3D::g3d_uint16), 1, wf);
-        check += fwrite(&spawn.ID, sizeof(G3D::g3d_uint32), 1, wf);
+        G3D::uint32 check=0;
+        check += fwrite(&spawn.flags, sizeof(G3D::uint32), 1, wf);
+        check += fwrite(&spawn.adtId, sizeof(G3D::uint16), 1, wf);
+        check += fwrite(&spawn.ID, sizeof(G3D::uint32), 1, wf);
         check += fwrite(&spawn.iPos, sizeof(float), 3, wf);
         check += fwrite(&spawn.iRot, sizeof(float), 3, wf);
         check += fwrite(&spawn.iScale, sizeof(float), 1, wf);
@@ -177,15 +177,15 @@ namespace VMAP
             check += fwrite(&spawn.iBound.low(), sizeof(float), 3, wf);
             check += fwrite(&spawn.iBound.high(), sizeof(float), 3, wf);
         }
-        G3D::g3d_uint32 nameLen = spawn.name.length();
-        check += fwrite(&nameLen, sizeof(G3D::g3d_uint32), 1, wf);
-        if (check != G3D::g3d_uint32(has_bound ? 17 : 11)) return false;
+        G3D::uint32 nameLen = spawn.name.length();
+        check += fwrite(&nameLen, sizeof(G3D::uint32), 1, wf);
+        if (check != G3D::uint32(has_bound ? 17 : 11)) return false;
         check = fwrite(spawn.name.c_str(), sizeof(char), nameLen, wf);
         if (check != nameLen) return false;
         return true;
     }
 
-    GameobjectModelInstance::GameobjectModelInstance(const GameobjectModelSpawn &spawn, WorldModel* model, G3D::g3d_int32 m_phase) : iModel(model), m_PhaseMask(m_phase)
+    GameobjectModelInstance::GameobjectModelInstance(const GameobjectModelSpawn &spawn, WorldModel* model, G3D::int32 m_phase) : iModel(model), m_PhaseMask(m_phase)
     {
         BoundBase = spawn.BoundBase;
         name = spawn.name;
@@ -208,7 +208,7 @@ namespace VMAP
         iBound = rotated_bounds + iPos;
     }
 
-    bool GameobjectModelInstance::intersectRay(const G3D::Ray& ray, float& MaxDist, bool StopAtFirstHit, G3D::g3d_int32 ph_mask) const
+    bool GameobjectModelInstance::intersectRay(const G3D::Ray& ray, float& MaxDist, bool StopAtFirstHit, G3D::int32 ph_mask) const
     {
         if(m_PhaseMask != -1 && ph_mask != -1)
             if (!(m_PhaseMask & ph_mask))

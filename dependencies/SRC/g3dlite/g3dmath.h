@@ -147,22 +147,22 @@ inline double twoPi() {
     return 6.28318531;
 }
 
-typedef signed char     g3d_int8;
-typedef unsigned char   g3d_uint8;
-typedef short           g3d_int16;
-typedef unsigned short  g3d_uint16;
-typedef int             g3d_int32;
-typedef unsigned int    g3d_uint32;
+typedef signed char     int8;
+typedef unsigned char	uint8;
+typedef short           int16;
+typedef unsigned short  uint16;
+typedef int             int32;
+typedef unsigned int    uint32;
 
 #ifdef _MSC_EXTENSIONS
-    typedef __int64             g3d_int64;
-    typedef unsigned __int64    g3d_uint64;
+    typedef __int64             int64;
+    typedef unsigned __int64    uint64;
 #elif ! defined(_MSC_VER)
-    typedef int64_t             g3d_int64;
-    typedef uint64_t            g3d_uint64;
+    typedef int64_t             int64;
+    typedef uint64_t            uint64;
 #else
-    typedef long long           g3d_int64;
-    typedef unsigned long long  g3d_uint64;
+    typedef long long           int64;
+    typedef unsigned long long  uint64;
 #endif
 
 typedef float           float32;
@@ -175,7 +175,7 @@ int iCeil(double fValue);
  Clamps the value to the range [low, hi] (inclusive)
  */
 int iClamp(int val, int low, int hi);
-g3d_int16 iClamp(g3d_int16 val, g3d_int16 low, g3d_int16 hi);
+int16 iClamp(int16 val, int16 low, int16 hi);
 double clamp(double val, double low, double hi);
 float clamp(float val, float low, float hi);
 
@@ -286,32 +286,32 @@ inline T pow5(T x) {
 
 
 template <class T>
-inline T G3D_min(const T& x, const T& y) {
+inline T min(const T& x, const T& y) {
     return std::min<T>(x, y);
 }
 
 template <class T>
-inline T G3D_min(const T& x, const T& y, const T& z) {
+inline T min(const T& x, const T& y, const T& z) {
     return std::min<T>(std::min<T>(x, y), z);
 }
 
 template <class T>
-inline T G3D_min(const T& x, const T& y, const T& z, const T& w) {
+inline T min(const T& x, const T& y, const T& z, const T& w) {
     return std::min<T>(std::min<T>(x, y), std::min<T>(z, w));
 }
 
 template <class T>
-inline T G3D_max(const T& x, const T& y) {
+inline T max(const T& x, const T& y) {
     return std::max<T>(x, y);
 }
 
 template <class T>
-inline T G3D_max(const T& x, const T& y, const T& z) {
+inline T max(const T& x, const T& y, const T& z) {
     return std::max<T>(std::max<T>(x, y), z);
 }
 
 template <class T>
-inline T G3D_max(const T& x, const T& y, const T& z, const T& w) {
+inline T max(const T& x, const T& y, const T& z, const T& w) {
     return std::max<T>(std::max<T>(x, y), std::max<T>(z, w));
 }
 
@@ -330,7 +330,7 @@ double distance(double x, double y, double z);
 
   @cite Based on code by jukka@liimatta.org
  */ 
-int highestBit(g3d_uint32 x);
+int highestBit(uint32 x);
 
 /**
  Note that fuzzyEq(a, b) && fuzzyEq(b, c) does not imply
@@ -526,59 +526,59 @@ inline int iCeil (double fValue) {
 
 inline int iClamp(int val, int low, int hi) {
     debugAssert(low <= hi);
-    if (val <= low) {
-        return low;
-    } else if (val >= hi) {
-        return hi;
-    } else {
-        return val;
-    }
+	if (val <= low) {
+		return low;
+	} else if (val >= hi) {
+		return hi;
+	} else {
+		return val;
+	}
 }
 
 //----------------------------------------------------------------------------
 
-inline g3d_int16 iClamp(g3d_int16 val, g3d_int16 low, g3d_int16 hi) {
+inline int16 iClamp(int16 val, int16 low, int16 hi) {
     debugAssert(low <= hi);
-    if (val <= low) {
-        return low;
-    } else if (val >= hi) {
-        return hi;
-    } else {
-        return val;
-    }
+	if (val <= low) {
+		return low;
+	} else if (val >= hi) {
+		return hi;
+	} else {
+		return val;
+	}
 }
 
 //----------------------------------------------------------------------------
 
 inline double clamp(double val, double low, double hi) {
     debugAssert(low <= hi);
-    if (val <= low) {
-        return low;
-    } else if (val >= hi) {
-        return hi;
-    } else {
-        return val;
-    }
+	if (val <= low) {
+		return low;
+	} else if (val >= hi) {
+		return hi;
+	} else {
+		return val;
+	}
 }
 
 inline float clamp(float val, float low, float hi) {
     debugAssert(low <= hi);
-    if (val <= low) {
-        return low;
-    } else if (val >= hi) {
-        return hi;
-    } else {
-        return val;
-    }
+	if (val <= low) {
+		return low;
+	} else if (val >= hi) {
+		return hi;
+	} else {
+		return val;
+	}
 }
 //----------------------------------------------------------------------------
 
 inline int iWrap(int val, int hi) {
-    if (val < 0) {
-        return ((val % hi) + hi) % hi;
-    } else {
-        return val % hi;
-    }
+	if (val < 0) {
+		return ((val % hi) + hi) % hi;
+	} else {
+		return val % hi;
+	}
 }
 
 //----------------------------------------------------------------------------
@@ -651,11 +651,11 @@ inline double aTan2 (double fY, double fX) {
 inline double sign (double fValue) {
     if (fValue > 0.0) {
         return 1.0;
-    }
+	}
 
     if (fValue < 0.0) {
         return -1.0;
-    }
+	}
 
     return 0.0;
 }
@@ -663,11 +663,11 @@ inline double sign (double fValue) {
 inline float sign (float fValue) {
     if (fValue > 0.0f) {
         return 1.0f;
-    }
+	}
 
     if (fValue < 0.0f) {
         return -1.0f;
-    }
+	}
 
     return 0.0f;
 }
@@ -731,13 +731,13 @@ inline float distance(float x, float y, float z) {
 
 //----------------------------------------------------------------------------
 
-/** @deprecated use G3D::G3D_min */
+/** @deprecated use G3D::min */
 inline int iMin(int x, int y) {
     return (x >= y) ? y : x;
 }
 
 //----------------------------------------------------------------------------
-/** @deprecated use G3D::G3D_min */
+/** @deprecated use G3D::min */
 inline int iMax(int x, int y) {
     return (x >= y) ? x : y;
 }
@@ -838,7 +838,7 @@ inline int iMod3(int x) {
 /**
  Given a 32-bit integer, returns the integer with the bytes in the opposite order.
  */
-inline g3d_uint32 flipEndian32(const g3d_uint32 x) {
+inline uint32 flipEndian32(const uint32 x) {
     return (x << 24) | ((x & 0xFF00) << 8) | 
            ((x & 0xFF0000) >> 8) | ((x & 0xFF000000) >> 24);
 }
@@ -846,7 +846,7 @@ inline g3d_uint32 flipEndian32(const g3d_uint32 x) {
 /**
  Given a 16-bit integer, returns the integer with the bytes in the opposite order.
  */
-inline g3d_uint16 flipEndian16(const g3d_uint16 x) {
+inline uint16 flipEndian16(const uint16 x) {
     return (x << 8) | ((x & 0xFF00) >> 8);
 }
 

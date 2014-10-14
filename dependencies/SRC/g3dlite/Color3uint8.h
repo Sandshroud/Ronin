@@ -48,19 +48,19 @@ private:
     bool operator>=(const Color3uint8&) const;
 
 public:
-    g3d_uint8       r;
-    g3d_uint8       g;
-    g3d_uint8       b;
+    uint8       r;
+    uint8       g;
+    uint8       b;
 
     Color3uint8() : r(0), g(0), b(0) {}
 
-    Color3uint8(const g3d_uint8 _r, const g3d_uint8 _g, const g3d_uint8 _b) : r(_r), g(_g), b(_b) {}
+    Color3uint8(const uint8 _r, const uint8 _g, const uint8 _b) : r(_r), g(_g), b(_b) {}
 
     Color3uint8(const class Color3& c);
 
     Color3uint8(class BinaryInput& bi);
 
-    static Color3uint8 fromARGB(g3d_uint32 i) {
+    static Color3uint8 fromARGB(uint32 i) {
         Color3uint8 c;
         c.r = (i >> 16) & 0xFF;
         c.g = (i >> 8) & 0xFF;
@@ -73,19 +73,19 @@ public:
     }
 
     Color3uint8 max(const Color3uint8 x) const {
-        return Color3uint8(G3D::G3D_max(r, x.r), G3D::G3D_max(g, x.g), G3D::G3D_max(b, x.b));
+        return Color3uint8(G3D::max(r, x.r), G3D::max(g, x.g), G3D::max(b, x.b));
     }
 
     Color3uint8 min(const Color3uint8 x) const {
-        return Color3uint8(G3D::G3D_min(r, x.r), G3D::G3D_min(g, x.g), G3D::G3D_min(b, x.b));
+        return Color3uint8(G3D::min(r, x.r), G3D::min(g, x.g), G3D::min(b, x.b));
     }
 
     /**
      Returns the color packed into a uint32
      (the upper byte is 0xFF)
      */
-    g3d_uint32 asUInt32() const {
-        return (0xFF << 24) + ((g3d_uint32)r << 16) + ((g3d_uint32)g << 8) + b;
+    uint32 asUInt32() const {
+        return (0xFF << 24) + ((uint32)r << 16) + ((uint32)g << 8) + b;
     }
 
     void serialize(class BinaryOutput& bo) const;
@@ -97,17 +97,17 @@ public:
     // WARNING.  These member functions rely on
     // (1) Color3 not having virtual functions
     // (2) the data packed in a 3*sizeof(uint8) memory block
-    g3d_uint8& operator[] (int i) const {
+    uint8& operator[] (int i) const {
         debugAssert((unsigned int)i < 3);
-        return ((g3d_uint8*)this)[i];
+        return ((uint8*)this)[i];
     }
 
-    operator g3d_uint8* () {
-        return (G3D::g3d_uint8*)this;
+    operator uint8* () {
+        return (G3D::uint8*)this;
     }
 
-    operator const g3d_uint8* () const {
-        return (g3d_uint8*)this;
+    operator const uint8* () const {
+        return (uint8*)this;
     }
 
     bool operator==(const Color3uint8 other) const {

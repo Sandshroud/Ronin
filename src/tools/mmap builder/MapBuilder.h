@@ -35,7 +35,7 @@ using namespace VMAP;
 
 namespace MMAP
 {
-    typedef std::map<G3D::g3d_uint32, std::set<G3D::g3d_uint32>*> TileList;
+    typedef std::map<G3D::uint32, std::set<G3D::uint32>*> TileList;
     struct Tile
     {
         Tile() : chf(NULL), solid(NULL), cset(NULL), pmesh(NULL), dmesh(NULL) {}
@@ -69,11 +69,11 @@ namespace MMAP
             ~MapBuilder();
 
             // builds all mmap tiles for the specified map id (ignores skip settings)
-            void buildMap(G3D::g3d_uint32 mapID);
+            void buildMap(G3D::uint32 mapID);
             void buildMeshFromFile(char* name);
 
             // builds an mmap tile for the specified map and its mesh
-            void buildSingleTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY);
+            void buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY);
 
             // builds list of maps, then builds all of mmap tiles (based on the skip settings)
             void buildAllMaps(int threads);
@@ -81,29 +81,29 @@ namespace MMAP
         private:
             // detect maps and tiles
             void discoverTiles();
-            std::set<G3D::g3d_uint32>* getTileList(G3D::g3d_uint32 mapID);
+            std::set<G3D::uint32>* getTileList(G3D::uint32 mapID);
 
-            void buildNavMesh(G3D::g3d_uint32 mapID, dtNavMesh* &navMesh);
+            void buildNavMesh(G3D::uint32 mapID, dtNavMesh* &navMesh);
 
-            void buildTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY, dtNavMesh* navMesh);
+            void buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh);
 
             // move map building
-            void buildMoveMapTile(G3D::g3d_uint32 mapID,
-                G3D::g3d_uint32 tileX,
-                G3D::g3d_uint32 tileY,
+            void buildMoveMapTile(G3D::uint32 mapID,
+                G3D::uint32 tileX,
+                G3D::uint32 tileY,
                 MeshData &meshData,
                 float bmin[3],
                 float bmax[3],
                 dtNavMesh* navMesh);
 
-            void getTileBounds(G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY,
+            void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY,
                 float* verts, int vertCount,
                 float* bmin, float* bmax);
-            void getGridBounds(G3D::g3d_uint32 mapID, G3D::g3d_uint32 &minX, G3D::g3d_uint32 &minY, G3D::g3d_uint32 &maxX, G3D::g3d_uint32 &maxY);
+            void getGridBounds(G3D::uint32 mapID, G3D::uint32 &minX, G3D::uint32 &minY, G3D::uint32 &maxX, G3D::uint32 &maxY);
 
-            bool shouldSkipMap(G3D::g3d_uint32 mapID);
-            bool isTransportMap(G3D::g3d_uint32 mapID);
-            bool shouldSkipTile(G3D::g3d_uint32 mapID, G3D::g3d_uint32 tileX, G3D::g3d_uint32 tileY);
+            bool shouldSkipMap(G3D::uint32 mapID);
+            bool isTransportMap(G3D::uint32 mapID);
+            bool shouldSkipTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY);
 
             TerrainBuilder* m_terrainBuilder;
             TileList m_tiles;
@@ -125,7 +125,7 @@ namespace MMAP
     class MapBuildRequest
     {
         public:
-            MapBuildRequest(G3D::g3d_uint32 mapId) : _mapId(mapId) {}
+            MapBuildRequest(G3D::uint32 mapId) : _mapId(mapId) {}
 
             virtual int call()
             {
@@ -134,7 +134,7 @@ namespace MMAP
             }
 
         private:
-            G3D::g3d_uint32 _mapId;
+            G3D::uint32 _mapId;
     };
 }
 

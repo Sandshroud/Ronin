@@ -81,22 +81,23 @@ enum OBJECT_UPDATE_TYPE {
     //  8 bytes - GUID
 };
 
-enum OBJECT_UPDATE_FLAGS {
-    UPDATEFLAG_NONE         = 0x0000,
-    UPDATEFLAG_SELF         = 0x0001,
-    UPDATEFLAG_TRANSPORT    = 0x0002,
-    UPDATEFLAG_HAS_TARGET   = 0x0004,
-    UPDATEFLAG_STA_MODEL    = 0x0008,
-    UPDATEFLAG_DYN_MODEL    = 0x0010,
-    UPDATEFLAG_LIVING       = 0x0020,
-    UPDATEFLAG_HAS_POSITION = 0x0040,
-    UPDATEFLAG_VEHICLE      = 0x0080,
-    UPDATEFLAG_POSITION     = 0x0100,
-    UPDATEFLAG_ROTATION     = 0x0200,
-    UPDATEFLAG_UNK3         = 0x0400,
-    UPDATEFLAG_ANIMKITS     = 0x0800,
-    UPDATEFLAG_UNK5         = 0x1000,
-    UPDATEFLAG_UNK6         = 0x2000
+enum OBJECT_UPDATE_FLAGS
+{
+    UPDATEFLAG_NONE             = 0x0000,
+    UPDATEFLAG_SELF             = 0x0001,
+    UPDATEFLAG_TRANSPORT        = 0x0002,
+    UPDATEFLAG_HAS_TARGET       = 0x0004,
+    UPDATEFLAG_STA_MODEL        = 0x0008,
+    UPDATEFLAG_DYN_MODEL        = 0x0010,
+    UPDATEFLAG_LIVING           = 0x0020,
+    UPDATEFLAG_STATIONARY_POS   = 0x0040,
+    UPDATEFLAG_VEHICLE          = 0x0080,
+    UPDATEFLAG_GO_TRANSPORT_POS = 0x0100,
+    UPDATEFLAG_ROTATION         = 0x0200,
+    UPDATEFLAG_UNK3             = 0x0400,
+    UPDATEFLAG_ANIMKITS         = 0x0800,
+    UPDATEFLAG_UNK5             = 0x1000,
+    UPDATEFLAG_UNK6             = 0x2000
 };
 
 enum ObjectAreaFlags
@@ -271,7 +272,7 @@ public:
     HEARTHSTONE_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
 
     //! Get uint16 property
-    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint16 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
+    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
 
     //! Get uint32 property
     HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
@@ -632,29 +633,9 @@ protected:
 public:
     bool m_loadedFromDB;
 
-    /************************************************************************/
-    /* ACCESSOR FUNCTIONS                                                   */
-    /************************************************************************/
-    // Stats
-    HEARTHSTONE_INLINE uint32 GetStrength() { return m_uint32Values[UNIT_FIELD_STRENGTH]; }
-    HEARTHSTONE_INLINE uint32 GetAgility() { return m_uint32Values[UNIT_FIELD_AGILITY]; }
-    HEARTHSTONE_INLINE uint32 GetStamina() { return m_uint32Values[UNIT_FIELD_STAMINA]; }
-    HEARTHSTONE_INLINE uint32 GetIntellect() { return m_uint32Values[UNIT_FIELD_INTELLECT]; }
-    HEARTHSTONE_INLINE uint32 GetSpirit() { return m_uint32Values[UNIT_FIELD_SPIRIT]; }
-
-    // Health
-    HEARTHSTONE_INLINE uint32 GetHealth() { return m_uint32Values[UNIT_FIELD_HEALTH]; }
-    HEARTHSTONE_INLINE uint32 GetMaxHealth() { return m_uint32Values[UNIT_FIELD_MAXHEALTH]; }
-    HEARTHSTONE_INLINE uint32 GetMana() { return m_uint32Values[UNIT_FIELD_MANA]; }
-    HEARTHSTONE_INLINE uint32 GetMaxMana() { return m_uint32Values[UNIT_FIELD_MAX_MANA]; }
-
     bool IsInLineOfSight(Object* pObj);
     bool IsInLineOfSight(float x, float y, float z);
     int32 GetSpellBaseCost(SpellEntry *sp);
-
-    /************************************************************************/
-    /* END ACCESSOR FUNCTIONS                                               */
-    /************************************************************************/
 
     // declaration to fix scripting
     HEARTHSTONE_INLINE Loot* GetLoot() { return &m_loot; }

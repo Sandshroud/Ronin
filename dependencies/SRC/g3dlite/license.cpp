@@ -13,7 +13,7 @@
 namespace G3D {
 
 std::string license() {
-    return G3D_format(
+    return format(
 
 "This software is based in part on the PNG Reference Library which is\n"
 "Copyright (c) 2004 Glenn Randers-Pehrson\n\n"

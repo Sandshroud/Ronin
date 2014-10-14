@@ -15,7 +15,7 @@
 
 namespace G3D {
 
-PrecomputedRandom::PrecomputedRandom(int dataSize, g3d_uint32 seed) : 
+PrecomputedRandom::PrecomputedRandom(int dataSize, uint32 seed) : 
  Random((void*)NULL),
  m_hemiUniform(NULL),
  m_sphereBits(NULL),
@@ -43,7 +43,7 @@ PrecomputedRandom::PrecomputedRandom(int dataSize, g3d_uint32 seed) :
 }
 
 
-PrecomputedRandom::PrecomputedRandom(const HemiUniformData* data1, const SphereBitsData* data2, int dataSize, g3d_uint32 seed) : 
+PrecomputedRandom::PrecomputedRandom(const HemiUniformData* data1, const SphereBitsData* data2, int dataSize, uint32 seed) : 
  Random((void*)NULL),
  m_hemiUniform(data1),
  m_sphereBits(data2),
@@ -109,7 +109,7 @@ void PrecomputedRandom::cosPowHemi(const float k, float& x, float& y, float& z) 
 }
 
 
-g3d_uint32 PrecomputedRandom::bits() {
+uint32 PrecomputedRandom::bits() {
     m_index = (m_index + 1) & m_modMask;
     return m_sphereBits[m_index].bits;
 }

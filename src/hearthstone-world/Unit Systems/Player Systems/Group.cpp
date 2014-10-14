@@ -860,7 +860,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     if(!data)
         data = new WorldPacket(SMSG_PARTY_MEMBER_STATS, 500);
 
-    if(pPlayer->GetPowerType() != POWER_TYPE_MANA)
+    if(pPlayer->getPowerType() != POWER_TYPE_MANA)
         Flags |= GROUP_UPDATE_FLAG_POWER_TYPE;
 
     if( Flags & GROUP_UPDATE_FLAG_POWER_TYPE )
@@ -899,20 +899,19 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
         *data << pPlayer->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
 
     if(Flags & GROUP_UPDATE_FLAG_POWER_TYPE)
-        *data << uint8(pPlayer->GetPowerType());
+        *data << uint8(pPlayer->getPowerType());
 
     if(Flags & GROUP_UPDATE_FLAG_POWER)
-        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_MANA + pPlayer->GetPowerType()));
+        *data << uint16(pPlayer->GetPower(pPlayer->getPowerType()));
 
     if(Flags & GROUP_UPDATE_FLAG_MAXPOWER)
-        *data << uint16(pPlayer->GetUInt32Value(UNIT_FIELD_MAX_MANA + pPlayer->GetPowerType()));
+        *data << uint16(pPlayer->GetMaxPower(pPlayer->getPowerType()));
 
     if(Flags & GROUP_UPDATE_FLAG_LEVEL)
         *data << uint16(pPlayer->getLevel());
 
     if(Flags & GROUP_UPDATE_FLAG_ZONEID)
         *data << uint16(pPlayer->GetAreaId());
-
 
     if(Flags & GROUP_UPDATE_FLAG_POSITION)
     {
@@ -931,16 +930,14 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     {
         if (pPlayer->GetSummon() != NULL)
             *data << pPlayer->GetSummon()->GetGUID();
-        else
-            *data << uint64(0);
+        else *data << uint64(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_NAME)
     {
         if (pPlayer->GetSummon() != NULL)
             *data << pPlayer->GetSummon()->GetName();
-        else
-            *data << uint8(0);
+        else *data << uint8(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_DISPLAYID)
@@ -955,48 +952,42 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     {
         if (pPlayer->GetSummon() != NULL)
             *data << pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_HEALTH);
-        else
-            *data << uint32(0);
+        else *data << uint32(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_MAXHEALTH)
     {
         if (pPlayer->GetSummon() != NULL)
             *data << pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-        else
-            *data << uint32(0);
+        else *data << uint32(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_POWER_TYPE)
     {
         if (pPlayer->GetSummon() != NULL)
-            *data << uint8(pPlayer->GetSummon()->GetPowerType());
-        else
-            *data << uint8(0);
+            *data << uint8(pPlayer->GetSummon()->getPowerType());
+        else *data << uint8(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_POWER)
     {
-        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->GetPowerType() < MAX_POWER_TYPE)
-            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MANA + pPlayer->GetSummon()->GetPowerType()));
-        else
-            *data << uint16(0);
+        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->getPowerType() < POWER_TYPE_MAX)
+            *data << uint16(pPlayer->GetSummon()->GetPower(pPlayer->GetSummon()->getPowerType()));
+        else *data << uint16(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_MAXPOWER)
     {
-        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->GetPowerType() < MAX_POWER_TYPE)
-            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MAX_MANA + pPlayer->GetSummon()->GetPowerType()));
-        else
-            *data << uint16(0);
+        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->getPowerType() < POWER_TYPE_MAX)
+            *data << uint16(pPlayer->GetSummon()->GetMaxPower(pPlayer->GetSummon()->getPowerType()));
+        else *data << uint16(0);
     }
 
     if (Flags & GROUP_UPDATE_FLAG_VEHICLE_ENTRY)
     {
         if (pPlayer->GetVehicle() != NULL)
             *data << pPlayer->GetVehicle()->GetVehicleEntry();
-        else
-            *data << uint32(0);
+        else *data << uint32(0);
     }
 
     if(Distribute && pPlayer->IsInWorld())
@@ -1081,25 +1072,19 @@ void Group::HandleUpdateFieldChange(uint32 Index, Player* pPlayer)
         Flags = GROUP_UPDATE_FLAG_MAXHEALTH;
         break;
 
-    case UNIT_FIELD_MANA:
-    case UNIT_FIELD_RAGE:
-    case UNIT_FIELD_FOCUS:
-    case UNIT_FIELD_ENERGY:
-    case UNIT_FIELD_RUNIC_POWER:
-    case UNIT_FIELD_SOUL_SHARDS:
-    case UNIT_FIELD_ECLIPSE_POWER:
-    case UNIT_FIELD_HOLY_POWER:
+    case UNIT_FIELD_POWERS:
+    case UNIT_FIELD_POWERS+1:
+    case UNIT_FIELD_POWERS+2:
+    case UNIT_FIELD_POWERS+3:
+    case UNIT_FIELD_POWERS+4:
         Flags = GROUP_UPDATE_FLAG_POWER;
         break;
 
-    case UNIT_FIELD_MAX_MANA:
-    case UNIT_FIELD_MAX_RAGE:
-    case UNIT_FIELD_MAX_FOCUS:
-    case UNIT_FIELD_MAX_ENERGY:
-    case UNIT_FIELD_MAX_RUNIC_POWER:
-    case UNIT_FIELD_MAX_SOUL_SHARDS:
-    case UNIT_FIELD_MAX_ECLIPSE_POWER:
-    case UNIT_FIELD_MAX_HOLY_POWER:
+    case UNIT_FIELD_MAXPOWERS:
+    case UNIT_FIELD_MAXPOWERS+1:
+    case UNIT_FIELD_MAXPOWERS+2:
+    case UNIT_FIELD_MAXPOWERS+3:
+    case UNIT_FIELD_MAXPOWERS+4:
         Flags = GROUP_UPDATE_FLAG_MAXPOWER;
         break;
 

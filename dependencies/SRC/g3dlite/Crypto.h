@@ -18,30 +18,30 @@
 namespace G3D {
 
 /** See G3D::Crypto::md5 */
-class G3D_MD5Hash {
+class MD5Hash {
 private:
 
-    g3d_uint8   value[16];
+    uint8   value[16];
 
 public:
 
-    G3D_MD5Hash() {
+    MD5Hash() {
         for (int i = 0; i < 16; ++i) {
             value[i] = 0;
         }
     }
 
-    explicit G3D_MD5Hash(class BinaryInput& b);
+    explicit MD5Hash(class BinaryInput& b);
 
-    g3d_uint8& operator[](int i) {
+    uint8& operator[](int i) {
         return value[i];
     }
 
-    const g3d_uint8& operator[](int i) const {
+    const uint8& operator[](int i) const {
         return value[i];
     }
 
-    bool operator==(const G3D_MD5Hash& other) const {
+    bool operator==(const MD5Hash& other) const {
         bool match = true;
         for (int i = 0; i < 16; ++i) {
             match = match && (other.value[i] == value[i]);
@@ -49,7 +49,7 @@ public:
         return match;
     }
 
-    inline bool operator!=(const G3D_MD5Hash& other) const {
+    inline bool operator!=(const MD5Hash& other) const {
         return !(*this == other);
     }
 
@@ -71,7 +71,7 @@ public:
 
      Based on http://www.gamedev.net/reference/programming/features/crc32/
     */
-    static g3d_uint32 crc32(const void* bytes, size_t numBytes);
+    static uint32 crc32(const void* bytes, size_t numBytes);
 
     /**
      Computes the MD5 hash (message digest) of a byte stream, as defined by
@@ -79,7 +79,7 @@ public:
 
      @cite Based on implementation by L. Peter Deutsch, ghost@aladdin.com
      */
-    G3D_MD5Hash md5(const void* bytes, size_t numBytes);
+    MD5Hash md5(const void* bytes, size_t numBytes);
 
     /**
      Returns the nth prime less than 2000 in constant time.  The first prime has index

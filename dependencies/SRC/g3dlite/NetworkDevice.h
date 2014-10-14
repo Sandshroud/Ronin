@@ -60,10 +60,10 @@ protected:
     friend class NetworkDevice;
     friend class NetListener;
 
-    g3d_uint64                          mSent;
-    g3d_uint64                          mReceived;
-    g3d_uint64                          bSent;
-    g3d_uint64                          bReceived;
+    uint64                          mSent;
+    uint64                          mReceived;
+    uint64                          bSent;
+    uint64                          bReceived;
 
     SOCKET                          sock;
 
@@ -78,10 +78,10 @@ protected:
 public:
 
     virtual ~Conduit();
-    g3d_uint64 bytesSent() const;
-    g3d_uint64 messagesSent() const;
-    g3d_uint64 bytesReceived() const;
-    g3d_uint64 messagesReceived() const;
+    uint64 bytesSent() const;
+    uint64 messagesSent() const;
+    uint64 bytesReceived() const;
+    uint64 messagesReceived() const;
 
     /**
      If true, receive will return true.
@@ -128,7 +128,7 @@ public:
          }
       </pre>
      */
-    virtual g3d_uint32 waitingMessageType() = 0;
+    virtual uint32 waitingMessageType() = 0;
 
     /** Returns true if the connection is ok. */
     bool ok() const;
@@ -140,7 +140,7 @@ typedef ReferenceCountedPointer<class ReliableConduit> ReliableConduitRef;
 // Workaround for a known bug in gcc 4.x where htonl produces 
 // a spurrious warning.
 // http://gcc.gnu.org/ml/gcc-bugs/2005-10/msg03270.html
-g3d_uint32 gcchtonl(g3d_uint32);
+uint32 gcchtonl(uint32);
 #endif
 
 // Messaging and stream APIs must be supported on a single class because
@@ -178,12 +178,12 @@ private:
     /**
      Type of the incoming message.
      */
-    g3d_uint32                          messageType;
+    uint32                          messageType;
 
     /** 
      Total size of the incoming message (read from the header).
      */
-    g3d_uint32                          messageSize;
+    uint32                          messageSize;
 
     /** Shared buffer for receiving messages. */
     void*                           receiveBuffer;
@@ -202,7 +202,7 @@ private:
                     const NetAddress& addr);
 
     template<typename T> static void serializeMessage
-              (g3d_uint32 t, const T& m, BinaryOutput& b) {
+              (uint32 t, const T& m, BinaryOutput& b) {
 
         b.writeUInt32(t);
 
@@ -218,14 +218,14 @@ private:
             b.writeUInt8(0xFF);
         }
     
-        g3d_uint32 len = b.size() - 8;
+        uint32 len = b.size() - 8;
     
         // We send the length first to tell recv how much data to read.
         // Here we abuse BinaryOutput a bit and write directly into
         // its buffer, violating the abstraction.
         // Note that we write to the second set of 4 bytes, which is
         // the size field.
-        g3d_uint32* lenPtr = ((g3d_uint32*)b.getCArray()) + 1;
+        uint32* lenPtr = ((uint32*)b.getCArray()) + 1;
         #if defined(__GNUC__)
             *lenPtr = gcchtonl(len);
         #else
@@ -275,7 +275,7 @@ public:
      integer.  The size is sent because TCP is a stream protocol and
      doesn't have a concept of discrete messages.
      */
-    template<typename T> inline void send(g3d_uint32 type, const T& message) {
+    template<typename T> inline void send(uint32 type, const T& message) {
         binaryOutput.reset();
         serializeMessage(type, message, binaryOutput);
         sendBuffer(binaryOutput);
@@ -283,14 +283,14 @@ public:
     
     /** Sends an empty message with the given type.  Useful for sending 
         commands that have no parameters. */
-    void send(g3d_uint32 type);
+    void send(uint32 type);
 
     /** Send the same message to a number of conduits.  Useful for sending
         data from a server to many clients (only serializes once). */
     template<typename T>
     inline static void multisend(
         const Array<ReliableConduitRef>& array, 
-        g3d_uint32                          type,
+        uint32                          type,
         const T&                        m) {
         
         if (array.size() > 0) {
@@ -303,7 +303,7 @@ public:
         }
     }
 
-    virtual g3d_uint32 waitingMessageType();
+    virtual uint32 waitingMessageType();
 
     /** 
         If a message is waiting, deserializes the waiting message into
@@ -318,7 +318,7 @@ public:
 
         debugAssert(state == HOLDING);
         // Deserialize
-        BinaryInput b((g3d_uint8*)receiveBuffer, receiveBufferUsedSize, G3D_LITTLE_ENDIAN, BinaryInput::NO_COPY);
+        BinaryInput b((uint8*)receiveBuffer, receiveBufferUsedSize, G3D_LITTLE_ENDIAN, BinaryInput::NO_COPY);
         message.deserialize(b);
         
         // Don't let anyone read this message again.  We leave the buffer
@@ -421,14 +421,14 @@ private:
     /**
      The type of the last message received.
      */
-    g3d_uint32                  messageType;
+    uint32                  messageType;
 
     /**
      The message received (the type has already been read off).
      */
-    Array<g3d_uint8>            messageBuffer;
+    Array<uint8>            messageBuffer;
 
-    LightweightConduit(g3d_uint16 receivePort, bool enableReceive, bool enableBroadcast);
+    LightweightConduit(uint16 receivePort, bool enableReceive, bool enableBroadcast);
     
     void sendBuffer(const NetAddress& a, BinaryOutput& b);
 
@@ -439,7 +439,7 @@ private:
 
     template<typename T> 
     void serializeMessage(
-        g3d_uint32 type, 
+        uint32 type, 
         const T& m, 
         BinaryOutput& b) const {
 
@@ -449,13 +449,13 @@ private:
         b.writeUInt32(1);
     
         debugAssertM(b.size() < MTU, 
-                    G3D_format("This LightweightConduit is limited to messages of "
+                    format("This LightweightConduit is limited to messages of "
                            "%d bytes (Ethernet hardware limit; this is the "
                            "'UDP MTU')", maxMessageSize()));
 
         if (b.size() >= MTU) {
             throw LightweightConduit::PacketSizeException(
-                    G3D_format("This LightweightConduit is limited to messages of "
+                    format("This LightweightConduit is limited to messages of "
                            "%d bytes (Ethernet hardware limit; this is the "
                            "'UDP MTU')", maxMessageSize()),
                            b.size() - 4, // Don't count the type header
@@ -465,7 +465,7 @@ private:
 
 public:
 
-    static LightweightConduitRef create(g3d_uint16 receivePort, bool enableReceive, bool enableBroadcast);
+    static LightweightConduitRef create(uint16 receivePort, bool enableReceive, bool enableBroadcast);
 
     class PacketSizeException {
     public:
@@ -491,7 +491,7 @@ public:
     }
 
 
-    template<typename T> inline void send(const NetAddress& a, g3d_uint32 type, const T& msg) {
+    template<typename T> inline void send(const NetAddress& a, uint32 type, const T& msg) {
         binaryOutput.reset();
         serializeMessage(type, msg, binaryOutput);
         sendBuffer(a, binaryOutput);
@@ -500,7 +500,7 @@ public:
     /** Send the same message to multiple addresses (only serializes once).
         Useful when server needs to send to a known list of addresses
         (unlike direct UDP broadcast to all addresses on the subnet) */
-    template<typename T> inline void send(const Array<NetAddress>& a, g3d_uint32 type, const T& m) {
+    template<typename T> inline void send(const Array<NetAddress>& a, uint32 type, const T& m) {
         binaryOutput.reset();
         serializeMessage(type, m, binaryOutput);
 
@@ -512,13 +512,13 @@ public:
     bool receive(NetAddress& sender);
 
     template<typename T> inline bool receive(NetAddress& sender, T& message) {
-        bool r = receive(sender);
-        if (r) {
-            BinaryInput b((messageBuffer.getCArray() + 4), 
-                          messageBuffer.size() - 4, 
-                          G3D_LITTLE_ENDIAN, BinaryInput::NO_COPY);
-            message.deserialize(b);
-        }
+		bool r = receive(sender);
+		if (r) {
+			BinaryInput b((messageBuffer.getCArray() + 4), 
+						  messageBuffer.size() - 4, 
+						  G3D_LITTLE_ENDIAN, BinaryInput::NO_COPY);
+			message.deserialize(b);
+		}
 
         return r;
     }
@@ -528,7 +528,7 @@ public:
         return receive(ignore);
     }
 
-    virtual g3d_uint32 waitingMessageType();
+    virtual uint32 waitingMessageType();
 
 
     virtual bool messageWaiting();
@@ -549,11 +549,11 @@ private:
     SOCKET                          sock;
 
     /** Port is in host byte order. */
-    NetListener(g3d_uint16 port);
+    NetListener(uint16 port);
 
 public:
 
-    static NetListenerRef create(const g3d_uint16 port);
+    static NetListenerRef create(const uint16 port);
 
     ~NetListener();
 
@@ -614,16 +614,16 @@ public:
         std::string     name;
 
         /** IP address in host byte order.*/
-        g3d_uint32          ip;
+        uint32          ip;
 
         /** Subnet mask in host byte order.*/
-        g3d_uint32          subnet;
+        uint32          subnet;
 
         /** UDP broadcast address in host byte order.*/
-        g3d_uint32          broadcast;
+        uint32          broadcast;
 
         /** MAC (hardware) address, if known */
-        g3d_uint8           mac[6];
+        uint8           mac[6];
 
         EthernetAdapter();
 
@@ -644,7 +644,7 @@ private:
 
     /** Broadcast addresses available on this machine,
      extracted from m_adapterArray.*/
-    Array<g3d_uint32>               m_broadcastAddresses;
+    Array<uint32>               m_broadcastAddresses;
 
     /** Utility method. */
     void closesocket(SOCKET& sock) const;
@@ -669,10 +669,10 @@ public:
 
     /** Prints an IP address to a string.
         @param ip In host byte order.*/
-    static std::string formatIP(g3d_uint32 ip);
+    static std::string formatIP(uint32 ip);
 
     /** Prints a MAC address to a string. */
-    static std::string formatMAC(const g3d_uint8 mac[6]);
+    static std::string formatMAC(const uint8 mac[6]);
 
     ~NetworkDevice();
 
@@ -685,7 +685,7 @@ public:
 
     /** Returns the (unique) IP addresses for UDP broadcasting
         extracted from adapterArray(). All are in host byte order. */
-    inline const Array<g3d_uint32>& broadcastAddressArray() const {
+    inline const Array<uint32>& broadcastAddressArray() const {
         return m_broadcastAddresses;
     }
 
@@ -721,7 +721,7 @@ public:
 
 
 #ifdef __GNUC__
-inline g3d_uint32 gcchtonl(g3d_uint32 x) {
+inline uint32 gcchtonl(uint32 x) {
     // This pragma fools gcc into surpressing all error messages,
     // including the bogus one that it creates for htonl
 #   pragma GCC system_header

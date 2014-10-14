@@ -275,7 +275,7 @@ Any::Any(double x) : m_type(NUMBER), m_simpleValue(x), m_data(NULL) {
 
 
 #ifdef G3D_32BIT
-Any::Any(g3d_int64 x) : m_type(NUMBER), m_simpleValue((double)x), m_data(NULL) {
+Any::Any(int64 x) : m_type(NUMBER), m_simpleValue((double)x), m_data(NULL) {
 }
 #endif    // G3D_32BIT
 
@@ -880,7 +880,7 @@ void Any::serialize(TextOutput& to) const {
         debugAssert(m_data != NULL);
         if (! m_data->name.empty()) {
             // For arrays, leave no trailing space between the name and the paren
-            to.writeSymbol(G3D_format("%s(", m_data->name.c_str()));
+            to.writeSymbol(format("%s(", m_data->name.c_str()));
         } else {
             to.writeSymbol("(");
         }
@@ -1039,7 +1039,7 @@ void Any::deserialize(TextInput& ti, Token& token) {
             // Update the source information
             ensureData();
             m_data->source.filename += 
-                G3D_format(" [included from %s:%d(%d)]", ti.filename().c_str(), token.line(), token.character());
+                format(" [included from %s:%d(%d)]", ti.filename().c_str(), token.line(), token.character());
             
             ti.readSymbol(")");
 
@@ -1123,7 +1123,7 @@ void Any::readUntilCommaOrClose(TextInput& ti, Token& token) {
                 "Expected a comma or close paren");
         }
 
-    // Update checks
+	// Update checks
         atComma = isSeparator(token.string()[0]);
         atClose = (token.type() == Token::SYMBOL) && isClose(token.string()[0]);
     }
@@ -1318,7 +1318,7 @@ void Any::verifySize(int low, int high) const {
     beforeRead();
     verifyType(ARRAY, TABLE);
     if (size() < low || size() > high) {
-        verify(false, G3D_format("Size must be between %d and %d", low, high));
+        verify(false, format("Size must be between %d and %d", low, high));
     }
 }
 
@@ -1327,7 +1327,7 @@ void Any::verifySize(int s) const {
     beforeRead();
     verifyType(ARRAY, TABLE);
     if (size() != s) {
-        verify(false, G3D_format("Size must be %d", s));
+        verify(false, format("Size must be %d", s));
     }
 }
 

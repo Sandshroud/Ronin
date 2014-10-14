@@ -23,10 +23,10 @@ Random::Random(void* x) : state(NULL), m_threadsafe(false) {
 }
 
 
-Random::Random(g3d_uint32 seed, bool threadsafe) : m_threadsafe(threadsafe) {
-    const g3d_uint32 X = 1812433253UL;
+Random::Random(uint32 seed, bool threadsafe) : m_threadsafe(threadsafe) {
+    const uint32 X = 1812433253UL;
 
-    state = new g3d_uint32[N];
+    state = new uint32[N];
     state[0] = seed;
     for (index = 1; index < (int)N; ++index) {
         state[index] = X * (state[index - 1] ^ (state[index - 1] >> 30)) + index;
@@ -40,7 +40,7 @@ Random::~Random() {
 }
 
 
-g3d_uint32 Random::bits() {
+uint32 Random::bits() {
     // See http://en.wikipedia.org/wiki/Mersenne_twister
 
     // Make a local copy of the index variable to ensure that it
@@ -61,7 +61,7 @@ g3d_uint32 Random::bits() {
     // will still be uniform.
     ++index;
     // Return the next random in the sequence
-    g3d_uint32 r = state[localIndex];
+    uint32 r = state[localIndex];
 
     // Temper the result
     r ^=  r >> U;
@@ -76,11 +76,11 @@ g3d_uint32 Random::bits() {
 /** Generate the next N ints, and store them for readback later */
 void Random::generate() {
     // Lower R bits
-    static const g3d_uint32 LOWER_MASK = (1LU << R) - 1;
+    static const uint32 LOWER_MASK = (1LU << R) - 1;
 
     // Upper (32 - R) bits
-    static const g3d_uint32 UPPER_MASK = 0xFFFFFFFF << R;
-    static const g3d_uint32 mag01[2] = {0UL, (g3d_uint32)A};
+    static const uint32 UPPER_MASK = 0xFFFFFFFF << R;
+    static const uint32 mag01[2] = {0UL, (uint32)A};
 
     if (m_threadsafe) {
         bool contention = ! lock.lock();
@@ -94,17 +94,17 @@ void Random::generate() {
 
     // First N - M
     for (unsigned int i = 0; i < N - M; ++i) {    
-        g3d_uint32 x = (state[i] & UPPER_MASK) | (state[i + 1] & LOWER_MASK);
+        uint32 x = (state[i] & UPPER_MASK) | (state[i + 1] & LOWER_MASK);
         state[i] = state[i + M] ^ (x >> 1) ^ mag01[x & 1];
     }
 
     // Rest
     for (unsigned int i = N - M + 1; i < N - 1; ++i) {    
-        g3d_uint32 x = (state[i] & UPPER_MASK) | (state[i + 1] & LOWER_MASK);
+        uint32 x = (state[i] & UPPER_MASK) | (state[i + 1] & LOWER_MASK);
         state[i] = state[i + (M - N)] ^ (x >> 1) ^ mag01[x & 1];
     }
         
-    g3d_uint32 y = (state[N - 1] & UPPER_MASK) | (state[0] & LOWER_MASK);
+    uint32 y = (state[N - 1] & UPPER_MASK) | (state[0] & LOWER_MASK);
     state[N - 1] = state[M - 1] ^ (y >> 1) ^ mag01[y & 1];
     index = 0;
 

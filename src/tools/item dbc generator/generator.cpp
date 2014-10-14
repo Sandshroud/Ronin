@@ -1,7 +1,7 @@
 
 #include "generator.h"
 #include "Data/DatabaseEnv.h"
-#include "Data/dbcfile.h"
+#include <dbclib/dbcfile.h>
 
 using namespace std;
 #define WaitForInput() { char cmd[300]; memset( cmd, 0, sizeof( cmd ) ); fgets( cmd, 300, stdin ); }
@@ -97,15 +97,14 @@ int main(int argc, char * arg[])
 
     map<uint32, ItemEntry*> m_DBCItemMap;
     printf("Reading original item.dbc...");
-    DBCFile item("original_item.dbc");
-    item.open();
-    printf("\n");
-    if(item.getRecordCount() == 0 || item.getRecordCount() != 46096)
+    DBCFile item;
+    if(!item.open("original_item.dbc") || item.getRecordCount() == 0 || item.getRecordCount() != 46096)
     {
-        printf("Original Item DBC not found or unavailable!\nPress enter to quit:");
+        printf("\nOriginal Item DBC not found or unavailable!\nPress enter to quit:");
         WaitForInput();
         return 1;
     }
+    printf("\n");
 
     for(DBCFile::Iterator itr = item.begin(); itr != item.end(); ++itr)
     {

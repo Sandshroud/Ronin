@@ -167,8 +167,7 @@ void AddonMgr::SendAddonInfoPacket(WorldPacket *source, WorldSession *m_session)
         {
             uint8 unk = (crc != 0x4c1c776d);           // If addon is Standard addon CRC
             returnpacket << uint8(unk);
-            if (unk)
-                returnpacket.append(publicAddonKey, 256);
+            if (unk) returnpacket.append(publicAddonKey, 256);
             returnpacket << uint32(0);
         }
 
@@ -180,7 +179,7 @@ void AddonMgr::SendAddonInfoPacket(WorldPacket *source, WorldSession *m_session)
 
     uint32 timeStamp;
     unpacked >> timeStamp;
-    returnpacket << uint32(0) << uint32(0); // Crow: NOT A TIMESTAMP
+    returnpacket << uint32(0); // Banned count
     m_session->SendPacket(&returnpacket);
 }
 

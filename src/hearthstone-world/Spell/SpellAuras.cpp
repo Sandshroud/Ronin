@@ -1995,20 +1995,18 @@ void Aura::EventPeriodicManaPct(float RegenPct)
 {
     if(!m_target->isAlive())
         return;
+    uint32 manaMax = m_target->GetMaxPower(POWER_TYPE_MANA);
+    if(manaMax == 0)
+        return;
 
-    uint32 add = float2int32(m_target->GetUInt32Value(UNIT_FIELD_MAX_MANA) * (RegenPct / 100.0f));
-    uint32 newHealth = m_target->GetUInt32Value(UNIT_FIELD_MANA) + add;
+    uint32 add = float2int32(manaMax * (RegenPct / 100.0f));
+    uint32 newMana = m_target->GetPower(POWER_TYPE_MANA) + add;
 
-    if(newHealth <= m_target->GetUInt32Value(UNIT_FIELD_MAX_MANA))
-        m_target->SetUInt32Value(UNIT_FIELD_MANA, newHealth);
-    else
-        m_target->SetUInt32Value(UNIT_FIELD_MANA, m_target->GetUInt32Value(UNIT_FIELD_MAX_MANA));
-
+    m_target->SetPower(POWER_TYPE_MANA, newMana <= manaMax ? newMana : manaMax);
     SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, add, 0, 0, FLAG_PERIODIC_ENERGIZE);
 
     if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
         m_target->Emote(EMOTE_ONESHOT_EAT);
-
     m_target->SendPowerUpdate();
 }
 
@@ -2141,7 +2139,7 @@ void Aura::SpellAuraModRoot(bool apply)
 
         if((m_spellProto->School == SCHOOL_FROST && HasMechanic(MECHANIC_ROOTED) ) || HasMechanic(MECHANIC_FROZEN))
             m_target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_FROZEN|0x400000);
-            WorldPacket data(MSG_MOVE_ROOT, 9+7*4+1*2);
+            WorldPacket data(SMSG_MOVE_ROOT, 9+7*4+1*2);
             data << m_target->GetNewGUID();
             data << uint16(0x0800);
             data << uint32(0);
@@ -2163,7 +2161,7 @@ void Aura::SpellAuraModRoot(bool apply)
 
         if((m_spellProto->School == SCHOOL_FROST && HasMechanic(MECHANIC_ROOTED) ) || HasMechanic(MECHANIC_FROZEN))
             m_target->RemoveFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_FROZEN|0x400000);
-        WorldPacket data(MSG_MOVE_UNROOT, 9+7*4+1*2);
+        WorldPacket data(SMSG_MOVE_UNROOT, 9+7*4+1*2);
         data << m_target->GetNewGUID();
         data << uint16(0x1000);
         data << uint32(0);
@@ -2336,11 +2334,8 @@ void Aura::SpellAuraModShapeshift(bool apply)
             if(apply)
             {
                 m_target->SetByte(UNIT_FIELD_BYTES_0, 3, POWER_TYPE_ENERGY);
-                m_target->SetUInt32Value(UNIT_FIELD_MAX_ENERGY, 100);//100 Energy
-                m_target->SetUInt32Value(UNIT_FIELD_ENERGY, 0);//0 Energy
-
                 if( m_target->HasDummyAura(SPELL_HASH_FUROR) )
-                    m_target->SetUInt32Value(UNIT_FIELD_ENERGY, m_target->GetDummyAura(SPELL_HASH_FUROR)->RankNumber * 20);
+                    m_target->ModPower(POWER_TYPE_ENERGY, m_target->GetDummyAura(SPELL_HASH_FUROR)->RankNumber * 20);
             }
             else
             {//turn back to mana
@@ -2387,13 +2382,9 @@ void Aura::SpellAuraModShapeshift(bool apply)
             spellId2 = 21178;
             if(apply)
             {
-                m_target->SetByte(UNIT_FIELD_BYTES_0,3,POWER_TYPE_RAGE);
-                m_target->SetUInt32Value(UNIT_FIELD_MAX_RAGE, 1000);
-                m_target->SetUInt32Value(UNIT_FIELD_RAGE, 0);//0 rage
-            }
-            else //reset back to mana
-                m_target->SetByte(UNIT_FIELD_BYTES_0,3,POWER_TYPE_MANA);
-
+                m_target->SetPowerType(POWER_TYPE_RAGE);
+                m_target->SetMaxPower(POWER_TYPE_RAGE, 1000);
+            } else m_target->SetPowerType(POWER_TYPE_MANA);
         }break;
 
     case FORM_DIREBEAR:
@@ -2403,28 +2394,16 @@ void Aura::SpellAuraModShapeshift(bool apply)
             spellId2 = 21178;
             if(apply)
             {
-                m_target->SetByte(UNIT_FIELD_BYTES_0,3,POWER_TYPE_RAGE);
-                m_target->SetUInt32Value(UNIT_FIELD_MAX_RAGE, 1000);
-                m_target->SetUInt32Value(UNIT_FIELD_RAGE, 0);//0 rage
-            }
-            else //reset back to mana
-                m_target->SetByte(UNIT_FIELD_BYTES_0,3,POWER_TYPE_MANA);
-
+                m_target->SetPowerType(POWER_TYPE_RAGE);
+                m_target->SetMaxPower(POWER_TYPE_RAGE, 1000);
+            } else m_target->SetPowerType(POWER_TYPE_MANA);
         }break;
 
     case FORM_GHOSTWOLF:
         {
             spellId = 67116;
-            if( apply )
-            {
-                if( m_target->IsPlayer() )
-                    p->m_MountSpellId = m_spellProto->Id;
-            }
-            else
-            {
-                if( m_target->IsPlayer() )
-                    p->m_MountSpellId = 0;
-            }
+            if(m_target->IsPlayer())
+                p->m_MountSpellId = apply ? m_spellProto->Id : 0;
         }break;
 
     case FORM_BATTLESTANCE:
@@ -2500,35 +2479,6 @@ void Aura::SpellAuraModShapeshift(bool apply)
 
     if( apply )
     {
-        if( m_target->getClass() == WARRIOR )
-        {
-            if( m_target->GetUInt32Value( UNIT_FIELD_RAGE ) > p->m_retainedrage )
-                m_target->SetUInt32Value(UNIT_FIELD_RAGE, p->m_retainedrage );
-            else
-                m_target->SetUInt32Value(UNIT_FIELD_RAGE, m_target->GetUInt32Value(UNIT_FIELD_RAGE));
-        }
-
-        if( m_target->getClass() == DRUID )
-        {
-            if( m_target->HasDummyAura(SPELL_HASH_FUROR) && Rand( m_target->GetDummyAura(SPELL_HASH_FUROR)->RankNumber * 20 ) )
-            {
-                uint32 furorSpell = 0;
-                if( mod->m_miscValue[0] == FORM_BEAR || mod->m_miscValue[0] == FORM_DIREBEAR )
-                    furorSpell = 17057;
-
-                if( furorSpell != 0 )
-                {
-                    SpellEntry *spellInfo = dbcSpell.LookupEntry( furorSpell );
-
-                    Spell* sp = NULLSPELL;
-                    sp = (new Spell( m_target, spellInfo, true, NULLAURA ));
-                    SpellCastTargets tgt;
-                    tgt.m_unitTarget = m_target->GetGUID();
-                    sp->prepare(&tgt);
-                }
-            }
-        }
-
         if( spellId != GetSpellId() )
         {
             if( p->m_ShapeShifted )
@@ -3199,7 +3149,7 @@ void Aura::SpellAuraIncreaseSwimSpeed(bool apply)
     else m_target->m_swimSpeed = PLAYER_NORMAL_SWIM_SPEED;
     if(m_target->IsPlayer())
     {
-        WorldPacket data(SMSG_FORCE_SWIM_SPEED_CHANGE, 17);
+        WorldPacket data(SMSG_MOVE_SET_SWIM_SPEED, 17);
         data << m_target->GetNewGUID();
         data << (uint32)2;
         data << m_target->m_swimSpeed;
@@ -3333,47 +3283,25 @@ void Aura::EventPeriodicManaLeech(uint32 amount)
     if(m_target->IsPlayer())
     {
         float amt_reduction_pct = 2.2f * TO_PLAYER(m_target)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) / 100.0f;
-        if( amt_reduction_pct > 0.33f )
-            amt_reduction_pct = 0.33f; // 3.0.3
+        if( amt_reduction_pct > 0.33f ) amt_reduction_pct = 0.33f; // 3.0.3
         amt = float2int32( amt - (amt * amt_reduction_pct) );
     }
-
-    switch( m_spellProto->NameHash )
-    {
-    case SPELL_HASH_VIPER_STING:
-        {
-            if( m_target->GetUInt32Value( UNIT_FIELD_MANA ) * ( amt / 100.0f ) > m_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA) * 0.08f )
-                amt = float2int32( m_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA) * 0.08f );
-            else
-                amt = float2int32( m_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA) * (amt / 100.0f ) );
-        }break;
-    case SPELL_HASH_DRAIN_MANA: // Warlock - Drain mana
-        {
-            if( m_target->GetUInt32Value( UNIT_FIELD_MANA ) * (amt / 100.0f) > m_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.06f )
-                amt = float2int32( m_target->GetUInt32Value( UNIT_FIELD_MANA ) * ( amt / 100.0f ) );
-            else
-                amt = float2int32( m_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.06f );
-        }break;
-    }
-
-    amt = (int32)min( (uint32)amt, m_target->GetUInt32Value( UNIT_FIELD_MANA ) );
-    m_target->ModUnsigned32Value(UNIT_FIELD_MANA, -amt);
 
     float coef = m_spellProto->EffectValueMultiplier[mod->i] > 0 ? m_spellProto->EffectValueMultiplier[mod->i] : 1; // how much mana is restored per mana leeched
     m_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
     m_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
     amt = float2int32((float)amt * coef);
 
-    uint32 cm = m_caster->GetUInt32Value(UNIT_FIELD_MANA) + amt;
-    uint32 mm = m_caster->GetUInt32Value(UNIT_FIELD_MAX_MANA);
+    uint32 cm = m_caster->GetPower(POWER_TYPE_MANA) + amt;
+    uint32 mm = m_caster->GetMaxPower(POWER_TYPE_MANA);
     if(cm <= mm)
     {
-        m_caster->SetUInt32Value(UNIT_FIELD_MANA, cm);
+        m_caster->SetPower(POWER_TYPE_MANA, cm);
         SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, amt, 0, 0, FLAG_PERIODIC_LEECH);
     }
     else
     {
-        m_caster->SetUInt32Value(UNIT_FIELD_MANA, mm);
+        m_caster->SetPower(POWER_TYPE_MANA, mm);
         SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, mm - cm, 0, 0, FLAG_PERIODIC_LEECH);
     }
 
@@ -3442,7 +3370,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
                     }
                 }
             }
-            pTarget->setDeathState(ALIVE);
+            pTarget->SetDeathState(ALIVE);
         }
         else
         {
@@ -3880,10 +3808,10 @@ void Aura::EventPeriodicSpeedModify(int32 modifier)
 
 void Aura::EventPeriodicDrink(uint32 amount)
 {
-    uint32 v = m_target->GetUInt32Value(UNIT_FIELD_MANA) + amount;
-    if( v > m_target->GetUInt32Value(UNIT_FIELD_MAX_MANA) )
-        v = m_target->GetUInt32Value(UNIT_FIELD_MAX_MANA);
-    m_target->SetUInt32Value(UNIT_FIELD_MANA, v);
+    uint32 v = m_target->GetPower(POWER_TYPE_MANA) + amount;
+    if( v > m_target->GetMaxPower(POWER_TYPE_MANA) )
+        v = m_target->GetMaxPower(POWER_TYPE_MANA);
+    m_target->SetPower(POWER_TYPE_MANA, v);
     SendPeriodicAuraLog(amount, FLAG_PERIODIC_ENERGIZE);
 }
 
@@ -4543,10 +4471,7 @@ void Aura::EventPeriodicBurn(uint32 amount, uint32 misc)
         if(m_target->SchoolImmunityList[m_spellProto->School])
             return;
 
-        uint32 field = UNIT_FIELD_MANA + misc;
-
-        uint32 Amount = (uint32)min( amount, m_target->GetUInt32Value( field ) );
-
+        uint32 Amount = (uint32)min( amount, m_target->GetPower(misc) );
         SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, Amount, 0, 0, FLAG_PERIODIC_DAMAGE);
         m_target->DealDamage(m_target, Amount, 0, 0, m_spellProto->Id);
     }

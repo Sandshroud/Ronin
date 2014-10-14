@@ -238,7 +238,7 @@ public:
 // Primitive serializers
 void serialize(const bool& b, TextOutput& to);
 void serialize(const int& b, TextOutput& to);
-void serialize(const g3d_uint8& b, TextOutput& to);
+void serialize(const uint8& b, TextOutput& to);
 void serialize(const double& b, TextOutput& to);
 void serialize(const float& b, TextOutput& to);
 void serialize(const std::string& b, TextOutput& to);

@@ -36,7 +36,7 @@ class CoordinateFrame;
 class Box {
 private:
 
-    static g3d_int32 dummy;
+    static int32 dummy;
 
     friend class CoordinateFrame;
 
@@ -86,12 +86,12 @@ public:
 
     static Box inf();
 
-    Box(class BinaryInput& b);
+	Box(class BinaryInput& b);
 
     Box(const class AABox& b);
 
-    void serialize(class BinaryOutput& b) const;
-    void deserialize(class BinaryInput& b);
+	void serialize(class BinaryOutput& b) const;
+	void deserialize(class BinaryInput& b);
 
     /**
      Returns the object to world transformation for 
@@ -150,24 +150,24 @@ public:
         Vector3&            v3) const;
 
 
-    /**
+	/**
       See AABox::culledBy
-     */
+	 */
     bool culledBy
     (
-     const Array<Plane>&        plane,
-     g3d_int32&                             cullingPlaneIndex,
-     const g3d_uint32           testMask,
-     g3d_uint32&                            childMask) const;
+     const Array<Plane>&		plane,
+     int32&                             cullingPlaneIndex,
+     const uint32  			testMask,
+     uint32&                            childMask) const;
 
     /**
      Conservative culling test that does not produce a mask for children.
      */
     bool culledBy
     (
-     const Array<Plane>&        plane,
-     g3d_int32&                             cullingPlaneIndex = dummy,
-     const g3d_uint32           testMask      = -1) const;
+     const Array<Plane>&		plane,
+     int32&                             cullingPlaneIndex = dummy,
+     const uint32  			testMask	  = -1) const;
 
     bool contains(
         const Vector3&      point) const;

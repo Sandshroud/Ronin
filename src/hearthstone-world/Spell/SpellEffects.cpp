@@ -262,7 +262,7 @@ void Spell::SpellEffectInstantKill(uint32 i)
         }break;
     case 33974: //Power Burn for each Point consumed mana (Effect1) target get damage(Effect3) no better idea :P
         {
-            TotalDamage += (unitTarget->GetPowerType() == POWER_TYPE_RAGE ? m_caster->DealDamage(unitTarget, GetSpellProto()->EffectBasePoints[0], 0, 0, spellId) : m_caster->DealDamage(unitTarget, GetSpellProto()->EffectBasePoints[1], 0, 0, spellId));
+            TotalDamage += m_caster->DealDamage(unitTarget, (unitTarget->getPowerType() == POWER_TYPE_RAGE ? GetSpellProto()->EffectBasePoints[0] : GetSpellProto()->EffectBasePoints[1]), 0, 0, spellId);
             return;
         }break;
     case 36484: //Mana Burn same like Power Burn
@@ -608,8 +608,8 @@ void Spell::SpellEffectPowerDrain(uint32 i)  // Power Drain
     if( unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    uint32 powerField = UNIT_FIELD_MANA;
-    if(GetSpellProto()->EffectMiscValue[i] < 7)
+    uint32 powerField = UNIT_FIELD_POWERS;
+    if(GetSpellProto()->EffectMiscValue[i] < 5)
         powerField += GetSpellProto()->EffectMiscValue[i];
     uint32 curPower = unitTarget->GetUInt32Value(powerField);
     uint32 amt = u_caster->GetSpellBonusDamage(unitTarget, GetSpellProto(), i, damage, false);
@@ -668,176 +668,16 @@ void Spell::SpellEffectHeal(uint32 i) // Heal
 
     if(GetSpellProto()->EffectChainTarget[i])//chain
     {
-        if(!chaindamage)
-        {
-            Aura* riptide = NULLAURA;
-            riptide = unitTarget->m_AuraInterface.FindPositiveAuraByNameHash(SPELL_HASH_RIPTIDE);
-            if(unitTarget != NULL && riptide != NULL && GetSpellProto()->NameHash == SPELL_HASH_CHAIN_HEAL)
-            {
-                damage += damage / 4; // +25%
-                unitTarget->RemoveAura(riptide);
-            }
-            chaindamage = damage;
-            Heal(i, (int32)chaindamage);
-        }
-        else
+        if(chaindamage)
         {
             int32 reduce = (int32)(GetSpellProto()->EffectDamageMultiplier[i] * 100.0f);
             chaindamage -= (reduce * chaindamage) / 100;
-            Heal(i, (int32)chaindamage);
-        }
+        }else chaindamage = damage;
+        Heal(i, chaindamage);
+        return;
     }
-    else
-    {
-        //yep, the usual special case. This one is shaman talent : Nature's guardian
-        //health is below 30%, we have a mother spell to get value from
-        switch (GetSpellProto()->Id)
-        {
-        case 34299: //Druid: Improved Leader of the PAck
-            {
-                if ( !playerTarget )
-                    break;
 
-                if( !playerTarget->IsInFeralForm() || (
-                    playerTarget->GetShapeShift() != FORM_CAT &&
-                    playerTarget->GetShapeShift() != FORM_BEAR &&
-                    playerTarget->GetShapeShift() != FORM_DIREBEAR ) )
-                    break;
-
-                uint32 max = playerTarget->GetUInt32Value( UNIT_FIELD_MAXHEALTH );
-                uint32 val = float2int32( ( ( playerTarget->m_AuraInterface.FindAura( 34300 ) ) ? 0.04f : 0.02f ) * max );
-                if (val)
-                    playerTarget->Heal(playerTarget,34299,(uint32)(val));
-            }break;
-        case 22845: // Druid: Frenzied Regeneration
-            {
-                if ( !playerTarget )
-                    break;
-
-                if (!playerTarget->IsInFeralForm() ||
-                    (playerTarget->GetShapeShift() != FORM_BEAR &&
-                    playerTarget->GetShapeShift() != FORM_DIREBEAR))
-                    break;
-
-                uint32 val = playerTarget->GetUInt32Value(UNIT_FIELD_RAGE);
-                if (val > 100)
-                    val = 100;
-
-                playerTarget->SetUInt32Value(UNIT_FIELD_RAGE, playerTarget->GetUInt32Value(UNIT_FIELD_RAGE) - val);
-                if (val)
-                    playerTarget->Heal(playerTarget, 22845, ( playerTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * 0.003f ) * (val / 10) );
-
-            }break;
-        case 18562: //druid - swiftmend
-            {
-                uint32 new_dmg = 0;
-                //consume rejuvenetaion and regrowth
-                Aura* taura = unitTarget->m_AuraInterface.FindPositiveAuraByNameHash( SPELL_HASH_REGROWTH ); //Regrowth
-                if( taura != NULL && taura->GetSpellProto() != NULL)
-                {
-                    int32 healamount = 0;
-                    uint32 amplitude = taura->GetSpellProto()->EffectAmplitude[1] / 1000;
-                    if( !amplitude )
-                        amplitude = 3;
-
-                    //our hapiness is that we did not store the aura mod amount so we have to recalc it
-                    Spell* spell = new Spell( m_caster, taura->GetSpellProto(), false, NULLAURA );
-                    healamount += spell->CalculateEffect( 1, unitTarget, healamount );
-                    spell->Destruct();
-                    spell = NULLSPELL;
-                    new_dmg = healamount * 18 / amplitude;
-
-                    unitTarget->RemoveAura( taura );
-
-                    //do not remove flag if we still can cast it again
-                    if( !unitTarget->m_AuraInterface.GetAuraSpellIDWithNameHash( SPELL_HASH_REJUVENATION ) )
-                    {
-                        unitTarget->RemoveFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_REJUVENATE );
-                        sEventMgr.RemoveEvents( unitTarget, EVENT_REJUVENATION_FLAG_EXPIRE );
-                    }
-                }
-                else
-                {
-                    taura = unitTarget->m_AuraInterface.FindPositiveAuraByNameHash( SPELL_HASH_REJUVENATION );//Rejuvenation
-                    if( taura != NULL && taura->GetSpellProto() != NULL )
-                    {
-                        int32 healamount = 0;
-                        uint32 amplitude = taura->GetSpellProto()->EffectAmplitude[0] / 1000;
-                        if( !amplitude )
-                            amplitude = 3;
-
-                        //our hapiness is that we did not store the aura mod amount so we have to recalc it
-                        Spell* spell = new Spell( m_caster, taura->GetSpellProto(), false, NULLAURA );
-                        healamount += spell->CalculateEffect( 0, unitTarget, healamount );
-                        spell->Destruct();
-                        spell = NULLSPELL;
-                        new_dmg = healamount * 12 / amplitude;
-
-                        unitTarget->RemoveAura( taura );
-                        unitTarget->RemoveFlag( UNIT_FIELD_AURASTATE,AURASTATE_FLAG_REJUVENATE );
-                        sEventMgr.RemoveEvents( unitTarget,EVENT_REJUVENATION_FLAG_EXPIRE );
-                    }
-                }
-
-                if( new_dmg > 0 )
-                    Heal(i, (int32)new_dmg );
-            }break;
-        case 48743://death pact
-            {
-                if( p_caster == NULL || p_caster->GetSummon() == NULL)
-                    return;
-
-                Heal( i, float2int32(float(p_caster->GetMaxHealth()) * 0.3f) );
-            }break;
-        case 48153: // Guardian spirit
-            {
-                if( p_caster == NULL )
-                    return;
-
-                Heal( i, float2int32(unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * (damage/100.0f) ));
-            }break;
-        case 20267: // judgement of light heal effect
-            {
-                if( u_caster != NULL )
-                {
-                    Aura* aur = u_caster->m_AuraInterface.FindAura(20185);
-                    if( aur != NULL)
-                    {
-                        Unit* orgcstr = u_caster->m_AuraInterface.FindAura(20185)->GetUnitCaster();
-                        if( orgcstr )
-                            Heal( i, float2int32(orgcstr->CalculateAttackPower() * 0.10f + orgcstr->GetDamageDoneMod(SCHOOL_HOLY) * 0.10f) );
-                    }
-                }
-            }break;
-
-        case 379: // Earth Shield
-        case 54172: // Divine storm heal
-        case 54968: // Glyph of Holy Light
-            {
-                //Heal((int32)forced_basepoints[0]);
-            }break;
-
-        case 23880: // Bloodthirst
-            {
-                Heal( i, float2int32( unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) / 100.0f ) );
-            }break;
-        case 50464: // Druid Nourish
-            {
-                if( m_caster == NULL )
-                    return;
-
-                int32 amounttoheal = damage;
-                bool bonus = unitTarget->HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_REJUVENATE);
-                if( bonus )
-                    amounttoheal += float2int32(damage*0.2f);
-
-                Heal(i, amounttoheal);
-            }break;
-        default:
-            Heal(i, (int32)damage);
-            break;
-        }
-    }
+    Heal(i, damage);
 }
 
 void Spell::SpellEffectBind(uint32 i) // Innkeeper Bind
@@ -914,29 +754,6 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
     if(!playerTarget)
         return;
 
-    if(GetSpellProto()->Id == 3286)
-    {
-        // Add a hearthstone if they don't have one
-        if(!playerTarget->GetItemInterface()->GetItemCount(6948, true))
-        {
-            // We don't have a hearthstone. Add one.
-            if(playerTarget->GetItemInterface()->CalculateFreeSlots(NULL) > 0)
-            {
-                Item* item = objmgr.CreateItem( 6948, playerTarget);
-                if( playerTarget->GetItemInterface()->AddItemToFreeSlot(item) )
-                {
-                    SlotResult * lr = playerTarget->GetItemInterface()->LastSearchResult();
-                    playerTarget->GetSession()->SendItemPushResult(item,false,true,false,true,lr->ContainerSlot,lr->Slot,1);
-                }
-                else
-                {
-                    item->DeleteMe();
-                    item = NULLITEM;
-                }
-            }
-        }return;
-    }
-
     if(GetSpellProto()->EffectItemType[i] == 0)
         return;
 
@@ -959,64 +776,9 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
     if(!item_count)
         item_count = damage;
 
-    //conjure water ranks 7,8 & 9 and conjure food ranks 7 & 8 have different starting amounts
-    // tailoring specializations get +1 cloth bonus
-    switch(GetSpellProto()->Id)
-    {
-        case 27389: //Conjure Food 7
-        case 10140: //Conjure Water 7
-        case 37420: //Conjure Water 8
-            {
-                if(item_count <= 12)
-                    item_count += 8;
-            }break;
-        case 36686: //Shadowcloth
-            if(playerTarget->HasSpell(26801))
-                item_count += 1;
-            break;
-        case 26751: // Primal Mooncloth
-            if(playerTarget->HasSpell(26798))
-                item_count += 1;
-            break;
-        case 31373: //Spellcloth
-            if(playerTarget->HasSpell(26797))
-                item_count += 1;
-            break;
-    }
-
     SkillLineSpell* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
     if(skill)
     {
-        // Alchemy Specializations
-        // http://www.wowwiki.com/Alchemy#Alchemy_Specializations
-        if ( skill->skilline == SKILL_ALCHEMY && Rand(15) )
-        {
-            //Potion Master and Elixer Master (Elixers and Flasks)
-            if(( playerTarget->HasSpell(28675) && m_itemProto->SubClass == ITEM_SUBCLASS_CONSUMABLE_POTION ) ||
-                ( playerTarget->HasSpell(28677) && ( m_itemProto->SubClass == ITEM_SUBCLASS_CONSUMABLE_ELIXIR || m_itemProto->SubClass == ITEM_SUBCLASS_CONSUMABLE_FLASK ) ))
-            {
-                for(int x=0; x<5; x++)
-                {
-                    SpellEntry *spellInfo;
-                    uint32 spellid = m_itemProto->Spells[x].Id;
-                    if( spellid )
-                    {
-                        spellInfo = dbcSpell.LookupEntry(spellid);
-                        if ( spellInfo )
-                        {
-                            item_count = item_count + rand() % 4 + 1;
-                            break;
-                        }
-                    }
-                }
-            }
-            //Transmutation Master
-            else if( playerTarget->HasSpell(28672) && GetSpellProto()->Category == 310 )
-            {
-                item_count = item_count + rand() % 4 + 1;
-            }
-        }
-
         // Profession Discoveries
         uint32 discovered_recipe = 0;
         std::set<ProfessionDiscovery*>::iterator itr = objmgr.ProfessionDiscoveryTable.begin();
@@ -1036,10 +798,9 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
             if ( se != NULL )
             {
                 playerTarget->addSpell( discovered_recipe );
-                WorldPacket * data;
                 char msg[256];
                 sprintf( msg, "%sDISCOVERY! %s has discovered how to create %s.|r", MSG_COLOR_GOLD, playerTarget->GetName(), se->Name );
-                data = sChatHandler.FillMessageData( CHAT_MSG_SYSTEM, LANG_UNIVERSAL,  msg, playerTarget->GetGUID(), 0 );
+                WorldPacket *data = sChatHandler.FillMessageData( CHAT_MSG_SYSTEM, LANG_UNIVERSAL,  msg, playerTarget->GetGUID(), 0 );
                 playerTarget->GetMapMgr()->SendChatMessageToCellPlayers( playerTarget, data, 2, 1, LANG_UNIVERSAL, playerTarget->GetSession() );
                 delete data;
             }
@@ -1070,9 +831,7 @@ void Spell::SpellEffectWeapon(uint32 i)
     if( playerTarget == NULL )
         return;
 
-    uint32 skill = 0;
-    uint32 spell = 0;
-
+    uint32 skill = 0, spell = 0;
     switch( GetSpellProto()->Id )
     {
     case 201:   // one-handed swords
@@ -1346,7 +1105,7 @@ void Spell::SpellEffectWeaponDmgPerc(uint32 i) // Weapon Percent damage
         _type = OFFHAND;
     if( GetType() == SPELL_DMG_TYPE_MAGIC )
     {
-        float fdmg = (float)CalculateDamage( u_caster, unitTarget, _type, GetSpellProto() );
+        float fdmg = (float)sStatSystem.CalculateDamage( u_caster, unitTarget, _type, GetSpellProto() );
         uint32 dmg = float2int32(fdmg*(float(damage/100.0f)));
         TotalDamage += u_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, dmg, false, false, false);
     } else TotalDamage += u_caster->Strike( unitTarget, _type, GetSpellProto(), i, add_damage, damage, 0, false, false );
@@ -1595,31 +1354,22 @@ void Spell::SpellEffectOpenLockItem(uint32 i)
 
 void Spell::SpellEffectProficiency(uint32 i)
 {
-    uint32 skill = 0;
-    SkillLineSpell* skillability = objmgr.GetSpellSkill(GetSpellProto()->Id);
-    if (skillability)
-        skill = skillability->skilline;
-    SkillLineEntry* sk = dbcSkillLine.LookupEntry(skill);
-    if(skill)
-    {
-        if(playerTarget != NULL)
-        {
-            if(!playerTarget->_HasSkillLine(skill))
-            {
-                // Don't add skills to players logging in.
-                /*if((GetSpellProto()->Attributes & 64) && playerTarget->m_TeleportState == 1)
-                    return;*/
+    if(playerTarget == NULL)
+        return;
 
-                if(sk && sk->type == SKILL_TYPE_WEAPON)
-                {
-                    if(sWorld.StartLevel > 1)
-                        playerTarget->_AddSkillLine(skill, 5*sWorld.StartLevel, 5*playerTarget->getLevel());
-                    else
-                        playerTarget->_AddSkillLine(skill, 1, 5*playerTarget->getLevel());
-                }
-                else
-                    playerTarget->_AddSkillLine(skill, 1, 1);
-            }
+    uint32 skill = 0;
+    if (SkillLineSpell* skillability = objmgr.GetSpellSkill(GetSpellProto()->Id))
+        skill = skillability->skilline;
+    if(SkillLineEntry* sk = dbcSkillLine.LookupEntry(skill))
+    {
+        if(!playerTarget->_HasSkillLine(skill))
+        {
+            if(sk && sk->type == SKILL_TYPE_WEAPON)
+            {
+                if(sWorld.StartLevel > 1)
+                    playerTarget->_AddSkillLine(skill, 5*sWorld.StartLevel, 5*playerTarget->getLevel());
+                else playerTarget->_AddSkillLine(skill, 1, 5*playerTarget->getLevel());
+            } else playerTarget->_AddSkillLine(skill, 1, 1);
         }
     }
 }
@@ -1629,7 +1379,6 @@ void Spell::SpellEffectSendEvent(uint32 i) //Send Event
     //This is mostly used to trigger events on quests or some places
     if(sScriptMgr.CallScriptedDummySpell(m_spellInfo->Id, i, this))
         return;
-
     if(sScriptMgr.HandleScriptedSpellEffect(m_spellInfo->Id, i, this))
         return;
 
@@ -1775,18 +1524,15 @@ void Spell::SpellEffectLearnSpell(uint32 i) // Learn Spell
             playerTarget->removeSpell(17041); //Master Axesmith
             break;
         }
-        for(uint32 i=0;i<3;++i)
-            if(spellinfo->Effect[i] == SPELL_EFFECT_WEAPON ||
-               spellinfo->Effect[i] == SPELL_EFFECT_PROFICIENCY ||
-               spellinfo->Effect[i] == SPELL_EFFECT_DUAL_WIELD )
-            {
-                Spell* sp = new Spell(unitTarget, spellinfo, true, NULLAURA);
-                SpellCastTargets targets;
-                targets.m_unitTarget = unitTarget->GetGUID();
-                targets.m_targetMask = TARGET_FLAG_UNIT;
-                sp->prepare(&targets);
-                break;
-            }
+        if(spellinfo->HasEffect(SPELL_EFFECT_WEAPON) || spellinfo->HasEffect(SPELL_EFFECT_DUAL_WIELD)
+            || spellinfo->HasEffect(SPELL_EFFECT_PROFICIENCY))
+        {
+            Spell* sp = new Spell(unitTarget, spellinfo, true, NULLAURA);
+            SpellCastTargets targets;
+            targets.m_unitTarget = unitTarget->GetGUID();
+            targets.m_targetMask = TARGET_FLAG_UNIT;
+            sp->prepare(&targets);
+        }
         return;
     }
 
@@ -1819,18 +1565,14 @@ void Spell::SpellEffectDispel(uint32 i) // Dispel
     if(u_caster == NULL || unitTarget == NULL )
         return;
 
-    uint32 start,end;
+    uint32 start = 0, end;
     if(sFactionSystem.isAttackable(u_caster,unitTarget))
-    {
-        start=0;
-        end=MAX_POSITIVE_AURAS;
-    }
+        end = MAX_POSITIVE_AURAS;
     else
     {
-        start=MAX_POSITIVE_AURAS;
-        end=MAX_AURAS;
+        start = MAX_POSITIVE_AURAS;
+        end = MAX_AURAS;
     }
-
 
     unitTarget->m_AuraInterface.MassDispel(u_caster, i, GetSpellProto(), damage, start, end);
 }
@@ -1848,81 +1590,61 @@ void Spell::SpellEffectLanguage(uint32 i)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_COMMON ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_COMMON, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_COMMON );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_COMMON );
 
         if(pPlayer->GetTeam() == HORDE)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_ORCISH ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_ORCISH, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_ORCISH );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_ORCISH );
 
         if(pPlayer->getRace() == RACE_DWARF)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_DWARVEN ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_DWARVEN, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_DWARVEN );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DWARVEN );
 
         if(pPlayer->getRace() == RACE_NIGHTELF)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_DARNASSIAN ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_DARNASSIAN, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_DARNASSIAN );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DARNASSIAN );
 
         if(pPlayer->getRace() == RACE_UNDEAD)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_GUTTERSPEAK ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_GUTTERSPEAK, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_GUTTERSPEAK );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_GUTTERSPEAK );
 
         if(pPlayer->getRace() == RACE_TAUREN)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_TAURAHE ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_TAURAHE, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_TAURAHE );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_TAURAHE );
 
         if(pPlayer->getRace() == RACE_GNOME)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_GNOMISH ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_GNOMISH, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_GNOMISH );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_GNOMISH );
 
         if(pPlayer->getRace() == RACE_TROLL)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_TROLL ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_TROLL, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_TROLL );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_TROLL );
 
         if(pPlayer->getRace() == RACE_BLOODELF)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_THALASSIAN ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_THALASSIAN, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_THALASSIAN );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_THALASSIAN );
 
         if(pPlayer->getRace() == RACE_DRAENEI)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_DRAENEI ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_DRAENEI, 300, 300 );
-        }
-        else
-            pPlayer->_RemoveSkillLine( SKILL_LANG_DRAENEI );
+        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DRAENEI );
     }
 }
 
@@ -1967,22 +1689,22 @@ void Spell::SpellEffectSkillStep(uint32 i) // Skill Step
     uint32 max = 1;
     switch( sk->type )
     {
-        case SKILL_TYPE_PROFESSION:
-        case SKILL_TYPE_SECONDARY:
+    case SKILL_TYPE_PROFESSION:
+    case SKILL_TYPE_SECONDARY:
+        max = damage * 75;
+        break;
+    case SKILL_TYPE_WEAPON:
+        max = 5 * target->getLevel();
+        break;
+    case SKILL_TYPE_CLASS:
+    case SKILL_TYPE_ARMOR:
+        if( skill == SKILL_LOCKPICKING )
             max = damage * 75;
-            break;
-        case SKILL_TYPE_WEAPON:
-            max = 5 * target->getLevel();
-            break;
-        case SKILL_TYPE_CLASS:
-        case SKILL_TYPE_ARMOR:
-            if( skill == SKILL_LOCKPICKING )
-                max = damage * 75;
-            else
-                max = 1;
-            break;
-        default: //u cant learn other types in game
-            return;
+        else
+            max = 1;
+        break;
+    default: //u cant learn other types in game
+        return;
     };
 
     if( target->_HasSkillLine( skill ) )
@@ -1991,8 +1713,7 @@ void Spell::SpellEffectSkillStep(uint32 i) // Skill Step
     {
         if( skill == SKILL_RIDING )
             target->_AddSkillLine( skill, max, max );
-        else
-            target->_AddSkillLine( skill, 1, max );
+        else target->_AddSkillLine( skill, 1, max );
     }
 
     //professions fix, for unknow reason when u learn profession it
@@ -2075,12 +1796,6 @@ void Spell::SpellEffectDetect(uint32 i)
 {
     if( u_caster == NULL )
         return;
-    /* Crow:
-    Makes me afraid to see what this us used for.
-    Notes below...
-    */
-
-    // Crow: We'll just do a visibility update....
     u_caster->UpdateVisibility();
 }
 
@@ -2632,7 +2347,10 @@ void Spell::SpellEffectWeapondamage( uint32 i ) // Weapon damage +
 
 void Spell::SpellEffectPowerBurn(uint32 i) // power burn
 {
-    if( unitTarget == NULL ||!unitTarget->isAlive() || unitTarget->GetPowerType() != POWER_TYPE_MANA)
+    if( unitTarget == NULL ||!unitTarget->isAlive() )
+        return;
+    uint32 maxMana = unitTarget->GetMaxPower(POWER_TYPE_MANA);
+    if(maxMana == 0)
         return;
 
     //Resilience reduction
@@ -2645,12 +2363,8 @@ void Spell::SpellEffectPowerBurn(uint32 i) // power burn
     }
 
     //this is pct...
-    int32 mana = float2int32( unitTarget->GetUInt32Value( UNIT_FIELD_MANA ) * (damage/100.0f));
-    if( GetSpellProto()->Id == 8129 )
-        if( mana > u_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.26 )
-            mana = int32(u_caster->GetUInt32Value( UNIT_FIELD_MAX_MANA ) * 0.26);
-
-    unitTarget->ModUnsigned32Value(UNIT_FIELD_MANA,-mana);
+    int32 mana = float2int32( unitTarget->GetPower(POWER_TYPE_MANA) * (damage/100.0f));
+    unitTarget->ModPower(POWER_TYPE_MANA, -mana);
 
     float coef = GetSpellProto()->EffectValueMultiplier[i]; // damage per mana burned
     if(u_caster)
@@ -3079,14 +2793,14 @@ void Spell::SpellEffectSelfResurrect(uint32 i)
     case 21169: //Reincarnation. Ressurect with 20% health and mana
         {
             health = uint32((unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)*damage)/100);
-            mana = uint32((unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)*damage)/100);
+            mana = uint32((unitTarget->GetMaxPower(POWER_TYPE_MANA)*damage)/100);
         }
         break;
     default:
         {
             if(damage < 0) return;
             health = uint32(unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)*damage/100);
-            mana = uint32(unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)*damage/100);
+            mana = uint32(unitTarget->GetMaxPower(POWER_TYPE_MANA)*damage/100);
         }break;
         }
 
@@ -3522,7 +3236,7 @@ void Spell::SpellEffectSummonDeadPet(uint32 i)
     {
         pPet->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
         pPet->SetUInt32Value(UNIT_FIELD_HEALTH, (uint32)((pPet->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * damage) / 100));
-        pPet->setDeathState(ALIVE);
+        pPet->SetDeathState(ALIVE);
         pPet->GetAIInterface()->HandleEvent(EVENT_FOLLOWOWNER, pPet, 0);
         sEventMgr.RemoveEvents(pPet, EVENT_PET_DELAYED_REMOVE);
     }
@@ -3618,7 +3332,7 @@ void Spell::SpellEffectResurrect(uint32 i) // Resurrect (Flat)
                 if(unitTarget->GetTypeId()==TYPEID_UNIT && unitTarget->IsPet() && unitTarget->isDead())
                 {
                     uint32 hlth = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) : (uint32)GetSpellProto()->EffectBasePoints[i];
-                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
+                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetMaxPower(POWER_TYPE_MANA)) ? unitTarget->GetMaxPower(POWER_TYPE_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
 
                     if(!unitTarget->IsPet())
                     {
@@ -3630,9 +3344,9 @@ void Spell::SpellEffectResurrect(uint32 i) // Resurrect (Flat)
                         sEventMgr.RemoveEvents(unitTarget, EVENT_CREATURE_REMOVE_CORPSE);
                     }
                     unitTarget->SetUInt32Value(UNIT_FIELD_HEALTH, hlth);
-                    unitTarget->SetUInt32Value(UNIT_FIELD_MANA, mana);
+                    unitTarget->SetPower(POWER_TYPE_MANA, mana);
                     unitTarget->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-                    unitTarget->setDeathState(ALIVE);
+                    unitTarget->SetDeathState(ALIVE);
                     unitTarget->ClearLoot();
                     TO_CREATURE(unitTarget)->ClearTag();
                 }
@@ -3818,8 +3532,8 @@ void Spell::SpellEffectDummyMelee( uint32 i ) // Normalized Weapon damage +
     else if( GetSpellProto()->NameHash == SPELL_HASH_MUTILATE )
     {
         damage = damage * 2;
-        damage += CalculateDamage(u_caster, unitTarget, MELEE, GetSpellProto());
-        damage += CalculateDamage(u_caster, unitTarget, OFFHAND, GetSpellProto());
+        damage += sStatSystem.CalculateDamage(u_caster, unitTarget, MELEE, GetSpellProto());
+        damage += sStatSystem.CalculateDamage(u_caster, unitTarget, OFFHAND, GetSpellProto());
 
         if( unitTarget->IsPoisoned() )
             pct_dmg_mod = 120;
@@ -3935,7 +3649,7 @@ void Spell::SpellEffectResurrectNew(uint32 i)
                 if(unitTarget->GetTypeId()==TYPEID_UNIT && unitTarget->IsPet() && unitTarget->isDead())
                 {
                     uint32 hlth = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH) : (uint32)GetSpellProto()->EffectBasePoints[i];
-                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA)) ? unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
+                    uint32 mana = ((uint32)GetSpellProto()->EffectBasePoints[i] > unitTarget->GetMaxPower(POWER_TYPE_MANA)) ? unitTarget->GetMaxPower(POWER_TYPE_MANA) : (uint32)GetSpellProto()->EffectBasePoints[i];
 
                     if(!unitTarget->IsPet())
                     {
@@ -3947,9 +3661,9 @@ void Spell::SpellEffectResurrectNew(uint32 i)
                         sEventMgr.RemoveEvents(unitTarget, EVENT_CREATURE_REMOVE_CORPSE);
                     }
                     unitTarget->SetUInt32Value(UNIT_FIELD_HEALTH, hlth);
-                    unitTarget->SetUInt32Value(UNIT_FIELD_MANA, mana);
+                    unitTarget->SetPower(POWER_TYPE_MANA, mana);
                     unitTarget->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-                    unitTarget->setDeathState(ALIVE);
+                    unitTarget->SetDeathState(ALIVE);
                     unitTarget->ClearLoot();
                     TO_CREATURE(unitTarget)->ClearTag();
                 }
@@ -4128,7 +3842,7 @@ void Spell::SpellEffectRestoreManaPct(uint32 i)
     if( u_caster == NULL || unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    uint32 maxMana = (uint32)unitTarget->GetUInt32Value(UNIT_FIELD_MAX_MANA);
+    uint32 maxMana = (uint32)unitTarget->GetMaxPower(POWER_TYPE_MANA);
     uint32 modMana = damage * maxMana / 100;
 
     u_caster->Energize(unitTarget, m_triggeredSpellId ? m_triggeredSpellId : GetSpellProto()->Id, modMana, POWER_TYPE_MANA);
@@ -4535,7 +4249,7 @@ void Spell::SpellEffectActivateTalentSpec(uint32 i)
 
     // 0 = primary, 1 = secondary
     p_caster->m_talentInterface.ApplySpec(damage);
-    p_caster->SetPower(p_caster->GetPowerType(), 0);
+    p_caster->SetPower(p_caster->getPowerType(), 0);
 }
 
 void Spell::SpellEffectDisengage(uint32 i)

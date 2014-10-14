@@ -63,11 +63,11 @@ private:
 
 public:
 
-    g3d_uint8       value;
+    uint8       value;
 
     Color1uint8() : value(0) {}
 
-    explicit Color1uint8(const g3d_uint8 _v) : value(_v) {}
+    explicit Color1uint8(const uint8 _v) : value(_v) {}
 
     Color1uint8(const class Color1& c);
 

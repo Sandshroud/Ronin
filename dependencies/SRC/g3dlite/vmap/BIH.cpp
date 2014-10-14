@@ -5,10 +5,10 @@
 #include "../G3DAll.h"
 #include "VMapDefinitions.h"
 
-void BIH::buildHierarchy(std::vector<g3d_uint32> &tempTree, buildData &dat, BuildStats &stats)
+void BIH::buildHierarchy(std::vector<G3D::uint32> &tempTree, buildData &dat, BuildStats &stats)
 {
     // create space for the first node
-    tempTree.push_back(g3d_uint32(3 << 30)); // dummy leaf
+    tempTree.push_back(G3D::uint32(3 << 30)); // dummy leaf
     tempTree.insert(tempTree.end(), 2, 0);
     //tempTree.add(0);
 
@@ -19,7 +19,7 @@ void BIH::buildHierarchy(std::vector<g3d_uint32> &tempTree, buildData &dat, Buil
     subdivide(0, dat.numPrims - 1, tempTree, dat, gridBox, nodeBox, 0, 1, stats);
 }
 
-void BIH::subdivide(int left, int right, std::vector<g3d_uint32> &tempTree, buildData &dat, AABound &gridBox, AABound &nodeBox, int nodeIndex, int depth, BuildStats &stats)
+void BIH::subdivide(int left, int right, std::vector<G3D::uint32> &tempTree, buildData &dat, AABound &gridBox, AABound &nodeBox, int nodeIndex, int depth, BuildStats &stats)
 {
     if ((right - left + 1) <= dat.maxPrims || depth >= MAX_STACK_SIZE)
     {
@@ -153,7 +153,7 @@ void BIH::subdivide(int left, int right, std::vector<g3d_uint32> &tempTree, buil
         else
         {
             // we are actually splitting stuff
-            if (prevAxis != -1 && !isnan(prevClip))
+            if (prevAxis != -1 && !G3D::isNaN(prevClip))
             {
                 // second time through - lets create the previous split
                 // since it produced empty space
@@ -227,34 +227,34 @@ void BIH::subdivide(int left, int right, std::vector<g3d_uint32> &tempTree, buil
 
 bool BIH::writeToFile(FILE *wf) const
 {
-    g3d_uint32 treeSize = (g3d_uint32)tree.size();
-    g3d_uint32 check=0, count=0;
-    check += (g3d_uint32)fwrite(&bounds.low(), sizeof(float), 3, wf);
-    check += (g3d_uint32)fwrite(&bounds.high(), sizeof(float), 3, wf);
-    check += (g3d_uint32)fwrite(&treeSize, sizeof(g3d_uint32), 1, wf);
-    if(treeSize) check += (g3d_uint32)fwrite(&tree[0], sizeof(g3d_uint32), treeSize, wf);
-    count = (g3d_uint32)objects.size();
-    check += (g3d_uint32)fwrite(&count, sizeof(g3d_uint32), 1, wf);
-    if(count) check += (g3d_uint32)fwrite(&objects[0], sizeof(g3d_uint32), count, wf);
+    G3D::uint32 treeSize = (G3D::uint32)tree.size();
+    G3D::uint32 check=0, count=0;
+    check += (G3D::uint32)fwrite(&bounds.low(), sizeof(float), 3, wf);
+    check += (G3D::uint32)fwrite(&bounds.high(), sizeof(float), 3, wf);
+    check += (G3D::uint32)fwrite(&treeSize, sizeof(G3D::uint32), 1, wf);
+    if(treeSize) check += (G3D::uint32)fwrite(&tree[0], sizeof(G3D::uint32), treeSize, wf);
+    count = (G3D::uint32)objects.size();
+    check += (G3D::uint32)fwrite(&count, sizeof(G3D::uint32), 1, wf);
+    if(count) check += (G3D::uint32)fwrite(&objects[0], sizeof(G3D::uint32), count, wf);
     return check == (3 + 3 + 2 + treeSize + count);
 }
 
 bool BIH::readFromFile(FILE *rf)
 {
-    g3d_uint32 treeSize;
+    G3D::uint32 treeSize;
     G3D::Vector3 lo, hi;
-    g3d_uint32 check=0, count=0;
-    check += (g3d_uint32)fread(&lo, sizeof(float), 3, rf);
-    check += (g3d_uint32)fread(&hi, sizeof(float), 3, rf);
+    G3D::uint32 check=0, count=0;
+    check += (G3D::uint32)fread(&lo, sizeof(float), 3, rf);
+    check += (G3D::uint32)fread(&hi, sizeof(float), 3, rf);
     bounds = G3D::AABox(lo, hi);
-    check += (g3d_uint32)fread(&treeSize, sizeof(g3d_uint32), 1, rf);
+    check += (G3D::uint32)fread(&treeSize, sizeof(G3D::uint32), 1, rf);
     tree.resize(treeSize);
-    if(treeSize) check += (g3d_uint32)fread(&tree[0], sizeof(g3d_uint32), treeSize, rf);
-    check += (g3d_uint32)fread(&count, sizeof(g3d_uint32), 1, rf);
+    if(treeSize) check += (G3D::uint32)fread(&tree[0], sizeof(G3D::uint32), treeSize, rf);
+    check += (G3D::uint32)fread(&count, sizeof(G3D::uint32), 1, rf);
     if(count)
     {
-        objects.resize(count); // = new g3d_uint32[nObjects];
-        check += (g3d_uint32)fread(&objects[0], sizeof(g3d_uint32), count, rf);
+        objects.resize(count); // = new G3D::uint32[nObjects];
+        check += (G3D::uint32)fread(&objects[0], sizeof(G3D::uint32), count, rf);
     }
     return check == (3 + 3 + 2 + treeSize + count);
 }

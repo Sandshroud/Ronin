@@ -7,7 +7,6 @@
 void WorldSession::HandleGuildQuery(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 4);
 
     uint64 guildId, playerGuid;
     recv_data >> guildId >> playerGuid;
@@ -17,11 +16,9 @@ void WorldSession::HandleGuildQuery(WorldPacket & recv_data)
 void WorldSession::HandleInviteToGuild(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
 
     std::string inviteeName;
     recv_data >> inviteeName;
-
     guildmgr.Packet_HandleGuildInvite(this, inviteeName);
 }
 
@@ -42,18 +39,10 @@ void WorldSession::HandleGuildDecline(WorldPacket & recv_data)
 void WorldSession::HandleSetGuildInformation(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
+
     std::string NewGuildInfo;
     recv_data >> NewGuildInfo;
-
     guildmgr.Packet_SetGuildInformation(this, NewGuildInfo);
-}
-
-void WorldSession::HandleGuildInfo(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    guildmgr.Packet_SendGuildInformation(this);
 }
 
 void WorldSession::HandleGuildRoster(WorldPacket & recv_data)
@@ -63,10 +52,16 @@ void WorldSession::HandleGuildRoster(WorldPacket & recv_data)
     guildmgr.Packet_SendGuildRoster(this);
 }
 
+void WorldSession::HandleGuildRanks(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildRankInfo(this);
+}
+
 void WorldSession::HandleGuildPromote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
 
     std::string promoteeName;
     recv_data >> promoteeName;
@@ -77,7 +72,6 @@ void WorldSession::HandleGuildPromote(WorldPacket & recv_data)
 void WorldSession::HandleGuildDemote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
 
     std::string demoteeName;
     recv_data >> demoteeName;
@@ -95,7 +89,6 @@ void WorldSession::HandleGuildLeave(WorldPacket & recv_data)
 void WorldSession::HandleGuildRemove(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
 
     std::string name;
     recv_data >> name;
@@ -117,7 +110,6 @@ void WorldSession::HandleGuildDisband(WorldPacket & recv_data)
 void WorldSession::HandleGuildLeader(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 1);
 
     std::string name;
     recv_data >> name;
@@ -141,7 +133,6 @@ void WorldSession::HandleGuildMotd(WorldPacket & recv_data)
 void WorldSession::HandleGuildEditRank(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    CHECK_PACKET_SIZE(recv_data, 9);
 
     string newName;
     uint32 rankId, RankRights, iFlags[MAX_GUILD_BANK_TABS];
@@ -197,7 +188,6 @@ void WorldSession::HandleGuildSetOfficerNote(WorldPacket & recv_data)
 
 void WorldSession::HandleSaveGuildEmblem(WorldPacket & recv_data)
 {
-    CHECK_PACKET_SIZE(recv_data, 28);
     CHECK_INWORLD_RETURN();
 
     uint64 guid;
@@ -299,13 +289,6 @@ void WorldSession::HandleGuildBankDepositMoney(WorldPacket & recv_data)
         amount = 0;
 
     guildmgr.Packet_DepositMoney(this, guid, amount);
-}
-
-void WorldSession::HandleGuildGetFullPermissions(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    guildmgr.Packet_SendGuildPermissions(this);
 }
 
 void WorldSession::HandleGuildBankSwapItem(WorldPacket & recv_data)

@@ -282,13 +282,13 @@ int main(int argc, char** argv)
     MapBuilder builder(maxAngle, skipLiquid, skipContinents, skipJunkMaps,
                        skipBattlegrounds, debugOutput, bigBaseUnit, offMeshInputPath);
 
-    G3D::g3d_uint32 start = getMSTime();
+    G3D::uint32 start = getMSTime();
     if (file)
         builder.buildMeshFromFile(file);
     else if (tileX > -1 && tileY > -1 && mapnum >= 0)
         builder.buildSingleTile(mapnum, tileX, tileY);
     else if (mapnum >= 0)
-        builder.buildMap(G3D::g3d_uint32(mapnum));
+        builder.buildMap(G3D::uint32(mapnum));
     else
         builder.buildAllMaps(threads);
 

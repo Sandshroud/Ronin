@@ -34,7 +34,7 @@ private:
 
     class Buffer {
     private:
-        g3d_uint8*              m_first;
+        uint8*              m_first;
         size_t              m_size;
         size_t              m_used;
 

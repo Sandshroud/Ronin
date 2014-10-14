@@ -104,4 +104,4 @@ extern trainertype trainer_types[TRAINER_TYPE_MAX];
 #define TRAINER_STATUS_ALREADY_HAVE     2
 #define TRAINER_STATUS_NOT_AVAILABLE    3
 
-SERVER_DECL bool CanTrainAt(Player * plr, Trainer * trn);
+bool CanTrainAt(Player * plr, Trainer * trn);

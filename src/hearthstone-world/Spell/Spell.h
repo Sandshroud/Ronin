@@ -355,7 +355,7 @@ public:
     HEARTHSTONE_INLINE Player* GetPlayerTarget() { return playerTarget; }
     HEARTHSTONE_INLINE GameObject* GetGameObjectTarget() { return gameObjTarget; }
 
-    uint32 chaindamage;
+    int32 chaindamage;
     // -------------------------------------------
 
     bool IsAspect();

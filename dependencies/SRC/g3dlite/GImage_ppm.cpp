@@ -30,7 +30,7 @@ void GImage::encodePPMASCII(
             
             const Color1uint8* c = this->pixel1();
             // Insert newlines every 70 characters max
-            for (g3d_uint32 i = 0; i < (G3D::g3d_uint32)(m_width * m_height); ++i) {
+            for (uint32 i = 0; i < (uint32)(m_width * m_height); ++i) {
                 ppm.printf("%d%c", c[i].value, (i % (70/4) == 0) ? '\n' : ' '); 
             }
         }
@@ -42,7 +42,7 @@ void GImage::encodePPMASCII(
             
             const Color3uint8* c = this->pixel3();
             // Insert newlines every 70 characters max
-            for (g3d_uint32 i = 0; i < (G3D::g3d_uint32)(m_width * m_height); ++i) {
+            for (uint32 i = 0; i < (uint32)(m_width * m_height); ++i) {
                 ppm.printf("%d %d %d%c", c[i].r, c[i].g, c[i].b, 
                     (i % (70/12) == 0) ?
                     '\n' : ' '); 
@@ -63,11 +63,11 @@ void GImage::encodePPM(
 
     // http://netpbm.sourceforge.net/doc/ppm.html
     if (m_channels == 3) {
-        std::string header = G3D_format("P6 %d %d 255 ", m_width, m_height);
+        std::string header = format("P6 %d %d 255 ", m_width, m_height);
         out.writeBytes(header.c_str(), header.size());
         out.writeBytes(this->pixel3(), m_width * m_height * 3);
     } else if (m_channels == 1) {
-        std::string header = G3D_format("P5 %d %d 255 ", m_width, m_height);
+        std::string header = format("P5 %d %d 255 ", m_width, m_height);
         out.writeBytes(header.c_str(), header.size());
         out.writeBytes(this->pixel1(), m_width * m_height);
     } else {
@@ -125,26 +125,26 @@ void GImage::decodePPMASCII(
     m_height = ppmHeight;
     m_channels = 3;
     // always scale down to 1 byte per channel
-    m_byte = (g3d_uint8*)m_memMan->alloc(m_width * m_height * 3);
+    m_byte = (uint8*)m_memMan->alloc(m_width * m_height * 3);
 
     // Read in the image data.  I am not validating if the values match the maxColor
     // requirements.  I only scale if needed to fit within the byte available.
-    for (g3d_uint32 i = 0; i < (g3d_uint32)(m_width * m_height); ++i) {
+    for (uint32 i = 0; i < (uint32)(m_width * m_height); ++i) {
         // read in color and scale to max pixel defined in header
         // A max color less than 255 might need to be left alone and not scaled.
         Color3uint8& curPixel = *(pixel3() + i);
 
         if (ppmType == "P3") {
-            curPixel.r = (g3d_uint8)(ppmInput.readNumber() * (255.0 / maxColor));
-            curPixel.g = (g3d_uint8)(ppmInput.readNumber() * (255.0 / maxColor));
-            curPixel.b = (g3d_uint8)(ppmInput.readNumber() * (255.0 / maxColor));
+            curPixel.r = (uint8)(ppmInput.readNumber() * (255.0 / maxColor));
+            curPixel.g = (uint8)(ppmInput.readNumber() * (255.0 / maxColor));
+            curPixel.b = (uint8)(ppmInput.readNumber() * (255.0 / maxColor));
         } else if (ppmType == "P2") {
-            g3d_uint8 pixel = (g3d_uint8)(ppmInput.readNumber() * (255.0 / maxColor));
+            uint8 pixel = (uint8)(ppmInput.readNumber() * (255.0 / maxColor));
             curPixel.r = pixel;
             curPixel.g = pixel;
             curPixel.b = pixel;
         } else if (ppmType == "P1") {
-            int pixel = (g3d_uint8)(ppmInput.readNumber() * maxColor);
+            int pixel = (uint8)(ppmInput.readNumber() * maxColor);
             curPixel.r = pixel;
             curPixel.g = pixel;
             curPixel.b = pixel;

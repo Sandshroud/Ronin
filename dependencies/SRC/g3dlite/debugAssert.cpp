@@ -106,9 +106,9 @@ static void createErrorMessage(
             realLastErr = _T("Last error code does not exist.");
         }
 
-        if (lastErr != 0) {
-            le = G3D::G3D_format("Last Error (0x%08X): %s\r\n\r\n", lastErr, (LPCSTR)realLastErr);
-        }
+		if (lastErr != 0) {
+	        le = G3D::format("Last Error (0x%08X): %s\r\n\r\n", lastErr, (LPCSTR)realLastErr);
+		}
 
         // Get rid of the allocated memory from FormatMessage.
         if (NULL != formatMsg) {
@@ -125,7 +125,7 @@ static void createErrorMessage(
 
     // Build the message.
     outMessage =
-        G3D::G3D_format("%s%s%sExpression: %s%s%s:%d%s%s%s", 
+        G3D::format("%s%s%sExpression: %s%s%s:%d%s%s%s", 
                  message.c_str(), newline, newline, expression, newline, 
                  filename, lineNumber, newline, newline, le.c_str());
 }
@@ -155,7 +155,7 @@ bool _handleDebugAssert_(
     static const char* choices[] = {"Debug", "Ignore", "Exit"};
 
     // Log the error
-    G3D_Log::common()->print(std::string("\n**************************\n\n") + dialogTitle + "\n" + dialogText);
+    Log::common()->print(std::string("\n**************************\n\n") + dialogTitle + "\n" + dialogText);
 
     int result = G3D::prompt(dialogTitle.c_str(), dialogText.c_str(), (const char**)choices, 3, useGuiPrompt);
 
@@ -199,7 +199,7 @@ bool _handleErrorCheck_(
     createErrorMessage(expression, message, filename, lineNumber, dialogTitle, dialogText);
 
     // Log the error
-    G3D_Log::common()->print(std::string("\n**************************\n\n") + dialogTitle + "\n" + dialogText);
+    Log::common()->print(std::string("\n**************************\n\n") + dialogTitle + "\n" + dialogText);
     #ifdef G3D_WIN32
         DWORD lastErr = GetLastError();
         (void)lastErr;
@@ -212,7 +212,7 @@ bool _handleErrorCheck_(
     const std::string& m = 
         std::string("An internal error has occured in this program and it will now close.  "
         "The specific error is below. More information has been saved in \"") +
-            G3D_Log::getCommonLogFilename() + "\".\n" + dialogText;
+            Log::getCommonLogFilename() + "\".\n" + dialogText;
 
     int result = G3D::prompt("Error", m.c_str(), (const char**)choices, 1, useGuiPrompt);
     (void)result;
@@ -307,7 +307,7 @@ void setAssertionHook(AssertionHook hook) {
 }
 
 AssertionHook assertionHook() {
-    return  G3D::_internal::_debugHook;
+    return 	G3D::_internal::_debugHook;
 }
 
 void setFailureHook(AssertionHook hook) {
@@ -353,7 +353,7 @@ std::string __cdecl debugPrint(const std::string& s) {
 std::string __cdecl debugPrintf(const char* fmt ...) {
     va_list argList;
     va_start(argList, fmt);
-    std::string s = G3D::G3D_vformat(fmt, argList);
+    std::string s = G3D::vformat(fmt, argList);
     va_end(argList);
 
     return debugPrint(s);
@@ -361,7 +361,7 @@ std::string __cdecl debugPrintf(const char* fmt ...) {
 }
 
 std::string consolePrint(const std::string& s) {
-    FILE* L = G3D_Log::common()->getFile();
+    FILE* L = Log::common()->getFile();
     fprintf(L, "%s", s.c_str());
 
     if (consolePrintHook()) {
@@ -376,7 +376,7 @@ std::string consolePrint(const std::string& s) {
 std::string __cdecl consolePrintf(const char* fmt ...) {
     va_list argList;
     va_start(argList, fmt);
-    std::string s = G3D::G3D_vformat(fmt, argList);
+    std::string s = G3D::vformat(fmt, argList);
     va_end(argList);
 
     return consolePrint(s);

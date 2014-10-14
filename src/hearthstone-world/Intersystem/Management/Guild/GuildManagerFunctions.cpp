@@ -184,7 +184,7 @@ void GuildMgr::Packet_SendGuildLog(WorldSession* m_session)
     if(LogStorage == NULL)
         return;
 
-    WorldPacket data(MSG_GUILD_EVENT_LOG_QUERY, 18 * LogStorage->m_logs.size() + 1);
+    WorldPacket data(SMSG_GUILD_EVENT_LOG_QUERY_RESULT, 18 * LogStorage->m_logs.size() + 1);
     GuildLogList::iterator itr;
     uint32 count = 0;
 
@@ -238,19 +238,16 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     if(MemberMapStorage == NULL)
         return;
 
-    GuildRankStorage* RankStorage = GetGuildRankStorage(plr->GetGuildId());
-    if(RankStorage == NULL)
-        return;
-
-    guildmgr.RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_guildRosterBufferLock.Acquire();
+    printf("Guild roster buffer size: %u members: %u\n", gInfo->m_guildRosterBuffer.size(), MemberMapStorage->MemberMap.size());
     WorldPacket data(SMSG_GUILD_ROSTER, gInfo->m_guildRosterBuffer.size());
     data.append(gInfo->m_guildRosterBuffer.contents(), gInfo->m_guildRosterBuffer.size());
     gInfo->m_guildRosterBufferLock.Release();
     m_session->SendPacket(&data);
+    Packet_SendGuildRankInfo(m_session);
 }
 
-void GuildMgr::Packet_SendGuildInformation(WorldSession* m_session)
+void GuildMgr::Packet_SendGuildRankInfo(WorldSession* m_session)
 {
     Player* plr = m_session->GetPlayer();
     if(!plr->IsInGuild())
@@ -260,36 +257,27 @@ void GuildMgr::Packet_SendGuildInformation(WorldSession* m_session)
     if(gInfo == NULL)
         return;
 
-    uint32 GuildSize = GetMemberCount(plr->GetGuildId());
-    WorldPacket data(SMSG_GUILD_INFO, 4);
-    data << gInfo->m_guildName.c_str();
-    data << secsToTimeBitFields(gInfo->m_creationTimeStamp);
-    data << uint32(GuildSize);
-    data << uint32(GuildSize);
-    m_session->SendPacket(&data);
-}
-
-void GuildMgr::Packet_SendGuildPermissions(WorldSession* m_session)
-{
-    Player* plr = m_session->GetPlayer();
-    if(!plr->IsInGuild())
+    GuildRankStorage* RankStorage = GetGuildRankStorage(plr->GetGuildId());
+    if(RankStorage == NULL)
         return;
 
-    GuildMember* gMember = GetGuildMember(plr->GetLowGUID());
-    if(gMember == NULL || gMember->pRank == NULL)
-        return;
-
-    WorldPacket data(MSG_GUILD_PERMISSIONS, 61);
-    data << gMember->pRank->iId;
-    data << gMember->pRank->iRights;
-    data << gMember->pRank->iGoldLimitPerDay;
-    data << uint8(GetGuildBankTabCount(plr->GetGuildId()));
-    for( uint8 i = 0; i < MAX_GUILD_BANK_TABS; i++)
+    WorldPacket data(SMSG_GUILD_RANK, 20);
+    data << uint32(RankStorage->ssid);
+    for(uint8 i = 0; i < RankStorage->ssid; ++i)
     {
-        data << gMember->pRank->iTabPermissions[i].iFlags;
-        data << gMember->pRank->iTabPermissions[i].iStacksPerDay;
+        GuildRank *rank = RankStorage->m_ranks[i];
+        if(rank == NULL)
+            continue;
+        data << uint32(i) << uint32(i);
+        data << rank->szRankName;
+        data << rank->iRights;
+        data << rank->iTabPermissions;
+        for (uint8 x = 0; x < MAX_GUILD_BANK_TABS; x++)
+            data << uint32(rank->iTabPermissions[x].iFlags);
+        for (uint8 x = 0; x < MAX_GUILD_BANK_TABS; x++)
+            data << uint32(rank->iTabPermissions[x].iStacksPerDay);
+        data << rank->iGoldLimitPerDay/1000;
     }
-
     m_session->SendPacket(&data);
 }
 
@@ -1021,7 +1009,7 @@ void GuildMgr::Packet_SendGuildBankLog(WorldSession* m_session, uint32 slotid)
 
     uint8 count = 0;
     gInfo->m_GuildLock.Acquire();
-    WorldPacket data(MSG_GUILD_BANK_LOG_QUERY);
+    WorldPacket data(SMSG_GUILD_BANK_LOG_QUERY_RESULT);
     if(slotid == 6)
     {
         // sending the money log
@@ -1111,7 +1099,7 @@ void GuildMgr::Packet_SendGuildBankText(WorldSession* m_session, uint8 TabSlot)
         return;
     }
 
-    WorldPacket data( MSG_QUERY_GUILD_BANK_TEXT, 1 + Tab->szTabInfo.length() );
+    WorldPacket data( SMSG_GUILD_BANK_QUERY_TEXT_RESULT, 1 + Tab->szTabInfo.length() );
     data << TabSlot;
     if( Tab->szTabInfo.size() )
         data << Tab->szTabInfo.c_str();
@@ -1589,7 +1577,7 @@ void GuildMgr::Packet_SendAvailableBankFunds(WorldSession* m_session)
     uint64 money = gInfo->m_bankBalance, avail = CalculateAvailableAmount(gMember);
 
     /* pls gm mi hero poor give 1 gold coin pl0x */
-    WorldPacket data(MSG_GUILD_BANK_MONEY_WITHDRAWN, 8);
+    WorldPacket data(SMSG_GUILD_BANK_MONEY_WITHDRAWN, 8);
     if(avail == 0xFFFFFFFFFFFFFFFF)
         data << uint64(0xFFFFFFFFFFFFFFFF);
     else data << uint64(money > avail ? avail : money);

@@ -382,7 +382,7 @@ bool World::SetInitialWorldSettings()
     delete DBCLoader::getSingletonPtr();
 
     new StatSystem();
-    if(!sStatSystem.LoadUnitStats())
+    if(!sStatSystem.Load())
     {
         sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "Unit stat system failed to construct.", "Server cannnot properly function without these stats.", "The server will not start because of this.", NULL);
         return false;

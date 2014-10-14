@@ -63,7 +63,7 @@ double TextInput::parseNumber(const std::string& _string) {
         (_string[0] == '0') &&
         (_string[1] == 'x')) {
         // Hex
-        g3d_uint32 i;
+        uint32 i;
         sscanf(_string.c_str(), "%x", &i);
         n = i;
     } else {
@@ -656,7 +656,7 @@ numLabel:
             }
 
         } else {
-            // Non-hex number
+			// Non-hex number
 
             // Read the part before the decimal.
             while (isDigit(c)) {
@@ -835,7 +835,7 @@ numLabel:
 
     // Some unknown token
     debugAssertM(false, 
-                 G3D_format("Unrecognized token type beginning with character '%c' (ASCII %d)", 
+                 format("Unrecognized token type beginning with character '%c' (ASCII %d)", 
                         c, c));
     return t;
 }
@@ -1120,7 +1120,7 @@ const std::string& TextInput::filename() const {
 TextInput::TokenException::TokenException(
     const std::string&  src,
     int                 ln,
-    int                 ch) : ParseError(src, ln, ch, G3D_format("%s(%d) : ", src.c_str(), ln)),
+    int                 ch) : ParseError(src, ln, ch, format("%s(%d) : ", src.c_str(), ln)),
                               sourceFile(src) {
 }
 
@@ -1152,7 +1152,7 @@ TextInput::WrongTokenType::WrongTokenType(
     Token::Type         a) :
     TokenException(src, ln, ch), expected(e), actual(a) {
          
-    message += G3D_format("Expected token of type %s, found type %s.",
+    message += format("Expected token of type %s, found type %s.",
                       tokenTypeToString(e), tokenTypeToString(a));
 }
 
@@ -1173,7 +1173,7 @@ TextInput::WrongSymbol::WrongSymbol(
     const std::string&  a) : 
     TokenException(src, ln, ch), expected(e), actual(a) {
 
-    message += G3D_format("Expected symbol '%s', found symbol '%s'.",
+    message += format("Expected symbol '%s', found symbol '%s'.",
                       e.c_str(), a.c_str());
 }
 
@@ -1186,7 +1186,7 @@ TextInput::WrongString::WrongString(
     const std::string&  a) : 
     TokenException(src, ln, ch), expected(e), actual(a) {
 
-    message += G3D_format("Expected string '%s', found string '%s'.",
+    message += format("Expected string '%s', found string '%s'.",
                       e.c_str(), a.c_str());
 }
 
@@ -1201,8 +1201,8 @@ void deserialize(int& b, TextInput& ti) {
 }
 
 
-void deserialize(g3d_uint8& b, TextInput& ti) {
-    b = (g3d_uint8)iRound(ti.readNumber());
+void deserialize(uint8& b, TextInput& ti) {
+    b = (uint8)iRound(ti.readNumber());
 }
 
 

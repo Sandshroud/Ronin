@@ -277,7 +277,7 @@ int32 MoonScriptCreatureAI::GetHealthPercent()
 
 int32 MoonScriptCreatureAI::GetManaPercent()
 {
-    return _unit->GetManaPct();
+    return _unit->GetPowerPct(POWER_TYPE_MANA);
 }
 
 void MoonScriptCreatureAI::Regenerate()
@@ -1164,11 +1164,9 @@ Unit *MoonScriptCreatureAI::GetBestUnitTarget( TargetFilters pTargetFilter, floa
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->GetPowerType() == POWER_TYPE_MANA)
+                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
                         TargetArray.push_back( TO_UNIT( *ObjectIter ) );
-                }
-                else
-                    TargetArray.push_back( TO_UNIT( *ObjectIter ) );
+                } else TargetArray.push_back( TO_UNIT( *ObjectIter ) );
             }
         };
 
@@ -1183,11 +1181,9 @@ Unit *MoonScriptCreatureAI::GetBestUnitTarget( TargetFilters pTargetFilter, floa
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->GetPowerType() == POWER_TYPE_MANA)
+                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
                         TargetArray.push_back( TO_UNIT( *ObjectIter ) );
-                }
-                else
-                    TargetArray.push_back( TO_UNIT( *ObjectIter ) );
+                } else TargetArray.push_back( TO_UNIT( *ObjectIter ) );
             }
         };
     };

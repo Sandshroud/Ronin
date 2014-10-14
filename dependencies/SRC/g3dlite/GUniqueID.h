@@ -21,7 +21,7 @@ namespace G3D {
 class GUniqueID {
 private:
 
-    g3d_uint64 id;
+    uint64 id;
 
 public:
 
@@ -31,11 +31,11 @@ public:
         return id == 0;
     }
 
-    g3d_uint16 tag() const {
+    uint16 tag() const {
         return id >> 54;
     }
 
-    operator g3d_uint64() const {
+    operator uint64() const {
         return id;
     }
 
@@ -56,14 +56,14 @@ public:
     void deserialize(class TextInput& t);
 
     /** Create a new ID */
-    static GUniqueID create(g3d_uint16 tag = 0);
+    static GUniqueID create(uint16 tag = 0);
 };
 
 } // G3D 
 
 /** For Table and Set */
 template<> struct HashTrait<class G3D::GUniqueID> {
-    static size_t hashCode(G3D::GUniqueID id) { return (size_t)(G3D::g3d_uint64)id; }
+    static size_t hashCode(G3D::GUniqueID id) { return (size_t)(G3D::uint64)id; }
 };
 
 #endif

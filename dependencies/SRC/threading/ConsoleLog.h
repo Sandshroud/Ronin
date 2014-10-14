@@ -74,3 +74,7 @@ private:
 };
 
 #define sLog consoleLog::getSingleton()
+
+#define OUT_ERROR sLog.outError
+#define OUT_DEBUG sLog.outDebug
+#define OUT_DETAIL sLog.outDetail
