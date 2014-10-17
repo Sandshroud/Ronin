@@ -599,7 +599,7 @@ void AI_Movement::SendMoveToPacket(float toX, float toY, float toZ, float toO, u
 
     float posX = m_Unit->GetPositionX(), posY = m_Unit->GetPositionY(), posZ = m_Unit->GetPositionZ();
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
-    data << m_Unit->GetNewGUID();
+    m_Unit->GetNewGUID().WriteAsPacked(&data);
     data << uint8(0);
     data << posX << posY << posZ;
     data << getMSTime();

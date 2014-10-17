@@ -25,7 +25,7 @@ Creature::Creature(CreatureData *data, uint64 guid)
     if(_creatureData = data)
         SetUInt32Value(OBJECT_FIELD_ENTRY, _creatureData->Entry);
 
-    m_wowGuid.Init(GetGUID());
+    m_wowGuid = GetGUID();
 
     m_spawn = NULL;
     m_quests = NULL;

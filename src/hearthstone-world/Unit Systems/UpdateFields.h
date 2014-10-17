@@ -336,3 +336,24 @@ enum EAreaTriggerFields
 #define PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING         PLAYER_FIELD_COMBAT_RATING_1+24
 #define PLAYER_RATING_MODIFIER_MASTERY                          PLAYER_FIELD_COMBAT_RATING_1+25
 #define PLAYER_RATING_MODIFIER_MAX                              PLAYER_FIELD_COMBAT_RATING_1+26
+
+extern uint32 ItemUpdateFieldFlags[CONTAINER_END];
+extern uint32 UnitUpdateFieldFlags[PLAYER_END];
+extern uint32 GameObjectUpdateFieldFlags[GAMEOBJECT_END];
+extern uint32 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_END];
+extern uint32 CorpseUpdateFieldFlags[CORPSE_END];
+extern uint32 AreaTriggerUpdateFieldFlags[AREATRIGGER_END];
+
+enum UpdatefieldFlags
+{
+    UF_FLAG_NONE         = 0x000,
+    UF_FLAG_PUBLIC       = 0x001,
+    UF_FLAG_PRIVATE      = 0x002,
+    UF_FLAG_OWNER        = 0x004,
+    UF_FLAG_UNUSED1      = 0x008,
+    UF_FLAG_ITEM_OWNER   = 0x010,
+    UF_FLAG_SPECIAL_INFO = 0x020,
+    UF_FLAG_PARTY_MEMBER = 0x040,
+    UF_FLAG_UNUSED2      = 0x080,
+    UF_FLAG_DYNAMIC      = 0x100
+};

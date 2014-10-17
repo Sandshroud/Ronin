@@ -61,6 +61,16 @@ enum TYPEID
     TYPEID_UNUSED           = 10,//used to signal invalid reference (object dealocated but someone is still using it)
 };
 
+enum SUBTYPEID
+{
+    SUBTYPEID_NONE      = 0,
+    SUBTYPEID_PET       = 1,
+    SUBTYPEID_TOTEM     = 2,
+    SUBTYPEID_SUMMON    = 3,
+    SUBTYPEID_VEHICLE   = 4,
+    SUBTYPEID_TRANSPORT = 5,
+};
+
 enum OBJECT_UPDATE_TYPE {
     UPDATETYPE_VALUES = 0,
     //  8 bytes - GUID
@@ -125,79 +135,46 @@ class Player;
 class MapCell;
 class MapMgr;
 
-//====================================================================
-//  Object
-//  Base object for every item, unit, player, corpse, container, etc
-//====================================================================
-class SERVER_DECL Object : public EventableObject
+//===============================================
+//  Entity
+//  Base class for every object
+//===============================================
+class SERVER_DECL Entity
 {
 public:
-    typedef unordered_set< Object* > InRangeSet;
-    typedef unordered_set< Unit* >   InRangeUnitSet;
-    typedef unordered_set< Player* > InRangePlayerSet;
-
-    virtual ~Object ( );
+    virtual ~Entity ( );
     virtual void Init();
     virtual void Destruct();
 
     virtual void Update ( uint32 time ) { }
-    //! True if object exists in world
 
-    float GetCHeightForPosition(bool checkwater = false, float x = 0.0f, float y = 0.0f, float z = 0.0f);
+    void __fastcall SetByte(uint32 index, uint32 index1, uint8 value);
+    void __fastcall SetByteFlag( const uint32 index, const uint32 flag, uint8 newFlag);
+    bool __fastcall HasByteFlag( const uint32 index, const uint32 flag, uint8 checkFlag);
+    void __fastcall RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag);
 
-    HEARTHSTONE_INLINE bool IsInWorld() { return m_mapMgr != NULL; }
-    virtual void AddToWorld();
-    virtual void AddToWorld(MapMgr* pMapMgr);
-    void PushToWorld(MapMgr* );
-    virtual void OnPushToWorld() { }
-    virtual void OnPrePushToWorld() { }
-    virtual void RemoveFromWorld(bool free_guid);
+    void __fastcall SetUInt16Value(uint16 index, uint8 offset, uint16 value);
+    void __fastcall SetUInt32Value( const uint32 index, const uint32 value );
+    void __fastcall SetUInt64Value( const uint32 index, const uint64 value );
+    void __fastcall SetFlag( const uint32 index, uint32 newFlag );
+    void __fastcall RemoveFlag( const uint32 index, uint32 oldFlag );
+    void __fastcall SetFloatValue( const uint32 index, const float value );
+    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
 
-    virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
-    virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
+    void __fastcall ModFloatValue(const uint32 index, const float value );
+    void __fastcall ModSignedInt32Value(uint32 index, int32 value);
+    void __fastcall ModUnsigned32Value(uint32 index, int32 mod);
+    uint32 __fastcall GetModPUInt32Value(const uint32 index, const int32 value);
 
-    HEARTHSTONE_INLINE void ObjLock() { m_objlock.Acquire(); }
-    HEARTHSTONE_INLINE void ObjUnlock() { m_objlock.Release(); }
+    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
+    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
+    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
+    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
+    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
 
-    // guid always comes first
-    HEARTHSTONE_INLINE const uint64& GetGUID() const { return *((uint64*)m_uint32Values); }
-    void SetGUID(uint64 GUID) { SetUInt64Value(OBJECT_FIELD_GUID, GUID);  }
-    void SetLowGUID(uint32 val) { m_uint32Values[0] = val; }
-    void SetHighGUID(uint32 val) { m_uint32Values[1] = val; }
-
-    HEARTHSTONE_INLINE const WoWGuid& GetNewGUID() const { return m_wowGuid; }
-    HEARTHSTONE_INLINE uint32 GetEntry(){return m_uint32Values[OBJECT_FIELD_ENTRY];}
-    void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
-
-//  float GetScale() { return m_floatValues[ OBJECT_FIELD_SCALE_X ]; }
-    void SetScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
-
-    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() const  { return GUID_ENPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetTypeFromGUID() const { return GUID_HIPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetUIdFromGUID() const { return GUID_LOPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetHighGUID() const { return GUID_HIPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetLowGUID() const { return GUID_LOPART(GetGUID()); }
-
-    bool m_isTransport;
-    bool m_isVehicle;
-    bool m_isSummon;
-    bool m_isTotem;
-    bool m_isPet;
-
-    // type
-    HEARTHSTONE_INLINE const uint8& GetTypeId() const { return m_objectTypeId; }
-    HEARTHSTONE_INLINE bool IsUnit()    { return ( m_objectTypeId == TYPEID_UNIT || m_objectTypeId == TYPEID_PLAYER ); }
-    HEARTHSTONE_INLINE bool IsPlayer() { return m_objectTypeId == TYPEID_PLAYER; }
-    HEARTHSTONE_INLINE bool IsCreature() { return m_objectTypeId == TYPEID_UNIT; }
-    HEARTHSTONE_INLINE bool IsDynamicObj() { return m_objectTypeId == TYPEID_DYNAMICOBJECT; }
-    HEARTHSTONE_INLINE bool IsGameObject() { return m_objectTypeId == TYPEID_GAMEOBJECT; }
-    HEARTHSTONE_INLINE bool IsContainer()   { return m_objectTypeId == TYPEID_CONTAINER; }
-    HEARTHSTONE_INLINE bool IsItem()    { return m_objectTypeId == TYPEID_ITEM; }
-    HEARTHSTONE_INLINE bool IsTransport() { return m_isTransport; }
-    HEARTHSTONE_INLINE bool IsVehicle() { return m_isVehicle; }
-    HEARTHSTONE_INLINE bool IsSummon() { return m_isSummon; }
-    HEARTHSTONE_INLINE bool IsTotem() { return m_isTotem; }
-    HEARTHSTONE_INLINE bool IsPet() { return m_isPet; }
+    void SetUpdateField(uint32 index);
+    virtual void OnFieldUpdated(uint32 index) {}
+    bool HasUpdateField(uint32 index) { return m_updateMask.GetBit(index); }
 
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
@@ -209,14 +186,139 @@ public:
     void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);
     void BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value);
 
-    int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
-
-    void DestroyForInrange(bool anim = false);
     virtual void DestroyForPlayer( Player* target, bool anim = false );
 
-    WorldPacket * BuildTeleportAckMsg( const LocationVector & v);
+    HEARTHSTONE_INLINE void SetNewGuid(uint32 Guid)
+    {
+        uint32 highGuid = HIGHGUID_TYPE_PLAYER;
+        if( m_objectTypeId == TYPEID_GAMEOBJECT )
+            highGuid = HIGHGUID_TYPE_GAMEOBJECT;
+        else if( m_objectTypeId == TYPEID_UNIT )
+            highGuid = HIGHGUID_TYPE_CREATURE;
+        SetUInt64Value(OBJECT_FIELD_GUID, MAKE_NEW_GUID(Guid, GetEntry(), highGuid));
+        m_wowGuid = GetGUID();
+    }
 
-    void SetRotation( uint64 guid );
+    ////////////////////////////////////////
+    void ClearUpdateMask( )
+    {
+        m_updateMask.Clear();
+        m_objectUpdated = false;
+    }
+
+    //! Fill values with data from a space seperated string of uint32s.
+    void LoadValues(const char* data);
+
+    HEARTHSTONE_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
+
+    // guid always comes first
+    HEARTHSTONE_INLINE const uint64& GetGUID() const { return *((uint64*)m_uint32Values); }
+    void SetGUID(uint64 GUID) { SetUInt64Value(OBJECT_FIELD_GUID, GUID);  }
+    void SetLowGUID(uint32 val) { m_uint32Values[0] = val; }
+    void SetHighGUID(uint32 val) { m_uint32Values[1] = val; }
+
+    HEARTHSTONE_INLINE WoWGuid& GetNewGUID() { return m_wowGuid; }
+    HEARTHSTONE_INLINE uint32 GetEntry(){return m_uint32Values[OBJECT_FIELD_ENTRY];}
+    void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
+
+    float GetObjectScale() { return m_floatValues[OBJECT_FIELD_SCALE_X]; }
+    void SetScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
+
+    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() const  { return GUID_ENPART(GetGUID()); }
+    HEARTHSTONE_INLINE uint32 GetTypeFromGUID() const { return GUID_HIPART(GetGUID()); }
+    HEARTHSTONE_INLINE uint32 GetUIdFromGUID() const { return GUID_LOPART(GetGUID()); }
+    HEARTHSTONE_INLINE uint32 GetHighGUID() const { return GUID_HIPART(GetGUID()); }
+    HEARTHSTONE_INLINE uint32 GetLowGUID() const { return GUID_LOPART(GetGUID()); }
+
+    // type
+    HEARTHSTONE_INLINE const uint8& GetTypeId() const { return m_objectTypeId; }
+    HEARTHSTONE_INLINE bool IsItem() { return m_objectTypeId == TYPEID_ITEM; }
+    HEARTHSTONE_INLINE bool IsContainer() { return m_objectTypeId == TYPEID_CONTAINER; }
+    HEARTHSTONE_INLINE bool IsCreature() { return m_objectTypeId == TYPEID_UNIT; }
+    HEARTHSTONE_INLINE bool IsPlayer() { return m_objectTypeId == TYPEID_PLAYER; }
+    HEARTHSTONE_INLINE bool IsGameObject() { return m_objectTypeId == TYPEID_GAMEOBJECT; }
+    HEARTHSTONE_INLINE bool IsDynamicObj() { return m_objectTypeId == TYPEID_DYNAMICOBJECT; }
+    HEARTHSTONE_INLINE bool IsCorpse() { return m_objectTypeId == TYPEID_CORPSE; }
+    HEARTHSTONE_INLINE bool IsUnit() { return ( m_objectTypeId == TYPEID_UNIT || m_objectTypeId == TYPEID_PLAYER ); }
+    HEARTHSTONE_INLINE bool IsPet() { return m_objectSubTypeId == SUBTYPEID_PET; }
+    HEARTHSTONE_INLINE bool IsTotem() { return m_objectSubTypeId == SUBTYPEID_TOTEM; }
+    HEARTHSTONE_INLINE bool IsSummon() { return m_objectSubTypeId == SUBTYPEID_SUMMON; }
+    HEARTHSTONE_INLINE bool IsVehicle() { return m_objectSubTypeId == SUBTYPEID_VEHICLE; }
+    HEARTHSTONE_INLINE bool IsTransport() { return m_objectSubTypeId == SUBTYPEID_TRANSPORT; }
+
+protected:
+    Entity();
+
+    //! Mark values that need updating for specified player.
+    virtual void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
+    //! Mark values that player should get when he/she/it sees object for first time.
+    virtual void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
+
+    uint32 GetUpdateFieldData(uint32 *&flags, Player *target);
+    void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
+    void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
+
+    void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    Mutex m_objlock;
+
+    //! WoWGuid class
+    WoWGuid m_wowGuid;
+
+    //! Type id and SubType id.
+    uint8 m_objectTypeId, m_objectSubTypeId;
+
+    //! Object properties.
+    union {
+        uint32* m_uint32Values;
+        float* m_floatValues;
+    };
+
+    //! Number of properties
+    uint32 m_valuesCount;
+    uint16 m_notifyFlags;
+
+    //! List of object properties that need updating.
+    UpdateMask m_updateMask;
+
+    //! True if object was updated
+    bool m_objectUpdated;
+};
+
+//===============================================
+//===============================================
+//===============================================
+class SERVER_DECL Object : public Entity, public EventableObject
+{
+public:
+    typedef unordered_set< Object* > InRangeSet;
+    typedef unordered_set< Unit* >   InRangeUnitSet;
+    typedef unordered_set< Player* > InRangePlayerSet;
+
+    virtual ~Object ( );
+    virtual void Init();
+    virtual void Destruct();
+
+    float GetCHeightForPosition(bool checkwater = false, float x = 0.0f, float y = 0.0f, float z = 0.0f);
+
+    int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
+
+    //! True if object exists in world
+    HEARTHSTONE_INLINE bool IsInWorld() { return m_mapMgr != NULL; }
+    virtual void AddToWorld();
+    virtual void AddToWorld(MapMgr* pMapMgr);
+    void PushToWorld(MapMgr* );
+    virtual void OnPushToWorld() { }
+    virtual void OnPrePushToWorld() { }
+    virtual void RemoveFromWorld(bool free_guid);
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+
+    virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
+    virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
+
+    HEARTHSTONE_INLINE void ObjLock() { m_objlock.Acquire(); }
+    HEARTHSTONE_INLINE void ObjUnlock() { m_objlock.Release(); }
 
     void CastSpell(Object* Target, SpellEntry* Sp, bool triggered);
     void CastSpell(Object* Target, uint32 SpellID, bool triggered);
@@ -270,70 +372,6 @@ public:
     void UpdateAreaInfo(MapMgr *mgr = NULL);
     HEARTHSTONE_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     HEARTHSTONE_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
-
-    //! Get uint16 property
-    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
-
-    //! Get uint32 property
-    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
-
-    //! Get uint64 property
-    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
-
-    //! Get float property
-    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
-
-    void __fastcall ModFloatValue(const uint32 index, const float value );
-    void ModSignedInt32Value(uint32 index, int32 value);
-    void ModUnsigned32Value(uint32 index, int32 mod);
-    uint32 GetModPUInt32Value(const uint32 index, const int32 value);
-
-    //! Set uint32 property
-    void SetByte(uint32 index, uint32 index1,uint8 value);
-
-    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
-
-    HEARTHSTONE_INLINE void SetNewGuid(uint32 Guid)
-    {
-        uint32 highGuid = HIGHGUID_TYPE_PLAYER;
-        if( m_objectTypeId == TYPEID_GAMEOBJECT )
-            highGuid = HIGHGUID_TYPE_GAMEOBJECT;
-        else if( m_objectTypeId == TYPEID_UNIT )
-            highGuid = HIGHGUID_TYPE_CREATURE;
-        SetUInt64Value(OBJECT_FIELD_GUID, MAKE_NEW_GUID(Guid, GetEntry(), highGuid));
-        m_wowGuid.Init(GetGUID());
-    }
-
-    void __fastcall SetUInt16Value(uint16 index, uint8 offset, uint16 value);
-
-    void EventSetUInt32Value(uint32 index, uint32 value);
-    void __fastcall SetUInt32Value( const uint32 index, const uint32 value );
-
-    //! Set uint64 property
-    void __fastcall SetUInt64Value( const uint32 index, const uint64 value );
-
-    //! Set float property
-    void __fastcall SetFloatValue( const uint32 index, const float value );
-
-    void __fastcall SetFlag( const uint32 index, uint32 newFlag );
-
-    void __fastcall RemoveFlag( const uint32 index, uint32 oldFlag );
-
-    void __fastcall SetByteFlag( const uint32 index, const uint32 flag, uint8 newFlag);
-    bool __fastcall HasByteFlag( const uint32 index, const uint32 flag, uint8 checkFlag);
-    void __fastcall RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag);
-
-    HEARTHSTONE_INLINE bool HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
-
-    ////////////////////////////////////////
-    void ClearUpdateMask( )
-    {
-        m_updateMask.Clear();
-        m_objectUpdated = false;
-    }
-
-    void SetUpdateField(uint32 index);
-    bool HasUpdateField(uint32 index) { return m_updateMask.GetBit(index); }
 
     //use it to check if a object is in range of another
     bool isInRange(Object* target, float range);
@@ -488,11 +526,6 @@ public:
     void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
 
-    //! Fill values with data from a space seperated string of uint32s.
-    void LoadValues(const char* data);
-
-    HEARTHSTONE_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
-
     //! Blizzard seem to send those for all object types. weird.
     float m_walkSpeed;
     float m_runSpeed;
@@ -527,6 +560,11 @@ public:
 
     int32 event_GetInstanceID();
 
+    void DestroyForInrange(bool anim = false);
+    WorldPacket * BuildTeleportAckMsg( const LocationVector & v);
+
+    void SetRotation( uint64 guid );
+
     bool Active;
     bool CanActivate();
     void Activate(MapMgr* mgr);
@@ -540,51 +578,24 @@ public:
     void EventSpellHit(Spell* pSpell);
 
     bool PhasedCanInteract(Object* pObj);
-    int32 GetPhaseMask() { return m_phaseMask; }
-    bool IsInPhase(int32 phaseMode) { if(AllPhases) return true; return ((m_phaseMask & phaseMode) != 0); };
-    void EnablePhase(int32 phaseMode);
-    void DisablePhase(int32 phaseMode);
-    void SendPhaseShift();
 
     // Don't fucking use this.
     void SetPhaseMask(int32 phase);
-
-    Aura* m_phaseAura;
-    bool OwnPhase; // Players only really.
 
     // Area flags
     bool HasAreaFlag(uint8 areaFlag) { return (m_areaFlags & areaFlag); };
     uint8 const GetAreaFlags() { return m_areaFlags; };
 
 protected:
-    Object (  );
+    Object();
 
-    //void _Create (uint32 guidlow, uint32 guidhigh);
     void _Create( uint32 mapid, float x, float y, float z, float ang);
-
-    //! Mark values that need updating for specified player.
-    virtual void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
-    //! Mark values that player should get when he/she/it sees object for first time.
-    virtual void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
-
-    void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
-    void _BuildValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
 
     /* Main Function called by isInFront(); */
     bool inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y );
 
-    bool AllPhases;
-    int32 m_phaseMask;
-    LocationVector m_phaseLocation;
-    uint32 m_phaseDistanceLimit;
-
     Mutex m_objlock;
 
-    //! WoWGuid class
-    WoWGuid m_wowGuid;
-
-    //! Type id.
-    uint8 m_objectTypeId;
     //! Zone id.
     uint32 m_zoneId;
     //! Area id.
@@ -606,21 +617,6 @@ protected:
 
     // Semaphores - needed to forbid two operations on the same object at the same very time (may cause crashing\lack of data)
     bool mSemaphoreTeleport;
-
-    //! Object properties.
-    union {
-        uint32* m_uint32Values;
-        float* m_floatValues;
-    };
-
-    //! Number of properties
-    uint32 m_valuesCount;
-
-    //! List of object properties that need updating.
-    UpdateMask m_updateMask;
-
-    //! True if object was updated
-    bool m_objectUpdated;
 
     //! Set of Objects in range.
     unordered_set<Object* > m_objectsInRange;

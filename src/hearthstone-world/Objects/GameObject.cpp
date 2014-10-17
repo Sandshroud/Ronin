@@ -13,7 +13,7 @@ GameObject::GameObject(uint64 guid)
     m_updateMask.SetCount(GAMEOBJECT_END);
     SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_GAMEOBJECT|TYPEMASK_OBJECT);
     SetUInt64Value( OBJECT_FIELD_GUID,guid);
-    m_wowGuid.Init(GetGUID());
+    m_wowGuid = GetGUID();
     SetFloatValue( OBJECT_FIELD_SCALE_X, 1);
     SetAnimProgress(100);
     counter = 0;

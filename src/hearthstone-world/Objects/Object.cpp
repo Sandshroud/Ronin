@@ -4,28 +4,658 @@
 
 #include "StdAfx.h"
 
-//#define DEG2RAD (M_PI/180.0)
-#ifdef M_PI
-#undef M_PI
-#endif
+Entity::Entity() : m_wowGuid(), m_updateMask(), m_valuesCount(0), m_notifyFlags(0), m_objectUpdated(false)
+{
+    m_objectTypeId = TYPEID_OBJECT;
+    m_objectSubTypeId = SUBTYPEID_NONE;
+    m_valuesCount = 0;
+}
 
-#define M_PI        3.14159265358979323846f
-#define M_H_PI      1.57079632679489661923f
-#define M_Q_PI      0.785398163397448309615f
+void Entity::SetByte(uint32 index, uint32 index1,uint8 value)
+{
+    ASSERT( index < m_valuesCount );
 
-// Basic Height Checks
-#define BASIC_OUTDOOR_WMO_2_DIFF 35.0f // Stuff
-#define BASIC_HOUSE_FLOOR_DIFF 7.2f // Inn and houses
+    if(index1 >= 4)
+    {
+        sLog.outError("Object::SetByteValue: wrong offset %u", index1);
+        return;
+    }
 
+    if(uint8(m_uint32Values[ index ] >> (index1 * 8)) == value)
+        return;
+
+    m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
+    m_uint32Values[ index ] |= uint32(uint32(value) << (index1 * 8));
+    SetUpdateField(index);
+}
+
+void Entity::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
+{
+    if( HasByteFlag(index,flag,newFlag))
+        return;
+
+    SetByte(index, flag, GetByte(index,flag)|newFlag);
+    SetUpdateField(index);
+}
+
+void Entity::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+{
+    if( !HasByteFlag(index,flag,checkFlag))
+        return;
+
+    SetByte(index,flag, GetByte(index,flag) & ~checkFlag );
+    SetUpdateField(index);
+}
+
+bool Entity::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+{
+    if( GetByte(index,flag) & checkFlag )
+        return true;
+    return false;
+}
+
+void Entity::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
+{
+    ASSERT( index < m_valuesCount );
+    if (uint16(m_uint32Values[index] >> (offset * 16)) == value)
+        return;
+
+    m_uint32Values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
+    m_uint32Values[index] |= uint32(uint32(value) << (offset * 16));
+    SetUpdateField(index);
+}
+
+void Entity::SetUInt32Value( const uint32 index, const uint32 value )
+{
+    if(index > m_valuesCount)
+        printf("Index: %u, m_valuesCount: %u, Value: %u Test:%s\n", index, m_valuesCount, value, __FUNCTION__);
+
+    ASSERT( index < m_valuesCount );
+    if(m_uint32Values[index] == value)
+        return;
+
+    m_uint32Values[ index ] = value;
+    SetUpdateField(index);
+}
+
+void Entity::SetUInt64Value( const uint32 index, const uint64 value )
+{
+    assert( index + 1 < m_valuesCount );
+    if(m_uint32Values[index] == GUID_LOPART(value) && m_uint32Values[index+1] == GUID_HIPART(value))
+        return;
+
+    m_uint32Values[ index ] = *((uint32*)&value);
+    m_uint32Values[ index + 1 ] = *(((uint32*)&value) + 1);
+
+    SetUpdateField(index);
+    SetUpdateField(index+1);
+}
+
+void Entity::SetFlag( const uint32 index, uint32 newFlag )
+{
+    ASSERT( index < m_valuesCount );
+    if((m_uint32Values[ index ] & newFlag) == newFlag)
+        return;
+
+    m_uint32Values[ index ] |= newFlag;
+    SetUpdateField(index);
+}
+
+void Entity::RemoveFlag( const uint32 index, uint32 oldFlag )
+{
+    ASSERT( index < m_valuesCount );
+    if((m_uint32Values[ index ] & oldFlag) == 0)
+        return;
+
+    m_uint32Values[ index ] &= ~oldFlag;
+    SetUpdateField(index);
+}
+
+void Entity::SetFloatValue( const uint32 index, const float value )
+{
+    ASSERT( index < m_valuesCount );
+    if(m_floatValues[index] == value)
+        return;
+
+    m_floatValues[ index ] = value;
+    SetUpdateField(index);
+}
+
+void Entity::ModFloatValue(const uint32 index, const float value )
+{
+    ASSERT( index < m_valuesCount );
+    m_floatValues[ index ] += value;
+    SetUpdateField(index);
+}
+
+void Entity::ModSignedInt32Value(uint32 index, int32 value )
+{
+    ASSERT( index < m_valuesCount );
+    if(value == 0)
+        return;
+
+    m_uint32Values[ index ] += value;
+    SetUpdateField(index);
+}
+
+void Entity::ModUnsigned32Value(uint32 index, int32 mod)
+{
+    ASSERT( index < m_valuesCount );
+    if(mod == 0)
+        return;
+
+    m_uint32Values[ index ] += mod;
+    if( (int32)m_uint32Values[index] < 0 )
+        m_uint32Values[index] = 0;
+    SetUpdateField(index);
+}
+
+uint32 Entity::GetModPUInt32Value(const uint32 index, const int32 value)
+{
+    ASSERT( index < m_valuesCount );
+    int32 basevalue = (int32)m_uint32Values[ index ];
+    return ((basevalue*value)/100);
+}
+
+void Entity::SetUpdateField(uint32 index)
+{
+    m_updateMask.SetBit( index );
+    OnFieldUpdated(index);
+}
+
+////////////////////////////////////////////////////////////////////////////
+/// Fill the object's Update Values from a space deliminated list of values.
+void Entity::LoadValues(const char* data)
+{
+    // thread-safe ;) strtok is not.
+    std::string ndata = data;
+    std::string::size_type last_pos = 0, pos = 0;
+    uint32 index = 0;
+    uint32 val;
+    do
+    {
+        // prevent overflow
+        if(index >= m_valuesCount)
+        {
+            break;
+        }
+        pos = ndata.find(" ", last_pos);
+        val = atol(ndata.substr(last_pos, (pos-last_pos)).c_str());
+        if(m_uint32Values[index] == 0)
+            m_uint32Values[index] = val;
+        last_pos = pos+1;
+        ++index;
+    } while(pos != std::string::npos);
+}
+
+void Entity::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
+{
+    *updateMask = m_updateMask;
+}
+
+void Entity::_SetCreateBits(UpdateMask *updateMask, Player* target) const
+{
+    for(uint32 i = 0; i < m_valuesCount; i++)
+        if(m_uint32Values[i] != 0)
+            updateMask->SetBit(i);
+}
+
+uint32 Entity::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+{
+    uint16 updateFlags = UPDATEFLAG_NONE;
+    uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
+
+    // any other case
+    switch(m_objectTypeId)
+    {
+    case TYPEID_UNIT:
+    case TYPEID_PLAYER:
+        {
+            updateFlags = UPDATEFLAG_LIVING;
+        }break;
+    case TYPEID_GAMEOBJECT:
+        {
+            updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
+            switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
+            {
+            case GAMEOBJECT_TYPE_TRANSPORT:
+            case GAMEOBJECT_TYPE_MO_TRANSPORT:
+                {
+                    updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
+                }break;
+            case GAMEOBJECT_TYPE_TRAP:
+            case GAMEOBJECT_TYPE_DUEL_ARBITER:
+            case GAMEOBJECT_TYPE_FLAGSTAND:
+            case GAMEOBJECT_TYPE_FLAGDROP:
+                {
+                    // duel flags have to stay as updatetype 3, otherwise
+                    // it won't animate
+                    updatetype = UPDATETYPE_CREATE_YOURSELF;
+                }break;
+            }
+        }break;
+    case TYPEID_AREATRIGGER:
+    case TYPEID_CORPSE:
+    case TYPEID_DYNAMICOBJECT:
+        updateFlags = UPDATEFLAG_STATIONARY_POS;
+        break;
+    }
+
+    if(GetTypeFromGUID() == HIGHGUID_TYPE_VEHICLE)
+        updateFlags |= UPDATEFLAG_VEHICLE;
+    if(target == this)
+    {
+        // player creating self
+        updateFlags |= UPDATEFLAG_SELF;
+        updatetype = UPDATETYPE_CREATE_YOURSELF;
+    }
+
+    if(IsUnit())
+    {
+        if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_TARGET))
+            updateFlags |= UPDATEFLAG_HAS_TARGET;
+    }
+
+    // build our actual update
+    *data << updatetype;
+
+    // we shouldn't be here, under any circumstances, unless we have a wowguid..
+    ASSERT(m_wowGuid.GetNewGuidLen());
+    *data << m_wowGuid;
+    *data << m_objectTypeId;
+
+    _BuildMovementUpdate(data, updateFlags, target);
+
+    // this will cache automatically if needed
+    _BuildCreateValuesUpdate( data, target );
+
+    // update count: 1 ;)
+    return 1;
+}
+
+//That is dirty fix it actually creates update of 1 field with
+//the given value ignoring existing changes in fields and so on
+//usefull if we want update this field for certain players
+//NOTE: it does not change fields. This is also very fast method
+WorldPacket *Entity::BuildFieldUpdatePacket( uint32 index,uint32 value)
+{
+    // uint64 guidfields = GetGUID();
+    // uint8 guidmask = 0;
+    WorldPacket * packet = new WorldPacket(SMSG_UPDATE_OBJECT, 1500);
+    *packet << uint16(GetMapId());
+    *packet << uint32(1);//number of update/create blocks
+    BuildFieldUpdatePacket(packet, index, value);
+    return packet;
+}
+
+void Entity::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
+{
+    ByteBuffer buf(500);
+    BuildFieldUpdatePacket(&buf, Index, Value);
+    Target->PushUpdateBlock(&buf, 1);
+}
+
+void Entity::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
+{
+    *buf << uint8(UPDATETYPE_VALUES);
+    *buf << GetNewGUID();
+
+    uint32 mBlocks = Index/32+1;
+    *buf << (uint8)mBlocks;
+
+    for(uint32 dword_n = mBlocks-1; dword_n; dword_n--)
+        *buf <<(uint32)0;
+
+    *buf <<(((uint32)(1))<<(Index%32));
+    *buf << Value;
+}
+
+uint32 Entity::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+{
+    UpdateMask updateMask;
+    updateMask.SetCount( m_valuesCount );
+    _SetUpdateBits( &updateMask, target );
+    for(uint32 x = 0; x < m_valuesCount; ++x)
+    {
+        if(updateMask.GetBit(x))
+        {
+            *data << (uint8) UPDATETYPE_VALUES;     // update type == update
+            ASSERT(m_wowGuid.GetNewGuidLen());
+            *data << m_wowGuid;
+
+            _BuildChangedValuesUpdate( data, &updateMask, target );
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+uint32 Entity::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * mask )
+{
+    // returns: update count
+    *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
+
+    ASSERT(m_wowGuid.GetNewGuidLen());
+    *buf << m_wowGuid;
+
+    _BuildChangedValuesUpdate( buf, mask, NULLPLR );
+
+    // 1 update.
+    return 1;
+}
+
+//=======================================================================================
+//  Creates an update block containing all data needed for a new object
+//=======================================================================================
+void Entity::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
+{
+    ByteBuffer fields;
+    UpdateMask mask(m_valuesCount);
+    uint32 *flags, uFlag = GetUpdateFieldData(flags, target);
+    for( uint32 index = 0; index < m_valuesCount; index++ )
+    {
+        if(uint32 value = m_uint32Values[index])
+        {
+            if(m_notifyFlags & flags[index] || (m_uint32Values[index] && flags[index] & uFlag))
+            {
+                mask.SetBit(index);
+                fields << value;
+            }
+        }
+    }
+
+    uint32 byteCount = mask.GetUpdateBlockCount();
+    *data << uint8(byteCount);
+    data->append( mask.GetMask(), byteCount*4 );
+    data->append(fields);
+}
+
+uint32 Entity::GetUpdateFieldData(uint32*& flags, Player * target)
+{
+    uint32 visibleFlag = UF_FLAG_PUBLIC;
+    if (target == this)
+        visibleFlag |= UF_FLAG_PRIVATE;
+
+    switch (GetTypeId())
+    {
+    case TYPEID_ITEM:
+    case TYPEID_CONTAINER:
+        {
+            flags = ItemUpdateFieldFlags;
+            if (TO_ITEM(this)->GetOwnerGUID() == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
+        }break;
+    case TYPEID_UNIT:
+    case TYPEID_PLAYER:
+        {
+            flags = UnitUpdateFieldFlags;
+            if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY) == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER;
+            else if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY) == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER;
+            if (IsPlayer() && TO_PLAYER(this)->InGroup() && TO_PLAYER(this)->GetGroupID() == target->GetGroupID())
+                visibleFlag |= UF_FLAG_PARTY_MEMBER;
+        }break;
+    case TYPEID_GAMEOBJECT:
+        {
+            flags = GameObjectUpdateFieldFlags;
+            if (TO_GAMEOBJECT(this)->GetUInt64Value(OBJECT_FIELD_CREATED_BY) == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER;
+        }break;
+    case TYPEID_DYNAMICOBJECT:
+        {
+            flags = DynamicObjectUpdateFieldFlags;
+            if (TO_DYNAMICOBJECT(this)->GetCasterGuid() == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER;
+        }break;
+    case TYPEID_CORPSE:
+        {
+            flags = CorpseUpdateFieldFlags;
+            if (TO_CORPSE(this)->GetUInt64Value(CORPSE_FIELD_OWNER) == target->GetGUID())
+                visibleFlag |= UF_FLAG_OWNER;
+        }break;
+    case TYPEID_AREATRIGGER:
+        flags = AreaTriggerUpdateFieldFlags;
+        break;
+    case TYPEID_OBJECT:
+        break;
+    }
+
+    return visibleFlag;
+}
+
+///////////////////////////////////////////////////////////////
+/// Build the Movement Data portion of the update packet
+/// Fills the data with this object's movement/speed info
+void Entity::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
+{
+    ByteBuffer bytes;
+    uint32 stopFrameCount = 0;
+    for(uint32 i = 0; i < stopFrameCount; i++)
+        bytes << uint32(0);
+    data->WriteBit(0);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_ROTATION);
+    data->WriteBit(flags & UPDATEFLAG_ANIMKITS);
+    data->WriteBit(flags & UPDATEFLAG_HAS_TARGET);
+    data->WriteBit(flags & UPDATEFLAG_SELF);
+    data->WriteBit(flags & UPDATEFLAG_VEHICLE);
+    data->WriteBit(flags & UPDATEFLAG_LIVING);
+    data->WriteBits(stopFrameCount, 24);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
+    data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
+    data->WriteBit(flags & UPDATEFLAG_UNK5);
+    data->WriteBit(0);
+    data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
+
+    if(flags & UPDATEFLAG_LIVING)
+        _WriteLivingMovementUpdate(data, &bytes, target);
+
+    if(flags & UPDATEFLAG_VEHICLE)
+        bytes << float(TO_VEHICLE(this)->GetOrientation()) << TO_VEHICLE(this)->GetVehicleEntry();
+
+    if(flags & UPDATEFLAG_ROTATION)
+    {
+        uint64 rotation = 0;
+        if(IsGameObject()) rotation = TO_GAMEOBJECT(this)->m_rotation;
+        bytes << uint64(rotation); //blizz 64bit rotation
+    }
+
+    if (flags & UPDATEFLAG_STATIONARY_POS)
+        _WriteStationaryPosition(data, &bytes, target);
+
+    if(flags & UPDATEFLAG_HAS_TARGET)
+    {
+        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
+        data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
+        data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
+        bytes.WriteByteSeq(targetGuid[4]);
+        bytes.WriteByteSeq(targetGuid[0]);
+        bytes.WriteByteSeq(targetGuid[3]);
+        bytes.WriteByteSeq(targetGuid[5]);
+        bytes.WriteByteSeq(targetGuid[7]);
+        bytes.WriteByteSeq(targetGuid[6]);
+        bytes.WriteByteSeq(targetGuid[2]);
+        bytes.WriteByteSeq(targetGuid[1]);
+    }
+
+    if (flags & UPDATEFLAG_ANIMKITS)
+    {
+        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
+        if(false) bytes << uint16(0); // AnimKit1
+        if(false) bytes << uint16(0); // AnimKit2
+        if(false) bytes << uint16(0); // AnimKit3
+    }
+
+    if(flags & UPDATEFLAG_TRANSPORT)
+    {
+        if(IsTransport())
+            bytes << TO_TRANSPORT(this)->m_timer;
+        else bytes << (uint32)getMSTime();
+    }
+    data->append(bytes.contents(), bytes.size());
+}
+
+//=======================================================================================
+//  Creates an update block with the values of this object as
+//  determined by the updateMask.
+//=======================================================================================
+void Entity::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
+{
+    int32 DummyFlags = -1, DummyFlags2 = -1, DummyNpcFlags = -1, DummyDynFlags = -1;
+    if(updateMask->GetBit(OBJECT_FIELD_GUID) && target)    // We're creating.
+    {
+        if(IsPlayer())
+        {
+            Player* pThis = TO_PLAYER(this);
+            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
+            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
+            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
+            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
+        }
+        else if(IsCreature())       // tagged group will have tagged player
+        {
+            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
+            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
+            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
+            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
+            Creature* cThis = TO_CREATURE(this);
+            if(cThis->m_taggingPlayer)
+            {
+                // set tagged visual
+                if( (cThis->m_taggingGroup != 0 && target->m_playerInfo->m_Group != NULL && target->m_playerInfo->m_Group->GetID() == cThis->m_taggingGroup) ||
+                    (cThis->m_taggingPlayer == target->GetLowGUID()) )
+                {
+                    DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
+                    if( cThis->m_loot.HasLoot(target) )
+                        DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
+                }
+                else
+                    DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
+            }
+
+            Trainer * pTrainer = cThis->GetTrainer();
+            if(pTrainer != NULL)
+            {
+                if(!CanTrainAt(target, pTrainer))
+                {
+                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_ARMORER);
+                }
+            }
+
+            if(cThis->IsVehicle())
+            {
+                if(sFactionSystem.isAttackable(target, cThis, false))
+                {
+                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_VEHICLE_MOUNT);
+                }
+            }
+
+            updateMask->SetBit(UNIT_NPC_FLAGS);
+            updateMask->SetBit(UNIT_FIELD_FLAGS);
+            updateMask->SetBit(UNIT_FIELD_FLAGS_2);
+            updateMask->SetBit(UNIT_DYNAMIC_FLAGS);
+        }
+        else if(IsGameObject())
+        {
+            DummyFlags = m_uint32Values[GAMEOBJECT_FLAGS];
+            DummyDynFlags = m_uint32Values[GAMEOBJECT_DYNAMIC];
+            GameObject* go = TO_GAMEOBJECT(this);
+            GameObjectInfo *info = go->GetInfo();
+            if(info)
+            {
+                set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID);
+                if(involvedquestids != NULL)
+                {
+                    for(set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
+                    {
+                        if( target->GetQuestLogForEntry(*itr) != NULL )
+                        {
+                            DummyDynFlags = GO_DYNFLAG_QUEST;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            updateMask->SetBit(GAMEOBJECT_FLAGS);
+            updateMask->SetBit(GAMEOBJECT_DYNAMIC);
+        }
+    }
+
+    WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
+    uint32 byteCount = updateMask->GetUpdateBlockCount();
+    uint32 valueCount = (uint32)std::min(byteCount*32, m_valuesCount);
+
+    *data << (uint8)byteCount;
+    data->append( updateMask->GetMask(), byteCount*4 );
+    for( uint32 index = 0; index < valueCount; index++ )
+    {
+        if( updateMask->GetBit( index ) )
+        {
+            uint32 value = m_uint32Values[index];
+            if(IsGameObject())
+            {
+                if(index == GAMEOBJECT_FLAGS)
+                {
+                    if(DummyFlags > 0 && value != DummyFlags)
+                        value = DummyFlags;
+                }
+                else if(index == GAMEOBJECT_DYNAMIC)
+                {
+                    if(DummyDynFlags > 0 && value != DummyDynFlags)
+                        value = DummyDynFlags;
+                }
+            }
+            else if(IsUnit())
+            {
+                if(index == UNIT_FIELD_FLAGS)
+                {
+                    if(DummyFlags > 0 && value != DummyFlags)
+                        value = DummyFlags;
+                }
+                else if(index == UNIT_FIELD_FLAGS_2)
+                {
+                    if(DummyFlags2 > 0 && value != DummyFlags2)
+                        value = DummyFlags2;
+                }
+                else if(index == UNIT_DYNAMIC_FLAGS)
+                {
+                    if(DummyDynFlags > 0 && value != DummyDynFlags)
+                        value = DummyDynFlags;
+                }
+                else if(index == UNIT_NPC_FLAGS)
+                {
+                    if(DummyNpcFlags > 0 && value != DummyNpcFlags)
+                        value = DummyNpcFlags;
+                }
+            }
+            *data << value;
+        }
+    }
+}
+
+void Entity::DestroyForPlayer(Player* target, bool anim)
+{
+    if(target == NULL)
+        return;
+
+    WorldPacket data(SMSG_DESTROY_OBJECT, 9);
+    data << GetGUID();
+    data << uint8(anim ? 1 : 0);
+    target->GetSession()->SendPacket( &data );
+}
+
+//===============================================
+// Object class functions
+//===============================================
 Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
 {
 #ifdef SHAREDPTR_DEBUGMODE
     printf("Object::Object()\n");
 #endif
-    m_phaseAura = NULLAURA;
-    AllPhases = false;
-    OwnPhase = false;
-    m_phaseMask = 1;
     m_mapId = -1;
     m_areaId = 0;
     m_zoneId = 0;
@@ -33,12 +663,6 @@ Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
 
     m_uint32Values = 0;
     m_objectUpdated = false;
-    m_isTransport = false;
-    m_isVehicle = false;
-    m_isSummon = false;
-    m_isTotem = false;
-    m_isPet = false;
-
     m_valuesCount = 0;
 
     //official Values
@@ -86,12 +710,6 @@ void Object::Init()
 
 void Object::Destruct()
 {
-    if(m_phaseAura)
-    {
-        m_phaseAura->Remove();
-        m_phaseAura = NULLAURA;
-    }
-
     if(m_objectTypeId != TYPEID_ITEM && m_objectTypeId != TYPEID_CONTAINER)
         ASSERT(!m_inQueue);
 
@@ -152,7 +770,7 @@ float Object::GetCHeightForPosition(bool checkwater, float x, float y, float z)
         return mapheight+offset;
     }
 
-    float vmapheight = sVMapInterface.GetHeight(GetMapId(), GetInstanceID(), GetPhaseMask(), x, y, z);
+    float vmapheight = sVMapInterface.GetHeight(GetMapId(), GetInstanceID(), 0, x, y, z);
     if(IS_INSTANCE(mgr->GetMapId()) || !sWorld.CalculatedHeightChecks)
     {
         if(vmapheight != NO_WMO_HEIGHT)
@@ -276,169 +894,6 @@ float Object::GetCHeightForPosition(bool checkwater, float x, float y, float z)
     if(checkwater && waterheight != NO_WATER_HEIGHT)
         return waterheight;
     return z;
-
-/*
-    // Crow: WE SHOULD GET HIGHEST REASONABLE VALUE BASED ON Z AND THE CALCULATIONS BELOW
-    // For now return the lowest reasonable one!
-    if(ccollidemapheight != NO_WMO_HEIGHT)
-    {
-        if(checkwater == true)
-        {
-            float wz = mgr->GetWaterHeight(x, y);
-            if(wz > ccollidemapheight && !(wz > (WMO_MAX_HEIGHT/2)))
-                ccollidemapheight = wz;
-        }
-
-        if(ccollidemapheight < cvmapheight && ccollidemapheight+3.0f > cvmapheight || ccollidemapheight < cmapheight && ccollidemapheight+3.0f > cmapheight)
-            return ccollidemapheight + ((z-1.0f > ccollidemapheight) ? 1.0f : 0.21563f);
-    }
-
-    if(cvmapheight != NO_WMO_HEIGHT)
-    {
-        if(checkwater == true)
-        {
-            float wz = mgr->GetWaterHeight(x, y);
-            if(wz > cvmapheight && !(wz > (WMO_MAX_HEIGHT/2)))
-                cvmapheight = wz;
-        }
-
-        if(cvmapheight < ccollidemapheight && cvmapheight+3.0f > ccollidemapheight || cvmapheight < cmapheight && cvmapheight+3.0f > cmapheight)
-            return cvmapheight + ((z-1.0f > cvmapheight) ? 1.0f : 0.21563f);
-    }
-
-    if(checkwater == true)
-    {
-        float wz = mgr->GetWaterHeight(x, y);
-        if(wz > cmapheight && !(wz > (WMO_MAX_HEIGHT/2)))
-            cmapheight = wz;
-    }
-
-    return cmapheight + ((z-1.0f > cmapheight) ? 1.0f : 0.21563f);
-
-    float offset = 10.0f;
-    if(vmapheight < z) // Make sure we don't have some shit.
-    {
-        if(mgr->CanUseCollision(this))
-        {
-            if(sVMapInterface.IsIndoor(GetMapId(), x, y, z))
-                offset = 5.0f;
-
-            float pointx = 0.0f;
-            float pointy = 0.0f;
-            float pointz = 0.0f;
-            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, vmapheight+2.0f, x, y, z, pointx, pointy, pointz, 0.0f)) // Meaning there is a break inbetween us.
-            {
-                if(pointz+2.0f < vmapheight) // Distance is more than a roof.
-                {
-                    float pointz2 = 0.0f;
-                    if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, vmapheight+2.0f, x, y, pointz, pointx, pointy, pointz2, 0.0f)) // Meaning there is a break inbetween us.
-                    {
-                        if(pointz2+2.0f < pointz) // Distance is more than a roof.
-                        {
-                            float pointz3 = 0.0f;
-                            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, pointz, x, y, pointz2, pointx, pointy, pointz3, 0.0f)) // Meaning there is a break inbetween us.
-                                vmapheight = pointz3;
-                        }
-                        else
-                            vmapheight = pointz2;
-                    }
-                    else
-                        vmapheight = pointz;
-                }
-                else
-                    vmapheight = pointz;
-            }
-
-            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, z+offset, x, y, vmapheight, pointx, pointy, pointz, 0.0f)) // Meaning there is a break inbetween us.
-            {
-                if(pointz+2.0f < vmapheight) // Distance is more than a roof.
-                {
-                    float pointz2 = 0.0f;
-                    if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, z+offset, x, y, pointz, pointx, pointy, pointz2, 0.0f)) // Meaning there is a break inbetween us.
-                    {
-                        if(pointz2+2.0f < pointz) // Distance is more than a roof.
-                        {
-                            float pointz3 = 0.0f;
-                            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, pointz, x, y, pointz2, pointx, pointy, pointz3, 0.0f)) // Meaning there is a break inbetween us.
-                                vmapheight = pointz3;
-                        }
-                        else
-                            vmapheight = pointz2;
-                    }
-                    else
-                        vmapheight = pointz;
-                }
-                else
-                    vmapheight = pointz;
-            }
-        }
-    }
-    else if(z+2.0f < vmapheight)
-    {
-        if(mgr->CanUseCollision(this))
-        {
-            if(sVMapInterface.IsIndoor(GetMapId(), x, y, z))
-                offset = 5.0f; // Use a smaller offset
-
-            float pointx = 0.0f;
-            float pointy = 0.0f;
-            float pointz = 0.0f;
-            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, z+2.0f, x, y, vmapheight, pointx, pointy, pointz, 0.0f)) // Meaning there is a break inbetween us.
-            {
-                if(pointz+2.0f < vmapheight) // Distance is more than a roof.
-                {
-                    float pointz2 = 0.0f;
-                    if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, pointz+2.0f, x, y, vmapheight, pointx, pointy, pointz2, 0.0f)) // Meaning there is a break inbetween us.
-                    {
-                        if(pointz2+2.0f < pointz) // Distance is more than a roof.
-                        {
-                            float pointz3 = 0.0f;
-                            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, pointz2+2.0f, x, y, pointz, pointx, pointy, pointz3, 0.0f)) // Meaning there is a break inbetween us.
-                                vmapheight = pointz3;
-                        }
-                        else
-                            vmapheight = pointz2;
-                    }
-                    else
-                        vmapheight = pointz;
-                }
-                else
-                    vmapheight = pointz;
-            }
-
-            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, vmapheight+offset, x, y, z, pointx, pointy, pointz, 0.0f)) // Meaning there is a break inbetween us.
-            {
-                if(pointz+2.0f < vmapheight) // Distance is more than a roof.
-                {
-                    float pointz2 = 0.0f;
-                    if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, vmapheight+offset, x, y, pointz, pointx, pointy, pointz2, 0.0f)) // Meaning there is a break inbetween us.
-                    {
-                        if(pointz2+2.0f < pointz) // Distance is more than a roof.
-                        {
-                            float pointz3 = 0.0f;
-                            if(sVMapInterface.GetFirstPoint(GetMapId(), x, y, pointz, x, y, pointz2, pointx, pointy, pointz3, 0.0f)) // Meaning there is a break inbetween us.
-                                vmapheight = pointz3;
-                        }
-                        else
-                            vmapheight = pointz2;
-                    }
-                    else
-                        vmapheight = pointz;
-                }
-                else
-                    vmapheight = pointz;
-            }
-        }
-    }
-
-    if(checkwater == true) // Crow: Pretty sure this is all we need.
-    {
-        float wz = mgr->GetWaterHeight(x, y);
-        if(wz > vmapheight)
-            vmapheight = wz;
-    }
-
-    return vmapheight+0.00321f; // We have a direct offset*/
 }
 
 void Object::SetPhaseMask(int32 phase)
@@ -483,11 +938,30 @@ void Object::DisablePhase(int32 phaseMode)
 void Object::SendPhaseShift()
 {
     WorldPacket data(SMSG_SET_PHASE_SHIFT, 9);
-    data << GetGUID();
-    data << uint32(0) << uint32(0);
-    data << uint32(2) << uint16(m_phaseMask);
-    data << uint32(0) << uint32(0x08);
-    SendMessageToSet(&data, (IsPlayer() ? true : false));
+    data.WriteBitString(4, m_wowGuid[2], m_wowGuid[3], m_wowGuid[1], m_wowGuid[6]);
+    data.WriteBitString(4, m_wowGuid[4], m_wowGuid[5], m_wowGuid[0], m_wowGuid[7]);
+    data.WriteByteSeq(m_wowGuid[7]);
+    data.WriteByteSeq(m_wowGuid[4]);
+    data << uint32(0 * 2); // WorldMapArea.dbc id (controls map display)
+    for(uint8 i = 0; i < 0; i++)
+        data << uint16(0);
+    data.WriteByteSeq(m_wowGuid[1]);
+    data << uint32(m_phaseMask ? 0 : 0x08); // Mask packet flags
+    data.WriteByteSeq(m_wowGuid[2]);
+    data.WriteByteSeq(m_wowGuid[6]);
+    data << uint32(0 * 2); // Inactive terrain swaps
+    for(uint8 i = 0; i < 0; i++)
+        data << uint16(0);
+    data << uint32(1 * 2); // Phase.dbc ids
+    for(uint8 i = 0; i < 1; i++)
+        data << uint16(m_phaseMask);
+    data.WriteByteSeq(m_wowGuid[3]);
+    data.WriteByteSeq(m_wowGuid[0]);
+    data << uint32(0 * 2);    // Active terrain swaps
+    for(uint8 i = 0; i < 0; i++)
+        data << uint16(0);
+    data.WriteByteSeq(m_wowGuid[5]);
+    SendMessageToSet(&data, true);
 }
 
 void Object::_Create( uint32 mapid, float x, float y, float z, float ang )
@@ -496,508 +970,6 @@ void Object::_Create( uint32 mapid, float x, float y, float z, float ang )
     m_position.ChangeCoords(x, y, z, ang);
     m_spawnLocation.ChangeCoords(x, y, z, ang);
     m_lastMapUpdatePosition.ChangeCoords(x,y,z,ang);
-}
-
-uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
-{
-    uint16 updateFlags = UPDATEFLAG_NONE;
-    uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
-
-    // any other case
-    switch(m_objectTypeId)
-    {
-    case TYPEID_UNIT:
-    case TYPEID_PLAYER:
-        {
-            updateFlags = UPDATEFLAG_LIVING;
-        }break;
-    case TYPEID_GAMEOBJECT:
-        {
-            updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
-            switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
-            {
-            case GAMEOBJECT_TYPE_TRANSPORT:
-            case GAMEOBJECT_TYPE_MO_TRANSPORT:
-                {
-                    updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
-                }break;
-            case GAMEOBJECT_TYPE_TRAP:
-            case GAMEOBJECT_TYPE_DUEL_ARBITER:
-            case GAMEOBJECT_TYPE_FLAGSTAND:
-            case GAMEOBJECT_TYPE_FLAGDROP:
-                {
-                    // duel flags have to stay as updatetype 3, otherwise
-                    // it won't animate
-                    updatetype = UPDATETYPE_CREATE_YOURSELF;
-                }break;
-            }
-        }break;
-    case TYPEID_AREATRIGGER:
-    case TYPEID_CORPSE:
-    case TYPEID_DYNAMICOBJECT:
-        updateFlags = UPDATEFLAG_STATIONARY_POS;
-        break;
-    }
-
-    if(GetTypeFromGUID() == HIGHGUID_TYPE_VEHICLE)
-        updateFlags |= UPDATEFLAG_VEHICLE;
-    if(target == this)
-    {
-        // player creating self
-        updateFlags |= UPDATEFLAG_SELF;
-        updatetype = UPDATETYPE_CREATE_YOURSELF;
-    }
-
-    if(IsUnit())
-    {
-        if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_TARGET))
-            updateFlags |= UPDATEFLAG_HAS_TARGET;
-    }
-
-    // build our actual update
-    *data << updatetype;
-
-    // we shouldn't be here, under any circumstances, unless we have a wowguid..
-    ASSERT(m_wowGuid.GetNewGuidLen());
-    *data << m_wowGuid;
-
-    *data << m_objectTypeId;
-
-    _BuildMovementUpdate(data, updateFlags, target);
-
-    // we have dirty data, or are creating for ourself.
-    UpdateMask updateMask;
-    updateMask.SetCount( m_valuesCount );
-    _SetCreateBits( &updateMask, target );
-
-    // this will cache automatically if needed
-    _BuildValuesUpdate( data, &updateMask, target );
-
-    // update count: 1 ;)
-    return 1;
-}
-
-//That is dirty fix it actually creates update of 1 field with
-//the given value ignoring existing changes in fields and so on
-//usefull if we want update this field for certain players
-//NOTE: it does not change fields. This is also very fast method
-WorldPacket *Object::BuildFieldUpdatePacket( uint32 index,uint32 value)
-{
-    // uint64 guidfields = GetGUID();
-    // uint8 guidmask = 0;
-    WorldPacket * packet = new WorldPacket(SMSG_UPDATE_OBJECT, 1500);
-    *packet << uint16(GetMapId());
-    *packet << (uint32)1;//number of update/create blocks
-    BuildFieldUpdatePacket(packet, index, value);
-    return packet;
-}
-
-void Object::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
-{
-    ByteBuffer buf(500);
-    BuildFieldUpdatePacket(&buf, Index, Value);
-    Target->PushUpdateBlock(&buf, 1);
-}
-
-void Object::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
-{
-    *buf << uint8(UPDATETYPE_VALUES);
-    *buf << GetNewGUID();
-
-    uint32 mBlocks = Index/32+1;
-    *buf << (uint8)mBlocks;
-
-    for(uint32 dword_n = mBlocks-1; dword_n; dword_n--)
-        *buf <<(uint32)0;
-
-    *buf <<(((uint32)(1))<<(Index%32));
-    *buf << Value;
-}
-
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
-{
-    UpdateMask updateMask;
-    updateMask.SetCount( m_valuesCount );
-    _SetUpdateBits( &updateMask, target );
-    for(uint32 x = 0; x < m_valuesCount; ++x)
-    {
-        if(updateMask.GetBit(x))
-        {
-            *data << (uint8) UPDATETYPE_VALUES;     // update type == update
-            ASSERT(m_wowGuid.GetNewGuidLen());
-            *data << m_wowGuid;
-
-            _BuildValuesUpdate( data, &updateMask, target );
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * mask )
-{
-    // returns: update count
-    *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
-
-    ASSERT(m_wowGuid.GetNewGuidLen());
-    *buf << m_wowGuid;
-
-    _BuildValuesUpdate( buf, mask, NULLPLR );
-
-    // 1 update.
-    return 1;
-}
-
-void Object::DestroyForInrange(bool anim)
-{
-    WorldPacket data(SMSG_DESTROY_OBJECT, 9);
-    data << GetGUID();
-    data << uint8(anim ? 1 : 0);
-    SendMessageToSet(&data, false);
-}
-
-void Object::DestroyForPlayer(Player* target, bool anim)
-{
-    if(target == NULL)
-        return;
-
-    WorldPacket data(SMSG_DESTROY_OBJECT, 9);
-    data << GetGUID();
-    data << uint8(anim ? 1 : 0);
-    target->GetSession()->SendPacket( &data );
-}
-
-///////////////////////////////////////////////////////////////
-/// Build the Movement Data portion of the update packet
-/// Fills the data with this object's movement/speed info
-void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
-{
-    ByteBuffer bytes;
-
-    uint32 loopCounter = 0;
-    for(uint32 i = 0; i < loopCounter; i++)
-        bytes << uint32(0);
-    bytes << uint16(flags);
-    data->WriteBit(0);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_ROTATION);
-    data->WriteBit(flags & UPDATEFLAG_ANIMKITS);
-    data->WriteBit(flags & UPDATEFLAG_HAS_TARGET);
-    data->WriteBit(flags & UPDATEFLAG_SELF);
-    data->WriteBit(flags & UPDATEFLAG_VEHICLE);
-    data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits(loopCounter, 24);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
-    data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
-    data->WriteBit(flags & UPDATEFLAG_UNK5);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
-
-
-    if(flags & UPDATEFLAG_LIVING)
-    {
-        if(!IsUnit())
-            return;
-
-        MovementInfo *moveInfo = TO_UNIT(this)->GetMovementInfo();
-        data->WriteBit(moveInfo->movementFlags == 0);
-        data->WriteBit(G3D::fuzzyEq(GetOrientation(), 0.0f));                   // Has Orientation
-        data->WriteBitString(3, m_wowGuid[7], m_wowGuid[3], m_wowGuid[2]);
-        if (moveInfo->movementFlags) data->WriteBits(moveInfo->movementFlags, 30);
-
-        data->WriteBit(moveInfo->HasSplineInfo() && IsPlayer());
-        data->WriteBit(!moveInfo->HasPitchFlags());
-        data->WriteBit(moveInfo->HasSplineInfo());
-        data->WriteBit(moveInfo->HasFallData());
-        data->WriteBit(!moveInfo->HasElevatedSpline());
-        data->WriteBit(m_wowGuid[5]);
-        data->WriteBit(moveInfo->transGuid.GetOldGuid());
-        data->WriteBit(false);
-
-        bytes.WriteByteSeq(m_wowGuid[4]);
-        bytes << m_backWalkSpeed;   // backwards run speed
-        if (moveInfo->HasFallData())
-        {
-            if (moveInfo->movementFlags & MOVEFLAG_FALLING)
-            {
-                bytes << float(moveInfo->j_vel);
-                bytes << float(moveInfo->j_sin);
-                bytes << float(moveInfo->j_cos);
-            }
-
-            bytes << uint32(moveInfo->fallTime);
-            bytes << float(moveInfo->j_speed);
-        }
-        bytes << m_backSwimSpeed;   // backwards swim speed
-        if(moveInfo->HasElevatedSpline())
-            bytes << moveInfo->splineElevation;
-        if(moveInfo->HasSplineInfo());// Write spline data
-        bytes << float(GetPositionZ());
-        bytes.WriteByteSeq(m_wowGuid[5]);
-
-        if (moveInfo->transGuid.GetOldGuid())
-        {
-            data->WriteBit(moveInfo->transGuid[1]);
-            data->WriteBit(moveInfo->transTime2); // Transport time 2
-            data->WriteBit(moveInfo->transGuid[4]);
-            data->WriteBit(moveInfo->transGuid[0]);
-            data->WriteBit(moveInfo->transGuid[6]);
-            data->WriteBit(false); // Transport time 3
-            data->WriteBit(moveInfo->transGuid[7]);
-            data->WriteBit(moveInfo->transGuid[5]);
-            data->WriteBit(moveInfo->transGuid[3]);
-            data->WriteBit(moveInfo->transGuid[2]);
-
-            bytes.WriteByteSeq(moveInfo->transGuid[5]);
-            bytes.WriteByteSeq(moveInfo->transGuid[7]);
-            bytes << uint32(moveInfo->transTime);
-            bytes << float(moveInfo->GetTPositionO());
-            if (moveInfo->transTime2) bytes << uint32(moveInfo->transTime2);
-            bytes << float(moveInfo->GetTPositionY());
-            bytes << float(moveInfo->GetTPositionX());
-            bytes.WriteByteSeq(moveInfo->transGuid[3]);
-            bytes << float(moveInfo->GetTPositionZ());
-            bytes.WriteByteSeq(moveInfo->transGuid[0]);
-            if (false) bytes << uint32(moveInfo->transTime3);
-            bytes << int8(moveInfo->transSeat);
-            bytes.WriteByteSeq(moveInfo->transGuid[1]);
-            bytes.WriteByteSeq(moveInfo->transGuid[6]);
-            bytes.WriteByteSeq(moveInfo->transGuid[2]);
-            bytes.WriteByteSeq(moveInfo->transGuid[4]);
-        }
-        data->WriteBit(m_wowGuid[4]);
-        // Write spline bits
-        data->WriteBit(m_wowGuid[6]);
-        if (moveInfo->HasFallData()) data->WriteBit((moveInfo->movementFlags & MOVEFLAG_FALLING));
-        data->WriteBit(m_wowGuid[0]);
-        data->WriteBit(m_wowGuid[1]);
-        data->WriteBit(false);
-        data->WriteBit(moveInfo->movementFlags2 == 0);
-        if (moveInfo->movementFlags2)
-            data->WriteBits(moveInfo->movementFlags2, 12);
-
-        bytes << float(GetPositionX());
-        bytes << m_pitchRate;       // pitch rate
-        bytes.WriteByteSeq(m_wowGuid[3]);
-        bytes.WriteByteSeq(m_wowGuid[0]);
-        bytes << m_swimSpeed;       // swim speed
-        bytes << float(GetPositionY());
-        bytes.WriteByteSeq(m_wowGuid[7]);
-        bytes.WriteByteSeq(m_wowGuid[1]);
-        bytes.WriteByteSeq(m_wowGuid[2]);
-        bytes << m_walkSpeed;       // walk speed
-        bytes << uint32(getMSTime());
-        bytes << m_turnRate;        // turn rate
-        bytes.WriteByteSeq(m_wowGuid[6]);
-        bytes << m_flySpeed;        // fly speed
-        if(!G3D::fuzzyEq(GetOrientation(), 0.0f))
-            bytes << GetOrientation();
-        bytes << m_runSpeed;        // run speed
-        if(moveInfo->HasPitchFlags())
-            bytes << moveInfo->pitch;
-        bytes << m_backFlySpeed;    // back fly speed
-    }
-
-    if(flags & UPDATEFLAG_VEHICLE)
-        bytes << float(TO_VEHICLE(this)->GetOrientation()) << TO_VEHICLE(this)->GetVehicleEntry();
-
-    if(flags & UPDATEFLAG_ROTATION)
-    {
-        uint64 rotation = 0;
-        if(IsGameObject()) rotation = TO_GAMEOBJECT(this)->m_rotation;
-        bytes << uint64(rotation); //blizz 64bit rotation
-    }
-
-    if (flags & UPDATEFLAG_STATIONARY_POS)
-    {
-        *data << float(GetOrientation());
-        *data << float(GetPositionX());
-        *data << float(GetPositionY());
-        *data << float(GetPositionZ());
-    }
-
-    if(flags & UPDATEFLAG_HAS_TARGET)
-    {
-        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
-        data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
-        data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
-        bytes.WriteByteSeq(targetGuid[4]);
-        bytes.WriteByteSeq(targetGuid[0]);
-        bytes.WriteByteSeq(targetGuid[3]);
-        bytes.WriteByteSeq(targetGuid[5]);
-        bytes.WriteByteSeq(targetGuid[7]);
-        bytes.WriteByteSeq(targetGuid[6]);
-        bytes.WriteByteSeq(targetGuid[2]);
-        bytes.WriteByteSeq(targetGuid[1]);
-    }
-
-    if (flags & UPDATEFLAG_ANIMKITS)
-    {
-        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
-        if(false) bytes << uint32(0); // AnimKit1
-        if(false) bytes << uint32(0); // AnimKit2
-        if(false) bytes << uint32(0); // AnimKit3
-    }
-
-    if(flags & UPDATEFLAG_TRANSPORT)
-    {
-        if(IsTransport())
-            bytes << TO_TRANSPORT(this)->m_timer;
-        else bytes << (uint32)getMSTime();
-    }
-
-    data->FlushBits();
-    data->append(bytes);
-}
-
-//=======================================================================================
-//  Creates an update block with the values of this object as
-//  determined by the updateMask.
-//=======================================================================================
-void Object::_BuildValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
-{
-    int32 DummyFlags = -1, DummyFlags2 = -1, DummyNpcFlags = -1, DummyDynFlags = -1;
-    if(updateMask->GetBit(OBJECT_FIELD_GUID) && target)    // We're creating.
-    {
-        if(IsPlayer())
-        {
-            Player* pThis = TO_PLAYER(this);
-            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
-            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
-            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
-            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
-        }
-        else if(IsCreature())       // tagged group will have tagged player
-        {
-            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
-            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
-            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
-            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
-            Creature* cThis = TO_CREATURE(this);
-            if(cThis->m_taggingPlayer)
-            {
-                // set tagged visual
-                if( (cThis->m_taggingGroup != 0 && target->m_playerInfo->m_Group != NULL && target->m_playerInfo->m_Group->GetID() == cThis->m_taggingGroup) ||
-                    (cThis->m_taggingPlayer == target->GetLowGUID()) )
-                {
-                    DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
-                    if( cThis->m_loot.HasLoot(target) )
-                        DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
-                }
-                else
-                    DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
-            }
-
-            Trainer * pTrainer = cThis->GetTrainer();
-            if(pTrainer != NULL)
-            {
-                if(!CanTrainAt(target, pTrainer))
-                {
-                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_ARMORER);
-                }
-            }
-
-            if(cThis->IsVehicle())
-            {
-                if(sFactionSystem.isAttackable(target, cThis, false))
-                {
-                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_VEHICLE_MOUNT);
-                }
-            }
-
-            updateMask->SetBit(UNIT_NPC_FLAGS);
-            updateMask->SetBit(UNIT_FIELD_FLAGS);
-            updateMask->SetBit(UNIT_FIELD_FLAGS_2);
-            updateMask->SetBit(UNIT_DYNAMIC_FLAGS);
-        }
-        else if(IsGameObject())
-        {
-            DummyFlags = m_uint32Values[GAMEOBJECT_FLAGS];
-            DummyDynFlags = m_uint32Values[GAMEOBJECT_DYNAMIC];
-            GameObject* go = TO_GAMEOBJECT(this);
-            GameObjectInfo *info = go->GetInfo();
-            if(info)
-            {
-                set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID);
-                if(involvedquestids != NULL)
-                {
-                    for(set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
-                    {
-                        if( target->GetQuestLogForEntry(*itr) != NULL )
-                        {
-                            DummyDynFlags = GO_DYNFLAG_QUEST;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            updateMask->SetBit(GAMEOBJECT_FLAGS);
-            updateMask->SetBit(GAMEOBJECT_DYNAMIC);
-        }
-    }
-    else if(target)
-    {
-        if(IsPlayer())
-        {
-            Player* pThis = TO_PLAYER(this);
-            // Player Vehicles.
-        }
-
-    }
-
-    WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
-    uint32 byteCount = updateMask->GetUpdateBlockCount();
-    uint32 valueCount = (uint32)std::min(byteCount*32, m_valuesCount);
-
-    *data << (uint8)byteCount;
-    data->append( updateMask->GetMask(), byteCount*4 );
-    for( uint32 index = 0; index < valueCount; index++ )
-    {
-        if( updateMask->GetBit( index ) )
-        {
-            uint32 value = m_uint32Values[index];
-            if(IsGameObject())
-            {
-                if(index == GAMEOBJECT_FLAGS)
-                {
-                    if(DummyFlags > 0 && value != DummyFlags)
-                        value = DummyFlags;
-                }
-                else if(index == GAMEOBJECT_DYNAMIC)
-                {
-                    if(DummyDynFlags > 0 && value != DummyDynFlags)
-                        value = DummyDynFlags;
-                }
-            }
-            else if(IsUnit())
-            {
-                if(index == UNIT_FIELD_FLAGS)
-                {
-                    if(DummyFlags > 0 && value != DummyFlags)
-                        value = DummyFlags;
-                }
-                else if(index == UNIT_FIELD_FLAGS_2)
-                {
-                    if(DummyFlags2 > 0 && value != DummyFlags2)
-                        value = DummyFlags2;
-                }
-                else if(index == UNIT_DYNAMIC_FLAGS)
-                {
-                    if(DummyDynFlags > 0 && value != DummyDynFlags)
-                        value = DummyDynFlags;
-                }
-                else if(index == UNIT_NPC_FLAGS)
-                {
-                    if(DummyNpcFlags > 0 && value != DummyNpcFlags)
-                        value = DummyNpcFlags;
-                }
-            }
-            *data << value;
-        }
-    }
 }
 
 WorldPacket * Object::BuildTeleportAckMsg(const LocationVector & v)
@@ -1035,6 +1007,14 @@ void Object::SetPosition( float newX, float newY, float newZ, float newOrientati
             TO_PLAYER(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, TO_PLAYER(this) );
         }
     }
+}
+
+void Object::DestroyForInrange(bool anim)
+{
+    WorldPacket data(SMSG_DESTROY_OBJECT, 9);
+    data << GetGUID();
+    data << uint8(anim ? 1 : 0);
+    SendMessageToSet(&data, false);
 }
 
 void Object::SetRotation( uint64 guid )
@@ -1128,43 +1108,6 @@ void Object::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only)
             }
         }
     }
-}
-
-////////////////////////////////////////////////////////////////////////////
-/// Fill the object's Update Values from a space deliminated list of values.
-void Object::LoadValues(const char* data)
-{
-    // thread-safe ;) strtok is not.
-    std::string ndata = data;
-    std::string::size_type last_pos = 0, pos = 0;
-    uint32 index = 0;
-    uint32 val;
-    do
-    {
-        // prevent overflow
-        if(index >= m_valuesCount)
-        {
-            break;
-        }
-        pos = ndata.find(" ", last_pos);
-        val = atol(ndata.substr(last_pos, (pos-last_pos)).c_str());
-        if(m_uint32Values[index] == 0)
-            m_uint32Values[index] = val;
-        last_pos = pos+1;
-        ++index;
-    } while(pos != std::string::npos);
-}
-
-void Object::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
-{
-    *updateMask = m_updateMask;
-}
-
-void Object::_SetCreateBits(UpdateMask *updateMask, Player* target) const
-{
-    for(uint32 i = 0; i < m_valuesCount; i++)
-        if(m_uint32Values[i] != 0)
-            updateMask->SetBit(i);
 }
 
 void Object::AddToWorld()
@@ -1279,277 +1222,6 @@ void Object::RemoveFromWorld(bool free_guid)
 
     // update our event holder
     event_Relocate();
-}
-
-void Object::SetByte(uint32 index, uint32 index1,uint8 value)
-{
-    ASSERT( index < m_valuesCount );
-
-    if(index1 >= 4)
-    {
-        sLog.outError("Object::SetByteValue: wrong offset %u", index1);
-        return;
-    }
-
-    if(uint8(m_uint32Values[ index ] >> (index1 * 8)) != value)
-    {
-        m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
-        m_uint32Values[ index ] |= uint32(uint32(value) << (index1 * 8));
-
-        if(IsInWorld())
-        {
-            m_updateMask.SetBit( index );
-
-            if(!m_objectUpdated)
-            {
-                m_mapMgr->ObjectUpdated(this);
-                m_objectUpdated = true;
-            }
-        }
-    }
-}
-
-//! Set uint32 property
-void Object::SetUInt32Value( const uint32 index, const uint32 value )
-{
-    if(index > m_valuesCount)
-        printf("Index: %u, m_valuesCount: %u, Value: %u Test:%s\n", index, m_valuesCount, value, __FUNCTION__);
-
-    ASSERT( index < m_valuesCount );
-    // save updating when val isn't changing.
-    if(m_uint32Values[index] == value)
-        return;
-
-    m_uint32Values[ index ] = value;
-
-    if(IsUnit() && index >= UNIT_FIELD_POWERS && index < UNIT_FIELD_MAXHEALTH)
-        TO_UNIT(this)->SendPowerUpdate(EUnitFields(index));
-    else if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-
-    // Group update handling
-    if(IsInWorld() && m_objectTypeId == TYPEID_PLAYER)
-        if(Group* pGroup = TO_PLAYER(this)->GetGroup())
-            pGroup->HandleUpdateFieldChange( index, TO_PLAYER(this) );
-}
-
-//! Set uint16 property
-void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
-{
-    ASSERT( index < m_valuesCount );
-
-    // save updating when val isn't changing.
-    if (uint16(m_uint32Values[index] >> (offset * 16)) == value)
-        return;
-
-    m_uint32Values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
-    m_uint32Values[index] |= uint32(uint32(value) << (offset * 16));
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-
-    // Group update handling
-    if(m_objectTypeId == TYPEID_PLAYER)
-    {
-        if(IsInWorld())
-        {
-            Group* pGroup = TO_PLAYER(this)->GetGroup();
-            if( pGroup != NULL )
-                pGroup->HandleUpdateFieldChange( index, TO_PLAYER(this) );
-        }
-    }
-}
-
-uint32 Object::GetModPUInt32Value(const uint32 index, const int32 value)
-{
-    ASSERT( index < m_valuesCount );
-    int32 basevalue = (int32)m_uint32Values[ index ];
-    return ((basevalue*value)/100);
-}
-
-void Object::ModUnsigned32Value(uint32 index, int32 mod)
-{
-    ASSERT( index < m_valuesCount );
-    if(mod == 0)
-        return;
-
-    m_uint32Values[ index ] += mod;
-    if( (int32)m_uint32Values[index] < 0 )
-        m_uint32Values[index] = 0;
-
-    if(IsUnit() && index >= UNIT_FIELD_POWERS && index < UNIT_FIELD_MAXHEALTH)
-        TO_UNIT(this)->SendPowerUpdate();
-    else if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-void Object::ModSignedInt32Value(uint32 index, int32 value )
-{
-    ASSERT( index < m_valuesCount );
-    if(value == 0)
-        return;
-
-    m_uint32Values[ index ] += value;
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-void Object::ModFloatValue(const uint32 index, const float value )
-{
-    ASSERT( index < m_valuesCount );
-    m_floatValues[ index ] += value;
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-//! Set uint64 property
-void Object::SetUInt64Value( const uint32 index, const uint64 value )
-{
-    assert( index + 1 < m_valuesCount );
-    if(m_uint32Values[index] == GUID_LOPART(value) && m_uint32Values[index+1] == GUID_HIPART(value))
-        return;
-
-    m_uint32Values[ index ] = *((uint32*)&value);
-    m_uint32Values[ index + 1 ] = *(((uint32*)&value) + 1);
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-        m_updateMask.SetBit( index + 1 );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-void Object::SetUpdateField(uint32 index)
-{
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-//! Set float property
-void Object::SetFloatValue( const uint32 index, const float value )
-{
-    ASSERT( index < m_valuesCount );
-    if(m_floatValues[index] == value)
-        return;
-
-    m_floatValues[ index ] = value;
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-
-void Object::SetFlag( const uint32 index, uint32 newFlag )
-{
-    ASSERT( index < m_valuesCount );
-
-    //no change -> no update
-    if((m_uint32Values[ index ] & newFlag) == newFlag)
-        return;
-
-    m_uint32Values[ index ] |= newFlag;
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-
-    // we're modifying an aurastate, so we need to update the auras.
-    if( index == UNIT_FIELD_AURASTATE )
-        TO_UNIT(this)->m_AuraInterface.UpdateAuraStateAuras(newFlag);
-}
-
-
-void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
-{
-    ASSERT( index < m_valuesCount );
-
-    //no change -> no update
-    if((m_uint32Values[ index ] & oldFlag) == 0)
-        return;
-
-    m_uint32Values[ index ] &= ~oldFlag;
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-
-    // we're modifying an aurastate, so we need to update the auras.
-    if( index == UNIT_FIELD_AURASTATE )
-        TO_UNIT(this)->m_AuraInterface.UpdateAuraStateAuras(oldFlag);
 }
 
 bool Object::canWalk()
@@ -1855,11 +1527,6 @@ void Object::UpdateOppFactionSet()
             }
         }
     }
-}
-
-void Object::EventSetUInt32Value(uint32 index, uint32 value)
-{
-    SetUInt32Value(index,value);
 }
 
 int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)
@@ -2979,52 +2646,6 @@ void Object::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 real
     SendMessageToSet(&data, IsPlayer());
 }
 
-void Object::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
-{
-    if( HasByteFlag(index,flag,newFlag))
-        return;
-
-    SetByte(index, flag, GetByte(index,flag)|newFlag);
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-void Object::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
-{
-    if( !HasByteFlag(index,flag,checkFlag))
-        return;
-
-    SetByte(index,flag, GetByte(index,flag) & ~checkFlag );
-
-    if(IsInWorld())
-    {
-        m_updateMask.SetBit( index );
-
-        if(!m_objectUpdated)
-        {
-            m_mapMgr->ObjectUpdated(this);
-            m_objectUpdated = true;
-        }
-    }
-}
-
-bool Object::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
-{
-    if( GetByte(index,flag) & checkFlag )
-        return true;
-    else
-        return false;
-}
-
 bool Object::IsInLineOfSight(Object* pObj)
 {
     float Onoselevel = 2.0f;
@@ -3054,26 +2675,7 @@ bool Object::IsInLineOfSight(float x, float y, float z)
 
 bool Object::PhasedCanInteract(Object* pObj)
 {
-    Player* pObjI = IsPlayer() ? TO_PLAYER(this) : NULLPLR;
-    Player* pObjII = pObj->IsPlayer() ? TO_PLAYER(pObj) : NULLPLR;
-    if( IsPet() )
-        pObjI = TO_PET(this)->GetPetOwner();
-    if( pObj->IsPet() )
-        pObjII = TO_PET(pObj)->GetPetOwner();
-
-    // Hack for Acherus: Horde/Alliance can't see each other!
-    if( pObjI && pObjII && ( ( GetMapId() == 609 && pObjI->GetTeam() != pObjII->GetTeam() ) || ( OwnPhase || pObjII->OwnPhase) ) )
-        return false;
-    if( pObjI && pObjII && pObjI->GetAreaId() != pObjII->GetAreaId() )
-        return true;
-
-    if( AllPhases || pObj->AllPhases )
-        return true;
-
-    if( pObj->m_phaseMask == m_phaseMask || pObj->m_phaseMask & m_phaseMask || m_phaseMask & pObj->m_phaseMask )
-        return true;
-
-    return false;
+    return true;
 }
 
 // Returns the base cost of a spell

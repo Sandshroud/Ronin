@@ -23,6 +23,8 @@ public:
     void OnRemoveInRangeObject(Object* pObj);
     void Remove();
 
+    uint64 GetCasterGuid() { return casterGuid; }
+
 protected:
     uint64 casterGuid;
 

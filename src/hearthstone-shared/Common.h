@@ -496,38 +496,6 @@ Scripting system exports/imports
 
 #endif
 
-//////////////////////////////
-#define GUID_HIPART(x) (uint32)( ( uint64(x) >> 48 ) & 0x0000FFFF )
-
-#define _GUID_ENPART_2(x) (uint32)0
-#define _GUID_ENPART_3(x) (uint32)((uint64(x) >> 24) & 0x0000000000FFFFFF)
-#define _GUID_LOPART_2(x) (uint32)(uint64(x)         & 0x00000000FFFFFFFF)
-#define _GUID_LOPART_3(x) (uint32)(uint64(x)         & 0x0000000000FFFFFF)
-
-inline bool IsGuidHaveEnPart(uint64 guid)
-{
-    switch (GUID_HIPART(guid))
-    {
-    case 0x1000:
-    case 0xF110:
-    case 0xF120:
-    case 0xF130:
-    case 0xF140:
-    case 0xF150:
-    case 0x1FC0:
-        return true;
-    default:
-        return false;
-    }
-}
-
-#define GUID_ENPART(x) (IsGuidHaveEnPart(x) ? _GUID_ENPART_3(x) : _GUID_ENPART_2(x))
-#define GUID_LOPART(x) (IsGuidHaveEnPart(x) ? _GUID_LOPART_3(x) : _GUID_LOPART_2(x))
-
-#define MAKE_NEW_GUID(l, e, h)   uint64(uint64(l) | (uint64(IsGuidHaveEnPart(h) ? e : 0) << 24) | (uint64(h) << 48))
-
-//////////////////////////////
-
 #define atol(a) strtoul( a, NULL, 10)
 
 #define STRINGIZE(a) #a

@@ -13,6 +13,7 @@ class UpdateMask
 public:
     UpdateMask( ) : m_mask( 0 ), mCount( 0 ), mBlocks( 0 ) { }
     UpdateMask( const UpdateMask& mask ) : m_mask( 0 ) { *this = mask; }
+    UpdateMask(uint32 valCount) : m_mask( 0 ), mCount( 0 ), mBlocks( 0 ) { SetCount(valCount); }
 
     uint32 AByte(const uint32 index) { return (uint32)floor(float(index)/32.0f); }
     uint8 ABit(const uint32 index) { return index%32; }

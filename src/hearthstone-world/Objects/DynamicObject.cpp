@@ -13,7 +13,7 @@ DynamicObject::DynamicObject(uint32 high, uint32 low)
     m_updateMask.SetCount(DYNAMICOBJECT_END);
     m_uint32Values[OBJECT_FIELD_TYPE] = TYPEMASK_DYNAMICOBJECT|TYPEMASK_OBJECT;
     SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));
-    m_wowGuid.Init(GetGUID());
+    m_wowGuid = GetGUID();
     m_floatValues[OBJECT_FIELD_SCALE_X] = 1.f;
     m_aliveDuration = 0;
     m_spellProto = NULL;

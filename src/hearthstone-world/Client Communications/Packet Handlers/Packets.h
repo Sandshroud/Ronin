@@ -40,34 +40,6 @@ struct packetSMSG_ITEM_PUSH_RESULT
     uint32 stackcount;
 };
 
-struct ppacket_packed_guid
-{
-    uint8 len;
-    uint8 data[9];
-
-    void operator = (const WoWGuid& e)
-    {
-        len = e.GetNewGuidLen() + 1;
-        data[0] = e.GetNewGuidMask();
-        memcpy( &data[1], e.GetNewGuid(), e.GetNewGuidLen() );
-    }
-
-    uint8 sz() { return len; }
-};
-
-// PPackets are packets with packed guids in them
-// this still has more work to do though (The actual sending)
-struct ppacketSMSG_SET_AURA_SINGLE
-{
-    ppacket_packed_guid target;
-    uint8 visual_slot;
-    uint32 spellid;
-    uint32 duration;
-    uint32 duration2;
-
-    uint32 sz() { return 1+4+4+4+target.sz(); }
-};
-
 struct packet_SMSG_LEVELUP_INFO
 {
     uint32  level;

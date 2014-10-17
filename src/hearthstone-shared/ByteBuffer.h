@@ -5,7 +5,6 @@
 #pragma once
 
 #include "Common.h"
-#include "WoWGuid.h"
 #include "LocationVector.h"
 #include "int24.h"
 
@@ -226,13 +225,6 @@ public:
         return *this;
     }
 
-    ByteBuffer &operator<<(const WoWGuid &value)
-    {
-        append<uint8>(value.GetNewGuidMask());
-        append((uint8 *)value.GetNewGuid(), value.GetNewGuidLen());
-        return *this;
-    }
-
     // stream like operators for reading data
     ByteBuffer &operator>>(bool &value)
     {
@@ -315,18 +307,6 @@ public:
         return *this;
     }
 
-    ByteBuffer &operator>>(WoWGuid &value)
-    {
-        uint8 field, mask = read<uint8>();
-        value.Init((uint8)mask);
-        for(int i = 0; i < BitCount8(mask); i++)
-        {
-            field = read<uint8>();
-            value.AppendField(field);
-        }
-        return *this;
-    }
-
     uint8 operator[](size_t pos)
     {
         return read<uint8>(pos);
@@ -363,12 +343,6 @@ public:
     template<> inline void read_skip<char*>() { std::string temp; *this >> temp; }
     template<> inline void read_skip<char const*>() { read_skip<char*>(); }
     template<> inline void read_skip<std::string>() { read_skip<char*>(); }
-    template<> inline void read_skip<WoWGuid>()
-    {
-        uint8 mask = read<uint8>();
-        for(int i = 0; i < BitCount8(mask); i++)
-            read_skip<uint8>();
-    }
 
     void read_skip(size_t skip)
     {

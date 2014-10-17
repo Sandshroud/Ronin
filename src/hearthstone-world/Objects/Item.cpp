@@ -22,7 +22,7 @@ Item::Item( uint32 high, uint32 low )
     m_updateMask.SetCount(ITEM_END);
     SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_ITEM | TYPEMASK_OBJECT );
     SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));
-    m_wowGuid.Init( GetGUID() );
+    m_wowGuid = GetGUID();
 
     SetFloatValue( OBJECT_FIELD_SCALE_X, 1 );//always 1
 

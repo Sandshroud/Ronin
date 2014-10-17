@@ -3459,6 +3459,108 @@ void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation
     movement_info.SetPosition(newX, newY, newZ, newOrientation);
 }
 
+void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+{
+    MovementInfo *moveInfo = GetMovementInfo();
+    bits->WriteBit(moveInfo->movementFlags == 0);
+    bits->WriteBit(G3D::fuzzyEq(GetOrientation(), 0.0f));                   // Has Orientation
+    bits->WriteBitString(3, m_wowGuid[7], m_wowGuid[3], m_wowGuid[2]);
+    if (moveInfo->movementFlags) bits->WriteBits(moveInfo->movementFlags, 30);
+
+    bits->WriteBit(moveInfo->HasSplineInfo() && IsPlayer());
+    bits->WriteBit(!moveInfo->HasPitchFlags());
+    bits->WriteBit(moveInfo->HasSplineInfo());
+    bits->WriteBit(moveInfo->HasFallData());
+    bits->WriteBit(!moveInfo->HasElevatedSpline());
+    bits->WriteBit(m_wowGuid[5]);
+    bits->WriteBit(moveInfo->transGuid.GetOldGuid());
+    bits->WriteBit(false);
+
+    bytes->WriteByteSeq(m_wowGuid[4]);
+    *bytes << m_backWalkSpeed;   // backwards run speed
+    if (moveInfo->HasFallData())
+    {
+        if (moveInfo->movementFlags & MOVEFLAG_FALLING)
+        {
+            *bytes << float(moveInfo->j_vel);
+            *bytes << float(moveInfo->j_sin);
+            *bytes << float(moveInfo->j_cos);
+        }
+
+        *bytes << uint32(moveInfo->fallTime);
+        *bytes << float(moveInfo->j_speed);
+    }
+    *bytes << m_backSwimSpeed;   // backwards swim speed
+    if(moveInfo->HasElevatedSpline())
+        *bytes << moveInfo->splineElevation;
+    if(moveInfo->HasSplineInfo());// Write spline data
+    *bytes << float(GetPositionZ());
+    bytes->WriteByteSeq(m_wowGuid[5]);
+
+    if (moveInfo->transGuid.GetOldGuid())
+    {
+        bits->WriteBit(moveInfo->transGuid[1]);
+        bits->WriteBit(moveInfo->transTime2); // Transport time 2
+        bits->WriteBit(moveInfo->transGuid[4]);
+        bits->WriteBit(moveInfo->transGuid[0]);
+        bits->WriteBit(moveInfo->transGuid[6]);
+        bits->WriteBit(false); // Transport time 3
+        bits->WriteBit(moveInfo->transGuid[7]);
+        bits->WriteBit(moveInfo->transGuid[5]);
+        bits->WriteBit(moveInfo->transGuid[3]);
+        bits->WriteBit(moveInfo->transGuid[2]);
+
+        bytes->WriteByteSeq(moveInfo->transGuid[5]);
+        bytes->WriteByteSeq(moveInfo->transGuid[7]);
+        *bytes << uint32(moveInfo->transTime);
+        *bytes << float(moveInfo->GetTPositionO());
+        if (moveInfo->transTime2) *bytes << uint32(moveInfo->transTime2);
+        *bytes << float(moveInfo->GetTPositionY());
+        *bytes << float(moveInfo->GetTPositionX());
+        bytes->WriteByteSeq(moveInfo->transGuid[3]);
+        *bytes << float(moveInfo->GetTPositionZ());
+        bytes->WriteByteSeq(moveInfo->transGuid[0]);
+        if (false) *bytes << uint32(moveInfo->transTime3);
+        *bytes << int8(moveInfo->transSeat);
+        bytes->WriteByteSeq(moveInfo->transGuid[1]);
+        bytes->WriteByteSeq(moveInfo->transGuid[6]);
+        bytes->WriteByteSeq(moveInfo->transGuid[2]);
+        bytes->WriteByteSeq(moveInfo->transGuid[4]);
+    }
+    bits->WriteBit(m_wowGuid[4]);
+    // Write spline bits
+    if(moveInfo->HasSplineInfo()); // Write spline bits
+    bits->WriteBit(m_wowGuid[6]);
+    if (moveInfo->HasFallData()) bits->WriteBit((moveInfo->movementFlags & MOVEFLAG_FALLING));
+    bits->WriteBit(m_wowGuid[0]);
+    bits->WriteBit(m_wowGuid[1]);
+    bits->WriteBit(false);
+    bits->WriteBit(moveInfo->movementFlags2 == 0);
+    if (moveInfo->movementFlags2)
+        bits->WriteBits(moveInfo->movementFlags2, 12);
+
+    *bytes << float(GetPositionX());
+    *bytes << m_pitchRate;       // pitch rate
+    bytes->WriteByteSeq(m_wowGuid[3]);
+    bytes->WriteByteSeq(m_wowGuid[0]);
+    *bytes << m_swimSpeed;       // swim speed
+    *bytes << float(GetPositionY());
+    bytes->WriteByteSeq(m_wowGuid[7]);
+    bytes->WriteByteSeq(m_wowGuid[1]);
+    bytes->WriteByteSeq(m_wowGuid[2]);
+    *bytes << m_walkSpeed;       // walk speed
+    *bytes << uint32(getMSTime());
+    *bytes << m_turnRate;        // turn rate
+    bytes->WriteByteSeq(m_wowGuid[6]);
+    *bytes << m_flySpeed;        // fly speed
+    if(!G3D::fuzzyEq(GetOrientation(), 0.0f))
+        *bytes << GetOrientation();
+    *bytes << m_runSpeed;        // run speed
+    if(moveInfo->HasPitchFlags())
+        *bytes << moveInfo->pitch;
+    *bytes << m_backFlySpeed;    // back fly speed
+}
+
 bool Unit::IsPoisoned()
 {
     return m_AuraInterface.IsPoisoned();

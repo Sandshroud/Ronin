@@ -8,6 +8,7 @@ enum Opcodes
 {
     OPCODE_COMPRESSION_MASK = 0x8000,
     MSG_NULL_ACTION         = 0x0000,
+
     CMSG_CHARACTER_CREATE,                                        // 4.3.4:0x4A36
     CMSG_CHARACTER_CUSTOMIZE,                                     // 4.3.4:0x2C34
     CMSG_CHARACTER_DELETE,                                        // 4.3.4:0x6425

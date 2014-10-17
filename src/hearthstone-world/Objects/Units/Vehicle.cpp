@@ -997,21 +997,21 @@ void Vehicle::ChangePowerType()
 
 uint16 Vehicle::GetAddMovement2Flags()
 {
-    uint16 movementMask = MOVEMENTFLAG2_NONE;
+    uint16 movementMask = MOVEFLAG2_NONE;
 
     if(vehicleData != NULL)
     {
         uint32 vehicleFlags = vehicleData->m_ID;
         if (vehicleFlags & VEHICLE_FLAG_NO_STRAFE)
-            movementMask |= MOVEMENTFLAG2_NO_STRAFE;
+            movementMask |= MOVEFLAG2_NO_STRAFE;
         if (vehicleFlags & VEHICLE_FLAG_NO_JUMPING)
-            movementMask |= MOVEMENTFLAG2_NO_JUMPING;
+            movementMask |= MOVEFLAG2_NO_JUMPING;
         if (vehicleFlags & VEHICLE_FLAG_FULLSPEEDTURNING)
-            movementMask |= MOVEMENTFLAG2_FULL_SPEED_TURNING;
+            movementMask |= MOVEFLAG2_FULL_SPEED_TURNING;
         if (vehicleFlags & VEHICLE_FLAG_ALLOW_PITCHING)
-            movementMask |= MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING;
+            movementMask |= MOVEFLAG2_ALWAYS_ALLOW_PITCHING;
         if (vehicleFlags & VEHICLE_FLAG_FULLSPEEDPITCHING)
-            movementMask |= MOVEMENTFLAG2_FULL_SPEED_PITCHING;
+            movementMask |= MOVEFLAG2_FULL_SPEED_PITCHING;
     }
 
     return movementMask;

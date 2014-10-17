@@ -257,18 +257,18 @@ void AchievementInterface::EventAchievementEarned(AchievementData * pData)
 
 void AchievementInterface::BuildAllAchievementDataPacket(WorldPacket *data)
 {
-    // Achievement count
-    *data << uint32(0);
+
     // Criteria count
-    *data << uint32(0);
+    data->WriteBits(0, 21);
+    // Achievement count
+    data->WriteBits(0, 23);
+    data->FlushBits();
 
 //  for (CompletedAchievementMap::const_iterator iter = m_achivementDataMap.begin(); iter != m_achivementDataMap.end(); ++iter)
-//      *data << uint32();
-//  for (CompletedAchievementMap::const_iterator iter = m_achivementDataMap.begin(); iter != m_achivementDataMap.end(); ++iter)
+//  {
+//      *data << uint32(iter->first);
 //      *data << uint32(secsToTimeBitFields(iter->second.date));
-
-    // Criteria mask
-    *data << uint8(0);
+//  }
 }
 
 WorldPacket* AchievementInterface::BuildAchievementEarned(AchievementData * pData)

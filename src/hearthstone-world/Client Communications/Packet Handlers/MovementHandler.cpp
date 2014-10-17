@@ -29,7 +29,8 @@ void WorldSession::HandleMoveWorldportAckOpcode( WorldPacket & recv_data )
         c_tposz += pTrans->GetPositionZ();
 
         WorldPacket dataw(SMSG_NEW_WORLD, 20);
-        dataw << pTrans->GetMapId() << c_tposx << c_tposy << c_tposz << c_tposo;
+        dataw << c_tposx << c_tposo << c_tposz;
+        dataw << pTrans->GetMapId() << c_tposy;
         SendPacket(&dataw);
 
         _player->SetMapId(_player->m_CurrentTransporter->GetMapId());
@@ -635,11 +636,7 @@ void WorldSession::HandleSetActiveMoverOpcode( WorldPacket & recv_data )
             return;
         }
 
-        // generate wowguid
-        if(guid != 0)
-            m_MoverWoWGuid.Init(guid);
-        else
-            m_MoverWoWGuid.Init(_player->GetGUID());
+        m_MoverWoWGuid = guid ? guid : _player->GetGUID();
     }
 }
 
@@ -723,59 +720,10 @@ void WorldSession::HandleForceSpeedChangeOpcodes( WorldPacket & recv_data )
 
 void MovementInfo::read(ByteBuffer &data)
 {
-    bool transData = movementFlags & MOVEFLAG_TAXI;
-    data >> movementFlags >> movementFlags2 >> moveTime;
-    data >> x >> y >> z >> orient;
-    if(m_lockTransport)
-    {
-        if(movementFlags & MOVEFLAG_TAXI)
-        {
-            data.read_skip<WoWGuid>();
-            data.read_skip(4+4+4+4 + 4 + 1);
-            if (movementFlags2 & MOVEMENTFLAG2_INTERPOLATED_MOVEMENT)
-                data.read_skip(4);
-        }
-        if(transData) movementFlags |= MOVEFLAG_TAXI;
-    }
-    else if(movementFlags & MOVEFLAG_TAXI)
-    {
-        data >> transGuid >> t_x >> t_y >> t_z >> t_orient;
-        data >> transTime >> transSeat;
-        if (movementFlags2 & MOVEMENTFLAG2_INTERPOLATED_MOVEMENT)
-            data >> transTime2;
-    }
 
-    if (movementFlags & (MOVEFLAG_SWIMMING | MOVEFLAG_AIR_SWIMMING) || movementFlags2 & MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING)
-        data >> pitch;
-    if(movementFlags2 & MOVEMENTFLAG2_INTERPOLATED_TURNING)
-    {
-        data >> fallTime >> j_vel;
-        if (movementFlags & MOVEFLAG_REDIRECTED)
-            data >> j_sin >> j_cos >> j_speed;
-    }
-    if (movementFlags & MOVEFLAG_SPLINE_MOVER)
-        data >> splineAngle;
 }
 
 void MovementInfo::write(ByteBuffer &data)
 {
-    data << movementFlags << movementFlags2 << moveTime;
-    data.appendvector(m_position, true);
-    if(movementFlags & MOVEFLAG_TAXI)
-    {
-        data << transGuid << t_x << t_y << t_z << t_orient << transTime << transSeat;
-        if (movementFlags2 & MOVEMENTFLAG2_INTERPOLATED_MOVEMENT)
-            data << transTime2;
-    }
 
-    if(movementFlags & (MOVEFLAG_SWIMMING | MOVEFLAG_AIR_SWIMMING) || movementFlags2 & MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING)
-        data << pitch;
-    if(movementFlags2 & MOVEMENTFLAG2_INTERPOLATED_TURNING)
-    {
-        data << fallTime << j_vel;
-        if(movementFlags & MOVEFLAG_REDIRECTED)
-            data << j_sin << j_cos << j_speed;
-    }
-    if(movementFlags & MOVEFLAG_SPLINE_MOVER)
-        data << splineAngle;
 }

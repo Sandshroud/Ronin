@@ -25,7 +25,7 @@ Player::Player( uint32 guid ) : m_talentInterface()
     m_updateMask.SetCount(PLAYER_END);
     SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_PLAYER|TYPEMASK_UNIT|TYPEMASK_OBJECT);
     SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(guid, 0, HIGHGUID_TYPE_PLAYER));
-    m_wowGuid.Init(GetGUID());
+    m_wowGuid = GetGUID();
     m_deathRuneMasteryChance = 0;
     itemBonusMask.SetCount(ITEM_STAT_MAXIMUM);
 }
@@ -6547,7 +6547,8 @@ void Player::SendInitialLogonPackets()
 
     // Currencies
     data.Initialize(SMSG_INIT_CURRENCY);
-    data << uint32(0);
+    data.WriteBits(0, 23); // Count
+    data.FlushBits();
     GetSession()->SendPacket( &data );
 
     sLog.Debug("WORLD","Sent initial logon packets for %s.", GetName());
@@ -7146,8 +7147,8 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
 
         //send new world
         data.Initialize(SMSG_NEW_WORLD);
-        data << mapid;
-        data.appendvector(destination, true);
+        data << destination.x << destination.o << destination.z;
+        data << mapid << destination.y;
         GetSession()->SendPacket( &data );
         SetMapId(mapid);
         SetPlayerStatus(TRANSFER_PENDING);
@@ -7478,6 +7479,7 @@ void Player::PopPendingUpdates()
     if(bUpdateDataBuffer.size() || mOutOfRangeIdCount)
     {
         size_t c = 0, bBuffer_size = 6 + bUpdateDataBuffer.size();
+        if(mOutOfRangeIdCount) bBuffer_size += 5+mOutOfRangeIds.size();
         uint8 *update_buffer = NULL;
         if(IsInWorld())
         {
@@ -7504,7 +7506,7 @@ void Player::PopPendingUpdates()
         mUpdateDataCount = 0;
 
         // compress update packet
-        //if(c < size_t(500) || !CompressAndSendUpdateBuffer((uint32)c, update_buffer, (IsInWorld() ? &GetMapMgr()->m_compressionBuffer : NULL)))
+        if(c < size_t(500) || !CompressAndSendUpdateBuffer((uint32)c, update_buffer, (IsInWorld() ? &GetMapMgr()->m_compressionBuffer : NULL)))
             m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer); // send uncompressed packet -> because we failed
 
         if(IsInWorld())
@@ -7597,7 +7599,7 @@ bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer
     }
 
     // fill in the full size of the compressed stream
-    WorldPacket data(SMSG_UPDATE_OBJECT, destsize);
+    WorldPacket data(SMSG_UPDATE_OBJECT|OPCODE_COMPRESSION_MASK, destsize);
     data << uint32(stream.total_in);
     data.append(buffer, uint32(stream.total_out));
 
@@ -8189,8 +8191,8 @@ void Player::SafeTeleport(MapMgr* mgr, LocationVector vec, int32 phase)
     GetSession()->SendPacket(&data);
 
     data.Initialize(SMSG_NEW_WORLD);
-    data << mgr->GetMapId();
-    data.appendvector(vec, true);
+    data << vec.x << vec.o << vec.z;
+    data << mgr->GetMapId() << vec.y;
     GetSession()->SendPacket(&data);
 
     SetPlayerStatus(TRANSFER_PENDING);
@@ -10298,9 +10300,7 @@ void Player::Social_TellOnlineStatus(bool online)
     {
         data << uint8( FRIEND_ONLINE ) << GetGUID() << uint8(GetChatTag());
         data << GetAreaId() << getLevel() << uint32(getClass());
-    }
-    else
-        data << uint8( FRIEND_OFFLINE ) << GetGUID() << uint8( 0 );
+    } else data << uint8( FRIEND_OFFLINE ) << GetGUID() << uint8( 0 );
 
     m_socialLock.Acquire();
     for( itr = m_hasFriendList.begin(); itr != m_hasFriendList.end(); itr++ )
@@ -10356,8 +10356,7 @@ void Player::Social_SendFriendList(uint32 flag)
         // player note
         if( itr->second != NULL && strlen(itr->second))
             data << itr->second;
-        else
-            data << uint8(0);
+        else data << uint8(0);
 
         // online/offline flag
         plr = objmgr.GetPlayerInfo( itr->first );
@@ -10367,9 +10366,7 @@ void Player::Social_SendFriendList(uint32 flag)
             data << plr->m_loggedInPlayer->GetZoneId();
             data << plr->m_loggedInPlayer->getLevel();
             data << uint32( plr->m_loggedInPlayer->getClass() );
-        }
-        else
-            data << uint8( 0 );// << float((UNIXTIME - plr->lastOnline) / 86400.0);
+        } else data << uint8( 0 );// << float((UNIXTIME - plr->lastOnline) / 86400.0);
     }
 
     for( itr2 = m_ignores.begin(); itr2 != m_ignores.end(); itr2++ )

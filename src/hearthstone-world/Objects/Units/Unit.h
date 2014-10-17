@@ -391,9 +391,9 @@ enum MoveFlags : uint32
     MOVEFLAG_FEATHER_FALL               = 0x20000000,   // Does not negate fall damage.
 
     // Masks
-    MOVEFLAG_MOVING_MASK                = 0x03,
-    MOVEFLAG_STRAFING_MASK              = 0x0C,
-    MOVEFLAG_TURNING_MASK               = 0x30,
+    MOVEFLAG_MOVING_MASK                = MOVEFLAG_MOVE_FORWARD|MOVEFLAG_MOVE_BACKWARD,
+    MOVEFLAG_STRAFING_MASK              = MOVEFLAG_STRAFE_LEFT|MOVEFLAG_STRAFE_RIGHT,
+    MOVEFLAG_TURNING_MASK               = MOVEFLAG_TURN_LEFT|MOVEFLAG_TURN_RIGHT,
     MOVEFLAG_FALLING_MASK               = 0x6000,
     MOVEFLAG_MOTION_MASK                = 0xE00F,       // Forwards, Backwards, Strafing, Falling
     MOVEFLAG_PENDING_MASK               = 0x7F0000,
@@ -442,8 +442,8 @@ public:
     // Transport data
     void GetTransportPosition(LocationVector &loc) { loc.x = t_x; loc.y = t_y; loc.z = t_z; loc.o = t_orient; };
     void GetTransportPosition(float &_x, float &_y, float &_z, float &_o) { _x = t_x; _y = t_y; _z = t_z; _o = t_orient; };
-    void SetTransportData(uint64 guid, float x, float y, float z, float o, uint8 seat) { transGuid.Init(guid); t_x = x; t_y = y; t_z = z; t_orient = o; transSeat = seat; }
-    void ClearTransportData() { transGuid.Clear(); t_x = t_y = t_z = t_orient = 0.0f; transTime = 0; transSeat = 0; };
+    void SetTransportData(uint64 guid, float x, float y, float z, float o, uint8 seat) { transGuid = guid; t_x = x; t_y = y; t_z = z; t_orient = o; transSeat = seat; }
+    void ClearTransportData() { transGuid = 0; t_x = t_y = t_z = t_orient = 0.0f; transTime = 0; transSeat = 0; };
     void SetTransportLock(bool locked) { m_lockTransport = locked; }
     bool GetTransportLock() { return m_lockTransport; }
     float GetTPositionX() { return t_x; } float GetTPositionY() { return t_y; }
@@ -550,6 +550,8 @@ public:
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
+
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
 
     void setAttackTimer(int32 time, bool offhand);
     bool isAttackReady(bool offhand);
@@ -935,9 +937,6 @@ public:
     }
 
     bool CanEnterVehicle(Player * requester);
-
-    //Pet
-    HEARTHSTONE_INLINE void SetIsPet(bool chck) { m_isPet = chck; }
 
     //In-Range
     virtual void AddInRangeObject(Object* pObj);

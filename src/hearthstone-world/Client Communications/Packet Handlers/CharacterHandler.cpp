@@ -598,7 +598,7 @@ void WorldSession::FullLogin(Player* plr)
 {
     sLog.Debug("WorldSession", "Fully loading player %u", plr->GetLowGUID());
     SetPlayer(plr);
-    m_MoverWoWGuid.Init(plr->GetGUID());
+    m_MoverWoWGuid = plr->GetGUID();
 
     /* world preload */
     WorldPacket data(SMSG_LOGIN_VERIFY_WORLD, 20);
@@ -637,9 +637,7 @@ void WorldSession::FullLogin(Player* plr)
         {
             plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);
             plr->triggerpass_cheat = true; // Enable for admins automatically.
-        }
-        else
-            plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);
+        } else plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);
     }
 
     // Make sure our name exists (for premade system)
@@ -705,7 +703,8 @@ void WorldSession::FullLogin(Player* plr)
                 plr->SetMapId(pTrans->GetMapId());
 
                 WorldPacket dataw(SMSG_NEW_WORLD, 20);
-                dataw << pTrans->GetMapId() << c_tposx << c_tposy << c_tposz << c_tposo;
+                dataw << c_tposx << c_tposo << c_tposz;
+                dataw << pTrans->GetMapId() << c_tposy;
                 SendPacket(&dataw);
 
                 // shit is sent in worldport ack.
@@ -725,8 +724,7 @@ void WorldSession::FullLogin(Player* plr)
 
     if(plr->GetTeam() == 1)
         sWorld.HordePlayers++;
-    else
-        sWorld.AlliancePlayers++;
+    else sWorld.AlliancePlayers++;
 
     if(sWorld.SendMovieOnJoin && plr->m_FirstLogin && !HasGMPermissions())
         plr->SendCinematic(plr->myRace->CinematicId);
@@ -752,12 +750,8 @@ void WorldSession::FullLogin(Player* plr)
 
     //Check if there is a time difference between lastlogoff and now
     if( plr->m_timeLogoff > 0 && plr->GetUInt32Value(UNIT_FIELD_LEVEL) < plr->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))   // if timelogoff = 0 then it's the first login
-    {
-        uint32 currenttime = (uint32)UNIXTIME;
-        uint32 timediff = currenttime - plr->m_timeLogoff;
-
-        //Calculate rest bonus
-        if( timediff > 0 )
+    {   //Calculate rest bonus
+        if( uint32 timediff = uint32(UNIXTIME) - plr->m_timeLogoff )
             plr->AddCalculatedRestXP(timediff);
     }
 

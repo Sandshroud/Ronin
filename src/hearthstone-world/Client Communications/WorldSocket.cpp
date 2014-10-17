@@ -194,13 +194,20 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     if(!IsConnected())
         return OUTPACKET_RESULT_NOT_CONNECTED;
 
+    bool compressed = opcode & OPCODE_COMPRESSION_MASK;
+    opcode &= ~OPCODE_COMPRESSION_MASK;
     uint16 newOpcode = sOpcodeMgr.ConvertOpcodeForOutput(opcode);
     if(newOpcode == MSG_NULL_ACTION)
         return OUTPACKET_RESULT_PACKET_ERROR;
     else if( GetWriteBuffer()->GetSpace() < (len+4) )
         return OUTPACKET_RESULT_NO_ROOM_IN_BUFFER;
+    if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
+    else if(len > 500)
+    {
+        // Todo: Compression
+    }
 
-    printf("Sending packet 0x%.4X as 0x%.4X\n", opcode, newOpcode);
+    printf("Sending packet %s(0x%.4X) as 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, newOpcode);
     //printf("Sending packet %s\n", sOpcodeMgr.GetOpcodeName(opcode));
     LockWriteBuffer();
     // Encrypt the packet
@@ -577,18 +584,16 @@ void WorldSocket::OnRecvData()
         case MSG_VERIFY_CONNECTIVITY_RESPONSE:
             {
                 if(strcmp(((char*)Packet->contents()), "D OF WARCRAFT CONNECTION - CLIENT TO SERVER"))
-                {
-                    delete Packet;
                     Disconnect();
-                    return;
+                else
+                {
+                    WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
+                    data.append(sWorld.authSeed1.AsByteArray(), 16);
+                    data.append(sWorld.authSeed2.AsByteArray(), 16);
+                    data << mSeed;
+                    data << uint8(1);
+                    SendPacket(&data);
                 }
-
-                WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
-                data.append(sWorld.authSeed1.AsByteArray(), 16);
-                data.append(sWorld.authSeed2.AsByteArray(), 16);
-                data << mSeed;
-                data << uint8(1);
-                SendPacket(&data);
             }break;
         case CMSG_AUTH_SESSION:
             {
@@ -596,23 +601,27 @@ void WorldSocket::OnRecvData()
             }break;
         case MSG_NULL_ACTION:
             { // We need to log opcodes that are non existent
-                if(sLog.GetLogLevel() < 4)
-                    return;
-
-                FILE *codeLog = NULL;
-                fopen_s(&codeLog, "RecvOpcodeLog.txt", "a+b");
-                if(codeLog)
+                if(sLog.GetLogLevel() >= 4)
                 {
-                    fprintf(codeLog, "Received unhandled packet %u(0x%.4X) with size %u\r\n", mUnaltered, mUnaltered, Packet->size());
-                    Packet->hexlike(codeLog);
-                    fclose(codeLog);
+                    FILE *codeLog = NULL;
+                    fopen_s(&codeLog, "RecvOpcodeLog.txt", "a+b");
+                    if(codeLog)
+                    {
+                        fprintf(codeLog, "Received unhandled packet %u(0x%.4X) with size %u\r\n", mUnaltered, mUnaltered, Packet->size());
+                        Packet->hexlike(codeLog);
+                        fclose(codeLog);
+                    }
                 }
+            }break;
+        case CMSG_LOG_DISCONNECT:
+            {
+                printf("Disconnect reason %u\n", Packet->read<uint32>());
             }break;
         default:
             {
                 if(mSession)
                 {
-                    printf("Queued packet 0x%.4X as 0x%.4X\n", Packet->GetOpcode(), mUnaltered);
+                    printf("Queued packet 0x%.4X as %s(0x%.4X)\n", mUnaltered, sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
                     mSession->QueuePacket(Packet);
                     continue;
                 }
