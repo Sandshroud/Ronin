@@ -22,8 +22,7 @@ public:
     {
         if(slot >= 0 && (uint8)slot < GetProto()->ContainerSlots)
             return m_Slot[slot];
-        else
-            return NULLITEM;
+        else return NULL;
     }
 
     int8 FindFreeSlot();

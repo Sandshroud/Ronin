@@ -135,7 +135,7 @@ public:
             return false;
         if(y > _maxY || y < _minY)
             return false;
-        if(isnan(x) || isnan(y))
+        if(num_isnan(x) || num_isnan(y))
             return false;
         if(x > std::numeric_limits<float>::max())
             return false;

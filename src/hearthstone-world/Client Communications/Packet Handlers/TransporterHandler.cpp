@@ -382,7 +382,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
 
 Transporter::Transporter(uint64 guid) : GameObject(guid)
 {
-    m_isTransport = true;
+
 }
 
 Transporter::~Transporter()
@@ -441,7 +441,7 @@ void Transporter::OnPushToWorld()
 
 uint32 Transporter::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
 {
-    return Object::BuildCreateUpdateBlockForPlayer(data, target);
+    return WorldObject::BuildCreateUpdateBlockForPlayer(data, target);
 }
 
 void Transporter::EventClusterMapChange( uint32 mapid, LocationVector l )

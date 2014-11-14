@@ -74,7 +74,7 @@ extern const char * InstanceAbortMessages[];
 class Map;
 class MapMgr;
 
-class Object;
+class WorldObject;
 class Group;
 class Player;
 class MapUpdaterThread;
@@ -103,7 +103,7 @@ public:
     uint32 m_instanceId;
     uint32 m_mapId;
     MapMgr* m_mapMgr;
-    uint32 m_creatorGuid;
+    WoWGuid m_creatorGuid;
     uint32 m_creatorGroup;
     uint32 m_difficulty;
     unordered_set<uint32> m_killedNpcs;
@@ -139,7 +139,7 @@ public:
     }
 
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
-    MapMgr* GetInstance(Object* obj);
+    MapMgr* GetInstance(WorldObject* obj);
     MapMgr* GetInstance(uint32 MapId, uint32 InstanceId);
     MapMgr* ClusterCreateInstance(uint32 mapid, uint32 instanceid);
 
@@ -209,7 +209,7 @@ public:
                 //we have ensured the groupid is valid when it was created.
                 if( pPlayer->GetGroup() )
                 {
-                    if(pInstance->m_creatorGuid && pPlayer->GetGroup()->HasMember(objmgr.GetPlayerInfo(pInstance->m_creatorGuid)))
+                    if(!pInstance->m_creatorGuid.empty() && pPlayer->GetGroup()->HasMember(objmgr.GetPlayerInfo(pInstance->m_creatorGuid)))
                     {
                         if(pInstance->m_EnteredPlayers.find(pPlayer->GetLowGUID()) == pInstance->m_EnteredPlayers.end())
                         {
@@ -227,18 +227,13 @@ public:
             // First player in should have set the correct instance_id.
             if( !pPlayer->triggerpass_cheat )
             {
-                if( pInstance->m_creatorGuid != pPlayer->GetLowGUID() )
+                if( pInstance->m_creatorGuid != pPlayer->GetGUID() )
                 {
                     if(pInstance->m_creatorGroup)
                     {
                          if( pPlayer->GetGroupID() != pInstance->m_creatorGroup)
                             return OWNER_CHECK_WRONG_GROUP;
-                    }
-                    else // There is no group, so group checks will be wrong, check by guid.
-                    {   // Since there is no group, if creator guid is wrong, fuck it.
-                        if(pPlayer->GetLowGUID() != pInstance->m_creatorGuid)
-                            return OWNER_CHECK_WRONG_GROUP;
-                    }
+                    } else return OWNER_CHECK_WRONG_GROUP;
                 }
             }
         }

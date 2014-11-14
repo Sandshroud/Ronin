@@ -104,7 +104,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
         return;
     if(m_AIType == AITYPE_PET && m_Unit->IsPet())
     {
-        Pet* pPet = TO_PET(m_Unit);
+        Pet* pPet = castPtr<Pet>(m_Unit);
         if(pPet->GetPetAction() != PET_ACTION_ATTACK || pPet->GetPetState() == PET_STATE_PASSIVE)
             return;
     }
@@ -116,7 +116,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
         {
             if(m_Unit->IsPet() && !m_CastNext)
             {
-                AI_Spell* PetSpell = TO_PET(m_Unit)->HandleAutoCastEvent();
+                AI_Spell* PetSpell = castPtr<Pet>(m_Unit)->HandleAutoCastEvent();
                 if(PetSpell && CanCastAISpell(PetSpell, getMSTime()))
                 {
                     if(IsValidUnitTarget(m_nextTarget, PetSpell))
@@ -138,7 +138,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                     CALL_SCRIPT_EVENT(m_Unit, OnFlee)(m_nextTarget);
 
                 SetAIState(STATE_FLEEING);
-                SetNextTarget(NULLUNIT);
+                SetNextTarget(NULL);
 
                 switch(sendflee_message)
                 {
@@ -155,7 +155,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 default:
                     {
                         stringstream ss;
-                        ss << TO_CREATURE( m_Unit )->GetCreatureData()->Name << " attempts to run away in fear!";
+                        ss << castPtr<Creature>( m_Unit )->GetCreatureData()->Name << " attempts to run away in fear!";
                         m_Unit->SendChatMessage(CHAT_MSG_MONSTER_EMOTE, LANG_UNIVERSAL, ss.str().c_str());
                     }break;
                 }
@@ -168,7 +168,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 FindFriends( 50.0f /*7.0f*/ );
                 m_hasCalledForHelp = true; // We only want to call for Help once in a Fight.
                 if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                    objmgr.HandleMonsterSayEvent( TO_CREATURE( m_Unit ), MONSTER_SAY_EVENT_CALL_HELP );
+                    objmgr.HandleMonsterSayEvent( castPtr<Creature>( m_Unit ), MONSTER_SAY_EVENT_CALL_HELP );
                 CALL_SCRIPT_EVENT( m_Unit, OnCallForHelp )();
                 return;
             }
@@ -189,7 +189,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 float dist = m_Unit->GetDistanceSq(m_nextTarget);
                 if(m_nextTarget->IsPlayer())
                 {
-                    if( TO_PLAYER( m_nextTarget )->m_currentMovement == MOVE_ROOT || dist >= 32.0f )
+                    if( castPtr<Player>( m_nextTarget )->m_currentMovement == MOVE_ROOT || dist >= 32.0f )
                         LastBehavior = Behavior_Ranged;
                     else
                         LastBehavior = Behavior_Melee;
@@ -250,7 +250,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
         case Behavior_Melee:
             {
                 if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                    TO_CREATURE(m_Unit)->SetSheatheForAttackType( 1 );
+                    castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 1 );
                 float combatReach = _CalcCombatRange(m_nextTarget, false); // Calculate Combat Reach
                 float distance = m_Unit->CalcDistance(m_nextTarget);
 
@@ -295,7 +295,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                                         if(info == NULL)
                                             return;
 
-                                        Spell* sp = new Spell(m_Unit, info, false, NULLAURA);
+                                        Spell* sp = new Spell(m_Unit, info, false, NULL);
                                         SpellCastTargets targets;
                                         targets.m_unitTarget = m_nextTarget->GetGUID();
                                         sp->prepare(&targets);
@@ -320,8 +320,8 @@ void AIInterface::_UpdateCombat(uint32 p_time)
             {
                 if( m_Unit->GetTypeId() == TYPEID_UNIT )
                 {
-                    TO_CREATURE(m_Unit)->SetSheatheForAttackType( 3 );
-                    TO_CREATURE(m_Unit)->SetUInt32Value(UNIT_NPC_EMOTESTATE, GetWeaponEmoteType(true));
+                    castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 3 );
+                    castPtr<Creature>(m_Unit)->SetUInt32Value(UNIT_NPC_EMOTESTATE, GetWeaponEmoteType(true));
                 }
 
                 float combatReach[2]; // Used Shooting Ranges
@@ -356,8 +356,8 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                             SpellEntry *info = dbcSpell.LookupEntry(3018);
                             if(info)
                             {
-                                Spell* sp = NULLSPELL;
-                                sp = new Spell(m_Unit, info, false, NULLAURA);
+                                Spell* sp = NULL;
+                                sp = new Spell(m_Unit, info, false, NULL);
                                 SpellCastTargets targets(m_nextTarget->GetGUID());
                                 sp->prepare(&targets);
                             }
@@ -383,7 +383,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                     sLog.Debug("AiAgents","NextSpell %u by NPC %u", m_CastNext->info->Id, GetUnit()->GetGUID());
 
                     if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                        TO_CREATURE(m_Unit)->SetSheatheForAttackType( 0 );
+                        castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 0 );
 
                     uint32 currentTime = getMSTime();
 
@@ -401,14 +401,14 @@ void AIInterface::_UpdateCombat(uint32 p_time)
             if(!m_Unit->isCasting())
             {
                 // no more target
-                SetNextTarget(NULLUNIT);
+                SetNextTarget(NULL);
                 HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
             }
         }
         else if(m_nextTarget->GetInstanceID() != m_Unit->GetInstanceID() || !m_nextTarget->isAlive() || !m_nextTarget->IsInWorld())
         {
             // no more target
-            SetNextTarget(NULLUNIT);
+            SetNextTarget(NULL);
             HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
         }
     }
@@ -456,12 +456,17 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         for(TargetMap::iterator itr = m_aiTargets.begin(), it2; itr != m_aiTargets.end();)
         {
             it2 = itr++;
-
-            if( it2->first->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || m_Unit->GetDistanceSq(it2->first) >= 6400.0f
-                || !sFactionSystem.CanEitherUnitAttack(m_Unit, it2->first))
+            if(Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first))
             {
-                m_aiTargets.erase( it2 );
+                if(unit->event_GetCurrentInstanceId() == m_Unit->event_GetInstanceID()
+                    && m_Unit->GetDistanceSq(unit) < 6400.0f)
+                {
+                    if(sFactionSystem.CanEitherUnitAttack(m_Unit, unit))
+                        continue;
+                }
             }
+
+            m_aiTargets.erase( it2 );
         }
         ai_TargetLock.Release();
 
@@ -478,7 +483,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
                 else firstLeaveCombat = false;
             }
         }
-        else if( m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && TO_PET(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
+        else if( m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && castPtr<Pet>(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
         {
             Unit* target = FindTarget();
             if( target )
@@ -500,17 +505,17 @@ Unit* AIInterface::FindTarget()
     ASSERT(m_Unit != NULL);
     // Faction check
     if(m_Unit->GetFaction() == NULL)
-        return NULLUNIT;
+        return NULL;
     // find nearest hostile Target to attack
     if( !m_AllowedToEnterCombat || m_fleeTimer || m_Unit->isDead() )
-        return NULLUNIT;
+        return NULL;
 
-    Unit *target = NULLUNIT, *critterTarget = NULLUNIT, *pUnit = NULLUNIT;
+    Unit *target = NULL, *critterTarget = NULL, *pUnit = NULL;
     float distance = 999999.0f, crange = 0.0f, z_diff = 0.0f, dist = 0.0f; // that should do it.. :p
 
     //target is immune to all form of attacks, cant attack either.
     if(m_Unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
-        return NULLUNIT;
+        return NULL;
 
     for( unordered_set<Unit* >::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); )
     {
@@ -567,9 +572,9 @@ Unit* AIInterface::FindTarget()
         data << m_Unit->GetGUID() << uint32(2);     // Aggro sound
         m_Unit->SendMessageToSet(&data, false);
         if(target->IsPet())
-            AttackReaction(TO_PET(target)->GetOwner(), 1, 0);
-        else if(target->IsSummon() && TO_SUMMON(target)->GetSummonOwner()->IsUnit())
-            AttackReaction(TO_UNIT(TO_SUMMON(target)->GetSummonOwner()), 1, 0);
+            AttackReaction(castPtr<Pet>(target)->GetOwner(), 1, 0);
+        else if(target->IsSummon() && castPtr<Summon>(target)->GetSummonOwner()->IsUnit())
+            AttackReaction(castPtr<Unit>(castPtr<Summon>(target)->GetSummonOwner()), 1, 0);
     }
     return target;
 }
@@ -581,7 +586,7 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
 
     // Fleeing means we shit our pants and hate no one
     if(m_fleeTimer || !m_AllowedToEnterCombat)
-        return NULLUNIT;
+        return NULL;
 
     //override mosthated with taunted target. Basic combat checks are made for it.
     //What happens if we can't see tauntedby unit ?
@@ -596,9 +601,8 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
     {
         itr = it2;
         ++it2;
-
-        /* check the target is valid */
-        if(itr->first->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || !itr->first->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, itr->first))
+        Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first); /* check the target is valid */
+        if(unit == NULL || (unit->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
         {
             m_aiTargets.erase(itr);
             continue;
@@ -607,14 +611,16 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
         if(itr->second == 0)
             continue; // Ignore non combat targets
 
-        if(!IsValidUnitTarget(itr->first, (sp == NULL ? NULL : sp->info), (sp == NULL ? TargetFilter_None : sp->TargetFilter), (sp == NULL ? 0.0f : sp->mindist2cast), (sp == NULL ? m_outOfCombatRange : sp->maxdist2cast)))
+        if(sp != NULL && !IsValidUnitTarget(unit, sp))
+            continue;
+        else if(!IsValidUnitTarget(unit, NULL, TargetFilter_None, 0.f, m_outOfCombatRange))
             continue;
 
-        if((itr->second + itr->first->GetThreatModifier()) > CurrentThreat)
+        if((itr->second + unit->GetThreatModifier()) > CurrentThreat)
         {
             /* new target */
-            ResultUnit = itr->first;
-            CurrentThreat = itr->second + itr->first->GetThreatModifier();
+            ResultUnit = unit;
+            CurrentThreat = itr->second + unit->GetThreatModifier();
             m_currentHighestThreat = CurrentThreat;
         }
 
@@ -630,11 +636,11 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
 
     // Fleeing means we shit our pants and hate no one
     if( m_fleeTimer || !m_AllowedToEnterCombat )
-        return NULLUNIT;
+        return NULL;
 
     Unit* ResultUnit = GetMostHated();
     pair< Unit*, int32> currentTarget;
-    currentTarget.first = NULLUNIT;
+    currentTarget.first = NULL;
     currentTarget.second = -1;
 
     ai_TargetLock.Acquire();
@@ -644,8 +650,8 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         itr = it2;
         ++it2;
 
-        /* check the target is valid */
-        if(itr->first->GetInstanceID() != m_Unit->GetInstanceID() || !itr->first->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, itr->first))
+        Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first); /* check the target is valid */
+        if(unit == NULL || (unit->GetInstanceID() != m_Unit->GetInstanceID() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
         {
             m_aiTargets.erase(itr);
             continue;
@@ -654,15 +660,16 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         if(itr->second == 0)
             continue; // Ignore non combat targets
 
-        if(!IsValidUnitTarget(itr->first, (sp == NULL ? NULL : sp->info), (sp == NULL ? TargetFilter_None : sp->TargetFilter), (sp == NULL ? 0.0f : sp->mindist2cast), (sp == NULL ? m_outOfCombatRange : sp->maxdist2cast)))
+        if(sp != NULL && !IsValidUnitTarget(unit, sp))
+            continue;
+        else if(!IsValidUnitTarget(unit, NULL, TargetFilter_None, 0.f, m_outOfCombatRange))
             continue;
 
-        if((itr->second + itr->first->GetThreatModifier()) > currentTarget.second &&
-            itr->first != ResultUnit)
+        if((itr->second + unit->GetThreatModifier()) > currentTarget.second && unit != ResultUnit)
         {
             /* new target */
-            currentTarget.first = itr->first;
-            currentTarget.second = itr->second + itr->first->GetThreatModifier();
+            currentTarget.first = unit;
+            currentTarget.second = itr->second + unit->GetThreatModifier();
             m_currentHighestThreat = currentTarget.second;
         }
     }
@@ -676,7 +683,7 @@ const static float baseAR[17] = {19.0f, 18.5f, 18.0f, 17.5f, 17.0f, 16.5f, 16.0f
 float AIInterface::_CalcAggroRange(Unit* target)
 {
     ASSERT(m_Unit != NULL);
-    if(!TO_CREATURE(m_Unit)->CanSee(target))
+    if(!castPtr<Creature>(m_Unit)->CanSee(target))
         return 0;
 
     int8 lvlDiff = target->getLevel() - m_Unit->getLevel();
@@ -708,8 +715,8 @@ float AIInterface::_CalcAggroRange(Unit* target)
         AggroRange += AggroRange * ((lvlDiff - 8) * 5 / 100);
 
     // Multiply by elite value
-    if(m_Unit->IsCreature() && TO_CREATURE(m_Unit)->GetCreatureData()->Rank > 0)
-        AggroRange *= (TO_CREATURE(m_Unit)->GetCreatureData()->Rank) * 1.50f;
+    if(m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData()->Rank > 0)
+        AggroRange *= (castPtr<Creature>(m_Unit)->GetCreatureData()->Rank) * 1.50f;
 
     if(AggroRange > 40.0f) // cap at 40.0f
         AggroRange = 40.0f;
@@ -718,7 +725,7 @@ float AIInterface::_CalcAggroRange(Unit* target)
     int32 modDetectRange = target->getDetectRangeMod(m_Unit->GetGUID());
     AggroRange += modDetectRange;
     if(target->IsPlayer())
-        AggroRange += TO_PLAYER( target )->DetectedRange;
+        AggroRange += castPtr<Player>( target )->DetectedRange;
     if(AggroRange < 5.0f)
         AggroRange = 5.0f;
     AggroRange *= 1.5f;
@@ -740,21 +747,10 @@ float AIInterface::_CalcCombatRange(Unit* target, bool ranged)
     return (targetradius + selfreach + selfradius + rang);
 }
 
-uint32 AIInterface::getThreatByGUID(uint64 guid)
-{
-    ASSERT(m_Unit != NULL);
-
-    Unit* obj = m_Unit->GetMapMgr()->GetUnit(guid);
-    if(obj)
-        return getThreatByPtr(obj);
-
-    return 0;
-}
-
-uint32 AIInterface::getThreatByPtr(Unit* obj)
+uint32 AIInterface::getThreat(WoWGuid guid)
 {
     ai_TargetLock.Acquire();
-    TargetMap::iterator it = m_aiTargets.find(obj);
+    TargetMap::iterator it = m_aiTargets.find(guid);
     if(it != m_aiTargets.end())
     {
         ai_TargetLock.Release();
@@ -764,149 +760,94 @@ uint32 AIInterface::getThreatByPtr(Unit* obj)
     return 0;
 }
 
-bool AIInterface::modThreatByGUID(uint64 guid, int32 mod)
+bool AIInterface::modThreat(WoWGuid guid, int32 mod, Unit *redirect, float redirectVal)
 {
     ASSERT(m_Unit != NULL);
 
-    if (!m_aiTargets.size())
-        return false;
-
-    Unit* obj = m_Unit->GetMapMgr()->GetUnit(guid);
-    if(obj != NULL)
-        return modThreatByPtr(obj, mod);
-    return false;
-}
-
-bool AIInterface::modThreatByPtr(Unit* obj, int32 mod)
-{
-    ASSERT(m_Unit != NULL);
-    if(obj == NULL)
-        return false;
-
-    int32 tempthreat;
-    if( obj->mThreatRTarget && mod > 0)
+    TargetMap::iterator it;
+    ai_TargetLock.Acquire();
+    if( redirect && mod > 0)
     {
-        int32 partmod = float2int32(mod * obj->mThreatRAmount);
-        mod -= partmod;
-        Unit* robj = obj->mThreatRTarget;
-        if( partmod && robj && robj->isAlive() && obj->GetDistanceSq(robj) < 1600 )
+        if(int32 partmod = float2int32(floor(float(mod)*redirectVal)))
         {
-            ai_TargetLock.Acquire();
-            TargetMap::iterator it = m_aiTargets.find(robj);
-            if(it != m_aiTargets.end())
+            mod -= partmod;
+            if((it = m_aiTargets.find(redirect->GetGUID())) == m_aiTargets.end())
             {
-                ai_TargetLock.Release();
-                it->second += partmod;
-                tempthreat = it->second + robj->GetThreatModifier();
-                if(tempthreat < 1)
-                    tempthreat = 1;
-                if(tempthreat > m_currentHighestThreat)
-                {
-                    // new target!
-                    if(!isTaunted)
-                    {
-                        m_currentHighestThreat = tempthreat;
-                        SetNextTarget(robj);
-                    }
-                }
-            }
-            else
+                m_aiTargets.insert(std::make_pair(redirect->GetGUID(), partmod));
+                it = m_aiTargets.find(redirect->GetGUID());
+            } else it->second += partmod;
+            ASSERT(it != m_aiTargets.end());
+
+            int32 tempthreat = it->second + redirect->GetThreatModifier();
+            if(tempthreat < 1) tempthreat = 1;
+            if(tempthreat > m_currentHighestThreat)
             {
-                m_aiTargets.insert( make_pair( robj, partmod ) );
-                ai_TargetLock.Release();
-                tempthreat = partmod + robj->GetThreatModifier();
-                if(tempthreat < 1)
-                    tempthreat = 1;
-                if(tempthreat > m_currentHighestThreat)
+                // new target!
+                if(!isTaunted)
                 {
-                    if(!isTaunted)
-                    {
-                        m_currentHighestThreat = tempthreat;
-                        SetNextTarget(robj);
-                    }
+                    m_currentHighestThreat = tempthreat;
+                    SetNextTarget(redirect);
                 }
             }
         }
     }
 
-    ai_TargetLock.Acquire();
-    TargetMap::iterator it = m_aiTargets.find(obj);
-    if( it != m_aiTargets.end() )
+    if((it = m_aiTargets.find(guid)) == m_aiTargets.end())
     {
-        it->second += mod;
-        if(it->second < 1)
-            it->second = 1;
-        tempthreat = it->second + obj->GetThreatModifier();
-        ai_TargetLock.Release();
+        m_aiTargets.insert(std::make_pair(guid, mod));
+        it = m_aiTargets.find(guid);
+    } else it->second += mod;
+    ASSERT(it != m_aiTargets.end());
+    if(it->second < 1) it->second = 1;
+    int32 threatVal = it->second;
+    ai_TargetLock.Release();
 
-        if(tempthreat < 1)
-            tempthreat = 1;
-        if( tempthreat > m_currentHighestThreat )
+    if(Unit *unit = m_Unit->GetMapMgr()->GetUnit(guid))
+    {
+        threatVal += unit->GetThreatModifier();
+        if(threatVal < 1) threatVal = 1;
+        if(threatVal > m_currentHighestThreat)
         {
             // new target!
             if( !isTaunted )
             {
-                m_currentHighestThreat = tempthreat;
-                SetNextTarget(obj);
-            }
-        }
-    }
-    else
-    {
-        m_aiTargets.insert( make_pair( obj, mod ) );
-        ai_TargetLock.Release();
-
-        tempthreat = mod + obj->GetThreatModifier();
-        if(tempthreat < 1)
-            tempthreat = 1;
-        if( tempthreat > m_currentHighestThreat )
-        {
-            if( !isTaunted )
-            {
-                m_currentHighestThreat = tempthreat;
-                SetNextTarget(obj);
+                m_currentHighestThreat = threatVal;
+                SetNextTarget(unit);
             }
         }
     }
 
-    if(obj == m_nextTarget)
+    if(m_nextTarget && m_nextTarget->GetGUID() == guid)
     {
         // check for a possible decrease in threat.
         if(mod < 0)
         {
-            SetNextTarget(GetMostHated());
-            //if there is no more new targets then we can walk back home ?
-            if(!m_nextTarget)
-                HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
+            if(!SetNextTarget(GetMostHated()))
+                HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0); //if there is no more new targets then we can walk back home ?
         }
     }
     return true;
 }
 
-void AIInterface::RemoveThreatByPtr(Unit* obj)
+void AIInterface::RemoveThreat(WoWGuid guid)
 {
     ASSERT(m_Unit != NULL);
 
-    if(!obj)
-        return;
-
     ai_TargetLock.Acquire();
-    TargetMap::iterator it = m_aiTargets.find(obj);
+    TargetMap::iterator it = m_aiTargets.find(guid);
     if(it != m_aiTargets.end())
     {
         m_aiTargets.erase(it);
         ai_TargetLock.Release();
         //check if we are in combat and need a new target
-        if(obj == m_nextTarget)
+        if(m_nextTarget && m_nextTarget->GetGUID() == guid)
         {
             SetNextTarget(GetMostHated());
             //if there is no more new targets then we can walk back home ?
             if( !m_nextTarget )
                 HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
         }
-    }
-    else
-        ai_TargetLock.Release();
+    } else ai_TargetLock.Release();
 }
 
 void AIInterface::WipeHateList()
@@ -930,7 +871,7 @@ void AIInterface::ClearHateList() //without leaving combat
 void AIInterface::WipeTargetList()
 {
     ASSERT(m_Unit != NULL);
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
     m_CastNext = NULL;
     m_currentHighestThreat = 0;
     ai_TargetLock.Acquire();
@@ -958,9 +899,9 @@ bool AIInterface::taunt(Unit* caster, bool apply)
         {
             //check if we have to add him to our agro list
             //GetMostHated(); //update our most hated list/ Note that at this point we do not have a taunter yet. If we would have then this funtion will not give real mosthated
-            int32 oldthreat = getThreatByPtr(caster);
+            int32 oldthreat = getThreat(caster->GetGUID());
             //make sure we rush the target anyway. Since we are not tauted yet, this will also set our target
-            modThreatByPtr(caster,abs(m_currentHighestThreat-oldthreat)+1); //we need to be the most hated at this moment
+            modThreat(caster->GetGUID(), abs(m_currentHighestThreat-oldthreat)+1); //we need to be the most hated at this moment
 //          SetNextTarget(caster);
         }
         isTaunted = true;
@@ -969,7 +910,7 @@ bool AIInterface::taunt(Unit* caster, bool apply)
     else
     {
         isTaunted = false;
-        tauntedBy = NULLUNIT;
+        tauntedBy = NULL;
         //taunt is over, we should get a new target based on most hated list
         SetNextTarget(GetMostHated());
     }
@@ -985,7 +926,7 @@ Unit* AIInterface::getTauntedBy()
     }
     else
     {
-        return NULLUNIT;
+        return NULL;
     }
 }
 
@@ -996,7 +937,7 @@ bool AIInterface::GetIsTaunted()
         if(!tauntedBy || !tauntedBy->isAlive())
         {
             isTaunted = false;
-            tauntedBy = NULLUNIT;
+            tauntedBy = NULL;
         }
     }
     return isTaunted;
@@ -1024,7 +965,7 @@ void AIInterface::CheckTarget(Unit* target)
 
         if (target == m_nextTarget)  // no need to cast on these.. mem addresses are still the same
         {
-            SetNextTarget(NULLUNIT);
+            SetNextTarget(NULL);
             m_CastNext = NULL;
 
             // find the one with the next highest threat
@@ -1044,7 +985,7 @@ void AIInterface::CheckTarget(Unit* target)
 
         if( target->GetAIInterface()->m_nextTarget == m_Unit )
         {
-            target->GetAIInterface()->m_nextTarget = NULLUNIT;
+            target->GetAIInterface()->m_nextTarget = NULL;
             target->GetAIInterface()->m_CastNext = NULL;
             target->GetAIInterface()->GetMostHated();
         }
@@ -1054,10 +995,10 @@ void AIInterface::CheckTarget(Unit* target)
     }
 
     if(target == getUnitToFear())
-        SetUnitToFear(NULLUNIT);
+        SetUnitToFear(NULL);
 
     if(tauntedBy == target)
-        tauntedBy = NULLUNIT;
+        tauntedBy = NULL;
 }
 
 uint32 AIInterface::_CalcThreat(uint32 damage, SpellEntry * sp, Unit* Attacker)
@@ -1092,8 +1033,8 @@ void AIInterface::WipeReferences()
     ai_TargetLock.Acquire();
     m_aiTargets.clear();
     ai_TargetLock.Release();
-    SetNextTarget(NULLUNIT);
-    SetUnitToFear(NULLUNIT);
+    SetNextTarget(NULL);
+    SetUnitToFear(NULL);
     ClearFollowInformation();
-    tauntedBy = NULLUNIT;
+    tauntedBy = NULL;
 }

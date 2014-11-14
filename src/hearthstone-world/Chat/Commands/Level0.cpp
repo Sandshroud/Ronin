@@ -131,7 +131,7 @@ bool ChatHandler::HandleCommandsCommand(const char* args, WorldSession *m_sessio
 
 bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
 {
-    Player* m_plyr = TO_PLAYER(getSelectedChar(m_session, true));
+    Player* m_plyr = castPtr<Player>(getSelectedChar(m_session, true));
     if( m_plyr == NULL)
         return false;
 
@@ -241,12 +241,12 @@ bool ChatHandler::HandleNYICommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleDismountCommand(const char* args, WorldSession *m_session)
 {
-    Unit* m_target = NULLUNIT;
+    Unit* m_target = NULL;
 
     Player* p_target = getSelectedChar(m_session, false);
 
     if(p_target)
-        m_target = TO_UNIT(p_target);
+        m_target = castPtr<Unit>(p_target);
     else
     {
         Creature* m_crt = getSelectedCreature(m_session, false);
@@ -351,26 +351,26 @@ bool ChatHandler::HandleGMListCommand(const char* args, WorldSession *m_session)
 bool ChatHandler::HandleRangeCheckCommand( const char *args , WorldSession *m_session )
 {
     WorldPacket data;
-    uint64 guid = m_session->GetPlayer()->GetSelection();
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
     m_session->SystemMessage( "=== RANGE CHECK ===" );
-    if (guid == 0)
+    if (!guid)
     {
-        m_session->SystemMessage("No selection imo.");
+        m_session->SystemMessage("No selection");
         return true;
     }
 
     Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit( guid );
     if(!unit)
     {
-        m_session->SystemMessage("Invalid selection imo.");
+        m_session->SystemMessage("Invalid selection");
         return true;
     }
-    float DistSq = unit->GetDistanceSq( TO_OBJECT(m_session->GetPlayer()) );
+    float DistSq = unit->GetDistanceSq( m_session->GetPlayer() );
     m_session->SystemMessage( "GetDistanceSq  :   %u" , FL2UINT( DistSq ) );
     LocationVector locvec( m_session->GetPlayer()->GetPositionX() , m_session->GetPlayer()->GetPositionY() , m_session->GetPlayer()->GetPositionZ() );
     float DistReal = unit->CalcDistance( locvec );
     m_session->SystemMessage( "CalcDistance   :   %u" , FL2UINT( DistReal ) );
-    float Dist2DSq = unit->GetDistance2dSq( TO_OBJECT(m_session->GetPlayer()) );
+    float Dist2DSq = unit->GetDistance2dSq( m_session->GetPlayer() );
     m_session->SystemMessage( "GetDistance2dSq:   %u" , FL2UINT( Dist2DSq ) );
     return true;
 }

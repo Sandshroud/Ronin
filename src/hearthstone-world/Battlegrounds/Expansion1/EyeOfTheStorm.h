@@ -29,7 +29,7 @@ public:
     void SpawnBuff(uint32 x);
     LocationVector GetStartingCoords(uint32 Team);
     static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new EyeOfTheStorm(m, i, l, t); }
-    uint32 GetFlagHolderGUID() { return m_flagHolder; }
+    WoWGuid GetFlagHolderGUID() { return m_flagHolder; }
 
     const char * GetName() { return "Eye of the Storm"; }
     void OnStart();
@@ -56,7 +56,7 @@ public:
 protected:
     uint32 m_resourceRewards[2];
     int32 m_CPStatus[EOTS_TOWER_COUNT];
-    uint32 m_flagHolder;
+    WoWGuid m_flagHolder;
 
     int m_bonusHonor;
     uint32 m_resToGainBH;

@@ -120,7 +120,7 @@ public:
         if(slot >= 0 && slot <= 12)
             return m_pBuyBack[slot];
         else
-            return NULLITEM;
+            return NULL;
     }
 
     void AddBuyBackItem(Item* it, uint32 price);

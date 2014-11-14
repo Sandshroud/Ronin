@@ -61,7 +61,7 @@ public:
 class SCRIPT_DECL MorriduneGossip : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player * plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player * plr, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 7247, plr);
@@ -72,7 +72,7 @@ public:
         Menu->SendTo(plr);
     }
     
-    void GossipSelectOption(Object *pObject, Player * plr, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject *pObject, Player * plr, uint32 Id, uint32 IntId, const char * Code)
     {
         switch (IntId)
         {

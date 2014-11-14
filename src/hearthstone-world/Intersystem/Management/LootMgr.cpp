@@ -748,13 +748,13 @@ void LootRoll::Finalize()
     uint32 guidtype = GUID_HIPART(_guid);
     if( guidtype == HIGHGUID_TYPE_CREATURE )
     {
-        Creature* pc = _mgr->GetCreature(GUID_LOPART(_guid));
-        if(pc) pLoot = &pc->m_loot;
+        if(Creature* pc = _mgr->GetCreature(GUID_LOPART(_guid)))
+            pLoot = pc->GetLoot();
     }
     else if( guidtype == HIGHGUID_TYPE_GAMEOBJECT )
     {
-        GameObject* go = _mgr->GetGameObject(GUID_LOPART(_guid));
-        if(go) pLoot = &go->m_loot;
+        if(GameObject* go = _mgr->GetGameObject(GUID_LOPART(_guid)))
+            pLoot = go->GetLoot();
     }
 
     if(!pLoot)
@@ -779,7 +779,7 @@ void LootRoll::Finalize()
         return;
     }
 
-    Player* _player = (player) ? _mgr->GetPlayer((uint32)player) : NULLPLR;
+    Player* _player = (player) ? _mgr->GetPlayer((uint32)player) : NULL;
     if(!player || !_player)
     {
         /* all passed */
@@ -818,26 +818,25 @@ void LootRoll::Finalize()
     if(hightype == DISENCHANT)
     {
         //generate Disenchantingloot
-        Item * pItem = objmgr.CreateItem( itemid, _player);
-        lootmgr.FillItemLoot(&pItem->m_loot, pItem->GetEntry(), _player->GetTeam());
-
-        //add loot
-        for(std::vector<__LootItem>::iterator iter=pItem->m_loot.items.begin();iter != pItem->m_loot.items.end();iter++)
+        if(Item *pItem = objmgr.CreateItem( itemid, _player))
         {
-            itemid =iter->item.itemproto->ItemId;
-            Item * Titem = objmgr.CreateItem( itemid, _player);
-            if( Titem == NULLITEM )
-                continue;
-            if( !_player->GetItemInterface()->AddItemToFreeSlot(Titem) )
+            lootmgr.FillItemLoot(pItem->GetLoot(), pItem->GetEntry(), _player->GetTeam());
+
+            //add loot
+            for(std::vector<__LootItem>::iterator iter = pItem->GetLoot()->items.begin();iter != pItem->GetLoot()->items.end();iter++)
             {
-                _player->GetSession()->SendNotification("No free slots were found in your inventory, item has been mailed.");
-                sMailSystem.DeliverMessage(MAILTYPE_NORMAL, _player->GetGUID(), _player->GetGUID(), "Loot Roll", "Here is your reward.", 0, 0, itemid, 1, true);
+                itemid =iter->item.itemproto->ItemId;
+                if(Item *Titem = objmgr.CreateItem( itemid, _player))
+                {
+                    if(_player->GetItemInterface()->AddItemToFreeSlot(Titem) == ADD_ITEM_RESULT_OK)
+                        continue;
+                    _player->GetSession()->SendNotification("No free slots were found in your inventory, item has been mailed.");
+                    sMailSystem.DeliverMessage(MAILTYPE_NORMAL, _player->GetGUID(), _player->GetGUID(), "Loot Roll", "Here is your reward.", 0, 0, itemid, 1, true);
+                    Titem->Destruct();
+                }
             }
-            Titem->DeleteMe();
-            Titem = NULLITEM;
+            pItem->Destruct();
         }
-        pItem->DeleteMe();
-        pItem = NULLITEM;
 
         // Set a looter, doesn't matter who.
         pLoot->items.at(_slotid).has_looted.insert(_player->GetLowGUID());
@@ -845,29 +844,28 @@ void LootRoll::Finalize()
         //Send "finish" packet
         data.Initialize(SMSG_LOOT_REMOVED);
         data << uint8(_slotid);
-        Player* plr;
         for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-        {
-            if((plr = _player->GetMapMgr()->GetPlayer(*itr)))
+            if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
                 plr->GetSession()->SendPacket(&data);
-        }
-
         delete this;    //end here and skip the rest
         return;
     }
 
     ItemPrototype* it = ItemPrototypeStorage.LookupEntry(itemid);
-
-    int8 error;
-    if((error = _player->GetItemInterface()->CanReceiveItem(it, 1, NULL)))
+    if(int8 error = _player->GetItemInterface()->CanReceiveItem(it, 1, NULL))
     {
-        _player->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, error);
+        _player->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, error);
         return;
     }
 
-    Item* add = _player->GetItemInterface()->FindItemLessMax(itemid, amt, false);
-
-    if (!add)
+    if(Item* add = _player->GetItemInterface()->FindItemLessMax(itemid, amt, false))
+    {
+        add->m_isDirty = true;
+        add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + amt);
+        sQuestMgr.OnPlayerItemPickup(_player, add, amt);
+        _player->GetSession()->SendItemPushResult(add, false, true, true, false, _player->GetItemInterface()->GetBagSlotByGuid(add->GetGUID()), 0xFFFFFFFF, 1);
+    }
+    else
     {
         SlotResult slotresult = _player->GetItemInterface()->FindFreeInventorySlot(it);
         if(!slotresult.Result)
@@ -876,49 +874,34 @@ void LootRoll::Finalize()
             sMailSystem.DeliverMessage(MAILTYPE_NORMAL, _player->GetGUID(), _player->GetGUID(), "Loot Roll", "Here is your reward.", 0, 0, it->ItemId, 1, true);
             data.Initialize(SMSG_LOOT_REMOVED);
             data << uint8(_slotid);
-            Player* plr;
             for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-            {
-                if((plr = _player->GetMapMgr()->GetPlayer(*itr)))
+                if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
                     plr->GetSession()->SendPacket(&data);
-            }
             delete this;
             return;
         }
 
         sLog.Debug("HandleAutostoreItem","AutoLootItem %u",itemid);
-        Item* item = objmgr.CreateItem( itemid, _player);
+        if(Item* item = objmgr.CreateItem( itemid, _player))
+        {
+            item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, amt);
+            if(pLoot->items.at(_slotid).iRandomProperty != NULL)
+            {
+                item->SetRandomProperty(pLoot->items.at(_slotid).iRandomProperty->ID);
+                item->ApplyRandomProperties(false);
+            }
+            else if(pLoot->items.at(_slotid).iRandomSuffix != NULL)
+            {
+                item->SetRandomSuffix(pLoot->items.at(_slotid).iRandomSuffix->id);
+                item->ApplyRandomProperties(false);
+            }
 
-        item->SetUInt32Value(ITEM_FIELD_STACK_COUNT,amt);
-        if(pLoot->items.at(_slotid).iRandomProperty!=NULL)
-        {
-            item->SetRandomProperty(pLoot->items.at(_slotid).iRandomProperty->ID);
-            item->ApplyRandomProperties(false);
+            if(_player->GetItemInterface()->SafeAddItem(item,slotresult.ContainerSlot, slotresult.Slot) == ADD_ITEM_RESULT_OK)
+            {
+                _player->GetSession()->SendItemPushResult(item,false,true,true,true,slotresult.ContainerSlot,slotresult.Slot,1);
+                sQuestMgr.OnPlayerItemPickup(_player, item, amt);
+            } else item->Destruct();
         }
-        else if(pLoot->items.at(_slotid).iRandomSuffix != NULL)
-        {
-            item->SetRandomSuffix(pLoot->items.at(_slotid).iRandomSuffix->id);
-            item->ApplyRandomProperties(false);
-        }
-
-
-        if( _player->GetItemInterface()->SafeAddItem(item,slotresult.ContainerSlot, slotresult.Slot) )
-        {
-            _player->GetSession()->SendItemPushResult(item,false,true,true,true,slotresult.ContainerSlot,slotresult.Slot,1);
-            sQuestMgr.OnPlayerItemPickup(_player, item, amt);
-        }
-        else
-        {
-            item->DeleteMe();
-            item = NULLITEM;
-        }
-    }
-    else
-    {
-        add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + amt);
-        add->m_isDirty = true;
-        sQuestMgr.OnPlayerItemPickup(_player, add, amt);
-        _player->GetSession()->SendItemPushResult(add, false, true, true, false, _player->GetItemInterface()->GetBagSlotByGuid(add->GetGUID()), 0xFFFFFFFF, 1);
     }
 
     // Set a looter, doesn't matter who.
@@ -927,13 +910,9 @@ void LootRoll::Finalize()
     // this gets sent to all looters
     data.Initialize(SMSG_LOOT_REMOVED);
     data << uint8(_slotid);
-    Player* plr;
     for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-    {
-        if((plr = _player->GetMapMgr()->GetPlayer(*itr)))
+        if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
             plr->GetSession()->SendPacket(&data);
-    }
-
     delete this;
 }
 

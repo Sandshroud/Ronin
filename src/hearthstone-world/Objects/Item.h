@@ -129,7 +129,6 @@ public:
     virtual void Destruct();
 
     void Create( uint32 itemid, Player* owner );
-    void DeleteMe();
 
     uint32 CalcMinDamage();
     uint32 CalcMaxDamage();
@@ -139,8 +138,6 @@ public:
 
     HEARTHSTONE_INLINE Player* GetOwner() const { return m_owner; }
     void SetOwner( Player* owner );
-
-    HEARTHSTONE_INLINE bool IsContainer(){ return ( m_objectTypeId == TYPEID_CONTAINER ) ? true : false; }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -188,8 +185,8 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    uint32 GetItemRandomPropertyId() const { return m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID]; }
-    uint32 GetItemRandomSuffixFactor() { return m_uint32Values[ITEM_FIELD_PROPERTY_SEED]; }
+    uint32 GetItemRandomPropertyId() const { return GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID); }
+    uint32 GetItemRandomSuffixFactor() { return GetUInt32Value(ITEM_FIELD_PROPERTY_SEED); }
 
     void SetItemRandomPropertyId(uint32 id)
     {
@@ -314,9 +311,11 @@ public:
     HEARTHSTONE_INLINE void SetCount( uint32 amt ) { SetUInt32Value( ITEM_FIELD_STACK_COUNT, amt ); }
     HEARTHSTONE_INLINE bool IsAmmoBag() { return (m_itemProto->Class == ITEM_CLASS_QUIVER); }
 
-    void RemoveFromWorld();
+    void SetInWorld() { m_inWorld = true; }
+    bool IsInWorld() { return m_inWorld; }
+    void RemoveFromWorld(bool destroy);
 
-    bool locked;
+    bool m_locked;
     bool m_isDirty;
 
     uint32 CountGemsWithLimitId(uint32 Limit);
@@ -340,11 +339,12 @@ public:
 protected:
     ItemPrototype* m_itemProto;
     EnchantmentMap Enchantments;
-    uint32 _fields[ITEM_END];//this mem is wasted in case of container... but this will be fixed in future
     Player* m_owner; // let's not bother the manager with unneeded requests
     uint32 random_prop;
     uint32 random_suffix;
     uint32 textid;
+
+    bool m_inWorld;
 
 public:
     bool StatsApplied;

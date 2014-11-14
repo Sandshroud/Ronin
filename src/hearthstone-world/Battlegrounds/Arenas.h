@@ -9,15 +9,15 @@ struct PlayerInfo;
 
 class Arena : public CBattleground
 {
-    set< GameObject* > m_gates;
+    std::set< GameObject* > m_gates;
     uint32 m_arenateamtype;
 
     uint32 m_pcWorldStates[2];
     GameObject* m_buffs[2];
 
     uint32 m_playersCount[2];
-    set<uint32> m_players2[2];
-    set<uint32> m_playersAlive;
+    std::set<WoWGuid> m_players2[2];
+    std::set<WoWGuid> m_playersAlive;
 
 public:
     bool rated_match;

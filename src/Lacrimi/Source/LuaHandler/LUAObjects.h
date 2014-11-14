@@ -23,9 +23,9 @@ public:
     LuaGossip() : GossipScript(), m_go_gossip_binding(NULL),m_item_gossip_binding(NULL),m_unit_gossip_binding(NULL) { LuaScript = true; }
     ~LuaGossip();
 
-    void GossipHello(Object* pObject, Player* Plr, bool AutoSend);
-    void GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode);
-    void GossipEnd(Object* pObject, Player* Plr);
+    void GossipHello(WorldObject* pObject, Player* Plr, bool AutoSend);
+    void GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode);
+    void GossipEnd(WorldObject* pObject, Player* Plr);
 
     LuaUnitGossipBinding * m_unit_gossip_binding;
     LuaItemGossipBinding * m_item_gossip_binding;
@@ -150,7 +150,7 @@ bool Lua_HookOnCastSpell(Player *pPlayer, SpellEntry *pSpell, Spell *spell);
 void Lua_HookOnTick();
 bool Lua_HookOnLogoutRequest(Player *pPlayer);
 void Lua_HookOnLogout(Player *pPlayer);
-void Lua_HookOnQuestAccept(Player *pPlayer, Quest *pQuest, Object *pQuestGiver);
+void Lua_HookOnQuestAccept(Player *pPlayer, Quest *pQuest, WorldObject *pQuestGiver);
 void Lua_HookOnZone(Player *pPlayer, uint32 Zone, uint32 oldZone);
 bool Lua_HookOnChat(Player *pPlayer, uint32 Type, uint32 Lang, const char *Message, const char *Misc);
 void Lua_HookOnLoot(Player *pPlayer, Unit *pTarget, uint32 Money, uint32 ItemId);
@@ -158,10 +158,10 @@ void Lua_HookOnGuildCreate(Player *pLeader, GuildInfo *pGuild);
 void Lua_HookOnEnterWorld2(Player *pPlayer);
 void Lua_HookOnCharacterCreate(Player *pPlayer);
 void Lua_HookOnQuestCancelled(Player *pPlayer, Quest *pQuest);
-void Lua_HookOnQuestFinished(Player *pPlayer, Quest *pQuest, Object *pQuestGiver);
+void Lua_HookOnQuestFinished(Player *pPlayer, Quest *pQuest, WorldObject *pQuestGiver);
 void Lua_HookOnHonorableKill(Player *pPlayer, Player *pKilled);
 void Lua_HookOnArenaFinish(Player *pPlayer, ArenaTeam *pTeam, bool victory, bool rated);
-void Lua_HookOnObjectLoot(Player *pPlayer, Object *pTarget, uint32 Money, uint32 ItemId);
+void Lua_HookOnObjectLoot(Player *pPlayer, WorldObject *pTarget, uint32 Money, uint32 ItemId);
 void Lua_HookOnAreaTrigger(Player *pPlayer, uint32 areaTrigger);
 void Lua_HookOnPostLevelUp(Player *pPlayer);
 bool Lua_HookOnPreUnitDie(Unit *Killer, Unit *Victim);

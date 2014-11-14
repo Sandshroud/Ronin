@@ -143,7 +143,7 @@ QuestLogEntry::QuestLogEntry()
 
 QuestLogEntry::~QuestLogEntry()
 {
-    m_plr = NULLPLR;
+    m_plr = NULL;
     m_quest = NULL;
 }
 

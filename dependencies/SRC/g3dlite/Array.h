@@ -20,7 +20,7 @@
 #include "MemoryManager.h"
 #ifdef G3D_DEBUG
 //   For formatting error messages
-#    include "G3D/format.h"
+#    include <g3dlite/format.h>
 #endif
 #include <vector>
 #include <algorithm>

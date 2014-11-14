@@ -846,11 +846,11 @@ int LuaUnit_GetRandomPlayer(lua_State * L, Unit * ptr)
 int LuaUnit_GetRandomFriend(lua_State * L, Unit * ptr)
 {
     TEST_UNIT();
-    Object* obj;
+    WorldObject* obj;
     Unit* ret = NULL;
     uint32 count = 0;
 
-    for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+    for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
     {
         obj = (*itr);
         if (obj->IsUnit() && sFactionSystem.isFriendly(obj,ptr))
@@ -861,7 +861,7 @@ int LuaUnit_GetRandomFriend(lua_State * L, Unit * ptr)
     {
         uint32 r = RandomUInt(count-1);
         count = 0;
-        for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+        for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
         {
             obj = (*itr);
             if (!obj->IsUnit() || !sFactionSystem.isFriendly(obj,ptr))
@@ -886,11 +886,11 @@ int LuaUnit_GetRandomFriend(lua_State * L, Unit * ptr)
 int LuaUnit_GetRandomEnemy(lua_State * L, Unit * ptr)
 {
     TEST_UNIT();
-    Object* obj;
+    WorldObject* obj;
     Unit* ret = NULL;
     uint32 count = 0;
 
-    for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+    for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
     {
         obj = (*itr);
         if (obj->IsUnit() && !sFactionSystem.isFriendly(obj,ptr))
@@ -901,7 +901,7 @@ int LuaUnit_GetRandomEnemy(lua_State * L, Unit * ptr)
     {
         uint32 r = RandomUInt(count-1);
         count = 0;
-        for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+        for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
         {
             obj = (*itr);
             if (!obj->IsUnit() || sFactionSystem.isFriendly(obj,ptr))
@@ -965,10 +965,10 @@ int LuaUnit_Despawn(lua_State * L, Unit * ptr)
 }
 int LuaUnit_GetInRangeFriends(lua_State * L, Unit * ptr)
 {
-    Object * pC = NULL;
+    WorldObject * pC = NULL;
     uint32 count = 0;
     lua_newtable(L);
-    for( unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
+    for( unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
     {
         if( (*itr) ->IsUnit() )
         {
@@ -1556,7 +1556,7 @@ int LuaUnit_SetOrientation(lua_State * L, Unit * ptr)
 }
 int LuaUnit_CalcDistance(lua_State * L, Unit * ptr)
 {
-    Object * ob = Lunar<Object>::check(L,1);
+    WorldObject * ob = Lunar<WorldObject>::check(L,1);
     if(ob)
         lua_pushnumber(L,(float)ptr->CalcDistance(ob));
     return 1;
@@ -1910,7 +1910,7 @@ int LuaUnit_SetAttackTimer(lua_State * L, Unit * ptr)
 int LuaUnit_Kill(lua_State * L, Unit * ptr)
 {
     CHECK_TYPEID(TYPEID_UNIT);
-    Object * plr = ptr;
+    WorldObject * plr = ptr;
     Unit * target = Lunar<Unit>::check(L, 1);
     if (!plr ||!target)
         return 0;
@@ -1920,7 +1920,7 @@ int LuaUnit_Kill(lua_State * L, Unit * ptr)
 int LuaUnit_DealDamage(lua_State * L, Unit * ptr)
 {
     CHECK_TYPEID(TYPEID_UNIT);
-    Object * plr = ptr;
+    WorldObject * plr = ptr;
     Unit * target = Lunar<Unit>::check(L, 1);
     uint32 damage = luaL_checkint(L, 2);
     uint32 spellid = luaL_checkint(L, 3);
@@ -2131,10 +2131,10 @@ int LuaUnit_GetInRangePlayers(lua_State * L, Unit * ptr)
 }
 int LuaUnit_GetInRangeGameObjects(lua_State * L, Unit * ptr)
 {
-    Object * ret = NULL;
+    WorldObject * ret = NULL;
     lua_newtable(L);
     uint32 count = 0;
-    for (unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin();itr!= ptr->GetInRangeSetEnd();itr++)
+    for (unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin();itr!= ptr->GetInRangeSetEnd();itr++)
     {
         if( (*itr) ->GetTypeId() == TYPEID_GAMEOBJECT)
         {
@@ -4400,9 +4400,9 @@ int LuaUnit_GetClosestEnemy(lua_State * L, Unit * ptr)
     TEST_UNITPLAYER();
     float closest_dist = 99999.99f;
     float current_dist = 0;
-    Object * closest_unit = NULL;
+    WorldObject * closest_unit = NULL;
     Unit * ret = NULL;
-    for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+    for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
     {
         closest_unit = (*itr);
         if(!closest_unit->IsUnit() || !sFactionSystem.isHostile(ptr,closest_unit) )
@@ -4423,9 +4423,9 @@ int LuaUnit_GetClosestFriend(lua_State * L, Unit * ptr)
     TEST_UNITPLAYER();
     float closest_dist = 99999.99f;
     float current_dist = 0.0f;
-    Object * closest_unit = NULL;
+    WorldObject * closest_unit = NULL;
     Unit * ret = NULL;
-    for (unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+    for (unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
     {
         closest_unit = (*itr);
         if (!closest_unit->IsUnit() || sFactionSystem.isHostile(closest_unit, ptr))
@@ -4537,7 +4537,7 @@ int LuaUnit_GetObject(lua_State * L, Unit * ptr)
 {
     TEST_UNIT();
     uint64 guid = luaL_checkint(L,1);
-    Object * obj = ptr->GetMapMgr()->_GetObject(guid);
+    WorldObject * obj = ptr->GetMapMgr()->_GetObject(guid);
     if(obj != NULL && obj->IsUnit() )
         Lunar<Unit>::push(L, TO_UNIT(obj));
     else if(obj != NULL && obj->IsGameObject() )
@@ -4612,13 +4612,13 @@ int LuaUnit_IsInRaid(lua_State * L, Unit * ptr)
 }
 int LuaUnit_IsHostile(lua_State*  L, Unit * ptr)
 {
-    Object * B = Lunar<Object>::check(L,1);
+    WorldObject * B = Lunar<WorldObject>::check(L,1);
     lua_pushboolean(L, sFactionSystem.isHostile(ptr,B));
     return 1;
 }
 int LuaUnit_IsAttackable(lua_State*  L, Unit * ptr)
 {
-    Object * B = Lunar<Object>::check(L,1);
+    WorldObject * B = Lunar<WorldObject>::check(L,1);
     lua_pushboolean(L, sFactionSystem.isAttackable(ptr,B));
     return 1;
 }
@@ -5350,10 +5350,10 @@ int LuaUnit_AggroWithInRangeFriends(lua_State * L, Unit * ptr)
         return 0;
 
     Unit * pUnit = NULL;
-    for(unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
+    for(unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); ++itr)
     {
-        Object * obj = TO_OBJECT(*itr);
-        // No Object, Object Isn't a Unit, Unit is Dead
+        WorldObject * obj = TO_OBJECT(*itr);
+        // No WorldObject, WorldObject Isn't a Unit, Unit is Dead
         if (!obj || !obj->IsUnit() || TO_UNIT(obj)->isDead())
             continue;
 
@@ -5375,7 +5375,7 @@ int LuaUnit_AggroWithInRangeFriends(lua_State * L, Unit * ptr)
 
 int LuaUnit_GetDistanceYards(lua_State * L, Unit * ptr)
 {
-    Object * target = CHECK_OBJECT(L, 1);
+    WorldObject * target = CHECK_OBJECT(L, 1);
     if(!ptr || !target)
         return 0;
     LocationVector vec = ptr->GetPosition();
@@ -5591,7 +5591,7 @@ int LuaUnit_GetInRangeEnemies(lua_State * L, Unit * ptr)
 {
     /*uint32 count = 0;
     lua_newtable(L);
-    for( set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
+    for( set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
     {
         if( (*itr) ->IsUnit() && !isFriendly(ptr, (*itr)) )
         {
@@ -5608,7 +5608,7 @@ int LuaUnit_GetInRangeUnits(lua_State * L, Unit * ptr)
 {
 /*  uint32 count = 0;
     lua_newtable(L);
-    for( set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
+    for( set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd(); itr++)
     {
         if( (*itr) ->IsUnit() )
         {

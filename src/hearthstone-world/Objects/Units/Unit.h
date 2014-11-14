@@ -19,6 +19,7 @@ class Spell;
 class AIInterface;
 class GameObject;
 class Creature;
+class Vehicle;
 struct CreatureData;
 
 typedef struct
@@ -261,12 +262,13 @@ enum INVIS_FLAG
     INVIS_FLAG_TOTAL
 };
 
-enum FIELD_PADDING//Since this field isnt used you can expand it for you needs
-{
-    PADDING_NONE
-};
-
 typedef std::list<struct ProcTriggerSpellOnSpell> ProcTriggerSpellOnSpellList;
+
+// Threat Redirect Handler
+class SERVER_DECL ThreatRedirectHandler
+{
+
+};
 
 /************************************************************************/
 /* "In-Combat" Handler                                                  */
@@ -496,13 +498,13 @@ private:
 //  Base object for Players and Creatures
 //====================================================================
 
-class SERVER_DECL Unit : public Object
+class SERVER_DECL Unit : public WorldObject
 {
     friend class AIInterface;
 public:
     void CombatStatusHandler_UpdateTargets();
 
-    Unit();
+    Unit(uint64 guid);
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();
@@ -581,14 +583,14 @@ public:
 
     UnitBaseStats *baseStats;
 
-    HEARTHSTONE_INLINE uint32 getLevel() { return m_uint32Values[ UNIT_FIELD_LEVEL ]; };
+    HEARTHSTONE_INLINE uint32 getLevel() { return GetUInt32Value(UNIT_FIELD_LEVEL); };
     HEARTHSTONE_INLINE uint8 getRace() { return GetByte(UNIT_FIELD_BYTES_0,0); }
     HEARTHSTONE_INLINE uint8 getClass() { return GetByte(UNIT_FIELD_BYTES_0,1); }
     HEARTHSTONE_INLINE uint32 getClassMask() { return 1 << (getClass() - 1); }
     HEARTHSTONE_INLINE uint32 getRaceMask() { return 1 << (getRace() - 1); }
     HEARTHSTONE_INLINE uint8 getGender() { return GetByte(UNIT_FIELD_BYTES_0,2); }
     HEARTHSTONE_INLINE uint8 getPowerType() { return (GetByte(UNIT_FIELD_BYTES_0, 3));}
-    HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)m_uint32Values[UNIT_FIELD_BYTES_1]); }
+    HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)GetUInt32Value(UNIT_FIELD_BYTES_1)); }
     HEARTHSTONE_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
     HEARTHSTONE_INLINE string GetClassNames(bool FullCaps = false)
@@ -660,7 +662,7 @@ public:
     void SendPowerUpdate(EUnitFields powerField = UNIT_END);
 
     void EventModelChange();
-    HEARTHSTONE_INLINE float GetModelHalfSize() { return m_modelhalfsize * m_floatValues[OBJECT_FIELD_SCALE_X]; }
+    HEARTHSTONE_INLINE float GetModelHalfSize() { return m_modelhalfsize * GetObjectScale(); }
 
     HEARTHSTONE_INLINE void setHRegenTimer(uint32 time) {m_H_regenTimer = time; }
     HEARTHSTONE_INLINE void setPRegenTimer(uint32 time) {m_P_regenTimer = time; }
@@ -814,7 +816,7 @@ public:
 
     uint32 SchoolCastPrevent[7];
 
-    uint32 AbsorbDamage(Object* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
+    uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
     int32 RAPvModifier;
     int32 APvModifier;
     uint64 stalkedby;
@@ -899,7 +901,7 @@ public:
     uint32 m_vehicleEntry;
     VehicleSeatEntry* m_vehicleSeats[8];
     HEARTHSTONE_INLINE Unit* GetControllingUnit() { return m_passengers[0]; }
-    HEARTHSTONE_INLINE Player* GetControllingPlayer() { return (m_passengers[0] ? m_passengers[0]->IsPlayer() ? TO_PLAYER(m_passengers[0]) : NULL : NULL); }
+    HEARTHSTONE_INLINE Player* GetControllingPlayer() { return (m_passengers[0] ? m_passengers[0]->IsPlayer() ? castPtr<Player>(m_passengers[0]) : NULL : NULL); }
 
     HEARTHSTONE_INLINE uint32 GetVehicleEntry() { return m_vehicleEntry; };
     HEARTHSTONE_INLINE void SetVehicleEntry(uint32 entry) { m_vehicleEntry = entry; }
@@ -914,9 +916,9 @@ public:
     HEARTHSTONE_INLINE Unit* GetVehicle(bool forcevehicle = false)
     {
         if(m_CurrentVehicle)
-            return TO_UNIT(m_CurrentVehicle);
+            return castPtr<Unit>(m_CurrentVehicle);
         if(pVehicle && !forcevehicle)
-            return TO_UNIT(pVehicle);
+            return castPtr<Unit>(pVehicle);
         return NULL;
     }
 
@@ -931,16 +933,16 @@ public:
         }
 
         if(v->IsVehicle())
-            m_CurrentVehicle = TO_VEHICLE(v);
+            m_CurrentVehicle = castPtr<Vehicle>(v);
         else if(v->IsPlayer())
-            pVehicle = TO_PLAYER(v);
+            pVehicle = castPtr<Player>(v);
     }
 
     bool CanEnterVehicle(Player * requester);
 
     //In-Range
-    virtual void AddInRangeObject(Object* pObj);
-    virtual void OnRemoveInRangeObject(Object* pObj);
+    virtual void AddInRangeObject(WorldObject* pObj);
+    virtual void OnRemoveInRangeObject(WorldObject* pObj);
     void ClearInRangeSet();
 
     HEARTHSTONE_INLINE void AddDelayedSpell(Spell* toAdd) { DelayedSpells.insert(toAdd); };
@@ -1099,8 +1101,8 @@ public:
     bool m_temp_summon;
 
     // Redirect Threat shit
-    Unit* mThreatRTarget;
-    float mThreatRAmount;
+    WoWGuid m_threadRTarget;
+    float m_threatRAmount;
 
     void EventCancelSpell(Spell* ptr);
 
@@ -1198,7 +1200,7 @@ public:
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 
 public: // Movement Info.
-    uint64 GetTransportGuid() { return movement_info.transGuid.GetOldGuid(); };
+    uint64 GetTransportGuid() { return movement_info.transGuid; };
 
     HEARTHSTONE_INLINE MovementInfo* GetMovementInfo() { return &movement_info; }
 
@@ -1262,7 +1264,7 @@ public:
 public:
     void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );
     void Teleport(float x, float y, float z, float o, int32 phasemask = 1);
-    void SetRedirectThreat(Unit * target, float amount, uint32 Duaration);
+    void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
     void SetSpeed(uint8 SpeedType, float value);
     void SendHeartBeatMsg( bool toself );

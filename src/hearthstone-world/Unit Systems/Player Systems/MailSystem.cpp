@@ -257,7 +257,7 @@ bool Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
             data << pItem->GetUInt32Value( ITEM_FIELD_DURABILITY );
             data << uint8(0);
             pItem->DeleteMe();
-            pItem = NULLITEM;
+            pItem = NULL;
         }
         data.put< uint8 >( pos, i );
     }
@@ -487,7 +487,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
             return;
         }
 
-        if( ( pItem->IsContainer() && (TO_CONTAINER( pItem ))->HasItems() ) || real_item_slot >= 0 && real_item_slot < INVENTORY_SLOT_ITEM_START )
+        if( ( pItem->IsContainer() && (castPtr<Container>( pItem ))->HasItems() ) || real_item_slot >= 0 && real_item_slot < INVENTORY_SLOT_ITEM_START )
         {
             SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_CANT_TRADE_EQUIP_BAGS);
             return;
@@ -610,7 +610,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
 
             sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
             pItem->RemoveFromWorld();
-            pItem->SetOwner( NULLPLR );
+            pItem->SetOwner( NULL );
             pItem->SaveToDB( INVENTORY_SLOT_NOT_SET, 0, true, NULL );
             msg.items.push_back( pItem->GetUInt32Value(OBJECT_FIELD_GUID) );
 
@@ -618,7 +618,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
                 sWorld.LogGM(this, "sent mail with item entry %u to %s, with gold %u.", pItem->GetEntry(), player->name, msg.money);
 
             pItem->DeleteMe();
-            pItem = NULLITEM;
+            pItem = NULL;
         }
     }
 
@@ -738,7 +738,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
         SendPacket(&data);
 
         item->DeleteMe();
-        item = NULLITEM;
+        item = NULL;
         return;
     }
 
@@ -752,7 +752,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
             data << uint32(MAIL_ERR_BAG_FULL);
             SendPacket(&data);
             item->DeleteMe();
-            item = NULLITEM;
+            item = NULL;
             return;
         }
     }
@@ -815,9 +815,7 @@ void WorldSession::HandleTakeMoney(WorldPacket & recv_data )
         data << uint32(MAIL_ERR_INTERNAL_ERROR);
         SendPacket(&data);
         return;
-    }
-    else
-        _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, message->money);
+    } else _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, message->money);
 
     // force save
     _player->SaveToDB(false);
@@ -915,7 +913,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket & recv_data )
     else
     {
         pItem->DeleteMe();
-        pItem = NULLITEM;
+        pItem = NULL;
     }
 }
 

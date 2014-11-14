@@ -215,7 +215,7 @@ void LuaEngine::EndCall(uint8 res)
 /******************************************************************************
     PUSH METHODS
 ******************************************************************************/
-void LuaEngine::PushUnit(Object * unit, lua_State * LuaS) 
+void LuaEngine::PushUnit(WorldObject * unit, lua_State * LuaS) 
 {
     Unit * pUnit = NULL;
     if(unit != NULL && unit->IsUnit()) 
@@ -226,7 +226,7 @@ void LuaEngine::PushUnit(Object * unit, lua_State * LuaS)
         Lunar<Unit>::push(LuaS, pUnit);
 }
 
-void LuaEngine::PushGo(Object *go, lua_State *LuaS)
+void LuaEngine::PushGo(WorldObject *go, lua_State *LuaS)
 {
     GameObject * pGo = NULL;
     if(go != NULL && go->IsGameObject())
@@ -237,7 +237,7 @@ void LuaEngine::PushGo(Object *go, lua_State *LuaS)
         Lunar<GameObject>::push(LuaS, pGo);
 }
 
-void LuaEngine::PushItem(Object * item, lua_State *LuaS)
+void LuaEngine::PushItem(WorldObject * item, lua_State *LuaS)
 {
     Item * pItem = NULL;
     if(item != NULL && (item->GetTypeId() == TYPEID_ITEM || item->GetTypeId() == TYPEID_CONTAINER))

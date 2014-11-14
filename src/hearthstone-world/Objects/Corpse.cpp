@@ -4,18 +4,13 @@
 
 #include "StdAfx.h"
 
-Corpse::Corpse(uint32 high, uint32 low)
+Corpse::Corpse(uint32 high, uint32 low) : WorldObject(MAKE_NEW_GUID(low, 0, high))
 {
-    m_objectTypeId = TYPEID_CORPSE;
-    m_valuesCount = CORPSE_END;
-    m_uint32Values = _fields;
-    memset(m_uint32Values, 0, (CORPSE_END)*sizeof(uint32));
+    m_valuesCount += CORPSE_LENGTH;
     m_updateMask.SetCount(CORPSE_END);
-    SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_CORPSE|TYPEMASK_OBJECT);
-    SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));
-    m_wowGuid = GetGUID();
-
-    SetFloatValue( OBJECT_FIELD_SCALE_X, 1 );//always 1
+    m_object.m_objType |= TYPEMASK_TYPE_CORPSE;
+    m_raw.values[OBJECT_LAYER_CORPSE] = new uint32[CORPSE_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_CORPSE], 0, (CORPSE_LENGTH)*sizeof(uint32));
     m_state = CORPSE_STATE_BODY;
     _loadedfromdb = false;
 }
@@ -27,27 +22,27 @@ Corpse::~Corpse()
 
 void Corpse::Init()
 {
-    Object::Init();
+    WorldObject::Init();
     if(GetUInt32Value(OBJECT_FIELD_GUID+1) != 0)
-        objmgr.AddCorpse(TO_CORPSE(this));
+        objmgr.AddCorpse(castPtr<Corpse>(this));
 }
 
 void Corpse::Destruct()
 {
     if(objmgr.GetCorpse(GetLowGUID()))
         objmgr.RemoveCorpse(this);
-    Object::Destruct();
+    WorldObject::Destruct();
 }
 
 void Corpse::Create( uint32 owner, uint32 mapid, float x, float y, float z, float ang )
 {
-    Object::_Create( mapid, x, y, z, ang);
+    WorldObject::_Create( mapid, x, y, z, ang);
     SetUInt32Value( CORPSE_FIELD_OWNER, owner);
 }
 
 void Corpse::Create( Player* owner, uint32 mapid, float x, float y, float z, float ang )
 {
-    Object::_Create( mapid, x, y, z, ang);
+    WorldObject::_Create( mapid, x, y, z, ang);
     if(owner)
     {
         SetUInt32Value( CORPSE_FIELD_OWNER, owner->GetLowGUID());
@@ -121,7 +116,7 @@ void Corpse::SpawnBones()
             SetUInt32Value(CORPSE_FIELD_ITEM + i, 0);
     }
     DeleteFromDB();
-    objmgr.CorpseAddEventDespawn(TO_CORPSE(this));
+    objmgr.CorpseAddEventDespawn(castPtr<Corpse>(this));
     SetCorpseState(CORPSE_STATE_BONES);
 }
 

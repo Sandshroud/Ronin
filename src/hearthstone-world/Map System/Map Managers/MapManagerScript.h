@@ -48,7 +48,7 @@ public:
     // Procedures that had been here before
     virtual void SetLockOptions( uint32 pEntryId, GameObject* pGameObject ) {};
     virtual uint32 GetRespawnTimeForCreature( uint32 pEntryId, Creature* pCreature) { return 240000; };
-    virtual GameObject* GetObjectForOpenLock( Player* pCaster, Spell* pSpell, SpellEntry* pSpellEntry ) { return NULLGOB; };
+    virtual GameObject* GetObjectForOpenLock( Player* pCaster, Spell* pSpell, SpellEntry* pSpellEntry ) { return NULL; };
 
     // Player
     virtual void OnPlayerDeath( Player* pVictim, Unit* pKiller ) {};
@@ -103,8 +103,8 @@ public: // Functions for easy scripting
     Player *FindClosestPlayer( float pX, float pY, float pZ, Player* pCheck = NULL );
 
     // Distance calculation
-    float GetRangeToObject( Object *pObjectA, Object *pObjectB );
-    float GetRangeToObject( Object *pObject, float pX, float pY, float pZ );
+    float GetRangeToObject( WorldObject *pObjectA, WorldObject *pObjectB );
+    float GetRangeToObject( WorldObject *pObject, float pX, float pY, float pZ );
     float GetRangeToObject( float pX1, float pY1, float pZ1, float pX2, float pY2, float pZ2 );
 
     // Player and instance - reimplementation for easier calling

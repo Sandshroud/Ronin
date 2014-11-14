@@ -276,7 +276,7 @@ int LuaPacket_WriteWoWGuid(lua_State * L, WorldPacket * packet)
     if(packet == NULL)
         RET_NIL(false);
 
-    Object * target = CHECK_OBJECT(L,1);
+    WorldObject * target = CHECK_OBJECT(L,1);
     if(target == NULL)
         RET_NIL(false);
 

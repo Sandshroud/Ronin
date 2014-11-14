@@ -199,8 +199,8 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                 if(aur->GetSpellProto()->DispelType == DISPEL_MAGIC && aur->GetDuration() > 0)
                 {
                     WorldPacket data(SMSG_SPELLDISPELLOG, 16);
-                    data << caster->GetNewGUID();
-                    data << m_Unit->GetNewGUID();
+                    data << caster->GetGUID();
+                    data << m_Unit->GetGUID();
                     data << uint32(1);
                     data << aur->GetSpellId();
                     caster->SendMessageToSet(&data,true);
@@ -349,8 +349,8 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
                         if(Dispelling->DispelType == DISPEL_ALL)
                         {
                             data.clear();
-                            data << caster->GetNewGUID();
-                            data << m_Unit->GetNewGUID();
+                            data << caster->GetGUID();
+                            data << m_Unit->GetGUID();
                             data << (uint32)1;//probably dispel type
                             data << aur->GetSpellId();
                             caster->SendMessageToSet(&data,true);
@@ -361,8 +361,8 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
                         else if(aur->GetSpellProto()->DispelType == Dispelling->EffectMiscValue[index])
                         {
                             data.clear();
-                            data << caster->GetNewGUID();
-                            data << m_Unit->GetNewGUID();
+                            data << caster->GetGUID();
+                            data << m_Unit->GetGUID();
                             data << (uint32)1;
                             data << aur->GetSpellId();
                             caster->SendMessageToSet(&data,true);
@@ -676,7 +676,7 @@ bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, uint64 casterg
 bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 {
     uint32 maxStack = aur->GetSpellProto()->maxstack;
-    if( m_Unit->IsPlayer() && TO_PLAYER(m_Unit)->stack_cheat )
+    if( m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->stack_cheat )
         maxStack = 255;
 
     std::set<uint8> m_aurasToRemove;
@@ -769,7 +769,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 
 void AuraInterface::AddAura(Aura* aur)
 {
-    Unit* pCaster = NULLUNIT;
+    Unit* pCaster = NULL;
     if(aur->GetUnitTarget() != NULL)
         pCaster = aur->GetUnitCaster();
     else if( aur->GetCasterGUID() == m_Unit->GetGUID() )
@@ -884,7 +884,7 @@ void AuraInterface::AddAura(Aura* aur)
     {
         if(pCaster != NULL && m_Unit->isAlive())
         {
-            pCaster->CombatStatus.OnDamageDealt(TO_UNIT(this), 1);
+            pCaster->CombatStatus.OnDamageDealt(castPtr<Unit>(this), 1);
 
             if(m_Unit->IsCreature())
                 m_Unit->GetAIInterface()->AttackReaction(pCaster, 1, aur->GetSpellId());
@@ -1400,7 +1400,7 @@ Aura* AuraInterface::FindAura(uint32 spellId, uint64 guid)
             }
         }
     }
-    return NULLAURA;
+    return NULL;
 }
 
 Aura* AuraInterface::FindPositiveAuraByNameHash(uint32 namehash)
@@ -1415,7 +1415,7 @@ Aura* AuraInterface::FindPositiveAuraByNameHash(uint32 namehash)
             }
         }
     }
-    return NULLAURA;
+    return NULL;
 }
 
 Aura* AuraInterface::FindNegativeAuraByNameHash(uint32 namehash)
@@ -1430,7 +1430,7 @@ Aura* AuraInterface::FindNegativeAuraByNameHash(uint32 namehash)
             }
         }
     }
-    return NULLAURA;
+    return NULL;
 }
 
 Aura* AuraInterface::FindActiveAura(uint32 spellId, uint64 guid)
@@ -1445,7 +1445,7 @@ Aura* AuraInterface::FindActiveAura(uint32 spellId, uint64 guid)
             }
         }
     }
-    return NULLAURA;
+    return NULL;
 }
 
 Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, uint64 guid)
@@ -1460,7 +1460,7 @@ Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, uint64 guid)
             }
         }
     }
-    return NULLAURA;
+    return NULL;
 }
 
 void AuraInterface::EventDeathAuraRemoval()
@@ -1560,7 +1560,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
     }
     data.put<uint32>(4, count);
     if(m_Unit->IsPlayer())
-        TO_PLAYER(m_Unit)->SendPacket(&data);
+        castPtr<Player>(m_Unit)->SendPacket(&data);
 }
 
 uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group)

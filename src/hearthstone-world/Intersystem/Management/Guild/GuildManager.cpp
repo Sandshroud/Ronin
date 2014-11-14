@@ -1961,27 +1961,20 @@ void Charter::RemoveSignature(uint32 PlayerGuid)
 
 void Charter::Destroy()
 {
-    if( Slots == 0 )            // ugly hack because of f*cked memory
-        return;
-
     //meh remove from objmgr
     guildmgr.RemoveCharter(this);
 
     // Kill the players with this (in db/offline)
     CharacterDatabase.Execute( "DELETE FROM charters WHERE charterId = %u", CharterId );
-    PlayerInfo * p;
     for( uint32 i = 0; i < Slots; i++ )
     {
         if(!Signatures[i])
             continue;
 
-        p = objmgr.GetPlayerInfo(Signatures[i]);
-        if( p != NULL )
+        if( PlayerInfo *p = objmgr.GetPlayerInfo(Signatures[i]) )
             p->charterId[CharterType] = 0;
     }
 
-    // click, click, boom!
-    // Crow: A Saliva reference?
     delete this;
 }
 

@@ -50,16 +50,16 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 
     if( pPlayer->m_bg )
     {
-        if( TO_PLAYER( pVictim )->m_bgTeam == pPlayer->m_bgTeam )
+        if( castPtr<Player>( pVictim )->m_bgTeam == pPlayer->m_bgTeam )
             return;
 
         // patch 2.4, players killed >50 times in battlegrounds won't be worth honor for the rest of that bg
-        if( TO_PLAYER(pVictim)->m_bgScore.Deaths >= 50 )
+        if( castPtr<Player>(pVictim)->m_bgScore.Deaths >= 50 )
             return;
     }
     else
     {
-        if( pPlayer->GetTeam() == TO_PLAYER( pVictim )->GetTeam() )
+        if( pPlayer->GetTeam() == castPtr<Player>( pVictim )->GetTeam() )
             return;
     }
 
@@ -102,7 +102,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
                     {
                         // Send PVP credit
                         WorldPacket data(SMSG_PVP_CREDIT, 12);
-                        data << pts << pVictim->GetGUID() << uint32(TO_PLAYER(pVictim)->GetPVPRank());
+                        data << pts << pVictim->GetGUID() << uint32(castPtr<Player>(pVictim)->GetPVPRank());
                         (*vtr)->GetSession()->SendPacket(&data);
                     }
                 }
@@ -113,7 +113,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
         else if(pPlayer->GetGroup())
         {
             Group *pGroup = pPlayer->GetGroup();
-            Player* gPlayer = NULLPLR;
+            Player* gPlayer = NULL;
             int32 GroupPoints;
             pGroup->Lock();
             GroupPoints = (Points / (pGroup->MemberCount() ? pGroup->MemberCount() : 1));
@@ -135,13 +135,13 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
                             gPlayer->m_bg->HookOnHK(gPlayer);
 
                         CALL_INSTANCE_SCRIPT_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
-                        sHookInterface.OnHonorableKill(gPlayer, TO_PLAYER(pVictim));
+                        sHookInterface.OnHonorableKill(gPlayer, castPtr<Player>(pVictim));
                         AddHonorPointsToPlayer(gPlayer, GroupPoints);
                         if(pVictim)
                         {
                             // Send PVP credit
                             WorldPacket data(SMSG_PVP_CREDIT, 12);
-                            data << GroupPoints << pVictim->GetGUID() << uint32(TO_PLAYER(pVictim)->GetPVPRank());
+                            data << GroupPoints << pVictim->GetGUID() << uint32(castPtr<Player>(pVictim)->GetPVPRank());
                             gPlayer->GetSession()->SendPacket(&data);
                         }
 
@@ -177,12 +177,12 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
             if(pPlayer->m_bg)
                 pPlayer->m_bg->HookOnHK(pPlayer);
             CALL_INSTANCE_SCRIPT_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
-            sHookInterface.OnHonorableKill(pPlayer, TO_PLAYER(pVictim));
+            sHookInterface.OnHonorableKill(pPlayer, castPtr<Player>(pVictim));
             if(pVictim)
             {
                 // Send PVP credit
                 WorldPacket data(SMSG_PVP_CREDIT, 12);
-                data << Points << pVictim->GetGUID() << uint32(TO_PLAYER(pVictim)->GetPVPRank());
+                data << Points << pVictim->GetGUID() << uint32(castPtr<Player>(pVictim)->GetPVPRank());
                 pPlayer->GetSession()->SendPacket(&data);
             }
 

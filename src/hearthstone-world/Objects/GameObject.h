@@ -61,7 +61,7 @@ enum GameObjectFlags
     GO_FLAG_IN_USE          = 0x001,        // Disables interaction while animated
     GO_FLAG_LOCKED          = 0x002,        // Require key, spell, event, etc to be opened. Makes "Locked" appear in tooltip
     GO_FLAG_INTERACT_COND   = 0x004,        // Cannot interact (condition to interact)
-    GO_FLAG_TRANSPORT       = 0x008,        // Any kind of transport? Object can transport (elevator, boat, car)
+    GO_FLAG_TRANSPORT       = 0x008,        // Any kind of transport? object can transport (elevator, boat, car)
     GO_FLAG_UNK1            = 0x010,
     GO_FLAG_NODESPAWN       = 0x020,        // Never despawn, typically for doors, they just change state
     GO_FLAG_TRIGGERED       = 0x040,        // Typically, summoned objects. Triggered by spell or other events
@@ -187,7 +187,7 @@ struct GameObjectInfo
         // GAMEOBJECT_TYPE_CAMERA
         struct { uint32 LockId; /* 1 */ uint32 CinematicId; uint32 EventID; uint32 OpenTextID; } Camera;
 
-        // GAMEOBJECT_TYPE_MAPOBJECT - GAMEOBJECT_TYPE_MO_TRANSPORT
+        // GAMEOBJECT_TYPE_WorldObject - GAMEOBJECT_TYPE_MO_TRANSPORT
         struct
         {
             uint32 TaxiPathId; /* 1 */
@@ -339,7 +339,7 @@ struct GameObjectInfo
 
 #define CALL_GO_SCRIPT_EVENT(obj, func) if(obj->GetTypeId() == TYPEID_GAMEOBJECT && obj->GetScript() != NULL) obj->GetScript()->func
 
-class SERVER_DECL GameObject : public Object
+class SERVER_DECL GameObject : public WorldObject
 {
 public:
     GameObject(uint64 guid);
@@ -434,7 +434,7 @@ public:
     HEARTHSTONE_INLINE bool HasAI() { return spell != 0; }
     GOSpawn * m_spawn;
     void OnPushToWorld();
-    void OnRemoveInRangeObject(Object* pObj);
+    void OnRemoveInRangeObject(WorldObject* pObj);
     void RemoveFromWorld(bool free_guid);
 
     HEARTHSTONE_INLINE bool CanMine(){return (m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] > 0);}
@@ -467,10 +467,10 @@ public:
     uint32 GetDisplayId() { return GetUInt32Value( GAMEOBJECT_DISPLAYID ); }
 
     //Destructable Building
-    void TakeDamage(uint32 amount, Object* mcaster, Player* pcaster, uint32 spellid = 0);
-    void Destroy();
-    void Damage();
-    void Rebuild();
+    void TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid = 0);
+    void SetStatusDestroyed();
+    void SetStatusDamaged();
+    void SetStatusRebuilt();
     //Aura Generator
     void AuraGenSearchTarget();
 
@@ -495,7 +495,6 @@ protected:
     bool m_deleted;
     GameObjectInfo *pInfo;
     GameObjectAIScript * myScript;
-    uint32 _fields[GAMEOBJECT_END];
     uint32 m_Go_Uint32Values[GO_UINT32_MAX]; // Crow: We could probably get away with using doubles...
     typedef std::map<uint32,uint64> ChairSlotAndUser;
     ChairSlotAndUser ChairListSlots;

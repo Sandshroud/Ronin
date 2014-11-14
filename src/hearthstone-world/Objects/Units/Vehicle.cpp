@@ -333,7 +333,7 @@ void Vehicle::Despawn(uint32 delay, uint32 respawntime)
             pCell = m_mapCell;
 
         ASSERT(pCell);
-        pCell->_respawnObjects.insert(TO_OBJECT(this));
+        pCell->_respawnObjects.insert(this);
         sEventMgr.RemoveEvents(this);
         sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnVehicle, TO_VEHICLE(this), pCell, EVENT_VEHICLE_RESPAWN, respawntime, 1, 0);
         Unit::RemoveFromWorld(false);
@@ -448,8 +448,8 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
     pPassenger->SetSeatID(NULL);
 
     pPassenger->RemoveFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_UNKNOWN_5 | UNIT_FLAG_PREPARATION | UNIT_FLAG_NOT_SELECTABLE));
-    if( pPassenger->IsPlayer() && TO_PLAYER(pPassenger)->m_MountSpellId != m_mountSpell )
-        pPassenger->RemoveAura(TO_PLAYER(pPassenger)->m_MountSpellId);
+    if( pPassenger->IsPlayer() && castPtr<Player>(pPassenger)->m_MountSpellId != m_mountSpell )
+        pPassenger->RemoveAura(castPtr<Player>(pPassenger)->m_MountSpellId);
 
     if( m_mountSpell )
         pPassenger->RemoveAura( m_mountSpell );
@@ -457,10 +457,10 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
         pPassenger->RemoveAura( m_CastSpellOnMount );
 
     if(pPassenger->IsPlayer())
-        TO_PLAYER(pPassenger)->SetMovement(MOVE_UNROOT, 1);
+        castPtr<Player>(pPassenger)->SetMovement(MOVE_UNROOT, 1);
 
     WorldPacket data(SMSG_MONSTER_MOVE, 85);
-    data << pPassenger->GetNewGUID();           // PlayerGUID
+    data << pPassenger->GetGUID();           // PlayerGUID
     data << uint8(0x40);                        // Unk - blizz uses 0x40
     data.appendvector(pPassenger->GetPosition());// Player Position xyz
     data << getMSTime();                        // Timestamp
@@ -478,12 +478,12 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
 
     if(pPassenger->IsPlayer())
     {
-        Player* plr = TO_PLAYER(pPassenger);
+        Player* plr = castPtr<Player>(pPassenger);
         if(plr == GetControllingUnit())
         {
             plr->m_CurrentCharm = NULL;
             data.Initialize(SMSG_CLIENT_CONTROL_UPDATE);
-            data << GetNewGUID() << (uint8)0;
+            data << GetGUID() << (uint8)0;
             plr->GetSession()->SendPacket(&data);
         }
         RemoveFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_PLAYER_CONTROLLED_CREATURE | UNIT_FLAG_PLAYER_CONTROLLED));
@@ -494,7 +494,7 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
         plr->SetPosition(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
 
         data.Initialize(MSG_MOVE_TELEPORT_ACK);
-        data << plr->GetNewGUID();
+        data << plr->GetGUID();
         data << plr->m_teleportAckCounter;
         plr->m_teleportAckCounter++;
         data << uint32(MOVEFLAG_FLYING);
@@ -546,7 +546,7 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
 
     if(slot == 0)
     {
-        m_redirectSpellPackets = NULLPLR;
+        m_redirectSpellPackets = NULL;
         CombatStatus.Vanished();
         pPassenger->SetUInt64Value( UNIT_FIELD_CHARM, 0 );
         SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
@@ -603,12 +603,12 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
 {
     assert( slot < m_seatSlotMax );
 
-    if(pPassenger->IsPlayer() && TO_PLAYER(pPassenger)->m_CurrentCharm)
+    if(pPassenger->IsPlayer() && castPtr<Player>(pPassenger)->m_CurrentCharm)
         return;
 
-    if(pPassenger->IsPlayer() && TO_PLAYER(pPassenger)->m_isGmInvisible)
+    if(pPassenger->IsPlayer() && castPtr<Player>(pPassenger)->m_isGmInvisible)
     {
-        sChatHandler.GreenSystemMessage(TO_PLAYER(pPassenger)->GetSession(), "Please turn off invis before entering vehicle.");
+        sChatHandler.GreenSystemMessage(castPtr<Player>(pPassenger)->GetSession(), "Please turn off invis before entering vehicle.");
         return;
     }
 
@@ -634,7 +634,7 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
     // This is where the real magic happens
     if( pPassenger->IsPlayer() )
     {
-        Player* pPlayer = TO_PLAYER(pPassenger);
+        Player* pPlayer = castPtr<Player>(pPassenger);
         //pPlayer->Root();
 
         //Dismount
@@ -665,8 +665,8 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
         pPlayer->SetMovement(MOVE_ROOT, 1);
 
         WorldPacket data(SMSG_MONSTER_MOVE_TRANSPORT, 100);
-        data << pPlayer->GetNewGUID();                          // Passengerguid
-        data << GetNewGUID();                                   // Transporterguid (vehicleguid)
+        data << pPlayer->GetGUID();                          // Passengerguid
+        data << GetGUID();                                   // Transporterguid (vehicleguid)
         data << uint8(slot);                                    // Vehicle Seat ID
         data << uint8(0);                                       // Unknown
         data << GetPositionX() - pPlayer->GetPositionX();       // OffsetTransporterX
@@ -699,10 +699,10 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
                 SetSpeed(FLY, m_flySpeed);
                 // send "switch mover" packet
                 data.Initialize(SMSG_CLIENT_CONTROL_UPDATE);
-                data << GetNewGUID() << uint8(1);
+                data << GetGUID() << uint8(1);
                 pPlayer->GetSession()->SendPacket(&data);
 
-                pPlayer->m_CurrentCharm = TO_UNIT(this);
+                pPlayer->m_CurrentCharm = castPtr<Unit>(this);
                 pPlayer->SetUInt64Value(UNIT_FIELD_CHARM, GetGUID());
 
                 SetUInt64Value(UNIT_FIELD_CHARMEDBY, pPlayer->GetGUID());
@@ -739,7 +739,7 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
         else
         {
             data.Initialize(SMSG_CLIENT_CONTROL_UPDATE);
-            data << GetNewGUID() << uint8(0);
+            data << GetGUID() << uint8(0);
             pPlayer->GetSession()->SendPacket(&data);
         }
 
@@ -835,7 +835,7 @@ void WorldSession::HandleSpellClick( WorldPacket & recv_data )
 
     if(!unit->IsVehicle())
     {
-        Creature* ctr = TO_CREATURE(unit);
+        Creature* ctr = castPtr<Creature>(unit);
         if(ctr->IsLightwell(ctr->GetEntry()))
         {
             Aura * aur = ctr->m_AuraInterface.FindActiveAura(59907);
@@ -980,7 +980,7 @@ void WorldSession::HandleEjectPassenger( WorldPacket & recv_data )
     }
     _player->GetVehicle()->RemovePassenger(u);
     if(u->IsCreature())
-        TO_CREATURE(u)->SafeDelete();
+        castPtr<Creature>(u)->SafeDelete();
 }
 
 void WorldSession::HandleVehicleMountEnter( WorldPacket & recv_data )

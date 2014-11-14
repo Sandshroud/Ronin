@@ -22,7 +22,7 @@ TcpSocket::TcpSocket(SOCKET fd, size_t readbuffersize, size_t writebuffersize, b
 
     m_writeBuffer->Allocate(writebuffersize);
     m_readBuffer->Allocate(readbuffersize);
-    memcpy(&m_peer, peer, sizeof(sockaddr));
+    memcpy(&m_address, peer, sizeof(sockaddr));
 
     /* switch the socket to nonblocking mode */
     u_long arg = 1;

@@ -4,17 +4,14 @@
 
 #include "StdAfx.h"
 
-GameObject::GameObject(uint64 guid)
+GameObject::GameObject(uint64 guid) : WorldObject(guid)
 {
-    m_objectTypeId = TYPEID_GAMEOBJECT;
-    m_valuesCount = GAMEOBJECT_END;
-    m_uint32Values = _fields;
-    memset(m_uint32Values, 0,(GAMEOBJECT_END)*sizeof(uint32));
+    m_valuesCount += GAMEOBJECT_LENGTH;
     m_updateMask.SetCount(GAMEOBJECT_END);
-    SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_GAMEOBJECT|TYPEMASK_OBJECT);
-    SetUInt64Value( OBJECT_FIELD_GUID,guid);
-    m_wowGuid = GetGUID();
-    SetFloatValue( OBJECT_FIELD_SCALE_X, 1);
+    m_object.m_objType |= TYPEMASK_TYPE_GAMEOBJECT;
+    m_raw.values[OBJECT_LAYER_GAMEOBJECT] = new uint32[GAMEOBJECT_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_GAMEOBJECT], 0, GAMEOBJECT_LENGTH*sizeof(uint32));
+
     SetAnimProgress(100);
     counter = 0;
     bannerslot = bannerauraslot = -1;
@@ -22,7 +19,7 @@ GameObject::GameObject(uint64 guid)
     invisible = false;
     invisibilityFlag = INVIS_FLAG_NORMAL;
     spell = NULL;
-    m_summoner = NULLUNIT;
+    m_summoner = NULL;
     charges = -1;
     m_ritualmembers = NULL;
     m_rotation = 0;
@@ -48,7 +45,7 @@ GameObject::~GameObject()
 
 void GameObject::Init()
 {
-    Object::Init();
+    WorldObject::Init();
 }
 
 void GameObject::Destruct()
@@ -56,38 +53,42 @@ void GameObject::Destruct()
     if(m_ritualmembers)
         delete[] m_ritualmembers;
 
-    uint32 guid = GetUInt32Value(OBJECT_FIELD_CREATED_BY);
+    uint32 guid = GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY);
     if(guid)
     {
         Player* plr = objmgr.GetPlayer(guid);
-        if(plr && plr->GetSummonedObject() == TO_OBJECT(this) )
-            plr->SetSummonedObject(NULLOBJ);
+        if(plr && plr->GetSummonedObject() == this)
+            plr->SetSummonedObject(NULL);
 
         if(plr == m_summoner)
-            m_summoner = NULLOBJ;
+            m_summoner = NULL;
     }
 
     if(m_respawnCell!=NULL)
-        m_respawnCell->_respawnObjects.erase( TO_OBJECT(this) );
+        m_respawnCell->_respawnObjects.erase(this);
 
     if (m_summonedGo && m_summoner)
+    {
         for(int i = 0; i < 4; i++)
-            if (m_summoner->m_ObjectSlots[i] == GetUIdFromGUID())
+        {
+            if (m_summoner->m_ObjectSlots[i] == GetLowGUID())
                 m_summoner->m_ObjectSlots[i] = 0;
+        }
+    }
 
     if( m_battleground != NULL )
     {
         if( m_battleground->GetType() == BATTLEGROUND_ARATHI_BASIN )
         {
-            if( bannerslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] == TO_GAMEOBJECT(this) )
-                TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] = NULLGOB;
+            if( bannerslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] == castPtr<GameObject>(this) )
+                TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] = NULL;
 
-            if( bannerauraslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] == TO_GAMEOBJECT(this) )
-                TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] = NULLGOB;
+            if( bannerauraslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] == castPtr<GameObject>(this) )
+                TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] = NULL;
         }
         m_battleground = NULLBATTLEGROUND;
     }
-    Object::Destruct();
+    WorldObject::Destruct();
 }
 
 bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec)
@@ -111,7 +112,7 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     }
 
     m_created = true;
-    Object::_Create( mapid, x, y, z, ang );
+    WorldObject::_Create( mapid, x, y, z, ang );
     SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
 
     UpdateRotation();
@@ -151,7 +152,7 @@ void GameObject::Update(uint32 p_time)
                 return;
         }
 
-        Object::InRangeSet::iterator itr,it2;
+        WorldObject::InRangeSet::iterator itr,it2;
         Unit* pUnit;
         float dist;
         for( it2 = GetInRangeSetBegin(); it2 != GetInRangeSetEnd(); it2++)
@@ -160,7 +161,7 @@ void GameObject::Update(uint32 p_time)
             dist = GetDistanceSq((*itr));
             if( (*itr) != m_summoner && (*itr)->IsUnit() && dist <= range)
             {
-                pUnit = TO_UNIT(*itr);
+                pUnit = castPtr<Unit>(*itr);
 
                 if(m_summonedGo)
                 {
@@ -173,7 +174,7 @@ void GameObject::Update(uint32 p_time)
                         continue;
                 }
 
-                Spell* sp = (new Spell(TO_OBJECT(this),spell,true,NULLAURA));
+                Spell* sp = new Spell(this,spell,true,NULL);
                 SpellCastTargets tgt((*itr)->GetGUID());
                 tgt.m_destX = GetPositionX();
                 tgt.m_destY = GetPositionY();
@@ -197,7 +198,7 @@ void GameObject::Update(uint32 p_time)
 void GameObject::Spawn( MapMgr* m)
 {
     PushToWorld(m);
-    CALL_GO_SCRIPT_EVENT(TO_GAMEOBJECT(this), OnSpawn)();
+    CALL_GO_SCRIPT_EVENT(castPtr<GameObject>(this), OnSpawn)();
 }
 
 void GameObject::Despawn( uint32 delay, uint32 respawntime)
@@ -211,7 +212,8 @@ void GameObject::Despawn( uint32 delay, uint32 respawntime)
     if(!IsInWorld())
         return;
 
-    m_loot.items.clear();
+    GetLoot()->gold = 0;
+    GetLoot()->items.clear();
 
     //This is for go get deleted while looting
     if( m_spawn != NULL )
@@ -227,15 +229,15 @@ void GameObject::Despawn( uint32 delay, uint32 respawntime)
         /* Get our originiating mapcell */
         MapCell * pCell = m_mapCell;
         ASSERT(pCell);
-        pCell->_respawnObjects.insert( TO_OBJECT(this) );
+        pCell->_respawnObjects.insert( this );
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnGameObject, TO_GAMEOBJECT(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
-        Object::RemoveFromWorld(false);
-        m_respawnCell=pCell;
+        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnGameObject, castPtr<GameObject>(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
+        WorldObject::RemoveFromWorld(false);
+        m_respawnCell = pCell;
     }
     else
     {
-        Object::RemoveFromWorld(true);
+        WorldObject::RemoveFromWorld(true);
         ExpireAndDelete();
     }
 }
@@ -254,11 +256,11 @@ void GameObject::SaveToDB()
         << GetPositionY() << ","
         << GetPositionZ() << ","
         << GetOrientation() << ","
-        << ( GetByte(GAMEOBJECT_BYTES_1, 0)? 1 : 0 ) << ","
+        << uint32( GetByte(GAMEOBJECT_BYTES_1, 0)? 1 : 0 ) << ","
         << GetFlags() << ","
         << GetUInt32Value(GAMEOBJECT_FACTION) << ","
         << GetFloatValue(OBJECT_FIELD_SCALE_X) << ","
-        << m_phaseMask << ")";
+        << uint32(0x01) << ")";
 
     WorldDatabase.Execute(ss.str().c_str());
 }
@@ -377,7 +379,6 @@ bool GameObject::Load(GOSpawn *spawn)
         return false;
 
     m_spawn = spawn;
-    SetPhaseMask(spawn->phase);
     SetFlags(spawn->flags);
     SetState(spawn->state);
     if(spawn->faction)
@@ -390,7 +391,7 @@ bool GameObject::Load(GOSpawn *spawn)
     if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
         SetAnimProgress(100);
 
-    CALL_GO_SCRIPT_EVENT(TO_GAMEOBJECT(this), OnCreate)();
+    CALL_GO_SCRIPT_EVENT(castPtr<GameObject>(this), OnCreate)();
 
     _LoadQuests();
     m_loadedFromDB = true;
@@ -439,7 +440,7 @@ void GameObject::UseFishingNode(Player* player)
     // Open loot on success, otherwise FISH_ESCAPED.
     if( Rand(((player->_GetSkillLineCurrent( SKILL_FISHING, true ) - minskill) * 100) / maxskill) )
     {
-        lootmgr.FillFishingLoot( &m_loot, entry->ZoneID );
+        lootmgr.FillFishingLoot( GetLoot(), entry->ZoneID );
         player->SendLoot( GetGUID(), GetMapId(), LOOT_FISHING );
         EndFishing( player, false );
     }
@@ -470,10 +471,7 @@ void GameObject::EndFishing(Player* player, bool abort )
         }
     }
 
-    if(!abort)
-        TO_GAMEOBJECT(this)->ExpireAndDelete(20000);
-    else
-        ExpireAndDelete();
+    ExpireAndDelete(abort ? 0 : 20000);
 }
 
 void GameObject::FishHooked(Player* player)
@@ -543,7 +541,7 @@ uint32 GameObject::NumOfQuests()
 
 void GameObject::_LoadQuests()
 {
-    sQuestMgr.LoadGOQuests(TO_GAMEOBJECT(this));
+    sQuestMgr.LoadGOQuests(castPtr<GameObject>(this));
 
     // set state for involved quest objects
     if( pInfo && objmgr.GetInvolvedQuestIds(pInfo->ID) != NULL )
@@ -560,10 +558,10 @@ void GameObject::_LoadQuests()
 Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot)
 {
     Creature* p = GetMapMgr()->CreateCreature(guardian_entry);
-    if(p == NULLCREATURE)
+    if(p == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);
-        return NULLUNIT;
+        return NULL;
     }
 
     LocationVector v = GetPositionNC();
@@ -581,14 +579,14 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->_setFaction();
 
     p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,u_caster);
-    p->GetAIInterface()->SetUnitToFollow(TO_UNIT(this));
+    p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
     p->GetAIInterface()->SetUnitToFollowAngle(angle);
     p->GetAIInterface()->SetFollowDistance(3.0f);
 
     p->PushToWorld(GetMapMgr());
 
     if(duration)
-        sEventMgr.AddEvent(TO_UNIT(this), &Unit::SummonExpireSlot,Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+        sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::SummonExpireSlot,Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 
     return p;
 
@@ -597,7 +595,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
 void GameObject::_Expire()
 {
     if(IsInWorld())
-        Object::RemoveFromWorld(true);
+        WorldObject::RemoveFromWorld(true);
 
     Destruct();
 }
@@ -619,25 +617,26 @@ void GameObject::ExpireAndDelete(uint32 delay)
 
     if(sEventMgr.HasEvent(this,EVENT_GAMEOBJECT_EXPIRE))
         sEventMgr.ModifyEventTimeLeft(this, EVENT_GAMEOBJECT_EXPIRE, delay);
-    else
-        sEventMgr.AddEvent(this, &GameObject::_Expire, EVENT_GAMEOBJECT_EXPIRE, delay, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    else sEventMgr.AddEvent(this, &GameObject::_Expire, EVENT_GAMEOBJECT_EXPIRE, delay, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void GameObject::OnPushToWorld()
 {
-    Object::OnPushToWorld();
+    WorldObject::OnPushToWorld();
 }
 
-void GameObject::OnRemoveInRangeObject(Object* pObj)
+void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
 {
-    Object::OnRemoveInRangeObject(pObj);
+    WorldObject::OnRemoveInRangeObject(pObj);
     if(m_summonedGo && m_summoner == pObj)
     {
         for(int i = 0; i < 4; i++)
-            if (m_summoner->m_ObjectSlots[i] == GetUIdFromGUID())
+        {
+            if (m_summoner->m_ObjectSlots[i] == GetLowGUID())
                 m_summoner->m_ObjectSlots[i] = 0;
+        }
 
-        m_summoner = NULLUNIT;
+        m_summoner = NULL;
         ExpireAndDelete();
     }
 }
@@ -707,7 +706,7 @@ void GameObject::SetDisplayId(uint32 id)
 }
 
 //Destructable Buildings
-void GameObject::TakeDamage(uint32 amount, Object* mcaster, Player* pcaster, uint32 spellid)
+void GameObject::TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid)
 {
     if(GetType() != GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
         return;
@@ -727,7 +726,7 @@ void GameObject::TakeDamage(uint32 amount, Object* mcaster, Player* pcaster, uin
     {
         if(m_Go_Uint32Values[GO_UINT32_HEALTH] == 0)
         {
-            Destroy();
+            SetStatusDestroyed();
             sHookInterface.OnDestroyBuilding(this);
         }
     }
@@ -735,23 +734,20 @@ void GameObject::TakeDamage(uint32 amount, Object* mcaster, Player* pcaster, uin
     {
         if(m_Go_Uint32Values[GO_UINT32_HEALTH] != 0)
         {
-            Damage();
+            SetStatusDamaged();
             sHookInterface.OnDamageBuilding(this);
         }
         else
         {
-            Destroy();
-            sHookInterface.OnDestroyBuilding(TO_GAMEOBJECT(this));
+            SetStatusDestroyed();
+            sHookInterface.OnDestroyBuilding(castPtr<GameObject>(this));
         }
     }
 
     WorldPacket data(SMSG_DESTRUCTIBLE_BUILDING_DAMAGE, 20);
-    data << GetNewGUID();
-    data << mcaster->GetNewGUID();
-    if(pcaster!=NULL)
-        data << pcaster->GetNewGUID();
-    else
-        data << mcaster->GetNewGUID();
+    data << GetGUID();
+    data << mcaster->GetGUID().asPacked();
+    data << (pcaster ? pcaster->GetGUID() : mcaster->GetGUID()).asPacked();
     data << uint32(amount);
     data << spellid;
     mcaster->SendMessageToSet(&data, (mcaster->IsPlayer() ? true : false));
@@ -759,7 +755,7 @@ void GameObject::TakeDamage(uint32 amount, Object* mcaster, Player* pcaster, uin
         SetAnimProgress(m_Go_Uint32Values[GO_UINT32_HEALTH]*255/(IntactHealth + DamagedHealth));
 }
 
-void GameObject::Rebuild()
+void GameObject::SetStatusRebuilt()
 {
     RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED | GO_FLAG_DESTROYED);
     SetDisplayId(pInfo->DisplayID);
@@ -779,42 +775,38 @@ void GameObject::AuraGenSearchTarget()
     if(!IsInWorld() || m_deleted || !spell)
         return;
 
-    Object::InRangeSet::iterator itr,it2;
+    WorldObject::InRangeSet::iterator itr,it2;
     for( it2 = GetInRangeSetBegin(); it2 != GetInRangeSetEnd(); it2++)
     {
         itr = it2;
         Unit* thing = NULL; // Crow: Shouldn't radius be sq?
-        if( (*itr)->IsUnit() && GetDistanceSq((*itr)) <= pInfo->AuraGenerator.Radius && ((*itr)->IsPlayer() || (*itr)->IsVehicle()) && !(TO_UNIT((*itr))->HasAura(spell->Id)))
+        if( (*itr)->IsUnit() && GetDistanceSq((*itr)) <= pInfo->AuraGenerator.Radius && ((*itr)->IsPlayer() || (*itr)->IsVehicle()) && !(castPtr<Unit>((*itr))->HasAura(spell->Id)))
         {
-            thing = TO_UNIT((*itr));
+            thing = castPtr<Unit>((*itr));
             thing->AddAura(new Aura(spell, -1, thing, thing));
         }
     }
 }
 
-void GameObject::Damage()
+void GameObject::SetStatusDamaged()
 {
     SetFlags(GO_FLAG_DAMAGED);
     if(pInfo->DestructableBuilding.DestructibleData != 0)
     {
         if(DestructibleModelDataEntry *display = NULL)//dbcDestructibleModelDataEntry.LookupEntry( pInfo->DestructableBuilding.DestructibleData ))
             SetDisplayId(display->GetDisplayId(1));
-    }
-    else
-        SetDisplayId(pInfo->DestructableBuilding.DamagedDisplayId);
+    } else SetDisplayId(pInfo->DestructableBuilding.DamagedDisplayId);
 }
 
-void GameObject::Destroy()
+void GameObject::SetStatusDestroyed()
 {
-    RemoveFlag(GAMEOBJECT_FLAGS,GO_FLAG_DAMAGED);
+    RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED);
     SetFlags(GO_FLAG_DESTROYED);
     if(pInfo->DestructableBuilding.DestructibleData != 0)
     {
         if(DestructibleModelDataEntry *display = NULL)//dbcDestructibleModelDataEntry.LookupEntry( pInfo->DestructableBuilding.DestructibleData ))
             SetDisplayId(display->GetDisplayId(3));
-    }
-    else
-        SetDisplayId(pInfo->DestructableBuilding.DestroyedDisplayId);
+    } else SetDisplayId(pInfo->DestructableBuilding.DestroyedDisplayId);
 }
 
 #define OPEN_CHEST 11437
@@ -822,7 +814,7 @@ void GameObject::Destroy()
 void GameObject::Use(Player *p)
 {
     m_scripted_use = false;
-    Spell* spell = NULLSPELL;
+    Spell* spell = NULL;
     SpellEntry *spellInfo = NULL;
     SpellCastTargets targets;
     GameObjectInfo *goinfo = GetInfo();
@@ -917,7 +909,7 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_CHEST://cast da spell
         {
             spellInfo = dbcSpell.LookupEntry( OPEN_CHEST );
-            spell = (new Spell(p, spellInfo, true, NULLAURA));
+            spell = (new Spell(p, spellInfo, true, NULL));
             p->SetCurrentSpell(spell);
             targets.m_unitTarget = GetGUID();
             spell->prepare(&targets);
@@ -995,7 +987,7 @@ void GameObject::Use(Player *p)
                 sLog.outError("Gameobject Type Spellcaster doesn't have a spell to cast entry %u", goinfo->ID);
                 return;
             }
-            Spell* spell(new Spell(p, info, false, NULLAURA));
+            Spell* spell(new Spell(p, info, false, NULL));
             SpellCastTargets targets;
             targets.m_unitTarget = p->GetGUID();
             spell->prepare(&targets);
@@ -1057,15 +1049,15 @@ void GameObject::Use(Player *p)
                         if(!target)
                             return;
 
-                        spell = (new Spell(this,info,true,NULLAURA));
+                        spell = (new Spell(this,info,true,NULL));
                         SpellCastTargets targets;
                         targets.m_unitTarget = target->GetGUID();
                         spell->prepare(&targets);
                     }break;
                 case 177193:// doom portal
                     {
-                        Player* psacrifice = NULLPLR;
-                        Spell* spell = NULLSPELL;
+                        Player* psacrifice = NULL;
+                        Spell* spell = NULL;
 
                         // kill the sacrifice player
                         psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(goinfo->Arbiter.ReqParticipants-1))]);
@@ -1076,13 +1068,13 @@ void GameObject::Use(Player *p)
                         info = dbcSpell.LookupEntry(goinfo->Arbiter.CasterTargetSpell);
                         if(!info)
                             break;
-                        spell = (new Spell(psacrifice, info, true, NULLAURA));
+                        spell = (new Spell(psacrifice, info, true, NULL));
                         targets.m_unitTarget = psacrifice->GetGUID();
                         spell->prepare(&targets);
 
                         // summons demon
                         info = dbcSpell.LookupEntry(goinfo->Arbiter.SpellId);
-                        spell = (new Spell(pCaster, info, true, NULLAURA));
+                        spell = (new Spell(pCaster, info, true, NULL));
                         SpellCastTargets targets;
                         targets.m_unitTarget = pCaster->GetGUID();
                         spell->prepare(&targets);
@@ -1098,7 +1090,7 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULLAURA));
+                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(plr->GetGUID());
                         spell->prepare(&targets);
 
@@ -1112,7 +1104,7 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULLAURA));
+                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
                         spell->prepare(&targets);
 
@@ -1127,7 +1119,7 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULLAURA));
+                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
                         spell->prepare(&targets);
 
@@ -1142,7 +1134,7 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULLAURA));
+                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
                         spell->prepare(&targets);
                     }break;
@@ -1188,7 +1180,7 @@ void GameObject::Use(Player *p)
                 return;
 
             // dont allow to spam them
-            GameObject* gobj = TO_GAMEOBJECT(p->GetMapMgr()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
+            GameObject* gobj = castPtr<GameObject>(p->GetMapMgr()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
             if( gobj )
                 ExpireAndDelete();
 

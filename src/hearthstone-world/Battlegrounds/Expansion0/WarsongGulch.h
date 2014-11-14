@@ -11,7 +11,7 @@ class WarsongGulch : public CBattleground
     GameObject* m_buffs[6];
     GameObject* m_homeFlags[2];
     GameObject* m_dropFlags[2];
-    uint32 m_flagHolders[2];
+    WoWGuid m_flagHolders[2];
     list<GameObject* > m_gates;
     uint32 m_scores[2];
     uint32 m_lgroup;
@@ -43,8 +43,8 @@ public:
 
     static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return new WarsongGulch(m, i, l, t); }
 
-    uint32 GetAllianceFlagHolderGUID() { return m_flagHolders[0]; }
-    uint32 GetHordeFlagHolderGUID() { return m_flagHolders[1]; }
+    WoWGuid GetAllianceFlagHolderGUID() { return m_flagHolders[0]; }
+    WoWGuid GetHordeFlagHolderGUID() { return m_flagHolders[1]; }
     const char * GetName() { return "Warsong Gulch"; }
     void OnStart();
 

@@ -49,7 +49,7 @@ void AI_Movement::Initialize(AIInterface* AI, Unit* un, MovementType mt)
     m_MovementState = MOVEMENTSTATE_STOP;
 
     if(un->IsCreature())
-        if(TO_CREATURE(un)->GetCanMove() & LIMIT_AIR)
+        if(castPtr<Creature>(un)->GetCanMove() & LIMIT_AIR)
             m_moveFly = true;
 
     m_walkSpeed = un->m_walkSpeed*0.001f;//move distance per ms time
@@ -192,8 +192,8 @@ void AI_Movement::Update(uint32 p_time)
                     if(wp)
                     {
                         CALL_SCRIPT_EVENT(m_Unit, OnReachWP)(wp->id, !m_moveBackward);
-                        if(TO_CREATURE(m_Unit)->has_waypoint_text)
-                            objmgr.HandleMonsterSayEvent(TO_CREATURE(m_Unit), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
+                        if(castPtr<Creature>(m_Unit)->has_waypoint_text)
+                            objmgr.HandleMonsterSayEvent(castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
 
                         //Lets face to correct orientation
                         if(wp->flags & 128)
@@ -279,7 +279,7 @@ void AI_Movement::Update(uint32 p_time)
             if(m_FormationLinkTarget == NULL)
             {
                 // haven't found our target yet
-                Creature* c = TO_CREATURE(m_Unit);
+                Creature* c = castPtr<Creature>(m_Unit);
                 if(!c->haslinkupevent)
                 {
                     // register linkup event
@@ -452,11 +452,11 @@ void AI_Movement::Update(uint32 p_time)
 
         if (m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->CanUseCollision(m_Unit))
         {
-            if( !sVMapInterface.GetFirstPoint( m_Unit->GetMapId(), m_Unit->GetInstanceID(), m_Unit->GetPhaseMask(), m_Unit->GetPositionX(), m_Unit->GetPositionY(), m_Unit->GetPositionZ(),
+            if( !sVMapInterface.GetFirstPoint( m_Unit->GetMapId(), m_Unit->GetInstanceID(), 1, m_Unit->GetPositionX(), m_Unit->GetPositionY(), m_Unit->GetPositionZ(),
                 Fx, Fy, m_Unit->GetPositionZ() + 1.5f, Fx, Fy, Fz, -3.5f ) )
             {
                 // clear path?
-                Fz = sVMapInterface.GetHeight( m_Unit->GetMapId(), m_Unit->GetInstanceID(), m_Unit->GetPhaseMask(), Fx, Fy, m_Unit->GetPositionZ() );
+                Fz = sVMapInterface.GetHeight( m_Unit->GetMapId(), m_Unit->GetInstanceID(), 1, Fx, Fy, m_Unit->GetPositionZ() );
                 if( Fz == NO_WMO_HEIGHT )
                     Fz = m_Unit->GetMapMgr()->GetLandHeight(Fx, Fy);
             }
@@ -464,7 +464,7 @@ void AI_Movement::Update(uint32 p_time)
             {
                 // obstruction in the way.
                 // the distmod will fuck up the Z, so get a new height.
-                float fz2 = sVMapInterface.GetHeight(m_Unit->GetMapId(), m_Unit->GetInstanceID(), m_Unit->GetPhaseMask(), Fx, Fy, Fz);
+                float fz2 = sVMapInterface.GetHeight(m_Unit->GetMapId(), m_Unit->GetInstanceID(), 1, Fx, Fy, Fz);
                 if( fz2 != NO_WMO_HEIGHT )
                     Fz = fz2;
             }
@@ -507,7 +507,7 @@ void AI_Movement::Update(uint32 p_time)
     if(UnitToFollow != NULL)
     {
         if( UnitToFollow->GetInstanceID() != m_Unit->GetInstanceID() || !UnitToFollow->IsInWorld() )
-            UnitToFollow = NULLUNIT;
+            UnitToFollow = NULL;
         else
         {
             if( getAIState() == STATE_IDLE || getAIState() == STATE_FOLLOWING)
@@ -599,7 +599,7 @@ void AI_Movement::SendMoveToPacket(float toX, float toY, float toZ, float toO, u
 
     float posX = m_Unit->GetPositionX(), posY = m_Unit->GetPositionY(), posZ = m_Unit->GetPositionZ();
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
-    m_Unit->GetNewGUID().WriteAsPacked(&data);
+    data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
     data << posX << posY << posZ;
     data << getMSTime();
@@ -651,7 +651,7 @@ void AI_Movement::SendMoveToPacket(Player* playerTarget)
     float mid_Z = (startz + m_destinationZ) * 0.5f;
 
     WorldPacket data(SMSG_MONSTER_MOVE, 8+1+4+4+4+4+1+4+4+4+(MovementMap.size()*4));
-    data << m_Unit->GetNewGUID();
+    data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
     data << startx << starty << startz;
     data << PathMap->StartTime;
@@ -723,7 +723,7 @@ void AI_Movement::MoveTo(float x, float y, float z, float o, bool IgnorePathMap)
 void AI_Movement::SendJumpTo(float toX, float toY, float toZ, uint32 moveTime, float arc, uint32 unk)
 {
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
-    data << m_Unit->GetNewGUID();
+    data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
     data << m_Unit->GetPositionX() << m_Unit->GetPositionY() << m_Unit->GetPositionZ();
     data << getMSTime();
@@ -850,7 +850,7 @@ void AI_Movement::UpdateMove()
             if(m_Unit->GetTypeId() == TYPEID_UNIT)
             {
                 float angle = 0.0f;
-                Creature* creature = TO_CREATURE(m_Unit);
+                Creature* creature = castPtr<Creature>(m_Unit);
 
                 // don't move if we're well within combat range; rooted can't move neither
                 if( distance < DISTANCE_TO_SMALL_TO_WALK || (creature->GetCanMove() == LIMIT_ROOT ) )
@@ -904,7 +904,7 @@ void AI_Movement::UpdateMove()
 
     if(m_Unit->GetTypeId() == TYPEID_UNIT)
     {
-        Creature* creature = TO_CREATURE(m_Unit);
+        Creature* creature = castPtr<Creature>(m_Unit);
 
         float angle = 0.0f;
 
@@ -1025,7 +1025,7 @@ void AI_Movement::_CalcDestinationAndMove(Unit* target, float dist)
         float x = dist * cosf(angle);
         float y = dist * sinf(angle);
 
-        if(target->IsPlayer() && TO_PLAYER( target )->m_isMoving )
+        if(target->IsPlayer() && castPtr<Player>( target )->m_isMoving )
         {
             // cater for moving player vector based on orientation
             x -= cosf(target->GetOrientation());
@@ -1036,7 +1036,7 @@ void AI_Movement::_CalcDestinationAndMove(Unit* target, float dist)
     }
     else
     {
-        target = NULLUNIT;
+        target = NULL;
         SetDestPos(m_Unit->GetPositionX(), m_Unit->GetPositionY(), m_Unit->GetPositionZ());
     }
 
@@ -1073,7 +1073,7 @@ bool AI_Movement::IsFlying()
         return true;
 
     if( m_Unit->IsPlayer() )
-        return TO_PLAYER( m_Unit )->FlyCheat;
+        return castPtr<Player>( m_Unit )->FlyCheat;
 
     return false;
 }

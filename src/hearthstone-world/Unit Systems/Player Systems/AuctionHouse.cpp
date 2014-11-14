@@ -202,7 +202,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
 
     // Destroy the item from memory (it still remains in the db)
     auct->pItem->DeleteMe();
-    auct->pItem = NULLITEM;
+    auct->pItem = NULL;
 
     // Finally destroy the auction instance.
     auct->DeleteFromDB();
@@ -511,7 +511,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
         pItem->RemoveFromWorld();
 
     sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
-    pItem->SetOwner(NULLPLR);
+    pItem->SetOwner(NULL);
     pItem->m_isDirty = true;
     pItem->SaveToDB(INVENTORY_SLOT_NOT_SET, 0, true, NULL);
 

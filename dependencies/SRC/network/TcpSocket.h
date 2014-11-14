@@ -74,15 +74,15 @@ public:
 
     /** Get IP in numerical form
      */
-    inline in_addr GetRemoteAddress() { return m_peer.sin_addr; }
+    inline in_addr GetRemoteAddress() { return m_address.sin_addr; }
 
     /** Get IP in numerical form
      */
-    const char * GetIP() { return inet_ntoa(m_peer.sin_addr); }
+    const char * GetIP() { return inet_ntoa(m_address.sin_addr); }
 
     /** Get Port in numerical form
      */
-    unsigned int GetPort() { return m_peer.sin_port; }
+    unsigned int GetPort() { return m_address.sin_port; }
 
     /** Are we writable?
      */
@@ -97,10 +97,6 @@ public:
     void OnAccept(void * pointer) {}
 
 protected:
-
-    /** Connected peer
-     */
-    sockaddr_in m_peer;
 
     /** Socket's write buffer protection
      */

@@ -32,7 +32,7 @@ enum CORPSE_DYNAMIC_FLAGS
 #define CORPSE_MINIMUM_RECLAIM_RADIUS 39
 #define CORPSE_MINIMUM_RECLAIM_RADIUS_SQ CORPSE_MINIMUM_RECLAIM_RADIUS * CORPSE_MINIMUM_RECLAIM_RADIUS
 
-class SERVER_DECL Corpse : public Object
+class SERVER_DECL Corpse : public WorldObject
 {
 public:
     Corpse( uint32 high, uint32 low );

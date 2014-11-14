@@ -123,16 +123,16 @@ public:
     // Transferring data to clients
     void Update();
 
-    HEARTHSTONE_INLINE void SendPacketToAll(WorldPacket *packet) { SendPacketToAllButOne(packet, NULLPLR); }
+    HEARTHSTONE_INLINE void SendPacketToAll(WorldPacket *packet) { SendPacketToAllButOne(packet, NULL); }
     void SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget);
 
-    HEARTHSTONE_INLINE void OutPacketToAll(uint16 op, uint16 len, const void* data) { OutPacketToAllButOne(op, len, data, NULLPLR); }
+    HEARTHSTONE_INLINE void OutPacketToAll(uint16 op, uint16 len, const void* data) { OutPacketToAllButOne(op, len, data, NULL); }
     void OutPacketToAllButOne(uint16 op, uint16 len, const void* data, Player* pSkipTarget);
 
     void SendNullUpdate(Player* pPlayer);
 
     // Group Combat
-    void SendPartyKillLog(Object* player, Object* Unit);
+    void SendPartyKillLog(WorldObject* player, WorldObject* Unit);
 
     // Destroying/Converting
     void Disband();

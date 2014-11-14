@@ -370,9 +370,9 @@ bool ChatHandler::HandleUnBanCharacterCommand(const char* args, WorldSession *m_
 bool ChatHandler::HandleAddSkillCommand(const char* args, WorldSession *m_session)
 {
     char buf[256];
-    Player* target = objmgr.GetPlayer((uint32)m_session->GetPlayer()->GetSelection());
-
-    if(!target) {
+    Player* target = objmgr.GetPlayer(m_session->GetPlayer()->GetSelection());
+    if(target == NULL)
+    {
         SystemMessage(m_session, "Select A Player first.");
         return true;
     }
@@ -706,8 +706,8 @@ bool ChatHandler::HandleGetTransporterTime(const char* args, WorldSession* m_ses
 
     WorldPacket data(SMSG_ATTACKERSTATEUPDATE, 1000);
     data << uint32(0x00000102);
-    data << crt->GetNewGUID();
-    data << m_session->GetPlayer()->GetNewGUID();
+    data << crt->GetGUID().asPacked();
+    data << m_session->GetPlayer()->GetGUID().asPacked();
 
     data << uint32(6);
     data << uint8(1);
@@ -758,9 +758,9 @@ bool ChatHandler::HandleParalyzeCommand(const char* args, WorldSession *m_sessio
     }
 
     BlueSystemMessage(m_session, "Rooting target.");
-    BlueSystemMessageToPlr( TO_PLAYER( plr ), "You have been rooted by %s.", m_session->GetPlayer()->GetName() );
+    BlueSystemMessageToPlr( castPtr<Player>( plr ), "You have been rooted by %s.", m_session->GetPlayer()->GetName() );
     WorldPacket data(SMSG_MOVE_ROOT, 12);
-    data << plr->GetNewGUID();
+    data << plr->GetGUID().asPacked();
     data << uint32(1);
     plr->SendMessageToSet(&data, true);
     return true;
@@ -778,10 +778,10 @@ bool ChatHandler::HandleUnParalyzeCommand(const char* args, WorldSession *m_sess
     }
 
     BlueSystemMessage(m_session, "Unrooting target.");
-    BlueSystemMessageToPlr( TO_PLAYER( plr ), "You have been unrooted by %s.", m_session->GetPlayer()->GetName() );
+    BlueSystemMessageToPlr( castPtr<Player>( plr ), "You have been unrooted by %s.", m_session->GetPlayer()->GetName() );
     WorldPacket data;
     data.Initialize(SMSG_MOVE_UNROOT);
-    data << plr->GetNewGUID();
+    data << plr->GetGUID().asPacked();
     data << uint32(5);
 
     plr->SendMessageToSet(&data, true);
@@ -1040,7 +1040,7 @@ bool ChatHandler::HandleFlySpeedCheatCommand(const char* args, WorldSession* m_s
     GreenSystemMessage(plr->GetSession(), "%s set your fly speed to %f.", m_session->GetPlayer()->GetName(), Speed);
 
     WorldPacket data(SMSG_MOVE_SET_FLIGHT_SPEED, 16);
-    data << plr->GetNewGUID();
+    data << plr->GetGUID().asPacked();
     data << uint32(0) << Speed;
     plr->SendMessageToSet(&data, true);
 
@@ -1056,7 +1056,7 @@ bool ChatHandler::HandleModifyLevelCommand(const char* args, WorldSession* m_ses
         u = m_session->GetPlayer();
 
     uint32 Level = args ? atol(args) : 0;
-    if(Level == 0 || u->IsPlayer() && Level > sWorld.GetMaxLevel(TO_PLAYER(u)))
+    if(Level == 0 || u->IsPlayer() && Level > sWorld.GetMaxLevel(castPtr<Player>(u)))
     {
         RedSystemMessage(m_session, "A level (numeric) is required to be specified after this command.");
         return true;
@@ -1064,8 +1064,8 @@ bool ChatHandler::HandleModifyLevelCommand(const char* args, WorldSession* m_ses
 
     // Set level message
     BlueSystemMessage(m_session, "Setting the level of %s to %u.", u->GetName(), Level);
-    if(u->IsPlayer() && TO_PLAYER(u) != m_session->GetPlayer())
-        GreenSystemMessageToPlr(TO_PLAYER(u), "%s set your level to %u.", m_session->GetPlayer()->GetName(), Level);
+    if(u->IsPlayer() && castPtr<Player>(u) != m_session->GetPlayer())
+        GreenSystemMessageToPlr(castPtr<Player>(u), "%s set your level to %u.", m_session->GetPlayer()->GetName(), Level);
 
     sWorld.LogGM(m_session, "used modify level on %s %s, level %u", u->IsPlayer() ? "Player" : "Unit", u->GetName(), Level);
     u->setLevel(Level);
@@ -1438,11 +1438,11 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
         {
             if(plr->GetMapMgr() != m_session->GetPlayer()->GetMapMgr())
             {
-                sEventMgr.AddEvent( TO_UNIT(plr), &Unit::EventCastSpell, TO_UNIT(plr), info, EVENT_PLAYER_CHECKFORCHEATS, 100, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+                sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventCastSpell, castPtr<Unit>(plr), info, EVENT_PLAYER_CHECKFORCHEATS, 100, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
             }
             else
             {
-                Spell* sp = new Spell(plr, info, true, NULLAURA);
+                Spell* sp = new Spell(plr, info, true, NULL);
                 SpellCastTargets targets(plr->GetGUID());
                 sp->prepare(&targets);
             }
@@ -1506,7 +1506,7 @@ bool ChatHandler::HandleNullFollowCommand(const char* args, WorldSession * m_ses
 
     // restart movement
     c->GetAIInterface()->SetAIState(STATE_IDLE);
-    c->GetAIInterface()->SetUnitToFollow(NULLUNIT);
+    c->GetAIInterface()->SetUnitToFollow(NULL);
     return true;
 }
 
@@ -1836,7 +1836,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
 
     bool spVehicle = ctrData->Vehicle_entry > 0 ? true : false;
     Creature* p = spVehicle ? plr->GetMapMgr()->CreateVehicle(entry) : plr->GetMapMgr()->CreateCreature(entry);
-    if(p == NULLCREATURE)
+    if(p == NULL)
     {
         RedSystemMessage(m_session, "Could not create spawn.");
         return true;
@@ -1878,7 +1878,6 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
     }
     else p->Load(mode, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation());
 
-    p->SetPhaseMask(plr->GetPhaseMask());
     p->PushToWorld(mgr);
 
     BlueSystemMessage(m_session, "Spawned a creature `%s` with entry %u at %f %f %f on map %u in phase %u", ctrData->Name,
@@ -1978,7 +1977,7 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
     }
 
     Player* plr = objmgr.GetPlayer((uint32)pi->guid);
-    if(plr == NULLPLR)
+    if(plr == NULL)
     {
         CharacterDatabase.Execute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", (uint32)pi->guid);
     }
@@ -2010,7 +2009,7 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
     }
 
     Player* plr = objmgr.GetPlayer((uint32)pi->guid);
-    if(plr == NULLPLR)
+    if(plr == NULL)
     {
         CharacterDatabase.Execute("UPDATE characters SET customizable = 1 WHERE guid = %u", (uint32)pi->guid);
     }
@@ -2611,7 +2610,7 @@ bool ChatHandler::HandleCollisionTestLOS(const char * args, WorldSession * m_ses
 {
     if(sWorld.Collision)
     {
-        Object* pObj = NULLOBJ;
+        WorldObject* pObj = NULL;
         Creature* pCreature = getSelectedCreature(m_session, false);
         Player* pPlayer = getSelectedChar(m_session, false);
         if(pCreature)
@@ -2638,7 +2637,7 @@ bool ChatHandler::HandleCollisionTestLOS(const char * args, WorldSession * m_ses
             SystemMessage(m_session, "Difference 1: Result was: %s.", res1 ? "in LOS" : "not in LOS");
             SystemMessage(m_session, "Difference 2: Result was: %s.", res2 ? "in LOS" : "not in LOS");
             SystemMessage(m_session, "Difference 5: Result was: %s.", res5 ? "in LOS" : "not in LOS");
-            SystemMessage(m_session, "Object Function: Result was: %s.", objectfunction ? "in LOS" : "not in LOS");
+            SystemMessage(m_session, "ObjectFunction: Result was: %s.", objectfunction ? "in LOS" : "not in LOS");
             return true;
         }
 
@@ -2696,8 +2695,8 @@ bool ChatHandler::HandleClearBonesCommand(const char *args, WorldSession *m_sess
     Player* p = m_session->GetPlayer();
     sWorld.LogGM(m_session, "cleared bones on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
-    Object::InRangeSet::iterator itr;
-    Object* obj;
+    WorldObject::InRangeSet::iterator itr;
+    WorldObject* obj;
 
     for( itr = p->GetInRangeSetBegin(); itr != p->GetInRangeSetEnd(); itr++)
     {
@@ -2705,8 +2704,8 @@ bool ChatHandler::HandleClearBonesCommand(const char *args, WorldSession *m_sess
         if(!obj)
             continue;
 
-        if( obj->GetTypeId() == TYPEID_CORPSE && TO_CORPSE(obj)->GetCorpseState() == CORPSE_STATE_BONES )
-            TO_CORPSE(obj)->Despawn();
+        if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BONES )
+            castPtr<Corpse>(obj)->Despawn();
     }
 
     SystemMessage(m_session, "Completed.");
@@ -2718,8 +2717,8 @@ bool ChatHandler::HandleClearCorpsesCommand(const char *args, WorldSession *m_se
     Player* p = m_session->GetPlayer();
     sWorld.LogGM(m_session, "cleared corpses on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
-    Object::InRangeSet::iterator itr;
-    Object* obj;
+    WorldObject::InRangeSet::iterator itr;
+    WorldObject* obj;
 
     for( itr = p->GetInRangeSetBegin(); itr != p->GetInRangeSetEnd(); itr++)
     {
@@ -2727,8 +2726,8 @@ bool ChatHandler::HandleClearCorpsesCommand(const char *args, WorldSession *m_se
         if(!obj)
             continue;
 
-        if( obj->GetTypeId() == TYPEID_CORPSE && TO_CORPSE(obj)->GetCorpseState() == CORPSE_STATE_BODY )
-            TO_CORPSE(obj)->Despawn();
+        if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BODY )
+            castPtr<Corpse>(obj)->Despawn();
     }
 
     SystemMessage(m_session, "Completed.");

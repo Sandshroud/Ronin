@@ -140,12 +140,12 @@ EyeOfTheStorm::EyeOfTheStorm( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) :
 
     for(i = 0; i < EOTS_TOWER_COUNT; i++)
     {
-        m_EOTSbuffs[i] = NULLGOB;
+        m_EOTSbuffs[i] = NULL;
         m_CPStatus[i] = 50;
-        m_CPBanner[i] = NULLGOB;
-        m_CPStatusGO[i] = NULLGOB;
+        m_CPBanner[i] = NULL;
+        m_CPStatusGO[i] = NULL;
 
-        m_spiritGuides[i] = NULLCREATURE;
+        m_spiritGuides[i] = NULL;
     }
 
     m_bonusHonor = HonorHandler::CalculateHonorPoints(lgroup*10,lgroup*10);
@@ -172,7 +172,7 @@ EyeOfTheStorm::~EyeOfTheStorm()
     {
         if(m_EOTSbuffs[i] != NULL)
         {
-            m_EOTSbuffs[i]->m_battleground = NULLBATTLEGROUND;
+            m_EOTSbuffs[i]->m_battleground = NULL;
             if( !m_EOTSbuffs[i]->IsInWorld() )
             {
                 m_EOTSbuffs[i]->Destruct();
@@ -186,10 +186,10 @@ EyeOfTheStorm::~EyeOfTheStorm()
 
 void EyeOfTheStorm::RepopPlayersOfTeam(int32 team, Creature* sh)
 {
-    map<Creature*,set<uint32> >::iterator itr = m_resurrectMap.find(sh);
+    map<Creature*, set<WoWGuid> >::iterator itr = m_resurrectMap.find(sh);
     if( itr != m_resurrectMap.end() )
     {
-        for( set<uint32>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
+        for( set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
         {
             Player* r_plr = m_mapMgr->GetPlayer( *it2 );
             if( r_plr != NULL && (team < 0 || (int32)r_plr->GetTeam() == team) && r_plr->isDead() )
@@ -274,7 +274,7 @@ void EyeOfTheStorm::HookOnAreaTrigger(Player* plr, uint32 id)
             SpellEntry * sp = dbcSpell.LookupEntry(spellid);
             if(sp)
             {
-                Spell* pSpell = (new Spell(plr, sp, true, NULLAURA));
+                Spell* pSpell = (new Spell(plr, sp, true, NULL));
                 SpellCastTargets targets(plr->GetGUID());
                 pSpell->prepare(&targets);
             }
@@ -285,17 +285,15 @@ void EyeOfTheStorm::HookOnAreaTrigger(Player* plr, uint32 id)
     if( tid < 0 )
         return;
 
-#ifdef BG_ANTI_CHEAT
     if(!m_started || m_ended)
     {
         SendChatMessage(CHAT_MSG_BG_SYSTEM_NEUTRAL, plr->GetGUID(), "%s has removed from the battleground for cheating.",  plr->GetName());
         plr->SoftDisconnect();
         return;
     }
-#endif
 
     uint32 team = plr->GetTeam();
-    if( plr->GetLowGUID() != m_flagHolder )
+    if( plr->GetGUID() != m_flagHolder )
         return;
 
     uint32 i;
@@ -385,7 +383,7 @@ void EyeOfTheStorm::HookFlagStand(Player* plr, GameObject* obj)
 
 bool EyeOfTheStorm::HookSlowLockOpen( GameObject* pGo, Player* pPlayer, Spell* pSpell)
 {
-    if( m_flagHolder != 0 )
+    if( !m_flagHolder.empty() )
         return false;
 
     if(m_standFlag->IsInWorld())
@@ -404,7 +402,7 @@ bool EyeOfTheStorm::HookSlowLockOpen( GameObject* pGo, Player* pPlayer, Spell* p
 
 void EyeOfTheStorm::HookOnMount(Player* plr)
 {
-    if( m_flagHolder == plr->GetLowGUID() )
+    if( m_flagHolder == plr->GetGUID() )
     {
         plr->RemoveAura( EOTS_NETHERWING_FLAG_SPELL );
         //DropFlag( plr );
@@ -419,7 +417,7 @@ void EyeOfTheStorm::OnAddPlayer(Player* plr)
 
 void EyeOfTheStorm::OnRemovePlayer(Player* plr)
 {
-    if( m_flagHolder == plr->GetLowGUID() )
+    if( m_flagHolder == plr->GetGUID() )
     {
         plr->RemoveAura( EOTS_NETHERWING_FLAG_SPELL );
         //DropFlag( plr );
@@ -431,7 +429,7 @@ void EyeOfTheStorm::OnRemovePlayer(Player* plr)
 
 void EyeOfTheStorm::DropFlag(Player* plr)
 {
-    if( m_flagHolder != plr->GetLowGUID() )
+    if( m_flagHolder != plr->GetGUID() )
         return;
 
     plr->RemoveAura( EOTS_NETHERWING_FLAG_SPELL );
@@ -736,7 +734,7 @@ void EyeOfTheStorm::UpdateCPs()
                     RepopPlayersOfTeam( 0, m_spiritGuides[i] );
                     m_spiritGuides[i]->Despawn( 0, 0 );
                     RemoveSpiritGuide( m_spiritGuides[i] );
-                    m_spiritGuides[i] = NULLCREATURE;
+                    m_spiritGuides[i] = NULL;
                 }
 
                 m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, true );
@@ -763,7 +761,7 @@ void EyeOfTheStorm::UpdateCPs()
                     RepopPlayersOfTeam( 1, m_spiritGuides[i] );
                     m_spiritGuides[i]->Despawn( 0, 0 );
                     RemoveSpiritGuide( m_spiritGuides[i] );
-                    m_spiritGuides[i] = NULLCREATURE;
+                    m_spiritGuides[i] = NULL;
                 }
 
                 m_spiritGuides[i] = SpawnSpiritGuide( EOTSGraveyardLocations[i][0], EOTSGraveyardLocations[i][1], EOTSGraveyardLocations[i][2], 0, false );
@@ -818,7 +816,7 @@ void EyeOfTheStorm::UpdateCPs()
                         RepopPlayersOfTeam( -1, m_spiritGuides[i] );
                         m_spiritGuides[i]->Despawn( 0, 0 );
                         RemoveSpiritGuide( m_spiritGuides[i] );
-                        m_spiritGuides[i] = NULLCREATURE;
+                        m_spiritGuides[i] = NULL;
                     }
 
                     // set some world states
@@ -1013,8 +1011,8 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
                     {
                         if( !(*itr)->GetItemInterface()->AddItemToFreeSlot(pReward) )
                         {
-                            pReward->DeleteMe();
-                            pReward = NULLGOB;
+                            pReward->Destruct();
+                            pReward = NULL;
                         }
                     }
                     (*itr)->GetSession()->SendItemPushResult(pReward,true,false,true,false,res.ContainerSlot,res.Slot, item_count);
@@ -1121,7 +1119,7 @@ void EyeOfTheStorm::OnStart()
     {
         m_bubbles[i]->RemoveFromWorld(false);
         m_bubbles[i]->Destruct();
-        m_bubbles[i] = NULLGOB;
+        m_bubbles[i] = NULL;
     }
 
     m_started = true;
@@ -1135,7 +1133,7 @@ void EyeOfTheStorm::HookGenerateLoot(Player* plr, Corpse* pCorpse)
     gold *= sWorld.getRate(RATE_MONEY);
 
     // set it
-    pCorpse->m_loot.gold = float2int32(gold);
+    pCorpse->GetLoot()->gold = float2int32(gold);
 }
 
 void EyeOfTheStorm::HookOnShadowSight()

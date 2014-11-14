@@ -20,15 +20,15 @@ public:
     MapCell();
     ~MapCell();
 
-    typedef unordered_set<Object* > ObjectSet;
+    typedef unordered_set<WorldObject* > ObjectSet;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr);
 
-    //Object Managing
-    void AddObject(Object* obj);
-    void RemoveObject(Object* obj);
-    bool HasObject(Object* obj) { return (_objects.find(obj) != _objects.end()); }
+    //WorldObject Managing
+    void AddObject(WorldObject* obj);
+    void RemoveObject(WorldObject* obj);
+    bool HasObject(WorldObject* obj) { return (_objects.find(obj) != _objects.end()); }
     bool HasPlayers() { return ((_playerCount > 0) ? true : false); }
     HEARTHSTONE_INLINE size_t GetObjectCount() { return _objects.size(); }
     void RemoveObjects();
@@ -41,7 +41,7 @@ public:
     HEARTHSTONE_INLINE bool IsActive() { return _active; }
     HEARTHSTONE_INLINE bool IsLoaded() { return _loaded; }
 
-    //Object Loading Managing
+    //WorldObject Loading Managing
     void LoadObjects(CellSpawns * sp);
     HEARTHSTONE_INLINE uint32 GetPlayerCount() { return _playerCount; }
 

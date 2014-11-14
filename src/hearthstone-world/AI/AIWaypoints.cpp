@@ -129,17 +129,13 @@ bool AI_Movement::hideWayPoints(Player* pPlayer)
     m_WayPointsShowing = false;
     WayPointMap::const_iterator itr;
 
-    // slightly better way to do this
-    uint64 guid;
-
+    WoWGuid guid;
     for (itr = m_waypoints->begin(); itr != m_waypoints->end(); itr++)
     {
         if( (*itr) != NULL )
         {
-            // avoid C4293
             guid = MAKE_NEW_GUID((*itr)->id, 0, HIGHGUID_TYPE_WAYPOINT);
-            WoWGuid wowguid(guid);
-            pPlayer->PushOutOfRange(wowguid);
+            pPlayer->PushOutOfRange(guid);
         }
     }
     return true;
@@ -152,10 +148,10 @@ bool AI_Movement::saveWayPoints()
         return false;
     if(!m_Unit->IsCreature())
         return false;
-    if(!TO_CREATURE(m_Unit)->IsSpawn())
+    if(!castPtr<Creature>(m_Unit)->IsSpawn())
         return false;
 
-    WorldDatabase.Execute("DELETE FROM creature_waypoints WHERE spawnid = %u", TO_CREATURE(m_Unit)->GetSQL_id());
+    WorldDatabase.Execute("DELETE FROM creature_waypoints WHERE spawnid = %u", castPtr<Creature>(m_Unit)->GetSQL_id());
     WayPointMap::const_iterator itr;
     WayPoint* wp = NULL;
     std::stringstream ss;
@@ -168,7 +164,7 @@ bool AI_Movement::saveWayPoints()
         ss.str("");
         ss << "REPLACE INTO creature_waypoints ";
         ss << "(spawnid,waypointid,position_x,position_y,position_z,orientation,waittime,flags,forwardemoteoneshot,forwardemoteid,backwardemoteoneshot,backwardemoteid,forwardskinid,backwardskinid,forwardStandState,backwardStandState,forwardSpellToCast,backwardSpellToCast,forwardSayText,backwardSayText) VALUES (";
-        ss << TO_CREATURE(m_Unit)->GetSQL_id() << ", ";
+        ss << castPtr<Creature>(m_Unit)->GetSQL_id() << ", ";
         ss << wp->id << ", ";
         ss << wp->x << ", ";
         ss << wp->y << ", ";

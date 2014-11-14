@@ -117,12 +117,10 @@ static inline uint32 GetLevelGrouping(uint32 level)
         return 6;
     else if(level < 80)
         return 7;
-    else
-        return 8;
+    else return 8;
 }
 #define MAX_LEVEL_GROUP 9
 #define LEVEL_GROUP_RATED_ARENA 8
-#define BG_ANTI_CHEAT 1
 
 class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>, public EventableObject
 {
@@ -135,7 +133,7 @@ class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>,
 
     /* Queue System */
     // Instance Id -> list<Player guid> [ BattlegroundType ] (instance 0 - first available)
-    list<uint32> m_queuedPlayers[BATTLEGROUND_NUM_TYPES][MAX_LEVEL_GROUP];
+    list<WoWGuid> m_queuedPlayers[BATTLEGROUND_NUM_TYPES][MAX_LEVEL_GROUP];
 
     // Instance Id -> list<Group id> [BattlegroundType][LevelGroup]
     list<uint32> m_queuedGroups[BATTLEGROUND_NUM_TYPES];
@@ -258,7 +256,7 @@ protected:
     uint8 m_losingteam;
 
     /* resurrect queue */
-    map<Creature*, set<uint32> > m_resurrectMap;
+    map<Creature*, set<WoWGuid> > m_resurrectMap;
     uint32 m_lastResurrect;
 
     bool m_isWeekend;

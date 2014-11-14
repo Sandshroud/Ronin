@@ -231,7 +231,7 @@ void EventCastSpell(Unit *caster, Unit *target, uint32 spellid, uint32 time)
 
 void EventPlaySound(Creature *creat, uint32 id, uint32 time)
 {
-    sEventMgr.AddEvent(TO_OBJECT(creat), &Object::PlaySoundToSet, id, EVENT_UNK, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(TO_OBJECT(creat), &WorldObject::PlaySoundToSet, id, EVENT_UNK, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void EventCreatureSay(Creature *creat, string say, uint32 time)

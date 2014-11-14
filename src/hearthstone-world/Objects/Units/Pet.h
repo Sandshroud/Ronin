@@ -129,6 +129,7 @@ public:
     ~Pet();
     virtual void Init();
     virtual void Destruct();
+    virtual bool IsPet() { return true; }
 
     void LoadFromDB(Player* owner, PlayerPet * pi);
     void CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry *created_by_spell, uint32 type, uint32 expiretime);
@@ -141,7 +142,7 @@ public:
     void ReInitializeSpells();
     void InitializeMe();
     void SendSpellsToOwner();
-    void SendNullSpellsToOwner();
+    void SendNULLsToOwner();
 
     void SendCastFailed( uint32 spellid, uint8 fail );
     void SendActionFeedback( PetActionFeedback value  );
@@ -173,7 +174,7 @@ public:
     void DelayedRemove(bool bTime, bool bDeath);
 
     HEARTHSTONE_INLINE Player* GetPetOwner() { return m_Owner; }
-    HEARTHSTONE_INLINE void ClearPetOwner() { m_Owner = NULLPLR; }
+    HEARTHSTONE_INLINE void ClearPetOwner() { m_Owner = NULL; }
 
     /* Level and XP related functions */
     void GiveXP(uint32 xp);

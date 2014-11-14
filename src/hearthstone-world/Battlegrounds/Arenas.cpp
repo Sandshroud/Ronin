@@ -42,7 +42,7 @@ Arena::Arena( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t, uint32 players_pe
     }
     rated_match=false;
 
-    m_buffs[0] = m_buffs[1] = NULLGOB;
+    m_buffs[0] = m_buffs[1] = NULL;
     m_playersCount[0] = m_playersCount[1] = 0;
 
     m_playersAlive.clear();
@@ -67,7 +67,7 @@ Arena::~Arena()
         if(m_buffs[i] && m_buffs[i]->IsInWorld()==false)
         {
             m_buffs[i]->Destruct();
-            m_buffs[i] = NULLGOB;
+            m_buffs[i] = NULL;
         }
     }
 
@@ -104,11 +104,11 @@ void Arena::OnAddPlayer(Player* plr)
     /* Set FFA PvP Flag */
     plr->SetFFAPvPFlag();
 
-    m_playersAlive.insert(plr->GetLowGUID());
+    m_playersAlive.insert(plr->GetGUID());
     if(Rated())
     {
         // Store the players who join so that we can change their rating even if they leave before arena finishes
-        m_players2[plr->GetTeam()].insert(plr->GetLowGUID());
+        m_players2[plr->GetTeam()].insert(plr->GetGUID());
         if(m_teams[plr->GetTeam()] == -1 && plr->m_playerInfo && plr->m_playerInfo->arenaTeam[m_arenateamtype] != NULL)
         {
             m_teams[plr->GetTeam()] = plr->m_playerInfo->arenaTeam[m_arenateamtype]->m_id;
@@ -152,11 +152,11 @@ void Arena::HookOnPlayerDeath(Player* plr)
 {
     ASSERT(plr != NULL);
 
-    if (m_playersAlive.find(plr->GetLowGUID()) != m_playersAlive.end())
+    if (m_playersAlive.find(plr->GetGUID()) != m_playersAlive.end())
     {
         m_playersCount[plr->GetTeam()]--;
         UpdatePlayerCounts();
-        m_playersAlive.erase(plr->GetLowGUID());
+        m_playersAlive.erase(plr->GetGUID());
     }
 }
 
@@ -446,7 +446,7 @@ void Arena::Finish()
             teams[i]->m_stat_rating += m_deltaRating[i];
             if ((int32)teams[i]->m_stat_rating < 0) teams[i]->m_stat_rating = 0;
 
-            for(set<uint32>::iterator itr = m_players2[i].begin(); itr != m_players2[i].end(); itr++)
+            for(std::set<WoWGuid>::iterator itr = m_players2[i].begin(); itr != m_players2[i].end(); itr++)
             {
                 PlayerInfo * info = objmgr.GetPlayerInfo(*itr);
                 if (info)

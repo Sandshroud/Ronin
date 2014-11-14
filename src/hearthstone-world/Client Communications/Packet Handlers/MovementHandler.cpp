@@ -51,7 +51,7 @@ void WorldSession::HandleMoveTeleportAckOpcode( WorldPacket & recv_data )
 {
     WoWGuid guid;
     uint32 flags, time;
-    recv_data >> guid;
+    recv_data >> guid.asPacked();
     recv_data >> flags >> time;
     if(guid == _player->GetGUID())
     {
@@ -139,15 +139,15 @@ void MovementInfo::HandleBreathing(Player* _player, WorldSession * pSession)
 
 void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
 {
-    if(!_player->IsInWorld() || _player->m_uint32Values[UNIT_FIELD_CHARMEDBY] || _player->GetPlayerStatus() == TRANSFER_PENDING && !_player->GetVehicle() || _player->GetTaxiState())
+    if(!_player->IsInWorld() || _player->GetUInt64Value(UNIT_FIELD_CHARMEDBY) || _player->GetPlayerStatus() == TRANSFER_PENDING && !_player->GetVehicle() || _player->GetTaxiState())
         return;
 
     // spell cancel on movement, for now only fishing is added
-    Object* t_go = _player->m_SummonedObject;
+    WorldObject* t_go = _player->m_SummonedObject;
     if (t_go)
     {
         if (t_go->GetEntry() == GO_FISHING_BOBBER)
-            TO_GAMEOBJECT(t_go)->EndFishing(GetPlayer(),true);
+            castPtr<GameObject>(t_go)->EndFishing(GetPlayer(),true);
     }
 
     uint32 mstime = getMSTime();
@@ -155,14 +155,13 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     {
         if(_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
             sEventMgr.ModifyEventTimeAndTimeLeft(_player, EVENT_PLAYER_FORCE_LOGOUT, 1800000);
-        else
-            sEventMgr.RemoveEvents(_player, EVENT_PLAYER_FORCE_LOGOUT);
+        else sEventMgr.RemoveEvents(_player, EVENT_PLAYER_FORCE_LOGOUT);
     }
 
     /************************************************************************/
     /* Read Movement Data Packet                                            */
     /************************************************************************/
-    recv_data >> m_MoverWoWGuid;
+    recv_data >> m_MoverWoWGuid.asPacked();
     _player->movement_info.read(recv_data);
     float newX, newY, newZ, newO;
     _player->movement_info.GetRawPosition(newX, newY, newZ, newO);
@@ -203,7 +202,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /************************************************************************/
     /* Remove Emote State                                                   */
     /************************************************************************/
-    if(_player->m_uint32Values[UNIT_NPC_EMOTESTATE])
+    if(_player->GetUInt32Value(UNIT_NPC_EMOTESTATE))
         _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
 
     /************************************************************************/
@@ -218,7 +217,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /************************************************************************/
     /* Anti-Hack Checks                                                     */
     /************************************************************************/
-    if((!HasGMPermissions() || !sWorld.no_antihack_on_gm) && !_player->m_uint32Values[UNIT_FIELD_CHARM] && !_player->m_heartbeatDisable)
+    if((!HasGMPermissions() || !sWorld.no_antihack_on_gm) && !_player->GetUInt64Value(UNIT_FIELD_CHARM) && !_player->m_heartbeatDisable)
     {
         /************************************************************************/
         /* Anti-Teleport                                                        */
@@ -240,7 +239,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             if(!HasGMPermissions() || !sWorld.no_antihack_on_gm)
             {
                 WorldPacket data( SMSG_MOVE_LAND_WALK );
-                data << _player->GetNewGUID();
+                data << _player->GetGUID().asPacked();
                 data << uint32( 4 );
                 SendPacket( &data );
 
@@ -257,7 +256,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /************************************************************************/
     /* Calculate the timestamp of the packet we have to send out            */
     /************************************************************************/
-    size_t pos = (size_t)m_MoverWoWGuid.GetNewGuidLen() + 1;
+    size_t pos = (size_t)BitCount8(m_MoverWoWGuid.GenMask()) + 1;
     if(m_clientTimeDelay == 0)
         m_clientTimeDelay = mstime - _player->movement_info.moveTime;
 
@@ -294,12 +293,12 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             {
                 if(recv_data.GetOpcode() != MSG_MOVE_JUMP)
                 {
-                    if(!_player->movement_info.transGuid.GetOldGuid() && !_player->FlyCheat && !_player->m_FlyingAura
+                    if(!_player->movement_info.transGuid && !_player->FlyCheat && !_player->m_FlyingAura
                         && newX == _player->GetPositionX() && newY == _player->GetPositionY()
                         && newZ > _player->GetPositionZ()+3.0f )
                     {
                         WorldPacket data (SMSG_MOVE_UNSET_CAN_FLY, 13);
-                        data << _player->GetNewGUID();
+                        data << _player->GetGUID().asPacked();
                         data << uint32(5);
                         SendPacket(&data);
 
@@ -314,7 +313,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
                     else if((_player->movement_info.movementFlags & MOVEFLAG_AIR_SWIMMING) && !(_player->m_FlyingAura || _player->FlyCheat))
                     {
                         WorldPacket data (SMSG_MOVE_UNSET_CAN_FLY, 13);
-                        data << _player->GetNewGUID();
+                        data << _player->GetGUID().asPacked();
                         data << uint32(5);
                         SendPacket(&data);
 
@@ -429,7 +428,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
                 !_player->HasAura(130) && !_player->GetTaxiState()) // Slow Fall or Taxi Path.
             {
                 // 1.7% damage for each unit fallen on Z axis over 13
-                Unit* toDamage = TO_UNIT(_player);
+                Unit* toDamage = castPtr<Unit>(_player);
                 if( _player->GetVehicle() )
                     toDamage = _player->GetVehicle();
                 else if(_player->m_CurrentCharm)
@@ -474,7 +473,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     /************************************************************************/
     if(!_player->GetMovementInfo()->GetTransportLock())
     {
-        if(_player->m_CurrentTransporter && !_player->movement_info.transGuid.GetOldGuid())
+        if(_player->m_CurrentTransporter && !_player->movement_info.transGuid)
         {
             /* we left the transporter we were on */
             _player->m_CurrentTransporter->RemovePlayer(_player);
@@ -482,32 +481,31 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             _player->ResetHeartbeatCoords();
             _player->DelaySpeedHack(5000);
         }
-        else if(_player->movement_info.transGuid.GetOldGuid() && _player->m_CurrentTransporter)
+        else if(_player->movement_info.transGuid && _player->m_CurrentTransporter)
         {
-            if(_player->m_CurrentTransporter->GetGUID() != _player->movement_info.transGuid.GetOldGuid())
+            if(_player->m_CurrentTransporter->GetGUID() != _player->movement_info.transGuid)
             {
                 _player->m_CurrentTransporter->RemovePlayer(_player);
                 _player->m_CurrentTransporter = NULLTRANSPORT;
                 _player->ResetHeartbeatCoords();
 
-                uint64 transporterGUID = _player->movement_info.transGuid.GetOldGuid();
-                _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(transporterGUID));
+                _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(_player->movement_info.transGuid));
                 if(_player->m_CurrentTransporter)
                     _player->m_CurrentTransporter->AddPlayer(_player);
                 _player->DelaySpeedHack(5000);
             }
         }
-        else if(_player->movement_info.transGuid.GetOldGuid())
+        else if(_player->movement_info.transGuid)
         {
             /* just walked into a transport */
             if(_player->IsMounted())
-                TO_UNIT(_player)->Dismount();
+                castPtr<Unit>(_player)->Dismount();
 
             // vehicles, meh
             if( _player->GetVehicle() )
                 _player->GetVehicle()->RemovePassenger( _player );
 
-            uint64 transporterGUID = _player->movement_info.transGuid.GetOldGuid();
+            uint64 transporterGUID = _player->movement_info.transGuid;
             _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(transporterGUID));
             if(_player->m_CurrentTransporter)
                 _player->m_CurrentTransporter->AddPlayer(_player);
@@ -595,19 +593,14 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
         _player->m_startMoveTime = _player->m_lastMoveTime;
         _player->m_cheatEngineChances = 2;
     }
-
-#if defined(_DEBUG)
-    //sVMapInterface.setDebugPoint(_player->movement_info.x, _player->movement_info.y, _player->movement_info.z, _player->movement_info.orientation);
-#endif
 }
 
 void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
 {
-    WoWGuid wguid;
+    WoWGuid guid;
     uint32 time_dif;
-    recv_data >> wguid;
+    recv_data >> guid.asPacked();
     recv_data >> time_dif;
-    uint64 guid = wguid.GetOldGuid();
 
     // Ignore updates for not us
     if( guid != _player->GetGUID() )
@@ -615,7 +608,7 @@ void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
 
     WorldPacket data(MSG_MOVE_TIME_SKIPPED, 16);
     // send to other players
-    data << _player->GetNewGUID();
+    data << guid.asPacked();
     data << time_dif;
     _player->SendMessageToSet(&data, false);
 }
@@ -623,10 +616,10 @@ void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
 void WorldSession::HandleSetActiveMoverOpcode( WorldPacket & recv_data )
 {
     // set current movement object
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    if(guid != m_MoverWoWGuid.GetOldGuid())
+    if(m_MoverWoWGuid != guid)
     {
         // make sure the guid is valid and we aren't cheating
         if( !(_player->m_CurrentCharm && _player->m_CurrentCharm->GetGUID() == guid) &&
@@ -662,8 +655,8 @@ void WorldSession::HandleMoveHoverWaterFlyAckOpcode( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
     WoWGuid guid;
     uint32 unk, unk2;
-    recv_data >> guid >> unk;
-    if(guid.GetOldGuid() != _player->GetGUID())
+    recv_data >> guid.asPacked() >> unk;
+    if(guid != _player->GetGUID())
     {
         SKIP_READ_PACKET(recv_data);
         return;
@@ -678,8 +671,8 @@ void WorldSession::HandleMoveKnockbackAckOpcode( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
     WoWGuid guid;
     uint32 unk2;
-    recv_data >> guid >> unk2;
-    if(guid.GetOldGuid() != _player->GetGUID())
+    recv_data >> guid.asPacked() >> unk2;
+    if(guid != _player->GetGUID())
     {
         SKIP_READ_PACKET(recv_data);
         return;
@@ -698,9 +691,9 @@ void WorldSession::HandleForceSpeedChangeOpcodes( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
     WoWGuid guid;
     uint32 unk;
-    recv_data >> guid >> unk;
+    recv_data >> guid.asPacked() >> unk;
 
-    if(guid.GetOldGuid() != _player->GetGUID())
+    if(guid != _player->GetGUID())
     {
         SKIP_READ_PACKET(recv_data);
         return;

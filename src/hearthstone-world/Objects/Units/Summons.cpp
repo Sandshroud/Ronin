@@ -7,7 +7,6 @@
 Summon::Summon(CreatureData* data, uint64 guid) : Creature(data, guid)
 {
     m_Internal = NULL;
-    m_isSummon = true;
 }
 
 Summon::~Summon()
@@ -31,7 +30,7 @@ void Summon::OnPushToWorld()
 {
     if(m_Internal != NULL)
         m_Internal->OnPushToWorld();
-    Object::OnPushToWorld();
+    WorldObject::OnPushToWorld();
 }
 
 void Summon::CreateAs(SummonHandler* NewHandle)
@@ -40,7 +39,7 @@ void Summon::CreateAs(SummonHandler* NewHandle)
     m_Internal->Initialize(this);
 }
 
-void Summon::OnRemoveInRangeObject(Object* object)
+void Summon::OnRemoveInRangeObject(WorldObject* object)
 {
     if(m_Internal != NULL)
         m_Internal->OnRemoveInRangeObject(object);
@@ -50,7 +49,7 @@ void Summon::OnRemoveInRangeObject(Object* object)
             event_ModifyTimeLeft(EVENT_SUMMON_EXPIRE_0+summonslot, 1);
     }
 
-    Object::OnRemoveInRangeObject(object);
+    WorldObject::OnRemoveInRangeObject(object);
 }
 
 void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot)
@@ -59,10 +58,9 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     Creature::Load(0, position.x, position.y, position.z, position.o);
 
-    GetAIInterface()->Init(TO_UNIT(this), AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
+    GetAIInterface()->Init(castPtr<Unit>(this), AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
     SetFaction(m_owner->GetFactionID());
-    SetPhaseMask(m_owner->GetPhaseMask());
     SetZoneId(m_owner->GetZoneId());
     setLevel(m_owner->getLevel());
     SetCreatedBySpell(spellid);
@@ -140,7 +138,7 @@ void PossessedSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
 void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
     uint32 displayID = m_summon->GetCreatureData()->DisplayInfo[0];
-    if( owner->IsPlayer() && TO_PLAYER(owner)->GetTeam() == 0 )
+    if( owner->IsPlayer() && castPtr<Player>(owner)->GetTeam() == 0 )
     {
         if ( m_summon->GetCreatureData()->DisplayInfo[1] != 0 )
             displayID = m_summon->GetCreatureData()->DisplayInfo[1];
@@ -623,7 +621,6 @@ void Spell::SummonVehicle(uint32 i, SummonPropertiesEntry * Properties, Creature
 
     Vehicle *veh = u_caster->GetMapMgr()->CreateVehicle( data->Entry );
     veh->Load(u_caster->GetMapMgr()->iInstanceMode, v.x, v.y, v.z, v.o);
-    veh->SetPhaseMask( u_caster->GetPhaseMask() );
     veh->SetCreatedBySpell( m_spellInfo->Id );
     veh->SetCreatedByGUID( u_caster->GetGUID() );
     veh->SetSummonedByGUID( u_caster->GetGUID() );

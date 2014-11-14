@@ -320,7 +320,7 @@ enum eFizzcrank
 class FizzcrankGossip : public GossipScript
 {
 public:
-    void GossipHello(Object* pObject, Player*  pPlayer, bool AutoSend)
+    void GossipHello(WorldObject* pObject, Player*  pPlayer, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 1, pPlayer);
@@ -332,7 +332,7 @@ public:
             Menu->SendTo(pPlayer);
     }
 
-    void GossipSelectOption(Object* pObject, Player*  pPlayer, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject* pObject, Player*  pPlayer, uint32 Id, uint32 IntId, const char * Code)
     {
         GossipMenu *Menu;
         switch (IntId)
@@ -389,7 +389,7 @@ public:
 class TiareGossipScript : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player *Plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player *Plr, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 1, Plr);
@@ -397,7 +397,7 @@ public:
         Menu->SendTo(Plr);
     }
 
-    void GossipSelectOption(Object *pObject, Player *plr, uint32 Id, uint32 IntId, const char * EnteredCode)
+    void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * EnteredCode)
     {
         Creature *Tiare = TO_CREATURE((pObject));
         plr->Gossip_Complete();
@@ -423,7 +423,7 @@ enum eSurristrasz
 class SurristraszGossip : public GossipScript
 {
 public:
-    void GossipHello(Object* pObject, Player*  pPlayer, bool AutoSend)
+    void GossipHello(WorldObject* pObject, Player*  pPlayer, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 1, pPlayer);
@@ -435,7 +435,7 @@ public:
             Menu->SendTo(pPlayer);
     };
 
-    void GossipSelectOption(Object* pObject, Player*  pPlayer, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject* pObject, Player*  pPlayer, uint32 Id, uint32 IntId, const char * Code)
     {
         if( !pObject->IsCreature() )
             return;

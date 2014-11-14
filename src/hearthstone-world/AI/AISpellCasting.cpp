@@ -146,13 +146,13 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     }
 }
 
-bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 pFilter, float pMinRange, float pMaxRange )
+bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uint32 pFilter, float pMinRange, float pMaxRange )
 {
     // Make sure its a valid unit
     if (!pObject->IsUnit() )
         return false;
 
-    Unit *UnitTarget = TO_UNIT( pObject );
+    Unit *UnitTarget = castPtr<Unit>( pObject );
     if ( UnitTarget->GetInstanceID() != m_Unit->GetInstanceID() )
         return false;
 
@@ -166,13 +166,13 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
 
     if ( pFilter & TargetFilter_Corpse )
     {   //Skip dead ( if required ), feign death or invisible targets
-        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || TO_CREATURE( UnitTarget )->GetCreatureData()->Rank == ELITE_WORLDBOSS )
+        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || castPtr<Creature>( UnitTarget )->GetCreatureData()->Rank == ELITE_WORLDBOSS )
             return false;
     }
     else if ( !UnitTarget->isAlive() )
         return false;
 
-    if ( UnitTarget->IsPlayer() && TO_PLAYER( UnitTarget )->m_isGmInvisible )
+    if ( UnitTarget->IsPlayer() && castPtr<Player>( UnitTarget )->m_isGmInvisible )
         return false;
     if ( UnitTarget->HasFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_FEIGN_DEATH ) )
         return false;
@@ -184,7 +184,7 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
     if ( pFilter != TargetFilter_None )
     {
         //Skip units not on threat list
-        if ( ( pFilter & TargetFilter_Aggroed ) && getThreatByPtr( UnitTarget ) == 0 )
+        if ( ( pFilter & TargetFilter_Aggroed ) && getThreat( UnitTarget->GetGUID() ) == 0 )
             return false;
 
         //Skip current attacking target if requested
@@ -217,7 +217,7 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
         {
             if ( !UnitTarget->CombatStatus.IsInCombat() )
                 return false; //Skip not-in-combat targets if friendly
-            if ( sFactionSystem.CanEitherUnitAttack( m_Unit, UnitTarget ) || getThreatByPtr( UnitTarget ) > 0 )
+            if ( sFactionSystem.CanEitherUnitAttack( m_Unit, UnitTarget ) || getThreat( UnitTarget->GetGUID() ) > 0 )
                 return false;
         }
     }
@@ -227,11 +227,11 @@ bool AIInterface::IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 p
 
 Unit *AIInterface::GetNearestTargetInSet(set<Unit*> pTargetSet)
 {
-    Unit *NearestUnit = NULLUNIT;
+    Unit *NearestUnit = NULL;
     float Distance, NearestDistance = 99999;
     for ( set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
     {
-        Distance = m_Unit->CalcDistance( TO_UNIT( *UnitIter ) );
+        Distance = m_Unit->CalcDistance( castPtr<Unit>( *UnitIter ) );
         if ( Distance < NearestDistance )
         {
             NearestDistance = Distance;
@@ -244,16 +244,16 @@ Unit *AIInterface::GetNearestTargetInSet(set<Unit*> pTargetSet)
 
 Unit *AIInterface::GetSecondMostHatedTargetInSet(set<Unit*> pTargetSet )
 {
-    Unit *  TargetUnit = NULLUNIT;
-    Unit *  MostHatedUnit = NULLUNIT;
-    Unit *  CurrentTarget = TO_UNIT( m_nextTarget );
+    Unit *  TargetUnit = NULL;
+    Unit *  MostHatedUnit = NULL;
+    Unit *  CurrentTarget = castPtr<Unit>( m_nextTarget );
     uint32  Threat = 0, HighestThreat = 0;
     for ( set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
     {
-        TargetUnit = TO_UNIT( *UnitIter );
+        TargetUnit = castPtr<Unit>( *UnitIter );
         if ( TargetUnit != CurrentTarget )
         {
-            Threat = getThreatByPtr( TargetUnit );
+            Threat = getThreat( TargetUnit->GetGUID() );
             if ( Threat > HighestThreat )
             {
                 MostHatedUnit = TargetUnit;
@@ -298,15 +298,15 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
     set<Unit*> TargetSet;
     if ( pTargetFilter & TargetFilter_Friendly )
     {
-        for ( Object::InRangeSet::iterator ObjectIter = m_Unit->GetInRangeSetBegin(); ObjectIter != m_Unit->GetInRangeSetEnd(); ++ObjectIter )
+        for ( WorldObject::InRangeSet::iterator ObjectIter = m_Unit->GetInRangeSetBegin(); ObjectIter != m_Unit->GetInRangeSetEnd(); ++ObjectIter )
         {
             if( IsValidUnitTarget(*ObjectIter, info, pTargetFilter, pMinRange, pMaxRange) )
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetSet.insert( TO_UNIT( *ObjectIter ) );
-                } else TargetSet.insert( TO_UNIT( *ObjectIter ) );
+                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
+                        TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
+                } else TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
             }
         }
 
@@ -315,15 +315,15 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
     }
     else
     {
-        for ( Object::InRangeUnitSet::iterator ObjectIter = m_Unit->GetInRangeOppFactsSetBegin(); ObjectIter != m_Unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
+        for ( WorldObject::InRangeUnitSet::iterator ObjectIter = m_Unit->GetInRangeOppFactsSetBegin(); ObjectIter != m_Unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
         {
             if( IsValidUnitTarget(*ObjectIter, info, pTargetFilter, pMinRange, pMaxRange) )
             {
                 if(pTargetFilter & TargetFilter_ManaClass)
                 {
-                    if(TO_UNIT(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetSet.insert( TO_UNIT( *ObjectIter ) );
-                } else TargetSet.insert( TO_UNIT( *ObjectIter ) );
+                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
+                        TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
+                } else TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
             }
         }
     }
@@ -338,7 +338,7 @@ Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, 
     for ( PlayerSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
     {
         if ( IsValidUnitTarget( *PlayerIter, info, pTargetFilter, pMinRange, pMaxRange ) )
-            TargetSet.insert( TO_UNIT( *PlayerIter ) );
+            TargetSet.insert( castPtr<Unit>( *PlayerIter ) );
     }
 
     return ChooseBestTargetInSet( TargetSet, pTargetFilter );
@@ -347,7 +347,7 @@ Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, 
 Unit *AIInterface::GetTargetForSpell( AI_Spell* pSpell )
 {
     if(pSpell == NULL)
-        return NULLUNIT;
+        return NULL;
 
     // Find a suitable target for the described situation :)
     switch( pSpell->TargetType )
@@ -377,35 +377,35 @@ Unit *AIInterface::GetTargetForSpell( AI_Spell* pSpell )
                         m_Result = pSpell->mPredefinedTarget;
 
                     if ( !m_Result->isAlive() )
-                        m_Result = NULLUNIT;
+                        m_Result = NULL;
                     else if ( (pSpell->TargetFilter & TargetFilter_Wounded) && m_Result->GetHealthPct() >= 99 )
-                        m_Result = NULLUNIT;
+                        m_Result = NULL;
                     else if(!IsValidUnitTarget(m_Result, pSpell))
-                        m_Result = NULLUNIT;
+                        m_Result = NULL;
                     return m_Result;
                 }break;
             case TargetGen_SecondMostHated:
                 {
                     Unit* m_Result = GetSecondHated(pSpell);
-                    if(m_Result == NULLUNIT)
+                    if(m_Result == NULL)
                         m_Result = GetMostHated(pSpell);
                     if(!IsValidUnitTarget(m_Result, pSpell))
-                        return NULLUNIT;
+                        return NULL;
                     return m_Result;
                 }break;
             case TargetGen_Current:
             case TargetGen_Destination:
-                return NULLUNIT; // This is handled by previous checks, but whatever
+                return NULL; // This is handled by previous checks, but whatever
             case TargetGen_Predefined:
                 {
                     Unit *m_Result = pSpell->mPredefinedTarget;
                     if(!IsValidUnitTarget(m_Result, pSpell))
-                        return NULLUNIT;
+                        return NULL;
                     return m_Result;
                 }break;
             default:
                 sLog.outDebug("MoonScriptCreatureAI::GetTargetForSpell() : Invalid target type!\n");
-                return NULLUNIT;
+                return NULL;
             }
         }
     }

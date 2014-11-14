@@ -287,14 +287,9 @@ enum MsTimeVariables
 #ifdef _STLPORT_VERSION
 
 #define HM_NAMESPACE std
-using std::hash_map;
-using std::hash_set;
-
 
 #elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1700
 
-using namespace std::tr1;
-using std::tr1::shared_ptr;
 #undef HM_NAMESPACE
 #define HM_NAMESPACE std::tr1
 #define hash_map unordered_map
@@ -302,8 +297,6 @@ using std::tr1::shared_ptr;
 
 #elif COMPILER == COMPILER_MICROSOFT && (_MSC_VER < 1600 || !_HAS_TR1)
 
-using namespace std::tr1;
-using std::tr1::shared_ptr;
 #undef HM_NAMESPACE
 #define HM_NAMESPACE std::tr1
 #define hash_map unordered_map
@@ -315,8 +308,6 @@ using std::tr1::shared_ptr;
 
 #elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1600 && _HAS_TR1
 
-using namespace std::tr1;
-using std::tr1::shared_ptr;
 #undef HM_NAMESPACE
 #define HM_NAMESPACE std::tr1
 #define hash_map unordered_map
@@ -325,13 +316,9 @@ using std::tr1::shared_ptr;
 #elif COMPILER == COMPILER_INTEL
 
 #define HM_NAMESPACE std
-using std::hash_map;
-using std::hash_set;
 
 #elif COMPILER == COMPILER_GNU && __GNUC__ >= 4
 
-using namespace std::tr1;
-using std::tr1::shared_ptr;
 #undef HM_NAMESPACE
 #define HM_NAMESPACE std::tr1
 #define shared_ptr std::tr1::shared_ptr
@@ -361,8 +348,6 @@ namespace std
 #elif COMPILER == COMPILER_GNU && __GNUC__ >= 3
 
 #define HM_NAMESPACE __gnu_cxx
-using __gnu_cxx::hash_map;
-using __gnu_cxx::hash_set;
 
 namespace __gnu_cxx
 {
@@ -379,7 +364,6 @@ namespace __gnu_cxx
 #else
 
 #define HM_NAMESPACE std
-using std::hash_map;
 
 #endif
 
@@ -473,10 +457,7 @@ Scripting system exports/imports
 // Include all threading files
 #include <assert.h>
 #include "Threading/Threading.h"
-
-#if defined(SHARED_LIB_BUILDER) || defined(_LOGON) || defined(_REALM) || defined(_GAME) // Game the lost just you?
 #include "MersenneTwister.h"
-#endif
 
 #if COMPILER == COMPILER_MICROSOFT
 
@@ -497,11 +478,6 @@ Scripting system exports/imports
 #endif
 
 #define atol(a) strtoul( a, NULL, 10)
-
-#define STRINGIZE(a) #a
-
-// fix buggy MSVC's for variable scoping to be reliable =S
-#define for if(true) for
 
 #if COMPILER == COMPILER_MICROSOFT
 
@@ -580,39 +556,11 @@ static inline int long2int32(const double value)
 
 #if defined(SHARED_LIB_BUILDER) || defined(_LOGON) || defined(_REALM) || defined(_GAME) // Game the lost just you?
 
-struct ConditionalData
-{
-    ConditionalData(bool _EmoteOneShot = false, uint32 _EmoteID = 0, uint32 _SkinID = 0, uint32 _StandState = 0, uint32 _SpellToCast = 0, const char* _SayText = "")
-    {
-        EmoteOneShot = _EmoteOneShot;
-        EmoteID = _EmoteID;
-        SkinID = _SkinID;
-        StandState = _StandState;
-        SpellToCast = _SpellToCast;
-        SayText = _SayText;
-    }
-
-    bool EmoteOneShot;
-    uint32 EmoteID;
-    uint32 SkinID;
-    uint32 StandState;
-    uint32 SpellToCast;
-    std::string SayText;
-};
-
 #include "Util.h"
 
-struct WayPoint
-{
-    uint32 id;
-    float x, y, z;
-    float orientation;
-    uint32 waittime; //ms
-    uint32 flags;
-
-    ConditionalData* forwardInfo;
-    ConditionalData* backwardInfo;
-};
+int32 GetTimePeriodFromString(const char * str);
+std::string ConvertTimeStampToString(uint32 timestamp);
+std::string ConvertTimeStampToDataTime(uint32 timestamp);
 
 HEARTHSTONE_INLINE void reverse_array(uint8 * pointer, size_t count)
 {
@@ -623,12 +571,6 @@ HEARTHSTONE_INLINE void reverse_array(uint8 * pointer, size_t count)
         pointer[x] = temp[count-x-1];
     free(temp);
 }
-
-typedef std::vector<WayPoint*> WayPointMap;
-
-int32 GetTimePeriodFromString(const char * str);
-std::string ConvertTimeStampToString(uint32 timestamp);
-std::string ConvertTimeStampToDataTime(uint32 timestamp);
 
 HEARTHSTONE_INLINE void HEARTHSTONE_TOLOWER(std::string& str)
 {

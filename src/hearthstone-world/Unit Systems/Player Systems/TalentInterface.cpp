@@ -346,7 +346,7 @@ void TalentInterface::ApplyTalent(uint32 spellid)
     SpellCastTargets tgt;
     tgt.m_targetMask |= TARGET_FLAG_UNIT;
     tgt.m_unitTarget = m_Player->GetGUID();
-    Spell* sp = new Spell(m_Player, spellInfo, true, NULLAURA);
+    Spell* sp = new Spell(m_Player, spellInfo, true, NULL);
     sp->prepare(&tgt);
 }
 

@@ -135,7 +135,7 @@ void Pet::Destruct()
 
     if( m_Owner )
     {
-        m_Owner->SetSummon(NULLPET);
+        m_Owner->SetSummon(NULL);
         ClearPetOwner();
     }
 
@@ -153,8 +153,7 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
     else Load(0, owner->GetPositionX(), owner->GetPositionY(), owner->GetPositionZ(), owner->GetOrientation());
 
     EventModelChange();
-    SetIsPet(true);
-    m_Owner = TO_PLAYER(owner);
+    m_Owner = castPtr<Player>(owner);
     m_OwnerGuid = owner->GetGUID();
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
     if( myFamily == NULL || myFamily->name == NULL )
@@ -181,7 +180,7 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
     SetUInt32Value(UNIT_FIELD_BYTES_1, 0);
     SetUInt32Value(UNIT_FIELD_BYTES_2, (0x01 | (0x2 << 24)));
     SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    SetUInt32Value(UNIT_FIELD_PETNUMBER, GetUIdFromGUID());
+    SetUInt32Value(UNIT_FIELD_PETNUMBER, GetLowGUID());
     if(GetEntry() == WATER_ELEMENTAL)
         m_name = "Water Elemental";
     else if(GetEntry() == 19668)
@@ -208,7 +207,7 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
 
         InitTalentsForLevel(true);
 
-        m_PetNumber = TO_PLAYER(owner)->GeneratePetNumber();
+        m_PetNumber = castPtr<Player>(owner)->GeneratePetNumber();
     }
 
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
@@ -219,7 +218,7 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
 
     if(owner->IsPlayer())
     {
-        if(TO_PLAYER(owner)->IsPvPFlagged())
+        if(castPtr<Player>(owner)->IsPvPFlagged())
             SetPvPFlag();
 
         if(!bExpires)
@@ -228,11 +227,10 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
             PlayerPet *pp = new PlayerPet;
             pp->number = m_PetNumber;
             pp->stablestate = STABLE_STATE_ACTIVE;
-            TO_PLAYER(owner)->AddPlayerPet(pp, pp->number);
+            castPtr<Player>(owner)->AddPlayerPet(pp, pp->number);
         }
     }
 
-    SetPhaseMask(owner->GetPhaseMask());
     InitializeMe();
 }
 
@@ -328,7 +326,7 @@ void Pet::SendSpellsToOwner()
     m_Owner->SendPacket(&data);
 }
 
-void Pet::SendNullSpellsToOwner()
+void Pet::SendNULLsToOwner()
 {
     if(m_Owner == NULL)
         return;
@@ -350,7 +348,7 @@ void Pet::InitializeSpells()
         if( info->isPassiveSpell() )
         {
             // Cast on self..
-            Spell* sp = new Spell(this, info, true, NULLAURA);
+            Spell* sp = new Spell(this, info, true, NULL);
             SpellCastTargets targets(GetGUID());
             sp->prepare(&targets);
             continue;
@@ -453,11 +451,11 @@ void Pet::InitializeMe()
     {
         // 2 pets???!
 //      m_Owner->GetSummon()->Remove(true, true, true);
-//      m_Owner->SetSummon( TO_PET(this) );
-    } else m_Owner->SetSummon( TO_PET(this) );
+//      m_Owner->SetSummon( castPtr<Pet>(this) );
+    } else m_Owner->SetSummon( castPtr<Pet>(this) );
 
     // set up ai and shit
-    GetAIInterface()->Init(TO_UNIT(this) ,AITYPE_PET,MOVEMENTTYPE_NONE,m_Owner);
+    GetAIInterface()->Init(castPtr<Unit>(this) ,AITYPE_PET,MOVEMENTTYPE_NONE,m_Owner);
     GetAIInterface()->SetUnitToFollow(m_Owner);
     GetAIInterface()->SetFollowDistance(3.0f);
 
@@ -538,8 +536,8 @@ void Pet::InitializeMe()
     if(!bExpires)
         UpdatePetInfo(false);
 
-    sEventMgr.AddEvent(TO_PET(this), &Pet::HandleAutoCastEvent, uint32(AUTOCAST_EVENT_ON_SPAWN), EVENT_UNK, 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    sEventMgr.AddEvent(TO_PET(this), &Pet::HandleAutoCastEvent, uint32(AUTOCAST_EVENT_LEAVE_COMBAT), EVENT_UNK, 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Pet>(this), &Pet::HandleAutoCastEvent, uint32(AUTOCAST_EVENT_ON_SPAWN), EVENT_UNK, 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Pet>(this), &Pet::HandleAutoCastEvent, uint32(AUTOCAST_EVENT_LEAVE_COMBAT), EVENT_UNK, 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void Pet::UpdatePetInfo(bool bSetToOffline)
@@ -629,15 +627,15 @@ void Pet::Remove(bool bSafeDelete, bool bUpdate, bool bSetOffline)
             if(!IsSummonedPet() && !bExpires)
                 m_Owner->_SavePet(NULL);//not perfect but working
         }
-        m_Owner->SetSummon(NULLPET);
-        SendNullSpellsToOwner();
+        m_Owner->SetSummon(NULL);
+        SendNULLsToOwner();
     }
     ClearPetOwner();
 
     // has to be next loop - reason because of RemoveFromWorld, iterator gets broke.
     /*if(IsInWorld() && Active) Deactivate(m_mapMgr);*/
     sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(TO_PET(this), &Pet::PetSafeDelete, EVENT_CREATURE_SAFE_DELETE, 1, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Pet>(this), &Pet::PetSafeDelete, EVENT_CREATURE_SAFE_DELETE, 1, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
     m_dismissed = true;
 }
 
@@ -649,7 +647,7 @@ void Pet::PetSafeDelete()
         RemoveFromWorld(false, true);
     }
 
-    //sEventMgr.AddEvent(World::getSingletonPtr(), &World::DeleteObject, TO_OBJECT(this), EVENT_CREATURE_SAFE_DELETE, 1000, 1);
+    //sEventMgr.AddEvent(World::getSingletonPtr(), &World::DeleteObject, this, EVENT_CREATURE_SAFE_DELETE, 1000, 1);
     Creature::SafeDelete();
 }
 
@@ -666,7 +664,7 @@ void Pet::DelayedRemove(bool bTime, bool bDeath)
             Remove(true, true, true);
     }
     else
-        sEventMgr.AddEvent(TO_PET(this), &Pet::DelayedRemove, true, bDeath, EVENT_PET_DELAYED_REMOVE, PET_DELAYED_REMOVAL_TIME, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        sEventMgr.AddEvent(castPtr<Pet>(this), &Pet::DelayedRemove, true, bDeath, EVENT_PET_DELAYED_REMOVE, PET_DELAYED_REMOVAL_TIME, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void Pet::GiveXP( uint32 xp )
@@ -771,7 +769,7 @@ void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
     {
         if(IsInWorld())
         {
-            Spell* spell(new Spell(TO_OBJECT(this), sp, true, NULLAURA));
+            Spell* spell = new Spell(this, sp, true, NULL);
             SpellCastTargets targets(GetGUID());
             spell->prepare(&targets);
             mSpells[sp] = 0x0100;
@@ -829,7 +827,7 @@ void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
                         SetAutoCast(asp, true);
 
                     if(asp->autocast_type==AUTOCAST_EVENT_ON_SPAWN)
-                        CastSpell(TO_UNIT(this), sp, false);
+                        CastSpell(castPtr<Unit>(this), sp, false);
 
                     RemoveSpell(itr->first);
                     done=true;
@@ -852,7 +850,7 @@ void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
                     SetAutoCast(asp,true);
 
                 if(asp->autocast_type==AUTOCAST_EVENT_ON_SPAWN)
-                    CastSpell(TO_UNIT(this), sp, false);
+                    CastSpell(castPtr<Unit>(this), sp, false);
             } else mSpells[sp] = DEFAULT_SPELL_STATE;
         }
     }
@@ -1380,7 +1378,7 @@ void Pet::HandleAutoCastEvent(uint32 Type)
         else
         {
             //modified by Zack: Spell targeting will be generated in the castspell function now.You cannot force to target self all the time
-            CastSpell( TO_UNIT(NULL), sp->info, false);
+            CastSpell( castPtr<Unit>(NULL), sp->info, false);
         }
     }
 }
@@ -1568,18 +1566,18 @@ void Pet::InitializeTalents()
 
 void Pet::SendActionFeedback( PetActionFeedback value )
 {
-    if( m_Owner == NULL || TO_PLAYER(m_Owner)->GetSession() == NULL)
+    if( m_Owner == NULL || castPtr<Player>(m_Owner)->GetSession() == NULL)
         return;
-    TO_PLAYER(m_Owner)->GetSession()->OutPacket( SMSG_PET_ACTION_FEEDBACK, 1, &value );
+    castPtr<Player>(m_Owner)->GetSession()->OutPacket( SMSG_PET_ACTION_FEEDBACK, 1, &value );
 }
 
 void Pet::SendCastFailed( uint32 spellid, uint8 fail )
 {
-    if( m_Owner == NULL || TO_PLAYER(m_Owner)->GetSession() == NULL)
+    if( m_Owner == NULL || castPtr<Player>(m_Owner)->GetSession() == NULL)
         return;
 
     WorldPacket data( SMSG_PET_CAST_FAILED, 5 );
     data << uint32(spellid);
     data << uint8(fail);
-    TO_PLAYER(m_Owner)->GetSession()->SendPacket( &data );
+    castPtr<Player>(m_Owner)->GetSession()->SendPacket( &data );
 }

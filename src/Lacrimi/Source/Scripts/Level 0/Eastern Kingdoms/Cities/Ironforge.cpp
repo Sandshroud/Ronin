@@ -25,7 +25,7 @@
 class IronforgeGuard : public GossipScript
 {
 public:
-    void GossipHello(Object* pObject, Player* plr, bool AutoSend)
+    void GossipHello(WorldObject* pObject, Player* plr, bool AutoSend)
     {
         GossipMenu* Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 2760, plr);
@@ -45,7 +45,7 @@ public:
         Menu->SendTo(plr);
     }
 
-    void GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
+    void GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
     {
         GossipMenu* Menu;
         switch(IntId)
@@ -259,7 +259,7 @@ public:
 class Royal_Historian_Archesonus : public GossipScript
 {
 public:
-    void GossipHello(Object * pObject, Player* Plr, bool AutoSend)
+    void GossipHello(WorldObject * pObject, Player* Plr, bool AutoSend)
     {
         if(Plr->GetQuestStatusForQuest(3702) == QMGR_QUEST_NOT_FINISHED)
         {
@@ -270,7 +270,7 @@ public:
         }
     }
 
-    void GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
+    void GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
     {
         GossipMenu* Menu;
         switch(IntId)

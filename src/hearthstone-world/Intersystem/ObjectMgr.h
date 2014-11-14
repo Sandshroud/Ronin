@@ -263,7 +263,7 @@ protected:
 };
 
 typedef std::map<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
-typedef HM_NAMESPACE::hash_map<uint32, Player* >                    PlayerStorageMap;
+typedef HM_NAMESPACE::hash_map<uint64, Player*>                    PlayerStorageMap;
 
 #ifndef WIN32
 #ifndef TRHAX
@@ -338,7 +338,7 @@ public:
     OverrideIdMap       mOverrideIdMap;
 
     Player* GetPlayer(const char* name, bool caseSensitive = true);
-    Player* GetPlayer(uint32 guid);
+    Player* GetPlayer(WoWGuid guid);
 
     CorpseMap m_corpses;
     Mutex _corpseslock;
@@ -387,7 +387,7 @@ public:
 
     // player names
     void AddPlayerInfo(PlayerInfo *pn);
-    PlayerInfo *GetPlayerInfo(uint32 guid );
+    PlayerInfo *GetPlayerInfo(WoWGuid guid );
     PlayerInfo *GetPlayerInfoByName(const char * name);
     void RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname);
     void DeletePlayerInfo(uint32 guid);
@@ -588,7 +588,7 @@ protected:
     set<uint32> m_disabled_spells;
 
     uint64 TransportersCount;
-    HM_NAMESPACE::hash_map<uint32,PlayerInfo*> m_playersinfo;
+    HM_NAMESPACE::hash_map<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
 
     HM_NAMESPACE::hash_map<uint32,WayPointMap*> m_waypoints;//stored by spawnid
@@ -599,7 +599,7 @@ protected:
 
     uint32 m_hiGameObjectSpawnId;
 
-    ///// Object Tables ////
+    ///// WorldObject Tables ////
     // These tables are modified as creatures are created and destroyed in the world
 
     // Group List

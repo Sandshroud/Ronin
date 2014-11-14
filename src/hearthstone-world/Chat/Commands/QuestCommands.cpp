@@ -232,8 +232,8 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                             {
                                 if(item != NULL)
                                 {
-                                    item->DeleteMe();
-                                    item = NULLITEM;
+                                    item->Destruct();
+                                    item = NULL;
                                 }
                             }
                         }
@@ -249,8 +249,8 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                             {
                                 if(item != NULL)
                                 {
-                                    item->DeleteMe();
-                                    item = NULLITEM;
+                                    item->Destruct();
+                                    item = NULL;
                                 }
                             }
                         }
@@ -258,7 +258,7 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
 
                     plr->UpdateNearbyGameObjects();
 
-                    sHookInterface.OnQuestAccept( plr, qst, NULLOBJ );
+                    sHookInterface.OnQuestAccept( plr, qst, NULL );
 
                     recout += "Quest has been added to the player's quest log.";
                 }
@@ -335,7 +335,7 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
                 else
                 {
                     // I need some way to get the guid without targeting the creature or looking through all the spawns...
-                    Object* quest_giver = NULLOBJ;
+                    WorldObject* quest_giver = NULL;
 
                     for(uint32 guid=1; guid < plr->GetMapMgr()->m_CreatureArraySize; guid++)
                     {
@@ -344,7 +344,7 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
                         {
                             if(pCreature->GetEntry() == giver_id) //found creature
                             {
-                                quest_giver = TO_OBJECT(pCreature);
+                                quest_giver = pCreature;
                                 guid = plr->GetMapMgr()->m_CreatureArraySize;
                             }
                         }

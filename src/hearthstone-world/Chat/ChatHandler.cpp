@@ -477,7 +477,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
     if(!_player->IsInWorld() || !_player->isAlive())
         return;
 
-    uint64 guid;
+    WoWGuid guid;
     uint32 text_emote, unk, namelen =1;
 
     recv_data >> text_emote;
@@ -540,12 +540,12 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
     {
         if(pUnit->IsPlayer())
         {
-            name = TO_PLAYER( pUnit )->GetName();
+            name = castPtr<Player>( pUnit )->GetName();
             namelen = (uint32)strlen(name) + 1;
         }
         else if(pUnit->GetTypeId() == TYPEID_UNIT)
         {
-            Creature* p = TO_CREATURE(pUnit);
+            Creature* p = castPtr<Creature>(pUnit);
             if(p->GetCreatureData())
             {
                 name = p->GetCreatureData()->Name;
@@ -553,7 +553,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
 
                 if( p->IsPet() )
                 {
-                    name = TO_PET(p)->GetName();
+                    name = castPtr<Pet>(p)->GetName();
                     namelen = (uint32)strlen(name)+1;
                 }
             }

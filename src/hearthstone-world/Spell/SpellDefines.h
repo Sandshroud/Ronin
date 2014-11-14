@@ -6,6 +6,7 @@
 
 class WorldSession;
 class Unit;
+class WorldObject;
 class DynamicObj;
 class Player;
 class Item;
@@ -1372,10 +1373,10 @@ bool IsCastedOnFriends(SpellEntry *sp);
 bool IsCastedOnEnemies(SpellEntry *sp);
 bool IsDamagingSpell(SpellEntry *sp);
 bool IsHealingSpell(SpellEntry *sp);
-bool IsInrange(LocationVector & location, Object* o, float square_r, float square_min = 0.f);
-bool IsInrange(float x1,float y1, float z1, Object* o,float square_r, float square_min = 0.f);
+bool IsInrange(LocationVector & location, WorldObject* o, float square_r, float square_min = 0.f);
+bool IsInrange(float x1,float y1, float z1, WorldObject* o,float square_r, float square_min = 0.f);
 bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r, float square_min = 0.f);
-bool IsInrange(Object* o1,Object* o2,float square_r, float square_min = 0.f);
-bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask);
+bool IsInrange(WorldObject* o1,WorldObject* o2,float square_r, float square_min = 0.f);
+bool TargetTypeCheck(WorldObject* obj,uint32 ReqCreatureTypeMask);
 bool IsFlyingSpell(SpellEntry *sp);
 bool IsTargetingStealthed(SpellEntry *sp);

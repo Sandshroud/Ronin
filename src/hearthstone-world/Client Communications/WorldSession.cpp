@@ -15,7 +15,7 @@ OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 WorldSession::WorldSession(uint32 id, string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
 _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), instanceId(0), _recentlogout(false)
 {
-    _player = NULLPLR;
+    _player = NULL;
     m_hasDeathKnight = false;
     m_highestLevel = sWorld.StartLevel;
     m_asyncQuery = false;
@@ -27,7 +27,7 @@ _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), insta
     _updatecount = 0;
     m_moveDelayTime=0;
     m_clientTimeDelay =0;
-    m_loggingInPlayer=NULLPLR;
+    m_loggingInPlayer=NULL;
     m_muted = 0;
     m_repeatTime = 0;
     m_repeatEmoteTime = 0;
@@ -69,7 +69,7 @@ WorldSession::~WorldSession()
     if(m_loggingInPlayer)
     {
         m_loggingInPlayer->SetSession(NULL);
-        m_loggingInPlayer = NULLPLR;
+        m_loggingInPlayer = NULL;
     }
 
     deleteMutex.Release();
@@ -250,12 +250,8 @@ void WorldSession::LogoutPlayer(bool Save)
 
     if( _player != NULL )
     {
-        _player->ObjLock();
         if(_player == NULL)
-        {
-            _player->ObjUnlock();
             return;
-        }
 
         sHookInterface.OnLogout( _player );
 
@@ -267,10 +263,8 @@ void WorldSession::LogoutPlayer(bool Save)
 
         if( _player->m_currentLoot && _player->IsInWorld() )
         {
-            Object* obj = _player->GetMapMgr()->_GetObject( _player->m_currentLoot );
-            if( obj != NULL )
-                obj->m_loot.looters.erase(_player->GetLowGUID());
-            obj = NULLOBJ;
+            if( WorldObject* obj = _player->GetMapMgr()->_GetObject( _player->m_currentLoot ) )
+                obj->GetLoot()->looters.erase(_player->GetLowGUID());
         }
 
 #ifndef GM_TICKET_MY_MASTER_COMPATIBLE
@@ -285,7 +279,7 @@ void WorldSession::LogoutPlayer(bool Save)
                 ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_ONLINESTATE;
                 ss << ":" << ticket->guid;
                 ss << ":0";
-                chn->Say(_player, ss.str().c_str(), NULLPLR, true);
+                chn->Say(_player, ss.str().c_str(), NULL, true);
             }
         }
 #endif
@@ -355,7 +349,7 @@ void WorldSession::LogoutPlayer(bool Save)
         if( _player->IsInWorld() )
             _player->RemoveFromWorld();
 
-        _player->m_playerInfo->m_loggedInPlayer = NULLPLR;
+        _player->m_playerInfo->m_loggedInPlayer = NULL;
 
         if(!bServerShutdown) // Save our groups for the next startup.
         {
@@ -381,10 +375,8 @@ void WorldSession::LogoutPlayer(bool Save)
         // Save our account data, if we have any
         SaveAccountData();
 
-        _player->ObjUnlock();
-
         _player->Destruct();
-        _player = NULLPLR;
+        _player = NULL;
 
         OutPacket(SMSG_LOGOUT_COMPLETE, 0, NULL);
         sLog.Debug( "WorldSession","Sent SMSG_LOGOUT_COMPLETE Message" );
@@ -393,7 +385,7 @@ void WorldSession::LogoutPlayer(bool Save)
 
     SetLogoutTimer(0);
     if(_player != NULL)
-        _player = NULLPLR;
+        _player = NULL;
 }
 
 void WorldSession::SendBuyFailed(uint64 guid, uint32 itemid, uint8 error)
@@ -1068,14 +1060,11 @@ void WorldSession::HandleAchievementInspect(WorldPacket &recv_data)
 {
     CHECK_INWORLD_RETURN();
     WoWGuid guid;
-    recv_data >> guid;
+    recv_data >> guid.asPacked();
 
-    uint64 rguid = guid.GetOldGuid();
-    Unit* pUnit = GetPlayer()->GetMapMgr()->GetPlayer( GUID_LOPART(rguid) );
-    if( pUnit && pUnit->IsPlayer() && TO_PLAYER(pUnit)->GetAchievementInterface()->HasAchievements() )
-    {
-        SendPacket(TO_PLAYER(pUnit)->GetAchievementInterface()->BuildAchievementData(true));
-    }
+    Unit* pUnit = GetPlayer()->GetMapMgr()->GetPlayer( GUID_LOPART(guid) );
+    if( pUnit && pUnit->IsPlayer() && castPtr<Player>(pUnit)->GetAchievementInterface()->HasAchievements() )
+        SendPacket(castPtr<Player>(pUnit)->GetAchievementInterface()->BuildAchievementData(true));
 }
 
 void WorldSession::HandleTimeSyncResp( WorldPacket & recv_data )

@@ -5,7 +5,6 @@
 #pragma once
 
 #include "Common.h"
-#include "ByteBuffer.h"
 
 #define BitCount1(x) ((x) & 1)
 #define BitCount2(x) ( BitCount1(x) + BitCount1((x)>>1) )
@@ -38,90 +37,91 @@ inline bool IsGuidHaveEnPart(uint64 guid)
     } return false;
 }
 
+class WoWGuid;
+
+// Byte Buffer implementation classes
+struct WGuidPacked
+{
+    friend class ByteBuffer;
+    WGuidPacked(WoWGuid *guid) : m_guid(guid) {}
+private: WoWGuid *m_guid;
+};
+
 class SERVER_DECL WoWGuid
 {
-public:
-    WoWGuid() { guidData.fullGuid = 0; }
-    WoWGuid(uint32 guid) { guidData.fullGuid = guid; }
-    WoWGuid(uint64 guid) { guidData.fullGuid = guid; }
-    WoWGuid(uint32 high, uint32 low) { guidData.fullGuid = MAKE_NEW_GUID(low, 0, high); }
-    WoWGuid(uint32 high, uint32 entry, uint32 low) { guidData.fullGuid = MAKE_NEW_GUID(low, entry, high); }
-    ~WoWGuid() { guidData.fullGuid = 0; }
-
-    const uint64 GetOldGuid() const { return guidData.fullGuid; }
-    const uint8* GetNewGuid() const { return guidData.byteGuid; }
-    const uint8 GetNewGuidLen() const { return BitCount8(GetNewGuidMask()); }
-    const uint8 GetNewGuidMask() const
-    {
-        uint8 mask = 0;
-        for(uint8 i = 0; i < 8; i++)
-            if(guidData.byteGuid[i])
-                mask |= (1<<i);
-        return mask;
-    }
-
-    // WoWGuid == someval bool
-    const bool operator ==(int someval) const { if(someval < 0) return false; return (guidData.fullGuid == uint(someval)); }
-    const bool operator ==(uint8 someval) const { return (guidData.fullGuid == someval); }
-    const bool operator ==(uint32 someval) const { return (guidData.fullGuid == someval); }
-    const bool operator ==(uint64 someval) const { return (guidData.fullGuid == someval); }
-    // WoWGuid != someval bool
-    const bool operator !=(int someval) const { if(someval < 0) return false; return (guidData.fullGuid != uint(someval)); }
-    const bool operator !=(uint8 someval) const { return (guidData.fullGuid != someval); }
-    const bool operator !=(uint32 someval) const { return (guidData.fullGuid != someval); }
-    const bool operator !=(uint64 someval) const { return (guidData.fullGuid != someval); }
-    // WoWGuid & someval contains
-    const uint64 operator &(int someval) const { if(someval < 0) someval = 0; return (guidData.fullGuid & uint(someval)); }
-    const uint64 operator &(uint8 someval) const { return (guidData.fullGuid & someval); }
-    const uint64 operator &(uint32 someval) const { return (guidData.fullGuid & someval); }
-    const uint64 operator &(uint64 someval) const { return (guidData.fullGuid & someval); }
-    // WoWGuid = someval
-    template <class T> void operator =(T someval) { guidData.fullGuid = someval; }
-    // WoWGuid byte checks
-    uint8& operator[](uint32 index) { ASSERT(index < sizeof(uint64)); return guidData.byteGuid[index]; }
-    uint8 const& operator[](uint32 index) const { ASSERT(index < sizeof(uint64)); return guidData.byteGuid[index]; }
-    // WoWGuid check
-    bool operator !() { return (guidData.fullGuid == 0); }
-    operator bool() { return (guidData.fullGuid != 0); }
-    operator uint64() { return guidData.fullGuid; }
-    operator uint32() { return GUID_LOPART(guidData.fullGuid); }
-
-    uint32 GetHighGuid() { return GUID_HIPART(guidData.fullGuid); }
-    uint32 GetLowGUID() { return GUID_LOPART(guidData.fullGuid); }
-    uint32 GetEntry() { return GUID_ENPART(guidData.fullGuid); }
-private:
-    union
-    {
-        uint64 fullGuid;
-        uint8 byteGuid[8];
-    } guidData;
+protected:
+    uint8 blocks[8];
 
 public:
-    void ReadAsFull(ByteBuffer *buff) { guidData.fullGuid = buff->read<uint64>(); }
-    void WriteAsFull(ByteBuffer *buff) { buff->append<uint64>(guidData.fullGuid); }
-    void WriteAsPacked(ByteBuffer *buff)
-    {
-        if(uint8 mask = GetNewGuidMask())
-        {
-            buff->append(mask);
-            for(int i = 0; i < BitCount8(mask); i++)
-                buff->append<uint8>(guidData.byteGuid[i]);
-        } else buff->append<uint8>(0);
-    }
-    void ReadAsPacked(ByteBuffer *buff)
-    {
-        if(uint8 mask = buff->read<uint8>())
-            for(int i = 0; i < BitCount8(mask); i++)
-                guidData.byteGuid[i] = buff->read<uint8>();
-    }
+    operator uint64() const { return ((uint64*)&blocks[0])[0]; }
+    operator double() const { return (double)this->operator uint64(); }
 
-    void WriteAsSequence(ByteBuffer *buff, ...)
-    {
+    template <class T> WoWGuid& operator =(T input);
+    void Clean();
 
-    }
+    uint8 GenMask();
+    uint8& operator[](int index) { ASSERT(index < sizeof(uint64)); return blocks[index]; }
+    uint8 const& operator[](int index) const { ASSERT(index < sizeof(uint64)); return blocks[index]; }
+    uint64 operator +( const WoWGuid& val ) const { return ((uint64)*this + (uint64)val); }
+    uint64 operator -( const WoWGuid& val ) const { return ((uint64)*this - (uint64)val); }
+    uint64 operator *( const WoWGuid& val ) const { return ((uint64)*this * (uint64)val); }
+    uint64 operator /( const WoWGuid& val ) const { return ((uint64)*this / (uint64)val); }
+    uint64 operator |( const WoWGuid& val ) const { return ((uint64)*this | (uint64)val); }
+    uint64 operator +( const uint64 val ) const { return ((uint64)*this + val); }
+    uint64 operator -( const uint64 val ) const { return ((uint64)*this - val); }
+    uint64 operator *( const uint64 val ) const { return ((uint64)*this * val); }
+    uint64 operator /( const uint64 val ) const { return ((uint64)*this / val); }
+    uint64 operator |( const uint64 val ) const { return ((uint64)*this | val); }
+    uint64 operator >>( const uint64 val ) const { return ((uint64)*this >> val); }
+    uint64 operator <<( const uint64 val ) const { return ((uint64)*this << val); }
+    WoWGuid& operator +=( const WoWGuid& val ) { *this = *this + val; return *this; }
+    WoWGuid& operator -=( const WoWGuid& val ) { *this = *this - val; return *this; }
+    WoWGuid& operator *=( const WoWGuid& val ) { *this = *this * val; return *this; }
+    WoWGuid& operator /=( const WoWGuid& val ) { *this = *this / val; return *this; }
+    WoWGuid& operator |=( const WoWGuid& val ) { *this = *this | val; return *this; }
+    WoWGuid& operator +=( const uint64 val ) { *this = *this + val; return *this; }
+    WoWGuid& operator -=( const uint64 val ) { *this = *this - val; return *this; }
+    WoWGuid& operator *=( const uint64 val ) { *this = *this * val; return *this; }
+    WoWGuid& operator /=( const uint64 val ) { *this = *this / val; return *this; }
+    WoWGuid& operator |=( const uint64 val ) { *this = *this | val; return *this; }
+    WoWGuid& operator >>=( const uint64 val ) { *this = *this >> val; return *this; }
+    WoWGuid& operator <<=( const uint64 val ) { *this = *this << val; return *this; }
+    operator bool() const { return (uint64)*this != 0; }
+    bool operator !() const { return !((uint64)*this); }
+    bool operator ==( const WoWGuid& val ) const { return (uint64)*this == (uint64)val; }
+    bool operator !=( const WoWGuid& val ) const { return (uint64)*this != (uint64)val; }
+    bool operator >=( const WoWGuid& val ) const { return (uint64)*this >= (uint64)val; }
+    bool operator <=( const WoWGuid& val ) const { return (uint64)*this <= (uint64)val; }
+    bool operator >( const WoWGuid& val ) const { return (uint64)*this > (uint64)val; }
+    bool operator <( const WoWGuid& val ) const { return (uint64)*this < (uint64)val; }
+    bool operator ==( const uint64 val ) const { return (uint64)*this == val; }
+    bool operator !=( const uint64 val ) const { return (uint64)*this != val; }
+    bool operator >=( const uint64 val ) const { return (uint64)*this >= val; }
+    bool operator <=( const uint64 val ) const { return (uint64)*this <= val; }
+    bool operator >( const uint64 val ) const { return ((uint64)*this) > val; }
+    bool operator <( const uint64 val ) const { return (uint64)*this < val; }
 
-    void ReadAsSequence(ByteBuffer *buff, ...)
-    {
+    bool empty() { return operator !(); };
+    WGuidPacked *asPacked() { return new WGuidPacked(this); }
+    uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
+    uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
+    uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }
+    uint64 raw() { return this->operator uint64(); }
 
-    }
+    // THESE ARE NOT CONSTRUCTORS
+    static WoWGuid From64(uint64 guid) { WoWGuid wGuid; wGuid = guid; return wGuid; }
+    // THESE ARE NOT CONSTRUCTORS
+    static WoWGuid From32(uint32 high, uint32 entry, uint32 low) { WoWGuid wGuid; wGuid = MAKE_NEW_GUID(low, entry, high); return wGuid; }
 };
+
+namespace std
+{
+    template<> struct hash<WoWGuid>
+    {
+    public:
+        size_t operator()(WoWGuid const& key) const
+        {
+            return hash<uint64>()(key);
+        }
+    };
+}

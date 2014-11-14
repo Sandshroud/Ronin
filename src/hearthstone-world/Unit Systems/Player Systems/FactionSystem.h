@@ -33,23 +33,23 @@ public:
     bool CanEitherUnitAttack(Unit* objA, Unit* objB, bool CheckStealth = true);
     bool AC_GetAttackableStatus(Player* plr, Unit *target);
 
-    bool isHostile(Object* objA, Object* objB);
-    bool isAttackable(Object* objA, Object* objB, bool CheckStealth = true);
-    bool isCombatSupport(Object* objA, Object* objB); // B combat supports A?;
-    bool isAlliance(Object* objA); // A is alliance?
+    bool isHostile(WorldObject* objA, WorldObject* objB);
+    bool isAttackable(WorldObject* objA, WorldObject* objB, bool CheckStealth = true);
+    bool isCombatSupport(WorldObject* objA, WorldObject* objB); // B combat supports A?;
+    bool isAlliance(WorldObject* objA); // A is alliance?
 
 //private:
-    bool IsInteractionLocked(Object *obj);
-    FactionInteractionStatus GetFactionsInteractStatus(Object *objA, Object *objB);
+    bool IsInteractionLocked(WorldObject *obj);
+    FactionInteractionStatus GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB);
 
     FactionInteractionStatus GetPlayerAttackStatus(Player *plrA, Player *plrB);
     FactionInteractionStatus GetUnitAreaInteractionStatus(Unit *unitA, Unit *unitB);
-    FactionInteractionStatus GetAttackableStatus(Object* objA, Object* objB, bool CheckStealth);
+    FactionInteractionStatus GetAttackableStatus(WorldObject* objA, WorldObject* objB, bool CheckStealth);
 
-    Player* GetPlayerFromObject(Object* obj);
+    Player* GetPlayerFromObject(WorldObject* obj);
 
-    HEARTHSTONE_INLINE bool isFriendly(Object *objA, Object *objB) { return !isHostile(objA, objB); }
-    HEARTHSTONE_INLINE bool isSameFaction(Object* objA, Object* objB)
+    HEARTHSTONE_INLINE bool isFriendly(WorldObject *objA, WorldObject *objB) { return !isHostile(objA, objB); }
+    HEARTHSTONE_INLINE bool isSameFaction(WorldObject* objA, WorldObject* objB)
     {
         // shouldn't be necessary but still
         if( objA->GetFactionTemplate() == NULL || objB->GetFactionTemplate() == NULL )

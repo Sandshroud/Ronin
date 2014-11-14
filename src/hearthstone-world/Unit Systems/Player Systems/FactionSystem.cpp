@@ -21,7 +21,7 @@ bool FactionSystem::AC_GetAttackableStatus(Player *plr, Unit *target)
     return (GetAttackableStatus(plr, target, false) == FI_STATUS_NONE);
 }
 
-FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(Object *objA, Object *objB)
+FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB)
 {
     FactionTemplateEntry *factionTemplateA = objA->GetFactionTemplate(), *factionTemplateB = objB->GetFactionTemplate();
     FactionEntry *factionA = objA->GetFaction(), *factionB = objB->GetFaction();
@@ -49,9 +49,9 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(Object *objA, 
     {
         if(factionB->RepListId >= 0)
         {
-            if(TO_PLAYER(objA)->IsHostileBasedOnReputation(factionB))
+            if(castPtr<Player>(objA)->IsHostileBasedOnReputation(factionB))
                 return FI_STATUS_HOSTILE;
-            if(TO_PLAYER(objA)->IsAtWar(factionB->ID))
+            if(castPtr<Player>(objA)->IsAtWar(factionB->ID))
                 return FI_STATUS_NEUTRAL;
         }
     }
@@ -59,9 +59,9 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(Object *objA, 
     {
         if(factionB->RepListId >= 0)
         {
-            if(TO_PLAYER(objB)->IsHostileBasedOnReputation(factionB))
+            if(castPtr<Player>(objB)->IsHostileBasedOnReputation(factionB))
                 return FI_STATUS_HOSTILE;
-            if(TO_PLAYER(objB)->IsAtWar(factionB->ID))
+            if(castPtr<Player>(objB)->IsAtWar(factionB->ID))
                 return FI_STATUS_NEUTRAL;
         }
     }
@@ -120,7 +120,7 @@ FactionInteractionStatus FactionSystem::GetPlayerAttackStatus(Player *plrA, Play
 
 /// Where we check if we object A can attack object B. This is used in many feature's
 /// Including the spell class, the player class, and the AI interface class.
-FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object* objB, bool CheckStealth)// A can attack B?
+FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, WorldObject* objB, bool CheckStealth)// A can attack B?
 {
     // can't attack self.. this causes problems with buffs if we don't have it :p
     if( !objA || !objB || objA == objB )
@@ -131,7 +131,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
     if( objA->GetTypeId() == TYPEID_CORPSE || objB->GetTypeId() == TYPEID_CORPSE )
         return FI_STATUS_NONE;
     // Dead people can't attack anything.
-    if( (objA->IsUnit() && !TO_UNIT(objA)->isAlive()) || (objB->IsUnit() && !TO_UNIT(objB)->isAlive()) )
+    if( (objA->IsUnit() && !castPtr<Unit>(objA)->isAlive()) || (objB->IsUnit() && !castPtr<Unit>(objB)->isAlive()) )
         return FI_STATUS_NONE;
     // Checks for untouchable, unattackable
     if( objA->IsUnit() && (objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) ||
@@ -145,21 +145,21 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
 
     // we cannot attack sheathed units. Maybe checked in other places too ?
     // !! warning, this presumes that objA is attacking ObjB
-    if( CheckStealth && objB->IsUnit() && TO_UNIT(objB)->InStealth() )
+    if( CheckStealth && objB->IsUnit() && castPtr<Unit>(objB)->InStealth() )
         if(objA->CalcDistance(objB) > 5.0f)
             return FI_STATUS_FRIENDLY;
     // Get players (or owners of pets/totems)
     Player* player_objA = GetPlayerFromObject(objA);
     Player* player_objB = GetPlayerFromObject(objB);
     if(objA->IsUnit() && objB->IsVehicle())
-        if(TO_VEHICLE(objB)->GetPassengerSlot(TO_UNIT(objA)) != -1)
+        if(TO_VEHICLE(objB)->GetPassengerSlot(castPtr<Unit>(objA)) != -1)
             return FI_STATUS_FRIENDLY;
     else if(objB->IsUnit() && objA->IsVehicle())
-        if(TO_VEHICLE(objA)->GetPassengerSlot(TO_UNIT(objB)) != -1)
+        if(TO_VEHICLE(objA)->GetPassengerSlot(castPtr<Unit>(objB)) != -1)
             return FI_STATUS_FRIENDLY;
 
     // Always kill critters
-    if(!player_objB && objB->IsCreature() && TO_CREATURE(objB)->GetCreatureType() == CRITTER)
+    if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == CRITTER)
         if(player_objA)
             return FI_STATUS_HOSTILE;
     // Disable GM attacking.
@@ -184,28 +184,28 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
     }
     else if(player_objA)
     {
-        if(objB->IsPet() && TO_PET(objB)->GetOwner()->DuelingWith == player_objA)
+        if(objB->IsPet() && castPtr<Pet>(objB)->GetOwner()->DuelingWith == player_objA)
             return FI_STATUS_HOSTILE;
         if(objB->IsSummon())
         {
-            Object* summoner = TO_SUMMON(objB)->GetSummonOwner();
+            WorldObject* summoner = castPtr<Summon>(objB)->GetSummonOwner();
             if(summoner && summoner->IsPlayer())
             {
-                if(TO_PLAYER(summoner)->DuelingWith == player_objA)
+                if(castPtr<Player>(summoner)->DuelingWith == player_objA)
                     return FI_STATUS_HOSTILE;
             }
         }
     }
     else if(player_objB)
     {
-        if(objA->IsPet() && TO_PET(objA)->GetOwner()->DuelingWith == player_objB)
+        if(objA->IsPet() && castPtr<Pet>(objA)->GetOwner()->DuelingWith == player_objB)
             return FI_STATUS_HOSTILE;
         if(objA->IsSummon())
         {
-            Object* summoner = TO_SUMMON(objA)->GetSummonOwner();
+            WorldObject* summoner = castPtr<Summon>(objA)->GetSummonOwner();
             if(summoner && summoner->IsPlayer())
             {
-                if(TO_PLAYER(summoner)->DuelingWith == player_objB)
+                if(castPtr<Player>(summoner)->DuelingWith == player_objB)
                     return FI_STATUS_HOSTILE;
             }
         }
@@ -238,9 +238,9 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
 
             if(player_objB)
             {
-                if(TO_PET(objA)->GetOwner())
+                if(castPtr<Pet>(objA)->GetOwner())
                 {
-                    if(!TO_PET(objA)->GetOwner()->IsPvPFlagged())
+                    if(!castPtr<Pet>(objA)->GetOwner()->IsPvPFlagged())
                         return FI_STATUS_FRIENDLY;
                     // the target is PvP, its okay.
                 } else return FI_STATUS_FRIENDLY;
@@ -253,10 +253,10 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
 
             if(player_objB)
             {
-                Object* summonownerA = TO_SUMMON(objA)->GetSummonOwner();
+                WorldObject* summonownerA = castPtr<Summon>(objA)->GetSummonOwner();
                 if(summonownerA && summonownerA->IsPlayer())
                 {
-                    if(!TO_UNIT(summonownerA)->IsPvPFlagged())
+                    if(!castPtr<Unit>(summonownerA)->IsPvPFlagged())
                         return FI_STATUS_FRIENDLY;
                     // the target is PvP, its okay.
                 } else return FI_STATUS_FRIENDLY;
@@ -296,10 +296,10 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(Object* objA, Object
         return FI_STATUS_HOSTILE; // Skip the rest of this, it's all faction shit.
     }
 
-    return GetFactionsInteractStatus(TO_UNIT(objA), TO_UNIT(objB));
+    return GetFactionsInteractStatus(castPtr<Unit>(objA), castPtr<Unit>(objB));
 }
 
-bool FactionSystem::IsInteractionLocked(Object *obj)
+bool FactionSystem::IsInteractionLocked(WorldObject *obj)
 {
     if(obj == NULL || !obj->IsInWorld())
         return true;
@@ -310,7 +310,7 @@ bool FactionSystem::IsInteractionLocked(Object *obj)
 
     if(obj->IsUnit())
     {
-        Unit *uObj = TO_UNIT(obj);
+        Unit *uObj = castPtr<Unit>(obj);
         if(!uObj->isAlive())
             return true;
         else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9)
@@ -319,7 +319,7 @@ bool FactionSystem::IsInteractionLocked(Object *obj)
             return true;
         else if(uObj->IsPlayer())
         {
-            if(TO_PLAYER(uObj)->bGMTagOn)
+            if(castPtr<Player>(uObj)->bGMTagOn)
                 return true;
         }
         else //if(obj->IsCreature()) // No need to double check
@@ -350,30 +350,30 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
 
     if(unitA->IsPlayer() && unitB->IsPlayer())
     {
-        if(GetPlayerAttackStatus(TO_PLAYER(unitA), TO_PLAYER(unitB)) >= FI_STATUS_NEUTRAL)
+        if(GetPlayerAttackStatus(castPtr<Player>(unitA), castPtr<Player>(unitB)) >= FI_STATUS_NEUTRAL)
             return true;
     }
     else if(unitA->IsPlayer())
     {
-        Player *plrA = TO_PLAYER(unitA);
-        if(unitB->IsPet() && TO_PET(unitB)->GetOwner()->DuelingWith == plrA)
+        Player *plrA = castPtr<Player>(unitA);
+        if(unitB->IsPet() && castPtr<Pet>(unitB)->GetOwner()->DuelingWith == plrA)
             return true;
         else if(unitB->IsSummon())
         {
-            Object *summoner = TO_SUMMON(unitB)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer() && TO_PLAYER(summoner)->DuelingWith == plrA)
+            WorldObject *summoner = castPtr<Summon>(unitB)->GetSummonOwner();
+            if(summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == plrA)
                 return true;
         }
     }
     else if(unitB->IsPlayer())
     {
-        Player *plrB = TO_PLAYER(unitB);
-        if(unitA->IsPet() && TO_PET(unitA)->GetOwner()->DuelingWith == plrB)
+        Player *plrB = castPtr<Player>(unitB);
+        if(unitA->IsPet() && castPtr<Pet>(unitA)->GetOwner()->DuelingWith == plrB)
             return true;
         else if(unitA->IsSummon())
         {
-            Object *summoner = TO_SUMMON(unitA)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer() && TO_PLAYER(summoner)->DuelingWith == plrB)
+            WorldObject *summoner = castPtr<Summon>(unitA)->GetSummonOwner();
+            if(summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == plrB)
                 return true;
         }
     }
@@ -383,39 +383,39 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
     return (GetFactionsInteractStatus(unitA, unitB) >= FI_STATUS_NEUTRAL);
 }
 
-bool FactionSystem::isAttackable(Object* objA, Object* objB, bool CheckStealth)// A can attack B?
+bool FactionSystem::isAttackable(WorldObject* objA, WorldObject* objB, bool CheckStealth)// A can attack B?
 {
     return (GetAttackableStatus(objA, objB, CheckStealth) >= FI_STATUS_NEUTRAL);
 }
 
-bool FactionSystem::isHostile(Object* objA, Object* objB)// B is hostile for A?
+bool FactionSystem::isHostile(WorldObject* objA, WorldObject* objB)// B is hostile for A?
 {
     return (GetAttackableStatus(objA, objB, true) == FI_STATUS_HOSTILE);
 }
 
-Player* FactionSystem::GetPlayerFromObject(Object* obj)
+Player* FactionSystem::GetPlayerFromObject(WorldObject* obj)
 {
-    Player* player_obj = NULLPLR;
+    Player* player_obj = NULL;
 
     if( obj->IsPlayer() )
     {
-        player_obj =  TO_PLAYER( obj );
+        player_obj =  castPtr<Player>( obj );
     }
     else if( obj->IsPet() )
     {
-        Pet* pet_obj = TO_PET(obj);
+        Pet* pet_obj = castPtr<Pet>(obj);
         if( pet_obj )
             player_obj =  pet_obj->GetPetOwner();
     }
     else if( obj->IsUnit() )
     {   // If it's not a player nor a pet, it can still be a totem.
         if(obj->IsSummon())
-            player_obj =  TO_PLAYER(TO_SUMMON(obj)->GetSummonOwner());
+            player_obj =  castPtr<Player>(castPtr<Summon>(obj)->GetSummonOwner());
     }
     return player_obj;
 }
 
-bool FactionSystem::isCombatSupport(Object* objA, Object* objB)// B combat supports A?
+bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B combat supports A?
 {
     if( IsInteractionLocked(objA) || IsInteractionLocked(objB) )
         return false;
@@ -457,7 +457,7 @@ bool FactionSystem::isCombatSupport(Object* objA, Object* objB)// B combat suppo
     return combatSupport;
 }
 
-bool FactionSystem::isAlliance(Object* objA)// A is alliance?
+bool FactionSystem::isAlliance(WorldObject* objA)// A is alliance?
 {
     if(!objA || objA->GetFactionTemplate() == NULL || objA->GetFaction() == NULL)
         return true;

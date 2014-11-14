@@ -19,7 +19,7 @@
 class StormwindCityGuard : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player *Plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player *Plr, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 933, Plr);
@@ -43,7 +43,7 @@ public:
         Menu->SendTo(Plr);
     }
 
-    void GossipSelectOption(Object *pObject, Player *Plr, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject *pObject, Player *Plr, uint32 Id, uint32 IntId, const char * Code)
     {
         GossipMenu * Menu;
         switch(IntId)
@@ -275,7 +275,7 @@ public:
 class ArchmageMalin_Gossip : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player *plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player *plr, bool AutoSend)
     {
         GossipMenu *Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 11469, plr);
@@ -286,7 +286,7 @@ public:
         Menu->SendTo(plr);
     }
 
-    void GossipSelectOption(Object *pObject, Player *plr, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * Code)
     {
         if(IntId == 1)
         {

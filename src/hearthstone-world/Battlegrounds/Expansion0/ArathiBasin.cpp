@@ -134,41 +134,38 @@ void ArathiBasin::SpawnBuff(uint32 x)
     if(goi == NULL)
         return;
 
-    if(m_buffs[x] == NULL)
+    if(m_buffs[x])
     {
-        m_buffs[x] = SpawnGameObject(chosen_buffid, BuffCoordinates[x][0], BuffCoordinates[x][1], BuffCoordinates[x][2],
-            BuffCoordinates[x][3], 0, 114, 1);
+        if(m_buffs[x]->GetEntry() == chosen_buffid)
+            return;
 
-        m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
-        m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
-        m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[x]->PushToWorld(m_mapMgr);
-    }
-    else
-    {
-        // only need to reassign guid if the entry changes.
         if(m_buffs[x]->IsInWorld())
-            m_buffs[x]->RemoveFromWorld(false);
-
-        if(chosen_buffid != m_buffs[x]->GetEntry())
-        {
-            m_buffs[x]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-            m_buffs[x]->SetUInt32Value(OBJECT_FIELD_ENTRY, chosen_buffid);
-            m_buffs[x]->SetInfo(goi);
-        }
-
-        m_buffs[x]->PushToWorld(m_mapMgr);
+            m_buffs[x]->RemoveFromWorld(true);
+        m_buffs[x] = NULL;
     }
+
+    m_buffs[x] = SpawnGameObject(chosen_buffid, BuffCoordinates[x][0], BuffCoordinates[x][1], BuffCoordinates[x][2], BuffCoordinates[x][3], 0, 114, 1);
+    m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
+    m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
+    m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
+    m_buffs[x]->PushToWorld(m_mapMgr);
 }
 
 void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
 {
-    GameObjectInfo * gi, * gi_aura;
-    gi = GameObjectNameStorage.LookupEntry(ControlPointGoIds[Id][Type]);
+    GameObjectInfo * gi = GameObjectNameStorage.LookupEntry(ControlPointGoIds[Id][Type]), *gi_aura;
     if(gi == NULL)
         return;
 
     gi_aura = gi->Button.LinkedTrap ? GameObjectNameStorage.LookupEntry(gi->Button.LinkedTrap) : NULL;
+    if(m_controlPoints[Id])
+    {
+        if(m_controlPoints[Id]->IsInWorld())
+            m_controlPoints[Id]->RemoveFromWorld(false);
+        else m_controlPoints[Id]->Destruct();
+        m_controlPoints[Id] = NULL;
+    }
+
     if(m_controlPoints[Id] == NULL)
     {
         m_controlPoints[Id] = SpawnGameObject(gi->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1],
@@ -200,70 +197,31 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
         m_controlPoints[Id]->bannerslot = Id;
         m_controlPoints[Id]->PushToWorld(m_mapMgr);
     }
-    else
-    {
-        if(m_controlPoints[Id]->IsInWorld())
-            m_controlPoints[Id]->RemoveFromWorld(false);
-
-        // assign it a new guid (client needs this to see the entry change?)
-        m_controlPoints[Id]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-        m_controlPoints[Id]->SetUInt32Value(OBJECT_FIELD_ENTRY, gi->ID);
-        m_controlPoints[Id]->SetUInt32Value(GAMEOBJECT_DISPLAYID, gi->DisplayID);
-        m_controlPoints[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, gi->Type);
-
-        switch(Type)
-        {
-        case AB_SPAWN_TYPE_ALLIANCE_ASSAULT:
-        case AB_SPAWN_TYPE_ALLIANCE_CONTROLLED:
-            m_controlPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 2);
-            break;
-
-        case AB_SPAWN_TYPE_HORDE_ASSAULT:
-        case AB_SPAWN_TYPE_HORDE_CONTROLLED:
-            m_controlPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 1);
-            break;
-
-        default:
-            m_controlPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 35);        // neutral
-            break;
-        }
-
-        m_controlPoints[Id]->SetInfo(gi);
-        m_controlPoints[Id]->PushToWorld(m_mapMgr);
-    }
 
     if(gi_aura == NULL)
     {
         // remove it if it exists
-        if(m_controlPointAuras[Id]!=NULL && m_controlPointAuras[Id]->IsInWorld())
+        if(m_controlPointAuras[Id] != NULL && m_controlPointAuras[Id]->IsInWorld())
             m_controlPointAuras[Id]->RemoveFromWorld(false);
-
+        else m_controlPointAuras[Id]->Destruct();
+        m_controlPointAuras[Id] = NULL;
         return;
     }
 
-    if(m_controlPointAuras[Id] == NULL)
-    {
-        m_controlPointAuras[Id] = SpawnGameObject(gi_aura->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1],
-            ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 5.0f);
-
-        m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
-        m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
-        m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_controlPointAuras[Id]->bannerauraslot = Id;
-        m_controlPointAuras[Id]->PushToWorld(m_mapMgr);
-    }
-    else
+    if(m_controlPointAuras[Id])
     {
         if(m_controlPointAuras[Id]->IsInWorld())
             m_controlPointAuras[Id]->RemoveFromWorld(false);
-
-        // re-spawn the aura
-        m_controlPointAuras[Id]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-        m_controlPointAuras[Id]->SetUInt32Value(OBJECT_FIELD_ENTRY, gi_aura->ID);
-        m_controlPointAuras[Id]->SetUInt32Value(GAMEOBJECT_DISPLAYID, gi_aura->DisplayID);
-        m_controlPointAuras[Id]->SetInfo(gi_aura);
-        m_controlPointAuras[Id]->PushToWorld(m_mapMgr);
+        else m_controlPointAuras[Id]->Destruct();
+        m_controlPointAuras[Id] = NULL;
     }
+
+    m_controlPointAuras[Id] = SpawnGameObject(gi_aura->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1], ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 5.0f);
+    m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
+    m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
+    m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
+    m_controlPointAuras[Id]->bannerauraslot = Id;
+    m_controlPointAuras[Id]->PushToWorld(m_mapMgr);
 }
 
 void ArathiBasin::OnCreate()
@@ -400,10 +358,10 @@ ArathiBasin::ArathiBasin( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBa
 
     for(i = 0; i < AB_NUM_CONTROL_POINTS; i++)
     {
-        m_buffs[i] = NULLGOB;
-        m_controlPointAuras[i] = NULLGOB;
-        m_controlPoints[i] = NULLGOB;
-        m_spiritGuides[i] = NULLCREATURE;
+        m_buffs[i] = NULL;
+        m_controlPointAuras[i] = NULL;
+        m_controlPoints[i] = NULL;
+        m_spiritGuides[i] = NULL;
         m_basesAssaultedBy[i] = -1;
         m_basesOwnedBy[i] = -1;
         m_basesLastOwnedBy[i] = -1;
@@ -436,7 +394,7 @@ ArathiBasin::~ArathiBasin()
             if( !m_buffs[i]->IsInWorld() )
             {
                 m_buffs[i]->Destruct();
-                m_buffs[i] = NULLGOB;
+                m_buffs[i] = NULL;
             }
         }
 
@@ -446,7 +404,7 @@ ArathiBasin::~ArathiBasin()
             if( !m_controlPoints[i]->IsInWorld() )
             {
                 m_controlPoints[i]->Destruct();
-                m_controlPoints[i] = NULLGOB;
+                m_controlPoints[i] = NULL;
             }
         }
 
@@ -456,7 +414,7 @@ ArathiBasin::~ArathiBasin()
             if( !m_controlPointAuras[i]->IsInWorld() )
             {
                 m_controlPointAuras[i]->Destruct();
-                m_controlPointAuras[i] = NULLGOB;
+                m_controlPointAuras[i] = NULL;
             }
         }
     }
@@ -679,7 +637,7 @@ void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
         SpellEntry * sp = dbcSpell.LookupEntry(spellid);
         if(sp)
         {
-            Spell* pSpell(new Spell(plr, sp, true, NULLAURA));
+            Spell* pSpell(new Spell(plr, sp, true, NULL));
             SpellCastTargets targets(plr->GetGUID());
             pSpell->prepare(&targets);
         }
@@ -774,14 +732,12 @@ void ArathiBasin::CaptureControlPoint(uint32 Id, uint32 Team)
 
 void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
 {
-#if defined(BG_ANTI_CHEAT) && !defined(_DEBUG)
     if(!m_started)
     {
         SendChatMessage(CHAT_MSG_BG_SYSTEM_NEUTRAL, pPlayer->GetGUID(), "%s has been removed from the game for cheating.", pPlayer->GetName());
         pPlayer->SoftDisconnect();
         return;
     }
-#endif
 
     bool isVirgin = false;
 
@@ -805,10 +761,10 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
         // this control point just got taken over by someone! oh noes!
         if( m_spiritGuides[Id] != NULL )
         {
-            map<Creature*,set<uint32> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
+            map<Creature*,set<WoWGuid> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
             if( itr != m_resurrectMap.end() )
             {
-                for( set<uint32>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
+                for( set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
                 {
                     Player* r_plr = m_mapMgr->GetPlayer( *it2 );
                     if( r_plr != NULL && r_plr->isDead() )
@@ -820,7 +776,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
             }
             m_resurrectMap.erase( itr );
             m_spiritGuides[Id]->Despawn( 0, 0 );
-            m_spiritGuides[Id] = NULLCREATURE;
+            m_spiritGuides[Id] = NULL;
         }
 
         // detract one from the teams controlled points
@@ -909,7 +865,7 @@ void ArathiBasin::HookGenerateLoot(Player* plr, Corpse* pCorpse)
     gold *= sWorld.getRate(RATE_MONEY);
 
     // set it
-    pCorpse->m_loot.gold = float2int32(gold);
+    pCorpse->GetLoot()->gold = float2int32(gold);
 }
 
 void ArathiBasin::HookOnShadowSight()

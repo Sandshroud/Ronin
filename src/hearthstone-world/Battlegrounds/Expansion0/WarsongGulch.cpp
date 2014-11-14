@@ -127,7 +127,7 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
         {
             /* apply the buff */
             SpellEntry * sp = dbcSpell.LookupEntry(m_buffs[buffslot]->GetInfo()->GetSpellID());
-            Spell* s(new Spell(plr, sp, true, NULLAURA));
+            Spell* s(new Spell(plr, sp, true, NULL));
             SpellCastTargets targets(plr->GetGUID());
             s->prepare(&targets);
 
@@ -137,13 +137,10 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
         return;
     }
 
-    if(((id == 3646 && plr->GetTeam() == 0) || (id == 3647 && plr->GetTeam() == 1)) && (plr->m_bgHasFlag && m_flagHolders[plr->GetTeam()] == plr->GetLowGUID()))
+    if(((id == 3646 && plr->GetTeam() == 0) || (id == 3647 && plr->GetTeam() == 1)) && (plr->m_bgHasFlag && m_flagHolders[plr->GetTeam()] == plr->GetGUID()))
     {
-        if(m_flagHolders[plr->GetTeam() ? 0 : 1] != 0 || m_dropFlags[plr->GetTeam() ? 0 : 1]->IsInWorld())
-        {
-            /* can't cap while flag dropped */
-            return;
-        }
+        if(!m_flagHolders[plr->GetTeam() ? 0 : 1].empty() || m_dropFlags[plr->GetTeam() ? 0 : 1]->IsInWorld())
+            return; /* can't cap while flag dropped */
 
         /* remove the bool from the player so the flag doesn't drop */
         m_flagHolders[plr->GetTeam()] = 0;
@@ -184,7 +181,7 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
             m_nextPvPUpdateTime = 0;
 
             sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
-            sEventMgr.AddEvent(TO_CBATTLEGROUND(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
+            sEventMgr.AddEvent(this, &WarsongGulch::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
             SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
 
             m_mainLock.Acquire();
@@ -321,15 +318,8 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
     m_flagHolders[plr->GetTeam()] = plr->GetLowGUID();
     plr->m_bgHasFlag = true;
 
-    /* This is *really* strange. Even though the A9 create sent to the client is exactly the same as the first one, if
-     * you spawn and despawn it, then spawn it again it will not show. So we'll assign it a new guid, hopefully that
-     * will work.
-     * - Burlex
-     */
-    m_dropFlags[plr->GetTeam()]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-
     SpellEntry * pSp = dbcSpell.LookupEntry(23333 + (plr->GetTeam() * 2));
-    Spell* sp(new Spell(plr, pSp, true, NULLAURA));
+    Spell* sp = new Spell(plr, pSp, true, NULL);
     SpellCastTargets targets(plr->GetGUID());
     sp->prepare(&targets);
     m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
@@ -378,7 +368,7 @@ void WarsongGulch::HookFlagStand(Player* plr, GameObject* obj)
         return;
 
     SpellEntry * pSp = dbcSpell.LookupEntry(23333 + (plr->GetTeam() * 2));
-    Spell* sp(new Spell(plr, pSp, true, NULLAURA));
+    Spell* sp(new Spell(plr, pSp, true, NULL));
     SpellCastTargets targets(plr->GetGUID());
     sp->prepare(&targets);
 
@@ -613,7 +603,7 @@ void WarsongGulch::HookGenerateLoot(Player* plr, Corpse* pCorpse)
     gold *= sWorld.getRate(RATE_MONEY);
 
     // set it
-    pCorpse->m_loot.gold = float2int32(gold);
+    pCorpse->GetLoot()->gold = float2int32(gold);
 }
 
 void WarsongGulch::HookOnShadowSight()

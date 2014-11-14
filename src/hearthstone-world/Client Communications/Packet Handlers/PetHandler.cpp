@@ -51,7 +51,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
         return;
     }
 
-    Unit* pTarget = NULLUNIT;
+    Unit* pTarget = NULL;
     if(action == PET_ACTION_SPELL || action == PET_ACTION_SPELL_1 || action == PET_ACTION_SPELL_2 || (action == PET_ACTION_ACTION && misc == PET_ACTION_ATTACK )) // >> target
     {
         recv_data >> targetguid;
@@ -79,7 +79,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
                     if(pTarget == pPet || !sFactionSystem.isAttackable(pPet, pTarget))
                     {
                         WorldPacket data(SMSG_SPELL_FAILURE, 20);
-                        data << _player->GetNewGUID() << uint32(0) << uint32(0) << uint8(SPELL_FAILED_BAD_TARGETS);
+                        data << _player->GetGUID().asPacked() << uint32(0) << uint32(0) << uint8(SPELL_FAILED_BAD_TARGETS);
                         SendPacket(&data);
                         return;
                     }
@@ -113,7 +113,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
                     pPet->GetAIInterface()->WipeHateList();
 
                     // Stop following the owner, and sit.
-                    pPet->GetAIInterface()->SetUnitToFollow(NULLUNIT);
+                    pPet->GetAIInterface()->SetUnitToFollow(NULL);
                 }break;
             case PET_ACTION_DISMISS:
                 {

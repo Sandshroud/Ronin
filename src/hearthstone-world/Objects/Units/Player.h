@@ -275,11 +275,6 @@ struct LoginAura
     int32 dur;
 };
 
-struct AreaPhaseData
-{   // We might need more later.
-    int32 phase;
-};
-
 //Manaregen
 const float BaseRegen[100] =
 {
@@ -323,7 +318,7 @@ struct FactionReputation
 struct PlayerInfo
 {
     ~PlayerInfo();
-    uint32 guid;
+    WoWGuid guid;
     uint32 acct;
     char * name;
     uint32 race;
@@ -594,7 +589,7 @@ class SERVER_DECL Player : public Unit
     friend class SkillIterator;
 
 public:
-    Player ( uint32 guid );
+    Player ( uint64 guid );
     ~Player ( );
     virtual void Init();
     virtual void Destruct();
@@ -834,7 +829,7 @@ public:
     void CalcDamage();
     uint32 GetMainMeleeDamage(uint32 AP_owerride); //i need this for windfury
 
-    const uint64& GetSelection( ) const { return m_curSelection; }
+    const WoWGuid& GetSelection( ) const { return m_curSelection; }
     void SetSelection(const uint64 &guid) { m_curSelection = guid; }
 
     /************************************************************************/
@@ -1087,12 +1082,12 @@ public:
     /************************************************************************/
     /* Loot                                                                 */
     /************************************************************************/
-    HEARTHSTONE_INLINE const uint64& GetLootGUID() const { return m_lootGuid; }
-    HEARTHSTONE_INLINE          void SetLootGUID(const uint64 &guid) { m_lootGuid = guid; }
-    void SendLoot(uint64 guid, uint32 mapid, uint8 loot_type);
+    HEARTHSTONE_INLINE const WoWGuid& GetLootGUID() const { return m_lootGuid; }
+    HEARTHSTONE_INLINE void SetLootGUID(const WoWGuid &guid) { m_lootGuid = guid; }
+    void SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type);
     // loot variables
-    uint64 m_lootGuid;
-    uint64 m_currentLoot;
+    WoWGuid m_lootGuid;
+    WoWGuid m_currentLoot;
     bool m_insigniaTaken;
     bool CanNeedItem(ItemPrototype* proto);
 
@@ -1123,7 +1118,7 @@ public:
     /************************************************************************/
     void SaveToDB(bool bNewCharacter);
     void SaveAuras(stringstream&);
-    bool LoadFromDB(uint32 guid);
+    bool LoadFromDB();
     void LoadFromDBProc(QueryResultVector & results);
 
     void LoadNamesFromDB(uint32 guid);
@@ -1135,7 +1130,7 @@ public:
     void SpawnCorpseBones();
     Corpse* CreateCorpse();
     void KillPlayer();
-    void ResurrectPlayer(Unit* pResurrector = NULLPLR);
+    void ResurrectPlayer(Unit* pResurrector = NULL);
     void BuildPlayerRepop();
     Corpse* RepopRequestedPlayer();
     void DecReclaimCount() { if(ReclaimCount > 0) --ReclaimCount; };
@@ -1258,26 +1253,26 @@ public:
     uint32 m_lastWarnCounter;
 
     // Visible objects
-    bool CanSee(Object* obj);
-    HEARTHSTONE_INLINE bool IsVisible(Object* pObj) { return !(m_visibleObjects.find(pObj) == m_visibleObjects.end()); }
-    void AddInRangeObject(Object* pObj);
-    void OnRemoveInRangeObject(Object* pObj);
+    bool CanSee(WorldObject* obj);
+    HEARTHSTONE_INLINE bool IsVisible(WorldObject* pObj) { return !(m_visibleObjects.find(pObj) == m_visibleObjects.end()); }
+    void AddInRangeObject(WorldObject* pObj);
+    void OnRemoveInRangeObject(WorldObject* pObj);
     void ClearInRangeSet();
-    HEARTHSTONE_INLINE void AddVisibleObject(Object* pObj) { m_visibleObjects.insert(pObj); }
-    HEARTHSTONE_INLINE void RemoveVisibleObject(Object* pObj) { m_visibleObjects.erase(pObj); }
+    HEARTHSTONE_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
+    HEARTHSTONE_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
     HEARTHSTONE_INLINE void RemoveVisibleObject(InRangeSet::iterator itr) { m_visibleObjects.erase(itr); }
-    HEARTHSTONE_INLINE InRangeSet::iterator FindVisible(Object* obj) { return m_visibleObjects.find(obj); }
-    HEARTHSTONE_INLINE void RemoveIfVisible(Object* obj)
+    HEARTHSTONE_INLINE InRangeSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
+    HEARTHSTONE_INLINE void RemoveIfVisible(WorldObject* obj)
     {
         InRangeSet::iterator itr = m_visibleObjects.find(obj);
         if(itr == m_visibleObjects.end())
             return;
 
         m_visibleObjects.erase(obj);
-        PushOutOfRange(obj->GetNewGUID());
+        PushOutOfRange(obj->GetGUID());
     }
 
-    HEARTHSTONE_INLINE bool GetVisibility(Object* obj, InRangeSet::iterator *itr)
+    HEARTHSTONE_INLINE bool GetVisibility(WorldObject* obj, InRangeSet::iterator *itr)
     {
         *itr = m_visibleObjects.find(obj);
         return ((*itr) != m_visibleObjects.end());
@@ -1364,7 +1359,7 @@ public:
     int32 DetectedRange;
     float PctIgnoreRegenModifier;
     HEARTHSTONE_INLINE uint32* GetPlayedtime() { return m_playedtime; };
-    HEARTHSTONE_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, m_uint32Values[index]); };
+    HEARTHSTONE_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, GetUInt32Value(index)); };
     float CalcPercentForRating(uint32 index, uint32 rating);
     void RecalcAllRatings();
 
@@ -1426,8 +1421,8 @@ public:
     Transporter* m_CurrentTransporter;
     bool IgnoreSpellFocusRequirements;
 
-    Object* GetSummonedObject () {return m_SummonedObject;};
-    void SetSummonedObject (Object* t_SummonedObject) {m_SummonedObject = t_SummonedObject;};
+    GameObject* GetSummonedObject () {return m_SummonedObject;};
+    void SetSummonedObject (GameObject* t_SummonedObject) {m_SummonedObject = t_SummonedObject;};
     uint32 roll;
 
     void ClearCooldownsOnLine(uint32 skill_line, uint32 called_from);
@@ -1469,16 +1464,6 @@ public:
     int32 m_lastAreaUpdateMap;
     uint32 m_oldZone, m_oldArea;
 
-    // Phase stuff
-    void _LoadAreaPhaseInfo(QueryResult *result);
-    void _SaveAreaPhaseInfo(QueryBuffer* buff);
-    void EnablePhase(int32 phaseMode, bool save = false);
-    void DisablePhase(int32 phaseMode, bool save = false);
-    void SetPhaseMask(int32 phase, bool save = false);
-    int32 GetPhaseForArea(uint32 areaid);
-    void SetPhaseForArea(uint32 areaid, int32 phase);
-    map<uint32, AreaPhaseData*> areaphases; // Map<Areaid, AreaPhaseData>
-
     std::string Lfgcomment;
     uint16 LfgDungeonId[3];
     uint8 LfgType[3];
@@ -1505,12 +1490,13 @@ public:
     uint32 m_arenaPoints;
     bool m_honorless;
     uint32 m_lastSeenWeather;
-    unordered_set<Object* > m_visibleFarsightObjects;
-    void EventTeleport(uint32 mapid, float x, float y, float z, float o, int32 phase = 1);
-    void EventTeleport(uint32 mapid, float x, float y, float z, int32 phase = 1)
+    unordered_set<WorldObject* > m_visibleFarsightObjects;
+    void EventTeleport(uint32 mapid, float x, float y, float z, float o);
+    void EventTeleport(uint32 mapid, float x, float y, float z)
     {
-        EventTeleport(mapid, x, y, z, 0.0f, phase);
+        EventTeleport(mapid, x, y, z, 0.0f);
     }
+
     void BroadcastMessage(const char* Format, ...);
     map<uint32, set<uint32> > SummonSpells;
     map<uint32, PetSpellMap*> PetSpells;
@@ -1537,15 +1523,15 @@ public:
     CharClassEntry * myClass;
 
     Unit* linkTarget;
-    bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O, int32 phase = 1);
-    bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec, int32 phase = 1);
-    void SafeTeleport(MapMgr* mgr, LocationVector vec, int32 phase = 1);
+    bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O);
+    bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec);
+    void SafeTeleport(MapMgr* mgr, LocationVector vec);
     void EjectFromInstance();
     bool raidgrouponlysent;
 
-    void EventSafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec, int32 phase = 1)
+    void EventSafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     {
-        SafeTeleport(MapID, InstanceID, vec, phase);
+        SafeTeleport(MapID, InstanceID, vec);
     }
 
     /*****************
@@ -1604,7 +1590,7 @@ public:
     FactionReputation * reputationByListId[128];
     Channel* watchedchannel;
 
-    uint64 m_comboTarget;
+    WoWGuid m_comboTarget;
     int8 m_comboPoints;
     bool m_retainComboPoints;
     int8 m_spellcomboPoints; // rogue talent Ruthlessness will change combopoints while consuming them. solutions 1) add post cast prochandling, 2) delay adding the CP
@@ -1644,8 +1630,8 @@ public:
 
     HEARTHSTONE_INLINE Player* GetTradeTarget()
     {
-        if(!IsInWorld()) return NULLPLR;
-        return m_mapMgr->GetPlayer((uint32)mTradeTarget);
+        if(!IsInWorld()) return NULL;
+        return m_mapMgr->GetPlayer(mTradeTarget);
     }
 
     Item* getTradeItem(uint32 slot) {return mTradeItems[slot];};
@@ -1684,7 +1670,7 @@ public:
 
     LocationVector m_last_group_position;
     int32 m_rap_mod_pct;
-    void SummonRequest(Object* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position);
+    void SummonRequest(WorldObject* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position);
     uint8 m_lastMoveType;
 
     Creature* m_tempSummon;
@@ -1739,7 +1725,7 @@ protected:
     LocationVector m_summonPos;
     int32 m_summonInstanceId;
     uint32 m_summonMapId;
-    Object* m_summoner;
+    WorldObject* m_summoner;
 
     uint32 iActivePet;
     void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
@@ -1783,9 +1769,9 @@ protected:
     /************************************************************************/
     /* Trade                                                                */
     /************************************************************************/
+    WoWGuid mTradeTarget;
     Item* mTradeItems[7];
     uint32 mTradeGold;
-    uint32 mTradeTarget;
     uint32 mTradeStatus;
     uint32 m_tradeSequence;
 
@@ -1836,7 +1822,7 @@ protected:
     // STATUS
     uint8 m_status;
     // guid of current selection
-    uint64 m_curSelection;
+    WoWGuid m_curSelection;
     // Raid
     uint8 m_targetIcon;
     // Player Reputation
@@ -1847,18 +1833,17 @@ protected:
     std::set<uint32> m_channels;
     std::map<uint32, Channel*> m_channelsbyDBCID;
     // Visible objects
-    unordered_set<Object* > m_visibleObjects;
+    unordered_set<WorldObject* > m_visibleObjects;
     // Groups/Raids
     uint32 m_GroupInviter;
 
     // Fishing related
-    Object* m_SummonedObject;
+    GameObject* m_SummonedObject;
 
     // other system
     Corpse* myCorpse;
 
     uint32 m_lastHonorResetTime;
-    uint32 _fields[PLAYER_END];
     uint32 trigger_on_stun;         //bah, warrior talent but this will not get triggered on triggered spells if used on proc so i'm forced to used a special variable
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
 

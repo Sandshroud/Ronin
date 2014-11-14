@@ -57,7 +57,7 @@ LuaGossip::~LuaGossip()
     }
 }
 
-void LuaGossip::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
+void LuaGossip::GossipHello(WorldObject* pObject, Player* Plr, bool AutoSend)
 {
     GET_LOCK
     if(pObject->GetTypeId() == TYPEID_UNIT)
@@ -108,7 +108,7 @@ void LuaGossip::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
     RELEASE_LOCK
 }
 
-void LuaGossip::GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
+void LuaGossip::GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
 {
     GET_LOCK
     if(pObject->GetTypeId() == TYPEID_UNIT)
@@ -285,7 +285,7 @@ void LuaInstance::Destroy()
     delete this;
 };
 
-void LuaGossip::GossipEnd(Object* pObject, Player* Plr)
+void LuaGossip::GossipEnd(WorldObject* pObject, Player* Plr)
 {
     GET_LOCK
     if(pObject->GetTypeId() == TYPEID_UNIT)
@@ -1111,7 +1111,7 @@ void Lua_HookOnLogout(Player* pPlayer)
     RELEASE_LOCK
 }
 
-void Lua_HookOnQuestAccept(Player* pPlayer, Quest* pQuest, Object* pQuestGiver)
+void Lua_HookOnQuestAccept(Player* pPlayer, Quest* pQuest, WorldObject* pQuestGiver)
 {
     GET_LOCK
     for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_QUEST_ACCEPT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_QUEST_ACCEPT].end(); ++itr)
@@ -1245,7 +1245,7 @@ void Lua_HookOnQuestCancelled(Player* pPlayer, Quest* pQuest)
     RELEASE_LOCK
 }
 
-void Lua_HookOnQuestFinished(Player* pPlayer, Quest* pQuest, Object* pQuestGiver)
+void Lua_HookOnQuestFinished(Player* pPlayer, Quest* pQuest, WorldObject* pQuestGiver)
 {
     GET_LOCK
     for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_QUEST_FINISHED].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_QUEST_FINISHED].end(); ++itr)
@@ -1299,7 +1299,7 @@ void Lua_HookOnArenaFinish(Player* pPlayer, ArenaTeam* pTeam, bool victory, bool
     RELEASE_LOCK
 }
 
-void Lua_HookOnObjectLoot(Player* pPlayer, Object* pTarget, uint32 Money, uint32 ItemId)
+void Lua_HookOnObjectLoot(Player* pPlayer, WorldObject* pTarget, uint32 Money, uint32 ItemId)
 {
     GET_LOCK
     for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_OBJECTLOOT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_OBJECTLOOT].end(); ++itr)

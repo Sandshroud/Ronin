@@ -4,31 +4,18 @@
 
 #include "StdAfx.h"
 
-Item::Item() //this is called when constructing as container
+Item::Item( uint32 high, uint32 low ) : Object(MAKE_NEW_GUID(low, 0, high)) 
 {
-    m_itemProto = NULL;
-    m_owner = NULLPLR;
-    locked = false;
-    wrapped_item_id = 0;
-    Enchantments.clear();
-}
-
-Item::Item( uint32 high, uint32 low )
-{
-    m_objectTypeId = TYPEID_ITEM;
-    m_valuesCount = ITEM_END;
-    m_uint32Values = _fields;
-    memset( m_uint32Values, 0, (ITEM_END) * sizeof( uint32 ) );
+    m_valuesCount += ITEM_LENGTH;
     m_updateMask.SetCount(ITEM_END);
-    SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_ITEM | TYPEMASK_OBJECT );
-    SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));
-    m_wowGuid = GetGUID();
+    m_object.m_objType |= TYPEMASK_TYPE_ITEM;
+    m_raw.values[OBJECT_LAYER_ITEM] = new uint32[ITEM_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_ITEM], 0, ITEM_LENGTH*sizeof(uint32));
 
-    SetFloatValue( OBJECT_FIELD_SCALE_X, 1 );//always 1
-
+    m_inWorld = false;
     m_itemProto = NULL;
-    m_owner = NULLPLR;
-    locked = false;
+    m_owner = NULL;
+    m_locked = false;
     m_isDirty = true;
     StatsApplied = false;
     random_prop = 0;
@@ -49,8 +36,6 @@ void Item::Init()
 
 void Item::Destruct()
 {
-    sEventMgr.RemoveEvents( this );
-
     EnchantmentMap::iterator itr;
     for( itr = Enchantments.begin(); itr != Enchantments.end(); itr++ )
     {
@@ -61,19 +46,8 @@ void Item::Destruct()
         }
     }
 
-    if( IsInWorld() )
-        RemoveFromWorld();
-
-    m_owner = NULLPLR;
+    m_owner = NULL;
     Object::Destruct();
-}
-
-void Item::DeleteMe()
-{
-    if( IsContainer() )
-        TO_CONTAINER(this)->Destruct();
-    else
-        Destruct();
 }
 
 void Item::Create( uint32 itemid, Player* owner )
@@ -102,9 +76,8 @@ void Item::Create( uint32 itemid, Player* owner )
 
     m_owner = owner;
     if( m_itemProto->LockId > 1 )
-        locked = true;
-    else
-        locked = false;
+        m_locked = true;
+    else m_locked = false;
 }
 
 uint32 Item::CalcMinDamage()
@@ -135,16 +108,15 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
     ASSERT( m_itemProto );
 
     if(m_itemProto->LockId > 1)
-        locked = true;
-    else
-        locked = false;
+        m_locked = true;
+    else m_locked = false;
 
     SetUInt32Value( OBJECT_FIELD_ENTRY, itemid );
     m_owner = plr;
 
     wrapped_item_id=fields[3].GetUInt32();
-    m_uint32Values[ITEM_FIELD_GIFTCREATOR] = fields[4].GetUInt32();
-    m_uint32Values[ITEM_FIELD_CREATOR] = fields[5].GetUInt32();
+    SetUInt32Value(ITEM_FIELD_GIFTCREATOR, fields[4].GetUInt32());
+    SetUInt32Value(ITEM_FIELD_CREATOR, fields[5].GetUInt32());
 
     count = fields[6].GetUInt32();
     if(m_itemProto->MaxCount > 0 && count > m_itemProto->MaxCount)
@@ -244,52 +216,38 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
 void Item::ApplyRandomProperties( bool apply )
 {
     // apply random properties
-    if( m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID] != 0 )
+    if( int32 randomProp = GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID) )
     {
-        if( int32( m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID] ) > 0 )      // Random Property
+        if( randomProp > 0 )      // Random Property
         {
-            ItemRandomPropertiesEntry* rp= dbcItemRandomProperties.LookupEntry( m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID] );
-            if(rp == NULL)
-                return;
-
-            int32 Slot;
-            for( int k = 0; k < 3; k++ )
+            if(ItemRandomPropertiesEntry* rp= dbcItemRandomProperties.LookupEntry(randomProp))
             {
-                if( rp->spells[k] != 0 )
+                for( int k = 0; k < 3; k++ )
                 {
-                    EnchantEntry* ee = dbcEnchant.LookupEntry( rp->spells[k] );
-                    Slot = HasEnchantment( ee->Id );
-                    if( Slot < 0 )
+                    if( rp->spells[k] != 0 )
                     {
-                        Slot = FindFreeEnchantSlot( ee, 1 );
-                        AddEnchantment( ee, 0, false, apply, true, Slot );
+                        EnchantEntry* ee = dbcEnchant.LookupEntry( rp->spells[k] );
+                        int32 Slot = HasEnchantment( ee->Id );
+                        if( Slot < 0 )
+                        {
+                            AddEnchantment( ee, 0, false, apply, true, FindFreeEnchantSlot( ee, 1 ) );
+                        } else if( apply ) ApplyEnchantmentBonus( Slot, true );
                     }
-                    else
-                        if( apply )
-                            ApplyEnchantmentBonus( Slot, true );
                 }
             }
         }
-        else
+        else if(ItemRandomSuffixEntry* rs = dbcItemRandomSuffix.LookupEntry(abs(randomProp)))
         {
-            ItemRandomSuffixEntry* rs = dbcItemRandomSuffix.LookupEntry( abs( int( m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID] ) ) );
-            if(rs == NULL)
-                return;
-            int32 Slot;
             for( uint32 k = 0; k < 3; ++k )
             {
                 if( rs->enchantments[k] != 0 )
                 {
                     EnchantEntry* ee = dbcEnchant.LookupEntry( rs->enchantments[k] );
-                    Slot = HasEnchantment( ee->Id );
+                    int32 Slot = HasEnchantment( ee->Id );
                     if( Slot < 0 )
                     {
-                        Slot = FindFreeEnchantSlot( ee, 2 );
-                        AddEnchantment( ee, 0, false, apply, true, Slot, rs->prefixes[k] );
-                    }
-                    else
-                        if( apply )
-                            ApplyEnchantmentBonus( Slot, true );
+                        AddEnchantment( ee, 0, false, apply, true, FindFreeEnchantSlot( ee, 2 ), rs->prefixes[k] );
+                    } else if( apply ) ApplyEnchantmentBonus( Slot, true );
                 }
             }
         }
@@ -305,12 +263,12 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
 
     ss << "REPLACE INTO playeritems VALUES(";
 
-    ss << m_uint32Values[ITEM_FIELD_OWNER] << ",";
-    ss << m_uint32Values[OBJECT_FIELD_GUID] << ",";
-    ss << m_uint32Values[OBJECT_FIELD_ENTRY] << ",";
+    ss << m_uint32.values[ITEM_FIELD_OWNER] << ",";
+    ss << m_uint32.values[OBJECT_FIELD_GUID] << ",";
+    ss << m_uint32.values[OBJECT_FIELD_ENTRY] << ",";
     ss << wrapped_item_id << ",";
-    ss << m_uint32Values[ITEM_FIELD_GIFTCREATOR] << ",";
-    ss << m_uint32Values[ITEM_FIELD_CREATOR] << ",";
+    ss << m_uint32.values[ITEM_FIELD_GIFTCREATOR] << ",";
+    ss << m_uint32.values[ITEM_FIELD_CREATOR] << ",";
 
     ss << GetUInt32Value(ITEM_FIELD_STACK_COUNT) << ",";
     ss << int32(GetChargesLeft()) << ",";
@@ -324,8 +282,7 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
     // Pack together enchantment fields
     if( Enchantments.size() > 0 )
     {
-        EnchantmentMap::iterator itr = Enchantments.begin();
-        for(; itr != Enchantments.end(); itr++)
+        for(EnchantmentMap::iterator itr = Enchantments.begin(); itr != Enchantments.end(); itr++)
         {
             if( itr->second.RemoveAtLogout )
                 continue;
@@ -361,7 +318,7 @@ void Item::DeleteFromDB()
         /* deleting a Container* */
         for( int32 i = 0; i < m_itemProto->ContainerSlots; i++ )
         {
-            if( CAST(Container,this)->GetItem( i ) != NULL )
+            if( castPtr<Container>(this)->GetItem( i ) != NULL )
             {
                 /* abort the delete */
                 return;
@@ -369,7 +326,7 @@ void Item::DeleteFromDB()
         }
     }
 
-    CharacterDatabase.Execute( "DELETE FROM playeritems WHERE guid = %u", m_uint32Values[OBJECT_FIELD_GUID] );
+    CharacterDatabase.Execute( "DELETE FROM playeritems WHERE guid = %u", m_uint32.values[OBJECT_FIELD_GUID] );
 }
 
 uint32 Item::GetSkillByProto( uint32 Class, uint32 SubClass )
@@ -398,53 +355,30 @@ const ItemProf* GetProficiencyBySkill( uint32 skill )
 {
     switch( skill )
     {
-        case SKILL_CLOTH:
-            return &prof[0];
-        case SKILL_LEATHER:
-            return &prof[1];
-        case SKILL_MAIL:
-            return &prof[2];
-        case SKILL_PLATE_MAIL:
-            return &prof[3];
-        case SKILL_SHIELD:
-            return &prof[4];
-        case SKILL_AXES:
-            return &prof[5];
-        case SKILL_2H_AXES:
-            return &prof[6];
-        case SKILL_BOWS:
-            return &prof[7];
-        case SKILL_GUNS:
-            return &prof[8];
-        case SKILL_MACES:
-            return &prof[9];
-        case SKILL_2H_MACES:
-            return &prof[10];
-        case SKILL_POLEARMS:
-            return &prof[11];
-        case SKILL_SWORDS:
-            return &prof[12];
-        case SKILL_2H_SWORDS:
-            return &prof[13];
-        case SKILL_STAVES:
-            return &prof[14];
-        case SKILL_FIST_WEAPONS:
-            return &prof[15];
-        case SKILL_DAGGERS:
-            return &prof[16];
-        case SKILL_THROWN:
-            return &prof[17];
-        case SKILL_SPEARS:
-            return &prof[18];
-        case SKILL_CROSSBOWS:
-            return &prof[19];
-        case SKILL_WANDS:
-            return &prof[20];
-        case SKILL_FISHING:
-            return &prof[21];
-        default:
-            return NULL;
+    case SKILL_CLOTH: return &prof[0];
+    case SKILL_LEATHER: return &prof[1];
+    case SKILL_MAIL: return &prof[2];
+    case SKILL_PLATE_MAIL: return &prof[3];
+    case SKILL_SHIELD: return &prof[4];
+    case SKILL_AXES: return &prof[5];
+    case SKILL_2H_AXES: return &prof[6];
+    case SKILL_BOWS: return &prof[7];
+    case SKILL_GUNS: return &prof[8];
+    case SKILL_MACES: return &prof[9];
+    case SKILL_2H_MACES: return &prof[10];
+    case SKILL_POLEARMS: return &prof[11];
+    case SKILL_SWORDS: return &prof[12];
+    case SKILL_2H_SWORDS: return &prof[13];
+    case SKILL_STAVES: return &prof[14];
+    case SKILL_FIST_WEAPONS: return &prof[15];
+    case SKILL_DAGGERS: return &prof[16];
+    case SKILL_THROWN: return &prof[17];
+    case SKILL_SPEARS: return &prof[18];
+    case SKILL_CROSSBOWS: return &prof[19];
+    case SKILL_WANDS: return &prof[20];
+    case SKILL_FISHING: return &prof[21];
     }
+    return NULL;
 }
 
 uint32 Item::GetSellPriceForItem( ItemPrototype *proto, uint32 count )
@@ -483,22 +417,14 @@ uint32 Item::GetBuyPriceForItem( uint32 itemid, uint32 count, Player* plr, Creat
         return 1;
 }
 
-void Item::RemoveFromWorld()
+void Item::RemoveFromWorld(bool destroy)
 {
     // if we have an owner->send destroy
-    if( m_owner != NULL )
-    {
+    if (IsInWorld() && m_owner != NULL)
         DestroyForPlayer( m_owner );
-    }
 
-    if( !IsInWorld() )
-        return;
-
-    m_mapMgr->RemoveObject( TO_OBJECT(this), false );
-    m_mapMgr = NULLMAPMGR;
-
-    // update our event holder
-    event_Relocate();
+    m_inWorld = false;
+    if (destroy) Destruct();
 }
 
 void Item::SetOwner( Player* owner )
@@ -538,8 +464,7 @@ int32 Item::AddEnchantment(EnchantEntry* Enchantment, uint32 Duration, bool Perm
         return Slot;
 
     // Add the removal event.
-    if( Duration )
-        sEventMgr.AddEvent( this, &Item::RemoveEnchantment, uint32(Slot), EVENT_REMOVE_ENCHANTMENT1 + Slot, Duration * 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+    if (Duration) m_owner->AddItemEnchantDuration(this, Slot, Duration*1000);
 
     // No need to send the log packet, if the owner isn't in world (we're still loading)
     if( !m_owner->IsInWorld() )
@@ -547,14 +472,6 @@ int32 Item::AddEnchantment(EnchantEntry* Enchantment, uint32 Duration, bool Perm
 
     if( apply )
     {
-/*      WorldPacket EnchantLog( SMSG_ENCHANTMENTLOG, 25 );
-        EnchantLog << m_owner->GetGUID();
-        EnchantLog << m_owner->GetGUID();
-        EnchantLog << m_uint32Values[OBJECT_FIELD_ENTRY];
-        EnchantLog << Enchantment->Id;
-        EnchantLog << uint8(0);
-        m_owner->GetSession()->SendPacket( &EnchantLog );*/
-
         if( m_owner->GetTradeTarget() )
             m_owner->SendTradeUpdate();
 
@@ -590,7 +507,7 @@ void Item::RemoveEnchantment( uint32 EnchantmentSlot )
     SetUInt32Value( EnchantBase + 2, 0 );
 
     // Remove the enchantment event for removal.
-    event_RemoveEvents( EVENT_REMOVE_ENCHANTMENT1 + Slot );
+    if(m_owner) m_owner->RemoveItemEnchantDuration(this, Slot);
 
     // Remove the enchantment instance.
     Enchantments.erase( itr );
@@ -663,15 +580,15 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                             if( sp == NULL )
                                 continue;
 
-                            Spell* spell = NULLSPELL;
+                            Spell* spell = NULL;
                             //Never found out why,
                             //but this Blade of Life's Inevitability spell must be casted by the item, not owner.
                             if( m_itemProto->ItemId != 34349  )
-                                spell = (new Spell( m_owner, sp, true, NULLAURA ));
+                                spell = (new Spell( m_owner, sp, true, NULL ));
                             else
-                                spell = (new Spell( TO_ITEM(this), sp, true, NULLAURA ));
+                                spell = (new Spell( castPtr<Item>(this), sp, true, NULL ));
 
-                            spell->i_caster = TO_ITEM(this);
+                            spell->i_caster = castPtr<Item>(this);
                             spell->prepare( &targets );
                         }
                     }

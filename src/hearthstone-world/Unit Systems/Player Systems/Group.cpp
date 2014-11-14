@@ -193,7 +193,7 @@ void Group::Update()
     if( m_updateblock )
         return;
 
-    Player* pNewLeader = NULLPLR;
+    Player* pNewLeader = NULL;
     PlayerInfo *plrinf;
 
     WorldPacket data( 50 + ( m_MemberCount * 20 ) );
@@ -439,7 +439,7 @@ Player* Group::FindFirstPlayer()
     }
 
     m_groupLock.Release();
-    return NULLPLR;
+    return NULL;
 }
 
 void Group::RemovePlayer(PlayerInfo * info)
@@ -521,7 +521,7 @@ void Group::RemovePlayer(PlayerInfo * info)
     }
 
     /* eek! ;P */
-    Player* newPlayer = NULLPLR;
+    Player* newPlayer = NULL;
     if(m_Looter == info)
     {
         newPlayer = FindFirstPlayer();
@@ -742,9 +742,9 @@ void Group::SendNullUpdate( Player* pPlayer )
 }
 
 // player is object class becouse its called from unit class
-void Group::SendPartyKillLog( Object* player, Object* Unit )
+void Group::SendPartyKillLog( WorldObject* player, WorldObject* Unit )
 {
-    if( !player || !Unit || !HasMember( TO_PLAYER( player ) ) )
+    if( !player || !Unit || !HasMember( castPtr<Player>( player ) ) )
         return;
 
     WorldPacket data( SMSG_PARTYKILLLOG, 16 );
@@ -874,7 +874,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     if((Flags & GROUP_UPDATE_TYPE_FULL_REQUEST_REPLY) == GROUP_UPDATE_TYPE_FULL_REQUEST_REPLY)
         *data << uint8(0);
 
-    *data << pPlayer->GetNewGUID();
+    *data << pPlayer->GetGUID();
     *data << Flags;
 
     if(Flags & GROUP_UPDATE_FLAG_ONLINE)

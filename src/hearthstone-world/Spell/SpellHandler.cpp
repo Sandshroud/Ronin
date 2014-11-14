@@ -18,7 +18,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     uint32 spellId;
     recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID;
 
-    Item* tmpItem = NULLITEM;
+    Item* tmpItem = NULL;
     tmpItem = _player->GetItemInterface()->GetInventoryItem(bagIndex,slot);
 
     if (!tmpItem)
@@ -84,7 +84,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     {
         if (_player->CombatStatus.IsInCombat() || _player->IsMounted())
         {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_CANT_DO_IN_COMBAT);
+            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_CANT_DO_IN_COMBAT);
             return;
         }
 
@@ -97,7 +97,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         uint32 mask = sWorld.ConverHolidayIdToMask(itemProto->HolidayId);
         if ((sWorld.GetCurrentHolidayMask() & mask) == 0)
         {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_OBJECT_IS_BUSY);
+            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_OBJECT_IS_BUSY);
             return;
         }
     }
@@ -106,7 +106,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     {
         if(_player->getLevel() < (uint32)itemProto->RequiredLevel)
         {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_ITEM_RANK_NOT_ENOUGH);
+            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
             return;
         }
     }
@@ -115,7 +115,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     {
         if(!_player->_HasSkillLine(itemProto->RequiredSkill))
         {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_ITEM_RANK_NOT_ENOUGH);
+            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
             return;
         }
 
@@ -123,7 +123,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         {
             if(_player->_GetSkillLineCurrent(itemProto->RequiredSkill, false) < (uint32)itemProto->RequiredSkillRank)
             {
-                _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_ITEM_RANK_NOT_ENOUGH);
+                _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
                 return;
             }
         }
@@ -131,7 +131,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
     if( !_player->ignoreitemreq_cheat && (itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace) ))
     {
-        _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULLITEM,INV_ERR_YOU_CAN_NEVER_USE_THAT_ITEM);
+        _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_YOU_CAN_NEVER_USE_THAT_ITEM);
         return;
     }
 
@@ -173,7 +173,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    Spell* spell = new Spell(_player, spellInfo, false, NULLAURA);
+    Spell* spell = new Spell(_player, spellInfo, false, NULL);
     spell->extra_cast_number= castCount;
     spell->i_caster = tmpItem;
     if( spell->prepare(&targets) == SPELL_CANCAST_OK )
@@ -344,7 +344,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             }
         }
 
-        Spell* spell = new Spell(GetPlayer(), spellInfo, false, NULLAURA);
+        Spell* spell = new Spell(GetPlayer(), spellInfo, false, NULL);
         spell->extra_cast_number = cn;
         spell->prepare(&targets);
     }
@@ -395,7 +395,7 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
-    Object* caster = NULL;
+    WorldObject* caster = NULL;
     if (_player->m_CurrentCharm != NULL)
         caster = _player->m_CurrentCharm;
     else if (_player->m_Summon != NULL)
@@ -425,7 +425,7 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
         return;
     }
 
-    Spell* pSpell = new Spell(caster, sp, false, NULLAURA);
+    Spell* pSpell = new Spell(caster, sp, false, NULL);
     pSpell->extra_cast_number = castnumber;
     pSpell->prepare(&targets);
 }

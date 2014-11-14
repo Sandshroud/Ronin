@@ -291,7 +291,7 @@ void Player::UpdateInrangeSetsBasedOnReputation()
         if( (*itr)->GetTypeId() != TYPEID_UNIT )
             continue;
 
-        pUnit = TO_UNIT( *itr );
+        pUnit = castPtr<Unit>( *itr );
         FactionEntry *faction = pUnit->GetFaction();
         if(faction == NULL)
             continue;

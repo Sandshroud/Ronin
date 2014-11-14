@@ -20,7 +20,7 @@
 class RazorHillGuard : public GossipScript
 {
     public:
-        void GossipHello(Object* pObject, Player* plr, bool AutoSend)
+        void GossipHello(WorldObject* pObject, Player* plr, bool AutoSend)
         {
             GossipMenu* Menu;
             objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 4037, plr);
@@ -34,7 +34,7 @@ class RazorHillGuard : public GossipScript
             Menu->SendTo(plr);
         }
 
-        void GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
+        void GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
         {
             GossipMenu* Menu;
             switch(IntId)

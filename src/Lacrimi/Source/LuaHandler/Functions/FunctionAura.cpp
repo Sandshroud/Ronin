@@ -33,7 +33,7 @@ int LuaAura_GetSpellId(lua_State * L, Aura * aura)
 int LuaAura_GetCaster(lua_State * L, Aura * aura)
 {
     TEST_AURA_RET_NULL();
-    Object* caster = aura->GetCaster();
+    WorldObject* caster = aura->GetCaster();
     if(caster == NULL)
         RET_NIL(true);
 

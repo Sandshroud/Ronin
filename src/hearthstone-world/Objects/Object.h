@@ -33,18 +33,34 @@ enum HIGHGUID_TYPE
 
 enum TypeMask
 {
-    TYPEMASK_OBJECT         = 0x000001,
-    TYPEMASK_ITEM           = 0x000002,
-    TYPEMASK_CONTAINER      = 0x000004,
-    TYPEMASK_UNIT           = 0x000008,
-    TYPEMASK_PLAYER         = 0x000010,
-    TYPEMASK_GAMEOBJECT     = 0x000020,
-    TYPEMASK_DYNAMICOBJECT  = 0x000040,
-    TYPEMASK_CORPSE         = 0x000080,
-    TYPEMASK_AIGROUP        = 0x000100,
-    TYPEMASK_AREATRIGGER    = 0x000200,
-    TYPEMASK_IN_GUILD       = 0x010000
+    // Lower 16 bits are type
+    TYPEMASK_TYPE_OBJECT        = 0x00000001,
+    TYPEMASK_TYPE_ITEM          = 0x00000002,
+    TYPEMASK_TYPE_CONTAINER     = 0x00000004,
+    TYPEMASK_TYPE_UNIT          = 0x00000008,
+    TYPEMASK_TYPE_PLAYER        = 0x00000010,
+    TYPEMASK_TYPE_GAMEOBJECT    = 0x00000020,
+    TYPEMASK_TYPE_DYNAMICOBJECT = 0x00000040,
+    TYPEMASK_TYPE_CORPSE        = 0x00000080,
+    TYPEMASK_TYPE_AIGROUP       = 0x00000100,
+    TYPEMASK_TYPE_AREATRIGGER   = 0x00000200,
+    TYPEMASK_TYPE_UNUSED        = 0x00000400,
+    TYPEMASK_TYPE_UNUSED2       = 0x00000800,
+    TYPEMASK_TYPE_UNUSED3       = 0x00001000,
+    TYPEMASK_TYPE_UNUSED4       = 0x00002000,
+    TYPEMASK_TYPE_UNUSED5       = 0x00004000,
+    TYPEMASK_TYPE_UNUSED6       = 0x00008000,
+    // Upper 16 bits are flag
+    TYPEMASK_FLAG_IN_GUILD      = 0x00010000
 };
+
+uint8 HighestMaskType16(uint32 type)
+{
+    uint8 high=0;
+    for(uint8 i = 0; i < 16; i++)
+        if(type & 1<<i) high = i;
+    return high;
+}
 
 enum TYPEID
 {
@@ -61,16 +77,6 @@ enum TYPEID
     TYPEID_UNUSED           = 10,//used to signal invalid reference (object dealocated but someone is still using it)
 };
 
-enum SUBTYPEID
-{
-    SUBTYPEID_NONE      = 0,
-    SUBTYPEID_PET       = 1,
-    SUBTYPEID_TOTEM     = 2,
-    SUBTYPEID_SUMMON    = 3,
-    SUBTYPEID_VEHICLE   = 4,
-    SUBTYPEID_TRANSPORT = 5,
-};
-
 enum OBJECT_UPDATE_TYPE {
     UPDATETYPE_VALUES = 0,
     //  8 bytes - GUID
@@ -80,7 +86,7 @@ enum OBJECT_UPDATE_TYPE {
     //  1 byte - Object Type (*)
     //  Goto Position Update
     //  Goto Update Block
-    UPDATETYPE_CREATE_YOURSELF = 2,
+    UPDATETYPE_CREATE_PLAYEROBJ = 2,
     //  8 bytes - GUID
     //  1 byte - Object Type (*)
     //  Goto Position Update
@@ -135,16 +141,34 @@ class Player;
 class MapCell;
 class MapMgr;
 
+enum OBJECT_FIELD_IDS
+{
+    OBJECT_LAYER_OBJECT         = 0,
+    OBJECT_LAYER_ITEM           = 1,
+    OBJECT_LAYER_CONTAINER      = 2,
+    OBJECT_LAYER_UNIT           = 1,
+    OBJECT_LAYER_PLAYER         = 2,
+    OBJECT_LAYER_GAMEOBJECT     = 1,
+    OBJECT_LAYER_DYNAMICOBJECT  = 1,
+    OBJECT_LAYER_CORPSE         = 1,
+    OBJECT_LAYER_AREATRIGGER    = 1,
+    OBJECT_LAYER_MAX            = 3
+
+};
+
 //===============================================
-//  Entity
+//  Object
 //  Base class for every object
 //===============================================
-class SERVER_DECL Entity
+class SERVER_DECL Object
 {
 public:
-    virtual ~Entity ( );
+    Object(uint64 guid);
+    virtual ~Object();
     virtual void Init();
     virtual void Destruct();
+    // Events are forced class so call virtual destruct through EventDestruct
+    void EventDestruct() { Destruct(); }
 
     virtual void Update ( uint32 time ) { }
 
@@ -159,18 +183,19 @@ public:
     void __fastcall SetFlag( const uint32 index, uint32 newFlag );
     void __fastcall RemoveFlag( const uint32 index, uint32 oldFlag );
     void __fastcall SetFloatValue( const uint32 index, const float value );
-    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
+    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32.values[ index ] & flag) != 0;    }
 
     void __fastcall ModFloatValue(const uint32 index, const float value );
     void __fastcall ModSignedInt32Value(uint32 index, int32 value);
     void __fastcall ModUnsigned32Value(uint32 index, int32 mod);
     uint32 __fastcall GetModPUInt32Value(const uint32 index, const int32 value);
 
-    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
-    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
-    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
-    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
-    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
+    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32.values)[index*4+byteIndex]; }
+    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32.values[index])+offset); }
+    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32.values[ index ]; }
+    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32.values[ index ])); }
+    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_float.values[ index ]; }
+    HEARTHSTONE_INLINE const WoWGuid& GetGUIDValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((WoWGuid*)&(m_uint32.values[ index ])); }
 
     void SetUpdateField(uint32 index);
     virtual void OnFieldUpdated(uint32 index) {}
@@ -182,22 +207,7 @@ public:
     uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer * buf, UpdateMask * mask );
     uint32 __fastcall BuildOutOfRangeUpdateBlock( ByteBuffer *buf );
 
-    WorldPacket* BuildFieldUpdatePacket(uint32 index,uint32 value);
-    void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);
-    void BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value);
-
     virtual void DestroyForPlayer( Player* target, bool anim = false );
-
-    HEARTHSTONE_INLINE void SetNewGuid(uint32 Guid)
-    {
-        uint32 highGuid = HIGHGUID_TYPE_PLAYER;
-        if( m_objectTypeId == TYPEID_GAMEOBJECT )
-            highGuid = HIGHGUID_TYPE_GAMEOBJECT;
-        else if( m_objectTypeId == TYPEID_UNIT )
-            highGuid = HIGHGUID_TYPE_CREATURE;
-        SetUInt64Value(OBJECT_FIELD_GUID, MAKE_NEW_GUID(Guid, GetEntry(), highGuid));
-        m_wowGuid = GetGUID();
-    }
 
     ////////////////////////////////////////
     void ClearUpdateMask( )
@@ -212,43 +222,36 @@ public:
     HEARTHSTONE_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
 
     // guid always comes first
-    HEARTHSTONE_INLINE const uint64& GetGUID() const { return *((uint64*)m_uint32Values); }
-    void SetGUID(uint64 GUID) { SetUInt64Value(OBJECT_FIELD_GUID, GUID);  }
-    void SetLowGUID(uint32 val) { m_uint32Values[0] = val; }
-    void SetHighGUID(uint32 val) { m_uint32Values[1] = val; }
+    HEARTHSTONE_INLINE WoWGuid& GetGUID() { return m_object.m_objGUID; }
 
-    HEARTHSTONE_INLINE WoWGuid& GetNewGUID() { return m_wowGuid; }
-    HEARTHSTONE_INLINE uint32 GetEntry(){return m_uint32Values[OBJECT_FIELD_ENTRY];}
+    uint32 GetEntry() { return m_uint32.values[OBJECT_FIELD_ENTRY]; }
     void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
 
-    float GetObjectScale() { return m_floatValues[OBJECT_FIELD_SCALE_X]; }
-    void SetScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
+    float GetObjectScale() { return m_float.values[OBJECT_FIELD_SCALE_X]; }
+    void SetObjectScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
 
-    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() const  { return GUID_ENPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetTypeFromGUID() const { return GUID_HIPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetUIdFromGUID() const { return GUID_LOPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetHighGUID() const { return GUID_HIPART(GetGUID()); }
-    HEARTHSTONE_INLINE uint32 GetLowGUID() const { return GUID_LOPART(GetGUID()); }
+    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() { return m_object.m_objGUID.getEntry(); }
+    HEARTHSTONE_INLINE uint32 GetHighGUID() { return m_object.m_objGUID.getHigh(); }
+    HEARTHSTONE_INLINE uint32 GetLowGUID() { return m_object.m_objGUID.getLow(); }
 
     // type
-    HEARTHSTONE_INLINE const uint8& GetTypeId() const { return m_objectTypeId; }
-    HEARTHSTONE_INLINE bool IsItem() { return m_objectTypeId == TYPEID_ITEM; }
-    HEARTHSTONE_INLINE bool IsContainer() { return m_objectTypeId == TYPEID_CONTAINER; }
-    HEARTHSTONE_INLINE bool IsCreature() { return m_objectTypeId == TYPEID_UNIT; }
-    HEARTHSTONE_INLINE bool IsPlayer() { return m_objectTypeId == TYPEID_PLAYER; }
-    HEARTHSTONE_INLINE bool IsGameObject() { return m_objectTypeId == TYPEID_GAMEOBJECT; }
-    HEARTHSTONE_INLINE bool IsDynamicObj() { return m_objectTypeId == TYPEID_DYNAMICOBJECT; }
-    HEARTHSTONE_INLINE bool IsCorpse() { return m_objectTypeId == TYPEID_CORPSE; }
-    HEARTHSTONE_INLINE bool IsUnit() { return ( m_objectTypeId == TYPEID_UNIT || m_objectTypeId == TYPEID_PLAYER ); }
-    HEARTHSTONE_INLINE bool IsPet() { return m_objectSubTypeId == SUBTYPEID_PET; }
-    HEARTHSTONE_INLINE bool IsTotem() { return m_objectSubTypeId == SUBTYPEID_TOTEM; }
-    HEARTHSTONE_INLINE bool IsSummon() { return m_objectSubTypeId == SUBTYPEID_SUMMON; }
-    HEARTHSTONE_INLINE bool IsVehicle() { return m_objectSubTypeId == SUBTYPEID_VEHICLE; }
-    HEARTHSTONE_INLINE bool IsTransport() { return m_objectSubTypeId == SUBTYPEID_TRANSPORT; }
+    HEARTHSTONE_INLINE uint8 GetTypeId() { return HighestMaskType16(m_object.m_objType); }
+    HEARTHSTONE_INLINE bool IsUnit() { return ( m_object.m_objType & TYPEMASK_TYPE_UNIT ); }
+    HEARTHSTONE_INLINE bool IsItem() { return m_object.m_objType & TYPEMASK_TYPE_ITEM; }
+    HEARTHSTONE_INLINE bool IsContainer() { return HighestMaskType16(m_object.m_objType) == TYPEID_CONTAINER; }
+    HEARTHSTONE_INLINE bool IsCreature() { return HighestMaskType16(m_object.m_objType) == TYPEID_UNIT; }
+    HEARTHSTONE_INLINE bool IsPlayer() { return HighestMaskType16(m_object.m_objType) == TYPEID_PLAYER; }
+    HEARTHSTONE_INLINE bool IsGameObject() { return HighestMaskType16(m_object.m_objType) == TYPEID_GAMEOBJECT; }
+    HEARTHSTONE_INLINE bool IsDynamicObj() { return HighestMaskType16(m_object.m_objType) == TYPEID_DYNAMICOBJECT; }
+    HEARTHSTONE_INLINE bool IsCorpse() { return HighestMaskType16(m_object.m_objType) == TYPEID_CORPSE; }
+    virtual bool IsObject() { return false; }
+    virtual bool IsPet() { return false; }
+    virtual bool IsTotem() { return false; }
+    virtual bool IsSummon() { return false; }
+    virtual bool IsVehicle() { return false; }
+    virtual bool IsTransport() { return false; }
 
 protected:
-    Entity();
-
     //! Mark values that need updating for specified player.
     virtual void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
     //! Mark values that player should get when he/she/it sees object for first time.
@@ -263,16 +266,21 @@ protected:
     virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
     Mutex m_objlock;
 
-    //! WoWGuid class
-    WoWGuid m_wowGuid;
-
-    //! Type id and SubType id.
-    uint8 m_objectTypeId, m_objectSubTypeId;
-
     //! Object properties.
-    union {
-        uint32* m_uint32Values;
-        float* m_floatValues;
+    union
+    {
+        struct // Raw object values
+        {
+            WoWGuid m_objGUID;
+            uint64 m_objData;
+            uint32 m_objType;
+            uint32 m_objEntry;
+            float m_objScale;
+        }m_object;
+
+        struct { uint32* values; }m_uint32;
+        struct { float* values; }m_float;
+        struct { uint32**values; }m_raw;
     };
 
     //! Number of properties
@@ -284,21 +292,41 @@ protected:
 
     //! True if object was updated
     bool m_objectUpdated;
+
+public:
+    // declaration to fix scripting
+    HEARTHSTONE_INLINE Loot* GetLoot() { return &m_loot; }
+    HEARTHSTONE_INLINE bool IsLooted() { return m_looted; }
+    HEARTHSTONE_INLINE void SetLooted() { m_looted = true; }
+
+    // empties loot vector
+    void ClearLoot();
+
+private:
+    // loooooot
+    Loot m_loot;
+    bool m_looted;
 };
 
 //===============================================
 //===============================================
 //===============================================
-class SERVER_DECL Object : public Entity, public EventableObject
+class SERVER_DECL WorldObject : public Object, public EventableObject
 {
 public:
-    typedef unordered_set< Object* > InRangeSet;
+    typedef unordered_set< WorldObject* > InRangeSet;
     typedef unordered_set< Unit* >   InRangeUnitSet;
     typedef unordered_set< Player* > InRangePlayerSet;
 
-    virtual ~Object ( );
+    virtual ~WorldObject( );
     virtual void Init();
     virtual void Destruct();
+
+    virtual bool IsObject() { return true; }
+
+    WorldPacket* BuildFieldUpdatePacket(uint32 index,uint32 value);
+    void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);
+    void BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value);
 
     float GetCHeightForPosition(bool checkwater = false, float x = 0.0f, float y = 0.0f, float z = 0.0f);
 
@@ -317,11 +345,8 @@ public:
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
 
-    HEARTHSTONE_INLINE void ObjLock() { m_objlock.Acquire(); }
-    HEARTHSTONE_INLINE void ObjUnlock() { m_objlock.Release(); }
-
-    void CastSpell(Object* Target, SpellEntry* Sp, bool triggered);
-    void CastSpell(Object* Target, uint32 SpellID, bool triggered);
+    void CastSpell(WorldObject* Target, SpellEntry* Sp, bool triggered);
+    void CastSpell(WorldObject* Target, uint32 SpellID, bool triggered);
     void CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered);
     void CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered);
 
@@ -352,10 +377,10 @@ public:
     bool IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta);
 
     //Distance Calculation
-    float CalcDistance(Object* Ob);
+    float CalcDistance(WorldObject* Ob);
     float CalcDistance(float ObX, float ObY, float ObZ);
-    float CalcDistance(Object* Oa, Object* Ob);
-    float CalcDistance(Object* Oa, float ObX, float ObY, float ObZ);
+    float CalcDistance(WorldObject* Oa, WorldObject* Ob);
+    float CalcDistance(WorldObject* Oa, float ObX, float ObY, float ObZ);
     float CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ);
 
     //! Only for MapMgr use
@@ -372,19 +397,21 @@ public:
     void UpdateAreaInfo(MapMgr *mgr = NULL);
     HEARTHSTONE_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     HEARTHSTONE_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
+    HEARTHSTONE_INLINE void SetLastMovementZone(uint32 zone) { m_lastMovementZone = zone; }
+    HEARTHSTONE_INLINE uint32 GetLastMovementZone() { return m_lastMovementZone; }
 
     //use it to check if a object is in range of another
-    bool isInRange(Object* target, float range);
+    bool isInRange(WorldObject* target, float range);
 
     // Use it to Check if a object is in front of another one
-    bool isTargetInFront(Object* target);
-    bool isTargetInBack(Object* target) { return !isTargetInFront(target); };
+    bool isTargetInFront(WorldObject* target);
+    bool isTargetInBack(WorldObject* target) { return !isTargetInFront(target); };
 
-    bool isInFrontOfTarget(Object* target) { return target->isTargetInFront(this); };
-    bool isInBackOfTarget(Object* target) { return target->isTargetInBack(this); };
+    bool isInFrontOfTarget(WorldObject* target) { return target->isTargetInFront(this); };
+    bool isInBackOfTarget(WorldObject* target) { return target->isTargetInBack(this); };
 
     // Check to see if an object is in front of a target in a specified arc (in degrees)
-    bool isInArc(Object* target , float degrees);
+    bool isInArc(WorldObject* target , float degrees);
 
     /* Calculates the angle between two Positions */
     float calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y );
@@ -403,7 +430,7 @@ public:
         return comp.DistanceSq(m_position);
     }
 
-    HEARTHSTONE_INLINE const float GetDistanceSq(Object* obj)
+    HEARTHSTONE_INLINE const float GetDistanceSq(WorldObject* obj)
     {
         if(obj->GetMapId() != m_mapId)
             return 40000.0f; //enough for out of range
@@ -415,7 +442,7 @@ public:
         return m_position.DistanceSq(x, y, z);
     }
 
-    HEARTHSTONE_INLINE const float GetDistance2dSq( Object* obj )
+    HEARTHSTONE_INLINE const float GetDistance2dSq( WorldObject* obj )
     {
         if( obj->GetMapId() != m_mapId )
             return 40000.0f; //enough for out of range
@@ -428,12 +455,12 @@ public:
     }
 
     // In-range object management, not sure if we need it
-    HEARTHSTONE_INLINE bool IsInRangeSet( Object* pObj )
+    HEARTHSTONE_INLINE bool IsInRangeSet( WorldObject* pObj )
     {
         return !( m_objectsInRange.find( pObj ) == m_objectsInRange.end() );
     }
 
-    virtual void AddInRangeObject(Object* pObj)
+    virtual void AddInRangeObject(WorldObject* pObj)
     {
         if( pObj == NULL )
             return;
@@ -441,16 +468,14 @@ public:
         m_objectsInRange.insert( pObj );
 
         if( pObj->IsUnit() )
-            m_unitsInRange.insert( TO_UNIT(pObj) );
+            m_unitsInRange.insert( castPtr<Unit>(pObj) );
         if( pObj->IsPlayer() )
-            m_inRangePlayers.insert( TO_PLAYER(pObj) );
+            m_inRangePlayers.insert( castPtr<Player>(pObj) );
     }
 
-    HEARTHSTONE_INLINE void RemoveInRangeObject( Object* pObj )
+    HEARTHSTONE_INLINE void RemoveInRangeObject( WorldObject* pObj )
     {
-        if( pObj == NULL )
-            return;
-
+        ASSERT(pObj);
         OnRemoveInRangeObject( pObj );
         m_objectsInRange.erase( pObj );
     }
@@ -460,12 +485,12 @@ public:
         return ( m_objectsInRange.size() > 0 );
     }
 
-    virtual void OnRemoveInRangeObject( Object* pObj )
+    virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
         if( pObj->IsUnit() )
-            m_unitsInRange.erase( TO_UNIT(pObj) );
+            m_unitsInRange.erase( castPtr<Unit>(pObj) );
         if( pObj->IsPlayer() )
-            m_inRangePlayers.erase( TO_PLAYER(pObj) );
+            m_inRangePlayers.erase( castPtr<Player>(pObj) );
     }
 
     virtual void ClearInRangeSet()
@@ -482,7 +507,7 @@ public:
 
     InRangeSet::iterator GetInRangeSetBegin() { return m_objectsInRange.begin(); }
     InRangeSet::iterator GetInRangeSetEnd() { return m_objectsInRange.end(); }
-    InRangeSet::iterator FindInRangeSet(Object * obj) { return m_objectsInRange.find(obj); }
+    InRangeSet::iterator FindInRangeSet(WorldObject * obj) { return m_objectsInRange.find(obj); }
 
     void RemoveInRangeObject(InRangeSet::iterator itr)
     {
@@ -490,11 +515,11 @@ public:
         m_objectsInRange.erase(itr);
     }
 
-    HEARTHSTONE_INLINE bool RemoveIfInRange( Object* obj )
+    HEARTHSTONE_INLINE bool RemoveIfInRange( WorldObject* obj )
     {
         InRangeSet::iterator itr = m_objectsInRange.find(obj);
         if( obj->IsPlayer() )
-            m_inRangePlayers.erase( TO_PLAYER(obj) );
+            m_inRangePlayers.erase( castPtr<Player>(obj) );
 
         if( itr == m_objectsInRange.end() )
             return false;
@@ -503,14 +528,14 @@ public:
         return true;
     }
 
-    HEARTHSTONE_INLINE void AddInRangePlayer( Object* obj )
+    HEARTHSTONE_INLINE void AddInRangePlayer( WorldObject* obj )
     {
-        m_inRangePlayers.insert( TO_PLAYER(obj) );
+        m_inRangePlayers.insert( castPtr<Player>(obj) );
     }
 
-    HEARTHSTONE_INLINE void RemoveInRangePlayer( Object* obj )
+    HEARTHSTONE_INLINE void RemoveInRangePlayer( WorldObject* obj )
     {
-        m_inRangePlayers.erase( TO_PLAYER(obj) );
+        m_inRangePlayers.erase( castPtr<Player>(obj) );
     }
 
     bool IsInRangeOppFactSet(Unit* pObj) { return (m_oppFactsInRange.count(pObj) > 0); }
@@ -545,8 +570,8 @@ public:
     //*****************************************************************************************
     //* SpellLog packets just to keep the code cleaner and better to read
     //*****************************************************************************************
-    void SendSpellLog(Object* Caster, Object* Target,uint32 Ability, uint8 SpellLogType);
-    void SendSpellNonMeleeDamageLog( Object* Caster, Unit* Target, uint32 SpellID, uint32 Damage, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToSet );
+    void SendSpellLog(WorldObject* Caster, WorldObject* Target,uint32 Ability, uint8 SpellLogType);
+    void SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target, uint32 SpellID, uint32 Damage, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToSet );
     void SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate );
 
     //object faction
@@ -569,7 +594,6 @@ public:
     bool CanActivate();
     void Activate(MapMgr* mgr);
     void Deactivate(MapMgr* mgr);
-    bool m_inQueue;
     HEARTHSTONE_INLINE void SetMapMgr(MapMgr* mgr) { m_mapMgr = mgr; }
 
     HEARTHSTONE_INLINE size_t GetInRangeOppFactCount() { return m_oppFactsInRange.size(); }
@@ -577,24 +601,21 @@ public:
     void PlaySoundToSet(uint32 sound_entry);
     void EventSpellHit(Spell* pSpell);
 
-    bool PhasedCanInteract(Object* pObj);
-
-    // Don't fucking use this.
-    void SetPhaseMask(int32 phase);
+    bool PhasedCanInteract(WorldObject* pObj);
 
     // Area flags
     bool HasAreaFlag(uint8 areaFlag) { return (m_areaFlags & areaFlag); };
     uint8 const GetAreaFlags() { return m_areaFlags; };
 
+    int32 GetPhaseMask() { return 0x01; }
+
 protected:
-    Object();
+    WorldObject(uint64 guid);
 
     void _Create( uint32 mapid, float x, float y, float z, float ang);
 
     /* Main Function called by isInFront(); */
     bool inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y );
-
-    Mutex m_objlock;
 
     //! Zone id.
     uint32 m_zoneId;
@@ -604,6 +625,9 @@ protected:
     uint8 m_areaFlags;
     //! Continent/map id.
     int32 m_mapId;
+    //! Last set Movement zone
+    uint32 m_lastMovementZone;
+
     //! Map manager
     MapMgr* m_mapMgr;
     //! Current map cell
@@ -619,7 +643,7 @@ protected:
     bool mSemaphoreTeleport;
 
     //! Set of Objects in range.
-    unordered_set<Object* > m_objectsInRange;
+    unordered_set<WorldObject* > m_objectsInRange;
     unordered_set<Player* > m_inRangePlayers;
     unordered_set<Unit* > m_oppFactsInRange;
     unordered_set<Unit* > m_unitsInRange;
@@ -629,18 +653,7 @@ protected:
 public:
     bool m_loadedFromDB;
 
-    bool IsInLineOfSight(Object* pObj);
+    bool IsInLineOfSight(WorldObject* pObj);
     bool IsInLineOfSight(float x, float y, float z);
     int32 GetSpellBaseCost(SpellEntry *sp);
-
-    // declaration to fix scripting
-    HEARTHSTONE_INLINE Loot* GetLoot() { return &m_loot; }
-
-public:
-    // loooooot
-    Loot m_loot;
-    bool m_looted;
-
-    // empties loot vector
-    void ClearLoot();
 };

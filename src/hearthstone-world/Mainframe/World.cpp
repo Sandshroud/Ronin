@@ -494,7 +494,7 @@ bool World::SetInitialWorldSettings()
     tl.waitForThreadsToExit();
 
     LoadNameGenData();
-    sLog.Notice("World", "Object size: %u bytes", sizeof(Object));
+    sLog.Notice("World", "WorldObject size: %u bytes", sizeof(WorldObject));
     sLog.Notice("World", "GameObject size: %u bytes", sizeof(GameObject));
     sLog.Notice("World", "AI size: %u bytes", sizeof(AIInterface));
     sLog.Notice("World", "Unit size: %u bytes", sizeof(Unit) + sizeof(AIInterface));
@@ -572,7 +572,7 @@ bool World::SetInitialWorldSettings()
     }
     sLog.Notice("World", "Hashed %u sanctuaries", Sanctuaries.size());
 
-    sEventMgr.AddEvent(CAST(World,this), &World::CheckForExpiredInstances, EVENT_WORLD_UPDATEAUCTIONS, 120000, 0, 0);
+    sEventMgr.AddEvent(this, &World::CheckForExpiredInstances, EVENT_WORLD_UPDATEAUCTIONS, 120000, 0, 0);
     return true;
 }
 
@@ -1210,10 +1210,10 @@ void TaskList::waitForThreadsToExit()
     }
 }
 
-void World::DeleteObject(Object* obj)
+void World::DeleteObject(WorldObject* obj)
 {
     obj->Destruct();
-    obj = NULLOBJ;
+    obj = NULL;
 }
 
 void World::Rehash(bool load)
@@ -1459,7 +1459,7 @@ void World::PollMailboxInsertQueue(DatabaseConnection * con)
 
             if( itemid != 0 )
             {
-                pItem = objmgr.CreateItem( itemid, NULLPLR );
+                pItem = objmgr.CreateItem( itemid, NULL );
                 if( pItem != NULL )
                 {
                     pItem->SetUInt32Value( ITEM_FIELD_STACK_COUNT, stackcount );
@@ -1467,17 +1467,14 @@ void World::PollMailboxInsertQueue(DatabaseConnection * con)
                 }
             }
             else
-                pItem = NULLITEM;
+                pItem = NULL;
 
             sLog.Debug("MailboxQueue", "Sending message to %u (item: %u)...", f[1].GetUInt32(), itemid);
             sMailSystem.DeliverMessage( 0, f[0].GetUInt64(), f[1].GetUInt64(), f[2].GetString(), f[3].GetString(), f[5].GetUInt32(),
                 0, pItem ? pItem->GetGUID() : 0, f[4].GetUInt32(), true );
 
             if( pItem != NULL )
-            {
-                pItem->DeleteMe();
-            }
-
+                pItem->Destruct();
         } while ( result->NextRow() );
         delete result;
         sLog.Debug("MailboxQueue", "Done.");
@@ -2112,7 +2109,7 @@ void World::UpdateShutdownStatus()
     else
     {
         // shutting down?
-        sEventMgr.RemoveEvents(CAST(World,this), EVENT_WORLD_SHUTDOWN);
+        sEventMgr.RemoveEvents(this, EVENT_WORLD_SHUTDOWN);
         if( m_shutdownTime )
         {
             SendWorldText("Server is saving and shutting down. You will be disconnected shortly.", NULL);

@@ -25,15 +25,15 @@ AIInterface::AIInterface()
     m_updateListTimer = 1;
     m_updateTargetsTimer = TARGET_UPDATE_INTERVAL;
 
-    m_nextTarget = NULLUNIT;
-    m_Unit = NULLUNIT;
-    m_PetOwner = NULLUNIT;
+    m_nextTarget = NULL;
+    m_Unit = NULL;
+    m_PetOwner = NULL;
     firstLeaveCombat = true;
     m_outOfCombatRange = 10000;
     m_totemSpell = NULL;
     m_totemSpellTimer = m_totemSpellTime = 0;
 
-    tauntedBy = NULLUNIT;
+    tauntedBy = NULL;
     isTaunted = false;
     m_AllowedToEnterCombat = true;
     m_currentHighestThreat = 0;
@@ -62,9 +62,9 @@ AIInterface::~AIInterface()
 
     m_spells.clear();
 
-    m_Unit = NULLUNIT;
-    m_PetOwner = NULLUNIT;
-    soullinkedWith = NULLUNIT;
+    m_Unit = NULL;
+    m_PetOwner = NULL;
+    soullinkedWith = NULL;
 }
 
 void AIInterface::Init(Unit* un, AIType at, MovementType mt)
@@ -86,7 +86,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt)
         un->m_swimSpeed = 0.0f;
     }
 
-    if( m_Unit->IsCreature() && TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER )
+    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )
         disable_targeting = true;
 
     m_guardTimer = getMSTime();
@@ -114,7 +114,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
         un->m_swimSpeed = 0.0f;
     }
 
-    if( TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER )
+    if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )
         disable_targeting = true;
 
     MovementHandler.Initialize(this, un, mt);
@@ -139,7 +139,7 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
             return;
         }
 
-        if(TO_CREATURE(m_Unit)->GetCreatureData() && TO_CREATURE(m_Unit)->GetCreatureData()->Type == CRITTER)
+        if(castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER)
             return;
     }
 
@@ -213,7 +213,7 @@ void AIInterface::_UpdateTotem(uint32 p_time)
                 return;
         }
 
-        Spell *pSpell = new Spell(m_Unit, m_totemSpell, true, NULLAURA);
+        Spell *pSpell = new Spell(m_Unit, m_totemSpell, true, NULL);
         if(m_nextTarget)
         {
             targets.m_targetMask = TARGET_FLAG_OBJECT|TARGET_FLAG_UNIT;
@@ -224,12 +224,11 @@ void AIInterface::_UpdateTotem(uint32 p_time)
     } else m_totemSpellTimer -= p_time;
 }
 
-void AIInterface::SetNextTarget(Unit* nextTarget)
+bool AIInterface::SetNextTarget(Unit* nextTarget)
 {
-    m_nextTarget = nextTarget;
-    if(nextTarget)
-        m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, m_nextTarget->GetGUID());
+    if(nextTarget) m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, nextTarget->GetGUID());
     else m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, 0);
+    return (m_nextTarget = nextTarget) != NULL;
 }
 
 void AIInterface::AttackReaction(Unit* pUnit, uint32 damage_dealt, uint32 spellId)
@@ -278,14 +277,13 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
     }
     amount += (amount * caster->GetGeneratedThreatModifier() / 100);
 
-    int casterInList = 0, victimInList = 0;
+    bool casterInList = false, victimInList = false;
 
     ai_TargetLock.Acquire();
-    if(m_aiTargets.find(caster) != m_aiTargets.end())
-        casterInList = 1;
-
-    if(m_aiTargets.find(victim) != m_aiTargets.end())
-        victimInList = 1;
+    if(m_aiTargets.find(caster->GetGUID()) != m_aiTargets.end())
+        casterInList = true;
+    if(m_aiTargets.find(victim->GetGUID()) != m_aiTargets.end())
+        victimInList = true;
     ai_TargetLock.Release();
 
     if(!victimInList && !casterInList) // none of the Casters is in the Creatures Threat list
@@ -297,7 +295,7 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
         if(sFactionSystem.CanEitherUnitAttack(m_Unit, caster))
         {
             ai_TargetLock.Acquire();
-            m_aiTargets.insert(make_pair(caster, amount));
+            m_aiTargets.insert(make_pair(caster->GetGUID(), amount));
             ai_TargetLock.Release();
             return true;
         }
@@ -306,23 +304,23 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
     else if(casterInList && victimInList) // both are in combat already
     {
         // mod threat for caster
-        modThreatByPtr(caster, amount);
+        modThreat(caster->GetGUID(), amount);
         return true;
     }
     else // caster is in Combat already but victim is not
     {
-        modThreatByPtr(caster, amount);
+        modThreat(caster->GetGUID(), amount);
         // both are players so they might be in the same group
         if( caster->IsPlayer() && victim->IsPlayer() )
         {
-            if( TO_PLAYER( caster )->GetGroup() == TO_PLAYER( victim )->GetGroup() )
+            if( castPtr<Player>( caster )->GetGroup() == castPtr<Player>( victim )->GetGroup() )
             {
                 // get victim into combat since they are both
                 // in the same party
                 if( sFactionSystem.CanEitherUnitAttack( m_Unit, victim ) )
                 {
                     ai_TargetLock.Acquire();
-                    m_aiTargets.insert( make_pair( victim, 1 ) );
+                    m_aiTargets.insert( make_pair( victim->GetGUID(), 1 ) );
                     ai_TargetLock.Release();
                     return true;
                 }
@@ -334,12 +332,12 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
     return false;
 }
 
-void AIInterface::OnDeath(Object* pKiller)
+void AIInterface::OnDeath(WorldObject* pKiller)
 {
     ASSERT(m_Unit != NULL);
 
     if(pKiller != NULL && pKiller->IsUnit())
-        HandleEvent(EVENT_UNITDIED, TO_UNIT(pKiller), 0);
+        HandleEvent(EVENT_UNITDIED, castPtr<Unit>(pKiller), 0);
     else
         HandleEvent(EVENT_UNITDIED, m_Unit, 0);
 }
@@ -362,12 +360,12 @@ bool AIInterface::FindFriends(float dist)
 
     Unit* pUnit = NULL;
     bool result = false;
-    for(unordered_set<Object* >::iterator itr = m_Unit->GetInRangeSetBegin(); itr != m_Unit->GetInRangeSetEnd(); itr++)
+    for(unordered_set<WorldObject* >::iterator itr = m_Unit->GetInRangeSetBegin(); itr != m_Unit->GetInRangeSetEnd(); itr++)
     {
         if((*itr) == NULL || !(*itr)->IsInWorld() || (*itr)->GetTypeId() != TYPEID_UNIT)
             continue;
 
-        pUnit = TO_UNIT((*itr));
+        pUnit = castPtr<Unit>((*itr));
         if(!pUnit->isAlive())
             continue;
         if(pUnit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
@@ -387,7 +385,7 @@ bool AIInterface::FindFriends(float dist)
                 ai_TargetLock.Acquire();
                 TargetMap::iterator it, it2;
                 for(TargetMap::iterator it = m_aiTargets.begin(), it2; it != m_aiTargets.end();)
-                    TO_UNIT(*itr)->GetAIInterface()->AttackReaction( (it2 = it++)->first, 1, 0 );
+                    castPtr<Unit>(*itr)->GetAIInterface()->AttackReaction( (it2 = it++)->first, 1, 0 );
                 ai_TargetLock.Release();
                 break;
             }
@@ -395,7 +393,7 @@ bool AIInterface::FindFriends(float dist)
     }
 
     // check if we're a civillan, in which case summon guards on a despawn timer
-    CreatureData * ctrData = TO_CREATURE(m_Unit)->GetCreatureData();
+    CreatureData * ctrData = castPtr<Creature>(m_Unit)->GetCreatureData();
     if( ctrData && ctrData->Type == HUMANOID && ctrData->Civilian )
         CallGuards();
     return result;
@@ -451,7 +449,7 @@ void AIInterface::CallGuards()
     if(!m_Unit->IsCreature())
         return;
 
-    Creature* m_Creature = TO_CREATURE(m_Unit);
+    Creature* m_Creature = castPtr<Creature>(m_Unit);
     if( m_Creature->isDead() || !m_Creature->isAlive() || m_Creature->GetInRangePlayersCount() == 0 || m_Creature->GetMapMgr() == NULL || m_Creature->m_isGuard )
         return;
 
@@ -620,7 +618,7 @@ void AIInterface::WipeCurrentTarget()
         m_aiTargets.erase( itr );
 
     ClearFollowInformation(m_nextTarget);
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
 }
 
 /* Crow: THIS FUNCTION IS HEAVILY DEPENDENT ON THE CREATURE PROTO COLUMN!
@@ -632,7 +630,7 @@ void AIInterface::CheckHeight()
     {
         if(m_Unit->IsCreature())
         {
-            if(!(TO_CREATURE(m_Unit)->CanMove & LIMIT_AIR))
+            if(!(castPtr<Creature>(m_Unit)->CanMove & LIMIT_AIR))
             {
                 m_moveFly = false;
                 return;
@@ -669,7 +667,7 @@ uint32 AIInterface::GetWeaponEmoteType(bool ranged)
     if(!m_Unit->IsCreature())
         return emotetype;
 
-    if(CreatureData *ctrData = TO_CREATURE(m_Unit)->GetCreatureData())
+    if(CreatureData *ctrData = castPtr<Creature>(m_Unit)->GetCreatureData())
     {
         if(ranged == false)
         {

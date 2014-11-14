@@ -39,11 +39,9 @@ public:
     Unit* getTauntedBy();
     bool taunt(Unit* caster, bool apply = true);
 
-    void RemoveThreatByPtr(Unit* obj);
-    uint32 getThreatByPtr(Unit* obj);
-    uint32 getThreatByGUID(uint64 guid);
-    bool modThreatByPtr(Unit* obj, int32 mod);
-    bool modThreatByGUID(uint64 guid, int32 mod);
+    uint32 getThreat(WoWGuid guid);
+    void RemoveThreat(WoWGuid guid);
+    bool modThreat(WoWGuid guid, int32 mod, Unit* redirect = NULL, float redirectVal = 0.f);
 
     void WipeTargetList();
     HEARTHSTONE_INLINE TargetMap *GetAITargets() { return &m_aiTargets; }
@@ -73,7 +71,7 @@ public:
     void EventLeaveCombat(Unit* pUnit, uint32 misc1);
     void EventEnterCombat(Unit* pUnit, uint32 misc1);
 
-    void OnDeath(Object* pKiller);
+    void OnDeath(WorldObject* pKiller);
     void OnRespawn(Unit* unit); // We don't really need the unit anymore.
     void AttackReaction( Unit* pUnit, uint32 damage_dealt, uint32 spellId = 0);
     bool HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellEntry * sp);
@@ -111,7 +109,7 @@ public:
     SpellEntry * m_totemSpell;
 
     HEARTHSTONE_INLINE Unit* GetNextTarget() { return m_nextTarget; }
-    HEARTHSTONE_INLINE void SetNextTarget(Unit* nextTarget);
+    HEARTHSTONE_INLINE bool SetNextTarget(Unit* nextTarget);
 
     void WipeReferences();
     HEARTHSTONE_INLINE void SetPetOwner(Unit* owner) { m_PetOwner = owner; }
@@ -140,8 +138,8 @@ public:
 
     bool CanCastAISpell(AI_Spell* toCast, uint32 currentTime);
     void CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime);
-    bool IsValidUnitTarget( Object *pObject, SpellEntry *info, uint32 pFilter, float pMinRange = 0.0f, float pMaxRange = 0.0f  );
-    bool IsValidUnitTarget( Object *pObject, AI_Spell* pSpell)
+    bool IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uint32 pFilter, float pMinRange = 0.0f, float pMaxRange = 0.0f  );
+    bool IsValidUnitTarget( WorldObject *pObject, AI_Spell* pSpell)
     {
         if(pObject == NULL || pSpell == NULL)
             return false;

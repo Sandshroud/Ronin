@@ -4,11 +4,14 @@
 
 #include "StdAfx.h"
 
-Unit::Unit() : m_AuraInterface()
+Unit::Unit(uint64 guid) : WorldObject(guid), m_AuraInterface()
 {
-#ifdef SHAREDPTR_DEBUGMODE
-    printf("Unit::Unit()\n");
-#endif
+    m_valuesCount += UNIT_LENGTH;
+    m_updateMask.SetCount(m_valuesCount);
+    m_object.m_objType |= TYPEMASK_TYPE_UNIT;
+    m_raw.values[OBJECT_LAYER_UNIT] = new uint32[UNIT_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_UNIT], 0,(UNIT_LENGTH*sizeof(uint32)));
+
     m_lastHauntInitialDamage = 0;
     m_attackTimer = 0;
     m_attackTimer_1 = 0;
@@ -25,7 +28,7 @@ Unit::Unit() : m_AuraInterface()
     m_state = 0;
     m_special_state = 0;
     m_deathState = ALIVE;
-    m_currentSpell = NULLSPELL;
+    m_currentSpell = NULL;
     m_meleespell = 0;
     m_meleespell_cn = 0;
     m_addDmgOnce = 0;
@@ -34,15 +37,13 @@ Unit::Unit() : m_AuraInterface()
     disarmed = false;
     disarmedShield = false;
 
-    // Pet
-    m_isPet = false;
     // Pet Talents...WOOT!
     m_PetTalentPointModifier = 0;
 
     //Vehicle
     m_teleportAckCounter = 0;
     m_inVehicleSeatId = 0xFF;
-    m_CurrentVehicle = NULLVEHICLE;
+    m_CurrentVehicle = NULL;
     ExitingVehicle = false;
 
     //DK:modifiers
@@ -133,7 +134,7 @@ Unit::Unit() : m_AuraInterface()
     pLastSpell = 0;
     m_flyspeedModifier = 0;
     bInvincible = false;
-    m_redirectSpellPackets = NULLPLR;
+    m_redirectSpellPackets = NULL;
     can_parry = false;
     bProcInUse = false;
     spellcritperc = 0;
@@ -141,8 +142,8 @@ Unit::Unit() : m_AuraInterface()
     m_temp_summon=false;
     m_p_DelayTimer = 0;
 
-    mThreatRTarget = NULLUNIT;
-    mThreatRAmount = 0;
+    m_threadRTarget = 0;
+    m_threatRAmount = 0;
 
     trigger_on_stun = 0;
     trigger_on_stun_chance = 100;
@@ -356,14 +357,14 @@ float Unit::GetAreaOfEffectDamageMod()
 
 void Unit::Init()
 {
-    Object::Init();
+    WorldObject::Init();
 
     m_AuraInterface.Init(this);
 
     m_aiInterface = new AIInterface();
-    m_aiInterface->Init(TO_UNIT(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
+    m_aiInterface->Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
 
-    CombatStatus.SetUnit(TO_UNIT(this));
+    CombatStatus.SetUnit(castPtr<Unit>(this));
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 }
 
@@ -378,15 +379,15 @@ void Unit::Destruct()
 
     delete m_aiInterface;
 
-    m_redirectSpellPackets = NULLPLR;
+    m_redirectSpellPackets = NULL;
 
     if(m_currentSpell)
         m_currentSpell->cancel();
 
     if( GetVehicle() != NULL )
     {
-        GetVehicle()->RemovePassenger( TO_UNIT(this) );
-        SetVehicle(NULLVEHICLE);
+        GetVehicle()->RemovePassenger( castPtr<Unit>(this) );
+        SetVehicle(NULL);
     }
 
     m_DummyAuras.clear();
@@ -405,11 +406,11 @@ void Unit::Destruct()
     if(GetMapMgr())
     {
         CombatStatus.Vanished();
-        CombatStatus.SetUnit( NULLUNIT );
+        CombatStatus.SetUnit( NULL );
     }
 
     DamageTakenPctModPerCaster.clear();
-    Object::Destruct();
+    WorldObject::Destruct();
 }
 
 void Unit::SetDiminishTimer(uint32 index)
@@ -800,8 +801,8 @@ void Unit::UpdateAttackTimeValues()
             for(AuraInterface::modifierMap::iterator itr = attackTimeMod.begin(); itr != attackTimeMod.end(); itr++)
                 attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
 
-            if(IsPlayer() && i == 2) attackSpeedMod *= (1.f+(TO_PLAYER(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
-            else attackSpeedMod *= (1.f+(TO_PLAYER(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
+            if(IsPlayer() && i == 2) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
+            else attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
 
             baseAttack = float2int32(floor(float(baseAttack)/attackSpeedMod));
             if(baseAttack < 500)
@@ -850,7 +851,7 @@ void Unit::UpdateAttackDamageValues()
         {
             if(IsPlayer() && itr->second->m_spellInfo->EquippedItemClass != -1)
             {
-                if(Item *item = TO_PLAYER(this)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
+                if(Item *item = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
                     if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
                         baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
                 continue;
@@ -1053,12 +1054,12 @@ int32 Unit::GetDamageDoneMod(uint8 school)
     }
     else if(IsSummon() || IsPet())
     {
-        Object *summoner = NULL;
-        if(IsPet()) summoner = TO_PET(this)->GetOwner();
-        else summoner = TO_SUMMON(this)->GetSummonOwner();
+        WorldObject *summoner = NULL;
+        if(IsPet()) summoner = castPtr<Pet>(this)->GetOwner();
+        else summoner = castPtr<Summon>(this)->GetSummonOwner();
         /// To avoid processing loops, do not count pets of pets or summons of summons
         if(!(summoner->IsSummon() || summoner->IsPet()) && GetsDamageBonusFromOwner(school))
-            res += TO_UNIT(summoner)->GetDamageDoneMod(school);
+            res += castPtr<Unit>(summoner)->GetDamageDoneMod(school);
     }
 
     AuraInterface::modifierMap damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE);
@@ -1180,10 +1181,10 @@ bool Unit::canReachWithAttack(Unit* pVictim)
     {
         // latency compensation!!
         // figure out how much extra distance we need to allow for based on our movespeed and latency.
-        if(pVictim->IsPlayer() && TO_PLAYER(pVictim)->m_isMoving)
+        if(pVictim->IsPlayer() && castPtr<Player>(pVictim)->m_isMoving)
         {
             // this only applies to PvP.
-            uint32 lat = TO_PLAYER(pVictim)->GetSession() ? TO_PLAYER(pVictim)->GetSession()->GetLatency() : 0;
+            uint32 lat = castPtr<Player>(pVictim)->GetSession() ? castPtr<Player>(pVictim)->GetSession()->GetLatency() : 0;
 
             // if we're over 500 get fucked anyway.. your gonna lag! and this stops cheaters too
             lat = (lat > 500) ? 500 : lat;
@@ -1192,10 +1193,10 @@ bool Unit::canReachWithAttack(Unit* pVictim)
             attackreach += m_runSpeed * 0.001f * lat;
         }
 
-        if(TO_PLAYER(this)->m_isMoving)
+        if(castPtr<Player>(this)->m_isMoving)
         {
             // this only applies to PvP.
-            uint32 lat = TO_PLAYER(this)->GetSession() ? TO_PLAYER(this)->GetSession()->GetLatency() : 0;
+            uint32 lat = castPtr<Player>(this)->GetSession() ? castPtr<Player>(this)->GetSession()->GetLatency() : 0;
 
             // if we're over 500 get fucked anyway.. your gonna lag! and this stops cheaters too
             lat = (lat > 500) ? 500 : lat;
@@ -1229,8 +1230,8 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         return;
 
     //Get Highest Level Player, Calc Xp and give it to each group member
-    Player* pHighLvlPlayer = NULLPLR;
-    Player* pGroupGuy = NULLPLR;
+    Player* pHighLvlPlayer = NULL;
+    Player* pGroupGuy = NULL;
       int active_player_count=0;
     Player* active_player_list[MAX_GROUP_SIZE_RAID];//since group is small we can afford to do this ratehr then recheck again the whole active player set
     int total_level=0;
@@ -1330,10 +1331,10 @@ void Unit::RegenerateHealth()
     if(IsPlayer())
     {
         m_H_regenTimer = 1000;//set next regen time to 1 for players.
-        TO_PLAYER(this)->RegenerateHealth(CombatStatus.IsInCombat());
+        castPtr<Player>(this)->RegenerateHealth(CombatStatus.IsInCombat());
     }
     else
-        TO_CREATURE(this)->RegenerateHealth(CombatStatus.IsInCombat());
+        castPtr<Creature>(this)->RegenerateHealth(CombatStatus.IsInCombat());
 }
 
 void Unit::RegenerateEnergy()
@@ -1369,7 +1370,7 @@ void Unit::RegeneratePower(bool isinterrupted)
 
     // player regen
     if(IsPlayer())
-        TO_PLAYER(this)->PlayerRegeneratePower(isinterrupted);
+        castPtr<Player>(this)->PlayerRegeneratePower(isinterrupted);
     else
     {
 
@@ -1394,7 +1395,7 @@ double Unit::GetResistanceReducion(Unit* pVictim, uint32 school, float armorRedu
             maxArmorPen = std::min((armor + maxArmorPen) / 3, armor);
 
             // Figure out how much armor we ignore
-            float armorPen = armorReducePct+TO_PLAYER(this)->CalcRating(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING);
+            float armorPen = armorReducePct+castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING);
 
             // Apply armor pen cap to our calculated armor penetration
             armor -= std::min(armorPen, maxArmorPen);
@@ -1451,7 +1452,7 @@ uint32 roll_results[5] =
 
 uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability )
 {
-    Item* it = NULLITEM;
+    Item* it = NULL;
 
     float hitchance         = 0.0f;
     float dodge             = 0.0f;
@@ -1471,7 +1472,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     //==========================================================================================
     if( pVictim->IsPlayer() )
     {
-        vskill = TO_PLAYER( pVictim )->_GetSkillLineCurrent( SKILL_DEFENSE );
+        vskill = castPtr<Player>( pVictim )->_GetSkillLineCurrent( SKILL_DEFENSE );
         if( weapon_damage_type != RANGED )
         {
             if( !backAttack )
@@ -1491,12 +1492,12 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
                 }
             }
         }
-        victim_skill = float2int32( vskill + TO_PLAYER( pVictim )->CalcRating( PLAYER_RATING_MODIFIER_DEFENCE ) );
+        victim_skill = float2int32( vskill + castPtr<Player>( pVictim )->CalcRating( PLAYER_RATING_MODIFIER_DEFENCE ) );
     }
     //--------------------------------mob defensive chances-------------------------------------
     else if(pVictim->IsCreature())
     {
-        Creature* c = TO_CREATURE(pVictim);
+        Creature* c = castPtr<Creature>(pVictim);
 
         if( weapon_damage_type != RANGED && pVictim->m_stunned <= 0)
             dodge = pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f; // what is this value?
@@ -1521,23 +1522,23 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     if(IsPlayer())
     {
         self_skill = 0;
-        Player* pr = TO_PLAYER(this);
+        Player* pr = castPtr<Player>(this);
         hitmodifier = pr->GetHitFromMeleeSpell();
 
         switch( weapon_damage_type )
         {
         case MELEE:   // melee main hand weapon
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             break;
         case RANGED:  // ranged weapon
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
             break;
@@ -1561,9 +1562,9 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
             SubClassSkill = SKILL_UNARMED;
 
         //chances in feral form don't depend on weapon skill
-        if(TO_PLAYER(this)->IsInFeralForm())
+        if(castPtr<Player>(this)->IsInFeralForm())
         {
-            uint8 form = TO_PLAYER(this)->GetShapeShift();
+            uint8 form = castPtr<Player>(this)->GetShapeShift();
             if(form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR)
             {
                 SubClassSkill = SKILL_FERAL_COMBAT;
@@ -1579,7 +1580,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         self_skill = getLevel() * 5;
         if(m_objectTypeId == TYPEID_UNIT)
         {
-            Creature* c = TO_CREATURE(this);
+            Creature* c = castPtr<Creature>(this);
             if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
@@ -1613,7 +1614,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     }
     else if(IsPlayer())
     {
-        it = TO_PLAYER(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+        it = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
         if( it != NULL && (it->GetProto()->InventoryType == INVTYPE_WEAPON ||
             it->GetProto()->InventoryType == INVTYPE_2HWEAPON) && !ability )//dualwield to-hit penalty
         {
@@ -1708,12 +1709,12 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, u
     //rating bonus
     if( IsPlayer() )
     {
-        hitchance += TO_PLAYER(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
-        hitchance += TO_PLAYER(this)->GetHitFromSpell();
+        hitchance += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
+        hitchance += castPtr<Player>(this)->GetHitFromSpell();
     }
 
     if(pVictim->IsPlayer())
-        hitchance += TO_PLAYER(pVictim)->m_resist_hit[2];
+        hitchance += castPtr<Player>(pVictim)->m_resist_hit[2];
 
     // 160: Mod AOE avoidance implementation needed.
 
@@ -1779,7 +1780,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         {
             if( !(ability && ability->isSpellBackAttackCapable()) )
             {
-                TO_PLAYER(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
+                castPtr<Player>(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
                 return 0;
             }
         }
@@ -1789,7 +1790,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //==========================================================================================
     dealdamage dmg            = {0,0,0};
 
-    Item* it = NULLITEM;
+    Item* it = NULL;
 
     float armorreducepct =  m_ignoreArmorPct;
 
@@ -1823,7 +1824,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     else
     {
         if (GetTypeId() == TYPEID_UNIT)
-            dmg.school_type = TO_CREATURE(this)->BaseAttackType;
+            dmg.school_type = castPtr<Creature>(this)->BaseAttackType;
         else
             dmg.school_type = SCHOOL_NORMAL;
     }
@@ -1833,7 +1834,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //==========================================================================================
     if(pVictim->IsPlayer())
     {
-        vskill = TO_PLAYER( pVictim )->_GetSkillLineCurrent( SKILL_DEFENSE );
+        vskill = castPtr<Player>( pVictim )->_GetSkillLineCurrent( SKILL_DEFENSE );
         if( !backAttack )
         {
             if( weapon_damage_type != RANGED )
@@ -1853,7 +1854,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                 }
             }
         }
-        victim_skill = float2int32( vskill + TO_PLAYER( pVictim )->CalcRating( 1 ) );
+        victim_skill = float2int32( vskill + castPtr<Player>( pVictim )->CalcRating( 1 ) );
     }
 //--------------------------------mob defensive chances-------------------------------------
     else
@@ -1864,7 +1865,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         victim_skill = pVictim->getLevel() * 5;
         if( pVictim->m_objectTypeId == TYPEID_UNIT )
         {
-            Creature* c = TO_CREATURE( pVictim );
+            Creature* c = castPtr<Creature>( pVictim );
             if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS) )
             {
                 victim_skill = std::max( victim_skill, ( (int32)getLevel() + 3 ) * 5 ); //used max to avoid situation when lowlvl hits boss.
@@ -1877,13 +1878,13 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     if( IsPlayer() )
     {
         self_skill = 0;
-        Player* pr = TO_PLAYER(this);
+        Player* pr = castPtr<Player>(this);
         hitmodifier = pr->GetHitFromMeleeSpell();
 
         switch( weapon_damage_type )
         {
         case MELEE:   // melee main hand weapon
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             if (it && it->GetProto())
             {
@@ -1893,7 +1894,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             }
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             hit_status |= HITSTATUS_DUALWIELD;//animation
             if (it && it->GetProto())
@@ -1904,7 +1905,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             }
             break;
         case RANGED:  // ranged weapon
-            it = disarmed ? NULLITEM : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
+            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
             if (it && it->GetProto())
                 dmg.school_type = it->GetProto()->DamageType;
@@ -1940,7 +1941,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         self_skill = getLevel() * 5;
         if(m_objectTypeId == TYPEID_UNIT)
         {
-            Creature* c = TO_CREATURE(this);
+            Creature* c = castPtr<Creature>(this);
             if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
@@ -1988,13 +1989,13 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     {
         if( weapon_damage_type != RANGED )
         {
-            crit += TO_PLAYER(pVictim)->res_M_crit_get();
-            hitmodifier += TO_PLAYER(pVictim)->m_resist_hit[0];
+            crit += castPtr<Player>(pVictim)->res_M_crit_get();
+            hitmodifier += castPtr<Player>(pVictim)->m_resist_hit[0];
         }
         else
         {
-            crit += TO_PLAYER(pVictim)->res_R_crit_get(); //this could be ability but in that case we overwrite the value
-            hitmodifier += TO_PLAYER(pVictim)->m_resist_hit[1];
+            crit += castPtr<Player>(pVictim)->res_R_crit_get(); //this could be ability but in that case we overwrite the value
+            hitmodifier += castPtr<Player>(pVictim)->m_resist_hit[1];
         }
     }
     crit += (float)(pVictim->AttackerCritChanceMod[0]);
@@ -2022,17 +2023,17 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             hitchance = std::max( hitchance, 93.0f + (vsk - 10.0f) * 0.4f);
     }
 //--------------------------------by ratings------------------------------------------------
-    crit -= pVictim->IsPlayer() ? TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
+    crit -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
     if(crit < 0.0f)
         crit = 0.0f;
 
     if (IsPlayer())
     {
         if(weapon_damage_type == RANGED)
-            hitmodifier += TO_PLAYER(this)->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
+            hitmodifier += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
         else
         {
-            hitmodifier += TO_PLAYER(this)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
+            hitmodifier += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
 
             float expertise_bonus = 0.0f;
             if(weapon_damage_type == MELEE)
@@ -2055,7 +2056,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         dodge = parry = glanc = 0.0f;
     else if(IsPlayer())
     {
-        it = TO_PLAYER(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+        it = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
         if( it != NULL && (it->GetProto()->InventoryType == INVTYPE_WEAPON ||
             it->GetProto()->InventoryType == INVTYPE_2HWEAPON) && !ability )//dualwield to-hit penalty
         {
@@ -2074,7 +2075,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     }
 
     //Hackfix for Surprise Attacks
-    if( IsPlayer() && ability && TO_PLAYER(this)->m_AuraInterface.HasAurasWithModType(SPELL_AURA_IGNORE_COMBAT_RESULT) && ability->isSpellFinishingMove())
+    if( IsPlayer() && ability && castPtr<Player>(this)->m_AuraInterface.HasAurasWithModType(SPELL_AURA_IGNORE_COMBAT_RESULT) && ability->isSpellFinishingMove())
         dodge = 0.0f;
 
     if( skip_hit_check )
@@ -2145,16 +2146,16 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         hit_status |= HITSTATUS_MISS;
         // dirty ai agro fix
         if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(TO_UNIT(this), 1, 0);
+            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
         break;
 //--------------------------------dodge-----------------------------------------------------
     case 1:
         // dirty ai agro fix
         if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(TO_UNIT(this), 1, 0);
+            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
-        CALL_SCRIPT_EVENT(pVictim, OnTargetDodged)(TO_UNIT(this));
-        CALL_SCRIPT_EVENT(TO_UNIT(this), OnDodged)(TO_UNIT(this));
+        CALL_SCRIPT_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
+        CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
         targetEvent = 1;
         vstate = DODGE;
         pVictim->Emote(EMOTE_ONESHOT_PARRYUNARMED);         // Animation
@@ -2162,7 +2163,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
         if( IsPlayer() )
         {
-            Player* plr = TO_PLAYER( this );
+            Player* plr = castPtr<Player>( this );
             if( plr->getClass() == WARRIOR  )
             {
                 plr->AddComboPoints( pVictim->GetGUID(), 1 );
@@ -2179,7 +2180,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         }
         if( pVictim->IsPlayer() )
         {
-            Player* vplr = TO_PLAYER( pVictim );
+            Player* vplr = castPtr<Player>( pVictim );
             if( vplr->getClass() == DRUID )
             {
                 if( (vplr->GetShapeShift() == FORM_BEAR ||
@@ -2213,16 +2214,16 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     case 2:
         // dirty ai agro fix
         if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(TO_UNIT(this), 1, 0);
+            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
-        CALL_SCRIPT_EVENT(pVictim, OnTargetParried)(TO_UNIT(this));
-        CALL_SCRIPT_EVENT(TO_UNIT(this), OnParried)(TO_UNIT(this));
+        CALL_SCRIPT_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
+        CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
         targetEvent = 3;
         vstate = PARRY;
         pVictim->Emote(EMOTE_ONESHOT_PARRYUNARMED);         // Animation
         if(pVictim->IsPlayer())
         {
-            if( TO_PLAYER( pVictim )->getClass() == 1 || TO_PLAYER( pVictim )->getClass() == 4 )//warriors for 'revenge' and rogues for 'riposte'
+            if( castPtr<Player>( pVictim )->getClass() == 1 || castPtr<Player>( pVictim )->getClass() == 4 )//warriors for 'revenge' and rogues for 'riposte'
             {
                 //pVictim->SetFlag( UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK );  //SB@L: Enables spells requiring dodge
                 if(!sEventMgr.HasEvent( pVictim, EVENT_DODGE_BLOCK_FLAG_EXPIRE ) )
@@ -2248,7 +2249,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------base damage calculation-----------------------------------
             if(exclusive_damage)
                 dmg.full_damage = exclusive_damage;
-            else dmg.full_damage = sStatSystem.CalculateDamage( TO_UNIT(this), pVictim, weapon_damage_type, ability );
+            else dmg.full_damage = sStatSystem.CalculateDamage( castPtr<Unit>(this), pVictim, weapon_damage_type, ability );
 
             if( weapon_damage_type == RANGED )
                 dmg.full_damage += pVictim->GetRangedDamageTakenMod();
@@ -2271,8 +2272,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             }
 
             //pet happiness state dmg modifier
-            if( IsPet() && !TO_PET(this)->IsSummonedPet() )
-                dmg.full_damage = ( dmg.full_damage <= 0 ) ? 0 : float2int32( dmg.full_damage * TO_PET(this)->GetHappinessDmgMod() );
+            if( IsPet() && !castPtr<Pet>(this)->IsSummonedPet() )
+                dmg.full_damage = ( dmg.full_damage <= 0 ) ? 0 : float2int32( dmg.full_damage * castPtr<Pet>(this)->GetHappinessDmgMod() );
 
             if( HasDummyAura(SPELL_HASH_REND_AND_TEAR) && ability &&
                 ( ability->NameHash == SPELL_HASH_MAUL || ability->NameHash == SPELL_HASH_SHRED) && pVictim->m_AuraInterface.HasNegAuraWithMechanic(MECHANIC_BLEEDING) )
@@ -2319,7 +2320,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------block-----------------------------------------------------
             case 4:
                 {
-                    Item* shield = TO_PLAYER( pVictim )->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+                    Item* shield = castPtr<Player>( pVictim )->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
                     if( shield != NULL && !pVictim->disarmedShield )
                     {
                         targetEvent = 2;
@@ -2327,7 +2328,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
                         if( shield->GetProto()->InventoryType == INVTYPE_SHIELD )
                         {
-                            float block_multiplier = ( 100.0f + float( TO_PLAYER( pVictim )->m_modblockabsorbvalue ) ) / 100.0f;
+                            float block_multiplier = ( 100.0f + float( castPtr<Player>( pVictim )->m_modblockabsorbvalue ) ) / 100.0f;
                             if( block_multiplier < 1.0f )block_multiplier = 1.0f;
 
                             blocked_damage = pVictim->GetUInt32Value(PLAYER_SHIELD_BLOCK);
@@ -2340,8 +2341,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
                         if(dmg.full_damage <= (int32)blocked_damage)
                         {
-                            CALL_SCRIPT_EVENT(pVictim, OnTargetBlocked)(TO_UNIT(this), blocked_damage);
-                            CALL_SCRIPT_EVENT(TO_UNIT(this), OnBlocked)(pVictim, blocked_damage);
+                            CALL_SCRIPT_EVENT(pVictim, OnTargetBlocked)(castPtr<Unit>(this), blocked_damage);
+                            CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnBlocked)(pVictim, blocked_damage);
                             vstate = BLOCK;
                         }
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
@@ -2367,23 +2368,23 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                         // m_modphyscritdmgPCT
                         if( weapon_damage_type != RANGED )
                         {
-                            dmg_bonus_pct += (float)TO_PLAYER( this )->m_modphyscritdmgPCT;
+                            dmg_bonus_pct += (float)castPtr<Player>( this )->m_modphyscritdmgPCT;
                         }
 
                         // IncreaseCriticalByTypePct
                         if( !pVictim->IsPlayer() )
                         {
-                            CreatureData *pCreatureName = TO_CREATURE(pVictim)->GetCreatureData();
+                            CreatureData *pCreatureName = castPtr<Creature>(pVictim)->GetCreatureData();
                             if( pCreatureName != NULL )
-                                dmg_bonus_pct += TO_PLAYER( this )->IncreaseCricticalByTypePCT[pCreatureName->Type];
+                                dmg_bonus_pct += castPtr<Player>( this )->IncreaseCricticalByTypePCT[pCreatureName->Type];
                         }
 
                         // UGLY GOUGE HAX
                         // too lazy to fix this properly...
-                        if( this && IsPlayer() && TO_PLAYER(this)->HasDummyAura(SPELL_HASH_SEAL_FATE) && ability && ( ability->NameHash == SPELL_HASH_GOUGE || ability->NameHash == SPELL_HASH_MUTILATE ) )
+                        if( this && IsPlayer() && castPtr<Player>(this)->HasDummyAura(SPELL_HASH_SEAL_FATE) && ability && ( ability->NameHash == SPELL_HASH_GOUGE || ability->NameHash == SPELL_HASH_MUTILATE ) )
                         {
-                            if( Rand( TO_PLAYER(this)->GetDummyAura(SPELL_HASH_SEAL_FATE)->RankNumber * 20.0f ) )
-                                TO_PLAYER(this)->AddComboPoints(pVictim->GetGUID(), 1);
+                            if( Rand( castPtr<Player>(this)->GetDummyAura(SPELL_HASH_SEAL_FATE)->RankNumber * 20.0f ) )
+                                castPtr<Player>(this)->AddComboPoints(pVictim->GetGUID(), 1);
                         }
                         else if( HasDummyAura( SPELL_HASH_PREY_ON_THE_WEAK ) )
                         {
@@ -2393,7 +2394,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
                         SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_CRITICAL);  //SB@L: Enables spells requiring critical strike
                         if(!sEventMgr.HasEvent( this ,EVENT_CRIT_FLAG_EXPIRE))
-                            sEventMgr.AddEvent( TO_UNIT( this ),&Unit::EventAurastateExpire,(uint32)AURASTATE_FLAG_CRITICAL,EVENT_CRIT_FLAG_EXPIRE,5000,1,0);
+                            sEventMgr.AddEvent( castPtr<Unit>( this ),&Unit::EventAurastateExpire,(uint32)AURASTATE_FLAG_CRITICAL,EVENT_CRIT_FLAG_EXPIRE,5000,1,0);
                         else
                             sEventMgr.ModifyEventTimeLeft( this ,EVENT_CRIT_FLAG_EXPIRE,5000);
                     }
@@ -2410,7 +2411,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     if(IsPlayer() && pVictim->IsPlayer())
                     {
                         //Resilience is a special new rating which was created to reduce the effects of critical hits against your character.
-                        float dmg_reduction_pct = 2.2f * TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
+                        float dmg_reduction_pct = 2.2f * castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
                         if( dmg_reduction_pct > 0.33f )
                             dmg_reduction_pct = 0.33f; // 3.0.3
                         dmg.full_damage = float2int32( dmg.full_damage - dmg.full_damage*dmg_reduction_pct );
@@ -2419,8 +2420,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     //emote
                     pVictim->Emote(EMOTE_ONESHOT_WOUNDCRITICAL);
 
-                    CALL_SCRIPT_EVENT(pVictim, OnTargetCritHit)(TO_UNIT(this), float(dmg.full_damage));
-                    CALL_SCRIPT_EVENT(TO_UNIT(this), OnCritHit)(pVictim, float(dmg.full_damage));
+                    CALL_SCRIPT_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
+                    CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
                 } break;
 //--------------------------------crushing blow---------------------------------------------
             case 6:
@@ -2486,16 +2487,16 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------spells triggering-----------------------------------------------
     if(realdamage > 0 && ability == 0)
     {
-        if( IsPlayer() && TO_PLAYER(this)->m_onStrikeSpells.size() )
+        if( IsPlayer() && castPtr<Player>(this)->m_onStrikeSpells.size() )
         {
             SpellCastTargets targets;
             targets.m_unitTarget = pVictim->GetGUID();
             targets.m_targetMask = 0x2;
-            Spell* cspell = NULLSPELL;
+            Spell* cspell = NULL;
 
             // Loop on hit spells, and strike with those.
-            for( map< SpellEntry*, pair< uint32, uint32 > >::iterator itr = TO_PLAYER(this)->m_onStrikeSpells.begin();
-                itr != TO_PLAYER(this)->m_onStrikeSpells.end(); itr++ )
+            for( map< SpellEntry*, pair< uint32, uint32 > >::iterator itr = castPtr<Player>(this)->m_onStrikeSpells.begin();
+                itr != castPtr<Player>(this)->m_onStrikeSpells.end(); itr++ )
             {
                 if( itr->second.first )
                 {
@@ -2510,17 +2511,17 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                 }
 
                 // Cast.
-                cspell = new Spell(TO_UNIT(this), itr->first, true, NULLAURA);
+                cspell = new Spell(castPtr<Unit>(this), itr->first, true, NULL);
                 cspell->prepare(&targets);
             }
         }
 
-        if( IsPlayer() && TO_PLAYER(this)->m_onStrikeSpellDmg.size() )
+        if( IsPlayer() && castPtr<Player>(this)->m_onStrikeSpellDmg.size() )
         {
-            map< uint32, OnHitSpell >::iterator it2 = TO_PLAYER(this)->m_onStrikeSpellDmg.begin();
+            map< uint32, OnHitSpell >::iterator it2 = castPtr<Player>(this)->m_onStrikeSpellDmg.begin();
             map< uint32, OnHitSpell >::iterator itr;
             uint32 min_dmg, max_dmg, range, dmg;
-            for(; it2 != TO_PLAYER(this)->m_onStrikeSpellDmg.end(); )
+            for(; it2 != castPtr<Player>(this)->m_onStrikeSpellDmg.end(); )
             {
                 itr = it2;
                 ++it2;
@@ -2562,7 +2563,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         if( realdamage > 0 )//FIXME: add log for miss,block etc for ability and ranged
         {
             // here we send "dmg.resisted_damage" for "AbsorbedDamage", "0" for "ResistedDamage", and "false" for "PhysicalDamage" even though "School" is "SCHOOL_NORMAL"   o_O
-            SendSpellNonMeleeDamageLog( TO_UNIT(this), pVictim, ability->Id, realdamage, dmg.school_type, dmg.resisted_damage, 0, false, blocked_damage, ( ( hit_status & HITSTATUS_CRICTICAL ) != 0 ), true );
+            SendSpellNonMeleeDamageLog( castPtr<Unit>(this), pVictim, ability->Id, realdamage, dmg.school_type, dmg.resisted_damage, 0, false, blocked_damage, ( ( hit_status & HITSTATUS_CRICTICAL ) != 0 ), true );
         }
         //FIXME: add log for miss,block etc for ability and ranged
         //example how it works
@@ -2571,14 +2572,14 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
     if(ability && realdamage == 0)
     {
-        SendSpellLog(TO_OBJECT(this),pVictim,ability->Id,SPELL_LOG_RESIST);
+        SendSpellLog(this,pVictim,ability->Id,SPELL_LOG_RESIST);
     }
 //==========================================================================================
 //==============================Damage Dealing==============================================
 //==========================================================================================
 
     if(IsPlayer() && ability)
-        TO_PLAYER(this)->m_casted_amount[dmg.school_type]=(uint32)(realdamage+abs);
+        castPtr<Player>(this)->m_casted_amount[dmg.school_type]=(uint32)(realdamage+abs);
     if(realdamage)
     {
         DealDamage(pVictim, realdamage, 0, targetEvent, 0);
@@ -2598,10 +2599,10 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------durability processing-------------------------------------------
     if(pVictim->IsPlayer())
     {
-        TO_PLAYER( pVictim )->GetItemInterface()->ReduceItemDurability();
+        castPtr<Player>( pVictim )->GetItemInterface()->ReduceItemDurability();
         if( !IsPlayer() )
         {
-            Player* pr = TO_PLAYER( pVictim );
+            Player* pr = castPtr<Player>( pVictim );
             if( Rand( pr->GetSkillUpChance( SKILL_DEFENSE ) * sWorld.getRate( RATE_SKILLCHANCE ) ) )
             {
                 pr->_AdvanceSkillLine( SKILL_DEFENSE, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
@@ -2610,17 +2611,17 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         }
         else
         {
-             TO_PLAYER(this)->GetItemInterface()->ReduceItemDurability();
+             castPtr<Player>(this)->GetItemInterface()->ReduceItemDurability();
         }
     }
     else if(pVictim->IsCreature())
     {   // Not PvP, proto, and skill up.
         if(IsPlayer())
         {
-            if(!TO_CREATURE(pVictim)->GetExtraInfo() || !TO_CREATURE(pVictim)->GetExtraInfo()->no_skill_up)
+            if(!castPtr<Creature>(pVictim)->GetExtraInfo() || !castPtr<Creature>(pVictim)->GetExtraInfo()->no_skill_up)
             {
-                TO_PLAYER(this)->GetItemInterface()->ReduceItemDurability();
-                Player* pr = TO_PLAYER(this);
+                castPtr<Player>(this)->GetItemInterface()->ReduceItemDurability();
+                Player* pr = castPtr<Player>(this);
                 if( Rand( pr->GetSkillUpChance( SubClassSkill) * sWorld.getRate( RATE_SKILLCHANCE ) ) )
                 {
                     pr->_AdvanceSkillLine( SubClassSkill, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
@@ -2648,7 +2649,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         float s = 1.0f;
 
         // Weapon speed (normal)
-        Item* weapon = ( TO_PLAYER(this)->GetItemInterface())->GetInventoryItem( INVENTORY_SLOT_NOT_SET, ( weapon_damage_type == OFFHAND ? EQUIPMENT_SLOT_OFFHAND : EQUIPMENT_SLOT_MAINHAND ) );
+        Item* weapon = ( castPtr<Player>(this)->GetItemInterface())->GetInventoryItem( INVENTORY_SLOT_NOT_SET, ( weapon_damage_type == OFFHAND ? EQUIPMENT_SLOT_OFFHAND : EQUIPMENT_SLOT_MAINHAND ) );
         if( weapon == NULL )
         {
             if( weapon_damage_type == OFFHAND )
@@ -2667,11 +2668,11 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         }
 
         float val = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;;
-        val *= ( 1 + ( TO_PLAYER(this)->rageFromDamageDealt / 100.0f ) );
+        val *= ( 1 + ( castPtr<Player>(this)->rageFromDamageDealt / 100.0f ) );
         val *= 10;
 
         //float r = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;
-        //float p = ( 1 + ( TO_PLAYER(this)->rageFromDamageDealt / 100.0f ) );
+        //float p = ( 1 + ( castPtr<Player>(this)->rageFromDamageDealt / 100.0f ) );
         //sLog.outDebug( "Rd(%i) d(%i) c(%f) f(%f) s(%f) p(%f) r(%f) rage = %f", realdamage, dmg.full_damage, c, f, s, p, r, val );
 
         ModPower(POWER_TYPE_RAGE, val);
@@ -2716,16 +2717,16 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if (ex->deleted)
                 continue;
 
-            for(unordered_set<Object* >::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++)
+            for(unordered_set<WorldObject* >::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++)
             {
                 if (!(*itr) || (*itr) == pVictim || !(*itr)->IsUnit())
                     continue;
 
-                if(CalcDistance(*itr) < 5.0f && sFactionSystem.isAttackable(TO_UNIT(this), (*itr)) && isTargetInFront(*itr) && !TO_UNIT(*itr)->IsPacified())
+                if(CalcDistance(*itr) < 5.0f && sFactionSystem.isAttackable(castPtr<Unit>(this), (*itr)) && isTargetInFront(*itr) && !castPtr<Unit>(*itr)->IsPacified())
                 {
                     // Sweeping Strikes hits cannot be dodged, missed or parried (from wowhead)
                     bool skip_hit_check = ex->spell_info->Id == 12328 ? true : false;
-                    realdamage += Strike( TO_UNIT( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, skip_hit_check );
+                    realdamage += Strike( castPtr<Unit>( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, skip_hit_check );
                     break;
                 }
             }
@@ -2756,15 +2757,15 @@ void Unit::smsg_AttackStop(Unit* pVictim)
     WorldPacket data(SMSG_ATTACKSTOP, 20);
     if(m_objectTypeId == TYPEID_PLAYER)
     {
-        data << pVictim->GetNewGUID();
+        data << pVictim->GetGUID();
         data << uint8(0);
         data << uint32(0);
-        TO_PLAYER(this)->GetSession()->SendPacket( &data );
+        castPtr<Player>(this)->GetSession()->SendPacket( &data );
         data.clear();
     }
 
-    data << GetNewGUID();
-    data << pVictim->GetNewGUID();
+    data << GetGUID();
+    data << pVictim->GetGUID();
     data << uint32(0);
     SendMessageToSet(&data, true );
 }
@@ -2773,7 +2774,7 @@ void Unit::smsg_AttackStop(uint64 victimGuid)
 {
     WorldPacket data(20);
     data.Initialize( SMSG_ATTACKSTOP );
-    data << GetNewGUID();
+    data << GetGUID();
     FastGUIDPack(data, victimGuid);
     data << uint32( 0 );
     SendMessageToSet(&data, IsPlayer());
@@ -2806,7 +2807,7 @@ void Unit::CastSpell( Spell* pSpell )
 {
     // check if we have a spell already casting etc
     if(m_currentSpell && pSpell != m_currentSpell)
-        sEventMgr.AddEvent(TO_UNIT(this), &Unit::EventCancelSpell, m_currentSpell, EVENT_UNK, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::EventCancelSpell, m_currentSpell, EVENT_UNK, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     m_currentSpell = pSpell;
     pLastSpell = pSpell->m_spellInfo;
@@ -2815,17 +2816,17 @@ void Unit::CastSpell( Spell* pSpell )
 int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effIndex, int32 base_dmg, bool healing)
 {
     int32 bonus_damage = base_dmg;
-    Unit* caster = TO_UNIT(this);
+    Unit* caster = castPtr<Unit>(this);
     uint32 school = spellInfo->School;
     float summaryPCTmod = 0.0f;
     float levelPenalty = CalculateLevelPenalty(spellInfo);
 
     if( caster->IsPet() )
-        caster = TO_UNIT(TO_PET(caster)->GetPetOwner());
-    else if( caster->IsSummon() && TO_SUMMON(caster)->GetSummonOwner() )
-        caster = TO_SUMMON(caster)->GetSummonOwner()->IsUnit() ? TO_UNIT(TO_SUMMON(caster)->GetSummonOwner()) : NULLUNIT;
-    else if( caster->GetTypeId() == TYPEID_GAMEOBJECT && caster->GetMapMgr() && caster->GetUInt64Value(OBJECT_FIELD_CREATED_BY) )
-        caster = TO_UNIT(caster->GetMapMgr()->GetUnit(caster->GetUInt64Value(OBJECT_FIELD_CREATED_BY)));
+        caster = castPtr<Unit>(castPtr<Pet>(caster)->GetPetOwner());
+    else if( caster->IsSummon() && castPtr<Summon>(caster)->GetSummonOwner() )
+        caster = castPtr<Summon>(caster)->GetSummonOwner()->IsUnit() ? castPtr<Unit>(castPtr<Summon>(caster)->GetSummonOwner()) : NULL;
+    else if( caster->GetTypeId() == TYPEID_GAMEOBJECT && caster->GetMapMgr() && caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) )
+        caster = castPtr<Unit>(caster->GetMapMgr()->GetUnit(caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY)));
     if( caster == NULL || pVictim == NULL)
         return bonus_damage;
 
@@ -2833,8 +2834,8 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
     // victim type
     //---------------------------------------------------------
 
-    if( pVictim->IsCreature() && TO_CREATURE(pVictim)->GetCreatureData() && caster->IsPlayer() && !pVictim->IsPlayer() )
-        bonus_damage += TO_PLAYER(caster)->IncreaseDamageByType[TO_CREATURE(pVictim)->GetCreatureData()->Type];
+    if( pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetCreatureData() && caster->IsPlayer() && !pVictim->IsPlayer() )
+        bonus_damage += castPtr<Player>(caster)->IncreaseDamageByType[castPtr<Creature>(pVictim)->GetCreatureData()->Type];
 
     //---------------------------------------------------------
     // coefficient
@@ -2968,8 +2969,8 @@ void Unit::SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Pla
 {
     ASSERT(plr);
 
-    char* name = IsPlayer() ? TO_PLAYER(this)->GetName() : "";
-    if(IsCreature()) name = TO_CREATURE(this)->GetCreatureData()->Name;
+    char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
+    if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
     size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
     if(nameLen == 1 || msgLen == 1)
         return;
@@ -3007,8 +3008,8 @@ void Unit::SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, 
 
 void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
 {
-    char* name = IsPlayer() ? TO_PLAYER(this)->GetName() : "";
-    if(IsCreature()) name = TO_CREATURE(this)->GetCreatureData()->Name;
+    char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
+    if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
     size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
     if(nameLen == 1 || msgLen == 1)
         return;
@@ -3025,36 +3026,36 @@ void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
     SendMessageToSet(&data, true);
 }
 
-void Unit::AddInRangeObject(Object* pObj)
+void Unit::AddInRangeObject(WorldObject* pObj)
 {
     if((pObj->GetTypeId() == TYPEID_UNIT) || (pObj->IsPlayer()))
     {
-        if( sFactionSystem.isHostile( TO_OBJECT(this), pObj ) )
-            m_oppFactsInRange.insert(TO_UNIT(pObj));
+        if( sFactionSystem.isHostile(this, pObj) )
+            m_oppFactsInRange.insert(castPtr<Unit>(pObj));
     }
 
-    Object::AddInRangeObject(pObj);
+    WorldObject::AddInRangeObject(pObj);
 }
 
-void Unit::OnRemoveInRangeObject(Object* pObj)
+void Unit::OnRemoveInRangeObject(WorldObject* pObj)
 {
     if(pObj->IsUnit())
-        m_oppFactsInRange.erase(TO_UNIT(pObj));
+        m_oppFactsInRange.erase(castPtr<Unit>(pObj));
 
     if(pObj->GetTypeId() == TYPEID_UNIT || pObj->IsPlayer())
     {
-        Unit* pUnit = TO_UNIT(pObj);
+        Unit* pUnit = castPtr<Unit>(pObj);
         GetAIInterface()->CheckTarget(pUnit);
 
-        if(GetUInt64Value(UNIT_FIELD_CHARM) == pObj->GetGUID())
+        if(GetGUIDValue(UNIT_FIELD_CHARM) == pObj->GetGUID())
             if(m_currentSpell) m_currentSpell->cancel();
     }
-    Object::OnRemoveInRangeObject(pObj);
+    WorldObject::OnRemoveInRangeObject(pObj);
 }
 
 void Unit::ClearInRangeSet()
 {
-    Object::ClearInRangeSet();
+    WorldObject::ClearInRangeSet();
 }
 
 //Events
@@ -3062,7 +3063,7 @@ void Unit::EventAddEmote(EmoteType emote, uint32 time)
 {
     m_oldEmote = GetUInt32Value(UNIT_NPC_EMOTESTATE);
     SetUInt32Value(UNIT_NPC_EMOTESTATE,emote);
-    sEventMgr.AddEvent(TO_UNIT(this), &Unit::EmoteExpire, EVENT_UNIT_EMOTE, time, 1,0);
+    sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::EmoteExpire, EVENT_UNIT_EMOTE, time, 1,0);
 }
 
 void Unit::EventAllowCombat(bool allow)
@@ -3085,7 +3086,7 @@ void Unit::MoveToWaypoint(uint32 wp_id)
         WayPoint *wp = ai->getWayPoint(wp_id);
         if(!wp)
         {
-            sLog.outDebug("Database: Invalid WP %u specified for spawnid %u.", wp_id, TO_CREATURE(this)->GetSQL_id());
+            sLog.outDebug("Database: Invalid WP %u specified for spawnid %u.", wp_id, castPtr<Creature>(this)->GetSQL_id());
             return;
         }
 
@@ -3117,7 +3118,7 @@ void Unit::RemoveAllAreaAuras()
     }
 }
 */
-uint32 Unit::AbsorbDamage( Object* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell )
+uint32 Unit::AbsorbDamage( WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell )
 {
     if( dmg == 0 || Attacker == NULL  || School > 6 )
         return 0;
@@ -3156,7 +3157,7 @@ uint32 Unit::AbsorbDamage( Object* Attacker, uint32 School, int32 dmg, SpellEntr
         if(reflect_pct > 0.f && Attacker && Attacker->IsUnit() )
         {
             int32 amt = float2int32(abs * reflect_pct);
-            DealDamage( TO_UNIT( Attacker ), amt, 0, 0, 0 );
+            DealDamage( castPtr<Unit>( Attacker ), amt, 0, 0, 0 );
         }
     }
 
@@ -3218,7 +3219,7 @@ void Unit::SetStandState(uint8 standstate)
         m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_STAND_UP);
 
     if( m_objectTypeId == TYPEID_PLAYER )
-        TO_PLAYER(this)->GetSession()->OutPacket( SMSG_STANDSTATE_UPDATE, 1, &standstate );
+        castPtr<Player>(this)->GetSession()->OutPacket( SMSG_STANDSTATE_UPDATE, 1, &standstate );
 }
 
 void Unit::UpdateSpeed()
@@ -3245,12 +3246,12 @@ void Unit::UpdateSpeed()
 
         if(pUnit->IsPlayer())
         {
-            if(TO_PLAYER(pUnit)->m_changingMaps)
-                TO_PLAYER(pUnit)->resend_speed = true;
+            if(castPtr<Player>(pUnit)->m_changingMaps)
+                castPtr<Player>(pUnit)->resend_speed = true;
             else
             {
-                TO_PLAYER(pUnit)->SetPlayerSpeed(RUN, m_runSpeed);
-                TO_PLAYER(pUnit)->SetPlayerSpeed(FLY, m_flySpeed);
+                castPtr<Player>(pUnit)->SetPlayerSpeed(RUN, m_runSpeed);
+                castPtr<Player>(pUnit)->SetPlayerSpeed(FLY, m_flySpeed);
             }
         }
     }
@@ -3261,8 +3262,8 @@ void Unit::UpdateSpeed()
 
     if(IsPlayer())
     {
-        if(TO_PLAYER(this)->m_changingMaps)
-            TO_PLAYER(this)->resend_speed = true;
+        if(castPtr<Player>(this)->m_changingMaps)
+            castPtr<Player>(this)->resend_speed = true;
     }
 }
 
@@ -3276,8 +3277,8 @@ void Unit::EventSummonPetExpire()
             if(!spInfo)
                 return;
 
-            Spell* sp = NULLSPELL;
-            sp = (new Spell(summonPet,spInfo,true,NULLAURA));
+            Spell* sp = NULL;
+            sp = (new Spell(summonPet,spInfo,true,NULL));
             SpellCastTargets tgt;
             tgt.m_unitTarget=summonPet->GetGUID();
             sp->prepare(&tgt);
@@ -3297,7 +3298,7 @@ void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forced
     if( Sp == NULL )
         return;
 
-    Spell* newSpell = new Spell(this, Sp, triggered, NULLAURA);
+    Spell* newSpell = new Spell(this, Sp, triggered, NULL);
     SpellCastTargets targets(0);
     if(Target)
     {
@@ -3327,8 +3328,8 @@ void Unit::CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered, uint32 f
         return;
 
     SpellCastTargets targets(targetGuid);
-    Spell* newSpell = NULLSPELL;
-    newSpell = (new Spell(TO_UNIT(this), Sp, triggered, NULLAURA));
+    Spell* newSpell = NULL;
+    newSpell = (new Spell(castPtr<Unit>(this), Sp, triggered, NULL));
     if(forcedCastTime)
         newSpell->m_ForcedCastTime = forcedCastTime;
 
@@ -3358,7 +3359,7 @@ uint8 Unit::CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered,
     targets.m_destY = y;
     targets.m_destZ = z;
     targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-    Spell* newSpell = new Spell(TO_UNIT(this), Sp, triggered, NULLAURA);
+    Spell* newSpell = new Spell(castPtr<Unit>(this), Sp, triggered, NULL);
     if(forcedCastTime)
         newSpell->m_ForcedCastTime = forcedCastTime;
 
@@ -3378,7 +3379,7 @@ void Unit::Root()
 
     if(m_objectTypeId == TYPEID_PLAYER)
     {
-        TO_PLAYER(this)->SetMovement(MOVE_ROOT, 1);
+        castPtr<Player>(this)->SetMovement(MOVE_ROOT, 1);
     }
     else
     {
@@ -3393,7 +3394,7 @@ void Unit::UnRoot()
 
     if(m_objectTypeId == TYPEID_PLAYER)
     {
-        TO_PLAYER(this)->SetMovement(MOVE_UNROOT, 5);
+        castPtr<Player>(this)->SetMovement(MOVE_UNROOT, 5);
     }
     else
     {
@@ -3417,7 +3418,7 @@ void Unit::RemoveFromWorld(bool free_guid)
         else
             GetVehicle()->DeletePassengerData(this);
 
-        SetVehicle(NULLVEHICLE);
+        SetVehicle(NULL);
     }
 
     if(GetInRangePlayersCount())
@@ -3440,7 +3441,7 @@ void Unit::RemoveFromWorld(bool free_guid)
     if(m_currentSpell != NULL)
     {
         m_currentSpell->cancel();
-        m_currentSpell = NULLSPELL;
+        m_currentSpell = NULL;
     }
 
     for(std::set<Spell*>::iterator itr = DelayedSpells.begin(), itr2; itr != DelayedSpells.end(); itr)
@@ -3448,14 +3449,14 @@ void Unit::RemoveFromWorld(bool free_guid)
     DelayedSpells.clear();
 
     CombatStatus.OnRemoveFromWorld();
-    Object::RemoveFromWorld(free_guid);
+    WorldObject::RemoveFromWorld(free_guid);
     m_aiInterface->WipeReferences();
     m_AuraInterface.RelocateEvents(); // Relocate our aura's (must be done after object is removed from world
 }
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
-    Object::SetPosition(newX, newY, newZ, newOrientation);
+    WorldObject::SetPosition(newX, newY, newZ, newOrientation);
     movement_info.SetPosition(newX, newY, newZ, newOrientation);
 }
 
@@ -3569,7 +3570,7 @@ bool Unit::IsPoisoned()
 void Unit::EnableFlight()
 {
     WorldPacket data(SMSG_MOVE_SET_CAN_FLY, 12);
-    data << GetNewGUID();
+    data << GetGUID();
     data << uint32(2);
     SendMessageToSet(&data, true);
 
@@ -3581,17 +3582,17 @@ void Unit::EnableFlight()
 
     if( IsPlayer() )
     {
-        TO_PLAYER(this)->FlyCheat = true;
-        TO_PLAYER(this)->GetSession()->m_isFalling = false;
-        TO_PLAYER(this)->GetSession()->m_isJumping = false;
-        TO_PLAYER(this)->GetSession()->m_isKnockedback = false;
+        castPtr<Player>(this)->FlyCheat = true;
+        castPtr<Player>(this)->GetSession()->m_isFalling = false;
+        castPtr<Player>(this)->GetSession()->m_isJumping = false;
+        castPtr<Player>(this)->GetSession()->m_isKnockedback = false;
     }
 }
 
 void Unit::DisableFlight()
 {
     WorldPacket data(SMSG_MOVE_UNSET_CAN_FLY, 13);
-    data << GetNewGUID();
+    data << GetGUID();
     data << uint32(5);
     SendMessageToSet(&data, true);
 
@@ -3603,8 +3604,8 @@ void Unit::DisableFlight()
 
     if( IsPlayer() )
     {
-        TO_PLAYER(this)->FlyCheat = false;
-        TO_PLAYER(this)->z_axisposition = 0.0f;
+        castPtr<Player>(this)->FlyCheat = false;
+        castPtr<Player>(this)->z_axisposition = 0.0f;
     }
 }
 
@@ -3616,7 +3617,7 @@ void Unit::EventRegainFlight()
             sEventMgr.RemoveEvents(this,EVENT_REGAIN_FLIGHT);
         return;
     }
-    Player * plr = TO_PLAYER(this);
+    Player * plr = castPtr<Player>(this);
 
     if(!plr->m_FlyingAura)
     {
@@ -3643,13 +3644,13 @@ void Unit::UpdateVisibility()
     bool can_see;
     bool is_visible;
     Player* pl;
-    Object* pObj;
+    WorldObject* pObj;
     Player* plr;
 
     if( m_objectTypeId == TYPEID_PLAYER )
     {
-        plr = TO_PLAYER(this);
-        for( Object::InRangeSet::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
+        plr = castPtr<Player>(this);
+        for( WorldObject::InRangeSet::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
         {
             pObj = (*itr);
             ++itr;
@@ -3677,7 +3678,7 @@ void Unit::UpdateVisibility()
 
             if( pObj->IsPlayer() )
             {
-                pl = TO_PLAYER( pObj );
+                pl = castPtr<Player>( pObj );
                 can_see = pl->CanSee( plr );
                 is_visible = pl->GetVisibility( plr, &it3 );
                 if( can_see )
@@ -3705,8 +3706,8 @@ void Unit::UpdateVisibility()
     {
         for(unordered_set<Player*  >::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
         {
-            can_see = (*it2)->CanSee(TO_OBJECT(this));
-            is_visible = (*it2)->GetVisibility(TO_OBJECT(this), &itr);
+            can_see = (*it2)->CanSee(this);
+            is_visible = (*it2)->GetVisibility(this, &itr);
             if(!can_see)
             {
                 if(is_visible)
@@ -3722,7 +3723,7 @@ void Unit::UpdateVisibility()
                     buf.clear();
                     count = BuildCreateUpdateBlockForPlayer(&buf, *it2);
                     (*it2)->PushUpdateBlock(&buf, count);
-                    (*it2)->AddVisibleObject(TO_OBJECT(this));
+                    (*it2)->AddVisibleObject(this);
                 }
             }
         }
@@ -3807,8 +3808,7 @@ bool Unit::GetSpeedDecrease()
 
 void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
 {
-    Spell* pSpell = NULLSPELL;
-    pSpell = (new Spell(TO_OBJECT(this), Sp, true, NULLAURA));
+    Spell* pSpell = new Spell(this, Sp, true, NULL);
     SpellCastTargets targets(Target->GetGUID());
     pSpell->prepare(&targets);
 }
@@ -3818,7 +3818,7 @@ void Unit::SetFacing(float newo)
     SetOrientation(newo);
     /*WorldPacket data(40);
     data.SetOpcode(MSG_MOVE_SET_FACING);
-    data << GetNewGUID();
+    data << GetGUID();
     data << (uint32)0; //flags
     data << (uint32)0; //time
     data << GetPositionX() << GetPositionY() << GetPositionZ() << newo;
@@ -3826,7 +3826,7 @@ void Unit::SetFacing(float newo)
     SendMessageToSet( &data, false );*/
 
     /*WorldPacket data(SMSG_MONSTER_MOVE, 60);
-    data << GetNewGUID();
+    data << GetGUID();
     data << m_position << getMSTime();
     data << uint8(4) << newo;
     data << uint32(0x00000000);     // flags
@@ -3843,7 +3843,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     if(ctrData == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);
-        return NULLUNIT;
+        return NULL;
     }
 
     LocationVector v = GetPositionNC();
@@ -3852,8 +3852,8 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     float y = v.y +(3*(sinf(m_followAngle)));
 
     Creature* p = GetMapMgr()->CreateCreature(guardian_entry);
-    if(p == NULLCREATURE)
-        return NULLUNIT;
+    if(p == NULL)
+        return NULL;
 
     p->SetInstanceID(GetMapMgr()->GetInstanceID());
     p->Load(GetMapMgr()->iInstanceMode, x, y, v.z, angle);
@@ -3880,8 +3880,8 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     p->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     p->_setFaction();
 
-    p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,TO_UNIT(this));
-    p->GetAIInterface()->SetUnitToFollow(TO_UNIT(this));
+    p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,castPtr<Unit>(this));
+    p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
     p->GetAIInterface()->SetUnitToFollowAngle(angle);
     p->GetAIInterface()->SetFollowDistance(3.0f);
 
@@ -3890,7 +3890,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     if(duration)
         sEventMgr.AddEvent(this, &Unit::SummonExpireSlot, Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 
-    return TO_UNIT(p);
+    return castPtr<Unit>(p);
 
 }
 
@@ -3898,12 +3898,12 @@ void Unit::SummonExpireAll(bool clearowner)
 {
     //Should be done allready, but better check if all summoned Creatures/Totems/GO's are removed;
     //empty our owners summonslot first (if possible).
-    if(clearowner && IsCreature() && TO_CREATURE(this)->IsSummon())
+    if(clearowner && IsCreature() && castPtr<Creature>(this)->IsSummon())
     {
         Unit * Owner = NULL;
         if(Owner != NULL)
         {
-            uint8 slot = TO_SUMMON(this)->GetSummonSlot();
+            uint8 slot = castPtr<Summon>(this)->GetSummonSlot();
             Owner->SummonExpireSlot(slot);
         }
     }
@@ -3917,7 +3917,7 @@ void Unit::SummonExpireAll(bool clearowner)
     {
         if(m_mapMgr != NULL && m_ObjectSlots[x])
         {
-            GameObject* obj = NULLGOB;
+            GameObject* obj = NULL;
             obj = m_mapMgr->GetGameObject(m_ObjectSlots[x]);
             if(obj != NULL)
                 obj->ExpireAndDelete();
@@ -3937,7 +3937,7 @@ void Unit::FillSummonList(std::vector<Creature*> &summonList, uint8 summonType)
             // Should never happen
             if(!(*itr2)->IsSummon())
                 continue;
-            Summon* summon = TO_SUMMON(*itr2);
+            Summon* summon = castPtr<Summon>(*itr2);
             if(summonType == 0xFF || summon->GetSummonType() == summonType)
                 summonList.push_back(*itr2);
         }
@@ -3976,10 +3976,10 @@ void Unit::SummonExpireSlot(uint8 Slot)
             mSum = *itr;
             if(mSum->IsPet())
             {
-                if(TO_PET(mSum)->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-                    TO_PET(mSum)->Dismiss(false);               // warlock summon -> dismiss
+                if(castPtr<Pet>(mSum)->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
+                    castPtr<Pet>(mSum)->Dismiss(false);               // warlock summon -> dismiss
                 else
-                    TO_PET(mSum)->Remove(false, true, true);    // hunter pet -> just remove for later re-call
+                    castPtr<Pet>(mSum)->Remove(false, true, true);    // hunter pet -> just remove for later re-call
             }
             else
             {
@@ -3999,7 +3999,7 @@ float Unit::CalculateDazeCastChance(Unit* target)
     float attack_skill = float( getLevel() ) * 5.0f;
     float defense_skill;
     if( target->IsPlayer() )
-        defense_skill = float( TO_PLAYER( target )->_GetSkillLineCurrent( SKILL_DEFENSE, false ) );
+        defense_skill = float( castPtr<Player>( target )->_GetSkillLineCurrent( SKILL_DEFENSE, false ) );
     else defense_skill = float( target->getLevel() * 5 );
     if( !defense_skill )
         defense_skill = 1;
@@ -4215,7 +4215,7 @@ Unit* CombatStatusHandler::GetKiller()
 {
     // No killer
     if(DamageMap.size() == 0)
-        return NULLUNIT;
+        return NULL;
 
     map<uint64,uint32>::iterator itr = DamageMap.begin();
     uint64 killer_guid = 0;
@@ -4230,9 +4230,9 @@ Unit* CombatStatusHandler::GetKiller()
     }
 
     if( killer_guid == 0 )
-        return NULLUNIT;
+        return NULL;
 
-    return (m_Unit->IsInWorld()) ? m_Unit->GetMapMgr()->GetUnit(killer_guid) : NULLUNIT;
+    return (m_Unit->IsInWorld()) ? m_Unit->GetMapMgr()->GetUnit(killer_guid) : NULL;
 }
 
 void CombatStatusHandler::Vanish(uint32 guidLow)
@@ -4439,26 +4439,9 @@ void Creature::ClearTag()
 
         // if we are alive, means that we left combat
         if( IsInWorld() )
-            UpdateLootAnimation(NULLPLR);
+            UpdateLootAnimation(NULL);
     }
     // dead, don't clear tag
-}
-
-void Object::ClearLoot()
-{
-    // better cancel any rolls just in case.
-    for(vector<__LootItem>::iterator itr = m_loot.items.begin(); itr != m_loot.items.end(); itr++)
-    {
-        if( itr->roll != NULL )
-        {
-            sEventMgr.RemoveEvents(itr->roll);
-            itr->roll = NULLROLL; // buh-bye!
-        }
-    }
-
-    m_loot.gold = 0;
-    m_loot.items.clear();
-    m_loot.looters.clear();
 }
 
 void Creature::Tag(Player* plr)
@@ -4507,7 +4490,7 @@ void Unit::EventStunOrImmobilize()
         if( trigger_on_stun_chance < 100 && !Rand( trigger_on_stun_chance ) )
             return;
 
-        CastSpell(TO_UNIT(this), trigger_on_stun, true);
+        CastSpell(castPtr<Unit>(this), trigger_on_stun, true);
     }
 }
 
@@ -4525,7 +4508,7 @@ void Unit::SendPowerUpdate(EUnitFields powerField)
 
     uint32 updateCount = 1;
     WorldPacket data(SMSG_POWER_UPDATE, 20);
-    data << GetNewGUID();
+    data << GetGUID();
     data << uint32(updateCount); // iteration count
     for (int32 i = 0; i < updateCount; ++i)
     {
@@ -4541,7 +4524,7 @@ uint32 Unit::DoDamageSplitTarget(uint32 res, uint32 school_type, bool melee_dmg)
         return 0;
 
     DamageSplitTarget * ds = &m_damageSplitTarget;
-    if( Unit *splitTarget = (IsInWorld() ? GetMapMgr()->GetUnit(ds->m_target) : NULLUNIT) )
+    if( Unit *splitTarget = (IsInWorld() ? GetMapMgr()->GetUnit(ds->m_target) : NULL) )
     {
         // calculate damage
         uint32 tmpsplit = ds->m_flatDamageSplit;
@@ -4567,7 +4550,7 @@ uint32 Unit::DoDamageSplitTarget(uint32 res, uint32 school_type, bool melee_dmg)
                 sdmg.resisted_damage = 0;
                 sdmg.school_type = school_type;
                 SendAttackerStateUpdate(splitTarget, &sdmg, splitdamage, 0, 0, 0, ATTACK);
-            } else SendSpellNonMeleeDamageLog(TO_UNIT(this), splitTarget, ds->m_spellId, splitdamage, school_type, 0, 0, true, 0, 0, true);
+            } else SendSpellNonMeleeDamageLog(castPtr<Unit>(this), splitTarget, ds->m_spellId, splitdamage, school_type, 0, 0, true, 0, 0, true);
         }
     }
 
@@ -4667,7 +4650,7 @@ void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
         if (apply)
         {
             if (itr->second->self)
-                CastSpell(TO_UNIT(this), itr->second->spell, true);
+                CastSpell(castPtr<Unit>(this), itr->second->spell, true);
             else if (m_target)
                 m_target->CastSpell(m_target, itr->second->spell, true);
         }
@@ -4684,7 +4667,7 @@ void Unit::SetPvPFlag()
 {
     // reset the timer as well..
     if(IsPlayer())
-        TO_PLAYER(this)->StopPvPTimer();
+        castPtr<Player>(this)->StopPvPTimer();
 
     SetByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
@@ -4693,7 +4676,7 @@ void Unit::SetPvPFlag()
 void Unit::RemovePvPFlag()
 {
     if(IsPlayer())
-        TO_PLAYER(this)->StopPvPTimer();
+        castPtr<Player>(this)->StopPvPTimer();
     RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
 
@@ -4856,7 +4839,7 @@ void Unit::RemoveFFAPvPFlag()
 
 void Unit::OnPositionChange()
 {
-    if (GetVehicle() != NULL && GetVehicle()->GetControllingUnit() == TO_UNIT(this) && (m_position != GetVehicle()->GetPosition() || GetOrientation() != GetVehicle()->GetOrientation())) //check orientation too since == operator of locationvector doesnt
+    if (GetVehicle() != NULL && GetVehicle()->GetControllingUnit() == castPtr<Unit>(this) && (m_position != GetVehicle()->GetPosition() || GetOrientation() != GetVehicle()->GetOrientation())) //check orientation too since == operator of locationvector doesnt
     {
         GetVehicle()->MoveVehicle(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
     }
@@ -4866,7 +4849,7 @@ void Unit::Dismount()
 {
     if(IsPlayer())
     {
-        Player* plr = TO_PLAYER(this);
+        Player* plr = castPtr<Player>(this);
         if( plr->m_MountSpellId )
         {
             m_AuraInterface.RemoveAllAuras( plr->m_MountSpellId);
@@ -4891,16 +4874,16 @@ void Unit::SetFaction(uint32 faction, bool save)
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, faction);
     _setFaction();
 
-    if(save && IsCreature() && TO_CREATURE(this)->IsSpawn())
-        TO_CREATURE(this)->SaveToDB();
+    if(save && IsCreature() && castPtr<Creature>(this)->IsSpawn())
+        castPtr<Creature>(this)->SaveToDB();
 }
 
 void Unit::ResetFaction()
 {
     uint32 faction = 35;
     if(IsPlayer())
-        faction = TO_PLAYER(this)->GetInfo()->factiontemplate;
-    else if(IsCreature()) faction = TO_CREATURE(this)->GetCreatureData()->Faction;
+        faction = castPtr<Player>(this)->GetInfo()->factiontemplate;
+    else if(IsCreature()) faction = castPtr<Creature>(this)->GetCreatureData()->Faction;
 
     SetFaction(faction);
 }
@@ -4946,13 +4929,13 @@ void Unit::knockback(int32 basepoint, uint32 miscvalue, bool disengage )
     else if(IsPlayer())
     {
         WorldPacket data(SMSG_MOVE_KNOCK_BACK, 50);
-        data << GetNewGUID();
+        data << GetGUID();
         data << uint32( getMSTime() );
         data << float( multiplier * dy );
         data << float( multiplier * dx );
         data << float( value1 );
         data << float( -value2 );
-        Player *plr = TO_PLAYER(this);
+        Player *plr = castPtr<Player>(this);
         plr->GetSession()->SendPacket( &data );
         plr->ResetHeartbeatCoords();
         plr->DelaySpeedHack(5000);
@@ -4968,11 +4951,11 @@ void Unit::knockback(int32 basepoint, uint32 miscvalue, bool disengage )
 void Unit::Teleport(float x, float y, float z, float o, int32 phasemask)
 {
     if(IsPlayer())
-        TO_PLAYER(this)->SafeTeleport(GetMapId(), GetInstanceID(), x, y, z, o, phasemask);
+        castPtr<Player>(this)->SafeTeleport(GetMapId(), GetInstanceID(), x, y, z, o, phasemask);
     else
     {
         WorldPacket data(SMSG_MONSTER_MOVE, 50);
-        data << GetNewGUID();
+        data << GetGUID();
         data << uint8(0);
         data << GetPositionX();
         data << GetPositionY();
@@ -5000,7 +4983,7 @@ void Unit::SetRedirectThreat(Unit * target, float amount, uint32 Duration)
 
 void Unit::EventResetRedirectThreat()
 {
-    mThreatRTarget = NULLUNIT;
+    mThreatRTarget = NULL;
     mThreatRAmount = 0.0f;
     sEventMgr.RemoveEvents(this,EVENT_RESET_REDIRECT_THREAT);
 }
@@ -5014,7 +4997,7 @@ void Unit::SetSpeed(uint8 SpeedType, float value)
 
     if( SpeedType != SWIMBACK )
     {
-        data << GetNewGUID();
+        data << GetGUID();
         data << uint32(0);
         if( SpeedType == RUN )
             data << uint8(1);
@@ -5023,7 +5006,7 @@ void Unit::SetSpeed(uint8 SpeedType, float value)
     }
     else
     {
-        data << GetNewGUID();
+        data << GetGUID();
         data << uint32(0);
         data << uint8(0);
         data << uint32(getMSTime());
@@ -5086,7 +5069,7 @@ void Unit::SetSpeed(uint8 SpeedType, float value)
 void Unit::SendHeartBeatMsg( bool toself )
 {
     WorldPacket data(MSG_MOVE_HEARTBEAT, 64);
-    data << GetNewGUID();
+    data << GetGUID();
     movement_info.write(data);
     SendMessageToSet(&data, toself);
 }
@@ -5095,7 +5078,7 @@ uint32 Unit::GetCreatureType()
 {
     if(IsCreature())
     {
-        CreatureData * ci = TO_CREATURE(this)->GetCreatureData();
+        CreatureData * ci = castPtr<Creature>(this)->GetCreatureData();
         if(ci && ci->Type)
             return ci->Type;
         else
@@ -5103,7 +5086,7 @@ uint32 Unit::GetCreatureType()
     }
     if(IsPlayer())
     {
-        Player *plr = TO_PLAYER(this);
+        Player *plr = castPtr<Player>(this);
         if(plr->GetShapeShift())
         {
             SpellShapeshiftFormEntry* ssf = dbcSpellShapeshiftForm.LookupEntry(plr->GetShapeShift());
@@ -5121,7 +5104,7 @@ void Unit::RemovePassenger(Unit* pPassenger)
     if(IsVehicle())
         TO_VEHICLE(this)->RemovePassenger(pPassenger);
     if(IsPlayer())
-        TO_PLAYER(this)->RemovePassenger(pPassenger);
+        castPtr<Player>(this)->RemovePassenger(pPassenger);
 }
 
 void Unit::ChangeSeats(Unit* pPassenger, uint8 seatid)
@@ -5129,7 +5112,7 @@ void Unit::ChangeSeats(Unit* pPassenger, uint8 seatid)
     if(IsVehicle())
         TO_VEHICLE(this)->ChangeSeats(pPassenger, seatid);
     if(IsPlayer())
-        TO_PLAYER(this)->ChangeSeats(pPassenger, seatid);
+        castPtr<Player>(this)->ChangeSeats(pPassenger, seatid);
 }
 
 /* This function changes a vehicles position server side to
@@ -5221,7 +5204,7 @@ bool Unit::CanEnterVehicle(Player * requester)
 
     if(IsPlayer())
     {
-        Player * p = TO_PLAYER(this);
+        Player * p = castPtr<Player>(this);
 
         if(p->GetVehicleEntry() == 0)
             return false;

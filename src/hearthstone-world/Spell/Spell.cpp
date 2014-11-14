@@ -67,7 +67,7 @@ int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, Unit* u_caster, Unit* unitTa
             //combo point lolerCopter? ;P
             if(u_caster->IsPlayer() && sd->Duration3)
             {
-                uint32 cp = TO_PLAYER(u_caster)->m_comboPoints;
+                uint32 cp = castPtr<Player>(u_caster)->m_comboPoints;
                 if(cp)
                 {
                     uint32 bonus = (cp*(sd->Duration3-sd->Duration1))/5;
@@ -102,13 +102,13 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
         m_unitTarget = caster;
 
     if( m_targetMask & (TARGET_FLAG_OBJECT | TARGET_FLAG_UNIT | TARGET_FLAG_CORPSE | TARGET_FLAG_CORPSE2 ) )
-        m_unitTarget = data.unpackguid();
+        data >> m_unitTarget.asPacked();
     else if( m_targetMask & ( TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM ) )
-        m_unitTarget = data.unpackguid();
+        data >> m_unitTarget.asPacked();
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
     {
-        data >> m_src_transGuid >> m_srcX >> m_srcY >> m_srcZ;
+        data >> WoWGuidPacked(&m_src_transGuid) >> m_srcX >> m_srcY >> m_srcZ;
         if( !( m_targetMask & TARGET_FLAG_DEST_LOCATION ) )
         {
             m_dest_transGuid = m_src_transGuid;
@@ -120,7 +120,7 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
 
     if( m_targetMask & TARGET_FLAG_DEST_LOCATION )
     {
-        data >> m_dest_transGuid >> m_destX >> m_destY >> m_destZ;
+        data >> WoWGuidPacked(&m_dest_transGuid) >> m_destX >> m_destY >> m_destZ;
         if( !( m_targetMask & TARGET_FLAG_SOURCE_LOCATION ) )
         {
             m_src_transGuid = m_dest_transGuid;
@@ -166,7 +166,7 @@ void SpellCastTargets::write( WorldPacket& data )
         data << m_strTarget;
 }
 
-Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
+Spell::Spell(WorldObject* Caster, SpellEntry *info, bool triggered, Aura* aur)
 {
     ASSERT( Caster != NULL && info != NULL );
 
@@ -183,11 +183,11 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
     {
     case TYPEID_PLAYER:
         {
-            g_caster = NULLGOB;
-            i_caster = NULLITEM;
-            u_caster = TO_UNIT( Caster );
-            p_caster = TO_PLAYER( Caster );
-            v_caster = NULLVEHICLE;
+            g_caster = NULL;
+            i_caster = NULL;
+            u_caster = castPtr<Unit>( Caster );
+            p_caster = castPtr<Player>( Caster );
+            v_caster = NULL;
             if(Caster->IsVehicle())
                 v_caster = TO_VEHICLE( Caster );
             if( p_caster->GetDuelState() == DUEL_STATE_STARTED )
@@ -196,40 +196,40 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
 
     case TYPEID_UNIT:
         {
-            g_caster = NULLGOB;
-            i_caster = NULLITEM;
-            p_caster = NULLPLR;
-            v_caster = NULLVEHICLE;
-            u_caster = TO_UNIT( Caster );
+            g_caster = NULL;
+            i_caster = NULL;
+            p_caster = NULL;
+            v_caster = NULL;
+            u_caster = castPtr<Unit>( Caster );
             if(Caster->IsVehicle())
             {
                 v_caster = TO_VEHICLE( Caster );
                 if(!p_caster)
                     p_caster = v_caster->m_redirectSpellPackets;
             }
-            if( u_caster->IsPet() && TO_PET( u_caster)->GetPetOwner() != NULL && TO_PET( u_caster )->GetPetOwner()->GetDuelState() == DUEL_STATE_STARTED )
+            if( u_caster->IsPet() && castPtr<Pet>( u_caster)->GetPetOwner() != NULL && castPtr<Pet>( u_caster )->GetPetOwner()->GetDuelState() == DUEL_STATE_STARTED )
                 duelSpell = true;
         }break;
 
     case TYPEID_ITEM:
     case TYPEID_CONTAINER:
         {
-            g_caster = NULLGOB;
-            u_caster = NULLUNIT;
-            p_caster = NULLPLR;
-            v_caster = NULLVEHICLE;
-            i_caster = TO_ITEM( Caster );
+            g_caster = NULL;
+            u_caster = NULL;
+            p_caster = NULL;
+            v_caster = NULL;
+            i_caster = castPtr<Item>( Caster );
             if( i_caster->GetOwner() && i_caster->GetOwner()->GetDuelState() == DUEL_STATE_STARTED )
                 duelSpell = true;
         }break;
 
     case TYPEID_GAMEOBJECT:
         {
-            u_caster = NULLUNIT;
-            p_caster = NULLPLR;
-            v_caster = NULLVEHICLE;
-            i_caster = NULLITEM;
-            g_caster = TO_GAMEOBJECT( Caster );
+            u_caster = NULL;
+            p_caster = NULL;
+            v_caster = NULL;
+            i_caster = NULL;
+            g_caster = castPtr<GameObject>( Caster );
         }break;
 
     default:
@@ -261,10 +261,10 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
 
     cancastresult = SPELL_CANCAST_OK;
 
-    unitTarget = NULLUNIT;
-    itemTarget = NULLITEM;
-    gameObjTarget = NULLGOB;
-    playerTarget = NULLPLR;
+    unitTarget = NULL;
+    itemTarget = NULL;
+    gameObjTarget = NULL;
+    playerTarget = NULL;
     corpseTarget = NULLCORPSE;
     damage = 0;
     add_damage = 0;
@@ -275,7 +275,7 @@ Spell::Spell(Object* Caster, SpellEntry *info, bool triggered, Aura* aur)
     m_cancelled = false;
     ProcedOnSpell = NULL;
     extra_cast_number = 0;
-    m_reflectedParent = NULLSPELL;
+    m_reflectedParent = NULL;
     m_isCasting = false;
     m_hitTargetCount = 0;
     m_missTargetCount = 0;
@@ -291,26 +291,26 @@ Spell::~Spell()
 void Spell::Destruct()
 {
     if( u_caster != NULL && u_caster->GetCurrentSpell() == this )
-        u_caster->SetCurrentSpell(NULLSPELL);
+        u_caster->SetCurrentSpell(NULL);
     for(std::map<uint64, Aura*>::iterator itr = m_tempAuras.begin(); itr != m_tempAuras.end(); itr++)
         delete itr->second;
     m_tempAuras.clear();
 
-    v_caster = NULLVEHICLE;
-    g_caster = NULLGOB;
-    u_caster = NULLUNIT;
-    i_caster = NULLITEM;
-    p_caster = NULLPLR;
-    m_caster = NULLOBJ;
-    v_caster = NULLVEHICLE;
-    m_triggeredByAura = NULLAURA;
-    unitTarget = NULLUNIT;
-    itemTarget = NULLITEM;
-    gameObjTarget = NULLGOB;
-    playerTarget = NULLPLR;
+    v_caster = NULL;
+    g_caster = NULL;
+    u_caster = NULL;
+    i_caster = NULL;
+    p_caster = NULL;
+    m_caster = NULL;
+    v_caster = NULL;
+    m_triggeredByAura = NULL;
+    unitTarget = NULL;
+    itemTarget = NULL;
+    gameObjTarget = NULL;
+    playerTarget = NULL;
     corpseTarget = NULLCORPSE;
-    m_magnetTarget = NULLUNIT;
-    m_reflectedParent = NULLSPELL;
+    m_magnetTarget = NULL;
+    m_reflectedParent = NULL;
     EventableObject::Destruct();
 }
 
@@ -358,16 +358,16 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
     //InStealth()
     float r = range * range;
     //uint8 did_hit_result;
-    for(unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
         // don't add objects that are units and dead
-        if( (*itr)->IsUnit() && !(TO_UNIT( *itr )->isAlive()))
+        if( (*itr)->IsUnit() && !(castPtr<Unit>( *itr )->isAlive()))
             continue;
 
-        //TO_UNIT(*itr)->InStealth()
+        //castPtr<Unit>(*itr)->InStealth()
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
-            Unit* Target = TO_UNIT((*itr));
+            Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
                 continue;
         }
@@ -378,9 +378,9 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
             {
                 if( (*itr)->IsUnit() )
                 {
-                    if( sFactionSystem.isAttackable( u_caster, TO_UNIT( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                     {
-                        _AddTarget((TO_UNIT(*itr)), i);
+                        _AddTarget((castPtr<Unit>(*itr)), i);
                     }
                 }
                 else if((*itr)->IsGameObject())
@@ -392,9 +392,9 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
             {
                 if( (*itr)->IsUnit() )
                 {
-                    if( sFactionSystem.isAttackable( u_caster, TO_UNIT( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                     {
-                        _AddTarget((TO_UNIT(*itr)), i);
+                        _AddTarget((castPtr<Unit>(*itr)), i);
                     }
                 }
             }
@@ -404,8 +404,8 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
                 {
                     if((*itr)->IsUnit())
                     {   //trap, check not to attack owner and friendly
-                        if(sFactionSystem.isAttackable(g_caster->m_summoner,TO_UNIT(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                            _AddTarget((TO_UNIT(*itr)), i);
+                        if(sFactionSystem.isAttackable(g_caster->m_summoner,castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                            _AddTarget((castPtr<Unit>(*itr)), i);
                     }
                 }
                 else
@@ -435,17 +435,17 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
     //TargetsList *tmpMap=&m_targetUnits[i];
     float r = range*range;
     uint32 placeholder = 0;
-    vector<Object*> ChainTargetContainer;
+    vector<WorldObject*> ChainTargetContainer;
 
-    for(unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
         // don't add objects that are units and dead
-        if( (*itr)->IsUnit() && (!(TO_UNIT( *itr )->isAlive())))
+        if( (*itr)->IsUnit() && (!(castPtr<Unit>( *itr )->isAlive())))
             continue;
 
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
-            Unit* Target = TO_UNIT((*itr));
+            Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
                 continue;
         }
@@ -456,7 +456,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
             {
                 if( (*itr)->IsUnit() )
                 {
-                    if( sFactionSystem.isAttackable( m_caster, TO_UNIT( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    if( sFactionSystem.isAttackable( m_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                     {
                         ChainTargetContainer.push_back(*itr);
                         placeholder++;
@@ -472,7 +472,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
             {
                 if( (*itr)->IsUnit() )
                 {
-                    if( sFactionSystem.isAttackable( u_caster, TO_UNIT( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                     {
                         ChainTargetContainer.push_back(*itr);
                         placeholder++;
@@ -485,7 +485,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
                 {
                     if((*itr)->IsUnit())
                     {   //trap, check not to attack owner and friendly
-                        if(sFactionSystem.isAttackable(g_caster->m_summoner,TO_UNIT(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                        if(sFactionSystem.isAttackable(g_caster->m_summoner,castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                         {
                             ChainTargetContainer.push_back(*itr);
                             placeholder++;
@@ -507,7 +507,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 
     if(MaxTargets != -1)
     {
-        Object* chaintarget = NULL;
+        WorldObject* chaintarget = NULL;
         while(MaxTargets && ChainTargetContainer.size())
         {
             placeholder = (rand()%ChainTargetContainer.size());
@@ -522,7 +522,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
     }
     else
     {
-        for(vector<Object*>::iterator itr = ChainTargetContainer.begin(); itr != ChainTargetContainer.end(); itr++)
+        for(vector<WorldObject*>::iterator itr = ChainTargetContainer.begin(); itr != ChainTargetContainer.end(); itr++)
             _AddTargetForced((*itr), i);
     }
     ChainTargetContainer.clear();
@@ -533,10 +533,10 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
 {
     float r = range*range;
 
-    for( unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for( unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
         if((*itr)->IsUnit())
-            if( (!(TO_UNIT(*itr)->isAlive())) || ( (*itr)->IsCreature() && TO_CREATURE(*itr)->IsTotem() ))
+            if( (!(castPtr<Unit>(*itr)->isAlive())) || ( (*itr)->IsCreature() && castPtr<Creature>(*itr)->IsTotem() ))
                 continue;
 
         if((*itr)->PhasedCanInteract(m_caster) == false)
@@ -544,7 +544,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
 
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
-            Unit* Target = TO_UNIT((*itr));
+            Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
                 continue;
         }
@@ -556,7 +556,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
                 if( sFactionSystem.isAttackable( u_caster, (*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
                 {
                     if((*itr)->IsUnit())
-                        _AddTarget((TO_UNIT(*itr)), i);
+                        _AddTarget((castPtr<Unit>(*itr)), i);
                     else
                     {
                         _AddTargetForced((*itr)->GetGUID(), i);
@@ -568,8 +568,8 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
                 if( g_caster != NULL && g_caster->GetUInt32Value( OBJECT_FIELD_CREATED_BY ) && g_caster->m_summoner != NULL )
                 {
                     //trap, check not to attack owner and friendly
-                    if( sFactionSystem.isAttackable( g_caster->m_summoner, TO_UNIT(*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
-                        _AddTarget((TO_UNIT(*itr)), i);
+                    if( sFactionSystem.isAttackable( g_caster->m_summoner, castPtr<Unit>(*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
+                        _AddTarget((castPtr<Unit>(*itr)), i);
                 }
                 else
                     _AddTargetForced((*itr)->GetGUID(), i);
@@ -586,12 +586,12 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 {
     float r = range*range;
 
-    for(unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
         // don't add objects that are units and dead
         if(!(*itr)->IsGameObject())
             continue;
-        GameObject * o = TO_GAMEOBJECT(*itr);
+        GameObject * o = castPtr<GameObject>(*itr);
 
         if( IsInrange( srcx, srcy, srcz, o, r ))
         {
@@ -615,14 +615,14 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for( unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for( unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
-        if( !( (*itr)->IsUnit() ) || !TO_UNIT(*itr)->isAlive() || !(*itr)->PhasedCanInteract(m_caster))
+        if( !( (*itr)->IsUnit() ) || !castPtr<Unit>(*itr)->isAlive() || !(*itr)->PhasedCanInteract(m_caster))
             continue;
 
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
-            Unit* Target = TO_UNIT((*itr));
+            Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
                 continue;
         }
@@ -630,7 +630,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
         {
             if( u_caster != NULL || (g_caster && g_caster->GetType() == GAMEOBJECT_TYPE_TRAP) )
             {
-                if(sFactionSystem.isAttackable(u_caster, TO_UNIT(*itr),!GetSpellProto()->isSpellStealthTargetCapable()) && _DidHit(i, TO_UNIT(*itr), reflect)==SPELL_DID_HIT_SUCCESS)
+                if(sFactionSystem.isAttackable(u_caster, castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable()) && _DidHit(i, castPtr<Unit>(*itr), reflect)==SPELL_DID_HIT_SUCCESS)
                     return (*itr)->GetGUID(); 
             }
             else //cast from GO
@@ -638,7 +638,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
                 if(g_caster && g_caster->GetUInt32Value(OBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
                 {
                     //trap, check not to attack owner and friendly
-                    if( sFactionSystem.isAttackable( g_caster->m_summoner, TO_UNIT(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    if( sFactionSystem.isAttackable( g_caster->m_summoner, castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
                         return (*itr)->GetGUID();
                 }
             }
@@ -661,13 +661,13 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
         }
     }
     float srcx=m_caster->GetPositionX(),srcy=m_caster->GetPositionY(),srcz=m_caster->GetPositionZ();
-    for(unordered_set<Object* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
     {
-        if( !( (*itr)->IsUnit() ) || !TO_UNIT(*itr)->isAlive() )
+        if( !( (*itr)->IsUnit() ) || !castPtr<Unit>(*itr)->isAlive() )
             continue;
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
-            Unit* Target = TO_UNIT((*itr));
+            Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
                 continue;
         }
@@ -675,7 +675,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
         {
             if( u_caster != NULL )
             {
-                if( sFactionSystem.isFriendly( u_caster, TO_UNIT(*itr) ) && _DidHit(i, TO_UNIT(*itr), reflect)==SPELL_DID_HIT_SUCCESS)
+                if( sFactionSystem.isFriendly( u_caster, castPtr<Unit>(*itr) ) && _DidHit(i, castPtr<Unit>(*itr), reflect)==SPELL_DID_HIT_SUCCESS)
                     return (*itr)->GetGUID(); 
             }
             else //cast from GO
@@ -683,7 +683,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
                 if(g_caster && g_caster->GetUInt32Value(OBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
                 {
                     //trap, check not to attack owner and friendly
-                    if( sFactionSystem.isFriendly( g_caster->m_summoner, TO_UNIT(*itr) ) )
+                    if( sFactionSystem.isFriendly( g_caster->m_summoner, castPtr<Unit>(*itr) ) )
                         return (*itr)->GetGUID();
                 }
             }
@@ -794,7 +794,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 if(u_caster->GetUInt64Value(UNIT_FIELD_TARGET))
                 {
                     //generate targets for things like arcane missiles trigger, tame pet, etc
-                    Object* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_TARGET));
+                    WorldObject* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_TARGET));
                     if(target != NULL)
                     {
                         if(target->IsUnit())
@@ -819,7 +819,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 if(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))
                 {
                     //generate targets for things like arcane missiles trigger, tame pet, etc
-                    Object* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
+                    WorldObject* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
                     if(target != NULL)
                     {
                         if(target->IsUnit())
@@ -839,7 +839,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 else if(u_caster->GetUInt64Value(UNIT_FIELD_TARGET))
                 {
                     //generate targets for things like arcane missiles trigger, tame pet, etc
-                    Object* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_TARGET));
+                    WorldObject* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_TARGET));
                     if(target != NULL)
                     {
                         if(target->IsUnit())
@@ -929,7 +929,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
             }
             else if(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT)) //spells like blizzard, rain of fire
             {
-                Object* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
+                WorldObject* target = u_caster->GetMapMgr()->_GetObject(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
                 if(target != NULL)
                 {
                     t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
@@ -1164,7 +1164,7 @@ void Spell::cancel()
                     {
                         dynObj->RemoveFromWorld(true);
                         dynObj->Destruct();
-                        dynObj = NULLOBJ;
+                        dynObj = NULL;
                     }
                 }
 
@@ -1174,7 +1174,7 @@ void Spell::cancel()
                         p_caster->GetSummonedObject()->RemoveFromWorld(true);
                     // for now..
                     ASSERT(p_caster->GetSummonedObject()->GetTypeId() == TYPEID_GAMEOBJECT);
-                    TO_GAMEOBJECT(p_caster->GetSummonedObject())->Destruct();
+                    castPtr<GameObject>(p_caster->GetSummonedObject())->Destruct();
                     p_caster->SetSummonedObject(NULL);
                 }
 
@@ -1213,7 +1213,7 @@ void Spell::cast(bool check)
 {
     if( duelSpell && (
         ( p_caster != NULL && p_caster->GetDuelState() != DUEL_STATE_STARTED ) ||
-        ( u_caster != NULL && u_caster->IsPet() && TO_PET( u_caster )->GetPetOwner() && TO_PET( u_caster )->GetPetOwner()->GetDuelState() != DUEL_STATE_STARTED ) ) )
+        ( u_caster != NULL && u_caster->IsPet() && castPtr<Pet>( u_caster )->GetPetOwner() && castPtr<Pet>( u_caster )->GetPetOwner()->GetDuelState() != DUEL_STATE_STARTED ) ) )
     {
         // Can't cast that!
         SendInterrupted( SPELL_FAILED_TARGET_FRIENDLY );
@@ -1285,7 +1285,7 @@ void Spell::cast(bool check)
             if(TargetType & SPELL_TARGET_AREA_CURTARGET)
             {
                 //this just forces dest as the targets location :P
-                Object* target = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
+                WorldObject* target = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
                 if(target != NULL)
                 {
                     m_targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
@@ -1816,7 +1816,7 @@ void Spell::AddTime(uint32 type)
             }
 
             WorldPacket data(SMSG_SPELL_DELAYED, 13);
-            data << u_caster->GetNewGUID();
+            data << u_caster->GetGUID();
             data << uint32(delay);
             u_caster->SendMessageToSet(&data, true);
 
@@ -1949,7 +1949,7 @@ void Spell::finish()
         }
         if(m_Delayed && p_caster->IsInWorld())
         {
-            Unit* pTarget = NULLUNIT;
+            Unit* pTarget = NULL;
             if((pTarget = p_caster->GetMapMgr()->GetUnit(m_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))) == NULL)
                 pTarget = p_caster->GetMapMgr()->GetUnit(p_caster->GetSelection());
             if(pTarget) pTarget->RemoveAura(GetSpellProto()->Id, m_caster->GetGUID());
@@ -1957,7 +1957,7 @@ void Spell::finish()
     }
 
     if( p_caster != NULL && GetSpellProto()->HasEffect(SPELL_EFFECT_SUMMON_OBJECT) )
-        p_caster->SetSummonedObject(NULLOBJ);
+        p_caster->SetSummonedObject(NULL);
 
     /*
     We set current spell only if this spell has cast time or is channeling spell
@@ -1966,7 +1966,7 @@ void Spell::finish()
     if( u_caster != NULL )
     {
         if(!m_triggeredSpell && (GetSpellProto()->IsSpellChannelSpell() || m_castTime > 0))
-            u_caster->SetCurrentSpell(NULLSPELL);
+            u_caster->SetCurrentSpell(NULL);
     }
 
     if( p_caster)
@@ -2082,11 +2082,11 @@ void Spell::SendSpellStart()
 
     WorldPacket data(SMSG_SPELL_START, 150);
     if( i_caster != NULL )
-        data << i_caster->GetNewGUID();
+        data << i_caster->GetGUID();
     else
-        data << u_caster->GetNewGUID();
+        data << u_caster->GetGUID();
 
-    data << u_caster->GetNewGUID();
+    data << u_caster->GetGUID();
     data << uint8(extra_cast_number);
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
@@ -2134,11 +2134,11 @@ void Spell::SendSpellGo()
 
     WorldPacket data(SMSG_SPELL_GO, 200);
     if( i_caster != NULL ) // this is needed for correct cooldown on items
-        data << i_caster->GetNewGUID();
+        data << i_caster->GetGUID();
     else
-        data << m_caster->GetNewGUID();
+        data << m_caster->GetGUID();
 
-    data << m_caster->GetNewGUID();
+    data << m_caster->GetGUID();
     data << extra_cast_number;
     data << GetSpellProto()->Id;
     data << cast_flags;
@@ -2229,14 +2229,14 @@ void Spell::SendInterrupted(uint8 result)
         return;
 
     WorldPacket data(SMSG_SPELL_FAILURE, 13);
-    data << m_caster->GetNewGUID();
+    data << m_caster->GetGUID();
     data << uint8(extra_cast_number);
     data << uint32(GetSpellProto()->Id);
     data << uint8(result);
     m_caster->SendMessageToSet(&data, true);
 
     data.Initialize(SMSG_SPELL_FAILED_OTHER);
-    data << m_caster->GetNewGUID();
+    data << m_caster->GetGUID();
     data << uint8(extra_cast_number);
     data << uint32(GetSpellProto()->Id);
     data << uint8(result);
@@ -2254,7 +2254,7 @@ void Spell::SendChannelUpdate(uint32 time)
             {
                 dynObj->RemoveFromWorld(true);
                 dynObj->Destruct();
-                dynObj = NULLGOB;
+                dynObj = NULL;
             }
         }
 
@@ -2265,7 +2265,7 @@ void Spell::SendChannelUpdate(uint32 time)
             {
                 dynObj->RemoveFromWorld(true);
                 dynObj->Destruct();
-                dynObj = NULLGOB;
+                dynObj = NULL;
                 p_caster->SetUInt32Value(PLAYER_FARSIGHT, 0);
             }
             p_caster->SetUInt64Value(PLAYER_FARSIGHT, 0);
@@ -2280,7 +2280,7 @@ void Spell::SendChannelUpdate(uint32 time)
         return;
 
     WorldPacket data(MSG_CHANNEL_UPDATE, 12);
-    data << m_caster->GetNewGUID();
+    data << m_caster->GetGUID();
     data << time;
     p_caster->SendMessageToSet(&data, true);
 }
@@ -2290,7 +2290,7 @@ void Spell::SendChannelStart(int32 duration)
     if (m_caster->GetTypeId() != TYPEID_GAMEOBJECT)
     {
         WorldPacket data(MSG_CHANNEL_START, 16);
-        data << m_caster->GetNewGUID();
+        data << m_caster->GetGUID();
         data << GetSpellProto()->Id;
         data << duration;
         m_caster->SendMessageToSet(&data, true);
@@ -2304,7 +2304,7 @@ void Spell::SendChannelStart(int32 duration)
 
 void Spell::SendResurrectRequest(Player* target)
 {
-    const char* name = m_caster->IsCreature() ? TO_CREATURE(m_caster)->GetCreatureData()->Name : "";
+    const char* name = m_caster->IsCreature() ? castPtr<Creature>(m_caster)->GetCreatureData()->Name : "";
     WorldPacket data(SMSG_RESURRECT_REQUEST, 12+strlen(name)+3);
     data << m_caster->GetGUID();
     data << uint32(strlen(name) + 1);
@@ -2415,7 +2415,7 @@ int32 Spell::CalculateCost(int32 &powerField)
     return cost;
 }
 
-Object* Spell::_LookupObject(const uint64& guid)
+WorldObject* Spell::_LookupObject(const WoWGuid& guid)
 {
     if( guid == m_caster->GetGUID() )
         return m_caster;
@@ -2430,7 +2430,7 @@ Object* Spell::_LookupObject(const uint64& guid)
 
     case HIGHGUID_TYPE_CORPSE:
         {
-            return objmgr.GetCorpse((uint32)guid);
+            return objmgr.GetCorpse(GUID_LOPART(guid));
         }break;
     default:
         {
@@ -2439,18 +2439,18 @@ Object* Spell::_LookupObject(const uint64& guid)
         }break;
     }
 
-    return NULLOBJ;
+    return NULL;
 }
 
-void Spell::_SetTargets(uint64 guid)
+void Spell::_SetTargets(WoWGuid guid)
 {
-    unitTarget = NULLUNIT;
-    playerTarget = NULLPLR;
+    unitTarget = NULL;
+    playerTarget = NULL;
     corpseTarget = NULLCORPSE;
-    gameObjTarget = NULLGOB;
+    gameObjTarget = NULL;
     itemTarget = NULL;
 
-    if(guid == 0)
+    if(!guid)
     {
         if(!m_caster->IsInWorld())
             return;
@@ -2463,7 +2463,7 @@ void Spell::_SetTargets(uint64 guid)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
                 if(p_trader != NULL)
-                    itemTarget = p_trader->getTradeItem((uint32)m_targets.m_itemTarget);
+                    itemTarget = p_trader->getTradeItem(GUID_LOPART(m_targets.m_itemTarget));
             }
         }
 
@@ -2483,14 +2483,14 @@ void Spell::_SetTargets(uint64 guid)
                 break;
             case HIGHGUID_TYPE_PLAYER:
                 {
-                    unitTarget = mgr->GetPlayer((uint32)m_targets.m_unitTarget);
-                    playerTarget = TO_PLAYER(unitTarget);
+                    unitTarget = mgr->GetPlayer(GUID_LOPART(m_targets.m_unitTarget));
+                    playerTarget = castPtr<Player>(unitTarget);
                 }break;
             case HIGHGUID_TYPE_GAMEOBJECT:
                 gameObjTarget = mgr->GetGameObject(GUID_LOPART(m_targets.m_unitTarget));
                 break;
             case HIGHGUID_TYPE_CORPSE:
-                corpseTarget = objmgr.GetCorpse((uint32)m_targets.m_unitTarget);
+                corpseTarget = objmgr.GetCorpse(GUID_LOPART(m_targets.m_unitTarget));
                 break;
             }
         }
@@ -2509,7 +2509,7 @@ void Spell::_SetTargets(uint64 guid)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
                 if(p_trader != NULL)
-                    itemTarget = p_trader->getTradeItem((uint32)m_targets.m_itemTarget);
+                    itemTarget = p_trader->getTradeItem(GUID_LOPART(m_targets.m_itemTarget));
             }
         }
     }
@@ -2525,7 +2525,7 @@ void Spell::_SetTargets(uint64 guid)
                 itemTarget = p_caster->GetItemInterface()->GetItemByGUID(guid);
                 Player* plr = p_caster->GetTradeTarget();
                 if(plr)
-                    itemTarget = plr->getTradeItem(uint32(guid));
+                    itemTarget = plr->getTradeItem(GUID_LOPART(guid));
             }
         }
         else
@@ -2544,14 +2544,14 @@ void Spell::_SetTargets(uint64 guid)
                 break;
             case HIGHGUID_TYPE_PLAYER:
                 {
-                    unitTarget = mgr->GetPlayer((uint32)guid);
-                    playerTarget = TO_PLAYER(unitTarget);
+                    unitTarget = mgr->GetPlayer(GUID_LOPART(guid));
+                    playerTarget = castPtr<Player>(unitTarget);
                 }break;
             case HIGHGUID_TYPE_GAMEOBJECT:
                 gameObjTarget = mgr->GetGameObject(GUID_LOPART(guid));
                 break;
             case HIGHGUID_TYPE_CORPSE:
-                corpseTarget = objmgr.GetCorpse((uint32)guid);
+                corpseTarget = objmgr.GetCorpse(GUID_LOPART(guid));
                 break;
             case HIGHGUID_TYPE_ITEM:
                 if( p_caster != NULL )
@@ -2578,12 +2578,12 @@ void Spell::HandleEffects(uint32 i)
         sLog.Debug("Spell","Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
 }
 
-void Spell::HandleAddAura(uint64 guid)
+void Spell::HandleAddAura(WoWGuid guid)
 {
-    if(guid == 0)
+    if(!guid)
         return;
 
-    Unit* Target = NULLUNIT;
+    Unit* Target = NULL;
     if(u_caster && u_caster->GetGUID() == guid)
         Target = u_caster;
     else if(m_caster->IsInWorld())
@@ -2680,7 +2680,7 @@ uint8 Spell::CanCast(bool tolerate)
         {
             if(target->IsCreature())
             {
-                Creature* cTarget = TO_CREATURE(target);
+                Creature* cTarget = castPtr<Creature>(target);
                 if(isTargetDummy(cTarget->GetEntry()))
                 {
                     switch(m_spellInfo->Id)
@@ -2697,7 +2697,7 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
 
             // GM flagged players should be immune to other players' casts, but not their own.
-            if(target->IsPlayer() && (m_caster->GetTypeId() == TYPEID_ITEM ? (TO_ITEM(m_caster)->GetOwner() != target) : (m_caster != target)) && TO_PLAYER(target)->bGMTagOn)
+            if(target->IsPlayer() && (m_caster->GetTypeId() == TYPEID_ITEM ? (castPtr<Item>(m_caster)->GetOwner() != target) : (m_caster != target)) && castPtr<Player>(target)->bGMTagOn)
                 return SPELL_FAILED_BM_OR_INVISGOD;
 
             //you can't mind control someone already mind controlled
@@ -2988,11 +2988,11 @@ uint8 Spell::CanCast(bool tolerate)
                         return SPELL_FAILED_SPELL_LEARNED;
                     else
                     {
-                        Unit* target = (m_caster->IsInWorld()) ? m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget) : NULLUNIT;
+                        Unit* target = (m_caster->IsInWorld()) ? m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget) : NULL;
                         if(target && target->IsPlayer())
                         {
                             //Allow spell to be casted if player didn't have this mount yet in pet tab (iow has the spell).
-                            if(i_caster->GetProto()->Spells[1].Id && TO_PLAYER(target)->HasSpell(i_caster->GetProto()->Spells[1].Id))
+                            if(i_caster->GetProto()->Spells[1].Id && castPtr<Player>(target)->HasSpell(i_caster->GetProto()->Spells[1].Id))
                                 return SPELL_FAILED_SPELL_LEARNED;
                         }
                     }
@@ -3064,11 +3064,11 @@ uint8 Spell::CanCast(bool tolerate)
         if( ( GetSpellProto()->NameHash == SPELL_HASH_CANNIBALIZE || GetSpellProto()->Id == 46584 ))
         {
             bool check = false;
-            for(Object::InRangeSet::iterator i = p_caster->GetInRangeSetBegin(); i != p_caster->GetInRangeSetEnd(); i++)
+            for(WorldObject::InRangeSet::iterator i = p_caster->GetInRangeSetBegin(); i != p_caster->GetInRangeSetEnd(); i++)
             {
                 if(p_caster->GetDistance2dSq((*i)) <= 25)
                     if((*i)->GetTypeId() == TYPEID_UNIT || (*i)->IsPlayer() )
-                        if( TO_UNIT(*i)->isDead() )
+                        if( castPtr<Unit>(*i)->isDead() )
                             check = true;
             }
 
@@ -3093,7 +3093,7 @@ uint8 Spell::CanCast(bool tolerate)
         {
             float focusRange;
             bool found = false;
-            for( unordered_set<Object*>::iterator itr = p_caster->GetInRangeSetBegin(); itr != p_caster->GetInRangeSetEnd(); itr++ )
+            for( unordered_set<WorldObject*>::iterator itr = p_caster->GetInRangeSetBegin(); itr != p_caster->GetInRangeSetEnd(); itr++ )
             {
                 if(found == true)
                     break;
@@ -3101,10 +3101,10 @@ uint8 Spell::CanCast(bool tolerate)
                 if((*itr)->GetTypeId() != TYPEID_GAMEOBJECT)
                     continue;
 
-                if(TO_GAMEOBJECT(*itr)->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
+                if(castPtr<GameObject>(*itr)->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
                     continue;
 
-                GameObjectInfo *info = TO_GAMEOBJECT(*itr)->GetInfo();
+                GameObjectInfo *info = castPtr<GameObject>(*itr)->GetInfo();
                 if(!info)
                 {
                     sLog.Debug("Spell","Warning: could not find info about game object %u", (*itr)->GetEntry());
@@ -3166,7 +3166,7 @@ uint8 Spell::CanCast(bool tolerate)
     // Targetted Item Checks
     if(m_targets.m_itemTarget && p_caster)
     {
-        Item* i_target = NULLITEM;
+        Item* i_target = NULL;
 
         // check if the targeted item is in the trade box
         if( m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM )
@@ -3304,7 +3304,7 @@ uint8 Spell::CanCast(bool tolerate)
     //if(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION && !m_caster->IsInLineOfSight(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ))
         //return SPELL_FAILED_LINE_OF_SIGHT;
 
-    Unit* target = NULLUNIT;
+    Unit* target = NULL;
     if( m_targets.m_targetMask == TARGET_FLAG_SELF )
         target = u_caster;
 
@@ -3312,9 +3312,9 @@ uint8 Spell::CanCast(bool tolerate)
     if(m_targets.m_unitTarget)
     {
         if( m_targets.m_unitTarget == m_caster->GetGUID() && m_caster->IsUnit() )
-            target = TO_UNIT(m_caster);
+            target = castPtr<Unit>(m_caster);
         else
-            target = (m_caster->IsInWorld()) ? m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget) : NULLUNIT;
+            target = (m_caster->IsInWorld()) ? m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget) : NULL;
 
         if(target != NULL)
         {
@@ -3353,8 +3353,8 @@ uint8 Spell::CanCast(bool tolerate)
                     if( !target->IsCreature() )
                         return SPELL_FAILED_BAD_TARGETS;
 
-                    if( TO_CREATURE( target )->GetCreatureData() != NULL )
-                        if( GetSpellProto()->forced_creature_target != TO_CREATURE( target )->GetEntry() )
+                    if( castPtr<Creature>( target )->GetCreatureData() != NULL )
+                        if( GetSpellProto()->forced_creature_target != castPtr<Creature>( target )->GetEntry() )
                             return SPELL_FAILED_BAD_TARGETS;
                 }*/
 
@@ -3402,7 +3402,7 @@ uint8 Spell::CanCast(bool tolerate)
                             return SPELL_FAILED_HIGHLEVEL;
                         else if(target->GetTypeId() == TYPEID_UNIT)
                         {
-                            Creature* c =  TO_CREATURE(target);
+                            Creature* c =  castPtr<Creature>(target);
                             if (c&&c->GetCreatureData()&&c->GetCreatureData()->Rank >ELITE_ELITE)
                                 return SPELL_FAILED_HIGHLEVEL;
                         }
@@ -3477,7 +3477,7 @@ uint8 Spell::CanCast(bool tolerate)
 
             // if target is already skinned, don't let it be skinned again
             if( GetSpellProto()->Effect[0] == SPELL_EFFECT_SKINNING) // skinning
-                if(target->IsUnit() && (TO_CREATURE(target)->Skinned) )
+                if(target->IsUnit() && (castPtr<Creature>(target)->Skinned) )
                     return SPELL_FAILED_TARGET_UNSKINNABLE;
 
             // target 39 is fishing, all fishing spells are handled
@@ -3567,40 +3567,40 @@ uint8 Spell::CanCast(bool tolerate)
                 case SPELL_HASH_DIVINE_SHIELD:
                 case SPELL_HASH_HAND_OF_PROTECTION:
                     {
-                        if( TO_PLAYER(target)->HasAura(25771) ) // Forbearance
+                        if( castPtr<Player>(target)->HasAura(25771) ) // Forbearance
                             return SPELL_FAILED_DAMAGE_IMMUNE;
 
-                        if( !TO_PLAYER(target)->mAvengingWrath )
+                        if( !castPtr<Player>(target)->mAvengingWrath )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 
                 case SPELL_HASH_AVENGING_WRATH:
                     {
-                        if( !TO_PLAYER(target)->mAvengingWrath )
+                        if( !castPtr<Player>(target)->mAvengingWrath )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 
                 case SPELL_HASH_ICE_BLOCK:
                     {
-                        if( TO_PLAYER(target)->HasAura(41425) ) // Hypothermia
+                        if( castPtr<Player>(target)->HasAura(41425) ) // Hypothermia
                             return SPELL_FAILED_DAMAGE_IMMUNE;
 
                     }break;
 
                 case SPELL_HASH_POWER_WORD__SHIELD:
                     {
-                        if( TO_PLAYER(target)->HasAura(6788) ) // Weakened Soul
+                        if( castPtr<Player>(target)->HasAura(6788) ) // Weakened Soul
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 
                 case SPELL_HASH_FIRST_AID:
                     {
-                        if( TO_PLAYER(target)->HasAura(11196) ) // Recently Bandaged
+                        if( castPtr<Player>(target)->HasAura(11196) ) // Recently Bandaged
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
                 case SPELL_HASH_BLOODLUST:
                     {
-                        if( TO_PLAYER(target)->HasAurasOfNameHashWithCaster(SPELL_HASH_SATED, NULL) )
+                        if( castPtr<Player>(target)->HasAurasOfNameHashWithCaster(SPELL_HASH_SATED, NULL) )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
                 }
@@ -3787,7 +3787,7 @@ void Spell::RemoveItems()
                 if(i_caster->GetOwner()) // wtf?
                 {
                     i_caster->GetOwner()->GetItemInterface()->SafeFullRemoveItemByGuid(i_caster->GetGUID());
-                    i_caster = NULLITEM;
+                    i_caster = NULL;
                 }
             }
         }
@@ -3856,7 +3856,7 @@ void Spell::HandleTeleport(uint32 id, Unit* Target)
     if(Target == NULL || Target->GetTypeId() != TYPEID_PLAYER || !id || id == 1)
         return;
 
-    Player* pTarget = TO_PLAYER( Target );
+    Player* pTarget = castPtr<Player>( Target );
 
     uint32 mapid;
     int32 phase = 1;
@@ -3953,9 +3953,9 @@ void Spell::CreateItem(uint32 itemId)
     if( !itemId )
         return;
 
-    Player*         pUnit = TO_PLAYER( m_caster );
-    Item*           newItem = NULLITEM;
-    Item*           add = NULLITEM;
+    Player*         pUnit = castPtr<Player>( m_caster );
+    Item*           newItem = NULL;
+    Item*           add = NULL;
     SlotResult      slotresult;
     ItemPrototype*  m_itemProto;
 
@@ -3984,7 +3984,7 @@ void Spell::CreateItem(uint32 itemId)
         if(!result)
         {
             newItem->Destruct();
-            newItem = NULLITEM;
+            newItem = NULL;
             return;
         }
 
@@ -4002,14 +4002,14 @@ void Spell::CreateItem(uint32 itemId)
     }
 }
 
-void Spell::SendHealSpellOnPlayer( Object* caster, Object* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid)
+void Spell::SendHealSpellOnPlayer( WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid)
 {
     if( caster == NULL || target == NULL || !target->IsPlayer())
         return;
 
     WorldPacket data(SMSG_SPELLHEALLOG, 34);
-    data << target->GetNewGUID();
-    data << caster->GetNewGUID();
+    data << target->GetGUID();
+    data << caster->GetGUID();
     data << uint32(spellid);
     data << uint32(dmg);
     data << uint32(overheal);
@@ -4019,14 +4019,14 @@ void Spell::SendHealSpellOnPlayer( Object* caster, Object* target, uint32 dmg, b
     caster->SendMessageToSet(&data, true);
 }
 
-void Spell::SendHealManaSpellOnPlayer(Object* caster, Object* target, uint32 dmg, uint32 powertype, uint32 spellid)
+void Spell::SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid)
 {
     if( caster == NULL || target == NULL)
         return;
 
     WorldPacket data(SMSG_SPELLENERGIZELOG, 29);
-    data.append(target->GetNewGUID());
-    data.append(caster->GetNewGUID());
+    data.append(target->GetGUID());
+    data.append(caster->GetGUID());
     data << uint32(spellid);
     data << uint32(powertype);
     data << uint32(dmg);
@@ -4149,11 +4149,11 @@ void Spell::Heal(uint8 effIndex, int32 amount)
         {
             target_threat.reserve(u_caster->GetInRangeCount()); // this helps speed
 
-            for(unordered_set<Object* >::iterator itr = u_caster->GetInRangeSetBegin(); itr != u_caster->GetInRangeSetEnd(); itr++)
+            for(unordered_set<WorldObject* >::iterator itr = u_caster->GetInRangeSetBegin(); itr != u_caster->GetInRangeSetEnd(); itr++)
             {
                 if((*itr)->GetTypeId() != TYPEID_UNIT)
                     continue;
-                unit = TO_UNIT((*itr));
+                unit = castPtr<Unit>((*itr));
                 if(unit->GetAIInterface()->GetNextTarget() == unitTarget)
                 {
                     target_threat.push_back(unit);
@@ -4173,7 +4173,7 @@ void Spell::Heal(uint8 effIndex, int32 amount)
             for(std::vector<Unit* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
             {
                 // for now we'll just use heal amount as threat.. we'll prolly need a formula though
-                TO_UNIT(*itr)->GetAIInterface()->HealReaction( u_caster, unitTarget, threat, m_spellInfo );
+                castPtr<Unit>(*itr)->GetAIInterface()->HealReaction( u_caster, unitTarget, threat, m_spellInfo );
             }
         }
 
@@ -4202,10 +4202,10 @@ void Spell::DetermineSkillUp(uint32 skillid)
         return;
     float chance = 0.0f;
     SkillLineSpell* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
-    if( skill != NULL && TO_PLAYER( m_caster )->_HasSkillLine( skill->skilline ) )
+    if( skill != NULL && castPtr<Player>( m_caster )->_HasSkillLine( skill->skilline ) )
     {
-        uint32 amt = TO_PLAYER( m_caster )->_GetSkillLineCurrent( skill->skilline, false );
-        uint32 max = TO_PLAYER( m_caster )->_GetSkillLineMax( skill->skilline );
+        uint32 amt = castPtr<Player>( m_caster )->_GetSkillLineCurrent( skill->skilline, false );
+        uint32 max = castPtr<Player>( m_caster )->_GetSkillLineMax( skill->skilline );
         if( amt >= max )
             return;
         if( amt >= skill->RankMax ) //grey
@@ -4240,7 +4240,7 @@ bool Spell::Reflect(Unit* refunit)
     if( !refspellid || !canreflect )
         return false;
 
-    Spell* spell = new Spell(refunit, m_spellInfo, true, NULLAURA);
+    Spell* spell = new Spell(refunit, m_spellInfo, true, NULL);
     SpellCastTargets targets;
     targets.m_unitTarget = m_caster->GetGUID();
     spell->m_reflectedParent = this;
@@ -4458,7 +4458,7 @@ void Spell::_AddTarget(Unit* target, const uint32 effectid)
     if(m_spellInfo->speed > 0.0f)
     {
         // calculate spell incoming interval
-        float dist = m_caster->CalcDistance(TO_OBJECT(target));
+        float dist = m_caster->CalcDistance(target);
         tgt.DestinationTime = int64(floor(dist / m_spellInfo->speed*1000.0f));
         if(tgt.DestinationTime+MSTimeToAddToTravel < 200)
             tgt.DestinationTime = 0;
@@ -4484,7 +4484,7 @@ void Spell::_AddTarget(Unit* target, const uint32 effectid)
         ++m_missTargetCount;
 }
 
-void Spell::_AddTargetForced(const uint64& guid, const uint32 effectid)
+void Spell::_AddTargetForced(const WoWGuid& guid, const uint32 effectid)
 {
     // Check if we're in the current list already, and if so, don't readd us.
     if(ManagedTargets.find(guid) != ManagedTargets.end())
@@ -4499,14 +4499,10 @@ void Spell::_AddTargetForced(const uint64& guid, const uint32 effectid)
     // setup struct
     SpellTarget tgt;
     tgt.Guid = guid;
+    tgt.DestinationTime = 0;
     if(m_spellInfo->speed > 0.0f)
     {
-        Object* obj = NULL;
-        if(GUID_HIPART(guid) == HIGHGUID_TYPE_GAMEOBJECT)
-            obj = m_caster->GetMapMgr()->GetGameObject(guid);
-        else
-            obj = m_caster->GetMapMgr()->GetUnit(guid);
-        if(obj != NULL) // This should always happen.
+        if(WorldObject* obj = m_caster->GetMapMgr()->_GetObject(guid)) // This should always happen.
         {
             // calculate spell incoming interval
             float dist = m_caster->CalcDistance(obj);
@@ -4518,8 +4514,6 @@ void Spell::_AddTargetForced(const uint64& guid, const uint32 effectid)
             tgt.DestinationTime += MSTimeToAddToTravel;
         }
     }
-    else
-        tgt.DestinationTime = 0;
     tgt.EffectMask = (1 << effectid);
     tgt.HitResult = SPELL_DID_HIT_SUCCESS;
 
@@ -4537,27 +4531,27 @@ void Spell::DamageGosAround(uint32 i)
     uint32 spell_id = GetSpellProto()->Id;
     float r = GetRadius(i);
     r *= r;
-    Object* o;
+    WorldObject* o;
 
-    for (Object::InRangeSet::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); ++itr)
+    for (WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); ++itr)
     {
         o = *itr;
         if (!o->IsGameObject())
             continue;
         if(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION && o->GetDistance2dSq(m_targets.m_destX, m_targets.m_destY) <= r )
         {
-            TO_GAMEOBJECT(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
+            castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
             return;
         }
         else if(m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION && o->GetDistance2dSq(m_targets.m_srcX, m_targets.m_srcY) <= r)
         {
-            TO_GAMEOBJECT(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
+            castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
             return;
         }
         else
         {
             if(o->GetDistance2dSq(m_caster->GetPositionX(), m_caster->GetPositionY()) <= r)
-                TO_GAMEOBJECT(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
+                castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
         }
     }
 }
@@ -4805,7 +4799,7 @@ bool IsHealingSpell(SpellEntry *sp)
     return false;
 }
 
-bool IsInrange(LocationVector & location, Object* o, float square_r, float square_min)
+bool IsInrange(LocationVector & location, WorldObject* o, float square_r, float square_min)
 {
     float r = o->GetDistanceSq(location);
     if(square_min && r < square_min)
@@ -4813,7 +4807,7 @@ bool IsInrange(LocationVector & location, Object* o, float square_r, float squar
     return ( r<=square_r);
 }
 
-bool IsInrange(float x1,float y1, float z1, Object* o,float square_r, float square_min)
+bool IsInrange(float x1,float y1, float z1, WorldObject* o,float square_r, float square_min)
 {
     float r = o->GetDistanceSq(x1, y1, z1);
     if(square_min && r < square_min)
@@ -4836,20 +4830,20 @@ bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float squ
     return ( r<=square_r);
 }
 
-bool IsInrange(Object* o1,Object* o2,float square_r, float square_min)
+bool IsInrange(WorldObject* o1,WorldObject* o2,float square_r, float square_min)
 {
     return IsInrange(o1->GetPositionX(),o1->GetPositionY(),o1->GetPositionZ(),
         o2->GetPositionX(),o2->GetPositionY(),o2->GetPositionZ(),square_r,square_min);
 }
 
-bool TargetTypeCheck(Object* obj,uint32 ReqCreatureTypeMask)
+bool TargetTypeCheck(WorldObject* obj,uint32 ReqCreatureTypeMask)
 {
     if( !ReqCreatureTypeMask )
         return true;
 
     if( obj->GetTypeId() == TYPEID_UNIT )
     {
-        Creature* cr = TO_CREATURE(obj);
+        Creature* cr = castPtr<Creature>(obj);
         CreatureData* inf = cr->GetCreatureData();
         if( inf == NULL || !( 1 << ( inf->Type - 1 ) & ReqCreatureTypeMask ) )
             return false;

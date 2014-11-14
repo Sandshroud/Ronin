@@ -237,7 +237,7 @@ Group * ObjectMgr::GetGroupById(uint32 id)
 void ObjectMgr::DeletePlayerInfo( uint32 guid )
 {
     PlayerInfo * pl;
-    HM_NAMESPACE::hash_map<uint32,PlayerInfo*>::iterator i;
+    HM_NAMESPACE::hash_map<WoWGuid,PlayerInfo*>::iterator i;
     PlayerNameStringIndexMap::iterator i2;
     playernamelock.AcquireWriteLock();
     i=m_playersinfo.find(guid);
@@ -267,7 +267,7 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
     playernamelock.ReleaseWriteLock();
 }
 
-PlayerInfo *ObjectMgr::GetPlayerInfo( uint32 guid )
+PlayerInfo *ObjectMgr::GetPlayerInfo( WoWGuid guid )
 {
     HM_NAMESPACE::hash_map<uint32,PlayerInfo*>::iterator i;
     PlayerInfo * rv;
@@ -275,8 +275,7 @@ PlayerInfo *ObjectMgr::GetPlayerInfo( uint32 guid )
     i=m_playersinfo.find(guid);
     if(i!=m_playersinfo.end())
         rv = i->second;
-    else
-        rv = NULL;
+    else rv = NULL;
     playernamelock.ReleaseReadLock();
     return rv;
 }
@@ -284,7 +283,7 @@ PlayerInfo *ObjectMgr::GetPlayerInfo( uint32 guid )
 void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 {
     playernamelock.AcquireWriteLock();
-    m_playersinfo[pn->guid] =  pn ;
+    m_playersinfo[pn->guid] =  pn;
     string pnam = string(pn->name);
     HEARTHSTONE_TOLOWER(pnam);
     m_playersInfoByName[pnam] = pn;
@@ -345,7 +344,7 @@ void ObjectMgr::LoadPlayersInfo()
             Field *fields = result->Fetch();
             pn = new PlayerInfo;
             memset(pn, 0, sizeof(PlayerInfo));
-            pn->guid = fields[0].GetUInt32();
+            pn->guid = fields[0].GetUInt64();
             pn->name = strdup(fields[1].GetString());
             pn->race = fields[2].GetUInt8();
             pn->_class = fields[3].GetUInt8();
@@ -381,7 +380,7 @@ void ObjectMgr::LoadPlayersInfo()
             m_playersInfoByName[lpn] = pn;
 
             //this is startup -> no need in lock -> don't use addplayerinfo
-            m_playersinfo[(uint32)pn->guid] = pn;
+            m_playersinfo[pn->guid] = pn;
 
             if( !((++c) % period) )
                 sLog.Notice("PlayerInfo", "Done %u/%u, %u% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
@@ -512,7 +511,7 @@ Corpse* ObjectMgr::LoadCorpse(uint32 guid)
 {
     QueryResult *result = CharacterDatabase.Query("SELECT * FROM Corpses WHERE guid =%u ", guid );
     if( result == NULL )
-        return NULLCORPSE;
+        return NULL;
 
     Corpse* pCorpse;
     do
@@ -550,10 +549,9 @@ Corpse* ObjectMgr::LoadCorpse(uint32 guid)
 //------------------------------------------------------
 Corpse* ObjectMgr::GetCorpseByOwner(uint32 ownerguid)
 {
-    CorpseMap::const_iterator itr;
-    Corpse* rv = NULLCORPSE;
+    Corpse* rv = NULL;
     _corpseslock.Acquire();
-    for (itr = m_corpses.begin();itr != m_corpses.end();)
+    for (CorpseMap::const_iterator itr = m_corpses.begin();itr != m_corpses.end();)
     {
         if(itr->second->GetUInt32Value(CORPSE_FIELD_OWNER) == ownerguid)
         {
@@ -786,7 +784,7 @@ void ObjectMgr::ProcessGameobjectQuests()
 
 Player* ObjectMgr::GetPlayer(const char* name, bool caseSensitive)
 {
-    Player * rv = NULLPLR;
+    Player * rv = NULL;
     PlayerStorageMap::const_iterator itr;
     _playerslock.AcquireReadLock();
 
@@ -822,13 +820,13 @@ Player* ObjectMgr::GetPlayer(const char* name, bool caseSensitive)
     return rv;
 }
 
-Player* ObjectMgr::GetPlayer(uint32 guid)
+Player* ObjectMgr::GetPlayer(WoWGuid guid)
 {
-    Player * rv = NULLPLR;
+    Player * rv = NULL;
 
     _playerslock.AcquireReadLock();
     PlayerStorageMap::const_iterator itr = _players.find(guid);
-    rv = (itr != _players.end()) ? itr->second : NULLPLR;
+    rv = (itr != _players.end()) ? itr->second : NULL;
     _playerslock.ReleaseReadLock();
 
     return rv;
@@ -1042,7 +1040,7 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
 {
     ItemPrototype * proto = ItemPrototypeStorage.LookupEntry(entry);
     if(!proto)
-        return NULLITEM;
+        return NULL;
 
     if(proto->InventoryType == INVTYPE_BAG)
     {
@@ -1063,13 +1061,13 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
 Item* ObjectMgr::LoadItem(uint64 guid)
 {
     QueryResult * result = CharacterDatabase.Query("SELECT * FROM playeritems WHERE guid = %u", GUID_LOPART(guid));
-    Item* pReturn = NULLITEM;
+    Item* pReturn = NULL;
 
     if(result)
     {
         ItemPrototype * pProto = ItemPrototypeStorage.LookupEntry(result->Fetch()[2].GetUInt32());
         if(!pProto)
-            return NULLITEM;
+            return NULL;
 
         if(pProto->InventoryType == INVTYPE_BAG)
         {
@@ -1080,7 +1078,7 @@ Item* ObjectMgr::LoadItem(uint64 guid)
         else
         {
             Item* pItem(new Item(HIGHGUID_TYPE_ITEM,(uint32)guid));
-            pItem->LoadFromDB(result->Fetch(), NULLPLR, false);
+            pItem->LoadFromDB(result->Fetch(), NULL, false);
             pReturn = pItem;
         }
         delete result;
@@ -1136,10 +1134,9 @@ void ObjectMgr::CorpseAddEventDespawn(Corpse* pCorpse)
     {
         RemoveCorpse(pCorpse);
         pCorpse->Destruct();
-        pCorpse = NULLCORPSE;
+        return;
     }
-    else
-        sEventMgr.AddEvent(pCorpse->GetMapMgr(), &MapMgr::EventCorpseDespawn, pCorpse->GetGUID(), EVENT_CORPSE_DESPAWN, 600000, 1,0);
+    sEventMgr.AddEvent(pCorpse->GetMapMgr(), &MapMgr::EventCorpseDespawn, (uint64)pCorpse->GetGUID(), EVENT_CORPSE_DESPAWN, 600000, 1,0);
 }
 
 void ObjectMgr::DespawnCorpse(uint64 Guid)
@@ -1602,7 +1599,7 @@ WayPointMap*ObjectMgr::GetWayPointMap(uint32 spawnid)
 Pet* ObjectMgr::CreatePet(CreatureData *ctrData)
 {
     if(ctrData == NULL)
-        return NULLPET;
+        return NULL;
 
     uint32 guid;
     m_petlock.Acquire();
@@ -1694,7 +1691,7 @@ Transporter* ObjectMgr::GetTransporter(uint32 guid)
 void ObjectMgr::AddTransport(Transporter* pTransporter)
 {
     _TransportLock.Acquire();
-    mTransports[pTransporter->GetUIdFromGUID()]=pTransporter;
+    mTransports[pTransporter->GetLowGUID()]=pTransporter;
     _TransportLock.Release();
 }
 
@@ -1912,7 +1909,7 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
     if(itr == m_reputation_instance.end())
         return false;
 
-    is_boss = TO_CREATURE( pVictim )->GetCreatureData()->Boss > 0;
+    is_boss = castPtr<Creature>( pVictim )->GetCreatureData()->Boss > 0;
 
     if(map->IsRaid()) // We are good here I guess.
         is_heroic = (pPlayer->IsInWorld() && pPlayer->iRaidType >= MODE_10PLAYER_HEROIC && pPlayer->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL) ? true : false;

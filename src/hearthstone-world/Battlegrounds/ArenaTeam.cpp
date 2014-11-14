@@ -43,7 +43,8 @@ ArenaTeam::ArenaTeam(uint32 Type, uint32 Id)
 
 ArenaTeam::ArenaTeam(Field * f)
 {
-    uint32 z = 0, i, guid;
+    WoWGuid guid;
+    uint32 z = 0, i, lowGuid;
     const char * data;
     int ret;
 
@@ -69,11 +70,11 @@ ArenaTeam::ArenaTeam(Field * f)
     for(i = 0; i < m_slots; i++)
     {
         data = f[z++].GetString();
-        ret = sscanf(data, "%u %u %u %u %u %u", &guid, &m_members[i].Played_ThisWeek, &m_members[i].Won_ThisWeek,
+        ret = sscanf(data, "%u %u %u %u %u %u", &lowGuid, &m_members[i].Played_ThisWeek, &m_members[i].Won_ThisWeek,
             &m_members[i].Played_ThisSeason, &m_members[i].Won_ThisSeason, &m_members[i].PersonalRating);
         if(ret >= 5)
         {
-            m_members[i].Info = objmgr.GetPlayerInfo(guid);
+            m_members[i].Info = objmgr.GetPlayerInfo(guid = MAKE_NEW_GUID(lowGuid, 0, HIGHGUID_TYPE_PLAYER));
             if(m_members[i].Info)
             {
                 m_members[i].Info->arenaTeam[m_type] = this;
@@ -85,9 +86,7 @@ ArenaTeam::ArenaTeam(Field * f)
                 // In case PersonalRating is not in the string just set the rating to the team rating
                 m_members[i].PersonalRating = m_stat_rating;
             }
-        }
-        else
-            m_members[i].Info = NULL;
+        } else m_members[i].Info = NULL;
     }
 }
 
@@ -145,7 +144,7 @@ bool ArenaTeam::AddMember(PlayerInfo * info)
     {
         base_field = (m_type*6) + PLAYER_FIELD_ARENA_TEAM_INFO_1_1;
         plr->SetUInt32Value(base_field, m_id);
-        plr->SetUInt32Value(base_field+1,m_leader);
+        plr->SetUInt32Value(base_field+1, m_leader.getLow());
         plr->GetSession()->SystemMessage("You are now a member of the arena team, '%s'.", m_name.c_str());
     }
 
@@ -240,7 +239,7 @@ void ArenaTeam::SaveToDB()
     ss << "REPLACE INTO arenateams VALUES("
         << m_id << ","
         << m_type << ","
-        << m_leader << ",'"
+        << m_leader.raw() << ",'"
         << m_name << "',"
         << m_emblemStyle << ","
         << m_emblemColour << ","
@@ -256,7 +255,7 @@ void ArenaTeam::SaveToDB()
     {
         if(m_members[i].Info)
         {
-            ss << ",'" << m_members[i].Info->guid << " " << m_members[i].Played_ThisWeek << " "
+            ss << ",'" << m_members[i].Info->guid.raw() << " " << m_members[i].Played_ThisWeek << " "
                 << m_members[i].Won_ThisWeek << " " << m_members[i].Played_ThisSeason << " "
                 << m_members[i].Won_ThisSeason << " " << m_members[i].PersonalRating << "'";
         }

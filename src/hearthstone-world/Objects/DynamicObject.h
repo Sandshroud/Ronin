@@ -8,7 +8,7 @@ struct SpellEntry;
 
 typedef std::set<uint64>  DynamicObjectList;
 
-class SERVER_DECL DynamicObject : public Object
+class SERVER_DECL DynamicObject : public WorldObject
 {
 public:
     DynamicObject( uint32 high, uint32 low );
@@ -16,11 +16,11 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    void Create(Object* caster, Spell* pSpell, float x, float y, float z, int32 duration, float radius);
+    void Create(WorldObject* caster, Spell* pSpell, float x, float y, float z, int32 duration, float radius);
     void UpdateTargets(uint32 p_time);
 
-    void AddInRangeObject(Object* pObj);
-    void OnRemoveInRangeObject(Object* pObj);
+    void AddInRangeObject(WorldObject* pObj);
+    void OnRemoveInRangeObject(WorldObject* pObj);
     void Remove();
 
     uint64 GetCasterGuid() { return casterGuid; }
@@ -32,5 +32,4 @@ protected:
     DynamicObjectList targets;
 
     int32 m_aliveDuration;
-    uint32 _fields[DYNAMICOBJECT_END];
 };

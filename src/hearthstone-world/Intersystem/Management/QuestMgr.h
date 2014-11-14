@@ -71,18 +71,18 @@ public:
 
     uint32 PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck);
 
-    uint32 CalcStatus(Object* quest_giver, Player* plr);
+    uint32 CalcStatus(WorldObject* quest_giver, Player* plr);
     uint32 CalcQuestStatus(Player* plr, QuestRelation* qst);
     uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck);
-    uint32 ActiveQuestsCount(Object* quest_giver, Player* plr);
+    uint32 ActiveQuestsCount(WorldObject* quest_giver, Player* plr);
 
     //Packet Forging...
-    void BuildOfferReward(WorldPacket* data,Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
-    void BuildQuestDetails(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
-    void BuildRequestItems(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 status);
+    void BuildOfferReward(WorldPacket* data,Quest* qst, WorldObject* qst_giver, uint32 menutype, Player* plr);
+    void BuildQuestDetails(WorldPacket* data, Quest* qst, WorldObject* qst_giver, uint32 menutype, Player* plr);
+    void BuildRequestItems(WorldPacket* data, Quest* qst, WorldObject* qst_giver, uint32 status);
     void BuildQuestComplete(Player* , Quest* qst);
-    void BuildQuestList(WorldPacket* data, Object* qst_giver, Player* plr);
-    bool OnActivateQuestGiver(Object* qst_giver, Player* plr);
+    void BuildQuestList(WorldPacket* data, WorldObject* qst_giver, Player* plr);
+    bool OnActivateQuestGiver(WorldObject* qst_giver, Player* plr);
 
     void SendQuestUpdateAddKill(Player* plr, uint32 questid, uint32 entry, uint32 count, uint32 tcount, uint64 guid);
     void BuildQuestUpdateAddItem(WorldPacket* data, uint32 itemid, uint32 count);
@@ -99,11 +99,11 @@ public:
     void OnPlayerExploreArea(Player* plr, uint32 AreaID);
     void OnPlayerAreaTrigger(Player* plr, uint32 areaTrigger);
     void OnPlayerSlain(Player* plr, Player* victim);
-    void OnQuestAccepted(Player* plr, Quest* qst, Object* qst_giver);
-    void OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint32 reward_slot);
+    void OnQuestAccepted(Player* plr, Quest* qst, WorldObject* qst_giver);
+    void OnQuestFinished(Player* plr, Quest* qst, WorldObject* qst_giver, uint32 reward_slot);
     bool SkippedKills( uint32 QuestID );
 
-    void GiveQuestRewardReputation(Player* plr, Quest* qst, Object* qst_giver);
+    void GiveQuestRewardReputation(Player* plr, Quest* qst, WorldObject* qst_giver);
     void GiveQuestTitleReward(Player* plr, Quest* qst);
 
     uint32 GenerateQuestXP(Player* pl, Quest *qst);

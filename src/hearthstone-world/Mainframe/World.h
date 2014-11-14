@@ -7,7 +7,7 @@
 #define IS_INSTANCE(a) (a > 1 && a != 530 && a != 571 && a != 609)
 #define IS_MAIN_MAP(a) (a == 0 || a == 1 || a == 530 || a == 571 || a == 609)
 
-class Object;
+class WorldObject;
 class WorldPacket;
 class WorldSession;
 class Unit;
@@ -569,7 +569,7 @@ public:
     SessionSet gmList;
     RWLock gmList_lock;
 
-    void DeleteObject(Object* obj);
+    void DeleteObject(WorldObject* obj);
 
     bool gm_force_robes;
     uint8 StartLevel;

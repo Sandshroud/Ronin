@@ -28,7 +28,7 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr)
     _objects.clear();
 }
 
-void MapCell::AddObject(Object* obj)
+void MapCell::AddObject(WorldObject* obj)
 {
     if(obj->IsPlayer())
         ++_playerCount;
@@ -36,7 +36,7 @@ void MapCell::AddObject(Object* obj)
     _objects.insert(obj);
 }
 
-void MapCell::RemoveObject(Object* obj)
+void MapCell::RemoveObject(WorldObject* obj)
 {
     if(obj->IsPlayer())
         --_playerCount;
@@ -84,7 +84,7 @@ void MapCell::RemoveObjects()
     if(_respawnObjects.size())
     {
         /* delete objects in pending respawn state */
-        Object* pObject;
+        WorldObject* pObject;
         for(ObjectSet::iterator itr = _respawnObjects.begin(); itr != _respawnObjects.end(); itr++)
         {
             pObject = *itr;
@@ -97,29 +97,29 @@ void MapCell::RemoveObjects()
                 {
                     if( pObject->IsVehicle() )
                     {
-                        _mapmgr->_reusable_guids_vehicle.push_back( pObject->GetUIdFromGUID() );
+                        _mapmgr->_reusable_guids_vehicle.push_back( pObject->GetLowGUID() );
                         TO_VEHICLE(pObject)->m_respawnCell=NULL;
                         TO_VEHICLE(pObject)->Destruct();
-                        pObject = NULLOBJ;
+                        pObject = NULL;
                     }
                     else if( !pObject->IsPet() )
                     {
-                        _mapmgr->_reusable_guids_creature.push_back( pObject->GetUIdFromGUID() );
-                        TO_CREATURE(pObject)->m_respawnCell=NULL;
-                        TO_CREATURE(pObject)->Destruct();
-                        pObject = NULLOBJ;
+                        _mapmgr->_reusable_guids_creature.push_back( pObject->GetLowGUID() );
+                        castPtr<Creature>(pObject)->m_respawnCell=NULL;
+                        castPtr<Creature>(pObject)->Destruct();
+                        pObject = NULL;
                     }
                 }break;
 
             case TYPEID_GAMEOBJECT:
                 {
-                    TO_GAMEOBJECT(pObject)->m_respawnCell = NULL;
-                    TO_GAMEOBJECT(pObject)->Destruct();
-                    pObject = NULLOBJ;
+                    castPtr<GameObject>(pObject)->m_respawnCell = NULL;
+                    castPtr<GameObject>(pObject)->Destruct();
+                    pObject = NULL;
                 }break;
             default:
                 pObject->Destruct();
-                pObject = NULLOBJ;
+                pObject = NULL;
                 break;
             }
         }
@@ -129,7 +129,7 @@ void MapCell::RemoveObjects()
     if(_objects.size())
     {
         //This time it's simpler! We just remove everything :)
-        Object* obj; //do this outside the loop!
+        WorldObject* obj; //do this outside the loop!
         for(ObjectSet::iterator itr = _objects.begin(); itr != _objects.end();)
         {
             obj = (*itr);
@@ -140,7 +140,7 @@ void MapCell::RemoveObjects()
 
             if( _unloadpending )
             {
-                if(obj->GetTypeFromGUID() == HIGHGUID_TYPE_TRANSPORTER)
+                if(obj->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
                     continue;
 
                 if(obj->GetTypeId() == TYPEID_CORPSE && obj->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
@@ -154,7 +154,7 @@ void MapCell::RemoveObjects()
                 obj->RemoveFromWorld( true );
 
             obj->Destruct();
-            obj = NULLOBJ;
+            obj = NULL;
         }
         _objects.clear();
     }
@@ -171,14 +171,14 @@ void MapCell::LoadObjects(CellSpawns * sp)
     Instance * pInstance = _mapmgr->pInstance;
     if(sp->CreatureSpawns.size())//got creatures
     {
-        Creature* c = NULLCREATURE;
+        Creature* c = NULL;
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             if(pInstance && pInstance->m_killedNpcs.find((*i)->id) != pInstance->m_killedNpcs.end())
                 continue;
 
             c = (*i)->vehicle ? _mapmgr->CreateVehicle((*i)->entry) : _mapmgr->CreateCreature((*i)->entry);
-            if(c == NULLCREATURE)
+            if(c == NULL)
                 continue;
 
             c->SetMapId(_mapmgr->GetMapId());
@@ -193,7 +193,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
             }
 
             c->Destruct();
-            c = NULLCREATURE;
+            c = NULL;
         }
     }
 
@@ -214,7 +214,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
             else
             {
                 go->Destruct();
-                go = NULLOBJ;
+                go = NULL;
             }
         }
     }

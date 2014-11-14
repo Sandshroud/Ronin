@@ -86,57 +86,6 @@ bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_sessio
     return true;
 }
 
-bool ChatHandler::HandleDebugSetPhase(const char* args, WorldSession *m_session)
-{
-    Object* pObj =  getSelectedCreature(m_session, false);
-    if(!pObj)
-    {
-        pObj = getSelectedChar(m_session, false);
-        if(!pObj)
-        {
-            pObj = m_session->GetPlayer()->m_GM_SelectedGO;
-            if(!pObj)
-            {
-                m_session->GetPlayer()->BroadcastMessage("You must select an Object.");
-                return true;
-            }
-        }
-    }
-
-    int32 phaseId = 0;
-    int save = 0;
-    if(sscanf(args, "%u %u", &phaseId, &save) < 1)
-        return false;
-
-    if(phaseId < -1)
-    {
-        m_session->GetPlayer()->BroadcastMessage("You must specify a valid phase id.");
-        return true;
-    }
-
-    if(phaseId == 0)
-    {
-        pObj->SetPhaseMask(1);
-        m_session->GetPlayer()->BroadcastMessage("Resetting Phase.");
-        return true;
-    }
-
-    if(pObj->IsPlayer())
-        TO_PLAYER(pObj)->SetPhaseMask( phaseId, (save ? true : false) );
-    else
-        pObj->SetPhaseMask( phaseId );
-    if(save && !pObj->IsPlayer())
-    {
-        if(pObj->IsGameObject())
-            TO_GAMEOBJECT(pObj)->SaveToDB();
-        else if(pObj->IsCreature())
-            TO_CREATURE(pObj)->SaveToDB();
-    }
-
-    m_session->GetPlayer()->BroadcastMessage("Target's phase altered successfully.");
-    return true;
-}
-
 bool ChatHandler::HandleFaceCommand(const char* args, WorldSession *m_session)
 {
     Creature* obj = getSelectedCreature(m_session, false);
@@ -161,7 +110,7 @@ bool ChatHandler::HandleFaceCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleSetBytesCommand(const char* args, WorldSession *m_session)
 {
-    Object* obj = getSelectedUnit(m_session, false);
+    WorldObject* obj = getSelectedUnit(m_session, false);
     if(obj == NULL)
         obj = m_session->GetPlayer();
 
@@ -201,7 +150,7 @@ bool ChatHandler::HandleSetBytesCommand(const char* args, WorldSession *m_sessio
 
 bool ChatHandler::HandleGetBytesCommand(const char* args, WorldSession *m_session)
 {
-    Object* obj = getSelectedUnit(m_session, false);
+    WorldObject* obj = getSelectedUnit(m_session, false);
     if(obj == NULL)
         obj = m_session->GetPlayer();
 
@@ -320,91 +269,11 @@ bool ChatHandler::HandleKnockBackCommand(const char* args, WorldSession *m_sessi
     return true;
 }
 
-bool ChatHandler::HandleFadeCommand(const char* args, WorldSession *m_session)
-{
-    if(!args)
-        return false;
-
-    Unit* target = getSelectedUnit(m_session, true);
-    if(target == NULL)
-        return true;
-
-    target->ModThreatModifier(atoi(args));
-    SystemMessage(m_session, "Threat is now reduced by: %i%", target->GetThreatModifier());
-    return true;
-}
-
-bool ChatHandler::HandleThreatModCommand(const char* args, WorldSession *m_session)
-{
-    if(!args)
-        return false;
-
-    Unit* target = getSelectedUnit(m_session, true);
-    if(target == NULL)
-        return true;
-
-    target->ModGeneratedThreatModifier(atoi(args));
-    SystemMessage(m_session, "New threat caused is now reduced by: i%", target->GetGeneratedThreatModifier());
-    return true;
-}
-
-bool ChatHandler::HandleCalcThreatCommand(const char* args, WorldSession *m_session)
-{
-    Unit* target = getSelectedCreature(m_session, false);
-    if(!target)
-    {
-        SystemMessage(m_session, "You should select a creature.");
-        return true;
-    }
-
-    char* dmg = strtok((char*)args, " ");
-    if(!dmg)
-        return false;
-    char* spellId = strtok(NULL, " ");
-    if(!spellId)
-        return false;
-    SpellEntry* sp = dbcSpell.LookupEntry( atoi( spellId ) );
-    if(!sp)
-        return false;
-
-    uint32 threat = target->GetAIInterface()->_CalcThreat(atol(dmg), sp, m_session->GetPlayer());
-    SystemMessage(m_session, "Generated threat is: %u", threat);
-    return true;
-}
-
-bool ChatHandler::HandleThreatListCommand(const char* args, WorldSession *m_session)
-{
-    Unit* target = NULLUNIT;
-    target = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
-    if(!target)
-    {
-        SystemMessage(m_session, "You should select a creature.");
-        return true;
-    }
-
-    std::stringstream sstext;
-    sstext << "threatlist of creature: " << GUID_LOPART(m_session->GetPlayer()->GetSelection()) << " " << GUID_HIPART(m_session->GetPlayer()->GetSelection()) << '\n';
-    TargetMap::iterator itr;
-    for(itr = target->GetAIInterface()->GetAITargets()->begin(); itr != target->GetAIInterface()->GetAITargets()->end();)
-    {
-        if(!itr->second)
-        {
-            ++itr;
-            continue;
-        }
-        sstext << "guid: " << itr->first->GetGUID() << " | threat: " << itr->second << "| threat after mod: " << (itr->second + itr->first->GetThreatModifier()) << "\n";
-        ++itr;
-    }
-
-    SendMultilineMessage(m_session, sstext.str().c_str());
-    return true;
-}
-
 bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_session)
 {
     return false;
 
-/*  Object* obj;
+/*  WorldObject* obj;
 
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if (guid != 0)
@@ -416,7 +285,7 @@ bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_sessi
         }
     }
     else
-        obj = TO_OBJECT(m_session->GetPlayer());
+        obj = m_session->GetPlayer();
 
     char* pField = strtok((char*)args, " ");
     if (!pField)
@@ -462,19 +331,17 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
 {
     return false;
 /*
-    Object* obj;
+    WorldObject* obj;
 
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if (guid != 0)
     {
-        if(!(obj = TO_OBJECT(m_session->GetPlayer())->GetMapMgr()->GetUnit(guid)))
+        if(!(obj = m_session->GetPlayer())->GetMapMgr()->GetUnit(guid))
         {
             SystemMessage(m_session, "You should select a character or a creature.");
             return true;
         }
-    }
-    else
-        obj = TO_OBJECT(m_session->GetPlayer());
+    } else obj = m_session->GetPlayer();
 
     char* pField = strtok((char*)args, " ");
     if (!pField)
@@ -500,7 +367,7 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
     snprintf((char*)buf,256,"Set Field %i from %i to %i.", (unsigned int)field, (unsigned int)oldValue, (unsigned int)value);
 
     if( obj->IsPlayer() )
-        TO_PLAYER( obj )->UpdateChances();
+        castPtr<Player>( obj )->UpdateChances();
 
     SystemMessage(m_session, buf);
 
@@ -531,7 +398,7 @@ bool ChatHandler::HandleDebugGoRepair(const char* args, WorldSession *m_session)
         return true;
     }
 
-    GObj->Rebuild();
+    GObj->SetStatusRebuilt();
     BlueSystemMessage(m_session, "Gameobject rebuilt.");
     return true;
 

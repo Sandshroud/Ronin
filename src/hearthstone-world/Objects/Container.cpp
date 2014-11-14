@@ -4,24 +4,16 @@
 
 #include "StdAfx.h"
 
-Container::Container(uint32 high,uint32 low) : Item()
+Container::Container(uint32 high,uint32 low) : Item(high, low)
 {
-    m_objectTypeId = TYPEID_CONTAINER;
-    m_valuesCount = CONTAINER_END;
-    m_uint32Values = __fields;
-    memset(m_uint32Values, 0,(CONTAINER_END)*sizeof(uint32));
-    m_updateMask.SetCount(CONTAINER_END);
-    SetUInt32Value( OBJECT_FIELD_TYPE,TYPEMASK_CONTAINER|TYPEMASK_ITEM|TYPEMASK_OBJECT);
-    SetUInt64Value( OBJECT_FIELD_GUID, MAKE_NEW_GUID(low, 0, high));
-    m_wowGuid = GetGUID();
+    m_valuesCount += CONTAINER_LENGTH;
+    m_updateMask.SetCount(m_valuesCount);
+    m_object.m_objType |= TYPEMASK_TYPE_CONTAINER;
+    m_raw.values[OBJECT_LAYER_CONTAINER] = new uint32[CONTAINER_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_CONTAINER], 0,(CONTAINER_LENGTH*sizeof(uint32)));
 
-    SetFloatValue( OBJECT_FIELD_SCALE_X, 1 );//always 1
-
-
-    for(uint32 i = 0; i < 72; i++)
-        m_Slot[i] = NULLITEM;
-
-    random_suffix=random_prop=0;
+    memset(&m_Slot, 0, sizeof(Item*)*72);
+    random_suffix = random_prop = 0;
 }
 
 Container::~Container( )
@@ -42,7 +34,7 @@ void Container::Destruct()
         {
             if(m_Slot[i] && m_Slot[i]->GetOwner() == m_owner)
             {
-                m_Slot[i]->DeleteMe();
+                m_Slot[i]->Destruct();
                 m_Slot[i] = NULL;
             }
         }
@@ -144,17 +136,6 @@ bool Container::AddItem(int16 slot, Item* item)
     Bind(ITEM_BIND_ON_PICKUP);
 
     SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (slot*2), item->GetGUID());
-
-    //new version to fix bag issues
-    if(m_owner->IsInWorld() && !item->IsInWorld())
-    {
-        //item->AddToWorld();
-        item->PushToWorld(m_owner->GetMapMgr());
-
-        ByteBuffer buf(2500);
-        uint32 count = item->BuildCreateUpdateBlockForPlayer(&buf, m_owner);
-        m_owner->PushUpdateBlock(&buf, count);
-    }
     return true;
 }
 
@@ -214,12 +195,12 @@ void Container::SwapItems(int16 SrcSlot, int16 DstSlot)
 Item* Container::SafeRemoveAndRetreiveItemFromSlot(int16 slot, bool destroy)
 {
     if (slot < 0 || (int32)slot >= GetProto()->ContainerSlots)
-        return NULLITEM;
+        return NULL;
 
     Item* pItem = m_Slot[slot];
 
-    if (pItem == NULL || pItem == TO_ITEM(this)) return NULLITEM;
-    m_Slot[slot] = NULLITEM;
+    if (pItem == NULL || pItem == castPtr<Item>(this)) return NULL;
+    m_Slot[slot] = NULL;
 
     if( pItem->GetOwner() == m_owner )
     {
@@ -228,14 +209,10 @@ Item* Container::SafeRemoveAndRetreiveItemFromSlot(int16 slot, bool destroy)
 
         if(destroy)
         {
-            if(pItem->IsInWorld())
-                pItem->RemoveFromWorld();
+            pItem->RemoveFromWorld(false);
             pItem->DeleteFromDB();
         }
-    }
-    else
-        pItem = NULLITEM;
-
+    } else pItem = NULL;
     return pItem;
 }
 
@@ -246,18 +223,14 @@ bool Container::SafeFullRemoveItemFromSlot(int16 slot)
 
     Item* pItem = m_Slot[slot];
 
-    if(pItem == NULL ||pItem == TO_ITEM(this)) return false;
-        m_Slot[slot] = NULLITEM;
+    if(pItem == NULL ||pItem == castPtr<Item>(this)) return false;
+        m_Slot[slot] = NULL;
 
     SetUInt64Value(CONTAINER_FIELD_SLOT_1  + slot*2, 0 );
     pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
 
-    if(pItem->IsInWorld())
-        pItem->RemoveFromWorld();
     pItem->DeleteFromDB();
-    pItem->DeleteMe();
-    pItem = NULL;
-
+    pItem->RemoveFromWorld(true);
     return true;
 }
 
@@ -280,7 +253,7 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint32 * r_slot)
 
             if(m_owner->IsInWorld() && !pItem->IsInWorld())
             {
-                pItem->PushToWorld(m_owner->GetMapMgr());
+                pItem->SetInWorld();
                 ByteBuffer buf(2500);
                 uint32 count = pItem->BuildCreateUpdateBlockForPlayer( &buf, m_owner );
                 m_owner->PushUpdateBlock(&buf, count);

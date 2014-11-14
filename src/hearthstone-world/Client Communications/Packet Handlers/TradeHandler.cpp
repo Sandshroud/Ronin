@@ -69,7 +69,7 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
 {
-    Player* pTarget = NULLPLR;
+    Player* pTarget = NULL;
     uint32 TradeStatus = TRADE_STATUS_INITIATED;
 
     if(!_player->IsInWorld() || _player->mTradeTarget == 0)
@@ -215,16 +215,16 @@ void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
 
     if(pItem->IsContainer())
     {
-        if( pItem->IsContainer() && TO_CONTAINER(pItem)->HasItems() )
+        if( pItem->IsContainer() && castPtr<Container>(pItem)->HasItems() )
         {
-            _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULLITEM, INV_ERR_CANT_TRADE_EQUIP_BAGS);
+            _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULL, INV_ERR_CANT_TRADE_EQUIP_BAGS);
             return;
         }
     }
 
     if(pItem->IsAccountbound())
     {
-        _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULLITEM, INV_ERR_ACCOUNT_BOUND);
+        _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULL, INV_ERR_ACCOUNT_BOUND);
         return;
     }
 
@@ -271,7 +271,7 @@ void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
     if(TradeSlot > 6)
         return;
 
-    _player->mTradeItems[TradeSlot] = NULLITEM;
+    _player->mTradeItems[TradeSlot] = NULL;
     _player->SendTradeUpdate();
 }
 
@@ -305,10 +305,10 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
             if(_player->mTradeItems[Index] != NULL)
             {
                 pItem = _player->mTradeItems[Index];
-                if( pItem != NULL && pItem->IsContainer() && TO_CONTAINER(pItem)->HasItems())
+                if( pItem != NULL && pItem->IsContainer() && castPtr<Container>(pItem)->HasItems())
                 {
                     sWorld.LogCheater(this, "%s involved in bag-trick trade with %s", _player->GetName(),pTarget->GetName());
-                    _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULLITEM, INV_ERR_CANT_TRADE_EQUIP_BAGS);
+                    _player->GetItemInterface()->BuildInventoryChangeError( pItem, NULL, INV_ERR_CANT_TRADE_EQUIP_BAGS);
                     TradeStatus = TRADE_STATUS_CANCELLED;
                     break;
                 }
@@ -319,10 +319,10 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
             if(pTarget->mTradeItems[Index] != NULL)
             {
                 pItem = pTarget->mTradeItems[Index];
-                if( pItem != NULL && pItem->IsContainer() && TO_CONTAINER(pItem)->HasItems() )
+                if( pItem != NULL && pItem->IsContainer() && castPtr<Container>(pItem)->HasItems() )
                 {
                     sWorld.LogCheater(this, "%s involved in bag-trick trade with %s.", pTarget->GetName(),_player->GetName());
-                    pTarget->GetItemInterface()->BuildInventoryChangeError( pItem, NULLITEM, INV_ERR_CANT_TRADE_EQUIP_BAGS);
+                    pTarget->GetItemInterface()->BuildInventoryChangeError( pItem, NULL, INV_ERR_CANT_TRADE_EQUIP_BAGS);
                     TradeStatus = TRADE_STATUS_CANCELLED;
                     break;
                 }
@@ -349,7 +349,7 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                 if(Guid != 0)
                 {
                     if( _player->mTradeItems[Index]->IsSoulbound() || _player->mTradeItems[Index]->IsAccountbound())
-                        _player->GetItemInterface()->BuildInventoryChangeError( _player->mTradeItems[Index], NULLITEM, INV_ERR_CANNOT_TRADE_THAT);
+                        _player->GetItemInterface()->BuildInventoryChangeError( _player->mTradeItems[Index], NULL, INV_ERR_CANNOT_TRADE_THAT);
                     else
                     {
                         //Remove from player
@@ -362,7 +362,7 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                             sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
                             if( !pTarget->m_ItemInterface->AddItemToFreeSlot(pItem) )
                             {
-                                pItem->DeleteMe();
+                                pItem->Destruct();
                                 pItem = NULL;
                             }
                         }
@@ -376,7 +376,7 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                 if(Guid != 0)
                 {
                     if( pTarget->mTradeItems[Index]->IsSoulbound() || pTarget->mTradeItems[Index]->IsAccountbound())
-                        pTarget->GetItemInterface()->BuildInventoryChangeError( pTarget->mTradeItems[Index], NULLITEM, INV_ERR_CANNOT_TRADE_THAT);
+                        pTarget->GetItemInterface()->BuildInventoryChangeError( pTarget->mTradeItems[Index], NULL, INV_ERR_CANNOT_TRADE_THAT);
                     else
                     {
                         //Remove from pTarget
@@ -389,7 +389,7 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                             sQuestMgr.OnPlayerDropItem(pTarget, pItem->GetEntry());
                             if( !_player->m_ItemInterface->AddItemToFreeSlot(pItem) )
                             {
-                                pItem->DeleteMe();
+                                pItem->Destruct();
                                 pItem = NULL;
                             }
                         }

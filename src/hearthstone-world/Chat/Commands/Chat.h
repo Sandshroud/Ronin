@@ -244,7 +244,6 @@ protected:
     bool HandleToggleDevCommand(const char* args, WorldSession *m_session);
 
     // Debug Commands
-    bool HandleDebugSetPhase(const char* args, WorldSession *m_session);
     bool HandleDebugGoDamage(const char* args, WorldSession *m_session);
     bool HandleDebugGoRepair(const char* args, WorldSession *m_session);
     bool HandleDebugInFrontCommand(const char* args, WorldSession *m_session);
@@ -260,10 +259,6 @@ protected:
     bool HandleDebugWaterWalk(const char* args, WorldSession *m_session);
     bool HandleAggroRangeCommand(const char* args, WorldSession *m_session);
     bool HandleKnockBackCommand(const char* args, WorldSession *m_session);
-    bool HandleFadeCommand(const char* args, WorldSession *m_session);
-    bool HandleThreatModCommand(const char* args, WorldSession *m_session);
-    bool HandleCalcThreatCommand(const char* args, WorldSession *m_session);
-    bool HandleThreatListCommand(const char* args, WorldSession *m_session);
     bool HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_session);
     bool HandleRangeCheckCommand( const char * args , WorldSession * m_session );
 

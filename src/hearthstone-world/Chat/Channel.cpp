@@ -143,7 +143,7 @@ void Channel::AttemptJoin(Player* plr, const char * password)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_JOINED);
         data << plr->GetGUID();
-        SendToAll(&data, NULLPLR);
+        SendToAll(&data, NULL);
     }
 
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOUJOINED);
@@ -178,7 +178,7 @@ void Channel::Part(Player* plr, bool silent, bool keepData)
     if(flags & CHANNEL_FLAG_OWNER)
     {
         // we need to find a new owner
-        SetOwner(NULLPLR, NULLPLR);
+        SetOwner(NULL, NULL);
     }
 
     if(!silent)
@@ -205,7 +205,7 @@ void Channel::Part(Player* plr, bool silent, bool keepData)
 void Channel::SetOwner(Player* oldpl, Player* plr)
 {
     Guard mGuard(m_lock);
-    Player* pOwner = NULLPLR;
+    Player* pOwner = NULL;
     uint32 oldflags = 0;
     uint32 oldflags2 = 0;
     WorldPacket data;
@@ -370,11 +370,11 @@ void Channel::Say(Player* plr, const char * message, Player* for_gm_client, bool
 
     data.SetOpcode(SMSG_MESSAGECHAT);
     data << uint8(CHAT_MSG_CHANNEL);
-    data << uint32(0);      // language
-    data << plr->GetGUID(); // guid
-    data << uint32(0);      // rank?
-    data << m_name;         // channel name
-    data << plr->GetGUID(); // guid again?
+    data << uint32(0);                  // language
+    data << plr->GetGUID();    // guid
+    data << uint32(0);                  // rank?
+    data << m_name;                     // channel name
+    data << plr->GetGUID();    // guid again?
     data << uint32(strlen(message)+1);
     data << message;
     data << (uint8)(plr->GetChatTag());
@@ -444,7 +444,7 @@ void Channel::Kick(Player* plr, Player* die_player, bool ban)
     m_members.erase(itr);
 
     if(flags & CHANNEL_FLAG_OWNER)
-        SetOwner(NULLPLR, NULLPLR);
+        SetOwner(NULL, NULL);
 
     if(ban)
         m_bannedMembers.insert(die_player->GetLowGUID());

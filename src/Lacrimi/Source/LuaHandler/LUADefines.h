@@ -228,7 +228,7 @@ template<> const char * GetTClassName<Aura>();
 #define CHECK_PLAYER(L,narg) Lunar<Player>::check(L,narg)
 #define CHECK_GO(L,narg) Lunar<GameObject>::check(L,narg)
 #define CHECK_PACKET(L,narg) Lunar<WorldPacket>::check(L,narg)
-#define CHECK_OBJECT(L,narg) Lunar<Object>::check(L,narg)
+#define CHECK_OBJECT(L,narg) Lunar<WorldObject>::check(L,narg)
 
 #define CHECK_FLOAT(L,narg) (lua_isnoneornil(L,(narg)) ) ? 0.00f : (float)luaL_checknumber(L,(narg)); 
 #define CHECK_ULONG(L,narg) (uint32)luaL_checknumber((L),(narg))

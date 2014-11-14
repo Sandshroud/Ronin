@@ -77,7 +77,7 @@ class SERVER_DECL Aura : public EventableObject
 {
     uint64 periodic_target;
 public:
-    Aura(SpellEntry *proto, int32 duration, Object* caster, Unit* target);
+    Aura(SpellEntry *proto, int32 duration, WorldObject* caster, Unit* target);
     ~Aura();
 
     void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
@@ -113,11 +113,11 @@ public:
     bool m_applied;
 
     Unit* GetUnitCaster();
-    HEARTHSTONE_INLINE Object* GetCaster() {return TO_OBJECT(GetUnitCaster());}
+    HEARTHSTONE_INLINE WorldObject* GetCaster() { return GetUnitCaster();}
     HEARTHSTONE_INLINE uint64 GetCasterGUID(){return m_casterGuid;}
 
-    HEARTHSTONE_INLINE Object* GetTarget() {return ((m_target != NULL && m_target->IsInWorld()) ? TO_OBJECT(m_target): NULLOBJ);}
-    HEARTHSTONE_INLINE Unit* GetUnitTarget() {return TO_UNIT(GetTarget());}
+    HEARTHSTONE_INLINE WorldObject* GetTarget() {return ((m_target != NULL && m_target->IsInWorld()) ? m_target: NULL);}
+    HEARTHSTONE_INLINE Unit* GetUnitTarget() {return castPtr<Unit>(GetTarget());}
     HEARTHSTONE_INLINE uint64 GetTargetGUID(){return m_target->GetGUID();}
 
     void RemoveIfNecessary();
@@ -485,7 +485,7 @@ private:
     void SetCasterFaction(uint32 faction){ m_casterfaction = faction; }
     HEARTHSTONE_INLINE void DurationPctMod(uint32 mechanic);
 
-    HEARTHSTONE_INLINE bool IsInrange(float x1, float y1, float z1, Object* obj, float square_r)
+    HEARTHSTONE_INLINE bool IsInrange(float x1, float y1, float z1, WorldObject* obj, float square_r)
     {
         float t = x1-obj->GetPositionX();
         float r = t*t;
@@ -516,8 +516,8 @@ private:
 protected:
     uint32 m_casterfaction;
 
-    void SendInterrupted(uint8 result, Object* m_caster);
-    void SendChannelUpdate(uint32 time, Object* m_caster);
+    void SendInterrupted(uint8 result, WorldObject* m_caster);
+    void SendChannelUpdate(uint32 time, WorldObject* m_caster);
     void SpecialCases();
 public:
     bool m_deleted;

@@ -24,9 +24,9 @@
 #endif
 
 #ifdef _MSC_VER
-    #define isnan(x) _isnan(x)
+#define num_isnan(x) _isnan(x)
 #else
-    #define isnan(x) std::isnan(x)
+#define num_isnan(x) std::isnan(x)
 #endif
 
 #include <list>
@@ -70,7 +70,6 @@ using namespace std;
 #include "../hearthstone-shared/MersenneTwister.h"
 #include "../hearthstone-shared/WorldPacket.h"
 #include "../hearthstone-shared/ByteBuffer.h"
-#include "../hearthstone-shared/WoWGuid.h"
 #include "../hearthstone-shared/Config/IniFiles.h"
 #include "../hearthstone-shared/crc32.h"
 #include "../hearthstone-shared/LocationVector.h"

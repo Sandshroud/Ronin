@@ -345,7 +345,7 @@ protected:
     Unit *                  ChooseBestTargetInArray( UnitArray& pTargetArray, TargetFilters pFilter );
     Unit *                  GetNearestTargetInArray( UnitArray& pTargetArray );
     Unit *                  GetSecondMostHatedTargetInArray( UnitArray& pTargetArray );
-    bool                    IsValidUnitTarget( Object *pObject, TargetFilters pFilter, float pMinRange = 0.0f, float pMaxRange = 0.0f  );
+    bool                    IsValidUnitTarget( WorldObject *pObject, TargetFilters pFilter, float pMinRange = 0.0f, float pMaxRange = 0.0f  );
     void                    PushRunToTargetCache( Unit *pTarget, SpellDesc* pSpell, RangeStatusPair pRangeStatus = make_pair( RangeStatus_TooFar, 0.0f ) );
     void                    PopRunToTargetCache();
 

@@ -40,9 +40,9 @@ public:
     bool ExecuteCall(uint8 params = 0,uint8 res = 0);
     void EndCall(uint8 res = 0);
 
-    void PushUnit(Object * unit, lua_State * LuaS = NULL);
-    void PushGo(Object * go, lua_State * LuaS = NULL);
-    void PushItem(Object * item, lua_State * LuaS = NULL);
+    void PushUnit(WorldObject * unit, lua_State * LuaS = NULL);
+    void PushGo(WorldObject * go, lua_State * LuaS = NULL);
+    void PushItem(WorldObject * item, lua_State * LuaS = NULL);
     void PushGuid(uint64 guid, lua_State * LuaS = NULL);
     void PushPacket(WorldPacket * packet, lua_State * LuaS = NULL);
     void PushTaxiPath(TaxiPath * tp, lua_State * LuaS = NULL);

@@ -304,15 +304,15 @@ static const char *g_stateNames[AV_NODE_STATE_COUNT] = { "AV_NODE_STATE_NEUTRAL_
 AVNode::AVNode( AlteracValley* parent, AVNodeTemplate *tmpl, uint32 nodeid) : m_template(tmpl), m_nodeId(nodeid)
 {
     m_bg = parent;
-    m_boss = NULLCREATURE;
-    m_flag = NULLGOB;
-    m_aura = NULLGOB;
-    m_glow = NULLGOB;
+    m_boss = NULL;
+    m_flag = NULL;
+    m_aura = NULL;
+    m_glow = NULL;
     m_state = tmpl->m_defaultState;
     m_lastState = tmpl->m_defaultState;
     m_destroyed = false;
-    m_homeNPC = NULLCREATURE;
-    m_spiritGuide = NULLCREATURE;
+    m_homeNPC = NULL;
+    m_spiritGuide = NULL;
 
     // set state
     ChangeState(m_state);
@@ -425,7 +425,7 @@ void AVNode::Spawn()
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning main flag", m_template->m_name);
             m_flag->Despawn(0, 0);
-            m_flag = NULLGOB;
+            m_flag = NULL;
         }
     }
     else
@@ -433,6 +433,16 @@ void AVNode::Spawn()
         // spawn the flag.
         const AVGameObject* g = &m_template->m_flagLocation;
         sLog.outDebug("AVNode::Spawn(%s) : Spawning main flag", m_template->m_name);
+        if(m_flag && m_flag->GetEntry() != g->id[m_state])
+        {
+            if(m_flag->IsInWorld())
+                m_flag->RemoveFromWorld(true);
+            else m_flag->Destruct();
+            m_flag = NULL;
+        }
+        else if(m_flag && !m_flag->IsInWorld())
+            m_flag->PushToWorld(m_bg->GetMapMgr());
+
         if( m_flag == NULL )
         {
             // initial spawn
@@ -442,24 +452,6 @@ void AVNode::Spawn()
             m_flag->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
             m_flag->SetUInt32Value(GAMEOBJECT_DYNAMIC, 1);
             m_flag->PushToWorld(m_bg->GetMapMgr());
-        }
-        else
-        {
-            // change entry, but to do this change guid
-            if( m_flag->GetEntry() != g->id[m_state] || !m_flag->IsInWorld() )
-            {
-                GameObjectInfo *goi = GameObjectNameStorage.LookupEntry(g->id[m_state]);
-                m_flag->RemoveFromWorld(false);
-                m_flag->SetUInt32Value(OBJECT_FIELD_ENTRY, g->id[m_state]);
-                m_flag->SetNewGuid(m_bg->GetMapMgr()->GenerateGameobjectGuid());
-                m_flag->SetInfo(goi);
-                m_flag->SetUInt32Value(GAMEOBJECT_DISPLAYID, goi->DisplayID);
-                m_flag->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, goi->Type);
-                m_flag->SetUInt32Value(GAMEOBJECT_FACTION, g_gameObjectFactions[m_state]);
-                m_flag->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-                m_flag->SetUInt32Value(GAMEOBJECT_DYNAMIC, 1);
-                m_flag->PushToWorld(m_bg->GetMapMgr());
-            }
         }
     }
 
@@ -471,7 +463,7 @@ void AVNode::Spawn()
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning secondary flag", m_template->m_name);
             m_aura->Despawn(0, 0);
-            m_aura = NULLGOB;
+            m_aura = NULL;
         }
     }
     else
@@ -479,6 +471,20 @@ void AVNode::Spawn()
         // spawn the flag.
         const AVGameObject* g = &m_template->m_auraLocation;
         sLog.outDebug("AVNode::Spawn(%s) : Spawning secondary flag", m_template->m_name);
+        if(m_aura != NULL)
+        {
+            // change entry, but to do this change guid
+            if( m_aura->GetEntry() != g->id[m_state] )
+            {
+                if(m_aura->IsInWorld())
+                    m_aura->RemoveFromWorld(true);
+                else m_aura->Destruct();
+                m_aura = NULL;
+            }
+            else if(!m_aura->IsInWorld())
+                m_aura->PushToWorld(m_bg->GetMapMgr());
+        }
+
         if( m_aura == NULL )
         {
             // initial spawn
@@ -488,25 +494,6 @@ void AVNode::Spawn()
             m_aura->SetUInt32Value(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
             m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
             m_aura->PushToWorld(m_bg->GetMapMgr());
-        }
-        else
-        {
-            // change entry, but to do this change guid
-            if( m_aura->GetEntry() != g->id[m_state] || !m_aura->IsInWorld() )
-            {
-                GameObjectInfo *goi = GameObjectNameStorage.LookupEntry(g->id[m_state]);
-                m_aura->RemoveFromWorld(false);
-                m_aura->SetUInt32Value(OBJECT_FIELD_ENTRY, g->id[m_state]);
-                m_aura->SetNewGuid(m_bg->GetMapMgr()->GenerateGameobjectGuid());
-                m_aura->SetInfo(goi);
-                m_aura->SetUInt32Value(GAMEOBJECT_DISPLAYID, goi->DisplayID);
-                m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, goi->Type);
-                m_aura->SetUInt32Value(GAMEOBJECT_FACTION, g_gameObjectFactions[m_state]);
-                m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-                m_aura->SetUInt32Value(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
-                m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
-                m_aura->PushToWorld(m_bg->GetMapMgr());
-            }
         }
     }
 
@@ -518,7 +505,7 @@ void AVNode::Spawn()
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning glow", m_template->m_name);
             m_glow->Despawn(0, 0);
-            m_glow = NULLGOB;
+            m_glow = NULL;
         }
     }
     else
@@ -526,6 +513,19 @@ void AVNode::Spawn()
         // spawn the flag.
         const AVGameObject* g = &m_template->m_glowLocation;
         sLog.outDebug("AVNode::Spawn(%s) : Spawning glow", m_template->m_name);
+        if(m_glow)
+        {
+            if(m_glow->GetEntry() == g->id[m_state])
+                m_glow->AddToWorld();
+            else
+            {
+                if(m_glow->IsInWorld())
+                    m_glow->RemoveFromWorld(true);
+                else m_glow->Destruct();
+                m_glow = NULL;
+            }
+        }
+
         if( m_glow == NULL )
         {
             // initial spawn
@@ -540,31 +540,7 @@ void AVNode::Spawn()
                 m_glow->SetFloatValue(OBJECT_FIELD_SCALE_X, 2.0f);
             m_glow->PushToWorld(m_bg->GetMapMgr());
         }
-        else
-        {
-            // change entry, but to do this change guid
-            if( m_glow->GetEntry() != g->id[m_state] || !m_glow->IsInWorld() )
-            {
-                GameObjectInfo *goi = GameObjectNameStorage.LookupEntry(g->id[m_state]);
-                m_glow->RemoveFromWorld(false);
-                m_glow->SetUInt32Value(OBJECT_FIELD_ENTRY, g->id[m_state]);
-                m_glow->SetNewGuid(m_bg->GetMapMgr()->GenerateGameobjectGuid());
-                m_glow->SetInfo(goi);
-                m_glow->SetUInt32Value(GAMEOBJECT_DISPLAYID, goi->DisplayID);
-                m_glow->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, goi->Type);
-                m_glow->SetUInt32Value(GAMEOBJECT_FACTION, g_gameObjectFactions[m_state]);
-                m_glow->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-                m_glow->SetUInt32Value(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
-                m_glow->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
-                if(m_glow->GetEntry() == 180422 || m_glow->GetEntry() == 180423)
-                    m_glow->SetFloatValue(OBJECT_FIELD_SCALE_X, 10.0f);
-                else
-                    m_glow->SetFloatValue(OBJECT_FIELD_SCALE_X, 2.0f);
-                m_glow->PushToWorld(m_bg->GetMapMgr());
-            }
-        }
     }
-
 
     // update field states :O
     for(uint32 i = 0; i < AV_NUM_SPAWN_TYPES; i++)
@@ -632,7 +608,7 @@ void AVNode::Spawn()
             }
             m_bg->RemoveSpiritGuide(m_spiritGuide);
             m_spiritGuide->Despawn(0, 0);
-            m_spiritGuide = NULLCREATURE;
+            m_spiritGuide = NULL;
         }
 
         if( m_state == AV_NODE_STATE_ALLIANCE_CONTROLLED )
@@ -1158,17 +1134,15 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
         {
             if( Rand(loot_ptr->Chance * sWorld.getRate(RATE_DROP0)) )
             {
-                __LootItem li;
-                ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(loot_ptr->ItemId);
-                if( pProto != NULL )
+                if( ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(loot_ptr->ItemId) )
                 {
+                    __LootItem li;
                     li.ffa_loot = 0;
                     li.item.displayid = pProto->DisplayInfoID;
                     li.item.itemproto = pProto;
                     if( loot_ptr->MinCount != loot_ptr->MaxCount )
                         li.StackSize = loot_ptr->MinCount+RandomUInt(loot_ptr->MaxCount - loot_ptr->MinCount);
-                    else
-                        li.StackSize = loot_ptr->MaxCount;
+                    else li.StackSize = loot_ptr->MaxCount;
 
                     li.iRandomProperty = NULL;
                     li.iRandomSuffix = NULL;
@@ -1176,7 +1150,7 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
                     li.roll = NULLROLL;
 
                     // push to vector
-                    pCorpse->m_loot.items.push_back(li);
+                    pCorpse->GetLoot()->items.push_back(li);
                 }
             }
         }
@@ -1189,7 +1163,7 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
     gold *= sWorld.getRate(RATE_MONEY);
 
     // set it
-    pCorpse->m_loot.gold = float2int32(gold);
+    pCorpse->GetLoot()->gold = float2int32(gold);
 }
 
 void AlteracValley::EventUpdateResources()

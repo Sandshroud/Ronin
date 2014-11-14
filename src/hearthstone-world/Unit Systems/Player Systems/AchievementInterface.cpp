@@ -12,7 +12,7 @@ AchievementInterface::AchievementInterface(Player* plr)
 
 AchievementInterface::~AchievementInterface()
 {
-    m_player = NULLPLR;
+    m_player = NULL;
 
     if( m_achivementDataMap.size() > 0 )
     {
@@ -138,7 +138,7 @@ WorldPacket* AchievementInterface::BuildAchievementData(bool forInspect)
 
     WorldPacket * data = new WorldPacket(forInspect ? SMSG_RESPOND_INSPECT_ACHIEVEMENTS : SMSG_ALL_ACHIEVEMENT_DATA, 400);
     *data << uint32(0);
-    *data << m_player->GetNewGUID();
+    *data << m_player->GetGUID();
     *data << uint32(0);
     if(forInspect)
         m_achievementInspectPacket = data;
@@ -275,7 +275,7 @@ WorldPacket* AchievementInterface::BuildAchievementEarned(AchievementData * pDat
 {
     pData->m_isDirty = true;
     WorldPacket * data = new WorldPacket(SMSG_ACHIEVEMENT_EARNED, 40);
-    *data << m_player->GetNewGUID();
+    *data << m_player->GetGUID();
     *data << pData->id;
     *data << uint32( unixTimeToTimeBitfields(time(NULL)) );
     *data << uint32(0);
@@ -448,7 +448,7 @@ void AchievementInterface::SendCriteriaUpdate(AchievementData * ad, uint32 idx)
     WorldPacket data(SMSG_CRITERIA_UPDATE, 50);
     data << uint32(ae->AssociatedCriteria[idx]);
     FastGUIDPack( data, (uint64)ad->counter[idx] );
-    data << m_player->GetNewGUID();
+    data << m_player->GetGUID();
     data << uint32(0);
     data << uint32(unixTimeToTimeBitfields(time(NULL)));
     data << uint32(0);
@@ -1310,7 +1310,7 @@ void AchievementInterface::HandleAchievementCriteriaDoEmote(uint32 emoteId, Unit
         bool scriptOk = false;
         if( pTarget && pTarget->IsCreature() )
         {
-            Creature* pCreature = TO_CREATURE(pTarget);
+            Creature* pCreature = castPtr<Creature>(pTarget);
             if( !(!ace->name || strlen(ace->name) == 0 || !pCreature->GetCreatureData() || stricmp(pCreature->GetCreatureData()->Name, ace->name) != 0) )
             {
                 scriptOk = true;

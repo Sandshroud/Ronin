@@ -34,9 +34,9 @@ class SERVER_DECL ArenaTeam
 
 public:
 
+    WoWGuid m_leader;
     uint32 m_id;
     uint32 m_type;
-    uint32 m_leader;
     uint32 m_slots;
     string m_name;
     uint32 m_memberCount;

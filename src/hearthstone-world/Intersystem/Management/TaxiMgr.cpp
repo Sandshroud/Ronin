@@ -208,7 +208,7 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time)
     WorldPacket * data = new WorldPacket(SMSG_MONSTER_MOVE, 2000);
     size_t pos;
 
-    *data << riding->GetNewGUID();
+    *data << riding->GetGUID().asPacked();
     *data << uint8(0);
     *data << riding->GetPositionX( ) << riding->GetPositionY( ) << riding->GetPositionZ( );
     *data << getMSTime();
@@ -280,7 +280,7 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time)
 
     WorldPacket * data = new WorldPacket(SMSG_MONSTER_MOVE, 2000);
 
-    *data << riding->GetNewGUID();
+    *data << riding->GetGUID();
     *data << riding->GetPositionX( ) << riding->GetPositionY( ) << riding->GetPositionZ( );
     *data << getMSTime();
     *data << uint8( 0 );

@@ -538,7 +538,7 @@ void WorldSession::HandleCharterSign( WorldPacket & recv_data )
 
     for(uint32 i = 0; i < 9; i++)
     {
-        if(c->Signatures[i] == _player->GetGUID())
+        if(c->Signatures[i] == _player->GetLowGUID())
         {
             SendNotification("You have already signed that charter.");
             return;

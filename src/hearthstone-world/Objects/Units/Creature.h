@@ -171,7 +171,7 @@ class CreatureAIScript;
 class GossipScript;
 class AuctionHouse;
 struct Trainer;
-#define CALL_SCRIPT_EVENT(obj, func) if(obj->GetTypeId() == TYPEID_UNIT && TO_CREATURE(obj)->GetScript() != NULL) TO_CREATURE(obj)->GetScript()->func
+#define CALL_SCRIPT_EVENT(obj, func) if(obj->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(obj)->GetScript() != NULL) castPtr<Creature>(obj)->GetScript()->func
 
 ///////////////////
 /// Creature object
@@ -387,8 +387,8 @@ public:
     void SafeDelete();
 
     // In Range
-    void AddInRangeObject(Object* pObj);
-    void OnRemoveInRangeObject(Object* pObj);
+    void AddInRangeObject(WorldObject* pObj);
+    void OnRemoveInRangeObject(WorldObject* pObj);
     void ClearInRangeSet();
 
     // Demon
@@ -480,7 +480,6 @@ protected:
     uint32 m_enslaveSpell;
 
     bool m_PickPocketed;
-    uint32 _fields[UNIT_END];
 public:
     //  custom functions for scripting
     HEARTHSTONE_INLINE uint32 GetProtoItemDisplayId(uint8 i) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i); }

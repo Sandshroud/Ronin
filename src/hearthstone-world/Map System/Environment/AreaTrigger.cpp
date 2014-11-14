@@ -153,7 +153,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
                 }
 
                 if( _player->IsMounted())
-                    TO_UNIT(_player)->Dismount();
+                    castPtr<Unit>(_player)->Dismount();
 
                 uint32 InstanceID = 0;
 
@@ -189,7 +189,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
             if( _player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
             {
                 if( _player->IsMounted() )
-                    TO_UNIT(_player)->Dismount();
+                    castPtr<Unit>(_player)->Dismount();
 
                 _player->SafeTeleport(pAreaTrigger->Mapid, 0, LocationVector(pAreaTrigger->x, pAreaTrigger->y, pAreaTrigger->z, pAreaTrigger->o));
             }

@@ -157,11 +157,10 @@ Creature *MapManagerScript::SpawnCreature( uint32 pEntry, float pX, float pY, fl
     {
         p->SetInstanceID(_manager->GetInstanceID());
         p->Load(_manager->iInstanceMode, pX, pY, pZ, pO);
-        p->SetPhaseMask(PhaseMask);
         p->PushToWorld(_manager);
         return p;
     }
-    return NULLCREATURE;
+    return NULL;
 }
 
 Creature *MapManagerScript::SpawnCreature( uint32 pEntry, float pX, float pY, float pZ, float pO, uint32 pFactionId, int32 PhaseMask )
@@ -170,12 +169,11 @@ Creature *MapManagerScript::SpawnCreature( uint32 pEntry, float pX, float pY, fl
     {
         p->SetInstanceID(_manager->GetInstanceID());
         p->Load(_manager->iInstanceMode, pX, pY, pZ, pO);
-        p->SetPhaseMask(PhaseMask);
         p->SetFaction(pFactionId);
         p->PushToWorld(_manager);
         return p;
     }
-    return NULLCREATURE;
+    return NULL;
 }
 
 GameObject *MapManagerScript::GetGameObjectBySqlId( uint32 pSqlId )
@@ -190,7 +188,7 @@ GameObject *MapManagerScript::GetGameObjectByGuid( uint32 pGuid )
 
 GameObject *MapManagerScript::FindClosestGameObject( uint32 pEntry, float pX, float pY, float pZ )
 {
-    GameObject *CurrentObject = NULLGOB, *Creturn = NULL;
+    GameObject *CurrentObject = NULL, *Creturn = NULL;
     float closestDistance = 50000.0f, currentDistance;
     for ( HM_NAMESPACE::hash_map<uint32, GameObject*>::iterator Iter = _manager->m_gameObjectStorage.begin(); Iter != _manager->m_gameObjectStorage.end(); Iter++ )
     {
@@ -216,7 +214,7 @@ GameObject *MapManagerScript::SpawnGameObject( uint32 pEntry, float pX, float pY
 {
     GameObject* pGameObject = _manager->CreateGameObject(pEntry);
     if(pGameObject == NULL || !pGameObject->CreateFromProto(pEntry, _manager->GetMapId(), pX, pY, pZ, pO))
-        return NULLGOB;
+        return NULL;
 
     pGameObject->SetInstanceID(_manager->GetInstanceID());
     pGameObject->PushToWorld(_manager);
@@ -249,15 +247,15 @@ Player *MapManagerScript::FindClosestPlayer( float pX, float pY, float pZ, Playe
     return Creturn;
 }
 
-float MapManagerScript::GetRangeToObject( Object *pObjectA, Object *pObjectB )
+float MapManagerScript::GetRangeToObject( WorldObject *pObjectA, WorldObject *pObjectB )
 {
-    if ( pObjectA == NULLOBJ || pObjectB == NULLOBJ )
+    if ( pObjectA == NULL || pObjectB == NULL )
         return 0.0f;
 
     return GetRangeToObject( pObjectA->GetPositionX(), pObjectA->GetPositionY(), pObjectA->GetPositionZ(), pObjectB->GetPositionX(), pObjectB->GetPositionY(), pObjectB->GetPositionZ() );
 }
 
-float MapManagerScript::GetRangeToObject( Object *pObject, float pX, float pY, float pZ )
+float MapManagerScript::GetRangeToObject( WorldObject *pObject, float pX, float pY, float pZ )
 {
     if ( pObject == NULL )
         return 0.0f;

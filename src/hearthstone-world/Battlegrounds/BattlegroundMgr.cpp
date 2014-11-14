@@ -219,9 +219,7 @@ void CBattlegroundManager::HandleBattlegroundJoin(WorldSession * m_session, Worl
     uint32 bgtype;
     uint32 instance;
     uint8 joinasgroup; //0x01 = Group and 0x00 = Player
-
-    Player* plr = m_session->GetPlayer();
-    uint32 pguid = plr->GetLowGUID();
+    Player *plr = m_session->GetPlayer();
     uint32 lgroup = GetLevelGrouping(plr->getLevel());
 
     pck >> guid >> bgtype >> instance >> joinasgroup;
@@ -290,9 +288,7 @@ void CBattlegroundManager::HandleBattlegroundJoin(WorldSession * m_session, Worl
     {
         m_session->GetPlayer()->GetGroup()->m_isqueued = true;
         sLog.Success("BattlegroundManager", "Group %u is now in battleground queue for instance %u", m_session->GetPlayer()->GetGroupID(), instance );
-    }
-    else
-        sLog.Success("BattlegroundManager", "Player %u is now in battleground queue for instance %u", m_session->GetPlayer()->GetLowGUID(), instance );
+    } else sLog.Success("BattlegroundManager", "Player %u is now in battleground queue for instance %u", m_session->GetPlayer()->GetLowGUID(), instance );
 
     /* send the battleground status packet */
     uint32 queueSlot = plr->GetBGQueueSlot();
@@ -335,7 +331,7 @@ void CBattlegroundManager::HandleBattlegroundJoin(WorldSession * m_session, Worl
     plr->m_bgEntryPointMap = plr->GetMapId();
     plr->m_bgEntryPointInstance = plr->GetInstanceID();
 
-    m_queuedPlayers[bgtype][lgroup].push_back(pguid);
+    m_queuedPlayers[bgtype][lgroup].push_back(plr->GetGUID());
 
     m_queueLock.Release();
 
@@ -344,9 +340,9 @@ void CBattlegroundManager::HandleBattlegroundJoin(WorldSession * m_session, Worl
     /* We will get updated next few seconds =) */
 }
 
-void ErasePlayerFromList(uint32 guid, list<uint32>* l)
+void ErasePlayerFromList(WoWGuid guid, list<WoWGuid>* l)
 {
-    for(list<uint32>::iterator itr = l->begin(); itr != l->end(); itr++)
+    for(list<WoWGuid>::iterator itr = l->begin(); itr != l->end(); itr++)
     {
         if((*itr) == guid)
         {
@@ -462,7 +458,7 @@ void CBattlegroundManager::AddPlayerToBg(CBattleground* bg, deque<Player*  > *pl
     if(bg->CanPlayerJoin(plr))
     {
         bg->AddPlayer(plr, plr->GetTeam());
-        ErasePlayerFromList(plr->GetLowGUID(), &m_queuedPlayers[i][j]);
+        ErasePlayerFromList(plr->GetGUID(), &m_queuedPlayers[i][j]);
     }
     else
     {
@@ -479,7 +475,7 @@ void CBattlegroundManager::AddPlayerToBgTeam(CBattleground* bg, deque<Player*  >
         playerVec->pop_front();
         plr->m_bgTeam = Team;
         bg->AddPlayer(plr, Team);
-        ErasePlayerFromList(plr->GetLowGUID(), &m_queuedPlayers[i][j]);
+        ErasePlayerFromList(plr->GetGUID(), &m_queuedPlayers[i][j]);
     }
 }
 
@@ -1372,7 +1368,7 @@ GameObject* CBattleground::SpawnGameObject(uint32 entry,float x, float y, float 
 {
     GameObject* go = m_mapMgr->CreateGameObject(entry);
     if(go == NULL || !go->CreateFromProto(entry, m_mapMgr->GetMapId(), x, y, z, o))
-        return NULLGOB;
+        return NULL;
 
     go->SetUInt32Value(GAMEOBJECT_FACTION,faction);
     go->SetFloatValue(OBJECT_FIELD_SCALE_X,scale);
@@ -1505,7 +1501,7 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
             {
                 SpellCastTargets targets;
                 targets.m_unitTarget = plr->GetGUID();
-                Spell* sp(new Spell(plr,spellInfo,true,NULLAURA));
+                Spell* sp(new Spell(plr,spellInfo,true,NULL));
                 if ( sp != NULL )
                 {
                     sp->prepare(&targets);
@@ -1645,8 +1641,8 @@ void CBattleground::Close()
 Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bool horde)
 {
     Creature* pCreature = m_mapMgr->CreateCreature(13116 + horde);
-    if (pCreature == NULLCREATURE)
-        return NULLCREATURE;
+    if (pCreature == NULL)
+        return NULL;
 
     pCreature->Create(m_mapMgr->GetMapId(), x, y, z, o);
     pCreature->SetInstanceID(m_mapMgr->GetInstanceID());
@@ -1748,11 +1744,11 @@ void CBattleground::EventResurrectPlayers()
             if(plr && plr->isDead())
             {
                 data.Initialize(SMSG_SPELL_START);
-                data << plr->GetNewGUID() << plr->GetNewGUID() << uint32(RESURRECT_SPELL) << uint8(0) << uint16(0) << uint32(0) << uint16(2) << plr->GetGUID();
+                data << plr->GetGUID().asPacked() << plr->GetGUID().asPacked() << uint32(RESURRECT_SPELL) << uint8(0) << uint16(0) << uint32(0) << uint16(2) << plr->GetGUID();
                 plr->SendMessageToSet(&data, true);
 
                 data.Initialize(SMSG_SPELL_GO);
-                data << plr->GetNewGUID() << plr->GetNewGUID() << uint32(RESURRECT_SPELL) << uint8(0) << uint8(1) << uint8(1) << plr->GetGUID() << uint8(0) << uint16(2)
+                data << plr->GetGUID().asPacked() << plr->GetGUID().asPacked() << uint32(RESURRECT_SPELL) << uint8(0) << uint8(1) << uint8(1) << plr->GetGUID() << uint8(0) << uint16(2)
                     << plr->GetGUID();
                 plr->SendMessageToSet(&data, true);
 
@@ -1957,7 +1953,7 @@ void CBattleground::QueueAtNearestSpiritGuide(Player* plr, Creature* old)
 {
     float dd;
     float dist = 999999.0f;
-    Creature* cl = NULLCREATURE;
+    Creature* cl = NULL;
     set<uint32> *closest = NULL;
     m_lock.Acquire();
     map<Creature*, set<uint32> >::iterator itr = m_resurrectMap.begin();

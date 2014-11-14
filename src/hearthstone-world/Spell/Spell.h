@@ -10,21 +10,18 @@ public:
     void read ( WorldPacket & data, uint64 caster );
     void write ( WorldPacket & data);
 
-    SpellCastTargets() : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
-        m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
+    SpellCastTargets() : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_srcX(0), m_srcY(0), m_srcZ(0), m_destX(0), m_destY(0), m_destZ(0),
+        missilespeed(0), missilepitch(0), traveltime(0) { m_unitTarget = m_itemTarget = m_dest_transGuid = m_src_transGuid = 0; }
 
     SpellCastTargets(uint8 castFlags, uint32 targetIndex, uint32 TargetMask, uint64 unitTarget, uint64 itemTarget, float srcX, float srcY, float srcZ, float destX, float destY, float destZ)
-        : m_castFlags(castFlags), m_targetIndex(targetIndex), m_targetMask(TargetMask), m_unitTarget(unitTarget), m_itemTarget(itemTarget), m_srcX(srcX), m_srcY(srcY), m_srcZ(srcZ),
-        m_destX(destX), m_destY(destY), m_destZ(destZ), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
+        : m_castFlags(castFlags), m_targetIndex(targetIndex), m_targetMask(TargetMask), m_srcX(srcX), m_srcY(srcY), m_srcZ(srcZ), m_destX(destX), m_destY(destY), m_destZ(destZ),
+        missilespeed(0), missilepitch(0), traveltime(0) { m_unitTarget = unitTarget; m_itemTarget = itemTarget; m_dest_transGuid = m_src_transGuid = 0; }
 
-    SpellCastTargets(uint64 unitTarget) : m_castFlags(0), m_targetIndex(0), m_targetMask(0x2), m_unitTarget(unitTarget), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
-        m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid() {}
+    SpellCastTargets(uint64 unitTarget) : m_castFlags(0), m_targetIndex(0), m_targetMask(0x2), m_srcX(0), m_srcY(0), m_srcZ(0), m_destX(0), m_destY(0), m_destZ(0),
+        missilespeed(0), missilepitch(0), traveltime(0) { m_unitTarget = unitTarget; m_itemTarget = m_dest_transGuid = m_src_transGuid = 0; }
 
-    SpellCastTargets(WorldPacket & data, uint64 caster) : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_unitTarget(0), m_itemTarget(0), m_srcX(0), m_srcY(0), m_srcZ(0),
-        m_destX(0), m_destY(0), m_destZ(0), missilespeed(0), missilepitch(0), traveltime(0), m_dest_transGuid(), m_src_transGuid()
-    {
-        read(data, caster);
-    }
+    SpellCastTargets(WorldPacket & data, uint64 caster) : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_srcX(0), m_srcY(0), m_srcZ(0), m_destX(0), m_destY(0), m_destZ(0),
+        missilespeed(0), missilepitch(0), traveltime(0) { m_unitTarget = m_itemTarget = m_dest_transGuid = m_src_transGuid = 0; read(data, caster); }
 
     SpellCastTargets& operator=(const SpellCastTargets &target)
     {
@@ -54,7 +51,7 @@ public:
 
     uint8 m_castFlags;
     uint32 m_targetIndex, m_targetMask;
-    uint64 m_unitTarget, m_itemTarget;
+    WoWGuid m_unitTarget, m_itemTarget;
 
     WoWGuid m_src_transGuid, m_dest_transGuid;
     float m_srcX, m_srcY, m_srcZ;
@@ -85,7 +82,7 @@ class SERVER_DECL Spell : public EventableObject
 {
 public:
     friend class DummySpellHandler;
-    Spell( Object* Caster, SpellEntry *info, bool triggered, Aura* aur);
+    Spell( WorldObject* Caster, SpellEntry *info, bool triggered, Aura* aur);
     ~Spell();
     virtual void Destruct();
 
@@ -172,11 +169,11 @@ public:
     void SendChannelUpdate(uint32 time);
     void SendChannelStart(int32 duration);
     void SendResurrectRequest(Player* target);
-    static void SendHealSpellOnPlayer(Object* caster, Object* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
-    static void SendHealManaSpellOnPlayer(Object* caster, Object* target, uint32 dmg, uint32 powertype, uint32 spellid);
+    static void SendHealSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
+    static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
 
 
-    void HandleAddAura(uint64 guid);
+    void HandleAddAura(WoWGuid guid);
     void writeSpellGoTargets( WorldPacket * data );
 
     SpellEntry* m_spellInfo;
@@ -323,7 +320,7 @@ public:
 
     // Spell Targets
     void HandleTargetNoObject();
-    bool AddTarget(uint32 i, uint32 TargetType, Object* obj);
+    bool AddTarget(uint32 i, uint32 TargetType, WorldObject* obj);
     void AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
     void AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
     void AddRaidTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets, bool partylimit = false);
@@ -339,7 +336,7 @@ public:
     Unit*               u_caster;
     Item*               i_caster;
     Player*             p_caster;
-    Object*             m_caster;
+    WorldObject*             m_caster;
     Vehicle*            v_caster;
     std::map<uint64, Aura*> m_tempAuras;
 
@@ -550,17 +547,17 @@ private:
     void _AddTarget(Unit* target, const uint32 effectid);
 
     // adds a target to the list, negating DidHit checks
-    void _AddTargetForced(const uint64& guid, const uint32 effectid);
-    void _AddTargetForced(Object * target, const uint32 effectid) { if(target) _AddTargetForced(target->GetGUID(), effectid); }
+    void _AddTargetForced(const WoWGuid& guid, const uint32 effectid);
+    void _AddTargetForced(WorldObject * target, const uint32 effectid) { if(target) _AddTargetForced(target->GetGUID(), effectid); }
 
     // didhit checker
     uint8 _DidHit(uint32 index, Unit* target, uint8 &reflectout);
 
     // gets the pointer of an object (optimized for spell system)
-    Object* _LookupObject(const uint64& guid);
+    WorldObject* _LookupObject(const WoWGuid& guid);
 
     // sets the pointers (unitTarget, itemTarget, etc) for a given guid
-    void _SetTargets(uint64 guid);
+    void _SetTargets(WoWGuid guid);
 
     friend class DynamicObject;
     void DetermineSkillUp(uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
@@ -570,7 +567,7 @@ private:
     uint32 m_missTargetCount;
 
     // magnet
-    uint64 m_magnetTarget;
+    WoWGuid m_magnetTarget;
 };
 
 extern uint32 implicitTargetFlags[150];

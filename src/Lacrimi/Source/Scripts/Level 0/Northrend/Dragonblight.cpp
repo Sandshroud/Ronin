@@ -29,7 +29,7 @@ public:
 class WoodlandWalkerGossip : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player *plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player *plr, bool AutoSend)
     {
         Creature * pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?(TO_CREATURE(pObject)):NULLCREATURE;
         if( pCreature == NULL )
@@ -89,7 +89,7 @@ public:
 class SCRIPT_DECL WyrmrestTemple_FlightGossip : public GossipScript
 {
 public:
-    void GossipHello(Object *pObject, Player *plr, bool AutoSend)
+    void GossipHello(WorldObject *pObject, Player *plr, bool AutoSend)
     {
         GossipMenu *Menu;
         switch(pObject->GetEntry())
@@ -118,7 +118,7 @@ public:
             Menu->SendTo(plr);
     }
 
-    void GossipSelectOption(Object *pObject, Player *plr, uint32 Id, uint32 IntId, const char * Code)
+    void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * Code)
     {
         Creature *pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?TO_CREATURE(pObject):NULLCREATURE;
         if(pCreature==NULLCREATURE)

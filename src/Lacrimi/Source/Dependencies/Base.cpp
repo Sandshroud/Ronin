@@ -1158,7 +1158,7 @@ Unit *MoonScriptCreatureAI::GetBestUnitTarget( TargetFilters pTargetFilter, floa
     UnitArray TargetArray;
     if ( pTargetFilter & TargetFilter_Friendly )
     {
-        for ( unordered_set< Object *>::iterator ObjectIter = _unit->GetInRangeSetBegin(); ObjectIter != _unit->GetInRangeSetEnd(); ++ObjectIter )
+        for ( unordered_set< WorldObject *>::iterator ObjectIter = _unit->GetInRangeSetBegin(); ObjectIter != _unit->GetInRangeSetEnd(); ++ObjectIter )
         {
             if( IsValidUnitTarget(*ObjectIter, pTargetFilter, pMinRange, pMaxRange) )
             {
@@ -1175,7 +1175,7 @@ Unit *MoonScriptCreatureAI::GetBestUnitTarget( TargetFilters pTargetFilter, floa
     }
     else
     {
-        for ( Object::InRangeUnitSet::iterator ObjectIter = _unit->GetInRangeOppFactsSetBegin(); ObjectIter != _unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
+        for ( WorldObject::InRangeUnitSet::iterator ObjectIter = _unit->GetInRangeOppFactsSetBegin(); ObjectIter != _unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
         {
             if( IsValidUnitTarget(*ObjectIter, pTargetFilter, pMinRange, pMaxRange) )
             {
@@ -1249,7 +1249,7 @@ Unit *MoonScriptCreatureAI::GetSecondMostHatedTargetInArray( UnitArray& pTargetA
     return MostHatedUnit;
 };
 
-bool MoonScriptCreatureAI::IsValidUnitTarget( Object *pObject, TargetFilters pFilter, float pMinRange, float pMaxRange )
+bool MoonScriptCreatureAI::IsValidUnitTarget( WorldObject *pObject, TargetFilters pFilter, float pMinRange, float pMaxRange )
 {
     //Make sure its a valid unit
     if ( !pObject->IsUnit() )

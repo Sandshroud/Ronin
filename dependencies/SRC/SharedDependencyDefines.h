@@ -100,7 +100,7 @@ typedef unsigned __int8 uint8;
 
 #ifdef _MSC_VER
 
-#define isnan(x) _isnan(x)
+#define num_isnan(x) _isnan(x)
 #define I64FMT "%016I64X"
 #define I64FMTD "%I64u"
 #define SI64FMTD "%I64d"
@@ -109,7 +109,7 @@ typedef unsigned __int8 uint8;
 
 #else
 
-#define isnan(x) std::isnan(x)
+#define num_isnan(x) std::isnan(x)
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
 #define I64FMT "%016llX"

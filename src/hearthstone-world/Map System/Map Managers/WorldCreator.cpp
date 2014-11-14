@@ -394,7 +394,7 @@ const uint32 GetBGForMapID(uint32 type)
     return 0;
 };
 
-MapMgr* InstanceMgr::GetInstance(Object* obj)
+MapMgr* InstanceMgr::GetInstance(WorldObject* obj)
 {
     Player* plr = NULL;
     InstanceMap::iterator itr;
@@ -408,7 +408,7 @@ MapMgr* InstanceMgr::GetInstance(Object* obj)
     if( obj->IsPlayer() )
     {
         // players can join instances based on their groups/solo status.
-        plr = TO_PLAYER( obj );
+        plr = castPtr<Player>( obj );
 
         m_mapLock.Acquire();
         instancemap = m_instances[obj->GetMapId()];
@@ -1197,7 +1197,7 @@ void InstanceMgr::PlayerLeftGroup(Group * pGroup, Player* pPlayer)
 
                 bool eject = false;
 
-                if(pPlayer->GetGUID() == in->m_creatorGuid)
+                if(pPlayer->GetLowGUID() == in->m_creatorGuid)
                     eject = true;
                 else if(pPlayer->GetGroupID() == in->m_creatorGroup)
                     eject = true;

@@ -838,14 +838,14 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
         SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
         if(res.Result == 0)
         {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_INVENTORY_FULL);
+            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
             return;
         }
 
         error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(ip,1, NULL);
         if(error)
         {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM,error);
+            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,error);
         }
         else
         {
@@ -862,9 +862,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             if( !m_session->GetPlayer()->GetItemInterface()->AddItemToFreeSlot(i) )
             {
                 c->Destroy();
-                c = NULL;
-                i->DeleteMe();
-                i = NULL;
+                i->Destruct();
                 return;
             }
 
@@ -908,13 +906,13 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
         SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
         if(res.Result == 0)
         {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_INVENTORY_FULL);
+            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
             return;
         }
 
         error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(ItemPrototypeStorage.LookupEntry(ITEM_ENTRY_GUILD_CHARTER),1, NULL);
         if(error)
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM,error);
+            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,error);
         else
         {
             // Meh...
@@ -936,9 +934,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             if( !m_session->GetPlayer()->GetItemInterface()->AddItemToFreeSlot(i) )
             {
                 c->Destroy();
-                c = NULL;
-                i->DeleteMe();
-                i = NULL;
+                i->Destruct();
                 return;
             }
 
@@ -1256,9 +1252,8 @@ void GuildMgr::Packet_WithdrawItem(WorldSession* m_session, uint8 dest_bank, uin
                 pSourceItem->ModUnsigned32Value( ITEM_FIELD_STACK_COUNT, -splitted_count );
             else
             {
-                pSourceItem->DeleteMe();
-                pSourceItem = NULLITEM;
-                pSourceTab->pSlots[source_bankslot] = NULLITEM;
+                pSourceItem->Destruct();
+                pSourceTab->pSlots[source_bankslot] = NULL;
             }
         }
     }
@@ -1347,7 +1342,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
 
         if(dest_bankslot == 0xff)
         {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_BAG_FULL);
+            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_BAG_FULL);
             gInfo->m_GuildLock.Release();
             return;
         }
@@ -1377,7 +1372,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         SlotResult sr = plr->GetItemInterface()->FindFreeInventorySlot(pDestItem->GetProto());
         if(!sr.Result)
         {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_BAG_FULL);
+            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_BAG_FULL);
             gInfo->m_GuildLock.Release();
             return;
         }
@@ -1420,7 +1415,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
 
     if( source_bagslot == 0xff && source_slot < INVENTORY_SLOT_ITEM_START || source_slot == 0xff )
     {
-        plr->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_CANT_DROP_SOULBOUND);
+        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_CANT_DROP_SOULBOUND);
         gInfo->m_GuildLock.Release();
         return;
     }
@@ -1439,7 +1434,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         if(pDestItem->GetEntry() == pSourceItem->GetEntry() && pDestItem->GetProto() != NULL
             && pDestItem->GetStackCount() == pDestItem->GetProto()->MaxCount)
         {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_ITEM_CANT_STACK);
+            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_ITEM_CANT_STACK);
             gInfo->m_GuildLock.Release();
             return;
         }
@@ -1450,7 +1445,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         // make sure its not a soulbound item
         if(pSourceItem->IsSoulbound() || pSourceItem->GetProto()->Class == ITEM_CLASS_QUEST)
         {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULLITEM, NULLITEM, INV_ERR_CANT_DROP_SOULBOUND);
+            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_CANT_DROP_SOULBOUND);
             gInfo->m_GuildLock.Release();
             return;
         }
@@ -1473,7 +1468,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
                 return;
             }
 
-            pSourceItem->RemoveFromWorld();
+            pSourceItem->RemoveFromWorld(false);
         }
     }
 
@@ -1498,7 +1493,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         else
         {
             /* that slot in the bank is now empty. */
-            pDestTab->pSlots[dest_bankslot] = NULLITEM;
+            pDestTab->pSlots[dest_bankslot] = NULL;
         }
     }
     else
@@ -1507,7 +1502,7 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         pDestTab->pSlots[dest_bankslot] = pSourceItem;
 
         /* remove the item's association with the player* */
-        pSourceItem->SetOwner(NULLPLR);
+        pSourceItem->SetOwner(NULL);
         pSourceItem->SetUInt32Value(ITEM_FIELD_OWNER, 0);
         pSourceItem->SaveToDB(0, 0, true, NULL);
 
@@ -1535,17 +1530,10 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
         {
             /* this *really* shouldn't happen. */
             if(!plr->GetItemInterface()->AddItemToFreeSlot(pDestItem))
-            {
-                //pDestItem->DeleteFromDB();
-                pDestItem->DeleteMe();
-                pDestItem = NULL;
-            }
+                pDestItem->Destruct();
         }
-        else
-        {
-            /* log it */
+        else /* log it */
             LogGuildBankAction(gInfo->m_guildId, GUILD_BANK_LOG_EVENT_WITHDRAW_ITEM, plr->GetLowGUID(), pDestItem->GetEntry(), (uint8)pDestItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT), dest_bank);
-        }
     }
 
     /* update the clients view of the bank tab */

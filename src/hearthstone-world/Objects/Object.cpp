@@ -4,32 +4,39 @@
 
 #include "StdAfx.h"
 
-Entity::Entity() : m_wowGuid(), m_updateMask(), m_valuesCount(0), m_notifyFlags(0), m_objectUpdated(false)
+Object::Object(uint64 guid) : m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
 {
-    m_objectTypeId = TYPEID_OBJECT;
-    m_objectSubTypeId = SUBTYPEID_NONE;
-    m_valuesCount = 0;
+    m_valuesCount = OBJECT_LENGTH;
+    m_updateMask.SetCount(OBJECT_END);
+    m_raw.values[OBJECT_LAYER_OBJECT] = new uint32[OBJECT_LENGTH];
+    memset(m_raw.values[OBJECT_LAYER_OBJECT], 0, OBJECT_LENGTH*sizeof(uint32));
+    m_object.m_wowGUID = guid;
+    m_object.m_objType = TYPEMASK_TYPE_OBJECT;
+    m_object.m_objScale = 1.f;
+
+    m_loot.gold = 0;
+    m_looted = false;
 }
 
-void Entity::SetByte(uint32 index, uint32 index1,uint8 value)
+void Object::SetByte(uint32 index, uint32 index1,uint8 value)
 {
     ASSERT( index < m_valuesCount );
 
     if(index1 >= 4)
     {
-        sLog.outError("Object::SetByteValue: wrong offset %u", index1);
+        sLog.outError("WorldObject::SetByteValue: wrong offset %u", index1);
         return;
     }
 
-    if(uint8(m_uint32Values[ index ] >> (index1 * 8)) == value)
+    if(uint8(m_uint32.values[ index ] >> (index1 * 8)) == value)
         return;
 
-    m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
-    m_uint32Values[ index ] |= uint32(uint32(value) << (index1 * 8));
+    m_uint32.values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
+    m_uint32.values[ index ] |= uint32(uint32(value) << (index1 * 8));
     SetUpdateField(index);
 }
 
-void Entity::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
+void Object::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
 {
     if( HasByteFlag(index,flag,newFlag))
         return;
@@ -38,7 +45,7 @@ void Entity::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
     SetUpdateField(index);
 }
 
-void Entity::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+void Object::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
 {
     if( !HasByteFlag(index,flag,checkFlag))
         return;
@@ -47,117 +54,117 @@ void Entity::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFl
     SetUpdateField(index);
 }
 
-bool Entity::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+bool Object::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
 {
     if( GetByte(index,flag) & checkFlag )
         return true;
     return false;
 }
 
-void Entity::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
+void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
 {
     ASSERT( index < m_valuesCount );
-    if (uint16(m_uint32Values[index] >> (offset * 16)) == value)
+    if (uint16(m_uint32.values[index] >> (offset * 16)) == value)
         return;
 
-    m_uint32Values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
-    m_uint32Values[index] |= uint32(uint32(value) << (offset * 16));
+    m_uint32.values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
+    m_uint32.values[index] |= uint32(uint32(value) << (offset * 16));
     SetUpdateField(index);
 }
 
-void Entity::SetUInt32Value( const uint32 index, const uint32 value )
+void Object::SetUInt32Value( const uint32 index, const uint32 value )
 {
     if(index > m_valuesCount)
         printf("Index: %u, m_valuesCount: %u, Value: %u Test:%s\n", index, m_valuesCount, value, __FUNCTION__);
 
     ASSERT( index < m_valuesCount );
-    if(m_uint32Values[index] == value)
+    if(m_uint32.values[index] == value)
         return;
 
-    m_uint32Values[ index ] = value;
+    m_uint32.values[ index ] = value;
     SetUpdateField(index);
 }
 
-void Entity::SetUInt64Value( const uint32 index, const uint64 value )
+void Object::SetUInt64Value( const uint32 index, const uint64 value )
 {
     assert( index + 1 < m_valuesCount );
-    if(m_uint32Values[index] == GUID_LOPART(value) && m_uint32Values[index+1] == GUID_HIPART(value))
+    if(m_uint32.values[index] == GUID_LOPART(value) && m_uint32.values[index+1] == GUID_HIPART(value))
         return;
 
-    m_uint32Values[ index ] = *((uint32*)&value);
-    m_uint32Values[ index + 1 ] = *(((uint32*)&value) + 1);
+    m_uint32.values[ index ] = *((uint32*)&value);
+    m_uint32.values[ index + 1 ] = *(((uint32*)&value) + 1);
 
     SetUpdateField(index);
     SetUpdateField(index+1);
 }
 
-void Entity::SetFlag( const uint32 index, uint32 newFlag )
+void Object::SetFlag( const uint32 index, uint32 newFlag )
 {
     ASSERT( index < m_valuesCount );
-    if((m_uint32Values[ index ] & newFlag) == newFlag)
+    if((m_uint32.values[ index ] & newFlag) == newFlag)
         return;
 
-    m_uint32Values[ index ] |= newFlag;
+    m_uint32.values[ index ] |= newFlag;
     SetUpdateField(index);
 }
 
-void Entity::RemoveFlag( const uint32 index, uint32 oldFlag )
+void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
 {
     ASSERT( index < m_valuesCount );
-    if((m_uint32Values[ index ] & oldFlag) == 0)
+    if((m_uint32.values[ index ] & oldFlag) == 0)
         return;
 
-    m_uint32Values[ index ] &= ~oldFlag;
+    m_uint32.values[ index ] &= ~oldFlag;
     SetUpdateField(index);
 }
 
-void Entity::SetFloatValue( const uint32 index, const float value )
+void Object::SetFloatValue( const uint32 index, const float value )
 {
     ASSERT( index < m_valuesCount );
-    if(m_floatValues[index] == value)
+    if(m_float.values[index] == value)
         return;
 
-    m_floatValues[ index ] = value;
+    m_float.values[ index ] = value;
     SetUpdateField(index);
 }
 
-void Entity::ModFloatValue(const uint32 index, const float value )
+void Object::ModFloatValue(const uint32 index, const float value )
 {
     ASSERT( index < m_valuesCount );
-    m_floatValues[ index ] += value;
+    m_float.values[ index ] += value;
     SetUpdateField(index);
 }
 
-void Entity::ModSignedInt32Value(uint32 index, int32 value )
+void Object::ModSignedInt32Value(uint32 index, int32 value )
 {
     ASSERT( index < m_valuesCount );
     if(value == 0)
         return;
 
-    m_uint32Values[ index ] += value;
+    m_uint32.values[ index ] += value;
     SetUpdateField(index);
 }
 
-void Entity::ModUnsigned32Value(uint32 index, int32 mod)
+void Object::ModUnsigned32Value(uint32 index, int32 mod)
 {
     ASSERT( index < m_valuesCount );
     if(mod == 0)
         return;
 
-    m_uint32Values[ index ] += mod;
-    if( (int32)m_uint32Values[index] < 0 )
-        m_uint32Values[index] = 0;
+    m_uint32.values[ index ] += mod;
+    if( (int32)m_uint32.values[index] < 0 )
+        m_uint32.values[index] = 0;
     SetUpdateField(index);
 }
 
-uint32 Entity::GetModPUInt32Value(const uint32 index, const int32 value)
+uint32 Object::GetModPUInt32Value(const uint32 index, const int32 value)
 {
     ASSERT( index < m_valuesCount );
-    int32 basevalue = (int32)m_uint32Values[ index ];
+    int32 basevalue = (int32)m_uint32.values[ index ];
     return ((basevalue*value)/100);
 }
 
-void Entity::SetUpdateField(uint32 index)
+void Object::SetUpdateField(uint32 index)
 {
     m_updateMask.SetBit( index );
     OnFieldUpdated(index);
@@ -165,7 +172,7 @@ void Entity::SetUpdateField(uint32 index)
 
 ////////////////////////////////////////////////////////////////////////////
 /// Fill the object's Update Values from a space deliminated list of values.
-void Entity::LoadValues(const char* data)
+void Object::LoadValues(const char* data)
 {
     // thread-safe ;) strtok is not.
     std::string ndata = data;
@@ -181,88 +188,73 @@ void Entity::LoadValues(const char* data)
         }
         pos = ndata.find(" ", last_pos);
         val = atol(ndata.substr(last_pos, (pos-last_pos)).c_str());
-        if(m_uint32Values[index] == 0)
-            m_uint32Values[index] = val;
+        if(m_uint32.values[index] == 0)
+            m_uint32.values[index] = val;
         last_pos = pos+1;
         ++index;
     } while(pos != std::string::npos);
 }
 
-void Entity::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
+void Object::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
 {
     *updateMask = m_updateMask;
 }
 
-void Entity::_SetCreateBits(UpdateMask *updateMask, Player* target) const
+void Object::_SetCreateBits(UpdateMask *updateMask, Player* target) const
 {
     for(uint32 i = 0; i < m_valuesCount; i++)
-        if(m_uint32Values[i] != 0)
+        if(m_uint32.values[i] != 0)
             updateMask->SetBit(i);
 }
 
-uint32 Entity::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
     uint16 updateFlags = UPDATEFLAG_NONE;
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
-
-    // any other case
-    switch(m_objectTypeId)
+    if(m_object.m_objType & TYPEMASK_TYPE_UNIT)
     {
-    case TYPEID_UNIT:
-    case TYPEID_PLAYER:
-        {
-            updateFlags = UPDATEFLAG_LIVING;
-        }break;
-    case TYPEID_GAMEOBJECT:
-        {
-            updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
-            switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
-            {
-            case GAMEOBJECT_TYPE_TRANSPORT:
-            case GAMEOBJECT_TYPE_MO_TRANSPORT:
-                {
-                    updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
-                }break;
-            case GAMEOBJECT_TYPE_TRAP:
-            case GAMEOBJECT_TYPE_DUEL_ARBITER:
-            case GAMEOBJECT_TYPE_FLAGSTAND:
-            case GAMEOBJECT_TYPE_FLAGDROP:
-                {
-                    // duel flags have to stay as updatetype 3, otherwise
-                    // it won't animate
-                    updatetype = UPDATETYPE_CREATE_YOURSELF;
-                }break;
-            }
-        }break;
-    case TYPEID_AREATRIGGER:
-    case TYPEID_CORPSE:
-    case TYPEID_DYNAMICOBJECT:
-        updateFlags = UPDATEFLAG_STATIONARY_POS;
-        break;
+        updateFlags |= UPDATEFLAG_LIVING;
+        updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
     }
-
-    if(GetTypeFromGUID() == HIGHGUID_TYPE_VEHICLE)
-        updateFlags |= UPDATEFLAG_VEHICLE;
+    else if(m_object.m_objType & TYPEMASK_TYPE_GAMEOBJECT)
+    {
+        updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
+        switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
+        {
+        case GAMEOBJECT_TYPE_TRANSPORT:
+        case GAMEOBJECT_TYPE_MO_TRANSPORT:
+            {
+                updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
+            }break;
+        case GAMEOBJECT_TYPE_TRAP:
+        case GAMEOBJECT_TYPE_DUEL_ARBITER:
+        case GAMEOBJECT_TYPE_FLAGSTAND:
+        case GAMEOBJECT_TYPE_FLAGDROP:
+            {
+                // duel flags have to stay as updatetype 3, otherwise
+                // it won't animate
+                updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
+            }break;
+        }
+    } else updateFlags |= UPDATEFLAG_STATIONARY_POS;
+    if(IsVehicle()) updateFlags |= UPDATEFLAG_VEHICLE;
     if(target == this)
     {
         // player creating self
         updateFlags |= UPDATEFLAG_SELF;
-        updatetype = UPDATETYPE_CREATE_YOURSELF;
+        updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
     }
 
     if(IsUnit())
     {
-        if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_TARGET))
+        if (castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
             updateFlags |= UPDATEFLAG_HAS_TARGET;
     }
 
     // build our actual update
     *data << updatetype;
-
-    // we shouldn't be here, under any circumstances, unless we have a wowguid..
-    ASSERT(m_wowGuid.GetNewGuidLen());
-    *data << m_wowGuid;
-    *data << m_objectTypeId;
+    *data << m_object.m_wowGUID.asPacked();
+    *data << GetTypeId();
 
     _BuildMovementUpdate(data, updateFlags, target);
 
@@ -273,91 +265,19 @@ uint32 Entity::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     return 1;
 }
 
-//That is dirty fix it actually creates update of 1 field with
-//the given value ignoring existing changes in fields and so on
-//usefull if we want update this field for certain players
-//NOTE: it does not change fields. This is also very fast method
-WorldPacket *Entity::BuildFieldUpdatePacket( uint32 index,uint32 value)
-{
-    // uint64 guidfields = GetGUID();
-    // uint8 guidmask = 0;
-    WorldPacket * packet = new WorldPacket(SMSG_UPDATE_OBJECT, 1500);
-    *packet << uint16(GetMapId());
-    *packet << uint32(1);//number of update/create blocks
-    BuildFieldUpdatePacket(packet, index, value);
-    return packet;
-}
-
-void Entity::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
-{
-    ByteBuffer buf(500);
-    BuildFieldUpdatePacket(&buf, Index, Value);
-    Target->PushUpdateBlock(&buf, 1);
-}
-
-void Entity::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
-{
-    *buf << uint8(UPDATETYPE_VALUES);
-    *buf << GetNewGUID();
-
-    uint32 mBlocks = Index/32+1;
-    *buf << (uint8)mBlocks;
-
-    for(uint32 dword_n = mBlocks-1; dword_n; dword_n--)
-        *buf <<(uint32)0;
-
-    *buf <<(((uint32)(1))<<(Index%32));
-    *buf << Value;
-}
-
-uint32 Entity::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
-{
-    UpdateMask updateMask;
-    updateMask.SetCount( m_valuesCount );
-    _SetUpdateBits( &updateMask, target );
-    for(uint32 x = 0; x < m_valuesCount; ++x)
-    {
-        if(updateMask.GetBit(x))
-        {
-            *data << (uint8) UPDATETYPE_VALUES;     // update type == update
-            ASSERT(m_wowGuid.GetNewGuidLen());
-            *data << m_wowGuid;
-
-            _BuildChangedValuesUpdate( data, &updateMask, target );
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-uint32 Entity::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * mask )
-{
-    // returns: update count
-    *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
-
-    ASSERT(m_wowGuid.GetNewGuidLen());
-    *buf << m_wowGuid;
-
-    _BuildChangedValuesUpdate( buf, mask, NULLPLR );
-
-    // 1 update.
-    return 1;
-}
-
 //=======================================================================================
 //  Creates an update block containing all data needed for a new object
 //=======================================================================================
-void Entity::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
+void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 {
     ByteBuffer fields;
     UpdateMask mask(m_valuesCount);
     uint32 *flags, uFlag = GetUpdateFieldData(flags, target);
     for( uint32 index = 0; index < m_valuesCount; index++ )
     {
-        if(uint32 value = m_uint32Values[index])
+        if(uint32 value = m_uint32.values[index])
         {
-            if(m_notifyFlags & flags[index] || (m_uint32Values[index] && flags[index] & uFlag))
+            if(m_notifyFlags & flags[index] || (m_uint32.values[index] && flags[index] & uFlag))
             {
                 mask.SetBit(index);
                 fields << value;
@@ -371,9 +291,9 @@ void Entity::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     data->append(fields);
 }
 
-uint32 Entity::GetUpdateFieldData(uint32*& flags, Player * target)
+uint32 Object::GetUpdateFieldData(uint32*& flags, Player * target)
 {
-    uint32 visibleFlag = UF_FLAG_PUBLIC;
+    uint32 visibleFlag = UF_FLAG_PUBLIC, pos = 0;
     if (target == this)
         visibleFlag |= UF_FLAG_PRIVATE;
 
@@ -383,36 +303,36 @@ uint32 Entity::GetUpdateFieldData(uint32*& flags, Player * target)
     case TYPEID_CONTAINER:
         {
             flags = ItemUpdateFieldFlags;
-            if (TO_ITEM(this)->GetOwnerGUID() == target->GetGUID())
+            if (castPtr<Item>(this)->GetOwnerGUID() == (uint64)target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
         }break;
     case TYPEID_UNIT:
     case TYPEID_PLAYER:
         {
             flags = UnitUpdateFieldFlags;
-            if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY) == target->GetGUID())
+            if (castPtr<Unit>(this)->GetGUIDValue(UNIT_FIELD_SUMMONEDBY) == target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER;
-            else if (TO_UNIT(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY) == target->GetGUID())
+            else if (castPtr<Unit>(this)->GetGUIDValue(UNIT_FIELD_CREATEDBY) == target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER;
-            if (IsPlayer() && TO_PLAYER(this)->InGroup() && TO_PLAYER(this)->GetGroupID() == target->GetGroupID())
+            if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
                 visibleFlag |= UF_FLAG_PARTY_MEMBER;
         }break;
     case TYPEID_GAMEOBJECT:
         {
             flags = GameObjectUpdateFieldFlags;
-            if (TO_GAMEOBJECT(this)->GetUInt64Value(OBJECT_FIELD_CREATED_BY) == target->GetGUID())
+            if (castPtr<GameObject>(this)->GetGUIDValue(GAMEOBJECT_FIELD_CREATED_BY) == target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_DYNAMICOBJECT:
         {
             flags = DynamicObjectUpdateFieldFlags;
-            if (TO_DYNAMICOBJECT(this)->GetCasterGuid() == target->GetGUID())
+            if (castPtr<DynamicObject>(this)->GetCasterGuid() == target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_CORPSE:
         {
             flags = CorpseUpdateFieldFlags;
-            if (TO_CORPSE(this)->GetUInt64Value(CORPSE_FIELD_OWNER) == target->GetGUID())
+            if (castPtr<Corpse>(this)->GetGUIDValue(CORPSE_FIELD_OWNER) == target->GetGUID())
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_AREATRIGGER:
@@ -428,7 +348,7 @@ uint32 Entity::GetUpdateFieldData(uint32*& flags, Player * target)
 ///////////////////////////////////////////////////////////////
 /// Build the Movement Data portion of the update packet
 /// Fills the data with this object's movement/speed info
-void Entity::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
+void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
     ByteBuffer bytes;
     uint32 stopFrameCount = 0;
@@ -459,7 +379,7 @@ void Entity::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     if(flags & UPDATEFLAG_ROTATION)
     {
         uint64 rotation = 0;
-        if(IsGameObject()) rotation = TO_GAMEOBJECT(this)->m_rotation;
+        if(IsGameObject()) rotation = castPtr<GameObject>(this)->m_rotation;
         bytes << uint64(rotation); //blizz 64bit rotation
     }
 
@@ -468,7 +388,7 @@ void Entity::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
 
     if(flags & UPDATEFLAG_HAS_TARGET)
     {
-        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
+        WoWGuid targetGuid = WoWGuid::ConstructWoWGUID(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
         data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
         data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
         bytes.WriteByteSeq(targetGuid[4]);
@@ -498,59 +418,73 @@ void Entity::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->append(bytes.contents(), bytes.size());
 }
 
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+{
+    UpdateMask updateMask;
+    updateMask.SetCount( m_valuesCount );
+    _SetUpdateBits( &updateMask, target );
+    for(uint32 x = 0; x < m_valuesCount; ++x)
+    {
+        if(updateMask.GetBit(x))
+        {
+            *data << (uint8) UPDATETYPE_VALUES;     // update type == update
+            *data << m_object.m_wowGUID;
+
+            _BuildChangedValuesUpdate( data, &updateMask, target );
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * mask )
+{
+    // returns: update count
+    *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
+    *buf << m_object.m_wowGUID;
+
+    _BuildChangedValuesUpdate( buf, mask, NULL );
+
+    // 1 update.
+    return 1;
+}
+
 //=======================================================================================
 //  Creates an update block with the values of this object as
 //  determined by the updateMask.
 //=======================================================================================
-void Entity::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
+void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
 {
     int32 DummyFlags = -1, DummyFlags2 = -1, DummyNpcFlags = -1, DummyDynFlags = -1;
     if(updateMask->GetBit(OBJECT_FIELD_GUID) && target)    // We're creating.
     {
-        if(IsPlayer())
+        if(IsUnit())
         {
-            Player* pThis = TO_PLAYER(this);
-            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
-            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
-            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
-            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
-        }
-        else if(IsCreature())       // tagged group will have tagged player
-        {
-            DummyFlags = m_uint32Values[UNIT_FIELD_FLAGS];
-            DummyFlags2 = m_uint32Values[UNIT_FIELD_FLAGS_2];
-            DummyNpcFlags = m_uint32Values[UNIT_NPC_FLAGS];
-            DummyDynFlags = m_uint32Values[UNIT_DYNAMIC_FLAGS];
-            Creature* cThis = TO_CREATURE(this);
-            if(cThis->m_taggingPlayer)
+            DummyFlags = GetUInt32Value(UNIT_FIELD_FLAGS);
+            DummyFlags2 = GetUInt32Value(UNIT_FIELD_FLAGS_2);
+            DummyNpcFlags = GetUInt32Value(UNIT_NPC_FLAGS);
+            DummyDynFlags = GetUInt32Value(UNIT_DYNAMIC_FLAGS);
+            if(IsCreature())       // tagged group will have tagged player
             {
-                // set tagged visual
-                if( (cThis->m_taggingGroup != 0 && target->m_playerInfo->m_Group != NULL && target->m_playerInfo->m_Group->GetID() == cThis->m_taggingGroup) ||
-                    (cThis->m_taggingPlayer == target->GetLowGUID()) )
+                Creature* cThis = castPtr<Creature>(this);
+                if(cThis->m_taggingPlayer)
                 {
-                    DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
-                    if( cThis->m_loot.HasLoot(target) )
-                        DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
+                    // set tagged visual
+                    if( (cThis->m_taggingGroup != 0 && target->m_playerInfo->m_Group != NULL && target->m_playerInfo->m_Group->GetID() == cThis->m_taggingGroup) ||
+                        (cThis->m_taggingPlayer == target->GetLowGUID()) )
+                    {
+                        DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
+                        if( cThis->m_loot.HasLoot(target) )
+                            DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
+                    } else DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
                 }
-                else
-                    DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
-            }
 
-            Trainer * pTrainer = cThis->GetTrainer();
-            if(pTrainer != NULL)
-            {
-                if(!CanTrainAt(target, pTrainer))
-                {
-                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_ARMORER);
-                }
-            }
-
-            if(cThis->IsVehicle())
-            {
-                if(sFactionSystem.isAttackable(target, cThis, false))
-                {
+                if(Trainer * pTrainer = cThis->GetTrainer())
+                    if(!CanTrainAt(target, pTrainer))
+                        DummyNpcFlags &= ~(UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_ARMORER);
+                if(cThis->IsVehicle() && sFactionSystem.isAttackable(target, cThis, false))
                     DummyNpcFlags &= ~(UNIT_NPC_FLAG_VEHICLE_MOUNT);
-                }
             }
 
             updateMask->SetBit(UNIT_NPC_FLAGS);
@@ -560,14 +494,12 @@ void Entity::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
         }
         else if(IsGameObject())
         {
-            DummyFlags = m_uint32Values[GAMEOBJECT_FLAGS];
-            DummyDynFlags = m_uint32Values[GAMEOBJECT_DYNAMIC];
-            GameObject* go = TO_GAMEOBJECT(this);
-            GameObjectInfo *info = go->GetInfo();
-            if(info)
+            GameObject* go = castPtr<GameObject>(this);
+            DummyFlags = GetUInt32Value(GAMEOBJECT_FLAGS);
+            DummyDynFlags = GetUInt32Value(GAMEOBJECT_DYNAMIC);
+            if(GameObjectInfo *info = go->GetInfo())
             {
-                set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID);
-                if(involvedquestids != NULL)
+                if(set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID))
                 {
                     for(set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
                     {
@@ -595,7 +527,7 @@ void Entity::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
     {
         if( updateMask->GetBit( index ) )
         {
-            uint32 value = m_uint32Values[index];
+            uint32 value = m_uint32.values[index];
             if(IsGameObject())
             {
                 if(index == GAMEOBJECT_FLAGS)
@@ -637,7 +569,7 @@ void Entity::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
     }
 }
 
-void Entity::DestroyForPlayer(Player* target, bool anim)
+void Object::DestroyForPlayer(Player* target, bool anim)
 {
     if(target == NULL)
         return;
@@ -648,22 +580,35 @@ void Entity::DestroyForPlayer(Player* target, bool anim)
     target->GetSession()->SendPacket( &data );
 }
 
-//===============================================
-// Object class functions
-//===============================================
-Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
+void Object::ClearLoot()
 {
-#ifdef SHAREDPTR_DEBUGMODE
-    printf("Object::Object()\n");
-#endif
+    // better cancel any rolls just in case.
+    for(vector<__LootItem>::iterator itr = m_loot.items.begin(); itr != m_loot.items.end(); itr++)
+    {
+        if( itr->roll != NULL )
+        {
+            sEventMgr.RemoveEvents(itr->roll);
+            itr->roll = NULLROLL; // buh-bye!
+        }
+    }
+
+    m_loot.gold = 0;
+    m_loot.items.clear();
+    m_loot.looters.clear();
+}
+
+//===============================================
+// WorldObject class functions
+//===============================================
+WorldObject::WorldObject(uint64 guid) : Object(guid), m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
+{
     m_mapId = -1;
     m_areaId = 0;
     m_zoneId = 0;
     m_areaFlags = 0;
+    m_lastMovementZone = 0;
 
-    m_uint32Values = 0;
     m_objectUpdated = false;
-    m_valuesCount = 0;
 
     //official Values
     m_walkSpeed = 2.5f;
@@ -687,10 +632,7 @@ Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
 
     m_instanceId = 0;
     Active = false;
-    m_inQueue = false;
     m_loadedFromDB = false;
-    m_loot.gold = 0;
-    m_looted = false;
 
     m_unitsInRange.clear();
     m_objectsInRange.clear();
@@ -698,22 +640,19 @@ Object::Object() : m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
     m_oppFactsInRange.clear();
 }
 
-Object::~Object( )
+WorldObject::~WorldObject( )
+{
+    Object::~Object();
+}
+
+void WorldObject::Init()
 {
 
 }
 
-void Object::Init()
+void WorldObject::Destruct()
 {
-
-}
-
-void Object::Destruct()
-{
-    if(m_objectTypeId != TYPEID_ITEM && m_objectTypeId != TYPEID_CONTAINER)
-        ASSERT(!m_inQueue);
-
-    if(IsInWorld() && m_objectTypeId != TYPEID_ITEM && m_objectTypeId != TYPEID_CONTAINER)
+    if(IsInWorld())
         RemoveFromWorld(false);
 
     if(GetMapCell())
@@ -729,10 +668,44 @@ void Object::Destruct()
 
     // for linux
     m_instanceId = -1;
-    m_objectTypeId = TYPEID_UNUSED;
-
+    m_objectTypeMask = TYPEMASK_TYPE_UNUSED;
     sEventMgr.RemoveEvents(this);
     delete this;
+}
+
+//That is dirty fix it actually creates update of 1 field with
+//the given value ignoring existing changes in fields and so on
+//usefull if we want update this field for certain players
+//NOTE: it does not change fields. This is also very fast method
+WorldPacket *WorldObject::BuildFieldUpdatePacket(uint32 index, uint32 value)
+{
+    WorldPacket * packet = new WorldPacket(SMSG_UPDATE_OBJECT, 1500);
+    *packet << uint16(GetMapId());
+    *packet << uint32(1);//number of update/create blocks
+    BuildFieldUpdatePacket(packet, index, value);
+    return packet;
+}
+
+void WorldObject::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
+{
+    ByteBuffer buf(500);
+    BuildFieldUpdatePacket(&buf, Index, Value);
+    Target->PushUpdateBlock(&buf, 1);
+}
+
+void WorldObject::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
+{
+    *buf << uint8(UPDATETYPE_VALUES);
+    *buf << GetGUID();
+
+    uint32 mBlocks = Index/32+1;
+    *buf << (uint8)mBlocks;
+
+    for(uint32 dword_n = mBlocks-1; dword_n; dword_n--)
+        *buf <<(uint32)0;
+
+    *buf <<(((uint32)(1))<<(Index%32));
+    *buf << Value;
 }
 
 /* Crow:
@@ -741,7 +714,7 @@ void Object::Destruct()
     This function gets map height and also checks the position of WMO's so that the height is set to the WMO height
     based on the Z position that is given. If no Z position is given, but x and y positions are given, we will instead
     use basic map heights as our Z position. */
-float Object::GetCHeightForPosition(bool checkwater, float x, float y, float z)
+float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, float z)
 {
     if(!IsInWorld())
         return 0.0f;
@@ -896,75 +869,7 @@ float Object::GetCHeightForPosition(bool checkwater, float x, float y, float z)
     return z;
 }
 
-void Object::SetPhaseMask(int32 phase)
-{
-    if(phase == -1)
-    {
-        AllPhases = true;
-        m_phaseMask = 0xFFFF;
-        SendPhaseShift();
-        return;
-    }
-
-    m_phaseMask = phase;
-    SendPhaseShift();
-}
-
-void Object::EnablePhase(int32 phaseMode)
-{
-    if(phaseMode == -1)
-    {
-        AllPhases = true;
-        m_phaseMask = 0xFFFF;
-        SendPhaseShift();
-        return;
-    }
-
-    AllPhases = false;
-    m_phaseMask |= phaseMode;
-    SendPhaseShift();
-}
-
-void Object::DisablePhase(int32 phaseMode)
-{
-    AllPhases = false;
-    if(phaseMode == -1)
-        return;
-
-    m_phaseMask &= ~phaseMode;
-    SendPhaseShift();
-}
-
-void Object::SendPhaseShift()
-{
-    WorldPacket data(SMSG_SET_PHASE_SHIFT, 9);
-    data.WriteBitString(4, m_wowGuid[2], m_wowGuid[3], m_wowGuid[1], m_wowGuid[6]);
-    data.WriteBitString(4, m_wowGuid[4], m_wowGuid[5], m_wowGuid[0], m_wowGuid[7]);
-    data.WriteByteSeq(m_wowGuid[7]);
-    data.WriteByteSeq(m_wowGuid[4]);
-    data << uint32(0 * 2); // WorldMapArea.dbc id (controls map display)
-    for(uint8 i = 0; i < 0; i++)
-        data << uint16(0);
-    data.WriteByteSeq(m_wowGuid[1]);
-    data << uint32(m_phaseMask ? 0 : 0x08); // Mask packet flags
-    data.WriteByteSeq(m_wowGuid[2]);
-    data.WriteByteSeq(m_wowGuid[6]);
-    data << uint32(0 * 2); // Inactive terrain swaps
-    for(uint8 i = 0; i < 0; i++)
-        data << uint16(0);
-    data << uint32(1 * 2); // Phase.dbc ids
-    for(uint8 i = 0; i < 1; i++)
-        data << uint16(m_phaseMask);
-    data.WriteByteSeq(m_wowGuid[3]);
-    data.WriteByteSeq(m_wowGuid[0]);
-    data << uint32(0 * 2);    // Active terrain swaps
-    for(uint8 i = 0; i < 0; i++)
-        data << uint16(0);
-    data.WriteByteSeq(m_wowGuid[5]);
-    SendMessageToSet(&data, true);
-}
-
-void Object::_Create( uint32 mapid, float x, float y, float z, float ang )
+void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
 {
     m_mapId = mapid;
     m_position.ChangeCoords(x, y, z, ang);
@@ -972,15 +877,15 @@ void Object::_Create( uint32 mapid, float x, float y, float z, float ang )
     m_lastMapUpdatePosition.ChangeCoords(x,y,z,ang);
 }
 
-WorldPacket * Object::BuildTeleportAckMsg(const LocationVector & v)
+WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
 {
     ///////////////////////////////////////
     //Update player on the client with TELEPORT_ACK
     if( IsInWorld() )       // only send when inworld
-        TO_PLAYER(this)->SetPlayerStatus( TRANSFER_PENDING );
+        castPtr<Player>(this)->SetPlayerStatus( TRANSFER_PENDING );
 
     WorldPacket * data = new WorldPacket(MSG_MOVE_TELEPORT_ACK, 80);
-    *data << GetNewGUID();
+    *data << GetGUID();
     *data << uint32(0); // m_teleportAckCounter;
     *data << uint32(2); // flags
     *data << uint16(0);
@@ -990,7 +895,7 @@ WorldPacket * Object::BuildTeleportAckMsg(const LocationVector & v)
     return data;
 }
 
-void Object::SetPosition( float newX, float newY, float newZ, float newOrientation )
+void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
     bool updateMap = false;
     if(m_lastMapUpdatePosition.Distance2DSq(newX, newY) > 4.0f)     /* 2.0f */
@@ -1002,14 +907,12 @@ void Object::SetPosition( float newX, float newY, float newZ, float newOrientati
         m_lastMapUpdatePosition.ChangeCoords(newX,newY,newZ,newOrientation);
         m_mapMgr->ChangeObjectLocation(this);
 
-        if( m_objectTypeId == TYPEID_PLAYER && TO_PLAYER(this)->GetGroup() && TO_PLAYER(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
-        {
-            TO_PLAYER(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, TO_PLAYER(this) );
-        }
+        if( IsPlayer() && castPtr<Player>(this)->GetGroup() && castPtr<Player>(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
+            castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, castPtr<Player>(this) );
     }
 }
 
-void Object::DestroyForInrange(bool anim)
+void WorldObject::DestroyForInrange(bool anim)
 {
     WorldPacket data(SMSG_DESTROY_OBJECT, 9);
     data << GetGUID();
@@ -1017,7 +920,7 @@ void Object::DestroyForInrange(bool anim)
     SendMessageToSet(&data, false);
 }
 
-void Object::SetRotation( uint64 guid )
+void WorldObject::SetRotation( uint64 guid )
 {
     WorldPacket data(SMSG_AI_REACTION, 12);
     data << guid;
@@ -1025,17 +928,17 @@ void Object::SetRotation( uint64 guid )
     SendMessageToSet(&data, false);
 }
 
-void Object::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
+void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
 {
     if(self && m_objectTypeId == TYPEID_PLAYER)
-        TO_PLAYER(this)->GetSession()->OutPacket(Opcode, Len, Data);
+        castPtr<Player>(this)->GetSession()->OutPacket(Opcode, Len, Data);
 
     if(!IsInWorld())
         return;
 
     unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin();
     unordered_set<Player*  >::iterator it_end = m_inRangePlayers.end();
-    int gm = ( m_objectTypeId == TYPEID_PLAYER ? TO_PLAYER(this)->m_isGmInvisible : 0 );
+    int gm = ( m_objectTypeId == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : 0 );
     for(; itr != it_end; itr++)
     {
         if((*itr))
@@ -1052,22 +955,22 @@ void Object::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool s
     }
 }
 
-void Object::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only)
+void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only)
 {
     if(!IsInWorld())
         return;
 
     if(bToSelf && m_objectTypeId == TYPEID_PLAYER)
-        TO_PLAYER(this)->GetSession()->SendPacket(data);
+        castPtr<Player>(this)->GetSession()->SendPacket(data);
 
     unordered_set<Player*>::iterator itr = m_inRangePlayers.begin();
     unordered_set<Player*>::iterator it_end = m_inRangePlayers.end();
-    bool gminvis = (m_objectTypeId == TYPEID_PLAYER ? TO_PLAYER(this)->m_isGmInvisible : false);
+    bool gminvis = (m_objectTypeId == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false);
     //Zehamster: Splitting into if/else allows us to avoid testing "gminvis==true" at each loop...
     //         saving cpu cycles. Chat messages will be sent to everybody even if player is invisible.
     if(myteam_only)
     {
-        uint32 myteam = TO_PLAYER(this)->GetTeam();
+        uint32 myteam = castPtr<Player>(this)->GetTeam();
         if(gminvis && data->GetOpcode()!=SMSG_MESSAGECHAT)
         {
             for(; itr != it_end; itr++)
@@ -1110,23 +1013,16 @@ void Object::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only)
     }
 }
 
-void Object::AddToWorld()
+void WorldObject::AddToWorld()
 {
     MapMgr* mapMgr = sInstanceMgr.GetInstance(this);
     if(mapMgr == NULL)
-    {
-        if(IsPlayer() && TO_PLAYER(this)->m_bg != NULL && TO_PLAYER(this)->m_bg->IsArena())
-            mapMgr = TO_PLAYER(this)->m_bg->GetMapMgr();
-        else
-            return; //instance add failed
-    }
+        return;
 
-    if(!IsPlayer())
-        UpdateAreaInfo(mapMgr);
-    else
+    if(IsPlayer())
     {
         // battleground checks
-        Player* p = TO_PLAYER(this);
+        Player* p = castPtr<Player>(this);
         if( p->m_bg == NULL && mapMgr->m_battleground != NULL )
         {
             // player hasn't been registered in the battleground, ok.
@@ -1140,10 +1036,9 @@ void Object::AddToWorld()
         // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
         if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapMgr->GetdbcMap()->IsRaid() || mapMgr->GetMapInfo()->type == INSTANCE_MULTIMODE))
             return;
-    }
+    } else UpdateAreaInfo(mapMgr);
 
     m_mapMgr = mapMgr;
-    m_inQueue = true;
 
     mapMgr->AddObject(this);
 
@@ -1151,7 +1046,7 @@ void Object::AddToWorld()
     m_instanceId = m_mapMgr->GetInstanceID();
 }
 
-void Object::AddToWorld(MapMgr* pMapMgr)
+void WorldObject::AddToWorld(MapMgr* pMapMgr)
 {
     if(!pMapMgr)
         return; //instance add failed
@@ -1159,7 +1054,6 @@ void Object::AddToWorld(MapMgr* pMapMgr)
     if(!IsPlayer())
         UpdateAreaInfo(pMapMgr);
     m_mapMgr = pMapMgr;
-    m_inQueue = true;
 
     pMapMgr->AddObject(this);
 
@@ -1169,18 +1063,16 @@ void Object::AddToWorld(MapMgr* pMapMgr)
 
 //Unlike addtoworld it pushes it directly ignoring add pool
 //this can only be called from the thread of mapmgr!!!
-void Object::PushToWorld(MapMgr* mgr)
+void WorldObject::PushToWorld(MapMgr* mgr)
 {
     ASSERT(mgr != NULL);
     if(mgr == NULL)
     {
         // Reset these so session will get updated properly.
-        m_inQueue = false;
-
         if(IsPlayer())
         {
-            sLog.Error("Object","Kicking Player %s due to empty MapMgr;",TO_PLAYER(this)->GetName());
-            TO_PLAYER(this)->GetSession()->LogoutPlayer(false);
+            sLog.Error("WorldObject","Kicking Player %s due to empty MapMgr;",castPtr<Player>(this)->GetName());
+            castPtr<Player>(this)->GetSession()->LogoutPlayer(false);
         }
         return; //instance add failed
     }
@@ -1196,15 +1088,13 @@ void Object::PushToWorld(MapMgr* mgr)
     mgr->PushObject(this);
 
     // correct incorrect instance id's
-    m_inQueue = false;
-
     event_Relocate();
 
     // call virtual function to handle stuff.. :P
     OnPushToWorld();
 }
 
-void Object::RemoveFromWorld(bool free_guid)
+void WorldObject::RemoveFromWorld(bool free_guid)
 {
     // clear loot
     ClearLoot();
@@ -1224,11 +1114,11 @@ void Object::RemoveFromWorld(bool free_guid)
     event_Relocate();
 }
 
-bool Object::canWalk()
+bool WorldObject::canWalk()
 {
     if(IsCreature())
     {
-        Creature* ctr = TO_CREATURE(this);
+        Creature* ctr = castPtr<Creature>(this);
         if(ctr->GetCanMove() & LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_GROUND)
@@ -1240,11 +1130,11 @@ bool Object::canWalk()
     return false;
 }
 
-bool Object::canSwim()
+bool WorldObject::canSwim()
 {
     if(IsCreature())
     {
-        Creature* ctr = TO_CREATURE(this);
+        Creature* ctr = castPtr<Creature>(this);
         if(ctr->GetCanMove() & LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_WATER)
@@ -1256,7 +1146,7 @@ bool Object::canSwim()
     return false;
 }
 
-bool Object::canFly()
+bool WorldObject::canFly()
 {
     if(IsVehicle())
     {
@@ -1264,7 +1154,7 @@ bool Object::canFly()
     }
     else if(IsCreature())
     {
-        Creature* ctr = TO_CREATURE(this);
+        Creature* ctr = castPtr<Creature>(this);
         if(ctr->GetCanMove() & LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_AIR)
@@ -1272,7 +1162,7 @@ bool Object::canFly()
     }
     else if(IsPlayer())
     {
-        Player* plr = TO_PLAYER(this);
+        Player* plr = castPtr<Player>(this);
         if(plr->m_FlyingAura)
             return true;
         if(plr->FlyCheat)
@@ -1282,7 +1172,7 @@ bool Object::canFly()
     return false;
 }
 
-bool Object::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)
+bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)
 {
     double rotation = 2*M_PI-BOrientation;
     double sinVal = sin(rotation);
@@ -1301,27 +1191,27 @@ bool Object::IsInBox(float centerX, float centerY, float centerZ, float BLength,
 
 ////////////////////////////////////////////////////////////
 
-float Object::CalcDistance(Object* Ob)
+float WorldObject::CalcDistance(WorldObject* Ob)
 {
     return CalcDistance(GetPositionX(), GetPositionY(), GetPositionZ(), Ob->GetPositionX(), Ob->GetPositionY(), Ob->GetPositionZ());
 }
 
-float Object::CalcDistance(float ObX, float ObY, float ObZ)
+float WorldObject::CalcDistance(float ObX, float ObY, float ObZ)
 {
     return CalcDistance(GetPositionX(), GetPositionY(), GetPositionZ(), ObX, ObY, ObZ);
 }
 
-float Object::CalcDistance(Object* Oa, Object* Ob)
+float WorldObject::CalcDistance(WorldObject* Oa, WorldObject* Ob)
 {
     return CalcDistance(Oa->GetPositionX(), Oa->GetPositionY(), Oa->GetPositionZ(), Ob->GetPositionX(), Ob->GetPositionY(), Ob->GetPositionZ());
 }
 
-float Object::CalcDistance(Object* Oa, float ObX, float ObY, float ObZ)
+float WorldObject::CalcDistance(WorldObject* Oa, float ObX, float ObY, float ObZ)
 {
     return CalcDistance(Oa->GetPositionX(), Oa->GetPositionY(), Oa->GetPositionZ(), ObX, ObY, ObZ);
 }
 
-float Object::CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ)
+float WorldObject::CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ)
 {
     float xdest = fabs(ObX - OaX);
     float ydest = fabs(ObY - OaY);
@@ -1329,7 +1219,7 @@ float Object::CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY
     return sqrtf((zdest*zdest) + (ydest*ydest) + (xdest*xdest));
 }
 
-float Object::calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
+float WorldObject::calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
 {
     float dx = Position2X-Position1X;
     float dy = Position2Y-Position1Y;
@@ -1369,7 +1259,7 @@ float Object::calcAngle( float Position1X, float Position1Y, float Position2X, f
     return float(angle);
 }
 
-float Object::calcRadAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
+float WorldObject::calcRadAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
 {
     double dx = double(Position2X-Position1X);
     double dy = double(Position2Y-Position1Y);
@@ -1406,7 +1296,7 @@ float Object::calcRadAngle( float Position1X, float Position1Y, float Position2X
     return float(angle);
 }
 
-float Object::getEasyAngle( float angle )
+float WorldObject::getEasyAngle( float angle )
 {
     while ( angle < 0 ) {
         angle = angle + 360;
@@ -1417,7 +1307,7 @@ float Object::getEasyAngle( float angle )
     return angle;
 }
 
-bool Object::inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y )
+bool WorldObject::inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y )
 {
     float angle = calcAngle( Position1X, Position1Y, Position2X, Position2Y );
     float lborder = getEasyAngle( ( Orientation - (FOV*0.5f/*/2*/) ) );
@@ -1456,7 +1346,7 @@ float Normalize(float o)
     return fmod(o, 2.0f * static_cast<float>(M_PI));
 }
 
-bool Object::isTargetInFront(Object* target)
+bool WorldObject::isTargetInFront(WorldObject* target)
 {
     // always have self in arc
     if (target == this)
@@ -1478,18 +1368,18 @@ bool Object::isTargetInFront(Object* target)
     return ((angle >= lborder) && (angle <= rborder));
 }
 
-bool Object::isInArc(Object* target , float angle) // angle in degrees
+bool WorldObject::isInArc(WorldObject* target , float angle) // angle in degrees
 {
     return inArc( GetPositionX() , GetPositionY() , angle , GetOrientation() , target->GetPositionX() , target->GetPositionY() );
 }
 
-bool Object::isInRange(Object* target, float range)
+bool WorldObject::isInRange(WorldObject* target, float range)
 {
     float dist = CalcDistance( target );
     return( dist <= range );
 }
 
-void Object::_setFaction()
+void WorldObject::_setFaction()
 {
     // Clear our old faction info
     if(GetTypeId() == TYPEID_UNIT || IsPlayer())
@@ -1501,27 +1391,27 @@ void Object::_setFaction()
     UpdateOppFactionSet();
 }
 
-void Object::UpdateOppFactionSet()
+void WorldObject::UpdateOppFactionSet()
 {
     if(!IsUnit())
         return;
 
     m_oppFactsInRange.clear();
-    for(Object::InRangeUnitSet::iterator i = GetInRangeUnitSetBegin(); i != GetInRangeUnitSetEnd(); i++)
+    for(WorldObject::InRangeUnitSet::iterator i = GetInRangeUnitSetBegin(); i != GetInRangeUnitSetEnd(); i++)
     {
         if (((*i)->GetTypeId() == TYPEID_UNIT) || ((*i)->IsPlayer()) || ((*i)->GetTypeId() == TYPEID_GAMEOBJECT))
         {
-            if (sFactionSystem.isHostile(TO_UNIT(this), (*i)))
+            if (sFactionSystem.isHostile(castPtr<Unit>(this), (*i)))
             {
-                if(!(*i)->IsInRangeOppFactSet(TO_UNIT(this)))
-                    (*i)->m_oppFactsInRange.insert(TO_UNIT(this));
+                if(!(*i)->IsInRangeOppFactSet(castPtr<Unit>(this)))
+                    (*i)->m_oppFactsInRange.insert(castPtr<Unit>(this));
                 if (!IsInRangeOppFactSet((*i)))
                     m_oppFactsInRange.insert((*i));
             }
             else
             {
-                if((*i)->IsInRangeOppFactSet(TO_UNIT(this)))
-                    (*i)->m_oppFactsInRange.erase(TO_UNIT(this));
+                if((*i)->IsInRangeOppFactSet(castPtr<Unit>(this)))
+                    (*i)->m_oppFactsInRange.erase(castPtr<Unit>(this));
                 if (IsInRangeOppFactSet((*i)))
                     m_oppFactsInRange.erase((*i));
             }
@@ -1529,7 +1419,7 @@ void Object::UpdateOppFactionSet()
     }
 }
 
-int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)
+int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)
 {
     if(!IsInWorld())
         return 0;
@@ -1543,17 +1433,17 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     if( pVictim->GetStandState() )//not standing-> standup
         pVictim->SetStandState( STANDSTATE_STAND );//probably mobs also must standup
 
-    Player* plr = NULLPLR;
+    Player* plr = NULL;
     if(IsPet())
-        plr = TO_PET(this)->GetPetOwner();
+        plr = castPtr<Pet>(this)->GetPetOwner();
     else if(IsPlayer())
-        plr = TO_PLAYER(this);
+        plr = castPtr<Player>(this);
 
     // Player we are attacking, or the owner of totem/pet/etc
-    Player *pOwner = pVictim->IsPlayer() ? TO_PLAYER(pVictim) : NULL;
+    Player *pOwner = pVictim->IsPlayer() ? castPtr<Player>(pVictim) : NULL;
 
     // This is the player or the player controlling the totem/pet/summon
-    Player *pAttacker = IsPlayer() ? TO_PLAYER(this) : NULL;
+    Player *pAttacker = IsPlayer() ? castPtr<Player>(this) : NULL;
 
     // We identified both the attacker and the victim as possible PvP combatants, if we are not dueling we will flag the attacker
     if( pOwner != NULL && pAttacker != NULL && pOwner != pAttacker && pOwner != pAttacker->DuelingWith )
@@ -1576,9 +1466,9 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     //If our pet attacks  - flag us.
     if( pVictim->IsPlayer() && IsPet() )
     {
-        Player* owner = TO_PLAYER( TO_PET(this)->GetPetOwner() );
+        Player* owner = castPtr<Player>( castPtr<Pet>(this)->GetPetOwner() );
         if( owner != NULL )
-            if( owner->isAlive() && TO_PLAYER( pVictim )->DuelingWith != owner )
+            if( owner->isAlive() && castPtr<Player>( pVictim )->DuelingWith != owner )
                 owner->SetPvPFlag();
     }
 
@@ -1609,31 +1499,31 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         }
     }
 
-    if(IsUnit() && TO_UNIT(this)->isAlive() )
+    if(IsUnit() && castPtr<Unit>(this)->isAlive() )
     {
-        if( TO_UNIT(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && TO_PLAYER(this)->m_hasInRangeGuards )
+        if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && castPtr<Player>(this)->m_hasInRangeGuards )
         {
-            TO_PLAYER(this)->SetGuardHostileFlag(true);
-            TO_PLAYER(this)->CreateResetGuardHostileFlagEvent();
+            castPtr<Player>(this)->SetGuardHostileFlag(true);
+            castPtr<Player>(this)->CreateResetGuardHostileFlagEvent();
         }
 
         if(pVictim->IsPlayer() && !pVictim->CombatStatus.IsInCombat())
-            sHookInterface.OnEnterCombat( TO_PLAYER( pVictim ), TO_UNIT(this) );
+            sHookInterface.OnEnterCombat( castPtr<Player>( pVictim ), castPtr<Unit>(this) );
 
-        if(IsPlayer() && ! TO_PLAYER(this)->CombatStatus.IsInCombat())
-            sHookInterface.OnEnterCombat( TO_PLAYER(this), TO_PLAYER(this) );
+        if(IsPlayer() && ! castPtr<Player>(this)->CombatStatus.IsInCombat())
+            sHookInterface.OnEnterCombat( castPtr<Player>(this), castPtr<Player>(this) );
 
         if(plr != NULL && pVictim->IsCreature())
-            TO_CREATURE(pVictim)->Tag(plr);
+            castPtr<Creature>(pVictim)->Tag(plr);
 
         // Pepsi1x1: is this correct this
-        if( pVictim != TO_UNIT(this))
-            TO_UNIT(this)->CombatStatus.OnDamageDealt( pVictim, damage );
+        if( pVictim != castPtr<Unit>(this))
+            castPtr<Unit>(this)->CombatStatus.OnDamageDealt( pVictim, damage );
     }
 
     ///Rage
     if( pVictim->GetMaxPower(POWER_TYPE_RAGE) > 0
-        && pVictim != TO_UNIT(this)
+        && pVictim != castPtr<Unit>(this)
         && pVictim->IsPlayer())
     {
         float level = (float)pVictim->getLevel();
@@ -1649,7 +1539,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     }
 
     //* BATTLEGROUND DAMAGE COUNTER *//
-    if( pVictim != TO_UNIT(this) && plr != NULL )
+    if( pVictim != castPtr<Unit>(this) && plr != NULL )
     {
         if(plr->m_bg != NULL)
         {
@@ -1661,44 +1551,44 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     uint32 health = pVictim->GetUInt32Value(UNIT_FIELD_HEALTH );
 
     /*------------------------------------ DUEL HANDLERS --------------------------*/
-    if(pVictim->IsPlayer() && TO_PLAYER(pVictim)->DuelingWith != NULL) //Both Players
+    if(pVictim->IsPlayer() && castPtr<Player>(pVictim)->DuelingWith != NULL) //Both Players
     {
         if(health <= damage)
         {
-            if(IsPlayer() && (TO_PLAYER(pVictim)->DuelingWith == TO_PLAYER(this)))
+            if(IsPlayer() && (castPtr<Player>(pVictim)->DuelingWith == castPtr<Player>(this)))
             {
                 // End Duel
-                TO_PLAYER(this)->EndDuel(DUEL_WINNER_KNOCKOUT);
-                TO_PLAYER(this)->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
-                TO_PLAYER(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel();
+                castPtr<Player>(this)->EndDuel(DUEL_WINNER_KNOCKOUT);
+                castPtr<Player>(this)->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
+                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel();
 
                 // surrender emote
-                TO_PLAYER(pVictim)->Emote(EMOTE_ONESHOT_BEG);           // Animation
+                castPtr<Player>(pVictim)->Emote(EMOTE_ONESHOT_BEG);           // Animation
 
                 // Remove Negative Auras from duelist.
-                TO_PLAYER(pVictim)->m_AuraInterface.RemoveAllNegAurasFromGUID(GetGUID());
+                castPtr<Player>(pVictim)->m_AuraInterface.RemoveAllNegAurasFromGUID(GetGUID());
 
                 // Player in Duel and Player Victim has lost
-                TO_PLAYER(pVictim)->CombatStatus.Vanish(GetLowGUID());
-                TO_PLAYER(this)->CombatStatus.Vanish(pVictim->GetLowGUID());
+                castPtr<Player>(pVictim)->CombatStatus.Vanish(GetLowGUID());
+                castPtr<Player>(this)->CombatStatus.Vanish(pVictim->GetLowGUID());
 
                 damage = health-5;
             }
-            else if(TO_PLAYER(pVictim)->DuelingWith != NULL)
+            else if(castPtr<Player>(pVictim)->DuelingWith != NULL)
             {
                 // We have to call the achievement interface from the duelingwith before, otherwise we crash.
-                TO_PLAYER(pVictim)->DuelingWith->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
-                TO_PLAYER(pVictim)->DuelingWith->EndDuel(DUEL_WINNER_KNOCKOUT);
-//              TO_PLAYER(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel(); Disable because someone cheated!
+                castPtr<Player>(pVictim)->DuelingWith->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
+                castPtr<Player>(pVictim)->DuelingWith->EndDuel(DUEL_WINNER_KNOCKOUT);
+//              castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel(); Disable because someone cheated!
             }
         }
     }
 
     if((pVictim->IsPlayer()) && (IsPet()))
     {
-        if((health <= damage) && TO_PLAYER(pVictim)->DuelingWith == TO_PET(this)->GetPetOwner())
+        if((health <= damage) && castPtr<Player>(pVictim)->DuelingWith == castPtr<Pet>(this)->GetPetOwner())
         {
-            Player* petOwner = TO_PET(this)->GetPetOwner();
+            Player* petOwner = castPtr<Pet>(this)->GetPetOwner();
             if(petOwner)
             {
                 //Player in Duel and Player Victim has lost
@@ -1718,11 +1608,11 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     /*------------------------------------ DUEL HANDLERS END--------------------------*/
 
     bool isCritter = false;
-    if(pVictim->GetTypeId() == TYPEID_UNIT && TO_CREATURE(pVictim)->GetCreatureData())
+    if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetCreatureData())
     {
-        if(TO_CREATURE(pVictim)->GetCreatureData()->Type == CRITTER)
+        if(castPtr<Creature>(pVictim)->GetCreatureData()->Type == CRITTER)
             isCritter = true;
-        else if(isTargetDummy(TO_CREATURE(pVictim)->GetCreatureData()->Entry) && health <= damage)
+        else if(isTargetDummy(castPtr<Creature>(pVictim)->GetCreatureData()->Entry) && health <= damage)
         {   //Dummy trainers can't die
             uint32 newh = 5; // Just limit to 5HP (can't use 1HP here).
             if(pVictim->GetMaxHealth() < 5)
@@ -1738,7 +1628,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     {
         if( IsUnit() )
         {
-            if(!sHookInterface.OnPreUnitDie( TO_UNIT(this), pVictim) )
+            if(!sHookInterface.OnPreUnitDie( castPtr<Unit>(this), pVictim) )
                 return 0;
         }
 
@@ -1753,14 +1643,14 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         if( IsUnit() )
         {
             if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapMgr->m_battleground && m_mapMgr->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
-                TO_ALTERACVALLEY(m_mapMgr->m_battleground)->HookOnUnitKill( TO_PLAYER(this), pVictim );
+                TO_ALTERACVALLEY(m_mapMgr->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
         }
 
         // check if pets owner is combat participant
         bool owner_participe = false;
         if( IsPet() )
         {
-            Player* owner = TO_PET(this)->GetPetOwner();
+            Player* owner = castPtr<Pet>(this)->GetPetOwner();
             if( owner != NULL && pVictim->GetAIInterface()->getThreatByPtr( owner ) > 0 )
                 owner_participe = true;
         }
@@ -1770,13 +1660,13 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         if( pVictim->IsPlayer() )
         {
             // let's see if we have shadow of death
-            if( !pVictim->m_AuraInterface.FindPositiveAuraByNameHash(SPELL_HASH_SHADOW_OF_DEATH) && TO_PLAYER( pVictim)->HasSpell( 49157 )  &&
-                !(TO_PLAYER(pVictim)->m_bg && TO_PLAYER(pVictim)->m_bg->IsArena())) //check for shadow of death
+            if( !pVictim->m_AuraInterface.FindPositiveAuraByNameHash(SPELL_HASH_SHADOW_OF_DEATH) && castPtr<Player>( pVictim)->HasSpell( 49157 )  &&
+                !(castPtr<Player>(pVictim)->m_bg && castPtr<Player>(pVictim)->m_bg->IsArena())) //check for shadow of death
             {
                 SpellEntry* sorInfo = dbcSpell.LookupEntry(54223);
-                if( sorInfo != NULL && TO_PLAYER(pVictim)->Cooldown_CanCast( sorInfo ))
+                if( sorInfo != NULL && castPtr<Player>(pVictim)->Cooldown_CanCast( sorInfo ))
                 {
-                    Spell* sor(new Spell( pVictim, sorInfo, false, NULLAURA ));
+                    Spell* sor(new Spell( pVictim, sorInfo, false, NULL ));
                     SpellCastTargets targets;
                     targets.m_unitTarget = pVictim->GetGUID();
                     sor->prepare(&targets);
@@ -1784,19 +1674,19 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 }
             }
 
-            TO_PLAYER( pVictim )->KillPlayer();
+            castPtr<Player>( pVictim )->KillPlayer();
 
             /* Remove all Auras */
             pVictim->m_AuraInterface.EventDeathAuraRemoval();
 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
-            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerDeath )( TO_PLAYER(pVictim), pKiller );
+            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
 
             if( IsCreature() )
-                TO_PLAYER(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByCreature( GetEntry() );
+                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByCreature( GetEntry() );
             else if(IsPlayer())
-                TO_PLAYER(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByPlayer();
+                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByPlayer();
         }
         else
         {
@@ -1806,26 +1696,26 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
 
-            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnCreatureDeath )( TO_CREATURE(pVictim), pKiller );
+            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnCreatureDeath )( castPtr<Creature>(pVictim), pKiller );
         }
 
         pVictim->SummonExpireAll(false);
 
-        if( pVictim->IsPlayer() && (!IsPlayer() || pVictim == TO_UNIT(this) ) )
-            TO_PLAYER( pVictim )->DeathDurabilityLoss(0.10);
+        if( pVictim->IsPlayer() && (!IsPlayer() || pVictim == castPtr<Unit>(this) ) )
+            castPtr<Player>( pVictim )->DeathDurabilityLoss(0.10);
 
         /* Zone Under Attack */
         MapInfo * pZMapInfo = LimitedMapInfoStorage.LookupEntry(GetMapId());
         if( pZMapInfo != NULL && pZMapInfo->type == INSTANCE_NULL && !pVictim->IsPlayer() && !pVictim->IsPet() && ( IsPlayer() || IsPet() ) )
         {
             // Only NPCs that bear the PvP flag can be truly representing their faction.
-            if( TO_CREATURE(pVictim)->IsPvPFlagged() )
+            if( castPtr<Creature>(pVictim)->IsPvPFlagged() )
             {
-                Player* pAttacker = NULLPLR;
+                Player* pAttacker = NULL;
                 if( IsPet() )
-                    pAttacker = TO_PET(this)->GetPetOwner();
+                    pAttacker = castPtr<Pet>(this)->GetPetOwner();
                 else if(IsPlayer())
-                    pAttacker = TO_PLAYER(this);
+                    pAttacker = castPtr<Player>(this);
 
                 if( pAttacker != NULL)
                 {
@@ -1874,7 +1764,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
         if(pVictim->IsPlayer())
         {
             uint32 self_res_spell = 0;
-            Player* plrVictim = TO_PLAYER(pVictim);
+            Player* plrVictim = castPtr<Player>(pVictim);
             if(!(plrVictim->m_bg && plrVictim->m_bg->IsArena())) // Can't self res in Arena
             {
                 self_res_spell = plrVictim->SoulStone;
@@ -1886,7 +1776,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                     if( plrVictim->Cooldown_CanCast( m_reincarnSpellInfo ) )
                     {
                         uint32 ankh_count = plrVictim->GetItemInterface()->GetItemCount( 17030 );
-                        if( ankh_count || TO_PLAYER(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
+                        if( ankh_count || castPtr<Player>(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
                             self_res_spell = 21169;
                     }
                 }
@@ -1905,21 +1795,21 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
 
         if( IsUnit() )
         {
-            TO_UNIT(this)->smsg_AttackStop( pVictim );
+            castPtr<Unit>(this)->smsg_AttackStop( pVictim );
 
             /* Tell Unit that it's target has Died */
-            TO_UNIT(this)->addStateFlag( UF_TARGET_DIED );
+            castPtr<Unit>(this)->addStateFlag( UF_TARGET_DIED );
         }
 
         if( pVictim->IsPlayer() )
         {
-            if( TO_PLAYER( pVictim)->HasDummyAura(SPELL_HASH_SPIRIT_OF_REDEMPTION) ) //check for spirit of Redemption
+            if( castPtr<Player>( pVictim)->HasDummyAura(SPELL_HASH_SPIRIT_OF_REDEMPTION) ) //check for spirit of Redemption
             {
                 SpellEntry* sorInfo = dbcSpell.LookupEntry(27827);
                 if( sorInfo != NULL )
                 {
                     pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-                    Spell* sor(new Spell( pVictim, sorInfo, true, NULLAURA ));
+                    Spell* sor(new Spell( pVictim, sorInfo, true, NULL ));
                     SpellCastTargets targets;
                     targets.m_unitTarget = pVictim->GetGUID();
                     sor->prepare(&targets);
@@ -1936,8 +1826,8 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
 
             if( pVictim->IsPlayer() )
             {
-                sHookInterface.OnKillPlayer( plr, TO_PLAYER( pVictim ) );
-                HonorHandler::OnPlayerKilled( plr, TO_PLAYER( pVictim ) );
+                sHookInterface.OnKillPlayer( plr, castPtr<Player>( pVictim ) );
+                HonorHandler::OnPlayerKilled( plr, castPtr<Player>( pVictim ) );
             }
             else
             {
@@ -1949,10 +1839,10 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
             if(plr->getLevel() <= (pVictim->getLevel() + 8) && plr->getClass() == WARRIOR)
             {   // currently only warriors seem to use it (Victory Rush)
                 plr->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_VICTORIOUS );
-                if( !sEventMgr.HasEvent(TO_UNIT(plr), EVENT_VICTORIOUS_FLAG_EXPIRE ) )
-                    sEventMgr.AddEvent( TO_UNIT(plr), &Unit::EventAurastateExpire, (uint32)AURASTATE_FLAG_VICTORIOUS, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000, 1, 0 );
+                if( !sEventMgr.HasEvent(castPtr<Unit>(plr), EVENT_VICTORIOUS_FLAG_EXPIRE ) )
+                    sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventAurastateExpire, (uint32)AURASTATE_FLAG_VICTORIOUS, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000, 1, 0 );
                 else
-                    sEventMgr.ModifyEventTimeLeft( TO_UNIT(plr), EVENT_VICTORIOUS_FLAG_EXPIRE, 20000 , false );
+                    sEventMgr.ModifyEventTimeLeft( castPtr<Unit>(plr), EVENT_VICTORIOUS_FLAG_EXPIRE, 20000 , false );
             }
         }
         /* -------------------------------- HONOR + BATTLEGROUND CHECKS END------------------------ */
@@ -1969,22 +1859,22 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 if(FunctionCall(m_mapMgr, MapSupportsPlayerLoot)())
                 {
                     pVictim->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
-                    TO_PLAYER(pVictim)->m_insigniaTaken = false;
+                    castPtr<Player>(pVictim)->m_insigniaTaken = false;
                 }
             }
-            if( TO_PLAYER(pVictim)->m_bg != NULL && TO_PLAYER(pVictim)->m_bg->SupportsPlayerLoot() )
+            if( castPtr<Player>(pVictim)->m_bg != NULL && castPtr<Player>(pVictim)->m_bg->SupportsPlayerLoot() )
             {
                 pVictim->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
-                TO_PLAYER(pVictim)->m_insigniaTaken = false;
+                castPtr<Player>(pVictim)->m_insigniaTaken = false;
             }
         }
-        else if(TO_CREATURE(pVictim)->m_taggingPlayer != 0 )    // only execute loot code if we were tagged
+        else if(castPtr<Creature>(pVictim)->m_taggingPlayer != 0 )    // only execute loot code if we were tagged
         {
             // fill loot vector
-            TO_CREATURE(pVictim)->GenerateLoot();
+            castPtr<Creature>(pVictim)->GenerateLoot();
 
             // update visual.
-            TO_CREATURE(pVictim)->UpdateLootAnimation(pAttacker);
+            castPtr<Creature>(pVictim)->UpdateLootAnimation(pAttacker);
         }
 
         if(pVictim->IsCreature())
@@ -2019,7 +1909,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
             //---------------------------------looot-----------------------------------------
             if( IsPlayer() && !pVictim->IsPet() &&
                 pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
-                pVictim->GetUInt64Value( OBJECT_FIELD_CREATED_BY ) == 0 )
+                pVictim->GetUInt64Value( UNIT_FIELD_SUMMONEDBY ) == 0 )
             {
                 // TODO: lots of casts are bad make a temp member pointer to use for batches like this
                 // that way no local loadhitstore and its just one assignment
@@ -2027,32 +1917,32 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 //Not all NPC's give XP, check for it in proto no_XP
                 bool can_give_xp = true;
                 if(pVictim->IsCreature())
-                    if(TO_CREATURE(pVictim)->GetExtraInfo())
-                        can_give_xp = (TO_CREATURE(pVictim)->GetExtraInfo()->no_xp ? false : true);
+                    if(castPtr<Creature>(pVictim)->GetExtraInfo())
+                        can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
 
                 if(can_give_xp)
                 {
                     // Is this player part of a group
-                    if( TO_PLAYER(this)->InGroup() )
+                    if( castPtr<Player>(this)->InGroup() )
                     {
                         //Calc Group XP
-                        TO_PLAYER(this)->GiveGroupXP( pVictim, TO_PLAYER(this) );
+                        castPtr<Player>(this)->GiveGroupXP( pVictim, castPtr<Player>(this) );
                         //TODO: pet xp if player in group
                     }
                     else
                     {
-                        uint32 xp = CalculateXpToGive( pVictim, TO_UNIT(this) );
+                        uint32 xp = CalculateXpToGive( pVictim, castPtr<Unit>(this) );
                         if( xp > 0 )
                         {
-                            if(TO_PLAYER(this)->MobXPGainRate)
-                                xp += (xp*(TO_PLAYER(this)->MobXPGainRate/100));
+                            if(castPtr<Player>(this)->MobXPGainRate)
+                                xp += (xp*(castPtr<Player>(this)->MobXPGainRate/100));
 
-                            TO_PLAYER(this)->GiveXP( xp, victimGuid, true );
-                            if( TO_PLAYER(this)->GetSummon() && TO_PLAYER(this)->GetSummon()->GetUInt32Value( UNIT_CREATED_BY_SPELL ) == 0 )
+                            castPtr<Player>(this)->GiveXP( xp, victimGuid, true );
+                            if( castPtr<Player>(this)->GetSummon() && castPtr<Player>(this)->GetSummon()->GetUInt32Value( UNIT_CREATED_BY_SPELL ) == 0 )
                             {
-                                xp = CalculateXpToGive( pVictim, TO_PLAYER(this)->GetSummon() );
+                                xp = CalculateXpToGive( pVictim, castPtr<Player>(this)->GetSummon() );
                                 if( xp > 0 )
-                                    TO_PLAYER(this)->GetSummon()->GiveXP( xp );
+                                    castPtr<Player>(this)->GetSummon()->GiveXP( xp );
                             }
                         }
                     }
@@ -2061,25 +1951,25 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 // Achievement: on kill unit
                 if( !pVictim->IsPlayer() && IsPlayer() )
                 {
-                    Player* pThis = TO_PLAYER(this);
+                    Player* pThis = castPtr<Player>(this);
                     pThis->GetAchievementInterface()->HandleAchievementCriteriaKillCreature( pVictim->GetUInt32Value(OBJECT_FIELD_ENTRY) );
                 }
 
                 if( pVictim->GetTypeId() != TYPEID_PLAYER )
-                    sQuestMgr.OnPlayerKill( TO_PLAYER(this), TO_CREATURE( pVictim ) );
+                    sQuestMgr.OnPlayerKill( castPtr<Player>(this), castPtr<Creature>( pVictim ) );
             }
             else /* is Creature or GameObject* */
             {
                 /* ----------------------------- PET XP HANDLING -------------- */
                 if( owner_participe && IsPet() && !pVictim->IsPet() )
                 {
-                    Player* petOwner = TO_PET(this)->GetPetOwner();
+                    Player* petOwner = castPtr<Pet>(this)->GetPetOwner();
                     if( petOwner != NULL && petOwner->IsPlayer() )
                     {
                         if( petOwner->InGroup() )
                         {
                             //Calc Group XP
-                            TO_UNIT(this)->GiveGroupXP( pVictim, petOwner );
+                            castPtr<Unit>(this)->GiveGroupXP( pVictim, petOwner );
                             //TODO: pet xp if player in group
                         }
                         else
@@ -2088,18 +1978,18 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                             if( xp > 0 )
                             {
                                 petOwner->GiveXP( xp, victimGuid, true );
-                                if( !TO_PET(this)->IsSummonedPet() )
+                                if( !castPtr<Pet>(this)->IsSummonedPet() )
                                 {
-                                    xp = CalculateXpToGive( pVictim, TO_PET(this) );
+                                    xp = CalculateXpToGive( pVictim, castPtr<Pet>(this) );
                                     if( xp > 0 )
-                                        TO_PET(this)->GiveXP( xp );
+                                        castPtr<Pet>(this)->GiveXP( xp );
                                 }
                             }
                         }
                     }
                     if( petOwner != NULL && pVictim->GetTypeId() != TYPEID_PLAYER &&
                         pVictim->GetTypeId() == TYPEID_UNIT )
-                        sQuestMgr.OnPlayerKill( petOwner, TO_CREATURE( pVictim ) );
+                        sQuestMgr.OnPlayerKill( petOwner, castPtr<Creature>( pVictim ) );
                 }
                 /* ----------------------------- PET XP HANDLING END-------------- */
 
@@ -2107,17 +1997,17 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                 if( pVictim->IsPet() )
                 {
                     // dying pet looses 1 happiness level
-                    if( !TO_PET( pVictim )->IsSummonedPet() )
+                    if( !castPtr<Pet>( pVictim )->IsSummonedPet() )
                     {
-                        uint32 hap = TO_PET( pVictim )->GetHappiness();
+                        uint32 hap = castPtr<Pet>( pVictim )->GetHappiness();
                         hap = hap - PET_HAPPINESS_UPDATE_VALUE > 0 ? hap - PET_HAPPINESS_UPDATE_VALUE : 0;
-                        TO_PET( pVictim )->SetHappiness(hap);
+                        castPtr<Pet>( pVictim )->SetHappiness(hap);
                     }
 
-                    TO_PET( pVictim )->DelayedRemove( false, true );
+                    castPtr<Pet>( pVictim )->DelayedRemove( false, true );
 
                     //remove owner warlock soul link from caster
-                    Player* owner = TO_PET( pVictim )->GetPetOwner();
+                    Player* owner = castPtr<Pet>( pVictim )->GetPetOwner();
                     if( owner != NULL )
                         owner->EventDismissPet();
                 }
@@ -2127,43 +2017,41 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
                     //remove owner warlock soul link from caster
                     Unit* owner=pVictim->GetMapMgr()->GetUnit( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) );
                     if( owner != NULL && owner->IsPlayer())
-                        TO_PLAYER( owner )->EventDismissPet();
+                        castPtr<Player>( owner )->EventDismissPet();
                 }
             }
         }
         else if( pVictim->IsPlayer() )
         {
             /* -------------------- RESET BREATH STATE ON DEATH -------------- */
-            TO_PLAYER( pVictim )->m_UnderwaterState = 0;
+            castPtr<Player>( pVictim )->m_UnderwaterState = 0;
 
             /* -------------------- REMOVE PET WHEN PLAYER DIES ---------------*/
-            if( TO_PLAYER( pVictim )->GetSummon() != NULL )
+            if( castPtr<Player>( pVictim )->GetSummon() != NULL )
             {
                 if( pVictim->GetUInt32Value( UNIT_CREATED_BY_SPELL ) > 0 )
-                    TO_PLAYER( pVictim )->GetSummon()->Dismiss( true );
+                    castPtr<Player>( pVictim )->GetSummon()->Dismiss( true );
                 else
-                    TO_PLAYER( pVictim )->GetSummon()->Remove( true, true, true );
+                    castPtr<Player>( pVictim )->GetSummon()->Remove( true, true, true );
             }
             /* -------------------- REMOVE PET WHEN PLAYER DIES END---------------*/
-        }
-        else
-            sLog.outDebug("DealDamage for Unknown Object.");
+        } else sLog.outDebug("DealDamage for unknown obj.");
 
         if(IsUnit())
-            sHookInterface.OnPostUnitDie(TO_UNIT(this), pVictim);
+            sHookInterface.OnPostUnitDie(castPtr<Unit>(this), pVictim);
         return health;
     }
     else /* ---------- NOT DEAD YET --------- */
     {
-        if(pVictim != TO_UNIT(this) /* && updateskill */)
+        if(pVictim != castPtr<Unit>(this) /* && updateskill */)
         {
             // Send AI Reaction UNIT vs UNIT
             if( IsCreature() )
-                TO_CREATURE(this)->GetAIInterface()->AttackReaction( pVictim, damage, spellId );
+                castPtr<Creature>(this)->GetAIInterface()->AttackReaction( pVictim, damage, spellId );
 
             // Send AI Victim Reaction
             if( IsUnit() && pVictim->IsCreature() )
-                TO_CREATURE( pVictim )->GetAIInterface()->AttackReaction( TO_UNIT(this), damage, spellId );
+                castPtr<Creature>( pVictim )->GetAIInterface()->AttackReaction( castPtr<Unit>(this), damage, spellId );
         }
 
         pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
@@ -2171,7 +2059,7 @@ int32 Object::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint3
     return damage;
 }
 
-int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool static_damage, bool no_remove_auras, uint32 AdditionalCritChance)
+int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool static_damage, bool no_remove_auras, uint32 AdditionalCritChance)
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
@@ -2183,7 +2071,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     if(!spellInfo)
         return 0;
 
-    if (IsPlayer() && !TO_PLAYER(this)->canCast(spellInfo))
+    if (IsPlayer() && !castPtr<Player>(this)->canCast(spellInfo))
         return 0;
 //==========================================================================================
 //==============================Variables Initialization====================================
@@ -2191,7 +2079,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     uint32 school = spellInfo->School;
     float res = float(damage);
     bool critical = false;
-    Unit* caster = IsUnit() ? TO_UNIT(this) : NULLUNIT;
+    Unit* caster = IsUnit() ? castPtr<Unit>(this) : NULL;
 
 //==========================================================================================
 //==============================+Spell Damage Bonus Calculations============================
@@ -2230,17 +2118,17 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
             {
                 CritChance = GetFloatValue( PLAYER_RANGED_CRIT_PERCENTAGE );
                 if( pVictim->IsPlayer() )
-                    CritChance += TO_PLAYER(pVictim)->res_R_crit_get();
+                    CritChance += castPtr<Player>(pVictim)->res_R_crit_get();
                 CritChance += float(pVictim->AttackerCritChanceMod[spellInfo->School]);
                 CritChance += AdditionalCritChance;
-                CritChance -= pVictim->IsPlayer() ? TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
+                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
                 if( spellInfo->IsSpellMeleeSpell() ) CritChance += (float)(pVictim->AttackerCritChanceMod[0]);
             }
             else
             {
                 CritChance = caster->spellcritperc + caster->SpellCritChanceSchool[school] + pVictim->AttackerCritChanceMod[school];
                 if( caster->IsPlayer() && ( pVictim->m_rooted - pVictim->m_stunned ) )
-                    CritChance += TO_PLAYER( caster )->m_RootedCritChanceBonus;
+                    CritChance += castPtr<Player>( caster )->m_RootedCritChanceBonus;
 
                 if( spellInfo->SpellGroupType )
                 {
@@ -2249,7 +2137,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
                 }
 
                 CritChance += AdditionalCritChance;
-                CritChance -= pVictim->IsPlayer() ? TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
+                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
             }
 
             if( CritChance > 0.f )
@@ -2279,7 +2167,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 
                     if( pVictim->IsPlayer() )
                     {
-                        float dmg_reduction_pct = 2.2f * TO_PLAYER(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
+                        float dmg_reduction_pct = 2.2f * castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) / 100.0f;
                         if( dmg_reduction_pct > 0.33f )
                             dmg_reduction_pct = 0.33f; // 3.0.3
 
@@ -2307,7 +2195,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     //------------------------------resistance reducing-----------------------------------------
     if(res > 0 && IsUnit())
     {
-        TO_UNIT(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
+        castPtr<Unit>(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
         if((int32)dmg.resisted_damage >= dmg.full_damage)
             res = 0;
         else res = float(dmg.full_damage - dmg.resisted_damage);
@@ -2338,11 +2226,11 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
     {
         // we still have to tell the combat status handler we did damage so we're put in combat
         if( IsUnit() )
-            TO_UNIT(this)->CombatStatus.OnDamageDealt(pVictim, 1);
+            castPtr<Unit>(this)->CombatStatus.OnDamageDealt(pVictim, 1);
     }
 
     if( IsPlayer() )
-        TO_PLAYER(this)->m_casted_amount[school] = ( uint32 )res;
+        castPtr<Player>(this)->m_casted_amount[school] = ( uint32 )res;
 
     if( (dmg.full_damage == 0 && abs_dmg) == 0 )
     {
@@ -2362,7 +2250,7 @@ int32 Object::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damag
 //* SpellLog packets just to keep the code cleaner and better to read
 //*****************************************************************************************
 
-void Object::SendSpellLog(Object* Caster, Object* Target, uint32 Ability, uint8 SpellLogType)
+void WorldObject::SendSpellLog(WorldObject* Caster, WorldObject* Target, uint32 Ability, uint8 SpellLogType)
 {
     if ((!Caster || !Target) && Ability)
         return;
@@ -2377,7 +2265,7 @@ void Object::SendSpellLog(Object* Caster, Object* Target, uint32 Ability, uint8 
     Caster->SendMessageToSet(&data, true);
 }
 
-void Object::SendSpellNonMeleeDamageLog( Object* Caster, Unit* Target, uint32 SpellID, uint32 Damage, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToset )
+void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target, uint32 SpellID, uint32 Damage, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToset )
 {
     if ( !Caster || !Target )
         return;
@@ -2392,8 +2280,8 @@ void Object::SendSpellNonMeleeDamageLog( Object* Caster, Unit* Target, uint32 Sp
 
     uint32 dmg = Damage-AbsorbedDamage-ResistedDamage-BlockedDamage;
     WorldPacket data(SMSG_SPELLNONMELEEDAMAGELOG, 16+4+4+4+1+4+4+1+1+4+4+1);
-    data << Target->GetNewGUID();
-    data << Caster->GetNewGUID();
+    data << Target->GetGUID();
+    data << Caster->GetGUID();
     data << uint32(SpellID);                // SpellID / AbilityID
     data << uint32(dmg);                    // All Damage
     data << uint32(overkill);               // Overkill
@@ -2408,7 +2296,7 @@ void Object::SendSpellNonMeleeDamageLog( Object* Caster, Unit* Target, uint32 Sp
     Caster->SendMessageToSet( &data, bToset );
 }
 
-int32 Object::event_GetInstanceID()
+int32 WorldObject::event_GetInstanceID()
 {
     // return -1 for non-inworld.. so we get our shit moved to the right thread
     if(!IsInWorld())
@@ -2417,7 +2305,7 @@ int32 Object::event_GetInstanceID()
         return m_instanceId;
 }
 
-void Object::EventSpellHit(Spell* pSpell)
+void WorldObject::EventSpellHit(Spell* pSpell)
 {
     if( IsInWorld() && pSpell->m_caster != NULL )
         pSpell->cast(false);
@@ -2426,7 +2314,7 @@ void Object::EventSpellHit(Spell* pSpell)
 }
 
 
-bool Object::CanActivate()
+bool WorldObject::CanActivate()
 {
     switch(m_objectTypeId)
     {
@@ -2438,7 +2326,7 @@ bool Object::CanActivate()
 
     case TYPEID_GAMEOBJECT:
         {
-            if(TO_GAMEOBJECT(this)->HasAI() && GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)
+            if(castPtr<GameObject>(this)->HasAI() && GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)
                 return true;
         }break;
     }
@@ -2446,7 +2334,7 @@ bool Object::CanActivate()
     return false;
 }
 
-void Object::Activate(MapMgr* mgr)
+void WorldObject::Activate(MapMgr* mgr)
 {
     switch(m_objectTypeId)
     {
@@ -2454,18 +2342,18 @@ void Object::Activate(MapMgr* mgr)
         if(IsVehicle())
             mgr->activeVehicles.insert(TO_VEHICLE(this));
         else
-            mgr->activeCreatures.insert(TO_CREATURE(this));
+            mgr->activeCreatures.insert(castPtr<Creature>(this));
         break;
 
     case TYPEID_GAMEOBJECT:
-        mgr->activeGameObjects.insert(TO_GAMEOBJECT(this));
+        mgr->activeGameObjects.insert(castPtr<GameObject>(this));
         break;
     }
 
     Active = true;
 }
 
-void Object::Deactivate(MapMgr* mgr)
+void WorldObject::Deactivate(MapMgr* mgr)
 {
     mgr->ActiveLock.Acquire();
     switch(m_objectTypeId)
@@ -2483,31 +2371,31 @@ void Object::Deactivate(MapMgr* mgr)
             else
             {
                 // check iterator
-                if( mgr->__creature_iterator != mgr->activeCreatures.end() && (*mgr->__creature_iterator) == TO_CREATURE(this) )
+                if( mgr->__creature_iterator != mgr->activeCreatures.end() && (*mgr->__creature_iterator) == castPtr<Creature>(this) )
                     ++mgr->__creature_iterator;
 
-                mgr->activeCreatures.erase(TO_CREATURE(this));
+                mgr->activeCreatures.erase(castPtr<Creature>(this));
             }
         }break;
 
     case TYPEID_GAMEOBJECT:
         {
             // check iterator
-            if( mgr->__gameobject_iterator != mgr->activeGameObjects.end() && (*mgr->__gameobject_iterator) == TO_GAMEOBJECT(this) )
+            if( mgr->__gameobject_iterator != mgr->activeGameObjects.end() && (*mgr->__gameobject_iterator) == castPtr<GameObject>(this) )
                 ++mgr->__gameobject_iterator;
 
-            mgr->activeGameObjects.erase(TO_GAMEOBJECT(this));
+            mgr->activeGameObjects.erase(castPtr<GameObject>(this));
         }break;
     }
     Active = false;
     mgr->ActiveLock.Release();
 }
 
-void Object::SetZoneId(uint32 newZone)
+void WorldObject::SetZoneId(uint32 newZone)
 {
     m_zoneId = newZone;
-    if( m_objectTypeId == TYPEID_PLAYER && TO_PLAYER(this)->GetGroup() )
-        TO_PLAYER(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, TO_PLAYER(this) );
+    if( m_objectTypeId == TYPEID_PLAYER && castPtr<Player>(this)->GetGroup() )
+        castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, castPtr<Player>(this) );
 }
 
 // These are our hardcoded values
@@ -2531,7 +2419,7 @@ uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
     return 0;
 }
 
-void Object::UpdateAreaInfo(MapMgr *mgr)
+void WorldObject::UpdateAreaInfo(MapMgr *mgr)
 {
     if(mgr == NULL && !IsInWorld())
     {
@@ -2573,7 +2461,7 @@ void Object::UpdateAreaInfo(MapMgr *mgr)
     }
 }
 
-void Object::PlaySoundToPlayer( Player* plr, uint32 sound_entry )
+void WorldObject::PlaySoundToPlayer( Player* plr, uint32 sound_entry )
 {
     if(plr == NULL || plr->GetSession() == NULL)
         return;
@@ -2583,14 +2471,14 @@ void Object::PlaySoundToPlayer( Player* plr, uint32 sound_entry )
     plr->GetSession()->SendPacket( &data );
 }
 
-void Object::PlaySoundToSet(uint32 sound_entry)
+void WorldObject::PlaySoundToSet(uint32 sound_entry)
 {
     WorldPacket data(SMSG_PLAY_SOUND, 4);
     data << sound_entry;
     SendMessageToSet(&data, true);
 }
 
-void Object::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate )
+void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate )
 {
     if (!Target || !dmg)
         return;
@@ -2599,8 +2487,8 @@ void Object::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 real
     uint32 schooldam = SchoolMask(dmg->school_type);
     WorldPacket data(SMSG_ATTACKERSTATEUPDATE, 108);
     data << uint32(hit_status);
-    data << GetNewGUID();
-    data << Target->GetNewGUID();
+    data << GetGUID();
+    data << Target->GetGUID();
     data << uint32(realdamage);                 // Realdamage;
     data << uint32(overkill);                   // Overkill
     data << uint8(1);                           // Damage type counter / swing type
@@ -2646,14 +2534,14 @@ void Object::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 real
     SendMessageToSet(&data, IsPlayer());
 }
 
-bool Object::IsInLineOfSight(Object* pObj)
+bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 {
     float Onoselevel = 2.0f;
     float Tnoselevel = 2.0f;
     if(IsPlayer())
-        Onoselevel = TO_PLAYER(this)->m_noseLevel;
+        Onoselevel = castPtr<Player>(this)->m_noseLevel;
     if(pObj->IsPlayer())
-        Tnoselevel = TO_PLAYER(pObj)->m_noseLevel;
+        Tnoselevel = castPtr<Player>(pObj)->m_noseLevel;
 
     if (GetMapMgr() && GetMapMgr()->CanUseCollision(this) && GetMapMgr()->CanUseCollision(pObj))
         return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel + pObj->GetFloatValue(UNIT_FIELD_HOVERHEIGHT)) );
@@ -2661,11 +2549,11 @@ bool Object::IsInLineOfSight(Object* pObj)
         return true;
 }
 
-bool Object::IsInLineOfSight(float x, float y, float z)
+bool WorldObject::IsInLineOfSight(float x, float y, float z)
 {
     float Onoselevel = 2.0f;
     if(IsPlayer())
-        Onoselevel = TO_PLAYER(this)->m_noseLevel;
+        Onoselevel = castPtr<Player>(this)->m_noseLevel;
 
     if (GetMapMgr() && GetMapMgr()->CanUseCollision(this))
         return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), x, y, z) );
@@ -2673,13 +2561,13 @@ bool Object::IsInLineOfSight(float x, float y, float z)
         return true;
 }
 
-bool Object::PhasedCanInteract(Object* pObj)
+bool WorldObject::PhasedCanInteract(WorldObject* pObj)
 {
     return true;
 }
 
 // Returns the base cost of a spell
-int32 Object::GetSpellBaseCost(SpellEntry *sp)
+int32 WorldObject::GetSpellBaseCost(SpellEntry *sp)
 {
     float cost = 0.0f;
     if( sp->ManaCostPercentage && IsUnit() )//Percentage spells cost % of !!!BASE!!! mana
@@ -2692,12 +2580,12 @@ int32 Object::GetSpellBaseCost(SpellEntry *sp)
     return float2int32(cost); // Truncate zeh decimals!
 }
 
-void Object::CastSpell( Object* Target, SpellEntry* Sp, bool triggered )
+void WorldObject::CastSpell( WorldObject* Target, SpellEntry* Sp, bool triggered )
 {
     if( Sp == NULL )
         return;
 
-    Spell* newSpell = new Spell(this, Sp, triggered, NULLAURA);
+    Spell* newSpell = new Spell(this, Sp, triggered, NULL);
     SpellCastTargets targets(0);
     if(Target)
     {
@@ -2709,7 +2597,7 @@ void Object::CastSpell( Object* Target, SpellEntry* Sp, bool triggered )
     newSpell->prepare(&targets);
 }
 
-void Object::CastSpell( Object* Target, uint32 SpellID, bool triggered )
+void WorldObject::CastSpell( WorldObject* Target, uint32 SpellID, bool triggered )
 {
     SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
     if(ent == NULL) return;
@@ -2717,17 +2605,17 @@ void Object::CastSpell( Object* Target, uint32 SpellID, bool triggered )
     CastSpell(Target, ent, triggered);
 }
 
-void Object::CastSpell( uint64 targetGuid, SpellEntry* Sp, bool triggered )
+void WorldObject::CastSpell( uint64 targetGuid, SpellEntry* Sp, bool triggered )
 {
     if( Sp == NULL )
         return;
 
     SpellCastTargets targets(targetGuid);
-    Spell* newSpell(new Spell(this, Sp, triggered, NULLAURA));
+    Spell* newSpell(new Spell(this, Sp, triggered, NULL));
     newSpell->prepare(&targets);
 }
 
-void Object::CastSpell( uint64 targetGuid, uint32 SpellID, bool triggered )
+void WorldObject::CastSpell( uint64 targetGuid, uint32 SpellID, bool triggered )
 {
     SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
     if(ent == 0) return;

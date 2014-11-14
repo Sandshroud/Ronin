@@ -426,22 +426,22 @@ void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Object* obj = NULL;
+    Object* ent = NULL;
     switch(GUID_HIPART(guid)) // Crow: Could possibly do GetObject because I don't think we need items...
     {
     case HIGHGUID_TYPE_CREATURE:
-        obj = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        ent = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
         break;
     case HIGHGUID_TYPE_GAMEOBJECT:
-        obj = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        ent = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
         break;
     case HIGHGUID_TYPE_ITEM:
-        obj = _player->GetItemInterface()->GetItemByGUID(guid);
+        ent = _player->GetItemInterface()->GetItemByGUID(guid);
         break;
     }
-    if(obj == NULL)
+    if(ent == NULL)
         return;
-    SendGossipForObject(obj);
+    SendGossipForObject(ent);
 }
 
 //////////////////////////////////////////////////////////////
@@ -461,7 +461,7 @@ void WorldSession::HandleGossipSelectOptionOpcode( WorldPacket & recv_data )
 
     sLog.Debug("WORLD","CMSG_GOSSIP_SELECT_OPTION Option %i Guid %.8X", option, guid );
     GossipScript* Script = NULL;
-    Object* qst_giver = NULLOBJ;
+    Object* qst_giver = NULL;
     uint32 guidtype = GUID_HIPART(guid);
 
     if(guidtype == HIGHGUID_TYPE_CREATURE)
@@ -544,7 +544,7 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
                 SpellEntry *spellInfo = dbcSpell.LookupEntry( 15007 );//resurrection sickness
                 SpellCastTargets targets;
                 targets.m_unitTarget = _player->GetGUID();
-                Spell* sp(new Spell(_player,spellInfo,true,NULLAURA));
+                Spell* sp(new Spell(_player,spellInfo,true,NULL));
                 sp->prepare(&targets);
             }
         }

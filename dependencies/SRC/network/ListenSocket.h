@@ -12,11 +12,7 @@
 template<class T>
 class SERVER_DECL ListenSocket : public BaseSocket
 {
-    SOCKET new_fd;
-    sockaddr_in new_peer;
-    sockaddr_in address;
 public:
-
     ListenSocket()
     {
         m_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -40,10 +36,11 @@ public:
 #else
         socklen_t len2 = sizeof(sockaddr_in);
 #endif
-        new_fd = accept(m_fd, (sockaddr*)&new_peer, &len2);
-        if(new_fd > 0)
+        sockaddr *peer;
+        SOCKET fd = accept(m_fd, (sockaddr*)&peer, &len2);
+        if(fd > 0)
         {
-            T * s = new T(new_fd, &new_peer);
+            T * s = new T(fd, &peer);
             s->Finalize();
         }
     }
@@ -61,7 +58,7 @@ public:
         }
 
         if(!strcmp(hostname, "0.0.0.0"))
-            address.sin_addr.s_addr = htonl(INADDR_ANY);
+            m_address.sin_addr.s_addr = htonl(INADDR_ANY);
         else
         {
             hostent * h = gethostbyname(hostname);
@@ -74,10 +71,10 @@ public:
             memcpy(&address.sin_addr, h->h_addr_list[0], sizeof(in_addr));
         }
 
-        address.sin_family = AF_INET;
-        address.sin_port = ntohs(port);
+        m_address.sin_family = AF_INET;
+        m_address.sin_port = ntohs(port);
 
-        if(bind(m_fd, (const sockaddr*)&address, sizeof(sockaddr_in)) < 0)
+        if(::bind(m_fd, (const sockaddr*)&m_address, sizeof(sockaddr_in)) < 0)
         {
             printf("Could not bind\n");
             return false;
@@ -124,22 +121,15 @@ public:
 /** IOCP ListenSocket
  */
 
-#include <mswsock.h>
-
 static int Length = sizeof(sockaddr_in)+16;
 
 template<class T>
 class SERVER_DECL ListenSocket : public BaseSocket
 {
-    SOCKET new_fd;
-    sockaddr_in new_peer;
-    sockaddr_in address;
 public:
-
     ListenSocket()
     {
-        //m_fd = socket(AF_INET, SOCK_STREAM, 0);
-        m_fd = WSASocket(AF_INET, SOCK_STREAM, 0, 0, 0, WSA_FLAG_OVERLAPPED);
+        m_fd = INVALID_SOCKET;
         m_connected = false;
         m_deleted = false;
     }
@@ -185,12 +175,15 @@ public:
         m_connected = false;
 
         sSocketEngine.RemoveSocket(this);
-        closesocket(m_fd);
+        if(m_fd != INVALID_SOCKET) closesocket(m_fd);
         if(!m_deleted) Delete();
     }
 
     void PostEvent()
     {
+        if(m_fd == INVALID_SOCKET)
+            return;
+
         Overlapped * ov = new Overlapped;
         memset(ov, 0, sizeof(Overlapped));
         ov->m_op = IO_EVENT_ACCEPT;
@@ -210,28 +203,51 @@ public:
 
     bool Open(const char * hostname, u_short port)
     {
-        if(m_fd == INVALID_SOCKET)
-            return false;
+        if(m_fd != INVALID_SOCKET)
+            return true; // Socket already open
 
-        if(!strcmp(hostname, "0.0.0.0"))
-            address.sin_addr.s_addr = htonl(INADDR_ANY);
-        else
+        std::string portStr;
+#if _MSC_VER >= 1700 // VC2012 has int to_string
+        portStr.append(std::to_string(port).c_str());
+#else // 2010 has longlong but use itoa instead
+        char *portchar = new char[10];
+        itoa(port, portchar, 10);
+        portStr.append(portchar);
+        delete [] portchar;
+#endif
+
+        addrinfo *result = NULL, hints;
+        ZeroMemory(&hints, sizeof(hints));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = IPPROTO_TCP;
+        hints.ai_flags = AI_PASSIVE;
+        if(getaddrinfo(hostname, portStr.c_str(), &hints, &result))
         {
-            hostent * h = gethostbyname(hostname);
-            if(!h)
-                return false;
-
-            memcpy(&address.sin_addr, h->h_addr_list[0], sizeof(in_addr));
+            printf("Could not attain address info\n");
+            return false;
         }
-
-        address.sin_family = AF_INET;
-        address.sin_port = ntohs(port);
-
-        if(bind(m_fd, (const sockaddr*)&address, sizeof(sockaddr_in)) < 0)
+        if((m_fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol)) == INVALID_SOCKET)
+        {
+            printf("Could not initialize socket\n");
+            freeaddrinfo(result);
             return false;
-
-        if(listen(m_fd, 5) < 0)
+        }
+        if(::bind(m_fd, result->ai_addr, (int)result->ai_addrlen) < 0)
+        {
+            printf("Could not bind\n");
+            freeaddrinfo(result);
+            closesocket(m_fd);
             return false;
+        }
+        if(listen(m_fd, SOMAXCONN) == SOCKET_ERROR)
+        {
+            printf("Failed to listen\n");
+            closesocket(m_fd);
+            return false;
+        }
+        memcpy(&m_address, &result->ai_addr, result->ai_addrlen);
+        freeaddrinfo(result);
 
         m_connected = true;
         sSocketEngine.AddSocket(this);
@@ -243,15 +259,12 @@ public:
 #endif      // NETLIB_IOCP
 
 /* Common Functions */
-template<class T>
-bool CreateListenSocket(const char * hostname, u_short port)
+template<class T> bool CreateListenSocket(const char * hostname, u_short port)
 {
     ListenSocket<T> * s = new ListenSocket<T>();
     if(!s->Open(hostname, port))
     {
         s->Delete();
         return false;
-    }
-    else
-        return true;
+    } else return true;
 }

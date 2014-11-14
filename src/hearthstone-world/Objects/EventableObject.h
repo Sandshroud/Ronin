@@ -71,9 +71,6 @@ protected:
   *
   */
 
-class Object;
-typedef set< Object* > EventableObjectSet;
-
 class EventableObjectHolder
 {
 public:

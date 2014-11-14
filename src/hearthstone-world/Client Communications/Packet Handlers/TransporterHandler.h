@@ -78,7 +78,7 @@ typedef std::map<uint32, TWayPoint> WaypointMap;
 typedef std::map<uint32, TWayPoint>::iterator WaypointIterator;
 typedef std::map<uint32, Player*  > PassengerMap;
 typedef std::map<uint32, Player*  >::iterator PassengerIterator;
-typedef std::map<uint32, Object* > TransportNPCMap;
+typedef std::map<uint32, WorldObject* > TransportNPCMap;
 
 bool FillTransporterPathVector(uint32 PathID, TransportPath & Path);
 
@@ -92,6 +92,7 @@ public:
     ~Transporter();
     virtual void Init();
     virtual void Destruct();
+	virtual bool IsTransport() { return true; }
 
     bool CreateAsTransporter(uint32 EntryID, const char* Name);
     void UpdatePosition();

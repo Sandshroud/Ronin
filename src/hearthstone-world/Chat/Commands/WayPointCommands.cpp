@@ -17,7 +17,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
         return true;
     }
     AIInterface* ai = NULL;
-    Creature* pCreature = NULLCREATURE;
+    Creature* pCreature = NULL;
     Player* p = m_session->GetPlayer();
     if(p->waypointunit != NULL)
     {
@@ -29,7 +29,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
             return true;
         }
 
-        pCreature = TO_CREATURE(ai->GetUnit());
+        pCreature = castPtr<Creature>(ai->GetUnit());
         if(!pCreature)
         {
             SystemMessage(m_session, "Invalid Creature, please select another one.");
@@ -89,7 +89,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
     wp->waittime = WaitTime;
     wp->flags = Flags;
 
-    wp->forwardInfo = new ConditionalData(((ForwardEmoteOneShot > 0) ? true : false), ForwardEmoteId, ForwardSkinId, (ForwardStandState > 8 ? 0 : ForwardStandState), ForwardSpellToCast, "");
+    wp->forwardInfo = new WayPoint::ConditionalData(((ForwardEmoteOneShot > 0) ? true : false), ForwardEmoteId, ForwardSkinId, (ForwardStandState > 8 ? 0 : ForwardStandState), ForwardSpellToCast, "");
     if(wp->forwardInfo->EmoteID == 0
         && wp->forwardInfo->SkinID == 0
         && wp->forwardInfo->StandState == 0
@@ -100,7 +100,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
         wp->forwardInfo = NULL;
     }
 
-    wp->backwardInfo = new ConditionalData(((BackwardEmoteOneShot > 0) ? true : false), BackwardEmoteId, BackwardSkinId, (BackwardStandState > 8 ? 0 : BackwardStandState), BackwardSpellToCast, "");
+    wp->backwardInfo = new WayPoint::ConditionalData(((BackwardEmoteOneShot > 0) ? true : false), BackwardEmoteId, BackwardSkinId, (BackwardStandState > 8 ? 0 : BackwardStandState), BackwardSpellToCast, "");
     if(wp->backwardInfo->EmoteID == 0
         && wp->backwardInfo->SkinID == 0
         && wp->backwardInfo->StandState == 0
@@ -1194,7 +1194,7 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
         return true;
     }
     AIInterface* ai = NULL;
-    Creature* pCreature = NULLCREATURE;
+    Creature* pCreature = NULL;
     Player* p = m_session->GetPlayer();
     if(p->waypointunit != NULL)
     {
@@ -1206,7 +1206,7 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
             return true;
         }
 
-        pCreature = TO_CREATURE(ai->GetUnit());
+        pCreature = castPtr<Creature>(ai->GetUnit());
         if(!pCreature)
         {
             SystemMessage(m_session, "Invalid Creature, please select another one.");
@@ -1293,16 +1293,16 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
 
 bool ChatHandler::HandleNpcSelectCommand(const char * args, WorldSession * m_session)
 {
-    Creature* un = NULLCREATURE;
+    Creature* un = NULL;
     float dist = 999999.0f;
     float dist2;
     Player* plr = m_session->GetPlayer();
-    unordered_set<Object* >::iterator itr;
+    unordered_set<WorldObject* >::iterator itr;
     for(itr = plr->GetInRangeSetBegin(); itr != plr->GetInRangeSetEnd(); itr++)
     {
         if( (dist2 = plr->GetDistance2dSq(*itr)) < dist && (*itr)->GetTypeId() == TYPEID_UNIT )
         {
-            un = TO_CREATURE(*itr);
+            un = castPtr<Creature>(*itr);
             dist = dist2;
         }
     }

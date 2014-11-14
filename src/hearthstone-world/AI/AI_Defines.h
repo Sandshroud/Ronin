@@ -19,12 +19,43 @@ class AIInterface;
 #define CREATURE_DAZE_TRIGGER_ANGLE M_PI/2 //for the beginners this means 45 degrees
 #define DISTANCE_TO_SMALL_TO_WALK 2.0f //this is required so creature will not try to reposition itself to obtain perfect combat range. Not using this might lead to exploits
 
-class Object;
+class WorldObject;
 class Creature;
 class Unit;
 class Player;
 class WorldSession;
 class SpellCastTargets;
+
+struct WayPoint
+{
+    uint32 id;
+    float x, y, z;
+    float orientation;
+    uint32 waittime; //ms
+    uint32 flags;
+
+    struct ConditionalData
+    {
+        ConditionalData(bool _EmoteOneShot = false, uint32 _EmoteID = 0, uint32 _SkinID = 0, uint32 _StandState = 0, uint32 _SpellToCast = 0, const char* _SayText = "")
+        {
+            EmoteOneShot = _EmoteOneShot;
+            EmoteID = _EmoteID;
+            SkinID = _SkinID;
+            StandState = _StandState;
+            SpellToCast = _SpellToCast;
+            SayText = _SayText;
+        }
+
+        bool EmoteOneShot;
+        uint32 EmoteID;
+        uint32 SkinID;
+        uint32 StandState;
+        uint32 SpellToCast;
+        std::string SayText;
+    } *forwardInfo, *backwardInfo;
+};
+
+typedef std::vector<WayPoint*> WayPointMap;
 
 enum AIType
 {
@@ -281,7 +312,7 @@ bool isTargetDummy(uint32 id);
 
 typedef std::map<uint32, AI_Spell*> SpellMap;
 typedef map<uint32, LocationVector> LocationVectorMap;
-typedef std::map<Unit*, int32> TargetMap;
+typedef std::map<WoWGuid, int32> TargetMap;
 
 struct LocationVectorMapContainer
 {

@@ -404,7 +404,7 @@ int LuaGameObject_SpawnGameObject(lua_State * L, GameObject * ptr)
 int LuaGameObject_CalcDistance(lua_State * L, GameObject * ptr)
 {
     TEST_GO_RET_NULL();
-    Object * ob = Lunar<Object>::check(L,1);
+    WorldObject * ob = Lunar<WorldObject>::check(L,1);
     if(ob = NULL)
         RET_NIL(true);
 
@@ -544,7 +544,7 @@ int LuaGameObject_GetInRangeGameObjects(lua_State * L, GameObject * ptr)
     TEST_GO_RET_NULL();
     uint32 count = 0;
     lua_newtable(L);
-    for (unordered_set<Object*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd();itr++)
+    for (unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd();itr++)
     {
         if( (*itr) ->GetTypeId() == TYPEID_GAMEOBJECT)
         {

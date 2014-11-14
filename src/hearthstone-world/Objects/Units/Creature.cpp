@@ -10,22 +10,10 @@
 
 #define M_PI       3.14159265358979323846f
 
-Creature::Creature(CreatureData *data, uint64 guid)
+Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
 {
-#ifdef SHAREDPTR_DEBUGMODE
-    printf("Creature::Creature()\n");
-#endif
-    m_valuesCount = UNIT_END;
-    m_objectTypeId = TYPEID_UNIT;
-    m_uint32Values = _fields;
-    memset(m_uint32Values, 0,(UNIT_END)*sizeof(uint32));
-    m_updateMask.SetCount(UNIT_END);
-    SetUInt64Value(OBJECT_FIELD_GUID, guid);
-    SetUInt32Value(OBJECT_FIELD_TYPE, TYPEMASK_UNIT|TYPEMASK_OBJECT);
     if(_creatureData = data)
-        SetUInt32Value(OBJECT_FIELD_ENTRY, _creatureData->Entry);
-
-    m_wowGuid = GetGUID();
+        m_object.m_objEntry = _creatureData->Entry;
 
     m_spawn = NULL;
     m_quests = NULL;
@@ -34,7 +22,7 @@ Creature::Creature(CreatureData *data, uint64 guid)
     _myScriptClass = NULL;
     mTrainer = NULL;
     auctionHouse = NULL;
-    m_escorter = NULLPLR;
+    m_escorter = NULL;
     m_respawnCell = NULL;
     myFamily = NULL;
 
@@ -85,7 +73,7 @@ void Creature::Destruct()
     sEventMgr.RemoveEvents(this);
 
     if(m_escorter)
-        m_escorter = NULLPLR;
+        m_escorter = NULL;
 
     if(_myScriptClass != 0)
         _myScriptClass->Destroy();
@@ -114,10 +102,10 @@ void Creature::Update( uint32 p_time )
     {
         sEventMgr.RemoveEvents(this);
         if (_creatureData->Rank == ELITE_WORLDBOSS || _creatureData->Flags & CREATURE_FLAGS1_BOSS)
-            sEventMgr.AddEvent(TO_CREATURE(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
         else if ( _creatureData->Rank == ELITE_RAREELITE || _creatureData->Rank == ELITE_RARE)
-            sEventMgr.AddEvent(TO_CREATURE(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        else sEventMgr.AddEvent(TO_CREATURE(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        else sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
         m_corpseEvent = false;
     }
@@ -137,7 +125,7 @@ int32 Creature::GetBaseAttackTime(uint8 weaponType)
 void Creature::SafeDelete()
 {
     sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(TO_CREATURE(this), &Creature::DeleteMe, EVENT_CREATURE_SAFE_DELETE, 1000, 1, 0);
+    sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::DeleteMe, EVENT_CREATURE_SAFE_DELETE, 1000, 1, 0);
 }
 
 void Creature::DeleteMe()
@@ -204,7 +192,7 @@ void Creature::OnRespawn( MapMgr* m)
 
 void Creature::Create(uint32 mapid, float x, float y, float z, float ang)
 {
-    Object::_Create( mapid, x, y, z, ang );
+    WorldObject::_Create( mapid, x, y, z, ang );
 }
 
 ///////////
@@ -231,7 +219,7 @@ void Creature::GenerateLoot()
     uint8 team = 0;
     uint8 difficulty = (m_mapMgr ? (m_mapMgr->iInstanceMode) : 0);
     if(CombatStatus.GetKiller() && CombatStatus.GetKiller()->IsPlayer())
-        team = TO_PLAYER(CombatStatus.GetKiller())->GetTeam();
+        team = castPtr<Player>(CombatStatus.GetKiller())->GetTeam();
 
     lootmgr.FillCreatureLoot(&m_loot, GetEntry(), difficulty, team);
 
@@ -316,7 +304,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
 
 void Creature::LoadScript()
 {
-    _myScriptClass = sScriptMgr.CreateAIScriptClassForEntry(TO_CREATURE(this));
+    _myScriptClass = sScriptMgr.CreateAIScriptClassForEntry(castPtr<Creature>(this));
     if(_myScriptClass && _myScriptClass->LuaScript)
         sEventMgr.AddEvent(this, &Creature::UpdateAIScript, EVENT_AI_UPDATE, 50, 0, 0);
 }
@@ -395,7 +383,7 @@ uint32 Creature::NumOfQuests()
 
 void Creature::_LoadQuests()
 {
-    sQuestMgr.LoadNPCQuests(TO_CREATURE(this));
+    sQuestMgr.LoadNPCQuests(castPtr<Creature>(this));
 }
 
 void Creature::SetDeathState(DeathState s)
@@ -403,7 +391,7 @@ void Creature::SetDeathState(DeathState s)
     Unit::SetDeathState(s);
     if(s == JUST_DIED)
     {
-        GetAIInterface()->SetUnitToFollow(NULLUNIT);
+        GetAIInterface()->SetUnitToFollow(NULL);
 
         //despawn all summons we created
         SummonExpireAll(true);
@@ -426,7 +414,7 @@ void Creature::AddToWorld()
     if(!CanAddToWorld())
         return;
 
-    Object::AddToWorld();
+    WorldObject::AddToWorld();
 }
 
 void Creature::AddToWorld(MapMgr* pMapMgr)
@@ -434,7 +422,7 @@ void Creature::AddToWorld(MapMgr* pMapMgr)
     if(!CanAddToWorld())
         return;
 
-    Object::AddToWorld(pMapMgr);
+    WorldObject::AddToWorld(pMapMgr);
 }
 
 bool Creature::CanAddToWorld()
@@ -511,12 +499,12 @@ bool Creature::RemoveEnslave()
     return RemoveAura(m_enslaveSpell);
 }
 
-void Creature::AddInRangeObject(Object* pObj)
+void Creature::AddInRangeObject(WorldObject* pObj)
 {
     Unit::AddInRangeObject(pObj);
 }
 
-void Creature::OnRemoveInRangeObject(Object* pObj)
+void Creature::OnRemoveInRangeObject(WorldObject* pObj)
 {
     if(m_escorter == pObj)
     {
@@ -628,7 +616,7 @@ void Creature::ModAvItemAmount(uint32 itemid, uint32 value)
                     itr->second.available_amount -= value;
 
                 if(!event_HasEvent(EVENT_ITEM_UPDATE))
-                    sEventMgr.AddEvent(TO_CREATURE(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, itr->second.incrtime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+                    sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, itr->second.incrtime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             }
             return;
         }
@@ -657,7 +645,7 @@ void Creature::FormationLinkUp(uint32 SqlId)
     if(!m_mapMgr)       // shouldnt happen
         return;
 
-    Creature* creature = NULLCREATURE;
+    Creature* creature = NULL;
     creature = m_mapMgr->GetSqlIdCreature(SqlId);
     if( creature != NULL )
     {
@@ -1225,17 +1213,17 @@ void Creature::OnPushToWorld()
         if(m_aiInterface->GetFormationSQLId())
         {
             // add event
-            sEventMgr.AddEvent(TO_CREATURE(this), &Creature::FormationLinkUp, m_aiInterface->GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface->GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             haslinkupevent = true;
         }
 
         if(m_spawn->ChannelData)
         {
             if(m_spawn->ChannelData->channel_target_creature)
-                sEventMgr.AddEvent(TO_CREATURE(this), &Creature::ChannelLinkUpCreature, m_spawn->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::ChannelLinkUpCreature, m_spawn->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
 
             if(m_spawn->ChannelData->channel_target_go)
-                sEventMgr.AddEvent(TO_CREATURE(this), &Creature::ChannelLinkUpGO, m_spawn->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::ChannelLinkUpGO, m_spawn->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
         }
     }
 
@@ -1247,7 +1235,7 @@ void Creature::OnPushToWorld()
             if (itr->second.max_amount == 0)
                 itr->second.available_amount=0;
             else if (itr->second.available_amount < itr->second.max_amount)
-                sEventMgr.AddEvent(TO_CREATURE(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, VENDOR_ITEMS_UPDATE_TIME, 1,0);
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, VENDOR_ITEMS_UPDATE_TIME, 1,0);
         }
     }
 }
@@ -1256,7 +1244,7 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
 {
     if(delay)
     {
-        sEventMgr.AddEvent(TO_CREATURE(this), &Creature::Despawn, (uint32)0, respawntime, EVENT_CREATURE_RESPAWN, delay, 1,0);
+        sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::Despawn, (uint32)0, respawntime, EVENT_CREATURE_RESPAWN, delay, 1,0);
         return;
     }
 
@@ -1276,9 +1264,9 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
             pCell = m_mapCell;
 
         ASSERT(pCell);
-        pCell->_respawnObjects.insert(TO_OBJECT(this));
+        pCell->_respawnObjects.insert(this);
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnCreature, TO_CREATURE(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
+        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnCreature, castPtr<Creature>(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
         Unit::RemoveFromWorld(false);
         SetPosition( m_spawnLocation);
         m_respawnCell = pCell;

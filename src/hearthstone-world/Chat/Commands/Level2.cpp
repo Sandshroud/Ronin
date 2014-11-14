@@ -309,9 +309,9 @@ bool ChatHandler::HandleKillCommand(const char *args, WorldSession *m_session)
     if(unit->IsPlayer())
     {
         // If we're killing a player, send a message indicating a gm killed them.
-        BlueSystemMessageToPlr(TO_PLAYER(unit), "%s killed you with a GM command.", m_session->GetPlayer()->GetName());
-        TO_PLAYER(unit)->SetUInt32Value(UNIT_FIELD_HEALTH, 0); // Die, insect
-        TO_PLAYER(unit)->KillPlayer();
+        BlueSystemMessageToPlr(castPtr<Player>(unit), "%s killed you with a GM command.", m_session->GetPlayer()->GetName());
+        castPtr<Player>(unit)->SetUInt32Value(UNIT_FIELD_HEALTH, 0); // Die, insect
+        castPtr<Player>(unit)->KillPlayer();
         GreenSystemMessage(m_session, "Killed player %s.", unit->GetName());
     }
     else if(isTargetDummy(unit->GetEntry()))
@@ -366,7 +366,7 @@ bool ChatHandler::HandleCastSpellCommand(const char* args, WorldSession *m_sessi
         return false;
     }
 
-    Spell* sp = new Spell(caster, spellentry, false, NULLAURA);
+    Spell* sp = new Spell(caster, spellentry, false, NULL);
     if(!sp)
     {
         RedSystemMessage(m_session, "Spell failed creation!");
@@ -448,7 +448,7 @@ bool ChatHandler::HandleNPCSetOnObjectCommand(const char * args, WorldSession * 
     crt->GetSpawn()->CanMove |= LIMIT_ON_OBJ;
     crt->SaveToDB();
 
-    BlueSystemMessage(m_session, "Setting creature on Object(%u)", crt->GetCanMove());
+    BlueSystemMessage(m_session, "Setting creature on object(%u)", crt->GetCanMove());
     sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->GetSQL_id());
     return true;
 }
@@ -498,8 +498,8 @@ bool ChatHandler::HandleCastSpellNECommand(const char* args, WorldSession *m_ses
     BlueSystemMessage(m_session, "Casting spell %d on target.", spellId);
 
     WorldPacket data(SMSG_SPELL_START, 40);
-    data << caster->GetNewGUID();
-    data << caster->GetNewGUID();
+    data << caster->GetGUID().asPacked();
+    data << caster->GetGUID().asPacked();
     data << spellId;
     data << uint8(0);
     data << uint16(0);
@@ -510,8 +510,8 @@ bool ChatHandler::HandleCastSpellNECommand(const char* args, WorldSession *m_ses
     data.clear();
 
     data.Initialize( SMSG_SPELL_GO );
-    data << caster->GetNewGUID();
-    data << caster->GetNewGUID();
+    data << caster->GetGUID().asPacked();
+    data << caster->GetGUID().asPacked();
     data << spellId;
     data << uint8(0) << uint8(1) << uint8(1);
     data << target->GetGUID();
@@ -561,10 +561,10 @@ bool ChatHandler::HandleMonsterYellCommand(const char* args, WorldSession *m_ses
 
 bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 {
-    GameObject* GObj = NULLGOB;
+    GameObject* GObj = NULL;
 
-    unordered_set<Object* >::iterator Itr = m_session->GetPlayer()->GetInRangeSetBegin();
-    unordered_set<Object* >::iterator Itr2 = m_session->GetPlayer()->GetInRangeSetEnd();
+    unordered_set<WorldObject* >::iterator Itr = m_session->GetPlayer()->GetInRangeSetBegin();
+    unordered_set<WorldObject* >::iterator Itr2 = m_session->GetPlayer()->GetInRangeSetEnd();
     float cDist = 9999.0f;
     float nDist = 0.0f;
     bool bUseNext = false;
@@ -589,7 +589,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
                     if(bUseNext)
                     {
                         // Select the first.
-                        GObj = TO_GAMEOBJECT(*Itr);
+                        GObj = castPtr<GameObject>(*Itr);
                         break;
                     }
                     else
@@ -615,7 +615,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
                 {
                     cDist = nDist;
                     nDist = 0.0f;
-                    GObj = TO_GAMEOBJECT(*Itr);
+                    GObj = castPtr<GameObject>(*Itr);
                 }
             }
         }
@@ -680,13 +680,13 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
         }
     }
     GObj->Despawn(0, 0); // Deleted through ExpireAndDelete
-    GObj = NULLGOB;
+    GObj = NULL;
     if(foundonmap)
         BlueSystemMessage(m_session, "Deleted selected object and erased it from spawn map.");
     else
         BlueSystemMessage(m_session, "Deleted selected object.");
 
-    m_session->GetPlayer()->m_GM_SelectedGO = NULLGOB;
+    m_session->GetPlayer()->m_GM_SelectedGO = NULL;
     return true;
 }
 
@@ -750,7 +750,6 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         chr->GetMapMgr()->AddGoSpawn(cx, cy, gs);
     }
 
-    go->SetPhaseMask(chr->GetPhaseMask());
     go->SetInstanceID(chr->GetInstanceID());
     go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
 
@@ -798,7 +797,7 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
     case GAMEOBJECT_TYPE_TRANSPORT:                 gottext << "Transport"; break;
     case GAMEOBJECT_TYPE_AREADAMAGE:                gottext << "Area Damage";   break;
     case GAMEOBJECT_TYPE_CAMERA:                    gottext << "Camera";    break;
-    case GAMEOBJECT_TYPE_MAP_OBJECT:                gottext << "Map Object";    break;
+    case GAMEOBJECT_TYPE_MAP_OBJECT:                gottext << "Map WorldObject";    break;
     case GAMEOBJECT_TYPE_MO_TRANSPORT:              gottext << "Mo Transport";  break;
     case GAMEOBJECT_TYPE_DUEL_ARBITER:              gottext << "Duel Arbiter";  break;
     case GAMEOBJECT_TYPE_FISHINGNODE:               gottext << "Fishing Node";  break;
@@ -823,7 +822,7 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
     default:                                        gottext << "Unknown.";  break;
     }
     GreenSystemMessage(m_session, "Type: %s%u|r -- %s", MSG_COLOR_LIGHTBLUE, type, gottext.str().c_str());
-    GreenSystemMessage(m_session, "Distance: %s%f|r", MSG_COLOR_LIGHTBLUE, GObj->CalcDistance((Object*)m_session->GetPlayer()));
+    GreenSystemMessage(m_session, "Distance: %s%f|r", MSG_COLOR_LIGHTBLUE, GObj->CalcDistance(m_session->GetPlayer()));
     GreenSystemMessage(m_session, "Size: %s%f|r", MSG_COLOR_LIGHTBLUE, GObj->GetFloatValue(OBJECT_FIELD_SCALE_X));
     if(GObj->GetInfo())
         GreenSystemMessage(m_session, "Name: %s%s|r", MSG_COLOR_LIGHTBLUE, GObj->GetInfo()->Name);
@@ -834,7 +833,7 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOEnable(const char *args, WorldSession *m_session)
 {
-    GameObject* GObj = NULLGOB;
+    GameObject* GObj = NULL;
 
     GObj = m_session->GetPlayer()->m_GM_SelectedGO;
     if( !GObj )
@@ -856,7 +855,7 @@ bool ChatHandler::HandleGOEnable(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOActivate(const char* args, WorldSession *m_session)
 {
-    GameObject* GObj = NULLGOB;
+    GameObject* GObj = NULL;
 
     GObj = m_session->GetPlayer()->m_GM_SelectedGO;
     if( !GObj )
@@ -903,11 +902,11 @@ bool ChatHandler::HandleGOScale(const char* args, WorldSession* m_session)
         scale = 255.f;
     BlueSystemMessage(m_session, "Set scale to %.3f", scale);
 
-    go->Object::RemoveFromWorld(false);
+    go->WorldObject::RemoveFromWorld(false);
     go->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
     go->SaveToDB();
     go->AddToWorld();
-    sEventMgr.AddEvent(mgr, &MapMgr::EventPushObjectToSelf, (Object*)go, EVENT_MAPMGR_PUSH_TO_SELF, 3000, 1, EVENT_FLAG_NONE);
+    sEventMgr.AddEvent(mgr, &MapMgr::EventPushObjectToSelf, ((WorldObject*)go), EVENT_MAPMGR_PUSH_TO_SELF, 3000, 1, EVENT_FLAG_NONE);
     sWorld.LogGM(m_session, "Scaled gameobject spawn id %u to %f", go->m_spawn ? go->m_spawn->id : 0, scale);
     return true;
 }
@@ -952,7 +951,7 @@ bool ChatHandler::HandleMountCommand(const char *args, WorldSession *m_session)
         return true;
     }
 
-    Unit* m_target = NULLUNIT;
+    Unit* m_target = NULL;
     Player* m_plyr = getSelectedChar(m_session, false);
     if(m_plyr)
         m_target = m_plyr;

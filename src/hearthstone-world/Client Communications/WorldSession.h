@@ -752,7 +752,7 @@ public:
     uint32 m_lastWhoTime;
     bool m_asyncQuery;
 
-    void SendGossipForObject(Object* pObject);
+    void SendGossipForObject(Object* pEntity);
 
 protected:
     uint32 m_repeatTime;

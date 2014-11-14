@@ -84,4 +84,8 @@ protected:
     /** Write (outbound) buffer
      */
     BaseBuffer * m_writeBuffer;
+
+    /** Socket Addresses
+    */
+    sockaddr_in m_address;
 };

@@ -295,17 +295,22 @@ void IsleOfConquest::OnPlatformTeleport(Player* plr)
 
 void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
 {
-    GameObjectInfo * gi, * gi_aura;
-    gi = GameObjectNameStorage.LookupEntry(ControlPointGoIds[Id][Type]);
+    GameObjectInfo * gi = GameObjectNameStorage.LookupEntry(ControlPointGoIds[Id][Type]), * gi_aura;
     if(gi == NULL)
         return;
 
     gi_aura = gi->Button.LinkedTrap ? GameObjectNameStorage.LookupEntry(gi->Button.LinkedTrap) : NULL;
+    if(m_ioccontrolPoints[Id])
+    {
+        if(m_ioccontrolPoints[Id]->IsInWorld())
+            m_ioccontrolPoints[Id]->RemoveFromWorld(false);
+        else m_ioccontrolPoints[Id]->Destruct();
+        m_ioccontrolPoints[Id] = NULL;
+    }
+
     if(m_ioccontrolPoints[Id] == NULL)
     {
-        m_ioccontrolPoints[Id] = SpawnGameObject(gi->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1],
-            ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 1.0f);
-
+        m_ioccontrolPoints[Id] = SpawnGameObject(gi->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1], ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 1.0f);
         m_ioccontrolPoints[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_ioccontrolPoints[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, gi->Type);
         m_ioccontrolPoints[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
@@ -332,68 +337,35 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
         m_ioccontrolPoints[Id]->bannerslot = Id;
         m_ioccontrolPoints[Id]->PushToWorld(m_mapMgr);
     }
-    else
-    {
-        if(m_ioccontrolPoints[Id]->IsInWorld())
-            m_ioccontrolPoints[Id]->RemoveFromWorld(false);
-
-        // assign it a new guid (client needs this to see the entry change?)
-        m_ioccontrolPoints[Id]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-        m_ioccontrolPoints[Id]->SetUInt32Value(OBJECT_FIELD_ENTRY, gi->ID);
-        m_ioccontrolPoints[Id]->SetUInt32Value(GAMEOBJECT_DISPLAYID, gi->DisplayID);
-        m_ioccontrolPoints[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, gi->Type);
-
-        switch(Type)
-        {
-        case IOC_SPAWN_TYPE_ALLIANCE_ASSAULT:
-        case IOC_SPAWN_TYPE_ALLIANCE_CONTROLLED:
-            m_ioccontrolPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 2);
-            break;
-
-        case IOC_SPAWN_TYPE_HORDE_ASSAULT:
-        case IOC_SPAWN_TYPE_HORDE_CONTROLLED:
-            m_ioccontrolPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 1);
-            break;
-
-        default:
-            m_ioccontrolPoints[Id]->SetUInt32Value(GAMEOBJECT_FACTION, 35);     // neutral
-            break;
-        }
-
-        m_ioccontrolPoints[Id]->SetInfo(gi);
-        m_ioccontrolPoints[Id]->PushToWorld(m_mapMgr);
-    }
 
     if(gi_aura == NULL)
     {
         // remove it if it exists
-        if(m_ioccontrolPointAuras[Id]!=NULL && m_ioccontrolPointAuras[Id]->IsInWorld())
-            m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
-
+        if(m_ioccontrolPointAuras[Id])
+        {
+            if(m_ioccontrolPointAuras[Id]->IsInWorld())
+                m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
+            else m_ioccontrolPointAuras[Id]->Destruct();
+            m_ioccontrolPointAuras[Id] = NULL;
+        }
         return;
+    }
+
+    if(m_ioccontrolPointAuras[Id])
+    {
+        if(m_ioccontrolPointAuras[Id]->IsInWorld())
+            m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
+        else m_ioccontrolPointAuras[Id]->Destruct();
+        m_ioccontrolPointAuras[Id] = NULL;
     }
 
     if(m_ioccontrolPointAuras[Id] == NULL)
     {
-        m_ioccontrolPointAuras[Id] = SpawnGameObject(gi_aura->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1],
-            ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 5.0f);
-
+        m_ioccontrolPointAuras[Id] = SpawnGameObject(gi_aura->ID, ControlPointCoordinates[Id][0], ControlPointCoordinates[Id][1], ControlPointCoordinates[Id][2], ControlPointCoordinates[Id][3], 0, 35, 5.0f);
         m_ioccontrolPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_ioccontrolPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_ioccontrolPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
         m_ioccontrolPointAuras[Id]->bannerauraslot = Id;
-        m_ioccontrolPointAuras[Id]->PushToWorld(m_mapMgr);
-    }
-    else
-    {
-        if(m_ioccontrolPointAuras[Id]->IsInWorld())
-            m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
-
-        // re-spawn the aura
-        m_ioccontrolPointAuras[Id]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-        m_ioccontrolPointAuras[Id]->SetUInt32Value(OBJECT_FIELD_ENTRY, gi_aura->ID);
-        m_ioccontrolPointAuras[Id]->SetUInt32Value(GAMEOBJECT_DISPLAYID, gi_aura->DisplayID);
-        m_ioccontrolPointAuras[Id]->SetInfo(gi_aura);
         m_ioccontrolPointAuras[Id]->PushToWorld(m_mapMgr);
     }
 }
@@ -461,14 +433,12 @@ void IsleOfConquest::Updateworkshop(uint32 Team)
 
 void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
 {
-#if defined(BG_ANTI_CHEAT) && !defined(_DEBUG)
     if(!m_started)
     {
         SendChatMessage(CHAT_MSG_BG_SYSTEM_NEUTRAL, pPlayer->GetGUID(), "%s has been removed from the game for cheating.", pPlayer->GetName());
         pPlayer->SoftDisconnect();
         return;
     }
-#endif
 
     bool isVirgin = false;
 
@@ -492,10 +462,10 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         // this control point just got taken over by someone! oh noes!
         if( m_spiritGuides[Id] != NULL )
         {
-            map<Creature*,set<uint32> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
+            std::map<Creature*, set<WoWGuid> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
             if( itr != m_resurrectMap.end() )
             {
-                for( set<uint32>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
+                for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
                 {
                     Player* r_plr = m_mapMgr->GetPlayer( *it2 );
                     if( r_plr != NULL && r_plr->isDead() )
@@ -820,7 +790,7 @@ void IsleOfConquest::HookGenerateLoot(Player* plr, Corpse* pCorpse)
     gold *= sWorld.getRate(RATE_MONEY);
 
     // set it
-    pCorpse->m_loot.gold = float2int32(gold);
+    pCorpse->GetLoot()->gold = float2int32(gold);
 }
 
 void IsleOfConquest::HookOnShadowSight()

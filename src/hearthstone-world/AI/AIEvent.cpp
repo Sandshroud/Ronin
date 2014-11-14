@@ -28,7 +28,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     /* send the message */
     if( m_Unit->IsCreature() )
     {
-        Creature* cr = TO_CREATURE(m_Unit);
+        Creature* cr = castPtr<Creature>(m_Unit);
         if( cr->has_combat_text )
             objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ENTER_COMBAT );
 
@@ -45,7 +45,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     MovementHandler.EventEnterCombat(misc1);
 
     // dismount if mounted
-    if(m_Unit->IsCreature() && !(TO_CREATURE(m_Unit)->GetCreatureData()->Flags & 2048))
+    if(m_Unit->IsCreature() && !(castPtr<Creature>(m_Unit)->GetCreatureData()->Flags & 2048))
         m_Unit->Dismount();
 
     if(m_AIState != STATE_ATTACKING)
@@ -62,14 +62,14 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     //Mark raid as combat in progress if it concerns a boss
     if(m_Unit->IsCreature())
         if(m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->GetMapInfo() && m_Unit->GetMapMgr()->GetdbcMap()->IsRaid())
-            if(Creature* cr = TO_CREATURE(m_Unit))
+            if(Creature* cr = castPtr<Creature>(m_Unit))
                 if(cr->GetCreatureData() && (cr->GetCreatureData()->Rank == ELITE_WORLDBOSS || cr->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
                     m_Unit->GetMapMgr()->AddCombatInProgress(m_Unit->GetGUID());
 
-    if(pUnit->IsPlayer() && TO_PLAYER(pUnit)->InGroup())
+    if(pUnit->IsPlayer() && castPtr<Player>(pUnit)->InGroup())
     {
-        modThreatByPtr(pUnit, 1);
-        Group* pGroup = TO_PLAYER(pUnit)->GetGroup();
+        modThreat(pUnit->GetGUID(), 1, pUnit->GetInRangeRedirectThreat());
+        Group* pGroup = castPtr<Player>(pUnit)->GetGroup();
 
         Player* pGroupGuy;
         GroupMembersSet::iterator itr;
@@ -96,7 +96,7 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
 {
     if(m_Unit->IsCreature())
     {
-        Creature* cr = TO_CREATURE(m_Unit);
+        Creature* cr = castPtr<Creature>(m_Unit);
         if(!cr->IsPet() && !cr->isAlive())
             cr->m_AuraInterface.RemoveAllNegativeAuras();
 
@@ -135,7 +135,7 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
     m_hasFled = false;
     m_hasCalledForHelp = false;
     m_CastNext = NULL;
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
     m_Unit->CombatStatus.Vanished();
 
     if(m_AIType == AITYPE_PET)
@@ -146,20 +146,20 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
         ResetLastFollowPos();
         if(m_Unit->IsPet())
         {
-            TO_PET(m_Unit)->SetPetAction(PET_ACTION_FOLLOW);
+            castPtr<Pet>(m_Unit)->SetPetAction(PET_ACTION_FOLLOW);
             if( m_Unit->GetEntry() == 416 && m_Unit->isAlive() && m_Unit->IsInWorld() )
             {
-                TO_PET(m_Unit)->HandleAutoCastEvent(AUTOCAST_EVENT_LEAVE_COMBAT);
+                castPtr<Pet>(m_Unit)->HandleAutoCastEvent(AUTOCAST_EVENT_LEAVE_COMBAT);
             }
         }
-        HandleEvent(EVENT_FOLLOWOWNER, NULLUNIT, 0);
+        HandleEvent(EVENT_FOLLOWOWNER, NULL, 0);
     }
     else
     {
         CALL_SCRIPT_EVENT(m_Unit, OnCombatStop)(getUnitToFollow());
         m_AIState = STATE_EVADE;
 
-        SetUnitToFollow(NULLUNIT);
+        SetUnitToFollow(NULL);
         SetFollowDistance(0.0f);
         ResetLastFollowPos();
 
@@ -176,7 +176,7 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
 
             // clear tagger
             if(m_Unit->IsCreature())
-                TO_CREATURE(m_Unit)->ClearTag();
+                castPtr<Creature>(m_Unit)->ClearTag();
         }
     }
 
@@ -189,31 +189,13 @@ void AIInterface::EventDamageTaken(Unit* pUnit, uint32 misc1)
     if( pUnit == NULL )
         return;
 
-    if( m_Unit->IsCreature() && TO_CREATURE(m_Unit)->has_combat_text )
-        objmgr.HandleMonsterSayEvent( TO_CREATURE( m_Unit ), MONSTER_SAY_EVENT_ON_DAMAGE_TAKEN );
+    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->has_combat_text )
+        objmgr.HandleMonsterSayEvent( castPtr<Creature>( m_Unit ), MONSTER_SAY_EVENT_ON_DAMAGE_TAKEN );
 
     pUnit->RemoveAura(24575);
 
     CALL_SCRIPT_EVENT(m_Unit, OnDamageTaken)(pUnit, float(misc1));
-    if(!modThreatByPtr(pUnit, misc1))
-    {
-        if(pUnit->mThreatRTarget)
-        {
-            if(!modThreatByPtr(pUnit->mThreatRTarget, misc1))
-            {
-                ai_TargetLock.Acquire();
-                m_aiTargets.insert(make_pair(pUnit->mThreatRTarget, misc1));
-                ai_TargetLock.Release();
-            }
-        }
-        else
-        {
-            ai_TargetLock.Acquire();
-            m_aiTargets.insert(make_pair(pUnit, misc1));
-            ai_TargetLock.Release();
-        }
-    }
-
+    modThreat(pUnit->GetGUID(), misc1, pUnit->GetInRangeRedirectThreat());
     pUnit->CombatStatus.OnDamageDealt(m_Unit, 1);
 }
 
@@ -221,7 +203,7 @@ void AIInterface::EventFollowOwner(Unit* /*pUnit*/, uint32 misc1)
 {
     m_AIState = STATE_FOLLOWING;
     if(m_Unit->IsPet())
-        TO_PET(m_Unit)->SetPetAction(PET_ACTION_FOLLOW);
+        castPtr<Pet>(m_Unit)->SetPetAction(PET_ACTION_FOLLOW);
     SetUnitToFollow(m_PetOwner);
     ResetLastFollowPos();
     SetFollowDistance(4.0f);
@@ -233,7 +215,7 @@ void AIInterface::EventFollowOwner(Unit* /*pUnit*/, uint32 misc1)
     m_hasFled = false;
     m_hasCalledForHelp = false;
     m_CastNext = NULL;
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
 
     setMoveRunFlag(true);
 }
@@ -251,7 +233,7 @@ void AIInterface::EventFear(Unit* pUnit, uint32 misc1)
     StopMovement(1);
 
     BackupFollowInformation();
-    SetUnitToFollow(NULLUNIT);
+    SetUnitToFollow(NULL);
     SetFollowDistance(0.0f);
     ResetLastFollowPos();
 
@@ -264,7 +246,7 @@ void AIInterface::EventFear(Unit* pUnit, uint32 misc1)
     getMoveFlags();
 
     m_CastNext = NULL;
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
 }
 
 void AIInterface::EventUnfear(Unit* pUnit, uint32 misc1)
@@ -272,7 +254,7 @@ void AIInterface::EventUnfear(Unit* pUnit, uint32 misc1)
     RestoreFollowInformation();
     m_AIState = STATE_IDLE; // we need this to prevent permanent fear, wander, and other problems
 
-    SetUnitToFear(NULLUNIT);
+    SetUnitToFear(NULL);
     StopMovement(1);
 }
 
@@ -296,7 +278,7 @@ void AIInterface::EventWander(Unit* /*pUnit*/, uint32 misc1)
     getMoveFlags();
 
     m_CastNext = NULL;
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
 }
 
 void AIInterface::EventUnwander(Unit* /*pUnit*/, uint32 misc1)
@@ -314,8 +296,8 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
 
     if( m_Unit->IsCreature() )
     {
-        if( TO_CREATURE(m_Unit)->has_combat_text )
-            objmgr.HandleMonsterSayEvent( TO_CREATURE(m_Unit), MONSTER_SAY_EVENT_ON_DIED );
+        if( castPtr<Creature>(m_Unit)->has_combat_text )
+            objmgr.HandleMonsterSayEvent( castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_ON_DIED );
 
         ClearFollowInformation();
     }
@@ -328,13 +310,13 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
     ai_TargetLock.Acquire();
     m_aiTargets.clear();
     ai_TargetLock.Release();
-    SetUnitToFear(NULLUNIT);
+    SetUnitToFear(NULL);
     m_fleeTimer = 0;
     m_hasFled = false;
     m_hasCalledForHelp = false;
     m_CastNext = NULL;
     m_Unit->Dismount();
-    SetNextTarget(NULLUNIT);
+    SetNextTarget(NULL);
 
     //reset waypoint to 1
     setWaypointToMove(1);
@@ -344,13 +326,13 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
     if(m_Unit->IsCreature() && !m_Unit->IsPet())
     {
         //only save creature which exist in db (don't want to save 0 values in db)
-        if( m_Unit->m_loadedFromDB && TO_CREATURE(m_Unit)->IsSpawn() )
+        if( m_Unit->m_loadedFromDB && castPtr<Creature>(m_Unit)->IsSpawn() )
         {
             if(MapMgr* GMap = m_Unit->GetMapMgr())
             {
                 if( GMap->pInstance && GMap->GetMapInfo()->type != INSTANCE_PVP )
                 {
-                    GMap->pInstance->m_killedNpcs.insert( TO_CREATURE(m_Unit)->GetSQL_id() );
+                    GMap->pInstance->m_killedNpcs.insert( castPtr<Creature>(m_Unit)->GetSQL_id() );
                     GMap->pInstance->SaveToDB();
                 }
             }
@@ -363,8 +345,8 @@ void AIInterface::EventUnitRespawn(Unit* /*pUnit*/, uint32 misc1)
     /* send the message */
     if( m_Unit->IsCreature() )
     {
-        if( TO_CREATURE(m_Unit)->has_combat_text )
-            objmgr.HandleMonsterSayEvent(TO_CREATURE(m_Unit), MONSTER_SAY_EVENT_ON_SPAWN );
+        if( castPtr<Creature>(m_Unit)->has_combat_text )
+            objmgr.HandleMonsterSayEvent(castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_ON_SPAWN );
     }
 }
 

@@ -1091,7 +1091,7 @@ void DumpOpcodeData()
     DumpOpcodeLine(output, "CMSG_SYNC_DANCE", 0x0036);
     DumpOpcodeLine(output, "CMSG_TAXINODE_STATUS_QUERY", 0x2F25);
     DumpOpcodeLine(output, "CMSG_TAXIQUERYAVAILABLENODES", 0x6C06);
-    DumpOpcodeLine(output, "CMSG_TELEPORT_TO_UNIT", 0x4206);
+    DumpOpcodeLine(output, "CMSG_TELEPORT_castPtr<Unit>", 0x4206);
     DumpOpcodeLine(output, "CMSG_TEXT_EMOTE", 0x2E24);
     DumpOpcodeLine(output, "CMSG_TIME_ADJUSTMENT_RESPONSE", 0x3818);
     DumpOpcodeLine(output, "CMSG_TIME_SYNC_RESP", 0x3B0C);

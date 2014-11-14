@@ -13,6 +13,7 @@
 #if PLATFORM == PLATFORM_WIN
 #define USE_IOCP
 #include <winsock2.h>
+#include <mswsock.h>
 #include <ws2tcpip.h>
 #else
 #include <sys/time.h>

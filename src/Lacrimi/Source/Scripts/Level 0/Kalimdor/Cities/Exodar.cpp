@@ -19,7 +19,7 @@
 class ExodarGuard : public GossipScript
 {
 public:
-    void GossipHello(Object* pObject, Player* plr, bool AutoSend)
+    void GossipHello(WorldObject* pObject, Player* plr, bool AutoSend)
     {
         GossipMenu* Menu;
         objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 9551, plr);
@@ -37,7 +37,7 @@ public:
         Menu->SendTo(plr);
     }
 
-    void GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
+    void GossipSelectOption(WorldObject* pObject, Player* Plr, uint32 Id, uint32 IntId, const char* Code)
     {
         GossipMenu* Menu;
         switch(IntId)

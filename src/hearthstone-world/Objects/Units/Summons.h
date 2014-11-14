@@ -27,7 +27,7 @@ public:
 
     virtual void Destruct() { };
     virtual void OnPushToWorld() { };
-    virtual void OnRemoveInRangeObject(Object* object) { };
+    virtual void OnRemoveInRangeObject(WorldObject* object) { };
     virtual uint8 GetSummonType() { return SUMMON_TYPE_NONE; };
     virtual void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot) { };
 
@@ -43,7 +43,7 @@ public:
 
     void Destruct() { };
     void OnPushToWorld() { };
-    void OnRemoveInRangeObject(Object* object) { };
+    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_COMPANION; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -56,7 +56,7 @@ public:
 
     void Destruct() { };
     void OnPushToWorld() { };
-    void OnRemoveInRangeObject(Object* object) { };
+    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_GUARDIAN; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -69,7 +69,7 @@ public:
 
     void Destruct() { };
     void OnPushToWorld() { };
-    void OnRemoveInRangeObject(Object* object) { };
+    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_POSSESSED; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -83,7 +83,7 @@ public:
     void SetupSpells();
     void Destruct() { };
     void OnPushToWorld() { SetupSpells(); };
-    void OnRemoveInRangeObject(Object* object) { };
+    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_TOTEM; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -96,7 +96,7 @@ public:
 
     void Destruct() { };
     void OnPushToWorld() { };
-    void OnRemoveInRangeObject(Object* object) { };
+    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_WILD; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -107,15 +107,18 @@ public:
     Summon(CreatureData* data, uint64 guid);
     ~Summon();
 
+    virtual bool IsTotem() { return GetSummonType() == SUMMON_TYPE_TOTEM; }
+    virtual bool IsSummon() { return true; }
+
     void Init();
     void Destruct();
     void OnPushToWorld();
     void CreateAs(SummonHandler* NewHandle);
-    void OnRemoveInRangeObject(Object* object);
+    void OnRemoveInRangeObject(WorldObject* object);
     void Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot);
 
     int32 GetSummonSlot() { return summonslot; };
-    Object* GetSummonOwner() { return s_Owner; };
+    WorldObject* GetSummonOwner() { return s_Owner; };
     // Returns the internal summon type or none
     uint8 GetSummonType() { return m_Internal ? m_Internal->GetSummonType() : SUMMON_TYPE_NONE; };
 

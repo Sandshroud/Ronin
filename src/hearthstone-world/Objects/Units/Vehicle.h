@@ -46,8 +46,9 @@ public:
     ~Vehicle();
     virtual void Init();
     virtual void Destruct();
+    virtual bool IsVehicle() { return true; }
 
-    void InitSeats(uint32 vehicleEntry, Player* pRider = NULLPLR);
+    void InitSeats(uint32 vehicleEntry, Player* pRider = NULL);
     virtual void Update(uint32 time);
     bool Load(CreatureSpawn *spawn, uint32 mode);
     bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);

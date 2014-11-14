@@ -252,7 +252,6 @@ void CommandTableStorage::Init()
     static ChatCommand debugCommandTable[] =
     {
         { "retroactivequest",           COMMAND_LEVEL_D, &ChatHandler::HandleDebugRetroactiveQuestAchievements,     "",                                                                                                                     NULL, 0, 0, 0 },
-        { "setphase",                   COMMAND_LEVEL_D, &ChatHandler::HandleDebugSetPhase,                         "",                                                                                                                     NULL, 0, 0, 0 },
         { "infront",                    COMMAND_LEVEL_D, &ChatHandler::HandleDebugInFrontCommand,                   "",                                                                                                                     NULL, 0, 0, 0 },
         { "showreact",                  COMMAND_LEVEL_D, &ChatHandler::HandleShowReactionCommand,                   "",                                                                                                                     NULL, 0, 0, 0 },
         { "dist",                       COMMAND_LEVEL_D, &ChatHandler::HandleDistanceCommand,                       "",                                                                                                                     NULL, 0, 0, 0 },
@@ -267,10 +266,6 @@ void CommandTableStorage::Init()
         { "castspellne",                COMMAND_LEVEL_D, &ChatHandler::HandleCastSpellNECommand,                    ".castspellne <spellid> - Casts spell on target (only plays animations, doesnt handle effects or range/facing/etc.",    NULL, 0, 0, 0 },
         { "aggrorange",                 COMMAND_LEVEL_D, &ChatHandler::HandleAggroRangeCommand,                     ".aggrorange - Shows aggro Range of the selected Creature.",                                                            NULL, 0, 0, 0 },
         { "knockback ",                 COMMAND_LEVEL_D, &ChatHandler::HandleKnockBackCommand,                      ".knockback <hspeed> <vspeed> - Knocks selected player back.",                                                          NULL, 0, 0, 0 },
-        { "fade ",                      COMMAND_LEVEL_D, &ChatHandler::HandleFadeCommand,                           ".fade <value> - calls ModThreatModifyer().",                                                                           NULL, 0, 0, 0 },
-        { "threatMod ",                 COMMAND_LEVEL_D, &ChatHandler::HandleThreatModCommand,                      ".threatMod <value> - calls ModGeneratedThreatModifyer().",                                                             NULL, 0, 0, 0 },
-        { "calcThreat ",                COMMAND_LEVEL_D, &ChatHandler::HandleCalcThreatCommand,                     ".calcThreat <dmg> <spellId> - calculates threat.",                                                                     NULL, 0, 0, 0 },
-        { "threatList ",                COMMAND_LEVEL_D, &ChatHandler::HandleThreatListCommand,                     ".threatList - returns all AI_Targets of the selected Creature.",                                                       NULL, 0, 0, 0 },
         { "gettptime",                  COMMAND_LEVEL_D, &ChatHandler::HandleGetTransporterTime,                    "grabs transporter travel time",                                                                                        NULL, 0, 0, 0 },
         { "setbit",                     COMMAND_LEVEL_D, &ChatHandler::HandleModifyBitCommand,                      "",                                                                                                                     NULL, 0, 0, 0 },
         { "setvalue",                   COMMAND_LEVEL_D, &ChatHandler::HandleModifyValueCommand,                    "",                                                                                                                     NULL, 0, 0, 0 },
@@ -1016,7 +1011,7 @@ WorldPacket* ChatHandler::FillSystemMessageData(const char *message) const
 
 Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
 {
-    Player* chr = NULLPLR;
+    Player* chr = NULL;
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if (guid == 0)
     {
@@ -1035,9 +1030,9 @@ Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
 Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerror)
 {
     if(!m_session->GetPlayer()->IsInWorld())
-        return NULLCREATURE;
+        return NULL;
 
-    Creature* creature = NULLCREATURE;
+    Creature* creature = NULL;
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_PET)
         creature = m_session->GetPlayer()->GetMapMgr()->GetPet( GUID_LOPART(guid) );
@@ -1046,7 +1041,7 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
     else if(GUID_HIPART(guid) == HIGHGUID_TYPE_VEHICLE)
         creature = m_session->GetPlayer()->GetMapMgr()->GetVehicle( GUID_LOPART(guid) );
 
-    if(creature == NULLCREATURE && showerror)
+    if(creature == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a creature.");
     return creature;
 }
@@ -1054,11 +1049,11 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
 Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
 {
     if(!m_session->GetPlayer()->IsInWorld())
-        return NULLUNIT;
+        return NULL;
 
     uint64 guid = m_session->GetPlayer()->GetSelection();
     Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(guid);
-    if(unit == NULLUNIT && showerror)
+    if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a unit.");
     return unit;
 }
@@ -1409,7 +1404,7 @@ bool ChatHandler::HandleModifyFactionCommand(const char *args, WorldSession *m_s
 
     uint32 faction = atol(args);
     if(!faction && unit->IsCreature())
-        faction = TO_CREATURE(unit)->GetCreatureData()->Faction;
+        faction = castPtr<Creature>(unit)->GetCreatureData()->Faction;
 
     BlueSystemMessage(m_session, "Set target's faction to %u", faction);
 
@@ -1436,12 +1431,12 @@ bool ChatHandler::HandleModifyScaleCommand(const char *args, WorldSession *m_ses
         return false;
 
     if(!scale && unit->IsCreature())
-        scale = TO_CREATURE(unit)->GetCreatureData()->Scale;
+        scale = castPtr<Creature>(unit)->GetCreatureData()->Scale;
 
     BlueSystemMessage(m_session, "Set target's scale to %f", scale);
     unit->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
     if(unit->IsCreature() && (save > 0))
-        TO_CREATURE(unit)->SaveToDB();
+        castPtr<Creature>(unit)->SaveToDB();
 
     return true;
 }

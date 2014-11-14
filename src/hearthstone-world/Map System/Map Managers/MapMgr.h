@@ -10,7 +10,7 @@
 
 class MapCell;
 class Map;
-class Object;
+class WorldObject;
 class WorldSession;
 class GameObject;
 class Creature;
@@ -40,11 +40,11 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-typedef unordered_set<Object* > ObjectSet;
-typedef unordered_set<Object* > UpdateQueue;
+typedef unordered_set<WorldObject* > ObjectSet;
+typedef unordered_set<WorldObject* > UpdateQueue;
 typedef unordered_set<Player*  > PUpdateQueue;
 typedef unordered_set<Player*  > PlayerSet;
-typedef HM_NAMESPACE::hash_map<uint32, Object* > StorageMap;
+typedef HM_NAMESPACE::hash_map<uint32, WorldObject* > StorageMap;
 typedef unordered_set<uint64> CombatProgressMap;
 typedef unordered_set<Vehicle*> VehicleSet;
 typedef unordered_set<Creature*> CreatureSet;
@@ -71,8 +71,8 @@ public:
     //This will be done in regular way soon
     Mutex m_objectinsertlock;
     ObjectSet m_objectinsertpool;
-    void AddObject(Object*);
-    Object* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
+    void AddObject(WorldObject*);
+    WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 
 ////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of GameObjects
@@ -88,10 +88,10 @@ public:
         return ++m_GOHighGuid;
     }
 
-    HEARTHSTONE_INLINE GameObject* GetGameObject(uint32 guid)
+    HEARTHSTONE_INLINE GameObject* GetGameObject(WoWGuid guid)
     {
-        GameObjectMap::iterator itr = m_gameObjectStorage.find(guid);
-        return (itr != m_gameObjectStorage.end()) ? m_gameObjectStorage[guid] : NULLGOB;
+        GameObjectMap::iterator itr = m_gameObjectStorage.find(GUID_LOPART(guid));
+        return (itr != m_gameObjectStorage.end()) ? m_gameObjectStorage[GUID_LOPART(guid)] : NULL;
     }
 
 /////////////////////////////////////////////////////////
@@ -99,24 +99,27 @@ public:
 /////////////////////////////////////////////
     uint32 m_VehicleArraySize;
     uint32 m_VehicleHighGuid;
-    HM_NAMESPACE::hash_map<uint32,Vehicle*> m_VehicleStorage;
+    HM_NAMESPACE::hash_map<WoWGuid, Vehicle*> m_VehicleStorage;
     Vehicle* CreateVehicle(uint32 entry);
 
-    __inline Vehicle* GetVehicle(uint32 guid)
+    HEARTHSTONE_INLINE Vehicle* GetVehicle(WoWGuid guid)
     {
-        return guid <= m_VehicleHighGuid ? m_VehicleStorage[guid] : NULLVEHICLE;
+        HM_NAMESPACE::hash_map<WoWGuid, Vehicle*>::iterator itr = m_VehicleStorage.find(guid);
+        return ((itr != m_VehicleStorage.end()) ? itr->second : NULL);
     }
+
 /////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of Creatures
 /////////////////////////////////////////////
     uint32 m_CreatureArraySize;
     uint32 m_CreatureHighGuid;
-    HM_NAMESPACE::hash_map<uint32,Creature*> m_CreatureStorage;
+    HM_NAMESPACE::hash_map<WoWGuid, Creature*> m_CreatureStorage;
     Creature* CreateCreature(uint32 entry);
 
-    HEARTHSTONE_INLINE Creature* GetCreature(uint32 guid)
+    HEARTHSTONE_INLINE Creature* GetCreature(WoWGuid guid)
     {
-        return guid <= m_CreatureHighGuid ? m_CreatureStorage[guid] : NULLCREATURE;
+        HM_NAMESPACE::hash_map<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
+        return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
     }
 
     // Use a creature guid to create our summon.
@@ -125,36 +128,36 @@ public:
 // Local (mapmgr) storage/generation of DynamicObjects
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
-    typedef HM_NAMESPACE::hash_map<uint32, DynamicObject*> DynamicObjectStorageMap;
+    typedef HM_NAMESPACE::hash_map<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
     DynamicObjectStorageMap m_DynamicObjectStorage;
     DynamicObject* CreateDynamicObject();
 
-    HEARTHSTONE_INLINE DynamicObject* GetDynamicObject(uint32 guid)
+    HEARTHSTONE_INLINE DynamicObject* GetDynamicObject(WoWGuid guid)
     {
         DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.find(guid);
-        return (itr != m_DynamicObjectStorage.end()) ? m_DynamicObjectStorage[guid] : NULLDYN;
+        return ((itr != m_DynamicObjectStorage.end()) ? itr->second : NULL);
     }
 
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage of pets
 ///////////////////////////////////////////
-    typedef HM_NAMESPACE::hash_map<uint32, Pet*> PetStorageMap;
+    typedef HM_NAMESPACE::hash_map<WoWGuid, Pet*> PetStorageMap;
     PetStorageMap m_PetStorage;
-    __inline Pet* GetPet(uint32 guid)
+    HEARTHSTONE_INLINE Pet* GetPet(WoWGuid guid)
     {
         PetStorageMap::iterator itr = m_PetStorage.find(guid);
-        return (itr != m_PetStorage.end()) ? m_PetStorage[guid] : NULLPET;
+        return (itr != m_PetStorage.end()) ? m_PetStorage[guid] : NULL;
     }
 
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage of players for faster lookup
 ////////////////////////////////
-    typedef HM_NAMESPACE::hash_map<uint32, Player*> PlayerStorageMap;
+    typedef HM_NAMESPACE::hash_map<WoWGuid, Player*> PlayerStorageMap;
     PlayerStorageMap m_PlayerStorage;
-    __inline Player* GetPlayer(uint32 guid)
+    HEARTHSTONE_INLINE Player* GetPlayer(WoWGuid guid)
     {
         PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
-        return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULLPLR;
+        return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULL;
     }
 
 //////////////////////////////////////////////////////////
@@ -180,8 +183,8 @@ public:
 //////////////////////////////////////////////////////////
 // Lookup Wrappers
 ///////////////////////////////////
-    Unit* GetUnit(const uint64 & guid);
-    Object* _GetObject(const uint64 & guid);
+    Unit* GetUnit(const WoWGuid & guid);
+    WorldObject* _GetObject(const WoWGuid & guid);
 
     bool run();
     bool Do();
@@ -191,17 +194,16 @@ public:
     void Init(bool Instance);
     void Destruct();
 
-    void EventPushObjectToSelf(Object *obj);
-    void PushObject(Object* obj);
-    void PushStaticObject(Object* obj);
-    void RemoveObject(Object* obj, bool free_guid);
-    void ChangeObjectLocation(Object* obj); // update inrange lists
+    void EventPushObjectToSelf(WorldObject *obj);
+    void PushObject(WorldObject* obj);
+    void RemoveObject(WorldObject* obj, bool free_guid);
+    void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
-    bool IsInRange(float fRange, Object* obj, Object* currentobj);
+    bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj);
 
     //! Mark object as updated
-    void ObjectUpdated(Object* obj);
+    void ObjectUpdated(WorldObject* obj);
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Terrain Functions
@@ -229,7 +231,7 @@ public:
     HEARTHSTONE_INLINE uint32 GetInstanceID() { return m_instanceID; }
     HEARTHSTONE_INLINE MapInfo *GetMapInfo() { return pMapInfo; }
     HEARTHSTONE_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
-    bool CanUseCollision(Object* obj);
+    bool CanUseCollision(WorldObject* obj);
 
     HEARTHSTONE_INLINE MapManagerScript *GetMapScript() { return _script; }
 
@@ -264,8 +266,8 @@ public:
     void EventRespawnVehicle(Vehicle* v, MapCell * p);
     void EventRespawnCreature(Creature* c, MapCell * p);
     void EventRespawnGameObject(GameObject* o, MapCell * c);
-    void SendMessageToCellPlayers(Object* obj, WorldPacket * packet, uint32 cell_radius = 2);
-    void SendChatMessageToCellPlayers(Object* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, int32 lang, WorldSession * originator);
+    void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
+    void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, int32 lang, WorldSession * originator);
 
     Instance * pInstance;
     void BeginInstanceExpireCountdown();
@@ -296,10 +298,13 @@ private:
     //! Objects that exist on map
 
     uint32 _mapId;
-    set<Object* > _mapWideStaticObjects;
+
+    // In this zone, we always show these objects
+    std::map<WorldObject*, uint32> m_rangelessObjects;
+    std::map<uint32, std::set<WorldObject*>> m_zoneRangelessObjects;
 
     bool _CellActive(uint32 x, uint32 y);
-    void UpdateInRangeSet(Object* obj, Player* plObj, MapCell* cell);
+    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
     void UpdateInRangeSet(uint64 guid, MapCell* cell);
 
 public:

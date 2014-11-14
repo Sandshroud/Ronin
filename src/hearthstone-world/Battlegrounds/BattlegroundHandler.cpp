@@ -32,7 +32,6 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket &recv_data)
                 }
 
                 GetPlayer()->m_pendingBattleground[i]->PortPlayer(GetPlayer(),false);
-                GetPlayer()->SetPhaseMask(1);
                 return;
             }
         }
@@ -66,11 +65,11 @@ void WorldSession::SendBattlegroundList(Creature* pCreature, uint32 type)
 
 void WorldSession::HandleBattleMasterHelloOpcode(WorldPacket &recv_data)
 {
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
     CHECK_INWORLD_RETURN();
-    Creature* pCreature = _player->GetMapMgr()->GetCreature( GUID_LOPART(guid) );
+    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
     if( pCreature == NULL )
         return;
 
@@ -87,19 +86,19 @@ void WorldSession::HandleLeaveBattlefieldOpcode(WorldPacket &recv_data)
 
 void WorldSession::HandleAreaSpiritHealerQueryOpcode(WorldPacket &recv_data)
 {
-    if(!_player->IsInWorld() || !_player->m_bg) return;
-    uint64 guid;
+    if(!_player->IsInWorld() || !_player->m_bg)
+        return;
+    WoWGuid guid;
     recv_data >> guid;
 
-    Creature* psg = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* psg = _player->GetMapMgr()->GetCreature(guid);
     if(psg == NULL)
         return;
 
     uint32 restime = _player->m_bg->GetLastResurrect() + 30;
     if((uint32)UNIXTIME > restime)
         restime = 1000;
-    else
-        restime = (restime - (uint32)UNIXTIME) * 1000;
+    else restime = (restime - (uint32)UNIXTIME) * 1000;
 
     WorldPacket data(SMSG_AREA_SPIRIT_HEALER_TIME, 12);
     data << guid << restime;
@@ -108,10 +107,12 @@ void WorldSession::HandleAreaSpiritHealerQueryOpcode(WorldPacket &recv_data)
 
 void WorldSession::HandleAreaSpiritHealerQueueOpcode(WorldPacket &recv_data)
 {
-    if(!_player->IsInWorld() || !_player->m_bg) return;
-    uint64 guid;
+    if(!_player->IsInWorld() || !_player->m_bg)
+        return;
+
+    WoWGuid guid;
     recv_data >> guid;
-    Creature* psg = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* psg = _player->GetMapMgr()->GetCreature(guid);
     if(psg == NULL)
         return;
 
@@ -130,11 +131,11 @@ void WorldSession::HandleBattlegroundPlayerPositionsOpcode(WorldPacket &recv_dat
         uint32 count1 = 0;
         uint32 count2 = 0;
 
-        Player* ap = objmgr.GetPlayer((CAST(WarsongGulch, bg))->GetAllianceFlagHolderGUID());
+        Player* ap = objmgr.GetPlayer(castPtr<WarsongGulch>(bg)->GetAllianceFlagHolderGUID());
         if(ap) 
             ++count2;
 
-        Player* hp = objmgr.GetPlayer((CAST(WarsongGulch, bg))->GetHordeFlagHolderGUID());
+        Player* hp = objmgr.GetPlayer(castPtr<WarsongGulch>(bg)->GetHordeFlagHolderGUID());
         if(hp)
             ++count2;
 
@@ -144,15 +145,15 @@ void WorldSession::HandleBattlegroundPlayerPositionsOpcode(WorldPacket &recv_dat
         data << count2;
         if(ap)
         {
-            data << (uint64)ap->GetGUID();
-            data << (float)ap->GetPositionX();
-            data << (float)ap->GetPositionY();
+            data << ap->GetGUID();
+            data << ap->GetPositionX();
+            data << ap->GetPositionY();
         }
         if(hp)
         {
-            data << (uint64)hp->GetGUID();
-            data << (float)hp->GetPositionX();
-            data << (float)hp->GetPositionY();
+            data << hp->GetGUID();
+            data << hp->GetPositionX();
+            data << hp->GetPositionY();
         }
 
         SendPacket(&data);
@@ -162,16 +163,16 @@ void WorldSession::HandleBattlegroundPlayerPositionsOpcode(WorldPacket &recv_dat
         uint32 count1 = 0;
         uint32 count2 = 0;
 
-        Player* ap = objmgr.GetPlayer((CAST(EyeOfTheStorm, bg))->GetFlagHolderGUID());
+        Player* ap = objmgr.GetPlayer(castPtr<EyeOfTheStorm>(bg)->GetFlagHolderGUID());
         if(ap) ++count2;
          WorldPacket data(SMSG_BATTLEFIELD_PLAYER_POSITIONS, (4+4));
         data << count1;
         data << count2;
         if(ap)
         {
-            data << (uint64)ap->GetGUID();
-            data << (float)ap->GetPositionX();
-            data << (float)ap->GetPositionY();
+            data << ap->GetGUID();
+            data << ap->GetPositionX();
+            data << ap->GetPositionY();
         }
 
         SendPacket(&data);
@@ -237,10 +238,10 @@ void WorldSession::HandleInspectHonorStatsOpcode( WorldPacket &recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    Player* player =  _player->GetMapMgr()->GetPlayer( (uint32)guid );
+    Player* player =  _player->GetMapMgr()->GetPlayer(guid);
     if( player == NULL )
         return;
 
@@ -256,19 +257,16 @@ void WorldSession::HandleInspectArenaStatsOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    Player* player =  _player->GetMapMgr()->GetPlayer( (uint32)guid );
+    Player* player =  _player->GetMapMgr()->GetPlayer(guid);
     if( player == NULL )
         return;
 
-    ArenaTeam *team;
-    uint32 i;
-
-    for( i = 0; i < 3; i++ )
+    for( uint8 i = 0; i < 3; i++ )
     {
-        team = player->m_playerInfo->arenaTeam[i];
+        ArenaTeam *team = player->m_playerInfo->arenaTeam[i];
         if( team != NULL )
         {
             ArenaTeamMember * tp = team->GetMember(player->m_playerInfo);

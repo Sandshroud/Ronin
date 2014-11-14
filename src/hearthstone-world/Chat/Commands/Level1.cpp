@@ -144,7 +144,7 @@ bool ChatHandler::HandleToggleDevCommand(const char* args, WorldSession *m_sessi
 
 bool ChatHandler::HandleGPSCommand(const char* args, WorldSession *m_session)
 {
-    Object* obj = TO_OBJECT(getSelectedUnit(m_session, false));
+    WorldObject* obj = getSelectedUnit(m_session, false);
     if(obj == NULL)
     {
         if(m_session->GetPlayer()->m_GM_SelectedGO)
@@ -450,8 +450,8 @@ bool ChatHandler::HandleModifySpeedCommand(const char* args, WorldSession *m_ses
         Speed = u->m_base_runSpeed*(1.0f + ((float)u->m_speedModifier)/100.0f);
 
     BlueSystemMessage(m_session, "You set the %s speed of %s to %2.2f.", speedname.c_str(),  u->GetName(), Speed);
-    if(u->IsPlayer() && TO_PLAYER(u) != m_session->GetPlayer())
-        SystemMessage(TO_PLAYER(u)->GetSession(), "%s set your %s speed to %2.2f.", speedname.c_str(),  m_session->GetPlayer()->GetName(), Speed);
+    if(u->IsPlayer() && castPtr<Player>(u) != m_session->GetPlayer())
+        SystemMessage(castPtr<Player>(u)->GetSession(), "%s set your %s speed to %2.2f.", speedname.c_str(),  m_session->GetPlayer()->GetName(), Speed);
 
     if(type == -1)
     {

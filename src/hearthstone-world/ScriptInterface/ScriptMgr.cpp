@@ -628,23 +628,23 @@ GossipScript::GossipScript() : LuaScript(false)
 
 }
 
-void GossipScript::GossipEnd(Object* pObject, Player* Plr)
+void GossipScript::GossipEnd(Object* pEntity, Player* Plr)
 {
     Plr->CleanupGossipMenu();
 }
 
 bool CanTrainAt(Player* plr, Trainer * trn);
 
-void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
+void GossipScript::GossipHello(Object* pEntity, Player* Plr, bool AutoSend)
 {
     GossipMenu *Menu = NULL;
     uint32 TextID = 68; //Hi there how can I help you $N    Greetings $N
 
-    switch(pObject->GetTypeId())
+    switch(pEntity->GetTypeId())
     {
     case TYPEID_UNIT:
         {
-            Creature* pCreature = TO_CREATURE(pObject);
+            Creature* pCreature = castPtr<Creature>(pEntity);
             if(!pCreature)
                 return;
 
@@ -808,23 +808,23 @@ void GossipScript::GossipHello(Object* pObject, Player* Plr, bool AutoSend)
     case TYPEID_ITEM:
     case TYPEID_GAMEOBJECT:
         {
-            objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), TextID, Plr);
+            objmgr.CreateGossipMenuForPlayer(&Menu, pEntity->GetGUID(), TextID, Plr);
         }break;
     }
 
-    sHookInterface.OnBuildGossipMenu(pObject, Plr, Menu);
+    sHookInterface.OnBuildGossipMenu(pEntity, Plr, Menu);
     if(Menu != NULL && AutoSend)
         Menu->SendTo(Plr);
 }
 
-void GossipScript::GossipSelectOption(Object* pObject, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
+void GossipScript::GossipSelectOption(Object* pEntity, Player* Plr, uint32 Id, uint32 IntId, const char * EnteredCode)
 {
-    if(!sHookInterface.OnGossipSelectOption(pObject, Plr, IntId))
+    if(!sHookInterface.OnGossipSelectOption(pEntity, Plr, IntId))
         return;
-    if( pObject->GetTypeId() != TYPEID_UNIT )
+    if( pEntity->GetTypeId() != TYPEID_UNIT )
         return;
 
-    Creature* pCreature = TO_CREATURE( pObject );
+    Creature* pCreature = castPtr<Creature>( pEntity );
     switch( IntId )
     {
     case 1: // vendor
@@ -1177,10 +1177,10 @@ void HookInterface::OnQuestCancelled(Player* pPlayer, Quest * pQuest)
     OUTER_LOOP_END;
 }
 
-void HookInterface::OnQuestFinished(Player* pPlayer, Quest * pQuest, Object* pObject)
+void HookInterface::OnQuestFinished(Player* pPlayer, Quest * pQuest, Object* pEntity)
 {
     OUTER_LOOP_BEGIN(SERVER_HOOK_EVENT_ON_QUEST_FINISHED, tOnQuestFinished)
-        (call)(pPlayer, pQuest, pObject);
+        (call)(pPlayer, pQuest, pEntity);
     OUTER_LOOP_END;
 }
 
