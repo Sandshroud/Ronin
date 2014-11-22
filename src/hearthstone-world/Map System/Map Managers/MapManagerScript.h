@@ -26,8 +26,8 @@ class SERVER_DECL MapManagerScript
 {
 private:
     MapMgr* _manager;
-    map<uint32, CreatureAIScript*> m_CreatureAIScripts;
-    map<uint32, GameObjectAIScript*> m_GameObjectAIScripts;
+    std::map<uint32, CreatureAIScript*> m_CreatureAIScripts;
+    std::map<uint32, GameObjectAIScript*> m_GameObjectAIScripts;
 
 public:
     MapManagerScript(MapMgr* _internal);

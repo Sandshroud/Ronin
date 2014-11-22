@@ -333,7 +333,7 @@ void Arena::OnCreate()
     }
 
     /* push gates into world */
-    for(set< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
+    for(std::set< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
         (*itr)->PushToWorld(m_mapMgr);
 
 
@@ -354,15 +354,13 @@ void Arena::OnCreate()
 void Arena::OnStart()
 {
     /* remove arena readyness buff */
-    for(uint32 i = 0; i < 2; i++) {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++) {
-            Player* plr = *itr;
-            plr->RemoveAura(ARENA_PREPARATION);
-        }
-    }
+    for(std::set<Player*  >::iterator itr = m_players[0].begin(); itr != m_players[0].end(); itr++)
+        (*itr)->RemoveAura(ARENA_PREPARATION);
+    for(std::set<Player*  >::iterator itr = m_players[1].begin(); itr != m_players[1].end(); itr++)
+        (*itr)->RemoveAura(ARENA_PREPARATION);
 
     /* open gates */
-    for(set< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
+    for(std::set< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
     {
         (*itr)->SetUInt32Value(GAMEOBJECT_FLAGS, 64);
         (*itr)->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 0);
@@ -483,13 +481,13 @@ void Arena::Finish()
 
     sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
     sEventMgr.RemoveEvents(this, EVENT_ARENA_SHADOW_SIGHT);
-    sEventMgr.AddEvent(TO_CBATTLEGROUND(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
+    sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This arena will close in 2 minutes.");
 
     for(int i = 0; i < 2; i++)
     {
         bool victorious = (i != m_losingteam);
-        set<Player*  >::iterator itr = m_players[i].begin();
+        std::set<Player*  >::iterator itr = m_players[i].begin();
         for(; itr != m_players[i].end(); itr++)
         {
             Player* plr = (Player* )(*itr);

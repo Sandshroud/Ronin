@@ -44,7 +44,7 @@ struct CreatureData
     uint32 Resistances[7];
     float  CombatReach;
     float  BoundingRadius;
-    set<uint32> Auras;
+    std::set<uint32> Auras;
     uint32 Boss;
     int32  Money;
     uint32 Invisibility_type;
@@ -73,7 +73,7 @@ struct CreatureData
     }
 
     std::string lowercase_name;
-    list<AI_Spell*> spells;
+    std::list<AI_Spell*> spells;
 };
 #pragma pack(PRAGMA_POP)
 

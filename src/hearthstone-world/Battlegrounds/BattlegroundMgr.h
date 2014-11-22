@@ -125,7 +125,7 @@ static inline uint32 GetLevelGrouping(uint32 level)
 class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>, public EventableObject
 {
     /* Battleground Instance Map */
-    map<uint32, CBattleground* > m_instances[BATTLEGROUND_NUM_TYPES];
+    std::map<uint32, CBattleground* > m_instances[BATTLEGROUND_NUM_TYPES];
     Mutex m_instanceLock;
 
     /* Max Id */
@@ -133,10 +133,10 @@ class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>,
 
     /* Queue System */
     // Instance Id -> list<Player guid> [ BattlegroundType ] (instance 0 - first available)
-    list<WoWGuid> m_queuedPlayers[BATTLEGROUND_NUM_TYPES][MAX_LEVEL_GROUP];
+    std::list<WoWGuid> m_queuedPlayers[BATTLEGROUND_NUM_TYPES][MAX_LEVEL_GROUP];
 
     // Instance Id -> list<Group id> [BattlegroundType][LevelGroup]
-    list<uint32> m_queuedGroups[BATTLEGROUND_NUM_TYPES];
+    std::list<uint32> m_queuedGroups[BATTLEGROUND_NUM_TYPES];
 
     // Last 10 players average wait time
     uint32 m_averageQueueTimes[BATTLEGROUND_NUM_TYPES][10];
@@ -184,10 +184,10 @@ public:
     int CreateArenaType(int type, Group * group1, Group * group2);
 
     /* Add player to bg team */
-    void AddPlayerToBgTeam(CBattleground* bg, deque<Player*  > *playerVec, uint32 i, uint32 j, int Team);
+    void AddPlayerToBgTeam(CBattleground* bg, std::deque<Player*  > *playerVec, uint32 i, uint32 j, int Team);
 
     /* Add player to bg */
-    void AddPlayerToBg(CBattleground* bg, deque<Player*  > *playerVec, uint32 i, uint32 j);
+    void AddPlayerToBg(CBattleground* bg, std::deque<Player*  > *playerVec, uint32 i, uint32 j);
 
     /* Add a group to an arena */
     void AddGroupToArena(CBattleground* bg, Group * group, int nteam);
@@ -225,14 +225,14 @@ public:
     friend class AVNode;
 
     /* Team->Player Map */
-    set<Player*  > m_players[2];
+    std::set<Player*  > m_players[2];
     void Lock() { m_mainLock.Acquire(); }
     void Unlock() { m_mainLock.Release(); }
     HEARTHSTONE_INLINE bool IsArena() { return (m_type >= BATTLEGROUND_ARENA_2V2 && m_type <= BATTLEGROUND_ARENA_5V5); }
 
 protected:
     /* PvP Log Data Map */
-    map<uint32, BGScore> m_pvpData;
+    std::map<uint32, BGScore> m_pvpData;
 
     /* Lock for all player data */
     Mutex m_mainLock;
@@ -241,7 +241,7 @@ protected:
     uint32 m_playerCountPerTeam;
 
     /* "pending" players */
-    set<uint32> m_pendPlayers[2];
+    std::set<WoWGuid> m_pendPlayers[2];
 
     /* starting time */
     uint32 m_startTime;
@@ -256,7 +256,7 @@ protected:
     uint8 m_losingteam;
 
     /* resurrect queue */
-    map<Creature*, set<WoWGuid> > m_resurrectMap;
+    std::map<Creature*, std::set<WoWGuid> > m_resurrectMap;
     uint32 m_lastResurrect;
 
     bool m_isWeekend;

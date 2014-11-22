@@ -26,7 +26,7 @@ class SERVER_DECL WorldStateManager
         uint32 Value;
     };
 
-    typedef map<uint32, WorldState> WorldStateMap;
+    typedef std::map<uint32, WorldState> WorldStateMap;
 
     // storing world state variables
     WorldStateMap m_states;
@@ -83,9 +83,8 @@ struct WorldStateTemplate
 
 class WorldStateTemplateManager : public Singleton<WorldStateTemplateManager>
 {
-    typedef list<WorldStateTemplate> WorldStateTemplateList;
-    WorldStateTemplateList m_templatesForMaps[NUM_MAPS];
-    WorldStateTemplateList m_general;
+    typedef std::list<WorldStateTemplate> WorldStateTemplateList;
+    WorldStateTemplateList m_templatesForMaps[NUM_MAPS], m_general;
 public:
     // loads predefined fields from database
     void LoadFromDB(int32 mapid = -1);

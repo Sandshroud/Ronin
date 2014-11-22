@@ -28,7 +28,7 @@ void AccountMgr::ReloadAccounts(bool silent)
             AccountName = field[1].GetString();
 
             // transform to uppercase
-            HEARTHSTONE_TOUPPER(AccountName);
+            RONIN_UTIL::TOUPPER(AccountName);
 
             //Use private __GetAccount, for locks
             acct = __GetAccount(AccountName);
@@ -51,14 +51,7 @@ void AccountMgr::ReloadAccounts(bool silent)
     }
 
     // check for any purged/deleted accounts
-#ifdef WIN32
-    HM_NAMESPACE::hash_map<std::string, Account*>::iterator itr = AccountDatabase.begin();
-    HM_NAMESPACE::hash_map<std::string, Account*>::iterator it2;
-#else
-    std::map<string, Account*>::iterator itr = AccountDatabase.begin();
-    std::map<string, Account*>::iterator it2;
-#endif
-
+    RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.begin(), it2;
     for(; itr != AccountDatabase.end();)
     {
         it2 = itr;
@@ -124,8 +117,8 @@ void AccountMgr::AddAccount(Field* field)
         sLogonSQL->Execute("UPDATE accounts SET muted = 0 WHERE acct=%u",acct->AccountId);
     }
     // Convert username/password to uppercase. this is needed ;)
-    HEARTHSTONE_TOUPPER(Username);
-    HEARTHSTONE_TOUPPER(Password);
+    RONIN_UTIL::TOUPPER(Username);
+    RONIN_UTIL::TOUPPER(Password);
     
     if( m_encryptedPasswords )
     {
@@ -154,12 +147,12 @@ void AccountMgr::AddAccount(Field* field)
                     memcpy(acct->SrpHash, bn.AsByteArray(), bn.GetNumBytes());
                     for (int n=bn.GetNumBytes(); n<=19; n++)
                         acct->SrpHash[n] = (uint8)0;
-                    reverse_array(acct->SrpHash, 20);
+                    RONIN_UTIL::reverse_array(acct->SrpHash, 20);
                 }
                 else
                 {
                     memcpy(acct->SrpHash, bn.AsByteArray(), 20);
-                    reverse_array(acct->SrpHash, 20);
+                    RONIN_UTIL::reverse_array(acct->SrpHash, 20);
                 }
             }
         }
@@ -223,8 +216,8 @@ void AccountMgr::UpdateAccount(Account * acct, Field * field)
     }
 
     // Convert username/password to uppercase. this is needed ;)
-    HEARTHSTONE_TOUPPER(Username);
-    HEARTHSTONE_TOUPPER(Password);
+    RONIN_UTIL::TOUPPER(Username);
+    RONIN_UTIL::TOUPPER(Password);
 
     if( m_encryptedPasswords )
     {
@@ -253,12 +246,12 @@ void AccountMgr::UpdateAccount(Account * acct, Field * field)
                     memcpy(acct->SrpHash, bn.AsByteArray(), bn.GetNumBytes());
                     for (int n=bn.GetNumBytes(); n<=19; n++)
                         acct->SrpHash[n] = (uint8)0;
-                    reverse_array(acct->SrpHash, 20);
+                    RONIN_UTIL::reverse_array(acct->SrpHash, 20);
                 }
                 else
                 {
                     memcpy(acct->SrpHash, bn.AsByteArray(), 20);
-                    reverse_array(acct->SrpHash, 20);
+                    RONIN_UTIL::reverse_array(acct->SrpHash, 20);
                 }
             }
         }
@@ -286,7 +279,7 @@ BAN_STATUS IPBanner::CalculateBanStatus(in_addr ip_address)
         itr = itr2;
         ++itr2;
 
-        if( ParseCIDRBan(ip_address.s_addr, itr->Mask, itr->Bytes) )
+        if( RONIN_UTIL::ParseCIDRBan(ip_address.s_addr, itr->Mask, itr->Bytes) )
         {
             // ban hit
             if( itr->Expire == 0 )
@@ -314,11 +307,8 @@ bool IPBanner::Add(const char * ip, uint32 dur)
     if( i == std::string::npos )
         return false;
 
-    std::string stmp = sip.substr(0, i);
-    std::string smask = sip.substr(i+1);
-
-    unsigned int ipraw = MakeIP(stmp.c_str());
-    unsigned int ipmask = atoi(smask.c_str());
+    std::string stmp = sip.substr(0, i), smask = sip.substr(i+1);
+    uint ipraw = RONIN_UTIL::MakeIP(stmp.c_str()), ipmask = atoi(smask.c_str());
     if( ipraw == 0 || ipmask == 0 )
         return false;
 
@@ -372,7 +362,7 @@ void IPBanner::Reload()
             else
                 smask = ip.substr(i+1);
 
-            unsigned int ipraw = MakeIP(stmp.c_str());
+            unsigned int ipraw = RONIN_UTIL::MakeIP(stmp.c_str());
             unsigned int ipmask = atoi(smask.c_str());
             if( ipraw == 0 || ipmask == 0 )
             {
@@ -493,7 +483,7 @@ void InformationCore::SendRealms(AuthSocket * Socket)
 {
     Realm* realm = NULL;
     realmLock.Acquire();
-    HM_NAMESPACE::hash_map<uint32, uint8>::iterator it;
+    RONIN_UNORDERED_MAP<uint32, uint8>::iterator it;
     std::map<uint32, Realm*>::iterator itr = m_realms.begin();
     if(Socket->GetBuild() <= 6005) // PreBC
     {

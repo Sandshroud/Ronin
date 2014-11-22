@@ -9,8 +9,8 @@
 class DummyLock
 {
 public:
-    HEARTHSTONE_INLINE void Acquire() { }
-    HEARTHSTONE_INLINE void Release() { }
+    RONIN_INLINE void Acquire() { }
+    RONIN_INLINE void Release() { }
 };
 
 /** linked-list style queue

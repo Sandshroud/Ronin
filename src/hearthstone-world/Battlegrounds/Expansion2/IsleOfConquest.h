@@ -80,7 +80,7 @@ public:
     GameObject* m_ioccontrolPointAuras[IOC_NUM_CONTROL_POINTS];
 
 protected:
-    list< GameObject* > m_gates;
+    std::list< GameObject* > m_gates;
     uint32 m_reinforcements[2];
     bool m_nearingVictory[2];
     bool m_LiveCaptain[2];

@@ -5834,7 +5834,7 @@ void Player::ClearInRangeSet()
         }
     }
     m_inRangePlayers.clear();
-    for( WorldObject::InRangeUnitSet::iterator itr = m_oppFactsInRange.begin(); itr != m_oppFactsInRange.end();)
+    for( WorldObject::InRangeUnitSet::iterator itr = GetInRangeOppFactsSetBegin(); itr != GetInRangeOppFactsSetEnd();)
     {
         pObj = (*itr);
         ++itr;
@@ -8046,7 +8046,7 @@ const double BaseRating []= {
 float Player::CalcPercentForRating( uint32 index, uint32 rating )
 {
     uint32 relative_index = index - (PLAYER_FIELD_COMBAT_RATING_1);
-    uint32 reallevel = m_uint32Values[UNIT_FIELD_LEVEL];
+    uint32 reallevel = GetUInt32Value(UNIT_FIELD_LEVEL);
     uint32 level = reallevel > MAXIMUM_ATTAINABLE_LEVEL ? MAXIMUM_ATTAINABLE_LEVEL : reallevel;
     gtFloat * pDBCEntry = dbcCombatRating.LookupEntry( relative_index * 100 + level - 1 );
     float val = 1.0f;

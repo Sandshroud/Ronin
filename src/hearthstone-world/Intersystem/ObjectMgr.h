@@ -111,8 +111,8 @@ struct GossipMenuItem
     uint8       Icon;
     bool        Coded;
     uint32      BoxMoney;
-    string      Text;
-    string      BoxMessage;
+    std::string Text;
+    std::string BoxMessage;
 };
 
 struct SpellEntry;
@@ -133,7 +133,7 @@ struct TrainerSpell
 struct Trainer
 {
     uint32 SpellCount;
-    vector<TrainerSpell> Spells;
+    std::vector<TrainerSpell> Spells;
     char*   UIMessage;
     uint32 RequiredSkill;
     uint32 RequiredSkillLine;
@@ -167,13 +167,13 @@ struct InstanceReputationMod
 struct ReputationModifier
 {
     uint32 entry;
-    vector<ReputationMod> mods;
+    std::vector<ReputationMod> mods;
 };
 
 struct InstanceReputationModifier
 {
     uint32 mapid;
-    vector<InstanceReputationMod> mods;
+    std::vector<InstanceReputationMod> mods;
 };
 
 struct NpcMonsterSay
@@ -263,7 +263,7 @@ protected:
 };
 
 typedef std::map<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
-typedef HM_NAMESPACE::hash_map<uint64, Player*>                    PlayerStorageMap;
+typedef RONIN_UNORDERED_MAP<uint64, Player*>                    PlayerStorageMap;
 
 #ifndef WIN32
 #ifndef TRHAX
@@ -283,7 +283,7 @@ namespace __gnu_cxx
 #endif
 #endif
 // vc++ has the type for a string hash already, so we don't need to do anything special
-typedef HM_NAMESPACE::hash_map<string, PlayerInfo*> PlayerNameStringIndexMap;
+typedef RONIN_UNORDERED_MAP<std::string, PlayerInfo*> PlayerNameStringIndexMap;
 
 typedef std::map<uint32, uint32> PetLevelupSpellSet;
 typedef std::map<uint32, PetLevelupSpellSet> PetLevelupSpellMap;
@@ -310,18 +310,18 @@ public:
     typedef std::set<RecallLocation*>                                           RecallSet;
 
     // HashMap typedef's
-    typedef HM_NAMESPACE::hash_map<uint64, Item* >                              ItemMap;
-    typedef HM_NAMESPACE::hash_map<uint32, CorpseData*>                         CorpseCollectorMap;
-    typedef HM_NAMESPACE::hash_map<uint32, PlayerInfo*>                         PlayerNameMap;
-    typedef HM_NAMESPACE::hash_map<uint32, PlayerCreateInfo*>                   PlayerCreateInfoMap;
-    typedef HM_NAMESPACE::hash_map<uint32, SkillLineSpell*>                     SLMap;
-    typedef HM_NAMESPACE::hash_map<uint32, std::map<uint32, CreatureItem>* >    VendorMap;
-    typedef HM_NAMESPACE::hash_map<uint32, Transporter* >                       TransportMap;
-    typedef HM_NAMESPACE::hash_map<uint32, Trainer*>                            TrainerMap;
-    typedef HM_NAMESPACE::hash_map<uint32, std::vector<TrainerSpell*> >         TrainerSpellMap;
-    typedef HM_NAMESPACE::hash_map<uint32, ReputationModifier*>                 ReputationModMap;
-    typedef HM_NAMESPACE::hash_map<uint32, Corpse* >                            CorpseMap;
-    typedef HM_NAMESPACE::hash_map<uint32, Group*>                              GroupMap;
+    typedef RONIN_UNORDERED_MAP<uint64, Item* >                              ItemMap;
+    typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                         CorpseCollectorMap;
+    typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                         PlayerNameMap;
+    typedef RONIN_UNORDERED_MAP<uint32, PlayerCreateInfo*>                   PlayerCreateInfoMap;
+    typedef RONIN_UNORDERED_MAP<uint32, SkillLineSpell*>                     SLMap;
+    typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >    VendorMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                       TransportMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Trainer*>                            TrainerMap;
+    typedef RONIN_UNORDERED_MAP<uint32, std::vector<TrainerSpell*> >         TrainerSpellMap;
+    typedef RONIN_UNORDERED_MAP<uint32, ReputationModifier*>                 ReputationModMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Corpse* >                            CorpseMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Group*>                              GroupMap;
 
     // Map typedef's
     typedef std::map<uint32, std::list<ItemPrototype*>* >                       ItemSetContentMap;
@@ -370,7 +370,7 @@ public:
     void AddGroup(Group* group)
     {
         m_groupLock.AcquireWriteLock();
-        m_groups.insert(make_pair(group->GetID(), group));
+        m_groups.insert(std::make_pair(group->GetID(), group));
         m_groupLock.ReleaseWriteLock();
     }
 
@@ -396,14 +396,14 @@ public:
     void LoadAchievements();
 
     // Gameobject Stuff
-    std::map<uint32, set<uint32> > GameObjectInvolvedQuestIds;
-    void AddInvolvedQuestIds(uint32 entry, set<uint32> set) { GameObjectInvolvedQuestIds.insert(make_pair(entry, set)); };
-    void RemoveInvolvedQuestIds(uint32 entry) { std::map<uint32, set<uint32> >::iterator itr = GameObjectInvolvedQuestIds.find(entry); if(itr != GameObjectInvolvedQuestIds.end()) GameObjectInvolvedQuestIds.erase(itr); };
-    set<uint32>* GetInvolvedQuestIds(uint32 entry)
+    std::map<uint32, std::set<uint32> > GameObjectInvolvedQuestIds;
+    void AddInvolvedQuestIds(uint32 entry, std::set<uint32> set) { GameObjectInvolvedQuestIds.insert(std::make_pair(entry, set)); };
+    void RemoveInvolvedQuestIds(uint32 entry) { std::map<uint32, std::set<uint32> >::iterator itr = GameObjectInvolvedQuestIds.find(entry); if(itr != GameObjectInvolvedQuestIds.end()) GameObjectInvolvedQuestIds.erase(itr); };
+    std::set<uint32>* GetInvolvedQuestIds(uint32 entry)
     {
         if(GameObjectInvolvedQuestIds.size())
         {
-            std::map<uint32, set<uint32> >::iterator itr = GameObjectInvolvedQuestIds.find(entry);
+            std::map<uint32, std::set<uint32> >::iterator itr = GameObjectInvolvedQuestIds.find(entry);
             if(itr != GameObjectInvolvedQuestIds.end())
                 return &itr->second;
         }
@@ -524,20 +524,20 @@ public:
     Transporter* GetTransporter(uint32 guid);
     Transporter* GetTransporterByEntry(uint32 entry);
 
-    ArenaTeam * GetArenaTeamByName(string & name, uint32 Type);
+    ArenaTeam * GetArenaTeamByName(std::string & name, uint32 Type);
     ArenaTeam * GetArenaTeamById(uint32 id);
     void UpdateArenaTeamRankings();
     void UpdateArenaTeamWeekly();
     void ResetDailies();
     void LoadArenaTeams();
-    HM_NAMESPACE::hash_map<uint32, ArenaTeam*> m_arenaTeamMap[3];
-    HM_NAMESPACE::hash_map<uint32, ArenaTeam*> m_arenaTeamPlayerMap[3];
-    HM_NAMESPACE::hash_map<uint32, ArenaTeam*> m_arenaTeams;
+    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeamMap[3];
+    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeamPlayerMap[3];
+    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeams;
     void RemoveArenaTeam(ArenaTeam * team);
     void AddArenaTeam(ArenaTeam * team);
     Mutex m_arenaTeamLock;
 
-    typedef HM_NAMESPACE::hash_map<uint32, NpcMonsterSay*> MonsterSayMap;
+    typedef RONIN_UNORDERED_MAP<uint32, NpcMonsterSay*> MonsterSayMap;
     MonsterSayMap mMonsterSays[NUM_MONSTER_SAY_EVENTS];
 
     void HandleMonsterSayEvent(Creature* pCreature, MONSTER_SAY_EVENTS Event);
@@ -557,7 +557,7 @@ public:
     void LoadDisabledSpells();
     void ReloadDisabledSpells();
     std::set<ProfessionDiscovery*> ProfessionDiscoveryTable;
-    map<uint32, uint32> ItemsInSets;
+    std::map<uint32, uint32> ItemsInSets;
 
     void HashWMOAreaTables();
     WMOAreaTableEntry* GetWMOAreaTable(int32 adtid, int32 rootid, int32 groupid);
@@ -583,15 +583,15 @@ protected:
 
     ReputationModMap m_reputation_faction;
     ReputationModMap m_reputation_creature;
-    HM_NAMESPACE::hash_map<uint32, InstanceReputationModifier*> m_reputation_instance;
+    RONIN_UNORDERED_MAP<uint32, InstanceReputationModifier*> m_reputation_instance;
 
-    set<uint32> m_disabled_spells;
+    std::set<uint32> m_disabled_spells;
 
     uint64 TransportersCount;
-    HM_NAMESPACE::hash_map<WoWGuid,PlayerInfo*> m_playersinfo;
+    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
 
-    HM_NAMESPACE::hash_map<uint32,WayPointMap*> m_waypoints;//stored by spawnid
+    RONIN_UNORDERED_MAP<uint32,WayPointMap*> m_waypoints;//stored by spawnid
     uint32 m_hiCreatureSpawnId;
 
     Mutex m_CreatureSpawnIdMutex;

@@ -1465,13 +1465,6 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
         // delete item from database, so we can't cheat
         pItem->DeleteFromDB();
         lootmgr.FillItemLoot(pItem->GetLoot(), pItem->GetEntry(), _player->GetTeam());
-
-        /*if(pItem->GetProto()->Lootgold > 0) // Gold can be looted from items. http://www.wowhead.com/?item=45724
-            pItem->m_loot.gold = pItem->GetProto()->Lootgold;*/
-
-        if(pItem->GetLoot()->gold)
-            pItem->GetLoot()->gold = int32(float(pItem->GetLoot()->gold) * sWorld.getRate(RATE_MONEY));
-
         pItem->SetLooted();
     }
 

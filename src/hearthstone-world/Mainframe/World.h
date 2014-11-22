@@ -250,7 +250,7 @@ struct insert_playeritem
     uint32 durability;
     int32 containerslot;
     int32 slot;
-    string enchantments;
+    std::string enchantments;
 };
 
 struct insert_playerskill
@@ -339,7 +339,7 @@ public:
 
 class TaskList
 {
-    set<Task*> tasks;
+    std::set<Task*> tasks;
     Mutex queueLock;
 public:
     Task * GetTask();
@@ -396,7 +396,7 @@ class WorldSocket;
 
 // Slow for remove in middle, oh well, wont get done much.
 typedef std::list<WorldSocket*> QueueSet;
-typedef set<WorldSession*> SessionSet;
+typedef std::set<WorldSession*> SessionSet;
 
 #define MAXIMUM_CEXPANSION_LEVEL 85 // Current expansion's max level
 #define MAXIMUM_ATTAINABLE_LEVEL 100 // Crow: Lets use 100, since its the highest the DBCs will support
@@ -485,10 +485,10 @@ public:
 
     struct NameGenData
     {
-        string name;
+        std::string name;
         uint32 type;
     };
-    vector<NameGenData> _namegendata[3];
+    std::vector<NameGenData> _namegendata[3];
     void LoadNameGenData();
     std::string GenerateName(uint32 type = 0);
 
@@ -501,8 +501,8 @@ public:
     BigNumber authSeed1, authSeed2;
 
     Mutex queueMutex;
-    string LuaScriptPath, GameMonkeyScriptPath;
-    string DBCPath, MapPath, vMapPath, MMapPath;
+    std::string LuaScriptPath, GameMonkeyScriptPath;
+    std::string DBCPath, MapPath, vMapPath, MMapPath;
     bool AHEnabled, DisableBufferSaving;
     bool Collision, PathFinding, CalculatedHeightChecks;
     bool LogCheaters, LogCommands, LogPlayers, bLogChat;
@@ -605,10 +605,10 @@ public:
 
     void BackupDB();
 
-    void LogGM(WorldSession* session, string message, ...);
-    void LogCheater(WorldSession* session, string message, ...);
-    void LogPlayer(WorldSession* session, string message, ...);
-    void LogChat(WorldSession* session, string message, ...);
+    void LogGM(WorldSession* session, std::string message, ...);
+    void LogCheater(WorldSession* session, std::string message, ...);
+    void LogPlayer(WorldSession* session, std::string message, ...);
+    void LogChat(WorldSession* session, std::string message, ...);
 
 protected:
     // update Stuff, FIXME: use diff
@@ -629,11 +629,11 @@ protected:
 
 private:
     //! Timers
-    typedef HM_NAMESPACE::hash_map<uint32, WorldSession*> SessionMap;
+    typedef RONIN_UNORDERED_MAP<uint32, WorldSession*> SessionMap;
     SessionMap m_sessions;
     RWLock m_sessionlock;
 
-    typedef HM_NAMESPACE::hash_map<uint32, AreaTrigger*> AreaTriggerMap;
+    typedef RONIN_UNORDERED_MAP<uint32, AreaTrigger*> AreaTriggerMap;
     AreaTriggerMap m_AreaTrigger;
 
 protected:
@@ -658,7 +658,7 @@ public:
 
     std::string GmClientChannel;
     bool m_reqGmForCommands;
-    list<SpellEntry*> dummyspells;
+    std::list<SpellEntry*> dummyspells;
     bool m_limitedNames;
     bool m_useAccountData;
     bool m_blockgmachievements;

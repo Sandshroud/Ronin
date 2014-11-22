@@ -490,7 +490,7 @@ void StrandOfTheAncients::PrepareRound()
         Attackers = RandomUInt(2)-1;
         PrepareRound();
     }
-};
+}
 
 void StrandOfTheAncients::TimeTick()
 {
@@ -504,7 +504,7 @@ void StrandOfTheAncients::TimeTick()
             PlaySoundToAll( 8212 );
             for(uint8 i = 0; i < 2; i++)
             {
-                for(set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+                for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
                 {
                     if((pPlayer = (*itr)) != NULL)
                     {
@@ -545,7 +545,7 @@ void StrandOfTheAncients::TimeTick()
             EndGame();
         }
     }
-};
+}
 
 void StrandOfTheAncients::EndGame()
 {
@@ -567,7 +567,7 @@ void StrandOfTheAncients::EndGame()
     SpellEntry * loser_spell = dbcSpell.LookupEntry(61159);
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->Root();
 
@@ -602,4 +602,4 @@ void StrandOfTheAncients::EndGame()
 
     UpdatePvPData();
     m_mainLock.Release();
-};
+}

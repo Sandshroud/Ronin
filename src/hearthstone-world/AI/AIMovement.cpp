@@ -157,7 +157,7 @@ void AI_Movement::Update(uint32 p_time)
 
                     Player *update = NULL;
                     uint32 ms_Timer = getMSTime();
-                    std::map<uint32, uint32>::iterator plritr, plritr2;
+                    std::map<WoWGuid, uint32>::iterator plritr, plritr2;
                     for(plritr = CurrentMoveRequired.begin();  plritr != CurrentMoveRequired.end();)
                     {
                         plritr2 = plritr++;

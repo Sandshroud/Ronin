@@ -71,7 +71,7 @@ private:
     uint32 _absorb, _weapon_damage_type;
 };
 
-typedef set<uint32> AreaAuraList;
+typedef std::set<uint32> AreaAuraList;
 
 class SERVER_DECL Aura : public EventableObject
 {

@@ -4,8 +4,6 @@
 
 #pragma once
 
-using namespace std;
-
 enum QUEST_STATUS
 {
     QMGR_QUEST_NOT_AVAILABLE        = 0x00,  // There aren't quests avaiable.                | "No Mark"

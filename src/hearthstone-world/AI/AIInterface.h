@@ -103,7 +103,7 @@ public:
     float m_FleeHealth;
     uint32 m_FleeDuration;
     int sendflee_message;
-    string flee_message;
+    std::string flee_message;
 
     uint32 m_totemSpellTimer, m_totemSpellTime;
     SpellEntry * m_totemSpell;
@@ -114,7 +114,7 @@ public:
     void WipeReferences();
     HEARTHSTONE_INLINE void SetPetOwner(Unit* owner) { m_PetOwner = owner; }
 
-    map<uint32, AI_Spell*> m_spells;
+    std::map<uint32, AI_Spell*> m_spells;
 
     bool disable_combat;
 
@@ -130,9 +130,9 @@ public:
     AI_Spell* m_CastNext;
 
     Unit *GetTargetForSpell(AI_Spell* pSpell);
-    Unit *GetNearestTargetInSet(set<Unit*> pTargetSet);
-    Unit *GetSecondMostHatedTargetInSet(set<Unit*> pTargetSet );
-    Unit *ChooseBestTargetInSet(set<Unit*> pTargetSet, uint32 pTargetFilter);
+    Unit *GetNearestTargetInSet(std::set<Unit*> pTargetSet);
+    Unit *GetSecondMostHatedTargetInSet(std::set<Unit*> pTargetSet );
+    Unit *ChooseBestTargetInSet(std::set<Unit*> pTargetSet, uint32 pTargetFilter);
     Unit *GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange);
     Unit *GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange);
 

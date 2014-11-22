@@ -462,7 +462,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         // this control point just got taken over by someone! oh noes!
         if( m_spiritGuides[Id] != NULL )
         {
-            std::map<Creature*, set<WoWGuid> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
+            std::map<Creature*, std::set<WoWGuid> >::iterator itr = m_resurrectMap.find(m_spiritGuides[Id]);
             if( itr != m_resurrectMap.end() )
             {
                 for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )

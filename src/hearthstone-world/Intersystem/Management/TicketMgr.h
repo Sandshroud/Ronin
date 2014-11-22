@@ -21,10 +21,10 @@ enum
 
 struct GM_Ticket
 {
-    GM_Ticket(uint64 _guid) : guid(_guid) {};
+    GM_Ticket(WoWGuid _guid) : guid(_guid) {};
 
-    uint64 guid;
-    uint64 playerGuid;
+    WoWGuid guid;
+    WoWGuid playerGuid;
     std::string name;
     uint32 level;
     uint32 map;
@@ -34,7 +34,7 @@ struct GM_Ticket
     std::string message;
     uint32 timestamp;
     bool deleted;
-    uint64 assignedToPlayer;
+    WoWGuid assignedToPlayer;
     std::string comment;
 };
 

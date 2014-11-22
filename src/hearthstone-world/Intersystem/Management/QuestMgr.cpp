@@ -12,10 +12,10 @@ QuestMgr::QuestMgr()
 QuestMgr::~QuestMgr()
 {
     QuestStorageMap::iterator MapQuestIterator;
-    HM_NAMESPACE::hash_map<uint32, Quest*>::iterator itr1;
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >::iterator itr2;
+    RONIN_UNORDERED_MAP<uint32, Quest*>::iterator itr1;
+    RONIN_UNORDERED_MAP<uint32, list<QuestRelation *>* >::iterator itr2;
     list<QuestRelation*>::iterator itr3;
-    HM_NAMESPACE::hash_map<uint32, list<QuestAssociation *>* >::iterator itr4;
+    RONIN_UNORDERED_MAP<uint32, list<QuestAssociation *>* >::iterator itr4;
     std::list<QuestAssociation*>::iterator itr5;
     std::list<uint32>::iterator itr6;
 
@@ -1621,28 +1621,28 @@ void QuestMgr::LoadGOQuests(GameObject* go)
 
 QuestRelationList* QuestMgr::GetGOQuestList(uint32 entryid)
 {
-    HM_NAMESPACE::hash_map<uint32, QuestRelationList* > &olist = _GetList<GameObject>();
-    HM_NAMESPACE::hash_map<uint32, QuestRelationList* >::iterator itr = olist.find(entryid);
+    RONIN_UNORDERED_MAP<uint32, QuestRelationList* > &olist = _GetList<GameObject>();
+    RONIN_UNORDERED_MAP<uint32, QuestRelationList* >::iterator itr = olist.find(entryid);
     return (itr == olist.end()) ? 0 : itr->second;
 }
 
 QuestRelationList* QuestMgr::GetCreatureQuestList(uint32 entryid)
 {
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > &olist = _GetList<Creature>();
-    HM_NAMESPACE::hash_map<uint32, QuestRelationList* >::iterator itr = olist.find(entryid);
+    RONIN_UNORDERED_MAP<uint32, list<QuestRelation *>* > &olist = _GetList<Creature>();
+    RONIN_UNORDERED_MAP<uint32, QuestRelationList* >::iterator itr = olist.find(entryid);
     return (itr == olist.end()) ? 0 : itr->second;
 }
 
 QuestAssociationList* QuestMgr::GetQuestAssociationListForItemId (uint32 itemId)
 {
-    HM_NAMESPACE::hash_map<uint32, QuestAssociationList* > &associationList = GetQuestAssociationList();
-    HM_NAMESPACE::hash_map<uint32, QuestAssociationList* >::iterator itr = associationList.find( itemId );
+    RONIN_UNORDERED_MAP<uint32, QuestAssociationList* > &associationList = GetQuestAssociationList();
+    RONIN_UNORDERED_MAP<uint32, QuestAssociationList* >::iterator itr = associationList.find( itemId );
     return (itr != associationList.end()) ? itr->second : 0;
 }
 
 void QuestMgr::AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_count)
 {
-    HM_NAMESPACE::hash_map<uint32, list<QuestAssociation *>* > &associationList = GetQuestAssociationList();
+    RONIN_UNORDERED_MAP<uint32, list<QuestAssociation *>* > &associationList = GetQuestAssociationList();
     std::list<QuestAssociation *>* tempList;
     QuestAssociation *ptr = NULL;
 
@@ -1652,7 +1652,7 @@ void QuestMgr::AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_co
         // not found. Create a new entry and QuestAssociationList
         tempList = new std::list<QuestAssociation *>;
 
-        associationList.insert(HM_NAMESPACE::hash_map<uint32, list<QuestAssociation *>* >::value_type(itemId, tempList));
+        associationList.insert(RONIN_UNORDERED_MAP<uint32, list<QuestAssociation *>* >::value_type(itemId, tempList));
     }
     else
     {
@@ -1692,7 +1692,7 @@ void QuestMgr::AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_co
 
 template <class T> void QuestMgr::_AddQuest(uint32 entryid, Quest *qst, uint8 type)
 {
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > &olist = _GetList<T>();
+    RONIN_UNORDERED_MAP<uint32, list<QuestRelation *>* > &olist = _GetList<T>();
     std::list<QuestRelation *>* nlist;
     QuestRelation *ptr = NULL;
 
@@ -1700,7 +1700,7 @@ template <class T> void QuestMgr::_AddQuest(uint32 entryid, Quest *qst, uint8 ty
     {
         nlist = new std::list<QuestRelation *>;
 
-        olist.insert(HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >::value_type(entryid, nlist));
+        olist.insert(RONIN_UNORDERED_MAP<uint32, list<QuestRelation *>* >::value_type(entryid, nlist));
     }
     else
     {
@@ -1958,8 +1958,8 @@ void QuestMgr::LoadExtraQuestStuff()
 {
     QuestStorageMap::iterator it = QuestStorage.begin();
     Quest * qst;
-    map<uint32, set<uint32> > tmp_map;
-    map<uint32, vector<uint32> > loot_map;
+    std::map<uint32, std::set<uint32> > tmp_map;
+    std::map<uint32, std::vector<uint32> > loot_map;
 
     lootmgr.LoadLoot();
     lootmgr.FillObjectLootMap(&loot_map);
@@ -1973,10 +1973,10 @@ void QuestMgr::LoadExtraQuestStuff()
         {
             if(qst->required_item[j])
             {
-                map<uint32, vector<uint32> >::iterator tt = loot_map.find(qst->required_item[j]);
+                std::map<uint32, std::vector<uint32> >::iterator tt = loot_map.find(qst->required_item[j]);
                 if( tt != loot_map.end() )
                 {
-                    vector<uint32>::iterator tt2 = tt->second.begin();
+                    std::vector<uint32>::iterator tt2 = tt->second.begin();
                     for( ; tt2 != tt->second.end(); ++tt2 )
                     {
                         // this only applies if the only items under the loot template are quest items
@@ -2009,7 +2009,7 @@ void QuestMgr::LoadExtraQuestStuff()
         it++;
     }
 
-    for(map<uint32, set<uint32> >::iterator itr = tmp_map.begin(); itr != tmp_map.end(); itr++)
+    for(std::map<uint32, std::set<uint32> >::iterator itr = tmp_map.begin(); itr != tmp_map.end(); itr++)
     {
         GameObjectInfo *inf = GameObjectNameStorage.LookupEntry(itr->first);
         if( inf == NULL )

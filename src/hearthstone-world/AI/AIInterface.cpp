@@ -57,7 +57,7 @@ AIInterface::AIInterface()
 AIInterface::~AIInterface()
 {
     MovementHandler.DeInitialize();
-    for(map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
+    for(std::map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
         delete itr->second;
 
     m_spells.clear();
@@ -241,7 +241,7 @@ void AIInterface::AttackReaction(Unit* pUnit, uint32 damage_dealt, uint32 spellI
 
     if(pUnit->IsVehicle())
     {
-        uint32 count = TO_VEHICLE(pUnit)->GetPassengerCount();
+        uint32 count = castPtr<Vehicle>(pUnit)->GetPassengerCount();
         if(!count) // No players.
             return;
     }
@@ -295,7 +295,7 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
         if(sFactionSystem.CanEitherUnitAttack(m_Unit, caster))
         {
             ai_TargetLock.Acquire();
-            m_aiTargets.insert(make_pair(caster->GetGUID(), amount));
+            m_aiTargets.insert(std::make_pair(caster->GetGUID(), amount));
             ai_TargetLock.Release();
             return true;
         }
@@ -320,7 +320,7 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
                 if( sFactionSystem.CanEitherUnitAttack( m_Unit, victim ) )
                 {
                     ai_TargetLock.Acquire();
-                    m_aiTargets.insert( make_pair( victim->GetGUID(), 1 ) );
+                    m_aiTargets.insert(std::make_pair( victim->GetGUID(), 1 ) );
                     ai_TargetLock.Release();
                     return true;
                 }
@@ -360,7 +360,7 @@ bool AIInterface::FindFriends(float dist)
 
     Unit* pUnit = NULL;
     bool result = false;
-    for(unordered_set<WorldObject* >::iterator itr = m_Unit->GetInRangeSetBegin(); itr != m_Unit->GetInRangeSetEnd(); itr++)
+    for(std::unordered_set<WorldObject* >::iterator itr = m_Unit->GetInRangeSetBegin(); itr != m_Unit->GetInRangeSetEnd(); itr++)
     {
         if((*itr) == NULL || !(*itr)->IsInWorld() || (*itr)->GetTypeId() != TYPEID_UNIT)
             continue;
@@ -385,7 +385,8 @@ bool AIInterface::FindFriends(float dist)
                 ai_TargetLock.Acquire();
                 TargetMap::iterator it, it2;
                 for(TargetMap::iterator it = m_aiTargets.begin(), it2; it != m_aiTargets.end();)
-                    castPtr<Unit>(*itr)->GetAIInterface()->AttackReaction( (it2 = it++)->first, 1, 0 );
+                    if(Unit *unit = m_Unit->GetMapMgr()->GetUnit((it2 = it++)->first))
+                        castPtr<Unit>(*itr)->GetAIInterface()->AttackReaction( unit, 1, 0 );
                 ai_TargetLock.Release();
                 break;
             }
@@ -430,7 +431,7 @@ void AIInterface::ResetProcCounts(bool all)
     uint32 time = getMSTime();
     if(m_spells.size())
     {
-        for(map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
+        for(std::map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
         {
             if(!itr->second->ProcLimit)
                 continue;
@@ -479,7 +480,7 @@ void AIInterface::CallGuards()
         m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, team ? LANG_ORCISH : LANG_COMMON, "Guards!");
 
         uint8 spawned = 0;
-        unordered_set<Player*>::iterator hostileItr = m_Unit->GetInRangePlayerSetBegin();
+        std::unordered_set<Player*>::iterator hostileItr = m_Unit->GetInRangePlayerSetBegin();
         for(; hostileItr != m_Unit->GetInRangePlayerSetEnd(); ++hostileItr)
         {
             if(spawned >= 3)
@@ -613,8 +614,11 @@ bool isTargetDummy(uint32 id)
 
 void AIInterface::WipeCurrentTarget()
 {
-    TargetMap::iterator itr = m_aiTargets.find( m_nextTarget );
-    if( itr != m_aiTargets.end() )
+    if(m_nextTarget == NULL)
+        return;
+
+    TargetMap::iterator itr;
+    if( (itr = m_aiTargets.find(m_nextTarget->GetGUID())) != m_aiTargets.end() )
         m_aiTargets.erase( itr );
 
     ClearFollowInformation(m_nextTarget);

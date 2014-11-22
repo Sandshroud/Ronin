@@ -7,63 +7,48 @@
 SERVER_DECL time_t UNIXTIME;
 SERVER_DECL tm g_localTime;
 
-std::vector<std::string> StrSplit(const std::string &src, const std::string &sep)
+std::vector<std::string> RONIN_UTIL::StrSplit(const std::string &src, const std::string &sep)
 {
-    std::vector<std::string> r;
     std::string s;
-    for (std::string::const_iterator i = src.begin(); i != src.end(); i++) {
-        if (sep.find(*i) != std::string::npos) {
-            if (s.length()) r.push_back(s);
+    std::vector<std::string> r;
+    for (std::string::const_iterator i = src.begin(); i != src.end(); i++)
+    {
+        if (sep.find(*i) != std::string::npos)
+        {
+            if (s.length())
+                r.push_back(s);
             s = "";
-        } else {
-            s += *i;
-        }
+        } else s += *i;
     }
-    if (s.length()) r.push_back(s);
+    if (s.length())
+        r.push_back(s);
     return r;
 }
 
-time_t convTimePeriod ( uint32 dLength, char dType )
+time_t RONIN_UTIL::convTimePeriod ( uint32 dLength, char dType )
 {
     time_t rawtime = 0;
     if (dLength == 0)
         return rawtime;
 
-    struct tm * ti = localtime( &rawtime );
+    struct tm *ti = localtime( &rawtime );
     switch(dType)
     {
-        case 'h':       // hours
-            ti->tm_hour += dLength;
-            break;
-        case 'd':       // days
-            ti->tm_mday += dLength;
-            break;
-        case 'w':       // weeks
-            ti->tm_mday += 7 * dLength;
-            break;
-        case 'm':       // months
-            ti->tm_mon += dLength;
-            break;
-        case 'y':       // years
-            // are leap years considered ? do we care ?
-            ti->tm_year += dLength;
-            break;
-        default:        // minutes
-            ti->tm_min += dLength;
-            break;
+    case 'h': ti->tm_hour += dLength; break;
+    case 'd': ti->tm_mday += dLength; break;
+    case 'w': ti->tm_mday += 7 * dLength; break;
+    case 'm': ti->tm_mon += dLength; break;
+    case 'y': ti->tm_year += dLength; break;
+    default: ti->tm_min += dLength; break;
     }
     return mktime(ti);
 }
 
-int32 GetTimePeriodFromString(const char * str)
+int32 RONIN_UTIL::GetTimePeriodFromString(const char * str)
 {
-    uint32 time_to_ban = 0;
-    char * p = (char*)str;
-    uint32 multiplier;
-    std::string number_temp;
-    uint32 multipliee;
-    number_temp.reserve(10);
-
+    char *p = (char*)str;
+    std::string number_temp; number_temp.reserve(10);
+    uint32 time_to_ban = 0, multiplier, multipliee;
     while(*p != 0)
     {
         // always starts with a number.
@@ -84,25 +69,11 @@ int32 GetTimePeriodFromString(const char * str)
         // check the type
         switch(tolower(*p))
         {
-        case 'y':
-            multiplier = TIME_YEAR;     // eek!
-            break;
-
-        case 'm':
-            multiplier = TIME_MONTH;
-            break;
-
-        case 'd':
-            multiplier = TIME_DAY;
-            break;
-
-        case 'h':
-            multiplier = TIME_HOUR;
-            break;
-
-        default:
-            return -1;
-            break;
+        case 'y': multiplier = TIME_YEAR; break;
+        case 'm': multiplier = TIME_MONTH; break;
+        case 'd': multiplier = TIME_DAY; break;
+        case 'h': multiplier = TIME_HOUR; break;
+        default: return -1; break;
         }
 
         ++p;
@@ -113,160 +84,125 @@ int32 GetTimePeriodFromString(const char * str)
     return time_to_ban;
 }
 
-const char * szDayNames[7] = {
-    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-};
-
-const char * szMonthNames[12] = {
-    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"
-};
-
-void MakeIntString(char * buf, int num)
+std::string RONIN_UTIL::ConvertTimeStampToString(uint32 timestamp)
 {
-    if(num<10)
+    static int calcVal[5] = { 60, 60, 24, 30, 12};
+    int timeVals[6] = { timestamp, 0, 0, 0, 0, 0 };
+    for(uint8 i = 0; i < 5; i++)
     {
-        buf[0] = '0';
-        //itoa(num, &buf[1], 10);
-        sprintf(&buf[1], "%u", num);
-    }
-    else
-    {
-        //itoa(num,buf,10);
-        sprintf(buf,"%u",num);
-    }
-}
-
-void MakeIntStringNoZero(char * buf, int num)
-{
-    //itoa(num,buf,10);
-    sprintf(buf,"%u",num);
-}
-
-std::string ConvertTimeStampToString(uint32 timestamp)
-{
-    int seconds = (int)timestamp;
-    int mins    = 0;
-    int hours   = 0;
-    int days    = 0;
-    int months  = 0;
-    int years   = 0;
-    if(seconds >= 60)
-    {
-        mins = seconds / 60;
-        if(mins)
-        {
-            seconds -= mins*60;
-            if(mins >= 60)
-            {
-                hours = mins / 60;
-                if(hours)
-                {
-                    mins -= hours*60;
-                    if(hours >= 24)
-                    {
-                        days = hours/24;
-                        if(days)
-                        {
-                            hours -= days*24;
-                            if(days >= 30)
-                            {
-                                months = days / 30;
-                                if(months)
-                                {
-                                    days -= months*30;
-                                    if(months >= 12)
-                                    {
-                                        years = months / 12;
-                                        if(years)
-                                        {
-                                            months -= years*12;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        if(timeVals[i+1] = timeVals[i]/calcVal[i])
+            timeVals[i] -= timeVals[i+1]*calcVal[i];
+        else break;
     }
 
     char szTempBuf[100];
     std::string szResult;
-
-    if(years) {
-        MakeIntStringNoZero(szTempBuf, years);
+    for(int i = 5; i >= 0; i--)
+    {
+        sprintf(szTempBuf,"%02u", timeVals[i]);
         szResult += szTempBuf;
-        szResult += " years, ";
+        szResult += timeNames[i];
     }
-
-    if(months) {
-        MakeIntStringNoZero(szTempBuf, months);
-        szResult += szTempBuf;
-        szResult += " months, ";
-    }
-
-    if(days) {
-        MakeIntStringNoZero(szTempBuf, days);
-        szResult += szTempBuf;
-        szResult += " days, ";
-    }
-
-    if(hours) {
-        MakeIntStringNoZero(szTempBuf, hours);
-        szResult += szTempBuf;
-        szResult += " hours, ";
-    }
-
-    if(mins) {
-        MakeIntStringNoZero(szTempBuf, mins);
-        szResult += szTempBuf;
-        szResult += " minutes, ";
-    }
-
-    if(seconds) {
-        MakeIntStringNoZero(szTempBuf, seconds);
-        szResult += szTempBuf;
-        szResult += " seconds";
-    }
-
     return szResult;
 }
 
-std::string ConvertTimeStampToDataTime(uint32 timestamp)
+std::string RONIN_UTIL::ConvertTimeStampToDataTime(uint32 timestamp)
 {
     char szTempBuf[100];
     time_t t = (time_t)timestamp;
-    tm * pTM = localtime(&t);
+    struct tm *pTM = localtime(&t);
 
     std::string szResult;
     szResult += szDayNames[pTM->tm_wday];
     szResult += ", ";
-
-    MakeIntString(szTempBuf, pTM->tm_mday);
+    sprintf(szTempBuf,"%02u", pTM->tm_mday);
     szResult += szTempBuf;
     szResult += " ";
-
     szResult += szMonthNames[pTM->tm_mon];
     szResult += " ";
-
-    MakeIntString(szTempBuf, pTM->tm_year+1900);
+    sprintf(szTempBuf,"%u",pTM->tm_year+1900);
     szResult += szTempBuf;
     szResult += ", ";
-    MakeIntString(szTempBuf, pTM->tm_hour);
+    sprintf(szTempBuf,"%02u",pTM->tm_hour);
     szResult += szTempBuf;
     szResult += ":";
-    MakeIntString(szTempBuf, pTM->tm_min);
+    sprintf(szTempBuf,"%02u",pTM->tm_min);
     szResult += szTempBuf;
     szResult += ":";
-    MakeIntString(szTempBuf, pTM->tm_sec);
+    sprintf(szTempBuf,"%02u",pTM->tm_sec);
     szResult += szTempBuf;
-
     return szResult;
 }
 
+uint32 RONIN_UTIL::secsToTimeBitFields(time_t secs)
+{
+    tm* time = localtime(&secs);
+    uint32 Time = ((time->tm_min << 0) & 0x0000003F); // Minute
+    Time |= ((time->tm_hour << 6) & 0x000007C0); // Hour
+    Time |= ((time->tm_wday << 11) & 0x00003800); // WeekDay
+    Time |= (((time->tm_mday-1) << 14) & 0x000FC000); // MonthDay
+    Time |= ((time->tm_mon << 20) & 0x00F00000); // Month
+    Time |= (((time->tm_year-100) << 24) & 0x1F000000); // Year
+    return Time;
+}
+
+void RONIN_UTIL::reverse_array(uint8 * pointer, size_t count)
+{
+    size_t x;
+    uint8 * temp = (uint8*)malloc(count);
+    memcpy(temp, pointer, count);
+    for(x = 0; x < count; ++x)
+        pointer[x] = temp[count-x-1];
+    free(temp);
+}
+
+bool RONIN_UTIL::FindXinYString(std::string x, std::string y)
+{
+    return y.find(x) != std::string::npos;
+}
+
+void RONIN_UTIL::TOLOWER(std::string& str)
+{
+    for(size_t i = 0; i < str.length(); ++i)
+        str[i] = (char)tolower(str[i]);
+};
+
+void RONIN_UTIL::TOUPPER(std::string& str)
+{
+    for(size_t i = 0; i < str.length(); ++i)
+        str[i] = (char)toupper(str[i]);
+};
+
+std::string RONIN_UTIL::TOLOWER_RETURN(std::string str)
+{
+    std::string newname = str;
+    for(size_t i = 0; i < str.length(); ++i)
+        newname[i] = (char)tolower(str[i]);
+
+    return newname;
+};
+
+std::string RONIN_UTIL::TOUPPER_RETURN(std::string str)
+{
+    std::string newname = str;
+    for(size_t i = 0; i < str.length(); ++i)
+        newname[i] = (char)toupper(str[i]);
+    return newname;
+};
+
+template<typename T> T RONIN_UTIL::FirstBitValue(T value)
+{
+    assert(sizeof(T)<=8); // Limit to 8 bytes
+    if(value)
+    {   // for each byte we have 8 bit stacks
+        for(T i = 0; i < sizeof(T)*8; i++)
+            if(value & (T(1)<<i))
+                return i;
+    } return static_cast<T>(NULL);
+}
+
 // returns true if the ip hits the mask, otherwise false
-bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits)
+bool RONIN_UTIL::ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits)
 {
     // CIDR bans are a compacted form of IP / Submask
     // So 192.168.1.0/255.255.255.0 would be 192.168.1.0/24
@@ -316,7 +252,7 @@ bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits)
     return true;
 }
 
-unsigned int MakeIP(const char * str)
+uint RONIN_UTIL::MakeIP(const char * str)
 {
     unsigned int bytes[4];
     unsigned int res;

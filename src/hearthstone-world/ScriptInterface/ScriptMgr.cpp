@@ -504,7 +504,7 @@ void ScriptMgr::register_quest_script(uint32 entry, QuestScript * qs)
         return;
     }
 
-    EntryQuestScriptMap.insert(make_pair(entry, qs));
+    EntryQuestScriptMap.insert(std::make_pair(entry, qs));
     _questscripts.insert( qs );
 }
 
@@ -666,9 +666,9 @@ void GossipScript::GossipHello(Object* pEntity, Player* Plr, bool AutoSend)
 
             if(pTrainer != NULL && (flags & UNIT_NPC_FLAG_TRAINER || flags & UNIT_NPC_FLAG_TRAINER_PROF))
             {
-                string name = pCreature->GetCreatureData()->Name;
-                string::size_type pos = name.find(" ");   // only take first name
-                if(pos != string::npos)
+                std::string name = pCreature->GetCreatureData()->Name;
+                std::string::size_type pos = name.find(" ");   // only take first name
+                if(pos != std::string::npos)
                     name = name.substr(0, pos);
 
                 if(!CanTrainAt(Plr, pTrainer))
@@ -687,7 +687,7 @@ void GossipScript::GossipHello(Object* pEntity, Player* Plr, bool AutoSend)
                         Menu->SetTextID(pTrainer->Can_Train_Gossip_TextId);
                     }
 
-                    string msg = "I seek ";
+                    std::string msg = "I seek ";
                     if(pTrainer->RequiredClass)
                     {
                         switch(Plr->getClass())

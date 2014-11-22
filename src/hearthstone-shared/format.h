@@ -4,11 +4,8 @@
 
 #pragma once
 
-#if !defined(WIN32) && !defined(_WIN64)
 #include "Errors.h"
 #include <assert.h>
-#endif
-
 #include <string>
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,7 +18,7 @@
 // Both MSVC seems to use the non-standard vsnprintf
 // so we are using vscprintf to determine buffer size, however
 // only MSVC7 and up headers include vscprintf for some reason.
-HEARTHSTONE_INLINE std::string vformat(const char *fmt, va_list argPtr)
+RONIN_INLINE std::string vformat(const char *fmt, va_list argPtr)
 {
     // We draw the line at a 1MB string.
     const int maxSize = 1000000;
@@ -65,7 +62,7 @@ HEARTHSTONE_INLINE std::string vformat(const char *fmt, va_list argPtr)
 
 #elif defined(_MSC_VER) && (_MSC_VER < 1300) && PLATFORM == PLATFORM_WIN
 
-HEARTHSTONE_INLINE std::string vformat(const char *fmt, va_list argPtr) {
+RONIN_INLINE std::string vformat(const char *fmt, va_list argPtr) {
     // We draw the line at a 1MB string.
     const int maxSize = 1000000;
 
@@ -109,7 +106,7 @@ HEARTHSTONE_INLINE std::string vformat(const char *fmt, va_list argPtr) {
 #else
 
 // glibc 2.1 has been updated to the C99 standard
-HEARTHSTONE_INLINE std::string vformat(const char* fmt, va_list argPtr) {
+RONIN_INLINE std::string vformat(const char* fmt, va_list argPtr) {
     // If the string is less than 161 characters,
     // allocate it on the stack because this saves
     // the malloc/free time.  The number 161 is chosen
@@ -147,7 +144,7 @@ HEARTHSTONE_INLINE std::string vformat(const char* fmt, va_list argPtr) {
 
 #endif
 
-HEARTHSTONE_INLINE std::string format(const char* fmt,...)
+RONIN_INLINE std::string format(const char* fmt,...)
 {
     va_list argList;
     va_start(argList,fmt);

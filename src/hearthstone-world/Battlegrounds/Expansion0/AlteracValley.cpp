@@ -556,7 +556,7 @@ void AVNode::Spawn()
     if( m_state == AV_NODE_STATE_ALLIANCE_CONTROLLED || m_state == AV_NODE_STATE_HORDE_CONTROLLED )
     {
         sLog.outDebug("AVNode::Spawn(%s) : despawning guards", m_template->m_name);
-        for(vector<Creature*>::iterator itr = m_guards.begin(); itr != m_guards.end(); itr++)
+        for(std::vector<Creature*>::iterator itr = m_guards.begin(); itr != m_guards.end(); itr++)
             (*itr)->Despawn(0, 0);
 
         m_guards.clear();
@@ -591,7 +591,7 @@ void AVNode::Spawn()
         {
             sLog.outDebug("AVNode::Spawn(%s) : despawning spirit guide", m_template->m_name);
             // move everyone in the revive queue to a different node
-            map<Creature*, set<uint32> >::iterator itr = m_bg->m_resurrectMap.find(m_spiritGuide);
+            std::map<Creature*, std::set<uint32> >::iterator itr = m_bg->m_resurrectMap.find(m_spiritGuide);
             if( itr != m_bg->m_resurrectMap.end() )
             {
                 for(set<uint32>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++)

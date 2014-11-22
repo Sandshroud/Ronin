@@ -45,7 +45,7 @@ public:
     bool m_nearingVictory[2];
 
 protected:
-    list< GameObject* > m_gates;
+    std::list< GameObject* > m_gates;
 
     uint32 m_resources[2];
     uint32 m_capturedBases[2];

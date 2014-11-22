@@ -65,7 +65,7 @@ class LfgMatch;
 class LfgMgr : public Singleton < LfgMgr >, EventableObject
 {
 public:
-    typedef list<Player*  > LfgPlayerList;
+    typedef std::list<Player*> LfgPlayerList;
 
     LfgMgr();
     ~LfgMgr();
@@ -90,16 +90,14 @@ protected:
     uint32 MaxDungeonID;
     DungeonSet DungeonsByLevel[NUM_LEVELGROUP];
     std::map< uint32, LfgReward* > DungeonRewards;
-    std::map< uint32, LfgPlayerList > m_lookingForGroup;
-    std::map< uint32, LfgPlayerList > m_lookingForMore;
+    std::map< uint32, LfgPlayerList > m_lookingForGroup, m_lookingForMore;
     Mutex m_lock;
 };
 
 class LfgMatch
 {
 public:
-    set<Player* > PendingPlayers;
-    set<Player* > AcceptedPlayers;
+    std::set<Player* > PendingPlayers, AcceptedPlayers;
     Mutex lock;
     uint32 DungeonId;
     Group * pGroup;

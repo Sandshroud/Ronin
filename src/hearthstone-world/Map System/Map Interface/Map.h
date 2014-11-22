@@ -97,7 +97,7 @@ public:
     Map(uint32 mapid, MapInfo * inf);
     ~Map();
 
-    HEARTHSTONE_INLINE string GetNameString() { return name; }
+    HEARTHSTONE_INLINE std::string GetNameString() { return name; }
     HEARTHSTONE_INLINE const char* GetName() { return name.c_str(); }
     HEARTHSTONE_INLINE MapEntry* GetDBCEntry() { return me; }
 
@@ -129,7 +129,7 @@ public:
         if(itr->second == NULL)
             itr->second = new CellSpawnsMap();
         if(itr->second->find(celly) == itr->second->end())
-            itr->second->insert(make_pair(celly, new CellSpawns()));
+            itr->second->insert(std::make_pair(celly, new CellSpawns()));
         return itr->second->at(celly);
     }
 
@@ -158,7 +158,7 @@ private:
     TerrainMgr *_terrain;
     MapInfo *_mapInfo;
     uint32 _mapId;
-    string name;
+    std::string name;
     MapEntry *me;
 
     SpawnsMap m_spawns;

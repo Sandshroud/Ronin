@@ -37,7 +37,7 @@ public:
     bool authenticated, rejected;
 
     uint32 realmID;
-    string realmName;
+    std::string realmName;
 };
 
 typedef void (LogonCommClientSocket::*logonpacket_handler)(WorldPacket&);

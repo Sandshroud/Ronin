@@ -51,7 +51,7 @@ bool ChatHandler::HandleWAnnounceCommand(const char* args, WorldSession *m_sessi
         return false;
 
     char pAnnounce[1024];
-    string input2;
+    std::string input2;
 
     input2 = "|cffff6060<";
     if(m_session->CanUseCommand('z')) input2+="Admin";
@@ -241,13 +241,13 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
 
         if(chr->GetSession() != m_session) // Since we get that You Recieved Item bullcrap, we don't need this.
         {
-            string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
+            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
             SystemMessage(m_session, "Adding item %u %s to %s's inventory.", it->ItemId, itemlink.c_str(), chr->GetName());
             SystemMessageToPlr(chr, "%s added item %u %s to your inventory.", m_session->GetPlayer()->GetName(), itemid, itemlink.c_str());
         }
         else
         {
-            string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
+            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
             SystemMessage(m_session, "Adding item %u %s to your inventory.", it->ItemId, itemlink.c_str());
         }
         return true;
@@ -664,7 +664,7 @@ bool ChatHandler::HandleStandStateCommand(const char* args, WorldSession *m_sess
 bool ChatHandler::HandleGenderChanger(const char* args, WorldSession *m_session)
 {
     int gender;
-    Player* target = objmgr.GetPlayer((uint32)m_session->GetPlayer()->GetSelection());
+    Player* target = objmgr.GetPlayer(m_session->GetPlayer()->GetSelection());
     if(!target) {
         SystemMessage(m_session, "Select A Player first.");
         return true;
@@ -777,7 +777,7 @@ bool ChatHandler::HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_se
 {
     uint32 id;
     char sql[512];
-    Creature* target = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(m_session->GetPlayer()->GetSelection()));
+    Creature* target = m_session->GetPlayer()->GetMapMgr()->GetCreature(m_session->GetPlayer()->GetSelection());
     if (!target)
         return false;
 

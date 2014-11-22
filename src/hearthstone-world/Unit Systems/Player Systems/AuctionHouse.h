@@ -83,13 +83,13 @@ public:
 
 private:
     RWLock itemLock;
-    HM_NAMESPACE::hash_map<uint64, Item* > auctionedItems;
+    RONIN_UNORDERED_MAP<uint64, Item* > auctionedItems;
 
     RWLock auctionLock;
-    HM_NAMESPACE::hash_map<uint32, Auction*> auctions;
+    RONIN_UNORDERED_MAP<uint32, Auction*> auctions;
 
     Mutex removalLock;
-    list<Auction*> removalList;
+    std::list<Auction*> removalList;
 
     AuctionHouseDBC * dbc;
 

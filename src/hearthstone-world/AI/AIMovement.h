@@ -171,7 +171,7 @@ public:
     HEARTHSTONE_INLINE void SetDestPos(float x, float y, float z, float o = 0.0f) { m_destinationX = x; m_destinationY = y; m_destinationZ = z; m_destinationO = o; };
 
 private:
-    std::map<uint32, uint32> CurrentMoveRequired;
+    std::map<WoWGuid, uint32> CurrentMoveRequired;
 
     float m_walkSpeed, m_runSpeed, m_flySpeed;
 

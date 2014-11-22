@@ -13,8 +13,8 @@ class EventableObjectHolder;
   * receiving the call from the instance thread / WorldRunnable thread.
   */
 
-typedef list<TimedEvent*> EventList;
-typedef multimap<uint32, TimedEvent*> EventMap;
+typedef std::list<TimedEvent*> EventList;
+typedef std::multimap<uint32, TimedEvent*> EventMap;
 
 #define EVENT_REMOVAL_FLAG_ALL -1
 #define WORLD_INSTANCE -1
@@ -90,6 +90,6 @@ protected:
     EventList m_events;
 
     Mutex m_insertPoolLock;
-    typedef list<TimedEvent*> InsertableQueue;
+    typedef std::list<TimedEvent*> InsertableQueue;
     InsertableQueue m_insertPool;
 };

@@ -1012,15 +1012,13 @@ WorldPacket* ChatHandler::FillSystemMessageData(const char *message) const
 Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
 {
     Player* chr = NULL;
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         if(showerror)
             GreenSystemMessage(m_session, "Auto-targeting self.");
         chr = m_session->GetPlayer(); // autoselect
-    }
-    else
-        chr = m_session->GetPlayer()->GetMapMgr()->GetPlayer(GUID_LOPART(guid));
+    } else chr = m_session->GetPlayer()->GetMapMgr()->GetPlayer(guid);
 
     if(chr == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a player.");
@@ -1032,18 +1030,11 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
     if(!m_session->GetPlayer()->IsInWorld())
         return NULL;
 
-    Creature* creature = NULL;
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(GUID_HIPART(guid) == HIGHGUID_TYPE_PET)
-        creature = m_session->GetPlayer()->GetMapMgr()->GetPet( GUID_LOPART(guid) );
-    else if(GUID_HIPART(guid) == HIGHGUID_TYPE_CREATURE)
-        creature = m_session->GetPlayer()->GetMapMgr()->GetCreature( GUID_LOPART(guid) );
-    else if(GUID_HIPART(guid) == HIGHGUID_TYPE_VEHICLE)
-        creature = m_session->GetPlayer()->GetMapMgr()->GetVehicle( GUID_LOPART(guid) );
-
-    if(creature == NULL && showerror)
+    Unit *unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
+    if(unit->IsPlayer()) unit = NULL; // GetUnit also returns players
+    if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a creature.");
-    return creature;
+    return unit ? castPtr<Creature>(unit) : NULL;
 }
 
 Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
@@ -1051,8 +1042,7 @@ Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
     if(!m_session->GetPlayer()->IsInWorld())
         return NULL;
 
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(guid);
+    Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
     if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a unit.");
     return unit;

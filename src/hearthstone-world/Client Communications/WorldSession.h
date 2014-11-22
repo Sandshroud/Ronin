@@ -92,13 +92,13 @@ typedef struct Cords {
 #define NOTIFICATION_MESSAGE_FAILURE "The requested action could not be performed."
 
 extern OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
-void CapitalizeString(string& arg);
+void CapitalizeString(std::string& arg);
 
 class SERVER_DECL WorldSession : public EventableObject
 {
     friend class WorldSocket;
 public:
-    WorldSession(uint32 id, string Name, WorldSocket *sock);
+    WorldSession(uint32 id, std::string Name, WorldSocket *sock);
     ~WorldSession();
 
     HEARTHSTONE_INLINE bool IsLoggingIn() { return (m_loggingInPlayer != NULL); };
@@ -218,7 +218,7 @@ public:
 
     HEARTHSTONE_INLINE void SetInstance(uint32 Instance) { instanceId = Instance; }
     HEARTHSTONE_INLINE uint32 GetLatency() { return _latency; }
-    HEARTHSTONE_INLINE string GetAccountName() { return _accountName; }
+    HEARTHSTONE_INLINE std::string GetAccountName() { return _accountName; }
     HEARTHSTONE_INLINE const char * GetAccountNameS() { return _accountName.c_str(); }
 
     HEARTHSTONE_INLINE uint32 GetClientBuild() { return client_build; }
@@ -705,7 +705,7 @@ private:
 
     uint32 _accountId;
     uint32 _accountFlags;
-    string _accountName;
+    std::string _accountName;
     uint32 _logoutTime; // time we received a logout request -- wait 20 seconds, and quit
 
     WoWGuid m_MoverWoWGuid;
@@ -756,7 +756,7 @@ public:
 
 protected:
     uint32 m_repeatTime;
-    string m_repeatMessage;
+    std::string m_repeatMessage;
     uint32 m_repeatEmoteTime;
     uint32 m_repeatEmoteId;
 };

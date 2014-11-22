@@ -40,18 +40,16 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-typedef unordered_set<WorldObject* > ObjectSet;
-typedef unordered_set<WorldObject* > UpdateQueue;
-typedef unordered_set<Player*  > PUpdateQueue;
-typedef unordered_set<Player*  > PlayerSet;
-typedef HM_NAMESPACE::hash_map<uint32, WorldObject* > StorageMap;
-typedef unordered_set<uint64> CombatProgressMap;
-typedef unordered_set<Vehicle*> VehicleSet;
-typedef unordered_set<Creature*> CreatureSet;
-typedef unordered_set<GameObject* > GameObjectSet;
-typedef HM_NAMESPACE::hash_map<uint32, Vehicle*> VehicleSqlIdMap;
-typedef HM_NAMESPACE::hash_map<uint32, Creature*> CreatureSqlIdMap;
-typedef HM_NAMESPACE::hash_map<uint32, GameObject* > GameObjectSqlIdMap;
+typedef RONIN_UNORDERED_SET<WorldObject*> ObjectSet;
+typedef RONIN_UNORDERED_SET<Player*> PlayerSet;
+typedef RONIN_UNORDERED_SET<Vehicle*> VehicleSet;
+typedef RONIN_UNORDERED_SET<Creature*> CreatureSet;
+typedef RONIN_UNORDERED_SET<GameObject*> GameObjectSet;
+typedef RONIN_UNORDERED_SET<uint64> CombatProgressMap;
+typedef RONIN_UNORDERED_MAP<uint32, WorldObject* > StorageMap;
+typedef RONIN_UNORDERED_MAP<uint32, Vehicle*> VehicleSqlIdMap;
+typedef RONIN_UNORDERED_MAP<uint32, Creature*> CreatureSqlIdMap;
+typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectSqlIdMap;
 
 #define MAX_VIEW_DISTANCE 38000
 #define MAX_TRANSPORTERS_PER_MAP 25
@@ -77,7 +75,7 @@ public:
 ////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of GameObjects
 /////////////////////////////////////////////
-    typedef HM_NAMESPACE::hash_map<uint32, GameObject* > GameObjectMap;
+    typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectMap;
     GameObjectMap m_gameObjectStorage;
     uint32 m_GOHighGuid;
     GameObject* CreateGameObject(uint32 entry);
@@ -97,28 +95,27 @@ public:
 /////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of Vehicles
 /////////////////////////////////////////////
-    uint32 m_VehicleArraySize;
     uint32 m_VehicleHighGuid;
-    HM_NAMESPACE::hash_map<WoWGuid, Vehicle*> m_VehicleStorage;
+    RONIN_UNORDERED_MAP<WoWGuid, Vehicle*> m_VehicleStorage;
     Vehicle* CreateVehicle(uint32 entry);
 
     HEARTHSTONE_INLINE Vehicle* GetVehicle(WoWGuid guid)
     {
-        HM_NAMESPACE::hash_map<WoWGuid, Vehicle*>::iterator itr = m_VehicleStorage.find(guid);
+        RONIN_UNORDERED_MAP<WoWGuid, Vehicle*>::iterator itr = m_VehicleStorage.find(guid);
         return ((itr != m_VehicleStorage.end()) ? itr->second : NULL);
     }
 
 /////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of Creatures
 /////////////////////////////////////////////
-    uint32 m_CreatureArraySize;
     uint32 m_CreatureHighGuid;
-    HM_NAMESPACE::hash_map<WoWGuid, Creature*> m_CreatureStorage;
+    RONIN_UNORDERED_MAP<WoWGuid, Creature*> m_CreatureStorage;
     Creature* CreateCreature(uint32 entry);
 
     HEARTHSTONE_INLINE Creature* GetCreature(WoWGuid guid)
     {
-        HM_NAMESPACE::hash_map<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_CREATURE);
+        RONIN_UNORDERED_MAP<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
         return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
     }
 
@@ -128,7 +125,7 @@ public:
 // Local (mapmgr) storage/generation of DynamicObjects
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
-    typedef HM_NAMESPACE::hash_map<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
+    typedef RONIN_UNORDERED_MAP<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
     DynamicObjectStorageMap m_DynamicObjectStorage;
     DynamicObject* CreateDynamicObject();
 
@@ -141,7 +138,7 @@ public:
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage of pets
 ///////////////////////////////////////////
-    typedef HM_NAMESPACE::hash_map<WoWGuid, Pet*> PetStorageMap;
+    typedef RONIN_UNORDERED_MAP<WoWGuid, Pet*> PetStorageMap;
     PetStorageMap m_PetStorage;
     HEARTHSTONE_INLINE Pet* GetPet(WoWGuid guid)
     {
@@ -152,7 +149,7 @@ public:
 //////////////////////////////////////////////////////////
 // Local (mapmgr) storage of players for faster lookup
 ////////////////////////////////
-    typedef HM_NAMESPACE::hash_map<WoWGuid, Player*> PlayerStorageMap;
+    typedef RONIN_UNORDERED_MAP<WoWGuid, Player*> PlayerStorageMap;
     PlayerStorageMap m_PlayerStorage;
     HEARTHSTONE_INLINE Player* GetPlayer(WoWGuid guid)
     {
@@ -183,8 +180,8 @@ public:
 //////////////////////////////////////////////////////////
 // Lookup Wrappers
 ///////////////////////////////////
-    Unit* GetUnit(const WoWGuid & guid);
-    WorldObject* _GetObject(const WoWGuid & guid);
+    Unit* GetUnit(WoWGuid guid);
+    WorldObject* _GetObject(WoWGuid guid);
 
     bool run();
     bool Do();
@@ -254,7 +251,6 @@ public:
     {
         GetBaseMap()->GetSpawnsListAndCreate(x, y)->CreatureSpawns.push_back(sp);
         GetBaseMap()->CreatureSpawnCount++;
-        m_CreatureArraySize++;
     }
 
     HEARTHSTONE_INLINE void AddGoSpawn(uint32 x, uint32 y, GOSpawn * gs)
@@ -323,8 +319,8 @@ private:
 
     /* Update System */
     Mutex m_updateMutex;
-    UpdateQueue _updates;
-    PUpdateQueue _processQueue;
+    ObjectSet _updates;
+    PlayerSet _processQueue;
 
     /* Sessions */
     SessionSet MapSessions;
@@ -341,14 +337,14 @@ public:
 
     EventableObjectHolder eventHolder;
     CBattleground* m_battleground;
-    unordered_set<Corpse* > m_corpses;
+    std::unordered_set<Corpse* > m_corpses;
     CreatureSqlIdMap _sqlids_creatures;
     GameObjectSqlIdMap _sqlids_gameobjects;
 
     Creature* GetSqlIdCreature(uint32 sqlid);
     GameObject* GetSqlIdGameObject(uint32 sqlid);
-    deque<uint32> _reusable_guids_creature;
-    deque<uint32> _reusable_guids_vehicle;
+    std::deque<uint32> _reusable_guids_creature;
+    std::deque<uint32> _reusable_guids_vehicle;
 
     bool forced_expire;
     bool thread_kill_only;
@@ -364,7 +360,7 @@ public:
     ByteBuffer m_compressionBuffer;
 
 public:
-    void ClearCorpse(Corpse* remove) { unordered_set<Corpse* >::iterator itr; if((itr = m_corpses.find(remove)) != m_corpses.end()) m_corpses.erase(itr); };
+    void ClearCorpse(Corpse* remove) { std::unordered_set<Corpse* >::iterator itr; if((itr = m_corpses.find(remove)) != m_corpses.end()) m_corpses.erase(itr); };
 
     // get!
     HEARTHSTONE_INLINE WorldStateManager& GetStateManager() { return *m_stateManager; }

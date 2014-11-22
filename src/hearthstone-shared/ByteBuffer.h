@@ -420,7 +420,7 @@ public:
 
     const uint8 *contents() const { return &_storage[0]; };
 
-    HEARTHSTONE_INLINE size_t size() const { return _storage.size(); };
+    RONIN_INLINE size_t size() const { return _storage.size(); };
 
     // one should never use resize probably
     void resize(size_t newsize)
@@ -617,7 +617,7 @@ public:
         fprintf(output, "\r\n\r\n");
     }
 
-    HEARTHSTONE_INLINE void reverse()
+    RONIN_INLINE void reverse()
     {
         std::reverse(_storage.begin(), _storage.end());
     }
@@ -629,7 +629,7 @@ protected:
     std::vector<uint8> _storage;
 };
 
-HEARTHSTONE_INLINE void FastGUIDPack(ByteBuffer & buf, const uint64 & oldguid)
+RONIN_INLINE void FastGUIDPack(ByteBuffer & buf, const uint64 & oldguid)
 {
     uint8 guidmask = 0,  fieldcount = 1;
     uint8 guidfields[9] = {0,0,0,0,0,0,0,0};
@@ -646,7 +646,7 @@ HEARTHSTONE_INLINE void FastGUIDPack(ByteBuffer & buf, const uint64 & oldguid)
     buf.append(guidfields, fieldcount);
 }
 
-HEARTHSTONE_INLINE unsigned int FastGUIDPack(const uint64 & oldguid, unsigned char * buffer, uint32 pos)
+RONIN_INLINE unsigned int FastGUIDPack(const uint64 & oldguid, unsigned char * buffer, uint32 pos)
 {
     uint8 guidmask = 0;
     uint8 guidfields[9] = {0,0,0,0,0,0,0,0};

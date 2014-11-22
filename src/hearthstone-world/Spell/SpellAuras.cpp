@@ -3339,7 +3339,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
 
             data.Initialize(SMSG_CLEAR_TARGET);
             data << pTarget->GetGUID();
-            unordered_set< WorldObject* >::iterator itr,itr2;
+            std::unordered_set< WorldObject* >::iterator itr,itr2;
             WorldObject* pObject = NULL;
 
             //now get rid of mobs agro. pTarget->CombatStatus.AttackersForgetHate() - this works only for already attacking mobs
@@ -3351,7 +3351,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
                 if(pObject->IsUnit() && (castPtr<Unit>(pObject))->isAlive())
                 {
                     if(pObject->GetTypeId()==TYPEID_UNIT)
-                        (castPtr<Unit>( pObject ))->GetAIInterface()->RemoveThreatByPtr(pTarget);
+                        (castPtr<Unit>( pObject ))->GetAIInterface()->RemoveThreat(pTarget->GetGUID());
 
                     //if this is player and targeting us then we interrupt cast
                     if( ( pObject )->IsPlayer() )

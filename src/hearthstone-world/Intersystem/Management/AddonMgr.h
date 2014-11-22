@@ -26,7 +26,7 @@ public:
 
 private:
     std::map<std::string, AddonEntry*> KnownAddons;
-    map<string, ByteBuffer> AddonData;
+    std::map<std::string, ByteBuffer> AddonData;
 
     bool IsAddonBanned(uint32 crc, std::string name = "");
     bool IsAddonBanned(std::string name, uint32 crc = 0);

@@ -221,7 +221,7 @@ void Creature::GenerateLoot()
     if(CombatStatus.GetKiller() && CombatStatus.GetKiller()->IsPlayer())
         team = castPtr<Player>(CombatStatus.GetKiller())->GetTeam();
 
-    lootmgr.FillCreatureLoot(&m_loot, GetEntry(), difficulty, team);
+    lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), difficulty, team);
 
     // -1 , no gold; 0 calculated according level; >0 coppercoins
     if( _creatureData->Money == -1)

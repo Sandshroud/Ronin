@@ -20,17 +20,13 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
     m_UpdateDistance = MAX_VIEW_DISTANCE;
     iInstanceMode = 0;
 
-    // Set up storage arrays
-    m_CreatureArraySize = map->CreatureSpawnCount;
-    m_VehicleArraySize = 0;
-
     m_GOHighGuid = 0;
     m_CreatureHighGuid = 0;
     m_VehicleHighGuid = 0;
     m_DynamicObjectHighGuid=0;
     lastUnitUpdate = getMSTime();
     lastGameobjectUpdate = getMSTime();
-    m_battleground = NULLBATTLEGROUND;
+    m_battleground = NULL;
 
     m_holder = &eventHolder;
     m_event_Instanceid = eventHolder.GetInstanceID();
@@ -1409,29 +1405,29 @@ void MapMgr::AddObject(WorldObject* obj)
     m_objectinsertlock.Release();
 }
 
-Unit* MapMgr::GetUnit(const WoWGuid & guid)
+Unit* MapMgr::GetUnit(WoWGuid guid)
 {
-    switch(GUID_HIPART(guid))
+    switch(guid.getHigh())
     {
-    case HIGHGUID_TYPE_CREATURE: return GetCreature( GUID_LOPART(guid) );
-    case HIGHGUID_TYPE_PLAYER: return GetPlayer( GUID_LOPART(guid) );
-    case HIGHGUID_TYPE_PET: return GetPet( GUID_LOPART(guid) );
-    case HIGHGUID_TYPE_VEHICLE: return GetVehicle( GUID_LOPART(guid) );
+    case HIGHGUID_TYPE_CREATURE: return GetCreature(guid);
+    case HIGHGUID_TYPE_PLAYER: return GetPlayer(guid);
+    case HIGHGUID_TYPE_PET: return GetPet(guid);
+    case HIGHGUID_TYPE_VEHICLE: return GetVehicle(guid);
     }
 
     return NULL;
 }
 
-WorldObject* MapMgr::_GetObject(const WoWGuid & guid)
+WorldObject* MapMgr::_GetObject(WoWGuid guid)
 {
-    switch(GUID_HIPART(guid))
+    switch(guid.getHigh())
     {
-    case HIGHGUID_TYPE_VEHICLE: return GetVehicle(GUID_LOPART(guid));
-    case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(GUID_LOPART(guid));
-    case HIGHGUID_TYPE_CREATURE: return GetCreature(GUID_LOPART(guid));
-    case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(GUID_LOPART(guid));
-    case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(GUID_LOPART(guid));
-    case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(GUID_LOPART(guid));
+    case HIGHGUID_TYPE_VEHICLE: return GetVehicle(guid);
+    case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(guid);
+    case HIGHGUID_TYPE_CREATURE: return GetCreature(guid);
+    case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(guid);
+    case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(guid.getLow());
+    case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(guid.getLow());
     }
     return GetUnit(guid);
 }

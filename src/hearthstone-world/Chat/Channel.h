@@ -4,8 +4,6 @@
 
 #pragma once
 
-using namespace std;
-
 enum CHANNEL_FLAGS
 {
     CHANNEL_FLAG_NONE               = 0x00,
@@ -61,15 +59,15 @@ class SERVER_DECL Channel
 {
 private:
     Mutex m_lock;
-    typedef map<Player* , uint32> MemberMap;
+    typedef std::map<Player* , uint32> MemberMap;
     MemberMap m_members;
-    set<uint32> m_bannedMembers;
+    std::set<uint32> m_bannedMembers;
 
 public:
     friend class ChannelIterator;
     static void LoadConfSettings();
-    string m_name;
-    string m_password;
+    std::string m_name;
+    std::string m_password;
     uint8 m_flags;
     uint32 m_typeId;
     bool m_general;

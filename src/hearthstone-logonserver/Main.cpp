@@ -7,7 +7,7 @@
 #ifndef WIN32
 #include <sys/resource.h>
 #endif
-#include "../hearthstone-shared/hearthstone_getopt.h"
+#include "../hearthstone-shared/startup_getopt.h"
 
 #ifndef WIN32
 #include <sched.h>
@@ -130,7 +130,7 @@ bool IsServerAllowed(unsigned int IP)
     m_allowedIpLock.Acquire();
     for(std::vector<AllowedIP>::iterator itr = m_allowedIps.begin(); itr != m_allowedIps.end(); ++itr)
     {
-        if( ParseCIDRBan(IP, itr->IP, itr->Bytes) )
+        if( RONIN_UTIL::ParseCIDRBan(IP, itr->IP, itr->Bytes) )
         {
             m_allowedIpLock.Release();
             return true;
@@ -145,7 +145,7 @@ bool IsServerAllowedMod(unsigned int IP)
     m_allowedIpLock.Acquire();
     for(std::vector<AllowedIP>::iterator itr = m_allowedModIps.begin(); itr != m_allowedModIps.end(); ++itr)
     {
-        if( ParseCIDRBan(IP, itr->IP, itr->Bytes) )
+        if( RONIN_UTIL::ParseCIDRBan(IP, itr->IP, itr->Bytes) )
         {
             m_allowedIpLock.Release();
             return true;
@@ -170,9 +170,7 @@ bool Rehash()
     // re-set the allowed server IP's
     std::string ips = mainIni->ReadString("LogonServer", "AllowedIPs", "");
     std::string ipsmod = mainIni->ReadString("LogonServer", "AllowedModIPs", "");
-
-    std::vector<std::string> vips = StrSplit(ips, " ");
-    std::vector<std::string> vipsmod = StrSplit(ips, " ");
+    std::vector<std::string> vips = RONIN_UTIL::StrSplit(ips, " "), vipsmod = RONIN_UTIL::StrSplit(ipsmod, " ");
 
     m_allowedIpLock.Acquire();
     m_allowedIps.clear();
@@ -190,7 +188,7 @@ bool Rehash()
         std::string stmp = itr->substr(0, i);
         std::string smask = itr->substr(i+1);
 
-        unsigned int ipraw = MakeIP(stmp.c_str());
+        unsigned int ipraw = RONIN_UTIL::MakeIP(stmp.c_str());
         unsigned int ipmask = atoi(smask.c_str());
         if( ipraw == 0 || ipmask == 0 )
         {
@@ -216,7 +214,7 @@ bool Rehash()
         std::string stmp = itr->substr(0, i);
         std::string smask = itr->substr(i+1);
 
-        unsigned int ipraw = MakeIP(stmp.c_str());
+        unsigned int ipraw = RONIN_UTIL::MakeIP(stmp.c_str());
         unsigned int ipmask = atoi(smask.c_str());
         if( ipraw == 0 || ipmask == 0 )
         {
@@ -254,25 +252,25 @@ void LogonServer::Run(int argc, char ** argv)
     int do_check_conf = 0;
     int do_version = 0;
 
-    struct hearthstone_option longopts[] =
+    struct startup_option longopts[] =
     {
-        { "checkconf",          hearthstone_no_argument,            &do_check_conf,         1       },
-        { "screenloglevel",     hearthstone_required_argument,      &screen_log_level,      1       },
-        { "fileloglevel",       hearthstone_required_argument,      &file_log_level,        1       },
-        { "version",            hearthstone_no_argument,            &do_version,            1       },
-        { "conf",               hearthstone_required_argument,      NULL,                  'c'      },
+        { "checkconf",          startup_no_argument,            &do_check_conf,         1       },
+        { "screenloglevel",     startup_required_argument,      &screen_log_level,      1       },
+        { "fileloglevel",       startup_required_argument,      &file_log_level,        1       },
+        { "version",            startup_no_argument,            &do_version,            1       },
+        { "conf",               startup_required_argument,      NULL,                  'c'      },
         { 0, 0, 0, 0 }
     };
 
     char c;
-    while ((c = hearthstone_getopt_long_only(argc, argv, ":f:", longopts, NULL)) != -1)
+    while ((c = startup_getopt_long_only(argc, argv, ":f:", longopts, NULL)) != -1)
     {
         switch (c)
         {
         case 'c':
             /* Log filename was set */
-            config_file = new char[strlen(hearthstone_optarg)];
-            strcpy(config_file,hearthstone_optarg);
+            config_file = new char[strlen(startup_optarg)];
+            strcpy(config_file,startup_optarg);
             break;
         case 0:
             break;

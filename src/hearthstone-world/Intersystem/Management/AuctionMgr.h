@@ -16,7 +16,7 @@ public:
 
     ~AuctionMgr()
     {
-        map<uint32, AuctionHouse*>::iterator itr = auctionHouseMap.begin();
+        std::map<uint32, AuctionHouse*>::iterator itr = auctionHouseMap.begin();
         for(; itr != auctionHouseMap.end(); itr++)
             delete itr->second;
     }
@@ -35,8 +35,8 @@ public:
     }
 
 private:
-    map<uint32, uint8> CreatureAuctionTypes;
-    map<uint32, AuctionHouse*> auctionHouseMap;
+    std::map<uint32, uint8> CreatureAuctionTypes;
+    std::map<uint32, AuctionHouse*> auctionHouseMap;
     uint32 auctionHighGuid;
     Mutex auctionGuidlock;
     uint32 loopcount;

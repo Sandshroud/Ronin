@@ -62,10 +62,10 @@ struct MailMessage
     uint32 message_type;
     uint64 player_guid;
     uint64 sender_guid;
-    string subject;
-    string body;
+    std::string subject;
+    std::string body;
     uint32 money;
-    vector<uint64> items;
+    std::vector<uint64> items;
     uint32 cod;
     uint32 stationary;
     uint32 expire_time;
@@ -80,7 +80,7 @@ struct MailMessage
     bool Expired();
 };
 
-typedef map<uint32, MailMessage> MessageMap;
+typedef std::map<uint32, MailMessage> MessageMap;
 
 class SERVER_DECL Mailbox
 {
@@ -103,7 +103,7 @@ public:
             return NULL;
         return &(iter->second);
     }
-    string GetMessageBody(uint32 message_id);
+    std::string GetMessageBody(uint32 message_id);
     WorldPacket * MailboxListingPacket();
     WorldPacket * MailboxTimePacket();
     HEARTHSTONE_INLINE size_t MessageCount() { return Messages.size(); }
@@ -122,7 +122,7 @@ public:
     void UpdateMessages(uint32 diff);
     void ReturnToSender(MailMessage* message);
     void DeliverMessage(MailMessage* message);
-    void DeliverMessage(uint32 type, uint64 sender, uint64 receiver, string subject, string body, uint32 money, uint32 cod, uint64 item_guid, uint32 stationary, bool returned);
+    void DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std::string subject, std::string body, uint32 money, uint32 cod, uint64 item_guid, uint32 stationary, bool returned);
 
     void SetConfigFlags(uint32 flags) { config_flags = flags; };
     HEARTHSTONE_INLINE bool MailOption(uint32 flag) { return (config_flags & flag) ? true : false; }

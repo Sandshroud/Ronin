@@ -35,7 +35,7 @@ public:
     void DeInit();
     void RelocateEvents();
     void OnChangeLevel(uint32 newlevel);
-    void SaveAuras(stringstream&);
+    void SaveAuras(std::stringstream&);
     uint8 GetFreeSlot(bool ispositive);
     void OnAuraRemove(Aura* aura, uint8 aura_slot);
 
@@ -134,7 +134,7 @@ public:
 
 private:
     Unit* m_Unit;
-    map<uint8, Aura*> m_auras;
+    std::map<uint8, Aura*> m_auras;
 
     /*******************
     **** Modifiers

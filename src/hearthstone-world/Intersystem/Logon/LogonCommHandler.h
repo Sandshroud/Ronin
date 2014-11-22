@@ -9,8 +9,8 @@ extern bool bServerShutdown;
 typedef struct
 {
     uint32 ID;
-    string Name;
-    string Address;
+    std::string Name;
+    std::string Address;
     uint32 Port;
     uint32 ServerID;
     uint32 RetryTime;
@@ -19,8 +19,8 @@ typedef struct
 
 typedef struct
 {
-    string Name;
-    string Address;
+    std::string Name;
+    std::string Address;
     uint8 Icon;
     uint8 WorldRegion;
 }Realm;
@@ -37,14 +37,10 @@ class SocketLoadBalancer;
 
 class LogonCommHandler : public Singleton<LogonCommHandler>
 {
-#ifdef WIN32
-    typedef HM_NAMESPACE::hash_map<string, string> ForcedPermissionMap;
-#else
-    typedef map<string, string> ForcedPermissionMap;
-#endif
+    typedef RONIN_UNORDERED_MAP<std::string, std::string> ForcedPermissionMap;
 
     ForcedPermissionMap forced_permissions;
-    map<uint32, WorldSocket*> pending_logons;
+    std::map<uint32, WorldSocket*> pending_logons;
     LogonCommClientSocket* logon;
     LogonServer* server;
     Realm* realm;
@@ -66,7 +62,7 @@ public:
     void UpdateSockets(uint32 diff);
 
     uint32 GetLatency() { return (logon != NULL ? logon->latency : 0); }
-    LogonCommClientSocket * ConnectToLogon(string Address, uint32 Port);
+    LogonCommClientSocket * ConnectToLogon(std::string Address, uint32 Port);
     void UpdateAccountCount(uint32 account_id, int8 add);
     void RequestAddition(LogonCommClientSocket * Socket);
     void ConnectionDropped();
@@ -86,13 +82,13 @@ public:
     void SendCreateAccountRequest(const char *accountname, const char *password, const char *email, uint32 accountFlags);
 
     void LoadRealmConfiguration();
-    void AddServer(string Name, string Address, uint32 Port);
+    void AddServer(std::string Name, std::string Address, uint32 Port);
 
     /////////////////////////////
     // Worldsocket stuff
     ///////
 
-    uint32 ClientConnected(string AccountName, WorldSocket * Socket);
+    uint32 ClientConnected(std::string AccountName, WorldSocket * Socket);
     void UnauthedSocketClose(uint32 id);
     void RemoveUnauthedSocket(uint32 id);
     WorldSocket* GetSocketByRequest(uint32 id)
@@ -100,16 +96,16 @@ public:
         //pendingLock.Acquire();
 
         WorldSocket * sock;
-        map<uint32, WorldSocket*>::iterator itr = pending_logons.find(id);
+        std::map<uint32, WorldSocket*>::iterator itr = pending_logons.find(id);
         sock = (itr == pending_logons.end()) ? 0 : itr->second;
 
         //pendingLock.Release();
         return sock;
     }
     HEARTHSTONE_INLINE Mutex & GetPendingLock() { return pendingLock; }
-    const string* GetForcedPermissions(string& username);
+    const std::string* GetForcedPermissions(std::string& username);
 
-    void TestConsoleLogon(string& username, string& password, uint32 requestnum);
+    void TestConsoleLogon(std::string& username, std::string& password, uint32 requestnum);
 
     ///// From our thread system to allow multithread save pausing
     void Delay(uint32 etimeMS)

@@ -5,13 +5,13 @@
 #include "StdAfx.h"
 
 Mutex m_confSettingLock;
-vector<string> m_bannedChannels;
+std::vector<std::string> m_bannedChannels;
 
 void Channel::LoadConfSettings()
 {
-    string BannedChannels = mainIni->ReadString("Channels", "BannedChannels", "");
+    std::string BannedChannels = mainIni->ReadString("Channels", "BannedChannels", "");
     m_confSettingLock.Acquire();
-    m_bannedChannels = StrSplit(BannedChannels, ";");
+    m_bannedChannels = RONIN_UTIL::StrSplit(BannedChannels, ";");
     m_confSettingLock.Release();
 }
 
@@ -41,9 +41,7 @@ Channel::Channel(const char * name, uint32 team, uint32 type_id, uint32 id)
     m_typeId = type_id;
     m_channelId = id;
     m_deleted = false;
-
-    pDBC = dbcChatChannels.LookupEntry(type_id);
-    if( pDBC != NULL )
+    if( pDBC = dbcChatChannels.LookupEntry(type_id) )
     {
         m_general = true;
         m_announce = false;
@@ -59,9 +57,7 @@ Channel::Channel(const char * name, uint32 team, uint32 type_id, uint32 id)
 
         if( pDBC->flags & 0x40000 )
             m_flags |= 0x40;        // lfg flag
-    }
-    else
-        m_flags = 0x01;
+    } else m_flags = 0x01;
 }
 
 Channel::~Channel()
@@ -137,7 +133,7 @@ void Channel::AttemptJoin(Player* plr, const char * password)
         flags |= CHANNEL_FLAG_OWNER;
 
     plr->JoinedChannel(this);
-    m_members.insert(make_pair(plr, flags));
+    m_members.insert(std::make_pair(plr, flags));
 
     if(m_announce && !plr->bGMTagOn)
     {
@@ -380,8 +376,7 @@ void Channel::Say(Player* plr, const char * message, Player* for_gm_client, bool
     data << (uint8)(plr->GetChatTag());
     if(for_gm_client != NULL)
         for_gm_client->GetSession()->SendPacket(&data);
-    else
-        SendToAll(&data);
+    else SendToAll(&data);
 }
 
 void Channel::SendNotOn(Player* plr)
@@ -473,7 +468,7 @@ void Channel::Unban(Player* plr, PlayerInfo * bplr)
         return;
     }
 
-    set<uint32>::iterator it2 = m_bannedMembers.find(bplr->guid);
+    std::set<uint32>::iterator it2 = m_bannedMembers.find(bplr->guid);
     if(it2 == m_bannedMembers.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
@@ -742,7 +737,7 @@ void Channel::Password(Player* plr, const char * pass)
         return;
     }
 
-    m_password = string(pass);
+    m_password = std::string(pass);
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_SETPASS);
     data << plr->GetGUID();
     SendToAll(&data);
@@ -767,7 +762,7 @@ void Channel::List(Player* plr)
     for(MemberMap::iterator itr = m_members.begin(); itr != m_members.end(); itr++)
     {
         data << itr->first->GetGUID();
-        flags = 0;
+        flags = m_general ? 0x00 : 0x10;
         if(!(itr->second & CHANNEL_FLAG_MUTED))
             flags |= 0x04;      // voice flag
 
@@ -776,9 +771,6 @@ void Channel::List(Player* plr)
 
         if(itr->second & CHANNEL_FLAG_MODERATOR)
             flags |= 0x02;      // moderator flag
-
-        if(!m_general)
-            flags |= 0x10;
 
         data << flags;
     }
@@ -861,7 +853,7 @@ Channel * ChannelMgr::GetCreateChannel(const char *name, Player* p)
 
     // make sure the name isn't banned
     m_confSettingLock.Acquire();
-    for(vector<string>::iterator itr = m_bannedChannels.begin(); itr != m_bannedChannels.end(); itr++)
+    for(std::vector<std::string>::iterator itr = m_bannedChannels.begin(); itr != m_bannedChannels.end(); itr++)
     {
         if(!strnicmp( name, itr->c_str(), itr->size() ) )
         {
@@ -875,7 +867,7 @@ Channel * ChannelMgr::GetCreateChannel(const char *name, Player* p)
     cid = ++m_idHigh;
     chn = new Channel(name, rTeam, 0, cid);
     cl->insert(make_pair(chn->m_name, chn));
-    m_idToChannel.insert(make_pair(cid, chn));
+    m_idToChannel.insert(std::make_pair(cid, chn));
     lock.Release();
     return chn;
 }

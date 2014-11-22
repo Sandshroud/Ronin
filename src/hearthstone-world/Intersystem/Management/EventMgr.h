@@ -294,7 +294,7 @@ struct SERVER_DECL TimedEvent
 
 class EventMgr;
 class EventableObjectHolder;
-typedef map<int32, EventableObjectHolder*> HolderMap;
+typedef RONIN_MAP<int32, EventableObjectHolder*> HolderMap;
 
 class SERVER_DECL EventMgr : public Singleton < EventMgr >
 {

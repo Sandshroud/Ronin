@@ -62,9 +62,6 @@ extern "C" {
 #include <recast/Recast.h>
 #include <detour/Detour.h>
 
-// Being very lazy here..
-using namespace std;
-
 #include "../hearthstone-shared/git_version.h"
 #include "../hearthstone-shared/Common.h"
 #include "../hearthstone-shared/MersenneTwister.h"
@@ -74,7 +71,6 @@ using namespace std;
 #include "../hearthstone-shared/crc32.h"
 #include "../hearthstone-shared/LocationVector.h"
 #include "../hearthstone-shared/hashmap.h"
-#include "../hearthstone-shared/hearthstoneConfig.h"
 #include "../hearthstone-shared/RC4Engine.h"
 #include "../hearthstone-shared/Auth/MD5.h"
 #include "../hearthstone-shared/Auth/BigNumber.h"
@@ -83,7 +79,7 @@ using namespace std;
 #include "../hearthstone-shared/Client/AuthCodes.h"
 #include "../hearthstone-shared/FastQueue.h"
 #include "../hearthstone-shared/CircularQueue.h"
-#include "../hearthstone-shared/hearthstone_getopt.h"
+#include "../hearthstone-shared/startup_getopt.h"
 #include "../hearthstone-shared/NameTables.h"
 
 #include "Const.h"

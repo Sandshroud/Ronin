@@ -74,5 +74,5 @@ private:
     bool mQueued;
     bool m_nagleEanbled;
     bool isBattleNetAccount;
-    string * m_fullAccountName;
+    std::string * m_fullAccountName;
 };

@@ -44,7 +44,7 @@ public:
                     in use.
        No return value.
       */
-    TerrainMgr(string MapPath, uint32 MapId, bool Instanced, bool collisionMap);
+    TerrainMgr(std::string MapPath, uint32 MapId, bool Instanced, bool collisionMap);
 
     /* Cleans up all arrays, and unloads any pending tile information.
        No parameters.
@@ -92,7 +92,7 @@ public:
 
 private:
     /// MapPath contains the location of all mapfiles.
-    string mapPath;
+    std::string mapPath;
 
     /// Map ID
     uint32 mapId;

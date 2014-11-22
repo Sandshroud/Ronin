@@ -32,7 +32,7 @@ private:
     std::map<uint32, uint32> m_NeedRolls;
     std::map<uint32, uint32> m_GreedRolls;
     std::map<uint32, uint32> m_DisenchantRolls;
-    set<uint32> m_passRolls;
+    std::set<uint32> m_passRolls;
     uint32 _groupcount;
     uint32 _slotid;
     uint32 _itemid;
@@ -43,8 +43,8 @@ private:
     MapMgr* _mgr;
 };
 
-typedef vector<pair<ItemRandomPropertiesEntry*, float> > RandomPropertyVector;
-typedef vector<pair<ItemRandomSuffixEntry*, float> > RandomSuffixVector;
+typedef std::vector<std::pair<ItemRandomPropertiesEntry*, float> > RandomPropertyVector;
+typedef std::vector<std::pair<ItemRandomSuffixEntry*, float> > RandomSuffixVector;
 
 typedef struct _LootItem
 {
@@ -94,8 +94,7 @@ struct Loot
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-
-typedef HM_NAMESPACE::hash_map<uint32, StoreLootList > LootStore;
+typedef RONIN_UNORDERED_MAP<uint32, StoreLootList > LootStore;
 
 enum PARTY_LOOT
 {
@@ -164,7 +163,7 @@ public:
 
     bool is_loading;
 
-    void FillObjectLootMap(map<uint32, vector<uint32> > *dest);
+    void FillObjectLootMap(std::map<uint32, std::vector<uint32> > *dest);
 
     ObjectQuestLoot* GetCreatureQuestLoot(uint32 entry) { if(_creaturequestloot.find(entry) == _creaturequestloot.end()) return NULL; return _creaturequestloot[entry]; };
     ObjectQuestLoot* GetGameObjectQuestLoot(uint32 entry) { if(_gameobjectquestloot.find(entry) == _gameobjectquestloot.end()) return NULL; return _gameobjectquestloot[entry]; };
@@ -173,10 +172,10 @@ private:
     void LoadLootTables(const char * szTableName, LootStore * LootTable, bool MultiDifficulty);
     void PushLoot(StoreLootList *list,Loot * loot, uint8 difficulty, uint8 team, bool disenchant);
 
-    map<uint32, ObjectQuestLoot*> _creaturequestloot;
-    map<uint32, ObjectQuestLoot*> _gameobjectquestloot;
-    map<uint32, RandomPropertyVector> _randomprops;
-    map<uint32, RandomSuffixVector> _randomsuffix;
+    std::map<uint32, ObjectQuestLoot*> _creaturequestloot;
+    std::map<uint32, ObjectQuestLoot*> _gameobjectquestloot;
+    std::map<uint32, RandomPropertyVector> _randomprops;
+    std::map<uint32, RandomSuffixVector> _randomsuffix;
 };
 
 #define lootmgr LootMgr::getSingleton()

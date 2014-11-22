@@ -105,7 +105,7 @@ void ArenaTeam::Destroy()
 {
     char buffer[1024];
     WorldPacket * data;
-    vector<PlayerInfo*> tokill;
+    std::vector<PlayerInfo*> tokill;
     uint32 i;
     tokill.reserve(m_memberCount);
     snprintf(buffer,1024, "The arena team, '%s', disbanded.", m_name.c_str());
@@ -119,10 +119,8 @@ void ArenaTeam::Destroy()
             tokill.push_back(m_members[i].Info);
     }
 
-    for(vector<PlayerInfo*>::iterator itr = tokill.begin(); itr != tokill.end(); itr++)
-    {
+    for(std::vector<PlayerInfo*>::iterator itr = tokill.begin(); itr != tokill.end(); itr++)
         RemoveMember(*itr);
-    }
 
     objmgr.RemoveArenaTeam(this);
     delete this;
@@ -274,7 +272,7 @@ void ArenaTeam::SaveToDB()
     CharacterDatabase.Execute(ss.str().c_str());
 }
 
-bool ArenaTeam::HasMember(uint32 guid)
+bool ArenaTeam::HasMember(WoWGuid guid)
 {
     for(uint32 i = 0; i < m_memberCount; i++)
     {
@@ -286,7 +284,7 @@ bool ArenaTeam::HasMember(uint32 guid)
 
 void ArenaTeam::SetLeader(PlayerInfo * info)
 {
-    uint32 old_leader = m_leader;
+    WoWGuid old_leader = m_leader;
     char buffer[1024];
     WorldPacket * data;
     snprintf(buffer, 1024,"%s is now the captain of the arena team, '%s'.", info->name, m_name.c_str());
@@ -323,7 +321,7 @@ ArenaTeamMember * ArenaTeam::GetMember(PlayerInfo * info)
     return NULL;
 }
 
-ArenaTeamMember* ArenaTeam::GetMemberByGuid(uint32 guid)
+ArenaTeamMember* ArenaTeam::GetMemberByGuid(WoWGuid guid)
 {
     if(!m_memberCount) // If we don't have members, whats the point?
         return NULL;
@@ -372,17 +370,18 @@ void WorldSession::HandleArenaTeamQueryOpcode(WorldPacket & recv_data)
 
 void WorldSession::HandleArenaTeamAddMemberOpcode(WorldPacket & recv_data)
 {
-    WorldPacket data(SMSG_ARENA_TEAM_INVITE, 40);
-    string player_name;
     uint32 teamId;
+    std::string player_name;
     recv_data >> teamId >> player_name;
 
     ArenaTeam * pTeam = objmgr.GetArenaTeamById(teamId);
-    if( !pTeam )
+    if( pTeam == NULL )
         return;
-
-    if(!pTeam->HasMember(GetPlayer()->GetLowGUID()))
+    else if(!pTeam->HasMember(GetPlayer()->GetGUID()))
+    {
         GetPlayer()->SoftDisconnect();
+        return;
+    }
 
     Player* plr = objmgr.GetPlayer(player_name.c_str(), false);
     if(plr == NULL)
@@ -391,7 +390,7 @@ void WorldSession::HandleArenaTeamAddMemberOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(pTeam->m_leader != _player->GetLowGUID())
+    if(pTeam->m_leader != _player->GetGUID())
     {
         SystemMessage("You are not the captain of this arena team.");
         return;
@@ -422,6 +421,7 @@ void WorldSession::HandleArenaTeamAddMemberOpcode(WorldPacket & recv_data)
     }
 
     plr->m_arenateaminviteguid = _player->m_playerInfo->arenaTeam[pTeam->m_type]->m_id;
+    WorldPacket data(SMSG_ARENA_TEAM_INVITE, 40);
     data << _player->GetName();
     data << _player->m_playerInfo->arenaTeam[pTeam->m_type]->m_name;
     plr->GetSession()->SendPacket(&data);
@@ -432,7 +432,7 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
     ArenaTeam * team;
     uint8 slot;
     uint32 teamId;
-    string name;
+    std::string name;
     PlayerInfo * inf;
     recv_data >> teamId >> name;
 
@@ -451,7 +451,7 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(team->m_leader != _player->GetLowGUID())
+    if(team->m_leader != _player->GetGUID())
     {
         SystemMessage("You are not the leader of this team.");
         return;
@@ -483,15 +483,13 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
 
 void WorldSession::HandleArenaTeamInviteAcceptOpcode(WorldPacket & recv_data)
 {
-    ArenaTeam * team;
-
     if(_player->m_arenateaminviteguid == 0)
     {
         SystemMessage("You have not been invited into another arena team.");
         return;
     }
 
-    team = objmgr.GetArenaTeamById(_player->m_arenateaminviteguid);
+    ArenaTeam *team = objmgr.GetArenaTeamById(_player->m_arenateaminviteguid);
     _player->m_arenateaminviteguid=0;
     if(team == 0)
     {
@@ -519,23 +517,18 @@ void WorldSession::HandleArenaTeamInviteAcceptOpcode(WorldPacket & recv_data)
         data = sChatHandler.FillSystemMessageData(buffer);
         team->SendPacket(data);
         delete data;
-    }
-    else
-    {
-        SendNotification("Internal error.");
-    }
+    } else SendNotification("Internal error.");
 }
 
 void WorldSession::HandleArenaTeamInviteDenyOpcode(WorldPacket & recv_data)
 {
-    ArenaTeam * team;
     if(_player->m_arenateaminviteguid == 0)
     {
         SystemMessage("You were not invited.");
         return;
     }
 
-    team = objmgr.GetArenaTeamById(_player->m_arenateaminviteguid);
+    ArenaTeam *team = objmgr.GetArenaTeamById(_player->m_arenateaminviteguid);
     _player->m_arenateaminviteguid=0;
     if(team == NULL)
         return;
@@ -547,13 +540,11 @@ void WorldSession::HandleArenaTeamInviteDenyOpcode(WorldPacket & recv_data)
 
 void WorldSession::HandleArenaTeamLeaveOpcode(WorldPacket & recv_data)
 {
-    ArenaTeam * team;
     uint32 teamId;
     recv_data >> teamId;
 
-    team = objmgr.GetArenaTeamById(teamId);
-
-    if(!team)
+    ArenaTeam *team = objmgr.GetArenaTeamById(teamId);
+    if(team == NULL)
     {
         GetPlayer()->SoftDisconnect();
         return;
@@ -565,7 +556,7 @@ void WorldSession::HandleArenaTeamLeaveOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(team->m_leader == _player->GetLowGUID())
+    if(team->m_leader == _player->GetGUID())
     {
         SystemMessage("You cannot leave the team yet, promote someone else to captain first.");
         return;
@@ -585,11 +576,10 @@ void WorldSession::HandleArenaTeamLeaveOpcode(WorldPacket & recv_data)
 
 void WorldSession::HandleArenaTeamDisbandOpcode(WorldPacket & recv_data)
 {
-    ArenaTeam * team;
     uint32 teamId;
     recv_data >> teamId;
 
-    team = objmgr.GetArenaTeamById(teamId);
+    ArenaTeam *team = objmgr.GetArenaTeamById(teamId);
     if(!team)
     {
         GetPlayer()->SoftDisconnect();
@@ -602,7 +592,7 @@ void WorldSession::HandleArenaTeamDisbandOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(team->m_leader != _player->GetLowGUID())
+    if(team->m_leader != _player->GetGUID())
     {
         SystemMessage("You aren't the captain of this team.");
         return;
@@ -615,12 +605,11 @@ void WorldSession::HandleArenaTeamPromoteOpcode(WorldPacket & recv_data)
 {
     uint32 teamId;
     uint8 slot;
-    string name;
-    ArenaTeam * team;
+    std::string name;
     PlayerInfo * inf;
     recv_data >> teamId >> name;
 
-    team = objmgr.GetArenaTeamById(teamId);
+    ArenaTeam *team = objmgr.GetArenaTeamById(teamId);
     if(!team)
     {
         GetPlayer()->SoftDisconnect();
@@ -638,7 +627,7 @@ void WorldSession::HandleArenaTeamPromoteOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(team->m_leader != _player->GetLowGUID())
+    if(team->m_leader != _player->GetGUID())
     {
         SystemMessage("You aren't the captain of this team.");
         return;

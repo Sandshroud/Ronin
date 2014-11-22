@@ -114,8 +114,8 @@ enum AutoCastEvents
 #define DEFAULT_SPELL_STATE 0x8100
 #define AUTOCAST_SPELL_STATE 0xC100
 
-typedef map<SpellEntry*, uint16> PetSpellMap;
-typedef map<uint32, uint8> PetTalentMap;
+typedef std::map<SpellEntry*, uint16> PetSpellMap;
+typedef std::map<uint32, uint8> PetTalentMap;
 struct PlayerPet;
 
 class SERVER_DECL Pet : public Creature
@@ -163,8 +163,7 @@ public:
         std::map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.find(spellid);
         if(itr != m_AISpellStore.end())
             return itr->second;
-        else
-            return NULL;
+        return NULL;
     }
 
     void UpdatePetInfo(bool bSetToOffline);
@@ -230,8 +229,8 @@ public:
     }
 
     void __fastcall SetAutoCastSpell(AI_Spell*sp);
-    void Rename(string NewName);
-    HEARTHSTONE_INLINE string& GetPetName() { return m_name; }
+    void Rename(std::string NewName);
+    HEARTHSTONE_INLINE std::string& GetPetName() { return m_name; }
     void AddPetSpellToOwner(uint32 spellId);
 
     void HandleAutoCastEvent(uint32 Type);
@@ -276,10 +275,10 @@ protected:
     uint64 m_OwnerGuid;
     bool bExpires;
     bool Summon;
-    string m_name;
+    std::string m_name;
     HappinessState GetHappinessState();
     uint32 GetHighestRankSpell(uint32 spellId);
     uint8 GetPetTalentPointsAtLevel();
-    map<uint32, AI_Spell*> m_autoCastSpells[AUTOCAST_EVENT_COUNT];
+    std::map<uint32, AI_Spell*> m_autoCastSpells[AUTOCAST_EVENT_COUNT];
     bool m_dismissed;
 };

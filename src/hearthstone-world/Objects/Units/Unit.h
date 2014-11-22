@@ -277,9 +277,9 @@ class SERVER_DECL ThreatRedirectHandler
 class Unit;
 class SERVER_DECL CombatStatusHandler
 {
-    typedef set<uint64> AttackerMap;
-    typedef map<uint64, uint32> AttackTMap;
-    typedef set<uint32> HealedSet;      // Must Be Players!
+    typedef std::set<uint64> AttackerMap;
+    typedef std::map<uint64, uint32> AttackTMap;
+    typedef std::set<uint32> HealedSet;      // Must Be Players!
     Unit* m_Unit;
     bool m_lastStatus;
     HealedSet m_healed;
@@ -287,7 +287,7 @@ class SERVER_DECL CombatStatusHandler
     AttackerMap m_attackers;
     AttackTMap m_attackTargets;
     uint32 condom[16]; // wear protection, damagemap! don't get access violated!
-    map<uint64,uint32> DamageMap;
+    std::map<uint64,uint32> DamageMap;
 
 public:
     CombatStatusHandler() : m_lastStatus(false)
@@ -593,7 +593,7 @@ public:
     HEARTHSTONE_INLINE uint8 getStandState() { return ((uint8)GetUInt32Value(UNIT_FIELD_BYTES_1)); }
     HEARTHSTONE_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
-    HEARTHSTONE_INLINE string GetClassNames(bool FullCaps = false)
+    HEARTHSTONE_INLINE std::string GetClassNames(bool FullCaps = false)
     {
         std::string _class = "UNKNOWN";
         switch(getClass()) {
@@ -603,7 +603,7 @@ public:
         case 7: { _class = "Shaman"; }break; case 8: { _class = "Mage"; }break;
         case 9: { _class = "Warlock"; }break; case 11: { _class = "Druid"; }break; }
         if(FullCaps)
-            HEARTHSTONE_TOUPPER(_class);
+            RONIN_UTIL::TOUPPER(_class);
         return _class;
     };
 
@@ -771,7 +771,7 @@ public:
     void CastOnMeleeSpell();
 
     // On Aura Remove Procs
-    HM_NAMESPACE::hash_map<uint32, onAuraRemove* > m_onAuraRemoveSpells;
+    RONIN_MAP<uint32, onAuraRemove* > m_onAuraRemoveSpells;
 
     void AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf);
     void RemoveOnAuraRemoveSpell(uint32 NameHash);
@@ -845,7 +845,7 @@ public:
 
     // Multimap used to handle aura 271
     // key is caster GUID and value is a pair of SpellMask pointer and mod value
-    typedef tr1::unordered_multimap<uint64, pair<uint32*, int32> > DamageTakenPctModPerCasterType;
+    typedef std::tr1::unordered_multimap<uint64, std::pair<uint32*, int32> > DamageTakenPctModPerCasterType;
     DamageTakenPctModPerCasterType DamageTakenPctModPerCaster;
 
     //Events
@@ -957,7 +957,7 @@ public:
 
     float DamageDonePctMod[7];
 
-    map<uint32, uint32> HealDoneBonusBySpell;
+    std::map<uint32, uint32> HealDoneBonusBySpell;
     int32 HealDoneModPos;
     int32 HealDoneBase;
     float HealDonePctMod;
@@ -996,7 +996,7 @@ public:
     int32 m_speedModifier;
     int32 m_slowdown;
     float m_maxSpeed;
-    map< uint32, int32 > speedReductionMap;
+    std::map< uint32, int32 > speedReductionMap;
     bool GetSpeedDecrease();
     int32 m_mountedspeedModifier;
     int32 m_flyspeedModifier;
@@ -1018,7 +1018,7 @@ public:
 
     HEARTHSTONE_INLINE uint32 GetCharmTempVal() { return m_charmtemp; }
     HEARTHSTONE_INLINE void SetCharmTempVal(uint32 val) { m_charmtemp = val; }
-    set<uint32> m_SpellList;
+    std::set<uint32> m_SpellList;
 
     HEARTHSTONE_INLINE void DisableAI() { m_useAI = false; }
     HEARTHSTONE_INLINE void EnableAI() { m_useAI = true; }

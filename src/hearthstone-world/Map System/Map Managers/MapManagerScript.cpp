@@ -190,7 +190,7 @@ GameObject *MapManagerScript::FindClosestGameObject( uint32 pEntry, float pX, fl
 {
     GameObject *CurrentObject = NULL, *Creturn = NULL;
     float closestDistance = 50000.0f, currentDistance;
-    for ( HM_NAMESPACE::hash_map<uint32, GameObject*>::iterator Iter = _manager->m_gameObjectStorage.begin(); Iter != _manager->m_gameObjectStorage.end(); Iter++ )
+    for ( RONIN_UNORDERED_MAP<uint32, GameObject*>::iterator Iter = _manager->m_gameObjectStorage.begin(); Iter != _manager->m_gameObjectStorage.end(); Iter++ )
     {
         CurrentObject = ( *Iter ).second;
         if ( CurrentObject != NULL )

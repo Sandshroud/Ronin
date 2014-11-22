@@ -84,26 +84,26 @@ bool Master::Run(int argc, char ** argv)
     int do_database_clean = 0;
     time_t curTime;
 
-    struct hearthstone_option longopts[] =
+    struct startup_option longopts[] =
     {
-        { "checkconf",          hearthstone_no_argument,            &do_check_conf,         1       },
-        { "screenloglevel",     hearthstone_required_argument,      &screen_log_level,      1       },
-        { "version",            hearthstone_no_argument,            &do_version,            1       },
-        { "cheater",            hearthstone_no_argument,            &do_cheater_check,      1       },
-        { "cleandb",            hearthstone_no_argument,            &do_database_clean,     1       },
-        { "conf",               hearthstone_required_argument,      NULL,                   'c'     },
-        { "realmconf",          hearthstone_required_argument,      NULL,                   'r'     },
+        { "checkconf",          startup_no_argument,            &do_check_conf,         1       },
+        { "screenloglevel",     startup_required_argument,      &screen_log_level,      1       },
+        { "version",            startup_no_argument,            &do_version,            1       },
+        { "cheater",            startup_no_argument,            &do_cheater_check,      1       },
+        { "cleandb",            startup_no_argument,            &do_database_clean,     1       },
+        { "conf",               startup_required_argument,      NULL,                   'c'     },
+        { "realmconf",          startup_required_argument,      NULL,                   'r'     },
         { 0, 0, 0, 0 }
     };
 
     char c;
-    while ((c = hearthstone_getopt_long_only(argc, argv, ":f:", longopts, NULL)) != -1)
+    while ((c = startup_getopt_long_only(argc, argv, ":f:", longopts, NULL)) != -1)
     {
         switch (c)
         {
         case 'c':
-            config_file = new char[strlen(hearthstone_optarg)];
-            strcpy(config_file, hearthstone_optarg);
+            config_file = new char[strlen(startup_optarg)];
+            strcpy(config_file, startup_optarg);
             break;
         case 0:
             break;

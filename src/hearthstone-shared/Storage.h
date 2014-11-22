@@ -4,45 +4,14 @@
 
 #pragma once
 
-#if PLATFORM == PLATFORM_WIN
-#pragma warning(disable:4312)
-#endif
+// Storage max based off guid entry max
+static unsigned long STORAGE_ARRAY_MAX = 0x00FFFFFF;
 
-// pooled allocations
-//#define STORAGE_ALLOCATION_POOLS 1
-#define STORAGE_ARRAY_MAX 200000
-
-#ifdef STORAGE_ALLOCATION_POOLS
-template<class T>
-class SERVER_DECL StorageAllocationPool
-{
-    T* _pool;
-    uint32 _count;
-    uint32 _max;
-public:
-    void Init(uint32 count)
-    {
-        _pool = new T[count+100];
-        _count = 0;
-        _max = count+100;
-    }
-
-    T * Get()
-    {
-        if( _count >= _max )
-        {
-            printf("StorageAllocationPool Get() failed!\n");
-            return NULL;
-        }
-
-        return &_pool[_count++];
-    }
-
-    void Free()
-    {
-        delete [] _pool;
-    }
-};
+// Previously we used a hash/unordered map, but we'll test standard mapping
+#if 1 == 1
+#define STORAGE_MAP RONIN_MAP
+#else
+#define STORAGE_MAP RONIN_UNORDERED_MAP
 #endif
 
 /** Base iterator class, returned by MakeIterator() functions.
@@ -59,15 +28,15 @@ public:
 
     /** Returns the currently stored object
      */
-    HEARTHSTONE_INLINE T * Get() { return Pointer; }
+    RONIN_INLINE T * Get() { return Pointer; }
 
     /** Sets the current object to P
      */
-    HEARTHSTONE_INLINE void Set(T * P) { Pointer = P; }
+    RONIN_INLINE void Set(T * P) { Pointer = P; }
 
     /** Are we at the end of the storage container?
      */
-    HEARTHSTONE_INLINE bool AtEnd() { return (Pointer == 0); }
+    RONIN_INLINE bool AtEnd() { return (Pointer == 0); }
 
     /** Virtual function to increment to the next element
      */
@@ -82,11 +51,6 @@ template<class T>
 class SERVER_DECL ArrayStorageContainer
 {
 public:
-#ifdef STORAGE_ALLOCATION_POOLS
-    StorageAllocationPool<T> _pool;
-    void InitPool(uint32 cnt) { _pool.Init( cnt ); }
-#endif
-
     /** This is where the magic happens :P
      */
     T ** _array;
@@ -134,13 +98,9 @@ public:
      */
     ~ArrayStorageContainer()
     {
-#ifndef STORAGE_ALLOCATION_POOLS
         for(uint32 i = 0; i < _max; ++i)
             if(_array[i] != NULL)
                 delete _array[i];
-#else
-        _pool.Free();
-#endif
         delete [] _array;
     }
 
@@ -152,11 +112,7 @@ public:
         if(Entry >= _max || _array[Entry] != 0)
             return reinterpret_cast<T*>(0);
 
-#ifndef STORAGE_ALLOCATION_POOLS
         _array[Entry] = new T();
-#else
-        _array[Entry] = _pool.Get();
-#endif
         return _array[Entry];
     }
 
@@ -167,9 +123,7 @@ public:
         if(Entry >= _max || _array[Entry] == NULL)
             return false;
 
-#ifndef STORAGE_ALLOCATION_POOLS
         delete _array[Entry];
-#endif
         _array[Entry] = NULL;
         return true;
     }
@@ -191,12 +145,8 @@ public:
     {
         if(Entry > _max)
             return false;
-
-#ifndef STORAGE_ALLOCATION_POOLS
         if(_array[Entry] != NULL)
             delete _array[Entry];
-#endif
-
         _array[Entry] = Pointer;
         return true;
     }
@@ -205,10 +155,9 @@ public:
      */
     T * LookupEntryAllocate(uint32 Entry)
     {
-        T * ret = LookupEntry(Entry);
-        if(!ret)
-            ret = AllocateEntry(Entry);
-        return ret;
+        if(T * ret = LookupEntry(Entry))
+            return ret;
+        return AllocateEntry(Entry);
     }
 
     /** Deletes all entries in the container.
@@ -217,27 +166,17 @@ public:
     {
         for(uint32 i = 0; i < _max; ++i)
         {
-#ifndef STORAGE_ALLOCATION_POOLS
             if(_array[i] != 0)
-            {
                 delete _array[i];
-            }
-#endif
             _array[i] = 0;
         }
     }
 };
 
-template<class T>
-class SERVER_DECL HashMapStorageContainer
+template<class T> class SERVER_DECL HashMapStorageContainer
 {
 public:
-#ifdef STORAGE_ALLOCATION_POOLS
-    StorageAllocationPool<T> _pool;
-    void InitPool(uint32 cnt) { _pool.Init( cnt ); }
-#endif
-
-    typename HM_NAMESPACE::hash_map<uint32, T*> _map;
+    typename STORAGE_MAP<uint32, T*> _map;
 
     /** Returns an iterator currently referencing the start of the container
      */
@@ -247,7 +186,7 @@ public:
      */
     ~HashMapStorageContainer()
     {
-        for(typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
+        for(typename STORAGE_MAP<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
             delete itr->second;
     }
 
@@ -277,13 +216,9 @@ public:
     {
         if(_map.find(Entry) != _map.end())
             return reinterpret_cast<T*>(0);
-#ifdef STORAGE_ALLOCATION_POOLS
-        T * n = _pool.Get();
-#else
         T * n = new T();
-#endif
         memset(n, NULL, sizeof(T*));
-        _map.insert( make_pair( Entry, n ) );
+        _map.insert( std::make_pair( Entry, n ) );
         return n;
     }
 
@@ -291,13 +226,11 @@ public:
      */
     bool DeallocateEntry(uint32 Entry)
     {
-        typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr = _map.find(Entry);
+        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return false;
 
-#ifndef STORAGE_ALLOCATION_POOLS
         delete itr->second;
-#endif
         _map.erase(itr);
         return true;
     }
@@ -305,7 +238,7 @@ public:
 
     T * LookupEntry(uint32 Entry)
     {
-        typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr = _map.find(Entry);
+        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return reinterpret_cast<T*>(0);
         return itr->second;
@@ -316,17 +249,15 @@ public:
      */
     bool SetEntry(uint32 Entry, T * Pointer)
     {
-        typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr = _map.find(Entry);
+        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
         {
-            _map.insert( make_pair( Entry, Pointer ) );
+            _map.insert( std::make_pair( Entry, Pointer ) );
             return true;
         }
 
-#ifndef STORAGE_ALLOCATION_POOLS
         delete itr->second;
         itr->second = Pointer;
-#endif
         return true;
     }
 
@@ -334,17 +265,16 @@ public:
      */
     T * LookupEntryAllocate(uint32 Entry)
     {
-        T * ret = LookupEntry(Entry);
-        if(!ret)
-            ret = AllocateEntry(Entry);
-        return ret;
+        if(T * ret = LookupEntry(Entry))
+            return ret;
+        return AllocateEntry(Entry);
     }
 
     /** Deletes all entries in the container.
      */
     void Clear()
     {
-        typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr = _map.begin();
+        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.begin();
         for(; itr != _map.end(); ++itr)
             delete itr->second;
         _map.clear();
@@ -365,8 +295,7 @@ public:
         GetNextElement();
         if(StorageContainerIterator<T>::Pointer != 0)
             return true;
-        else
-            return false;
+        return false;
     }
 
     /** Frees the memory occupied by this iterator
@@ -406,7 +335,7 @@ template<class T>
 class SERVER_DECL HashMapStorageIterator : public StorageContainerIterator<T>
 {
     HashMapStorageContainer<T> * Source;
-    typename HM_NAMESPACE::hash_map<uint32, T*>::iterator itr;
+    typename STORAGE_MAP<uint32, T*>::iterator itr;
 public:
 
     /** Constructor
@@ -416,8 +345,7 @@ public:
         itr = S->_map.begin();
         if(itr == S->_map.end())
             StorageContainerIterator<T>::Set(0);
-        else
-            StorageContainerIterator<T>::Set(itr->second);
+        else StorageContainerIterator<T>::Set(itr->second);
     }
 
     /** Gets the next element, or if we reached the end sets it to 0
@@ -427,8 +355,7 @@ public:
         ++itr;
         if(itr == Source->_map.end())
             StorageContainerIterator<T>::Set(0);
-        else
-            StorageContainerIterator<T>::Set(itr->second);
+        else StorageContainerIterator<T>::Set(itr->second);
     }
 
     /** Returns true if we're not at the end, otherwise false.
@@ -438,8 +365,7 @@ public:
         GetNextElement();
         if(StorageContainerIterator<T>::Pointer != 0)
             return true;
-        else
-            return false;
+        return false;
     }
 
     /** Frees the memory occupied by this iterator
@@ -473,8 +399,8 @@ protected:
     char * _formatString;
 public:
 
-    HEARTHSTONE_INLINE char * GetIndexName() { return _indexName; }
-    HEARTHSTONE_INLINE char * GetFormatString() { return _formatString; }
+    RONIN_INLINE char * GetIndexName() { return _indexName; }
+    RONIN_INLINE char * GetFormatString() { return _formatString; }
 
     /** False constructor to fool compiler
      */
@@ -511,7 +437,6 @@ public:
      */
     virtual void Cleanup()
     {
-        printf("Deleting database cache of `%s`...\n", _indexName);
         StorageContainerIterator<T> * itr = _storage.MakeIterator();
         while(!itr->AtEnd())
         {
@@ -581,7 +506,7 @@ public:
 
     /** Loads the block using the format string.
      */
-    HEARTHSTONE_INLINE void LoadBlock(Field * fields, T * Allocated, bool reload = false )
+    RONIN_INLINE void LoadBlock(Field * fields, T * Allocated, bool reload = false )
     {
         char * p = Storage<T, StorageType>::_formatString;
         char * structpointer = (char*)Allocated;
@@ -701,9 +626,6 @@ public:
 
         uint32 Entry;
         T * Allocated;
-#ifdef STORAGE_ALLOCATION_POOLS
-        Storage<T, StorageType>::_storage.InitPool( result->GetRowCount() );
-#endif
         do
         {
             Entry = fields[0].GetUInt32();
@@ -769,9 +691,6 @@ public:
 
         uint32 Entry;
         T * Allocated;
-#ifdef STORAGE_ALLOCATION_POOLS
-        Storage<T, StorageType>::_storage.InitPool( result->GetRowCount() );
-#endif
         do
         {
             Entry = fields[0].GetUInt32();
@@ -892,3 +811,5 @@ public:
         delete result;
     }
 };
+
+#undef STORAGE_MAP

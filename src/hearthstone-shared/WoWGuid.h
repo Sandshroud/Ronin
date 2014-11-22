@@ -86,6 +86,7 @@ public:
     WoWGuid& operator |=( const uint64 val ) { *this = *this | val; return *this; }
     WoWGuid& operator >>=( const uint64 val ) { *this = *this >> val; return *this; }
     WoWGuid& operator <<=( const uint64 val ) { *this = *this << val; return *this; }
+    WoWGuid operator =( const uint64 val ) { ((uint64*)&blocks[0])[0] = val; return *this; }
     operator bool() const { return (uint64)*this != 0; }
     bool operator !() const { return !((uint64)*this); }
     bool operator ==( const WoWGuid& val ) const { return (uint64)*this == (uint64)val; }

@@ -348,9 +348,9 @@ struct PlayerInfo
 
 struct PlayerPet
 {
-    string name;
+    std::string name;
     uint32 entry;
-    string fields;
+    std::string fields;
     uint32 xp;
     bool active;
     uint8 stablestate;
@@ -575,7 +575,7 @@ typedef std::map<uint32, ScriptOverrideList* >      SpellOverrideMap;
 typedef std::map<uint32, uint32>                    SpellOverrideExtraAuraMap;
 typedef std::map<uint32, FactionReputation*>        ReputationMap;
 typedef std::map<uint32, uint64>                    SoloSpells;
-typedef std::map<SpellEntry*, pair<uint32, uint32> >StrikeSpellMap;
+typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
 typedef std::unordered_map<uint32, PlayerSkill>     SkillMap;
 typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
@@ -752,7 +752,7 @@ public:
     HEARTHSTONE_INLINE void         UnSetTaxiPos()  {m_taxi_pos_x = 0; m_taxi_pos_y = 0; m_taxi_pos_z = 0; }
 
     // Taxi related variables
-    vector<TaxiPath*>   m_taxiPaths;
+    std::vector<TaxiPath*>   m_taxiPaths;
     TaxiPath*           m_CurrentTaxiPath;
     uint32              taxi_model_id;
     uint32              lastNode;
@@ -852,7 +852,7 @@ public:
     // PLEASE DO NOT INLINE!
     void AddOnStrikeSpell(SpellEntry* sp, uint32 delay)
     {
-        m_onStrikeSpells.insert( map< SpellEntry*, pair<uint32, uint32> >::value_type( sp, make_pair( delay, 0 ) ) );
+        m_onStrikeSpells.insert( std::map< SpellEntry*, std::pair<uint32, uint32> >::value_type( sp, std::make_pair( delay, 0 ) ) );
     }
     void RemoveOnStrikeSpell(SpellEntry *sp)
     {
@@ -957,11 +957,11 @@ public:
         return false;
     }
 
-    HEARTHSTONE_INLINE void     SetBanned() { m_banned = 4;}
-    HEARTHSTONE_INLINE void     SetBanned(string Reason) { m_banned = 4; m_banreason = Reason;}
-    HEARTHSTONE_INLINE void     SetBanned(uint32 timestamp, string& Reason) { m_banned = timestamp; m_banreason = Reason; }
-    HEARTHSTONE_INLINE void     UnSetBanned() { m_banned = 0; }
-    HEARTHSTONE_INLINE string   GetBanReason() {return m_banreason;}
+    HEARTHSTONE_INLINE void SetBanned() { m_banned = 4;}
+    HEARTHSTONE_INLINE void SetBanned(std::string Reason) { m_banned = 4; m_banreason = Reason;}
+    HEARTHSTONE_INLINE void SetBanned(uint32 timestamp, std::string& Reason) { m_banned = timestamp; m_banreason = Reason; }
+    HEARTHSTONE_INLINE void UnSetBanned() { m_banned = 0; }
+    HEARTHSTONE_INLINE std::string GetBanReason() {return m_banreason;}
 
     void SetGuardHostileFlag(bool val) { if(val) SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); else RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); UpdateOppFactionSet(); }
     void CreateResetGuardHostileFlagEvent()
@@ -1117,7 +1117,7 @@ public:
     /* Serialize character to db                                            */
     /************************************************************************/
     void SaveToDB(bool bNewCharacter);
-    void SaveAuras(stringstream&);
+    void SaveAuras(std::stringstream&);
     bool LoadFromDB();
     void LoadFromDBProc(QueryResultVector & results);
 
@@ -1382,8 +1382,8 @@ public:
 
     bool bReincarnation;
 
-    map<uint32, WeaponModifier> damagedone;
-    map<uint32, WeaponModifier> tocritchance;
+    std::map<uint32, WeaponModifier> damagedone;
+    std::map<uint32, WeaponModifier> tocritchance;
     uint32 Seal;
     int32 rageFromDamageDealt;
     // GameObject commands
@@ -1406,7 +1406,7 @@ public:
     bool DisableDevTag;
     bool vendorpass_cheat;
     bool triggerpass_cheat;
-    bool ignoreitemreq_cheat; // Crow: Gonna do so much with this. HEHEHEHEHAHAHAHAHAHAHAHA!!!
+    bool ignoreitemreq_cheat;
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;
@@ -1426,7 +1426,7 @@ public:
     uint32 roll;
 
     void ClearCooldownsOnLine(uint32 skill_line, uint32 called_from);
-    void ClearCooldownsOnLines(set<uint32> skill_lines, uint32 called_from);
+    void ClearCooldownsOnLines(std::set<uint32> skill_lines, uint32 called_from);
     void ResetAllCooldowns();
     void ClearCooldownForSpell(uint32 spell_id);
     PlayerCooldownMap GetCooldownMap(uint8 index = COOLDOWN_TYPE_SPELL) { return m_cooldownMap[index]; };
@@ -1490,7 +1490,7 @@ public:
     uint32 m_arenaPoints;
     bool m_honorless;
     uint32 m_lastSeenWeather;
-    unordered_set<WorldObject* > m_visibleFarsightObjects;
+    std::unordered_set<WorldObject* > m_visibleFarsightObjects;
     void EventTeleport(uint32 mapid, float x, float y, float z, float o);
     void EventTeleport(uint32 mapid, float x, float y, float z)
     {
@@ -1498,13 +1498,13 @@ public:
     }
 
     void BroadcastMessage(const char* Format, ...);
-    map<uint32, set<uint32> > SummonSpells;
-    map<uint32, PetSpellMap*> PetSpells;
+    std::map<uint32, std::set<uint32> > SummonSpells;
+    std::map<uint32, PetSpellMap*> PetSpells;
     void AddSummonSpell(uint32 Entry, uint32 SpellID);
     void RemoveSummonSpell(uint32 Entry, uint32 SpellID);
-    set<uint32>* GetSummonSpells(uint32 Entry);
+    std::set<uint32>* GetSummonSpells(uint32 Entry);
     LockedQueue<WorldPacket*> delayedPackets;
-    set<Player*  > gmTargets;
+    std::set<Player*  > gmTargets;
     uint32 m_UnderwaterMaxTime;
     HEARTHSTONE_INLINE void setMyCorpse(Corpse* corpse) { myCorpse = corpse; }
     HEARTHSTONE_INLINE Corpse* getMyCorpse() { return myCorpse; }
@@ -1562,7 +1562,7 @@ public:
     HEARTHSTONE_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
     uint32 load_health, load_power[5];
-    set<SpellEntry *> castSpellAtLogin;
+    std::set<SpellEntry *> castSpellAtLogin;
 
     /////
     void OnPushToWorld();
@@ -1573,11 +1573,11 @@ public:
     void SendObjectUpdate(uint64 guid);
 
     uint32 m_TeleportState;
-    set<Unit* > visiblityChangableSet;
+    std::set<Unit* > visiblityChangableSet;
     bool m_beingPushed;
     bool CanSignCharter(Charter * charter, Player* requester);
     uint32 m_FlyingAura;
-    stringstream LoadAuras;
+    std::stringstream LoadAuras;
     bool resend_speed;
     bool rename_pending;
     bool m_XPoff;
@@ -1585,7 +1585,7 @@ public:
     uint32 iInstanceType;
     uint32 iRaidType;
     uint32 AnnihilationProcChance;
-    HEARTHSTONE_INLINE void SetName(string& name) { m_name = name; }
+    HEARTHSTONE_INLINE void SetName(std::string& name) { m_name = name; }
     // spell to (delay, last time)
     FactionReputation * reputationByListId[128];
     Channel* watchedchannel;
@@ -1785,7 +1785,7 @@ protected:
 
     // Character Ban
     uint32      m_banned;
-    string      m_banreason;
+    std::string m_banreason;
     Pet*        m_Summon;
     uint32      m_PetNumberMax;
     uint32      m_invitersGuid; // It is guild inviters guid, 0 when its not used
@@ -1833,7 +1833,7 @@ protected:
     std::set<uint32> m_channels;
     std::map<uint32, Channel*> m_channelsbyDBCID;
     // Visible objects
-    unordered_set<WorldObject* > m_visibleObjects;
+    std::unordered_set<WorldObject* > m_visibleObjects;
     // Groups/Raids
     uint32 m_GroupInviter;
 
@@ -1864,7 +1864,7 @@ public:
 
 public:
     void SetLastRunSpeed(float value) { m_lastRunSpeed = value;}
-    map<uint32, uint32> m_forcedReactions;
+    std::map<uint32, uint32> m_forcedReactions;
 
     uint32 m_speedhackCheckTimer;
     void _SpeedhackCheck();     // save a call to getMSTime() yes i am a stingy bastard
@@ -1878,9 +1878,9 @@ public:
 private:
     /* we may have multiple threads on this(chat) - burlex */
     Mutex m_socialLock;
-    map<uint32, char*> m_friends;
-    set<uint32> m_ignores;
-    set<uint32> m_hasFriendList;
+    std::map<uint32, char*> m_friends;
+    std::set<uint32> m_ignores;
+    std::set<uint32> m_hasFriendList;
 
     void Social_SendFriendList(uint32 flag);
 

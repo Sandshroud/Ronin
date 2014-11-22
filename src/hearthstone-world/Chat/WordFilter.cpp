@@ -81,8 +81,8 @@ void WordFilter::Load(const char * szTableName)
 {
     WordFilterMatch * pMatch;
     size_t i;
-    list<WordFilterMatch*> lItems;
-    list<WordFilterMatch*>::iterator itr;
+    std::list<WordFilterMatch*> lItems;
+    std::list<WordFilterMatch*>::iterator itr;
     QueryResult * pResult = WorldDatabase.Query("SELECT * FROM %s", szTableName);
     if(pResult==NULL)
         return;
@@ -142,7 +142,7 @@ void WordFilter::Load(const char * szTableName)
     m_filterCount = i;
 }
 
-bool WordFilter::Parse(string& sMessage, bool bAllowReplace /* = true */)
+bool WordFilter::Parse(std::string& sMessage, bool bAllowReplace /* = true */)
 {
 #define N 10
 #define NC (N*3)

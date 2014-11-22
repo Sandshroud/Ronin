@@ -186,10 +186,10 @@ EyeOfTheStorm::~EyeOfTheStorm()
 
 void EyeOfTheStorm::RepopPlayersOfTeam(int32 team, Creature* sh)
 {
-    map<Creature*, set<WoWGuid> >::iterator itr = m_resurrectMap.find(sh);
+    std::map<Creature*, std::set<WoWGuid> >::iterator itr = m_resurrectMap.find(sh);
     if( itr != m_resurrectMap.end() )
     {
-        for( set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
+        for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
         {
             Player* r_plr = m_mapMgr->GetPlayer( *it2 );
             if( r_plr != NULL && (team < 0 || (int32)r_plr->GetTeam() == team) && r_plr->isDead() )
@@ -360,7 +360,7 @@ void EyeOfTheStorm::HookFlagDrop(Player* plr, GameObject* obj)
         return;
 
     // check forcedreaction 1059, meaning do we recently dropped a flag?
-    map<uint32,uint32>::iterator itr = plr->m_forcedReactions.find(1059);
+    std::map<uint32,uint32>::iterator itr = plr->m_forcedReactions.find(1059);
     if (itr != plr->m_forcedReactions.end()) {
         return;
     }
@@ -445,7 +445,7 @@ void EyeOfTheStorm::DropFlag(Player* plr)
     m_dropFlag->PushToWorld( m_mapMgr );
     m_flagHolder = 0;
 
-    sEventMgr.AddEvent( TO_EYEOFTHESTORM(this), &EyeOfTheStorm::EventResetFlag, EVENT_EOTS_RESET_FLAG, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+    sEventMgr.AddEvent( castPtr<EyeOfTheStorm>(this), &EyeOfTheStorm::EventResetFlag, EVENT_EOTS_RESET_FLAG, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 }
 
 void EyeOfTheStorm::EventResetFlag()
@@ -664,9 +664,9 @@ void EyeOfTheStorm::UpdateCPs()
     //   the value of the map is a timestamp of the last update, to avoid cpu time wasted
     //   doing lookups of objects that have already been updated
 
-    unordered_set<Player*  >::iterator itr;
-    unordered_set<Player*  >::iterator itrend;
-    map<uint32,uint32>::iterator it2, it3;
+    std::unordered_set<Player*  >::iterator itr;
+    std::unordered_set<Player*  >::iterator itrend;
+    std::map<WoWGuid, uint32>::iterator it2, it3;
     uint32 timeptr = (uint32)UNIXTIME;
     bool in_range;
     bool is_valid;
@@ -688,7 +688,7 @@ void EyeOfTheStorm::UpdateCPs()
 
             in_range = ((*itr)->isAlive() && m_CPStatusGO[i]->GetDistanceSq((*itr)) <= EOTS_CAPTURE_DISTANCE) ? true : false;
 
-            it2 = m_CPStored[i].find((*itr)->GetLowGUID());
+            it2 = m_CPStored[i].find((*itr)->GetGUID());
             if( it2 == m_CPStored[i].end() )
             {
                 // new player :)
@@ -696,7 +696,7 @@ void EyeOfTheStorm::UpdateCPs()
                 {
                     (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_DISPLAY, 1);
                     (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_VALUE, m_CPStatus[i]);
-                    m_CPStored[i].insert(make_pair((*itr)->GetLowGUID(), timeptr));
+                    m_CPStored[i].insert(std::make_pair((*itr)->GetGUID(), timeptr));
 
                     if( is_valid )
                         plrcounts[(*itr)->GetTeam()]++;

@@ -38,7 +38,7 @@ void AIInterface::addSpellToList(AI_Spell *sp)
     if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryTime; //avoid spell spamming
     if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryCategory; //still 0 ?
     if(nSP->cooldown == 0) nSP->cooldown = 4000; //omg, avoid spamming at least
-    m_spells.insert(make_pair(nSP->info->Id, nSP));
+    m_spells.insert(std::make_pair(nSP->info->Id, nSP));
 }
 
 bool AIInterface::CanCastAISpell(AI_Spell* toCast, uint32 currentTime)
@@ -225,11 +225,11 @@ bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uin
     return true; //This is a valid unit target
 }
 
-Unit *AIInterface::GetNearestTargetInSet(set<Unit*> pTargetSet)
+Unit *AIInterface::GetNearestTargetInSet(std::set<Unit*> pTargetSet)
 {
     Unit *NearestUnit = NULL;
     float Distance, NearestDistance = 99999;
-    for ( set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
+    for ( std::set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
     {
         Distance = m_Unit->CalcDistance( castPtr<Unit>( *UnitIter ) );
         if ( Distance < NearestDistance )
@@ -242,13 +242,13 @@ Unit *AIInterface::GetNearestTargetInSet(set<Unit*> pTargetSet)
     return NearestUnit;
 }
 
-Unit *AIInterface::GetSecondMostHatedTargetInSet(set<Unit*> pTargetSet )
+Unit *AIInterface::GetSecondMostHatedTargetInSet(std::set<Unit*> pTargetSet )
 {
     Unit *  TargetUnit = NULL;
     Unit *  MostHatedUnit = NULL;
     Unit *  CurrentTarget = castPtr<Unit>( m_nextTarget );
     uint32  Threat = 0, HighestThreat = 0;
-    for ( set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
+    for ( std::set<Unit*>::iterator UnitIter = pTargetSet.begin(); UnitIter != pTargetSet.end(); ++UnitIter )
     {
         TargetUnit = castPtr<Unit>( *UnitIter );
         if ( TargetUnit != CurrentTarget )
@@ -265,7 +265,7 @@ Unit *AIInterface::GetSecondMostHatedTargetInSet(set<Unit*> pTargetSet )
     return MostHatedUnit;
 }
 
-Unit *AIInterface::ChooseBestTargetInSet( set<Unit*> pTargetSet, uint32 pTargetFilter )
+Unit *AIInterface::ChooseBestTargetInSet( std::set<Unit*> pTargetSet, uint32 pTargetFilter )
 {
     // If we don't have a size, return null
     if( pTargetSet.size() == 0 )
@@ -284,7 +284,7 @@ Unit *AIInterface::ChooseBestTargetInSet( set<Unit*> pTargetSet, uint32 pTargetF
         return GetSecondMostHatedTargetInSet( pTargetSet );
 
     uint32 balance = RandomUInt((uint32)pTargetSet.size()-1);
-    set<Unit*>::iterator itr = pTargetSet.begin();
+    std::set<Unit*>::iterator itr = pTargetSet.begin();
     for(uint32 i = 0; i < balance; i++)
         itr++;
 
@@ -295,7 +295,7 @@ Unit *AIInterface::ChooseBestTargetInSet( set<Unit*> pTargetSet, uint32 pTargetF
 Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange)
 {
     //Build potential target list
-    set<Unit*> TargetSet;
+    std::set<Unit*> TargetSet;
     if ( pTargetFilter & TargetFilter_Friendly )
     {
         for ( WorldObject::InRangeSet::iterator ObjectIter = m_Unit->GetInRangeSetBegin(); ObjectIter != m_Unit->GetInRangeSetEnd(); ++ObjectIter )
@@ -334,7 +334,7 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
 Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange)
 {
     //Build potential target list
-    set<Unit*> TargetSet;
+    std::set<Unit*> TargetSet;
     for ( PlayerSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
     {
         if ( IsValidUnitTarget( *PlayerIter, info, pTargetFilter, pMinRange, pMaxRange ) )

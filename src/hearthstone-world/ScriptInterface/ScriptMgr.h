@@ -98,7 +98,7 @@ typedef bool(*tOnLogoutRequest)(Player* pPlayer);
 typedef void(*tOnLogout)(Player* pPlayer);
 typedef void(*tOnQuestAccept)(Player* pPlayer, Quest * pQuest, Object* pObject);
 typedef void(*tOnZone)(Player* pPlayer, uint32 Zone, uint32 OldZone);
-typedef bool(*tOnChat)(Player* pPlayer, uint32 Type, uint32 Lang, string Message, string Misc);
+typedef bool(*tOnChat)(Player* pPlayer, uint32 Type, uint32 Lang, std::string Message, std::string Misc);
 typedef void(*tOnLoot)(Player * pPlayer, Object* pTarget, uint32 Money, uint32 ItemId);
 typedef bool(*ItemScript)(Item* pItem, Player* pPlayer);
 typedef void(*tOnQuestCancel)(Player* pPlayer, Quest * pQuest);
@@ -156,22 +156,22 @@ typedef uint32(*exp_get_script_type)();
 typedef uint32(*exp_get_version)();
 
 /* Hashmap typedefs */
-typedef HM_NAMESPACE::hash_map<uint32, exp_create_creature_ai> CreatureCreateMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_create_gameobject_ai> GameObjectCreateMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_create_mapmanager_script> MapMgrScriptCreateMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_create_creature_ai> CreatureCreateMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_create_gameobject_ai> GameObjectCreateMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_create_mapmanager_script> MapMgrScriptCreateMap;
 
-typedef HM_NAMESPACE::hash_map<uint32, exp_handle_dummy_aura> HandleDummyAuraMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_handle_dummy_spell> HandleDummySpellMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_handle_script_effect> HandleScriptEffectMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_handle_script_proclimit> HandleScriptProclimitMap;
-typedef HM_NAMESPACE::hash_map<uint32, exp_handle_spell_effect_mod> HandleSpellEffectModifier;
+typedef RONIN_UNORDERED_MAP<uint32, exp_handle_dummy_aura> HandleDummyAuraMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_handle_dummy_spell> HandleDummySpellMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_handle_script_effect> HandleScriptEffectMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_handle_script_proclimit> HandleScriptProclimitMap;
+typedef RONIN_UNORDERED_MAP<uint32, exp_handle_spell_effect_mod> HandleSpellEffectModifier;
 
-typedef map<uint8, map<uint32, GossipScript*> > MultiTypeGossipMap;
-typedef map<uint32, QuestScript* > QuestScriptMap;
-typedef set<GossipScript*> CustomGossipScripts;
-typedef set<QuestScript*> QuestScripts;
-typedef list<void*> ServerHookList;
-typedef list<SCRIPT_MODULE> LibraryHandleMap;
+typedef std::map<uint8, std::map<uint32, GossipScript*> > MultiTypeGossipMap;
+typedef std::map<uint32, QuestScript* > QuestScriptMap;
+typedef std::set<GossipScript*> CustomGossipScripts;
+typedef std::set<QuestScript*> QuestScripts;
+typedef std::list<void*> ServerHookList;
+typedef std::list<SCRIPT_MODULE> LibraryHandleMap;
 
 enum GOSSIPTYPEID
 {
@@ -363,7 +363,7 @@ public:
     void OnLogout(Player* pPlayer);
     void OnQuestAccept(Player* pPlayer, Quest * pQuest, Object* pObject);
     void OnZone(Player* pPlayer, uint32 Zone, uint32 OldZone);
-    bool OnChat(Player* pPlayer, uint32 Type, uint32 Lang, string Message, string Misc);
+    bool OnChat(Player* pPlayer, uint32 Type, uint32 Lang, std::string Message, std::string Misc);
     void OnLoot(Player * pPlayer, Object* pTarget, uint32 Money, uint32 ItemId);
     void OnFullLogin(Player* pPlayer);
     void OnCharacterCreate(Player* pPlayer);

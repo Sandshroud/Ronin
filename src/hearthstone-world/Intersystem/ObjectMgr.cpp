@@ -58,7 +58,7 @@ ObjectMgr::~ObjectMgr()
     }
 
     sLog.Notice("ObjectMgr", "Deleting Waypoint Cache...");
-    for(HM_NAMESPACE::hash_map<uint32, WayPointMap*>::iterator i = m_waypoints.begin(); i != m_waypoints.end(); i++)
+    for(RONIN_UNORDERED_MAP<uint32, WayPointMap*>::iterator i = m_waypoints.begin(); i != m_waypoints.end(); i++)
     {
         for(WayPointMap::iterator i3 = i->second->begin(); i3 != i->second->end(); i3++)
             if((*i3))
@@ -98,7 +98,7 @@ ObjectMgr::~ObjectMgr()
         delete mod;
     }
 
-    for(HM_NAMESPACE::hash_map<uint32,InstanceReputationModifier*>::iterator itr = m_reputation_instance.begin(); itr != m_reputation_instance.end(); itr++)
+    for(RONIN_UNORDERED_MAP<uint32,InstanceReputationModifier*>::iterator itr = m_reputation_instance.begin(); itr != m_reputation_instance.end(); itr++)
     {
         InstanceReputationModifier * mod = itr->second;
         mod->mods.clear();
@@ -126,7 +126,7 @@ ObjectMgr::~ObjectMgr()
     }
 
     sLog.Notice("ObjectMgr", "Deleting Player Information...");
-    for(HM_NAMESPACE::hash_map<uint32, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
+    for(RONIN_UNORDERED_MAP<uint32, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
     {
         itr->second->m_Group = NULL;
         free(itr->second->name);
@@ -134,7 +134,7 @@ ObjectMgr::~ObjectMgr()
     }
 
     sLog.Notice("ObjectMgr", "Deleting Arena Teams...");
-    for(HM_NAMESPACE::hash_map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
+    for(RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
         delete itr->second;
 
     sLog.Notice("ObjectMgr", "Deleting Profession Discoveries...");
@@ -237,7 +237,7 @@ Group * ObjectMgr::GetGroupById(uint32 id)
 void ObjectMgr::DeletePlayerInfo( uint32 guid )
 {
     PlayerInfo * pl;
-    HM_NAMESPACE::hash_map<WoWGuid,PlayerInfo*>::iterator i;
+    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*>::iterator i;
     PlayerNameStringIndexMap::iterator i2;
     playernamelock.AcquireWriteLock();
     i=m_playersinfo.find(guid);
@@ -269,7 +269,7 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
 
 PlayerInfo *ObjectMgr::GetPlayerInfo( WoWGuid guid )
 {
-    HM_NAMESPACE::hash_map<uint32,PlayerInfo*>::iterator i;
+    RONIN_UNORDERED_MAP<uint32,PlayerInfo*>::iterator i;
     PlayerInfo * rv;
     playernamelock.AcquireReadLock();
     i=m_playersinfo.find(guid);
@@ -845,7 +845,7 @@ PlayerCreateInfo* ObjectMgr::GetPlayerCreateInfo(uint8 race, uint8 class_) const
 
 void ObjectMgr::LoadVendors()
 {
-    HM_NAMESPACE::hash_map<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
+    RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
     std::map<uint32, CreatureItem> *items;
     CreatureItem itm;
 
@@ -1513,7 +1513,7 @@ void ObjectMgr::SetVendorList(uint32 Entry, std::map<uint32, CreatureItem>* list
 void ObjectMgr::LoadCreatureWaypoints()
 {
     uint32 waypointcounter = 0, start = getMSTime();
-    HM_NAMESPACE::hash_map<uint32, WayPointMap*>::const_iterator i;
+    RONIN_UNORDERED_MAP<uint32, WayPointMap*>::const_iterator i;
     QueryResult *result = WorldDatabase.Query("SELECT creature_waypoints.spawnid, creature_waypoints.waypointid, creature_waypoints.position_x, creature_waypoints.position_y, creature_waypoints.position_z, "
         "creature_waypoints.orientation, creature_waypoints.waittime, creature_waypoints.flags, creature_waypoints.forwardemoteoneshot, creature_waypoints.forwardemoteid, creature_waypoints.backwardemoteoneshot, "
         "creature_waypoints.backwardemoteid, creature_waypoints.forwardskinid, creature_waypoints.backwardskinid, creature_waypoints.forwardStandState, creature_waypoints.backwardStandState, creature_waypoints.forwardSpellToCast, "
@@ -1589,7 +1589,7 @@ void ObjectMgr::LoadCreatureWaypoints()
 
 WayPointMap*ObjectMgr::GetWayPointMap(uint32 spawnid)
 {
-    HM_NAMESPACE::hash_map<uint32,WayPointMap*>::const_iterator i;
+    RONIN_UNORDERED_MAP<uint32,WayPointMap*>::const_iterator i;
     i = m_waypoints.find(spawnid);
     if(i != m_waypoints.end())
         return i->second;
@@ -1682,7 +1682,7 @@ Transporter* ObjectMgr::GetTransporter(uint32 guid)
 {
     Transporter* rv;
     _TransportLock.Acquire();
-    HM_NAMESPACE::hash_map<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
+    RONIN_UNORDERED_MAP<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
     rv = (itr != mTransports.end()) ? itr->second : NULLTRANSPORT;
     _TransportLock.Release();
     return rv;
@@ -1699,7 +1699,7 @@ Transporter* ObjectMgr::GetTransporterByEntry(uint32 entry)
 {
     Transporter* rv = NULLTRANSPORT;
     _TransportLock.Acquire();
-    HM_NAMESPACE::hash_map<uint32, Transporter* >::iterator itr = mTransports.begin();
+    RONIN_UNORDERED_MAP<uint32, Transporter* >::iterator itr = mTransports.begin();
     for(; itr != mTransports.end(); itr++)
     {
         if(itr->second->GetEntry() == entry)
@@ -1881,7 +1881,7 @@ void ObjectMgr::LoadInstanceReputationModifiers()
         mod.boss_rep_limit_heroic = fields[8].GetUInt32();
         mod.faction[0] = fields[9].GetUInt32();
         mod.faction[1] = fields[10].GetUInt32();
-        HM_NAMESPACE::hash_map<uint32, InstanceReputationModifier*>::iterator itr = m_reputation_instance.find(mod.mapid);
+        RONIN_UNORDERED_MAP<uint32, InstanceReputationModifier*>::iterator itr = m_reputation_instance.find(mod.mapid);
         if(itr == m_reputation_instance.end())
         {
             InstanceReputationModifier * m = new InstanceReputationModifier;
@@ -1905,7 +1905,7 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
     if(pVictim->GetTypeId() != TYPEID_UNIT)
         return false;
 
-    HM_NAMESPACE::hash_map<uint32, InstanceReputationModifier*>::iterator itr = m_reputation_instance.find(pVictim->GetMapId());
+    RONIN_UNORDERED_MAP<uint32, InstanceReputationModifier*>::iterator itr = m_reputation_instance.find(pVictim->GetMapId());
     if(itr == m_reputation_instance.end())
         return false;
 
@@ -2120,7 +2120,7 @@ void ObjectMgr::LoadArenaTeams()
 
 ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
 {
-    HM_NAMESPACE::hash_map<uint32, ArenaTeam*>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr;
     m_arenaTeamLock.Acquire();
     itr = m_arenaTeams.find(id);
     m_arenaTeamLock.Release();
@@ -2130,7 +2130,7 @@ ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
 ArenaTeam * ObjectMgr::GetArenaTeamByName(string & name, uint32 Type)
 {
     m_arenaTeamLock.Acquire();
-    for(HM_NAMESPACE::hash_map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
+    for(RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
     {
         if(!strnicmp(itr->second->m_name.c_str(), name.c_str(), name.size()))
         {
@@ -2178,7 +2178,7 @@ void ObjectMgr::UpdateArenaTeamRankings()
     {
         vector<ArenaTeam*> ranking;
 
-        for(HM_NAMESPACE::hash_map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
+        for(RONIN_UNORDERED_MAP<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
             ranking.push_back(itr->second);
 
         std::sort(ranking.begin(), ranking.end(), ArenaSorter());
@@ -2201,7 +2201,7 @@ void ObjectMgr::UpdateArenaTeamWeekly()
     m_arenaTeamLock.Acquire();
     for(uint32 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
     {
-        for(HM_NAMESPACE::hash_map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
+        for(RONIN_UNORDERED_MAP<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
         {
             ArenaTeam *team = itr->second;
             if(team)

@@ -20,7 +20,7 @@ public:
     MapCell();
     ~MapCell();
 
-    typedef unordered_set<WorldObject* > ObjectSet;
+    typedef std::unordered_set<WorldObject* > ObjectSet;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr);

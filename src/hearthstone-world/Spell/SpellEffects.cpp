@@ -1184,7 +1184,7 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                         v = lock->minlockskill[i];
                         gameObjTarget->SetFlags(0);
                         gameObjTarget->SetState(1);
-                        lootmgr.FillGOLoot(&gameObjTarget->m_loot,gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
+                        lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
                         DetermineSkillUp(SKILL_LOCKPICKING,v/5);
                         break;
                     }
@@ -1207,12 +1207,10 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                 }
                 else
                 {
-                    if( gameObjTarget->m_loot.items.size() == 0 )
+                    if( gameObjTarget->GetLoot()->items.size() == 0 )
                     {
-                        lootmgr.FillGOLoot(&gameObjTarget->m_loot,gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
-                    }
-                    else
-                        bAlreadyUsed = true;
+                        lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
+                    } else bAlreadyUsed = true;
                 }
             }
             else
@@ -1232,19 +1230,12 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
             if( Rand( 100.0f ) ) // 3% chance to fail//why?
             {
                 if( castPtr<Player>( m_caster )->_GetSkillLineCurrent( SKILL_MINING ) < v )
-                {
-                    //SendCastResult(SPELL_FAILED_LOW_CASTLEVEL);
                     return;
-                }
-                else if( gameObjTarget->m_loot.items.size() == 0 )
-                {
-                    lootmgr.FillGOLoot(&gameObjTarget->m_loot,gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
-                }
-                else
+
+                if( gameObjTarget->GetLoot()->items.size() )
                     bAlreadyUsed = true;
-            }
-            else
-                SendCastResult(SPELL_FAILED_TRY_AGAIN);
+                else lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
+            } else SendCastResult(SPELL_FAILED_TRY_AGAIN);
 
             //Skill up
             if(!bAlreadyUsed) //Avoid cheats with opening/closing without taking the loot
@@ -1304,9 +1295,9 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                 return;
             }
 
-            if(gameObjTarget->m_loot.items.size() == 0)
+            if(gameObjTarget->GetLoot()->items.size() == 0)
             {
-                lootmgr.FillGOLoot(&gameObjTarget->m_loot,gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
+                lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
             }
         }break;
     }
@@ -1333,8 +1324,8 @@ void Spell::SpellEffectOpenLockItem(uint32 i)
 
     if( gameObjTarget->GetType() == GAMEOBJECT_TYPE_CHEST)
     {
-        lootmgr.FillGOLoot(&gameObjTarget->m_loot,gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
-        if(gameObjTarget->m_loot.items.size() > 0)
+        lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
+        if(gameObjTarget->GetLoot()->items.size() > 0)
         {
             castPtr<Player>(caster)->SendLoot(gameObjTarget->GetGUID(), gameObjTarget->GetMapId(), LOOT_CORPSE);
         }
@@ -2495,10 +2486,10 @@ void Spell::SpellEffectPickpocket(uint32 i) // pickpocket
         return;
     }
 
-    lootmgr.FillPickpocketingLoot(&target->m_loot, target->GetEntry());
+    lootmgr.FillPickpocketingLoot(target->GetLoot(), target->GetEntry());
 
     uint32 _rank = target->GetCreatureData() ? target->GetCreatureData()->Rank : 0;
-    unitTarget->m_loot.gold = float2int32((_rank+1) * target->getLevel() * (RandomUInt(5) + 1) * sWorld.getRate(RATE_MONEY));
+    unitTarget->GetLoot()->gold = float2int32((_rank+1) * target->getLevel() * (RandomUInt(5) + 1) * sWorld.getRate(RATE_MONEY));
 
     p_caster->SendLoot(target->GetGUID(), target->GetMapId(), LOOT_PICKPOCKETING);
     target->SetPickPocketed(true);
@@ -2828,7 +2819,7 @@ void Spell::SpellEffectSkinning(uint32 i)
     if( ( sk >= lvl * 5 ) || ( ( sk + 100 ) >= lvl * 10 ) )
     {
         //Fill loot for Skinning
-        lootmgr.FillGatheringLoot(&cr->m_loot, cr->GetEntry());
+        lootmgr.FillGatheringLoot(cr->GetLoot(), cr->GetEntry());
         castPtr<Player>( m_caster )->SendLoot( cr->GetGUID(), cr->GetMapId(), LOOT_SKINNING );
 
         //Not skinable again
@@ -3050,9 +3041,9 @@ void Spell::SpellEffectDisenchant(uint32 i)
 
     if( !it->m_looted )
     {
-        lootmgr.FillItemLoot(&it->m_loot, it->GetEntry(), p_caster->GetTeam());
+        lootmgr.FillItemLoot(it->GetLoot(), it->GetEntry(), p_caster->GetTeam());
 
-        if( it->m_loot.items.size() > 0 )
+        if( it->GetLoot()->items.size() > 0 )
         {
             //Check for skill, we can increase it upto 75
             uint32 skill=p_caster->_GetSkillLineCurrent( SKILL_ENCHANTING );
@@ -3620,7 +3611,7 @@ void Spell::SpellEffectProspecting(uint32 i)
     if(p_caster->GetItemInterface()->RemoveItemAmt(entry, 5))
     {
         p_caster->SetLootGUID(p_caster->GetGUID());
-        lootmgr.FillItemLoot(&p_caster->m_loot, entry, p_caster->GetTeam());
+        lootmgr.FillItemLoot(p_caster->GetLoot(), entry, p_caster->GetTeam());
         p_caster->SendLoot(p_caster->GetGUID(), p_caster->GetMapId(), LOOT_PROSPECTING);
     }
     else // this should never happen either
@@ -3712,8 +3703,7 @@ void Spell::SpellEffectTranformItem(uint32 i)
     if(!result2) //should never get here
     {
         owner->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,INV_ERR_BAG_FULL);
-        it->DeleteMe();
-        it = NULL;
+        it->Destruct();
     }
 }
 
@@ -3967,7 +3957,7 @@ void Spell::SpellEffectMilling(uint32 i)
     if(p_caster->GetItemInterface()->RemoveItemAmt(entry, 5))
     {
         p_caster->SetLootGUID(p_caster->GetGUID());
-        lootmgr.FillItemLoot(&p_caster->m_loot, entry, p_caster->GetTeam());
+        lootmgr.FillItemLoot(p_caster->GetLoot(), entry, p_caster->GetTeam());
         p_caster->SendLoot(p_caster->GetGUID(), p_caster->GetMapId(), LOOT_MILLING);
     }
     else
@@ -4165,11 +4155,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
 
         if(p_caster->GetItemInterface()->SafeAddItem(newItem,slotresult.ContainerSlot, slotresult.Slot))
             p_caster->GetSession()->SendItemPushResult(newItem,true,false,true,true,slotresult.ContainerSlot,slotresult.Slot,item_count);
-        else
-        {
-            newItem->DeleteMe();
-            newItem = NULL;
-        }
+        else newItem->Destruct();
 
         if(skill!= NULL)
             DetermineSkillUp(skill->skilline);
@@ -4179,8 +4165,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
         //scale item_count down if total stack will be more than 20
         if(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + item_count > 20)
         {
-            uint32 item_count_filled;
-            item_count_filled = 20 - add->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
+            uint32 item_count_filled = 20 - add->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
             add->SetCount(20);
             add->m_isDirty = true;
 
@@ -4189,19 +4174,16 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
                 item_count = item_count_filled;
             else
             {
-                newItem =objmgr.CreateItem(itemid,p_caster);
+                newItem = objmgr.CreateItem(itemid,p_caster);
                 if(newItem == NULL)
                     return;
                 newItem->SetUInt64Value(ITEM_FIELD_CREATOR,m_caster->GetGUID());
                 newItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, item_count - item_count_filled);
                 if(!p_caster->GetItemInterface()->SafeAddItem(newItem,slotresult.ContainerSlot, slotresult.Slot))
                 {
-                    newItem->DeleteMe();
-                    newItem = NULL;
+                    newItem->Destruct();
                     item_count = item_count_filled;
-                }
-                else
-                    p_caster->GetSession()->SendItemPushResult(newItem, true, false, true, true, slotresult.ContainerSlot, slotresult.Slot, item_count-item_count_filled);
+                } else p_caster->GetSession()->SendItemPushResult(newItem, true, false, true, true, slotresult.ContainerSlot, slotresult.Slot, item_count-item_count_filled);
             }
         }
         else
@@ -4260,11 +4242,8 @@ void Spell::SpellEffectApplyDemonAura( uint32 i )
 {
     if (u_caster == NULL || !u_caster->IsPet() || castPtr<Pet>(u_caster)->GetPetOwner() == NULL)
         return;
-    Aura* pAura = NULL;
-
-    pAura = new Aura(GetSpellProto(), GetDuration(), u_caster, u_caster);
-    Aura* otheraura = new Aura(GetSpellProto(), GetDuration(), u_caster, castPtr<Pet>(u_caster)->GetPetOwner());
-    pAura->targets.insert(castPtr<Pet>(u_caster)->GetPetOwner()->GetUIdFromGUID());
+    Aura *pAura = new Aura(GetSpellProto(), GetDuration(), u_caster, u_caster), *otheraura = new Aura(GetSpellProto(), GetDuration(), u_caster, castPtr<Pet>(u_caster)->GetPetOwner());
+    pAura->targets.insert(castPtr<Pet>(u_caster)->GetPetOwner()->GetLowGUID());
     for (uint32 j=0; j<3; ++j)
     {
         int32 basePoints = 0;

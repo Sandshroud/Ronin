@@ -8,8 +8,8 @@ struct TrackedPlr
 {
     uint64 Id;
     uint32 AcctId;
-    string Name;
-    string IP_Address;
+    std::string Name;
+    std::string IP_Address;
 };
 
 //typedef std::set<TrackedGM*> GMTrackerTable;
@@ -33,9 +33,9 @@ public:
 
     // Functions
     uint64 GenerateID();
-    uint64 GetTrackerId(string Name);
+    uint64 GetTrackerId(std::string Name);
     TrackedPlr* GetTrackerByID(uint64 Id);
-    TrackedPlr* GetTrackerByIP(string RemoteIP);
+    TrackedPlr* GetTrackerByIP(std::string RemoteIP);
 
     // Methods
     void CheckPlayerForTracker(Player * plr, bool online);

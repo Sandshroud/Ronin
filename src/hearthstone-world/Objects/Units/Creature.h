@@ -56,7 +56,7 @@ struct CreatureInfoExtra
     float  m_fleeHealth;
     uint32 m_fleeDuration;
     int    sendflee_message;
-    string flee_message;
+    std::string flee_message;
     bool   no_skill_up;
     bool   no_xp;
 };
@@ -311,8 +311,8 @@ public:
     Quest *FindQuest(uint32 quest_id, uint8 quest_relation);
     uint16 GetQuestRelation(uint32 quest_id);
     uint32 NumOfQuests();
-    list<QuestRelation *>::iterator QuestsBegin() { return m_quests->begin(); };
-    list<QuestRelation *>::iterator QuestsEnd() { return m_quests->end(); };
+    std::list<QuestRelation *>::iterator QuestsBegin() { return m_quests->begin(); };
+    std::list<QuestRelation *>::iterator QuestsEnd() { return m_quests->end(); };
     void SetQuestList(std::list<QuestRelation *>* qst_lst) { m_quests = qst_lst; };
 
     HEARTHSTONE_INLINE void SetSheatheForAttackType(uint8 type) { SetByte(UNIT_FIELD_BYTES_2, 0, type); }

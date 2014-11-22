@@ -38,7 +38,7 @@ public:
     uint32 m_id;
     uint32 m_type;
     uint32 m_slots;
-    string m_name;
+    std::string m_name;
     uint32 m_memberCount;
     ArenaTeamMember * m_members;
 
@@ -72,23 +72,18 @@ public:
 
     bool AddMember(PlayerInfo * info);
     bool RemoveMember(PlayerInfo * info);
-    bool HasMember(uint32 guid);
+    bool HasMember(WoWGuid guid);
     void SetLeader(PlayerInfo * info);
     ArenaTeamMember * GetMember(PlayerInfo * info);
-    ArenaTeamMember * GetMemberByGuid(uint32 guid);
+    ArenaTeamMember * GetMemberByGuid(WoWGuid guid);
 
     uint32 GetPlayersPerTeam()
     {
         switch(m_type)
         {
-        case ARENA_TEAM_TYPE_2V2:
-            return 2;
-
-        case ARENA_TEAM_TYPE_3V3:
-            return 3;
-
-        case ARENA_TEAM_TYPE_5V5:
-            return 5;
+        case ARENA_TEAM_TYPE_2V2: return 2;
+        case ARENA_TEAM_TYPE_3V3: return 3;
+        case ARENA_TEAM_TYPE_5V5: return 5;
         }
 
         // never reached

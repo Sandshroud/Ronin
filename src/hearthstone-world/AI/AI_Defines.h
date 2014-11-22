@@ -311,7 +311,7 @@ uint32 getGuardId(uint32 id);
 bool isTargetDummy(uint32 id);
 
 typedef std::map<uint32, AI_Spell*> SpellMap;
-typedef map<uint32, LocationVector> LocationVectorMap;
+typedef std::map<uint32, LocationVector> LocationVectorMap;
 typedef std::map<WoWGuid, int32> TargetMap;
 
 struct LocationVectorMapContainer

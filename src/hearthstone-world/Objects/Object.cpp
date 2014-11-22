@@ -475,7 +475,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
                         (cThis->m_taggingPlayer == target->GetLowGUID()) )
                     {
                         DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
-                        if( cThis->m_loot.HasLoot(target) )
+                        if( cThis->GetLoot()->HasLoot(target) )
                             DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
                     } else DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
                 }

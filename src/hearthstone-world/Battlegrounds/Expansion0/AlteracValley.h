@@ -115,10 +115,10 @@ class AVNode
     Creature* m_boss;
 
     // guards, need to be respawned when changes ownership
-    vector<Creature*> m_guards;
+    std::vector<Creature*> m_guards;
 
     // peon locations, used in mines (todo)
-    vector<Creature*> m_peonLocations;
+    std::vector<Creature*> m_peonLocations;
 
     // control point (capturable)
     GameObject* m_flag;
@@ -227,7 +227,7 @@ public:
 class AlteracValley : public CBattleground
 {
 protected:
-    list< GameObject* > m_gates;
+    std::list< GameObject* > m_gates;
     uint32 m_reinforcements[2];
     bool m_nearingVictory[2];
     AVNode *m_nodes[AV_NUM_CONTROL_POINTS];

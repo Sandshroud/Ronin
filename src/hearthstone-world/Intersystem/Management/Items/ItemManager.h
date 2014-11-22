@@ -94,13 +94,13 @@ struct ItemPrototype
     uint32 HolidayId;
     float StatScalingFactor;
 
-    string lowercase_name;  // used in auctions
+    std::string lowercase_name;  // used in auctions
     uint32 FoodType;        //pet food type
     int32 ForcedPetId;
     uint32 ItemSetRank;
     uint32 DisenchantReqSkill;
 
-    string ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack);
+    std::string ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack);
     bool ValidateItemLink(const char *szLink);
     bool ValidateItemSpell(uint32 SpellID);
 };

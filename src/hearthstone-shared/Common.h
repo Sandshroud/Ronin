@@ -4,15 +4,6 @@
 
 #pragma once
 
-#if defined(WIN32) || defined(_WIN64)
-#pragma warning(disable:4996)
-#undef _CRT_SECURE_NO_DEPRECATE
-#undef _CRT_SECURE_COPP_OVERLOAD_STANDARD_NAMES
-#define _CRT_SECURE_NO_DEPRECATE 1
-#define _CRT_SECURE_COPP_OVERLOAD_STANDARD_NAMES 1
-#pragma warning(disable:4251)       // dll-interface bullshit
-#endif
-
 enum TimeVariables
 {
     TIME_SECOND = 1,
@@ -28,17 +19,8 @@ enum MsTimeVariables
     MSTIME_SECOND = 1000,
     MSTIME_MINUTE = MSTIME_SECOND * 60,
     MSTIME_HOUR   = MSTIME_MINUTE * 60,
-    MSTIME_DAY  = MSTIME_HOUR * 24,
+    MSTIME_DAY    = MSTIME_HOUR * 24,
 };
-
-#if defined(WIN32) || defined(_WIN64)
-#define HEARTHSTONE_INLINE __forceinline
-#else
-#define HEARTHSTONE_INLINE inline
-#endif
-
-#include "hearthstoneConfig.h"
-#include "format.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,42 +29,9 @@ enum MsTimeVariables
 #include <math.h>
 #include <errno.h>
 
-#if defined( __WIN32__ ) || defined( WIN32 ) || defined( _WIN32 ) || defined(_WIN64)
-#  define WIN32_LEAN_AND_MEAN
-#  define _WIN32_WINNT 0x0500
-#  define NOMINMAX
-#  include <windows.h>
-#else
-#  include <string.h>
-#  define MAX_PATH 1024
-#endif
-
-#ifdef min
-#undef min
-#endif
-
-#ifdef max
-#undef max
-#endif
-
 #ifdef CONFIG_USE_SELECT
 #undef FD_SETSIZE
 #define FD_SETSIZE 2048
-#endif
-
-#if defined( __WIN32__ ) || defined( WIN32 ) || defined( _WIN32 ) || defined(_WIN64)
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <signal.h>
-#include <netdb.h>
 #endif
 
 // current platform and compiler
@@ -122,28 +71,34 @@ enum MsTimeVariables
 #  pragma error "FATAL ERROR: Unknown compiler."
 #endif
 
-#if PLATFORM == PLATFORM_UNIX || PLATFORM == PLATFORM_APPLE
-#ifdef HAVE_DARWIN
-#define PLATFORM_TEXT "MacOSX"
-#define UNIX_FLAVOUR UNIX_FLAVOUR_OSX
-#else
-#ifdef USE_KQUEUE
-#define PLATFORM_TEXT "FreeBSD"
-#define UNIX_FLAVOUR UNIX_FLAVOUR_BSD
-#else
-#ifdef USE_KQUEUE_DFLY
-#define PLATFORM_TEXT "DragonFlyBSD"
-#define UNIX_FLAVOUR UNIX_FLAVOUR_BSD
-#else
-#define PLATFORM_TEXT "Linux"
-#define UNIX_FLAVOUR UNIX_FLAVOUR_LINUX
-#endif
-#endif
-#endif
-#endif
-
 #if PLATFORM == PLATFORM_WIN
-#define PLATFORM_TEXT "Win86"
+# define PLATFORM_TEXT "Win86"
+# define WIN32_LEAN_AND_MEAN
+# define _WIN32_WINNT 0x0500
+# define NOMINMAX
+# include <windows.h>
+#else
+# include <string.h>
+# define MAX_PATH 1024
+# if PLATFORM == PLATFORM_UNIX || PLATFORM == PLATFORM_APPLE
+#  ifdef HAVE_DARWIN
+#   define PLATFORM_TEXT "MacOSX"
+#   define UNIX_FLAVOUR UNIX_FLAVOUR_OSX
+#  else
+#   ifdef USE_KQUEUE
+#    define PLATFORM_TEXT "FreeBSD"
+#    define UNIX_FLAVOUR UNIX_FLAVOUR_BSD
+#   else
+#    ifdef USE_KQUEUE_DFLY
+#     define PLATFORM_TEXT "DragonFlyBSD"
+#     define UNIX_FLAVOUR UNIX_FLAVOUR_BSD
+#    else
+#     define PLATFORM_TEXT "Linux"
+#     define UNIX_FLAVOUR UNIX_FLAVOUR_LINUX
+#    endif
+#   endif
+#  endif
+# endif
 #endif
 
 #ifdef _DEBUG
@@ -158,247 +113,141 @@ enum MsTimeVariables
 #define ARCH "x86"
 #endif
 
-/*#if COMPILER == COMPILER_MICROSOFT
-#  pragma warning( disable : 4267 ) // conversion from 'size_t' to 'int', possible loss of data
-#  pragma warning( disable : 4311 ) // 'type cast': pointer truncation from HMODULE to uint32
-#  pragma warning( disable : 4786 ) // identifier was truncated to '255' characters in the debug information
-#  pragma warning( disable : 4146 )
-#  pragma warning( disable : 4800 )
-#endif*/
-
 #if PLATFORM == PLATFORM_WIN
-#define STRCASECMP stricmp
+# include <winsock2.h>
+# include <ws2tcpip.h>
+# define ASYNC_NET
 #else
-#define STRCASECMP strcasecmp
-#endif
-
-#if PLATFORM == PLATFORM_WIN
-    #define ASYNC_NET
-#endif
-
-#ifdef USE_EPOLL
-    #define CONFIG_USE_EPOLL
-#endif
-#ifdef USE_KQUEUE
-    #define CONFIG_USE_KQUEUE
-#endif
-#ifdef USE_KQUEUE_DFLY
-    #define CONFIG_USE_KQUEUE_DFLY
-#endif
-#ifdef USE_SELECT
-    #define CONFIG_USE_SELECT
-#endif
-#ifdef USE_POLL
-    #define CONFIG_USE_POLL
+# include <sys/time.h>
+# include <sys/types.h>
+# include <sys/ioctl.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <unistd.h>
+# include <signal.h>
+# include <netdb.h>
+# define STRCASECMP strcasecmp
+#  ifdef USE_EPOLL
+# define CONFIG_USE_EPOLL
+# elif USE_KQUEUE
+#  define CONFIG_USE_KQUEUE
+# elif USE_KQUEUE_DFLY
+# define CONFIG_USE_KQUEUE_DFLY
+#  elif USE_SELECT
+# define CONFIG_USE_SELECT
+#  elif USE_POLL
+# define CONFIG_USE_POLL
+# endif
 #endif
 
 #ifdef min
-#undef min
+# undef min
 #endif
 
 #ifdef max
-#undef max
+# undef max
 #endif
 
 #include <set>
+#include <map>
 #include <list>
 #include <string>
-#include <map>
 #include <queue>
 #include <sstream>
 #include <algorithm>
-//#include <iostream>
+#include <memory>
 
-#if defined (__GNUC__)
-#  define GCC_VERSION (__GNUC__ * 10000 \
-                       + __GNUC_MINOR__ * 100 \
-                       + __GNUC_PATCHLEVEL__)
-#endif
+#define RONIN_SET std::set
+#define RONIN_MAP std::map
+#define RONIN_MULTIMAP std::multimap
 
-
-#ifndef WIN32
-#ifndef _WIN64
-#  if defined (__GNUC__)
+#if PLATFORM == PLATFORM_WIN
+# pragma warning(disable:4996)
+# undef _CRT_SECURE_NO_DEPRECATE
+# undef _CRT_SECURE_COPP_OVERLOAD_STANDARD_NAMES
+# define _CRT_SECURE_NO_DEPRECATE 1
+# define _CRT_SECURE_COPP_OVERLOAD_STANDARD_NAMES 1
+# pragma warning(disable:4251)       // dll-interface bullshit
+# define RONIN_INLINE __forceinline
+#else
+# define RONIN_INLINE inline
+# if defined (__GNUC__)
+#  define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+#  ifndef X64
 #   if GCC_VERSION >= 30400
-#         ifdef HAVE_DARWIN
-#         define __fastcall
-#         else
-#             define __fastcall __attribute__((__fastcall__))
-#         endif
+#    ifdef HAVE_DARWIN
+#     define __fastcall
+#    else
+#     define __fastcall __attribute__((__fastcall__))
+#    endif
 #   else
-#     define __fastcall __attribute__((__regparm__(3)))
+#    define __fastcall __attribute__((__regparm__(3)))
 #   endif
 #  else
-#   define __fastcall __attribute__((__fastcall__))
+#   define __fastcall  
 #  endif
-#else
-#define __fastcall
-#endif
-#endif
-
-#if COMPILER == COMPILER_GNU
-// Packing allignment GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
-#define PRAGMA_PACK 1
-#define PRAGMA_POP
-#else
-// Packing allignment
-#define PRAGMA_PACK push,1
-#define PRAGMA_POP pop
+# else
+#  define __fastcall __attribute__((__fastcall__))
+# endif
 #endif
 
 #if COMPILER == COMPILER_INTEL
 
-#include <ext/hash_map>
-
-#elif COMPILER == COMPILER_GNU && __GNUC__ >= 4
-
-#include <tr1/memory>
-#include <tr1/unordered_map>
-#include <tr1/unordered_set>
-
-#elif COMPILER == COMPILER_GNU && __GNUC__ >= 3
-
-#include <ext/hash_map>
 #include <ext/hash_set>
+#include <ext/hash_map>
 
-#elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1700
+#define RONIN_UNORDERED_SET std::hash_set
+#define RONIN_UNORDERED_MAP std::hash_map
 
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
+#elif COMPILER == COMPILER_GNU
 
-#elif COMPILER == COMPILER_MICROSOFT && (_MSC_VER < 1600 || !_HAS_TR1)
+#if __GNUC__ >= 4
 
-#pragma message ("FATAL ERROR: Please install a newer version of visual studio, VS2010 or above.")
+#include <tr1/unordered_set>
+#include <tr1/unordered_map>
 
-#elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1600
-
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
+#define RONIN_UNORDERED_SET std::tr1::unordered_set
+#define RONIN_UNORDERED_MAP std::tr1::unordered_map
 
 #else
 
-#include <memory>
-#include <hash_map>
-#include <hash_set>
+#include <ext/hash_set>
+#include <ext/hash_map>
+
+#define RONIN_UNORDERED_SET __gnu_cxx::hash_set
+#define RONIN_UNORDERED_MAP __gnu_cxx::hash_map
+
 #endif
 
-#ifdef _STLPORT_VERSION
+#elif COMPILER == COMPILER_MICROSOFT
 
-#define HM_NAMESPACE std
+#if _MSC_VER >= 1700
 
-#elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1700
+#include <unordered_set>
+#include <unordered_map>
 
-#undef HM_NAMESPACE
-#define HM_NAMESPACE std::tr1
-#define hash_map unordered_map
-#define TRHAX 1
+#define RONIN_UNORDERED_SET std::unordered_set
+#define RONIN_UNORDERED_MAP std::unordered_map
 
-#elif COMPILER == COMPILER_MICROSOFT && (_MSC_VER < 1600 || !_HAS_TR1)
+#elif _HAS_TR1
 
-#undef HM_NAMESPACE
-#define HM_NAMESPACE std::tr1
-#define hash_map unordered_map
-#define ENABLE_SHITTY_STL_HACKS 1
+#define RONIN_UNORDERED_SET std::tr1::unordered_set
+#define RONIN_UNORDERED_MAP std::tr1::unordered_map
+
+#else
+
+#include <hash_set>
+#include <hash_map>
+
+#define RONIN_UNORDERED_SET std::hash_set
+#define RONIN_UNORDERED_MAP std::hash_map
 
 // hacky stuff for vc++
 #define snprintf _snprintf
 #define vsnprintf _vsnprintf
 
-#elif COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1600 && _HAS_TR1
-
-#undef HM_NAMESPACE
-#define HM_NAMESPACE std::tr1
-#define hash_map unordered_map
-#define TRHAX 1
-
-#elif COMPILER == COMPILER_INTEL
-
-#define HM_NAMESPACE std
-
-#elif COMPILER == COMPILER_GNU && __GNUC__ >= 4
-
-#undef HM_NAMESPACE
-#define HM_NAMESPACE std::tr1
-#define shared_ptr std::tr1::shared_ptr
-#define hash_map unordered_map
-#define TRHAX 1
-namespace std
-{
-    namespace tr1
-    {
-        template<> struct hash<const long long unsigned int> : public std::unary_function<const long long unsigned int, std::size_t>
-        {
-            std::size_t operator()(const long long unsigned int val) const
-            {
-                return static_cast<std::size_t>(val);
-            }
-        };
-        template<> struct hash<const unsigned int> : public std::unary_function<const unsigned int, std::size_t>
-        {
-            std::size_t operator()(const unsigned int val) const
-            {
-                return static_cast<std::size_t>(val);
-            }
-        };
-    }
-}
-
-#elif COMPILER == COMPILER_GNU && __GNUC__ >= 3
-
-#define HM_NAMESPACE __gnu_cxx
-
-namespace __gnu_cxx
-{
-    template<> struct hash<unsigned long long>
-    {
-        size_t operator()(const unsigned long long &__x) const { return (size_t)__x; }
-    };
-    template<typename T> struct hash<T *>
-    {
-        size_t operator()(T * const &__x) const { return (size_t)__x; }
-    };
-
-};
-#else
-
-#define HM_NAMESPACE std
-
 #endif
-
-#if COMPILER == COMPILER_GNU && __GNUC__ >=4 && __GNUC_MINOR__ == 1 && __GNUC_PATCHLEVEL__ == 2
-//GCC I HATE YOU!
-namespace std
-{
-    namespace tr1
-    {
-        template<> struct hash<long long unsigned int> : public std::unary_function<long long unsigned int, std::size_t>
-        {
-            std::size_t operator()(const long long unsigned int val) const
-            {
-                return static_cast<std::size_t>(val);
-            }
-        };
-    }
-}
-
-#endif
-
-#if COMPILER == COMPILER_MICROSOFT && _MSC_VER >= 1700
-
-#else
-
-namespace std
-{
-    namespace tr1
-    {
-        template<typename T> struct hash<shared_ptr<T> >
-        {
-            size_t operator()(shared_ptr<T> const &__x) const { return (size_t)__x.get(); }
-        };
-    }
-}
 
 #endif
 
@@ -408,22 +257,8 @@ typedef unsigned long ulong;
 typedef long long signed int LLSI;
 typedef long long unsigned int LLUI;
 typedef char const* const* PackedString;
-#define UNORDERED_MAP std::tr1::unordered_map
 
-#if COMPILER != COMPILER_GNU
-
-typedef signed __int64 int64;
-typedef signed __int32 int32;
-typedef signed __int16 int16;
-typedef signed __int8 int8;
-
-typedef unsigned __int64 uint64;
-typedef unsigned __int32 uint32;
-typedef unsigned __int16 uint16;
-typedef unsigned __int8 uint8;
-
-#else
-
+#if COMPILER == COMPILER_GNU
 typedef int64_t int64;
 typedef int32_t int32;
 typedef int16_t int16;
@@ -434,13 +269,30 @@ typedef uint16_t uint16;
 typedef uint8_t uint8;
 typedef uint32_t DWORD;
 
+// Packing allignment GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
+#define PRAGMA_PACK 1
+#define PRAGMA_POP
+#else
+typedef signed __int64 int64;
+typedef signed __int32 int32;
+typedef signed __int16 int16;
+typedef signed __int8 int8;
+
+typedef unsigned __int64 uint64;
+typedef unsigned __int32 uint32;
+typedef unsigned __int16 uint16;
+typedef unsigned __int8 uint8;
+
+// Packing allignment
+#define PRAGMA_PACK push,1
+#define PRAGMA_POP pop
 #endif
 
 /*
 Scripting system exports/imports
 */
 
-#ifdef WIN32
+#if PLATFORM == PLATFORM_WIN
  #ifndef SCRIPTLIB
   #define SERVER_DECL __declspec(dllexport)
   #define SCRIPT_DECL __declspec(dllimport)
@@ -453,9 +305,10 @@ Scripting system exports/imports
  #define SCRIPT_DECL
 #endif
 
-
 // Include all threading files
 #include <assert.h>
+
+#include "format.h"
 #include "Threading/Threading.h"
 #include "MersenneTwister.h"
 
@@ -479,13 +332,6 @@ Scripting system exports/imports
 
 #define atol(a) strtoul( a, NULL, 10)
 
-#if COMPILER == COMPILER_MICROSOFT
-
-#pragma float_control(push)
-#pragma float_control(precise, on)
-
-#endif
-
 // fast int abs
 static inline int int32abs( const int value )
 {
@@ -497,6 +343,13 @@ static inline uint32 int32abs2uint32( const int value )
 {
     return (uint32)(value ^ (value >> 31)) - (value >> 31);
 }
+
+#if COMPILER == COMPILER_MICROSOFT
+
+#pragma float_control(push)
+#pragma float_control(precise, on)
+
+#endif
 
 /// Fastest Method of float2int32
 static inline int float2int32(const float value)
@@ -536,84 +389,16 @@ static inline int long2int32(const double value)
 }
 
 #if COMPILER == COMPILER_MICROSOFT
-
 #pragma float_control(pop)
 #endif
 
-#ifndef WIN32
+#if PLATFORM != PLATFORM_WIN
 #include <sys/timeb.h>
-
-#endif
-
-#ifndef WIN32
 #define FALSE   0
 #define TRUE    1
-#endif
-
-#ifndef WIN32
 #define Sleep(ms) usleep(1000*ms)
 #endif
 
-#if defined(SHARED_LIB_BUILDER) || defined(_LOGON) || defined(_REALM) || defined(_GAME) // Game the lost just you?
-
 #include "Util.h"
-
-int32 GetTimePeriodFromString(const char * str);
-std::string ConvertTimeStampToString(uint32 timestamp);
-std::string ConvertTimeStampToDataTime(uint32 timestamp);
-
-HEARTHSTONE_INLINE void reverse_array(uint8 * pointer, size_t count)
-{
-    size_t x;
-    uint8 * temp = (uint8*)malloc(count);
-    memcpy(temp, pointer, count);
-    for(x = 0; x < count; ++x)
-        pointer[x] = temp[count-x-1];
-    free(temp);
-}
-
-HEARTHSTONE_INLINE void HEARTHSTONE_TOLOWER(std::string& str)
-{
-    for(size_t i = 0; i < str.length(); ++i)
-        str[i] = (char)tolower(str[i]);
-};
-
-HEARTHSTONE_INLINE void HEARTHSTONE_TOUPPER(std::string& str)
-{
-    for(size_t i = 0; i < str.length(); ++i)
-        str[i] = (char)toupper(str[i]);
-};
-
-HEARTHSTONE_INLINE std::string HEARTHSTONE_TOLOWER_RETURN(std::string str)
-{
-    std::string newname = str;
-    for(size_t i = 0; i < str.length(); ++i)
-        newname[i] = (char)tolower(str[i]);
-
-    return newname;
-};
-
-HEARTHSTONE_INLINE bool FindXinYString(std::string x, std::string y)
-{
-    return y.find(x) != std::string::npos;
-}
-
-template<typename T> HEARTHSTONE_INLINE T FirstBitValue(T value)
-{
-    assert(sizeof(T)<=8); // Limit to 8 bytes
-    if(value)
-    {   // for each byte we have 8 bit stacks
-        for(T i = 0; i < sizeof(T)*8; i++)
-            if(value & (T(1)<<i))
-                return i;
-    } return static_cast<T>(NULL);
-}
-
-// returns true if the ip hits the mask, otherwise false
-bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits);
-unsigned int MakeIP(const char * str);
-
 #include "ByteConverter.h"
 #include "Console/CConsole.h"
-
-#endif

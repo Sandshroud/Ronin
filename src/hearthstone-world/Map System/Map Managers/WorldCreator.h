@@ -82,7 +82,7 @@ class Battleground;
 
 class SERVER_DECL FormationMgr : public Singleton < FormationMgr >
 {
-    map<uint32, Formation*> m_formations;
+    std::map<uint32, Formation*> m_formations;
 public:
     typedef std::map<uint32, Formation*> FormationMap;
     FormationMgr();
@@ -106,9 +106,9 @@ public:
     WoWGuid m_creatorGuid;
     uint32 m_creatorGroup;
     uint32 m_difficulty;
-    unordered_set<uint32> m_killedNpcs;
-    unordered_set<uint32> m_SavedPlayers;
-    unordered_set<uint32> m_EnteredPlayers;
+    std::unordered_set<uint32> m_killedNpcs;
+    std::unordered_set<uint32> m_SavedPlayers;
+    std::unordered_set<uint32> m_EnteredPlayers;
     Mutex m_SavedLock;
     time_t m_creation;
     time_t m_expiration;
@@ -121,7 +121,7 @@ public:
     void DeleteFromDB();
 };
 
-typedef HM_NAMESPACE::hash_map<uint32, Instance*> InstanceMap;
+typedef RONIN_UNORDERED_MAP<uint32, Instance*> InstanceMap;
 
 class SERVER_DECL InstanceMgr
 {

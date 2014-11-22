@@ -164,7 +164,7 @@ bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
     } // Optional argument
     else if(m_plyr && args && strlen(args) > 2)
     {
-        HEARTHSTONE_TOLOWER(argument);
+        RONIN_UTIL::TOLOWER(argument);
 
         // Teleport to specific race
         if(argument == "human")             raceid = 1;
@@ -183,9 +183,7 @@ bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
             RedSystemMessage(m_session, "Invalid start location! Valid locations are: human, dwarf, gnome, nightelf, draenei, orc, troll, tauren, undead, bloodelf");
             return true;
         }
-    }
-    else
-        return false;
+    } else return false;
 
     //GetPlayerCreateInfo
     PlayerCreateInfo *info = NULL;

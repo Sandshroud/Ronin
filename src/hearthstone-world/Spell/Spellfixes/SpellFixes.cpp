@@ -323,7 +323,7 @@ void SetSingleSpellDefaults(SpellEntry *sp)
 
     /// Defaults
     sp->Class = 0;
-    sp->School = FirstBitValue(sp->SchoolMask);
+    sp->School = RONIN_UTIL::FirstBitValue(sp->SchoolMask);
     sp->NameHash = crc32((const unsigned char*)sp->Name, (unsigned int)strlen(sp->Name)); //need these set before we start processing spells
     sp->RankNumber = sp->GeneratedThreat = sp->SpellSkillLine = 0;
     for(uint8 i = 0; i < 3; i++) sp->CustomAttributes[i] = 0;

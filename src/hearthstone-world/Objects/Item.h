@@ -112,10 +112,7 @@ enum EnchantmentSlot
     MAX_ENCHANTMENT_SLOT            = 15
 };
 
-typedef map< uint32, EnchantmentInstance > EnchantmentMap;
-
-#define APPLY true
-#define REMOVE false
+typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 
 #define RANDOM_SUFFIX_MAGIC_CALCULATION( __suffix, __scale ) int32( float( ( float( ( __suffix ) ) * float( ( __scale ) ) ) ) / 13340.0f );
 

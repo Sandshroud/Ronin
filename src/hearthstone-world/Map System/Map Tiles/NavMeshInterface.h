@@ -28,8 +28,8 @@ struct TileReferenceC
     dtTileRef ID;
 };
 
-typedef map<uint32, TileReferenceC*> ReferenceMap;
-typedef map<dtTileRef, uint32> ReverseReferenceMap;
+typedef std::map<uint32, TileReferenceC*> ReferenceMap;
+typedef std::map<dtTileRef, uint32> ReverseReferenceMap;
 
 class MMapManager
 {

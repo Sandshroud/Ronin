@@ -314,9 +314,9 @@ private:
 class SERVER_DECL WorldObject : public Object, public EventableObject
 {
 public:
-    typedef unordered_set< WorldObject* > InRangeSet;
-    typedef unordered_set< Unit* >   InRangeUnitSet;
-    typedef unordered_set< Player* > InRangePlayerSet;
+    typedef std::unordered_set< WorldObject* > InRangeSet;
+    typedef std::unordered_set< Unit* >   InRangeUnitSet;
+    typedef std::unordered_set< Player* > InRangePlayerSet;
 
     virtual ~WorldObject( );
     virtual void Init();
@@ -643,10 +643,10 @@ protected:
     bool mSemaphoreTeleport;
 
     //! Set of Objects in range.
-    unordered_set<WorldObject* > m_objectsInRange;
-    unordered_set<Player* > m_inRangePlayers;
-    unordered_set<Unit* > m_oppFactsInRange;
-    unordered_set<Unit* > m_unitsInRange;
+    std::unordered_set<WorldObject* > m_objectsInRange;
+    std::unordered_set<Player* > m_inRangePlayers;
+    std::unordered_set<Unit* > m_oppFactsInRange;
+    std::unordered_set<Unit* > m_unitsInRange;
 
     int32 m_instanceId;
 

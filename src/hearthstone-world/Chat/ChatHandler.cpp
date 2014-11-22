@@ -110,7 +110,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         {
             if( m_muted && m_muted >= (uint32)UNIXTIME )
             {
-                SystemMessage("Your voice is currently muted by a moderator. This will expire in %s.", ConvertTimeStampToString(m_muted - (uint32)UNIXTIME).c_str());
+                SystemMessage("Your voice is currently muted by a moderator. This will expire in %s.", RONIN_UTIL::ConvertTimeStampToString(m_muted - (uint32)UNIXTIME).c_str());
                 return;
             }
         }break;
@@ -225,7 +225,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
                 data = sChatHandler.FillMessageData( CHAT_MSG_SAY, lang, message.c_str(), _player->GetGUID(), _player->GetChatTag());
                 SendChatPacket(data, 1, lang, this);
-                for(unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
+                for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
                 {
                     if(_player->PhasedCanInteract((*itr))) // Matching phases.
                         (*itr)->GetSession()->SendChatPacket(data, 1, lang, this);
@@ -325,7 +325,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             {
                 if( miscName == "Console" ||  miscName == "console" )
                 {
-                    string ConsoleMessage = format("%s To Console: %s", _player->GetName(), message.c_str());
+                    std::string ConsoleMessage = format("%s To Console: %s", _player->GetName(), message.c_str());
                     sLog.Notice("Whisper", ConsoleMessage.c_str());
                     data = sChatHandler.FillSystemMessageData(ConsoleMessage.c_str());
                     SendPacket(data);
@@ -346,7 +346,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             if(!_player->GetSession()->GetPermissionCount() && player->bGMTagOn && player->gmTargets.count(_player) == 0)
             {
                 // Build automated reply
-                string Reply = "This Game Master does not currently have an open ticket from you and did not receive your whisper. Please submit a new GM Ticket request if you need to speak to a GM. This is an automatic message.";
+                std::string Reply = "This Game Master does not currently have an open ticket from you and did not receive your whisper. Please submit a new GM Ticket request if you need to speak to a GM. This is an automatic message.";
                 data = sChatHandler.FillMessageData( CHAT_MSG_WHISPER, LANG_UNIVERSAL, Reply.c_str(), player->GetGUID(), 3);
                 SendPacket(data);
                 delete data;
@@ -486,7 +486,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
 
     if( m_muted && m_muted >= (uint32)UNIXTIME )
     {
-        SystemMessage("Your voice is currently muted by a moderator. This will expire in %s.", ConvertTimeStampToString(m_muted - (uint32)UNIXTIME).c_str());
+        SystemMessage("Your voice is currently muted by a moderator. This will expire in %s.", RONIN_UTIL::ConvertTimeStampToString(m_muted - (uint32)UNIXTIME).c_str());
         return;
     }
 
@@ -634,9 +634,9 @@ bool WorldSession::ValidateText2(std::string text)
     size_t stringpos;
 
     // Idiots spamming giant pictures through the chat system
-    if( text.find("|TInterface") != string::npos)
+    if( text.find("|TInterface") != std::string::npos)
         return false;
-    if( text.find("\n") != string::npos )
+    if( text.find("\n") != std::string::npos )
         return false;
 
     /* Crow
@@ -653,14 +653,14 @@ bool WorldSession::ValidateText2(std::string text)
     */
 
     // Quests
-    if((stringpos = text.find("|Hquest:")) != string::npos)
+    if((stringpos = text.find("|Hquest:")) != std::string::npos)
     { //Hquest:2278:47|h[The Platinum Discs]|h|r
         ///////////////////////////////////////////////////////////////////
         size_t length = stringpos+8;
         if(text.size() < length)
             return false;
 
-        string newstring = text.substr(stringpos+8, text.size());
+        std::string newstring = text.substr(stringpos+8, text.size());
         if(!newstring.size())
             return false; // Their fault
 
@@ -714,14 +714,14 @@ bool WorldSession::ValidateText2(std::string text)
     }
 
     // Professions
-    if((stringpos = text.find("|Htrade:")) != string::npos)
+    if((stringpos = text.find("|Htrade:")) != std::string::npos)
     { //|Htrade:4037:1:150:1:6AAAAAAAAAAAAAAAAAAAAAAOAADAAAAAAAAAAAAAAAAIAAAAAAAAA|h[Engineering]|h|r
         ///////////////////////////////////////////////////////////////////
         size_t length = stringpos+8;
         if(text.size() < length)
             return false;
 
-        string newstring = text.substr(stringpos+8, text.size());
+        std::string newstring = text.substr(stringpos+8, text.size());
         if(!newstring.size())
             return false; // Their fault
 
@@ -818,14 +818,14 @@ bool WorldSession::ValidateText2(std::string text)
     }
 
     // Talents
-    if((stringpos = text.find("|Htalent:")) != string::npos)
+    if((stringpos = text.find("|Htalent:")) != std::string::npos)
     { //Htalent:2232:-1|h[Taste for Blood]|h|r
         ///////////////////////////////////////////////////////////////////
         size_t length = stringpos+9;
         if(text.size() < length)
             return false;
 
-        string newstring = text.substr(stringpos+9, text.size());
+        std::string newstring = text.substr(stringpos+9, text.size());
         if(!newstring.size())
             return false; // Their fault
 
@@ -877,32 +877,32 @@ bool WorldSession::ValidateText2(std::string text)
     }
 
     // Achievements
-    if((stringpos = text.find("|Hachievement:")) != string::npos)
+    if((stringpos = text.find("|Hachievement:")) != std::string::npos)
     { //Hachievement:546:0000000000000001:0:0:0:-1:0:0:0:0|h[Safe Deposit]|h|r
         return true;
     }
 
     // Glyphs
-    if((stringpos = text.find("|Hglyph:")) != string::npos)
+    if((stringpos = text.find("|Hglyph:")) != std::string::npos)
     { //Hglyph:21:762|h[Glyph of Bladestorm]|h|r
         return true;
     }
 
     // Enchants
-    if((stringpos = text.find("|Henchant:")) != string::npos)
+    if((stringpos = text.find("|Henchant:")) != std::string::npos)
     { //Henchant:3919|h[Engineering: Rough Dynamite]|h|r
         return true;
     }
 
     // Spells
-    if((stringpos = text.find("|Hspell:")) != string::npos)
+    if((stringpos = text.find("|Hspell:")) != std::string::npos)
     { //|cff71d5ff|Hspell:21563|h[Command]|h|r
         ///////////////////////////////////////////////////////////////////
         size_t length = stringpos+8;
         if(text.size() < length)
             return false;
 
-        string newstring = text.substr(stringpos+8, text.size());
+        std::string newstring = text.substr(stringpos+8, text.size());
         if(!newstring.size())
             return false; // Their fault
 
@@ -941,14 +941,14 @@ bool WorldSession::ValidateText2(std::string text)
     }
 
     // Items
-    if((stringpos = text.find("Hitem:")) != string::npos)
+    if((stringpos = text.find("Hitem:")) != std::string::npos)
     { //|cffa335ee|Hitem:812:0:0:0:0:0:0:0:70|h[Glowing Brightwood Staff]|h|r
         ///////////////////////////////////////////////////////////////////
         size_t length = stringpos+6;
         if(text.size() < length)
             return false;
 
-        string newstring = text.substr(stringpos+6, text.size());
+        std::string newstring = text.substr(stringpos+6, text.size());
         if(!newstring.size())
             return false; // Their fault
 
@@ -1033,18 +1033,18 @@ bool WorldSession::ValidateText2(std::string text)
             return false;
         if(strlen(proto->Name1) != strlen(itemname))
         {
-            if(string(itemname).find("of") != string::npos)
+            if(std::string(itemname).find("of") != std::string::npos)
             {
                 length = strlen(proto->Name1);
                 if(newstring.size() < length)
                     return false;
 
-                newstring = string(itemname).substr(strlen(proto->Name1), strlen(itemname));
+                newstring = std::string(itemname).substr(strlen(proto->Name1), strlen(itemname));
                 if(!newstring.size())
                     return false; // Their fault
 
                 scannedtext = (char*)newstring.c_str();
-                if(string(scannedtext).find("of") != string::npos)
+                if(std::string(scannedtext).find("of") != std::string::npos)
                     return true; // We have a suffix
             }
             return false;
@@ -1054,9 +1054,9 @@ bool WorldSession::ValidateText2(std::string text)
     }
 
     // Safe to search, since we're done with items
-    if(text.find("|c") != string::npos && text.find("|r") != string::npos)
+    if(text.find("|c") != std::string::npos && text.find("|r") != std::string::npos)
         return false;
-    if(text.find("|c") != string::npos && text.find("|h") != string::npos)
+    if(text.find("|c") != std::string::npos && text.find("|h") != std::string::npos)
         return false;
 
     return true;

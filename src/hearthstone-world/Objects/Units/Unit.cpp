@@ -396,7 +396,7 @@ void Unit::Destruct()
         delete (*itr);
     m_extraStrikeTargets.clear();
 
-    HM_NAMESPACE::hash_map<uint32, onAuraRemove*>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
     for ( itr = m_onAuraRemoveSpells.begin() ; itr != m_onAuraRemoveSpells.end() ; itr++)
     {
         delete itr->second;
@@ -4597,7 +4597,7 @@ void Unit::AddExtraStrikeTarget(SpellEntry *spell_info, uint8 effIndex, uint32 c
 
 void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf)
 {
-    HM_NAMESPACE::hash_map<uint32, onAuraRemove*>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
     itr = m_onAuraRemoveSpells.find(NameHash);
 
     if(itr != m_onAuraRemoveSpells.end())
@@ -4622,7 +4622,7 @@ void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procCh
 
 void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
 {
-    HM_NAMESPACE::hash_map<uint32, onAuraRemove*>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
     itr = m_onAuraRemoveSpells.find(NameHash);
 
     if(itr != m_onAuraRemoveSpells.end())
@@ -4632,7 +4632,7 @@ void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
 // Aura by NameHash has been removed
 void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
 {
-    HM_NAMESPACE::hash_map<uint32, onAuraRemove*>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
     itr = m_onAuraRemoveSpells.find(NameHash);
 
     if(itr != m_onAuraRemoveSpells.end())

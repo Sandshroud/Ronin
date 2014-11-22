@@ -71,7 +71,7 @@ protected:
     GameObject* m_bubbles[2];
     GameObject* m_EOTSbuffs[4];
 
-    typedef map<uint32, uint32> EOTSStoredPlayerMap;
+    typedef std::map<WoWGuid, uint32> EOTSStoredPlayerMap;
     EOTSStoredPlayerMap m_CPStored[EOTS_TOWER_COUNT];
     int32 m_towerCount[2];
 

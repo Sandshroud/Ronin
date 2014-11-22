@@ -111,33 +111,17 @@ class AccountMgr : public Singleton < AccountMgr >
 public:
     ~AccountMgr()
     {
-
-#ifdef WIN32
-        for(HM_NAMESPACE::hash_map<std::string, Account*>::iterator itr = AccountDatabase.begin(); itr != AccountDatabase.end(); ++itr)
-#else
-        for(std::map<std::string,Account*>::iterator itr = AccountDatabase.begin(); itr != AccountDatabase.end(); ++itr)
-#endif
-        {
+        for(RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.begin(); itr != AccountDatabase.end(); ++itr)
             delete itr->second;
-        }
     }
 
     void AddAccount(Field* field);
 
     Account* GetAccount(std::string Name)
     {
-        setBusy.Acquire();
         Account * pAccount = NULL;
-        // this should already be uppercase!
-#ifdef WIN32
-        HM_NAMESPACE::hash_map<std::string, Account*>::iterator itr = AccountDatabase.find(Name);
-#else
-        map<string, Account*>::iterator itr = AccountDatabase.find(Name);
-#endif
-
-        if(itr == AccountDatabase.end())    pAccount = NULL;
-        else                                pAccount = itr->second;
-
+        setBusy.Acquire();
+        pAccount = __GetAccount(Name);
         setBusy.Release();
         return pAccount;
     }
@@ -151,22 +135,13 @@ public:
 private:
     Account* __GetAccount(std::string Name)
     {
-        // this should already be uppercase!
-#ifdef WIN32
-        HM_NAMESPACE::hash_map<std::string, Account*>::iterator itr = AccountDatabase.find(Name);
-#else
-        map<string, Account*>::iterator itr = AccountDatabase.find(Name);
-#endif
-
-        if(itr == AccountDatabase.end())    return NULL;
-        else                                return itr->second;
+        RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.find(Name);
+        if(itr == AccountDatabase.end())
+            return NULL;
+        return itr->second;
     }
 
-#ifdef WIN32
-    HM_NAMESPACE::hash_map<std::string, Account*> AccountDatabase;
-#else
-    std::map<std::string, Account*> AccountDatabase;
-#endif
+    RONIN_UNORDERED_MAP<std::string, Account*> AccountDatabase;
 
 protected:
     Mutex setBusy;
@@ -187,7 +162,7 @@ typedef struct Realm
     uint16 RequiredBuild;
 
     Mutex m_charMapLock;
-    HM_NAMESPACE::hash_map<uint32, uint8> CharacterMap;
+    RONIN_UNORDERED_MAP<uint32, uint8> CharacterMap;
     LogonCommServerSocket *ServerSocket;
 }Realm;
 

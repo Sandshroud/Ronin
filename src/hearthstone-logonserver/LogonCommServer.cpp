@@ -393,7 +393,7 @@ void LogonCommServerSocket::HandleMappingReply(WorldPacket & recvData)
 
     sInfoCore.getRealmLock().Acquire();
 
-    HM_NAMESPACE::hash_map<uint32, uint8>::iterator itr;
+    RONIN_UNORDERED_MAP<uint32, uint8>::iterator itr;
     buf >> count;
     sLog.Notice("LogonCommServer","Got mapping packet for realm %u, total of %u entries.\n", (unsigned int)realm_id, (unsigned int)count);
     for(uint32 i = 0; i < count; ++i)
@@ -423,7 +423,7 @@ void LogonCommServerSocket::HandleUpdateMapping(WorldPacket & recvData)
     sInfoCore.getRealmLock().Acquire();
     recvData >> account_id >> toadd;
 
-    HM_NAMESPACE::hash_map<uint32, uint8>::iterator itr = realm->CharacterMap.find(account_id);
+    RONIN_UNORDERED_MAP<uint32, uint8>::iterator itr = realm->CharacterMap.find(account_id);
     if(itr != realm->CharacterMap.end())
     {
         if(itr->second > 0 || toadd > 0)
@@ -499,7 +499,7 @@ void LogonCommServerSocket::HandleDatabaseModify(WorldPacket& recvData)
             std::string reason;
             recvData >> account >> duration >> reason;
             // remember we expect this in uppercase
-            HEARTHSTONE_TOUPPER(account);
+            RONIN_UTIL::TOUPPER(account);
             Account * pAccount = sAccountMgr.GetAccount(account);
             if( pAccount == NULL )
                 return;
@@ -515,7 +515,7 @@ void LogonCommServerSocket::HandleDatabaseModify(WorldPacket& recvData)
             std::string gm;
             recvData >> account >> gm;
             // remember we expect this in uppercase
-            HEARTHSTONE_TOUPPER(account);
+            RONIN_UTIL::TOUPPER(account);
             Account * pAccount = sAccountMgr.GetAccount(account);
             if( pAccount == NULL )
                 return;
@@ -530,7 +530,7 @@ void LogonCommServerSocket::HandleDatabaseModify(WorldPacket& recvData)
             uint32 duration;
             recvData >> account >> duration;
             // remember we expect this in uppercase
-            HEARTHSTONE_TOUPPER(account);
+            RONIN_UTIL::TOUPPER(account);
             Account * pAccount = sAccountMgr.GetAccount(account);
             if( pAccount == NULL )
                 return;
@@ -562,14 +562,14 @@ void LogonCommServerSocket::HandleDatabaseModify(WorldPacket& recvData)
             recvData >> email >> password >> accountName >> accountFlags;
             std::string safeAccountName = sLogonSQL->EscapeString(accountName);
             // remember we expect this in uppercase
-            HEARTHSTONE_TOUPPER(safeAccountName);
+            RONIN_UTIL::TOUPPER(safeAccountName);
             Account * pAccount = sAccountMgr.GetAccount(safeAccountName);
             if( pAccount != NULL )
             {
                 sLog.outError("Request to create account %s, name already taken!");
                 return;
             }
-            HEARTHSTONE_TOLOWER(safeAccountName);
+            RONIN_UTIL::TOLOWER(safeAccountName);
             safeAccountName[0] = (char)toupper(safeAccountName[0]);
 
             sLog.outString("Account %s created by request of realm %u", safeAccountName.c_str(), realmID);

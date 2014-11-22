@@ -155,19 +155,19 @@ private:
     QuestStorageMap QuestStorage;
     QuestPOIStorageMap mQuestPOIMap;
 
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > m_npc_quests;
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > m_obj_quests;
-    HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* > m_itm_quests;
-    list<uint32> m_extraqueststuff_list;
+    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_npc_quests;
+    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_obj_quests;
+    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_itm_quests;
+    std::list<uint32> m_extraqueststuff_list;
 
-    HM_NAMESPACE::hash_map<uint32, list<QuestAssociation *>* > m_quest_associations;
-    HM_NAMESPACE::hash_map<uint32, list<QuestAssociation *>* >& GetQuestAssociationList(){return m_quest_associations;}
+    RONIN_UNORDERED_MAP<uint32, std::list<QuestAssociation *>* > m_quest_associations;
+    RONIN_UNORDERED_MAP<uint32, std::list<QuestAssociation *>* >& GetQuestAssociationList(){return m_quest_associations;}
 
-    HM_NAMESPACE::hash_map<uint32, uint32>        m_ObjectLootQuestList;
+    RONIN_UNORDERED_MAP<uint32, uint32>        m_ObjectLootQuestList;
 
     template <class T> void _AddQuest(uint32 entryid, Quest *qst, uint8 type);
 
-    template <class T> HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >& _GetList();
+    template <class T> RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& _GetList();
 
     void AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_count);
 
@@ -176,11 +176,11 @@ private:
     void _CleanLine(std::string *str);
 };
 
-template<> HEARTHSTONE_INLINE HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >& QuestMgr::_GetList<Creature>()
+template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<Creature>()
     {return m_npc_quests;}
-template<> HEARTHSTONE_INLINE HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >& QuestMgr::_GetList<GameObject>()
+template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<GameObject>()
     {return m_obj_quests;}
-template<> HEARTHSTONE_INLINE HM_NAMESPACE::hash_map<uint32, list<QuestRelation *>* >& QuestMgr::_GetList<Item>()
+template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<Item>()
     {return m_itm_quests;}
 
 

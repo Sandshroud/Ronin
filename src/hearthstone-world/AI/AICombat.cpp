@@ -62,7 +62,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 //Try our chance at casting a spell (Will actually be cast on next ai update, so we just
                 //schedule it. This is needed to avoid next dealt melee damage while we cast the spell.)
                 AI_Spell* Spell = NULL;
-                for( map<uint32, AI_Spell*>::iterator SpellIter = m_spells.begin(); SpellIter != m_spells.end(); ++SpellIter )
+                for( std::map<uint32, AI_Spell*>::iterator SpellIter = m_spells.begin(); SpellIter != m_spells.end(); ++SpellIter )
                 {
                     Spell = SpellIter->second;
                     if( Spell->m_AI_Spell_disabled )
@@ -154,7 +154,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                     }break;
                 default:
                     {
-                        stringstream ss;
+                        std::stringstream ss;
                         ss << castPtr<Creature>( m_Unit )->GetCreatureData()->Name << " attempts to run away in fear!";
                         m_Unit->SendChatMessage(CHAT_MSG_MONSTER_EMOTE, LANG_UNIVERSAL, ss.str().c_str());
                     }break;
@@ -517,7 +517,7 @@ Unit* AIInterface::FindTarget()
     if(m_Unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
         return NULL;
 
-    for( unordered_set<Unit* >::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); )
+    for( WorldObject::InRangeUnitSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); )
     {
         pUnit = (*itr++);
         if( pUnit->isDead() || pUnit->m_invisible ) // skip invisible units
@@ -639,7 +639,7 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         return NULL;
 
     Unit* ResultUnit = GetMostHated();
-    pair< Unit*, int32> currentTarget;
+    std::pair< Unit*, int32> currentTarget;
     currentTarget.first = NULL;
     currentTarget.second = -1;
 

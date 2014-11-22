@@ -25,9 +25,9 @@ struct GuildInfo
     uint64 m_bankBalance;
     bool m_commandLogging;
 
-    string m_guildName;
-    string m_guildInfo;
-    string m_motd;
+    std::string m_guildName;
+    std::string m_guildInfo;
+    std::string m_motd;
 
     Mutex m_guildRosterBufferLock;
     ByteBuffer m_guildRosterBuffer;
@@ -56,7 +56,7 @@ struct GuildRank
 
     uint32 iId;
     uint32 iRights;
-    string szRankName;
+    std::string szRankName;
     int32 iGoldLimitPerDay;
     GuildRankTabPermissions iTabPermissions[MAX_GUILD_BANK_TABS];
 };
@@ -127,9 +127,9 @@ struct GuildBankTab
     }
 
     uint8 iTabId;
-    string szTabName;
-    string szTabIcon;
-    string szTabInfo;
+    std::string szTabName;
+    std::string szTabIcon;
+    std::string szTabInfo;
     Item *pSlots[MAX_GUILD_BANK_SLOTS];
 };
 
@@ -245,7 +245,7 @@ public:
     void LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, const char* arguement1, const char* arguement2 = NULL, const char* arguement3 = NULL, const char* arguement4 = NULL);
 
     void CreateGuildFromCharter(Charter* charter);
-    void CreateGuildFromCommand(string name, uint32 gLeader);
+    void CreateGuildFromCommand(std::string name, uint32 gLeader);
 
     GuildRank* FindLowestRank(GuildRankStorage* Ranks);
     GuildRank* FindHighestRank(GuildRankStorage* Ranks);
@@ -405,7 +405,7 @@ public: // Guild Functions and calls
 
 public: // Direct Packet Handlers
     void Packet_DisbandGuild(WorldSession* m_session);
-    void Packet_SetMotd(WorldSession* m_session, string motd);
+    void Packet_SetMotd(WorldSession* m_session, std::string motd);
 
     // Chat!
     void GuildChat(WorldSession* m_session, uint32 Language, const char* message);
@@ -466,13 +466,13 @@ public:
 
     Charter *CreateCharter(uint32 LeaderGuid, CharterTypes Type);
     Charter *GetCharter(uint32 CharterId, CharterTypes Type);
-    Charter *GetCharterByName(string &charter_name, CharterTypes Type);
+    Charter *GetCharterByName(std::string &charter_name, CharterTypes Type);
     Charter *GetCharterByItemGuid(uint32 guid);
     Charter *GetCharterByGuid(uint64 playerguid, CharterTypes type);
 
 private:
     RWLock m_charterLock;
-    map<uint32, Charter*> m_charters[NUM_CHARTER_TYPES];
+    std::map<uint32, Charter*> m_charters[NUM_CHARTER_TYPES];
 
 public: // Direct Packet Handlers
     void CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::string name, uint32 petitionCount, uint32 ArenaIndex);
@@ -508,7 +508,7 @@ public:
     uint32 LeaderGuid;
     uint32 ItemGuid;
     uint32 CharterId;
-    string GuildName;
+    std::string GuildName;
 
     Charter(Field * fields);
     Charter(uint32 id, uint32 leader, uint32 type) : CharterType(type), LeaderGuid(leader), CharterId(id)

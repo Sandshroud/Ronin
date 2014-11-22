@@ -556,13 +556,13 @@ void LootMgr::FillPickpocketingLoot(Loot * loot,uint32 loot_id)
 void LootMgr::FillItemLoot(Loot *loot, uint32 loot_id, uint8 team)
 {
     loot->items.clear();
-    loot->gold = 0;
+	// Todo: item gold
+    loot->gold = 0 * sWorld.getRate(RATE_MONEY);
 
     LootStore::iterator tab = ItemLoot.find(loot_id);
     if( ItemLoot.end()==tab)
         return;
-    else
-        PushLoot(&tab->second, loot, 0, team, false);
+    PushLoot(&tab->second, loot, 0, team, false);
 }
 
 bool LootMgr::CanGODrop(uint32 LootId,uint32 itemid)
