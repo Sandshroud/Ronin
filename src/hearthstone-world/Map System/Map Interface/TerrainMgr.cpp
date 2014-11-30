@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-TerrainMgr::TerrainMgr(string MapPath, uint32 MapId, bool Instanced, bool collisionMap) : mapPath(MapPath), mapId(MapId), Instance(Instanced), m_CollisionMap(collisionMap)
+TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId, bool Instanced, bool collisionMap) : mapPath(MapPath), mapId(MapId), Instance(Instanced), m_CollisionMap(collisionMap)
 {
     TileCountX = TileCountY = 0;
     TileStartX = TileEndX = 0;

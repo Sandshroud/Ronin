@@ -63,7 +63,7 @@ void ApplyNormalFixes()
     SetupSpellTargets();
 
     sLog.Notice("World", "Processing %u dummy spells...", dummySpells.size());
-    for(set<uint32>::iterator itr = dummySpells.begin(); itr != dummySpells.end(); itr++)
+    for(std::set<uint32>::iterator itr = dummySpells.begin(); itr != dummySpells.end(); itr++)
     {   // Crow: Create the dummy spell, and apply fixs :D
         SetSingleSpellDefaults(sp = CreateDummySpell(*itr));
         ApplySingleSpellFixes(sp);

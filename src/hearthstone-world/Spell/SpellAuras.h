@@ -114,7 +114,7 @@ public:
 
     Unit* GetUnitCaster();
     HEARTHSTONE_INLINE WorldObject* GetCaster() { return GetUnitCaster();}
-    HEARTHSTONE_INLINE uint64 GetCasterGUID(){return m_casterGuid;}
+    HEARTHSTONE_INLINE WoWGuid GetCasterGUID(){return m_casterGuid;}
 
     HEARTHSTONE_INLINE WorldObject* GetTarget() {return ((m_target != NULL && m_target->IsInWorld()) ? m_target: NULL);}
     HEARTHSTONE_INLINE Unit* GetUnitTarget() {return castPtr<Unit>(GetTarget());}
@@ -498,7 +498,7 @@ private:
 
     Unit* m_target;
     Player* p_target;
-    uint64 m_casterGuid;
+    WoWGuid m_casterGuid;
 
     uint32 timeleft;
     int32 m_duration; // in msec

@@ -750,7 +750,7 @@ bool ChatHandler::xxx(const char* args, WorldSession *m_session)
                 uint8 rank = (uint8)atol(start);
                 start = end + 1;
 
-                m_spec[s].talents.insert(make_pair<uint32, uint8>(talentid, rank));
+                m_spec[s].talents.insert(std::make_pair<uint32, uint8>(talentid, rank));
             }
         }
 

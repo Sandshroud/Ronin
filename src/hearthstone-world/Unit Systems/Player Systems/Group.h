@@ -87,7 +87,7 @@ public:
     HEARTHSTONE_INLINE Group* GetParent(void)          { return m_Parent; }
 
     void   Disband();
-    bool HasMember(uint32 guid);
+    bool HasMember(WoWGuid guid);
 
 protected:
 
@@ -103,7 +103,7 @@ class SERVER_DECL Group
 public:
     friend class SubGroup;
 
-    std::map<uint32, uint32> m_BeaconOfLightTargets;
+    std::map<WoWGuid, WoWGuid> m_BeaconOfLightTargets;
 
     static Group* Create();
 
@@ -113,8 +113,8 @@ public:
     // Adding/Removal Management
     bool AddMember(PlayerInfo * info, int32 subgroupid=-1);
     void RemovePlayer(PlayerInfo * info);
-    void AddBeaconOfLightTarget(uint32 LowGUID, uint32 CasterLow);
-    void RemoveBeaconOfLightTarget(uint32 LowGUID, uint32 CasterLow);
+    void AddBeaconOfLightTarget(WoWGuid GUID, WoWGuid Caster);
+    void RemoveBeaconOfLightTarget(WoWGuid , WoWGuid Caster);
 
     // Leaders and Looting
     void SetLeader(Player* pPlayer,bool silent);

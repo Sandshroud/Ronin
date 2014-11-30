@@ -16,7 +16,7 @@ LogonCommHandler::LogonCommHandler()
     next_request = 1;
     ReConCounter = 0;
     pings = !mainIni->ReadBoolean("LogonServer", "DisablePings", false);
-    string logon_pass = mainIni->ReadString("LogonServer", "RemotePassword", "r3m0t3");
+    std::string logon_pass = mainIni->ReadString("LogonServer", "RemotePassword", "r3m0t3");
 
     // sha1 hash it
     Sha1Hash hash;
@@ -48,7 +48,7 @@ LogonCommHandler::~LogonCommHandler()
 #endif
 }
 
-LogonCommClientSocket * LogonCommHandler::ConnectToLogon(string Address, uint32 Port)
+LogonCommClientSocket * LogonCommHandler::ConnectToLogon(std::string Address, uint32 Port)
 {
     return ConnectTCPSocket<LogonCommClientSocket>(Address.c_str(), Port);
 }
@@ -78,11 +78,9 @@ void LogonCommHandler::Startup()
     {
         do
         {
-            string acct = result->Fetch()[0].GetString();
-            string perm = result->Fetch()[1].GetString();
-
-            HEARTHSTONE_TOUPPER(acct);
-            forced_permissions.insert(make_pair(acct,perm));
+            std::string acct = RONIN_UTIL::TOUPPER_RETURN(result->Fetch()[0].GetString());
+            std::string perm = result->Fetch()[1].GetString();
+            forced_permissions.insert(std::make_pair(acct,perm));
 
         } while (result->NextRow());
         delete result;
@@ -91,7 +89,7 @@ void LogonCommHandler::Startup()
     Connect();
 }
 
-const string* LogonCommHandler::GetForcedPermissions(string& username)
+const std::string* LogonCommHandler::GetForcedPermissions(std::string& username)
 {
     ForcedPermissionMap::iterator itr = forced_permissions.find(username);
     if(itr == forced_permissions.end())
@@ -263,7 +261,7 @@ void LogonCommHandler::ConnectionDropped()
     mapLock.Release();
 }
 
-uint32 LogonCommHandler::ClientConnected(string AccountName, WorldSocket * Socket)
+uint32 LogonCommHandler::ClientConnected(std::string AccountName, WorldSocket * Socket)
 {
     uint32 request_id = next_request++;
     size_t i = 0;
@@ -281,7 +279,7 @@ uint32 LogonCommHandler::ClientConnected(string AccountName, WorldSocket * Socke
     data << int32(-42);
     data << server->ID;
     data << request_id;
-    data << string(acct);
+    data << std::string(acct);
     logon->SendPacket(&data);
 
     pendingLock.Acquire();
@@ -336,17 +334,17 @@ void LogonCommHandler::UpdateAccountCount(uint32 account_id, int8 add)
     logon->UpdateAccountCount(account_id, add);
 }
 
-void LogonCommHandler::TestConsoleLogon(string& username, string& password, uint32 requestnum)
+void LogonCommHandler::TestConsoleLogon(std::string& username, std::string& password, uint32 requestnum)
 {
     if(logon == NULL) // No valid logonserver is connected.
         return;
 
-    string newuser = username;
-    string newpass = password;
-    string srpstr;
+    std::string newuser = username;
+    std::string newpass = password;
+    std::string srpstr;
 
-    HEARTHSTONE_TOUPPER(newuser);
-    HEARTHSTONE_TOUPPER(newpass);
+    RONIN_UTIL::TOUPPER(newuser);
+    RONIN_UTIL::TOUPPER(newpass);
 
     srpstr = newuser + ":" + newpass;
 
@@ -370,9 +368,9 @@ void LogonCommHandler::Account_SetBanned(const char * account, uint32 banned, co
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(1);      // 1 = ban
-    data << string(account);
+    data << std::string(account);
     data << uint32(banned);
-    data << string(reason);
+    data << std::string(reason);
     logon->SendPacket(&data);
 }
 
@@ -383,8 +381,8 @@ void LogonCommHandler::Account_SetGM(const char * account, const char * flags)
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(2);      // 2 = set gm
-    data << string(account);
-    data << string(flags);
+    data << std::string(account);
+    data << std::string(flags);
     logon->SendPacket(&data);
 }
 
@@ -395,7 +393,7 @@ void LogonCommHandler::Account_SetMute(const char * account, uint32 muted)
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(3);      // 3 = mute
-    data << string(account);
+    data << std::string(account);
     data << uint32(muted);
     logon->SendPacket(&data);
 }
@@ -407,9 +405,9 @@ void LogonCommHandler::IPBan_Add(const char * ip, uint32 duration, const char* r
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(4);      // 4 = ipban add
-    data << string(ip);
+    data << std::string(ip);
     data << uint32(duration);
-    data << string(reason);
+    data << std::string(reason);
     logon->SendPacket(&data);
 }
 
@@ -420,7 +418,7 @@ void LogonCommHandler::IPBan_Remove(const char * ip)
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(5);      // 5 = ipban remove
-    data << string(ip);
+    data << std::string(ip);
     logon->SendPacket(&data);
 }
 
@@ -431,9 +429,9 @@ void LogonCommHandler::SendCreateAccountRequest(const char *accountname, const c
 
     WorldPacket data(RCMSG_MODIFY_DATABASE, 50);
     data << uint32(6);      // 6 = create account
-    data << string(email);
-    data << string(password);
-    data << string(accountname);
+    data << std::string(email);
+    data << std::string(password);
+    data << std::string(accountname);
     data << accountFlags;
     logon->SendPacket(&data);
 }

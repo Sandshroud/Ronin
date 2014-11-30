@@ -42,9 +42,11 @@ class WoWGuid;
 // Byte Buffer implementation classes
 struct WGuidPacked
 {
+    friend class WoWGuid;
     friend class ByteBuffer;
+private: 
     WGuidPacked(WoWGuid *guid) : m_guid(guid) {}
-private: WoWGuid *m_guid;
+    WoWGuid *m_guid;
 };
 
 class SERVER_DECL WoWGuid
@@ -53,40 +55,26 @@ protected:
     uint8 blocks[8];
 
 public:
-    operator uint64() const { return ((uint64*)&blocks[0])[0]; }
+    WoWGuid() { Clean(); }
+    WoWGuid(uint64 val) { ((uint64*)blocks)[0] = val; }
+
+    operator uint64() const { return ((uint64*)blocks)[0]; }
     operator double() const { return (double)this->operator uint64(); }
 
-    template <class T> WoWGuid& operator =(T input);
     void Clean();
 
     uint8 GenMask();
     uint8& operator[](int index) { ASSERT(index < sizeof(uint64)); return blocks[index]; }
     uint8 const& operator[](int index) const { ASSERT(index < sizeof(uint64)); return blocks[index]; }
-    uint64 operator +( const WoWGuid& val ) const { return ((uint64)*this + (uint64)val); }
-    uint64 operator -( const WoWGuid& val ) const { return ((uint64)*this - (uint64)val); }
-    uint64 operator *( const WoWGuid& val ) const { return ((uint64)*this * (uint64)val); }
-    uint64 operator /( const WoWGuid& val ) const { return ((uint64)*this / (uint64)val); }
     uint64 operator |( const WoWGuid& val ) const { return ((uint64)*this | (uint64)val); }
-    uint64 operator +( const uint64 val ) const { return ((uint64)*this + val); }
-    uint64 operator -( const uint64 val ) const { return ((uint64)*this - val); }
-    uint64 operator *( const uint64 val ) const { return ((uint64)*this * val); }
-    uint64 operator /( const uint64 val ) const { return ((uint64)*this / val); }
     uint64 operator |( const uint64 val ) const { return ((uint64)*this | val); }
     uint64 operator >>( const uint64 val ) const { return ((uint64)*this >> val); }
     uint64 operator <<( const uint64 val ) const { return ((uint64)*this << val); }
-    WoWGuid& operator +=( const WoWGuid& val ) { *this = *this + val; return *this; }
-    WoWGuid& operator -=( const WoWGuid& val ) { *this = *this - val; return *this; }
-    WoWGuid& operator *=( const WoWGuid& val ) { *this = *this * val; return *this; }
-    WoWGuid& operator /=( const WoWGuid& val ) { *this = *this / val; return *this; }
     WoWGuid& operator |=( const WoWGuid& val ) { *this = *this | val; return *this; }
-    WoWGuid& operator +=( const uint64 val ) { *this = *this + val; return *this; }
-    WoWGuid& operator -=( const uint64 val ) { *this = *this - val; return *this; }
-    WoWGuid& operator *=( const uint64 val ) { *this = *this * val; return *this; }
-    WoWGuid& operator /=( const uint64 val ) { *this = *this / val; return *this; }
     WoWGuid& operator |=( const uint64 val ) { *this = *this | val; return *this; }
     WoWGuid& operator >>=( const uint64 val ) { *this = *this >> val; return *this; }
     WoWGuid& operator <<=( const uint64 val ) { *this = *this << val; return *this; }
-    WoWGuid operator =( const uint64 val ) { ((uint64*)&blocks[0])[0] = val; return *this; }
+    WoWGuid operator =( const uint64 val ) { ((uint64*)blocks)[0] = val; return *this; }
     operator bool() const { return (uint64)*this != 0; }
     bool operator !() const { return !((uint64)*this); }
     bool operator ==( const WoWGuid& val ) const { return (uint64)*this == (uint64)val; }
@@ -104,15 +92,10 @@ public:
 
     bool empty() { return operator !(); };
     WGuidPacked *asPacked() { return new WGuidPacked(this); }
-    uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
-    uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
-    uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }
-    uint64 raw() { return this->operator uint64(); }
-
-    // THESE ARE NOT CONSTRUCTORS
-    static WoWGuid From64(uint64 guid) { WoWGuid wGuid; wGuid = guid; return wGuid; }
-    // THESE ARE NOT CONSTRUCTORS
-    static WoWGuid From32(uint32 high, uint32 entry, uint32 low) { WoWGuid wGuid; wGuid = MAKE_NEW_GUID(low, entry, high); return wGuid; }
+    const uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
+    const uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
+    const uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }
+    const uint64 raw() { return this->operator uint64(); }
 };
 
 namespace std

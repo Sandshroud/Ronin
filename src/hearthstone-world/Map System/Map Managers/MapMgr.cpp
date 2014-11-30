@@ -115,7 +115,7 @@ void MapMgr::Destruct()
     Corpse* pCorpse;
     if(m_corpses.size())
     {
-        for(unordered_set<Corpse* >::iterator itr = m_corpses.begin(); itr != m_corpses.end();)
+        for(std::unordered_set<Corpse* >::iterator itr = m_corpses.begin(); itr != m_corpses.end();)
         {
             pCorpse = *itr;
             ++itr;
@@ -124,7 +124,7 @@ void MapMgr::Destruct()
                 pCorpse->RemoveFromWorld(false);
 
             pCorpse->Destruct();
-            pCorpse = NULLCORPSE;
+            pCorpse = NULL;
         }
         m_corpses.clear();
     }
@@ -154,7 +154,7 @@ void MapMgr::Destruct()
     _reusable_guids_vehicle.clear();
     _reusable_guids_creature.clear();
 
-    m_battleground = NULLBATTLEGROUND;
+    m_battleground = NULL;
 
     sLog.Notice("MapMgr", "Instance %u shut down. (%s)" , m_instanceID, GetBaseMap()->GetName());
 }
@@ -283,27 +283,29 @@ void MapMgr::PushObject(WorldObject* obj)
 
         case HIGHGUID_TYPE_CREATURE:
             {
+                Creature *creature = castPtr<Creature>(obj);
                 ASSERT((obj->GetLowGUID()) <= m_CreatureHighGuid);
-                m_CreatureStorage[obj->GetLowGUID()] = castPtr<Creature>(obj);
-                if(castPtr<Creature>(obj)->IsSpawn())
-                    _sqlids_creatures.insert(make_pair( castPtr<Creature>(obj)->GetSQL_id(), castPtr<Creature>(obj) ) );
-                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( castPtr<Creature>(obj) );
+                m_CreatureStorage[obj->GetLowGUID()] = creature;
+                if(creature->IsSpawn())
+                    _sqlids_creatures.insert(std::make_pair( creature->GetSQL_id(), creature ) );
+                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( creature );
             }break;
 
         case HIGHGUID_TYPE_VEHICLE:
             {
+                Vehicle *vehicle = castPtr<Vehicle>(obj);
                 ASSERT((obj->GetLowGUID()) <= m_VehicleHighGuid);
-                m_VehicleStorage[obj->GetLowGUID()] = TO_VEHICLE(obj);
-                if(TO_VEHICLE(obj)->IsSpawn())
-                    _sqlids_creatures.insert(make_pair( TO_VEHICLE(obj)->GetSQL_id(), TO_VEHICLE(obj) ) );
-                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( castPtr<Creature>(obj) );
+                m_VehicleStorage[obj->GetLowGUID()] = vehicle;
+                if(vehicle->IsSpawn())
+                    _sqlids_creatures.insert(std::make_pair( vehicle->GetSQL_id(), vehicle ) );
+                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( vehicle );
             }break;
         case HIGHGUID_TYPE_GAMEOBJECT:
             {
                 GameObject* go = castPtr<GameObject>(obj);
-                m_gameObjectStorage.insert(make_pair(obj->GetLowGUID(), go));
+                m_gameObjectStorage.insert(std::make_pair(obj->GetLowGUID(), go));
                 if( go->m_spawn != NULL)
-                    _sqlids_gameobjects.insert(make_pair(go->m_spawn->id, go ) );
+                    _sqlids_gameobjects.insert(std::make_pair(go->m_spawn->id, go ) );
                 CALL_INSTANCE_SCRIPT_EVENT( this, OnGameObjectPushToWorld )( go );
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
@@ -329,7 +331,7 @@ void MapMgr::PushObject(WorldObject* obj)
         /* Add the zone wide objects */
         if(m_zoneRangelessObjects[plObj->GetZoneId()].size())
         {
-            for(set<WorldObject* >::iterator itr = m_zoneRangelessObjects[plObj->GetZoneId()].begin(); itr != m_zoneRangelessObjects[plObj->GetZoneId()].end(); itr++)
+            for(std::set<WorldObject* >::iterator itr = m_zoneRangelessObjects[plObj->GetZoneId()].begin(); itr != m_zoneRangelessObjects[plObj->GetZoneId()].end(); itr++)
             {
                 count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj);
                 plObj->PushUpdateBlock(&m_createBuffer, count);
@@ -375,10 +377,10 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
     case HIGHGUID_TYPE_VEHICLE:
         {
             ASSERT(obj->GetLowGUID() <= m_VehicleHighGuid);
-            if(TO_VEHICLE(obj)->IsSpawn()) _sqlids_creatures.erase(TO_VEHICLE(obj)->GetSQL_id());
+            if(castPtr<Vehicle>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Vehicle>(obj)->GetSQL_id());
             if(free_guid) _reusable_guids_vehicle.push_back(obj->GetLowGUID());
             m_VehicleStorage.erase(obj->GetLowGUID());
-            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( TO_VEHICLE(obj) );
+            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Vehicle>(obj) );
         }break;
 
     case HIGHGUID_TYPE_CREATURE:
@@ -879,12 +881,12 @@ void MapMgr::_UpdateObjects()
 
     WorldObject* pObj;
     Player* pOwner;
-    unordered_set<Player*  >::iterator it_start, it_end, itr;
+    std::unordered_set<Player*  >::iterator it_start, it_end, itr;
     Player* lplr;
     uint32 count = 0;
 
-    UpdateQueue::iterator iter = _updates.begin();
-    PUpdateQueue::iterator it, eit;
+    ObjectSet::iterator iter = _updates.begin();
+    PlayerSet::iterator it, eit;
 
     for(; iter != _updates.end();)
     {
@@ -1344,17 +1346,12 @@ bool MapMgr::Do()
 
     if(pInstance)
     {
+        pInstance->m_mapMgr = NULL;
         // check for a non-raid instance, these expire after 10 minutes.
         if(GetMapInfo()->type == INSTANCE_NONRAID || pInstance->m_isBattleground)
-        {
-            pInstance->m_mapMgr = NULLMAPMGR;
             sInstanceMgr._DeleteInstance(pInstance, true);
-        }
-        else
-            pInstance->m_mapMgr = NULLMAPMGR;
-    }
-    else if(GetMapInfo()->type == INSTANCE_NULL)
-        sInstanceMgr.m_singleMaps[GetMapId()] = NULLMAPMGR;
+    } else if(GetMapInfo()->type == INSTANCE_NULL)
+        sInstanceMgr.m_singleMaps[GetMapId()] = NULL;
 
     // Teleport any left-over players out.
     TeleportPlayers();
@@ -1860,7 +1857,7 @@ Summon* MapMgr::CreateSummon(uint32 entry)
     if(ctrData == NULL)
     {
         sLog.Warning("MapMgr", "Skipping CreateSummon for entry %u due to incomplete database.", entry);
-        return NULLSUMMON;
+        return NULL;
     }
 
     uint32 low_guid = 0;

@@ -325,7 +325,7 @@ void WintergraspScript::Herald(char* message)
     data << uint32(strlen(message)+1);
     data << message;
     data << uint8(0x00);
-    for(PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
+    for(ObjectMgr::PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
         itr->second->GetSession()->SendPacket(new WorldPacket(data));
     _playerslock.Release();
 }
@@ -373,7 +373,7 @@ void WintergraspScript::SendInitWorldStates(Player* plr)
         _playerslock.Acquire();
         if(_players.size())
         {
-            for(PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
+            for(ObjectMgr::PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
                 itr->second->GetSession()->SendPacket(new WorldPacket(data));
         }
         _playerslock.Release();
@@ -392,7 +392,7 @@ void WintergraspScript::UpdateWorldState(uint32 WorldState, uint32 Value)
     WorldPacket data(SMSG_UPDATE_WORLD_STATE, 8);
     data << WorldState;
     data << Value;
-    for(PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
+    for(ObjectMgr::PlayerStorageMap::iterator itr = _players.begin(); itr != _players.end(); itr++)
         itr->second->GetSession()->SendPacket(new WorldPacket(data));
     _playerslock.Release();
 }

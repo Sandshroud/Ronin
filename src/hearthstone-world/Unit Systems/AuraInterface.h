@@ -55,7 +55,7 @@ public:
     ************ Info ************
     ******************************/
     uint32 GetSpellIdFromAuraSlot(uint32 slot);
-    AuraCheckResponse AuraCheck(SpellEntry *info, uint64 casterGuid);
+    AuraCheckResponse AuraCheck(SpellEntry *info, WoWGuid casterGuid);
     uint32 GetAuraSpellIDWithNameHash(uint32 name_hash);
 
     bool HasAura(uint32 spellid);
@@ -63,12 +63,12 @@ public:
     bool HasActiveAura(uint32 spelllid);
     bool HasNegativeAura(uint32 spell_id); //just to reduce search range in some cases
     bool HasAuraWithMechanic(uint32 mechanic);
-    bool HasActiveAura(uint32 spelllid,uint64);
+    bool HasActiveAura(uint32 spelllid,WoWGuid guid);
     bool HasPosAuraWithMechanic(uint32 mechanic);
     bool HasNegAuraWithMechanic(uint32 mechanic);
     bool HasNegativeAuraWithNameHash(uint32 name_hash); //just to reduce search range in some cases
-    bool HasCombatStatusAffectingAuras(uint64 checkGuid);
-    bool HasAurasOfNameHashWithCaster(uint32 namehash, uint64 casterguid);
+    bool HasCombatStatusAffectingAuras(WoWGuid checkGuid);
+    bool HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid casterguid);
 
     /*****************************
     ************ Add *************
@@ -91,7 +91,7 @@ public:
     bool RemoveAuraPosByNameHash(uint32 namehash);//required to remove weaker instances of a spell
     bool RemoveAuraNegByNameHash(uint32 namehash);//required to remove weaker instances of a spell
     void RemoveAuraBySlotOrRemoveStack(uint8 Slot);
-    bool RemoveAura(uint32 spellId, uint64 guid = 0);
+    bool RemoveAura(uint32 spellId, WoWGuid guid = 0);
     void EventRemoveAura(uint32 SpellId) { RemoveAura(SpellId); }
 
 
@@ -101,17 +101,17 @@ public:
     void RemoveAllNegativeAuras();
     void RemoveAllNonPassiveAuras();
     void RemoveAllAurasExpiringWithPet();
-    void RemoveAllAreaAuras(uint64 skipguid);
-    bool RemoveAllAurasFromGUID(uint64 guid); //remove if they come from the same caster.
+    void RemoveAllAreaAuras(WoWGuid skipguid);
+    bool RemoveAllAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
     void RemoveAllAurasOfType(uint32 auratype);//ex:to remove morph spells
-    bool RemoveAllPosAurasFromGUID(uint64 guid); //remove if they come from the same caster.
-    bool RemoveAllNegAurasFromGUID(uint64 guid); //remove if they come from the same caster.
+    bool RemoveAllPosAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
+    bool RemoveAllNegAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
     void RemoveAllAurasByInterruptFlag(uint32 flag);
     void RemoveAllAurasWithAuraName(uint32 auraName);
     void RemoveAllAurasWithSpEffect(uint32 EffectId);
     bool RemoveAllPosAurasByNameHash(uint32 namehash);//required to remove weaker instances of a spell
     bool RemoveAllNegAurasByNameHash(uint32 namehash);//required to remove weaker instances of a spell
-    bool RemoveAllAuras(uint32 spellId, uint64 guid = 0); //remove stacked auras but only if they come from the same caster. Shaman purge If GUID = 0 then removes all auras with this spellid
+    bool RemoveAllAuras(uint32 spellId, WoWGuid guid = 0); //remove stacked auras but only if they come from the same caster. Shaman purge If GUID = 0 then removes all auras with this spellid
     void RemoveAllAurasWithDispelType(uint32 DispelType);
     void RemoveAllAurasWithAttributes(uint8 index, uint32 attributeFlag);
     bool RemoveAllAurasByNameHash(uint32 namehash, bool passive);//required to remove weaker instances of a spell
@@ -121,11 +121,11 @@ public:
     bool RemoveAllAurasByMechanic( uint32 MechanicType, int32 MaxDispel = -1, bool HostileOnly = true ); // Removes all (de)buffs on unit of a specific mechanic type.
 
     Aura* FindAuraBySlot(uint8 auraSlot);
-    Aura* FindAura(uint32 spellId, uint64 guid = 0);
+    Aura* FindAura(uint32 spellId, WoWGuid guid = 0);
     Aura* FindPositiveAuraByNameHash(uint32 namehash);
     Aura* FindNegativeAuraByNameHash(uint32 namehash);
-    Aura* FindActiveAura(uint32 spellId, uint64 guid = 0);
-    Aura* FindActiveAuraWithNameHash(uint32 namehash, uint64 guid = 0);
+    Aura* FindActiveAura(uint32 spellId, WoWGuid guid = 0);
+    Aura* FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid = 0);
 
     void EventDeathAuraRemoval();
 //  bool HasVisibleAura(uint32 spellid);

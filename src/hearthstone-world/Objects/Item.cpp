@@ -150,15 +150,15 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
     if( light )
         return;
 
-    string enchant_field = fields[15].GetString();
-    vector< string > enchants = StrSplit( enchant_field, ";" );
+    std::string enchant_field = fields[15].GetString();
+    std::vector< std::string > enchants = RONIN_UTIL::StrSplit( enchant_field, ";" );
     uint32 enchant_id;
     EnchantEntry* entry;
     uint32 time_left;
     uint32 enchslot;
     uint32 dummy = 0;
 
-    for( vector<string>::iterator itr = enchants.begin(); itr != enchants.end(); itr++ )
+    for( std::vector<std::string>::iterator itr = enchants.begin(); itr != enchants.end(); itr++ )
     {
         if( sscanf( (*itr).c_str(), "%u,%u,%u,%u", (unsigned int*)&enchant_id, (unsigned int*)&time_left, (unsigned int*)&enchslot, (unsigned int*)&dummy) > 3 )
         {
@@ -173,42 +173,33 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
 
     ApplyRandomProperties( false );
 
-    Charter* charter = guildmgr.GetCharterByItemGuid(GetLowGUID());
-    if(charter != NULL)
+    if(Charter* charter = guildmgr.GetCharterByItemGuid(GetLowGUID()))
     {
         SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1, charter->GetID());
-
-        // Charter stuff
-        if(m_uint32Values[OBJECT_FIELD_ENTRY] == ITEM_ENTRY_GUILD_CHARTER)
+        SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
+        SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
+        switch(GetUInt32Value(OBJECT_FIELD_ENTRY))
         {
-            SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
-            SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( plr->m_playerInfo->charterId[CHARTER_TYPE_GUILD] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_GUILD] );
-        }
-
-        if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_2v2 )
-        {
-            SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
-            SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] );
-        }
-
-        if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_3v3 )
-        {
-            SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
-            SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] );
-        }
-
-        if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_5v5 )
-        {
-            SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
-            SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] );
+        case ITEM_ENTRY_GUILD_CHARTER:
+            {
+                if( plr->m_playerInfo->charterId[CHARTER_TYPE_GUILD] )
+                    SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_GUILD] );
+            }break;
+        case ARENA_TEAM_CHARTER_2v2:
+            {
+                if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] )
+                    SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] );
+            }break;
+        case ARENA_TEAM_CHARTER_3v3:
+            {
+                if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] )
+                    SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] );
+            }break;
+        case ARENA_TEAM_CHARTER_5v5:
+            {
+                if( plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] )
+                    SetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1, plr->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] );
+            }break;
         }
     }
 }
@@ -458,13 +449,13 @@ int32 Item::AddEnchantment(EnchantEntry* Enchantment, uint32 Duration, bool Perm
     SetEnchantmentCharges(Slot, 0);
 
     // Add it to our map.
-    Enchantments.insert(make_pair((uint32)Slot, Instance));
+    Enchantments.insert(std::make_pair((uint32)Slot, Instance));
 
     if( m_owner == NULL )
         return Slot;
 
     // Add the removal event.
-    if (Duration) m_owner->AddItemEnchantDuration(this, Slot, Duration*1000);
+//    if (Duration) m_owner->AddItemEnchantDuration(this, Slot, Duration*1000);
 
     // No need to send the log packet, if the owner isn't in world (we're still loading)
     if( !m_owner->IsInWorld() )
@@ -481,7 +472,7 @@ int32 Item::AddEnchantment(EnchantEntry* Enchantment, uint32 Duration, bool Perm
         /* Only apply the enchantment bonus if we're equipped */
         uint8 slot = m_owner->GetItemInterface()->GetInventorySlotByGuid( GetGUID() );
         if( slot > EQUIPMENT_SLOT_START && slot < EQUIPMENT_SLOT_END )
-            ApplyEnchantmentBonus( Slot, APPLY );
+            ApplyEnchantmentBonus( Slot, true );
     }
 
     m_owner->SaveToDB(false);
@@ -498,7 +489,7 @@ void Item::RemoveEnchantment( uint32 EnchantmentSlot )
     m_isDirty = true;
     uint32 Slot = itr->first;
     if( itr->second.BonusApplied )
-        ApplyEnchantmentBonus( EnchantmentSlot, REMOVE );
+        ApplyEnchantmentBonus( EnchantmentSlot, false );
 
     // Unset the item fields.
     uint32 EnchantBase = Slot * 3 + ITEM_FIELD_ENCHANTMENT_1_1;
@@ -507,7 +498,7 @@ void Item::RemoveEnchantment( uint32 EnchantmentSlot )
     SetUInt32Value( EnchantBase + 2, 0 );
 
     // Remove the enchantment event for removal.
-    if(m_owner) m_owner->RemoveItemEnchantDuration(this, Slot);
+//    if(m_owner) m_owner->RemoveItemEnchantDuration(this, Slot);
 
     // Remove the enchantment instance.
     Enchantments.erase( itr );
@@ -580,14 +571,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                             if( sp == NULL )
                                 continue;
 
-                            Spell* spell = NULL;
-                            //Never found out why,
-                            //but this Blade of Life's Inevitability spell must be casted by the item, not owner.
-                            if( m_itemProto->ItemId != 34349  )
-                                spell = (new Spell( m_owner, sp, true, NULL ));
-                            else
-                                spell = (new Spell( castPtr<Item>(this), sp, true, NULL ));
-
+                            Spell* spell = new Spell( m_owner, sp, true, NULL );
                             spell->i_caster = castPtr<Item>(this);
                             spell->prepare( &targets );
                         }
@@ -662,7 +646,7 @@ void Item::ApplyEnchantmentBonuses()
     {
         itr2 = itr++;
         if(!itr2->second.Dummy)
-            ApplyEnchantmentBonus( itr2->first, APPLY );
+            ApplyEnchantmentBonus( itr2->first, true );
     }
 }
 
@@ -673,7 +657,7 @@ void Item::RemoveEnchantmentBonuses()
     {
         itr2 = itr++;
         if(!itr2->second.Dummy)
-            ApplyEnchantmentBonus( itr2->first, REMOVE );
+            ApplyEnchantmentBonus( itr2->first, false );
     }
 }
 
@@ -692,19 +676,19 @@ int32 Item::FindFreeEnchantSlot( EnchantEntry* Enchantment, uint32 random_type )
     if( random_type == 1 )      // random prop
     {
         for( uint32 Slot = 8; Slot < 11; ++Slot )
-            if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3] == 0 )
+            if( GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3) == 0 )
                 return Slot;
     }
     else if( random_type == 2 ) // random suffix
     {
         for( uint32 Slot = 6; Slot < 11; ++Slot )
-            if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3] == 0 )
+            if( GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3) == 0 )
                 return Slot;
     }
 
     for( uint32 Slot = GemSlotsReserve + 2; Slot < 11; Slot++ )
     {
-        if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3] == 0 )
+        if( GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3) == 0 )
             return Slot;
     }
 
@@ -715,7 +699,7 @@ int32 Item::HasEnchantment( uint32 Id )
 {
     for( uint32 Slot = 0; Slot < 11; Slot++ )
     {
-        if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3] == Id )
+        if( GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + Slot * 3) == Id )
             return Slot;
     }
 
@@ -732,8 +716,8 @@ void Item::ModifyEnchantmentTime( uint32 Slot, uint32 Duration )
     itr->second.ApplyTime = UNIXTIME;
     itr->second.Duration = Duration;
 
-    // Change the event timer.
-    event_ModifyTimeAndTimeLeft( EVENT_REMOVE_ENCHANTMENT1 + Slot, Duration * 1000 );
+    // Change the enchantment event timer.
+//    if(m_owner) m_owner->UpdateItemEnchantDuration(this, Slot, Duration * 1000);
 
     // Send update packet
     SendEnchantTimeUpdate( itr->second.Slot, Duration );
@@ -881,25 +865,20 @@ static const char *g_itemQualityColours[15] = {
     "|cff00ffff",       //
 };
 
-string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack)
+std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack)
 {
     if( Quality > 15 )
         return "INVALID_ITEM";
 
-    char buf[1000];
-    char sbuf[50];
-    char rptxt[100];
-    char rstxt[100];
+    char buf[1000], sbuf[50], rptxt[100], rstxt[100];
 
     // stack text
     if( stack > 1 )
         snprintf(sbuf, 50, "x%u", stack);
-    else
-        sbuf[0] = 0;
+    else sbuf[0] = 0;
 
     // null 'em
-    rptxt[0] = 0;
-    rstxt[0] = 0;
+    rptxt[0] = rstxt[0] = 0;
 
     // lookup properties
     if( random_prop != 0 )
@@ -921,7 +900,7 @@ string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_suffix
     snprintf(buf, 1000, "%s|Hitem:%u:0:0:0:0:0:%d:0|h[%s%s%s]%s|h|r", g_itemQualityColours[Quality], ItemId, /* suffix/prop */ random_suffix ? (-(int32)random_suffix) : random_prop,
         Name1, rstxt, rptxt, sbuf);
 
-    return string(buf);
+    return std::string(buf);
 }
 
 bool ItemPrototype::ValidateItemLink(const char *szLink)

@@ -326,9 +326,9 @@ pSpellAura SpellAuraHandler[SPELL_AURA_TOTAL] = {
 
 Unit* Aura::GetUnitCaster()
 {
-    if( m_target == NULL && m_casterGuid && GUID_HIPART(m_casterGuid) == HIGHGUID_TYPE_PLAYER)
+    if( m_target == NULL && m_casterGuid && m_casterGuid.getHigh() == HIGHGUID_TYPE_PLAYER)
     {
-        if(Unit* punit = objmgr.GetPlayer(GUID_LOPART(m_casterGuid)))
+        if(Player* punit = objmgr.GetPlayer(m_casterGuid))
             if(punit != NULL)
                 return punit;
     }
@@ -358,8 +358,7 @@ Aura::Aura( SpellEntry* proto, int32 duration, WorldObject* caster, Unit* target
     m_target = target;
     if(target->IsPlayer())
         p_target = castPtr<Player>(target);
-    else
-        p_target = NULL;
+    else p_target = NULL;
 
     memset(m_modList, 0, sizeof(Modifier)*3);
     base_set = false;
@@ -682,7 +681,7 @@ void Aura::EventUpdateCreatureAA(float r)
 
     // simple. loop inrange units, if they're same faction, apply aura.
     // apply to caster
-    if( m_target != m_caster && targets.find(m_caster->GetUIdFromGUID()) == targets.end() )
+    if( m_target != m_caster && targets.find(m_caster->GetLowGUID()) == targets.end() )
     {
         if( !(areatargets & AA_TARGET_NOTSELF) )
         {
@@ -697,7 +696,7 @@ void Aura::EventUpdateCreatureAA(float r)
             }
 
             m_caster->AddAura(aura);
-            targets.insert(m_caster->GetUIdFromGUID());
+            targets.insert(m_caster->GetLowGUID());
         }
     }
 
@@ -756,7 +755,7 @@ void Aura::EventUpdateCreatureAA(float r)
             if(aura)
             {
                 target->AddAura(aura);
-                targets.insert(target->GetUIdFromGUID());
+                targets.insert(target->GetLowGUID());
             }
         }
     }
@@ -807,9 +806,9 @@ void Aura::EventRelocateRandomTarget()
         return;
 
     // Ok, let's do it. :D
-    set<Unit* > enemies;
+    std::set<Unit* > enemies;
 
-    unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin();
+    std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin();
     for(; itr != m_caster->GetInRangeSetEnd(); itr++)
     {
         if( !(*itr)->IsUnit() )
@@ -836,7 +835,7 @@ void Aura::EventRelocateRandomTarget()
         return;
 
     uint32 random = RandomUInt(uint32(enemies.size()) - 1);
-    set<Unit* >::iterator it2 = enemies.begin();
+    std::set<Unit* >::iterator it2 = enemies.begin();
     while( random-- )
         it2++;
 
@@ -904,7 +903,7 @@ void Aura::EventUpdatePlayerAA(float r)
     if(plr == NULL || plr->GetTypeId() != TYPEID_PLAYER)    // No player involved...
         return;
 
-    vector<uint32> NewTargets;
+    std::vector<uint32> NewTargets;
 
     if( (!m_caster->IsPlayer() || (m_caster->IsPlayer() && !(areatargets & AA_TARGET_NOTSELF))) && plr->GetDistanceSq(m_caster) <= r )
     {
@@ -1127,7 +1126,7 @@ void Aura::EventUpdatePlayerAA(float r)
     }
 
     // Push new targets into the set.
-    for(vector<uint32>::iterator vtr = NewTargets.begin(); vtr != NewTargets.end(); ++vtr)
+    for(std::vector<uint32>::iterator vtr = NewTargets.begin(); vtr != NewTargets.end(); ++vtr)
         targets.insert((*vtr));
 
     NewTargets.clear();
@@ -1603,7 +1602,7 @@ void Aura::EventPeriodicHeal( uint32 amount )
     {
         target_threat.reserve(m_caster->GetInRangeCount()); // this helps speed
 
-        for(unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++)
+        for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++)
         {
             if((*itr)->GetTypeId() != TYPEID_UNIT)
                 continue;
@@ -1794,10 +1793,10 @@ void Aura::SpellAuraModStealth(bool apply)
             switch( castPtr<Player>(m_target)->m_bg->GetType())
             {
             case BATTLEGROUND_WARSONG_GULCH:
-                TO_WARSONGGULCH(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
+                castPtr<WarsongGulch>(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
                 break;
             case BATTLEGROUND_EYE_OF_THE_STORM:
-                TO_EYEOFTHESTORM(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
+                castPtr<EyeOfTheStorm>(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
                 break;
             }
         }
@@ -1835,7 +1834,7 @@ void Aura::SpellAuraModStealth(bool apply)
                     _unit->GetCurrentSpell()->cancel();
 
                 if(_unit->GetAIInterface() != NULL)
-                    _unit->GetAIInterface()->RemoveThreatByPtr(m_target);
+                    _unit->GetAIInterface()->RemoveThreat(m_target->GetGUID());
             }
 
             m_target->m_AuraInterface.RemoveAllAurasByMechanic(MECHANIC_ROOTED);
@@ -2272,13 +2271,13 @@ void Aura::SpellAuraModDecreaseSpeed(bool apply)
     //there can not be 2 slow downs only most powerfull is applied
     if(apply)
     {
-        m_target->speedReductionMap.insert(make_pair(m_spellProto->Id, mod->m_amount));
+        m_target->speedReductionMap.insert(std::make_pair(m_spellProto->Id, mod->m_amount));
         //m_target->m_slowdown=this;
         //m_target->m_speedModifier += mod->m_amount;
     }
     else
     {
-        map< uint32, int32 >::iterator itr = m_target->speedReductionMap.find(m_spellProto->Id);
+        std::map< uint32, int32 >::iterator itr = m_target->speedReductionMap.find(m_spellProto->Id);
         if(itr != m_target->speedReductionMap.end())
             m_target->speedReductionMap.erase(itr);
     }
@@ -2587,11 +2586,11 @@ void Aura::SpellAuraModSchoolImmunity(bool apply)
         {
             if(castPtr<Player>(m_target)->m_bg->GetType() == BATTLEGROUND_WARSONG_GULCH)
             {
-                TO_WARSONGGULCH(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
+                castPtr<WarsongGulch>(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
             }
             if(castPtr<Player>(m_target)->m_bg->GetType() == BATTLEGROUND_EYE_OF_THE_STORM)
             {
-                TO_EYEOFTHESTORM(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
+                castPtr<EyeOfTheStorm>(castPtr<Player>(m_target)->m_bg)->DropFlag(castPtr<Player>(m_target));
             }
         }
     }
@@ -2758,7 +2757,7 @@ void Aura::SpellAuraModCritPerc(bool apply)
             md.value = float(mod->m_amount);
             md.wclass = m_spellProto->EquippedItemClass;
             md.subclass = m_spellProto->EquippedItemSubClass;
-            castPtr<Player>( m_target )->tocritchance.insert(make_pair(GetSpellId(), md));
+            castPtr<Player>( m_target )->tocritchance.insert(std::make_pair(GetSpellId(), md));
         }
         else
         {
@@ -2814,7 +2813,7 @@ void Aura::EventPeriodicLeech(uint32 amount, SpellEntry* sp)
 
     amount = m_caster->GetSpellBonusDamage(m_target, sp, mod->i, amount, false);
 
-    uint32 Amount = (uint32)min(amount, m_target->GetUInt32Value( UNIT_FIELD_HEALTH ));
+    uint32 Amount = std::min(amount, m_target->GetUInt32Value( UNIT_FIELD_HEALTH ));
 
     SendPeriodicAuraLog(m_casterGuid, m_target, sp, Amount, -1, 0, (uint32)FLAG_PERIODIC_DAMAGE);
 
@@ -3639,8 +3638,7 @@ void Aura::SpellAuraModDamageTakenPctPerCaster(bool apply)
 
     if(apply)
     {
-        m_target->DamageTakenPctModPerCaster.insert(
-            make_pair(m_casterGuid, make_pair(m_spellProto->EffectSpellClassMask[mod->i], mod->m_amount)));
+        m_target->DamageTakenPctModPerCaster.insert(std::make_pair(m_casterGuid, std::make_pair(m_spellProto->EffectSpellClassMask[mod->i], mod->m_amount)));
     } 
     else
     {
@@ -3856,7 +3854,7 @@ void Aura::SpellAuraChannelDeathItem(bool apply)
             {
                 if(m_target->isDead())
                 {
-                    Player* pCaster = m_target->GetMapMgr()->GetPlayer((uint32)m_casterGuid);
+                    Player* pCaster = m_target->GetMapMgr()->GetPlayer(m_casterGuid);
                     if(!pCaster)
                         return;
 
@@ -4275,7 +4273,7 @@ void Aura::SpellAuraForceReaction( bool apply )
     if( !m_target->IsPlayer() )
         return;
 
-    map<uint32,uint32>::iterator itr;
+    std::map<uint32,uint32>::iterator itr;
     Player* p_target = castPtr<Player>(m_target);
 
     if( apply )
@@ -4284,7 +4282,7 @@ void Aura::SpellAuraForceReaction( bool apply )
         if( itr != p_target->m_forcedReactions.end() )
             itr->second = mod->m_amount;
         else
-            p_target->m_forcedReactions.insert( make_pair( mod->m_miscValue[0], mod->m_amount ) );
+            p_target->m_forcedReactions.insert( std::make_pair( mod->m_miscValue[0], mod->m_amount ) );
     }
     else
         p_target->m_forcedReactions.erase( mod->m_miscValue[0] );
@@ -4468,7 +4466,7 @@ void Aura::EventPeriodicBurn(uint32 amount, uint32 misc)
         if(m_target->SchoolImmunityList[m_spellProto->School])
             return;
 
-        uint32 Amount = (uint32)min( amount, m_target->GetPower(misc) );
+        uint32 Amount = std::min( amount, m_target->GetPower(misc) );
         SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, Amount, 0, 0, FLAG_PERIODIC_DAMAGE);
         m_target->DealDamage(m_target, Amount, 0, 0, m_spellProto->Id);
     }
@@ -5205,7 +5203,7 @@ void Aura::SendPeriodicAuraLog(uint64 CasterGuid, Unit* Target, SpellEntry *sp, 
 
     WorldPacket data(SMSG_PERIODICAURALOG, 46);
     data << Target->GetGUID();       // target guid
-    data << WoWGuid::From64(CasterGuid).asPacked(); // caster guid
+    data << WoWGuid(CasterGuid).asPacked(); // caster guid
     data << uint32(spellId);            // spellid
     data << uint32(1);                  // count of logs going next
     data << uint32(Flags);              // Log type
@@ -5296,9 +5294,8 @@ void Aura::SpellAuraVehiclePassenger(bool apply)
     if(!GetUnitCaster() || !GetUnitCaster()->IsVehicle())
         return;
     if(apply)
-        TO_VEHICLE(GetCaster())->AddPassenger(m_target,GetSpellProto()->EffectMiscValue[mod->i],true);
-    else
-        TO_VEHICLE(GetCaster())->RemovePassenger(m_target);
+        castPtr<Vehicle>(GetCaster())->AddPassenger(m_target,GetSpellProto()->EffectMiscValue[mod->i],true);
+    else castPtr<Vehicle>(GetCaster())->RemovePassenger(m_target);
 }
 
 void Aura::SpellAuraReduceEffectDuration(bool apply)
@@ -5317,10 +5314,11 @@ void Aura::SpellAuraNoReagent(bool apply)
         ClassMask[x] |= m_target->GetUInt32Value(PLAYER_NO_REAGENT_COST_1+x);
 
     for(uint32 x=0;x<3;x++)
+    {
         if(apply)
             ClassMask[x] |= m_spellProto->EffectSpellClassMask[mod->i][x];
-        else
-            ClassMask[x] &= ~m_spellProto->EffectSpellClassMask[mod->i][x];
+        else ClassMask[x] &= ~m_spellProto->EffectSpellClassMask[mod->i][x];
+    }
 
     for(uint32 x=0;x<3;x++)
         m_target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+x, ClassMask[x]);
@@ -5643,7 +5641,7 @@ void Aura::SpellAuraModCritChanceAll(bool apply)
         md.value = float(mod->m_amount);
         md.wclass = m_spellProto->EquippedItemClass;
         md.subclass = m_spellProto->EquippedItemSubClass;
-        plr->tocritchance.insert( make_pair(GetSpellId(), md) );
+        plr->tocritchance.insert( std::make_pair(GetSpellId(), md) );
 
         plr->SetSpellCritFromSpell( plr->GetSpellCritFromSpell() + float(mod->m_amount) );
     }

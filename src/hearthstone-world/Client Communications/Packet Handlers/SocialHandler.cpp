@@ -15,9 +15,8 @@ void WorldSession::HandleAddFriendOpcode( WorldPacket & recv_data )
 {
     sLog.Debug( "WORLD"," Received CMSG_ADD_FRIEND"  );
 
-    string name, note;
-    recv_data >> name;
-    recv_data >> note;
+    std::string name, note;
+    recv_data >> name >> note;
 
     _player->Social_AddFriend( name.c_str(), note.size() ? note.c_str() : NULL );
 }
@@ -55,7 +54,7 @@ void WorldSession::HandleDelIgnoreOpcode( WorldPacket & recv_data )
 void WorldSession::HandleSetFriendNote(WorldPacket & recv_data)
 {
     uint64 guid;
-    string note;
+    std::string note;
 
     recv_data >> guid >> note;
     _player->Social_SetNote( (uint32)guid, note.size() ? note.c_str() : NULL );

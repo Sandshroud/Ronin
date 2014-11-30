@@ -295,7 +295,7 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
     *pReason = 0;
     ++pReason;
 
-    int32 BanTime = GetTimePeriodFromString(pBanDuration);
+    int32 BanTime = RONIN_UTIL::GetTimePeriodFromString(pBanDuration);
     if(BanTime < 1)
         return false;
 
@@ -310,7 +310,7 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
         }
 
         SystemMessage(m_session, "Banning player '%s' in database for '%s'.", pCharacter, pReason);
-        string escaped_reason = CharacterDatabase.EscapeString(string(pReason));
+        std::string escaped_reason = CharacterDatabase.EscapeString(std::string(pReason));
 
         CharacterDatabase.Execute("UPDATE characters SET banned = %u, banReason = '%s' WHERE guid = %u",
             BanTime ? BanTime+(uint32)UNIXTIME : 1, escaped_reason.c_str(), pInfo->guid);
@@ -318,20 +318,20 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
     else
     {
         SystemMessage(m_session, "Banning player '%s' ingame for '%s'.", pCharacter, pReason);
-        string sReason = string(pReason);
+        std::string sReason = pReason;
         uint32 uBanTime = BanTime ? BanTime+(uint32)UNIXTIME : 1;
         pPlayer->SetBanned(uBanTime, sReason);
         pInfo = pPlayer->m_playerInfo;
     }
 
-    SystemMessage(m_session, "This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "Never");
+    SystemMessage(m_session, "This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "Never");
     if(pPlayer)
     {
         SystemMessage(m_session, "Kicking %s.", pPlayer->GetName());
         pPlayer->Kick();
     }
 
-    sWorld.LogGM(m_session, "used ban character on %s reason %s for %s", pCharacter, pReason, BanTime ? ConvertTimeStampToString(BanTime).c_str() : "ever");
+    sWorld.LogGM(m_session, "used ban character on %s reason %s for %s", pCharacter, pReason, BanTime ? RONIN_UTIL::ConvertTimeStampToString(BanTime).c_str() : "ever");
     return true;
 }
 
@@ -360,7 +360,7 @@ bool ChatHandler::HandleUnBanCharacterCommand(const char* args, WorldSession *m_
     }
 
     // Unban in database
-    CharacterDatabase.Execute("UPDATE characters SET banned = 0 WHERE name = '%s'", CharacterDatabase.EscapeString(string(Character)).c_str());
+    CharacterDatabase.Execute("UPDATE characters SET banned = 0 WHERE name = '%s'", CharacterDatabase.EscapeString(std::string(Character)).c_str());
 
     SystemMessage(m_session, "Unbanned character %s in database.", Character);
     sWorld.LogGM(m_session, "used unban character on %s", Character);
@@ -632,7 +632,7 @@ bool ChatHandler::HandleAccountBannedCommand(const char * args, WorldSession * m
     *pReason = 0;
     ++pReason;
 
-    int32 timeperiod = GetTimePeriodFromString(pDuration);
+    int32 timeperiod = RONIN_UTIL::GetTimePeriodFromString(pDuration);
     if( timeperiod < 0 )
         return false;
 
@@ -641,10 +641,10 @@ bool ChatHandler::HandleAccountBannedCommand(const char * args, WorldSession * m
     sLogonCommHandler.Account_SetBanned(pAccount, banned, pReason);
 
     GreenSystemMessage(m_session, "Account '%s' has been banned %s%s. The change will be effective immediately.", pAccount,
-        timeperiod ? "until " : "forever", timeperiod ? ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "");
+        timeperiod ? "until " : "forever", timeperiod ? RONIN_UTIL::ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "");
 
     sWorld.DisconnectUsersWithAccount(pAccount, m_session);
-    sWorld.LogGM(m_session, "banned account %s until %s for %s", pAccount, timeperiod ? ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "permanant", pReason);
+    sWorld.LogGM(m_session, "banned account %s until %s for %s", pAccount, timeperiod ? RONIN_UTIL::ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "permanant", pReason);
     return true;
 }
 
@@ -659,7 +659,7 @@ bool ChatHandler::HandleAccountMuteCommand(const char * args, WorldSession * m_s
     *pDuration = 0;
     ++pDuration;
 
-    int32 timeperiod = GetTimePeriodFromString(pDuration);
+    int32 timeperiod = RONIN_UTIL::GetTimePeriodFromString(pDuration);
     if(timeperiod <= 0)
         return false;
 
@@ -667,11 +667,10 @@ bool ChatHandler::HandleAccountMuteCommand(const char * args, WorldSession * m_s
 
     sLogonCommHandler.Account_SetMute( pAccount, banned );
 
-    string tsstr = ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME);
-    GreenSystemMessage(m_session, "Account '%s' has been muted until %s. The change will be effective immediately.", pAccount,
-        tsstr.c_str());
+    std::string tsstr = RONIN_UTIL::ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME);
+    GreenSystemMessage(m_session, "Account '%s' has been muted until %s. The change will be effective immediately.", pAccount, tsstr.c_str());
 
-    sWorld.LogGM(m_session, "mutex account %s until %s", pAccount, ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str());
+    sWorld.LogGM(m_session, "mutex account %s until %s", pAccount, RONIN_UTIL::ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str());
 
     WorldSession * pSession = sWorld.FindSessionByName(pAccount);
     if( pSession != NULL )
@@ -688,8 +687,7 @@ bool ChatHandler::HandleAccountUnmuteCommand(const char * args, WorldSession * m
     sLogonCommHandler.Account_SetMute( args, 0 );
 
     GreenSystemMessage(m_session, "Account '%s' has been unmuted.", args);
-    WorldSession * pSession = sWorld.FindSessionByName(args);
-    if( pSession != NULL )
+    if( WorldSession * pSession = sWorld.FindSessionByName(args) )
     {
         pSession->m_muted = 0;
         pSession->SystemMessage("Your voice has restored. You may speak again.");
@@ -841,21 +839,18 @@ bool ChatHandler::HandleAddItemSetCommand(const char* args, WorldSession* m_sess
             return true;
         }
 
-        string itemlink = (*itr)->ConstructItemLink(0, (*itr)->RandomSuffixId, 1);
+        std::string itemlink = (*itr)->ConstructItemLink(0, (*itr)->RandomSuffixId, 1);
         if(chr->GetSession() != m_session) // Since we get that You Recieved Item bullcrap, we don't need this.
         {
             SystemMessage(m_session, "Adding item %u %s to %s's inventory.", (*itr)->ItemId, itemlink.c_str(), chr->GetName());
             SystemMessageToPlr(chr, "%s added item %u %s to your inventory.", m_session->GetPlayer()->GetName(), (*itr)->ItemId, itemlink.c_str());
-        }
-        else
-            SystemMessage(m_session, "Adding item %u %s to your inventory.", (*itr)->ItemId, itemlink.c_str());
+        } else SystemMessage(m_session, "Adding item %u %s to your inventory.", (*itr)->ItemId, itemlink.c_str());
         count++;
     }
+
     if(count > 0)
         GreenSystemMessage(m_session, "Added set to inventory complete. Time: %u ms", getMSTime() - start);
-    else
-        RedSystemMessage(m_session, "Failed to add items");
-
+    else RedSystemMessage(m_session, "Failed to add items");
     return true;
 }
 
@@ -978,8 +973,7 @@ bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
     {
         if (chr->FlyCheat)
             args = "off";
-        else 
-            args = "on";
+        else args = "on";
     }
 
     if(strcmp(args, "on") == 0)
@@ -1374,7 +1368,7 @@ bool ChatHandler::HandleMassSummonCommand(const char* args, WorldSession* m_sess
         sEventMgr.AddEvent( m_session->GetPlayer(), &Player::EventMassSummonReset, EVENT_RESET_CHAT_COMMAND, 30000, 0, 0);
     }
 
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     Player* summoner = m_session->GetPlayer();
     Player* plr;
@@ -1429,7 +1423,7 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
 
     sWorld.LogGM(m_session, "used castall command, spellid %u", spellid);
 
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
@@ -1599,11 +1593,7 @@ bool ChatHandler::HandlePlayerInfo(const char* args, WorldSession * m_session)
             RedSystemMessage(m_session, "Unable to locate player %s.", args);
             return true;
         }
-    }
-    else
-        plr = getSelectedChar(m_session, true);
-
-    if(!plr)
+    } else if((plr = getSelectedChar(m_session, true)) == NULL)
         return true;
 
     if(!plr->GetSession())
@@ -1618,76 +1608,11 @@ bool ChatHandler::HandlePlayerInfo(const char* args, WorldSession * m_session)
     }
     WorldSession* sess = plr->GetSession();
 
-//  char* infos = new char[128];
-    static const char* classes[12] =
-    {"None","Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Death Knight", "Shaman", "Mage", "Warlock", "None", "Druid"};
-    static const char* races[12] =
-    {"None","Human","Orc","Dwarf","Night Elf","Undead","Tauren","Gnome","Troll","None","Blood Elf","Draenei"};
+    GreenSystemMessage(m_session, "%s[%u] is a %s %u %s", plr->GetName(), plr->GetLowGUID(),
+        (plr->getGender()?"Female":"Male"), plr->getRace(), plr->GetClassNames().c_str());
 
-    char playedLevel[64];
-    char playedTotal[64];
-
-    int seconds = (plr->GetPlayedtime())[0];
-    int mins= 0;
-    int hours= 0;
-    int days= 0;
-    if(seconds >= 60)
-    {
-        mins = seconds / 60;
-        if(mins)
-        {
-            seconds -= mins*60;
-            if(mins >= 60)
-            {
-                hours = mins / 60;
-                if(hours)
-                {
-                    mins -= hours*60;
-                    if(hours >= 24)
-                    {
-                        days = hours/24;
-                        if(days)
-                            hours -= days*24;
-                    }
-                }
-            }
-        }
-    }
-    snprintf(playedLevel, 64, "[%d days, %d hours, %d minutes, %d seconds]", days, hours, mins, seconds);
-
-    seconds = (plr->GetPlayedtime())[1];
-    mins= 0;
-    hours= 0;
-    days= 0;
-    if(seconds >= 60)
-    {
-        mins = seconds / 60;
-        if(mins)
-        {
-            seconds -= mins*60;
-            if(mins >= 60)
-            {
-                hours = mins / 60;
-                if(hours)
-                {
-                    mins -= hours*60;
-                    if(hours >= 24)
-                    {
-                        days = hours/24;
-                        if(days)
-                            hours -= days*24;
-                    }
-                }
-            }
-        }
-    }
-    snprintf(playedTotal, 64, "[%d days, %d hours, %d minutes, %d seconds]", days, hours, mins, seconds);
-
-    GreenSystemMessage(m_session, "%s[%u] is a %s %s %s", plr->GetName(), plr->GetLowGUID(),
-        (plr->getGender()?"Female":"Male"), races[plr->getRace()], classes[plr->getClass()]);
-
-    BlueSystemMessage(m_session, "%s has played %s at this level",(plr->getGender()?"She":"He"), playedLevel);
-    BlueSystemMessage(m_session, "and %s overall", playedTotal);
+    BlueSystemMessage(m_session, "%s has played %s at this level",(plr->getGender()?"She":"He"), RONIN_UTIL::ConvertTimeStampToString(plr->GetPlayedtime()[0]).c_str());
+    BlueSystemMessage(m_session, "and %s overall", RONIN_UTIL::ConvertTimeStampToString(plr->GetPlayedtime()[1]).c_str());
 
     BlueSystemMessage(m_session, "%s is connecting from account '%s'[%u] with permissions '%s'",
         (plr->getGender()?"She":"He"), sess->GetAccountName().c_str(), sess->GetAccountId(), sess->GetPermissions());
@@ -1699,15 +1624,10 @@ bool ChatHandler::HandlePlayerInfo(const char* args, WorldSession * m_session)
         client = "Wrath of the Lich King";
     else if(sess->HasFlag(ACCOUNT_FLAG_XPACK_01))
         client = "The Burning Crusade";
-    else
-        client = "World of Warcraft";
+    else client = "World of Warcraft";
 
-    BlueSystemMessage(m_session, "%s uses %s (build %u)", (plr->getGender()?"She":"He"),
-        client, sess->GetClientBuild());
-
-    BlueSystemMessage(m_session, "%s IP is '%s:%u', and has a latency of %ums", (plr->getGender()?"Her":"His"),
-        sess->GetSocket()->GetIP(), sess->GetSocket()->GetPort(), sess->GetLatency());
-
+    BlueSystemMessage(m_session, "%s uses %s (build %u)", (plr->getGender()?"She":"He"), client, sess->GetClientBuild());
+    BlueSystemMessage(m_session, "%s IP is '%s:%u', and has a latency of %ums", (plr->getGender()?"Her":"His"), sess->GetSocket()->GetIP(), sess->GetSocket()->GetPort(), sess->GetLatency());
     return true;
 }
 
@@ -1734,16 +1654,16 @@ bool ChatHandler::HandleIPBanCommand(const char * args, WorldSession * m_session
     if(pDuration == NULL)
         return false;
 
-    string sip = string(pIp);
+    std::string sip = std::string(pIp);
 
-    string::size_type i = sip.find("/");
-    if( i == string::npos )
+    std::string::size_type i = sip.find("/");
+    if( i == std::string::npos )
         return false;
 
     *pDuration = 0;
     ++pDuration;
 
-    int32 timeperiod = GetTimePeriodFromString(pDuration);
+    int32 timeperiod = RONIN_UTIL::GetTimePeriodFromString(pDuration);
     if(timeperiod < 1)
         return false;
 
@@ -1855,7 +1775,6 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
         sp->factionid = ctrData->Faction;
-        sp->phase = 1;
         sp->vehicle = spVehicle;
         sp->CanMove = ctrData->CanMove;
         sp->vendormask = 1;
@@ -1968,7 +1887,7 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
     if(strlen(args) > 100)
         return false;
 
-    string tmp = string(args);
+    std::string tmp = std::string(args);
     PlayerInfo * pi = objmgr.GetPlayerInfoByName(tmp.c_str());
     if(pi == NULL)
     {
@@ -1976,10 +1895,10 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
         return true;
     }
 
-    Player* plr = objmgr.GetPlayer((uint32)pi->guid);
+    Player* plr = objmgr.GetPlayer(pi->guid);
     if(plr == NULL)
     {
-        CharacterDatabase.Execute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", (uint32)pi->guid);
+        CharacterDatabase.Execute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", pi->guid.getLow());
     }
     else
     {
@@ -1988,7 +1907,7 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
         BlueSystemMessageToPlr(plr, "%s forced your character to be renamed next logon.", m_session->GetPlayer()->GetName());
     }
 
-    CharacterDatabase.Execute("INSERT INTO banned_names VALUES('%s')", CharacterDatabase.EscapeString(string(pi->name)).c_str());
+    CharacterDatabase.Execute("INSERT INTO banned_names VALUES('%s')", CharacterDatabase.EscapeString(std::string(pi->name)).c_str());
     GreenSystemMessage(m_session, "Forcing %s to rename his character next logon.", args);
     sWorld.LogGM(m_session, "forced %s to rename his charater (%u)", pi->name, pi->guid);
     return true;
@@ -2000,7 +1919,7 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
     if(strlen(args) > 100)
         return false;
 
-    string tmp = string(args);
+    std::string tmp = std::string(args);
     PlayerInfo * pi = objmgr.GetPlayerInfoByName(tmp.c_str());
     if(pi == NULL)
     {
@@ -2008,10 +1927,10 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
         return true;
     }
 
-    Player* plr = objmgr.GetPlayer((uint32)pi->guid);
+    Player* plr = objmgr.GetPlayer(pi->guid);
     if(plr == NULL)
     {
-        CharacterDatabase.Execute("UPDATE characters SET customizable = 1 WHERE guid = %u", (uint32)pi->guid);
+        CharacterDatabase.Execute("UPDATE characters SET customizable = 1 WHERE guid = %u", pi->guid.getLow());
     }
     else
     {
@@ -2058,7 +1977,7 @@ bool ChatHandler::HandleSetStandingCommand(const char * args, WorldSession * m_s
     return true;
 }
 
-void SendHighlightedName(WorldSession * m_session, char* full_name, string& lowercase_name, string& highlight, uint32 id, bool item)
+void SendHighlightedName(WorldSession * m_session, char* full_name, std::string& lowercase_name, std::string& highlight, uint32 id, bool item)
 {
     char message[1024];
     char start[50];
@@ -2066,10 +1985,10 @@ void SendHighlightedName(WorldSession * m_session, char* full_name, string& lowe
 
     snprintf(start, 50, "%s %u: %s", item ? "Item" : "Creature", (unsigned int)id, MSG_COLOR_WHITE);
 
-    string::size_type hlen = highlight.length();
-    string fullname = string(full_name);
-    string::size_type offset = lowercase_name.find(highlight);
-    string::size_type remaining = fullname.size() - offset - hlen;
+    std::string::size_type hlen = highlight.length();
+    std::string fullname = std::string(full_name);
+    std::string::size_type offset = lowercase_name.find(highlight);
+    std::string::size_type remaining = fullname.size() - offset - hlen;
     strcat(message, start);
     strncat(message, fullname.c_str(), offset);
     if(remaining > 0)
@@ -2099,15 +2018,14 @@ bool ChatHandler::HandleLookupItemCommand(const char * args, WorldSession * m_se
 
         BlueSystemMessage(m_session, "Starting search of item...");
         char messagetext[500];
-        string itemlink = proto->ConstructItemLink(proto->RandomPropId, proto->RandomSuffixId, 1);
+        std::string itemlink = proto->ConstructItemLink(proto->RandomPropId, proto->RandomSuffixId, 1);
         snprintf(messagetext, 500, "Item %u %s", proto->ItemId,itemlink.c_str());
         SystemMessage(m_session, messagetext);  // This is for the luls.
         BlueSystemMessage(m_session, "Search completed in %u ms.", getMSTime() - t);
         return true;
     }
 
-    string x = string(args);
-    HEARTHSTONE_TOLOWER(x);
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     if(x.length() < 4)
     {
         RedSystemMessage(m_session, "Your search string must be at least 5 characters long.");
@@ -2122,12 +2040,12 @@ bool ChatHandler::HandleLookupItemCommand(const char * args, WorldSession * m_se
     while(itr != ItemPrototypeStorage.end())
     {
         it = (*itr)->second;
-        if(FindXinYString(x, HEARTHSTONE_TOLOWER_RETURN(it->Name1)))
+        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(it->Name1)))
         {
             // Print out the name in a cool highlighted fashion
             char messagetext[500];
-            string itemlink = it->ConstructItemLink(it->RandomPropId, it->RandomSuffixId, 1);
-            snprintf(messagetext, 500, "Item %u %s",it->ItemId,itemlink.c_str());
+            std::string itemlink = it->ConstructItemLink(it->RandomPropId, it->RandomSuffixId, 1);
+            snprintf(messagetext, 500, "Item %u %s", it->ItemId, itemlink.c_str());
             SystemMessage(m_session, messagetext);
             ++count;
             if(count == 25)
@@ -2170,25 +2088,21 @@ bool ChatHandler::HandleLookupObjectCommand(const char * args, WorldSession * m_
     if(!*args) 
         return false;
 
-    string x = string(args);
-    HEARTHSTONE_TOLOWER(x);
-
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     StorageContainerIterator<GameObjectInfo> * itr = GameObjectNameStorage.MakeIterator();
 
     GreenSystemMessage(m_session, "Starting search of object `%s`...", x.c_str());
     uint32 t = getMSTime();
     GameObjectInfo * i;
     uint32 count = 0;
-    string y;
-    string recout;
+    std::string y, recout;
     while(!itr->AtEnd())
     {
         i = itr->Get();
-        y = string(i->Name);
-        HEARTHSTONE_TOLOWER(y);
-        if(FindXinYString(x,y))
+        y = RONIN_UTIL::TOLOWER_RETURN(i->Name);
+        if(RONIN_UTIL::FindXinYString(x, y))
         {
-            string Name;
+            std::string Name;
             std::stringstream strm;
             strm<<i->ID;
             const char*objectName=i->Name;
@@ -2223,8 +2137,7 @@ bool ChatHandler::HandleLookupSpellCommand(const char * args, WorldSession * m_s
     if(!*args)
         return false;
 
-    string x = string(args);
-    HEARTHSTONE_TOLOWER(x);
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     if(x.length() < 4)
     {
         RedSystemMessage(m_session, "Your search string must be at least 4 characters long.");
@@ -2234,14 +2147,13 @@ bool ChatHandler::HandleLookupSpellCommand(const char * args, WorldSession * m_s
     GreenSystemMessage(m_session, "Starting search of spell `%s`...", x.c_str());
     uint32 t = getMSTime();
     uint32 count = 0;
-    string recout;
     char itoabuf[12];
+    std::string recout;
     for (uint32 index = 0; index < dbcSpell.GetNumRows(); index++)
     {
         SpellEntry* spell = dbcSpell.LookupRow(index);
-        string y = string(spell->Name);
-        HEARTHSTONE_TOLOWER(y);
-        if(FindXinYString(x, y))
+        std::string y = RONIN_UTIL::TOLOWER_RETURN(spell->Name);
+        if(RONIN_UTIL::FindXinYString(x, y))
         {
             sprintf((char*)itoabuf,"%u",spell->Id);
             recout = (const char*)itoabuf;
@@ -2272,8 +2184,7 @@ bool ChatHandler::HandleLookupSpellSpecificCommand(const char * args, WorldSessi
     if(!*args)
         return false;
 
-    string x = string(args);
-    HEARTHSTONE_TOLOWER(x);
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     if(x.length() < 4)
     {
         RedSystemMessage(m_session, "Your search string must be at least 4 characters long.");
@@ -2282,13 +2193,12 @@ bool ChatHandler::HandleLookupSpellSpecificCommand(const char * args, WorldSessi
 
     GreenSystemMessage(m_session, "Starting search of spell `%s`...", x.c_str());
     uint32 t = getMSTime();
-    string recout;
+    std::string recout;
     char itoabuf[12];
     for (uint32 index = 0; index < dbcSpell.GetNumRows(); index++)
     {
         SpellEntry* spell = dbcSpell.LookupRow(index);
-        string y = string(spell->Name);
-        HEARTHSTONE_TOLOWER(y);
+        std::string y = RONIN_UTIL::TOLOWER_RETURN(spell->Name);
         if(!strcmp(x.c_str(), y.c_str()))
         {
             sprintf((char*)itoabuf,"%u",spell->Id);
@@ -2331,8 +2241,7 @@ bool ChatHandler::HandleLookupCreatureCommand(const char * args, WorldSession * 
     if(!*args) 
         return false;
 
-    string x = string(args);
-    HEARTHSTONE_TOLOWER(x);
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     if(x.length() < 4)
     {
         RedSystemMessage(m_session, "Your search string must be at least 4 characters long.");
@@ -2345,7 +2254,7 @@ bool ChatHandler::HandleLookupCreatureCommand(const char * args, WorldSession * 
     while(itr != end)
     {
         CreatureData *ctrData = (*itr)->second;
-        if(FindXinYString(x, ctrData->lowercase_name))
+        if(RONIN_UTIL::FindXinYString(x, ctrData->lowercase_name))
         {
             // Print out the name in a cool highlighted fashion
             SendHighlightedName(m_session, ctrData->Name, ctrData->lowercase_name, x, ctrData->Entry, false);
@@ -2366,17 +2275,16 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
     if(!*args)
         return false;
 
-    string x = string(args);
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
     if(x.length() < 3)
     {
         RedSystemMessage(m_session, "Your search string must be at least 3 characters long.");
         return true;
     }
-    HEARTHSTONE_TOLOWER(x);
 
     GreenSystemMessage(m_session, "Initializing title finder.");
     for(ConstructDBCStorageIterator(CharTitlesEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
-        if(FindXinYString(x, HEARTHSTONE_TOLOWER_RETURN((*itr)->name1)))
+        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN((*itr)->name1)))
             BlueSystemMessage(m_session, "Title %03u: %s", (*itr)->entry, format((*itr)->name1, m_session->GetPlayer()->GetName()).c_str());
     GreenSystemMessage(m_session, "End title find.");
     return true;
@@ -2395,7 +2303,6 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
     go->SetOrientation(radius);
     go->UpdateRotation();
     go->RemoveFromWorld(true);
-    go->SetNewGuid(m_session->GetPlayer()->GetMapMgr()->GenerateGameobjectGuid());
     go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
     go->SaveToDB();
     return true;
@@ -2413,7 +2320,6 @@ bool ChatHandler::HandleGOMove(const char * args, WorldSession * m_session)
 
     go->RemoveFromWorld(true);
     go->SetPosition(m_session->GetPlayer()->GetPosition());
-    go->SetNewGuid(m_session->GetPlayer()->GetMapMgr()->GenerateGameobjectGuid());
     go->SaveToDB();
     go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
     return true;
@@ -2476,8 +2382,8 @@ struct spell_thingo
     uint32 target;
 };
 
-list<SpellEntry*> aiagent_spells;
-map<uint32, spell_thingo> aiagent_extra;
+std::list<SpellEntry*> aiagent_spells;
+std::map<uint32, spell_thingo> aiagent_extra;
 
 bool ChatHandler::HandleGuildRemovePlayerCommand(const char* args, WorldSession *m_session)
 {
@@ -2492,7 +2398,7 @@ bool ChatHandler::HandleGuildRemovePlayerCommand(const char* args, WorldSession 
 
 bool ChatHandler::HandleGuildDisbandCommand(const char* args, WorldSession *m_session)
 {
-    if(!string(args).length())
+    if(!std::string(args).length())
     {
         Player* plr = getSelectedChar(m_session);
         if(plr == NULL || !plr->IsInGuild())
@@ -2503,7 +2409,7 @@ bool ChatHandler::HandleGuildDisbandCommand(const char* args, WorldSession *m_se
     }
     else
     {
-        GuildInfo* gInfo = guildmgr.GetGuildByGuildName(string(args));
+        GuildInfo* gInfo = guildmgr.GetGuildByGuildName(std::string(args));
         if(gInfo == NULL)
             return false;
 
@@ -2562,7 +2468,7 @@ bool ChatHandler::HandleCreateArenaTeamCommands(const char * args, WorldSession 
     t->m_borderStyle=1;
     t->m_backgroundColour=4284906803UL;
     t->m_leader=plr->GetLowGUID();
-    t->m_name = string(name);
+    t->m_name = std::string(name);
     t->AddMember(plr->m_playerInfo);
     objmgr.AddArenaTeam(t);
     SystemMessage(m_session, "created arena team.");
@@ -2736,16 +2642,16 @@ bool ChatHandler::HandleClearCorpsesCommand(const char *args, WorldSession *m_se
 
 bool ChatHandler::HandleMultiMuteCommand(const char *args, WorldSession *m_session)
 {
-    vector<string> real_args = StrSplit(string(args), " ");
+    std::vector<std::string> real_args = RONIN_UTIL::StrSplit(args, " ");
     if( real_args.size() < 3 )
         return false;
 
     const char *reason = real_args[0].c_str();
-    int32 timespan = GetTimePeriodFromString(real_args[1].c_str());
+    int32 timespan = RONIN_UTIL::GetTimePeriodFromString(real_args[1].c_str());
     if( timespan <= 0 )
         return false;
 
-    string tsstr = ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
+    std::string tsstr = RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
     uint32 i;
     char msg[200];
 
@@ -2760,7 +2666,7 @@ bool ChatHandler::HandleMultiMuteCommand(const char *args, WorldSession *m_sessi
 
         pPlayer->GetSession()->SystemMessage("Your voice has been muted until %s by a GM. Until this time, you will not be able to speak in any form. Reason: %s", tsstr.c_str(), reason);
         sLogonCommHandler.Account_SetMute(pPlayer->GetSession()->GetAccountNameS(), (uint32)timespan + (uint32)UNIXTIME);
-        sWorld.LogGM(m_session, "muted account %s until %s", pPlayer->GetSession()->GetAccountNameS(), ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str());
+        sWorld.LogGM(m_session, "muted account %s until %s", pPlayer->GetSession()->GetAccountNameS(), RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str());
 
         snprintf(msg, 200, "%s%s was muted by %s (%s)", MSG_COLOR_WHITE, pPlayer->GetName(), m_session->GetPlayer()->GetName(), reason);
         sWorld.SendWorldText(msg, NULL);
@@ -2771,7 +2677,7 @@ bool ChatHandler::HandleMultiMuteCommand(const char *args, WorldSession *m_sessi
 
 bool ChatHandler::HandleMultiKickCommand(const char *args, WorldSession *m_session)
 {
-    vector<string> real_args = StrSplit(string(args), " ");
+    std::vector<std::string> real_args = RONIN_UTIL::StrSplit(args, " ");
     if( real_args.size() < 2 )
         return false;
 
@@ -2798,16 +2704,16 @@ bool ChatHandler::HandleMultiKickCommand(const char *args, WorldSession *m_sessi
 
 bool ChatHandler::HandleMultiBanCommand(const char *args, WorldSession *m_session)
 {
-    vector<string> real_args = StrSplit(string(args), " ");
+    std::vector<std::string> real_args = RONIN_UTIL::StrSplit(args, " ");
     if( real_args.size() < 3 )
         return false;
 
     const char *reason = real_args[0].c_str();
-    int32 timespan = GetTimePeriodFromString(real_args[1].c_str());
+    int32 timespan = RONIN_UTIL::GetTimePeriodFromString(real_args[1].c_str());
     if( timespan <= 0 )
         return false;
 
-    string tsstr = ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
+    std::string tsstr = RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
     uint32 i;
     char msg[200];
 
@@ -2823,7 +2729,7 @@ bool ChatHandler::HandleMultiBanCommand(const char *args, WorldSession *m_sessio
         pPlayer->GetSession()->SystemMessage("Your have been character banned until %s by a GM. Until this time, you will not be able login on this character. Reason was: %s", tsstr.c_str(), reason);
         pPlayer->SetBanned((uint32)timespan+(uint32)UNIXTIME, real_args[0]);
         pPlayer->Kick(15000);
-        sWorld.LogGM(m_session, "banned player %s until %s for %s", pPlayer->GetName(), ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str(), reason);
+        sWorld.LogGM(m_session, "banned player %s until %s for %s", pPlayer->GetName(), RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str(), reason);
 
         snprintf(msg, 200, "%s%s was banned by %s (%s)", MSG_COLOR_WHITE, pPlayer->GetName(), m_session->GetPlayer()->GetName(), reason);
         sWorld.SendWorldText(msg, NULL);
@@ -2834,16 +2740,16 @@ bool ChatHandler::HandleMultiBanCommand(const char *args, WorldSession *m_sessio
 
 bool ChatHandler::HandleMultiAccountBanCommand(const char *args, WorldSession *m_session)
 {
-    vector<string> real_args = StrSplit(string(args), " ");
+    std::vector<std::string> real_args = RONIN_UTIL::StrSplit(args, " ");
     if( real_args.size() < 3 )
         return false;
 
     const char *reason = real_args[0].c_str();
-    int32 timespan = GetTimePeriodFromString(real_args[1].c_str());
+    int32 timespan = RONIN_UTIL::GetTimePeriodFromString(real_args[1].c_str());
     if( timespan <= 0 )
         return false;
 
-    string tsstr = ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
+    std::string tsstr = RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME);
     uint32 i;
     char msg[200];
 
@@ -2858,7 +2764,7 @@ bool ChatHandler::HandleMultiAccountBanCommand(const char *args, WorldSession *m
 
         pPlayer->GetSession()->SystemMessage("Your have been account banned until %s by a GM. Until this time, you will not be able to log in on this account. Reason: %s", tsstr.c_str(), reason);
         sLogonCommHandler.Account_SetBanned(pPlayer->GetSession()->GetAccountNameS(), (uint32)timespan + (uint32)UNIXTIME, reason);
-        sWorld.LogGM(m_session, "banned account %s until %s", pPlayer->GetSession()->GetAccountNameS(), ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str());
+        sWorld.LogGM(m_session, "banned account %s until %s", pPlayer->GetSession()->GetAccountNameS(), RONIN_UTIL::ConvertTimeStampToDataTime((uint32)timespan+(uint32)UNIXTIME).c_str());
 
         snprintf(msg, 200, "%s%s was account banned by %s (%s)", MSG_COLOR_WHITE, pPlayer->GetName(), m_session->GetPlayer()->GetName(), reason);
         sWorld.SendWorldText(msg, NULL);
@@ -2897,7 +2803,7 @@ bool ChatHandler::HandleFactionSetStanding(const char *args, WorldSession *m_ses
     FactionEntry* RealFaction = dbcFaction.LookupEntry(faction);
     if(RealFaction == NULL || RealFaction->RepListId < 0)
     {
-        stringstream ss;
+        std::stringstream ss;
         ss << "Incorrect faction, searching...";
         FactionTemplateEntry* FactionTemplate = dbcFactionTemplate.LookupEntry(faction);
         if(FactionTemplate == NULL)
@@ -2935,7 +2841,7 @@ bool ChatHandler::HandleFactionModStanding(const char *args, WorldSession *m_ses
     FactionEntry* RealFaction = dbcFaction.LookupEntry(faction);
     if(RealFaction == NULL || RealFaction->RepListId < 0)
     {
-        stringstream ss;
+        std::stringstream ss;
         ss << "Incorrect faction, searching...";
         FactionTemplateEntry* FactionTemplate = dbcFactionTemplate.LookupEntry(faction);
         if(FactionTemplate == NULL)

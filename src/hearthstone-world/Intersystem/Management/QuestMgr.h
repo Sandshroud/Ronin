@@ -43,6 +43,8 @@ typedef std::map<uint32, Quest*> QuestStorageMap;
 typedef std::list<QuestRelation *> QuestRelationList;
 typedef std::list<QuestAssociation *> QuestAssociationList;
 typedef std::map<uint32, std::vector<QuestPOI*> > QuestPOIStorageMap;
+typedef RONIN_UNORDERED_MAP<uint32, QuestRelationList* > QuestRelationListMap;
+typedef RONIN_UNORDERED_MAP<uint32, QuestAssociationList* > QuestAssociationListMap;
 
 class SERVER_DECL QuestMgr :  public Singleton < QuestMgr >
 {
@@ -71,18 +73,18 @@ public:
 
     uint32 PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck);
 
-    uint32 CalcStatus(WorldObject* quest_giver, Player* plr);
+    uint32 CalcStatus(Object* quest_giver, Player* plr);
     uint32 CalcQuestStatus(Player* plr, QuestRelation* qst);
     uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck);
-    uint32 ActiveQuestsCount(WorldObject* quest_giver, Player* plr);
+    uint32 ActiveQuestsCount(Object* quest_giver, Player* plr);
 
     //Packet Forging...
-    void BuildOfferReward(WorldPacket* data,Quest* qst, WorldObject* qst_giver, uint32 menutype, Player* plr);
-    void BuildQuestDetails(WorldPacket* data, Quest* qst, WorldObject* qst_giver, uint32 menutype, Player* plr);
-    void BuildRequestItems(WorldPacket* data, Quest* qst, WorldObject* qst_giver, uint32 status);
+    void BuildOfferReward(WorldPacket* data,Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
+    void BuildQuestDetails(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
+    void BuildRequestItems(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 status);
     void BuildQuestComplete(Player* , Quest* qst);
-    void BuildQuestList(WorldPacket* data, WorldObject* qst_giver, Player* plr);
-    bool OnActivateQuestGiver(WorldObject* qst_giver, Player* plr);
+    void BuildQuestList(WorldPacket* data, Object* qst_giver, Player* plr);
+    bool OnActivateQuestGiver(Object* qst_giver, Player* plr);
 
     void SendQuestUpdateAddKill(Player* plr, uint32 questid, uint32 entry, uint32 count, uint32 tcount, uint64 guid);
     void BuildQuestUpdateAddItem(WorldPacket* data, uint32 itemid, uint32 count);
@@ -93,17 +95,17 @@ public:
     bool OnGameObjectActivate(Player* plr, GameObject* go);
     void _OnPlayerKill(Player* plr, uint32 creature_entry);
     void OnPlayerKill(Player* plr, Creature* victim);
-    void OnPlayerCast(Player* plr, uint32 spellid, uint64& victimguid);
+    void OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid);
     void OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacksize);
     void OnPlayerDropItem(Player* plr, uint32 entry);
     void OnPlayerExploreArea(Player* plr, uint32 AreaID);
     void OnPlayerAreaTrigger(Player* plr, uint32 areaTrigger);
     void OnPlayerSlain(Player* plr, Player* victim);
-    void OnQuestAccepted(Player* plr, Quest* qst, WorldObject* qst_giver);
-    void OnQuestFinished(Player* plr, Quest* qst, WorldObject* qst_giver, uint32 reward_slot);
+    void OnQuestAccepted(Player* plr, Quest* qst, Object* qst_giver);
+    void OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint32 reward_slot);
     bool SkippedKills( uint32 QuestID );
 
-    void GiveQuestRewardReputation(Player* plr, Quest* qst, WorldObject* qst_giver);
+    void GiveQuestRewardReputation(Player* plr, Quest* qst, Object* qst_giver);
     void GiveQuestTitleReward(Player* plr, Quest* qst);
 
     uint32 GenerateQuestXP(Player* pl, Quest *qst);
@@ -155,19 +157,19 @@ private:
     QuestStorageMap QuestStorage;
     QuestPOIStorageMap mQuestPOIMap;
 
-    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_npc_quests;
-    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_obj_quests;
-    RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* > m_itm_quests;
+    QuestRelationListMap m_npc_quests;
+    QuestRelationListMap m_obj_quests;
+    QuestRelationListMap m_itm_quests;
     std::list<uint32> m_extraqueststuff_list;
 
-    RONIN_UNORDERED_MAP<uint32, std::list<QuestAssociation *>* > m_quest_associations;
-    RONIN_UNORDERED_MAP<uint32, std::list<QuestAssociation *>* >& GetQuestAssociationList(){return m_quest_associations;}
+    QuestAssociationListMap m_quest_associations;
+    QuestAssociationListMap& GetQuestAssociationList() { return m_quest_associations; }
 
-    RONIN_UNORDERED_MAP<uint32, uint32>        m_ObjectLootQuestList;
+    RONIN_UNORDERED_MAP<uint32, uint32> m_ObjectLootQuestList;
 
     template <class T> void _AddQuest(uint32 entryid, Quest *qst, uint8 type);
 
-    template <class T> RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& _GetList();
+    template <class T> QuestRelationListMap& _GetList();
 
     void AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_count);
 
@@ -176,11 +178,11 @@ private:
     void _CleanLine(std::string *str);
 };
 
-template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<Creature>()
+template<> HEARTHSTONE_INLINE QuestRelationListMap& QuestMgr::_GetList<Creature>()
     {return m_npc_quests;}
-template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<GameObject>()
+template<> HEARTHSTONE_INLINE QuestRelationListMap& QuestMgr::_GetList<GameObject>()
     {return m_obj_quests;}
-template<> HEARTHSTONE_INLINE RONIN_UNORDERED_MAP<uint32, std::list<QuestRelation *>* >& QuestMgr::_GetList<Item>()
+template<> HEARTHSTONE_INLINE QuestRelationListMap& QuestMgr::_GetList<Item>()
     {return m_itm_quests;}
 
 

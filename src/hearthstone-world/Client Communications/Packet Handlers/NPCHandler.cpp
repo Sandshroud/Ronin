@@ -118,29 +118,27 @@ void WorldSession::SendTrainerList(Creature* pCreature)
         return;
     }
 
-    WorldPacket data(SMSG_TRAINER_LIST, 5000);
     TrainerSpell* pSpell;
     uint32 Spacer = 0;
     uint32 Count=0;
     uint8 Status;
-    string Text;
+    std::string Text;
 
+    WorldPacket data(SMSG_TRAINER_LIST, 5000);
     data << pCreature->GetGUID();
     data << pTrainer->TrainerType;
-
     data << uint32(0);
-    for(vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
+    for(std::vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
     {
         pSpell = &(*itr);
         Status = TrainerGetSpellStatus(pSpell);
         if(Status == TRAINER_STATUS_NOT_AVAILABLE)
             continue; // Don't bother sending shit.
-        else if( pSpell->pCastRealSpell != NULL )
+        else if( pSpell->pCastRealSpell )
             data << pSpell->pCastRealSpell->Id;
         else if( pSpell->pLearnSpell )
             data << pSpell->pLearnSpell->Id;
-        else
-            continue;
+        else continue;
 
         data << Status;
         data << pSpell->Cost;
@@ -177,7 +175,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
         return;
 
     TrainerSpell* pSpell = NULL;
-    for(vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
+    for(std::vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
     {
         if( ( itr->pCastRealSpell && itr->pCastRealSpell->Id == TeachingSpellID ) ||
             ( itr->pLearnSpell && itr->pLearnSpell->Id == TeachingSpellID ) )

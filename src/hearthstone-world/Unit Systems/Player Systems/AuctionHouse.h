@@ -39,8 +39,8 @@ struct Auction
 {
     uint32 Id;
 
-    uint32 Owner;
-    uint32 HighestBidder;
+    WoWGuid Owner;
+    WoWGuid HighestBidder;
     uint32 HighestBid;
 
     uint32 BuyoutPrice;
@@ -79,7 +79,7 @@ public:
     void SendAuctionNotificationPacket(Player* plr, Auction * auct);
     void SendAuctionList(Player* plr, WorldPacket * packet);
 
-    void UpdateItemOwnerships(uint32 oldGuid, uint32 newGuid);
+    void UpdateItemOwnerships(WoWGuid oldGuid, WoWGuid newGuid);
 
 private:
     RWLock itemLock;

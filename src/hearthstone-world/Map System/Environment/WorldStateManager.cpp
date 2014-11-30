@@ -34,7 +34,7 @@ void WorldStateManager::CreateWorldState(uint32 uWorldStateId, uint32 uInitialVa
         newState.Value = uInitialValue;
 
         // add!
-        m_states.insert( make_pair( uWorldStateId, newState) );
+        m_states.insert( std::make_pair( uWorldStateId, newState) );
     }
 
     // release the lock

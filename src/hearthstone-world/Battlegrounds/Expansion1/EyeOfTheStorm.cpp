@@ -356,16 +356,12 @@ void EyeOfTheStorm::HookOnPlayerDeath(Player* plr)
 
 void EyeOfTheStorm::HookFlagDrop(Player* plr, GameObject* obj)
 {
-    if( !m_dropFlag->IsInWorld() )
-        return;
-
     // check forcedreaction 1059, meaning do we recently dropped a flag?
     std::map<uint32,uint32>::iterator itr = plr->m_forcedReactions.find(1059);
     if (itr != plr->m_forcedReactions.end()) {
         return;
     }
 
-    m_dropFlag->RemoveFromWorld(false);
     plr->CastSpell( plr->GetGUID(), EOTS_NETHERWING_FLAG_SPELL, true );
 
     m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 0 );
@@ -435,14 +431,6 @@ void EyeOfTheStorm::DropFlag(Player* plr)
     plr->RemoveAura( EOTS_NETHERWING_FLAG_SPELL );
 
     plr->CastSpell(plr, BG_RECENTLY_DROPPED_FLAG, true);
-
-    /**
-    * let's apply the same rules as wsg, reallocate guid,
-    * reposition, spawn.
-     */
-    m_dropFlag->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-    m_dropFlag->SetPosition( plr->GetPosition() );
-    m_dropFlag->PushToWorld( m_mapMgr );
     m_flagHolder = 0;
 
     sEventMgr.AddEvent( castPtr<EyeOfTheStorm>(this), &EyeOfTheStorm::EventResetFlag, EVENT_EOTS_RESET_FLAG, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
@@ -450,10 +438,6 @@ void EyeOfTheStorm::DropFlag(Player* plr)
 
 void EyeOfTheStorm::EventResetFlag()
 {
-    if(!m_dropFlag->IsInWorld())
-        return;
-
-    m_dropFlag->RemoveFromWorld(false);
     m_standFlag->PushToWorld(m_mapMgr);
 
     m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 1 );
@@ -621,37 +605,10 @@ void EyeOfTheStorm::OnCreate()
     }
     m_standFlag->SetFloatValue( OBJECT_FIELD_SCALE_X, 2.5f );
     m_standFlag->PushToWorld( m_mapMgr );
-
-    m_dropFlag = m_mapMgr->CreateGameObject(EOTS_DROPFLAG);
-    if( m_dropFlag == NULL || !m_dropFlag->CreateFromProto( EOTS_DROPFLAG, m_mapMgr->GetMapId(), 2174.782227f, 1569.054688f, 1160.361938f, -1.448624f ))
-    {
-        sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobject %u",EOTS_DROPFLAG);
-        abort();
-        return;
-    }
-    m_dropFlag->SetFloatValue( OBJECT_FIELD_SCALE_X, 2.5f );
 }
 
 void EyeOfTheStorm::RespawnCPFlag(uint32 i, uint32 id)
 {
-    //flags set 1
-    m_CPBanner[i]->RemoveFromWorld(false);
-    m_CPBanner[i]->SetNewGuid( m_mapMgr->GenerateGameobjectGuid() );
-    m_CPBanner[i]->CreateFromProto( id, m_mapMgr->GetMapId(), m_CPBanner[i]->GetPositionX(), m_CPBanner[i]->GetPositionY(), m_CPBanner[i]->GetPositionZ(), m_CPBanner[i]->GetOrientation() );
-    m_CPBanner[i]->PushToWorld( m_mapMgr );
-
-    //flag set 2
-    m_CPBanner2[i]->RemoveFromWorld(false);
-    m_CPBanner2[i]->SetNewGuid( m_mapMgr->GenerateGameobjectGuid() );
-    m_CPBanner2[i]->CreateFromProto( id, m_mapMgr->GetMapId(), m_CPBanner2[i]->GetPositionX(), m_CPBanner2[i]->GetPositionY(), m_CPBanner2[i]->GetPositionZ(), m_CPBanner2[i]->GetOrientation() );
-    m_CPBanner2[i]->PushToWorld( m_mapMgr );
-
-    //flag set 3
-    m_CPBanner3[i]->RemoveFromWorld(false);
-    m_CPBanner3[i]->SetNewGuid( m_mapMgr->GenerateGameobjectGuid() );
-    m_CPBanner3[i]->CreateFromProto( id, m_mapMgr->GetMapId(), m_CPBanner3[i]->GetPositionX(), m_CPBanner3[i]->GetPositionY(), m_CPBanner3[i]->GetPositionZ(), m_CPBanner3[i]->GetOrientation() );
-    m_CPBanner3[i]->PushToWorld( m_mapMgr );
-
 
 }
 
@@ -928,11 +885,12 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
     {
         m_resourceRewards[team] += m_resToGainBH;
 
-        for(set<Player*  >::iterator itx = m_players[team].begin(); itx != m_players[team].end(); itx++)
+        for(std::set<Player*  >::iterator itx = m_players[team].begin(); itx != m_players[team].end(); itx++)
         {
             Player* plr = (*itx);
-            if(!plr) continue;
-            (*itx)->m_bgScore.BonusHonor += m_bonusHonor;
+            if(plr == NULL)
+                continue;
+            plr->m_bgScore.BonusHonor += m_bonusHonor;
             HonorHandler::AddHonorPointsToPlayer( plr, m_bonusHonor );
         }
     }
@@ -947,7 +905,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
         m_nextPvPUpdateTime = 0;
 
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(TO_CBATTLEGROUND(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
+        sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
         SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
 
         /* add the marks of honor to all players */
@@ -955,7 +913,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
 
         for(uint32 i = 0; i < 2; i++)
         {
-            for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+            for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
             {
                 (*itr)->Root();
 
@@ -981,7 +939,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
                     (*itr)->m_bgScore.BonusHonor += m_bonusHonor;
                     HonorHandler::AddHonorPointsToPlayer( (*itr), m_bonusHonor );
                     uint32 diff = abs((int32)(m_points[i] - m_points[i ? 0 : 1]));
-                    (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, TO_CBATTLEGROUND(this));
+                    (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, this);
                     if((*itr)->fromrandombg)
                     {
                         Player * p = (*itr);
@@ -1074,14 +1032,6 @@ void EyeOfTheStorm::SpawnBuff(uint32 x)
     {
         if(m_EOTSbuffs[x]->IsInWorld())
             m_EOTSbuffs[x]->RemoveFromWorld(false);
-
-        if(rand_buffid != m_EOTSbuffs[x]->GetEntry())
-        {
-            m_EOTSbuffs[x]->SetNewGuid(m_mapMgr->GenerateGameobjectGuid());
-            m_EOTSbuffs[x]->SetUInt32Value(OBJECT_FIELD_ENTRY, rand_buffid);
-            m_EOTSbuffs[x]->SetInfo(goi);
-        }
-
         m_EOTSbuffs[x]->PushToWorld(m_mapMgr);
     }
 }
@@ -1098,7 +1048,7 @@ void EyeOfTheStorm::OnStart()
 {
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->RemoveAura(BG_PREPARATION);
         }
@@ -1107,8 +1057,8 @@ void EyeOfTheStorm::OnStart()
     uint32 i;
 
     /* start the events */
-    sEventMgr.AddEvent(TO_EYEOFTHESTORM(this), &EyeOfTheStorm::GeneratePoints, EVENT_EOTS_GIVE_POINTS, 1600, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    sEventMgr.AddEvent(TO_EYEOFTHESTORM(this), &EyeOfTheStorm::UpdateCPs, EVENT_EOTS_CHECK_CAPTURE_POINT_STATUS, 5000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(this, &EyeOfTheStorm::GeneratePoints, EVENT_EOTS_GIVE_POINTS, 1600, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(this, &EyeOfTheStorm::UpdateCPs, EVENT_EOTS_CHECK_CAPTURE_POINT_STATUS, 5000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     /* spirit guides */
     AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[0][0], EOTSStartLocations[0][1], EOTSStartLocations[0][2], 0, false ));

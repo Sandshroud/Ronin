@@ -45,9 +45,9 @@ SCRIPT_DECL void EventCastSpell(Unit *caster, Unit *target, uint32 spellid, uint
 
 SCRIPT_DECL void EventPlaySound(Creature *creat, uint32 id, uint32 time);
 
-SCRIPT_DECL void EventCreatureSay(Creature *creat, string say, uint32 time);
+SCRIPT_DECL void EventCreatureSay(Creature *creat, std::string say, uint32 time);
 
-SCRIPT_DECL void EventCreatureYell(Creature *creat, string say, uint32 time);
+SCRIPT_DECL void EventCreatureYell(Creature *creat, std::string say, uint32 time);
 
 SCRIPT_DECL Creature *getNpcQuester(Player *plr, uint32 npcid);
 

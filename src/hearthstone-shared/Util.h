@@ -33,10 +33,19 @@ namespace RONIN_UTIL
     void TOUPPER(std::string& str);
     std::string TOLOWER_RETURN(std::string str);
     std::string TOUPPER_RETURN(std::string str);
-    template<typename T> T FirstBitValue(T value);
 
     // returns true if the ip hits the mask, otherwise false
     bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits);
     uint MakeIP(const char * str);
 
+    template<typename T> RONIN_INLINE T FirstBitValue(T value)
+    {
+        assert(sizeof(T)<=8); // Limit to 8 bytes
+        if(value)
+        {   // for each byte we have 8 bit stacks
+            for(T i = 0; i < sizeof(T)*8; i++)
+                if(value & (T(1)<<i))
+                    return i;
+        } return static_cast<T>(NULL);
+    }
 };

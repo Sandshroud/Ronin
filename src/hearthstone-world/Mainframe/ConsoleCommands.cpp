@@ -9,7 +9,7 @@ bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[])
     int gm = 0;
     int count = 0;
     int avg = 0;
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
@@ -58,7 +58,7 @@ bool HandleGMsCommand(BaseConsole * pConsole, int argc, const char * argv[])
     pConsole->Write("| %21s | %15s | %04s  |\r\n" , "Name", "Permissions", "Latency");
     pConsole->Write("======================================================\r\n");
 
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
@@ -74,7 +74,7 @@ bool HandleGMsCommand(BaseConsole * pConsole, int argc, const char * argv[])
 }
 
 
-void ConcatArgs(string & outstr, int argc, int startoffset, const char * argv[])
+void ConcatArgs(std::string & outstr, int argc, int startoffset, const char * argv[])
 {
     for(int i = startoffset + 1; i < argc; i++)
     {
@@ -86,7 +86,7 @@ void ConcatArgs(string & outstr, int argc, int startoffset, const char * argv[])
 bool HandleAnnounceCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
     char pAnnounce[1024];
-    string outstr;
+    std::string outstr;
     if(argc < 2)
         return false;
 
@@ -100,7 +100,7 @@ bool HandleAnnounceCommand(BaseConsole * pConsole, int argc, const char * argv[]
 bool HandleWAnnounceCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
     char pAnnounce[1024];
-    string outstr;
+    std::string outstr;
     if(argc < 2)
         return false;
 
@@ -125,7 +125,7 @@ bool HandleKickCommand(BaseConsole * pConsole, int argc, const char * argv[])
         pConsole->Write("Could not find player, %s.\r\n", argv[1]);
         return true;
     }
-    string outstr;
+    std::string outstr;
     ConcatArgs(outstr, argc, 1, argv);
     snprintf(pAnnounce, 1024, "%sConsole:|r %s was kicked from the server for: %s.", MSG_COLOR_LIGHTBLUE, pPlayer->GetName(), argv[2]);
     pPlayer->BroadcastMessage("You were kicked by the console for: %s", argv[2]);
@@ -166,7 +166,7 @@ bool HandleCancelCommand(BaseConsole * pConsole, int argc, const char * argv[])
 
 bool HandleUptimeCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
-    string up = sWorld.GetUptimeString();
+    std::string up = sWorld.GetUptimeString();
     pConsole->Write("Server Uptime: %s\r\n", up.c_str());
     return true;
 }
@@ -176,7 +176,7 @@ bool HandleBanAccountCommand(BaseConsole * pConsole, int argc, const char * argv
     if(argc < 4)
         return false;
 
-    int32 timeperiod = GetTimePeriodFromString(argv[2]);
+    int32 timeperiod = RONIN_UTIL::GetTimePeriodFromString(argv[2]);
     if(timeperiod < 0)
         return false;
 
@@ -186,7 +186,7 @@ bool HandleBanAccountCommand(BaseConsole * pConsole, int argc, const char * argv
     sLogonCommHandler.Account_SetBanned(argv[1], banned, argv[3]);
 
     pConsole->Write("Account '%s' has been banned %s%s. The change will be effective with the next reload cycle.\r\n", argv[1],
-        timeperiod ? "until " : "forever", timeperiod ? ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "");
+        timeperiod ? "until " : "forever", timeperiod ? RONIN_UTIL::ConvertTimeStampToDataTime(timeperiod+(uint32)UNIXTIME).c_str() : "");
 
     return true;
 }
@@ -228,7 +228,7 @@ bool HandleMOTDCommand(BaseConsole * pConsole, int argc, const char * argv[])
     }else
     {
         char set_motd[1024];
-        string outstr;
+        std::string outstr;
         ConcatArgs( outstr, argc, 0, argv );
         snprintf( set_motd, 1024, "%s", outstr.c_str() );
 
@@ -259,7 +259,7 @@ bool HandlePlayerInfoCommand(BaseConsole * pConsole, int argc, const char * argv
     return true;
 }
 
-void TestConsoleLogin(string& username, string& password, uint32 requestno)
+void TestConsoleLogin(std::string& username, std::string& password, uint32 requestno)
 {
     sLogonCommHandler.TestConsoleLogon(username, password, requestno);
 }
@@ -279,7 +279,7 @@ bool HandleBackupDBCommand(BaseConsole * pConsole, int argc, const char * argv[]
 
 bool HandleSaveAllCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     uint32 stime = getMSTime(), count = 0;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
@@ -302,7 +302,7 @@ bool HandleWhisperCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
     char pAnnounce[1024];
     Player* pPlayer;
-    string outstr;
+    std::string outstr;
 
     if(argc < 3)
         return false;
@@ -326,8 +326,8 @@ bool HandleNameHashCommand(BaseConsole * pConsole, int argc, const char * argv[]
 {
     if( !argc )
         return false;
-    string spstring;
-        ConcatArgs(spstring, argc, 0, argv);
+    std::string spstring;
+    ConcatArgs(spstring, argc, 0, argv);
     uint32 spellid = (int)atoi((char*)spstring.c_str());
     SpellEntry * sp = dbcSpell.LookupEntry(spellid);
     if ( !sp )
@@ -351,7 +351,7 @@ bool HandleOnlinePlayersCommand(BaseConsole * pConsole, int argc, const char * a
     pConsole->Write("| %21s | %15s | % 04s  |\r\n" , "Name", "Level", "Latency");
     pConsole->Write("======================================================\r\n");
 
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {

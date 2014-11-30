@@ -30,7 +30,7 @@ GameObject::GameObject(uint64 guid) : WorldObject(guid)
     m_deleted = false;
     m_created = false;
     m_respawnCell = NULL;
-    m_battleground = NULLBATTLEGROUND;
+    m_battleground = NULL;
     initiated = false;
     m_loadedFromDB = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
@@ -71,7 +71,7 @@ void GameObject::Destruct()
     {
         for(int i = 0; i < 4; i++)
         {
-            if (m_summoner->m_ObjectSlots[i] == GetLowGUID())
+            if (m_summoner->m_ObjectSlots[i] == GetGUID())
                 m_summoner->m_ObjectSlots[i] = 0;
         }
     }
@@ -80,13 +80,13 @@ void GameObject::Destruct()
     {
         if( m_battleground->GetType() == BATTLEGROUND_ARATHI_BASIN )
         {
-            if( bannerslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] == castPtr<GameObject>(this) )
-                TO_ARATHIBASIN(m_battleground)->m_controlPoints[bannerslot] = NULL;
+            if( bannerslot >= 0 && castPtr<ArathiBasin>(m_battleground)->m_controlPoints[bannerslot] == castPtr<GameObject>(this) )
+                castPtr<ArathiBasin>(m_battleground)->m_controlPoints[bannerslot] = NULL;
 
-            if( bannerauraslot >= 0 && TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] == castPtr<GameObject>(this) )
-                TO_ARATHIBASIN(m_battleground)->m_controlPointAuras[bannerauraslot] = NULL;
+            if( bannerauraslot >= 0 && castPtr<ArathiBasin>(m_battleground)->m_controlPointAuras[bannerauraslot] == castPtr<GameObject>(this) )
+                castPtr<ArathiBasin>(m_battleground)->m_controlPointAuras[bannerauraslot] = NULL;
         }
-        m_battleground = NULLBATTLEGROUND;
+        m_battleground = NULL;
     }
     WorldObject::Destruct();
 }
@@ -494,7 +494,7 @@ void GameObject::AddQuest(QuestRelation *Q)
 
 void GameObject::DeleteQuest(QuestRelation *Q)
 {
-    list<QuestRelation *>::iterator it;
+    std::list<QuestRelation *>::iterator it;
     for( it = m_quests->begin(); it != m_quests->end(); it++ )
     {
         if( ( (*it)->type == Q->type ) && ( (*it)->qst == Q->qst ) )
@@ -508,7 +508,7 @@ void GameObject::DeleteQuest(QuestRelation *Q)
 
 Quest* GameObject::FindQuest(uint32 quest_id, uint8 quest_relation)
 {
-    list< QuestRelation* >::iterator it;
+    std::list< QuestRelation* >::iterator it;
     for( it = m_quests->begin(); it != m_quests->end(); it++ )
     {
         QuestRelation* ptr = (*it);
@@ -523,7 +523,7 @@ Quest* GameObject::FindQuest(uint32 quest_id, uint8 quest_relation)
 uint16 GameObject::GetQuestRelation(uint32 quest_id)
 {
     uint16 quest_relation = 0;
-    list< QuestRelation* >::iterator it;
+    std::list< QuestRelation* >::iterator it;
     for( it = m_quests->begin(); it != m_quests->end(); it++ )
     {
         if( (*it) != NULL && (*it)->qst->id == quest_id )
@@ -632,7 +632,7 @@ void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
     {
         for(int i = 0; i < 4; i++)
         {
-            if (m_summoner->m_ObjectSlots[i] == GetLowGUID())
+            if (m_summoner->m_ObjectSlots[i] == GetGUID())
                 m_summoner->m_ObjectSlots[i] = 0;
         }
 
@@ -835,7 +835,7 @@ void GameObject::Use(Player *p)
         {
             if(goinfo->Chair.OnlyCreatorUse)
             {
-                if(p->GetGUID() != GetUInt64Value(OBJECT_FIELD_CREATED_BY))
+                if(p->GetGUID() != GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
                     return;
             }
 
@@ -900,7 +900,7 @@ void GameObject::Use(Player *p)
                 if (itr != ChairListSlots.end())
                 {
                     itr->second = p->GetGUID();
-                    p->Teleport( x_lowest, y_lowest, GetPositionZ(), GetOrientation(), GetPhaseMask());
+                    p->Teleport( x_lowest, y_lowest, GetPositionZ(), GetOrientation() );
                     p->SetStandState(STANDSTATE_SIT_LOW_CHAIR+goinfo->Chair.Height);
                     return;
                 }
@@ -1166,7 +1166,7 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_MEETINGSTONE:  // Meeting Stone
         {
             /* Use selection */
-            Player* pPlayer = objmgr.GetPlayer((uint32)p->GetSelection());
+            Player* pPlayer = objmgr.GetPlayer(p->GetSelection());
             if(!pPlayer || p->GetGroup() != pPlayer->GetGroup() || !p->GetGroup())
                 return;
 

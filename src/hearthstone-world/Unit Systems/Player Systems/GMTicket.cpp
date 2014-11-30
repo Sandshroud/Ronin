@@ -60,7 +60,7 @@ void WorldSession::HandleGMTicketCreateOpcode(WorldPacket & recv_data)
         ss << "GmTicket 5, " << ticket->name;
 #else
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_NEWTICKET;
-        ss << ":" << ticket->guid;
+        ss << ":" << ticket->guid.getLow();
         ss << ":" << ticket->level;
         ss << ":" << ticket->name;
 #endif
@@ -102,7 +102,7 @@ void WorldSession::HandleGMTicketUpdateOpcode(WorldPacket & recv_data)
     {
         std::stringstream ss;
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_UPDATED;
-        ss << ":" << ticket->guid;
+        ss << ":" << ticket->guid.getLow();
         chn->Say(_player, ss.str().c_str(), NULL, true);
     }
 #endif
@@ -129,7 +129,7 @@ void WorldSession::HandleGMTicketDeleteOpcode(WorldPacket & recv_data)
         ss << "GmTicket 1," << ticket->name;
 #else
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_REMOVED;
-        ss << ":" << ticket->guid;
+        ss << ":" << ticket->guid.getLow();
 #endif
         chn->Say(_player, ss.str().c_str(), NULL, true);
     }

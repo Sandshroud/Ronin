@@ -54,7 +54,7 @@ enum TypeMask
     TYPEMASK_FLAG_IN_GUILD      = 0x00010000
 };
 
-uint8 HighestMaskType16(uint32 type)
+RONIN_INLINE uint8 HighestMaskType16(uint32 type)
 {
     uint8 high=0;
     for(uint8 i = 0; i < 16; i++)
@@ -195,7 +195,6 @@ public:
     HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32.values[ index ]; }
     HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32.values[ index ])); }
     HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_float.values[ index ]; }
-    HEARTHSTONE_INLINE const WoWGuid& GetGUIDValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((WoWGuid*)&(m_uint32.values[ index ])); }
 
     void SetUpdateField(uint32 index);
     virtual void OnFieldUpdated(uint32 index) {}
@@ -216,13 +215,13 @@ public:
         m_objectUpdated = false;
     }
 
-    //! Fill values with data from a space seperated string of uint32s.
+    //! Fill values with data from a space separated string of uint32s.
     void LoadValues(const char* data);
 
     HEARTHSTONE_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
 
     // guid always comes first
-    HEARTHSTONE_INLINE WoWGuid& GetGUID() { return m_object.m_objGUID; }
+    HEARTHSTONE_INLINE WoWGuid& GetGUID() { return m_objGuid; }
 
     uint32 GetEntry() { return m_uint32.values[OBJECT_FIELD_ENTRY]; }
     void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
@@ -230,9 +229,9 @@ public:
     float GetObjectScale() { return m_float.values[OBJECT_FIELD_SCALE_X]; }
     void SetObjectScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
 
-    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() { return m_object.m_objGUID.getEntry(); }
-    HEARTHSTONE_INLINE uint32 GetHighGUID() { return m_object.m_objGUID.getHigh(); }
-    HEARTHSTONE_INLINE uint32 GetLowGUID() { return m_object.m_objGUID.getLow(); }
+    HEARTHSTONE_INLINE uint32 GetEntryFromGUID() { return m_objGuid.getEntry(); }
+    HEARTHSTONE_INLINE uint32 GetHighGUID() { return m_objGuid.getHigh(); }
+    HEARTHSTONE_INLINE uint32 GetLowGUID() { return m_objGuid.getLow(); }
 
     // type
     HEARTHSTONE_INLINE uint8 GetTypeId() { return HighestMaskType16(m_object.m_objType); }
@@ -262,8 +261,8 @@ protected:
     void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
 
     void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
     Mutex m_objlock;
 
     //! Object properties.
@@ -271,7 +270,7 @@ protected:
     {
         struct // Raw object values
         {
-            WoWGuid m_objGUID;
+            uint64 m_objGUID;
             uint64 m_objData;
             uint32 m_objType;
             uint32 m_objEntry;
@@ -283,13 +282,14 @@ protected:
         struct { uint32**values; }m_raw;
     };
 
+    //! Object's guid
+    WoWGuid m_objGuid;
     //! Number of properties
     uint32 m_valuesCount;
+    //! Notification flags for updates
     uint16 m_notifyFlags;
-
     //! List of object properties that need updating.
     UpdateMask m_updateMask;
-
     //! True if object was updated
     bool m_objectUpdated;
 
@@ -340,7 +340,8 @@ public:
     virtual void OnPushToWorld() { }
     virtual void OnPrePushToWorld() { }
     virtual void RemoveFromWorld(bool free_guid);
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }

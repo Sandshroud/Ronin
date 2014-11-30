@@ -215,8 +215,8 @@ void LogonCommClientSocket::HandleRequestAccountMapping(WorldPacket & recvData)
     uint32 realm_id;
     uint32 account_id;
     QueryResult * result;
-    map<uint32, uint8> mapping_to_send;
-    map<uint32, uint8>::iterator itr;
+    std::map<uint32, uint8> mapping_to_send;
+    std::map<uint32, uint8>::iterator itr;
 
     // grab the realm id
     recvData >> realm_id;
@@ -233,7 +233,7 @@ void LogonCommClientSocket::HandleRequestAccountMapping(WorldPacket & recvData)
             if(itr != mapping_to_send.end())
                 itr->second++;
             else
-                mapping_to_send.insert( make_pair( account_id, 1 ) );
+                mapping_to_send.insert( std::make_pair( account_id, 1 ) );
         } while(result->NextRow());
         delete result;
     }

@@ -61,7 +61,7 @@ private:
     Mutex m_lock;
     typedef std::map<Player* , uint32> MemberMap;
     MemberMap m_members;
-    std::set<uint32> m_bannedMembers;
+    std::set<WoWGuid> m_bannedMembers;
 
 public:
     friend class ChannelIterator;

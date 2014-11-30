@@ -277,26 +277,24 @@ class SERVER_DECL ThreatRedirectHandler
 class Unit;
 class SERVER_DECL CombatStatusHandler
 {
-    typedef std::set<uint64> AttackerMap;
-    typedef std::map<uint64, uint32> AttackTMap;
-    typedef std::set<uint32> HealedSet;      // Must Be Players!
+    typedef std::set<WoWGuid> UnitGuidMap;
+    typedef std::map<WoWGuid, uint32> StorageMap;
+protected:
+
     Unit* m_Unit;
+    Mutex m_mapLocks;
     bool m_lastStatus;
-    HealedSet m_healed;
-    HealedSet m_healers;
-    AttackerMap m_attackers;
-    AttackTMap m_attackTargets;
-    uint32 condom[16]; // wear protection, damagemap! don't get access violated!
-    std::map<uint64,uint32> DamageMap;
+    StorageMap m_damageMap, m_attackTimerMap;
+    UnitGuidMap m_attackers, m_healers, m_healed;
 
 public:
     CombatStatusHandler() : m_lastStatus(false)
     {
+        m_damageMap.clear();
+        m_attackTimerMap.clear();
         m_attackers.clear();
         m_healers.clear();
         m_healed.clear();
-        m_attackTargets.clear();
-        DamageMap.clear();
     }
 
     Unit* GetKiller();                                                  // Gets this unit's current killer.
@@ -312,28 +310,31 @@ public:
 
     void OnRemoveFromWorld();                                           // called when we are removed from world, kills all references to us.
 
-    void Vanish(uint32 guidLow);
+    void Vanish(WoWGuid guid);
 
     HEARTHSTONE_INLINE void Vanished()
     {
         ClearAttackers();
         ClearHealers();
-        DamageMap.clear();
+        m_damageMap.clear();
     }
 
-    bool DidHeal(uint32 guidLow)
+    bool DidHeal(WoWGuid guid) { return (m_healed.find(guid) != m_healed.end()); }
+    bool HealedBy(WoWGuid guid) { return (m_healers.find(guid) != m_healers.end()); }
+    bool DidDamageTo(WoWGuid guid) { return (m_damageMap.find(guid) != m_damageMap.end()); }
+
+    void AddDamage(WoWGuid guid, uint32 damage)
     {
-        return (m_healed.find(guidLow) != m_healed.end());
+        StorageMap::iterator ditr = m_damageMap.find(guid);
+        if(ditr == m_damageMap.end())
+            m_damageMap.insert( std::make_pair( guid, damage ));
+        else ditr->second += damage;
     }
 
-    bool HealedBy(uint32 guidLow)
+    void EraseAttacker(WoWGuid guid)
     {
-        return (m_healers.find(guidLow) != m_healers.end());
-    }
-
-    bool DidDamageTo(uint64 guid)
-    {
-        return (DamageMap.find(guid) != DamageMap.end());
+        m_attackTimerMap.erase(guid);
+        m_attackers.erase(guid);
     }
 
     HEARTHSTONE_INLINE void SetUnit(Unit* p) { m_Unit = p; }
@@ -755,7 +756,7 @@ public:
     HEARTHSTONE_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].insert(toAdd); };
     void FillSummonList(std::vector<Creature*> &summonList, uint8 summonType);
 
-    uint32 m_ObjectSlots[4];
+    WoWGuid m_ObjectSlots[4];
     uint32 m_triggerSpell;
     uint32 m_triggerDamage;
     uint32 m_canMove;
@@ -819,7 +820,7 @@ public:
     uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
     int32 RAPvModifier;
     int32 APvModifier;
-    uint64 stalkedby;
+    WoWGuid stalkedby;
     uint32 GetMechanicDispels(uint8 mechanic);
     float GetMechanicResistPCT(uint8 mechanic);
     float GetDamageTakenByMechPCTMod(uint8 mechanic);
@@ -845,7 +846,7 @@ public:
 
     // Multimap used to handle aura 271
     // key is caster GUID and value is a pair of SpellMask pointer and mod value
-    typedef std::tr1::unordered_multimap<uint64, std::pair<uint32*, int32> > DamageTakenPctModPerCasterType;
+    typedef std::tr1::unordered_multimap<WoWGuid, std::pair<uint32*, int32> > DamageTakenPctModPerCasterType;
     DamageTakenPctModPerCasterType DamageTakenPctModPerCaster;
 
     //Events
@@ -890,7 +891,7 @@ public:
     HEARTHSTONE_INLINE void SetHealthPct(uint32 val) { if (val>0) SetUInt32Value(UNIT_FIELD_HEALTH,float2int32(val*0.01f*GetUInt32Value(UNIT_FIELD_MAXHEALTH))); }
     HEARTHSTONE_INLINE float GetStat(uint32 stat) const { return float(GetUInt32Value(UNIT_FIELD_STATS+stat)); }
 
-    uint32 m_teleportAckCounter;
+    uint32 m_uAckCounter;
     //Vehicle
     bool ExitingVehicle;
     bool ChangingSeats;
@@ -1101,6 +1102,7 @@ public:
     bool m_temp_summon;
 
     // Redirect Threat shit
+    Unit *GetInRangeRedirectThreat() { return NULL; }
     WoWGuid m_threadRTarget;
     float m_threatRAmount;
 
@@ -1263,7 +1265,7 @@ public:
 
 public:
     void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );
-    void Teleport(float x, float y, float z, float o, int32 phasemask = 1);
+    void Teleport(float x, float y, float z, float o);
     void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
     void SetSpeed(uint8 SpeedType, float value);

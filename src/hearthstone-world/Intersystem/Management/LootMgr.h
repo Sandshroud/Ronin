@@ -29,10 +29,10 @@ public:
 
 private:
     Mutex mLootLock;
-    std::map<uint32, uint32> m_NeedRolls;
-    std::map<uint32, uint32> m_GreedRolls;
-    std::map<uint32, uint32> m_DisenchantRolls;
-    std::set<uint32> m_passRolls;
+    std::map<WoWGuid, uint32> m_NeedRolls;
+    std::map<WoWGuid, uint32> m_GreedRolls;
+    std::map<WoWGuid, uint32> m_DisenchantRolls;
+    std::set<WoWGuid> m_passRolls;
     uint32 _groupcount;
     uint32 _slotid;
     uint32 _itemid;
@@ -52,7 +52,7 @@ typedef struct _LootItem
     uint32 displayid;
 }_LootItem;
 
-typedef std::set<uint32> LooterSet;
+typedef std::set<WoWGuid> LooterSet;
 
 typedef struct __LootItem
 {

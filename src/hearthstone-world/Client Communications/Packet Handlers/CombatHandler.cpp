@@ -8,7 +8,7 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
     if(!guid)
     {
@@ -66,13 +66,10 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 void WorldSession::HandleAttackStopOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    uint64 guid = GetPlayer()->GetSelection();
-    Unit* pEnemy = NULL;
 
-    if(guid)
+    if(WoWGuid guid = GetPlayer()->GetSelection())
     {
-        pEnemy = _player->GetMapMgr()->GetUnit(guid);
-        if(pEnemy)
+        if(Unit* pEnemy = _player->GetMapMgr()->GetUnit(guid))
         {
             GetPlayer()->EventAttackStop();
             GetPlayer()->smsg_AttackStop(pEnemy);

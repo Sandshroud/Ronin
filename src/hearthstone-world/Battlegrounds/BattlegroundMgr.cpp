@@ -486,7 +486,7 @@ void CBattlegroundManager::EventQueueUpdate(bool forceStart)
     Player* plr;
     CBattleground* bg;
     std::list<WoWGuid>::iterator it3, it4;
-    //vector<Player*  >::iterator it6;
+    //std::vector<Player*  >::iterator it6;
     std::map<uint32, CBattleground* >::iterator iitr;
     Arena* arena;
     int32 team;
@@ -1703,7 +1703,7 @@ void CBattleground::AddSpiritGuide(Creature* pCreature)
     if(itr == m_resurrectMap.end())
     {
         std::set<WoWGuid> ti;
-        m_resurrectMap.insert(make_pair(pCreature, ti));
+        m_resurrectMap.insert(std::make_pair(pCreature, ti));
     }
     m_mainLock.Release();
 }

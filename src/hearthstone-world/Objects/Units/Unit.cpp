@@ -41,7 +41,6 @@ Unit::Unit(uint64 guid) : WorldObject(guid), m_AuraInterface()
     m_PetTalentPointModifier = 0;
 
     //Vehicle
-    m_teleportAckCounter = 0;
     m_inVehicleSeatId = 0xFF;
     m_CurrentVehicle = NULL;
     ExitingVehicle = false;
@@ -396,11 +395,9 @@ void Unit::Destruct()
         delete (*itr);
     m_extraStrikeTargets.clear();
 
-    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
+    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
     for ( itr = m_onAuraRemoveSpells.begin() ; itr != m_onAuraRemoveSpells.end() ; itr++)
-    {
         delete itr->second;
-    }
     m_onAuraRemoveSpells.clear();
 
     if(GetMapMgr())
@@ -1155,8 +1152,7 @@ bool Unit::canReachWithAttack(Unit* pVictim)
     float selfreach;
     if(IsPlayer())
         selfreach = 5.0f; // minimum melee range, UNIT_FIELD_COMBATREACH is too small and used eg. in melee spells
-    else
-        selfreach = m_floatValues[UNIT_FIELD_COMBATREACH];
+    else selfreach = GetFloatValue(UNIT_FIELD_COMBATREACH);
 
     float targetradius;
 //  targetradius = pVictim->m_floatValues[UNIT_FIELD_BOUNDINGRADIUS]; //this is plain wrong. Represents i have no idea what :)
@@ -1578,7 +1574,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     else
     {
         self_skill = getLevel() * 5;
-        if(m_objectTypeId == TYPEID_UNIT)
+        if(GetTypeId() == TYPEID_UNIT)
         {
             Creature* c = castPtr<Creature>(this);
             if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
@@ -1592,14 +1588,12 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     float diffVcapped = (float)self_skill;
     if(int32(pVictim->getLevel()*5)>victim_skill)
         diffVcapped -=(float)victim_skill;
-    else
-        diffVcapped -=(float)(pVictim->getLevel()*5);
+    else diffVcapped -=(float)(pVictim->getLevel()*5);
 
     float diffAcapped = (float)victim_skill;
     if(int32(getLevel()*5)>self_skill)
         diffAcapped -=(float)self_skill;
-    else
-        diffAcapped -=(float)(getLevel()*5);
+    else diffAcapped -=(float)(getLevel()*5);
     //<SHIT END>
 
     //--------------------------------by victim state-------------------------------------------
@@ -1863,7 +1857,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             dodge = pVictim->GetUInt32Value( UNIT_FIELD_AGILITY ) / 14.5f; // what is this value? (Agility)
 
         victim_skill = pVictim->getLevel() * 5;
-        if( pVictim->m_objectTypeId == TYPEID_UNIT )
+        if( pVictim->GetTypeId() == TYPEID_UNIT )
         {
             Creature* c = castPtr<Creature>( pVictim );
             if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS) )
@@ -1939,7 +1933,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     else
     {
         self_skill = getLevel() * 5;
-        if(m_objectTypeId == TYPEID_UNIT)
+        if(GetTypeId() == TYPEID_UNIT)
         {
             Creature* c = castPtr<Creature>(this);
             if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
@@ -2002,25 +1996,22 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------by skill difference---------------------------------------
     float vsk = (float)self_skill - (float)victim_skill;
     dodge = std::max( 0.0f, dodge - vsk * 0.04f );
-    if( parry )
-        parry = std::max( 0.0f, parry - vsk * 0.04f );
-    if( block )
-        block = std::max( 0.0f, block - vsk * 0.04f );
+    if( parry ) parry = std::max( 0.0f, parry - vsk * 0.04f );
+    if( block ) block = std::max( 0.0f, block - vsk * 0.04f );
 
-    crit += pVictim->IsPlayer() ? vsk * 0.04f : min( vsk * 0.2f, 0.0f );
+    crit += pVictim->IsPlayer() ? vsk * 0.04f : std::min( vsk * 0.2f, 0.0f );
 
     if( pVictim->IsPlayer() )
     {
         if( vsk > 0 )
             hitchance = std::max( hitchance, 95.0f + vsk * 0.02f);
-        else
-            hitchance = std::max( hitchance, 95.0f + vsk * 0.04f);
-    } else
+        else hitchance = std::max( hitchance, 95.0f + vsk * 0.04f);
+    }
+    else
     {
         if(vsk >= -10 && vsk <= 10)
             hitchance = std::max( hitchance, 95.0f + vsk * 0.1f);
-        else
-            hitchance = std::max( hitchance, 93.0f + (vsk - 10.0f) * 0.4f);
+        else hitchance = std::max( hitchance, 93.0f + (vsk - 10.0f) * 0.4f);
     }
 //--------------------------------by ratings------------------------------------------------
     crit -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
@@ -2495,7 +2486,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             Spell* cspell = NULL;
 
             // Loop on hit spells, and strike with those.
-            for( map< SpellEntry*, pair< uint32, uint32 > >::iterator itr = castPtr<Player>(this)->m_onStrikeSpells.begin();
+            for( std::map< SpellEntry*, std::pair< uint32, uint32 > >::iterator itr = castPtr<Player>(this)->m_onStrikeSpells.begin();
                 itr != castPtr<Player>(this)->m_onStrikeSpells.end(); itr++ )
             {
                 if( itr->second.first )
@@ -2518,8 +2509,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
         if( IsPlayer() && castPtr<Player>(this)->m_onStrikeSpellDmg.size() )
         {
-            map< uint32, OnHitSpell >::iterator it2 = castPtr<Player>(this)->m_onStrikeSpellDmg.begin();
-            map< uint32, OnHitSpell >::iterator itr;
+            std::map< uint32, OnHitSpell >::iterator it2 = castPtr<Player>(this)->m_onStrikeSpellDmg.begin();
+            std::map< uint32, OnHitSpell >::iterator itr;
             uint32 min_dmg, max_dmg, range, dmg;
             for(; it2 != castPtr<Player>(this)->m_onStrikeSpellDmg.end(); )
             {
@@ -2717,7 +2708,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if (ex->deleted)
                 continue;
 
-            for(unordered_set<WorldObject* >::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++)
+            for(std::unordered_set<WorldObject* >::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++)
             {
                 if (!(*itr) || (*itr) == pVictim || !(*itr)->IsUnit())
                     continue;
@@ -2755,7 +2746,7 @@ void Unit::smsg_AttackStop(Unit* pVictim)
         return;
 
     WorldPacket data(SMSG_ATTACKSTOP, 20);
-    if(m_objectTypeId == TYPEID_PLAYER)
+    if(GetTypeId() == TYPEID_PLAYER)
     {
         data << pVictim->GetGUID();
         data << uint8(0);
@@ -3047,7 +3038,7 @@ void Unit::OnRemoveInRangeObject(WorldObject* pObj)
         Unit* pUnit = castPtr<Unit>(pObj);
         GetAIInterface()->CheckTarget(pUnit);
 
-        if(GetGUIDValue(UNIT_FIELD_CHARM) == pObj->GetGUID())
+        if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
             if(m_currentSpell) m_currentSpell->cancel();
     }
     WorldObject::OnRemoveInRangeObject(pObj);
@@ -3218,7 +3209,7 @@ void Unit::SetStandState(uint8 standstate)
     if( standstate == STANDSTATE_STAND )//standup
         m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_STAND_UP);
 
-    if( m_objectTypeId == TYPEID_PLAYER )
+    if( GetTypeId() == TYPEID_PLAYER )
         castPtr<Player>(this)->GetSession()->OutPacket( SMSG_STANDSTATE_UPDATE, 1, &standstate );
 }
 
@@ -3238,9 +3229,9 @@ void Unit::UpdateSpeed()
     if( m_maxSpeed && m_runSpeed > m_maxSpeed )
             m_runSpeed = m_maxSpeed;
 
-    if(IsVehicle() && TO_VEHICLE(this)->GetControllingUnit())
+    if(IsVehicle() && castPtr<Vehicle>(this)->GetControllingUnit())
     {
-        Unit* pUnit = TO_VEHICLE(this)->GetControllingUnit();
+        Unit* pUnit = castPtr<Vehicle>(this)->GetControllingUnit();
         pUnit->m_runSpeed = m_runSpeed;
         pUnit->m_flySpeed = m_flySpeed;
 
@@ -3377,10 +3368,8 @@ void Unit::Root()
 {
     m_special_state |= UNIT_STATE_ROOT;
 
-    if(m_objectTypeId == TYPEID_PLAYER)
-    {
+    if(GetTypeId() == TYPEID_PLAYER)
         castPtr<Player>(this)->SetMovement(MOVE_ROOT, 1);
-    }
     else
     {
         m_aiInterface->setCanMove(false);
@@ -3392,10 +3381,8 @@ void Unit::UnRoot()
 {
     m_special_state &= ~UNIT_STATE_ROOT;
 
-    if(m_objectTypeId == TYPEID_PLAYER)
-    {
+    if(GetTypeId() == TYPEID_PLAYER)
         castPtr<Player>(this)->SetMovement(MOVE_UNROOT, 5);
-    }
     else
     {
         m_aiInterface->setCanMove(true);
@@ -3415,15 +3402,14 @@ void Unit::RemoveFromWorld(bool free_guid)
     {
         if(IsPlayer())
             GetVehicle()->RemovePassenger(this);
-        else
-            GetVehicle()->DeletePassengerData(this);
+        else GetVehicle()->DeletePassengerData(this);
 
         SetVehicle(NULL);
     }
 
     if(GetInRangePlayersCount())
     {
-        for(unordered_set<Player* >::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+        for(std::unordered_set<Player* >::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
         {
             if((*itr)->GetSelection() == GetGUID())
             {
@@ -3465,7 +3451,7 @@ void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
     MovementInfo *moveInfo = GetMovementInfo();
     bits->WriteBit(moveInfo->movementFlags == 0);
     bits->WriteBit(G3D::fuzzyEq(GetOrientation(), 0.0f));                   // Has Orientation
-    bits->WriteBitString(3, m_wowGuid[7], m_wowGuid[3], m_wowGuid[2]);
+    bits->WriteBitString(3, m_objGuid[7], m_objGuid[3], m_objGuid[2]);
     if (moveInfo->movementFlags) bits->WriteBits(moveInfo->movementFlags, 30);
 
     bits->WriteBit(moveInfo->HasSplineInfo() && IsPlayer());
@@ -3473,11 +3459,11 @@ void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
     bits->WriteBit(moveInfo->HasSplineInfo());
     bits->WriteBit(moveInfo->HasFallData());
     bits->WriteBit(!moveInfo->HasElevatedSpline());
-    bits->WriteBit(m_wowGuid[5]);
-    bits->WriteBit(moveInfo->transGuid.GetOldGuid());
+    bits->WriteBit(m_objGuid[5]);
+    bits->WriteBit(!moveInfo->transGuid.empty());
     bits->WriteBit(false);
 
-    bytes->WriteByteSeq(m_wowGuid[4]);
+    bytes->WriteByteSeq(m_objGuid[4]);
     *bytes << m_backWalkSpeed;   // backwards run speed
     if (moveInfo->HasFallData())
     {
@@ -3496,9 +3482,9 @@ void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
         *bytes << moveInfo->splineElevation;
     if(moveInfo->HasSplineInfo());// Write spline data
     *bytes << float(GetPositionZ());
-    bytes->WriteByteSeq(m_wowGuid[5]);
+    bytes->WriteByteSeq(m_objGuid[5]);
 
-    if (moveInfo->transGuid.GetOldGuid())
+    if (moveInfo->transGuid)
     {
         bits->WriteBit(moveInfo->transGuid[1]);
         bits->WriteBit(moveInfo->transTime2); // Transport time 2
@@ -3528,13 +3514,13 @@ void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
         bytes->WriteByteSeq(moveInfo->transGuid[2]);
         bytes->WriteByteSeq(moveInfo->transGuid[4]);
     }
-    bits->WriteBit(m_wowGuid[4]);
+    bits->WriteBit(m_objGuid[4]);
     // Write spline bits
     if(moveInfo->HasSplineInfo()); // Write spline bits
-    bits->WriteBit(m_wowGuid[6]);
+    bits->WriteBit(m_objGuid[6]);
     if (moveInfo->HasFallData()) bits->WriteBit((moveInfo->movementFlags & MOVEFLAG_FALLING));
-    bits->WriteBit(m_wowGuid[0]);
-    bits->WriteBit(m_wowGuid[1]);
+    bits->WriteBit(m_objGuid[0]);
+    bits->WriteBit(m_objGuid[1]);
     bits->WriteBit(false);
     bits->WriteBit(moveInfo->movementFlags2 == 0);
     if (moveInfo->movementFlags2)
@@ -3542,17 +3528,17 @@ void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
 
     *bytes << float(GetPositionX());
     *bytes << m_pitchRate;       // pitch rate
-    bytes->WriteByteSeq(m_wowGuid[3]);
-    bytes->WriteByteSeq(m_wowGuid[0]);
+    bytes->WriteByteSeq(m_objGuid[3]);
+    bytes->WriteByteSeq(m_objGuid[0]);
     *bytes << m_swimSpeed;       // swim speed
     *bytes << float(GetPositionY());
-    bytes->WriteByteSeq(m_wowGuid[7]);
-    bytes->WriteByteSeq(m_wowGuid[1]);
-    bytes->WriteByteSeq(m_wowGuid[2]);
+    bytes->WriteByteSeq(m_objGuid[7]);
+    bytes->WriteByteSeq(m_objGuid[1]);
+    bytes->WriteByteSeq(m_objGuid[2]);
     *bytes << m_walkSpeed;       // walk speed
     *bytes << uint32(getMSTime());
     *bytes << m_turnRate;        // turn rate
-    bytes->WriteByteSeq(m_wowGuid[6]);
+    bytes->WriteByteSeq(m_objGuid[6]);
     *bytes << m_flySpeed;        // fly speed
     if(!G3D::fuzzyEq(GetOrientation(), 0.0f))
         *bytes << GetOrientation();
@@ -3647,7 +3633,7 @@ void Unit::UpdateVisibility()
     WorldObject* pObj;
     Player* plr;
 
-    if( m_objectTypeId == TYPEID_PLAYER )
+    if( GetTypeId() == TYPEID_PLAYER )
     {
         plr = castPtr<Player>(this);
         for( WorldObject::InRangeSet::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
@@ -3704,7 +3690,7 @@ void Unit::UpdateVisibility()
     }
     else            // For units we can save a lot of work
     {
-        for(unordered_set<Player*  >::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
+        for(std::unordered_set<Player*  >::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
         {
             can_see = (*it2)->CanSee(this);
             is_visible = (*it2)->GetVisibility(this, &itr);
@@ -3792,9 +3778,9 @@ bool Unit::GetSpeedDecrease()
     int32 before=m_speedModifier;
     m_speedModifier -= m_slowdown;
     m_slowdown = 0;
-    map< uint32, int32 >::iterator itr = speedReductionMap.begin();
+    std::map< uint32, int32 >::iterator itr = speedReductionMap.begin();
     for(; itr != speedReductionMap.end(); itr++)
-        m_slowdown = (int32)min( m_slowdown, itr->second );
+        m_slowdown = (int32)std::min( m_slowdown, itr->second );
 
     if(m_slowdown<-100)
         m_slowdown = 100; //do not walk backwards !
@@ -4017,7 +4003,7 @@ float Unit::CalculateDazeCastChance(Unit* target)
 void CombatStatusHandler::ClearMyHealers()
 {
     // this is where we check all our healers
-    HealedSet::iterator i;
+    UnitGuidMap::iterator i;
     Player* pt;
     for(i = m_healers.begin(); i != m_healers.end(); i++)
     {
@@ -4078,7 +4064,7 @@ bool CombatStatusHandler::InternalIsInCombat()
     if(m_healed.size() > 0)
         return true;
 
-    if(m_attackTargets.size() > 0)
+    if(m_attackTimerMap.size() > 0)
         return true;
 
     if(m_attackers.size() > 0)
@@ -4105,7 +4091,7 @@ void CombatStatusHandler::ForceRemoveAttacker(const uint64& guid)
 {
     // called on aura remove, etc.
     //printf("ForceRemoveAttacker "I64FMT"\n", guid);
-    AttackerMap::iterator itr = m_attackers.find(guid);
+    UnitGuidMap::iterator itr = m_attackers.find(guid);
     if(itr == m_attackers.end())
         return;
 
@@ -4117,8 +4103,8 @@ void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
 {
     // called on aura remove, etc.
     //printf("Trying to remove attack target "I64FMT" from "I64FMT"\n", pTarget->GetGUID(), m_Unit->GetGUID());
-    AttackTMap::iterator itr = m_attackTargets.find(pTarget->GetGUID());
-    if(itr == m_attackTargets.end())
+    StorageMap::iterator itr = m_attackTimerMap.find(pTarget->GetGUID());
+    if(itr == m_attackTimerMap.end())
         return;
 
     if(!IsAttacking(pTarget))
@@ -4126,7 +4112,7 @@ void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
         if( pTarget->isDead() )
         {
             // remove naow.
-            m_attackTargets.erase(itr);
+            m_attackTimerMap.erase(itr);
             pTarget->CombatStatus.m_attackers.erase(m_Unit->GetGUID());
             UpdateFlag();
         }
@@ -4153,39 +4139,32 @@ void CombatStatusHandler::OnDamageDealt(Unit* pTarget, uint32 damage)
     if( pTarget->GetDistanceSq(m_Unit) > COMBAT_TIMEOUT_RANGE )
         return;     // don't reset the combat timer when out of range.
 
-    AttackTMap::iterator itr = m_attackTargets.find(pTarget->GetGUID());
+    StorageMap::iterator itr = m_attackTimerMap.find(pTarget->GetGUID());
     uint32 new_t = (uint32)UNIXTIME + COMBAT_TIMEOUT_IN_SECONDS;
-    if(itr != m_attackTargets.end())
+    if(itr != m_attackTimerMap.end())
     {
         if( itr->second < new_t )
             itr->second = new_t;
     }
     else
     {
-        m_attackTargets.insert(make_pair( pTarget->GetGUID(), new_t ));
+        m_attackTimerMap.insert(std::make_pair( pTarget->GetGUID(), new_t ));
         pTarget->CombatStatus.m_attackers.insert(m_Unit->GetGUID());
 
         UpdateFlag();
         pTarget->CombatStatus.UpdateFlag();
     }
 
-    map<uint64,uint32>::iterator ditr = pTarget->CombatStatus.DamageMap.find(m_Unit->GetGUID());
-    if(ditr == pTarget->CombatStatus.DamageMap.end())
-    {
-        pTarget->CombatStatus.DamageMap.insert( make_pair( m_Unit->GetGUID(), damage ));
-        return;
-    }
-    ditr->second += damage;
+    pTarget->CombatStatus.AddDamage(m_Unit->GetGUID(), damage);
 }
 
 void CombatStatusHandler::UpdateTargets()
 {
     uint32 mytm = (uint32)UNIXTIME;
-    AttackTMap::iterator itr = m_attackTargets.begin();
-    AttackTMap::iterator it2 = m_attackTargets.begin();
+    StorageMap::iterator itr = m_attackTimerMap.begin(), it2 = itr;
     Unit* pUnit;
 
-    for(; itr != m_attackTargets.end();)
+    for(; itr != m_attackTimerMap.end();)
     {
         it2 = itr;
         ++itr;
@@ -4193,16 +4172,15 @@ void CombatStatusHandler::UpdateTargets()
         {
             //printf("Timeout for attack target "I64FMT" on "I64FMT" expired.\n", it2->first, m_Unit->GetGUID());
             pUnit = m_Unit->GetMapMgr()->GetUnit(it2->first);
-            if( pUnit == NULL || pUnit->isDead() )
-                m_attackTargets.erase(it2);
+            if( pUnit == NULL || pUnit->isDead() || pUnit->GetDistance2dSq(m_Unit) > 15555.f )
+                m_attackTimerMap.erase(it2);
             else
             {
                 if( !IsAttacking(pUnit) )
                 {
                     pUnit->CombatStatus.m_attackers.erase( m_Unit->GetGUID() );
                     pUnit->CombatStatus.UpdateFlag();
-
-                    m_attackTargets.erase(it2);
+                    m_attackTimerMap.erase(it2);
                 }
             }
         }
@@ -4214,13 +4192,13 @@ void CombatStatusHandler::UpdateTargets()
 Unit* CombatStatusHandler::GetKiller()
 {
     // No killer
-    if(DamageMap.size() == 0)
+    if(m_damageMap.size() == 0)
         return NULL;
 
-    map<uint64,uint32>::iterator itr = DamageMap.begin();
-    uint64 killer_guid = 0;
+    StorageMap::iterator itr = m_damageMap.begin();
+    WoWGuid killer_guid;
     uint32 mDamage = 0;
-    for(; itr != DamageMap.end(); itr++)
+    for(; itr != m_damageMap.end(); itr++)
     {
         if(itr->second > mDamage)
         {
@@ -4229,30 +4207,28 @@ Unit* CombatStatusHandler::GetKiller()
         }
     }
 
-    if( killer_guid == 0 )
+    if( killer_guid.empty() )
         return NULL;
 
     return (m_Unit->IsInWorld()) ? m_Unit->GetMapMgr()->GetUnit(killer_guid) : NULL;
 }
 
-void CombatStatusHandler::Vanish(uint32 guidLow)
+void CombatStatusHandler::Vanish(WoWGuid guid)
 {
-    Unit* pt = m_Unit->GetMapMgr()->GetUnit(guidLow);
-    if(pt)
+    if(Unit* pt = m_Unit->GetMapMgr()->GetUnit(guid))
     {
-        pt->CombatStatus.m_attackTargets.erase(m_Unit->GetGUID());
-        pt->CombatStatus.m_attackers.erase(m_Unit->GetGUID());
+        pt->CombatStatus.EraseAttacker(guid);
         pt->CombatStatus.UpdateFlag();
     }
-    DamageMap.erase(guidLow);
+    m_damageMap.erase(guid);
 }
 
 void CombatStatusHandler::ClearAttackers()
 {
     // this is a FORCED function, only use when the reference will be destroyed.
-    AttackTMap::iterator itr = m_attackTargets.begin();
+    StorageMap::iterator itr = m_attackTimerMap.begin();
     Unit* pt;
-    for(; itr != m_attackTargets.end(); itr++)
+    for(; itr != m_attackTimerMap.end(); itr++)
     {
         pt = m_Unit->GetMapMgr()->GetUnit(itr->first);
         if(pt)
@@ -4262,25 +4238,25 @@ void CombatStatusHandler::ClearAttackers()
         }
     }
 
-    AttackerMap::iterator it2;
+    UnitGuidMap::iterator it2;
     for(it2 = m_attackers.begin(); it2 != m_attackers.end(); it2++)
     {
         pt = m_Unit->GetMapMgr()->GetUnit(*it2);
         if(pt)
         {
-            pt->CombatStatus.m_attackTargets.erase(m_Unit->GetGUID());
+            pt->CombatStatus.m_attackTimerMap.erase(m_Unit->GetGUID());
             pt->CombatStatus.UpdateFlag();
         }
     }
 
     m_attackers.clear();
-    m_attackTargets.clear();
+    m_attackTimerMap.clear();
     UpdateFlag();
 }
 
 void CombatStatusHandler::ClearHealers()
 {
-    HealedSet::iterator itr = m_healed.begin();
+    UnitGuidMap::iterator itr = m_healed.begin();
     Player* pt;
     for(; itr != m_healed.end(); itr++)
     {
@@ -4311,7 +4287,7 @@ void CombatStatusHandler::OnRemoveFromWorld()
 {
     ClearAttackers();
     ClearHealers();
-    DamageMap.clear();
+    m_damageMap.clear();
 }
 
 uint32 Unit::Heal(Unit* target, uint32 SpellId, uint32 amount, bool silent)
@@ -4326,9 +4302,7 @@ uint32 Unit::Heal(Unit* target, uint32 SpellId, uint32 amount, bool silent)
     {
         target->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
         overheal = th - mh;
-    }
-    else
-        target->SetUInt32Value(UNIT_FIELD_HEALTH, th);
+    } else target->SetUInt32Value(UNIT_FIELD_HEALTH, th);
 
     if(!silent)
         Spell::SendHealSpellOnPlayer(this, target, amount, false, overheal, SpellId);
@@ -4356,11 +4330,11 @@ void Unit::EventCancelSpell(Spell* ptr)
 void Unit::setAttackTimer(int32 time, bool offhand)
 {
     if(!time)
-        time = offhand ? m_uint32Values[UNIT_FIELD_BASEATTACKTIME + 1] : m_uint32Values[UNIT_FIELD_BASEATTACKTIME];
+        time = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + (offhand ? 1 : 0));
 
     time = std::max(1000, float2int32(float(time) * GetFloatValue(UNIT_MOD_CAST_SPEED)));
     if(time > 300000)       // just in case.. shouldn't happen though
-        time = offhand ? m_uint32Values[UNIT_FIELD_BASEATTACKTIME+1] : m_uint32Values[UNIT_FIELD_BASEATTACKTIME];
+        time = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + (offhand ? 1 : 0));
 
     if(offhand)
         m_attackTimer_1 = getMSTime() + time;
@@ -4390,10 +4364,10 @@ void Unit::EventModelChange()
 
 void Creature::UpdateLootAnimation(Player* Looter)
 {
-    if( m_loot.HasLoot(Looter) )
+    if( GetLoot()->HasLoot(Looter) )
     {
         // update players with lootable flags
-        for(unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin(); itr != m_inRangePlayers.end(); itr++)
+        for(std::unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin(); itr != m_inRangePlayers.end(); itr++)
         {
             Player* plr = *itr;
             if( ( plr->GetLowGUID() == m_taggingPlayer ) ||
@@ -4402,29 +4376,20 @@ void Creature::UpdateLootAnimation(Player* Looter)
                 // only have to do the sparkly animation
                 // TODO: do this by loot type for groups
                 // switch(m_lootMethod)
-                BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, m_uint32Values[UNIT_DYNAMIC_FLAGS] | U_DYN_FLAG_LOOTABLE);
+                BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_LOOTABLE);
             }
         }
     }
     else
     {
         // we are still alive, probably updating tapped state
-        for(unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin(); itr != m_inRangePlayers.end(); itr++)
+        for(std::unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin(); itr != m_inRangePlayers.end(); itr++)
         {
-            if( !m_taggingPlayer )
-            {
-                BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, m_uint32Values[UNIT_DYNAMIC_FLAGS]);
-            }
-            else if( ( (*itr)->GetLowGUID() == m_taggingPlayer ) ||
-                ( (*itr)->GetGroup() != NULL && (*itr)->GetGroup()->GetID() == m_taggingGroup ) )
-            {
-                // tagger.
-                BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, m_uint32Values[UNIT_DYNAMIC_FLAGS] | U_DYN_FLAG_TAPPED_BY_PLAYER);
-            }
-            else
-            {
-                BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, m_uint32Values[UNIT_DYNAMIC_FLAGS] | U_DYN_FLAG_TAGGED_BY_OTHER);
-            }
+            if( m_taggingPlayer == NULL )
+                BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS));
+            else if( ( (*itr)->GetLowGUID() == m_taggingPlayer ) || ( (*itr)->GetGroup() != NULL && (*itr)->GetGroup()->GetID() == m_taggingGroup ) )
+                BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_TAPPED_BY_PLAYER); // tagger.
+            else BuildFieldUpdatePacket(*itr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_TAGGED_BY_OTHER);
         }
     }
 }
@@ -4597,10 +4562,8 @@ void Unit::AddExtraStrikeTarget(SpellEntry *spell_info, uint8 effIndex, uint32 c
 
 void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf)
 {
-    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
-    itr = m_onAuraRemoveSpells.find(NameHash);
-
-    if(itr != m_onAuraRemoveSpells.end())
+    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
     {
         itr->second->spell = procSpell;
         itr->second->chance = procChance;
@@ -4622,31 +4585,23 @@ void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procCh
 
 void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
 {
-    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
-    itr = m_onAuraRemoveSpells.find(NameHash);
-
-    if(itr != m_onAuraRemoveSpells.end())
+    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
         itr->second->deleted = true;
 }
 
 // Aura by NameHash has been removed
 void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
 {
-    RONIN_UNORDERED_MAP<uint32, onAuraRemove*>::iterator itr;
-    itr = m_onAuraRemoveSpells.find(NameHash);
-
-    if(itr != m_onAuraRemoveSpells.end())
+    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
     {
-        bool apply;
-
+        bool apply = true;
         if (itr->second->deleted == true)
             return;
 
         if (itr->second->chance != 100)
             apply = RandomUInt(100) < itr->second->chance;
-        else
-            apply = true;
-
         if (apply)
         {
             if (itr->second->self)
@@ -4948,10 +4903,10 @@ void Unit::knockback(int32 basepoint, uint32 miscvalue, bool disengage )
     }
 }
 
-void Unit::Teleport(float x, float y, float z, float o, int32 phasemask)
+void Unit::Teleport(float x, float y, float z, float o)
 {
     if(IsPlayer())
-        castPtr<Player>(this)->SafeTeleport(GetMapId(), GetInstanceID(), x, y, z, o, phasemask);
+        castPtr<Player>(this)->SafeTeleport(GetMapId(), GetInstanceID(), x, y, z, o);
     else
     {
         WorldPacket data(SMSG_MONSTER_MOVE, 50);
@@ -4968,24 +4923,17 @@ void Unit::Teleport(float x, float y, float z, float o, int32 phasemask)
         data << x << y << z;
         SendMessageToSet(&data, true);
         SetPosition( x, y, z, o );
-        if(phasemask != GetPhaseMask())
-            SetPhaseMask(phasemask);
     }
 }
 
 void Unit::SetRedirectThreat(Unit * target, float amount, uint32 Duration)
 {
-    mThreatRTarget = target;
-    mThreatRAmount = amount;
-    if(Duration)
-        sEventMgr.AddEvent( this, &Unit::EventResetRedirectThreat, EVENT_RESET_REDIRECT_THREAT, Duration, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    printf("TODO: ThreatRedirect\n");
 }
 
 void Unit::EventResetRedirectThreat()
 {
-    mThreatRTarget = NULL;
-    mThreatRAmount = 0.0f;
-    sEventMgr.RemoveEvents(this,EVENT_RESET_REDIRECT_THREAT);
+    printf("TODO: ThreatRedirect\n");
 }
 
 void Unit::SetSpeed(uint8 SpeedType, float value)
@@ -5102,16 +5050,16 @@ uint32 Unit::GetCreatureType()
 void Unit::RemovePassenger(Unit* pPassenger)
 {
     if(IsVehicle())
-        TO_VEHICLE(this)->RemovePassenger(pPassenger);
-    if(IsPlayer())
+        castPtr<Vehicle>(this)->RemovePassenger(pPassenger);
+    else if(IsPlayer())
         castPtr<Player>(this)->RemovePassenger(pPassenger);
 }
 
 void Unit::ChangeSeats(Unit* pPassenger, uint8 seatid)
 {
     if(IsVehicle())
-        TO_VEHICLE(this)->ChangeSeats(pPassenger, seatid);
-    if(IsPlayer())
+        castPtr<Vehicle>(this)->ChangeSeats(pPassenger, seatid);
+    else if(IsPlayer())
         castPtr<Player>(this)->ChangeSeats(pPassenger, seatid);
 }
 
@@ -5179,7 +5127,7 @@ bool Unit::CanEnterVehicle(Player * requester)
 
     if(IsVehicle())
     {
-        Vehicle *v = TO_VEHICLE(this);
+        Vehicle *v = castPtr<Vehicle>(this);
         if(!v->GetMaxPassengerCount())
             return false;
 
@@ -5220,8 +5168,15 @@ bool Unit::CanEnterVehicle(Player * requester)
 bool Unit::IsSitting()
 {
     uint8 s = getStandState();
-    return
-    s == STANDSTATE_SIT_CHAIR || s == STANDSTATE_SIT_LOW_CHAIR  ||
-    s == STANDSTATE_SIT_MEDIUM_CHAIR || s == STANDSTATE_SIT_HIGH_CHAIR ||
-    s == STANDSTATE_SIT;
+    if(s == STANDSTATE_SIT)
+        return true;
+    else if(s == STANDSTATE_SIT_CHAIR)
+        return true;
+    else if(s == STANDSTATE_SIT_LOW_CHAIR)
+        return true;
+    else if(s == STANDSTATE_SIT_MEDIUM_CHAIR)
+        return true;
+    else if(s == STANDSTATE_SIT_HIGH_CHAIR)
+        return true;
+    return false;
 }

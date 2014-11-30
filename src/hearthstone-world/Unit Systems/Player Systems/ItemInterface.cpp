@@ -21,7 +21,7 @@ ItemInterface::~ItemInterface()
     {
         if( m_pItems[i] != NULL && m_pItems[i]->GetOwner() == m_pOwner )
         {
-            m_pItems[i]->DeleteMe();
+            m_pItems[i]->Destruct();
             m_pItems[i] = NULL;
         }
     }
@@ -107,37 +107,28 @@ void ItemInterface::m_DestroyForPlayer(Player* plr)
 Item* ItemInterface::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot)
 {
     ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(ItemId);
-    if(!pProto) { return NULL; }
+    if(pProto == NULL)
+        return NULL;
 
     if(pProto->InventoryType == INVTYPE_BAG)
     {
         Container* pItem(new Container(HIGHGUID_TYPE_CONTAINER,objmgr.GenerateLowGuid(HIGHGUID_TYPE_CONTAINER)));
         pItem->Create( ItemId, m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
-        {
             return castPtr<Item>(pItem);
-        }
-        else
-        {
-            pItem->DeleteMe();
-            pItem = NULL;
-            return pItem;
-        }
+
+        pItem->Destruct();
+        return NULL;
     }
     else
     {
         Item* pItem(new Item(HIGHGUID_TYPE_ITEM,objmgr.GenerateLowGuid(HIGHGUID_TYPE_ITEM)));
         pItem->Create( ItemId, m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
-        {
             return pItem;
-        }
-        else
-        {
-            pItem->DeleteMe();
-            pItem = NULL;
-            return pItem;
-        }
+
+        pItem->Destruct();
+        return NULL;
     }
 }
 
@@ -176,9 +167,7 @@ AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 s
         {
             slot = result.Slot;
             ContainerSlot = result.ContainerSlot;
-        }
-        else
-            return ADD_ITEM_RESULT_ERROR;
+        } else return ADD_ITEM_RESULT_ERROR;
     }
 
     item->m_isDirty = true;
@@ -236,7 +225,7 @@ AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 s
                 item->Bind(ITEM_BIND_ON_PICKUP);
                 if( m_pOwner->IsInWorld() && !item->IsInWorld())
                 {
-                    item->PushToWorld(m_pOwner->GetMapMgr());
+                    item->SetInWorld();
                     ByteBuffer buf(2500);
                     uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner );
                     m_pOwner->PushUpdateBlock(&buf, count);
@@ -2389,17 +2378,15 @@ void ItemInterface::AddBuyBackItem(Item* it,uint32 price)
              if(m_pBuyBack[0]->IsContainer())
              {
                 if (castPtr<Container>(m_pBuyBack[0])->IsInWorld())
-                    castPtr<Container>(m_pBuyBack[0])->RemoveFromWorld();
-
-                castPtr<Container>(m_pBuyBack[0])->Destruct();
+                    castPtr<Container>(m_pBuyBack[0])->RemoveFromWorld(true);
+                else castPtr<Container>(m_pBuyBack[0])->Destruct();
                 m_pBuyBack[0] = NULL;
              }
              else
              {
                 if (m_pBuyBack[0]->IsInWorld())
-                    m_pBuyBack[0]->RemoveFromWorld();
-
-                m_pBuyBack[0]->Destruct();
+                    m_pBuyBack[0]->RemoveFromWorld(true);
+                else m_pBuyBack[0]->Destruct();
                 m_pBuyBack[0] = NULL;
              }
         }
@@ -2762,7 +2749,7 @@ void ItemInterface::mLoadItemsFromDatabase(QueryResult * result)
                     item->m_isDirty = false;
                 else
                 {
-                    item->DeleteMe();
+                    item->Destruct();
                     item = NULL;
                 }
             }
@@ -3174,9 +3161,9 @@ bool ItemInterface::AddItemById( uint32 itemid, uint32 count, int32 randomprop, 
         }
         else
         {
-            freeslots = false;
             chr->GetSession()->SendNotification("No free slots were found in your inventory!");
-            item->DeleteMe();
+            freeslots = false;
+            item->Destruct();
             item = NULL;
             if(creator != NULL && creator != chr) // If someone else is creating the item, its mainly for GM command though.
                 creator->GetSession()->SendNotification("No free slots were found in target's inventory!");
@@ -3245,12 +3232,12 @@ void ItemInterface::SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot,
             {
                 if (!SafeAddItem(SrcItem, SrcInvSlot, SrcSlot))
                 {
-                    SrcItem->DeleteMe();
+                    SrcItem->Destruct();
                     SrcItem = NULL;
                 }
                 if (DstItem && !SafeAddItem(DstItem, DstInvSlot, DstSlot))
                 {
-                    DstItem->DeleteMe();
+                    DstItem->Destruct();
                     DstItem = NULL;
                 }
             }
@@ -3263,12 +3250,12 @@ void ItemInterface::SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot,
             {
                 if (SrcItem && !SafeAddItem(SrcItem, SrcInvSlot, SrcSlot))
                 {
-                    SrcItem->DeleteMe();
+                    SrcItem->Destruct();
                     SrcItem = NULL;
                 }
                 if (!SafeAddItem(DstItem, DstInvSlot, DstSlot))
                 {
-                    DstItem->DeleteMe();
+                    DstItem->Destruct();
                     DstItem = NULL;
                 }
             }

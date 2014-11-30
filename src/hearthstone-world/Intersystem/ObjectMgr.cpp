@@ -126,7 +126,7 @@ ObjectMgr::~ObjectMgr()
     }
 
     sLog.Notice("ObjectMgr", "Deleting Player Information...");
-    for(RONIN_UNORDERED_MAP<uint32, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
+    for(RONIN_UNORDERED_MAP<WoWGuid, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
     {
         itr->second->m_Group = NULL;
         free(itr->second->name);
@@ -174,7 +174,7 @@ void ObjectMgr::LoadAchievements()
                 // We need to make a new set, and insert this.
                 AchievementCriteriaSet * acs = new AchievementCriteriaSet;
                 acs->insert( ace );
-                m_achievementCriteriaMap.insert( make_pair( ace->requiredType, acs ) );
+                m_achievementCriteriaMap.insert( std::make_pair( ace->requiredType, acs ) );
             }
             else
             {
@@ -254,8 +254,8 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
         pl->m_Group = NULL;
     }
 
-    string pnam = string(pl->name);
-    HEARTHSTONE_TOLOWER(pnam);
+    std::string pnam = std::string(pl->name);
+    RONIN_UTIL::TOLOWER(pnam);
     i2 = m_playersInfoByName.find(pnam);
     if( i2 != m_playersInfoByName.end() && i2->second == pl )
         m_playersInfoByName.erase( i2 );
@@ -269,7 +269,7 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
 
 PlayerInfo *ObjectMgr::GetPlayerInfo( WoWGuid guid )
 {
-    RONIN_UNORDERED_MAP<uint32,PlayerInfo*>::iterator i;
+    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*>::iterator i;
     PlayerInfo * rv;
     playernamelock.AcquireReadLock();
     i=m_playersinfo.find(guid);
@@ -284,8 +284,8 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 {
     playernamelock.AcquireWriteLock();
     m_playersinfo[pn->guid] =  pn;
-    string pnam = string(pn->name);
-    HEARTHSTONE_TOLOWER(pnam);
+    std::string pnam = std::string(pn->name);
+    RONIN_UTIL::TOLOWER(pnam);
     m_playersInfoByName[pnam] = pn;
     playernamelock.ReleaseWriteLock();
 }
@@ -293,14 +293,14 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname)
 {
     playernamelock.AcquireWriteLock();
-    string oldn = string(oldname);
-    HEARTHSTONE_TOLOWER(oldn);
+    std::string oldn = std::string(oldname);
+    RONIN_UTIL::TOLOWER(oldn);
 
     PlayerNameStringIndexMap::iterator itr = m_playersInfoByName.find( oldn );
     if( itr != m_playersInfoByName.end() && itr->second == pn )
     {
-        string newn = string(newname);
-        HEARTHSTONE_TOLOWER(newn);
+        std::string newn = std::string(newname);
+        RONIN_UTIL::TOLOWER(newn);
         m_playersInfoByName.erase( itr );
         m_playersInfoByName[newn] = pn;
     }
@@ -369,14 +369,14 @@ void ObjectMgr::LoadPlayersInfo()
                 snprintf(temp, 300, "%s__%X__", pn->name, pn->guid);
                 sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->name,temp,pn->guid);
                 CharacterDatabase.WaitExecute("UPDATE characters SET name = '%s', forced_rename_pending = 1 WHERE guid = %u",
-                    CharacterDatabase.EscapeString(string(temp)).c_str(), pn->guid);
+                    CharacterDatabase.EscapeString(std::string(temp)).c_str(), pn->guid);
 
                 free(pn->name);
                 pn->name = strdup(temp);
             }
 
-            string lpn=string(pn->name);
-            HEARTHSTONE_TOLOWER(lpn);
+            std::string lpn=std::string(pn->name);
+            RONIN_UTIL::TOLOWER(lpn);
             m_playersInfoByName[lpn] = pn;
 
             //this is startup -> no need in lock -> don't use addplayerinfo
@@ -393,8 +393,8 @@ void ObjectMgr::LoadPlayersInfo()
 
 PlayerInfo* ObjectMgr::GetPlayerInfoByName(const char * name)
 {
-    string lpn = string(name);
-    HEARTHSTONE_TOLOWER(lpn);
+    std::string lpn = std::string(name);
+    RONIN_UTIL::TOLOWER(lpn);
     PlayerNameStringIndexMap::iterator i;
     PlayerInfo *rv = NULL;
     playernamelock.AcquireReadLock();
@@ -585,7 +585,7 @@ void ObjectMgr::LoadRecallPoints()
             Field *fields = result->Fetch();
             RecallLocation *loc = new RecallLocation();
             loc->lowercase_name = loc->RealName = std::string(fields[0].GetString());
-            HEARTHSTONE_TOLOWER(loc->lowercase_name);
+            RONIN_UTIL::TOLOWER(loc->lowercase_name);
             loc->mapId = fields[1].GetUInt32();
             loc->x = fields[2].GetFloat();
             loc->y = fields[3].GetFloat();
@@ -791,7 +791,7 @@ Player* ObjectMgr::GetPlayer(const char* name, bool caseSensitive)
     if(!caseSensitive)
     {
         std::string strName = name;
-        HEARTHSTONE_TOLOWER(strName);
+        RONIN_UTIL::TOLOWER(strName);
         for (itr = _players.begin(); itr != _players.end();)
         {
             if(!stricmp(itr->second->GetNameString()->c_str(), strName.c_str()))
@@ -899,7 +899,7 @@ void ObjectMgr::LoadVendors()
             uint32 slot = 1;
             if(items->size())
                 slot = items->rbegin()->first+1;
-            items->insert(make_pair(slot, itm) );
+            items->insert(std::make_pair(slot, itm) );
         }while( result->NextRow() );
         delete result;
     }
@@ -1092,7 +1092,7 @@ void ObjectMgr::LoadCorpses(MapMgr* mgr)
     QueryResult *result = CharacterDatabase.Query("SELECT * FROM corpses WHERE mapId = %u", mgr->GetMapId());
     if(result)
     {
-        Corpse* pCorpse = NULLCORPSE;
+        Corpse* pCorpse = NULL;
         do
         {
             Field *fields = result->Fetch();
@@ -1169,12 +1169,12 @@ void ObjectMgr::CorpseCollectorUnload(bool saveOnly)
     {
         Corpse* c = itr->second;
         ++itr;
-        if(c != NULLCORPSE)
+        if(c != NULL)
         {
             if(c->IsInWorld())
                 c->RemoveFromWorld(false);
             c->Destruct();
-            c = NULLCORPSE;
+            c = NULL;
         }
     }
     m_corpses.clear();
@@ -1287,8 +1287,8 @@ void ObjectMgr::LoadTrainers()
     uint32 entry = NULL;
     uint32 CastSpellID = NULL;
     uint32 LearnSpellID = NULL;
-    hash_map< uint32, uint32 > TSCounterMap;
-    hash_map< uint32, hash_map< uint32, TrainerSpell > > TSMap;
+    RONIN_UNORDERED_MAP< uint32, uint32 > TSCounterMap;
+    RONIN_UNORDERED_MAP< uint32, RONIN_UNORDERED_MAP< uint32, TrainerSpell > > TSMap;
     do
     {
         bool abrt = false;
@@ -1416,7 +1416,7 @@ void ObjectMgr::LoadTrainers()
         if(TSMap[entry].size())
         {
             tr->SpellCount = (uint32)TSMap[entry].size();
-            hash_map< uint32, TrainerSpell >::iterator itr;
+            RONIN_UNORDERED_MAP< uint32, TrainerSpell >::iterator itr;
             for(itr = TSMap[entry].begin(); itr != TSMap[entry].end(); itr++)
                 tr->Spells.push_back(itr->second);
         }
@@ -1542,7 +1542,7 @@ void ObjectMgr::LoadCreatureWaypoints()
         wp->orientation = fields[5].GetFloat();
         wp->waittime = fields[6].GetUInt32();
         wp->flags = fields[7].GetUInt32();
-        wp->forwardInfo = new ConditionalData(fields[8].GetBool(), fields[9].GetUInt32(), fields[12].GetUInt32(), fields[14].GetUInt32(), fields[16].GetUInt32(), fields[18].GetString());
+        wp->forwardInfo = new WayPoint::ConditionalData(fields[8].GetBool(), fields[9].GetUInt32(), fields[12].GetUInt32(), fields[14].GetUInt32(), fields[16].GetUInt32(), fields[18].GetString());
         if(wp->forwardInfo->EmoteID == 0
             && wp->forwardInfo->SkinID == 0
             && wp->forwardInfo->StandState == 0
@@ -1553,7 +1553,7 @@ void ObjectMgr::LoadCreatureWaypoints()
             wp->forwardInfo = NULL;
         }
 
-        wp->backwardInfo = new ConditionalData(fields[10].GetBool(), fields[11].GetUInt32(), fields[13].GetUInt32(), fields[15].GetUInt32(), fields[17].GetUInt32(), fields[19].GetString());
+        wp->backwardInfo = new WayPoint::ConditionalData(fields[10].GetBool(), fields[11].GetUInt32(), fields[13].GetUInt32(), fields[15].GetUInt32(), fields[17].GetUInt32(), fields[19].GetString());
         if(wp->backwardInfo->EmoteID == 0
             && wp->backwardInfo->SkinID == 0
             && wp->backwardInfo->StandState == 0
@@ -1673,7 +1673,7 @@ Corpse* ObjectMgr::GetCorpse(uint32 corpseguid)
     Corpse* rv;
     _corpseslock.Acquire();
     CorpseMap::const_iterator itr = m_corpses.find(corpseguid);
-    rv = (itr != m_corpses.end()) ? itr->second : NULLCORPSE;
+    rv = (itr != m_corpses.end()) ? itr->second : NULL;
     _corpseslock.Release();
     return rv;
 }
@@ -1683,7 +1683,7 @@ Transporter* ObjectMgr::GetTransporter(uint32 guid)
     Transporter* rv;
     _TransportLock.Acquire();
     RONIN_UNORDERED_MAP<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
-    rv = (itr != mTransports.end()) ? itr->second : NULLTRANSPORT;
+    rv = (itr != mTransports.end()) ? itr->second : NULL;
     _TransportLock.Release();
     return rv;
 }
@@ -1697,7 +1697,7 @@ void ObjectMgr::AddTransport(Transporter* pTransporter)
 
 Transporter* ObjectMgr::GetTransporterByEntry(uint32 entry)
 {
-    Transporter* rv = NULLTRANSPORT;
+    Transporter* rv = NULL;
     _TransportLock.Acquire();
     RONIN_UNORDERED_MAP<uint32, Transporter* >::iterator itr = mTransports.begin();
     for(; itr != mTransports.end(); itr++)
@@ -1828,7 +1828,7 @@ void ObjectMgr::LoadMonsterSay()
         memcpy(ms->Texts, texts, sizeof(char*) * textcount);
         ms->TextCount = textcount;
 
-        mMonsterSays[Event].insert( make_pair( Entry, ms ) );
+        mMonsterSays[Event].insert( std::make_pair( Entry, ms ) );
 
     } while(result->NextRow());
     sLog.Notice("ObjectMgr", "%u monster say events loaded.", result->GetRowCount());
@@ -1887,7 +1887,7 @@ void ObjectMgr::LoadInstanceReputationModifiers()
             InstanceReputationModifier * m = new InstanceReputationModifier;
             m->mapid = mod.mapid;
             m->mods.push_back(mod);
-            m_reputation_instance.insert( make_pair( m->mapid, m ) );
+            m_reputation_instance.insert( std::make_pair( m->mapid, m ) );
         }
         else
             itr->second->mods.push_back(mod);
@@ -1919,7 +1919,7 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
     int32 replimit;
     int32 value;
 
-    for(vector<InstanceReputationMod>::iterator i = itr->second->mods.begin(); i !=  itr->second->mods.end(); i++)
+    for(std::vector<InstanceReputationMod>::iterator i = itr->second->mods.begin(); i !=  itr->second->mods.end(); i++)
     {
         if(!(*i).faction[team])
             continue;
@@ -1991,7 +1991,7 @@ RecallLocation *ObjectMgr::GetRecallLocByName(std::string name)
 
     _recallLock.Acquire();
     RecallLocation *result = NULL;
-    std::string low_name = HEARTHSTONE_TOLOWER_RETURN(name);
+    std::string low_name = RONIN_UTIL::TOLOWER_RETURN(name);
     for(RecallSet::iterator itr = m_recallLocations.begin(); itr != m_recallLocations.end(); itr++)
     {
         if((low_name.length() == (*itr)->lowercase_name.length()) &&
@@ -2001,7 +2001,7 @@ RecallLocation *ObjectMgr::GetRecallLocByName(std::string name)
             return *itr; // 100% direct match
         }
 
-        if((*itr)->lowercase_name.find(low_name) != std::wstring::npos)
+        if((*itr)->lowercase_name.find(low_name) != std::string::npos)
             result = *itr;
     }
     _recallLock.Release();
@@ -2011,7 +2011,7 @@ RecallLocation *ObjectMgr::GetRecallLocByName(std::string name)
 bool ObjectMgr::AddRecallLocation(std::string name, uint32 mapId, float x, float y, float z, float o)
 {
     _recallLock.Acquire();
-    std::string low_name = HEARTHSTONE_TOLOWER_RETURN(name);
+    std::string low_name = RONIN_UTIL::TOLOWER_RETURN(name);
     for(RecallSet::iterator itr = m_recallLocations.begin(); itr != m_recallLocations.end(); itr++)
     {
         if((low_name.length() == (*itr)->lowercase_name.length()) &&
@@ -2044,9 +2044,9 @@ bool ObjectMgr::FillRecallNames(std::string match, std::set<RecallLocation*> &ou
     uint32 count = 0;
     _recallLock.Acquire();
     RecallLocation *result = NULL;
-    std::string low_match = HEARTHSTONE_TOLOWER_RETURN(match);
+    std::string low_match = RONIN_UTIL::TOLOWER_RETURN(match);
     for(RecallSet::iterator itr = m_recallLocations.begin(); itr != m_recallLocations.end(); itr++)
-        if((*itr)->lowercase_name.find(low_match) != std::wstring::npos)
+        if((*itr)->lowercase_name.find(low_match) != std::string::npos)
             output.insert(*itr), count++;
     _recallLock.Release();
     return count > 0;
@@ -2059,7 +2059,7 @@ bool ObjectMgr::DeleteRecallLocation(std::string name)
 
     _recallLock.Acquire();
     RecallLocation *result = NULL;
-    std::string low_name = HEARTHSTONE_TOLOWER_RETURN(name);
+    std::string low_name = RONIN_UTIL::TOLOWER_RETURN(name);
     for(RecallSet::iterator itr = m_recallLocations.begin(); itr != m_recallLocations.end(); itr++)
     {
         if((low_name.length() == (*itr)->lowercase_name.length()) &&
@@ -2127,7 +2127,7 @@ ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
     return (itr == m_arenaTeams.end()) ? NULL : itr->second;
 }
 
-ArenaTeam * ObjectMgr::GetArenaTeamByName(string & name, uint32 Type)
+ArenaTeam * ObjectMgr::GetArenaTeamByName(std::string & name, uint32 Type)
 {
     m_arenaTeamLock.Acquire();
     for(RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
@@ -2154,7 +2154,7 @@ void ObjectMgr::AddArenaTeam(ArenaTeam * team)
 {
     m_arenaTeamLock.Acquire();
     m_arenaTeams[team->m_id] = team;
-    m_arenaTeamMap[team->m_type].insert(make_pair(team->m_id,team));
+    m_arenaTeamMap[team->m_type].insert(std::make_pair(team->m_id,team));
     m_arenaTeamLock.Release();
 }
 
@@ -2176,14 +2176,14 @@ void ObjectMgr::UpdateArenaTeamRankings()
     m_arenaTeamLock.Acquire();
     for(uint32 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
     {
-        vector<ArenaTeam*> ranking;
+        std::vector<ArenaTeam*> ranking;
 
         for(RONIN_UNORDERED_MAP<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
             ranking.push_back(itr->second);
 
         std::sort(ranking.begin(), ranking.end(), ArenaSorter());
         uint32 rank = 1;
-        for(vector<ArenaTeam*>::iterator itr = ranking.begin(); itr != ranking.end(); itr++)
+        for(std::vector<ArenaTeam*>::iterator itr = ranking.begin(); itr != ranking.end(); itr++)
         {
             if((*itr)->m_stat_ranking != rank)
             {

@@ -309,7 +309,7 @@ void PreStartQueries()
         do
         {
             Field * f = result->Fetch();
-            string e_query =  f[0].GetString();
+            std::string e_query =  f[0].GetString();
             WorldDatabase.Execute(e_query.c_str());
         }while(result->NextRow());
 
@@ -324,7 +324,7 @@ void PreStartQueries()
         do
         {
             Field * f = result->Fetch();
-            string e_query =  f[0].GetString();
+            std::string e_query =  f[0].GetString();
             CharacterDatabase.Execute(e_query.c_str());
         }while(result->NextRow());
 
@@ -957,7 +957,7 @@ void World::SaveAllPlayers()
 
     sLog.outString("Saving all players to database...");
     uint32 count = 0;
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
         // Servers started and obviously runing. lets save all players.
     uint32 mt;
     objmgr._playerslock.AcquireReadLock();
@@ -1060,7 +1060,7 @@ void World::GetStats(uint32 * GMCount, float * AverageLatency)
     int gm = 0;
     int count = 0;
     int avg = 0;
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
@@ -1090,7 +1090,7 @@ Task * TaskList::GetTask()
     queueLock.Acquire();
 
     Task* t = 0;
-    for(set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
+    for(std::set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
     {
         if(!(*itr)->in_progress)
         {
@@ -1151,7 +1151,7 @@ void TaskList::wait()
     {
         queueLock.Acquire();
         has_tasks = false;
-        for(set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
+        for(std::set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
         {
             if(!(*itr)->completed)
             {
@@ -1385,10 +1385,10 @@ void World::LoadNameGenData()
     for(uint32 i = 0; i < dbc.getRecordCount(); i++)
     {
         NameGenData d;
-        if(dbc.getRecord(i).getString(1)==NULL)
+        if(dbc.getRecord(i).getString(1) == NULL)
             continue;
 
-        d.name = string(dbc.getRecord(i).getString(1));
+        d.name = std::string(dbc.getRecord(i).getString(1));
         d.type = dbc.getRecord(i).getUInt(3);
         _namegendata[d.type].push_back(d);
     }
@@ -1492,18 +1492,18 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
 
     // Our local stuff..
     Field * f;
-    map<uint32, vector<insert_playeritem> > itemMap;
-    map<uint32, vector<insert_playeritem> >::iterator itr;
-    map<uint32, vector<insert_playerskill> > skillMap;
-    map<uint32, vector<insert_playerskill> >::iterator itr1;
-    map<uint32, vector<insert_playerquest> > questMap;
-    map<uint32, vector<insert_playerquest> >::iterator itr2;
-    map<uint32, vector<insert_playerglyph> > glyphMap;
-    map<uint32, vector<insert_playerglyph> >::iterator itr3;
-    map<uint32, vector<insert_playertalent> > talentMap;
-    map<uint32, vector<insert_playertalent> >::iterator itr4;
-    map<uint32, vector<insert_playerspell> > spellMap;
-    map<uint32, vector<insert_playerspell> >::iterator itr5;
+    std::map<uint32, std::vector<insert_playeritem> > itemMap;
+    std::map<uint32, std::vector<insert_playeritem> >::iterator itr;
+    std::map<uint32, std::vector<insert_playerskill> > skillMap;
+    std::map<uint32, std::vector<insert_playerskill> >::iterator itr1;
+    std::map<uint32, std::vector<insert_playerquest> > questMap;
+    std::map<uint32, std::vector<insert_playerquest> >::iterator itr2;
+    std::map<uint32, std::vector<insert_playerglyph> > glyphMap;
+    std::map<uint32, std::vector<insert_playerglyph> >::iterator itr3;
+    std::map<uint32, std::vector<insert_playertalent> > talentMap;
+    std::map<uint32, std::vector<insert_playertalent> >::iterator itr4;
+    std::map<uint32, std::vector<insert_playerspell> > spellMap;
+    std::map<uint32, std::vector<insert_playerspell> >::iterator itr5;
     insert_playeritem ipi;
     insert_playerskill ips;
     insert_playerquest ipq;
@@ -1543,14 +1543,14 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             ipi.durability = f[12].GetUInt32();
             ipi.containerslot = f[13].GetInt32();
             ipi.slot = f[14].GetInt32();
-            ipi.enchantments = string(f[15].GetString());
+            ipi.enchantments = std::string(f[15].GetString());
 
             itr = itemMap.find(ipi.ownerguid);
             if(itr == itemMap.end())
             {
-                vector<insert_playeritem> to_insert;
+                std::vector<insert_playeritem> to_insert;
                 to_insert.push_back(ipi);
-                itemMap.insert(make_pair(ipi.ownerguid,to_insert));
+                itemMap.insert(std::make_pair(ipi.ownerguid,to_insert));
             }
             else
             {
@@ -1578,9 +1578,9 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr1 = skillMap.find(ips.player_guid);
             if(itr1 == skillMap.end())
             {
-                vector<insert_playerskill> to_insert;
+                std::vector<insert_playerskill> to_insert;
                 to_insert.push_back(ips);
-                skillMap.insert(make_pair(ips.player_guid,to_insert));
+                skillMap.insert(std::make_pair(ips.player_guid,to_insert));
             }
             else
             {
@@ -1616,9 +1616,9 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr2 = questMap.find(ipq.player_guid);
             if(itr2 == questMap.end())
             {
-                vector<insert_playerquest> to_insert;
+                std::vector<insert_playerquest> to_insert;
                 to_insert.push_back(ipq);
-                questMap.insert(make_pair(ipq.player_guid,to_insert));
+                questMap.insert(std::make_pair(ipq.player_guid,to_insert));
             }
             else
             {
@@ -1649,9 +1649,9 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr3 = glyphMap.find(ipg.player_guid);
             if(itr3 == glyphMap.end())
             {
-                vector<insert_playerglyph> to_insert;
+                std::vector<insert_playerglyph> to_insert;
                 to_insert.push_back(ipg);
-                glyphMap.insert(make_pair(ipg.player_guid,to_insert));
+                glyphMap.insert(std::make_pair(ipg.player_guid,to_insert));
             }
             else
             {
@@ -1678,9 +1678,9 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr4 = talentMap.find(ipt.player_guid);
             if(itr4 == talentMap.end())
             {
-                vector<insert_playertalent> to_insert;
+                std::vector<insert_playertalent> to_insert;
                 to_insert.push_back(ipt);
-                talentMap.insert(make_pair(ipt.player_guid,to_insert));
+                talentMap.insert(std::make_pair(ipt.player_guid,to_insert));
             }
             else
             {
@@ -1705,9 +1705,9 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr5 = spellMap.find(ipsp.player_guid);
             if(itr5 == spellMap.end())
             {
-                vector<insert_playerspell> to_insert;
+                std::vector<insert_playerspell> to_insert;
                 to_insert.push_back(ipsp);
-                spellMap.insert(make_pair(ipsp.player_guid,to_insert));
+                spellMap.insert(std::make_pair(ipsp.player_guid,to_insert));
             }
             else
             {
@@ -1818,7 +1818,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr = itemMap.find(guid);
             if(itr != itemMap.end())
             {
-                for(vector<insert_playeritem>::iterator vtr = itr->second.begin(); vtr != itr->second.end(); ++vtr)
+                for(std::vector<insert_playeritem>::iterator vtr = itr->second.begin(); vtr != itr->second.end(); ++vtr)
                 {
                     //Generate a new item guid
                     uint32 new_item_guid = objmgr.GenerateLowGuid(HIGHGUID_TYPE_ITEM);
@@ -1853,7 +1853,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr1 = skillMap.find(guid);
             if(itr1 != skillMap.end())
             {
-                for(vector<insert_playerskill>::iterator vtr1 = itr1->second.begin(); vtr1 != itr1->second.end(); ++vtr1)
+                for(std::vector<insert_playerskill>::iterator vtr1 = itr1->second.begin(); vtr1 != itr1->second.end(); ++vtr1)
                 {
                     //empty our query string
                     ss.rdbuf()->str("");
@@ -1874,7 +1874,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr2 = questMap.find(guid);
             if(itr2 != questMap.end())
             {
-                for(vector<insert_playerquest>::iterator vtr2 = itr2->second.begin(); vtr2 != itr2->second.end(); ++vtr2)
+                for(std::vector<insert_playerquest>::iterator vtr2 = itr2->second.begin(); vtr2 != itr2->second.end(); ++vtr2)
                 {
                     //empty our query string
                     ss.rdbuf()->str("");
@@ -1903,7 +1903,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr3 = glyphMap.find(guid);
             if(itr3 != glyphMap.end())
             {
-                for(vector<insert_playerglyph>::iterator vtr3 = itr3->second.begin(); vtr3 != itr3->second.end(); ++vtr3)
+                for(std::vector<insert_playerglyph>::iterator vtr3 = itr3->second.begin(); vtr3 != itr3->second.end(); ++vtr3)
                 {
                     //empty our query string
                     ss.rdbuf()->str("");
@@ -1927,7 +1927,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr4 = talentMap.find(guid);
             if(itr4 != talentMap.end())
             {
-                for(vector<insert_playertalent>::iterator vtr4 = itr4->second.begin(); vtr4 != itr4->second.end(); ++vtr4)
+                for(std::vector<insert_playertalent>::iterator vtr4 = itr4->second.begin(); vtr4 != itr4->second.end(); ++vtr4)
                 {
                     //empty our query string
                     ss.rdbuf()->str("");
@@ -1947,7 +1947,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             itr5 = spellMap.find(guid);
             if(itr5 != spellMap.end())
             {
-                for(vector<insert_playerspell>::iterator vtr5 = itr5->second.begin(); vtr5 != itr5->second.end(); ++vtr5)
+                for(std::vector<insert_playerspell>::iterator vtr5 = itr5->second.begin(); vtr5 != itr5->second.end(); ++vtr5)
                 {
                     //empty our query string
                     ss.rdbuf()->str("");
@@ -2016,7 +2016,7 @@ void World::DisconnectUsersWithIP(const char * ip, WorldSession * m_session)
         if(!worldsession->GetSocket())
             continue;
 
-        string ip2 = worldsession->GetSocket()->GetIP();
+        std::string ip2 = worldsession->GetSocket()->GetIP();
         if(!stricmp(ip, ip2.c_str()))
         {
             m_session->SystemMessage("Disconnecting user with account `%s` IP `%s` Player `%s`.", worldsession->GetAccountNameS(),
@@ -2052,14 +2052,14 @@ void World::DisconnectUsersWithPlayerName(const char * plr, WorldSession * m_ses
     m_sessionlock.ReleaseReadLock();
 }
 
-string World::GetUptimeString()
+std::string World::GetUptimeString()
 {
     char str[300];
     time_t pTime = (time_t)UNIXTIME - m_StartTime;
     tm * tmv = gmtime(&pTime);
 
     snprintf(str, 300, "%u days, %u hours, %u minutes, %u seconds.", tmv->tm_yday, tmv->tm_hour, tmv->tm_min, tmv->tm_sec);
-    return string(str);
+    return std::string(str);
 }
 
 void World::UpdateShutdownStatus()
@@ -2200,7 +2200,7 @@ void World::BackupDB()
 #endif
 }
 
-void World::LogGM(WorldSession* session, string message, ...)
+void World::LogGM(WorldSession* session, std::string message, ...)
 {
     if(LogCommands)
     {
@@ -2232,7 +2232,7 @@ void World::LogGM(WorldSession* session, string message, ...)
     }
 }
 
-void World::LogCheater(WorldSession* session, string message, ...)
+void World::LogCheater(WorldSession* session, std::string message, ...)
 {
     if(LogCheaters)
     {
@@ -2264,7 +2264,7 @@ void World::LogCheater(WorldSession* session, string message, ...)
     }
 }
 
-void World::LogPlayer(WorldSession* session, string message, ...)
+void World::LogPlayer(WorldSession* session, std::string message, ...)
 {
     if(LogPlayers)
     {
@@ -2296,7 +2296,7 @@ void World::LogPlayer(WorldSession* session, string message, ...)
     }
 }
 
-void World::LogChat(WorldSession* session, string message, ...)
+void World::LogChat(WorldSession* session, std::string message, ...)
 {
     if(bLogChat)
     {

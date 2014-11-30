@@ -56,13 +56,13 @@ void AchievementInterface::LoadFromDB( QueryResult * pResult )
             ad->date = fields[3].GetUInt32();
             ad->groupid = fields[4].GetUInt64();
 
-            vector<string> Delim = StrSplit( criteriaprogress, "," );
+            std::vector<std::string> Delim = RONIN_UTIL::StrSplit( criteriaprogress, "," );
             for( uint32 i = 0; !completed && i < ae->AssociatedCriteriaCount; i++)
             {
                 if( i >= Delim.size() )
                     continue;
 
-                string posValue = Delim[i];
+                std::string posValue = Delim[i];
                 if( !posValue.size() )
                     continue;
 
@@ -72,7 +72,7 @@ void AchievementInterface::LoadFromDB( QueryResult * pResult )
                 //printf("Loaded achievement: %u, %s\n", ae->ID, ad->completed ? "completed" : "incomplete" );
             }
 
-            m_achivementDataMap.insert( make_pair( achievementid, ad) );
+            m_achivementDataMap.insert( std::make_pair( achievementid, ad) );
         }
     } while ( pResult->NextRow() );
 }
@@ -87,7 +87,7 @@ void AchievementInterface::SaveToDB(QueryBuffer * buffer)
     std::stringstream ss;
     if(m_achivementDataMap.size())
     {
-        map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
+        std::map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
         ss << "REPLACE INTO achievements (player,achievementid,progress,completed,groupid) VALUES ";
         bool first = true;
         for(; itr != m_achivementDataMap.end(); itr++)
@@ -172,7 +172,7 @@ void AchievementInterface::GiveRewardsForAchievement(AchievementEntry * ae)
             pItem->SaveToDB(-1, -1, true, NULL);
             m_player->GetSession()->SendNotification("No free slots were found in your inventory, item has been mailed.");
             sMailSystem.DeliverMessage(MAILTYPE_NORMAL, m_player->GetGUID(), m_player->GetGUID(), "Achievement Reward", "Here is your reward.", 0, 0, pItem->GetGUID(), 1, true);
-            pItem->DeleteMe();
+            pItem->Destruct();
             pItem = NULL;
         }
     }
@@ -192,7 +192,7 @@ void AchievementInterface::GiveRewardsForAchievement(AchievementEntry * ae)
                     pItem->SaveToDB(-1, -1, true, NULL);
                     sMailSystem.DeliverMessage(MAILTYPE_CREATURE, Sender, m_player->GetGUID(),
                         messageheader, messagebody, 0, 0, pItem->GetGUID(), 1, true);
-                    pItem->DeleteMe();
+                    pItem->Destruct();
                     pItem = NULL;
                 }
                 else
@@ -235,7 +235,7 @@ void AchievementInterface::EventAchievementEarned(AchievementData * pData)
     HandleAchievementCriteriaRequiresAchievement(pData->id);
 
     // Realm First Achievements
-    if( string(ae->name).find("Realm First") != string::npos  ) // flags are wrong lol
+    if( std::string(ae->name).find("Realm First") != std::string::npos  ) // flags are wrong lol
     {
         // Send to my team
         WorldPacket data(SMSG_SERVER_FIRST_ACHIEVEMENT, 60);
@@ -295,7 +295,7 @@ AchievementData* AchievementInterface::CreateAchievementDataEntryForAchievement(
     memset(ad, 0, sizeof(AchievementData));
     ad->id = ae->ID;
     ad->num_criterias = ae->AssociatedCriteriaCount;
-    m_achivementDataMap.insert( make_pair( ad->id, ad ) );
+    m_achivementDataMap.insert( std::make_pair( ad->id, ad ) );
     return ad;
 }
 
@@ -371,16 +371,16 @@ bool AchievementInterface::HandleBeforeChecks(AchievementData * ad)
         return false;
 
     // Difficulty checks
-    if(string(ach->description).find("25-player heroic mode") != string::npos)
+    if(std::string(ach->description).find("25-player heroic mode") != std::string::npos)
         if(m_player->iRaidType < MODE_25PLAYER_HEROIC)
             return false;
-    if(string(ach->description).find("10-player heroic mode") != string::npos)
+    if(std::string(ach->description).find("10-player heroic mode") != std::string::npos)
         if(m_player->iRaidType < MODE_10PLAYER_HEROIC)
             return false;
-    if(string(ach->description).find("25-player mode") != string::npos)
+    if(std::string(ach->description).find("25-player mode") != std::string::npos)
         if(m_player->iRaidType < MODE_25PLAYER_NORMAL)
             return false;
-    if((string(ach->description).find("Heroic Difficulty") != string::npos) || ach->ID == 4526)
+    if((std::string(ach->description).find("Heroic Difficulty") != std::string::npos) || ach->ID == 4526)
         if(m_player->iInstanceType < MODE_5PLAYER_HEROIC)
             return false;
     if(sWorld.m_blockgmachievements && m_player->GetSession()->HasGMPermissions())
@@ -424,7 +424,7 @@ bool AchievementInterface::HasAchievement(uint32 ID)
 
 AchievementData* AchievementInterface::GetAchievementDataByAchievementID(uint32 ID)
 {
-    map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.find( ID );
+    std::map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.find( ID );
     if( itr != m_achivementDataMap.end() )
         return itr->second;
     else
@@ -472,7 +472,7 @@ void AchievementInterface::HandleAchievementCriteriaConditionDeath()
     if( m_achivementDataMap.empty() )
         return;
 
-    map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
+    std::map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
     for(; itr != m_achivementDataMap.end(); itr++)
     {
         AchievementData * ad = itr->second;
@@ -588,11 +588,9 @@ void AchievementInterface::HandleAchievementCriteriaWinBattleground(uint32 bgMap
                 // AV stuff :P
                 if( bg->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
                 {
-                    AlteracValley* pAV(TO_ALTERACVALLEY(bg));
+                    AlteracValley* pAV = castPtr<AlteracValley>(bg);
                     if( pAchievementEntry->ID == 225 ||  pAchievementEntry->ID == 1164) // AV: Everything Counts
-                    {
                         continue; // We do not support mines yet in AV
-                    }
                     if( pAchievementEntry->ID == 220 ) // AV: Stormpike Perfection
                     {
                         bool failure = false;
@@ -602,9 +600,13 @@ void AchievementInterface::HandleAchievementCriteriaWinBattleground(uint32 bgMap
                             if( pAV->GetNode(i)->IsGraveyard() )
                                 continue;
                             if( pAV->GetNode(i)->GetState() != AV_NODE_STATE_ALLIANCE_CONTROLLED )
+                            {
                                 failure = true;
+                                break;
+                            }
                         }
-                        if( failure ) continue;
+                        if( failure )
+                            continue;
                     }
                     if( pAchievementEntry->ID == 873 ) // AV: Frostwolf Perfection
                     {
@@ -616,9 +618,13 @@ void AchievementInterface::HandleAchievementCriteriaWinBattleground(uint32 bgMap
                                 continue;
 
                             if( pAV->GetNode(i)->GetState() != AV_NODE_STATE_HORDE_CONTROLLED )
+                            {
                                 failure = true;
+                                break;
+                            }
                         }
-                        if( failure ) continue;
+                        if( failure )
+                            continue;
                     }
                 }
                 ad->counter[i] = ad->counter[i] + 1;
@@ -696,7 +702,7 @@ void AchievementInterface::HandleAchievementCriteriaLevelUp(uint32 level)
         if( level < ReqLevel )
             continue;
         // Realm first to 80 stuff has race and class requirements. Let the hacking begin.
-        if( string(pAchievementEntry->name).find("Realm First!") != string::npos )
+        if( std::string(pAchievementEntry->name).find("Realm First!") != std::string::npos )
         {
             static const char* classNames[] = { "", "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Death Knight", "Shaman", "Mage", "Warlock", "", "Druid" };
             static const char* raceNames[] = { "", "Human", "Orc", "Dwarf", "Night Elf", "Forsaken", "Tauren", "Gnome", "Troll", "", "Blood Elf", "Draenei" };
@@ -704,7 +710,7 @@ void AchievementInterface::HandleAchievementCriteriaLevelUp(uint32 level)
             uint32 ReqRace = 0;
             for(uint32 i = 0; i < 12; i++)
             {
-                if(strlen(classNames[i]) > 0 && string(pAchievementEntry->name).find(classNames[i]) != string::npos )
+                if(strlen(classNames[i]) > 0 && std::string(pAchievementEntry->name).find(classNames[i]) != std::string::npos )
                 {
                     // We require this class
                     ReqClass = i;
@@ -713,7 +719,7 @@ void AchievementInterface::HandleAchievementCriteriaLevelUp(uint32 level)
             }
             for(uint32 i = 0; i < 12; i++)
             {
-                if(strlen(raceNames[i]) > 0 && string(pAchievementEntry->name).find(raceNames[i]) != string::npos )
+                if(strlen(raceNames[i]) > 0 && std::string(pAchievementEntry->name).find(raceNames[i]) != std::string::npos )
                 {
                     // We require this race
                     ReqRace = i;
@@ -1317,8 +1323,8 @@ void AchievementInterface::HandleAchievementCriteriaDoEmote(uint32 emoteId, Unit
             }
         }
 
-        string name = string(pAchievementEntry->name);
-        if( name.find("Total") != string::npos )
+        std::string name = std::string(pAchievementEntry->name);
+        if( name.find("Total") != std::string::npos )
         {
             // It's a statistic, like: "Total Times /Lol'd"
             scriptOk = true;

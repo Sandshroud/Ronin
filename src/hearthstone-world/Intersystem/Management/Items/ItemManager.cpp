@@ -95,10 +95,10 @@ void ItemPrototypeSystem::Init()
         proto->ItemLimitCategory = sparse->ItemLimitCategory;
         proto->HolidayId = sparse->HolidayId;
         proto->StatScalingFactor = sparse->StatScalingFactor;
-        proto->lowercase_name = string(proto->Name1);
+        proto->lowercase_name = std::string(proto->Name1);
         for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
             proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
-        ItemPrototypeContainer.insert(make_pair(itemData->ID, proto));
+        ItemPrototypeContainer.insert(std::make_pair(itemData->ID, proto));
     }
     LoadItemOverrides();
 }
@@ -192,7 +192,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 proto->ItemLimitCategory = 0;
                 proto->HolidayId = 0;
                 proto->StatScalingFactor = 0;
-                ItemPrototypeContainer.insert(make_pair(entry, proto));
+                ItemPrototypeContainer.insert(std::make_pair(entry, proto));
                 overridden = 0x01 | 0x02;
             }
 
@@ -217,7 +217,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 proto->Name1 = strdup(fields[field_Count].GetString());
                 overridden |= 0x02;
 
-                proto->lowercase_name = string(proto->Name1);
+                proto->lowercase_name = std::string(proto->Name1);
                 for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
                     proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
             }field_Count++;
@@ -503,7 +503,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 overridden |= 0x02;
             }field_Count++;
             if(overridden > 0)
-                Overridden.insert(make_pair(entry, overridden));
+                Overridden.insert(std::make_pair(entry, overridden));
 
             proto = NULL;
             overridden = 0;

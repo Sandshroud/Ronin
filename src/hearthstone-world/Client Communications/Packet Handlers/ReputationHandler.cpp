@@ -185,7 +185,7 @@ bool Player::IsHostileBasedOnReputation(FactionEntry *faction)
         return false;
 
     // forced reactions take precedence
-    map<uint32, uint32>::iterator itr = m_forcedReactions.find( faction->ID );
+    std::map<uint32, uint32>::iterator itr = m_forcedReactions.find( faction->ID );
     if( itr != m_forcedReactions.end() )
         return ( itr->second <= STANDING_HOSTILE );
 
@@ -339,7 +339,7 @@ void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
     if( modifier != 0 )
     {
         // Apply this data.
-        for( vector<ReputationMod>::iterator itr = modifier->mods.begin(); itr != modifier->mods.end(); itr++ )
+        for( std::vector<ReputationMod>::iterator itr = modifier->mods.begin(); itr != modifier->mods.end(); itr++ )
         {
             if ( !(*itr).faction[team] )
                 continue;

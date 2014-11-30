@@ -12,8 +12,8 @@ bool ChatHandler::HandleRecallAddCommand(const char* args, WorldSession *m_sessi
     if(plr == NULL || !plr->IsInWorld())
         return false;
 
-    string rc_locname = string(args);
-    if(!objmgr.AddRecallLocation(string(args), plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation()))
+    std::string rc_locname = std::string(args);
+    if(!objmgr.AddRecallLocation(std::string(args), plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation()))
         return false;
 
     char buf[256];

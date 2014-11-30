@@ -12,7 +12,7 @@ void WorldSession::HandleQuestgiverStatusQueryOpcode( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
 
     uint64 guid;
-    WorldObject* qst_giver = NULL;
+    Object* qst_giver = NULL;
 
     recv_data >> guid;
     uint32 guidtype = GUID_HIPART(guid);
@@ -98,7 +98,7 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     recv_data >> guid;
     recv_data >> quest_id;
 
-    WorldObject* qst_giver = NULL;
+    Object* qst_giver = NULL;
 
     bool bValid = false;
     Quest* qst = sQuestMgr.GetQuestPointer(quest_id);
@@ -134,10 +134,10 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     else if(guidtype==HIGHGUID_TYPE_ITEM)
     {
         Item* quest_giver = GetPlayer()->GetItemInterface()->GetItemByGUID(guid);
-        if(quest_giver)
-            qst_giver = quest_giver;
-        else
+        if(quest_giver == NULL)
             return;
+
+        qst_giver = quest_giver;
         bValid = true;
         if( qst->id != quest_giver->GetProto()->QuestId )
             return;
@@ -191,7 +191,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     bool hasquest = true;
     bool bSkipLevelCheck = false;
     Quest *qst = NULL;
-    WorldObject* qst_giver = NULL;
+    Object* qst_giver = NULL;
     uint32 guidtype = GUID_HIPART(guid);
 
     if(guidtype == HIGHGUID_TYPE_CREATURE)
@@ -299,8 +299,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     {
         if(qst->receive_items[i])
         {
-            Item* item = objmgr.CreateItem( qst->receive_items[i], GetPlayer());
-            if(item)
+            if(Item* item = objmgr.CreateItem( qst->receive_items[i], GetPlayer()))
             {
                 item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->receive_itemcount[i]);
                 if(!_player->GetItemInterface()->AddItemToFreeSlot(item))
@@ -314,8 +313,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
 
     if(qst->srcitem && qst->srcitem != qst->receive_items[0])
     {
-        Item* item = objmgr.CreateItem( qst->srcitem, _player );
-        if(item)
+        if(Item* item = objmgr.CreateItem( qst->srcitem, _player ))
         {
             item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->srcitemcount ? qst->srcitemcount : 1);
             if(!_player->GetItemInterface()->AddItemToFreeSlot(item))

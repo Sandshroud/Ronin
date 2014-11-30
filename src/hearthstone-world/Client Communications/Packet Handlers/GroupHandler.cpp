@@ -90,7 +90,7 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
     SendPartyCommandResult(GetPlayer(), 0, membername, ERR_PARTY_NO_ERROR);
 
     // 16/08/06 - change to guid to prevent very unlikely event of a crash in deny, etc
-    player->SetInviter(_player->GetLowGUID());
+    player->SetInviter(_player->GetGUID());
 }
 
 ///////////////////////////////////////////////////////////////
@@ -115,12 +115,10 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
     if(!player)
         return;
 
-    player->SetInviter(0);
-    _player->SetInviter(0);
+    player->ClearGroupInviter();
+    _player->ClearGroupInviter();
 
-    Group *grp = player->GetGroup();
-
-    if(grp)
+    if(Group *grp = player->GetGroup())
     {
         if(grp->AddMember(_player->m_playerInfo))
         {
@@ -132,13 +130,12 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
 
             _player->GetSession()->OutPacket(MSG_SET_DUNGEON_DIFFICULTY, 4, &_player->iInstanceType);
             _player->GetSession()->OutPacket(MSG_SET_RAID_DIFFICULTY, 4, &_player->iRaidType);
-            return;
         }
-        else { return; }
+        return;
     }
 
     // If we're this far, it means we have no existing group, and have to make one.
-    grp = new Group(true);
+    Group *grp = new Group(true);
     grp->AddMember(player->m_playerInfo);       // add the inviter first, therefore he is the leader
     grp->AddMember(_player->m_playerInfo);      // add us.
     grp->SetDifficulty(player->iInstanceType);  // Set our instance difficulty.
@@ -162,8 +159,8 @@ void WorldSession::HandleGroupDeclineOpcode( WorldPacket & recv_data )
         data << GetPlayer()->GetName();
         player->GetSession()->SendPacket( &data );
 
-        player->SetInviter(0);
-        _player->SetInviter(0);
+        player->ClearGroupInviter();
+        _player->ClearGroupInviter();
     }
 }
 
@@ -188,7 +185,7 @@ void WorldSession::HandleGroupUninviteGUIDOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
     if(PlayerInfo *info = objmgr.GetPlayerInfo(guid))
         if(Player *player = objmgr.GetPlayer(guid))
@@ -202,10 +199,10 @@ void WorldSession::HandleGroupSetLeaderOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 MemberGuid;
+    WoWGuid MemberGuid;
     recv_data >> MemberGuid;
 
-    Player* player = objmgr.GetPlayer((uint32)MemberGuid);
+    Player* player = objmgr.GetPlayer(MemberGuid);
     if ( player == NULL )
     {
         SendPartyCommandResult(_player, 0, _player->GetName(), ERR_PARTY_CANNOT_FIND);
@@ -255,7 +252,7 @@ void WorldSession::HandleLootMethodOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 lootMaster;
+    WoWGuid lootMaster;
     uint32 lootMethod, threshold;
     recv_data >> lootMethod >> lootMaster >>threshold;
 
@@ -268,7 +265,7 @@ void WorldSession::HandleLootMethodOpcode( WorldPacket & recv_data )
     Group* pGroup = _player->GetGroup();
     if( pGroup != NULL)
     {
-        Player* pLooter = objmgr.GetPlayer(uint32(lootMaster)) ? objmgr.GetPlayer(uint32(lootMaster)) : _player;
+        Player* pLooter = objmgr.GetPlayer(lootMaster) ? objmgr.GetPlayer(lootMaster) : _player;
         pGroup->SetLooter(pLooter , lootMethod, threshold );
     }
 }

@@ -1,13 +1,6 @@
 
 #include "WoWGuid.h"
 
-template <class T> WoWGuid& WoWGuid::operator =(T input)
-{
-    for(uint8 i = 0; i < sizeof(T); i++)
-        blocks[i] = ((uint8*)&input)[i];
-    return *this;
-}
-
 void WoWGuid::Clean()
 {
     blocks[0]=blocks[1]=blocks[2]=blocks[3]=blocks[4]=blocks[5]=blocks[6]=blocks[7] = 0;

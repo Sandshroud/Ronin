@@ -253,7 +253,7 @@ public:
 protected:
     bool m_hasDeathKnight;
     uint8 m_highestLevel;
-    uint8 DeleteCharacter(uint32 guid);
+    uint8 DeleteCharacter(WoWGuid guid);
 
     /// Login screen opcodes (PlayerHandler.cpp):
     void HandleCharEnumOpcode(WorldPacket& recvPacket);

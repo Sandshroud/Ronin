@@ -62,7 +62,7 @@ bool Transporter::GenerateWaypoints()
 
     if(path.Size() == 0) return false;
 
-    vector<keyFrame> keyFrames;
+    std::vector<keyFrame> keyFrames;
     int mapChange = 0;
     for (int i = 1; i < (int)path.Size() - 1; i++)
     {

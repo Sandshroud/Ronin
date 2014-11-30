@@ -53,7 +53,6 @@ typedef struct
     uint32 factionid;
     uint32 emote_state;
     uint8  stand_state;
-    int32  phase;
     bool   vehicle;
     uint32 CanMove;
     int32  vendormask;
@@ -76,7 +75,6 @@ typedef struct GOSpawn
     uint32  flags;
     uint32  faction;
     float   scale;
-    int32   phase;
 } GOSpawn;
 
 typedef std::vector<CreatureSpawn*> CreatureSpawnList;
@@ -123,7 +121,7 @@ public:
         SpawnsMap::iterator itr = m_spawns.find(cellx);
         if(itr == m_spawns.end())
         {
-            m_spawns.insert(make_pair(cellx, new CellSpawnsMap()));
+            m_spawns.insert(std::make_pair(cellx, new CellSpawnsMap()));
             itr = m_spawns.find(cellx);
         }
         if(itr->second == NULL)

@@ -262,31 +262,10 @@ protected:
     std::vector<GossipMenuItem> Menu;
 };
 
-typedef std::map<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
-typedef RONIN_UNORDERED_MAP<uint64, Player*>                    PlayerStorageMap;
-
-#ifndef WIN32
-#ifndef TRHAX
-// gcc has no default hash for string type,
-// so we have to make an explicit hash template here
-namespace __gnu_cxx
-{
-    template<> struct hash<string>
-    {
-        size_t operator()(string& tbh) const
-        {
-            // simple crc32 hash for now, we may need to change this later however
-            return size_t( crc32( (const unsigned char*)tbh.c_str(), tbh.length() ) );
-        }
-    }
-}
-#endif
-#endif
-// vc++ has the type for a string hash already, so we don't need to do anything special
+typedef RONIN_MAP<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
 typedef RONIN_UNORDERED_MAP<std::string, PlayerInfo*> PlayerNameStringIndexMap;
-
-typedef std::map<uint32, uint32> PetLevelupSpellSet;
-typedef std::map<uint32, PetLevelupSpellSet> PetLevelupSpellMap;
+typedef RONIN_MAP<uint32, uint32> PetLevelupSpellSet;
+typedef RONIN_MAP<uint32, PetLevelupSpellSet> PetLevelupSpellMap;
 
 struct RecallLocation
 {
@@ -451,6 +430,7 @@ public:
 
     Player* CreatePlayer();
     Mutex m_playerguidlock;
+    typedef RONIN_UNORDERED_MAP<uint64, Player*> PlayerStorageMap;
     PlayerStorageMap _players;
     RWLock _playerslock;
     uint32 m_hiPlayerGuid;

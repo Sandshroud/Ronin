@@ -58,8 +58,8 @@ void TicketMgr::SaveGMTicket(GM_Ticket* ticket, QueryBuffer * buf)
 {
     std::stringstream ss;
     ss << "REPLACE INTO gm_tickets (`guid`, `playerGuid`, `name`, `level`, `map`, `posX`, `posY`, `posZ`, `message`, `timestamp`, `deleted`, `assignedto`, `comment`) VALUES(";
-    ss << ticket->guid << ", ";
-    ss << ticket->playerGuid << ", '";
+    ss << ticket->guid.getLow() << ", ";
+    ss << ticket->playerGuid.getLow() << ", '";
     ss << CharacterDatabase.EscapeString(ticket->name) << "', ";
     ss << ticket->level << ", ";
     ss << ticket->map << ", ";
@@ -71,7 +71,7 @@ void TicketMgr::SaveGMTicket(GM_Ticket* ticket, QueryBuffer * buf)
     ss << uint32( ticket->deleted ? 1 : 0);
     ss << ",";
 
-    ss << ticket->assignedToPlayer << ", '";
+    ss << ticket->assignedToPlayer.getLow() << ", '";
     ss << CharacterDatabase.EscapeString(ticket->comment) << "');";
 
     if(buf) buf->AddQueryStr(ss.str());

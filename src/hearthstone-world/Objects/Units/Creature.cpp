@@ -175,7 +175,7 @@ void Creature::OnRespawn( MapMgr* m)
     /* creature death state */
     if(m_spawn && m_spawn->death_state == 1)
     {
-        uint32 newhealth = m_uint32Values[UNIT_FIELD_HEALTH] / 100;
+        uint32 newhealth = GetUInt32Value(UNIT_FIELD_HEALTH) / 100;
         if(!newhealth)
             newhealth = 1;
         SetUInt32Value(UNIT_FIELD_HEALTH, 1);
@@ -212,7 +212,7 @@ void Creature::GenerateLoot()
 {
     if(IsPet())
     {
-        m_loot.gold = 0;
+        GetLoot()->gold = 0;
         return;
     }
 
@@ -226,7 +226,7 @@ void Creature::GenerateLoot()
     // -1 , no gold; 0 calculated according level; >0 coppercoins
     if( _creatureData->Money == -1)
     {
-        m_loot.gold = 0;
+        GetLoot()->gold = 0;
         return;
     }
     else if(_creatureData->Money == 0)
@@ -234,15 +234,13 @@ void Creature::GenerateLoot()
         CreatureData *info = GetCreatureData();
         if (info && info->Type != BEAST)
         {
-            if(m_uint32Values[UNIT_FIELD_MAXHEALTH] <= 1667)
-                m_loot.gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
-            else
-                m_loot.gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
-        } else m_loot.gold = 0; // Beasts don't drop money
-    } else m_loot.gold = uint32(_creatureData->Money);
-
-    if(m_loot.gold)
-        m_loot.gold = float2int32(floor(float(m_loot.gold) * sWorld.getRate(RATE_MONEY)));
+            if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
+                GetLoot()->gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
+            else GetLoot()->gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
+        } else GetLoot()->gold = 0; // Beasts don't drop money
+    } else GetLoot()->gold = uint32(_creatureData->Money);
+    if(GetLoot()->gold)
+        GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
 }
 
 void Creature::SaveToDB(bool saveposition /*= false*/)
@@ -261,12 +259,11 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
     m_spawn->y = (!saveposition && (m_spawn != NULL)) ? m_spawn->y : m_position.y;
     m_spawn->z = (!saveposition && (m_spawn != NULL)) ? m_spawn->z : m_position.z;
     m_spawn->o = (!saveposition && (m_spawn != NULL)) ? m_spawn->o : m_position.o;
-    m_spawn->factionid = m_uint32Values[UNIT_FIELD_FACTIONTEMPLATE];
+    m_spawn->factionid = GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE);
     m_spawn->flags = uint32(original_flags);
     m_spawn->emote_state = uint32(original_emotestate);
     m_spawn->death_state = getDeathState();
     m_spawn->stand_state = GetStandState();
-    m_spawn->phase = m_phaseMask;
     m_spawn->vehicle = IsVehicle();
     m_spawn->CanMove = GetCanMove();
     m_spawn->vendormask = newSpawn ? 0x01 : GetVendorMask();
@@ -292,7 +289,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
         << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_target_go : 0) << ","
         << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_target_creature : 0) << ","
         << uint32(m_spawn->MountedDisplayID) << ", "
-        << int32(m_spawn->phase) << ", "
+        << int32(1) << ", "
         << uint32(m_spawn->vehicle ? 1 : 0) << ", "
         << uint32(m_spawn->CanMove) << ", "
         << int32(m_spawn->vendormask) << " )";
@@ -333,7 +330,7 @@ void Creature::AddQuest(QuestRelation *Q)
 
 void Creature::DeleteQuest(QuestRelation *Q)
 {
-    list<QuestRelation *>::iterator it;
+    std::list<QuestRelation *>::iterator it;
     for ( it = m_quests->begin(); it != m_quests->end(); it++ )
     {
         if((*it) != NULL)
@@ -348,7 +345,7 @@ void Creature::DeleteQuest(QuestRelation *Q)
 
 Quest* Creature::FindQuest(uint32 quest_id, uint8 quest_relation)
 {
-    list<QuestRelation *>::iterator it;
+    std::list<QuestRelation *>::iterator it;
     for (it = m_quests->begin(); it != m_quests->end(); it++)
     {
         QuestRelation *ptr = (*it);
@@ -364,7 +361,7 @@ Quest* Creature::FindQuest(uint32 quest_id, uint8 quest_relation)
 uint16 Creature::GetQuestRelation(uint32 quest_id)
 {
     uint16 quest_relation = 0;
-    list<QuestRelation *>::iterator it;
+    std::list<QuestRelation *>::iterator it;
 
     for (it = m_quests->begin(); it != m_quests->end(); it++)
     {
@@ -480,7 +477,6 @@ void Creature::EnslaveExpire()
 
     SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
     SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
-    SetIsPet(false);
 
     m_walkSpeed = m_base_walkSpeed;
     m_runSpeed = m_base_runSpeed;
@@ -589,14 +585,14 @@ void Creature::AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, ui
 
     if(!m_SellItems)
     {
-        m_SellItems = new map<uint32, CreatureItem>;
+        m_SellItems = new std::map<uint32, CreatureItem>;
         objmgr.SetVendorList(GetEntry(), m_SellItems);
     }
 
     uint32 slot = 1;
     if(m_SellItems->size())
         slot = m_SellItems->rbegin()->first+1;
-    m_SellItems->insert(make_pair(slot, ci));
+    m_SellItems->insert(std::make_pair(slot, ci));
 }
 
 void Creature::ModAvItemAmount(uint32 itemid, uint32 value)
@@ -708,7 +704,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     m_walkSpeed = m_base_walkSpeed = _creatureData->Walk_speed; //set speeds
     m_runSpeed = m_base_runSpeed = _creatureData->Run_speed; //set speeds
     m_flySpeed = _creatureData->Fly_speed;
-    m_phaseMask = spawn->phase;
 
     original_flags = spawn->flags;
     original_emotestate = spawn->emote_state;
@@ -804,7 +799,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
 ////////////AI
 
     // kek
-    for(list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
+    for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
         if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
             m_aiInterface->addSpellToList(*itr);
 
@@ -848,8 +843,8 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
         m_aiInterface->m_CallForHelpHealth = 100;
 
     //HACK!
-    if(m_uint32Values[UNIT_FIELD_DISPLAYID] == 17743 || m_uint32Values[UNIT_FIELD_DISPLAYID] == 20242 || 
-        m_uint32Values[UNIT_FIELD_DISPLAYID] == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
+    if(GetUInt32Value(UNIT_FIELD_DISPLAYID) == 17743 || GetUInt32Value(UNIT_FIELD_DISPLAYID) == 20242 || 
+        GetUInt32Value(UNIT_FIELD_DISPLAYID) == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
         m_useAI = false;
 
     switch(_creatureData->Powertype)
@@ -909,7 +904,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     /* creature death state */
     if(spawn->death_state == 1)
     {
-        uint32 newhealth = m_uint32Values[UNIT_FIELD_HEALTH] / 100;
+        uint32 newhealth = GetUInt32Value(UNIT_FIELD_HEALTH) / 100;
         if(!newhealth)
             newhealth = 1;
         SetUInt32Value(UNIT_FIELD_HEALTH, 1);
@@ -1060,7 +1055,7 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
     ////////////AI
 
     // kek
-    for(list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
+    for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
         if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
             m_aiInterface->addSpellToList(*itr);
 
@@ -1098,8 +1093,8 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
         m_aiInterface->m_CallForHelpHealth = 100;
 
     //HACK!
-    if(m_uint32Values[UNIT_FIELD_DISPLAYID] == 17743 || m_uint32Values[UNIT_FIELD_DISPLAYID] == 20242 ||
-        m_uint32Values[UNIT_FIELD_DISPLAYID] == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
+    if(GetUInt32Value(UNIT_FIELD_DISPLAYID) == 17743 || GetUInt32Value(UNIT_FIELD_DISPLAYID) == 20242 ||
+        GetUInt32Value(UNIT_FIELD_DISPLAYID) == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
         m_useAI = false;
 
     switch(_creatureData->Powertype)
@@ -1198,7 +1193,7 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
 
 void Creature::OnPushToWorld()
 {
-    for(set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
+    for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
             CastSpell(this, sp, true);
 
@@ -1248,7 +1243,7 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
         return;
     }
 
-    m_loot.items.clear();
+    GetLoot()->items.clear();
 
     if(!IsInWorld())
         return;

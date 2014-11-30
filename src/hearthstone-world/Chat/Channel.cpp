@@ -468,7 +468,7 @@ void Channel::Unban(Player* plr, PlayerInfo * bplr)
         return;
     }
 
-    std::set<uint32>::iterator it2 = m_bannedMembers.find(bplr->guid);
+    std::set<WoWGuid>::iterator it2 = m_bannedMembers.find(bplr->guid);
     if(it2 == m_bannedMembers.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
@@ -866,7 +866,7 @@ Channel * ChannelMgr::GetCreateChannel(const char *name, Player* p)
 
     cid = ++m_idHigh;
     chn = new Channel(name, rTeam, 0, cid);
-    cl->insert(make_pair(chn->m_name, chn));
+    cl->insert(std::make_pair(chn->m_name, chn));
     m_idToChannel.insert(std::make_pair(cid, chn));
     lock.Release();
     return chn;

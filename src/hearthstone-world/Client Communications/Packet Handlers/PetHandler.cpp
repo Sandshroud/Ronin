@@ -410,7 +410,7 @@ void WorldSession::HandlePetRename(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
     uint64 guid;
-    string name;
+    std::string name;
     recv_data >> guid >> name;
 
     if(!_player->GetSummon() || _player->GetSummon()->GetGUID() != guid)
@@ -543,13 +543,10 @@ void WorldSession::HandlePetLearnTalent( WorldPacket & recvPacket )
             pPet->RemoveSpell( talentEntry->RankID[ rank - 1 ] );
         // Replace the rank in our map with the new one, we'll add the spell later
         itr->second = rank;
-    }
-    else
-        pPet->m_talents.insert( make_pair( talentid, rank ) );
+    } else pPet->m_talents.insert( std::make_pair( talentid, rank ) );
 
     // find spell
-    SpellEntry* sp = dbcSpell.LookupEntry( talentEntry->RankID[ rank ] );
-    if( sp )
+    if( SpellEntry* sp = dbcSpell.LookupEntry( talentEntry->RankID[ rank ] ) )
     {
         // set the new talent points, remember we deducted a point earlier ;)
         sLog.Debug("Pet","Setting available talent points to %u", talentPoints);

@@ -18,7 +18,7 @@ void AuctionMgr::LoadAuctionHouses()
     }
 
     for(ConstructDBCStorageIterator(AuctionHouseDBC) itr = dbcAuctionHouse.begin(); itr != dbcAuctionHouse.end(); ++itr)
-        auctionHouseMap.insert(make_pair((*itr)->id, new AuctionHouse((*itr)->id)));
+        auctionHouseMap.insert(std::make_pair((*itr)->id, new AuctionHouse((*itr)->id)));
 
     res = WorldDatabase.Query("SELECT * FROM auctionhouse");
     if(res)
@@ -29,7 +29,7 @@ void AuctionMgr::LoadAuctionHouses()
             if(CreatureAuctionTypes.find(res->Fetch()[0].GetUInt32()) != CreatureAuctionTypes.end())
                 continue;
 
-            CreatureAuctionTypes.insert(make_pair(res->Fetch()[0].GetUInt32(), res->Fetch()[1].GetUInt8()));
+            CreatureAuctionTypes.insert(std::make_pair(res->Fetch()[0].GetUInt32(), res->Fetch()[1].GetUInt8()));
         }while(res->NextRow());
         delete res;
     }
@@ -50,7 +50,7 @@ void AuctionMgr::Update()
     if((++loopcount % 100))
         return;
 
-    map<uint32, AuctionHouse*>::iterator itr = auctionHouseMap.begin();
+    std::map<uint32, AuctionHouse*>::iterator itr = auctionHouseMap.begin();
     for(; itr != auctionHouseMap.end(); itr++)
     {
         itr->second->UpdateDeletionQueue();

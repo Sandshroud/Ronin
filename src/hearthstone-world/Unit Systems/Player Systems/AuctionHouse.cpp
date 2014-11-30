@@ -58,7 +58,7 @@ void AuctionHouse::UpdateDeletionQueue()
     removalLock.Acquire();
     Auction * auct;
 
-    list<Auction*>::iterator it = removalList.begin();
+    std::list<Auction*>::iterator it = removalList.begin();
     for(; it != removalList.end(); it++)
     {
         auct = *it;
@@ -85,10 +85,9 @@ void AuctionHouse::UpdateAuctions()
 
         if(t >= auct->ExpiryTime)
         {
-            if(auct->HighestBidder == 0)
+            if(auct->HighestBidder.empty())
                 auct->DeletedReason = AUCTION_REMOVE_EXPIRED;
-            else
-                auct->DeletedReason = AUCTION_REMOVE_WON;
+            else auct->DeletedReason = AUCTION_REMOVE_WON;
 
             auct->Deleted = true;
             removalList.push_back(auct);
@@ -148,7 +147,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
             snprintf(subject, 100, "%u:0:1", (unsigned int)auct->pItem->GetEntry());
 
             // <owner player guid>:bid:buyout
-            snprintf(body, 200, "%X:%u:%u", (unsigned int)auct->Owner, (unsigned int)auct->HighestBid, (unsigned int)auct->BuyoutPrice);
+            snprintf(body, 200, "%X:%u:%u", auct->Owner.getLow(), auct->HighestBid, auct->BuyoutPrice);
 
             // Auction won by highest bidder. He gets the item.
             sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->HighestBidder, subject, body, 0, 0, auct->pItem->GetGUID(), STATIONERY_AUCTION, true);
@@ -164,9 +163,8 @@ void AuctionHouse::RemoveAuction(Auction * auct)
 
             // <hex player guid>:bid:0:deposit:cut
             if(auct->HighestBid == auct->BuyoutPrice)      // Buyout
-                snprintf(body, 200, "%X:%u:%u:%u:%u", (unsigned int)auct->HighestBidder, (unsigned int)auct->HighestBid, (unsigned int)auct->BuyoutPrice, (unsigned int)auct->DepositAmount, (unsigned int)auction_cut);
-            else
-                snprintf(body, 200, "%X:%u:0:%u:%u", (unsigned int)auct->HighestBidder, (unsigned int)auct->HighestBid, (unsigned int)auct->DepositAmount, (unsigned int)auction_cut);
+                snprintf(body, 200, "%X:%u:%u:%u:%u", (unsigned int)auct->HighestBidder.getLow(), (unsigned int)auct->HighestBid, (unsigned int)auct->BuyoutPrice, (unsigned int)auct->DepositAmount, (unsigned int)auction_cut);
+            else snprintf(body, 200, "%X:%u:0:%u:%u", (unsigned int)auct->HighestBidder.getLow(), (unsigned int)auct->HighestBid, (unsigned int)auct->DepositAmount, (unsigned int)auction_cut);
 
             // send message away.
             sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->Owner, subject, body, amount, 0, 0, STATIONERY_AUCTION, true);
@@ -201,7 +199,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
     itemLock.ReleaseWriteLock();
 
     // Destroy the item from memory (it still remains in the db)
-    auct->pItem->DeleteMe();
+    auct->pItem->Destruct();
     auct->pItem = NULL;
 
     // Finally destroy the auction instance.
@@ -260,16 +258,15 @@ void Auction::AddToPacket(WorldPacket & data)
     data << uint32(0);                // Unknown
     data << uint32(0);                // Unknown
     data << uint64(Owner);            // Owner guid
-    data << HighestBid;              // Current prize
+    data << HighestBid;               // Current prize
     // hehe I know its evil, this creates a nice trough put of money
-    data << uint32(50);              // Next bid value modifier, like current bid + this value
-    data << BuyoutPrice;                // Buyout
+    data << uint32(50);               // Next bid value modifier, like current bid + this value
+    data << BuyoutPrice;              // Buyout
     data << uint32((ExpiryTime - UNIXTIME) * 1000); // Time left
-    data << uint64(HighestBidder);    // Last bidder
-    if(HighestBidder != 0)
+    data << HighestBidder;            // Last bidder
+    if(!HighestBidder.empty())
         data << HighestBid;              // The bid of the last bidder
-    else
-        data << uint32(0);               // The bid of the last bidder
+    else data << uint32(0);              // The bid of the last bidder
 }
 
 void AuctionHouse::SendBidListPacket(Player* plr, WorldPacket * packet)
@@ -285,7 +282,7 @@ void AuctionHouse::SendBidListPacket(Player* plr, WorldPacket * packet)
     for(; itr != auctions.end(); itr++)
     {
         auct = itr->second;
-        if(auct->HighestBidder == plr->GetGUID())
+        if(plr->GetGUID() == auct->HighestBidder)
         {
             if(auct->Deleted) continue;
 
@@ -299,7 +296,7 @@ void AuctionHouse::SendBidListPacket(Player* plr, WorldPacket * packet)
     plr->GetSession()->SendPacket(&data);
 }
 
-void AuctionHouse::UpdateItemOwnerships(uint32 oldGuid, uint32 newGuid)
+void AuctionHouse::UpdateItemOwnerships(WoWGuid oldGuid, WoWGuid newGuid)
 {
 
     Auction * auct;
@@ -391,7 +388,7 @@ void WorldSession::HandleAuctionPlaceBid( WorldPacket & recv_data )
         return;
 
     _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -((int32)price));
-    if(auct->HighestBidder != 0)
+    if(!auct->HighestBidder.empty())
     {
         // Return the money to the last highest bidder.
         char subject[100];
@@ -508,7 +505,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
     };
 
     if( pItem->IsInWorld() )
-        pItem->RemoveFromWorld();
+        pItem->RemoveFromWorld(false);
 
     sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
     pItem->SetOwner(NULL);
@@ -565,33 +562,29 @@ void AuctionHouse::SendAuctionList(Player* plr, WorldPacket * packet)
 {
     uint32 start_index, current_index = 0;
     uint32 counted_items = 0;
-    std::string auctionString;
+    std::string auctionstring;
     uint8 levelRange1, levelRange2, usableCheck;
     int32 inventory_type, itemclass, itemsubclass, rarityCheck;
 
     *packet >> start_index;
-    *packet >> auctionString;
+    *packet >> auctionstring;
     *packet >> levelRange1 >> levelRange2;
     *packet >> inventory_type >> itemclass >> itemsubclass;
     *packet >> rarityCheck >> usableCheck;
 
     // convert auction string to lowercase for faster parsing.
-    if(auctionString.length() > 0)
-    {
-        for(uint32 j = 0; j < auctionString.length(); ++j)
-            auctionString[j] = tolower(auctionString[j]);
-    }
+	RONIN_UTIL::TOLOWER(auctionstring);
 
     WorldPacket data(SMSG_AUCTION_LIST_RESULT, 7000);
     data << uint32(0);
 
     auctionLock.AcquireReadLock();
     RONIN_UNORDERED_MAP<uint32, Auction*>::iterator itr = auctions.begin();
-    ItemPrototype * proto;
     for(; itr != auctions.end(); itr++)
     {
-        if(itr->second->Deleted) continue;
-        proto = itr->second->pItem->GetProto();
+        if(itr->second->Deleted)
+            continue;
+        ItemPrototype *proto = itr->second->pItem->GetProto();
 
         // Check the auction for parameters
 
@@ -608,7 +601,7 @@ void AuctionHouse::SendAuctionList(Player* plr, WorldPacket * packet)
             continue;
 
         // this is going to hurt. - name
-        if(auctionString.length() > 0 && !FindXinYString(auctionString, HEARTHSTONE_TOLOWER_RETURN(proto->Name1)))
+        if(auctionstring.length() > 0 && !RONIN_UTIL::FindXinYString(auctionstring, RONIN_UTIL::TOLOWER_RETURN(proto->Name1)))
             continue;
 
         // rarity

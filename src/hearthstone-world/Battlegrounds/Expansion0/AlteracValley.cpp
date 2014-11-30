@@ -591,10 +591,10 @@ void AVNode::Spawn()
         {
             sLog.outDebug("AVNode::Spawn(%s) : despawning spirit guide", m_template->m_name);
             // move everyone in the revive queue to a different node
-            std::map<Creature*, std::set<uint32> >::iterator itr = m_bg->m_resurrectMap.find(m_spiritGuide);
+            std::map<Creature*, std::set<WoWGuid> >::iterator itr = m_bg->m_resurrectMap.find(m_spiritGuide);
             if( itr != m_bg->m_resurrectMap.end() )
             {
-                for(set<uint32>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++)
+                for(std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++)
                 {
                     // repop him at a new GY
                     Player* plr_tmp = m_bg->GetMapMgr()->GetPlayer(*it2);
@@ -883,7 +883,7 @@ void AlteracValley::OnCreate()
     }
 
     for(uint32 x = 0; x < AV_NUM_CONTROL_POINTS; ++x)
-        m_nodes[x] = new AVNode(TO_ALTERACVALLEY(this), &g_nodeTemplates[x], x);
+        m_nodes[x] = new AVNode(this, &g_nodeTemplates[x], x);
 
     // generals/leaders!
     SpawnCreature(AV_NPC_GENERAL_VANNDAR_STORMPIKE, 726.969604f, -9.716300f, 50.621391f, 3.377580f);
@@ -902,14 +902,14 @@ void AlteracValley::OnStart()
 {
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->RemoveAura(BG_PREPARATION);
         }
     }
 
     // open gates
-    for(list< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
+    for(std::list< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
     {
         (*itr)->SetUInt32Value(GAMEOBJECT_FLAGS, 64);
         (*itr)->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 0);
@@ -920,7 +920,7 @@ void AlteracValley::OnStart()
 
     m_started = true;
 
-    sEventMgr.AddEvent(TO_ALTERACVALLEY(this), &AlteracValley::EventUpdateResources, EVENT_BATTLEGROUND_RESOURCEUPDATE, AV_REINFORCEMENT_ADD_INTERVAL, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(this, &AlteracValley::EventUpdateResources, EVENT_BATTLEGROUND_RESOURCEUPDATE, AV_REINFORCEMENT_ADD_INTERVAL, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void AlteracValley::OnAddPlayer(Player* plr)
@@ -1033,7 +1033,7 @@ void AlteracValley::Finish(uint32 losingTeam)
     m_ended = true;
     m_losingteam = losingTeam;
     sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(TO_CBATTLEGROUND(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
+    sEventMgr.AddEvent(castPtr<CBattleground>(this), &AlteracValley::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
 
     /* add the marks of honor to all players */
@@ -1043,7 +1043,7 @@ void AlteracValley::Finish(uint32 losingTeam)
         return;
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->Root();
 
@@ -1064,7 +1064,7 @@ void AlteracValley::Finish(uint32 losingTeam)
             {
                 (*itr)->CastSpell((*itr), winner_spell, true);
                 uint32 diff = abs((int32)(m_reinforcements[i] - m_reinforcements[i ? 0 : 1]));
-                (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, TO_CBATTLEGROUND(this));
+                (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, this);
                 if((*itr)->fromrandombg)
                 {
                     Player * p = (*itr);
@@ -1147,7 +1147,7 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
                     li.iRandomProperty = NULL;
                     li.iRandomSuffix = NULL;
                     li.passed = false;
-                    li.roll = NULLROLL;
+                    li.roll = NULL;
 
                     // push to vector
                     pCorpse->GetLoot()->items.push_back(li);

@@ -35,11 +35,11 @@ void ScriptMgr::LoadScripts()
         new HookInterface;
 
     sLog.Notice("ScriptMgr","Loading External Script Libraries..." );
-    string start_path = mainIni->ReadString( "Script", "BinaryLocation", "script_bin" );
+    std::string start_path = mainIni->ReadString( "Script", "BinaryLocation", "script_bin" );
     start_path.append("\\");
-    string search_path = start_path + "*.";
+    std::string search_path = start_path + "*.";
 
-    vector< ScriptingEngine > ScriptEngines;
+    std::vector< ScriptingEngine > ScriptEngines;
 
     /* Loading system for win32 */
 #ifdef WIN32
@@ -54,13 +54,13 @@ void ScriptMgr::LoadScripts()
     {
         do
         {
-            string full_path = start_path + data.cFileName;
+            std::string full_path = start_path + data.cFileName;
             HMODULE mod = LoadLibrary( full_path.c_str() );
             if( mod == 0 )
                 sLog.Error("ScriptMgr","Loading %s failed, crc=0x%p", data.cFileName, reinterpret_cast< uint32* >( mod ));
             else
             {
-                if(HEARTHSTONE_TOLOWER_RETURN(data.cFileName) == "lacrimi.dll")
+                if(RONIN_UTIL::TOLOWER_RETURN(data.cFileName) == "lacrimi.dll")
                 {
                     sLog.Error("ScriptMgr", "Lacrimi must be loaded from world directory.");
                     FreeLibrary(mod);
@@ -116,7 +116,7 @@ void ScriptMgr::LoadScripts()
         FindClose(find_handle);
         sLog.Notice("ScriptMgr","Loaded %u external libraries.", count);
         sLog.Notice("ScriptMgr","Loading optional scripting engines...");
-        for(vector<ScriptingEngine>::iterator itr = ScriptEngines.begin(); itr != ScriptEngines.end(); itr++)
+        for(std::vector<ScriptingEngine>::iterator itr = ScriptEngines.begin(); itr != ScriptEngines.end(); itr++)
         {
             if( itr->Type & SCRIPT_TYPE_SCRIPT_ENGINE_LUA )
             {
@@ -172,7 +172,7 @@ char *ext;
 #else
             if (ext != NULL && !strcmp(ext, ".so")) {
 #endif
-                string full_path = "../lib/" + string(list[filecount]->d_name);
+                std::string full_path = "../lib/" + std::string(list[filecount]->d_name);
                 SCRIPT_MODULE mod = dlopen(full_path.c_str(), RTLD_NOW);
                 printf("  %s : 0x%p : ", list[filecount]->d_name, mod);
                 if(mod == 0)
@@ -240,7 +240,7 @@ char *ext;
         sLog.outString("");
 
         sLog.outString("Loading optional scripting engines...");
-        for(vector<ScriptingEngine>::iterator itr = ScriptEngines.begin(); itr != ScriptEngines.end(); itr++)
+        for(std::vector<ScriptingEngine>::iterator itr = ScriptEngines.begin(); itr != ScriptEngines.end(); itr++)
         {
             if( itr->Type & SCRIPT_TYPE_SCRIPT_ENGINE_LUA )
             {
@@ -393,7 +393,7 @@ void ScriptMgr::register_creature_script(uint32 entry, exp_create_creature_ai ca
     {
         if( !ctrData->spells.empty() )
         {
-            for(list<AI_Spell*>::iterator it = ctrData->spells.begin(); it != ctrData->spells.end(); it++)
+            for(std::list<AI_Spell*>::iterator it = ctrData->spells.begin(); it != ctrData->spells.end(); it++)
                 delete (*it);
 
             ctrData->spells.clear();
@@ -1137,7 +1137,7 @@ void HookInterface::OnZone(Player* pPlayer, uint32 Zone, uint32 OldZone)
     OUTER_LOOP_END;
 }
 
-bool HookInterface::OnChat(Player* pPlayer, uint32 Type, uint32 Lang, string Message, string Misc)
+bool HookInterface::OnChat(Player* pPlayer, uint32 Type, uint32 Lang, std::string Message, std::string Misc)
 {
     OUTER_LOOP_BEGIN_COND(SERVER_HOOK_EVENT_ON_CHAT, tOnChat)
     {

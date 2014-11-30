@@ -37,7 +37,7 @@ void GuildMgr::Packet_DisbandGuild(WorldSession* m_session)
         return;
     }
 
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_QUIT_S, "", GUILD_PERMISSIONS);
         return;
@@ -46,7 +46,7 @@ void GuildMgr::Packet_DisbandGuild(WorldSession* m_session)
     guildmgr.Disband(gInfo->m_guildId);
 }
 
-void GuildMgr::Packet_SetMotd(WorldSession* m_session, string motd)
+void GuildMgr::Packet_SetMotd(WorldSession* m_session, std::string motd)
 {
     Player* plr = m_session->GetPlayer();
     if(!plr->IsInGuild())
@@ -407,7 +407,7 @@ void GuildMgr::Packet_SaveGuildEmblem(WorldSession* m_session, uint32 emblemStyl
     }
 
     GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         data << uint32(ERR_GUILDEMBLEM_NOTGUILDMASTER);
         m_session->SendPacket(&data);
@@ -445,7 +445,7 @@ void GuildMgr::Packet_HandleDeleteRank(WorldSession* m_session)
     }
 
     GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_CREATE_S, "", GUILD_PERMISSIONS);
         return;
@@ -484,7 +484,7 @@ void GuildMgr::Packet_HandleAddRank(WorldSession* m_session, std::string name)
     }
 
     GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_CREATE_S, "", GUILD_PERMISSIONS);
         return;
@@ -514,7 +514,7 @@ void GuildMgr::Packet_HandleEditRank(WorldSession* m_session, std::string name, 
     }
 
     GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_CREATE_S, "", GUILD_PERMISSIONS);
         return;
@@ -560,13 +560,13 @@ void GuildMgr::Packet_ChangeGuildLeader(WorldSession* m_session, PlayerInfo* new
     }
 
     GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_CREATE_S, "", GUILD_PERMISSIONS);
         return;
     }
 
-    GuildMember *GuildLeader = GetGuildMember(plr->GetLowGUID()), *NewGuildLeader = GetGuildMember(newLeader->guid);
+    GuildMember *GuildLeader = GetGuildMember(plr->GetLowGUID()), *NewGuildLeader = GetGuildMember(newLeader->guid.getLow());
     if(GuildLeader == NULL || NewGuildLeader == NULL)
     {
         SendGuildCommandResult(m_session, GUILD_CREATE_S, "", GUILD_PLAYER_NOT_IN_GUILD);
@@ -633,7 +633,7 @@ void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, std::string dem
         return;
     }
 
-    GuildMember* gMember = GetGuildMember(plr->GetLowGUID()), *DemotedMember = GetGuildMember(Demoted->guid);
+    GuildMember* gMember = GetGuildMember(plr->GetLowGUID()), *DemotedMember = GetGuildMember(Demoted->guid.getLow());
     if(gMember == NULL || DemotedMember == NULL)
     {
         SendGuildCommandResult(m_session, GUILD_PROMOTE_S, demoteeName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
@@ -678,7 +678,7 @@ void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, std::string dem
 
     // log it
     LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_DEMOTION, plr->GetName(), demoteeName.c_str(), newRank->szRankName.c_str());
-    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_DEMOTION, plr->GetLowGUID(), Demoted->guid, newRank->iId);
+    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_DEMOTION, plr->GetLowGUID(), Demoted->guid.getLow(), newRank->iId);
 
     // if the player is online, update his guildrank
     if(Demoted->m_loggedInPlayer)
@@ -719,14 +719,14 @@ void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, std::string pr
 
     if(plr->GetGuildId() != Promoted->GuildId)
     {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, string(string("1") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, std::string(std::string("1") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
-    GuildMember* gMember = GetGuildMember(plr->GetLowGUID()), *PromotedMember = GetGuildMember(Promoted->guid);
+    GuildMember* gMember = GetGuildMember(plr->GetLowGUID()), *PromotedMember = GetGuildMember(Promoted->guid.getLow());
     if(gMember == NULL || PromotedMember == NULL)
     {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, string(string("2 ") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, std::string(std::string("2 ") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
@@ -763,7 +763,7 @@ void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, std::string pr
 
     // log it
     LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_PROMOTION, plr->GetName(), promoteeName.c_str(), newRank->szRankName.c_str());
-    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_PROMOTION, plr->GetLowGUID(), Promoted->guid, newRank->iId);
+    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_PROMOTION, plr->GetLowGUID(), Promoted->guid.getLow(), newRank->iId);
 
     // if the player is online, update his guildrank
     if(Promoted->m_loggedInPlayer)
@@ -1013,7 +1013,7 @@ void GuildMgr::Packet_SendGuildBankLog(WorldSession* m_session, uint32 slotid)
         uint32 lt = (uint32)UNIXTIME;
         data << uint8(0x06);
         data << uint8((BankTabStorage->m_money_logs.size() < 25) ? BankTabStorage->m_money_logs.size() : 25);
-        list<GuildBankEvent*>::iterator itr = BankTabStorage->m_money_logs.begin();
+        std::list<GuildBankEvent*>::iterator itr = BankTabStorage->m_money_logs.begin();
         for(; itr != BankTabStorage->m_money_logs.end(); itr++)
         {
             data << (*itr)->iAction;
@@ -1597,7 +1597,7 @@ void GuildMgr::Packet_BuyBankTab(WorldSession* m_session, uint64 BankGuid)
         return;
     }
 
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_MEMBER_S, "", GUILD_PERMISSIONS);
         return;
@@ -1984,7 +1984,7 @@ void GuildMgr::Packet_SetBankTabInfo(WorldSession* m_session, uint64 BankGuid, u
         return;
     }
 
-    if(gInfo->m_guildLeader != plr->GetLowGUID())
+    if(gInfo->m_guildLeader != plr->GetGUID())
     {
         SendGuildCommandResult(m_session, GUILD_MEMBER_S, "", GUILD_PERMISSIONS);
         return;

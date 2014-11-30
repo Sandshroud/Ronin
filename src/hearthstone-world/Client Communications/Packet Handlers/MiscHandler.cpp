@@ -39,7 +39,7 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
     Object* pLootObj;
 
     // handle item loot
-    uint64 guid = _player->GetLootGUID();
+    WoWGuid guid = _player->GetLootGUID();
     if( GUID_HIPART(guid) == HIGHGUID_TYPE_ITEM )
         pLootObj = _player->GetItemInterface()->GetItemByGUID(guid);
     else pLootObj = _player->GetMapMgr()->_GetObject(guid);
@@ -89,8 +89,7 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
 
     if(it->Class == ITEM_CLASS_QUEST)
     {
-        QuestAssociationList *tempList = sQuestMgr.GetQuestAssociationListForItemId( itemid );
-        if(tempList != NULL)
+        if(QuestAssociationList *tempList = sQuestMgr.GetQuestAssociationListForItemId( itemid ))
         {
             uint32 countNeeded = 0;
             for(QuestAssociationList::iterator itr = tempList->begin(); itr != tempList->end(); itr++)
@@ -194,7 +193,7 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
     /* any left yet? (for fishing bobbers) */
     if(pGO && pGO->GetEntry() == GO_FISHING_BOBBER)
     {
-        for(vector<__LootItem>::const_iterator itr = pLootObj->GetLoot()->items.begin(); itr != pLootObj->GetLoot()->items.end(); itr++)
+        for(std::vector<__LootItem>::const_iterator itr = pLootObj->GetLoot()->items.begin(); itr != pLootObj->GetLoot()->items.end(); itr++)
         {
             if(!itr->has_looted.size())
                 return;
@@ -245,7 +244,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
         Group* party = _player->GetGroup();
         pLootEnt->GetLoot()->gold = 0;
 
-        vector<Player*  > targets;
+        std::vector<Player*  > targets;
         targets.reserve(party->MemberCount());
 
         GroupMembersSet::iterator itr;
@@ -267,7 +266,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
         uint32 share = money / uint32(targets.size());
         pkt << share;
 
-        for(vector<Player*>::iterator itr = targets.begin(); itr != targets.end(); itr++)
+        for(std::vector<Player*>::iterator itr = targets.begin(); itr != targets.end(); itr++)
         {
             if(((*itr)->GetUInt32Value(PLAYER_FIELD_COINAGE) + share) >= PLAYER_MAX_GOLD)
                 continue;
@@ -282,7 +281,7 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
     if(_player->GetMapMgr()->GetCreature(guid) && _player->GetMapMgr()->GetCreature(guid)->IsVehicle())
@@ -330,7 +329,7 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
 void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
     WorldPacket data(SMSG_LOOT_RELEASE_RESPONSE, 9);
@@ -342,13 +341,13 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     _player->m_currentLoot = 0;
 
     // special case
-    if( GUID_HIPART( guid ) == HIGHGUID_TYPE_GAMEOBJECT )
+    if( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT )
     {
-        GameObject* pGO = _player->GetMapMgr()->GetGameObject( GUID_LOPART(guid) );
+        GameObject* pGO = _player->GetMapMgr()->GetGameObject(guid);
         if( pGO == NULL )
             return;
 
-        pGO->GetLoot()->looters.erase(_player->GetLowGUID());
+        pGO->GetLoot()->looters.erase(_player->GetGUID());
         switch( pGO->GetType())
         {
         case GAMEOBJECT_TYPE_FISHINGNODE:
@@ -361,7 +360,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
             }break;
         case GAMEOBJECT_TYPE_CHEST:
             {
-                pGO->GetLoot()->looters.erase( _player->GetLowGUID() );
+                pGO->GetLoot()->looters.erase( _player->GetGUID() );
                 //check for locktypes
 
                 if( Lock* pLock = dbcLock.LookupEntry( pGO->GetInfo()->GetLockID() ) )
@@ -426,9 +425,8 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                 }
             }
         }
-        return;
     }
-    else if( GUID_HIPART(guid) == HIGHGUID_TYPE_ITEM )
+    else if( guid.getHigh() == HIGHGUID_TYPE_ITEM )
     {
         // if we have no items left, destroy the item.
         Item* pItem = _player->GetItemInterface()->GetItemByGUID(guid);
@@ -437,10 +435,8 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
             if( !pItem->GetLoot()->HasItems(_player) )
                 _player->GetItemInterface()->SafeFullRemoveItemByGuid(guid);
         }
-
-        return;
     }
-    else if( GUID_HIPART(guid) == HIGHGUID_TYPE_CREATURE )
+    else if( guid.getHigh() == HIGHGUID_TYPE_CREATURE )
     {
         Unit* pLootTarget = _player->GetMapMgr()->GetUnit(guid);
         if( pLootTarget != NULL )
@@ -459,9 +455,9 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
             }
         }
     }
-    else if( GUID_HIPART(guid) == HIGHGUID_TYPE_CORPSE )
+    else if( guid.getHigh() == HIGHGUID_TYPE_CORPSE )
     {
-        Corpse* pCorpse = objmgr.GetCorpse((uint32)guid);
+        Corpse* pCorpse = objmgr.GetCorpse(guid.getLow());
         if( pCorpse != NULL && !pCorpse->GetLoot()->HasLoot(_player) )
             pCorpse->Despawn();
     }
@@ -476,9 +472,7 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
     uint32 zone_count;
     uint32 * zones = 0;
     uint32 name_count;
-    string * names = 0;
-    string chatname;
-    string unkstr;
+    std::string *names = 0, chatname, unkstr;
     bool cname;
     uint32 i;
 
@@ -505,7 +499,7 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
     recv_data >> name_count;
     if(name_count > 0 && name_count < 10)
     {
-        names = new string[name_count];
+        names = new std::string[name_count];
 
         for(i = 0; i < name_count; i++)
             recv_data >> names[i];
@@ -517,8 +511,7 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
 
     if(chatname.length() > 0)
         cname = true;
-    else
-        cname = false;
+    else cname = false;
 
     sLog.Debug( "WORLD"," Recvd CMSG_WHO Message with %u zones and %u names", zone_count, name_count );
 
@@ -530,7 +523,7 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
     uint32 sent_count = 0;
     uint32 total_count = 0;
 
-    PlayerStorageMap::const_iterator itr,iend;
+    ObjectMgr::PlayerStorageMap::const_iterator itr,iend;
     Player* plr;
     uint32 lvl;
     bool add;
@@ -1759,7 +1752,7 @@ void WorldSession::HandleCalendarGetCalendar(WorldPacket& recv_data)
     data << uint32(0);          //invite node count
     data << uint32(0);          //event count
     data << uint32(0);          //wtf??
-    data << uint32(secsToTimeBitFields(cur_time));          // current time
+    data << uint32(RONIN_UTIL::secsToTimeBitFields(cur_time));          // current time
 
     uint32 count = 0;
     size_t p_count = data.wpos();
@@ -2031,7 +2024,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
 
 void WorldSession::SendGossipForObject(Object *pEntity)
 {
-    list<QuestRelation *>::iterator it;
+    std::list<QuestRelation *>::iterator it;
     std::set<uint32> ql;
 
     switch(pEntity->GetTypeId())

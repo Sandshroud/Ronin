@@ -11,7 +11,7 @@ h = uint16
 u = uint32
 i = int32
 f = float
-s = string
+s = std::string
 x = skip
 */
 const char * gAchievementRewardFormat                   = "uuuubuss";
@@ -49,8 +49,8 @@ SERVER_DECL SQLStorage<RandomItemCreation, HashMapStorageContainer<RandomItemCre
 SERVER_DECL SQLStorage<RandomCardCreation, HashMapStorageContainer<RandomCardCreation> >        RandomCardCreationStorage;
 SERVER_DECL SQLStorage<ScrollCreation, HashMapStorageContainer<ScrollCreation> >                ScrollCreationStorage;
 
-SERVER_DECL set<string> ExtraMapCreatureTables;
-SERVER_DECL set<string> ExtraMapGameObjectTables;
+SERVER_DECL std::set<std::string> ExtraMapCreatureTables;
+SERVER_DECL std::set<std::string> ExtraMapGameObjectTables;
 
 void ObjectMgr::LoadProfessionDiscoveries()
 {
@@ -74,14 +74,14 @@ void ObjectMgr::LoadProfessionDiscoveries()
 
 void ObjectMgr::LoadExtraItemStuff()
 {
-    map<uint32,uint32> foodItems;
+    std::map<uint32,uint32> foodItems;
     QueryResult * result = WorldDatabase.Query("SELECT * FROM itempetfood ORDER BY entry");
     if(result)
     {
         do
         {
             Field *f = result->Fetch();
-            foodItems.insert( make_pair( f[0].GetUInt32(), f[1].GetUInt32() ) );
+            foodItems.insert( std::make_pair( f[0].GetUInt32(), f[1].GetUInt32() ) );
         }while(result->NextRow());
         delete result;
     }
@@ -93,15 +93,15 @@ void ObjectMgr::LoadExtraItemStuff()
         {
             if(itemset->itemid[i])
             {
-                ItemsInSets.insert(make_pair(itemset->itemid[i], itemset->id));
+                ItemsInSets.insert(std::make_pair(itemset->itemid[i], itemset->id));
             }
         }
     }
 
     if(mItemSets.size())
     {
-        map<uint32, int32> ItemSetsHighest;
-        map<uint32, map<uint32, set<uint32> > > RankByLevelInSet;
+        std::map<uint32, int32> ItemSetsHighest;
+        std::map<uint32, std::map<uint32, std::set<uint32> > > RankByLevelInSet;
         for(ItemSetContentMap::iterator itr = mItemSets.begin(); itr != mItemSets.end(); itr++)
         {
             for(std::list<ItemPrototype*>::iterator itr2 = itr->second->begin(); itr2 != itr->second->end(); itr2++)
@@ -111,36 +111,34 @@ void ObjectMgr::LoadExtraItemStuff()
 
                 if(RankByLevelInSet.find(itr->first) == RankByLevelInSet.end())
                 {
-                    set<uint32> pie;
+                    std::set<uint32> pie;
                     pie.insert((*itr2)->ItemId);
-                    map<uint32, set<uint32> > mapset;
-                    mapset.insert(make_pair((*itr2)->ItemLevel, pie));
+                    std::map<uint32, std::set<uint32> > mapset;
+                    mapset.insert(std::make_pair((*itr2)->ItemLevel, pie));
 
-                    RankByLevelInSet.insert(make_pair(itr->first, mapset));
+                    RankByLevelInSet.insert(std::make_pair(itr->first, mapset));
                 }
                 else
                 {
                     if(RankByLevelInSet[itr->first].find((*itr2)->ItemLevel) == RankByLevelInSet[itr->first].end())
                     {
-                        set<uint32> pie;
+                        std::set<uint32> pie;
                         pie.insert((*itr2)->ItemId);
-                        RankByLevelInSet[itr->first].insert(make_pair((*itr2)->ItemLevel, pie));
-                    }
-                    else
-                        RankByLevelInSet[itr->first][(*itr2)->ItemLevel].insert((*itr2)->ItemId);
+                        RankByLevelInSet[itr->first].insert(std::make_pair((*itr2)->ItemLevel, pie));
+                    } else RankByLevelInSet[itr->first][(*itr2)->ItemLevel].insert((*itr2)->ItemId);
                 }
             }
         }
 
-        for(map<uint32, map<uint32, set<uint32> > >::iterator itr = RankByLevelInSet.begin(); itr != RankByLevelInSet.end(); itr++)
+        for(std::map<uint32, std::map<uint32, std::set<uint32> > >::iterator itr = RankByLevelInSet.begin(); itr != RankByLevelInSet.end(); itr++)
         {
             uint32 rank = 1;
             uint32 lastRank = 0;
             uint32 oldRanking = 0;
-            string lastPrefix = "";
-            set<uint32> UsedRanks;
+            std::string lastPrefix = "";
+            std::set<uint32> UsedRanks;
             ItemPrototype *IP = NULL;
-            map<string, uint32> rankByPrefix;
+            std::map<std::string, uint32> rankByPrefix;
             for(int32 i = 0; i <= ItemSetsHighest[itr->first]; i++)
             {
                 if(oldRanking > 0)
@@ -157,12 +155,11 @@ void ObjectMgr::LoadExtraItemStuff()
                         {
                             if(lastPrefix.length())
                             {
-                                set<uint32>::iterator itr2 = itr->second[i].begin();
+                                std::set<uint32>::iterator itr2 = itr->second[i].begin();
                                 IP = ItemPrototypeStorage.LookupEntry(*itr2);
-                                string name = IP->Name1;
                                 size_t spot = 0;
-                                string Prefix = "";
-                                if((spot = name.find(" ")) != string::npos)
+                                std::string name = IP->Name1, Prefix = "";
+                                if((spot = name.find(" ")) != std::string::npos)
                                     Prefix = name.substr(0, spot);
                                 if(strcmp(lastPrefix.c_str(), Prefix.c_str()))
                                 {
@@ -179,13 +176,12 @@ void ObjectMgr::LoadExtraItemStuff()
                         }
                     }
 
-                    for(set<uint32>::iterator itr2 = itr->second[i].begin(); itr2 != itr->second[i].end(); itr2++)
+                    for(std::set<uint32>::iterator itr2 = itr->second[i].begin(); itr2 != itr->second[i].end(); itr2++)
                     {
                         IP = ItemPrototypeStorage.LookupEntry(*itr2);
-                        string name = IP->Name1;
                         size_t spot = 0;
-                        string Prefix = "";
-                        if((spot = name.find(" ")) != string::npos)
+                        std::string name = IP->Name1, Prefix = "";
+                        if((spot = name.find(" ")) != std::string::npos)
                             Prefix = name.substr(0, spot);
                         if(strcmp(lastPrefix.c_str(), Prefix.c_str()))
                         {
@@ -201,7 +197,7 @@ void ObjectMgr::LoadExtraItemStuff()
                             rank = rankByPrefix.at(Prefix);
                         }
                         else
-                            rankByPrefix.insert(make_pair(Prefix, rank));
+                            rankByPrefix.insert(std::make_pair(Prefix, rank));
 
                         IP->ItemSetRank = rank;
                         if(UsedRanks.find(rank) == UsedRanks.end())
@@ -334,18 +330,18 @@ void Storage_Cleanup()
     ZoneGuardStorage.Cleanup();
 }
 
-vector<pair<string,string> > additionalTables;
+std::vector<std::pair<std::string,std::string> > additionalTables;
 
 bool LoadAdditionalTable(const char * TableName, const char * SecondName)
 {
     if(!stricmp(TableName, "creature_spawns"))
     {
-        ExtraMapCreatureTables.insert(string(SecondName));
+        ExtraMapCreatureTables.insert(std::string(SecondName));
         return false;
     }
     else if(!stricmp(TableName, "gameobject_spawns"))
     {
-        ExtraMapGameObjectTables.insert(string(SecondName));
+        ExtraMapGameObjectTables.insert(std::string(SecondName));
         return false;
     }
     else if(!stricmp(TableName, "gameobject_names"))    // GO Names
@@ -420,10 +416,10 @@ bool Storage_ReloadTable(const char * TableName)
 
     uint32 len = (uint32)strlen(TableName);
     uint32 len2;
-    for(vector<pair<string,string> >::iterator itr = additionalTables.begin(); itr != additionalTables.end(); itr++)
+    for(std::vector<std::pair<std::string,std::string> >::iterator itr = additionalTables.begin(); itr != additionalTables.end(); itr++)
     {
         len2=(uint32)itr->second.length();
-        if(!strnicmp(TableName, itr->second.c_str(), min(len,len2)))
+        if(!strnicmp(TableName, itr->second.c_str(), std::min(len,len2)))
             LoadAdditionalTable(TableName, itr->first.c_str());
     }
     return true;
@@ -431,29 +427,28 @@ bool Storage_ReloadTable(const char * TableName)
 
 void Storage_LoadAdditionalTables()
 {
-    ExtraMapCreatureTables.insert(string("creature_spawns"));
-    ExtraMapGameObjectTables.insert(string("gameobject_spawns"));
+    ExtraMapCreatureTables.insert(std::string("creature_spawns"));
+    ExtraMapGameObjectTables.insert(std::string("gameobject_spawns"));
 
-    string strData = mainIni->ReadString("Startup", "LoadAdditionalTables", "");
+    std::string strData = mainIni->ReadString("Startup", "LoadAdditionalTables", "");
     if(strData.empty())
         return;
 
-    vector<string> strs = StrSplit(strData, ",");
+    std::vector<std::string> strs = RONIN_UTIL::StrSplit(strData, ",");
     if(strs.empty())
         return;
 
-    for(vector<string>::iterator itr = strs.begin(); itr != strs.end(); itr++)
+    for(std::vector<std::string>::iterator itr = strs.begin(); itr != strs.end(); itr++)
     {
-        char s1[200];
-        char s2[200];
+        char s1[200], s2[200];
         if(sscanf((*itr).c_str(), "%s %s", s1, s2) != 2)
             continue;
 
         if(LoadAdditionalTable(s2, s1))
         {
-            pair<string,string> tmppair;
-            tmppair.first = string(s1);
-            tmppair.second = string(s2);
+            std::pair<std::string,std::string> tmppair;
+            tmppair.first = std::string(s1);
+            tmppair.second = std::string(s2);
             additionalTables.push_back(tmppair);
         }
     }

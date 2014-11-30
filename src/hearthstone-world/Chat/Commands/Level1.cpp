@@ -671,7 +671,7 @@ bool ChatHandler::HandleGenderChanger(const char* args, WorldSession *m_session)
     }
     if (!*args)
         gender = (target->getGender()== 1 ? 0 : 1);
-    else gender = ( min((int)atoi((char*)args),1) > 0 ? 1: 0);
+    else gender = ( std::min((int)atoi((char*)args),1) > 0 ? 1: 0);
 
     target->setGender(gender);
     SystemMessage(m_session, "Gender changed to %u",gender);
@@ -689,14 +689,14 @@ bool ChatHandler::HandleModifyGoldCommand(const char* args, WorldSession *m_sess
     if( chr == NULL )
         return true;
 
-    int32 total   = atoi( (char*)args );
-    uint32 gold   = (uint32) floor( (float)int32abs( total ) / 10000.0f );
-    uint32 silver = (uint32) floor( ((float)int32abs( total ) / 100.0f) ) % 100;
-    uint32 copper = int32abs2uint32( total ) % 100;
+    int64 total   = atoi( (char*)args );
+    uint64 gold   = (uint32) floor( (float)int32abs( total ) / 10000.0f );
+    uint64 silver = (uint32) floor( ((float)int32abs( total ) / 100.0f) ) % 100;
+    uint64 copper = int32abs2uint32( total ) % 100;
 
     sWorld.LogGM( m_session, "used modify gold on %s, gold: %i", chr->GetName(), total );
 
-    int32 newgold = chr->GetUInt32Value( PLAYER_FIELD_COINAGE ) + total;
+    int64 newgold = chr->GetUInt32Value( PLAYER_FIELD_COINAGE ) + total;
 
     if(newgold < 0)
     {
@@ -718,7 +718,7 @@ bool ChatHandler::HandleModifyGoldCommand(const char* args, WorldSession *m_sess
         }
     }
 
-    chr->SetUInt32Value( PLAYER_FIELD_COINAGE, newgold );
+    chr->SetUInt64Value( PLAYER_FIELD_COINAGE, newgold );
     return true;
 }
 
@@ -766,9 +766,7 @@ bool ChatHandler::HandleUnlearnCommand(const char* args, WorldSession * m_sessio
     {
         GreenSystemMessageToPlr(plr, "Removed spell %u.", SpellId);
         plr->removeSpell(SpellId);
-    }
-    else
-        RedSystemMessage(m_session, "That player does not have spell %u learnt.", SpellId);
+    } else RedSystemMessage(m_session, "That player does not have spell %u learnt.", SpellId);
 
     return true;
 }

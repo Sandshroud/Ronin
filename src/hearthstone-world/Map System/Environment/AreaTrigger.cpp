@@ -115,25 +115,22 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
                         }break;
                     case AREA_TRIGGER_FAILURE_NO_KEY:
                         {
-                            string temp_msg[2];
-                            string tmp_msg;
+                            std::string temp_msg[3];
                             for(uint32 i = 0; i < 2; i++)
                             {
                                 if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i], false)==0)
                                 {
-                                    ItemPrototype * pKey = ItemPrototypeStorage.LookupEntry(pMi->heroic_key[i]);
-                                    if(pKey)
+                                    if(ItemPrototype * pKey = ItemPrototypeStorage.LookupEntry(pMi->heroic_key[i]))
                                         temp_msg[i] += pKey->Name1;
-                                    else
-                                        temp_msg[i] += "UNKNOWN";
+                                    else temp_msg[i] += "UNKNOWN";
                                 }
                             }
-                            tmp_msg += temp_msg[0];
+                            temp_msg[2] += temp_msg[0];
                             if(temp_msg[0].size() && temp_msg[1].size())
-                                tmp_msg += "\" and \"";
-                            tmp_msg += temp_msg[1];
+                                temp_msg[2] += "\" and \"";
+                            temp_msg[2] += temp_msg[1];
 
-                            snprintf(msg, 200, pReason, tmp_msg.c_str());
+                            snprintf(msg, 200, pReason, temp_msg[2].c_str());
                             data << msg;
                         }break;
                     case AREA_TRIGGER_FAILURE_LEVEL_HEROIC:

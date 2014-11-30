@@ -42,10 +42,10 @@ void MapManagerScript::Update(uint32 p_time)
             TimeIter2->second = 0;
     }
 
-    for(map<uint32, CreatureAIScript*>::iterator itr = m_CreatureAIScripts.begin(); itr != m_CreatureAIScripts.end(); itr++)
+    for(std::map<uint32, CreatureAIScript*>::iterator itr = m_CreatureAIScripts.begin(); itr != m_CreatureAIScripts.end(); itr++)
         itr->second->AIUpdate(this, p_time);
 
-    for(map<uint32, GameObjectAIScript*>::iterator itr = m_GameObjectAIScripts.begin(); itr != m_GameObjectAIScripts.end(); itr++)
+    for(std::map<uint32, GameObjectAIScript*>::iterator itr = m_GameObjectAIScripts.begin(); itr != m_GameObjectAIScripts.end(); itr++)
         itr->second->AIUpdate(this, p_time);
 
     OnUpdate(p_time);
@@ -58,7 +58,7 @@ void MapManagerScript::AddCreatureAI(Creature* pCreature)
 
     CreatureAIScript* GoScript = pCreature->GetScript();
     if(GoScript && !GoScript->LuaScript)
-        m_CreatureAIScripts.insert(make_pair(pCreature->GetLowGUID(), GoScript));
+        m_CreatureAIScripts.insert(std::make_pair(pCreature->GetLowGUID(), GoScript));
 }
 
 void MapManagerScript::RemoveCreatureAI(Creature* pCreature)
@@ -78,7 +78,7 @@ void MapManagerScript::AddGameObjectAI(GameObject* pGameObject)
 
     GameObjectAIScript* GoScript = pGameObject->GetScript();
     if(GoScript && !GoScript->LuaScript)
-        m_GameObjectAIScripts.insert(make_pair(pGameObject->GetLowGUID(), GoScript));
+        m_GameObjectAIScripts.insert(std::make_pair(pGameObject->GetLowGUID(), GoScript));
 }
 
 void MapManagerScript::RemoveGameObjectAI(GameObject* pGameObject)
@@ -226,7 +226,7 @@ Player *MapManagerScript::FindClosestPlayer( float pX, float pY, float pZ, Playe
     Player* CurrentPlayer = NULL, *Creturn = NULL;
     float closestDistance = 50000.0f, currentDistance;
 
-    PlayerStorageMap::iterator itr;
+    MapMgr::PlayerStorageMap::iterator itr;
     for(itr = _manager->m_PlayerStorage.begin(); itr != _manager->m_PlayerStorage.end(); ++itr)
     {
         currentDistance = 0.0f;
@@ -290,7 +290,7 @@ Player *MapManagerScript::GetPlayerByGuid( uint32 pGuid )
 uint32 MapManagerScript::AddTimer( int32 pDurationMillisec )
 {
     int32 Index = mTimerIdCounter++;
-    mTimers.insert(make_pair( Index, pDurationMillisec ));
+    mTimers.insert(std::make_pair( Index, pDurationMillisec ));
     return Index;
 }
 

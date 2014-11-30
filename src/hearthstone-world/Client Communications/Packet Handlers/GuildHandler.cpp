@@ -134,7 +134,7 @@ void WorldSession::HandleGuildEditRank(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    string newName;
+    std::string newName;
     uint32 rankId, RankRights, iFlags[MAX_GUILD_BANK_TABS];
     int32 DailyGoldLimit, iStacksPerDay[MAX_GUILD_BANK_TABS];
 
@@ -153,7 +153,7 @@ void WorldSession::HandleGuildEditRank(WorldPacket & recv_data)
 void WorldSession::HandleGuildAddRank(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    string rankName;
+    std::string rankName;
     recv_data >> rankName;
     if(rankName.size() < 2)
         return;
@@ -171,7 +171,7 @@ void WorldSession::HandleGuildDelRank(WorldPacket & recv_data)
 void WorldSession::HandleGuildSetPublicNote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    string target, newnote;
+    std::string target, newnote;
     recv_data >> target >> newnote;
 
     guildmgr.Packet_SetPublicNote(this, target, newnote);
@@ -180,7 +180,7 @@ void WorldSession::HandleGuildSetPublicNote(WorldPacket & recv_data)
 void WorldSession::HandleGuildSetOfficerNote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    string target, newnote;
+    std::string target, newnote;
     recv_data >> target >> newnote;
 
     guildmgr.Packet_SetOfficerNote(this, target, newnote);
@@ -202,7 +202,7 @@ void WorldSession::HandleCharterBuy(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    string name;
+    std::string name;
     uint64 creature_guid;
     uint32 arena_index, PetitionSignerCount;
 
@@ -210,14 +210,14 @@ void WorldSession::HandleCharterBuy(WorldPacket & recv_data)
     recv_data.read_skip<uint32>();
     recv_data.read_skip<uint64>();
     recv_data >> name;
-    recv_data.read_skip<string>();
+    recv_data.read_skip<std::string>();
     for(uint32 s = 0; s < 7; ++s)
         recv_data.read_skip<uint32>();
     recv_data.read_skip<uint16>();
     recv_data.read_skip<uint64>();
     recv_data >> PetitionSignerCount;
     for(uint32 s = 0; s < 10; ++s)
-        recv_data.read_skip<string>();
+        recv_data.read_skip<std::string>();
     recv_data >> arena_index;
 
     guildmgr.CharterBuy(this, creature_guid, name, PetitionSignerCount, arena_index);
@@ -251,7 +251,7 @@ void WorldSession::HandleGuildBankModifyTab(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
     uint8 slot;
     uint64 guid;
-    string tabname, tabicon;
+    std::string tabname, tabicon;
 
     recv_data >> guid;
     recv_data >> slot;
@@ -397,7 +397,7 @@ void WorldSession::HandleSetGuildBankText( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
 
     uint8 tabid;
-    string tabtext;
+    std::string tabtext;
     recv_data >> tabid >> tabtext;
     guildmgr.Packet_SetGuildBankText(this, tabid, tabtext);
 }
@@ -415,7 +415,7 @@ void SendShowSignatures(Charter * c, uint64 i, Player * p)
     data << uint8(c->SignatureCount);
     for(uint32 j = 0; j < c->Slots; ++j)
     {
-        if(c->Signatures[j] == 0)
+        if(c->Signatures[j].empty())
             continue;
 
         data << uint64(c->Signatures[j]) << uint32(1);
@@ -473,15 +473,14 @@ void WorldSession::HandleCharterQuery(WorldPacket & recv_data)
         data << uint32(80) << uint32(maxlevel);             // 10
 
     data << uint32(0);                                      // 12
-    data << uint32(0);                                      // 13 count of next strings?
+    data << uint32(0);                                      // 13 count of next std::strings?
     data << uint32(0);                                      // 14
     data << uint32(0);                                      // 15
     data << uint16(0);                                      // 16
 
     if (c->CharterType == CHARTER_TYPE_GUILD)
         data << uint32(0);
-    else
-        data << uint32(1);
+    else data << uint32(1);
 
     SendPacket(&data);
 }
@@ -538,7 +537,7 @@ void WorldSession::HandleCharterSign( WorldPacket & recv_data )
 
     for(uint32 i = 0; i < 9; i++)
     {
-        if(c->Signatures[i] == _player->GetLowGUID())
+        if(c->Signatures[i] == _player->GetGUID())
         {
             SendNotification("You have already signed that charter.");
             return;
@@ -682,7 +681,7 @@ void WorldSession::HandleCharterRename(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
     uint64 guid;
-    string name;
+    std::string name;
     recv_data >> guid >> name;
 
     Charter * pCharter = guildmgr.GetCharterByItemGuid(GUID_LOPART(guid));

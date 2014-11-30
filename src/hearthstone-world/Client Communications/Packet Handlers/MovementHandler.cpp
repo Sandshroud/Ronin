@@ -272,7 +272,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
         /************************************************************************/
         /* Distribute to all inrange players.                                   */
         /************************************************************************/
-        for(unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
+        for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
         {
             if( (*itr)->GetSession() && (*itr)->IsInWorld() )
             {
@@ -477,7 +477,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
         {
             /* we left the transporter we were on */
             _player->m_CurrentTransporter->RemovePlayer(_player);
-            _player->m_CurrentTransporter = NULLTRANSPORT;
+            _player->m_CurrentTransporter = NULL;
             _player->ResetHeartbeatCoords();
             _player->DelaySpeedHack(5000);
         }
@@ -486,7 +486,7 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
             if(_player->m_CurrentTransporter->GetGUID() != _player->movement_info.transGuid)
             {
                 _player->m_CurrentTransporter->RemovePlayer(_player);
-                _player->m_CurrentTransporter = NULLTRANSPORT;
+                _player->m_CurrentTransporter = NULL;
                 _player->ResetHeartbeatCoords();
 
                 _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(_player->movement_info.transGuid));

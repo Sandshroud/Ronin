@@ -948,10 +948,10 @@ void AI_Movement::SendCurrentMove(Player* plyr/*uint64 guid*/)
 
     if(PathMap == NULL || m_timeMoved == m_timeToMove)
         return;
-    if(CurrentMoveRequired.find(plyr->GetLowGUID()) != CurrentMoveRequired.end())
+    if(CurrentMoveRequired.find(plyr->GetGUID()) != CurrentMoveRequired.end())
         return;
 
-    CurrentMoveRequired.insert(make_pair(plyr->GetLowGUID(), getMSTime()));
+    CurrentMoveRequired.insert(std::make_pair(plyr->GetGUID(), getMSTime()));
 }
 
 void AI_Movement::HandleEvade()

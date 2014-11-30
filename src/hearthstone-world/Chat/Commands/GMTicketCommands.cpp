@@ -294,12 +294,12 @@ bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession
 bool ChatHandler::HandleGMTicketAssignToCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid;
-    char guidString[100], name[100];
-    int argc = sscanf(args,"%s %s", guidString, name);
+    char guidstring[100], name[100];
+    int argc = sscanf(args,"%s %s", guidstring, name);
     if(argc < 1 || argc > 2)
         return false;
 
-    ticketGuid = atoi(guidString);
+    ticketGuid = atoi(guidstring);
     if(!ticketGuid)
     {
         RedSystemMessage(m_session, "You must specify a ticket id.");
@@ -426,7 +426,7 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
     uint64 ticketGuid;
     int argc = 1;
     char* comment = NULL;
-    char* guidString = (char*)args;
+    char* guidstring = (char*)args;
 
     // Parse arguments
     char* space = (char*)strchr(args, ' ');
@@ -437,7 +437,7 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
         argc = 2;
     }
 
-    ticketGuid = atoi(guidString);
+    ticketGuid = atoi(guidstring);
     if(!ticketGuid)
     {
         RedSystemMessage(m_session, "You must specify a ticket id.");
@@ -456,7 +456,7 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
         return true;
     }
 
-    if(ticket->assignedToPlayer != 0 && ticket->assignedToPlayer != cplr->GetLowGUID() && !cplr->GetSession()->CanUseCommand('z'))
+    if(!ticket->assignedToPlayer.empty() && ticket->assignedToPlayer != cplr->GetGUID() && !cplr->GetSession()->CanUseCommand('z'))
     {
         chn->Say(cplr, "GmTicket:0:Ticket is assigned to another GM.", cplr, true);
         return true;
@@ -467,7 +467,7 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
 
     std::stringstream ss;
     ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_COMMENT;
-    ss << ":" << ticket->guid;
+    ss << ":" << ticket->guid.getLow();
     ss << ":" << cplr->GetName();
     ss << ":" << ticket->comment;
     chn->Say(cplr, ss.str().c_str(), NULL, true);
@@ -500,11 +500,11 @@ bool ChatHandler::HandleGMTicketDeletePermanentCommand(const char* args, WorldSe
 
     if(!ticket->deleted)
     {
-        plr = objmgr.GetPlayer((uint32)ticket->playerGuid);
+        plr = objmgr.GetPlayer(ticket->playerGuid);
 
         std::stringstream ss;
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_REMOVED;
-        ss << ":" << ticket->guid;
+        ss << ":" << ticket->guid.getLow();
         chn->Say(cplr, ss.str().c_str(), NULL, true);
 
         sTicketMgr.RemoveGMTicket(ticket->guid);

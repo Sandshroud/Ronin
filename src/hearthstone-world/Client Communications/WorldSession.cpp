@@ -12,7 +12,7 @@ extern bool bServerShutdown;
 #define WORLDSOCKET_TIMEOUT 80
 OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 
-WorldSession::WorldSession(uint32 id, string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
+WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
 _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), instanceId(0), _recentlogout(false)
 {
     _player = NULL;
@@ -277,7 +277,7 @@ void WorldSession::LogoutPlayer(bool Save)
             {
                 std::stringstream ss;
                 ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_ONLINESTATE;
-                ss << ":" << ticket->guid;
+                ss << ":" << ticket->guid.getLow();
                 ss << ":0";
                 chn->Say(_player, ss.str().c_str(), NULL, true);
             }
@@ -289,12 +289,12 @@ void WorldSession::LogoutPlayer(bool Save)
 
         // Remove from vehicle for now.
         if(_player->GetVehicle(true))
-            TO_VEHICLE(_player->GetVehicle())->RemovePassenger(_player);
+            castPtr<Vehicle>(_player->GetVehicle())->RemovePassenger(_player);
 
         if( _player->m_CurrentTransporter != NULL )
         {
             _player->m_CurrentTransporter->RemovePlayer( _player );
-            _player->m_CurrentTransporter = NULLTRANSPORT;
+            _player->m_CurrentTransporter = NULL;
             _player->GetMovementInfo()->ClearTransportData();
         }
 
@@ -446,7 +446,7 @@ void WorldSession::SetSecurity(std::string securitystring)
     LoadSecurity(securitystring);
 
     // update db
-    CharacterDatabase.Execute("UPDATE accounts SET gm=\'%s\' WHERE acct=%u", CharacterDatabase.EscapeString(string(permissions)).c_str(), _accountId);
+    CharacterDatabase.Execute("UPDATE accounts SET gm=\'%s\' WHERE acct=%u", CharacterDatabase.EscapeString(permissions).c_str(), _accountId);
 }
 
 bool WorldSession::CanUseCommand(char cmdstr)
@@ -1062,9 +1062,9 @@ void WorldSession::HandleAchievementInspect(WorldPacket &recv_data)
     WoWGuid guid;
     recv_data >> guid.asPacked();
 
-    Unit* pUnit = GetPlayer()->GetMapMgr()->GetPlayer( GUID_LOPART(guid) );
-    if( pUnit && pUnit->IsPlayer() && castPtr<Player>(pUnit)->GetAchievementInterface()->HasAchievements() )
-        SendPacket(castPtr<Player>(pUnit)->GetAchievementInterface()->BuildAchievementData(true));
+    if(Player* plr = GetPlayer()->GetMapMgr()->GetPlayer(guid))
+        if( plr->GetAchievementInterface()->HasAchievements() )
+            SendPacket(plr->GetAchievementInterface()->BuildAchievementData(true));
 }
 
 void WorldSession::HandleTimeSyncResp( WorldPacket & recv_data )
@@ -1112,21 +1112,21 @@ void WorldSession::SaveAccountData()
 {
     if( sWorld.m_useAccountData )
     {
-        std::stringstream fieldName, dataString;
+        std::stringstream fieldName, datastring;
         fieldName << "acct";
-        dataString << "'" << _accountId << "'";
+        datastring << "'" << _accountId << "'";
         for(uint32 ui = 0; ui < 8; ++ui)
         {
             if(m_accountData[ui] == NULL || m_accountData[ui]->data == NULL
                 || m_accountData[ui]->sz == 0)
                 continue;
             fieldName << format(",uiconfig%u", ui);
-            dataString << ", \"";
-            CharacterDatabase.EscapeLongString(m_accountData[ui]->data, m_accountData[ui]->sz, dataString);
-            dataString << "\"";
+            datastring << ", \"";
+            CharacterDatabase.EscapeLongString(m_accountData[ui]->data, m_accountData[ui]->sz, datastring);
+            datastring << "\"";
         }
 
-        CharacterDatabase.Execute("REPLACE INTO account_data(%s) VALUES(%s);", fieldName.str().c_str(), dataString.str().c_str());
+        CharacterDatabase.Execute("REPLACE INTO account_data(%s) VALUES(%s);", fieldName.str().c_str(), datastring.str().c_str());
     }
 }
 

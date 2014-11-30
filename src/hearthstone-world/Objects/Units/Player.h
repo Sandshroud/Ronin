@@ -930,9 +930,10 @@ public:
     void EventGroupFullUpdate();
     void GroupUninvite(Player* player, PlayerInfo *info);
 
-    void                            SetInviter(uint32 pInviter) { m_GroupInviter = pInviter; }
-    HEARTHSTONE_INLINE uint32       GetInviter() { return m_GroupInviter; }
-    HEARTHSTONE_INLINE bool         InGroup() { return (m_playerInfo->m_Group != NULL && !m_GroupInviter); }
+    void ClearGroupInviter() { m_GroupInviter.Clean(); }
+    void SetInviter(WoWGuid pInviter) { m_GroupInviter = pInviter; }
+    HEARTHSTONE_INLINE WoWGuid      GetInviter() { return m_GroupInviter; }
+    HEARTHSTONE_INLINE bool         InGroup() { return (m_playerInfo->m_Group != NULL && m_GroupInviter.empty()); }
     bool                            IsGroupLeader()
     {
         if(m_playerInfo->m_Group != NULL)
@@ -943,7 +944,7 @@ public:
         return false;
     }
     bool IsGroupMember(Player* plyr);
-    HEARTHSTONE_INLINE int      HasBeenInvited() { return m_GroupInviter != 0; }
+    HEARTHSTONE_INLINE int      HasBeenInvited() { return !m_GroupInviter.empty(); }
     HEARTHSTONE_INLINE Group*   GetGroup() { return m_playerInfo != NULL ? m_playerInfo->m_Group : NULL; }
     HEARTHSTONE_INLINE uint32   GetGroupID() { return m_playerInfo != NULL ? m_playerInfo->m_Group != NULL ? m_playerInfo->m_Group->GetID(): NULL: NULL; }
     HEARTHSTONE_INLINE int8     GetSubGroup() { return m_playerInfo->subGroup; }
@@ -1570,7 +1571,7 @@ public:
     void OnWorldPortAck();
     void OnWorldLogin();
     void CompleteLoading();
-    void SendObjectUpdate(uint64 guid);
+    void SendObjectUpdate(WoWGuid guid);
 
     uint32 m_TeleportState;
     std::set<Unit* > visiblityChangableSet;
@@ -1634,7 +1635,7 @@ public:
         return m_mapMgr->GetPlayer(mTradeTarget);
     }
 
-    Item* getTradeItem(uint32 slot) {return mTradeItems[slot];};
+    Item* getTradeItem(uint32 slot) { return mTradeItems[slot]; };
 
     // Water level related stuff (they are public because they need to be accessed fast)
     // Nose level of the character (needed for proper breathing)
@@ -1835,7 +1836,7 @@ protected:
     // Visible objects
     std::unordered_set<WorldObject* > m_visibleObjects;
     // Groups/Raids
-    uint32 m_GroupInviter;
+    WoWGuid m_GroupInviter;
 
     // Fishing related
     GameObject* m_SummonedObject;
@@ -1878,23 +1879,23 @@ public:
 private:
     /* we may have multiple threads on this(chat) - burlex */
     Mutex m_socialLock;
-    std::map<uint32, char*> m_friends;
-    std::set<uint32> m_ignores;
-    std::set<uint32> m_hasFriendList;
+    std::map<WoWGuid, char*> m_friends;
+    std::set<WoWGuid> m_ignores;
+    std::set<WoWGuid> m_hasFriendList;
 
     void Social_SendFriendList(uint32 flag);
 
     void Social_AddFriend(const char * name, const char * note);
-    void Social_RemoveFriend(uint32 guid);
+    void Social_RemoveFriend(WoWGuid guid);
 
     void Social_AddIgnore(const char * name);
-    void Social_RemoveIgnore(uint32 guid);
+    void Social_RemoveIgnore(WoWGuid guid);
 
-    void Social_SetNote(uint32 guid, const char * note);
+    void Social_SetNote(WoWGuid guid, const char * note);
 
 public:
     bool Social_IsIgnoring(PlayerInfo * m_info);
-    bool Social_IsIgnoring(uint32 guid);
+    bool Social_IsIgnoring(WoWGuid guid);
 
     void Social_TellOnlineStatus(bool online = true);
     void Social_TellFriendsStatus();

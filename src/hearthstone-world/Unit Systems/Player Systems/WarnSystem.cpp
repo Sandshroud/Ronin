@@ -82,7 +82,7 @@ void WarnSystem::ReachedPunishmentLevel(Player * Warner, Player *Warned, uint32 
     if( reason == NULL )
         reason = "No reason given.";
 
-    string pReason = string(reason);
+    std::string pReason = std::string(reason);
     switch( NewWarnCnt )
     {
     case 1:
@@ -231,12 +231,12 @@ void WarnSystem::ListWarns(Player * Requester, Player * Warned)
             /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
             Field           *fields     = result->Fetch();
             uint32          WarnID      = fields[0].GetUInt32();
-            string          GMAcct      = fields[1].GetString();
-            string          WarnedChar  = fields[2].GetString();
-            string          WarnedAcct  = fields[3].GetString();
-            string          WarnedIP    = fields[4].GetString();
-            string          pReason     = fields[5].GetString();
-            string          time        = fields[6].GetString();
+            std::string          GMAcct      = fields[1].GetString();
+            std::string          WarnedChar  = fields[2].GetString();
+            std::string          WarnedAcct  = fields[3].GetString();
+            std::string          WarnedIP    = fields[4].GetString();
+            std::string          pReason     = fields[5].GetString();
+            std::string          time        = fields[6].GetString();
             /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
             sChatHandler.GreenSystemMessage(req_session, "--------------------------"); // Display Warn number and reasons.

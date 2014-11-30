@@ -19,7 +19,8 @@ struct GuildInfo
     uint32 m_borderStyle;
     uint32 m_borderColor;
     uint32 m_backgroundColor;
-    uint32 m_guildLeader;
+
+    WoWGuid m_guildLeader;
     uint32 m_guildLevel;
     uint32 m_creationTimeStamp;
     uint64 m_bankBalance;
@@ -156,7 +157,7 @@ struct GuildBankTabStorage
 
 struct GuildMember
 {
-    GuildMember(uint32 PlrLowGuid, PlayerInfo *PlrI, GuildRank *GRank)
+    GuildMember(WoWGuid PlrLowGuid, PlayerInfo *PlrI, GuildRank *GRank)
     {
         pRank = GRank;
         pPlayer = PlrI;
@@ -171,7 +172,7 @@ struct GuildMember
         }
     }
 
-    uint32 PlrGuid;
+    WoWGuid PlrGuid;
     GuildRank *pRank;
     PlayerInfo *pPlayer;
     std::string szPublicNote;
@@ -183,25 +184,26 @@ struct GuildMember
     uint32 uItemWithdrawlsSinceLastReset[MAX_GUILD_BANK_TABS];
 };
 
+typedef std::unordered_map<WoWGuid, GuildMember*> GuildMemberMap;
+
 struct GuildMemberMapStorage
 {
     GuildMemberMapStorage(uint32 guildid) { GuildId = guildid; };
 
     uint32 GuildId;
     Mutex MemberMapLock;
-    std::map<uint32, GuildMember*> MemberMap;
+    GuildMemberMap MemberMap;
 };
 
 #pragma pack(PRAGMA_POP)
 
 typedef std::vector<GuildLogEvent*> GuildLogList;
-typedef std::map<uint32, GuildInfo*> GuildInfoMap;
-typedef std::map<uint32, GuildMember*> GuildMemberMap;
-typedef std::map<uint32, GuildLogStorage*> GuildLogMap;
-typedef std::map<uint32, GuildRankStorage*> GuildRankMap;
-typedef std::map<std::string, GuildInfo*> GuildInfoNameMap;
-typedef std::map<uint32, GuildBankTabStorage*> GuildBankTabMap;
-typedef std::map<uint32, GuildMemberMapStorage* > GuildMemberMaps;
+typedef std::unordered_map<uint32, GuildInfo*> GuildInfoMap;
+typedef std::unordered_map<uint32, GuildLogStorage*> GuildLogMap;
+typedef std::unordered_map<uint32, GuildRankStorage*> GuildRankMap;
+typedef std::unordered_map<std::string, GuildInfo*> GuildInfoNameMap;
+typedef std::unordered_map<uint32, GuildBankTabStorage*> GuildBankTabMap;
+typedef std::unordered_map<uint32, GuildMemberMapStorage* > GuildMemberMaps;
 
 class SERVER_DECL GuildMgr : public Singleton < GuildMgr >
 {
@@ -282,7 +284,7 @@ public:
         return r;
     }
 
-    GuildMember* GetGuildMember(uint32 PlrGuid)
+    GuildMember* GetGuildMember(WoWGuid PlrGuid)
     {
         if(m_GuildMembers.find(PlrGuid) != m_GuildMembers.end())
             return m_GuildMembers[PlrGuid];
@@ -502,7 +504,7 @@ public:
     }
 
     uint32 SignatureCount;
-    uint32 *Signatures;
+    WoWGuid *Signatures;
     uint32 CharterType;
     uint32 Slots;
     uint32 LeaderGuid;
@@ -516,8 +518,8 @@ public:
         SignatureCount = 0;
         ItemGuid = 0;
         Slots = GetNumberOfSlotsByType();
-        Signatures = new uint32[Slots];
-        memset(Signatures, 0, sizeof(uint32)*Slots);
+        Signatures = new WoWGuid[Slots];
+        memset(Signatures, 0, sizeof(WoWGuid)*Slots);
     }
 
     ~Charter()
@@ -528,8 +530,8 @@ public:
     void SaveToDB();
     void Destroy();      // When item is deleted.
 
-    void AddSignature(uint32 PlayerGuid);
-    void RemoveSignature(uint32 PlayerGuid);
+    void AddSignature(WoWGuid PlayerGuid);
+    void RemoveSignature(WoWGuid PlayerGuid);
 
     HEARTHSTONE_INLINE uint32 GetLeader() { return LeaderGuid; }
     HEARTHSTONE_INLINE uint32 GetID() { return CharterId; }

@@ -204,8 +204,8 @@ public:
     //Movement
     bool                    GetCanMove();
     void                    SetCanMove(bool pCanMove);
-    void                    MoveTo(MoonScriptCreatureAI* pCreature, RangeStatusPair pRangeStatus = make_pair( RangeStatus_TooFar, 0.0f ) );
-    void                    MoveTo(Unit *pUnit, RangeStatusPair pRangeStatus = make_pair( RangeStatus_TooFar, 0.0f ) );
+    void                    MoveTo(MoonScriptCreatureAI* pCreature, RangeStatusPair pRangeStatus = std::make_pair( RangeStatus_TooFar, 0.0f ) );
+    void                    MoveTo(Unit *pUnit, RangeStatusPair pRangeStatus = std::make_pair( RangeStatus_TooFar, 0.0f ) );
     void                    MoveTo(float pX, float pY, float pZ, bool pRun=true);
     void                    MoveToSpawnOrigin();
     void                    StopMovement();
@@ -260,8 +260,8 @@ public:
     Player *                GetNearestPlayer();
     GameObject *            GetNearestGameObject(uint32 pGameObjectId=0);
     MoonScriptCreatureAI*   GetNearestCreature(uint32 pCreatureId=0);
-    MoonScriptCreatureAI*   SpawnCreature(uint32 pCreatureId, bool pForceSameFaction=false, Unit* pTarget=NULLUNIT);
-    MoonScriptCreatureAI*   SpawnCreature(uint32 pCreatureId, float pX, float pY, float pZ, float pO=0, bool pForceSameFaction=false, Unit* pTarget=NULLUNIT);
+    MoonScriptCreatureAI*   SpawnCreature(uint32 pCreatureId, bool pForceSameFaction=false, Unit* pTarget=NULL);
+    MoonScriptCreatureAI*   SpawnCreature(uint32 pCreatureId, float pX, float pY, float pZ, float pO=0, bool pForceSameFaction=false, Unit* pTarget=NULL);
     Unit *                  ForceCreatureFind( uint32 pCreatureId );
     Unit *                  ForceCreatureFind( uint32 pCreatureId, float pX, float pY, float pZ );
     void                    Despawn(uint32 pDelay=0, uint32 pRespawnTime=0);
@@ -346,7 +346,7 @@ protected:
     Unit *                  GetNearestTargetInArray( UnitArray& pTargetArray );
     Unit *                  GetSecondMostHatedTargetInArray( UnitArray& pTargetArray );
     bool                    IsValidUnitTarget( WorldObject *pObject, TargetFilters pFilter, float pMinRange = 0.0f, float pMaxRange = 0.0f  );
-    void                    PushRunToTargetCache( Unit *pTarget, SpellDesc* pSpell, RangeStatusPair pRangeStatus = make_pair( RangeStatus_TooFar, 0.0f ) );
+    void                    PushRunToTargetCache( Unit *pTarget, SpellDesc* pSpell, RangeStatusPair pRangeStatus = std::make_pair( RangeStatus_TooFar, 0.0f ) );
     void                    PopRunToTargetCache();
 
     void                    RandomEmote(EmoteArray& pEmoteArray);

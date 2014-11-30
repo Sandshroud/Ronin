@@ -206,7 +206,7 @@ bool ChatHandler::HandleInfoCommand(const char* args, WorldSession *m_session)
     int gm = 0;
     int avg = 0;
     int count = 0;
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
 
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)

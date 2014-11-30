@@ -362,7 +362,7 @@ void Pet::InitializeSpells()
 AI_Spell*Pet::CreateAISpell(SpellEntry * info)
 {
     // Create an AI_Spell
-    map<uint32,AI_Spell*>::iterator itr = m_AISpellStore.find( info->Id );
+    std::map<uint32,AI_Spell*>::iterator itr = m_AISpellStore.find( info->Id );
     if( itr != m_AISpellStore.end() )
         return itr->second;
 
@@ -407,8 +407,6 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     m_PetXP = m_PlayerPetInfo->xp;
     m_name = m_PlayerPetInfo->name;
     Summon = m_PlayerPetInfo->summon;
-    SetIsPet(true);
-    //SetUInt32Value(UNIT_FIELD_PETNUMBER, GetUIdFromGUID());
 
     m_HappinessTimer = m_PlayerPetInfo->happinessupdate;
 
@@ -460,7 +458,7 @@ void Pet::InitializeMe()
     GetAIInterface()->SetFollowDistance(3.0f);
 
     m_Owner->SetUInt64Value(UNIT_FIELD_SUMMON, GetGUID());
-    SetUInt32Value(UNIT_FIELD_PETNUMBER, GetUIdFromGUID());
+    SetUInt32Value(UNIT_FIELD_PETNUMBER, GetLowGUID());
     SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, (uint32)UNIXTIME);
     myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->Family);
     SetPetDiet();
@@ -489,7 +487,7 @@ void Pet::InitializeMe()
                 SpellEntry* spell = dbcSpell.LookupEntry(f[2].GetUInt32());
                 uint16 flags = f[3].GetUInt16();
                 if(spell != NULL && mSpells.find(spell) == mSpells.end())
-                    mSpells.insert ( make_pair( spell, flags ) );
+                    mSpells.insert ( std::make_pair( spell, flags ) );
 
             } while(query->NextRow());
             delete query;
@@ -513,7 +511,7 @@ void Pet::InitializeMe()
                     spentPoints++;
                 if(m_talents.find(talentid) == m_talents.end())
                 {
-                    m_talents.insert( make_pair( talentid, rank ) );
+                    m_talents.insert( std::make_pair( talentid, rank ) );
                 }
 
             } while(query2->NextRow());
@@ -678,15 +676,15 @@ void Pet::GiveXP( uint32 xp )
     if(m_Owner->m_XPoff)
         return;
 
-    xp += m_uint32Values[UNIT_FIELD_PETEXPERIENCE];
-    uint32 nxp = m_uint32Values[UNIT_FIELD_PETNEXTLEVELEXP];
+    xp += GetUInt32Value(UNIT_FIELD_PETEXPERIENCE);
+    uint32 nxp = GetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP);
     bool changed = false;
 
     while(xp >= nxp)
     {
         ModUnsigned32Value(UNIT_FIELD_LEVEL, 1);
         xp -= nxp;
-        nxp = GetNextLevelXP(m_uint32Values[UNIT_FIELD_LEVEL]);
+        nxp = GetNextLevelXP(GetUInt32Value(UNIT_FIELD_LEVEL));
         changed = true;
     }
 
@@ -748,8 +746,8 @@ void Pet::SetDefaultSpells()
     if(Summon)
     {
         // this one's easy :p we just pull em from the owner.
-        map<uint32, set<uint32> >::iterator it1;
-        set<uint32>::iterator it2;
+        std::map<uint32, std::set<uint32> >::iterator it1;
+        std::set<uint32>::iterator it2;
         it1 = m_Owner->SummonSpells.find(GetEntry());
         if(it1 != m_Owner->SummonSpells.end())
         {
@@ -938,10 +936,8 @@ void Pet::LearnSpell(uint32 spellid)
 
 void Pet::LearnLevelupSpells()
 {
-    uint32 family_id = Summon ? m_uint32Values[OBJECT_FIELD_ENTRY] : myFamily ? myFamily->ID : 0;
-
-    PetLevelupSpellSet const *levelupSpells = objmgr.GetPetLevelupSpellList(family_id);
-    if(levelupSpells)
+    uint32 family_id = (Summon ? GetEntry() : (myFamily ? myFamily->ID : 0));
+    if(PetLevelupSpellSet const *levelupSpells = objmgr.GetPetLevelupSpellList(family_id))
     {
         uint32 petlevel = getLevel();
         std::map<uint32, uint32>::const_iterator itr = levelupSpells->find(petlevel);
@@ -953,13 +949,13 @@ void Pet::LearnLevelupSpells()
 void Pet::RemoveSpell(SpellEntry * sp)
 {
     mSpells.erase(sp);
-    map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.find(sp->Id);
+    std::map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.find(sp->Id);
     if(itr != m_AISpellStore.end())
     {
         if( itr->second->autocast_type != AUTOCAST_EVENT_NONE )
         {
-            map<uint32, AI_Spell*>::iterator it3;
-            for(map<uint32, AI_Spell*>::iterator it2 = m_autoCastSpells[itr->second->autocast_type].begin(); it2 != m_autoCastSpells[itr->second->autocast_type].end(); )
+            std::map<uint32, AI_Spell*>::iterator it3;
+            for(std::map<uint32, AI_Spell*>::iterator it2 = m_autoCastSpells[itr->second->autocast_type].begin(); it2 != m_autoCastSpells[itr->second->autocast_type].end(); )
             {
                 it3 = it2++;
                 if( it3->second == itr->second )
@@ -969,7 +965,7 @@ void Pet::RemoveSpell(SpellEntry * sp)
             }
         }
 
-        for(map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
+        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
         {
             if(it->second == itr->second)
             {
@@ -983,7 +979,7 @@ void Pet::RemoveSpell(SpellEntry * sp)
     }
     else
     {
-        for(map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
+        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
         {
             if(it->second->info == sp)
             {
@@ -1004,7 +1000,7 @@ void Pet::RemoveSpell(SpellEntry * sp)
     }
 }
 
-void Pet::Rename(string NewName)
+void Pet::Rename(std::string NewName)
 {
     m_name = NewName;
     // update petinfo
@@ -1016,7 +1012,7 @@ void Pet::Rename(string NewName)
 
 void Pet::ApplySummonLevelAbilities()
 {
-    uint32 level = m_uint32Values[UNIT_FIELD_LEVEL];
+    uint32 level = GetUInt32Value(UNIT_FIELD_LEVEL);
 
     // Determine our stat index.
     int stat_index = -1;
@@ -1133,7 +1129,7 @@ void Pet::ApplySummonLevelAbilities()
 
 void Pet::ApplyPetLevelAbilities()
 {
-    uint32 level = m_uint32Values[UNIT_FIELD_LEVEL];
+    uint32 level = GetUInt32Value(UNIT_FIELD_LEVEL);
     float dlevel = (float)level;
 
     // All pets have identical 5% bonus. http://www.wowwiki.com/Hunter_pet
@@ -1211,10 +1207,9 @@ void Pet::ApplyPetLevelAbilities()
 
 void Pet::ApplyStatsForLevel()
 {
-    if(m_uint32Values[UNIT_CREATED_BY_SPELL])      // Summon
+    if(GetUInt32Value(UNIT_CREATED_BY_SPELL))      // Summon
         ApplySummonLevelAbilities();
-    else
-        ApplyPetLevelAbilities();
+    else ApplyPetLevelAbilities();
 
     // Apply common stuff
     // Apply scale for this family.
@@ -1225,10 +1220,10 @@ void Pet::ApplyStatsForLevel()
         float scale_diff = float(myFamily->maxsize - myFamily->minsize);
         float factor = scale_diff / level_diff;
         float scale = factor * pet_level + myFamily->minsize;
-        SetScale(scale);
+        SetObjectScale(scale);
     }
 
-    SetHealth(m_uint32Values[UNIT_FIELD_MAXHEALTH]);
+    SetHealth(GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));   // mana
     SetPower(POWER_TYPE_FOCUS, GetMaxPower(POWER_TYPE_FOCUS));   // focus
 }
@@ -1241,8 +1236,7 @@ HappinessState Pet::GetHappinessState()
         return UNHAPPY;
     else if( pts >= PET_HAPPINESS_UPDATE_VALUE << 1 )
         return HAPPY;
-    else
-        return CONTENT;
+    return CONTENT;
 }
 
 void Pet::AddPetSpellToOwner(uint32 spellId)
@@ -1280,7 +1274,7 @@ uint32 Pet::GetHighestRankSpell(uint32 spellId)
 
 AI_Spell * Pet::HandleAutoCastEvent()
 {
-    map<uint32, AI_Spell*>::iterator itr,itr2;
+    std::map<uint32, AI_Spell*>::iterator itr,itr2;
     bool chance = true;
     uint32 size = 0;
 
@@ -1314,7 +1308,7 @@ AI_Spell * Pet::HandleAutoCastEvent()
 
 void Pet::HandleAutoCastEvent(uint32 Type)
 {
-    map<uint32, AI_Spell*>::iterator itr, it2;
+    std::map<uint32, AI_Spell*>::iterator itr, it2;
     AI_Spell * sp;
     if( m_Owner == NULL )
         return;
@@ -1329,8 +1323,7 @@ void Pet::HandleAutoCastEvent(uint32 Type)
                 {
                     if( getMSTime() >= itr->second->cooldown )
                         m_aiInterface->m_CastNext = itr->second;
-                    else
-                        return;
+                    else return;
                     break;
                 }
                 else
@@ -1389,7 +1382,7 @@ void Pet::SetAutoCast(AI_Spell*sp, bool on)
     {
         if(!on)
         {
-            for(map<uint32, AI_Spell*>::iterator itr = m_autoCastSpells[sp->autocast_type].begin();
+            for(std::map<uint32, AI_Spell*>::iterator itr = m_autoCastSpells[sp->autocast_type].begin();
                 itr != m_autoCastSpells[sp->autocast_type].end(); ++itr)
             {
                 if(itr->second == sp )
@@ -1401,14 +1394,14 @@ void Pet::SetAutoCast(AI_Spell*sp, bool on)
         }
         else
         {
-            for(map<uint32, AI_Spell*>::iterator itr = m_autoCastSpells[sp->autocast_type].begin();
+            for(std::map<uint32, AI_Spell*>::iterator itr = m_autoCastSpells[sp->autocast_type].begin();
                 itr != m_autoCastSpells[sp->autocast_type].end(); ++itr)
             {
                 if(itr->second == sp)
                     return;
             }
 
-            m_autoCastSpells[sp->autocast_type].insert(make_pair(sp->info->Id, sp));
+            m_autoCastSpells[sp->autocast_type].insert(std::make_pair(sp->info->Id, sp));
         }
     }
 }

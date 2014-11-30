@@ -405,7 +405,7 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
     if (caster == NULL)
         return;
 
-    uint64 guid;
+    WoWGuid guid;
     uint32 spellid;
     uint8 castnumber;
     uint8 castFlags;

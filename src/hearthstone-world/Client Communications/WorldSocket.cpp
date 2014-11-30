@@ -299,7 +299,7 @@ void WorldSocket::_HandleAuthSession(WorldPacket* recvPacket)
     }
 
     // shitty hash !
-    m_fullAccountName = new string( account );
+    m_fullAccountName = new std::string( account );
 }
 
 void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 requestid)
@@ -314,13 +314,12 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     }
 
     // Extract account information from the packet.
-    string AccountName, GMFlags;
+    std::string AccountName, GMFlags, lang = "enUS";
     uint32 AccountID;
     uint8 AccountFlags;
-    string lang = "enUS";
 
     recvData >> AccountID >> AccountName >> GMFlags >> AccountFlags;
-    if( const string *ForcedPermissions = sLogonCommHandler.GetForcedPermissions(AccountName))
+    if( const std::string *ForcedPermissions = sLogonCommHandler.GetForcedPermissions(AccountName))
         GMFlags.assign(ForcedPermissions->c_str());
 
     sLog.Debug( "WorldSocket","Received information packet from logon: `%s` ID %u (request %u)", AccountName.c_str(), AccountID, mRequestID);

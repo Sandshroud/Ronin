@@ -6,6 +6,7 @@
 
 bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_session)
 {
+    WoWGuid guid;
     uint32 uCount = 0;
     uint32 ts = getMSTime();
     QueryResult * result = CharacterDatabase.Query("SELECT guid, name FROM characters");
@@ -13,21 +14,20 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
     {
         do
         {
-            uint32 uGuid = result->Fetch()[0].GetUInt32();
+            guid = result->Fetch()[0].GetUInt64();
             const char * pName = result->Fetch()[1].GetString();
             size_t szLen = strlen(pName);
 
             if( !sWorld.VerifyName(pName, szLen) )
             {
-                printf("renaming character %s, %u\n", pName,uGuid);
-                Player* pPlayer = objmgr.GetPlayer(uGuid);
-                if( pPlayer != NULL )
+                printf("renaming character %s, %u\n", pName, guid.getLow());
+                if( Player* pPlayer = objmgr.GetPlayer(guid) )
                 {
                     pPlayer->rename_pending = true;
                     pPlayer->GetSession()->SystemMessage("Your character has had a force rename set, you will be prompted to rename your character at next login in conformance with server rules.");
                 }
 
-                CharacterDatabase.WaitExecute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", uGuid);
+                CharacterDatabase.WaitExecute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", guid);
                 ++uCount;
             }
 
@@ -39,7 +39,7 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
     return true;
 }
 
-void CapitalizeString(string& arg)
+void CapitalizeString(std::string& arg)
 {
     if(arg.length() == 0) return;
     arg[0] = toupper(arg[0]);
@@ -58,7 +58,6 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
     bitBuff.WriteBits(0, 23);
     bitBuff.WriteBit(1);
 
-    WoWGuid charGuid, guildGuid;
     // parse m_characters and build a mighty packet of
     // characters to send to the client.
     if( result )
@@ -84,8 +83,8 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
             Field *fields = result->Fetch();
             std::string name = fields[7].GetString();
-            charGuid = fields[0].GetUInt64();
-            guildGuid = MAKE_NEW_GUID(fields[18].GetUInt32(), 0, 0x1FF6);
+            WoWGuid charGuid = fields[0].GetUInt64();
+            WoWGuid guildGuid = MAKE_NEW_GUID(fields[18].GetUInt32(), 0, 0x1FF6);
             uint8 _race = fields[2].GetUInt8(), _class = fields[3].GetUInt8(), _level = fields[1].GetUInt8();
             uint32 flags = fields[17].GetUInt32(), _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
             uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
@@ -358,22 +357,20 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleCharDeleteOpcode( WorldPacket & recv_data )
 {
-    uint8 fail = CHAR_DELETE_SUCCESS;
-
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    if(objmgr.GetPlayer((uint32)guid) != NULL)
+    uint8 fail = CHAR_DELETE_SUCCESS;
+    if(objmgr.GetPlayer(guid) != NULL)
         fail = CHAR_DELETE_FAILED; // "Char deletion failed"
-    else
-        fail = DeleteCharacter((uint32)guid);
+    else fail = DeleteCharacter(guid);
 
     OutPacket(SMSG_CHARACTER_DELETE, 1, &fail);
     if(fail == CHAR_DELETE_SUCCESS)
         sLogonCommHandler.UpdateAccountCount(GetAccountId(), -1);
 }
 
-uint8 WorldSession::DeleteCharacter(uint32 guid)
+uint8 WorldSession::DeleteCharacter(WoWGuid guid)
 {
     PlayerInfo * inf = objmgr.GetPlayerInfo(guid);
     if( inf != NULL && inf->m_loggedInPlayer == NULL )
@@ -384,84 +381,66 @@ uint8 WorldSession::DeleteCharacter(uint32 guid)
 
         if(inf->GuildId)
         {
-            GuildMember* gMember = guildmgr.GetGuildMember(inf->guid);
+            GuildMember* gMember = guildmgr.GetGuildMember(inf->guid.getLow());
             if(gMember->pRank->iId == 0)
                 return CHAR_DELETE_FAILED_GUILD_LEADER;
-            else
-                guildmgr.RemoveMember(NULL, inf);
+            guildmgr.RemoveMember(NULL, inf);
         }
 
-        string name = result->Fetch()[0].GetString();
+        std::string name = result->Fetch()[0].GetString();
         delete result;
 
-        for(int i = 0; i < NUM_CHARTER_TYPES; i++)
+        for(uint8 i = 0; i < NUM_CHARTER_TYPES; i++)
         {
             if( inf->charterId[i] != 0 )
             {
                 Charter *pCharter = guildmgr.GetCharter(inf->charterId[i], (CharterTypes)i);
-                if( pCharter->LeaderGuid == inf->guid )
+                if( pCharter->LeaderGuid == inf->guid.getLow() )
                     pCharter->Destroy();
                 else
-                    pCharter->RemoveSignature(inf->guid);
+                    pCharter->RemoveSignature(inf->guid.getLow());
             }
         }
 
-        for(int i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
+        for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
         {
             if( inf->arenaTeam[i] != NULL )
             {
                 if( inf->arenaTeam[i]->m_leader == guid )
                     return CHAR_DELETE_FAILED_ARENA_CAPTAIN;
-                else
-                    inf->arenaTeam[i]->RemoveMember(inf);
+                inf->arenaTeam[i]->RemoveMember(inf);
             }
         }
 
-        /*if( _socket != NULL )
-            sPlrsLog.write("Account: %s | IP: %s >> Deleted player %s", GetAccountName().c_str(), GetSocket()->GetRemoteIP().c_str(), name.c_str());*/
+        sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", name.c_str(), guid.getLow());
 
-        sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", name.c_str(), guid);
+        CharacterDatabase.WaitExecute("DELETE FROM characters WHERE guid = %u", guid.getLow());
 
-/*      if ( sWorld.char_restore_enabled )
-        {
-            //insert data into "deleted" tables
-            CharacterDatabase.WaitExecute("INSERT INTO characters_deleted SELECT UNIX_TIMESTAMP(NOW()),characters.* FROM characters WHERE guid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO playerglyphs_deleted SELECT playerglyphs.* FROM playerglyphs WHERE guid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO playeritems_deleted SELECT playeritems.* FROM playeritems WHERE ownerguid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO playerskills_deleted SELECT playerskills.* FROM playerskills WHERE player_guid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO playerspells_deleted SELECT playerspells.* FROM playerspells WHERE guid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO playertalents_deleted SELECT playertalents.* FROM playertalents WHERE guid = %u", guid);
-            CharacterDatabase.WaitExecute("INSERT INTO questlog_deleted SELECT questlog.* FROM questlog WHERE player_guid = %u", guid);
-        }*/
-
-        CharacterDatabase.WaitExecute("DELETE FROM characters WHERE guid = %u", guid);
-
-        Corpse* c=objmgr.GetCorpseByOwner(guid);
-        if(c)
+        if(Corpse* c=objmgr.GetCorpseByOwner(guid.getLow()))
             CharacterDatabase.Execute("DELETE FROM corpses WHERE guid = %u", c->GetLowGUID());
 
-        CharacterDatabase.Execute("DELETE FROM achievements WHERE player = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM auctions WHERE owner = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM charters WHERE leaderGuid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM gm_tickets WHERE guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM guild_data WHERE playerid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM instances WHERE creator_guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playercooldowns WHERE player_guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playerglyphs WHERE guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playeritems WHERE ownerguid=%u",guid);
-        CharacterDatabase.Execute("DELETE FROM playerpets WHERE ownerguid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playerpetspells WHERE ownerguid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playerskills WHERE player_guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playerspells WHERE guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playersummonspells WHERE ownerguid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM playertalents WHERE guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM questlog WHERE player_guid = %u", guid);
-        CharacterDatabase.Execute("DELETE FROM social_friends WHERE character_guid = %u OR friend_guid = %u", guid, guid);
-        CharacterDatabase.Execute("DELETE FROM social_ignores WHERE character_guid = %u OR ignore_guid = %u", guid, guid);
+        CharacterDatabase.Execute("DELETE FROM achievements WHERE player = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM auctions WHERE owner = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM charters WHERE leaderGuid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM gm_tickets WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM guild_data WHERE playerid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM instances WHERE creator_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playercooldowns WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playerglyphs WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playeritems WHERE ownerguid=%u",guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playerpets WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playerpetspells WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playerskills WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playerspells WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playersummonspells WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM playertalents WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM questlog WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM social_friends WHERE character_guid = %u OR friend_guid = %u", guid.getLow(), guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM social_ignores WHERE character_guid = %u OR ignore_guid = %u", guid.getLow(), guid.getLow());
 
         /* remove player info */
-        objmgr.DeletePlayerInfo(guid);
+        objmgr.DeletePlayerInfo(guid.getLow());
         return CHAR_DELETE_SUCCESS;
     }
 
@@ -472,15 +451,15 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
 {
     WorldPacket data(SMSG_CHARACTER_RENAME, recv_data.size() + 1);
 
-    uint64 guid;
-    string name;
+    WoWGuid guid;
+    std::string name;
     recv_data >> guid >> name;
 
-    PlayerInfo * pi = objmgr.GetPlayerInfo((uint32)guid);
+    PlayerInfo * pi = objmgr.GetPlayerInfo(guid);
     if(pi == NULL)
         return;
 
-    QueryResult * result = CharacterDatabase.Query("SELECT forced_rename_pending FROM characters WHERE guid = %u AND acct = %u", (uint32)guid, _accountId);
+    QueryResult * result = CharacterDatabase.Query("SELECT forced_rename_pending FROM characters WHERE guid = %u AND acct = %u", guid.getLow(), _accountId);
     if(result == NULL)
         return;
     delete result;
@@ -540,7 +519,7 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
     sWorld.LogPlayer(this, "a rename was pending. Renamed character %s (GUID: %u) to %s.", pi->name, pi->guid, name.c_str());
 
     // If we're here, the name is okay.
-    CharacterDatabase.Query("UPDATE characters SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u",name.c_str(), (uint32)guid, _accountId);
+    CharacterDatabase.Query("UPDATE characters SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u",name.c_str(), guid.getLow(), _accountId);
     free(pi->name);
     pi->name = strdup(name.c_str());
 
@@ -574,9 +553,9 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     uint8 response = CHAR_LOGIN_NO_CHARACTER;
 
     //already active?
-    if(objmgr.GetPlayer(GUID_LOPART(guid)) != NULL || m_loggingInPlayer || _player)
+    if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
-    else if( PlayerInfo * plrInfo = objmgr.GetPlayerInfo(GUID_LOPART(guid)) )
+    else if( PlayerInfo * plrInfo = objmgr.GetPlayerInfo(guid) )
         response = CHAR_LOGIN_SUCCESS;
 
     if(response != CHAR_LOGIN_SUCCESS)
@@ -643,7 +622,7 @@ void WorldSession::FullLogin(Player* plr)
     }
 
     // Make sure our name exists (for premade system)
-    PlayerInfo * info = objmgr.GetPlayerInfo(plr->GetLowGUID());
+    PlayerInfo * info = objmgr.GetPlayerInfo(plr->GetGUID());
     if(info == NULL)
     {
         info = new PlayerInfo;
@@ -666,10 +645,9 @@ void WorldSession::FullLogin(Player* plr)
         if(plr->m_playerInfo->arenaTeam[z] != NULL)
         {
             plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6), plr->m_playerInfo->arenaTeam[z]->m_id);
-            if(plr->m_playerInfo->arenaTeam[z]->m_leader == plr->GetLowGUID())
+            if(plr->m_playerInfo->arenaTeam[z]->m_leader == plr->GetGUID())
                 plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 0);
-            else
-                plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 1);
+            else plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 1);
         }
     }
 
@@ -806,7 +784,7 @@ bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_sessio
         return true;
     }
 
-    string new_name = name2;
+    std::string new_name = name2;
     PlayerInfo * pi = objmgr.GetPlayerInfoByName(name1);
     if(pi == 0)
     {
@@ -826,17 +804,12 @@ bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_sessio
     pi->name = strdup(new_name.c_str());
 
     // look in world for him
-    Player* plr = objmgr.GetPlayer(pi->guid);
-    if(plr != 0)
+    if(Player* plr = objmgr.GetPlayer(pi->guid))
     {
         plr->SetName(new_name);
         BlueSystemMessageToPlr(plr, "%s changed your name to '%s'.", m_session->GetPlayer()->GetName(), new_name.c_str());
         plr->SaveToDB(false);
-    }
-    else
-    {
-        CharacterDatabase.WaitExecute("UPDATE characters SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), (uint32)pi->guid);
-    }
+    } else CharacterDatabase.WaitExecute("UPDATE characters SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->guid.getLow());
 
     GreenSystemMessage(m_session, "Changed name of '%s' to '%s'.", (char*)name1, (char*)name2);
     sWorld.LogGM(m_session, "renamed character %s (GUID: %u) to %s", (char*)name1, pi->guid, (char*)name2);
@@ -904,19 +877,18 @@ void WorldSession::HandleAlterAppearance(WorldPacket & recv_data)
 void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
 {
     WorldPacket data(SMSG_CHARACTER_CUSTOMIZE, recv_data.size() + 1);
-    uint64 guid;
-    string name;
+    WoWGuid guid;
+    std::string name;
     recv_data >> guid >> name;
 
     uint8 gender, skin, hairColor, hairStyle, facialHair, face;
     recv_data >> gender >> skin >> hairColor >> hairStyle >> facialHair >> face;
 
-    uint32 playerGuid = uint32(guid);
-    PlayerInfo* pi = objmgr.GetPlayerInfo(playerGuid);
+    PlayerInfo* pi = objmgr.GetPlayerInfo(guid);
     if( pi == NULL )
         return;
 
-    QueryResult* result = CharacterDatabase.Query("SELECT bytes2 FROM characters WHERE guid = '%u'", playerGuid);
+    QueryResult* result = CharacterDatabase.Query("SELECT bytes2 FROM characters WHERE guid = '%u'", guid.getLow());
     if(!result)
         return;
 
@@ -965,13 +937,13 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
         free(pi->name);
         pi->name = strdup(name.c_str());
 
-        CharacterDatabase.Execute("UPDATE characters SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), playerGuid);
+        CharacterDatabase.Execute("UPDATE characters SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), guid.getLow());
     }
     Field* fields = result->Fetch();
     uint32 player_bytes2 = fields[0].GetUInt32();
     player_bytes2 &= ~0xFF;
     player_bytes2 |= facialHair;
-    CharacterDatabase.Execute("UPDATE characters SET gender = '%u', bytes = '%u', bytes2 = '%u', customizable = '0' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, playerGuid);
+    CharacterDatabase.Execute("UPDATE characters SET gender = '%u', bytes = '%u', bytes2 = '%u', customizable = '0' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, guid.getLow());
     delete result;
 
     //WorldPacket data(SMSG_CHAR_CUSTOMIZE, recv_data.size() + 1);
@@ -986,104 +958,6 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     data << uint8(facialHair);
     SendPacket(&data);
 }
-//#define EQ_MGR_TESTING
-#ifdef EQ_MGR_TESTING
-
-void WorldSession::HandleEquipmentSetSave(WorldPacket &recv_data)
-{
-    sLog.outDebug("CMSG_EQUIPMENT_SET_SAVE");
-/*  WoWGuid guid;
-    recv_data >> guid;
-
-    uint32 index;
-    recv_data >> index;
-    if(index >= MAX_EQUIPMENT_SET_INDEX)    // client set slots amount
-        return;
-
-    std::string name, iconName;
-    recv_data >> name >> iconName;
-
-    EquipmentSet eqSet;
-
-    eqSet.Guid      = guid.GetOldGuid();
-    eqSet.Name      = name;
-    eqSet.IconName  = iconName;
-    eqSet.state     = EQUIPMENT_SET_NEW;
-
-    for(uint32 i = 0; i < EQUIPMENT_SLOT_END; i++)
-    {
-        WoWGuid itemGuid;
-        recv_data >> itemGuid;
-
-        Item *item = _player->GetItemInterface()->GetInventoryItem(i);
-
-        if(!item && itemGuid)   // cheating check 1
-        {
-            eqSet.Items[i] = 0; // Give em hell.
-            continue;
-        }
-
-        if(item)
-        {
-            if(item->GetGUID() != itemGuid.GetOldGuid())    // cheating check 2
-            {
-                eqSet.Items[i] = 0; // Give em hell.
-                continue;
-            }
-        }
-
-        // Dirty business.
-        eqSet.Items[i] = itemGuid;
-    }
-
-    _player->SetEquipmentSet(index, eqSet);*/
-}
-
-void WorldSession::HandleEquipmentSetDelete(WorldPacket &recv_data)
-{
-    sLog.outDebug("CMSG_EQUIPMENT_SET_DELETE");
-
-/*  WoWGuid setGuid;
-    recv_data >> setGuid;
-    _player->DeleteEquipmentSet(setGuid.GetOldGuid());*/
-}
-
-void WorldSession::HandleEquipmentSetUse(WorldPacket &recv_data)
-{
-    sLog.outDebug("CMSG_EQUIPMENT_SET_USE");
-/*  bool failed = false;
-    for(uint32 i = 0; i < EQUIPMENT_SLOT_END; i++)
-    {
-        WoWGuid itemGuid;
-        int8 SrcInvSlot;
-        uint8 SrcSlot;
-        recv_data >> itemGuid >> SrcInvSlot >> SrcSlot;
-        uint64 guid = itemGuid.GetOldGuid();
-
-        if(guid == NULL) // No need to change these, we just get feefee slot.
-            continue;
-
-        ItemInterface *ii = _player->GetItemInterface();
-        Item* item = ii->GetItemByGUID(guid);
-        if(item == NULL) // Item does not exist.
-            continue;
-
-        if(SrcSlot == (i))
-            continue;
-
-        uint16 slot = ii->GetBagSlotByGuid(guid);
-        uint16 DstSlot = (i);
-        uint16 DstInvSlot = INVENTORY_SLOT_NOT_SET; // Character :D
-
-        ii->SwapItems(SrcInvSlot, DstInvSlot, slot, DstSlot);
-    }
-
-    WorldPacket data(SMSG_EQUIPMENT_SET_USE_RESULT, 1);
-    data << uint8(0);   // 4 = failed(inventory is full)
-    SendPacket(&data);*/
-}
-
-#else
 
 void WorldSession::HandleEquipmentSetSave(WorldPacket &recv_data)
 {
@@ -1099,5 +973,3 @@ void WorldSession::HandleEquipmentSetUse(WorldPacket &recv_data)
 {
 
 }
-
-#endif // EQ_MGR_TESTING

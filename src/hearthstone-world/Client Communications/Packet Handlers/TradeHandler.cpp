@@ -31,13 +31,13 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
             TradeStatus = TRADE_STATUS_YOU_STUNNED;
         else if(pTarget->IsStunned())
             TradeStatus = TRADE_STATUS_TARGET_STUNNED;
-        else if(pTarget->mTradeTarget != 0)
+        else if(!pTarget->mTradeTarget.empty())
             TradeStatus = TRADE_STATUS_ALREADY_TRADING;
         else if(pTarget->GetTeam() != _player->GetTeam() && GetPermissionCount() == 0)
             TradeStatus = TRADE_STATUS_WRONG_FACTION;
         else if(_player->CalcDistance(pTarget) > 10.0f)     // This needs to be checked
             TradeStatus = TRADE_STATUS_TOO_FAR_AWAY;
-        set<uint32>::iterator itr = pTarget->m_ignores.find(_player->GetLowGUID());
+        std::set<WoWGuid>::iterator itr = pTarget->m_ignores.find(_player->GetGUID());
         if(itr != pTarget->m_ignores.end())
             TradeStatus = TRADE_STATUS_PLAYER_IGNORED;
     }
@@ -72,7 +72,7 @@ void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
     Player* pTarget = NULL;
     uint32 TradeStatus = TRADE_STATUS_INITIATED;
 
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         TradeStatus = TRADE_STATUS_PLAYER_NOT_FOUND;
     else
     {
@@ -107,7 +107,7 @@ void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleBusyTrade(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint32 TradeStatus = TRADE_STATUS_PLAYER_BUSY;
@@ -123,7 +123,7 @@ void WorldSession::HandleBusyTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleIgnoreTrade(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint32 TradeStatus = TRADE_STATUS_PLAYER_IGNORED;
@@ -141,7 +141,7 @@ void WorldSession::HandleCancelTrade(WorldPacket & recv_data)
 {
     if(_player)
     {
-        if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+        if(!_player->IsInWorld() || _player->mTradeTarget.empty())
             return;
 
         if( _player->mTradeStatus == TRADE_STATUS_COMPLETE)
@@ -173,7 +173,7 @@ void WorldSession::HandleCancelTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleUnacceptTrade(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint32 TradeStatus = TRADE_STATUS_UNACCEPTED;
@@ -198,7 +198,7 @@ void WorldSession::HandleUnacceptTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint8 TradeSlot = recv_data.contents()[0];
@@ -249,7 +249,7 @@ void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
 
 void WorldSession::HandleSetTradeGold(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint32 Gold;
@@ -264,7 +264,7 @@ void WorldSession::HandleSetTradeGold(WorldPacket & recv_data)
 
 void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint8 TradeSlot = recv_data.contents()[0];
@@ -277,7 +277,7 @@ void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
 
 void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
 {
-    if(!_player->IsInWorld() || _player->mTradeTarget == 0)
+    if(!_player->IsInWorld() || _player->mTradeTarget.empty())
         return;
 
     uint32 TradeStatus = TRADE_STATUS_ACCEPTED;

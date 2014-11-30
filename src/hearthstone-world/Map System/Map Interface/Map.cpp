@@ -132,7 +132,7 @@ void Map::LoadSpawns(bool reload /* = false */)
 {
     CreatureSpawnCount = 0;
     QueryResult* result;
-    set<string>::iterator tableiterator;
+    std::set<std::string>::iterator tableiterator;
     if(reload)//perform cleanup
     {
         CellSpawns *sp = NULL;
@@ -201,7 +201,6 @@ void Map::LoadSpawns(bool reload /* = false */)
                     cspawn->emote_state = fields[12].GetUInt32();
                     cspawn->death_state = fields[13].GetUInt16();
                     cspawn->stand_state = fields[14].GetUInt8();
-                    cspawn->phase = fields[19].GetInt32();
                     cspawn->vehicle = fields[20].GetBool();
                     cspawn->CanMove = fields[21].GetUInt32();
                     cspawn->vendormask = fields[22].GetUInt32();
@@ -259,7 +258,6 @@ void Map::LoadSpawns(bool reload /* = false */)
                     gspawn->scale = fields[10].GetFloat();
                     if(gspawn->scale > 255.0f)
                         gspawn->scale = 255.0f;
-                    gspawn->phase = fields[11].GetInt32();
 
                     uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x);
                     uint32 celly = CellHandler<MapMgr>::GetPosY(gspawn->y);

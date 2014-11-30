@@ -218,6 +218,19 @@ enum MsTimeVariables
 #define RONIN_UNORDERED_SET __gnu_cxx::hash_set
 #define RONIN_UNORDERED_MAP __gnu_cxx::hash_map
 
+// gcc has no default hash for string type, so we have to make an explicit hash template here
+namespace __gnu_cxx
+{
+    template<> struct hash<std::string>
+    {
+        size_t operator()(std::string& tbh) const
+        {
+            // simple crc32 hash for now, we may need to change this later however
+            return size_t( crc32( (const unsigned char*)tbh.c_str(), tbh.length() ) );
+        }
+    }
+}
+
 #endif
 
 #elif COMPILER == COMPILER_MICROSOFT

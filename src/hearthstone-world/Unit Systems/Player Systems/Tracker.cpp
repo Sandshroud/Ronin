@@ -165,7 +165,7 @@ TrackedPlr* Tracker::GetTrackerByID(uint64 trackerId)
     return NULL;
 }
 
-uint64 Tracker::GetTrackerId(string Name)
+uint64 Tracker::GetTrackerId(std::string Name)
 {
     for(TrackerTable::iterator i = Tracked_List.begin(); i != Tracked_List.end();)
     {
@@ -178,7 +178,7 @@ uint64 Tracker::GetTrackerId(string Name)
     return NULL;
 }
 
-TrackedPlr* Tracker::GetTrackerByIP(string RemoteIP)
+TrackedPlr* Tracker::GetTrackerByIP(std::string RemoteIP)
 {
     for(TrackerTable::iterator i = Tracked_List.begin(); i != Tracked_List.end();)
     {
@@ -266,15 +266,15 @@ void Tracker::List(WorldSession *m_session, uint32 listStart)
             continue;
 
         bool isOnline = false;
-        string IP_Address = (*itr)->IP_Address;
+        std::string IP_Address = (*itr)->IP_Address;
 
-        PlayerStorageMap::const_iterator pItr;
+        ObjectMgr::PlayerStorageMap::const_iterator pItr;
         objmgr._playerslock.AcquireReadLock();
         for (pItr = objmgr._players.begin(); pItr != objmgr._players.end(); pItr++)
         {
             if(pItr->second->GetSession() && pItr->second->GetSession()->GetSocket())
             {
-                string RemoteIP = pItr->second->GetSession()->GetSocket()->GetIP();
+                std::string RemoteIP = pItr->second->GetSession()->GetSocket()->GetIP();
                 if( strcmp( RemoteIP.c_str(), IP_Address.c_str() ) == 0 )
                 {
                     isOnline = true;

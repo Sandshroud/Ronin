@@ -4,18 +4,34 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid) : m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
+Object::Object(uint64 guid) : m_objGuid(guid), m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
 {
     m_valuesCount = OBJECT_LENGTH;
     m_updateMask.SetCount(OBJECT_END);
     m_raw.values[OBJECT_LAYER_OBJECT] = new uint32[OBJECT_LENGTH];
     memset(m_raw.values[OBJECT_LAYER_OBJECT], 0, OBJECT_LENGTH*sizeof(uint32));
-    m_object.m_wowGUID = guid;
+
+    m_object.m_objGUID = guid;
     m_object.m_objType = TYPEMASK_TYPE_OBJECT;
     m_object.m_objScale = 1.f;
 
     m_loot.gold = 0;
     m_looted = false;
+}
+
+Object::~Object()
+{
+
+}
+
+void Object::Init()
+{
+
+}
+
+void Object::Destruct()
+{
+    delete this;
 }
 
 void Object::SetByte(uint32 index, uint32 index1,uint8 value)
@@ -253,7 +269,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 
     // build our actual update
     *data << updatetype;
-    *data << m_object.m_wowGUID.asPacked();
+    *data << m_objGuid.asPacked();
     *data << GetTypeId();
 
     _BuildMovementUpdate(data, updateFlags, target);
@@ -310,9 +326,9 @@ uint32 Object::GetUpdateFieldData(uint32*& flags, Player * target)
     case TYPEID_PLAYER:
         {
             flags = UnitUpdateFieldFlags;
-            if (castPtr<Unit>(this)->GetGUIDValue(UNIT_FIELD_SUMMONEDBY) == target->GetGUID())
+            if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
                 visibleFlag |= UF_FLAG_OWNER;
-            else if (castPtr<Unit>(this)->GetGUIDValue(UNIT_FIELD_CREATEDBY) == target->GetGUID())
+            else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
                 visibleFlag |= UF_FLAG_OWNER;
             if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
                 visibleFlag |= UF_FLAG_PARTY_MEMBER;
@@ -320,19 +336,19 @@ uint32 Object::GetUpdateFieldData(uint32*& flags, Player * target)
     case TYPEID_GAMEOBJECT:
         {
             flags = GameObjectUpdateFieldFlags;
-            if (castPtr<GameObject>(this)->GetGUIDValue(GAMEOBJECT_FIELD_CREATED_BY) == target->GetGUID())
+            if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_DYNAMICOBJECT:
         {
             flags = DynamicObjectUpdateFieldFlags;
-            if (castPtr<DynamicObject>(this)->GetCasterGuid() == target->GetGUID())
+            if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_CORPSE:
         {
             flags = CorpseUpdateFieldFlags;
-            if (castPtr<Corpse>(this)->GetGUIDValue(CORPSE_FIELD_OWNER) == target->GetGUID())
+            if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
                 visibleFlag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_AREATRIGGER:
@@ -374,7 +390,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
         _WriteLivingMovementUpdate(data, &bytes, target);
 
     if(flags & UPDATEFLAG_VEHICLE)
-        bytes << float(TO_VEHICLE(this)->GetOrientation()) << TO_VEHICLE(this)->GetVehicleEntry();
+        bytes << float(castPtr<Vehicle>(this)->GetOrientation()) << castPtr<Vehicle>(this)->GetVehicleEntry();
 
     if(flags & UPDATEFLAG_ROTATION)
     {
@@ -388,7 +404,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
 
     if(flags & UPDATEFLAG_HAS_TARGET)
     {
-        WoWGuid targetGuid = WoWGuid::ConstructWoWGUID(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
+        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
         data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
         data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
         bytes.WriteByteSeq(targetGuid[4]);
@@ -412,7 +428,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     if(flags & UPDATEFLAG_TRANSPORT)
     {
         if(IsTransport())
-            bytes << TO_TRANSPORT(this)->m_timer;
+            bytes << castPtr<Transporter>(this)->m_timer;
         else bytes << (uint32)getMSTime();
     }
     data->append(bytes.contents(), bytes.size());
@@ -428,7 +444,7 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
         if(updateMask.GetBit(x))
         {
             *data << (uint8) UPDATETYPE_VALUES;     // update type == update
-            *data << m_object.m_wowGUID;
+            *data << m_objGuid;
 
             _BuildChangedValuesUpdate( data, &updateMask, target );
             return 1;
@@ -442,7 +458,7 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * ma
 {
     // returns: update count
     *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
-    *buf << m_object.m_wowGUID;
+    *buf << m_objGuid;
 
     _BuildChangedValuesUpdate( buf, mask, NULL );
 
@@ -499,9 +515,9 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
             DummyDynFlags = GetUInt32Value(GAMEOBJECT_DYNAMIC);
             if(GameObjectInfo *info = go->GetInfo())
             {
-                if(set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID))
+                if(std::set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID))
                 {
-                    for(set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
+                    for(std::set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
                     {
                         if( target->GetQuestLogForEntry(*itr) != NULL )
                         {
@@ -583,12 +599,12 @@ void Object::DestroyForPlayer(Player* target, bool anim)
 void Object::ClearLoot()
 {
     // better cancel any rolls just in case.
-    for(vector<__LootItem>::iterator itr = m_loot.items.begin(); itr != m_loot.items.end(); itr++)
+    for(std::vector<__LootItem>::iterator itr = m_loot.items.begin(); itr != m_loot.items.end(); itr++)
     {
         if( itr->roll != NULL )
         {
             sEventMgr.RemoveEvents(itr->roll);
-            itr->roll = NULLROLL; // buh-bye!
+            itr->roll = NULL; // buh-bye!
         }
     }
 
@@ -625,7 +641,7 @@ WorldObject::WorldObject(uint64 guid) : Object(guid), m_position(0,0,0,0), m_spa
     m_backSwimSpeed = 2.5f;
     m_turnRate = 3.141593f;
 
-    m_mapMgr = NULLMAPMGR;
+    m_mapMgr = NULL;
     m_mapCell = 0;
 
     m_factionTemplate = NULL;
@@ -668,9 +684,8 @@ void WorldObject::Destruct()
 
     // for linux
     m_instanceId = -1;
-    m_objectTypeMask = TYPEMASK_TYPE_UNUSED;
     sEventMgr.RemoveEvents(this);
-    delete this;
+    Object::Destruct();
 }
 
 //That is dirty fix it actually creates update of 1 field with
@@ -930,15 +945,15 @@ void WorldObject::SetRotation( uint64 guid )
 
 void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
 {
-    if(self && m_objectTypeId == TYPEID_PLAYER)
+    if(self && GetTypeId() == TYPEID_PLAYER)
         castPtr<Player>(this)->GetSession()->OutPacket(Opcode, Len, Data);
 
     if(!IsInWorld())
         return;
 
-    unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin();
-    unordered_set<Player*  >::iterator it_end = m_inRangePlayers.end();
-    int gm = ( m_objectTypeId == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : 0 );
+    std::unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin();
+    std::unordered_set<Player*  >::iterator it_end = m_inRangePlayers.end();
+    int gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : 0 );
     for(; itr != it_end; itr++)
     {
         if((*itr))
@@ -960,12 +975,12 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     if(!IsInWorld())
         return;
 
-    if(bToSelf && m_objectTypeId == TYPEID_PLAYER)
+    if(bToSelf && GetTypeId() == TYPEID_PLAYER)
         castPtr<Player>(this)->GetSession()->SendPacket(data);
 
-    unordered_set<Player*>::iterator itr = m_inRangePlayers.begin();
-    unordered_set<Player*>::iterator it_end = m_inRangePlayers.end();
-    bool gminvis = (m_objectTypeId == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false);
+    std::unordered_set<Player*>::iterator itr = m_inRangePlayers.begin();
+    std::unordered_set<Player*>::iterator it_end = m_inRangePlayers.end();
+    bool gminvis = (GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false);
     //Zehamster: Splitting into if/else allows us to avoid testing "gminvis==true" at each loop...
     //         saving cpu cycles. Chat messages will be sent to everybody even if player is invisible.
     if(myteam_only)
@@ -1101,7 +1116,7 @@ void WorldObject::RemoveFromWorld(bool free_guid)
 
     ASSERT(m_mapMgr);
     MapMgr* m = m_mapMgr;
-    m_mapMgr = NULLMAPMGR;
+    m_mapMgr = NULL;
 
     mSemaphoreTeleport = true;
 
@@ -1314,13 +1329,8 @@ bool WorldObject::inArc(float Position1X, float Position1Y, float FOV, float Ori
     float rborder = getEasyAngle( ( Orientation + (FOV*0.5f/*/2*/) ) );
     //sLog.outDebug("Orientation: %f Angle: %f LeftBorder: %f RightBorder %f",Orientation,angle,lborder,rborder);
     if(((angle >= lborder) && (angle <= rborder)) || ((lborder > rborder) && ((angle < rborder) || (angle > lborder))))
-    {
         return true;
-    }
-    else
-    {
-        return false;
-    }
+    return false;
 }
 
 // Return angle in range 0..2*pi
@@ -1643,7 +1653,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if( IsUnit() )
         {
             if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapMgr->m_battleground && m_mapMgr->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
-                TO_ALTERACVALLEY(m_mapMgr->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
+                castPtr<AlteracValley>(m_mapMgr->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
         }
 
         // check if pets owner is combat participant
@@ -1651,7 +1661,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if( IsPet() )
         {
             Player* owner = castPtr<Pet>(this)->GetPetOwner();
-            if( owner != NULL && pVictim->GetAIInterface()->getThreatByPtr( owner ) > 0 )
+            if( owner != NULL && pVictim->GetAIInterface()->getThreat( owner->GetGUID() ) > 0 )
                 owner_participe = true;
         }
 
@@ -2093,7 +2103,7 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
 
         // Aura 271 - Mods Damage for particular casters spells
         Unit::DamageTakenPctModPerCasterType::iterator it = pVictim->DamageTakenPctModPerCaster.find(GetGUID());
-        while(it != pVictim->DamageTakenPctModPerCaster.end() && it->first == GetGUID())
+        while(it != pVictim->DamageTakenPctModPerCaster.end() && GetGUID() == it->first)
         {
             if(spellInfo->SpellGroupType[0] & it->second.first[0] ||
                 spellInfo->SpellGroupType[1] & it->second.first[1] ||
@@ -2316,7 +2326,7 @@ void WorldObject::EventSpellHit(Spell* pSpell)
 
 bool WorldObject::CanActivate()
 {
-    switch(m_objectTypeId)
+    switch(GetTypeId())
     {
     case TYPEID_UNIT:
         {
@@ -2336,13 +2346,12 @@ bool WorldObject::CanActivate()
 
 void WorldObject::Activate(MapMgr* mgr)
 {
-    switch(m_objectTypeId)
+    switch(GetTypeId())
     {
     case TYPEID_UNIT:
         if(IsVehicle())
-            mgr->activeVehicles.insert(TO_VEHICLE(this));
-        else
-            mgr->activeCreatures.insert(castPtr<Creature>(this));
+            mgr->activeVehicles.insert(castPtr<Vehicle>(this));
+        else mgr->activeCreatures.insert(castPtr<Creature>(this));
         break;
 
     case TYPEID_GAMEOBJECT:
@@ -2356,17 +2365,17 @@ void WorldObject::Activate(MapMgr* mgr)
 void WorldObject::Deactivate(MapMgr* mgr)
 {
     mgr->ActiveLock.Acquire();
-    switch(m_objectTypeId)
+    switch(GetTypeId())
     {
     case TYPEID_UNIT:
         {
             if(IsVehicle())
             {
                 // check iterator
-                if( mgr->__vehicle_iterator != mgr->activeVehicles.end() && (*mgr->__vehicle_iterator) == TO_VEHICLE(this) )
+                if( mgr->__vehicle_iterator != mgr->activeVehicles.end() && (*mgr->__vehicle_iterator) == castPtr<Vehicle>(this) )
                     ++mgr->__vehicle_iterator;
 
-                mgr->activeVehicles.erase(TO_VEHICLE(this));
+                mgr->activeVehicles.erase(castPtr<Vehicle>(this));
             }
             else
             {
@@ -2394,7 +2403,7 @@ void WorldObject::Deactivate(MapMgr* mgr)
 void WorldObject::SetZoneId(uint32 newZone)
 {
     m_zoneId = newZone;
-    if( m_objectTypeId == TYPEID_PLAYER && castPtr<Player>(this)->GetGroup() )
+    if( GetTypeId() == TYPEID_PLAYER && castPtr<Player>(this)->GetGroup() )
         castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, castPtr<Player>(this) );
 }
 
@@ -2545,8 +2554,7 @@ bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 
     if (GetMapMgr() && GetMapMgr()->CanUseCollision(this) && GetMapMgr()->CanUseCollision(pObj))
         return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel + pObj->GetFloatValue(UNIT_FIELD_HOVERHEIGHT)) );
-    else
-        return true;
+    return true;
 }
 
 bool WorldObject::IsInLineOfSight(float x, float y, float z)
@@ -2557,8 +2565,7 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 
     if (GetMapMgr() && GetMapMgr()->CanUseCollision(this))
         return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), x, y, z) );
-    else
-        return true;
+    return true;
 }
 
 bool WorldObject::PhasedCanInteract(WorldObject* pObj)

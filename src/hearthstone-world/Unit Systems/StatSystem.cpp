@@ -66,7 +66,7 @@ UnitBaseStats *StatSystem::GetUnitBaseStats(uint8 race, uint8 _class, uint16 lev
 
 EUnitFields StatSystem::GetPowerFieldForClassAndType(uint8 _class, uint8 powerType)
 {
-    std::pair<uint8, uint8> pair = make_pair(_class, powerType);
+    std::pair<uint8, uint8> pair = std::make_pair(_class, powerType);
     if(m_unitPowersByClass.find(pair) == m_unitPowersByClass.end())
         return UNIT_END;
     return m_unitPowersByClass.at(pair);

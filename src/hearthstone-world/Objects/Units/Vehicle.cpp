@@ -9,7 +9,6 @@ Vehicle::Vehicle(CreatureData *data, uint64 guid) : Creature(data, guid)
     m_ppassengerCount = NULL;
     m_maxPassengers = NULL;
     m_seatSlotMax = NULL;
-    m_isVehicle = true;
     Initialised = false;
     m_CreatedFromSpell = false;
     m_CastSpellOnMount = NULL;
@@ -127,7 +126,7 @@ void Vehicle::InstallAccessories()
 
         if(passenger->IsVehicle())
         {
-            TO_VEHICLE(passenger)->InitSeats(ctrData->Vehicle_entry);
+            castPtr<Vehicle>(passenger)->InitSeats(ctrData->Vehicle_entry);
             if(passenger->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK))
                 passenger->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK); // Accessory
         }
@@ -306,7 +305,7 @@ void Vehicle::Despawn(uint32 delay, uint32 respawntime)
 {
     if(delay)
     {
-        sEventMgr.AddEvent(TO_VEHICLE(this), &Vehicle::Despawn, (uint32)0, respawntime, EVENT_VEHICLE_RESPAWN, delay, 1,0);
+        sEventMgr.AddEvent(this, &Vehicle::Despawn, (uint32)0, respawntime, EVENT_VEHICLE_RESPAWN, delay, 1,0);
         return;
     }
 
@@ -335,7 +334,7 @@ void Vehicle::Despawn(uint32 delay, uint32 respawntime)
         ASSERT(pCell);
         pCell->_respawnObjects.insert(this);
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnVehicle, TO_VEHICLE(this), pCell, EVENT_VEHICLE_RESPAWN, respawntime, 1, 0);
+        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnVehicle, this, pCell, EVENT_VEHICLE_RESPAWN, respawntime, 1, 0);
         Unit::RemoveFromWorld(false);
         m_position = m_spawnLocation;
         m_respawnCell=pCell;
@@ -367,7 +366,7 @@ void Vehicle::SafeDelete()
     }
 
     sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(TO_VEHICLE(this), &Vehicle::DeleteMe, EVENT_VEHICLE_SAFE_DELETE, 1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(this, &Vehicle::DeleteMe, EVENT_VEHICLE_SAFE_DELETE, 1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void Vehicle::DeleteMe()
@@ -495,8 +494,7 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
 
         data.Initialize(MSG_MOVE_TELEPORT_ACK);
         data << plr->GetGUID();
-        data << plr->m_teleportAckCounter;
-        plr->m_teleportAckCounter++;
+        data << uint32(0);
         data << uint32(MOVEFLAG_FLYING);
         data << uint16(0x40);
         data << getMSTime();
@@ -858,8 +856,7 @@ void WorldSession::HandleSpellClick( WorldPacket & recv_data )
         return;
     }
 
-    pVehicle = TO_VEHICLE(unit);
-
+    pVehicle = castPtr<Vehicle>(unit);
     if(!pVehicle->CanEnterVehicle(_player))
         return;
     pVehicle->AddPassenger(_player);
@@ -918,19 +915,17 @@ void WorldSession::HandleRequestSeatChange( WorldPacket & recv_data )
     }
     else if(recv_data.GetOpcode() == CMSG_REQUEST_VEHICLE_SWITCH_SEAT)
     {
-        recv_data >> Vehicleguid;
+        recv_data >> Vehicleguid.asPacked();
         recv_data >> RequestedSeat;
     }
     else
     {
         HandleMovementOpcodes(recv_data);
-        recv_data >> Vehicleguid;
+        recv_data >> Vehicleguid.asPacked();
         recv_data >> RequestedSeat;
     }
 
-    uint64 guid = Vehicleguid.GetOldGuid();
-    Vehicle* vehicle = GetPlayer()->GetMapMgr()->GetVehicle(GUID_LOPART(guid));
-
+    Vehicle* vehicle = GetPlayer()->GetMapMgr()->GetVehicle(Vehicleguid);
     if(cv->GetPassengerSlot(vehicle) != -1 || cv->GetVehicle() == vehicle)
     {
         cv->RemovePassenger(_player);

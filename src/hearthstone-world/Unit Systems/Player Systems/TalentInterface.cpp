@@ -88,7 +88,7 @@ void TalentInterface::LoadTalentData(QueryResult *result, Field *fields, uint32 
 
         talentId = fields[1].GetUInt32();
         talentRank = fields[2].GetUInt8();
-        m_specs[spec].m_talents.insert(make_pair(talentId, talentRank));
+        m_specs[spec].m_talents.insert(std::make_pair(talentId, talentRank));
     } while(result->NextRow());
 }
 

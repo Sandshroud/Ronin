@@ -98,19 +98,18 @@ void MapCell::RemoveObjects()
                     if( pObject->IsVehicle() )
                     {
                         _mapmgr->_reusable_guids_vehicle.push_back( pObject->GetLowGUID() );
-                        TO_VEHICLE(pObject)->m_respawnCell=NULL;
-                        TO_VEHICLE(pObject)->Destruct();
+                        castPtr<Vehicle>(pObject)->m_respawnCell = NULL;
+                        castPtr<Vehicle>(pObject)->Destruct();
                         pObject = NULL;
                     }
                     else if( !pObject->IsPet() )
                     {
                         _mapmgr->_reusable_guids_creature.push_back( pObject->GetLowGUID() );
-                        castPtr<Creature>(pObject)->m_respawnCell=NULL;
+                        castPtr<Creature>(pObject)->m_respawnCell = NULL;
                         castPtr<Creature>(pObject)->Destruct();
                         pObject = NULL;
                     }
                 }break;
-
             case TYPEID_GAMEOBJECT:
                 {
                     castPtr<GameObject>(pObject)->m_respawnCell = NULL;

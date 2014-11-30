@@ -77,7 +77,7 @@ void CreatureDataManager::LoadFromDB()
             ctrData->Resistances[i] = feilds[field_count++].GetUInt32();
         ctrData->CombatReach = feilds[field_count++].GetFloat();
         ctrData->BoundingRadius = feilds[field_count++].GetFloat();
-        const char* auraString = feilds[field_count++].GetString();
+        const char* aurastring = feilds[field_count++].GetString();
         ctrData->Boss = feilds[field_count++].GetUInt32();
         ctrData->Money = feilds[field_count++].GetInt32();
         ctrData->Invisibility_type = feilds[field_count++].GetUInt32();
@@ -91,12 +91,12 @@ void CreatureDataManager::LoadFromDB()
         ctrData->SpellClickid = feilds[field_count++].GetUInt32();
         ctrData->CanMove = feilds[field_count++].GetUInt32();
         ctrData->lowercase_name.append(ctrData->Name);
-        HEARTHSTONE_TOLOWER(ctrData->lowercase_name);
+        RONIN_UTIL::TOLOWER(ctrData->lowercase_name);
 
-        if(auraString && strlen(auraString))
+        if(aurastring && strlen(aurastring))
         {
-            vector<string> aurs = StrSplit(std::string(auraString), " ");
-            for(vector<string>::iterator it = aurs.begin(); it != aurs.end(); it++)
+            std::vector<std::string> aurs = RONIN_UTIL::StrSplit(std::string(aurastring), " ");
+            for(std::vector<std::string>::iterator it = aurs.begin(); it != aurs.end(); it++)
                 if(uint32 id = atol((*it).c_str()))
                     ctrData->Auras.insert( id );
         }

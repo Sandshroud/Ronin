@@ -67,8 +67,8 @@ bool MailMessage::LoadFromDB(Field * fields)
 
 void MailMessage::SaveToDB()
 {
-    stringstream ss;
-    vector< uint64 >::iterator itr;
+    std::stringstream ss;
+    std::vector< uint64 >::iterator itr;
     ss << "REPLACE INTO mailbox VALUES("
         << message_id << ","
         << message_type << ","
@@ -191,7 +191,7 @@ bool Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
     uint8 i = 0;
     uint32 j;
     size_t pos;
-    vector<uint64>::iterator itr;
+    std::vector<uint64>::iterator itr;
     Item* pItem;
 
     // add stuff
@@ -256,8 +256,7 @@ bool Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
             data << pItem->GetUInt32Value( ITEM_FIELD_MAXDURABILITY );
             data << pItem->GetUInt32Value( ITEM_FIELD_DURABILITY );
             data << uint8(0);
-            pItem->DeleteMe();
-            pItem = NULL;
+            pItem->Destruct();
         }
         data.put< uint8 >( pos, i );
     }
@@ -380,7 +379,7 @@ void MailSystem::ReturnToSender(MailMessage* message)
     sMailSystem.DeliverMessage(&msg);
 }
 
-void MailSystem::DeliverMessage(uint32 type, uint64 sender, uint64 receiver, string subject, string body,
+void MailSystem::DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std::string subject, std::string body,
                                       uint32 money, uint32 cod, uint64 item_guid, uint32 stationary, bool returned)
 {
     // This is for sending automated messages, for example from an auction house.
@@ -453,9 +452,9 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
     uint8 itemslot;
     uint8 i;
     uint64 itemguid;
-    vector< Item* > items;
-    vector< Item* >::iterator itr;
-    string recepient;
+    std::vector< Item* > items;
+    std::vector< Item* >::iterator itr;
+    std::string recepient;
     Item* pItem;
     int8 real_item_slot;
 
@@ -510,7 +509,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
         items.push_back( pItem );
     }
 
-    if( items.size() > 12 || msg.body.find("%") != string::npos || msg.subject.find("%") != string::npos)
+    if( items.size() > 12 || msg.body.find("%") != std::string::npos || msg.subject.find("%") != std::string::npos)
     {
         SendMailError(MAIL_ERR_INTERNAL_ERROR);
         return;
@@ -609,7 +608,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
                 continue;       // should never be hit.
 
             sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
-            pItem->RemoveFromWorld();
+            pItem->RemoveFromWorld(false);
             pItem->SetOwner( NULL );
             pItem->SaveToDB( INVENTORY_SLOT_NOT_SET, 0, true, NULL );
             msg.items.push_back( pItem->GetUInt32Value(OBJECT_FIELD_GUID) );
@@ -617,7 +616,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
             if( HasGMPermissions() )
                 sWorld.LogGM(this, "sent mail with item entry %u to %s, with gold %u.", pItem->GetEntry(), player->name, msg.money);
 
-            pItem->DeleteMe();
+            pItem->Destruct();
             pItem = NULL;
         }
     }
@@ -677,7 +676,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
     uint64 mailbox;
     uint32 message_id;
     uint32 lowguid;
-    vector< uint64 >::iterator itr;
+    std::vector< uint64 >::iterator itr;
 
     recv_data >> mailbox >> message_id >> lowguid;
 
@@ -737,8 +736,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
         data << uint32(MAIL_ERR_BAG_FULL);
         SendPacket(&data);
 
-        item->DeleteMe();
-        item = NULL;
+        item->Destruct();
         return;
     }
 
@@ -751,8 +749,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
             // no free slots left!
             data << uint32(MAIL_ERR_BAG_FULL);
             SendPacket(&data);
-            item->DeleteMe();
-            item = NULL;
+            item->Destruct();
             return;
         }
     }
@@ -776,7 +773,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
     if( message->cod > 0 )
     {
         _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -int32(message->cod));
-        string subject = "COD Payment: ";
+        std::string subject = "COD Payment: ";
         subject += message->subject;
         sMailSystem.DeliverMessage(MAILTYPE_NORMAL, message->player_guid, message->sender_guid, subject, "", message->cod, 0, 0, 1, true);
 
@@ -909,12 +906,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket & recv_data )
 
         data << uint32(MAIL_OK);
         SendPacket(&data);
-    }
-    else
-    {
-        pItem->DeleteMe();
-        pItem = NULL;
-    }
+    } else pItem->Destruct();
 }
 
 void WorldSession::HandleItemTextQuery(WorldPacket & recv_data)
@@ -922,7 +914,7 @@ void WorldSession::HandleItemTextQuery(WorldPacket & recv_data)
     uint64 itemGuid;
     recv_data >> itemGuid;
 
-    string body = "Internal Error";
+    std::string body = "Internal Error";
 
     Item* item = _player->GetItemInterface()->GetItemByGUID(itemGuid);
     WorldPacket data(SMSG_ITEM_TEXT_QUERY_RESPONSE, body.length() + 9);

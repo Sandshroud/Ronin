@@ -163,7 +163,7 @@ enum CustomLuaEvenTypes
     LUA_EVENTS_END
 };
 
-struct LUALoadScripts { set<string> luaFiles; };
+struct LUALoadScripts { std::set<std::string> luaFiles; };
 struct EventInfoHolder { const char * funcName; TimedEvent * te; };
 struct LuaUnitBinding { uint16 Functions[CREATURE_EVENT_COUNT]; };
 struct LuaGameObjectBinding { uint16 Functions[GAMEOBJECT_EVENT_COUNT]; };

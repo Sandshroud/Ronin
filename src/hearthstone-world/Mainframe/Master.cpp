@@ -194,7 +194,7 @@ bool Master::Run(int argc, char ** argv)
     // Initialize Opcode Table
     WorldSession::InitPacketHandlerTable();
 
-    string host = mainIni->ReadString( "Listen", "Host", DEFAULT_HOST );
+    std::string host = mainIni->ReadString( "Listen", "Host", DEFAULT_HOST );
     int wsport = mainIni->ReadInteger( "RealmData", "WorldServerPort", DEFAULT_WORLDSERVER_PORT );
 
     new ScriptMgr();
@@ -295,7 +295,7 @@ bool Master::Run(int argc, char ** argv)
         }
     }
     // begin server shutdown
-    sLog.Notice( "Shutdown", "Initiated at %s", ConvertTimeStampToDataTime( (uint32)UNIXTIME).c_str() );
+    sLog.Notice( "Shutdown", "Initiated at %s", RONIN_UTIL::ConvertTimeStampToDataTime( (uint32)UNIXTIME).c_str() );
     bServerShutdown = true;
 
     if( lootmgr.is_loading )
@@ -403,12 +403,12 @@ bool Master::_StartDB()
     SYSTEM_INFO sysinfo;
     GetSystemInfo( &sysinfo );
 
-    string error;
+    std::string error;
     // Configure World Database...
-    string hostname = mainIni->ReadString("WorldDatabase", "Hostname", "ERROR");
-    string username = mainIni->ReadString("WorldDatabase", "Username", "ERROR");
-    string password = mainIni->ReadString("WorldDatabase", "Password", "ERROR");
-    string database = mainIni->ReadString("WorldDatabase", "Name", "ERROR");
+    std::string hostname = mainIni->ReadString("WorldDatabase", "Hostname", "ERROR");
+    std::string username = mainIni->ReadString("WorldDatabase", "Username", "ERROR");
+    std::string password = mainIni->ReadString("WorldDatabase", "Password", "ERROR");
+    std::string database = mainIni->ReadString("WorldDatabase", "Name", "ERROR");
     int port = mainIni->ReadInteger("WorldDatabase", "Port", 0);
     int type = mainIni->ReadInteger("WorldDatabase", "Type", 0);
     if(strcmp(hostname.c_str(), "ERROR") == 0)

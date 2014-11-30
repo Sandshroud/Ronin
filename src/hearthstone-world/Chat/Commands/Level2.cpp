@@ -58,32 +58,33 @@ bool ChatHandler::CreateGuildCommand(const char* args, WorldSession *m_session)
     if(ptarget == NULL)
         return true;
 
-    if(strlen((char*)args)>75)
+    std::string guildName = args;
+    if(guildName.length() > 75)
     {
         // send message to user
         char buf[256];
-        snprintf((char*)buf,256,"The name was too long by %i", (unsigned int)strlen((char*)args)-75);
+        snprintf((char*)buf,256,"The name was too long by %i", guildName.length()-75);
         SystemMessage(m_session, buf);
         return true;
     }
 
-    for (uint32 i = 0; i < strlen(args); i++)
+    for (uint32 i = 0; i < guildName.length(); i++)
     {
-        if(!isalpha(args[i]) && args[i]!=' ')
+        if(!isalpha(guildName[i]) && guildName[i] != ' ')
         {
             SystemMessage(m_session, "Error, name can only contain chars A-Z and a-z.");
             return true;
         }
     }
 
-    GuildInfo* pGuild = guildmgr.GetGuildByGuildName(string(args));
+    GuildInfo* pGuild = guildmgr.GetGuildByGuildName(guildName);
     if(pGuild)
     {
         RedSystemMessage(m_session, "Guild name is already taken.");
         return true;
     }
 
-    guildmgr.CreateGuildFromCommand(string(args), ptarget->GetLowGUID());
+    guildmgr.CreateGuildFromCommand(guildName, ptarget->GetLowGUID());
     SystemMessage(m_session, "Guild created");
     return true;
 }
@@ -110,7 +111,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
 
     if(unit->IsVehicle())
     {
-        Vehicle* veh = TO_VEHICLE(unit);
+        Vehicle* veh = castPtr<Vehicle>(unit);
         for(int i = 0; i < 8; i++)
         {
             if(!veh->GetPassenger(i))
@@ -240,16 +241,10 @@ bool ChatHandler::HandleItemRemoveCommand(const char* args, WorldSession *m_sess
         WorldDatabase.Execute( ss.str().c_str() );
 
         pCreature->RemoveVendorItem(itemguid);
-        ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(itemguid);
-        if(tmpItem)
+        if(ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(itemguid))
             sstext << "Item '" << itemguid << "' '" << tmpItem->Name1 << "' Deleted from list" << '\0';
-        else
-            sstext << "Item '" << itemguid << "' Deleted from list" << '\0';
-    }
-    else
-    {
-        sstext << "Item '" << itemguid << "' Not Found in List." << '\0';
-    }
+        else sstext << "Item '" << itemguid << "' Deleted from list" << '\0';
+    }else sstext << "Item '" << itemguid << "' Not Found in List." << '\0';
 
     SystemMessage(m_session, sstext.str().c_str());
     return true;
@@ -278,7 +273,7 @@ bool ChatHandler::HandleNPCFlagCommand(const char* args, WorldSession *m_session
 
 bool ChatHandler::HandleSaveAllCommand(const char *args, WorldSession *m_session)
 {
-    PlayerStorageMap::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     uint32 stime = getMSTime(), count = 0;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
@@ -533,9 +528,7 @@ bool ChatHandler::HandleMonsterSayCommand(const char* args, WorldSession *m_sess
         WorldPacket * data = FillMessageData(CHAT_MSG_SAY, LANG_UNIVERSAL, args, crt->GetGUID(), 0);
         crt->SendMessageToSet(data, true);
         delete data;
-    }
-    else
-        crt->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, args);
+    } else crt->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, args);
     sWorld.LogGM(m_session, "Used npc say command on %s %s", crt->IsPlayer() ? "Player" : "Creature", crt->GetName());
     return true;
 }
@@ -563,8 +556,8 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 {
     GameObject* GObj = NULL;
 
-    unordered_set<WorldObject* >::iterator Itr = m_session->GetPlayer()->GetInRangeSetBegin();
-    unordered_set<WorldObject* >::iterator Itr2 = m_session->GetPlayer()->GetInRangeSetEnd();
+    std::unordered_set<WorldObject* >::iterator Itr = m_session->GetPlayer()->GetInRangeSetBegin();
+    std::unordered_set<WorldObject* >::iterator Itr2 = m_session->GetPlayer()->GetInRangeSetEnd();
     float cDist = 9999.0f;
     float nDist = 0.0f;
     bool bUseNext = false;
@@ -742,7 +735,6 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         gs->y = y;
         gs->z = z;
         gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
-        gs->phase = chr->GetPhaseMask();
         go->Load(gs);
         go->SaveToDB();
         uint32 cx = chr->GetMapMgr()->GetPosX(x);
@@ -952,17 +944,12 @@ bool ChatHandler::HandleMountCommand(const char *args, WorldSession *m_session)
     }
 
     Unit* m_target = NULL;
-    Player* m_plyr = getSelectedChar(m_session, false);
-    if(m_plyr)
+    if(Player* m_plyr = getSelectedChar(m_session, false))
         m_target = m_plyr;
-    else
-    {
-        Creature* m_crt = getSelectedCreature(m_session, false);
-        if(m_crt)
-            m_target = m_crt;
-    }
+    else if(Creature* m_crt = getSelectedCreature(m_session, false))
+        m_target = m_crt;
 
-    if(!m_target)
+    if(m_target == NULL)
     {
         RedSystemMessage(m_session, "No target found.");
         return true;

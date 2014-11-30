@@ -96,7 +96,7 @@ bool SubGroup::AddPlayer(PlayerInfo * info)
     return true;
 }
 
-bool SubGroup::HasMember(uint32 guid)
+bool SubGroup::HasMember(WoWGuid guid)
 {
     for( GroupMembersSet::iterator itr = m_GroupMembers.begin(); itr != m_GroupMembers.end(); itr++ )
         if( (*itr) != NULL )
@@ -374,8 +374,7 @@ void Group::Disband()
 
 void SubGroup::Disband()
 {
-    WorldPacket data(SMSG_GROUP_DESTROYED, 1);
-    WorldPacket data2(SMSG_PARTY_COMMAND_RESULT, 12);
+    WorldPacket data(SMSG_GROUP_DESTROYED, 1), data2(SMSG_PARTY_COMMAND_RESULT, 12);
     data2 << uint32(2) << uint8(0) << uint32(0);    // you leave the group
 
     GroupMembersSet::iterator itr = m_GroupMembers.begin();
@@ -817,17 +816,17 @@ void Group::SaveToDB()
         << uint32(m_raiddifficulty) << ",";
 
     if(m_assistantLeader)
-        ss << m_assistantLeader->guid << ",";
+        ss << m_assistantLeader->guid.getLow() << ",";
     else
         ss << "0,";
 
     if(m_mainTank)
-        ss << m_mainTank->guid << ",";
+        ss << m_mainTank->guid.getLow() << ",";
     else
         ss << "0,";
 
     if(m_mainAssist)
-        ss << m_mainAssist->guid << ",";
+        ss << m_mainAssist->guid.getLow() << ",";
     else
         ss << "0,";
 
@@ -838,7 +837,7 @@ void Group::SaveToDB()
         {
             for(GroupMembersSet::iterator itr = m_SubGroups[i]->GetGroupMembersBegin(); j<5 && itr != m_SubGroups[i]->GetGroupMembersEnd(); j++, itr++)
             {
-                ss << (*itr)->guid << ",";
+                ss << (*itr)->guid.getLow() << ",";
             }
         }
 
@@ -1226,16 +1225,15 @@ bool Group::HasAcceptableDisenchanters(int32 requiredskill)
     return false;
 }
 
-void Group::AddBeaconOfLightTarget(uint32 LowGUID, uint32 CasterLow)
+void Group::AddBeaconOfLightTarget(WoWGuid GUID, WoWGuid Caster)
 {
-    if(m_BeaconOfLightTargets.find(LowGUID) != m_BeaconOfLightTargets.end())    //don't add somebody twice!
-        m_BeaconOfLightTargets[LowGUID] = CasterLow;
-    else
-        m_BeaconOfLightTargets.insert(make_pair(LowGUID, CasterLow));
+    if(m_BeaconOfLightTargets.find(GUID) != m_BeaconOfLightTargets.end())    //don't add somebody twice!
+        m_BeaconOfLightTargets[GUID] = Caster;
+    else m_BeaconOfLightTargets.insert(std::make_pair(GUID, Caster));
 }
 
-void Group::RemoveBeaconOfLightTarget(uint32 LowGUID, uint32 CasterLow)
+void Group::RemoveBeaconOfLightTarget(WoWGuid GUID, WoWGuid Caster)
 {
-    if(CasterLow == 0 || m_BeaconOfLightTargets[LowGUID] == CasterLow)
-        m_BeaconOfLightTargets.erase(LowGUID);
+    if(Caster.empty() || m_BeaconOfLightTargets[GUID] == Caster)
+        m_BeaconOfLightTargets.erase(GUID);
 }

@@ -62,7 +62,6 @@ protected:
     uint32 m_resToGainBH;
 
     GameObject* m_standFlag;
-    GameObject* m_dropFlag;
 
     GameObject* m_CPStatusGO[EOTS_TOWER_COUNT];
     GameObject* m_CPBanner[EOTS_TOWER_COUNT];

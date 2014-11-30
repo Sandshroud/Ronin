@@ -73,20 +73,20 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
         if( pPlayer->m_bg )
         {
             // hackfix for battlegrounds (since the groups there are disabled, we need to do this manually)
-            vector<Player*  > toadd;
+            std::vector<Player*  > toadd;
             uint32 t = pPlayer->m_bgTeam;
             toadd.reserve(15);      // shouldnt have more than this
             pPlayer->m_bg->Lock();
-            set<Player*  > * s = &pPlayer->m_bg->m_players[t];
+            std::set<Player*  > * s = &pPlayer->m_bg->m_players[t];
 
-            for(set<Player*  >::iterator itr = s->begin(); itr != s->end(); itr++)
+            for(std::set<Player*  >::iterator itr = s->begin(); itr != s->end(); itr++)
                 if((*itr) == pPlayer || (*itr)->isInRange(pPlayer, 40.0f))
                     toadd.push_back(*itr);
 
             if( toadd.size() > 0 )
             {
                 uint32 pts = Points / (uint32)toadd.size();
-                for(vector<Player*  >::iterator vtr = toadd.begin(); vtr != toadd.end(); ++vtr)
+                for(std::vector<Player*  >::iterator vtr = toadd.begin(); vtr != toadd.end(); ++vtr)
                 {
                     AddHonorPointsToPlayer(*vtr, pts);
 

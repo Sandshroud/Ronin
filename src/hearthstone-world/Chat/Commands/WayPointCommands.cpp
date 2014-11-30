@@ -10,8 +10,8 @@
 
 bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No Selection");
         return true;
@@ -38,7 +38,7 @@ bool ChatHandler::HandleWPAddCommand(const char* args, WorldSession *m_session)
     }
     else
     {
-        pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
         if(!pCreature)
         {
             SystemMessage(m_session, "You should select a creature.");
@@ -133,22 +133,22 @@ bool ChatHandler::HandleWPMoveTypeCommand(const char* args, WorldSession *m_sess
     if (option != 0 && option != 1 && option != 2)
     {
         std::stringstream ss;
-        ss << "Incorrect value." << endl;
-        ss << "0 is Move from WP 1 ->  10 then 10 -> 1." << endl;
-        ss << "1 is Move from WP to a random WP." << endl;
-        ss << "2 is Move from WP 1 -> 10 then 1 -> 10." << endl;
+        ss << "Incorrect value." << std::endl;
+        ss << "0 is Move from WP 1 ->  10 then 10 -> 1." << std::endl;
+        ss << "1 is Move from WP to a random WP." << std::endl;
+        ss << "2 is Move from WP 1 -> 10 then 1 -> 10." << std::endl;
         SendMultilineMessage(m_session, ss.str().c_str());
         return true;
     }
 
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -174,14 +174,14 @@ bool ChatHandler::HandleWPMoveTypeCommand(const char* args, WorldSession *m_sess
 
 bool ChatHandler::HandleWPShowCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a Creature.");
@@ -234,14 +234,14 @@ bool ChatHandler::HandleWPShowCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleWPDeleteCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -256,7 +256,7 @@ bool ChatHandler::HandleWPDeleteCommand(const char* args, WorldSession *m_sessio
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         //Refresh client
@@ -585,9 +585,9 @@ bool ChatHandler::HandleWaypointForwardTextCommand(const char* args, WorldSessio
             snprintf(pAnnounce, 1024, "%s", args);
 
             if(wp->forwardInfo == NULL)
-                wp->forwardInfo = new ConditionalData();
+                wp->forwardInfo = new WayPoint::ConditionalData();
             wp->forwardInfo->SayText = ((const char*)(pAnnounce));
-            ss << "Forward SayText for Waypoint " << wpid << " is now " << string(pAnnounce);
+            ss << "Forward SayText for Waypoint " << wpid << " is now " << std::string(pAnnounce);
 
             //save wp
             ai->saveWayPoints();
@@ -682,9 +682,9 @@ bool ChatHandler::HandleWaypointBackwardTextCommand(const char* args, WorldSessi
             snprintf(pAnnounce, 1024, "%s", args);
 
             if(wp->backwardInfo == NULL)
-                wp->backwardInfo = new ConditionalData();
+                wp->backwardInfo = new WayPoint::ConditionalData();
             wp->backwardInfo->SayText = ((const char*)(pAnnounce));
-            ss << "Backward SayText for Waypoint " << wpid << " is now " << string(pAnnounce);
+            ss << "Backward SayText for Waypoint " << wpid << " is now " << std::string(pAnnounce);
             //save wp
             ai->saveWayPoints();
         }
@@ -736,14 +736,14 @@ bool ChatHandler::HandleWPSpellToCastCommand(const char* args, WorldSession *m_s
             if(Backwards)
             {
                 if(wp->backwardInfo == NULL)
-                    wp->backwardInfo = new ConditionalData();
+                    wp->backwardInfo = new WayPoint::ConditionalData();
                 wp->backwardInfo->SpellToCast = SpellToCast;
                 ss << "Backward SpellToCast for Waypoint " << wpid << " is now " << SpellToCast;
             }
             else
             {
                 if(wp->forwardInfo == NULL)
-                    wp->forwardInfo = new ConditionalData();
+                    wp->forwardInfo = new WayPoint::ConditionalData();
                 wp->forwardInfo->SpellToCast = SpellToCast;
                 ss << "Forward SpellToCast for Waypoint " << wpid << " is now " << SpellToCast;
             }
@@ -799,14 +799,14 @@ bool ChatHandler::HandleWPStandStateCommand(const char* args, WorldSession *m_se
             if(Backwards)
             {
                 if(wp->backwardInfo == NULL)
-                    wp->backwardInfo = new ConditionalData();
+                    wp->backwardInfo = new WayPoint::ConditionalData();
                 wp->backwardInfo->StandState = StandState;
                 ss << "Backward StandState for Waypoint " << wpid << " is now " << StandState;
             }
             else
             {
                 if(wp->forwardInfo == NULL)
-                    wp->forwardInfo = new ConditionalData();
+                    wp->forwardInfo = new WayPoint::ConditionalData();
                 wp->forwardInfo->StandState = StandState;
                 ss << "Forward StandState for Waypoint " << wpid << " is now " << StandState;
             }
@@ -862,14 +862,14 @@ bool ChatHandler::HandleWPEmoteCommand(const char* args, WorldSession *m_session
             if(Backwards)
             {
                 if(wp->backwardInfo == NULL)
-                    wp->backwardInfo = new ConditionalData();
+                    wp->backwardInfo = new WayPoint::ConditionalData();
                 wp->backwardInfo->EmoteID = EmoteId;
                 wp->backwardInfo->EmoteOneShot = OneShot;
             }
             else
             {
                 if(wp->forwardInfo == NULL)
-                    wp->forwardInfo = new ConditionalData();
+                    wp->forwardInfo = new WayPoint::ConditionalData();
                 wp->forwardInfo->EmoteID = EmoteId;
                 wp->forwardInfo->EmoteOneShot = OneShot;
             }
@@ -927,13 +927,13 @@ bool ChatHandler::HandleWPSkinCommand(const char* args, WorldSession *m_session)
             if(Backwards)
             {
                 if(wp->backwardInfo == NULL)
-                    wp->backwardInfo = new ConditionalData();
+                    wp->backwardInfo = new WayPoint::ConditionalData();
                 wp->backwardInfo->SkinID = SkinId;
             }
             else
             {
                 if(wp->forwardInfo == NULL)
-                    wp->forwardInfo = new ConditionalData();
+                    wp->forwardInfo = new WayPoint::ConditionalData();
                 wp->forwardInfo->SkinID = SkinId;
             }
 
@@ -1024,14 +1024,14 @@ bool ChatHandler::HandleWPInfoCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleWPHideCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a Creature.");
@@ -1070,7 +1070,7 @@ bool ChatHandler::HandleWPHideCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleGenerateWaypoints(const char* args, WorldSession * m_session)
 {
-    Creature* cr = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(m_session->GetPlayer()->GetSelection()));
+    Creature* cr = m_session->GetPlayer()->GetMapMgr()->GetCreature(m_session->GetPlayer()->GetSelection());
     if(!cr)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -1149,7 +1149,7 @@ bool ChatHandler::HandleGenerateWaypoints(const char* args, WorldSession * m_ses
 
 bool ChatHandler::HandleSaveWaypoints(const char* args, WorldSession * m_session)
 {
-    Creature* cr = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(m_session->GetPlayer()->GetSelection()));
+    Creature* cr = m_session->GetPlayer()->GetMapMgr()->GetCreature(m_session->GetPlayer()->GetSelection());
     if(cr == NULL)
         return false;
     if(!cr->GetSQL_id())
@@ -1166,9 +1166,9 @@ bool ChatHandler::HandleSaveWaypoints(const char* args, WorldSession * m_session
 
 bool ChatHandler::HandleDeleteWaypoints(const char* args, WorldSession * m_session)
 {
-    Creature* cr =
-        m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(m_session->GetPlayer()->GetSelection()));
-    if(!cr)return false;
+    Creature* cr = m_session->GetPlayer()->GetMapMgr()->GetCreature(m_session->GetPlayer()->GetSelection());
+    if(cr == NULL)
+        return false;
     if(!cr->GetSQL_id())
         return false;
 
@@ -1187,8 +1187,8 @@ bool ChatHandler::HandleDeleteWaypoints(const char* args, WorldSession * m_sessi
 
 bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No Selection");
         return true;
@@ -1215,7 +1215,7 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
     }
     else
     {
-        pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
         if(!pCreature)
         {
             SystemMessage(m_session, "You should select a creature.");
@@ -1256,7 +1256,7 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
     wp->orientation = p->GetOrientation();
     wp->waittime = WaitTime;
     wp->flags = 768;
-    wp->forwardInfo = new ConditionalData(((ForwardEmoteOneShot > 0) ? true : false), ForwardEmoteId, ForwardSkinId, (ForwardStandState > 8 ? 0 : ForwardStandState), ForwardSpellToCast, "");
+    wp->forwardInfo = new WayPoint::ConditionalData(((ForwardEmoteOneShot > 0) ? true : false), ForwardEmoteId, ForwardSkinId, (ForwardStandState > 8 ? 0 : ForwardStandState), ForwardSpellToCast, "");
     if(wp->forwardInfo->EmoteID == 0
         && wp->forwardInfo->SkinID == 0
         && wp->forwardInfo->StandState == 0
@@ -1267,7 +1267,7 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
         wp->forwardInfo = NULL;
     }
 
-    wp->backwardInfo = new ConditionalData(((BackwardEmoteOneShot > 0) ? true : false), BackwardEmoteId, BackwardSkinId, (BackwardStandState > 8 ? 0 : BackwardStandState), BackwardSpellToCast, "");
+    wp->backwardInfo = new WayPoint::ConditionalData(((BackwardEmoteOneShot > 0) ? true : false), BackwardEmoteId, BackwardSkinId, (BackwardStandState > 8 ? 0 : BackwardStandState), BackwardSpellToCast, "");
     if(wp->backwardInfo->EmoteID == 0
         && wp->backwardInfo->SkinID == 0
         && wp->backwardInfo->StandState == 0
@@ -1297,7 +1297,7 @@ bool ChatHandler::HandleNpcSelectCommand(const char * args, WorldSession * m_ses
     float dist = 999999.0f;
     float dist2;
     Player* plr = m_session->GetPlayer();
-    unordered_set<WorldObject* >::iterator itr;
+    std::unordered_set<WorldObject* >::iterator itr;
     for(itr = plr->GetInRangeSetBegin(); itr != plr->GetInRangeSetEnd(); itr++)
     {
         if( (dist2 = plr->GetDistance2dSq(*itr)) < dist && (*itr)->GetTypeId() == TYPEID_UNIT )

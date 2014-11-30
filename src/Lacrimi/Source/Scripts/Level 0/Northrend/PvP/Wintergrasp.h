@@ -100,6 +100,6 @@ public:
 
 private:
     Mutex _playerslock;
-    PlayerStorageMap _players;
+    ObjectMgr::PlayerStorageMap _players;
     std::set<SpawnInfo*> m_WarriorPool, m_WarriorSoulPool;
 };

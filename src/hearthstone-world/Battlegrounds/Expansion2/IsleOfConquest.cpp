@@ -771,7 +771,7 @@ void IsleOfConquest::OnStart()
 {
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->RemoveAura(BG_PREPARATION);
         }
@@ -852,14 +852,14 @@ void IsleOfConquest::Finish(uint32 losingTeam)
     m_ended = true;
     m_losingteam = losingTeam;
     sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(TO_CBATTLEGROUND(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
+    sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
 
     /* add the marks of honor to all players */
     SpellEntry * winner_spell = dbcSpell.LookupEntry(24955);
     SpellEntry * loser_spell = dbcSpell.LookupEntry(24954);
     for(uint32 i = 0; i < 2; i++)
     {
-        for(set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
+        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             (*itr)->Root();
 
@@ -880,7 +880,7 @@ void IsleOfConquest::Finish(uint32 losingTeam)
             {
                 (*itr)->CastSpell((*itr), winner_spell, true);
                 uint32 diff = abs((int32)(m_reinforcements[i] - m_reinforcements[i ? 0 : 1]));
-                (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, TO_CBATTLEGROUND(this));
+                (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, this);
                 if((*itr)->fromrandombg)
                 {
                     Player * p = (*itr);

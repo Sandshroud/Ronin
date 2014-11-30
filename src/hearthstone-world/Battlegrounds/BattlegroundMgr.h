@@ -132,10 +132,10 @@ class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>,
     uint32 m_maxBattlegroundId;
 
     /* Queue System */
-    // Instance Id -> list<Player guid> [ BattlegroundType ] (instance 0 - first available)
+    // Instance Id -> std::list<Player guid> [ BattlegroundType ] (instance 0 - first available)
     std::list<WoWGuid> m_queuedPlayers[BATTLEGROUND_NUM_TYPES][MAX_LEVEL_GROUP];
 
-    // Instance Id -> list<Group id> [BattlegroundType][LevelGroup]
+    // Instance Id -> std::list<Group id> [BattlegroundType][LevelGroup]
     std::list<uint32> m_queuedGroups[BATTLEGROUND_NUM_TYPES];
 
     // Last 10 players average wait time

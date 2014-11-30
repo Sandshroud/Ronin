@@ -55,16 +55,16 @@ void WarnSystem::Punishment_BanCharacter(Player * Warner, Player * Warned, uint3
     if( Warner && Warner->GetSession() )
     {
         sChatHandler.SystemMessage(Warner->GetSession(), "[WarnSystem] Banning character '%s' ingame for '%s'.", Warned->GetName(), reason.c_str());
-        sChatHandler.SystemMessage(Warner->GetSession(), "[WarnSystem] This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "when hell freezes over");
+        sChatHandler.SystemMessage(Warner->GetSession(), "[WarnSystem] This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "when hell freezes over");
     }
-    sChatHandler.SystemMessage(Warned->GetSession(), "[WarnSystem] This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "when hell freezes over");
+    sChatHandler.SystemMessage(Warned->GetSession(), "[WarnSystem] This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "when hell freezes over");
     sChatHandler.SystemMessage(Warned->GetSession(), "[WarnSystem] Your character has been banned ingame for '%s'.", reason.c_str());
 
     uint32 uBanTime = BanTime ? BanTime + (uint32)UNIXTIME : 1;
 
-    BroadcastToWorld("Character %s will now be locked until %s.", Warned->GetName(), BanTime ? ConvertTimeStampToDataTime(uBanTime).c_str() : "the day hell freezes over" );
+    BroadcastToWorld("Character %s will now be locked until %s.", Warned->GetName(), BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(uBanTime).c_str() : "the day hell freezes over" );
 
-    string reasonTagged = "[WarnSystem] " + reason;
+    std::string reasonTagged = "[WarnSystem] " + reason;
     Warned->SetBanned(uBanTime, reasonTagged);
     Warned->SaveToDB(false);
 

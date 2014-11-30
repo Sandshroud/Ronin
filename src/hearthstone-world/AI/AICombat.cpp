@@ -956,7 +956,7 @@ void AIInterface::CheckTarget(Unit* target)
         ClearFollowInformation(target);
 
     ai_TargetLock.Acquire();
-    TargetMap::iterator it2 = m_aiTargets.find( target );
+    TargetMap::iterator it2 = m_aiTargets.find( target->GetGUID() );
     if( it2 != m_aiTargets.end() || target == m_nextTarget )
     {
         if(it2 != m_aiTargets.end())
@@ -971,14 +971,12 @@ void AIInterface::CheckTarget(Unit* target)
             // find the one with the next highest threat
             GetMostHated();
         }
-    }
-    else
-        ai_TargetLock.Release();
+    } else ai_TargetLock.Release();
 
     if( target->GetTypeId() == TYPEID_UNIT )
     {
         target->GetAIInterface()->ai_TargetLock.Acquire();
-        it2 = target->GetAIInterface()->m_aiTargets.find( m_Unit );
+        it2 = target->GetAIInterface()->m_aiTargets.find( m_Unit->GetGUID() );
         if( it2 != target->GetAIInterface()->m_aiTargets.end() )
             target->GetAIInterface()->m_aiTargets.erase( it2 );
         target->GetAIInterface()->ai_TargetLock.Release();
