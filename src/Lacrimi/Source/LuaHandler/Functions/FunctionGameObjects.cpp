@@ -251,7 +251,7 @@ int LuaGameObject_GetCreatureNearestCoords(lua_State * L, GameObject * ptr)
     float x = (float)luaL_checknumber(L,1);
     float y = (float)luaL_checknumber(L,2);
     float z = (float)luaL_checknumber(L,3);
-    Lunar<Unit>::push(L, TO_UNIT(ptr->GetMapMgr()->GetObjectClosestToCoords(entryid, x, y, z, 99999.0f, TYPEID_UNIT)), false);
+    Lunar<Unit>::push(L, castPtr<Unit>(ptr->GetMapMgr()->GetObjectClosestToCoords(entryid, x, y, z, 99999.0f, TYPEID_UNIT)), false);
     return 1;
 }
 
@@ -272,7 +272,7 @@ int LuaGameObject_GetGameObjectNearestCoords(lua_State *L, GameObject * ptr)
     float x = (float)luaL_checknumber(L,1);
     float y = (float)luaL_checknumber(L,2);
     float z = (float)luaL_checknumber(L,3);
-        Lunar<GameObject>::push(L, TO_GAMEOBJECT(ptr->GetMapMgr()->GetObjectClosestToCoords(entryid, x, y, z, 99999.0f, TYPEID_GAMEOBJECT)), false);
+    Lunar<GameObject>::push(L, castPtr<GameObject>(ptr->GetMapMgr()->GetObjectClosestToCoords(entryid, x, y, z, 99999.0f, TYPEID_GAMEOBJECT)), false);
     return 1;
 }
 
@@ -281,7 +281,7 @@ int LuaGameObject_GetClosestPlayer(lua_State * L, GameObject * ptr)
     TEST_GO_RET_NULL();
     float dist, d2;
     Player* ret = NULL;
-    for(unordered_set<Player*>::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); itr)
+    for(std::unordered_set<Player*>::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); itr)
     {
         d2 = (*itr)->GetDistanceSq(ptr);
         if(!ret || d2 < dist)
@@ -294,7 +294,7 @@ int LuaGameObject_GetClosestPlayer(lua_State * L, GameObject * ptr)
     if(!ret)
         RET_NIL(true);
 
-    Lunar<Unit>::push(L,TO_UNIT(ret),false);
+    Lunar<Unit>::push(L,castPtr<Unit>(ret),false);
     return 1;
 }
 
@@ -354,7 +354,6 @@ int LuaGameObject_SpawnCreature(lua_State * L, GameObject * ptr)
     pCreature->SetFaction(faction, false);
     pCreature->SetMapId(ptr->GetMapId());
     pCreature->SetOrientation(o);
-    pCreature->SetPhaseMask(ptr->GetPhaseMask());
     pCreature->SetInstanceID(ptr->GetInstanceID());
     pCreature->PushToWorld(ptr->GetMapMgr());
     if(duration) pCreature->Despawn(duration,0);
@@ -522,13 +521,13 @@ int LuaGameObject_GetInRangePlayers(lua_State * L, GameObject * ptr)
     TEST_GO_RET_NULL();
     uint32 count = 0;
     lua_newtable(L);
-    for(unordered_set<Player*>::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); itr++)
+    for(std::unordered_set<Player*>::iterator itr = ptr->GetInRangePlayerSetBegin(); itr != ptr->GetInRangePlayerSetEnd(); itr++)
     {
         if((*itr)->IsUnit())
         {
             count++,
             lua_pushinteger(L,count);
-            Lunar<Unit>::push(L,TO_UNIT(*itr),false);
+            Lunar<Unit>::push(L,castPtr<Unit>(*itr),false);
             lua_rawset(L,-3);
         }
     }
@@ -544,7 +543,7 @@ int LuaGameObject_GetInRangeGameObjects(lua_State * L, GameObject * ptr)
     TEST_GO_RET_NULL();
     uint32 count = 0;
     lua_newtable(L);
-    for (unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd();itr++)
+    for (std::unordered_set<WorldObject*>::iterator itr = ptr->GetInRangeSetBegin(); itr != ptr->GetInRangeSetEnd();itr++)
     {
         if( (*itr) ->GetTypeId() == TYPEID_GAMEOBJECT)
         {
@@ -652,7 +651,7 @@ int LuaGameObject_FullCastSpellOnTarget(lua_State * L, GameObject * ptr)
 int LuaGameObject_GetGUID(lua_State * L, GameObject* ptr)
 {
     TEST_GO_RET_NULL();
-    lua_pushinteger(L,ptr->GetGUID());
+    lua_pushinteger(L, ptr->GetGUID().raw());
     return 1;
 }
 

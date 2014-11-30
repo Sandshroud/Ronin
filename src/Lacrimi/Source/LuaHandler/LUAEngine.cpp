@@ -61,7 +61,7 @@ void LuaEngine::ScriptLoadDir(char* Dirname, LUALoadScripts *pak)
         }
         else
         {
-            string fname = Dirname;
+            std::string fname = Dirname;
             fname += "\\";
             fname += FindData.cFileName;
 
@@ -140,7 +140,7 @@ void LuaEngine::LoadScripts()
 
     char filename[200];
 
-    for(set<string>::iterator itr = rtn.luaFiles.begin(); itr != rtn.luaFiles.end(); ++itr)
+    for(std::set<std::string>::iterator itr = rtn.luaFiles.begin(); itr != rtn.luaFiles.end(); ++itr)
     {
         strcpy(filename, itr->c_str());
         if(luaL_loadfile(L, filename) != 0)
@@ -219,7 +219,7 @@ void LuaEngine::PushUnit(WorldObject * unit, lua_State * LuaS)
 {
     Unit * pUnit = NULL;
     if(unit != NULL && unit->IsUnit()) 
-        pUnit = TO_UNIT(unit);
+        pUnit = castPtr<Unit>(unit);
     if(LuaS == NULL)
         Lunar<Unit>::push(L, pUnit);
     else
@@ -230,7 +230,7 @@ void LuaEngine::PushGo(WorldObject *go, lua_State *LuaS)
 {
     GameObject * pGo = NULL;
     if(go != NULL && go->IsGameObject())
-        pGo = TO_GAMEOBJECT(go);
+        pGo = castPtr<GameObject>(go);
     if(LuaS == NULL)
         Lunar<GameObject>::push(L, pGo);
     else
@@ -241,7 +241,7 @@ void LuaEngine::PushItem(WorldObject * item, lua_State *LuaS)
 {
     Item * pItem = NULL;
     if(item != NULL && (item->GetTypeId() == TYPEID_ITEM || item->GetTypeId() == TYPEID_CONTAINER))
-        pItem = TO_ITEM(item);
+        pItem = castPtr<Item>(item);
     if(LuaS == NULL)
         Lunar<Item>::push(L, pItem);
     else
@@ -642,7 +642,7 @@ int Lua_RegisterTimedEvent(lua_State * L) //in this case, L == lu
     EventInfoHolder * ek = new EventInfoHolder;
     ek->funcName = funcName;
     ek->te = te;
-    g_luaMgr.m_registeredTimedEvents.insert( make_pair(ref, ek) );
+    g_luaMgr.m_registeredTimedEvents.insert( std::make_pair(ref, ek) );
     LuaEvent.event_AddEvent(te);
     lua_settop(L,0);
     lua_pushnumber(L, ref);

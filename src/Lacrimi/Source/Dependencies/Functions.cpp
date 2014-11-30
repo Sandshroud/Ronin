@@ -38,11 +38,8 @@ Creature* CreateAndLoadCreature(MapMgr* mgr, uint32 entry, uint32 instancemode, 
         return NULL;
 
     ctr->Load(instancemode, x, y, z, o);
-    if(phase == 0) phase = 1;
-    ctr->SetPhaseMask(phase);
     if(push == true)
         ctr->PushToWorld(mgr);
-
     return ctr;
 }
 
@@ -63,13 +60,8 @@ GameObject* CreateAndLoadGameObject( MapMgr* mgr, uint32 entry, float x, float y
         return NULL;
 
     GO->SetRotation(o);
-
-    if(phase == 0)
-        phase = 1;
-    GO->SetPhaseMask(phase);
     if(push)
         GO->PushToWorld(mgr);
-
     return GO;
 }
 
@@ -176,11 +168,11 @@ void CreateCustomWaypointMap(Creature *creat)
 
 bool AddItem( uint32 pEntry, Player *pPlayer, uint32 pCount)
 {
-    if ( pPlayer == NULLPLR || pEntry == 0 || pCount == 0 )
+    if ( pPlayer == NULL|| pEntry == 0 || pCount == 0 )
         return false;
 
     Item *ItemStack = pPlayer->GetItemInterface()->FindItemLessMax( pEntry, pCount, false );
-    if ( ItemStack == NULLITEM )
+    if ( ItemStack == NULL)
     {
         ItemPrototype* ItemProto = ItemPrototypeStorage.LookupEntry( pEntry );
         if ( ItemProto == NULL )
@@ -189,13 +181,13 @@ bool AddItem( uint32 pEntry, Player *pPlayer, uint32 pCount)
         SlotResult Result = pPlayer->GetItemInterface()->FindFreeInventorySlot( ItemProto );
         if ( !Result.Result )
         {
-            pPlayer->GetItemInterface()->BuildInventoryChangeError( NULLITEM, NULLITEM, INV_ERR_INVENTORY_FULL );
+            pPlayer->GetItemInterface()->BuildInventoryChangeError( NULL, NULL, INV_ERR_INVENTORY_FULL );
             return false;
         }
         else
         {
             Item *NewItem = objmgr.CreateItem( pEntry, pPlayer );
-            if ( NewItem == NULLITEM )
+            if ( NewItem == NULL )
                 return false;
 
             if( ItemProto->MaxCount > 0 && (uint32)ItemProto->MaxCount < pCount )
@@ -204,8 +196,8 @@ bool AddItem( uint32 pEntry, Player *pPlayer, uint32 pCount)
             NewItem->SetUInt32Value( ITEM_FIELD_STACK_COUNT, pCount );
             if ( pPlayer->GetItemInterface()->SafeAddItem( NewItem, Result.ContainerSlot, Result.Slot ) == ADD_ITEM_RESULT_ERROR )
             {
-                NewItem->DeleteMe();
-                NewItem = NULLITEM;
+                NewItem->Destruct();
+                NewItem = NULL;
                 return false;
             }
 
@@ -226,36 +218,36 @@ void EventCreatureDelete(Creature *creat, uint32 time)  // Creature and time in 
 
 void EventCastSpell(Unit *caster, Unit *target, uint32 spellid, uint32 time)
 {
-    sEventMgr.AddEvent(TO_UNIT(caster), &Unit::EventCastSpell, TO_UNIT(target), dbcSpell.LookupEntry(spellid), EVENT_UNK, time, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Unit>(caster), &Unit::EventCastSpell, castPtr<Unit>(target), dbcSpell.LookupEntry(spellid), EVENT_UNK, time, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void EventPlaySound(Creature *creat, uint32 id, uint32 time)
 {
-    sEventMgr.AddEvent(TO_OBJECT(creat), &WorldObject::PlaySoundToSet, id, EVENT_UNK, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<WorldObject>(creat), &WorldObject::PlaySoundToSet, id, EVENT_UNK, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void EventCreatureSay(Creature *creat, string say, uint32 time)
+void EventCreatureSay(Creature *creat, std::string say, uint32 time)
 {
-    sEventMgr.AddEvent(TO_UNIT(creat), &Unit::SendChatMessage, (uint8)CHAT_MSG_MONSTER_SAY, (uint32)LANG_UNIVERSAL, say.c_str(), EVENT_UNIT_CHAT_MSG, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Unit>(creat), &Unit::SendChatMessage, (uint8)CHAT_MSG_MONSTER_SAY, (uint32)LANG_UNIVERSAL, say.c_str(), EVENT_UNIT_CHAT_MSG, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void EventCreatureYell(Creature *creat, string say, uint32 time)
+void EventCreatureYell(Creature *creat, std::string say, uint32 time)
 {
-    sEventMgr.AddEvent(TO_UNIT(creat), &Unit::SendChatMessage, (uint8)CHAT_MSG_MONSTER_YELL, (uint32)LANG_UNIVERSAL, say.c_str(), EVENT_UNIT_CHAT_MSG, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    sEventMgr.AddEvent(castPtr<Unit>(creat), &Unit::SendChatMessage, (uint8)CHAT_MSG_MONSTER_YELL, (uint32)LANG_UNIVERSAL, say.c_str(), EVENT_UNIT_CHAT_MSG, time, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 Creature *getNpcQuester(Player *plr, uint32 npcid)
 {
     if( plr == NULL || !plr->IsInWorld() )
-        return NULLCREATURE;
-    return TO_CREATURE(plr->GetMapMgr()->GetObjectClosestToCoords(npcid, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), 99999.0f, TYPEID_UNIT));
+        return NULL;
+    return castPtr<Creature>(plr->GetMapMgr()->GetObjectClosestToCoords(npcid, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), 99999.0f, TYPEID_UNIT));
 }
 
 GameObject *getGOQuester(Player *plr, uint32 goid)
 {
     if( plr == NULL || !plr->IsInWorld() )
-        return NULLGOB;
-    return TO_GAMEOBJECT(plr->GetMapMgr()->GetObjectClosestToCoords(goid, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), 99999.0f, TYPEID_GAMEOBJECT));
+        return NULL;
+    return castPtr<GameObject>(plr->GetMapMgr()->GetObjectClosestToCoords(goid, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), 99999.0f, TYPEID_GAMEOBJECT));
 }
 
 QuestLogEntry* GetQuest( Player* pPlayer, uint32 pQuestId )

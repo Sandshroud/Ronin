@@ -30,7 +30,7 @@ int luaItem_GossipCreateMenu(lua_State * L, Item * ptr)
         RET_NIL(true);
 
     int autosend = luaL_checkint(L, 3);
-    Player* plr = TO_PLAYER(target);
+    Player* plr = castPtr<Player>(target);
     objmgr.CreateGossipMenuForPlayer(&g_luaMgr.Menu, ptr->GetGUID(), text_id, plr);
     if(autosend)
         g_luaMgr.Menu->SendTo(plr);
@@ -57,7 +57,7 @@ int luaItem_GossipSendMenu(lua_State * L, Item * ptr)
     if(target == NULL)
         RET_NIL(true);
 
-    Player * plr = TO_PLAYER(target);
+    Player * plr = castPtr<Player>(target);
     g_luaMgr.Menu->SendTo(plr);
     return 1;
 }
@@ -69,7 +69,7 @@ int luaItem_GossipComplete(lua_State * L, Item * ptr)
     if(target == NULL)
         RET_NIL(true);
 
-    Player * plr = TO_PLAYER(target);
+    Player * plr = castPtr<Player>(target);
     plr->Gossip_Complete();
     return 1;
 }
@@ -81,7 +81,7 @@ int luaItem_GossipSendPOI(lua_State * L, Item * ptr)
     if(target == NULL)
         RET_NIL(true);
 
-    Player* plr = TO_PLAYER(target);
+    Player* plr = castPtr<Player>(target);
     float x = float(luaL_checknumber(L, 2));
     float y = float(luaL_checknumber(L, 3));
     int icon = luaL_checkint(L, 4);
@@ -385,7 +385,7 @@ int luaItem_GetContainerItemCount(lua_State * L, Item * ptr)
     if (!itemid)
         RET_NIL(true);
 
-    Container * pCont = TO_CONTAINER(ptr);
+    Container * pCont = castPtr<Container>(ptr);
     int16 TotalSlots = pCont->GetProto()->ContainerSlots;
     if(TotalSlots < 1)
         RET_NIL(true);
@@ -423,7 +423,7 @@ int luaItem_GetObjectType(lua_State * L, Item * ptr)
 int luaItem_Remove(lua_State * L, Item * ptr)
 {
     TEST_ITEM();
-    ptr->RemoveFromWorld();
+    ptr->RemoveFromWorld(true);
     return 1;
 }
 

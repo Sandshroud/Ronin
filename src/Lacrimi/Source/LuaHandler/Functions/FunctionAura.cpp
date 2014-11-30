@@ -39,17 +39,17 @@ int LuaAura_GetCaster(lua_State * L, Aura * aura)
 
     if (caster->IsUnit()) //unit caster
     {
-        Lunar<Unit>::push(L, TO_UNIT(caster));
+        Lunar<Unit>::push(L, castPtr<Unit>(caster));
         return 1;
     }
     else if (caster->IsGameObject()) //gameobject
     {
-        Lunar<GameObject>::push(L, TO_GAMEOBJECT(caster));
+        Lunar<GameObject>::push(L, castPtr<GameObject>(caster));
         return 1;
     }
     else if (caster->IsItem()) //item
     {
-        Lunar<Item>::push(L, TO_ITEM(caster));
+        Lunar<Item>::push(L, castPtr<Item>(caster));
         return 1;
     }
 
@@ -59,7 +59,7 @@ int LuaAura_GetCaster(lua_State * L, Aura * aura)
 int LuaAura_GetTarget(lua_State * L, Aura * aura)
 {
     TEST_AURA_RET_NULL();
-    Lunar<Unit>::push(L, TO_UNIT(aura->GetTarget()));
+    Lunar<Unit>::push(L, castPtr<Unit>(aura->GetTarget()));
     return 1;
 }
 

@@ -59,7 +59,6 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             sp->flags = 0;
             sp->factionid = faction;
             sp->stand_state = 0;
-            sp->phase = 1;
             sp->vehicle = pCreature->IsVehicle();
             sp->MountedDisplayID = 0;
             sp->Bytes = NULL;
@@ -75,7 +74,7 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             if (duration>0) 
                 pCreature->Despawn(duration,0);
             if (save) pCreature->SaveToDB();
-            Lunar<Unit>::push(L,TO_UNIT(pCreature));
+            Lunar<Unit>::push(L, pCreature);
         }
         else if (spawntype == 2) //GO
         { 
@@ -105,8 +104,6 @@ int LuaGlobalFunctions_PerformIngameSpawn(lua_State * L)
             gs->y = go->GetPositionY();
             gs->z = go->GetPositionZ();
             gs->state = go->GetByte(GAMEOBJECT_BYTES_1, 0);
-            gs->phase = 0;
-
             go->m_spawn = gs;
             go->PushToWorld(mapMgr);
             if (duration)
@@ -200,7 +197,7 @@ int LuaGlobalFunctions_GetPlayer(lua_State * L)
     if (plr == NULL || !plr->IsInWorld())
         RET_NIL(true);
 
-    Lunar<Unit>::push(L, TO_UNIT(plr));
+    Lunar<Unit>::push(L, castPtr<Unit>(plr));
     return 1;
 }
 
@@ -349,7 +346,7 @@ int LuaGlobalFunctions_GetPlayersInWorld(lua_State * L)
     uint32 count = 0;
     lua_newtable(L);
     objmgr._playerslock.AcquireReadLock();
-    HM_NAMESPACE::hash_map<uint32, Player*>::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
         count++,
@@ -407,7 +404,7 @@ int LuaGlobalFunctions_GetPlayersInMap(lua_State * L)
     if (mgr == NULL)
         RET_NIL(true);
 
-    for (PlayerStorageMap::iterator itr = mgr->m_PlayerStorage.begin(); itr != mgr->m_PlayerStorage.end(); ++itr)
+    for (MapMgr::PlayerStorageMap::iterator itr = mgr->m_PlayerStorage.begin(); itr != mgr->m_PlayerStorage.end(); ++itr)
     {
         count++,
         ret = (*itr).second;
@@ -428,7 +425,7 @@ int LuaGlobalFunctions_GetPlayersInZone(lua_State * L)
     lua_newtable(L);
     uint32 zoneid = luaL_checkint(L,1);
     objmgr._playerslock.AcquireReadLock();
-    HM_NAMESPACE::hash_map<uint32, Player*>::const_iterator itr;
+    ObjectMgr::PlayerStorageMap::const_iterator itr;
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
         if ((*itr).second->GetZoneId() == zoneid)
@@ -451,8 +448,8 @@ int LuaGlobalFunctions_SendMail(lua_State * L)
     uint32 type = luaL_checkint(L,1);
     uint64 sender_guid = GuidMgr::check(L,2);
     uint64 recipient_guid = GuidMgr::check(L,3);
-    string subject = luaL_checkstring(L,4);
-    string body = luaL_checkstring(L,5);
+    std::string subject = luaL_checkstring(L,4);
+    std::string body = luaL_checkstring(L,5);
     uint32 money = luaL_checkint(L,6);
     uint32 cod = luaL_checkint(L,7);
     uint64 item_guid = GuidMgr::check(L,8);
@@ -722,7 +719,7 @@ int LuaGlobalFunctions_ToLower(lua_State * L)
     if (!oldstring.size())
         RET_NIL(true);
 
-    lua_pushstring(L, HEARTHSTONE_TOLOWER_RETURN(oldstring).c_str());
+    lua_pushstring(L, RONIN_UTIL::TOLOWER_RETURN(oldstring).c_str());
     return 1;
 }
 

@@ -18,13 +18,13 @@
 
 bool lLuaEventMgr::HasEvent(int ref)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
     return (itr != g_luaMgr.m_registeredTimedEvents.end());
 }
 
 bool lLuaEventMgr::HasEventInTable(const char * table)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
     for (; itr != g_luaMgr.m_registeredTimedEvents.end(); ++itr)
     {
         if (strncmp(itr->second->funcName, table, strlen(table)) == 0)
@@ -37,7 +37,7 @@ bool lLuaEventMgr::HasEventInTable(const char * table)
 
 bool lLuaEventMgr::HasEventWithName(const char * name)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
     for (; itr != g_luaMgr.m_registeredTimedEvents.end(); ++itr)
     {
         if (strcmp(itr->second->funcName, name) == 0)
@@ -50,7 +50,7 @@ bool lLuaEventMgr::HasEventWithName(const char * name)
 
 void lLuaEventMgr::RemoveEventsInTable(const char * table)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin(), itr2;
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin(), itr2;
     for (; itr != g_luaMgr.m_registeredTimedEvents.end(); )
     {
         itr2 = itr++;
@@ -66,7 +66,7 @@ void lLuaEventMgr::RemoveEventsInTable(const char * table)
 
 void lLuaEventMgr::RemoveEventsByName(const char * name)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin(), itr2;
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin(), itr2;
     for (; itr != g_luaMgr.m_registeredTimedEvents.end(); )
     {
         itr2 = itr++;
@@ -82,7 +82,7 @@ void lLuaEventMgr::RemoveEventsByName(const char * name)
 
 void lLuaEventMgr::RemoveEventByRef(int ref)
 {
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
     if (itr != g_luaMgr.m_registeredTimedEvents.end())
     {
         event_RemoveByPointer(itr->second->te);
@@ -95,7 +95,7 @@ void lLuaEventMgr::RemoveEventByRef(int ref)
 void lLuaEventMgr::RemoveEvents()
 {
     event_RemoveEvents(EVENT_LUA_TIMED);
-    hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
+    RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.begin();
     for (; itr != g_luaMgr.m_registeredTimedEvents.end(); ++itr)
     {
         free((void*)itr->second->funcName);

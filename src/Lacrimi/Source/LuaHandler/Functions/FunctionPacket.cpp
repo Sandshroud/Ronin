@@ -163,7 +163,7 @@ int LuaPacket_ReadWoWGuid(lua_State * L, WorldPacket * packet)
 
     WoWGuid nGuid;
     (*packet) >> nGuid;
-    GuidMgr::push(L,nGuid.GetOldGuid());
+    GuidMgr::push(L, nGuid.raw());
     return 1;
 }
 
@@ -172,7 +172,7 @@ int LuaPacket_ReadString(lua_State * L, WorldPacket * packet)
     if(packet == NULL)
         RET_NIL(true);
 
-    string str;
+    std::string str;
     (*packet) >> str;
     lua_pushstring(L, str.c_str());
     return 1;
@@ -280,7 +280,7 @@ int LuaPacket_WriteWoWGuid(lua_State * L, WorldPacket * packet)
     if(target == NULL)
         RET_NIL(false);
 
-    (*packet) << target->GetNewGUID();
+    (*packet) << target->GetGUID();
     return 1;
 }
 
@@ -289,7 +289,7 @@ int LuaPacket_WriteString(lua_State * L, WorldPacket * packet)
     if(packet == NULL)
         RET_NIL(false);
 
-    string str = string(luaL_checkstring(L,1));
+    std::string str = std::string(luaL_checkstring(L,1));
     (*packet) << str;
     return 1;
 }

@@ -399,7 +399,7 @@ public:
 
     void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * EnteredCode)
     {
-        Creature *Tiare = TO_CREATURE((pObject));
+        Creature *Tiare = castPtr<Creature>(pObject);
         plr->Gossip_Complete();
         Tiare->CastSpell(plr, dbcSpell.LookupEntry(50135), true);
     }           
@@ -447,7 +447,7 @@ public:
             pPlayer->CastSpell( pPlayer, SPELL_ABMER_TO_COLDARRA, true );
             break;
         case 2:
-            pPlayer->GetSession()->SendTaxiList( TO_CREATURE( pObject ) );
+            pPlayer->GetSession()->SendTaxiList( castPtr<Creature>( pObject ) );
             break;
         };
     };

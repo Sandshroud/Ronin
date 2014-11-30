@@ -93,8 +93,8 @@ public:
 
     void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * EnteredCode)
     {
-        Creature *Zephyr = pObject->IsCreature() ? TO_CREATURE(pObject) : NULL;
-        if (Zephyr == NULLCREATURE)
+        Creature *Zephyr = pObject->IsCreature() ? castPtr<Creature>(pObject) : NULL;
+        if (Zephyr == NULL)
             return;
 
         switch (IntId)

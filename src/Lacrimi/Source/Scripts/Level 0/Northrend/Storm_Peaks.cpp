@@ -76,7 +76,7 @@ public:
 
     void GossipSelectOption(WorldObject* pObject, Player* plr, uint32 Id, uint32 IntId, const char * Code)
     {
-        Creature* pCreature = (pObject->GetTypeId()==TYPEID_UNIT) ? (TO_CREATURE(pObject)) : NULL;
+        Creature* pCreature = (pObject->GetTypeId()==TYPEID_UNIT) ? (castPtr<Creature>(pObject)) : NULL;
         if(pCreature == NULL)
             return;
 

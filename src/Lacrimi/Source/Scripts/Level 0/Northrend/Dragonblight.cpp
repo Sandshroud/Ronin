@@ -31,7 +31,7 @@ class WoodlandWalkerGossip : public GossipScript
 public:
     void GossipHello(WorldObject *pObject, Player *plr, bool AutoSend)
     {
-        Creature * pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?(TO_CREATURE(pObject)):NULLCREATURE;
+        Creature * pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?(castPtr<Creature>(pObject)):NULL;
         if( pCreature == NULL )
             return;
 
@@ -120,8 +120,8 @@ public:
 
     void GossipSelectOption(WorldObject *pObject, Player *plr, uint32 Id, uint32 IntId, const char * Code)
     {
-        Creature *pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?TO_CREATURE(pObject):NULLCREATURE;
-        if(pCreature==NULLCREATURE)
+        Creature *pCreature = (pObject->GetTypeId()==TYPEID_UNIT)?castPtr<Creature>(pObject):NULL;
+        if(pCreature==NULL)
             return;
 
         switch(IntId)

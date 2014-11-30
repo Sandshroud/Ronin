@@ -22,11 +22,11 @@ bool WarIsHell(uint32 i, Spell *pSpell)
     if( !pSpell->u_caster->IsPlayer() )
         return true;
 
-    Player *plr = TO_PLAYER(pSpell->u_caster);
+    Player *plr = castPtr<Player>(pSpell->u_caster);
     if( plr == NULL )
         return true;
 
-    Creature *target = TO_CREATURE(plr->GetMapMgr()->GetMapScript()->FindClosestCreature( 24008, plr->GetPositionX(), plr->GetPositionY() , plr->GetPositionZ() ));
+    Creature *target = castPtr<Creature>(plr->GetMapMgr()->GetMapScript()->FindClosestCreature( 24008, plr->GetPositionX(), plr->GetPositionY() , plr->GetPositionZ() ));
     if( target == NULL )
         return true;
 
@@ -35,7 +35,7 @@ bool WarIsHell(uint32 i, Spell *pSpell)
     if( qle == NULL || qle->GetQuest() == NULL )
         return true;
 
-    GameObject *obj = NULLGOB;
+    GameObject *obj = NULL;
 
     if( qle && qle->GetMobCount(0) < qle->GetQuest()->required_mobcount[0] )
     {
@@ -65,7 +65,7 @@ bool PlantForsakenBanner(uint32 i, Spell *pSpell)
     if( pQuest == NULL || pQuest->GetQuest() == NULL )
         return true;
 
-    Creature *target = TO_CREATURE(pSpell->GetUnitTarget());
+    Creature *target = castPtr<Creature>(pSpell->GetUnitTarget());
     if (target == NULL)
         return true;
 

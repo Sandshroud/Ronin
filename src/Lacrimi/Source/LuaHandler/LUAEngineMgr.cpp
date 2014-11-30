@@ -20,7 +20,7 @@
 void LuaEngineMgr::HyperCallFunction(const char * FuncName, int ref)
 {
     CREATE_L_PTR;
-    string sFuncName = string(FuncName);
+    std::string sFuncName = FuncName;
     char *copy = strdup(FuncName);
     char *token = strtok(copy, ".:");
     int top = 1;
@@ -79,7 +79,7 @@ void LuaEngineMgr::HyperCallFunction(const char * FuncName, int ref)
         {
             free((void*)FuncName);
             luaL_unref(L, LUA_REGISTRYINDEX, ref);
-            hash_map<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
+            RONIN_UNORDERED_MAP<int, EventInfoHolder*>::iterator itr = g_luaMgr.m_registeredTimedEvents.find(ref);
             g_luaMgr.m_registeredTimedEvents.erase(itr);
         }
         else
@@ -170,15 +170,15 @@ void LuaEngineMgr::Unload()
     //Serv hooks : had forgotten these.
     for(int i = 0; i < NUM_SERVER_HOOKS; ++i)
     {
-        vector<uint16> & next = EventAsToFuncName[i];
-        for(vector<uint16>::iterator itr = next.begin(); itr != next.end(); ++itr)
+        std::vector<uint16> & next = EventAsToFuncName[i];
+        for(std::vector<uint16>::iterator itr = next.begin(); itr != next.end(); ++itr)
             lua_unref(L, (*itr));
         next.clear();
     }
-    for(map<uint32, uint16>::iterator itr = m_luaDummySpells.begin(); itr != m_luaDummySpells.end(); ++itr)
+    for(std::map<uint32, uint16>::iterator itr = m_luaDummySpells.begin(); itr != m_luaDummySpells.end(); ++itr)
         lua_unref(L, itr->second);
     m_luaDummySpells.clear();
-    for(set<int>::iterator itr = m_pendingThreads.begin(); itr != m_pendingThreads.end(); ++itr)
+    for(std::set<int>::iterator itr = m_pendingThreads.begin(); itr != m_pendingThreads.end(); ++itr)
         lua_unref(L, (*itr));
     m_pendingThreads.clear();
     m_functionRefs.clear();
@@ -194,14 +194,14 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
     m_engine->LoadScripts();
     for(UnitBindingMap::iterator itr = m_unitBinding.begin(); itr != m_unitBinding.end(); ++itr)
     {
-        typedef multimap<uint32, LuaCreature*> CMAP;
+        typedef std::multimap<uint32, LuaCreature*> CMAP;
         CMAP & cMap = g_luaMgr.getLuCreatureMap();
         CMAP::iterator it = cMap.find(itr->first);
         CMAP::iterator itend = cMap.upper_bound(itr->first);
         if(it == cMap.end())
         {
             sMgr->register_creature_script(itr->first, CreateLuaCreature);
-            cMap.insert(make_pair(itr->first, (LuaCreature*)NULL));
+            cMap.insert(std::make_pair(itr->first, (LuaCreature*)NULL));
         }
         else
         {
@@ -215,14 +215,14 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(GameObjectBindingMap::iterator itr = m_gameobjectBinding.begin(); itr != m_gameobjectBinding.end(); ++itr)
     {
-        typedef multimap<uint32, LuaGameObject*> GMAP;
+        typedef std::multimap<uint32, LuaGameObject*> GMAP;
         GMAP & gMap = g_luaMgr.getLuGameObjectMap();
         GMAP::iterator it = gMap.find(itr->first);
         GMAP::iterator itend = gMap.upper_bound(itr->first);
         if(it == gMap.end())
         {
             sMgr->register_gameobject_script(itr->first, CreateLuaGameObject);
-            gMap.insert(make_pair(itr->first, (LuaGameObject*)NULL));
+            gMap.insert(std::make_pair(itr->first, (LuaGameObject*)NULL));
         }
         else
         {
@@ -236,13 +236,13 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(QuestBindingMap::iterator itr = m_questBinding.begin(); itr != m_questBinding.end(); ++itr)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaQuest*> QMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaQuest*> QMAP;
         QMAP & qMap = g_luaMgr.getLuQuestMap();
         QMAP::iterator it = qMap.find(itr->first);
         if(it == qMap.end())
         {
             sMgr->register_quest_script(itr->first, CreateLuaQuestScript(itr->first));
-            qMap.insert(make_pair(itr->first, (LuaQuest*)NULL));
+            qMap.insert(std::make_pair(itr->first, (LuaQuest*)NULL));
         }
         else
         {
@@ -254,13 +254,13 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(InstanceBindingMap::iterator itr = m_instanceBinding.begin(); itr != m_instanceBinding.end(); ++itr)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaInstance*> IMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaInstance*> IMAP;
         IMAP & iMap = g_luaMgr.getLuInstanceMap();
         IMAP::iterator it = iMap.find(itr->first);
         if(it == iMap.end())
         {
             sMgr->register_mapmanager_script(itr->first, CreateLuaInstance);
-            iMap.insert(make_pair(itr->first, (LuaInstance*)NULL));
+            iMap.insert(std::make_pair(itr->first, (LuaInstance*)NULL));
         }
         else
         {
@@ -271,7 +271,7 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(GossipUnitScriptsBindingMap::iterator itr = this->m_unit_gossipBinding.begin(); itr != m_unit_gossipBinding.end(); ++itr)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaGossip*> GMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaGossip*> GMAP;
         GMAP & gMap = g_luaMgr.getUnitGossipInterfaceMap();
         GMAP::iterator it = gMap.find(itr->first);
         if(it == gMap.end())
@@ -280,7 +280,7 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
             if(gs != NULL)
             {
                 sMgr->register_gossip_script(itr->first, gs);
-                gMap.insert(make_pair(itr->first, (LuaGossip*)NULL));
+                gMap.insert(std::make_pair(itr->first, (LuaGossip*)NULL));
             }
         }
         else
@@ -293,7 +293,7 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(GossipItemScriptsBindingMap::iterator itr = this->m_item_gossipBinding.begin(); itr != m_item_gossipBinding.end(); ++itr)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaGossip*> GMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaGossip*> GMAP;
         GMAP & gMap = g_luaMgr.getItemGossipInterfaceMap();
         GMAP::iterator it = gMap.find(itr->first);
         if(it == gMap.end())
@@ -302,7 +302,7 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
             if(gs != NULL)
             {
                 sMgr->register_item_gossip_script(itr->first, gs);
-                gMap.insert(make_pair(itr->first, (LuaGossip*)NULL));
+                gMap.insert(std::make_pair(itr->first, (LuaGossip*)NULL));
             }
         }
         else
@@ -315,7 +315,7 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
 
     for(GossipGOScriptsBindingMap::iterator itr = this->m_go_gossipBinding.begin(); itr != m_go_gossipBinding.end(); ++itr)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaGossip*> GMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaGossip*> GMAP;
         GMAP & gMap = g_luaMgr.getGameObjectGossipInterfaceMap();
         GMAP::iterator it = gMap.find(itr->first);
         if(it == gMap.end())
@@ -324,15 +324,10 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
             if(gs != NULL)
             {
                 sMgr->register_go_gossip_script(itr->first, gs);
-                gMap.insert(make_pair(itr->first, (LuaGossip*)NULL));
+                gMap.insert(std::make_pair(itr->first, (LuaGossip*)NULL));
             }
-        }
-        else
-        {
-            LuaGossip* g_gossip = it->second;
-            if(g_gossip != NULL)
-                g_gossip->m_go_gossip_binding = &itr->second;
-        }
+        } else if(LuaGossip* g_gossip = it->second)
+            g_gossip->m_go_gossip_binding = &itr->second;
     }
 
     /* BIG SERV HOOK CHUNK EEK */
@@ -381,9 +376,9 @@ void LuaEngineMgr::Restart(ScriptMgr* sMgr)
     g_engine->getcoLock().Release();
 
     //hyper: do OnSpawns for spawned creatures.
-    vector<uint32> temp = OnLoadInfo;
+    std::vector<uint32> temp = OnLoadInfo;
     OnLoadInfo.clear();
-    for(vector<uint32>::iterator itr = temp.begin(); itr != temp.end(); itr += 3)
+    for(std::vector<uint32>::iterator itr = temp.begin(); itr != temp.end(); itr += 3)
     {
         //*itr = mapid; *(itr+1) = iid; *(itr+2) = lowguid
         MapMgr* mgr = NULL;
@@ -419,7 +414,7 @@ void LuaEngineMgr::DestroyAllLuaEvents()
 {
     CREATE_L_PTR;
     //Clean up for all events.
-    set<int>::iterator itr = m_functionRefs.begin();
+    std::set<int>::iterator itr = m_functionRefs.begin();
     for(; itr != m_functionRefs.end(); ++itr)
     {
         sEventMgr.RemoveEvents(World::getSingletonPtr(), (*itr)+LUA_EVENTS_END);
@@ -476,7 +471,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                         LuaUnitBinding nbind;
                         memset(&nbind,0,sizeof(LuaUnitBinding));
                         nbind.Functions[evt] = functionRef;
-                        m_unitBinding.insert(make_pair(id,nbind));
+                        m_unitBinding.insert(std::make_pair(id,nbind));
                     }
                     else
                     {
@@ -496,7 +491,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                         LuaGameObjectBinding nbind;
                         memset(&nbind,0,sizeof(LuaGameObjectBinding));
                         nbind.Functions[evt] = functionRef;
-                        m_gameobjectBinding.insert(make_pair(id,nbind));
+                        m_gameobjectBinding.insert(std::make_pair(id,nbind));
                     }
                     else
                     {
@@ -516,7 +511,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                         LuaQuestBinding nbind;
                         memset(&nbind,0,sizeof(LuaQuestBinding));
                         nbind.Functions[evt] = functionRef;
-                        m_questBinding.insert(make_pair(id,nbind));
+                        m_questBinding.insert(std::make_pair(id,nbind));
                     }
                     else
                     {
@@ -534,7 +529,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
         case REGTYPE_DUMMYSPELL: 
             {
                 if (id)
-                    m_luaDummySpells.insert( make_pair(id,functionRef) );
+                    m_luaDummySpells.insert(std::make_pair(id,functionRef));
             }break;
         case REGTYPE_INSTANCE: 
             {
@@ -546,7 +541,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                         LuaInstanceBinding nbind;
                         memset(&nbind, 0, sizeof(LuaInstanceBinding));
                         nbind.Functions[evt] = functionRef;
-                        m_instanceBinding.insert(make_pair(id, nbind));
+                        m_instanceBinding.insert(std::make_pair(id, nbind));
                     }
                     else
                     {
@@ -566,7 +561,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                         LuaUnitGossipBinding nbind;
                         memset(&nbind,0,sizeof(LuaUnitGossipBinding));
                         nbind.Functions[evt] = functionRef;
-                        m_unit_gossipBinding.insert(make_pair(id,nbind));
+                        m_unit_gossipBinding.insert(std::make_pair(id,nbind));
                     }
                     else
                     {
@@ -586,7 +581,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                     LuaItemGossipBinding nbind;
                     memset(&nbind,0,sizeof(LuaItemGossipBinding));
                     nbind.Functions[evt] = functionRef;
-                    m_item_gossipBinding.insert(make_pair(id,nbind));
+                    m_item_gossipBinding.insert(std::make_pair(id,nbind));
                 }
                 else
                 {
@@ -606,7 +601,7 @@ void LuaEngineMgr::RegisterEvent(uint8 regtype, uint32 id, uint32 evt, uint16 fu
                     LuaGOGossipBinding nbind;
                     memset(&nbind,0,sizeof(LuaGOGossipBinding));
                     nbind.Functions[evt] = functionRef;
-                    m_go_gossipBinding.insert(make_pair(id,nbind));
+                    m_go_gossipBinding.insert(std::make_pair(id,nbind));
                 }
                 else
                 {

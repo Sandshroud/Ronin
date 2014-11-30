@@ -18,7 +18,7 @@
 
 LuaGossip::~LuaGossip()
 {
-    typedef HM_NAMESPACE::hash_map<uint32, LuaGossip*> MapType;
+    typedef RONIN_UNORDERED_MAP<uint32, LuaGossip*> MapType;
     MapType gMap;
     if(m_go_gossip_binding != NULL)
     {
@@ -272,7 +272,7 @@ void LuaInstance::Destroy()
     g_engine->ExecuteCall(1);
     RELEASE_LOCK
 
-    typedef HM_NAMESPACE::hash_map<uint32, LuaInstance*> IMAP;
+    typedef RONIN_UNORDERED_MAP<uint32, LuaInstance*> IMAP;
     IMAP & iMap = g_luaMgr.getLuInstanceMap();
     for(IMAP::iterator itr = iMap.begin(); itr != iMap.end(); ++itr)
     {
@@ -815,7 +815,7 @@ MapManagerScript* CreateLuaInstance(MapMgr* pMapMgr)
     LuaInstanceBinding* pBinding = g_luaMgr.getInstanceBinding(id);
     if(pBinding != NULL)
     {
-        typedef HM_NAMESPACE::hash_map<uint32, LuaInstance*> IMAP;
+        typedef RONIN_UNORDERED_MAP<uint32, LuaInstance*> IMAP;
         IMAP & iMap = g_luaMgr.getLuInstanceMap();
         IMAP::iterator itr = iMap.find(id);
         if(itr != iMap.end())
@@ -828,7 +828,7 @@ MapManagerScript* CreateLuaInstance(MapMgr* pMapMgr)
         else
         {
             pLua = new LuaInstance(pMapMgr);
-            iMap.insert(make_pair(id, pLua));
+            iMap.insert(std::make_pair(id, pLua));
         }
         pLua->m_binding = pBinding;
     }
@@ -907,7 +907,7 @@ bool Lua_HookOnNewCharacter(uint32 Race, uint32 Class, WorldSession* Session, co
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_NEW_CHARACTER].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_NEW_CHARACTER].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_NEW_CHARACTER].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_NEW_CHARACTER].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_NEW_CHARACTER);
@@ -997,7 +997,7 @@ bool Lua_HookOnRepop(Player* pPlayer)
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_REPOP].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_REPOP].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_REPOP].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_REPOP].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_REPOP);
@@ -1047,7 +1047,7 @@ bool Lua_HookOnCastSpell(Player* pPlayer, SpellEntry* pSpell, Spell* spell)
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CAST_SPELL].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CAST_SPELL].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CAST_SPELL].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CAST_SPELL].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_CAST_SPELL);
@@ -1081,7 +1081,7 @@ bool Lua_HookOnLogoutRequest(Player* pPlayer)
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_LOGOUT_REQUEST].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_LOGOUT_REQUEST].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_LOGOUT_REQUEST].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_LOGOUT_REQUEST].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_LOGOUT_REQUEST);
@@ -1154,7 +1154,7 @@ bool Lua_HookOnChat(Player* pPlayer, uint32 Type, uint32 Lang, const char* Messa
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CHAT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CHAT].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CHAT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_CHAT].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_CHAT);
@@ -1346,7 +1346,7 @@ bool Lua_HookOnPreUnitDie(Unit* Killer, Unit* Victim)
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_PRE_DIE].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_PRE_DIE].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_PRE_DIE].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_PRE_DIE].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_PRE_DIE);
@@ -1410,7 +1410,7 @@ bool Lua_HookOnResurrect(Player* pPlayer)
 {
     GET_LOCK
     bool result = true;
-    for(vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_RESURRECT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_RESURRECT].end(); ++itr)
+    for(std::vector<uint16>::iterator itr = g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_RESURRECT].begin(); itr != g_luaMgr.EventAsToFuncName[SERVER_HOOK_EVENT_ON_RESURRECT].end(); ++itr)
     {
         g_engine->BeginCall((*itr));
         g_engine->PushInt(SERVER_HOOK_EVENT_ON_RESURRECT);

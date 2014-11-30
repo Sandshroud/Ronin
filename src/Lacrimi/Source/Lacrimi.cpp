@@ -107,12 +107,12 @@ bool Lacrimi::_StartDB()
     if(!config)
         return false;
 
-    string error;
+    std::string error;
     // Configure World Database...
-    string hostname = lacrimiIni->ReadString("LacrimiDatabase", "Hostname", "ERROR");
-    string username = lacrimiIni->ReadString("LacrimiDatabase", "Username", "ERROR");
-    string password = lacrimiIni->ReadString("LacrimiDatabase", "Password", "ERROR");
-    string database = lacrimiIni->ReadString("LacrimiDatabase", "Name", "ERROR");
+    std::string hostname = lacrimiIni->ReadString("LacrimiDatabase", "Hostname", "ERROR");
+    std::string username = lacrimiIni->ReadString("LacrimiDatabase", "Username", "ERROR");
+    std::string password = lacrimiIni->ReadString("LacrimiDatabase", "Password", "ERROR");
+    std::string database = lacrimiIni->ReadString("LacrimiDatabase", "Name", "ERROR");
     int port = lacrimiIni->ReadInteger("LacrimiDatabase", "Port", 0);
     int type = lacrimiIni->ReadInteger("LacrimiDatabase", "Type", 0);
     if(strcmp(hostname.c_str(), "ERROR") == 0)
@@ -489,7 +489,7 @@ void Lacrimi::DumpStats()
         // lock players reader
         objmgr._playerslock.AcquireReadLock();
 
-        HM_NAMESPACE::hash_map<uint32, Player*>::const_iterator itr;
+        ObjectMgr::PlayerStorageMap::const_iterator itr;
         for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
         {
             if(itr->second->GetSession() && itr->second->IsInWorld())
@@ -600,8 +600,7 @@ void Lacrimi::DumpStats()
 
         // Dump Player Information
         objmgr._playerslock.AcquireReadLock();
-        HM_NAMESPACE::hash_map<uint32, Player*>::const_iterator itr;
-
+        ObjectMgr::PlayerStorageMap::const_iterator itr;
         for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
         {
             plr = itr->second;

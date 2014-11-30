@@ -82,7 +82,7 @@ public:
             if(_unit->m_escorter == NULL)
                 return;
             Player *plr = _unit->m_escorter;
-            _unit->m_escorter = NULLPLR;
+            _unit->m_escorter = NULL;
             plr->GetQuestLogForEntry(665)->SendQuestComplete();
         }
     }

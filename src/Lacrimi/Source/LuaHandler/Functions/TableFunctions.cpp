@@ -446,7 +446,6 @@ RegType<Unit> UnitMethods[] =
     { "GetChannelMemberCount", &LuaUnit_GetChannelMemberCount },
     { "GetPlayerMovementVector", &LuaUnit_GetPlayerMovementVector},
     { "UnsetKnownTitle", &LuaUnit_UnsetKnownTitle},
-    { "IsInPhase", &LuaUnit_IsInPhase },
     { "HasFlag", &LuaUnit_HasFlag },
     { "Repop", &LuaUnit_Repop },
     { "SetMovementFlags", &LuaUnit_SetMovementFlags },

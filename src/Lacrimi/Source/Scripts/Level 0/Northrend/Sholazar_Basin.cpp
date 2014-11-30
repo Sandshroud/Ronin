@@ -32,7 +32,7 @@ bool ChickenNet( uint32 i, Spell *pSpell )
     if( !pSpell->GetUnitTarget()->IsCreature() )
         return false;
 
-    Creature *Chicken = TO_CREATURE( pSpell->GetUnitTarget() );
+    Creature *Chicken = castPtr<Creature>( pSpell->GetUnitTarget() );
     if( Chicken != NULL && Chicken->GetEntry() == 28161 )
     {
         Chicken->Despawn( 5000, 360000 );
