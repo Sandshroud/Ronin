@@ -8,7 +8,7 @@ class SERVER_DECL Container : public Item
 {
 public:
     friend class WorldSession;
-    Container(uint32 high, uint32 low);
+    Container(uint32 high, uint32 low, uint32 fieldCount = CONTAINER_END);
     ~Container();
     virtual void Init();
     virtual void Destruct();

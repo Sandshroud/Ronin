@@ -2390,8 +2390,8 @@ int32 Spell::CalculateCost(int32 &powerField)
     // Trainers can always cast, same with players with powercheat
     if(u_caster->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER) || (p_caster && p_caster->PowerCheat))
         return (powerField = 0);
-    if((powerField = u_caster->GetPowerFieldForType(GetSpellProto()->powerType)) == -1)
-        return 0;
+    if((powerField = u_caster->GetPowerFieldForType(GetSpellProto()->powerType)) == UNIT_END)
+        return -1;
     else if(GetSpellProto()->powerType == POWER_TYPE_MANA)
         m_usesMana = true;
 
@@ -2422,10 +2422,7 @@ WorldObject* Spell::_LookupObject(const WoWGuid& guid)
 
     switch(GUID_HIPART(guid))
     {
-    case HIGHGUID_TYPE_CORPSE:
-        {
-            return objmgr.GetCorpse(GUID_LOPART(guid));
-        }break;
+    case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(GUID_LOPART(guid));
     default:
         {
             if( m_caster->IsInWorld() )
@@ -2466,26 +2463,12 @@ void Spell::_SetTargets(WoWGuid guid)
             MapMgr* mgr = m_caster->GetMapMgr();
             switch(GUID_HIPART(m_targets.m_unitTarget))
             {
-            case HIGHGUID_TYPE_VEHICLE:
-                unitTarget = mgr->GetVehicle(GUID_LOPART(m_targets.m_unitTarget));
-                break;
-            case HIGHGUID_TYPE_CREATURE:
-                unitTarget = mgr->GetCreature(GUID_LOPART(m_targets.m_unitTarget));
-                break;
-            case HIGHGUID_TYPE_PET:
-                unitTarget = mgr->GetPet(GUID_LOPART(m_targets.m_unitTarget));
-                break;
-            case HIGHGUID_TYPE_PLAYER:
-                {
-                    unitTarget = mgr->GetPlayer(GUID_LOPART(m_targets.m_unitTarget));
-                    playerTarget = castPtr<Player>(unitTarget);
-                }break;
-            case HIGHGUID_TYPE_GAMEOBJECT:
-                gameObjTarget = mgr->GetGameObject(GUID_LOPART(m_targets.m_unitTarget));
-                break;
-            case HIGHGUID_TYPE_CORPSE:
-                corpseTarget = objmgr.GetCorpse(GUID_LOPART(m_targets.m_unitTarget));
-                break;
+            case HIGHGUID_TYPE_VEHICLE: unitTarget = mgr->GetVehicle(m_targets.m_unitTarget); break;
+            case HIGHGUID_TYPE_CREATURE: unitTarget = mgr->GetCreature(m_targets.m_unitTarget); break;
+            case HIGHGUID_TYPE_PET: unitTarget = mgr->GetPet(m_targets.m_unitTarget); break;
+            case HIGHGUID_TYPE_PLAYER: playerTarget = castPtr<Player>(unitTarget = mgr->GetPlayer(m_targets.m_unitTarget)); break;
+            case HIGHGUID_TYPE_GAMEOBJECT: gameObjTarget = mgr->GetGameObject(m_targets.m_unitTarget); break;
+            case HIGHGUID_TYPE_CORPSE: corpseTarget = objmgr.GetCorpse(GUID_LOPART(m_targets.m_unitTarget)); break;
             }
         }
     }

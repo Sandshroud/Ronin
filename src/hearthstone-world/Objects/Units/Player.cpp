@@ -10,13 +10,9 @@ UpdateMask Player::m_visibleUpdateMask;
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid) : Unit(guid), m_talentInterface()
+Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_talentInterface()
 {
-    m_valuesCount += PLAYER_LENGTH;
-    m_updateMask.SetCount(m_valuesCount);
-    m_object.m_objType |= TYPEMASK_TYPE_PLAYER;
-    m_raw.values[OBJECT_LAYER_PLAYER] = new uint32[PLAYER_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_PLAYER], 0, PLAYER_LENGTH*sizeof(uint32));
+    SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
     m_runemask = 0x3F;
     m_bgRatedQueue = false;
@@ -2406,7 +2402,7 @@ void Player::_SetCreateBits(UpdateMask *updateMask, Player* target) const
     {
         for(uint32 index = 0; index < m_valuesCount; index++)
         {
-            if(m_uint32.values[index] != 0 && Player::m_visibleUpdateMask.GetBit(index))
+            if(m_uint32Values[index] != 0 && Player::m_visibleUpdateMask.GetBit(index))
                 updateMask->SetBit(index);
         }
     }
@@ -6953,7 +6949,7 @@ void Player::PlayerRegeneratePower(bool is_interrupted)
         {
             m_regenTimerCount = 0;
             SetPower(powerField, curValue);
-        } else m_uint32.values[powerField] = curValue;
+        } else m_uint32Values[powerField] = curValue;
         continue;
     }
 }

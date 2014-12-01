@@ -4,13 +4,9 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid) : WorldObject(guid), m_AuraInterface()
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface()
 {
-    m_valuesCount += UNIT_LENGTH;
-    m_updateMask.SetCount(m_valuesCount);
-    m_object.m_objType |= TYPEMASK_TYPE_UNIT;
-    m_raw.values[OBJECT_LAYER_UNIT] = new uint32[UNIT_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_UNIT], 0,(UNIT_LENGTH*sizeof(uint32)));
+    SetTypeFlags(TYPEMASK_TYPE_UNIT);
 
     m_lastHauntInitialDamage = 0;
     m_attackTimer = 0;

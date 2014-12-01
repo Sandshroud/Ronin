@@ -35,7 +35,7 @@ enum CORPSE_DYNAMIC_FLAGS
 class SERVER_DECL Corpse : public WorldObject
 {
 public:
-    Corpse( uint32 high, uint32 low );
+    Corpse( uint32 high, uint32 low, uint32 fieldCount = CORPSE_END );
     ~Corpse();
     virtual void Init();
     virtual void Destruct();

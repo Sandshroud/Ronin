@@ -342,7 +342,7 @@ struct GameObjectInfo
 class SERVER_DECL GameObject : public WorldObject
 {
 public:
-    GameObject(uint64 guid);
+    GameObject(uint64 guid, uint32 fieldCount = GAMEOBJECT_END);
     ~GameObject( );
     virtual void Init();
     virtual void Destruct();

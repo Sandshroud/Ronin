@@ -119,7 +119,7 @@ typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 class SERVER_DECL Item : public Object
 {
 public:
-    Item( uint32 high, uint32 low );
+    Item( uint32 high, uint32 low, uint32 fieldCount = ITEM_END );
     virtual ~Item();
     virtual void Init();
     virtual void Destruct();

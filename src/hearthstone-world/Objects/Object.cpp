@@ -4,16 +4,15 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid) : m_objGuid(guid), m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
 {
-    m_valuesCount = OBJECT_LENGTH;
-    m_updateMask.SetCount(OBJECT_END);
-    m_raw.values[OBJECT_LAYER_OBJECT] = new uint32[OBJECT_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_OBJECT], 0, OBJECT_LENGTH*sizeof(uint32));
+    m_updateMask.SetCount(m_valuesCount);
+    m_uint32Values = new uint32[m_valuesCount];
+    memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
 
-    m_object.m_objGUID = guid;
-    m_object.m_objType = TYPEMASK_TYPE_OBJECT;
-    m_object.m_objScale = 1.f;
+    SetUInt64Value(OBJECT_FIELD_GUID, guid);
+    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
+    SetTypeFlags(TYPEMASK_TYPE_OBJECT);
 
     m_loot.gold = 0;
     m_looted = false;
@@ -40,15 +39,15 @@ void Object::SetByte(uint32 index, uint32 index1,uint8 value)
 
     if(index1 >= 4)
     {
-        sLog.outError("WorldObject::SetByteValue: wrong offset %u", index1);
+        sLog.outError("Object::SetByteValue: wrong offset %u", index1);
         return;
     }
 
-    if(uint8(m_uint32.values[ index ] >> (index1 * 8)) == value)
+    if(uint8(m_uint32Values[ index ] >> (index1 * 8)) == value)
         return;
 
-    m_uint32.values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
-    m_uint32.values[ index ] |= uint32(uint32(value) << (index1 * 8));
+    m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
+    m_uint32Values[ index ] |= uint32(uint32(value) << (index1 * 8));
     SetUpdateField(index);
 }
 
@@ -80,11 +79,11 @@ bool Object::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
 void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
 {
     ASSERT( index < m_valuesCount );
-    if (uint16(m_uint32.values[index] >> (offset * 16)) == value)
+    if (uint16(m_uint32Values[index] >> (offset * 16)) == value)
         return;
 
-    m_uint32.values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
-    m_uint32.values[index] |= uint32(uint32(value) << (offset * 16));
+    m_uint32Values[index] &= ~uint32(uint32(0xFFFF) << (offset * 16));
+    m_uint32Values[index] |= uint32(uint32(value) << (offset * 16));
     SetUpdateField(index);
 }
 
@@ -94,21 +93,21 @@ void Object::SetUInt32Value( const uint32 index, const uint32 value )
         printf("Index: %u, m_valuesCount: %u, Value: %u Test:%s\n", index, m_valuesCount, value, __FUNCTION__);
 
     ASSERT( index < m_valuesCount );
-    if(m_uint32.values[index] == value)
+    if(m_uint32Values[index] == value)
         return;
 
-    m_uint32.values[ index ] = value;
+    m_uint32Values[ index ] = value;
     SetUpdateField(index);
 }
 
 void Object::SetUInt64Value( const uint32 index, const uint64 value )
 {
     assert( index + 1 < m_valuesCount );
-    if(m_uint32.values[index] == GUID_LOPART(value) && m_uint32.values[index+1] == GUID_HIPART(value))
+    if(m_uint32Values[index] == ((uint32*)&value)[0] && m_uint32Values[index+1] == ((uint32*)&value)[1])
         return;
 
-    m_uint32.values[ index ] = *((uint32*)&value);
-    m_uint32.values[ index + 1 ] = *(((uint32*)&value) + 1);
+    m_uint32Values[ index ] = ((uint32*)&value)[0];
+    m_uint32Values[ index + 1 ] = ((uint32*)&value)[1];
 
     SetUpdateField(index);
     SetUpdateField(index+1);
@@ -117,37 +116,37 @@ void Object::SetUInt64Value( const uint32 index, const uint64 value )
 void Object::SetFlag( const uint32 index, uint32 newFlag )
 {
     ASSERT( index < m_valuesCount );
-    if((m_uint32.values[ index ] & newFlag) == newFlag)
+    if(m_uint32Values[ index ] & newFlag)
         return;
 
-    m_uint32.values[ index ] |= newFlag;
+    m_uint32Values[ index ] |= newFlag;
     SetUpdateField(index);
 }
 
 void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
 {
     ASSERT( index < m_valuesCount );
-    if((m_uint32.values[ index ] & oldFlag) == 0)
+    if((m_uint32Values[ index ] & oldFlag) == 0)
         return;
 
-    m_uint32.values[ index ] &= ~oldFlag;
+    m_uint32Values[ index ] &= ~oldFlag;
     SetUpdateField(index);
 }
 
 void Object::SetFloatValue( const uint32 index, const float value )
 {
     ASSERT( index < m_valuesCount );
-    if(m_float.values[index] == value)
+    if(m_floatValues[index] == value)
         return;
 
-    m_float.values[ index ] = value;
+    m_floatValues[ index ] = value;
     SetUpdateField(index);
 }
 
 void Object::ModFloatValue(const uint32 index, const float value )
 {
     ASSERT( index < m_valuesCount );
-    m_float.values[ index ] += value;
+    m_floatValues[ index ] += value;
     SetUpdateField(index);
 }
 
@@ -157,7 +156,7 @@ void Object::ModSignedInt32Value(uint32 index, int32 value )
     if(value == 0)
         return;
 
-    m_uint32.values[ index ] += value;
+    m_uint32Values[ index ] += value;
     SetUpdateField(index);
 }
 
@@ -167,16 +166,16 @@ void Object::ModUnsigned32Value(uint32 index, int32 mod)
     if(mod == 0)
         return;
 
-    m_uint32.values[ index ] += mod;
-    if( (int32)m_uint32.values[index] < 0 )
-        m_uint32.values[index] = 0;
+    m_uint32Values[ index ] += mod;
+    if( (int32)m_uint32Values[index] < 0 )
+        m_uint32Values[index] = 0;
     SetUpdateField(index);
 }
 
 uint32 Object::GetModPUInt32Value(const uint32 index, const int32 value)
 {
     ASSERT( index < m_valuesCount );
-    int32 basevalue = (int32)m_uint32.values[ index ];
+    int32 basevalue = (int32)m_uint32Values[ index ];
     return ((basevalue*value)/100);
 }
 
@@ -204,8 +203,8 @@ void Object::LoadValues(const char* data)
         }
         pos = ndata.find(" ", last_pos);
         val = atol(ndata.substr(last_pos, (pos-last_pos)).c_str());
-        if(m_uint32.values[index] == 0)
-            m_uint32.values[index] = val;
+        if(m_uint32Values[index] == 0)
+            m_uint32Values[index] = val;
         last_pos = pos+1;
         ++index;
     } while(pos != std::string::npos);
@@ -219,7 +218,7 @@ void Object::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
 void Object::_SetCreateBits(UpdateMask *updateMask, Player* target) const
 {
     for(uint32 i = 0; i < m_valuesCount; i++)
-        if(m_uint32.values[i] != 0)
+        if(m_uint32Values[i] != 0)
             updateMask->SetBit(i);
 }
 
@@ -227,12 +226,12 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
     uint16 updateFlags = UPDATEFLAG_NONE;
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
-    if(m_object.m_objType & TYPEMASK_TYPE_UNIT)
+    if(GetTypeFlags() & TYPEMASK_TYPE_UNIT)
     {
         updateFlags |= UPDATEFLAG_LIVING;
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
     }
-    else if(m_object.m_objType & TYPEMASK_TYPE_GAMEOBJECT)
+    else if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
     {
         updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
         switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
@@ -291,9 +290,9 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     uint32 *flags, uFlag = GetUpdateFieldData(flags, target);
     for( uint32 index = 0; index < m_valuesCount; index++ )
     {
-        if(uint32 value = m_uint32.values[index])
+        if(uint32 value = m_uint32Values[index])
         {
-            if(m_notifyFlags & flags[index] || (m_uint32.values[index] && flags[index] & uFlag))
+            if(m_notifyFlags & flags[index] || (m_uint32Values[index] && flags[index] & uFlag))
             {
                 mask.SetBit(index);
                 fields << value;
@@ -543,7 +542,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
     {
         if( updateMask->GetBit( index ) )
         {
-            uint32 value = m_uint32.values[index];
+            uint32 value = m_uint32Values[index];
             if(IsGameObject())
             {
                 if(index == GAMEOBJECT_FLAGS)
@@ -616,7 +615,7 @@ void Object::ClearLoot()
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(uint64 guid) : Object(guid), m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
+WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
 {
     m_mapId = -1;
     m_areaId = 0;
@@ -658,7 +657,7 @@ WorldObject::WorldObject(uint64 guid) : Object(guid), m_position(0,0,0,0), m_spa
 
 WorldObject::~WorldObject( )
 {
-    Object::~Object();
+
 }
 
 void WorldObject::Init()

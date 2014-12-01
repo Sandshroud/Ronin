@@ -4,13 +4,9 @@
 
 #include "StdAfx.h"
 
-GameObject::GameObject(uint64 guid) : WorldObject(guid)
+GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
 {
-    m_valuesCount += GAMEOBJECT_LENGTH;
-    m_updateMask.SetCount(GAMEOBJECT_END);
-    m_object.m_objType |= TYPEMASK_TYPE_GAMEOBJECT;
-    m_raw.values[OBJECT_LAYER_GAMEOBJECT] = new uint32[GAMEOBJECT_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_GAMEOBJECT], 0, GAMEOBJECT_LENGTH*sizeof(uint32));
+    SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
 
     SetAnimProgress(100);
     counter = 0;

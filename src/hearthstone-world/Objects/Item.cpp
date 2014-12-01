@@ -4,13 +4,9 @@
 
 #include "StdAfx.h"
 
-Item::Item( uint32 high, uint32 low ) : Object(MAKE_NEW_GUID(low, 0, high)) 
+Item::Item( uint32 high, uint32 low, uint32 fieldCount ) : Object(MAKE_NEW_GUID(low, 0, high), fieldCount) 
 {
-    m_valuesCount += ITEM_LENGTH;
-    m_updateMask.SetCount(ITEM_END);
-    m_object.m_objType |= TYPEMASK_TYPE_ITEM;
-    m_raw.values[OBJECT_LAYER_ITEM] = new uint32[ITEM_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_ITEM], 0, ITEM_LENGTH*sizeof(uint32));
+    SetTypeFlags(TYPEMASK_TYPE_ITEM);
 
     m_inWorld = false;
     m_itemProto = NULL;

@@ -4,13 +4,9 @@
 
 #include "StdAfx.h"
 
-DynamicObject::DynamicObject(uint32 high, uint32 low) : WorldObject(MAKE_NEW_GUID(low, 0, high))
+DynamicObject::DynamicObject(uint32 high, uint32 low, uint32 fieldCount) : WorldObject(MAKE_NEW_GUID(low, 0, high), fieldCount)
 {
-    m_valuesCount += DYNAMICOBJECT_LENGTH;
-    m_updateMask.SetCount(DYNAMICOBJECT_END);
-    m_object.m_objType |= TYPEMASK_TYPE_DYNAMICOBJECT;
-    m_raw.values[OBJECT_LAYER_DYNAMICOBJECT] = new uint32[DYNAMICOBJECT_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_DYNAMICOBJECT], 0, DYNAMICOBJECT_LENGTH*sizeof(uint32));
+    SetTypeFlags(TYPEMASK_TYPE_DYNAMICOBJECT);
 
     m_aliveDuration = 0;
     m_spellProto = NULL;

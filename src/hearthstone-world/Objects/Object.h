@@ -50,6 +50,7 @@ enum TypeMask
     TYPEMASK_TYPE_UNUSED4       = 0x00002000,
     TYPEMASK_TYPE_UNUSED5       = 0x00004000,
     TYPEMASK_TYPE_UNUSED6       = 0x00008000,
+    TYPEMASK_TYPE_MASK          = 0x0000FFFF,
     // Upper 16 bits are flag
     TYPEMASK_FLAG_IN_GUILD      = 0x00010000
 };
@@ -141,21 +142,6 @@ class Player;
 class MapCell;
 class MapMgr;
 
-enum OBJECT_FIELD_IDS
-{
-    OBJECT_LAYER_OBJECT         = 0,
-    OBJECT_LAYER_ITEM           = 1,
-    OBJECT_LAYER_CONTAINER      = 2,
-    OBJECT_LAYER_UNIT           = 1,
-    OBJECT_LAYER_PLAYER         = 2,
-    OBJECT_LAYER_GAMEOBJECT     = 1,
-    OBJECT_LAYER_DYNAMICOBJECT  = 1,
-    OBJECT_LAYER_CORPSE         = 1,
-    OBJECT_LAYER_AREATRIGGER    = 1,
-    OBJECT_LAYER_MAX            = 3
-
-};
-
 //===============================================
 //  Object
 //  Base class for every object
@@ -163,7 +149,7 @@ enum OBJECT_FIELD_IDS
 class SERVER_DECL Object
 {
 public:
-    Object(uint64 guid);
+    Object(uint64 guid, uint32 fieldCount = OBJECT_END);
     virtual ~Object();
     virtual void Init();
     virtual void Destruct();
@@ -183,18 +169,18 @@ public:
     void __fastcall SetFlag( const uint32 index, uint32 newFlag );
     void __fastcall RemoveFlag( const uint32 index, uint32 oldFlag );
     void __fastcall SetFloatValue( const uint32 index, const float value );
-    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32.values[ index ] & flag) != 0;    }
+    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
 
     void __fastcall ModFloatValue(const uint32 index, const float value );
     void __fastcall ModSignedInt32Value(uint32 index, int32 value);
     void __fastcall ModUnsigned32Value(uint32 index, int32 mod);
     uint32 __fastcall GetModPUInt32Value(const uint32 index, const int32 value);
 
-    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32.values)[index*4+byteIndex]; }
-    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32.values[index])+offset); }
-    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32.values[ index ]; }
-    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32.values[ index ])); }
-    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_float.values[ index ]; }
+    HEARTHSTONE_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
+    HEARTHSTONE_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
+    HEARTHSTONE_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
+    HEARTHSTONE_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
+    HEARTHSTONE_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
 
     void SetUpdateField(uint32 index);
     virtual void OnFieldUpdated(uint32 index) {}
@@ -223,10 +209,13 @@ public:
     // guid always comes first
     HEARTHSTONE_INLINE WoWGuid& GetGUID() { return m_objGuid; }
 
-    uint32 GetEntry() { return m_uint32.values[OBJECT_FIELD_ENTRY]; }
+    uint16 GetTypeFlags() { return GetUInt32Value(OBJECT_FIELD_TYPE) & TYPEMASK_TYPE_MASK; }
+    void SetTypeFlags(uint16 typeFlag) { SetFlag(OBJECT_FIELD_TYPE, typeFlag); };
+
+    uint32 GetEntry() { return GetUInt32Value(OBJECT_FIELD_ENTRY); }
     void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
 
-    float GetObjectScale() { return m_float.values[OBJECT_FIELD_SCALE_X]; }
+    float GetObjectScale() { return GetUInt32Value(OBJECT_FIELD_SCALE_X); }
     void SetObjectScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
 
     HEARTHSTONE_INLINE uint32 GetEntryFromGUID() { return m_objGuid.getEntry(); }
@@ -234,15 +223,15 @@ public:
     HEARTHSTONE_INLINE uint32 GetLowGUID() { return m_objGuid.getLow(); }
 
     // type
-    HEARTHSTONE_INLINE uint8 GetTypeId() { return HighestMaskType16(m_object.m_objType); }
-    HEARTHSTONE_INLINE bool IsUnit() { return ( m_object.m_objType & TYPEMASK_TYPE_UNIT ); }
-    HEARTHSTONE_INLINE bool IsItem() { return m_object.m_objType & TYPEMASK_TYPE_ITEM; }
-    HEARTHSTONE_INLINE bool IsContainer() { return HighestMaskType16(m_object.m_objType) == TYPEID_CONTAINER; }
-    HEARTHSTONE_INLINE bool IsCreature() { return HighestMaskType16(m_object.m_objType) == TYPEID_UNIT; }
-    HEARTHSTONE_INLINE bool IsPlayer() { return HighestMaskType16(m_object.m_objType) == TYPEID_PLAYER; }
-    HEARTHSTONE_INLINE bool IsGameObject() { return HighestMaskType16(m_object.m_objType) == TYPEID_GAMEOBJECT; }
-    HEARTHSTONE_INLINE bool IsDynamicObj() { return HighestMaskType16(m_object.m_objType) == TYPEID_DYNAMICOBJECT; }
-    HEARTHSTONE_INLINE bool IsCorpse() { return HighestMaskType16(m_object.m_objType) == TYPEID_CORPSE; }
+    HEARTHSTONE_INLINE uint8 GetTypeId() { return HighestMaskType16(GetTypeFlags()); }
+    HEARTHSTONE_INLINE bool IsUnit() { return (GetTypeFlags() & TYPEMASK_TYPE_UNIT); }
+    HEARTHSTONE_INLINE bool IsItem() { return (GetTypeFlags() & TYPEMASK_TYPE_ITEM); }
+    HEARTHSTONE_INLINE bool IsContainer() { return GetTypeId() == TYPEID_CONTAINER; }
+    HEARTHSTONE_INLINE bool IsCreature() { return GetTypeId() == TYPEID_UNIT; }
+    HEARTHSTONE_INLINE bool IsPlayer() { return GetTypeId() == TYPEID_PLAYER; }
+    HEARTHSTONE_INLINE bool IsGameObject() { return GetTypeId() == TYPEID_GAMEOBJECT; }
+    HEARTHSTONE_INLINE bool IsDynamicObj() { return GetTypeId() == TYPEID_DYNAMICOBJECT; }
+    HEARTHSTONE_INLINE bool IsCorpse() { return GetTypeId() == TYPEID_CORPSE; }
     virtual bool IsObject() { return false; }
     virtual bool IsPet() { return false; }
     virtual bool IsTotem() { return false; }
@@ -266,20 +255,9 @@ protected:
     Mutex m_objlock;
 
     //! Object properties.
-    union
-    {
-        struct // Raw object values
-        {
-            uint64 m_objGUID;
-            uint64 m_objData;
-            uint32 m_objType;
-            uint32 m_objEntry;
-            float m_objScale;
-        }m_object;
-
-        struct { uint32* values; }m_uint32;
-        struct { float* values; }m_float;
-        struct { uint32**values; }m_raw;
+    union {
+        uint32 *m_uint32Values;
+        float *m_floatValues;
     };
 
     //! Object's guid
@@ -611,7 +589,7 @@ public:
     int32 GetPhaseMask() { return 0x01; }
 
 protected:
-    WorldObject(uint64 guid);
+    WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
 
     void _Create( uint32 mapid, float x, float y, float z, float ang);
 

@@ -589,7 +589,7 @@ class SERVER_DECL Player : public Unit
     friend class SkillIterator;
 
 public:
-    Player ( uint64 guid );
+    Player ( uint64 guid, uint32 fieldCount = PLAYER_END );
     ~Player ( );
     virtual void Init();
     virtual void Destruct();

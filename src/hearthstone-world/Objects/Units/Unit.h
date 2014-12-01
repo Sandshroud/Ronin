@@ -505,7 +505,7 @@ class SERVER_DECL Unit : public WorldObject
 public:
     void CombatStatusHandler_UpdateTargets();
 
-    Unit(uint64 guid);
+    Unit(uint64 guid, uint32 fieldCount = UNIT_END);
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();

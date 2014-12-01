@@ -4,13 +4,9 @@
 
 #include "StdAfx.h"
 
-Container::Container(uint32 high,uint32 low) : Item(high, low)
+Container::Container(uint32 high,uint32 low, uint32 fieldCount) : Item(high, low, fieldCount)
 {
-    m_valuesCount += CONTAINER_LENGTH;
-    m_updateMask.SetCount(m_valuesCount);
-    m_object.m_objType |= TYPEMASK_TYPE_CONTAINER;
-    m_raw.values[OBJECT_LAYER_CONTAINER] = new uint32[CONTAINER_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_CONTAINER], 0,(CONTAINER_LENGTH*sizeof(uint32)));
+    SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
 
     memset(&m_Slot, 0, sizeof(Item*)*72);
     random_suffix = random_prop = 0;

@@ -4,13 +4,10 @@
 
 #include "StdAfx.h"
 
-Corpse::Corpse(uint32 high, uint32 low) : WorldObject(MAKE_NEW_GUID(low, 0, high))
+Corpse::Corpse(uint32 high, uint32 low, uint32 fieldCount) : WorldObject(MAKE_NEW_GUID(low, 0, high), fieldCount)
 {
-    m_valuesCount += CORPSE_LENGTH;
-    m_updateMask.SetCount(CORPSE_END);
-    m_object.m_objType |= TYPEMASK_TYPE_CORPSE;
-    m_raw.values[OBJECT_LAYER_CORPSE] = new uint32[CORPSE_LENGTH];
-    memset(m_raw.values[OBJECT_LAYER_CORPSE], 0, (CORPSE_LENGTH)*sizeof(uint32));
+    SetTypeFlags(TYPEMASK_TYPE_CORPSE);
+
     m_state = CORPSE_STATE_BODY;
     _loadedfromdb = false;
 }
