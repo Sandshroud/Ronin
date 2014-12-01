@@ -112,7 +112,7 @@ Item* ItemInterface::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot)
 
     if(pProto->InventoryType == INVTYPE_BAG)
     {
-        Container* pItem(new Container(HIGHGUID_TYPE_CONTAINER,objmgr.GenerateLowGuid(HIGHGUID_TYPE_CONTAINER)));
+        Container* pItem = new Container(HIGHGUID_TYPE_CONTAINER, objmgr.GenerateLowGuid(HIGHGUID_TYPE_CONTAINER));
         pItem->Create( ItemId, m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
             return castPtr<Item>(pItem);
@@ -122,7 +122,7 @@ Item* ItemInterface::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot)
     }
     else
     {
-        Item* pItem(new Item(HIGHGUID_TYPE_ITEM,objmgr.GenerateLowGuid(HIGHGUID_TYPE_ITEM)));
+        Item* pItem = new Item(HIGHGUID_TYPE_ITEM, objmgr.GenerateLowGuid(HIGHGUID_TYPE_ITEM));
         pItem->Create( ItemId, m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
             return pItem;

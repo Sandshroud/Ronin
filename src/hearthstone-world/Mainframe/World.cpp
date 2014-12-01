@@ -549,13 +549,13 @@ bool World::SetInitialWorldSettings()
         if(areaentry == NULL)
             continue;
 
-        if(Sanctuaries.find(areaentry->AreaId) == Sanctuaries.end())
+        if(m_sanctuaries.find(areaentry->AreaId) == m_sanctuaries.end())
         {
             if(areaentry->category == AREAC_SANCTUARY || areaentry->AreaFlags & AREA_SANCTUARY)
-                Sanctuaries.insert(areaentry->AreaId);
+                m_sanctuaries.insert(areaentry->AreaId);
         }
 
-        if(RestedAreas.find(areaentry->AreaId) == RestedAreas.end())
+        if(m_sanctuaries.find(areaentry->AreaId) == m_sanctuaries.end())
         {
             if(areaentry->AreaFlags & AREA_CITY_AREA || areaentry->AreaFlags & AREA_CITY || areaentry->AreaFlags & AREA_CAPITAL_SUB || areaentry->AreaFlags & AREA_CAPITAL)
             {
@@ -570,7 +570,7 @@ bool World::SetInitialWorldSettings()
         }
         areaentry = NULL;
     }
-    sLog.Notice("World", "Hashed %u sanctuaries", Sanctuaries.size());
+    sLog.Notice("World", "Hashed %u sanctuaries", m_sanctuaries.size());
 
     sEventMgr.AddEvent(this, &World::CheckForExpiredInstances, EVENT_WORLD_UPDATEAUCTIONS, 120000, 0, 0);
     return true;

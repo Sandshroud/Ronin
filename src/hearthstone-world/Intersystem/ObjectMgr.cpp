@@ -1044,14 +1044,14 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
 
     if(proto->InventoryType == INVTYPE_BAG)
     {
-        Container* pContainer(new Container(HIGHGUID_TYPE_CONTAINER,GenerateLowGuid(HIGHGUID_TYPE_CONTAINER)));
+        Container* pContainer = new Container(HIGHGUID_TYPE_CONTAINER, GenerateLowGuid(HIGHGUID_TYPE_CONTAINER));
         pContainer->Create( entry, owner);
         pContainer->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
         return pContainer;
     }
     else
     {
-        Item* pItem(new Item(HIGHGUID_TYPE_ITEM,GenerateLowGuid(HIGHGUID_TYPE_ITEM)));
+        Item* pItem = new Item(HIGHGUID_TYPE_ITEM, GenerateLowGuid(HIGHGUID_TYPE_ITEM));
         pItem->Create(entry, owner);
         pItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
         return pItem;
@@ -1071,13 +1071,13 @@ Item* ObjectMgr::LoadItem(uint64 guid)
 
         if(pProto->InventoryType == INVTYPE_BAG)
         {
-            Container* pContainer(new Container(HIGHGUID_TYPE_CONTAINER,(uint32)guid));
+            Container* pContainer = new Container(HIGHGUID_TYPE_CONTAINER, GUID_LOPART(guid));
             pContainer->LoadFromDB(result->Fetch());
             pReturn = pContainer;
         }
         else
         {
-            Item* pItem(new Item(HIGHGUID_TYPE_ITEM,(uint32)guid));
+            Item* pItem = new Item(HIGHGUID_TYPE_ITEM, GUID_LOPART(guid));
             pItem->LoadFromDB(result->Fetch(), NULL, false);
             pReturn = pItem;
         }

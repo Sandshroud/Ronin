@@ -8,12 +8,12 @@
 #undef M_PI
 #endif
 
-#define M_PI       3.14159265358979323846f
+#define M_PI 3.14159265358979323846f
 
 Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
 {
     if(_creatureData = data)
-        m_object.m_objEntry = _creatureData->Entry;
+        SetEntry(_creatureData->Entry);
 
     m_spawn = NULL;
     m_quests = NULL;

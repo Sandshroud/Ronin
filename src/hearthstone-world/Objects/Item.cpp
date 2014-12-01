@@ -254,12 +254,12 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
 
     ss << "REPLACE INTO playeritems VALUES(";
 
-    ss << m_uint32.values[ITEM_FIELD_OWNER] << ",";
-    ss << m_uint32.values[OBJECT_FIELD_GUID] << ",";
-    ss << m_uint32.values[OBJECT_FIELD_ENTRY] << ",";
+    ss << GetUInt32Value(ITEM_FIELD_OWNER) << ",";
+    ss << GetUInt32Value(OBJECT_FIELD_GUID) << ",";
+    ss << GetUInt32Value(OBJECT_FIELD_ENTRY) << ",";
     ss << wrapped_item_id << ",";
-    ss << m_uint32.values[ITEM_FIELD_GIFTCREATOR] << ",";
-    ss << m_uint32.values[ITEM_FIELD_CREATOR] << ",";
+    ss << GetUInt32Value(ITEM_FIELD_GIFTCREATOR) << ",";
+    ss << GetUInt32Value(ITEM_FIELD_CREATOR) << ",";
 
     ss << GetUInt32Value(ITEM_FIELD_STACK_COUNT) << ",";
     ss << int32(GetChargesLeft()) << ",";
@@ -317,7 +317,7 @@ void Item::DeleteFromDB()
         }
     }
 
-    CharacterDatabase.Execute( "DELETE FROM playeritems WHERE guid = %u", m_uint32.values[OBJECT_FIELD_GUID] );
+    CharacterDatabase.Execute( "DELETE FROM playeritems WHERE guid = %u", GetUInt32Value(OBJECT_FIELD_GUID) );
 }
 
 uint32 Item::GetSkillByProto( uint32 Class, uint32 SubClass )

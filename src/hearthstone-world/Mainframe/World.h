@@ -517,50 +517,71 @@ public:
     {
         if(FunServerMall != -1 && (zone == FunServerMall || area == FunServerMall))
             return true;
-        if(Sanctuaries.find(zone) != Sanctuaries.end()
-            || Sanctuaries.find(area) != Sanctuaries.end())
+        if(m_sanctuaries.find(zone) != m_sanctuaries.end()
+            || m_sanctuaries.find(area) != m_sanctuaries.end())
             return true;
-        return SanctuaryMaps.find(MapId) != SanctuaryMaps.end();
+        return m_sanctuaryMaps.find(MapId) != m_sanctuaryMaps.end();
     }
 
-    std::set<uint32> Sanctuaries;
-    void SetSanctuaryArea(uint32 areaid) { Sanctuaries.insert(areaid); }
-    void RemoveSanctuaryArea(uint32 areaid) { Sanctuaries.erase(areaid); }
-    bool IsSanctuaryArea(uint32 areaid) { return Sanctuaries.find(areaid) != Sanctuaries.end(); }
+    std::set<uint32> m_sanctuaries;
+    void SetSanctuaryArea(uint32 areaid) { m_sanctuaries.insert(areaid); }
+    void RemoveSanctuaryArea(uint32 areaid) { m_sanctuaries.erase(areaid); }
+    bool IsSanctuaryArea(uint32 areaid) { return m_sanctuaries.find(areaid) != m_sanctuaries.end(); }
 
     struct RestedAreaInfo { RestedAreaInfo(int8 team){ReqTeam = team;}; int8 ReqTeam; };
-    std::map<uint32, RestedAreaInfo*> RestedAreas;
-    void SetRestedArea(uint32 areaid, int8 reqteam = -1) { if(RestedAreas[areaid] == NULL) RestedAreas[areaid] = new RestedAreaInfo(reqteam); else RestedAreas[areaid]->ReqTeam = reqteam; }
+    std::map<uint32, RestedAreaInfo*> m_restedAreas;
+    void SetRestedArea(uint32 areaid, int8 reqteam = -1)
+    {
+        if(m_restedAreas.find(areaid) == m_restedAreas.end())
+            m_restedAreas.insert(std::make_pair(areaid, new RestedAreaInfo(reqteam)));
+        else m_restedAreas.at(areaid)->ReqTeam = reqteam;
+    }
+
     void RemoveRestedArea(uint32 areaid)
     {
-        RestedAreaInfo* info = RestedAreas[areaid];
-        if(info != NULL)
+        if(RestedAreaInfo* info = GetRestedAreaInfo(areaid))
         {
-            RestedAreas.erase(areaid);
+            m_restedAreas.erase(areaid);
             delete info;
             info = NULL;
         }
     }
-    RestedAreaInfo* GetRestedAreaInfo(uint32 areaid) { return RestedAreas[areaid]; }
 
-    std::set<uint32> SanctuaryMaps;
-    void SetSanctuaryMap(uint32 mapid) { SanctuaryMaps.insert(mapid); }
-    void RemoveSanctuaryMap(uint32 mapid) { SanctuaryMaps.erase(mapid); }
-    bool IsSanctuaryMap(uint32 mapid) { return SanctuaryMaps.find(mapid) != SanctuaryMaps.end(); }
+    RestedAreaInfo* GetRestedAreaInfo(uint32 areaid)
+    {
+        if(m_restedAreas.find(areaid) != m_restedAreas.end())
+            return m_restedAreas.at(areaid);
+        return NULL;
+    }
 
-    std::map<uint32, RestedAreaInfo*> RestedMapIds;
-    void SetRestedMap(uint32 mapid, int8 reqteam = -1) { if(RestedMapIds[mapid] == NULL) RestedMapIds[mapid] = new RestedAreaInfo(reqteam); else RestedMapIds[mapid]->ReqTeam = reqteam; }
+    std::set<uint32> m_sanctuaryMaps;
+    void SetSanctuaryMap(uint32 mapid) { m_sanctuaryMaps.insert(mapid); }
+    void RemoveSanctuaryMap(uint32 mapid) { m_sanctuaryMaps.erase(mapid); }
+    bool IsSanctuaryMap(uint32 mapid) { return m_sanctuaryMaps.find(mapid) != m_sanctuaryMaps.end(); }
+
+    std::map<uint32, RestedAreaInfo*> m_restedMapIds;
+    void SetRestedMap(uint32 mapid, int8 reqteam = -1)
+    {
+        if(m_restedMapIds.find(mapid) == m_restedMapIds.end())
+            m_restedMapIds.insert(std::make_pair(mapid, new RestedAreaInfo(reqteam)));
+        else m_restedMapIds.at(mapid)->ReqTeam = reqteam;
+    }
+
     void RemoveRestedMap(uint32 mapid)
     {
-        RestedAreaInfo* info = RestedMapIds[mapid];
-        if(info != NULL)
+        if(RestedAreaInfo *info = GetRestedMapInfo(mapid))
         {
-            RestedMapIds.erase(mapid);
+            m_restedMapIds.erase(mapid);
             delete info;
-            info = NULL;
         }
     }
-    RestedAreaInfo* GetRestedMapInfo(uint32 mapid) { return RestedMapIds[mapid]; }
+
+    RestedAreaInfo* GetRestedMapInfo(uint32 mapid)
+    {
+        if(m_restedMapIds.find(mapid) != m_restedMapIds.end())
+            return m_restedMapIds.at(mapid);
+        return NULL;
+    }
 
     uint32 HordePlayers, AlliancePlayers, PeakSessionCount;
     bool IsPvPRealm, SendMovieOnJoin;

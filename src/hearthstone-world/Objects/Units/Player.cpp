@@ -7673,9 +7673,8 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
 
 void Player::SetGuildId(uint32 guildId)
 {
-    if(guildId)
-        m_object.m_objType |= TYPEMASK_FLAG_IN_GUILD;
-    else m_object.m_objType &= ~TYPEMASK_FLAG_IN_GUILD;
+    if(guildId) SetFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
+    else RemoveFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
     SetUInt64Value(PLAYER_GUILDID, guildId ? MAKE_NEW_GUID(guildId, 0, HIGHGUID_TYPE_GUILD) : 0);
 }
 

@@ -4794,10 +4794,13 @@ void Unit::RemoveFFAPvPFlag()
 
 void Unit::OnPositionChange()
 {
-    if (GetVehicle() != NULL && GetVehicle()->GetControllingUnit() == castPtr<Unit>(this) && (m_position != GetVehicle()->GetPosition() || GetOrientation() != GetVehicle()->GetOrientation())) //check orientation too since == operator of locationvector doesnt
-    {
-        GetVehicle()->MoveVehicle(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
-    }
+    if(GetVehicle() == NULL)
+        return;
+    if(GetVehicle()->GetControllingUnit() != this)
+        return;
+    if(G3D::fuzzyEq(m_position.Distance2D(GetVehicle()->GetPositionX(), GetVehicle()->GetPositionY()), 0.0f) && GetOrientation() == GetVehicle()->GetOrientation())
+        return; //check orientation too since == operator of locationvector doesnt
+    GetVehicle()->MoveVehicle(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
 }
 
 void Unit::Dismount()

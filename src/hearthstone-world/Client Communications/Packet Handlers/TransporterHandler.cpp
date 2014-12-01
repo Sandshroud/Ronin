@@ -206,7 +206,7 @@ bool Transporter::GenerateWaypoints()
                     TWayPoint pos(keyFrames[i].mapid, newX, newY, newZ, teleport);
                     if (teleport || ((t - last_t) >= 1000))
                     {
-                        m_WayPoints[t] = pos;
+                        m_WayPoints.insert(std::make_pair(t, pos));
                         last_t = t;
                     }
                 }
@@ -261,7 +261,7 @@ bool Transporter::GenerateWaypoints()
         if(keyFrames[i+1].delay > 5)
             pos.delayed = true;
 
-        m_WayPoints.insert(WaypointMap::value_type(t, pos));
+        m_WayPoints.insert(std::make_pair(t, pos));
         last_t = t;
 
         t += keyFrames[i + 1].delay * 1000;
