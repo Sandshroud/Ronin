@@ -122,7 +122,7 @@ public:
     void UpdateMessages(uint32 diff);
     void ReturnToSender(MailMessage* message);
     void DeliverMessage(MailMessage* message);
-    void DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std::string subject, std::string body, uint32 money, uint32 cod, uint64 item_guid, uint32 stationary, bool returned);
+    void DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std::string subject, std::string body, uint32 money, uint32 cod, WoWGuid item_guid, uint32 stationary, bool returned);
 
     void SetConfigFlags(uint32 flags) { config_flags = flags; };
     HEARTHSTONE_INLINE bool MailOption(uint32 flag) { return (config_flags & flag) ? true : false; }

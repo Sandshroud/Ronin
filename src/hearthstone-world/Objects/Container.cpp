@@ -137,10 +137,8 @@ bool Container::AddItem(int16 slot, Item* item)
 
 void Container::SwapItems(int16 SrcSlot, int16 DstSlot)
 {
-    Item* temp;
     if( SrcSlot < 0 || SrcSlot >= (int8)m_itemProto->ContainerSlots )
         return;
-
     if( DstSlot < 0 || DstSlot >= (int8)m_itemProto->ContainerSlots )
         return;
 
@@ -167,7 +165,7 @@ void Container::SwapItems(int16 SrcSlot, int16 DstSlot)
         }
     }
 
-    temp = m_Slot[SrcSlot];
+    Item *temp = m_Slot[SrcSlot];
     m_Slot[SrcSlot] = m_Slot[DstSlot];
     m_Slot[DstSlot] = temp;
 
@@ -175,17 +173,13 @@ void Container::SwapItems(int16 SrcSlot, int16 DstSlot)
     {
         SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2),  m_Slot[DstSlot]->GetGUID()  );
         m_Slot[DstSlot]->m_isDirty = true;
-    }
-    else
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2), 0 );
+    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2), 0 );
 
     if( m_Slot[SrcSlot])
     {
         SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), m_Slot[SrcSlot]->GetGUID() );
         m_Slot[SrcSlot]->m_isDirty = true;
-    }
-    else
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), 0 );
+    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), 0 );
 }
 
 Item* Container::SafeRemoveAndRetreiveItemFromSlot(int16 slot, bool destroy)
@@ -194,8 +188,8 @@ Item* Container::SafeRemoveAndRetreiveItemFromSlot(int16 slot, bool destroy)
         return NULL;
 
     Item* pItem = m_Slot[slot];
-
-    if (pItem == NULL || pItem == castPtr<Item>(this)) return NULL;
+    if (pItem == NULL || pItem == this)
+        return NULL;
     m_Slot[slot] = NULL;
 
     if( pItem->GetOwner() == m_owner )

@@ -308,7 +308,7 @@ void TaxiMgr::_LoadTaxiNodes()
 
     for(i = 0; i < dbcTaxiNode.GetNumRows(); i++)
     {
-        DBCTaxiNode *node = dbcTaxiNode.LookupRow(i);
+        TaxiNodeEntry *node = dbcTaxiNode.LookupRow(i);
         if (node)
         {
             TaxiNode *n = new TaxiNode;
@@ -333,9 +333,7 @@ void TaxiMgr::_LoadTaxiPaths()
 
     for(i = 0; i < dbcTaxiPath.GetNumRows(); i++)
     {
-        DBCTaxiPath *path = dbcTaxiPath.LookupRow(i);
-
-        if (path)
+        if(TaxiPathEntry *path = dbcTaxiPath.LookupRow(i))
         {
             TaxiPath *p = new TaxiPath;
             p->from = path->from;
@@ -346,9 +344,7 @@ void TaxiMgr::_LoadTaxiPaths()
             //Load Nodes
             for(j = 0; j < dbcTaxiPathNode.GetNumRows(); j++)
             {
-                DBCTaxiPathNode *pathnode = dbcTaxiPathNode.LookupRow(j);
-
-                if (pathnode)
+                if(TaxiPathNodeEntry *pathnode = dbcTaxiPathNode.LookupRow(j))
                 {
                     if (pathnode->PathId == p->id)
                     {
@@ -371,36 +367,26 @@ void TaxiMgr::_LoadTaxiPaths()
 TaxiPath* TaxiMgr::GetTaxiPath(uint32 path)
 {
     RONIN_UNORDERED_MAP<uint32, TaxiPath*>::iterator itr;
-
-    itr = m_taxiPaths.find(path);
-
-    if (itr == m_taxiPaths.end())
-        return NULL;
-    else
+    if ((itr = m_taxiPaths.find(path)) != m_taxiPaths.end())
         return itr->second;
+    return NULL;
 }
 
 TaxiPath* TaxiMgr::GetTaxiPath(uint32 from, uint32 to)
 {
     RONIN_UNORDERED_MAP<uint32, TaxiPath*>::iterator itr;
-
     for (itr = m_taxiPaths.begin(); itr != m_taxiPaths.end(); itr++)
         if ((itr->second->to == to) && (itr->second->from == from))
             return itr->second;
-
     return NULL;
 }
 
 TaxiNode* TaxiMgr::GetTaxiNode(uint32 node)
 {
     RONIN_UNORDERED_MAP<uint32, TaxiNode*>::iterator itr;
-
-    itr = m_taxiNodes.find(node);
-
-    if (itr == m_taxiNodes.end())
-        return NULL;
-    else
+    if ((itr = m_taxiNodes.find(node)) != m_taxiNodes.end())
         return itr->second;
+    return NULL;
 }
 
 uint32 TaxiMgr::GetNearestTaxiNode( float x, float y, float z, uint32 mapid )
@@ -433,11 +419,9 @@ uint32 TaxiMgr::GetNearestTaxiNode( float x, float y, float z, uint32 mapid )
 bool TaxiMgr::GetGlobalTaxiNodeMask( uint32 curloc, uint32 *Mask )
 {
     RONIN_UNORDERED_MAP<uint32, TaxiPath*>::iterator itr;
-    uint8 field;
-
     for (itr = m_taxiPaths.begin(); itr != m_taxiPaths.end(); itr++)
     {
-        field = (uint8)((itr->second->to - 1) / 32);
+        uint8 field = (uint8)((itr->second->to - 1) / 32);
         if(field >= 12)
             continue;
         Mask[field] |= 1 << ( (itr->second->to - 1 ) % 32 );

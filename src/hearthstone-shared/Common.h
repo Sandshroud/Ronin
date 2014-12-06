@@ -331,7 +331,6 @@ Scripting system exports/imports
 #define I64FMTD "%I64u"
 #define SI64FMTD "%I64d"
 #define snprintf _snprintf
-#define atoll __atoi64
 
 #else
 
@@ -344,6 +343,7 @@ Scripting system exports/imports
 #endif
 
 #define atol(a) strtoul( a, NULL, 10)
+#define atoll(a) _strtoui64(a, NULL, 10)
 
 // fast int abs
 static inline int int32abs( const int value )

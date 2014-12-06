@@ -283,14 +283,14 @@ bool ChatHandler::HandleWPDeleteCommand(const char* args, WorldSession *m_sessio
 
 bool ChatHandler::HandleWPChangeNoCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -309,7 +309,7 @@ bool ChatHandler::HandleWPChangeNoCommand(const char* args, WorldSession *m_sess
     char* pNewID = strtok((char*)args, " ");
     uint32 NewID = (pNewID)? atoi(pNewID) : 0;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(NewID == wpid) return false;
     if(wpid)
     {
@@ -340,14 +340,14 @@ bool ChatHandler::HandleWPChangeNoCommand(const char* args, WorldSession *m_sess
 
 bool ChatHandler::HandleWPFlagsCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -362,7 +362,7 @@ bool ChatHandler::HandleWPFlagsCommand(const char* args, WorldSession *m_session
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -389,14 +389,14 @@ bool ChatHandler::HandleWPFlagsCommand(const char* args, WorldSession *m_session
 
 bool ChatHandler::HandleWPMoveHereCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -411,7 +411,7 @@ bool ChatHandler::HandleWPMoveHereCommand(const char* args, WorldSession *m_sess
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -445,14 +445,14 @@ bool ChatHandler::HandleWPMoveHereCommand(const char* args, WorldSession *m_sess
 
 bool ChatHandler::HandleWPWaitCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -469,7 +469,7 @@ bool ChatHandler::HandleWPWaitCommand(const char* args, WorldSession *m_session)
     uint32 Wait = 10000;
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -501,14 +501,14 @@ bool ChatHandler::HandleWPWaitCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleWaypointGettextCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -523,7 +523,7 @@ bool ChatHandler::HandleWaypointGettextCommand(const char* args, WorldSession *m
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if((wpid > 0) && (wpid <= ai->GetWayPointsCount()))
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -553,14 +553,14 @@ bool ChatHandler::HandleWaypointGettextCommand(const char* args, WorldSession *m
 
 bool ChatHandler::HandleWaypointForwardTextCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -575,7 +575,7 @@ bool ChatHandler::HandleWaypointForwardTextCommand(const char* args, WorldSessio
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -604,14 +604,14 @@ bool ChatHandler::HandleWaypointForwardTextCommand(const char* args, WorldSessio
 
 bool ChatHandler::HandleWaypointSetOrientationCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -626,7 +626,7 @@ bool ChatHandler::HandleWaypointSetOrientationCommand(const char* args, WorldSes
     }
 
     bool showing = ai->WayPointsShowing();
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -650,14 +650,14 @@ bool ChatHandler::HandleWaypointSetOrientationCommand(const char* args, WorldSes
 
 bool ChatHandler::HandleWaypointBackwardTextCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -672,7 +672,7 @@ bool ChatHandler::HandleWaypointBackwardTextCommand(const char* args, WorldSessi
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -699,14 +699,14 @@ bool ChatHandler::HandleWaypointBackwardTextCommand(const char* args, WorldSessi
 }
 bool ChatHandler::HandleWPSpellToCastCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -721,7 +721,7 @@ bool ChatHandler::HandleWPSpellToCastCommand(const char* args, WorldSession *m_s
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         uint32 SpellToCast = 0;
@@ -762,14 +762,14 @@ bool ChatHandler::HandleWPSpellToCastCommand(const char* args, WorldSession *m_s
 
 bool ChatHandler::HandleWPStandStateCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -785,7 +785,7 @@ bool ChatHandler::HandleWPStandStateCommand(const char* args, WorldSession *m_se
     uint32 StandState = 0;
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -823,14 +823,14 @@ bool ChatHandler::HandleWPStandStateCommand(const char* args, WorldSession *m_se
 
 bool ChatHandler::HandleWPEmoteCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -847,7 +847,7 @@ bool ChatHandler::HandleWPEmoteCommand(const char* args, WorldSession *m_session
     bool OneShot = true;
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -891,14 +891,14 @@ bool ChatHandler::HandleWPEmoteCommand(const char* args, WorldSession *m_session
 
 bool ChatHandler::HandleWPSkinCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session,  "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session,  "You should select a Waypoint.");
         return true;
@@ -914,7 +914,7 @@ bool ChatHandler::HandleWPSkinCommand(const char* args, WorldSession *m_session)
     uint32 SkinId = 0;
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if(wpid)
     {
         WayPoint* wp = ai->getWayPoint(wpid);
@@ -954,14 +954,14 @@ bool ChatHandler::HandleWPSkinCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleWPInfoCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if (guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if (guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_WAYPOINT)
+    if(guid.getHigh() != HIGHGUID_TYPE_WAYPOINT)
     {
         SystemMessage(m_session, "You should select a Waypoint.");
         return true;
@@ -976,7 +976,7 @@ bool ChatHandler::HandleWPInfoCommand(const char* args, WorldSession *m_session)
     }
     std::stringstream ss;
 
-    uint32 wpid = GUID_LOPART(guid);
+    uint32 wpid = guid.getLow();
     if((wpid > 0) && (wpid <= ai->GetWayPointsCount()))
     {
         WayPoint* wp = ai->getWayPoint(wpid);

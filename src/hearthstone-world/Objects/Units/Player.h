@@ -1916,7 +1916,7 @@ public:
     // mage invisibility
     bool m_mageInvisibility;
 
-    HEARTHSTONE_INLINE bool HasKnownTitleByEntry(uint32 entry) { CharTitlesEntry *titleEntry = dbcCharTitles.LookupEntry(entry); return (titleEntry && HasKnownTitleByIndex(titleEntry->index)); }
+    HEARTHSTONE_INLINE bool HasKnownTitleByEntry(uint32 entry) { CharTitleEntry *titleEntry = dbcCharTitles.LookupEntry(entry); return (titleEntry && HasKnownTitleByIndex(titleEntry->bit_index)); }
     HEARTHSTONE_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
     void SetKnownTitle( int32 title, bool set );
 

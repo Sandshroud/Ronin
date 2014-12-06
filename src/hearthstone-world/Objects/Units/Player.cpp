@@ -753,7 +753,7 @@ bool Player::Create(WorldPacket& data )
         if(se == NULL)
             continue;
 
-        if(se->type != SKILL_TYPE_LANGUAGE)
+        if(se->categoryId != SKILL_TYPE_LANGUAGE)
         {
             if( sWorld.StartLevel > 1 )
                 _AddSkillLine(se->id, sWorld.StartLevel * 5, sWorld.StartLevel * 5 );
@@ -2338,12 +2338,12 @@ void Player::addSpell(uint32 spell_id)
     mSpells.insert(spell_id);
 
     // Add the skill line for this spell if we don't already have it.
-    SkillLineSpell * sk = objmgr.GetSpellSkill(spell_id);
+    SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(spell_id);
     if(sk && !_HasSkillLine(sk->skilline))
     {
         SkillLineEntry * skill = dbcSkillLine.LookupEntry(sk->skilline);
         uint32 max = 1;
-        switch(skill->type)
+        switch(skill->categoryId)
         {
         case SKILL_TYPE_PROFESSION:
             max=75*((spell->RankNumber)+1);
@@ -2361,7 +2361,7 @@ void Player::addSpell(uint32 spell_id)
             break;
         }
 
-        if(sWorld.StartLevel > 1 && skill->type != SKILL_TYPE_PROFESSION && skill->type != SKILL_TYPE_SECONDARY)
+        if(sWorld.StartLevel > 1 && skill->categoryId != SKILL_TYPE_PROFESSION && skill->categoryId != SKILL_TYPE_SECONDARY)
             _AddSkillLine(sk->skilline, sWorld.StartLevel*5, max);
         else
             _AddSkillLine(sk->skilline, 1, max);
@@ -2818,7 +2818,7 @@ void Player::_SaveSkillsToDB(QueryBuffer * buf)
         {
             ss  << "(" << GetLowGUID() << ","
                 << itr->first << ","
-                << itr->second.Skill->type << ","
+                << itr->second.Skill->categoryId << ","
                 << itr->second.CurrentValue << ","
                 << itr->second.MaximumValue << ")";
             if (iI)
@@ -3256,7 +3256,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
                 for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
                 {
                     se = dbcSkillLine.LookupEntry(ss->skillid);
-                    if(se != NULL && se->type != SKILL_TYPE_LANGUAGE && ss->skillid && ss->currentval && ss->maxval)
+                    if(se != NULL && se->categoryId != SKILL_TYPE_LANGUAGE && ss->skillid && ss->currentval && ss->maxval)
                         _AddSkillLine(ss->skillid, ss->currentval, ss->maxval);
 
                     se = NULL;
@@ -3720,7 +3720,7 @@ bool Player::HasHigherSpellForSkillLine(SpellEntry* sp)
     if(sle == NULL)
         return false;
 
-    if(sle->type == SKILL_TYPE_PROFESSION)
+    if(sle->categoryId == SKILL_TYPE_PROFESSION)
         return false;
 
     if(GetSpellClass(sp))
@@ -4413,13 +4413,13 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
                 else
                     Set->itemscount++;
 
-                if( !set->RequiredSkillID || ( _GetSkillLineCurrent( set->RequiredSkillID, true ) >= set->RequiredSkillAmt ) )
+                if( !set->requiredSkill[0] || ( _GetSkillLineCurrent( set->requiredSkill[0], true ) >= set->requiredSkill[1] ) )
                 {
                     for( uint8 x = 0; x < 8; x++)
                     {
-                        if( Set->itemscount==set->itemscount[x])
+                        if( Set->itemscount == set->spellRequiredItemCount[x])
                         {//cast new spell
-                            SpellEntry *info = dbcSpell.LookupEntry( set->SpellID[x] );
+                            SpellEntry *info = dbcSpell.LookupEntry( set->setBonusSpellIds[x] );
                             Spell* spell = new Spell( this, info, true, NULL );
                             SpellCastTargets targets;
                             targets.m_unitTarget = GetGUID();
@@ -4439,9 +4439,9 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
                 {
                     for( uint32 x = 0; x < 8; x++ )
                     {
-                        if( Set->itemscount == set->itemscount[x] )
+                        if( Set->itemscount == set->spellRequiredItemCount[x] )
                         {
-                            RemoveAura( set->SpellID[x], GetGUID() );
+                            RemoveAura( set->setBonusSpellIds[x], GetGUID() );
                         }
                     }
 
@@ -6234,7 +6234,7 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot 
     // Supalosa - The hunter ability Auto Shot is using Shoot range, which is 5 yards shorter.
     // So we'll use 114, which is the correct 35 yard range used by the other Hunter abilities (arcane shot, concussive shot...)
     uint32 rIndex = spellinfo->rangeIndex;
-    SpellRange* range = dbcSpellRange.LookupEntry( rIndex );
+    SpellRangeEntry* range = dbcSpellRange.LookupEntry( rIndex );
     float minrange = GetDBCMinRange( range );
     float dist = GetDistance2dSq( target ) - target->GetSize() - GetSize();
     float maxr = GetDBCMaxRange( range );
@@ -6834,10 +6834,9 @@ void Player::JumpToEndTaxiNode(TaxiPath * path)
 void Player::RemoveSpellsFromLine(uint32 skill_line)
 {
     uint32 cnt = dbcSkillLineSpell.GetNumRows();
-    for(uint32 i=0; i < cnt; i++)
+    for(uint32 i = 0; i < cnt; i++)
     {
-        SkillLineSpell* sp = dbcSkillLineSpell.LookupRow(i);
-        if(sp)
+        if(SkillLineAbilityEntry* sp = dbcSkillLineSpell.LookupRow(i))
         {
             if(sp->skilline == skill_line)
             {
@@ -7240,7 +7239,7 @@ void Player::ClearCooldownsOnLine(uint32 skill_line, uint32 called_from)
 {
     // found an easier way.. loop spells, check skill line
     SpellSet::const_iterator itr = mSpells.begin();
-    SkillLineSpell *sk;
+    SkillLineAbilityEntry *sk;
     for(; itr != mSpells.end(); itr++)
     {
         if((*itr) == called_from)      // skip calling spell.. otherwise spammies! :D
@@ -7255,7 +7254,7 @@ void Player::ClearCooldownsOnLine(uint32 skill_line, uint32 called_from)
 void Player::ClearCooldownsOnLines(std::set<uint32> skill_lines, uint32 called_from)
 {
     SpellSet::const_iterator itr = mSpells.begin();
-    SkillLineSpell *sk;
+    SkillLineAbilityEntry *sk;
     for(; itr != mSpells.end(); itr++)
     {
         if((*itr) == called_from)      // skip calling spell.. otherwise spammies! :D
@@ -9146,7 +9145,7 @@ void Player::_UpdateMaxSkillCounts()
                 new_max = 5 * getLevel();
             else
             {
-                switch(itr->second.Skill->type)
+                switch(itr->second.Skill->categoryId)
                 {
                 case SKILL_TYPE_WEAPON:
                     {
@@ -9198,7 +9197,7 @@ void Player::_ModifySkillBonusByType(uint32 SkillType, int32 Delta)
     bool dirty = false;
     for(SkillMap::iterator itr = m_skills.begin(); itr != m_skills.end(); itr++)
     {
-        if(itr->second.Skill->type == SkillType)
+        if(itr->second.Skill->categoryId == SkillType)
         {
             itr->second.BonusValue += Delta;
             dirty=true;
@@ -9223,7 +9222,7 @@ void Player::_RemoveLanguages()
 {
     for(SkillMap::iterator itr = m_skills.begin(), it2; itr != m_skills.end();)
     {
-        if(itr->second.Skill->type == SKILL_TYPE_LANGUAGE)
+        if(itr->second.Skill->categoryId == SKILL_TYPE_LANGUAGE)
         {
             it2 = itr++;
             m_skillsByIndex.erase(it2->second.SkillPos);
@@ -9285,7 +9284,7 @@ void Player::_AddLanguages(bool All)
             if(m_skills.find(itr->skillid) != m_skills.end())
                 continue;
 
-            if(en->type == SKILL_TYPE_LANGUAGE)
+            if(en->categoryId == SKILL_TYPE_LANGUAGE)
             {
                 if(sk.Reset(itr->skillid))
                 {
@@ -9325,7 +9324,7 @@ void Player::_AdvanceAllSkills(uint32 count, bool skipprof /* = false */, uint32
     {
         if(itr->second.CurrentValue != itr->second.MaximumValue)
         {
-            if((skipprof == true) && (itr->second.Skill->type == SKILL_TYPE_PROFESSION))
+            if((skipprof == true) && (itr->second.Skill->categoryId == SKILL_TYPE_PROFESSION))
                 continue;
 
             if(max != 0)
@@ -10299,25 +10298,25 @@ void Player::FullHPMP()
 
 void Player::SetKnownTitle( int32 title, bool set )
 {
-    CharTitlesEntry *entry = dbcCharTitles.LookupEntry(title);
-    if(entry == NULL || HasKnownTitleByIndex(entry->index))
+    CharTitleEntry *entry = dbcCharTitles.LookupEntry(title);
+    if(entry == NULL || HasKnownTitleByIndex(entry->bit_index))
         return;
 
-    if(set == false && entry->index == GetUInt32Value(PLAYER_CHOSEN_TITLE))
+    if(set == false && entry->bit_index == GetUInt32Value(PLAYER_CHOSEN_TITLE))
         SetUInt32Value(PLAYER_CHOSEN_TITLE, 0);
 
-    uint32 field = PLAYER__FIELD_KNOWN_TITLES+(entry->index / 32);
-    uint32 flag = uint32(1 << (entry->index % 32));
+    uint32 field = PLAYER__FIELD_KNOWN_TITLES+(entry->bit_index / 32);
+    uint32 flag = uint32(1 << (entry->bit_index % 32));
 
     if( set ) SetFlag(field, flag);
     else RemoveFlag(field, flag);
 
     WorldPacket data( SMSG_TITLE_EARNED, 8 );
-    data << uint32( entry->index ) << uint32( set ? 1 : 0 );
+    data << uint32( entry->bit_index ) << uint32( set ? 1 : 0 );
     m_session->SendPacket( &data );
 
     if(set && GetUInt32Value(PLAYER_CHOSEN_TITLE) == 0)
-        SetUInt32Value(PLAYER_CHOSEN_TITLE, entry->index);
+        SetUInt32Value(PLAYER_CHOSEN_TITLE, entry->bit_index);
 }
 
 bool Player::HasBattlegroundQueueSlot()

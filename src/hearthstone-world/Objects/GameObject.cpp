@@ -300,10 +300,9 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_CHEST:
         {
-            Lock *pLock = dbcLock.LookupEntry(pInfo->GetLockID());
-            if(pLock)
+            if(LockEntry *pLock = dbcLock.LookupEntry(pInfo->GetLockID()))
             {
-                for(uint32 i=0; i < 8; i++)
+                for(uint32 i = 0; i < 8; i++)
                 {
                     if(pLock->locktype[i])
                     {
@@ -335,15 +334,14 @@ void GameObject::InitAI()
     if(!spellid)
         return;
 
-    SpellEntry *sp = dbcSpell.LookupEntry(spellid);
-    if(!sp)
+    if(SpellEntry *sp = dbcSpell.LookupEntry(spellid))
+        spell = sp;
+    else
     {
-        spellid = 0;
         spell = NULL;
+        spellid = 0;
         return;
     }
-    else
-        spell = sp;
 
     //ok got valid spell that will be casted on target when it comes close enough
     //get the range for that
@@ -351,16 +349,16 @@ void GameObject::InitAI()
 
     for(uint32 i = 0; i < 3; ++i)
     {
-        if(sp->Effect[i])
+        if(spell->Effect[i])
         {
-            float t = GetDBCRadius(dbcSpellRadius.LookupEntry(sp->EffectRadiusIndex[i]));
+            float t = GetDBCRadius(dbcSpellRadius.LookupEntry(spell->EffectRadiusIndex[i]));
             if(t > r)
                 r = t;
         }
     }
 
     if(r < 0.1)//no range
-        r = GetDBCMaxRange(dbcSpellRange.LookupEntry(sp->rangeIndex));
+        r = GetDBCMaxRange(dbcSpellRange.LookupEntry(spell->rangeIndex));
 
     range = r*r;//square to make code faster
     checkrate = 20;//once in 2 seconds
@@ -648,7 +646,7 @@ uint32 GameObject::GetGOReqSkill()
     if(GetInfo() == NULL)
         return 0;
 
-    Lock *lock = dbcLock.LookupEntry( GetInfo()->GetLockID() );
+    LockEntry *lock = dbcLock.LookupEntry( GetInfo()->GetLockID() );
     if(!lock)
         return 0;
     for(uint32 i=0; i < 8; ++i)

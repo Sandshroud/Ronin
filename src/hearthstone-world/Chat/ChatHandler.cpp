@@ -570,22 +570,22 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
     {
         WorldPacket data(SMSG_EMOTE, 28 + namelen);
 
-        sHookInterface.OnEmote(_player, (EmoteType)em->textid, pUnit);
+        sHookInterface.OnEmote(_player, (EmoteType)em->emoteType, pUnit);
         if(pUnit)
-            CALL_SCRIPT_EVENT(pUnit,OnEmote)(_player,(EmoteType)em->textid);
+            CALL_SCRIPT_EVENT(pUnit,OnEmote)(_player, (EmoteType)em->emoteType);
 
-        switch(em->textid)
+        switch(em->emoteType)
         {
         case EMOTE_STATE_SLEEP:
         case EMOTE_STATE_SIT:
         case EMOTE_STATE_KNEEL:
         case EMOTE_STATE_DANCE:
             {
-                _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, em->textid);
+                _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, em->emoteType);
             }break;
         }
 
-        data << (uint32)em->textid;
+        data << (uint32)em->emoteType;
         data << (uint64)GetPlayer()->GetGUID();
         GetPlayer()->SendMessageToSet(&data, true);
 
@@ -596,8 +596,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         data << (uint32)namelen;
         if( namelen > 1 )
             data.append(name, namelen);
-        else
-            data << (uint8)0x00;
+        else data << (uint8)0x00;
         GetPlayer()->SendMessageToSet(&data, true);
 
         GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaDoEmote(em->Id, pUnit);

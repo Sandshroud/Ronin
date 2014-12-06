@@ -156,17 +156,9 @@ ObjectMgr::~ObjectMgr()
 
 void ObjectMgr::LoadAchievements()
 {
-    for(uint32 i = 0; i < dbcAchievement.GetNumRows(); i++)
-    {
-        AchievementEntry * ae = dbcAchievement.LookupRow(i);
-        if(ae)
-            ae->AssociatedCriteriaCount = 0;
-    }
-
     for(uint32 i = 0; i < dbcAchievementCriteria.GetNumRows(); i++)
     {
-        AchievementCriteriaEntry * ace = dbcAchievementCriteria.LookupRow( i );
-        if( ace )
+        if( AchievementCriteriaEntry * ace = dbcAchievementCriteria.LookupRow( i ) )
         {
             AchievementCriteriaMap::iterator itr = m_achievementCriteriaMap.find( ace->requiredType );
             if( itr == m_achievementCriteriaMap.end() )
@@ -183,14 +175,8 @@ void ObjectMgr::LoadAchievements()
                 acs->insert( ace );
             }
 
-            AchievementEntry * ae = dbcAchievement.LookupEntry( ace->referredAchievement );
-            if( ae )
-            {
-                if(ae->AssociatedCriteriaCount >= 32)
-                    continue;
-                ae->AssociatedCriteria[ ae->AssociatedCriteriaCount ] = ace->ID;
-                ae->AssociatedCriteriaCount++;
-            }
+            if( AchievementEntry * ae = dbcAchievement.LookupEntry( ace->referredAchievement ) )
+                ae->associatedCriteria.push_back(ace->ID);
         }
     }
     sLog.Notice("AchievementMgr", "Loaded %u achievements", dbcAchievementCriteria.GetNumRows());
@@ -254,8 +240,7 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
         pl->m_Group = NULL;
     }
 
-    std::string pnam = std::string(pl->name);
-    RONIN_UTIL::TOLOWER(pnam);
+    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pl->name);
     i2 = m_playersInfoByName.find(pnam);
     if( i2 != m_playersInfoByName.end() && i2->second == pl )
         m_playersInfoByName.erase( i2 );
@@ -284,8 +269,7 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 {
     playernamelock.AcquireWriteLock();
     m_playersinfo[pn->guid] =  pn;
-    std::string pnam = std::string(pn->name);
-    RONIN_UTIL::TOLOWER(pnam);
+    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pn->name);
     m_playersInfoByName[pnam] = pn;
     playernamelock.ReleaseWriteLock();
 }
@@ -293,14 +277,11 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname)
 {
     playernamelock.AcquireWriteLock();
-    std::string oldn = std::string(oldname);
-    RONIN_UTIL::TOLOWER(oldn);
-
+    std::string oldn = RONIN_UTIL::TOLOWER_RETURN(oldname);
     PlayerNameStringIndexMap::iterator itr = m_playersInfoByName.find( oldn );
     if( itr != m_playersInfoByName.end() && itr->second == pn )
     {
-        std::string newn = std::string(newname);
-        RONIN_UTIL::TOLOWER(newn);
+        std::string newn = RONIN_UTIL::TOLOWER_RETURN(newname);
         m_playersInfoByName.erase( itr );
         m_playersInfoByName[newn] = pn;
     }
@@ -310,13 +291,9 @@ void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const ch
 
 void ObjectMgr::LoadSpellSkills()
 {
-    uint32 i;
-//  int total = sSkillStore.GetNumRows();
-
-    for(i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
+    for(uint32 i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
     {
-        SkillLineSpell *sp = dbcSkillLineSpell.LookupRow(i);
-        if (sp)
+        if (SkillLineAbilityEntry *sp = dbcSkillLineSpell.LookupRow(i))
         {
             mSpellSkills[sp->spell] = sp;
         }
@@ -324,7 +301,7 @@ void ObjectMgr::LoadSpellSkills()
     sLog.Notice("ObjectMgr", "%u spell skills loaded.", mSpellSkills.size());
 }
 
-SkillLineSpell* ObjectMgr::GetSpellSkill(uint32 id)
+SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 {
     return mSpellSkills[id];
 }
@@ -393,8 +370,7 @@ void ObjectMgr::LoadPlayersInfo()
 
 PlayerInfo* ObjectMgr::GetPlayerInfoByName(const char * name)
 {
-    std::string lpn = std::string(name);
-    RONIN_UTIL::TOLOWER(lpn);
+    std::string lpn = RONIN_UTIL::TOLOWER_RETURN(name);
     PlayerNameStringIndexMap::iterator i;
     PlayerInfo *rv = NULL;
     playernamelock.AcquireReadLock();
@@ -870,9 +846,7 @@ void ObjectMgr::LoadVendors()
             {
                 items = new std::map<uint32, CreatureItem>;
                 mVendors[fields[0].GetUInt32()] = items;
-            }
-            else
-                items = itr->second;
+            } else items = itr->second;
 
             itm.itemid              = fields[2].GetUInt32();
             itm.amount              = fields[3].GetUInt32();
@@ -883,11 +857,9 @@ void ObjectMgr::LoadVendors()
             itm.IsDependent         = fields[7].GetBool();
             itm.vendormask          = fields[8].GetUInt32();
 
-            uint32 ec = fields[6].GetUInt32();
-            if( ec != 0 )
+            if( uint32 ec = fields[6].GetUInt32() )
             {
-                itm.extended_cost = dbcItemExtendedCost.LookupEntry(ec);
-                if( itm.extended_cost == NULL )
+                if( (itm.extended_cost = dbcItemExtendedCost.LookupEntry(ec)) == NULL )
                 {
                     if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
                         WorldDatabase.Execute("UPDATE vendors set extendedcost = '0' where item = '%u' AND entry = '%u'", itm.itemid, fields[0].GetUInt32());
@@ -931,11 +903,8 @@ void ObjectMgr::LoadTotemSpells()
             if(!(fields[1].GetUInt32()))
                 continue;
 
-            sp = dbcSpell.LookupEntry(fields[1].GetUInt32());
-            if(!sp)
-                continue;
-
-            m_totemSpells.insert( TotemSpellMap::value_type( fields[0].GetUInt32(), sp ));
+            if(sp = dbcSpell.LookupEntry(fields[1].GetUInt32()))
+                m_totemSpells.insert(std::make_pair( fields[0].GetUInt32(), sp ));
         } while( result->NextRow() );
         delete result;
     }
@@ -1009,8 +978,7 @@ void ObjectMgr::LoadSpellFixes()
 
             if( sf_spellId )
             {
-                sp = dbcSpell.LookupEntry( sf_spellId );
-                if( sp != NULL )
+                if( sp = dbcSpell.LookupEntry( sf_spellId ) )
                 {
                     if( sf_procFlags )
                         sp->procFlags = sf_procFlags;
@@ -1025,11 +993,7 @@ void ObjectMgr::LoadSpellFixes()
                         for(j = 0; j < 3; ++j)
                             if(sf_effectClassMask[i][j])
                                 sp->EffectSpellClassMask[i][j] = sf_effectClassMask[i][j];
-                }
-                else
-                {
-                    WorldDatabase.Execute("DELETE FROM SpellFixes where spellid = '%u'", sf_spellId);
-                }
+                } else WorldDatabase.Execute("DELETE FROM SpellFixes where spellid = '%u'", sf_spellId);
             }
         }while(result->NextRow());
         delete result;
@@ -2239,14 +2203,14 @@ void ObjectMgr::LoadPetLevelupSpellMap()
 {
     CreatureFamilyEntry * creatureFamily;
     SpellEntry * sp;
-    SkillLineSpell * sk;
+    SkillLineAbilityEntry * sk;
     uint32 count = 0;
 
     for (uint32 i = 0; i < dbcCreatureFamily.GetNumRows(); i++)
     {
         //Valid hunter pet family?
         creatureFamily = dbcCreatureFamily.LookupEntry(i);
-        if(!creatureFamily || creatureFamily->pettalenttype < 0)
+        if(!creatureFamily || creatureFamily->skillLine[11] == 0)
             continue;
 
         for(uint32 j = 0; j < dbcSkillLineSpell.GetNumRows(); ++j)
@@ -2464,7 +2428,7 @@ void ObjectMgr::LoadPetLevelupSpellMap()
             ++count;
         }
     }
-    sLog.Notice("ObjectMgr", "%u Pet LevelUp Spells loaded.",   count);
+    sLog.Notice("ObjectMgr", "%u Pet LevelUp Spells loaded.", count);
 }
 
 PetLevelupSpellSet const* ObjectMgr::GetPetLevelupSpellList(uint32 petFamily)   const

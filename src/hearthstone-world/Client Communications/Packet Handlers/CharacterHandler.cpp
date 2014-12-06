@@ -145,8 +145,8 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                                 uint32 enchantid = 0;
                                 const char *enchant_field = res->Fetch()[3].GetString();
                                 if( sscanf( enchant_field , "%u,0,0;" , (unsigned int *)&enchantid ) == 1 && enchantid > 0 )
-                                    if( EnchantEntry *enc = dbcEnchant.LookupEntry( enchantid ) )
-                                        items[slot].enchantment = enc->visual;
+                                    if( SpellItemEnchantEntry *enc = dbcEnchant.LookupEntry( enchantid ) )
+                                        items[slot].enchantment = enc->visualAura;
                             }
                         }
                     }
@@ -665,8 +665,8 @@ void WorldSession::FullLogin(Player* plr)
     // Find our transporter and add us if we're on one.
     if(plr->GetTransportGuid() != 0)
     {
-        uint64 transGuid = plr->GetTransportGuid();
-        Transporter* pTrans = objmgr.GetTransporter(GUID_LOPART(transGuid));
+        WoWGuid transGuid = plr->GetTransportGuid();
+        Transporter* pTrans = objmgr.GetTransporter(transGuid.getLow());
         if(pTrans)
         {
             if(plr->isDead())

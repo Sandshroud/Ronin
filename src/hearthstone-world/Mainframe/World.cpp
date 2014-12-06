@@ -2387,6 +2387,7 @@ void World::OnHolidayChange(uint32 IgnoreHolidayId)
 
     if(!first)
     {
+        ss << ");";
         CharacterDatabase.Execute(ss.str().c_str());
         sLog.Notice("World", "Holiday Items Cleaned!");
     }

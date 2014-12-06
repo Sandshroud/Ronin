@@ -1279,7 +1279,7 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
         return NULL;        // Shouldn't happen
     }
 
-    t = time(NULL);
+    t = UNIXTIME;
 #ifdef WIN32
     tm = *localtime(&t);
 #else

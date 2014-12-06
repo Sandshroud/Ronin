@@ -437,7 +437,7 @@ public:
     Player* m_escorter;
     void DestroyCustomWaypointMap();
     bool IsInLimboState() { return m_limbostate; }
-    uint32 GetLineByFamily(CreatureFamilyEntry * family){return family->skilline ? family->skilline : 0;};
+    uint32 GetLineByFamily(CreatureFamilyEntry * family) { return family->skillLine[0] ? family->skillLine[0] : 0; };
     void RemoveLimboState(Unit* healer);
     void SetGuardWaypoints();
     MapCell * m_respawnCell;

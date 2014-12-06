@@ -58,16 +58,16 @@ const char* creaturefamilyFormat = "ufufuuuuuxsx";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
 const char* creaturespelldataFormat = "uuuuuuuuu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(CharTitlesEntry, dbcCharTitles);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(CharTitleEntry, dbcCharTitles);
 const char* chartitlesFormat = "uxsxux";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(DBCTaxiNode, dbcTaxiNode);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiNodeEntry, dbcTaxiNode);
 const char* dbctaxinodeFormat = "uufffxuu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(DBCTaxiPath, dbcTaxiPath);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiPathEntry, dbcTaxiPath);
 const char* dbctaxipathFormat = "uuuu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(DBCTaxiPathNode, dbcTaxiPathNode);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiPathNodeEntry, dbcTaxiPathNode);
 const char* dbctaxipathnodeFormat = "uuuufffuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DurabilityCostsEntry, dbcDurabilityCosts);
@@ -79,7 +79,7 @@ const char * durabilityqualityFormat = "uf";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(EmoteEntry, dbcEmoteEntry);
 const char* EmoteEntryFormat = "uxuuuuxuxuxxxxxxxxx";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(EnchantEntry, dbcEnchant);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellItemEnchantEntry, dbcEnchant);
 const char* EnchantEntryFormat = "uxuuuuuuuuuuuusxuuuxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(FactionEntry, dbcFaction);
@@ -134,7 +134,7 @@ const char* itemrandomsuffixFormat = "usxuuuuuuuuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemSetEntry, dbcItemSet);
 const char* ItemSetFormat = "dsuuuuuuuuuuxxxxxxxuuuuuuuuuuuuuuuuuu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(Lock, dbcLock);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(LockEntry, dbcLock);
 const char* LockFormat = "uuuuuuxxxuuuuuxxxuuuuuxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
@@ -149,13 +149,13 @@ const char* glypepropertiesFormat="uuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(NumTalentsAtLevelEntry, dbcNumTalents);
 const char* numtalentsFormat="uf";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(QuestXPEntry, dbcQuestXP);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(QuestXPLevelEntry, dbcQuestXP);
 const char* questxpFormat="niiiiiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineEntry, dbcSkillLine);
 const char* SkillLineEntryFormat = "uuusxxxx";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineSpell, dbcSkillLineSpell);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineAbilityEntry, dbcSkillLineSpell);
 const char* SkillLineSpellFormat = "uuuuuuuuuuuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRating);
@@ -182,7 +182,7 @@ const char* spellaurarestrictionFormat = "uuuuuuuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCastingRequirementsEntry, dbcSpellCastingRequirements);
 const char* spellcastingrequirementFormat = "uuxxixu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCastTime, dbcSpellCastTime);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCastTimeEntry, dbcSpellCastTime);
 const char* spellcasttimeFormat = "uuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCategoriesEntry, dbcSpellCategories);
@@ -197,7 +197,7 @@ const char* spellcooldownFormat = "uuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellDifficultyEntry, dbcSpellDifficulty);
 const char* spelldifficultyFormat = "uuuuu";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellDuration, dbcSpellDuration);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellDurationEntry, dbcSpellDuration);
 const char* spelldurationFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellEffectEntry, dbcSpellEffect);
@@ -215,10 +215,10 @@ const char* spelllevelFormat = "uuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellPowerEntry, dbcSpellPower);
 const char* spellpowerFormat = "uuuuuxx";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRadius, dbcSpellRadius);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRadiusEntry, dbcSpellRadius);
 const char* spellradiusFormat = "ufxf";
 
-DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRange, dbcSpellRange);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRangeEntry, dbcSpellRange);
 const char* spellrangeFormat = "uffffxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellReagentsEntry, dbcSpellReagents);

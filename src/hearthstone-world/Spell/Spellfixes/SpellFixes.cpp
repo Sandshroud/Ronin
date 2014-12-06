@@ -278,7 +278,7 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     }
     // SpellEquippedItemsEntry
     sp->EquippedItemClass = 0;
-    sp->RequiredItemFlags = 0;
+    sp->EquippedItemInventoryTypeMask = 0;
     sp->EquippedItemSubClass = 0;
     // SpellInterruptsEntry
     sp->AuraInterruptFlags = 0;
@@ -528,7 +528,7 @@ void PoolSpellData()
         if(EquippedItems != NULL)
         {
             spellInfo->EquippedItemClass = EquippedItems->EquippedItemClass;
-            spellInfo->RequiredItemFlags = EquippedItems->EquippedItemInventoryTypeMask;
+            spellInfo->EquippedItemInventoryTypeMask = EquippedItems->EquippedItemInventoryTypeMask;
             spellInfo->EquippedItemSubClass = EquippedItems->EquippedItemSubClassMask;
         }
 
@@ -564,7 +564,7 @@ void PoolSpellData()
         SpellReagentsEntry* sReagent = dbcSpellReagents.LookupEntry(spellInfo->SpellReagentsId);
         if(sReagent != NULL)
         {
-            for(int i = 0; i < 8; ++i)
+            for(int8 i = 0; i < 8; ++i)
             {
                 spellInfo->Reagent[i] = sReagent->Reagent[i];
                 spellInfo->ReagentCount[i] = sReagent->ReagentCount[i];

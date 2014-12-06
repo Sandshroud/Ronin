@@ -879,20 +879,15 @@ void MapMgr::_UpdateObjects()
         return;
     }
 
-    WorldObject* pObj;
-    Player* pOwner;
-    std::unordered_set<Player*  >::iterator it_start, it_end, itr;
-    Player* lplr;
     uint32 count = 0;
-
+    WorldObject *pObj;
     ObjectSet::iterator iter = _updates.begin();
-    PlayerSet::iterator it, eit;
-
+    PlayerSet::iterator itr, it_start, it_end;
     for(; iter != _updates.end();)
     {
         pObj = *iter;
         ++iter;
-        if(!pObj)
+        if(pObj == NULL)
             continue;
 
         if( pObj->IsInWorld() )
@@ -916,6 +911,7 @@ void MapMgr::_UpdateObjects()
             count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>(NULL) );
             if( count )
             {
+                Player *lplr;
                 it_start = pObj->GetInRangePlayerSetBegin();
                 it_end = pObj->GetInRangePlayerSetEnd();
                 for(itr = it_start; itr != it_end;)
@@ -935,12 +931,10 @@ void MapMgr::_UpdateObjects()
 
     // generate pending a9packets and send to clients.
     Player* plyr;
-    for(it = _processQueue.begin(); it != _processQueue.end();)
+    for(itr = _processQueue.begin(); itr != _processQueue.end();)
     {
-        plyr = *it;
-        eit = it;
-        ++it;
-        _processQueue.erase(eit);
+        plyr = *itr;
+        itr = _processQueue.erase(itr);
         if(plyr->GetMapMgr() == this)
             plyr->PopPendingUpdates();
     }
@@ -949,14 +943,12 @@ void MapMgr::_UpdateObjects()
 
 void MapMgr::UpdateAllCells(bool apply, uint32 areamask)
 {
-    // eek
     uint16 AreaID = 0;
     MapCell * cellInfo;
     CellSpawns * spawns;
     uint32 StartX = 0, EndX = 0, StartY = 0, EndY = 0;
     GetBaseMap()->GetCellLimits(StartX, EndX, StartY, EndY);
-    if(!areamask)
-        sLog.Info("MapMgr", "Updating all cells for map %03u, server might lag.", _mapId);
+    if(!areamask) sLog.Info("MapMgr", "Updating all cells for map %03u, server might lag.", _mapId);
     for( uint32 x = StartX ; x < EndX ; x ++ )
     {
         for( uint32 y = StartY ; y < EndY ; y ++ )
@@ -992,18 +984,11 @@ void MapMgr::UpdateAllCells(bool apply, uint32 areamask)
                 AddForcedCell(cellInfo, 0);
                 if (!cellInfo->IsLoaded())
                 {
-                    spawns = _map->GetSpawnsList( x , y );
-                    if( spawns )
+                    if( spawns = _map->GetSpawnsList( x , y ) )
                         cellInfo->LoadObjects( spawns );
                 }
-            }
-            else
-            {
-                if(!cellInfo)
-                    continue;
-
+            } else if(cellInfo != NULL)
                 RemoveForcedCell(cellInfo);
-            }
         }
     }
     if(!areamask)
@@ -1298,9 +1283,6 @@ bool MapMgr::Do()
     // otherwise theres a lot of sub esp; going on.
 
     uint32 exec_time, exec_start;
-#ifdef WIN32
-    HANDLE hThread = GetCurrentThread();
-#endif
     while(true)
     {
         if(!SetThreadState(THREADSTATE_BUSY))
@@ -1475,8 +1457,7 @@ void MapMgr::_PerformObjectDuties()
     uint32 mstime = getMSTime(); // Get our ms time
     ++mLoopCounter; // Inc loop counter
     // Calculate loop diff
-    uint32 diff = mstime - lastDutyUpdate;
-    if(diff > 500) diff = 500;
+    uint32 diff = std::min((uint32)500, mstime - lastDutyUpdate);
     // Update duty timer
     lastDutyUpdate = mstime;
 
@@ -1503,7 +1484,7 @@ void MapMgr::_PerformObjectDuties()
     if(!SetThreadState(THREADSTATE_AWAITING))
         return;
 
-    // Update our objects.
+    // Update our objects every 2 ticks(planned 200ms)
     if( (mLoopCounter % 2) == 0 )
     {
         diff = mstime - lastUnitUpdate;
@@ -1544,7 +1525,7 @@ void MapMgr::_PerformObjectDuties()
     if(!SetThreadState(THREADSTATE_AWAITING))
         return;
 
-    // Update gameobjects every 4 ticks(planned 200ms)
+    // Update gameobjects every 4 ticks(planned 400ms)
     if( (mLoopCounter % 4) == 0 )
     {
         diff = mstime - lastGameobjectUpdate;
@@ -1580,9 +1561,7 @@ void MapMgr::_PerformObjectDuties()
     {
         int result = 0;
         WorldSession * MapSession;
-        SessionSet::iterator itr = MapSessions.begin();
-        SessionSet::iterator it2;
-
+        SessionSet::iterator itr = MapSessions.begin(), it2;
         for(; itr != MapSessions.end();)
         {
             MapSession = (*itr);

@@ -1073,18 +1073,19 @@ bool ChatHandler::HandleAddTitleCommand(const char* args, WorldSession* m_sessio
     Player* plr = getSelectedChar(m_session);
     if(plr == NULL || args == NULL)
         return true;
-
-    CharTitlesEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
     if(entry == NULL)
     {
         RedSystemMessage(m_session, "An existing title entry is required to be specified after this command.");
         return true;
     }
 
-    BlueSystemMessage(m_session, "Adding title number %u to %s.", entry->entry, plr->GetName());
-    plr->SetKnownTitle(entry->entry, true);
-    GreenSystemMessageToPlr(plr, "%s added title number %u to you.", m_session->GetPlayer()->GetName(), entry->entry);
-    sWorld.LogGM(m_session, "added title number %u to %s", entry->entry, plr->GetName());
+    std::string title = format(entry->title, plr->GetName());
+    BlueSystemMessage(m_session, "Adding title %s", title.c_str());
+    plr->SetKnownTitle(entry->Id, true);
+    if(m_session->GetPlayer() != plr)
+        GreenSystemMessageToPlr(plr, "%s added title %s to you.", m_session->GetPlayer()->GetName(), title.c_str());
+    sWorld.LogGM(m_session, "added title number %u to %s", entry->Id, plr->GetName());
     return true;
 }
 bool ChatHandler::HandleRemoveTitleCommand(const char* args, WorldSession* m_session)
@@ -1092,18 +1093,19 @@ bool ChatHandler::HandleRemoveTitleCommand(const char* args, WorldSession* m_ses
     Player* plr = getSelectedChar(m_session);
     if(plr == NULL || args == NULL)
         return true;
-
-    CharTitlesEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
     if(entry == NULL)
     {
         RedSystemMessage(m_session, "A title number (numeric) is required to be specified after this command.");
         return true;
     }
 
-    BlueSystemMessage(m_session, "Removing title number %u from %s.", entry->entry, plr->GetName());
-    plr->SetKnownTitle(entry->entry, false);
-    GreenSystemMessageToPlr(plr, "%s removed title number %u from you.", m_session->GetPlayer()->GetName(), entry->entry);
-    sWorld.LogGM(m_session, "removed title number %u from %s", entry->entry, plr->GetName());
+    std::string title = format(entry->title, plr->GetName());
+    BlueSystemMessage(m_session, "Removing title %s.", title.c_str());
+    plr->SetKnownTitle(entry->Id, false);
+    if(m_session->GetPlayer() != plr)
+        GreenSystemMessageToPlr(plr, "%s removed title %s from you.", m_session->GetPlayer()->GetName(), title.c_str());
+    sWorld.LogGM(m_session, "removed title number %u from %s", entry->Id, plr->GetName());
     return true;
 }
 
@@ -1114,9 +1116,9 @@ bool ChatHandler::HandleGetKnownTitlesCommand(const char* args, WorldSession* m_
         return true;
 
     GreenSystemMessage(m_session, "Starting title listing...");
-    for(ConstructDBCStorageIterator(CharTitlesEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
-        if(plr->HasKnownTitleByIndex((*itr)->index))
-            BlueSystemMessage(m_session, (*itr)->name1, plr->GetName());
+    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
+        if(plr->HasKnownTitleByIndex((*itr)->bit_index))
+            BlueSystemMessage(m_session, (*itr)->title, plr->GetName());
     GreenSystemMessage(m_session, "Finished title listing.");
     return true;
 }
@@ -1127,23 +1129,23 @@ bool ChatHandler::HandleSetChosenTitleCommand(const char* args, WorldSession* m_
     if(plr == NULL || args == NULL)
         return true;
 
-    CharTitlesEntry *charTitles = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *charTitles = dbcCharTitles.LookupEntry(atoi(args));
     if(charTitles == NULL)
     {
         RedSystemMessage(m_session, "A title valid entry is required to be specified after this command.");
         return true;
     }
 
-    sWorld.LogGM(m_session, "set title number %u for %s", charTitles->entry, plr->GetName());
-    if(!plr->HasKnownTitleByIndex(charTitles->index))
+    sWorld.LogGM(m_session, "set title number %u for %s", charTitles->Id, plr->GetName());
+    if(!plr->HasKnownTitleByIndex(charTitles->bit_index))
     {
         RedSystemMessage(m_session, "Selected player doesn't know this title.");
         return true;
     }
 
-    BlueSystemMessage(m_session, "Setting title number %u for %s.", charTitles->entry, plr->GetName());
-    plr->SetUInt32Value(PLAYER_CHOSEN_TITLE, charTitles->index);
-    GreenSystemMessageToPlr(plr, "%s set title number %u for you.", m_session->GetPlayer()->GetName(), charTitles->entry);
+    BlueSystemMessage(m_session, "Setting title number %u for %s.", charTitles->Id, plr->GetName());
+    plr->SetUInt32Value(PLAYER_CHOSEN_TITLE, charTitles->bit_index);
+    GreenSystemMessageToPlr(plr, "%s set title number %u for you.", m_session->GetPlayer()->GetName(), charTitles->Id);
     return true;
 }
 
@@ -1173,7 +1175,7 @@ bool ChatHandler::HandleCreatePetCommand(const char* args, WorldSession* m_sessi
         return false;
 
     CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(ctrData->Family);
-    if(cf && !cf->tameable)
+    if(cf && !cf->skillLine[1])
         return false;
 
     Pet* pPet = objmgr.CreatePet(ctrData);
@@ -1569,7 +1571,7 @@ bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_se
     for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
     {
         se = dbcSkillLine.LookupEntry(ss->skillid);
-        if(se->type != SKILL_TYPE_LANGUAGE && ss->skillid && ss->currentval && ss->maxval)
+        if(se->categoryId != SKILL_TYPE_LANGUAGE && ss->skillid && ss->currentval && ss->maxval)
             plr->_AddSkillLine(ss->skillid, ss->currentval, ss->maxval);
     }
 
@@ -2283,9 +2285,9 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
     }
 
     GreenSystemMessage(m_session, "Initializing title finder.");
-    for(ConstructDBCStorageIterator(CharTitlesEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
-        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN((*itr)->name1)))
-            BlueSystemMessage(m_session, "Title %03u: %s", (*itr)->entry, format((*itr)->name1, m_session->GetPlayer()->GetName()).c_str());
+    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
+        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN((*itr)->title)))
+            BlueSystemMessage(m_session, "Title %03u: %s", (*itr)->Id, format((*itr)->title, m_session->GetPlayer()->GetName()).c_str());
     GreenSystemMessage(m_session, "End title find.");
     return true;
 }
@@ -2430,6 +2432,9 @@ bool ChatHandler::HandleCreateArenaTeamCommands(const char * args, WorldSession 
     char name[1000];
     uint32 real_type;
     Player* plr = getSelectedChar(m_session, true);
+    if(plr == NULL)
+        return true;
+
     if(sscanf(args, "%u %s", &arena_team_type, name) != 2)
     {
         SystemMessage(m_session, "Invalid syntax.");
@@ -2438,22 +2443,13 @@ bool ChatHandler::HandleCreateArenaTeamCommands(const char * args, WorldSession 
 
     switch(arena_team_type)
     {
-    case 2:
-        real_type= 0;
-        break;
-    case 3:
-        real_type=1;
-        break;
-    case 5:
-        real_type=2;
-        break;
+    case 2: real_type = 0; break;
+    case 3: real_type = 1; break;
+    case 5: real_type = 2; break;
     default:
         SystemMessage(m_session, "Invalid arena team type specified.");
         return true;
     }
-
-    if(!plr)
-        return true;
 
     if(plr->m_playerInfo->arenaTeam[real_type] != NULL)
     {

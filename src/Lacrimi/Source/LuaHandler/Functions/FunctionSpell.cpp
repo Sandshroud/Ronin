@@ -58,7 +58,7 @@ LuaSpellEntry luaSpellVars[] = {
     {"ReagentCount", 0, offsetof(SpellEntry, ReagentCount[0])},
     {"EquippedItemClass", 0, offsetof(SpellEntry, EquippedItemClass)},
     {"EquippedItemSubClass", 0, offsetof(SpellEntry, EquippedItemSubClass)},
-    {"RequiredItemFlags", 0, offsetof(SpellEntry, RequiredItemFlags)},
+    {"EquippedItemInventoryTypeMask", 0, offsetof(SpellEntry, EquippedItemInventoryTypeMask)},
     {"Effect", 0, offsetof(SpellEntry, Effect[0])},
     {"EffectDieSides", 0, offsetof(SpellEntry, EffectDieSides[0])},
     {"EffectRealPointsPerLevel", 3, offsetof(SpellEntry, EffectRealPointsPerLevel[0])},

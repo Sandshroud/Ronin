@@ -67,12 +67,10 @@ void Spell::FillTargetMap(uint32 i)
 
     if(TargetType & SPELL_TARGET_OBJECT_PETOWNER)
     {
-        uint64 guid = m_targets.m_unitTarget;
-        if(GUID_HIPART(guid) == HIGHGUID_TYPE_PET)
+        WoWGuid guid = m_targets.m_unitTarget;
+        if(guid.getHigh() == HIGHGUID_TYPE_PET)
         {
-            Pet* p = m_caster->GetMapMgr()->GetPet(GUID_LOPART(guid));
-
-            if(p != NULL)
+            if(Pet* p = m_caster->GetMapMgr()->GetPet(guid))
                 AddTarget(i, TargetType, p->GetPetOwner());
         }
     }
@@ -170,7 +168,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         _AddTargetForced(obj->GetGUID(), i);
 
     //final checks, require line of sight unless range/radius is 50000 yards
-    SpellRange* r = dbcSpellRange.LookupEntry(m_spellInfo->rangeIndex);
+    SpellRangeEntry* r = dbcSpellRange.LookupEntry(m_spellInfo->rangeIndex);
     if(sWorld.Collision && r->maxRangeHostile < 50000 && GetRadius(i) < 50000 && !obj->IsItem())
     {
         float x = m_caster->GetPositionX(), y = m_caster->GetPositionY(), z = m_caster->GetPositionZ() + 0.5f;

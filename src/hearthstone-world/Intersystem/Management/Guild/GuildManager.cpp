@@ -1475,7 +1475,7 @@ void GuildMgr::RebuildGuildRosterBuffer(uint32 guildId)
     {
         if(itr->second->pPlayer->m_loggedInPlayer)
             gInfo->m_guildRosterBuffer << float(0); // Logged in vs logged out
-        else gInfo->m_guildRosterBuffer << float(float(time(NULL) - itr->second->pPlayer->lastOnline) / TIME_DAY);
+        else gInfo->m_guildRosterBuffer << float(float(UNIXTIME - itr->second->pPlayer->lastOnline) / TIME_DAY);
     }
 
     gInfo->m_guildRosterBufferLock.Release();

@@ -380,7 +380,7 @@ void MailSystem::ReturnToSender(MailMessage* message)
 }
 
 void MailSystem::DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std::string subject, std::string body,
-                                      uint32 money, uint32 cod, uint64 item_guid, uint32 stationary, bool returned)
+                                      uint32 money, uint32 cod, WoWGuid item_guid, uint32 stationary, bool returned)
 {
     // This is for sending automated messages, for example from an auction house.
     MailMessage msg;
@@ -392,8 +392,8 @@ void MailSystem::DeliverMessage(uint32 type, uint64 sender, uint64 receiver, std
     msg.body = body;
     msg.money = money;
     msg.cod = cod;
-    if( GUID_LOPART(item_guid) != 0 )
-        msg.items.push_back( GUID_LOPART(item_guid) );
+    if( !item_guid.empty() )
+        msg.items.push_back(item_guid);
 
     msg.stationary = stationary;
     msg.delivery_time = (uint32)UNIXTIME;

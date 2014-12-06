@@ -1499,10 +1499,9 @@ int32 ConvertDB2DBCGemType(uint32 DBGemType)
 
 void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
 {
-    uint64 itemguid;
-    uint64 gemguid[3];
+    uint64 itemguid, gemguid[3];
     GemPropertyEntry * gp = NULL;
-    EnchantEntry * Enchantment;
+    SpellItemEnchantEntry * Enchantment;
     recvPacket >> itemguid;
 
     CHECK_INWORLD_RETURN();

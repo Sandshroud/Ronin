@@ -685,8 +685,7 @@ void Aura::EventUpdateCreatureAA(float r)
     {
         if( !(areatargets & AA_TARGET_NOTSELF) )
         {
-            Aura* aura = NULL;
-            aura = new Aura(m_spellProto, -1, m_caster, m_caster);
+            Aura* aura = new Aura(m_spellProto, -1, m_caster, m_caster);
             aura->m_areaAura = true;
             for(i = 0; i < 3; i++)
             {
@@ -727,11 +726,10 @@ void Aura::EventUpdateCreatureAA(float r)
             if( !(*it3) )
                 continue;
 
-            if( (*it3)->IsUnit() )
-                target = castPtr<Unit>( (*it3) );
-            else
+            if( !(*it3)->IsUnit() )
                 continue;
 
+            target = castPtr<Unit>( (*it3) );
             if( sFactionSystem.isHostile( m_caster, target ) )
                 continue;
 

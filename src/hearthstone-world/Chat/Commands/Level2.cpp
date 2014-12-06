@@ -1006,14 +1006,14 @@ bool ChatHandler::HandleNpcJumpCommand(const char* args, WorldSession* m_session
 
 bool ChatHandler::HandleVendorClearCommand(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -1056,14 +1056,14 @@ bool ChatHandler::HandleItemSetCommand(const char* args, WorldSession *m_session
     if(strlen(args) < 1)
         return false;
 
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -1123,14 +1123,14 @@ bool ChatHandler::HandleItemSetRemoveCommand(const char* args, WorldSession *m_s
     if(strlen(args) < 1)
         return false;
 
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -1177,14 +1177,14 @@ bool ChatHandler::HandleItemSetRemoveCommand(const char* args, WorldSession *m_s
 
 bool ChatHandler::HandleTrainerAddLearnSpell(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");
@@ -1225,14 +1225,14 @@ bool ChatHandler::HandleTrainerAddLearnSpell(const char* args, WorldSession *m_s
 
 bool ChatHandler::HandleTrainerAddCastSpell(const char* args, WorldSession *m_session)
 {
-    uint64 guid = m_session->GetPlayer()->GetSelection();
-    if(guid == 0)
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty())
     {
         SystemMessage(m_session, "No selection.");
         return true;
     }
 
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
     if(!pCreature)
     {
         SystemMessage(m_session, "You should select a creature.");

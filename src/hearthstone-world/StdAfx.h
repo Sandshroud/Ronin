@@ -106,6 +106,7 @@ extern "C" {
 #include "Object.h"
 #include "AI_Headers.h"
 #include "AuraInterface.h"
+#include "MovementInterface.h"
 #include "StatSystem.h"
 #include "Unit.h"
 

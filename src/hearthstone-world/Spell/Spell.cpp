@@ -42,7 +42,7 @@ int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, Unit* u_caster, Unit* unitTa
     int32 m_duration = -1, c_dur = 0;
     if(m_spellInfo->DurationIndex)
     {
-        SpellDuration *sd = dbcSpellDuration.LookupEntry(m_spellInfo->DurationIndex);
+        SpellDurationEntry *sd = dbcSpellDuration.LookupEntry(m_spellInfo->DurationIndex);
         if(sd == NULL)
             return m_duration;
 
@@ -2811,7 +2811,7 @@ uint8 Spell::CanCast(bool tolerate)
 
             if( GetSpellProto()->IsSpellWeaponSpell() && u_caster->disarmed )
                 return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
-            if( u_caster->disarmedShield && GetSpellProto()->RequiredItemFlags && (GetSpellProto()->RequiredItemFlags & (1 << INVTYPE_SHIELD)) )
+            if( u_caster->disarmedShield && GetSpellProto()->EquippedItemInventoryTypeMask && (GetSpellProto()->EquippedItemInventoryTypeMask & (1 << INVTYPE_SHIELD)) )
                 return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
         }
 
@@ -3186,7 +3186,7 @@ uint8 Spell::CanCast(bool tolerate)
             if( GetSpellProto()->EquippedItemSubClass && !(GetSpellProto()->EquippedItemSubClass & (1 << proto->SubClass)) &&  GetSpellProto()->EffectMiscValueB[0] != (int32)proto->SubClass )
                 return SPELL_FAILED_BAD_TARGETS;
 
-            if( GetSpellProto()->RequiredItemFlags && !(GetSpellProto()->RequiredItemFlags & (1 << proto->InventoryType)) && proto->InventoryType != 0 )
+            if( GetSpellProto()->EquippedItemInventoryTypeMask && !(GetSpellProto()->EquippedItemInventoryTypeMask & (1 << proto->InventoryType)) && proto->InventoryType != 0 )
                 return SPELL_FAILED_BAD_TARGETS;
 
             if(proto->ItemLevel > 0)
@@ -4174,7 +4174,7 @@ void Spell::DetermineSkillUp(uint32 skillid)
     if(p_caster == NULL)
         return;
     float chance = 0.0f;
-    SkillLineSpell* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
+    SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
     if( skill != NULL && castPtr<Player>( m_caster )->_HasSkillLine( skill->skilline ) )
     {
         uint32 amt = castPtr<Player>( m_caster )->_GetSkillLineCurrent( skill->skilline, false );

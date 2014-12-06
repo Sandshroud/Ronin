@@ -1763,7 +1763,7 @@ uint32 QuestMgr::GenerateQuestXP(Player* plr, Quest *qst)
     uint32 xp = qst->reward_xp;
     if(xp == NULL)
     {
-        QuestXPEntry *xpentry = dbcQuestXP.LookupEntry(quest_level);
+        QuestXPLevelEntry *xpentry = dbcQuestXP.LookupEntry(quest_level);
         if(xpentry == NULL)
             return 0;
         xp = diffFactor * xpentry->xpIndex[qst->reward_xp_index] / 10;

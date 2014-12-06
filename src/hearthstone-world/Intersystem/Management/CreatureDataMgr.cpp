@@ -131,13 +131,13 @@ void CreatureDataManager::LoadFromDB()
                 continue;
             }
 
-            SkillLineSpell * _spell = objmgr.GetSpellSkill(spellID);
+            SkillLineAbilityEntry * _spell = objmgr.GetSpellSkill(spellID);
             if(_spell)
             {
                 SkillLineEntry * _skill = dbcSkillLine.LookupEntry(_spell->skilline);
                 if(_skill)
                 {
-                    if(_skill->type == SKILL_TYPE_PROFESSION)
+                    if(_skill->categoryId == SKILL_TYPE_PROFESSION)
                     {
                         sLog.outError("Creature %u has SpellID %u, which is a profession.", entry, spellID);
                         continue;

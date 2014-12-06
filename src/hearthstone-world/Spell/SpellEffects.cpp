@@ -776,7 +776,7 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
     if(!item_count)
         item_count = damage;
 
-    SkillLineSpell* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
+    SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
     if(skill)
     {
         // Profession Discoveries
@@ -1154,9 +1154,11 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                 if(!itemTarget->m_locked)
                     return;
 
-                Lock *lock = dbcLock.LookupEntry( itemTarget->GetProto()->LockId );
-                if(!lock) return;
-                for(int i=0; i < 8; ++i)
+                LockEntry *lock = dbcLock.LookupEntry( itemTarget->GetProto()->LockId );
+                if(lock == NULL)
+                    return;
+
+                for(int8 i = 0; i < 8; ++i)
                 {
                     if(lock->locktype[i] == 2 && lock->minlockskill[i] && lockskill >= lock->minlockskill[i])
                     {
@@ -1173,7 +1175,7 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                 if(gameObjTarget->GetState() == 0)
                     return;
 
-                Lock *lock = dbcLock.LookupEntry(gameObjTarget->GetInfo()->GetLockID());
+                LockEntry *lock = dbcLock.LookupEntry(gameObjTarget->GetInfo()->GetLockID());
                 if( lock == NULL )
                     return;
 
@@ -1212,9 +1214,7 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                         lootmgr.FillGOLoot(gameObjTarget->GetLoot(),gameObjTarget->GetEntry(), (gameObjTarget->GetMapMgr() ? gameObjTarget->GetMapMgr()->iInstanceMode : 0), p_caster->GetTeam());
                     } else bAlreadyUsed = true;
                 }
-            }
-            else
-                SendCastResult(SPELL_FAILED_TRY_AGAIN);
+            } else SendCastResult(SPELL_FAILED_TRY_AGAIN);
 
             //Skill up
             if(!bAlreadyUsed) //Avoid cheats with opening/closing without taking the loot
@@ -1349,13 +1349,13 @@ void Spell::SpellEffectProficiency(uint32 i)
         return;
 
     uint32 skill = 0;
-    if (SkillLineSpell* skillability = objmgr.GetSpellSkill(GetSpellProto()->Id))
+    if (SkillLineAbilityEntry* skillability = objmgr.GetSpellSkill(GetSpellProto()->Id))
         skill = skillability->skilline;
     if(SkillLineEntry* sk = dbcSkillLine.LookupEntry(skill))
     {
         if(!playerTarget->_HasSkillLine(skill))
         {
-            if(sk && sk->type == SKILL_TYPE_WEAPON)
+            if(sk && sk->categoryId == SKILL_TYPE_WEAPON)
             {
                 if(sWorld.StartLevel > 1)
                     playerTarget->_AddSkillLine(skill, 5*sWorld.StartLevel, 5*playerTarget->getLevel());
@@ -1677,7 +1677,7 @@ void Spell::SpellEffectSkillStep(uint32 i) // Skill Step
         return;
 
     uint32 max = 1;
-    switch( sk->type )
+    switch( sk->categoryId )
     {
     case SKILL_TYPE_PROFESSION:
     case SKILL_TYPE_SECONDARY:
@@ -2048,7 +2048,7 @@ void Spell::SpellEffectEnchantItem(uint32 i) // Enchant Item Permanent
     }
     //End of Scroll Creation
 
-    EnchantEntry * Enchantment = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
+    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
     if(Enchantment == NULL )
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", GetSpellProto()->EffectMiscValue[i], GetSpellProto()->Id);
@@ -2094,7 +2094,7 @@ void Spell::SpellEffectEnchantItemTemporary(uint32 i)  // Enchant Item Temporary
         return;
     }
 
-    EnchantEntry * Enchantment = dbcEnchant.LookupEntry(EnchantmentID);
+    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry(EnchantmentID);
     if(!Enchantment)
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", EnchantmentID, m_spellInfo->Id);
@@ -2107,8 +2107,7 @@ void Spell::SpellEffectEnchantItemTemporary(uint32 i)  // Enchant Item Temporary
     if(Slot < 0)
         return; // Apply failed
 
-    SkillLineSpell* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
-    if(skill)
+    if(SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(GetSpellProto()->Id))
         DetermineSkillUp(skill->skilline,itemTarget->GetProto()->ItemLevel);
 
     itemTarget->m_isDirty = true;
@@ -2122,7 +2121,7 @@ void Spell::SpellEffectAddPrismaticSocket(uint32 i)
     if(!itemTarget)
         return;
 
-    EnchantEntry* pEnchant = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
+    SpellItemEnchantEntry* pEnchant = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
     if(!pEnchant)
         return;
 
@@ -2189,7 +2188,7 @@ void Spell::SpellEffectTameCreature(uint32 i)
         result = SPELL_FAILED_HIGHLEVEL;
     else if(p_caster->GeneratePetNumber() == 0)
         result = SPELL_FAILED_BAD_TARGETS;
-    else if(!cf || cf && !cf->tameable)
+    else if(cf == NULL || (cf && !cf->skillLine[1]))
         result = SPELL_FAILED_BAD_TARGETS;
     else if(isExotic(cf->ID) && !p_caster->m_BeastMaster)
         result = SPELL_FAILED_BAD_TARGETS;
@@ -2228,12 +2227,8 @@ void Spell::SpellEffectSummonPet(uint32 i) //summon - pet
             return;
         }
 
-        uint8 petno = p_caster->GetUnstabledPetNumber();
-
-        if(petno)
-        {
+        if(uint8 petno = p_caster->GetUnstabledPetNumber())
             p_caster->SpawnPet(petno);
-        }
         else
         {
             WorldPacket data(SMSG_AREA_TRIGGER_MESSAGE, 50);
@@ -3756,7 +3751,7 @@ void Spell::SpellEffectEnchantHeldItem( uint32 i )
         }break;
     }
 
-    EnchantEntry * Enchantment = dbcEnchant.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
+    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
     if( Enchantment == NULL )
         return;
 
@@ -4029,18 +4024,12 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
     if( p_caster == NULL)
         return;
 
-    ItemPrototype *m_itemProto = NULL;
-    Item* newItem = NULL;
-    Item* add = NULL;
-    uint8 slot = NULL;
-    uint32 itemid;
     SlotResult slotresult;
+    Item *newItem = NULL, *add = NULL;
+    SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
 
-    SkillLineSpell* skill = NULL;
-    skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
-
-    itemid = GetSpellProto()->EffectItemType[i];
-    m_itemProto = ItemPrototypeStorage.LookupEntry( GetSpellProto()->EffectItemType[i] );
+    uint32 itemid = GetSpellProto()->EffectItemType[i];
+    ItemPrototype *m_itemProto = ItemPrototypeStorage.LookupEntry( GetSpellProto()->EffectItemType[i] );
     if ( m_itemProto == NULL || itemid == 0)
         return;
 
@@ -4126,14 +4115,12 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
         item_count = m_itemProto->Unique;
 
     if(p_caster->GetItemInterface()->CanReceiveItem(m_itemProto, item_count, NULL))
-        {
-            SendCastResult(SPELL_FAILED_TOO_MANY_OF_ITEM);
-            return;
-        }
+    {
+        SendCastResult(SPELL_FAILED_TOO_MANY_OF_ITEM);
+        return;
+    }
 
-    slot = 0;
-    add = p_caster->GetItemInterface()->FindItemLessMax(itemid,1, false);
-    if (add == NULL)
+    if ((add = p_caster->GetItemInterface()->FindItemLessMax(itemid,1, false)) == NULL)
     {
         slotresult = p_caster->GetItemInterface()->FindFreeInventorySlot(m_itemProto);
         if(!slotresult.Result)
@@ -4142,7 +4129,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
               return;
         }
 
-        newItem =objmgr.CreateItem(itemid,p_caster);
+        newItem = objmgr.CreateItem(itemid,p_caster);
         if(newItem == NULL)
             return;
         newItem->SetUInt64Value(ITEM_FIELD_CREATOR,m_caster->GetGUID());

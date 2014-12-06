@@ -89,11 +89,11 @@ void ObjectMgr::LoadExtraItemStuff()
     for(ConstructDBCStorageIterator(ItemSetEntry) itr = dbcItemSet.begin(); itr != dbcItemSet.end(); ++itr)
     {
         ItemSetEntry *itemset = (*itr);
-        for(uint8 i = 0; i < 10; i++)
+        for(uint8 i = 0; i < 9; i++)
         {
-            if(itemset->itemid[i])
+            if(itemset->setItems[i])
             {
-                ItemsInSets.insert(std::make_pair(itemset->itemid[i], itemset->id));
+                ItemsInSets.insert(std::make_pair(itemset->setItems[i], itemset->id));
             }
         }
     }
@@ -195,9 +195,7 @@ void ObjectMgr::LoadExtraItemStuff()
                             if(!oldRanking)
                                 oldRanking = rank;
                             rank = rankByPrefix.at(Prefix);
-                        }
-                        else
-                            rankByPrefix.insert(std::make_pair(Prefix, rank));
+                        } else rankByPrefix.insert(std::make_pair(Prefix, rank));
 
                         IP->ItemSetRank = rank;
                         if(UsedRanks.find(rank) == UsedRanks.end())

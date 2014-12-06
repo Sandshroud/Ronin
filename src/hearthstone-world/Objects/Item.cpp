@@ -148,21 +148,20 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
 
     std::string enchant_field = fields[15].GetString();
     std::vector< std::string > enchants = RONIN_UTIL::StrSplit( enchant_field, ";" );
-    uint32 enchant_id;
-    EnchantEntry* entry;
-    uint32 time_left;
-    uint32 enchslot;
-    uint32 dummy = 0;
+    uint32 enchant_id = 0, time_left = 0, enchslot = 0, dummy = 0;
+    SpellItemEnchantEntry* entry;
 
     for( std::vector<std::string>::iterator itr = enchants.begin(); itr != enchants.end(); itr++ )
     {
         if( sscanf( (*itr).c_str(), "%u,%u,%u,%u", (unsigned int*)&enchant_id, (unsigned int*)&time_left, (unsigned int*)&enchslot, (unsigned int*)&dummy) > 3 )
         {
-            entry = dbcEnchant.LookupEntry( enchant_id );
-            if( entry && entry->Id == enchant_id )
+            if(SpellItemEnchantEntry *entry = dbcEnchant.LookupEntry( enchant_id ))
             {
-                AddEnchantment( entry, time_left, ( time_left == 0 ), false, false, enchslot, 0, ((dummy > 0) ? true : false) );
-                //(enchslot != 2) ? false : true, false);
+                if( entry->Id == enchant_id )
+                {
+                    AddEnchantment( entry, time_left, ( time_left == 0 ), false, false, enchslot, 0, ((dummy > 0) ? true : false) );
+                    //(enchslot != 2) ? false : true, false);
+                }
             }
         }
     }
@@ -211,14 +210,16 @@ void Item::ApplyRandomProperties( bool apply )
             {
                 for( int k = 0; k < 3; k++ )
                 {
-                    if( rp->spells[k] != 0 )
+                    if( rp->enchant_id[k] != 0 )
                     {
-                        EnchantEntry* ee = dbcEnchant.LookupEntry( rp->spells[k] );
-                        int32 Slot = HasEnchantment( ee->Id );
-                        if( Slot < 0 )
+                        if(SpellItemEnchantEntry* ee = dbcEnchant.LookupEntry( rp->enchant_id[k] ))
                         {
-                            AddEnchantment( ee, 0, false, apply, true, FindFreeEnchantSlot( ee, 1 ) );
-                        } else if( apply ) ApplyEnchantmentBonus( Slot, true );
+                            int32 Slot = HasEnchantment( ee->Id );
+                            if( Slot < 0 )
+                            {
+                                AddEnchantment( ee, 0, false, apply, true, FindFreeEnchantSlot( ee, 1 ) );
+                            } else if( apply ) ApplyEnchantmentBonus( Slot, true );
+                        }
                     }
                 }
             }
@@ -229,7 +230,7 @@ void Item::ApplyRandomProperties( bool apply )
             {
                 if( rs->enchantments[k] != 0 )
                 {
-                    EnchantEntry* ee = dbcEnchant.LookupEntry( rs->enchantments[k] );
+                    SpellItemEnchantEntry* ee = dbcEnchant.LookupEntry( rs->enchantments[k] );
                     int32 Slot = HasEnchantment( ee->Id );
                     if( Slot < 0 )
                     {
@@ -319,16 +320,9 @@ void Item::DeleteFromDB()
 uint32 Item::GetSkillByProto( uint32 Class, uint32 SubClass )
 {
     if( Class == 4 && SubClass < 7 )
-    {
         return arm_skills[SubClass];
-    }
-    else if( Class == 2 )
-    {
-        if( SubClass < 20 )//no skill for fishing
-        {
-            return weap_skills[SubClass];
-        }
-    }
+    else if( Class == 2 && SubClass < 20 )//no skill for fishing
+        return weap_skills[SubClass];
     return 0;
 }
 
@@ -392,16 +386,14 @@ uint32 Item::GetSellPriceForItem( uint32 itemid, uint32 count )
 {
     if( ItemPrototype* proto = ItemPrototypeStorage.LookupEntry( itemid ) )
         return Item::GetSellPriceForItem(proto, count);
-    else
-        return 1;
+    return 1;
 }
 
 uint32 Item::GetBuyPriceForItem( uint32 itemid, uint32 count, Player* plr, Creature* vendor )
 {
     if( ItemPrototype* proto = ItemPrototypeStorage.LookupEntry( itemid ) )
         return Item::GetBuyPriceForItem( proto, count, plr, vendor );
-    else
-        return 1;
+    return 1;
 }
 
 void Item::RemoveFromWorld(bool destroy)
@@ -423,7 +415,7 @@ void Item::SetOwner( Player* owner )
     m_owner = owner;
 }
 
-int32 Item::AddEnchantment(EnchantEntry* Enchantment, uint32 Duration, bool Perm /* = false */, bool apply /* = true */, bool RemoveAtLogout /* = false */, uint32 Slot_, uint32 RandomSuffix, bool dummy /* = false */ )
+int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm /* = false */, bool apply /* = true */, bool RemoveAtLogout /* = false */, uint32 Slot_, uint32 RandomSuffix, bool dummy /* = false */ )
 {
     int32 Slot = Slot_;
     m_isDirty = true;
@@ -509,7 +501,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
     if( itr == Enchantments.end() )
         return;
 
-    EnchantEntry* Entry = itr->second.Enchantment;
+    SpellItemEnchantEntry* Entry = itr->second.Enchantment;
     uint32 RandomSuffixAmount = itr->second.RandomSuffix;
 
     if( itr->second.Dummy )
@@ -547,7 +539,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
 
             case 2:      // Mod damage done.
                 {
-                    int32 val = Entry->min[c];
+                    int32 val = Entry->maxPoints[c];
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
@@ -581,7 +573,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
 
             case 4:      // Modify physical resistance
                 {
-                    int32 val = Entry->min[c];
+                    int32 val = Entry->maxPoints[c];
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
@@ -592,7 +584,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
                 {
                     //spellid is enum ITEM_STAT_TYPE
                     //min=max is amount
-                    int32 val = Entry->min[c];
+                    int32 val = Entry->maxPoints[c];
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
@@ -602,7 +594,7 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
             case 6:  // Rockbiter weapon (increase damage per second... how the hell do you calc that)
                 {
                     //if i'm not wrong then we should apply DMPS formula for this. This will have somewhat a larger value 28->34
-                    int32 val = Entry->min[c];
+                    int32 val = Entry->maxPoints[c];
                     if( RandomSuffixAmount )
                         val = RANDOM_SUFFIX_MAGIC_CALCULATION( RandomSuffixAmount, GetItemRandomSuffixFactor() );
 
@@ -663,7 +655,7 @@ void Item::EventRemoveEnchantment( uint32 Slot )
     RemoveEnchantment( Slot );
 }
 
-int32 Item::FindFreeEnchantSlot( EnchantEntry* Enchantment, uint32 random_type )
+int32 Item::FindFreeEnchantSlot( SpellItemEnchantEntry* Enchantment, uint32 random_type )
 {
     uint32 GemSlotsReserve = GetMaxSocketsCount();
     if( GetProto()->SocketBonus )
@@ -742,7 +734,7 @@ void Item::RemoveAllEnchantments( bool OnlyTemporary )
     }
 }
 
-void Item::RemoveRelatedEnchants( EnchantEntry* newEnchant )
+void Item::RemoveRelatedEnchants( SpellItemEnchantEntry* newEnchant )
 {
     EnchantmentMap::iterator itr,itr2;
     for( itr = Enchantments.begin(); itr != Enchantments.end(); )
@@ -810,7 +802,7 @@ EnchantmentInstance* Item::GetEnchantment( uint32 slot )
         return NULL;
 }
 
-bool Item::IsGemRelated( EnchantEntry* Enchantment )
+bool Item::IsGemRelated( SpellItemEnchantEntry* Enchantment )
 {
     if( GetProto()->SocketBonus == Enchantment->Id )
         return true;
@@ -843,7 +835,7 @@ uint32 Item::GenerateRandomSuffixFactor( ItemPrototype* m_itemProto )
 //////////////////////////////////////////////////////////////////////////
 // Item Links
 //////////////////////////////////////////////////////////////////////////
-static const char *g_itemQualityColours[15] = {
+static const char *g_itemQualityColours[9] = {
     "|cff9d9d9d",       // Grey
     "|cffffffff",       // White
     "|cff1eff00",       // Green
@@ -852,13 +844,7 @@ static const char *g_itemQualityColours[15] = {
     "|cffff8000",       // Orange
     "|cffe6cc80",       // Artifact
     "|cffe5cc80",       // Heirloom
-    "|cff00ffff",       // Turquoise
-    "|cff00ffff",       //
-    "|cff00ffff",       //
-    "|cff00ffff",       //
-    "|cff00ffff",       //
-    "|cff00ffff",       //
-    "|cff00ffff",       //
+    "|cff00ffff"        // Turquoise
 };
 
 std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack)
@@ -893,8 +879,8 @@ std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_s
     }
 
     // construct full link
-    snprintf(buf, 1000, "%s|Hitem:%u:0:0:0:0:0:%d:0|h[%s%s%s]%s|h|r", g_itemQualityColours[Quality], ItemId, /* suffix/prop */ random_suffix ? (-(int32)random_suffix) : random_prop,
-        Name1, rstxt, rptxt, sbuf);
+    snprintf(buf, 1000, "%s|Hitem:%u:0:0:0:0:0:%d:0|h[%s%s%s]%s|h|r", g_itemQualityColours[(Quality < 9 ? Quality : 9)],
+        ItemId, /* suffix/prop */ random_suffix ? (-(int32)random_suffix) : random_prop, Name1, rstxt, rptxt, sbuf);
 
     return std::string(buf);
 }

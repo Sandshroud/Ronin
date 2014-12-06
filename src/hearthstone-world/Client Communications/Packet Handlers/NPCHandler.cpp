@@ -236,7 +236,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
                     SkillLineEntry* sle = dbcSkillLine.LookupEntry(pSpell->RequiredSkillLine);
                     if( _player->_HasSkillLine(skill) )
                         _player->_ModifySkillMaximum(skill, val);
-                    else if(sWorld.StartLevel > 1 && (sle == NULL || (sle->type != SKILL_TYPE_PROFESSION && sle->type != SKILL_TYPE_SECONDARY)))
+                    else if(sWorld.StartLevel > 1 && (sle == NULL || (sle->categoryId != SKILL_TYPE_PROFESSION && sle->categoryId != SKILL_TYPE_SECONDARY)))
                         _player->_AddSkillLine( skill, 5*sWorld.StartLevel, val);
                     else
                         _player->_AddSkillLine( skill, 1, val);
@@ -307,10 +307,10 @@ uint8 WorldSession::TrainerGetSpellStatus(TrainerSpell* pSpell)
             SpellEntry* sp = dbcSpell.LookupEntry(pSpell->RequiredSkillLine);
             if(sp != NULL) // We accidentally put a spell here... -_-
             {
-                SkillLineSpell* sls = dbcSkillLineSpell.LookupEntry(sp->Id);
-                if(sls) // We purposely put a spell here, but we're still wrong... -_-
+                // We purposely put a spell here, but we're still wrong... -_-
+                if(SkillLineAbilityEntry* sla = dbcSkillLineSpell.LookupEntry(sp->Id))
                 {
-                    if(_player->_GetSkillLineCurrent(sls->skilline, true) < pSpell->RequiredSkillLineValue)
+                    if(_player->_GetSkillLineCurrent(sla->skilline, true) < pSpell->RequiredSkillLineValue)
                         hasskill = false;
                 }
             }
@@ -368,11 +368,7 @@ void WorldSession::SendCharterRequest(Creature* pCreature)
             pCreature->GetEntry()==18897 || pCreature->GetEntry()==19856)
         {
             data << uint16(ARENA_TEAM_CHARTER_2v2);  // ItemId of the guild charter
-        }
-        else
-        {
-            data << uint16(0x16E7);  // ItemId of the guild charter
-        }
+        } else data << uint16(0x16E7);  // ItemId of the guild charter
 
         data << float(0.62890625);  // strange floating point
         data << uint16(0);          // unknown
@@ -546,9 +542,7 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
                 sp->prepare(&targets);
             }
         }
-    }
-    else
-        _player->ResurrectPlayer();
+    } else _player->ResurrectPlayer();
 }
 
 //////////////////////////////////////////////////////////////

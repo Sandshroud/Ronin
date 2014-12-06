@@ -38,7 +38,7 @@ bool FillPathVector(uint32 PathID, TransportPath & Path)
 
     for(uint32 j = 0; j < dbcTaxiPathNode.GetNumRows(); j++)
     {
-        DBCTaxiPathNode *pathnode = dbcTaxiPathNode.LookupRow(j);
+        TaxiPathNodeEntry *pathnode = dbcTaxiPathNode.LookupRow(j);
         if(pathnode->PathId == PathID)
         {
             Path[i].mapid       = pathnode->ContinentID;

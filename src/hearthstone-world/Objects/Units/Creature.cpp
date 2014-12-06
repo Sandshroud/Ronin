@@ -206,7 +206,7 @@ uint32 Creature::GetRequiredLootSkill()
     else if(GetCreatureData()->Flags & CREATURE_FLAGS1_ENGINEERLOOT)
         return SKILL_ENGINERING;
     else return SKILL_SKINNING;      // skinning
-};
+}
 
 void Creature::GenerateLoot()
 {

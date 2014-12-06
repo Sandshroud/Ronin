@@ -105,7 +105,6 @@ typedef unsigned __int8 uint8;
 #define I64FMTD "%I64u"
 #define SI64FMTD "%I64d"
 #define snprintf _snprintf
-#define atoll __atoi64
 
 #else
 

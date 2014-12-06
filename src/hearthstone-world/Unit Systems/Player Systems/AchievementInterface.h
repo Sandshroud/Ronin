@@ -8,10 +8,10 @@ struct AchievementData
 {
     uint32 id;
     bool completed;
-    uint32 date;
+    time_t date;
     uint32 groupid;
     uint32 num_criterias;
-    uint32 counter[32];
+    std::map<uint32, uint64> counters;
     uint32 completionTimeLast;
     bool m_isDirty;
 };
@@ -170,6 +170,7 @@ private:
     void GiveRewardsForAchievement(AchievementEntry * ae);
     void EventAchievementEarned(AchievementData * pData);
     void SendCriteriaUpdate(AchievementData * ad, uint32 idx);
+    bool UpdateAssociatedCriteria(AchievementEntry *entry, AchievementData *ad, AchievementCriteriaEntry *ace, uint64 counter, bool increment);
     bool CanCompleteAchievement(AchievementData * ad);
     bool HandleBeforeChecks(AchievementData * ad);
     bool IsHardCoded(AchievementEntry * ae);

@@ -8,9 +8,9 @@ void WorldSession::HandleGuildQuery(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guildId, playerGuid;
+    WoWGuid guildId, playerGuid;
     recv_data >> guildId >> playerGuid;
-    guildmgr.Packet_SendGuildQuery(this, GUID_LOPART(guildId));
+    guildmgr.Packet_SendGuildQuery(this, guildId.getLow());
 }
 
 void WorldSession::HandleInviteToGuild(WorldPacket & recv_data)

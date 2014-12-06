@@ -6,7 +6,7 @@
 
 struct EnchantmentInstance
 {
-    EnchantEntry * Enchantment;
+    SpellItemEnchantEntry *Enchantment;
     bool BonusApplied;
     uint32 Slot;
     time_t ApplyTime;
@@ -260,7 +260,7 @@ public:
     }
 
     //! Adds an enchantment to the item.
-    int32 AddEnchantment( EnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
+    int32 AddEnchantment( SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
     uint32 GetMaxSocketsCount();
 
     const char* ConstructItemLink() { return m_itemProto->ConstructItemLink(GetItemRandomPropertyId(), GetItemRandomSuffixFactor(), GetStackCount()).c_str(); }
@@ -269,7 +269,7 @@ public:
     void RemoveEnchantment( uint32 EnchantmentSlot );
 
     // Removes related temporary enchants
-    void RemoveRelatedEnchants( EnchantEntry* newEnchant );
+    void RemoveRelatedEnchants( SpellItemEnchantEntry* newEnchant );
 
     //! Adds the bonus on an enchanted item.
     void ApplyEnchantmentBonus( uint32 Slot, bool Apply );
@@ -290,7 +290,7 @@ public:
     void ModifyEnchantmentTime( uint32 Slot, uint32 Duration );
 
     //! Find free enchantment slot.
-    int32 FindFreeEnchantSlot( EnchantEntry* Enchantment, uint32 random_type );
+    int32 FindFreeEnchantSlot( SpellItemEnchantEntry* Enchantment, uint32 random_type );
 
     //! Removes all enchantments.
     void RemoveAllEnchantments( bool OnlyTemporary );
@@ -316,7 +316,7 @@ public:
 
     uint32 CountGemsWithLimitId(uint32 Limit);
     EnchantmentInstance* GetEnchantment( uint32 slot );
-    bool IsGemRelated( EnchantEntry* Enchantment );
+    bool IsGemRelated( SpellItemEnchantEntry* Enchantment );
 
     static uint32 GenerateRandomSuffixFactor( ItemPrototype* m_itemProto );
 

@@ -3,3 +3,8 @@
  */
 
 #include "StdAfx.h"
+
+MovementInterface::MovementInterface()
+{
+
+}

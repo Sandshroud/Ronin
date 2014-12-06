@@ -293,7 +293,7 @@ public:
     typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                         CorpseCollectorMap;
     typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                         PlayerNameMap;
     typedef RONIN_UNORDERED_MAP<uint32, PlayerCreateInfo*>                   PlayerCreateInfoMap;
-    typedef RONIN_UNORDERED_MAP<uint32, SkillLineSpell*>                     SLMap;
+    typedef RONIN_UNORDERED_MAP<uint32, SkillLineAbilityEntry*>              SLMap;
     typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >    VendorMap;
     typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                       TransportMap;
     typedef RONIN_UNORDERED_MAP<uint32, Trainer*>                            TrainerMap;
@@ -403,7 +403,7 @@ public:
 
     uint32 GetGossipTextForNpc(uint32 ID);
 
-    SkillLineSpell* GetSpellSkill(uint32 id);
+    SkillLineAbilityEntry* GetSpellSkill(uint32 id);
 
     //Vendors
     std::map<uint32, CreatureItem> *GetVendorList(uint32 entry);

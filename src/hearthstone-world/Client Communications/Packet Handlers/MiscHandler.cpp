@@ -363,9 +363,9 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                 pGO->GetLoot()->looters.erase( _player->GetGUID() );
                 //check for locktypes
 
-                if( Lock* pLock = dbcLock.LookupEntry( pGO->GetInfo()->GetLockID() ) )
+                if( LockEntry* pLock = dbcLock.LookupEntry( pGO->GetInfo()->GetLockID() ) )
                 {
-                    for( uint32 i=0; i < 8; i++ )
+                    for( uint32 i = 0; i < 8; i++ )
                     {
                         if( pLock->locktype[i] )
                         {
@@ -1417,13 +1417,10 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
         return;
     }
 
-    Lock *lock = dbcLock.LookupEntry( pItem->GetProto()->LockId );
-
     uint32 removeLockItems[8] = {0,0,0,0,0,0,0,0};
-
-    if(lock) // locked item
+    if(LockEntry *lock = dbcLock.LookupEntry( pItem->GetProto()->LockId )) // locked item
     {
-        for(int i=0; i<8;++i)
+        for(int8 i=0; i<8;++i)
         {
             if(lock->locktype[i] == 1 && lock->lockmisc[i] > 0)
             {
@@ -1444,7 +1441,8 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
                 return;
             }
         }
-        for(int j=0; j<8;++j)
+
+        for(int8 j=0; j<8;++j)
         {
             if(removeLockItems[j])
                 _player->GetItemInterface()->RemoveItemAmt(removeLockItems[j],1);
@@ -1743,7 +1741,7 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
 
 void WorldSession::HandleCalendarGetCalendar(WorldPacket& recv_data)
 {
-    time_t cur_time = time(NULL);
+    time_t cur_time = UNIXTIME;
 
     WorldPacket data(SMSG_CALENDAR_SEND_CALENDAR, 4+4*0+4+4*0+4+4);
 

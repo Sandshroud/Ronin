@@ -447,7 +447,7 @@ void Spell::SummonGuardian(uint32 i, SummonPropertiesEntry * Properties, Creatur
     // it's health., or a fucked up infernal.
     if( Properties == NULL )
         damage = 1;
-    else if( damage < 1 || (Properties->unk2 & 2 || Properties->Id == 711))
+    else if( damage < 1 || (Properties->summonPropFlags & 2 || Properties->Id == 711))
         damage = 1;
 
     if(data->Entry == 31216) // mirror image

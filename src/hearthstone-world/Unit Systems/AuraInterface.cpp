@@ -1324,7 +1324,7 @@ uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily,
         {
             if (m_auras.at(x)->m_spellProto->SpellFamilyName == spellFamily)
             {
-                SkillLineSpell *sk = objmgr.GetSpellSkill(m_auras.at(x)->GetSpellId());
+                SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(m_auras.at(x)->GetSpellId());
                 if(sk && sk->skilline == SkillLine)
                 {
                     count++;
