@@ -134,7 +134,7 @@ int luaItem_AddEnchantment(lua_State * L, Item* ptr)
     bool permanent = (duration == 0) ? true : false;
     bool temp = (luaL_checkint(L, 3) == 1) ? true : false;
 
-    SpellItemEnchantEntry *eentry = dbcEnchant.LookupEntry( entry );
+    SpellItemEnchantEntry *eentry = dbcSpellItemEnchant.LookupEntry( entry );
     if(eentry == NULL)
         RET_NIL(true);
 

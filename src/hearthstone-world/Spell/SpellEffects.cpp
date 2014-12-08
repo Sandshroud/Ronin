@@ -2048,7 +2048,7 @@ void Spell::SpellEffectEnchantItem(uint32 i) // Enchant Item Permanent
     }
     //End of Scroll Creation
 
-    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
+    SpellItemEnchantEntry * Enchantment = dbcSpellItemEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
     if(Enchantment == NULL )
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", GetSpellProto()->EffectMiscValue[i], GetSpellProto()->Id);
@@ -2094,7 +2094,7 @@ void Spell::SpellEffectEnchantItemTemporary(uint32 i)  // Enchant Item Temporary
         return;
     }
 
-    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry(EnchantmentID);
+    SpellItemEnchantEntry * Enchantment = dbcSpellItemEnchant.LookupEntry(EnchantmentID);
     if(!Enchantment)
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", EnchantmentID, m_spellInfo->Id);
@@ -2121,7 +2121,7 @@ void Spell::SpellEffectAddPrismaticSocket(uint32 i)
     if(!itemTarget)
         return;
 
-    SpellItemEnchantEntry* pEnchant = dbcEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
+    SpellItemEnchantEntry* pEnchant = dbcSpellItemEnchant.LookupEntry(GetSpellProto()->EffectMiscValue[i]);
     if(!pEnchant)
         return;
 
@@ -3751,7 +3751,7 @@ void Spell::SpellEffectEnchantHeldItem( uint32 i )
         }break;
     }
 
-    SpellItemEnchantEntry * Enchantment = dbcEnchant.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
+    SpellItemEnchantEntry * Enchantment = dbcSpellItemEnchant.LookupEntry( GetSpellProto()->EffectMiscValue[i] );
     if( Enchantment == NULL )
         return;
 

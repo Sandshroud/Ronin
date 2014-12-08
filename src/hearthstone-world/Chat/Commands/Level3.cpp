@@ -1073,7 +1073,7 @@ bool ChatHandler::HandleAddTitleCommand(const char* args, WorldSession* m_sessio
     Player* plr = getSelectedChar(m_session);
     if(plr == NULL || args == NULL)
         return true;
-    CharTitleEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *entry = dbcCharTitle.LookupEntry(atoi(args));
     if(entry == NULL)
     {
         RedSystemMessage(m_session, "An existing title entry is required to be specified after this command.");
@@ -1093,7 +1093,7 @@ bool ChatHandler::HandleRemoveTitleCommand(const char* args, WorldSession* m_ses
     Player* plr = getSelectedChar(m_session);
     if(plr == NULL || args == NULL)
         return true;
-    CharTitleEntry *entry = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *entry = dbcCharTitle.LookupEntry(atoi(args));
     if(entry == NULL)
     {
         RedSystemMessage(m_session, "A title number (numeric) is required to be specified after this command.");
@@ -1116,7 +1116,7 @@ bool ChatHandler::HandleGetKnownTitlesCommand(const char* args, WorldSession* m_
         return true;
 
     GreenSystemMessage(m_session, "Starting title listing...");
-    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
+    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitle.begin(); itr != dbcCharTitle.end(); ++itr)
         if(plr->HasKnownTitleByIndex((*itr)->bit_index))
             BlueSystemMessage(m_session, (*itr)->title, plr->GetName());
     GreenSystemMessage(m_session, "Finished title listing.");
@@ -1129,7 +1129,7 @@ bool ChatHandler::HandleSetChosenTitleCommand(const char* args, WorldSession* m_
     if(plr == NULL || args == NULL)
         return true;
 
-    CharTitleEntry *charTitles = dbcCharTitles.LookupEntry(atoi(args));
+    CharTitleEntry *charTitles = dbcCharTitle.LookupEntry(atoi(args));
     if(charTitles == NULL)
     {
         RedSystemMessage(m_session, "A title valid entry is required to be specified after this command.");
@@ -2285,7 +2285,7 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
     }
 
     GreenSystemMessage(m_session, "Initializing title finder.");
-    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitles.begin(); itr != dbcCharTitles.end(); ++itr)
+    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitle.begin(); itr != dbcCharTitle.end(); ++itr)
         if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN((*itr)->title)))
             BlueSystemMessage(m_session, "Title %03u: %s", (*itr)->Id, format((*itr)->title, m_session->GetPlayer()->GetName()).c_str());
     GreenSystemMessage(m_session, "End title find.");

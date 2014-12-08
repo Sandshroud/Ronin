@@ -145,7 +145,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                                 uint32 enchantid = 0;
                                 const char *enchant_field = res->Fetch()[3].GetString();
                                 if( sscanf( enchant_field , "%u,0,0;" , (unsigned int *)&enchantid ) == 1 && enchantid > 0 )
-                                    if( SpellItemEnchantEntry *enc = dbcEnchant.LookupEntry( enchantid ) )
+                                    if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( enchantid ) )
                                         items[slot].enchantment = enc->visualAura;
                             }
                         }

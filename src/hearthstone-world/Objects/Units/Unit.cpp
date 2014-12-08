@@ -4352,8 +4352,8 @@ void Unit::ReplaceAIInterface(AIInterface *new_interface)
 
 void Unit::EventModelChange()
 {
-    CreatureBoundData *boundData = dbcCreatureBoundData.LookupEntry(GetUInt32Value(UNIT_FIELD_DISPLAYID));
-    if(boundData) //TODO: if has mount, grab mount model and add the z value of attachment 0
+    //TODO: if has mount, grab mount model and add the z value of attachment 0
+    if(CreatureBoundDataEntry *boundData = dbcCreatureBoundData.LookupEntry(GetUInt32Value(UNIT_FIELD_DISPLAYID)))
         m_modelhalfsize = boundData->High[2]/2;
     else m_modelhalfsize = 1.0f;
 }

@@ -28,8 +28,8 @@ struct AreaTableEntry
     char* name;
     uint32 category;
     uint32 liquidOverrides[4];
-    //uint32 unk[3];
-    //uint32 unk[5]; // 4.x
+    //float unk[2];
+    //uint32 unk[7]; // 4.x
 };
 
 struct AreaTriggerEntry
@@ -49,7 +49,7 @@ struct AreaTriggerEntry
     float box_yaw;
 };
 
-struct AuctionHouseDBC
+struct AuctionHouseEntry
 {
     uint32 id;
     uint32 faction;
@@ -134,7 +134,6 @@ struct CharRaceEntry
     //char *clientFileString;
     uint32 CinematicId;
     uint32 TeamId;
-    //uint32 unkTeam;
     char*  Name;
     //char *name2;
     //char *name3;
@@ -147,11 +146,14 @@ struct CharRaceEntry
 struct CharStartOutfitEntry
 {
     uint32 index;
-    uint32 RaceClassGenderMask;
+    uint8 Race;
+    uint8 Class;
+    uint8 Gender;
+    //uint8 padding;
     uint32 itemId[24];
     //uint32 itemDisplayId[24];
     //uint32 itemInventorySlot[24];
-    //uint32 unk[5];
+    //uint32 unk[2];
 };
 
 struct CharTitleEntry
@@ -164,7 +166,7 @@ struct CharTitleEntry
     //uint32 unk3;
 };
 
-struct ChatChannelDBC
+struct ChatChannelEntry
 {
     uint32 id;
     uint32 flags;
@@ -173,17 +175,25 @@ struct ChatChannelDBC
     //char *shortName;
 };
 
-struct CreatureDisplayInfo
+struct CreatureBoundDataEntry
+{
+    uint32 Entry; // Display ID
+    float Low[3];
+    float High[3];
+    float BoundRadius;
+};
+
+struct CreatureDisplayInfoEntry
 {
     uint32 ID;
-    //uint32 ModelData
-    //uint32 Sound
-    //uint32 ExtraDisplayInfoEntry
+    //uint32 ModelData;
+    //uint32 Sound;
+    uint32 ExtraDisplayInfoEntry;
     float Scale;
     //uint32 unk[12];
 };
 
-struct CreatureDisplayInfoExtra
+struct CreatureDisplayInfoExtraEntry
 {
     uint32 DisplayExtraId;
     uint32 Race;
@@ -193,17 +203,9 @@ struct CreatureDisplayInfoExtra
     //uint32 HairType;
     //uint32 HairStyle;
     //uint32 FacialHair;
-    //uint32 Equipment;
+    //uint32 Equipment[11];
     //uint32 canEquip;
     //char *modelName;
-};
-
-struct CreatureBoundData
-{
-    uint32 Entry; // Display ID
-    float Low[3];
-    float High[3];
-    float BoundRadius;
 };
 
 struct CreatureFamilyEntry
@@ -297,6 +299,7 @@ struct EmoteTextEntry
     //char *name;
     uint32 textId;
     //char *textEmote;
+    //uint32 unk[15];
 };
 
 struct FactionEntry
@@ -348,7 +351,6 @@ struct GemPropertyEntry
     uint32 EnchantmentID;
     //uint32 maxCountInv;
     //uint32 maxCountItem;
-    //uint32 gemType;
     uint32 SocketMask;
     //uint32 unk;
 };
@@ -375,73 +377,74 @@ struct ItemDataEntry
 
 struct ItemSparseEntry
 {
-    uint32 ID;                          // 0
-    uint32 Quality;                     // 1
-    uint32 Flags;                       // 2
-    uint32 Flags2;                      // 3
-    uint32 BuyPrice;                    // 4
-    uint32 SellPrice;                   // 5
-    uint32 InventoryType;               // 6
-    int32  AllowableClass;              // 7
-    int32  AllowableRace;               // 8
-    uint32 ItemLevel;                   // 9
-    int32  RequiredLevel;               // 10
-    uint32 RequiredSkill;               // 11
-    uint32 RequiredSkillRank;           // 12
-    uint32 RequiredSpell;               // 13
-    uint32 RequiredHonorRank;           // 14
-    uint32 RequiredCityRank;            // 15
-    uint32 RequiredReputationFaction;   // 16
-    uint32 RequiredReputationRank;      // 17
-    uint32 MaxCount;                    // 18
-    uint32 Stackable;                   // 19
-    uint32 ContainerSlots;              // 20
-    int32  ItemStatType[10];            // 21 - 30
-    uint32 ItemStatValue[10];           // 31 - 40
-    int32  ItemStatUnk1[10];            // 41 - 50
-    int32  ItemStatUnk2[10];            // 51 - 60
-    uint32 ScalingStatDistribution;     // 61
-    uint32 DamageType;                  // 62
-    uint32 Delay;                       // 63
-    float  RangedModRange;              // 64
-    int32  SpellId[5];                  // 65 - 69
-    int32  SpellTrigger[5];             // 70 - 74
-    int32  SpellCharges[5];             // 75 - 79
-    int32  SpellCooldown[5];            // 80 - 84
-    int32  SpellCategory[5];            // 85 - 89
-    int32  SpellCategoryCooldown[5];    // 90 - 94
-    uint32 Bonding;                     // 95
-    char*  Name;                        // 96
-    char*  Name2;                       // 97
-    char*  Name3;                       // 98
-    char*  Name4;                       // 99
-    char*  Description;                 // 100
-    uint32 PageText;                    // 101
-    uint32 LanguageID;                  // 102
-    uint32 PageMaterial;                // 103
-    uint32 StartQuest;                  // 104
-    uint32 LockID;                      // 105
-    int32  Material;                    // 106
-    uint32 Sheath;                      // 107
-    uint32 RandomProperty;              // 108
-    uint32 RandomSuffix;                // 109
-    uint32 ItemSet;                     // 110
-    uint32 MaxDurability;               // 111
-    uint32 Area;                        // 112
-    uint32 Map;                         // 113
-    uint32 BagFamily;                   // 114
-    uint32 TotemCategory;               // 115
-    uint32 SocketColor[3];              // 116 - 118
-    uint32 SocketContent[3];            // 119 - 121
-    int32  SocketBonus;                 // 122
-    uint32 GemProperties;               // 123
-    float  ArmorDamageModifier;         // 124
-    uint32 Duration;                    // 125
-    uint32 ItemLimitCategory;           // 126
-    uint32 HolidayId;                   // 127
-    float  StatScalingFactor;           // 128
-    int32  Field130;                    // 129
-    int32  Field131;                    // 130
+    uint32 ID;
+    uint32 Quality;
+    uint32 Flags;
+    uint32 Flags2;
+    //float f_unk[2]; // 4.3.x
+    uint32 BuyCount;
+    uint32 BuyPrice;
+    uint32 SellPrice;
+    uint32 InventoryType;
+    int32  AllowableClass;
+    int32  AllowableRace;
+    uint32 ItemLevel;
+    int32  RequiredLevel;
+    uint32 RequiredSkill;
+    uint32 RequiredSkillRank;
+    uint32 RequiredSpell;
+    uint32 RequiredHonorRank;
+    uint32 RequiredCityRank;
+    uint32 RequiredReputationFaction;
+    uint32 RequiredReputationRank;
+    uint32 MaxCount;
+    uint32 Stackable;
+    uint32 ContainerSlots;
+    int32  ItemStatType[10];
+    uint32 ItemStatValue[10];
+    int32  ItemStatType2[10];
+    int32  ItemStatValue2[10];
+    uint32 ScalingStatDistribution;
+    uint32 DamageType;
+    uint32 Delay;
+    float  RangedModRange;
+    int32  SpellId[5];
+    int32  SpellTrigger[5];
+    int32  SpellCharges[5];
+    int32  SpellCooldown[5];
+    int32  SpellCategory[5];
+    int32  SpellCategoryCooldown[5];
+    uint32 Bonding;
+    char*  Name;
+    char*  Name2;
+    char*  Name3;
+    char*  Name4;
+    char*  Description;
+    uint32 PageText;
+    uint32 LanguageID;
+    uint32 PageMaterial;
+    uint32 StartQuest;
+    uint32 LockID;
+    int32  Material;
+    uint32 Sheath;
+    uint32 RandomProperty;
+    uint32 RandomSuffix;
+    uint32 ItemSet;
+    uint32 Area;
+    uint32 Map;
+    uint32 BagFamily;
+    uint32 TotemCategory;
+    uint32 SocketColor[3];
+    uint32 SocketContent[3];
+    int32  SocketBonus;
+    uint32 GemProperties;
+    float  ArmorDamageModifier;
+    uint32 Duration;
+    uint32 ItemLimitCategory;
+    uint32 HolidayId;
+    float  StatScalingFactor;
+    int32  CurrencySubstitutionId;
+    int32  CurrencySubstitutionCount;
 };
 
 struct ArmorLocationEntry
@@ -490,7 +493,11 @@ struct ItemExtendedCostEntry
     //uint32 itemGroup;
     uint32 reqCurrency[5];
     uint32 reqCurrencyCount[5];
-    // unk[5];
+    //uint32 unkRep;
+    //uint32 unkRep2;
+    uint32 flags;
+    //uint32 unk1;
+    //uint32 unk2;
 };
 
 struct ItemLimitCategoryEntry
@@ -557,6 +564,8 @@ struct LFGDungeonsEntry
 //  uint32 unk2;
     uint32 groupType;
 //  char *description;
+    uint32 randomCategoryId;
+    //uint32 unk3[3];
 
     // Get the dungeon entry
     uint32 GetUniqueID() const { return Id + (LFGType << 24); }
@@ -568,6 +577,7 @@ struct LockEntry
     uint32 locktype[8]; // 0 - no lock, 1 - item needed for lock, 2 - min lockping skill needed
     uint32 lockmisc[8]; // if type is 1 here is a item to unlock, else is unknow for now
     uint32 minlockskill[8]; // min skill in lockpiking to unlock.
+    //uint32 unk[8];
 };
 
 struct MapEntry
@@ -656,6 +666,7 @@ struct PhaseEntry
 
 struct PvPDifficultyEntry
 {
+    //uint32 Id;
     uint32 mapId;
     uint32 bracketId;
     uint32 minLevel;
@@ -672,7 +683,7 @@ struct QuestFactionRewardEntry
 struct QuestXPLevelEntry
 {
     uint32 questLevel;
-    uint32 xpIndex[10];
+    int32 xpIndex[10];
 };
 
 struct ScalingStatDistributionEntry
@@ -742,7 +753,7 @@ struct SkillLineAbilityEntry
 struct SpellEntry
 {
     uint32 Id;
-    uint32 Attributes[10];
+    uint32 Attributes[11];
     uint32 CastingTimeIndex;
     uint32 DurationIndex;
     uint32 powerType;
@@ -908,6 +919,10 @@ struct SpellEntry
     // SpellRangeEntry
     float Range[4]; // minEnemy, minFriend, maxEnemy, maxFriend
 
+    // SpellRadiusEntry
+    float radiusHostile[3];
+    float radiusFriend[3];
+
     // Custom
     uint32 Class;
     uint32 School;
@@ -949,7 +964,7 @@ struct SpellEntry
     }
 
     // Functions
-    bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 9) return false; return (Attributes[index] & attributeFlag); }
+    bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 11) return false; return (Attributes[index] & attributeFlag); }
     bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
     bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); }
 
@@ -1287,14 +1302,14 @@ struct SpellLevelsEntry
 // SpellPower.dbc
 struct SpellPowerEntry
 {
-    uint32    Id;                   // 0        m_ID
-    uint32    manaCost;             // 1        m_manaCost
-    uint32    manaCostPerlevel;     // 2        m_manaCostPerLevel
-    uint32    manaCostPercentage;   // 3        m_manaCostPct
-    uint32    manaPerSecond;        // 4        m_manaPerSecond
-    //uint32  PowerDisplayId;       // 5        PowerDisplay.dbc, new in 3.1
-    //uint32  unk1;                 // 6        4.0.0
-    //uint32  unk4;                 // 4.3.x
+    uint32    Id;                   // 0    m_ID
+    uint32    manaCost;             // 1    m_manaCost
+    uint32    manaCostPerlevel;     // 2    m_manaCostPerLevel
+    uint32    manaCostPercentage;   // 3    m_manaCostPct
+    uint32    manaPerSecond;        // 4    m_manaPerSecond
+    //uint32  PowerDisplayId;       // 5    PowerDisplay.dbc, new in 3.1
+    //uint32  unk1;                 // 6    4.0.0
+    //uint32  unk4;                 // 7    4.3.x
 };
 
 // SpellReagents.dbc
@@ -1682,7 +1697,7 @@ public:
     void SetRow(uint32 i, T * t) { return m_file->SetRow(i, t); }
 };
 
-HEARTHSTONE_INLINE float GetDBCScale(CreatureDisplayInfo *Scale)
+HEARTHSTONE_INLINE float GetDBCScale(CreatureDisplayInfoEntry *Scale)
 {
     if(Scale && Scale->Scale)
         return Scale->Scale;
@@ -1783,28 +1798,32 @@ DBC_STORAGE_EXTERN_DBC_MACRO(AchievementCriteriaEntry, dbcAchievementCriteria);
 DBC_STORAGE_EXTERN_DBC_MACRO(AreaGroupEntry, dbcAreaGroup);
 DBC_STORAGE_EXTERN_DBC_MACRO(AreaTableEntry, dbcAreaTable);
 DBC_STORAGE_EXTERN_DBC_MACRO(AreaTriggerEntry, dbcAreaTrigger);
-DBC_STORAGE_EXTERN_DBC_MACRO(AuctionHouseDBC, dbcAuctionHouse);
+DBC_STORAGE_EXTERN_DBC_MACRO(AuctionHouseEntry, dbcAuctionHouse);
 DBC_STORAGE_EXTERN_DBC_MACRO(BankSlotPriceEntry, dbcBankSlotPrices);
 DBC_STORAGE_EXTERN_DBC_MACRO(BarberShopStyleEntry, dbcBarberShopStyle);
 DBC_STORAGE_EXTERN_DBC_MACRO(BattleMasterListEntry, dbcBattleMasterList);
 DBC_STORAGE_EXTERN_DBC_MACRO(CharClassEntry, dbcCharClass);
+DBC_STORAGE_EXTERN_DBC_MACRO(CharPowerTypeEntry, dbcCharPowerType);
 DBC_STORAGE_EXTERN_DBC_MACRO(CharRaceEntry, dbcCharRace);
-DBC_STORAGE_EXTERN_DBC_MACRO(ChatChannelDBC, dbcChatChannels);
-DBC_STORAGE_EXTERN_DBC_MACRO(CreatureBoundData, dbcCreatureBoundData);
-DBC_STORAGE_EXTERN_DBC_MACRO(CreatureDisplayInfo, dbcCreatureDisplayInfo);
+DBC_STORAGE_EXTERN_DBC_MACRO(CharStartOutfitEntry, dbcCharStartOutfit);
+DBC_STORAGE_EXTERN_DBC_MACRO(CharTitleEntry, dbcCharTitle);
+DBC_STORAGE_EXTERN_DBC_MACRO(ChatChannelEntry, dbcChatChannels);
+DBC_STORAGE_EXTERN_DBC_MACRO(CreatureBoundDataEntry, dbcCreatureBoundData);
+DBC_STORAGE_EXTERN_DBC_MACRO(CreatureDisplayInfoEntry, dbcCreatureDisplayInfo);
+DBC_STORAGE_EXTERN_DBC_MACRO(CreatureDisplayInfoExtraEntry, dbcCreatureDisplayInfoExtra);
 DBC_STORAGE_EXTERN_DBC_MACRO(CreatureFamilyEntry, dbcCreatureFamily);
 DBC_STORAGE_EXTERN_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
-DBC_STORAGE_EXTERN_DBC_MACRO(CharTitleEntry, dbcCharTitles);
-DBC_STORAGE_EXTERN_DBC_MACRO(TaxiNodeEntry, dbcTaxiNode);
-DBC_STORAGE_EXTERN_DBC_MACRO(TaxiPathEntry, dbcTaxiPath);
-DBC_STORAGE_EXTERN_DBC_MACRO(TaxiPathNodeEntry, dbcTaxiPathNode);
+DBC_STORAGE_EXTERN_DBC_MACRO(DestructibleModelDataEntry, dbcDestructibleModelData);
+DBC_STORAGE_EXTERN_DBC_MACRO(DungeonEncounterEntry, dbcDungeonEncounter);
 DBC_STORAGE_EXTERN_DBC_MACRO(DurabilityCostsEntry, dbcDurabilityCosts);
 DBC_STORAGE_EXTERN_DBC_MACRO(DurabilityQualityEntry, dbcDurabilityQuality);
-DBC_STORAGE_EXTERN_DBC_MACRO(EmoteEntry, dbcEmoteEntry);
-DBC_STORAGE_EXTERN_DBC_MACRO(SpellItemEnchantEntry, dbcEnchant);
+DBC_STORAGE_EXTERN_DBC_MACRO(EmoteEntry, dbcEmote);
+DBC_STORAGE_EXTERN_DBC_MACRO(EmoteTextEntry, dbcEmoteText);
 DBC_STORAGE_EXTERN_DBC_MACRO(FactionEntry, dbcFaction);
 DBC_STORAGE_EXTERN_DBC_MACRO(FactionTemplateEntry, dbcFactionTemplate);
+DBC_STORAGE_EXTERN_DBC_MACRO(GameObjectDisplayInfoEntry, dbcGameObjectDisplayInfo);
 DBC_STORAGE_EXTERN_DBC_MACRO(GemPropertyEntry, dbcGemProperty);
+DBC_STORAGE_EXTERN_DBC_MACRO(GlyphProperties, dbcGlyphProperties);
 DBC_STORAGE_EXTERN_DB2_MACRO(ItemDataEntry, db2Item);
 DBC_STORAGE_EXTERN_DB2_MACRO(ItemSparseEntry, db2ItemSparse);
 DBC_STORAGE_EXTERN_DBC_MACRO(ArmorLocationEntry, dbcArmorLocation);
@@ -1819,29 +1838,30 @@ DBC_STORAGE_EXTERN_DBC_MACRO(ItemDamageEntry, dbcDamageThrown);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemDamageEntry, dbcDamageTwoHand);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemDamageEntry, dbcDamageTwoHandCaster);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemDamageEntry, dbcDamageDamageWand);
-DBC_STORAGE_EXTERN_DBC_MACRO(ItemExtendedCostEntry, dbcItemExtendedCost);
+DBC_STORAGE_EXTERN_DB2_MACRO(ItemExtendedCostEntry, dbcItemExtendedCost);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemLimitCategoryEntry, dbcItemLimitCategory);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemRandomPropertiesEntry, dbcItemRandomProperties);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemRandomSuffixEntry, dbcItemRandomSuffix);
+DBC_STORAGE_EXTERN_DBC_MACRO(ItemReforgeEntry, dbcItemReforge);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemSetEntry, dbcItemSet);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRating);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcBarberShopPrices);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCrit);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCritBase);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCrit);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCritBase);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegen);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
-DBC_STORAGE_EXTERN_DBC_MACRO(LockEntry, dbcLock);
 DBC_STORAGE_EXTERN_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
+DBC_STORAGE_EXTERN_DBC_MACRO(LockEntry, dbcLock);
 DBC_STORAGE_EXTERN_DBC_MACRO(MapEntry, dbcMap);
-DBC_STORAGE_EXTERN_DBC_MACRO(GlyphProperties, dbcGlyphProperties);
+DBC_STORAGE_EXTERN_DBC_MACRO(MapDifficultyEntry, dbcMapDifficulty);
+DBC_STORAGE_EXTERN_DBC_MACRO(MountCapabilityEntry, dbcMountCapability);
+DBC_STORAGE_EXTERN_DBC_MACRO(MountTypeEntry, dbcMountType);
 DBC_STORAGE_EXTERN_DBC_MACRO(NumTalentsAtLevelEntry, dbcNumTalents);
+DBC_STORAGE_EXTERN_DBC_MACRO(OverrideSpellDataEntry, dbcOverrideSpellData);
+DBC_STORAGE_EXTERN_DBC_MACRO(PhaseEntry, dbcPhase);
+DBC_STORAGE_EXTERN_DBC_MACRO(PvPDifficultyEntry, dbcPvPDifficulty);
+DBC_STORAGE_EXTERN_DBC_MACRO(QuestFactionRewardEntry, dbcQuestFactionReward);
 DBC_STORAGE_EXTERN_DBC_MACRO(QuestXPLevelEntry, dbcQuestXP);
+DBC_STORAGE_EXTERN_DBC_MACRO(ScalingStatDistributionEntry, dbcScalingStatDistribution);
+DBC_STORAGE_EXTERN_DBC_MACRO(ScalingStatValuesEntry, dbcScalingStatValues);
+DBC_STORAGE_EXTERN_DBC_MACRO(SkillRaceClassInfoEntry, dbcSkillRaceClassInfo);
 DBC_STORAGE_EXTERN_DBC_MACRO(SkillLineEntry, dbcSkillLine);
 DBC_STORAGE_EXTERN_DBC_MACRO(SkillLineAbilityEntry, dbcSkillLineSpell);
+DBC_STORAGE_EXTERN_DBC_MACRO(SpellEntry, dbcSpell);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellAuraOptionsEntry, dbcSpellAuraOptions);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellAuraRestrictionsEntry, dbcSpellAuraRestrictions);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellCastingRequirementsEntry, dbcSpellCastingRequirements);
@@ -1852,9 +1872,9 @@ DBC_STORAGE_EXTERN_DBC_MACRO(SpellCooldownsEntry, dbcSpellCooldowns);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellDifficultyEntry, dbcSpellDifficulty);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellDurationEntry, dbcSpellDuration);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellEffectEntry, dbcSpellEffect);
-DBC_STORAGE_EXTERN_DBC_MACRO(SpellEntry, dbcSpell);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellEquippedItemsEntry, dbcSpellEquippedItems);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellInterruptsEntry, dbcSpellInterrupts);
+DBC_STORAGE_EXTERN_DBC_MACRO(SpellItemEnchantEntry, dbcSpellItemEnchant);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellLevelsEntry, dbcSpellLevels);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellPowerEntry, dbcSpellPower);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellRadiusEntry, dbcSpellRadius);
@@ -1870,11 +1890,25 @@ DBC_STORAGE_EXTERN_DBC_MACRO(SummonPropertiesEntry, dbcSummonProperties);
 DBC_STORAGE_EXTERN_DBC_MACRO(TalentEntry, dbcTalent);
 DBC_STORAGE_EXTERN_DBC_MACRO(TalentTabEntry, dbcTalentTab);
 DBC_STORAGE_EXTERN_DBC_MACRO(TalentTreePrimarySpellsEntry, dbcTreePrimarySpells);
+DBC_STORAGE_EXTERN_DBC_MACRO(TaxiNodeEntry, dbcTaxiNode);
+DBC_STORAGE_EXTERN_DBC_MACRO(TaxiPathEntry, dbcTaxiPath);
+DBC_STORAGE_EXTERN_DBC_MACRO(TaxiPathNodeEntry, dbcTaxiPathNode);
 DBC_STORAGE_EXTERN_DBC_MACRO(VehicleEntry, dbcVehicle);
 DBC_STORAGE_EXTERN_DBC_MACRO(VehicleSeatEntry, dbcVehicleSeat);
 DBC_STORAGE_EXTERN_DBC_MACRO(WMOAreaTableEntry, dbcWMOAreaTable);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldMapOverlayEntry, dbcWorldMapOverlay);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
+
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRating);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcBarberShopPrices);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCrit);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCritBase);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCrit);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCritBase);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegen);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 
 class TaskList;
 

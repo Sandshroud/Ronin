@@ -76,7 +76,7 @@ public:
     uint32 m_team;
     HEARTHSTONE_INLINE size_t GetNumMembers() { return m_members.size(); }
     uint32 m_minimumLevel;
-    ChatChannelDBC * pDBC;
+    ChatChannelEntry * pDBC;
     uint32 m_channelId;
     bool m_deleted;
 public:

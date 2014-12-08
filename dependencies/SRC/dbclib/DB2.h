@@ -141,10 +141,11 @@ public:
             }
         }
 
-        if(strlen(CFormat) != header.cols)
+        size_t formatLen = strlen(CFormat);
+        if(formatLen != header.cols)
         {
             fclose(f);
-            sLog.Error("DBC", "DBC %s has an incorrect format!\n", filename);
+            sLog.Error("DB2", "DB2 %s has an incorrect format!(%u/%u)\n", filename, formatLen, header.cols);
             return false;
         }
         uint32 pos = ftell(f);
@@ -183,32 +184,44 @@ public:
                     continue;
                 }
 
-                fread(&val, 4, 1, f);
-                if(*t == 'x')
+                switch(*t)
                 {
-                    ++t;
-                    continue;        // skip!
+                case 'x': // Byte skip
+                    {
+                        fseek(f, 4, SEEK_CUR);
+                    }break;
+                case 'p': // Padding, bit skip
+                    {
+                        fseek(f, 1, SEEK_CUR);
+                    }break;
+                case 'b':
+                    {
+                        uint8 val;
+                        fread(&val, 1, 1, f);
+                        *dest_ptr = val;
+                        dest_ptr++;
+                    }break;
+                default:
+                    {
+                        uint32 val;
+                        fread(&val, 4, 1, f);
+                        if(*t == 's')
+                        {
+                            static const char * null_str = "";
+                            char ** new_ptr = (char**)dest_ptr, *ptr;
+                            if( val < header.stringsize)
+                                ptr = m_stringData + val;
+                            else ptr = (char*)null_str;
+                            *new_ptr = ptr; new_ptr++;
+                            dest_ptr = (uint32*)new_ptr;
+                        }
+                        else
+                        {
+                            *dest_ptr = val;
+                            dest_ptr++;
+                        }
+                    }break;
                 }
-                if(*t == 's')
-                {
-                    char ** new_ptr = (char**)dest_ptr;
-                    static const char * null_str = "";
-                    char * ptr;
-                    if( val < header.stringsize)
-                        ptr = m_stringData + val;
-                    else
-                        ptr = (char*)null_str;
-
-                    *new_ptr = ptr;
-                    new_ptr++;
-                    dest_ptr = (uint32*)new_ptr;
-                }
-                else
-                {
-                    *dest_ptr = val;
-                    dest_ptr++;
-                }
-
                 ++t;
             }
 

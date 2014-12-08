@@ -3,6 +3,9 @@
 
 initialiseSingleton( ItemPrototypeSystem );
 
+uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel);
+uint32 CalcArmorDurability(uint32 inventoryType, uint32 quality, uint32 itemLevel);
+
 void ItemPrototypeSystem::Init()
 {
     // It has to be empty for us to fill in db2 data
@@ -24,6 +27,7 @@ void ItemPrototypeSystem::Init()
         proto->minDamage = 0;
         proto->maxDamage = 0;
         proto->Armor = 0;
+        proto->MaxDurability = 0;
         // These are set later.
         proto->ItemId = itemData->ID;
         proto->Class = itemData->Class;
@@ -84,7 +88,6 @@ void ItemPrototypeSystem::Init()
         proto->RandomPropId = sparse->RandomProperty;
         proto->RandomSuffixId = sparse->RandomSuffix;
         proto->ItemSet = sparse->ItemSet;
-        proto->MaxDurability = sparse->MaxDurability;
         proto->ZoneNameID = sparse->Area;
         proto->MapID = sparse->Map;
         proto->BagFamily = sparse->BagFamily;
@@ -447,11 +450,6 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 proto->ItemSet = fields[field_Count].GetUInt32();
                 overridden |= 0x02;
             }field_Count++;
-            if(proto->MaxDurability != fields[field_Count].GetUInt32())
-            {
-                proto->MaxDurability = fields[field_Count].GetUInt32();
-                overridden |= 0x02;
-            }field_Count++;
             if(proto->ZoneNameID != fields[field_Count].GetUInt32())
             {
                 proto->ZoneNameID = fields[field_Count].GetUInt32();
@@ -531,6 +529,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
         ArmorQ = NULL, ArmorS = NULL, ArmorT = NULL, ArmorE = NULL, Damage = NULL;
         if(proto->Class == ITEM_CLASS_WEAPON)
         {
+            proto->MaxDurability = CalcWeaponDurability(proto->SubClass, proto->Quality, proto->ItemLevel);
             switch(proto->InventoryType)
             {
             case INVTYPE_WEAPON:
@@ -539,8 +538,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 {
                     if (proto->FlagsExtra & 0x200)
                         Damage = dbcDamageOneHandCaster.LookupEntry(proto->ItemLevel);
-                    else
-                        Damage = dbcDamageOneHand.LookupEntry(proto->ItemLevel);
+                    else Damage = dbcDamageOneHand.LookupEntry(proto->ItemLevel);
                 }break;
             case INVTYPE_AMMO:
                 {
@@ -550,8 +548,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                 {
                     if (proto->FlagsExtra & 0x200)
                         Damage = dbcDamageTwoHandCaster.LookupEntry(proto->ItemLevel);
-                    else
-                        Damage = dbcDamageTwoHand.LookupEntry(proto->ItemLevel);
+                    else Damage = dbcDamageTwoHand.LookupEntry(proto->ItemLevel);
                 }break;
             case INVTYPE_RANGED:
             case INVTYPE_THROWN:
@@ -592,6 +589,7 @@ void ItemPrototypeSystem::LoadItemOverrides()
                     ArmorT = dbcArmorTotal.LookupEntry(proto->ItemLevel);
                 }
             }
+            proto->MaxDurability = CalcArmorDurability(inventoryType, proto->Quality, proto->ItemLevel);
         }
 
         if(Damage)
@@ -607,6 +605,23 @@ void ItemPrototypeSystem::LoadItemOverrides()
         else if(ArmorQ && ArmorT && ArmorE)
             proto->Armor = uint32(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f);
     }
+}
+
+static float const qualityDurabilityMultipliers[ITEM_QUALITY_DBC_MAX] = { 1.0f, 1.0f, 1.0f, 1.17f, 1.37f, 1.68f, 0.0f };
+
+uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel)
+{
+    static float const weaponMultipliers[ITEM_SUBCLASS_WEAPON_FISHING_POLE+1] =
+    { 0.89f, 1.03f, 0.77f, 0.77f, 0.89f, 1.03f, 1.03f, 0.89f, 1.03f, 0.00f, 1.03f, 0.00f, 0.00f, 0.64f, 0.00f, 0.64f, 0.64f, 0.00f, 0.77f, 0.64f, 0.64f, };
+    return 5 * uint32(17.f * qualityDurabilityMultipliers[quality] * weaponMultipliers[subClass] * (itemLevel <= 17 ? (0.966f - (17.f - float(itemLevel)) / 54.0f) : 1.0f) + 0.5f);
+}
+
+uint32 CalcArmorDurability(uint32 inventoryType, uint32 quality, uint32 itemLevel)
+{
+    static float const armorMultipliers[NUM_INVENTORY_TYPES] =
+    { 0.00f, 0.59f, 0.00f, 0.59f, 0.00f, 1.00f, 0.35f, 0.75f, 0.49f, 0.35f, 0.35f, 0.00f, 0.00f, 0.00f, 
+    1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, };
+    return 5 * uint32(23.f * qualityDurabilityMultipliers[quality] * armorMultipliers[inventoryType] * (itemLevel <= 28 ? (0.966f - (28.f - float(itemLevel)) / 54.0f) : 1.0f) + 0.5f);
 }
 
 ItemPrototype* ItemPrototypeSystem::LookupEntry(uint32 entry)

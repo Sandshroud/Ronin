@@ -1539,7 +1539,7 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
 
 void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
 {
-    assert(mod->m_miscValue < SPELL_MODIFIERS);
+    assert(mod->m_miscValue[0] < SPELL_MODIFIERS);
     std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue[0] & 0x7F), uint8(mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0));
     std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
 

@@ -7578,7 +7578,7 @@ bool Player::AllowChannelAtLocation(uint32 dbcID, AreaTableEntry *areaTable)
     return result;
 }
 
-bool Player::UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, ChatChannelDBC* entry, Channel* channel)
+bool Player::UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, ChatChannelEntry* entry, Channel* channel)
 {
     if(!AllowChannelAtLocation(entry->id, areaTable))
     {
@@ -7625,10 +7625,10 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
         if(!m_channelsbyDBCID.size())
             return;
 
-        for(ConstructDBCStorageIterator(ChatChannelDBC) itr = dbcChatChannels.begin(); itr != dbcChatChannels.end(); ++itr)
+        for(ConstructDBCStorageIterator(ChatChannelEntry) itr = dbcChatChannels.begin(); itr != dbcChatChannels.end(); ++itr)
         {
             Channel *channel = NULL;
-            ChatChannelDBC* entry = (*itr);
+            ChatChannelEntry* entry = (*itr);
             if(m_channelsbyDBCID.find(entry->id) != m_channelsbyDBCID.end())
                 channel = m_channelsbyDBCID.at(entry->id);
             if(UpdateChatChannel(areaName, areaTable, entry, channel))
@@ -7637,7 +7637,7 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
     }
     else
     {
-        ChatChannelDBC* entry = dbcChatChannels.LookupEntry(dbcID);
+        ChatChannelEntry* entry = dbcChatChannels.LookupEntry(dbcID);
         if(entry == NULL || !strlen(entry->pattern))
             return;
 
@@ -7890,25 +7890,18 @@ void Player::EndDuel(uint8 WinCondition)
     data << GetName() << DuelingWith->GetName();
     SendMessageToSet( &data, true );
 
-    WorldPacket* Data2 = new WorldPacket(SMSG_DUEL_COMPLETE);
+    data.Initialize(SMSG_DUEL_COMPLETE, 1);
     data << uint8( 1 );
-    SendPacket(Data2);
-
-    Data2 = new WorldPacket(SMSG_DUEL_COMPLETE);
-    data << uint8( 1 );
-    DuelingWith->SendPacket(Data2);
+    SendPacket(&data);
+    DuelingWith->SendPacket(&data);
 
     // Handle OnDuelFinished hook
     if ( WinCondition != 0 )
         sHookInterface.OnDuelFinished( DuelingWith, this );
-    else
-        sHookInterface.OnDuelFinished( this, DuelingWith );
+    else sHookInterface.OnDuelFinished( this, DuelingWith );
 
     //Clear Duel Related Stuff
-
-    GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GUID_LOPART(GetUInt64Value(PLAYER_DUEL_ARBITER))) : NULL;
-
-    if( arbiter != NULL )
+    if( GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GUID_LOPART(GetUInt64Value(PLAYER_DUEL_ARBITER))) : NULL )
     {
         arbiter->RemoveFromWorld( true );
         arbiter->Destruct();
@@ -7975,43 +7968,14 @@ void Player::BroadcastMessage(const char* Format, ...)
     delete data;
 }
 
-/*
-const double BaseRating []= {
-    2.5,//weapon_skill_ranged!!!!
-    1.5,//defense=comba_r_1
-    12,//dodge
-    20,//parry=3
-    5,//block=4
-    10,//melee hit
-    10,//ranged hit
-    8,//spell hit=7
-    14,//melee critical strike=8
-    14,//ranged critical strike=9
-    14,//spell critical strike=10
-    0,//
-    0,
-    0,
-    25,//resilience=14
-    25,//resil .... meaning unknown
-    25,//resil .... meaning unknown
-    10,//MELEE_HASTE_RATING=17
-    10,//RANGED_HASTE_RATING=18
-    10,//spell_haste_rating = 19???
-    2.5,//melee weapon skill==20
-    2.5,//melee second hand=21
-
-};
-*/
 float Player::CalcPercentForRating( uint32 index, uint32 rating )
 {
     uint32 relative_index = index - (PLAYER_FIELD_COMBAT_RATING_1);
     uint32 reallevel = GetUInt32Value(UNIT_FIELD_LEVEL);
     uint32 level = reallevel > MAXIMUM_ATTAINABLE_LEVEL ? MAXIMUM_ATTAINABLE_LEVEL : reallevel;
-    gtFloat * pDBCEntry = dbcCombatRating.LookupEntry( relative_index * 100 + level - 1 );
     float val = 1.0f;
-    if( pDBCEntry != NULL )
+    if( gtFloat * pDBCEntry = dbcCombatRating.LookupEntry( relative_index * 100 + level - 1 ) )
         val = pDBCEntry->val;
-
     return float(rating/val);
 }
 
@@ -10298,7 +10262,7 @@ void Player::FullHPMP()
 
 void Player::SetKnownTitle( int32 title, bool set )
 {
-    CharTitleEntry *entry = dbcCharTitles.LookupEntry(title);
+    CharTitleEntry *entry = dbcCharTitle.LookupEntry(title);
     if(entry == NULL || HasKnownTitleByIndex(entry->bit_index))
         return;
 

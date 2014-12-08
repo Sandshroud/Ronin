@@ -155,7 +155,7 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
     {
         if( sscanf( (*itr).c_str(), "%u,%u,%u,%u", (unsigned int*)&enchant_id, (unsigned int*)&time_left, (unsigned int*)&enchslot, (unsigned int*)&dummy) > 3 )
         {
-            if(SpellItemEnchantEntry *entry = dbcEnchant.LookupEntry( enchant_id ))
+            if(SpellItemEnchantEntry *entry = dbcSpellItemEnchant.LookupEntry( enchant_id ))
             {
                 if( entry->Id == enchant_id )
                 {
@@ -212,7 +212,7 @@ void Item::ApplyRandomProperties( bool apply )
                 {
                     if( rp->enchant_id[k] != 0 )
                     {
-                        if(SpellItemEnchantEntry* ee = dbcEnchant.LookupEntry( rp->enchant_id[k] ))
+                        if(SpellItemEnchantEntry* ee = dbcSpellItemEnchant.LookupEntry( rp->enchant_id[k] ))
                         {
                             int32 Slot = HasEnchantment( ee->Id );
                             if( Slot < 0 )
@@ -230,7 +230,7 @@ void Item::ApplyRandomProperties( bool apply )
             {
                 if( rs->enchantments[k] != 0 )
                 {
-                    SpellItemEnchantEntry* ee = dbcEnchant.LookupEntry( rs->enchantments[k] );
+                    SpellItemEnchantEntry* ee = dbcSpellItemEnchant.LookupEntry( rs->enchantments[k] );
                     int32 Slot = HasEnchantment( ee->Id );
                     if( Slot < 0 )
                     {

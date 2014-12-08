@@ -1611,8 +1611,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
             {
                 if(!(gp->SocketMask & TargetItem->GetProto()->ItemSocket[i]))
                     ColorMatch[i] = false;
-                Enchantment = dbcEnchant.LookupEntry(gp->EnchantmentID);
-                if(gp->EnchantmentID && Enchantment != NULL)
+                if(Enchantment = dbcSpellItemEnchant.LookupEntry(gp->EnchantmentID))
                     TargetItem->AddEnchantment(Enchantment, 0, true,apply,false,2+i);
             }
             else
@@ -1623,8 +1622,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
 
                 if(ip->GemProperties < 0)
                 {   // If we're negative, its a dummy gem.
-                    Enchantment = dbcEnchant.LookupEntry(-ip->GemProperties);
-                    if(Enchantment != NULL)
+                    if(Enchantment = dbcSpellItemEnchant.LookupEntry(-ip->GemProperties))
                         TargetItem->AddEnchantment(Enchantment, 0, true,apply,false,2+i,0,true);
                 }
             }
@@ -1655,15 +1653,12 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
             if(TargetItem->HasEnchantment(TargetItem->GetProto()->SocketBonus) > 0)
                 return;
 
-            Enchantment = dbcEnchant.LookupEntry(TargetItem->GetProto()->SocketBonus);
-            if(Enchantment)
+            if(Enchantment = dbcSpellItemEnchant.LookupEntry(TargetItem->GetProto()->SocketBonus))
             {
                 uint32 Slot = TargetItem->FindFreeEnchantSlot(Enchantment,0);
                 TargetItem->AddEnchantment(Enchantment, 0, true,apply,false, Slot);
             }
-        }
-        else //remove
-            TargetItem->RemoveSocketBonusEnchant();
+        } else TargetItem->RemoveSocketBonusEnchant();
     }
 
     TargetItem->m_isDirty = true;

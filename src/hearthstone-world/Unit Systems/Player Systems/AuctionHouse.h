@@ -91,7 +91,7 @@ private:
     Mutex removalLock;
     std::list<Auction*> removalList;
 
-    AuctionHouseDBC * dbc;
+    AuctionHouseEntry * dbc;
 
 public:
     float cut_percent;
