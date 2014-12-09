@@ -72,7 +72,7 @@ struct SpellTarget
     uint8 HitResult;
     uint8 EffectMask;
     uint8 ReflectResult;
-    int64 DestinationTime;
+    uint32 DestinationTime;
 };
 
 typedef std::map<uint64, SpellTarget> SpellTargetMap;
@@ -87,8 +87,7 @@ public:
     virtual void Destruct();
 
     float m_missilePitch;
-    uint32 m_missileTravelTime;
-    uint32 MSTimeToAddToTravel;
+    uint32 m_missileTravelTime, m_MSTimeToAddToTravel;
 
     // Fills specified targets at the area of effect
     void FillSpecifiedTargetsInArea(float srcx,float srcy,float srcz,uint32 ind, uint32 specification);

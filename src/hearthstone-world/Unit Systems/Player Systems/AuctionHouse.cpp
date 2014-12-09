@@ -153,7 +153,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
             sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->HighestBidder, subject, body, 0, 0, auct->pItem->GetGUID(), STATIONERY_AUCTION, true);
 
             // Send a mail to the owner with his cut of the price.
-            uint32 auction_cut = FL2UINT(float(cut_percent * float(auct->HighestBid)));
+            uint32 auction_cut = float2int32(float(cut_percent * float(auct->HighestBid)));
             int32 amount = auct->HighestBid - auction_cut + auct->DepositAmount;
             if(amount < 0)
                 amount = 0;

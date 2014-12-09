@@ -110,9 +110,7 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
         int32 duration = GetSpellInfoDuration(toCast->info, m_Unit, Target);
         if(duration > 0)
             m_CastTimer += duration;
-    }
-    else
-        m_CastTimer = 1000+toCast->casttime;
+    } else m_CastTimer = 1000+toCast->casttime;
 
     toCast->lastcast = currentTime;
     if(toCast->attackstoptimer)

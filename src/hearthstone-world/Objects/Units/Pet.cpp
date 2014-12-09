@@ -725,7 +725,7 @@ uint32 Pet::GetNextLevelXP(uint32 currentlevel)
     // that a character of the same level would need.
     // Now they only need 1/10th (or about 10%) -- which is a 66% improvement!
     float xp = float(nextLvlXP) / 10.f;
-    return FL2UINT(xp);
+    return float2int32(xp);
 }
 
 void Pet::LevelUpTo(uint32 level)
@@ -1105,11 +1105,11 @@ void Pet::ApplySummonLevelAbilities()
     float pet_arm = base_armor + float(level) * mod_armor + pet_arm_bonus;
 
     // Calculate values
-    SetUInt32Value(UNIT_FIELD_STRENGTH, FL2UINT(pet_str));
-    SetUInt32Value(UNIT_FIELD_AGILITY, FL2UINT(pet_agi));
-    SetUInt32Value(UNIT_FIELD_STAMINA, FL2UINT(pet_sta));
-    SetUInt32Value(UNIT_FIELD_INTELLECT, FL2UINT(pet_int));
-    SetUInt32Value(UNIT_FIELD_SPIRIT, FL2UINT(pet_spr));
+    SetUInt32Value(UNIT_FIELD_STRENGTH, float2int32(pet_str));
+    SetUInt32Value(UNIT_FIELD_AGILITY, float2int32(pet_agi));
+    SetUInt32Value(UNIT_FIELD_STAMINA, float2int32(pet_sta));
+    SetUInt32Value(UNIT_FIELD_INTELLECT, float2int32(pet_int));
+    SetUInt32Value(UNIT_FIELD_SPIRIT, float2int32(pet_spr));
 
     float pet_min_dmg = base_min_dmg + float(level) * mod_min_dmg;
     float pet_max_dmg = base_max_dmg + float(level) * mod_max_dmg;
@@ -1117,14 +1117,14 @@ void Pet::ApplySummonLevelAbilities()
     SetFloatValue(UNIT_FIELD_MAXDAMAGE, pet_max_dmg);
 
     // Apply armor and attack power.
-    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, FL2UINT(pet_pwr));
-    SetUInt32Value(UNIT_FIELD_RESISTANCES, FL2UINT(pet_arm));
+    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, float2int32(pet_pwr));
+    SetUInt32Value(UNIT_FIELD_RESISTANCES, float2int32(pet_arm));
 
     // Calculate health / mana
     float health = pet_sta * pet_sta_to_hp;
     float mana = has_mana ? (pet_int * 15) : 0.0;
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, FL2UINT(health));
-    SetUInt32Value(UNIT_FIELD_BASE_MANA, FL2UINT(mana));
+    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, float2int32(health));
+    SetUInt32Value(UNIT_FIELD_BASE_MANA, float2int32(mana));
 }
 
 void Pet::ApplyPetLevelAbilities()
@@ -1182,8 +1182,8 @@ void Pet::ApplyPetLevelAbilities()
     if(pet_armor <= 0.0f) pet_armor = 1;
 
     // Set base values.
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, FL2UINT(pet_hp));
-    SetUInt32Value(UNIT_FIELD_RESISTANCES, FL2UINT(pet_armor));
+    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, float2int32(pet_hp));
+    SetUInt32Value(UNIT_FIELD_RESISTANCES, float2int32(pet_armor));
     // source www.wow-petopia.com
     // Pets now get a base resistance to all elements equal to their level.
     // For example, a level 11 pet will have a base of 11 resistance to Arcane,
@@ -1192,13 +1192,13 @@ void Pet::ApplyPetLevelAbilities()
         SetUInt32Value(UNIT_FIELD_RESISTANCES+i, getLevel());
 
     // Calculate damage.
-    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, FL2UINT(pet_attack_power));
+    SetUInt32Value(UNIT_FIELD_ATTACK_POWER, float2int32(pet_attack_power));
 
     /* These are just for visuals, no other actual purpose.
     BaseStats[STAT_STRENGTH] = uint32(20+getLevel()*1.55);
     BaseStats[STAT_AGILITY] = uint32(20+getLevel()*0.64);
     // Reverse the health value to calculate stamina
-    BaseStats[STAT_STAMINA] = FL2UINT(pet_hp / 10);
+    BaseStats[STAT_STAMINA] = float2int32(pet_hp / 10);
     BaseStats[STAT_INTELLECT] = uint32(20+getLevel()*0.18);
     BaseStats[STAT_SPIRIT] = uint32(20+getLevel()*0.36);*/
 

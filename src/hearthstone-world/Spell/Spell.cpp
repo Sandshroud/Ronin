@@ -39,52 +39,18 @@ bool SP_AppliesAura(SpellEntry* spellInfo, uint32 AuraName)
 
 int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, Unit* u_caster, Unit* unitTarget)
 {
-    int32 m_duration = -1, c_dur = 0;
-    if(m_spellInfo->DurationIndex)
+    uint32 spellLevel = u_caster ? u_caster->getLevel() : m_spellInfo->spellLevel,
+        cp = (u_caster ? (u_caster->IsPlayer() ? castPtr<Player>(u_caster)->m_comboPoints : 0) : 0);
+    int32 duration = m_spellInfo->CalculateSpellDuration(spellLevel, cp);
+    if(duration == -1)
+        return -1;
+
+    if(m_spellInfo->SpellGroupType && u_caster)
     {
-        SpellDurationEntry *sd = dbcSpellDuration.LookupEntry(m_spellInfo->DurationIndex);
-        if(sd == NULL)
-            return m_duration;
-
-        m_duration = sd->Duration1;
-        //check for negative and 0 durations.
-        //duration affected by level
-        if(sd->Duration1 <= 0 && sd->Duration2 > 0 && u_caster)
-        {
-            m_duration = uint32((sd->Duration1 + (sd->Duration2 * u_caster->getLevel())));
-            if(m_duration > 0 && sd->Duration3 > 0 && m_duration > sd->Duration3)
-            {
-                m_duration = sd->Duration3;
-            }
-
-            if(m_duration < 0)
-                m_duration = 0;
-            c_dur = m_duration;
-        }
-
-        if(u_caster)
-        {
-            //combo point lolerCopter? ;P
-            if(u_caster->IsPlayer() && sd->Duration3)
-            {
-                uint32 cp = castPtr<Player>(u_caster)->m_comboPoints;
-                if(cp)
-                {
-                    uint32 bonus = (cp*(sd->Duration3-sd->Duration1))/5;
-                    if(bonus)
-                        m_duration += bonus;
-                }
-            }
-
-            if(m_spellInfo->SpellGroupType)
-            {
-                u_caster->SM_FIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
-                u_caster->SM_PIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
-            }
-        }
+        u_caster->SM_FIValue(SMT_DURATION, (int32*)&duration, m_spellInfo->SpellGroupType);
+        u_caster->SM_PIValue(SMT_DURATION, (int32*)&duration, m_spellInfo->SpellGroupType);
     }
-
-    return m_duration;
+    return duration;
 }
 
 
@@ -177,7 +143,7 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, bool triggered, Aura* aur)
     m_pushbackCount = 0;
     m_missilePitch = 0;
     m_missileTravelTime = 0;
-    MSTimeToAddToTravel = 0;
+    m_MSTimeToAddToTravel = 0;
 
     switch( Caster->GetTypeId() )
     {
@@ -1224,7 +1190,7 @@ void Spell::cast(bool check)
     sLog.Debug("Spell","Cast %u, Unit: %u", GetSpellProto()->Id, m_caster->GetLowGUID());
 
     // Set the base ms time to now
-    MSTimeToAddToTravel = getMSTime();
+    m_MSTimeToAddToTravel = getMSTime();
 
     if(objmgr.IsSpellDisabled(GetSpellProto()->Id))//if it's disabled it will not be casted, even if it's triggered.
         cancastresult = uint8(m_triggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_SPELL_UNAVAILABLE);
@@ -4271,7 +4237,7 @@ void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * sp
     }
 
     // Convert back
-    *Duration = FL2UINT(Qduration);
+    *Duration = float2int32(Qduration);
 
     // Reset the diminishing return counter, and add to the aura count (we don't decrease the timer till we
     // have no auras of this type left.
@@ -4432,15 +4398,13 @@ void Spell::_AddTarget(Unit* target, const uint32 effectid)
     {
         // calculate spell incoming interval
         float dist = m_caster->CalcDistance(target);
-        tgt.DestinationTime = int64(floor(dist / m_spellInfo->speed*1000.0f));
-        if(tgt.DestinationTime+MSTimeToAddToTravel < 200)
+        tgt.DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
+        if(tgt.DestinationTime+m_MSTimeToAddToTravel < 200)
             tgt.DestinationTime = 0;
         if (m_missileTravelTime == 0 || tgt.DestinationTime > m_missileTravelTime)
             m_missileTravelTime = tgt.DestinationTime;
-        tgt.DestinationTime += MSTimeToAddToTravel;
-    }
-    else
-        tgt.DestinationTime = 0;
+        tgt.DestinationTime += m_MSTimeToAddToTravel;
+    } else tgt.DestinationTime = 0;
 
     // work out hit result (always true if we are a GO)
     tgt.HitResult = (g_caster || (g_caster && g_caster->GetType() != GAMEOBJECT_TYPE_TRAP) ) ? SPELL_DID_HIT_SUCCESS : _DidHit(effectid, target, tgt.ReflectResult);
@@ -4479,12 +4443,12 @@ void Spell::_AddTargetForced(const WoWGuid& guid, const uint32 effectid)
         {
             // calculate spell incoming interval
             float dist = m_caster->CalcDistance(obj);
-            tgt.DestinationTime = int64(floor(dist / m_spellInfo->speed*1000.0f));
-            if(tgt.DestinationTime+MSTimeToAddToTravel < 200)
+            tgt.DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
+            if(tgt.DestinationTime+m_MSTimeToAddToTravel < 200)
                 tgt.DestinationTime = 0;
             if (m_missileTravelTime == 0 || tgt.DestinationTime > m_missileTravelTime)
                 m_missileTravelTime = tgt.DestinationTime;
-            tgt.DestinationTime += MSTimeToAddToTravel;
+            tgt.DestinationTime += m_MSTimeToAddToTravel;
         }
     }
     tgt.EffectMask = (1 << effectid);

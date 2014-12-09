@@ -958,6 +958,27 @@ struct SpellEntry
         return points;
     }
 
+    int32 CalculateSpellDuration(int32 level, int32 comboPoints)
+    {
+        int32 retVal = -1;
+        if(DurationIndex)
+        {
+            retVal = Duration[0];
+            if(Duration[1] > 0 && Duration[0] <= 0)
+            {
+                retVal += Duration[1] * level;
+                if(Duration[2] > 0 && retVal > 0 && retVal > Duration[2])
+                    retVal = Duration[2];
+                else if(retVal < 0)
+                    retVal = 0;
+            }
+
+            if(comboPoints >= 0)
+                retVal += (comboPoints*(Duration[2]-Duration[0]))/5;
+        }
+        return retVal;
+    }
+
     float CalculateRange(bool friendly)
     {
 

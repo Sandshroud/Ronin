@@ -290,10 +290,7 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
         result += float(RandomDouble(diff));
 
     if(result >= 0)
-    {
-        return FL2UINT(result * appbonuspct);
-    }
-
+        return float2int32(result * appbonuspct);
     return 0;
 }
 

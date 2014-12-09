@@ -15,7 +15,6 @@ typedef struct
     float liquid_height[128+1][128+1];
 }TileTerrainInformation;
 
-#define FL2UINT(f) (uint32)(f == 0 ? f : floor(f))
 #define TERRAIN_HEADER_SIZE 16384    // size of [64][64] array.
 #define TILE_TERRAIN_SIZE 199688     // size of Tile dump.
 #define MAP_RESOLUTION 256
@@ -80,7 +79,7 @@ public:
     /* Information retrieval functions
        These functions all take the same input values, an x and y global co-ordinate.
        They will all return 0 if the tile information is not loaded or does not exist,
-       apart from the water function which will return '-999999.0'.
+       apart from the water function which will return '-500000.0'.
       */
     float  GetLandHeight(float x, float y);
     float  GetWaterHeight(float x, float y, float z);
