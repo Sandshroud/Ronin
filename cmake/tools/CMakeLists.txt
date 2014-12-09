@@ -1,6 +1,5 @@
 
 add_subdirectory(dataextractor)
-add_subdirectory(itemdbcgenerator)
 add_subdirectory(mmapbuilder)
 add_subdirectory(vmapassembler)
 add_subdirectory(vmapextractor)
