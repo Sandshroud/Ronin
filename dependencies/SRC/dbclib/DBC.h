@@ -21,48 +21,30 @@ template<class T> class DBC
 //      }structureInfo;
     }header;
 
-    uint32 ValueMax;
-    union
-    {
-        int32  *m_int32Values;
-        float *m_floatValues;
-    };
-
-    char *m_stringData;
-    const char* name;
-    bool Loaded;
     uint32 m_max;
-
-    char *CFormat;
-    T *m_firstEntry;
-    T *Blocks;
-    T **Entries;
+    char *m_stringData, *name, *CFormat;
+    std::map<uint32, T*> m_blocks, m_entries;
 public:
     DBC()
     {
-        memset(&header, 0, sizeof(header));
-        Loaded = false;
-        Blocks = NULL;
-        Entries = NULL;
-        m_firstEntry = NULL;
         m_max = 0;
-        m_int32Values = NULL;
-        m_floatValues = NULL;
-        m_stringData = NULL;
+        memset(&header, 0, sizeof(header));
+        name = CFormat = m_stringData = NULL;
     };
 
     ~DBC()
     {
-        if(m_int32Values)
-            delete [] m_int32Values;
-        if(m_floatValues)
-            delete [] m_floatValues;
-        if(m_stringData)
-            delete [] m_stringData;
-        if(Blocks)
-            free(Blocks);
-        if(Entries)
-            free(Entries);
+        if(name) delete name;
+        if(CFormat) delete CFormat;
+        if(m_stringData) delete m_stringData;
+        m_entries.clear();
+        while(m_blocks.size())
+        {
+            T *block = m_blocks.begin()->second;
+            m_blocks.erase(m_blocks.begin());
+            delete block;
+        }
+        m_blocks.clear();
     }
 
     bool Load(const char *filename, const char* format)
@@ -107,38 +89,35 @@ public:
         }
         uint32 pos = ftell(f);
 
-        ValueMax = header.cols*header.rows;
+        uint32 valueMax = header.cols*header.rows;
         if(header.stringsize)
         {
-            fseek( f, (ValueMax*4), SEEK_CUR );
-            m_stringData = (char*)malloc(header.stringsize);
+            fseek( f, (valueMax*4), SEEK_CUR );
+            m_stringData = new char[header.stringsize];
             fread( m_stringData, header.stringsize, 1, f );
         }
 
         fseek(f, pos, SEEK_SET);
-        Loaded = true;
         return PackData(f);
     }
 
     bool PackData(FILE *f)
     {
-        Blocks = (T*)malloc(header.rows * sizeof(T));;
         /* read the data for each row */
         for(uint32 i = 0; i < header.rows; ++i)
         {
-            uint32 c = 0;
-            uint32 stringCount = 0;
-            memset(&Blocks[i], 0, sizeof(T));
-            uint32 *dest_ptr = (uint32*)&Blocks[i];
+            T *block = new T();
+            uint32 c = 0, stringCount = 0;
+            uint32 *dest_ptr = (uint32*)block;
             const char * t = CFormat;
             size_t len = strlen(CFormat);
             while(*t != 0)
             {
                 if((++c) > header.cols)
                 {
-                    ++t;
+                    delete block;
                     printf("!!! Read buffer overflow in DBC reading of file %s\n", name);
-                    continue;
+                    return false;
                 }
 
                 switch(*t)
@@ -182,72 +161,41 @@ public:
                 ++t;
             }
 
-            if(m_firstEntry == NULL)
-                m_firstEntry = &Blocks[i];
             /* all the time the first field in the dbc is our unique entry */
-            if(*(uint32*)&Blocks[i] > m_max)
-                m_max = *(uint32*)&Blocks[i];
+            uint32 entry = *((uint32*)block);
+            if(entry > m_max) m_max = entry;
+            m_blocks.insert(std::make_pair(i, block));
+            m_entries.insert(std::make_pair(entry, block));
         }
-
-        Entries = (T**)malloc(sizeof(T*) * (m_max+1));
-        ASSERT(Entries);
-
-        memset(Entries, 0, (sizeof(T*) * (m_max+1)));
-        for(uint32 i = 0; i < header.rows; ++i)
-            Entries[*(uint32*)&Blocks[i]] = &Blocks[i];
 
         sLog.Notice("DBC", "Loaded %s (%u rows)", name, header.rows);
         return true;
     }
 
-    uint32 GetNumRows()
-    {
-        return header.rows;
-    };
-
-    uint32 GetMaxRow()
-    {
-        return m_max;
-    }
-
-    void SetRow(uint32 i, T * t)
-    {
-        if(i < m_max)
-            Entries[i] = t;
-    }
+    uint32 GetNumRows() { return header.rows; }
+    uint32 GetMaxEntry() { return m_max; }
 
     T *LookupEntryTest(uint32 index)
     {
-        if(index > m_max || Entries[index] == NULL)
+        if(index > m_max || m_entries.find(index) == m_entries.end())
         {
             sLog.Error("DBC", "LookupTest for %s failed on %u", name, index);
             return NULL;
         }
-        return Entries[index];
+        return m_entries.at(index);
     }
 
     T *LookupEntry(uint32 index)
     {
-        if(index > m_max || Entries[index] == NULL)
+        if(index > m_max || m_entries.find(index) == m_entries.end())
             return NULL;
-        return Entries[index];
+        return m_entries.at(index);
     }
 
     T *LookupRow(uint32 index)
     {
         if(index >= header.rows)
             return NULL;
-        else
-            return &Blocks[index];
-    }
-
-    T *GetFirstBlock()
-    {
-        return &Blocks[0];
-    }
-
-    T *GetLastBlock()
-    {
-        return &Blocks[header.rows];
+        return m_blocks[index];
     }
 };

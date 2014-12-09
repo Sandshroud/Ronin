@@ -90,6 +90,14 @@ extern "C" {
 #include "../hearthstone-shared/PerfCounters.h"
 #include "../hearthstone-logonserver/LogonOpcodes.h"
 
+#define CRTDBG_MAP_ALLOC
+#include <iostream>
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#define new DEBUG_NEW
+
 #include "DBCStores.h"
 #include "NameTables.h"
 #include "UpdateFields.h"

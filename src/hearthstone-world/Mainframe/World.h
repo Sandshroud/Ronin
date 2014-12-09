@@ -679,7 +679,6 @@ public:
 
     std::string GmClientChannel;
     bool m_reqGmForCommands;
-    std::list<SpellEntry*> dummyspells;
     bool m_limitedNames;
     bool m_useAccountData;
     bool m_blockgmachievements;

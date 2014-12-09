@@ -347,7 +347,9 @@ enum EAreaTriggerFields
 #define PLAYER_RATING_MODIFIER_MAX                              PLAYER_FIELD_COMBAT_RATING_1+26
 
 extern uint32 ItemUpdateFieldFlags[ITEM_LENGTH];
+extern uint32 ContainerUpdateFieldFlags[CONTAINER_LENGTH];
 extern uint32 UnitUpdateFieldFlags[UNIT_LENGTH];
+extern uint32 PlayerUpdateFieldFlags[PLAYER_LENGTH];
 extern uint32 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH];
 extern uint32 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH];
 extern uint32 CorpseUpdateFieldFlags[CORPSE_LENGTH];

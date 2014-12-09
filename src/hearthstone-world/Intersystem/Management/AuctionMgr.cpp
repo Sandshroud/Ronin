@@ -17,8 +17,9 @@ void AuctionMgr::LoadAuctionHouses()
         delete res;
     }
 
-    for(ConstructDBCStorageIterator(AuctionHouseEntry) itr = dbcAuctionHouse.begin(); itr != dbcAuctionHouse.end(); ++itr)
-        auctionHouseMap.insert(std::make_pair((*itr)->id, new AuctionHouse((*itr)->id)));
+    for(uint32 i = 0; i < dbcAuctionHouse.GetNumRows(); i++)
+        if(AuctionHouseEntry *entry = dbcAuctionHouse.LookupRow(i))
+            auctionHouseMap.insert(std::make_pair(entry->id, new AuctionHouse(entry->id)));
 
     res = WorldDatabase.Query("SELECT * FROM auctionhouse");
     if(res)

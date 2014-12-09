@@ -287,16 +287,25 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 {
     ByteBuffer fields;
     UpdateMask mask(m_valuesCount);
-    uint32 *flags, uFlag = GetUpdateFieldData(flags, target);
-    for( uint32 index = 0; index < m_valuesCount; index++ )
+    uint16 typeMask = GetTypeFlags();
+    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen;
+    for(uint8 f = 0; f < 10; f++)
     {
-        if(uint32 value = m_uint32Values[index])
+        if(typeMask & 1<<f)
         {
-            if(m_notifyFlags & flags[index] || (m_uint32Values[index] && flags[index] & uFlag))
+            GetUpdateFieldData(f, flags, fLen);
+            for(uint32 i = 0; i < fLen; i++)
             {
-                mask.SetBit(index);
-                fields << value;
+                if(uint32 value = m_uint32Values[offset+i])
+                {
+                    if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
+                    {
+                        mask.SetBit(i);
+                        fields << value;
+                    }
+                }
             }
+            offset += fLen;
         }
     }
 
@@ -306,58 +315,61 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     data->append(fields);
 }
 
-uint32 Object::GetUpdateFieldData(uint32*& flags, Player * target)
+uint32 Object::GetUpdateFlag(Player *target)
 {
-    uint32 visibleFlag = UF_FLAG_PUBLIC, pos = 0;
-    if (target == this)
-        visibleFlag |= UF_FLAG_PRIVATE;
-
+    uint32 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
     switch (GetTypeId())
     {
     case TYPEID_ITEM:
     case TYPEID_CONTAINER:
         {
-            flags = ItemUpdateFieldFlags;
             if (castPtr<Item>(this)->GetOwnerGUID() == (uint64)target->GetGUID())
-                visibleFlag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
+                flag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
         }break;
     case TYPEID_UNIT:
     case TYPEID_PLAYER:
         {
-            flags = UnitUpdateFieldFlags;
             if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
-                visibleFlag |= UF_FLAG_OWNER;
+                flag |= UF_FLAG_OWNER;
             else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
-                visibleFlag |= UF_FLAG_OWNER;
+                flag |= UF_FLAG_OWNER;
             if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
-                visibleFlag |= UF_FLAG_PARTY_MEMBER;
+                flag |= UF_FLAG_PARTY_MEMBER;
         }break;
     case TYPEID_GAMEOBJECT:
         {
-            flags = GameObjectUpdateFieldFlags;
             if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
-                visibleFlag |= UF_FLAG_OWNER;
+                flag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_DYNAMICOBJECT:
         {
-            flags = DynamicObjectUpdateFieldFlags;
             if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
-                visibleFlag |= UF_FLAG_OWNER;
+                flag |= UF_FLAG_OWNER;
         }break;
     case TYPEID_CORPSE:
         {
-            flags = CorpseUpdateFieldFlags;
             if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
-                visibleFlag |= UF_FLAG_OWNER;
+                flag |= UF_FLAG_OWNER;
         }break;
-    case TYPEID_AREATRIGGER:
-        flags = AreaTriggerUpdateFieldFlags;
-        break;
-    case TYPEID_OBJECT:
-        break;
     }
 
-    return visibleFlag;
+    return flag;
+}
+
+void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
+{
+    uint8 typeId = GetTypeId();
+    switch (typeId)
+    {
+    case TYPEID_CONTAINER: { length = CONTAINER_LENGTH; flags = ContainerUpdateFieldFlags; }break;
+    case TYPEID_ITEM: { length = ITEM_LENGTH; flags = ItemUpdateFieldFlags; }break;
+    case TYPEID_UNIT: { length = UNIT_LENGTH; flags = UnitUpdateFieldFlags; }break;
+    case TYPEID_PLAYER: { length = PLAYER_LENGTH; flags = PlayerUpdateFieldFlags; }break;
+    case TYPEID_GAMEOBJECT: { length = GAMEOBJECT_LENGTH; flags = GameObjectUpdateFieldFlags; }break;
+    case TYPEID_DYNAMICOBJECT: { length = DYNAMICOBJECT_LENGTH; flags = DynamicObjectUpdateFieldFlags; }break;
+    case TYPEID_CORPSE: { length = CORPSE_LENGTH; flags = CorpseUpdateFieldFlags; }break;
+    case TYPEID_AREATRIGGER: { length = AREATRIGGER_LENGTH; flags = AreaTriggerUpdateFieldFlags; }break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////

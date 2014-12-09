@@ -138,9 +138,10 @@ public:
     HEARTHSTONE_INLINE void LoadAllTerrain() { _terrain->LoadAllTerrain(); }
     HEARTHSTONE_INLINE void UnloadAllTerrain() { _terrain->UnloadAllTerrain(); }
 
+    HEARTHSTONE_INLINE size_t GetTerrainSize() { return _terrain->GetSize(); }
     HEARTHSTONE_INLINE float GetLandHeight(float x, float y) { return _terrain->GetLandHeight(x, y); }
     HEARTHSTONE_INLINE float GetWaterHeight(float x, float y, float z) { return _terrain->GetWaterHeight(x, y, z); }
-    HEARTHSTONE_INLINE uint16 GetWaterType(float x, float y) { return _terrain->GetWaterType(x, y); }
+    HEARTHSTONE_INLINE uint8 GetWaterType(float x, float y) { return _terrain->GetWaterType(x, y); }
     HEARTHSTONE_INLINE uint8 GetWalkableState(float x, float y) { return _terrain->GetWalkableState(x, y); }
 
     HEARTHSTONE_INLINE uint16 GetAreaID(float x, float y, float z) { return _terrain->GetAreaID(x, y, z); }

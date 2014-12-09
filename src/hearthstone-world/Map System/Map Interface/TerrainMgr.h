@@ -6,18 +6,27 @@
 
 typedef struct
 {
-    uint16 AreaInfo[256];
-    uint16 LiquidInfo[256];
+    uint16 areaInfo;
+    float mapHeight[3]; float heightMultipier;
 
-    float V8[128][128];
-    float V9[128+1][128+1];
+    struct sAI { uint16 AI[16*16]; } *short_AI;
+    struct mAI { uint16 mask[16]; } *masked_AI;
 
-    float liquid_height[128+1][128+1];
+    struct bV8 { uint8 V8[128*128]; } *byte_V8;
+    struct sV8 { uint16 V8[128*128]; } *short_V8;
+    struct fV8 { float V8[128*128]; } *float_V8;
+
+    struct bV9 { uint8 V9[129*129]; } *byte_V9;
+    struct sV9 { uint16 V9[129*129]; } *short_V9;
+    struct fV9 { float V9[129*129]; } *float_V9;
+
+    struct bLI { uint8 LI[16*16]; } *byte_LI;
+    struct mLI { uint16 LI[16]; } *mask_LI;
+    float *m_liquidHeight;
+    uint8 liquidData[5];
 }TileTerrainInformation;
 
 #define TERRAIN_HEADER_SIZE 16384    // size of [64][64] array.
-#define TILE_TERRAIN_SIZE 199688     // size of Tile dump.
-#define MAP_RESOLUTION 256
 #define NO_LAND_HEIGHT 999999.0f
 #define NO_WATER_HEIGHT -50000.0f
 
@@ -83,11 +92,14 @@ public:
       */
     float  GetLandHeight(float x, float y);
     float  GetWaterHeight(float x, float y, float z);
-    uint16 GetWaterType(float x, float y);
+    uint8  GetWaterType(float x, float y);
     uint8  GetWalkableState(float x, float y);
     uint16 GetAreaID(float x, float y, float z);
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
     void GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY);
+
+    //
+    size_t GetSize();
 
 private:
     /// MapPath contains the location of all mapfiles.
@@ -191,6 +203,8 @@ protected:
       */
     HEARTHSTONE_INLINE bool TileInformationLoaded(uint32 x, uint32 y)
     {
+        if(TileInformation == NULL)
+            return false;
         if(TileInformation[x][y] != 0)
             return true;
         return false;

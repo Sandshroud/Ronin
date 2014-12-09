@@ -86,9 +86,9 @@ void ObjectMgr::LoadExtraItemStuff()
         delete result;
     }
 
-    for(ConstructDBCStorageIterator(ItemSetEntry) itr = dbcItemSet.begin(); itr != dbcItemSet.end(); ++itr)
+    for(uint32 i = 0; i < dbcItemSet.GetNumRows(); i++)
     {
-        ItemSetEntry *itemset = (*itr);
+        ItemSetEntry *itemset = dbcItemSet.LookupRow(i);
         for(uint8 i = 0; i < 9; i++)
         {
             if(itemset->setItems[i])

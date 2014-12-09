@@ -7625,10 +7625,10 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
         if(!m_channelsbyDBCID.size())
             return;
 
-        for(ConstructDBCStorageIterator(ChatChannelEntry) itr = dbcChatChannels.begin(); itr != dbcChatChannels.end(); ++itr)
+        for(uint32 i = 0; i < dbcChatChannels.GetNumRows(); i++)
         {
             Channel *channel = NULL;
-            ChatChannelEntry* entry = (*itr);
+            ChatChannelEntry* entry = dbcChatChannels.LookupRow(i);
             if(m_channelsbyDBCID.find(entry->id) != m_channelsbyDBCID.end())
                 channel = m_channelsbyDBCID.at(entry->id);
             if(UpdateChatChannel(areaName, areaTable, entry, channel))
@@ -7647,17 +7647,15 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
             if(UpdateChatChannel(areaName, areaTable, entry, itr->second))
                 m_channelsbyDBCID.erase(entry->id);
         }
-        else if(itr != m_channelsbyDBCID.end() && itr->second != NULL)
-            itr->second->Part(this, false, true);
-        else if(itr == m_channelsbyDBCID.end())
+        else
         {
             if(!AllowChannelAtLocation(dbcID, areaTable))
                 return;
 
             char name[255];
-            sprintf(name, "%s", entry->pattern);
             if(entry->flags & 0x02)
                 sprintf(name, entry->pattern, areaName);
+            else sprintf(name, "%s", entry->pattern);
             Channel *chn = channelmgr.GetCreateDBCChannel(name, this, entry->id);
             if(chn == NULL || chn->HasMember(this))
                 return;

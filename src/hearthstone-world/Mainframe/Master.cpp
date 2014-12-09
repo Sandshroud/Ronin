@@ -377,7 +377,6 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice( "World", "~World()" );
     sWorld.Destruct();
-//  delete World::getSingletonPtr();
 
     sLog.Notice( "ScriptMgr", "~ScriptMgr()" );
     sScriptMgr.UnloadScripts();
@@ -393,6 +392,8 @@ bool Master::Run(int argc, char ** argv)
 
     // remove pid
     remove( "hearthstone-world.pid" );
+
+    _CrtDumpMemoryLeaks();
 
     sLog.Notice( "Shutdown", "Shutdown complete." );
     return true;

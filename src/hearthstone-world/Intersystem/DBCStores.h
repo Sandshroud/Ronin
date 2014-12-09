@@ -1680,42 +1680,49 @@ struct gtFloat
 
 #pragma pack(pop)
 
-#define ConstructDBCStorageIterator(_class) DBStorage<_class, DBC<_class> >::iterator
-#define ConstructDB2StorageIterator(_class) DBStorage<_class, DB2<_class> >::iterator
-
 template<class T, class T2> class SERVER_DECL DBStorage
 {
     T2 *m_file;
 
+    std::map<uint32, T*> subEntries;
 public:
-    class iterator
-    {
-    private:
-        T* p;
-    public:
-        iterator(T* ip = 0) : p(ip) { };
-        iterator& operator++() { ++p; return *this; };
-        bool operator != (const iterator &i) { return (p != i.p); };
-        bool operator == (const iterator &i) { return (p == i.p); };
-        T* operator*() { return p; };
-    };
-
-    iterator begin() { return iterator(m_file->GetFirstBlock()); }
-    iterator end() { return iterator(m_file->GetLastBlock()); }
-
     DBStorage() { m_file = new T2(); }
-    ~DBStorage() { delete m_file; }
+    ~DBStorage()
+    {
+        delete m_file;
+        for(auto itr = subEntries.begin(); itr != subEntries.end(); itr++)
+            delete itr->second;
+        subEntries.clear();
+    }
 
     bool Load(const char * filename, const char * format) { return m_file->Load(filename, format); }
 
     uint32 GetNumRows() { return m_file->GetNumRows(); }
-    uint32 GetMaxRow() { return m_file->GetMaxRow(); }
+    uint32 GetMaxEntry() { return m_file->GetMaxEntry(); }
 
-    T * LookupEntryTest(uint32 i) { return m_file->LookupEntryTest(i); }
-    T * LookupEntry(uint32 i) { return m_file->LookupEntry(i); }
+    T * LookupEntryTest(uint32 i)
+    {
+        if(subEntries.find(i) != subEntries.end())
+            return subEntries.at(i);
+        return m_file->LookupEntryTest(i);
+    }
+
+    T * LookupEntry(uint32 i)
+    {
+        if(subEntries.find(i) != subEntries.end())
+            return subEntries.at(i);
+        return m_file->LookupEntry(i);
+    }
+
     T * LookupRow(uint32 i) { return m_file->LookupRow(i); }
 
-    void SetRow(uint32 i, T * t) { return m_file->SetRow(i, t); }
+    bool SetEntry(uint32 entry, T* block)
+    {
+        if(subEntries.find(entry) != subEntries.end())
+            return false;
+        subEntries.insert(std::make_pair(entry, block));
+        return true;
+    }
 };
 
 HEARTHSTONE_INLINE float GetDBCScale(CreatureDisplayInfoEntry *Scale)

@@ -1116,9 +1116,15 @@ bool ChatHandler::HandleGetKnownTitlesCommand(const char* args, WorldSession* m_
         return true;
 
     GreenSystemMessage(m_session, "Starting title listing...");
-    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitle.begin(); itr != dbcCharTitle.end(); ++itr)
-        if(plr->HasKnownTitleByIndex((*itr)->bit_index))
-            BlueSystemMessage(m_session, (*itr)->title, plr->GetName());
+    for(uint32 i = 0; i < dbcCharTitle.GetNumRows(); i++)
+    {
+        CharTitleEntry *entry = dbcCharTitle.LookupRow(i);
+        if(entry == NULL)
+            continue;
+        if(!plr->HasKnownTitleByIndex(entry->bit_index))
+            continue;
+        BlueSystemMessage(m_session, entry->title, plr->GetName());
+    }
     GreenSystemMessage(m_session, "Finished title listing.");
     return true;
 }
@@ -2285,9 +2291,13 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
     }
 
     GreenSystemMessage(m_session, "Initializing title finder.");
-    for(ConstructDBCStorageIterator(CharTitleEntry) itr = dbcCharTitle.begin(); itr != dbcCharTitle.end(); ++itr)
-        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN((*itr)->title)))
-            BlueSystemMessage(m_session, "Title %03u: %s", (*itr)->Id, format((*itr)->title, m_session->GetPlayer()->GetName()).c_str());
+    for(uint32 i = 0; i < dbcCharTitle.GetNumRows(); i++)
+    {
+        CharTitleEntry *entry = dbcCharTitle.LookupRow(i);
+        if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->title)))
+            continue;
+        BlueSystemMessage(m_session, "Title %03u: %s", entry->Id, format(entry->title, m_session->GetPlayer()->GetName()).c_str());
+    }
     GreenSystemMessage(m_session, "End title find.");
     return true;
 }

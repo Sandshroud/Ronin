@@ -101,8 +101,6 @@ void World::Destruct()
             NavMeshInterface.DeInit();
     }
 
-    dummyspells.clear();
-
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
 
@@ -169,9 +167,11 @@ void World::Destruct()
 
 void World::ParseFactionTemplate()
 {
-    sLog.Notice("World", "Setting %u faction pointers in template class", dbcFactionTemplate.GetNumRows());
-    for(ConstructDBCStorageIterator(FactionTemplateEntry) itr = dbcFactionTemplate.begin(); itr != dbcFactionTemplate.end(); ++itr)
-        (*itr)->m_faction = dbcFaction.LookupEntry((*itr)->Faction);
+    uint32 numRows = dbcFactionTemplate.GetNumRows();
+    sLog.Notice("World", "Setting %u faction pointers in template class", numRows);
+    for(uint32 i = 0; i < numRows; i++)
+        if(FactionTemplateEntry *entry = dbcFactionTemplate.LookupRow(i))
+            entry->m_faction = dbcFaction.LookupEntry(entry->Faction);
 }
 
 WorldSession* World::FindSession(uint32 id)
@@ -378,6 +378,9 @@ bool World::SetInitialWorldSettings()
         sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "One or more of the DBC files are missing.", "These are absolutely necessary for the server to function.", "The server will not start without them.", NULL);
         return false;
     }
+
+    sLog.Success("World", "DBC Files Loaded successfully");
+
     // Unload the DBC loader
     delete DBCLoader::getSingletonPtr();
 
@@ -541,11 +544,9 @@ bool World::SetInitialWorldSettings()
             Sleep( 100 );
     }
 
-    int8 team = -1;
-    AreaTableEntry *areaentry = NULL;
-    for( ConstructDBCStorageIterator(AreaTableEntry) area_itr = dbcAreaTable.begin(); area_itr != dbcAreaTable.end(); ++area_itr )
+    for(uint32 i = 0; i < dbcAreaTable.GetNumRows(); i++)
     {
-        areaentry = (*area_itr);
+        AreaTableEntry *areaentry = dbcAreaTable.LookupRow(i);
         if(areaentry == NULL)
             continue;
 
@@ -559,7 +560,7 @@ bool World::SetInitialWorldSettings()
         {
             if(areaentry->AreaFlags & AREA_CITY_AREA || areaentry->AreaFlags & AREA_CITY || areaentry->AreaFlags & AREA_CAPITAL_SUB || areaentry->AreaFlags & AREA_CAPITAL)
             {
-                team = -1;
+                int8 team = -1;
                 if(areaentry->category == AREAC_ALLIANCE_TERRITORY)
                     team = ALLIANCE;
                 if(areaentry->category == AREAC_HORDE_TERRITORY)
@@ -568,7 +569,6 @@ bool World::SetInitialWorldSettings()
             }
 
         }
-        areaentry = NULL;
     }
     sLog.Notice("World", "Hashed %u sanctuaries", m_sanctuaries.size());
 

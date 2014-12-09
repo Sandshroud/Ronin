@@ -943,7 +943,7 @@ void MapMgr::_UpdateObjects()
 
 void MapMgr::UpdateAllCells(bool apply, uint32 areamask)
 {
-    uint16 AreaID = 0;
+    uint16 AreaID = 0, loadCount = 0;
     MapCell * cellInfo;
     CellSpawns * spawns;
     uint32 StartX = 0, EndX = 0, StartY = 0, EndY = 0;
@@ -975,24 +975,28 @@ void MapMgr::UpdateAllCells(bool apply, uint32 areamask)
             {
                 if( !cellInfo )
                 {   // Cell doesn't exist, create it.
-                    // There is no spoon. Err... cell.
                     cellInfo = Create( x , y );
                     cellInfo->Init( x , y , _mapId , this );
+                    cellInfo->SetActivity(true);
+                    _map->CellGoneActive(x, y);
                     sLog.Debug("MapMgr","Created cell [%u,%u] on map %u (instance %u)." , x , y , _mapId , m_instanceID );
                 }
 
-                AddForcedCell(cellInfo, 0);
                 if (!cellInfo->IsLoaded())
                 {
                     if( spawns = _map->GetSpawnsList( x , y ) )
+                    {
                         cellInfo->LoadObjects( spawns );
+                        loadCount++;
+                    }
                 }
+                AddForcedCell(cellInfo, 0);
             } else if(cellInfo != NULL)
                 RemoveForcedCell(cellInfo);
         }
     }
-    if(!areamask)
-        sLog.Success("MapMgr", "Cell updating success for map %03u", _mapId);
+
+    if(!areamask) sLog.Success("MapMgr", "Cell update for map %03u completed with %u objLoad calls", _mapId, loadCount);
 }
 
 void MapMgr::UpdateCellActivity(uint32 x, uint32 y, int radius)
@@ -1053,14 +1057,12 @@ void MapMgr::UpdateCellActivity(uint32 x, uint32 y, int radius)
 
 void MapMgr::GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType)
 {
-    uint16 vwaterType = 0;
-    uint16 mapWaterType = GetBaseMap()->GetWaterType(x, y);
+    uint16 vwaterType = 0, mapWaterType = GetBaseMap()->GetWaterType(x, y);
     float mapWaterheight = GetBaseMap()->GetWaterHeight(x, y, z);
     float vmapWaterHeight = sVMapInterface.GetWaterHeight(GetMapId(), x, y, z, vwaterType);
     if(!(mapWaterType & 0x10) && vwaterType && vmapWaterHeight != NO_WMO_HEIGHT)
     { outHeight = vmapWaterHeight; outType = vwaterType; }
-    else
-    { outHeight = mapWaterheight; outType = mapWaterType; }
+    else { outHeight = mapWaterheight; outType = mapWaterType; }
 }
 
 float MapMgr::GetLandHeight(float x, float y)

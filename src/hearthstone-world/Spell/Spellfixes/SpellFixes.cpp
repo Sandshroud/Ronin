@@ -10,7 +10,7 @@ void DumpOpcodeData();
 
 void ApplyNormalFixes()
 {
-    sLog.Notice("World", "Processing %u spells, highest %u...", dbcSpell.GetNumRows(), dbcSpell.GetMaxRow());
+    sLog.Notice("World", "Processing %u spells, highest %u...", dbcSpell.GetNumRows(), dbcSpell.GetMaxEntry());
 
     sLog.Notice("World", "Filling spell default values...");
     SpellEntry *sp; // We must set spell defaults before we load static pool data
@@ -76,7 +76,8 @@ void ApplyNormalFixes()
     sp2->Name = ((char*)"Dummy Shit");
     sp2->DurationIndex = 41;
     sp2->EffectApplyAuraName[1] = SPELL_AURA_DUMMY;
-    dbcSpell.SetRow(62388, sp2);
+    if(!dbcSpell.SetEntry(62388, sp2))
+        delete sp2;
 }
 
 void SetProcFlags(SpellEntry *sp)
@@ -104,9 +105,10 @@ SpellEntry* CreateDummySpell(uint32 id)
     sp->Effect[0] = SPELL_EFFECT_DUMMY;
     sp->EffectImplicitTargetA[0] = 25;
     sp->NameHash = crc32((const unsigned char*)name.c_str(), (unsigned int)name.length());
-    dbcSpell.SetRow(id, sp);
-    sWorld.dummyspells.push_back(sp);
-    return sp;
+    if(dbcSpell.SetEntry(62388, sp))
+        return sp;
+    delete sp;
+    return NULL;
 }
 
 uint32 GetSpellClass(SpellEntry *sp)

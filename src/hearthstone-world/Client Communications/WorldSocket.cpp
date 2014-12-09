@@ -210,6 +210,16 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     printf("Sending packet %s(0x%.4X) as 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, newOpcode);
     //printf("Sending packet %s\n", sOpcodeMgr.GetOpcodeName(opcode));
     LockWriteBuffer();
+
+    if(FILE *file = fopen("opcodeLog.txt", "ab"))
+    {
+        WorldPacket log(opcode, len);
+        log.append((char*)data, len);
+        fprintf(file, "Opcode %s: 0x%.4X | 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, newOpcode);
+        log.hexlike(file);
+        fclose(file);
+    }
+
     // Encrypt the packet
     // First, create the header.
     ServerPktHeader Header(len + 2, newOpcode);

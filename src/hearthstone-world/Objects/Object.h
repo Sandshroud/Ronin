@@ -245,7 +245,8 @@ protected:
     //! Mark values that player should get when he/she/it sees object for first time.
     virtual void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
 
-    uint32 GetUpdateFieldData(uint32 *&flags, Player *target);
+    uint32 GetUpdateFlag(Player *target);
+    void GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length);
     void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
     void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
 

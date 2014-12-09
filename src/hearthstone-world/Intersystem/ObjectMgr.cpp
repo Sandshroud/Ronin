@@ -1933,10 +1933,11 @@ void ObjectMgr::ReloadDisabledSpells()
 
 void ObjectMgr::HashWMOAreaTables()
 {
-    for(ConstructDBCStorageIterator(WMOAreaTableEntry) itr = dbcWMOAreaTable.begin(); itr != dbcWMOAreaTable.end(); ++itr)
+    for(uint32 i = 0; i < dbcWMOAreaTable.GetNumRows(); i++)
     {
-        std::pair<uint32, std::pair<uint32, uint32> > WMOID((*itr)->groupId, std::make_pair((*itr)->rootId, (*itr)->adtId));
-        WMOAreaTables.insert(std::make_pair(WMOID, *itr));
+        WMOAreaTableEntry *entry = dbcWMOAreaTable.LookupRow(i);
+        std::pair<uint32, std::pair<uint32, uint32> > WMOID(entry->groupId, std::make_pair(entry->rootId, entry->adtId));
+        WMOAreaTables.insert(std::make_pair(WMOID, entry));
     }
 }
 

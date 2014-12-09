@@ -15,9 +15,9 @@ void ItemPrototypeSystem::Init()
     sLog.Notice("ItemPrototypeSystem", "Loading %u items!", db2Item.GetNumRows());
     ItemDataEntry *itemData = NULL;
     ItemSparseEntry *sparse = NULL;
-    for(ConstructDB2StorageIterator(ItemDataEntry) itr = db2Item.begin(); itr != db2Item.end(); ++itr)
+    for(uint32 i = 0; i < db2Item.GetNumRows(); i++)
     {
-        itemData = (*itr);
+        itemData = db2Item.LookupRow(i);
         sparse = db2ItemSparse.LookupEntry(itemData->ID);
         if(sparse == NULL)
             continue;
