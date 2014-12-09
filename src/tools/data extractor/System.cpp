@@ -343,42 +343,42 @@ void HandleArgs(int argc, char* arg[])
 
         switch (arg[c][1])
         {
-            case 'i':
-                if (c + 1 < argc)                            // all ok
-                    strcpy(input_path, arg[c++ + 1]);
-                else
+        case 'i':
+            if (c + 1 < argc)                            // all ok
+                strcpy(input_path, arg[c++ + 1]);
+            else
+                Usage(arg[0]);
+            break;
+        case 'o':
+            if (c + 1 < argc)                            // all ok
+                strcpy(output_path, arg[c++ + 1]);
+            else
+                Usage(arg[0]);
+            break;
+        case 'f':
+            if (c + 1 < argc)                            // all ok
+                CONF_allow_float_to_int = atoi(arg[c++ + 1])!=0;
+            else
+                Usage(arg[0]);
+            break;
+        case 'e':
+            if (c + 1 < argc)                            // all ok
+            {
+                CONF_extract = atoi(arg[c++ + 1]);
+                if (!(CONF_extract > 0 && CONF_extract < 4))
                     Usage(arg[0]);
-                break;
-            case 'o':
-                if (c + 1 < argc)                            // all ok
-                    strcpy(output_path, arg[c++ + 1]);
-                else
-                    Usage(arg[0]);
-                break;
-            case 'f':
-                if (c + 1 < argc)                            // all ok
-                    CONF_allow_float_to_int = atoi(arg[c++ + 1])!=0;
-                else
-                    Usage(arg[0]);
-                break;
-            case 'e':
-                if (c + 1 < argc)                            // all ok
-                {
-                    CONF_extract = atoi(arg[c++ + 1]);
-                    if (!(CONF_extract > 0 && CONF_extract < 4))
-                        Usage(arg[0]);
-                }
-                else
-                    Usage(arg[0]);
-                break;
-            case 'b':
-                if (c + 1 < argc)                            // all ok
-                    CONF_TargetBuild = atoi(arg[c++ + 1]);
-                else
-                    Usage(arg[0]);
-                break;
-            default:
-                break;
+            }
+            else
+                Usage(arg[0]);
+            break;
+        case 'b':
+            if (c + 1 < argc)                            // all ok
+                CONF_TargetBuild = atoi(arg[c++ + 1]);
+            else
+                Usage(arg[0]);
+            break;
+        default:
+            break;
         }
     }
 }
@@ -613,7 +613,7 @@ uint8 liquid_flags[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
 bool  liquid_show[ADT_GRID_SIZE][ADT_GRID_SIZE];
 float liquid_height[ADT_GRID_SIZE+1][ADT_GRID_SIZE+1];
 
-bool ConvertADT(char *filename, char *filename2, int /*cell_y*/, int /*cell_x*/, uint32 build)
+bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, uint32 build)
 {
     ADT_file adt;
 
@@ -1103,63 +1103,53 @@ bool ConvertADT(char *filename, char *filename2, int /*cell_y*/, int /*cell_x*/,
     else
         map.holesSize = 0;
 
-    // Ok all data prepared - store it
-    FILE* output = fopen(filename2, "wb");
-    if (!output)
-    {
-        printf("Can't create the output file '%s'\n", filename2);
-        return false;
-    }
-    fwrite(&map, sizeof(map), 1, output);
+    fwrite(&map, sizeof(map), 1, out_file);
     // Store area data
-    fwrite(&areaHeader, sizeof(areaHeader), 1, output);
+    fwrite(&areaHeader, sizeof(areaHeader), 1, out_file);
     if (!(areaHeader.flags&MAP_AREA_NO_AREA))
-        fwrite(area_flags, sizeof(area_flags), 1, output);
+        fwrite(area_flags, sizeof(area_flags), 1, out_file);
 
     // Store height data
-    fwrite(&heightHeader, sizeof(heightHeader), 1, output);
+    fwrite(&heightHeader, sizeof(heightHeader), 1, out_file);
     if (!(heightHeader.flags & MAP_HEIGHT_NO_HEIGHT))
     {
         if (heightHeader.flags & MAP_HEIGHT_AS_INT16)
         {
-            fwrite(uint16_V9, sizeof(uint16_V9), 1, output);
-            fwrite(uint16_V8, sizeof(uint16_V8), 1, output);
+            fwrite(uint16_V9, sizeof(uint16_V9), 1, out_file);
+            fwrite(uint16_V8, sizeof(uint16_V8), 1, out_file);
         }
         else if (heightHeader.flags & MAP_HEIGHT_AS_INT8)
         {
-            fwrite(uint8_V9, sizeof(uint8_V9), 1, output);
-            fwrite(uint8_V8, sizeof(uint8_V8), 1, output);
+            fwrite(uint8_V9, sizeof(uint8_V9), 1, out_file);
+            fwrite(uint8_V8, sizeof(uint8_V8), 1, out_file);
         }
         else
         {
-            fwrite(V9, sizeof(V9), 1, output);
-            fwrite(V8, sizeof(V8), 1, output);
+            fwrite(V9, sizeof(V9), 1, out_file);
+            fwrite(V8, sizeof(V8), 1, out_file);
         }
     }
 
     // Store liquid data if need
     if (map.liquidMapOffset)
     {
-        fwrite(&liquidHeader, sizeof(liquidHeader), 1, output);
+        fwrite(&liquidHeader, sizeof(liquidHeader), 1, out_file);
         if (!(liquidHeader.flags & MAP_LIQUID_NO_TYPE))
         {
-            fwrite(liquid_entry, sizeof(liquid_entry), 1, output);
-            fwrite(liquid_flags, sizeof(liquid_flags), 1, output);
+            fwrite(liquid_entry, sizeof(liquid_entry), 1, out_file);
+            fwrite(liquid_flags, sizeof(liquid_flags), 1, out_file);
         }
 
         if (!(liquidHeader.flags & MAP_LIQUID_NO_HEIGHT))
         {
             for (int y = 0; y < liquidHeader.height; y++)
-                fwrite(&liquid_height[y + liquidHeader.offsetY][liquidHeader.offsetX], sizeof(float), liquidHeader.width, output);
+                fwrite(&liquid_height[y + liquidHeader.offsetY][liquidHeader.offsetX], sizeof(float), liquidHeader.width, out_file);
         }
     }
 
     // store hole data
     if (hasHoles)
-        fwrite(holes, map.holesSize, 1, output);
-
-    fclose(output);
-
+        fwrite(holes, map.holesSize, 1, out_file);
     return true;
 }
 
@@ -1183,13 +1173,30 @@ void ExtractMapsFromMpq(uint32 build)
     printf("Convert map files\n");
     for (uint32 z = 0; z < map_count; ++z)
     {
-        printf("Extract %s (%d/%u)                  \n", map_ids[z].name, z+1, map_count);
+        WDT_file wdt;
+        FILE *out_file = NULL;
+        sprintf(output_filename, "%s/maps/%03u.bin", output_path, map_ids[z].id);
+        fopen_s(&out_file, output_filename, "wb");
+        if(out_file == NULL)
+        {
+            printf("Could not create output file!\n");
+            break;
+        }
+
+        uint32 offsets[WDT_MAP_SIZE][WDT_MAP_SIZE];
+        memset(offsets, 0, sizeof(uint32)*WDT_MAP_SIZE*WDT_MAP_SIZE);
+        fwrite(offsets, sizeof(uint32)*WDT_MAP_SIZE*WDT_MAP_SIZE, 1, out_file);
+        printf("Extracting %s (%d/%u)               \n", map_ids[z].name, z+1, map_count);
+
         // Loadup map grid data
         sprintf(mpq_map_name, "World\\Maps\\%s\\%s.wdt", map_ids[z].name, map_ids[z].name);
-        WDT_file wdt;
         if (!wdt.loadFile(WorldMpq, mpq_map_name, false))
+        {
+            fclose(out_file);
             continue;
+        }
 
+        fseek(out_file, 0, SEEK_END);
         for (uint32 y = 0; y < WDT_MAP_SIZE; ++y)
         {
             for (uint32 x = 0; x < WDT_MAP_SIZE; ++x)
@@ -1198,13 +1205,17 @@ void ExtractMapsFromMpq(uint32 build)
                     continue;
 
                 sprintf(mpq_filename, "World\\Maps\\%s\\%s_%u_%u.adt", map_ids[z].name, map_ids[z].name, x, y);
-                sprintf(output_filename, "%s/maps/%03u%02u%02u.map", output_path, map_ids[z].id, y, x);
-                ConvertADT(mpq_filename, output_filename, y, x, build);
+                uint32 Offset = ftell(out_file);
+                if(ConvertADT(out_file, mpq_filename, y, x, build))
+                    offsets[x][y] = Offset;
             }
 
             // draw progress bar
             printf("Processing........................%d%%\r", (100 * (y+1)) / WDT_MAP_SIZE);
         }
+        fseek(out_file, 0, SEEK_SET);
+        fwrite(offsets, sizeof(uint32)*WDT_MAP_SIZE*WDT_MAP_SIZE, 1, out_file);
+        fclose(out_file);
     }
 
     printf("\n");
@@ -1236,187 +1247,188 @@ void CreateCustomDBCFiles()
         return;
     }
 
-    std::string updateStr;
-    std::string path = "./dbc/";
-    std::string filename = path + std::string("CreatureBoundInformation.dbc");
-    FILE* newDBC = fopen(filename.c_str(), "wb");
-    if(newDBC != NULL)
+    std::string updateStr, path = "./dbc/", filename = path + std::string("CreatureBoundInformation.dbc");
+    if(!FileExists(filename.c_str()))
     {
-        char header[4];
-        unsigned int na = 0, nb = 8, es = sizeof(DisplayBounding), ss = 0;
-        header[0] = 'W'; header[1] = 'D';
-        header[2] = 'B'; header[3] = 'C';
-        fwrite(header, 4, 1, newDBC);
-
-        for(uint32 x = 0; x < modelInfo.getRecordCount(); ++x)
+        FILE* newDBC = fopen(filename.c_str(), "wb");
+        if(newDBC != NULL)
         {
-            uint32 entry = modelInfo.getRecord(x).getUInt(0);
-            modelInfoEntries.insert(std::make_pair(entry, modelInfo.getRecord(x)));
-        }
+            char header[4];
+            unsigned int na = 0, nb = 8, es = sizeof(DisplayBounding), ss = 0;
+            header[0] = 'W'; header[1] = 'D';
+            header[2] = 'B'; header[3] = 'C';
+            fwrite(header, 4, 1, newDBC);
 
-        for(uint32 x = 0; x < displayInfo.getRecordCount(); ++x)
-        {
-            unsigned int displayid = displayInfo.getRecord(x).getInt(0);
-            unsigned int modelentry = displayInfo.getRecord(x).getInt(1);
-            float modelscale = displayInfo.getRecord(x).getFloat(4);
-
-            std::map<uint32, DBCFile::Record>::iterator  modelitr = modelInfoEntries.find(modelentry);
-            if (modelitr == modelInfoEntries.end())
+            for(uint32 x = 0; x < modelInfo.getRecordCount(); ++x)
             {
-                PRINT_ERR("Cannot find model entry for display %u (entry %u)\n", displayid, modelentry);
-                continue;
+                uint32 entry = modelInfo.getRecord(x).getUInt(0);
+                modelInfoEntries.insert(std::make_pair(entry, modelInfo.getRecord(x)));
             }
-            updateStr.append(".");
-            printf("Building%s %10s\r", updateStr.c_str(), "");
-            if(!(na%10)) updateStr.clear();
 
-            DisplayBounding* BoundingInfo = new DisplayBounding();
-            DBCFile::Record modelrec = modelitr->second;
-
-            const char* modelname = modelrec.getString(2);
-
-            std::string strmodelname(modelname);
-
-            replaceInString(strmodelname, ".mdx", ".m2", 0);
-            replaceInString(strmodelname, ".MDX", ".m2", 0);
-
-            M2Header* header;
-            M2Attachment* attachments;
-            M2Bone* bones;
-            uint16* bonelookups;
-
-            std::map<std::string, ModelCache>::iterator cacheitr = modelCache.find(modelname);
-            if (cacheitr == modelCache.end())
+            for(uint32 x = 0; x < displayInfo.getRecordCount(); ++x)
             {
-                bool res = true;
-                HANDLE modelFile;
-                if(res = SFileOpenFileEx(WorldMpq, strmodelname.c_str(), SFILE_OPEN_FROM_MPQ, &modelFile))
-                {
-                    uint32 size = SFileGetFileSize(modelFile, NULL);
-                    if(res = !(size == 0 || size == SFILE_INVALID_SIZE))
-                    {
-                        res = false;
-                        DWORD readLen = 0;
-                        header = (M2Header*)malloc(sizeof(M2Header));
-                        if(res = SFileReadFile(modelFile, header, sizeof(M2Header), &readLen, NULL))
-                        {
-                            attachments = (M2Attachment*)malloc(header->nAttachments * sizeof(M2Attachment));
-                            bonelookups = (uint16*)malloc(header->nBoneLookupTable * sizeof(uint16));
-                            bones = (M2Bone*)malloc(header->nBones * sizeof(M2Bone));
+                unsigned int displayid = displayInfo.getRecord(x).getInt(0);
+                unsigned int modelentry = displayInfo.getRecord(x).getInt(1);
+                float modelscale = displayInfo.getRecord(x).getFloat(4);
 
-                            if(res && (res = (SFileSetFilePointer(modelFile, header->ofsAttachments, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
-                                res = SFileReadFile(modelFile, attachments, header->nAttachments * sizeof(M2Attachment), &readLen, NULL);
-                            if(res && (res = (SFileSetFilePointer(modelFile, header->ofsBoneLookupTable, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
-                                res = SFileReadFile(modelFile, bonelookups, header->nBoneLookupTable * sizeof(uint16), &readLen, NULL);
-                            if(res && (res = (SFileSetFilePointer(modelFile, header->ofsBones, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
-                                res = SFileReadFile(modelFile, bones, header->nBones * sizeof(M2Bone), &readLen, NULL);
-                            if(res)
+                std::map<uint32, DBCFile::Record>::iterator  modelitr = modelInfoEntries.find(modelentry);
+                if (modelitr == modelInfoEntries.end())
+                {
+                    PRINT_ERR("Cannot find model entry for display %u (entry %u)\n", displayid, modelentry);
+                    continue;
+                }
+                updateStr.append(".");
+                printf("Building%s %10s\r", updateStr.c_str(), "");
+                if(!(na%10)) updateStr.clear();
+
+                DisplayBounding* BoundingInfo = new DisplayBounding();
+                DBCFile::Record modelrec = modelitr->second;
+
+                const char* modelname = modelrec.getString(2);
+
+                std::string strmodelname(modelname);
+
+                replaceInString(strmodelname, ".mdx", ".m2", 0);
+                replaceInString(strmodelname, ".MDX", ".m2", 0);
+
+                M2Header* header;
+                M2Attachment* attachments;
+                M2Bone* bones;
+                uint16* bonelookups;
+
+                std::map<std::string, ModelCache>::iterator cacheitr = modelCache.find(modelname);
+                if (cacheitr == modelCache.end())
+                {
+                    bool res = true;
+                    HANDLE modelFile;
+                    if(res = SFileOpenFileEx(WorldMpq, strmodelname.c_str(), SFILE_OPEN_FROM_MPQ, &modelFile))
+                    {
+                        uint32 size = SFileGetFileSize(modelFile, NULL);
+                        if(res = !(size == 0 || size == SFILE_INVALID_SIZE))
+                        {
+                            res = false;
+                            DWORD readLen = 0;
+                            header = (M2Header*)malloc(sizeof(M2Header));
+                            if(res = SFileReadFile(modelFile, header, sizeof(M2Header), &readLen, NULL))
                             {
-                                ModelCache cacheentry;
-                                cacheentry.attachments = attachments;
-                                cacheentry.bones = bones;
-                                cacheentry.bonelookups = bonelookups;
-                                cacheentry.header = header;
-                                modelCache.insert(std::make_pair(modelname, cacheentry));
+                                attachments = (M2Attachment*)malloc(header->nAttachments * sizeof(M2Attachment));
+                                bonelookups = (uint16*)malloc(header->nBoneLookupTable * sizeof(uint16));
+                                bones = (M2Bone*)malloc(header->nBones * sizeof(M2Bone));
+
+                                if(res && (res = (SFileSetFilePointer(modelFile, header->ofsAttachments, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
+                                    res = SFileReadFile(modelFile, attachments, header->nAttachments * sizeof(M2Attachment), &readLen, NULL);
+                                if(res && (res = (SFileSetFilePointer(modelFile, header->ofsBoneLookupTable, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
+                                    res = SFileReadFile(modelFile, bonelookups, header->nBoneLookupTable * sizeof(uint16), &readLen, NULL);
+                                if(res && (res = (SFileSetFilePointer(modelFile, header->ofsBones, NULL, FILE_BEGIN) != SFILE_INVALID_SIZE)))
+                                    res = SFileReadFile(modelFile, bones, header->nBones * sizeof(M2Bone), &readLen, NULL);
+                                if(res)
+                                {
+                                    ModelCache cacheentry;
+                                    cacheentry.attachments = attachments;
+                                    cacheentry.bones = bones;
+                                    cacheentry.bonelookups = bonelookups;
+                                    cacheentry.header = header;
+                                    modelCache.insert(std::make_pair(modelname, cacheentry));
+                                }
+                                else
+                                {
+                                    delete attachments;
+                                    delete bonelookups;
+                                    delete bones;
+                                }
                             }
-                            else
-                            {
-                                delete attachments;
-                                delete bonelookups;
-                                delete bones;
-                            }
+                            if(res == false)
+                                delete header;
                         }
-                        if(res == false)
-                            delete header;
+                    }
+
+                    if(res == false)
+                    {
+                        delete BoundingInfo;
+                        PRINT_ERR("Error: cannot open %s\n", strmodelname.c_str());
+                        continue;
                     }
                 }
-
-                if(res == false)
+                else
                 {
-                    delete BoundingInfo;
-                    PRINT_ERR("Error: cannot open %s\n", strmodelname.c_str());
-                    continue;
-                }
-            }
-            else
-            {
-                header = cacheitr->second.header;
-                bones = cacheitr->second.bones;
-                bonelookups = cacheitr->second.bonelookups;
-                attachments = cacheitr->second.attachments;
-            }
-
-#ifdef GET_BONE_DATA
-            // try and get the bone
-            for (uint32 i = 0; i < header->nAttachments; ++i)
-            {
-                if (attachments[i].bone > header->nBoneLookupTable)
-                {
-#ifdef _DEBUG
-                    printf("Attachment %u requests bonelookup %u (too large, bonelookup table is only %u entries)\n", i, attachments[i].bone, header->nBoneLookupTable);
-#endif
-                    continue;
+                    header = cacheitr->second.header;
+                    bones = cacheitr->second.bones;
+                    bonelookups = cacheitr->second.bonelookups;
+                    attachments = cacheitr->second.attachments;
                 }
 
-                uint16 boneindex = bonelookups[attachments[i].bone];
-                if (boneindex > header->nBones)
+    #ifdef GET_BONE_DATA
+                // try and get the bone
+                for (uint32 i = 0; i < header->nAttachments; ++i)
                 {
-#ifdef _DEBUG
-                    printf("Attachment %u requests bone %u (too large, bone table is only %u entries)\n", i, boneindex, header->nBones);
-#endif
-                    continue;
+                    if (attachments[i].bone > header->nBoneLookupTable)
+                    {
+    #ifdef _DEBUG
+                        printf("Attachment %u requests bonelookup %u (too large, bonelookup table is only %u entries)\n", i, attachments[i].bone, header->nBoneLookupTable);
+    #endif
+                        continue;
+                    }
+
+                    uint16 boneindex = bonelookups[attachments[i].bone];
+                    if (boneindex > header->nBones)
+                    {
+    #ifdef _DEBUG
+                        printf("Attachment %u requests bone %u (too large, bone table is only %u entries)\n", i, boneindex, header->nBones);
+    #endif
+                        continue;
+                    }
+                    M2Bone & bone = bones[boneindex];
+                    //printf("Attachment %u (bone pivot %f %f %f offset %f %f %f)\n", attachments[i].id, bone.pivotpoint[0], bone.pivotpoint[1], bone.pivotpoint[2], attachments[i].pos[0],  attachments[i].pos[1],  attachments[i].pos[2]);
+
+                    float realpos[3];
+                    realpos[0] = (/*bone.pivotpoint[0] +*/ attachments[i].pos[0]) * modelscale;
+                    realpos[1] = (/*bone.pivotpoint[1] +*/ attachments[i].pos[1]) * modelscale;
+                    realpos[2] = (/*bone.pivotpoint[2] +*/ attachments[i].pos[2]) * modelscale;
+
+                    //fix coord system
+    //                  float tmp = realpos[2];
+    //                  realpos[2] = realpos[1];
+    //                  realpos[1] = -tmp;
+                    //fprintf(fo, "insert into `display_attachment_points` VALUES (%u, %u, %f, %f, %f);\n", displayid, attachments[i].id, attachments[i].pos[0], attachments[i].pos[1], attachments[i].pos[2]);
+                    //printf("Attachmnent %u point %f %f %f pivot %f %f %f\n", attachments[i].id, realpos[0], realpos[1], realpos[2], bone.pivotpoint[0], bone.pivotpoint[1], bone.pivotpoint[2]);
                 }
-                M2Bone & bone = bones[boneindex];
-                //printf("Attachment %u (bone pivot %f %f %f offset %f %f %f)\n", attachments[i].id, bone.pivotpoint[0], bone.pivotpoint[1], bone.pivotpoint[2], attachments[i].pos[0],  attachments[i].pos[1],  attachments[i].pos[2]);
+    #endif
 
-                float realpos[3];
-                realpos[0] = (/*bone.pivotpoint[0] +*/ attachments[i].pos[0]) * modelscale;
-                realpos[1] = (/*bone.pivotpoint[1] +*/ attachments[i].pos[1]) * modelscale;
-                realpos[2] = (/*bone.pivotpoint[2] +*/ attachments[i].pos[2]) * modelscale;
-
-                //fix coord system
-//                  float tmp = realpos[2];
-//                  realpos[2] = realpos[1];
-//                  realpos[1] = -tmp;
-                //fprintf(fo, "insert into `display_attachment_points` VALUES (%u, %u, %f, %f, %f);\n", displayid, attachments[i].id, attachments[i].pos[0], attachments[i].pos[1], attachments[i].pos[2]);
-                //printf("Attachmnent %u point %f %f %f pivot %f %f %f\n", attachments[i].id, realpos[0], realpos[1], realpos[2], bone.pivotpoint[0], bone.pivotpoint[1], bone.pivotpoint[2]);
+                BoundingInfo->Entry = displayid;
+                BoundingInfo->Low[0] = ((floor(1000000*(header->boundingbox1[0] * modelscale)))/1000000);
+                BoundingInfo->Low[1] = ((floor(1000000*(header->boundingbox1[1] * modelscale)))/1000000);
+                BoundingInfo->Low[2] = ((floor(1000000*(header->boundingbox1[2] * modelscale)))/1000000);
+                BoundingInfo->High[0] = ((floor(1000000*(header->boundingbox2[0] * modelscale)))/1000000);
+                BoundingInfo->High[1] = ((floor(1000000*(header->boundingbox2[1] * modelscale)))/1000000);
+                BoundingInfo->High[2] = ((floor(1000000*(header->boundingbox2[2] * modelscale)))/1000000);
+                BoundingInfo->BoundRadius = ((floor(1000000*(header->boundingradius * modelscale)))/1000000);
+                m_DisplayMap.insert(std::make_pair(displayid, BoundingInfo));
+                na++;
             }
-#endif
 
-            BoundingInfo->Entry = displayid;
-            BoundingInfo->Low[0] = ((floor(1000000*(header->boundingbox1[0] * modelscale)))/1000000);
-            BoundingInfo->Low[1] = ((floor(1000000*(header->boundingbox1[1] * modelscale)))/1000000);
-            BoundingInfo->Low[2] = ((floor(1000000*(header->boundingbox1[2] * modelscale)))/1000000);
-            BoundingInfo->High[0] = ((floor(1000000*(header->boundingbox2[0] * modelscale)))/1000000);
-            BoundingInfo->High[1] = ((floor(1000000*(header->boundingbox2[1] * modelscale)))/1000000);
-            BoundingInfo->High[2] = ((floor(1000000*(header->boundingbox2[2] * modelscale)))/1000000);
-            BoundingInfo->BoundRadius = ((floor(1000000*(header->boundingradius * modelscale)))/1000000);
-            m_DisplayMap.insert(std::make_pair(displayid, BoundingInfo));
-            na++;
+            printf("%u Creature Bound Information entries created.\n", na);
+            fwrite(&na, 4, 1, newDBC);
+            fwrite(&nb, 4, 1, newDBC);
+            fwrite(&es, 4, 1, newDBC);
+            fwrite(&ss, 4, 1, newDBC);
+            for(std::map<uint32, DisplayBounding*>::iterator itr = m_DisplayMap.begin(); itr != m_DisplayMap.end(); itr++)
+                fwrite(((uint8*)(itr->second)), es, 1, newDBC);
+            fclose(newDBC);
+            newDBC = NULL;
         }
 
-        printf("%u Creature Bound Information entries created.\n", na);
-        fwrite(&na, 4, 1, newDBC);
-        fwrite(&nb, 4, 1, newDBC);
-        fwrite(&es, 4, 1, newDBC);
-        fwrite(&ss, 4, 1, newDBC);
-        for(std::map<uint32, DisplayBounding*>::iterator itr = m_DisplayMap.begin(); itr != m_DisplayMap.end(); itr++)
-            fwrite(((uint8*)(itr->second)), es, 1, newDBC);
-        fclose(newDBC);
-        newDBC = NULL;
+        printf("Cleaning up bound data...\n");
+        DisplayBounding* buff = NULL;
+        for(std::map<uint32, DisplayBounding*>::iterator itr = m_DisplayMap.begin(), itr2; itr != m_DisplayMap.end();)
+        {
+            itr2 = itr++;
+            buff = itr2->second;
+            m_DisplayMap.erase(itr2);
+            delete buff;
+            buff = NULL;
+        }
+        printf("Done!\n\n");
     }
-
-    printf("Cleaning up bound data...\n");
-    DisplayBounding* buff = NULL;
-    for(std::map<uint32, DisplayBounding*>::iterator itr = m_DisplayMap.begin(), itr2; itr != m_DisplayMap.end();)
-    {
-        itr2 = itr++;
-        buff = itr2->second;
-        m_DisplayMap.erase(itr2);
-        delete buff;
-        buff = NULL;
-    }
-    printf("Done!\n\n");
 }
 
 bool ExtractFile(HANDLE fileInArchive, char const* filename)
@@ -1476,7 +1488,6 @@ void ExtractDBCFiles(int l, bool basicLocale)
 
             filename = foundFile.cFileName;
             filename = outputPath + filename.substr(filename.rfind('\\') + 1);
-
             if (FileExists(filename.c_str()))
                 continue;
 
@@ -1523,6 +1534,9 @@ void ExtractDB2Files(int l, bool basicLocale)
 
             filename = foundFile.cFileName;
             filename = outputPath + filename.substr(filename.rfind('\\') + 1);
+            if (FileExists(filename.c_str()))
+                continue;
+
             if (ExtractFile(dbcFile, filename.c_str()))
                 ++count;
 
