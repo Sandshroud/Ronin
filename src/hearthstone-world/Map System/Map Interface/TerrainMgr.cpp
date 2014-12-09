@@ -266,8 +266,8 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
         TileTerrainInformation* tile = TileInformation[offsX][offsY] = new TileTerrainInformation();
 
         // Read from our file into this newly created struct.
-        fread(&tile->AreaInfo, sizeof(uint16), 256, FileDescriptor);
-        fread(&tile->LiquidInfo, sizeof(uint16), 256, FileDescriptor);
+        fread(&tile->AreaInfo, sizeof(uint16), 16*16, FileDescriptor);
+        fread(&tile->LiquidInfo, sizeof(uint16), 16*16, FileDescriptor);
         fread(&tile->V8, sizeof(float), 128*128, FileDescriptor);
         fread(&tile->V9, sizeof(float), 129*129, FileDescriptor);
         fread(&tile->liquid_height, sizeof(float), 129*129, FileDescriptor);

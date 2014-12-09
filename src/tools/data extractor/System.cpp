@@ -553,8 +553,6 @@ struct map_areaHeader
 };
 
 #define MAP_HEIGHT_NO_HEIGHT  0x0001
-#define MAP_HEIGHT_AS_INT16   0x0002
-#define MAP_HEIGHT_AS_INT8    0x0004
 
 struct map_heightHeader
 {
@@ -603,13 +601,8 @@ uint16 area_flags[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
 
 float V8[ADT_GRID_SIZE][ADT_GRID_SIZE];
 float V9[ADT_GRID_SIZE+1][ADT_GRID_SIZE+1];
-uint16 uint16_V8[ADT_GRID_SIZE][ADT_GRID_SIZE];
-uint16 uint16_V9[ADT_GRID_SIZE+1][ADT_GRID_SIZE+1];
-uint8  uint8_V8[ADT_GRID_SIZE][ADT_GRID_SIZE];
-uint8  uint8_V9[ADT_GRID_SIZE+1][ADT_GRID_SIZE+1];
 
-uint16 liquid_entry[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
-uint8 liquid_flags[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
+uint16 liquid_flags[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
 bool  liquid_show[ADT_GRID_SIZE][ADT_GRID_SIZE];
 float liquid_height[ADT_GRID_SIZE+1][ADT_GRID_SIZE+1];
 
@@ -622,7 +615,6 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
 
     memset(liquid_show, 0, sizeof(liquid_show));
     memset(liquid_flags, 0, sizeof(liquid_flags));
-    memset(liquid_entry, 0, sizeof(liquid_entry));
 
     // Prepare map header
     map_fileheader map;
@@ -650,40 +642,6 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
 
             area_flags[i][j] = 0xffff;
         }
-    }
-
-    //============================================
-    // Try pack area data
-    //============================================
-    bool fullAreaData = false;
-    uint32 areaflag = area_flags[0][0];
-    for (int y=0;y<ADT_CELLS_PER_GRID;y++)
-    {
-        for(int x=0;x<ADT_CELLS_PER_GRID;x++)
-        {
-            if(area_flags[y][x]!=areaflag)
-            {
-                fullAreaData = true;
-                break;
-            }
-        }
-    }
-
-    map.areaMapOffset = sizeof(map);
-    map.areaMapSize   = sizeof(map_areaHeader);
-
-    map_areaHeader areaHeader;
-    areaHeader.fourcc = *(uint32 const*)MAP_AREA_MAGIC;
-    areaHeader.flags = 0;
-    if (fullAreaData)
-    {
-        areaHeader.gridArea = 0;
-        map.areaMapSize+=sizeof(area_flags);
-    }
-    else
-    {
-        areaHeader.flags |= MAP_AREA_NO_AREA;
-        areaHeader.gridArea = (uint16)areaflag;
     }
 
     //
@@ -757,107 +715,6 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
             }
         }
     }
-    //============================================
-    // Try pack height data
-    //============================================
-    float maxHeight = -20000;
-    float minHeight =  20000;
-    for (int y=0; y<ADT_GRID_SIZE; y++)
-    {
-        for(int x=0;x<ADT_GRID_SIZE;x++)
-        {
-            float h = V8[y][x];
-            if (maxHeight < h) maxHeight = h;
-            if (minHeight > h) minHeight = h;
-        }
-    }
-    for (int y=0; y<=ADT_GRID_SIZE; y++)
-    {
-        for(int x=0;x<=ADT_GRID_SIZE;x++)
-        {
-            float h = V9[y][x];
-            if (maxHeight < h) maxHeight = h;
-            if (minHeight > h) minHeight = h;
-        }
-    }
-
-    // Check for allow limit minimum height (not store height in deep ochean - allow save some memory)
-    if (CONF_allow_height_limit && minHeight < CONF_use_minHeight)
-    {
-        for (int y=0; y<ADT_GRID_SIZE; y++)
-            for(int x=0;x<ADT_GRID_SIZE;x++)
-                if (V8[y][x] < CONF_use_minHeight)
-                    V8[y][x] = CONF_use_minHeight;
-        for (int y=0; y<=ADT_GRID_SIZE; y++)
-            for(int x=0;x<=ADT_GRID_SIZE;x++)
-                if (V9[y][x] < CONF_use_minHeight)
-                    V9[y][x] = CONF_use_minHeight;
-        if (minHeight < CONF_use_minHeight)
-            minHeight = CONF_use_minHeight;
-        if (maxHeight < CONF_use_minHeight)
-            maxHeight = CONF_use_minHeight;
-    }
-
-    map.heightMapOffset = map.areaMapOffset + map.areaMapSize;
-    map.heightMapSize = sizeof(map_heightHeader);
-
-    map_heightHeader heightHeader;
-    heightHeader.fourcc = *(uint32 const*)MAP_HEIGHT_MAGIC;
-    heightHeader.flags = 0;
-    heightHeader.gridHeight    = minHeight;
-    heightHeader.gridMaxHeight = maxHeight;
-
-    if (maxHeight == minHeight)
-        heightHeader.flags |= MAP_HEIGHT_NO_HEIGHT;
-
-    // Not need store if flat surface
-    if (CONF_allow_float_to_int && (maxHeight - minHeight) < CONF_flat_height_delta_limit)
-        heightHeader.flags |= MAP_HEIGHT_NO_HEIGHT;
-
-    // Try store as packed in uint16 or uint8 values
-    if (!(heightHeader.flags & MAP_HEIGHT_NO_HEIGHT))
-    {
-        float step = 0;
-        // Try Store as uint values
-        if (CONF_allow_float_to_int)
-        {
-            float diff = maxHeight - minHeight;
-            if (diff < CONF_float_to_int8_limit)      // As uint8 (max accuracy = CONF_float_to_int8_limit/256)
-            {
-                heightHeader.flags|=MAP_HEIGHT_AS_INT8;
-                step = selectUInt8StepStore(diff);
-            }
-            else if (diff<CONF_float_to_int16_limit)  // As uint16 (max accuracy = CONF_float_to_int16_limit/65536)
-            {
-                heightHeader.flags|=MAP_HEIGHT_AS_INT16;
-                step = selectUInt16StepStore(diff);
-            }
-        }
-
-        // Pack it to int values if need
-        if (heightHeader.flags&MAP_HEIGHT_AS_INT8)
-        {
-            for (int y=0; y<ADT_GRID_SIZE; y++)
-                for(int x=0;x<ADT_GRID_SIZE;x++)
-                    uint8_V8[y][x] = uint8((V8[y][x] - minHeight) * step + 0.5f);
-            for (int y=0; y<=ADT_GRID_SIZE; y++)
-                for(int x=0;x<=ADT_GRID_SIZE;x++)
-                    uint8_V9[y][x] = uint8((V9[y][x] - minHeight) * step + 0.5f);
-            map.heightMapSize+= sizeof(uint8_V9) + sizeof(uint8_V8);
-        }
-        else if (heightHeader.flags&MAP_HEIGHT_AS_INT16)
-        {
-            for (int y=0; y<ADT_GRID_SIZE; y++)
-                for(int x=0;x<ADT_GRID_SIZE;x++)
-                    uint16_V8[y][x] = uint16((V8[y][x] - minHeight) * step + 0.5f);
-            for (int y=0; y<=ADT_GRID_SIZE; y++)
-                for(int x=0;x<=ADT_GRID_SIZE;x++)
-                    uint16_V9[y][x] = uint16((V9[y][x] - minHeight) * step + 0.5f);
-            map.heightMapSize+= sizeof(uint16_V9) + sizeof(uint16_V8);
-        }
-        else
-            map.heightMapSize+= sizeof(V9) + sizeof(V8);
-    }
 
     // Get from MCLQ chunk (old)
     for (int i = 0; i < ADT_CELLS_PER_GRID; i++)
@@ -892,17 +749,14 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
             uint32 c_flag = cell->flags;
             if (c_flag & (1<<2))
             {
-                liquid_entry[i][j] = 1;
                 liquid_flags[i][j] |= MAP_LIQUID_TYPE_WATER;            // water
             }
             if (c_flag & (1<<3))
             {
-                liquid_entry[i][j] = 2;
                 liquid_flags[i][j] |= MAP_LIQUID_TYPE_OCEAN;            // ocean
             }
             if (c_flag & (1<<4))
             {
-                liquid_entry[i][j] = 3;
                 liquid_flags[i][j] |= MAP_LIQUID_TYPE_MAGMA;            // magma/slime
             }
 
@@ -950,8 +804,7 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
                     }
                 }
 
-                liquid_entry[i][j] = h->liquidType;
-                switch (LiqType[h->liquidType])
+                switch (h->liquidType)
                 {
                     case LIQUID_TYPE_WATER: liquid_flags[i][j] |= MAP_LIQUID_TYPE_WATER; break;
                     case LIQUID_TYPE_OCEAN: liquid_flags[i][j] |= MAP_LIQUID_TYPE_OCEAN; break;
@@ -993,163 +846,11 @@ bool ConvertADT(FILE *out_file, char *filename, int /*cell_y*/, int /*cell_x*/, 
         }
     }
 
-    //============================================
-    // Pack liquid data
-    //============================================
-    uint8 type = liquid_flags[0][0];
-    bool fullType = false;
-    for (int y = 0; y < ADT_CELLS_PER_GRID; y++)
-    {
-        for (int x = 0; x < ADT_CELLS_PER_GRID; x++)
-        {
-            if (liquid_flags[y][x] != type)
-            {
-                fullType = true;
-                y = ADT_CELLS_PER_GRID;
-                break;
-            }
-        }
-    }
-
-    map_liquidHeader liquidHeader;
-
-    // no water data (if all grid have 0 liquid type)
-    if (type == 0 && !fullType)
-    {
-        // No liquid data
-        map.liquidMapOffset = 0;
-        map.liquidMapSize   = 0;
-    }
-    else
-    {
-        int minX = 255, minY = 255;
-        int maxX = 0, maxY = 0;
-        maxHeight = -20000;
-        minHeight = 20000;
-        for (int y=0; y<ADT_GRID_SIZE; y++)
-        {
-            for(int x=0; x<ADT_GRID_SIZE; x++)
-            {
-                if (liquid_show[y][x])
-                {
-                    if (minX > x) minX = x;
-                    if (maxX < x) maxX = x;
-                    if (minY > y) minY = y;
-                    if (maxY < y) maxY = y;
-                    float h = liquid_height[y][x];
-                    if (maxHeight < h) maxHeight = h;
-                    if (minHeight > h) minHeight = h;
-                }
-                else
-                    liquid_height[y][x] = CONF_use_minHeight;
-            }
-        }
-        map.liquidMapOffset = map.heightMapOffset + map.heightMapSize;
-        map.liquidMapSize = sizeof(map_liquidHeader);
-        liquidHeader.fourcc = *(uint32 const*)MAP_LIQUID_MAGIC;
-        liquidHeader.flags = 0;
-        liquidHeader.liquidType = 0;
-        liquidHeader.offsetX = minX;
-        liquidHeader.offsetY = minY;
-        liquidHeader.width   = maxX - minX + 1 + 1;
-        liquidHeader.height  = maxY - minY + 1 + 1;
-        liquidHeader.liquidLevel = minHeight;
-
-        if (maxHeight == minHeight)
-            liquidHeader.flags |= MAP_LIQUID_NO_HEIGHT;
-
-        // Not need store if flat surface
-        if (CONF_allow_float_to_int && (maxHeight - minHeight) < CONF_flat_liquid_delta_limit)
-            liquidHeader.flags |= MAP_LIQUID_NO_HEIGHT;
-
-        if (!fullType)
-            liquidHeader.flags |= MAP_LIQUID_NO_TYPE;
-
-        if (liquidHeader.flags & MAP_LIQUID_NO_TYPE)
-            liquidHeader.liquidType = type;
-        else
-            map.liquidMapSize += sizeof(liquid_entry) + sizeof(liquid_flags);
-
-        if (!(liquidHeader.flags & MAP_LIQUID_NO_HEIGHT))
-            map.liquidMapSize += sizeof(float)*liquidHeader.width*liquidHeader.height;
-    }
-
-    // map hole info
-    uint16 holes[ADT_CELLS_PER_GRID][ADT_CELLS_PER_GRID];
-
-    if (map.liquidMapOffset)
-        map.holesOffset = map.liquidMapOffset + map.liquidMapSize;
-    else
-        map.holesOffset = map.heightMapOffset + map.heightMapSize;
-
-    memset(holes, 0, sizeof(holes));
-    bool hasHoles = false;
-
-    for (int i = 0; i < ADT_CELLS_PER_GRID; ++i)
-    {
-        for (int j = 0; j < ADT_CELLS_PER_GRID; ++j)
-        {
-            adt_MCNK * cell = adt.cells[i][j];
-            if (!cell)
-                continue;
-            holes[i][j] = cell->holes;
-            if (!hasHoles && cell->holes != 0)
-                hasHoles = true;
-        }
-    }
-
-    if (hasHoles)
-        map.holesSize = sizeof(holes);
-    else
-        map.holesSize = 0;
-
-    fwrite(&map, sizeof(map), 1, out_file);
-    // Store area data
-    fwrite(&areaHeader, sizeof(areaHeader), 1, out_file);
-    if (!(areaHeader.flags&MAP_AREA_NO_AREA))
-        fwrite(area_flags, sizeof(area_flags), 1, out_file);
-
-    // Store height data
-    fwrite(&heightHeader, sizeof(heightHeader), 1, out_file);
-    if (!(heightHeader.flags & MAP_HEIGHT_NO_HEIGHT))
-    {
-        if (heightHeader.flags & MAP_HEIGHT_AS_INT16)
-        {
-            fwrite(uint16_V9, sizeof(uint16_V9), 1, out_file);
-            fwrite(uint16_V8, sizeof(uint16_V8), 1, out_file);
-        }
-        else if (heightHeader.flags & MAP_HEIGHT_AS_INT8)
-        {
-            fwrite(uint8_V9, sizeof(uint8_V9), 1, out_file);
-            fwrite(uint8_V8, sizeof(uint8_V8), 1, out_file);
-        }
-        else
-        {
-            fwrite(V9, sizeof(V9), 1, out_file);
-            fwrite(V8, sizeof(V8), 1, out_file);
-        }
-    }
-
-    // Store liquid data if need
-    if (map.liquidMapOffset)
-    {
-        fwrite(&liquidHeader, sizeof(liquidHeader), 1, out_file);
-        if (!(liquidHeader.flags & MAP_LIQUID_NO_TYPE))
-        {
-            fwrite(liquid_entry, sizeof(liquid_entry), 1, out_file);
-            fwrite(liquid_flags, sizeof(liquid_flags), 1, out_file);
-        }
-
-        if (!(liquidHeader.flags & MAP_LIQUID_NO_HEIGHT))
-        {
-            for (int y = 0; y < liquidHeader.height; y++)
-                fwrite(&liquid_height[y + liquidHeader.offsetY][liquidHeader.offsetX], sizeof(float), liquidHeader.width, out_file);
-        }
-    }
-
-    // store hole data
-    if (hasHoles)
-        fwrite(holes, map.holesSize, 1, out_file);
+    fwrite(area_flags, sizeof(area_flags), 1, out_file);
+    fwrite(liquid_flags, sizeof(liquid_flags), 1, out_file);
+    fwrite(V8, sizeof(V8), 1, out_file);
+    fwrite(V9, sizeof(V9), 1, out_file);
+    fwrite(liquid_height, sizeof(liquid_height), 1, out_file);
     return true;
 }
 
