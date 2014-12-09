@@ -21,9 +21,7 @@
 
 #include "TerrainBuilder.h"
 
-#include "VMapManager.h"
-#include "MapTree.h"
-#include "ModelInstance.h"
+#include <vmaplib\VMapLib.h>
 #include <vector>
 
 #define MAP_LIQUID_TYPE_NO_WATER    0x00

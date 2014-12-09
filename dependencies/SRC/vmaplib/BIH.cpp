@@ -2,7 +2,8 @@
  * Demonstrike Core
  */
 
-#include "../G3DAll.h"
+#include <g3dlite\G3D.h>
+#include "VMapLib.h"
 #include "VMapDefinitions.h"
 
 void BIH::buildHierarchy(std::vector<G3D::uint32> &tempTree, buildData &dat, BuildStats &stats)

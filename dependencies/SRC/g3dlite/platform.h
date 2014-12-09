@@ -51,34 +51,24 @@
 
 #ifdef _MSC_VER 
     #define G3D_WIN32
-#elif defined(__MINGW32__)
-    #define G3D_WIN32
-    #undef __MSVCRT_VERSION__
-    #define __MSVCRT_VERSION__ 0x0601
-    #include <windows.h>
 #elif  defined(__FreeBSD__) || defined(__OpenBSD__)
     #define G3D_FREEBSD
     #define G3D_LINUX
 #elif defined(__linux__)
     #define G3D_LINUX
-#elif defined(__CYGWIN__)
-    #define G3D_LINUX
 #elif defined(__APPLE__)
-    #define G3D_LINUX
+    #define G3D_OSX
 
    // Prevent OS X fp.h header from being included; it defines
    // pi as a constant, which creates a conflict with G3D
 #define __FP__
 #else
-    #error Unknown platform
+    #error Unknown platform 
 #endif
 
 // Detect 64-bit under various compilers
 #if (defined(_M_X64) || defined(_WIN64) || defined(__LP64__) || defined(_LP64))
 #    define G3D_64BIT
-	#if defined(WIN32)
-        #include <intrin.h>
-    #endif
 #else
 #    define G3D_32BIT
 #endif
@@ -143,11 +133,13 @@
 // TODO: remove
 #   pragma warning (disable : 4244)
 
+// #   define ZLIB_WINAPI /* G3DFIX: caused some unresolved external errors with MSVC */
+
 #   define restrict
 
 /** @def G3D_CHECK_PRINTF_METHOD_ARGS()
     Enables printf parameter validation on gcc. */
-#   define G3D_CHECK_PRINTF_ARGS
+#   define G3D_CHECK_PRINTF_ARGS 
 
 /** @def G3D_CHECK_PRINTF_METHOD_ARGS()
     Enables printf parameter validation on gcc. */

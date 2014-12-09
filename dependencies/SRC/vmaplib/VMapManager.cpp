@@ -2,7 +2,8 @@
  * Demonstrike Core
  */
 
-#include "../G3DAll.h"
+#include <g3dlite\G3D.h>
+#include "VMapLib.h"
 #include "VMapDefinitions.h"
 
 #include <iomanip>
@@ -236,7 +237,7 @@ namespace VMAP
     bool VMapManager::isInLineOfSight(unsigned int mapId, G3D::uint32 instanceId, G3D::int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2)
     {
         bool result = true;
-        if(fuzzyEq(x1, x2) && fuzzyEq(y1, y2) && fuzzyEq(z1, z2))
+        if(G3D::fuzzyEq(x1, x2) && G3D::fuzzyEq(y1, y2) && G3D::fuzzyEq(z1, z2))
             return result; // Save us some time.
 
         Vector3 dest = convertPositionToInternalRep(x2, y2, z2);
@@ -269,7 +270,7 @@ namespace VMAP
     {
         bool result = false;
         rx = x2; ry = y2; rz = z2;
-        if(fuzzyEq(x1, x2) && fuzzyEq(y1, y2) && fuzzyEq(z1, z2))
+        if(G3D::fuzzyEq(x1, x2) && G3D::fuzzyEq(y1, y2) && G3D::fuzzyEq(z1, z2))
             return result; // Save us some time.
 
         Vector3 start = convertPositionToInternalRep(x1, y1, z1);
@@ -448,7 +449,7 @@ namespace VMAP
 
             GameobjectModelSpawn iModel;
             iModel.name = std::string(buff, name_length);
-            iModel.BoundBase = AABox(v1, v2);
+            iModel.BoundBase = G3D::AABox(v1, v2);
             GOModelList.insert(GOModelSpawnList::value_type(displayId, iModel));
         }
 

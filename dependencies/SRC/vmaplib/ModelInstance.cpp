@@ -2,7 +2,8 @@
  * Demonstrike Core
  */
 
-#include "../G3DAll.h"
+#include <g3dlite\G3D.h>
+#include "VMapLib.h"
 #include "VMapDefinitions.h"
 
 using G3D::Vector3;
@@ -202,7 +203,7 @@ namespace VMAP
         iInvRot = iRotation.inverse();
 
         // transform bounding box:
-        AABox box = AABox(BoundBase.low() * iScale, BoundBase.high() * iScale), rotated_bounds;
+        G3D::AABox box = G3D::AABox(BoundBase.low() * iScale, BoundBase.high() * iScale), rotated_bounds;
         for (int i = 0; i < 8; ++i)
             rotated_bounds.merge(iRotation * box.corner(i));
         iBound = rotated_bounds + iPos;

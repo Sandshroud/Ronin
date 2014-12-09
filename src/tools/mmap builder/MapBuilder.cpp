@@ -19,8 +19,7 @@
 #include "PathCommon.h"
 #include "MapBuilder.h"
 
-#include "MapTree.h"
-#include "ModelInstance.h"
+#include <vmaplib/VMapLib.h>
 
 #include "DetourNavMeshBuilder.h"
 #include "DetourNavMesh.h"

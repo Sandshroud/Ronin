@@ -198,8 +198,8 @@ IF( CMAKE_GENERATOR MATCHES Visual*)
 ENDIF()
 
 #Link our hearthstone-shared lib.
-add_dependencies( ${PROJECT_NAME} hearthstone-shared g3dlite recast detour pcre zlib )
-target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} hearthstone-shared g3dlite recast detour pcre zlib ${EXTRA_LIBS} )
+add_dependencies( ${PROJECT_NAME} hearthstone-shared g3dlite vmaplib recast detour pcre zlib )
+target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${MYSQL_LIBRARY} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${PCRE_LIBRARIES} hearthstone-shared g3dlite vmaplib recast detour pcre zlib ${EXTRA_LIBS} )
 
 #Set our resources
 set_source_files_properties(Icon.ico resources.rc PROPERTIES LANGUAGE RC)

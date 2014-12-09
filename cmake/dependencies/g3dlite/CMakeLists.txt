@@ -24,10 +24,6 @@ list(REMOVE_ITEM sources ${skipFiles})
 source_group("G3D" FILES ${sources})
 SET( SRCS ${SRCS} ${sources} )
 
-FILE(GLOB vmap "${prefix}/vmap/*.*")
-source_group("vMap" FILES ${vmap})
-SET( SRCS ${SRCS} ${vmap} )
-
 include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
 

@@ -14,15 +14,11 @@
 #include "FileSystem.h"
 #include "stringutils.h"
 #include "Array.h"
-#include <zlib/zlib.h>
+#include <zlib.h>
 #include "Log.h"
 #include <cstring>
 
 #ifdef G3D_LINUX
-#    include <errno.h>
-#endif
-
-#ifdef __CYGWIN__
 #    include <errno.h>
 #endif
 

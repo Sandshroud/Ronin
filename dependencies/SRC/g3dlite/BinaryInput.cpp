@@ -38,10 +38,10 @@
 #include "fileutils.h"
 #include "Log.h"
 #include "FileSystem.h"
-#include <zlib/zlib.h>
+#include <zlib.h>
 #if _HAVE_ZIP /* G3DFIX: Use ZIP-library only if defined */
-  #include "zip.h"
-#endif
+#include "zip.h"
+#endif /* G3DFIX: Use ZIP-library only if defined */
 #include <cstring>
 
 namespace G3D {
@@ -307,7 +307,7 @@ BinaryInput::BinaryInput(
         m_freeBuffer = true;
         return;
     }
-#endif
+#endif /* G3DFIX: Use ZIP-library only if defined */
 
     // Figure out how big the file is and verify that it exists.
     m_length = FileSystem::size(m_filename);

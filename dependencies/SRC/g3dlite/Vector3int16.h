@@ -107,11 +107,11 @@ public:
     }
 
     Vector3int16 max(const Vector3int16& v) const {
-        return Vector3int16(G3D::max(x, v.x), G3D::max(y, v.y), G3D::max(z, v.z));
+        return Vector3int16(std::max(x, v.x), std::max(y, v.y), std::max(z, v.z));
     }
 
     Vector3int16 min(const Vector3int16& v) const {
-        return Vector3int16(G3D::min(x, v.x), G3D::min(y, v.y), G3D::min(z, v.z));
+        return Vector3int16(std::min(x, v.x), std::min(y, v.y), std::min(z, v.z));
     }
 
     std::string toString() const;

@@ -20,7 +20,7 @@
 #define _MMAP_TERRAIN_BUILDER_H
 
 #include "PathCommon.h"
-#include "WorldModel.h"
+#include <vmaplib\VMapLib.h>
 
 #include "Array.h"
 #include "Vector3.h"

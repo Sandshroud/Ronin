@@ -17,4 +17,5 @@ add_subdirectory(stormlib)
 endif()
 
 add_subdirectory(threading)
+add_subdirectory(vmaplib)
 add_subdirectory(zlib)

@@ -18,10 +18,7 @@
 
 #include <vector>
 #include "PathCommon.h"
-#include "MapTree.h"
-#include "VMapManager.h"
-#include "WorldModel.h"
-#include "ModelInstance.h"
+#include <vmaplib\VMapLib.h>
 
 namespace VMAP
 {

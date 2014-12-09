@@ -59,6 +59,7 @@ extern "C" {
 };
 
 #include <g3dlite/G3D.h>
+#include <vmaplib/VMapLib.h>
 #include <recast/Recast.h>
 #include <detour/Detour.h>
 

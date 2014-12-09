@@ -28,6 +28,8 @@
 #   pragma warning (disable : 4530)
 #endif
 
+using namespace std;
+
 namespace G3D { namespace _internal {
 
 ConsolePrintHook _consolePrintHook;
@@ -35,10 +37,10 @@ AssertionHook _debugHook = _handleDebugAssert_;
 AssertionHook _failureHook = _handleErrorCheck_;
 
 #ifdef G3D_LINUX
-#if 0 /* G3DFIX: Disabled to avoid requirement for X11 libraries */
+#if SOMEONE_MADE_THIS_USEFUL /* G3DFIX: Disabled to avoid requirement for X11 libraries */
     Display*      x11Display = NULL;
     Window        x11Window  = 0;
-#endif
+#endif /* G3DFIX: Disabled to avoid requirement for X11 libraries */
 #endif
 
 
@@ -117,7 +119,7 @@ static void createErrorMessage(
         GetModuleFileNameA(NULL, modulePath, MAX_PATH);
 
         const char* moduleName = strrchr(modulePath, '\\');
-        outTitle = outTitle + std::string(" - ") + std::string(moduleName ? (moduleName + 1) : modulePath);
+        outTitle = outTitle + string(" - ") + string(moduleName ? (moduleName + 1) : modulePath);
 
     #endif
 
@@ -250,7 +252,7 @@ void _releaseInputGrab_() {
         ClipCursor(NULL);
         
     #elif defined(G3D_LINUX)
-#if 0 /* G3DFIX: Disabled to avoid requirement for X11 libraries */
+    #if SOMEONE_MADE_THIS_USEFUL /* G3DFIX: Disabled to avoid requirement for X11 libraries */
         if (x11Display != NULL) {
             XUngrabPointer(x11Display, CurrentTime);
             XUngrabKeyboard(x11Display, CurrentTime);
@@ -265,7 +267,7 @@ void _releaseInputGrab_() {
             XAllowEvents(x11Display, AsyncPointer, CurrentTime);
             XFlush(x11Display);
         }
-#endif
+    #endif /* G3DFIX: Disabled to avoid requirement for X11 libraries */
     #elif defined(G3D_OSX)
         // TODO: OS X
     #endif

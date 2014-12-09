@@ -21,8 +21,7 @@
 
 #include "threading/Threading.h"
 #include <g3dlite\G3DAll.h>
-#include "TileAssembler.h"
-#include "VMapDefinitions.h"
+#include <vmaplib\VMapLib.h>
 
 #define WaitForInput() { char cmd[300]; memset( cmd, 0, sizeof( cmd ) ); fgets( cmd, 300, stdin ); }
 

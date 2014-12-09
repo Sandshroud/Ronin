@@ -13,8 +13,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #if _HAVE_ZIP /* G3DFIX: Use ZIP-library only if defined */
-    #include "zip.h"
-#endif
+#include "zip.h"
+#endif /* G3DFIX: Use ZIP-library only if defined */
 #include "g3dfnmatch.h"
 #include "BinaryInput.h"
 #include "BinaryOutput.h"
@@ -25,21 +25,22 @@
 
     // Needed for _findfirst
 #   include <io.h>
-#  ifdef __MINGW32__
-#    define stat64 stat
-#  else
-#    define stat64 _stat64
-#  endif
+
+#define stat64 _stat64
+#elif defined(__FreeBSD__)
+#   include <dirent.h>
+#   include <fnmatch.h>
+#   include <unistd.h>
+#   define O_LARGEFILE      0100000
+#   define stat64 stat
+#   define _stat stat
+#   define _getcwd getcwd
 #else
 #   include <dirent.h>
 #   include <fnmatch.h>
 #   include <unistd.h>
 #   define _getcwd getcwd
 #   define _stat stat
-#endif
-
-#ifdef __CYGWIN__
-#define stat64 stat
 #endif
 
 namespace G3D {
@@ -136,7 +137,7 @@ void FileSystem::Dir::computeZipListing(const std::string& zipfile, const std::s
     
     zip_close(z);
     z = NULL;
-#endif
+#endif /* G3DFIX: Use ZIP-library only if defined */
 }
 
 
@@ -550,11 +551,11 @@ int64 FileSystem::_size(const std::string& filename) {
             zip_close(z);
             return requiredMem;
         } else {
-#endif
+#endif /* G3DFIX: Use ZIP-library only if defined */
             return -1;
 #if _HAVE_ZIP /* G3DFIX: Use ZIP-library only if defined */
         }
-#endif
+#endif /* G3DFIX: Use ZIP-library only if defined */
     }
     
     return st.st_size;

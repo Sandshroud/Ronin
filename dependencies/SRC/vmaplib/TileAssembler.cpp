@@ -2,7 +2,8 @@
  * Demonstrike Core
  */
 
-#include "../G3DAll.h"
+#include <g3dlite\G3D.h>
+#include "VMapLib.h"
 #include "VMapDefinitions.h"
 
 using G3D::Vector3;

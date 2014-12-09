@@ -2,6 +2,8 @@
  * Demonstrike Core
  */
 
+#include <threading/Threading.h>
+#include <network/Network.h>
 #include "Database.h"
 
 DirectDatabase::DirectDatabase()
