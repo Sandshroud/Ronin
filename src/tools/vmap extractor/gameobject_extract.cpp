@@ -32,9 +32,6 @@ bool ExtractSingleModel(std::string& fname)
         fname.append("2");
     }
 
-    HANDLE mpqArch;
-    if(!GetMPQHandle(fname.c_str(), mpqArch))
-        return false;
     std::string originalName = fname;
 
     char* name = GetPlainName((char*)fname.c_str());
@@ -49,13 +46,11 @@ bool ExtractSingleModel(std::string& fname)
         return true;
 
     Model mdl(originalName);
-    if (!mdl.open(mpqArch))
+    if (!mdl.open(WorldMpq))
         return false;
 
     return mdl.ConvertToVMAPModel(output.c_str());
 }
-
-extern HANDLE LocaleMpq;
 
 void ExtractGameobjectModels()
 {
@@ -85,10 +80,6 @@ void ExtractGameobjectModels()
         if (path.length() < 4)
             continue;
 
-        HANDLE mpqArch;
-        if(!GetMPQHandle(path.c_str(), mpqArch))
-            continue;
-
         FixNameCase((char*)path.c_str(), path.size());
         char *name = GetPlainName((char*)path.c_str());
         FixNameSpaces(name, strlen(name));
@@ -101,7 +92,7 @@ void ExtractGameobjectModels()
 
         bool result = false;
         if (!strcmp(ch_ext, ".wmo"))
-            result = ExtractSingleWmo(mpqArch, path);
+            result = ExtractSingleWmo(WorldMpq, path);
         else if (!strcmp(ch_ext, ".mdl"))   // TODO: extract .mdl files, if needed
             continue;
         else //if (!strcmp(ch_ext, ".mdx") || !strcmp(ch_ext, ".m2"))

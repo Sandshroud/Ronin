@@ -50,6 +50,9 @@ enum ModelFlags
 extern const char * szWorkDirWmo;
 extern const char * szRawVMAPMagic;                         // vmap magic string for extracted raw vmap data
 
+extern HANDLE WorldMpq;
+extern HANDLE LocaleMpq;
+
 bool GetMPQHandle(const char* file, HANDLE &mpqhandle);
 bool FileExists(const char * file);
 void strToLower(char* str);

@@ -37,22 +37,24 @@
 
 //-----------------------------------------------------------------------------
 
-HANDLE MPQArchives[4];
-HANDLE LocaleMpq = NULL;
+HANDLE WorldMpq = NULL, LocaleMpq = NULL;
 
-uint32 CONF_TargetBuild = 13623;              // 4.0.6.13623
+uint32 CONF_TargetBuild = 15595;              // 4.3.4.15595
 
-#define MPQ_COUNT 4
 // List MPQ for extract maps from
-char const* CONF_mpq_list[MPQ_COUNT]=
+char const* CONF_mpq_list[]=
 {
     "world.MPQ",
+    "art.MPQ",
     "expansion1.MPQ",
     "expansion2.MPQ",
     "expansion3.MPQ",
+    "world2.MPQ",
+    NULL
 };
 
-uint32 const Builds[] = {13164, 13205, 13287, 13329, 13596, 13623, 0};
+uint32 const Builds[] = {13164, 13205, 13287, 13329, 13596, 13623, 13914, 14007, 14333, 14480, 14545, 15005, 15050, 15211, 15354, 15595, 0};
+#define LAST_DBC_IN_DATA_BUILD 13623    // after this build mpqs with dbc are back to locale folder
 #define LOCALES_COUNT 12
 
 char const* Locales[LOCALES_COUNT] =
@@ -117,12 +119,8 @@ bool LoadLocaleMPQFile(int locale)
         prefix = Locales[locale];
         _stprintf(buff, _T("%swow-update-%u.MPQ"), input_path, Builds[i]);
 
-        if (!SFileOpenPatchArchive(LocaleMpq, buff, prefix, 0))
-        {
-            if (GetLastError() != ERROR_FILE_NOT_FOUND)
-                _tprintf(_T("Cannot open patch archive %s\n"), buff);
-            continue;
-        }
+        if (!SFileOpenPatchArchive(LocaleMpq, buff, prefix, 0) && GetLastError() != ERROR_FILE_NOT_FOUND)
+            _tprintf(_T("Cannot open patch archive %s\n"), buff);
     }
 
     printf("\n");
@@ -135,74 +133,44 @@ bool LoadCommonMPQFiles(uint32 build)
 
     TCHAR filename[512];
     _stprintf(filename, _T("%sworld.MPQ"), input_path);
-    if (!SFileOpenArchive(filename, 0, MPQ_OPEN_READ_ONLY, &MPQArchives[0]))
+    if (!SFileOpenArchive(filename, 0, MPQ_OPEN_READ_ONLY, &WorldMpq))
     {
-        if (GetLastError() != ERROR_PATH_NOT_FOUND)
-            _tprintf(_T("Cannot open archive %s\n"), filename);
-            else _tprintf(_T("Not found %s\n"), filename);
+        if (GetLastError() == ERROR_PATH_NOT_FOUND)
+            _tprintf(_T("Not found %s\n"), filename);
+        else _tprintf(_T("Cannot open archive %s\n"), filename);
         return false;
     }
-    _stprintf(filename, _T("%sart.MPQ"), input_path);
-    if (!SFileOpenPatchArchive(MPQArchives[0], filename, "", MPQ_OPEN_READ_ONLY))
-    {
-        if (GetLastError() != ERROR_PATH_NOT_FOUND)
-            _tprintf(_T("Cannot open archive %s\n"), filename);
-            else _tprintf(_T("Not found %s\n"), filename);
-        return false;
-    }
-    _tprintf(_T("Loaded world patched with %s\n"), filename);
 
-    for (int i = 1; i < MPQ_COUNT; ++i)
+    for(uint8 i = 1; CONF_mpq_list[i]; i++)
     {
+        if (build < 15211 && !strcmp("world2.MPQ", CONF_mpq_list[i]))   // 4.3.2 and higher MPQ
+            continue;
+
         _stprintf(filename, _T("%s%s"), input_path, CONF_mpq_list[i]);
-        if (!SFileOpenArchive(filename, 0, MPQ_OPEN_READ_ONLY, &MPQArchives[i]))
+        if (!SFileOpenPatchArchive(WorldMpq, filename, "", MPQ_OPEN_READ_ONLY))
         {
-            if (GetLastError() != ERROR_PATH_NOT_FOUND)
-                _tprintf(_T("Cannot open archive %s\n"), filename);
-            else _tprintf(_T("Not found %s\n"), filename);
+            if (GetLastError() == ERROR_PATH_NOT_FOUND)
+                _tprintf(_T("Not found %s\n"), filename);
+            else _tprintf(_T("Cannot open archive %s\n"), filename);
             return false;
-        } else _tprintf(_T("Loaded %s\n"), filename);
+        }
+        _tprintf(_T("Patched world with %s\n"), filename);
     }
 
     char const* prefix = NULL;
     for (int i = 0; Builds[i] && Builds[i] <= CONF_TargetBuild; ++i)
     {
         memset(filename, 0, sizeof(filename));
-        prefix = "base";
-        _stprintf(filename, _T("%swow-update-%u.MPQ"), input_path, Builds[i]);
-        bool res = true;
-        for (int p = 0; p < MPQ_COUNT; ++p)
-        {
-            if((res = SFileOpenPatchArchive(MPQArchives[p], filename, prefix, MPQ_OPEN_READ_ONLY)) == false)
-            {
-                if (GetLastError() != ERROR_PATH_NOT_FOUND)
-                    _tprintf(_T("Cannot open patch archive %s\n"), filename);
-                else _tprintf(_T("Not found %s\n"), filename);
-                break;
-            }
-        }
-        if(res) _tprintf(_T("Loaded %s\n"), filename);
+        prefix = Builds[i] > LAST_DBC_IN_DATA_BUILD ? "" : "base";
+        if (prefix == "base")
+            _stprintf(filename, _T("%swow-update-%u.MPQ"), input_path, Builds[i]);
+        else _stprintf(filename, _T("%swow-update-base-%u.MPQ"), input_path, Builds[i]);
+        if(!SFileOpenPatchArchive(WorldMpq, filename, prefix, MPQ_OPEN_READ_ONLY))
+            continue;
+        _tprintf(_T("Loaded %s\n"), filename);
     }
 
     printf("\n");
-    return true;
-}
-
-
-// Local testing functions
-bool GetMPQHandle(const char* file, HANDLE &mpqhandle)
-{
-    HANDLE MPQ = NULL;
-    for(int8 p = 0; p < MPQ_COUNT; p++)
-    {
-        MPQ = MPQArchives[p];
-        if(SFileHasFile(MPQ, file))
-            break;
-        MPQ = NULL;
-    }
-    if(MPQ == NULL)
-        return false;
-    mpqhandle = MPQ;
     return true;
 }
 
@@ -255,25 +223,24 @@ void ReadLiquidTypeTableDBC()
 
 bool ExtractWmo()
 {
-    bool success = false;
-    for (int p = 0; p < MPQ_COUNT; ++p)
+    SFILE_FIND_DATA data;
+    if (HANDLE find = SFileFindFirstFile(WorldMpq, "*.wmo", &data, NULL))
     {
-        SFILE_FIND_DATA data;
-        HANDLE find = SFileFindFirstFile(MPQArchives[p], "*.wmo", &data, NULL);
-        if (find != NULL)
+        bool success = false;
+        do
         {
-            do
-            {
-                std::string str = data.cFileName, str2 = data.szPlainName;
-                str2.resize(50, ' '); printf("Processing %s\r", str2.c_str());
-                success |= ExtractSingleWmo(MPQArchives[p], str);
-            }
-            while (success && SFileFindNextFile(find, &data));
-            SFileFindClose(find);
+            std::string str = data.cFileName, str2 = data.szPlainName;
+            str2.resize(50, ' '); printf("Processing %s\r", str2.c_str());
+            success |= ExtractSingleWmo(WorldMpq, str);
+        } while (success && SFileFindNextFile(find, &data));
+        SFileFindClose(find);
+        if(success)
+        {
+            printf("Extract wmo complete (No (fatal) errors)\n\n");
+            return true;
         }
     }
-    if (success) printf("Extract wmo complete (No (fatal) errors)\n\n");
-    return success;
+    return false;
 }
 
 bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname)
@@ -364,14 +331,8 @@ void ParsMapFiles()
     {
         sprintf(id,"%03u",map_ids[i].id);
         sprintf(fn,"World\\Maps\\%s\\%s.wdt", map_ids[i].name, map_ids[i].name);
-        HANDLE MPQ = NULL;
-        if(!GetMPQHandle(fn, MPQ))
-        {
-            printf("Skipping Map %u(nonexistent WDT) - %s\n", map_ids[i].id, map_ids[i].name);
-            continue;
-        }
 
-        WDTFile WDT(MPQ, fn, map_ids[i].name);
+        WDTFile WDT(WorldMpq, fn, map_ids[i].name);
         if(WDT.init(id, map_ids[i].id))
         {
             printf("Processing Map %u\n[", map_ids[i].id);
@@ -379,7 +340,7 @@ void ParsMapFiles()
             {
                 for (int y=0; y<64; ++y)
                 {
-                    if (ADTFile *ADT = WDT.GetMap(MPQ,x,y))
+                    if (ADTFile *ADT = WDT.GetMap(WorldMpq, x, y))
                     {
                         //sprintf(id_filename,"%02u %02u %03u",x,y,map_ids[i].id);//!!!!!!!!!
                         ADT->init(map_ids[i].id, x, y);
@@ -564,9 +525,8 @@ int main(int argc, char ** argv)
         ExtractGameobjectModels();
     }
 
+    SFileCloseArchive(WorldMpq);
     SFileCloseArchive(LocaleMpq);
-    for(uint8 i = 0; i < MPQ_COUNT; i++)
-        SFileCloseArchive(MPQArchives[i]);
 
     printf("\n");
     if (!success)
