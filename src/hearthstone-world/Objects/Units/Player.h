@@ -19,11 +19,7 @@ class LFGMatch;
 struct PlayerCreateInfo;
 
 #define MAX_PET_NO 3
-#define PLAYER_NORMAL_RUN_SPEED 7.0f
-#define PLAYER_NORMAL_SWIM_SPEED 4.722222f
-#define PLAYER_NORMAL_FLIGHT_SPEED 7.0f
 #define PLAYER_HONORLESS_TARGET_SPELL 2479
-#define MONSTER_NORMAL_RUN_SPEED 8.0f
 
 #define ALLIANCE 0
 #define HORDE 1
@@ -51,6 +47,7 @@ enum Classes
     MAGE = 8,
     WARLOCK = 9,
     DRUID = 11,
+    CLASS_MAX = 12
 };
 
 enum ClassMasks
@@ -410,16 +407,6 @@ struct TaxiPathNode;
 #define RESTSTATE_TIRED50            4
 #define RESTSTATE_EXHAUSTED          5
 
-enum UnderwaterStates
-{
-    UNDERWATERSTATE_NONE            = 0x00,
-    UNDERWATERSTATE_UNDERWATER      = 0x02,
-    UNDERWATERSTATE_FATIGUE         = 0x04,
-    UNDERWATERSTATE_LAVA            = 0x08,
-    UNDERWATERSTATE_SLIME           = 0x10,
-    UNDERWATERSTATE_TIMERS_PRESENT  = 0X20
-};
-
 enum TRADE_STATUS
 {
     TRADE_STATUS_PLAYER_BUSY        = 0x00,
@@ -709,8 +696,6 @@ public:
 
     bool ok_to_remove;
     void EquipInit(PlayerCreateInfo *EquipInfo);
-    void SendDungeonDifficulty();
-    void SendRaidDifficulty();
 
     void AddToWorld(bool loggingin = false);
     void AddToWorld(MapMgr* pMapMgr);
@@ -1145,19 +1130,6 @@ public:
     void RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid);
 
     /************************************************************************/
-    /* Movement system                                                      */
-    /************************************************************************/
-    void SetMovement(uint8 pType, uint32 flag);
-    void SetPlayerSpeed(uint8 SpeedType, float value);
-    float GetPlayerSpeed(){return m_runSpeed;}
-    uint8 m_currentMovement;
-    bool m_isMoving;
-    uint8 m_isWaterWalking;
-    uint32 m_WaterWalkTimer;
-    //Invisibility stuff
-    bool m_isGmInvisible;
-
-    /************************************************************************/
     /* Channel stuff                                                        */
     /************************************************************************/
     void JoinedChannel(Channel *c);
@@ -1245,7 +1217,6 @@ public:
     void StopMirrorTimer(MirrorTimerType Type);
     void HandleBreathing(uint32 time_diff);
     int32 m_MirrorTimer[3];
-    uint32 m_UnderwaterState;
     uint32 m_LastUnderwaterState;
     uint32 m_UnderwaterTime;
 
@@ -1446,17 +1417,6 @@ public:
     uint32 GetArmorProficiency() { return armor_proficiency; }
     uint32 GetWeaponProficiency() { return weapon_proficiency; }
 
-    void ResetHeartbeatCoords();
-
-    // speedhack buster!
-    LocationVector                      m_lastHeartbeatPosition;
-    uint32                              m_startMoveTime;    // time
-    uint32                              m_lastMovementPacketTimestamp;
-    int32                               m_heartbeatDisable;
-    uint32                              m_lastMoveTime;
-    bool                                m_speedChangeInProgress;
-    uint32                              m_flyHackChances;
-
     bool CooldownCheat;
     bool CastTimeCheat;
     bool PowerCheat;
@@ -1515,8 +1475,6 @@ public:
     LocationVector m_resurrectLoction;
     uint32 blinktimer;
     bool blinked;
-    uint16 m_speedhackChances;
-    uint16 m_cheatEngineChances;
     uint32 m_explorationTimer;
 
     // DBC stuff
@@ -1579,7 +1537,6 @@ public:
     bool CanSignCharter(Charter * charter, Player* requester);
     uint32 m_FlyingAura;
     std::stringstream LoadAuras;
-    bool resend_speed;
     bool rename_pending;
     bool m_XPoff;
     bool customizable;
@@ -1645,39 +1602,20 @@ public:
     void Possess(Unit* pTarget);
     void UnPossess();
 
-    /* Last Speeds */
-    HEARTHSTONE_INLINE void UpdateLastSpeeds()
-    {
-        m_lastRunSpeed = m_runSpeed;
-        m_lastRunBackSpeed = m_backWalkSpeed;
-        m_lastSwimSpeed = m_swimSpeed;
-        m_lastRunBackSpeed = m_backSwimSpeed;
-        m_lastFlySpeed = m_flySpeed;
-    }
-
     void RemoteRevive(bool hp = true)
     {
         ResurrectPlayer();
-        SetMovement(MOVE_UNROOT, 5);
-        SetPlayerSpeed(RUN, (float)7);
-        SetPlayerSpeed(SWIM, (float)4.9);
-        SetMovement(MOVE_LAND_WALK, 8);
-        if(hp)
-            SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
+        m_movementInterface.OnRevive();
+        if(hp) SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
     }
-
-    void ResetSpeedHack();
-    void DelaySpeedHack(uint32 ms);
 
     LocationVector m_last_group_position;
     int32 m_rap_mod_pct;
     void SummonRequest(WorldObject* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position);
-    uint8 m_lastMoveType;
 
     Creature* m_tempSummon;
     bool m_deathVision;
     SpellEntry * last_heal_spell;
-    LocationVector m_sentTeleportPosition;
 
     void RemoveFromBattlegroundQueue(uint32 queueSlot, bool forced = false);
     void FullHPMP();
@@ -1703,9 +1641,6 @@ public:
 
     HEARTHSTONE_INLINE bool IsAttacking() {return m_attacking; }
 
-    static void InitVisibleUpdateBits();
-    static UpdateMask m_visibleUpdateMask;
-
     void SendPacket(WorldPacket* data);
     void SendDelayedPacket(WorldPacket * data);
     void CopyAndSendDelayedPacket(WorldPacket * data);
@@ -1729,8 +1664,6 @@ protected:
     WorldObject* m_summoner;
 
     uint32 iActivePet;
-    void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
-    void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
 
     /* Update system components */
     Mutex _bufferS;
@@ -1849,12 +1782,6 @@ protected:
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
 
     uint32 m_team;
-    float m_lastRunSpeed;
-    float m_lastRunBackSpeed;
-    float m_lastSwimSpeed;
-    float m_lastBackSwimSpeed;
-    float m_lastFlySpeed;
-    float m_lastBackFlySpeed;
 
     uint32 m_mountCheckTimer;
     void RemovePendingPlayer();
@@ -1864,11 +1791,7 @@ public:
     uint32 m_UpdateHookTimer;
 
 public:
-    void SetLastRunSpeed(float value) { m_lastRunSpeed = value;}
     std::map<uint32, uint32> m_forcedReactions;
-
-    uint32 m_speedhackCheckTimer;
-    void _SpeedhackCheck();     // save a call to getMSTime() yes i am a stingy bastard
 
     bool m_passOnLoot;
     bool m_changingMaps;

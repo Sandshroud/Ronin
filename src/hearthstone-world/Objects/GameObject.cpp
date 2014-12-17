@@ -28,7 +28,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_respawnCell = NULL;
     m_battleground = NULL;
     initiated = false;
-    m_loadedFromDB = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
     ChairListSlots.clear();
@@ -87,43 +86,9 @@ void GameObject::Destruct()
     WorldObject::Destruct();
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec)
+void GameObject::_WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
 {
-    if(CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, vec.o))
-        return true;
-    return false;
-}
-
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang)
-{
-    pInfo = GameObjectNameStorage.LookupEntry(entry);
-    if(!pInfo)
-        return false;
-
-    if(m_created) // Already created, just push back.
-    {
-        if(!initiated)
-            InitAI();
-        return true;
-    }
-
-    m_created = true;
-    WorldObject::_Create( mapid, x, y, z, ang );
-    SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-
-    UpdateRotation();
-
-    SetState(1);
-    SetDisplayId(pInfo->DisplayID );
-    SetType(pInfo->Type);
-    SetFlags(pInfo->DefaultFlags);
-    InitAI();
-    return true;
-}
-
-void GameObject::TrapSearchTarget()
-{
-    Update(200);
+    *bytes << float(GetOrientation()) << float(GetPositionX()) << float(GetPositionY()) << float(GetPositionZ());
 }
 
 void GameObject::Update(uint32 p_time)
@@ -189,6 +154,45 @@ void GameObject::Update(uint32 p_time)
             }
         }
     }
+}
+
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec)
+{
+    if(CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, vec.o))
+        return true;
+    return false;
+}
+
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang)
+{
+    pInfo = GameObjectNameStorage.LookupEntry(entry);
+    if(!pInfo)
+        return false;
+
+    if(m_created) // Already created, just push back.
+    {
+        if(!initiated)
+            InitAI();
+        return true;
+    }
+
+    m_created = true;
+    WorldObject::_Create( mapid, x, y, z, ang );
+    SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
+
+    UpdateRotation();
+
+    SetState(1);
+    SetDisplayId(pInfo->DisplayID );
+    SetType(pInfo->Type);
+    SetFlags(pInfo->DefaultFlags);
+    InitAI();
+    return true;
+}
+
+void GameObject::TrapSearchTarget()
+{
+    Update(200);
 }
 
 void GameObject::Spawn( MapMgr* m)
@@ -366,9 +370,6 @@ void GameObject::InitAI()
 
 bool GameObject::Load(GOSpawn *spawn)
 {
-    if(m_loadedFromDB)
-        return true;
-
     if(!CreateFromProto(spawn->entry,0,spawn->x,spawn->y,spawn->z,spawn->facing))
         return false;
 
@@ -388,7 +389,6 @@ bool GameObject::Load(GOSpawn *spawn)
     CALL_GO_SCRIPT_EVENT(castPtr<GameObject>(this), OnCreate)();
 
     _LoadQuests();
-    m_loadedFromDB = true;
     return true;
 }
 
@@ -835,11 +835,6 @@ void GameObject::Use(Player *p)
 
             if( p->IsMounted() )
                 p->RemoveAura( p->m_MountSpellId );
-            else
-            {
-                p->SetLastRunSpeed(0.0f);
-                p->UpdateSpeed();
-            }
 
             if (!ChairListSlots.size())
             {
@@ -847,9 +842,7 @@ void GameObject::Use(Player *p)
                 {
                     for (uint32 i = 0; i < goinfo->Chair.Slots; ++i)
                         ChairListSlots[i] = 0;
-                }
-                else
-                    ChairListSlots[0] = 0;
+                } else ChairListSlots[0] = 0;
             }
 
             uint32 nearest_slot = 0;
@@ -867,13 +860,14 @@ void GameObject::Use(Player *p)
                 float y_i = GetPositionY() + relativeDistance * sin(orthogonalOrientation);
 
                 if (itr->second)
+                {
                     if (Player* ChairUser = objmgr.GetPlayer(itr->second))
+                    {
                         if (ChairUser->IsSitting() && sqrt(ChairUser->GetDistance2dSq(x_i, y_i)) < 0.1f)
                             continue;
-                        else
-                            itr->second = 0;
-                    else
-                        itr->second = 0;
+                    }
+                    itr->second = 0;
+                }
 
                 found_free_slot = true;
 
@@ -903,7 +897,7 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_CHEST://cast da spell
         {
             spellInfo = dbcSpell.LookupEntry( OPEN_CHEST );
-            spell = (new Spell(p, spellInfo, true, NULL));
+            spell = new Spell(p, spellInfo, true, NULL);
             p->SetCurrentSpell(spell);
             targets.m_unitTarget = GetGUID();
             spell->prepare(&targets);
@@ -1197,11 +1191,7 @@ void GameObject::Use(Player *p)
             p->SetStandState(STANDSTATE_SIT_HIGH_CHAIR);
             if( p->IsMounted() )
                 p->RemoveAura( p->m_MountSpellId );
-            else
-            {
-                p->SetLastRunSpeed(0.0f);
-                p->UpdateSpeed();
-            }
+
             WorldPacket data(SMSG_ENABLE_BARBER_SHOP, 0);
             p->GetSession()->SendPacket(&data);
         }break;

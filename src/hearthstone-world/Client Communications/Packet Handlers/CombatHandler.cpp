@@ -36,27 +36,15 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
         return;
     }
 
-    // Faction "Hack" by Deathshit
     // Implemented Hackfix for quest 1640
-    if(sWorld.antihack_cheatengine)
+    if(pEnemy->GetEntry() == 6090 && _player->HasQuest(1640))
+    { }
+    else if(sFactionSystem.AC_GetAttackableStatus( GetPlayer(), pEnemy ))
     {
-        if(!HasGMPermissions() || !sWorld.no_antihack_on_gm)
-        {
-            if(pEnemy->GetEntry() == 6090 && _player->HasQuest(1640))
-            {
-                GetPlayer()->smsg_AttackStart(pEnemy);
-                GetPlayer()->EventAttackStart();
-                return;
-            }
-
-            if(sFactionSystem.AC_GetAttackableStatus( GetPlayer(), pEnemy ))
-            {
-                sWorld.LogCheater(this, "Faction exploit detected. Damagetype: Melee.");
-                GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
-                GetPlayer()->Kick(5000);
-                return;
-            }
-        }
+        sWorld.LogCheater(this, "Faction exploit detected. Damagetype: Melee.");
+        GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
+        GetPlayer()->Kick(5000);
+        return;
     }
 
     _player->smsg_AttackStart(pEnemy);

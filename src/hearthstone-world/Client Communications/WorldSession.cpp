@@ -13,7 +13,7 @@ extern bool bServerShutdown;
 OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
-_logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), instanceId(0), _recentlogout(false)
+_logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), instanceId(0), _recentlogout(false), _zlibStream(NULL)
 {
     _player = NULL;
     m_hasDeathKnight = false;
@@ -72,7 +72,30 @@ WorldSession::~WorldSession()
         m_loggingInPlayer = NULL;
     }
 
+    if(_zlibStream)
+    {
+        deflateEnd(_zlibStream);
+        delete _zlibStream;
+    }
     deleteMutex.Release();
+}
+
+bool WorldSession::InitializeZLibCompression()
+{
+    z_stream *stream = new z_stream();
+    stream->zalloc = (alloc_func)NULL;
+    stream->zfree = (free_func)NULL;
+    stream->opaque = (voidpf)NULL;
+    stream->avail_in = 0;
+    stream->next_in = NULL;
+    if (deflateInit(stream, 1) == Z_OK)
+    {
+        _zlibStream = stream;
+        return true;
+    }
+    delete stream;
+    printf("FAILED ZLIB_INIT\n");
+    return CanUseCommand('z');
 }
 
 int WorldSession::Update(uint32 InstanceID)
@@ -295,7 +318,7 @@ void WorldSession::LogoutPlayer(bool Save)
         {
             _player->m_CurrentTransporter->RemovePlayer( _player );
             _player->m_CurrentTransporter = NULL;
-            _player->GetMovementInfo()->ClearTransportData();
+            _player->GetMovementInterface()->ClearTransportData();
         }
 
         // cancel current spell
@@ -533,7 +556,6 @@ void WorldSession::InitPacketHandlerTable()
     // Movement
     WorldPacketHandlers[CMSG_MOVE_FALL_RESET].handler                       = &WorldSession::HandleMoveFallResetOpcode;
     WorldPacketHandlers[MSG_MOVE_HEARTBEAT].handler                         = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_WORLDPORT_ACK].handler                     = &WorldSession::HandleMoveWorldportAckOpcode;
     WorldPacketHandlers[MSG_MOVE_JUMP].handler                              = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_ASCEND].handler                      = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_STOP_ASCEND].handler                       = &WorldSession::HandleMovementOpcodes;
@@ -563,11 +585,12 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_SET_ACTIVE_MOVER].handler                      = &WorldSession::HandleSetActiveMoverOpcode;
 
     // ACK
-    WorldPacketHandlers[MSG_MOVE_TELEPORT_ACK].handler                      = &WorldSession::HandleMoveTeleportAckOpcode;
-    WorldPacketHandlers[CMSG_MOVE_HOVER_ACK].handler                        = &WorldSession::HandleMoveHoverWaterFlyAckOpcode;
-    WorldPacketHandlers[CMSG_MOVE_WATER_WALK_ACK].handler                   = &WorldSession::HandleMoveHoverWaterFlyAckOpcode;
-    WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY_ACK].handler                  = &WorldSession::HandleMoveHoverWaterFlyAckOpcode;
-    WorldPacketHandlers[CMSG_MOVE_KNOCK_BACK_ACK].handler                   = &WorldSession::HandleMoveKnockbackAckOpcode;
+    WorldPacketHandlers[MSG_MOVE_WORLDPORT_ACK].handler                     = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_TELEPORT_ACK].handler                      = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_HOVER_ACK].handler                        = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_WATER_WALK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY_ACK].handler                  = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_KNOCK_BACK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_FORCE_MOVE_ROOT_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_FORCE_MOVE_UNROOT_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FEATHER_FALL_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
@@ -1003,20 +1026,44 @@ void WorldSession::SendItemPushResult(Item* pItem, bool Created, bool Received, 
 
 void WorldSession::SendPacket(WorldPacket* packet)
 {
-    bool World = false;
-    if(_player && _player->IsInWorld())
-        World = true;
-    if(_socket && _socket->IsConnected())
-        _socket->SendPacket(packet, World);
+    if(_socket == NULL)
+        return;
+    if(!_socket->IsConnected())
+        return;
+
+    if(_zlibStream && packet->size() >= 0x400)
+    {
+        ByteBuffer buff;
+        buff << uint32(packet->size());
+        if(sWorld.CompressPacketData(_zlibStream, packet->contents(), packet->size(), &buff))
+        {
+            _socket->OutPacket(packet->GetOpcode(), buff.size(), buff.contents(), true);
+            return;
+        }
+    }
+
+    _socket->SendPacket(packet);
 }
 
 void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
 {
-    bool World = false;
-    if(_player && _player->IsInWorld())
-        World = true;
-    if(_socket && _socket->IsConnected())
-        _socket->OutPacket(opcode, (data == NULL ? 0 : len), data, World);
+    if(_socket == NULL)
+        return;
+    if(!_socket->IsConnected())
+        return;
+
+    if(_zlibStream && len >= 0x400)
+    {
+        ByteBuffer buff;
+        buff << uint32(len);
+        if(sWorld.CompressPacketData(_zlibStream, data, len, &buff))
+        {
+            _socket->OutPacket(opcode, buff.size(), buff.contents(), true);
+            return;
+        }
+    }
+
+    _socket->OutPacket(opcode, (data == NULL ? 0 : len), data, false);
 }
 
 void WorldSession::Delete()

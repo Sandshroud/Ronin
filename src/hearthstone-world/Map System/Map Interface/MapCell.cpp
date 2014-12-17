@@ -144,9 +144,6 @@ void MapCell::RemoveObjects()
 
                 if(obj->GetTypeId() == TYPEID_CORPSE && obj->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
                     continue;
-
-                if(!obj->m_loadedFromDB)
-                    continue;
             }
 
             if( obj->IsInWorld())

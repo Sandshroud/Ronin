@@ -35,37 +35,26 @@ uint32 ItemInterface::m_CreateForPlayer(ByteBuffer *data)
     ASSERT(m_pOwner != NULL);
     uint32 count = 0;
 
-    for(int i = 0; i < MAX_INVENTORY_SLOT; i++)
+    for(uint16 i = 0; i < MAX_INVENTORY_SLOT; i++)
     {
         if(m_pItems[i])
         {
             if(m_pItems[i]->IsContainer())
             {
                 count += (castPtr<Container>(m_pItems[i]))->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
-
                 if(m_pItems[i]->GetProto() && m_pItems[i]->GetProto()->ContainerSlots > 0)
                 {
                     for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
                     {
-                        Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e);
-                        if(pItem)
+                        if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
                         {
                             if(pItem->IsContainer())
-                            {
                                 count += (castPtr<Container>(pItem))->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                            }
-                            else
-                            {
-                                count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                            }
+                            else count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
                         }
                     }
                 }
-            }
-            else
-            {
-                count += m_pItems[i]->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
-            }
+            } else count += m_pItems[i]->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
         }
     }
     return count;
@@ -89,11 +78,8 @@ void ItemInterface::m_DestroyForPlayer(Player* plr)
                 if(m_pItems[i]->IsContainer() && m_pItems[i]->GetProto())
                 {
                     for(int32 e = 0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
-                    {
-                        Item* pItem = castPtr<Container>(m_pItems[i])->GetItem(e);
-                        if(pItem)
+                        if(Item* pItem = castPtr<Container>(m_pItems[i])->GetItem(e))
                             pItem->DestroyForPlayer( plr );
-                    }
                 }
                 m_pItems[i]->DestroyForPlayer( plr );
             }

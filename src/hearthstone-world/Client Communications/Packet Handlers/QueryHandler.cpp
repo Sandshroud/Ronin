@@ -9,11 +9,11 @@
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
 {
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
-    if(GUID_HIPART(guid) != HIGHGUID_TYPE_PLAYER)
+    if(guid.getHigh() != HIGHGUID_TYPE_PLAYER)
         return;
-    PlayerInfo *pn = objmgr.GetPlayerInfo( (uint32)guid );
+    PlayerInfo *pn = objmgr.GetPlayerInfo(guid);
     if(pn == NULL)
         return;
 
@@ -26,7 +26,7 @@ void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
 
     sLog.Debug("WorldSession","Received CMSG_NAME_QUERY for: %s", pn->name );
     WorldPacket data(SMSG_NAME_QUERY_RESPONSE, 15+strlen(pn->name));
-    FastGUIDPack(data, guid);
+    data << guid.asPacked();
     data << uint8(0);
     data << pn->name;
     data << uint8(0);
@@ -377,7 +377,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
             }
 
             data2 << uint32(data.size());
-            data2.append(data);
+            data2 << data;
         }
 
         data2 << uint32(type);

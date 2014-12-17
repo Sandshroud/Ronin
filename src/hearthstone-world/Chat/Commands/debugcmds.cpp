@@ -187,62 +187,6 @@ bool ChatHandler::HandleGetBytesCommand(const char* args, WorldSession *m_sessio
     return true;
 }
 
-bool ChatHandler::HandleDebugLandWalk(const char* args, WorldSession *m_session)
-{
-    Player* chr = getSelectedChar(m_session);
-    if (chr == NULL) // Ignatich: what should NOT happen but just in case...
-    {
-        SystemMessage(m_session, "No character selected.");
-        return false;
-    }
-
-    chr->SetMovement(MOVE_LAND_WALK,8);
-    SystemMessage(m_session, "Land Walk Test Ran.");
-    return true;
-}
-
-bool ChatHandler::HandleDebugWaterWalk(const char* args, WorldSession *m_session)
-{
-    Player* chr = getSelectedChar(m_session);
-    if (chr == NULL) // Ignatich: what should NOT happen but just in case...
-    {
-        SystemMessage(m_session, "No character selected.");
-        return false;
-    }
-
-    chr->SetMovement(MOVE_WATER_WALK, 4);
-    SystemMessage(m_session,  "Water Walk Test Ran.");
-    return true;
-}
-
-bool ChatHandler::HandleDebugUnroot(const char* args, WorldSession *m_session)
-{
-    Player* chr = getSelectedChar(m_session);
-    if (chr == NULL) // Ignatich: what should NOT happen but just in case...
-    {
-        SystemMessage(m_session,  "No character selected.");
-        return false;
-    }
-
-    chr->SetMovement(MOVE_UNROOT,5);
-    SystemMessage(m_session, "UnRoot Test Ran.");
-    return true;
-}
-
-bool ChatHandler::HandleDebugRoot(const char* args, WorldSession *m_session)
-{
-    Player* chr = getSelectedChar(m_session);
-    if (chr == NULL) // Ignatich: what should NOT happen but just in case...
-    {
-        SystemMessage(m_session, "No character selected.");
-        return true;
-    }
-
-    chr->SetMovement(MOVE_ROOT,1);
-    SystemMessage(m_session, "Root Test Ran.");
-    return true;
-}
-
 bool ChatHandler::HandleAggroRangeCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = m_session->GetPlayer();

@@ -326,7 +326,7 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
     if(m_Unit->IsCreature() && !m_Unit->IsPet())
     {
         //only save creature which exist in db (don't want to save 0 values in db)
-        if( m_Unit->m_loadedFromDB && castPtr<Creature>(m_Unit)->IsSpawn() )
+        if( castPtr<Creature>(m_Unit)->IsSpawn() )
         {
             if(MapMgr* GMap = m_Unit->GetMapMgr())
             {

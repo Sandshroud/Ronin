@@ -62,16 +62,10 @@ protected:
     uint32 id, to, from, price;
 };
 
-
 class SERVER_DECL TaxiMgr :  public Singleton < TaxiMgr >
 {
 public:
-    TaxiMgr()
-    {
-        _LoadTaxiNodes();
-        _LoadTaxiPaths();
-    }
-
+    TaxiMgr() {}
     ~TaxiMgr()
     {
         while(m_taxiPaths.size())
@@ -88,6 +82,7 @@ public:
         }
     }
 
+    void Initialize();
     TaxiPath *GetTaxiPath(uint32 path);
     TaxiPath *GetTaxiPath(uint32 from, uint32 to);
     TaxiNode *GetTaxiNode(uint32 node);

@@ -49,7 +49,7 @@ void CapitalizeString(std::string& arg)
 
 void WorldSession::CharacterEnumProc(QueryResult * result)
 {
-    uint8 num = 0;
+    uint32 num = 0;
     m_asyncQuery = false;
 
     //Erm, reset it here in case player deleted his DK.
@@ -71,11 +71,10 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
         } items[19];
 
         num = result->GetRowCount();
-        bitBuff.reserve(24 * num / 8);
+        bitBuff.reserve(num * 3);
         byteBuff.reserve(num * 381);
         bitBuff.WriteBits(num, 17);
 
-        uint8 slot = 0;
         do
         {
             for(uint8 i = 0; i < 19; i++)
@@ -84,7 +83,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             Field *fields = result->Fetch();
             std::string name = fields[7].GetString();
             WoWGuid charGuid = fields[0].GetUInt64();
-            WoWGuid guildGuid = MAKE_NEW_GUID(fields[18].GetUInt32(), 0, 0x1FF6);
+            WoWGuid guildGuid = fields[18].GetUInt32() ? MAKE_NEW_GUID(fields[18].GetUInt32(), 0, 0x1FF6) : 0;
             uint8 _race = fields[2].GetUInt8(), _class = fields[3].GetUInt8(), _level = fields[1].GetUInt8();
             uint32 flags = fields[17].GetUInt32(), _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
             uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
@@ -164,13 +163,13 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
             byteBuff << uint8(_class);
             for( uint8 i = 0; i < EQUIPMENT_SLOT_END; i++ )
-                byteBuff  << items[i].invtype << items[i].displayid << uint32(items[i].enchantment);
+                byteBuff << items[i].invtype << items[i].displayid << uint32(items[i].enchantment);
             for( uint8 i = 0; i < 4; i++)
                 byteBuff << uint8(0) << uint32(0) << uint32(0);
 
             byteBuff << uint32(petFamily);                  // Pet family
             byteBuff.WriteByteSeq(guildGuid[2]);
-            byteBuff << uint8(slot++);                      // List order
+            byteBuff << uint8(0);                           // List order
             byteBuff << uint8(hairStyle);                   // Hair style
             byteBuff.WriteByteSeq(guildGuid[3]);
             byteBuff << uint32(petDisplay);                 // Pet DisplayID
@@ -204,14 +203,13 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             byteBuff.WriteByteSeq(charGuid[5]);
             byteBuff.WriteByteSeq(charGuid[1]);
             byteBuff << uint32(zoneId);                     // Zone id
-
         } while( result->NextRow() );
     } else bitBuff.WriteBits(0, 17);
     bitBuff.FlushBits();
 
     WorldPacket data(SMSG_CHARACTER_ENUM, 200);
-    data.append(bitBuff);
-    if (num) data.append(byteBuff);
+    data << bitBuff;
+    if (num) data << byteBuff;
     SendPacket( &data );
 }
 
@@ -289,8 +287,7 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
         }
     }
 
-    QueryResult * result = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str());
-    if(result)
+    if(QueryResult * result = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str()))
     {
         if(result->Fetch()[0].GetUInt32() > 0)
         {
@@ -601,6 +598,10 @@ void WorldSession::FullLogin(Player* plr)
         data << uint32(0) << uint32(0) << uint32(0);
     SendPacket(&data);
 
+    data.Initialize(MSG_SET_DUNGEON_DIFFICULTY, 12);
+    data << uint32(0) << uint32(0x01) << uint32(0);
+    SendPacket(&data);
+
     plr->UpdateStats();
 
     // Anti max level hack.
@@ -663,7 +664,7 @@ void WorldSession::FullLogin(Player* plr)
     bool enter_world = true;
 
     // Find our transporter and add us if we're on one.
-    if(plr->GetTransportGuid() != 0)
+    if(!plr->GetTransportGuid().empty())
     {
         WoWGuid transGuid = plr->GetTransportGuid();
         Transporter* pTrans = objmgr.GetTransporter(transGuid.getLow());
@@ -673,7 +674,7 @@ void WorldSession::FullLogin(Player* plr)
                 plr->RemoteRevive();
 
             float c_tposx, c_tposy, c_tposz, c_tposo;
-            plr->GetMovementInfo()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
+            plr->GetMovementInterface()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
             c_tposx += pTrans->GetPositionX();
             c_tposy += pTrans->GetPositionY();
             c_tposz += pTrans->GetPositionZ();
@@ -739,20 +740,6 @@ void WorldSession::FullLogin(Player* plr)
 
     if(info->m_Group)
         info->m_Group->Update();
-
-    if(!sWorld.m_blockgmachievements || !HasGMPermissions())
-    {
-        // Retroactive: Level achievement
-        plr->GetAchievementInterface()->HandleAchievementCriteriaLevelUp( plr->getLevel() );
-
-        // Send achievement data!
-        if( plr->GetAchievementInterface()->HasAchievements() )
-        {
-            WorldPacket * data = plr->GetAchievementInterface()->BuildAchievementData();
-            plr->CopyAndSendDelayedPacket(data);
-            delete data;
-        }
-    }
 
     if(enter_world && !plr->IsInWorld())
         plr->AddToWorld(true);

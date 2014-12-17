@@ -483,7 +483,7 @@ void ArathiBasin::EventUpdateResources(uint32 Team)
         {
             for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
             {
-                (*itr)->Root();
+                (*itr)->GetMovementInterface()->setRooted(true);
 
                 if( (*itr)->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK) )
                     continue;

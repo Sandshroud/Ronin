@@ -22,9 +22,36 @@ bool StatSystem::Load()
     return LoadUnitStats();
 }
 
+
 void StatSystem::LoadClassPowers()
 {
+    uint32 PowersByClass[CLASS_MAX][POWER_TYPE_MAX];
+    for (uint8 i = 0; i < CLASS_MAX; ++i)
+        for (uint8 j = 0; j < POWER_TYPE_MAX; ++j)
+            PowersByClass[i][j] = POWER_TYPE_MAX;
 
+    for (uint32 i = 0; i < dbcCharPowerType.GetNumRows(); ++i)
+    {
+        if (CharPowerTypeEntry const* power = dbcCharPowerType.LookupEntry(i))
+        {
+            uint32 field = UNIT_FIELD_POWERS;
+            for (uint8 j = 0; j < POWER_TYPE_MAX; ++j)
+                if (PowersByClass[power->classId][j] != POWER_TYPE_MAX)
+                    field++;
+
+            PowersByClass[power->classId][power->power] = field;
+        }
+    }
+
+    for (uint8 i = 0; i < CLASS_MAX; ++i)
+    {
+        for (uint8 j = 0; j < POWER_TYPE_MAX; ++j)
+        {
+            if(PowersByClass[i][j] == POWER_TYPE_MAX)
+                continue;
+            m_unitPowersByClass.insert(std::make_pair(std::make_pair(i, j), EUnitFields(PowersByClass[i][j])));
+        }
+    }
 }
 
 bool StatSystem::LoadUnitStats()
@@ -353,9 +380,6 @@ uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker)
 bool isEven (int num)
 {
     if ((num%2)==0)
-    {
         return true;
-    }
-
     return false;
 }

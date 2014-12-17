@@ -302,11 +302,9 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time)
  *     TaxiMgr     *
  ***********************/
 
-void TaxiMgr::_LoadTaxiNodes()
+void TaxiMgr::Initialize()
 {
-    uint32 i;
-
-    for(i = 0; i < dbcTaxiNode.GetNumRows(); i++)
+    for(uint32 i = 0; i < dbcTaxiNode.GetNumRows(); i++)
     {
         TaxiNodeEntry *node = dbcTaxiNode.LookupRow(i);
         if (node)
@@ -324,44 +322,35 @@ void TaxiMgr::_LoadTaxiNodes()
         }
     }
 
-    //todo: load mounts
-}
-
-void TaxiMgr::_LoadTaxiPaths()
-{
-    uint32 i, j;
-
-    for(i = 0; i < dbcTaxiPath.GetNumRows(); i++)
+    for(uint32 j = 0; j < dbcTaxiPathNode.GetNumRows(); j++)
     {
-        if(TaxiPathEntry *path = dbcTaxiPath.LookupRow(i))
+        if(TaxiPathNodeEntry *pathnode = dbcTaxiPathNode.LookupRow(j))
         {
-            TaxiPath *p = new TaxiPath;
-            p->from = path->from;
-            p->to = path->to;
-            p->id = path->id;
-            p->price = path->price;
-
-            //Load Nodes
-            for(j = 0; j < dbcTaxiPathNode.GetNumRows(); j++)
+            if(TaxiPathEntry *pathEntry = dbcTaxiPath.LookupEntry(pathnode->PathId))
             {
-                if(TaxiPathNodeEntry *pathnode = dbcTaxiPathNode.LookupRow(j))
+                TaxiPath *path;
+                if(m_taxiPaths.find(pathnode->PathId) == m_taxiPaths.end())
                 {
-                    if (pathnode->PathId == p->id)
-                    {
-                        TaxiPathNode *pn = new TaxiPathNode;
-                        pn->x = pathnode->LocX;
-                        pn->y = pathnode->LocY;
-                        pn->z = pathnode->LocZ;
-                        pn->mapid = pathnode->ContinentID;
-                        p->AddPathNode(pathnode->NodeIndex, pn);
-                    }
-                }
-            }
+                    path = new TaxiPath();
+                    path->from = pathEntry->from;
+                    path->to = pathEntry->to;
+                    path->id = pathEntry->id;
+                    path->price = pathEntry->price;
+                    m_taxiPaths.insert(std::make_pair(pathnode->PathId, path));
+                } else path = m_taxiPaths.at(pathnode->PathId);
 
-            p->ComputeLen();
-            m_taxiPaths.insert(std::map<uint32, TaxiPath*>::value_type(p->id, p));
+                TaxiPathNode *pn = new TaxiPathNode();
+                pn->x = pathnode->LocX;
+                pn->y = pathnode->LocY;
+                pn->z = pathnode->LocZ;
+                pn->mapid = pathnode->ContinentID;
+                path->AddPathNode(pathnode->NodeIndex, pn);
+            }
         }
     }
+
+    for(auto itr = m_taxiPaths.begin(); itr != m_taxiPaths.end(); itr++)
+        itr->second->ComputeLen();
 }
 
 TaxiPath* TaxiMgr::GetTaxiPath(uint32 path)

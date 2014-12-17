@@ -14,122 +14,18 @@ AchievementInterface::~AchievementInterface()
 {
     m_player = NULL;
 
-    if( m_achivementDataMap.size() > 0 )
-    {
-        std::map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
-        for(; itr != m_achivementDataMap.end(); itr++)
-            delete itr->second;
-    }
-
     if( m_achievementInspectPacket )
         delete m_achievementInspectPacket;
 }
 
 void AchievementInterface::LoadFromDB( QueryResult * pResult )
 {
-    // don't allow GMs to complete achievements
-    if( sWorld.m_blockgmachievements && m_player->GetSession()->HasGMPermissions() )
-    {
-        CharacterDatabase.Execute("DELETE FROM achievements WHERE player = %u;", m_player->GetGUID());
-        return;
-    }
 
-    if( !pResult ) // We have no achievements yet. :)
-        return;
-
-    do
-    {
-        Field * fields = pResult->Fetch();
-        uint32 achievementid = fields[1].GetUInt32();
-        bool completed = (fields[3].GetUInt32() > 0);
-
-        AchievementEntry * ae = dbcAchievement.LookupEntry( achievementid );
-        if(ae != NULL)
-        {
-            AchievementData * ad = new AchievementData;
-            memset(ad, 0, sizeof(AchievementData));
-            std::string criteriaprogress = fields[2].GetString();
-
-            ad->id = achievementid;
-            ad->num_criterias = ae->associatedCriteria.size();
-            ad->completed = completed;
-            ad->date = fields[3].GetUInt32();
-            ad->groupid = fields[4].GetUInt64();
-
-            std::vector<std::string> Delim = RONIN_UTIL::StrSplit( criteriaprogress, "," );
-            for( uint32 i = 0; !completed && i < ae->associatedCriteria.size(); i++)
-            {
-                if( i >= Delim.size() )
-                    continue;
-
-                std::string posValue = Delim[i];
-                if( !posValue.size() )
-                    continue;
-
-                ad->counters.insert(std::make_pair(i, atoll(posValue.c_str())));
-                //printf("Loaded achievement: %u, %s\n", ae->ID, ad->completed ? "completed" : "incomplete" );
-            }
-
-            m_achivementDataMap.insert( std::make_pair( achievementid, ad) );
-        }
-    } while ( pResult->NextRow() );
 }
 
 void AchievementInterface::SaveToDB(QueryBuffer * buffer)
 {
-    // don't allow GMs to save achievements
-    if( sWorld.m_blockgmachievements && m_player->GetSession()->HasGMPermissions() )
-        return;
 
-    uint32 count = 0;
-    std::stringstream ss;
-    if(m_achivementDataMap.size())
-    {
-        std::map<uint32,AchievementData*>::iterator itr = m_achivementDataMap.begin();
-        ss << "REPLACE INTO achievements (player,achievementid,progress,completed,groupid) VALUES ";
-        bool first = true;
-        for(; itr != m_achivementDataMap.end(); itr++)
-        {
-            AchievementData* ad = itr->second;
-            if( !ad->m_isDirty )
-                continue;
-
-            if(first)
-                first = false;
-            else
-                ss << ",";
-
-            ss << "(" << m_player->GetLowGUID() << ",";
-            ss << ad->id << ",";
-            ss << "'";
-            for(uint32 i = 0; i < ad->num_criterias; i++)
-            {
-                if(ad->counters.find(i) != ad->counters.end())
-                    ss << ad->counters[i] << ",";
-                else ss << uint64(0) << ",";
-            }
-            ss << "',";
-            ss << ad->date << ",";
-            ss << ad->groupid << ")";
-            ad->m_isDirty = false;
-            count++;
-        }
-        if(count)
-            ss << ";";
-    }
-    else // If we have no achievements, delete all of our DB data.
-    {
-        count = 1; // Bwahahahahaha...
-        ss << "DELETE FROM achievements WHERE player = '" << m_player->GetLowGUID() << "';";
-    }
-
-    if(count)
-    {
-        if(buffer == NULL)
-            CharacterDatabase.Execute(ss.str().c_str());
-        else // Execute or add our bulk inserts
-            buffer->AddQuery(ss.str().c_str());
-    }
 }
 
 WorldPacket* AchievementInterface::BuildAchievementData(bool forInspect)
@@ -247,18 +143,13 @@ void AchievementInterface::EventAchievementEarned(AchievementData * pData)
 
 void AchievementInterface::BuildAllAchievementDataPacket(WorldPacket *data)
 {
+    uint32 criteriaCount = 0, completedAchievementCount = 0;
 
     // Criteria count
-    data->WriteBits(0, 21);
+    data->WriteBits(criteriaCount, 21);
     // Achievement count
-    data->WriteBits(0, 23);
+    data->WriteBits(completedAchievementCount, 23);
     data->FlushBits();
-
-//  for (CompletedAchievementMap::const_iterator iter = m_achivementDataMap.begin(); iter != m_achivementDataMap.end(); ++iter)
-//  {
-//      *data << uint32(iter->first);
-//      *data << uint32(secsToTimeBitFields(iter->second.date));
-//  }
 }
 
 WorldPacket* AchievementInterface::BuildAchievementEarned(AchievementData * pData)
@@ -267,7 +158,7 @@ WorldPacket* AchievementInterface::BuildAchievementEarned(AchievementData * pDat
     WorldPacket * data = new WorldPacket(SMSG_ACHIEVEMENT_EARNED, 40);
     *data << m_player->GetGUID();
     *data << pData->id;
-    *data << uint32( unixTimeToTimeBitfields(pData->date) );
+    *data << uint32( RONIN_UTIL::secsToTimeBitFields(pData->date) );
     *data << uint32(0);
 
     if( m_achievementInspectPacket )
@@ -453,7 +344,7 @@ void AchievementInterface::SendCriteriaUpdate(AchievementData * ad, uint32 idx)
     FastGUIDPack( data, ad->counters[idx] );
     data << m_player->GetGUID();
     data << uint32(0);
-    data << uint32(unixTimeToTimeBitfields(ad->date));
+    data << uint32(RONIN_UTIL::secsToTimeBitFields(ad->date));
     data << uint32(0);
     data << uint32(0);
 

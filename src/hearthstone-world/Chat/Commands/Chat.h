@@ -239,7 +239,6 @@ protected:
     bool HandleGPSCommand(const char* args, WorldSession *m_session);
     bool HandleKickCommand(const char* args, WorldSession *m_session);
     bool HandleTaxiCheatCommand(const char* args, WorldSession *m_session);
-    bool HandleModifySpeedCommand(const char* args, WorldSession *m_session);
     bool HandleModifyTPsCommand(const char* args, WorldSession *m_session);
     bool HandleToggleDevCommand(const char* args, WorldSession *m_session);
 
@@ -253,10 +252,6 @@ protected:
     bool HandleFaceCommand(const char* args, WorldSession *m_session);
     bool HandleSetBytesCommand(const char* args, WorldSession *m_session);
     bool HandleGetBytesCommand(const char* args, WorldSession *m_session);
-    bool HandleDebugLandWalk(const char* args, WorldSession *m_session);
-    bool HandleDebugUnroot(const char* args, WorldSession *m_session);
-    bool HandleDebugRoot(const char* args, WorldSession *m_session);
-    bool HandleDebugWaterWalk(const char* args, WorldSession *m_session);
     bool HandleAggroRangeCommand(const char* args, WorldSession *m_session);
     bool HandleKnockBackCommand(const char* args, WorldSession *m_session);
     bool HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_session);

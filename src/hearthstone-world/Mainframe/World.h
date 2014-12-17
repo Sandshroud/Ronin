@@ -427,13 +427,15 @@ public:
     void RemoveGlobalSession(WorldSession *GlobalSession);
     void DeleteGlobalSession(WorldSession *GlobalSession);
 
+    Mutex m_compressionLock;
+    std::deque<ByteBuffer*> m_compressionBuffers;
+    bool CompressPacketData(z_stream *stream, const void *data, uint32 len, ByteBuffer *output);
+
     HEARTHSTONE_INLINE size_t GetSessionCount() const { return m_sessions.size(); }
-
     HEARTHSTONE_INLINE size_t GetQueueCount() { return mQueuedSessions.size(); }
-    void GetStats(uint32 * GMCount, float * AverageLatency);
-
     HEARTHSTONE_INLINE uint32 GetPlayerLimit() const { return m_playerLimit; }
     void SetPlayerLimit(uint32 limit) { m_playerLimit = limit; }
+    void GetStats(uint32 * GMCount, float * AverageLatency);
 
     HEARTHSTONE_INLINE std::string getGmClientChannel() { return GmClientChannel; }
 
@@ -466,22 +468,11 @@ public:
 
     void UpdateSessions(uint32 diff);
 
-    HEARTHSTONE_INLINE void setRate(int index,float value)
-    {
-        regen_values[index]=value;
-    }
-
-    HEARTHSTONE_INLINE float getRate(int index)
-    {
-        return regen_values[index];
-    }
-
-    uint32 GetXPToNextLevel(uint32 level)
-    {
-        return 400;
-    }
+    HEARTHSTONE_INLINE void setRate(int index,float value) { regen_values[index] = value; }
+    HEARTHSTONE_INLINE float getRate(int index) { return regen_values[index]; }
 
     uint32 MaxLevelCalc;
+    uint32 GetXPToNextLevel(uint32 level) { return 400; }
 
     struct NameGenData
     {
@@ -503,10 +494,10 @@ public:
     Mutex queueMutex;
     std::string LuaScriptPath, GameMonkeyScriptPath;
     std::string DBCPath, MapPath, vMapPath, MMapPath;
+    float AreaUpdateDistance;
     bool AHEnabled, DisableBufferSaving;
     bool Collision, PathFinding, CalculatedHeightChecks;
     bool LogCheaters, LogCommands, LogPlayers, bLogChat;
-    float AreaUpdateDistance, NetworkStressIn, NetworkStressOut;
     uint32 ServerPreloading, mInWorldPlayerCount, mAcceptedConnections;
     uint32 mQueueUpdateInterval, trade_world_chat, m_deathKnightReqLevel;
     bool cross_faction_world, m_deathKnightOnePerAccount, EnableFatigue, NumericCommandGroups;
@@ -600,8 +591,6 @@ public:
     float flood_caps_pct;
     bool flood_message;
 
-    bool no_antihack_on_gm, antihack_teleport, antihack_speed, antihack_flight, antihack_cheatengine;
-
     // Force start/end Wintergrasp
     bool ForceStart, ForceEnd;
     //Enable/Disable specific battlegrounds/arenas
@@ -682,10 +671,6 @@ public:
     bool m_limitedNames;
     bool m_useAccountData;
     bool m_blockgmachievements;
-
-    float m_speedHackThreshold;
-    float m_speedHackLatencyMultiplier;
-    uint32 m_CEThreshold;
 
     // shutdown
     uint32 m_shutdownTime, m_shutdownType, m_shutdownLastTime;

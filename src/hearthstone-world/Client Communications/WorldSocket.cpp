@@ -147,7 +147,7 @@ void WorldSocket::UpdateQueuedPackets()
     queueLock.Release();
 }
 
-void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool InWorld)
+void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool compressed)
 {
     OUTPACKET_RESULT res;
     if( (len + 10) > WORLDSOCKET_SENDBUF_SIZE )
@@ -156,7 +156,7 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool In
         return;
     }
 
-    res = _OutPacket(opcode, len, data, InWorld);
+    res = _OutPacket(opcode, len, data, compressed);
     if(res == OUTPACKET_RESULT_SUCCESS)
         return;
     if(res == OUTPACKET_RESULT_PACKET_ERROR)
@@ -177,46 +177,41 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool In
     }
     else if(res == OUTPACKET_RESULT_NO_ROOM_IN_BUFFER)
     {
-        /* queue the packet */
-        queueLock.Acquire();
-        WorldPacket *pck = new WorldPacket(opcode, len);
-        pck->SetOpcode(opcode);
-        if(len)
-            pck->append((const uint8*)data, len);
-        _queue.Push(pck);
-        queueLock.Release();
+        if(compressed)
+            Disconnect();
+        else
+        {
+            /* queue the packet */
+            queueLock.Acquire();
+            WorldPacket *pck = new WorldPacket(opcode, len);
+            pck->SetOpcode(opcode);
+            if(len) pck->append((const uint8*)data, len);
+            _queue.Push(pck);
+            queueLock.Release();
+        }
     }
 }
 
-OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* data, bool InWorld)
+OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* data, bool compressed)
 {
     bool rv;
     if(!IsConnected())
         return OUTPACKET_RESULT_NOT_CONNECTED;
-
-    bool compressed = opcode & OPCODE_COMPRESSION_MASK;
-    opcode &= ~OPCODE_COMPRESSION_MASK;
-    uint16 newOpcode = sOpcodeMgr.ConvertOpcodeForOutput(opcode);
+    if(GetWriteBuffer()->GetSpace() < (len+5))
+        return OUTPACKET_RESULT_NO_ROOM_IN_BUFFER;
+    uint16 newOpcode = sOpcodeMgr.ConvertOpcodeForOutput(opcode&0x7FFF);
     if(newOpcode == MSG_NULL_ACTION)
         return OUTPACKET_RESULT_PACKET_ERROR;
-    else if( GetWriteBuffer()->GetSpace() < (len+4) )
-        return OUTPACKET_RESULT_NO_ROOM_IN_BUFFER;
-    if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
-    else if(len > 500)
+    if(compressed)
     {
-        // Todo: Compression
+        printf("Compressing opcode %s|%u|%u\n", sOpcodeMgr.GetOpcodeName(opcode), newOpcode, newOpcode|OPCODE_COMPRESSION_MASK);
+        newOpcode |= OPCODE_COMPRESSION_MASK;
     }
-
-    printf("Sending packet %s(0x%.4X) as 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, newOpcode);
-    //printf("Sending packet %s\n", sOpcodeMgr.GetOpcodeName(opcode));
     LockWriteBuffer();
 
-    if(FILE *file = fopen("opcodeLog.txt", "ab"))
+    if(FILE *file = fopen("Output.txt", "ab"))
     {
-        WorldPacket log(opcode, len);
-        log.append((char*)data, len);
-        fprintf(file, "Opcode %s: 0x%.4X | 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, newOpcode);
-        log.hexlike(file);
+        fprintf(file, "Sending packet %s%s(0x%.4X) as 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), compressed ? "_COMPRESSED" : "", opcode, newOpcode);
         fclose(file);
     }
 
@@ -231,12 +226,8 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     // Pass the rest of the packet to our send buffer (if there is any)
     if(len > 0 && rv)
         rv = Write((const uint8*)data, (uint32)len);
-    else if(rv)
-        rv = ForceSend();
-
+    else if(rv) rv = ForceSend();
     UnlockWriteBuffer();
-    if(len > 0 && rv && !bServerShutdown)
-        sWorld.NetworkStressOut += float(float(len+4)/1024);
     return rv ? OUTPACKET_RESULT_SUCCESS : OUTPACKET_RESULT_SOCKET_ERROR;
 }
 
@@ -399,17 +390,24 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     m_authed = true;
 
     // Allocate session
-    WorldSession *pSession = (mSession = new WorldSession(AccountID, AccountName, this));
-    ASSERT(mSession);
-    pSession->deleteMutex.Acquire();
-
+    WorldSession *pSession = new WorldSession(AccountID, AccountName, this);
+    ASSERT(pSession);
     // Set session properties
     pSession->permissioncount = 0;//just to make sure it's 0
     pSession->SetClientBuild(mClientBuild);
     pSession->LoadSecurity(GMFlags);
     pSession->SetAccountFlags(AccountFlags);
-    pSession->m_lastPing = (uint32)UNIXTIME;
+    pSession->m_lastPing = UNIXTIME;
     recvData >> pSession->m_muted;
+    if(!pSession->InitializeZLibCompression())
+    {
+        delete pSession;
+        SendAuthResponse(AUTH_SYSTEM_ERROR, false);
+        return;
+    }
+
+    mSession = pSession;
+    pSession->deleteMutex.Acquire();
 
     pSession->LoadTutorials();
     pSession->LoadAccountData();
@@ -508,7 +506,7 @@ void WorldSocket::_HandlePing(WorldPacket* recvPacket)
     if(mSession)
     {
         mSession->_latency = _latency;
-        mSession->m_lastPing = (uint32)UNIXTIME;
+        mSession->m_lastPing = UNIXTIME;
 
         // reset the move time diff calculator, don't worry it will be re-calculated next movement packet.
         mSession->m_clientTimeDelay = 0;
@@ -577,9 +575,6 @@ void WorldSocket::OnRecvData()
         {
             Packet->resize(mRemaining);
             Read((uint8*)Packet->contents(), mRemaining);
-
-            if(!bServerShutdown)
-                sWorld.NetworkStressIn += float(float(mRemaining+6)/1024);
         }
         mRemaining = mOpcode = 0;
 
@@ -596,6 +591,7 @@ void WorldSocket::OnRecvData()
                     Disconnect();
                 else
                 {
+                    printf("Sending auth challenge\n");
                     WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
                     data.append(sWorld.authSeed1.AsByteArray(), 16);
                     data.append(sWorld.authSeed2.AsByteArray(), 16);
@@ -606,6 +602,7 @@ void WorldSocket::OnRecvData()
             }break;
         case CMSG_AUTH_SESSION:
             {
+                printf("Handling auth session\n");
                 _HandleAuthSession(Packet);
             }break;
         case MSG_NULL_ACTION:

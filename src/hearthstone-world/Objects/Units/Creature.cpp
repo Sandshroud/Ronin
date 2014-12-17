@@ -36,10 +36,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
     m_TaxiNode = 0;
     original_emotestate = 0;
     m_custom_waypoint_map = 0;
-    m_walkSpeed = 2.5f;
-    m_runSpeed = MONSTER_NORMAL_RUN_SPEED;
-    m_base_runSpeed = m_runSpeed;
-    m_base_walkSpeed = m_walkSpeed;
     BaseAttackType = SCHOOL_NORMAL;
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
@@ -154,7 +150,7 @@ void Creature::OnRemoveCorpse()
         }
 
         SetDeathState(DEAD);
-        SetPosition(m_spawnLocation);
+        SetPosition(GetSpawnX(), GetSpawnY(), GetSpawnZ(), GetSpawnO());
     }
 }
 
@@ -193,6 +189,7 @@ void Creature::OnRespawn( MapMgr* m)
 void Creature::Create(uint32 mapid, float x, float y, float z, float ang)
 {
     WorldObject::_Create( mapid, x, y, z, ang );
+    m_spawnLocation.ChangeCoords(x, y, z, ang);
 }
 
 ///////////
@@ -478,8 +475,6 @@ void Creature::EnslaveExpire()
     SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
     SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
 
-    m_walkSpeed = m_base_walkSpeed;
-    m_runSpeed = m_base_runSpeed;
     SetFaction(_creatureData->Faction, false);
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, _creatureData->Faction);
     _setFaction();
@@ -686,9 +681,6 @@ WayPoint * Creature::CreateWaypointStruct()
 
 bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
 {
-    if(m_loadedFromDB)
-        return true;
-
     //Use proto displayid (random + gender generator), unless there is an id  specified in spawn->displayid
     uint8 gender; uint32 model;
     if(!_creatureData->GenerateModelId(gender, model))
@@ -700,10 +692,6 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     uint32 level = _creatureData->MinLevel;
     if(_creatureData->MaxLevel > _creatureData->MinLevel)
         level += RandomUInt(_creatureData->MaxLevel-_creatureData->MinLevel);
-
-    m_walkSpeed = m_base_walkSpeed = _creatureData->Walk_speed; //set speeds
-    m_runSpeed = m_base_runSpeed = _creatureData->Run_speed; //set speeds
-    m_flySpeed = _creatureData->Fly_speed;
 
     original_flags = spawn->flags;
     original_emotestate = spawn->emote_state;
@@ -896,10 +884,9 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
     m_aiInterface->m_isGuard = isGuard(GetEntry());
 
-    m_aiInterface->getMoveFlags();
     //CanMove (overrules AI)
     if(!GetCanMove())
-        Root();
+        GetMovementInterface()->setRooted(true);
 
     /* creature death state */
     if(spawn->death_state == 1)
@@ -952,23 +939,16 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
         }
     }
 
-    m_loadedFromDB = true;
     return true;
 }
 
 bool Creature::Load(uint32 mode, float x, float y, float z, float o)
 {
-    if(m_loadedFromDB)
-        return true;
-
     uint8 gender; uint32 model;
     if(!_creatureData->GenerateModelId(gender, model))
         return false;
 
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
-    m_walkSpeed = m_base_walkSpeed = _creatureData->Walk_speed; //set speeds
-    m_runSpeed = m_base_runSpeed = _creatureData->Run_speed; //set speeds
-    m_flySpeed = _creatureData->Fly_speed;
 
     uint32 level = _creatureData->MinLevel;
     if(_creatureData->MaxLevel > _creatureData->MinLevel)
@@ -1149,7 +1129,7 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
     m_aiInterface->getMoveFlags();
     //CanMove (overrules AI)
     if(!GetCanMove())
-        Root();
+        GetMovementInterface()->setRooted(true);
 
     m_invisFlag = _creatureData->Invisibility_type;
 
@@ -1265,9 +1245,7 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
         Unit::RemoveFromWorld(false);
         SetPosition( m_spawnLocation);
         m_respawnCell = pCell;
-    }
-    else
-        Unit::RemoveFromWorld(true);
+    } else Unit::RemoveFromWorld(true);
 }
 
 void Creature::TriggerScriptEvent(int ref)

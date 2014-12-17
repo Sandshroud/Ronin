@@ -35,6 +35,17 @@ void AuraInterface::RelocateEvents()
     }
 }
 
+void AuraInterface::Update(uint32 diff)
+{
+    // Do not use iterators because update can invalidate them when they're removed
+    for(uint8 x = 0; x < TOTAL_AURAS; ++x)
+    {
+        if(m_auras.find(x) == m_auras.end())
+            continue;
+        m_auras.at(x)->Update(diff);
+    }
+}
+
 void AuraInterface::OnChangeLevel(uint32 newLevel)
 {
     // On target level change recalculate modifiers where caster is unit
@@ -206,7 +217,7 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                     caster->SendMessageToSet(&data,true);
 
                     Aura* aura = new Aura(aur->GetSpellProto(), (aur->GetDuration()>120000) ? 120000 : aur->GetDuration(), caster, caster);
-                    aura->stackSize = aur->stackSize;
+                    aura->AddStackSize(aur->getStackSize()-1);
 
                     // copy the mods across
                     for( uint32 m = 0; m < aur->GetModCount(); ++m )
@@ -464,7 +475,7 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info, WoWGuid casterGuid)
         {
             if(info->RankNumber < currInfo->RankNumber)
                 stronger = true;
-            else if(info->maxstack > 1 && m_auras.at(x)->stackSize > 1)
+            else if(info->maxstack > 1 && m_auras.at(x)->getStackSize() > 1)
                 stronger = true;
             else
             {
@@ -676,8 +687,8 @@ bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid caster
 bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 {
     uint32 maxStack = aur->GetSpellProto()->maxstack;
-    if( m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->stack_cheat )
-        maxStack = 255;
+    if( maxStack && m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->stack_cheat )
+        maxStack = 0xFF;
 
     std::set<uint8> m_aurasToRemove;
     SpellEntry *info = aur->GetSpellProto();
@@ -685,10 +696,10 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
     {
         if(m_auras.find(x) == m_auras.end())
             continue;
+
         Aura* curAura = m_auras.at(x);
         if(curAura == NULL || aur == curAura || curAura->m_deleted)
             continue;
-
         SpellEntry *currSP = curAura->GetSpellProto();
         if(info->NameHash == currSP->NameHash)
         {
@@ -698,14 +709,15 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
                     m_aurasToRemove.insert(x);
                 else if( curAura->GetCasterGUID() == aur->GetCasterGUID() )
                 {
-                    if(maxStack > 1)
+                    if(info->procCharges || maxStack > 1)
                     {
                         // target already has this aura. Update duration, time left, procCharges
                         curAura->SetDuration(aur->GetDuration());
                         curAura->SetTimeLeft(aur->GetDuration());
-                        curAura->procCharges = curAura->GetMaxProcCharges(caster);
                         curAura->UpdateModifiers();
-                        curAura->ModStackSize(1);   // increment stack size
+                        // If we have proc charges, reset the proc charges
+                        if(info->procCharges) curAura->SetProcCharges(aur->GetMaxProcCharges(aur->GetUnitCaster()));
+                        else curAura->AddStackSize(1);   // increment stack size
                         return false;
                     }
                     m_aurasToRemove.insert(x);
@@ -719,7 +731,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
                     }
                     else if(info->isSpellBuffType() && info->isSpellSameBuffType(currSP))
                     {
-                        if(maxStack > 1 && curAura->stackSize > 1)
+                        if(maxStack > 1 && curAura->getStackSize() > 1)
                             return false;
                         m_aurasToRemove.insert(x);
                     }
@@ -1037,7 +1049,7 @@ void AuraInterface::RemoveAuraBySlotOrRemoveStack(uint8 Slot)
 {
     if(m_auras.find(Slot) != m_auras.end())
     {
-        if(m_auras.at(Slot)->stackSize > 1)
+        if(m_auras.at(Slot)->getStackSize() > 1)
         {
             m_auras.at(Slot)->RemoveStackSize(1);
             return;
@@ -1544,8 +1556,12 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
     std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
 
     uint32 count = 0;
-    WorldPacket data(SMSG_SET_FLAT_SPELL_MODIFIER+index.second, 20);
-    data << uint32(1) << count << uint8(index.first);
+    WorldPacket *data = NULL;
+    if(m_Unit->IsPlayer())
+    {
+        data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index.second, 20);
+        *data << uint32(1) << count << uint8(index.first);
+    }
     for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
     {
         if(bit && (bit%32 == 0)) ++intbit;
@@ -1553,17 +1569,20 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
         {
             if(apply) groupModMap[bit] += mod->m_amount;
             else groupModMap[bit] -= mod->m_amount;
-            data << uint8(bit);
-            data << groupModMap[bit];
+            if(data) *data << uint8(bit) << groupModMap[bit];
             count++;
         }
     }
-    data.put<uint32>(4, count);
-    if(m_Unit->IsPlayer())
-        castPtr<Player>(m_Unit)->SendPacket(&data);
+
+    if(data)
+    {
+        data->put<uint32>(4, count);
+        castPtr<Player>(m_Unit)->SendPacket(data);
+        delete data;
+    }
 }
 
-uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group)
+uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 {
     group = uint8(float2int32(floor(float(value)/32.f)));
     return value%32;

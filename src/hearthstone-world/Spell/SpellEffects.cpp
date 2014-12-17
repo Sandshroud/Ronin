@@ -1039,11 +1039,6 @@ void Spell::SpellEffectLeap(uint32 i) // Leap
                 p_caster->blinked = true;
                 p_caster->blinktimer = getMSTime()+5000;
                 p_caster->SafeTeleport( p_caster->GetMapId(), p_caster->GetInstanceID(), posX, posY, posZ, m_caster->GetOrientation() );
-
-                // reset heartbeat for a little while, 5 seconds maybe?
-                p_caster->DelaySpeedHack( 5000 );
-                ++p_caster->m_heartbeatDisable;
-                p_caster->z_axisposition = 0.0f;
             }
         }
         else
@@ -1056,11 +1051,6 @@ void Spell::SpellEffectLeap(uint32 i) // Leap
                 p_caster->blinked = true;
                 p_caster->blinktimer = getMSTime()+5000;
                 p_caster->SafeTeleport( p_caster->GetMapId(), p_caster->GetInstanceID(), posX, posY, posZ, m_caster->GetOrientation() );
-
-                // reset heartbeat for a little while, 5 seconds maybe?
-                p_caster->DelaySpeedHack( 5000 );
-                ++p_caster->m_heartbeatDisable;
-                p_caster->z_axisposition = 0.0f;
             }
         }
 
@@ -1077,11 +1067,6 @@ void Spell::SpellEffectLeap(uint32 i) // Leap
     data << radius;
     data << float(-10.0f);
     p_caster->GetSession()->SendPacket(&data);
-
-    // reset heartbeat for a little while, 2 seconds maybe?
-    p_caster->DelaySpeedHack( 10000 );
-    ++p_caster->m_heartbeatDisable;
-    p_caster->z_axisposition = 0.0f;
 }
 
 void Spell::SpellEffectEnergize(uint32 i) // Energize
@@ -2789,8 +2774,6 @@ void Spell::SpellEffectSelfResurrect(uint32 i)
     playerTarget->ResurrectPlayer();
     playerTarget->m_resurrectHealth = 0;
     playerTarget->m_resurrectMana = 0;
-    playerTarget->SetMovement(MOVE_UNROOT, 1);
-
     playerTarget->SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
 
     if(GetSpellProto()->Id==21169)
@@ -2860,7 +2843,7 @@ void Spell::SpellEffectCharge(uint32 i)
     if(dx == 0.0f || dy == 0.0f)
         return;
 
-    uint32 time = uint32( (m_caster->CalcDistance(x,y,z) / ((u_caster->m_runSpeed * 3.5) * 0.001f)) + 0.5);
+    uint32 time = uint32( (m_caster->CalcDistance(x,y,z) / ((u_caster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
     u_caster->GetAIInterface()->SendMoveToPacket(x, y, z, 0.0f, time, MONSTER_MOVE_FLAG_WALK);
     u_caster->SetPosition(x,y,z,0.0f);
 
@@ -2872,13 +2855,7 @@ void Spell::SpellEffectCharge(uint32 i)
         u_caster->smsg_AttackStart( unitTarget );
     u_caster->setAttackTimer(time, false);
     u_caster->setAttackTimer(time, true);
-    if(p_caster)
-    {
-        p_caster->EventAttackStart();
-        p_caster->ResetHeartbeatCoords();
-        p_caster->DelaySpeedHack( time + 1000 );
-        p_caster->z_axisposition = 0.0f;
-    }
+    if(p_caster) p_caster->EventAttackStart();
 }
 
 void Spell::SpellEffectPlaceTotemsOnBar(uint32 i)
@@ -3167,10 +3144,8 @@ void Spell::SpellEffectSummonObjectSlot(uint32 i)
     GoSummon->SetInstanceID( u_caster->GetInstanceID() );
     if( GetSpellProto()->EffectImplicitTargetA[i] == EFF_TARGET_SIMPLE_AOE )
         GoSummon->CreateFromProto( goi->ID, m_caster->GetMapId(), m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, m_caster->GetOrientation());
-    else
-        GoSummon->CreateFromProto( goi->ID, m_caster->GetMapId(), m_caster->GetPosition());
+    else GoSummon->CreateFromProto( goi->ID, m_caster->GetMapId(), m_caster->GetPosition());
 
-    GoSummon->SetRotation( m_caster->GetOrientation() );
     GoSummon->SetUInt32Value(GAMEOBJECT_LEVEL, u_caster->getLevel());
 
     if(GoSummon->GetType() == GAMEOBJECT_TYPE_TRAP)
@@ -3344,7 +3319,6 @@ void Spell::SpellEffectResurrect(uint32 i) // Resurrect (Flat)
     playerTarget->m_resurrectMana = mana;
 
     SendResurrectRequest(playerTarget);
-    playerTarget->SetMovement(MOVE_UNROOT, 1);
 }
 
 void Spell::SpellEffectAttackMe(uint32 i)
@@ -3490,17 +3464,11 @@ void Spell::SpellEffectDummyMelee( uint32 i ) // Normalized Weapon damage +
     else if( GetSpellProto()->NameHash == SPELL_HASH_DEVASTATE)
     {
         // Player can apply only 58567 Sunder Armor effect.
-        Aura* aura = u_caster->m_AuraInterface.FindActiveAura(58567);
-        if(aura == NULL)
-            u_caster->CastSpell(unitTarget, 58567, true);
-        else
+        if(Aura* aura = u_caster->m_AuraInterface.FindActiveAura(58567))
         {
-            if(u_caster->HasAura(58388))
-                aura->ModStackSize(2);
-            else
-                aura->ModStackSize(1);
-            damage *= aura->stackSize;
-        }
+            aura->AddStackSize(u_caster->HasAura(58388) ? 2 : 1);
+            damage *= aura->getStackSize();
+        } else u_caster->CastSpell(unitTarget, 58567, true);
     }
     // rogue - mutilate ads dmg if target is poisoned
     // pure hax (damage join)
@@ -3915,11 +3883,6 @@ void Spell::SpellEffectJump(uint32 i)
     u_caster->GetAIInterface()->StopMovement(time);
     u_caster->SetPosition(x, y, z, ang);
     u_caster->GetAIInterface()->SendJumpTo(x, y, z, time, arc);
-    if( p_caster != NULL)
-    {
-        p_caster->ResetHeartbeatCoords();
-        p_caster->DelaySpeedHack(time);
-    }
 }
 
 void Spell::SpellEffectTeleportToCaster(uint32 i)

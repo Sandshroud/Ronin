@@ -145,8 +145,6 @@ public:
         FollowDistance_backup = FollowDistance;
     };
 
-    bool IsFlying();
-
     HEARTHSTONE_INLINE bool HasDestination()
     {
         if((!m_ignorePathMap && PathMap != NULL) || m_pathfinding)
@@ -173,7 +171,7 @@ public:
 private:
     std::map<WoWGuid, uint32> CurrentMoveRequired;
 
-    float m_walkSpeed, m_runSpeed, m_flySpeed;
+    float *m_walkSpeed, *m_runSpeed, *m_flySpeed;
 
     float m_sourceX, m_sourceY, m_sourceZ;
     float m_returnX, m_returnY, m_returnZ, m_returnO; //Return position after attacking a mob

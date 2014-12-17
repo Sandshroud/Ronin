@@ -25,6 +25,13 @@ enum AURA_CHECK_RESULT
     AURA_CHECK_RESULT_LOWER_BUFF_PRESENT  = 3,
 };
 
+enum AuraStatus : uint16
+{
+    AURA_STATUS_NONE = 0,
+
+    AURA_STATUS_SPELL_IMPARING_MASK = 0xCF
+};
+
 class SERVER_DECL AuraInterface
 {
 public:
@@ -34,6 +41,9 @@ public:
     void Init(Unit* unit);
     void DeInit();
     void RelocateEvents();
+
+    void Update(uint32 diff);
+
     void OnChangeLevel(uint32 newlevel);
     void SaveAuras(std::stringstream&);
     uint8 GetFreeSlot(bool ispositive);
@@ -132,6 +142,11 @@ public:
     bool SetAuraDuration(uint32 spellId,int32 duration);
     bool SetAuraDuration(uint32 spellId,Unit* caster,int32 duration);
 
+    uint32 GetAuraStatus()
+    {
+        return AURA_STATUS_NONE;
+    }
+
 private:
     Unit* m_Unit;
     std::map<uint8, Aura*> m_auras;
@@ -196,5 +211,6 @@ private:
     // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
     std::map<std::pair<uint8, uint8>, std::map<uint8, int32>> m_spellGroupModifiers;
 
+    uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };

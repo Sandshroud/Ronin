@@ -189,18 +189,13 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 float dist = m_Unit->GetDistanceSq(m_nextTarget);
                 if(m_nextTarget->IsPlayer())
                 {
-                    if( castPtr<Player>( m_nextTarget )->m_currentMovement == MOVE_ROOT || dist >= 32.0f )
+                    if( castPtr<Player>( m_nextTarget )->GetMovementInterface()->isRooted() || dist >= 32.0f )
                         LastBehavior = Behavior_Ranged;
-                    else
-                        LastBehavior = Behavior_Melee;
-                }
-                else if( m_nextTarget->m_canMove == false || dist >= 32.0f )
+                    else LastBehavior = Behavior_Melee;
+                } else if( m_nextTarget->m_canMove == false || dist >= 32.0f )
                     LastBehavior = Behavior_Ranged;
-                else
-                    LastBehavior = Behavior_Melee;
-            }
-            else
-                LastBehavior = Behavior_Melee;
+                else LastBehavior = Behavior_Melee;
+            } else LastBehavior = Behavior_Melee;
         }
 
         if( disable_melee && LastBehavior == Behavior_Melee )

@@ -1154,6 +1154,7 @@ enum Opcodes
     SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED,                            // 4.3.4:0x39A0
     SMSG_SPLINE_MOVE_SET_FLYING,                                  // 4.3.4:0x31B5
     SMSG_SPLINE_MOVE_SET_HOVER,                                   // 4.3.4:0x14B6
+    SMSG_SPLINE_MOVE_SET_WATER_WALK,                              // 4.3.4:0x50A2
     SMSG_SPLINE_MOVE_SET_LAND_WALK,                               // 4.3.4:0x3DA7
     SMSG_SPLINE_MOVE_SET_NORMAL_FALL,                             // 4.3.4:0x38B2
     SMSG_SPLINE_MOVE_SET_PITCH_RATE,                              // 4.3.4:0x14B0
@@ -1170,7 +1171,6 @@ enum Opcodes
     SMSG_SPLINE_MOVE_UNROOT,                                      // 4.3.4:0x75B6
     SMSG_SPLINE_MOVE_UNSET_FLYING,                                // 4.3.4:0x58A6
     SMSG_SPLINE_MOVE_UNSET_HOVER,                                 // 4.3.4:0x7DA5
-    SMSG_SPLINE_MOVE_WATER_WALK,                                  // 4.3.4:0x50A2
     SMSG_STABLE_RESULT,                                           // 4.3.4:0x2204
     SMSG_STANDSTATE_UPDATE,                                       // 4.3.4:0x6F04
     SMSG_START_MIRROR_TIMER,                                      // 4.3.4:0x6824

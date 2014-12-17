@@ -16,7 +16,7 @@ struct PlayerCreateInfo
     float   positionY;
     float   positionZ;
     float   Orientation;
-    uint16  displayId;
+    uint16  displayId[2];
 
     std::list<CreateInfo_ItemStruct> items;
     std::list<CreateInfo_SkillStruct> skills;

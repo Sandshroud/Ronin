@@ -82,19 +82,6 @@ enum PowerType : int8
     POWER_TYPE_ALL          = 127
 };
 
-enum SpeedTypes
-{
-    WALK            = 0,
-    RUN             = 1,
-    RUNBACK         = 2,
-    SWIM            = 3,
-    SWIMBACK        = 4,
-    TURN            = 5,
-    FLY             = 6,
-    FLYBACK         = 7,
-    PITCH_RATE      = 8
-};
-
 enum StandState
 {
     STANDSTATE_STAND            = 0,
@@ -349,151 +336,6 @@ protected:
     void ClearMyHealers();
 };
 
-/************************************************************************/
-/* Movement Handler                                                     */
-/************************************************************************/
-enum MoveFlags : uint32
-{
-    // Byte 1 (Resets on Movement Key Press)
-    MOVEFLAG_MOVE_STOP                  = 0x00,         //verified
-    MOVEFLAG_MOVE_FORWARD               = 0x01,         //verified
-    MOVEFLAG_MOVE_BACKWARD              = 0x02,         //verified
-    MOVEFLAG_STRAFE_LEFT                = 0x04,         //verified
-    MOVEFLAG_STRAFE_RIGHT               = 0x08,         //verified
-    MOVEFLAG_TURN_LEFT                  = 0x10,         //verified
-    MOVEFLAG_TURN_RIGHT                 = 0x20,         //verified
-    MOVEFLAG_PITCH_DOWN                 = 0x40,         //Unconfirmed
-    MOVEFLAG_PITCH_UP                   = 0x80,         //Unconfirmed
-
-    // Byte 2 (Resets on Situation Change)
-    MOVEFLAG_WALK                       = 0x0100,       //verified
-    MOVEFLAG_TAXI                       = 0x0200,
-    MOVEFLAG_NO_COLLISION               = 0x0400,
-    MOVEFLAG_FLYING                     = 0x0800,       //verified
-    MOVEFLAG_REDIRECTED                 = 0x1000,       //Jumping
-    MOVEFLAG_FALLING                    = 0x2000,       //verified
-    MOVEFLAG_FALLING_FAR                = 0x4000,       //verified
-    MOVEFLAG_FREE_FALLING               = 0x8000,       //half verified
-
-    // Byte 3 (Set by server. TB = Third Byte. Completely unconfirmed.)
-    MOVEFLAG_TB_PENDING_STOP            = 0x010000,     // (MOVEFLAG_PENDING_STOP)
-    MOVEFLAG_TB_PENDING_UNSTRAFE        = 0x020000,     // (MOVEFLAG_PENDING_UNSTRAFE)
-    MOVEFLAG_TB_PENDING_FALL            = 0x040000,     // (MOVEFLAG_PENDING_FALL)
-    MOVEFLAG_TB_PENDING_FORWARD         = 0x080000,     // (MOVEFLAG_PENDING_FORWARD)
-    MOVEFLAG_TB_PENDING_BACKWARD        = 0x100000,     // (MOVEFLAG_PENDING_BACKWARD)
-    MOVEFLAG_SWIMMING                   = 0x200000,     //  verified
-    MOVEFLAG_FLYING_PITCH_UP            = 0x400000,     // (half confirmed)(MOVEFLAG_PENDING_STR_RGHT)
-    MOVEFLAG_TB_MOVED                   = 0x800000,     // Send to client on entervehicle
-
-    // Byte 4 (Script Based Flags. Never reset, only turned on or off.)
-    MOVEFLAG_AIR_SUSPENSION             = 0x01000000,   // confirmed allow body air suspension(good name? lol).
-    MOVEFLAG_AIR_SWIMMING               = 0x02000000,   // confirmed while flying.
-    MOVEFLAG_SPLINE_MOVER               = 0x04000000,   // Unconfirmed
-    MOVEFLAG_SPLINE_ENABLED             = 0x08000000,
-    MOVEFLAG_WATER_WALK                 = 0x10000000,
-    MOVEFLAG_FEATHER_FALL               = 0x20000000,   // Does not negate fall damage.
-
-    // Masks
-    MOVEFLAG_MOVING_MASK                = MOVEFLAG_MOVE_FORWARD|MOVEFLAG_MOVE_BACKWARD,
-    MOVEFLAG_STRAFING_MASK              = MOVEFLAG_STRAFE_LEFT|MOVEFLAG_STRAFE_RIGHT,
-    MOVEFLAG_TURNING_MASK               = MOVEFLAG_TURN_LEFT|MOVEFLAG_TURN_RIGHT,
-    MOVEFLAG_FALLING_MASK               = 0x6000,
-    MOVEFLAG_MOTION_MASK                = 0xE00F,       // Forwards, Backwards, Strafing, Falling
-    MOVEFLAG_PENDING_MASK               = 0x7F0000,
-    MOVEFLAG_PENDING_STRAFE_MASK        = 0x600000,
-    MOVEFLAG_PENDING_MOVE_MASK          = 0x180000,
-    MOVEFLAG_FULL_FALLING_MASK          = 0xE000,
-};
-
-enum MoveFlags2 : uint16
-{
-    MOVEFLAG2_NONE                      = 0x0000,
-    MOVEFLAG2_NO_STRAFE                 = 0x0001,
-    MOVEFLAG2_NO_JUMPING                = 0x0002,
-    MOVEFLAG2_UNK3                      = 0x0004, // Overrides various clientside checks
-    MOVEFLAG2_FULL_SPEED_TURNING        = 0x0008,
-    MOVEFLAG2_FULL_SPEED_PITCHING       = 0x0010,
-    MOVEFLAG2_ALWAYS_ALLOW_PITCHING     = 0x0020,
-    MOVEFLAG2_UNK7                      = 0x0040,
-    MOVEFLAG2_UNK8                      = 0x0080,
-    MOVEFLAG2_UNK9                      = 0x0100,
-    MOVEFLAG2_UNK10                     = 0x0200,
-    MOVEFLAG2_INTERPOLATED_MOVEMENT     = 0x0400,
-    MOVEFLAG2_INTERPOLATED_TURNING      = 0x0800,
-};
-
-class MovementInfo
-{
-public:
-    MovementInfo() : transGuid(), movementFlags(0), movementFlags2(0), moveTime(0),
-        x(0.f), y(0.f), z(0.f), orient(0.f), t_x(0.f), t_y(0.f), t_z(0.f), t_orient(0.f),
-        transTime(0), transSeat(0), pitch(0.f), fallTime(0), j_sin(0.f), j_cos(0.f), j_vel(0.f), j_speed(0.f),
-        splineAngle(0.f) { };
-    ~MovementInfo() { };
-
-    void read(ByteBuffer &data);
-    void write(ByteBuffer &data);
-
-    // Position data
-    void SetPosition(float newX, float newY, float newZ, float newO = 0.0f) { m_position.ChangeCoords(newX, newY, newZ, newO); };
-    void SetPosition(LocationVector loc) { m_position.ChangeCoords(loc.x, loc.y, loc.z, loc.o); };
-    void GetPosition(LocationVector &loc) { loc.ChangeCoords(m_position.x, m_position.y, m_position.z, m_position.o); };
-    void GetPosition(float &_x, float &_y, float &_z, float &_o) { _x = m_position.x; _y = m_position.y; _z = m_position.z; _o = m_position.o; };
-    float GetPositionX() { return m_position.x; } float GetPositionY() { return m_position.y; }
-    float GetPositionZ() { return m_position.z; } float GetPositionO() { return m_position.o; }
-
-    // Transport data
-    void GetTransportPosition(LocationVector &loc) { loc.x = t_x; loc.y = t_y; loc.z = t_z; loc.o = t_orient; };
-    void GetTransportPosition(float &_x, float &_y, float &_z, float &_o) { _x = t_x; _y = t_y; _z = t_z; _o = t_orient; };
-    void SetTransportData(uint64 guid, float x, float y, float z, float o, uint8 seat) { transGuid = guid; t_x = x; t_y = y; t_z = z; t_orient = o; transSeat = seat; }
-    void ClearTransportData() { transGuid = 0; t_x = t_y = t_z = t_orient = 0.0f; transTime = 0; transSeat = 0; };
-    void SetTransportLock(bool locked) { m_lockTransport = locked; }
-    bool GetTransportLock() { return m_lockTransport; }
-    float GetTPositionX() { return t_x; } float GetTPositionY() { return t_y; }
-    float GetTPositionZ() { return t_z; } float GetTPositionO() { return t_orient; }
-
-    bool HasFallData() { return ((movementFlags & MOVEFLAG_FALLING) || fallTime > 0); }
-    bool HasPitchFlags() { return ((movementFlags & (MOVEFLAG_SWIMMING | MOVEFLAG_FLYING)) || (movementFlags2 & MOVEFLAG2_ALWAYS_ALLOW_PITCHING)); };
-
-public: // Spline data
-    bool HasSplineInfo() { return false; } // Todo
-    bool HasElevatedSpline() { return (movementFlags & MOVEFLAG_AIR_SWIMMING); }
-
-public:
-    void HandleBreathing(Player* _player, WorldSession * pSession);
-    void GetRawPosition(float &_x, float &_y, float &_z, float &_o) { _x = x; _y = y; _z = z; _o = orient; };
-
-public: // Server position
-    LocationVector m_position;
-
-    void UpdatePosition() { m_position.ChangeCoords(x, y, z, orient); };
-
-public: // Raw data
-    uint32 movementFlags;
-    uint16 movementFlags2;
-    uint32 moveTime;
-
-private:
-    float x, y, z, orient;
-
-public:
-    WoWGuid transGuid;
-
-private:
-    float t_x, t_y, t_z, t_orient;
-
-public:
-    uint32 transTime, transTime2, transTime3;
-    uint8 transSeat;
-    float pitch;
-    uint32 fallTime;
-    float j_sin, j_cos, j_vel, j_speed;
-    float splineAngle, splineElevation;
-
-private:
-    bool m_lockTransport;
-};
-
 //====================================================================
 //  Unit
 //  Base object for Players and Creatures
@@ -509,6 +351,9 @@ public:
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();
+
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
 
     virtual void Update( uint32 time );
     virtual void UpdateFieldValues();
@@ -553,8 +398,6 @@ public:
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
-
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
 
     void setAttackTimer(int32 time, bool offhand);
     bool isAttackReady(bool offhand);
@@ -688,7 +531,7 @@ public:
     HEARTHSTONE_INLINE void SetInvisibility(uint32 id) { m_invisibility = id; }
     HEARTHSTONE_INLINE bool IsInvisible() { return (m_invisible != 0 ? true : false); }
     uint32 m_invisibility;
-    bool m_invisible;
+    bool m_isGmInvisible, m_invisible;
     uint8 m_invisFlag;
     int32 m_invisDetect[INVIS_FLAG_TOTAL];
 
@@ -992,19 +835,7 @@ public:
     bool disarmed;
     bool disarmedShield;
     uint64 m_detectRangeGUID[5];
-    int32  m_detectRangeMOD[5];
-    // Affect Speed
-    int32 m_speedModifier;
-    int32 m_slowdown;
-    float m_maxSpeed;
-    std::map< uint32, int32 > speedReductionMap;
-    bool GetSpeedDecrease();
-    int32 m_mountedspeedModifier;
-    int32 m_flyspeedModifier;
-    void UpdateSpeed();
-    void EnableFlight();
-    void DisableFlight();
-    void EventRegainFlight();
+    int32 m_detectRangeMOD[5];
 
     void MoveToWaypoint(uint32 wp_id);
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
@@ -1068,9 +899,6 @@ public:
         return cl1 && cl2 && cl3;
     }
 
-    void Root();
-    void UnRoot();
-
     void SetFacing(float newo);//only working if creature is idle
 
     bool IsPoisoned();
@@ -1093,9 +921,6 @@ public:
     void SetPvPFlag();
     //! Removal
     void RemovePvPFlag();
-
-    //solo target auras
-    uint32 m_special_state; //flags for special states (stunned,rooted etc)
 
 //  uint32 fearSpell;
     CombatStatusHandler CombatStatus;
@@ -1201,17 +1026,19 @@ public:
     //  custom functions for scripting
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 
-public: // Movement Info.
-    uint64 GetTransportGuid() { return movement_info.transGuid; };
-
-    HEARTHSTONE_INLINE MovementInfo* GetMovementInfo() { return &movement_info; }
-
-    //
-    MovementInfo movement_info;
-
 protected:
     LocationVector m_lastAreaPosition;
     uint32 m_AreaUpdateTimer;
+
+public:
+    MovementInterface *GetMovementInterface() { return &m_movementInterface; }
+
+    float GetMoveSpeed(MovementSpeedTypes type) { return m_movementInterface.GetMoveSpeed(type); }
+
+    WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }
+
+protected:
+    MovementInterface m_movementInterface;
 
 public:
     uint32 m_meleespell;
@@ -1268,8 +1095,6 @@ public:
     void Teleport(float x, float y, float z, float o);
     void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
-    void SetSpeed(uint8 SpeedType, float value);
-    void SendHeartBeatMsg( bool toself );
     uint32 GetCreatureType();
     virtual const char* GetName() = 0;
     bool IsSitting();

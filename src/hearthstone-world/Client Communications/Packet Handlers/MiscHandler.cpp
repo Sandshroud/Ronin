@@ -679,7 +679,7 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
         SendPacket( &data );
 
         //stop player from moving
-        pPlayer->SetMovement(MOVE_ROOT,1);
+        pPlayer->GetMovementInterface()->setRooted(true);
 
         // Set the "player locked" flag, to prevent movement
         pPlayer->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
@@ -697,9 +697,7 @@ void WorldSession::HandlePlayerLogoutOpcode( WorldPacket & recv_data )
     {
         // send "You do not have permission to use this"
         SendNotification(NOTIFICATION_MESSAGE_NO_PERMISSION);
-    } 
-    else
-        LogoutPlayer(true);
+    } else LogoutPlayer(true);
 }
 
 void WorldSession::HandleLogoutCancelOpcode( WorldPacket & recv_data )
@@ -717,7 +715,7 @@ void WorldSession::HandleLogoutCancelOpcode( WorldPacket & recv_data )
     OutPacket(SMSG_LOGOUT_CANCEL_ACK);
 
     //unroot player
-    pPlayer->SetMovement(MOVE_UNROOT,5);
+    pPlayer->GetMovementInterface()->setRooted(false);
 
     // Remove the "player locked" flag, to allow movement
     pPlayer->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
@@ -854,7 +852,6 @@ void WorldSession::HandleResurrectResponseOpcode(WorldPacket & recv_data)
 
     // reset resurrector
     _player->resurrector = 0;
-    _player->SetMovement(MOVE_UNROOT, 1);
     _player->ResurrectPlayer(pl);
     _player->m_resurrectHealth = 0;
     _player->m_resurrectMana = 0;
@@ -948,7 +945,7 @@ void WorldSession::HandleRequestAccountData(WorldPacket& recv_data)
     ByteBuffer bbuff;
     bbuff.resize(destSize);
     if(res->sz < 500)
-        bbuff.append(res->data);
+        bbuff.append(res->data, res->sz);
     else if(res->sz && compress((uint8*)bbuff.contents(), &destSize, (uint8*)res->data, res->sz) != Z_OK)
     {
         sLog.outDebug("Error while compressing ACCOUNT_DATA");
@@ -961,7 +958,7 @@ void WorldSession::HandleRequestAccountData(WorldPacket& recv_data)
     data << uint32(id);
     data << uint32(res->timeStamp);
     data << uint32(res->sz);
-    data.append(bbuff);
+    data << bbuff;
     SendPacket(&data);
 }
 
@@ -1097,22 +1094,7 @@ void WorldSession::HandleSetSheathedOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandlePlayedTimeOpcode( WorldPacket & recv_data )
 {
-    uint8 send;
-    recv_data >> send;
 
-    uint32 playedt = (uint32)UNIXTIME - _player->m_playedtime[2];
-    if(playedt)
-    {
-        _player->m_playedtime[0] += playedt;
-        _player->m_playedtime[1] += playedt;
-        _player->m_playedtime[2] += playedt;
-    }
-
-    WorldPacket data(SMSG_PLAYED_TIME, 9);
-    data << (uint32)_player->m_playedtime[1];
-    data << (uint32)_player->m_playedtime[0];
-    data << uint8(send);
-    SendPacket(&data);
 }
 
 void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
@@ -1460,6 +1442,13 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
     }
 
     _player->SendLoot(pItem->GetGUID(), _player->GetMapId(), LOOT_CORPSE);
+}
+
+void WorldSession::HandleMountSpecialAnimOpcode(WorldPacket &recvdata)
+{
+    WorldPacket data(SMSG_MOUNTSPECIAL_ANIM,8);
+    data << _player->GetGUID();
+    _player->SendMessageToSet(&data, true);
 }
 
 void WorldSession::HandleCompleteCinematic(WorldPacket& recv_data)

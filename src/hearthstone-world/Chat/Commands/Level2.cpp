@@ -492,27 +492,13 @@ bool ChatHandler::HandleCastSpellNECommand(const char* args, WorldSession *m_ses
     }
     BlueSystemMessage(m_session, "Casting spell %d on target.", spellId);
 
-    WorldPacket data(SMSG_SPELL_START, 40);
+    WorldPacket data(SMSG_SPELL_GO, 50);
     data << caster->GetGUID().asPacked();
     data << caster->GetGUID().asPacked();
-    data << spellId;
-    data << uint8(0);
-    data << uint16(0);
-    data << uint32(0);
-    data << uint16(2);
-    data << target->GetGUID();
-    m_session->SendPacket( &data );
-    data.clear();
-
-    data.Initialize( SMSG_SPELL_GO );
-    data << caster->GetGUID().asPacked();
-    data << caster->GetGUID().asPacked();
-    data << spellId;
-    data << uint8(0) << uint8(1) << uint8(1);
-    data << target->GetGUID();
-    data << uint8(0);
-    data << uint16(2);
-    data << target->GetGUID();
+    data << uint8(0) << spellId;
+    data << uint32(256) << uint32(0) << uint32(0);
+    data << uint8(1) << target->GetGUID() << uint8(0);
+    data << uint32(2) << target->GetGUID().asPacked();
     m_session->SendPacket( &data );
     return true;
 }

@@ -4,8 +4,6 @@
 
 #include "StdAfx.h"
 
-UpdateMask Player::m_visibleUpdateMask;
-
 #define COLLISION_MOUNT_CHECK_INTERVAL 1000
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
@@ -53,10 +51,6 @@ void Player::Init()
     TrackingSpell                   = 0;
     m_status                        = 0;
     offhand_dmg_mod                 = 0.5;
-    m_walkSpeed                     = 2.5f;
-    m_runSpeed                      = PLAYER_NORMAL_RUN_SPEED;
-    m_isMoving                      = false;
-    m_isWaterWalking                = 0;
     m_ShapeShifted                  = 0;
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
@@ -90,8 +84,6 @@ void Player::Init()
     m_resurrectMana                 = 0;
     m_GroupInviter                  = 0;
     Lfgcomment                      = "";
-    m_flyHackChances                = 5;
-    m_WaterWalkTimer                = 0;
     m_lastWarnCounter               = 0;
     for(uint8 i = 0; i < 3; i++)
     {
@@ -108,8 +100,6 @@ void Player::Init()
     LfmType                         = 0;
     m_invitersGuid                  = 0;
     forget                          = 0;
-    m_currentMovement               = MOVE_UNROOT;
-    m_isGmInvisible                 = false;
     m_invitersGuid                  = 0;
     ResetTradeVariables();
     DuelingWith                     = NULL;
@@ -162,7 +152,6 @@ void Player::Init()
     weapon_proficiency              = 0x4000;//2^14
     armor_proficiency               = 1;
     m_bUnlimitedBreath              = false;
-    m_UnderwaterState               = 0;
     m_LastUnderwaterState           = 0;
     m_MirrorTimer[0]                = -1;
     m_MirrorTimer[1]                = -1;
@@ -223,7 +212,6 @@ void Player::Init()
         m_questlog[i] = NULL;
 
     CurrentGossipMenu               = NULL;
-    ResetHeartbeatCoords();
     rageFromDamageDealt             = 0;
     m_honorToday                    = 0;
     m_honorYesterday                = 0;
@@ -237,7 +225,6 @@ void Player::Init()
     myCorpse                        = NULL;
     blinked                         = false;
     blinktimer                      = getMSTime();
-    m_speedhackChances              = 3;
     m_explorationTimer              = getMSTime();
     linkTarget                      = NULL;
     stack_cheat                     = false;
@@ -248,7 +235,6 @@ void Player::Init()
     m_TeleportState                 = 1;
     m_beingPushed                   = false;
     m_FlyingAura                    = 0;
-    resend_speed                    = false;
     rename_pending                  = false;
     titanGrip                       = false;
     iInstanceType                   = 0;
@@ -259,7 +245,6 @@ void Player::Init()
     AnnihilationProcChance          = 0;
     m_comboTarget                   = 0;
     m_comboPoints                   = 0;
-    UpdateLastSpeeds();
     m_resist_critical[0] = m_resist_critical[1] = 0;
     for (uint8 x = 0; x < 3; ++x)
     {
@@ -283,7 +268,6 @@ void Player::Init()
     Damageshield_amount             = 0.0f;
     m_summoner                      = NULL;
     m_summonInstanceId              = m_summonMapId = 0;
-    m_lastMoveType                  = 0;
     m_tempSummon                    = NULL;
     m_spellcomboPoints              = 0;
     m_pendingBattleground[0]        = NULL;
@@ -292,12 +276,9 @@ void Player::Init()
     m_retainComboPoints             = false;
     last_heal_spell                 = NULL;
     m_playerInfo                    = NULL;
-    m_sentTeleportPosition.ChangeCoords(999999.0f,999999.0f,999999.0f);
     m_speedChangeCounter            = 1;
     memset(&m_bgScore,0,sizeof(BGScore));
     m_arenaPoints                   = 0;
-    m_base_runSpeed                 = m_runSpeed;
-    m_base_walkSpeed                = m_walkSpeed;
     m_arenateaminviteguid           = 0;
     m_arenaPoints                   = 0;
     m_honorRolloverTime             = 0;
@@ -310,27 +291,28 @@ void Player::Init()
     m_lfgInviterGuid                = 0;
     m_mountCheckTimer               = 0;
     m_taxiMapChangeNode             = 0;
-    m_startMoveTime                 = 0;
-    m_heartbeatDisable          = 0;
-    m_safeFall                  = 0;
-    safefall                    = false;
-    z_axisposition              = 0.0f;
-    m_KickDelay                 = 0;
-    m_speedhackCheckTimer       = 0;
-    m_mallCheckTimer            = 0;
-    m_UpdateHookTimer           = 0;
-    m_speedChangeInProgress     = false;
-    m_passOnLoot                = false;
-    m_changingMaps              = true;
-    m_magnetAura                = NULL;
-    m_lastMoveTime              = 0;
-    m_lastMovementPacketTimestamp = 0;
-    m_cheatEngineChances        = 2;
-    m_mageInvisibility          = false;
-    mAvengingWrath              = true;
-    m_bgFlagIneligible          = 0;
-    m_insigniaTaken             = true;
-    m_BeastMaster               = false;
+    m_safeFall                      = 0;
+    safefall                        = false;
+    m_KickDelay                     = 0;
+    m_mallCheckTimer                = 0;
+    m_UpdateHookTimer               = 0;
+    m_passOnLoot                    = false;
+    m_changingMaps                  = true;
+    m_magnetAura                    = NULL;
+    m_mageInvisibility              = false;
+    mAvengingWrath                  = true;
+    m_bgFlagIneligible              = 0;
+    m_insigniaTaken                 = true;
+    m_BeastMaster                   = false;
+
+    watchedchannel                  = NULL;
+    PreventRes                      = false;
+    MobXPGainRate                   = 0.0f;
+    NoReagentCost                   = false;
+    fromrandombg                    = false;
+    randombgwinner                  = false;
+    m_drunkTimer                    = 0;
+    m_drunk                         = 0;
 
     m_QuestGOInProgress.clear();
     m_removequests.clear();
@@ -346,15 +328,6 @@ void Player::Init()
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
     mSpells.clear();
-
-    watchedchannel          = NULL;
-    PreventRes              = false;
-    MobXPGainRate           = 0.0f;
-    NoReagentCost           = false;
-    fromrandombg            = false;
-    randombgwinner          = false;
-    m_drunkTimer            = 0;
-    m_drunk                 = 0;
 }
 
 void Player::Destruct()
@@ -489,364 +462,6 @@ void Player::Destruct()
     Unit::Destruct();
 }
 
-HEARTHSTONE_INLINE uint32 GetSpellForLanguageID(uint32 LanguageID)
-{
-    switch(LanguageID)
-    {
-    case LANG_COMMON:
-        return 668;
-        break;
-    case LANG_ORCISH:
-        return 669;
-        break;
-    case LANG_TAURAHE:
-        return 670;
-        break;
-    case LANG_DARNASSIAN:
-        return 671;
-        break;
-    case LANG_DWARVISH:
-        return 672;
-        break;
-    case LANG_THALASSIAN:
-        return 813;
-        break;
-    case LANG_DRACONIC:
-        return 814;
-        break;
-    case LANG_DEMONIC:
-        return 815;
-        break;
-    case LANG_TITAN:
-        return 816;
-        break;
-    case LANG_GNOMISH:
-        return 7430;
-        break;
-    case LANG_TROLL:
-        return 7341;
-        break;
-    case LANG_GUTTERSPEAK:
-        return 17737;
-        break;
-    case LANG_DRAENEI:
-        return 29932;
-        break;
-    }
-
-    return 0;
-}
-
-HEARTHSTONE_INLINE uint32 GetSpellForLanguageSkill(uint32 SkillID)
-{
-    switch(SkillID)
-    {
-    case SKILL_LANG_COMMON:
-        return 668;
-        break;
-
-    case SKILL_LANG_ORCISH:
-        return 669;
-        break;
-
-    case SKILL_LANG_TAURAHE:
-        return 670;
-        break;
-
-    case SKILL_LANG_DARNASSIAN:
-        return 671;
-        break;
-
-    case SKILL_LANG_DWARVEN:
-        return 672;
-        break;
-
-    case SKILL_LANG_THALASSIAN:
-        return 813;
-        break;
-
-    case SKILL_LANG_DRACONIC:
-        return 814;
-        break;
-
-    case SKILL_LANG_DEMON_TONGUE:
-        return 815;
-        break;
-
-    case SKILL_LANG_TITAN:
-        return 816;
-        break;
-
-    case SKILL_LANG_OLD_TONGUE:
-        return 817;
-        break;
-
-    case SKILL_LANG_GNOMISH:
-        return 7430;
-        break;
-
-    case SKILL_LANG_TROLL:
-        return 7341;
-        break;
-
-    case SKILL_LANG_GUTTERSPEAK:
-        return 17737;
-        break;
-
-    case SKILL_LANG_DRAENEI:
-        return 29932;
-        break;
-    }
-
-    return 0;
-}
-
-///====================================================================
-///  Create
-///  params: p_newChar
-///  desc:   data from client to create a new character
-///====================================================================
-bool Player::Create(WorldPacket& data )
-{
-    uint8 race,class_,gender,skin,face,hairStyle,hairColor,facialHair,outfitId;
-
-    // unpack data into member variables
-    data >> m_name;
-
-    // correct capitalization
-    CapitalizeString(m_name);
-
-    data >> race >> class_ >> gender >> skin >> face;
-    data >> hairStyle >> hairColor >> facialHair >> outfitId;
-
-    info = objmgr.GetPlayerCreateInfo(race, class_);
-    if(!info)
-    {
-        // info not found.
-        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
-        data << uint8(CHAR_CREATE_ERROR);
-        GetSession()->SendPacket(&data);
-        return false;
-    }
-
-    // check that the account CAN create TBC or Cata characters, if we're making some
-    if(race >= RACE_BLOODELF && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01))
-    {
-        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
-        data << uint8(CHAR_CREATE_ERROR);
-        GetSession()->SendPacket(&data);
-        return false;
-    }
-
-    m_mapId = info->mapId;
-    m_zoneId = info->zoneId;
-    SetPosition( info->positionX, info->positionY, info->positionZ, info->Orientation);
-    m_bind_pos_x = info->positionX;
-    m_bind_pos_y = info->positionY;
-    m_bind_pos_z = info->positionZ;
-    m_bind_mapid = info->mapId;
-    m_bind_zoneid = info->zoneId;
-    m_isResting = 0;
-    m_restAmount = 0;
-    m_restState = 0;
-
-    memset(m_taximask, 0, sizeof(uint32)*MAX_TAXI);
-
-    // set race dbc
-    myRace = dbcCharRace.LookupEntry(race);
-    myClass = dbcCharClass.LookupEntry(class_);
-    if(!myRace || !myClass)
-    {
-        // information not found
-        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
-        data << uint8(CHAR_CREATE_ERROR);
-        GetSession()->SendPacket(&data);
-        return false;
-    }
-
-    m_team = myRace->TeamId;
-    uint8 powertype = uint8(myClass->power_type);
-
-    // Automatically add the race's taxi hub to the character's taximask at creation time ( 1 << (taxi_node_id-1) )
-    memset(m_taximask,0,sizeof(m_taximask));
-    if(sWorld.Start_With_All_Taximasks)
-    {
-        for(uint8 i = 0; i < MAX_TAXI; i++)
-            m_taximask[i] = 0xFFFFFFFF;
-    }
-    else if(class_ == DEATHKNIGHT)
-    {
-        for(uint8 i = 0; i < MAX_TAXI; i++)
-            m_taximask[i] |= DKNodesMask[i];
-    }
-
-    switch(race)
-    {
-        case RACE_TAUREN:   AddTaximaskNode(22);                        break;
-        case RACE_HUMAN:    AddTaximaskNode(2);                         break;
-        case RACE_DWARF:    AddTaximaskNode(6);                         break;
-        case RACE_GNOME:    AddTaximaskNode(6);                         break;
-        case RACE_ORC:      AddTaximaskNode(23);                        break;
-        case RACE_TROLL:    AddTaximaskNode(23);                        break;
-        case RACE_UNDEAD:   AddTaximaskNode(11);                        break;
-        case RACE_NIGHTELF: {AddTaximaskNode(26); AddTaximaskNode(27);} break;
-        case RACE_BLOODELF: AddTaximaskNode(82);                        break;
-        case RACE_DRAENEI:  AddTaximaskNode(94);                        break;
-    }
-    // team dependant taxi node
-    AddTaximaskNode(100-m_team);
-
-    uint32 level = std::max(uint8(1), sWorld.StartLevel);
-    if(class_ == DEATHKNIGHT && level < 55) level = 55;
-    setLevel(level);
-    UpdateFieldValues();
-
-    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-    SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
-
-    SetFaction( info->factiontemplate );
-
-    SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
-    if(class_ == WARRIOR)
-        SetShapeShift(FORM_BATTLESTANCE);
-
-    SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
-    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 0.388999998569489f );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
-    if( race != RACE_BLOODELF )
-    {
-        SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId + gender );
-        SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId + gender );
-    }
-    else
-    {
-        SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId - gender );
-        SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId - gender );
-    }
-    EventModelChange();
-
-    SetByte(PLAYER_BYTES, 0, skin);
-    SetByte(PLAYER_BYTES, 1, face);
-    SetByte(PLAYER_BYTES, 2, hairStyle);
-    SetByte(PLAYER_BYTES, 3, hairColor);
-    SetByte(PLAYER_BYTES_2, 0, facialHair);
-    SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
-    SetByte(PLAYER_BYTES_3, 0, gender);
-
-    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, 400);// sWorld.GetXPToNextLevel(getLevel()));
-    SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(castPtr<Player>(this)));
-    SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
-
-    m_StableSlotCount = 0;
-
-    for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
-        mSpells.insert((*sp));
-
-    m_FirstLogin = true;
-
-    SkillLineEntry * se;
-    for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
-    {
-        se = dbcSkillLine.LookupEntry(ss->skillid);
-        if(se == NULL)
-            continue;
-
-        if(se->categoryId != SKILL_TYPE_LANGUAGE)
-        {
-            if( sWorld.StartLevel > 1 )
-                _AddSkillLine(se->id, sWorld.StartLevel * 5, sWorld.StartLevel * 5 );
-            else _AddSkillLine(se->id, ss->currentval, ss->maxval);
-        }
-    }
-    _UpdateMaxSkillCounts();
-
-    _InitialReputation();
-
-    // Add actionbars
-    for(std::list<CreateInfo_ActionBarStruct>::iterator itr = info->actionbars.begin();itr!=info->actionbars.end();itr++)
-    {
-        m_talentInterface.setAction(itr->button, itr->action, itr->type, 0);
-        m_talentInterface.setAction(itr->button, itr->action, itr->type, 1);
-    }
-
-    if( GetSession()->HasGMPermissions() && sWorld.gm_force_robes )
-    {
-        // Force GM robes on GM's except 'az' status (if set to 1 in world.conf)
-        if( strstr(GetSession()->GetPermissions(), "az") == NULL)
-        {
-            //We need to dupe this
-            PlayerCreateInfo *GMinfo = new PlayerCreateInfo();
-            memcpy(GMinfo, info, sizeof(info));
-
-            GMinfo->items.clear();
-            CreateInfo_ItemStruct itm;
-
-            itm.protoid = 11508; //Feet
-            itm.slot = 7;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
-
-            itm.protoid = 2586;//Chest
-            itm.slot = 4;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
-
-            itm.protoid = 12064;//head
-            itm.slot = 0;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
-
-            EquipInit(GMinfo);
-            delete GMinfo;
-        } else EquipInit(info);
-    } else EquipInit(info);
-
-    sHookInterface.OnCharacterCreate(castPtr<Player>(this));
-
-    load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
-    for(uint8 i = 0; i < 5; i++)
-        load_power[i] = GetPower(i);
-    return true;
-}
-
-void Player::EquipInit(PlayerCreateInfo *EquipInfo)
-{
-    ItemPrototype* proto = NULL;
-    for(std::list<CreateInfo_ItemStruct>::iterator is = EquipInfo->items.begin(); is!=EquipInfo->items.end(); is++)
-    {
-        if ( (*is).protoid != 0)
-        {
-            proto = ItemPrototypeStorage.LookupEntry((*is).protoid);
-            if(proto != NULL)
-            {
-                Item* item = objmgr.CreateItem((*is).protoid,castPtr<Player>(this));
-                if(item != NULL)
-                {
-                    item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, (*is).amount);
-                    if((*is).slot < INVENTORY_SLOT_BAG_END)
-                    {
-                        if( !GetItemInterface()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
-                        {
-                            item->Destruct();
-                            item = NULL;
-                        }
-                    }
-                    else
-                    {
-                        if( !GetItemInterface()->AddItemToFreeSlot(item) )
-                        {
-                            item->Destruct();
-                            item = NULL;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 void Player::Update( uint32 p_time )
 {
     if(!IsInWorld())
@@ -911,11 +526,11 @@ void Player::Update( uint32 p_time )
         SaveToDB(false);
     }
 
-    if(m_CurrentTransporter && !GetMovementInfo()->GetTransportLock())
+    if(m_CurrentTransporter && !m_movementInterface.isTransportLocked())
     {
         // Update our position, using trnasporter X/Y
         float c_tposx, c_tposy, c_tposz, c_tposo;
-        GetMovementInfo()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
+        m_movementInterface.GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
         c_tposx += m_CurrentTransporter->GetPositionX();
         c_tposy += m_CurrentTransporter->GetPositionY();
         c_tposz += m_CurrentTransporter->GetPositionZ();
@@ -973,12 +588,6 @@ void Player::Update( uint32 p_time )
             }
             m_mountCheckTimer = mstime + COLLISION_MOUNT_CHECK_INTERVAL;
         }
-    }
-
-    if( mstime >= m_speedhackCheckTimer )
-    {
-        _SpeedhackCheck();
-        m_speedhackCheckTimer = mstime + 1000;
     }
 
     if (m_drunk)
@@ -1304,6 +913,352 @@ int32 Player::GetBonusRangedAttackPower()
     return GetBonusesFromItems(ITEM_STAT_ATTACK_POWER)+GetBonusesFromItems(ITEM_STAT_RANGED_ATTACK_POWER);
 }
 
+HEARTHSTONE_INLINE uint32 GetSpellForLanguageID(uint32 LanguageID)
+{
+    switch(LanguageID)
+    {
+    case LANG_COMMON:
+        return 668;
+        break;
+    case LANG_ORCISH:
+        return 669;
+        break;
+    case LANG_TAURAHE:
+        return 670;
+        break;
+    case LANG_DARNASSIAN:
+        return 671;
+        break;
+    case LANG_DWARVISH:
+        return 672;
+        break;
+    case LANG_THALASSIAN:
+        return 813;
+        break;
+    case LANG_DRACONIC:
+        return 814;
+        break;
+    case LANG_DEMONIC:
+        return 815;
+        break;
+    case LANG_TITAN:
+        return 816;
+        break;
+    case LANG_GNOMISH:
+        return 7430;
+        break;
+    case LANG_TROLL:
+        return 7341;
+        break;
+    case LANG_GUTTERSPEAK:
+        return 17737;
+        break;
+    case LANG_DRAENEI:
+        return 29932;
+        break;
+    }
+
+    return 0;
+}
+
+HEARTHSTONE_INLINE uint32 GetSpellForLanguageSkill(uint32 SkillID)
+{
+    switch(SkillID)
+    {
+    case SKILL_LANG_COMMON:
+        return 668;
+        break;
+
+    case SKILL_LANG_ORCISH:
+        return 669;
+        break;
+
+    case SKILL_LANG_TAURAHE:
+        return 670;
+        break;
+
+    case SKILL_LANG_DARNASSIAN:
+        return 671;
+        break;
+
+    case SKILL_LANG_DWARVEN:
+        return 672;
+        break;
+
+    case SKILL_LANG_THALASSIAN:
+        return 813;
+        break;
+
+    case SKILL_LANG_DRACONIC:
+        return 814;
+        break;
+
+    case SKILL_LANG_DEMON_TONGUE:
+        return 815;
+        break;
+
+    case SKILL_LANG_TITAN:
+        return 816;
+        break;
+
+    case SKILL_LANG_OLD_TONGUE:
+        return 817;
+        break;
+
+    case SKILL_LANG_GNOMISH:
+        return 7430;
+        break;
+
+    case SKILL_LANG_TROLL:
+        return 7341;
+        break;
+
+    case SKILL_LANG_GUTTERSPEAK:
+        return 17737;
+        break;
+
+    case SKILL_LANG_DRAENEI:
+        return 29932;
+        break;
+    }
+
+    return 0;
+}
+
+///====================================================================
+///  Create
+///  params: p_newChar
+///  desc:   data from client to create a new character
+///====================================================================
+bool Player::Create(WorldPacket& data )
+{
+    uint8 race,class_,gender,skin,face,hairStyle,hairColor,facialHair,outfitId;
+
+    // unpack data into member variables
+    data >> m_name;
+
+    // correct capitalization
+    CapitalizeString(m_name);
+
+    data >> race >> class_ >> gender >> skin >> face;
+    data >> hairStyle >> hairColor >> facialHair >> outfitId;
+
+    info = objmgr.GetPlayerCreateInfo(race, class_);
+    if(!info)
+    {
+        // info not found.
+        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
+        data << uint8(CHAR_CREATE_ERROR);
+        GetSession()->SendPacket(&data);
+        return false;
+    }
+
+    // check that the account CAN create TBC or Cata characters, if we're making some
+    if(race >= RACE_BLOODELF && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01))
+    {
+        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
+        data << uint8(CHAR_CREATE_ERROR);
+        GetSession()->SendPacket(&data);
+        return false;
+    }
+
+    m_mapId = info->mapId;
+    m_zoneId = info->zoneId;
+    SetPosition( info->positionX, info->positionY, info->positionZ, info->Orientation);
+    m_bind_pos_x = info->positionX;
+    m_bind_pos_y = info->positionY;
+    m_bind_pos_z = info->positionZ;
+    m_bind_mapid = info->mapId;
+    m_bind_zoneid = info->zoneId;
+    m_isResting = 0;
+    m_restAmount = 0;
+    m_restState = 0;
+
+    memset(m_taximask, 0, sizeof(uint32)*MAX_TAXI);
+
+    // set race dbc
+    myRace = dbcCharRace.LookupEntry(race);
+    myClass = dbcCharClass.LookupEntry(class_);
+    if(!myRace || !myClass)
+    {
+        // information not found
+        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
+        data << uint8(CHAR_CREATE_ERROR);
+        GetSession()->SendPacket(&data);
+        return false;
+    }
+
+    m_team = myRace->TeamId;
+    uint8 powertype = uint8(myClass->power_type);
+
+    // Automatically add the race's taxi hub to the character's taximask at creation time ( 1 << (taxi_node_id-1) )
+    memset(m_taximask,0,sizeof(m_taximask));
+    if(sWorld.Start_With_All_Taximasks)
+    {
+        for(uint8 i = 0; i < MAX_TAXI; i++)
+            m_taximask[i] = 0xFFFFFFFF;
+    }
+    else if(class_ == DEATHKNIGHT)
+    {
+        for(uint8 i = 0; i < MAX_TAXI; i++)
+            m_taximask[i] |= DKNodesMask[i];
+    }
+
+    switch(race)
+    {
+        case RACE_TAUREN:   AddTaximaskNode(22);                        break;
+        case RACE_HUMAN:    AddTaximaskNode(2);                         break;
+        case RACE_DWARF:    AddTaximaskNode(6);                         break;
+        case RACE_GNOME:    AddTaximaskNode(6);                         break;
+        case RACE_ORC:      AddTaximaskNode(23);                        break;
+        case RACE_TROLL:    AddTaximaskNode(23);                        break;
+        case RACE_UNDEAD:   AddTaximaskNode(11);                        break;
+        case RACE_NIGHTELF: {AddTaximaskNode(26); AddTaximaskNode(27);} break;
+        case RACE_BLOODELF: AddTaximaskNode(82);                        break;
+        case RACE_DRAENEI:  AddTaximaskNode(94);                        break;
+    }
+    // team dependant taxi node
+    AddTaximaskNode(100-m_team);
+
+    uint32 level = std::max(uint8(1), sWorld.StartLevel);
+    if(class_ == DEATHKNIGHT && level < 55) level = 55;
+    setLevel(level);
+    UpdateFieldValues();
+
+    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
+    SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
+
+    SetFaction( info->factiontemplate );
+
+    SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
+    if(class_ == WARRIOR)
+        SetShapeShift(FORM_BATTLESTANCE);
+
+    SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
+    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
+    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
+    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 0.388999998569489f );
+    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
+    SetByte(PLAYER_BYTES, 0, skin);
+    SetByte(PLAYER_BYTES, 1, face);
+    SetByte(PLAYER_BYTES, 2, hairStyle);
+    SetByte(PLAYER_BYTES, 3, hairColor);
+    SetByte(PLAYER_BYTES_2, 0, facialHair);
+    SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
+    SetByte(PLAYER_BYTES_3, 0, gender);
+
+    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, 400);// sWorld.GetXPToNextLevel(getLevel()));
+    SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(castPtr<Player>(this)));
+    SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
+
+    m_StableSlotCount = 0;
+
+    for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
+        mSpells.insert((*sp));
+
+    m_FirstLogin = true;
+
+    SkillLineEntry * se;
+    for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
+    {
+        se = dbcSkillLine.LookupEntry(ss->skillid);
+        if(se == NULL)
+            continue;
+
+        if(se->categoryId != SKILL_TYPE_LANGUAGE)
+        {
+            if( sWorld.StartLevel > 1 )
+                _AddSkillLine(se->id, sWorld.StartLevel * 5, sWorld.StartLevel * 5 );
+            else _AddSkillLine(se->id, ss->currentval, ss->maxval);
+        }
+    }
+    _UpdateMaxSkillCounts();
+
+    _InitialReputation();
+
+    // Add actionbars
+    for(std::list<CreateInfo_ActionBarStruct>::iterator itr = info->actionbars.begin();itr!=info->actionbars.end();itr++)
+    {
+        m_talentInterface.setAction(itr->button, itr->action, itr->type, 0);
+        m_talentInterface.setAction(itr->button, itr->action, itr->type, 1);
+    }
+
+    if( GetSession()->HasGMPermissions() && sWorld.gm_force_robes )
+    {
+        // Force GM robes on GM's except 'az' status (if set to 1 in world.conf)
+        if( strstr(GetSession()->GetPermissions(), "az") == NULL)
+        {
+            //We need to dupe this
+            PlayerCreateInfo *GMinfo = new PlayerCreateInfo();
+            memcpy(GMinfo, info, sizeof(info));
+
+            GMinfo->items.clear();
+            CreateInfo_ItemStruct itm;
+
+            itm.protoid = 11508; //Feet
+            itm.slot = 7;
+            itm.amount = 1;
+            GMinfo->items.push_back(itm);
+
+            itm.protoid = 2586;//Chest
+            itm.slot = 4;
+            itm.amount = 1;
+            GMinfo->items.push_back(itm);
+
+            itm.protoid = 12064;//head
+            itm.slot = 0;
+            itm.amount = 1;
+            GMinfo->items.push_back(itm);
+
+            EquipInit(GMinfo);
+            delete GMinfo;
+        } else EquipInit(info);
+    } else EquipInit(info);
+
+    sHookInterface.OnCharacterCreate(castPtr<Player>(this));
+
+    load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
+    for(uint8 i = 0; i < 5; i++)
+        load_power[i] = GetPower(i);
+    return true;
+}
+
+void Player::EquipInit(PlayerCreateInfo *EquipInfo)
+{
+    ItemPrototype* proto = NULL;
+    for(std::list<CreateInfo_ItemStruct>::iterator is = EquipInfo->items.begin(); is!=EquipInfo->items.end(); is++)
+    {
+        if ( (*is).protoid != 0)
+        {
+            proto = ItemPrototypeStorage.LookupEntry((*is).protoid);
+            if(proto != NULL)
+            {
+                Item* item = objmgr.CreateItem((*is).protoid,castPtr<Player>(this));
+                if(item != NULL)
+                {
+                    item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, (*is).amount);
+                    if((*is).slot < INVENTORY_SLOT_BAG_END)
+                    {
+                        if( !GetItemInterface()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
+                        {
+                            item->Destruct();
+                            item = NULL;
+                        }
+                    }
+                    else
+                    {
+                        if( !GetItemInterface()->AddItemToFreeSlot(item) )
+                        {
+                            item->Destruct();
+                            item = NULL;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void Player::setLevel(uint32 level)
 {
     uint32 currLevel = GetUInt32Value(UNIT_FIELD_LEVEL);
@@ -1336,11 +1291,12 @@ void Player::setLevel(uint32 level)
 
 void Player::HandleBreathing(uint32 time_diff)
 {
-    if (!m_UnderwaterState)
+    uint8 underwaterState = m_movementInterface.GetUnderwaterState();
+    if(underwaterState == 0)
         return;
 
     // In water
-    if (m_UnderwaterState & UNDERWATERSTATE_UNDERWATER && !bInvincible && isAlive() && !m_bUnlimitedBreath)
+    if (underwaterState & UNDERWATERSTATE_UNDERWATER && !bInvincible && isAlive() && !m_bUnlimitedBreath)
     {
         // Breath timer not activated - activate it
         if (m_MirrorTimer[BREATH_TIMER] == -1)
@@ -1361,8 +1317,7 @@ void Player::HandleBreathing(uint32 time_diff)
                 uint32 damage = GetMaxHealth() / 5 + RandomUInt(getLevel()-1);
                 SendEnvironmentalDamageLog( GetGUID(), DAMAGE_DROWNING, damage );
                 DealDamage( this, damage, 0, 0, 0 );
-            }
-            else if (!(m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)) // Update time in client if need
+            } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)) // Update time in client if need
                 SendMirrorTimer(BREATH_TIMER, m_UnderwaterTime, m_MirrorTimer[BREATH_TIMER], -1);
         }
     }
@@ -1381,7 +1336,7 @@ void Player::HandleBreathing(uint32 time_diff)
     // In dark water
     if(sWorld.EnableFatigue)
     {
-        if (!bInvincible && m_UnderwaterState & UNDERWATERSTATE_FATIGUE)
+        if (!bInvincible && underwaterState & UNDERWATERSTATE_FATIGUE)
         {
             // Fatigue timer not activated - activate it
             if (m_MirrorTimer[FATIGUE_TIMER] == -1)
@@ -1401,11 +1356,9 @@ void Player::HandleBreathing(uint32 time_diff)
                         uint32 damage = GetMaxHealth() / 5 + RandomUInt(getLevel()-1);
                         SendEnvironmentalDamageLog( GetGUID(), DAMAGE_DROWNING, damage );
                         DealDamage( this, damage, 0, 0, 0 );
-                    }
-                    else if (HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
+                    } else if (HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
                         RepopAtGraveyard(GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId());
-                }
-                else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
+                } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
                     SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
             }
         }
@@ -1420,7 +1373,7 @@ void Player::HandleBreathing(uint32 time_diff)
         }
     }
 
-    if (!bInvincible && m_UnderwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
+    if (!bInvincible && underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
     {
         // Breath timer not activated - activate it
         if (m_MirrorTimer[FIRE_TIMER] == -1)
@@ -1434,7 +1387,7 @@ void Player::HandleBreathing(uint32 time_diff)
 
                 // Calculate and deal damage
                 uint32 damage = 600+RandomUInt(100);
-                if (m_UnderwaterState & UNDERWATERSTATE_LAVA)
+                if (underwaterState & UNDERWATERSTATE_LAVA)
                 {
                     SendEnvironmentalDamageLog( GetGUID(), DAMAGE_LAVA, damage );
                     DealDamage( this, damage, 0, 0, 0 );
@@ -1447,21 +1400,21 @@ void Player::HandleBreathing(uint32 time_diff)
                 }
             }
         }
-    }
-    else
-        m_MirrorTimer[FIRE_TIMER] = -1;
+    } else m_MirrorTimer[FIRE_TIMER] = -1;
 
     // Recheck timers flag
-    m_UnderwaterState &= ~UNDERWATERSTATE_TIMERS_PRESENT;
+    bool hasTimer = false;
     for (uint8 i = 0; i< 3; ++i)
     {
         if (m_MirrorTimer[i] != -1)
         {
-            m_UnderwaterState |= UNDERWATERSTATE_TIMERS_PRESENT;
+            hasTimer = true;
             break;
         }
     }
-    m_LastUnderwaterState = m_UnderwaterState;
+
+    if(hasTimer) m_movementInterface.AddUnderwaterStateTimerPresent();
+    m_LastUnderwaterState = underwaterState;
 }
 
 void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen)
@@ -1507,7 +1460,7 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
 
-    SetPlayerSpeed(RUN, m_runSpeed);
+    m_movementInterface.OnTaxiEnd();
 
     sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_TAXI_INTERPOLATE);
 
@@ -1521,8 +1474,6 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
         m_taxiPaths.erase(m_taxiPaths.begin());
         TaxiStart(p, taxi_model_id, 0);
     }
-
-    ResetHeartbeatCoords();
 }
 
 void Player::_EventAttack( bool offhand )
@@ -1683,10 +1634,7 @@ void Player::EventAttackStart()
 {
     m_attacking = true;
     if( IsMounted() )
-    {
         Dismount();
-        SetPlayerSpeed(RUN, m_runSpeed);
-    }
 }
 
 void Player::EventAttackStop()
@@ -1931,7 +1879,7 @@ void Player::smsg_InitialSpells()
     }
 
     pos = data.wpos();
-    data << uint16( 0 );        // placeholder
+    data << uint16(0);        // placeholder
 
     itemCount = 0;
     for( itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end(); )
@@ -1945,8 +1893,8 @@ void Player::smsg_InitialSpells()
             continue;
         }
 
-        data << uint32( itr2->first );                      // spell id
-        data << uint16( itr2->second.ItemId );              // item id
+        data << uint32( itr2->second.SpellId );             // spell id
+        data << uint32( itr2->second.ItemId );              // item id
         data << uint16( 0 );                                // spell category
         data << uint32( itr2->second.ExpireTime - mstime ); // cooldown remaining in ms (for spell)
         data << uint32( 0 );                                // cooldown remaining in ms (for category)
@@ -1968,7 +1916,7 @@ void Player::smsg_InitialSpells()
         }
 
         data << uint32( itr2->second.SpellId );             // spell id
-        data << uint16( itr2->second.ItemId );              // item id
+        data << uint32( itr2->second.ItemId );              // item id
         data << uint16( itr2->first );                      // spell category
         data << uint32( 0 );                                // cooldown remaining in ms (for spell)
         data << uint32( itr2->second.ExpireTime - mstime ); // cooldown remaining in ms (for category)
@@ -2387,126 +2335,6 @@ void Player::addSpell(uint32 spell_id)
     }
 }
 
-//===================================================================================================================
-//  Set Create Player Bits -- Sets bits required for creating a player in the updateMask.
-//  Note:  Doesn't set Quest or Inventory bits
-//  updateMask - the updatemask to hold the set bits
-//===================================================================================================================
-void Player::_SetCreateBits(UpdateMask *updateMask, Player* target) const
-{
-    if(target == this)
-    {
-        WorldObject::_SetCreateBits(updateMask, target);
-    }
-    else
-    {
-        for(uint32 index = 0; index < m_valuesCount; index++)
-        {
-            if(m_uint32Values[index] != 0 && Player::m_visibleUpdateMask.GetBit(index))
-                updateMask->SetBit(index);
-        }
-    }
-}
-
-
-void Player::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
-{
-    if(target == this)
-    {
-        WorldObject::_SetUpdateBits(updateMask, target);
-    }
-    else
-    {
-        WorldObject::_SetUpdateBits(updateMask, target);
-        *updateMask &= Player::m_visibleUpdateMask;
-    }
-}
-
-void Player::InitVisibleUpdateBits()
-{
-    Player::m_visibleUpdateMask.SetCount(PLAYER_END);
-    Player::m_visibleUpdateMask.SetBit(OBJECT_FIELD_GUID);
-    Player::m_visibleUpdateMask.SetBit(OBJECT_FIELD_TYPE);
-    Player::m_visibleUpdateMask.SetBit(OBJECT_FIELD_DATA);
-    Player::m_visibleUpdateMask.SetBit(OBJECT_FIELD_DATA+1);
-    Player::m_visibleUpdateMask.SetBit(OBJECT_FIELD_SCALE_X);
-
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHARM);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHARM+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_SUMMON);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_SUMMON+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHARMEDBY);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHARMEDBY+1);
-
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_TARGET);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_TARGET+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHANNEL_OBJECT);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHANNEL_OBJECT+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_0);
-
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_HEALTH);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXHEALTH);
-    for(uint8 i = 0; i < 5; i++)
-    {
-        Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_POWERS+i);
-        Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MAXPOWERS+i);
-    }
-
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_LEVEL);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FACTIONTEMPLATE);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_0);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FLAGS);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_FLAGS_2);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_AURASTATE);
-
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BASEATTACKTIME);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BASEATTACKTIME+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BOUNDINGRADIUS);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_COMBATREACH);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_DISPLAYID);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_NATIVEDISPLAYID);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_MOUNTDISPLAYID);
-    Player::m_visibleUpdateMask.SetBit(UNIT_NPC_FLAGS);
-    Player::m_visibleUpdateMask.SetBit(UNIT_DYNAMIC_FLAGS);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_PETNUMBER);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_PET_NAME_TIMESTAMP);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BYTES_2);
-    Player::m_visibleUpdateMask.SetBit(UNIT_CHANNEL_SPELL);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHANNEL_OBJECT);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_CHANNEL_OBJECT+1);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_BASE_MANA);
-    Player::m_visibleUpdateMask.SetBit(UNIT_FIELD_HOVERHEIGHT);
-
-    Player::m_visibleUpdateMask.SetBit(PLAYER_FLAGS);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_BYTES);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_BYTES_2);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_BYTES_3);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_GUILDRANK);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_GUILDDELETE_DATE);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_GUILDLEVEL);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_GUILD_TIMESTAMP);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_DUEL_TEAM);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_DUEL_ARBITER);
-    Player::m_visibleUpdateMask.SetBit(PLAYER_DUEL_ARBITER+1);
-
-    for(uint32 i = PLAYER_QUEST_LOG; i < PLAYER_QUEST_LOG_END; i += 5)
-        Player::m_visibleUpdateMask.SetBit(i);
-
-    for(uint8 i = 0; i < EQUIPMENT_SLOT_END; i++)
-    {
-        uint32 offset = i * PLAYER_VISIBLE_ITEM_LENGTH;
-
-        // item entry
-        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM + offset);
-        // enchant
-        Player::m_visibleUpdateMask.SetBit(PLAYER_VISIBLE_ITEM+1 + offset);
-    }
-
-    Player::m_visibleUpdateMask.SetBit(PLAYER_CHOSEN_TITLE);
-}
-
-
 void Player::DestroyForPlayer( Player* target, bool anim )
 {
     WorldObject::DestroyForPlayer( target, anim );
@@ -2705,7 +2533,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         ss << "0, 0, 0";
 
     float transx, transy, transz, transo;
-    GetMovementInfo()->GetTransportPosition(transx, transy, transz, transo);
+    m_movementInterface.GetTransportPosition(transx, transy, transz, transo);
     ss << "," << (m_CurrentTransporter && GetVehicle() == NULL ? m_CurrentTransporter->GetLowGUID() : uint32(0));
     ss << ",'" << transx << "','" << transy << "','" << transz << "'";
     ss << ",'";
@@ -3294,7 +3122,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_position.y                                        = get_next_field.GetFloat();
     m_position.z                                        = get_next_field.GetFloat();
     m_position.o                                        = get_next_field.GetFloat();
-    movement_info.SetPosition(m_position);
 
     m_mapId                                             = get_next_field.GetUInt32();
     m_zoneId                                            = get_next_field.GetUInt32();
@@ -3318,16 +3145,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 0.388999998569489f );
     SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f   );
 
-    if( getRace() != RACE_BLOODELF )
-    {
-        SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId + getGender() );
-        SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId + getGender() );
-    }
-    else
-    {
-        SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId - getGender() );
-        SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId - getGender() );
-    }
+    SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId[getGender()]);
+    SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId[getGender()]);
     EventModelChange();
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
@@ -3369,7 +3188,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_restState = get_next_field.GetUInt8();
     m_restAmount = get_next_field.GetUInt32();
 
-
     std::string tmpStr = get_next_field.GetString();
     m_playedtime[0] = (uint32)atoi((const char*)strtok((char*)tmpStr.c_str()," "));
     m_playedtime[1] = (uint32)atoi((const char*)strtok(NULL," "));
@@ -3408,18 +3226,11 @@ void Player::LoadFromDBProc(QueryResultVector & results)
             SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, get_next_field.GetUInt32());
             SetTaxiPath(path);
             m_onTaxi = true;
-        }
-        else
-            ++field_index;
-    }
-    else
-    {
-        ++field_index;
-        ++field_index;
-    }
+        } else ++field_index;
+    } else field_index += 2;
 
     uint32 transGuid = get_next_field.GetUInt32();
-    GetMovementInfo()->SetTransportData(uint64(transGuid ? MAKE_NEW_GUID(transGuid, 0, HIGHGUID_TYPE_TRANSPORTER) : 0), get_next_field.GetFloat(), get_next_field.GetFloat(), get_next_field.GetFloat(), 0.0f, 0);
+    GetMovementInterface()->SetTransportData(uint64(transGuid ? MAKE_NEW_GUID(transGuid, 0, HIGHGUID_TYPE_TRANSPORTER) : 0), 0, get_next_field.GetFloat(), get_next_field.GetFloat(), get_next_field.GetFloat(), 0.0f, 0);
 
     // Load Reputatation CSV Data
     start =(char*) get_next_field.GetString();
@@ -3553,16 +3364,16 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     switch(getClass())
     {
     case PALADIN:
-        armor_proficiency |= ( 1 << 7 );//LIBRAM
+        armor_proficiency |= ( 1 << ITEM_SUBCLASS_ARMOR_LIBRAM );//LIBRAM
         break;
     case DRUID:
-        armor_proficiency |= ( 1 << 8 );//IDOL
+        armor_proficiency |= ( 1 << ITEM_SUBCLASS_ARMOR_IDOL );//IDOL
         break;
     case SHAMAN:
-        armor_proficiency |= ( 1 << 9 );//TOTEM
+        armor_proficiency |= ( 1 << ITEM_SUBCLASS_ARMOR_TOTEM );//TOTEM
         break;
     case DEATHKNIGHT:
-        armor_proficiency |= ( 1 << 10 );//SIGIL
+        armor_proficiency |= ( 1 << ITEM_SUBCLASS_ARMOR_SIGIL );//SIGIL
         break;
     case WARLOCK:
     case HUNTER:
@@ -3574,8 +3385,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     if(m_session->CanUseCommand('c'))
         _AddLanguages(true);
-    else
-        _AddLanguages(sWorld.cross_faction_world);
+    else _AddLanguages(sWorld.cross_faction_world);
 
     OnlineTime  = (uint32)UNIXTIME;
     if(IsInGuild())
@@ -3607,9 +3417,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
             fields = result->Fetch();
             if( strlen( fields[1].GetString() ) )
                 m_friends.insert( std::make_pair( fields[0].GetUInt32(), strdup(fields[1].GetString()) ) );
-            else
-                m_friends.insert( std::make_pair( fields[0].GetUInt32(), (char*)NULL) );
-
+            else m_friends.insert( std::make_pair( fields[0].GetUInt32(), (char*)NULL) );
         } while (result->NextRow());
     }
 
@@ -3897,10 +3705,10 @@ void Player::AddToWorld(bool loggingin /* = false */)
     FlyCheat = false;
 
     // check transporter
-    if(GetTransportGuid() && m_CurrentTransporter)
+    if(m_movementInterface.OnTransport() && m_CurrentTransporter)
     {
         LocationVector pos;
-        GetMovementInfo()->GetTransportPosition(pos);
+        m_movementInterface.GetTransportPosition(pos);
         SetPosition(m_CurrentTransporter->GetPositionX() + pos.x,
             m_CurrentTransporter->GetPositionY() + pos.y,
             m_CurrentTransporter->GetPositionZ() + pos.z,
@@ -3932,10 +3740,10 @@ void Player::AddToWorld(MapMgr* pMapMgr)
 {
     FlyCheat = false;
     // check transporter
-    if(GetTransportGuid() && m_CurrentTransporter)
+    if(m_movementInterface.OnTransport() && m_CurrentTransporter)
     {
         LocationVector pos;
-        GetMovementInfo()->GetTransportPosition(pos);
+        m_movementInterface.GetTransportPosition(pos);
         SetPosition(m_CurrentTransporter->GetPositionX() + pos.x,
             m_CurrentTransporter->GetPositionY() + pos.y,
             m_CurrentTransporter->GetPositionZ() + pos.z,
@@ -3979,10 +3787,9 @@ void Player::OnPushToWorld()
     if(m_TeleportState == 2)   // Worldport Ack
         OnWorldPortAck();
 
-    ResetSpeedHack();
     m_beingPushed = false;
     AddItemsToWorld();
-    GetMovementInfo()->SetTransportLock(false);
+    GetMovementInterface()->UnlockTransportData();
 
     // delay the unlock movement packet
     WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
@@ -4000,9 +3807,12 @@ void Player::OnPushToWorld()
 
     // Send our auras
     data.Initialize(SMSG_AURA_UPDATE_ALL);
-    data << GetGUID();
+    data << GetGUID().asPacked();
     m_AuraInterface.BuildAuraUpdateAllPacket(&data);
     SendPacket(&data);
+
+    // Retroactive: Level achievement
+    GetAchievementInterface()->HandleAchievementCriteriaLevelUp( getLevel() );
 
     if(m_FirstLogin)
     {
@@ -4041,11 +3851,6 @@ void Player::OnPushToWorld()
         m_taxiMapChangeNode = 0;
     }
 
-    ResetHeartbeatCoords();
-    m_heartbeatDisable = 0;
-    m_speedChangeInProgress =false;
-    m_lastMoveType = 0;
-
     /* send weather */
     sWeatherMgr.SendWeather(castPtr<Player>(this));
 
@@ -4075,7 +3880,6 @@ void Player::OnPushToWorld()
     if( m_bg != NULL && m_mapMgr != NULL )
         m_bg->OnPlayerPushed( castPtr<Player>(this) );
 
-    z_axisposition = 0.0f;
     m_changingMaps = false;
 
     SendPowerUpdate();
@@ -4123,17 +3927,6 @@ void Player::SendObjectUpdate(WoWGuid guid)
     // send uncompressed because it's specified
     m_session->SendPacket(&data);
     PopPendingUpdates();
-}
-
-void Player::ResetHeartbeatCoords()
-{
-    m_lastHeartbeatPosition = m_position;
-    if( m_isMoving )
-        m_startMoveTime = m_lastMoveTime;
-    else m_startMoveTime = 0;
-
-    m_cheatEngineChances = 2;
-    //_lastHeartbeatT = getMSTime();
 }
 
 void Player::RemoveFromWorld()
@@ -4192,8 +3985,6 @@ void Player::RemoveFromWorld()
     //clear buyback
     GetItemInterface()->EmptyBuyBack();
 
-    ResetHeartbeatCoords();
-
     if(m_Summon)
     {
         m_Summon->GetAIInterface()->SetPetOwner(0);
@@ -4227,11 +4018,11 @@ void Player::RemoveFromWorld()
     if(GetTaxiState())
         event_RemoveEvents( EVENT_PLAYER_TAXI_INTERPOLATE );
 
-    if( m_CurrentTransporter && !GetMovementInfo()->GetTransportLock() )
+    if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
     {
         m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
         m_CurrentTransporter = NULL;
-        GetMovementInfo()->ClearTransportData();
+        GetMovementInterface()->ClearTransportData();
     }
 
     if( GetVehicle() )
@@ -4533,161 +4324,6 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
     item->StatsApplied = apply;
 }
 
-
-void Player::SetMovement(uint8 pType, uint32 flag)
-{
-    WorldPacket data(12);
-    switch(pType)
-    {
-    case MOVE_ROOT:
-        {
-            data.SetOpcode(SMSG_MOVE_ROOT);
-            data << GetGUID();
-            data << flag;
-            m_currentMovement = MOVE_ROOT;
-        }break;
-    case MOVE_UNROOT:
-        {
-            data.SetOpcode(SMSG_MOVE_UNROOT);
-            data << GetGUID();
-            data << flag;
-            m_currentMovement = MOVE_UNROOT;
-        }break;
-    case MOVE_WATER_WALK:
-        {
-            m_setwaterwalk = true;
-            data.SetOpcode(SMSG_MOVE_WATER_WALK);
-            data << GetGUID();
-            data << flag;
-        }break;
-    case MOVE_LAND_WALK:
-        {
-            m_setwaterwalk = false;
-            m_WaterWalkTimer = getMSTime()+500;
-            data.SetOpcode(SMSG_MOVE_LAND_WALK);
-            data << GetGUID();
-            data << flag;
-        }break;
-    default:break;
-    }
-
-    if(data.size() > 0)
-        SendMessageToSet(&data, true);
-}
-
-void Player::SetPlayerSpeed(uint8 SpeedType, float value)
-{
-    if( value < 0.1f )
-        value = 0.1f;
-
-    WorldPacket data(SMSG_MOVE_SET_RUN_SPEED, 200);
-    if( SpeedType != SWIMBACK )
-    {
-        data << GetGUID();
-        data << m_speedChangeCounter++;
-        if( SpeedType == RUN )
-            data << uint8(1);
-
-        data << value;
-    }
-    else
-    {
-        data << GetGUID();
-        data << uint32(0);
-        data << uint8(0);
-        data << uint32(getMSTime());
-        data << m_position.x;
-        data << m_position.y;
-        data << m_position.z;
-        data << m_position.o;
-        data << uint32(0);
-        data << value;
-    }
-
-    switch(SpeedType)
-    {
-    case RUN:
-        {
-            if(value == m_lastRunSpeed)
-                return;
-
-            data.SetOpcode(SMSG_MOVE_SET_RUN_SPEED);
-            m_runSpeed = value;
-            m_lastRunSpeed = value;
-        }break;
-
-    case RUNBACK:
-        {
-            if(value == m_lastRunBackSpeed)
-                return;
-
-            data.SetOpcode(SMSG_MOVE_SET_RUN_BACK_SPEED);
-            m_backWalkSpeed = value;
-            m_lastRunBackSpeed = value;
-        }break;
-
-    case SWIM:
-        {
-            if(value == m_lastSwimSpeed)
-                return;
-
-            data.SetOpcode(SMSG_MOVE_SET_SWIM_SPEED);
-            m_swimSpeed = value;
-            m_lastSwimSpeed = value;
-        }break;
-
-    case SWIMBACK:
-        {
-            if(value == m_lastBackSwimSpeed)
-                break;
-
-            data.SetOpcode(SMSG_MOVE_SET_SWIM_BACK_SPEED);
-            m_backSwimSpeed = value;
-            m_lastBackSwimSpeed = value;
-        }break;
-
-    case TURN:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_TURN_RATE);
-            m_turnRate = value;
-        }break;
-
-    case FLY:
-        {
-            if(value == m_lastFlySpeed)
-                return;
-
-            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_SPEED);
-            m_flySpeed = value;
-            m_lastFlySpeed = value;
-        }break;
-
-    case FLYBACK:
-        {
-            if(value == m_lastBackFlySpeed)
-                return;
-
-            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_BACK_SPEED);
-            m_backFlySpeed = value;
-            m_lastBackFlySpeed = value;
-        }break;
-
-    case PITCH_RATE:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_PITCH_RATE);
-            m_pitchRate = value;
-        }break;
-
-    default:
-        return;
-    }
-
-    SendMessageToSet(&data, true);
-
-    // dont mess up on these
-    m_speedChangeInProgress = true;
-}
-
 void Player::BuildPlayerRepop()
 {
     SetUInt32Value(UNIT_FIELD_HEALTH, 1 );
@@ -4706,8 +4342,7 @@ void Player::BuildPlayerRepop()
 
     SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE);
 
-    SetMovement(MOVE_UNROOT, 1);
-    SetMovement(MOVE_WATER_WALK, 1);
+    m_movementInterface.OnRepop();
 }
 
 Corpse* Player::RepopRequestedPlayer()
@@ -4722,7 +4357,7 @@ Corpse* Player::RepopRequestedPlayer()
     {
         m_CurrentTransporter->RemovePlayer( castPtr<Player>(this) );
         m_CurrentTransporter = NULL;
-        GetMovementInfo()->ClearTransportData();
+        m_movementInterface.ClearTransportData();
 
         ResurrectPlayer();
         RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
@@ -4784,15 +4419,14 @@ Corpse* Player::RepopRequestedPlayer()
 
 void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
 {
-    if (!sHookInterface.OnResurrect(this))
+    if (PreventRes || !sHookInterface.OnResurrect(this))
         return;
-    if(PreventRes)
-        return;
-    sEventMgr.RemoveEvents(castPtr<Player>(this),EVENT_PLAYER_FORCED_RESURECT); //in case somebody resurected us before this event happened
-    if( m_resurrectHealth )
-        SetUInt32Value(UNIT_FIELD_HEALTH, std::min( m_resurrectHealth, GetUInt32Value(UNIT_FIELD_MAXHEALTH) ) );
-    if( m_resurrectMana )
-        SetPower(POWER_TYPE_MANA, std::min( m_resurrectMana, GetMaxPower(POWER_TYPE_MANA) ) );
+
+    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_FORCED_RESURECT); //in case somebody resurected us before this event happened
+    if( m_resurrectHealth ) SetUInt32Value(UNIT_FIELD_HEALTH, std::min( m_resurrectHealth, GetUInt32Value(UNIT_FIELD_MAXHEALTH) ) );
+    else SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
+    if( m_resurrectMana ) SetPower(POWER_TYPE_MANA, std::min( m_resurrectMana, GetMaxPower(POWER_TYPE_MANA) ) );
+    else SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));
 
     m_resurrectHealth = m_resurrectMana = 0;
 
@@ -4802,11 +4436,7 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE);
     SetDeathState(ALIVE);
     UpdateVisibility();
-    SetMovement(MOVE_LAND_WALK, 1);
-    if(ReclaimCount < 8) // 2 minute limit.
-        ReclaimCount++;
-    // Crow: Guessed intervals.
-    // TODO: sEventMgr.AddEvent(this, &Player::DecReclaimCount, EVENT_DEC_CORPSE_RECLAIM_COUNT, 60000, 1, 0);
+    m_movementInterface.OnRessurect();
 
     if(IsInWorld() && pResurrector != NULL && pResurrector->IsInWorld())
     {
@@ -4847,7 +4477,7 @@ void Player::KillPlayer()
     m_session->OutPacket(SMSG_CANCEL_COMBAT);
     m_session->OutPacket(SMSG_CANCEL_AUTO_REPEAT);
 
-    SetMovement(MOVE_ROOT, 0);
+    m_movementInterface.OnDeath();
 
     StopMirrorTimer(0);
     StopMirrorTimer(1);
@@ -5708,7 +5338,7 @@ void Player::AddInRangeObject(WorldObject* pObj)
         if (GetSession() != NULL)
         {
             WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * MAX_AURAS);
-            *data << pUnit->GetGUID();
+            *data << pUnit->GetGUID().asPacked();
             if(pUnit->m_AuraInterface.BuildAuraUpdateAllPacket(data))
                 SendPacket(data);
             else delete data;
@@ -6290,7 +5920,7 @@ void Player::EventRepeatSpell()
     if( !m_curSelection || !IsInWorld() )
         return;
 
-    if( m_special_state & ( UNIT_STATE_FEAR | UNIT_STATE_CHARM | UNIT_STATE_SLEEP | UNIT_STATE_STUN | UNIT_STATE_CONFUSE ) || IsStunned() || IsFeared() )
+    if(m_AuraInterface.GetAuraStatus() & AURA_STATUS_SPELL_IMPARING_MASK)
         return;
 
     Unit* target = GetMapMgr()->GetUnit( m_curSelection );
@@ -6302,33 +5932,26 @@ void Player::EventRepeatSpell()
     }
 
     m_AutoShotDuration = GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
-    if( m_isMoving )
+    if( m_movementInterface.isMoving() )
     {
         m_AutoShotAttackTimer = 400; // shoot when we can
         return;
     }
 
-    int32 f = CanShootRangedWeapon( m_AutoShotSpell->Id, target, true );
-
-    if( f != 0 )
+    if(int32 f = CanShootRangedWeapon( m_AutoShotSpell->Id, target, true ))
     {
         if( f != SPELL_FAILED_OUT_OF_RANGE )
         {
             m_AutoShotAttackTimer = 0;
             m_onAutoShot = false;
-        }
-        else
-        {
-            m_AutoShotAttackTimer = m_AutoShotDuration;//avoid flooding client with error mesages
-        }
+        } else m_AutoShotAttackTimer = m_AutoShotDuration;//avoid flooding client with error mesages
         return;
     }
     else
     {
         m_AutoShotAttackTimer = m_AutoShotDuration;
 
-        Spell* sp = NULL;
-        sp = (new Spell( castPtr<Player>(this), m_AutoShotSpell, true, NULL ));
+        Spell* sp = new Spell( castPtr<Player>(this), m_AutoShotSpell, true, NULL );
         SpellCastTargets tgt;
         tgt.m_unitTarget = m_curSelection;
         tgt.m_targetMask = TARGET_FLAG_UNIT;
@@ -6481,8 +6104,7 @@ void Player::SendInitialLogonPackets()
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);
     data << uint32(RONIN_UTIL::secsToTimeBitFields(UNIXTIME));
-    data << float(0.0166666669777748f);
-    data << uint32(0);
+    data << float(0.01666667f) << uint32(0);
     GetSession()->SendPacket( &data );
 
     // Currencies
@@ -6491,6 +6113,19 @@ void Player::SendInitialLogonPackets()
     data.FlushBits();
     GetSession()->SendPacket( &data );
 
+    data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
+    data.WriteBitString(4, m_objGuid[5], m_objGuid[7], m_objGuid[3], m_objGuid[6]);
+    data.WriteBitString(4, m_objGuid[0], m_objGuid[4], m_objGuid[1], m_objGuid[2]);
+    data.WriteByteSeq(m_objGuid[6]);
+    data.WriteByteSeq(m_objGuid[2]);
+    data.WriteByteSeq(m_objGuid[3]);
+    data.WriteByteSeq(m_objGuid[0]);
+    data.WriteByteSeq(m_objGuid[5]);
+    data.WriteByteSeq(m_objGuid[7]);
+    data.WriteByteSeq(m_objGuid[1]);
+    data.WriteByteSeq(m_objGuid[4]);
+
+    GetSession()->SendPacket( &data );
     sLog.Debug("WORLD","Sent initial logon packets for %s.", GetName());
 }
 
@@ -6665,7 +6300,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
         Dismount();
 
     //also remove morph spells
-    if(GetUInt32Value(UNIT_FIELD_DISPLAYID)!=GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID))
+    if(GetUInt32Value(UNIT_FIELD_DISPLAYID) != GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID))
     {
         m_AuraInterface.RemoveAllAurasOfType(SPELL_AURA_TRANSFORM);
         m_AuraInterface.RemoveAllAurasOfType(SPELL_AURA_MOD_SHAPESHIFT);
@@ -6826,7 +6461,7 @@ void Player::JumpToEndTaxiNode(TaxiPath * path)
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
 
-    SetPlayerSpeed(RUN, m_runSpeed);
+    m_movementInterface.OnTaxiEnd();
 
     SafeTeleport(pathnode->mapid, 0, LocationVector(pathnode->x, pathnode->y, pathnode->z));
 }
@@ -7091,7 +6726,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
         delete data;
 
         //reset transporter if we where on one.
-        if( m_CurrentTransporter && !GetMovementInfo()->GetTransportLock() )
+        if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
         {
             m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
             m_CurrentTransporter = NULL;
@@ -7099,11 +6734,8 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
     }
 
     //update position
-    m_sentTeleportPosition = destination;
-    SetPosition(destination);
-    ResetHeartbeatCoords();
+    m_movementInterface.OnRelocate(destination);
     ApplyPlayerRestState(false); // If we don't, and we teleport inside, we'll be rested regardless.
-    z_axisposition = 0.0f;
 }
 
 // Player::AddItemsToWorld
@@ -7384,7 +7016,7 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
         PopPendingUpdates();
 
     mUpdateDataCount += updatecount;
-    bUpdateDataBuffer.append(*data);
+    bUpdateDataBuffer.append(data->contents(), data->size());
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)
@@ -7429,8 +7061,7 @@ void Player::PopPendingUpdates()
         mUpdateDataCount = 0;
 
         // compress update packet
-        if(c < size_t(500) || !CompressAndSendUpdateBuffer((uint32)c, update_buffer, (IsInWorld() ? &GetMapMgr()->m_compressionBuffer : NULL)))
-            m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer); // send uncompressed packet -> because we failed
+        m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer); // send uncompressed packet -> because we failed
 
         if(IsInWorld())
             GetMapMgr()->m_updateBuildBuffer.clear();
@@ -7448,92 +7079,6 @@ void Player::PopPendingUpdates()
         m_session->SendPacket(pck);
         delete pck;
     }
-
-    // resend speed if needed
-    if(resend_speed)
-    {
-        SetPlayerSpeed(RUN, m_runSpeed);
-        SetPlayerSpeed(FLY, m_flySpeed);
-        resend_speed = false;
-    }
-}
-
-bool Player::CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer)
-{
-    uint32 destsize = compressBound(size);
-    int rate = 2 + (size > 25000 ? float2int32(float(size)/15000.f) : 0);
-    if(rate < 1 || rate > 9)
-        rate = 1;
-
-    // set up stream
-    z_stream stream;
-    stream.zalloc = 0;
-    stream.zfree  = 0;
-    stream.opaque = 0;
-
-    if(deflateInit(&stream, rate) != Z_OK)
-    {
-        sLog.outDebug("deflateInit failed.");
-        return false;
-    }
-
-    uint8 *buffer;
-    if(pCompressionBuffer != NULL)
-    {
-        pCompressionBuffer->resize(destsize);
-        buffer = (uint8*)pCompressionBuffer->contents();
-    } else buffer = new uint8[destsize];
-
-    // set up stream pointers
-    stream.next_out  = (Bytef*)buffer;
-    stream.avail_out = destsize;
-    stream.next_in   = (Bytef*)update_buffer;
-    stream.avail_in  = size;
-
-    // call the actual process
-    if(deflate(&stream, Z_NO_FLUSH) != Z_OK ||
-        stream.avail_in != 0)
-    {
-        sLog.outDebug("deflate failed.");
-        if(pCompressionBuffer != NULL)
-            pCompressionBuffer->clear();
-        else delete [] buffer;
-        return false;
-    }
-
-    // finish the deflate
-    if(deflate(&stream, Z_FINISH) != Z_STREAM_END)
-    {
-        sLog.outDebug("deflate failed: did not end stream");
-        if(pCompressionBuffer != NULL)
-            pCompressionBuffer->clear();
-        else delete [] buffer;
-        return false;
-    }
-
-    // finish up
-    if(deflateEnd(&stream) != Z_OK)
-    {
-        sLog.outDebug("deflateEnd failed.");
-        if(pCompressionBuffer != NULL)
-            pCompressionBuffer->clear();
-        else delete [] buffer;
-        return false;
-    }
-
-    // fill in the full size of the compressed stream
-    WorldPacket data(SMSG_UPDATE_OBJECT|OPCODE_COMPRESSION_MASK, destsize);
-    data << uint32(stream.total_in);
-    data.append(buffer, uint32(stream.total_out));
-
-    // send it
-    SendPacket(&data);
-
-    // cleanup memory
-    if(pCompressionBuffer != NULL)
-        pCompressionBuffer->clear();
-    else delete [] buffer;
-    return true;
 }
 
 void Player::ClearAllPendingUpdates()
@@ -8051,14 +7596,8 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     if((GetShapeShift() == FORM_FLIGHT || GetShapeShift() == FORM_SWIFT) && MapID != 530 && MapID != 571 )
         RemoveShapeShiftSpell(m_ShapeShifted);
 
-    // make sure player does not drown when teleporting from under water
-    if (m_UnderwaterState & UNDERWATERSTATE_UNDERWATER)
-        m_UnderwaterState &= ~UNDERWATERSTATE_UNDERWATER;
-
     //all set...relocate
     _Relocate(MapID, vec, true, force_new_world, InstanceID);
-
-    DelaySpeedHack(5000);
     return true;
 }
 
@@ -8079,9 +7618,7 @@ void Player::SafeTeleport(MapMgr* mgr, LocationVector vec)
     GetSession()->SendPacket(&data);
 
     SetPlayerStatus(TRANSFER_PENDING);
-    m_sentTeleportPosition = vec;
     SetPosition(vec);
-    ResetHeartbeatCoords();
 
     if(uint8 ss = GetShapeShift()) // Extra Check
         SetShapeShift(ss);
@@ -8451,8 +7988,6 @@ void Player::OnWorldPortAck()
             sChatHandler.SystemMessage(m_session, welcome_msg.c_str());
         }
     }
-
-    ResetHeartbeatCoords();
 }
 
 int32 Player::GetBonusesFromItems(uint32 statType)
@@ -8544,9 +8079,6 @@ void Player::SetShapeShift(uint8 ss)
             spe->prepare( &t );
         }
     }
-
-    // kill speedhack detection for 2 seconds (not needed with new code but bleh)
-    DelaySpeedHack( 2000 );
 
     UpdateStats();
 }
@@ -8782,10 +8314,6 @@ void Player::Possess(Unit* pTarget)
     if( m_CurrentCharm )
         return;
 
-    ResetHeartbeatCoords();
-    if( pTarget->IsPlayer() )
-        castPtr<Player>(pTarget)->ResetHeartbeatCoords();
-
     m_CurrentCharm = pTarget;
     if(pTarget->GetTypeId() == TYPEID_UNIT)
     {
@@ -8877,11 +8405,6 @@ void Player::UnPossess()
         pTarget->EnableAI();
         pTarget->m_redirectSpellPackets = NULL;
     }
-
-    ResetHeartbeatCoords();
-    DelaySpeedHack(5000);
-    if( pTarget->IsPlayer() )
-        castPtr<Player>(pTarget)->DelaySpeedHack(5000);
 
     m_noInterrupt--;
     SetUInt64Value(PLAYER_FARSIGHT, 0);
@@ -9782,92 +9305,9 @@ void Player::_LoadPlayerCooldowns(QueryResult * result)
     } while ( result->NextRow( ) );
 }
 
-void Player::_SpeedhackCheck()
-{
-    if(!sWorld.antihack_speed || !sWorld.antihack_cheatengine)
-        return;
-
-    if(GetSession()->HasGMPermissions() && sWorld.no_antihack_on_gm)
-        return;
-
-    if(!m_isMoving || GetSession()->m_isFalling)
-        return;
-
-    if(GetTransportGuid() || !IsInWorld())
-        return;
-
-    if((m_special_state & UNIT_STATE_CONFUSE) || GetUInt64Value(UNIT_FIELD_CHARMEDBY))
-        return;
-
-    // this means the client is probably lagging. don't update the timestamp, don't do anything until we start to receive
-    if( m_position == m_lastHeartbeatPosition && m_isMoving ) // packets again (give the poor laggers a chance to catch up)
-        return;
-
-    // simplified; just take the fastest speed. less chance of fuckups too
-    float speed = (( m_FlyingAura || FlyCheat ) ? (m_runSpeed > m_flySpeed ? m_runSpeed : m_flySpeed) : m_runSpeed);
-    if( m_swimSpeed > speed )
-        speed = m_swimSpeed;
-
-    if(!m_heartbeatDisable && !GetUInt64Value(UNIT_FIELD_CHARMEDBY) && !m_speedChangeInProgress )
-    {
-        // latency compensation a little
-        if( sWorld.m_speedHackLatencyMultiplier > 0.0f )
-            speed += (float(m_session->GetLatency()) / 100.0f) * sWorld.m_speedHackLatencyMultiplier;
-
-        float distance = m_position.Distance2D( m_lastHeartbeatPosition );
-        uint32 time_diff = m_lastMoveTime - m_startMoveTime;
-        uint32 move_time = float2int32( ( distance / ( speed * 0.001f ) ) );
-        int32 difference = time_diff - move_time;
-        sLog.Debug("Player","SpeedhackCheck: speed=%f diff=%i dist=%f move=%u tdiff=%u", speed, difference, distance, move_time, time_diff );
-        if( difference < sWorld.m_speedHackThreshold )
-        {
-            BroadcastMessage("Speedhack detected. Please contact an admin with the below information if you believe this is a false detection." );
-            BroadcastMessage("%sSpeed: %f diff: %i dist: %f move: %u tdiff: %u\n", MSG_COLOR_WHITE, speed, difference, distance, move_time, time_diff );
-            if( m_speedhackChances == 0 )
-            {
-                SetMovement( MOVE_ROOT, 1 );
-                BroadcastMessage( "You will be disconnected in 10 seconds." );
-                sWorld.LogCheater(GetSession(), "Speed hack detected! Distance: %i, Speed: %f, Move: %u, tdiff: %u", distance, speed, move_time, time_diff);
-                if(m_bg)
-                    m_bg->RemovePlayer(castPtr<Player>(this), false);
-
-                sEventMgr.AddEvent(castPtr<Player>(this), &Player::_Disconnect, EVENT_PLAYER_KICK, 10000, 1, 0 );
-                m_speedhackChances = 0;
-            }
-            else if (m_speedhackChances > 0 )
-                m_speedhackChances--;
-        }
-    }
-}
-
 void Player::_Disconnect()
 {
     m_session->Disconnect();
-}
-
-void Player::ResetSpeedHack()
-{
-    ResetHeartbeatCoords();
-    m_heartbeatDisable = 0;
-}
-
-void Player::DelaySpeedHack(uint32 ms)
-{
-    uint32 t;
-    m_heartbeatDisable = 1;
-
-    if( event_GetTimeLeft( EVENT_PLAYER_RESET_HEARTBEAT, &t ) )
-    {
-        if( t > ms )        // dont override a slower reset
-            return;
-
-        // override it
-        event_ModifyTimeAndTimeLeft( EVENT_PLAYER_RESET_HEARTBEAT, ms );
-        return;
-    }
-
-    // add a new event
-    sEventMgr.AddEvent(castPtr<Player>(this), &Player::ResetSpeedHack, EVENT_PLAYER_RESET_HEARTBEAT, ms, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 }
 
 /************************************************************************/

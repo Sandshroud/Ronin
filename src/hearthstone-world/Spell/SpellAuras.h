@@ -80,10 +80,9 @@ public:
     Aura(SpellEntry *proto, int32 duration, WorldObject* caster, Unit* target);
     ~Aura();
 
-    void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
-    void ExpireRemove();
     void Remove();
-    void Expire();
+    void Update(uint32 diff);
+    void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
     void AddMod(uint32 t, int32 a,uint32 miscValue,uint32 miscValueB,uint32 i);
 
     HEARTHSTONE_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
@@ -161,14 +160,26 @@ public:
         return (GetDuration() - n);
     }
 
-    int32 procCharges;
-    uint32 GetMaxProcCharges(Unit* caster);
-    void ModProcCharges(int32 mod);
-    void RemoveProcCharges(int32 mod);
-    void RemoveStackSize(int32 mod);
-    void SetProcCharges(int32 mod);
-    uint32 stackSize;
-    void ModStackSize(int32 mod);
+    int16 m_stackSizeorProcCharges;
+    uint8 getStackSize()
+    {
+        if(m_stackSizeorProcCharges <= 0)
+            return 0;
+        return (m_stackSizeorProcCharges&0xFF);
+    }
+    uint8 getProcCharges()
+    {
+        if(m_stackSizeorProcCharges >= 0)
+            return 0;
+        return (m_stackSizeorProcCharges&0xFF);
+    }
+
+    void AddStackSize(uint8 mod);
+    void RemoveStackSize(uint8 mod);
+    void SetProcCharges(uint8 mod);
+    void RemoveProcCharges(uint8 mod);
+
+    uint8 GetMaxProcCharges(Unit* caster);
     void RecalculateModBaseAmounts();
     void UpdateModAmounts();
     void CalculateBonusAmount(Unit *caster, uint8 index);

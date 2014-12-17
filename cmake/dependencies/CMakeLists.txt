@@ -1,8 +1,5 @@
 
-if(BUILD_TOOLS)
 add_subdirectory(bzip2)
-endif()
-
 add_subdirectory(database)
 add_subdirectory(dbclib)
 add_subdirectory(detour)
@@ -11,11 +8,7 @@ add_subdirectory(lualib)
 add_subdirectory(network)
 add_subdirectory(pcre)
 add_subdirectory(recast)
-
-if(BUILD_TOOLS)
 add_subdirectory(stormlib)
-endif()
-
 add_subdirectory(threading)
 add_subdirectory(vmaplib)
 add_subdirectory(zlib)

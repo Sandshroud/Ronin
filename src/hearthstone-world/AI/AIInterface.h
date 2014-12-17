@@ -255,8 +255,6 @@ public:
     HEARTHSTONE_INLINE void setCanMove(bool c) { MovementHandler.setCanMove(c); }
     HEARTHSTONE_INLINE bool getCanMove() { return MovementHandler.getCanMove(); }
 
-    HEARTHSTONE_INLINE bool IsFlying() { return MovementHandler.IsFlying(); };
-
     HEARTHSTONE_INLINE void setFearTimer(uint32 time) { MovementHandler.setFearTimer(time); }
     HEARTHSTONE_INLINE uint32 getFearTimer() { return MovementHandler.getFearTimer(); }
 

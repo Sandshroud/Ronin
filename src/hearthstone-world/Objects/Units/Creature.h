@@ -207,6 +207,11 @@ public:
     /// Creation
     void Create ( uint32 mapid, float x, float y, float z, float ang);
 
+    float GetSpawnX() { return m_spawnLocation.x; }
+    float GetSpawnY() { return m_spawnLocation.y; }
+    float GetSpawnZ() { return m_spawnLocation.z; }
+    float GetSpawnO() { return m_spawnLocation.o; }
+
     /// Arena organizers
     HEARTHSTONE_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
 
@@ -459,6 +464,7 @@ protected:
     CreatureSpawn * m_spawn;
     CreatureData *_creatureData;
     CreatureInfoExtra * _extraInfo;
+    LocationVector m_spawnLocation;
 
     CreatureAIScript *_myScriptClass;
     bool m_limbostate;

@@ -31,7 +31,7 @@ uint32 OpcodeManager::ConvertOpcodeForOutput(uint32 opcode)
     return outputMap.at(opcode);
 }
 
-const char* OpcodeManager::GetOpcodeName(uint32 opcode)
+const char *OpcodeManager::GetOpcodeName(uint32 opcode)
 {
     if(opcodeNames.find(opcode) == opcodeNames.end())
         return "UNKNOWN";
@@ -1184,6 +1184,7 @@ void OpcodeManager::SetOpcodeListData()
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED, "SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED", 0x39A0);
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_FLYING, "SMSG_SPLINE_MOVE_SET_FLYING", 0x31B5);
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_HOVER, "SMSG_SPLINE_MOVE_SET_HOVER", 0x14B6);
+    SetOpcodeData(SMSG_SPLINE_MOVE_SET_WATER_WALK, "SMSG_SPLINE_MOVE_SET_WATER_WALK", 0x50A2);
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_LAND_WALK, "SMSG_SPLINE_MOVE_SET_LAND_WALK", 0x3DA7);
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_NORMAL_FALL, "SMSG_SPLINE_MOVE_SET_NORMAL_FALL", 0x38B2);
     SetOpcodeData(SMSG_SPLINE_MOVE_SET_PITCH_RATE, "SMSG_SPLINE_MOVE_SET_PITCH_RATE", 0x14B0);
@@ -1200,7 +1201,6 @@ void OpcodeManager::SetOpcodeListData()
     SetOpcodeData(SMSG_SPLINE_MOVE_UNROOT, "SMSG_SPLINE_MOVE_UNROOT", 0x75B6);
     SetOpcodeData(SMSG_SPLINE_MOVE_UNSET_FLYING, "SMSG_SPLINE_MOVE_UNSET_FLYING", 0x58A6);
     SetOpcodeData(SMSG_SPLINE_MOVE_UNSET_HOVER, "SMSG_SPLINE_MOVE_UNSET_HOVER", 0x7DA5);
-    SetOpcodeData(SMSG_SPLINE_MOVE_WATER_WALK, "SMSG_SPLINE_MOVE_WATER_WALK", 0x50A2);
     SetOpcodeData(SMSG_STABLE_RESULT, "SMSG_STABLE_RESULT", 0x2204);
     SetOpcodeData(SMSG_STANDSTATE_UPDATE, "SMSG_STANDSTATE_UPDATE", 0x6F04);
     SetOpcodeData(SMSG_START_MIRROR_TIMER, "SMSG_START_MIRROR_TIMER", 0x6824);

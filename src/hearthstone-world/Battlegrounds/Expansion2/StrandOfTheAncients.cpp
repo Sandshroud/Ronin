@@ -569,7 +569,7 @@ void StrandOfTheAncients::EndGame()
     {
         for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
-            (*itr)->Root();
+            (*itr)->GetMovementInterface()->setRooted(true);
 
             if( (*itr)->HasFlag(PLAYER_FLAGS, 0x2) )
                 continue;

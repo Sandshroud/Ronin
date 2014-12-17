@@ -491,7 +491,7 @@ void Arena::Finish()
         for(; itr != m_players[i].end(); itr++)
         {
             Player* plr = (Player* )(*itr);
-            plr->Root();
+            plr->GetMovementInterface()->setRooted(true);
 
             if( plr->m_bgScore.DamageDone == 0 && plr->m_bgScore.HealingDone == 0 )
                 continue;

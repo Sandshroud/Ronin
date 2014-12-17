@@ -1729,13 +1729,9 @@ void CBattleground::EventResurrectPlayers()
             plr = m_mapMgr->GetPlayer(*itr);
             if(plr && plr->isDead())
             {
-                data.Initialize(SMSG_SPELL_START);
-                data << plr->GetGUID().asPacked() << plr->GetGUID().asPacked() << uint32(RESURRECT_SPELL) << uint8(0) << uint16(0) << uint32(0) << uint16(2) << plr->GetGUID();
-                plr->SendMessageToSet(&data, true);
-
                 data.Initialize(SMSG_SPELL_GO);
-                data << plr->GetGUID().asPacked() << plr->GetGUID().asPacked() << uint32(RESURRECT_SPELL) << uint8(0) << uint8(1) << uint8(1) << plr->GetGUID() << uint8(0) << uint16(2)
-                    << plr->GetGUID();
+                data << plr->GetGUID().asPacked() << plr->GetGUID().asPacked() << uint8(0) << uint32(RESURRECT_SPELL) << uint32(256) << uint32(0) << uint32(getMSTime());
+                data << uint8(1) << plr->GetGUID() << uint8(0) << uint32(2) << plr->GetGUID().asPacked();
                 plr->SendMessageToSet(&data, true);
 
                 plr->ResurrectPlayer();

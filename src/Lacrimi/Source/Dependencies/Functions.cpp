@@ -56,12 +56,9 @@ GameObject* CreateAndLoadGameObject( MapMgr* mgr, uint32 entry, float x, float y
 
     GameObject* GO = mgr->CreateGameObject(entry);
     GO->SetInstanceID(mgr->GetInstanceID());
-    if(!GO->CreateFromProto(entry, mgr->GetMapId(), x, y, z, 0.0f))
+    if(!GO->CreateFromProto(entry, mgr->GetMapId(), x, y, z, o))
         return NULL;
-
-    GO->SetRotation(o);
-    if(push)
-        GO->PushToWorld(mgr);
+    if(push) GO->PushToWorld(mgr);
     return GO;
 }
 

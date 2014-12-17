@@ -393,9 +393,9 @@ void ObjectMgr::LoadPlayerCreateInfo()
         return;
     }
 
-    if( result->GetFieldCount() < 25 )
+    if( result->GetFieldCount() < 26 )
     {
-        sLog.Error("PlayerCreateInfo", "Incorrect number of columns in playercreateinfo found %u, should be 25. check for sql updates", result->GetFieldCount());
+        sLog.Error("PlayerCreateInfo", "Incorrect number of columns in playercreateinfo found %u, should be 26. check for sql updates", result->GetFieldCount());
         delete result;
         return;
     }
@@ -419,7 +419,8 @@ void ObjectMgr::LoadPlayerCreateInfo()
         pPlayerCreateInfo->positionY = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->positionZ = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->displayId = fields[fieldcount++].GetUInt16();
+        pPlayerCreateInfo->displayId[0] = fields[fieldcount++].GetUInt16();
+        pPlayerCreateInfo->displayId[1] = fields[fieldcount++].GetUInt16();
 
         QueryResult *sk_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid = %u", pPlayerCreateInfo->index);
         if(sk_sql)

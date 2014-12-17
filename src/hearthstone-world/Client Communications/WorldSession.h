@@ -101,6 +101,8 @@ public:
     WorldSession(uint32 id, std::string Name, WorldSocket *sock);
     ~WorldSession();
 
+    bool InitializeZLibCompression();
+
     HEARTHSTONE_INLINE bool IsLoggingIn() { return (m_loggingInPlayer != NULL); };
     Player* m_loggingInPlayer;
 
@@ -115,7 +117,7 @@ public:
     void LogUnprocessedTail(WorldPacket *packet);
 
     uint32 m_currMsTime;
-    uint32 m_lastPing;
+    time_t m_lastPing;
 
     HEARTHSTONE_INLINE uint32 GetAccountId() const { return _accountId; }
     HEARTHSTONE_INLINE Player* GetPlayer() { return _player; }
@@ -323,16 +325,12 @@ protected:
     void HandleItemHotfixQueryOpcode(WorldPacket & recvPacket);
 
     /// Opcodes implemented in MovementHandler.cpp
-    void HandleMoveWorldportAckOpcode( WorldPacket& recvPacket );
-    void HandleMovementOpcodes( WorldPacket& recvPacket );
-    void HandleMoveFallResetOpcode( WorldPacket & recvPacket);
-    void HandleMoveTimeSkippedOpcode( WorldPacket & recv_data );
-    void HandleSetActiveMoverOpcode( WorldPacket & recv_data );
-    void HandleMoveTeleportAckOpcode( WorldPacket & recv_data );
-    void HandleMoveKnockbackAckOpcode( WorldPacket & recv_data );
-    void HandleMoveHoverWaterFlyAckOpcode( WorldPacket & recv_data );
+    void HandleMovementOpcodes( WorldPacket& recv_data );
     void HandleAcknowledgementOpcodes( WorldPacket & recv_data );
     void HandleForceSpeedChangeOpcodes( WorldPacket & recv_data );
+    void HandleMoveFallResetOpcode( WorldPacket & recv_data);
+    void HandleSetActiveMoverOpcode( WorldPacket & recv_data );
+    void HandleMoveTimeSkippedOpcode( WorldPacket & recv_data );
 
     /// Opcodes implemented in GroupHandler.cpp:
     void HandleGroupInviteOpcode(WorldPacket& recvPacket);
@@ -710,6 +708,7 @@ private:
 
     WoWGuid m_MoverWoWGuid;
 
+    z_stream *_zlibStream;
     FastQueue<WorldPacket*, Mutex> _recvQueue;
     char *permissions;
     int permissioncount;

@@ -32,7 +32,7 @@ void AI_Movement::Nullify()
 
     m_lastFollowX = m_lastFollowY = 0.0f;
     m_sourceX = m_sourceY = m_sourceZ = 0.0f;
-    m_walkSpeed = m_runSpeed = m_flySpeed = 0.0f;
+    m_walkSpeed = m_runSpeed = m_flySpeed = NULL;
     m_returnX = m_returnY = m_returnZ = m_returnO = 0.0f;
     m_nextPosX = m_nextPosY = m_nextPosZ = m_nextPosO = 0.0f;
     m_FormationFollowAngle = m_FormationFollowDistance = 0.0f;
@@ -52,9 +52,7 @@ void AI_Movement::Initialize(AIInterface* AI, Unit* un, MovementType mt)
         if(castPtr<Creature>(un)->GetCanMove() & LIMIT_AIR)
             m_moveFly = true;
 
-    m_walkSpeed = un->m_walkSpeed*0.001f;//move distance per ms time
-    m_runSpeed = un->m_runSpeed*0.001f;//move/ms
-    m_flySpeed = un->m_flySpeed*0.001f;
+    un->GetMovementInterface()->GetSpeedPointers(m_walkSpeed, m_runSpeed, m_flySpeed);
     m_sourceX = un->GetPositionX();
     m_sourceY = un->GetPositionY();
     m_sourceZ = un->GetPositionZ();
@@ -565,28 +563,11 @@ void AI_Movement::Update(uint32 p_time)
 
 uint32 AI_Movement::getMoveFlags(bool ignorejump)
 {
-    ASSERT(m_Unit != NULL);
-
     uint32 MoveFlags = MONSTER_MOVE_FLAG_WALK;
     if(!ignorejump && m_moveJump == true)
-    {
-        m_flySpeed = m_Unit->m_flySpeed*0.001f;
         MoveFlags = MONSTER_MOVE_FLAG_JUMP;
-    }
     else if(m_moveFly == true) //Fly
-    {
-        m_flySpeed = m_Unit->m_flySpeed*0.001f;
         MoveFlags = MONSTER_MOVE_FLAG_FLY;
-    }
-    else if(m_moveSprint == true) //Sprint
-    {
-        m_runSpeed = (m_Unit->m_runSpeed+5.0f)*0.001f;
-    }
-    else if(m_moveRun == true) //Run
-    {
-        m_runSpeed = m_Unit->m_runSpeed*0.001f;
-    }
-    m_walkSpeed = m_Unit->m_walkSpeed*0.001f;//move distance per ms time
     return MoveFlags;
 }
 
@@ -657,8 +638,7 @@ void AI_Movement::SendMoveToPacket(Player* playerTarget)
     data << PathMap->StartTime;
     if(m_destinationO)
         data << uint8(4) << float( m_destinationO );
-    else
-        data << uint8(0);
+    else data << uint8(0);
     data << getMoveFlags();
     data << PathMap->TotalMoveTime;
     data << uint32(MovementMap.size()-1);   // waypoint count
@@ -1024,8 +1004,7 @@ void AI_Movement::_CalcDestinationAndMove(Unit* target, float dist)
         float angle = m_FollowAngle == 0.0f ? m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), ResX, ResY) * float(M_PI) / 180.0f : m_FollowAngle;
         float x = dist * cosf(angle);
         float y = dist * sinf(angle);
-
-        if(target->IsPlayer() && castPtr<Player>( target )->m_isMoving )
+        if(target->GetMovementInterface()->isMoving())
         {
             // cater for moving player vector based on orientation
             x -= cosf(target->GetOrientation());
@@ -1055,27 +1034,10 @@ void AI_Movement::_CalcDestinationAndMove(Unit* target, float dist)
 
 float AI_Movement::GetMovementTime(float distance)
 {
-    if(m_moveJump)
-        return m_flySpeed ? (distance/m_flySpeed) : 0xFFFFFFFF;
-    else if (m_moveFly)
-        return m_flySpeed ? (distance/m_flySpeed) : 0xFFFFFFFF;
-    else if (m_moveRun)
-        return m_runSpeed ? (distance/m_runSpeed) : 0xFFFFFFFF;
-    else
-        return m_walkSpeed ? (distance/m_walkSpeed) : 0xFFFFFFFF;
-}
-
-bool AI_Movement::IsFlying()
-{
-    ASSERT(m_Unit != NULL);
-
-    if(m_moveFly)
-        return true;
-
-    if( m_Unit->IsPlayer() )
-        return castPtr<Player>( m_Unit )->FlyCheat;
-
-    return false;
+    if(m_moveJump) return (*m_flySpeed) ? (distance/(*m_flySpeed)) : 0xFFFFFFFF;
+    else if (m_moveFly) return (*m_flySpeed) ? (distance/(*m_flySpeed)) : 0xFFFFFFFF;
+    else if (m_moveRun) return (*m_runSpeed) ? (distance/(*m_runSpeed)) : 0xFFFFFFFF;
+    else return (*m_walkSpeed) ? (distance/(*m_walkSpeed)) : 0xFFFFFFFF;
 }
 
 AIType AI_Movement::getAIType()

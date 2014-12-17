@@ -13,8 +13,6 @@ World::World()
     m_playerLimit = 0;
     GmClientChannel = "";
     GuildsLoading = false;
-    NetworkStressIn = 0;
-    NetworkStressOut = 0;
     mQueueUpdateInterval = 180000;
     PeakSessionCount = 0;
     mInWorldPlayerCount = 0;
@@ -26,9 +24,6 @@ World::World()
     HallowsEnd = false;
     WintersVeil = false;
     IsPvPRealm = true;
-    m_speedHackThreshold = -500.0f;
-    m_speedHackLatencyMultiplier = 0.0f;
-    m_CEThreshold = 10000;
     LacrimiThread = NULL;
     LacrimiPtr = NULL;
     authSeed1.SetRand(16 * 8);
@@ -66,8 +61,45 @@ uint32 World::GetMaxLevelStatCalc()
 {
     if(MaxLevelCalc && MaxLevelCalc < MAXIMUM_ATTAINABLE_LEVEL)
         return MaxLevelCalc;
-
     return MAXIMUM_ATTAINABLE_LEVEL;
+}
+
+bool World::CompressPacketData(z_stream *stream, const void *data, uint32 len, ByteBuffer *output)
+{
+    uint32 destSize = compressBound(len);
+    ByteBuffer *buff;
+    m_compressionLock.Acquire();
+    if(m_compressionBuffers.size())
+    {
+        buff = m_compressionBuffers.front();
+        m_compressionBuffers.pop_front();
+        if(buff->size() < destSize)
+            buff->resize(destSize);
+    } else if(buff = new ByteBuffer())
+        buff->resize(destSize);
+    m_compressionLock.Release();
+
+    // set up stream pointers
+    stream->avail_in  = (uInt)len;
+    stream->avail_out = (uInt)destSize;
+    stream->next_in   = (Bytef*)data;
+    stream->next_out  = (Bytef*)buff->contents();
+
+    bool res = false;
+    if(deflate(stream, Z_SYNC_FLUSH) == Z_OK)
+    {
+        if(stream->avail_in == 0)
+        {
+            res = true;
+            destSize -= stream->avail_out;
+            output->append(buff->contents(), destSize);
+        } else sLog.outDebug("deflate failed: did not end stream");
+    } else sLog.outDebug("deflate failed.");
+    // Compression failed, readd the buffer
+    m_compressionLock.Acquire();
+    m_compressionBuffers.push_back(buff);
+    m_compressionLock.Release();
+    return res;
 }
 
 void World::LogoutPlayers()
@@ -341,8 +373,6 @@ bool World::SetInitialWorldSettings()
 
     sLog.Notice("World", "Starting up...");
 
-    Player::InitVisibleUpdateBits();
-
     m_lastTick = UNIXTIME;
 
     // TODO: clean this
@@ -409,6 +439,7 @@ bool World::SetInitialWorldSettings()
     Storage_FillTaskList(tl);
 
 #define MAKE_TASK(sp, ptr) tl.AddTask(new Task(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr)))
+    MAKE_TASK(TaxiMgr, Initialize);
     MAKE_TASK(ItemPrototypeSystem, Init);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
     MAKE_TASK(World, ParseFactionTemplate);
@@ -1345,16 +1376,6 @@ void World::Rehash(bool load)
 
     if(!flood_lines || !flood_seconds)
         flood_lines = flood_seconds = 0;
-
-    antihack_teleport = mainIni->ReadBoolean("AntiHack", "Teleport", true);
-    antihack_speed = mainIni->ReadBoolean("AntiHack", "Speed", true);
-    antihack_flight = mainIni->ReadBoolean("AntiHack", "Flight", true);
-    no_antihack_on_gm = mainIni->ReadBoolean("AntiHack", "DisableOnGM", false);
-
-    m_speedHackThreshold = mainIni->ReadFloat("AntiHack", "SpeedThreshold", -500.0f);
-    m_speedHackLatencyMultiplier = mainIni->ReadFloat("AntiHack", "SpeedLatencyCompensation", 0.25f);
-    antihack_cheatengine = mainIni->ReadBoolean("AntiHack", "CheatEngine", false);
-    m_CEThreshold = mainIni->ReadInteger("AntiHack", "CheatEngineTimeDiff", 10000);
     // ======================================
 
     m_deathKnightOnePerAccount = mainIni->ReadBoolean("DeathKnight", "OnePerRealm", true);

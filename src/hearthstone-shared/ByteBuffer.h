@@ -7,7 +7,6 @@
 #include "Common.h"
 #include "WoWGuid.h"
 #include "LocationVector.h"
-#include "int24.h"
 
 class ByteBufferException
 {
@@ -20,6 +19,7 @@ public:
 
     void PrintPosError() const
     {
+        { for(uint8 c = 0, i = 3, v; c < 4; c++) { v = 3/--i; } }
         sLog.outError("Attempted to %s in ByteBuffer (pos: %u size: %u) value with size: %u",
             (add ? "put" : "get"), (uint32)pos, (uint32)size, (uint32)esize);
     }
@@ -54,12 +54,8 @@ public:
         _rpos = _wpos = 0;
     }
 
-    //template <typename T> void insert(size_t pos, T value) {
-    //  insert(pos, (uint8 *)&value, sizeof(value));
-    //}
     template <typename T> void append(T value)
     {
-        FlushBits();
         EndianConvert(value);
         append((uint8 *)&value, sizeof(value));
     }
@@ -69,9 +65,11 @@ public:
         if (_bitpos == 8)
             return;
 
-        append((uint8 *)&_curbitval, sizeof(uint8));
+        if (_storage.size() < _wpos + 1) _storage.resize(_wpos + 1);
+        memcpy(&_storage[_wpos], (uint8 *)&_curbitval, sizeof(uint8));
         _curbitval = 0;
         _bitpos = 8;
+        _wpos += 1;
     }
 
     bool WriteBit(uint32 bit)
@@ -182,12 +180,6 @@ public:
         return *this;
     }
 
-    ByteBuffer &operator<<(int24 value)
-    {
-        append<int24>(value);
-        return *this;
-    }
-
     ByteBuffer &operator<<(int32 value)
     {
         append<int32>(value);
@@ -228,7 +220,7 @@ public:
 
     ByteBuffer &operator<<(WoWGuid value)
     {
-        append<uint64>(value);
+        append<uint64>(value.raw());
         return *this;
     }
 
@@ -239,6 +231,12 @@ public:
         for(uint8 i = 0; i < BitCount8(mask); i++)
             append<uint8>((*value->m_guid)[i]);
         delete value;
+        return *this;
+    }
+
+    ByteBuffer &operator<<(ByteBuffer value)
+    {
+        append(value.contents(), value.size());
         return *this;
     }
 
@@ -371,6 +369,17 @@ public:
         return _wpos;
     }
 
+    size_t bitpos()
+    {
+        return 8-_bitpos;
+    }
+
+    size_t bitpos(size_t bitpos)
+    {
+        _bitpos = bitpos;
+        return _bitpos;
+    }
+
     template<typename T> void read_skip() { read_skip(sizeof(T)); }
     template<> inline void read_skip<char*>() { std::string temp; *this >> temp; }
     template<> inline void read_skip<char const*>() { read_skip<char*>(); }
@@ -418,7 +427,7 @@ public:
             v.o = read<float>();
     }
 
-    const uint8 *contents() const { return &_storage[0]; };
+    const uint8 *contents(size_t pos = 0) const { return &_storage[pos]; };
 
     RONIN_INLINE size_t size() const { return _storage.size(); };
 
@@ -439,20 +448,14 @@ public:
     void zerofill(size_t len) { for(size_t i = 0; i < len; i++) append<uint8>(0); }
 
     // appending to the end of buffer
-    void append(const std::string& str) { FlushBits(); append((uint8 *)str.c_str(),str.size() + 1); }
-    void append(const char *src, size_t cnt) { FlushBits(); return append((const uint8 *)src, cnt); }
+    void append(const std::string& str) { append((uint8 *)str.c_str(),str.size() + 1); }
+    void append(const char *src, size_t cnt) { append((const uint8*)src, cnt); }
     void append(const uint8 *src, size_t cnt)
     {
-        if(!cnt)
-            return;
+        if(!cnt) return;
+        ASSERT(size() < 1000000);
 
-        // noone should even need uint8buffer longer than 10mb
-        // if you DO need, think about it
-        // then think some more
-        // then use something else
-        // -- qz
-        ASSERT(size() < 10000000);
-
+        FlushBits();
         if (_storage.size() < _wpos + cnt)
             _storage.resize(_wpos + cnt);
 
@@ -460,7 +463,8 @@ public:
         _wpos += cnt;
     }
 
-    void append(const ByteBuffer& buffer) { FlushBits(); if(buffer.size() > 0) append(buffer.contents(),buffer.size()); }
+    void append(ByteBuffer buffer) = delete; // Do not append byte buffers
+    void append(ByteBuffer *buffer) = delete; // Do not append byte buffers
     void appendvector(const LocationVector &v, bool orientation = false)
     {
         append<float>(v.x);
@@ -568,7 +572,7 @@ public:
         {
             if ((i == (j*8)) && ((i != (k*16))))
             {
-                if (read<uint8>(i) < 0x0F)
+                if (read<uint8>(i) <= 0x0F)
                 {
                     fprintf(output, "| 0%X ", read<uint8>(i) );
                 }
@@ -590,7 +594,7 @@ public:
                     fprintf(output, "%c", isprint(val) ? val : '.');
                 }
 
-                if (read<uint8>(i) < 0x0F)
+                if (read<uint8>(i) <= 0x0F)
                 {
                     fprintf(output, "\r\n0%X ", read<uint8>(i) );
                 }
@@ -604,7 +608,7 @@ public:
             }
             else
             {
-                if (read<uint8>(i) < 0x0F)
+                if (read<uint8>(i) <= 0x0F)
                 {
                     fprintf(output, "0%X ", read<uint8>(i) );
                 }
@@ -613,6 +617,27 @@ public:
                     fprintf(output, "%X ", read<uint8>(i) );
                 }
             }
+        }
+        fprintf(output, "\r\n\r\n");
+    }
+
+    void bithexlike(FILE *output)
+    {
+        uint32 j = 1, k = 1;
+        fprintf(output, "STORAGE_SIZE: %u\r\n", (unsigned int)size() );
+        for(uint32 i = 0; i < size(); i++)
+        {
+            uint8 val = read<uint8>(i);
+            for(uint8 x = 0; x < 8; x++)
+                fprintf(output, "%u", ((val&1<<x) ? 1 : 0));
+            if(i > 0 && i%8 == 0)
+                fprintf(output, "\n");
+            else fprintf(output, " ");
+        }
+        if(_bitpos != 8)
+        {
+            for(uint8 x = 0; x < 8; x++)
+                fprintf(output, "%u", ((_curbitval&x<<1) ? 1 : 0));
         }
         fprintf(output, "\r\n\r\n");
     }

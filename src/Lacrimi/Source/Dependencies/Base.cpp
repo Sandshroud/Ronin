@@ -98,9 +98,7 @@ bool MoonScriptCreatureAI::GetCanMove()
 
 void MoonScriptCreatureAI::SetCanMove( bool pCanMove )
 {
-    if ( pCanMove )
-        _unit->UnRoot();
-    else _unit->Root();
+    _unit->GetMovementInterface()->setRooted(pCanMove);
 }
 
 void MoonScriptCreatureAI::MoveTo( MoonScriptCreatureAI* pCreature, RangeStatusPair pRangeStatus )
@@ -994,8 +992,9 @@ bool MoonScriptCreatureAI::CastSpellInternal(SpellDesc* pSpell, uint32 pCurrentT
     if( IsCasting() ) return false;
 
     //We do not cast in special states such as : stunned, feared, silenced, charmed, asleep, confused and if they are not ignored
-    if ( ( ~pSpell->mTargetType.mTargetFilter & TargetFilter_IgnoreSpecialStates ) && _unit->m_special_state & ( UNIT_STATE_STUN | UNIT_STATE_FEAR | UNIT_STATE_SLEEP | UNIT_STATE_SILENCE | UNIT_STATE_CHARM | UNIT_STATE_CONFUSE ) )
-        return false;
+    if ( ( pSpell->mTargetType.mTargetFilter & TargetFilter_IgnoreSpecialStates ) == 0 )
+        if(_unit->m_AuraInterface.GetAuraStatus() & AURA_STATUS_SPELL_IMPARING_MASK)
+            return false;
 
     //Do not cast if we are in cooldown
     uint32 CurrentTime = ( pCurrentTime == 0 ) ? (uint32)time(NULL) : pCurrentTime;

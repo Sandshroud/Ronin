@@ -6,145 +6,17 @@
 
 #define MOVEMENT_PACKET_TIME_DELAY 500
 
-void WorldSession::HandleMoveWorldportAckOpcode( WorldPacket & recv_data )
-{
-    sLog.Debug( "WORLD"," got MSG_MOVE_WORLDPORT_ACK." );
-
-    GetPlayer()->SetPlayerStatus(NONE);
-    sEventMgr.RemoveEvents(GetPlayer(), EVENT_PLAYER_CHECK_STATUS_Transfer);
-    if(_player->IsInWorld())
-    {
-        // get outta here
-        return;
-    }
-
-    if(_player->m_CurrentTransporter && _player->GetMapId() != _player->m_CurrentTransporter->GetMapId())
-    {
-        /* wow, our pc must really suck. */
-        Transporter* pTrans = _player->m_CurrentTransporter;
-        float c_tposx, c_tposy, c_tposz, c_tposo;
-        _player->GetMovementInfo()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-        c_tposx += pTrans->GetPositionX();
-        c_tposy += pTrans->GetPositionY();
-        c_tposz += pTrans->GetPositionZ();
-
-        WorldPacket dataw(SMSG_NEW_WORLD, 20);
-        dataw << c_tposx << c_tposo << c_tposz;
-        dataw << pTrans->GetMapId() << c_tposy;
-        SendPacket(&dataw);
-
-        _player->SetMapId(_player->m_CurrentTransporter->GetMapId());
-        _player->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-    }
-    else
-    {
-        // don't overwrite the loading flag here.
-        // reason: talents/passive spells don't get cast on an invalid instance login
-        if( _player->m_TeleportState != 1 )
-            _player->m_TeleportState = 2;
-
-        _player->AddToWorld();
-    }
-}
-
-void WorldSession::HandleMoveTeleportAckOpcode( WorldPacket & recv_data )
-{
-    WoWGuid guid;
-    uint32 flags, time;
-    recv_data >> guid.asPacked();
-    recv_data >> flags >> time;
-    if(guid == _player->GetGUID())
-    {
-        if(!_player->GetVehicle() && sWorld.antihack_teleport && !(HasGMPermissions() && sWorld.no_antihack_on_gm) && _player->GetPlayerStatus() != TRANSFER_PENDING)
-        {
-            /* we're obviously cheating */
-            sWorld.LogCheater(this, "Used teleport hack, disconnecting.");
-            Disconnect();
-            return;
-        }
-
-        if(sWorld.antihack_teleport && !(HasGMPermissions() && sWorld.no_antihack_on_gm) && _player->m_position.Distance2DSq(_player->m_sentTeleportPosition) > 625.0f) /* 25.0f*25.0f */
-        {
-            /* cheating.... :( */
-            sWorld.LogCheater(this, "Used teleport hack {2}, disconnecting.");
-            Disconnect();
-            return;
-        }
-
-        sLog.Debug( "WORLD"," got MSG_MOVE_TELEPORT_ACK." );
-        GetPlayer()->SetPlayerStatus(NONE);
-        sEventMgr.RemoveEvents(GetPlayer(), EVENT_PLAYER_CHECK_STATUS_Transfer);
-        GetPlayer()->SetMovement(MOVE_UNROOT,5);
-        _player->ResetHeartbeatCoords();
-
-        if(_player->m_sentTeleportPosition.x != 999999.0f)
-        {
-            _player->SetPosition(_player->m_sentTeleportPosition);
-            _player->m_sentTeleportPosition.ChangeCoords(999999.0f,999999.0f,999999.0f);
-
-            if(GetPlayer()->GetSummon() != NULL)        // move pet too
-                GetPlayer()->GetSummon()->SetPosition((GetPlayer()->GetPositionX() + 2), (GetPlayer()->GetPositionY() + 2), GetPlayer()->GetPositionZ(), float(M_PI));
-        }
-    }
-}
-
-void MovementInfo::HandleBreathing(Player* _player, WorldSession * pSession)
+void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
 {
     if(!_player->IsInWorld())
         return;
-
-    uint16 WaterType = 0;
-    float WaterHeight = NO_WATER_HEIGHT;
-    _player->GetMapMgr()->GetWaterData(x, y, z, WaterHeight, WaterType);
-    if (WaterHeight == NO_WATER_HEIGHT)
-    {
-        _player->m_UnderwaterState &= ~(UNDERWATERSTATE_UNDERWATER|UNDERWATERSTATE_FATIGUE|UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME);
+    else if(_player->GetPlayerStatus() == TRANSFER_PENDING)
         return;
-    }
-    int64 HeightDelta = (WaterHeight-_player->GetPositionZ())*10;
-
-    // All liquids type - check under water position
-    if(WaterType & (0x01|0x02|0x04|0x08))
-    {
-        if (HeightDelta > 20)
-            _player->m_UnderwaterState |= UNDERWATERSTATE_UNDERWATER;
-        else
-            _player->m_UnderwaterState &= ~UNDERWATERSTATE_UNDERWATER;
-    }
-
-    // Allow travel in dark water on taxi or transport
-    if ((WaterType & 0x10) && !_player->GetTaxiPath() && !_player->GetTransportGuid())
-        _player->m_UnderwaterState |= UNDERWATERSTATE_FATIGUE;
-    else
-        _player->m_UnderwaterState &= ~UNDERWATERSTATE_FATIGUE;
-
-    // in lava check, anywhere in lava level
-    if (WaterType & 0x04)
-    {
-        if (HeightDelta > 0)
-            _player->m_UnderwaterState |= UNDERWATERSTATE_LAVA;
-        else
-            _player->m_UnderwaterState &= ~UNDERWATERSTATE_LAVA;
-    }
-
-    // in slime check, anywhere in slime level
-    if (WaterType & 0x08)
-    {
-        if (HeightDelta > 0 || movementFlags & MOVEFLAG_WATER_WALK)
-            _player->m_UnderwaterState |= UNDERWATERSTATE_SLIME;
-        else
-            _player->m_UnderwaterState &= ~UNDERWATERSTATE_SLIME;
-    }
-}
-
-void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
-{
-    if(!_player->IsInWorld() || _player->GetUInt64Value(UNIT_FIELD_CHARMEDBY) || _player->GetPlayerStatus() == TRANSFER_PENDING && !_player->GetVehicle() || _player->GetTaxiState())
+    else if(_player->GetCharmedByGUID() || _player->GetTaxiState())
         return;
 
     // spell cancel on movement, for now only fishing is added
-    WorldObject* t_go = _player->m_SummonedObject;
-    if (t_go)
+    if (GameObject* t_go = _player->m_SummonedObject)
     {
         if (t_go->GetEntry() == GO_FISHING_BOBBER)
             castPtr<GameObject>(t_go)->EndFishing(GetPlayer(),true);
@@ -158,565 +30,5008 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
         else sEventMgr.RemoveEvents(_player, EVENT_PLAYER_FORCE_LOGOUT);
     }
 
-    /************************************************************************/
-    /* Read Movement Data Packet                                            */
-    /************************************************************************/
-    recv_data >> m_MoverWoWGuid.asPacked();
-    _player->movement_info.read(recv_data);
-    float newX, newY, newZ, newO;
-    _player->movement_info.GetRawPosition(newX, newY, newZ, newO);
-    // Not needed since setposition updates this for us, but update the position here.
-    _player->movement_info.UpdatePosition();
-
-    /************************************************************************/
-    /* Update player movement state                                         */
-    /************************************************************************/
-    if( sWorld.antihack_cheatengine && _player->m_lastMovementPacketTimestamp != 0 && (int32)mstime - (int32)_player->m_lastMovementPacketTimestamp != 0)
-    {
-        int32 server_delta = (int32)mstime - (int32)_player->m_lastMovementPacketTimestamp;
-        int32 client_delta = (int32)_player->movement_info.moveTime - (int32)_player->m_lastMoveTime;
-        int32 diff = client_delta - server_delta;
-        //sLog.Debug("WorldSession","HandleMovementOpcodes: server delta=%u, client delta=%u", server_delta, client_delta);
-        int32 threshold = int32( sWorld.m_CEThreshold ) + int32( _player->GetSession()->GetLatency() );
-        if( diff >= threshold )     // replace with threshold var
-        {
-            // client cheating with process speedup
-            if( _player->m_cheatEngineChances == 1 )
-            {
-                _player->SetMovement( MOVE_ROOT, 1 );
-                _player->BroadcastMessage( "Cheat engine detected. Please contact an admin with the below information if you believe this is a false detection." );
-                _player->BroadcastMessage( "You will be disconnected in 10 seconds." );
-                _player->BroadcastMessage( MSG_COLOR_WHITE"diff: %d server delta: %u client delta: %u\n", diff, server_delta, client_delta );
-                sEventMgr.AddEvent( _player, &Player::_Disconnect, EVENT_PLAYER_KICK, 10000, 1, 0 );
-                _player->m_cheatEngineChances = 0;
-                sWorld.LogCheater(this, "Cheat Engine detected. Diff: %d, Server Delta: %u, Client Delta: %u", diff, server_delta, client_delta );
-            }
-            else if (_player->m_cheatEngineChances > 0 )
-                _player->m_cheatEngineChances--;
-        }
-    }
-
-    _player->m_lastMovementPacketTimestamp = mstime;
-    _player->m_lastMoveTime = _player->movement_info.moveTime;
-
-    /************************************************************************/
-    /* Remove Emote State                                                   */
-    /************************************************************************/
-    if(_player->GetUInt32Value(UNIT_NPC_EMOTESTATE))
-        _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
-
-    /************************************************************************/
-    /* Make sure the co-ordinates are valid.                                */
-    /************************************************************************/
-    if( !((newY >= _minY) && (newY <= _maxY)) || !((newX >= _minX) && (newX <= _maxX)) )
-    {
+    MovementInterface *moveInterface = _player->GetMovementInterface();
+    if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
         Disconnect();
-        return;
-    }
-
-    /************************************************************************/
-    /* Anti-Hack Checks                                                     */
-    /************************************************************************/
-    if((!HasGMPermissions() || !sWorld.no_antihack_on_gm) && !_player->GetUInt64Value(UNIT_FIELD_CHARM) && !_player->m_heartbeatDisable)
-    {
-        /************************************************************************/
-        /* Anti-Teleport                                                        */
-        /************************************************************************/
-        if(sWorld.antihack_teleport && _player->m_position.Distance2DSq(newX, newY) > 5625.0f
-            && _player->m_runSpeed < 50.0f && !_player->movement_info.transGuid)
-        {
-            sWorld.LogCheater(this, "Used teleport hack {3}, speed was %f", _player->m_runSpeed);
-            Disconnect();
-            return;
-        }
-    }
-
-    // Water walk hack
-    if (_player->movement_info.movementFlags & MOVEFLAG_WATER_WALK)
-    {
-        if(!_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE) && !_player->m_isWaterWalking && !_player->m_setwaterwalk)
-        {
-            if(!HasGMPermissions() || !sWorld.no_antihack_on_gm)
-            {
-                WorldPacket data( SMSG_MOVE_LAND_WALK );
-                data << _player->GetGUID().asPacked();
-                data << uint32( 4 );
-                SendPacket( &data );
-
-                if(getMSTime() >= _player->m_WaterWalkTimer)
-                {
-                    sWorld.LogCheater(this, "Used water walk hack");
-                    Disconnect();
-                    return;
-                }
-            }
-        }
-    }
-
-    /************************************************************************/
-    /* Calculate the timestamp of the packet we have to send out            */
-    /************************************************************************/
-    size_t pos = (size_t)BitCount8(m_MoverWoWGuid.GenMask()) + 1;
-    if(m_clientTimeDelay == 0)
-        m_clientTimeDelay = mstime - _player->movement_info.moveTime;
-
-    /************************************************************************/
-    /* Copy into the output buffer.                                         */
-    /************************************************************************/
-    if(_player->m_inRangePlayers.size())
-    {
-        int32 move_time = (_player->movement_info.moveTime - (mstime - m_clientTimeDelay)) + MOVEMENT_PACKET_TIME_DELAY + mstime;
-        ByteBuffer distBuffer(recv_data.size());
-        distBuffer.append(recv_data.contents(), recv_data.size());
-
-        /************************************************************************/
-        /* Distribute to all inrange players.                                   */
-        /************************************************************************/
-        for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
-        {
-            if( (*itr)->GetSession() && (*itr)->IsInWorld() )
-            {
-                distBuffer.put<uint32>(pos+6, (move_time + (*itr)->GetSession()->m_moveDelayTime));
-                (*itr)->GetSession()->OutPacket(recv_data.GetOpcode(), distBuffer.size(), distBuffer.contents());
-            }
-        }
-    }
-
-    /************************************************************************/
-    /* Hack Detection by Classic, some changes by Crow                      */
-    /************************************************************************/
-    if((!HasGMPermissions() || !sWorld.no_antihack_on_gm) && !_player->GetTransportGuid())
-    {
-        if(sWorld.antihack_flight)
-        {
-            if(!(_player->movement_info.movementFlags & MOVEFLAG_SWIMMING || _player->movement_info.movementFlags & MOVEFLAG_FALLING))
-            {
-                if(recv_data.GetOpcode() != MSG_MOVE_JUMP)
-                {
-                    if(!_player->movement_info.transGuid && !_player->FlyCheat && !_player->m_FlyingAura
-                        && newX == _player->GetPositionX() && newY == _player->GetPositionY()
-                        && newZ > _player->GetPositionZ()+3.0f )
-                    {
-                        WorldPacket data (SMSG_MOVE_UNSET_CAN_FLY, 13);
-                        data << _player->GetGUID().asPacked();
-                        data << uint32(5);
-                        SendPacket(&data);
-
-                        _player->m_flyHackChances--;
-                        if(_player->m_flyHackChances == 0)
-                        {
-                            sWorld.LogCheater(this, "Disconnected for fly cheat. (1)");
-                            Disconnect();
-                            return;
-                        }
-                    }
-                    else if((_player->movement_info.movementFlags & MOVEFLAG_AIR_SWIMMING) && !(_player->m_FlyingAura || _player->FlyCheat))
-                    {
-                        WorldPacket data (SMSG_MOVE_UNSET_CAN_FLY, 13);
-                        data << _player->GetGUID().asPacked();
-                        data << uint32(5);
-                        SendPacket(&data);
-
-                        _player->m_flyHackChances--;
-                        if(_player->m_flyHackChances == 0)
-                        {
-                            sWorld.LogCheater(this, "Disconnected for fly cheat. (2)");
-                            Disconnect();
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-
-        if( newZ > -0.001 && newZ < 0.001 && !(_player->movement_info.movementFlags & MOVEFLAG_FALLING_FAR)
-            && (_player->GetPositionZ() > 3.0 || _player->GetPositionZ() < -3.0)/*3 meter tolerance to prevent false triggers*/)
-        {
-            sWorld.LogCheater(this, "Detected using teleport to plane.");
-            Disconnect();
-            return;
-        }
-
-        if( recv_data.GetOpcode() == MSG_MOVE_START_FORWARD && _player->movement_info.movementFlags & MOVEFLAG_TAXI && !_player->GetTaxiState() )
-        {
-            sWorld.LogCheater(this, "Detected taxi-flag/speed hacking (Maelstrom Hack Program).");
-            Disconnect();
-            return;
-        }
-    }
-
-    /************************************************************************/
-    /* Falling damage checks                                                */
-    /************************************************************************/
-
-    if( _player->blinked )
-    {
-        if(_player->blinktimer < getMSTime())
-        {
-            _player->blinked = false;
-            _player->m_fallDisabledUntil = getMSTime() + 5;
-            _player->DelaySpeedHack( 5000 );
-        }
-    }
-    else
-    {
-        if (_player->movement_info.movementFlags & MOVEFLAG_FALLING)
-            m_isFalling = true;
-        else if(!HasGMPermissions() || !sWorld.no_antihack_on_gm)
-        {   // Crow: Base credit for jump hack detection goes to ArcEmu, and whoever coded it.
-            if(recv_data.GetOpcode() == MSG_MOVE_JUMP)
-            {
-                if(m_isJumping)
-                {
-                    SystemMessage("Jump cheat detected. If this is wrong, please report it to an administrator.");
-                    m_jumpHackChances--;
-                    if(!m_jumpHackChances)
-                    {
-                        sWorld.LogCheater(this, "Disconnected for jump cheat. (1)");
-                        Disconnect();
-                        return;
-                    }
-                }
-                else if (m_isFalling)
-                {
-                    SystemMessage("Jump cheat detected. If this is wrong, please report it to an administrator.");
-                    m_jumpHackChances--;
-                    if(!m_jumpHackChances)
-                    {
-                        sWorld.LogCheater(this, "Disconnected for jump cheat. (2)");
-                        Disconnect();
-                        return;
-                    }
-                }
-                else if(m_isKnockedback)
-                {
-                    SystemMessage("Jump cheat detected. If this is wrong, please report it to an administrator.");
-                    m_jumpHackChances--;
-                    if(!m_jumpHackChances)
-                    {
-                        sWorld.LogCheater(this, "Disconnected for jump cheat. (3)");
-                        Disconnect();
-                        return;
-                    }
-                }
-
-                m_isFalling = true;
-                m_isJumping = true;
-            }
-        }
-
-        if( recv_data.GetOpcode() == MSG_MOVE_FALL_LAND )
-        {
-            // player has finished falling
-            //if _player->z_axisposition contains no data then set to current position
-            if( !_player->z_axisposition )
-                _player->z_axisposition = newZ;
-
-            // calculate distance fallen
-            int32 falldistance = float2int32( _player->z_axisposition - newZ );
-            if(newZ > _player->z_axisposition)
-                falldistance = 0;
-
-            /*if player is a rogue or druid(in cat form), then apply -17 modifier to fall distance.*/
-            if( ( _player->getClass() == ROGUE ) || ( _player->GetShapeShift() == FORM_CAT ) )
-                if(_player->safefall)
-                    falldistance -= _player->m_safeFall;
-
-            //checks that player has fallen more than 12 units, otherwise no damage will be dealt
-            //falltime check is also needed here, otherwise sudden changes in Z axis position, such as using !recall, may result in death
-            if( _player->isAlive() && !_player->bInvincible && !_player->bGMTagOn && falldistance > 12 && ( getMSTime() >= _player->m_fallDisabledUntil ) &&
-                !_player->HasAura(130) && !_player->GetTaxiState()) // Slow Fall or Taxi Path.
-            {
-                // 1.7% damage for each unit fallen on Z axis over 13
-                Unit* toDamage = castPtr<Unit>(_player);
-                if( _player->GetVehicle() )
-                    toDamage = _player->GetVehicle();
-                else if(_player->m_CurrentCharm)
-                    toDamage = _player->m_CurrentCharm;
-
-                if(!(_player->GetVehicle() && _player->GetVehicle()->GetControllingUnit() != _player))
-                {
-                    uint32 health_loss = float2int32( float( toDamage->GetUInt32Value( UNIT_FIELD_MAXHEALTH ) * ( ( falldistance - 12 ) * 0.017 ) ) );
-
-                    if (_player->HasAura(43621))
-                        health_loss = _player->GetMaxHealth()/2;
-
-                    if( health_loss >= toDamage->GetUInt32Value( UNIT_FIELD_HEALTH ) )
-                        health_loss = toDamage->GetUInt32Value( UNIT_FIELD_HEALTH );
-
-                    if( toDamage == _player )
-                        _player->SendEnvironmentalDamageLog( toDamage->GetGUID(), DAMAGE_FALL, health_loss );
-                    toDamage->DealDamage( toDamage, health_loss, 0, 0, 0 );
-
-                    toDamage->RemoveStealth(); // Fall Damage will cause stealthed units to lose stealth.
-                }
-            }
-            _player->z_axisposition = 0.0f;
-        }
-        //Opcodes that remove falling flag
-        switch (recv_data.GetOpcode())
-        {
-        case MSG_MOVE_START_ASCEND:
-        case MSG_MOVE_START_SWIM:
-        case MSG_MOVE_FALL_LAND:
-            m_isFalling = false;
-            m_isJumping = false;
-            m_isKnockedback = false;
-        }
-
-        if(!m_isFalling)
-            _player->z_axisposition = newZ;
-    }
-
-    /************************************************************************/
-    /* Transporter Setup                                                    */
-    /************************************************************************/
-    if(!_player->GetMovementInfo()->GetTransportLock())
-    {
-        if(_player->m_CurrentTransporter && !_player->movement_info.transGuid)
-        {
-            /* we left the transporter we were on */
-            _player->m_CurrentTransporter->RemovePlayer(_player);
-            _player->m_CurrentTransporter = NULL;
-            _player->ResetHeartbeatCoords();
-            _player->DelaySpeedHack(5000);
-        }
-        else if(_player->movement_info.transGuid && _player->m_CurrentTransporter)
-        {
-            if(_player->m_CurrentTransporter->GetGUID() != _player->movement_info.transGuid)
-            {
-                _player->m_CurrentTransporter->RemovePlayer(_player);
-                _player->m_CurrentTransporter = NULL;
-                _player->ResetHeartbeatCoords();
-
-                _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(_player->movement_info.transGuid));
-                if(_player->m_CurrentTransporter)
-                    _player->m_CurrentTransporter->AddPlayer(_player);
-                _player->DelaySpeedHack(5000);
-            }
-        }
-        else if(_player->movement_info.transGuid)
-        {
-            /* just walked into a transport */
-            if(_player->IsMounted())
-                castPtr<Unit>(_player)->Dismount();
-
-            // vehicles, meh
-            if( _player->GetVehicle() )
-                _player->GetVehicle()->RemovePassenger( _player );
-
-            uint64 transporterGUID = _player->movement_info.transGuid;
-            _player->m_CurrentTransporter = objmgr.GetTransporter(GUID_LOPART(transporterGUID));
-            if(_player->m_CurrentTransporter)
-                _player->m_CurrentTransporter->AddPlayer(_player);
-            _player->DelaySpeedHack(5000);
-        }
-    }
-
-    /************************************************************************/
-    /* Anti-Speed Hack Checks                                               */
-    /************************************************************************/
-
-
-
-    /************************************************************************/
-    /* Breathing System                                                     */
-    /************************************************************************/
-    _player->movement_info.HandleBreathing(_player, this);
-
-    /************************************************************************/
-    /* Remove Spells                                                        */
-    /************************************************************************/
-    uint32 flags = AURA_INTERRUPT_ON_MOVEMENT;
-    if( !( _player->movement_info.movementFlags & MOVEFLAG_SWIMMING || _player->movement_info.movementFlags & MOVEFLAG_FALLING ) && !m_bIsWLevelSet )
-        flags |= AURA_INTERRUPT_ON_LEAVE_WATER;
-    if( _player->movement_info.movementFlags & MOVEFLAG_SWIMMING )
-        flags |= AURA_INTERRUPT_ON_ENTER_WATER;
-    if( _player->movement_info.movementFlags & ( MOVEFLAG_TURN_LEFT | MOVEFLAG_TURN_RIGHT ) )
-        flags |= AURA_INTERRUPT_ON_TURNING;
-    _player->m_AuraInterface.RemoveAllAurasByInterruptFlag( flags );
-
-    /************************************************************************/
-    /* Update our position in the server.                                   */
-    /************************************************************************/
-    if( _player->m_CurrentCharm )
-        _player->m_CurrentCharm->SetPosition(newX, newY, newZ, newO);
-    else if( _player->GetVehicle() )
-        _player->GetVehicle()->MoveVehicle(newX, newY, newZ, newO);
-    else
-    {
-        if(_player->m_CurrentTransporter)
-        {
-            LocationVector transLoc;
-            _player->movement_info.GetTransportPosition(transLoc);
-            transLoc += _player->m_CurrentTransporter->GetPosition();
-            _player->SetPosition(transLoc.x, transLoc.y, transLoc.z, transLoc.o);
-        }
-        else if( newZ < -500.0f )
-        {
-            _player->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
-            _player->KillPlayer();
-        }
-        else
-        {
-            _player->SetPosition(newX, newY, newZ, newO);
-            if(_player->GetCurrentSpell())
-                _player->GetCurrentSpell()->updatePosition(newX, newY, newZ);
-        }
-    }
-
-    if(  !(_player->movement_info.movementFlags & MOVEFLAG_MOTION_MASK) )
-    {
-        if( _player->m_isMoving )
-        {
-            //printf("MOVING: FALSE (Packet %s)\n", LookupName( recv_data.GetOpcode(), g_worldOpcodeNames ) );
-            _player->_SpeedhackCheck();
-            _player->m_isMoving = false;
-            _player->m_startMoveTime = 0;
-        }
-    }
-    else
-    {
-        if( !_player->m_isMoving )
-        {
-            //printf("MOVING: TRUE (Packet %s)\n", LookupName( recv_data.GetOpcode(), g_worldOpcodeNames ) );
-            _player->m_isMoving = true;
-            _player->m_startMoveTime = _player->movement_info.moveTime;
-            _player->m_lastHeartbeatPosition.ChangeCoords(newX, newY, newZ);
-        }
-    }
-
-    // reset the period every 5 seconds, for a little more accuracy
-    if( _player->m_isMoving && (_player->m_lastMoveTime - _player->m_startMoveTime) >= 5000 )
-    {
-        _player->m_lastHeartbeatPosition.ChangeCoords(newX, newY, newZ);
-        _player->m_startMoveTime = _player->m_lastMoveTime;
-        _player->m_cheatEngineChances = 2;
-    }
-}
-
-void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
-{
-    WoWGuid guid;
-    uint32 time_dif;
-    recv_data >> guid.asPacked();
-    recv_data >> time_dif;
-
-    // Ignore updates for not us
-    if( guid != _player->GetGUID() )
-        return;
-
-    WorldPacket data(MSG_MOVE_TIME_SKIPPED, 16);
-    // send to other players
-    data << guid.asPacked();
-    data << time_dif;
-    _player->SendMessageToSet(&data, false);
-}
-
-void WorldSession::HandleSetActiveMoverOpcode( WorldPacket & recv_data )
-{
-    // set current movement object
-    WoWGuid guid;
-    recv_data >> guid;
-
-    if(m_MoverWoWGuid != guid)
-    {
-        // make sure the guid is valid and we aren't cheating
-        if( !(_player->m_CurrentCharm && _player->m_CurrentCharm->GetGUID() == guid) &&
-            !(_player->GetGUID() == guid) )
-        {
-            // cheater!
-            return;
-        }
-
-        m_MoverWoWGuid = guid ? guid : _player->GetGUID();
-    }
-}
-
-void WorldSession::HandleMoveSplineCompleteOpcode(WorldPacket &recvPacket)
-{
-    SKIP_READ_PACKET(recvPacket);
-}
-
-void WorldSession::HandleMountSpecialAnimOpcode(WorldPacket &recvdata)
-{
-    WorldPacket data(SMSG_MOUNTSPECIAL_ANIM,8);
-    data << _player->GetGUID();
-    _player->SendMessageToSet(&data, true);
-}
-
-void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recvPacket)
-{
-    _player->z_axisposition = 0.0f;
-}
-
-void WorldSession::HandleMoveHoverWaterFlyAckOpcode( WorldPacket & recv_data )
-{
-    CHECK_INWORLD_RETURN();
-    WoWGuid guid;
-    uint32 unk, unk2;
-    recv_data >> guid.asPacked() >> unk;
-    if(guid != _player->GetGUID())
-    {
-        SKIP_READ_PACKET(recv_data);
-        return;
-    }
-
-    _player->movement_info.read(recv_data);
-    recv_data >> unk2;
-}
-
-void WorldSession::HandleMoveKnockbackAckOpcode( WorldPacket & recv_data )
-{
-    CHECK_INWORLD_RETURN();
-    WoWGuid guid;
-    uint32 unk2;
-    recv_data >> guid.asPacked() >> unk2;
-    if(guid != _player->GetGUID())
-    {
-        SKIP_READ_PACKET(recv_data);
-        return;
-    }
-
-    _player->movement_info.read(recv_data);
 }
 
 void WorldSession::HandleAcknowledgementOpcodes( WorldPacket & recv_data )
 {
-    recv_data.rpos(recv_data.wpos());
+    if(!_player->IsInWorld())
+        return;
+    if(_player->GetPlayerStatus() == TRANSFER_PENDING)
+        return;
+
+    MovementInterface *moveInterface = _player->GetMovementInterface();
+    if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
+        Disconnect();
 }
 
 void WorldSession::HandleForceSpeedChangeOpcodes( WorldPacket & recv_data )
 {
-    CHECK_INWORLD_RETURN();
-    WoWGuid guid;
-    uint32 unk;
-    recv_data >> guid.asPacked() >> unk;
-
-    if(guid != _player->GetGUID())
-    {
-        SKIP_READ_PACKET(recv_data);
+    if(!_player->IsInWorld())
         return;
-    }
+    if(_player->GetPlayerStatus() == TRANSFER_PENDING)
+        return;
 
-    _player->movement_info.read(recv_data);
-    SKIP_READ_PACKET(recv_data); // Don't care.
-
-    // TODO: We need more than this I guess...
-    if(_player->m_speedChangeInProgress)
-    {
-        _player->ResetHeartbeatCoords();
-        _player->DelaySpeedHack( 5000 );            // give the client a chance to fall/catch up
-        _player->m_speedChangeInProgress = false;
-    }
+    MovementInterface *moveInterface = _player->GetMovementInterface();
+    if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
+        Disconnect();
 }
 
-void MovementInfo::read(ByteBuffer &data)
+void WorldSession::HandleSetActiveMoverOpcode( WorldPacket & recv_data )
 {
-
+    _player->GetMovementInterface()->SetActiveMover(&recv_data);
 }
 
-void MovementInfo::write(ByteBuffer &data)
+void WorldSession::HandleMoveTimeSkippedOpcode( WorldPacket & recv_data )
 {
-
+    _player->GetMovementInterface()->MoveTimeSkipped(&recv_data);
 }
+
+void WorldSession::HandleMoveSplineCompleteOpcode(WorldPacket &recv_data)
+{
+    _player->GetMovementInterface()->MoveSplineComplete(&recv_data);
+}
+
+void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recv_data)
+{
+    _player->GetMovementInterface()->MoveFallReset(&recv_data);
+}
+
+#define DO_BIT(read, buffer, val, result) if(read) val = (buffer.ReadBit() ? result : !result); else buffer.WriteBit(val ? result : !result);
+#define DO_COND_BIT(read, buffer, cond, val) if(cond) { if(read) val = buffer.ReadBit(); else buffer.WriteBit(val); }
+#define DO_BYTES(read, buffer, type, val) if(read) val = buffer.read<type>(); else buffer.append<type>(val);
+#define DO_COND_BYTES(read, buffer, cond, type, val) if(cond) { if(read) val = buffer.read<type>(); else buffer.append<type>(val); }
+#define DO_SEQ_BYTE(read, buffer, val) if(read) buffer.ReadByteSeq(val); else buffer.WriteByteSeq(val);
+
+// Close with a semicolon
+#define BUILD_BOOL_LIST()  bool hasMovementFlags = read ? false : m_movementFlagMask & 0x0F, \
+    hasMovementFlags2 = read ? false : m_movementFlagMask & 0xF0, \
+    hasTimestamp = read ? false : true, \
+    hasOrientation = read ? false : !G3D::fuzzyEq(m_serverLocation->o, 0.0f), \
+    hasTransportData = read ? false : !m_transportGuid.empty(), \
+    hasSpline = read ? false : isSplineMovingActive(), \
+    hasTransportTime2 = read ? false : (hasTransportData && m_transportTime2 != 0), \
+    hasTransportVehicleId = read ? false : (hasTransportData && m_vehicleId != 0), \
+    hasPitch = read ? false : (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)), \
+    hasFallDirection = read ? false : hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), \
+    hasFallData = read ? false : (hasFallDirection || m_jumpTime != 0), \
+    hasSplineElevation = read ? false : hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION)
+
+void MovementInterface::HandlePlayerMove(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleHeartbeat(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleJump(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleFallLand(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleStartForward(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleStartBackward(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartStrafeLeft(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartStrafeRight(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartTurnLeft(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartTurnRight(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleStartPitchDown(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleStartPitchUp(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleStartAscend(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartDescend(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStartSwim(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleStop(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+}
+
+void MovementInterface::HandleStopStrafe(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleStopTurn(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleStopPitch(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+void MovementInterface::HandleStopAscend(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleStopSwim(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleSetFacing(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+void MovementInterface::HandleSetPitch(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleFallReset(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+void MovementInterface::HandleSetRunMode(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleSetWalkMode(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleSetPitchRate(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DoExtraData(MOVEMENT_CODE_SET_PITCH_RATE, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetCanFly(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleUnsetCanFly(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetHover(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleUnsetHover(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleWaterWalk(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleLandWalk(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleFeatherFall(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleNormalFall(bool read, ByteBuffer &buffer)
+{
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleRoot(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleUnroot(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleUpdateKnockBack(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+}
+
+void MovementInterface::HandleUpdateTeleport(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+}
+
+void MovementInterface::HandleChangeTransport(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleNotActiveMover(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+}
+
+void MovementInterface::HandleSetCollisionHeight(bool read, ByteBuffer &buffer)
+{
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DoExtraData(MOVEMENT_CODE_SET_COLLISION_HEIGHT, read, &buffer);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleUpdateCollisionHeight(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DoExtraData(MOVEMENT_CODE_UPDATE_COLLISION_HEIGHT, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleUpdateWalkSpeed(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BIT(read, buffer, hasOrientation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DoExtraData(MOVEMENT_CODE_UPDATE_WALK_SPEED, read, &buffer);
+}
+
+void MovementInterface::HandleUpdateRunSpeed(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DoExtraData(MOVEMENT_CODE_UPDATE_RUN_SPEED, read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleUpdateRunBackSpeed(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DoExtraData(MOVEMENT_CODE_UPDATE_RUN_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+}
+
+void MovementInterface::HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DoExtraData(MOVEMENT_CODE_UPDATE_SWIM_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+void MovementInterface::HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DoExtraData(MOVEMENT_CODE_UPDATE_FLIGHT_SPEED, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+}
+
+void MovementInterface::HandleSetWalkSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DoExtraData(MOVEMENT_CODE_SET_WALK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetRunSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DoExtraData(MOVEMENT_CODE_SET_RUN_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetRunBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DoExtraData(MOVEMENT_CODE_SET_RUN_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+}
+
+void MovementInterface::HandleSetSwimSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DoExtraData(MOVEMENT_CODE_SET_SWIM_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetSwimBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DoExtraData(MOVEMENT_CODE_SET_SWIM_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetFlightSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DoExtraData(MOVEMENT_CODE_SET_FLIGHT_SPEED, read, &buffer);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetFlightBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DoExtraData(MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSetTurnRate(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DoExtraData(MOVEMENT_CODE_SET_TURN_RATE, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckRoot(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckUnroot(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckFeatherFall(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DoExtraData(MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckForceRunSpeedChange(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DoExtraData(MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DoExtraData(MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE, read, &buffer);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DoExtraData(MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckForceFlightSpeedChange(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DoExtraData(MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE, read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckGravityEnable(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckGravityDisable(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckHover(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckWaterWalk(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckKnockBack(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckSetCanFly(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckSetCollisionHeight(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DoExtraData(MOVEMENT_CODE_ACK_SET_COLLISION_HEIGHT, read, &buffer);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleAckSetCanTransitionBetweenSwimAndFly(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, uint32, read ? m_clientCounter : m_serverCounter);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleSplineDone(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+}
+
+void MovementInterface::HandleSplineSetWalkSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_WALK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+}
+
+void MovementInterface::HandleSplineSetRunSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_RUN_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleSplineSetRunBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_RUN_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+}
+
+void MovementInterface::HandleSplineSetSwimSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_SWIM_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+}
+
+void MovementInterface::HandleSplineSetSwimBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_SWIM_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+}
+
+void MovementInterface::HandleSplineSetFlightSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED, read, &buffer);
+}
+
+void MovementInterface::HandleSplineSetFlightBackSpeed(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleSplineSetPitchRate(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_PITCH_RATE, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleSplineSetTurnRate(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DoExtraData(MOVEMENT_CODE_SPLINE_SET_TURN_RATE, read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+}
+
+void MovementInterface::HandleSplineSetWalkMode(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+}
+
+void MovementInterface::HandleSplineSetRunMode(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+}
+
+void MovementInterface::HandleSplineGravityEnable(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+}
+
+void MovementInterface::HandleSplineGravityDisable(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+}
+
+void MovementInterface::HandleSplineSetHover(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+}
+
+void MovementInterface::HandleSplineSetUnhover(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleSplineStartSwim(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+}
+
+void MovementInterface::HandleSplineStopSwim(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleSplineSetFlying(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+}
+
+void MovementInterface::HandleSplineUnsetFlying(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+}
+
+void MovementInterface::HandleSplineSetWaterWalk(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleSplineSetLandWalk(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+}
+
+void MovementInterface::HandleSplineSetFeatherFall(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+}
+
+void MovementInterface::HandleSplineSetNormalFall(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+}
+
+void MovementInterface::HandleSplineRoot(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleSplineUnroot(bool read, ByteBuffer &buffer)
+{
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+}
+
+void MovementInterface::HandleDismissControlledVehicle(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasOrientation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+void MovementInterface::HandleChangeSeatsOnControlledVehicle(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 0);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 1);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 2);
+    DO_BIT(read, buffer, hasOrientation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 3);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 4);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 5);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 6);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 7);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, hasSpline, true);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 8);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 9);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 10);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 11);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 12);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 13);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 14);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 15);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DoExtraData(MOVEMENT_CODE_CHANGE_SEATS_ON_CONTROLLED_VEHICLE, read, &buffer, 16);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+}
+
+void MovementInterface::HandleEmbeddedMovement(bool read, ByteBuffer &buffer)
+{
+    BUILD_BOOL_LIST();
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.z : m_serverLocation->z);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.y : m_serverLocation->y);
+    DO_BYTES(read, buffer, float, read ? m_clientLocation.x : m_serverLocation->x);
+    DO_BIT(read, buffer, hasFallData, true);
+    DO_BIT(read, buffer, hasTimestamp, false);
+    DO_BIT(read, buffer, hasOrientation, false);
+    read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
+    DO_BIT(read, buffer, hasSpline, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4], true);
+    DO_BIT(read, buffer, hasMovementFlags2, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5], true);
+    DO_BIT(read, buffer, hasSplineElevation, false);
+    DO_BIT(read, buffer, hasPitch, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7], true);
+    DO_BIT(read, buffer, hasTransportData, true);
+    DO_BIT(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2], true);
+    DO_BIT(read, buffer, hasMovementFlags, false);
+    DO_BIT(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportTime2);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4], true);
+    DO_COND_BIT(read, buffer, hasTransportData, hasTransportVehicleId);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1], true);
+    DO_BIT(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3], true);
+    if(hasMovementFlags2) HandleMovementFlags2(read, &buffer);
+    if(hasMovementFlags) HandleMovementFlags(read, &buffer);
+    DO_COND_BIT(read, buffer, hasFallData, hasFallDirection);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[1] : m_moverGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[4] : m_moverGuid[4]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[7] : m_moverGuid[7]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[3] : m_moverGuid[3]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[0] : m_moverGuid[0]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[2] : m_moverGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[5] : m_moverGuid[5]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientGuid[6] : m_moverGuid[6]);
+    DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.o : m_transportLocation.o);
+    DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[6] : m_transportGuid[6]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[5] : m_transportGuid[5]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.x : m_transportLocation.x);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[4] : m_transportGuid[4]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.z : m_transportLocation.z);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[2] : m_transportGuid[2]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[0] : m_transportGuid[0]);
+    DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[1] : m_transportGuid[1]);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[3] : m_transportGuid[3]);
+    DO_COND_BYTES(read, buffer, hasTransportData, float, read ? m_clientTransLocation.y : m_transportLocation.y);
+    DO_SEQ_BYTE(read, buffer, read ? m_clientTransGuid[7] : m_transportGuid[7]);
+    DO_COND_BYTES(read, buffer, hasOrientation, float, read ? m_clientLocation.o : m_serverLocation->o);
+    DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
+    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
+    DO_COND_BYTES(read, buffer, hasTimestamp, uint32, read ? m_clientTime : m_serverTime);
+    DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
+}
+
+#undef BUILD_BOOL_LIST
+#undef DO_BIT
+#undef DO_BYTES
+#undef DO_COND_BYTES
+#undef DO_SEQ_BYTE

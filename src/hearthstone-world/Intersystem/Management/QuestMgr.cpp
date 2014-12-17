@@ -1534,25 +1534,17 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
             if(!plr->HasSpell(qst->reward_spell))
             {
                 // "Teaching" effect
-                WorldPacket data(SMSG_SPELL_START, 42);
+                WorldPacket data(SMSG_SPELL_GO, 42);
                 data << qst_giver->GetGUID() << qst_giver->GetGUID();
-                data << uint32(7763);
                 data << uint8(0);
-                data << uint16(0);
-                data << uint32(0);
-                data << uint16(2);
-                data << plr->GetGUID();
-                plr->GetSession()->SendPacket( &data );
-
-                data.Initialize( SMSG_SPELL_GO );
-                data << qst_giver->GetGUID() << qst_giver->GetGUID();
-                data << uint32(7763);          // spellID
-                data << uint8(0) << uint8(1);   // flags
-                data << uint8(1);              // amount of targets
-                data << plr->GetGUID();      // target
+                data << uint32(7763);   // spellID
+                data << uint32(256);    // flags
+                data << uint32(0) << uint32(0);
+                data << uint8(1);       // amount of targets
+                data << plr->GetGUID(); // target
                 data << uint8(0);
                 data << uint16(2);
-                data << plr->GetGUID();
+                data << plr->GetGUID().asPacked();
                 plr->GetSession()->SendPacket( &data );
 
                 // Teach the spell

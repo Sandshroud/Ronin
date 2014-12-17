@@ -16,7 +16,7 @@ public:
 
     uint32 ConvertOpcodeForInput(uint32 opcode);
     uint32 ConvertOpcodeForOutput(uint32 opcode);
-    const char* GetOpcodeName(uint32 opcode);
+    const char *GetOpcodeName(uint32 opcode);
 
 private:
     void SetOpcodeData(uint32 opcode, char* name, uint32 newOpcode);

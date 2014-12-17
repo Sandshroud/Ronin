@@ -196,8 +196,7 @@ bool ChatHandler::HandleReviveCommand(const char* args, WorldSession *m_session)
     Player* SelectedPlayer = getSelectedChar(m_session, false);
     if(SelectedPlayer == NULL) 
     {
-        Creature* ctr = getSelectedCreature(m_session, false);
-        if(ctr != NULL)
+        if(getSelectedCreature(m_session, false))
         {
             HandleCreatureRespawnCommand(args, m_session);
             return true;
@@ -208,12 +207,7 @@ bool ChatHandler::HandleReviveCommand(const char* args, WorldSession *m_session)
     }
 
     BlueSystemMessage(m_session, "Reviving...");
-    if(SelectedPlayer->m_currentMovement == MOVE_ROOT)
-        SelectedPlayer->SetMovement(MOVE_UNROOT, 1);
-    if(SelectedPlayer->getDeathState())
-        SelectedPlayer->ResurrectPlayer();
-
-    SelectedPlayer->SetUInt32Value(UNIT_FIELD_HEALTH, SelectedPlayer->GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
+    SelectedPlayer->ResurrectPlayer(m_session->GetPlayer());
     return true;
 }
 
@@ -231,44 +225,11 @@ bool ChatHandler::HandleExploreCheatCommand(const char* args, WorldSession *m_se
         return true;
     }
 
-    char buf[256];
+    SystemMessage(m_session, (flag == 0 ? "%s has no more explored zones." : "%s has explored all zones now."), chr->GetName());
+    SystemMessage(m_session, (flag == 0 ? "%s has hidden all zones from you." : "%s has explored all zones for you."), chr->GetName());
 
-    // send message to user
-    if (flag != 0)
-    {
-        snprintf((char*)buf,256,"%s has explored all zones now.", chr->GetName());
-    }
-    else
-    {
-        snprintf((char*)buf,256,"%s has no more explored zones.", chr->GetName());
-    }
-    SystemMessage(m_session, buf);
-
-    // send message to player
-    if (flag != 0)
-    {
-        snprintf((char*)buf,256,"%s has explored all zones for you.",
-            m_session->GetPlayer()->GetName());
-    }
-    else
-    {
-        snprintf((char*)buf,256,"%s has hidden all zones from you.",
-            m_session->GetPlayer()->GetName());
-    }
-    SystemMessage(chr->GetSession(),  buf);
-
-    for (uint8 i = 0; i < 144; i++)
-    {
-        if (flag != 0)
-        {
-            chr->SetFlag(PLAYER_EXPLORED_ZONES_1+i,0xFFFFFFFF);
-        }
-        else
-        {
-            chr->SetFlag(PLAYER_EXPLORED_ZONES_1+i,0);
-        }
-    }
-
+    for (uint16 i = 0; i < 156; i++)
+        chr->SetFlag(PLAYER_EXPLORED_ZONES_1+i, flag ? 0xFFFFFFFF : 0);
     return true;
 }
 
@@ -299,8 +260,16 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
     if(BanTime < 1)
         return false;
 
-    Player* pPlayer = objmgr.GetPlayer(pCharacter, false);
-    if(pPlayer == NULL)
+    Player* pPlayer = NULL;
+    if(pPlayer = objmgr.GetPlayer(pCharacter, false))
+    {
+        SystemMessage(m_session, "Banning player '%s' ingame for '%s'.", pCharacter, pReason);
+        std::string sReason = pReason;
+        uint32 uBanTime = BanTime ? BanTime+(uint32)UNIXTIME : 1;
+        pPlayer->SetBanned(uBanTime, sReason);
+        pInfo = pPlayer->m_playerInfo;
+    }
+    else
     {
         pInfo = objmgr.GetPlayerInfoByName(pCharacter);
         if(pInfo == NULL)
@@ -314,14 +283,6 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
 
         CharacterDatabase.Execute("UPDATE characters SET banned = %u, banReason = '%s' WHERE guid = %u",
             BanTime ? BanTime+(uint32)UNIXTIME : 1, escaped_reason.c_str(), pInfo->guid);
-    }
-    else
-    {
-        SystemMessage(m_session, "Banning player '%s' ingame for '%s'.", pCharacter, pReason);
-        std::string sReason = pReason;
-        uint32 uBanTime = BanTime ? BanTime+(uint32)UNIXTIME : 1;
-        pPlayer->SetBanned(uBanTime, sReason);
-        pInfo = pPlayer->m_playerInfo;
     }
 
     SystemMessage(m_session, "This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "Never");
@@ -950,16 +911,12 @@ bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
 
             if(strcmp(args, "on") == 0)
             {
-                ctr->EnableFlight();
-                if(ctr->GetCreatureData())
-                    BlueSystemMessage(m_session, "Enabling fly mode on %s", ctr->GetCreatureData()->Name);
+                //ctr->EnableFlight();
                 return true;
             }
             else if(strcmp(args, "off") == 0)
             {
-                ctr->DisableFlight();
-                if(ctr->GetCreatureData())
-                    BlueSystemMessage(m_session, "Disabling fly mode on %s", ctr->GetCreatureData()->Name);
+                //ctr->DisableFlight();
                 return true;
             }
 
@@ -978,7 +935,7 @@ bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
 
     if(strcmp(args, "on") == 0)
     {
-        chr->EnableFlight();
+        //chr->EnableFlight();
         BlueSystemMessage(m_session, "Activated the fly cheat on %s.", chr->GetName());
         if(chr != m_session->GetPlayer())
             sWorld.LogGM(m_session, "enabled flying mode for %s", chr->GetName());
@@ -986,7 +943,7 @@ bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
     }
     else if(strcmp(args, "off") == 0)
     {
-        chr->DisableFlight();
+        //chr->DisableFlight();
         BlueSystemMessage(m_session, "Deactivated the fly cheat on %s.", chr->GetName());
         if( chr != m_session->GetPlayer() )
             sWorld.LogGM( m_session, "disabled flying mode for %s", chr->GetName() );
@@ -1032,13 +989,6 @@ bool ChatHandler::HandleFlySpeedCheatCommand(const char* args, WorldSession* m_s
 
     BlueSystemMessage(m_session, "Setting the fly speed of %s to %f.", plr->GetName(), Speed);
     GreenSystemMessage(plr->GetSession(), "%s set your fly speed to %f.", m_session->GetPlayer()->GetName(), Speed);
-
-    WorldPacket data(SMSG_MOVE_SET_FLIGHT_SPEED, 16);
-    data << plr->GetGUID().asPacked();
-    data << uint32(0) << Speed;
-    plr->SendMessageToSet(&data, true);
-
-    plr->m_flySpeed = Speed;
 
     return true;
 }
@@ -1756,7 +1706,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
     }
 
     //Are we on a transporter?
-    if(plr->GetTransportGuid() != 0 )
+    if(!plr->GetTransportGuid().empty())
     {
         BlueSystemMessage(m_session, "Spawning on transports is not allowed. Spawn has been denied");
         return true;

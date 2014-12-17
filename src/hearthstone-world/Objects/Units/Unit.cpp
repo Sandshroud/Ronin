@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface()
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(), m_movementInterface(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
 
@@ -17,12 +17,10 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_statValuesChanged = false;
     m_needStatRecalculation = true;
 
-    memset(&movement_info, 0, sizeof(MovementInfo));
     m_ignoreArmorPct = 0.0f;
     m_ignoreArmorPctMaceSpec = 0.0f;
     m_fearmodifiers = 0;
     m_state = 0;
-    m_special_state = 0;
     m_deathState = ALIVE;
     m_currentSpell = NULL;
     m_meleespell = 0;
@@ -48,10 +46,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
         m_ObjectSlots[x] = 0;
         PctPowerRegenModifier[x] = 1;
     }
-    m_speedModifier = 0;
-    m_slowdown = 0;
-    m_mountedspeedModifier=0;
-    m_maxSpeed = 0;
 
     m_pacified = 0;
     m_interruptRegen = 0;
@@ -127,7 +121,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 
     m_diminishActive = false;
     pLastSpell = 0;
-    m_flyspeedModifier = 0;
     bInvincible = false;
     m_redirectSpellPackets = NULL;
     can_parry = false;
@@ -169,185 +162,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 Unit::~Unit()
 {
 
-}
-
-uint32 Unit::GetMechanicDispels(uint8 mechanic)
-{
-    uint32 count = m_AuraInterface.GetModMapByModType(SPELL_AURA_ADD_CREATURE_IMMUNITY).size();
-    if( mechanic == 16 || mechanic == 19 || mechanic == 25 || mechanic == 31 ) count = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_IMMUNITY);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == mechanic) count++;
-    if(mechanic == MECHANIC_POLYMORPHED && GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID))
-        count++;
-    return count;
-}
-
-float Unit::GetMechanicResistPCT(uint8 mechanic)
-{
-    float resist = 0.0f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_RESISTANCE);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == mechanic)
-            resist += itr->second->m_amount;
-    return resist;
-}
-
-float Unit::GetDamageTakenByMechPCTMod(uint8 mechanic)
-{
-    float resist = 0.0f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == mechanic)
-            resist += float(itr->second->m_amount)/100.f;
-    return resist;
-}
-
-float Unit::GetMechanicDurationPctMod(uint8 mechanic)
-{
-    float resist = 1.f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == mechanic) resist *= float(itr->second->m_amount)/100.f;
-    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-    {
-        if(itr->second->m_miscValue[0] == mechanic)
-        {
-            float val = float(itr->second->m_amount)/100.f;
-            if(resist < val)
-                resist = val;
-        }
-    }
-    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-    {
-        if(itr->second->m_miscValue[0] == mechanic)
-        {
-            float val = float(itr->second->m_amount)/100.f;
-            if(resist < val)
-                resist = val;
-        }
-    }
-    return resist;
-}
-
-uint32 Unit::GetDispelImmunity(uint8 dispel)
-{
-    uint32 count = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_DISPEL_IMMUNITY);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == dispel) count++;
-    return count;
-}
-
-float Unit::GetDispelResistancesPCT(uint8 dispel)
-{
-    float resist = 0.0f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DEBUFF_RESISTANCE);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] == dispel)
-            resist += itr->second->m_amount;
-    return resist;
-}
-
-int32 Unit::GetCreatureRangedAttackPowerMod(uint32 creatureType)
-{
-    if(creatureType == 0)
-        return 0;
-
-    int32 mod = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] & (1<<creatureType-1))
-            mod += itr->second->m_amount;
-    return mod;
-}
-
-int32 Unit::GetCreatureAttackPowerMod(uint32 creatureType)
-{
-    if(creatureType == 0)
-        return 0;
-
-    int32 mod = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_ATTACK_POWER);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if(itr->second->m_miscValue[0] & (1<<creatureType-1))
-            mod += itr->second->m_amount;
-    return mod;
-}
-
-int32 Unit::GetRangedDamageTakenMod()
-{
-    int32 mod = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        mod += itr->second->m_amount;
-    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        mod *= itr->second->m_amount;
-    return mod;
-}
-
-float Unit::GetCritMeleeDamageTakenModPct(uint32 school)
-{
-    float mod = 0.f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if (itr->second->m_miscValue[0] & (1<<school))
-            mod += itr->second->m_amount;
-    return mod;
-}
-
-float Unit::GetCritRangedDamageTakenModPct(uint32 school)
-{
-    float mod = 0.f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if (itr->second->m_miscValue[0] & (1<<school))
-            mod += itr->second->m_amount;
-    return mod;
-}
-
-int32 Unit::GetDamageTakenMod(uint32 school)
-{
-    int32 mod = 0;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_TAKEN);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if (itr->second->m_miscValue[0] & (1<<school))
-            mod += itr->second->m_amount;
-    if(school == 0)
-    {
-        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN);
-        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-            mod += itr->second->m_amount;
-    }
-    return mod;
-}
-
-float Unit::GetDamageTakenModPct(uint32 school)
-{
-    float mod = 1.f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        if (itr->second->m_miscValue[0] & (1<<school))
-            mod *= float(itr->second->m_amount)/100.f;
-    if(school == 0)
-    {
-        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT);
-        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-            mod += itr->second->m_amount;
-    }
-    return mod;
-}
-
-float Unit::GetAreaOfEffectDamageMod()
-{
-    float mod = 1.f;
-    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE);
-    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
-        mod *= float(itr->second->m_amount)/100.f;
-    return mod;
 }
 
 void Unit::Init()
@@ -406,18 +220,32 @@ void Unit::Destruct()
     WorldObject::Destruct();
 }
 
-void Unit::SetDiminishTimer(uint32 index)
+void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
 {
-    assert(index < DIMINISH_GROUPS);
+    m_movementInterface.WriteObjectUpdate(bits, bytes);
+}
 
-    m_diminishActive = true;
-    m_diminishTimer[index] = 15000;
+void Unit::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+{
+    WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
+    bits->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
+    bits->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
+    bytes->WriteByteSeq(targetGuid[4]);
+    bytes->WriteByteSeq(targetGuid[0]);
+    bytes->WriteByteSeq(targetGuid[3]);
+    bytes->WriteByteSeq(targetGuid[5]);
+    bytes->WriteByteSeq(targetGuid[7]);
+    bytes->WriteByteSeq(targetGuid[6]);
+    bytes->WriteByteSeq(targetGuid[2]);
+    bytes->WriteByteSeq(targetGuid[1]);
 }
 
 void Unit::Update( uint32 p_time )
 {
     _UpdateSpells( p_time );
     UpdateFieldValues();
+    m_AuraInterface.Update(p_time);
+    m_movementInterface.Update(p_time);
 
     if(!isDead())
     {
@@ -1139,6 +967,185 @@ float Unit::GetHealingDonePctMod()
     return result;
 }
 
+uint32 Unit::GetMechanicDispels(uint8 mechanic)
+{
+    uint32 count = m_AuraInterface.GetModMapByModType(SPELL_AURA_ADD_CREATURE_IMMUNITY).size();
+    if( mechanic == 16 || mechanic == 19 || mechanic == 25 || mechanic == 31 ) count = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_IMMUNITY);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == mechanic) count++;
+    if(mechanic == MECHANIC_POLYMORPHED && GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID))
+        count++;
+    return count;
+}
+
+float Unit::GetMechanicResistPCT(uint8 mechanic)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_RESISTANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == mechanic)
+            resist += itr->second->m_amount;
+    return resist;
+}
+
+float Unit::GetDamageTakenByMechPCTMod(uint8 mechanic)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == mechanic)
+            resist += float(itr->second->m_amount)/100.f;
+    return resist;
+}
+
+float Unit::GetMechanicDurationPctMod(uint8 mechanic)
+{
+    float resist = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == mechanic) resist *= float(itr->second->m_amount)/100.f;
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+    {
+        if(itr->second->m_miscValue[0] == mechanic)
+        {
+            float val = float(itr->second->m_amount)/100.f;
+            if(resist < val)
+                resist = val;
+        }
+    }
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+    {
+        if(itr->second->m_miscValue[0] == mechanic)
+        {
+            float val = float(itr->second->m_amount)/100.f;
+            if(resist < val)
+                resist = val;
+        }
+    }
+    return resist;
+}
+
+uint32 Unit::GetDispelImmunity(uint8 dispel)
+{
+    uint32 count = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_DISPEL_IMMUNITY);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == dispel) count++;
+    return count;
+}
+
+float Unit::GetDispelResistancesPCT(uint8 dispel)
+{
+    float resist = 0.0f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DEBUFF_RESISTANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] == dispel)
+            resist += itr->second->m_amount;
+    return resist;
+}
+
+int32 Unit::GetCreatureRangedAttackPowerMod(uint32 creatureType)
+{
+    if(creatureType == 0)
+        return 0;
+
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] & (1<<creatureType-1))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetCreatureAttackPowerMod(uint32 creatureType)
+{
+    if(creatureType == 0)
+        return 0;
+
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_ATTACK_POWER);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if(itr->second->m_miscValue[0] & (1<<creatureType-1))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetRangedDamageTakenMod()
+{
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod += itr->second->m_amount;
+    modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod *= itr->second->m_amount;
+    return mod;
+}
+
+float Unit::GetCritMeleeDamageTakenModPct(uint32 school)
+{
+    float mod = 0.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue[0] & (1<<school))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+float Unit::GetCritRangedDamageTakenModPct(uint32 school)
+{
+    float mod = 0.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue[0] & (1<<school))
+            mod += itr->second->m_amount;
+    return mod;
+}
+
+int32 Unit::GetDamageTakenMod(uint32 school)
+{
+    int32 mod = 0;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue[0] & (1<<school))
+            mod += itr->second->m_amount;
+    if(school == 0)
+    {
+        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN);
+        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+            mod += itr->second->m_amount;
+    }
+    return mod;
+}
+
+float Unit::GetDamageTakenModPct(uint32 school)
+{
+    float mod = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        if (itr->second->m_miscValue[0] & (1<<school))
+            mod *= float(itr->second->m_amount)/100.f;
+    if(school == 0)
+    {
+        modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT);
+        for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+            mod += itr->second->m_amount;
+    }
+    return mod;
+}
+
+float Unit::GetAreaOfEffectDamageMod()
+{
+    float mod = 1.f;
+    AuraInterface::modifierMap modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE);
+    for(AuraInterface::modifierMap::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+        mod *= float(itr->second->m_amount)/100.f;
+    return mod;
+}
+
 bool Unit::canReachWithAttack(Unit* pVictim)
 {
     if(GetMapId() != pVictim->GetMapId())
@@ -1173,19 +1180,20 @@ bool Unit::canReachWithAttack(Unit* pVictim)
     {
         // latency compensation!!
         // figure out how much extra distance we need to allow for based on our movespeed and latency.
-        if(pVictim->IsPlayer() && castPtr<Player>(pVictim)->m_isMoving)
+        MovementInterface *move;
+        if((move = pVictim->GetMovementInterface()) && move->isMoving())
         {
             // this only applies to PvP.
-            uint32 lat = castPtr<Player>(pVictim)->GetSession() ? castPtr<Player>(pVictim)->GetSession()->GetLatency() : 0;
+            uint32 lat = pVictim->IsPlayer() ? castPtr<Player>(pVictim)->GetSession()->GetLatency() : 0;
 
             // if we're over 500 get fucked anyway.. your gonna lag! and this stops cheaters too
             lat = (lat > 500) ? 500 : lat;
 
             // calculate the added distance
-            attackreach += m_runSpeed * 0.001f * lat;
+            attackreach += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
         }
 
-        if(castPtr<Player>(this)->m_isMoving)
+        if((move = GetMovementInterface()) && move->isMoving())
         {
             // this only applies to PvP.
             uint32 lat = castPtr<Player>(this)->GetSession() ? castPtr<Player>(this)->GetSession()->GetLatency() : 0;
@@ -1194,10 +1202,18 @@ bool Unit::canReachWithAttack(Unit* pVictim)
             lat = (lat > 500) ? 500 : lat;
 
             // calculate the added distance
-            attackreach += m_runSpeed * 0.001f * lat;
+            attackreach += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
         }
     }
     return (distance <= attackreach);
+}
+
+void Unit::SetDiminishTimer(uint32 index)
+{
+    assert(index < DIMINISH_GROUPS);
+
+    m_diminishActive = true;
+    m_diminishTimer[index] = 15000;
 }
 
 void Unit::setLevel(uint32 level)
@@ -3209,51 +3225,6 @@ void Unit::SetStandState(uint8 standstate)
         castPtr<Player>(this)->GetSession()->OutPacket( SMSG_STANDSTATE_UPDATE, 1, &standstate );
 }
 
-void Unit::UpdateSpeed()
-{
-    if(GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) == 0)
-        m_runSpeed = m_base_runSpeed*(1.0f + ((float)m_speedModifier)/100.0f);
-    else
-    {
-        m_runSpeed = m_base_runSpeed*(1.0f + ((float)m_mountedspeedModifier)/100.0f);
-        m_runSpeed += (m_speedModifier < 0) ? (m_base_runSpeed*((float)m_speedModifier)/100.0f) : 0;
-    }
-
-    m_flySpeed = PLAYER_NORMAL_FLIGHT_SPEED*(1.0f + ((float)m_flyspeedModifier)/100.0f);
-
-    // Limit speed due to effects such as http://www.wowhead.com/?spell=31896 [Judgement of Justice]
-    if( m_maxSpeed && m_runSpeed > m_maxSpeed )
-            m_runSpeed = m_maxSpeed;
-
-    if(IsVehicle() && castPtr<Vehicle>(this)->GetControllingUnit())
-    {
-        Unit* pUnit = castPtr<Vehicle>(this)->GetControllingUnit();
-        pUnit->m_runSpeed = m_runSpeed;
-        pUnit->m_flySpeed = m_flySpeed;
-
-        if(pUnit->IsPlayer())
-        {
-            if(castPtr<Player>(pUnit)->m_changingMaps)
-                castPtr<Player>(pUnit)->resend_speed = true;
-            else
-            {
-                castPtr<Player>(pUnit)->SetPlayerSpeed(RUN, m_runSpeed);
-                castPtr<Player>(pUnit)->SetPlayerSpeed(FLY, m_flySpeed);
-            }
-        }
-    }
-
-    SetSpeed(WALK, m_walkSpeed);
-    SetSpeed(RUN, m_runSpeed);
-    SetSpeed(FLY, m_flySpeed);
-
-    if(IsPlayer())
-    {
-        if(castPtr<Player>(this)->m_changingMaps)
-            castPtr<Player>(this)->resend_speed = true;
-    }
-}
-
 void Unit::EventSummonPetExpire()
 {
     /*if(summonPet)
@@ -3291,12 +3262,9 @@ void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forced
     {
         targets.m_targetMask |= TARGET_FLAG_UNIT;
         targets.m_unitTarget = Target->GetGUID();
-    }
-    else
-        newSpell->GenerateTargets(&targets);
+    } else newSpell->GenerateTargets(&targets);
     if(forcedCastTime)
         newSpell->m_ForcedCastTime = forcedCastTime;
-
     newSpell->prepare(&targets);
 }
 
@@ -3315,8 +3283,7 @@ void Unit::CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered, uint32 f
         return;
 
     SpellCastTargets targets(targetGuid);
-    Spell* newSpell = NULL;
-    newSpell = (new Spell(castPtr<Unit>(this), Sp, triggered, NULL));
+    Spell* newSpell = new Spell(castPtr<Unit>(this), Sp, triggered, NULL);
     if(forcedCastTime)
         newSpell->m_ForcedCastTime = forcedCastTime;
 
@@ -3358,31 +3325,6 @@ void Unit::PlaySpellVisual(uint64 target, uint32 spellVisual)
     WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 12);
     data << target << spellVisual;
     SendMessageToSet(&data, true);
-}
-
-void Unit::Root()
-{
-    m_special_state |= UNIT_STATE_ROOT;
-
-    if(GetTypeId() == TYPEID_PLAYER)
-        castPtr<Player>(this)->SetMovement(MOVE_ROOT, 1);
-    else
-    {
-        m_aiInterface->setCanMove(false);
-        m_aiInterface->StopMovement(1);
-    }
-}
-
-void Unit::UnRoot()
-{
-    m_special_state &= ~UNIT_STATE_ROOT;
-
-    if(GetTypeId() == TYPEID_PLAYER)
-        castPtr<Player>(this)->SetMovement(MOVE_UNROOT, 5);
-    else
-    {
-        m_aiInterface->setCanMove(true);
-    }
 }
 
 void Unit::OnPushToWorld()
@@ -3439,178 +3381,11 @@ void Unit::RemoveFromWorld(bool free_guid)
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
     WorldObject::SetPosition(newX, newY, newZ, newOrientation);
-    movement_info.SetPosition(newX, newY, newZ, newOrientation);
-}
-
-void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
-{
-    MovementInfo *moveInfo = GetMovementInfo();
-    bits->WriteBit(moveInfo->movementFlags == 0);
-    bits->WriteBit(G3D::fuzzyEq(GetOrientation(), 0.0f));                   // Has Orientation
-    bits->WriteBitString(3, m_objGuid[7], m_objGuid[3], m_objGuid[2]);
-    if (moveInfo->movementFlags) bits->WriteBits(moveInfo->movementFlags, 30);
-
-    bits->WriteBit(moveInfo->HasSplineInfo() && IsPlayer());
-    bits->WriteBit(!moveInfo->HasPitchFlags());
-    bits->WriteBit(moveInfo->HasSplineInfo());
-    bits->WriteBit(moveInfo->HasFallData());
-    bits->WriteBit(!moveInfo->HasElevatedSpline());
-    bits->WriteBit(m_objGuid[5]);
-    bits->WriteBit(!moveInfo->transGuid.empty());
-    bits->WriteBit(false);
-
-    bytes->WriteByteSeq(m_objGuid[4]);
-    *bytes << m_backWalkSpeed;   // backwards run speed
-    if (moveInfo->HasFallData())
-    {
-        if (moveInfo->movementFlags & MOVEFLAG_FALLING)
-        {
-            *bytes << float(moveInfo->j_vel);
-            *bytes << float(moveInfo->j_sin);
-            *bytes << float(moveInfo->j_cos);
-        }
-
-        *bytes << uint32(moveInfo->fallTime);
-        *bytes << float(moveInfo->j_speed);
-    }
-    *bytes << m_backSwimSpeed;   // backwards swim speed
-    if(moveInfo->HasElevatedSpline())
-        *bytes << moveInfo->splineElevation;
-    if(moveInfo->HasSplineInfo());// Write spline data
-    *bytes << float(GetPositionZ());
-    bytes->WriteByteSeq(m_objGuid[5]);
-
-    if (moveInfo->transGuid)
-    {
-        bits->WriteBit(moveInfo->transGuid[1]);
-        bits->WriteBit(moveInfo->transTime2); // Transport time 2
-        bits->WriteBit(moveInfo->transGuid[4]);
-        bits->WriteBit(moveInfo->transGuid[0]);
-        bits->WriteBit(moveInfo->transGuid[6]);
-        bits->WriteBit(false); // Transport time 3
-        bits->WriteBit(moveInfo->transGuid[7]);
-        bits->WriteBit(moveInfo->transGuid[5]);
-        bits->WriteBit(moveInfo->transGuid[3]);
-        bits->WriteBit(moveInfo->transGuid[2]);
-
-        bytes->WriteByteSeq(moveInfo->transGuid[5]);
-        bytes->WriteByteSeq(moveInfo->transGuid[7]);
-        *bytes << uint32(moveInfo->transTime);
-        *bytes << float(moveInfo->GetTPositionO());
-        if (moveInfo->transTime2) *bytes << uint32(moveInfo->transTime2);
-        *bytes << float(moveInfo->GetTPositionY());
-        *bytes << float(moveInfo->GetTPositionX());
-        bytes->WriteByteSeq(moveInfo->transGuid[3]);
-        *bytes << float(moveInfo->GetTPositionZ());
-        bytes->WriteByteSeq(moveInfo->transGuid[0]);
-        if (false) *bytes << uint32(moveInfo->transTime3);
-        *bytes << int8(moveInfo->transSeat);
-        bytes->WriteByteSeq(moveInfo->transGuid[1]);
-        bytes->WriteByteSeq(moveInfo->transGuid[6]);
-        bytes->WriteByteSeq(moveInfo->transGuid[2]);
-        bytes->WriteByteSeq(moveInfo->transGuid[4]);
-    }
-    bits->WriteBit(m_objGuid[4]);
-    // Write spline bits
-    if(moveInfo->HasSplineInfo()); // Write spline bits
-    bits->WriteBit(m_objGuid[6]);
-    if (moveInfo->HasFallData()) bits->WriteBit((moveInfo->movementFlags & MOVEFLAG_FALLING));
-    bits->WriteBit(m_objGuid[0]);
-    bits->WriteBit(m_objGuid[1]);
-    bits->WriteBit(false);
-    bits->WriteBit(moveInfo->movementFlags2 == 0);
-    if (moveInfo->movementFlags2)
-        bits->WriteBits(moveInfo->movementFlags2, 12);
-
-    *bytes << float(GetPositionX());
-    *bytes << m_pitchRate;       // pitch rate
-    bytes->WriteByteSeq(m_objGuid[3]);
-    bytes->WriteByteSeq(m_objGuid[0]);
-    *bytes << m_swimSpeed;       // swim speed
-    *bytes << float(GetPositionY());
-    bytes->WriteByteSeq(m_objGuid[7]);
-    bytes->WriteByteSeq(m_objGuid[1]);
-    bytes->WriteByteSeq(m_objGuid[2]);
-    *bytes << m_walkSpeed;       // walk speed
-    *bytes << uint32(getMSTime());
-    *bytes << m_turnRate;        // turn rate
-    bytes->WriteByteSeq(m_objGuid[6]);
-    *bytes << m_flySpeed;        // fly speed
-    if(!G3D::fuzzyEq(GetOrientation(), 0.0f))
-        *bytes << GetOrientation();
-    *bytes << m_runSpeed;        // run speed
-    if(moveInfo->HasPitchFlags())
-        *bytes << moveInfo->pitch;
-    *bytes << m_backFlySpeed;    // back fly speed
 }
 
 bool Unit::IsPoisoned()
 {
     return m_AuraInterface.IsPoisoned();
-}
-
-void Unit::EnableFlight()
-{
-    WorldPacket data(SMSG_MOVE_SET_CAN_FLY, 12);
-    data << GetGUID();
-    data << uint32(2);
-    SendMessageToSet(&data, true);
-
-    if(IsCreature()) // give them a "flying" animation so they don't just airwalk lul
-    {
-        SetByteFlag(UNIT_FIELD_BYTES_1, 3, 0x02);
-        movement_info.movementFlags = (0x1000000 | 0x2000000);
-    }
-
-    if( IsPlayer() )
-    {
-        castPtr<Player>(this)->FlyCheat = true;
-        castPtr<Player>(this)->GetSession()->m_isFalling = false;
-        castPtr<Player>(this)->GetSession()->m_isJumping = false;
-        castPtr<Player>(this)->GetSession()->m_isKnockedback = false;
-    }
-}
-
-void Unit::DisableFlight()
-{
-    WorldPacket data(SMSG_MOVE_UNSET_CAN_FLY, 13);
-    data << GetGUID();
-    data << uint32(5);
-    SendMessageToSet(&data, true);
-
-    if(IsCreature()) // Remove their "flying"
-    {
-        RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, 0x03);
-        movement_info.movementFlags = (MONSTER_MOVE_FLAG_STAND);
-    }
-
-    if( IsPlayer() )
-    {
-        castPtr<Player>(this)->FlyCheat = false;
-        castPtr<Player>(this)->z_axisposition = 0.0f;
-    }
-}
-
-void Unit::EventRegainFlight()
-{
-    if(!IsPlayer())
-    {
-        if(sEventMgr.HasEvent(this,EVENT_REGAIN_FLIGHT))
-            sEventMgr.RemoveEvents(this,EVENT_REGAIN_FLIGHT);
-        return;
-    }
-    Player * plr = castPtr<Player>(this);
-
-    if(!plr->m_FlyingAura)
-    {
-        if(sEventMgr.HasEvent(this,EVENT_REGAIN_FLIGHT))
-            sEventMgr.RemoveEvents(this,EVENT_REGAIN_FLIGHT);
-        return;
-    }
-
-    EnableFlight();
-    if(sEventMgr.HasEvent(this,EVENT_REGAIN_FLIGHT))
-        sEventMgr.RemoveEvents(this,EVENT_REGAIN_FLIGHT);
 }
 
 bool Unit::IsDazed()
@@ -3767,25 +3542,6 @@ int32 Unit::CalculateRangedAttackPower()
     if(totalap >= 0)
         return float2int32(totalap);
     return 0;
-}
-
-bool Unit::GetSpeedDecrease()
-{
-    int32 before=m_speedModifier;
-    m_speedModifier -= m_slowdown;
-    m_slowdown = 0;
-    std::map< uint32, int32 >::iterator itr = speedReductionMap.begin();
-    for(; itr != speedReductionMap.end(); itr++)
-        m_slowdown = (int32)std::min( m_slowdown, itr->second );
-
-    if(m_slowdown<-100)
-        m_slowdown = 100; //do not walk backwards !
-
-    m_speedModifier += m_slowdown;
-    //save bandwidth :P
-    if(m_speedModifier!=before)
-        return true;
-    return false;
 }
 
 void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
@@ -4463,19 +4219,34 @@ void Unit::SetTriggerStunOrImmobilize(uint32 newtrigger,uint32 new_chance)
 
 void Unit::SendPowerUpdate(EUnitFields powerField)
 {
-    int8 pIndex = uint8(uint32((powerField == UNIT_END ? GetPowerFieldForType(getPowerType()) : powerField))-UNIT_FIELD_POWERS);
-    if(pIndex < 0)
-        return;
-
-    uint32 updateCount = 1;
     WorldPacket data(SMSG_POWER_UPDATE, 20);
-    data << GetGUID();
-    data << uint32(updateCount); // iteration count
-    for (int32 i = 0; i < updateCount; ++i)
+    data << GetGUID().asPacked();
+    data << uint32(1);
+    if(powerField == UNIT_END)
     {
-        data << uint8(pIndex);
-        data << GetUInt32Value(UNIT_FIELD_POWERS+pIndex);
+        uint32 count = 0;
+        size_t pos = data.wpos()-4;
+        for(uint8 i = POWER_TYPE_MANA; i < POWER_TYPE_MAX; i++)
+        {
+            EUnitFields field = GetPowerFieldForType(i);
+            if(field == UNIT_END)
+                continue;
+
+            data << uint8(i);
+            data << GetUInt32Value(field);
+            count++;
+        }
+        if(count == 0)
+            return;
+
+        data.put<uint32>(pos, count);
     }
+    else
+    {
+        data << uint8(powerField-UNIT_FIELD_POWERS);
+        data << GetUInt32Value(powerField);
+    }
+
     SendMessageToSet(&data, true);
 }
 
@@ -4817,6 +4588,9 @@ void Unit::Dismount()
             plr->SetUInt32Value( UNIT_FIELD_DISPLAYID, plr->GetUInt32Value( UNIT_FIELD_NATIVEDISPLAYID ) );
         }
     }
+
+    m_movementInterface.OnDismount();
+
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI );
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
@@ -4844,62 +4618,7 @@ void Unit::ResetFaction()
 
 void Unit::knockback(int32 basepoint, uint32 miscvalue, bool disengage )
 {
-    float dx, dy;
-    float value1 = float( basepoint );
-    float value2 = float( miscvalue );
-    float proportion = 0.f, multiplier = 1.f;
-    if( disengage )
-        multiplier = -1.0f;
-    if( value2 != 0 )
-        proportion = value1 / value2;
-    if(proportion)
-    {
-        value1 = value1 / (10.f * proportion);
-        value2 = value2 / 10.f * proportion;
-    }
-    else
-    {
-        value2 = value1 / 10.f;
-        value1 = 0.1f;
-    }
 
-    dx = sinf( GetOrientation() );
-    dy = cosf( GetOrientation() );
-
-    if( IsCreature() )
-    {
-        float x = GetPositionX() + (value1 * dx);
-        float y = GetPositionY() + (value1 * dy);
-        float z = GetPositionZ();
-        float dist = CalcDistance(x, y, z);
-        uint32 movetime = GetAIInterface()->GetMovementTime(dist);
-        GetAIInterface()->SendMoveToPacket( x, y, z, 0.0f, movetime, MONSTER_MOVE_FLAG_JUMP );
-        SetPosition(x, y, z, 0.0f);
-        GetAIInterface()->StopMovement(movetime,false);
-
-        if (GetCurrentSpell() != NULL)
-            GetCurrentSpell()->cancel();
-    }
-    else if(IsPlayer())
-    {
-        WorldPacket data(SMSG_MOVE_KNOCK_BACK, 50);
-        data << GetGUID();
-        data << uint32( getMSTime() );
-        data << float( multiplier * dy );
-        data << float( multiplier * dx );
-        data << float( value1 );
-        data << float( -value2 );
-        Player *plr = castPtr<Player>(this);
-        plr->GetSession()->SendPacket( &data );
-        plr->ResetHeartbeatCoords();
-        plr->DelaySpeedHack(5000);
-        plr->GetSession()->m_isKnockedback = true;
-        if(plr->m_FlyingAura)
-        {
-            plr->DisableFlight();
-            sEventMgr.AddEvent( this, &Unit::EventRegainFlight, EVENT_REGAIN_FLIGHT, 5000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        }
-    }
 }
 
 void Unit::Teleport(float x, float y, float z, float o)
@@ -4935,92 +4654,6 @@ void Unit::EventResetRedirectThreat()
     printf("TODO: ThreatRedirect\n");
 }
 
-void Unit::SetSpeed(uint8 SpeedType, float value)
-{
-    if( value < 0.1f )
-        value = 0.1f;
-
-    WorldPacket data(SMSG_MOVE_SET_RUN_SPEED, 400);
-
-    if( SpeedType != SWIMBACK )
-    {
-        data << GetGUID();
-        data << uint32(0);
-        if( SpeedType == RUN )
-            data << uint8(1);
-
-        data << value;
-    }
-    else
-    {
-        data << GetGUID();
-        data << uint32(0);
-        data << uint8(0);
-        data << uint32(getMSTime());
-        data << m_position.x;
-        data << m_position.y;
-        data << m_position.z;
-        data << m_position.o;
-        data << uint32(0);
-        data << value;
-    }
-
-    switch(SpeedType)
-    {
-    case RUN:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_RUN_SPEED);
-            m_runSpeed = value;
-        }break;
-    case RUNBACK:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_RUN_BACK_SPEED);
-            m_backWalkSpeed = value;
-        }break;
-    case SWIM:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_SWIM_SPEED);
-            m_swimSpeed = value;
-        }break;
-    case SWIMBACK:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_SWIM_BACK_SPEED);
-            m_backSwimSpeed = value;
-        }break;
-    case TURN:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_TURN_RATE);
-            m_turnRate = value;
-        }break;
-    case FLY:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_SPEED);
-            m_flySpeed = value;
-        }break;
-    case FLYBACK:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_FLIGHT_BACK_SPEED);
-            m_backFlySpeed = value;
-        }break;
-    case PITCH_RATE:
-        {
-            data.SetOpcode(SMSG_MOVE_SET_PITCH_RATE);
-            m_pitchRate = value;
-        }break;
-    default:
-        return;
-    }
-    SendMessageToSet(&data , true);
-}
-
-void Unit::SendHeartBeatMsg( bool toself )
-{
-    WorldPacket data(MSG_MOVE_HEARTBEAT, 64);
-    data << GetGUID();
-    movement_info.write(data);
-    SendMessageToSet(&data, toself);
-}
-
 uint32 Unit::GetCreatureType()
 {
     if(IsCreature())
@@ -5028,19 +4661,16 @@ uint32 Unit::GetCreatureType()
         CreatureData * ci = castPtr<Creature>(this)->GetCreatureData();
         if(ci && ci->Type)
             return ci->Type;
-        else
-            return 0;
+        return 0;
     }
     if(IsPlayer())
     {
         Player *plr = castPtr<Player>(this);
         if(plr->GetShapeShift())
         {
-            SpellShapeshiftFormEntry* ssf = dbcSpellShapeshiftForm.LookupEntry(plr->GetShapeShift());
-            if(ssf && ssf->creatureType)
+            if(SpellShapeshiftFormEntry* ssf = dbcSpellShapeshiftForm.LookupEntry(plr->GetShapeShift()))
                 return ssf->creatureType;
-            else
-                return 0;
+            return 0;
         }
     }
     return 0;

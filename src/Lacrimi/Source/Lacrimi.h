@@ -17,8 +17,6 @@
 #ifndef LACRIMI_H
 #define LACRIMI_H
 
-class LuaEngine;
-class LuaEngineMgr;
 class CleanupComponent;
 
 #define BuildEmptyMenu(textid) GossipMenu *Menu; \
@@ -241,19 +239,10 @@ public: // Stat Dumper
     void FillOnlineTime(uint32 Time, char * Dest);
 
     char Filename[MAX_PATH];
-
-public: // LuaEngine
-    LuaEngine* L_LuaEngine;
-    LuaEngineMgr* L_LuaEngineMgr;
-    bool LuaEngineIsStarting;
 };
 
 #define sLacrimi (*sWorld.LacrimiPtr)
 
 #define LacrimiDatabase (*(sWorld.LacrimiPtr->GetLDB()))
-
-#define g_engine (sLacrimi.L_LuaEngine)
-#define g_luaMgr (*sLacrimi.L_LuaEngineMgr)
-#define LuaEvent (g_luaMgr.LuaEventMgr)
 
 #endif

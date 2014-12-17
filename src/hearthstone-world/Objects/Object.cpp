@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(), m_notifyFlags(0), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(), m_notifyFlags(UF_FLAG_DYNAMIC), m_objectUpdated(false)
 {
     m_updateMask.SetCount(m_valuesCount);
     m_uint32Values = new uint32[m_valuesCount];
@@ -210,16 +210,32 @@ void Object::LoadValues(const char* data)
     } while(pos != std::string::npos);
 }
 
-void Object::_SetUpdateBits(UpdateMask *updateMask, Player* target) const
+bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
 {
-    *updateMask = m_updateMask;
-}
-
-void Object::_SetCreateBits(UpdateMask *updateMask, Player* target) const
-{
-    for(uint32 i = 0; i < m_valuesCount; i++)
-        if(m_uint32Values[i] != 0)
-            updateMask->SetBit(i);
+    bool res = false;
+    uint16 typeMask = GetTypeFlags();
+    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
+    for(uint8 f = 0; f < 10; f++)
+    {
+        if(typeMask & 1<<f)
+        {
+            GetUpdateFieldData(f, flags, fLen);
+            for(uint32 i = 0; i < fLen; i++, offset++)
+            {
+                if(!m_updateMask.GetBit(offset))
+                    continue;
+                uint32 value = m_uint32Values[offset];
+                if(value == 0)
+                    continue;
+                if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
+                {
+                    res = true;
+                    updateMask->SetBit(offset);
+                }
+            }
+        }
+    }
+    return res;
 }
 
 uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
@@ -267,15 +283,13 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     }
 
     // build our actual update
-    *data << updatetype;
+    *data << uint8(updatetype);
     *data << m_objGuid.asPacked();
-    *data << GetTypeId();
-
+    *data << uint8(GetTypeId());
+    // 
     _BuildMovementUpdate(data, updateFlags, target);
-
     // this will cache automatically if needed
     _BuildCreateValuesUpdate( data, target );
-
     // update count: 1 ;)
     return 1;
 }
@@ -288,31 +302,30 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     ByteBuffer fields;
     UpdateMask mask(m_valuesCount);
     uint16 typeMask = GetTypeFlags();
-    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen;
+    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
         if(typeMask & 1<<f)
         {
             GetUpdateFieldData(f, flags, fLen);
-            for(uint32 i = 0; i < fLen; i++)
+            for(uint32 i = 0; i < fLen; i++, offset++)
             {
-                if(uint32 value = m_uint32Values[offset+i])
+                if(uint32 value = m_uint32Values[offset])
                 {
                     if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
                     {
-                        mask.SetBit(i);
+                        mask.SetBit(offset);
                         fields << value;
                     }
                 }
             }
-            offset += fLen;
         }
     }
 
     uint32 byteCount = mask.GetUpdateBlockCount();
     *data << uint8(byteCount);
     data->append( mask.GetMask(), byteCount*4 );
-    data->append(fields);
+    *data << fields;
 }
 
 uint32 Object::GetUpdateFlag(Player *target)
@@ -358,11 +371,11 @@ uint32 Object::GetUpdateFlag(Player *target)
 
 void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
 {
-    uint8 typeId = GetTypeId();
-    switch (typeId)
+    switch (type)
     {
-    case TYPEID_CONTAINER: { length = CONTAINER_LENGTH; flags = ContainerUpdateFieldFlags; }break;
+    case TYPEID_OBJECT: { length = OBJECT_LENGTH; flags = ObjectUpdateFieldFlags; }break;
     case TYPEID_ITEM: { length = ITEM_LENGTH; flags = ItemUpdateFieldFlags; }break;
+    case TYPEID_CONTAINER: { length = CONTAINER_LENGTH; flags = ContainerUpdateFieldFlags; }break;
     case TYPEID_UNIT: { length = UNIT_LENGTH; flags = UnitUpdateFieldFlags; }break;
     case TYPEID_PLAYER: { length = PLAYER_LENGTH; flags = PlayerUpdateFieldFlags; }break;
     case TYPEID_GAMEOBJECT: { length = GAMEOBJECT_LENGTH; flags = GameObjectUpdateFieldFlags; }break;
@@ -414,19 +427,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
         _WriteStationaryPosition(data, &bytes, target);
 
     if(flags & UPDATEFLAG_HAS_TARGET)
-    {
-        WoWGuid targetGuid(GetUInt64Value(UNIT_FIELD_TARGET)); // Compressed target guid.
-        data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
-        data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
-        bytes.WriteByteSeq(targetGuid[4]);
-        bytes.WriteByteSeq(targetGuid[0]);
-        bytes.WriteByteSeq(targetGuid[3]);
-        bytes.WriteByteSeq(targetGuid[5]);
-        bytes.WriteByteSeq(targetGuid[7]);
-        bytes.WriteByteSeq(targetGuid[6]);
-        bytes.WriteByteSeq(targetGuid[2]);
-        bytes.WriteByteSeq(targetGuid[1]);
-    }
+        _WriteTargetMovementUpdate(data, &bytes, target);
 
     if (flags & UPDATEFLAG_ANIMKITS)
     {
@@ -442,39 +443,67 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
             bytes << castPtr<Transporter>(this)->m_timer;
         else bytes << (uint32)getMSTime();
     }
-    data->append(bytes.contents(), bytes.size());
+
+    *data << bytes;
+}
+
+void Object::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+{
+    bits->WriteBit(1);
+    bits->WriteBit(1);
+    bits->WriteBits(0, 3);
+    bits->WriteBit(0);
+    bits->WriteBit(1);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(1);
+    bits->WriteBit(0);
+    bits->WriteBit(1);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(0);
+    bits->WriteBit(1);
+
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<uint32>(0);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+    bytes->append<float>(0.f);
+}
+
+void Object::_WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+{
+    *bytes << float(0.f) << float(0.f) << float(0.f) << float(0.f);
+}
+
+void Object::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+{
+    // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
+    bits->WriteBits(0, 8);
 }
 
 uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
-    UpdateMask updateMask;
-    updateMask.SetCount( m_valuesCount );
-    _SetUpdateBits( &updateMask, target );
-    for(uint32 x = 0; x < m_valuesCount; ++x)
+    UpdateMask updateMask(m_valuesCount);
+    if(_SetUpdateBits(&updateMask, target))
     {
-        if(updateMask.GetBit(x))
-        {
-            *data << (uint8) UPDATETYPE_VALUES;     // update type == update
-            *data << m_objGuid;
-
-            _BuildChangedValuesUpdate( data, &updateMask, target );
-            return 1;
-        }
+        *data << (uint8) UPDATETYPE_VALUES;     // update type == update
+        *data << m_objGuid;
+        _BuildChangedValuesUpdate( data, &updateMask, target );
+        return 1;
     }
-
     return 0;
-}
-
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer * buf, UpdateMask * mask )
-{
-    // returns: update count
-    *buf << (uint8) UPDATETYPE_VALUES;      // update type == update
-    *buf << m_objGuid;
-
-    _BuildChangedValuesUpdate( buf, mask, NULL );
-
-    // 1 update.
-    return 1;
 }
 
 //=======================================================================================
@@ -627,30 +656,13 @@ void Object::ClearLoot()
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_spawnLocation(0,0,0,0)
+WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
 {
     m_mapId = -1;
     m_areaId = 0;
     m_zoneId = 0;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
-
-    m_objectUpdated = false;
-
-    //official Values
-    m_walkSpeed = 2.5f;
-    m_runSpeed = 8.0f;
-    m_base_runSpeed = m_runSpeed;
-    m_base_walkSpeed = m_walkSpeed;
-
-    m_flySpeed = 7.0f;
-    m_pitchRate = 3.141593f;
-    m_backFlySpeed = 4.5f;
-
-    m_backWalkSpeed = 4.5f; // this should really be named m_backRunSpeed
-    m_swimSpeed = 4.722222f;
-    m_backSwimSpeed = 2.5f;
-    m_turnRate = 3.141593f;
 
     m_mapMgr = NULL;
     m_mapCell = 0;
@@ -659,7 +671,6 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
 
     m_instanceId = 0;
     Active = false;
-    m_loadedFromDB = false;
 
     m_unitsInRange.clear();
     m_objectsInRange.clear();
@@ -899,8 +910,6 @@ void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
 {
     m_mapId = mapid;
     m_position.ChangeCoords(x, y, z, ang);
-    m_spawnLocation.ChangeCoords(x, y, z, ang);
-    m_lastMapUpdatePosition.ChangeCoords(x,y,z,ang);
 }
 
 WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
@@ -910,14 +919,22 @@ WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
     if( IsInWorld() )       // only send when inworld
         castPtr<Player>(this)->SetPlayerStatus( TRANSFER_PENDING );
 
-    WorldPacket * data = new WorldPacket(MSG_MOVE_TELEPORT_ACK, 80);
-    *data << GetGUID();
-    *data << uint32(0); // m_teleportAckCounter;
-    *data << uint32(2); // flags
-    *data << uint16(0);
-    *data << getMSTime();
-    data->appendvector(v, true);
+    WorldPacket * data = new WorldPacket(MSG_MOVE_TELEPORT, 80);
+    data->WriteBitString(10, m_objGuid[6], m_objGuid[0], m_objGuid[3], m_objGuid[2], 0, 0, m_objGuid[1], m_objGuid[4], m_objGuid[7], m_objGuid[5]);
+    data->FlushBits();
     *data << uint32(0);
+    data->WriteByteSeq(m_objGuid[1]);
+    data->WriteByteSeq(m_objGuid[2]);
+    data->WriteByteSeq(m_objGuid[3]);
+    data->WriteByteSeq(m_objGuid[5]);
+    *data << float(v.x);
+    data->WriteByteSeq(m_objGuid[4]);
+    *data << float(v.o);
+    data->WriteByteSeq(m_objGuid[7]);
+    *data << float(v.z);
+    data->WriteByteSeq(m_objGuid[0]);
+    data->WriteByteSeq(m_objGuid[6]);
+    *data << float(v.y);
     return data;
 }
 
@@ -946,14 +963,6 @@ void WorldObject::DestroyForInrange(bool anim)
     SendMessageToSet(&data, false);
 }
 
-void WorldObject::SetRotation( uint64 guid )
-{
-    WorldPacket data(SMSG_AI_REACTION, 12);
-    data << guid;
-    data << uint32(2);
-    SendMessageToSet(&data, false);
-}
-
 void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
 {
     if(self && GetTypeId() == TYPEID_PLAYER)
@@ -962,22 +971,19 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    std::unordered_set<Player*  >::iterator itr = m_inRangePlayers.begin();
-    std::unordered_set<Player*  >::iterator it_end = m_inRangePlayers.end();
-    int gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : 0 );
-    for(; itr != it_end; itr++)
+    InRangePlayerSet::iterator itr = m_inRangePlayers.begin(), it_end = m_inRangePlayers.end();
+    bool gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
+    while(itr != it_end)
     {
-        if((*itr))
-        {
-            ASSERT((*itr)->GetSession());
-            if( gm )
-            {
-                if( (*itr)->GetSession()->GetPermissionCount() > 0 )
-                    (*itr)->GetSession()->OutPacket(Opcode, Len, Data);
-            }
-            else
-                (*itr)->GetSession()->OutPacket(Opcode, Len, Data);
-        }
+        Player *plr = *itr;
+        ++itr;
+        if(plr==NULL)
+            continue;
+        if(plr->GetSession() == NULL)
+            continue;
+        if(gm && plr->GetSession()->GetPermissionCount() == 0)
+            continue;
+        plr->GetSession()->OutPacket(Opcode, Len, Data);
     }
 }
 
@@ -986,55 +992,41 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     if(!IsInWorld())
         return;
 
-    if(bToSelf && GetTypeId() == TYPEID_PLAYER)
-        castPtr<Player>(this)->GetSession()->SendPacket(data);
-
-    std::unordered_set<Player*>::iterator itr = m_inRangePlayers.begin();
-    std::unordered_set<Player*>::iterator it_end = m_inRangePlayers.end();
-    bool gminvis = (GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false);
-    //Zehamster: Splitting into if/else allows us to avoid testing "gminvis==true" at each loop...
-    //         saving cpu cycles. Chat messages will be sent to everybody even if player is invisible.
-    if(myteam_only)
+    uint32 myTeam = 0;
+    if(IsPlayer())
     {
-        uint32 myteam = castPtr<Player>(this)->GetTeam();
-        if(gminvis && data->GetOpcode()!=SMSG_MESSAGECHAT)
+        if(bToSelf) castPtr<Player>(this)->GetSession()->SendPacket(data);
+        myTeam = castPtr<Player>(this)->GetTeam();
+    }
+
+    InRangePlayerSet::iterator itr = m_inRangePlayers.begin(), it_end = m_inRangePlayers.end();
+    if(data->GetOpcode() == SMSG_MESSAGECHAT)
+    {
+        while(itr != it_end)
         {
-            for(; itr != it_end; itr++)
-            {
-                ASSERT((*itr)->GetSession());
-                if((*itr)->GetSession()->GetPermissionCount() > 0 && (*itr)->GetTeam()==myteam && PhasedCanInteract(*itr))
-                    (*itr)->GetSession()->SendPacket(data);
-            }
-        }
-        else
-        {
-            for(; itr != it_end; itr++)
-            {
-                ASSERT((*itr)->GetSession());
-                if((*itr)->GetTeam()==myteam && PhasedCanInteract(*itr))
-                    (*itr)->GetSession()->SendPacket(data);
-            }
+            Player *plr = *itr;
+            ++itr;
+            if(plr == NULL || plr->GetSession() == NULL)
+                continue;
+            if(myteam_only && plr->GetTeam() != myTeam)
+                continue;
+            plr->GetSession()->SendPacket(data);
         }
     }
     else
     {
-        if(gminvis && data->GetOpcode()!=SMSG_MESSAGECHAT)
+        bool gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
+        while(itr != it_end)
         {
-            for(; itr != it_end; itr++)
-            {
-                ASSERT((*itr)->GetSession());
-                if((*itr)->GetSession()->GetPermissionCount() > 0 && PhasedCanInteract(*itr))
-                    (*itr)->GetSession()->SendPacket(data);
-            }
-        }
-        else
-        {
-            for(; itr != it_end; itr++)
-            {
-                ASSERT((*itr)->GetSession());
-                if( PhasedCanInteract(*itr) )
-                    (*itr)->GetSession()->SendPacket(data);
-            }
+            Player *plr = *itr;
+            ++itr;
+            if(plr == NULL || plr->GetSession() == NULL)
+                continue;
+            if(gm && plr->GetSession()->GetPermissionCount() == 0)
+                continue;
+            if(myteam_only && plr->GetTeam() != myTeam)
+                continue;
+            plr->GetSession()->SendPacket(data);
         }
     }
 }
@@ -1129,8 +1121,6 @@ void WorldObject::RemoveFromWorld(bool free_guid)
     MapMgr* m = m_mapMgr;
     m_mapMgr = NULL;
 
-    mSemaphoreTeleport = true;
-
     m->RemoveObject(this, free_guid);
 
     // remove any spells / free memory
@@ -1149,10 +1139,8 @@ bool WorldObject::canWalk()
             return true;
         if(ctr->GetCanMove() & LIMIT_GROUND)
             return true;
-    }
-    else if(IsPlayer())
+    } else if(IsPlayer())
         return true;
-
     return false;
 }
 
@@ -1165,19 +1153,15 @@ bool WorldObject::canSwim()
             return true;
         if(ctr->GetCanMove() & LIMIT_WATER)
             return true;
-    }
-    else if(IsPlayer())
+    } else if(IsPlayer())
         return true;
-
     return false;
 }
 
 bool WorldObject::canFly()
 {
     if(IsVehicle())
-    {
         return false;
-    }
     else if(IsCreature())
     {
         Creature* ctr = castPtr<Creature>(this);
@@ -2044,9 +2028,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         }
         else if( pVictim->IsPlayer() )
         {
-            /* -------------------- RESET BREATH STATE ON DEATH -------------- */
-            castPtr<Player>( pVictim )->m_UnderwaterState = 0;
-
             /* -------------------- REMOVE PET WHEN PLAYER DIES ---------------*/
             if( castPtr<Player>( pVictim )->GetSummon() != NULL )
             {
@@ -2330,28 +2311,16 @@ void WorldObject::EventSpellHit(Spell* pSpell)
 {
     if( IsInWorld() && pSpell->m_caster != NULL )
         pSpell->cast(false);
-    else
-        pSpell->Destruct();
+    else pSpell->Destruct();
 }
-
 
 bool WorldObject::CanActivate()
 {
-    switch(GetTypeId())
-    {
-    case TYPEID_UNIT:
-        {
-            if(!IsPet())
-                return true;
-        }break;
-
-    case TYPEID_GAMEOBJECT:
-        {
-            if(castPtr<GameObject>(this)->HasAI() && GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)
-                return true;
-        }break;
-    }
-
+    if(IsUnit() && !IsPet())
+        return true;
+    else if(IsGameObject() && castPtr<GameObject>(this)->HasAI())
+        if(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)
+            return true;
     return false;
 }
 

@@ -55,7 +55,7 @@ ENDIF()#NMake*
 ENDIF()#IS_64BIT
 
 #Set the visual studio precompiled header buffer
-SET(VISUALSTUDIO_COMPILERHEAPLIMIT 450 CACHE STRING "Visual Studio compiler heap limit. Ignore on darwin and unix platforms." )
+SET(VISUALSTUDIO_COMPILERHEAPLIMIT 550 CACHE STRING "Visual Studio compiler heap limit. Ignore on darwin and unix platforms." )
 
 SET(IS_MAC FALSE)
 #mac osx

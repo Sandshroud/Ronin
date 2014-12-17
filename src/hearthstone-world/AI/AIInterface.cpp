@@ -80,10 +80,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt)
     {
         m_AIType = AITYPE_DUMMY;
         disable_targeting = true;
-        un->m_runSpeed = 0.0f;
-        un->m_flySpeed = 0.0f;
-        un->m_walkSpeed = 0.0f;
-        un->m_swimSpeed = 0.0f;
+        un->GetMovementInterface()->setRooted(true);
     }
 
     if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )
@@ -108,10 +105,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
     {
         m_AIType = AITYPE_DUMMY;
         disable_targeting = true;
-        un->m_runSpeed = 0.0f;
-        un->m_flySpeed = 0.0f;
-        un->m_walkSpeed = 0.0f;
-        un->m_swimSpeed = 0.0f;
+        un->GetMovementInterface()->setRooted(true);
     }
 
     if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )

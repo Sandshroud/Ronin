@@ -63,8 +63,6 @@ public:
     void SendSpells(uint32 entry, Player* plr);
     virtual void SetDeathState(DeathState s);
     void ChangeSeats(Unit* pPassenger, uint8 seatid);
-    void ChangePowerType();
-    uint16 GetAddMovement2Flags();
     uint32 GetVehiclePowerType() { return (vehicleData ? vehicleData->m_powerType : 0); };
 
     //---------------------------------------

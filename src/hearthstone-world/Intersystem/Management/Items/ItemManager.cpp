@@ -40,7 +40,7 @@ void ItemPrototypeSystem::Init()
         proto->FlagsExtra = sparse->Flags2;
         proto->BuyPrice = sparse->BuyPrice;
         proto->SellPrice = sparse->SellPrice;
-        proto->InventoryType = sparse->InventoryType;
+        proto->InventoryType = itemData->InventoryType;
         proto->AllowableClass = sparse->AllowableClass;
         proto->AllowableRace = sparse->AllowableRace;
         proto->ItemLevel = sparse->ItemLevel;

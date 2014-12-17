@@ -8,14 +8,11 @@ initialiseSingleton( ChannelMgr );
 
 void WorldSession::HandleChannelJoin(WorldPacket& recvPacket)
 {
-    std::string channelname, pass;
-    uint32 dbc_id = 0;
-    uint16 crap;        // crap = some sort of channel type?
-    uint32 i;
-    Channel * chn;
-
-    recvPacket >> dbc_id >> crap;
-    recvPacket >> channelname >> pass;
+    uint32 dbc_id;
+    recvPacket >> dbc_id;
+    uint8 unk1 = recvPacket.ReadBit(), unk2 = recvPacket.ReadBit();
+    uint8 len = recvPacket.ReadBits(8), len2 = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(len), pass = recvPacket.ReadString(len2);
 
     if(dbc_id)
 		_player->EventDBCChatUpdate(dbc_id);

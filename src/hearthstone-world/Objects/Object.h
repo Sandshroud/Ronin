@@ -23,6 +23,7 @@ enum HIGHGUID_TYPE
     HIGHGUID_TYPE_VEHICLE           = 0xF150,
     HIGHGUID_TYPE_DYNAMICOBJECT     = 0xF100,
     HIGHGUID_TYPE_CORPSE            = 0xF101,
+    HIGHGUID_TYPE_AREATRIGGER       = 0xF102,
     HIGHGUID_TYPE_MO_TRANSPORT      = 0x1FC0,
     HIGHGUID_TYPE_GROUP             = 0x1F50,
     HIGHGUID_TYPE_GUILD             = 0x1FF6,
@@ -42,8 +43,8 @@ enum TypeMask
     TYPEMASK_TYPE_GAMEOBJECT    = 0x00000020,
     TYPEMASK_TYPE_DYNAMICOBJECT = 0x00000040,
     TYPEMASK_TYPE_CORPSE        = 0x00000080,
-    TYPEMASK_TYPE_AIGROUP       = 0x00000100,
-    TYPEMASK_TYPE_AREATRIGGER   = 0x00000200,
+    TYPEMASK_TYPE_AREATRIGGER   = 0x00000100,
+    TYPEMASK_TYPE_AIGROUP       = 0x00000200,
     TYPEMASK_TYPE_UNUSED        = 0x00000400,
     TYPEMASK_TYPE_UNUSED2       = 0x00000800,
     TYPEMASK_TYPE_UNUSED3       = 0x00001000,
@@ -73,8 +74,8 @@ enum TYPEID
     TYPEID_GAMEOBJECT       = 5,
     TYPEID_DYNAMICOBJECT    = 6,
     TYPEID_CORPSE           = 7,
-    TYPEID_AIGROUP          = 8,
-    TYPEID_AREATRIGGER      = 9,
+    TYPEID_AREATRIGGER      = 8,
+    TYPEID_AIGROUP          = 9,
     TYPEID_UNUSED           = 10,//used to signal invalid reference (object dealocated but someone is still using it)
 };
 
@@ -189,7 +190,6 @@ public:
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, Player* target );
-    uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer * buf, UpdateMask * mask );
     uint32 __fastcall BuildOutOfRangeUpdateBlock( ByteBuffer *buf );
 
     virtual void DestroyForPlayer( Player* target, bool anim = false );
@@ -241,9 +241,7 @@ public:
 
 protected:
     //! Mark values that need updating for specified player.
-    virtual void _SetUpdateBits(UpdateMask *updateMask, Player* target) const;
-    //! Mark values that player should get when he/she/it sees object for first time.
-    virtual void _SetCreateBits(UpdateMask *updateMask, Player* target) const;
+    bool _SetUpdateBits(UpdateMask *updateMask, Player* target);
 
     uint32 GetUpdateFlag(Player *target);
     void GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length);
@@ -251,8 +249,9 @@ protected:
     void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
 
     void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
     Mutex m_objlock;
 
     //! Object properties.
@@ -336,14 +335,10 @@ public:
     HEARTHSTONE_INLINE const float& GetOrientation( ) const { return m_position.o; }
     HEARTHSTONE_INLINE void SetOrientation( float &o ) { m_position.o = o; }
 
-    HEARTHSTONE_INLINE const float& GetSpawnX( ) const { return m_spawnLocation.x; }
-    HEARTHSTONE_INLINE const float& GetSpawnY( ) const { return m_spawnLocation.y; }
-    HEARTHSTONE_INLINE const float& GetSpawnZ( ) const { return m_spawnLocation.z; }
-    HEARTHSTONE_INLINE const float& GetSpawnO( ) const { return m_spawnLocation.o; }
-    HEARTHSTONE_INLINE void SetSpawnX(float x) { m_spawnLocation.x = x; }
-    HEARTHSTONE_INLINE void SetSpawnY(float y) { m_spawnLocation.y = y; }
-    HEARTHSTONE_INLINE void SetSpawnZ(float z) { m_spawnLocation.z = z; }
-    HEARTHSTONE_INLINE void SetSpawnO(float o) { m_spawnLocation.o = o; }
+    virtual float GetSpawnX() { return 0.f; }
+    virtual float GetSpawnY() { return 0.f; }
+    virtual float GetSpawnZ() { return 0.f; }
+    virtual float GetSpawnO() { return 0.f; }
 
     bool canWalk();
     bool canSwim();
@@ -531,20 +526,6 @@ public:
     void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
 
-    //! Blizzard seem to send those for all object types. weird.
-    float m_walkSpeed;
-    float m_runSpeed;
-    float m_backWalkSpeed;
-    float m_swimSpeed;
-    float m_backSwimSpeed;
-    float m_turnRate;
-    float m_pitchRate;
-    float m_flySpeed;
-    float m_backFlySpeed;
-
-    float m_base_runSpeed;
-    float m_base_walkSpeed;
-
     int32 SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool static_damage = false, bool no_remove_auras = false, uint32 AdditionalCritChance = 0);
 
     //*****************************************************************************************
@@ -566,9 +547,7 @@ public:
     int32 event_GetInstanceID();
 
     void DestroyForInrange(bool anim = false);
-    WorldPacket * BuildTeleportAckMsg( const LocationVector & v);
-
-    void SetRotation( uint64 guid );
+    WorldPacket *BuildTeleportAckMsg( const LocationVector & v);
 
     bool Active;
     bool CanActivate();
@@ -605,6 +584,8 @@ protected:
     uint8 m_areaFlags;
     //! Continent/map id.
     int32 m_mapId;
+    //! Instance Id
+    int32 m_instanceId;
     //! Last set Movement zone
     uint32 m_lastMovementZone;
 
@@ -614,25 +595,22 @@ protected:
     MapCell *m_mapCell;
     //! Current object faction
     FactionTemplateEntry *m_factionTemplate;
-
-    LocationVector m_position;
-    LocationVector m_lastMapUpdatePosition;
-    LocationVector m_spawnLocation;
-
-    // Semaphores - needed to forbid two operations on the same object at the same very time (may cause crashing\lack of data)
-    bool mSemaphoreTeleport;
+    // Current map location
+    LocationVector m_position, m_lastMapUpdatePosition;
 
     //! Set of Objects in range.
-    std::unordered_set<WorldObject* > m_objectsInRange;
-    std::unordered_set<Player* > m_inRangePlayers;
-    std::unordered_set<Unit* > m_oppFactsInRange;
-    std::unordered_set<Unit* > m_unitsInRange;
+    typedef std::unordered_set<WorldObject*> InRangeObjectSet;
+    InRangeObjectSet m_objectsInRange;
 
-    int32 m_instanceId;
+    // Inrange units
+    typedef std::unordered_set<Unit*> InRangeUnitSet;
+    InRangeUnitSet m_unitsInRange, m_oppFactsInRange;
+
+    // Inrange players
+    typedef std::unordered_set<Player*> InRangePlayerSet;
+    InRangePlayerSet m_inRangePlayers;
 
 public:
-    bool m_loadedFromDB;
-
     bool IsInLineOfSight(WorldObject* pObj);
     bool IsInLineOfSight(float x, float y, float z);
     int32 GetSpellBaseCost(SpellEntry *sp);

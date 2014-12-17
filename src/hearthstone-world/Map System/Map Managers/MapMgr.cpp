@@ -460,7 +460,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
         {
             if( (*iter)->IsPlayer() )
             {
-                if( castPtr<Player>( *iter )->IsVisible( obj ) && castPtr<Player>( *iter )->GetTransportGuid() != (uint64)obj->GetGUID())
+                if( castPtr<Player>( *iter )->IsVisible( obj ) && castPtr<Player>( *iter )->GetTransportGuid() != obj->GetGUID())
                     castPtr<Player>( *iter )->PushOutOfRange(obj->GetGUID());
                 obj->DestroyForPlayer(castPtr<Player>( *iter ), obj->IsGameObject());
             }
@@ -514,7 +514,7 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
         if(m_zoneRangelessObjects[lastZone].size())
         {
             for(std::set<WorldObject*>::iterator itr = m_zoneRangelessObjects[lastZone].begin(); itr != m_zoneRangelessObjects[lastZone].end(); itr++)
-                if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (uint64)(*itr)->GetGUID()))
+                if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (*itr)->GetGUID()))
                     obj->RemoveIfInRange(*itr);
         }
 

@@ -915,7 +915,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
         {
             for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
             {
-                (*itr)->Root();
+                (*itr)->GetMovementInterface()->setRooted(true);
 
                 if( (*itr)->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK) )
                     continue;

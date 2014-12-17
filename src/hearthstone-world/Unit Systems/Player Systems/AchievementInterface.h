@@ -153,19 +153,13 @@ enum AchievementCriteriaCompletionFlags
     ACHIEVEMENT_CRITERIA_COMPLETE_ONE_FLAG = 2,
 };
 
-inline uint32 unixTimeToTimeBitfields(time_t secs)
-{
-    tm* lt = localtime(&secs);
-    return (lt->tm_year - 100) << 24 | lt->tm_mon  << 20 | (lt->tm_mday - 1) << 14 | lt->tm_wday << 11 | lt->tm_hour << 6 | lt->tm_min;
-}
-
 typedef std::set<AchievementCriteriaEntry*>                         AchievementCriteriaSet;
 typedef std::map<uint32, AchievementCriteriaSet*>                   AchievementCriteriaMap;
 
 class SERVER_DECL AchievementInterface
 {
     Player* m_player;
-    std::map<uint32, AchievementData*> m_achivementDataMap;
+    std::map<uint32, AchievementData*> m_achivementDataMap, m_criteriaDataMap;
 private:
     void GiveRewardsForAchievement(AchievementEntry * ae);
     void EventAchievementEarned(AchievementData * pData);

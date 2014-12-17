@@ -617,7 +617,7 @@ void AuthSocket::HandleReconnectChallenge()
         pkt << (uint8)  0x02;   //ReconnectChallenge
         pkt << (uint8)  0x00;
         rs.SetRand(16*8);
-        pkt.append(rs.AsByteBuffer());  // 16 bytes random
+        pkt << rs.AsByteArray();    // 16 bytes random
         pkt << uint64(0x00) << uint64(0x00);    // 16 bytes zeros
         Send(pkt.contents(), uint32(pkt.size()));
     }

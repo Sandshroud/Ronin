@@ -347,6 +347,10 @@ public:
     virtual void Init();
     virtual void Destruct();
 
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+
+    virtual void Update(uint32 p_time);
+
     HEARTHSTONE_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     HEARTHSTONE_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
@@ -354,8 +358,6 @@ public:
     bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang);
 
     bool Load(GOSpawn *spawn);
-
-    virtual void Update(uint32 p_time);
 
     void Spawn( MapMgr* m);
     void Despawn( uint32 delay, uint32 respawntime);

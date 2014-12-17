@@ -488,7 +488,7 @@ void Spell::SummonGuardian(uint32 i, SummonPropertiesEntry * Properties, Creatur
         {
             if(Properties->type == DBC_SUMMON_TYPE_LIGHTWELL)
             {
-                s->Root();
+                s->GetMovementInterface()->setRooted(true);
                 s->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
             }
         }

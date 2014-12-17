@@ -2043,25 +2043,55 @@ void Spell::SendSpellStart()
     uint32 cast_flags = SPELL_CAST_FLAGS_CAST_DEFAULT;
     if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
         cast_flags |= SPELL_CAST_FLAGS_POWER_UPDATE;
-    if (m_spellInfo->RuneCostID && m_spellInfo->powerType == POWER_TYPE_RUNE)
-        cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
+    if((m_triggeredSpell || m_triggeredByAura) && !m_spellInfo->isAutoRepeatSpell())
+        cast_flags |= SPELL_CAST_FLAGS_NO_VISUAL;
+    if(p_caster && p_caster->getClass() == DEATHKNIGHT)
+    {
+        if(GetSpellProto()->RuneCostID)
+        {
+            cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
+            cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
+        }
+        else
+        {
+            for(uint8 i = 0; i < 3; i++)
+            {
+                if( GetSpellProto()->Effect[i] == SPELL_EFFECT_ACTIVATE_RUNE)
+                {
+                    cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
+                    cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
+                }
+            }
+        }
+    }
 
     WorldPacket data(SMSG_SPELL_START, 150);
-    if( i_caster != NULL )
-        data << i_caster->GetGUID();
-    else
-        data << u_caster->GetGUID();
-
+    data << (i_caster ? i_caster->GetGUID() : u_caster->GetGUID());
     data << u_caster->GetGUID();
     data << uint8(extra_cast_number);
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
     data << int32(m_timer);
+    data << uint32(m_castTime);
 
     m_targets.write( data );
 
     if (cast_flags & SPELL_CAST_FLAGS_POWER_UPDATE)
         data << uint32(u_caster->GetPower(GetSpellProto()->powerType));
+
+    if( cast_flags & SPELL_CAST_FLAGS_RUNE_UPDATE ) //send new runes
+    {
+        SpellRuneCostEntry * runecost = dbcSpellRuneCost.LookupEntry(GetSpellProto()->RuneCostID);
+        uint8 runeMask = p_caster->GetRuneMask(), theoretical = p_caster->TheoreticalUseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost);
+        data << runeMask << theoretical;
+        for (uint8 i = 0; i < 6; i++)
+        {
+            uint8 mask = (1 << i);
+            if (mask & runeMask && !(mask & theoretical))
+                data << uint8(0);
+        }
+    }
+
     m_caster->SendMessageToSet( &data, true );
 }
 
@@ -2083,7 +2113,7 @@ void Spell::SendSpellGo()
         if(GetSpellProto()->RuneCostID)
         {
             cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-            cast_flags |= 0x00040000;
+            cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
         }
         else
         {
@@ -2092,23 +2122,20 @@ void Spell::SendSpellGo()
                 if( GetSpellProto()->Effect[i] == SPELL_EFFECT_ACTIVATE_RUNE)
                 {
                     cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-                    cast_flags |= 0x00040000;
+                    cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
                 }
             }
         }
     }
 
     WorldPacket data(SMSG_SPELL_GO, 200);
-    if( i_caster != NULL ) // this is needed for correct cooldown on items
-        data << i_caster->GetGUID();
-    else
-        data << m_caster->GetGUID();
-
+    data << (i_caster ? i_caster->GetGUID() : m_caster->GetGUID());
     data << m_caster->GetGUID();
-    data << extra_cast_number;
-    data << GetSpellProto()->Id;
-    data << cast_flags;
-    data << getMSTime();
+    data << uint8(extra_cast_number);
+    data << uint32(GetSpellProto()->Id);
+    data << uint32(cast_flags);
+    data << int32(m_timer);
+    data << uint32(m_castTime);
 
     writeSpellGoTargets(&data);
 
@@ -2155,7 +2182,7 @@ void Spell::writeSpellGoTargets( WorldPacket * data )
     // Make sure we don't hit over 100 targets.
     // It's fine internally, but sending it to the client will REALLY cause it to freak.
 
-    *data << uint8(m_hitTargetCount);
+    *data << uint8(m_hitTargetCount > 100 ? 100 : m_hitTargetCount);
     if( m_hitTargetCount > 0 )
     {
         counter = 0;
@@ -2169,7 +2196,7 @@ void Spell::writeSpellGoTargets( WorldPacket * data )
         }
     }
 
-    *data << uint8(m_missTargetCount);
+    *data << uint8(m_missTargetCount > 100 ? 100 : m_missTargetCount);
     if( m_missTargetCount > 0 )
     {
         counter = 0;
@@ -2610,7 +2637,7 @@ uint8 Spell::CanCast(bool tolerate)
         return SPELL_FAILED_SPELL_UNAVAILABLE;
     }
 
-    if((m_castTime || m_spellInfo->IsSpellChannelSpell()) && p_caster && p_caster->m_isMoving)
+    if((m_castTime || m_spellInfo->IsSpellChannelSpell()) && p_caster && p_caster->GetMovementInterface()->isMoving())
         if((GetSpellProto()->InterruptFlags & CAST_INTERRUPT_ON_MOVEMENT) || m_spellInfo->ChannelInterruptFlags & CHANNEL_INTERRUPT_ON_MOVEMENT)
             return SPELL_FAILED_MOVING;
 
@@ -3562,119 +3589,12 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_SILENCED;
         }
 
-        if( u_caster->m_silenced && GetSpellProto()->School != NORMAL_DAMAGE )
-        {
-                // HACK FIX
-                switch( GetSpellProto()->NameHash )
-                {
-                    case SPELL_HASH_ICE_BLOCK: //Ice Block
-                    case 0x9840A1A6: //Divine Shield
-                        break;
-
-                    case 0x3DFA70E5: //Will of the Forsaken
-                        {
-                            if( u_caster->m_special_state & ( UNIT_STATE_FEAR | UNIT_STATE_CHARM | UNIT_STATE_SLEEP ) )
-                                break;
-                        }break;
-
-                    case 0xF60291F4: //Death Wish
-                    case 0x19700707: //Berserker Rage
-                        {
-                            if( u_caster->m_special_state & UNIT_STATE_FEAR )
-                                break;
-                        }break;
-
-                    // {Insignia|Medallion} of the {Horde|Alliance}
-                    case 0xC7C45478: //Immune Movement Impairment and Loss of Control
-                    case SPELL_HASH_PVP_TRINKET: // insignia of the alliance/horde 2.4.3
-                    case SPELL_HASH_EVERY_MAN_FOR_HIMSELF:
-                    case SPELL_HASH_DISPERSION:
-                        {
-                            break;
-                        }
-
-                    case 0xCD4CDF55: // Barksin
-                    { // This spell is usable while stunned, frozen, incapacitated, feared or asleep.  Lasts 12 sec.
-                        if( u_caster->m_special_state & ( UNIT_STATE_STUN | UNIT_STATE_FEAR | UNIT_STATE_SLEEP ) ) // Uh, what unit_state is Frozen? (freezing trap...)
-                            break;
-                    }
-
-                    default:
-                            return SPELL_FAILED_SILENCED;
-                }
-        }
-
         if(target != NULL) /* -Supalosa- Shouldn't this be handled on Spell Apply? */
         {
-            for( int i = 0; i < 3; i++ ) // if is going to cast a spell that breaks stun remove stun auras, looks a bit hacky but is the best way i can find
+            for( int8 i = 0; i < 3; i++ ) // if is going to cast a spell that breaks stun remove stun auras, looks a bit hacky but is the best way i can find
             {
                 if( GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY )
                     target->m_AuraInterface.RemoveAllAurasByMechanic( GetSpellProto()->EffectMiscValue[i] , -1 , true );
-            }
-        }
-
-        if( u_caster->IsPacified() && GetSpellProto()->School == NORMAL_DAMAGE ) // only affects physical damage
-        {
-            // HACK FIX
-            switch( GetSpellProto()->NameHash )
-            {
-            case SPELL_HASH_ICE_BLOCK: //Ice Block
-            case 0x9840A1A6: //Divine Shield
-            case 0x3DFA70E5: //Will of the Forsaken
-                {
-                    if( u_caster->m_special_state & (UNIT_STATE_FEAR | UNIT_STATE_CHARM | UNIT_STATE_SLEEP))
-                        break;
-                }break;
-            case SPELL_HASH_DISPERSION:
-            case SPELL_HASH_PVP_TRINKET: // insignia of the alliance/horde 2.4.3
-            case SPELL_HASH_EVERY_MAN_FOR_HIMSELF:
-                break;
-
-            default:
-                return SPELL_FAILED_PACIFIED;
-            }
-        }
-
-        if( u_caster->IsStunned() || u_caster->IsFeared())
-        {
-             //HACK FIX
-            switch( GetSpellProto()->NameHash )
-            {
-            case SPELL_HASH_HAND_OF_FREEDOM:
-                {
-                    if( !u_caster->HasDummyAura(SPELL_HASH_DIVINE_PURPOSE) )
-                        return SPELL_FAILED_STUNNED;
-                }break;
-            case SPELL_HASH_ICE_BLOCK: //Ice Block
-            case SPELL_HASH_DIVINE_SHIELD: //Divine Shield
-            case SPELL_HASH_DIVINE_PROTECTION: //Divine Protection
-            case 0xCD4CDF55: //Barkskin
-                break;
-                /* -Supalosa- For some reason, being charmed or sleep'd is counted as 'Stunned'.
-                Check it: http://www.wowhead.com/?spell=700 */
-
-            case 0xC7C45478: /* Immune Movement Impairment and Loss of Control (PvP Trinkets) */
-                break;
-
-            case 0x3DFA70E5: /* Will of the Forsaken (Undead Racial) */
-                break;
-
-            case SPELL_HASH_PVP_TRINKET: // insignia of the alliance/horde 2.4.3*/
-            case SPELL_HASH_EVERY_MAN_FOR_HIMSELF:
-                break;
-
-            case SPELL_HASH_BLINK:
-                break;
-
-            case SPELL_HASH_DISPERSION:
-                break;
-
-            default:
-                {
-                    if(u_caster->IsStunned() && !GetSpellProto()->isUsableWhileStunned()
-                        || u_caster->IsFeared() && !GetSpellProto()->isAvailableWhileFeared())
-                        return SPELL_FAILED_STUNNED;
-                }
             }
         }
 
@@ -3686,8 +3606,7 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_SPELL_IN_PROGRESS;
             else if (t_spellInfo)
             {
-                if(
-                    t_spellInfo->EffectTriggerSpell[0] != GetSpellProto()->Id &&
+                if( t_spellInfo->EffectTriggerSpell[0] != GetSpellProto()->Id &&
                     t_spellInfo->EffectTriggerSpell[1] != GetSpellProto()->Id &&
                     t_spellInfo->EffectTriggerSpell[2] != GetSpellProto()->Id)
                 {
@@ -3879,7 +3798,6 @@ void Spell::HandleTeleport(uint32 id, Unit* Target)
 
     pTarget->EventAttackStop();
     pTarget->SetSelection(NULL);
-    pTarget->DelaySpeedHack(5000);
 
     // We use a teleport event on this one. Reason being because of UpdateCellActivity,
     // the game object set of the updater thread WILL Get messed up if we teleport from a gameobject caster.
@@ -3964,8 +3882,8 @@ void Spell::SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, 
         return;
 
     WorldPacket data(SMSG_SPELLENERGIZELOG, 29);
-    data.append(target->GetGUID());
-    data.append(caster->GetGUID());
+    data << target->GetGUID();
+    data << caster->GetGUID();
     data << uint32(spellid);
     data << uint32(powertype);
     data << uint32(dmg);

@@ -329,7 +329,7 @@ template<class T> void DBCLoader::LoadDBC(bool *result, std::string filename, co
         *result = false;
 }
 
-#define DISABLE_DBC_MULTILOADING
+//#define DISABLE_DBC_MULTILOADING
 #ifdef DISABLE_DBC_MULTILOADING
 #define ADD_LOAD_DB(filename, format, stor) LoadDBC(result, filename, format, &stor)
 #else

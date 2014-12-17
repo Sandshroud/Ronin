@@ -3,8 +3,6 @@
  */
 
 #include "StdAfx.h"
-Mutex m_transportGuidGen;
-uint32 m_transportGuidMax = 50;
 
 bool Transporter::CreateAsTransporter(uint32 EntryID, const char* Name)
 {
@@ -341,7 +339,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
             if(!plr->GetSession() || !plr->IsInWorld())
                 continue;
 
-            plr->GetMovementInfo()->GetTransportPosition(v);
+            plr->GetMovementInterface()->GetTransportPosition(v);
             v.x += x;
             v.y += y;
             v.z += z;
@@ -367,7 +365,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
             if( plr->GetVehicle() )
                 plr->GetVehicle()->RemovePassenger( plr );
 
-            plr->GetMovementInfo()->SetTransportLock(true);
+            plr->GetMovementInterface()->LockTransportData();
             plr->GetSession()->SendPacket(&Pending);
             plr->_Relocate(mapid, v, false, true, 0);
         }
@@ -404,33 +402,24 @@ void Transporter::Destruct()
 void ObjectMgr::LoadTransporters()
 {
     sLog.Notice("ObjectMgr", "Loading Transports...");
-    QueryResult * QR = WorldDatabase.Query("SELECT entry FROM gameobject_names WHERE type = %u", GAMEOBJECT_TYPE_MO_TRANSPORT);
-    if(!QR)
-        return;
-
-    int64 total = QR->GetRowCount();
-    TransportersCount = total;
-    uint32 entry = NULL;
-    Transporter* pTransporter = NULL;
-    do
+    if(QueryResult * QR = WorldDatabase.Query("SELECT entry FROM gameobject_names WHERE type = %u", GAMEOBJECT_TYPE_MO_TRANSPORT))
     {
-        entry = QR->Fetch()[0].GetUInt32();
-
-        pTransporter = new Transporter(MAKE_NEW_GUID(entry, entry, HIGHGUID_TYPE_TRANSPORTER));
-        pTransporter->Init();
-        if(!pTransporter->CreateAsTransporter(entry, ""))
+        int64 total = QR->GetRowCount();
+        TransportersCount = total;
+        Transporter* pTransporter = NULL;
+        do
         {
-            sLog.Warning("ObjectMgr","Skipped invalid transporterid %d.", entry);
-            pTransporter->Destruct();
-            pTransporter = NULL;
-        }
-        else
-        {
-            AddTransport(pTransporter);
-        }
-
-    } while(QR->NextRow());
-    delete QR;
+            uint32 entry = QR->Fetch()[0].GetUInt32();
+            pTransporter = new Transporter(MAKE_NEW_GUID(entry, entry, HIGHGUID_TYPE_TRANSPORTER));
+            pTransporter->Init();
+            if(!pTransporter->CreateAsTransporter(entry, ""))
+            {
+                sLog.Warning("ObjectMgr","Skipped invalid transporterid %d.", entry);
+                pTransporter->Destruct();
+            } else AddTransport(pTransporter);
+        } while(QR->NextRow());
+        delete QR;
+    }
 }
 
 void Transporter::OnPushToWorld()

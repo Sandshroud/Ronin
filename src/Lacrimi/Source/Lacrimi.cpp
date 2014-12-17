@@ -23,7 +23,6 @@ Lacrimi::Lacrimi(ScriptMgr* mgr) : ThreadContext()
     LacrimiDB = NULL;
     database = false;
     dumpstats = false;
-    LuaEngineIsStarting = false;
     sMgr = mgr;
 }
 
@@ -35,14 +34,6 @@ Lacrimi::~Lacrimi()
 bool Lacrimi::run()
 {
     Delay(400);
-    if(GetConfigBool("Features", "LuaEngine", true))
-    {
-        L_LuaEngineMgr = new LuaEngineMgr();
-        L_LuaEngineMgr->Startup();
-        Delay(100);
-        while(LuaEngineIsStarting)
-            Delay(100);
-    }
 
     uint32 curTime = getMSTime();
     uint32 m_StatDumpTimer = curTime+15000, m_CleanupDelay = curTime+10000;

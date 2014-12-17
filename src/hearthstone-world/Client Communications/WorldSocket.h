@@ -29,11 +29,15 @@ public:
     WorldSocket(SOCKET fd, const sockaddr_in * peer);
     ~WorldSocket();
 
-    // vs8 fix - send null on empty buffer
-    HEARTHSTONE_INLINE void SendPacket(WorldPacket* packet, bool inWorld = false) { if(!packet) return; OutPacket(packet->GetOpcode(), packet->size(), (packet->size() ? (const void*)packet->contents() : NULL), inWorld); }
+    HEARTHSTONE_INLINE void SendPacket(WorldPacket* packet)
+    {
+        if(packet == NULL)
+            return;
+        OutPacket(packet->GetOpcode(), packet->size(), (packet->size() ? (const void*)packet->contents() : NULL));
+    }
 
-    void __fastcall OutPacket(uint16 opcode, size_t len, const void* data, bool InWorld = false);
-    OUTPACKET_RESULT __fastcall _OutPacket(uint16 opcode, size_t len, const void* data, bool InWorld = false);
+    void __fastcall OutPacket(uint16 opcode, size_t len, const void* data, bool compressed = false);
+    OUTPACKET_RESULT __fastcall _OutPacket(uint16 opcode, size_t len, const void* data, bool compressed = false);
 
     HEARTHSTONE_INLINE uint32 GetLatency() { return _latency; }
     HEARTHSTONE_INLINE bool isAuthed() { return m_authed; }
@@ -70,9 +74,6 @@ private:
 
     WowCrypt _crypt;
     uint32 _latency;
-    bool m_authed;
-    bool mQueued;
-    bool m_nagleEanbled;
-    bool isBattleNetAccount;
+    bool m_authed, mQueued, m_nagleEanbled, isBattleNetAccount;
     std::string * m_fullAccountName;
 };

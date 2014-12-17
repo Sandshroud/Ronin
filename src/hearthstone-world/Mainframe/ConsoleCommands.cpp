@@ -36,7 +36,6 @@ bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[])
     pConsole->Write("Accepted Connections: %u\r\n", sWorld.mAcceptedConnections);
     pConsole->Write("Connection Peak: %u\r\n", sWorld.PeakSessionCount);
     pConsole->Write("Logonserver Latency: %u\r\n", sLogonCommHandler.GetLatency());
-    pConsole->Write("Network Stress(In/Out): %fkb/%fkb\r\n", sWorld.NetworkStressIn, sWorld.NetworkStressOut);
     pConsole->Write("======================================================================\r\n\r\n");
     return true;
 }

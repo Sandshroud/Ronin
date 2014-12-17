@@ -82,9 +82,6 @@ typedef std::map<uint32, WorldObject* > TransportNPCMap;
 
 bool FillTransporterPathVector(uint32 PathID, TransportPath & Path);
 
-extern Mutex m_transportGuidGen;
-extern uint32 m_transportGuidMax;
-
 class Transporter : public GameObject
 {
 public:
