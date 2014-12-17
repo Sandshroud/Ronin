@@ -263,7 +263,7 @@ public:
     void EventRespawnCreature(Creature* c, MapCell * p);
     void EventRespawnGameObject(GameObject* o, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
-    void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, int32 lang, WorldSession * originator);
+    void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
 
     Instance * pInstance;
     void BeginInstanceExpireCountdown();

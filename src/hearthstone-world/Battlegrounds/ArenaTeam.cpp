@@ -104,20 +104,15 @@ void ArenaTeam::SendPacket(WorldPacket * data)
 void ArenaTeam::Destroy()
 {
     char buffer[1024];
-    WorldPacket * data;
     std::vector<PlayerInfo*> tokill;
-    uint32 i;
     tokill.reserve(m_memberCount);
     snprintf(buffer,1024, "The arena team, '%s', disbanded.", m_name.c_str());
-    data = sChatHandler.FillSystemMessageData(buffer);
-    SendPacket(data);
-    delete data;
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, buffer);
+    SendPacket(&data);
 
-    for(i=0; i < m_memberCount; i++)
-    {
-        if(m_members[i].Info)
-            tokill.push_back(m_members[i].Info);
-    }
+    for(uint8 i = 0; i < m_memberCount; i++)
+    { if(m_members[i].Info) tokill.push_back(m_members[i].Info); }
 
     for(std::vector<PlayerInfo*>::iterator itr = tokill.begin(); itr != tokill.end(); itr++)
         RemoveMember(*itr);
@@ -285,13 +280,12 @@ bool ArenaTeam::HasMember(WoWGuid guid)
 void ArenaTeam::SetLeader(PlayerInfo * info)
 {
     WoWGuid old_leader = m_leader;
+    m_leader = info->guid;
     char buffer[1024];
-    WorldPacket * data;
     snprintf(buffer, 1024,"%s is now the captain of the arena team, '%s'.", info->name, m_name.c_str());
-    data = sChatHandler.FillSystemMessageData(buffer);
-    m_leader=info->guid;
-    SendPacket(data);
-    delete data;
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, buffer);
+    SendPacket(&data);
 
     /* set the fields */
     for(uint32 i = 0; i < m_memberCount; i++)
@@ -472,11 +466,10 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
     if(team->RemoveMember(inf))
     {
         char buffer[1024];
-        WorldPacket * data;
         snprintf(buffer,1024,"%s was removed from the arena team '%s'.", inf->name, team->m_name.c_str());
-        data = sChatHandler.FillSystemMessageData(buffer);
-        team->SendPacket(data);
-        delete data;
+        WorldPacket data;
+        sChatHandler.FillSystemMessageData(&data, buffer);
+        SendPacket(&data);
         SystemMessage("Removed %s from the arena team '%s'.", inf->name, team->m_name.c_str());
     }
 }
@@ -512,11 +505,10 @@ void WorldSession::HandleArenaTeamInviteAcceptOpcode(WorldPacket & recv_data)
     if(team->AddMember(_player->m_playerInfo))
     {
         char buffer[1024];
-        WorldPacket * data;
         snprintf(buffer,1024,"%s joined the arena team, '%s'.", _player->GetName(), team->m_name.c_str());
-        data = sChatHandler.FillSystemMessageData(buffer);
-        team->SendPacket(data);
-        delete data;
+        WorldPacket data;
+        sChatHandler.FillSystemMessageData(&data, buffer);
+        SendPacket(&data);
     } else SendNotification("Internal error.");
 }
 
@@ -565,11 +557,10 @@ void WorldSession::HandleArenaTeamLeaveOpcode(WorldPacket & recv_data)
     if(team->RemoveMember(_player->m_playerInfo))
     {
         char buffer[1024];
-        WorldPacket * data;
         snprintf(buffer,1024,"%s left the arena team, '%s'.", _player->GetName(), team->m_name.c_str());
-        data = sChatHandler.FillSystemMessageData(buffer);
-        team->SendPacket(data);
-        delete data;
+        WorldPacket data;
+        sChatHandler.FillSystemMessageData(&data, buffer);
+        SendPacket(&data);
         SystemMessage("You have left the arena team, '%s'.", team->m_name.c_str());
     }
 }

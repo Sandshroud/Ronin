@@ -22,30 +22,16 @@ void Tracker::CheckPlayerForTracker(Player * plr, bool online)
     if( !IsValidPlayer(plr) || !IsBeingTracked(plr) )   // No tracker found on user!
         return;
 
-    char text[1024];
-
     TrackedPlr * tracker = GetTrackerByIP(plr->GetSession()->GetSocket()->GetIP());
     if ( !tracker )
         return; // No tracker found on user!
 
+    char text[1024];
     sprintf(text, "%sTracker:|r %s has %s on character %s", MSG_COLOR_CYAN, tracker->Name.c_str(),
         (online?"come online":"gone offline"), plr->GetName());
 
-    uint32 textLen = (uint32)strlen((char*)text) + 1;
-
-    WorldPacket data(textLen + 40);
-
-    data.Initialize(SMSG_MESSAGECHAT);
-    data << uint8(CHAT_MSG_SYSTEM);
-    data << uint32(LANG_UNIVERSAL);
-
-    data << (uint64)0;
-    data << (uint32)0;
-    data << (uint64)0;
-
-    data << textLen;
-    data << text;
-    data << uint8(0);
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, text);
     sWorld.SendAdministratorMessage(&data);
 }
 

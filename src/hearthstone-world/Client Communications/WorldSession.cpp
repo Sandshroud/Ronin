@@ -554,46 +554,59 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_REQUEST_HOTFIX].status                         = STATUS_WHENEVER;
 
     // Movement
-    WorldPacketHandlers[CMSG_MOVE_FALL_RESET].handler                       = &WorldSession::HandleMoveFallResetOpcode;
     WorldPacketHandlers[MSG_MOVE_HEARTBEAT].handler                         = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_JUMP].handler                              = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_START_ASCEND].handler                      = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_STOP_ASCEND].handler                       = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_START_DESCEND].handler                     = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_FALL_LAND].handler                         = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_FORWARD].handler                     = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_BACKWARD].handler                    = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_SET_FACING].handler                        = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_STRAFE_LEFT].handler                 = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_STRAFE_RIGHT].handler                = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_STOP_STRAFE].handler                       = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_TURN_LEFT].handler                   = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_TURN_RIGHT].handler                  = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_STOP_TURN].handler                         = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_START_PITCH_UP].handler                    = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_PITCH_DOWN].handler                  = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_STOP_PITCH].handler                        = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_SET_RUN_MODE].handler                      = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_SET_WALK_MODE].handler                     = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_SET_PITCH].handler                         = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_START_PITCH_UP].handler                    = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_START_ASCEND].handler                      = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_START_DESCEND].handler                     = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_START_SWIM].handler                        = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_STOP_SWIM].handler                         = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_FALL_LAND].handler                         = &WorldSession::HandleMovementOpcodes;
     WorldPacketHandlers[MSG_MOVE_STOP].handler                              = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_NOT_ACTIVE_MOVER].handler                 = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_CHNG_TRANSPORT].handler                   = &WorldSession::HandleMovementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_TIME_SKIPPED].handler                     = &WorldSession::HandleMoveTimeSkippedOpcode;
-    WorldPacketHandlers[CMSG_SET_ACTIVE_MOVER].handler                      = &WorldSession::HandleSetActiveMoverOpcode;
+    WorldPacketHandlers[MSG_MOVE_STOP_STRAFE].handler                       = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_STOP_TURN].handler                         = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_STOP_PITCH].handler                        = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_STOP_ASCEND].handler                       = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_STOP_SWIM].handler                         = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_SET_FACING].handler                        = &WorldSession::HandleMovementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_SET_PITCH].handler                         = &WorldSession::HandleMovementOpcodes;
+
+    WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY].handler                      = &WorldSession::HandleMovementInputOpcodes;
+    WorldPacketHandlers[MSG_MOVE_SET_RUN_MODE].handler                      = &WorldSession::HandleMovementInputOpcodes;
+    WorldPacketHandlers[MSG_MOVE_SET_WALK_MODE].handler                     = &WorldSession::HandleMovementInputOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_NOT_ACTIVE_MOVER].handler                 = &WorldSession::HandleMovementInputOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_CHNG_TRANSPORT].handler                   = &WorldSession::HandleMovementInputOpcodes;
 
     // ACK
     WorldPacketHandlers[MSG_MOVE_WORLDPORT_ACK].handler                     = &WorldSession::HandleAcknowledgementOpcodes;
-    WorldPacketHandlers[MSG_MOVE_TELEPORT_ACK].handler                      = &WorldSession::HandleAcknowledgementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_HOVER_ACK].handler                        = &WorldSession::HandleAcknowledgementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_WATER_WALK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY_ACK].handler                  = &WorldSession::HandleAcknowledgementOpcodes;
-    WorldPacketHandlers[CMSG_MOVE_KNOCK_BACK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_FORCE_MOVE_ROOT_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_FORCE_MOVE_UNROOT_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FEATHER_FALL_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_GRAVITY_ENABLE_ACK].handler               = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_GRAVITY_DISABLE_ACK].handler              = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_HOVER_ACK].handler                        = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_WATER_WALK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_KNOCK_BACK_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY_ACK].handler                  = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_SET_COLLISION_HEIGHT_ACK].handler         = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_SET_CAN_TRANSITION_BETWEEN_SWIM_AND_FLY_ACK].handler = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_WALK_SPEED_CHANGE_ACK].handler      = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_RUN_SPEED_CHANGE_ACK].handler       = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_RUN_BACK_SPEED_CHANGE_ACK].handler  = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_SWIM_SPEED_CHANGE_ACK].handler      = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_FLIGHT_SPEED_CHANGE_ACK].handler    = &WorldSession::HandleAcknowledgementOpcodes;
+
+    // Extra movement codes
+    WorldPacketHandlers[CMSG_SET_ACTIVE_MOVER].handler                      = &WorldSession::HandleSetActiveMoverOpcode;
+    WorldPacketHandlers[CMSG_MOVE_TIME_SKIPPED].handler                     = &WorldSession::HandleMoveTimeSkippedOpcode;
+    WorldPacketHandlers[CMSG_MOVE_SPLINE_DONE].handler                      = &WorldSession::HandleMoveSplineCompleteOpcode;
+    WorldPacketHandlers[CMSG_MOVE_FALL_RESET].handler                       = &WorldSession::HandleMoveFallResetOpcode;
 
     // Action Buttons
     WorldPacketHandlers[CMSG_SET_ACTION_BUTTON].handler                      = &WorldSession::HandleSetActionButtonOpcode;
@@ -731,6 +744,7 @@ void WorldSession::InitPacketHandlerTable()
     // Spell System / Talent System
     WorldPacketHandlers[CMSG_USE_ITEM].handler                              = &WorldSession::HandleUseItemOpcode;
     WorldPacketHandlers[CMSG_CAST_SPELL].handler                            = &WorldSession::HandleCastSpellOpcode;
+    WorldPacketHandlers[CMSG_PET_CAST_SPELL].handler                        = &WorldSession::HandleCharmForceCastSpell;
     WorldPacketHandlers[CMSG_CANCEL_CAST].handler                           = &WorldSession::HandleCancelCastOpcode;
     WorldPacketHandlers[CMSG_CANCEL_AURA].handler                           = &WorldSession::HandleCancelAuraOpcode;
     WorldPacketHandlers[CMSG_CANCEL_CHANNELLING].handler                    = &WorldSession::HandleCancelChannellingOpcode;
@@ -856,7 +870,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_AREA_SPIRIT_HEALER_QUERY].handler              = &WorldSession::HandleAreaSpiritHealerQueryOpcode;
     WorldPacketHandlers[CMSG_AREA_SPIRIT_HEALER_QUEUE].handler              = &WorldSession::HandleAreaSpiritHealerQueueOpcode;
     WorldPacketHandlers[CMSG_SET_ACTIONBAR_TOGGLES].handler                 = &WorldSession::HandleSetActionBarTogglesOpcode;
-    WorldPacketHandlers[CMSG_MOVE_SPLINE_DONE].handler                      = &WorldSession::HandleMoveSplineCompleteOpcode;
 
     // GM Ticket System
     WorldPacketHandlers[CMSG_GMTICKET_CREATE].handler                       = &WorldSession::HandleGMTicketCreateOpcode;
@@ -942,11 +955,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_REQUEST_VEHICLE_SWITCH_SEAT].handler           = &WorldSession::HandleRequestSeatChange;
     WorldPacketHandlers[CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE].handler    = &WorldSession::HandleRequestSeatChange;
     WorldPacketHandlers[CMSG_EJECT_PASSENGER].handler                       = &WorldSession::HandleEjectPassenger;
-
     WorldPacketHandlers[CMSG_PLAYER_VEHICLE_ENTER].handler                  = &WorldSession::HandleVehicleMountEnter;
-
-    // Minion Cast Spell
-    WorldPacketHandlers[CMSG_PET_CAST_SPELL].handler                        = &WorldSession::HandleCharmForceCastSpell;
 
     /// Empty packets
 }
@@ -971,30 +980,28 @@ void WorldSession::LogUnprocessedTail(WorldPacket *packet)
 
 void WorldSession::SystemMessage(const char * format, ...)
 {
-    WorldPacket * data;
     char buffer[1024];
     va_list ap;
     va_start(ap,format);
     vsnprintf(buffer,1024,format,ap);
     va_end(ap);
 
-    data = sChatHandler.FillSystemMessageData(buffer);
-    SendPacket(data);
-    delete data;
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, buffer);
+    SendPacket(&data);
 }
 
-void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, int32 lang, WorldSession * originator)
+void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator)
 {
-    if(lang == -1)
-        *(uint32*)&data->contents()[langpos] = lang;
-    else
+    if(lang > 0)
     {
         if(CanUseCommand('c') || (originator && originator->CanUseCommand('c')))
             *(uint32*)&data->contents()[langpos] = LANG_UNIVERSAL;
-        else
-            *(uint32*)&data->contents()[langpos] = lang;
-    }
+        else *(uint32*)&data->contents()[langpos] = lang;
+    } else *(uint32*)&data->contents()[langpos] = lang;
 
+    if(guidPos != 0 && _player)
+        (*((uint64*)(&data->contents()[guidPos]))) = _player->GetGUID().raw();
     SendPacket(data);
 }
 

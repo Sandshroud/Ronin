@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 7.f, 4.5f, 3.141593f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -14,13 +14,28 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterS
         m_speedOffset[i] = m_pendingSpeeds[i] = 0.f;
         m_speedTimers[i] = 0;
     }
-
-    m_serverLocation = m_Unit->GetPositionV();
-    m_clientLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+    for(uint8 i = 0; i < MOVEMENT_STATUS_MAX; i++)
+        m_pendingEnable[i] = false;
 
     // Sizeof1
     memset(m_movementFlags, 0, sizeof(uint8)*6);
     memset(m_serverFlags, 0, sizeof(uint8)*6);
+
+    m_clientGuid = m_moverGuid = _unit->getGender();
+    m_transportGuid.Clean();
+    m_clientTransGuid.Clean();
+
+    m_serverLocation = m_Unit->GetPositionV();
+    m_clientLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+    m_clientTransLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+    m_clientTime = 0, m_serverTime = getMSTime(), m_jumpTime = 0, m_transportTime = 0, m_transportTime2 = 0;
+    m_transportSeatId = 0, m_vehicleId = 0;
+    pitching = splineElevation = 0.f;
+    m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
+    m_underwaterState = 0;
+    m_collisionHeight = 0.f;
+    m_isKnockBacked = false;
+    m_heightOffset = 0.f;
 
     ClearTransportData();
     m_extra.clear();
@@ -270,14 +285,71 @@ void MovementInterface::Update(uint32 diff)
 
 }
 
-void MovementInterface::UpdatePreWrite()
+void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
 {
 
 }
 
-bool MovementInterface::UpdatePostRead(uint16 moveCode)
+static Opcodes const movementSpeedToOpcode[MOVE_SPEED_MAX][3] =
+{
+    {SMSG_SPLINE_MOVE_SET_WALK_SPEED,        SMSG_MOVE_SET_WALK_SPEED,        SMSG_MOVE_UPDATE_WALK_SPEED       },
+    {SMSG_SPLINE_MOVE_SET_RUN_SPEED,         SMSG_MOVE_SET_RUN_SPEED,         SMSG_MOVE_UPDATE_RUN_SPEED        },
+    {SMSG_SPLINE_MOVE_SET_RUN_BACK_SPEED,    SMSG_MOVE_SET_RUN_BACK_SPEED,    SMSG_MOVE_UPDATE_RUN_BACK_SPEED   },
+    {SMSG_SPLINE_MOVE_SET_SWIM_SPEED,        SMSG_MOVE_SET_SWIM_SPEED,        SMSG_MOVE_UPDATE_SWIM_SPEED       },
+    {SMSG_SPLINE_MOVE_SET_SWIM_BACK_SPEED,   SMSG_MOVE_SET_SWIM_BACK_SPEED,   SMSG_MOVE_UPDATE_SWIM_BACK_SPEED  },
+    {SMSG_SPLINE_MOVE_SET_TURN_RATE,         SMSG_MOVE_SET_TURN_RATE,         SMSG_MOVE_UPDATE_TURN_RATE        },
+    {SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED,      SMSG_MOVE_SET_FLIGHT_SPEED,      SMSG_MOVE_UPDATE_FLIGHT_SPEED     },
+    {SMSG_SPLINE_MOVE_SET_FLIGHT_BACK_SPEED, SMSG_MOVE_SET_FLIGHT_BACK_SPEED, SMSG_MOVE_UPDATE_FLIGHT_BACK_SPEED},
+    {SMSG_SPLINE_MOVE_SET_PITCH_RATE,        SMSG_MOVE_SET_PITCH_RATE,        SMSG_MOVE_UPDATE_PITCH_RATE       },
+};
+
+bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffer *source)
 {
     UpdateMovementFlagMask();
+    if(!UpdateAcknowledgementData(moveCode))
+        return false;
+
+    m_Unit->SetPosition(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z, m_clientLocation.o);
+    switch(moveCode)
+    {
+    case MOVEMENT_CODE_HEARTBEAT:
+    case MOVEMENT_CODE_JUMP:
+    case MOVEMENT_CODE_FALL_LAND:
+    case MOVEMENT_CODE_START_FORWARD:
+    case MOVEMENT_CODE_START_BACKWARD:
+    case MOVEMENT_CODE_START_STRAFE_LEFT:
+    case MOVEMENT_CODE_START_STRAFE_RIGHT:
+    case MOVEMENT_CODE_START_TURN_LEFT:
+    case MOVEMENT_CODE_START_TURN_RIGHT:
+    case MOVEMENT_CODE_START_PITCH_DOWN:
+    case MOVEMENT_CODE_START_PITCH_UP:
+    case MOVEMENT_CODE_START_ASCEND:
+    case MOVEMENT_CODE_START_DESCEND:
+    case MOVEMENT_CODE_START_SWIM:
+    case MOVEMENT_CODE_STOP:
+    case MOVEMENT_CODE_STOP_STRAFE:
+    case MOVEMENT_CODE_STOP_TURN:
+    case MOVEMENT_CODE_STOP_PITCH:
+    case MOVEMENT_CODE_STOP_ASCEND:
+    case MOVEMENT_CODE_STOP_SWIM:
+    case MOVEMENT_CODE_SET_FACING:
+    case MOVEMENT_CODE_SET_PITCH:
+        {
+            WorldPacket data(SMSG_PLAYER_MOVE, source->size());
+            WriteFromServer(SMSG_PLAYER_MOVE, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
+            m_Unit->SendMessageToSet(&data, false);
+        }break;
+    }
+
+    if(uint16 distributeOpcode = GetInternalMovementCode(moveCode))
+    {
+    }
+
+    return true;
+}
+
+bool MovementInterface::UpdateAcknowledgementData(uint16 moveCode)
+{
     switch(moveCode)
     {
     case MOVEMENT_CODE_ACK_ROOT:
@@ -489,11 +561,11 @@ bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
     uint16 moveCode = 0xFFFF;
     if((moveCode = GetInternalMovementCode(opcode)) != 0xFFFF)
     {
+        m_clientLocation = *m_serverLocation;
         try
         {
-            printf("Handling movement %s, %u\n", sOpcodeMgr.GetOpcodeName(opcode), opcode);
             (this->*(movementPacketHandlers[moveCode].function))(true, *buffer);
-            res = UpdatePostRead(moveCode);
+            res = UpdatePostRead(opcode, moveCode, buffer);
         }
         catch (ByteBufferException &)
         {
@@ -513,14 +585,14 @@ void MovementInterface::WriteFromServer(uint16 opcode, ByteBuffer *buffer, WoWGu
     uint16 moveCode = 0xFFFF;
     if((moveCode = GetInternalMovementCode(opcode)) != 0xFFFF)
     {
-        UpdatePreWrite();
+        UpdatePreWrite(opcode, moveCode);
         (this->*(movementPacketHandlers[moveCode].function))(false, *buffer);
         if(m_incrementMoveCounter)
         {
             m_incrementMoveCounter = false;
             m_serverCounter++;
         }
-    } else sLog.outError("", "");
+    } else sLog.outError("");
     // Clear the extra info
     m_extra.clear();
     m_movementLock.Release();

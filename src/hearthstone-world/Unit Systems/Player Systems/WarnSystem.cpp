@@ -23,13 +23,6 @@
 
 initialiseSingleton( WarnSystem );
 
-void PlrSendMessageToSet(Player * Plr, const char* msg)
-{
-    WorldPacket *data = sChatHandler.FillMessageData( CHAT_MSG_SAY, LANG_UNIVERSAL,  msg, Plr->GetGUID(), Plr->bGMTagOn ? 4 : 0 );
-    Plr->SendMessageToSet( data, true );
-    delete data;
-}
-
 bool WarnSystem::Punishment_TakeGold(Player *Warned, uint32 NewWarnCnt)
 {
     if( NewWarnCnt <= 1 )
@@ -56,9 +49,11 @@ bool WarnSystem::Punishment_TakeGold(Player *Warned, uint32 NewWarnCnt)
 
     if( CoinageToLose > CopperPerGold )
     {
+        WorldPacket data;
         char msg[1024];
         sprintf(msg, "[WarnSys] I got warned and I just lost %u gold!", (int)(CoinageToLose/CopperPerGold));
-        PlrSendMessageToSet(Warned, msg);
+        sChatHandler.FillMessageData(&data, false, CHAT_MSG_SAY, LANG_UNIVERSAL, Warned->GetGUID(), 0, Warned->GetName(), msg, "", 0);
+        Warned->SendMessageToSet( &data, true );
     }
 
     return enoughGold;

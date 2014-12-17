@@ -800,9 +800,9 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
                 playerTarget->addSpell( discovered_recipe );
                 char msg[256];
                 sprintf( msg, "%sDISCOVERY! %s has discovered how to create %s.|r", MSG_COLOR_GOLD, playerTarget->GetName(), se->Name );
-                WorldPacket *data = sChatHandler.FillMessageData( CHAT_MSG_SYSTEM, LANG_UNIVERSAL,  msg, playerTarget->GetGUID(), 0 );
-                playerTarget->GetMapMgr()->SendChatMessageToCellPlayers( playerTarget, data, 2, 1, LANG_UNIVERSAL, playerTarget->GetSession() );
-                delete data;
+                WorldPacket data;
+                size_t pos = sChatHandler.FillMessageData(&data, false, CHAT_MSG_SYSTEM, LANG_UNIVERSAL, playerTarget->GetGUID(), 0, "", msg, 0);
+                playerTarget->GetMapMgr()->SendChatMessageToCellPlayers( playerTarget, &data, 2, 1, pos, LANG_UNIVERSAL, playerTarget->GetSession() );
             }
         }
     }
@@ -4058,12 +4058,11 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
         if ( se != NULL )
         {
             p_caster->addSpell( discovered_recipe );
-            WorldPacket * data;
             char msg[256];
             sprintf( msg, "%sDISCOVERY! %s has discovered how to create %s.|r", MSG_COLOR_GOLD, p_caster->GetName(), se->Name );
-            data = sChatHandler.FillMessageData( CHAT_MSG_SYSTEM, LANG_UNIVERSAL,  msg, p_caster->GetGUID(), 0 );
-            p_caster->GetMapMgr()->SendChatMessageToCellPlayers( p_caster, data, 2, 1, LANG_UNIVERSAL, p_caster->GetSession() );
-            delete data;
+            WorldPacket data;
+            sChatHandler.FillSystemMessageData(&data, msg);
+            p_caster->GetMapMgr()->SendChatMessageToCellPlayers( p_caster, &data, 2, 1, 0, LANG_UNIVERSAL, p_caster->GetSession() );
         }
     }
     if( m_itemProto == NULL )

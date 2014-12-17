@@ -243,8 +243,8 @@ public:
     static uint16 GetInternalMovementCode(uint16 opcode);
 
     void Update(uint32 diff);
-    void UpdatePreWrite();
-    bool UpdatePostRead(uint16 moveCode);
+    void UpdatePreWrite(uint16 opcode, uint16 moveCode);
+    bool UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffer *source);
 
     void HandleBreathing();
     void HandleMovementFlags(bool read, ByteBuffer *buffer);
@@ -367,6 +367,9 @@ public:
         run = &m_currSpeeds[MOVE_SPEED_RUN];
         fly = &m_currSpeeds[MOVE_SPEED_FLY];
     }
+
+private:
+    bool UpdateAcknowledgementData(uint16 moveCode);
 
 public:
     void AppendSplineData(bool bits, ByteBuffer *buffer);
@@ -597,3 +600,87 @@ private:
 
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };
+
+enum MovementStatusElements
+{
+    MSEHasGuidByte0,
+    MSEHasGuidByte1,
+    MSEHasGuidByte2,
+    MSEHasGuidByte3,
+    MSEHasGuidByte4,
+    MSEHasGuidByte5,
+    MSEHasGuidByte6,
+    MSEHasGuidByte7,
+    MSEHasMovementFlags,
+    MSEHasMovementFlags2,
+    MSEHasTimestamp,
+    MSEHasOrientation,
+    MSEHasTransportData,
+    MSEHasTransportGuidByte0,
+    MSEHasTransportGuidByte1,
+    MSEHasTransportGuidByte2,
+    MSEHasTransportGuidByte3,
+    MSEHasTransportGuidByte4,
+    MSEHasTransportGuidByte5,
+    MSEHasTransportGuidByte6,
+    MSEHasTransportGuidByte7,
+    MSEHasTransportTime2,
+    MSEHasTransportTime3,
+    MSEHasPitch,
+    MSEHasFallData,
+    MSEHasFallDirection,
+    MSEHasSplineElevation,
+    MSEHasSpline,
+
+    MSEGuidByte0,
+    MSEGuidByte1,
+    MSEGuidByte2,
+    MSEGuidByte3,
+    MSEGuidByte4,
+    MSEGuidByte5,
+    MSEGuidByte6,
+    MSEGuidByte7,
+    MSEMovementFlags,
+    MSEMovementFlags2,
+    MSETimestamp,
+    MSEPositionX,
+    MSEPositionY,
+    MSEPositionZ,
+    MSEOrientation,
+    MSETransportGuidByte0,
+    MSETransportGuidByte1,
+    MSETransportGuidByte2,
+    MSETransportGuidByte3,
+    MSETransportGuidByte4,
+    MSETransportGuidByte5,
+    MSETransportGuidByte6,
+    MSETransportGuidByte7,
+    MSETransportPositionX,
+    MSETransportPositionY,
+    MSETransportPositionZ,
+    MSETransportOrientation,
+    MSETransportSeat,
+    MSETransportTime,
+    MSETransportTime2,
+    MSETransportVehicleId,
+    MSEPitch,
+    MSEFallTime,
+    MSEFallVerticalSpeed,
+    MSEFallCosAngle,
+    MSEFallSinAngle,
+    MSEFallHorizontalSpeed,
+    MSESplineElevation,
+
+    MSECounter,
+
+    // Special
+    MSEZeroBit,         // writes bit value 1 or skips read bit
+    MSEOneBit,          // writes bit value 0 or skips read bit
+    MSEEnd,             // marks end of parsing
+    MSEExtraElement,    // Used to signalize reading into ExtraMovementStatusElement, element sequence inside it is declared as separate array
+                        // Allowed internal elements are: GUID markers (not transport), MSEExtraFloat, MSEExtraInt8
+    MSEExtraFloat,
+    MSEExtraInt8,
+};
+
+MovementStatusElements const* GetMovementStatusElementsSequence(Opcodes opcode);

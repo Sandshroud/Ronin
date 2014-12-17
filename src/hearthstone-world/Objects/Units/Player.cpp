@@ -7506,9 +7506,9 @@ void Player::BroadcastMessage(const char* Format, ...)
     vsnprintf(Message, 1024, Format, l);
     va_end(l);
 
-    WorldPacket * data = sChatHandler.FillSystemMessageData(Message);
-    m_session->SendPacket(data);
-    delete data;
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, Message);
+    m_session->SendPacket(&data);
 }
 
 float Player::CalcPercentForRating( uint32 index, uint32 rating )

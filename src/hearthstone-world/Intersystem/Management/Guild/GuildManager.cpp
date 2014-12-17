@@ -1721,7 +1721,8 @@ void GuildMgr::GuildChat(WorldSession* m_session, uint32 Language, const char* m
     }
 
     Player* Target = NULL;
-    WorldPacket * data = sChatHandler.FillMessageData( CHAT_MSG_GUILD, LANG_UNIVERSAL, message, plr->GetGUID(), plr->GetChatTag());
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, CHAT_MSG_GUILD, LANG_UNIVERSAL, plr->GetGUID(), 0, plr->GetName(), message, "", plr->GetChatTag());
     MemberMapStorage->MemberMapLock.Acquire();
     for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
     {
@@ -1730,11 +1731,9 @@ void GuildMgr::GuildChat(WorldSession* m_session, uint32 Language, const char* m
             continue;
 
         if(HasGuildRights(Target, GR_RIGHT_GCHATLISTEN))
-            Target->SendPacket(data);
+            Target->SendPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
-
-    delete data;
 }
 
 void GuildMgr::OfficerChat(WorldSession* m_session, uint32 Language, const char* message)
@@ -1760,7 +1759,8 @@ void GuildMgr::OfficerChat(WorldSession* m_session, uint32 Language, const char*
     }
 
     Player* Target = NULL;
-    WorldPacket * data = sChatHandler.FillMessageData( CHAT_MSG_OFFICER, Language, message, plr->GetGUID(), plr->GetChatTag());
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, CHAT_MSG_OFFICER, Language, plr->GetGUID(), 0, plr->GetName(), message, "", plr->GetChatTag());
     MemberMapStorage->MemberMapLock.Acquire();
     for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
     {
@@ -1769,11 +1769,9 @@ void GuildMgr::OfficerChat(WorldSession* m_session, uint32 Language, const char*
             continue;
 
         if(HasGuildRights(Target, GR_RIGHT_OFFCHATLISTEN))
-            Target->SendPacket(data);
+            Target->SendPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
-
-    delete data;
 }
 
 void GuildMgr::LoadGuildCharters()

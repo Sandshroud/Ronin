@@ -637,17 +637,17 @@ void World::SendMessageToGMs(WorldSession *self, const char * text, ...)
     va_end(ap);
     WorldSession *gm_session;
 
-    WorldPacket *data = sChatHandler.FillSystemMessageData(buf);
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, buf);
     gmList_lock.AcquireReadLock();
     SessionSet::iterator itr;
     for (itr = gmList.begin(); itr != gmList.end();itr++)
     {
         gm_session = (*itr);
         if(gm_session->GetPlayer() != NULL && gm_session != self)  // dont send to self!)
-            gm_session->SendPacket(data);
+            gm_session->SendPacket(&data);
     }
     gmList_lock.ReleaseReadLock();
-    delete data;
 }
 
 void World::SendGlobalMessage(WorldPacket *packet, WorldSession *self)
@@ -723,43 +723,18 @@ void World::SendInstanceMessage(WorldPacket *packet, uint32 instanceid, WorldSes
 
 void World::SendWorldText(const char* text, WorldSession *self)
 {
-    uint32 textLen = (uint32)strlen((char*)text) + 1;
-
-    WorldPacket data(textLen + 40);
-
-    data.Initialize(SMSG_MESSAGECHAT);
-    data << uint8(CHAT_MSG_SYSTEM);
-    data << uint32(LANG_UNIVERSAL);
-
-    data << (uint64)0; // Who cares about guid when there's no nickname displayed heh ?
-    data << (uint32)0;
-    data << (uint64)0;
-
-    data << textLen;
-    data << text;
-    data << uint8(0);
-
+    WorldPacket data;
+    sChatHandler.FillSystemMessageData(&data, text);
     SendGlobalMessage(&data, self);
 }
 
 void World::SendGMWorldText(const char* text, bool admin)
 {
-    uint32 textLen = (uint32)strlen((char*)text) + 1;
-
-    WorldPacket data(textLen + 40);
+    WorldPacket data;
     data.Initialize(SMSG_MESSAGECHAT);
-    data << uint8(CHAT_MSG_SYSTEM);
-    data << uint32(LANG_UNIVERSAL);
-    data << (uint64)0;
-    data << (uint32)0;
-    data << (uint64)0;
-    data << textLen;
-    data << text;
-    data << uint8(0);
-    if(admin)
-        SendAdministratorMessage(&data);
-    else
-        SendGamemasterMessage(&data);
+    sChatHandler.FillSystemMessageData(&data, text);
+    if(admin) SendAdministratorMessage(&data);
+    else SendGamemasterMessage(&data);
 }
 
 void World::SendAdministratorMessage(WorldPacket *packet)

@@ -1391,15 +1391,15 @@ void CBattleground::SendChatMessage(uint32 Type, uint64 Guid, const char * Forma
     va_start(ap, Format);
     vsnprintf(msg, 500, Format, ap);
     va_end(ap);
-    WorldPacket * data = sChatHandler.FillMessageData(Type, 0, msg, Guid, 0);
-    DistributePacketToAll(data);
-    delete data;
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, Type, LANG_UNIVERSAL, 0, 0, "", msg, "", 0);
+    DistributePacketToAll(&data);
 }
 
 void CBattleground::DistributePacketToAll(WorldPacket * packet)
 {
     m_mainLock.Acquire();
-    for(int i = 0; i < 2; i++)
+    for(int8 i = 0; i < 2; i++)
     {
         if( !m_players[i].size() )
             continue;

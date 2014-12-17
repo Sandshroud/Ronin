@@ -4,11 +4,6 @@
 
 #pragma once
 
-class Unit;
-class Spell;
-class Aura;
-class DynamicObject;
-
 enum HIGHGUID_TYPE
 {
     HIGHGUID_TYPE_PLAYER            = 0x0000,
@@ -136,10 +131,15 @@ typedef struct
     uint32 resisted_damage;
 } dealdamage;
 
+class Spell;
+class Aura;
+class Unit;
+class Player;
+class GameObject;
+class DynamicObject;
 class WorldPacket;
 class ByteBuffer;
 class WorldSession;
-class Player;
 class MapCell;
 class MapMgr;
 
@@ -292,10 +292,13 @@ private:
 class SERVER_DECL WorldObject : public Object, public EventableObject
 {
 public:
-    typedef std::unordered_set< WorldObject* > InRangeSet;
-    typedef std::unordered_set< Unit* >   InRangeUnitSet;
-    typedef std::unordered_set< Player* > InRangePlayerSet;
+    typedef std::unordered_set<WorldObject*> InRangeSet;
+    typedef std::unordered_set<Unit*> InRangeUnitSet;
+    typedef std::unordered_set<Player*> InRangePlayerSet;
+    typedef std::unordered_set<GameObject*> InRangeGameObjectSet;
 
+public:
+    WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
     virtual ~WorldObject( );
     virtual void Init();
     virtual void Destruct();
@@ -395,16 +398,8 @@ public:
     /* converts to 360 > x > 0 */
     float getEasyAngle( float angle );
 
-    HEARTHSTONE_INLINE float CalcDistance(LocationVector & comp)
-    {
-        return comp.Distance(m_position);
-    }
-
-    HEARTHSTONE_INLINE float GetDistanceSq(LocationVector & comp)
-    {
-        return comp.DistanceSq(m_position);
-    }
-
+    HEARTHSTONE_INLINE float CalcDistance(LocationVector & comp) { return comp.Distance(m_position); }
+    HEARTHSTONE_INLINE float GetDistanceSq(LocationVector & comp) { return comp.DistanceSq(m_position); }
     HEARTHSTONE_INLINE const float GetDistanceSq(WorldObject* obj)
     {
         if(obj->GetMapId() != m_mapId)
@@ -432,7 +427,7 @@ public:
     // In-range object management, not sure if we need it
     HEARTHSTONE_INLINE bool IsInRangeSet( WorldObject* pObj )
     {
-        return !( m_objectsInRange.find( pObj ) == m_objectsInRange.end() );
+        return m_objectsInRange.find(pObj) != m_objectsInRange.end();
     }
 
     virtual void AddInRangeObject(WorldObject* pObj)
@@ -442,17 +437,13 @@ public:
 
         m_objectsInRange.insert( pObj );
 
-        if( pObj->IsUnit() )
-            m_unitsInRange.insert( castPtr<Unit>(pObj) );
-        if( pObj->IsPlayer() )
-            m_inRangePlayers.insert( castPtr<Player>(pObj) );
-    }
-
-    HEARTHSTONE_INLINE void RemoveInRangeObject( WorldObject* pObj )
-    {
-        ASSERT(pObj);
-        OnRemoveInRangeObject( pObj );
-        m_objectsInRange.erase( pObj );
+        if(pObj->IsGameObject())
+            m_gameObjectsInRange.insert(castPtr<GameObject>(pObj));
+        else
+        {
+            if(pObj->IsUnit()) m_unitsInRange.insert(castPtr<Unit>(pObj));
+            if(pObj->IsPlayer()) m_inRangePlayers.insert(castPtr<Player>(pObj));
+        }
     }
 
     HEARTHSTONE_INLINE bool HasInRangeObjects()
@@ -462,17 +453,22 @@ public:
 
     virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
-        if( pObj->IsUnit() )
-            m_unitsInRange.erase( castPtr<Unit>(pObj) );
-        if( pObj->IsPlayer() )
-            m_inRangePlayers.erase( castPtr<Player>(pObj) );
+        if(pObj->IsGameObject())
+            m_gameObjectsInRange.erase(castPtr<GameObject>(pObj));
+        else
+        {
+            if(pObj->IsUnit()) m_unitsInRange.erase(castPtr<Unit>(pObj));
+            if(pObj->IsPlayer()) m_inRangePlayers.erase(castPtr<Player>(pObj));
+        }
     }
 
     virtual void ClearInRangeSet()
     {
         m_objectsInRange.clear();
+        m_unitsInRange.clear();
         m_inRangePlayers.clear();
         m_oppFactsInRange.clear();
+        m_gameObjectsInRange.clear();
     }
 
     HEARTHSTONE_INLINE size_t GetInRangeCount() { return m_objectsInRange.size(); }
@@ -480,48 +476,39 @@ public:
     HEARTHSTONE_INLINE size_t GetInRangePlayersCount() { return m_inRangePlayers.size();}
     HEARTHSTONE_INLINE InRangePlayerSet *GetInRangePlayerSet() { return &m_inRangePlayers; };
 
-    InRangeSet::iterator GetInRangeSetBegin() { return m_objectsInRange.begin(); }
-    InRangeSet::iterator GetInRangeSetEnd() { return m_objectsInRange.end(); }
     InRangeSet::iterator FindInRangeSet(WorldObject * obj) { return m_objectsInRange.find(obj); }
-
-    void RemoveInRangeObject(InRangeSet::iterator itr)
+    HEARTHSTONE_INLINE void RemoveInRangeObject(InRangeSet::iterator itr)
     {
+        ASSERT(*itr);
         OnRemoveInRangeObject(*itr);
         m_objectsInRange.erase(itr);
     }
 
-    HEARTHSTONE_INLINE bool RemoveIfInRange( WorldObject* obj )
+    HEARTHSTONE_INLINE bool RemoveInRangeObject( WorldObject* obj )
     {
+        ASSERT(obj);
         InRangeSet::iterator itr = m_objectsInRange.find(obj);
-        if( obj->IsPlayer() )
-            m_inRangePlayers.erase( castPtr<Player>(obj) );
-
         if( itr == m_objectsInRange.end() )
             return false;
 
-        m_objectsInRange.erase( itr );
+        OnRemoveInRangeObject(*itr);
+        m_objectsInRange.erase(itr);
         return true;
-    }
-
-    HEARTHSTONE_INLINE void AddInRangePlayer( WorldObject* obj )
-    {
-        m_inRangePlayers.insert( castPtr<Player>(obj) );
-    }
-
-    HEARTHSTONE_INLINE void RemoveInRangePlayer( WorldObject* obj )
-    {
-        m_inRangePlayers.erase( castPtr<Player>(obj) );
     }
 
     bool IsInRangeOppFactSet(Unit* pObj) { return (m_oppFactsInRange.count(pObj) > 0); }
     void UpdateOppFactionSet();
 
+    HEARTHSTONE_INLINE InRangeSet::iterator GetInRangeSetBegin() { return m_objectsInRange.begin(); }
+    HEARTHSTONE_INLINE InRangeSet::iterator GetInRangeSetEnd() { return m_objectsInRange.end(); }
     HEARTHSTONE_INLINE InRangeUnitSet::iterator GetInRangeOppFactsSetBegin() { return m_oppFactsInRange.begin(); }
     HEARTHSTONE_INLINE InRangeUnitSet::iterator GetInRangeOppFactsSetEnd() { return m_oppFactsInRange.end(); }
-    HEARTHSTONE_INLINE InRangePlayerSet::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
-    HEARTHSTONE_INLINE InRangePlayerSet::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
     HEARTHSTONE_INLINE InRangeUnitSet::iterator GetInRangeUnitSetBegin() { return m_unitsInRange.begin(); }
     HEARTHSTONE_INLINE InRangeUnitSet::iterator GetInRangeUnitSetEnd() { return m_unitsInRange.end(); }
+    HEARTHSTONE_INLINE InRangePlayerSet::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
+    HEARTHSTONE_INLINE InRangePlayerSet::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
+    HEARTHSTONE_INLINE InRangeGameObjectSet::iterator GetInRangeGameObjectSetBegin() { return m_gameObjectsInRange.begin(); }
+    HEARTHSTONE_INLINE InRangeGameObjectSet::iterator GetInRangeGameObjectSetEnd() { return m_gameObjectsInRange.end(); }
 
     void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
@@ -569,8 +556,6 @@ public:
     int32 GetPhaseMask() { return 0x01; }
 
 protected:
-    WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
-
     void _Create( uint32 mapid, float x, float y, float z, float ang);
 
     /* Main Function called by isInFront(); */
@@ -599,16 +584,16 @@ protected:
     LocationVector m_position, m_lastMapUpdatePosition;
 
     //! Set of Objects in range.
-    typedef std::unordered_set<WorldObject*> InRangeObjectSet;
-    InRangeObjectSet m_objectsInRange;
+    InRangeSet m_objectsInRange;
 
     // Inrange units
-    typedef std::unordered_set<Unit*> InRangeUnitSet;
     InRangeUnitSet m_unitsInRange, m_oppFactsInRange;
 
     // Inrange players
-    typedef std::unordered_set<Player*> InRangePlayerSet;
     InRangePlayerSet m_inRangePlayers;
+
+    // Inrange Gameobjects
+    InRangeGameObjectSet m_gameObjectsInRange;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);

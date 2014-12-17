@@ -353,19 +353,15 @@ void Group::Disband()
     if(m_isqueued)
     {
         m_isqueued=false;
-        WorldPacket * data = sChatHandler.FillSystemMessageData("A change was made to your group. Removing the arena queue.");
-        SendPacketToAll(data);
-        delete data;
-
+        WorldPacket data;
+        sChatHandler.FillSystemMessageData(&data, "A change was made to your group. Removing the arena queue.");
+        SendPacketToAll(&data);
         BattlegroundManager.RemoveGroupFromQueues(this);
     }
 
-    uint32 i = 0;
-    for(i = 0; i < m_SubGroupCount; i++)
-    {
-        SubGroup *sg = m_SubGroups[i];
-        sg->Disband();
-    }
+    for(uint8 i = 0; i < m_SubGroupCount; i++)
+        if(SubGroup *sg = m_SubGroups[i])
+            sg->Disband();
 
     m_groupLock.Release();
     CharacterDatabase.Execute("DELETE FROM groups WHERE group_id = %u", m_Id);
@@ -541,19 +537,17 @@ void Group::ExpandToRaid()
     if(m_isqueued)
     {
         m_isqueued=false;
-        WorldPacket * data = sChatHandler.FillSystemMessageData("A change was made to your group. Removing the arena queue.");
-        SendPacketToAll(data);
-        delete data;
-
+        WorldPacket data;
+        sChatHandler.FillSystemMessageData(&data, "A change was made to your group. Removing the arena queue.");
+        SendPacketToAll(&data);
         BattlegroundManager.RemoveGroupFromQueues(this);
     }
     // Very simple ;)
 
-    uint32 i = 1;
     m_groupLock.Acquire();
     m_SubGroupCount = 8;
 
-    for(; i < m_SubGroupCount; i++)
+    for(uint8 i = 1; i < m_SubGroupCount; i++)
         m_SubGroups[i] = new SubGroup(this, i);
 
     m_GroupType = GROUP_TYPE_RAID;
@@ -575,9 +569,8 @@ void Group::SetLooter(Player* pPlayer, uint8 method, uint16 threshold)
 void Group::SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget)
 {
     GroupMembersSet::iterator itr;
-    uint32 i = 0;
     m_groupLock.Acquire();
-    for(; i < m_SubGroupCount; i++)
+    for(uint8 i = 0; i < m_SubGroupCount; i++)
     {
         for(itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
         {
@@ -592,9 +585,8 @@ void Group::SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget)
 void Group::OutPacketToAllButOne(uint16 op, uint16 len, const void* data, Player* pSkipTarget)
 {
     GroupMembersSet::iterator itr;
-    uint32 i = 0;
     m_groupLock.Acquire();
-    for(; i < m_SubGroupCount; i++)
+    for(uint8 i = 0; i < m_SubGroupCount; i++)
     {
         for(itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
         {

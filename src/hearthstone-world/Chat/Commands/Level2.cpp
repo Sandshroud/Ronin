@@ -511,9 +511,9 @@ bool ChatHandler::HandleMonsterSayCommand(const char* args, WorldSession *m_sess
 
     if(crt->IsPlayer())
     {
-        WorldPacket * data = FillMessageData(CHAT_MSG_SAY, LANG_UNIVERSAL, args, crt->GetGUID(), 0);
-        crt->SendMessageToSet(data, true);
-        delete data;
+        WorldPacket data;
+        FillMessageData(&data, false, CHAT_MSG_SAY, LANG_UNIVERSAL, crt->GetGUID(), 0, crt->GetName(), args, "", 0);
+        crt->SendMessageToSet(&data, true);
     } else crt->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, args);
     sWorld.LogGM(m_session, "Used npc say command on %s %s", crt->IsPlayer() ? "Player" : "Creature", crt->GetName());
     return true;
@@ -527,12 +527,10 @@ bool ChatHandler::HandleMonsterYellCommand(const char* args, WorldSession *m_ses
 
     if(crt->IsPlayer())
     {
-        WorldPacket * data = FillMessageData(CHAT_MSG_YELL, LANG_UNIVERSAL, args, crt->GetGUID(), 0);
-        crt->SendMessageToSet(data, true);
-        delete data;
-    }
-    else
-        crt->SendChatMessage(CHAT_MSG_MONSTER_YELL, LANG_UNIVERSAL, args);
+        WorldPacket data;
+        FillMessageData(&data, false, CHAT_MSG_YELL, LANG_UNIVERSAL, crt->GetGUID(), 0, crt->GetName(), args, "", 0);
+        crt->SendMessageToSet(&data, true);
+    } else crt->SendChatMessage(CHAT_MSG_MONSTER_YELL, LANG_UNIVERSAL, args);
     sWorld.LogGM(m_session, "Used npc yell command on %s %s", crt->IsPlayer() ? "Player" : "Creature", crt->GetName());
     return true;
 }
@@ -542,61 +540,16 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 {
     GameObject* GObj = NULL;
 
-    std::unordered_set<WorldObject* >::iterator Itr = m_session->GetPlayer()->GetInRangeSetBegin();
-    std::unordered_set<WorldObject* >::iterator Itr2 = m_session->GetPlayer()->GetInRangeSetEnd();
-    float cDist = 9999.0f;
-    float nDist = 0.0f;
     bool bUseNext = false;
-
-    if(args)
+    float cDist = 9999.f, nDist = 0.f;
+    WorldObject::InRangeGameObjectSet::iterator itr, itr2 = m_session->GetPlayer()->GetInRangeGameObjectSetEnd();
+    for(itr = m_session->GetPlayer()->GetInRangeGameObjectSetBegin(); itr != itr2; itr++ )
     {
-        if(args[0] == '1')
+        if( (nDist = m_session->GetPlayer()->CalcDistance( *itr )) < cDist )
         {
-            if(m_session->GetPlayer()->m_GM_SelectedGO == NULL)
-                bUseNext = true;
-
-            for(;;Itr++)
-            {
-                if(Itr == Itr2 && GObj == NULL && bUseNext)
-                    Itr = m_session->GetPlayer()->GetInRangeSetBegin();
-                else if(Itr == Itr2)
-                    break;
-
-                if((*Itr)->GetTypeId() == TYPEID_GAMEOBJECT)
-                {
-                    // Find the current go, move to the next one
-                    if(bUseNext)
-                    {
-                        // Select the first.
-                        GObj = castPtr<GameObject>(*Itr);
-                        break;
-                    }
-                    else
-                    {
-                        if(((*Itr) == m_session->GetPlayer()->m_GM_SelectedGO))
-                        {
-                            // Found him. Move to the next one, or beginning if we're at the end
-                            bUseNext = true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if(!GObj)
-    {
-        for( ; Itr != Itr2; Itr++ )
-        {
-            if( (*Itr)->GetTypeId() == TYPEID_GAMEOBJECT )
-            {
-                if( (nDist = m_session->GetPlayer()->CalcDistance( *Itr )) < cDist )
-                {
-                    cDist = nDist;
-                    nDist = 0.0f;
-                    GObj = castPtr<GameObject>(*Itr);
-                }
-            }
+            GObj = castPtr<GameObject>(*itr);
+            cDist = nDist;
+            nDist = 0.0f;
         }
     }
 

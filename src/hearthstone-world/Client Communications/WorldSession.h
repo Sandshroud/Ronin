@@ -111,7 +111,7 @@ public:
 
     void Delete();
 
-    void SendChatPacket(WorldPacket * data, uint32 langpos, int32 lang, WorldSession * originator);
+    void SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
 
     // Process Logs
     void LogUnprocessedTail(WorldPacket *packet);
@@ -326,11 +326,12 @@ protected:
 
     /// Opcodes implemented in MovementHandler.cpp
     void HandleMovementOpcodes( WorldPacket& recv_data );
+    void HandleMovementInputOpcodes( WorldPacket & recv_data );
     void HandleAcknowledgementOpcodes( WorldPacket & recv_data );
-    void HandleForceSpeedChangeOpcodes( WorldPacket & recv_data );
-    void HandleMoveFallResetOpcode( WorldPacket & recv_data);
     void HandleSetActiveMoverOpcode( WorldPacket & recv_data );
     void HandleMoveTimeSkippedOpcode( WorldPacket & recv_data );
+    void HandleMoveSplineCompleteOpcode(WorldPacket &recvPacket);
+    void HandleMoveFallResetOpcode( WorldPacket & recv_data);
 
     /// Opcodes implemented in GroupHandler.cpp:
     void HandleGroupInviteOpcode(WorldPacket& recvPacket);
@@ -574,7 +575,6 @@ protected:
     void HandleBattlefieldListOpcode(WorldPacket &recv_data);
 
     void HandleSetActionBarTogglesOpcode(WorldPacket &recvPacket);
-    void HandleMoveSplineCompleteOpcode(WorldPacket &recvPacket);
 
     /// Helper functions
     void SetNpcFlagsForTalkToQuest(const uint64& guid, const uint64& targetGuid);

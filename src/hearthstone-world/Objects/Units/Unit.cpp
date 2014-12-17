@@ -2974,19 +2974,9 @@ void Unit::SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Pla
 
     char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
     if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
-    size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
-    if(nameLen == 1 || msgLen == 1)
-        return;
 
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
-    data << type << lang;
-    data << GetGUID();
-    data << uint32(0);          // new in 2.1.0
-    data << uint32(nameLen);
-    data << name;
-    data << uint64(0);
-    data << uint32(msgLen);
-    data << msg << uint8(0x00);
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
     plr->GetSession()->SendPacket(&data);
 }
 
@@ -2996,16 +2986,8 @@ void Unit::SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, 
     if(ctrData == NULL)
         return;
 
-    size_t nameLen = strlen(ctrData->Name)+1, msgLen = strlen(msg)+1;
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
-    data << type << lang;
-    data << GetGUID();
-    data << uint32(0);          // new in 2.1.0
-    data << uint32(nameLen);
-    data << ctrData->Name;
-    data << uint64(0);
-    data << uint32(msgLen);
-    data << msg << uint8(0x00);
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, ctrData->Name, msg, "", 0);
     SendMessageToSet(&data, true);
 }
 
@@ -3013,19 +2995,9 @@ void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
 {
     char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
     if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
-    size_t nameLen = strlen(name) + 1, msgLen = strlen(msg) + 1;
-    if(nameLen == 1 || msgLen == 1)
-        return;
 
-    WorldPacket data(SMSG_MESSAGECHAT, 35 + nameLen + msgLen);
-    data << type << lang;
-    data << GetGUID();
-    data << uint32(0);          // new in 2.1.0
-    data << uint32(nameLen);
-    data << name;
-    data << uint64(0);
-    data << uint32(msgLen);
-    data << msg << uint8(0x00);
+    WorldPacket data;
+    sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
     SendMessageToSet(&data, true);
 }
 

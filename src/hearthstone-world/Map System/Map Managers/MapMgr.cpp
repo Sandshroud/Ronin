@@ -515,7 +515,7 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
         {
             for(std::set<WorldObject*>::iterator itr = m_zoneRangelessObjects[lastZone].begin(); itr != m_zoneRangelessObjects[lastZone].end(); itr++)
                 if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (*itr)->GetGUID()))
-                    obj->RemoveIfInRange(*itr);
+                    obj->RemoveInRangeObject(*itr);
         }
 
         if(m_zoneRangelessObjects[currZone].size())
@@ -1729,7 +1729,7 @@ void MapMgr::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, ui
     }
 }
 
-void MapMgr::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, int32 lang, WorldSession * originator)
+void MapMgr::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator)
 {
     uint32 cellX = GetPosX(obj->GetPositionX());
     uint32 cellY = GetPosY(obj->GetPositionY());
@@ -1755,7 +1755,7 @@ void MapMgr::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet
                     if((*iter)->IsPlayer())
                     {
                         if(originator->GetPlayer()->PhasedCanInteract((*iter))) // Matching phases.
-                            castPtr<Player>(*iter)->GetSession()->SendChatPacket(packet, langpos, lang, originator);
+                            castPtr<Player>(*iter)->GetSession()->SendChatPacket(packet, langpos, guidPos, lang, originator);
                     }
                 }
             }

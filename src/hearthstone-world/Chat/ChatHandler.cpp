@@ -69,24 +69,25 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    uint32 type = opcodeToChatType[recv_data.GetOpcode()-CMSG_MESSAGECHAT_SAY];
+    bool packetLang = false;
     int32 lang = LANG_UNIVERSAL;
+    uint32 type = opcodeToChatType[recv_data.GetOpcode()-CMSG_MESSAGECHAT_SAY];
     if (type != CHAT_MSG_EMOTE && type != CHAT_MSG_AFK && type != CHAT_MSG_DND)
-        recv_data >> lang;
-    if( lang >= NUM_LANGUAGES )
-        return;
-    if( sWorld.cross_faction_world && lang > 0)
-        lang = LANG_UNIVERSAL;
-    if(GetPlayer()->IsBanned())
     {
-        GetPlayer()->BroadcastMessage("You cannot do that when banned.");
-        return;
+        packetLang = true;
+        recv_data >> lang;
     }
 
     std::string message, miscName;
     recv_data >> message;
     if( type == CHAT_MSG_CHANNEL || type == CHAT_MSG_WHISPER )
         recv_data >> miscName;
+    if(GetPlayer()->IsBanned())
+    {
+        GetPlayer()->BroadcastMessage("You cannot do that when banned.");
+        return;
+    }
+
     if (sChatHandler.ParseCommands(message.c_str(), this) > 0)
         return;
 
@@ -193,211 +194,24 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         }
     }
 
-    WorldPacket *data;
-    switch(type)
+    WorldPacket broadcast(type, 50);
+    if(packetLang)
     {
-    case CHAT_MSG_EMOTE:
+        lang = CanUseCommand('c') ? LANG_UNIVERSAL : lang;
+        if(lang != LANG_UNIVERSAL)
         {
-            if(GetPlayer()->m_modlanguage >=0)
-                data = sChatHandler.FillMessageData( CHAT_MSG_EMOTE, GetPlayer()->m_modlanguage,  message.c_str(), _player->GetGUID(), _player->GetChatTag());
-            else
-                data = sChatHandler.FillMessageData( CHAT_MSG_EMOTE, CanUseCommand('c') ? LANG_UNIVERSAL : lang,  message.c_str(), _player->GetGUID(), _player->GetChatTag());
-
-            GetPlayer()->SendMessageToSet( data, true ,true );
-            if(sWorld.bLogChat)
-                sWorld.LogChat(this, "[emote] %s: %s", _player->GetName(), message.c_str());
-            delete data;
-        }break;
-    case CHAT_MSG_SAY:
-        {
-            if(GetPlayer()->m_modlanguage >=0)
+            if(_player->m_modlanguage < 0)
             {
-                data = sChatHandler.FillMessageData( CHAT_MSG_SAY, GetPlayer()->m_modlanguage,  message.c_str(), _player->GetGUID(), _player->GetChatTag());
-                GetPlayer()->SendMessageToSet( data, true );
-            }
-            else
-            {
+                if(!sWorld.cross_faction_world && lang == LANG_UNIVERSAL && !CanUseCommand('c'))
+                    return;
                 if(lang > 0 && LanguageSkills[lang] && _player->_HasSkillLine(LanguageSkills[lang]) == false)
                     return;
+            } else lang = _player->m_modlanguage;
+        }
+    }
 
-                if(!sWorld.cross_faction_world && lang == 0 && !CanUseCommand('c'))
-                    return;
-
-                data = sChatHandler.FillMessageData( CHAT_MSG_SAY, lang, message.c_str(), _player->GetGUID(), _player->GetChatTag());
-                SendChatPacket(data, 1, lang, this);
-                for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
-                {
-                    if(_player->PhasedCanInteract((*itr))) // Matching phases.
-                        (*itr)->GetSession()->SendChatPacket(data, 1, lang, this);
-                }
-            }
-            if(sWorld.bLogChat && message.c_str()[0] != '.')
-                sWorld.LogChat(this, "[say] %s: %s", _player->GetName(), message.c_str());
-            delete data;
-        } break;
-    case CHAT_MSG_PARTY:
-    case CHAT_MSG_PARTY_LEADER:
-    case CHAT_MSG_RAID:
-    case CHAT_MSG_RAID_LEADER:
-    case CHAT_MSG_RAID_WARNING:
-    case CHAT_MSG_BATTLEGROUND:
-        {
-            Group *pGroup = _player->GetGroup();
-            if(pGroup == NULL)
-                break;
-
-            if(GetPlayer()->m_modlanguage >= 0)
-                data = sChatHandler.FillMessageData( type, GetPlayer()->m_modlanguage,  message.c_str(), _player->GetGUID(), _player->GetChatTag());
-            else
-                data = sChatHandler.FillMessageData( type, (CanUseCommand('c') && lang != -1) ? LANG_UNIVERSAL : lang, message.c_str(), _player->GetGUID(), _player->GetChatTag());
-
-            if((type == CHAT_MSG_PARTY || type == CHAT_MSG_PARTY_LEADER) && pGroup->GetGroupType() == GROUP_TYPE_RAID)
-            {
-                // only send to that subgroup
-                SubGroup * sgr = _player->GetGroup() ? _player->GetGroup()->GetSubGroup(_player->GetSubGroup()) : 0;
-
-                if(sgr)
-                {
-                    _player->GetGroup()->Lock();
-                    for(GroupMembersSet::iterator itr = sgr->GetGroupMembersBegin(); itr != sgr->GetGroupMembersEnd(); itr++)
-                    {
-                        if((*itr)->m_loggedInPlayer)
-                            (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(data, 1, lang, this);
-                    }
-                    _player->GetGroup()->Unlock();
-                }
-            }
-            else
-            {
-                SubGroup * sgr;
-                for(uint32 i = 0; i < _player->GetGroup()->GetSubGroupCount(); i++)
-                {
-                    sgr = _player->GetGroup()->GetSubGroup(i);
-                    _player->GetGroup()->Lock();
-                    for(GroupMembersSet::iterator itr = sgr->GetGroupMembersBegin(); itr != sgr->GetGroupMembersEnd(); itr++)
-                    {
-                        if((*itr)->m_loggedInPlayer)
-                            (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(data, 1, lang, this);
-                    }
-                    _player->GetGroup()->Unlock();
-                }
-            }
-            if(sWorld.bLogChat && message.c_str()[0] != '.')
-                sWorld.LogChat(this, "[Party/Raid/Battleground] %s: %s", _player->GetName(), message.c_str());
-            delete data;
-        } break;
-    case CHAT_MSG_GUILD:
-        {
-            if(_player->m_playerInfo == NULL)
-                break;
-
-            guildmgr.GuildChat(this, lang, message.c_str());
-        } break;
-    case CHAT_MSG_OFFICER:
-        {
-            if(_player->m_playerInfo == NULL)
-                break;
-
-            guildmgr.OfficerChat(this, lang, message.c_str());
-        } break;
-    case CHAT_MSG_YELL:
-        {
-            if(lang > 0 && LanguageSkills[lang] && _player->_HasSkillLine(LanguageSkills[lang]) == false)
-                return;
-
-            if(!sWorld.cross_faction_world && lang == 0 && !CanUseCommand('c'))
-                return;
-
-            if(GetPlayer()->m_modlanguage >= 0)
-                data = sChatHandler.FillMessageData( CHAT_MSG_YELL, GetPlayer()->m_modlanguage,  message.c_str(), _player->GetGUID(), _player->GetChatTag() );
-            else
-                data = sChatHandler.FillMessageData( CHAT_MSG_YELL, (CanUseCommand('c') && lang != -1) ? LANG_UNIVERSAL : lang, message.c_str(), _player->GetGUID(), _player->GetChatTag() );
-
-            _player->GetMapMgr()->SendChatMessageToCellPlayers(_player, data, 2, 1, lang, this);
-            delete data;
-            if(sWorld.bLogChat && message.c_str()[0] != '.')
-                sWorld.LogChat(this, "[Yell] %s: %s", _player->GetName(), message.c_str());
-        } break;
-    case CHAT_MSG_WHISPER:
-        {
-            Player* player = objmgr.GetPlayer(message.c_str(), false);
-            if(!player)
-            {
-                if( miscName == "Console" ||  miscName == "console" )
-                {
-                    std::string ConsoleMessage = format("%s To Console: %s", _player->GetName(), message.c_str());
-                    sLog.Notice("Whisper", ConsoleMessage.c_str());
-                    data = sChatHandler.FillSystemMessageData(ConsoleMessage.c_str());
-                    SendPacket(data);
-                    delete data;
-                    return;
-                }
-                else
-                {
-                    data = new WorldPacket(SMSG_CHAT_PLAYER_NOT_FOUND, miscName.length() + 1);
-                    *data << miscName;
-                    SendPacket(data);
-                    delete data;
-                }
-                break;
-            }
-
-            // Check that the player isn't a gm with his status on
-            if(!_player->GetSession()->GetPermissionCount() && player->bGMTagOn && player->gmTargets.count(_player) == 0)
-            {
-                // Build automated reply
-                std::string Reply = "This Game Master does not currently have an open ticket from you and did not receive your whisper. Please submit a new GM Ticket request if you need to speak to a GM. This is an automatic message.";
-                data = sChatHandler.FillMessageData( CHAT_MSG_WHISPER, LANG_UNIVERSAL, Reply.c_str(), player->GetGUID(), 3);
-                SendPacket(data);
-                delete data;
-                break;
-            }
-
-            if(lang > 0 && LanguageSkills[lang] && _player->_HasSkillLine(LanguageSkills[lang]) == false)
-                return;
-
-            if(!sWorld.cross_faction_world && lang == 0 && !CanUseCommand('c'))
-                return;
-
-            if( player->Social_IsIgnoring( _player->GetLowGUID() ) && !_player->GetSession()->HasGMPermissions() )
-            {
-                data = sChatHandler.FillMessageData( CHAT_MSG_IGNORED, LANG_UNIVERSAL,  message.c_str(), _player->GetGUID(), _player->GetChatTag() );
-                SendPacket(data);
-                delete data;
-            }
-            else
-            {
-                if(GetPlayer()->m_modlanguage >=0)
-                    data = sChatHandler.FillMessageData( CHAT_MSG_WHISPER, GetPlayer()->m_modlanguage,  message.c_str(), _player->GetGUID(), _player->GetChatTag() );
-                else
-                    data = sChatHandler.FillMessageData( CHAT_MSG_WHISPER, ((CanUseCommand('c') || player->GetSession()->CanUseCommand('c')) && lang != -1) ? LANG_UNIVERSAL : lang,  message.c_str(), _player->GetGUID(), _player->GetChatTag() );
-
-                player->GetSession()->SendPacket(data);
-                delete data;
-            }
-
-            //Sent the to Users id as the channel, this should be fine as it's not used for wisper
-            data = sChatHandler.FillMessageData(CHAT_MSG_WHISPER_INFORM, LANG_UNIVERSAL,message.c_str(), player->GetGUID(), player->GetChatTag()  );
-            SendPacket(data);
-            delete data;
-
-            if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
-            {
-                // Has AFK flag, autorespond.
-                data = sChatHandler.FillMessageData(CHAT_MSG_AFK, LANG_UNIVERSAL,  player->m_afk_reason.c_str(),player->GetGUID(), _player->GetChatTag());
-                SendPacket(data);
-                delete data;
-            }
-            else if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
-            {
-                // Has AFK flag, autorespond.
-                data = sChatHandler.FillMessageData(CHAT_MSG_DND, LANG_UNIVERSAL, player->m_afk_reason.c_str(),player->GetGUID(), _player->GetChatTag());
-                SendPacket(data);
-                delete data;
-            }
-            if(sWorld.bLogChat)
-                sWorld.LogChat(this, "[whisper] %s to %s: %s", _player->GetName(), player->GetName(), message.c_str());
-        } break;
+    switch(type)
+    {
     case CHAT_MSG_CHANNEL:
         {
             Channel *chn = channelmgr.GetChannel(miscName.c_str(), GetPlayer(), true);
@@ -437,6 +251,65 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             if(sWorld.bLogChat && message.c_str()[0] != '.')
                 sWorld.LogChat(this, "[%s] %s: %s", miscName.c_str(), _player->GetName(), message.c_str());
         } break;
+        case CHAT_MSG_WHISPER:
+            {
+                Player* player = objmgr.GetPlayer(message.c_str(), false);
+                if(!player)
+                {
+                    if( miscName == "Console" ||  miscName == "console" )
+                    {
+                        std::string ConsoleMessage = format("%s To Console: %s", _player->GetName(), message.c_str());
+                        if(HasGMPermissions()) sLog.Notice("Whisper", ConsoleMessage.c_str());
+                        sChatHandler.FillSystemMessageData(&broadcast, ConsoleMessage.c_str());
+                    }
+                    else
+                    {
+                        broadcast.Initialize(SMSG_CHAT_PLAYER_NOT_FOUND, miscName.length() + 1);
+                        broadcast << miscName;
+                    }
+                    SendPacket(&broadcast);
+                    return;
+                }
+
+                // Check that the player isn't a gm with his status on
+                if(!_player->GetSession()->GetPermissionCount() && player->bGMTagOn && player->gmTargets.count(_player) == 0)
+                {
+                    // Build automated reply
+                    std::string Reply = "This Game Master does not currently have an open ticket from you and did not receive your whisper. Please submit a new GM Ticket request if you need to speak to a GM. This is an automatic message.";
+                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_WHISPER, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(), Reply.c_str(), "", 3);
+                    SendPacket(&broadcast);
+                    break;
+                }
+
+                if( player->Social_IsIgnoring( _player->GetLowGUID() ) && !_player->GetSession()->HasGMPermissions() )
+                {
+                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_IGNORED, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  message.c_str(), "", _player->GetChatTag() );
+                    SendPacket(&broadcast);
+                }
+                else
+                {
+                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_WHISPER, lang, _player->GetGUID(), player->GetGUID(), _player->GetName(),  message.c_str(), player->GetName(), _player->GetChatTag() );
+                    player->GetSession()->SendPacket(&broadcast);
+                }
+
+                //Sent the to Users id as the channel, this should be fine as it's not used for wisper
+                sChatHandler.FillMessageData(&broadcast, HasGMPermissions(), CHAT_MSG_WHISPER_INFORM, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  message.c_str(), "", player->GetChatTag());
+                SendPacket(&broadcast);
+
+                if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
+                {
+                    // Has AFK flag, autorespond.
+                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_AFK, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
+                    SendPacket(&broadcast);
+                }
+                else if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
+                {
+                    // Has AFK flag, autorespond.
+                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_DND, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
+                    SendPacket(&broadcast);
+                }
+                if(sWorld.bLogChat) sWorld.LogChat(this, "[whisper] %s to %s: %s", _player->GetName(), player->GetName(), message.c_str());
+            } break;
     case CHAT_MSG_AFK:
         {
             GetPlayer()->SetAFKReason(message);
@@ -467,8 +340,91 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             GetPlayer()->Social_TellFriendsStatus();
         } break;
     default:
-        sLog.outDebug("CHAT: unknown msg type %u, lang: %u", type, lang);
-        break;
+        {
+            size_t pos = sChatHandler.FillMessageData(&broadcast, false, type, lang, _player->GetGUID(), 0, _player->GetName(), message.c_str(), "", _player->GetChatTag());
+            switch(type)
+            {
+            case CHAT_MSG_EMOTE:
+                {
+                    _player->SendMessageToSet(&broadcast, true ,true );
+                    if(sWorld.bLogChat) sWorld.LogChat(this, "[emote] %s: %s", _player->GetName(), message.c_str());
+                }break;
+            case CHAT_MSG_SAY:
+                {
+                    SendChatPacket(&broadcast, 1, pos, lang, this);
+                    for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
+                        (*itr)->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                    if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[say] %s: %s", _player->GetName(), message.c_str());
+                } break;
+            case CHAT_MSG_PARTY:
+            case CHAT_MSG_PARTY_LEADER:
+            case CHAT_MSG_RAID:
+            case CHAT_MSG_RAID_LEADER:
+            case CHAT_MSG_RAID_WARNING:
+            case CHAT_MSG_BATTLEGROUND:
+                {
+                    Group *pGroup = _player->GetGroup();
+                    if(pGroup == NULL)
+                        break;
+
+                    SubGroup *sgr = NULL;
+                    if((type == CHAT_MSG_PARTY || type == CHAT_MSG_PARTY_LEADER) && pGroup->GetGroupType() == GROUP_TYPE_RAID)
+                    {
+                        // only send to that subgroup
+                        if(sgr = pGroup->GetSubGroup(_player->GetSubGroup()))
+                        {
+                            _player->GetGroup()->Lock();
+                            for(GroupMembersSet::iterator itr = sgr->GetGroupMembersBegin(); itr != sgr->GetGroupMembersEnd(); itr++)
+                            {
+                                if((*itr)->m_loggedInPlayer == NULL)
+                                    continue;
+                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                            }
+                            _player->GetGroup()->Unlock();
+                        }
+                    }
+                    else
+                    {
+                        for(uint32 i = 0; i < pGroup->GetSubGroupCount(); i++)
+                        {
+                            sgr = pGroup->GetSubGroup(i);
+                            _player->GetGroup()->Lock();
+                            for(GroupMembersSet::iterator itr = sgr->GetGroupMembersBegin(); itr != sgr->GetGroupMembersEnd(); itr++)
+                            {
+                                if((*itr)->m_loggedInPlayer == NULL)
+                                    continue;
+                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                            }
+                            _player->GetGroup()->Unlock();
+                        }
+                    }
+                    if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[Party/Raid/Battleground] %s: %s", _player->GetName(), message.c_str());
+                } break;
+            case CHAT_MSG_GUILD:
+                {
+                    if(_player->m_playerInfo == NULL)
+                        break;
+
+                    guildmgr.GuildChat(this, lang, message.c_str());
+                } break;
+            case CHAT_MSG_OFFICER:
+                {
+                    if(_player->m_playerInfo == NULL)
+                        break;
+
+                    guildmgr.OfficerChat(this, lang, message.c_str());
+                } break;
+            case CHAT_MSG_YELL:
+                {
+                    _player->GetMapMgr()->SendChatMessageToCellPlayers(_player, &broadcast, 2, 1, pos, lang, this);
+                    if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[Yell] %s: %s", _player->GetName(), message.c_str());
+                } break;
+            default:
+                {
+                    sLog.outDebug("CHAT: unknown msg type %u, lang: %u", type, lang);
+                }break;
+            }
+        }break;
     }
 }
 

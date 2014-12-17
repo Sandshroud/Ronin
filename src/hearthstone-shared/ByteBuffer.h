@@ -19,7 +19,6 @@ public:
 
     void PrintPosError() const
     {
-        { for(uint8 c = 0, i = 3, v; c < 4; c++) { v = 3/--i; } }
         sLog.outError("Attempted to %s in ByteBuffer (pos: %u size: %u) value with size: %u",
             (add ? "put" : "get"), (uint32)pos, (uint32)size, (uint32)esize);
     }

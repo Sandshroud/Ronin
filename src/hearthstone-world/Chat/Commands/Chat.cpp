@@ -961,47 +961,89 @@ int ChatHandler::ParseCommands(const char* text, WorldSession *m_session)
     return 1;
 }
 
-WorldPacket * ChatHandler::FillMessageData( uint32 type, int32 language, const char *message, uint64 guid, uint8 flag) const
+size_t ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid, WoWGuid receiverGuid, std::string senderName, std::string message, std::string receiverName, uint8 chatTag)
 {
-    ASSERT(type != CHAT_MSG_CHANNEL);
-    //channels are handled in channel handler and so on
-    uint32 messageLength = (uint32)strlen((char*)message) + 1;
-
-    WorldPacket *data = new WorldPacket(SMSG_MESSAGECHAT, messageLength + 30);
-
-    *data << (uint8)type;
-    *data << language;
-
-    *data << guid;
+    size_t pos = 0;
+    data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
+    *data << uint8(type);
+    *data << uint32(language);
+    *data << senderGuid;
     *data << uint32(0);
-
-    *data << guid;
-
-    *data << messageLength;
+    switch(type)
+    {
+    case CHAT_MSG_MONSTER_SAY:
+    case CHAT_MSG_MONSTER_PARTY:
+    case CHAT_MSG_MONSTER_YELL:
+    case CHAT_MSG_MONSTER_WHISPER:
+    case CHAT_MSG_MONSTER_EMOTE:
+    case CHAT_MSG_RAID_BOSS_EMOTE:
+    case CHAT_MSG_RAID_BOSS_WHISPER:
+    case CHAT_MSG_BATTLENET:
+        {
+            *data << uint32(senderName.length() + 1);
+            *data << senderName;
+            pos = data->wpos();
+            *data << uint64(receiverGuid);
+            if (!receiverGuid.empty() && receiverGuid.getHigh() != HIGHGUID_TYPE_PLAYER && receiverGuid.getHigh() != HIGHGUID_TYPE_PET)
+            {
+                *data << uint32(receiverName.length() + 1);
+                *data << receiverName;
+            }
+        }break;
+    case CHAT_MSG_WHISPER_FOREIGN:
+        {
+            *data << uint32(senderName.length() + 1);
+            *data << senderName;
+            pos = data->wpos();
+            *data << uint64(receiverGuid);
+        }break;
+    case CHAT_MSG_BG_SYSTEM_NEUTRAL:
+    case CHAT_MSG_BG_SYSTEM_ALLIANCE:
+    case CHAT_MSG_BG_SYSTEM_HORDE:
+        {
+            pos = data->wpos();
+            *data << uint64(receiverGuid);
+            if (!receiverGuid.empty() && receiverGuid.getHigh() != HIGHGUID_TYPE_PLAYER)
+            {
+                *data << uint32(receiverName.length() + 1);
+                *data << receiverName;
+            }
+        }break;
+    case CHAT_MSG_ACHIEVEMENT:
+    case CHAT_MSG_GUILD_ACHIEVEMENT:
+        *data << uint64(receiverGuid);
+        break;
+    default:
+        {
+            if (type == CHAT_MSG_CHANNEL)
+            {
+                ASSERT(senderName.length() > 0);
+                *data << senderName;
+            }
+            pos = data->wpos();
+            *data << uint64(receiverGuid);
+        }break;
+    }
+    if (language == LANG_ADDON)
+        *data << uint8(0);
+    *data << uint32(message.length()+1);
     *data << message;
-
-    *data << uint8(flag);
-    return data;
+    *data << uint8(chatTag);
+    return pos;
 }
 
-WorldPacket* ChatHandler::FillSystemMessageData(const char *message) const
+void ChatHandler::FillSystemMessageData(WorldPacket *data, const char *message)
 {
     uint32 messageLength = (uint32)strlen((char*)message) + 1;
-
-    WorldPacket * data = new WorldPacket(SMSG_MESSAGECHAT, 30 + messageLength);
+    data->Initialize(SMSG_MESSAGECHAT, 50+messageLength);
     *data << (uint8)CHAT_MSG_SYSTEM;
     *data << (uint32)LANG_UNIVERSAL;
-
-    *data << (uint64)0; // Who cares about guid when there's no nickname displayed heh ?
+    *data << (uint64)0;
     *data << (uint32)0;
     *data << (uint64)0;
-
     *data << messageLength;
     *data << message;
-
     *data << uint8(0);
-
-    return data;
 }
 
 Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
@@ -1052,10 +1094,10 @@ void ChatHandler::SystemMessage(WorldSession *m_session, const char* message, ..
     va_start(ap, message);
     char msg1[1024];
     vsnprintf(msg1,1024, message,ap);
-    WorldPacket * data = FillSystemMessageData(msg1);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::ColorSystemMessage(WorldSession *m_session, const char* colorcode, const char *message, ...)
@@ -1067,10 +1109,10 @@ void ChatHandler::ColorSystemMessage(WorldSession *m_session, const char* colorc
     vsnprintf(msg1,1024, message,ap);
     char msg[1024];
     snprintf(msg, 1024, "%s%s|r", colorcode, msg1);
-    WorldPacket * data = FillSystemMessageData(msg);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::RedSystemMessage(WorldSession *m_session, const char *message, ...)
@@ -1082,10 +1124,10 @@ void ChatHandler::RedSystemMessage(WorldSession *m_session, const char *message,
     vsnprintf(msg1,1024,message,ap);
     char msg[1024];
     snprintf(msg, 1024,"%s%s|r", MSG_COLOR_LIGHTRED/*MSG_COLOR_RED*/, msg1);
-    WorldPacket * data = FillSystemMessageData(msg);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::GreenSystemMessage(WorldSession *m_session, const char *message, ...)
@@ -1097,10 +1139,10 @@ void ChatHandler::GreenSystemMessage(WorldSession *m_session, const char *messag
     vsnprintf(msg1,1024, message,ap);
     char msg[1024];
     snprintf(msg, 1024, "%s%s|r", MSG_COLOR_GREEN, msg1);
-    WorldPacket * data = FillSystemMessageData(msg);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::WhiteSystemMessage(WorldSession *m_session, const char *message, ...)
@@ -1112,10 +1154,10 @@ void ChatHandler::WhiteSystemMessage(WorldSession *m_session, const char *messag
     vsnprintf(msg1,1024, message,ap);
     char msg[1024];
     snprintf(msg, 1024, "%s%s|r", MSG_COLOR_WHITE, msg1);
-    WorldPacket * data = FillSystemMessageData(msg);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::BlueSystemMessage(WorldSession *m_session, const char *message, ...)
@@ -1127,10 +1169,10 @@ void ChatHandler::BlueSystemMessage(WorldSession *m_session, const char *message
     vsnprintf(msg1,1024, message,ap);
     char msg[1024];
     snprintf(msg, 1024,"%s%s|r", MSG_COLOR_LIGHTBLUE, msg1);
-    WorldPacket * data = FillSystemMessageData(msg);
+    WorldPacket data;
+    FillSystemMessageData(&data, msg1);
     if(m_session != NULL)
-        m_session->SendPacket(data);
-    delete data;
+        m_session->SendPacket(&data);
 }
 
 void ChatHandler::RedSystemMessageToPlr(Player* plr, const char *message, ...)

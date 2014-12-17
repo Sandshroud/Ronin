@@ -238,6 +238,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     if(MemberMapStorage == NULL)
         return;
 
+    return;
     gInfo->m_guildRosterBufferLock.Acquire();
     printf("Guild roster buffer size: %u members: %u\n", gInfo->m_guildRosterBuffer.size(), MemberMapStorage->MemberMap.size());
     WorldPacket data(SMSG_GUILD_ROSTER, gInfo->m_guildRosterBuffer.size());
