@@ -317,14 +317,10 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
 
     if(mPassengers.size() > 0)
     {
-        PassengerIterator itr = mPassengers.begin();
-        PassengerIterator it2;
-
+        LocationVector v;
+        PassengerIterator itr = mPassengers.begin(), it2;
         WorldPacket Pending(SMSG_TRANSFER_PENDING, 12);
         Pending << mapid << GetEntry() << oldmap;
-
-        WorldPacket NewWorld;
-        LocationVector v;
 
         for(; itr != mPassengers.end();)
         {
@@ -404,8 +400,7 @@ void ObjectMgr::LoadTransporters()
     sLog.Notice("ObjectMgr", "Loading Transports...");
     if(QueryResult * QR = WorldDatabase.Query("SELECT entry FROM gameobject_names WHERE type = %u", GAMEOBJECT_TYPE_MO_TRANSPORT))
     {
-        int64 total = QR->GetRowCount();
-        TransportersCount = total;
+        TransportersCount = QR->GetRowCount();
         Transporter* pTransporter = NULL;
         do
         {

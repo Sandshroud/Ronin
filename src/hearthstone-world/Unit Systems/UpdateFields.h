@@ -122,9 +122,9 @@ enum EUnitFields
     UNIT_CREATED_BY_SPELL                            = OBJECT_END + 0x0044, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_NPC_FLAGS                                   = OBJECT_END + 0x0045, // Size: 1, Type: INT, Flags: DYNAMIC
     UNIT_NPC_EMOTESTATE                              = OBJECT_END + 0x0046, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_FIELD_STATS                                 = OBJECT_END + 0x0047, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_POSSTATS                              = OBJECT_END + 0x004C, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
-    UNIT_FIELD_NEGSTATS                              = OBJECT_END + 0x0051, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_STATS                                 = OBJECT_END + 0x0047, // Size: 5, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_POSSTATS                              = OBJECT_END + 0x004C, // Size: 5, Type: INT, Flags: PRIVATE, OWNER
+    UNIT_FIELD_NEGSTATS                              = OBJECT_END + 0x0051, // Size: 5, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_RESISTANCES                           = OBJECT_END + 0x0056, // Size: 7, Type: INT, Flags: PRIVATE, OWNER, SPECIAL_INFO
     UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE            = OBJECT_END + 0x005D, // Size: 7, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE            = OBJECT_END + 0x0064, // Size: 7, Type: INT, Flags: PRIVATE, OWNER

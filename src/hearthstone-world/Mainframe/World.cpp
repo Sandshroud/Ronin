@@ -1736,12 +1736,10 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             uint32 new_guid = objmgr.GenerateLowGuid(HIGHGUID_TYPE_PLAYER);
 
             // Create his playerinfo in the server
-            PlayerInfo * inf = new PlayerInfo();
-            memset(inf, 0, sizeof(PlayerInfo));
-            inf->guid = new_guid;
+            PlayerInfo * inf = new PlayerInfo(MAKE_NEW_GUID(new_guid, 0, HIGHGUID_TYPE_PLAYER));
             inf->acct = f[1].GetUInt32();
             inf->_class = f[4].GetUInt32();
-            inf->race=f[3].GetUInt32();
+            inf->race = f[3].GetUInt32();
             inf->gender = f[5].GetUInt32();
             inf->lastLevel = f[7].GetUInt32();
             inf->lastOnline = UNIXTIME;

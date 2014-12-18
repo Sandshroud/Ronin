@@ -328,6 +328,7 @@ protected:
     void HandleMovementOpcodes( WorldPacket& recv_data );
     void HandleMovementInputOpcodes( WorldPacket & recv_data );
     void HandleAcknowledgementOpcodes( WorldPacket & recv_data );
+    void HandleMoveWorldPortAck( WorldPacket & recv_data );
     void HandleSetActiveMoverOpcode( WorldPacket & recv_data );
     void HandleMoveTimeSkippedOpcode( WorldPacket & recv_data );
     void HandleMoveSplineCompleteOpcode(WorldPacket &recvPacket);

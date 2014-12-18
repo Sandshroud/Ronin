@@ -506,7 +506,6 @@ void ArathiBasin::EventUpdateResources(uint32 Team)
                     (*itr)->m_bgScore.BonusHonor += 2*m_bonusHonor;
                     HonorHandler::AddHonorPointsToPlayer((*itr), 2*m_bonusHonor);
                     uint32 diff = abs((int32)(m_resources[i] - m_resources[i ? 0 : 1]));
-                    (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, castPtr<CBattleground>(this));
                     if((*itr)->fromrandombg)
                     {
                         Player * p = (*itr);

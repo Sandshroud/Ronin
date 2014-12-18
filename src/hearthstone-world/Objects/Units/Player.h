@@ -314,13 +314,14 @@ struct FactionReputation
 
 struct PlayerInfo
 {
+    PlayerInfo(WoWGuid _guid);
     ~PlayerInfo();
     WoWGuid guid;
     uint32 acct;
     char * name;
-    uint32 race;
-    uint32 gender;
-    uint32 _class;
+    uint8 race;
+    uint8 gender;
+    uint8 _class;
     uint32 team;
     uint32 curInstanceID;
     uint32 lastmapid;
@@ -398,7 +399,6 @@ class Container;
 class WorldSession;
 class ItemInterface;
 class GossipMenu;
-class AchievementInterface;
 struct TaxiPathNode;
 
 #define RESTSTATE_RESTED             1
@@ -583,6 +583,7 @@ public:
 
     void Update( uint32 time );
 
+    void OnFieldUpdated(uint32 index);
     /************************************************************************/
     /* Update fields System                                                 */
     /************************************************************************/
@@ -1061,9 +1062,6 @@ public:
 
     // item interface variables
     ItemInterface* m_ItemInterface;
-
-    HEARTHSTONE_INLINE AchievementInterface* GetAchievementInterface() { return m_achievementInterface; }
-    AchievementInterface * m_achievementInterface;
 
     /************************************************************************/
     /* Loot                                                                 */

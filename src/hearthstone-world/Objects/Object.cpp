@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(), m_notifyFlags(UF_FLAG_DYNAMIC), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_notifyFlags(UF_FLAG_DYNAMIC), m_objectUpdated(false)
 {
     m_updateMask.SetCount(m_valuesCount);
     m_uint32Values = new uint32[m_valuesCount];
@@ -89,9 +89,6 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
 
 void Object::SetUInt32Value( const uint32 index, const uint32 value )
 {
-    if(index > m_valuesCount)
-        printf("Index: %u, m_valuesCount: %u, Value: %u Test:%s\n", index, m_valuesCount, value, __FUNCTION__);
-
     ASSERT( index < m_valuesCount );
     if(m_uint32Values[index] == value)
         return;
@@ -224,9 +221,6 @@ bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
             {
                 if(!m_updateMask.GetBit(offset))
                     continue;
-                uint32 value = m_uint32Values[offset];
-                if(value == 0)
-                    continue;
                 if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
                 {
                     res = true;
@@ -310,13 +304,13 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
             GetUpdateFieldData(f, flags, fLen);
             for(uint32 i = 0; i < fLen; i++, offset++)
             {
-                if(uint32 value = m_uint32Values[offset])
+                if(m_uint32Values[offset] == 0)
+                    continue;
+
+                if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
                 {
-                    if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
-                    {
-                        mask.SetBit(offset);
-                        fields << value;
-                    }
+                    mask.SetBit(offset);
+                    fields << m_uint32Values[offset];
                 }
             }
         }
@@ -331,39 +325,42 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 uint32 Object::GetUpdateFlag(Player *target)
 {
     uint32 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
-    switch (GetTypeId())
+    if(target)
     {
-    case TYPEID_ITEM:
-    case TYPEID_CONTAINER:
+        switch (GetTypeId())
         {
-            if (castPtr<Item>(this)->GetOwnerGUID() == (uint64)target->GetGUID())
-                flag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
-        }break;
-    case TYPEID_UNIT:
-    case TYPEID_PLAYER:
-        {
-            if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
-                flag |= UF_FLAG_OWNER;
-            else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
-                flag |= UF_FLAG_OWNER;
-            if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
-                flag |= UF_FLAG_PARTY_MEMBER;
-        }break;
-    case TYPEID_GAMEOBJECT:
-        {
-            if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
-                flag |= UF_FLAG_OWNER;
-        }break;
-    case TYPEID_DYNAMICOBJECT:
-        {
-            if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
-                flag |= UF_FLAG_OWNER;
-        }break;
-    case TYPEID_CORPSE:
-        {
-            if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
-                flag |= UF_FLAG_OWNER;
-        }break;
+        case TYPEID_ITEM:
+        case TYPEID_CONTAINER:
+            {
+                if (castPtr<Item>(this)->GetOwnerGUID() == (uint64)target->GetGUID())
+                    flag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
+            }break;
+        case TYPEID_UNIT:
+        case TYPEID_PLAYER:
+            {
+                if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
+                    flag |= UF_FLAG_OWNER;
+                else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
+                    flag |= UF_FLAG_OWNER;
+                if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
+                    flag |= UF_FLAG_PARTY_MEMBER;
+            }break;
+        case TYPEID_GAMEOBJECT:
+            {
+                if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        case TYPEID_DYNAMICOBJECT:
+            {
+                if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        case TYPEID_CORPSE:
+            {
+                if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        }
     }
 
     return flag;
@@ -498,8 +495,8 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     UpdateMask updateMask(m_valuesCount);
     if(_SetUpdateBits(&updateMask, target))
     {
-        *data << (uint8) UPDATETYPE_VALUES;     // update type == update
-        *data << m_objGuid;
+        *data << uint8(UPDATETYPE_VALUES);     // update type == update
+        *data << m_objGuid.asPacked();
         _BuildChangedValuesUpdate( data, &updateMask, target );
         return 1;
     }
@@ -512,117 +509,15 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 //=======================================================================================
 void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
 {
-    int32 DummyFlags = -1, DummyFlags2 = -1, DummyNpcFlags = -1, DummyDynFlags = -1;
-    if(updateMask->GetBit(OBJECT_FIELD_GUID) && target)    // We're creating.
-    {
-        if(IsUnit())
-        {
-            DummyFlags = GetUInt32Value(UNIT_FIELD_FLAGS);
-            DummyFlags2 = GetUInt32Value(UNIT_FIELD_FLAGS_2);
-            DummyNpcFlags = GetUInt32Value(UNIT_NPC_FLAGS);
-            DummyDynFlags = GetUInt32Value(UNIT_DYNAMIC_FLAGS);
-            if(IsCreature())       // tagged group will have tagged player
-            {
-                Creature* cThis = castPtr<Creature>(this);
-                if(cThis->m_taggingPlayer)
-                {
-                    // set tagged visual
-                    if( (cThis->m_taggingGroup != 0 && target->m_playerInfo->m_Group != NULL && target->m_playerInfo->m_Group->GetID() == cThis->m_taggingGroup) ||
-                        (cThis->m_taggingPlayer == target->GetLowGUID()) )
-                    {
-                        DummyDynFlags |= U_DYN_FLAG_TAPPED_BY_PLAYER;
-                        if( cThis->GetLoot()->HasLoot(target) )
-                            DummyDynFlags |= U_DYN_FLAG_LOOTABLE;
-                    } else DummyDynFlags |= U_DYN_FLAG_TAGGED_BY_OTHER;
-                }
-
-                if(Trainer * pTrainer = cThis->GetTrainer())
-                    if(!CanTrainAt(target, pTrainer))
-                        DummyNpcFlags &= ~(UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_ARMORER);
-                if(cThis->IsVehicle() && sFactionSystem.isAttackable(target, cThis, false))
-                    DummyNpcFlags &= ~(UNIT_NPC_FLAG_VEHICLE_MOUNT);
-            }
-
-            updateMask->SetBit(UNIT_NPC_FLAGS);
-            updateMask->SetBit(UNIT_FIELD_FLAGS);
-            updateMask->SetBit(UNIT_FIELD_FLAGS_2);
-            updateMask->SetBit(UNIT_DYNAMIC_FLAGS);
-        }
-        else if(IsGameObject())
-        {
-            GameObject* go = castPtr<GameObject>(this);
-            DummyFlags = GetUInt32Value(GAMEOBJECT_FLAGS);
-            DummyDynFlags = GetUInt32Value(GAMEOBJECT_DYNAMIC);
-            if(GameObjectInfo *info = go->GetInfo())
-            {
-                if(std::set<uint32>* involvedquestids = objmgr.GetInvolvedQuestIds(info->ID))
-                {
-                    for(std::set<uint32>::iterator itr = involvedquestids->begin(); itr != involvedquestids->end(); itr++)
-                    {
-                        if( target->GetQuestLogForEntry(*itr) != NULL )
-                        {
-                            DummyDynFlags = GO_DYNFLAG_QUEST;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            updateMask->SetBit(GAMEOBJECT_FLAGS);
-            updateMask->SetBit(GAMEOBJECT_DYNAMIC);
-        }
-    }
-
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
     uint32 byteCount = updateMask->GetUpdateBlockCount();
-    uint32 valueCount = (uint32)std::min(byteCount*32, m_valuesCount);
+    uint32 valueCount = std::min(byteCount*32, m_valuesCount);
 
-    *data << (uint8)byteCount;
+    *data << uint8(byteCount);
     data->append( updateMask->GetMask(), byteCount*4 );
     for( uint32 index = 0; index < valueCount; index++ )
-    {
         if( updateMask->GetBit( index ) )
-        {
-            uint32 value = m_uint32Values[index];
-            if(IsGameObject())
-            {
-                if(index == GAMEOBJECT_FLAGS)
-                {
-                    if(DummyFlags > 0 && value != DummyFlags)
-                        value = DummyFlags;
-                }
-                else if(index == GAMEOBJECT_DYNAMIC)
-                {
-                    if(DummyDynFlags > 0 && value != DummyDynFlags)
-                        value = DummyDynFlags;
-                }
-            }
-            else if(IsUnit())
-            {
-                if(index == UNIT_FIELD_FLAGS)
-                {
-                    if(DummyFlags > 0 && value != DummyFlags)
-                        value = DummyFlags;
-                }
-                else if(index == UNIT_FIELD_FLAGS_2)
-                {
-                    if(DummyFlags2 > 0 && value != DummyFlags2)
-                        value = DummyFlags2;
-                }
-                else if(index == UNIT_DYNAMIC_FLAGS)
-                {
-                    if(DummyDynFlags > 0 && value != DummyDynFlags)
-                        value = DummyDynFlags;
-                }
-                else if(index == UNIT_NPC_FLAGS)
-                {
-                    if(DummyNpcFlags > 0 && value != DummyNpcFlags)
-                        value = DummyNpcFlags;
-                }
-            }
-            *data << value;
-        }
-    }
+            *data << m_uint32Values[index];
 }
 
 void Object::DestroyForPlayer(Player* target, bool anim)
@@ -936,6 +831,17 @@ WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
     data->WriteByteSeq(m_objGuid[6]);
     *data << float(v.y);
     return data;
+}
+
+void WorldObject::OnFieldUpdated(uint32 index)
+{
+    if(IsInWorld() && !m_objectUpdated)
+    {
+        m_mapMgr->ObjectUpdated(this);
+        m_objectUpdated = true;
+    }
+
+    Object::OnFieldUpdated(index);
 }
 
 void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrientation )
@@ -1564,8 +1470,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             {
                 // End Duel
                 castPtr<Player>(this)->EndDuel(DUEL_WINNER_KNOCKOUT);
-                castPtr<Player>(this)->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
-                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel();
 
                 // surrender emote
                 castPtr<Player>(pVictim)->Emote(EMOTE_ONESHOT_BEG);           // Animation
@@ -1578,14 +1482,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 castPtr<Player>(this)->CombatStatus.Vanish(pVictim->GetLowGUID());
 
                 damage = health-5;
-            }
-            else if(castPtr<Player>(pVictim)->DuelingWith != NULL)
-            {
-                // We have to call the achievement interface from the duelingwith before, otherwise we crash.
-                castPtr<Player>(pVictim)->DuelingWith->GetAchievementInterface()->HandleAchievementCriteriaWinDuel();
+            } else if(castPtr<Player>(pVictim)->DuelingWith != NULL)
                 castPtr<Player>(pVictim)->DuelingWith->EndDuel(DUEL_WINNER_KNOCKOUT);
-//              castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaLoseDuel(); Disable because someone cheated!
-            }
         }
     }
 
@@ -1687,11 +1585,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
             CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
-
-            if( IsCreature() )
-                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByCreature( GetEntry() );
-            else if(IsPlayer())
-                castPtr<Player>(pVictim)->GetAchievementInterface()->HandleAchievementCriteriaKilledByPlayer();
         }
         else
         {
@@ -1953,13 +1846,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     }
                 }
 
-                // Achievement: on kill unit
-                if( !pVictim->IsPlayer() && IsPlayer() )
-                {
-                    Player* pThis = castPtr<Player>(this);
-                    pThis->GetAchievementInterface()->HandleAchievementCriteriaKillCreature( pVictim->GetUInt32Value(OBJECT_FIELD_ENTRY) );
-                }
-
                 if( pVictim->GetTypeId() != TYPEID_PLAYER )
                     sQuestMgr.OnPlayerKill( castPtr<Player>(this), castPtr<Creature>( pVictim ) );
             }
@@ -2177,7 +2063,7 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
                     }
                 }
 
-                pVictim->Emote( EMOTE_ONESHOT_WOUNDCRITICAL );
+                pVictim->Emote( EMOTE_ONESHOT_WOUND_CRITICAL );
             }
         }
     }

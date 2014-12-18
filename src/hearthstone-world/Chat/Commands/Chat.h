@@ -419,7 +419,6 @@ protected:
     bool HandleCastTimeCheatCommand(const char* args, WorldSession* m_session);
     bool HandlePowerCheatCommand(const char* args, WorldSession* m_session);
     bool HandleShowCheatsCommand(const char* args, WorldSession* m_session);
-    bool HandleFlySpeedCheatCommand(const char* args, WorldSession * m_session);
     bool HandleStackCheatCommand(const char* args, WorldSession * m_session);
     bool HandleTriggerpassCheatCommand(const char* args, WorldSession * m_session);
     bool HandleVendorPassCheatCommand(const char* args, WorldSession * m_session);
@@ -570,6 +569,7 @@ protected:
     bool HandleModifyAuraStateCommand(const char *args, WorldSession *m_session);
     bool HandleMirrorTimerCommand(const char *args, WorldSession *m_session);
     bool HandleSetPlayerStartLocation(const char *args, WorldSession *m_session);
+    bool HandleModifySpeedCommand(const char *args, WorldSession *m_session);
 
     bool HandleEnableAH(const char *args, WorldSession *m_session);
     bool HandleDisableAH(const char *args, WorldSession *m_session);

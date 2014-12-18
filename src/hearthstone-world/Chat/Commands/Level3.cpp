@@ -977,22 +977,6 @@ bool ChatHandler::HandleDBReloadCommand(const char* args, WorldSession* m_sessio
     return true;
 }
 
-bool ChatHandler::HandleFlySpeedCheatCommand(const char* args, WorldSession* m_session)
-{
-    float Speed = (float)atof(args);
-    if(Speed == 0)
-        Speed = 20;
-
-    Player * plr = getSelectedChar(m_session);
-    if(plr == NULL)
-        return true;
-
-    BlueSystemMessage(m_session, "Setting the fly speed of %s to %f.", plr->GetName(), Speed);
-    GreenSystemMessage(plr->GetSession(), "%s set your fly speed to %f.", m_session->GetPlayer()->GetName(), Speed);
-
-    return true;
-}
-
 bool ChatHandler::HandleModifyLevelCommand(const char* args, WorldSession* m_session)
 {
     Unit* u = getSelectedUnit(m_session, false);

@@ -356,6 +356,7 @@ public:
     virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
 
     virtual void Update( uint32 time );
+    virtual void OnFieldUpdated(uint32 index);
     virtual void UpdateFieldValues();
     virtual void ClearFieldUpdateValues();
 

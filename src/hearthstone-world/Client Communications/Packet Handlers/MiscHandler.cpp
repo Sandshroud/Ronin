@@ -1715,9 +1715,6 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
 
     _player->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
 
-    _player->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCostTotal( price );
-    _player->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCount();
-
     _player->CastSpell(_player, 14867, true);   // Spell: "Untalent Visual Effect"
     _player->CastSpell(_player, 46331, true);   // Spell: "Trainer: Untrain Talents"
 

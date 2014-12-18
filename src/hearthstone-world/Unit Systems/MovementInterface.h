@@ -99,7 +99,6 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_FALL_RESET,
     MOVEMENT_CODE_SET_RUN_MODE,
     MOVEMENT_CODE_SET_WALK_MODE,
-    MOVEMENT_CODE_SET_PITCH_RATE,
     MOVEMENT_CODE_SET_CAN_FLY,
     MOVEMENT_CODE_UNSET_CAN_FLY,
     MOVEMENT_CODE_SET_HOVER,
@@ -122,7 +121,11 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_UPDATE_RUN_SPEED,
     MOVEMENT_CODE_UPDATE_RUN_BACK_SPEED,
     MOVEMENT_CODE_UPDATE_SWIM_SPEED,
+    MOVEMENT_CODE_UPDATE_SWIM_BACK_SPEED,
     MOVEMENT_CODE_UPDATE_FLIGHT_SPEED,
+    MOVEMENT_CODE_UPDATE_FLIGHT_BACK_SPEED,
+    MOVEMENT_CODE_UPDATE_TURN_RATE,
+    MOVEMENT_CODE_UPDATE_PITCH_RATE,
     MOVEMENT_CODE_SET_WALK_SPEED,
     MOVEMENT_CODE_SET_RUN_SPEED,
     MOVEMENT_CODE_SET_RUN_BACK_SPEED,
@@ -131,8 +134,10 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_SET_FLIGHT_SPEED,
     MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED,
     MOVEMENT_CODE_SET_TURN_RATE,
+    MOVEMENT_CODE_SET_PITCH_RATE,
 
     // Acknowledgement codes
+    MOVEMENT_CODE_ACK_TELEPORT,
     MOVEMENT_CODE_ACK_ROOT,
     MOVEMENT_CODE_ACK_UNROOT,
     MOVEMENT_CODE_ACK_FEATHER_FALL,
@@ -144,11 +149,16 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_ACK_SET_CAN_FLY,
     MOVEMENT_CODE_ACK_SET_COLLISION_HEIGHT,
     MOVEMENT_CODE_ACK_SET_CAN_TRANSITION_BETWEEN_SWIM_AND_FLY,
+
     MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE,
     MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE,
     MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE,
     MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE,
+    MOVEMENT_CODE_ACK_FORCE_SWIM_BACK_SPEED_CHANGE,
     MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE,
+    MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE,
+    MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE,
+    MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE,
 
     // Spline codes
     MOVEMENT_CODE_SPLINE_DONE,
@@ -159,8 +169,8 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_SPLINE_SET_SWIM_BACK_SPEED,
     MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED,
     MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED,
-    MOVEMENT_CODE_SPLINE_SET_PITCH_RATE,
     MOVEMENT_CODE_SPLINE_SET_TURN_RATE,
+    MOVEMENT_CODE_SPLINE_SET_PITCH_RATE,
     MOVEMENT_CODE_SPLINE_SET_WALK_MODE,
     MOVEMENT_CODE_SPLINE_SET_RUN_MODE,
     MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE,
@@ -241,6 +251,7 @@ public:
 
     static void InitializeMovementHandlers();
     static uint16 GetInternalMovementCode(uint16 opcode);
+    static uint16 GetSpeedTypeForMoveCode(uint16 moveCode);
 
     void Update(uint32 diff);
     void UpdatePreWrite(uint16 opcode, uint16 moveCode);
@@ -249,6 +260,9 @@ public:
     void HandleBreathing();
     void HandleMovementFlags(bool read, ByteBuffer *buffer);
     void HandleMovementFlags2(bool read, ByteBuffer *buffer);
+
+    void TeleportToPosition(LocationVector destination);
+    void TeleportToPosition(uint32 mapId, uint32 instanceId, LocationVector destination);
 
     void OnDeath();
     void OnRepop();
@@ -368,6 +382,19 @@ public:
         fly = &m_currSpeeds[MOVE_SPEED_FLY];
     }
 
+    void SetMoveSpeed(MovementSpeedTypes speedType, float speed);
+
+    void ClearMovementFlags(uint8 clearFlag)
+    {
+        m_movementFlagMask &= ~clearFlag;
+        for(uint8 i = 0; i < 6; i++)
+        {
+            if((clearFlag&1<<i) == 0)
+                continue;
+            m_serverFlags[i] = m_movementFlags[i] = 0;
+        }
+    }
+
 private:
     bool UpdateAcknowledgementData(uint16 moveCode);
 
@@ -402,7 +429,6 @@ public:
     void HandleFallReset(bool read, ByteBuffer &buffer);
     void HandleSetRunMode(bool read, ByteBuffer &buffer);
     void HandleSetWalkMode(bool read, ByteBuffer &buffer);
-    void HandleSetPitchRate(bool read, ByteBuffer &buffer);
     void HandleSetCanFly(bool read, ByteBuffer &buffer);
     void HandleUnsetCanFly(bool read, ByteBuffer &buffer);
     void HandleSetHover(bool read, ByteBuffer &buffer);
@@ -424,7 +450,11 @@ public:
     void HandleUpdateRunSpeed(bool read, ByteBuffer &buffer);
     void HandleUpdateRunBackSpeed(bool read, ByteBuffer &buffer);
     void HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer);
+    void HandleUpdateSwimBackSpeed(bool read, ByteBuffer &buffer);
     void HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer);
+    void HandleUpdateFlightBackSpeed(bool read, ByteBuffer &buffer);
+    void HandleUpdateTurnRate(bool read, ByteBuffer &buffer);
+    void HandleUpdatePitchRate(bool read, ByteBuffer &buffer);
     void HandleSetWalkSpeed(bool read, ByteBuffer &buffer);
     void HandleSetRunSpeed(bool read, ByteBuffer &buffer);
     void HandleSetRunBackSpeed(bool read, ByteBuffer &buffer);
@@ -433,15 +463,12 @@ public:
     void HandleSetFlightSpeed(bool read, ByteBuffer &buffer);
     void HandleSetFlightBackSpeed(bool read, ByteBuffer &buffer);
     void HandleSetTurnRate(bool read, ByteBuffer &buffer);
+    void HandleSetPitchRate(bool read, ByteBuffer &buffer);
     // Acknowledgement codes
+    void HandleAckTeleport(bool read, ByteBuffer &buffer);
     void HandleAckRoot(bool read, ByteBuffer &buffer);
     void HandleAckUnroot(bool read, ByteBuffer &buffer);
     void HandleAckFeatherFall(bool read, ByteBuffer &buffer);
-    void HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buffer);
-    void HandleAckForceRunSpeedChange(bool read, ByteBuffer &buffer);
-    void HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &buffer);
-    void HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buffer);
-    void HandleAckForceFlightSpeedChange(bool read, ByteBuffer &buffer);
     void HandleAckGravityEnable(bool read, ByteBuffer &buffer);
     void HandleAckGravityDisable(bool read, ByteBuffer &buffer);
     void HandleAckHover(bool read, ByteBuffer &buffer);
@@ -450,6 +477,15 @@ public:
     void HandleAckSetCanFly(bool read, ByteBuffer &buffer);
     void HandleAckSetCollisionHeight(bool read, ByteBuffer &buffer);
     void HandleAckSetCanTransitionBetweenSwimAndFly(bool read, ByteBuffer &buffer);
+    void HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceRunSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceSwimBackSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceFlightSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceFlightBackSpeedChange(bool read, ByteBuffer &buffer);
+    void HandleAckForceTurnRateChange(bool read, ByteBuffer &buffer);
+    void HandleAckForcePitchRateChange(bool read, ByteBuffer &buffer);
     // Spline codes
     void HandleSplineDone(bool read, ByteBuffer &buffer);
     void HandleSplineSetWalkSpeed(bool read, ByteBuffer &buffer);
@@ -502,6 +538,11 @@ protected:
     // Vector linked to object position
     LocationVector *m_serverLocation;
 
+    // Teleportation destination
+    uint32 m_destMapId, m_destInstanceId;
+    LocationVector m_teleportLocation;
+
+    // Movement information
     bool m_isTransportLocked;
     WoWGuid m_moverGuid, m_transportGuid, m_clientGuid, m_clientTransGuid;
     uint8 m_movementFlagMask, m_movementFlags[6], m_serverFlags[6];
@@ -535,21 +576,24 @@ protected:
 
 protected: // Speed and Status information
     float m_heightOffset; // Hover diff etc
-    float m_currSpeeds[MOVE_SPEED_MAX], m_movementSpeeds[MOVE_SPEED_MAX], m_speedOffset[MOVE_SPEED_MAX];
+    float m_currSpeeds[MOVE_SPEED_MAX], m_speedOffset[MOVE_SPEED_MAX];
 
     // Pending speeds
-    uint32 m_speedTimers[MOVE_SPEED_MAX];
+    uint32 m_speedTimers[MOVE_SPEED_MAX], m_speedCounters[MOVE_SPEED_MAX];
     float m_pendingSpeeds[MOVE_SPEED_MAX];
 
     bool m_pendingEnable[MOVEMENT_STATUS_MAX];
 
     bool UpdatePendingSpeed(MovementSpeedTypes speedType, float sentSpeed)
     {
-        if(sentSpeed != m_pendingSpeeds[speedType])
+        if(m_speedCounters[speedType] == 0)
             return false;
-        m_speedTimers[speedType] = 0; // Timer not needed anymore
-        m_pendingSpeeds[speedType] = 0.0f; // Pending speed can be cleared
-        m_movementSpeeds[speedType] = sentSpeed;
+        if(--m_speedCounters[speedType] == 0 || sentSpeed == m_pendingSpeeds[speedType])
+        {
+            m_speedTimers[speedType] = 0; // Timer not needed anymore
+            m_pendingSpeeds[speedType] = 0.0f; // Pending speed can be cleared
+            m_currSpeeds[speedType] = sentSpeed;
+        }
         return true;
     }
 
@@ -600,87 +644,3 @@ private:
 
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };
-
-enum MovementStatusElements
-{
-    MSEHasGuidByte0,
-    MSEHasGuidByte1,
-    MSEHasGuidByte2,
-    MSEHasGuidByte3,
-    MSEHasGuidByte4,
-    MSEHasGuidByte5,
-    MSEHasGuidByte6,
-    MSEHasGuidByte7,
-    MSEHasMovementFlags,
-    MSEHasMovementFlags2,
-    MSEHasTimestamp,
-    MSEHasOrientation,
-    MSEHasTransportData,
-    MSEHasTransportGuidByte0,
-    MSEHasTransportGuidByte1,
-    MSEHasTransportGuidByte2,
-    MSEHasTransportGuidByte3,
-    MSEHasTransportGuidByte4,
-    MSEHasTransportGuidByte5,
-    MSEHasTransportGuidByte6,
-    MSEHasTransportGuidByte7,
-    MSEHasTransportTime2,
-    MSEHasTransportTime3,
-    MSEHasPitch,
-    MSEHasFallData,
-    MSEHasFallDirection,
-    MSEHasSplineElevation,
-    MSEHasSpline,
-
-    MSEGuidByte0,
-    MSEGuidByte1,
-    MSEGuidByte2,
-    MSEGuidByte3,
-    MSEGuidByte4,
-    MSEGuidByte5,
-    MSEGuidByte6,
-    MSEGuidByte7,
-    MSEMovementFlags,
-    MSEMovementFlags2,
-    MSETimestamp,
-    MSEPositionX,
-    MSEPositionY,
-    MSEPositionZ,
-    MSEOrientation,
-    MSETransportGuidByte0,
-    MSETransportGuidByte1,
-    MSETransportGuidByte2,
-    MSETransportGuidByte3,
-    MSETransportGuidByte4,
-    MSETransportGuidByte5,
-    MSETransportGuidByte6,
-    MSETransportGuidByte7,
-    MSETransportPositionX,
-    MSETransportPositionY,
-    MSETransportPositionZ,
-    MSETransportOrientation,
-    MSETransportSeat,
-    MSETransportTime,
-    MSETransportTime2,
-    MSETransportVehicleId,
-    MSEPitch,
-    MSEFallTime,
-    MSEFallVerticalSpeed,
-    MSEFallCosAngle,
-    MSEFallSinAngle,
-    MSEFallHorizontalSpeed,
-    MSESplineElevation,
-
-    MSECounter,
-
-    // Special
-    MSEZeroBit,         // writes bit value 1 or skips read bit
-    MSEOneBit,          // writes bit value 0 or skips read bit
-    MSEEnd,             // marks end of parsing
-    MSEExtraElement,    // Used to signalize reading into ExtraMovementStatusElement, element sequence inside it is declared as separate array
-                        // Allowed internal elements are: GUID markers (not transport), MSEExtraFloat, MSEExtraInt8
-    MSEExtraFloat,
-    MSEExtraInt8,
-};
-
-MovementStatusElements const* GetMovementStatusElementsSequence(Opcodes opcode);

@@ -1369,7 +1369,6 @@ void WorldSession::HandleBuyBankSlotOpcode(WorldPacket& recvPacket)
     {
         _player->SetByte(PLAYER_BYTES_2, 3, currentSlot+1);
         _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -((int32)bsp->Price));
-        _player->GetAchievementInterface()->HandleAchievementCriteriaBuyBankSlot();
     }
 }
 

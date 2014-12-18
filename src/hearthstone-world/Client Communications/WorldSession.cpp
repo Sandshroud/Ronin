@@ -584,7 +584,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_MOVE_CHNG_TRANSPORT].handler                   = &WorldSession::HandleMovementInputOpcodes;
 
     // ACK
-    WorldPacketHandlers[MSG_MOVE_WORLDPORT_ACK].handler                     = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[MSG_MOVE_WORLDPORT_ACK].handler                     = &WorldSession::HandleMoveWorldPortAck;
     WorldPacketHandlers[CMSG_FORCE_MOVE_ROOT_ACK].handler                   = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_FORCE_MOVE_UNROOT_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FEATHER_FALL_ACK].handler                 = &WorldSession::HandleAcknowledgementOpcodes;
@@ -596,11 +596,16 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_MOVE_SET_CAN_FLY_ACK].handler                  = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_SET_COLLISION_HEIGHT_ACK].handler         = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_SET_CAN_TRANSITION_BETWEEN_SWIM_AND_FLY_ACK].handler = &WorldSession::HandleAcknowledgementOpcodes;
+
     WorldPacketHandlers[CMSG_MOVE_FORCE_WALK_SPEED_CHANGE_ACK].handler      = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FORCE_RUN_SPEED_CHANGE_ACK].handler       = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FORCE_RUN_BACK_SPEED_CHANGE_ACK].handler  = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FORCE_SWIM_SPEED_CHANGE_ACK].handler      = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_SWIM_BACK_SPEED_CHANGE_ACK].handler = &WorldSession::HandleAcknowledgementOpcodes;
     WorldPacketHandlers[CMSG_MOVE_FORCE_FLIGHT_SPEED_CHANGE_ACK].handler    = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_FLIGHT_BACK_SPEED_CHANGE_ACK].handler= &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_TURN_RATE_CHANGE_ACK].handler       = &WorldSession::HandleAcknowledgementOpcodes;
+    WorldPacketHandlers[CMSG_MOVE_FORCE_PITCH_RATE_CHANGE_ACK].handler      = &WorldSession::HandleAcknowledgementOpcodes;
 
     // Extra movement codes
     WorldPacketHandlers[CMSG_SET_ACTIVE_MOVER].handler                      = &WorldSession::HandleSetActiveMoverOpcode;
@@ -1116,9 +1121,6 @@ void WorldSession::HandleAchievementInspect(WorldPacket &recv_data)
     WoWGuid guid;
     recv_data >> guid.asPacked();
 
-    if(Player* plr = GetPlayer()->GetMapMgr()->GetPlayer(guid))
-        if( plr->GetAchievementInterface()->HasAchievements() )
-            SendPacket(plr->GetAchievementInterface()->BuildAchievementData(true));
 }
 
 void WorldSession::HandleTimeSyncResp( WorldPacket & recv_data )

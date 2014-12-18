@@ -939,7 +939,6 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
                     (*itr)->m_bgScore.BonusHonor += m_bonusHonor;
                     HonorHandler::AddHonorPointsToPlayer( (*itr), m_bonusHonor );
                     uint32 diff = abs((int32)(m_points[i] - m_points[i ? 0 : 1]));
-                    (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, this);
                     if((*itr)->fromrandombg)
                     {
                         Player * p = (*itr);

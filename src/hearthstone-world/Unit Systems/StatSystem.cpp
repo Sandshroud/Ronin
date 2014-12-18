@@ -22,7 +22,6 @@ bool StatSystem::Load()
     return LoadUnitStats();
 }
 
-
 void StatSystem::LoadClassPowers()
 {
     uint32 PowersByClass[CLASS_MAX][POWER_TYPE_MAX];

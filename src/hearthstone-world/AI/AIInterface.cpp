@@ -660,8 +660,8 @@ void AIInterface::CheckHeight()
 
 uint32 AIInterface::GetWeaponEmoteType(bool ranged)
 {
-    uint32 emotetype = EMOTE_STATE_READYUNARMED;
-    if(ranged) emotetype = EMOTE_STATE_READYBOW;
+    uint32 emotetype = EMOTE_STATE_READY_UNARMED;
+    if(ranged) emotetype = EMOTE_STATE_READY_BOW;
     if(!m_Unit->IsCreature())
         return emotetype;
 
@@ -697,7 +697,7 @@ uint32 AIInterface::GetWeaponEmoteType(bool ranged)
         {
             if(ItemDataEntry* ItemE = db2Item.LookupEntry(ctrData->Item3))
                 if(ItemE->SubClass == ITEM_SUBCLASS_WEAPON_GUN || ItemE->SubClass == ITEM_SUBCLASS_WEAPON_CROSSBOW)
-                    emotetype = EMOTE_STATE_READYRIFLE;
+                    emotetype = EMOTE_STATE_READY_RIFLE;
         }
     }
     return emotetype;

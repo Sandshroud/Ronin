@@ -53,9 +53,6 @@ void WorldSession::HandleUnlearnTalents( WorldPacket & recv_data )
 
     GetPlayer()->ResetSpec(_player->m_talentInterface.GetActiveSpec());
     GetPlayer()->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
-
-    GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCostTotal( price );
-    GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaTalentResetCount();
 }
 
 void WorldSession::HandleUnlearnSkillOpcode(WorldPacket& recv_data)

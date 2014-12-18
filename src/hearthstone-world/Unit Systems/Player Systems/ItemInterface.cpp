@@ -268,9 +268,6 @@ AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 s
     if( ContainerSlot == INVENTORY_SLOT_NOT_SET && slot == EQUIPMENT_SLOT_OFFHAND && item->GetProto()->Class == ITEM_CLASS_WEAPON )
         m_pOwner->SetDuelWield(true);
 
-    if( m_pOwner )
-        m_pOwner->GetAchievementInterface()->HandleAchievementCriteriaOwnItem( item->GetUInt32Value(OBJECT_FIELD_ENTRY), item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) ? item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) : 1 );
-
     return ADD_ITEM_RESULT_OK;
 }
 

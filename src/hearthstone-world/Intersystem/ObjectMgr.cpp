@@ -156,29 +156,7 @@ ObjectMgr::~ObjectMgr()
 
 void ObjectMgr::LoadAchievements()
 {
-    for(uint32 i = 0; i < dbcAchievementCriteria.GetNumRows(); i++)
-    {
-        if( AchievementCriteriaEntry * ace = dbcAchievementCriteria.LookupRow( i ) )
-        {
-            AchievementCriteriaMap::iterator itr = m_achievementCriteriaMap.find( ace->requiredType );
-            if( itr == m_achievementCriteriaMap.end() )
-            {
-                // We need to make a new set, and insert this.
-                AchievementCriteriaSet * acs = new AchievementCriteriaSet;
-                acs->insert( ace );
-                m_achievementCriteriaMap.insert( std::make_pair( ace->requiredType, acs ) );
-            }
-            else
-            {
-                // Push into old set
-                AchievementCriteriaSet * acs = itr->second;
-                acs->insert( ace );
-            }
 
-            if( AchievementEntry * ae = dbcAchievement.LookupEntry( ace->referredAchievement ) )
-                ae->associatedCriteria.push_back(ace->ID);
-        }
-    }
     sLog.Notice("AchievementMgr", "Loaded %u achievements", dbcAchievementCriteria.GetNumRows());
 }
 
@@ -319,16 +297,14 @@ void ObjectMgr::LoadPlayersInfo()
         do
         {
             Field *fields = result->Fetch();
-            pn = new PlayerInfo;
-            memset(pn, 0, sizeof(PlayerInfo));
-            pn->guid = fields[0].GetUInt64();
+            pn = new PlayerInfo(fields[0].GetUInt64());
             pn->name = strdup(fields[1].GetString());
             pn->race = fields[2].GetUInt8();
             pn->_class = fields[3].GetUInt8();
             pn->lastLevel = fields[4].GetUInt32();
             pn->gender = fields[5].GetUInt8();
-            pn->lastZone=fields[6].GetUInt32();
-            pn->lastOnline=fields[7].GetUInt32();
+            pn->lastZone = fields[6].GetUInt32();
+            pn->lastOnline = fields[7].GetUInt32();
             pn->acct = fields[8].GetUInt32();
             pn->curInstanceID = fields[9].GetUInt32();
             pn->lastmapid = fields[10].GetUInt32();
@@ -352,7 +328,7 @@ void ObjectMgr::LoadPlayersInfo()
                 pn->name = strdup(temp);
             }
 
-            std::string lpn=std::string(pn->name);
+            std::string lpn = pn->name;
             RONIN_UTIL::TOLOWER(lpn);
             m_playersInfoByName[lpn] = pn;
 
@@ -386,16 +362,15 @@ PlayerInfo* ObjectMgr::GetPlayerInfoByName(const char * name)
 void ObjectMgr::LoadPlayerCreateInfo()
 {
     QueryResult *result = WorldDatabase.Query( "SELECT * FROM playercreateinfo" );
-
     if( result == NULL )
     {
         sLog.Error("MySQL","Query failed: SELECT * FROM playercreateinfo");
         return;
     }
 
-    if( result->GetFieldCount() < 26 )
+    if( result->GetFieldCount() < 9 )
     {
-        sLog.Error("PlayerCreateInfo", "Incorrect number of columns in playercreateinfo found %u, should be 26. check for sql updates", result->GetFieldCount());
+        sLog.Error("PlayerCreateInfo", "Incorrect number of columns in playercreateinfo found %u, should be 9. check for sql updates", result->GetFieldCount());
         delete result;
         return;
     }
@@ -405,22 +380,36 @@ void ObjectMgr::LoadPlayerCreateInfo()
 
     do
     {
-        Field *fields = result->Fetch();
         fieldcount = 0;
-
-        pPlayerCreateInfo = new PlayerCreateInfo;
+        Field *fields = result->Fetch();
+        pPlayerCreateInfo = new PlayerCreateInfo();
         pPlayerCreateInfo->index = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->race = fields[fieldcount++].GetUInt8();
-        pPlayerCreateInfo->factiontemplate = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->class_ = fields[fieldcount++].GetUInt8();
+        CharRaceEntry *raceEntry = dbcCharRace.LookupEntry(fields[fieldcount++].GetUInt8());
+        if(raceEntry == NULL)
+        {
+            sLog.Error("PlayerCreateInfo", "Incorrect race entry for index %u", pPlayerCreateInfo->index);
+            delete pPlayerCreateInfo;
+            continue;
+        }
+        pPlayerCreateInfo->race = raceEntry->RaceId;
+        pPlayerCreateInfo->factiontemplate = raceEntry->FactionId;
+        pPlayerCreateInfo->displayId[0] = raceEntry->maleModel;
+        pPlayerCreateInfo->displayId[1] = raceEntry->femaleModel;
+
+        CharClassEntry *classEntry = dbcCharClass.LookupEntry(fields[fieldcount++].GetUInt8());
+        if(classEntry == NULL)
+        {
+            sLog.Error("PlayerCreateInfo", "Incorrect race entry for index %u", pPlayerCreateInfo->index);
+            delete pPlayerCreateInfo;
+            continue;
+        }
+        pPlayerCreateInfo->class_ = classEntry->class_id;
         pPlayerCreateInfo->mapId = fields[fieldcount++].GetUInt32();
         pPlayerCreateInfo->zoneId = fields[fieldcount++].GetUInt32();
         pPlayerCreateInfo->positionX = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->positionY = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->positionZ = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->displayId[0] = fields[fieldcount++].GetUInt16();
-        pPlayerCreateInfo->displayId[1] = fields[fieldcount++].GetUInt16();
 
         QueryResult *sk_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid = %u", pPlayerCreateInfo->index);
         if(sk_sql)
@@ -462,7 +451,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
             delete items_sql;
         }
 
-        QueryResult *bars_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_bars WHERE class = %u",pPlayerCreateInfo->class_ );
+        QueryResult *bars_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_bars WHERE class = %u", pPlayerCreateInfo->class_ );
         if(bars_sql)
         {
             do

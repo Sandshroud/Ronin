@@ -234,6 +234,7 @@ void CommandTableStorage::Init()
         { "bytes",                      COMMAND_LEVEL_M, NULL,                                          "Bytes",                    NULL, UNIT_FIELD_BYTES_0,           0,                      1 },
         { "playerflags",                COMMAND_LEVEL_M, &ChatHandler::HandleModifyPlayerFlagsCommand,  "modify a player's flags",  NULL, 0,                            0,                      0 },
         { "aurastate",                  COMMAND_LEVEL_M, &ChatHandler::HandleModifyAuraStateCommand,    "mods player's aurastate",  NULL, 0,                            0,                      0 },
+        { "speed",                      COMMAND_LEVEL_M, &ChatHandler::HandleModifySpeedCommand,        "mods unit's speed",        NULL, 0,                            0,                      0 },
         { NULL,                         COMMAND_LEVEL_0, NULL,                                          "",                         NULL, 0,                            0,                      0 }
     };
     dupe_command_table(modifyCommandTable, _modifyCommandTable);
@@ -455,7 +456,6 @@ void CommandTableStorage::Init()
         { "power",                  COMMAND_LEVEL_M, &ChatHandler::HandlePowerCheatCommand,             "Disables mana consumption etc.",                   NULL, 0, 0, 0 },
         { "fly",                    COMMAND_LEVEL_M, &ChatHandler::HandleFlyCommand,                    "Sets fly mode",                                    NULL, 0, 0, 0 },
         { "explore",                COMMAND_LEVEL_M, &ChatHandler::HandleExploreCheatCommand,           "Reveals the unexplored parts of the map.",         NULL, 0, 0, 0 },
-        { "flyspeed",               COMMAND_LEVEL_M, &ChatHandler::HandleFlySpeedCheatCommand,          "Modifies fly speed.",                              NULL, 0, 0, 0 },
         { "stack",                  COMMAND_LEVEL_M, &ChatHandler::HandleStackCheatCommand,             "Enables aura stacking cheat.",                     NULL, 0, 0, 0 },
         { "triggerpass",            COMMAND_LEVEL_M, &ChatHandler::HandleTriggerpassCheatCommand,       "Ignores area trigger prerequisites.",              NULL, 0, 0, 0 },
         { "vendorpass",             COMMAND_LEVEL_M, &ChatHandler::HandleVendorPassCheatCommand,        "Ignores npc vendor prerequisites.",                NULL, 0, 0, 0 },

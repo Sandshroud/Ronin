@@ -45,24 +45,25 @@ static const uint32 LanguageSkills[NUM_LANGUAGES] = {
     759,            // -                0x23
 };
 
-static const uint32 opcodeToChatType[16] = 
+uint32 GetChatTypeForOpcode(uint32 opcode)
 {
-    CHAT_MSG_SAY,
-    CHAT_MSG_YELL,
-    CHAT_MSG_CHANNEL,
-    CHAT_MSG_WHISPER,
-    CHAT_MSG_GUILD,
-    CHAT_MSG_OFFICER,
-    CHAT_MSG_AFK,
-    CHAT_MSG_DND,
-    CHAT_MSG_EMOTE,
-    CHAT_MSG_PARTY,
-    CHAT_MSG_PARTY_LEADER,
-    CHAT_MSG_RAID,
-    CHAT_MSG_RAID_LEADER,
-    CHAT_MSG_BATTLEGROUND,
-    CHAT_MSG_BATTLEGROUND_LEADER,
-    CHAT_MSG_RAID_WARNING
+    switch(opcode)
+    {
+    case CMSG_MESSAGECHAT_SAY: return CHAT_MSG_SAY;
+    case CMSG_MESSAGECHAT_YELL: return CHAT_MSG_YELL;
+    case CMSG_MESSAGECHAT_CHANNEL: return CHAT_MSG_CHANNEL;
+    case CMSG_MESSAGECHAT_WHISPER: return CHAT_MSG_WHISPER;
+    case CMSG_MESSAGECHAT_GUILD: return CHAT_MSG_GUILD;
+    case CMSG_MESSAGECHAT_OFFICER: return CHAT_MSG_OFFICER;
+    case CMSG_MESSAGECHAT_AFK: return CHAT_MSG_AFK;
+    case CMSG_MESSAGECHAT_DND: return CHAT_MSG_DND;
+    case CMSG_MESSAGECHAT_EMOTE: return CHAT_MSG_EMOTE;
+    case CMSG_MESSAGECHAT_PARTY: return CHAT_MSG_PARTY;
+    case CMSG_MESSAGECHAT_RAID: return CHAT_MSG_RAID;
+    case CMSG_MESSAGECHAT_BATTLEGROUND: return CHAT_MSG_BATTLEGROUND;
+    case CMSG_MESSAGECHAT_RAID_WARNING: return CHAT_MSG_RAID_WARNING;
+    }
+    return 0;
 };
 
 void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
@@ -71,17 +72,57 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
     bool packetLang = false;
     int32 lang = LANG_UNIVERSAL;
-    uint32 type = opcodeToChatType[recv_data.GetOpcode()-CMSG_MESSAGECHAT_SAY];
-    if (type != CHAT_MSG_EMOTE && type != CHAT_MSG_AFK && type != CHAT_MSG_DND)
+    uint32 type = GetChatTypeForOpcode(recv_data.GetOpcode());
+    bool step1 = false, step2 = false;
+    uint8 flags = 0;
+    std::string message, miscName;
+    switch(type)
     {
-        packetLang = true;
-        recv_data >> lang;
+    case 0: return; // Skip chat types not supported
+    case CHAT_MSG_EMOTE:
+    case CHAT_MSG_AFK:
+    case CHAT_MSG_DND:
+        {
+            uint32 textLength = recv_data.ReadBits(9);
+            message = recv_data.ReadString(textLength);
+        }break; // No lang
+    case CHAT_MSG_WHISPER: step1 = true;
+    case CHAT_MSG_CHANNEL: step2 = true;
+    case CHAT_MSG_PARTY:
+    case CHAT_MSG_RAID_LEADER:
+    case CHAT_MSG_BATTLEGROUND:
+        {
+            if(Group *grp = _player->GetGroup())
+            {
+                if(grp->GetLeader() == _player->getPlayerInfo())
+                {
+                    if(type == CHAT_MSG_PARTY)
+                        type = CHAT_MSG_PARTY_LEADER;
+                    else if(type == CHAT_MSG_RAID)
+                        type = CHAT_MSG_RAID_LEADER;
+                    else if(type == CHAT_MSG_BATTLEGROUND)
+                        type = CHAT_MSG_BATTLEGROUND_LEADER;
+                }
+            }
+        }
+    default:
+        {
+            recv_data >> lang;
+            packetLang = true;
+            if(step1 || step2)
+            {
+                uint32 len1 = recv_data.ReadBits(10), len2 = recv_data.ReadBits(9);
+                if(step1) miscName = recv_data.ReadString(len1), message = recv_data.ReadString(len2);
+                else message = recv_data.ReadString(len2), miscName = recv_data.ReadString(len1);
+            }
+            else
+            {
+                uint32 textLength = recv_data.ReadBits(9);
+                message = recv_data.ReadString(textLength);
+            }
+        }break;
     }
 
-    std::string message, miscName;
-    recv_data >> message;
-    if( type == CHAT_MSG_CHANNEL || type == CHAT_MSG_WHISPER )
-        recv_data >> miscName;
     if(GetPlayer()->IsBanned())
     {
         GetPlayer()->BroadcastMessage("You cannot do that when banned.");
@@ -434,10 +475,9 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         return;
 
     WoWGuid guid;
-    uint32 text_emote, unk, namelen =1;
-
+    uint32 text_emote, emoteNum;
     recv_data >> text_emote;
-    recv_data >> unk;
+    recv_data >> emoteNum;
     recv_data >> guid;
 
     if( m_muted && m_muted >= (uint32)UNIXTIME )
@@ -490,71 +530,43 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         }
     }
 
-    const char* name =" ";
-    Unit* pUnit = _player->GetMapMgr()->GetUnit(guid);
-    if(pUnit)
+    if(EmoteTextEntry *emText = dbcEmoteText.LookupEntry(text_emote))
     {
-        if(pUnit->IsPlayer())
-        {
-            name = castPtr<Player>( pUnit )->GetName();
-            namelen = (uint32)strlen(name) + 1;
-        }
-        else if(pUnit->GetTypeId() == TYPEID_UNIT)
-        {
-            Creature* p = castPtr<Creature>(pUnit);
-            if(p->GetCreatureData())
-            {
-                name = p->GetCreatureData()->Name;
-                namelen = (uint32)strlen(name) + 1;
+        WorldPacket data;
+        Unit* pUnit = NULL;
+        std::string unitName;
+        if(pUnit = _player->GetMapMgr()->GetUnit(guid))
+            unitName = pUnit->GetName();
 
-                if( p->IsPet() )
-                {
-                    name = castPtr<Pet>(p)->GetName();
-                    namelen = (uint32)strlen(name)+1;
-                }
-            }
-            else
-            {
-                name = 0;
-                namelen = 0;
-            }
-        }
-    }
-
-    if(EmoteEntry *em = dbcEmote.LookupEntry(text_emote))
-    {
-        WorldPacket data(SMSG_EMOTE, 28 + namelen);
-
-        sHookInterface.OnEmote(_player, (EmoteType)em->emoteType, pUnit);
-        if(pUnit)
-            CALL_SCRIPT_EVENT(pUnit,OnEmote)(_player, (EmoteType)em->emoteType);
-
-        switch(em->emoteType)
+        printf("Emote: %u, %u\n", emText->Id, emText->textId);
+        switch(emText->textId)
         {
         case EMOTE_STATE_SLEEP:
         case EMOTE_STATE_SIT:
         case EMOTE_STATE_KNEEL:
-        case EMOTE_STATE_DANCE:
+        case EMOTE_ONESHOT_NONE:
+            break;
+        default:
             {
-                _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, em->emoteType);
+                WorldPacket data(SMSG_EMOTE, 28 + unitName.length()+1);
+                data << uint32(emText->textId);
+                data << GetPlayer()->GetGUID();
+                GetPlayer()->SendMessageToSet(&data, true);
             }break;
         }
 
-        data << (uint32)em->emoteType;
-        data << (uint64)GetPlayer()->GetGUID();
-        GetPlayer()->SendMessageToSet(&data, true);
+        sHookInterface.OnEmote(_player, EmoteType(emText->textId), pUnit);
+        if(pUnit) CALL_SCRIPT_EVENT(pUnit,OnEmote)(_player, EmoteType(emText->textId));
 
         data.Initialize(SMSG_TEXT_EMOTE);
-        data << (uint64)GetPlayer()->GetGUID();
-        data << (uint32)text_emote;
-        data << unk;
-        data << (uint32)namelen;
-        if( namelen > 1 )
-            data.append(name, namelen);
-        else data << (uint8)0x00;
+        data << GetPlayer()->GetGUID();
+        data << uint32(text_emote);
+        data << uint32(emoteNum);
+        data << uint32(unitName.length());
+        if(!unitName.length())
+            data << uint8(0x00);
+        else data << unitName;
         GetPlayer()->SendMessageToSet(&data, true);
-
-        GetPlayer()->GetAchievementInterface()->HandleAchievementCriteriaDoEmote(em->Id, pUnit);
     }
 }
 

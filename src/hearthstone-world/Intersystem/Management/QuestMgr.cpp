@@ -1579,9 +1579,6 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         sEventMgr.RemoveEvents(plr, EVENT_TIMED_QUEST_EXPIRE); 
 
     plr->UpdateNearbyQuestGivers();
-
-    if(qst->qst_zone_id)
-        plr->GetAchievementInterface()->HandleAchievementCriteriaCompleteQuestsInZone(qst->qst_zone_id);
 }
 
 /////////////////////////////////////

@@ -896,9 +896,9 @@ void MapMgr::_UpdateObjects()
             if( pObj->IsPlayer() )
             {
                 // need to be different! ;)
-                count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>( pObj ) );
-                if( count )
+                if( count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>( pObj ) ) )
                 {
+                    printf("Updating self %u\n", count);
                     castPtr<Player>( pObj )->PushUpdateBlock( &m_updateBuffer, count );
                     m_updateBuffer.clear();
                 }
@@ -908,21 +908,19 @@ void MapMgr::_UpdateObjects()
                 castPtr<Unit>( pObj )->EventHealthChangeSinceLastUpdate();
 
             // build the update
-            count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>(NULL) );
-            if( count )
+            Player *lplr;
+            it_start = pObj->GetInRangePlayerSetBegin();
+            it_end = pObj->GetInRangePlayerSetEnd();
+            for(itr = it_start; itr != it_end;)
             {
-                Player *lplr;
-                it_start = pObj->GetInRangePlayerSetBegin();
-                it_end = pObj->GetInRangePlayerSetEnd();
-                for(itr = it_start; itr != it_end;)
+                lplr = *itr;
+                ++itr;
+                // Make sure that the target player can see us.
+                if(lplr->IsVisible(pObj) && (count = pObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, lplr)))
                 {
-                    lplr = *itr;
-                    ++itr;
-                    // Make sure that the target player can see us.
-                    if( lplr->IsVisible( pObj ) )
-                        lplr->PushUpdateBlock( &m_updateBuffer, count );
+                    lplr->PushUpdateBlock( &m_updateBuffer, count );
+                    m_updateBuffer.clear();
                 }
-                m_updateBuffer.clear();
             }
         }
         pObj->ClearUpdateMask();

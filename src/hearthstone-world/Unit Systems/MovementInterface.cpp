@@ -10,7 +10,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterS
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
-        m_currSpeeds[i] = m_movementSpeeds[i] = m_defaultSpeeds[i];
+        m_currSpeeds[i] = m_defaultSpeeds[i];
         m_speedOffset[i] = m_pendingSpeeds[i] = 0.f;
         m_speedTimers[i] = 0;
     }
@@ -21,7 +21,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterS
     memset(m_movementFlags, 0, sizeof(uint8)*6);
     memset(m_serverFlags, 0, sizeof(uint8)*6);
 
-    m_clientGuid = m_moverGuid = _unit->getGender();
+    m_clientGuid = m_moverGuid = _unit->GetGUID();
     m_transportGuid.Clean();
     m_clientTransGuid.Clean();
 
@@ -74,7 +74,6 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleFallReset,
     &MovementInterface::HandleSetRunMode,
     &MovementInterface::HandleSetWalkMode,
-    &MovementInterface::HandleSetPitchRate,
     &MovementInterface::HandleSetCanFly,
     &MovementInterface::HandleUnsetCanFly,
     &MovementInterface::HandleSetHover,
@@ -96,7 +95,11 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleUpdateRunSpeed,
     &MovementInterface::HandleUpdateRunBackSpeed,
     &MovementInterface::HandleUpdateSwimSpeed,
+    &MovementInterface::HandleUpdateSwimBackSpeed,
     &MovementInterface::HandleUpdateFlightSpeed,
+    &MovementInterface::HandleUpdateFlightBackSpeed,
+    &MovementInterface::HandleUpdateTurnRate,
+    &MovementInterface::HandleUpdatePitchRate,
     &MovementInterface::HandleSetWalkSpeed,
     &MovementInterface::HandleSetRunSpeed,
     &MovementInterface::HandleSetRunBackSpeed,
@@ -105,15 +108,12 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleSetFlightSpeed,
     &MovementInterface::HandleSetFlightBackSpeed,
     &MovementInterface::HandleSetTurnRate,
+    &MovementInterface::HandleSetPitchRate,
     // Acknowledgement codes
+    &MovementInterface::HandleAckTeleport,
     &MovementInterface::HandleAckRoot,
     &MovementInterface::HandleAckUnroot,
     &MovementInterface::HandleAckFeatherFall,
-    &MovementInterface::HandleAckForceWalkSpeedChange,
-    &MovementInterface::HandleAckForceRunSpeedChange,
-    &MovementInterface::HandleAckForceRunBackSpeedChange,
-    &MovementInterface::HandleAckForceSwimSpeedChange,
-    &MovementInterface::HandleAckForceFlightSpeedChange,
     &MovementInterface::HandleAckGravityEnable,
     &MovementInterface::HandleAckGravityDisable,
     &MovementInterface::HandleAckHover,
@@ -122,6 +122,15 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleAckSetCanFly,
     &MovementInterface::HandleAckSetCollisionHeight,
     &MovementInterface::HandleAckSetCanTransitionBetweenSwimAndFly,
+    &MovementInterface::HandleAckForceWalkSpeedChange,
+    &MovementInterface::HandleAckForceRunSpeedChange,
+    &MovementInterface::HandleAckForceRunBackSpeedChange,
+    &MovementInterface::HandleAckForceSwimSpeedChange,
+    &MovementInterface::HandleAckForceSwimBackSpeedChange,
+    &MovementInterface::HandleAckForceFlightSpeedChange,
+    &MovementInterface::HandleAckForceFlightBackSpeedChange,
+    &MovementInterface::HandleAckForceTurnRateChange,
+    &MovementInterface::HandleAckForcePitchRateChange,
     // Spline codes
     &MovementInterface::HandleSplineDone,
     &MovementInterface::HandleSplineSetWalkSpeed,
@@ -131,8 +140,8 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleSplineSetSwimBackSpeed,
     &MovementInterface::HandleSplineSetFlightSpeed,
     &MovementInterface::HandleSplineSetFlightBackSpeed,
-    &MovementInterface::HandleSplineSetPitchRate,
     &MovementInterface::HandleSplineSetTurnRate,
+    &MovementInterface::HandleSplineSetPitchRate,
     &MovementInterface::HandleSplineSetWalkMode,
     &MovementInterface::HandleSplineSetRunMode,
     &MovementInterface::HandleSplineGravityEnable,
@@ -188,7 +197,6 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case CMSG_MOVE_FALL_RESET: return MOVEMENT_CODE_FALL_RESET;
     case MSG_MOVE_SET_RUN_MODE: return MOVEMENT_CODE_SET_RUN_MODE;
     case MSG_MOVE_SET_WALK_MODE: return MOVEMENT_CODE_SET_WALK_MODE;
-    case SMSG_MOVE_SET_PITCH_RATE: return MOVEMENT_CODE_SET_PITCH_RATE;
     case CMSG_MOVE_SET_CAN_FLY: return MOVEMENT_CODE_SET_CAN_FLY;
     case SMSG_MOVE_SET_CAN_FLY: return MOVEMENT_CODE_SET_CAN_FLY;
     case SMSG_MOVE_UNSET_CAN_FLY: return MOVEMENT_CODE_UNSET_CAN_FLY;
@@ -212,7 +220,12 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case SMSG_MOVE_UPDATE_RUN_SPEED: return MOVEMENT_CODE_UPDATE_RUN_SPEED;
     case SMSG_MOVE_UPDATE_RUN_BACK_SPEED: return MOVEMENT_CODE_UPDATE_RUN_BACK_SPEED;
     case SMSG_MOVE_UPDATE_SWIM_SPEED: return MOVEMENT_CODE_UPDATE_SWIM_SPEED;
+    case SMSG_MOVE_UPDATE_SWIM_BACK_SPEED: return MOVEMENT_CODE_UPDATE_SWIM_BACK_SPEED;
     case SMSG_MOVE_UPDATE_FLIGHT_SPEED: return MOVEMENT_CODE_UPDATE_FLIGHT_SPEED;
+    case SMSG_MOVE_UPDATE_FLIGHT_BACK_SPEED: return MOVEMENT_CODE_UPDATE_FLIGHT_BACK_SPEED;
+    case SMSG_MOVE_UPDATE_TURN_RATE: return MOVEMENT_CODE_UPDATE_TURN_RATE;
+    case SMSG_MOVE_UPDATE_PITCH_RATE: return MOVEMENT_CODE_UPDATE_PITCH_RATE;
+
     case SMSG_MOVE_SET_WALK_SPEED: return MOVEMENT_CODE_SET_WALK_SPEED;
     case SMSG_MOVE_SET_RUN_SPEED: return MOVEMENT_CODE_SET_RUN_SPEED;
     case SMSG_MOVE_SET_RUN_BACK_SPEED: return MOVEMENT_CODE_SET_RUN_BACK_SPEED;
@@ -221,8 +234,10 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case SMSG_MOVE_SET_FLIGHT_SPEED: return MOVEMENT_CODE_SET_FLIGHT_SPEED;
     case SMSG_MOVE_SET_FLIGHT_BACK_SPEED: return MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED;
     case SMSG_MOVE_SET_TURN_RATE: return MOVEMENT_CODE_SET_TURN_RATE;
+    case SMSG_MOVE_SET_PITCH_RATE: return MOVEMENT_CODE_SET_PITCH_RATE;
 
         // Acknowledgement codes
+    case MSG_MOVE_WORLDPORT_ACK: return MOVEMENT_CODE_ACK_TELEPORT;
     case CMSG_FORCE_MOVE_ROOT_ACK: return MOVEMENT_CODE_ACK_ROOT;
     case CMSG_FORCE_MOVE_UNROOT_ACK: return MOVEMENT_CODE_ACK_UNROOT;
     case CMSG_MOVE_FEATHER_FALL_ACK: return MOVEMENT_CODE_ACK_FEATHER_FALL;
@@ -234,11 +249,16 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case CMSG_MOVE_SET_CAN_FLY_ACK: return MOVEMENT_CODE_ACK_SET_CAN_FLY;
     case CMSG_MOVE_SET_COLLISION_HEIGHT_ACK: return MOVEMENT_CODE_ACK_SET_COLLISION_HEIGHT;
     case CMSG_MOVE_SET_CAN_TRANSITION_BETWEEN_SWIM_AND_FLY_ACK: return MOVEMENT_CODE_ACK_SET_CAN_TRANSITION_BETWEEN_SWIM_AND_FLY;
+
     case CMSG_MOVE_FORCE_WALK_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE;
     case CMSG_MOVE_FORCE_RUN_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE;
     case CMSG_MOVE_FORCE_RUN_BACK_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE;
     case CMSG_MOVE_FORCE_SWIM_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE;
+    case CMSG_MOVE_FORCE_SWIM_BACK_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_SWIM_BACK_SPEED_CHANGE;
     case CMSG_MOVE_FORCE_FLIGHT_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE;
+    case CMSG_MOVE_FORCE_FLIGHT_BACK_SPEED_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE;
+    case CMSG_MOVE_FORCE_TURN_RATE_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE;
+    case CMSG_MOVE_FORCE_PITCH_RATE_CHANGE_ACK: return MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE;
 
         // Spline codes
     case CMSG_MOVE_SPLINE_DONE: return MOVEMENT_CODE_SPLINE_DONE;
@@ -249,8 +269,8 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case SMSG_SPLINE_MOVE_SET_SWIM_BACK_SPEED: return MOVEMENT_CODE_SPLINE_SET_SWIM_BACK_SPEED;
     case SMSG_SPLINE_MOVE_SET_FLIGHT_SPEED: return MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED;
     case SMSG_SPLINE_MOVE_SET_FLIGHT_BACK_SPEED: return MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED;
-    case SMSG_SPLINE_MOVE_SET_PITCH_RATE: return MOVEMENT_CODE_SPLINE_SET_PITCH_RATE;
     case SMSG_SPLINE_MOVE_SET_TURN_RATE: return MOVEMENT_CODE_SPLINE_SET_TURN_RATE;
+    case SMSG_SPLINE_MOVE_SET_PITCH_RATE: return MOVEMENT_CODE_SPLINE_SET_PITCH_RATE;
     case SMSG_SPLINE_MOVE_SET_WALK_MODE: return MOVEMENT_CODE_SPLINE_SET_WALK_MODE;
     case SMSG_SPLINE_MOVE_SET_RUN_MODE: return MOVEMENT_CODE_SPLINE_SET_RUN_MODE;
     case SMSG_SPLINE_MOVE_GRAVITY_DISABLE: return MOVEMENT_CODE_SPLINE_GRAVITY_DISABLE;
@@ -280,9 +300,68 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     return 0xFFFF;
 }
 
+uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
+{
+    switch(moveCode)
+    {
+    case MOVEMENT_CODE_UPDATE_WALK_SPEED:       return MOVE_SPEED_WALK;
+    case MOVEMENT_CODE_UPDATE_RUN_SPEED:        return MOVE_SPEED_RUN;
+    case MOVEMENT_CODE_UPDATE_RUN_BACK_SPEED:   return MOVE_SPEED_RUN_BACK;
+    case MOVEMENT_CODE_UPDATE_SWIM_SPEED:       return MOVE_SPEED_SWIM;
+    case MOVEMENT_CODE_UPDATE_SWIM_BACK_SPEED:  return MOVE_SPEED_SWIM_BACK;
+    case MOVEMENT_CODE_UPDATE_FLIGHT_SPEED:     return MOVE_SPEED_FLY;
+    case MOVEMENT_CODE_UPDATE_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_UPDATE_TURN_RATE:        return MOVE_SPEED_TURNRATE;
+    case MOVEMENT_CODE_UPDATE_PITCH_RATE:       return MOVE_SPEED_PITCHRATE;
+
+    case MOVEMENT_CODE_SET_WALK_SPEED:          return MOVE_SPEED_WALK;
+    case MOVEMENT_CODE_SET_RUN_SPEED:           return MOVE_SPEED_RUN;
+    case MOVEMENT_CODE_SET_RUN_BACK_SPEED:      return MOVE_SPEED_RUN_BACK;
+    case MOVEMENT_CODE_SET_SWIM_SPEED:          return MOVE_SPEED_SWIM;
+    case MOVEMENT_CODE_SET_SWIM_BACK_SPEED:     return MOVE_SPEED_SWIM_BACK;
+    case MOVEMENT_CODE_SET_FLIGHT_SPEED:        return MOVE_SPEED_FLY;
+    case MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED:   return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_SET_TURN_RATE:           return MOVE_SPEED_TURNRATE;
+    case MOVEMENT_CODE_SET_PITCH_RATE:          return MOVE_SPEED_PITCHRATE;
+
+    case MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE:     return MOVE_SPEED_WALK;
+    case MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE:      return MOVE_SPEED_RUN;
+    case MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE: return MOVE_SPEED_RUN_BACK;
+    case MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE:     return MOVE_SPEED_SWIM;
+    case MOVEMENT_CODE_ACK_FORCE_SWIM_BACK_SPEED_CHANGE:return MOVE_SPEED_SWIM_BACK;
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE:   return MOVE_SPEED_FLY;
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE:      return MOVE_SPEED_TURNRATE;
+    case MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE:     return MOVE_SPEED_PITCHRATE;
+
+    case MOVEMENT_CODE_SPLINE_SET_WALK_SPEED:       return MOVE_SPEED_WALK;
+    case MOVEMENT_CODE_SPLINE_SET_RUN_SPEED:        return MOVE_SPEED_RUN;
+    case MOVEMENT_CODE_SPLINE_SET_RUN_BACK_SPEED:   return MOVE_SPEED_RUN_BACK;
+    case MOVEMENT_CODE_SPLINE_SET_SWIM_SPEED:       return MOVE_SPEED_SWIM;
+    case MOVEMENT_CODE_SPLINE_SET_SWIM_BACK_SPEED:  return MOVE_SPEED_SWIM_BACK;
+    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED:     return MOVE_SPEED_FLY;
+    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_SPLINE_SET_TURN_RATE:        return MOVE_SPEED_TURNRATE;
+    case MOVEMENT_CODE_SPLINE_SET_PITCH_RATE:       return MOVE_SPEED_PITCHRATE;
+    }
+    return 0xFFFF;
+}
+
 void MovementInterface::Update(uint32 diff)
 {
 
+    for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
+    {
+        if(m_speedTimers[i])
+        {
+            if(m_speedTimers[i] <= diff)
+            {
+                m_speedTimers[i] = 0; // Timer not needed anymore
+                m_currSpeeds[i] = m_pendingSpeeds[i];
+                m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
+            } else m_speedTimers[i] -= diff;
+        }
+    }
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
@@ -305,6 +384,9 @@ static Opcodes const movementSpeedToOpcode[MOVE_SPEED_MAX][3] =
 
 bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffer *source)
 {
+    if(!TerrainMgr::AreCoordinatesValid(m_clientLocation.x, m_clientLocation.y))
+        return false;
+
     UpdateMovementFlagMask();
     if(!UpdateAcknowledgementData(moveCode))
         return false;
@@ -339,6 +421,29 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
             WriteFromServer(SMSG_PLAYER_MOVE, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
             m_Unit->SendMessageToSet(&data, false);
         }break;
+    case MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_SWIM_BACK_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE:
+    case MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE:
+        {
+            uint16 speedType;
+            if((speedType = GetSpeedTypeForMoveCode(moveCode)) != 0xFFFF)
+            {
+                WorldPacket data(movementSpeedToOpcode[speedType][2], source->size());
+                WriteFromServer(movementSpeedToOpcode[speedType][2], &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
+                m_Unit->SendMessageToSet(&data, false);
+            }
+        }break;
+    case MOVEMENT_CODE_ACK_TELEPORT:
+        {
+            m_destMapId = m_destInstanceId = 0;
+            m_teleportLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+        }break;
     }
 
     if(uint16 distributeOpcode = GetInternalMovementCode(moveCode))
@@ -346,6 +451,30 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     }
 
     return true;
+}
+
+void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
+{
+    if(m_Unit->IsPlayer())
+    {
+        if(m_currSpeeds[speedType] == speed || m_pendingSpeeds[speedType] == speed)
+            return;
+
+        m_speedTimers[speedType] = std::min(2000+castPtr<Player>(m_Unit)->GetSession()->GetLatency()*15, uint32(7500));
+        m_speedCounters[speedType]++;
+        m_pendingSpeeds[speedType] = speed;
+
+        WorldPacket data(movementSpeedToOpcode[speedType][1], 50);
+        WriteFromServer(movementSpeedToOpcode[speedType][1], &data, m_Unit->GetGUID(), speed);
+        castPtr<Player>(m_Unit)->SendPacket(&data);
+    }
+    else
+    {
+        m_currSpeeds[speedType] = speed;
+        WorldPacket data(movementSpeedToOpcode[speedType][0], 50);
+        WriteFromServer(movementSpeedToOpcode[speedType][0], &data, m_Unit->GetGUID(), speed);
+        m_Unit->SendMessageToSet(&data, false);
+    }
 }
 
 bool MovementInterface::UpdateAcknowledgementData(uint16 moveCode)
@@ -515,6 +644,86 @@ void MovementInterface::HandleMovementFlags2(bool read, ByteBuffer *buffer)
         uint16 movementFlags2 = (GetFlags(4) | (uint16(GetFlags(5))<<8));
         buffer->WriteBits(movementFlags2, 12);
     }
+}
+
+void MovementInterface::TeleportToPosition(LocationVector destination)
+{
+    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z);
+
+    WorldPacket data(SMSG_MOVE_UPDATE_TELEPORT, 38);
+    WriteFromServer(SMSG_MOVE_UPDATE_TELEPORT, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
+    if(m_Unit->IsPlayer())
+    {
+        Player *plr = castPtr<Player>(m_Unit);
+        WorldPacket data2(MSG_MOVE_TELEPORT, 38);
+        data2.WriteBit(m_moverGuid[6]);
+        data2.WriteBit(m_moverGuid[0]);
+        data2.WriteBit(m_moverGuid[3]);
+        data2.WriteBit(m_moverGuid[2]);
+        data2.WriteBit(0); // unknown
+        data2.WriteBit(m_transportGuid.raw());
+        data2.WriteBit(m_moverGuid[1]);
+        if (m_transportGuid)
+        {
+            data2.WriteBit(m_transportGuid[1]);
+            data2.WriteBit(m_transportGuid[3]);
+            data2.WriteBit(m_transportGuid[2]);
+            data2.WriteBit(m_transportGuid[5]);
+            data2.WriteBit(m_transportGuid[0]);
+            data2.WriteBit(m_transportGuid[7]);
+            data2.WriteBit(m_transportGuid[6]);
+            data2.WriteBit(m_transportGuid[4]);
+        }
+        data2.WriteBit(m_moverGuid[4]);
+        data2.WriteBit(m_moverGuid[7]);
+        data2.WriteBit(m_moverGuid[5]);
+        data2.FlushBits();
+
+        if (m_transportGuid)
+        {
+            data2.WriteByteSeq(m_transportGuid[6]);
+            data2.WriteByteSeq(m_transportGuid[5]);
+            data2.WriteByteSeq(m_transportGuid[1]);
+            data2.WriteByteSeq(m_transportGuid[7]);
+            data2.WriteByteSeq(m_transportGuid[0]);
+            data2.WriteByteSeq(m_transportGuid[2]);
+            data2.WriteByteSeq(m_transportGuid[4]);
+            data2.WriteByteSeq(m_transportGuid[3]);
+        }
+
+        data2 << uint32(m_serverCounter++); // counter
+        data2.WriteByteSeq(m_moverGuid[1]);
+        data2.WriteByteSeq(m_moverGuid[2]);
+        data2.WriteByteSeq(m_moverGuid[3]);
+        data2.WriteByteSeq(m_moverGuid[5]);
+        data2 << float(destination.x);
+        data2.WriteByteSeq(m_moverGuid[4]);
+        data2 << float(destination.o);
+        data2.WriteByteSeq(m_moverGuid[7]);
+        data2 << float(destination.z);
+        data2.WriteByteSeq(m_moverGuid[0]);
+        data2.WriteByteSeq(m_moverGuid[6]);
+        data2 << float(destination.y);
+        plr->SendPacket(&data2);
+    } else m_Unit->SetPosition(destination);
+
+    // Broadcast the packet to everyone except self.
+    m_Unit->SendMessageToSet(&data, false);
+}
+
+void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, LocationVector destination)
+{
+    if(!m_Unit->IsPlayer())
+        return;
+
+    m_destMapId = mapId;
+    m_destInstanceId = instanceId;
+    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z);
+
+    WorldPacket data(SMSG_NEW_WORLD, 25);
+    data << destination.x << destination.o << destination.z;
+    data << mapId << destination.y;
+    castPtr<Player>(m_Unit)->SendPacket( &data );
 }
 
 void MovementInterface::OnDeath()
@@ -687,7 +896,6 @@ void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer)
 
 void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 {
-    WoWGuid unitGuid = m_Unit->GetGUID();
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
     hasOrientation = !G3D::fuzzyEq(m_serverLocation->o, 0.0f), hasTransportData = !m_transportGuid.empty(),
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
@@ -696,16 +904,16 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     // Append our bits
     DO_BIT(bits, hasMovementFlags, false);
     DO_BIT(bits, hasOrientation, false);
-    DO_BIT(bits, unitGuid[7], true);
-    DO_BIT(bits, unitGuid[3], true);
-    DO_BIT(bits, unitGuid[2], true);
+    DO_BIT(bits, m_moverGuid[7], true);
+    DO_BIT(bits, m_moverGuid[3], true);
+    DO_BIT(bits, m_moverGuid[2], true);
     if (hasMovementFlags) HandleMovementFlags(false, bits);
     DO_BIT(bits, hasSpline && m_Unit->IsPlayer(), true);
     DO_BIT(bits, hasPitch, false);
     DO_BIT(bits, hasSpline, true);
     DO_BIT(bits, hasFallData, true);
     DO_BIT(bits, hasSplineElevation, false);
-    DO_BIT(bits, unitGuid[5], true);
+    DO_BIT(bits, m_moverGuid[5], true);
     DO_BIT(bits, hasTransportData, true);
     DO_BIT(bits, true, false); // !Hastimestamp
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[1], true);
@@ -718,17 +926,17 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[5], true);
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[3], true);
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[2], true);
-    DO_BIT(bits, unitGuid[4], true);
+    DO_BIT(bits, m_moverGuid[4], true);
     if(hasSpline) AppendSplineData(true, bits);
-    DO_BIT(bits, unitGuid[6], true);
+    DO_BIT(bits, m_moverGuid[6], true);
     DO_COND_BIT(bits, hasFallData, hasFallDirection, true);
-    DO_BIT(bits, unitGuid[0], true);
-    DO_BIT(bits, unitGuid[1], true);
+    DO_BIT(bits, m_moverGuid[0], true);
+    DO_BIT(bits, m_moverGuid[1], true);
     DO_BIT(bits, true, false);
     DO_BIT(bits, hasMovementFlags2, false);
     if (hasMovementFlags2) HandleMovementFlags2(false, bits);
     // Append our bytes
-    DO_SEQ_BYTE(bytes, unitGuid[4]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[4]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN_BACK));
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_sin);
@@ -739,7 +947,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BYTES(bytes, hasSplineElevation, float, splineElevation);
     if(hasSpline) AppendSplineData(false, bytes);// Write spline data
     DO_BYTES(bytes, float, m_serverLocation->z-m_heightOffset);
-    DO_SEQ_BYTE(bytes, unitGuid[5]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[5]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[5], uint8, m_transportGuid[5]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[7], uint8, m_transportGuid[7]);
     DO_COND_BYTES(bytes, hasTransportData, uint32, m_transportTime);
@@ -758,17 +966,17 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[4], uint8, m_transportGuid[4]);
     DO_BYTES(bytes, float, m_serverLocation->x);
     DO_BYTES(bytes, float,  GetMoveSpeed(MOVE_SPEED_PITCHRATE));
-    DO_SEQ_BYTE(bytes, unitGuid[3]);
-    DO_SEQ_BYTE(bytes, unitGuid[0]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[3]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[0]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM));
     DO_BYTES(bytes, float, m_serverLocation->y);
-    DO_SEQ_BYTE(bytes, unitGuid[7]);
-    DO_SEQ_BYTE(bytes, unitGuid[1]);
-    DO_SEQ_BYTE(bytes, unitGuid[2]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[7]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[1]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
-    DO_SEQ_BYTE(bytes, unitGuid[6]);
+    DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));

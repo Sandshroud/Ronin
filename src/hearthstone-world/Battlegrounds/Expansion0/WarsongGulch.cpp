@@ -215,7 +215,6 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
                         HonorHandler::AddHonorPointsToPlayer((*itr), m_CompleteHonor + m_WinHonor);
                         (*itr)->CastSpell((*itr), winner_spell, true);
                         uint32 diff = abs(int32(m_scores[i] - m_scores[i ? 0 : 1]));
-                        (*itr)->GetAchievementInterface()->HandleAchievementCriteriaWinBattleground( m_mapMgr->GetMapId(), diff, ((uint32)UNIXTIME - m_startTime) / 1000, castPtr<CBattleground>(this));
                         if((*itr)->fromrandombg)
                         {
                             Player * p = (*itr);

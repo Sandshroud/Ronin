@@ -202,18 +202,8 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     uint16 newOpcode = sOpcodeMgr.ConvertOpcodeForOutput(opcode&0x7FFF);
     if(newOpcode == MSG_NULL_ACTION)
         return OUTPACKET_RESULT_PACKET_ERROR;
-    if(compressed)
-    {
-        printf("Compressing opcode %s|%u|%u\n", sOpcodeMgr.GetOpcodeName(opcode), newOpcode, newOpcode|OPCODE_COMPRESSION_MASK);
-        newOpcode |= OPCODE_COMPRESSION_MASK;
-    }
+    if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
     LockWriteBuffer();
-
-    if(FILE *file = fopen("Output.txt", "ab"))
-    {
-        fprintf(file, "Sending packet %s%s(0x%.4X) as 0x%.4X\n", sOpcodeMgr.GetOpcodeName(opcode), compressed ? "_COMPRESSED" : "", opcode, newOpcode);
-        fclose(file);
-    }
 
     // Encrypt the packet
     // First, create the header.
@@ -591,7 +581,6 @@ void WorldSocket::OnRecvData()
                     Disconnect();
                 else
                 {
-                    printf("Sending auth challenge\n");
                     WorldPacket data (SMSG_AUTH_CHALLENGE, 37);
                     data.append(sWorld.authSeed1.AsByteArray(), 16);
                     data.append(sWorld.authSeed2.AsByteArray(), 16);
@@ -602,7 +591,6 @@ void WorldSocket::OnRecvData()
             }break;
         case CMSG_AUTH_SESSION:
             {
-                printf("Handling auth session\n");
                 _HandleAuthSession(Packet);
             }break;
         case MSG_NULL_ACTION:
@@ -627,7 +615,6 @@ void WorldSocket::OnRecvData()
             {
                 if(mSession)
                 {
-                    printf("Queued packet 0x%.4X as %s(0x%.4X)\n", mUnaltered, sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
                     mSession->QueuePacket(Packet);
                     continue;
                 }

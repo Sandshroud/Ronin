@@ -53,7 +53,17 @@ void WorldSession::HandleAcknowledgementOpcodes( WorldPacket & recv_data )
         return;
     if(_player->GetPlayerStatus() == TRANSFER_PENDING)
         return;
+    MovementInterface *moveInterface = _player->GetMovementInterface();
+    if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
+        Disconnect();
+}
 
+void WorldSession::HandleMoveWorldPortAck( WorldPacket & recv_data )
+{
+    if(_player->IsInWorld())
+        return;
+    if(_player->GetPlayerStatus() == NONE)
+        return;
     MovementInterface *moveInterface = _player->GetMovementInterface();
     if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
         Disconnect();
@@ -86,6 +96,9 @@ void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recv_data)
 #define DO_SEQ_BYTE(read, buffer, val) if(read) buffer.ReadByteSeq(val); else buffer.WriteByteSeq(val);
 
 // Close with a semicolon
+#define BUILD_LOCATION_LIST() LocationVector *pos = read ? &m_clientLocation : m_serverLocation;\
+    LocationVector *transPos = read ? &m_clientTransLocation : &m_transportLocation
+
 #define BUILD_BOOL_LIST()  bool hasMovementFlags = read ? false : m_movementFlagMask & 0x0F,\
     hasMovementFlags2 = read ? false : m_movementFlagMask & 0xF0,\
     hasTimestamp = read ? false : true,\
@@ -98,15 +111,14 @@ void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recv_data)
     hasFallDirection = read ? false : hasFlag(MOVEMENTFLAG_TOGGLE_FALLING),\
     hasFallData = read ? false : (hasFallDirection || m_jumpTime != 0),\
     hasSplineElevation = read ? false : hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);\
-    uint32 *msTime = read ? &m_clientTime : &m_serverTime;\
-    LocationVector *pos = read ? &m_clientLocation : m_serverLocation;\
-    LocationVector *transPos = read ? &m_clientTransLocation : &m_transportLocation
+    uint32 *msTime = read ? &m_clientTime : &m_serverTime;
 
 #define BUILD_GUID_LIST() WoWGuid *guid = read ? &m_clientGuid : &m_moverGuid;\
     WoWGuid *tguid = read ? &m_clientTransGuid : &m_transportGuid;
 
 void MovementInterface::HandlePlayerMove(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BIT(read, buffer, hasFallData, true);
@@ -180,6 +192,7 @@ void MovementInterface::HandlePlayerMove(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleHeartbeat(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -253,6 +266,7 @@ void MovementInterface::HandleHeartbeat(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleJump(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -326,6 +340,7 @@ void MovementInterface::HandleJump(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleFallLand(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -399,6 +414,7 @@ void MovementInterface::HandleFallLand(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartForward(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -472,6 +488,7 @@ void MovementInterface::HandleStartForward(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartBackward(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -545,6 +562,7 @@ void MovementInterface::HandleStartBackward(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartStrafeLeft(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -618,6 +636,7 @@ void MovementInterface::HandleStartStrafeLeft(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartStrafeRight(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -691,6 +710,7 @@ void MovementInterface::HandleStartStrafeRight(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartTurnLeft(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -764,6 +784,7 @@ void MovementInterface::HandleStartTurnLeft(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartTurnRight(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -837,6 +858,7 @@ void MovementInterface::HandleStartTurnRight(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartPitchDown(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -910,6 +932,7 @@ void MovementInterface::HandleStartPitchDown(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartPitchUp(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -983,6 +1006,7 @@ void MovementInterface::HandleStartPitchUp(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartAscend(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1056,6 +1080,7 @@ void MovementInterface::HandleStartAscend(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartDescend(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -1129,6 +1154,7 @@ void MovementInterface::HandleStartDescend(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStartSwim(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -1202,6 +1228,7 @@ void MovementInterface::HandleStartSwim(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStop(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1275,6 +1302,7 @@ void MovementInterface::HandleStop(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStopStrafe(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -1348,6 +1376,7 @@ void MovementInterface::HandleStopStrafe(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStopTurn(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1421,6 +1450,7 @@ void MovementInterface::HandleStopTurn(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStopPitch(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1494,6 +1524,7 @@ void MovementInterface::HandleStopPitch(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleStopAscend(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -1588,6 +1619,7 @@ void MovementInterface::HandleStopSwim(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleSetFacing(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1661,6 +1693,7 @@ void MovementInterface::HandleSetFacing(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleSetPitch(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -1734,6 +1767,7 @@ void MovementInterface::HandleSetPitch(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleFallReset(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -1807,6 +1841,7 @@ void MovementInterface::HandleFallReset(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleSetRunMode(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -1880,6 +1915,7 @@ void MovementInterface::HandleSetRunMode(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleSetWalkMode(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -2207,6 +2243,7 @@ void MovementInterface::HandleUnroot(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateKnockBack(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     read ? buffer.ReadBit() : buffer.WriteBit(0); // Skip_bit
@@ -2267,6 +2304,8 @@ void MovementInterface::HandleUpdateKnockBack(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateTeleport(bool read, ByteBuffer &buffer)
 {
+    LocationVector *pos = read ? &m_clientLocation : &m_teleportLocation;
+    LocationVector *transPos = read ? &m_clientTransLocation : &m_transportLocation;
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -2340,6 +2379,7 @@ void MovementInterface::HandleUpdateTeleport(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleChangeTransport(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -2413,6 +2453,7 @@ void MovementInterface::HandleChangeTransport(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleNotActiveMover(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -2518,6 +2559,7 @@ void MovementInterface::HandleSetCollisionHeight(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateCollisionHeight(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -2579,6 +2621,7 @@ void MovementInterface::HandleUpdateCollisionHeight(bool read, ByteBuffer &buffe
 
 void MovementInterface::HandleUpdateWalkSpeed(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BIT(read, buffer, hasOrientation, false);
@@ -2640,6 +2683,7 @@ void MovementInterface::HandleUpdateWalkSpeed(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateRunSpeed(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -2714,6 +2758,7 @@ void MovementInterface::HandleUpdateRunSpeed(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateRunBackSpeed(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BIT(read, buffer, (*guid)[1], true);
@@ -2775,6 +2820,7 @@ void MovementInterface::HandleUpdateRunBackSpeed(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BIT(read, buffer, hasMovementFlags, false);
@@ -2834,8 +2880,15 @@ void MovementInterface::HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
 }
 
+void MovementInterface::HandleUpdateSwimBackSpeed(bool read, ByteBuffer &buffer)
+{
+    printf("HandleUpdateSwimBackSpeed\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
 void MovementInterface::HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -2893,6 +2946,24 @@ void MovementInterface::HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer)
     DO_SEQ_BYTE(read, buffer, (*guid)[4]);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_SEQ_BYTE(read, buffer, (*guid)[3]);
+}
+
+void MovementInterface::HandleUpdateFlightBackSpeed(bool read, ByteBuffer &buffer)
+{
+    printf("HandleUpdateFlightBackSpeed\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
+void MovementInterface::HandleUpdateTurnRate(bool read, ByteBuffer &buffer)
+{
+    printf("HandleUpdateTurnRate\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
+void MovementInterface::HandleUpdatePitchRate(bool read, ByteBuffer &buffer)
+{
+    printf("HandleUpdatePitchRate\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
 void MovementInterface::HandleSetWalkSpeed(bool read, ByteBuffer &buffer)
@@ -3085,8 +3156,55 @@ void MovementInterface::HandleSetTurnRate(bool read, ByteBuffer &buffer)
     m_incrementMoveCounter = true;
 }
 
+void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
+{
+    printf("Handling worldport\n");
+    Player *plr = castPtr<Player>(m_Unit);
+    sLog.Debug( "WORLD"," got MSG_MOVE_WORLDPORT_ACK." );
+
+    plr->SetPlayerStatus(NONE);
+    sEventMgr.RemoveEvents(plr, EVENT_PLAYER_CHECK_STATUS_Transfer);
+    if(!plr->IsInWorld())
+    {
+        Transporter *trans = NULL;
+        if((trans = plr->m_CurrentTransporter) && plr->GetMapId() != trans->GetMapId())
+        {
+            /* wow, our pc must really suck. */
+            float c_tposx, c_tposy, c_tposz, c_tposo;
+            plr->GetMovementInterface()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
+            c_tposx += trans->GetPositionX();
+            c_tposy += trans->GetPositionY();
+            c_tposz += trans->GetPositionZ();
+
+            WorldPacket dataw(SMSG_NEW_WORLD, 20);
+            dataw << trans->GetMapId() << c_tposx << c_tposy << c_tposz << c_tposo;
+            plr->SendPacket(&dataw);
+
+            plr->SetMapId(trans->GetMapId());
+            plr->SetInstanceID(trans->GetInstanceID());
+            plr->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
+            if(trans->IsInWorld()) plr->AddToWorld();
+        }
+        else
+        {
+            // don't overwrite the loading flag here.
+            // reason: talents/passive spells don't get cast on an invalid instance login
+            if( plr->m_TeleportState != 1 )
+                plr->m_TeleportState = 2;
+
+            ClearMovementFlags(0x01);
+            plr->SetMapId(m_destMapId);
+            plr->SetInstanceID(m_destInstanceId);
+            plr->SetPosition(m_teleportLocation);
+            m_clientLocation.ChangeCoords(m_teleportLocation.x, m_teleportLocation.y, m_teleportLocation.z, m_teleportLocation.o);
+            plr->AddToWorld();
+        }
+    }
+}
+
 void MovementInterface::HandleAckRoot(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -3162,6 +3280,7 @@ void MovementInterface::HandleAckRoot(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckUnroot(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
@@ -3237,6 +3356,7 @@ void MovementInterface::HandleAckUnroot(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckFeatherFall(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -3312,6 +3432,7 @@ void MovementInterface::HandleAckFeatherFall(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -3388,6 +3509,7 @@ void MovementInterface::HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buf
 
 void MovementInterface::HandleAckForceRunSpeedChange(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
@@ -3464,6 +3586,7 @@ void MovementInterface::HandleAckForceRunSpeedChange(bool read, ByteBuffer &buff
 
 void MovementInterface::HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DoExtraData(MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE, read, &buffer);
@@ -3540,6 +3663,7 @@ void MovementInterface::HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &
 
 void MovementInterface::HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->x);
@@ -3614,8 +3738,15 @@ void MovementInterface::HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buf
     m_incrementMoveCounter = true;
 }
 
+void MovementInterface::HandleAckForceSwimBackSpeedChange(bool read, ByteBuffer &buffer)
+{
+    printf("HandleAckForceSwimBackSpeedChange\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
 void MovementInterface::HandleAckForceFlightSpeedChange(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
@@ -3690,8 +3821,27 @@ void MovementInterface::HandleAckForceFlightSpeedChange(bool read, ByteBuffer &b
     m_incrementMoveCounter = true;
 }
 
+void MovementInterface::HandleAckForceFlightBackSpeedChange(bool read, ByteBuffer &buffer)
+{
+    printf("HandleAckForceFlightBackSpeedChange\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
+void MovementInterface::HandleAckForceTurnRateChange(bool read, ByteBuffer &buffer)
+{
+    printf("HandleAckForceTurnRateChange\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
+void MovementInterface::HandleAckForcePitchRateChange(bool read, ByteBuffer &buffer)
+{
+    printf("HandleAckForcePitchRateChange\n");
+    { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
+}
+
 void MovementInterface::HandleAckGravityEnable(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -3767,6 +3917,7 @@ void MovementInterface::HandleAckGravityEnable(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckGravityDisable(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -3842,6 +3993,7 @@ void MovementInterface::HandleAckGravityDisable(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckHover(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
@@ -3917,6 +4069,7 @@ void MovementInterface::HandleAckHover(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckWaterWalk(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -3992,6 +4145,7 @@ void MovementInterface::HandleAckWaterWalk(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckKnockBack(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -4067,6 +4221,7 @@ void MovementInterface::HandleAckKnockBack(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckSetCanFly(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -4142,6 +4297,7 @@ void MovementInterface::HandleAckSetCanFly(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckSetCollisionHeight(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DoExtraData(MOVEMENT_CODE_ACK_SET_COLLISION_HEIGHT, read, &buffer);
@@ -4220,6 +4376,7 @@ void MovementInterface::HandleAckSetCollisionHeight(bool read, ByteBuffer &buffe
 
 void MovementInterface::HandleAckSetCanTransitionBetweenSwimAndFly(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);
@@ -4295,6 +4452,7 @@ void MovementInterface::HandleAckSetCanTransitionBetweenSwimAndFly(bool read, By
 
 void MovementInterface::HandleSplineDone(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -4902,6 +5060,7 @@ void MovementInterface::HandleSplineUnroot(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleDismissControlledVehicle(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -4975,6 +5134,7 @@ void MovementInterface::HandleDismissControlledVehicle(bool read, ByteBuffer &bu
 
 void MovementInterface::HandleChangeSeatsOnControlledVehicle(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->y);
@@ -5065,6 +5225,7 @@ void MovementInterface::HandleChangeSeatsOnControlledVehicle(bool read, ByteBuff
 
 void MovementInterface::HandleEmbeddedMovement(bool read, ByteBuffer &buffer)
 {
+    BUILD_LOCATION_LIST();
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BYTES(read, buffer, float, pos->z);

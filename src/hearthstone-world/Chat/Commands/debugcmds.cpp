@@ -369,3 +369,16 @@ bool ChatHandler::HandleSetPlayerStartLocation(const char* args, WorldSession *m
 
     return true;
 }
+
+bool ChatHandler::HandleModifySpeedCommand(const char* args, WorldSession *m_session)
+{
+    float speed; uint32 speedType;
+    if(sscanf(args, "%u %f", &speedType, &speed) != 2)
+        return false;
+    if(speedType >= MOVE_SPEED_MAX)
+        return false;
+
+    if(Unit* target = getSelectedChar(m_session, true))
+        target->GetMovementInterface()->SetMoveSpeed(MovementSpeedTypes(speedType), speed);
+    return true;
+}

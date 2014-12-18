@@ -195,7 +195,7 @@ public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
 
     ////////////////////////////////////////
-    void ClearUpdateMask( )
+    void ClearUpdateMask()
     {
         m_updateMask.Clear();
         m_objectUpdated = false;
@@ -323,6 +323,8 @@ public:
     virtual void RemoveFromWorld(bool free_guid);
     virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
     virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
+
+    virtual void OnFieldUpdated(uint32 index);
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }

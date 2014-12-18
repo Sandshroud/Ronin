@@ -242,6 +242,8 @@ void Unit::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Playe
 
 void Unit::Update( uint32 p_time )
 {
+    WorldObject::Update(p_time);
+
     _UpdateSpells( p_time );
     UpdateFieldValues();
     m_AuraInterface.Update(p_time);
@@ -307,6 +309,11 @@ void Unit::Update( uint32 p_time )
         }
         itr++;
     }
+}
+
+void Unit::OnFieldUpdated(uint32 index)
+{
+    WorldObject::OnFieldUpdated(index);
 }
 
 void Unit::UpdateFieldValues()
@@ -421,7 +428,7 @@ void Unit::UpdateStatValues()
         totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
-        basepos = baseStats ? baseStats->baseStat[s] : 0;
+        basepos = baseStats ? baseStats->baseStat[s] : getLevel()*15;
 
         pos=GetBonusStat(s), neg=0;
         for(AuraInterface::modifierMap::iterator itr = statMod.begin(); itr != statMod.end(); itr++)
@@ -2161,7 +2168,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
         targetEvent = 1;
         vstate = DODGE;
-        pVictim->Emote(EMOTE_ONESHOT_PARRYUNARMED);         // Animation
+        pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
         //allmighty warrior overpower
 
         if( IsPlayer() )
@@ -2223,7 +2230,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
         targetEvent = 3;
         vstate = PARRY;
-        pVictim->Emote(EMOTE_ONESHOT_PARRYUNARMED);         // Animation
+        pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
         if(pVictim->IsPlayer())
         {
             if( castPtr<Player>( pVictim )->getClass() == 1 || castPtr<Player>( pVictim )->getClass() == 4 )//warriors for 'revenge' and rogues for 'riposte'
@@ -2327,7 +2334,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     if( shield != NULL && !pVictim->disarmedShield )
                     {
                         targetEvent = 2;
-                        pVictim->Emote(EMOTE_ONESHOT_PARRYSHIELD);// Animation
+                        pVictim->Emote(EMOTE_ONESHOT_PARRY_SHIELD);// Animation
 
                         if( shield->GetProto()->InventoryType == INVTYPE_SHIELD )
                         {
@@ -2421,7 +2428,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     }
 
                     //emote
-                    pVictim->Emote(EMOTE_ONESHOT_WOUNDCRITICAL);
+                    pVictim->Emote(EMOTE_ONESHOT_WOUND_CRITICAL);
 
                     CALL_SCRIPT_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
                     CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
@@ -3367,66 +3374,52 @@ bool Unit::IsDazed()
 
 void Unit::UpdateVisibility()
 {
-    ByteBuffer buf(2500);
-    InRangeSet::iterator itr, it3;
     uint32 count;
-    bool can_see;
-    bool is_visible;
-    Player* pl;
-    WorldObject* pObj;
-    Player* plr;
-
+    ByteBuffer buffer(2500);
+    bool can_see, is_visible;
+    InRangeSet::iterator itr, it3;
     if( GetTypeId() == TYPEID_PLAYER )
     {
-        plr = castPtr<Player>(this);
+        WorldObject* pObj;
+        Player *plr = castPtr<Player>(this), *pl = NULL;
         for( WorldObject::InRangeSet::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
         {
             pObj = (*itr);
             ++itr;
 
-            can_see = plr->CanSee(pObj);
-            is_visible = plr->GetVisibility(pObj, &it3);
-            if(can_see)
+            can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
+            if(can_see && !is_visible)
             {
-                if(!is_visible)
+                if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
                 {
-                    buf.clear();
-                    count = pObj->BuildCreateUpdateBlockForPlayer( &buf, plr );
-                    plr->PushUpdateBlock(&buf, count);
+                    plr->PushUpdateBlock(&buffer, count);
                     plr->AddVisibleObject(pObj);
+                    buffer.clear();
                 }
             }
-            else
+            else if(!can_see && is_visible)
             {
-                if(is_visible)
-                {
-                    pObj->DestroyForPlayer(plr);
-                    plr->RemoveVisibleObject(it3);
-                }
+                pObj->DestroyForPlayer(plr);
+                plr->RemoveVisibleObject(it3);
             }
 
             if( pObj->IsPlayer() )
             {
                 pl = castPtr<Player>( pObj );
-                can_see = pl->CanSee( plr );
-                is_visible = pl->GetVisibility( plr, &it3 );
-                if( can_see )
+                can_see = pl->CanSee( plr ), is_visible = pl->GetVisibility( plr, &it3 );
+                if( can_see && !is_visible )
                 {
-                    if(!is_visible)
+                    if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
                     {
-                        buf.clear();
-                        count = plr->BuildCreateUpdateBlockForPlayer( &buf, pl );
-                        pl->PushUpdateBlock(&buf, count);
+                        pl->PushUpdateBlock(&buffer, count);
                         pl->AddVisibleObject(plr);
+                        buffer.clear();
                     }
                 }
-                else
+                else if(!can_see && is_visible)
                 {
-                    if(is_visible)
-                    {
-                        plr->DestroyForPlayer(pl);
-                        pl->RemoveVisibleObject(it3);
-                    }
+                    plr->DestroyForPlayer(pl);
+                    pl->RemoveVisibleObject(it3);
                 }
             }
         }
@@ -3435,24 +3428,19 @@ void Unit::UpdateVisibility()
     {
         for(std::unordered_set<Player*  >::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
         {
-            can_see = (*it2)->CanSee(this);
-            is_visible = (*it2)->GetVisibility(this, &itr);
-            if(!can_see)
+            can_see = (*it2)->CanSee(this), is_visible = (*it2)->GetVisibility(this, &itr);
+            if(!can_see && is_visible)
             {
-                if(is_visible)
-                {
-                    DestroyForPlayer(*it2);
-                    (*it2)->RemoveVisibleObject(itr);
-                }
+                DestroyForPlayer(*it2);
+                (*it2)->RemoveVisibleObject(itr);
             }
-            else
+            else if(can_see && !is_visible)
             {
-                if(!is_visible)
+                if(count = BuildCreateUpdateBlockForPlayer(&buffer, *it2))
                 {
-                    buf.clear();
-                    count = BuildCreateUpdateBlockForPlayer(&buf, *it2);
-                    (*it2)->PushUpdateBlock(&buf, count);
+                    (*it2)->PushUpdateBlock(&buffer, count);
                     (*it2)->AddVisibleObject(this);
+                    buffer.clear();
                 }
             }
         }
@@ -3461,12 +3449,14 @@ void Unit::UpdateVisibility()
 
 void Unit::CastOnMeleeSpell()
 {
-    SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() );
-    Spell *spell = new Spell(this, spellInfo, true, NULL );
-    spell->extra_cast_number = GetOnMeleeSpellEcn();
-    SpellCastTargets targets;
-    targets.m_unitTarget = GetUInt64Value(UNIT_FIELD_TARGET);
-    spell->prepare( &targets );
+    if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
+    {
+        Spell *spell = new Spell(this, spellInfo, true, NULL );
+        spell->extra_cast_number = GetOnMeleeSpellEcn();
+        SpellCastTargets targets;
+        targets.m_unitTarget = GetUInt64Value(UNIT_FIELD_TARGET);
+        spell->prepare( &targets );
+    }
     SetOnMeleeSpell(0, 0);
 }
 

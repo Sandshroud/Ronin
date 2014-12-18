@@ -327,9 +327,7 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
 
     pNewChar->SaveToDB(true);
 
-    PlayerInfo *pn = new PlayerInfo;
-    memset(pn, 0, sizeof(PlayerInfo));
-    pn->guid = pNewChar->GetLowGUID();
+    PlayerInfo *pn = new PlayerInfo(pNewChar->GetGUID());
     pn->name = strdup(pNewChar->GetName());
     pn->_class = pNewChar->getClass();
     pn->race = pNewChar->getRace();
@@ -626,11 +624,9 @@ void WorldSession::FullLogin(Player* plr)
     PlayerInfo * info = objmgr.GetPlayerInfo(plr->GetGUID());
     if(info == NULL)
     {
-        info = new PlayerInfo;
-        memset(info, 0, sizeof(PlayerInfo));
+        info = new PlayerInfo(plr->GetGUID());
         info->_class = plr->getClass();
         info->gender = plr->getGender();
-        info->guid = plr->GetLowGUID();
         info->name = strdup(plr->GetName());
         info->lastLevel = plr->getLevel();
         info->lastOnline = UNIXTIME;

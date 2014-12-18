@@ -8,7 +8,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_talentInterface()
+Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface()
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
@@ -33,7 +33,6 @@ void Player::Init()
     m_oldArea                       = 0;
     m_mailBox                       = new Mailbox( GetUInt32Value(OBJECT_FIELD_GUID) );
     m_ItemInterface                 = new ItemInterface(this);
-    m_achievementInterface          = new AchievementInterface(this);
     m_bgSlot                        = 0;
     m_feralAP                       = 0;
     m_finishingmovesdodge           = false;
@@ -275,7 +274,6 @@ void Player::Init()
     m_deathVision                   = false;
     m_retainComboPoints             = false;
     last_heal_spell                 = NULL;
-    m_playerInfo                    = NULL;
     m_speedChangeCounter            = 1;
     memset(&m_bgScore,0,sizeof(BGScore));
     m_arenaPoints                   = 0;
@@ -410,12 +408,6 @@ void Player::Destruct()
     {
         delete m_ItemInterface;
         m_ItemInterface = NULL;
-    }
-
-    if(m_achievementInterface)
-    {
-        delete m_achievementInterface;
-        m_achievementInterface = NULL;
     }
 
     if(m_reputation.size())
@@ -605,6 +597,15 @@ void Player::Update( uint32 p_time )
                 RemovePvPFlag();
         m_mallCheckTimer = mstime + 2000;
     }
+}
+
+void Player::OnFieldUpdated(uint32 index)
+{
+    Group *group;
+    if((group = GetGroup()) && IsInWorld())
+        group->HandleUpdateFieldChange(index, this);
+
+    Unit::OnFieldUpdated(index);
 }
 
 void Player::UpdateFieldValues()
@@ -1123,7 +1124,6 @@ bool Player::Create(WorldPacket& data )
     uint32 level = std::max(uint8(1), sWorld.StartLevel);
     if(class_ == DEATHKNIGHT && level < 55) level = 55;
     setLevel(level);
-    UpdateFieldValues();
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
@@ -1273,7 +1273,6 @@ void Player::setLevel(uint32 level)
     if(IsInWorld())
     {
         UpdateStats();
-        GetAchievementInterface()->HandleAchievementCriteriaLevelUp( level );
         m_talentInterface.InitGlyphsForLevel(level);
         if(currLevel > 9 || level > 9)
         {
@@ -1742,7 +1741,7 @@ void Player::_EventExploration()
     if(!GetTaxiState() && !GetTransportGuid())
     {
         uint32 offset = at->explorationFlag / 32;
-        if(offset < 144)
+        if(offset < 156)
         {
             offset += PLAYER_EXPLORED_ZONES_1;
 
@@ -1763,7 +1762,6 @@ void Player::_EventExploration()
         }
 
         sQuestMgr.OnPlayerExploreArea(this, at->AreaId);
-        GetAchievementInterface()->HandleAchievementCriteriaExploreArea( at->AreaId, GetUInt32Value(offset) );
     }
 
     // Check for a restable area
@@ -2417,6 +2415,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << GetUInt64Value(PLAYER__FIELD_KNOWN_TITLES) << ","
     << GetUInt64Value(PLAYER__FIELD_KNOWN_TITLES1) << ","
     << GetUInt64Value(PLAYER__FIELD_KNOWN_TITLES2) << ","
+    << GetUInt64Value(PLAYER__FIELD_KNOWN_TITLES3) << ","
     << GetUInt64Value(PLAYER_FIELD_COINAGE) << ","
     << GetUInt32Value(PLAYER_CHARACTER_POINTS) << ","
     << load_health << ","
@@ -2615,9 +2614,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         _SavePet(buf);
         _SavePetSpells(buf);
     }
-
-    // Achievements
-    m_achievementInterface->SaveToDB( buf );
 
     ForceSaved = false;
     m_nextSave = 120000;
@@ -2844,9 +2840,6 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT character_guid FROM social_friends WHERE friend_guid = %u", GetLowGUID());
     q->AddQuery("SELECT ignore_guid FROM social_ignores WHERE character_guid = %u", GetLowGUID());
 
-    //Achievements
-    q->AddQuery("SELECT * from achievements WHERE player = %u", GetLowGUID());
-
     //skills
     q->AddQuery("SELECT * FROM playerskills WHERE player_guid = %u AND type <> %u ORDER BY skill_id ASC, currentlvl DESC", GetLowGUID(), SKILL_TYPE_LANGUAGE ); //load skill, skip languages
 
@@ -2883,7 +2876,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         return;
     }
 
-    if(GetSession() == NULL || results.size() < 8)      // should have 8 query results for a player load.
+    if(GetSession() == NULL || results.size() < 7)      // should have 8 query results for a player load.
     {
         RemovePendingPlayer();
         return;
@@ -2990,7 +2983,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         Counter++;
     }
 
-    if(QueryResult *checkskills = results[11].result)
+    if(QueryResult *checkskills = results[10].result)
     {
         _LoadSkills(checkskills); field_index++;
         sLog.Debug("WorldSession","Skills loaded");
@@ -3104,6 +3097,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetUInt64Value( PLAYER__FIELD_KNOWN_TITLES, get_next_field.GetUInt64() );
     SetUInt64Value( PLAYER__FIELD_KNOWN_TITLES1, get_next_field.GetUInt64() );
     SetUInt64Value( PLAYER__FIELD_KNOWN_TITLES2, get_next_field.GetUInt64() );
+    SetUInt64Value( PLAYER__FIELD_KNOWN_TITLES3, get_next_field.GetUInt64() );
     SetUInt64Value(PLAYER_FIELD_COINAGE, get_next_field.GetUInt64());
     SetUInt32Value(PLAYER_CHARACTER_POINTS, get_next_field.GetUInt32());
 
@@ -3327,7 +3321,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         m_finishedQuests.insert(atol(start));
         start = end +1;
     }
-    GetAchievementInterface()->HandleAchievementCriteriaQuestCount( uint32(m_finishedQuests.size()));
 
     DailyMutex.Acquire();
     start = (char*)get_next_field.GetString();
@@ -3379,7 +3372,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     case HUNTER:
         _LoadPet(results[4].result);
         _LoadPetSpells(results[5].result);
-        _LoadPetActionBar(results[12].result);
+        _LoadPetActionBar(results[11].result);
         break;
     }
 
@@ -3391,7 +3384,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     if(IsInGuild())
         SetUInt32Value(PLAYER_GUILD_TIMESTAMP, (uint32)UNIXTIME);
 
-    m_talentInterface.LoadTalentData(results[13].result, fields, field_index);
+    m_talentInterface.LoadTalentData(results[12].result, fields, field_index);
 
     bool needTalentReset = get_next_field.GetBool();
     bool NeedsPositionReset = get_next_field.GetBool();
@@ -3399,9 +3392,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 #undef get_next_field
 
     // load properties
-    m_talentInterface.LoadGlyphData(results[14].result);
-    _LoadSpells(results[15].result);
-    _LoadEquipmentSets(results[16].result);
+    m_talentInterface.LoadGlyphData(results[13].result);
+    _LoadSpells(results[14].result);
+    _LoadEquipmentSets(results[15].result);
     _LoadPlayerCooldowns(results[1].result);
     m_ItemInterface->mLoadItemsFromDatabase(results[3].result);
 
@@ -3438,9 +3431,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     // END SOCIAL
-
-    // Load achievements
-    GetAchievementInterface()->LoadFromDB( results[10].result );
 
     if( needTalentReset )
         m_talentInterface.ResetAllSpecs();
@@ -3775,6 +3765,8 @@ void Player::AddToWorld(MapMgr* pMapMgr)
 void Player::OnPrePushToWorld()
 {
     SendInitialLogonPackets();
+
+    SendPowerUpdate();
 }
 
 void Player::OnPushToWorld()
@@ -3810,9 +3802,6 @@ void Player::OnPushToWorld()
     data << GetGUID().asPacked();
     m_AuraInterface.BuildAuraUpdateAllPacket(&data);
     SendPacket(&data);
-
-    // Retroactive: Level achievement
-    GetAchievementInterface()->HandleAchievementCriteriaLevelUp( getLevel() );
 
     if(m_FirstLogin)
     {
@@ -3881,16 +3870,6 @@ void Player::OnPushToWorld()
         m_bg->OnPlayerPushed( castPtr<Player>(this) );
 
     m_changingMaps = false;
-
-    SendPowerUpdate();
-
-    if(!sWorld.m_blockgmachievements || !GetSession()->HasGMPermissions())
-    {
-        if(sWorld.RealAchievement && !GetAchievementInterface()->HasAchievement(sWorld.AnniversaryAchievement))
-        {   // Doh!
-            GetAchievementInterface()->ForceEarnedAchievement(sWorld.AnniversaryAchievement);
-        }
-    }
 }
 
 void Player::OnWorldLogin()
@@ -4438,22 +4417,21 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     UpdateVisibility();
     m_movementInterface.OnRessurect();
 
+    if(pResurrector == this)
+        return;
+
     if(IsInWorld() && pResurrector != NULL && pResurrector->IsInWorld())
     {
         //make sure corpse and resurrector are on the same map.
         if( GetMapId() == pResurrector->GetMapId() )
         {
-            if( m_resurrectLoction.x == 0.0f && m_resurrectLoction.y == 0.0f && m_resurrectLoction.z == 0.0f )
+            if(pResurrector->IsPlayer())
             {
-                if(pResurrector->IsPlayer())
-                    SafeTeleport(pResurrector->GetMapId(),pResurrector->GetInstanceID(),pResurrector->GetPosition());
+                if(m_resurrectLoction.DistanceSq(0.f, 0.f, 0.f) == 0.f)
+                    SafeTeleport(pResurrector->GetMapId(), pResurrector->GetInstanceID(), pResurrector->GetPosition());
+                else SafeTeleport(GetMapId(), GetInstanceID(), m_resurrectLoction);
             }
-            else
-            {
-                if(pResurrector->IsPlayer())
-                    SafeTeleport(GetMapId(), GetInstanceID(), m_resurrectLoction);
-                m_resurrectLoction.ChangeCoords(0.0f, 0.0f, 0.0f);
-            }
+            m_resurrectLoction.ChangeCoords(0.0f, 0.0f, 0.0f);
         }
     }
     else
@@ -4490,9 +4468,6 @@ void Player::KillPlayer()
 
     // combo points reset upon death
     NullComboPoints();
-
-    GetAchievementInterface()->HandleAchievementCriteriaConditionDeath();
-    GetAchievementInterface()->HandleAchievementCriteriaDeath();
 
     sHookInterface.OnDeath(castPtr<Player>(this));
 }
@@ -4610,10 +4585,6 @@ void Player::SpawnCorpseBones()
             {
                 sEventMgr.AddEvent(pCorpse, &Corpse::SpawnBones, EVENT_CORPSE_SPAWN_BONES, 100, 1,0);
             } else pCorpse->SpawnBones();
-        }
-        else
-        {
-            //Cheater!
         }
     }
 }
@@ -4763,7 +4734,6 @@ uint32 Player::GetQuestStatusForQuest(uint32 questid, uint8 type, bool skiplevel
 void Player::AddToFinishedQuests(uint32 quest_id)
 {
     m_finishedQuests.insert(quest_id);
-    GetAchievementInterface()->HandleAchievementCriteriaQuestCount( uint32(m_finishedQuests.size()));
 }
 
 bool Player::HasFinishedQuest(uint32 quest_id)
@@ -6094,10 +6064,6 @@ void Player::SendInitialLogonPackets()
     //Factions
     smsg_InitialFactions();
 
-    data.Initialize(SMSG_ALL_ACHIEVEMENT_DATA, 2000);
-    m_achievementInterface->BuildAllAchievementDataPacket(&data);
-    GetSession()->SendPacket(&data);
-
     // Sets
     SendEquipmentSets();
 
@@ -6648,10 +6614,9 @@ void Player::RemovePlayerPet(uint32 pet_number)
 void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, bool force_new_world, uint32 instance_id)
 {
     //Send transfer pending only when switching between differnt mapids!
-    WorldPacket data(0, 41);
+    WorldPacket data(SMSG_TRANSFER_PENDING, 41);
     if(sendpending && mapid != m_mapId && force_new_world)
     {
-        data.SetOpcode(SMSG_TRANSFER_PENDING);
         data << mapid;
         GetSession()->SendPacket(&data);
     }
@@ -6701,29 +6666,18 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
             }
         }
 
-        //did we get a new instanceid?
-        if(instance_id)
-            m_instanceId = instance_id;
-
         //remove us from this map
-        if(IsInWorld())
-            RemoveFromWorld();
+        if(IsInWorld()) RemoveFromWorld();
 
         //send new world
-        data.Initialize(SMSG_NEW_WORLD);
-        data << destination.x << destination.o << destination.z;
-        data << mapid << destination.y;
-        GetSession()->SendPacket( &data );
-        SetMapId(mapid);
+        m_movementInterface.TeleportToPosition(mapid, instance_id, destination);
         SetPlayerStatus(TRANSFER_PENDING);
     }
     else
     {
         // we are on same map allready, no further checks needed,
         // send teleport ack msg
-        WorldPacket * data = BuildTeleportAckMsg(v);
-        m_session->SendPacket(data);
-        delete data;
+        m_movementInterface.TeleportToPosition(destination);
 
         //reset transporter if we where on one.
         if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
@@ -6734,7 +6688,6 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
     }
 
     //update position
-    m_movementInterface.OnRelocate(destination);
     ApplyPlayerRestState(false); // If we don't, and we teleport inside, we'll be rested regardless.
 }
 
@@ -7552,8 +7505,8 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     bool force_new_world = false;
 
     // Lookup map info
-    MapInfo * mi = LimitedMapInfoStorage.LookupEntry(MapID);
-    if(!mi)
+    MapInfo * mapInfo = LimitedMapInfoStorage.LookupEntry(MapID);
+    if(mapInfo == NULL)
         return false;
 
     //are we changing instance or map?
@@ -7571,23 +7524,31 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     if( force_new_world )
     {
         //Do we need TBC expansion?
-        if(mi->flags & WMI_INSTANCE_XPACK_01 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01) && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
+        if(mapInfo->flags & WMI_INSTANCE_XPACK_01 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01) && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
         {
-            WorldPacket msg(SMSG_MOTD, 50);
-            msg << uint32(1) << "You must have The Burning Crusade Expansion to access this content." << uint8(0);
-            m_session->SendPacket(&msg);
+            WorldPacket data;
+            sChatHandler.FillSystemMessageData(&data, "You must have The Burning Crusade Expansion to access this content.");
+            m_session->SendPacket(&data);
             return false;
         }
 
         //Do we need WOTLK expansion?
-        if(mi->flags & WMI_INSTANCE_XPACK_02 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
+        if(mapInfo->flags & WMI_INSTANCE_XPACK_02 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
         {
-            WorldPacket msg(SMSG_MOTD, 50);
-            msg << uint32(1) << "You must have Wrath of the Lich King Expansion to access this content." << uint8(0);
-            m_session->SendPacket(&msg);
+            WorldPacket data;
+            sChatHandler.FillSystemMessageData(&data, "You must have the Wrath of the Lich King Expansion to access this content.");
+            m_session->SendPacket(&data);
             return false;
         }
 
+        // Xpack gonna give it to ya
+        if(mapInfo->flags & WMI_INSTANCE_XPACK_03 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_03))
+        {
+            WorldPacket data;
+            sChatHandler.FillSystemMessageData(&data, "You must have the Cataclysm Expansion to access this content.");
+            m_session->SendPacket(&data);
+            return false;
+        }
         // Dismount
         Dismount();
     }
@@ -8910,6 +8871,22 @@ void Player::RemoveQuestMob(uint32 entry) //Only for Kill Quests
         quest_mobs.erase(entry);
 }
 
+PlayerInfo::PlayerInfo(WoWGuid _guid)
+{
+    guid = _guid;
+    acct = 0;
+    name = "";
+    race = gender = _class = 0;
+    team = curInstanceID = lastmapid = 0;
+    lastpositionx = lastpositiony = lastpositionz = lastorientation = 0.f;
+    lastOnline = 0; lastZone = lastLevel = 0;
+    m_Group = NULL; subGroup = 0;
+    GuildId = GuildRank = 0;
+    m_loggedInPlayer = NULL;
+    arenaTeam[0] = arenaTeam[1] = arenaTeam[2] = NULL;
+    charterId[0] = charterId[1] = charterId[2] = 0;
+}
+
 PlayerInfo::~PlayerInfo()
 {
     if(m_Group)
@@ -9764,15 +9741,7 @@ uint32 Player::HasBGQueueSlotOfType(uint32 type)
 
 void Player::RetroactiveCompleteQuests()
 {
-    std::set<uint32>::iterator itr = m_finishedQuests.begin();
-    for(; itr != m_finishedQuests.end(); itr++)
-    {
-        Quest * pQuest = sQuestMgr.GetQuestPointer( *itr );
-        if(!pQuest || !pQuest->qst_zone_id)
-            continue;
 
-        GetAchievementInterface()->HandleAchievementCriteriaCompleteQuestsInZone( pQuest->qst_zone_id );
-    }
 }
 
 void Player::ConvertRune(uint8 index, uint8 value)
