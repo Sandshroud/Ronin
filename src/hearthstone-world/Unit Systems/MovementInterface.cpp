@@ -349,7 +349,6 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
 
 void MovementInterface::Update(uint32 diff)
 {
-
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
         if(m_speedTimers[i])
@@ -366,6 +365,7 @@ void MovementInterface::Update(uint32 diff)
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
 {
+    m_serverTime = getMSTime();
 
 }
 
@@ -390,37 +390,11 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     UpdateMovementFlagMask();
     if(!UpdateAcknowledgementData(moveCode))
         return false;
-
+    if(!UpdateMovementData(moveCode))
+        return false;
     m_Unit->SetPosition(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z, m_clientLocation.o);
     switch(moveCode)
     {
-    case MOVEMENT_CODE_HEARTBEAT:
-    case MOVEMENT_CODE_JUMP:
-    case MOVEMENT_CODE_FALL_LAND:
-    case MOVEMENT_CODE_START_FORWARD:
-    case MOVEMENT_CODE_START_BACKWARD:
-    case MOVEMENT_CODE_START_STRAFE_LEFT:
-    case MOVEMENT_CODE_START_STRAFE_RIGHT:
-    case MOVEMENT_CODE_START_TURN_LEFT:
-    case MOVEMENT_CODE_START_TURN_RIGHT:
-    case MOVEMENT_CODE_START_PITCH_DOWN:
-    case MOVEMENT_CODE_START_PITCH_UP:
-    case MOVEMENT_CODE_START_ASCEND:
-    case MOVEMENT_CODE_START_DESCEND:
-    case MOVEMENT_CODE_START_SWIM:
-    case MOVEMENT_CODE_STOP:
-    case MOVEMENT_CODE_STOP_STRAFE:
-    case MOVEMENT_CODE_STOP_TURN:
-    case MOVEMENT_CODE_STOP_PITCH:
-    case MOVEMENT_CODE_STOP_ASCEND:
-    case MOVEMENT_CODE_STOP_SWIM:
-    case MOVEMENT_CODE_SET_FACING:
-    case MOVEMENT_CODE_SET_PITCH:
-        {
-            WorldPacket data(SMSG_PLAYER_MOVE, source->size());
-            WriteFromServer(SMSG_PLAYER_MOVE, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
-            m_Unit->SendMessageToSet(&data, false);
-        }break;
     case MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE:
     case MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE:
     case MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE:
@@ -562,6 +536,66 @@ bool MovementInterface::UpdateAcknowledgementData(uint16 moveCode)
     return true;
 }
 
+bool MovementInterface::UpdateMovementData(uint16 moveCode)
+{
+    switch(moveCode)
+    {
+    case MOVEMENT_CODE_HEARTBEAT:
+    case MOVEMENT_CODE_JUMP:
+    case MOVEMENT_CODE_FALL_LAND:
+    case MOVEMENT_CODE_START_FORWARD:
+    case MOVEMENT_CODE_START_BACKWARD:
+    case MOVEMENT_CODE_START_STRAFE_LEFT:
+    case MOVEMENT_CODE_START_STRAFE_RIGHT:
+    case MOVEMENT_CODE_START_TURN_LEFT:
+    case MOVEMENT_CODE_START_TURN_RIGHT:
+    case MOVEMENT_CODE_START_PITCH_DOWN:
+    case MOVEMENT_CODE_START_PITCH_UP:
+    case MOVEMENT_CODE_START_ASCEND:
+    case MOVEMENT_CODE_START_DESCEND:
+    case MOVEMENT_CODE_START_SWIM:
+    case MOVEMENT_CODE_STOP:
+    case MOVEMENT_CODE_STOP_STRAFE:
+    case MOVEMENT_CODE_STOP_TURN:
+    case MOVEMENT_CODE_STOP_PITCH:
+    case MOVEMENT_CODE_STOP_ASCEND:
+    case MOVEMENT_CODE_STOP_SWIM:
+    case MOVEMENT_CODE_SET_FACING:
+    case MOVEMENT_CODE_SET_PITCH:
+        break;
+    default:
+        return true;
+    }
+
+    if(uint32 emoteState = m_Unit->GetUInt32Value(UNIT_NPC_EMOTESTATE))
+    {
+        bool remove = true;
+        if(EmoteEntry *emote = dbcEmote.LookupEntry(emoteState))
+        {
+            printf("EmoteType: %u %u\n", emote->emoteType, emote->unitStandState);
+        }
+
+        if(remove) m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
+    }
+
+    /************************************************************************/
+    /* Remove Spells                                                        */
+    /************************************************************************/
+    uint32 flags = AURA_INTERRUPT_ON_MOVEMENT;
+    if( !( hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) ) && false)//!m_bIsWLevelSet )
+        flags |= AURA_INTERRUPT_ON_LEAVE_WATER;
+    if( hasFlag(MOVEMENTFLAG_SWIMMING) )
+        flags |= AURA_INTERRUPT_ON_ENTER_WATER;
+    if( hasFlag(MOVEMENTFLAG_MOVE_TURN_LEFT) || hasFlag(MOVEMENTFLAG_MOVE_TURN_RIGHT) )
+        flags |= AURA_INTERRUPT_ON_TURNING;
+    m_Unit->m_AuraInterface.RemoveAllAurasByInterruptFlag( flags );
+
+    WorldPacket data(SMSG_PLAYER_MOVE, 500);
+    WriteFromServer(SMSG_PLAYER_MOVE, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
+    m_Unit->SendMessageToSet(&data, false);
+    return true;
+}
+
 void MovementInterface::HandleBreathing()
 {
     uint16 WaterType = 0;
@@ -661,7 +695,7 @@ void MovementInterface::TeleportToPosition(LocationVector destination)
         data2.WriteBit(m_moverGuid[3]);
         data2.WriteBit(m_moverGuid[2]);
         data2.WriteBit(0); // unknown
-        data2.WriteBit(m_transportGuid.raw());
+        data2.WriteBit(!m_transportGuid.empty());
         data2.WriteBit(m_moverGuid[1]);
         if (m_transportGuid)
         {
@@ -770,7 +804,7 @@ bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
     uint16 moveCode = 0xFFFF;
     if((moveCode = GetInternalMovementCode(opcode)) != 0xFFFF)
     {
-        m_clientLocation = *m_serverLocation;
+        ClearOptionalMovementData();
         try
         {
             (this->*(movementPacketHandlers[moveCode].function))(true, *buffer);
@@ -989,6 +1023,21 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 #undef DO_BYTES
 #undef DO_COND_BYTES
 #undef DO_SEQ_BYTE
+
+void MovementInterface::ClearOptionalMovementData()
+{
+    // Reset client position to server location
+    m_clientLocation = *m_serverLocation;
+
+    m_clientTransGuid.Clean();
+    memset(m_movementFlags, 0, 6);
+    m_clientTransLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+    m_jumpTime = m_transportTime = m_transportTime2 = m_vehicleId = 0;
+    m_transportSeatId = 0;
+    pitching = splineElevation = 0.f;
+    m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
+    m_extra.clear();
+}
 
 void MovementInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
 {

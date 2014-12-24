@@ -8,7 +8,7 @@
 
 #include "StdAfx.h"
 
-#define MAP_MGR_UPDATE_PERIOD 100
+#define MAP_MGR_UPDATE_PERIOD 50
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
@@ -249,11 +249,8 @@ void MapMgr::PushObject(WorldObject* obj)
             objCell->Init(cx, cy, _mapId, this);
     ASSERT(objCell);
 
-    uint32 count;
-    uint32 endX = (cx <= _sizeX) ? cx + 1 : (_sizeX-1);
-    uint32 endY = (cy <= _sizeY) ? cy + 1 : (_sizeY-1);
-    uint32 startX = cx > 0 ? cx - 1 : 0;
-    uint32 startY = cy > 0 ? cy - 1 : 0;
+    uint32 count = 0, endX = (cx <= _sizeX) ? cx + 1 : (_sizeX-1), endY = (cy <= _sizeY) ? cy + 1 : (_sizeY-1);
+    uint32 startX = cx > 0 ? cx - 1 : 0, startY = cy > 0 ? cy - 1 : 0;
 
     if(plObj)
     {
@@ -808,10 +805,12 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
 
                     if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
                     {
-                        count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateBlock(&m_createBuffer, count);
-                        plObj2->AddVisibleObject(obj);
-                        m_createBuffer.clear();
+                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                        {
+                            plObj2->PushUpdateBlock(&m_createBuffer, count);
+                            plObj2->AddVisibleObject(obj);
+                            m_createBuffer.clear();
+                        }
                     }
                 }
 
@@ -819,10 +818,12 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                 {
                     if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                     {
-                        count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateBlock( &m_createBuffer, count );
-                        plObj->AddVisibleObject( curObj );
-                        m_createBuffer.clear();
+                        if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                        {
+                            plObj->PushUpdateBlock( &m_createBuffer, count );
+                            plObj->AddVisibleObject( curObj );
+                            m_createBuffer.clear();
+                        }
                     }
                 }
             }
@@ -841,10 +842,12 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     }
                     else if(cansee && !isvisible)
                     {
-                        count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2);
-                        plObj2->PushUpdateBlock(&m_createBuffer, count);
-                        plObj2->AddVisibleObject(obj);
-                        m_createBuffer.clear();
+                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                        {
+                            plObj2->PushUpdateBlock(&m_createBuffer, count);
+                            plObj2->AddVisibleObject(obj);
+                            m_createBuffer.clear();
+                        }
                     }
                 }
 
@@ -859,10 +862,12 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     }
                     else if(cansee && !isvisible)
                     {
-                        count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateBlock( &m_createBuffer, count );
-                        plObj->AddVisibleObject( curObj );
-                        m_createBuffer.clear();
+                        if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                        {
+                            plObj->PushUpdateBlock( &m_createBuffer, count );
+                            plObj->AddVisibleObject( curObj );
+                            m_createBuffer.clear();
+                        }
                     }
                 }
             }
@@ -898,7 +903,6 @@ void MapMgr::_UpdateObjects()
                 // need to be different! ;)
                 if( count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>( pObj ) ) )
                 {
-                    printf("Updating self %u\n", count);
                     castPtr<Player>( pObj )->PushUpdateBlock( &m_updateBuffer, count );
                     m_updateBuffer.clear();
                 }
@@ -1134,109 +1138,12 @@ void MapMgr::PushToProcessed(Player* plr)
 
 void MapMgr::ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply)
 {
-    if(!apply)
-    {
-        // We're clearing.
-        for(ObjectSet::iterator itr = plr->m_visibleFarsightObjects.begin(); itr != plr->m_visibleFarsightObjects.end();
-            itr++)
-        {
-            // Send destroy
-            plr->PushOutOfRange((*itr)->GetGUID());
-        }
-        plr->m_visibleFarsightObjects.clear();
-    }
-    else
-    {
-        plr->m_visibleFarsightObjects.clear();
-        uint32 cellX = GetPosX(farsight->GetPositionX());
-        uint32 cellY = GetPosY(farsight->GetPositionY());
-        uint32 endX = (cellX <= _sizeX) ? cellX + 1 : (_sizeX-1);
-        uint32 endY = (cellY <= _sizeY) ? cellY + 1 : (_sizeY-1);
-        uint32 startX = cellX > 0 ? cellX - 1 : 0;
-        uint32 startY = cellY > 0 ? cellY - 1 : 0;
-        uint32 posX, posY;
-        MapCell *cell;
-        WorldObject* obj;
-        MapCell::ObjectSet::iterator iter, iend;
-        uint32 count;
-        for (posX = startX; posX <= endX; ++posX )
-        {
-            for (posY = startY; posY <= endY; ++posY )
-            {
-                cell = GetCell(posX, posY);
-                if (cell)
-                {
-                    iter = cell->Begin();
-                    iend = cell->End();
-                    for(; iter != iend; iter++)
-                    {
-                        obj = (*iter);
-                        if(!plr->IsVisible(obj) && plr->CanSee(obj) && farsight->GetDistance2dSq(obj) <= m_UpdateDistance)
-                        {
-                            ByteBuffer buf;
-                            count = obj->BuildCreateUpdateBlockForPlayer(&buf, plr);
-                            plr->PushUpdateBlock(&buf, count);
-                            plr->m_visibleFarsightObjects.insert(obj);
-                        }
-                    }
 
-                }
-            }
-        }
-    }
 }
 
 void MapMgr::ChangeFarsightLocation(Player* plr, float X, float Y, bool apply)
 {
-    if(!apply)
-    {
-        // We're clearing.
-        for(ObjectSet::iterator itr = plr->m_visibleFarsightObjects.begin(); itr != plr->m_visibleFarsightObjects.end();
-            itr++)
-        {
-            // Send destroy
-            plr->PushOutOfRange((*itr)->GetGUID());
-        }
-        plr->m_visibleFarsightObjects.clear();
-    }
-    else
-    {
-        uint32 cellX = GetPosX(X);
-        uint32 cellY = GetPosY(Y);
-        uint32 endX = (cellX <= _sizeX) ? cellX + 1 : (_sizeX-1);
-        uint32 endY = (cellY <= _sizeY) ? cellY + 1 : (_sizeY-1);
-        uint32 startX = cellX > 0 ? cellX - 1 : 0;
-        uint32 startY = cellY > 0 ? cellY - 1 : 0;
-        uint32 posX, posY;
-        MapCell *cell;
-        WorldObject* obj;
-        MapCell::ObjectSet::iterator iter, iend;
-        uint32 count;
-        for (posX = startX; posX <= endX; ++posX )
-        {
-            for (posY = startY; posY <= endY; ++posY )
-            {
-                cell = GetCell(posX, posY);
-                if (cell)
-                {
-                    iter = cell->Begin();
-                    iend = cell->End();
-                    for(; iter != iend; iter++)
-                    {
-                        obj = (*iter);
-                        if(!plr->IsVisible(obj) && plr->CanSee(obj) && obj->GetDistance2dSq(X, Y) <= m_UpdateDistance)
-                        {
-                            ByteBuffer buf;
-                            count = obj->BuildCreateUpdateBlockForPlayer(&buf, plr);
-                            plr->PushUpdateBlock(&buf, count);
-                            plr->m_visibleFarsightObjects.insert(obj);
-                        }
-                    }
 
-                }
-            }
-        }
-    }
 }
 
 /* new stuff

@@ -743,11 +743,6 @@ void GossipScript::GossipHello(Object* pEntity, Player* Plr, bool AutoSend)
                 Plr->bHasBindDialogOpen = false;
                 Menu->AddItem(GOSSIP_ICON_GOSSIP_ENGINEER2, "Make this inn your home.", 5);
                 Menu->AddItem(GOSSIP_ICON_GOSSIP_NORMAL, "What can I do at an Inn.", 15);
-                if(sWorld.HallowsEnd)
-                {
-                    if(!Plr->HasAura(24755)) // Trick or Treat
-                        Menu->AddItem(0, "Trick or Treat!", 19);
-                }
             }
 
             if(flags & UNIT_NPC_FLAG_BANKER)
@@ -1269,13 +1264,6 @@ void HookInterface::OnAreaTrigger(Player* plr, uint32 areatrigger)
 {
     OUTER_LOOP_BEGIN(SERVER_HOOK_EVENT_ON_AREATRIGGER, tOnAreaTrigger)
         (call)(plr, areatrigger);
-    OUTER_LOOP_END;
-}
-
-void HookInterface::OnPlayerSaveToDB(Player* pPlayer, QueryBuffer* buf)
-{
-    OUTER_LOOP_BEGIN(SERVER_HOOK_EVENT_ON_PLAYER_SAVE_TO_DB, tOnPlayerSaveToDB)
-        (call)(pPlayer, buf);
     OUTER_LOOP_END;
 }
 

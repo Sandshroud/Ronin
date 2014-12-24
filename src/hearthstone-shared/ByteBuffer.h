@@ -219,7 +219,7 @@ public:
 
     ByteBuffer &operator<<(WoWGuid value)
     {
-        append<uint64>(value.raw());
+        append<uint64>(value);
         return *this;
     }
 

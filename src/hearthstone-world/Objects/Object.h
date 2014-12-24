@@ -352,7 +352,9 @@ public:
     HEARTHSTONE_INLINE const LocationVector & GetPosition() { return m_position; }
     HEARTHSTONE_INLINE LocationVector & GetPositionNC() { return m_position; }
     HEARTHSTONE_INLINE LocationVector * GetPositionV() { return &m_position; }
+    HEARTHSTONE_INLINE void GetPosition2D(float &x, float &y) { x = m_position.x; y = m_position.y; }
     HEARTHSTONE_INLINE void GetPosition(float &x, float &y, float &z) { x = m_position.x; y = m_position.y; z = m_position.z; }
+    HEARTHSTONE_INLINE void GetPosition(float &x, float &y, float &z, float &o) { x = m_position.x; y = m_position.y; z = m_position.z; o = m_position.o; }
 
     bool IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta);
 

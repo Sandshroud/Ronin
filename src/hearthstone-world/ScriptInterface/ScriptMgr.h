@@ -56,16 +56,15 @@ enum ServerHookEvents
     SERVER_HOOK_EVENT_ON_PLAYER_UPDATE      = 38,
     SERVER_HOOK_EVENT_ON_CONTINENT_CREATE   = 39,
     SERVER_HOOK_EVENT_ON_POST_SPELL_CAST    = 40,
-    SERVER_HOOK_EVENT_ON_PLAYER_SAVE_TO_DB  = 41,
-    SERVER_HOOK_EVENT_ON_PLAYER_CHANGE_AREA = 42,
-    SERVER_HOOK_EVENT_ON_CHECK_EQUIP_STATUS = 43,
+    SERVER_HOOK_EVENT_ON_PLAYER_CHANGE_AREA = 41,
+    SERVER_HOOK_EVENT_ON_CHECK_EQUIP_STATUS = 42,
 
     // Destructable Buildings
-    SERVER_HOOK_EVENT_ON_DESTROY_BUILDING   = 44,
-    SERVER_HOOK_EVENT_ON_DAMAGE_BUILDING    = 45,
-    SERVER_HOOK_EVENT_ON_MOUNT_FLYING       = 46,
-    SERVER_HOOK_EVENT_ON_PRE_AURA_REMOVE    = 47,
-    SERVER_HOOK_EVENT_ON_SLOW_LOCK_OPEN     = 48,
+    SERVER_HOOK_EVENT_ON_DESTROY_BUILDING   = 43,
+    SERVER_HOOK_EVENT_ON_DAMAGE_BUILDING    = 44,
+    SERVER_HOOK_EVENT_ON_MOUNT_FLYING       = 45,
+    SERVER_HOOK_EVENT_ON_PRE_AURA_REMOVE    = 46,
+    SERVER_HOOK_EVENT_ON_SLOW_LOCK_OPEN     = 47,
     NUM_SERVER_HOOKS,
 };
 
@@ -122,7 +121,6 @@ typedef void(*tOnCheckAreaItems)(ItemInterface * m_Interface);
 typedef void(*tOnPlayerUpdate)(Player * plr);
 typedef void(*tOnContinentCreate)(MapMgr* mgr);
 typedef void(*tOnPostSpellCast)(Player* pPlayer, SpellEntry * pSpell, Unit* pTarget);
-typedef void(*tOnPlayerSaveToDB)(Player* pPlayer, QueryBuffer* buf);
 typedef void(*tOnPlayerChangeArea)(Player* pPlayer, uint32 ZoneID, uint32 NewAreaID, uint32 OldAreaID);
 
 //Destructable building
@@ -382,7 +380,6 @@ public:
     void OnPlayerUpdate(Player *plr);
     void OnContinentCreate(MapMgr* pMgr);
     void OnPostSpellCast(Player* pPlayer, SpellEntry * pSpell, Unit* pTarget);
-    void OnPlayerSaveToDB(Player* pPlayer, QueryBuffer* buf);
     void OnPlayerChangeArea(Player* pPlayer, uint32 ZoneID, uint32 NewAreaID, uint32 OldAreaID);
     void OnAuraRemove(Player* pPlayer, uint32 spellID);
     bool OnResurrect(Player * pPlayer);

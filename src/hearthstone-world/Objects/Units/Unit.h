@@ -565,7 +565,7 @@ public:
     AuraInterface m_AuraInterface;
 
     // Quick calls
-    HEARTHSTONE_INLINE void AddAura(Aura* aur) { m_AuraInterface.AddAura(aur); };
+    HEARTHSTONE_INLINE void AddAura(Aura* aur, uint8 slot = 0xFF) { m_AuraInterface.AddAura(aur, slot); };
 
     // Has
     HEARTHSTONE_INLINE bool HasAura(uint32 spellid) { return m_AuraInterface.HasAura(spellid); };

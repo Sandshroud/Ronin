@@ -368,7 +368,6 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                     sEventMgr.AddEvent(GetPlayer(), &Player::BattlegroundKick, EVENT_PLAYER_BG_KICK, 30000, 1, 0);
                 sEventMgr.AddEvent(GetPlayer(), &Player::ForceLogout, true, EVENT_PLAYER_FORCE_LOGOUT, 1800000, 1, 0);
             }
-            GetPlayer()->Social_TellFriendsStatus();
         } break;
     case CHAT_MSG_DND:
         {
@@ -376,9 +375,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
             if(GetPlayer()->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
                 GetPlayer()->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DND);
-            else
-                GetPlayer()->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DND);
-            GetPlayer()->Social_TellFriendsStatus();
+            else GetPlayer()->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DND);
         } break;
     default:
         {
@@ -546,6 +543,11 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         case EMOTE_STATE_KNEEL:
         case EMOTE_ONESHOT_NONE:
             break;
+        case EMOTE_STATE_DANCE:
+        case EMOTE_STATE_READ:
+            {
+                _player->SetUInt32Value(UNIT_NPC_EMOTESTATE, emText->textId);
+            }break;
         default:
             {
                 WorldPacket data(SMSG_EMOTE, 28 + unitName.length()+1);

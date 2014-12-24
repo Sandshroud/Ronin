@@ -88,16 +88,8 @@ uint32 Item::CalcMaxDamage()
     return m_itemProto->maxDamage;
 }
 
-char* GemReadFormat[3] =
-{
-    "0:%u;",
-    "1:%u;",
-    "2:%u;",
-};
-
 void Item::LoadFromDB(Field* fields, Player* plr, bool light )
 {
-    int32 count;
     uint32 itemid = fields[2].GetUInt32(), random_prop = fields[9].GetUInt32(), random_suffix = fields[10].GetUInt32();
     m_itemProto = ItemPrototypeStorage.LookupEntry( itemid );
 
@@ -110,14 +102,19 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
     SetUInt32Value( OBJECT_FIELD_ENTRY, itemid );
     m_owner = plr;
 
-    wrapped_item_id=fields[3].GetUInt32();
+    wrapped_item_id = fields[3].GetUInt32();
     SetUInt32Value(ITEM_FIELD_GIFTCREATOR, fields[4].GetUInt32());
     SetUInt32Value(ITEM_FIELD_CREATOR, fields[5].GetUInt32());
 
-    count = fields[6].GetUInt32();
-    if(m_itemProto->MaxCount > 0 && count > m_itemProto->MaxCount)
-        count = m_itemProto->MaxCount;
-    SetUInt32Value( ITEM_FIELD_STACK_COUNT, count);
+    if(IsContainer())
+        SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
+    else
+    {
+        int32 count = fields[6].GetUInt32();
+        if(m_itemProto->MaxCount > 0 && count > m_itemProto->MaxCount)
+            count = m_itemProto->MaxCount;
+        SetUInt32Value( ITEM_FIELD_STACK_COUNT, count);
+    }
 
     // Again another for that did not indent to make it do anything for more than
     // one iteration x == 0 was the only one executed
@@ -143,7 +140,7 @@ void Item::LoadFromDB(Field* fields, Player* plr, bool light )
     SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_itemProto->MaxDurability );
     SetUInt32Value( ITEM_FIELD_DURABILITY, fields[12].GetUInt32() );
 
-    if( light )
+    if( light == true )
         return;
 
     std::string enchant_field = fields[15].GetString();

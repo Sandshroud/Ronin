@@ -21,8 +21,6 @@ World::World()
     AlliancePlayers = 0;
     gm_force_robes = false;
     AHEnabled = true;
-    HallowsEnd = false;
-    WintersVeil = false;
     IsPvPRealm = true;
     LacrimiThread = NULL;
     LacrimiPtr = NULL;
@@ -369,7 +367,7 @@ bool World::SetInitialWorldSettings()
 {
     //Perform pre-starting queries on World- and Character-DataBase
     PreStartQueries();
-    CharacterDatabase.WaitExecute("UPDATE characters SET online = 0 WHERE online = 1");
+    CharacterDatabase.WaitExecute("UPDATE character_data SET online = 0 WHERE online = 1");
 
     sLog.Notice("World", "Starting up...");
 
@@ -1269,7 +1267,6 @@ void World::Rehash(bool load)
     ServerPreloading = mainIni->ReadInteger("Startup", "Preloading", 0);
     if(LogoutDelay <= 0)
         LogoutDelay = 1;
-    ApplyHolidayConfigMaskOverride();
 
     // Battlegrounds
     // Wintergrasp
@@ -2320,70 +2317,4 @@ void World::LogChat(WorldSession* session, std::string message, ...)
 
         LogDatabase.Execute(LogDatabase.EscapeString(execute).c_str());
     }
-}
-
-void World::SetAnniversary(uint32 anniversarynumber)
-{
-    // Set these here.
-    RealAchievement = false;
-
-    // Crow: The rest is handled via the achievement system, so just set achievements.
-    switch(anniversarynumber)
-    {
-    case 4:
-        {
-            AnniversaryAchievement = 2398;
-        }break;
-    case 5:
-        {
-            AnniversaryAchievement = 4400;
-        }break;
-    case 6:
-        {
-            // WHAT?! NO PET?!!? RAGE!!!!!!!!!
-            // Note, this won't work with 3.3.5, its just here for flavor.
-            AnniversaryAchievement = 5512;
-        }break;
-    }
-
-    if(AnniversaryAchievement)
-        RealAchievement = (dbcAchievement.LookupEntry(AnniversaryAchievement) != NULL);
-}
-
-void World::OnHolidayChange(uint32 IgnoreHolidayId)
-{
-    sLog.Notice("World", "Cleaning holiday items...");
-    m_sessionlock.AcquireReadLock();
-    for (SessionMap::iterator itr = m_sessions.begin(); itr != m_sessions.end(); itr++)
-        if(itr->second->GetPlayer() && itr->second->GetPlayer()->IsInWorld())
-            itr->second->GetPlayer()->GetItemInterface()->RemoveItemsWithHolidayId(IgnoreHolidayId);
-
-    m_sessionlock.ReleaseReadLock();
-    std::stringstream ss;
-    ss << "DELETE FROM `playeritems` WHERE `entry` IN(";
-    ItemPrototypeSystem::iterator iter = ItemPrototypeStorage.begin();
-    ItemPrototype * pItemPrototype;
-    bool first = true;
-    while(iter != ItemPrototypeStorage.end())
-    {
-        pItemPrototype = (*iter)->second;
-        if(pItemPrototype->HolidayId != 0 && pItemPrototype->HolidayId != IgnoreHolidayId)
-        {
-            if(first)
-                first = false;
-            else
-                ss << ", ";
-            ss << "'" << uint32(pItemPrototype->ItemId) << "'";
-        }
-
-        ++iter;
-    }
-
-    if(!first)
-    {
-        ss << ");";
-        CharacterDatabase.Execute(ss.str().c_str());
-        sLog.Notice("World", "Holiday Items Cleaned!");
-    }
-    sLog.Notice("World", "Done cleaning Holiday Items.");
 }

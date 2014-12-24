@@ -34,13 +34,12 @@ typedef std::map<uint32, uint8> TalentStorageMap;
 class SERVER_DECL TalentInterface
 {
 public:
-    TalentInterface();
+    TalentInterface(Player *plr);
     ~TalentInterface();
 
-    void Initialize(Player *plr);
-
-    void SaveTalentData(QueryBuffer * buf, std::stringstream &saveString);
-    void LoadTalentData(QueryResult *result, Field *fields, uint32 &field_count);
+    void SaveTalentData(QueryBuffer * buf);
+    void LoadTalentData(QueryResult *result);
+    void SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, uint32 availablePoints, uint32 activeSpecStack);
 
     void InitActiveSpec();
     void SendTalentInfo();
@@ -62,6 +61,7 @@ public:
 
     uint8 GetActiveTalentTab() { return m_specs[m_activeSpec].ActiveTalentTab; }
     void SetActiveTalentTab(uint8 talentTree) { m_specs[m_activeSpec].ActiveTalentTab = talentTree; }
+    void GetActiveTalentTabStack(uint16 &output);
 
     uint8 GetSpecCount() { return m_specCount; }
     uint8 GetActiveSpec() { return m_activeSpec; }
@@ -74,6 +74,7 @@ public:
     bool LearnTalent(uint32 talentId, uint8 talentRank);
 
     uint32 GetTalentResets() { return m_talentResetCounter; }
+    uint32 GetAvailableTalentPoints() { return m_availableTalentPoints; }
 
     // Talent map
     TalentStorageMap *getTalentMap() { return &m_specs[m_activeSpec].m_talents; }
@@ -95,8 +96,8 @@ public:
     }
 
     // Action button mapping
-    void LoadActionButtonData(Field *fields, uint32 &field_count);
-    void SaveActionButtonData(std::stringstream &saveString);
+    void SaveActionButtonData(QueryBuffer * buf);
+    void LoadActionButtonData(QueryResult *result);
 
     void setAction(uint8 button, uint32 action, uint8 type, int8 SpecOverride = -1);
     void SendInitialActions();

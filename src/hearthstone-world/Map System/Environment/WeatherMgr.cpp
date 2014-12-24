@@ -126,21 +126,12 @@ void WeatherMgr::LoadFromDB()
 void WeatherMgr::SendWeather(Player* plr)
 {
     std::map<uint32, WeatherInfo* >::iterator itr;
-    itr = m_zoneWeathers.find(plr->GetZoneId());
-
-    if (itr == m_zoneWeathers.end())
+    if ((itr = m_zoneWeathers.find(plr->GetZoneId())) == m_zoneWeathers.end())
     {
         WorldPacket data(SMSG_WEATHER, 9);
         BuildWeatherPacket(&data, 0, 0);
         plr->GetSession()->SendPacket( &data );
-        plr->m_lastSeenWeather = 0;
-
-        return;
-    }
-    else
-    {
-        itr->second->SendUpdate(plr);
-    }
+    } else itr->second->SendUpdate(plr);
 }
 
 WeatherInfo::WeatherInfo()
@@ -248,11 +239,6 @@ void WeatherInfo::SendUpdate()
 
 void WeatherInfo::SendUpdate(Player* plr) //Updates weather for player's zone-change only if new zone weather differs
 {
-    if(plr->m_lastSeenWeather == m_currentEffect) //return if weather is same as previous zone
-        return;
-
-    plr->m_lastSeenWeather = m_currentEffect;
-
     WorldPacket data(SMSG_WEATHER, 9);
     BuildWeatherPacket(&data, m_currentEffect, m_currentDensity);
     plr->GetSession()->SendPacket( &data );

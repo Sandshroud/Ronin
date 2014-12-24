@@ -107,7 +107,7 @@ struct ItemPrototype
 
 #pragma pack(PRAGMA_POP)
 
-class SERVER_DECL ItemPrototypeSystem : public Singleton<ItemPrototypeSystem>
+class SERVER_DECL ItemManager : public Singleton<ItemManager>
 {
 public:
     class iterator

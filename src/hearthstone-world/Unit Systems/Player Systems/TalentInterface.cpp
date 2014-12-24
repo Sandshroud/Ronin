@@ -1,9 +1,17 @@
 
 #include "StdAfx.h"
 
-TalentInterface::TalentInterface()
+TalentInterface::TalentInterface(Player *plr) : m_Player(plr)
 {
-
+    m_specCount = 1;
+    m_activeSpec = 0;
+    m_queuedActions = false;
+    m_talentResetCounter = m_availableTalentPoints = 0;
+    m_specs[0].ActiveTalentTab = m_specs[1].ActiveTalentTab = 0xFF;
+    memset(&m_specs[0].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
+    memset(&m_specs[1].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
+    memset(&m_specs[0].m_actions, 0, PLAYER_ACTION_BUTTON_COUNT*sizeof(ActionButton));
+    memset(&m_specs[1].m_actions, 0, PLAYER_ACTION_BUTTON_COUNT*sizeof(ActionButton));
 }
 
 TalentInterface::~TalentInterface()
@@ -11,7 +19,7 @@ TalentInterface::~TalentInterface()
 
 }
 
-void TalentInterface::SaveTalentData(QueryBuffer * buf, std::stringstream &saveString)
+void TalentInterface::SaveTalentData(QueryBuffer * buf)
 {
     ASSERT(m_specCount > 0);
     m_specLock.Acquire();
@@ -19,11 +27,6 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf, std::stringstream &saveS
     int32 savedTalents = m_availableTalentPoints;
     if(savedTalents < 0) savedTalents = 0;
     if(savedTalents > 0xFFF) savedTalents = 0xFFF;
-
-    // Append spec data to our save string
-    saveString << uint32(m_activeSpec) << ", " << uint32(m_specCount) << ", " << m_talentResetCounter << ", " << uint32(savedTalents) << ", ";
-    for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
-        saveString << uint32(m_specs[i].ActiveTalentTab) << ", ";
 
     // delete old talents first
     if(buf == NULL)
@@ -59,51 +62,37 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf, std::stringstream &saveS
     m_specLock.Release();
 }
 
-void TalentInterface::LoadTalentData(QueryResult *result, Field *fields, uint32 &field_count)
+void TalentInterface::LoadTalentData(QueryResult *result)
 {
-    m_activeSpec = fields[field_count++].GetUInt8();
-    m_specCount = fields[field_count++].GetUInt8();
-    m_talentResetCounter = fields[field_count++].GetInt32();
-    m_availableTalentPoints = fields[field_count++].GetInt32();
-    for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
-        m_specs[i].ActiveTalentTab = fields[field_count++].GetUInt8();
-    if(m_specCount > MAX_SPEC_COUNT)
-        m_specCount = MAX_SPEC_COUNT;
-    if(m_activeSpec >= m_specCount )
-        m_activeSpec = 0;
-
-    if(result == NULL)
-        return;
-
-    do // Load info from DB
+    if(result)
     {
-        uint32 talentId;
-        Field *fields = result->Fetch();
-        uint8 talentRank = 0, spec = fields[0].GetInt8();
-        if(spec >= m_specCount)
+        do // Load info from DB
         {
-            sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in playertalents", spec, m_Player->GetLowGUID());
-            continue;
-        }
+            uint32 talentId;
+            Field *fields = result->Fetch();
+            uint8 talentRank = 0, spec = fields[0].GetInt8();
+            if(spec >= m_specCount)
+            {
+                sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in playertalents", spec, m_Player->GetLowGUID());
+                continue;
+            }
 
-        talentId = fields[1].GetUInt32();
-        talentRank = fields[2].GetUInt8();
-        m_specs[spec].m_talents.insert(std::make_pair(talentId, talentRank));
-    } while(result->NextRow());
+            talentId = fields[1].GetUInt32();
+            talentRank = fields[2].GetUInt8();
+            m_specs[spec].m_talents.insert(std::make_pair(talentId, talentRank));
+        } while(result->NextRow());
+    }
 }
 
-void TalentInterface::Initialize(Player *plr)
+void TalentInterface::SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, uint32 availablePoints, uint32 activeSpecStack)
 {
-    m_Player = plr;
-    m_specCount = 1;
-    m_activeSpec = 0;
-    m_queuedActions = false;
-    m_talentResetCounter = m_availableTalentPoints = 0;
-    m_specs[0].ActiveTalentTab = m_specs[1].ActiveTalentTab = 0xFF;
-    memset(&m_specs[0].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
-    memset(&m_specs[1].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
-    memset(&m_specs[0].m_actions, 0, PLAYER_ACTION_BUTTON_COUNT*sizeof(ActionButton));
-    memset(&m_specs[1].m_actions, 0, PLAYER_ACTION_BUTTON_COUNT*sizeof(ActionButton));
+    m_activeSpec = activeSpec, m_specCount = specCount;
+    if(m_specCount > MAX_SPEC_COUNT) m_specCount = MAX_SPEC_COUNT;
+    if(m_activeSpec >= m_specCount ) m_activeSpec = 0;
+    m_talentResetCounter = resetCounter;
+    m_availableTalentPoints = availablePoints;
+    m_specs[0].ActiveTalentTab = uint8(activeSpecStack&0xFF);
+    m_specs[1].ActiveTalentTab = uint8(activeSpecStack>>8);
 }
 
 void TalentInterface::InitActiveSpec()
@@ -309,6 +298,12 @@ int32 TalentInterface::CalculateSpentPoints(uint8 spec, int32 talentTree)
     return spentPoints;
 }
 
+void TalentInterface::GetActiveTalentTabStack(uint16 &output)
+{
+    for(uint32 i = 0; i < m_specCount; i++)
+        output |= uint16(m_specs[i].ActiveTalentTab)<<(i*8);
+}
+
 void TalentInterface::ApplyTalent(uint32 spellid)
 {
     SpellEntry *spellInfo = dbcSpell.LookupEntry( spellid ), *spellInfo2 = NULL;
@@ -465,54 +460,44 @@ void TalentInterface::LoadGlyphData(QueryResult * result)
     do
     {
         Field *fields = result->Fetch();
-        uint8 spec = fields[1].GetInt8();
-        if(spec >= MAX_SPEC_COUNT)
+        uint8 spec = fields[1].GetUInt8();
+        uint8 index = fields[2].GetUInt8();
+        if(spec >= MAX_SPEC_COUNT || index >= GLYPHS_COUNT)
         {
-            sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in playerglyphs", spec, fields[0].GetUInt32());
+            sLog.outDebug("Out of range glyph data [%d] for player with GUID [%d]", spec, fields[0].GetUInt64());
             continue;
         }
 
-        for(uint32 i = 0; i < GLYPHS_COUNT; i++)
-            m_specs[spec].Glyphs[i] = fields[2 + i].GetUInt16();
+        m_specs[spec].Glyphs[index] = fields[3].GetUInt16();
     } while(result->NextRow());
 }
 
 void TalentInterface::SaveGlyphData(QueryBuffer * buf)
 {
+    if(buf)buf->AddQuery("DELETE FROM character_glyphs WHERE guid = '%u';", m_Player->GetLowGUID());
+    else CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = '%u';", m_Player->GetLowGUID());
+
     m_specLock.Acquire();
-    bool empty = true;
+    std::stringstream ss;
     for(uint8 s = 0; s < m_activeSpec; s++)
     {
-        for(uint8 i=0; i < GLYPHS_COUNT; i++)
+        for(uint32 i = 0; i < GLYPHS_COUNT; i++)
         {
-            if(m_specs[s].Glyphs[i] != 0)
-            {
-                empty = false;
-                break;
-            }
-        }
-    }
+            if(m_specs[s].Glyphs[i] == 0)
+                continue;
 
-    if(empty == false)
-    {
-        std::stringstream ss;
-        ss << "REPLACE INTO playerglyphs (guid, spec, glyph1, glyph2, glyph3, glyph4, glyph5, glyph6, glyph7, glyph8, glyph9) VALUES ";
-        for(uint8 s = 0; s < m_activeSpec; s++)
-        {
-            ss << "(" << m_Player->GetLowGUID() << "," << uint32(s) << ",";
-            for(uint32 i = 0; i < GLYPHS_COUNT; i++)
-            {
-                if(i != 0) ss << ", ";
-                ss << uint32(m_specs[s].Glyphs[i]);
-            }
-            ss << ")";
+            if(ss.str().length())
+                ss << ", ";
+            ss << "(" << m_Player->GetLowGUID() << ", " << uint32(s) << ", " << uint32(i) << ", " << uint32(m_specs[s].Glyphs[i]) << ")";
         }
-
-        if(buf == NULL)
-            CharacterDatabase.Execute(ss.str().c_str());
-        else buf->AddQueryStr(ss.str());
     }
     m_specLock.Release();
+
+    if(ss.str().length())
+    {
+        if(buf)buf->AddQuery("REPLACE INTO character_glyphs VALUES %s;", ss.str().c_str());
+        else CharacterDatabase.Execute("REPLACE INTO character_glyphs VALUES %s;", ss.str().c_str());
+    }
 }
 
 // Update glyphs after level change
@@ -553,7 +538,6 @@ static const uint32 glyphType[9] = {0, 1, 1, 0, 1, 0, 2, 2, 2};
 
 uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
 {
-    printf("Glyph slot %u : Glyph %u\n", slot, glyphId);
     if(slot >= GLYPHS_COUNT || glyphId==0)
         return SPELL_FAILED_INVALID_GLYPH;
 
@@ -568,12 +552,10 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
             return SPELL_FAILED_UNIQUE_GLYPH;
     }
 
-    printf("TypeCheck! %u|%u\n", glyphType[slot], glyph->TypeFlags);
     if( glyphType[slot] != glyph->TypeFlags || // Glyph type doesn't match
             (m_Player->GetUInt32Value(PLAYER_GLYPHS_ENABLED) & (1 << slot)) == 0) // slot is not enabled
         return SPELL_FAILED_INVALID_GLYPH;
 
-    printf("Application!\n");
     UnapplyGlyph(slot);
     m_Player->SetUInt32Value(PLAYER_FIELD_GLYPHS_1 + slot, glyphId);
     m_specs[m_activeSpec].Glyphs[slot] = glyphId;
@@ -581,46 +563,14 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
     return 0;
 }
 
-void TalentInterface::LoadActionButtonData(Field *fields, uint32 &field_count)
+void TalentInterface::SaveActionButtonData(QueryBuffer *buf)
 {
-    char *end, *start = (char*)fields[field_count++].GetString();
-    if(!strlen(start))
-    {
-        // Reset our action bars
-        for(std::list<CreateInfo_ActionBarStruct>::iterator itr = m_Player->getPlayerCreateInfo()->actionbars.begin(); itr != m_Player->getPlayerCreateInfo()->actionbars.end(); itr++)
-            for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
-                setAction(itr->button, itr->action, itr->type, i);
-    }
-    else
-    {
-        for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
-        {
-            uint16 counter = 0;
-            while(counter < PLAYER_ACTION_BUTTON_COUNT)
-            {
-                end = strchr(start,',');
-                if(!end)
-                    break;
-                *end = 0;
-                m_specs[i].m_actions[counter++].PackedData = (uint32)atol(start);
-                start = end +1;
-            }
-        }
-    }
+
 }
 
-void TalentInterface::SaveActionButtonData(std::stringstream &saveString)
+void TalentInterface::LoadActionButtonData(QueryResult *result)
 {
-    uint8 s = 0, i = 0;
-    while(s < MAX_SPEC_COUNT)
-    {
-        saveString << uint32(m_specs[s].m_actions[i].PackedData) << ",";
-        if(++i == PLAYER_ACTION_BUTTON_COUNT)
-        {
-            i = 0;
-            s++;
-        }
-    }
+
 }
 
 void TalentInterface::SendInitialActions()

@@ -2614,10 +2614,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         {
             Player* pr = castPtr<Player>( pVictim );
             if( Rand( pr->GetSkillUpChance( SKILL_DEFENSE ) * sWorld.getRate( RATE_SKILLCHANCE ) ) )
-            {
                 pr->_AdvanceSkillLine( SKILL_DEFENSE, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
-                pr->UpdateChances();
-            }
         }
         else
         {
@@ -2633,10 +2630,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                 castPtr<Player>(this)->GetItemInterface()->ReduceItemDurability();
                 Player* pr = castPtr<Player>(this);
                 if( Rand( pr->GetSkillUpChance( SubClassSkill) * sWorld.getRate( RATE_SKILLCHANCE ) ) )
-                {
                     pr->_AdvanceSkillLine( SubClassSkill, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
-                    pr->UpdateChances();
-                }
             }
         }
     }
@@ -3354,7 +3348,6 @@ void Unit::RemoveFromWorld(bool free_guid)
     CombatStatus.OnRemoveFromWorld();
     WorldObject::RemoveFromWorld(free_guid);
     m_aiInterface->WipeReferences();
-    m_AuraInterface.RelocateEvents(); // Relocate our aura's (must be done after object is removed from world
 }
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )

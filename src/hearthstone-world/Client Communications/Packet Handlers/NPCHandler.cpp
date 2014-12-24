@@ -530,15 +530,13 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
 
         if(_player->getLevel() > 10)
         {
-            Aura* aur = _player->m_AuraInterface.FindAura(15007);
-            if(aur) // If the player already have the aura, just extend it.
-                _player->m_AuraInterface.SetAuraDuration(15007,aur->GetDuration());
-            else // else add him one, that fucker, he think he will get away!?
+            if(Aura* aur = _player->m_AuraInterface.FindAura(15007)) // If the player already have the aura, just extend it.
+                aur->ResetExpirationTime();
+            else
             {
-                SpellEntry *spellInfo = dbcSpell.LookupEntry( 15007 );//resurrection sickness
                 SpellCastTargets targets;
                 targets.m_unitTarget = _player->GetGUID();
-                Spell* sp(new Spell(_player,spellInfo,true,NULL));
+                Spell* sp = new Spell(_player, dbcSpell.LookupEntry(15007), true, NULL);
                 sp->prepare(&targets);
             }
         }

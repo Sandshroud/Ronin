@@ -1014,26 +1014,16 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
 
 Item* ObjectMgr::LoadItem(uint64 guid)
 {
-    QueryResult * result = CharacterDatabase.Query("SELECT * FROM playeritems WHERE guid = %u", GUID_LOPART(guid));
     Item* pReturn = NULL;
-
-    if(result)
+    if(QueryResult * result = CharacterDatabase.Query("SELECT * FROM character_items WHERE guid = %u", GUID_LOPART(guid)))
     {
-        ItemPrototype * pProto = ItemPrototypeStorage.LookupEntry(result->Fetch()[2].GetUInt32());
-        if(!pProto)
-            return NULL;
-
-        if(pProto->InventoryType == INVTYPE_BAG)
+        if(ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(result->Fetch()[2].GetUInt32()))
         {
-            Container* pContainer = new Container(HIGHGUID_TYPE_CONTAINER, GUID_LOPART(guid));
-            pContainer->LoadFromDB(result->Fetch());
-            pReturn = pContainer;
-        }
-        else
-        {
-            Item* pItem = new Item(HIGHGUID_TYPE_ITEM, GUID_LOPART(guid));
-            pItem->LoadFromDB(result->Fetch(), NULL, false);
-            pReturn = pItem;
+            if(pProto->InventoryType == INVTYPE_BAG)
+                pReturn = new Container(HIGHGUID_TYPE_CONTAINER, GUID_LOPART(guid));
+            else pReturn = new Item(HIGHGUID_TYPE_ITEM, GUID_LOPART(guid));
+            pReturn->Init();
+            pReturn->LoadFromDB(result->Fetch(), NULL, false);
         }
         delete result;
     }

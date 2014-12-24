@@ -777,7 +777,7 @@ void GameObject::AuraGenSearchTarget()
         if( (*itr)->IsUnit() && GetDistanceSq((*itr)) <= pInfo->AuraGenerator.Radius && ((*itr)->IsPlayer() || (*itr)->IsVehicle()) && !(castPtr<Unit>((*itr))->HasAura(spell->Id)))
         {
             thing = castPtr<Unit>((*itr));
-            thing->AddAura(new Aura(spell, -1, thing, thing));
+            thing->AddAura(new Aura(spell, thing, thing));
         }
     }
 }

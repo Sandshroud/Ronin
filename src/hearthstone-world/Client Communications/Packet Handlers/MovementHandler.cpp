@@ -157,7 +157,7 @@ void MovementInterface::HandlePlayerMove(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_SEQ_BYTE(read, buffer, (*guid)[7]);
     DO_BYTES(read, buffer, float, pos->y);
@@ -255,7 +255,7 @@ void MovementInterface::HandleHeartbeat(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[6], uint8, (*tguid)[6]);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
@@ -333,7 +333,7 @@ void MovementInterface::HandleJump(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
 }
@@ -402,7 +402,7 @@ void MovementInterface::HandleFallLand(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[6], uint8, (*tguid)[6]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -463,7 +463,7 @@ void MovementInterface::HandleStartForward(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[3], uint8, (*tguid)[3]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->y);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->z);
@@ -555,7 +555,7 @@ void MovementInterface::HandleStartBackward(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
 }
@@ -610,7 +610,7 @@ void MovementInterface::HandleStartStrafeLeft(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasTransportData, int8, m_transportSeatId);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
@@ -702,7 +702,7 @@ void MovementInterface::HandleStartStrafeRight(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -759,7 +759,7 @@ void MovementInterface::HandleStartTurnLeft(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[0], uint8, (*tguid)[0]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->x);
     DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
@@ -848,7 +848,7 @@ void MovementInterface::HandleStartTurnRight(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
@@ -923,7 +923,7 @@ void MovementInterface::HandleStartPitchDown(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -993,7 +993,7 @@ void MovementInterface::HandleStartPitchUp(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->y);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[4], uint8, (*tguid)[4]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
@@ -1070,7 +1070,7 @@ void MovementInterface::HandleStartAscend(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
@@ -1142,7 +1142,7 @@ void MovementInterface::HandleStartDescend(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->o);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[0], uint8, (*tguid)[0]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
@@ -1220,7 +1220,7 @@ void MovementInterface::HandleStartSwim(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -1297,7 +1297,7 @@ void MovementInterface::HandleStop(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
 }
 
 void MovementInterface::HandleStopStrafe(bool read, ByteBuffer &buffer)
@@ -1366,7 +1366,7 @@ void MovementInterface::HandleStopStrafe(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
@@ -1438,7 +1438,7 @@ void MovementInterface::HandleStopTurn(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->z);
     DO_COND_BYTES(read, buffer, hasTransportData, uint32, m_transportTime);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[6], uint8, (*tguid)[6]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -1500,7 +1500,7 @@ void MovementInterface::HandleStopPitch(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[5], uint8, (*tguid)[5]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
@@ -1585,7 +1585,7 @@ void MovementInterface::HandleStopAscend(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[0], uint8, (*tguid)[0]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->x);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->z);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -1683,7 +1683,7 @@ void MovementInterface::HandleSetFacing(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
@@ -1755,7 +1755,7 @@ void MovementInterface::HandleSetPitch(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[7], uint8, (*tguid)[7]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->x);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -1832,7 +1832,7 @@ void MovementInterface::HandleFallReset(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -1906,7 +1906,7 @@ void MovementInterface::HandleSetRunMode(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
@@ -1980,7 +1980,7 @@ void MovementInterface::HandleSetWalkMode(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
@@ -2271,7 +2271,7 @@ void MovementInterface::HandleUpdateKnockBack(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_SEQ_BYTE(read, buffer, (*guid)[3]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[5], uint8, (*tguid)[5]);
@@ -2366,7 +2366,7 @@ void MovementInterface::HandleUpdateTeleport(bool read, ByteBuffer &buffer)
     DO_SEQ_BYTE(read, buffer, (*guid)[2]);
     DO_SEQ_BYTE(read, buffer, (*guid)[3]);
     DO_SEQ_BYTE(read, buffer, (*guid)[1]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
@@ -2440,7 +2440,7 @@ void MovementInterface::HandleChangeTransport(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[4], uint8, (*tguid)[4]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->o);
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -2506,7 +2506,7 @@ void MovementInterface::HandleNotActiveMover(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
 
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
@@ -2608,7 +2608,7 @@ void MovementInterface::HandleUpdateCollisionHeight(bool read, ByteBuffer &buffe
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_SEQ_BYTE(read, buffer, (*guid)[7]);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_SEQ_BYTE(read, buffer, (*guid)[0]);
@@ -2664,7 +2664,7 @@ void MovementInterface::HandleUpdateWalkSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_SEQ_BYTE(read, buffer, (*guid)[1]);
     DO_SEQ_BYTE(read, buffer, (*guid)[4]);
     DO_SEQ_BYTE(read, buffer, (*guid)[2]);
@@ -2742,7 +2742,7 @@ void MovementInterface::HandleUpdateRunSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_SEQ_BYTE(read, buffer, (*guid)[6]);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -2797,7 +2797,7 @@ void MovementInterface::HandleUpdateRunBackSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->o);
     DO_SEQ_BYTE(read, buffer, (*guid)[4]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -2862,7 +2862,7 @@ void MovementInterface::HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_SEQ_BYTE(read, buffer, (*guid)[7]);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
@@ -2937,7 +2937,7 @@ void MovementInterface::HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_SEQ_BYTE(read, buffer, (*guid)[1]);
     DO_SEQ_BYTE(read, buffer, (*guid)[6]);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
@@ -3192,7 +3192,6 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             if( plr->m_TeleportState != 1 )
                 plr->m_TeleportState = 2;
 
-            ClearMovementFlags(0x01);
             plr->SetMapId(m_destMapId);
             plr->SetInstanceID(m_destInstanceId);
             plr->SetPosition(m_teleportLocation);
@@ -3271,7 +3270,7 @@ void MovementInterface::HandleAckRoot(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
@@ -3346,7 +3345,7 @@ void MovementInterface::HandleAckUnroot(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
@@ -3425,7 +3424,7 @@ void MovementInterface::HandleAckFeatherFall(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     m_incrementMoveCounter = true;
 }
@@ -3483,7 +3482,7 @@ void MovementInterface::HandleAckForceWalkSpeedChange(bool read, ByteBuffer &buf
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->z);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[7], uint8, (*tguid)[7]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[5], uint8, (*tguid)[5]);
@@ -3576,7 +3575,7 @@ void MovementInterface::HandleAckForceRunSpeedChange(bool read, ByteBuffer &buff
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
@@ -3633,7 +3632,7 @@ void MovementInterface::HandleAckForceRunBackSpeedChange(bool read, ByteBuffer &
     DO_SEQ_BYTE(read, buffer, (*guid)[6]);
     DO_SEQ_BYTE(read, buffer, (*guid)[5]);
     DO_SEQ_BYTE(read, buffer, (*guid)[1]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -3726,7 +3725,7 @@ void MovementInterface::HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buf
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[3], uint8, (*tguid)[3]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[4], uint8, (*tguid)[4]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
@@ -3814,7 +3813,7 @@ void MovementInterface::HandleAckForceFlightSpeedChange(bool read, ByteBuffer &b
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
@@ -3887,7 +3886,7 @@ void MovementInterface::HandleAckGravityEnable(bool read, ByteBuffer &buffer)
     DO_SEQ_BYTE(read, buffer, (*guid)[2]);
     DO_SEQ_BYTE(read, buffer, (*guid)[3]);
     DO_SEQ_BYTE(read, buffer, (*guid)[6]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
@@ -3982,7 +3981,7 @@ void MovementInterface::HandleAckGravityDisable(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
@@ -4043,7 +4042,7 @@ void MovementInterface::HandleAckHover(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
@@ -4136,7 +4135,7 @@ void MovementInterface::HandleAckWaterWalk(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
@@ -4194,7 +4193,7 @@ void MovementInterface::HandleAckKnockBack(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasTimestamp, uint32, (*msTime));
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->y);
@@ -4283,7 +4282,7 @@ void MovementInterface::HandleAckSetCanFly(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[0], uint8, (*tguid)[0]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[4], uint8, (*tguid)[4]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
@@ -4363,7 +4362,7 @@ void MovementInterface::HandleAckSetCollisionHeight(bool read, ByteBuffer &buffe
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
     DO_COND_BYTES(read, buffer, hasTransportData, float, transPos->z);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
@@ -4422,7 +4421,7 @@ void MovementInterface::HandleAckSetCanTransitionBetweenSwimAndFly(bool read, By
     DO_SEQ_BYTE(read, buffer, (*guid)[5]);
     DO_SEQ_BYTE(read, buffer, (*guid)[7]);
     DO_SEQ_BYTE(read, buffer, (*guid)[6]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
@@ -4501,7 +4500,7 @@ void MovementInterface::HandleSplineDone(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasPitch, float, pitching);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
@@ -5122,7 +5121,7 @@ void MovementInterface::HandleDismissControlledVehicle(bool read, ByteBuffer &bu
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[1], uint8, (*tguid)[1]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[5], uint8, (*tguid)[5]);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
@@ -5200,7 +5199,7 @@ void MovementInterface::HandleChangeSeatsOnControlledVehicle(bool read, ByteBuff
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpZSpeed);
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[2], uint8, (*tguid)[2]);
     DO_COND_BYTES(read, buffer, hasTransportData && hasTransportTime2, uint32, m_transportTime2);
@@ -5288,7 +5287,7 @@ void MovementInterface::HandleEmbeddedMovement(bool read, ByteBuffer &buffer)
     DO_COND_BYTES(read, buffer, hasTransportData && (*tguid)[7], uint8, (*tguid)[7]);
     DO_COND_BYTES(read, buffer, hasOrientation, float, pos->o);
     DO_COND_BYTES(read, buffer, hasSplineElevation, float, splineElevation);
-    DO_COND_BYTES(read, buffer, hasFallData, float, m_jumpTime);
+    DO_COND_BYTES(read, buffer, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_sin);
     DO_COND_BYTES(read, buffer, hasFallDirection, float, m_jump_cos);

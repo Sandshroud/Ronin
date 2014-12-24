@@ -232,7 +232,7 @@ void ArenaTeam::SaveToDB()
     ss << "REPLACE INTO arenateams VALUES("
         << m_id << ","
         << m_type << ","
-        << m_leader.raw() << ",'"
+        << uint64(m_leader) << ",'"
         << m_name << "',"
         << m_emblemStyle << ","
         << m_emblemColour << ","
@@ -248,7 +248,7 @@ void ArenaTeam::SaveToDB()
     {
         if(m_members[i].Info)
         {
-            ss << ",'" << m_members[i].Info->guid.raw() << " " << m_members[i].Played_ThisWeek << " "
+            ss << ",'" << uint64(m_members[i].Info->guid) << " " << m_members[i].Played_ThisWeek << " "
                 << m_members[i].Won_ThisWeek << " " << m_members[i].Played_ThisSeason << " "
                 << m_members[i].Won_ThisSeason << " " << m_members[i].PersonalRating << "'";
         }

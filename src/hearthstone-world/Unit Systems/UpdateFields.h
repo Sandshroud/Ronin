@@ -163,7 +163,7 @@ enum EPlayerFields
     PLAYER_BYTES_3                                   = UNIT_END + 0x0008, // Size: 1, Type: BYTES, Flags: PUBLIC
     PLAYER_DUEL_TEAM                                 = UNIT_END + 0x0009, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_GUILD_TIMESTAMP                           = UNIT_END + 0x000A, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_QUEST_LOG                                 = UNIT_END + 0x000B, // Size: 1, Type: INT, Flags: PARTY_MEMBER
+    PLAYER_QUEST_LOG                                 = UNIT_END + 0x000B, // Size: 250, Type: INT, Flags: PARTY_MEMBER
     PLAYER_VISIBLE_ITEM                              = UNIT_END + 0x0105, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_CHOSEN_TITLE                              = UNIT_END + 0x012B, // Size: 1, Type: INT, Flags: PUBLIC
     PLAYER_FAKE_INEBRIATION                          = UNIT_END + 0x012C, // Size: 1, Type: INT, Flags: PUBLIC

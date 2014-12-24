@@ -175,73 +175,67 @@ enum QUEST_MOB_TYPES
 #define CALL_QUESTSCRIPT_EVENT(id, func) if(sScriptMgr.GetQuestScript(id) != NULL)\
     sScriptMgr.GetQuestScript(id)->func
 
-enum QuestCompletionStatus
+enum QuestCompletionStatus : uint8
 {
     QUEST_STATUS__INCOMPLETE    = 0,
     QUEST_STATUS__COMPLETE      = 1,
     QUEST_STATUS__FAILED        = 2
 };
 
-class SERVER_DECL QuestLogEntry : public EventableObject
+class SERVER_DECL QuestLogEntry
 {
-    friend class QuestMgr;
-
 public:
     QuestLogEntry();
     ~QuestLogEntry();
 
     HEARTHSTONE_INLINE Quest* GetQuest() { return m_quest; };
     void Init(Quest* quest, Player* plr, uint32 slot);
+    void Load(Field *fields);
 
     bool CanBeFinished();
     void SubtractTime(uint32 value);
-    void SaveToDB(QueryBuffer * buf);
-    bool LoadFromDB(Field *fields);
     void UpdatePlayerFields();
 
-    void SetAreaTrigger(uint32 i);
-    void SetMobCount(uint32 i, uint32 count);
+    void SetAreaTrigger(uint8 i);
+    bool HasAreaTrigger(uint8 i) { return (m_areaTriggerFlags & (1<<i)); };
+    void SetObjectiveCount(uint8 i, uint16 count);
     void SetPlayerSlainCount(uint32 count);
 
-    bool IsUnitAffected(Unit* target);
-    HEARTHSTONE_INLINE bool IsCastQuest() { return iscastquest;}
-    void AddAffectedUnit(Unit* target);
+    bool IsUnitAffected(WoWGuid guid);
+    void AddAffectedUnit(WoWGuid guid);
     void ClearAffectedUnits();
+
+    HEARTHSTONE_INLINE bool IsCastQuest() { return m_isCastQuest; }
 
     void SetSlot(int32 i);
     void Finish();
     uint32 GetSlot() { return m_slot; };
 
     void SendQuestComplete();
-    void SendUpdateAddKill(uint32 i);
-    HEARTHSTONE_INLINE uint32 GetPlayerSlainCount() { return m_player_slain; }
-    HEARTHSTONE_INLINE uint32 GetMobCount(uint32 i) { return m_mobcount[i]; }
-    HEARTHSTONE_INLINE uint32 GetCrossedAreaTrigger(uint32 i) { return m_areatriggers[i]; }
-    HEARTHSTONE_INLINE uint32 GetTimeLeft() { return m_time_left; }
+    void SendUpdateAddKill(uint8 i);
+    HEARTHSTONE_INLINE uint16 GetObjectiveCount(uint8 i) { return m_objectiveCount[i]; }
+    HEARTHSTONE_INLINE uint8 GetExplorationFlag() { return m_areaTriggerFlags; }
+    HEARTHSTONE_INLINE uint32 GetPlayerSlainCount() { return m_players_slain; }
     uint32 GetRequiredSpell();
 
-    HEARTHSTONE_INLINE uint32 GetBaseField(uint32 slot)
-    {
-        return PLAYER_QUEST_LOG + (slot * 5);
-    }
+    static uint32 GetBaseField(uint32 slot) { return PLAYER_QUEST_LOG + (slot * 5); }
 
-    uint32 Quest_Status;
+    void SetQuestStatus(uint8 status) { m_questStatus = status; }
 
+    HEARTHSTONE_INLINE time_t getExpirationTime() { return m_expirationTime; }
+    HEARTHSTONE_INLINE bool isExpired() { return m_expirationTime <= UNIXTIME; }
 private:
-    bool mInitialized;
-    bool mDirty;
-
-    Quest *m_quest;
-    Player* m_plr;
-
-    uint32 m_mobcount[4];
-    uint32 m_areatriggers[4];
-
-    uint32 m_player_slain;
-
-    std::set<uint64> m_affected_units;
-    bool iscastquest;
-
-    uint32 m_time_left;
     int32 m_slot;
+    Quest *m_quest;
+    Player* m_Player;
+
+    uint16 m_objectiveCount[4];
+    uint8 m_areaTriggerFlags;
+    uint32 m_players_slain;
+
+    std::set<WoWGuid> m_affected_units;
+    bool m_isExpired, m_isCastQuest;
+
+    uint8 m_questStatus;
+    time_t m_expirationTime;
 };

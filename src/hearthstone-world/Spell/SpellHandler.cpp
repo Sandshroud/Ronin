@@ -92,16 +92,6 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
             _player->SetStandState(STANDSTATE_SIT);
     }
 
-    if(itemProto->HolidayId > 0)
-    {
-        uint32 mask = sWorld.ConverHolidayIdToMask(itemProto->HolidayId);
-        if ((sWorld.GetCurrentHolidayMask() & mask) == 0)
-        {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_OBJECT_IS_BUSY);
-            return;
-        }
-    }
-
     if(itemProto->RequiredLevel > 0)
     {
         if(_player->getLevel() < (uint32)itemProto->RequiredLevel)

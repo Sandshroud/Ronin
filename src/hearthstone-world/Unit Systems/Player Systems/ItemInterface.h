@@ -46,11 +46,11 @@ public:
     Player* GetOwner() { return m_pOwner; }
     bool IsBagSlot(int16 slot);
 
-    uint32 m_CreateForPlayer(ByteBuffer *data);
-    void m_DestroyForPlayer(Player* plr);
+    uint32 CreateForPlayer(ByteBuffer *data);
+    void DestroyForPlayer(Player* plr);
 
-    void mLoadItemsFromDatabase(QueryResult * result);
-    void mSaveItemsToDatabase(bool first, QueryBuffer * buf);
+    void LoadPlayerItems(QueryResult * result);
+    void SavePlayerItems(bool first, QueryBuffer * buf);
 
     Item* GetInventoryItem(int16 slot);
     Item* GetInventoryItem(int16 ContainerSlot, int16 slot);

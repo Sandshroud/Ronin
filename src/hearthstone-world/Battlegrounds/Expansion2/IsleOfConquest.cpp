@@ -854,48 +854,5 @@ void IsleOfConquest::Finish(uint32 losingTeam)
     sEventMgr.RemoveEvents(this);
     sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
 
-    /* add the marks of honor to all players */
-    SpellEntry * winner_spell = dbcSpell.LookupEntry(24955);
-    SpellEntry * loser_spell = dbcSpell.LookupEntry(24954);
-    for(uint32 i = 0; i < 2; i++)
-    {
-        for(std::set<Player*  >::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
-        {
-            (*itr)->GetMovementInterface()->setRooted(true);
-
-            if( (*itr)->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK) )
-                continue;
-
-            if(i == losingTeam)
-            {
-                (*itr)->CastSpell((*itr), loser_spell, true);
-                if((*itr)->fromrandombg)
-                {
-                    (*itr)->m_honorToday += (*itr)->GenerateRBGReward((*itr)->getLevel(),5);
-                    HonorHandler::RecalculateHonorFields((*itr));
-                    (*itr)->fromrandombg = false;
-                }
-            }
-            else
-            {
-                (*itr)->CastSpell((*itr), winner_spell, true);
-                uint32 diff = abs((int32)(m_reinforcements[i] - m_reinforcements[i ? 0 : 1]));
-                if((*itr)->fromrandombg)
-                {
-                    Player * p = (*itr);
-                    p->AddArenaPoints(p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),25) : p->GenerateRBGReward(p->getLevel(),0));
-                    p->m_honorToday += p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),30) : p->GenerateRBGReward(p->getLevel(),15);
-                    HonorHandler::RecalculateHonorFields(p);
-                    p->randombgwinner = true;
-                    p->fromrandombg = false;
-                }
-            }
-        }
-        if (m_LiveCaptain[i])
-        {
-            GiveHonorToTeam(i, m_bonusHonor * 2);
-        }
-    }
-
     UpdatePvPData();
 }

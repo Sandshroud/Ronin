@@ -325,8 +325,6 @@ void WorldSession::LogoutPlayer(bool Save)
         if( _player->m_currentSpell != NULL )
             _player->m_currentSpell->cancel();
 
-        _player->Social_TellOnlineStatus(false);
-
         if( _player->GetTeam() == 1 )
         {
             if( sWorld.HordePlayers )
@@ -1006,7 +1004,7 @@ void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, uint32 gui
     } else *(uint32*)&data->contents()[langpos] = lang;
 
     if(guidPos != 0 && _player)
-        (*((uint64*)(&data->contents()[guidPos]))) = _player->GetGUID().raw();
+        (*((uint64*)(&data->contents()[guidPos]))) = _player->GetGUID();
     SendPacket(data);
 }
 

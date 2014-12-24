@@ -261,9 +261,9 @@ void KillMobForQuest( Player* pPlayer, QuestLogEntry* pQuest, uint32 pRequiredMo
     if ( !pQuest || pQuest->GetQuest() == NULL )
         return;
 
-    if ( pQuest->GetMobCount( i ) < pQuest->GetQuest()->required_mobcount[i] )
+    if ( pQuest->GetObjectiveCount( i ) < pQuest->GetQuest()->required_mobcount[i] )
     {
-        pQuest->SetMobCount( i, pQuest->GetMobCount( i ) + 1 );
+        pQuest->SetObjectiveCount( i, pQuest->GetObjectiveCount( i ) + 1 );
         pQuest->SendUpdateAddKill( i );
         pQuest->UpdatePlayerFields();
     }
@@ -279,9 +279,9 @@ void KillMobForQuest( Player* pPlayer, uint32 pQuestId, uint32 pRequiredMobCount
     if ( !pQuest || pQuest->GetQuest() == NULL )
         return;
 
-    if ( pQuest->GetMobCount( i ) < pQuest->GetQuest()->required_mobcount[i] )
+    if ( pQuest->GetObjectiveCount( i ) < pQuest->GetQuest()->required_mobcount[i] )
     {
-        pQuest->SetMobCount( i, pQuest->GetMobCount( i ) + 1 );
+        pQuest->SetObjectiveCount( i, pQuest->GetObjectiveCount( i ) + 1 );
         pQuest->SendUpdateAddKill( i );
         pQuest->UpdatePlayerFields();
     }

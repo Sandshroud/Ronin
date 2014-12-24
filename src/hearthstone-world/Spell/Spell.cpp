@@ -3538,13 +3538,13 @@ uint8 Spell::CanCast(bool tolerate)
                         if( castPtr<Player>(target)->HasAura(25771) ) // Forbearance
                             return SPELL_FAILED_DAMAGE_IMMUNE;
 
-                        if( !castPtr<Player>(target)->mAvengingWrath )
+                        if( !castPtr<Player>(target)->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 
                 case SPELL_HASH_AVENGING_WRATH:
                     {
-                        if( !castPtr<Player>(target)->mAvengingWrath )
+                        if( !castPtr<Player>(target)->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
                             return SPELL_FAILED_DAMAGE_IMMUNE;
                     }break;
 

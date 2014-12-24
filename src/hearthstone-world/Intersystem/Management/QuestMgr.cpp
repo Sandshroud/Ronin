@@ -884,11 +884,9 @@ void QuestMgr::SendPushToPartyResponse(Player* plr, Player* pTarget, uint32 resp
 
 bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
 {
-    uint32 i, j;
     QuestLogEntry *qle;
     uint32 entry = go->GetEntry();
-
-    for(i = 0; i < QUEST_LOG_COUNT; i++)
+    for(uint8 i = 0; i < QUEST_LOG_COUNT; i++)
     {
         qle = plr->GetQuestLogInSlot( i );
         if( qle != NULL )
@@ -897,15 +895,15 @@ bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
             if( qle->GetQuest()->count_required_mob == 0 )
                 continue;
 
-            for( j = 0; j < 4; ++j )
+            for( uint8 j = 0; j < 4; ++j )
             {
                 if( qle->GetQuest()->required_mob[j] == entry &&
                     qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_GAMEOBJECT &&
-                    qle->m_mobcount[j] < qle->GetQuest()->required_mobcount[j] )
+                    qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                 {
                     // add another kill.
                     // (auto-dirtys it)
-                    qle->SetMobCount( j, qle->m_mobcount[j] + 1 );
+                    qle->SetObjectiveCount( j, qle->GetObjectiveCount(j) + 1 );
                     qle->SendUpdateAddKill( j );
                     CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnGameObjectActivate )( entry, plr, qle );
 
@@ -913,7 +911,6 @@ bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
                         qle->SendQuestComplete();
 
                     qle->UpdatePlayerFields();
-                    qle->SaveToDB(NULL);
                     return true;
                 }
             }
@@ -951,18 +948,17 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                 {
                     if( qle->GetQuest()->required_mob[j] == creature_entry &&
                         qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_CREATURE &&
-                        qle->m_mobcount[j] < qle->GetQuest()->required_mobcount[j] )
+                        qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                     {
                         // don't update killcount for these questlog entries
                         if ( SkippedKills( qle->GetQuest()->id) )
                             return;
 
                         // add another kill.(auto-dirtys it)
-                        qle->SetMobCount( j, qle->m_mobcount[j] + 1 );
+                        qle->SetObjectiveCount( j, qle->GetObjectiveCount(j) + 1 );
                         qle->SendUpdateAddKill( j );
                         CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnCreatureKill)( creature_entry, plr, qle );
                         qle->UpdatePlayerFields();
-                        qle->SaveToDB(NULL);
                         break;
                     }
                 }
@@ -999,7 +995,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                                 {
                                     if( qle->GetQuest()->required_mob[j] == creature_entry &&
                                         qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_CREATURE &&
-                                        qle->m_mobcount[j] < qle->GetQuest()->required_mobcount[j] )
+                                        qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                                     {
                                         // don't update killcount for these quest log entries
                                         if ( SkippedKills( qle->GetQuest()->id) )
@@ -1007,7 +1003,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
 
                                         // add another kill.
                                         // (auto-dirtys it)
-                                        qle->SetMobCount(j, qle->m_mobcount[j] + 1);
+                                        qle->SetObjectiveCount(j, qle->GetObjectiveCount(j) + 1);
                                         qle->SendUpdateAddKill( j );
                                         CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnCreatureKill )( creature_entry, plr, qle );
 
@@ -1015,7 +1011,6 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                                             qle->SendQuestComplete();
 
                                         qle->UpdatePlayerFields();
-                                        qle->SaveToDB(NULL);
                                         break;
                                     }
                                 }
@@ -1035,18 +1030,16 @@ void QuestMgr::OnPlayerSlain(Player* plr, Player* victim)
         return;
 
     QuestLogEntry *qle;
-    uint32 i;
-    for(i = 0; i < QUEST_LOG_COUNT; i++)
+    for(uint8 i = 0; i < QUEST_LOG_COUNT; i++)
     {
         if((qle = plr->GetQuestLogInSlot(i)))
         {
-            if(qle->m_quest->required_player_kills)
+            if(qle->GetQuest()->required_player_kills)
             {
-                qle->SetPlayerSlainCount(qle->m_player_slain + 1);
+                qle->SetPlayerSlainCount(qle->GetPlayerSlainCount() + 1);
                 if(qle->CanBeFinished())
                     qle->SendQuestComplete();
                 qle->UpdatePlayerFields();
-                qle->SaveToDB(NULL);
             }
         }
     }
@@ -1067,7 +1060,7 @@ void QuestMgr::OnPlayerSlain(Player* plr, Player* victim)
                     gplr = (*gitr)->m_loggedInPlayer;
                     if(gplr && gplr != plr && plr->isInRange(gplr,300)) // dont double kills also dont give kills to party members at another side of the world
                     {
-                        for( i = 0; i < QUEST_LOG_COUNT; i++ )
+                        for( uint8 i = 0; i < QUEST_LOG_COUNT; i++ )
                         {
                             qle = gplr->GetQuestLogInSlot(i);
                             if( qle != NULL )
@@ -1076,11 +1069,10 @@ void QuestMgr::OnPlayerSlain(Player* plr, Player* victim)
                                 if( qle->GetQuest()->required_player_kills == 0 )
                                     continue;
 
-                                qle->SetPlayerSlainCount(qle->m_player_slain + 1);
+                                qle->SetPlayerSlainCount(qle->GetPlayerSlainCount() + 1);
                                 if(qle->CanBeFinished())
                                     qle->SendQuestComplete();
                                 qle->UpdatePlayerFields();
-                                qle->SaveToDB(NULL);
                             }
                         }
                     }
@@ -1100,10 +1092,9 @@ void QuestMgr::OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid)
     if(victim == NULL)
         return;
 
-    uint32 i, j;
     uint32 entry = victim->GetEntry();
     QuestLogEntry *qle;
-    for(i = 0; i < QUEST_LOG_COUNT; i++)
+    for(uint8 i = 0; i < QUEST_LOG_COUNT; i++)
     {
         if((qle = plr->GetQuestLogInSlot(i)))
         {
@@ -1111,21 +1102,20 @@ void QuestMgr::OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid)
             if(!qle->IsCastQuest())
                 continue;
 
-            for(j = 0; j < 4; ++j)
+            for(uint8 j = 0; j < 4; ++j)
             {
                 if(qle->GetQuest()->required_mob[j])
                 {
                     if(qle->GetQuest()->required_mob[j] == entry &&
                         qle->GetRequiredSpell() == spellid &&
-                        qle->m_mobcount[j] < qle->GetQuest()->required_mobcount[j] &&
-                        !qle->IsUnitAffected(victim))
+                        qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] &&
+                        !qle->IsUnitAffected(victim->GetGUID()))
                     {
                         // add another kill.(auto-dirtys it)
-                        qle->AddAffectedUnit(victim);
-                        qle->SetMobCount(j, qle->m_mobcount[j] + 1);
+                        qle->AddAffectedUnit(victim->GetGUID());
+                        qle->SetObjectiveCount(j, qle->GetObjectiveCount(j) + 1);
                         qle->SendUpdateAddKill(j);
                         qle->UpdatePlayerFields();
-                        qle->SaveToDB(NULL);
                         break;
                     }
                 }
@@ -1133,7 +1123,6 @@ void QuestMgr::OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid)
                 {
                     qle->SendUpdateAddKill(j);
                     qle->UpdatePlayerFields();
-                    qle->SaveToDB(NULL);
                     break;
                 }
             }
@@ -1143,18 +1132,16 @@ void QuestMgr::OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid)
 
 void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacksize)
 {
-    uint32 i, j;
-    uint32 pcount;
-    uint32 entry = item->GetEntry();
     QuestLogEntry *qle;
-    for( i = 0; i < QUEST_LOG_COUNT; i++ )
+    uint32 pcount, entry = item->GetEntry();
+    for( uint8 i = 0; i < QUEST_LOG_COUNT; i++ )
     {
         if( ( qle = plr->GetQuestLogInSlot( i ) ) )
         {
             if( qle->GetQuest()->count_required_item == 0 )
                 continue;
 
-            for( j = 0; j < 6; ++j )
+            for( uint8 j = 0; j < 6; ++j )
             {
                 if( qle->GetQuest()->required_item[j] == entry )
                 {
@@ -1182,16 +1169,15 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
 
 void QuestMgr::OnPlayerDropItem(Player* plr, uint32 entry)
 {
-    uint32 i, j;
     QuestLogEntry *qle;
-    for( i = 0; i < QUEST_LOG_COUNT; i++ )
+    for( uint8 i = 0; i < QUEST_LOG_COUNT; i++ )
     {
         if( ( qle = plr->GetQuestLogInSlot( i ) ) )
         {
             if( qle->GetQuest()->count_required_item == 0 )
                 continue;
 
-            for( j = 0; j < 6; ++j )
+            for( uint8 j = 0; j < 6; ++j )
                 if( qle->GetQuest()->required_item[j] == entry )
                     qle->UpdatePlayerFields();
         }
@@ -1200,9 +1186,10 @@ void QuestMgr::OnPlayerDropItem(Player* plr, uint32 entry)
 
 void QuestMgr::OnPlayerExploreArea(Player* plr, uint32 areaId)
 {
-    uint32 i, j;
+    return;// Not implemented
+
     QuestLogEntry *qle;
-    for( i = 0; i < QUEST_LOG_COUNT; i++ )
+    for( uint8 i = 0; i < QUEST_LOG_COUNT; i++ )
     {
         if((qle = plr->GetQuestLogInSlot(i)))
         {
@@ -1225,8 +1212,7 @@ void QuestMgr::OnPlayerAreaTrigger(Player* plr, uint32 areaTrigger)
 
             for( j = 0; j < 4; ++j )
             {
-                if(qle->GetQuest()->required_areatriggers[j] == areaTrigger
-                    && !qle->GetCrossedAreaTrigger(j))
+                if(qle->GetQuest()->required_areatriggers[j] == areaTrigger && !qle->HasAreaTrigger(j))
                 {
                     qle->SetAreaTrigger(j);
                     CALL_QUESTSCRIPT_EVENT(qle->GetQuest()->id, OnCrossAreaTrigger)(areaTrigger, plr, qle);
@@ -1236,7 +1222,6 @@ void QuestMgr::OnPlayerAreaTrigger(Player* plr, uint32 areaTrigger)
                         qle->SendQuestComplete();
                     }
                     qle->UpdatePlayerFields();
-                    qle->SaveToDB(NULL);
                     break;
                 }
             }
@@ -1281,10 +1266,7 @@ void QuestMgr::GiveQuestTitleReward(Player* plr, Quest* qst)
 void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint32 reward_slot)
 {
     if(qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
-    {
         BuildQuestComplete(plr, qst);
-        plr->PushToRemovedQuests(qst->id);
-    }
     else
     {
         QuestLogEntry *qle = plr->GetQuestLogForEntry(qst->id);
@@ -1311,7 +1293,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
             if( IsQuestRepeatable(qst) || IsQuestDaily(qst) ) //reset kill-counter in case of repeatable's
             {
                 if( qst->required_mob[x] && plr->HasQuestMob(qst->required_mob[x]) )
-                    qle->SetMobCount(x,0);
+                    qle->SetObjectiveCount(x,0);
             }
             else
             {
@@ -1570,9 +1552,9 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
 
     //Add to finished quests
     if(qst->qst_is_repeatable == REPEATABLE_DAILY)
-        plr->AddToFinishedDailyQuests(qst->id);
+        plr->AddToCompletedDailyQuests(qst->id);
     else if(!IsQuestRepeatable(qst))
-        plr->AddToFinishedQuests(qst->id);
+        plr->AddToCompletedQuests(qst->id);
 
     //Remove any timed events
     if (sEventMgr.HasEvent(plr,EVENT_TIMED_QUEST_EXPIRE))

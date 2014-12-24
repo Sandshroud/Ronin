@@ -1496,11 +1496,7 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
                 SpellCastTargets targets;
                 targets.m_unitTarget = plr->GetGUID();
                 Spell* sp = new Spell(plr,spellInfo,true,NULL);
-                if ( sp != NULL )
-                {
-                    sp->prepare(&targets);
-                    plr->m_AuraInterface.SetAuraDuration(BG_DESERTER,60000*15);
-                }
+                sp->prepare(&targets);
             }
         }
 

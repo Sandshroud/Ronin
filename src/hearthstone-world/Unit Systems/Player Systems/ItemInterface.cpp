@@ -30,7 +30,7 @@ ItemInterface::~ItemInterface()
 }
 
 //-------------------------------------------------------------------// 100%
-uint32 ItemInterface::m_CreateForPlayer(ByteBuffer *data)
+uint32 ItemInterface::CreateForPlayer(ByteBuffer *data)
 {
     ASSERT(m_pOwner != NULL);
     uint32 count = 0;
@@ -61,7 +61,7 @@ uint32 ItemInterface::m_CreateForPlayer(ByteBuffer *data)
 }
 
 //-------------------------------------------------------------------// 100%
-void ItemInterface::m_DestroyForPlayer(Player* plr)
+void ItemInterface::DestroyForPlayer(Player* plr)
 {
     ASSERT(m_pOwner != NULL);
 
@@ -2678,8 +2678,6 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
     {
         if( m_pItems[srcslot] != NULL )
             m_pOwner->ApplyItemMods( m_pItems[srcslot], srcslot, true );
-        else if( srcslot == EQUIPMENT_SLOT_MAINHAND || srcslot == EQUIPMENT_SLOT_OFFHAND )
-            m_pOwner->UpdateStats();
     }
 
     //dst item is equiped now
@@ -2687,8 +2685,6 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
     {
         if( m_pItems[dstslot] != NULL )
             m_pOwner->ApplyItemMods( m_pItems[dstslot], dstslot, true );
-        else if( dstslot == EQUIPMENT_SLOT_MAINHAND || dstslot == EQUIPMENT_SLOT_OFFHAND )
-            m_pOwner->UpdateStats();
     }
     return true;
 }
@@ -2696,38 +2692,26 @@ bool ItemInterface::SwapItemSlots(int16 srcslot, int16 dstslot)
 //-------------------------------------------------------------------//
 //Description: Item Loading
 //-------------------------------------------------------------------//
-void ItemInterface::mLoadItemsFromDatabase(QueryResult * result)
+void ItemInterface::LoadPlayerItems(QueryResult * result)
 {
-    int8 containerslot, slot;
-    Item* item;
-    ItemPrototype* proto;
-
     if( result )
     {
         do
         {
             Field* fields = result->Fetch();
+            uint32 itemEntry = fields[2].GetUInt32();
+            int8 containerslot = fields[13].GetInt8();
+            uint16 slot = fields[14].GetInt8();
 
-            containerslot = fields[13].GetInt8();
-            slot = fields[14].GetInt8();
-            proto = ItemPrototypeStorage.LookupEntry(fields[2].GetUInt32());
-
-            if( proto != NULL )
+            if( ItemPrototype *proto = ItemPrototypeStorage.LookupEntry(itemEntry) )
             {
+                Item *item = NULL;
                 if( proto->InventoryType == INVTYPE_BAG )
-                {
                     item = new Container( HIGHGUID_TYPE_CONTAINER, fields[1].GetUInt32() );
-                    item->Init();
-                    castPtr<Container>( item )->LoadFromDB( fields );
+                else item = new Item( HIGHGUID_TYPE_ITEM, fields[1].GetUInt32() );
 
-                }
-                else
-                {
-                    item = new Item( HIGHGUID_TYPE_ITEM, fields[1].GetUInt32() );
-                    item->Init();
-                    item->LoadFromDB( fields, m_pOwner, false);
-
-                }
+                item->Init();
+                item->LoadFromDB( fields, m_pOwner, false);
                 if( SafeAddItem( item, containerslot, slot ) )
                     item->m_isDirty = false;
                 else
@@ -2744,11 +2728,9 @@ void ItemInterface::mLoadItemsFromDatabase(QueryResult * result)
 //-------------------------------------------------------------------//
 //Description: Item saving
 //-------------------------------------------------------------------//
-void ItemInterface::mSaveItemsToDatabase(bool first, QueryBuffer * buf)
+void ItemInterface::SavePlayerItems(bool first, QueryBuffer * buf)
 {
-    uint32 x;
-
-    for( x = EQUIPMENT_SLOT_START; x < MAX_INVENTORY_SLOT; ++x )
+    for( uint32 x = EQUIPMENT_SLOT_START; x < MAX_INVENTORY_SLOT; ++x )
     {
         if( GetInventoryItem( x ) != NULL )
         {

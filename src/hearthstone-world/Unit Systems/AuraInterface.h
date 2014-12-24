@@ -40,12 +40,10 @@ public:
 
     void Init(Unit* unit);
     void DeInit();
-    void RelocateEvents();
 
     void Update(uint32 diff);
 
     void OnChangeLevel(uint32 newlevel);
-    void SaveAuras(std::stringstream&);
     uint8 GetFreeSlot(bool ispositive);
     void OnAuraRemove(Aura* aura, uint8 aura_slot);
 
@@ -53,7 +51,6 @@ public:
     bool IsPoisoned();
     void UpdateDuelAuras();
     void BuildAllAuraUpdates();
-    void UpdateAuraStateAuras(uint32 oldflag);
     bool BuildAuraUpdateAllPacket(WorldPacket* data);
     void SpellStealAuras(Unit* caster, int32 MaxSteals);
     void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);
@@ -83,7 +80,7 @@ public:
     /*****************************
     ************ Add *************
     ******************************/
-    void AddAura(Aura* aur);
+    void AddAura(Aura* aur, uint8 slot = 0xFF);
 //  uint32 AddAuraVisual(uint32 SpellId, uint32 count, bool positive);
 
     /*****************************
@@ -139,8 +136,6 @@ public:
 
     void EventDeathAuraRemoval();
 //  bool HasVisibleAura(uint32 spellid);
-    bool SetAuraDuration(uint32 spellId,int32 duration);
-    bool SetAuraDuration(uint32 spellId,Unit* caster,int32 duration);
 
     uint32 GetAuraStatus()
     {

@@ -384,19 +384,21 @@ public:
 
     void SetMoveSpeed(MovementSpeedTypes speedType, float speed);
 
-    void ClearMovementFlags(uint8 clearFlag)
+    void ClearMovementFlags(uint8 clearFlag, bool serverFlags)
     {
         m_movementFlagMask &= ~clearFlag;
         for(uint8 i = 0; i < 6; i++)
         {
             if((clearFlag&1<<i) == 0)
                 continue;
-            m_serverFlags[i] = m_movementFlags[i] = 0;
+            if(serverFlags) m_serverFlags[i] = 0;
+            m_movementFlags[i] = 0;
         }
     }
 
 private:
     bool UpdateAcknowledgementData(uint16 moveCode);
+    bool UpdateMovementData(uint16 moveCode);
 
 public:
     void AppendSplineData(bool bits, ByteBuffer *buffer);
@@ -531,6 +533,8 @@ private:
             m_movementFlagMask |= 1<<i;
         }
     }
+
+    void ClearOptionalMovementData();
 
     // Movement information
 protected:

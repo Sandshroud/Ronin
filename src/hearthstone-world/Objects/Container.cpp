@@ -38,25 +38,10 @@ void Container::Destruct()
     Item::Destruct();
 }
 
-void Container::LoadFromDB( Field*fields )
+void Container::LoadFromDB(Field *fields, Player *plr, bool light )
 {
-    uint32 itemid=fields[2].GetUInt32();
-    m_itemProto = ItemPrototypeStorage.LookupEntry( itemid );
-
-    ASSERT(m_itemProto);
-    SetUInt32Value( OBJECT_FIELD_ENTRY, itemid );
-
-    SetUInt32Value( ITEM_FIELD_CREATOR, fields[5].GetUInt32() );
-    SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1);
-
-    SetUInt32Value( ITEM_FIELD_FLAGS, fields[8].GetUInt32());
-    SetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID, fields[9].GetUInt32());
-
-    SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_itemProto->MaxDurability);
-    SetUInt32Value( ITEM_FIELD_DURABILITY, fields[12].GetUInt32());
-
+    Item::LoadFromDB(fields, plr, true);
     SetUInt32Value( CONTAINER_FIELD_NUM_SLOTS, m_itemProto->ContainerSlots);
-
     Bind(ITEM_BIND_ON_PICKUP); // Check if we need to bind our shit.
 }
 

@@ -35,11 +35,10 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
             TradeStatus = TRADE_STATUS_ALREADY_TRADING;
         else if(pTarget->GetTeam() != _player->GetTeam() && GetPermissionCount() == 0)
             TradeStatus = TRADE_STATUS_WRONG_FACTION;
+        else if(pTarget->m_ignores.find(_player->GetGUID()) != pTarget->m_ignores.end())
+            TradeStatus = TRADE_STATUS_PLAYER_IGNORED;
         else if(_player->CalcDistance(pTarget) > 10.0f)     // This needs to be checked
             TradeStatus = TRADE_STATUS_TOO_FAR_AWAY;
-        std::set<WoWGuid>::iterator itr = pTarget->m_ignores.find(_player->GetGUID());
-        if(itr != pTarget->m_ignores.end())
-            TradeStatus = TRADE_STATUS_PLAYER_IGNORED;
     }
 
     if(TradeStatus != TRADE_STATUS_PROPOSED)
@@ -335,7 +334,7 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
         if( ItemCount == 0 && TargetItemCount == 0 && _player->mTradeGold == 0 && pTarget->mTradeGold == 0 )
             TradeStatus = TRADE_STATUS_CANCELLED;
         //Do we have enough free slots on both sides?
-        else if((_player->m_ItemInterface->CalculateFreeSlots(NULL) + ItemCount) < TargetItemCount || (pTarget->m_ItemInterface->CalculateFreeSlots(NULL) + TargetItemCount) < ItemCount )
+        else if((_player->GetItemInterface()->CalculateFreeSlots(NULL) + ItemCount) < TargetItemCount || (pTarget->GetItemInterface()->CalculateFreeSlots(NULL) + TargetItemCount) < ItemCount )
             TradeStatus = TRADE_STATUS_CANCELLED;
         //Everything still ok?
         if(TradeStatus == TRADE_STATUS_ACCEPTED)
@@ -353,14 +352,14 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                     else
                     {
                         //Remove from player
-                        pItem = _player->m_ItemInterface->SafeRemoveAndRetreiveItemByGuidRemoveStats(Guid, true);
+                        pItem = _player->GetItemInterface()->SafeRemoveAndRetreiveItemByGuidRemoveStats(Guid, true);
 
                         //and add to pTarget
                         if(pItem != NULL)
                         {
                             pItem->SetOwner(pTarget);
                             sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
-                            if( !pTarget->m_ItemInterface->AddItemToFreeSlot(pItem) )
+                            if( !pTarget->GetItemInterface()->AddItemToFreeSlot(pItem) )
                             {
                                 pItem->Destruct();
                                 pItem = NULL;
@@ -380,14 +379,14 @@ void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
                     else
                     {
                         //Remove from pTarget
-                        pItem = pTarget->m_ItemInterface->SafeRemoveAndRetreiveItemByGuidRemoveStats(Guid, true);
+                        pItem = pTarget->GetItemInterface()->SafeRemoveAndRetreiveItemByGuidRemoveStats(Guid, true);
 
                         //and add to initiator
                         if(pItem != NULL)
                         {
                             pItem->SetOwner(_player);
                             sQuestMgr.OnPlayerDropItem(pTarget, pItem->GetEntry());
-                            if( !_player->m_ItemInterface->AddItemToFreeSlot(pItem) )
+                            if( !_player->GetItemInterface()->AddItemToFreeSlot(pItem) )
                             {
                                 pItem->Destruct();
                                 pItem = NULL;

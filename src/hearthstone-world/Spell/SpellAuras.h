@@ -12,8 +12,8 @@ struct Modifier
     uint32 m_type;          // What does it modify? (str,int,hp)
     int32 m_amount;         // By how much does it mod? always should be m_baseAmount * stackSize
     int32 m_baseAmount;     // amount per one stack
-    int32 m_miscValue[2];   // Misc Value
-    int32 m_bonusAmount;    // Calculated bonus amount at application
+    uint32 m_miscValue[2];  // Misc Value
+    uint32 m_bonusAmount;   // Calculated bonus amount at application
     /// For storing custom values in the mod
     int32 fixed_amount;
     float fixed_float_amount;
@@ -71,45 +71,54 @@ private:
     uint32 _absorb, _weapon_damage_type;
 };
 
-typedef std::set<uint32> AreaAuraList;
-
-class SERVER_DECL Aura : public EventableObject
+class SERVER_DECL Aura
 {
-    uint64 periodic_target;
 public:
-    Aura(SpellEntry *proto, int32 duration, WorldObject* caster, Unit* target);
+    Aura(SpellEntry *proto, WorldObject* caster, Unit* target);
+    Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid);
     ~Aura();
 
     void Remove();
     void Update(uint32 diff);
     void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
-    void AddMod(uint32 t, int32 a,uint32 miscValue,uint32 miscValueB,uint32 i);
+    void AddMod(uint32 i, uint32 t, int32 a, uint32 b = 0, int32 f = 0, float ff = 0);
 
     HEARTHSTONE_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
     HEARTHSTONE_INLINE uint32 GetSpellId() const { return m_spellProto->Id; }
     HEARTHSTONE_INLINE bool IsPassive() { return (m_spellProto->isPassiveSpell() || m_spellProto->isHiddenSpell()) && !m_areaAura; }
 
-    HEARTHSTONE_INLINE int32 GetBaseDuration() { if(!base_set) { base_set = true; base_duration = GetSpellInfoDuration(m_spellProto, GetUnitCaster(), GetUnitTarget()); } return base_duration; };
-    HEARTHSTONE_INLINE int32 GetDuration() const { return m_duration; }
-    void SetDuration(int32 duration) { m_duration = duration; }
-    void SetTimeLeft(int32 time);
-
     HEARTHSTONE_INLINE uint32 GetModCount() const { return m_modcount; }
     HEARTHSTONE_INLINE Modifier *GetMod(uint32 x) { return &m_modList[x]; }
 
+    void ResetExpirationTime();
+    time_t GetExpirationTime() { return m_expirationTime; }
+    HEARTHSTONE_INLINE int32 GetDuration() const { return m_duration; }
+    HEARTHSTONE_INLINE int32 GetMSTimeLeft()
+    {
+        if(m_expirationTime == 0)
+            return -1;
+        if(m_expirationTime <= UNIXTIME)
+            return 0;
+        uint32 timeLeft = m_expirationTime-UNIXTIME;
+        return timeLeft*1000;
+    }
+
+    HEARTHSTONE_INLINE uint32 GetTriggeredSpellId() { return m_triggeredSpellId; }
+    void SetTriggerSpellId(uint32 spellid) { m_triggeredSpellId = spellid; }
     HEARTHSTONE_INLINE uint8 GetAuraSlot() const { return m_auraSlot; }
     void SetAuraSlot(uint8 slot) { m_auraSlot = slot; }
-    HEARTHSTONE_INLINE uint8 GetAuraFlags() const { return m_auraFlags; }
-    void SetAuraFlags(uint8 flags) { m_auraFlags = flags; }
-    void SetAuraFlag(uint8 flag) { m_auraFlags |= flag; };
+    HEARTHSTONE_INLINE uint16 GetAuraFlags() const { return m_auraFlags; }
+    void SetAuraFlags(uint16 flags) { m_auraFlags = flags; }
+    void SetAuraFlag(uint16 flag) { m_auraFlags |= flag; };
     HEARTHSTONE_INLINE uint8 GetAuraLevel() const { return m_auraLevel; }
     void SetAuraLevel(uint8 level) { m_auraLevel = level; }
 
+    HEARTHSTONE_INLINE bool IsAreaAura() { return m_areaAura; }
+    HEARTHSTONE_INLINE bool IsApplied() { return m_applied; }
+    HEARTHSTONE_INLINE bool IsDeleted() { return m_deleted; }
     HEARTHSTONE_INLINE bool IsPositive() { return m_positive; }
     void SetNegative() { m_positive = false; }
     void SetPositive() { m_positive = true; }
-
-    bool m_applied;
 
     Unit* GetUnitCaster();
     HEARTHSTONE_INLINE WorldObject* GetCaster() { return GetUnitCaster();}
@@ -121,46 +130,16 @@ public:
 
     void RemoveIfNecessary();
 
-    Aura*  StrongerThat(Aura* aur);
     void ApplyModifiers(bool apply);
     void UpdateModifiers();
-    void AddAuraVisual();
+    bool AddAuraVisual();
     void BuildAuraUpdate();
     void BuildAuraUpdatePacket(WorldPacket *data);
     void EventUpdateCreatureAA(float r);
     void EventUpdatePlayerAA(float r);
     void EventRelocateRandomTarget();
-    void RemoveAA();
     void AttemptDispel(Unit* pCaster, bool canResist = true);
-    bool m_dispelled;
-    uint32 m_resistPctChance;
 
-    HEARTHSTONE_INLINE int32 GetTimeLeft()//in sec
-    {
-        if(m_duration < 0)
-            return -1;
-
-        int32 n = int32((UNIXTIME-time_t(timeleft))*1000);
-        if(n >= m_duration)
-            return 0;
-        else
-            return (m_duration-n);
-    }
-
-    HEARTHSTONE_INLINE int32 GetMSExpiryTime()
-    { 
-        if (GetDuration() == -1)
-            return -1;
-
-        int32 n = getMSTime() - timeleft;
-
-        if (n > GetDuration())
-            return 0;
-
-        return (GetDuration() - n);
-    }
-
-    int16 m_stackSizeorProcCharges;
     uint8 getStackSize()
     {
         if(m_stackSizeorProcCharges <= 0)
@@ -173,6 +152,7 @@ public:
             return 0;
         return (m_stackSizeorProcCharges&0xFF);
     }
+    int16 getStackSizeOrProcCharges() { return m_stackSizeorProcCharges; };
 
     void AddStackSize(uint8 mod);
     void RemoveStackSize(uint8 mod);
@@ -437,26 +417,12 @@ public:
     void EventPeriodicManaPct(float);
     void EventPeriodicRegenManaStatPct(uint32 perc,uint32 stat);
     void EventPeriodicSpeedModify(int32 mod);
-    void RelocateEvents();
-    int32 event_GetInstanceID();
 
     // log message's
     void SendPeriodicAuraLog(uint32 amt, uint32 Flags);
     void SendPeriodicAuraLog(uint64 casterGuid, Unit* Target, SpellEntry *sp, uint32 Amount, int32 abs_dmg, uint32 resisted_damage, uint32 Flags, uint32 pSpellId = 0, bool crit = false);
 
     bool WasCastInDuel() { return m_castInDuel; }
-
-    SpellEntry * m_spellProto;
-    Modifier *mod;
-    AreaAuraList targets;//this is only used for AA
-
-    uint8 m_auraSlot;
-
-    uint32 m_castedItemId;
-    bool m_areaAura;        // Area aura stuff -> never passive.
-    uint8 m_auraFlags;
-    uint8 m_auraLevel;
-    uint32 m_triggeredSpellId; //this represents the triggering spell id
 
     // this stuff can be cached in spellproto.
     HEARTHSTONE_INLINE bool IsCombatStateAffecting()
@@ -489,12 +455,8 @@ public:
         return Spell::GetMechanicOfEffect(m_spellProto, i);
     }
 
-    bool m_castInDuel;
-
 private:
-    uint32 GetCasterFaction() { return m_casterfaction; }
-    void SetCasterFaction(uint32 faction){ m_casterfaction = faction; }
-    HEARTHSTONE_INLINE void DurationPctMod(uint32 mechanic);
+    void CalculateDuration();
 
     HEARTHSTONE_INLINE bool IsInrange(float x1, float y1, float z1, WorldObject* obj, float square_r)
     {
@@ -510,34 +472,36 @@ private:
     Unit* m_target;
     Player* p_target;
     WoWGuid m_casterGuid;
+    WoWGuid periodic_target;
 
-    uint32 timeleft;
-    int32 m_duration; // in msec
-    bool base_set;
-    int32 base_duration;
-    bool m_positive;
+    time_t m_expirationTime;
+    int32 m_duration;
+    bool m_castInDuel;
 
     uint32 m_modcount;
-    Modifier m_modList[3];
-
-    uint32 m_dynamicValue;
-    Player *Heal_and_Hump_newtargy;
-    uint32 Heal_and_Hump_Charges;
+    Modifier m_modList[3], *mod;
 
 protected:
-    uint32 m_casterfaction;
+    SpellEntry * m_spellProto;
+    bool m_dispelled;
+    bool m_applied, m_positive, m_deleted;
+    bool m_areaAura, m_creatureAA;        // Area aura stuff -> never passive.
+    int16 m_stackSizeorProcCharges;
+
+    uint8 m_auraSlot;
+
+    uint32 m_castedItemId;
+    uint16 m_auraFlags;
+    uint8 m_auraLevel;
+    uint32 m_triggeredSpellId; //this represents the triggering spell id
+    int16 m_interrupted;
 
     void SendInterrupted(uint8 result, WorldObject* m_caster);
     void SendChannelUpdate(uint32 time, WorldObject* m_caster);
     void SpecialCases();
-public:
-    bool m_deleted;
-    bool m_creatureAA;
-    int16 m_interrupted;
 
+public:
     HEARTHSTONE_INLINE bool IsInterrupted() { return ( m_interrupted >= 0 ); }
-
-public:
 
 };
 

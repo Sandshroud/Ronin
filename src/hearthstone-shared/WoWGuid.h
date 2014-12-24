@@ -62,7 +62,6 @@ public:
     operator double() const { return (double)this->operator uint64(); }
 
     void Clean();
-
     uint8 GenMask();
     uint8& operator[](int index) { ASSERT(index < sizeof(uint64)); return blocks[index]; }
     uint8 const& operator[](int index) const { ASSERT(index < sizeof(uint64)); return blocks[index]; }
@@ -92,10 +91,9 @@ public:
 
     bool empty() { return operator !(); };
     WGuidPacked *asPacked() { return new WGuidPacked(this); }
-    const uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
-    const uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
-    const uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }
-    const uint64 raw() { return this->operator uint64(); }
+    uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
+    uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
+    uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }
 };
 
 namespace std

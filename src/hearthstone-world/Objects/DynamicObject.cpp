@@ -131,7 +131,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
 
             if(GetDistanceSq(target) <= radius)
             {
-                pAura = new Aura(m_spellProto, m_aliveDuration, u_caster, target);
+                pAura = new Aura(m_spellProto, u_caster, target);
                 for(uint32 i = 0; i < 3; ++i)
                 {
                     if(m_spellProto->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)

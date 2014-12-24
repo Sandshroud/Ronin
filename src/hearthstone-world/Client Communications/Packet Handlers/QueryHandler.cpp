@@ -141,24 +141,28 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
 
 void BuildCorpseInfo(WorldPacket* data, Corpse* corpse)
 {
-    MapInfo *pMapinfo = WorldMapInfoStorage.LookupEntry(corpse->GetMapId());
-    if(pMapinfo == NULL || (pMapinfo->type == INSTANCE_NULL || pMapinfo->type == INSTANCE_PVP))
+    *data << uint8(corpse == NULL ? 0 : 1);
+    if(corpse != NULL)
     {
-        *data << uint8(0x01); //show ?
-        *data << corpse->GetMapId(); // mapid (that tombstones shown on)
-        *data << corpse->GetPositionX();
-        *data << corpse->GetPositionY();
-        *data << corpse->GetPositionZ();
-        *data << corpse->GetMapId();
-    }
-    else
-    {
-        *data << uint8(0x01); //show ?
-        *data << pMapinfo->repopmapid; // mapid (that tombstones shown on)
-        *data << pMapinfo->repopx;
-        *data << pMapinfo->repopy;
-        *data << pMapinfo->repopz;
-        *data << corpse->GetMapId(); //instance mapid (needs to be same as mapid to be able to recover corpse)
+        float x, y, z;
+        uint32 mapId = corpse->GetMapId(), mapId2 = mapId;
+        corpse->GetPosition(x, y, z);
+        if(MapInfo *pMapinfo = WorldMapInfoStorage.LookupEntry(corpse->GetMapId()))
+        {
+            if(pMapinfo->type != INSTANCE_NULL && pMapinfo->type != INSTANCE_PVP)
+            {
+                mapId = pMapinfo->repopmapid;
+                x = pMapinfo->repopx;
+                y = pMapinfo->repopy;
+                z = pMapinfo->repopz;
+            }
+        }
+        *data << mapId;
+        *data << x;
+        *data << y;
+        *data << z;
+        *data << mapId2;
+        *data << uint32(0);
     }
 }
 
@@ -169,12 +173,8 @@ void WorldSession::HandleCorpseQueryOpcode(WorldPacket &recv_data)
 {
     sLog.outDebug("WORLD: Received MSG_CORPSE_QUERY");
 
-    Corpse *pCorpse= objmgr.GetCorpseByOwner(GetPlayer()->GetLowGUID());
-    if(pCorpse == NULL)
-        return;
-
     WorldPacket data(MSG_CORPSE_QUERY, 21);
-    BuildCorpseInfo(&data, pCorpse);
+    BuildCorpseInfo(&data, objmgr.GetCorpseByOwner(GetPlayer()->GetLowGUID()));
     SendPacket(&data);
 }
 

@@ -133,17 +133,15 @@ WorldPacket* WorldSession::BuildQuestQueryResponse(Quest *qst)
 *****************/
 QuestLogEntry::QuestLogEntry()
 {
-    mInitialized = false;
-    m_quest = NULL;
-    mDirty = false;
     m_slot = -1;
-    m_player_slain = 0;
-    Quest_Status = QUEST_STATUS__INCOMPLETE;
+    m_quest = NULL;
+    m_players_slain = 0;
+    m_questStatus = QUEST_STATUS__INCOMPLETE;
 }
 
 QuestLogEntry::~QuestLogEntry()
 {
-    m_plr = NULL;
+    m_Player = NULL;
     m_quest = NULL;
 }
 
@@ -153,15 +151,14 @@ void QuestLogEntry::Init(Quest* quest, Player* plr, uint32 slot)
     ASSERT(plr);
 
     m_quest = quest;
-    m_plr = plr;
+    m_Player = plr;
     m_slot = slot;
-    m_time_left = 0;
 
-    iscastquest = false;
+    m_isCastQuest = false;
     uint32 requiredSpell = GetRequiredSpell();
     if(requiredSpell)
     {
-        iscastquest = true;
+        m_isCastQuest = true;
         if (!plr->HasQuestSpell(requiredSpell))
             plr->quest_spells.insert(requiredSpell);
     }
@@ -175,103 +172,58 @@ void QuestLogEntry::Init(Quest* quest, Player* plr, uint32 slot)
         }
     }
 
-    m_time_left = m_quest->required_timelimit;
+    m_expirationTime = UNIXTIME+(m_quest->required_timelimit/1000);
 
     // update slot
     plr->SetQuestLogSlot(this, slot);
 
-    mDirty = true;
-
-    memset(m_mobcount, 0, sizeof(uint32)*4);
-    memset(m_areatriggers, 0, sizeof(uint32)*4);
+    memset(m_objectiveCount, 0, sizeof(uint32)*4);
+    m_areaTriggerFlags = 0;
+    m_players_slain = 0;
 }
 
-void QuestLogEntry::ClearAffectedUnits()
+void QuestLogEntry::Load(Field *fields)
 {
-    if (m_affected_units.size()>0)
-        m_affected_units.clear();
+    //guid,slot,questid,timestamp,count1,count2,count3,count4,playerkillcount,explorationflags
+    m_expirationTime = fields[3].GetUInt64();
+    m_objectiveCount[0] = fields[4].GetUInt16();
+    m_objectiveCount[1] = fields[5].GetUInt16();
+    m_objectiveCount[2] = fields[6].GetUInt16();
+    m_objectiveCount[3] = fields[7].GetUInt16();
+    m_areaTriggerFlags = fields[8].GetUInt8();
+    m_players_slain = fields[9].GetUInt32();
+
+    if(CanBeFinished())
+        SetQuestStatus(QUEST_STATUS__COMPLETE);
 }
-void QuestLogEntry::AddAffectedUnit(Unit* target)
+
+void QuestLogEntry::AddAffectedUnit(WoWGuid guid)
 {
-    if (!target)
-        return;
-    if (!IsUnitAffected(target))
-        m_affected_units.insert(target->GetGUID());
+    if(m_affected_units.find(guid) == m_affected_units.end())
+        m_affected_units.insert(guid);
 }
-bool QuestLogEntry::IsUnitAffected(Unit* target)
+
+bool QuestLogEntry::IsUnitAffected(WoWGuid guid)
 {
-    if (!target)
-        return true;
-    if (m_affected_units.find(target->GetGUID()) != m_affected_units.end())
+    if (m_affected_units.find(guid) != m_affected_units.end())
         return true;
     return false;
 }
 
-void QuestLogEntry::SaveToDB(QueryBuffer * buf)
+void QuestLogEntry::ClearAffectedUnits()
 {
-    ASSERT(m_slot != -1);
-    if(!mDirty)
-        return;
-
-    //Made this into a replace not an insert
-    //CharacterDatabase.Execute("DELETE FROM questlog WHERE player_guid=%u AND quest_id=%u", m_plr->GetGUIDLow(), m_quest->id);
-    std::stringstream ss;
-    ss << "REPLACE INTO questlog VALUES(";
-    ss << m_plr->GetLowGUID() << "," << m_quest->id << "," << m_slot << "," << m_time_left;
-    for(int i = 0; i < 4; i++)
-        ss << "," << m_areatriggers[i];
-
-    for(int i = 0; i < 4; i++)
-        ss << "," << m_mobcount[i];
-
-    ss << "," << m_player_slain;
-
-    ss << ")";
-
-    if( buf == NULL )
-        CharacterDatabase.Execute( ss.str().c_str() );
-    else
-        buf->AddQueryStr(ss.str());
-}
-
-bool QuestLogEntry::LoadFromDB(Field *fields)
-{
-    // playerguid,questid,timeleft,area0,area1,area2,area3,kill0,kill1,kill2,kill3
-    int f = 3;
-    ASSERT(m_plr && m_quest);
-    m_time_left = fields[f].GetUInt32();
-    f++;
-    for(int i = 0; i < 4; i++)
-    {
-        m_areatriggers[i] = fields[f++].GetUInt32();
-        if(m_quest->required_areatriggers[i])
-            CALL_QUESTSCRIPT_EVENT(m_quest->id, OnCrossAreaTrigger)(m_quest->required_areatriggers[i], m_plr, this);
-    }
-
-    for(int i = 0; i < 4; i++)
-    {
-        m_mobcount[i] = fields[f++].GetUInt32();
-        if(GetQuest()->required_mobtype[i] == QUEST_MOB_TYPE_CREATURE)
-            CALL_QUESTSCRIPT_EVENT(m_quest->id, OnCreatureKill)(GetQuest()->required_mob[i], m_plr, this);
-        else
-            CALL_QUESTSCRIPT_EVENT(m_quest->id, OnGameObjectActivate)(GetQuest()->required_mob[i], m_plr, this);
-    }
-
-    m_player_slain = fields[f].GetUInt32();
-    mDirty = false;
-    return true;
+    m_affected_units.clear();
 }
 
 bool QuestLogEntry::CanBeFinished()
 {
-    if(m_quest->qst_is_repeatable == 2 && m_plr->GetFinishedDailiesCount() >= 25)
+    if(m_quest->qst_is_repeatable == 2 && m_Player->GetFinishedDailiesCount() >= 25)
         return false;
 
-    uint32 i = 0;
-    for(i = 0; i < 4; i++)
+    for(uint8 i = 0; i < 4; i++)
     {
         bool required = false;
-        if(iscastquest)
+        if(m_isCastQuest)
         {
             if(m_quest->required_spell || m_quest->required_mob[i])
                 required = true;
@@ -283,62 +235,51 @@ bool QuestLogEntry::CanBeFinished()
         }
 
         if(required)
-            if(m_quest->required_mobcount[i] > m_mobcount[i])
+            if(m_quest->required_mobcount[i] > m_objectiveCount[i])
                 return false;
     }
 
-    for(i = 0; i < 6; i++)
+    for(uint8 i = 0; i < 6; i++)
         if(m_quest->required_item[i])
-            if(m_plr->GetItemInterface()->GetItemCount(m_quest->required_item[i]) < m_quest->required_itemcount[i])
+            if(m_Player->GetItemInterface()->GetItemCount(m_quest->required_item[i]) < m_quest->required_itemcount[i])
                 return false;
 
     //Check for Gold & AreaTrigger Requirement s
-    for(i = 0; i < 4; i++)
+    for(uint8 i = 0; i < 4; i++)
     {
-        if(m_quest->required_money && (m_plr->GetUInt32Value(PLAYER_FIELD_COINAGE) < m_quest->required_money))
+        if(m_quest->required_money && (m_Player->GetUInt32Value(PLAYER_FIELD_COINAGE) < m_quest->required_money))
             return false;
 
         if(m_quest->required_areatriggers[i])
         {
-            if(m_areatriggers[i] == 0)
+            if((m_areaTriggerFlags & (1<<i)) == 0)
                 return false;
         }
     }
 
-    if(m_quest->required_player_kills != m_player_slain)
+    if(m_quest->required_player_kills != m_players_slain)
         return false;
 
-    if(m_quest->required_timelimit && !m_time_left)
+    if(m_quest->required_timelimit && isExpired())
         return false;
     return true;
 }
 
-void QuestLogEntry::SubtractTime(uint32 value)
-{
-    if(m_time_left <= value)
-        m_time_left = 0;
-    else
-        m_time_left-=value;
-}
-
 void QuestLogEntry::SetPlayerSlainCount(uint32 count)
 {
-    m_player_slain = count;
-    mDirty = true;
+    m_players_slain = count;
 }
 
-void QuestLogEntry::SetMobCount(uint32 i, uint32 count)
+void QuestLogEntry::SetAreaTrigger(uint8 i)
 {
-    ASSERT(i<4);
-    m_mobcount[i] = count;
-    mDirty = true;
+    ASSERT(i<8);
+    m_areaTriggerFlags |= 1<<i;
 }
 
-void QuestLogEntry::SetAreaTrigger(uint32 i)
+void QuestLogEntry::SetObjectiveCount(uint8 i, uint16 count)
 {
     ASSERT(i<4);
-    m_areatriggers[i] = 1;
-    mDirty = true;
+    m_objectiveCount[i] = count;
 }
 
 void QuestLogEntry::SetSlot(int32 i)
@@ -350,13 +291,12 @@ void QuestLogEntry::SetSlot(int32 i)
 void QuestLogEntry::Finish()
 {
     uint32 base = GetBaseField(m_slot);
-    m_plr->SetUInt32Value(base + 0, 0);
-    m_plr->SetUInt32Value(base + 1, 0);
-    m_plr->SetUInt32Value(base + 2, 0);
+    m_Player->SetUInt32Value(base + 0, 0);
+    m_Player->SetUInt32Value(base + 1, 0);
+    m_Player->SetUInt32Value(base + 2, 0);
 
     // clear from player log
-    m_plr->SetQuestLogSlot(NULL, m_slot);
-    m_plr->PushToRemovedQuests(m_quest->id);
+    m_Player->SetQuestLogSlot(NULL, m_slot);
 
     // delete ourselves
     delete this;
@@ -364,86 +304,58 @@ void QuestLogEntry::Finish()
 
 void QuestLogEntry::UpdatePlayerFields()
 {
-    if(!m_plr)
+    if(m_Player == NULL)
         return;
 
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 0, m_quest->id);
-
-    uint32 i = 0, field0 = 0x04;
+    uint32 field0 = 0;
     uint64 field1 = 0;
-
-    // explored areas
-    if(m_quest->count_requiredareatriggers)
+    for(uint8 i = 0; i < 4; i++)
     {
-        uint32 count = 0;
-        for(i = 0; i < 4; i++)
+        if(m_quest->required_mob[i])
         {
-            if(m_quest->required_areatriggers[i])
-            {
-                if(m_areatriggers[i] == 1)
-                {
-                    count++;
-                }
-            }
-        }
-
-        if(count == m_quest->count_requiredareatriggers)
-        {
-            field1 |= 0x01000000;
-        }
+            if(m_objectiveCount[i] == 0)
+                continue;
+            field1 |= uint64(m_objectiveCount[i])<<(i*16);
+        } else if(m_quest->required_areatriggers[i])
+            field1 |= uint64((m_areaTriggerFlags&(1<<i)))<<(i*16);
     }
 
-    // mob hunting
-    if(m_quest->count_required_mob)
-    {
-        // optimized this - burlex
-        uint8 * p = (uint8*)&field1;
-        for(i = 0; i < 4; i++)
-        {
-            if( m_quest->required_mob[i] && m_mobcount[i] > 0 )
-                p[2*i] |= (uint8)m_mobcount[i];
-        }
-    }
+    if( m_questStatus == QUEST_STATUS__FAILED )
+        field0 = 0x02;
+    else if(CanBeFinished() || m_questStatus == QUEST_STATUS__COMPLETE )
+        field0 = 0x01;
 
-    if( Quest_Status == QUEST_STATUS__FAILED )
-        field0 |= 2;
-    else if(CanBeFinished() || Quest_Status == QUEST_STATUS__COMPLETE )
-        field0 |= 0x01000001;
-
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 1, field0);
-    m_plr->SetUInt64Value(PLAYER_QUEST_LOG + m_slot*5 + 2, field1);
-    m_plr->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 4, ( m_time_left ? static_cast<uint32>(UNIXTIME + (m_time_left/1000)) : 0 ));
-
-    // Timed quest handler.
-    if(m_time_left && !sEventMgr.HasEvent( m_plr,EVENT_TIMED_QUEST_EXPIRE ))
-        m_plr->EventTimedQuestExpire(m_quest, this , m_slot, 1000);
+    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 0, m_quest->id);
+    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 1, field0);
+    m_Player->SetUInt64Value(PLAYER_QUEST_LOG + m_slot*5 + 2, field1);
+    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 4, m_expirationTime);
 }
 
 void QuestLogEntry::SendQuestComplete()
 {
     WorldPacket data(SMSG_QUESTUPDATE_COMPLETE, 4);
     data << m_quest->id;
-    m_plr->GetSession()->SendPacket(&data);
-    CALL_QUESTSCRIPT_EVENT(m_quest->id, OnQuestComplete)(m_plr, this);
+    m_Player->GetSession()->SendPacket(&data);
+    CALL_QUESTSCRIPT_EVENT(m_quest->id, OnQuestComplete)(m_Player, this);
 }
 
-void QuestLogEntry::SendUpdateAddKill(uint32 i)
+void QuestLogEntry::SendUpdateAddKill(uint8 i)
 {
-    sQuestMgr.SendQuestUpdateAddKill(m_plr, m_quest->id, m_quest->required_mob[i], m_mobcount[i], m_quest->required_mobcount[i], 0);
+    sQuestMgr.SendQuestUpdateAddKill(m_Player, m_quest->id, m_quest->required_mob[i], m_objectiveCount[i], m_quest->required_mobcount[i], 0);
 }
 
 uint32 QuestLogEntry::GetRequiredSpell()
 {
     if(m_quest->required_spell)
     {
-        if(!m_plr->HasSpell(m_quest->required_spell))
+        if(!m_Player->HasSpell(m_quest->required_spell))
         {
             SpellEntry* reqspell = dbcSpell.LookupEntry(m_quest->required_spell);
              // Spell has a power type, so we check if player has spells with the same namehash, and replace it with that.
-            if(reqspell && (reqspell->powerType != m_plr->getPowerType()))
+            if(reqspell && (reqspell->powerType != m_Player->getPowerType()))
             {
-                uint32 newspell = m_plr->FindSpellWithNamehash(reqspell->NameHash);
-                if(newspell != 0) return newspell;
+                if(uint32 newspell = m_Player->FindSpellWithNamehash(reqspell->NameHash))
+                    return newspell;
             }
         }
 

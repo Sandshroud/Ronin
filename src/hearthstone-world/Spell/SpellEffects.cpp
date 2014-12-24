@@ -520,22 +520,13 @@ void Spell::SpellEffectApplyAura(uint32 i)  // Apply Aura
     Aura* pAura = NULL;
     if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
     {
-        int32 Duration = GetDuration();
-
-        // Handle diminishing returns, if it should be resisted, it'll make duration 0 here.
-        if(!GetSpellProto()->isPassiveSpell()) // Passive
-            ::ApplyDiminishingReturnTimer(&Duration, unitTarget, GetSpellProto());
-
-        if(!Duration) //maybe add some resist messege to client here ?
-            return;
-
         if(g_caster && g_caster->GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
-            pAura = new Aura(GetSpellProto(), Duration, g_caster->m_summoner, unitTarget);
-        else pAura = new Aura(GetSpellProto(), Duration, m_caster, unitTarget);
+            pAura = new Aura(GetSpellProto(), g_caster->m_summoner, unitTarget);
+        else pAura = new Aura(GetSpellProto(), m_caster, unitTarget);
         if(pAura == NULL)
             return;
 
-        pAura->m_triggeredSpellId = m_triggeredSpellId; //this is required for triggered spells
+        pAura->SetTriggerSpellId(m_triggeredSpellId); //this is required for triggered spells
         m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
     } else pAura = m_tempAuras.at(unitTarget->GetGUID());
 
@@ -696,7 +687,7 @@ void Spell::SpellEffectQuestComplete(uint32 i) // Quest Complete
             return;
 
         qle->SendQuestComplete();
-        qle->Quest_Status = QUEST_STATUS__COMPLETE;
+        qle->SetQuestStatus(QUEST_STATUS__COMPLETE);
         qle->UpdatePlayerFields();
     }
 }
@@ -1363,29 +1354,7 @@ void Spell::SpellEffectSendEvent(uint32 i) //Send Event
 
 void Spell::SpellEffectApplyAA(uint32 i) // Apply Area Aura
 {
-    if(!unitTarget || !unitTarget->isAlive() || u_caster != unitTarget)
-        return;
 
-    //check if we already have stronger aura
-    Aura* pAura = NULL;
-    if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
-    {
-        pAura = new Aura(GetSpellProto(),GetDuration(),m_caster,unitTarget);
-        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
-
-        float r = GetRadius(i);
-        r *= r;
-
-        if( u_caster->IsPlayer() || ( u_caster->GetTypeId() == TYPEID_UNIT && (castPtr<Creature>(u_caster)->IsTotem() || castPtr<Creature>(u_caster)->IsPet()) ) )
-            sEventMgr.AddEvent(pAura, &Aura::EventUpdatePlayerAA, r, EVENT_AREAAURA_UPDATE, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        else if( u_caster->GetTypeId() == TYPEID_UNIT )
-        {
-            sEventMgr.AddEvent(pAura, &Aura::EventUpdateCreatureAA, r, EVENT_AREAAURA_UPDATE, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            pAura->m_creatureAA = true;
-        }
-    } else pAura = m_tempAuras.at(unitTarget->GetGUID());
-
-    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i], damage, GetSpellProto()->EffectMiscValue[i], GetSpellProto()->EffectMiscValueB[i], i);
 }
 
 void Spell::SpellEffectLearnSpell(uint32 i) // Learn Spell
@@ -3972,9 +3941,9 @@ void Spell::SpellEffectTitanGrip(uint32 i)
 bool Spell::SpellEffectUpdateQuest(uint32 questid)
 {
     QuestLogEntry *en = p_caster->GetQuestLogForEntry( questid );
-    if( en != NULL && en->GetMobCount( 0 ) < en->GetQuest()->required_mobcount[0])
+    if( en != NULL && en->GetObjectiveCount( 0 ) < en->GetQuest()->required_mobcount[0])
     {
-        en->SetMobCount( 0, en->GetMobCount( 0 ) + 1 );//(collumn,count)
+        en->SetObjectiveCount( 0, en->GetObjectiveCount( 0 ) + 1 );//(collumn,count)
         en->SendUpdateAddKill( 0 );//(collumn)
         en->UpdatePlayerFields();
         return true;
@@ -4180,25 +4149,12 @@ void Spell::SpellEffectClearFinishedQuest(uint32 i)
     if (playerTarget == NULL)
         return;
 
-    playerTarget->m_finishedQuests.erase(GetSpellProto()->EffectMiscValue[i]);
+    playerTarget->m_completedQuests.erase(GetSpellProto()->EffectMiscValue[i]);
 }
 
 void Spell::SpellEffectApplyDemonAura( uint32 i )
 {
-    if (u_caster == NULL || !u_caster->IsPet() || castPtr<Pet>(u_caster)->GetPetOwner() == NULL)
-        return;
-    Aura *pAura = new Aura(GetSpellProto(), GetDuration(), u_caster, u_caster), *otheraura = new Aura(GetSpellProto(), GetDuration(), u_caster, castPtr<Pet>(u_caster)->GetPetOwner());
-    pAura->targets.insert(castPtr<Pet>(u_caster)->GetPetOwner()->GetLowGUID());
-    for (uint32 j=0; j<3; ++j)
-    {
-        int32 basePoints = 0;
-        basePoints += CalculateEffect(j, unitTarget, basePoints);
-        pAura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget, basePoints), GetSpellProto()->EffectMiscValue[j],GetSpellProto()->EffectMiscValueB[i], j);
-        otheraura->AddMod(GetSpellProto()->EffectApplyAuraName[j], j == i? damage : CalculateEffect(j, unitTarget, basePoints), GetSpellProto()->EffectMiscValue[j],GetSpellProto()->EffectMiscValueB[i], j);
-    }
 
-    u_caster->AddAura(pAura);
-    castPtr<Pet>(u_caster)->GetPetOwner()->AddAura(otheraura);
 }
 
 void Spell::SpellEffectRemoveAura(uint32 i)

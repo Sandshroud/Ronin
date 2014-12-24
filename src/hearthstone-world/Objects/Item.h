@@ -225,7 +225,7 @@ public:
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     //! DB Serialization
-    void LoadFromDB( Field *fields, Player* plr, bool light );
+    virtual void LoadFromDB( Field *fields, Player* plr, bool light );
     void SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffer* buf );
     bool LoadAuctionItemFromDB( uint64 guid );
     void DeleteFromDB();

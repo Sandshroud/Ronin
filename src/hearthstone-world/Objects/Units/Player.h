@@ -266,12 +266,6 @@ struct DamageSplit
     };
 };
 
-struct LoginAura
-{
-    uint32 id;
-    int32 dur;
-};
-
 //Manaregen
 const float BaseRegen[100] =
 {
@@ -489,21 +483,21 @@ struct EquipmentSet
 struct PlayerSkill
 {
     SkillLineEntry *Skill;
-    uint32 CurrentValue;
-    uint32 MaximumValue;
-    uint32 BonusValue;
-    uint32 BonusTalent;
+    uint8 SkillPos;
+    uint16 CurrentValue;
+    uint16 MaximumValue;
+    uint16 BonusValue;
+    uint16 BonusTalent;
     float GetSkillUpChance();
     bool Reset(uint32 Id);
-    uint8 SkillPos;
 };
 
 class ArenaTeam;
 struct PlayerCooldown
 {
-    uint32 ExpireTime;
-    uint32 ItemId;
     uint32 SpellId;
+    uint32 ItemId;
+    time_t ExpireTime;
 };
 
 enum ItemBonusModSlot
@@ -548,6 +542,97 @@ enum ItemBonusModSlot
 typedef std::map<std::pair<uint64, uint32>, std::pair<uint32, int32>> ItemBonusModMap;
 typedef std::map<uint32, ItemBonusModMap> ItemBonusModByType;
 
+enum PlayerLoadOrder : uint8
+{
+    PLAYER_LO_DATA = 0,
+    PLAYER_LO_ACTIONS,
+    PLAYER_LO_AURAS,
+    PLAYER_LO_BANS,
+    PLAYER_LO_COOLDOWNS,
+    PLAYER_LO_CRITERIA_DATA,
+    PLAYER_LO_EQUIPMENTSETS,
+    PLAYER_LO_EXPLORATION,
+    PLAYER_LO_FACTIONS,
+    PLAYER_LO_GLYPHS,
+    PLAYER_LO_ITEMS,
+    PLAYER_LO_KNOWN_TITLES,
+    PLAYER_LO_POWERS,
+    PLAYER_LO_QUEST_LOG,
+    PLAYER_LO_QUESTS_COMPLETED,
+    PLAYER_LO_SKILLS,
+    PLAYER_LO_SOCIAL,
+    PLAYER_LO_SPELLS,
+    PLAYER_LO_TALENTS,
+    PLAYER_LO_TAXIMASKS,
+    PLAYER_LO_TIMESTAMPS
+};
+
+enum PlayerLoadFields
+{
+    PLAYERLOAD_FIELD_LOW_GUID = 0,
+    PLAYERLOAD_FIELD_ACCOUNT_ID,
+    PLAYERLOAD_FIELD_NAME,
+    PLAYERLOAD_FIELD_RACE,
+    PLAYERLOAD_FIELD_CLASS,
+    PLAYERLOAD_FIELD_GENDER,
+    PLAYERLOAD_FIELD_CUSTOMIZE_FLAGS,
+    PLAYERLOAD_FIELD_LEVEL,
+    PLAYERLOAD_FIELD_XP_DISABLED,
+    PLAYERLOAD_FIELD_EXPERIENCE,
+    PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
+    PLAYERLOAD_FIELD_SELECTED_TITLE,
+    PLAYERLOAD_FIELD_GOLD,
+    PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS,
+    PLAYERLOAD_FIELD_CURRENTHP,
+    PLAYERLOAD_FIELD_CURRENT_PVPRANK,
+    PLAYERLOAD_FIELD_PLAYERBYTES,
+    PLAYERLOAD_FIELD_PLAYERBYTES2,
+    PLAYERLOAD_FIELD_PLAYERBYTES3,
+    PLAYERLOAD_FIELD_PLAYER_BYTES,
+    PLAYERLOAD_FIELD_PLAYER_BYTES2,
+    PLAYERLOAD_FIELD_MAPID,
+    PLAYERLOAD_FIELD_POSITION_X,
+    PLAYERLOAD_FIELD_POSITION_Y,
+    PLAYERLOAD_FIELD_POSITION_Z,
+    PLAYERLOAD_FIELD_POSITION_O,
+    PLAYERLOAD_FIELD_INSTANCE_ID,
+    PLAYERLOAD_FIELD_ZONEID,
+    PLAYERLOAD_FIELD_ONLINESTATUS,
+    PLAYERLOAD_FIELD_BINDMAPID,
+    PLAYERLOAD_FIELD_BINDPOSITION_X,
+    PLAYERLOAD_FIELD_BINDPOSITION_Y,
+    PLAYERLOAD_FIELD_BINDPOSITION_Z,
+    PLAYERLOAD_FIELD_BINDZONEID,
+    PLAYERLOAD_FIELD_ISRESTING,
+    PLAYERLOAD_FIELD_RESTSTATE,
+    PLAYERLOAD_FIELD_RESTTIME,
+    PLAYERLOAD_FIELD_DEATHSTATE,
+    PLAYERLOAD_FIELD_FIRST_LOGON,
+    PLAYERLOAD_FIELD_FORCE_RENAME_PENDING,
+    PLAYERLOAD_FIELD_TOTALSTABLESLOTS,
+    PLAYERLOAD_FIELD_ENTRYPOINT_MAP,
+    PLAYERLOAD_FIELD_ENTRYPOINT_X,
+    PLAYERLOAD_FIELD_ENTRYPOINT_Y,
+    PLAYERLOAD_FIELD_ENTRYPOINT_Z,
+    PLAYERLOAD_FIELD_ENTRYPOINT_O,
+    PLAYERLOAD_FIELD_TAXI_PATH,
+    PLAYERLOAD_FIELD_TAXI_LASTNODE,
+    PLAYERLOAD_FIELD_TAXI_MOUNTID,
+    PLAYERLOAD_FIELD_TRANSPORTERGUID,
+    PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_X,
+    PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Y,
+    PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Z,
+    PLAYERLOAD_FIELD_INSTANCE_DIFFICULTY,
+    PLAYERLOAD_FIELD_RAID_DIFFICULTY,
+    PLAYERLOAD_FIELD_ACTIVE_SPEC,
+    PLAYERLOAD_FIELD_SPEC_COUNT,
+    PLAYERLOAD_FIELD_TALENT_RESET_COUNTER,
+    PLAYERLOAD_FIELD_AVAILABLE_TALENT_POINTS,
+    PLAYERLOAD_FIELD_ACTIVE_TALENT_SPECSTACK,
+    PLAYERLOAD_FIELD_NEEDS_POSITION_RESET,
+    PLAYERLOAD_FIELD_NEEDS_TALENT_RESET
+};
+
 //====================================================================
 //  Player
 //  Class that holds every created character on the server.
@@ -565,7 +650,7 @@ typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
 typedef std::unordered_map<uint32, PlayerSkill>     SkillMap;
-typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
+typedef std::map<uint8, PlayerSkill*>               SkillReferenceMap;
 typedef std::set<Player* *>                         ReferenceSet;
 typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
 
@@ -620,6 +705,54 @@ public:
     virtual void setLevel(uint32 level);
 
     /************************************************************************/
+    /* Player loading and savings                                           */
+    /* Serialize character to db                                            */
+    /************************************************************************/
+    void SaveToDB(bool bNewCharacter);
+
+    bool LoadFromDB();
+    void LoadFromDBProc(QueryResultVector & results);
+
+    void _LoadPlayerAuras(QueryResult * result);
+    void _SavePlayerAuras(QueryBuffer * buf);
+
+    void _LoadPlayerCooldowns(QueryResult * result);
+    void _SavePlayerCooldowns(QueryBuffer * buf);
+
+    void _LoadEquipmentSets(QueryResult * result);
+    void _SaveEquipmentSets(QueryBuffer * buf);
+
+    void _LoadExplorationData(QueryResult * result);
+    void _SaveExplorationData(QueryBuffer * buf);
+
+    void _LoadKnownTitles(QueryResult * result);
+    void _SaveKnownTitles(QueryBuffer * buf);
+
+    void _LoadPlayerPowers(QueryResult * result);
+    void _SavePlayerPowers(QueryBuffer * buf);
+
+    void _LoadPlayerQuestLog(QueryResult * result);
+    void _SavePlayerQuestLog(QueryBuffer * buf);
+
+    void _LoadCompletedQuests(QueryResult * result);
+    void _SaveCompletedQuests(QueryBuffer * buf);
+
+    void _LoadSkills(QueryResult * result);
+    void _SaveSkills(QueryBuffer * buf);
+
+    void _LoadSocial(QueryResult * result);
+    void _SaveSocial(QueryBuffer * buf);
+
+    void _LoadSpells(QueryResult * result);
+    void _SaveSpells(QueryBuffer * buf);
+
+    void _LoadTaxiMasks(QueryResult * result);
+    void _SaveTaxiMasks(QueryBuffer * buf);
+
+    void _LoadTimeStampData(QueryResult * result);
+    void _SaveTimeStampData(QueryBuffer * buf);
+
+    /************************************************************************/
     /* Talent System                                                        */
     /************************************************************************/
     bool LearnTalent(uint32 talent_id, uint8 requested_rank) { return m_talentInterface.LearnTalent(talent_id, requested_rank); }
@@ -635,22 +768,21 @@ public:
     /* Skill System                                                         */
     /************************************************************************/
 
-    void _AdvanceSkillLine(uint32 SkillLine, uint32 Count = 1);
-    void _AddSkillLine(uint32 SkillLine, uint32 Current, uint32 Max);
-    uint32 _GetSkillLineMax(uint32 SkillLine);
-    uint32 _GetSkillLineCurrent(uint32 SkillLine, bool IncludeBonus = true);
-    void _RemoveSkillLine(uint32 SkillLine);
+    void _AdvanceSkillLine(uint16 SkillLine, uint16 Count = 1);
+    void _AddSkillLine(uint16 SkillLine, uint16 Current, uint16 Max);
+    uint16 _GetSkillLineMax(uint16 SkillLine);
+    uint16 _GetSkillLineCurrent(uint16 SkillLine, bool IncludeBonus = true);
+    void _RemoveSkillLine(uint16 SkillLine);
     void _UpdateMaxSkillCounts();
-    void _ModifySkillBonus(uint32 SkillLine, int32 Delta);
-    void _ModifySkillBonusByType(uint32 SkillType, int32 Delta);
-    bool _HasSkillLine(uint32 SkillLine);
-    void RemoveSpellsFromLine(uint32 skill_line);
+    void _ModifySkillBonus(uint16 SkillLine, int16 Delta);
+    void _ModifySkillBonusByType(uint16 SkillType, int16 Delta);
+    bool _HasSkillLine(uint16 SkillLine);
+    void RemoveSpellsFromLine(uint16 skill_line);
     void _RemoveAllSkills();
     void _RemoveLanguages();
     void _AddLanguages(bool All);
-    void _AdvanceAllSkills(uint32 count, bool skipprof = false, uint32 max = 0);
-    void _ModifySkillMaximum(uint32 SkillLine, uint32 NewMax);
-
+    void _AdvanceAllSkills(uint16 count, bool skipprof = false, uint16 max = 0);
+    void _ModifySkillMaximum(uint16 SkillLine, uint16 NewMax);
 
     void RecalculateHonor();
 
@@ -688,9 +820,6 @@ public:
 
 protected:
     void _Cooldown_Add(uint32 Type, uint32 Misc, uint32 Time, uint32 SpellId, uint32 ItemId);
-    void _LoadPlayerCooldowns(QueryResult * result);
-    void _SavePlayerCooldowns(QueryBuffer * buf);
-
     // END COOLDOWNS
 
 public:
@@ -777,11 +906,9 @@ public:
     HEARTHSTONE_INLINE void SetQuestSharer(uint32 guid){ m_questSharer = guid; }
     void                SetQuestLogSlot(QuestLogEntry *entry, uint32 slot);
 
-    HEARTHSTONE_INLINE void     PushToRemovedQuests(uint32 questid) { m_removequests.insert(questid);}
-    HEARTHSTONE_INLINE uint32       GetFinishedDailiesCount() { return (uint32)m_finishedDailyQuests.size(); }
-    void                AddToFinishedQuests(uint32 quest_id);
-    void                AddToFinishedDailyQuests(uint32 quest_id);
-    void                EventTimedQuestExpire(Quest *qst, QuestLogEntry *qle, uint32 log_slot, uint32 interval);
+    HEARTHSTONE_INLINE uint32 GetFinishedDailiesCount() { return (uint32)m_completedDailyQuests.size(); }
+    void                AddToCompletedQuests(uint32 quest_id);
+    void                AddToCompletedDailyQuests(uint32 quest_id);
 
     bool                HasFinishedQuest(uint32 quest_id);
     bool                HasFinishedDailyQuest(uint32 quest_id);
@@ -797,22 +924,20 @@ public:
     uint32 GetQuestSlotQuestId(uint16 slot) const { return GetUInt32Value(PLAYER_QUEST_LOG + slot * 5 + (uint32)NULL); }
 
     //Quest related variables
-    QuestLogEntry*      m_questlog[QUEST_LOG_COUNT];
+    QuestLogEntry *m_questlog[QUEST_LOG_COUNT];
     std::set<uint32>    m_QuestGOInProgress;
-    std::set<uint32>    m_removequests;
-    std::set<uint32>    m_finishedQuests;
-    std::set<uint32>    m_finishedDailyQuests;
     uint32              m_questSharer;
     std::set<uint32>    quest_spells;
     std::set<uint32>    quest_mobs;
-    Mutex               DailyMutex;
+
+    Mutex DailyMutex;
+    std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
 
     void EventPortToGM(uint32 guid);
     HEARTHSTONE_INLINE uint32 GetTeam() { return m_team; }
     HEARTHSTONE_INLINE void SetTeam(uint32 t) { m_team = t; m_bgTeam=t; }
     HEARTHSTONE_INLINE void ResetTeam() { m_team = myRace->TeamId; m_bgTeam=m_team; }
 
-    void CalcDamage();
     uint32 GetMainMeleeDamage(uint32 AP_owerride); //i need this for windfury
 
     const WoWGuid& GetSelection( ) const { return m_curSelection; }
@@ -1057,11 +1182,11 @@ public:
     /************************************************************************/
     /* Item Interface                                                       */
     /************************************************************************/
-    HEARTHSTONE_INLINE ItemInterface* GetItemInterface() { return m_ItemInterface; } // Player Inventory Item storage
+    HEARTHSTONE_INLINE ItemInterface* GetItemInterface() { return &m_ItemInterface; } // Player Inventory Item storage
     HEARTHSTONE_INLINE void ApplyItemMods(Item* item, int16 slot, bool apply,bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
 
     // item interface variables
-    ItemInterface* m_ItemInterface;
+    ItemInterface m_ItemInterface;
 
     /************************************************************************/
     /* Loot                                                                 */
@@ -1092,19 +1217,9 @@ public:
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     virtual void DestroyForPlayer( Player* target, bool anim = false);
 
-    std::list<LoginAura*> m_loginAuras;
+    std::deque<Aura*> m_loadAuras;
 
     std::set<uint32> OnMeleeAuras;
-
-    /************************************************************************/
-    /* Player loading and savings                                           */
-    /* Serialize character to db                                            */
-    /************************************************************************/
-    void SaveToDB(bool bNewCharacter);
-    void SaveAuras(std::stringstream&);
-    bool LoadFromDB();
-    void LoadFromDBProc(QueryResultVector & results);
-
     void LoadNamesFromDB(uint32 guid);
     bool m_FirstLogin;
 
@@ -1144,9 +1259,6 @@ public:
     float CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level);
     float CalculateDefenseFromAgilForClassAndLevel(uint32 _class, uint32 _level);
     float SpellHasteRatingBonus;
-    void UpdateChances();
-    void UpdateStats();
-    void UpdateHit(int32 hit);
 
     bool canCast(SpellEntry *m_spellInfo);
     HEARTHSTONE_INLINE float GetBlockFromSpell() { return m_blockfromspell; }
@@ -1328,7 +1440,6 @@ public:
     float IncreaseCricticalByTypePCT[12];
     int32 DetectedRange;
     float PctIgnoreRegenModifier;
-    HEARTHSTONE_INLINE uint32* GetPlayedtime() { return m_playedtime; };
     HEARTHSTONE_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, GetUInt32Value(index)); };
     float CalcPercentForRating(uint32 index, uint32 rating);
     void RecalcAllRatings();
@@ -1434,22 +1545,7 @@ public:
     void StopMirrorTimer(uint32 Type);
     BGScore m_bgScore;
     uint32 m_bgTeam;
-    void UpdateChanceFields();
-    //Honor Variables
-    time_t m_fallDisabledUntil;
-    uint32 m_honorToday;
-    uint32 m_honorYesterday;
 
-    void RolloverHonor();
-    uint32 m_honorPoints;
-    uint32 m_honorRolloverTime;
-    uint32 m_killsToday;
-    uint32 m_killsYesterday;
-    uint32 m_killsLifetime;
-    uint32 m_arenaPoints;
-    bool m_honorless;
-    uint32 m_lastSeenWeather;
-    std::unordered_set<WorldObject* > m_visibleFarsightObjects;
     void EventTeleport(uint32 mapid, float x, float y, float z, float o);
     void EventTeleport(uint32 mapid, float x, float y, float z)
     {
@@ -1518,7 +1614,7 @@ public:
     HEARTHSTONE_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     HEARTHSTONE_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
-    uint32 load_health, load_power[5];
+    uint32 load_health, load_power[POWER_TYPE_MAX];
     std::set<SpellEntry *> castSpellAtLogin;
 
     /////
@@ -1642,7 +1738,6 @@ public:
     void SendPacket(WorldPacket* data);
     void SendDelayedPacket(WorldPacket * data);
     void CopyAndSendDelayedPacket(WorldPacket * data);
-    void PartLFGChannel();
 
     uint32 GetLastLoginTime() { return  m_timeLogoff; };
 
@@ -1670,26 +1765,12 @@ protected:
     ByteBuffer bUpdateDataBuffer, mOutOfRangeIds;
     /* End update system */
 
-    void _LoadTutorials(QueryResult * result);
-    void _SaveTutorials(QueryBuffer * buf);
-
-    void _SaveInventory(bool firstsave);
-
-    void _SaveQuestLogEntry(QueryBuffer * buf);
-    void _LoadQuestLogEntry(QueryResult * result);
-
-    void _LoadSkills(QueryResult * result);
-    void _SaveSkillsToDB(QueryBuffer * buf);
-
-    void _LoadSpells(QueryResult * result);
-    void _SaveSpellsToDB(QueryBuffer * buf);
-
     void _LoadPet(QueryResult * result);
-
     void _LoadPetActionBar(QueryResult * result);
     void _LoadPetNo();
     void _LoadPetSpells(QueryResult * result);
     void _SavePet(QueryBuffer * buf);
+
     void _SavePetSpells(QueryBuffer * buf);
     void _ApplyItemMods( Item* item, int16 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
     void _EventAttack( bool offhand );
@@ -1733,8 +1814,6 @@ protected:
     uint32 m_duelCountdownTimer;
     uint8 m_duelStatus;
     uint8 m_duelState;
-    // Played time
-    uint32 m_playedtime[3];
     bool m_isResting;
     uint8 m_restState;
     uint32 m_restAmount;
@@ -1782,7 +1861,7 @@ protected:
     uint32 m_team;
 
     uint32 m_mountCheckTimer;
-    void RemovePendingPlayer();
+    void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
 
 public:
     uint32 m_mallCheckTimer;
@@ -1800,26 +1879,21 @@ public:
 private:
     /* we may have multiple threads on this(chat) - burlex */
     Mutex m_socialLock;
-    std::map<WoWGuid, char*> m_friends;
-    std::set<WoWGuid> m_ignores;
-    std::set<WoWGuid> m_hasFriendList;
+    std::map<WoWGuid, std::string> m_friends, m_ignores, m_mutes;
 
     void Social_SendFriendList(uint32 flag);
 
-    void Social_AddFriend(const char * name, const char * note);
+    void Social_AddFriend(std::string name, std::string note);
     void Social_RemoveFriend(WoWGuid guid);
 
-    void Social_AddIgnore(const char * name);
+    void Social_AddIgnore(std::string name);
     void Social_RemoveIgnore(WoWGuid guid);
 
-    void Social_SetNote(WoWGuid guid, const char * note);
+    void Social_SetNote(WoWGuid guid, std::string name);
 
 public:
-    bool Social_IsIgnoring(PlayerInfo * m_info);
     bool Social_IsIgnoring(WoWGuid guid);
-
-    void Social_TellOnlineStatus(bool online = true);
-    void Social_TellFriendsStatus();
+    bool Social_IsIgnoring(PlayerInfo * info) { return Social_IsIgnoring(info->guid); }
 
     /************************************************************************/
     /* end social                                                           */
@@ -1840,17 +1914,6 @@ public:
     HEARTHSTONE_INLINE bool HasKnownTitleByEntry(uint32 entry) { CharTitleEntry *titleEntry = dbcCharTitle.LookupEntry(entry); return (titleEntry && HasKnownTitleByIndex(titleEntry->bit_index)); }
     HEARTHSTONE_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
     void SetKnownTitle( int32 title, bool set );
-
-    // Avenging Wrath...
-    bool mAvengingWrath;
-    void AvengingWrath() { mAvengingWrath = true; }
-
-    // Equipment Sets
-    void SendEquipmentSets();
-    void SetEquipmentSet(uint32 index, EquipmentSet eqset);
-    void DeleteEquipmentSet(uint64 setGuid);
-    void _LoadEquipmentSets(QueryResult *result);
-    void _SaveEquipmentSets(QueryBuffer* buff);
 
 private:
     void SetTaximaskNode(uint32 nodeidx, bool UnSet = false);

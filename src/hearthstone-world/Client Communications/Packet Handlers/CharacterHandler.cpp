@@ -600,8 +600,6 @@ void WorldSession::FullLogin(Player* plr)
     data << uint32(0) << uint32(0x01) << uint32(0);
     SendPacket(&data);
 
-    plr->UpdateStats();
-
     // Anti max level hack.
     if(sWorld.LevelCap_Custom_All && (plr->getLevel() > sWorld.LevelCap_Custom_All))
         plr->SetUInt32Value(UNIT_FIELD_LEVEL, sWorld.LevelCap_Custom_All);
@@ -708,12 +706,6 @@ void WorldSession::FullLogin(Player* plr)
 
     sLog.Debug( "WorldSession","Created new player for existing players (%s)", plr->GetName() );
 
-    // Login time, will be used for played time calc
-    plr->m_playedtime[2] = (uint32)UNIXTIME;
-
-    // Send online status to people having this char in friendlist
-    plr->Social_TellOnlineStatus();
-
     // send friend list (for ignores)
     plr->Social_SendFriendList(7);
 
@@ -749,6 +741,8 @@ void WorldSession::FullLogin(Player* plr)
         plr->GetItemInterface()->CheckAreaItems();
 
     objmgr.AddPlayer(plr);
+
+    m_loggingInPlayer = NULL;
 }
 
 bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_session)

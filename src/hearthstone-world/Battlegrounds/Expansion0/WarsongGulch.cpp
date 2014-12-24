@@ -183,51 +183,6 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
             sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
             sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
             SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
-
-            m_mainLock.Acquire();
-            /* add the marks of honor to all players */
-            SpellEntry * winner_spell = dbcSpell.LookupEntry(24951);
-            SpellEntry * loser_spell = dbcSpell.LookupEntry(24950);
-            for(uint32 i = 0; i < 2; i++)
-            {
-                for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
-                {
-                    (*itr)->GetMovementInterface()->setRooted(true);
-
-                    if( (*itr)->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK) )
-                        continue;
-
-                    if(i == m_losingteam)
-                    {
-                        (*itr)->m_bgScore.BonusHonor += m_CompleteHonor;
-                        HonorHandler::AddHonorPointsToPlayer((*itr), m_CompleteHonor);
-                        (*itr)->CastSpell((*itr), loser_spell, true);
-                        if((*itr)->fromrandombg)
-                        {
-                            (*itr)->m_honorToday += (*itr)->GenerateRBGReward((*itr)->getLevel(),5);
-                            HonorHandler::RecalculateHonorFields((*itr));
-                            (*itr)->fromrandombg = false;
-                        }
-                    }
-                    else
-                    {
-                        (*itr)->m_bgScore.BonusHonor += m_CompleteHonor + m_WinHonor;
-                        HonorHandler::AddHonorPointsToPlayer((*itr), m_CompleteHonor + m_WinHonor);
-                        (*itr)->CastSpell((*itr), winner_spell, true);
-                        uint32 diff = abs(int32(m_scores[i] - m_scores[i ? 0 : 1]));
-                        if((*itr)->fromrandombg)
-                        {
-                            Player * p = (*itr);
-                            p->AddArenaPoints(p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),25) : p->GenerateRBGReward(p->getLevel(),0));
-                            p->m_honorToday += p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),30) : p->GenerateRBGReward(p->getLevel(),15);
-                            HonorHandler::RecalculateHonorFields(p);
-                            p->randombgwinner = true;
-                            p->fromrandombg = false;
-                        }
-                    }
-                }
-            }
-            m_mainLock.Release();
         }
 
         /* increment the score world state */

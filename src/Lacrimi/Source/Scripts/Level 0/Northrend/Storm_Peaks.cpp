@@ -100,10 +100,10 @@ public:
                 objmgr.CreateGossipMenuForPlayer(&Menu, pObject->GetGUID(), 13614, plr);
                 Menu->SendTo(plr);
                 QuestLogEntry *qle = plr->GetQuestLogForEntry(12864);
-                if(qle == NULL || qle->GetMobCount(0) != 0)
+                if(qle == NULL || qle->GetObjectiveCount(0) != 0)
                     return;
 
-                qle->SetMobCount(0, 1);
+                qle->SetObjectiveCount(0, 1);
                 qle->SendUpdateAddKill(0);
                 qle->UpdatePlayerFields();
             }break;

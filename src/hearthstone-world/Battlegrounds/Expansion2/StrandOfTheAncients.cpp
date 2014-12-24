@@ -560,46 +560,4 @@ void StrandOfTheAncients::EndGame()
 
     sEventMgr.RemoveEvents(this);
     sEventMgr.AddEvent( (CBattleground*)this, &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
-
-    m_mainLock.Acquire();
-    // Honor is added?
-    SpellEntry * winner_spell = dbcSpell.LookupEntry(61160);
-    SpellEntry * loser_spell = dbcSpell.LookupEntry(61159);
-    for(uint32 i = 0; i < 2; i++)
-    {
-        for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
-        {
-            (*itr)->GetMovementInterface()->setRooted(true);
-
-            if( (*itr)->HasFlag(PLAYER_FLAGS, 0x2) )
-                continue;
-
-            if(i == m_losingteam)
-            {
-                (*itr)->CastSpell((*itr), loser_spell, true);
-                if((*itr)->fromrandombg)
-                {
-                    (*itr)->m_honorToday += (*itr)->GenerateRBGReward((*itr)->getLevel(),5);
-                    HonorHandler::RecalculateHonorFields((*itr));
-                    (*itr)->fromrandombg = false;
-                }
-            }
-            else
-            {
-                (*itr)->CastSpell((*itr), winner_spell, true);
-                if((*itr)->fromrandombg)
-                {
-                    Player * p = (*itr);
-                    p->AddArenaPoints(p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),25) : p->GenerateRBGReward(p->getLevel(),0));
-                    p->m_honorToday += p->randombgwinner == false ? p->GenerateRBGReward(p->getLevel(),30) : p->GenerateRBGReward(p->getLevel(),15);
-                    HonorHandler::RecalculateHonorFields(p);
-                    p->randombgwinner = true;
-                    p->fromrandombg = false;
-                }
-            }
-        }
-    }
-
-    UpdatePvPData();
-    m_mainLock.Release();
 }

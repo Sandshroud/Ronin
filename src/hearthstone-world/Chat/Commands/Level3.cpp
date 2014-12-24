@@ -1516,7 +1516,6 @@ bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_se
     }
 
     //Chances depend on stats must be in this order!
-    plr->UpdateStats();
     plr->_UpdateMaxSkillCounts();
     plr->_AddLanguages(false);
     BlueSystemMessage(m_session, "Reset skills to default.");
@@ -1550,14 +1549,8 @@ bool ChatHandler::HandlePlayerInfo(const char* args, WorldSession * m_session)
     }
     WorldSession* sess = plr->GetSession();
 
-    GreenSystemMessage(m_session, "%s[%u] is a %s %u %s", plr->GetName(), plr->GetLowGUID(),
-        (plr->getGender()?"Female":"Male"), plr->getRace(), plr->GetClassNames().c_str());
-
-    BlueSystemMessage(m_session, "%s has played %s at this level",(plr->getGender()?"She":"He"), RONIN_UTIL::ConvertTimeStampToString(plr->GetPlayedtime()[0]).c_str());
-    BlueSystemMessage(m_session, "and %s overall", RONIN_UTIL::ConvertTimeStampToString(plr->GetPlayedtime()[1]).c_str());
-
-    BlueSystemMessage(m_session, "%s is connecting from account '%s'[%u] with permissions '%s'",
-        (plr->getGender()?"She":"He"), sess->GetAccountName().c_str(), sess->GetAccountId(), sess->GetPermissions());
+    GreenSystemMessage(m_session, "%s[%u] is a %s %u %s", plr->GetName(), plr->GetLowGUID(), (plr->getGender()?"Female":"Male"), plr->getRace(), plr->GetClassNames().c_str());
+    BlueSystemMessage(m_session, "%s is connecting from account '%s'[%u] with permissions '%s'", (plr->getGender()?"She":"He"), sess->GetAccountName().c_str(), sess->GetAccountId(), sess->GetPermissions());
 
     const char *client;
     if(sess->HasFlag(ACCOUNT_FLAG_XPACK_03))

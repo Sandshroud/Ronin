@@ -37,9 +37,9 @@ bool WarIsHell(uint32 i, Spell *pSpell)
 
     GameObject *obj = NULL;
 
-    if( qle && qle->GetMobCount(0) < qle->GetQuest()->required_mobcount[0] )
+    if( qle && qle->GetObjectiveCount(0) < qle->GetQuest()->required_mobcount[0] )
     {
-        qle->SetMobCount( 0, qle->GetMobCount( 0 ) + 1 );
+        qle->SetObjectiveCount( 0, qle->GetObjectiveCount( 0 ) + 1 );
         qle->SendUpdateAddKill( 0 );
         
         obj = CreateAndLoadGameObject(plr->GetMapMgr(), 183816, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetOrientation(), 1, true);
@@ -74,10 +74,10 @@ bool PlantForsakenBanner(uint32 i, Spell *pSpell)
     {
     case 24161:
         {
-            if( pQuest->GetMobCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 0 ] )
+            if( pQuest->GetObjectiveCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 0 ] )
             {
-                uint32 newcount = pQuest->GetMobCount( 0 ) + 1;
-                pQuest->SetMobCount( 0, newcount );
+                uint32 newcount = pQuest->GetObjectiveCount( 0 ) + 1;
+                pQuest->SetObjectiveCount( 0, newcount );
                 pQuest->SendUpdateAddKill( 0 );
                 pQuest->UpdatePlayerFields();
                 target->Despawn(0, 3*60*1000);
@@ -86,10 +86,10 @@ bool PlantForsakenBanner(uint32 i, Spell *pSpell)
         break;
     case 24016:
         {
-            if( pQuest->GetMobCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 1 ] )
+            if( pQuest->GetObjectiveCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 1 ] )
             {
-                uint32 newcount = pQuest->GetMobCount( 0 ) + 1;
-                pQuest->SetMobCount( 0, newcount );
+                uint32 newcount = pQuest->GetObjectiveCount( 0 ) + 1;
+                pQuest->SetObjectiveCount( 0, newcount );
                 pQuest->SendUpdateAddKill( 0 );
                 pQuest->UpdatePlayerFields();
                 target->Despawn(0, 3*60*1000);
@@ -98,10 +98,10 @@ bool PlantForsakenBanner(uint32 i, Spell *pSpell)
         break;
     case 24162:
         {
-            if( pQuest->GetMobCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 2 ] )
+            if( pQuest->GetObjectiveCount( 0 ) < pQuest->GetQuest()->required_mobcount[ 2 ] )
             {
-                uint32 newcount = pQuest->GetMobCount( 0 ) + 1;
-                pQuest->SetMobCount( 0, newcount );
+                uint32 newcount = pQuest->GetObjectiveCount( 0 ) + 1;
+                pQuest->SetObjectiveCount( 0, newcount );
                 pQuest->SendUpdateAddKill( 0 );
                 pQuest->UpdatePlayerFields();
                 target->Despawn(0, 3*60*1000);

@@ -14,7 +14,7 @@ public:
     virtual void Destruct();
 
     void Create( uint32 itemid, Player* owner );
-    void LoadFromDB( Field*fields);
+    void LoadFromDB(Field *fields, Player *plr, bool light );
 
     bool AddItem(int16 slot, Item* item);
     bool AddItemToFreeSlot(Item* pItem, uint32 * r_slot);

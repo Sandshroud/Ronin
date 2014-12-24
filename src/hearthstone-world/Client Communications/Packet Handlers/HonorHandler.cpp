@@ -19,11 +19,6 @@ void HonorHandler::AddHonorPointsToPlayer(Player* pPlayer, uint32 uAmount)
     if(pPlayer->m_bg && pPlayer->m_bg->IsArena())
         return;
 
-    pPlayer->m_honorPoints += uAmount;
-    pPlayer->m_honorToday += uAmount;
-
-    if (pPlayer->m_honorPoints > 75000)
-        pPlayer->m_honorPoints = 75000;
     RecalculateHonorFields(pPlayer);
 }
 
@@ -45,7 +40,7 @@ int32 HonorHandler::CalculateHonorPoints(uint32 AttackerLevel, uint32 VictimLeve
 
 void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 {
-    if( pVictim->m_honorless )
+    if( pVictim->HasAura(PLAYER_HONORLESS_TARGET_SPELL) )
         return;
 
     if( pPlayer->m_bg )
@@ -89,9 +84,6 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
                 for(std::vector<Player*  >::iterator vtr = toadd.begin(); vtr != toadd.end(); ++vtr)
                 {
                     AddHonorPointsToPlayer(*vtr, pts);
-
-                    (*vtr)->m_killsToday++;
-                    (*vtr)->m_killsLifetime++;
                     pPlayer->m_bg->HookOnHK(*vtr);
                     CALL_INSTANCE_SCRIPT_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
                     if(pVictim)
@@ -122,8 +114,6 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 
                     if(gPlayer && (gPlayer == pPlayer || gPlayer->isInRange(pPlayer,100.0f))) // visible range
                     {
-                        gPlayer->m_killsToday++;
-                        gPlayer->m_killsLifetime++;
                         if(gPlayer->m_bg)
                             gPlayer->m_bg->HookOnHK(gPlayer);
 
@@ -160,8 +150,6 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
         }
         else
         {
-            pPlayer->m_killsToday++;
-            pPlayer->m_killsLifetime++;
             AddHonorPointsToPlayer(pPlayer, Points);
 
             if(pPlayer->m_bg)
@@ -196,9 +184,6 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 
 void HonorHandler::RecalculateHonorFields(Player* pPlayer)
 {
-    pPlayer->SetUInt32Value(PLAYER_FIELD_KILLS, uint16(pPlayer->m_killsToday) | ( pPlayer->m_killsYesterday << 16 ) );
-    pPlayer->SetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS, pPlayer->m_killsLifetime);
-
     // Currency tab - (Blizz Placeholders)
     pPlayer->UpdateKnownCurrencies(43307, true); //Arena Points
     pPlayer->UpdateKnownCurrencies(43308, true); //Honor Points
@@ -214,9 +199,7 @@ bool ChatHandler::HandleAddKillCommand(const char* args, WorldSession* m_session
     BlueSystemMessage(m_session, "Adding %u kills to player %s.", KillAmount, plr->GetName());
     GreenSystemMessage(plr->GetSession(), "You have had %u honor kills added to your character.", KillAmount);
 
-    plr->m_killsToday += KillAmount;
     plr->RecalculateHonor();
-
     return true;
 }
 

@@ -27,9 +27,9 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
 
     if ( plr->HasFinishedQuest(qst->id) )
     {
-        if( plr->m_finishedQuests.find(qst->id) != plr->m_finishedQuests.end())
+        if( plr->m_completedQuests.find(qst->id) != plr->m_completedQuests.end())
         {
-            plr->m_finishedQuests.erase(qst->id);
+            plr->m_completedQuests.erase(qst->id);
             recout += "Quest removed from finished quests history.\n\n";
             has = true;
         }
@@ -37,9 +37,9 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
 
     if ( plr->HasFinishedDailyQuest(qst->id) )
     {
-        if( plr->m_finishedDailyQuests.find(qst->id) != plr->m_finishedDailyQuests.end())
+        if( plr->m_completedDailyQuests.find(qst->id) != plr->m_completedDailyQuests.end())
         {
-            plr->m_finishedDailyQuests.erase(qst->id);
+            plr->m_completedDailyQuests.erase(qst->id);
             recout += "Quest removed from finished dailies history.\n\n";
             has = true;
         }
@@ -356,9 +356,8 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
                 recout += "The quest has now been completed for that player.";
 
             if(qst->qst_is_repeatable == REPEATABLE_DAILY)
-                plr->AddToFinishedDailyQuests(quest_id);
-            else
-                plr->AddToFinishedQuests(quest_id);
+                plr->AddToCompletedDailyQuests(quest_id);
+            else plr->AddToCompletedQuests(quest_id);
         }
     }
     else

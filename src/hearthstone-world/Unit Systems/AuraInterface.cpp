@@ -25,16 +25,6 @@ void AuraInterface::DeInit()
     m_auras.clear();
 }
 
-void AuraInterface::RelocateEvents()
-{
-    //Relocate our aura's (must be done after object is removed from world
-    for(uint8 x = 0; x < TOTAL_AURAS; ++x)
-    {
-        if(m_auras.find(x) != m_auras.end())
-            m_auras.at(x)->RelocateEvents();
-    }
-}
-
 void AuraInterface::Update(uint32 diff)
 {
     // Do not use iterators because update can invalidate them when they're removed
@@ -56,39 +46,6 @@ void AuraInterface::OnChangeLevel(uint32 newLevel)
             continue;
 
         itr->second->OnTargetChangeLevel(newLevel, m_Unit->GetGUID());
-    }
-}
-
-void AuraInterface::SaveAuras(std::stringstream& ss)
-{
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(m_auras.find(x) != m_auras.end())
-        {
-            Aura* aur = m_auras.at(x);
-            bool stop = false;
-            for(uint32 i = 0; i < 3; i++)
-            {
-                if(!stop)
-                {
-                    if((aur->m_spellProto->Effect[i] == SPELL_EFFECT_APPLY_AREA_AURA && m_Unit->GetGUID() != aur->GetCasterGUID()) ||
-                        aur->m_spellProto->Effect[i] == SPELL_EFFECT_APPLY_AURA_128 ||
-                        aur->m_spellProto->Effect[i] == SPELL_EFFECT_ADD_FARSIGHT)
-                    {
-                        stop = true;
-                        break;
-                    }
-                }
-            }
-            if(stop)
-                continue;
-
-            // We are going to cast passive spells anyway on login so no need to save auras for them
-            if( aur->IsPassive() || aur->m_spellProto->isSpellExpiringWithPet() || aur->m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
-                continue; // To prevent food/drink bug
-
-            ss << aur->GetSpellId() << "," << aur->GetTimeLeft() << ",";
-        }
     }
 }
 
@@ -216,7 +173,7 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                     data << aur->GetSpellId();
                     caster->SendMessageToSet(&data,true);
 
-                    Aura* aura = new Aura(aur->GetSpellProto(), (aur->GetDuration()>120000) ? 120000 : aur->GetDuration(), caster, caster);
+                    Aura* aura = new Aura(aur->GetSpellProto(), caster, caster);
                     aura->AddStackSize(aur->getStackSize()-1);
 
                     // copy the mods across
@@ -232,21 +189,6 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                         break; //exit loop now
                 }
             }
-        }
-    }
-}
-
-void AuraInterface::UpdateAuraStateAuras(uint32 oldflag)
-{
-    for(uint8 i = 0; i < TOTAL_AURAS; i++)
-    {
-        if(m_auras.find(i) != m_auras.end())
-        {
-            if( !m_auras.at(i)->m_applied) // try to apply
-                m_auras.at(i)->ApplyModifiers(true);
-
-            if( m_auras.at(i)->m_applied) // try to remove, if we lack the aurastate
-                m_auras.at(i)->RemoveIfNecessary();
         }
     }
 }
@@ -395,7 +337,7 @@ void AuraInterface::RemoveAllAurasWithDispelType(uint32 DispelType)
     for( uint8 x = 0; x < MAX_AURAS; x++ )
     {
         if(m_auras.find(x) != m_auras.end())
-            if(m_auras.at(x)->m_spellProto->DispelType == DispelType)
+            if(m_auras.at(x)->GetSpellProto()->DispelType == DispelType)
                 RemoveAuraBySlot(x);
     }
 }
@@ -406,7 +348,7 @@ void AuraInterface::RemoveAllAurasWithAttributes(uint8 index, uint32 attributeFl
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if(m_auras.at(x)->m_spellProto && (m_auras.at(x)->m_spellProto->Attributes[index] & attributeFlag))
+            if(m_auras.at(x)->GetSpellProto() && (m_auras.at(x)->GetSpellProto()->Attributes[index] & attributeFlag))
             {
                 RemoveAuraBySlot(x);
             }
@@ -430,18 +372,13 @@ void AuraInterface::RemoveAllAurasOfSchool(uint32 School, bool Positive, bool Im
 
 void AuraInterface::RemoveAllAurasByInterruptFlagButSkip(uint32 flag, uint32 skip)
 {
-    Aura* a = NULL;
     for(uint8 x = 0; x < MAX_AURAS; x++)
     {
-        a = NULL;
         if(m_auras.find(x) == m_auras.end())
             continue;
 
-        a = m_auras.at(x);
-        if( a->GetDuration() > 0 && (int32)(a->GetTimeLeft()+500) > a->GetDuration() )
-            continue;//pretty new aura, don't remove
-
-        if((a->m_spellProto->AuraInterruptFlags & flag) && (a->m_spellProto->Id != skip))
+        Aura *a = m_auras.at(x);
+        if((a->GetSpellProto()->AuraInterruptFlags & flag) && (a->GetSpellProto()->Id != skip))
             RemoveAuraBySlot(x);
     }
 }
@@ -502,7 +439,7 @@ uint32 AuraInterface::GetAuraSpellIDWithNameHash(uint32 name_hash)
         {
             if(m_auras.at(x)->GetSpellProto()->NameHash == name_hash)
             {
-                return m_auras.at(x)->m_spellProto->Id;
+                return m_auras.at(x)->GetSpellProto()->Id;
             }
         }
     }
@@ -698,7 +635,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
             continue;
 
         Aura* curAura = m_auras.at(x);
-        if(curAura == NULL || aur == curAura || curAura->m_deleted)
+        if(curAura == NULL || aur == curAura || curAura->IsDeleted())
             continue;
         SpellEntry *currSP = curAura->GetSpellProto();
         if(info->NameHash == currSP->NameHash)
@@ -712,8 +649,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
                     if(info->procCharges || maxStack > 1)
                     {
                         // target already has this aura. Update duration, time left, procCharges
-                        curAura->SetDuration(aur->GetDuration());
-                        curAura->SetTimeLeft(aur->GetDuration());
+                        curAura->ResetExpirationTime();
                         curAura->UpdateModifiers();
                         // If we have proc charges, reset the proc charges
                         if(info->procCharges) curAura->SetProcCharges(aur->GetMaxProcCharges(aur->GetUnitCaster()));
@@ -779,7 +715,7 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
     return true;
 }
 
-void AuraInterface::AddAura(Aura* aur)
+void AuraInterface::AddAura(Aura* aur, uint8 slot)
 {
     Unit* pCaster = NULL;
     if(aur->GetUnitTarget() != NULL)
@@ -792,104 +728,72 @@ void AuraInterface::AddAura(Aura* aur)
         return;
     if(!aur->IsPassive() && !OverrideSimilarAuras(pCaster, aur))
     {
-        sEventMgr.RemoveEvents(aur);
         RemoveAura(aur);
         return;
     }
 
     ////////////////////////////////////////////////////////
-    if( aur->m_auraSlot != 0xFF && aur->m_auraSlot < TOTAL_AURAS)
+    if( aur->GetAuraSlot() != 0xFF && aur->GetAuraSlot() < TOTAL_AURAS && m_auras.find(aur->GetAuraSlot()) != m_auras.end() )
+        RemoveAuraBySlot(aur->GetAuraSlot());
+    else
     {
-        if( m_auras.find(aur->m_auraSlot) != m_auras.end() )
-            RemoveAuraBySlot(aur->m_auraSlot);
+        aur->SetAuraSlot(slot);
+        if(slot != 0xFF && slot < TOTAL_AURAS && m_auras.find(slot) != m_auras.end())
+            RemoveAuraBySlot(slot);
     }
-
-    aur->m_auraSlot = 0xFF;
 
     Unit* target = aur->GetUnitTarget();
     if(target == NULL)
         return; // Should never happen.
 
-    aur->SetAuraFlags(AFLAG_EFF_INDEX_0 | AFLAG_EFF_INDEX_1 | AFLAG_EFF_INDEX_2 | AFLAG_NOT_GUID | (aur->IsPositive() ? (AFLAG_POSITIVE) : (AFLAG_NEGATIVE)));
-    if(aur->GetDuration())
-        aur->SetAuraFlag(AFLAG_HAS_DURATION);
-    if(!aur->IsPassive())
-        aur->SetAuraFlag(AFLAG_EFF_AMOUNT_SEND);
-
-    aur->SetAuraLevel(aur->GetUnitCaster() != NULL ? aur->GetUnitCaster()->getLevel() : MAXIMUM_ATTAINABLE_LEVEL);
-
-    if(aur->GetSpellId() == 15007) //Resurrection sickness
-    {
-        aur->SetNegative(); //we're negative
-        aur->SetDuration(target->getLevel() > 19 ? 600000 : 60000);
-    }
-
-    uint8 x;
     if(aur->IsPassive())
     {
-        for(x = MAX_AURAS; x < TOTAL_AURAS; x++)
+        for(uint8 x = MAX_AURAS; x < TOTAL_AURAS; x++)
         {
             if(m_auras.find(x) == m_auras.end())
             {
                 m_auras.insert(std::make_pair(x, aur));
-                aur->m_auraSlot = x;
+                aur->SetAuraSlot(x);
                 break;
             }
         }
 
-        if(aur->m_auraSlot == 0xFF)
+        if(aur->GetAuraSlot() == 0xFF)
         {
             sLog.Debug("Unit","AddAura error in passive aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
             RemoveAura(aur);
             return;
         }
     }
-    else
+    else if(aur->GetAuraSlot() == 0xFF || m_auras.find(aur->GetAuraSlot()) != m_auras.end())
     {
-        aur->AddAuraVisual();
-        if(aur->m_auraSlot == 0xFF)
+        if(!aur->AddAuraVisual())
         {
-            //add to invisible slot
-            for(x = MAX_AURAS; x < TOTAL_AURAS; x++)
+            for(uint8 x = MAX_AURAS; x < TOTAL_AURAS; x++)
             {
                 if(m_auras.find(x) == m_auras.end())
                 {
                     m_auras.insert(std::make_pair(x, aur));
-                    aur->m_auraSlot = x;
+                    aur->SetAuraSlot(x);
                     break;
                 }
             }
+        }
 
-            if(aur->m_auraSlot == 0xFF)
-            {
-                sLog.Debug("Unit","AddAura error in active aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
-                RemoveAura(aur);
-                return;
-            }
-        } else m_auras.insert(std::make_pair(aur->m_auraSlot, aur));
+        if(aur->GetAuraSlot() == 0xFF)
+        {
+            sLog.Debug("Unit","AddAura error in active aura. removing. SpellId: %u", aur->GetSpellProto()->Id);
+            RemoveAura(aur);
+            return;
+        }
+    }
+    else
+    {
+        aur->BuildAuraUpdate();
+        m_auras.insert(std::make_pair(aur->GetAuraSlot(), aur));
     }
 
     aur->ApplyModifiers(true);
-
-    // We add 500ms here to allow for the last tick in DoT spells. This is a dirty hack, but at least it doesn't crash like my other method.
-    // - Burlex, Crow: Changed to 400ms
-    if(aur->GetDuration() > 0)
-    {
-        uint32 addTime = 400;
-        for(uint32 spx = 0; spx < 3; spx++)
-        {
-            if( aur->GetSpellProto()->EffectApplyAuraName[spx] == SPELL_AURA_MOD_STUN ||
-                aur->GetSpellProto()->EffectApplyAuraName[spx] == SPELL_AURA_MOD_FEAR ||
-                aur->GetSpellProto()->EffectApplyAuraName[spx] == SPELL_AURA_MOD_ROOT ||
-                aur->GetSpellProto()->EffectApplyAuraName[spx] == SPELL_AURA_MOD_CHARM )
-                addTime = 50;
-        }
-
-        sEventMgr.AddAuraEvent(m_Unit, &Unit::RemoveAuraBySlot, uint8(aur->m_auraSlot), aur->GetDuration() + addTime, 1,
-            EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT | EVENT_FLAG_DELETES_OBJECT, aur->GetSpellId());
-    }
-
-    aur->RelocateEvents();
 
     // Reaction from enemy AI
     if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
@@ -1127,7 +1031,7 @@ void AuraInterface::RemoveAllAreaAuras(WoWGuid skipguid)
     {
         if(m_auras.find(i) != m_auras.end())
         {
-            if (m_auras.at(i)->m_areaAura && m_auras.at(i)->GetUnitCaster() && (!m_auras.at(i)->GetUnitCaster()
+            if (m_auras.at(i)->IsAreaAura() && m_auras.at(i)->GetUnitCaster() && (!m_auras.at(i)->GetUnitCaster()
                 || (m_auras.at(i)->GetUnitCaster()->IsPlayer() && (!skipguid || skipguid != m_auras.at(i)->GetCasterGUID()))))
                 RemoveAuraBySlot(i);
         }
@@ -1233,7 +1137,7 @@ void AuraInterface::RemoveAllAurasByInterruptFlag(uint32 flag)
         if(m_auras.find(x) == m_auras.end())
             continue;
         //some spells do not get removed all the time only at specific intervals
-        if(m_auras.at(x)->m_spellProto->AuraInterruptFlags & flag)
+        if(m_auras.at(x)->GetSpellProto()->AuraInterruptFlags & flag)
             RemoveAuraBySlot(x);
     }
 }
@@ -1246,7 +1150,7 @@ void AuraInterface::RemoveAllAurasWithAuraName(uint32 auraName)
         {
             for(uint32 x = 0; x < 3; x++)
             {
-                if( m_auras.at(i)->m_spellProto->EffectApplyAuraName[x] == auraName )
+                if( m_auras.at(i)->GetSpellProto()->EffectApplyAuraName[x] == auraName )
                 {
                     RemoveAuraBySlot(i);
                     break;
@@ -1264,11 +1168,9 @@ void AuraInterface::RemoveAllAurasWithSpEffect(uint32 EffectId)
         {
             for(uint32 x = 0; x < 3; x++)
             {
-                if( m_auras.at(i)->m_spellProto->Effect[x] == EffectId )
+                if( m_auras.at(i)->GetSpellProto()->Effect[x] == EffectId )
                 {
-                    if(m_auras.at(i)->GetCasterGUID() == m_Unit->GetGUID())
-                        m_auras.at(i)->RemoveAA();
-                    else RemoveAuraBySlot(i);
+                    RemoveAuraBySlot(i);
                     break;
                 }
             }
@@ -1334,7 +1236,7 @@ uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily,
     {
         if(m_auras.find(x) != m_auras.end())
         {
-            if (m_auras.at(x)->m_spellProto->SpellFamilyName == spellFamily)
+            if (m_auras.at(x)->GetSpellProto()->SpellFamilyName == spellFamily)
             {
                 SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(m_auras.at(x)->GetSpellId());
                 if(sk && sk->skilline == SkillLine)
@@ -1487,28 +1389,6 @@ void AuraInterface::EventDeathAuraRemoval()
             RemoveAuraBySlot(x);
         }
     }
-}
-
-bool AuraInterface::SetAuraDuration(uint32 spellId,Unit* caster,int32 duration)
-{
-    Aura* aur = FindAura(spellId, caster->GetGUID());
-    if(aur == NULL)
-        return false;
-
-    aur->SetDuration(duration);
-    aur->SetTimeLeft(duration);
-    return true;
-}
-
-bool AuraInterface::SetAuraDuration(uint32 spellId, int32 duration)
-{
-    Aura* aur = FindAura(spellId, 0);
-    if(aur == NULL)
-        return false;
-
-    aur->SetDuration(duration);
-    aur->SetTimeLeft(duration);
-    return true;
 }
 
 void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
