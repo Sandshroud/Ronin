@@ -876,7 +876,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket & recv_data )
     WorldPacket data(SMSG_SEND_MAIL_RESULT, 12);
     data << message_id << uint32(MAIL_RES_MADE_PERMANENT);
 
-    ItemPrototype * proto = ItemPrototypeStorage.LookupEntry(8383);
+    ItemPrototype * proto = sItemMgr.LookupEntry(8383);
     MailMessage * message = _player->m_mailBox->GetMessage(message_id);
     if(message == 0 || message->Expired() || message->copy_made || !proto)
     {

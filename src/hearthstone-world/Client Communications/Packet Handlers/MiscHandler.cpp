@@ -1379,7 +1379,7 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
     // gift wrapping handler
     if(pItem->GetUInt32Value(ITEM_FIELD_GIFTCREATOR) && pItem->wrapped_item_id)
     {
-        ItemPrototype * it = ItemPrototypeStorage.LookupEntry(pItem->wrapped_item_id);
+        ItemPrototype * it = sItemMgr.LookupEntry(pItem->wrapped_item_id);
         if(it == NULL)
             return;
 

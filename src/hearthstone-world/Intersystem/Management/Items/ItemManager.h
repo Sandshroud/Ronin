@@ -3,35 +3,6 @@
 
 #pragma pack(PRAGMA_PACK)
 
-struct ItemStat
-{
-    uint32 Type;
-    int32 Value;
-};
-
-struct ItemDamage
-{
-    float Min;
-    float Max;
-    uint32 Type;
-};
-
-struct ItemSpell
-{
-    int32 Id;
-    int32 Trigger;
-    int32 Charges;
-    int32 Cooldown;
-    int32 Category;
-    int32 CategoryCooldown;
-};
-
-struct SocketInfo
-{
-    uint32 SocketColor;
-    uint32 Unk;
-};
-
 struct ItemPrototype
 {
     uint32 ItemId;
@@ -60,14 +31,26 @@ struct ItemPrototype
     uint32 MaxCount;
     uint32 Unique;
     uint32 ContainerSlots;
-    ItemStat Stats[10];
+    struct ItemStat
+    {
+        uint32 Type;
+        int32 Value;
+    } Stats[10];
     uint32 minDamage;
     uint32 maxDamage;
     uint32 Armor;
     uint32 DamageType;
     uint32 Delay;
     float  Range;
-    ItemSpell Spells[5];
+    struct ItemSpell
+    {
+        int32 Id;
+        int32 Trigger;
+        int32 Charges;
+        int32 Cooldown;
+        int32 Category;
+        int32 CategoryCooldown;
+    } Spells[5];
     uint32 Bonding;
     char * Description;
     uint32 PageId;
@@ -105,11 +88,73 @@ struct ItemPrototype
     bool ValidateItemSpell(uint32 SpellID);
 };
 
+struct ItemData
+{
+    WoWGuid itemGuid;
+    WoWGuid itemContainer;
+    WoWGuid itemCreator;
+    uint32 containerSlot;
+    uint32 itemStackCount;
+    uint32 itemFlags;
+    uint32 itemRandomSeed;
+    uint32 itemRandomProperty;
+    uint32 itemDurability;
+    uint32 itemPlayedTime;
+
+    struct ItemGiftData
+    {
+        uint32 giftItemId;
+        WoWGuid giftCreatorId;
+    } *giftData;
+
+    struct ContainerData
+    {
+        uint16 numSlots;
+        std::map<uint16, WoWGuid> m_items;
+    } *containerData;
+
+    struct EnchantData
+    {
+        uint32 enchantId;
+        uint32 enchantCharges;
+        time_t expirationTime;
+    } *enchantData[10];
+
+    struct SpellCharges
+    {
+        int32 spellCharges;
+    } *chargeData[5];
+};
+
+struct GuildBankItemStorage
+{
+    std::map<uint16, WoWGuid> bankTabs[6];
+};
+
+struct PlayerInventory
+{
+    std::map<uint16, WoWGuid> m_playerInventory;
+};
+
 #pragma pack(PRAGMA_POP)
 
 class SERVER_DECL ItemManager : public Singleton<ItemManager>
 {
 public:
+    ItemManager();
+    ~ItemManager();
+
+    void LoadItemData();
+
+    ItemData *GetItemData(WoWGuid itemGuid);
+
+private:
+    std::map<WoWGuid, ItemData*> m_itemData;
+
+public:
+    void InitializeItemPrototypes();
+    void LoadItemOverrides();
+
     class iterator
     {
     private:
@@ -124,27 +169,22 @@ public:
         std::map<uint32, ItemPrototype*>::iterator operator*() { return p; };
     };
 
-    iterator begin() { return iterator(ItemPrototypeContainer.begin()); }
-    iterator end() { return iterator(ItemPrototypeContainer.end()); }
+    ItemPrototype *LookupEntry(uint32 entry);
+    iterator itemPrototypeBegin() { return iterator(m_itemPrototypeContainer.begin()); }
+    iterator itemPrototypeEnd() { return iterator(m_itemPrototypeContainer.end()); }
 
-    std::map<uint32, uint8>::iterator HotfixBegin() { return Overridden.begin(); }
-    std::map<uint32, uint8>::iterator HotfixEnd() { return Overridden.end(); }
-
-public: // Item System
-    void Init();
-    void InitializeItemSystem();
-    void LoadItemOverrides();
-
-    ItemPrototype* LookupEntry(uint32 entry);
-    bool HasHotfix(uint32 entry) { return (Overridden.find(entry) == Overridden.end() ? true : false); };
+    bool HasHotfixOverride(uint32 entry) { return (m_overwritten.find(entry) == m_overwritten.end() ? true : false); };
+    std::map<uint32, uint8>::iterator HotfixOverridesBegin() { return m_overwritten.begin(); }
+    std::map<uint32, uint8>::iterator HotfixOverridesEnd() { return m_overwritten.end(); }
+    size_t HotfixOverridesSize() { return m_overwritten.size(); }
 
 private:
-    iterator find(uint32 entry) { return iterator(ItemPrototypeContainer.find(entry)); }
-    std::map<uint32, ItemPrototype*> ItemPrototypeContainer;
-    std::map<uint32, uint8> Overridden;
+    iterator itemPrototypeFind(uint32 entry) { return iterator(m_itemPrototypeContainer.find(entry)); }
+    std::map<uint32, ItemPrototype*> m_itemPrototypeContainer;
+    std::map<uint32, uint8> m_overwritten;
 };
 
-#define ItemPrototypeStorage ItemPrototypeSystem::getSingleton()
+#define sItemMgr ItemManager::getSingleton()
 
 typedef struct
 {

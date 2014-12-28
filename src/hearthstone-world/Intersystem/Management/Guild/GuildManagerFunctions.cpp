@@ -834,7 +834,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             return;         // error message needed here
         }
 
-        ItemPrototype * ip = ItemPrototypeStorage.LookupEntry(item_ids[arena_type]);
+        ItemPrototype * ip = sItemMgr.LookupEntry(item_ids[arena_type]);
         ASSERT(ip);
         SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
         if(res.Result == 0)
@@ -902,7 +902,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             return;
         }
 
-        ItemPrototype * ip = ItemPrototypeStorage.LookupEntry(ITEM_ENTRY_GUILD_CHARTER);
+        ItemPrototype * ip = sItemMgr.LookupEntry(ITEM_ENTRY_GUILD_CHARTER);
         assert(ip);
         SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
         if(res.Result == 0)
@@ -911,7 +911,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             return;
         }
 
-        error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(ItemPrototypeStorage.LookupEntry(ITEM_ENTRY_GUILD_CHARTER),1, NULL);
+        error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(sItemMgr.LookupEntry(ITEM_ENTRY_GUILD_CHARTER),1, NULL);
         if(error)
             m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,error);
         else

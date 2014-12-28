@@ -992,7 +992,7 @@ void ObjectMgr::LoadSpellFixes()
 
 Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
 {
-    ItemPrototype * proto = ItemPrototypeStorage.LookupEntry(entry);
+    ItemPrototype * proto = sItemMgr.LookupEntry(entry);
     if(!proto)
         return NULL;
 
@@ -1017,7 +1017,7 @@ Item* ObjectMgr::LoadItem(uint64 guid)
     Item* pReturn = NULL;
     if(QueryResult * result = CharacterDatabase.Query("SELECT * FROM character_items WHERE guid = %u", GUID_LOPART(guid)))
     {
-        if(ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(result->Fetch()[2].GetUInt32()))
+        if(ItemPrototype *pProto = sItemMgr.LookupEntry(result->Fetch()[2].GetUInt32()))
         {
             if(pProto->InventoryType == INVTYPE_BAG)
                 pReturn = new Container(HIGHGUID_TYPE_CONTAINER, GUID_LOPART(guid));

@@ -134,7 +134,7 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
 
     WorldPacket data, packet;
     Item* SrcItem = NULL, *DstItem = NULL;
-    int8 DstInvSlot=0, DstSlot=0, SrcInvSlot=0, SrcSlot=0, error=0;
+    int8 DstInvSlot, DstSlot, SrcInvSlot, SrcSlot, error=0;
     recv_data >> DstInvSlot >> DstSlot >> SrcInvSlot >> SrcSlot;
 
     sLog.outDebug("ITEM: swap, DstInvSlot %i DstSlot %i SrcInvSlot %i SrcSlot %i", DstInvSlot, DstSlot, SrcInvSlot, SrcSlot);
@@ -842,7 +842,7 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
         return;
     }
 
-    ItemPrototype *it = ItemPrototypeStorage.LookupEntry(itemid);
+    ItemPrototype *it = sItemMgr.LookupEntry(itemid);
     if(!it)
     {
         _player->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_DONT_OWN_THAT_ITEM);
@@ -994,7 +994,7 @@ void WorldSession::SendInventoryList(Creature* unit)
 
         if(itr->second.itemid && (itr->second.max_amount == 0 || (itr->second.max_amount > 0 && itr->second.available_amount > 0)))
         {
-            if((curItem = ItemPrototypeStorage.LookupEntry(itr->second.itemid)))
+            if((curItem = sItemMgr.LookupEntry(itr->second.itemid)))
             {
                 if(!(itr->second.vendormask & unit->GetVendorMask()))
                     continue;
@@ -1534,7 +1534,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
         {
             gp = NULL;
             FilledSlots++;
-            ItemPrototype * ip = ItemPrototypeStorage.LookupEntry(EI->Enchantment->GemEntry);
+            ItemPrototype * ip = sItemMgr.LookupEntry(EI->Enchantment->GemEntry);
             if(ip != NULL)
                 gp = dbcGemProperty.LookupEntry(ip->GemProperties);
 

@@ -4,18 +4,16 @@
 
 #include "StdAfx.h"
 
-Item::Item( uint32 high, uint32 low, uint32 fieldCount ) : Object(MAKE_NEW_GUID(low, 0, high), fieldCount) 
+Item::Item( WoWGuid guid, uint32 fieldCount ) : Object(guid, fieldCount) 
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
+    SetUInt32Value(OBJECT_FIELD_ENTRY, guid.getEntry());
 
     m_inWorld = false;
     m_itemProto = NULL;
     m_owner = NULL;
     m_locked = false;
-    m_isDirty = true;
     StatsApplied = false;
-    random_prop = 0;
-    random_suffix = 0;
     wrapped_item_id = 0;
     memset(OnUseSpells, 0, sizeof(uint32)*3);
 }
@@ -58,7 +56,7 @@ void Item::Create( uint32 itemid, Player* owner )
 
     SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
 
-    m_itemProto = ItemPrototypeStorage.LookupEntry( itemid );
+    m_itemProto = sItemMgr.LookupEntry( itemid );
 
     ASSERT( m_itemProto );
 
@@ -91,7 +89,7 @@ uint32 Item::CalcMaxDamage()
 void Item::LoadFromDB(Field* fields, Player* plr, bool light )
 {
     uint32 itemid = fields[2].GetUInt32(), random_prop = fields[9].GetUInt32(), random_suffix = fields[10].GetUInt32();
-    m_itemProto = ItemPrototypeStorage.LookupEntry( itemid );
+    m_itemProto = sItemMgr.LookupEntry( itemid );
 
     ASSERT( m_itemProto );
 
@@ -241,16 +239,21 @@ void Item::ApplyRandomProperties( bool apply )
 
 void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffer* buf )
 {
-    if( !m_isDirty && !firstsave )
-        return;
-
     std::stringstream ss;
 
-    ss << "REPLACE INTO playeritems VALUES(";
+    ss << "REPLACE INTO item_data VALUES(";
+    ss << uint64(m_objGuid)
+    << ", " << GetUInt64Value(ITEM_FIELD_CONTAINED)
+    << ", " << GetUInt64Value(ITEM_FIELD_CREATOR)
+    << ", " << GetUInt32Value(ITEM_FIELD_STACK_COUNT)
+    << ", " << GetUInt32Value(ITEM_FIELD_FLAGS)
+    << ", " << GetUInt32Value(ITEM_FIELD_PROPERTY_SEED)
+    << ", " << GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID)
+    << ", " << GetUInt32Value(ITEM_FIELD_DURABILITY)
+    << ", " << GetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME)
+    << ", " << wrapped_item_id
+    << ", " << GetUInt64Value(ITEM_FIELD_GIFTCREATOR);
 
-    ss << GetUInt32Value(ITEM_FIELD_OWNER) << ",";
-    ss << GetUInt32Value(OBJECT_FIELD_GUID) << ",";
-    ss << GetUInt32Value(OBJECT_FIELD_ENTRY) << ",";
     ss << wrapped_item_id << ",";
     ss << GetUInt32Value(ITEM_FIELD_GIFTCREATOR) << ",";
     ss << GetUInt32Value(ITEM_FIELD_CREATOR) << ",";
@@ -292,8 +295,6 @@ void Item::SaveToDB( int16 containerslot, int16 slot, bool firstsave, QueryBuffe
     if( firstsave || buf == NULL )
         CharacterDatabase.Execute( ss.str().c_str() );
     else buf->AddQueryStr( ss.str() );
-
-    m_isDirty = false;
 }
 
 void Item::DeleteFromDB()
@@ -381,14 +382,14 @@ uint32 Item::GetBuyPriceForItem( ItemPrototype* proto, uint32 count, Player* plr
 
 uint32 Item::GetSellPriceForItem( uint32 itemid, uint32 count )
 {
-    if( ItemPrototype* proto = ItemPrototypeStorage.LookupEntry( itemid ) )
+    if( ItemPrototype* proto = sItemMgr.LookupEntry( itemid ) )
         return Item::GetSellPriceForItem(proto, count);
     return 1;
 }
 
 uint32 Item::GetBuyPriceForItem( uint32 itemid, uint32 count, Player* plr, Creature* vendor )
 {
-    if( ItemPrototype* proto = ItemPrototypeStorage.LookupEntry( itemid ) )
+    if( ItemPrototype* proto = sItemMgr.LookupEntry( itemid ) )
         return Item::GetBuyPriceForItem( proto, count, plr, vendor );
     return 1;
 }
@@ -408,14 +409,12 @@ void Item::SetOwner( Player* owner )
     if( owner != NULL )
         SetUInt64Value( ITEM_FIELD_OWNER, owner->GetGUID() );
     else SetUInt64Value( ITEM_FIELD_OWNER, 0 );
-
     m_owner = owner;
 }
 
 int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm /* = false */, bool apply /* = true */, bool RemoveAtLogout /* = false */, uint32 Slot_, uint32 RandomSuffix, bool dummy /* = false */ )
 {
     int32 Slot = Slot_;
-    m_isDirty = true;
 
     // Create the enchantment struct.
     EnchantmentInstance Instance;
@@ -471,7 +470,6 @@ void Item::RemoveEnchantment( uint32 EnchantmentSlot )
     if( itr == Enchantments.end() )
         return;
 
-    m_isDirty = true;
     uint32 Slot = itr->first;
     if( itr->second.BonusApplied )
         ApplyEnchantmentBonus( EnchantmentSlot, false );
@@ -782,7 +780,7 @@ uint32 Item::CountGemsWithLimitId(uint32 LimitId)
         EnchantmentInstance* ei = GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + count);
         if(ei && ei->Enchantment->GemEntry )
         {
-            ItemPrototype* ip = ItemPrototypeStorage.LookupEntry(ei->Enchantment->GemEntry);
+            ItemPrototype* ip = sItemMgr.LookupEntry(ei->Enchantment->GemEntry);
             if(ip && ip->ItemLimitCategory == LimitId)
                 result++;
         }

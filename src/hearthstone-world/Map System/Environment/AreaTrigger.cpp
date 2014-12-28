@@ -102,7 +102,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
                         }break;
                     case AREA_TRIGGER_FAILURE_NO_ATTUNE_I:
                         {
-                            ItemPrototype * pItem = ItemPrototypeStorage.LookupEntry(pMi->required_item);
+                            ItemPrototype * pItem = sItemMgr.LookupEntry(pMi->required_item);
                             snprintf(msg, 200, pReason, pItem ? pItem->Name1 : "UNKNOWN");
                             data << msg;
                         }break;
@@ -120,7 +120,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
                             {
                                 if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i], false)==0)
                                 {
-                                    if(ItemPrototype * pKey = ItemPrototypeStorage.LookupEntry(pMi->heroic_key[i]))
+                                    if(ItemPrototype * pKey = sItemMgr.LookupEntry(pMi->heroic_key[i]))
                                         temp_msg[i] += pKey->Name1;
                                     else temp_msg[i] += "UNKNOWN";
                                 }

@@ -171,7 +171,7 @@ bool AddItem( uint32 pEntry, Player *pPlayer, uint32 pCount)
     Item *ItemStack = pPlayer->GetItemInterface()->FindItemLessMax( pEntry, pCount, false );
     if ( ItemStack == NULL)
     {
-        ItemPrototype* ItemProto = ItemPrototypeStorage.LookupEntry( pEntry );
+        ItemPrototype* ItemProto = sItemMgr.LookupEntry( pEntry );
         if ( ItemProto == NULL )
             return false;
 
@@ -203,7 +203,6 @@ bool AddItem( uint32 pEntry, Player *pPlayer, uint32 pCount)
         }
     }
     ItemStack->SetCount( ItemStack->GetUInt32Value( ITEM_FIELD_STACK_COUNT ) + pCount );
-    ItemStack->m_isDirty = true;
     pPlayer->GetSession()->SendItemPushResult( ItemStack, false, true, true, false, pPlayer->GetItemInterface()->GetBagSlotByGuid( ItemStack->GetGUID() ), 0xFFFFFFFF, pCount );
     return true;
 }

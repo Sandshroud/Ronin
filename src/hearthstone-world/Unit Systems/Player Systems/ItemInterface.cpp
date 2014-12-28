@@ -9,9 +9,6 @@
 ItemInterface::ItemInterface( Player* pPlayer )
 {
     m_pOwner = pPlayer;
-
-    memset(m_pItems, 0, sizeof(Item*)*MAX_INVENTORY_SLOT);
-    memset(m_pBuyBack, 0, sizeof(Item*)*MAX_BUYBACK_SLOT);
 }
 
 //-------------------------------------------------------------------//
@@ -92,7 +89,7 @@ void ItemInterface::DestroyForPlayer(Player* plr)
 //-------------------------------------------------------------------//
 Item* ItemInterface::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot)
 {
-    ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(ItemId);
+    ItemPrototype *pProto = sItemMgr.LookupEntry(ItemId);
     if(pProto == NULL)
         return NULL;
 
@@ -131,17 +128,6 @@ AddItemResult ItemInterface::SafeAddItem( Item* pItem, int16 ContainerSlot, int1
 //-------------------------------------------------------------------//
 AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 slot)
 {
-    if ( slot >= MAX_INVENTORY_SLOT )
-    {
-        sLog.outString("%s: slot (%d) >= MAX_INVENTORY_SLOT (%d)", __FUNCTION__, slot, MAX_INVENTORY_SLOT);
-        return ADD_ITEM_RESULT_ERROR;
-    }
-    if ( ContainerSlot >= MAX_INVENTORY_SLOT )
-    {
-        sLog.outString("%s: ContainerSlot (%d) >= MAX_INVENTORY_SLOT (%d)", __FUNCTION__, ContainerSlot, MAX_INVENTORY_SLOT);
-        return ADD_ITEM_RESULT_ERROR;
-    }
-
     SlotResult result;
     if( item == NULL || !item->GetProto() )
         return ADD_ITEM_RESULT_ERROR;
@@ -155,8 +141,6 @@ AddItemResult ItemInterface::m_AddItem( Item* item, int16 ContainerSlot, int16 s
             ContainerSlot = result.ContainerSlot;
         } else return ADD_ITEM_RESULT_ERROR;
     }
-
-    item->m_isDirty = true;
 
     // doublechecking
     int32 i, j, k;
@@ -1576,7 +1560,7 @@ uint32 ItemInterface::GetEquippedCountByItemLimit(uint32 LimitId)
                 EnchantmentInstance* ei = it->GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + socketcount);
                 if(ei && ei->Enchantment)
                 {
-                    ItemPrototype* ip = ItemPrototypeStorage.LookupEntry(ei->Enchantment->GemEntry);
+                    ItemPrototype* ip = sItemMgr.LookupEntry(ei->Enchantment->GemEntry);
                     if(ip && ip->ItemLimitCategory == LimitId)
                         count++;
                 }
@@ -1604,7 +1588,7 @@ int16 ItemInterface::CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* item,
             EnchantmentInstance* ei = item->GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + count);
             if(ei && ei->Enchantment->GemEntry ) //huh ? Gem without entry ?
             {
-                ItemPrototype* ip = ItemPrototypeStorage.LookupEntry(ei->Enchantment->GemEntry);
+                ItemPrototype* ip = sItemMgr.LookupEntry(ei->Enchantment->GemEntry);
 
                 if( ip ) //maybe gem got removed from db due to update ?
                 {
@@ -2703,7 +2687,7 @@ void ItemInterface::LoadPlayerItems(QueryResult * result)
             int8 containerslot = fields[13].GetInt8();
             uint16 slot = fields[14].GetInt8();
 
-            if( ItemPrototype *proto = ItemPrototypeStorage.LookupEntry(itemEntry) )
+            if( ItemPrototype *proto = sItemMgr.LookupEntry(itemEntry) )
             {
                 Item *item = NULL;
                 if( proto->InventoryType == INVTYPE_BAG )
@@ -3071,7 +3055,7 @@ bool ItemInterface::AddItemById( uint32 itemid, uint32 count, int32 randomprop, 
     if( chr == NULL )
         return false;
 
-    ItemPrototype* it = ItemPrototypeStorage.LookupEntry(itemid);
+    ItemPrototype* it = sItemMgr.LookupEntry(itemid);
     if(it == NULL )
         return false;
 
@@ -3258,7 +3242,7 @@ uint32 ItemInterface::GetSocketedGemCountWithLimitId(uint32 Id)
                 EnchantmentInstance *e = it->GetEnchantment( 2 + socketcount );
                 if (e && e->Enchantment)
                 {
-                    ItemPrototype * ip = ItemPrototypeStorage.LookupEntry(e->Enchantment->GemEntry);
+                    ItemPrototype * ip = sItemMgr.LookupEntry(e->Enchantment->GemEntry);
                     if( ip && ip->ItemLimitCategory == Id )
                         count++;
                 }

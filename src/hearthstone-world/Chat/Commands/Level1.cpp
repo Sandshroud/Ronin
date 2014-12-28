@@ -228,7 +228,7 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
     if (chr == NULL)
         return true;
 
-    ItemPrototype* it = ItemPrototypeStorage.LookupEntry(itemid);
+    ItemPrototype* it = sItemMgr.LookupEntry(itemid);
     if(it)
     {
         sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name1, chr->GetName());

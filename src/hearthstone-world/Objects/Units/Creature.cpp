@@ -913,7 +913,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
             {
                 b_has_shield = true;
-                IP_shield = ItemPrototypeStorage.LookupEntry(tmpitemid);
+                IP_shield = sItemMgr.LookupEntry(tmpitemid);
             }
             else if(getLevel() > 10)
                 setcanperry(true); // Who cares what else it is, set parry = true.
@@ -928,7 +928,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
             if(!b_has_shield && DBCItem->InventoryType == INVTYPE_SHIELD)
             {
                 b_has_shield = true;
-                IP_shield = ItemPrototypeStorage.LookupEntry(tmpitemid);
+                IP_shield = sItemMgr.LookupEntry(tmpitemid);
             }
             else if(getLevel() > 10)
             {
@@ -1142,7 +1142,7 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
             {
                 b_has_shield = true;
-                IP_shield = ItemPrototypeStorage.LookupEntry(tmpitemid);
+                IP_shield = sItemMgr.LookupEntry(tmpitemid);
             }
             else if(getLevel() > 10)
                 setcanperry(true); // Who cares what else it is, set parry = true.
@@ -1157,7 +1157,7 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
             {
                 b_has_shield = true;
-                IP_shield = ItemPrototypeStorage.LookupEntry(tmpitemid);
+                IP_shield = sItemMgr.LookupEntry(tmpitemid);
             }
             else if(getLevel() > 10)
             {

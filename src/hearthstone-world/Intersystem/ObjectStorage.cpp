@@ -156,7 +156,7 @@ void ObjectMgr::LoadExtraItemStuff()
                             if(lastPrefix.length())
                             {
                                 std::set<uint32>::iterator itr2 = itr->second[i].begin();
-                                IP = ItemPrototypeStorage.LookupEntry(*itr2);
+                                IP = sItemMgr.LookupEntry(*itr2);
                                 size_t spot = 0;
                                 std::string name = IP->Name1, Prefix = "";
                                 if((spot = name.find(" ")) != std::string::npos)
@@ -178,7 +178,7 @@ void ObjectMgr::LoadExtraItemStuff()
 
                     for(std::set<uint32>::iterator itr2 = itr->second[i].begin(); itr2 != itr->second[i].end(); itr2++)
                     {
-                        IP = ItemPrototypeStorage.LookupEntry(*itr2);
+                        IP = sItemMgr.LookupEntry(*itr2);
                         size_t spot = 0;
                         std::string name = IP->Name1, Prefix = "";
                         if((spot = name.find(" ")) != std::string::npos)

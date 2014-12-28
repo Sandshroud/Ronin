@@ -4,12 +4,9 @@
 
 #include "StdAfx.h"
 
-Container::Container(uint32 high,uint32 low, uint32 fieldCount) : Item(high, low, fieldCount)
+Container::Container(WoWGuid guid, ItemData *data, uint32 fieldCount) : Item(guid, data, fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
-
-    memset(&m_Slot, 0, sizeof(Item*)*72);
-    random_suffix = random_prop = 0;
 }
 
 Container::~Container( )
@@ -19,241 +16,125 @@ Container::~Container( )
 
 void Container::Init()
 {
+    if(_itemData && _itemData->containerData)
+        SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, _itemData->containerData->numSlots);
     Item::Init();
 }
 
 void Container::Destruct()
 {
-    if(m_itemProto->ContainerSlots > 0)
-    {
-        for(int32 i = 0; i < m_itemProto->ContainerSlots; i++)
-        {
-            if(m_Slot[i] && m_Slot[i]->GetOwner() == m_owner)
-            {
-                m_Slot[i]->Destruct();
-                m_Slot[i] = NULL;
-            }
-        }
-    }
+    for(auto itr = m_items.begin(); itr != m_items.end(); itr++)
+        itr->second->Destruct();
     Item::Destruct();
 }
 
-void Container::LoadFromDB(Field *fields, Player *plr, bool light )
+bool Container::AddItem(Item* item, uint8 slot)
 {
-    Item::LoadFromDB(fields, plr, true);
-    SetUInt32Value( CONTAINER_FIELD_NUM_SLOTS, m_itemProto->ContainerSlots);
-    Bind(ITEM_BIND_ON_PICKUP); // Check if we need to bind our shit.
-}
-
-void Container::Create( uint32 itemid, Player* owner )
-{
-
-    m_itemProto = ItemPrototypeStorage.LookupEntry( itemid );
-    ASSERT(m_itemProto);
-
-    SetUInt32Value( OBJECT_FIELD_ENTRY, itemid );
-
-    // TODO: this shouldnt get NULL form containers in mail fix me
-    if( owner != NULL )
-    {
-        SetUInt64Value( ITEM_FIELD_OWNER, owner->GetGUID() );
-        SetUInt64Value( ITEM_FIELD_CONTAINED, owner->GetGUID() );
-    }
-    SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
-    SetUInt32Value( CONTAINER_FIELD_NUM_SLOTS, m_itemProto->ContainerSlots);
-
-    m_owner = owner;
-}
-
-
-int8 Container::FindFreeSlot()
-{
-    int8 TotalSlots = GetSlotCount();
-    for (int8 i=0; i < TotalSlots; i++)
-    {
-        if(!m_Slot[i])
-        {
-            return i;
-        }
-    }
-    sLog.Debug( "Container","FindFreeSlot: no slot available" );
-    return ITEM_NO_SLOT_AVAILABLE;
-}
-
-bool Container::HasItems()
-{
-    int8 TotalSlots = GetSlotCount();
-    for (int8 i=0; i < TotalSlots; i++)
-    {
-        if(m_Slot[i])
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool Container::AddItem(int16 slot, Item* item)
-{
-    if (slot < 0 || (int32)slot >= GetProto()->ContainerSlots)
+    if(slot >= GetSlotCount())
+        return false;
+    if(slot == 255 && (slot = FindFreeSlot()) == 255)
+        return false;
+    if(m_items.find(slot) != m_items.end())
         return false;
 
-    //ASSERT(m_Slot[slot] == NULL);
-    if(m_Slot[slot] != NULL)
-    {
-        //sLog.outString("Bad container item %u slot %d", item->GetGUID(), slot);
-        return false;
-    }
-
-    if (!m_owner)
-        return false;
-
-    m_Slot[slot] = item;
-    item->m_isDirty = true;
-
+    m_items.insert(std::make_pair(slot, item));
     item->SetUInt64Value(ITEM_FIELD_CONTAINED, GetGUID());
     item->SetOwner(m_owner);
+    sItemMgr.QueueItemSave(item);
 
     Bind(ITEM_BIND_ON_PICKUP);
-
-    SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (slot*2), item->GetGUID());
+    SetUInt64Value(CONTAINER_FIELD_SLOT_1 + (slot*2), item->GetGUID());
     return true;
 }
 
-void Container::SwapItems(int16 SrcSlot, int16 DstSlot)
+uint8 Container::FindFreeSlot()
 {
-    if( SrcSlot < 0 || SrcSlot >= (int8)m_itemProto->ContainerSlots )
-        return;
-    if( DstSlot < 0 || DstSlot >= (int8)m_itemProto->ContainerSlots )
-        return;
-
-    if(m_Slot[DstSlot] &&  m_Slot[SrcSlot] && m_Slot[DstSlot]->GetEntry()==m_Slot[SrcSlot]->GetEntry() && m_Slot[SrcSlot]->wrapped_item_id == 0 && m_Slot[DstSlot]->wrapped_item_id == 0
-        && (m_Slot[DstSlot]->GetProto()->MaxCount < 0 || m_Slot[DstSlot]->GetProto()->MaxCount > 1))
+    uint8 TotalSlots;
+    if((TotalSlots = GetSlotCount()) != m_items.size())
     {
-        uint32 total = m_Slot[SrcSlot]->GetUInt32Value(ITEM_FIELD_STACK_COUNT)+m_Slot[DstSlot]->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
-        m_Slot[DstSlot]->m_isDirty = m_Slot[SrcSlot]->m_isDirty = true;
-        if(total <= (uint32)m_Slot[DstSlot]->GetProto()->MaxCount || m_Slot[DstSlot]->GetProto()->MaxCount < 0)
+        for (uint8 i = 0; i < TotalSlots; i++)
         {
-            m_Slot[DstSlot]->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT,m_Slot[SrcSlot]->GetUInt32Value(ITEM_FIELD_STACK_COUNT));
-            SafeFullRemoveItemFromSlot(SrcSlot);
-            return;
-        }
-        else
-        {
-            if(!(m_Slot[DstSlot]->GetUInt32Value(ITEM_FIELD_STACK_COUNT) == m_Slot[DstSlot]->GetProto()->MaxCount))
-            {
-                int32 delta = m_Slot[DstSlot]->GetProto()->MaxCount-m_Slot[DstSlot]->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
-                m_Slot[DstSlot]->SetUInt32Value(ITEM_FIELD_STACK_COUNT,m_Slot[DstSlot]->GetProto()->MaxCount);
-                m_Slot[SrcSlot]->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT,-delta);
-                return;
-            }
+            if(m_items.find(i) != m_items.end())
+                continue;
+            return i;
         }
     }
-
-    Item *temp = m_Slot[SrcSlot];
-    m_Slot[SrcSlot] = m_Slot[DstSlot];
-    m_Slot[DstSlot] = temp;
-
-    if( m_Slot[DstSlot])
-    {
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2),  m_Slot[DstSlot]->GetGUID()  );
-        m_Slot[DstSlot]->m_isDirty = true;
-    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2), 0 );
-
-    if( m_Slot[SrcSlot])
-    {
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), m_Slot[SrcSlot]->GetGUID() );
-        m_Slot[SrcSlot]->m_isDirty = true;
-    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), 0 );
+    return 0xFF;
 }
 
-Item* Container::SafeRemoveAndRetreiveItemFromSlot(int16 slot, bool destroy)
+bool Container::RemoveItem(uint8 slot)
 {
-    if (slot < 0 || (int32)slot >= GetProto()->ContainerSlots)
+    if(m_items.find(slot) == m_items.end())
         return NULL;
 
-    Item* pItem = m_Slot[slot];
-    if (pItem == NULL || pItem == this)
-        return NULL;
-    m_Slot[slot] = NULL;
-
-    if( pItem->GetOwner() == m_owner )
-    {
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + slot*2, 0 );
-        pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
-
-        if(destroy)
-        {
-            pItem->RemoveFromWorld(false);
-            pItem->DeleteFromDB();
-        }
-    } else pItem = NULL;
-    return pItem;
-}
-
-bool Container::SafeFullRemoveItemFromSlot(int16 slot)
-{
-    if (slot < 0 || (int32)slot >= GetProto()->ContainerSlots)
-        return false;
-
-    Item* pItem = m_Slot[slot];
-
-    if(pItem == NULL ||pItem == castPtr<Item>(this)) return false;
-        m_Slot[slot] = NULL;
+    Item *pItem = m_items.at(slot);
+    m_items.erase(slot);
 
     SetUInt64Value(CONTAINER_FIELD_SLOT_1  + slot*2, 0 );
     pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
-
-    pItem->DeleteFromDB();
     pItem->RemoveFromWorld(true);
     return true;
 }
 
-bool Container::AddItemToFreeSlot(Item* pItem, uint32 * r_slot)
+Item *Container::RetreiveItem(uint8 slot)
 {
-    if(m_itemProto->ContainerSlots < 1)
-        return false;
+    if(m_items.find(slot) == m_items.end())
+        return NULL;
 
-    for(int32 slot = 0; slot < GetProto()->ContainerSlots; slot++)
-    {
-        if(!m_Slot[slot])
-        {
-            m_Slot[slot] = pItem;
-            pItem->m_isDirty = true;
+    Item *pItem = m_items.at(slot);
+    m_items.erase(slot);
 
-            pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, GetGUID());
-            pItem->SetOwner(m_owner);
-
-            SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (slot*2), pItem->GetGUID());
-
-            if(m_owner->IsInWorld() && !pItem->IsInWorld())
-            {
-                pItem->SetInWorld();
-                ByteBuffer buf(2500);
-                uint32 count = pItem->BuildCreateUpdateBlockForPlayer( &buf, m_owner );
-                m_owner->PushUpdateBlock(&buf, count);
-            }
-            if(r_slot)
-                *r_slot = slot;
-            return true;
-        }
-    }
-    return false;
+    SetUInt64Value(CONTAINER_FIELD_SLOT_1 + slot*2, 0 );
+    if(GetGUID() == pItem->GetContainerGUID())
+        pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
+    pItem->RemoveFromWorld(false);
+    return pItem;
 }
 
-
-void Container::SaveBagToDB(int16 slot, bool first, QueryBuffer * buf)
+void Container::SwapItems(uint8 SrcSlot, uint8 DstSlot)
 {
-    SaveToDB(INVENTORY_SLOT_NOT_SET, slot, first, buf);
+    if(m_items.find(SrcSlot) == m_items.end() && m_items.find(DstSlot) == m_items.end())
+        return;
+    uint8 slotCount = GetSlotCount();
+    if(SrcSlot >= slotCount || DstSlot >= slotCount)
+        return;
 
-    if(m_itemProto->ContainerSlots > 0)
+    Item *src = m_items.find(SrcSlot) != m_items.end() ? m_items.at(SrcSlot) : NULL,
+        *dst = m_items.find(DstSlot) != m_items.end() ? m_items.at(DstSlot) : NULL;
+    if(src && dst && src->GetEntry() == dst->GetEntry() && !src->IsWrapped() && !dst->IsWrapped())
     {
-        for(int32 i = 0; i < m_itemProto->ContainerSlots; i++)
+        if(dst->GetProto()->MaxCount > dst->GetStackCount())
         {
-            if (m_Slot[i] && !((m_Slot[i]->GetProto()->Flags)& 2) )
+            uint32 delta = dst->GetProto()->MaxCount-dst->GetStackCount();
+            if(delta >= src->GetStackCount())
             {
-                m_Slot[i]->SaveToDB(slot, i, first, buf);
+                dst->ModStackCount(src->GetStackCount());
+                sItemMgr.QueueItemDeletion(src);
+                RemoveItem(SrcSlot);
             }
+            else
+            {
+                dst->ModStackCount(delta);
+                src->ModStackCount(-int32(delta));
+                sItemMgr.QueueItemSave(src);
+            }
+            sItemMgr.QueueItemSave(dst);
+            return;
         }
+    }
+
+    m_items.erase(SrcSlot);
+    m_items.erase(DstSlot);
+    if(dst)
+    {
+        SetUInt64Value(CONTAINER_FIELD_SLOT_1 + (SrcSlot*2), dst->GetGUID());
+        m_items.insert(std::make_pair(SrcSlot, dst));
+        sItemMgr.ContainerSlotChange(dst, SrcSlot);
+    }
+    if(src)
+    {
+        SetUInt64Value(CONTAINER_FIELD_SLOT_1 + (DstSlot*2), src->GetGUID());
+        m_items.insert(std::make_pair(DstSlot, src));
+        sItemMgr.ContainerSlotChange(src, DstSlot);
     }
 }

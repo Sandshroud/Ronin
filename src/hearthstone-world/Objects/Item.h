@@ -20,74 +20,71 @@ const static ItemProf prof[22] = { {4, 2}, {4, 4}, {4, 8}, {4, 16}, {4, 64},
                                    {2, 1}, {2, 2}, {2, 4}, {2, 8}, {2, 16}, {2, 32}, {2, 64}, {2, 128}, {2, 256}, {2, 1024}, {2, 8192}, {2, 32768}, {2, 65536}, {2, 131072},
                                    {2, 262144}, {2, 524288}, {2, 1048576} };
 
-const static uint32 arm_skills[7] = { 0,
-                                      SKILL_CLOTH,
-                                      SKILL_LEATHER,
-                                      SKILL_MAIL,
-                                      SKILL_PLATE_MAIL,
-                                      0,
-                                      SKILL_SHIELD };
+const static uint16 arm_skills[7] = { 0, SKILL_CLOTH, SKILL_LEATHER, SKILL_MAIL, SKILL_PLATE_MAIL, 0, SKILL_SHIELD };
 
-const static uint32 weap_skills[21] = { SKILL_AXES,
-                                        SKILL_2H_AXES,
-                                        SKILL_BOWS,
-                                        SKILL_GUNS,
-                                        SKILL_MACES,
-                                        SKILL_2H_MACES,
-                                        SKILL_POLEARMS,
-                                        SKILL_SWORDS,
-                                        SKILL_2H_SWORDS,
-                                        0,
-                                        SKILL_STAVES,
-                                        0,
-                                        0,
-                                        SKILL_FIST_WEAPONS,
-                                        0,//<-13
-                                        SKILL_DAGGERS,
-                                        SKILL_THROWN,
-                                        SKILL_SPEARS,
-                                        SKILL_CROSSBOWS,
-                                        SKILL_WANDS,
-                                        SKILL_FISHING };
+const static uint16 weap_skills[21] = {
+    SKILL_AXES,
+    SKILL_2H_AXES,
+    SKILL_BOWS,
+    SKILL_GUNS,
+    SKILL_MACES,
+    SKILL_2H_MACES,
+    SKILL_POLEARMS,
+    SKILL_SWORDS,
+    SKILL_2H_SWORDS,
+    0,
+    SKILL_STAVES,
+    0,
+    0,
+    SKILL_FIST_WEAPONS,
+    0,//<-13
+    SKILL_DAGGERS,
+    SKILL_THROWN,
+    SKILL_SPEARS,
+    SKILL_CROSSBOWS,
+    SKILL_WANDS,
+    SKILL_FISHING };
 
-const static float pricemod[9] = { 1.0f, // HATED
-                                   1.0f, // HOSTILE
-                                   1.0f, // UNFRIENDLY
-                                   1.0f, // NEUTRAL
-                                   0.95f, // FRIENDLY
-                                   0.90f, // HONORED
-                                   0.85f, // REVERED
-                                   0.80f }; // EXHALTED
+const static float pricemod[9] = {
+    1.f,    // HATED
+    1.f,    // HOSTILE
+    1.f,    // UNFRIENDLY
+    1.f,    // NEUTRAL
+    0.95f,  // FRIENDLY
+    0.90f,  // HONORED
+    0.85f,  // REVERED
+    0.80f };// EXHALTED
 
-const static double SuffixMods[NUM_INVENTORY_TYPES] = { 0.0,
-                                                        0.46,       // HEAD
-                                                        0.26,       // NECK
-                                                        0.35,       // SHOULDERS
-                                                        0.46,       // BODY
-                                                        0.46,       // CHEST
-                                                        0.35,       // WAIST
-                                                        0.46,       // LEGS
-                                                        0.34,       // FEET
-                                                        0.26,       // WRISTS
-                                                        0.35,       // HANDS
-                                                        0.26,       // FINGER
-                                                        0.0,        // TRINKET
-                                                        0.19,       // WEAPON
-                                                        0.25,       // SHEILD
-                                                        0.14,       // RANGED
-                                                        0.26,       // CLOAK
-                                                        0.46,       // 2H-WEAPON
-                                                        0.0,        // BAG
-                                                        0.0,        // TABARD
-                                                        0.46,       // ROBE
-                                                        0.19,       // MAIN-HAND WEAPON
-                                                        0.19,       // OFF-HAND WEAPON
-                                                        0.26,       // HOLDABLE
-                                                        0.0,        // AMMO
-                                                        0.26,       // THROWN
-                                                        0.14,       // RANGED
-                                                        0.0,        // QUIVER
-                                                        0.26, };    // RELIC
+const static float SuffixMods[NUM_INVENTORY_TYPES] = {
+    0.f,    // No slot
+    0.46f,  // HEAD
+    0.26f,  // NECK
+    0.35f,  // SHOULDERS
+    0.46f,  // BODY
+    0.46f,  // CHEST
+    0.35f,  // WAIST
+    0.46f,  // LEGS
+    0.34f,  // FEET
+    0.26f,  // WRISTS
+    0.35f,  // HANDS
+    0.26f,  // FINGER
+    0.f,    // TRINKET
+    0.19f,  // WEAPON
+    0.25f,  // SHEILD
+    0.14f,  // RANGED
+    0.26f,  // CLOAK
+    0.46f,  // 2H-WEAPON
+    0.f,    // BAG
+    0.f,    // TABARD
+    0.46f,  // ROBE
+    0.19f,  // MAIN-HAND WEAPON
+    0.19f,  // OFF-HAND WEAPON
+    0.26f,  // HOLDABLE
+    0.f,    // AMMO
+    0.26f,  // THROWN
+    0.14f,  // RANGED
+    0.f,    // QUIVER
+    0.26f };// RELIC
 
 // -1 from client enchantment slot number
 enum EnchantmentSlot
@@ -119,7 +116,7 @@ typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 class SERVER_DECL Item : public Object
 {
 public:
-    Item( uint32 high, uint32 low, uint32 fieldCount = ITEM_END );
+    Item( WoWGuid guid, uint32 fieldCount = ITEM_END );
     virtual ~Item();
     virtual void Init();
     virtual void Destruct();
@@ -176,6 +173,7 @@ public:
 
     void Wrap() { SetFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED); }
     void UnWrap() { RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED); }
+    bool IsWrapped() { return HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED); }
 
     void ClearFlags() { SetFlag(ITEM_FIELD_FLAGS, 0); }
 
@@ -186,23 +184,19 @@ public:
 
     void SetItemRandomPropertyId(uint32 id)
     {
-        random_prop = id;
         SetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID, id);
     }
 
     void SetItemRandomSuffixFactor(uint32 factor)
     {
-        random_suffix = factor;
         SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, factor);
     }
 
     void SetRandomSuffix(uint32 id)
     {
         int32 r_id = -(int32(id));
-        uint32 v = Item::GenerateRandomSuffixFactor(m_itemProto);
         SetItemRandomPropertyId((uint32)r_id);
-        SetItemRandomSuffixFactor(v);
-        random_suffix = id;
+        SetItemRandomSuffixFactor(Item::GenerateRandomSuffixFactor(m_itemProto));
     }
 
     void SetDurability(uint32 Value) { SetUInt32Value(ITEM_FIELD_DURABILITY, Value); };
@@ -312,7 +306,6 @@ public:
     void RemoveFromWorld(bool destroy);
 
     bool m_locked;
-    bool m_isDirty;
 
     uint32 CountGemsWithLimitId(uint32 Limit);
     EnchantmentInstance* GetEnchantment( uint32 slot );
@@ -323,7 +316,6 @@ public:
     HEARTHSTONE_INLINE void SetRandomProperty( uint32 id )
     {
         SetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID, id );
-        random_prop = id;
     }
 
     bool HasEnchantments() { return ( Enchantments.size() > 0 ) ? true : false; }
@@ -333,13 +325,11 @@ public:
     void SetTextID(uint32 newtxt) { textid = newtxt; };
 
 protected:
+    ItemData *_itemData;
     ItemPrototype* m_itemProto;
     EnchantmentMap Enchantments;
     Player* m_owner; // let's not bother the manager with unneeded requests
-    uint32 random_prop;
-    uint32 random_suffix;
     uint32 textid;
-
     bool m_inWorld;
 
 public:

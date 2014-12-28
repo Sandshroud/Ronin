@@ -1943,11 +1943,11 @@ bool ChatHandler::HandleLookupItemCommand(const char * args, WorldSession * m_se
         return false;
 
     uint32 t = getMSTime();
-    uint32 itemid = 0;
+    uint32 itemid = 0, count = 0;
     GetItemIDFromLink(args, &itemid);
     if(itemid != NULL)
     {
-        ItemPrototype* proto = ItemPrototypeStorage.LookupEntry(itemid);
+        ItemPrototype* proto = sItemMgr.LookupEntry(itemid);
         if(proto == NULL)
             return false;
 
@@ -1967,12 +1967,11 @@ bool ChatHandler::HandleLookupItemCommand(const char * args, WorldSession * m_se
         return true;
     }
 
-    ItemPrototypeSystem::iterator itr = ItemPrototypeStorage.begin();
     BlueSystemMessage(m_session, "Starting search of item `%s`...", x.c_str());
     t = getMSTime();
     ItemPrototype * it;
-    uint32 count = 0;
-    while(itr != ItemPrototypeStorage.end())
+    ItemManager::iterator itr = sItemMgr.itemPrototypeBegin();
+    while(itr != sItemMgr.itemPrototypeEnd())
     {
         it = (*itr)->second;
         if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(it->Name1)))
@@ -2010,7 +2009,7 @@ bool ChatHandler::HandleLookupItemSetCommand(const char * args, WorldSession * m
             return false;
     }
 
-    ItemPrototype* proto = ItemPrototypeStorage.LookupEntry(item);
+    ItemPrototype* proto = sItemMgr.LookupEntry(item);
     if(proto == NULL || !proto->ItemSet)
         return false;
 

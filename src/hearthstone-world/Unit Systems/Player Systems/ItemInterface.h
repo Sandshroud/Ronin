@@ -31,10 +31,8 @@ enum AddItemResult
 class SERVER_DECL ItemInterface
 {
 private:
-    SlotResult result;
     Player* m_pOwner;
-    Item* m_pItems[MAX_INVENTORY_SLOT];
-    Item* m_pBuyBack[MAX_BUYBACK_SLOT];
+    std::map<uint8, Item*> m_pItems;
 
     AddItemResult m_AddItem(Item* item, int16 ContainerSlot, int16 slot);
 
@@ -88,10 +86,6 @@ public:
     uint32 CalculateFreeSlots(ItemPrototype *proto);
     void ReduceItemDurability();
 
-    uint16 LastSearchItemBagSlot(){return result.ContainerSlot;}
-    uint16 LastSearchItemSlot(){return result.Slot;}
-    SlotResult *LastSearchResult(){return &result;}
-
     //Searching functions
     SlotResult FindFreeInventorySlot(ItemPrototype *proto);
     SlotResult FindFreeBankSlot(ItemPrototype *proto);
@@ -113,15 +107,6 @@ public:
     bool SwapItemSlots(int16 srcslot, int16 dstslot);
 
     int16 GetInternalBankSlotFromPlayer(int16 islot); //converts inventory slots into 0-x numbers
-
-    //buyback stuff
-    HEARTHSTONE_INLINE Item* GetBuyBack(int32 slot)
-    {
-        if(slot >= 0 && slot <= 12)
-            return m_pBuyBack[slot];
-        else
-            return NULL;
-    }
 
     void AddBuyBackItem(Item* it, uint32 price);
     void RemoveBuyBackItem(uint32 index);
@@ -155,7 +140,7 @@ public:
         if( ContainerSlot > 0 && (ContainerSlot < INVENTORY_SLOT_BAG_START || ContainerSlot >= INVENTORY_SLOT_BAG_END) )
             return false;
 
-        if( ContainerSlot == -1 && (Slot >= MAX_INVENTORY_SLOT || Slot <= EQUIPMENT_SLOT_END) )
+        if( ContainerSlot == -1 && (Slot == INVENTORY_SLOT_NONE || Slot <= EQUIPMENT_SLOT_END) )
             return false;
 
         return true;
@@ -169,7 +154,7 @@ public:
         if( ContainerSlot > 0 && (ContainerSlot < INVENTORY_SLOT_BAG_START || ContainerSlot >= INVENTORY_SLOT_BAG_END) )
             return false;
 
-        if( ContainerSlot == -1 && Slot >= MAX_INVENTORY_SLOT )
+        if( ContainerSlot == -1 && Slot == INVENTORY_SLOT_NONE )
             return false;
 
         return true;

@@ -64,7 +64,7 @@ void WorldSession::HandleLFDPlrLockOpcode( WorldPacket& recv_data )
                     if (!QuestReward->reward_item[i])
                         continue;
 
-                    proto = ItemPrototypeStorage.LookupEntry(QuestReward->reward_item[i]);
+                    proto = sItemMgr.LookupEntry(QuestReward->reward_item[i]);
                     data << uint32(QuestReward->reward_item[i]);
                     data << uint32(proto ? proto->DisplayInfoID : 0);
                     data << uint32(QuestReward->reward_itemcount[i]);

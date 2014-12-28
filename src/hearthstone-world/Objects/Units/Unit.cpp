@@ -2664,7 +2664,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         else
         {
             uint32 entry = weapon->GetEntry();
-            ItemPrototype* pProto = ItemPrototypeStorage.LookupEntry( entry );
+            ItemPrototype* pProto = sItemMgr.LookupEntry( entry );
             if( pProto != NULL )
             {
                 s = pProto->Delay / 1000.0f;

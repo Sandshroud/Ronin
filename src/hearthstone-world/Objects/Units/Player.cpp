@@ -2185,7 +2185,7 @@ void Player::EquipInit(PlayerCreateInfo *EquipInfo)
     {
         if ( (*is).protoid != 0)
         {
-            proto = ItemPrototypeStorage.LookupEntry((*is).protoid);
+            proto = sItemMgr.LookupEntry((*is).protoid);
             if(proto != NULL)
             {
                 Item* item = objmgr.CreateItem((*is).protoid,castPtr<Player>(this));
@@ -8753,7 +8753,7 @@ void Player::Cooldown_AddItem(ItemPrototype * pProto, uint32 x)
     if( pProto->Spells[x].CategoryCooldown <= 0 && pProto->Spells[x].Cooldown <= 0 )
         return;
 
-    ItemSpell* isp = &pProto->Spells[x];
+    ItemPrototype::ItemSpell* isp = &pProto->Spells[x];
     uint32 mstime = getMSTime();
 
     if( isp->CategoryCooldown > 0)
@@ -8766,7 +8766,7 @@ void Player::Cooldown_AddItem(ItemPrototype * pProto, uint32 x)
 bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)
 {
     PlayerCooldownMap::iterator itr;
-    ItemSpell* isp = &pProto->Spells[x];
+    ItemPrototype::ItemSpell* isp = &pProto->Spells[x];
     uint32 mstime = getMSTime();
 
     if( isp->Category )
@@ -8776,8 +8776,7 @@ bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)
         {
             if( mstime < itr->second.ExpireTime )
                 return false;
-            else
-                m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
+            m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
         }
     }
 
@@ -8786,8 +8785,7 @@ bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)
     {
         if( mstime < itr->second.ExpireTime )
             return false;
-        else
-            m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
+        m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
     }
 
     return true;

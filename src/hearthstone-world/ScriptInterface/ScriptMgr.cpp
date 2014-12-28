@@ -476,7 +476,7 @@ void ScriptMgr::register_gossip_script(uint32 entry, GossipScript * gs)
 
 void ScriptMgr::register_item_gossip_script(uint32 entry, GossipScript * gs)
 {
-    ItemPrototype * proto = ItemPrototypeStorage.LookupEntry(entry);
+    ItemPrototype * proto = sItemMgr.LookupEntry(entry);
     if(proto == NULL)
         return;
 

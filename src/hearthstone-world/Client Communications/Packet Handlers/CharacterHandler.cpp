@@ -132,7 +132,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                     int8 containerslot = res->Fetch()[0].GetInt8(), slot = res->Fetch()[1].GetInt8();
                     if( containerslot == -1 && slot < EQUIPMENT_SLOT_END && slot >= 0 )
                     {
-                        ItemPrototype *proto = ItemPrototypeStorage.LookupEntry(res->Fetch()[2].GetUInt32());
+                        ItemPrototype *proto = sItemMgr.LookupEntry(res->Fetch()[2].GetUInt32());
                         if(proto)
                         {
                             // slot0 = head, slot14 = cloak

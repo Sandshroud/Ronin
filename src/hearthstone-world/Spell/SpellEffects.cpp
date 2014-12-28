@@ -749,7 +749,7 @@ void Spell::SpellEffectCreateItem(uint32 i) // Create item
         return;
 
     SlotResult slotresult;
-    ItemPrototype *m_itemProto = ItemPrototypeStorage.LookupEntry( GetSpellProto()->EffectItemType[i] );
+    ItemPrototype *m_itemProto = sItemMgr.LookupEntry( GetSpellProto()->EffectItemType[i] );
     if (!m_itemProto)
         return;
 
@@ -1918,7 +1918,7 @@ void Spell::SpellEffectEnchantItem(uint32 i) // Enchant Item Permanent
         ScrollCreation * sc = ScrollCreationStorage.LookupEntry( GetSpellProto()->Id );
         if(sc)
         {
-            m_itemProto = ItemPrototypeStorage.LookupEntry( sc->ItemId );
+            m_itemProto = sItemMgr.LookupEntry( sc->ItemId );
             itemid  =   sc->ItemId;
 
             if (!m_itemProto)
@@ -3961,7 +3961,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
     SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(GetSpellProto()->Id);
 
     uint32 itemid = GetSpellProto()->EffectItemType[i];
-    ItemPrototype *m_itemProto = ItemPrototypeStorage.LookupEntry( GetSpellProto()->EffectItemType[i] );
+    ItemPrototype *m_itemProto = sItemMgr.LookupEntry( GetSpellProto()->EffectItemType[i] );
     if ( m_itemProto == NULL || itemid == 0)
         return;
 
@@ -3973,7 +3973,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
         // If we Have Perfect Gem Cutting then we have a chance to create a Perfect Gem, according to comments on wowhead chance is between 20 and 30%
         if (Rand(ric->Chance) && ric->Skill == SKILL_JEWELCRAFTING && p_caster->HasSpell(55534))
         {
-            m_itemProto = ItemPrototypeStorage.LookupEntry( ric->ItemToCreate );
+            m_itemProto = sItemMgr.LookupEntry( ric->ItemToCreate );
             itemid  =   ric->ItemToCreate;
         }
 
@@ -3987,7 +3987,7 @@ void Spell::SpellEffectCreateRandomItem(uint32 i) // Create Random Item
             {
                 //Same chance for every card to appear according wowhead and wowwiki info
                 k = RandomUInt(rcc->itemcount-1);
-                m_itemProto = ItemPrototypeStorage.LookupEntry( rcc->ItemId[k] );
+                m_itemProto = sItemMgr.LookupEntry( rcc->ItemId[k] );
                 itemid = rcc->ItemId[k];
                 item_count = 1;
                 switch(GetSpellProto()->Id)

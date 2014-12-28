@@ -3627,22 +3627,15 @@ void Spell::RemoveItems()
     {
         // Stackable Item -> remove 1 from stack
         if(i_caster->GetUInt32Value(ITEM_FIELD_STACK_COUNT) > 1)
-        {
             i_caster->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, -1);
-            i_caster->m_isDirty = true;
-        }
         // Expendable Item
         else if(i_caster->GetProto()->Spells[0].Charges < 0
              || i_caster->GetProto()->Spells[1].Charges == -1) // hackfix for healthstones/mana gems/depleted items
         {
             // if item has charges remaining -> remove 1 charge
             if(((int32)i_caster->GetUInt32Value(ITEM_FIELD_SPELL_CHARGES)) < -1)
-            {
                 i_caster->ModSignedInt32Value(ITEM_FIELD_SPELL_CHARGES, 1);
-                i_caster->m_isDirty = true;
-            }
-            // if item has no charges remaining -> delete item
-            else
+            else // if item has no charges remaining -> delete item
             {
                 if(i_caster->GetOwner()) // wtf?
                 {
@@ -3816,7 +3809,7 @@ void Spell::CreateItem(uint32 itemId)
     SlotResult      slotresult;
     ItemPrototype*  m_itemProto;
 
-    m_itemProto = ItemPrototypeStorage.LookupEntry( itemId );
+    m_itemProto = sItemMgr.LookupEntry( itemId );
     if( m_itemProto == NULL )
         return;
 

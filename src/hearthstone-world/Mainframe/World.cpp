@@ -431,14 +431,14 @@ bool World::SetInitialWorldSettings()
     new WarnSystem();
     new Tracker();
     new GuildMgr();
-    new ItemPrototypeSystem();
+    new ItemManager();
     new CreatureDataManager();
 
     Storage_FillTaskList(tl);
 
 #define MAKE_TASK(sp, ptr) tl.AddTask(new Task(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr)))
     MAKE_TASK(TaxiMgr, Initialize);
-    MAKE_TASK(ItemPrototypeSystem, Init);
+    MAKE_TASK(ItemManager, InitializeItemPrototypes);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
     MAKE_TASK(World, ParseFactionTemplate);
 
@@ -457,6 +457,7 @@ bool World::SetInitialWorldSettings()
     tl.wait();
 
     ApplyNormalFixes();
+    MAKE_TASK(ItemManager, LoadItemData);
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(QuestMgr, LoadQuestPOI);

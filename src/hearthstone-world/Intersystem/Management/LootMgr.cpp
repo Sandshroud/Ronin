@@ -328,7 +328,7 @@ void LootMgr::LoadLootTables(const char * szTableName, LootStore * LootTable, bo
             for(std::vector< tempLootData >::iterator itr2 = (*itr).second.begin(); itr2 != (*itr).second.end(); itr2++)
             {
                 // Omit items that are not in db to prevent future bugs
-                proto = ItemPrototypeStorage.LookupEntry((itemid = itr2->itemid));
+                proto = sItemMgr.LookupEntry((itemid = itr2->itemid));
                 if(!proto)
                 {
                     list.items[ind].item.itemproto = NULL;
@@ -602,7 +602,7 @@ void LootMgr::AddLoot(Loot* loot, uint32 itemid, uint32 mincount, uint32 maxcoun
 {
     uint32 i;
     uint32 count;
-    ItemPrototype *itemproto = ItemPrototypeStorage.LookupEntry(itemid);
+    ItemPrototype *itemproto = sItemMgr.LookupEntry(itemid);
 
     if( itemproto )// this check is needed until loot DB is fixed
     {
@@ -842,7 +842,7 @@ void LootRoll::Finalize()
         return;
     }
 
-    ItemPrototype* it = ItemPrototypeStorage.LookupEntry(itemid);
+    ItemPrototype* it = sItemMgr.LookupEntry(itemid);
     if(int8 error = _player->GetItemInterface()->CanReceiveItem(it, 1, NULL))
     {
         _player->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, error);
@@ -912,7 +912,7 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     if(m_NeedRolls.find(pInfo->guid) != m_NeedRolls.end() || m_GreedRolls.find(pInfo->guid) != m_GreedRolls.end() || m_DisenchantRolls.find(pInfo->guid) != m_DisenchantRolls.end())
         return; // dont allow cheaters
 
-    ItemPrototype* proto = ItemPrototypeStorage.LookupEntry(_itemid);
+    ItemPrototype* proto = sItemMgr.LookupEntry(_itemid);
     if(proto == NULL)
         return; // Shouldn't happen.
 

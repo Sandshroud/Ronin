@@ -191,7 +191,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
     if(vendormask == 0)
         vendormask = pCreature->GetVendorMask();
 
-    ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(item);
+    ItemPrototype* tmpItem = sItemMgr.LookupEntry(item);
     std::stringstream sstext;
     if(tmpItem)
     {
@@ -241,7 +241,7 @@ bool ChatHandler::HandleItemRemoveCommand(const char* args, WorldSession *m_sess
         WorldDatabase.Execute( ss.str().c_str() );
 
         pCreature->RemoveVendorItem(itemguid);
-        if(ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(itemguid))
+        if(ItemPrototype* tmpItem = sItemMgr.LookupEntry(itemguid))
             sstext << "Item '" << itemguid << "' '" << tmpItem->Name1 << "' Deleted from list" << '\0';
         else sstext << "Item '" << itemguid << "' Deleted from list" << '\0';
     }else sstext << "Item '" << itemguid << "' Not Found in List." << '\0';

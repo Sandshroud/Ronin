@@ -248,7 +248,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
         WorldPacket data2(SMSG_DB_REPLY, 700);
         data2 << uint32(type); // Needed?
         data2 << uint32(item);
-        ItemPrototype* proto = ItemPrototypeStorage.LookupEntry(item);
+        ItemPrototype* proto = sItemMgr.LookupEntry(item);
         if (!proto) // Item does not exist
         {
             data2 << uint32(4); // sizeof(uint32)

@@ -1072,7 +1072,7 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
         {
             if( Rand(loot_ptr->Chance * sWorld.getRate(RATE_DROP0)) )
             {
-                if( ItemPrototype *pProto = ItemPrototypeStorage.LookupEntry(loot_ptr->ItemId) )
+                if( ItemPrototype *pProto = sItemMgr.LookupEntry(loot_ptr->ItemId) )
                 {
                     __LootItem li;
                     li.ffa_loot = 0;

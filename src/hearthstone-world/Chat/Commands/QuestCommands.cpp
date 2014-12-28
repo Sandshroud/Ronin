@@ -402,7 +402,7 @@ bool ChatHandler::HandleQuestItemCommand(const char * args, WorldSession * m_ses
         uint32 id = fields[0].GetUInt32();
         std::string itemid  = MyConvertIntToString(id);
         std::string itemcnt = MyConvertIntToString(fields[1].GetUInt32());
-        ItemPrototype* tmpItem = ItemPrototypeStorage.LookupEntry(id);
+        ItemPrototype* tmpItem = sItemMgr.LookupEntry(id);
         recout = "|cff00ccff";
         recout += itemid.c_str();
         recout += ": ";
@@ -494,7 +494,7 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
         std::string itemId2 = MyConvertIntToString(objectResult2->Fetch()[0].GetUInt32());
         delete objectResult2;
 
-        if (ItemPrototype *itemResult2 = ItemPrototypeStorage.LookupEntry(atol(itemId2.c_str())))
+        if (ItemPrototype *itemResult2 = sItemMgr.LookupEntry(atol(itemId2.c_str())))
         {
             my_query2 = "SELECT id FROM gameobject_spawns WHERE entry = " + itemId2;
             QueryResult *spawnResult2 = WorldDatabase.Query(my_query2.c_str());
@@ -1152,7 +1152,7 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
         delete objectResult2;
 
         std::string itemName2 = "N/A";
-        ItemPrototype *itemResult2 = ItemPrototypeStorage.LookupEntry(atol(itemId2.c_str()));
+        ItemPrototype *itemResult2 = sItemMgr.LookupEntry(atol(itemId2.c_str()));
         if (itemResult2)
         {
             itemName2 = itemResult2->Name1;

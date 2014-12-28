@@ -2602,7 +2602,7 @@ void Aura::SpellAuraChannelDeathItem(bool apply)
                     if(itemid == 6265 && int32(pCaster->getLevel() - m_target->getLevel()) > 9)
                         return;
 
-                    ItemPrototype *proto = ItemPrototypeStorage.LookupEntry(itemid);
+                    ItemPrototype *proto = sItemMgr.LookupEntry(itemid);
                     if(pCaster->GetItemInterface()->CalculateFreeSlots(proto) > 0)
                     {
                         if(Item* item = objmgr.CreateItem(itemid,pCaster))

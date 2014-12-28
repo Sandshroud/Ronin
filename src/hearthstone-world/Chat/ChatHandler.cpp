@@ -996,7 +996,7 @@ bool WorldSession::ValidateText2(std::string text)
             return false;
         ///////////////////////////////////////////////////////////////////
 
-        ItemPrototype* proto = ItemPrototypeStorage.LookupEntry(itemid);
+        ItemPrototype* proto = sItemMgr.LookupEntry(itemid);
         if(proto == NULL)
             return false;
         if(strlen(proto->Name1) != strlen(itemname))
