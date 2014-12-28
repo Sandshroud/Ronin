@@ -17,4 +17,4 @@ uint32 timeGetTime()
 }
 #endif
 
-HEARTHSTONE_INLINE uint32 getMSTime() { return timeGetTime(); }
+RONIN_INLINE uint32 getMSTime() { return timeGetTime(); }

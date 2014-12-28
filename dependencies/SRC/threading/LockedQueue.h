@@ -16,14 +16,14 @@ public:
 
     }
 
-    HEARTHSTONE_INLINE void add(const TYPE& element)
+    RONIN_INLINE void add(const TYPE& element)
     {
         mutex.Acquire();
         queue.push_back(element);
         mutex.Release();
     }
 
-    HEARTHSTONE_INLINE TYPE next()
+    RONIN_INLINE TYPE next()
     {
         mutex.Acquire();
         assert(queue.size() > 0);
@@ -33,7 +33,7 @@ public:
         return t;
     }
 
-    HEARTHSTONE_INLINE size_t size()
+    RONIN_INLINE size_t size()
     {
         mutex.Acquire();
         size_t c = queue.size();
@@ -41,7 +41,7 @@ public:
         return c;
     }
 
-    HEARTHSTONE_INLINE bool empty()
+    RONIN_INLINE bool empty()
     {   // return true only if sequence is empty
         mutex.Acquire();
         bool isEmpty = queue.empty();
@@ -49,7 +49,7 @@ public:
         return isEmpty;
     }
 
-    HEARTHSTONE_INLINE TYPE get_first_element()
+    RONIN_INLINE TYPE get_first_element()
     {
         mutex.Acquire();
         TYPE t; 
@@ -61,7 +61,7 @@ public:
         return t;           
     }
 
-    HEARTHSTONE_INLINE void pop()
+    RONIN_INLINE void pop()
     {
         mutex.Acquire();
         ASSERT(queue.size() > 0);
@@ -69,7 +69,7 @@ public:
         mutex.Release();
     }
 
-    HEARTHSTONE_INLINE void clear()
+    RONIN_INLINE void clear()
     {
         mutex.Acquire();
         queue.clear();

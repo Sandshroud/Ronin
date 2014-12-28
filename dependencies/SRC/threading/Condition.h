@@ -18,7 +18,7 @@ struct list_entry
 class Condition
 {
 public:
-    HEARTHSTONE_INLINE Condition(Mutex * mutex) : m_nLockCount(0), m_externalMutex(mutex)
+    RONIN_INLINE Condition(Mutex * mutex) : m_nLockCount(0), m_externalMutex(mutex)
     {
         ::InitializeCriticalSection(&m_critsecWaitSetProtection);
     }
@@ -29,13 +29,13 @@ public:
         assert(m_deqWaitSet.empty());
     }
 
-    HEARTHSTONE_INLINE void BeginSynchronized()
+    RONIN_INLINE void BeginSynchronized()
     {
         m_externalMutex->Acquire();
         ++m_nLockCount;
     }
 
-    HEARTHSTONE_INLINE void EndSynchronized()
+    RONIN_INLINE void EndSynchronized()
     {
         assert(LockHeldByCallingThread());
         --m_nLockCount;
@@ -289,29 +289,29 @@ private:
 class Condition
 {
 public:
-    HEARTHSTONE_INLINE Condition(Mutex *m)
+    RONIN_INLINE Condition(Mutex *m)
     {
         mut=m;
         pthread_cond_init(&cond,NULL);
     }
-    HEARTHSTONE_INLINE ~Condition()
+    RONIN_INLINE ~Condition()
     {
         pthread_cond_destroy(&cond);
     }
 
-    HEARTHSTONE_INLINE void Signal()
+    RONIN_INLINE void Signal()
     {
         pthread_cond_signal(&cond);
     }
-    HEARTHSTONE_INLINE void Broadcast()
+    RONIN_INLINE void Broadcast()
     {
         pthread_cond_broadcast(&cond);
     }
-    HEARTHSTONE_INLINE void Wait()
+    RONIN_INLINE void Wait()
     {
         pthread_cond_wait(&cond,&mut->mutex);
     }
-    HEARTHSTONE_INLINE bool Wait(time_t seconds)
+    RONIN_INLINE bool Wait(time_t seconds)
     {
         timespec tv;
         tv.tv_nsec = 0;
@@ -321,11 +321,11 @@ public:
         else
             return false;
     }
-    HEARTHSTONE_INLINE void BeginSynchronized()
+    RONIN_INLINE void BeginSynchronized()
     {
         mut->Acquire();
     }
-    HEARTHSTONE_INLINE void EndSynchronized()
+    RONIN_INLINE void EndSynchronized()
     {
         mut->Release();
     }

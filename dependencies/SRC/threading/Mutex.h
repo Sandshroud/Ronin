@@ -26,7 +26,7 @@ public:
 
     /** Acquires this mutex. If it cannot be acquired immediately, it will block.
      */
-    HEARTHSTONE_INLINE void Acquire()
+    RONIN_INLINE void Acquire()
     {
 #if PLATFORM != PLATFORM_WIN
         pthread_mutex_lock(&mutex);
@@ -37,7 +37,7 @@ public:
 
     /** Releases this mutex. No error checking performed
      */
-    HEARTHSTONE_INLINE void Release()
+    RONIN_INLINE void Release()
     {
 #if PLATFORM != PLATFORM_WIN
         pthread_mutex_unlock(&mutex);
@@ -50,7 +50,7 @@ public:
      * it will return false.
      * @return false if cannot be acquired, true if it was acquired.
      */
-    HEARTHSTONE_INLINE bool AttemptAcquire()
+    RONIN_INLINE bool AttemptAcquire()
     {
 #if PLATFORM != PLATFORM_WIN
         return (pthread_mutex_trylock(&mutex) == 0);
@@ -92,9 +92,9 @@ public:
 
     /** Acquires this mutex. If it cannot be acquired immediately, it will block.
      */
-    HEARTHSTONE_INLINE void Acquire(bool RestrictUnlocking = false)
+    RONIN_INLINE void Acquire(bool RestrictUnlocking = false)
     {
-        if(hearthstone_GetThreadId() == m_activeThread)
+        if(ronin_GetThreadId() == m_activeThread)
         {
             m_ThreadCalls++;
             return;
@@ -106,16 +106,16 @@ public:
         EnterCriticalSection(&cs);
 #endif
         m_ThreadCalls++;
-        m_activeThread = hearthstone_GetThreadId();
+        m_activeThread = ronin_GetThreadId();
         LockReleaseToThread = RestrictUnlocking;
     }
 
     /** Releases this mutex. No error checking performed
      */
-    HEARTHSTONE_INLINE void Release()
+    RONIN_INLINE void Release()
     {
         // If we're locked to this specific thread, and we're unlocked from another thread, error
-        if(LockReleaseToThread && hearthstone_GetThreadId() != m_activeThread)
+        if(LockReleaseToThread && ronin_GetThreadId() != m_activeThread)
             ASSERT(false && "MUTEX RELEASE CALLED FROM NONACTIVE THREAD!");
 
         m_ThreadCalls--;
@@ -134,9 +134,9 @@ public:
      * it will return false.
      * @return false if cannot be acquired, true if it was acquired.
      */
-    HEARTHSTONE_INLINE bool AttemptAcquire(bool RestrictUnlocking = false)
+    RONIN_INLINE bool AttemptAcquire(bool RestrictUnlocking = false)
     {
-        if(hearthstone_GetThreadId() == m_activeThread)
+        if(ronin_GetThreadId() == m_activeThread)
         {
             m_ThreadCalls++;
             return true;
@@ -149,7 +149,7 @@ public:
 #endif
         {
             m_ThreadCalls++;
-            m_activeThread = hearthstone_GetThreadId();
+            m_activeThread = ronin_GetThreadId();
             LockReleaseToThread = RestrictUnlocking;
             return true;
         }

@@ -40,7 +40,7 @@ public:
 #endif
     }
 
-    HEARTHSTONE_INLINE bool SetThreadState(CThreadState thread_state)
+    RONIN_INLINE bool SetThreadState(CThreadState thread_state)
     {
         if(ThreadState == thread_state)
             return true;
@@ -56,7 +56,7 @@ public:
         return true;
     }
 
-    HEARTHSTONE_INLINE CThreadState GetThreadState() {  return ThreadState; }
+    RONIN_INLINE CThreadState GetThreadState() {  return ThreadState; }
 
     int GetThreadId() { return ThreadId; }
     time_t GetStartTime() { return start_time; }

@@ -123,11 +123,11 @@ add_library( ${PROJECT_NAME} SHARED ${SRCS} )
 
 #Set up our precompiled header system
 include(PCHSupport)
-include_directories( ${GLOBAL_INCLUDE_DIRS} ${HEARTHSTONE_SOURCE_DIRECTORIES} ${prefix} ${prefix}/PrecompiledHeaders )
+include_directories( ${GLOBAL_INCLUDE_DIRS} ${RONIN_SOURCE_DIRECTORIES} ${prefix} ${prefix}/PrecompiledHeaders )
 IF( CMAKE_GENERATOR MATCHES Visual*)
 	ADD_NATIVE_PRECOMPILED_HEADER(${PROJECT_NAME} LacrimiStdAfx.h ${prefix}/PrecompiledHeaders/LacrimiStdAfx.cpp)
 ENDIF()
 
-#Link our hearthstone-shared lib.
-add_dependencies( ${PROJECT_NAME} hearthstone-world lualib )
-target_link_libraries( ${PROJECT_NAME} hearthstone-world lualib ${EXTRA_LIBS} )
+#Link our ronin-shared lib.
+add_dependencies( ${PROJECT_NAME} ronin-world lualib )
+target_link_libraries( ${PROJECT_NAME} ronin-world lualib ${EXTRA_LIBS} )

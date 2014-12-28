@@ -31,7 +31,7 @@ public:
     ~AsyncQuery();
     void AddQuery(const char * format, ...);
     void Perform();
-    HEARTHSTONE_INLINE void SetDB(DirectDatabase * dbb) { db = dbb; }
+    RONIN_INLINE void SetDB(DirectDatabase * dbb) { db = dbb; }
 };
 
 class SERVER_DECL QueryBuffer
@@ -77,9 +77,9 @@ public:
     bool Execute(const char* QueryString, ...);
     bool ExecuteNA(const char* QueryString);
 
-    HEARTHSTONE_INLINE const std::string& GetHostName() { return mHostname; }
-    HEARTHSTONE_INLINE const std::string& GetDatabaseName() { return mDatabaseName; }
-    HEARTHSTONE_INLINE const uint32 GetQueueSize() { return queries_queue.get_size(); }
+    RONIN_INLINE const std::string& GetHostName() { return mHostname; }
+    RONIN_INLINE const std::string& GetDatabaseName() { return mDatabaseName; }
+    RONIN_INLINE const uint32 GetQueueSize() { return queries_queue.get_size(); }
 
     std::string EscapeString(std::string Escape);
     void EscapeLongString(const char * str, uint32 len, std::stringstream& out);
@@ -138,9 +138,9 @@ public:
     bool NextRow();
     void Delete() { delete this; }
 
-    HEARTHSTONE_INLINE Field* Fetch() { return mCurrentRow; }
-    HEARTHSTONE_INLINE uint32 GetFieldCount() const { return mFieldCount; }
-    HEARTHSTONE_INLINE uint32 GetRowCount() const { return mRowCount; }
+    RONIN_INLINE Field* Fetch() { return mCurrentRow; }
+    RONIN_INLINE uint32 GetFieldCount() const { return mFieldCount; }
+    RONIN_INLINE uint32 GetRowCount() const { return mRowCount; }
 
 protected:
     uint32 mFieldCount;

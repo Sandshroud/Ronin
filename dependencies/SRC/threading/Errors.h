@@ -4,7 +4,7 @@
 
 #pragma once
 
-HEARTHSTONE_INLINE void EvokeCrashHandler() { uint i = 3, t = 0; for(uint b = 0; b < 6; b++) t = b/--i; }
+RONIN_INLINE void EvokeCrashHandler() { uint i = 3, t = 0; for(uint b = 0; b < 6; b++) t = b/--i; }
 
 #if PLATFORM == PLATFORM_WIN && defined(_DEBUG) && defined(CRASHHANDLER_ENABLED)
 #define WPAssert2( assertion ) { if( !(assertion) ) { fprintf( stderr, "\n%s:%i ASSERTION FAILED:\n  %s\n", __FILE__, __LINE__, #assertion ); EvokeCrashHandler(); } }

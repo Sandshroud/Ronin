@@ -46,7 +46,7 @@ public:
     void ExecuteTask(const char* ThreadName, ThreadContext * ExecutionTarget);
 
     // gets active thread count
-    HEARTHSTONE_INLINE uint32 GetActiveThreadCount() { return (uint32)m_activeThreads.size(); }
+    RONIN_INLINE uint32 GetActiveThreadCount() { return (uint32)m_activeThreads.size(); }
 
     // Creates exception which sets the thread name, do not call inside try block
     static void SetThreadName(const char* format);

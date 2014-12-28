@@ -1,4 +1,4 @@
-project(Hearthstone)
+project(Ronin)
 
 #Do system checking.
 cmake_minimum_required(VERSION 2.8)
@@ -146,9 +146,9 @@ set(G3DLITE_LIBRARIES "" CACHE INTERNAL "g3dlite libraries.")
 mark_as_advanced(ZLIB_LIBRARIES PCRE_LIBRARIES RECAST_LIBRARIES DETOUR_LIBRARIES G3DLITE_LIBRARIES)
 
 set(GLOBAL_INCLUDE_DIRS 
-${ROOT_PATH}/src/hearthstone-shared
-${ROOT_PATH}/src/hearthstone-world
-${ROOT_PATH}/src/hearthstone-logonserver
+${ROOT_PATH}/src/ronin-shared
+${ROOT_PATH}/src/ronin-world
+${ROOT_PATH}/src/ronin-logonserver
 ${DEPENDENCY_SOURCES}
 ${DEPENDENCY_SOURCES}/g3dlite
 ${DEPENDENCY_SOURCES}/g3dlite/vmap
@@ -159,36 +159,36 @@ ${DEPENDENCY_SOURCES}/detour
 ${DEPENDENCY_SOURCES}/bzip2
 ${DEPENDENCY_SOURCES}/libmpq2 )
 
-SET(HEARTHSTONE_SOURCE_DIRECTORIES
-"${ROOT_PATH}/src/hearthstone-world/AI"
-"${ROOT_PATH}/src/hearthstone-world/Battlegrounds"
-"${ROOT_PATH}/src/hearthstone-world/Battlegrounds/Expansion0"
-"${ROOT_PATH}/src/hearthstone-world/Battlegrounds/Expansion1"
-"${ROOT_PATH}/src/hearthstone-world/Battlegrounds/Expansion2"
-"${ROOT_PATH}/src/hearthstone-world/Chat"
-"${ROOT_PATH}/src/hearthstone-world/Chat/Commands"
-"${ROOT_PATH}/src/hearthstone-world/Client Communications"
-"${ROOT_PATH}/src/hearthstone-world/Client Communications/Packet Handlers"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem/Logon"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem/Management"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem/Management/Guild"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem/Management/Items"
-"${ROOT_PATH}/src/hearthstone-world/Intersystem/Voice"
-"${ROOT_PATH}/src/hearthstone-world/Mainframe"
-"${ROOT_PATH}/src/hearthstone-world/Map System"
-"${ROOT_PATH}/src/hearthstone-world/Map System/Environment"
-"${ROOT_PATH}/src/hearthstone-world/Map System/Map Interface"
-"${ROOT_PATH}/src/hearthstone-world/Map System/Map Managers"
-"${ROOT_PATH}/src/hearthstone-world/Map System/Map Tiles"
-"${ROOT_PATH}/src/hearthstone-world/Objects"
-"${ROOT_PATH}/src/hearthstone-world/Objects/Units"
-"${ROOT_PATH}/src/hearthstone-world/Mainframe"
-"${ROOT_PATH}/src/hearthstone-world/Unit Systems"
-"${ROOT_PATH}/src/hearthstone-world/Unit Systems/Player Systems"
-"${ROOT_PATH}/src/hearthstone-world/ScriptInterface"
-"${ROOT_PATH}/src/hearthstone-world/Spell"
-"${ROOT_PATH}/src/hearthstone-world/Spell/Spellfixes")
+SET(RONIN_SOURCE_DIRECTORIES
+"${ROOT_PATH}/src/ronin-world/AI"
+"${ROOT_PATH}/src/ronin-world/Battlegrounds"
+"${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion0"
+"${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion1"
+"${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion2"
+"${ROOT_PATH}/src/ronin-world/Chat"
+"${ROOT_PATH}/src/ronin-world/Chat/Commands"
+"${ROOT_PATH}/src/ronin-world/Client Communications"
+"${ROOT_PATH}/src/ronin-world/Client Communications/Packet Handlers"
+"${ROOT_PATH}/src/ronin-world/Intersystem"
+"${ROOT_PATH}/src/ronin-world/Intersystem/Logon"
+"${ROOT_PATH}/src/ronin-world/Intersystem/Management"
+"${ROOT_PATH}/src/ronin-world/Intersystem/Management/Guild"
+"${ROOT_PATH}/src/ronin-world/Intersystem/Management/Items"
+"${ROOT_PATH}/src/ronin-world/Intersystem/Voice"
+"${ROOT_PATH}/src/ronin-world/Mainframe"
+"${ROOT_PATH}/src/ronin-world/Map System"
+"${ROOT_PATH}/src/ronin-world/Map System/Environment"
+"${ROOT_PATH}/src/ronin-world/Map System/Map Interface"
+"${ROOT_PATH}/src/ronin-world/Map System/Map Managers"
+"${ROOT_PATH}/src/ronin-world/Map System/Map Tiles"
+"${ROOT_PATH}/src/ronin-world/Objects"
+"${ROOT_PATH}/src/ronin-world/Objects/Units"
+"${ROOT_PATH}/src/ronin-world/Mainframe"
+"${ROOT_PATH}/src/ronin-world/Unit Systems"
+"${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems"
+"${ROOT_PATH}/src/ronin-world/ScriptInterface"
+"${ROOT_PATH}/src/ronin-world/Spell"
+"${ROOT_PATH}/src/ronin-world/Spell/Spellfixes")
 
 #Find our needed libs
 IF( NOT WIN32 )
@@ -271,9 +271,9 @@ add_subdirectory(dependencies)
 
 if(ONLY_DEPENDENCIES EQUAL 0)
 
-add_subdirectory(hearthstone-shared)
-add_subdirectory(hearthstone-logon)
-add_subdirectory(hearthstone-world)
+add_subdirectory(ronin-shared)
+add_subdirectory(ronin-logon)
+add_subdirectory(ronin-world)
 add_subdirectory(lacrimi)
 
 if(BUILD_TOOLS)

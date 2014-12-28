@@ -48,7 +48,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
-#define HEARTHSTONE_INLINE __forceinline
+#define RONIN_INLINE __forceinline
 
 #ifndef SCRIPTLIB
 #define SERVER_DECL __declspec(dllexport)
@@ -60,7 +60,7 @@
 #else
  #define SERVER_DECL
  #define SCRIPT_DECL
-#define HEARTHSTONE_INLINE inline
+#define RONIN_INLINE inline
 #endif
 
 #include <string>
@@ -117,7 +117,7 @@ typedef unsigned __int8 uint8;
 
 #endif
 
-HEARTHSTONE_INLINE uint32 hearthstone_GetThreadId()
+RONIN_INLINE uint32 ronin_GetThreadId()
 {
 #if PLATFORM == PLATFORM_WIN
     return GetCurrentThreadId();

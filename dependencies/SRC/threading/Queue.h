@@ -11,7 +11,7 @@ template<class T>
 class FQueue 
 {
 public:
-    HEARTHSTONE_INLINE FQueue() : cond(&lock) {first=last=NULL;size=0;}
+    RONIN_INLINE FQueue() : cond(&lock) {first=last=NULL;size=0;}
     volatile unsigned int size;
 
     uint32 get_size()
@@ -112,7 +112,7 @@ public:
         return returnVal;
     }   
 
-    HEARTHSTONE_INLINE Condition& GetCond() { return cond; }
+    RONIN_INLINE Condition& GetCond() { return cond; }
     
 private:
     struct h

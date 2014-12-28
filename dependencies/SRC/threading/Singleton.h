@@ -19,8 +19,8 @@ public:
         mSingleton = 0;
     }
 
-    HEARTHSTONE_INLINE static type & getSingleton( ) { WPError( mSingleton, typeid(type).name()); return *mSingleton; }
-    HEARTHSTONE_INLINE static type * getSingletonPtr( ) { return mSingleton; }
+    RONIN_INLINE static type & getSingleton( ) { WPError( mSingleton, typeid(type).name()); return *mSingleton; }
+    RONIN_INLINE static type * getSingletonPtr( ) { return mSingleton; }
 protected:
 
     /// Singleton pointer, must be set to 0 prior to creating the object

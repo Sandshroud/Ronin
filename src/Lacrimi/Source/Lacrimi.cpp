@@ -466,7 +466,7 @@ void Lacrimi::DumpStats()
     std::deque<Player*> gms;
     {
         // Dump server information.
-        fprintf(f, "    <platform>Sandshroud Hearthstone(%s::%s) r%u %s-%s</platform>\n", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, ARCH);
+        fprintf(f, "    <platform>Sandshroud Ronin(%s::%s) r%u %s-%s</platform>\n", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, ARCH);
 
         char *uptime = new char[80];
         GenerateUptimeString(uptime);
