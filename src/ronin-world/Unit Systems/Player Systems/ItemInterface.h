@@ -6,12 +6,26 @@
 
 #define INVALID_BACKPACK_SLOT ((int8)(0xFF)) //In 1.8 client marked wrong slot like this
 
+// sanity checking
+enum AddItemResult : uint8
+{
+    ADD_ITEM_RESULT_ERROR           = 0,
+    ADD_ITEM_RESULT_OK              = 1,
+    ADD_ITEM_RESULT_SPLIT           = 2,
+    ADD_ITEM_RESULT_ADDED_TO        = 3,
+    ADD_ITEM_RESULT_DUPLICATED      = 4
+};
+
 struct SlotResult
 {
-    SlotResult() { ContainerSlot = -1, Slot = -1, Result = false; }
-    int16 ContainerSlot;
-    int16 Slot;
-    bool Result;
+    uint16 containerSlot;
+    AddItemResult result;
+
+    void Init(AddItemResult res)
+    {
+        containerSlot = 0xFFFF;
+        result = res;
+    }
 };
 
 class Item;
@@ -19,14 +33,6 @@ class Container;
 class Player;
 class UpdateData;
 class ByteBuffer;
-
-// sanity checking
-enum AddItemResult
-{
-    ADD_ITEM_RESULT_ERROR           = 0,
-    ADD_ITEM_RESULT_OK              = 1,
-    ADD_ITEM_RESULT_DUPLICATED      = 2,
-};
 
 class SERVER_DECL ItemInterface
 {
@@ -64,7 +70,7 @@ public:
     Item* SafeRemoveAndRetreiveItemByGuidRemoveStats(uint64 guid, bool destroy);
     bool SafeFullRemoveItemFromSlot(int16 ContainerSlot, int16 slot); //destroys item fully
     bool SafeFullRemoveItemByGuid(uint64 guid); //destroys item fully
-    AddItemResult AddItemToFreeSlot(Item* item);
+    SlotResult AddItemToFreeSlot(Item* item);
     AddItemResult AddItemToFreeBankSlot(Item* item);
     uint32 GetEquippedItemCountWithLimitId(uint32 Id);
     uint32 GetSocketedGemCountWithLimitId(uint32 Id);

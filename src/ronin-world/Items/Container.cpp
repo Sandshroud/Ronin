@@ -4,9 +4,10 @@
 
 #include "StdAfx.h"
 
-Container::Container(WoWGuid guid, ItemData *data, uint32 fieldCount) : Item(guid, data, fieldCount)
+Container::Container(ItemData *data, uint32 fieldCount) : Item(data, fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
+    ASSERT(data->containerData);
 }
 
 Container::~Container( )
@@ -14,11 +15,12 @@ Container::~Container( )
 
 }
 
-void Container::Init()
+void Container::Initialize(Player *owner)
 {
-    if(_itemData && _itemData->containerData)
-        SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, _itemData->containerData->numSlots);
-    Item::Init();
+    Item::Initialize(owner);
+    SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, _itemData->containerData->numSlots);
+    for(std::map<uint8, WoWGuid>::iterator itr = _itemData->containerData->m_items.begin(); itr != _itemData->containerData->m_items.end(); itr++)
+        SetUInt64Value(CONTAINER_FIELD_SLOT_1+(itr->first*2), itr->second);
 }
 
 void Container::Destruct()
@@ -38,9 +40,8 @@ bool Container::AddItem(Item* item, uint8 slot)
         return false;
 
     m_items.insert(std::make_pair(slot, item));
-    item->SetUInt64Value(ITEM_FIELD_CONTAINED, GetGUID());
+    item->SetContainerData(GetGUID(), slot);
     item->SetOwner(m_owner);
-    sItemMgr.QueueItemSave(item);
 
     Bind(ITEM_BIND_ON_PICKUP);
     SetUInt64Value(CONTAINER_FIELD_SLOT_1 + (slot*2), item->GetGUID());
@@ -85,7 +86,7 @@ Item *Container::RetreiveItem(uint8 slot)
     m_items.erase(slot);
 
     SetUInt64Value(CONTAINER_FIELD_SLOT_1 + slot*2, 0 );
-    if(GetGUID() == pItem->GetContainerGUID())
+    if(GetGUID() == pItem->GetContainerGuid())
         pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
     pItem->RemoveFromWorld(false);
     return pItem;
@@ -137,4 +138,12 @@ void Container::SwapItems(uint8 SrcSlot, uint8 DstSlot)
         m_items.insert(std::make_pair(DstSlot, src));
         sItemMgr.ContainerSlotChange(src, DstSlot);
     }
+}
+
+uint32 Container::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player *target)
+{
+    uint32 count = Object::BuildCreateUpdateBlockForPlayer(data, target);
+    for(std::map<uint8, Item*>::iterator itr = m_items.begin(); itr != m_items.end(); itr++)
+        count += itr->second->BuildCreateUpdateBlockForPlayer(data, target);
+    return 1;
 }

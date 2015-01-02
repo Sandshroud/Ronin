@@ -1012,20 +1012,18 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
     }
 }
 
-Item* ObjectMgr::LoadItem(uint64 guid)
+Item* ObjectMgr::CreateItem(WoWGuid guid, Player *player)
 {
     Item* pReturn = NULL;
-    if(QueryResult * result = CharacterDatabase.Query("SELECT * FROM character_items WHERE guid = %u", GUID_LOPART(guid)))
+    if(ItemPrototype *proto = sItemMgr.LookupEntry(guid.getEntry()))
     {
-        if(ItemPrototype *pProto = sItemMgr.LookupEntry(result->Fetch()[2].GetUInt32()))
+        if(ItemData *data = sItemMgr.GetItemData(guid))
         {
-            if(pProto->InventoryType == INVTYPE_BAG)
-                pReturn = new Container(HIGHGUID_TYPE_CONTAINER, GUID_LOPART(guid));
-            else pReturn = new Item(HIGHGUID_TYPE_ITEM, GUID_LOPART(guid));
-            pReturn->Init();
-            pReturn->LoadFromDB(result->Fetch(), NULL, false);
+            if(proto->InventoryType == INVTYPE_BAG)
+                pReturn = new Container(data);
+            else pReturn = new Item(data);
+            pReturn->Initialize(player);
         }
-        delete result;
     }
 
     return pReturn;

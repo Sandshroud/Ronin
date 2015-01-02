@@ -4,7 +4,9 @@
 
 #pragma once
 
-enum ItemSlots : uint8
+#define CONTAINER_SLOT_NONE 0xFFFF
+
+enum InventorySlots : uint8
 {
     EQUIPMENT_SLOT_START = 0,
     EQUIPMENT_SLOT_HEAD = 0,
@@ -113,7 +115,7 @@ enum ItemSlots : uint8
     INVENTORY_SLOT_NONE = 255
 };
 
-enum INV_ERR
+enum InventoryErrors : uint8
 {
     INV_ERR_OK = 0,
     INV_ERR_YOU_MUST_REACH_LEVEL_N,
@@ -207,7 +209,7 @@ enum INV_ERR
     INV_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED
 };
 
-enum ItemStatType : unsigned
+enum dbcItemStatType : uint8
 {
     ITEM_STAT_POWER                           = 0,
     ITEM_STAT_HEALTH                          = 1,
@@ -275,8 +277,7 @@ enum ItemStatType : unsigned
     ITEM_STAT_MAXIMUM
 };
 
-
-enum ITEM_DAMAGE_TYPE
+enum dbcItemDamageType : uint8
 {
     NORMAL_DAMAGE   = 0,
     HOLY_DAMAGE     = 1,
@@ -287,7 +288,7 @@ enum ITEM_DAMAGE_TYPE
     ARCANE_DAMAGE   = 6,
 };
 
-enum ITEM_SPELLTRIGGER_TYPE
+enum dbcItemSpellTriggerType : uint8
 {
     USE             = 0,
     ON_EQUIP        = 1,
@@ -296,7 +297,7 @@ enum ITEM_SPELLTRIGGER_TYPE
     LEARNING        = 6,
 };
 
-enum ITEM_BONDING_TYPE
+enum dbcItemBondingType : uint8
 {
     ITEM_BIND_NONE      =   0,
     ITEM_BIND_ON_PICKUP =   1,
@@ -306,24 +307,24 @@ enum ITEM_BONDING_TYPE
     ITEM_BIND_QUEST2    =   5,
 };
 
-enum INVENTORY_TYPES
+enum dbcInventoryTypes : uint8
 {
-    INVTYPE_NON_EQUIP       = 0x0, // 0
-    INVTYPE_HEAD            = 0x1, // 1
-    INVTYPE_NECK            = 0x2, // 2
-    INVTYPE_SHOULDERS       = 0x3, // 3
-    INVTYPE_BODY            = 0x4, // 4
-    INVTYPE_CHEST           = 0x5, // 5
-    INVTYPE_WAIST           = 0x6, // 6 
-    INVTYPE_LEGS            = 0x7, // 7
-    INVTYPE_FEET            = 0x8, // 8
-    INVTYPE_WRISTS          = 0x9, // 9
-    INVTYPE_HANDS           = 0xa, // 10
-    INVTYPE_FINGER          = 0xb, // 11
-    INVTYPE_TRINKET         = 0xc, // 12
-    INVTYPE_WEAPON          = 0xd, // 13
-    INVTYPE_SHIELD          = 0xe, // 14
-    INVTYPE_RANGED          = 0xf, // 15
+    INVTYPE_NON_EQUIP       = 0x00, //0
+    INVTYPE_HEAD            = 0x01, //1
+    INVTYPE_NECK            = 0x02, //2
+    INVTYPE_SHOULDERS       = 0x03, //3
+    INVTYPE_BODY            = 0x04, //4
+    INVTYPE_CHEST           = 0x05, //5
+    INVTYPE_WAIST           = 0x06, //6 
+    INVTYPE_LEGS            = 0x07, //7
+    INVTYPE_FEET            = 0x08, //8
+    INVTYPE_WRISTS          = 0x09, //9
+    INVTYPE_HANDS           = 0x0A, //10
+    INVTYPE_FINGER          = 0x0B, //11
+    INVTYPE_TRINKET         = 0x0C, //12
+    INVTYPE_WEAPON          = 0x0D, //13
+    INVTYPE_SHIELD          = 0x0E, //14
+    INVTYPE_RANGED          = 0x0F, //15
     INVTYPE_CLOAK           = 0x10, //16
     INVTYPE_2HWEAPON        = 0x11, //17
     INVTYPE_BAG             = 0x12, //18
@@ -334,13 +335,13 @@ enum INVENTORY_TYPES
     INVTYPE_HOLDABLE        = 0x17, //23
     INVTYPE_AMMO            = 0x18, //24
     INVTYPE_THROWN          = 0x19, //25
-    INVTYPE_RANGEDRIGHT     = 0x1a, //26
-    INVTYPE_QUIVER          = 0x1b, //27
-    INVTYPE_RELIC           = 0x1c, //28
-    NUM_INVENTORY_TYPES     = 0x1d,
+    INVTYPE_RANGEDRIGHT     = 0x1A, //26
+    INVTYPE_QUIVER          = 0x1B, //27
+    INVTYPE_RELIC           = 0x1C, //28
+    NUM_INVENTORY_TYPES
 };
 
-enum ITEM_CLASS
+enum dbcItemClass : uint8
 {
     ITEM_CLASS_CONSUMABLE   = 0,
     ITEM_CLASS_CONTAINER    = 1,
@@ -361,7 +362,7 @@ enum ITEM_CLASS
     ITEM_CLASS_GLYPHS       = 16,
 };
 
-enum Item_Subclass
+enum dbcItemSubclass : uint8
 {
    // Weapon
    ITEM_SUBCLASS_WEAPON_AXE                 = 0,
@@ -499,7 +500,7 @@ enum Item_Subclass
    ITEM_SUBCLASS_MISCELLANEOUS_MOUNT        = 5,
 };
 
-enum ITEM_QUALITY
+enum dbcItemQuality : uint8
 {
     ITEM_QUALITY_POOR_GREY             = 0,
     ITEM_QUALITY_NORMAL_WHITE          = 1,
@@ -511,59 +512,54 @@ enum ITEM_QUALITY
     ITEM_QUALITY_DBC_MAX               = 7
 };
 
-enum ITEM_FLAG
+enum dbcItemFlags : uint32
 {
-    ITEM_FLAG_SOULBOUND     = 0x1,      // not used in proto
-    ITEM_FLAG_CONJURED      = 0x2,
-    ITEM_FLAG_LOOTABLE      = 0x4,
-    ITEM_FLAG_WRAPPED       = 0x8,      // not used in proto
-    ITEM_FLAG_UNKNOWN_05    = 0x10,     // many equipable items and bags
-    ITEM_FLAG_UNKNOWN_06    = 0x20,     // totems
-    ITEM_FLAG_UNKNOWN_07    = 0x40,     // many consumables
-    ITEM_FLAG_UNKNOWN_08    = 0x80,     // only 1 wand uses this
-    ITEM_FLAG_UNKNOWN_09    = 0x100,    // some wands & relics
-    ITEM_FLAG_WRAP_GIFT     = 0x200,
-    ITEM_FLAG_CREATE_ITEM   = 0x400,
-    ITEM_FLAG_QUEST         = 0x800,
-    ITEM_FLAG_UNKNOWN_13    = 0x1000,   // not used in proto
-    ITEM_FLAG_SIGNABLE      = 0x2000,
-    ITEM_FLAG_READABLE      = 0x4000,
-    ITEM_FLAG_UNKNOWN_16    = 0x8000,
-    ITEM_FLAG_EVENT_REQ     = 0x10000,
-    ITEM_FLAG_UNKNOWN_18    = 0x20000,
-    ITEM_FLAG_PROSPECTABLE  = 0x40000,
-    ITEM_FLAG_UNIQUE_EQUIP  = 0x80000,
-    ITEM_FLAG_UNKNOWN_21    = 0x100000, // not used in proto
-    ITEM_FLAG_UNKNOWN_22    = 0x200000, // player created health/mana
-    ITEM_FLAG_THROWN        = 0x400000,
-    ITEM_FLAG_SHAPESHIFT_OK = 0x800000,
-    ITEM_FLAG_BINDONACC     = 0x8000000, // bind on account
-    ITEM_FLAG_MILLABLE      = 0x20000000
+    DBC_ITEMFLAG_CONJURED               = 0x00000002,
+    DBC_ITEMFLAG_OPENABLE               = 0x00000004,
+    DBC_ITEMFLAG_HEROIC                 = 0x00000008,
+    DBC_ITEMFLAG_DEPRECATED             = 0x00000010,
+    DBC_ITEMFLAG_INDESTRUCTABLE         = 0x00000020,
+    DBC_ITEMFLAG_NO_EQUIP_COOLDOWN      = 0x00000080,
+    DBC_ITEMFLAG_ITEM_WRAPPER           = 0x00000100,
+    DBC_ITEMFLAG_PARTY_LOOT             = 0x00000800,
+    DBC_ITEMFLAG_REFUNDABLE             = 0x00001000,
+    DBC_ITEMFLAG_CHARTER                = 0x00002000,
+    DBC_ITEMFLAG_PROSPECTABLE           = 0x00040000,
+    DBC_ITEMFLAG_UNIQUE_EQUIPPED        = 0x00080000,
+    DBC_ITEMFLAG_USABLE_IN_ARENA        = 0x00200000,
+    DBC_ITEMFLAG_THROWABLE_WEAPON       = 0x00400000,
+    DBC_ITEMFLAG_USABLE_IN_SHAPESHIFT   = 0x00800000,
+    DBC_ITEMFLAG_SMART_LOOT             = 0x02000000,
+    DBC_ITEMFLAG_NOT_USABLE_IN_ARENA    = 0x04000000,
+    DBC_ITEMFLAG_BIND_TO_ACCOUNT        = 0x08000000,
+    DBC_ITEMFLAG_TRIGGERED_CAST         = 0x10000000,
+    DBC_ITEMFLAG_MILLABLE               = 0x20000000,
+    DBC_ITEMFLAG_BOP_TRADEABLE          = 0x80000000
 };
 
-enum SPECIAL_ITEM_TYPE
+enum dbcItemType : uint32
 {
-    ITEM_TYPE_BOWAMMO       = 1,    // Arrows
-    ITEM_TYPE_GUNAMMO       = 2,    // Bullets
-    ITEM_TYPE_SOULSHARD     = 4,    // Soul Shards
-    ITEM_TYPE_LEATHERWORK   = 8,    // Leatherworking Supplies
-    ITEM_TYPE_INSCRIPTION   = 16,   // Inscripton Supplies
-    ITEM_TYPE_HERBALISM     = 32,   // Herbs
-    ITEM_TYPE_ENCHANTMENT   = 64,   // Enchanting Supplies
-    ITEM_TYPE_ENGINEERING   = 128,  // Engineering Supplies
-    ITEM_TYPE_KEYRING       = 256,  // Keys
-    ITEM_TYPE_GEMS          = 512,  // Gems
-    ITEM_TYPE_MINING        = 1024, // Mining Supplies
-    ITEM_TYPE_SBEQUIPMENT   = 2048, // Soulbound Equipment
-    ITEM_TYPE_VANITYPETS    = 4096, // Vanity Pets
-    ITEM_TYPE_CURRENCY      = 8192,
-    ITEM_TYPE_QUEST_ITEMS   = 16384
+    ITEM_TYPE_BOWAMMO       = 0x0001, // Arrows
+    ITEM_TYPE_GUNAMMO       = 0x0002, // Bullets
+    ITEM_TYPE_SOULSHARD     = 0x0004, // Soul Shards
+    ITEM_TYPE_LEATHERWORK   = 0x0008, // Leatherworking Supplies
+    ITEM_TYPE_INSCRIPTION   = 0x0010, // Inscripton Supplies
+    ITEM_TYPE_HERBALISM     = 0x0020, // Herbs
+    ITEM_TYPE_ENCHANTMENT   = 0x0040, // Enchanting Supplies
+    ITEM_TYPE_ENGINEERING   = 0x0080, // Engineering Supplies
+    ITEM_TYPE_KEYRING       = 0x0100, // Keys
+    ITEM_TYPE_GEMS          = 0x0200, // Gems
+    ITEM_TYPE_MINING        = 0x0400, // Mining Supplies
+    ITEM_TYPE_SBEQUIPMENT   = 0x0800, // Soulbound Equipment
+    ITEM_TYPE_VANITYPETS    = 0x1000, // Vanity Pets
+    ITEM_TYPE_CURRENCY      = 0x2000,
+    ITEM_TYPE_QUEST_ITEMS   = 0x4000
 };
 
-enum SOCKET_GEM_COLOR
+enum dbcSocketGemColor : uint8
 {
-    META_SOCKET = 1,
-    RED_SOCKET = 2,
-    YELLOW_SOCKET = 4,
-    BLUE_SOCKET = 8
+    META_SOCKET     = 0x01,
+    RED_SOCKET      = 0x02,
+    YELLOW_SOCKET   = 0x04,
+    BLUE_SOCKET     = 0x08
 };

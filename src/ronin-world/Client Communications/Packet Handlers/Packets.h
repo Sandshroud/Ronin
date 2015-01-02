@@ -34,7 +34,7 @@ struct packetSMSG_ITEM_PUSH_RESULT
     uint8 destbagslot;
     uint32 destslot;
     uint32 entry;
-    uint32 suffix;
+    uint32 seed;
     uint32 randomprop;
     uint32 count;
     uint32 stackcount;

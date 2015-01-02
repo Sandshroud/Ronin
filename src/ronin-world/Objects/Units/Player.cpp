@@ -3546,7 +3546,6 @@ void Player::AddToWorld(bool loggingin /* = false */)
             GetOrientation());
     }
 
-    // If we join an invalid instance and get booted out, castPtr<Player>(this) will prevent our stats from doubling :P
     if(IsInWorld())
         return;
 
@@ -3557,40 +3556,6 @@ void Player::AddToWorld(bool loggingin /* = false */)
     if(m_mapMgr == NULL)
     {
         sLog.Debug("WorldSession","Adding player %s to map %u failed.",GetName(),GetMapId());
-        // eject from instance
-        m_beingPushed = false;
-        EjectFromInstance();
-        return;
-    }
-
-    if(m_session)
-        m_session->SetInstance(m_mapMgr->GetInstanceID());
-}
-
-void Player::AddToWorld(MapMgr* pMapMgr)
-{
-    FlyCheat = false;
-    // check transporter
-    if(m_movementInterface.OnTransport() && m_CurrentTransporter)
-    {
-        LocationVector pos;
-        m_movementInterface.GetTransportPosition(pos);
-        SetPosition(m_CurrentTransporter->GetPositionX() + pos.x,
-            m_CurrentTransporter->GetPositionY() + pos.y,
-            m_CurrentTransporter->GetPositionZ() + pos.z,
-            GetOrientation());
-    }
-
-    // If we join an invalid instance and get booted out, castPtr<Player>(this) will prevent our stats from doubling :P
-    if(IsInWorld())
-        return;
-
-    m_beingPushed = true;
-    WorldObject::AddToWorld(pMapMgr);
-
-    // Add failed.
-    if(m_mapMgr == NULL)
-    {
         // eject from instance
         m_beingPushed = false;
         EjectFromInstance();
@@ -7683,49 +7648,43 @@ void Player::SetShapeShift(uint8 ss)
 
 uint32 Player::GetMainMeleeDamage(uint32 AP_owerride)
 {
-    float min_dmg,max_dmg;
-    float delta;
-    float r;
-    int ss = GetShapeShift();
+    float min_dmg, max_dmg;
 /////////////////MAIN HAND
-    float ap_bonus;
-    if(AP_owerride)
-        ap_bonus = AP_owerride/14000.0f;
-    else ap_bonus = CalculateAttackPower()/14000.0f;
-    delta = (float)GetUInt32Value( PLAYER_FIELD_MOD_DAMAGE_DONE_POS ) - (float)GetUInt32Value( PLAYER_FIELD_MOD_DAMAGE_DONE_NEG );
+    float ap_bonus = (AP_owerride ? AP_owerride : CalculateAttackPower())/14000.0f;
+    float delta = GetUInt32FloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_POS)-GetUInt32FloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG);
     if(IsInFeralForm())
     {
+        float r = 0.f;
         uint32 lev = getLevel();
-        if(ss == FORM_CAT)
+        if(GetShapeShift() == FORM_CAT)
             r = lev + delta + ap_bonus * 1000.0f;
-        else
-            r = lev + delta + ap_bonus * 2500.0f;
+        else r = lev + delta + ap_bonus * 2500.0f;
         min_dmg = r * 0.9f;
         max_dmg = r * 1.1f;
         return float2int32(std::max((min_dmg + max_dmg)/2.0f,0.0f));
     }
 //////no druid ss
-    Item* it = disarmed ? NULL : GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-    uint32 speed = it ? it->GetProto()->Delay : 2000;
+    ItemPrototype *proto = NULL;
+    if(Item *it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
+        proto = disarmed ? NULL : it->GetProto();
 
-    float bonus = ap_bonus*speed;
-    float tmp = 1.0f;
-    std::map<uint32, WeaponModifier>::iterator i;
-    for(i = damagedone.begin();i!=damagedone.end();++i)
+    float bonus = ap_bonus*float(proto ? proto->Delay : 2000), tmp = 1.0f;
+    for(std::map<uint32, WeaponModifier>::iterator i = damagedone.begin(); i != damagedone.end(); i++)
     {
-        if((i->second.wclass == 0xFFFFFFFF) || //any weapon
-            (it && ((1 << it->GetProto()->SubClass) & i->second.subclass) ))
-                tmp += i->second.value/100.0f;
+        if(i->second.wclass != 0xFFFFFFFF)
+        {
+            if(proto == NULL)
+                continue;
+            if((i->second.wclass & (1 << proto->SubClass)) == 0)
+                continue;
+
+        }
+        tmp += i->second.value/100.0f;
     }
 
-    r = delta+bonus+(it ? it->CalcMinDamage() : 0);
-    r *= tmp;
-    min_dmg = r * 0.9f;
-    r = delta+bonus+(it ? it->CalcMaxDamage() : 0);
-    r *= tmp;
-    max_dmg = r * 1.1f;
-
-    return float2int32(std::max((min_dmg + max_dmg)/2.0f,0.0f));
+    min_dmg = ((delta+bonus+(proto ? proto->minDamage : 0))*tmp) * 0.9f;
+    max_dmg = ((delta+bonus+(proto ? proto->maxDamage : 0))*tmp) * 1.1f;
+    return float2int32(std::max((min_dmg + max_dmg)/2.0f, 0.0f));
 }
 
 void Player::EventPortToGM(uint32 guid)

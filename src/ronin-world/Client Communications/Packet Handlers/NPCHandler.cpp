@@ -667,3 +667,99 @@ void WorldSession::SendSpiritHealerRequest(Creature* pCreature)
     data << pCreature->GetGUID();
     SendPacket(&data);
 }
+
+void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
+{
+    CHECK_INWORLD_RETURN();
+
+    sLog.Debug( "WORLD"," Recvd CMSG_LIST_INVENTORY" );
+    uint64 guid;
+    recv_data >> guid;
+
+    Creature* unit = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    if (unit == NULL)
+        return;
+
+    if(unit->GetAIInterface())
+        unit->GetAIInterface()->StopMovement(180000);
+
+    if(FactionEntry *faction = unit->GetFaction())
+        _player->Reputation_OnTalk(faction);
+    SendInventoryList(unit);
+}
+
+void WorldSession::SendInventoryList(Creature* unit)
+{
+    if(!_player || !_player->IsInWorld())
+        return;
+
+    uint32 counter = 0;
+    if(!unit->HasItems())
+    {
+        WorldPacket data(SMSG_LIST_INVENTORY, 10);
+        data << uint64(unit->GetGUID());
+        data << uint8(0) << uint8(0);
+        SendPacket(&data);
+        return;
+    }
+
+    ItemPrototype * curItem;
+    WorldPacket data(SMSG_LIST_INVENTORY, ((unit->GetSellItemCount() * 28) + 9));      // allocate
+    data << unit->GetGUID();
+    data << uint8( 0 ); // placeholder for item count
+    for(std::map<uint32, CreatureItem>::iterator itr = unit->GetSellItemBegin(); itr != unit->GetSellItemEnd(); itr++)
+    {
+        if(counter >= 150)
+        {
+            sLog.Error("VendorListing", "Creature %u contains too many items, Displaying (150/%u) items.",
+                unit->GetEntry(), uint32(unit->GetSellItemCount()));
+            break;
+        }
+
+        if(itr->second.itemid && (itr->second.max_amount == 0 || (itr->second.max_amount > 0 && itr->second.available_amount > 0)))
+        {
+            if((curItem = sItemMgr.LookupEntry(itr->second.itemid)))
+            {
+                if(!(itr->second.vendormask & unit->GetVendorMask()))
+                    continue;
+
+                if(!_player->ignoreitemreq_cheat)
+                {
+                    if(itr->second.IsDependent)
+                    {
+                        if(curItem->AllowableClass && !(_player->getClassMask() & curItem->AllowableClass))
+                            continue;
+                        if(curItem->AllowableRace && !(_player->getRaceMask() & curItem->AllowableRace))
+                            continue;
+
+                        if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
+                            if(!(_player->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
+                                continue; // Do not show relics to classes that can't use them.
+                    }
+
+                    if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
+                        continue;
+                }
+
+                uint32 extendedCostId = itr->second.extended_cost != NULL ? itr->second.extended_cost->Id : 0;
+                int32 av_am = (itr->second.max_amount > 0) ? itr->second.available_amount : -1;
+                data << (++counter);
+                data << uint32(1);
+                data << curItem->ItemId;
+                data << curItem->DisplayInfoID;
+                data << av_am;
+                data << Item::GetBuyPriceForItem(curItem, 1, _player, unit);
+                data << curItem->MaxDurability;
+                data << itr->second.amount;
+                data << extendedCostId;
+                data << uint8(0);
+            }
+        }
+    }
+
+    if(counter == 0) data << uint8(0);
+    else data.put<uint8>(8, counter); // set count
+
+    SendPacket( &data );
+    sLog.Debug( "WORLD"," Sent SMSG_LIST_INVENTORY" );
+}

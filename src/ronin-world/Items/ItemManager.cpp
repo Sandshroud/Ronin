@@ -36,18 +36,18 @@ void ItemManager::LoadItemData()
         data->itemGuid = fields[0].GetUInt64();
         data->itemContainer = fields[1].GetUInt64();
         data->itemCreator = fields[2].GetUInt64();
-        data->containerSlot = fields[3].GetUInt32();
+        data->containerSlot = fields[3].GetUInt16();
         data->itemStackCount = fields[4].GetUInt32();
         data->itemFlags = fields[5].GetUInt32();
         data->itemRandomSeed = fields[6].GetUInt32();
         data->itemRandomProperty = fields[7].GetUInt32();
         data->itemDurability = fields[8].GetUInt32();
         data->itemPlayedTime = fields[9].GetUInt32();
-        if(uint32 giftItemId = fields[10].GetUInt32())
+        if(WoWGuid giftItemGuid = fields[10].GetUInt64())
         {
             data->giftData = new ItemData::ItemGiftData;
-            data->giftData->giftItemId = giftItemId;
-            data->giftData->giftCreatorId = fields[11].GetUInt64();
+            data->giftData->giftItemGuid = giftItemGuid;
+            data->giftData->giftCreator = fields[11].GetUInt64();
         }
         if(uint16 containerSlots = fields[12].GetUInt16())
         {
@@ -89,14 +89,9 @@ void ItemManager::LoadItemData()
             if(m_itemData.find(guid) == m_itemData.end())
                 continue;
             ItemData *data = m_itemData.at(guid);
+            data->chargeData = new ItemData::SpellCharges();
             for(uint8 i = 0; i < 5; i++)
-            {
-                if(uint32 charges = fields[i+1].GetInt32())
-                {
-                    data->chargeData[i] = new ItemData::SpellCharges();
-                    data->chargeData[i]->spellCharges = charges;
-                }
-            }
+                data->chargeData->spellCharges[i] = fields[i+1].GetInt32();
         } while(result->NextRow());
         delete result;
     }
@@ -112,14 +107,14 @@ void ItemManager::LoadItemData()
                 if(data->containerData == NULL)
                     continue; // Something wrong here
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                    data->containerData->m_items.insert(std::make_pair(uint16((*itr2)->containerSlot&0xFFFF), (*itr2)->itemGuid));
+                    data->containerData->m_items.insert(std::make_pair(uint8((*itr2)->containerSlot&0xFF), (*itr2)->itemGuid));
             }break;
         case HIGHGUID_TYPE_GUILD:
             {
                 GuildBankItemStorage *guildStorage = new GuildBankItemStorage();
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                 {
-                    uint16 tabId = ((*itr2)->containerSlot>>16), tabSlot = ((*itr2)->containerSlot&0xFFFF);
+                    uint8 tabId = ((*itr2)->containerSlot>>8), tabSlot = ((*itr2)->containerSlot&0xFF);
                     guildStorage->bankTabs[tabId].insert(std::make_pair(tabSlot, (*itr2)->itemGuid));
                 }
                 //AddGuildStorage(containerGuid, guildStorage);

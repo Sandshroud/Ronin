@@ -302,11 +302,14 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
             if(Item* item = objmgr.CreateItem( qst->receive_items[i], GetPlayer()))
             {
                 item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->receive_itemcount[i]);
-                if(!_player->GetItemInterface()->AddItemToFreeSlot(item))
+                SlotResult result = _player->GetItemInterface()->AddItemToFreeSlot(item);
+                if(result.result != ADD_ITEM_RESULT_ERROR)
+                    SendItemPushResult(item, false, true, false, result.result == ADD_ITEM_RESULT_OK, result.containerSlot>>8, result.containerSlot&0xFF, 1);
+                else
                 {
                     item->Destruct();
                     item = NULL;
-                } else SendItemPushResult(item, false, true, false, true, _player->GetItemInterface()->LastSearchItemBagSlot(), _player->GetItemInterface()->LastSearchItemSlot(), 1);
+                }
             }
         }
     }

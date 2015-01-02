@@ -3455,7 +3455,7 @@ void Unit::CastOnMeleeSpell()
 
 void Unit::EventHealthChangeSinceLastUpdate()
 {
-    int pct = GetHealthPct();
+    uint8 pct = GetHealthPct();
 
     uint32 toSet = 0;
     uint32 toRemove = 0;

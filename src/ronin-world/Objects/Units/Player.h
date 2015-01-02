@@ -828,7 +828,6 @@ public:
     void EquipInit(PlayerCreateInfo *EquipInfo);
 
     void AddToWorld(bool loggingin = false);
-    void AddToWorld(MapMgr* pMapMgr);
     void RemoveFromWorld();
     bool Create ( WorldPacket &data );
 

@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_notifyFlags(UF_FLAG_DYNAMIC), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_notifyFlags(UF_FLAG_DYNAMIC), m_inWorld(false), m_objectUpdated(false)
 {
     m_updateMask.SetCount(m_valuesCount);
     m_uint32Values = new uint32[m_valuesCount];
@@ -182,31 +182,6 @@ void Object::SetUpdateField(uint32 index)
     OnFieldUpdated(index);
 }
 
-////////////////////////////////////////////////////////////////////////////
-/// Fill the object's Update Values from a space deliminated list of values.
-void Object::LoadValues(const char* data)
-{
-    // thread-safe ;) strtok is not.
-    std::string ndata = data;
-    std::string::size_type last_pos = 0, pos = 0;
-    uint32 index = 0;
-    uint32 val;
-    do
-    {
-        // prevent overflow
-        if(index >= m_valuesCount)
-        {
-            break;
-        }
-        pos = ndata.find(" ", last_pos);
-        val = atol(ndata.substr(last_pos, (pos-last_pos)).c_str());
-        if(m_uint32Values[index] == 0)
-            m_uint32Values[index] = val;
-        last_pos = pos+1;
-        ++index;
-    } while(pos != std::string::npos);
-}
-
 bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
 {
     bool res = false;
@@ -230,6 +205,65 @@ bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
         }
     }
     return res;
+}
+
+uint32 Object::GetUpdateFlag(Player *target)
+{
+    uint32 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
+    if(target)
+    {
+        switch (GetTypeId())
+        {
+        case TYPEID_ITEM:
+        case TYPEID_CONTAINER:
+            {
+
+            }break;
+        case TYPEID_UNIT:
+        case TYPEID_PLAYER:
+            {
+                if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
+                    flag |= UF_FLAG_OWNER;
+                else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
+                    flag |= UF_FLAG_OWNER;
+                if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
+                    flag |= UF_FLAG_PARTY_MEMBER;
+            }break;
+        case TYPEID_GAMEOBJECT:
+            {
+                if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        case TYPEID_DYNAMICOBJECT:
+            {
+                if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        case TYPEID_CORPSE:
+            {
+                if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
+                    flag |= UF_FLAG_OWNER;
+            }break;
+        }
+    }
+
+    return flag;
+}
+
+void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
+{
+    switch (type)
+    {
+    case TYPEID_OBJECT: { length = OBJECT_LENGTH; flags = ObjectUpdateFieldFlags; }break;
+    case TYPEID_ITEM: { length = ITEM_LENGTH; flags = ItemUpdateFieldFlags; }break;
+    case TYPEID_CONTAINER: { length = CONTAINER_LENGTH; flags = ContainerUpdateFieldFlags; }break;
+    case TYPEID_UNIT: { length = UNIT_LENGTH; flags = UnitUpdateFieldFlags; }break;
+    case TYPEID_PLAYER: { length = PLAYER_LENGTH; flags = PlayerUpdateFieldFlags; }break;
+    case TYPEID_GAMEOBJECT: { length = GAMEOBJECT_LENGTH; flags = GameObjectUpdateFieldFlags; }break;
+    case TYPEID_DYNAMICOBJECT: { length = DYNAMICOBJECT_LENGTH; flags = DynamicObjectUpdateFieldFlags; }break;
+    case TYPEID_CORPSE: { length = CORPSE_LENGTH; flags = CorpseUpdateFieldFlags; }break;
+    case TYPEID_AREATRIGGER: { length = AREATRIGGER_LENGTH; flags = AreaTriggerUpdateFieldFlags; }break;
+    }
 }
 
 uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
@@ -288,6 +322,25 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     return 1;
 }
 
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+{
+    UpdateMask updateMask(m_valuesCount);
+    if(_SetUpdateBits(&updateMask, target))
+    {
+        *data << uint8(UPDATETYPE_VALUES);     // update type == update
+        *data << m_objGuid.asPacked();
+        _BuildChangedValuesUpdate( data, &updateMask, target );
+        return 1;
+    }
+    return 0;
+}
+
+uint32 Object::BuildOutOfRangeUpdateBlock(ByteBuffer *data)
+{
+
+    return 0;
+}
+
 //=======================================================================================
 //  Creates an update block containing all data needed for a new object
 //=======================================================================================
@@ -322,64 +375,21 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     *data << fields;
 }
 
-uint32 Object::GetUpdateFlag(Player *target)
+//=======================================================================================
+//  Creates an update block with the values of this object as
+//  determined by the updateMask.
+//=======================================================================================
+void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
 {
-    uint32 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
-    if(target)
-    {
-        switch (GetTypeId())
-        {
-        case TYPEID_ITEM:
-        case TYPEID_CONTAINER:
-            {
-                if (castPtr<Item>(this)->GetOwnerGUID() == (uint64)target->GetGUID())
-                    flag |= UF_FLAG_OWNER | UF_FLAG_ITEM_OWNER;
-            }break;
-        case TYPEID_UNIT:
-        case TYPEID_PLAYER:
-            {
-                if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_SUMMONEDBY))
-                    flag |= UF_FLAG_OWNER;
-                else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
-                    flag |= UF_FLAG_OWNER;
-                if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
-                    flag |= UF_FLAG_PARTY_MEMBER;
-            }break;
-        case TYPEID_GAMEOBJECT:
-            {
-                if (target->GetGUID() == castPtr<GameObject>(this)->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
-                    flag |= UF_FLAG_OWNER;
-            }break;
-        case TYPEID_DYNAMICOBJECT:
-            {
-                if (target->GetGUID() == castPtr<DynamicObject>(this)->GetCasterGuid())
-                    flag |= UF_FLAG_OWNER;
-            }break;
-        case TYPEID_CORPSE:
-            {
-                if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
-                    flag |= UF_FLAG_OWNER;
-            }break;
-        }
-    }
+    WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
+    uint32 byteCount = updateMask->GetUpdateBlockCount();
+    uint32 valueCount = std::min(byteCount*32, m_valuesCount);
 
-    return flag;
-}
-
-void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
-{
-    switch (type)
-    {
-    case TYPEID_OBJECT: { length = OBJECT_LENGTH; flags = ObjectUpdateFieldFlags; }break;
-    case TYPEID_ITEM: { length = ITEM_LENGTH; flags = ItemUpdateFieldFlags; }break;
-    case TYPEID_CONTAINER: { length = CONTAINER_LENGTH; flags = ContainerUpdateFieldFlags; }break;
-    case TYPEID_UNIT: { length = UNIT_LENGTH; flags = UnitUpdateFieldFlags; }break;
-    case TYPEID_PLAYER: { length = PLAYER_LENGTH; flags = PlayerUpdateFieldFlags; }break;
-    case TYPEID_GAMEOBJECT: { length = GAMEOBJECT_LENGTH; flags = GameObjectUpdateFieldFlags; }break;
-    case TYPEID_DYNAMICOBJECT: { length = DYNAMICOBJECT_LENGTH; flags = DynamicObjectUpdateFieldFlags; }break;
-    case TYPEID_CORPSE: { length = CORPSE_LENGTH; flags = CorpseUpdateFieldFlags; }break;
-    case TYPEID_AREATRIGGER: { length = AREATRIGGER_LENGTH; flags = AreaTriggerUpdateFieldFlags; }break;
-    }
+    *data << uint8(byteCount);
+    data->append( updateMask->GetMask(), byteCount*4 );
+    for( uint32 index = 0; index < valueCount; index++ )
+        if( updateMask->GetBit( index ) )
+            *data << m_uint32Values[index];
 }
 
 ///////////////////////////////////////////////////////////////
@@ -488,36 +498,6 @@ void Object::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Pla
 {
     // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
     bits->WriteBits(0, 8);
-}
-
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
-{
-    UpdateMask updateMask(m_valuesCount);
-    if(_SetUpdateBits(&updateMask, target))
-    {
-        *data << uint8(UPDATETYPE_VALUES);     // update type == update
-        *data << m_objGuid.asPacked();
-        _BuildChangedValuesUpdate( data, &updateMask, target );
-        return 1;
-    }
-    return 0;
-}
-
-//=======================================================================================
-//  Creates an update block with the values of this object as
-//  determined by the updateMask.
-//=======================================================================================
-void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
-{
-    WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
-    uint32 byteCount = updateMask->GetUpdateBlockCount();
-    uint32 valueCount = std::min(byteCount*32, m_valuesCount);
-
-    *data << uint8(byteCount);
-    data->append( updateMask->GetMask(), byteCount*4 );
-    for( uint32 index = 0; index < valueCount; index++ )
-        if( updateMask->GetBit( index ) )
-            *data << m_uint32Values[index];
 }
 
 void Object::DestroyForPlayer(Player* target, bool anim)
@@ -968,21 +948,8 @@ void WorldObject::AddToWorld()
 
     // correct incorrect instance id's
     m_instanceId = m_mapMgr->GetInstanceID();
-}
 
-void WorldObject::AddToWorld(MapMgr* pMapMgr)
-{
-    if(!pMapMgr)
-        return; //instance add failed
-
-    if(!IsPlayer())
-        UpdateAreaInfo(pMapMgr);
-    m_mapMgr = pMapMgr;
-
-    pMapMgr->AddObject(this);
-
-    // correct incorrect instance id's
-    m_instanceId = pMapMgr->GetInstanceID();
+    Object::AddToWorld();
 }
 
 //Unlike addtoworld it pushes it directly ignoring add pool
@@ -1034,6 +1001,7 @@ void WorldObject::RemoveFromWorld(bool free_guid)
 
     // update our event holder
     event_Relocate();
+    Object::RemoveFromWorld(free_guid);
 }
 
 bool WorldObject::canWalk()

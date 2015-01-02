@@ -1018,8 +1018,8 @@ void WorldSession::SendItemPushResult(Item* pItem, bool Created, bool Received, 
     data.destbagslot = DestBagSlot;
     data.destslot = NewItem ? DestSlot : 0xFFFFFFFF;
     data.entry = pItem->GetEntry();
-    data.suffix = pItem->GetItemRandomSuffixFactor();
-    data.randomprop = pItem->GetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID );
+    data.seed = pItem->GetRandomSeed();
+    data.randomprop = pItem->GetRandomProperty();
     data.count = AddCount;
     data.stackcount = pItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
 
@@ -1027,11 +1027,8 @@ void WorldSession::SendItemPushResult(Item* pItem, bool Created, bool Received, 
     {
         if( _player->GetGroup() )
             _player->GetGroup()->OutPacketToAll( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
-        else
-            OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
-    }
-    else
-        OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
+        else OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
+    } else OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
 }
 
 void WorldSession::SendPacket(WorldPacket* packet)

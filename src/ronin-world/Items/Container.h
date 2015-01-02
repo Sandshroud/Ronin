@@ -7,9 +7,10 @@
 class SERVER_DECL Container : public Item
 {
 public:
-    Container(WoWGuid guid, ItemData *data, uint32 fieldCount = CONTAINER_END);
+    Container(ItemData *data, uint32 fieldCount = CONTAINER_END);
     ~Container();
-    virtual void Init();
+
+    virtual void Initialize(Player *owner);
     virtual void Destruct();
 
     bool AddItem(Item* item, uint8 slot = 255);
@@ -27,6 +28,8 @@ public:
     RONIN_INLINE bool HasItems() { return m_items.size(); };
 
     uint32 GetSlotCount() { return GetUInt32Value(CONTAINER_FIELD_NUM_SLOTS); }
+
+    uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
 
 protected:
     std::map<uint8, Item*> m_items;

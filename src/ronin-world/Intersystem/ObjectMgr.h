@@ -331,8 +331,7 @@ public:
     Mutex _recallLock;
     RecallSet m_recallLocations;
 
-    Item* CreateItem(uint32 entry,Player* owner);
-    Item* LoadItem(uint64 guid);
+    Item *CreateItem(WoWGuid guid, Player *player = NULL);
 
     // Groups
     Group * GetGroupByLeader(Player* pPlayer);

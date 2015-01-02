@@ -159,6 +159,7 @@ public:
 
     virtual void Update ( uint32 time ) { }
 
+    // Value fields
     void __fastcall SetByte(uint32 index, uint32 index1, uint8 value);
     void __fastcall SetByteFlag( const uint32 index, const uint32 flag, uint8 newFlag);
     bool __fastcall HasByteFlag( const uint32 index, const uint32 flag, uint8 checkFlag);
@@ -182,16 +183,34 @@ public:
     RONIN_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
     RONIN_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
     RONIN_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
+    RONIN_INLINE const float GetUInt32FloatValue(uint32 index) const { ASSERT( index < m_valuesCount ); return (float)m_uint32Values[index]; }
 
+    // Update masks
     void SetUpdateField(uint32 index);
-    virtual void OnFieldUpdated(uint32 index) {}
     bool HasUpdateField(uint32 index) { return m_updateMask.GetBit(index); }
+    virtual void OnFieldUpdated(uint32 index) {}
+
+    //! Mark values that need updating for specified player.
+    bool _SetUpdateBits(UpdateMask *updateMask, Player* target);
+
+    uint32 GetUpdateFlag(Player *target);
+    void GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length);
 
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, Player* target );
     uint32 __fastcall BuildOutOfRangeUpdateBlock( ByteBuffer *buf );
 
+private:
+    void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
+    void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
+
+    void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
+    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+
+public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
 
     ////////////////////////////////////////
@@ -201,13 +220,9 @@ public:
         m_objectUpdated = false;
     }
 
-    //! Fill values with data from a space separated string of uint32s.
-    void LoadValues(const char* data);
-
-    RONIN_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
-
     // guid always comes first
     RONIN_INLINE WoWGuid& GetGUID() { return m_objGuid; }
+    RONIN_INLINE uint16 GetValuesCount() const { return m_valuesCount; }
 
     uint16 GetTypeFlags() { return GetUInt32Value(OBJECT_FIELD_TYPE) & TYPEMASK_TYPE_MASK; }
     void SetTypeFlags(uint16 typeFlag) { SetFlag(OBJECT_FIELD_TYPE, typeFlag); };
@@ -239,19 +254,12 @@ public:
     virtual bool IsVehicle() { return false; }
     virtual bool IsTransport() { return false; }
 
+    // In world bools
+    virtual bool IsInWorld() { return m_inWorld; }
+    virtual void AddToWorld() { m_inWorld = true; }
+    virtual void RemoveFromWorld(bool free_guid) { m_inWorld = false; }
+
 protected:
-    //! Mark values that need updating for specified player.
-    bool _SetUpdateBits(UpdateMask *updateMask, Player* target);
-
-    uint32 GetUpdateFlag(Player *target);
-    void GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length);
-    void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
-    void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask, Player* target );
-
-    void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
     Mutex m_objlock;
 
     //! Object properties.
@@ -268,6 +276,8 @@ protected:
     uint16 m_notifyFlags;
     //! List of object properties that need updating.
     UpdateMask m_updateMask;
+    //! True if object is in world
+    bool m_inWorld;
     //! True if object was updated
     bool m_objectUpdated;
 
@@ -314,13 +324,13 @@ public:
     int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
 
     //! True if object exists in world
-    RONIN_INLINE bool IsInWorld() { return m_mapMgr != NULL; }
+    virtual bool IsInWorld() { return m_mapMgr != NULL; }
     virtual void AddToWorld();
-    virtual void AddToWorld(MapMgr* pMapMgr);
+    virtual void RemoveFromWorld(bool free_guid);
+
     void PushToWorld(MapMgr* );
     virtual void OnPushToWorld() { }
     virtual void OnPrePushToWorld() { }
-    virtual void RemoveFromWorld(bool free_guid);
     virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
     virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
 

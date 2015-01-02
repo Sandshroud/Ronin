@@ -1316,102 +1316,66 @@ int16 ItemInterface::GetBagSlotByGuid(uint64 guid)
 //-------------------------------------------------------------------//
 //Description: Adds a Item to a free slot
 //-------------------------------------------------------------------//
-AddItemResult ItemInterface::AddItemToFreeSlot(Item* item)
+SlotResult ItemInterface::AddItemToFreeSlot(Item* item)
 {
-    if( item == NULL )
-        return ADD_ITEM_RESULT_ERROR;
-
-    if( item->GetProto() == NULL )
-        return ADD_ITEM_RESULT_ERROR;
-
-    uint32 i = 0;
-    bool result2;
-    AddItemResult result3;
+    SlotResult result;
+    result.Init(ADD_ITEM_RESULT_ERROR);
+    if( item == NULL || item->GetProto() == NULL )
+        return result;
 
     //detect special bag item
     if( item->GetProto()->BagFamily )
     {
-        if( item->GetProto()->BagFamily & ITEM_TYPE_KEYRING )
+        for(uint8 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; ++i)
         {
-            for(i=INVENTORY_KEYRING_START; i<INVENTORY_KEYRING_END; i++ )
+            if(m_pItems.find(i) == m_pItems.end())
+                continue;
+            if (m_pItems[i]->GetProto()->BagFamily != item->GetProto()->BagFamily)
+                continue;
+            if(!m_pItems[i]->IsContainer())
+                continue;
+            if(castPtr<Container>(m_pItems[i])->AddItem(item))
             {
-                if(m_pItems[i] == NULL)
-                {
-                    result3 = SafeAddItem( item, INVENTORY_SLOT_NOT_SET, i );
-                    if( result3 )
-                    {
-                        result.ContainerSlot = INVENTORY_SLOT_NOT_SET;
-                        result.Slot = i;
-                        result.Result = true;
-                        return ADD_ITEM_RESULT_OK;
-                    }
-                }
-            }
-        }
-        else
-        {
-            for(i=INVENTORY_SLOT_BAG_START;i<INVENTORY_SLOT_BAG_END;++i)
-            {
-                if(m_pItems[i])
-                {
-                    if (m_pItems[i]->GetProto()->BagFamily == item->GetProto()->BagFamily)
-                    {
-                        if(m_pItems[i]->IsContainer())
-                        {
-                            uint32 r_slot;
-                            result2 = castPtr<Container>(m_pItems[i])->AddItemToFreeSlot(item, &r_slot);
-                            if(result2)
-                            {
-                                result.ContainerSlot = i;
-                                result.Slot = r_slot;
-                                result.Result = true;
-                                return ADD_ITEM_RESULT_OK;
-                            }
-                        }
-
-                    }
-                }
+                result.containerSlot = item->GetContainerSlot();
+                result.result = ADD_ITEM_RESULT_OK;
+                return result;
             }
         }
     }
 
     //INVENTORY
-    for(i=INVENTORY_SLOT_ITEM_START;i<INVENTORY_SLOT_ITEM_END;++i)
+    for(uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
     {
-        if(m_pItems[i] == NULL)
+        if(m_pItems.find(i) != m_pItems.end())
         {
-            result3 = SafeAddItem(item, INVENTORY_SLOT_NOT_SET, i);
-            if(result3) {
-                result.ContainerSlot = INVENTORY_SLOT_NOT_SET;
-                result.Slot = i;
-                result.Result = true;
-                return ADD_ITEM_RESULT_OK;
-            }
+
+        }
+
+        if(SafeAddItem(item, INVENTORY_SLOT_NONE, i))
+        {
+            result.containerSlot = item->GetContainerSlot();
+            result.result = ADD_ITEM_RESULT_OK;
+            return result;
         }
     }
 
     //INVENTORY BAGS
-    for(i=INVENTORY_SLOT_BAG_START;i<INVENTORY_SLOT_BAG_END;++i)
+    for(uint8 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; ++i)
     {
-        if(m_pItems[i] != NULL && m_pItems[i]->GetProto()->BagFamily == 0 && m_pItems[i]->IsContainer()) //special bags ignored
+        if(m_pItems.find(i) == m_pItems.end())
+            continue;
+        if(m_pItems[i]->GetProto()->BagFamily)
+            continue;
+        if(!m_pItems[i]->IsContainer())
+            continue;
+        if(castPtr<Container>(m_pItems[i])->AddItem(item))
         {
-            for (int32 j =0; j < m_pItems[i]->GetProto()->ContainerSlots;j++)
-            {
-                Item* item2 = castPtr<Container>(m_pItems[i])->GetItem(j);
-                if (item2 == NULL)
-                {
-                    result3 = SafeAddItem(item, i, j);
-                    if(result3) {
-                        result.ContainerSlot = i;
-                        result.Slot = j;
-                        result.Result = true;
-                        return ADD_ITEM_RESULT_OK;
-                    }
-                }
-            }
+            result.containerSlot = item->GetContainerSlot();
+            result.result = ADD_ITEM_RESULT_OK;
+            return result;
         }
     }
-    return ADD_ITEM_RESULT_ERROR;
+    return result;
 }
 
 //-------------------------------------------------------------------//

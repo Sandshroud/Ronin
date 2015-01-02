@@ -2454,7 +2454,7 @@ void Spell::SpellEffectAddFarsight(uint32 i) // Add Farsight
     dyn->Create(p_caster, this, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, GetDuration(), GetRadius(i));
     dyn->SetUInt32Value(OBJECT_FIELD_TYPE, 65);
     dyn->SetUInt32Value(DYNAMICOBJECT_BYTES, 0x80000002);
-    dyn->AddToWorld(p_caster->GetMapMgr());
+    dyn->PushToWorld(p_caster->GetMapMgr());
     p_caster->SetUInt64Value(PLAYER_FARSIGHT, dyn->GetGUID());
     p_caster->SetUInt32Value(PLAYER_FARSIGHT, dyn->GetLowGUID());
     p_caster->GetMapMgr()->ChangeFarsightLocation(p_caster, m_targets.m_destX, m_targets.m_destY, true);

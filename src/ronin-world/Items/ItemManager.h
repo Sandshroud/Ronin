@@ -93,7 +93,7 @@ struct ItemData
     WoWGuid itemGuid;
     WoWGuid itemContainer;
     WoWGuid itemCreator;
-    uint32 containerSlot;
+    uint16 containerSlot;
     uint32 itemStackCount;
     uint32 itemFlags;
     uint32 itemRandomSeed;
@@ -103,14 +103,13 @@ struct ItemData
 
     struct ItemGiftData
     {
-        uint32 giftItemId;
-        WoWGuid giftCreatorId;
+        WoWGuid giftItemGuid, giftCreator;
     } *giftData;
 
     struct ContainerData
     {
         uint16 numSlots;
-        std::map<uint16, WoWGuid> m_items;
+        std::map<uint8, WoWGuid> m_items;
     } *containerData;
 
     struct EnchantData
@@ -122,13 +121,13 @@ struct ItemData
 
     struct SpellCharges
     {
-        int32 spellCharges;
-    } *chargeData[5];
+        int32 spellCharges[5];
+    } *chargeData;
 };
 
 struct GuildBankItemStorage
 {
-    std::map<uint16, WoWGuid> bankTabs[6];
+    std::map<uint8, WoWGuid> bankTabs[6];
 };
 
 struct PlayerInventory
