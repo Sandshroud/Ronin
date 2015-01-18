@@ -90,6 +90,7 @@ public:
     bool operator <( const uint64 val ) const { return (uint64)*this < val; }
 
     bool empty() { return operator !(); };
+    bool count() { return !empty(); }
     WGuidPacked *asPacked() { return new WGuidPacked(this); }
     uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
     uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }

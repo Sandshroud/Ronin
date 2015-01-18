@@ -737,9 +737,6 @@ void WorldSession::FullLogin(Player* plr)
     // If we have the talent, it returns anyway, so just call the function.
     plr->ResetTitansGrip();
 
-    if(plr->GetItemInterface())
-        plr->GetItemInterface()->CheckAreaItems();
-
     objmgr.AddPlayer(plr);
 
     m_loggingInPlayer = NULL;

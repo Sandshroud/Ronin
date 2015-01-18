@@ -111,102 +111,106 @@ enum InventorySlots : uint8
     BUYBACK_SLOT_11,
     BUYBACK_SLOT_12,
     BUYBACK_SLOT_END,
+    INVENTORY_SLOT_MAX = BUYBACK_SLOT_END,
 
     INVENTORY_SLOT_NONE = 255
 };
 
 enum InventoryErrors : uint8
 {
-    INV_ERR_OK = 0,
-    INV_ERR_YOU_MUST_REACH_LEVEL_N,
-    INV_ERR_SKILL_ISNT_HIGH_ENOUGH,
-    INV_ERR_ITEM_DOESNT_GO_TO_SLOT,
-    INV_ERR_BAG_FULL,
-    INV_ERR_NONEMPTY_BAG_OVER_OTHER_BAG,
-    INV_ERR_CANT_TRADE_EQUIP_BAGS,
-    INV_ERR_ONLY_AMMO_CAN_GO_HERE,
-    INV_ERR_NO_REQUIRED_PROFICIENCY,
-    INV_ERR_NO_EQUIPMENT_SLOT_AVAILABLE,
-    INV_ERR_YOU_CAN_NEVER_USE_THAT_ITEM,
-    INV_ERR_YOU_CAN_NEVER_USE_THAT_ITEM2,
-    INV_ERR_NO_EQUIPMENT_SLOT_AVAILABLE2,
-    INV_ERR_CANT_EQUIP_WITH_TWOHANDED,
-    INV_ERR_CANT_DUAL_WIELD,
-    INV_ERR_ITEM_DOESNT_GO_INTO_BAG,
-    INV_ERR_ITEM_DOESNT_GO_INTO_BAG2,
-    INV_ERR_CANT_CARRY_MORE_OF_THIS,
-    INV_ERR_NO_EQUIPMENT_SLOT_AVAILABLE3,
-    INV_ERR_ITEM_CANT_STACK,
-    INV_ERR_ITEM_CANT_BE_EQUIPPED,
-    INV_ERR_ITEMS_CANT_BE_SWAPPED,
-    INV_ERR_SLOT_IS_EMPTY,
-    INV_ERR_ITEM_NOT_FOUND,
-    INV_ERR_CANT_DROP_SOULBOUND,
-    INV_ERR_OUT_OF_RANGE,
-    INV_ERR_TRIED_TO_SPLIT_MORE_THAN_COUNT,
-    INV_ERR_COULDNT_SPLIT_ITEMS,
-    INV_ERR_MISSING_REAGENT,
-    INV_ERR_NOT_ENOUGH_MONEY,
-    INV_ERR_NOT_A_BAG,
-    INV_ERR_CAN_ONLY_DO_WITH_EMPTY_BAGS,
-    INV_ERR_DONT_OWN_THAT_ITEM,
-    INV_ERR_CAN_EQUIP_ONLY1_QUIVER,
-    INV_ERR_MUST_PURCHASE_THAT_BAG_SLOT,
-    INV_ERR_TOO_FAR_AWAY_FROM_BANK,
-    INV_ERR_ITEM_LOCKED,
-    INV_ERR_YOU_ARE_STUNNED,
-    INV_ERR_YOU_ARE_DEAD,
-    INV_ERR_CANT_DO_RIGHT_NOW,
-    INV_ERR_BAG_FULL2,
-    INV_ERR_CAN_EQUIP_ONLY1_QUIVER2,
-    INV_ERR_CAN_EQUIP_ONLY1_AMMOPOUCH,
-    INV_ERR_STACKABLE_CANT_BE_WRAPPED,
-    INV_ERR_EQUIPPED_CANT_BE_WRAPPED,
-    INV_ERR_WRAPPED_CANT_BE_WRAPPED,
-    INV_ERR_BOUND_CANT_BE_WRAPPED,
-    INV_ERR_UNIQUE_CANT_BE_WRAPPED,
-    INV_ERR_BAGS_CANT_BE_WRAPPED,
-    INV_ERR_ALREADY_LOOTED,
-    INV_ERR_INVENTORY_FULL,
-    INV_ERR_BANK_FULL,
-    INV_ERR_ITEM_IS_CURRENTLY_SOLD_OUT,
-    INV_ERR_BAG_FULL3,
-    INV_ERR_ITEM_NOT_FOUND2,
-    INV_ERR_ITEM_CANT_STACK2,
-    INV_ERR_BAG_FULL4,
-    INV_ERR_ITEM_SOLD_OUT,
-    INV_ERR_OBJECT_IS_BUSY,
-    INV_ERR_NONE,
-    INV_ERR_CANT_DO_IN_COMBAT,
-    INV_ERR_CANT_DO_WHILE_DISARMED,
-    INV_ERR_BAG_FULL6,
-    INV_ERR_ITEM_RANK_NOT_ENOUGH,
-    INV_ERR_ITEM_REPUTATION_NOT_ENOUGH,
-    INV_ERR_MORE_THAN1_SPECIAL_BAG,
-    INV_ERR_LOOT_CANT_LOOT_THAT_NOW,
-    INV_ERR_ITEM_UNIQUE_EQUIPABLE,
-    INV_ERR_VENDOR_MISSING_TURNINS,
-    INV_ERR_NOT_ENOUGH_HONOR_POINTS,
-    INV_ERR_NOT_ENOUGH_ARENA_POINTS,
-    INV_ERR_ITEM_MAX_COUNT_SOCKETED,
-    INV_ERR_MAIL_BOUND_ITEM,
-    INV_ERR_NO_SPLIT_WHILE_PROSPECTING,
-    INV_ERR_UNK,
-    INV_ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED,
-    INV_ERR_ITEM_UNIQUE_EQUIPPABLE_SOCKETED,
-    INV_ERR_TOO_MUCH_GOLD,
-    INV_ERR_NOT_DURING_ARENA_MATCH,
-    INV_ERR_CANNOT_TRADE_THAT,
-    INV_ERR_PERSONAL_ARENA_RATING_TOO_LOW,
-    INV_ERR_EVENT_AUTOEQUIP_BIND_CONFIRM,
-    INV_ERR_ACCOUNT_BOUND,
-    INV_ERR_OK2,
-    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED,
-    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_SOCKETED_EXCEEDED,
-    INV_ERR_SCALING_STAT_ITEM_LEVEL_EXCEEDED,
-    INV_ERR_PURCHASE_LEVEL_TOO_LOW,
-    INV_ERR_CANT_EQUIP_NEED_TALENT,
-    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED
+    INV_ERR_OK                                           = 0,
+    INV_ERR_CANT_EQUIP_LEVEL_N                           = 1,  // You must reach level %d to use that item.
+    INV_ERR_CANT_EQUIP_SKILL                             = 2,  // You aren't skilled enough to use that item.
+    INV_ERR_WRONG_SLOT                                   = 3,  // That item does not go in that slot.
+    INV_ERR_BAG_FULL                                     = 4,  // That bag is full.
+    INV_ERR_BAG_IN_BAG                                   = 5,  // Can't put non-empty bags in other bags.
+    INV_ERR_TRADE_EQUIPPED_BAG                           = 6,  // You can't trade equipped bags.
+    INV_ERR_AMMO_ONLY                                    = 7,  // Only ammo can go there.
+    INV_ERR_PROFICIENCY_NEEDED                           = 8,  // You do not have the required proficiency for that item.
+    INV_ERR_NO_SLOT_AVAILABLE                            = 9,  // No equipment slot is available for that item.
+    INV_ERR_CANT_EQUIP_EVER                              = 10, // You can never use that item.
+    INV_ERR_CANT_EQUIP_EVER_2                            = 11, // You can never use that item.
+    INV_ERR_NO_SLOT_AVAILABLE_2                          = 12, // No equipment slot is available for that item.
+    INV_ERR_2HANDED_EQUIPPED                             = 13, // Cannot equip that with a two-handed weapon.
+    INV_ERR_2HSKILLNOTFOUND                              = 14, // You cannot dual-wield
+    INV_ERR_WRONG_BAG_TYPE                               = 15, // That item doesn't go in that container.
+    INV_ERR_WRONG_BAG_TYPE_2                             = 16, // That item doesn't go in that container.
+    INV_ERR_ITEM_MAX_COUNT                               = 17, // You can't carry any more of those items.
+    INV_ERR_NO_SLOT_AVAILABLE_3                          = 18, // No equipment slot is available for that item.
+    INV_ERR_CANT_STACK                                   = 19, // This item cannot stack.
+    INV_ERR_NOT_EQUIPPABLE                               = 20, // This item cannot be equipped.
+    INV_ERR_CANT_SWAP                                    = 21, // These items can't be swapped.
+    INV_ERR_SLOT_EMPTY                                   = 22, // That slot is empty.
+    INV_ERR_ITEM_NOT_FOUND                               = 23, // The item was not found.
+    INV_ERR_DROP_BOUND_ITEM                              = 24, // You can't drop a soulbound item.
+    INV_ERR_OUT_OF_RANGE                                 = 25, // Out of range.
+    INV_ERR_TOO_FEW_TO_SPLIT                             = 26, // Tried to split more than number in stack.
+    INV_ERR_SPLIT_FAILED                                 = 27, // Couldn't split those items.
+    INV_ERR_SPELL_FAILED_REAGENTS_GENERIC                = 28, // Missing reagent
+    INV_ERR_NOT_ENOUGH_MONEY                             = 29, // You don't have enough money.
+    INV_ERR_NOT_A_BAG                                    = 30, // Not a bag.
+    INV_ERR_DESTROY_NONEMPTY_BAG                         = 31, // You can only do that with empty bags.
+    INV_ERR_NOT_OWNER                                    = 32, // You don't own that item.
+    INV_ERR_ONLY_ONE_QUIVER                              = 33, // You can only equip one quiver.
+    INV_ERR_NO_BANK_SLOT                                 = 34, // You must purchase that bag slot first
+    INV_ERR_NO_BANK_HERE                                 = 35, // You are too far away from a bank.
+    INV_ERR_ITEM_LOCKED                                  = 36, // Item is locked.
+    INV_ERR_GENERIC_STUNNED                              = 37, // You are stunned
+    INV_ERR_PLAYER_DEAD                                  = 38, // You can't do that when you're dead.
+    INV_ERR_CLIENT_LOCKED_OUT                            = 39, // You can't do that right now.
+    INV_ERR_INTERNAL_BAG_ERROR                           = 40, // Internal Bag Error
+    INV_ERR_ONLY_ONE_BOLT                                = 41, // You can only equip one quiver.
+    INV_ERR_ONLY_ONE_AMMO                                = 42, // You can only equip one ammo pouch.
+    INV_ERR_CANT_WRAP_STACKABLE                          = 43, // Stackable items can't be wrapped.
+    INV_ERR_CANT_WRAP_EQUIPPED                           = 44, // Equipped items can't be wrapped.
+    INV_ERR_CANT_WRAP_WRAPPED                            = 45, // Wrapped items can't be wrapped.
+    INV_ERR_CANT_WRAP_BOUND                              = 46, // Bound items can't be wrapped.
+    INV_ERR_CANT_WRAP_UNIQUE                             = 47, // Unique items can't be wrapped.
+    INV_ERR_CANT_WRAP_BAGS                               = 48, // Bags can't be wrapped.
+    INV_ERR_LOOT_GONE                                    = 49, // Already looted
+    INV_ERR_INV_FULL                                     = 50, // Inventory is full.
+    INV_ERR_BANK_FULL                                    = 51, // Your bank is full
+    INV_ERR_VENDOR_SOLD_OUT                              = 52, // That item is currently sold out.
+    INV_ERR_BAG_FULL_2                                   = 53, // That bag is full.
+    INV_ERR_ITEM_NOT_FOUND_2                             = 54, // The item was not found.
+    INV_ERR_CANT_STACK_2                                 = 55, // This item cannot stack.
+    INV_ERR_BAG_FULL_3                                   = 56, // That bag is full.
+    INV_ERR_VENDOR_SOLD_OUT_2                            = 57, // That item is currently sold out.
+    INV_ERR_OBJECT_IS_BUSY                               = 58, // That object is busy.
+    INV_ERR_CANT_BE_DISENCHANTED                         = 59,
+    INV_ERR_NOT_IN_COMBAT                                = 60, // You can't do that while in combat
+    INV_ERR_NOT_WHILE_DISARMED                           = 61, // You can't do that while disarmed
+    INV_ERR_BAG_FULL_4                                   = 62, // That bag is full.
+    INV_ERR_CANT_EQUIP_RANK                              = 63, // You don't have the required rank for that item
+    INV_ERR_CANT_EQUIP_REPUTATION                        = 64, // You don't have the required reputation for that item
+    INV_ERR_TOO_MANY_SPECIAL_BAGS                        = 65, // You cannot equip another bag of that type
+    INV_ERR_LOOT_CANT_LOOT_THAT_NOW                      = 66, // You can't loot that item now.
+    INV_ERR_ITEM_UNIQUE_EQUIPPABLE                       = 67, // You cannot equip more than one of those.
+    INV_ERR_VENDOR_MISSING_TURNINS                       = 68, // You do not have the required items for that purchase
+    INV_ERR_NOT_ENOUGH_HONOR_POINTS                      = 69, // You don't have enough honor points
+    INV_ERR_NOT_ENOUGH_ARENA_POINTS                      = 70, // You don't have enough arena points
+    INV_ERR_ITEM_MAX_COUNT_SOCKETED                      = 71, // You have the maximum number of those gems in your inventory or socketed into items.
+    INV_ERR_MAIL_BOUND_ITEM                              = 72, // You can't mail soulbound items.
+    INV_ERR_INTERNAL_BAG_ERROR_2                         = 73, // Internal Bag Error
+    INV_ERR_BAG_FULL_5                                   = 74, // That bag is full.
+    INV_ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED             = 75, // You have the maximum number of those gems socketed into equipped items.
+    INV_ERR_ITEM_UNIQUE_EQUIPPABLE_SOCKETED              = 76, // You cannot socket more than one of those gems into a single item.
+    INV_ERR_TOO_MUCH_GOLD                                = 77, // At gold limit
+    INV_ERR_NOT_DURING_ARENA_MATCH                       = 78, // You can't do that while in an arena match
+    INV_ERR_TRADE_BOUND_ITEM                             = 79, // You can't trade a soulbound item.
+    INV_ERR_CANT_EQUIP_RATING                            = 80, // You don't have the personal, team, or battleground rating required to buy that item
+    INV_ERR_NO_OUTPUT                                    = 81,
+    INV_ERR_NOT_SAME_ACCOUNT                             = 82, // Account-bound items can only be given to your own characters.
+    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS    = 84, // You can only carry %d %s
+    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_SOCKETED_EXCEEDED_IS = 85, // You can only equip %d |4item:items in the %s category
+    INV_ERR_SCALING_STAT_ITEM_LEVEL_EXCEEDED             = 86, // Your level is too high to use that item
+    INV_ERR_PURCHASE_LEVEL_TOO_LOW                       = 87, // You must reach level %d to purchase that item.
+    INV_ERR_CANT_EQUIP_NEED_TALENT                       = 88, // You do not have the required talent to equip that.
+    INV_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED_IS = 89, // You can only equip %d |4item:items in the %s category
+    INV_ERR_SHAPESHIFT_FORM_CANNOT_EQUIP                 = 90, // Cannot equip item in this form
+    INV_ERR_ITEM_INVENTORY_FULL_SATCHEL                  = 91, // Your inventory is full. Your satchel has been delivered to your mailbox.
+    INV_ERR_SCALING_STAT_ITEM_LEVEL_TOO_LOW              = 92, // Your level is too low to use that item
+    INV_ERR_CANT_BUY_QUANTITY                            = 93, // You can't buy the specified quantity of that item.
 };
 
 enum dbcItemStatType : uint8

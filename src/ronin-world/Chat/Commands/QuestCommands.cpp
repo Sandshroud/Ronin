@@ -57,12 +57,12 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
             // always remove collected items (need to be recollectable again in case of repeatable).
             for( uint32 y = 0; y < 6; y++)
                 if( qst->required_item[y] && qst->required_item[y] != srcItem )
-                    plr->GetItemInterface()->RemoveItemAmt(qst->required_item[y], qst->required_itemcount[y]);
+                    plr->GetItemInterface()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y]);
 
             // Remove all items given by the questgiver at the beginning
             for(uint32 i = 0; i < 4; i++)
                 if(qst->receive_items[i] && qst->receive_items[i] != srcItem)
-                    plr->GetItemInterface()->RemoveItemAmt(qst->receive_items[i], qst->receive_itemcount[i] );
+                    plr->GetItemInterface()->RemoveInventoryStacks(qst->receive_items[i], qst->receive_itemcount[i] );
             plr->UpdateNearbyQuestGivers();
             plr->UpdateNearbyGameObjects();
         }
@@ -223,37 +223,18 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                     CALL_QUESTSCRIPT_EVENT(quest_id, OnQuestStart)(plr, qle);
 
                     // If the quest should give any items on begin, give them the items.
-                    for(uint32 i = 0; i < 4; i++)
+                    for(uint8 i = 0; i < 4; i++)
                     {
-                        if(qst->receive_items[i])
-                        {
-                            Item* item = objmgr.CreateItem( qst->receive_items[i], plr);
-                            if(!plr->GetItemInterface()->AddItemToFreeSlot(item))
-                            {
-                                if(item != NULL)
-                                {
-                                    item->Destruct();
-                                    item = NULL;
-                                }
-                            }
-                        }
+                        if(qst->receive_items[i] == 0)
+                            continue;
+                        if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->receive_items[i]))
+                            plr->GetItemInterface()->CreateInventoryStacks(proto, qst->receive_itemcount[i]);
                     }
 
                     if(qst->srcitem && qst->srcitem != qst->receive_items[0])
                     {
-                        Item* item = objmgr.CreateItem( qst->srcitem, plr);
-                        if(item)
-                        {
-                            item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->srcitemcount ? qst->srcitemcount : 1);
-                            if(!plr->GetItemInterface()->AddItemToFreeSlot(item))
-                            {
-                                if(item != NULL)
-                                {
-                                    item->Destruct();
-                                    item = NULL;
-                                }
-                            }
-                        }
+                        if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->srcitem))
+                            plr->GetItemInterface()->CreateInventoryStacks(proto, std::max(uint16(1), qst->srcitemcount));
                     }
 
                     plr->UpdateNearbyGameObjects();
@@ -275,7 +256,6 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
     recout += "\n\n";
 
     SendMultilineMessage(m_session, recout.c_str());
-
     return true;
 }
 

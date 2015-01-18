@@ -599,14 +599,13 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
         _player->m_playerInfo->charterId[CHARTER_TYPE_GUILD] = 0;
         gc->Destroy();
 
-        _player->GetItemInterface()->RemoveItemAmt(ITEM_ENTRY_GUILD_CHARTER, 1);
+        _player->GetItemInterface()->RemoveInventoryStacks(ITEM_ENTRY_GUILD_CHARTER, 1);
     }
     else
     {
         /* Arena charter - TODO: Replace with correct messages */
         ArenaTeam * team;
         uint32 type;
-        uint32 i;
         uint32 icon, iconcolor, bordercolor, border, background;
         recv_data >> iconcolor >>icon >> bordercolor >> border >> background;
 
@@ -660,7 +659,7 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
 
 
         /* Add the members */
-        for(i = 0; i < pCharter->SignatureCount; i++)
+        for(uint8 i = 0; i < pCharter->SignatureCount; i++)
         {
             PlayerInfo * info = objmgr.GetPlayerInfo(pCharter->Signatures[i]);
             if(info)
@@ -669,7 +668,13 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
             }
         }
 
-        _player->GetItemInterface()->SafeFullRemoveItemByGuid(charterGuid);
+        if(Item *charter = _player->GetItemInterface()->GetInventoryItem(charterGuid))
+        {
+            _player->GetItemInterface()->RemoveInventoryItem(charter->GetContainerSlot());
+            sItemMgr.DeleteItemData(charter->GetGUID());
+            charter->Destruct();
+        }
+
         _player->m_playerInfo->charterId[pCharter->CharterType] = NULL;
         pCharter->Destroy();
     }

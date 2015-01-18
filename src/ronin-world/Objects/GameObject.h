@@ -97,9 +97,6 @@ struct GameObjectInfo
     int32 RespawnTimer;
     uint32 DefaultFlags;
 
-    /* Crow: Time for some ugly unions, thanks for the section meanings Tom.
-    ** Note that all slot ones replace Spell Focus, the rest are sound and unks
-    */
     union
     {
         // GAMEOBJECT_TYPE_DOOR
@@ -256,14 +253,14 @@ struct GameObjectInfo
             uint32 CreditProxyCreature; uint32 State1Name; uint32 IntactEvent; uint32 DamagedDisplayId; uint32 DamagedNumHits;
             uint32 Empty3; uint32 Empty4; uint32 Empty5; uint32 DamagedEvent; uint32 DestroyedDisplayId; uint32 Empty7; uint32 Empty8; uint32 Empty9;
             uint32 DestroyedEvent; uint32 Empty10; uint32 RebuildingTimeSecs; uint32 Empty11; uint32 DestructibleData; uint32 RebuildingEvent;
-            uint32 Empty12; uint32 Empty13; uint32 DamageEvent;
+            uint32 Empty12; uint32 Empty13; uint32 DamageEvent; uint32 Empty14;
         } DestructableBuilding;
 
         // GAMEOBJECT_TYPE_GUILDBANK - GAMEOBJECT_TYPE_TRAPDOOR
         struct { uint32 WhenToPause; /* 1 */ uint32 StartOpen; uint32 AutoClose; } TrapDoor;
 
         // not use for specific field access (only for output with loop by all filed), also this determinate max union size
-        struct { uint32 ListedData[24]; } RawData;
+        struct { uint32 ListedData[32]; } RawData;
     };
 
     uint32 GetSpellID()

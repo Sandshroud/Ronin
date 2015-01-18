@@ -62,13 +62,14 @@ typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 class SERVER_DECL Item : public Object
 {
 public:
-    Item(ItemData *data, uint32 fieldCount = ITEM_END);
+    Item(ItemData *data);
     ~Item();
 
     virtual void Initialize(Player *owner);
     virtual void Destruct();
 
-    void Create( uint32 itemid, Player* owner );
+    virtual void AddToWorld();
+    virtual bool IsContainer() { return m_isContainer; }
 
     RONIN_INLINE ItemPrototype* GetProto() const { return m_itemProto; }
     RONIN_INLINE Player* GetOwner() const { return m_owner; }
@@ -99,7 +100,6 @@ public:
     void SetTextID(uint32 newtextId);
     uint32 GetTextID() { return m_textid; };
 
-    void SetWrappedItemGuid(WoWGuid guid);
     WoWGuid GetWrappedItemGuid() { return m_wrappedItemGuid; }
     bool isWrapped() { return !m_wrappedItemGuid.empty(); }
 
@@ -108,21 +108,28 @@ protected:
     EnchantmentMap m_enchantments;
     WoWGuid m_wrappedItemGuid;
     uint32 m_textid;
-    bool m_locked;
-
     Player *m_owner; // let's not bother the manager with unneeded requests
 
+    uint16 currentSlot;
+    bool m_isContainer;
+
 public:
+    void SetItemSlot(uint8 slot);
+    void SetContainerSlot(uint16 slot);
     void SetContainerData(WoWGuid newContainer, uint16 slot);
     WoWGuid GetContainerGuid() { return GetUInt64Value(ITEM_FIELD_CONTAINED); }
+
+    void SetCreatorGuid(WoWGuid creatorGuid);
     WoWGuid GetCreatorGuid() { return GetUInt64Value(ITEM_FIELD_CREATOR); }
 
-    uint16 GetContainerSlot() { return _itemData->containerSlot; }
-    uint8 GetBagSlot() { return _itemData->containerSlot>>8; }
-    uint8 GetSlot() { return (_itemData->containerSlot&0xFF); }
+    uint16 GetContainerSlot() { return currentSlot; }
+    uint8 GetBagSlot() { return INVSLOT_BAG(currentSlot); }
+    uint8 GetItemSlot() { return INVSLOT_ITEM(currentSlot); }
 
     void SetStackSize(uint32 newStackSize);
-    void ModStackSize(int32 stackSizeMod);
+    void ModStackSize(int32 &stackSizeMod);
+    void ModStackSize(uint32 &stackSizeMod);
+    void ModifyStackSize(int32 stackSizeMod);
     uint32 GetStackSize() { return GetUInt32Value(ITEM_FIELD_STACK_COUNT); }
 
     void AddItemFlag(uint32 itemFlag);
@@ -134,13 +141,83 @@ public:
     uint32 GetRandomProperty() { return GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID); }
 
     void SetDurability(uint32 newDurability);
-    void ModDurability(float modPct);
+    void ModDurability(bool apply, float modPct);
     uint32 GetDurability() { return GetUInt32Value(ITEM_FIELD_DURABILITY); }
 
     void UpdatePlayedTime();
     void ModPlayedTime(uint32 timeToAdd);
     uint32 GetPlayedTime() { return GetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME); }
 
-private:
+protected:
     ItemData *_itemData;
+
+    void QueueItemDataUpdate(ItemDataFields fieldType, uint32 fieldValue);
+    void QueueItemDataUpdate(ItemDataFields fieldType, uint64 fieldValue);
+
+public:
+    void QueueItemDeletion();
+
+public: // Container function
+    struct Container
+    {
+        uint32 numSlots;
+        std::map<uint8, WoWGuid> m_items;
+    }*_container;
+
+    uint32 GetNumSlots()
+    {
+        if(_container == NULL)
+            return 0;
+        return _container->numSlots;
+    }
+
+    bool HasItems()
+    {
+        if(_container == NULL)
+            return false;
+        return !_container->m_items.empty();
+    }
+
+    bool HasItem(uint8 slot)
+    {
+        if(_container == NULL)
+            return false;
+        return _container->m_items.find(slot) != _container->m_items.end();
+    }
+
+    bool AddItem(uint8 slot, WoWGuid itemGuid)
+    {
+        if(_container == NULL)
+            return false;
+        if(_container->m_items.find(slot) != _container->m_items.end())
+            return false;
+        _container->m_items.insert(std::make_pair(slot, itemGuid));
+        SetUInt64Value(CONTAINER_FIELD_SLOT_1+(slot*2), itemGuid);
+        return true;
+    }
+
+    void RemoveItem(uint8 slot)
+    {
+        if(_container == NULL)
+            return;
+        _container->m_items.erase(slot);
+        SetUInt64Value(CONTAINER_FIELD_SLOT_1+(slot*2), 0);
+    }
+
+    uint8 RemoveItem(WoWGuid guid)
+    {
+        if(_container)
+        {
+            for(auto itr = _container->m_items.begin(); itr != _container->m_items.end(); itr++)
+            {
+                if(itr->second == guid)
+                {
+                    uint8 slot = itr->first;
+                    _container->m_items.erase(itr);
+                    return slot;
+                }
+            }
+        }
+        return INVENTORY_SLOT_MAX;
+    }
 };

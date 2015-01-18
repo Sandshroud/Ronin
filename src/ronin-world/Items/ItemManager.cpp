@@ -3,9 +3,9 @@
 
 initialiseSingleton( ItemManager );
 
-ItemManager::ItemManager()
+ItemManager::ItemManager() : m_hiItemGuid(0)
 {
-    
+
 }
 
 ItemManager::~ItemManager()
@@ -15,10 +15,13 @@ ItemManager::~ItemManager()
 
 void ItemManager::LoadItemData()
 {
-    QueryResult *result = CharacterDatabase.Query("SELECT * FROM item_data");
-    if(result == NULL)
+    QueryResult *result = CharacterDatabase.Query("SELECT MAX(guid) FROM playeritems");
+    if( result == NULL )
         return;
+    m_hiItemGuid = result->Fetch()[0].GetUInt32();
+    delete result;
 
+    result = CharacterDatabase.Query("SELECT * FROM item_data");
     std::map<WoWGuid, std::set<ItemData*>> containerStorage;
     do
     {
@@ -26,33 +29,26 @@ void ItemManager::LoadItemData()
         ItemData *data = new ItemData();
         data->giftData = NULL;
         data->containerData = NULL;
+        data->chargeData = NULL;
         for(uint8 i = 0; i < 10; i++)
-        {
             data->enchantData[i] = NULL;
-            if(i >= 5) continue;
-            data->chargeData[i] = NULL;
-        }
 
-        data->itemGuid = fields[0].GetUInt64();
-        data->itemContainer = fields[1].GetUInt64();
-        data->itemCreator = fields[2].GetUInt64();
-        data->containerSlot = fields[3].GetUInt16();
-        data->itemStackCount = fields[4].GetUInt32();
-        data->itemFlags = fields[5].GetUInt32();
-        data->itemRandomSeed = fields[6].GetUInt32();
-        data->itemRandomProperty = fields[7].GetUInt32();
-        data->itemDurability = fields[8].GetUInt32();
-        data->itemPlayedTime = fields[9].GetUInt32();
-        if(WoWGuid giftItemGuid = fields[10].GetUInt64())
+        data->itemGuid = fields[ITEMDATA_FIELD_ITEM_GUID].GetUInt64();
+        data->itemContainer = fields[ITEMDATA_FIELD_CONTAINER_GUID].GetUInt64();
+        data->itemCreator = fields[ITEMDATA_FIELD_CREATOR_GUID].GetUInt64();
+        data->containerSlot = fields[ITEMDATA_FIELD_CONTAINER_SLOT].GetUInt16();
+        data->itemStackCount = fields[ITEMDATA_FIELD_ITEMSTACKCOUNT].GetUInt32();
+        data->itemFlags = fields[ITEMDATA_FIELD_ITEMFLAGS].GetUInt32();
+        data->itemRandomSeed = fields[ITEMDATA_FIELD_ITEMRANDOMSEED].GetUInt32();
+        data->itemRandomProperty = fields[ITEMDATA_FIELD_ITEMRANDOMPROP].GetUInt32();
+        data->itemDurability = fields[ITEMDATA_FIELD_ITEM_DURABILITY].GetUInt32();
+        data->itemTextID = fields[ITEMDATA_FIELD_ITEMTEXTID].GetUInt32();
+        data->itemPlayedTime = fields[ITEMDATA_FIELD_ITEM_PLAYEDTIME].GetUInt32();
+        if(WoWGuid giftItemGuid = fields[ITEMDATA_FIELD_ITEM_GIFT_GUID].GetUInt64())
         {
             data->giftData = new ItemData::ItemGiftData;
             data->giftData->giftItemGuid = giftItemGuid;
-            data->giftData->giftCreator = fields[11].GetUInt64();
-        }
-        if(uint16 containerSlots = fields[12].GetUInt16())
-        {
-            data->containerData = new ItemData::ContainerData;
-            data->containerData->numSlots = containerSlots;
+            data->giftData->giftCreator = fields[ITEMDATA_FIELD_ITEM_GIFT_CREATOR].GetUInt64();
         }
 
         m_itemData.insert(std::make_pair(data->itemGuid, data));
@@ -101,30 +97,38 @@ void ItemManager::LoadItemData()
         WoWGuid containerGuid = itr->first;
         switch(containerGuid.getHigh())
         {
-        case HIGHGUID_TYPE_CONTAINER:
+        case HIGHGUID_TYPE_ITEM:
             {
+                ItemPrototype *proto = LookupEntry(containerGuid.getEntry());
+                if(proto == NULL || proto->InventoryType != INVTYPE_BAG)
+                    continue;
+
                 ItemData *data = GetItemData(containerGuid);
-                if(data->containerData == NULL)
-                    continue; // Something wrong here
+                data->containerData = new ItemData::ContainerData();
+                PlayerInventory *inventory = GetPlayerInventory(data->itemContainer);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                    data->containerData->m_items.insert(std::make_pair(uint8((*itr2)->containerSlot&0xFF), (*itr2)->itemGuid));
+                {
+                    data->containerData->m_items.insert(std::make_pair(INVSLOT_ITEM((*itr2)->containerSlot), (*itr2)->itemGuid));
+                    inventory->m_playerInventory.insert(std::make_pair((*itr2)->containerSlot, (*itr2)->itemGuid));
+                }
+                itr->second.clear();
             }break;
         case HIGHGUID_TYPE_GUILD:
             {
-                GuildBankItemStorage *guildStorage = new GuildBankItemStorage();
+                GuildBankItemStorage *guildStorage = GetGuildBankStorage(containerGuid);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                 {
-                    uint8 tabId = ((*itr2)->containerSlot>>8), tabSlot = ((*itr2)->containerSlot&0xFF);
+                    uint8 tabId = INVSLOT_BAG((*itr2)->containerSlot), tabSlot = INVSLOT_ITEM((*itr2)->containerSlot);
                     guildStorage->bankTabs[tabId].insert(std::make_pair(tabSlot, (*itr2)->itemGuid));
                 }
-                //AddGuildStorage(containerGuid, guildStorage);
+                itr->second.clear();
             }break;
         case HIGHGUID_TYPE_PLAYER:
             {
-                PlayerInventory *inventory = new PlayerInventory();
+                PlayerInventory *inventory = GetPlayerInventory(containerGuid);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                     inventory->m_playerInventory.insert(std::make_pair((*itr2)->containerSlot, (*itr2)->itemGuid));
-                //AddPlayerInventory(containerGuid, inventory);
+                itr->second.clear();
             }break;
             // Loooooot
         case HIGHGUID_TYPE_CORPSE:
@@ -132,10 +136,62 @@ void ItemManager::LoadItemData()
         case HIGHGUID_TYPE_CREATURE:
         case HIGHGUID_TYPE_GAMEOBJECT:
             {
-
+                for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
+                    DeleteItemData((*itr2)->itemGuid);
+                itr->second.clear();
             }break;
         }
     }
+    containerStorage.clear();
+}
+
+ItemData *ItemManager::GetItemData(WoWGuid itemGuid)
+{
+    if(itemGuid.getHigh() != HIGHGUID_TYPE_ITEM)
+        return NULL;
+    std::map<WoWGuid, ItemData*>::iterator itr;
+    if((itr = m_itemData.find(itemGuid)) != m_itemData.end())
+        return itr->second;
+    return NULL;
+}
+
+ItemData *ItemManager::CreateItemData(uint32 entry)
+{
+    ItemPrototype *proto = LookupEntry(entry);
+    if(proto == NULL)
+        return NULL;
+
+    itemGuidLock.Acquire();
+    uint32 newGuid = ++m_hiItemGuid;
+    itemGuidLock.Release();
+    ItemData *data = new ItemData();
+    data->itemGuid = MAKE_NEW_GUID(newGuid, entry, HIGHGUID_TYPE_ITEM);
+    data->itemContainer = 0;
+    data->itemCreator = 0;
+    data->containerSlot = 0xFFFF;
+    data->itemStackCount = 1;
+    data->itemFlags = 0;
+    data->itemRandomSeed = 0;
+    data->itemRandomProperty = 0;
+    data->itemDurability = proto->MaxDurability;
+    data->itemTextID = 0;
+    data->itemPlayedTime = 0;
+    data->giftData = NULL;
+    data->containerData = NULL;
+    data->chargeData = NULL;
+    for(uint8 i = 0; i < 10; i++)
+        data->enchantData[i] = NULL;
+    m_itemData.insert(std::make_pair(data->itemGuid, data));
+}
+
+void ItemManager::DeleteItemData(WoWGuid itemGuid)
+{
+    if(m_itemData.find(itemGuid) == m_itemData.end())
+        return;
+
+    ItemData *data = m_itemData.at(itemGuid);
+    m_itemData.erase(itemGuid);
+    delete data;
 }
 
 uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel);

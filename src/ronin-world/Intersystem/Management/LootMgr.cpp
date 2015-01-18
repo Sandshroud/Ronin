@@ -104,34 +104,20 @@ void LootMgr::LoadDelayedLoot()
     is_loading = false;
 }
 
-ItemRandomPropertiesEntry* LootMgr::GetRandomProperties(ItemPrototype * proto)
+void LootMgr::GenerateRandomProperties(__LootItem *item)
 {
-    std::map<uint32,RandomPropertyVector>::iterator itr;
+    item->randProp = item->randSeed = 0;
+    if(item->proto->RandomPropId == 0 && item->proto->RandomSuffixId == 0)
+        return;
+    if(item->proto->RandomPropId)
+    {
 
-    if(proto->RandomPropId==0)
-        return NULL;
+    }
+    else
+    {
 
-    itr = _randomprops.find(proto->RandomPropId);
-    if(itr==_randomprops.end())
-        return NULL;
-
-    return RandomChoiceVector<ItemRandomPropertiesEntry>(itr->second);
+    }
 }
-
-ItemRandomSuffixEntry * LootMgr::GetRandomSuffix(ItemPrototype * proto)
-{
-    std::map<uint32,RandomSuffixVector>::iterator itr;
-
-    if(proto->RandomSuffixId==0)
-        return NULL;
-
-    itr = _randomsuffix.find(proto->RandomSuffixId);
-    if(itr==_randomsuffix.end())
-        return NULL;
-
-    return RandomChoiceVector<ItemRandomSuffixEntry>(itr->second);
-}
-
 
 void LootMgr::LoadLootProp()
 {
@@ -221,24 +207,12 @@ LootMgr::~LootMgr()
         delete [] iter->second.items;
 }
 
-struct tempLootData
-{
-    uint32 itemid;
-    float chance[4];
-    uint32 mincount;
-    uint32 maxcount;
-    uint32 ffa_loot;
-};
-
 void LootMgr::LoadLootTables(const char * szTableName, LootStore * LootTable, bool MultiDifficulty)
 {
     sLog.Debug("LootMgr","Attempting to load loot from table %s...", szTableName);
-    std::vector< std::pair< uint32, std::vector< tempLootData > > > db_cache;
-    std::vector< std::pair< uint32, std::vector< tempLootData > > >::iterator itr;
-    db_cache.reserve(10000);
-    LootStore::iterator tab;
+
     QueryResult *result = WorldDatabase.Query("SELECT * FROM %s ORDER BY entryid ASC",szTableName);
-    if(!result)
+    if(result == NULL)
     {
         sLog.Error("LootMgr", "Loading loot from table %s failed.", szTableName);
         return;
@@ -246,139 +220,92 @@ void LootMgr::LoadLootTables(const char * szTableName, LootStore * LootTable, bo
 
     if(MultiDifficulty) // We have multiple difficulties.
     {
-        if(result->GetFieldCount() != 9)
+        if(result->GetFieldCount() != 8)
         {
-            sLog.Error("LootMgr", "Incorrect structure in table %s(%u/9), loot loading has been cancled to prevent a crash.", szTableName, result->GetFieldCount());
+            sLog.Error("LootMgr", "Incorrect structure in table %s(%u/8), loot loading has been cancled to prevent a crash.", szTableName, result->GetFieldCount());
             return;
         }
     }
-    else if(result->GetFieldCount() != 6)
+    else if(result->GetFieldCount() != 5)
     {
-        sLog.Error("LootMgr", "Incorrect structure in table %s(%u/6), loot loading has been cancled to prevent a crash.", szTableName, result->GetFieldCount());
+        sLog.Error("LootMgr", "Incorrect structure in table %s(%u/5), loot loading has been cancled to prevent a crash.", szTableName, result->GetFieldCount());
         return;
     }
 
-    uint32 pos = 0;
-    uint32 entry_id = 0;
-    uint32 last_entry = 0;
-    uint32 total = (uint32) result->GetRowCount();
-
-    tempLootData t;
-    std::vector< tempLootData > ttab;
+    bool cleanDatabase = mainIni->ReadBoolean("Server", "CleanDatabase", false);
+    uint32 count = 0;
     Field *fields = NULL;
     do
     {
         fields = result->Fetch();
-        entry_id = fields[0].GetUInt32();
-        if(entry_id < last_entry)
+        uint32 entry = fields[0].GetUInt32();
+        uint32 itemId = fields[1].GetUInt32();
+        ItemPrototype *proto = sItemMgr.LookupEntry(itemId);
+        if(proto == NULL)
         {
-            sLog.Error("LootMgr", "WARNING: Out of order loot table being loaded.");
-            delete result;
-            return;
-        }
-        if(entry_id != last_entry)
-        {
-            if(last_entry != 0)
-                db_cache.push_back( std::make_pair( last_entry, ttab) );
-            ttab.clear();
+            if(cleanDatabase)
+                WorldDatabase.Query("DELETE FROM %s where entryid ='%u' AND itemid = '%u'", szTableName, entry, itemId);
+            sLog.Warning("LootMgr", "Loot in %s for %u contains non-existant item(%u).", szTableName, entry, itemId);
+            continue;
         }
 
-        if(MultiDifficulty) // We have multiple difficulties.
+        StoreLootItem *lootItem = new StoreLootItem();
+        lootItem->proto = proto;
+        if(lootItem->multiChance = MultiDifficulty) // We have multiple difficulties.
         {
-            t.itemid = fields[1].GetUInt32();
+            lootItem->chance = new float[4];
             for(int8 i = 0; i < 4; i++)
-                t.chance[i] = fields[2+i].GetFloat();
-            t.mincount = fields[6].GetUInt32();
-            t.maxcount = fields[7].GetUInt32();
-            t.ffa_loot = fields[8].GetUInt32();
+            {
+                if((lootItem->chance[i] = fields[2+i].GetFloat()) == -1.f)
+                    lootItem->chance[i] = RandomFloat(100);
+            }
+
+            lootItem->minCount = fields[6].GetUInt32();
+            lootItem->maxCount = fields[7].GetUInt32();
+            for(uint i = 0; i < 4; i++)
+                if(lootItem->chance[i] == -1.0f)
+                    lootItem->chance[i] = RandomFloat(100);
         }
         else // We have one chance, regardless of difficulty.
         {
-            t.itemid = fields[1].GetUInt32();
-            t.chance[0] = fields[2].GetFloat();
-            t.mincount = fields[3].GetUInt32();
-            t.maxcount = fields[4].GetUInt32();
-            t.ffa_loot = fields[5].GetUInt32();
-            for(int8 i = 1; i < 4; i++) // Other difficulties.
-                t.chance[i] = 0.0f;
+            if(((lootItem->chance = new float[1])[0] = fields[2].GetFloat()) == -1.f)
+                lootItem->chance[0] = RandomFloat(100);
+            lootItem->minCount = fields[3].GetUInt32();
+            lootItem->maxCount = fields[4].GetUInt32();
         }
 
-        for(uint i = 0; i < 4; i++)
-            if(t.chance[i] == -1.0f)
-                t.chance[i] = RandomFloat(100);
+        // Quest processing
+        if(proto->Class == ITEM_CLASS_QUEST)
+        {
+            std::vector<uint32> *LootSet = NULL;
+            if(LootTable == &GOLoot)
+            {
+                if(_gameobjectquestloot.find(entry) == _gameobjectquestloot.end())
+                {
+                    LootSet = &_gameobjectquestloot[entry];
+                } else LootSet = &_gameobjectquestloot.at(entry);
+            }
+            else if(LootTable == &CreatureLoot)
+            {
+                if(_creaturequestloot.find(entry) == _creaturequestloot.end())
+                {
+                    LootSet = &_creaturequestloot[entry];
+                } else LootSet = &_creaturequestloot.at(entry);
+            }
 
-        ttab.push_back( t );
-        last_entry = entry_id;
+            if(LootSet && LootSet->size() <= 5)
+                LootSet->push_back(proto->ItemId);
+        }
+
+        // Store the item in the loot list
+        (*LootTable)[entry].insert(lootItem);
     } while( result->NextRow() );
 
-    total = uint32(db_cache.size());
-    ItemPrototype* proto = NULL;
-    StoreLootList *list = NULL;
-    uint32 itemid;
-    for( itr = db_cache.begin(); itr != db_cache.end(); itr++)
-    {
-        entry_id = (*itr).first;
-        if(LootTable->find(entry_id) == LootTable->end())
-        {
-            StoreLootList &list = ((*LootTable)[entry_id]);
-            list.count = (uint32)(*itr).second.size();
-            list.items = new StoreLootItem[list.count];
-
-            uint32 ind = 0;
-            for(std::vector< tempLootData >::iterator itr2 = (*itr).second.begin(); itr2 != (*itr).second.end(); itr2++)
-            {
-                // Omit items that are not in db to prevent future bugs
-                proto = sItemMgr.LookupEntry((itemid = itr2->itemid));
-                if(!proto)
-                {
-                    list.items[ind].item.itemproto = NULL;
-                    if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                        WorldDatabase.Query("DELETE FROM %s where entryid ='%u' AND itemid = '%u'", szTableName, entry_id, itemid);
-                    sLog.Warning("LootMgr", "Loot for %u contains non-existant item(%u). (%s)", entry_id, itemid, szTableName);
-                }
-                else
-                {
-                    list.items[ind].item.itemproto=proto;
-                    list.items[ind].item.displayid=proto->DisplayInfoID;
-                    for(int i = 0; i < 4; i++)
-                        list.items[ind].chance[i] = itr2->chance[i];
-                    list.items[ind].mincount = itr2->mincount;
-                    list.items[ind].maxcount = itr2->maxcount;
-                    list.items[ind].ffa_loot = itr2->ffa_loot;
-                    if(proto->Class == ITEM_CLASS_QUEST)
-                    {
-                        ObjectQuestLoot *objQloot = NULL;
-                        if(LootTable == &GOLoot)
-                        {
-                            if(_gameobjectquestloot[entry_id] == NULL)
-                            {
-                                _gameobjectquestloot[entry_id] = objQloot = new ObjectQuestLoot();
-                                objQloot->index = 0; memset(&objQloot->QuestLoot, 0, sizeof(uint32)*6);
-                            } else objQloot = _gameobjectquestloot.at(entry_id);
-                        }
-                        else if(LootTable == &CreatureLoot)
-                        {
-                            if(_creaturequestloot[entry_id] == NULL)
-                            {
-                                _creaturequestloot[entry_id] = objQloot = new ObjectQuestLoot();
-                                objQloot->index = 0; memset(&objQloot->QuestLoot, 0, sizeof(uint32)*6);
-                            } else objQloot = _creaturequestloot.at(entry_id);
-                        }
-
-                        if(objQloot && objQloot->index < 6)
-                            objQloot->QuestLoot[objQloot->index++] = proto->ItemId;
-                    }
-                }
-                ++ind;
-            }
-        }
-    }
-
-    sLog.Notice("LootMgr","%d loot templates loaded from %s", db_cache.size(), szTableName);
+    sLog.Notice("LootMgr", "%d loot templates loaded from %s", LootTable->size(), szTableName);
     delete result;
 }
 
-void LootMgr::PushLoot(StoreLootList *list,Loot * loot, uint8 difficulty, uint8 team, bool disenchant)
+void LootMgr::PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, uint8 team, bool disenchant)
 {
     uint32 i;
     uint32 count;
@@ -392,76 +319,39 @@ void LootMgr::PushLoot(StoreLootList *list,Loot * loot, uint8 difficulty, uint8 
         ncount = 0;
     }
 
-    for( uint32 x = 0; x < list->count; x++ )
+    for(auto itr = list->begin(); itr != list->end(); itr++)
     {
-        if( list->items[x].item.itemproto )// this check is needed until loot DB is fixed
+        if(itr->proto == NULL)
+            continue;
+
+        float chance = itr->chance[difficulty];
+        if(chance == 0.0f)
+            continue;
+
+        int lucky;
+        if (disenchant)
         {
-            float chance = list->items[x].chance[difficulty];
-            if(chance == 0.0f)
-                continue;
-            ItemPrototype *itemproto = list->items[x].item.itemproto;
-            if(itemproto== NULL)
-                continue;
+            lucky = nrand >= ncount && nrand <= (ncount+chance);
+            ncount+= chance;
+        } else lucky = Rand( chance * sWorld.getRate( RATE_DROP0 + itr->proto->Quality ) );
 
-            int lucky;
-            if (disenchant)
-            {
-                lucky = nrand >= ncount && nrand <= (ncount+chance);
-                ncount+= chance;
-            }
-            else
-                lucky = Rand( chance * sWorld.getRate( RATE_DROP0 + itemproto->Quality ) );
+        if( lucky )
+        {
+            if( itr->mincount < itr->maxcount )
+                count = RandomUInt(itr->maxcount - itr->mincount) + itr->mincount;
+            else count = itr->maxcount;
 
-            if( lucky )
-            {
-                if( list->items[x].mincount == list->items[x].maxcount )
-                    count = list->items[x].maxcount;
-                else
-                    count = RandomUInt(list->items[x].maxcount - list->items[x].mincount) + list->items[x].mincount;
+            __LootItem itm;
+            itm.roll = NULL;
+            itm.proto = itr->proto;
+            itm.StackSize = count;
+            itm.all_passed = false;
+            itm.has_looted.clear();
+            GenerateRandomProperties(&itm);
 
-                for( i = 0; i < loot->items.size(); i++ )
-                {
-                    //itemid rand match a already placed item, if item is stackable and unique(stack), increment it, otherwise skips
-                    if((loot->items[i].item.itemproto == list->items[x].item.itemproto) && itemproto->MaxCount > 0 && ((loot->items[i].StackSize + count) < (uint32)itemproto->MaxCount))
-                    {
-                        if(itemproto->Unique > 0 && ((loot->items[i].StackSize+count) < (uint32)itemproto->Unique))
-                        {
-                            loot->items[i].StackSize += count;
-                            break;
-                        }
-                        else if (!itemproto->Unique)
-                        {
-                            loot->items[i].StackSize += count;
-                            break;
-                        }
-                    }
-                }
-
-                if( i != loot->items.size() )
-                    continue;
-
-                __LootItem itm;
-                itm.item =list->items[x].item;
-                itm.StackSize = count;
-                itm.roll = NULL;
-                itm.passed = false;
-                itm.ffa_loot = list->items[x].ffa_loot;
-                itm.has_looted.clear();
-
-                if( itemproto->Quality > 1 && itemproto->ContainerSlots == 0 )
-                {
-                    itm.iRandomProperty=GetRandomProperties( itemproto );
-                    itm.iRandomSuffix=GetRandomSuffix( itemproto );
-                }
-                else
-                {
-                    // save some calls :P
-                    itm.iRandomProperty = NULL;
-                    itm.iRandomSuffix = NULL;
-                }
-
-                loot->items.push_back(itm);
-            }
+            loot->items.push_back(itm);
+            if(loot->items.size() == 16)
+                break;
         }
     }
 
@@ -598,7 +488,7 @@ bool LootMgr::IsFishable(uint32 zoneid)
     return tab != FishingLoot.end();
 }
 
-void LootMgr::AddLoot(Loot* loot, uint32 itemid, uint32 mincount, uint32 maxcount, uint32 ffa_loot)
+void LootMgr::AddLoot(ObjectLoot* loot, uint32 itemid, uint32 mincount, uint32 maxcount, uint32 ffa_loot)
 {
     uint32 i;
     uint32 count;

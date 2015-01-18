@@ -181,7 +181,7 @@ uint32 InstanceMgr::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
 
             //and we might need a key too.
             bool reqkey = (inf->heroic_key[0] || inf->heroic_key[1])? true : false;
-            bool haskey = (plr->GetItemInterface()->GetItemCount(inf->heroic_key[0], false) || plr->GetItemInterface()->GetItemCount(inf->heroic_key[1], false))? true : false;
+            bool haskey = (plr->GetItemInterface()->GetItemCount(inf->heroic_key[0]) || plr->GetItemInterface()->GetItemCount(inf->heroic_key[1]))? true : false;
             if(reqkey && !haskey)
                 return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
         }

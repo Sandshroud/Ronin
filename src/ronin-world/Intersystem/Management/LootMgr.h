@@ -29,9 +29,7 @@ public:
 
 private:
     Mutex mLootLock;
-    std::map<WoWGuid, uint32> m_NeedRolls;
-    std::map<WoWGuid, uint32> m_GreedRolls;
-    std::map<WoWGuid, uint32> m_DisenchantRolls;
+    std::map<WoWGuid, uint32> m_NeedRolls, m_GreedRolls, m_DisenchantRolls;
     std::set<WoWGuid> m_passRolls;
     uint32 _groupcount;
     uint32 _slotid;
@@ -46,55 +44,40 @@ private:
 typedef std::vector<std::pair<ItemRandomPropertiesEntry*, float> > RandomPropertyVector;
 typedef std::vector<std::pair<ItemRandomSuffixEntry*, float> > RandomSuffixVector;
 
-typedef struct _LootItem
-{
-    ItemPrototype * itemproto;
-    uint32 displayid;
-}_LootItem;
-
 typedef std::set<WoWGuid> LooterSet;
 
-typedef struct __LootItem
+struct __LootItem
 {
-    _LootItem item;
+    LootRoll *roll;
+    ItemPrototype *proto;
     uint32 StackSize;
-    ItemRandomPropertiesEntry * iRandomProperty;
-    ItemRandomSuffixEntry * iRandomSuffix;
-    LootRoll* roll;
-    bool passed;
+    uint32 randSeed, randProp;
     LooterSet has_looted;
-    uint32 ffa_loot;
-}__LootItem;
+    bool all_passed;
+};
 
-
-typedef struct StoreLootItem
+struct ObjectLoot
 {
-    _LootItem item;
-    float chance[4];
-    uint32 mincount;
-    uint32 maxcount;
-    uint32 ffa_loot;
-}StoreLootItem;
-
-
-typedef struct StoreLootList
-{
-    uint32 count;
-    StoreLootItem *items;
-}StoreLootList;
-
-struct Loot
-{
-    std::vector<__LootItem> items;
-    uint32 gold;
+    uint64 gold;
     LooterSet looters;
     bool HasItems(Player* Looter);
     bool HasLoot(Player* Looter);
+
+    std::vector<__LootItem> items;
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////
+struct StoreLootItem
+{
+    float *chance;
+    bool multiChance;
+    ItemPrototype *proto;
+    uint32 minCount, maxCount;
+};
 
+typedef RONIN_UNORDERED_SET<StoreLootItem*> StoreLootList;
 typedef RONIN_UNORDERED_MAP<uint32, StoreLootList > LootStore;
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 enum PARTY_LOOT
 {
@@ -124,8 +107,7 @@ enum PARTY_ROLL
 
 struct ObjectQuestLoot
 {
-    uint8 index;
-    uint32 QuestLoot[6];
+    std::set<uint32> questLoot;
 };
 
 class SERVER_DECL LootMgr : public Singleton < LootMgr >
@@ -134,13 +116,13 @@ public:
     LootMgr();
     ~LootMgr();
 
-    void AddLoot(Loot * loot, uint32 itemid, uint32 mincount, uint32 maxcount, uint32 ffa_loot);
-    void FillCreatureLoot(Loot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
-    void FillGOLoot(Loot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
-    void FillItemLoot(Loot *loot, uint32 loot_id, uint8 team);
-    void FillFishingLoot(Loot * loot,uint32 loot_id);
-    void FillGatheringLoot(Loot * loot,uint32 loot_id);
-    void FillPickpocketingLoot(Loot *loot, uint32 loot_id);
+    void AddLoot(ObjectLoot * loot, uint32 itemid, uint32 mincount, uint32 maxcount, uint32 ffa_loot);
+    void FillCreatureLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
+    void FillGOLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
+    void FillItemLoot(ObjectLoot *loot, uint32 loot_id, uint8 team);
+    void FillFishingLoot(ObjectLoot * loot,uint32 loot_id);
+    void FillGatheringLoot(ObjectLoot * loot,uint32 loot_id);
+    void FillPickpocketingLoot(ObjectLoot *loot, uint32 loot_id);
 
     bool CanGODrop(uint32 LootId,uint32 itemid);
     bool IsPickpocketable(uint32 creatureId);
@@ -151,29 +133,28 @@ public:
     void LoadDelayedLoot();
     void LoadLootProp();
 
-    LootStore   CreatureLoot;
-    LootStore   FishingLoot;
-    LootStore   GatheringLoot;
-    LootStore   GOLoot;
-    LootStore   ItemLoot;
-    LootStore   PickpocketingLoot;
+    LootStore CreatureLoot;
+    LootStore FishingLoot;
+    LootStore GatheringLoot;
+    LootStore GOLoot;
+    LootStore ItemLoot;
+    LootStore PickpocketingLoot;
 
-    ItemRandomPropertiesEntry* GetRandomProperties(ItemPrototype * proto);
-    ItemRandomSuffixEntry * GetRandomSuffix(ItemPrototype * proto);
+    void GenerateRandomProperties(__LootItem *item);
 
     bool is_loading;
 
     void FillObjectLootMap(std::map<uint32, std::vector<uint32> > *dest);
 
-    ObjectQuestLoot* GetCreatureQuestLoot(uint32 entry) { if(_creaturequestloot.find(entry) == _creaturequestloot.end()) return NULL; return _creaturequestloot[entry]; };
-    ObjectQuestLoot* GetGameObjectQuestLoot(uint32 entry) { if(_gameobjectquestloot.find(entry) == _gameobjectquestloot.end()) return NULL; return _gameobjectquestloot[entry]; };
+    std::vector<uint32> *GetCreatureQuestLoot(uint32 entry) { if(_creaturequestloot.find(entry) == _creaturequestloot.end()) return NULL; return &_creaturequestloot[entry]; };
+    std::vector<uint32> *GetGameObjectQuestLoot(uint32 entry) { if(_gameobjectquestloot.find(entry) == _gameobjectquestloot.end()) return NULL; return &_gameobjectquestloot[entry]; };
 
 private:
     void LoadLootTables(const char * szTableName, LootStore * LootTable, bool MultiDifficulty);
-    void PushLoot(StoreLootList *list,Loot * loot, uint8 difficulty, uint8 team, bool disenchant);
+    void PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, uint8 team, bool disenchant);
 
-    std::map<uint32, ObjectQuestLoot*> _creaturequestloot;
-    std::map<uint32, ObjectQuestLoot*> _gameobjectquestloot;
+    std::map<uint32, std::vector<uint32>> _creaturequestloot;
+    std::map<uint32, std::vector<uint32>> _gameobjectquestloot;
     std::map<uint32, RandomPropertyVector> _randomprops;
     std::map<uint32, RandomSuffixVector> _randomsuffix;
 };

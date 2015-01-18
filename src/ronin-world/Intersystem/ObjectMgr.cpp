@@ -9,8 +9,6 @@ initialiseSingleton( ObjectMgr );
 ObjectMgr::ObjectMgr()
 {
     m_hiPetGuid = 0;
-    m_hiContainerGuid = 0;
-    m_hiItemGuid = 0;
     m_hiGroupId = 1;
     m_mailid = 0;
     m_hiPlayerGuid = 0;
@@ -576,13 +574,6 @@ void ObjectMgr::SetHighestGuids()
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(guid) FROM playeritems");
-    if( result )
-    {
-        m_hiItemGuid = (uint32)result->Fetch()[0].GetUInt32();
-        delete result;
-    }
-
     result = CharacterDatabase.Query( "SELECT MAX(guid) FROM corpses" );
     if( result )
     {
@@ -624,8 +615,6 @@ void ObjectMgr::SetHighestGuids()
     sLog.Notice("ObjectMgr", "HighGuid(PLAYER) = %u", m_hiPlayerGuid);
     sLog.Notice("ObjectMgr", "HighGuid(GAMEOBJ) = %u", m_hiGameObjectSpawnId);
     sLog.Notice("ObjectMgr", "HighGuid(UNIT) = %u", m_hiCreatureSpawnId);
-    sLog.Notice("ObjectMgr", "HighGuid(ITEM) = %u", m_hiItemGuid);
-    sLog.Notice("ObjectMgr", "HighGuid(CONTAINER) = %u", m_hiContainerGuid);
     sLog.Notice("ObjectMgr", "HighGuid(GROUP) = %u", m_hiGroupId);
     sLog.Notice("ObjectMgr", "HighGuid(EQSETS) = %u", m_equipmentSetGuid);
 }
@@ -706,26 +695,11 @@ uint64 ObjectMgr::GenerateEquipmentSetGuid()
     return m_equipmentSetGuid++;
 }
 
-uint32 ObjectMgr::GenerateLowGuid(uint32 guidhigh)
+uint32 ObjectMgr::GeneratePlayerGuid()
 {
-    ASSERT(guidhigh == HIGHGUID_TYPE_ITEM || guidhigh == HIGHGUID_TYPE_CONTAINER || guidhigh == HIGHGUID_TYPE_PLAYER);
-
-    uint32 ret;
-    if(guidhigh == HIGHGUID_TYPE_ITEM)
-    {
-        m_guidGenMutex.Acquire();
-        ret = ++m_hiItemGuid;
-        m_guidGenMutex.Release();
-    }else if(guidhigh==HIGHGUID_TYPE_PLAYER)
-    {
-        m_playerguidlock.Acquire();
-        ret = ++m_hiPlayerGuid;
-        m_playerguidlock.Release();
-    }else{
-        m_guidGenMutex.Acquire();
-        ret = ++m_hiContainerGuid;
-        m_guidGenMutex.Release();
-    }
+    m_playerguidlock.Acquire();
+    uint32 ret = ++m_hiPlayerGuid;
+    m_playerguidlock.Release();
     return ret;
 }
 
@@ -990,26 +964,18 @@ void ObjectMgr::LoadSpellFixes()
     }
 }
 
-Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
+Item *ObjectMgr::CreateItem(uint32 entry, Player *player)
 {
-    ItemPrototype * proto = sItemMgr.LookupEntry(entry);
-    if(!proto)
-        return NULL;
-
-    if(proto->InventoryType == INVTYPE_BAG)
+    Item* pReturn = NULL;
+    if(ItemPrototype *proto = sItemMgr.LookupEntry(entry))
     {
-        Container* pContainer = new Container(HIGHGUID_TYPE_CONTAINER, GenerateLowGuid(HIGHGUID_TYPE_CONTAINER));
-        pContainer->Create( entry, owner);
-        pContainer->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
-        return pContainer;
+        if(ItemData *data = sItemMgr.CreateItemData(entry))
+        {
+            pReturn = new Item(data);
+            pReturn->Initialize(player);
+        }
     }
-    else
-    {
-        Item* pItem = new Item(HIGHGUID_TYPE_ITEM, GenerateLowGuid(HIGHGUID_TYPE_ITEM));
-        pItem->Create(entry, owner);
-        pItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
-        return pItem;
-    }
+    return pReturn;
 }
 
 Item* ObjectMgr::CreateItem(WoWGuid guid, Player *player)
@@ -1019,9 +985,7 @@ Item* ObjectMgr::CreateItem(WoWGuid guid, Player *player)
     {
         if(ItemData *data = sItemMgr.GetItemData(guid))
         {
-            if(proto->InventoryType == INVTYPE_BAG)
-                pReturn = new Container(data);
-            else pReturn = new Item(data);
+            pReturn = new Item(data);
             pReturn->Initialize(player);
         }
     }
@@ -1250,7 +1214,7 @@ void ObjectMgr::LoadTrainers()
             ts.pCastSpell = dbcSpell.LookupEntry( CastSpellID );
             if( ts.pCastSpell )
             {
-                for( int k = 0; k < 3; ++k )
+                for( uint8 k = 0; k < 3; ++k )
                 {
                     if( ts.pCastSpell->Effect[k] == SPELL_EFFECT_LEARN_SPELL )
                     {

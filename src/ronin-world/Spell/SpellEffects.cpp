@@ -1847,13 +1847,10 @@ void Spell::SpellEffectSummonObject(uint32 i)
 
                 //disable by default
                 WorldPacket *pkt = go->BuildFieldUpdatePacket(GAMEOBJECT_BYTES_1, 1);
-                SubGroup * pGroup = p_caster->GetGroup() ? p_caster->GetGroup()->GetSubGroup(p_caster->GetSubGroup()) : NULL;
-
-                if(pGroup)
+                if(SubGroup * pGroup = p_caster->GetGroup() ? p_caster->GetGroup()->GetSubGroup(p_caster->GetSubGroup()) : NULL)
                 {
                     p_caster->GetGroup()->Lock();
-                    for(GroupMembersSet::iterator itr = pGroup->GetGroupMembersBegin();
-                        itr != pGroup->GetGroupMembersEnd(); itr++)
+                    for(GroupMembersSet::iterator itr = pGroup->GetGroupMembersBegin(); itr != pGroup->GetGroupMembersEnd(); itr++)
                     {
                         if((*itr)->m_loggedInPlayer && m_caster != (*itr)->m_loggedInPlayer)
                             (*itr)->m_loggedInPlayer->GetSession()->SendPacket(pkt);

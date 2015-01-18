@@ -88,6 +88,46 @@ struct ItemPrototype
     bool ValidateItemSpell(uint32 SpellID);
 };
 
+enum ItemDataFields : uint8
+{
+    ITEMDATA_FIELD_ITEM_GUID        = 0,
+    ITEMDATA_FIELD_CONTAINER_GUID   = 1,
+    ITEMDATA_FIELD_CREATOR_GUID     = 2,
+    ITEMDATA_FIELD_CONTAINER_SLOT   = 3,
+    ITEMDATA_FIELD_ITEMSTACKCOUNT   = 4,
+    ITEMDATA_FIELD_ITEMFLAGS        = 5,
+    ITEMDATA_FIELD_ITEMRANDOMSEED   = 6,
+    ITEMDATA_FIELD_ITEMRANDOMPROP   = 7,
+    ITEMDATA_FIELD_ITEM_DURABILITY  = 8,
+    ITEMDATA_FIELD_ITEMTEXTID       = 9,
+    ITEMDATA_FIELD_ITEM_PLAYEDTIME  = 10,
+    ITEMDATA_FIELD_ITEM_GIFT_GUID   = 11,
+    ITEMDATA_FIELD_ITEM_GIFT_CREATOR= 12,
+    ITEMDATA_FIELD_MAX
+};
+
+static const char *fieldNames[ITEMDATA_FIELD_MAX] =
+{
+    "itemguid",
+    "containerguid",
+    "creatorguid",
+    "containerslot",
+    "itemstackcount",
+    "itemflags",
+    "itemrandomseed",
+    "itemrandomprop",
+    "itemdurability",
+    "itemtextid",
+    "itemplayedtime",
+    "itemgiftguid",
+    "itemgiftcreator"
+};
+
+#define MAKE_INVSLOT(bag, item) uint16((uint16(bag)<<8)|uint16(item))
+#define INVSLOT_SET_ITEMSLOT(slot, itemslot) (slot&=~0xFF) |= itemslot
+#define INVSLOT_BAG(slot) uint8(((slot&0xFF00)>>8))
+#define INVSLOT_ITEM(slot) uint8(slot&0x00FF)
+
 struct ItemData
 {
     WoWGuid itemGuid;
@@ -99,6 +139,7 @@ struct ItemData
     uint32 itemRandomSeed;
     uint32 itemRandomProperty;
     uint32 itemDurability;
+    uint32 itemTextID;
     uint32 itemPlayedTime;
 
     struct ItemGiftData
@@ -108,7 +149,6 @@ struct ItemData
 
     struct ContainerData
     {
-        uint16 numSlots;
         std::map<uint8, WoWGuid> m_items;
     } *containerData;
 
@@ -146,9 +186,38 @@ public:
     void LoadItemData();
 
     ItemData *GetItemData(WoWGuid itemGuid);
+    ItemData *CreateItemData(uint32 entry);
+
+    void DeleteItemData(WoWGuid itemGuid);
 
 private:
     std::map<WoWGuid, ItemData*> m_itemData;
+
+    Mutex itemGuidLock;
+    uint32 m_hiItemGuid;
+
+public:
+    PlayerInventory *GetPlayerInventory(WoWGuid playerGuid)
+    {
+        if(m_playerInventories.find(playerGuid) != m_playerInventories.end())
+            return m_playerInventories.at(playerGuid);
+        PlayerInventory *inventory = new PlayerInventory();
+        m_playerInventories.insert(std::make_pair(playerGuid, inventory));
+        return inventory;
+    }
+
+    GuildBankItemStorage *GetGuildBankStorage(WoWGuid guildGuid)
+    {
+        if(m_guildBankStorage.find(guildGuid) != m_guildBankStorage.end())
+            return m_guildBankStorage.at(guildGuid);
+        GuildBankItemStorage *storage = new GuildBankItemStorage();
+        m_guildBankStorage.insert(std::make_pair(guildGuid, storage));
+        return storage;
+    }
+
+private:
+    std::map<WoWGuid, PlayerInventory*> m_playerInventories;
+    std::map<WoWGuid, GuildBankItemStorage*> m_guildBankStorage;
 
 public:
     void InitializeItemPrototypes();

@@ -118,7 +118,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
                             std::string temp_msg[3];
                             for(uint32 i = 0; i < 2; i++)
                             {
-                                if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i], false)==0)
+                                if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i])==0)
                                 {
                                     if(ItemPrototype * pKey = sItemMgr.LookupEntry(pMi->heroic_key[i]))
                                         temp_msg[i] += pKey->Name1;

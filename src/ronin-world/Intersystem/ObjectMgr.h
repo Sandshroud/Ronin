@@ -331,6 +331,7 @@ public:
     Mutex _recallLock;
     RecallSet m_recallLocations;
 
+    Item *CreateItem(uint32 entry, Player *player = NULL);
     Item *CreateItem(WoWGuid guid, Player *player = NULL);
 
     // Groups
@@ -457,7 +458,7 @@ public:
 
     void SetHighestGuids();
     void ListGuidAmounts();
-    uint32 GenerateLowGuid(uint32 guidhigh);
+    uint32 GeneratePlayerGuid();
     uint32 GenerateMailID();
 
     uint64 GenerateEquipmentSetGuid();
@@ -553,11 +554,6 @@ protected:
     uint64 m_equipmentSetGuid;
     // highest GUIDs, used for creating new objects
     Mutex m_guidGenMutex;
-    union
-    {
-        uint32 m_hiItemGuid;
-        uint32 m_hiContainerGuid;
-    };
     uint32 m_hiGroupId;
 
     ReputationModMap m_reputation_faction;

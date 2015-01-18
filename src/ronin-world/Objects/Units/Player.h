@@ -401,31 +401,39 @@ struct TaxiPathNode;
 #define RESTSTATE_TIRED50            4
 #define RESTSTATE_EXHAUSTED          5
 
-enum TRADE_STATUS
+enum PlayerTradeStatus : uint8
 {
-    TRADE_STATUS_PLAYER_BUSY        = 0x00,
-    TRADE_STATUS_PROPOSED           = 0x01,
-    TRADE_STATUS_INITIATED          = 0x02,
-    TRADE_STATUS_CANCELLED          = 0x03,
-    TRADE_STATUS_ACCEPTED           = 0x04,
-    TRADE_STATUS_ALREADY_TRADING    = 0x05,
-    TRADE_STATUS_PLAYER_NOT_FOUND   = 0x06,
-    TRADE_STATUS_STATE_CHANGED      = 0x07,
-    TRADE_STATUS_COMPLETE           = 0x08,
-    TRADE_STATUS_UNACCEPTED         = 0x09,
-    TRADE_STATUS_TOO_FAR_AWAY       = 0x0A,
-    TRADE_STATUS_WRONG_FACTION      = 0x0B,
-    TRADE_STATUS_FAILED             = 0x0C,
-    TRADE_STATUS_UNK2               = 0x0D,
-    TRADE_STATUS_PLAYER_IGNORED     = 0x0E,
-    TRADE_STATUS_YOU_STUNNED        = 0x0F,
-    TRADE_STATUS_TARGET_STUNNED     = 0x10,
-    TRADE_STATUS_DEAD               = 0x11,
-    TRADE_STATUS_TARGET_DEAD        = 0x12,
-    TRADE_STATUS_YOU_LOGOUT         = 0x13,
-    TRADE_STATUS_TARGET_LOGOUT      = 0x14,
-    TRADE_STATUS_TRIAL_ACCOUNT      = 0x15,
-    TRADE_STATUS_ONLY_CONJURED      = 0x16,
+    TRADE_STATUS_OPEN_WINDOW = 0,
+    TRADE_STATUS_NOT_ON_TAPLIST,
+    TRADE_STATUS_SELF_CANCEL,
+    TRADE_STATUS_TARGET_IGNORING_YOU,
+    TRADE_STATUS_TARGET_IS_DEAD,
+    TRADE_STATUS_TRADE_ACCEPTED,
+    TRADE_STATUS_TARGET_LOGGING_OUT,
+    TRADE_STATUS_UNK1,
+    TRADE_STATUS_TRADE_COMPLETED,
+    TRADE_STATUS_TARGET_TRIAL_ACCOUNT,
+    TRADE_STATUS_UNK2,
+    TRADE_STATUS_BEGIN_TRADE,
+    TRADE_STATUS_YOU_ARE_DEAD,
+    TRADE_STATUS_UNK3,
+    TRADE_STATUS_UNK4,
+    TRADE_STATUS_TARGET_TOO_FAR,
+    TRADE_STATUS_NO_TARGET,
+    TRADE_STATUS_TARGET_IS_BUSY,
+    TRADE_STATUS_CURRENCY_IS_BOUND,
+    TRADE_STATUS_TARGET_WRONG_FACTION,
+    TRADE_STATUS_TARGET_IS_BUSY_2,
+    TRADE_STATUS_UNK5,
+    TRADE_STATUS_TRADE_CANCELLED,
+    TRADE_STATUS_TRADING_CURRENCY,
+    TRADE_STATUS_BACK_TO_TRADE,
+    TRADE_STATUS_ONLY_CONJURABLE_CROSSREALM,
+    TRADE_STATUS_YOU_ARE_STUNNED,
+    TRADE_STATUS_UNK6,
+    TRADE_STATUS_TARGET_IS_STUNNED,
+    TRADE_STATUS_UNK7,
+    TRADE_STATUS_CLOSE_WINDOW
 };
 enum TRADE_DATA
 {
@@ -1116,14 +1124,23 @@ public:
     /************************************************************************/
     /* Trade                                                                */
     /************************************************************************/
-    void SendTradeUpdate(void);
+    void SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourStatus = true, uint32 misc = 0, uint32 misc2 = 0);
     void ResetTradeVariables()
     {
-        mTradeGold = 0;
-        memset(&mTradeItems, 0, sizeof(Item*)*7);
-        mTradeStatus = 0;
-        mTradeTarget = 0;
-        m_tradeSequence = 2;
+        if(m_tradeData)
+            delete m_tradeData;
+        m_tradeData = NULL;
+    }
+
+    void CreateNewTrade(WoWGuid targetGuid)
+    {
+        ResetTradeVariables();
+        m_tradeData = new Player::PlayerTradeData();
+        m_tradeData->targetGuid = targetGuid;
+        m_tradeData->enchantId = 0;
+        m_tradeData->gold = 0;
+        for(uint8 i = 0; i < 7; i++)
+            m_tradeData->tradeItems[i] = NULL;
     }
 
     /************************************************************************/
@@ -1182,7 +1199,7 @@ public:
     /* Item Interface                                                       */
     /************************************************************************/
     RONIN_INLINE ItemInterface* GetItemInterface() { return &m_ItemInterface; } // Player Inventory Item storage
-    RONIN_INLINE void ApplyItemMods(Item* item, int16 slot, bool apply,bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
+    RONIN_INLINE void ApplyItemMods(Item* item, uint8 slot, bool apply,bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
 
     // item interface variables
     ItemInterface m_ItemInterface;
@@ -1681,11 +1698,18 @@ public:
 
     RONIN_INLINE Player* GetTradeTarget()
     {
-        if(!IsInWorld()) return NULL;
-        return m_mapMgr->GetPlayer(mTradeTarget);
+        if(!IsInWorld() || m_tradeData == NULL)
+            return NULL;
+        return m_mapMgr->GetPlayer(m_tradeData->targetGuid);
     }
 
-    Item* getTradeItem(uint32 slot) { return mTradeItems[slot]; };
+    ItemData* getTradeItem(uint8 slot)
+    {
+        if(m_tradeData == NULL)
+            return NULL;
+
+        return m_tradeData->tradeItems[slot];
+    }
 
     // Water level related stuff (they are public because they need to be accessed fast)
     // Nose level of the character (needed for proper breathing)
@@ -1771,7 +1795,7 @@ protected:
     void _SavePet(QueryBuffer * buf);
 
     void _SavePetSpells(QueryBuffer * buf);
-    void _ApplyItemMods( Item* item, int16 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
+    void _ApplyItemMods( Item* item, uint8 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
     void _EventAttack( bool offhand );
     void _EventExploration();
 
@@ -1781,11 +1805,14 @@ protected:
     /************************************************************************/
     /* Trade                                                                */
     /************************************************************************/
-    WoWGuid mTradeTarget;
-    Item* mTradeItems[7];
-    uint32 mTradeGold;
-    uint32 mTradeStatus;
-    uint32 m_tradeSequence;
+    struct PlayerTradeData
+    {
+        // Trade data
+        uint64 gold;
+        uint32 enchantId;
+        WoWGuid targetGuid;
+        ItemData* tradeItems[7];
+    } *m_tradeData;
 
     /************************************************************************/
     /* Player Class systems, info and misc things                           */
@@ -1808,7 +1835,7 @@ protected:
     float m_bind_pos_z;
     uint32 m_bind_mapid;
     uint32 m_bind_zoneid;
-    std::list<ItemSet> m_itemsets;
+
     //Duel
     uint32 m_duelCountdownTimer;
     uint8 m_duelStatus;

@@ -4,28 +4,27 @@
 
 #pragma once
 
-#define INVALID_BACKPACK_SLOT ((int8)(0xFF)) //In 1.8 client marked wrong slot like this
-
 // sanity checking
 enum AddItemResult : uint8
 {
-    ADD_ITEM_RESULT_ERROR           = 0,
-    ADD_ITEM_RESULT_OK              = 1,
-    ADD_ITEM_RESULT_SPLIT           = 2,
-    ADD_ITEM_RESULT_ADDED_TO        = 3,
-    ADD_ITEM_RESULT_DUPLICATED      = 4
+    ADD_ITEM_RESULT_ERROR           = 0x00,
+    ADD_ITEM_RESULT_OK              = 0x01,
+    ADD_ITEM_RESULT_SPLIT           = 0x02,
+    ADD_ITEM_RESULT_ADDED_TO        = 0x04,
+    ADD_ITEM_RESULT_DUPLICATED      = 0x08
 };
 
 struct SlotResult
 {
-    uint16 containerSlot;
+    uint16 slot;
     AddItemResult result;
 
     void Init(AddItemResult res)
     {
-        containerSlot = 0xFFFF;
+        slot = 0xFFFF;
         result = res;
     }
+    std::set<uint16> splitSlot;
 };
 
 class Item;
@@ -38,132 +37,172 @@ class SERVER_DECL ItemInterface
 {
 private:
     Player* m_pOwner;
-    std::map<uint8, Item*> m_pItems;
+    std::map<uint16, Item*> m_itemPtrs;
+    std::map<WoWGuid, uint16> m_itemSlots;
+    std::map<uint32, std::set<WoWGuid> > m_itemsByEntry;
+    std::set<WoWGuid> m_conjuredItems;
 
-    AddItemResult m_AddItem(Item* item, int16 ContainerSlot, int16 slot);
+private: // Item set handling
+    std::set<uint32> m_skillItemSets;
+    std::map<uint32, std::set<WoWGuid>> m_itemSets;
+
+protected:
+    SlotResult _addItem(Item* item, uint16 slot);
+    Item *_removeItemBySlot(uint16 slot);
+    bool _findFreeSlot(ItemPrototype *proto, uint16 &slot);
+    bool _findBestSlot(ItemPrototype *proto, uint16 &slot);
 
 public:
-    friend class ItemIterator;
     ItemInterface( Player* pPlayer );
     ~ItemInterface();
 
-    Player* GetOwner() { return m_pOwner; }
-    bool IsBagSlot(int16 slot);
+    Player *GetOwner() { return m_pOwner; }
 
-    uint32 CreateForPlayer(ByteBuffer *data);
+    uint32 BuildUpdateBlocksForPlayer(ByteBuffer *data);
     void DestroyForPlayer(Player* plr);
 
-    void LoadPlayerItems(QueryResult * result);
-    void SavePlayerItems(bool first, QueryBuffer * buf);
+    static bool IsBagSlot(uint8 slot);
 
-    Item* GetInventoryItem(int16 slot);
-    Item* GetInventoryItem(int16 ContainerSlot, int16 slot);
-    int16 GetInventorySlotById(uint32 ID);
-    int16 GetInventorySlotByGuid(uint64 guid);
-    int16 GetInventorySlotByGuid2(uint64 guid);
-    int16 GetBagSlotByGuid(uint64 guid);
+    Item* GetInventoryItem(uint16 slot);
+    Item* GetInventoryItem(WoWGuid guid);
+    Item* GetInventoryItem(ItemData *data);
+    uint16 GetInventorySlotByEntry(uint32 itemId);
+    uint16 GetInventorySlotByGuid(WoWGuid guid);
 
-    Item* SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot);
-    AddItemResult SafeAddItem(Item* pItem, int16 ContainerSlot, int16 slot);
-    Item* SafeRemoveAndRetreiveItemFromSlot(int16 ContainerSlot, int16 slot, bool destroy); //doesnt destroy item from memory
-    Item* SafeRemoveAndRetreiveItemByGuid(uint64 guid, bool destroy);
-    Item* SafeRemoveAndRetreiveItemByGuidRemoveStats(uint64 guid, bool destroy);
-    bool SafeFullRemoveItemFromSlot(int16 ContainerSlot, int16 slot); //destroys item fully
-    bool SafeFullRemoveItemByGuid(uint64 guid); //destroys item fully
-    SlotResult AddItemToFreeSlot(Item* item);
-    AddItemResult AddItemToFreeBankSlot(Item* item);
-    uint32 GetEquippedItemCountWithLimitId(uint32 Id);
-    uint32 GetSocketedGemCountWithLimitId(uint32 Id);
+    // Item deletion
+    void DeleteItem(WoWGuid guid);
+    void DeleteItem(Item *item);
+    void DeleteItem(uint16 slot);
 
-    /** Finds a stack that didn't reach max capacity
-    \param itemid The entry of the item to search for
-    \param cnt The item count you wish to add to the stack
-    \param IncBank Should this search the player's bank as well?
-    \return An Item* to a stack of itemid which can contain cnt more items
-    */
-    Item* FindItemLessMax(uint32 itemid, uint32 cnt, bool IncBank);
-    uint32 GetItemCount(uint32 itemid, bool IncBank = false, Item* exclude = NULL, uint32 counttoexclude = 0);
-    uint32 RemoveItemAmt(uint32 id, uint32 amt);
-    uint32 RemoveItemAmt_ProtectPointer(uint32 id, uint32 amt, Item** pointer);
-    uint32 RemoveItemAmtByGuid(uint64 guid, uint32 amt);
-    void RemoveAllConjured();
-    void BuyItem(ItemPrototype *item, uint32 total_amount, Creature* pVendor, ItemExtendedCostEntry *ec);
-
-    uint32 CalculateFreeSlots(ItemPrototype *proto);
-    void ReduceItemDurability();
-
-    //Searching functions
-    SlotResult FindFreeInventorySlot(ItemPrototype *proto);
-    SlotResult FindFreeBankSlot(ItemPrototype *proto);
-    SlotResult FindAmmoBag();
-    int16 FindFreeBackPackSlot();
-    int16 FindFreeKeyringSlot();
-    int16 FindSpecialBag(Item* item);
-
-    uint32 GetEquippedCountByItemLimit(uint32 LimitId);
-    int16 CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemPrototype* item, bool ignore_combat = false, bool skip_2h_check = false);
-    int16 CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* item, bool ignore_combat = false, bool skip_2h_check = false);
-    int8 CanReceiveItem(ItemPrototype * item, uint32 amount, ItemExtendedCostEntry *ec);
-    int8 CanAffordItem(ItemPrototype * item,uint32 amount, Creature* pVendor, ItemExtendedCostEntry *ec);
-    int8 GetItemSlotByType(ItemPrototype* proto);
-    Item* GetItemByGUID(uint64 itemGuid);
-
-
-    void BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error);
-    bool SwapItemSlots(int16 srcslot, int16 dstslot);
-
-    int16 GetInternalBankSlotFromPlayer(int16 islot); //converts inventory slots into 0-x numbers
-
-    void AddBuyBackItem(Item* it, uint32 price);
-    void RemoveBuyBackItem(uint32 index);
-    void EmptyBuyBack();
-    bool IsEquipped(uint32 itemid);
+    // Interface hooks
     void CheckAreaItems();
+    void RemoveConjuredItems();
 
-public:
-    RONIN_INLINE bool VerifyBagSlots(int16 ContainerSlot, int16 Slot)
+    // Find slot only needs proto but require an item pointer to avoid nasty calls
+    bool FindFreeSlot(Item *item, uint16 &slot) { ASSERT(item); return _findFreeSlot(item->GetProto(), slot); }
+    uint32 GetItemCount(uint32 entry) { if(m_itemsByEntry.find(entry) == m_itemsByEntry.end()) return 0; return m_itemsByEntry[entry].size(); }
+
+    bool CreateQuestItems(Quest *qst);
+    bool CreateInventoryStacks(ItemPrototype *proto, uint32 count = 1, WoWGuid creatorGuid = 0, bool fromNPC = false);
+    bool AddInventoryItemToSlot(Item *item, uint16 slot);
+    void DestroyInventoryItem(uint16 slot);
+    Item *RemoveInventoryItem(uint16 slot);
+    bool RemoveInventoryStacks(uint32 entry, uint32 count, bool force = true);
+
+    void BuildInvError(uint8 error, Item *src, Item *dst, uint32 misc = 0);
+
+    RONIN_INLINE bool IsValidSrcSlot(uint16 slot, bool bank)
     {
-        if( ContainerSlot < -1 || Slot < 0 )
+        if(m_itemPtrs.find(slot) == m_itemPtrs.end())
             return false;
+        if(bank == false && slot >= BANK_SLOT_ITEM_START && slot < BANK_SLOT_BAG_END)
+            return false;
+        if(INVSLOT_BAG(slot) == INVENTORY_SLOT_NONE)
+        {
 
-        if( ContainerSlot > 0 && (ContainerSlot < INVENTORY_SLOT_BAG_START || ContainerSlot >= INVENTORY_SLOT_BAG_END) )
-            return false;
-
-        if( ContainerSlot == -1 && (Slot >= INVENTORY_SLOT_ITEM_END  || Slot <= EQUIPMENT_SLOT_END) )
-            return false;
+        }
+        else
+        {
+            uint16 bagSlot = uint16(INVSLOT_BAG(slot));
+            if(bagSlot < INVENTORY_SLOT_BAG_START || (bagSlot >= INVENTORY_SLOT_BAG_END && bagSlot < BANK_SLOT_BAG_START) || bagSlot >= BANK_SLOT_BAG_END)
+                return false;
+            bagSlot |= 0xFF00;
+            if(m_itemPtrs.find(bagSlot) == m_itemPtrs.end())
+                return false;
+            Item *bag = m_itemPtrs.at(bagSlot);
+            if(INVSLOT_ITEM(slot) >= bag->GetNumSlots())
+                return false;
+        }
 
         return true;
     }
 
-    bool AddItemById(uint32 itemid, uint32 count, int32 randomprop, bool created, Player* creator = NULL);
-    void SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot, int16 DstSlot);
-
-    RONIN_INLINE bool VerifyBagSlotsWithBank(int16 ContainerSlot, int16 Slot)
+    RONIN_INLINE bool IsValidDstSlot(Item *item, uint16 slot, bool bank)
     {
-        if( ContainerSlot < -1 || Slot < 0 )
+        if(bank == false && slot >= BANK_SLOT_ITEM_START && slot < BANK_SLOT_BAG_END)
             return false;
+        if(INVSLOT_BAG(slot) == INVENTORY_SLOT_NONE)
+        {
 
-        if( ContainerSlot > 0 && (ContainerSlot < INVENTORY_SLOT_BAG_START || ContainerSlot >= INVENTORY_SLOT_BAG_END) )
-            return false;
-
-        if( ContainerSlot == -1 && (Slot == INVENTORY_SLOT_NONE || Slot <= EQUIPMENT_SLOT_END) )
-            return false;
+        }
+        else
+        {
+            uint16 bagSlot = uint16(INVSLOT_BAG(slot));
+            if(bagSlot < INVENTORY_SLOT_BAG_START || (bagSlot >= INVENTORY_SLOT_BAG_END && bagSlot < BANK_SLOT_BAG_START) || bagSlot >= BANK_SLOT_BAG_END)
+                return false;
+            bagSlot |= 0xFF00; // Set the hipart to player inv
+            if(m_itemPtrs.find(bagSlot) == m_itemPtrs.end())
+                return false;
+            Item *bag = m_itemPtrs.at(bagSlot);
+            if(INVSLOT_ITEM(slot) >= bag->GetNumSlots())
+                return false;
+            if(bag->GetProto()->BagFamily && bag->GetProto()->BagFamily != item->GetProto()->BagFamily)
+                return false;
+        }
 
         return true;
     }
 
-    RONIN_INLINE bool VerifyBagSlotsWithInv(int16 ContainerSlot, int16 Slot)
+private:
+    void SendItemPushResult(Item *item, uint16 invSlot, uint8 flags, uint32 totalCount);
+    bool IsSlotValidForItem(Item *item);
+
+    RONIN_INLINE bool IsValidSlot(Item *item, uint16 slot)
     {
-        if( ContainerSlot < -1 || Slot < 0 )
-            return false;
+        uint8 cBagSlot = INVSLOT_BAG(slot), cSlot = INVSLOT_ITEM(slot);
+        if(cBagSlot == INVENTORY_SLOT_NONE)
+        {
+            if(cSlot >= INVENTORY_SLOT_MAX)
+                return false;
+            if(m_itemPtrs.find(slot) != m_itemPtrs.end())
+                return false;
+        }
+        else
+        {
+            if(cBagSlot < INVENTORY_SLOT_BAG_START || cBagSlot >= INVENTORY_SLOT_BAG_END)
+                return false;
+            uint16 iBagSlot = MAKE_INVSLOT(0xFF, cBagSlot);
+            if(m_itemPtrs.find(iBagSlot) == m_itemPtrs.end())
+                return false;
+            Item *item = m_itemPtrs.at(iBagSlot);
+            if(cSlot >= item->GetNumSlots())
+                return false;
+            if(item->HasItem(cSlot))
+                return false;
+        }
 
-        if( ContainerSlot > 0 && (ContainerSlot < INVENTORY_SLOT_BAG_START || ContainerSlot >= INVENTORY_SLOT_BAG_END) )
+        if(cBagSlot == INVENTORY_SLOT_NONE)
+        {
+            if(cSlot >= BANK_SLOT_ITEM_START && cSlot < BANK_SLOT_BAG_END)
+                return false;
+        } else if(cBagSlot >= BANK_SLOT_BAG_START && cBagSlot < BANK_SLOT_BAG_END)
             return false;
-
-        if( ContainerSlot == -1 && Slot == INVENTORY_SLOT_NONE )
-            return false;
-
-        return true;
+        return IsSlotValidForItem(item);
     }
-    void RemoveItemsWithHolidayId(uint32 IgnoreHolidayId = 0);
+
+    RONIN_INLINE bool IsValidBankSlot(Item *item, uint16 slot)
+    {
+        uint8 cBagSlot = INVSLOT_BAG(slot), cSlot = INVSLOT_ITEM(slot);
+        if(cBagSlot == INVENTORY_SLOT_NONE)
+        {
+            if(cSlot < BANK_SLOT_ITEM_START || cSlot >= BANK_SLOT_BAG_END)
+                return false;
+            if(m_itemPtrs.find(slot) != m_itemPtrs.end())
+                return false;
+        }
+        else
+        {
+            if(cBagSlot < BANK_SLOT_BAG_START || cBagSlot >= BANK_SLOT_BAG_END)
+                return false;
+            uint16 iBagSlot = MAKE_INVSLOT(0xFF, cBagSlot);
+            if(m_itemPtrs.find(iBagSlot) == m_itemPtrs.end())
+                return false;
+            Item *item = m_itemPtrs.at(iBagSlot);
+            if(cSlot >= item->GetNumSlots())
+                return false;
+            if(item->HasItem(cSlot))
+                return false;
+        }
+        return IsSlotValidForItem(item);
+    }
 };

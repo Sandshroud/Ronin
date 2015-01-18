@@ -2493,9 +2493,8 @@ void Spell::_SetTargets(WoWGuid guid)
             if(p_caster != NULL)
             {
                 itemTarget = p_caster->GetItemInterface()->GetItemByGUID(guid);
-                Player* plr = p_caster->GetTradeTarget();
-                if(plr)
-                    itemTarget = plr->getTradeItem(GUID_LOPART(guid));
+                if(Player* plr = p_caster->GetTradeTarget())
+                    itemTarget = p_caster->GetItemInterface()->GetInventoryItem(plr->getTradeItem(guid.getLow()))
             }
         }
         else

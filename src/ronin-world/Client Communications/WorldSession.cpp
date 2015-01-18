@@ -325,16 +325,10 @@ void WorldSession::LogoutPlayer(bool Save)
         if( _player->m_currentSpell != NULL )
             _player->m_currentSpell->cancel();
 
-        if( _player->GetTeam() == 1 )
-        {
-            if( sWorld.HordePlayers )
-                sWorld.HordePlayers--;
-        }
-        else
-        {
-            if( sWorld.AlliancePlayers )
-                sWorld.AlliancePlayers--;
-        }
+        if( _player->GetTeam() == 1 && sWorld.HordePlayers )
+            sWorld.HordePlayers--;
+        else if( _player->GetTeam() == 0 && sWorld.AlliancePlayers )
+            sWorld.AlliancePlayers--;
 
         if( _player->m_bg )
             _player->m_bg->RemovePlayer( _player, true );

@@ -33,7 +33,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     // lookup the object we will be looting
     Object* pLootEnt = NULL;
     if( GUID_HIPART(_player->GetLootGUID()) == HIGHGUID_TYPE_ITEM )
-        pLootEnt = _player->GetItemInterface()->GetItemByGUID(_player->GetLootGUID());
+        pLootEnt = _player->GetItemInterface()->GetInventoryItem(_player->GetLootGUID());
     else pLootEnt = _player->GetMapMgr()->_GetObject(_player->GetLootGUID());
     if( pLootEnt == NULL )
         return;
@@ -162,126 +162,112 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     _player->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
     _player->m_currentLoot = 0;
 
-    // special case
-    if( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT )
+    switch(guid.getHigh())
     {
-        GameObject* pGO = _player->GetMapMgr()->GetGameObject(guid);
-        if( pGO == NULL )
-            return;
-
-        pGO->GetLoot()->looters.erase(_player->GetGUID());
-        switch( pGO->GetType())
+    case HIGHGUID_TYPE_GAMEOBJECT:
         {
-        case GAMEOBJECT_TYPE_FISHINGNODE:
+            if(GameObject* pGO = _player->GetMapMgr()->GetGameObject(guid))
             {
-                if(pGO->IsInWorld())
-                    pGO->RemoveFromWorld(true);
-
-                pGO->Destruct();
-                pGO = NULL;
-            }break;
-        case GAMEOBJECT_TYPE_CHEST:
-            {
-                pGO->GetLoot()->looters.erase( _player->GetGUID() );
-                //check for locktypes
-
-                if( LockEntry* pLock = dbcLock.LookupEntry( pGO->GetInfo()->GetLockID() ) )
+                pGO->GetLoot()->looters.erase(_player->GetGUID());
+                switch( pGO->GetType())
                 {
-                    for( uint32 i = 0; i < 8; i++ )
+                case GAMEOBJECT_TYPE_FISHINGNODE:
                     {
-                        if( pLock->locktype[i] )
+                        if(pGO->IsInWorld())
+                            pGO->RemoveFromWorld(true);
+                        pGO->Destruct();
+                    }break;
+                case GAMEOBJECT_TYPE_CHEST:
+                    {
+                        if( LockEntry* pLock = dbcLock.LookupEntry( pGO->GetInfo()->GetLockID() ) )
                         {
-                            if( pLock->locktype[i] == 2 ) //locktype;
+                            for( uint32 i = 0; i < 8; i++ )
                             {
-                                //herbalism and mining;
-                                if( pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM )
+                                if( pLock->locktype[i] )
                                 {
-                                    //we still have loot inside.
-                                    if( pGO->GetLoot()->HasItems(_player) )
+                                    if( pLock->locktype[i] == 2 ) //locktype;
                                     {
-                                        pGO->SetState(1);
-                                        return;
-                                    }
+                                        //herbalism and mining;
+                                        if( pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM )
+                                        {
+                                            //we still have loot inside.
+                                            if( pGO->GetLoot()->HasItems(_player) )
+                                                pGO->SetState(1);
+                                            else if( pGO->CanMine() )
+                                            {
+                                                pGO->ClearLoot();
+                                                pGO->UseMine();
+                                            }
+                                            else
+                                            {
+                                                pGO->CalcMineRemaining( true );
+                                                pGO->Despawn( 0, pGO->GetInfo()->RespawnTimer);
+                                            }
+                                            return;
+                                        }
 
-                                    if( pGO->CanMine() )
-                                    {
-                                        pGO->ClearLoot();
-                                        pGO->UseMine();
-                                        return;
-                                    }
-                                    else
-                                    {
-                                        pGO->CalcMineRemaining( true );
-                                        pGO->Despawn( 0, pGO->GetInfo()->RespawnTimer);
-                                        return;
-                                    }
-                                }
-                                else //other type of locks that i dont bother to split atm ;P
-                                {
-                                    if(pGO->GetLoot()->HasItems(_player))
-                                    {
-                                        pGO->SetState(1);
-                                        return;
-                                    }
+                                        if(pGO->GetLoot()->HasItems(_player))
+                                        {
+                                            pGO->SetState(1);
+                                            return;
+                                        }
 
-                                    pGO->CalcMineRemaining(true);
+                                        pGO->CalcMineRemaining(true);
 
-                                    //Don't interfere with scripted GO's
-                                    if(!sEventMgr.HasEvent(pGO, EVENT_GMSCRIPT_EVENT))
-                                        pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
-                                    return;
+                                        //Don't interfere with scripted GO's
+                                        if(!sEventMgr.HasEvent(pGO, EVENT_GMSCRIPT_EVENT))
+                                            pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
+                                    }
                                 }
                             }
                         }
-                    }
-                }
-                else
-                {
-                    if( pGO->GetLoot()->HasItems(_player) )
-                    {
-                        pGO->SetState(1);
-                        return;
-                    }
+                        else
+                        {
+                            if( pGO->GetLoot()->HasItems(_player) )
+                            {
+                                pGO->SetState(1);
+                                return;
+                            }
 
-                    pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
+                            pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
+                        }
+                    }
                 }
             }
-        }
-    }
-    else if( guid.getHigh() == HIGHGUID_TYPE_ITEM )
-    {
-        // if we have no items left, destroy the item.
-        Item* pItem = _player->GetItemInterface()->GetItemByGUID(guid);
-        if( pItem != NULL )
+        }break;
+    case HIGHGUID_TYPE_ITEM:
         {
-            if( !pItem->GetLoot()->HasItems(_player) )
-                _player->GetItemInterface()->SafeFullRemoveItemByGuid(guid);
-        }
-    }
-    else if( guid.getHigh() == HIGHGUID_TYPE_CREATURE )
-    {
-        Unit* pLootTarget = _player->GetMapMgr()->GetUnit(guid);
-        if( pLootTarget != NULL )
-        {
-            pLootTarget->GetLoot()->looters.erase(_player->GetLowGUID());
-            if( !pLootTarget->GetLoot()->HasLoot(_player) )
+            // if we have no items left, destroy the item.
+            if( Item* pItem = _player->GetItemInterface()->GetInventoryItemByGuid(guid) )
             {
-                castPtr<Creature>(pLootTarget)->UpdateLootAnimation(_player);
-
-                // skinning
-                if(!pLootTarget->IsPet() && !castPtr<Creature>(pLootTarget)->IsSummon()
-                    && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->Skinned)
+                if( !pItem->GetLoot()->HasItems(_player) )
+                    _player->GetItemInterface()->DeleteItem(pItem);
+            }
+        }break;
+    case HIGHGUID_TYPE_CREATURE:
+        {
+            if( Unit* pLootTarget = _player->GetMapMgr()->GetUnit(guid) )
+            {
+                pLootTarget->GetLoot()->looters.erase(_player->GetLowGUID());
+                if( !pLootTarget->GetLoot()->HasLoot(_player) )
                 {
-                    pLootTarget->BuildFieldUpdatePacket( _player, UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE );
+                    castPtr<Creature>(pLootTarget)->UpdateLootAnimation(_player);
+
+                    // skinning
+                    if(!pLootTarget->IsPet() && !castPtr<Creature>(pLootTarget)->IsSummon()
+                        && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->Skinned)
+                    {
+                        pLootTarget->BuildFieldUpdatePacket( _player, UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE );
+                    }
                 }
             }
-        }
-    }
-    else if( guid.getHigh() == HIGHGUID_TYPE_CORPSE )
-    {
-        Corpse* pCorpse = objmgr.GetCorpse(guid.getLow());
-        if( pCorpse != NULL && !pCorpse->GetLoot()->HasLoot(_player) )
-            pCorpse->Despawn();
+        }break;
+    case HIGHGUID_TYPE_CORPSE:
+        {
+            if(Corpse* pCorpse = objmgr.GetCorpse(guid.getLow()))
+                if( !pCorpse->GetLoot()->HasLoot(_player) )
+                    pCorpse->Despawn();
+        }break;
     }
 }
 
@@ -937,7 +923,6 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
     // build items inspect part. could be sent separately as SMSG_INSPECT
     WoWGuid creatorguid;
     uint32 slotUsedMask = 0;
-    uint16 enchantmentMask = 0;
     size_t maskPos = data.wpos();
     data << uint32(slotUsedMask);   // will be replaced later
     for(uint32 slot = 0; slot < EQUIPMENT_SLOT_END; slot++)
@@ -949,23 +934,22 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
             data << uint32(item->GetEntry());
 
             size_t maskPosEnch = data.wpos();
-            enchantmentMask = 0;
+            uint16 enchantmentMask = 0;
             data << uint16(enchantmentMask);
 
             for(uint32 ench = 0; ench < 12; ench++)
             {
-                uint16 enchId = (uint16) item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1 + (ench * 3));
+                uint32 enchId = (uint16) item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA + (ench * 3));
                 if( enchId )
                 {
                     enchantmentMask |= (1 << ench);
                     data << uint16(enchId);
                 }
             }
-            *(uint16*)&data.contents()[maskPosEnch] = enchantmentMask;
+            data.put<uint16>(maskPosEnch, enchantmentMask);
 
             data << uint16(0);  // unk
-
-            if(creatorguid = item->GetUInt64Value(ITEM_FIELD_CREATOR))
+            if((creatorguid = item->GetUInt64Value(ITEM_FIELD_CREATOR)).count())
                 data << creatorguid.asPacked();
             else data << uint8(0);
 
@@ -1093,7 +1077,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     {
         if (pLoot->items.at(slotid).has_looted.size())
         {
-            GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,INV_ERR_ALREADY_LOOTED);
+            GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
             return;
         }
     }
@@ -1104,7 +1088,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
 
         if (itr != pLoot->items.at(slotid).has_looted.end())
         {
-            GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,INV_ERR_ALREADY_LOOTED);
+            GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
             return;
         }
     }
@@ -1112,9 +1096,9 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     itemid = pLoot->items.at(slotid).item.itemproto->ItemId;
     ItemPrototype* it = pLoot->items.at(slotid).item.itemproto;
 
-    if((error = player->GetItemInterface()->CanReceiveItem(it, 1, 0)))
+    if(error = player->GetItemInterface()->CanReceiveItem(it, 1, 0))
     {
-        _player->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, error);
+        _player->GetItemInterface()->BuildInvError(NULL, NULL, error);
         return;
     }
 

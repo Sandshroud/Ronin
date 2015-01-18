@@ -393,7 +393,7 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     Load(0, owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
     Create(owner->GetMapId(), owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
 
-    LoadValues(m_PlayerPetInfo->fields.c_str());
+    //LoadValues(m_PlayerPetInfo->fields.c_str());
     if(getLevel() == 0)
     {
         m_PlayerPetInfo->level = m_Owner->getLevel();

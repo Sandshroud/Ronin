@@ -794,9 +794,9 @@ bool ChatHandler::HandleAddItemSetCommand(const char* args, WorldSession* m_sess
         if((*itr)->ItemSetRank && (*itr)->ItemSetRank != rank)
             continue;
 
-        if(!chr->GetItemInterface()->AddItemById((*itr)->ItemId, 1, 0, false, m_session->GetPlayer()))
+        if(!chr->GetItemInterface()->CreateInventoryStacks(*itr, 1, m_session->GetPlayer()->GetGUID()))
         {
-            m_session->SendNotification("No free slots left!");
+            RedSystemMessage(m_session, "Failed to create any inventory stacks");
             return true;
         }
 
@@ -1782,37 +1782,20 @@ bool ChatHandler::HandleCreatureRespawnCommand(const char *args, WorldSession *m
 
 bool ChatHandler::HandleRemoveItemCommand(const char * args, WorldSession * m_session)
 {
-    uint32 item_id;
-    int32 count, ocount;
+    uint32 item_id, count;
     int argc = sscanf(args, "%u %u", (unsigned int*)&item_id, (unsigned int*)&count);
-    if(argc == 1)
-        count = 1;
+    if(argc == 1) count = 1;
     else if(argc != 2 || !count)
         return false;
-    ocount = count;
+
     Player* plr = getSelectedChar(m_session, true);
-    if(!plr)
+    if(plr == NULL)
         return true;
 
-    // loop until they're all gone.
-    int32 loop_count = 0;
-    int32 start_count = plr->GetItemInterface()->GetItemCount(item_id, true);
-    int32 start_count2 = start_count;
-    if(count > start_count)
-        count = start_count;
-
-    while(start_count >= count && (count > 0) && loop_count < 20)    // Prevent a loop here.
-    {
-        plr->GetItemInterface()->RemoveItemAmt(item_id, count);
-        start_count2 = plr->GetItemInterface()->GetItemCount(item_id, true);
-        count -= (start_count - start_count2);
-        start_count = start_count2;
-        ++loop_count;
-    }
-
-    sWorld.LogGM(m_session, "used remove item id %u count %u from %s", item_id, ocount, plr->GetName());
-    BlueSystemMessage(m_session, "Removing %u copies of item %u from %s's inventory.", ocount, item_id, plr->GetName());
-    BlueSystemMessage(plr->GetSession(), "%s removed %u copies of item %u from your inventory.", m_session->GetPlayer()->GetName(), ocount, item_id);
+    plr->GetItemInterface()->RemoveInventoryStacks(item_id, count, true);
+    sWorld.LogGM(m_session, "used remove item id %u count %u from %s", item_id, count, plr->GetName());
+    BlueSystemMessage(m_session, "Removing %u copies of item %u from %s's inventory.", count, item_id, plr->GetName());
+    BlueSystemMessage(plr->GetSession(), "%s removed %u copies of item %u from your inventory.", m_session->GetPlayer()->GetName(), count, item_id);
     return true;
 }
 

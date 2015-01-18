@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_notifyFlags(UF_FLAG_DYNAMIC), m_inWorld(false), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false), m_objectUpdated(false)
 {
     m_updateMask.SetCount(m_valuesCount);
     m_uint32Values = new uint32[m_valuesCount];
@@ -182,11 +182,11 @@ void Object::SetUpdateField(uint32 index)
     OnFieldUpdated(index);
 }
 
-bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
+bool Object::_SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags)
 {
     bool res = false;
     uint16 typeMask = GetTypeFlags();
-    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
+    uint32 offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
         if(typeMask & 1<<f)
@@ -196,11 +196,10 @@ bool Object::_SetUpdateBits(UpdateMask *updateMask, Player* target)
             {
                 if(!m_updateMask.GetBit(offset))
                     continue;
-                if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
-                {
-                    res = true;
-                    updateMask->SetBit(offset);
-                }
+                if(flags[i] != 0 && (flags[i] & updateFlags) == 0)
+                    continue;
+                res = true;
+                updateMask->SetBit(offset);
             }
         }
     }
@@ -214,11 +213,6 @@ uint32 Object::GetUpdateFlag(Player *target)
     {
         switch (GetTypeId())
         {
-        case TYPEID_ITEM:
-        case TYPEID_CONTAINER:
-            {
-
-            }break;
         case TYPEID_UNIT:
         case TYPEID_PLAYER:
             {
@@ -322,14 +316,14 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     return 1;
 }
 
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFlags)
 {
     UpdateMask updateMask(m_valuesCount);
-    if(_SetUpdateBits(&updateMask, target))
+    if(_SetUpdateBits(&updateMask, updateFlags))
     {
         *data << uint8(UPDATETYPE_VALUES);     // update type == update
         *data << m_objGuid.asPacked();
-        _BuildChangedValuesUpdate( data, &updateMask, target );
+        _BuildChangedValuesUpdate( data, &updateMask );
         return 1;
     }
     return 0;
@@ -337,8 +331,8 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 
 uint32 Object::BuildOutOfRangeUpdateBlock(ByteBuffer *data)
 {
-
-    return 0;
+    *data << GetGUID().asPacked();
+    return 1;
 }
 
 //=======================================================================================
@@ -379,7 +373,7 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 //  Creates an update block with the values of this object as
 //  determined by the updateMask.
 //=======================================================================================
-void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask, Player* target)
+void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask)
 {
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
     uint32 byteCount = updateMask->GetUpdateBlockCount();

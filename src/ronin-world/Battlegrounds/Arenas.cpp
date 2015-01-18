@@ -88,7 +88,7 @@ void Arena::OnAddPlayer(Player* plr)
 
     // remove all buffs (exclude talents, include flasks)
     plr->m_AuraInterface.RemoveAllExpiringAuras();
-    plr->GetItemInterface()->RemoveAllConjured();
+    plr->GetItemInterface()->RemoveConjuredItems();
     plr->ResetAllCooldowns();
 
     if( !m_started )

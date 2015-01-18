@@ -885,55 +885,73 @@ void MapMgr::_UpdateObjects()
     }
 
     uint32 count = 0;
-    WorldObject *pObj;
+    WorldObject *wObj;
     ObjectSet::iterator iter = _updates.begin();
-    PlayerSet::iterator itr, it_start, it_end;
     for(; iter != _updates.end();)
     {
-        pObj = *iter;
+        wObj = *iter;
         ++iter;
-        if(pObj == NULL)
+        if(wObj == NULL)
             continue;
 
-        if( pObj->IsInWorld() )
+        if( wObj->IsInWorld() )
         {
             // players have to receive their own updates ;)
-            if( pObj->IsPlayer() )
+            if( wObj->IsPlayer() )
             {
                 // need to be different! ;)
-                if( count = pObj->BuildValuesUpdateBlockForPlayer( &m_updateBuffer, castPtr<Player>( pObj ) ) )
+                if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_SELF) )
                 {
-                    castPtr<Player>( pObj )->PushUpdateBlock( &m_updateBuffer, count );
+                    castPtr<Player>( wObj )->PushUpdateBlock( &m_updateBuffer, count );
                     m_updateBuffer.clear();
                 }
             }
 
-            if( pObj->IsUnit() && pObj->HasUpdateField( UNIT_FIELD_HEALTH ) )
-                castPtr<Unit>( pObj )->EventHealthChangeSinceLastUpdate();
+            if( wObj->IsUnit() && wObj->HasUpdateField( UNIT_FIELD_HEALTH ) )
+                castPtr<Unit>( wObj )->EventHealthChangeSinceLastUpdate();
 
+            PlayerSet m_partyTargets, m_petTargets;
             // build the update
-            Player *lplr;
-            it_start = pObj->GetInRangePlayerSetBegin();
-            it_end = pObj->GetInRangePlayerSetEnd();
-            for(itr = it_start; itr != it_end;)
+            if(count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC))
             {
-                lplr = *itr;
-                ++itr;
-                // Make sure that the target player can see us.
-                if(lplr->IsVisible(pObj) && (count = pObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, lplr)))
+                for(PlayerSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
                 {
-                    lplr->PushUpdateBlock( &m_updateBuffer, count );
-                    m_updateBuffer.clear();
+                    Player *plrTarget = *itr;
+                    ++itr;
+                    if(!plrTarget->IsVisible(wObj))
+                        continue; // Make sure that the target player can see us.
+                    uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
+                    if(targetFlag & UF_FLAG_PARTY_MEMBER)
+                        m_partyTargets.insert(plrTarget);
+                    else if(targetFlag & UF_FLAG_OWNER)
+                        m_petTargets.insert(plrTarget);
+                    else plrTarget->PushUpdateBlock( &m_updateBuffer, count );
                 }
+                m_updateBuffer.clear();
+            }
+
+            if(m_partyTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PARTY_MEMBER)))
+            {
+                for(PlayerSet::iterator itr = m_partyTargets.begin(); itr != m_partyTargets.end(); itr++)
+                    (*itr)->PushUpdateBlock( &m_updateBuffer, count );
+                m_updateBuffer.clear();
+                m_partyTargets.clear();
+            }
+            if(m_petTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_OWN_PET)))
+            {
+                for(PlayerSet::iterator itr = m_petTargets.begin(); itr != m_petTargets.end(); itr++)
+                    (*itr)->PushUpdateBlock( &m_updateBuffer, count );
+                m_updateBuffer.clear();
+                m_petTargets.clear();
             }
         }
-        pObj->ClearUpdateMask();
+        wObj->ClearUpdateMask();
     }
     _updates.clear();
 
     // generate pending a9packets and send to clients.
     Player* plyr;
-    for(itr = _processQueue.begin(); itr != _processQueue.end();)
+    for(PlayerSet::iterator itr = _processQueue.begin(); itr != _processQueue.end();)
     {
         plyr = *itr;
         itr = _processQueue.erase(itr);

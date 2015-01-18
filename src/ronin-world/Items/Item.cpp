@@ -4,12 +4,20 @@
 
 #include "StdAfx.h"
 
-Item::Item(ItemData *data, uint32 fieldCount) : _itemData(data), Object(data->itemGuid, fieldCount), m_locked(false), m_textid(0), m_wrappedItemGuid(0)
+Item::Item(ItemData *data) : m_itemProto(sItemMgr.LookupEntry(data->itemGuid.getEntry())), m_isContainer(m_itemProto->InventoryType == INVTYPE_BAG),
+    _itemData(data), Object(data->itemGuid, (IsContainer() ? CONTAINER_END : ITEM_END)), m_textid(0), m_wrappedItemGuid(0)
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
     SetUInt32Value(OBJECT_FIELD_ENTRY, data->itemGuid.getEntry());
     m_itemProto = sItemMgr.LookupEntry(GetEntry());
     ASSERT(m_itemProto);
+    if(m_isContainer)
+    {
+        _container = new Item::Container();
+        SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, (_container->numSlots = m_itemProto->ContainerSlots));
+        for(std::map<uint8, WoWGuid>::iterator itr = data->containerData->m_items.begin(); itr != data->containerData->m_items.end(); itr++)
+            AddItem(itr->first, itr->second);
+    }
 }
 
 Item::~Item()
@@ -31,6 +39,7 @@ void Item::Initialize(Player *owner)
     SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, _itemData->itemRandomSeed);
     SetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID, _itemData->itemRandomProperty);
     SetUInt32Value(ITEM_FIELD_DURABILITY, _itemData->itemDurability);
+    m_textid = _itemData->itemTextID;
     SetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME, _itemData->itemPlayedTime);
     if(_itemData->giftData)
     {
@@ -86,8 +95,6 @@ void Item::Initialize(Player *owner)
         }
     }
 
-    if( m_itemProto->LockId > 1 )
-        m_locked = (GetUInt32Value(ITEM_FIELD_FLAGS) & 0x04) == 0;
     Object::Init();
 }
 
@@ -108,6 +115,17 @@ void Item::Destruct()
     Object::Destruct();
 }
 
+void Item::AddToWorld()
+{
+    Object::AddToWorld();
+    if(m_owner && m_owner->IsInWorld())
+    {
+        ByteBuffer *buff = &m_owner->GetMapMgr()->m_createBuffer;
+        if(uint32 count = BuildCreateUpdateBlockForPlayer(buff, m_owner))
+            m_owner->PushUpdateBlock(buff, count);
+    }
+}
+
 void Item::SetOwner( Player* owner )
 {
     if( owner != NULL )
@@ -123,13 +141,235 @@ bool Item::IsEligibleForRefund()
 
 void Item::SetTextID(uint32 newTextId)
 {
+    m_textid = newTextId;
+    _itemData->itemTextID = newTextId;
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMTEXTID, newTextId);
+}
+
+void Item::SetItemSlot(uint8 slot)
+{
+    INVSLOT_SET_ITEMSLOT(currentSlot, slot);
+    _itemData->containerSlot = currentSlot;
+    QueueItemDataUpdate(ITEMDATA_FIELD_CONTAINER_SLOT, uint32(currentSlot));
+}
+
+void Item::SetContainerSlot(uint16 containerSlot)
+{
+    currentSlot = containerSlot;
+    _itemData->containerSlot = containerSlot;
+    QueueItemDataUpdate(ITEMDATA_FIELD_CONTAINER_SLOT, uint32(currentSlot));
+}
+
+void Item::SetContainerData(WoWGuid containerGuid, uint16 containerSlot)
+{
+    _itemData->itemContainer = containerGuid;
+    SetUInt64Value(ITEM_FIELD_CONTAINED, containerGuid);
+    QueueItemDataUpdate(ITEMDATA_FIELD_CONTAINER_GUID, containerGuid);
+    SetContainerSlot(containerSlot);
+}
+
+void Item::SetCreatorGuid(WoWGuid creatorGuid)
+{
+    _itemData->itemCreator = creatorGuid;
+    SetUInt64Value(ITEM_FIELD_CREATOR, creatorGuid);
+    QueueItemDataUpdate(ITEMDATA_FIELD_CREATOR_GUID, creatorGuid);
+}
+
+void Item::SetStackSize(uint32 newStackSize)
+{
+    if(newStackSize == 0)
+    {
+        QueueItemDeletion();
+        RemoveFromWorld(true);
+        Destruct();
+        return;
+    }
+
+    _itemData->itemStackCount = newStackSize;
+    SetUInt32Value(ITEM_FIELD_STACK_COUNT, newStackSize);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMSTACKCOUNT, newStackSize);
+}
+
+void Item::ModStackSize(int32 &stackSizeMod)
+{
+    if(stackSizeMod == 0)
+        return;
+
+    uint32 currentStack = GetStackSize();
+    if(stackSizeMod > 0)
+    {
+        ModStackSize(stackSizeMod);
+        return;
+    }
+    else
+    {
+        uint32 modSize = abs(stackSizeMod);
+        if(modSize > currentStack)
+        {
+            stackSizeMod += currentStack;
+            currentStack = 0;
+        }
+        else
+        {
+            currentStack -= modSize;
+            stackSizeMod = 0;
+        }
+    }
+
+    _itemData->itemStackCount = currentStack;
+    SetUInt32Value(ITEM_FIELD_STACK_COUNT, currentStack);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMSTACKCOUNT, currentStack);
+}
+
+void Item::ModStackSize(uint32 &stackSizeMod)
+{
+    uint32 currentStack = GetStackSize();
+    if(m_itemProto->MaxCount)
+    {
+        if(currentStack == m_itemProto->MaxCount)
+            return;
+
+        uint32 stackToAdd = m_itemProto->MaxCount-currentStack;
+        currentStack += stackToAdd;
+        stackSizeMod -= stackToAdd;
+    }
+    else
+    {
+        currentStack += stackSizeMod;
+        stackSizeMod = 0;
+    }
+
+    _itemData->itemStackCount = currentStack;
+    SetUInt32Value(ITEM_FIELD_STACK_COUNT, currentStack);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMSTACKCOUNT, currentStack);
+}
+
+void Item::ModifyStackSize(int32 stackSizeMod)
+{
+    if(stackSizeMod == 0)
+        return;
+
+    uint32 currentStack = GetStackSize();
+    if(stackSizeMod > 0)
+    {
+        if(m_itemProto->MaxCount)
+        {
+            if(currentStack == m_itemProto->MaxCount)
+                return;
+
+            uint32 stackToAdd = m_itemProto->MaxCount-currentStack;
+            currentStack += stackToAdd;
+        } else currentStack += stackSizeMod;
+    }
+    else
+    {
+        uint32 modSize = abs(stackSizeMod);
+        if(modSize > currentStack)
+            currentStack = 0;
+        else currentStack -= modSize;
+    }
+
+    _itemData->itemStackCount = currentStack;
+    SetUInt32Value(ITEM_FIELD_STACK_COUNT, currentStack);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMSTACKCOUNT, currentStack);
+}
+
+void Item::AddItemFlag(uint32 itemFlag)
+{
+    _itemData->itemFlags |= itemFlag;
+    SetUInt32Value(ITEM_FIELD_FLAGS, _itemData->itemFlags);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMFLAGS, _itemData->itemFlags);
+}
+
+void Item::RemoveItemFlag(uint32 itemFlag)
+{
+    if((_itemData->itemFlags & itemFlag) == 0)
+        return;
+
+    _itemData->itemFlags &= ~itemFlag;
+    SetUInt32Value(ITEM_FIELD_FLAGS, _itemData->itemFlags);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEMFLAGS, _itemData->itemFlags);
+}
+
+void Item::SetRandomPropData(uint32 randomProp, uint32 randomSeed)
+{
 
 }
 
-void Item::SetWrappedItemGuid(WoWGuid guid)
+void Item::SetDurability(uint32 newDurability)
 {
-    m_wrappedItemGuid = guid;
+    _itemData->itemDurability = newDurability;
+    SetUInt32Value(ITEM_FIELD_DURABILITY, newDurability);
+    QueueItemDataUpdate(ITEMDATA_FIELD_ITEM_DURABILITY, newDurability);
+}
 
+void Item::ModDurability(bool apply, float modPct)
+{
+    uint32 maxDurability = m_itemProto->MaxDurability;
+    if(maxDurability == 0)
+        return;
+    uint32 currentDurability = GetUInt32Value(ITEM_FIELD_DURABILITY);
+    uint32 mod = (uint32)floor(float(maxDurability) * modPct);
+    if(apply)
+    {
+        if(currentDurability + mod >= maxDurability)
+            currentDurability = maxDurability;
+        else currentDurability += mod;
+    }
+    else
+    {
+        if(mod >= currentDurability)
+            currentDurability = 0;
+        else currentDurability -= mod;
+    }
+
+    SetDurability(currentDurability);
+}
+
+void Item::UpdatePlayedTime()
+{
+
+}
+
+void Item::ModPlayedTime(uint32 timetoadd)
+{
+
+}
+
+void Item::QueueItemDeletion()
+{
+    std::stringstream ss;
+    ss << "INSERT INTO `deleted_item_data` VALUES(SELECT * FROM item_data WHERE itemguid = '" << uint64(GetGUID()) << "');";
+    CharacterDatabase.Execute(ss.str().c_str());
+    ss.str("DELETE FROM `item_data` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
+    CharacterDatabase.Execute(ss.str().c_str());
+    ss.str("DELETE FROM `item_enchantments` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
+    CharacterDatabase.Execute(ss.str().c_str());
+    ss.str("DELETE FROM `item_spellcharges` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
+    CharacterDatabase.Execute(ss.str().c_str());
+    sItemMgr.DeleteItemData(GetGUID());
+}
+
+void Item::QueueItemDataUpdate(ItemDataFields fieldType, uint32 fieldValue)
+{
+    std::stringstream ss;
+    ss << "UPDATE `item_data` SET '" << fieldNames[fieldType] << "' = '";
+    ss << fieldValue << "' WHERE itemguid = '";
+    ss << uint64(GetGUID()) << "';";
+    if(IsInWorld() && m_owner && m_owner->IsInWorld())
+    {}//m_owner->AddItemDataUpdate(GetGUID(), fieldType, ss.str().c_str());
+    else CharacterDatabase.Execute(ss.str().c_str());
+}
+
+void Item::QueueItemDataUpdate(ItemDataFields fieldType, uint64 fieldValue)
+{
+    std::stringstream ss;
+    ss << "UPDATE `item_data` SET '" << fieldNames[fieldType] << "' = '";
+    ss << fieldValue << "' WHERE itemguid = '";
+    ss << uint64(GetGUID()) << "';";
+    if(IsInWorld() && m_owner && m_owner->IsInWorld())
+    {}//m_owner->AddItemDataUpdate(GetGUID(), fieldType, ss.str().c_str());
+    else CharacterDatabase.Execute(ss.str().c_str());
 }
 
 //////////////////////////////////////////////////////////////////////////

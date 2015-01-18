@@ -8,6 +8,9 @@ initialiseSingleton(AccountMgr);
 initialiseSingleton(IPBanner);
 initialiseSingleton(InformationCore);
 
+static uint8 bytes[7] = { 0x8B, 0x55, 0x0C, 0x83, 0xFA, 0x02, 0x75 };
+static const char *string = "battle.net.dll";
+
 void AccountMgr::ReloadAccounts(bool silent)
 {
     setBusy.Acquire();

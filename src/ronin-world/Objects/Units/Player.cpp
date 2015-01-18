@@ -2615,6 +2615,8 @@ void Player::_EventExploration()
     m_oldArea = m_areaId;
     UpdateAreaInfo();
 
+    m_ItemInterface.CheckAreaItems();
+
     bool restmap = false;
     World::RestedAreaInfo* restinfo = sWorld.GetRestedMapInfo(GetMapId());
     if(restinfo != NULL && (restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam()))
@@ -3575,8 +3577,6 @@ void Player::OnPrePushToWorld()
 
 void Player::OnPushToWorld()
 {
-    GetItemInterface()->CheckAreaItems();
-
     // Process create packet
     PopPendingUpdates();
 
@@ -3816,214 +3816,16 @@ void Player::RemoveFromWorld()
     m_changingMaps = true;
 }
 
-// TODO: perhaps item should just have a list of mods, that will simplify code
-void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedown /* = false */, bool skip_stat_apply /* = false  */)
+void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown /* = false */, bool skip_stat_apply /* = false  */)
 {
+    ASSERT( item );
     if (slot >= INVENTORY_SLOT_BAG_END)
         return;
-
-    ASSERT( item );
-    if(item->StatsApplied == apply)
-        return; // Don't apply or remove twice.
     ItemPrototype* proto = item->GetProto();
 
     //fast check to skip mod applying if the item doesnt meat the requirements.
-    if( item->GetUInt32Value( ITEM_FIELD_DURABILITY ) == 0 && item->GetUInt32Value( ITEM_FIELD_MAXDURABILITY ) && justdrokedown == false )
+    if(item->GetUInt32Value( ITEM_FIELD_DURABILITY ) == 0 && item->GetUInt32Value( ITEM_FIELD_MAXDURABILITY ) && justdrokedown == false )
         return;
-
-    //check for rnd prop
-    item->ApplyRandomProperties( true );
-
-    //Items Set check
-    uint32 setid = proto->ItemSet;
-
-    // These season pvp itemsets are interchangeable and each set group has the same
-    // bonuses if you have a full set made up of parts from any of the 3 similar sets
-    // you will get the highest sets bonus
-
-    switch (setid)
-    {
-        // * Gladiator's Battlegear
-        case 701:
-        case 736:
-        case 567:
-            setid = 746;
-            break;
-
-        // * Gladiator's Dreadgear
-        case 702:
-        case 734:
-        case 568:
-            setid = 734;
-            break;
-
-        // * Gladiator's Earthshaker
-        case 703:
-        case 732:
-        case 578:
-            setid = 734;
-            break;
-
-        // * Gladiator's Felshroud
-        case 704:
-        case 735:
-        case 615:
-            setid = 735;
-            break;
-
-        // * Gladiator's Investiture
-        case 705:
-        case 278:
-        case 687:
-            setid = 728;
-            break;
-
-        // * Gladiator's Pursuit
-        case 706:
-        case 723:
-        case 586:
-            setid = 723;
-            break;
-
-        // * Gladiator's Raiment
-        case 707:
-        case 729:
-        case 581:
-            setid = 729;
-            break;
-
-        // * Gladiator's Redemption
-        case 708:
-        case 725:
-        case 690:
-            setid = 725;
-            break;
-
-        // * Gladiator's Refuge
-        case 709:
-        case 720:
-        case 685:
-            setid = 720;
-            break;
-
-        // * Gladiator's Regalia
-        case 710:
-        case 724:
-        case 579:
-            setid = 724;
-            break;
-
-        // * Gladiator's Sanctuary
-        case 711:
-        case 721:
-        case 584:
-            setid = 721;
-            break;
-
-        // * Gladiator's Thunderfist
-        case 712:
-        case 733:
-        case 580:
-            setid = 733;
-            break;
-
-        // * Gladiator's Vestments
-        case 713:
-        case 730:
-        case 577:
-            setid = 730;
-            break;
-
-        // * Gladiator's Vindication
-        case 714:
-        case 726:
-        case 583:
-            setid = 726;
-            break;
-
-        // * Gladiator's Wartide
-        case 715:
-        case 731:
-        case 686:
-            setid = 731;
-            break;
-
-        // * Gladiator's Wildhide
-        case 716:
-        case 722:
-        case 585:
-            setid = 722;
-            break;
-    }
-
-    // Set
-    if( setid != 0 )
-    {
-        ItemSetEntry* set = dbcItemSet.LookupEntry( setid );
-        if( set != NULL)
-        {
-            ASSERT( set );
-            ItemSet* Set = NULL;
-            std::list<ItemSet>::iterator i;
-            for( i = m_itemsets.begin(); i != m_itemsets.end(); i++ )
-            {
-                if( i->setid == setid )
-                {
-                    Set = &(*i);
-                    break;
-                }
-            }
-
-            if( apply )
-            {
-                if( Set == NULL )
-                {
-                    Set = new ItemSet;
-                    memset( Set, 0, sizeof( ItemSet ) );
-                    Set->itemscount = 1;
-                    Set->setid = setid;
-                }
-                else
-                    Set->itemscount++;
-
-                if( !set->requiredSkill[0] || ( _GetSkillLineCurrent( set->requiredSkill[0], true ) >= set->requiredSkill[1] ) )
-                {
-                    for( uint8 x = 0; x < 8; x++)
-                    {
-                        if( Set->itemscount == set->spellRequiredItemCount[x])
-                        {//cast new spell
-                            SpellEntry *info = dbcSpell.LookupEntry( set->setBonusSpellIds[x] );
-                            Spell* spell = new Spell( this, info, true, NULL );
-                            SpellCastTargets targets;
-                            targets.m_unitTarget = GetGUID();
-                            spell->prepare( &targets );
-                        }
-                    }
-                }
-                if( i == m_itemsets.end() )
-                {
-                    m_itemsets.push_back( *Set );
-                    delete Set;
-                }
-            }
-            else
-            {
-                if( Set )
-                {
-                    for( uint32 x = 0; x < 8; x++ )
-                    {
-                        if( Set->itemscount == set->spellRequiredItemCount[x] )
-                        {
-                            RemoveAura( set->setBonusSpellIds[x], GetGUID() );
-                        }
-                    }
-
-                    if(!(--Set->itemscount))
-                        m_itemsets.erase(i);
-                }
-            }
-        }
-    }
 
     if(proto->minDamage && proto->maxDamage)
     {
@@ -4034,36 +3836,37 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
     if(proto->Armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, proto->Armor);
 
     // Stats
-    for( int i = 0; i < 10; i++ )
+    for( uint8 i = 0; i < 10; i++ )
+        if(int32 val = proto->Stats[i].Value)
+            ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
+
+    //check for rnd prop
+    item->ModifyRandomPropertyBonuses( apply );
+
+    // Apply all enchantment bonuses
+    item->ModifyEnchantmentBonuses(apply);
+
+    for( uint8 k = 0; k < 5; k++ )
     {
-        int32 val = proto->Stats[i].Value;
-        if( val == 0 )
+        if( item->GetProto()->Spells[k].Id == 0 )
             continue;
-        ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
-    }
 
-    // Misc
-    if( apply )
-    {
-        // Apply all enchantment bonuses
-        item->ApplyEnchantmentBonuses();
-
-        for( int8 k = 0; k < 5; k++ )
+        if( item->GetProto()->Spells[k].Trigger == ON_EQUIP )
         {
-            if( item->GetProto()->Spells[k].Id == 0 )
-                continue;
-
-            if( item->GetProto()->Spells[k].Trigger == ON_EQUIP )
+            if(SpellEntry *spells = dbcSpell.LookupEntry(item->GetProto()->Spells[k].Id))
             {
-                SpellEntry* spells = dbcSpell.LookupEntry( item->GetProto()->Spells[k].Id );
-                if(spells != NULL)
+                if( spells->RequiredShapeShift )
                 {
-                    if( spells->RequiredShapeShift )
-                    {
+                    if(apply)
                         AddShapeShiftSpell( spells->Id );
-                        continue;
-                    }
+                    else RemoveShapeShiftSpell( spells->Id );
+                    continue;
+                }
 
+                if(apply == false)
+                    RemoveAura( item->GetProto()->Spells[k].Id );
+                else
+                {
                     Spell* spell = new Spell( castPtr<Player>(this), spells ,true, NULL );
                     SpellCastTargets targets;
                     targets.m_unitTarget = GetGUID();
@@ -4071,36 +3874,12 @@ void Player::_ApplyItemMods(Item* item, int16 slot, bool apply, bool justdrokedo
                     spell->prepare( &targets );
                 }
             }
-            else if( item->GetProto()->Spells[k].Trigger == CHANCE_ON_HIT )
-            {
-                // Todo:PROC
-            }
         }
-    }
-    else
-    {
-        // Remove all enchantment bonuses
-        item->RemoveEnchantmentBonuses();
-        for( int8 k = 0; k < 5; k++ )
+        else if( item->GetProto()->Spells[k].Trigger == CHANCE_ON_HIT )
         {
-            if( item->GetProto()->Spells[k].Trigger == ON_EQUIP )
-            {
-                SpellEntry* spells = dbcSpell.LookupEntry( item->GetProto()->Spells[k].Id );
-                if(spells)
-                {
-                    if( spells->RequiredShapeShift )
-                        RemoveShapeShiftSpell( spells->Id );
-                    else
-                        RemoveAura( item->GetProto()->Spells[k].Id );
-                }
-            }
-            else if( item->GetProto()->Spells[k].Trigger == CHANCE_ON_HIT )
-            {
-                // Todo:PROC
-            }
+            // Todo:PROC
         }
     }
-    item->StatsApplied = apply;
 }
 
 void Player::BuildPlayerRepop()
@@ -6786,58 +6565,150 @@ void Player::SetGuildId(uint32 guildId)
     SetUInt64Value(PLAYER_GUILDID, guildId ? MAKE_NEW_GUID(guildId, 0, HIGHGUID_TYPE_GUILD) : 0);
 }
 
-void Player::SendTradeUpdate()
+void Player::SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourStatus, uint32 misc, uint32 misc2)
 {
-    Player* pTarget = GetTradeTarget();
-    if( pTarget == NULL )
-        return;
-
-    WorldPacket data( SMSG_TRADE_STATUS_EXTENDED, 100 );
-
-    data << uint8(1);
-    data << uint32(0x19);
-    data << m_tradeSequence;
-    data << m_tradeSequence++;
-    data << mTradeGold << uint32(0);
-
-    // Items
-    for( uint32 Index = 0; Index < 7; Index++ )
+    WorldPacket data;
+    if(extended)
     {
-        data << uint8(Index);
-        Item* pItem = mTradeItems[Index];
-        if(pItem != 0)
+        data.Initialize(SMSG_TRADE_STATUS_EXTENDED, 100);
+        uint32 count = 0;
+        if(m_tradeData)
         {
-            ItemPrototype * pProto = pItem->GetProto();
-            ASSERT(pProto != 0);
-
-            data << pProto->ItemId;
-            data << pProto->DisplayInfoID;
-            data << pItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT);  // Amount          OK
-
-            // Enchantment stuff
-            data << uint32(0);                                    // unknown
-            data << pItem->GetUInt64Value(ITEM_FIELD_GIFTCREATOR);  // gift creator  OK
-            data << pItem->GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1);  // Item Enchantment OK
-            data << uint32(0);                                    // unknown
-            data << uint32(0);                                    // unknown
-            data << uint32(0);                                    // unknown
-            data << pItem->GetUInt64Value(ITEM_FIELD_CREATOR);    // item creator    OK
-            data << pItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT);  // Spell Charges    OK
-
-            data << pItem->GetItemRandomSuffixFactor();
-            data << pItem->GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID);
-            data << pProto->LockId;                              // lock ID       OK
-            data << pItem->GetUInt32Value(ITEM_FIELD_MAXDURABILITY);
-            data << pItem->GetUInt32Value(ITEM_FIELD_DURABILITY);
+            for(uint32 i = 0; i < 7; i++)
+                if(m_tradeData->tradeItems[i])
+                    count++;
         }
-        else
+
+        data << uint32(0); // TradeId
+        data << uint32(0); // unk
+        data << uint64(m_tradeData->gold);
+        data << uint32(m_tradeData->enchantId);
+        data << uint32(7);
+        data << uint32(0);
+        data << uint8(ourStatus);
+        data << uint32(7);
+        data.WriteBits(count, 22);
+        ByteBuffer itemData;
+        if(m_tradeData)
         {
-            for(uint8 j = 0; j < 18; j++)
-                data << uint32(0);
+            for(uint32 i = 0; i < 7; i++)
+            {
+                if(Item *item = m_tradeData->tradeItems[i])
+                {
+                    WoWGuid giftCreatorGuid = m_tradeData->tradeItems[i]->GetUInt64Value(ITEM_FIELD_GIFTCREATOR);
+                    WoWGuid creatorGuid = m_tradeData->tradeItems[i]->GetUInt64Value(ITEM_FIELD_CREATOR);
+
+                    data.WriteBit(giftCreatorGuid[7]);
+                    data.WriteBit(giftCreatorGuid[1]);
+                    bool notWrapped = data.WriteBit(!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED));
+                    data.WriteBit(giftCreatorGuid[3]);
+
+                    if (notWrapped)
+                    {
+                        data.WriteBit(creatorGuid[7]);
+                        data.WriteBit(creatorGuid[1]);
+                        data.WriteBit(creatorGuid[4]);
+                        data.WriteBit(creatorGuid[6]);
+                        data.WriteBit(creatorGuid[2]);
+                        data.WriteBit(creatorGuid[3]);
+                        data.WriteBit(creatorGuid[5]);
+                        data.WriteBit(item->GetProto()->LockId != 0);
+                        data.WriteBit(creatorGuid[0]);
+                        itemData.WriteByteSeq(creatorGuid[1]);
+
+                        itemData << uint32(0); // Perm enchantment
+                        // Sockets
+                        itemData << uint32(0) << uint32(0) << uint32(0);
+                        itemData << uint32(item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY));
+
+                        itemData.WriteByteSeq(creatorGuid[6]);
+                        itemData.WriteByteSeq(creatorGuid[2]);
+                        itemData.WriteByteSeq(creatorGuid[7]);
+                        itemData.WriteByteSeq(creatorGuid[4]);
+
+                        itemData << uint32(0); // Reforge type
+                        itemData << uint32(item->GetUInt32Value(ITEM_FIELD_DURABILITY));
+                        itemData << uint32(0); // Property id
+                        itemData.WriteByteSeq(creatorGuid[3]);
+                        itemData << uint32(0); // unk7
+                        itemData.WriteByteSeq(creatorGuid[0]);
+                        itemData << uint32(5); // Highest charges
+                        itemData << uint32(0); // Seed
+                        itemData.WriteByteSeq(creatorGuid[5]);
+                    }
+
+                    data.WriteBit(giftCreatorGuid[6]);
+                    data.WriteBit(giftCreatorGuid[4]);
+                    data.WriteBit(giftCreatorGuid[2]);
+                    data.WriteBit(giftCreatorGuid[0]);
+                    data.WriteBit(giftCreatorGuid[5]);
+                    itemData.WriteByteSeq(giftCreatorGuid[6]);
+                    itemData.WriteByteSeq(giftCreatorGuid[1]);
+                    itemData.WriteByteSeq(giftCreatorGuid[7]);
+                    itemData.WriteByteSeq(giftCreatorGuid[4]);
+                    itemData << uint32(item->GetEntry());
+                    itemData.WriteByteSeq(giftCreatorGuid[0]);
+                    itemData << uint32(item->GetStackSize());
+                    itemData.WriteByteSeq(giftCreatorGuid[5]);
+                    itemData << uint8(i);
+                    itemData.WriteByteSeq(giftCreatorGuid[2]);
+                    itemData.WriteByteSeq(giftCreatorGuid[3]);
+                }
+            }
         }
+        data.FlushBits();
+        if(itemData.size())
+            data.append(itemData.contents(), itemData.size());
+    }
+    else
+    {
+        data.Initialize(SMSG_TRADE_STATUS, 20);
+        data.WriteBit(0);
+        data.WriteBits(status, 5);
+        if(status == TRADE_STATUS_BEGIN_TRADE)
+        {
+            if(m_tradeData == NULL)
+                data.WriteBitString(8, 0, 0, 0, 0, 0, 0, 0, 0);
+            else
+            {
+                data.WriteBit(m_tradeData->targetGuid[2]);
+                data.WriteBit(m_tradeData->targetGuid[4]);
+                data.WriteBit(m_tradeData->targetGuid[6]);
+                data.WriteBit(m_tradeData->targetGuid[0]);
+                data.WriteBit(m_tradeData->targetGuid[1]);
+                data.WriteBit(m_tradeData->targetGuid[3]);
+                data.WriteBit(m_tradeData->targetGuid[7]);
+                data.WriteBit(m_tradeData->targetGuid[5]);
+                data.WriteByteSeq(m_tradeData->targetGuid[4]);
+                data.WriteByteSeq(m_tradeData->targetGuid[1]);
+                data.WriteByteSeq(m_tradeData->targetGuid[2]);
+                data.WriteByteSeq(m_tradeData->targetGuid[3]);
+                data.WriteByteSeq(m_tradeData->targetGuid[0]);
+                data.WriteByteSeq(m_tradeData->targetGuid[7]);
+                data.WriteByteSeq(m_tradeData->targetGuid[6]);
+                data.WriteByteSeq(m_tradeData->targetGuid[5]);
+            }
+        }
+        else if(status == TRADE_STATUS_OPEN_WINDOW)
+            data << uint32(0);
+        else if(status == TRADE_STATUS_CLOSE_WINDOW)
+        {
+            data.WriteBit(ourStatus);
+            data << uint32(misc);
+            data << uint32(misc2);
+        }
+        else if(status == TRADE_STATUS_ONLY_CONJURABLE_CROSSREALM || status == TRADE_STATUS_NOT_ON_TAPLIST)
+            data << uint8(misc);
+        else if(status == TRADE_STATUS_CURRENCY_IS_BOUND || status == TRADE_STATUS_TRADING_CURRENCY)
+            data << uint32(misc) << uint32(status == TRADE_STATUS_TRADING_CURRENCY ? misc2 : 0);
+        else data.FlushBits();
     }
 
-    pTarget->GetSession()->SendPacket(&data);
+    if(ourStatus || m_tradeData == NULL)
+        SendPacket(&data);
+    else if(Player *plr = objmgr.GetPlayer(m_tradeData->targetGuid))
+        if(plr->GetInstanceID() == GetInstanceID())
+            plr->SendPacket(&data);
 }
 
 void Player::RequestDuel(Player* pTarget)

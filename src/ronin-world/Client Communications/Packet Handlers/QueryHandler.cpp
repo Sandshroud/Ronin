@@ -81,9 +81,11 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
     {
         data << entry;
         data << ctrData->Name << uint8(0) << uint8(0) << uint8(0);
+        data << ctrData->Name << uint8(0) << uint8(0) << uint8(0);
         data << ctrData->SubName;
         data << ctrData->InfoStr;
         data << ctrData->Flags;
+        data << uint32(0);
         data << ctrData->Type;
         data << ctrData->Family;
         data << ctrData->Rank;
@@ -96,12 +98,24 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
         data << ctrData->HealthMod;
         data << ctrData->PowerMod;
         data << ctrData->Leader;
-        ObjectQuestLoot* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry);
-        for(uint32 i = 0; i < 6; i++)
-            data << uint32(objQuestLoot ? objQuestLoot->QuestLoot[i] : 0); // QuestItems
+        uint8 index = 0;
+        std::vector<uint32>* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry);
+        for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+        {
+            data << (*itr);
+            if(++index == 6)
+                break;
+        }
+        for(uint8 i = index; i < 6; i++)
+            data << uint32(0);
         data << uint32(0);  // CreatureMovementInfo.dbc
         data << uint32(0);
         SendPacket( &data );
+    }
+    else
+    {
+        data << uint32(entry | 0x80000000);
+        SendPacket(&data);
     }
 }
 
@@ -129,12 +143,19 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     data << goinfo->Icon;
     data << goinfo->CastBarText;
     data << uint8(0);
-    for(uint32 d = 0; d < 24; d++)
+    for(uint32 d = 0; d < 32; d++)
         data << goinfo->RawData.ListedData[d];
     data << float(1.f);
-    ObjectQuestLoot* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID);
-    for(uint32 i = 0; i < 6; i++)
-        data << uint32(objQuestLoot ? objQuestLoot->QuestLoot[i] : 0); // QuestItems
+    uint8 index = 0;
+    std::vector<uint32>* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID);
+    for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+    {
+        data << (*itr);
+        if(++index == 6)
+            break;
+    }
+    for(uint8 i = index; i < 6; i++)
+        data << uint32(0);
     data << uint32(0);
     SendPacket( &data );
 }

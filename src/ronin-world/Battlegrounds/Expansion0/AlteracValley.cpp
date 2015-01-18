@@ -1075,24 +1075,20 @@ void AlteracValley::HookGenerateLoot(Player* plr, Corpse* pCorpse)
                 if( ItemPrototype *pProto = sItemMgr.LookupEntry(loot_ptr->ItemId) )
                 {
                     __LootItem li;
-                    li.ffa_loot = 0;
-                    li.item.displayid = pProto->DisplayInfoID;
-                    li.item.itemproto = pProto;
+                    li.roll = NULL;
+                    li.proto = pProto;
                     if( loot_ptr->MinCount != loot_ptr->MaxCount )
                         li.StackSize = loot_ptr->MinCount+RandomUInt(loot_ptr->MaxCount - loot_ptr->MinCount);
                     else li.StackSize = loot_ptr->MaxCount;
-
-                    li.iRandomProperty = NULL;
-                    li.iRandomSuffix = NULL;
-                    li.passed = false;
-                    li.roll = NULL;
+                    li.randProp = li.randSeed = 0;
+                    li.has_looted.clear();
+                    li.all_passed = false;
 
                     // push to vector
                     pCorpse->GetLoot()->items.push_back(li);
                 }
             }
         }
-
         ++loot_ptr;
     }
 

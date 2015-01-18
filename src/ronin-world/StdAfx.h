@@ -145,7 +145,6 @@ extern "C" {
 #include "ItemManager.h"
 #include "Skill.h"
 #include "Item.h"
-#include "Container.h"
 #include "AuctionHouse.h"
 #include "AuctionMgr.h"
 #include "LfgMgr.h"
