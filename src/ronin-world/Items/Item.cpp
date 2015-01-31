@@ -47,13 +47,16 @@ void Item::Initialize(Player *owner)
         SetUInt64Value(ITEM_FIELD_GIFTCREATOR, _itemData->giftData->giftCreator);
     }
 
-    if(_itemData->chargeData)
+    for(uint8 i = 0; i < 5; i++)
     {
-        for(uint8 i = 0; i < 5; i++)
+        if(_itemData->proto->Spells[i].Charges == 0)
+            continue;
+        if(_itemData->proto->Spells[i].Charges == -1)
         {
-            if(uint32 charges = _itemData->chargeData->spellCharges[i])
-                SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, charges);
+            SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, -1);
+            continue;
         }
+        SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, _itemData->itemSpellCharges);
     }
 
     for(uint8 i = 0; i < 10; i++)

@@ -706,27 +706,27 @@ void Aura::EventRelocateRandomTarget()
 
     // Ok, let's do it. :D
     std::set<Unit* > enemies;
-
-    std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin();
-    for(; itr != m_caster->GetInRangeSetEnd(); itr++)
+    
+    WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin();
+    for(; itr != m_caster->GetInRangeMapEnd(); itr++)
     {
-        if( !(*itr)->IsUnit() )
+        if( !itr->second->IsUnit() )
             continue;
 
-        if( !sFactionSystem.isHostile( m_caster, *itr ) )
+        if( !sFactionSystem.isHostile( m_caster, itr->second ) )
             continue;
 
         // Too far away or dead, or I can't see him!
-        if( castPtr<Unit>(*itr)->isDead() || m_caster->GetDistance2dSq( *itr ) > 100 || !castPtr<Player>(m_caster)->CanSee(*itr) )
+        if( castPtr<Unit>(itr->second)->isDead() || m_caster->GetDistance2dSq( itr->second ) > 100 || !castPtr<Player>(m_caster)->CanSee(itr->second) )
             continue;
 
         if (m_caster->GetMapMgr() && m_caster->GetMapMgr()->CanUseCollision(m_caster))
         {
-            if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, (*itr)->GetPositionX(), (*itr)->GetPositionY(), (*itr)->GetPositionZ() + 2.0f) )
+            if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, itr->second->GetPositionX(), itr->second->GetPositionY(), itr->second->GetPositionZ() + 2.0f) )
                 continue;
         }
 
-        enemies.insert( castPtr<Unit>(*itr) );
+        enemies.insert( castPtr<Unit>(itr->second) );
     }
 
     // Can't do anything w/o a target

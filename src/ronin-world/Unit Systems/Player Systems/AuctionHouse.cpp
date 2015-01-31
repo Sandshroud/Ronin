@@ -229,9 +229,8 @@ void Auction::AddToPacket(WorldPacket & data)
 
     for (uint32 i = 0; i < 6; i++)
     {
-        data << pItem->GetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + (3 * i));   // Enchantment ID
-        data << uint32(pItem->GetEnchantmentApplytime(i));                       // Unknown / maybe ApplyTime
-        data << pItem->GetUInt32Value(ITEM_FIELD_SPELL_CHARGES + i);       // Charges
+        data << pItem->GetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + (3 * i)); // Enchantment ID
+        data << uint32(0) << uint32(0); // Unknown / maybe ApplyTime
     }
 
     data << pItem->GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID);      // -ItemRandomSuffix / random property  : If the value is negative its ItemRandomSuffix if its possitive its RandomItemProperty
@@ -468,8 +467,8 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
         return;     // NPC doesnt exist or isnt an auctioneer
 
     // Get item
-    Item* pItem = _player->GetItemInterface()->GetItemByGUID(item);
-    if( !pItem || pItem->IsSoulbound() || pItem->IsAccountbound() || pItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_CONJURED ) )
+    Item* pItem = _player->GetItemInterface()->GetInventoryItem(item);
+    if( !pItem || pItem->isSoulBound() || pItem->isAccountBound() || pItem->HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED) )
     {
         WorldPacket data(SMSG_AUCTION_COMMAND_RESULT, 8);
         data << uint32(0);
@@ -477,7 +476,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
         data << uint32(AUCTION_ERROR_ITEM);
         SendPacket(&data);
         return;
-    };
+    }
 
     AuctionHouse * ah = pCreature->auctionHouse;
 
@@ -494,23 +493,15 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
         return;
     }
 
-    pItem = _player->GetItemInterface()->SafeRemoveAndRetreiveItemByGuid(item, false);
-    if (!pItem){
+    // TODO: AUCTION ITEMS
+    {
         WorldPacket data(SMSG_AUCTION_COMMAND_RESULT, 8);
         data << uint32(0);
         data << uint32(AUCTION_CREATE);
         data << uint32(AUCTION_ERROR_ITEM);
         SendPacket(&data);
         return;
-    };
-
-    if( pItem->IsInWorld() )
-        pItem->RemoveFromWorld(false);
-
-    sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
-    pItem->SetOwner(NULL);
-    pItem->m_isDirty = true;
-    pItem->SaveToDB(INVENTORY_SLOT_NOT_SET, 0, true, NULL);
+    }
 
     // Create auction
     Auction * auct = new Auction;
@@ -686,17 +677,15 @@ void AuctionHouse::LoadAuctions()
         auct = new Auction;
         auct->Id = fields[0].GetUInt32();
 
-        //Field *itemfields = objmgr.GetCachedItem(fields[2].GetUInt32());
-        //Item* pItem = (itemfields == NULL) ? NULL : objmgr.LoadItem(itemfields);
-        Item* pItem = objmgr.LoadItem(fields[2].GetUInt64());
-        if(!pItem)
+        ItemData *pData = sItemMgr.GetItemData(fields[2].GetUInt64());
+        if(pData == NULL)
         {
             printf("Deleting auction for invalid item %u (%u)\n", auct->Id, fields[2].GetUInt32());
             CharacterDatabase.Execute("DELETE FROM auctions WHERE auctionId=%u",auct->Id);
             delete auct;
             continue;
         }
-        auct->pItem = pItem;
+        auct->pItem = pData;
         auct->Owner = fields[3].GetUInt32();
         auct->BuyoutPrice = fields[4].GetUInt32();
         auct->ExpiryTime = fields[5].GetUInt32();
@@ -706,7 +695,7 @@ void AuctionHouse::LoadAuctions()
         auct->DeletedReason = 0;
         auct->Deleted = false;
 
-        auctions.insert( RONIN_UNORDERED_MAP<uint32, Auction*>::value_type( auct->Id, auct ) );
+        auctions.insert( std::make_pair( auct->Id, auct ) );
     } while (result->NextRow());
     delete result;
 }

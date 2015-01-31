@@ -85,7 +85,7 @@ typedef std::map<uint32, MailMessage> MessageMap;
 class SERVER_DECL Mailbox
 {
 private:
-    bool AddMessageToListingPacket(WorldPacket& data, MailMessage *msg);
+    uint8 AddMessageToListingPacket(WorldPacket& data, MailMessage *msg);
     bool AddMessageToTimePacket(WorldPacket& data, MailMessage *msg);
 protected:
     uint64 owner;

@@ -47,7 +47,7 @@ struct Auction
     uint32 DepositAmount;
 
     uint32 ExpiryTime;
-    Item* pItem;
+    ItemData* pItem;
 
     void DeleteFromDB();
     void SaveToDB(uint32 AuctionHouseId);

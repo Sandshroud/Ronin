@@ -131,7 +131,7 @@ struct GuildBankTab
     std::string szTabName;
     std::string szTabIcon;
     std::string szTabInfo;
-    Item *pSlots[MAX_GUILD_BANK_SLOTS];
+    ItemData *pSlots[MAX_GUILD_BANK_SLOTS];
 };
 
 struct GuildBankTabStorage
@@ -449,7 +449,8 @@ public: // Direct Packet Handlers
 
     void Packet_SendAvailableBankFunds(WorldSession* m_session);
     void Packet_BuyBankTab(WorldSession* m_session, uint64 BankGuid);
-    void Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, int32 updated_slot1 = -1, int32 updated_slot2 = -1);
+    void Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, bool withTabInfo);
+    void Packet_SendGuildBankTabUpdate(WorldSession* m_session, uint8 TabSlot, std::set<uint8> slots);
     void Packet_SendGuildBankInfo(WorldSession* m_session, uint64 BankGuid);
     void Packet_DepositMoney(WorldSession* m_session, uint64 BankGuid, uint32 Amount);
     void Packet_WithdrawMoney(WorldSession* m_session, uint64 BankGuid, uint32 Amount);

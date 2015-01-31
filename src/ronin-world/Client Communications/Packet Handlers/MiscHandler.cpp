@@ -238,7 +238,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     case HIGHGUID_TYPE_ITEM:
         {
             // if we have no items left, destroy the item.
-            if( Item* pItem = _player->GetItemInterface()->GetInventoryItemByGuid(guid) )
+            if( Item* pItem = _player->GetItemInterface()->GetInventoryItem(guid) )
             {
                 if( !pItem->GetLoot()->HasItems(_player) )
                     _player->GetItemInterface()->DeleteItem(pItem);
@@ -1025,7 +1025,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     SlotResult slotresult;
 
     Creature* pCreature = NULL;
-    Loot *pLoot = NULL;
+    ObjectLoot *pLoot = NULL;
     /* struct:
     {CLIENT} Packet: (0x02A3) CMSG_LOOT_MASTER_GIVE PacketSize = 17
     |------------------------------------------------|----------------|
@@ -1072,82 +1072,20 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
         return;
     }
 
-    uint32 ffatype = pLoot->items.at(slotid).ffa_loot;
-    if (ffatype != 2)
+    if (pLoot->items.at(slotid).has_looted.size())
     {
-        if (pLoot->items.at(slotid).has_looted.size())
-        {
-            GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
-            return;
-        }
-    }
-    else
-    {
-        //make sure this player can still loot it in case of ffa_loot
-        LooterSet::iterator itr = pLoot->items.at(slotid).has_looted.find(player->GetLowGUID());
-
-        if (itr != pLoot->items.at(slotid).has_looted.end())
-        {
-            GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
-            return;
-        }
-    }
-
-    itemid = pLoot->items.at(slotid).item.itemproto->ItemId;
-    ItemPrototype* it = pLoot->items.at(slotid).item.itemproto;
-
-    if(error = player->GetItemInterface()->CanReceiveItem(it, 1, 0))
-    {
-        _player->GetItemInterface()->BuildInvError(NULL, NULL, error);
+        GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
         return;
     }
 
-    if(pCreature)
-        CALL_SCRIPT_EVENT(pCreature, OnLootTaken)(player, it);
-
-    slotresult = player->GetItemInterface()->FindFreeInventorySlot(it);
-    if(!slotresult.Result)
-    {
-        GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-        return;
-    }
-
-    Item* item = objmgr.CreateItem( itemid, player);
-
-    item->SetUInt32Value(ITEM_FIELD_STACK_COUNT,amt);
-    if(pLoot->items.at(slotid).iRandomProperty!=NULL)
-    {
-        item->SetRandomProperty(pLoot->items.at(slotid).iRandomProperty->ID);
-        item->ApplyRandomProperties(false);
-    }
-    else if(pLoot->items.at(slotid).iRandomSuffix != NULL)
-    {
-        item->SetRandomSuffix(pLoot->items.at(slotid).iRandomSuffix->id);
-        item->ApplyRandomProperties(false);
-    }
-
-    if( player->GetItemInterface()->SafeAddItem(item,slotresult.ContainerSlot, slotresult.Slot) )
-    {
-        player->GetSession()->SendItemPushResult(item,false,true,true,true,slotresult.ContainerSlot,slotresult.Slot,1);
-        sQuestMgr.OnPlayerItemPickup(player, item, amt);
-    } else item->Destruct();
-
-    pLoot->items.at(slotid).has_looted.insert(player->GetLowGUID());
+    //TODO:LOOT
 
     // this gets sent to all looters
-    if(ffatype == 0)
-    {
-        // this gets sent to all looters
-        WorldPacket data(1);
-        data.SetOpcode(SMSG_LOOT_REMOVED);
-        data << slotid;
-        Player* plr;
-        for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-        {
-            if((plr = _player->GetMapMgr()->GetPlayer(*itr)))
-                plr->GetSession()->SendPacket(&data);
-        }
-    }
+    WorldPacket data(SMSG_LOOT_REMOVED, 1);
+    data << slotid;
+    for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
+        if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
+            plr->GetSession()->SendPacket(&data);
 }
 
 void WorldSession::HandleLootRollOpcode(WorldPacket& recv_data)
@@ -1159,7 +1097,7 @@ void WorldSession::HandleLootRollOpcode(WorldPacket& recv_data)
     uint8 choice;
     recv_data >> creatureguid >> slotid >> choice;
 
-    Loot *loot = NULL;
+    ObjectLoot *loot = NULL;
     if(WorldObject * wObj = _player->GetMapMgr()->_GetObject(creatureguid))
         if(!wObj->IsGameObject() || castPtr<GameObject>(wObj)->GetInfo()->Type == GAMEOBJECT_TYPE_CHEST)
             loot = wObj->GetLoot();
@@ -1176,78 +1114,7 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    int8 slot, containerslot;
-    recv_data >> containerslot >> slot;
-    Item* pItem = _player->GetItemInterface()->GetInventoryItem(containerslot, slot);
-    if(!pItem)
-        return;
-
-    // gift wrapping handler
-    if(pItem->GetUInt32Value(ITEM_FIELD_GIFTCREATOR) && pItem->wrapped_item_id)
-    {
-        ItemPrototype * it = sItemMgr.LookupEntry(pItem->wrapped_item_id);
-        if(it == NULL)
-            return;
-
-        pItem->SetUInt32Value(ITEM_FIELD_GIFTCREATOR,0);
-        pItem->SetUInt32Value(OBJECT_FIELD_ENTRY,pItem->wrapped_item_id);
-        pItem->wrapped_item_id = 0;
-        pItem->SetProto(it);
-        pItem->Bind(ITEM_BIND_ON_PICKUP);
-        if(it->MaxDurability)
-        {
-            pItem->SetUInt32Value(ITEM_FIELD_DURABILITY,it->MaxDurability);
-            pItem->SetUInt32Value(ITEM_FIELD_MAXDURABILITY,it->MaxDurability);
-        }
-
-        pItem->m_isDirty=true;
-        pItem->SaveToDB(containerslot,slot, false, NULL);
-        return;
-    }
-
-    uint32 removeLockItems[8] = {0,0,0,0,0,0,0,0};
-    if(LockEntry *lock = dbcLock.LookupEntry( pItem->GetProto()->LockId )) // locked item
-    {
-        for(int8 i=0; i<8;++i)
-        {
-            if(lock->locktype[i] == 1 && lock->lockmisc[i] > 0)
-            {
-                int8 slot = _player->GetItemInterface()->GetInventorySlotById(lock->lockmisc[i]);
-                if(slot != ITEM_NO_SLOT_AVAILABLE && slot >= INVENTORY_SLOT_ITEM_START && slot < INVENTORY_SLOT_ITEM_END)
-                {
-                    removeLockItems[i] = lock->lockmisc[i];
-                }
-                else
-                {
-                    _player->GetItemInterface()->BuildInventoryChangeError(pItem,NULL,INV_ERR_ITEM_LOCKED);
-                    return;
-                }
-            }
-            else if(lock->locktype[i] == 2 && pItem->m_locked)
-            {
-                _player->GetItemInterface()->BuildInventoryChangeError(pItem,NULL,INV_ERR_ITEM_LOCKED);
-                return;
-            }
-        }
-
-        for(int8 j=0; j<8;++j)
-        {
-            if(removeLockItems[j])
-                _player->GetItemInterface()->RemoveItemAmt(removeLockItems[j],1);
-        }
-    }
-
-    // fill loot
-    _player->SetLootGUID(pItem->GetGUID());
-    if( !pItem->IsLooted() )
-    {
-        // delete item from database, so we can't cheat
-        pItem->DeleteFromDB();
-        lootmgr.FillItemLoot(pItem->GetLoot(), pItem->GetEntry(), _player->GetTeam());
-        pItem->SetLooted();
-    }
-
-    _player->SendLoot(pItem->GetGUID(), _player->GetMapId(), LOOT_CORPSE);
+    //TODO:LOOT
 }
 
 void WorldSession::HandleMountSpecialAnimOpcode(WorldPacket &recvdata)
@@ -1767,7 +1634,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
             return AREA_TRIGGER_FAILURE_NO_ATTUNE_Q;
 
         //Do we need certain items?
-        if( pMapInfo->required_item && !pPlayer->GetItemInterface()->GetItemCount(pMapInfo->required_item, true))
+        if( pMapInfo->required_item && !pPlayer->GetItemInterface()->GetItemCount(pMapInfo->required_item))
             return AREA_TRIGGER_FAILURE_NO_ATTUNE_I;
 
         //Do we need to be in a group?
@@ -1798,7 +1665,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
 
                 //and we might need a key too.
                 bool reqkey = (pMapInfo->heroic_key[0]||pMapInfo->heroic_key[1])?true:false;
-                bool haskey = (pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[0], false) || pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[1], false))?true:false;
+                bool haskey = (pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[0]) || pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[1])) ? true : false;
                 if(reqkey && !haskey)
                     return AREA_TRIGGER_FAILURE_NO_KEY;
             }

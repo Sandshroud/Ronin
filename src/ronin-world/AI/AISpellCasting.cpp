@@ -294,38 +294,18 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
 {
     //Build potential target list
     std::set<Unit*> TargetSet;
-    if ( pTargetFilter & TargetFilter_Friendly )
+    for ( WorldObject::InRangeMap::iterator ObjectIter = m_Unit->GetInRangeMapBegin(); ObjectIter != m_Unit->GetInRangeMapEnd(); ++ObjectIter )
     {
-        for ( WorldObject::InRangeSet::iterator ObjectIter = m_Unit->GetInRangeSetBegin(); ObjectIter != m_Unit->GetInRangeSetEnd(); ++ObjectIter )
+        if( IsValidUnitTarget(ObjectIter->second, info, pTargetFilter, pMinRange, pMaxRange) )
         {
-            if( IsValidUnitTarget(*ObjectIter, info, pTargetFilter, pMinRange, pMaxRange) )
-            {
-                if(pTargetFilter & TargetFilter_ManaClass)
-                {
-                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
-                } else TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
-            }
-        }
-
-        if ( IsValidUnitTarget( m_Unit, info, pTargetFilter ) )
-            TargetSet.insert( m_Unit ); //Also add self as possible friendly target
-    }
-    else
-    {
-        for ( WorldObject::InRangeUnitSet::iterator ObjectIter = m_Unit->GetInRangeOppFactsSetBegin(); ObjectIter != m_Unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
-        {
-            if( IsValidUnitTarget(*ObjectIter, info, pTargetFilter, pMinRange, pMaxRange) )
-            {
-                if(pTargetFilter & TargetFilter_ManaClass)
-                {
-                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
-                } else TargetSet.insert( castPtr<Unit>( *ObjectIter ) );
-            }
+            if(pTargetFilter & TargetFilter_ManaClass && castPtr<Unit>(ObjectIter->second)->getPowerType() != POWER_TYPE_MANA)
+                continue;
+            TargetSet.insert( castPtr<Unit>( ObjectIter->second ) );
         }
     }
 
+    if ( pTargetFilter & TargetFilter_Friendly && IsValidUnitTarget( m_Unit, info, pTargetFilter ) )
+        TargetSet.insert( m_Unit ); //Also add self as possible friendly target
     return ChooseBestTargetInSet( TargetSet, pTargetFilter );
 }
 

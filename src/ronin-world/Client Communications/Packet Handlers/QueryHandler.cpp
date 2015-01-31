@@ -411,16 +411,14 @@ void WorldSession::HandleInrangeQuestgiverQuery(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WorldPacket data(SMSG_QUESTGIVER_STATUS_MULTIPLE, 1000);
-    WorldObject::InRangeSet::iterator itr;
-    Creature* pCreature;
     uint32 count = 0;
     data << count;
-    for( itr = _player->m_objectsInRange.begin(); itr != _player->m_objectsInRange.end(); itr++ )
+    for(WorldObject::InRangeUnitSet::iterator itr = _player->GetInRangeUnitSetBegin(); itr != _player->GetInRangeUnitSetEnd(); itr++ )
     {
-        pCreature = castPtr<Creature>(*itr);
-        if( pCreature->GetTypeId() != TYPEID_UNIT )
+        if( (*itr)->GetTypeId() != TYPEID_UNIT )
             continue;
 
+        Creature* pCreature = castPtr<Creature>(*itr);
         if( pCreature->isQuestGiver() )
         {
             data << pCreature->GetGUID();

@@ -312,6 +312,22 @@ bool Spell::IsInvisibilitySpell()
     return false;
 }
 
+bool Spell::CanEffectTargetGameObjects(uint32 i)
+{
+    switch(m_spellInfo->Effect[i])
+    {
+    case SPELL_EFFECT_DUMMY:
+    case SPELL_EFFECT_OPEN_LOCK:
+    case SPELL_EFFECT_OPEN_LOCK_ITEM:
+    case SPELL_EFFECT_ACTIVATE_OBJECT:
+    case SPELL_EFFECT_WMO_DAMAGE:
+    case SPELL_EFFECT_WMO_REPAIR:
+    case SPELL_EFFECT_WMO_CHANGE:
+        return true;
+    }
+    return false;
+}
+
 void Spell::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint32 ind, uint32 specification )
 {
     FillSpecifiedTargetsInArea( ind, srcx, srcy, srcz, GetRadius(ind), specification );
@@ -320,71 +336,42 @@ void Spell::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint
 // for the moment we do invisible targets
 void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification)
 {
-    //TargetsList *tmpMap=&m_targetUnits[i];
-    //InStealth()
     float r = range * range;
-    //uint8 did_hit_result;
-    for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    Unit *caster = u_caster;
+    if(g_caster && g_caster->m_summoner)
+        caster = g_caster->m_summoner;
+    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
-        // don't add objects that are units and dead
-        if( (*itr)->IsUnit() && !(castPtr<Unit>( *itr )->isAlive()))
+        if(itr->second->IsUnit())
+        {
+            if(!castPtr<Unit>(itr->second)->isAlive())
+                continue;
+            if(GetSpellProto()->TargetCreatureType)
+            {
+                Unit* Target = castPtr<Unit>(itr->second);
+                if(uint32 creatureType = Target->GetCreatureType())
+                {
+                    if(((1<<(creatureType-1)) & GetSpellProto()->TargetCreatureType) == 0)
+                        continue;
+                } else continue;
+            }
+        } else if(itr->second->IsGameObject() && !CanEffectTargetGameObjects(i))
             continue;
 
-        //castPtr<Unit>(*itr)->InStealth()
-        if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
-        {
-            Unit* Target = castPtr<Unit>((*itr));
-            if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
-                continue;
-        }
+        if(!IsInrange(srcx, srcy, srcz, itr->second, r))
+            continue;
 
-        if(IsInrange(srcx,srcy,srcz,(*itr),r))
+        if(caster && itr->second->IsUnit() )
         {
-            if( v_caster != NULL ) // Vehicles can destroy gameobjects
-            {
-                if( (*itr)->IsUnit() )
-                {
-                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                    {
-                        _AddTarget((castPtr<Unit>(*itr)), i);
-                    }
-                }
-                else if((*itr)->IsGameObject())
-                {
-                    _AddTargetForced((*itr), i);
-                }
-            }
-            else if( u_caster != NULL )
-            {
-                if( (*itr)->IsUnit() )
-                {
-                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                    {
-                        _AddTarget((castPtr<Unit>(*itr)), i);
-                    }
-                }
-            }
-            else //cast from GO
-            {
-                if(g_caster && g_caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
-                {
-                    if((*itr)->IsUnit())
-                    {   //trap, check not to attack owner and friendly
-                        if(sFactionSystem.isAttackable(g_caster->m_summoner,castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                            _AddTarget((castPtr<Unit>(*itr)), i);
-                    }
-                }
-                else
-                    _AddTargetForced((*itr), i);
-            }
-            if( GetSpellProto()->MaxTargets)
-            {
-                if( m_hitTargetCount >= GetSpellProto()->MaxTargets )
-                    return;
-            }
-        }
+            if( sFactionSystem.isAttackable(caster, castPtr<Unit>(itr->second), !GetSpellProto()->isSpellStealthTargetCapable()) )
+                _AddTarget(castPtr<Unit>(itr->second), i);
+        } else _AddTargetForced(itr->second, i);
+
+        if(GetSpellProto()->MaxTargets && m_hitTargetCount >= GetSpellProto()->MaxTargets)
+            break;
     }
 }
+
 void Spell::FillAllTargetsInArea(LocationVector & location,uint32 ind)
 {
     FillAllTargetsInArea(ind,location.x,location.y,location.z,GetRadius(ind));
@@ -398,98 +385,69 @@ void Spell::FillAllTargetsInArea(float srcx,float srcy,float srcz,uint32 ind)
 /// We fill all the targets in the area, including the stealth ed one's
 void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, bool includegameobjects)
 {
-    //TargetsList *tmpMap=&m_targetUnits[i];
     float r = range*range;
     uint32 placeholder = 0;
     std::vector<WorldObject*> ChainTargetContainer;
-
-    for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    Unit *caster = u_caster;
+    if(g_caster && g_caster->m_summoner)
+        caster = g_caster->m_summoner;
+    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
-        // don't add objects that are units and dead
-        if( (*itr)->IsUnit() && (!(castPtr<Unit>( *itr )->isAlive())))
+        if(itr->second->IsUnit())
+        {
+            if(!castPtr<Unit>(itr->second)->isAlive())
+                continue;
+            if(GetSpellProto()->TargetCreatureType)
+            {
+                Unit* Target = castPtr<Unit>(itr->second);
+                if(uint32 creatureType = Target->GetCreatureType())
+                {
+                    if(((1<<(creatureType-1)) & GetSpellProto()->TargetCreatureType) == 0)
+                        continue;
+                } else continue;
+            }
+        } else if(itr->second->IsGameObject() && !CanEffectTargetGameObjects(i))
             continue;
 
-        if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
-        {
-            Unit* Target = castPtr<Unit>((*itr));
-            if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
-                continue;
-        }
+        if(!IsInrange(srcx, srcy, srcz, itr->second, r))
+            continue;
 
-        if(IsInrange(srcx,srcy,srcz,(*itr),r))
+        if(caster && itr->second->IsUnit() )
         {
-            if( includegameobjects )
+            if( sFactionSystem.isAttackable(caster, castPtr<Unit>(itr->second), !GetSpellProto()->isSpellStealthTargetCapable()) )
             {
-                if( (*itr)->IsUnit() )
-                {
-                    if( sFactionSystem.isAttackable( m_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                    {
-                        ChainTargetContainer.push_back(*itr);
-                        placeholder++;
-                    }
-                }
-                else if((*itr)->IsGameObject())
-                {
-                    ChainTargetContainer.push_back(*itr);
-                    placeholder++;
-                }
+                ChainTargetContainer.push_back(itr->second);
+                placeholder++;
             }
-            else if( u_caster != NULL )
-            {
-                if( (*itr)->IsUnit() )
-                {
-                    if( sFactionSystem.isAttackable( u_caster, castPtr<Unit>( *itr ),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                    {
-                        ChainTargetContainer.push_back(*itr);
-                        placeholder++;
-                    }
-                }
-            }
-            else //cast from GO
-            {
-                if(g_caster && g_caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) && g_caster->m_summoner)
-                {
-                    if((*itr)->IsUnit())
-                    {   //trap, check not to attack owner and friendly
-                        if(sFactionSystem.isAttackable(g_caster->m_summoner,castPtr<Unit>(*itr),!GetSpellProto()->isSpellStealthTargetCapable() ) )
-                        {
-                            ChainTargetContainer.push_back(*itr);
-                            placeholder++;
-                        }
-                    }
-                }
-                else
-                {
-                    ChainTargetContainer.push_back(*itr);
-                    placeholder++;
-                }
-            }
-        }
+        } else ChainTargetContainer.push_back(itr->second);
     }
 
-    int32 MaxTargets = -1;
-    if( GetSpellProto()->MaxTargets)
-        MaxTargets = GetSpellProto()->MaxTargets-1;
-
-    if(MaxTargets != -1)
+    if(GetSpellProto()->MaxTargets)
     {
         WorldObject* chaintarget = NULL;
-        while(MaxTargets && ChainTargetContainer.size())
+        uint32 targetCount = GetSpellProto()->MaxTargets;
+        while(targetCount && ChainTargetContainer.size())
         {
             placeholder = (rand()%ChainTargetContainer.size());
             chaintarget = ChainTargetContainer.at(placeholder);
             if(chaintarget == NULL)
                 continue;
 
-            _AddTargetForced(chaintarget, i);
+            if(chaintarget->IsUnit())
+                _AddTarget(castPtr<Unit>(chaintarget), i);
+            else _AddTargetForced(chaintarget, i);
             ChainTargetContainer.erase(ChainTargetContainer.begin()+placeholder);
-            MaxTargets--;
+            targetCount--;
         }
     }
     else
     {
         for(std::vector<WorldObject*>::iterator itr = ChainTargetContainer.begin(); itr != ChainTargetContainer.end(); itr++)
-            _AddTargetForced((*itr), i);
+        {
+            if((*itr)->IsUnit())
+                _AddTarget(castPtr<Unit>(*itr), i);
+            else _AddTargetForced((*itr), i);
+        }
     }
     ChainTargetContainer.clear();
 }
@@ -4327,8 +4285,7 @@ void Spell::_AddTarget(Unit* target, const uint32 effectid)
     // add counter
     if( tgt.HitResult == SPELL_DID_HIT_SUCCESS )
         ++m_hitTargetCount;
-    else
-        ++m_missTargetCount;
+    else ++m_missTargetCount;
 }
 
 void Spell::_AddTargetForced(const WoWGuid& guid, const uint32 effectid)

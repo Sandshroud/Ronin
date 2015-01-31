@@ -364,13 +364,11 @@ void WorldSession::HandleGuildBankOpenVault(WorldPacket & recv_data)
 void WorldSession::HandleGuildBankViewTab(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    uint64 guid;
-    uint8 tabid;
-    recv_data >> guid;
-    recv_data >> tabid;
-    recv_data.read_skip<uint8>();
+    WoWGuid guid;
+    uint8 tabid, fullTabs;
+    recv_data >> guid >> tabid >> fullTabs;
 
-    guildmgr.Packet_SendGuildBankTab(this, tabid);
+    guildmgr.Packet_SendGuildBankTab(this, tabid, false);
 }
 
 void WorldSession::HandleGuildBankViewLog(WorldPacket & recv_data)

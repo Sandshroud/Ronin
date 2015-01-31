@@ -196,8 +196,7 @@ void MapMgr::PushObject(WorldObject* obj)
             sLog.Debug("MapMgr","Could not get a valid session for player while trying to push to world");
             return;
         }
-    }
-    else obj->ClearInRangeSet();
+    } else obj->ClearInRangeSet();
 
     ///////////////////////
     // Get cell coordinates
@@ -205,7 +204,7 @@ void MapMgr::PushObject(WorldObject* obj)
 
     ASSERT(obj->GetMapId() == _mapId);
 
-    ASSERT(obj->GetPositionY() < _maxY && obj->GetPositionY() > _minY);
+    ASSERT(obj->GetPositionZ() < _maxY && obj->GetPositionZ() > _minY);
     ASSERT(_cells);
 
     float mx = obj->GetPositionX();
@@ -236,7 +235,7 @@ void MapMgr::PushObject(WorldObject* obj)
         }
         else
         {
-            obj->GetPositionV()->ChangeCoords(0,0,0,0);
+            obj->GetPositionV()->ChangeCoords(0.f,0.f,0.f,0.f);
         }
 
         cx = GetPosX(obj->GetPositionX());
@@ -244,14 +243,12 @@ void MapMgr::PushObject(WorldObject* obj)
     }
 
     MapCell *objCell = GetCell(cx,cy);
-    if (!objCell) // Should never fail to create but...
-        if((objCell = Create(cx,cy)) != NULL)
-            objCell->Init(cx, cy, _mapId, this);
+    if (objCell == NULL && (objCell = Create(cx,cy)) != NULL) // Should never fail to create but...
+        objCell->Init(cx, cy, _mapId, this);
     ASSERT(objCell);
 
     uint32 count = 0, endX = (cx <= _sizeX) ? cx + 1 : (_sizeX-1), endY = (cy <= _sizeY) ? cy + 1 : (_sizeY-1);
     uint32 startX = cx > 0 ? cx - 1 : 0, startY = cy > 0 ? cy - 1 : 0;
-
     if(plObj)
     {
         sLog.Debug("MapMgr","Creating player "I64FMT" for himself.", obj->GetGUID());
@@ -324,6 +321,9 @@ void MapMgr::PushObject(WorldObject* obj)
 
         // Change the instance ID, this will cause it to be removed from the world thread (return value 1)
         plObj->GetSession()->SetInstance(GetInstanceID());
+
+        // Update our player's zone
+        plObj->UpdateAreaInfo(this);
 
         /* Add the zone wide objects */
         if(m_zoneRangelessObjects[plObj->GetZoneId()].size())
@@ -451,18 +451,17 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
     }
 
     // Remove object from all objects 'seeing' him
-    for (WorldObject::InRangeSet::iterator iter = obj->GetInRangeSetBegin(); iter != obj->GetInRangeSetEnd(); iter++)
+    for (WorldObject::InRangeMap::iterator iter = obj->GetInRangeMapBegin(); iter != obj->GetInRangeMapEnd(); iter++)
     {
-        if( (*iter) )
+        assert(iter->second);
+        if(iter->second->IsPlayer())
         {
-            if( (*iter)->IsPlayer() )
-            {
-                if( castPtr<Player>( *iter )->IsVisible( obj ) && castPtr<Player>( *iter )->GetTransportGuid() != obj->GetGUID())
-                    castPtr<Player>( *iter )->PushOutOfRange(obj->GetGUID());
-                obj->DestroyForPlayer(castPtr<Player>( *iter ), obj->IsGameObject());
-            }
-            (*iter)->RemoveInRangeObject(obj);
+            Player *plr = castPtr<Player>(iter->second);
+            if( plr->IsVisible( obj ) && plr->GetTransportGuid() != obj->GetGUID())
+                plr->PushOutOfRange(obj->GetGUID());
+            obj->DestroyForPlayer(plr, obj->IsGameObject());
         }
+        iter->second->RemoveInRangeObject(obj);
     }
 
     // Clear object's in-range set
@@ -526,21 +525,24 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
     ///////////////////////////////////////
     // Update in-range data for old objects
     ///////////////////////////////////////
-    if(obj->HasInRangeObjects())
+    if(obj->HasInRangeObjects() && m_rangelessObjects.find(obj) == m_rangelessObjects.end())
     {
-        for (WorldObject::InRangeSet::iterator iter = obj->GetInRangeSetBegin(), iter2; iter != obj->GetInRangeSetEnd();)
+        for (WorldObject::InRangeMap::iterator iter = obj->GetInRangeMapBegin(); iter != obj->GetInRangeMapEnd(); iter++)
         {
-            curObj = *iter;
-            iter2 = iter++;
-            if(m_rangelessObjects.find(obj) != m_rangelessObjects.end())
+            curObj = iter->second;
+            if(curObj == obj)
                 continue;
+
+            if(m_rangelessObjects.find(curObj) != m_rangelessObjects.end())
+                continue;
+
             // We cannot remove our current transport from inrange set
             if(obj->IsUnit() && castPtr<Unit>(obj)->GetTransportGuid())
                 if(curObj->GetGUID() == castPtr<Unit>(obj)->GetTransportGuid())
                     continue;
 
             // If we have a update_distance, check if we are in range.
-            if ( curObj != obj && !IsInRange(m_UpdateDistance, obj, curObj))
+            if (!IsInRange(m_UpdateDistance, obj, curObj))
             {
                 if( obj->IsPlayer() )
                     castPtr<Player>(obj)->RemoveIfVisible(curObj);
@@ -549,7 +551,7 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
                     castPtr<Player>( curObj )->RemoveIfVisible(obj);
 
                 curObj->RemoveInRangeObject(obj);
-                obj->RemoveInRangeObject(iter2);
+                obj->RemoveInRangeObject(curObj, &iter);
             }
         }
     }
@@ -674,8 +676,7 @@ void MapMgr::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
     WorldObject* curObj;
     Player* plObj2;
     int count;
-    ObjectSet::iterator iter = cell->Begin();
-    ObjectSet::iterator itr;
+    ObjectSet::iterator iter = cell->Begin(), itr;
     bool cansee, isvisible;
 
     while( iter != cell->End() )
@@ -689,7 +690,7 @@ void MapMgr::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
         // Add if we are not ourself and range == 0 or distance is withing range.
         if ( curObj != obj && IsInRange(m_UpdateDistance, obj, curObj))
         {
-            if( !obj->IsInRangeSet( curObj ) )
+            if( !obj->IsInRangeMap( curObj ) )
             {
                 // WorldObject in range, add to set
                 obj->AddInRangeObject( curObj );
@@ -793,7 +794,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
         // Add if we are not ourself and range == 0 or distance is withing range.
         if ( curObj != obj && IsInRange(m_UpdateDistance, obj, curObj))
         {
-            if( !obj->IsInRangeSet( curObj ) )
+            if( !obj->IsInRangeMap( curObj ) )
             {
                 // WorldObject in range, add to set
                 obj->AddInRangeObject( curObj );

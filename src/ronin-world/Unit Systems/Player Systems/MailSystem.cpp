@@ -164,16 +164,9 @@ WorldPacket * Mailbox::MailboxListingPacket()
 
     for(itr = Messages.begin(); itr != Messages.end(); itr++)
     {
-
-        if(count >= 50)
+        if(uint8 msgCount = AddMessageToListingPacket(*data, &itr->second))
         {
-            ++realcount;
-            continue;
-        }
-
-        if(AddMessageToListingPacket(*data, &itr->second))
-        {
-            ++count;
+            if(msgCount == 2) ++count;
             ++realcount;
         }
     }
@@ -186,33 +179,23 @@ WorldPacket * Mailbox::MailboxListingPacket()
     return data;
 }
 
-bool Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
+uint8 Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
 {
-    uint8 i = 0;
-    uint32 j;
-    size_t pos;
-    std::vector<uint64>::iterator itr;
-    Item* pItem;
-
     // add stuff
     if(msg->deleted_flag || msg->Expired() || (uint32)UNIXTIME < msg->delivery_time)
-        return false;
+        return 0;
 
-    uint8 guidsize;
-    if( msg->message_type )
-        guidsize = 4;
-    else
-        guidsize = 8;
-
+    uint8 guidsize = msg->message_type ? 4 : 8;
     size_t msize = 2 + 4 + 1 + guidsize + 7 * 4 + ( msg->subject.size() + 1 ) + ( msg->body.size() + 1 ) + 1 + ( msg->items.size() * ( 1 + 2*4 + 7 * ( 3*4 ) + 6*4 + 1 ) );
+    if(data.wpos()+msize >= 0x7FFF)
+        return 1;
 
     data << uint16(msize);
     data << msg->message_id;
     data << uint8(msg->message_type);
     if(msg->message_type)
         data << uint32(msg->sender_guid);
-    else
-        data << msg->sender_guid;
+    else data << msg->sender_guid;
 
     data << msg->cod;
     data << uint32(0);
@@ -223,45 +206,47 @@ bool Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
     data << uint32( 0 );    // mail template
     data << msg->subject;
     data << msg->body; // subjectbody
-    pos = data.wpos();
+    size_t pos = data.wpos();
     data << uint8(0);       // item count
 
     if( !msg->items.empty( ) )
     {
+        uint8 count;
+        std::vector<uint64>::iterator itr;
         for( itr = msg->items.begin( ); itr != msg->items.end( ); itr++ )
         {
-            pItem = objmgr.LoadItem( *itr );
-            if( pItem == NULL )
+            ItemData *item = sItemMgr.GetItemData(*itr);
+            if( item == NULL )
                 continue;
 
-            data << uint8(i++);
-            data << pItem->GetLowGUID();
-            data << pItem->GetEntry();
+            data << uint8(count++);
+            data << item->itemGuid.getLow();
+            data << item->itemGuid.getEntry();
 
-            for( j = 0; j < 7; ++j )
+            for( uint8 j = 0; j < 10; ++j )
             {
-                data << pItem->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_1 + ( j * 3 ) );
-                data << pItem->GetUInt32Value( (ITEM_FIELD_ENCHANTMENT_1_1 + 1) + ( j * 3 ) );
-                data << pItem->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_1_3 + ( j * 3 ) );
+                uint32 timeLeft = 0;
+                if(item->enchantData[j] == NULL || (timeLeft = item->enchantData[j]->CalcTimeLeft()) == 0)
+                {
+                    data << uint32(0) << uint32(0) << uint32(0);
+                    continue;
+                }
+
+                data << uint32(item->enchantData[j]->enchantId) << uint32(timeLeft) << uint32(item->enchantData[j]->enchantCharges);
             }
 
-            data << pItem->GetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID );
-            if( ( (int32)pItem->GetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID ) ) < 0 )
-                data << pItem->GetItemRandomSuffixFactor();
-            else
-                data << uint32( 0 );
-
-            data << uint32( pItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT) );
-            data << uint32( pItem->GetChargesLeft() );
-            data << pItem->GetUInt32Value( ITEM_FIELD_MAXDURABILITY );
-            data << pItem->GetUInt32Value( ITEM_FIELD_DURABILITY );
+            data << item->itemRandomProperty;
+            data << item->itemRandomSeed;
+            data << item->itemStackCount;
+            data << item->itemSpellCharges;
+            data << item->proto->MaxDurability;
+            data << item->itemDurability;
             data << uint8(0);
-            pItem->Destruct();
         }
-        data.put< uint8 >( pos, i );
+        data.put< uint8 >( pos, count );
     }
 
-    return true;
+    return 2;
 }
 
 WorldPacket * Mailbox::MailboxTimePacket()

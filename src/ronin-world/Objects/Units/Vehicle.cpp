@@ -34,7 +34,6 @@ void Vehicle::Destruct()
 
 void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
 {
-    DisableAI();
     m_maxPassengers = m_seatSlotMax = 0;
     if((vehicleData = dbcVehicle.LookupEntry((m_vehicleEntry=vehicleEntry))) == NULL)
     {

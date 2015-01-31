@@ -1026,7 +1026,7 @@ enum SpellEffects
     SPELL_EFFECT_ACTIVATE_OBJECT,           //  86
     SPELL_EFFECT_WMO_DAMAGE,                //  87
     SPELL_EFFECT_WMO_REPAIR,                //  88
-    SPELL_EFFECT_CHANGE_WMO,                //  89
+    SPELL_EFFECT_WMO_CHANGE,                //  89
     SPELL_EFFECT_KILL_CREDIT,               //  90
     SPELL_EFFECT_THREAT_ALL,                //  91
     SPELL_EFFECT_ENCHANT_HELD_ITEM,         //  92

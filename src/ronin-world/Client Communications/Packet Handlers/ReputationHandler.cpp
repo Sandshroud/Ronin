@@ -154,7 +154,6 @@ void Player::SetStanding(uint32 Faction, int32 Value)
         if( !AddNewFaction( faction, Value, false ) )
             return;
         itr = m_reputation.find( Faction );
-        UpdateInrangeSetsBasedOnReputation();
         OnModStanding( faction, itr->second );
     }
     else
@@ -163,7 +162,6 @@ void Player::SetStanding(uint32 Faction, int32 Value)
         if ( RankChangedFlat( itr->second->standing, Value ) )
         {
             itr->second->standing = Value;
-            UpdateInrangeSetsBasedOnReputation();
         } else itr->second->standing = Value;
         
         OnModStanding( faction, itr->second );
@@ -204,7 +202,6 @@ void Player::ModStanding(uint32 Faction, int32 Value)
         if (AddNewFaction(faction, 0, true)) 
             return;
         itr = m_reputation.find( Faction );
-        UpdateInrangeSetsBasedOnReputation();
         OnModStanding( faction, itr->second );
     }
     else
@@ -213,8 +210,6 @@ void Player::ModStanding(uint32 Faction, int32 Value)
         int32 modValue = Value + (pctReputationMod > 0 ? Value * pctReputationMod / 100 : 0);
         int32 newValue = oldValue + modValue;
         itr->second->standing = newValue < -42000 ? -42000 : newValue > 42999 ? 42999 : newValue;
-        if (RankChanged(oldValue, modValue)) 
-            UpdateInrangeSetsBasedOnReputation();
         OnModStanding(faction, itr->second);
     }
 }
@@ -234,20 +229,10 @@ void Player::SetAtWar(uint32 Faction, bool Set)
     if(rep->flag & 0x4 || rep->flag & 16 )
         return;
 
-    if(Set)
-    {
-        if(!AtWar(rep->flag))
-            SetFlagAtWar(rep->flag);
-
-        UpdateInrangeSetsBasedOnReputation();
-    }
-    else
-    {
-        if(AtWar(rep->flag))
-            UnsetFlagAtWar(rep->flag);
-
-        UpdateInrangeSetsBasedOnReputation();
-    }
+    if(Set && !AtWar(rep->flag))
+        SetFlagAtWar(rep->flag);
+    else if(!Set && AtWar(rep->flag))
+        UnsetFlagAtWar(rep->flag);
 }
 
 bool Player::IsAtWar(uint32 factionId)
@@ -277,35 +262,6 @@ void WorldSession::HandleSetAtWarOpcode(WorldPacket& recv_data)
     if(state == 1)
         _player->SetAtWar(id, true);
     else _player->SetAtWar(id, false);
-}
-
-void Player::UpdateInrangeSetsBasedOnReputation()
-{
-    // This function assumes that the opp faction set for player = the opp faction set for the unit.
-    InRangeSet::iterator itr;
-    Unit* pUnit;
-    bool rep_value;
-    bool enemy_current;
-    for( itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++ )
-    {
-        if( (*itr)->GetTypeId() != TYPEID_UNIT )
-            continue;
-
-        pUnit = castPtr<Unit>( *itr );
-        FactionEntry *faction = pUnit->GetFaction();
-        if(faction == NULL)
-            continue;
-        if(faction->RepListId < 0)
-            continue;
-
-        rep_value = IsAtWar(faction->ID) ||  IsHostileBasedOnReputation( faction );
-        enemy_current = IsInRangeOppFactSet( pUnit );
-
-        if( rep_value && !enemy_current ) // We are now enemies.
-            m_oppFactsInRange.insert( pUnit );
-        else if( !rep_value && enemy_current )
-            m_oppFactsInRange.erase( pUnit );
-    }
 }
 
 void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)

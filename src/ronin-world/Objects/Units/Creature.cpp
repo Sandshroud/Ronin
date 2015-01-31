@@ -40,7 +40,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
-    m_useAI = true; // 0x01
     Skinned = false; // 0x02
     b_has_shield = false; // 0x04
     m_noDeleteAfterDespawn = false; // 0x08
@@ -411,14 +410,6 @@ void Creature::AddToWorld()
     WorldObject::AddToWorld();
 }
 
-void Creature::AddToWorld(MapMgr* pMapMgr)
-{
-    if(!CanAddToWorld())
-        return;
-
-    WorldObject::AddToWorld(pMapMgr);
-}
-
 bool Creature::CanAddToWorld()
 {
     if(_creatureData == NULL)
@@ -480,9 +471,6 @@ void Creature::EnslaveExpire()
     _setFaction();
 
     GetAIInterface()->Init(this, AITYPE_AGRO, MOVEMENTTYPE_NONE);
-
-    // Update InRangeSet
-    UpdateOppFactionSet();
 }
 
 bool Creature::RemoveEnslave()
@@ -500,7 +488,7 @@ void Creature::OnRemoveInRangeObject(WorldObject* pObj)
     if(m_escorter == pObj)
     {
         // we lost our escorter, return to the spawn.
-        m_aiInterface->StopMovement(10000);
+        m_aiInterface.StopMovement(10000);
         DestroyCustomWaypointMap();
         Despawn(1000, 1000);
     }
@@ -640,7 +628,7 @@ void Creature::FormationLinkUp(uint32 SqlId)
     creature = m_mapMgr->GetSqlIdCreature(SqlId);
     if( creature != NULL )
     {
-        m_aiInterface->SetFormationLinkTarget(creature);
+        m_aiInterface.SetFormationLinkTarget(creature);
         haslinkupevent = false;
         event_RemoveEvents(EVENT_CREATURE_FORMATION_LINKUP);
     }
@@ -751,7 +739,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     // set position
     SetPosition( spawn->x, spawn->y, spawn->z, spawn->o);
     m_spawnLocation.ChangeCoords(spawn->x, spawn->y, spawn->z, spawn->o);
-    m_aiInterface->SetWaypointMap(objmgr.GetWayPointMap(spawn->id));
+    m_aiInterface.SetWaypointMap(objmgr.GetWayPointMap(spawn->id));
 
     //use proto faction if spawn faction is unspecified
     m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->factionid ? spawn->factionid : _creatureData->Faction);
@@ -789,27 +777,30 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     // kek
     for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
         if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
-            m_aiInterface->addSpellToList(*itr);
+            m_aiInterface.addSpellToList(*itr);
 
-    m_aiInterface->m_canRangedAttack = false;
-    m_aiInterface->m_canCallForHelp = false;
-    m_aiInterface->m_CallForHelpHealth = 0.0f;
-    m_aiInterface->m_canFlee = false;
-    m_aiInterface->m_FleeHealth = 0.0f;
-    m_aiInterface->m_FleeDuration = 0;
-    m_aiInterface->sendflee_message = false;
-    m_aiInterface->flee_message = "";
+    m_aiInterface.m_canRangedAttack = false;
+    m_aiInterface.m_canCallForHelp = false;
+    m_aiInterface.m_CallForHelpHealth = 0.0f;
+    m_aiInterface.m_canFlee = false;
+    m_aiInterface.m_FleeHealth = 0.0f;
+    m_aiInterface.m_FleeDuration = 0;
+    m_aiInterface.sendflee_message = false;
+    m_aiInterface.flee_message = "";
     if(_extraInfo != NULL)
     {
-        m_aiInterface->m_canRangedAttack = _extraInfo->m_canRangedAttack;
-        m_aiInterface->m_canCallForHelp = _extraInfo->m_canCallForHelp;
-        m_aiInterface->m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
-        m_aiInterface->m_canFlee = _extraInfo->m_canFlee;
-        m_aiInterface->m_FleeHealth = _extraInfo->m_fleeHealth;
-        m_aiInterface->m_FleeDuration = _extraInfo->m_fleeDuration;
-        m_aiInterface->sendflee_message = _extraInfo->sendflee_message;
-        m_aiInterface->flee_message = _extraInfo->flee_message;
+        m_aiInterface.m_canRangedAttack = _extraInfo->m_canRangedAttack;
+        m_aiInterface.m_canCallForHelp = _extraInfo->m_canCallForHelp;
+        m_aiInterface.m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
+        m_aiInterface.m_canFlee = _extraInfo->m_canFlee;
+        m_aiInterface.m_FleeHealth = _extraInfo->m_fleeHealth;
+        m_aiInterface.m_FleeDuration = _extraInfo->m_fleeDuration;
+        m_aiInterface.sendflee_message = _extraInfo->sendflee_message;
+        m_aiInterface.flee_message = _extraInfo->flee_message;
     }
+
+    if(m_aiInterface.m_CallForHelpHealth == 0.0f && _creatureData->Civilian >= 1)
+        m_aiInterface.m_CallForHelpHealth = 100;
 
     //these fields are always 0 in db
     GetAIInterface()->setMoveType(0);
@@ -817,23 +808,12 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
 
     // load formation data
     Formation* form = sFormationMgr.GetFormation(spawn->id);
-    m_aiInterface->SetFormationSQLId( (form == NULL ? 0 : form->fol) );
-    m_aiInterface->SetFormationFollowDistance( (form == NULL ? 0.0f : form->dist) );
-    m_aiInterface->SetFormationFollowAngle( (form == NULL ? 0.0f : form->ang) );
+    m_aiInterface.SetFormationSQLId( (form == NULL ? 0 : form->fol) );
+    m_aiInterface.SetFormationFollowDistance( (form == NULL ? 0.0f : form->dist) );
+    m_aiInterface.SetFormationFollowAngle( (form == NULL ? 0.0f : form->ang) );
 
 //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
-
-
-// PLACE FOR DIRTY FIX BASTARDS
-    // HACK! set call for help on civ health @ 100%
-    if(_creatureData->Civilian >= 1)
-        m_aiInterface->m_CallForHelpHealth = 100;
-
-    //HACK!
-    if(GetUInt32Value(UNIT_FIELD_DISPLAYID) == 17743 || GetUInt32Value(UNIT_FIELD_DISPLAYID) == 20242 || 
-        GetUInt32Value(UNIT_FIELD_DISPLAYID) == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
-        m_useAI = false;
 
     switch(_creatureData->Powertype)
     {
@@ -882,7 +862,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
 
     has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
     has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
-    m_aiInterface->m_isGuard = isGuard(GetEntry());
+    m_aiInterface.m_isGuard = isGuard(GetEntry());
 
     //CanMove (overrules AI)
     if(!GetCanMove())
@@ -1037,22 +1017,22 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
     // kek
     for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
         if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
-            m_aiInterface->addSpellToList(*itr);
+            m_aiInterface.addSpellToList(*itr);
 
-    m_aiInterface->m_canRangedAttack = false;
-    m_aiInterface->m_canCallForHelp = false;
-    m_aiInterface->m_CallForHelpHealth = 0.0f;
-    m_aiInterface->m_canFlee = false;
-    m_aiInterface->m_FleeHealth = 0.0f;
-    m_aiInterface->m_FleeDuration = 0;
+    m_aiInterface.m_canRangedAttack = false;
+    m_aiInterface.m_canCallForHelp = false;
+    m_aiInterface.m_CallForHelpHealth = 0.0f;
+    m_aiInterface.m_canFlee = false;
+    m_aiInterface.m_FleeHealth = 0.0f;
+    m_aiInterface.m_FleeDuration = 0;
     if(_extraInfo != NULL)
     {
-        m_aiInterface->m_canRangedAttack = _extraInfo->m_canRangedAttack;
-        m_aiInterface->m_canCallForHelp = _extraInfo->m_canCallForHelp;
-        m_aiInterface->m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
-        m_aiInterface->m_canFlee = _extraInfo->m_canFlee;
-        m_aiInterface->m_FleeHealth = _extraInfo->m_fleeHealth;
-        m_aiInterface->m_FleeDuration = _extraInfo->m_fleeDuration;
+        m_aiInterface.m_canRangedAttack = _extraInfo->m_canRangedAttack;
+        m_aiInterface.m_canCallForHelp = _extraInfo->m_canCallForHelp;
+        m_aiInterface.m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
+        m_aiInterface.m_canFlee = _extraInfo->m_canFlee;
+        m_aiInterface.m_FleeHealth = _extraInfo->m_fleeHealth;
+        m_aiInterface.m_FleeDuration = _extraInfo->m_fleeDuration;
     }
 
     //these fields are always 0 in db
@@ -1060,22 +1040,15 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
     GetAIInterface()->setMoveRunFlag(0);
 
     // load formation data
-    m_aiInterface->SetFormationSQLId(0);
-    m_aiInterface->SetFormationFollowAngle(0.0f);
-    m_aiInterface->SetFormationFollowDistance(0.0f);
+    m_aiInterface.SetFormationSQLId(0);
+    m_aiInterface.SetFormationFollowAngle(0.0f);
+    m_aiInterface.SetFormationFollowDistance(0.0f);
 
     //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
 
-    // PLACE FOR DIRTY FIX BASTARDS
-    // HACK! set call for help on civ health @ 100%
-    if(m_aiInterface->m_CallForHelpHealth == 0.0f && _creatureData->Civilian >= 1)
-        m_aiInterface->m_CallForHelpHealth = 100;
-
-    //HACK!
-    if(GetUInt32Value(UNIT_FIELD_DISPLAYID) == 17743 || GetUInt32Value(UNIT_FIELD_DISPLAYID) == 20242 ||
-        GetUInt32Value(UNIT_FIELD_DISPLAYID) == 15435 || _creatureData->Family == UNIT_TYPE_MISC)
-        m_useAI = false;
+    if(m_aiInterface.m_CallForHelpHealth == 0.0f && _creatureData->Civilian >= 1)
+        m_aiInterface.m_CallForHelpHealth = 100;
 
     switch(_creatureData->Powertype)
     {
@@ -1124,9 +1097,8 @@ bool Creature::Load(uint32 mode, float x, float y, float z, float o)
 
     has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
     has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
-    m_aiInterface->m_isGuard = isGuard(GetEntry());
+    m_aiInterface.m_isGuard = isGuard(GetEntry());
 
-    m_aiInterface->getMoveFlags();
     //CanMove (overrules AI)
     if(!GetCanMove())
         GetMovementInterface()->setRooted(true);
@@ -1185,10 +1157,10 @@ void Creature::OnPushToWorld()
 
     if(m_spawn)
     {
-        if(m_aiInterface->GetFormationSQLId())
+        if(m_aiInterface.GetFormationSQLId())
         {
             // add event
-            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface->GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface.GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             haslinkupevent = true;
         }
 
@@ -1202,7 +1174,7 @@ void Creature::OnPushToWorld()
         }
     }
 
-    m_aiInterface->m_is_in_instance = (m_mapMgr->GetMapInfo()->type!=INSTANCE_NULL) ? true : false;
+    m_aiInterface.m_is_in_instance = (m_mapMgr->GetMapInfo()->type!=INSTANCE_NULL) ? true : false;
     if (HasItems())
     {
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
@@ -1258,7 +1230,7 @@ void Creature::DestroyCustomWaypointMap()
 {
     if(m_custom_waypoint_map)
     {
-        m_aiInterface->SetWaypointMap(0);
+        m_aiInterface.SetWaypointMap(0);
         for(WayPointMap::iterator itr = m_custom_waypoint_map->begin(); itr != m_custom_waypoint_map->end(); itr++)
             delete (*itr);
         delete m_custom_waypoint_map;

@@ -67,7 +67,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_modlanguage = -1;
     m_modelhalfsize = 1.0f; //worst case unit size. (Should be overwritten)
 
-    m_useAI = false;
     m_invisible = false;
     m_invisFlag = INVIS_FLAG_NORMAL;
 
@@ -170,8 +169,7 @@ void Unit::Init()
 
     m_AuraInterface.Init(this);
 
-    m_aiInterface = new AIInterface();
-    m_aiInterface->Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
+    m_aiInterface.Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
 
     CombatStatus.SetUnit(castPtr<Unit>(this));
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
@@ -185,8 +183,6 @@ void Unit::Destruct()
 
     if (IsInWorld())
         RemoveFromWorld(true);
-
-    delete m_aiInterface;
 
     m_redirectSpellPackets = NULL;
 
@@ -285,8 +281,7 @@ void Unit::Update( uint32 p_time )
             else m_P_regenTimer -= p_time;
         }
 
-        if(m_aiInterface != NULL && m_useAI)
-            m_aiInterface->Update(p_time);
+        m_aiInterface.Update(p_time);
     }
 
     for(std::map<uint8, uint16>::iterator itr = m_diminishTimer.begin(); itr != m_diminishTimer.end();)
@@ -1568,13 +1563,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
         }
 
-        if(it && it->GetProto())
-            SubClassSkill = Item::GetSkillByProto(it->GetProto()->Class,it->GetProto()->SubClass);
-        else
-            SubClassSkill = SKILL_UNARMED;
-
-        if( SubClassSkill == SKILL_FIST_WEAPONS )
-            SubClassSkill = SKILL_UNARMED;
+        SubClassSkill = it ? sItemMgr.GetSkillForItem(it->GetProto()) : SKILL_UNARMED;
 
         //chances in feral form don't depend on weapon skill
         if(castPtr<Player>(this)->IsInFeralForm())
@@ -1925,15 +1914,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             break;
         }
 
-        if(it && it->GetProto())
-        {
-            SubClassSkill = Item::GetSkillByProto(it->GetProto()->Class,it->GetProto()->SubClass);
-            if(SubClassSkill==SKILL_FIST_WEAPONS)
-                SubClassSkill = SKILL_UNARMED;
-        }
-        else
-            SubClassSkill = SKILL_UNARMED;
-
+        SubClassSkill = it ? sItemMgr.GetSkillForItem(it->GetProto()) : SKILL_UNARMED;
 
         //chances in feral form don't depend on weapon skill
         if(pr->IsInFeralForm())
@@ -2637,7 +2618,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
     //--------------------------rage processing-------------------------------------------------
     //http://www.wowwiki.com/Formulas:Rage_generation
 
-    if( dmg.full_damage && IsPlayer() && getPowerType() == POWER_TYPE_RAGE && !ability)
+    if( dmg.full_damage && getPowerType() == POWER_TYPE_RAGE && !ability)
     {
         float level = (float)getLevel();
 
@@ -2651,40 +2632,20 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             f *= 2.0f;
 
         float s = 1.0f;
-
-        // Weapon speed (normal)
-        Item* weapon = ( castPtr<Player>(this)->GetItemInterface())->GetInventoryItem( INVENTORY_SLOT_NOT_SET, ( weapon_damage_type == OFFHAND ? EQUIPMENT_SLOT_OFFHAND : EQUIPMENT_SLOT_MAINHAND ) );
-        if( weapon == NULL )
-        {
-            if( weapon_damage_type == OFFHAND )
-                s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME + 1 ) / 1000.0f;
-            else
-                s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME ) / 1000.0f;
-        }
-        else
-        {
-            uint32 entry = weapon->GetEntry();
-            ItemPrototype* pProto = sItemMgr.LookupEntry( entry );
-            if( pProto != NULL )
-            {
-                s = pProto->Delay / 1000.0f;
-            }
-        }
+        if( weapon_damage_type == OFFHAND )
+            s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME + 1 ) / 1000.0f;
+        else s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME ) / 1000.0f;
 
         float val = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;;
         val *= ( 1 + ( castPtr<Player>(this)->rageFromDamageDealt / 100.0f ) );
         val *= 10;
-
-        //float r = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;
-        //float p = ( 1 + ( castPtr<Player>(this)->rageFromDamageDealt / 100.0f ) );
-        //sLog.outDebug( "Rd(%i) d(%i) c(%f) f(%f) s(%f) p(%f) r(%f) rage = %f", realdamage, dmg.full_damage, c, f, s, p, r, val );
 
         ModPower(POWER_TYPE_RAGE, val);
         SendPowerUpdate();
     }
 
     // I am receiving damage!
-    if( dmg.full_damage && pVictim->IsPlayer() && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->CombatStatus.IsInCombat() )
+    if( dmg.full_damage && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->CombatStatus.IsInCombat() )
     {
         float val;
         float level = (float)getLevel();
@@ -2721,16 +2682,14 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if (ex->deleted)
                 continue;
 
-            for(std::unordered_set<WorldObject* >::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end(); itr++)
+            for(InRangeUnitSet::iterator itr = m_unitsInRange.begin(); itr != m_unitsInRange.end(); itr++)
             {
-                if (!(*itr) || (*itr) == pVictim || !(*itr)->IsUnit())
+                if((*itr) == NULL || (*itr) == pVictim)
                     continue;
 
                 if(CalcDistance(*itr) < 5.0f && sFactionSystem.isAttackable(castPtr<Unit>(this), (*itr)) && isTargetInFront(*itr) && !castPtr<Unit>(*itr)->IsPacified())
                 {
-                    // Sweeping Strikes hits cannot be dodged, missed or parried (from wowhead)
-                    bool skip_hit_check = ex->spell_info->Id == 12328 ? true : false;
-                    realdamage += Strike( castPtr<Unit>( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, skip_hit_check );
+                    realdamage += Strike( castPtr<Unit>( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, ex->spell_info->isUnstoppableForce() );
                     break;
                 }
             }
@@ -3002,36 +2961,19 @@ void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
     SendMessageToSet(&data, true);
 }
 
-void Unit::AddInRangeObject(WorldObject* pObj)
-{
-    if((pObj->GetTypeId() == TYPEID_UNIT) || (pObj->IsPlayer()))
-    {
-        if( sFactionSystem.isHostile(this, pObj) )
-            m_oppFactsInRange.insert(castPtr<Unit>(pObj));
-    }
-
-    WorldObject::AddInRangeObject(pObj);
-}
-
 void Unit::OnRemoveInRangeObject(WorldObject* pObj)
 {
     if(pObj->IsUnit())
-        m_oppFactsInRange.erase(castPtr<Unit>(pObj));
-
-    if(pObj->GetTypeId() == TYPEID_UNIT || pObj->IsPlayer())
     {
         Unit* pUnit = castPtr<Unit>(pObj);
-        GetAIInterface()->CheckTarget(pUnit);
+        if(GetAIInterface())
+            GetAIInterface()->CheckTarget(pUnit);
 
         if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
             if(m_currentSpell) m_currentSpell->cancel();
+        CombatStatus.RemoveExistence(pUnit);
     }
     WorldObject::OnRemoveInRangeObject(pObj);
-}
-
-void Unit::ClearInRangeSet()
-{
-    WorldObject::ClearInRangeSet();
 }
 
 //Events
@@ -3044,8 +2986,8 @@ void Unit::EventAddEmote(EmoteType emote, uint32 time)
 
 void Unit::EventAllowCombat(bool allow)
 {
-    m_aiInterface->SetAllowedToEnterCombat(allow);
-    m_aiInterface->setCanMove(allow);
+    m_aiInterface.SetAllowedToEnterCombat(allow);
+    m_aiInterface.setCanMove(allow);
 }
 
 void Unit::EmoteExpire()
@@ -3056,21 +2998,18 @@ void Unit::EmoteExpire()
 
 void Unit::MoveToWaypoint(uint32 wp_id)
 {
-    if(m_useAI && GetAIInterface() != NULL)
+    AIInterface *ai = GetAIInterface();
+    WayPoint *wp = ai->getWayPoint(wp_id);
+    if(!wp)
     {
-        AIInterface *ai = GetAIInterface();
-        WayPoint *wp = ai->getWayPoint(wp_id);
-        if(!wp)
-        {
-            sLog.outDebug("Database: Invalid WP %u specified for spawnid %u.", wp_id, castPtr<Creature>(this)->GetSQL_id());
-            return;
-        }
-
-        ai->setWaypointToMove(wp_id);
-        if(wp->flags!=0)
-            ai->setMoveRunFlag(true);
-        ai->MoveTo(wp->x, wp->y, wp->z, wp->orientation);
+        sLog.outDebug("Database: Invalid WP %u specified for spawnid %u.", wp_id, castPtr<Creature>(this)->GetSQL_id());
+        return;
     }
+
+    ai->setWaypointToMove(wp_id);
+    if(wp->flags!=0)
+        ai->setMoveRunFlag(true);
+    ai->MoveTo(wp->x, wp->y, wp->z, wp->orientation);
 }
 
 // grep: Remove any AA spells that aren't owned by this player.
@@ -3347,7 +3286,7 @@ void Unit::RemoveFromWorld(bool free_guid)
 
     CombatStatus.OnRemoveFromWorld();
     WorldObject::RemoveFromWorld(free_guid);
-    m_aiInterface->WipeReferences();
+    m_aiInterface.WipeReferences();
 }
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
@@ -3370,14 +3309,14 @@ void Unit::UpdateVisibility()
     uint32 count;
     ByteBuffer buffer(2500);
     bool can_see, is_visible;
-    InRangeSet::iterator itr, it3;
+    WorldObject::InRangeWorldObjectSet::iterator itr, it3;
     if( GetTypeId() == TYPEID_PLAYER )
     {
         WorldObject* pObj;
         Player *plr = castPtr<Player>(this), *pl = NULL;
-        for( WorldObject::InRangeSet::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
+        for( WorldObject::InRangeMap::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
         {
-            pObj = (*itr);
+            pObj = itr->second;
             ++itr;
 
             can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
@@ -3419,7 +3358,7 @@ void Unit::UpdateVisibility()
     }
     else            // For units we can save a lot of work
     {
-        for(std::unordered_set<Player*  >::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
+        for(WorldObject::InRangePlayerSet::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
         {
             can_see = (*it2)->CanSee(this), is_visible = (*it2)->GetVisibility(this, &itr);
             if(!can_see && is_visible)
@@ -3526,7 +3465,7 @@ void Unit::SetFacing(float newo)
     data << uint32(0);              // time
     data << m_position;             // position
     SendMessageToSet(&data, true);*/
-    m_aiInterface->SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
+    m_aiInterface.SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
 }
 
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
@@ -3833,6 +3772,15 @@ void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
     }
 }
 
+void CombatStatusHandler::RemoveExistence(Unit *pUnit)
+{
+    m_attackers.erase(pUnit->GetGUID());
+    m_healers.erase(pUnit->GetGUID());
+    m_healed.erase(pUnit->GetGUID());
+    m_damageMap.erase(pUnit->GetGUID());
+    m_attackTimerMap.erase(pUnit->GetGUID());
+}
+
 void CombatStatusHandler::OnDamageDealt(Unit* pTarget, uint32 damage)
 {
     // we added an aura, or dealt some damage to a target. they need to have us as an attacker, and they need to be our attack target if not.
@@ -3867,32 +3815,31 @@ void CombatStatusHandler::OnDamageDealt(Unit* pTarget, uint32 damage)
 
 void CombatStatusHandler::UpdateTargets()
 {
-    uint32 mytm = (uint32)UNIXTIME;
-    StorageMap::iterator itr = m_attackTimerMap.begin(), it2 = itr;
-    Unit* pUnit;
-
-    for(; itr != m_attackTimerMap.end();)
+    time_t mytm = UNIXTIME;
+    std::set<Unit*> m_updateTargets;
+    for(StorageMap::iterator itr = m_attackTimerMap.begin(); itr != m_attackTimerMap.end(); itr++)
     {
-        it2 = itr;
-        ++itr;
-        if( it2->second <= mytm )
+        if( itr->second > mytm )
+            continue;
+
+        //printf("Timeout for attack target "I64FMT" on "I64FMT" expired.\n", it2->first, m_Unit->GetGUID());
+        if(WorldObject *pWObj = m_Unit->GetInRangeObject(itr->first))
         {
-            //printf("Timeout for attack target "I64FMT" on "I64FMT" expired.\n", it2->first, m_Unit->GetGUID());
-            pUnit = m_Unit->GetMapMgr()->GetUnit(it2->first);
-            if( pUnit == NULL || pUnit->isDead() || pUnit->GetDistance2dSq(m_Unit) > 15555.f )
-                m_attackTimerMap.erase(it2);
-            else
+            ASSERT(pWObj->IsUnit());
+            Unit *pUnit = castPtr<Unit>(pWObj);
+            if( pUnit->isDead() || pUnit->GetDistance2dSq(m_Unit) > 15555.f || !IsAttacking(pUnit) )
             {
-                if( !IsAttacking(pUnit) )
-                {
-                    pUnit->CombatStatus.m_attackers.erase( m_Unit->GetGUID() );
-                    pUnit->CombatStatus.UpdateFlag();
-                    m_attackTimerMap.erase(it2);
-                }
+                pUnit->CombatStatus.m_attackers.erase( m_Unit->GetGUID() );
+                if(m_updateTargets.find(pUnit) == m_updateTargets.end())
+                    m_updateTargets.insert(pUnit);
+                itr = m_attackTimerMap.erase(itr);
             }
         }
     }
 
+    for(std::set<Unit*>::iterator itr = m_updateTargets.begin(); itr != m_updateTargets.end(); itr++)
+        (*itr)->CombatStatus.UpdateFlag();
+    m_updateTargets.clear();
     UpdateFlag();
 }
 
@@ -4053,12 +4000,6 @@ bool Unit::isAttackReady(bool offhand)
     if(offhand)
         return (getMSTime() >= m_attackTimer_1) ? true : false;
     return (getMSTime() >= m_attackTimer) ? true : false;
-}
-
-void Unit::ReplaceAIInterface(AIInterface *new_interface)
-{
-    delete m_aiInterface;   //be carefull when you do this. Might screw unit states !
-    m_aiInterface = new_interface;
 }
 
 void Unit::EventModelChange()

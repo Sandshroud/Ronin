@@ -447,6 +447,7 @@ public:
     bool IsAuraApplyingSpell();
     bool IsStealthSpell();
     bool IsInvisibilitySpell();
+    bool CanEffectTargetGameObjects(uint32 i);
 
     int32 damage, bdamage;
     int32 TotalDamage;

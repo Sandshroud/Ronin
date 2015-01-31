@@ -468,7 +468,7 @@ void Pet::InitializeMe()
     EventModelChange();
 
     if(GetEntry() == 416)
-        m_aiInterface->disable_melee = true;
+        m_aiInterface.disable_melee = true;
 
     ApplyStatsForLevel();
 
@@ -965,11 +965,11 @@ void Pet::RemoveSpell(SpellEntry * sp)
             }
         }
 
-        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
+        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
         {
             if(it->second == itr->second)
             {
-                m_aiInterface->m_spells.erase(it);
+                m_aiInterface.m_spells.erase(it);
                 break;
             }
         }
@@ -979,13 +979,13 @@ void Pet::RemoveSpell(SpellEntry * sp)
     }
     else
     {
-        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface->m_spells.begin(); it != m_aiInterface->m_spells.end(); ++it)
+        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
         {
             if(it->second->info == sp)
             {
                 // woot?
                 AI_Spell * spe = it->second;
-                m_aiInterface->m_spells.erase(it);
+                m_aiInterface.m_spells.erase(it);
                 delete spe;
                 break;
             }
@@ -1023,7 +1023,7 @@ void Pet::ApplySummonLevelAbilities()
     {
     case 416: //Imp
         stat_index = 0;
-        m_aiInterface->disable_melee = true;
+        m_aiInterface.disable_melee = true;
         break;
     case 1860: //VoidWalker
         stat_index = 1;
@@ -1042,7 +1042,7 @@ void Pet::ApplySummonLevelAbilities()
         break;
     case 510:   // Mage's water elemental
         stat_index = 5;
-        m_aiInterface->disable_melee = true;
+        m_aiInterface.disable_melee = true;
         break;
     }
     if(stat_index < 0)
@@ -1322,7 +1322,7 @@ void Pet::HandleAutoCastEvent(uint32 Type)
                 if( itr == m_autoCastSpells[ AUTOCAST_EVENT_ATTACK ].end() )
                 {
                     if( getMSTime() >= itr->second->cooldown )
-                        m_aiInterface->m_CastNext = itr->second;
+                        m_aiInterface.m_CastNext = itr->second;
                     else return;
                     break;
                 }
@@ -1331,7 +1331,7 @@ void Pet::HandleAutoCastEvent(uint32 Type)
                     if( itr->second->cooldown > getMSTime() )
                         continue;
 
-                    m_aiInterface->m_CastNext = itr->second;
+                    m_aiInterface.m_CastNext = itr->second;
                 }
             }
         }
@@ -1341,7 +1341,7 @@ void Pet::HandleAutoCastEvent(uint32 Type)
             if( sp->cooldown && getMSTime() < sp->cooldown )
                 return;
 
-            m_aiInterface->m_CastNext = sp;
+            m_aiInterface.m_CastNext = sp;
         }
 
         return;

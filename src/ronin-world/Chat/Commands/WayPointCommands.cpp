@@ -1297,14 +1297,15 @@ bool ChatHandler::HandleNpcSelectCommand(const char * args, WorldSession * m_ses
     float dist = 999999.0f;
     float dist2;
     Player* plr = m_session->GetPlayer();
-    std::unordered_set<WorldObject* >::iterator itr;
-    for(itr = plr->GetInRangeSetBegin(); itr != plr->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for(itr = plr->GetInRangeUnitSetBegin(); itr != plr->GetInRangeUnitSetEnd(); itr++)
     {
-        if( (dist2 = plr->GetDistance2dSq(*itr)) < dist && (*itr)->GetTypeId() == TYPEID_UNIT )
-        {
-            un = castPtr<Creature>(*itr);
-            dist = dist2;
-        }
+        if(!(*itr)->IsCreature())
+            continue;
+        if( (dist2 = plr->GetDistance2dSq(*itr)) >= dist )
+            continue;
+        un = castPtr<Creature>(*itr);
+        dist = dist2;
     }
 
     if(!un)

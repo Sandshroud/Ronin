@@ -381,6 +381,88 @@ bool ItemInterface::CreateQuestItems(Quest *qst)
     return true;
 }
 
+bool ItemInterface::CreateQuestRewards(Quest *qst, uint8 reward_slot)
+{
+    // Static Item reward
+    /*for(uint32 i = 0; i < 4; i++)
+    {
+        if(qst->reward_item[i])
+        {
+            ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_item[i]);
+            if(!proto)
+                sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_item[i], qst->id);
+            else
+            {
+                Item* add;
+                SlotResult slotresult;
+                add = plr->GetItemInterface()->FindItemLessMax(qst->reward_item[i], qst->reward_itemcount[i], false);
+                if (!add)
+                {
+                    slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
+                    if(!slotresult.Result)
+                    {
+                        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
+                    }
+                    else
+                    {
+                        Item* itm = objmgr.CreateItem(qst->reward_item[i], plr);
+                        itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_itemcount[i]));
+                        if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
+                        {
+                            itm->Destruct();
+                            itm = NULL;
+                        }
+                    }
+                }
+                else
+                {
+                    add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_itemcount[i]);
+                    add->m_isDirty = true;
+                }
+            }
+        }
+    }
+
+    // Choice Rewards
+    if(qst->reward_choiceitem[reward_slot])
+    {
+        ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_choiceitem[reward_slot]);
+        if(!proto)
+            sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_choiceitem[reward_slot], qst->id);
+        else
+        {
+            Item* add;
+            SlotResult slotresult;
+            add = plr->GetItemInterface()->FindItemLessMax(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], false);
+            if (!add)
+            {
+                slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
+                if(!slotresult.Result)
+                {
+                    plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
+                }
+                else
+                {
+                    Item* itm = objmgr.CreateItem(qst->reward_choiceitem[reward_slot], plr);
+                    itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_choiceitemcount[reward_slot]));
+                    if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
+                    {
+                        itm->Destruct();
+                        itm = NULL;
+                    }
+
+                }
+            }
+            else
+            {
+                add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_choiceitemcount[reward_slot]);
+                add->m_isDirty = true;
+            }
+        }
+    }*/
+    return true;
+}
+
 bool ItemInterface::CreateInventoryStacks(ItemPrototype *proto, uint32 count, WoWGuid creatorGuid, bool fromNPC)
 {
     uint8 pushFlags = fromNPC ? (creatorGuid.empty() ? 0x01 : 0x02) : 0x10;
@@ -453,18 +535,18 @@ bool ItemInterface::RemoveInventoryStacks(uint32 entry, uint32 count, bool force
         return false;
 
     int32 itemCount = -int32(count);
-    std::set<Item*> itemsToDelete;
+    std::set<uint16> itemsToDelete;
     std::set<WoWGuid> *items = &m_itemsByEntry[entry];
     for(std::set<WoWGuid>::iterator itr = items->begin(); itr != items->end(); itr++)
     {
         if(itemCount >= 0)
             break;
 
-        if(Item *item = GetInventoryItemByGuid(*itr))
+        if(Item *item = GetInventoryItem(*itr))
         {
             if(itemCount >= item->GetStackSize())
             {
-                itemsToDelete.insert(item);
+                itemsToDelete.insert(item->GetContainerSlot());
                 itemCount += item->GetStackSize();
             } else item->ModStackSize(itemCount);
         }
@@ -474,7 +556,7 @@ bool ItemInterface::RemoveInventoryStacks(uint32 entry, uint32 count, bool force
     {
         for(auto itr = itemsToDelete.begin(); itr != itemsToDelete.end(); itr++)
         {
-            if(Item *item = _removeItemBySlot((*itr)->GetContainerSlot()))
+            if(Item *item = _removeItemBySlot(*itr))
             {
                 sItemMgr.DeleteItemData(item->GetGUID());
                 item->Destruct();

@@ -26,14 +26,21 @@ void ItemManager::LoadItemData()
     do
     {
         Field *fields = result->Fetch();
+        WoWGuid guid = fields[ITEMDATA_FIELD_ITEM_GUID].GetUInt64();
+        if(guid.getHigh() != HIGHGUID_TYPE_ITEM)
+            continue;
+        ItemPrototype *proto = LookupEntry(guid.getEntry());
+        if(proto == NULL)
+            continue;
+
         ItemData *data = new ItemData();
+        data->itemGuid = guid;
+        data->proto = proto;
         data->giftData = NULL;
         data->containerData = NULL;
-        data->chargeData = NULL;
         for(uint8 i = 0; i < 10; i++)
             data->enchantData[i] = NULL;
 
-        data->itemGuid = fields[ITEMDATA_FIELD_ITEM_GUID].GetUInt64();
         data->itemContainer = fields[ITEMDATA_FIELD_CONTAINER_GUID].GetUInt64();
         data->itemCreator = fields[ITEMDATA_FIELD_CREATOR_GUID].GetUInt64();
         data->containerSlot = fields[ITEMDATA_FIELD_CONTAINER_SLOT].GetUInt16();
@@ -44,6 +51,7 @@ void ItemManager::LoadItemData()
         data->itemDurability = fields[ITEMDATA_FIELD_ITEM_DURABILITY].GetUInt32();
         data->itemTextID = fields[ITEMDATA_FIELD_ITEMTEXTID].GetUInt32();
         data->itemPlayedTime = fields[ITEMDATA_FIELD_ITEM_PLAYEDTIME].GetUInt32();
+        data->itemSpellCharges = fields[ITEMDATA_FIELD_ITEM_CHARGES].GetInt32();
         if(WoWGuid giftItemGuid = fields[ITEMDATA_FIELD_ITEM_GIFT_GUID].GetUInt64())
         {
             data->giftData = new ItemData::ItemGiftData;
@@ -72,22 +80,6 @@ void ItemManager::LoadItemData()
             data->enchantData[slotId]->enchantId = fields[2].GetUInt32();
             data->enchantData[slotId]->enchantCharges = fields[3].GetUInt32();
             data->enchantData[slotId]->expirationTime = fields[4].GetUInt64();
-        } while(result->NextRow());
-        delete result;
-    }
-
-    if(result = CharacterDatabase.Query("SELECT * FROM item_spellcharges"))
-    {
-        do
-        {
-            Field *fields = result->Fetch();
-            WoWGuid guid = fields[0].GetUInt64();
-            if(m_itemData.find(guid) == m_itemData.end())
-                continue;
-            ItemData *data = m_itemData.at(guid);
-            data->chargeData = new ItemData::SpellCharges();
-            for(uint8 i = 0; i < 5; i++)
-                data->chargeData->spellCharges[i] = fields[i+1].GetInt32();
         } while(result->NextRow());
         delete result;
     }
@@ -174,11 +166,11 @@ ItemData *ItemManager::CreateItemData(uint32 entry)
     data->itemRandomSeed = 0;
     data->itemRandomProperty = 0;
     data->itemDurability = proto->MaxDurability;
+    data->itemSpellCharges = 0;
     data->itemTextID = 0;
     data->itemPlayedTime = 0;
     data->giftData = NULL;
     data->containerData = NULL;
-    data->chargeData = NULL;
     for(uint8 i = 0; i < 10; i++)
         data->enchantData[i] = NULL;
     m_itemData.insert(std::make_pair(data->itemGuid, data));

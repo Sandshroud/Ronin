@@ -122,7 +122,6 @@ public:
 
     QuestRelationList* GetCreatureQuestList(uint32 entryid);
     QuestRelationList* GetGOQuestList(uint32 entryid);
-    QuestAssociationList* GetQuestAssociationListForItemId (uint32 itemId);
 
     RONIN_INLINE bool IsQuestRepeatable(Quest *qst) { return (qst->qst_is_repeatable != 0 ? true : false); }
     RONIN_INLINE bool IsQuestDaily(Quest *qst) { return (qst->qst_is_repeatable == 2 ? true : false); }
@@ -160,18 +159,12 @@ private:
     QuestRelationListMap m_npc_quests;
     QuestRelationListMap m_obj_quests;
     QuestRelationListMap m_itm_quests;
-    std::list<uint32> m_extraqueststuff_list;
-
-    QuestAssociationListMap m_quest_associations;
-    QuestAssociationListMap& GetQuestAssociationList() { return m_quest_associations; }
 
     RONIN_UNORDERED_MAP<uint32, uint32> m_ObjectLootQuestList;
 
     template <class T> void _AddQuest(uint32 entryid, Quest *qst, uint8 type);
 
     template <class T> QuestRelationListMap& _GetList();
-
-    void AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_count);
 
     // Quest Loading
     void _RemoveChar(char* c, std::string *str);

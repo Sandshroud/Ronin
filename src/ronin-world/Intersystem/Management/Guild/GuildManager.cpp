@@ -857,7 +857,7 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
                     first = false;
                 else
                     GuildBankItems << ", ";
-                GuildBankItems << "'" << BankTabStorage->m_Tabs[t]->pSlots[s]->GetLowGUID() << "'";
+                GuildBankItems << "'" << BankTabStorage->m_Tabs[t]->pSlots[s]->itemGuid.getLow() << "'";
                 count++;
             }
         }
@@ -920,7 +920,7 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
                     first = false;
                 else
                     GuildBankItemsBuild << ", ";
-                GuildBankItemsBuild << "('" << GuildId << "', '" << uint32(t) << "', '" << uint32(s) << "', '" << BankTabStorage->m_Tabs[t]->pSlots[s]->GetLowGUID() << "')";
+                GuildBankItemsBuild << "('" << GuildId << "', '" << uint32(t) << "', '" << uint32(s) << "', '" << BankTabStorage->m_Tabs[t]->pSlots[s]->itemGuid.getLow() << "')";
                 count++;
             }
         }

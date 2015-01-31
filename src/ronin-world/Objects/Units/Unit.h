@@ -290,7 +290,7 @@ public:
     void WeHealed(Unit* pHealTarget);                                   // called when a player heals another player, regardless of combat state.
     void RemoveAttackTarget(Unit* pTarget);                             // means our DoT expired.
     void ForceRemoveAttacker(const uint64& guid);                       // when target is invalid pointer
-
+    void RemoveExistence(Unit *pUnit);
     void UpdateFlag();                                                  // detects if we have changed combat state (in/out), and applies the flag.
 
     RONIN_INLINE bool IsInCombat() { return m_lastStatus; }       // checks if we are in combat or not.
@@ -636,10 +636,9 @@ public:
     RONIN_INLINE void RemoveDummyAura( uint32 namehash ) { m_DummyAuras[namehash] = NULL; }
 
     // AIInterface
-    RONIN_INLINE AIInterface *GetAIInterface() { return m_aiInterface; }
+    RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
-    void ReplaceAIInterface(AIInterface *new_interface);
-
+    // Threat mod
     RONIN_INLINE int32 GetThreatModifier() { return m_threatModifyer; }
     RONIN_INLINE void ModThreatModifier(int32 mod) { m_threatModifyer += mod; }
     RONIN_INLINE int32 GetGeneratedThreatModifier() { return m_generatedThreatModifyer; }
@@ -786,9 +785,7 @@ public:
     bool CanEnterVehicle(Player * requester);
 
     //In-Range
-    virtual void AddInRangeObject(WorldObject* pObj);
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
-    void ClearInRangeSet();
 
     RONIN_INLINE void AddDelayedSpell(Spell* toAdd) { DelayedSpells.insert(toAdd); };
     RONIN_INLINE Spell* GetCurrentSpell() { return m_currentSpell; }
@@ -852,9 +849,6 @@ public:
     RONIN_INLINE uint32 GetCharmTempVal() { return m_charmtemp; }
     RONIN_INLINE void SetCharmTempVal(uint32 val) { m_charmtemp = val; }
     std::set<uint32> m_SpellList;
-
-    RONIN_INLINE void DisableAI() { m_useAI = false; }
-    RONIN_INLINE void EnableAI() { m_useAI = true; }
 
     RONIN_INLINE bool IsSpiritHealer()
     {
@@ -1075,10 +1069,8 @@ public:
     std::set<Spell*> DelayedSpells;
 
     // AI
-    AIInterface *m_aiInterface;
+    AIInterface m_aiInterface;
 
-    bool m_useAI;
-    bool m_spellsbusy;
     bool can_parry;//will be enabled by block spell
     int32 m_threatModifyer;
     int32 m_generatedThreatModifyer;

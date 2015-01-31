@@ -113,17 +113,18 @@ void GameObject::Update(uint32 p_time)
                 return;
         }
 
-        WorldObject::InRangeSet::iterator itr,it2;
         Unit* pUnit;
         float dist;
-        for( it2 = GetInRangeSetBegin(); it2 != GetInRangeSetEnd(); it2++)
+        WorldObject::InRangeUnitSet::iterator itr;
+        for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
         {
-            itr = it2;
-            dist = GetDistanceSq((*itr));
-            if( (*itr) != m_summoner && (*itr)->IsUnit() && dist <= range)
-            {
-                pUnit = castPtr<Unit>(*itr);
+            if(!(*itr)->IsUnit())
+                continue;
+            pUnit = castPtr<Unit>(*itr);
 
+            dist = GetDistanceSq(pUnit);
+            if(pUnit != m_summoner && dist <= range)
+            {
                 if(m_summonedGo)
                 {
                     if(!m_summoner)
@@ -131,15 +132,15 @@ void GameObject::Update(uint32 p_time)
                         ExpireAndDelete();
                         return;
                     }
-                    if(!sFactionSystem.isAttackable(m_summoner,pUnit))
+                    if(!sFactionSystem.isAttackable(m_summoner, pUnit))
                         continue;
                 }
 
-                Spell* sp = new Spell(this,spell,true,NULL);
                 SpellCastTargets tgt((*itr)->GetGUID());
                 tgt.m_destX = GetPositionX();
                 tgt.m_destY = GetPositionY();
                 tgt.m_destZ = GetPositionZ();
+                Spell* sp = new Spell(this, spell, true, NULL);
                 sp->prepare(&tgt);
 
                 if(m_summonedGo)
@@ -148,9 +149,8 @@ void GameObject::Update(uint32 p_time)
                     return;
                 }
 
-                if(spell->EffectImplicitTargetA[0] == 16 ||
-                    spell->EffectImplicitTargetB[0] == 16)
-                    return;  // on area dont continue.
+                if(spell->isSpellAreaOfEffect())
+                    return;
             }
         }
     }
@@ -538,7 +538,7 @@ void GameObject::_LoadQuests()
     sQuestMgr.LoadGOQuests(castPtr<GameObject>(this));
 
     // set state for involved quest objects
-    if( pInfo && objmgr.GetInvolvedQuestIds(pInfo->ID) != NULL )
+    if( pInfo && lootmgr.GetGameObjectQuestLoot(pInfo->ID) )
     {
         SetUInt32Value(GAMEOBJECT_DYNAMIC, 0);
         SetState(0);
@@ -769,16 +769,15 @@ void GameObject::AuraGenSearchTarget()
     if(!IsInWorld() || m_deleted || !spell)
         return;
 
-    WorldObject::InRangeSet::iterator itr,it2;
-    for( it2 = GetInRangeSetBegin(); it2 != GetInRangeSetEnd(); it2++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
-        itr = it2;
-        Unit* thing = NULL; // Crow: Shouldn't radius be sq?
-        if( (*itr)->IsUnit() && GetDistanceSq((*itr)) <= pInfo->AuraGenerator.Radius && ((*itr)->IsPlayer() || (*itr)->IsVehicle()) && !(castPtr<Unit>((*itr))->HasAura(spell->Id)))
-        {
-            thing = castPtr<Unit>((*itr));
-            thing->AddAura(new Aura(spell, thing, thing));
-        }
+        Unit *unit = *itr;
+        if(GetDistanceSq((*itr)) > pInfo->AuraGenerator.Radius)
+            continue;
+        if(unit->HasAura(spell->Id))
+            continue;
+        unit->AddAura(new Aura(spell, unit, unit));
     }
 }
 

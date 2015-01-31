@@ -108,6 +108,19 @@ public:
             WriteBit((value >> i) & 1);
     }
 
+    void AppendBitBuffer(ByteBuffer *buff)
+    {
+        for(size_t i = 0; i < buff->size(); i++)
+        {
+            if(i == buff->size()-1)
+            {
+                if(buff->bitpos())
+                    WriteBits(buff->read<uint8>(), buff->bitpos());
+                else WriteBits(buff->read<uint8>(), 8);
+            } else WriteBits(buff->read<uint8>(), 8);
+        }
+    }
+
     uint32 ReadBits(size_t bits)
     {
         uint32 value = 0;

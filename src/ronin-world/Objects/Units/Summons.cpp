@@ -131,7 +131,6 @@ void GuardianSummon::Load(Unit* owner, LocationVector & position, uint32 spellid
 void PossessedSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
     m_summon->setLevel(owner->getLevel());
-    m_summon->DisableAI();
     m_summon->GetAIInterface()->StopMovement(0);
 }
 
@@ -173,7 +172,6 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
 
     m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, MOVEMENTTYPE_NONE, owner);
-    m_summon->DisableAI();
 }
 
 void TotemSummon::SetupSpells()
@@ -216,7 +214,6 @@ void TotemSummon::SetupSpells()
     }
     else
     {   // We're a casting totem. Switch AI on, and tell it to cast this spell.
-        m_summon->EnableAI();
         m_summon->GetAIInterface()->m_totemSpell = TotemSpell;
         m_summon->GetAIInterface()->m_totemSpellTime = 3 * MSTIME_SECOND;
     }

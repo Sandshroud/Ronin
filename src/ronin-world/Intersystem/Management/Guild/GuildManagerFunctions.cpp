@@ -833,46 +833,6 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             sChatHandler.SystemMessage(m_session, "You don't have enough money!");
             return;         // error message needed here
         }
-
-        ItemPrototype * ip = sItemMgr.LookupEntry(item_ids[arena_type]);
-        ASSERT(ip);
-        SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
-        if(res.Result == 0)
-        {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-            return;
-        }
-
-        error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(ip,1, NULL);
-        if(error)
-        {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,error);
-        }
-        else
-        {
-            // Create the item and charter
-            Item* i = objmgr.CreateItem(item_ids[arena_type], m_session->GetPlayer());
-            Charter * c = guildmgr.CreateCharter(m_session->GetPlayer()->GetLowGUID(), (CharterTypes)ArenaIndex);
-            c->GuildName = name;
-            c->ItemGuid = i->GetLowGUID();
-
-            i->Bind(ITEM_BIND_ON_PICKUP);
-            i->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
-            i->SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1, c->GetID());
-            i->SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, 57813883);
-            if( !m_session->GetPlayer()->GetItemInterface()->AddItemToFreeSlot(i) )
-            {
-                c->Destroy();
-                i->Destruct();
-                return;
-            }
-
-            c->SaveToDB();
-            m_session->SendItemPushResult(i, false, true, false, true, m_session->GetPlayer()->GetItemInterface()->LastSearchItemBagSlot(), m_session->GetPlayer()->GetItemInterface()->LastSearchItemSlot(), 1);
-            m_session->GetPlayer()->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -(int32)costs[arena_type]);
-            m_session->GetPlayer()->m_playerInfo->charterId[ArenaIndex] = c->GetID();
-            m_session->GetPlayer()->SaveToDB(false);
-        }
     }
     else
     {
@@ -892,62 +852,6 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
         {
             m_session->SendNotification("That name is invalid or contains invalid characters.");
             return;
-        }
-
-        GuildInfo * g = guildmgr.GetGuildByGuildName(name);
-        Charter * c = guildmgr.GetCharterByName(name, CHARTER_TYPE_GUILD);
-        if(g != 0 || c != 0)
-        {
-            m_session->SendNotification("A guild with that name already exists.");
-            return;
-        }
-
-        ItemPrototype * ip = sItemMgr.LookupEntry(ITEM_ENTRY_GUILD_CHARTER);
-        assert(ip);
-        SlotResult res = m_session->GetPlayer()->GetItemInterface()->FindFreeInventorySlot(ip);
-        if(res.Result == 0)
-        {
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-            return;
-        }
-
-        error = m_session->GetPlayer()->GetItemInterface()->CanReceiveItem(sItemMgr.LookupEntry(ITEM_ENTRY_GUILD_CHARTER),1, NULL);
-        if(error)
-            m_session->GetPlayer()->GetItemInterface()->BuildInventoryChangeError(NULL, NULL,error);
-        else
-        {
-            // Meh...
-            WorldPacket data(SMSG_PLAY_OBJECT_SOUND, 12);
-            data << uint32(0x000019C2);
-            data << SellerGuid;
-            m_session->SendPacket(&data);
-
-            // Create the item and charter
-            Item * i = objmgr.CreateItem(ITEM_ENTRY_GUILD_CHARTER, m_session->GetPlayer());
-            c = guildmgr.CreateCharter(m_session->GetPlayer()->GetLowGUID(), CHARTER_TYPE_GUILD);
-            c->GuildName = name;
-            c->ItemGuid = i->GetLowGUID();
-
-            i->Bind(ITEM_BIND_ON_PICKUP);
-            i->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
-            i->SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1, c->GetID());
-            i->SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, 57813883);
-            if( !m_session->GetPlayer()->GetItemInterface()->AddItemToFreeSlot(i) )
-            {
-                c->Destroy();
-                i->Destruct();
-                return;
-            }
-
-            c->SaveToDB();
-
-            m_session->SendItemPushResult(i, false, true, false, true, m_session->GetPlayer()->GetItemInterface()->LastSearchItemBagSlot(), m_session->GetPlayer()->GetItemInterface()->LastSearchItemSlot(), 1);
-
-            m_session->GetPlayer()->m_playerInfo->charterId[CHARTER_TYPE_GUILD] = c->GetID();
-
-            // 10 silver
-            m_session->GetPlayer()->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -1000);
-            m_session->GetPlayer()->SaveToDB(false);
         }
     }
 }
@@ -1217,67 +1121,6 @@ void GuildMgr::Packet_WithdrawItem(WorldSession* m_session, uint8 dest_bank, uin
         return;
     }
 
-    Item *pSourceItem = pSourceTab->pSlots[source_bankslot], *pDestItem = pDestTab->pSlots[dest_bankslot];
-    if(pSourceItem == NULL && pDestItem == NULL)
-    {
-        gInfo->m_GuildLock.Release();
-        return;
-    }
-
-    if(splitted_count > 0)
-    {
-        uint32 source_count = pSourceItem->GetUInt32Value( ITEM_FIELD_STACK_COUNT );
-        if(pDestItem == NULL)
-        {
-            if(source_count == (uint32)splitted_count)
-            {
-                // swap
-                pSourceTab->pSlots[source_bankslot] = pDestItem;
-                pDestTab->pSlots[dest_bankslot] = pSourceItem;
-            }
-            else
-            {
-                pSourceItem->ModUnsigned32Value( ITEM_FIELD_STACK_COUNT, -splitted_count );
-
-                pDestItem = objmgr.CreateItem(pSourceItem->GetEntry(), NULL);
-                pDestItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, splitted_count);
-                pDestItem->SetUInt32Value(ITEM_FIELD_CREATOR, pSourceItem->GetUInt32Value(ITEM_FIELD_CREATOR));
-                pDestTab->pSlots[dest_bankslot] = pDestItem;
-            }
-        }
-        else
-        {
-            pDestItem->ModUnsigned32Value( ITEM_FIELD_STACK_COUNT, splitted_count );
-
-            if((uint32)splitted_count != source_count)
-                pSourceItem->ModUnsigned32Value( ITEM_FIELD_STACK_COUNT, -splitted_count );
-            else
-            {
-                pSourceItem->Destruct();
-                pSourceTab->pSlots[source_bankslot] = NULL;
-            }
-        }
-    }
-    else
-    {
-        // swap
-        pSourceTab->pSlots[source_bankslot] = pDestItem;
-        pDestTab->pSlots[dest_bankslot] = pSourceItem;
-    }
-
-    /* update the client */
-    if(pSourceTab == pDestTab)
-    {
-        /* send both slots in the packet */
-        Packet_SendGuildBankTab(m_session, source_bank, source_bankslot, dest_bankslot);
-    }
-    else
-    {
-        /* send a packet for each different bag */
-        Packet_SendGuildBankTab(m_session, source_bank, source_bankslot, -1);
-        Packet_SendGuildBankTab(m_session, dest_bank, dest_bankslot, -1);
-    }
-
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
     gInfo->m_GuildLock.Release();
 }
@@ -1327,214 +1170,6 @@ void GuildMgr::Packet_DepositItem(WorldSession* m_session, uint8 dest_bank, uint
     {
         gInfo->m_GuildLock.Release();
         return;
-    }
-
-    /* check if we are auto assigning */
-    if(dest_bankslot == 0xff)
-    {
-        for(uint8 i = 0; i < MAX_GUILD_BANK_SLOTS; i++)
-        {
-            if(pDestTab->pSlots[i] == NULL)
-            {
-                dest_bankslot = (uint8)i;
-                break;
-            }
-        }
-
-        if(dest_bankslot == 0xff)
-        {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_BAG_FULL);
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-    }
-
-    /* another check here */
-    if(dest_bankslot >= MAX_GUILD_BANK_SLOTS)
-    {
-        gInfo->m_GuildLock.Release();
-        return;
-    }
-
-    /* check if we're pulling an item from the bank, make sure we're not cheating. */
-    Item *pDestItem = pDestTab->pSlots[dest_bankslot];
-
-    /* grab the source/destination Item* */
-    if(source_bagslot == 1 && source_slot == 0)
-    {
-        // find a free bag slot
-        if(pDestItem == NULL)
-        {
-            // dis is fucked up mate
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-
-        SlotResult sr = plr->GetItemInterface()->FindFreeInventorySlot(pDestItem->GetProto());
-        if(!sr.Result)
-        {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_BAG_FULL);
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-
-        source_bagslot = sr.ContainerSlot;
-        source_slot = sr.Slot;
-    }
-
-    if( source_bagslot == 0xff && source_slot < INVENTORY_SLOT_ITEM_START && pDestItem != NULL)
-    {
-        sWorld.LogCheater(m_session,"Tried to equip an item from the guild bank (WPE HACK)");
-        m_session->SystemMessage("You don't have permission to do that.");
-        gInfo->m_GuildLock.Release();
-        return;
-    }
-
-    if(pDestItem != NULL)
-    {
-        if(gMember->pRank->iTabPermissions[dest_bank].iStacksPerDay == 0)
-        {
-            m_session->SystemMessage("You don't have permission to do that.");
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-
-        if(gMember->pRank->iTabPermissions[dest_bank].iStacksPerDay > 0)
-        {
-            if(CalculateAllowedItemWithdraws(gMember, dest_bank) == 0)
-            {
-                // a "no permissions" notice would probably be better here
-                m_session->SystemMessage("You have withdrawn the maximum amount for today.");
-                gInfo->m_GuildLock.Release();
-                return;
-            }
-
-            /* reduce his count by one */
-            OnItemWithdraw(gMember, dest_bank);
-        }
-    }
-
-    if( source_bagslot == 0xff && source_slot < INVENTORY_SLOT_ITEM_START || source_slot == 0xff )
-    {
-        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_CANT_DROP_SOULBOUND);
-        gInfo->m_GuildLock.Release();
-        return;
-    }
-
-    Item *pSourceItem = plr->GetItemInterface()->GetInventoryItem(source_bagslot, source_slot);
-
-    /* make sure that both aren't null - wtf ? */
-    if(pSourceItem == NULL && pDestItem == NULL)
-    {
-        gInfo->m_GuildLock.Release();
-        return;
-    }
-
-    if(pDestItem != NULL && pSourceItem != NULL)
-    {
-        if(pDestItem->GetEntry() == pSourceItem->GetEntry() && pDestItem->GetProto() != NULL
-            && pDestItem->GetStackCount() == pDestItem->GetProto()->MaxCount)
-        {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_ITEM_CANT_STACK);
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-    }
-
-    if(pSourceItem != NULL)
-    {
-        // make sure its not a soulbound item
-        if(pSourceItem->IsSoulbound() || pSourceItem->GetProto()->Class == ITEM_CLASS_QUEST)
-        {
-            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_CANT_DROP_SOULBOUND);
-            gInfo->m_GuildLock.Release();
-            return;
-        }
-
-        // pull the item from the slot
-        if(deposit_stack && pSourceItem->GetStackCount() > deposit_stack)
-        {
-            Item *pSourceItem2 = pSourceItem;
-            pSourceItem = objmgr.CreateItem(pSourceItem2->GetEntry(), plr);
-            pSourceItem->SetStackCount(deposit_stack);
-            pSourceItem->SetCreatorGUID(pSourceItem2->GetCreatorGUID());
-            pSourceItem2->SetStackCount(-(int32)deposit_stack);
-            pSourceItem2->m_isDirty = true;
-        }
-        else
-        {
-            if(!plr->GetItemInterface()->SafeRemoveAndRetreiveItemFromSlot(source_bagslot, source_slot, false))
-            {
-                gInfo->m_GuildLock.Release();
-                return;
-            }
-
-            pSourceItem->RemoveFromWorld(false);
-        }
-    }
-
-    /* perform the swap. */
-    uint8 HandleStack = autostore ? withdraw_stack : deposit_stack;
-
-    /* pSourceItem = Source item from players backpack coming into guild bank */
-    if(pSourceItem == NULL)
-    {
-        /* splitting */
-        if(pDestItem != NULL && HandleStack > 0 && pDestItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT) > HandleStack)
-        {
-            Item *pSourceItem2 = pDestItem;
-
-            pSourceItem2->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, -(int32)HandleStack);
-            pSourceItem2->SaveToDB(0,0,true, NULL);
-
-            pDestItem = objmgr.CreateItem(pSourceItem2->GetEntry(), plr);
-            pDestItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, HandleStack);
-            pDestItem->SetUInt32Value(ITEM_FIELD_CREATOR, pSourceItem2->GetUInt32Value(ITEM_FIELD_CREATOR));
-        }
-        else
-        {
-            /* that slot in the bank is now empty. */
-            pDestTab->pSlots[dest_bankslot] = NULL;
-        }
-    }
-    else
-    {
-        /* there is a new item in that slot. */
-        pDestTab->pSlots[dest_bankslot] = pSourceItem;
-
-        /* remove the item's association with the player* */
-        pSourceItem->SetOwner(NULL);
-        pSourceItem->SetUInt32Value(ITEM_FIELD_OWNER, 0);
-        pSourceItem->SaveToDB(0, 0, true, NULL);
-
-        /* log it */
-        LogGuildBankAction(gInfo->m_guildId, GUILD_BANK_LOG_EVENT_DEPOSIT_ITEM, plr->GetLowGUID(), pSourceItem->GetEntry(), (uint8)pSourceItem->GetStackCount(), dest_bank);
-    }
-
-    /* pDestItem = Item from bank coming into players backpack */
-    if(pDestItem == NULL)
-    {
-        /*  the item has already been removed from the players backpack at this stage,
-            there isn't really much to do at this point. */
-    }
-    else
-    {
-        /* the guild was robbed by some n00b! :O */
-        pDestItem->SetOwner(plr);
-        if(HandleStack > 0)
-            pDestItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT, HandleStack);
-        pDestItem->SetUInt32Value(ITEM_FIELD_OWNER, plr->GetLowGUID());
-        pDestItem->SaveToDB(source_bagslot, source_slot, true, NULL);
-
-        /* add it to him in game */
-        if(!plr->GetItemInterface()->SafeAddItem(pDestItem, source_bagslot, source_slot))
-        {
-            /* this *really* shouldn't happen. */
-            if(!plr->GetItemInterface()->AddItemToFreeSlot(pDestItem))
-                pDestItem->Destruct();
-        }
-        else /* log it */
-            LogGuildBankAction(gInfo->m_guildId, GUILD_BANK_LOG_EVENT_WITHDRAW_ITEM, plr->GetLowGUID(), pDestItem->GetEntry(), (uint8)pDestItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT), dest_bank);
     }
 
     /* update the clients view of the bank tab */
@@ -1642,7 +1277,7 @@ void GuildMgr::Packet_BuyBankTab(WorldSession* m_session, uint64 BankGuid)
     LogGuildEvent(plr, gInfo->m_guildId, GUILD_EVENT_BANKTABBOUGHT, "");
 }
 
-void GuildMgr::Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, int32 updated_slot1, int32 updated_slot2)
+void GuildMgr::Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, bool withTabInfo)
 {
     if(TabSlot > 6)
         return;
@@ -1682,87 +1317,53 @@ void GuildMgr::Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, i
         return;
 
     gInfo->m_GuildLock.Acquire();
-    uint8 tabid = BankTabStorage->m_Tabs[TabSlot]->iTabId;
-    WorldPacket data( SMSG_GUILD_BANK_LIST, 1300 );
-    data << uint64(gInfo->m_bankBalance); // amount you have deposited
-    data << uint8(tabid);
-    data << uint32(CalculateAllowedItemWithdraws(gMember, tabid)); // remaining stacks for this day
-    data << uint8(0); // some sort of view flag?
+    GuildBankTab *pTab = BankTabStorage->m_Tabs[TabSlot];
 
-    uint8 count = 0;
-    size_t pos = data.wpos();
-    data << count;
+    ByteBuffer tabData, tabBits;
+    WorldPacket data(SMSG_GUILD_BANK_LIST, 1300);
+    data.WriteBit(0);
 
-    GuildBankTab* pTab = NULL;
+    if (withTabInfo && BankTabStorage->ssid)
+    {
+        tabBits.WriteBits(BankTabStorage->ssid, 22);
+        for (uint8 i = 0; i < BankTabStorage->ssid; ++i)
+        {
+            tabBits.WriteBits(BankTabStorage->m_Tabs[i]->szTabIcon.length(), 9);
+            tabBits.WriteBits(BankTabStorage->m_Tabs[i]->szTabName.length(), 7);
+        }
+    }else tabBits.WriteBits(0, 22);
+
+    uint32 count = 0;
     for(int32 j = 0; j < MAX_GUILD_BANK_SLOTS; ++j)
     {
-        pTab = BankTabStorage->m_Tabs[TabSlot];
         if(pTab->pSlots[j] != NULL)
         {
-            if(updated_slot1 >= 0 && j == updated_slot1)
-                updated_slot1 = -1;
-
-            if(updated_slot2 >= 0 && j == updated_slot2)
-                updated_slot2 = -1;
-
             ++count;
+            tabBits.WriteBit(0);
+            ItemData *itemData = pTab->pSlots[j];
 
-            data << uint8(j);           // slot
-            data << pTab->pSlots[j]->GetEntry();
-            data << uint32(0);          // 3.3.0 (0x8000, 0x8020) from MaNGOS
-
-            // random props
-            if( pTab->pSlots[j]->GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID) )
-            {
-                data << pTab->pSlots[j]->GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID);
-                if( (int32)pTab->pSlots[j]->GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID) < 0 )
-                    data << pTab->pSlots[j]->GetItemRandomSuffixFactor();
-                else
-                    data << uint32(0);
-            }
-            else
-                data << uint32(0);
-
-            // stack
-            data << uint32(pTab->pSlots[j]->GetUInt32Value(ITEM_FIELD_STACK_COUNT));
-            data << uint32(0);                          // unknown value
-            data << uint8(0);                           // unknown 2.4.2
-            EnchantmentInstance * ei = pTab->pSlots[j]->GetEnchantment(0);
-            if(ei != NULL)
-            {
-                data << uint8(1);                       // number of enchants
-                data << uint8(0);                       // enchantment slot
-                data << uint32(ei->Enchantment->Id);    // enchantment id
-            }
-            else
-                data << uint8(0);                       // no enchantment
-        }
-    }
-
-    // send the forced update slots
-    if(updated_slot1 >= 0)
-    {
-        // this should only be hit if the items null though..
-        if(pTab->pSlots[updated_slot1] == NULL)
-        {
-            ++count;
-            data << uint8(updated_slot1);
+            uint32 enchantCount = 0;
+            tabBits.WriteBits(enchantCount, 23);
             data << uint32(0);
-        }
-    }
-
-    if(updated_slot2 >= 0)
-    {
-        // this should only be hit if the items null though..
-        if(pTab->pSlots[updated_slot2] == NULL)
-        {
-            ++count;
-            data << uint8(updated_slot2);
             data << uint32(0);
+            data << uint32(0);
+            data << uint32(itemData->itemStackCount);
+            data << uint32(j);
+            data << uint32(0);
+            data << uint32(itemData->itemGuid.getEntry());
+            data << uint32(itemData->itemRandomProperty);
+            data << uint32(abs(itemData->itemSpellCharges));
+            data << uint32(itemData->itemRandomSeed);
         }
     }
-
-    *(uint8*)&data.contents()[pos] = (uint8)count;
+    data.WriteBits(count, 20);
+    data.AppendBitBuffer(&tabBits);
+    data.FlushBits();
+    data << uint64(gInfo->m_bankBalance); // amount you have deposited
+    if (tabData.size())
+        data.append(tabData.contents(), tabData.size());
+    data << uint32(pTab->iTabId);
+    data << uint32(CalculateAllowedItemWithdraws(gMember, pTab->iTabId));
     m_session->SendPacket(&data);
     gInfo->m_GuildLock.Release();
 }
@@ -2030,6 +1631,6 @@ void GuildMgr::Packet_SetBankTabInfo(WorldSession* m_session, uint64 BankGuid, u
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
     gInfo->m_GuildLock.Release();
     Packet_SendGuildBankInfo(m_session, BankGuid);
-    Packet_SendGuildBankTab(m_session, TabSlot);
+    Packet_SendGuildBankTab(m_session, TabSlot, true);
 }
 

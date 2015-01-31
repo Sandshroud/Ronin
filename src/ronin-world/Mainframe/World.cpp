@@ -445,6 +445,7 @@ bool World::SetInitialWorldSettings()
     tl.wait(); // Load all the storage first
 
     MAKE_TASK(QuestMgr, LoadQuests);
+    MAKE_TASK(LootMgr, LoadLoot);
 
     Storage_LoadAdditionalTables();
 
@@ -1435,45 +1436,7 @@ void InsertQueueLoader::Update(uint32 timeDiff)
 
 void World::PollMailboxInsertQueue(DatabaseConnection * con)
 {
-    QueryResult * result;
-    Field * f;
-    Item* pItem;
-    uint32 itemid;
-    uint32 stackcount;
-
-    result = CharacterDatabase.FQuery("SELECT * FROM mailbox_insert_queue", con);
-    if( result != NULL )
-    {
-        sLog.Debug("MailboxQueue", "Sending queued messages....");
-        do
-        {
-            f = result->Fetch();
-            itemid = f[6].GetUInt32();
-            stackcount = f[7].GetUInt32();
-
-            if( itemid != 0 )
-            {
-                pItem = objmgr.CreateItem( itemid, NULL );
-                if( pItem != NULL )
-                {
-                    pItem->SetUInt32Value( ITEM_FIELD_STACK_COUNT, stackcount );
-                    pItem->SaveToDB( 0, 0, true, NULL );
-                }
-            }
-            else
-                pItem = NULL;
-
-            sLog.Debug("MailboxQueue", "Sending message to %u (item: %u)...", f[1].GetUInt32(), itemid);
-            sMailSystem.DeliverMessage( 0, f[0].GetUInt64(), f[1].GetUInt64(), f[2].GetString(), f[3].GetString(), f[5].GetUInt32(),
-                0, pItem ? pItem->GetGUID() : 0, f[4].GetUInt32(), true );
-
-            if( pItem != NULL )
-                pItem->Destruct();
-        } while ( result->NextRow() );
-        delete result;
-        sLog.Debug("MailboxQueue", "Done.");
-        CharacterDatabase.FWaitExecute("DELETE FROM mailbox_insert_queue", con);
-    }
+    //TODO:MAIL
 }
 
 void World::PollCharacterInsertQueue(DatabaseConnection * con)
@@ -1731,7 +1694,7 @@ void World::PollCharacterInsertQueue(DatabaseConnection * con)
             guid = f[0].GetUInt32();
 
             //Generate a new player guid
-            uint32 new_guid = objmgr.GenerateLowGuid(HIGHGUID_TYPE_PLAYER);
+            uint32 new_guid = objmgr.GeneratePlayerGuid();
 
             // Create his playerinfo in the server
             PlayerInfo * inf = new PlayerInfo(MAKE_NEW_GUID(new_guid, 0, HIGHGUID_TYPE_PLAYER));

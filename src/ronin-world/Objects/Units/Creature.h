@@ -201,7 +201,6 @@ public:
     virtual bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);
 
     void AddToWorld();
-    void AddToWorld(MapMgr* pMapMgr);
     void RemoveFromWorld(bool addrespawnevent, bool free_guid);
 
     /// Creation

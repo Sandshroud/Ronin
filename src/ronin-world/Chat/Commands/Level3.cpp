@@ -2516,13 +2516,11 @@ bool ChatHandler::HandleClearBonesCommand(const char *args, WorldSession *m_sess
     Player* p = m_session->GetPlayer();
     sWorld.LogGM(m_session, "cleared bones on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
-    WorldObject::InRangeSet::iterator itr;
     WorldObject* obj;
-
-    for( itr = p->GetInRangeSetBegin(); itr != p->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeMap::iterator itr;
+    for( itr = p->GetInRangeMapBegin(); itr != p->GetInRangeMapEnd(); itr++)
     {
-        obj = *itr;
-        if(!obj)
+        if((obj = itr->second) == NULL)
             continue;
 
         if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BONES )
@@ -2538,13 +2536,11 @@ bool ChatHandler::HandleClearCorpsesCommand(const char *args, WorldSession *m_se
     Player* p = m_session->GetPlayer();
     sWorld.LogGM(m_session, "cleared corpses on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
-    WorldObject::InRangeSet::iterator itr;
     WorldObject* obj;
-
-    for( itr = p->GetInRangeSetBegin(); itr != p->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeMap::iterator itr;
+    for( itr = p->GetInRangeMapBegin(); itr != p->GetInRangeMapEnd(); itr++)
     {
-        obj = *itr;
-        if(!obj)
+        if((obj = itr->second) == NULL)
             continue;
 
         if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BODY )

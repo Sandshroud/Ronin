@@ -83,6 +83,7 @@ public:
     uint32 GetItemCount(uint32 entry) { if(m_itemsByEntry.find(entry) == m_itemsByEntry.end()) return 0; return m_itemsByEntry[entry].size(); }
 
     bool CreateQuestItems(Quest *qst);
+    bool CreateQuestRewards(Quest *qst, uint8 reward_slot);
     bool CreateInventoryStacks(ItemPrototype *proto, uint32 count = 1, WoWGuid creatorGuid = 0, bool fromNPC = false);
     bool AddInventoryItemToSlot(Item *item, uint16 slot);
     void DestroyInventoryItem(uint16 slot);

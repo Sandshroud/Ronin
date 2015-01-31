@@ -352,36 +352,30 @@ bool AIInterface::FindFriends(float dist)
         return false;
     ai_TargetLock.Release();
 
-    Unit* pUnit = NULL;
-    bool result = false;
-    for(std::unordered_set<WorldObject* >::iterator itr = m_Unit->GetInRangeSetBegin(); itr != m_Unit->GetInRangeSetEnd(); itr++)
+    Unit *result = NULL;
+    for(WorldObject::InRangeUnitSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
-        if((*itr) == NULL || !(*itr)->IsInWorld() || (*itr)->GetTypeId() != TYPEID_UNIT)
+        if((*itr) == NULL || !(*itr)->IsInWorld())
+            continue;
+        if((*itr)->IsPlayer())
             continue;
 
-        pUnit = castPtr<Unit>((*itr));
-        if(!pUnit->isAlive())
+        Creature *pCreature = castPtr<Creature>((*itr));
+        if(!pCreature->isAlive())
             continue;
-        if(pUnit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+        if(pCreature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
             continue;
-        if(pUnit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9))
+        if(pCreature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9))
             continue;
-        if( !sFactionSystem.CanEitherUnitAttack(GetMostHated(), pUnit) )
+        if( pCreature->GetAIInterface()->getAIState() != STATE_IDLE && pCreature->GetAIInterface()->getAIState() != STATE_SCRIPTIDLE )
             continue;
-        if( !m_Unit->PhasedCanInteract(pUnit) )
+        if( !sFactionSystem.CanEitherUnitAttack(GetMostHated(), pCreature) )
             continue;
-        if( sFactionSystem.isCombatSupport( m_Unit, pUnit ) && ( pUnit->GetAIInterface()->getAIState() == STATE_IDLE || pUnit->GetAIInterface()->getAIState() == STATE_SCRIPTIDLE ) )//Not sure
+        if( sFactionSystem.isCombatSupport( m_Unit, pCreature ) )
         {
-            if( m_Unit->GetDistanceSq(pUnit) < dist)
+            if( m_Unit->GetDistanceSq(pCreature) < dist)
             {
-                result = true;
-                Unit* pUnit = NULL;
-                ai_TargetLock.Acquire();
-                TargetMap::iterator it, it2;
-                for(TargetMap::iterator it = m_aiTargets.begin(), it2; it != m_aiTargets.end();)
-                    if(Unit *unit = m_Unit->GetMapMgr()->GetUnit((it2 = it++)->first))
-                        castPtr<Unit>(*itr)->GetAIInterface()->AttackReaction( unit, 1, 0 );
-                ai_TargetLock.Release();
+                result = pCreature;
                 break;
             }
         }
@@ -391,7 +385,18 @@ bool AIInterface::FindFriends(float dist)
     CreatureData * ctrData = castPtr<Creature>(m_Unit)->GetCreatureData();
     if( ctrData && ctrData->Type == HUMANOID && ctrData->Civilian )
         CallGuards();
-    return result;
+
+    if(result)
+    {
+        ai_TargetLock.Acquire();
+        TargetMap::iterator it, it2;
+        for(TargetMap::iterator it = m_aiTargets.begin(), it2; it != m_aiTargets.end();)
+            if(Unit *unit = m_Unit->GetMapMgr()->GetUnit((it2 = it++)->first))
+                result->GetAIInterface()->AttackReaction( unit, 1, 0 );
+        ai_TargetLock.Release();
+        return true;
+    }
+    return false;
 }
 
 float AIInterface::_CalcDistanceFromHome()
@@ -501,7 +506,7 @@ void AIInterface::CallGuards()
             uint32 t = spawned ? 0 : RandomUInt(8)*1000;
             if( t == 0 )
                 guard->PushToWorld(m_Unit->GetMapMgr());
-            else sEventMgr.AddEvent(guard,&Creature::AddToWorld, m_Unit->GetMapMgr(), EVENT_UNK, t, 1, 0);
+            else sEventMgr.AddEvent(guard,&Creature::AddToWorld, EVENT_UNK, t, 1, 0);
 
             //despawn after 5 minutes.
             sEventMgr.AddEvent(guard, &Creature::SafeDelete, EVENT_CREATURE_SAFE_DELETE, 60*5*1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);

@@ -544,7 +544,6 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
     m_unitsInRange.clear();
     m_objectsInRange.clear();
     m_inRangePlayers.clear();
-    m_oppFactsInRange.clear();
 }
 
 WorldObject::~WorldObject( )
@@ -1259,37 +1258,6 @@ void WorldObject::_setFaction()
         m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     else if(GetTypeId() == TYPEID_GAMEOBJECT)
         m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(GAMEOBJECT_FACTION));
-
-    //Lets update our faction sets since we have changed faction.
-    UpdateOppFactionSet();
-}
-
-void WorldObject::UpdateOppFactionSet()
-{
-    if(!IsUnit())
-        return;
-
-    m_oppFactsInRange.clear();
-    for(WorldObject::InRangeUnitSet::iterator i = GetInRangeUnitSetBegin(); i != GetInRangeUnitSetEnd(); i++)
-    {
-        if (((*i)->GetTypeId() == TYPEID_UNIT) || ((*i)->IsPlayer()) || ((*i)->GetTypeId() == TYPEID_GAMEOBJECT))
-        {
-            if (sFactionSystem.isHostile(castPtr<Unit>(this), (*i)))
-            {
-                if(!(*i)->IsInRangeOppFactSet(castPtr<Unit>(this)))
-                    (*i)->m_oppFactsInRange.insert(castPtr<Unit>(this));
-                if (!IsInRangeOppFactSet((*i)))
-                    m_oppFactsInRange.insert((*i));
-            }
-            else
-            {
-                if((*i)->IsInRangeOppFactSet(castPtr<Unit>(this)))
-                    (*i)->m_oppFactsInRange.erase(castPtr<Unit>(this));
-                if (IsInRangeOppFactSet((*i)))
-                    m_oppFactsInRange.erase((*i));
-            }
-        }
-    }
 }
 
 int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)

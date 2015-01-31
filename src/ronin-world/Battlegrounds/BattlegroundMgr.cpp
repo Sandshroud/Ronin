@@ -1660,7 +1660,6 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
     pCreature->SetUInt32Value(UNIT_FIELD_BYTES_2, 1 | (0x10 << 8));
 
     pCreature->SetPvPFlag();
-    pCreature->DisableAI();
     pCreature->_setFaction();
 
     pCreature->PushToWorld(m_mapMgr);

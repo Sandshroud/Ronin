@@ -101,8 +101,9 @@ enum ItemDataFields : uint8
     ITEMDATA_FIELD_ITEM_DURABILITY  = 8,
     ITEMDATA_FIELD_ITEMTEXTID       = 9,
     ITEMDATA_FIELD_ITEM_PLAYEDTIME  = 10,
-    ITEMDATA_FIELD_ITEM_GIFT_GUID   = 11,
-    ITEMDATA_FIELD_ITEM_GIFT_CREATOR= 12,
+    ITEMDATA_FIELD_ITEM_CHARGES     = 11,
+    ITEMDATA_FIELD_ITEM_GIFT_GUID   = 12,
+    ITEMDATA_FIELD_ITEM_GIFT_CREATOR= 13,
     ITEMDATA_FIELD_MAX
 };
 
@@ -119,6 +120,7 @@ static const char *fieldNames[ITEMDATA_FIELD_MAX] =
     "itemdurability",
     "itemtextid",
     "itemplayedtime",
+    "itemcharges",
     "itemgiftguid",
     "itemgiftcreator"
 };
@@ -141,6 +143,8 @@ struct ItemData
     uint32 itemDurability;
     uint32 itemTextID;
     uint32 itemPlayedTime;
+    int32 itemSpellCharges;
+    ItemPrototype *proto;
 
     struct ItemGiftData
     {
@@ -157,12 +161,14 @@ struct ItemData
         uint32 enchantId;
         uint32 enchantCharges;
         time_t expirationTime;
-    } *enchantData[10];
 
-    struct SpellCharges
-    {
-        int32 spellCharges[5];
-    } *chargeData;
+        uint32 CalcTimeLeft()
+        {
+            if(expirationTime <= UNIXTIME)
+                return 0;
+            return uint32(1000*(UNIXTIME-expirationTime));
+        }
+    } *enchantData[10];
 };
 
 struct GuildBankItemStorage

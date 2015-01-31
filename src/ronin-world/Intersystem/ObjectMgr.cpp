@@ -488,7 +488,6 @@ Corpse* ObjectMgr::LoadCorpse(uint32 guid)
         pCorpse->SetUInt32Value(CORPSE_FIELD_FLAGS, fields[3].GetUInt32());
         pCorpse->SetZoneId(fields[8].GetUInt32());
         pCorpse->SetInstanceID(fields[10].GetUInt32());
-        pCorpse->LoadValues( fields[11].GetString());
         if(pCorpse->GetUInt32Value(CORPSE_FIELD_DISPLAY_ID) == 0)
         {
             RemoveCorpse(pCorpse);
@@ -1013,7 +1012,6 @@ void ObjectMgr::LoadCorpses(MapMgr* mgr)
             pCorpse->SetUInt32Value(CORPSE_FIELD_DISPLAY_ID, fields[2].GetUInt32()); 
             pCorpse->SetUInt32Value(CORPSE_FIELD_FLAGS, fields[3].GetUInt32());
             pCorpse->SetZoneId(fields[8].GetUInt32());
-            pCorpse->LoadValues( fields[11].GetString());
             if(pCorpse->GetUInt32Value(CORPSE_FIELD_DISPLAY_ID) == 0)
             {
                 RemoveCorpse(pCorpse);

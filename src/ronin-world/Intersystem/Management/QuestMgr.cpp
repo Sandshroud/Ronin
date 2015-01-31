@@ -65,29 +65,6 @@ QuestMgr::~QuestMgr()
     }
     m_itm_quests.clear();
 
-    for(itr4 = m_quest_associations.begin(); itr4 != m_quest_associations.end(); itr4++)
-    {
-        if(!itr4->second)
-            continue;
-
-        itr5 = itr4->second->begin();
-        for(; itr5 != itr4->second->end(); itr5++)
-        {
-            delete (*itr5);
-        }
-        itr4->second->clear();
-        delete itr4->second;
-    }
-    m_quest_associations.clear();
-
-    for(itr6 = m_extraqueststuff_list.begin(); itr6 != m_extraqueststuff_list.end(); itr6++)
-    {
-        GameObjectInfo *inf = GameObjectNameStorage.LookupEntry(*itr6);
-        if( inf == NULL )
-            continue;
-        objmgr.RemoveInvolvedQuestIds(inf->ID);
-    }
-
     for(MapQuestIterator = QuestStorage.begin(); MapQuestIterator != QuestStorage.end(); MapQuestIterator++)
     {
         delete MapQuestIterator->second->qst_title;
@@ -1145,7 +1122,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
             {
                 if( qle->GetQuest()->required_item[j] == entry )
                 {
-                    pcount = plr->GetItemInterface()->GetItemCount(entry, true, item, pickedupstacksize);
+                    pcount = plr->GetItemInterface()->GetItemCount(entry);
                     CALL_QUESTSCRIPT_EVENT(qle->GetQuest()->id, OnPlayerItemPickup)(entry, pcount, plr, qle);
                     if(pcount < qle->GetQuest()->required_itemcount[j])
                     {
@@ -1311,7 +1288,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         {
             //always remove collected items (need to be recollectable again in case of repeatable).
             if( qst->required_item[y] )
-                plr->GetItemInterface()->RemoveItemAmt(qst->required_item[y], qst->required_itemcount[y]);
+                plr->GetItemInterface()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y], true);
         }
 
         qle->Finish();
@@ -1336,95 +1313,16 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
 
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
-        // Static Item reward
-        for(uint32 i = 0; i < 4; i++)
-        {
-            if(qst->reward_item[i])
-            {
-                ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_item[i]);
-                if(!proto)
-                    sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_item[i], qst->id);
-                else
-                {
-                    Item* add;
-                    SlotResult slotresult;
-                    add = plr->GetItemInterface()->FindItemLessMax(qst->reward_item[i], qst->reward_itemcount[i], false);
-                    if (!add)
-                    {
-                        slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
-                        if(!slotresult.Result)
-                        {
-                            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-                        }
-                        else
-                        {
-                            Item* itm = objmgr.CreateItem(qst->reward_item[i], plr);
-                            itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_itemcount[i]));
-                            if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
-                            {
-                                itm->Destruct();
-                                itm = NULL;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_itemcount[i]);
-                        add->m_isDirty = true;
-                    }
-                }
-            }
-        }
-
-        // Choice Rewards
-        if(qst->reward_choiceitem[reward_slot])
-        {
-            ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_choiceitem[reward_slot]);
-            if(!proto)
-                sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_choiceitem[reward_slot], qst->id);
-            else
-            {
-                Item* add;
-                SlotResult slotresult;
-                add = plr->GetItemInterface()->FindItemLessMax(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], false);
-                if (!add)
-                {
-                    slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
-                    if(!slotresult.Result)
-                    {
-                        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-                    }
-                    else
-                    {
-                        Item* itm = objmgr.CreateItem(qst->reward_choiceitem[reward_slot], plr);
-                        itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_choiceitemcount[reward_slot]));
-                        if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
-                        {
-                            itm->Destruct();
-                            itm = NULL;
-                        }
-
-                    }
-                }
-                else
-                {
-                    add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_choiceitemcount[reward_slot]);
-                    add->m_isDirty = true;
-                }
-            }
-        }
+        plr->GetItemInterface()->CreateQuestRewards(qst, reward_slot);
 
         // cast Effect Spell
         if(qst->reward_cast_on_player)
         {
             if(SpellEntry *inf = dbcSpell.LookupEntry(qst->reward_cast_on_player))
             {
-                Spell *spe = NULL;
                 SpellCastTargets tgt;
                 tgt.m_unitTarget = plr->GetGUID();
-                if(qst_giver->IsItem())
-                    spe = new Spell(castPtr<Item>(qst_giver)->GetOwner(), inf, true, NULL);
-                else spe = new Spell(castPtr<WorldObject>(qst_giver), inf, true, NULL);
+                Spell *spe = new Spell(qst_giver->IsItem() ? castPtr<Item>(qst_giver)->GetOwner() : castPtr<WorldObject>(qst_giver), inf, true, NULL);
                 spe->prepare(&tgt);
             }
         }
@@ -1437,78 +1335,8 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
 
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
-        // Static Item reward
-        for(uint32 i = 0; i < 4; i++)
-        {
-            if(qst->reward_item[i])
-            {
-                ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_item[i]);
-                if(!proto)
-                    sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_item[i], qst->id);
-                else
-                {
-                    Item *add = plr->GetItemInterface()->FindItemLessMax(qst->reward_item[i], qst->reward_itemcount[i], false);
-                    if (add == NULL)
-                    {
-                        SlotResult slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
-                        if(!slotresult.Result)
-                            plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-                        else
-                        {
-                            Item* itm = objmgr.CreateItem(qst->reward_item[i], plr);
-                            itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_itemcount[i]));
-                            if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
-                            {
-                                itm->Destruct();
-                                itm = NULL;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_itemcount[i]);
-                        add->m_isDirty = true;
-                    }
-                }
-            }
-        }
-
-        // Choice Rewards
-        if(qst->reward_choiceitem[reward_slot])
-        {
-            ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_choiceitem[reward_slot]);
-            if(!proto)
-                sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_choiceitem[reward_slot], qst->id);
-            else
-            {
-                SlotResult slotresult;
-                Item *add = plr->GetItemInterface()->FindItemLessMax(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], false);
-                if (!add)
-                {
-                    slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
-                    if(!slotresult.Result)
-                    {
-                        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
-                    }
-                    else
-                    {
-                        Item* itm = objmgr.CreateItem(qst->reward_choiceitem[reward_slot], plr);
-                        itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_choiceitemcount[reward_slot]));
-                        if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
-                        {
-                            itm->Destruct();
-                            itm = NULL;
-                        }
-                    }
-                }
-                else
-                {
-                    add->SetCount(add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + qst->reward_choiceitemcount[reward_slot]);
-                    add->m_isDirty = true;
-                }
-            }
-        }
-
+        // Give reward items
+        plr->GetItemInterface()->CreateQuestRewards(qst, reward_slot);
 
         // cast learning spell
         if(qst->reward_spell)
@@ -1589,61 +1417,6 @@ QuestRelationList* QuestMgr::GetCreatureQuestList(uint32 entryid)
     QuestRelationListMap &olist = _GetList<Creature>();
     QuestRelationListMap::iterator itr = olist.find(entryid);
     return (itr == olist.end()) ? 0 : itr->second;
-}
-
-QuestAssociationList* QuestMgr::GetQuestAssociationListForItemId (uint32 itemId)
-{
-    QuestAssociationListMap &associationList = GetQuestAssociationList();
-    QuestAssociationListMap::iterator itr = associationList.find( itemId );
-    return (itr != associationList.end()) ? itr->second : 0;
-}
-
-void QuestMgr::AddItemQuestAssociation( uint32 itemId, Quest *qst, uint8 item_count)
-{
-    QuestAssociationListMap &associationList = GetQuestAssociationList();
-    QuestAssociationList* tempList;
-    QuestAssociation *ptr = NULL;
-
-    // look for the item in the associationList
-    if (associationList.find( itemId ) == associationList.end() )
-    {
-        // not found. Create a new entry and QuestAssociationList
-        associationList.insert(QuestAssociationListMap::value_type(itemId, (tempList = new QuestAssociationList)));
-    }
-    else
-    {
-        // item found, now we'll search through its QuestAssociationList
-        tempList = associationList.find( itemId )->second;
-    }
-
-    // look through this item's QuestAssociationList for a matching quest entry
-    QuestAssociationList::iterator it;
-    for (it = tempList->begin(); it != tempList->end(); it++)
-    {
-        if ((*it)->qst == qst)
-        {
-            // matching quest found
-            ptr = (*it);
-            break;
-        }
-    }
-
-    // did we find a matching quest?
-    if (ptr == NULL)
-    {
-        // nope, create a new QuestAssociation for this item and quest
-        ptr = new QuestAssociation;
-        ptr->qst = qst;
-        ptr->item_count = item_count;
-
-        tempList->push_back( ptr );
-    }
-    else
-    {
-        // yep, update the QuestAssociation with the new item_count information
-        ptr->item_count = item_count;
-        sLog.outDebug( "WARNING: Duplicate entries found in item_quest_association, updating item #%d with new item_count: %d.", itemId, item_count );
-    }
 }
 
 template <class T> void QuestMgr::_AddQuest(uint32 entryid, Quest *qst, uint8 type)
@@ -1877,255 +1650,43 @@ bool QuestMgr::OnActivateQuestGiver(Object* qst_giver, Player* plr)
 
 bool QuestMgr::CanStoreReward(Player* plyr, Quest *qst, uint32 reward_slot)
 {
-    uint32 slotsrequired = 0;
-    uint32 available_slots = plyr->GetItemInterface()->CalculateFreeSlots(NULL);
 
-    // Static Item reward
-    for(uint32 i = 0; i < 4; i++)
-    {
-        if(qst->reward_item[i])
-        {
-            slotsrequired++;
-            ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_item[i]);
-            if(!proto)
-                sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_item[i], qst->id);
-            else if(plyr->GetItemInterface()->CanReceiveItem(proto, qst->reward_itemcount[i], NULL))
-                return false;
-        }
-    }
-
-    // Choice Rewards
-    if(qst->reward_choiceitem[reward_slot])
-    {
-        slotsrequired++;
-        ItemPrototype *proto = sItemMgr.LookupEntry(qst->reward_choiceitem[reward_slot]);
-        if(!proto)
-            sLog.outDebug("Invalid item prototype in quest reward! ID %d, quest %d", qst->reward_choiceitem[reward_slot], qst->id);
-        else if(plyr->GetItemInterface()->CanReceiveItem(proto, qst->reward_choiceitemcount[reward_slot], NULL))
-            return false;
-    }
-
-    if(available_slots < slotsrequired)
-        return false;
     return true;
 }
 
 void QuestMgr::LoadExtraQuestStuff()
 {
-    QuestStorageMap::iterator it = QuestStorage.begin();
-    Quest * qst;
-    std::map<uint32, std::set<uint32> > tmp_map;
-    std::map<uint32, std::vector<uint32> > loot_map;
-
-    lootmgr.LoadLoot();
-    lootmgr.FillObjectLootMap(&loot_map);
+    bool cleanDB = mainIni->ReadBoolean("Server", "CleanDatabase", false);
     sLog.Debug("QuestMgr","Creating gameobject involved quest map...");
 
-    while(it != QuestStorage.end())
+    const char *table_names[4] = { "creature_quest_starter", "creature_quest_finisher", "gameobject_quest_starter", "gameobject_quest_finisher" };
+    for(uint8 i = 0; i < 4; i++)
     {
-        qst = it->second;
-
-        for( uint32 j = 0; j < 6; j++)
+        if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM %s", table_names[i]))
         {
-            if(qst->required_item[j])
+            sLog.Notice("QuestMgr", "Parsing %u entries from %s", pResult->GetRowCount(), table_names[i]);
+
+            uint32 objEntry, quest;
+            do
             {
-                std::map<uint32, std::vector<uint32> >::iterator tt = loot_map.find(qst->required_item[j]);
-                if( tt != loot_map.end() )
+                Field *data = pResult->Fetch();
+                objEntry = data[0].GetUInt32();
+                quest = data[1].GetUInt32();
+
+                if(Quest *qst = GetQuestPointer(quest))
                 {
-                    std::vector<uint32>::iterator tt2 = tt->second.begin();
-                    for( ; tt2 != tt->second.end(); ++tt2 )
-                    {
-                        // this only applies if the only items under the loot template are quest items
-                        LootStore::iterator itr = lootmgr.GOLoot.find((*tt2));
-                        bool has_other = false;
-                        bool has_quest = true;
-                        if( itr != lootmgr.GOLoot.end() )
-                        {
-                            for(uint32 xx = 0; xx < itr->second.count; ++xx )
-                            {
-                                if( itr->second.items[xx].item.itemproto == NULL )
-                                    continue;
-
-                                if( itr->second.items[xx].item.itemproto->Class != ITEM_CLASS_QUEST )
-                                {
-                                    has_other = true;
-                                    break;
-                                }
-                                else
-                                    has_quest = true;
-                            }
-                        }
-
-                        if( !has_other && has_quest )
-                            tmp_map[(*tt2)].insert(qst->id);
-                    }
+                    if(i < 2)
+                        _AddQuest<Creature>(objEntry, qst, 1);  // 1 = starter
+                    else _AddQuest<GameObject>(objEntry, qst, 1);  // 1 = starter
                 }
-            }
+                else
+                {
+                    sLog.Warning("QuestMgr", "Non-existent quest %u for entry %u in table %s", quest, objEntry, table_names[i]);
+                    if(cleanDB) WorldDatabase.Execute("DELETE FROM %s where quest = '%u'", table_names[i], quest);
+                }
+            } while(pResult->NextRow());
+            delete pResult;
         }
-        it++;
-    }
-
-    for(std::map<uint32, std::set<uint32> >::iterator itr = tmp_map.begin(); itr != tmp_map.end(); itr++)
-    {
-        GameObjectInfo *inf = GameObjectNameStorage.LookupEntry(itr->first);
-        if( inf == NULL )
-            continue;
-
-        m_extraqueststuff_list.push_back(itr->first);
-        objmgr.AddInvolvedQuestIds(itr->first, itr->second);
-    }
-
-    // load creature starters
-    uint32 creature, quest;
-
-    QueryResult * pResult = WorldDatabase.Query("SELECT * FROM creature_quest_starter");
-    uint32 pos = 0;
-    uint32 total = 0;
-    if(pResult)
-    {
-        total = pResult->GetRowCount();
-        do
-        {
-            Field *data = pResult->Fetch();
-            creature = data[0].GetUInt32();
-            quest = data[1].GetUInt32();
-
-            qst = GetQuestPointer(quest);
-            if(!qst)
-            {
-                sLog.Warning("QuestMgr","Tried to add starter to npc %u for non-existant quest %u.", creature, quest);
-                if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                {
-                    WorldDatabase.Execute("DELETE FROM creature_quest_starter where quest = '%u'", quest);
-                }
-                total--;
-            }
-            else
-                _AddQuest<Creature>(creature, qst, 1);  // 1 = starter
-
-        } while(pResult->NextRow());
-        delete pResult;
-    }
-    sLog.Notice("QuestMgr","Marked %u creatures as quest starter", total);
-
-    pResult = WorldDatabase.Query("SELECT * FROM creature_quest_finisher");
-    pos = total = 0;
-    if(pResult)
-    {
-        total = pResult->GetRowCount();
-        do
-        {
-            Field *data = pResult->Fetch();
-            creature = data[0].GetUInt32();
-            quest = data[1].GetUInt32();
-
-            qst = GetQuestPointer(quest);
-            if(!qst)
-            {
-                sLog.Warning("QuestMgr","Tried to add finisher to npc %d for non-existant quest %d.", creature, quest);
-                if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                {
-                    WorldDatabase.Execute("DELETE FROM creature_quest_finisher where quest = '%u'", quest);
-                }
-                total--;
-            }
-            else
-                _AddQuest<Creature>(creature, qst, 2);  // 2 = starter
-
-        } while(pResult->NextRow());
-        delete pResult;
-    }
-    sLog.Notice("QuestMgr","Marked %u creatures as quest finisher", total);
-
-    pResult = WorldDatabase.Query("SELECT * FROM gameobject_quest_starter");
-    pos = total = 0;
-    if(pResult)
-    {
-        total = pResult->GetRowCount();
-        do
-        {
-            Field *data = pResult->Fetch();
-            creature = data[0].GetUInt32();
-            quest = data[1].GetUInt32();
-
-            qst = GetQuestPointer(quest);
-            if(!qst)
-            {
-                sLog.Warning("QuestMgr","Tried to add starter to go %d for non-existant quest %d.", creature, quest);
-                if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                {
-                    WorldDatabase.Execute("DELETE FROM gameobject_quest_starter where quest = '%u'", quest);
-                }
-                total--;
-            }
-            else
-                _AddQuest<GameObject>(creature, qst, 1);  // 1 = starter
-
-        } while(pResult->NextRow());
-        delete pResult;
-        sLog.Notice("QuestMgr","Marked %u gameobjects as quest starter", total);
-    }
-
-    pResult = WorldDatabase.Query("SELECT * FROM gameobject_quest_finisher");
-    pos = total = 0;
-    if(pResult)
-    {
-        total = pResult->GetRowCount();
-        do
-        {
-            Field *data = pResult->Fetch();
-            creature = data[0].GetUInt32();
-            quest = data[1].GetUInt32();
-
-            qst = GetQuestPointer(quest);
-            if(!qst)
-            {
-                sLog.Warning("QuestMgr","Tried to add finisher to go %d for non-existant quest %d.\n", creature, quest);
-                if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                {
-                    WorldDatabase.Execute("DELETE FROM gameobject_quest_finisher where quest = '%u'", quest);
-                }
-                total--;
-            }
-            else
-                _AddQuest<GameObject>(creature, qst, 2);  // 2 = finish
-
-        } while(pResult->NextRow());
-        delete pResult;
-        sLog.Notice("QuestMgr","Marked %u gameobjects as quest finisher", total);
-    }
-
-    //load item quest associations
-    pResult = WorldDatabase.Query("SELECT * FROM item_quest_association");
-    pos = total = 0;
-    if( pResult != NULL)
-    {
-        uint32 item = 0;
-        uint8 item_count = 0;
-        total = pResult->GetRowCount();
-        do
-        {
-            Field *data = pResult->Fetch();
-            item = data[0].GetUInt32();
-            quest = data[1].GetUInt32();
-            item_count = data[2].GetUInt8();
-
-            qst = GetQuestPointer(quest);
-            if(!qst)
-            {
-                sLog.Warning("QuestMgr","Tried to add association to item %d for non-existant quest %d.", item, quest);
-                if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                {
-                    WorldDatabase.Execute("DELETE FROM item_quest_association where quest = '%u'", quest);
-                }
-                total--;
-            }
-            else
-                AddItemQuestAssociation( item, qst, item_count );
-
-        } while( pResult->NextRow() );
-        delete pResult;
-        sLog.Notice("QuestMgr","Loaded %u item-quest associations", total);
     }
 
     //Proccess the stuff

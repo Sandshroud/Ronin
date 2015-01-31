@@ -435,22 +435,20 @@ enum PlayerTradeStatus : uint8
     TRADE_STATUS_UNK7,
     TRADE_STATUS_CLOSE_WINDOW
 };
-enum TRADE_DATA
-{
-    TRADE_GIVE      = 0x00,
-    TRADE_RECEIVE    = 0x01,
-};
+
 enum DUEL_STATUS
 {
     DUEL_STATUS_OUTOFBOUNDS,
     DUEL_STATUS_INBOUNDS
 };
+
 enum DUEL_STATE
 {
     DUEL_STATE_REQUESTED,
     DUEL_STATE_STARTED,
     DUEL_STATE_FINISHED
 };
+
 enum DUEL_WINNER
 {
     DUEL_WINNER_KNOCKOUT,
@@ -1010,7 +1008,6 @@ public:
     bool                IsAtWar(uint32 Faction);
     Standing            GetStandingRank(uint32 Faction);
     bool                IsHostileBasedOnReputation(FactionEntry *faction);
-    void                UpdateInrangeSetsBasedOnReputation();
     void                Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop);
     void                Reputation_OnTalk(FactionEntry *faction);
     bool                AddNewFaction( FactionEntry *faction, int32 standing, bool base );
@@ -1082,7 +1079,7 @@ public:
     RONIN_INLINE void UnSetBanned() { m_banned = 0; }
     RONIN_INLINE std::string GetBanReason() {return m_banreason;}
 
-    void SetGuardHostileFlag(bool val) { if(val) SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); else RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); UpdateOppFactionSet(); }
+    void SetGuardHostileFlag(bool val) { if(val) SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); else RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
     void CreateResetGuardHostileFlagEvent()
     {
         event_RemoveEvents( EVENT_GUARD_HOSTILE );
@@ -1141,6 +1138,7 @@ public:
         m_tradeData->gold = 0;
         for(uint8 i = 0; i < 7; i++)
             m_tradeData->tradeItems[i] = NULL;
+        m_tradeData->tradeStep = TRADE_STATUS_BEGIN_TRADE;
     }
 
     /************************************************************************/
@@ -1358,11 +1356,11 @@ public:
     void ClearInRangeSet();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
-    RONIN_INLINE void RemoveVisibleObject(InRangeSet::iterator itr) { m_visibleObjects.erase(itr); }
-    RONIN_INLINE InRangeSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
+    RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjectSet::iterator itr) { m_visibleObjects.erase(itr); }
+    RONIN_INLINE InRangeWorldObjectSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
     RONIN_INLINE void RemoveIfVisible(WorldObject* obj)
     {
-        InRangeSet::iterator itr = m_visibleObjects.find(obj);
+        InRangeWorldObjectSet::iterator itr = m_visibleObjects.find(obj);
         if(itr == m_visibleObjects.end())
             return;
 
@@ -1370,14 +1368,14 @@ public:
         PushOutOfRange(obj->GetGUID());
     }
 
-    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeSet::iterator *itr)
+    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeWorldObjectSet::iterator *itr)
     {
         *itr = m_visibleObjects.find(obj);
         return ((*itr) != m_visibleObjects.end());
     }
 
-    RONIN_INLINE InRangeSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
+    RONIN_INLINE InRangeWorldObjectSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
+    RONIN_INLINE InRangeWorldObjectSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
 
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
@@ -1812,6 +1810,7 @@ protected:
         uint32 enchantId;
         WoWGuid targetGuid;
         ItemData* tradeItems[7];
+        PlayerTradeStatus tradeStep;
     } *m_tradeData;
 
     /************************************************************************/
@@ -1870,7 +1869,7 @@ protected:
     std::set<uint32> m_channels;
     std::map<uint32, Channel*> m_channelsbyDBCID;
     // Visible objects
-    std::unordered_set<WorldObject* > m_visibleObjects;
+    InRangeWorldObjectSet m_visibleObjects;
     // Groups/Raids
     WoWGuid m_GroupInviter;
 

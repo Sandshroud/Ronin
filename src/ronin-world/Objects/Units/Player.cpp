@@ -301,7 +301,6 @@ void Player::Init()
     quest_mobs.clear();
     OnMeleeAuras.clear();
     m_Pets.clear();
-    m_itemsets.clear();
     m_channels.clear();
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
@@ -331,12 +330,15 @@ void Player::Destruct()
         pTarget->SetInviter(0);
     pTarget = NULL;
 
-    if(!mTradeTarget.empty())
+    if(m_tradeData)
     {
-        pTarget = GetTradeTarget();
-        if(pTarget)
-            pTarget->mTradeTarget = 0;
-        pTarget = NULL;
+        if((pTarget = GetTradeTarget()) && pTarget->m_tradeData)
+        {
+            delete pTarget->m_tradeData;
+            pTarget->m_tradeData = NULL;
+        }
+        delete m_tradeData;
+        m_tradeData = NULL;
     }
 
     if(m_Summon)
@@ -361,8 +363,6 @@ void Player::Destruct()
 
     if( m_mailBox )
         delete m_mailBox;
-
-    mTradeTarget = 0;
 
     if( DuelingWith != NULL )
         DuelingWith->DuelingWith = NULL;
@@ -425,7 +425,6 @@ void Player::Destruct()
     }
 
     m_Pets.clear();
-    m_itemsets.clear();
     m_channels.clear();
     m_channelsbyDBCID.clear();
     mSpells.clear();
@@ -870,7 +869,7 @@ int32 Player::GetBaseMinDamage(uint8 weaponType)
 {
     int32 damage = 1.0f;
     if( Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
-        if(disarmed == false) damage += item->CalcMinDamage();
+        if(disarmed == false) damage += item->GetProto()->minDamage;
     return damage;
 }
 
@@ -878,7 +877,7 @@ int32 Player::GetBaseMaxDamage(uint8 weaponType)
 {
     int32 damage = 2.0f;
     if( Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
-        if(disarmed == false) damage += item->CalcMaxDamage();
+        if(disarmed == false) damage += item->GetProto()->maxDamage;
     return damage;
 }
 
@@ -1307,7 +1306,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     _LoadExplorationData(results[PLAYER_LO_EXPLORATION].result);
     //m_factionInterface.LoadFactionData(results[PLAYER_LO_FACTIONS].result);
     m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
-    m_ItemInterface.LoadPlayerItems(results[PLAYER_LO_ITEMS].result);
     _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
     _LoadPlayerPowers(results[PLAYER_LO_POWERS].result);
     _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
@@ -1318,6 +1316,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
+    m_ItemInterface.LoadItemData();
 
     _setFaction();
 
@@ -4899,17 +4898,6 @@ bool Player::HasQuestForItem(uint32 itemid)
         {
             qst = m_questlog[i]->GetQuest();
 
-            // Check the item_quest_association table for an entry related to this item
-            QuestAssociationList *tempList = sQuestMgr.GetQuestAssociationListForItemId( itemid );
-            if( tempList != NULL )
-            {
-                uint32 countNeeded = 0;
-                for(QuestAssociationList::iterator itr = tempList->begin(); itr != tempList->end(); itr++)
-                    countNeeded += (*itr)->item_count;
-                if(countNeeded < GetItemInterface()->GetItemCount(itemid))
-                    return true;
-            }
-
             // No item_quest association found, check the quest requirements
             if( !qst->count_required_item )
                 continue;
@@ -5587,47 +5575,43 @@ void Player::Reset_ToLevel1()
 void Player::UpdateNearbyGameObjects()
 {
     GameObject* Gobj = NULL;
-    for (WorldObject::InRangeSet::iterator itr = GetInRangeSetBegin(); itr != GetInRangeSetEnd(); itr++)
+    for (WorldObject::InRangeGameObjectSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); itr++)
     {
-        if((*itr)->IsGameObject())
-        {
-            Gobj = castPtr<GameObject>(*itr);
-            ByteBuffer buff(500);
-            Gobj->SetUpdateField(OBJECT_FIELD_GUID);
-            Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
-            Gobj->BuildValuesUpdateBlockForPlayer(&buff, this);
-            PushUpdateBlock(&buff, 1);
-        }
+        Gobj = castPtr<GameObject>(*itr);
+        ByteBuffer buff(500);
+        Gobj->SetUpdateField(OBJECT_FIELD_GUID);
+        Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
+        Gobj->BuildValuesUpdateBlockForPlayer(&buff, UF_FLAGMASK_PUBLIC);
+        PushUpdateBlock(&buff, 1);
     }
 }
 
 void Player::UpdateNearbyQuestGivers()
 {
-    GameObject* Gobj = NULL;
-    for (WorldObject::InRangeSet::iterator itr = GetInRangeSetBegin(); itr != GetInRangeSetEnd(); itr++)
+    for (WorldObject::InRangeMap::iterator itr = GetInRangeMapBegin(); itr != GetInRangeMapEnd(); itr++)
     {
-        if((*itr)->IsGameObject())
+        if(itr->second->IsGameObject())
         {
-            if(castPtr<GameObject>(*itr)->isQuestGiver())
+            if(castPtr<GameObject>(itr->second)->isQuestGiver())
             {
-                uint32 status = sQuestMgr.CalcStatus((*itr), this);
+                uint32 status = sQuestMgr.CalcStatus(itr->second, this);
                 if(status != QMGR_QUEST_NOT_AVAILABLE)
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << (*itr)->GetGUID() << status;
+                    data << itr->first << status;
                     SendPacket( &data );
                 }
             }
         }
-        else if((*itr)->IsCreature())
+        else if(itr->second->IsCreature())
         {
-            if(castPtr<Creature>(*itr)->isQuestGiver())
+            if(castPtr<Creature>(itr->second)->isQuestGiver())
             {
-                uint32 status = sQuestMgr.CalcStatus((*itr), this);
+                uint32 status = sQuestMgr.CalcStatus(itr->second, this);
                 if(status != QMGR_QUEST_NOT_AVAILABLE)
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << (*itr)->GetGUID() << status;
+                    data << itr->first << status;
                     SendPacket( &data );
                 }
             }
