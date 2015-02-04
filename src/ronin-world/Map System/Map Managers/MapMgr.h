@@ -303,6 +303,9 @@ private:
     void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
     void UpdateInRangeSet(uint64 guid, MapCell* cell);
 
+    void ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
+    void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
+
 public:
     void UpdateInrangeSetOnCells(uint64 guid, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
