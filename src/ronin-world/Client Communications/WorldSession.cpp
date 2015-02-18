@@ -271,110 +271,109 @@ void WorldSession::LogoutPlayer(bool Save)
     _loggingOut = true;
     _recentlogout = true;
 
-    if( _player != NULL )
+    if( Player *plr = _player )
     {
-        if(_player == NULL)
-            return;
+        _player = NULL;
 
-        sHookInterface.OnLogout( _player );
+        sHookInterface.OnLogout(plr);
 
-        sEventMgr.RemoveEvents(_player);
+        sEventMgr.RemoveEvents(plr);
 
         //Duel Cancel on Leave
-        if( _player->DuelingWith != NULL )
-            _player->EndDuel( DUEL_WINNER_RETREAT );
+        if( plr->DuelingWith != NULL )
+            plr->EndDuel( DUEL_WINNER_RETREAT );
 
-        if( _player->m_currentLoot && _player->IsInWorld() )
+        if( plr->m_currentLoot && plr->IsInWorld() )
         {
-            if( WorldObject* obj = _player->GetMapMgr()->_GetObject( _player->m_currentLoot ) )
-                obj->GetLoot()->looters.erase(_player->GetLowGUID());
+            if( WorldObject* obj = plr->GetMapMgr()->_GetObject( plr->m_currentLoot ) )
+                obj->GetLoot()->looters.erase(plr->GetLowGUID());
         }
 
 #ifndef GM_TICKET_MY_MASTER_COMPATIBLE
-        GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(_player->GetGUID());
+        GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(plr->GetGUID());
         if(ticket != NULL)
         {
             //Send status change to gm_sync_channel
-            Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), _player);
+            Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), plr);
             if(chn)
             {
                 std::stringstream ss;
                 ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_ONLINESTATE;
                 ss << ":" << ticket->guid.getLow();
                 ss << ":0";
-                chn->Say(_player, ss.str().c_str(), NULL, true);
+                chn->Say(plr, ss.str().c_str(), NULL, true);
             }
         }
 #endif
 
         // part channels
-        _player->CleanupChannels();
+        plr->CleanupChannels();
 
         // Remove from vehicle for now.
-        if(_player->GetVehicle(true))
-            castPtr<Vehicle>(_player->GetVehicle())->RemovePassenger(_player);
+        if(plr->GetVehicle(true))
+            castPtr<Vehicle>(plr->GetVehicle())->RemovePassenger(plr);
 
-        if( _player->m_CurrentTransporter != NULL )
+        if( plr->m_CurrentTransporter != NULL )
         {
-            _player->m_CurrentTransporter->RemovePlayer( _player );
-            _player->m_CurrentTransporter = NULL;
-            _player->GetMovementInterface()->ClearTransportData();
+            plr->m_CurrentTransporter->RemovePlayer( plr );
+            plr->m_CurrentTransporter = NULL;
+            plr->GetMovementInterface()->ClearTransportData();
         }
 
         // cancel current spell
-        if( _player->m_currentSpell != NULL )
-            _player->m_currentSpell->cancel();
+        if( plr->m_currentSpell != NULL )
+            plr->m_currentSpell->cancel();
 
-        if( _player->GetTeam() == 1 && sWorld.HordePlayers )
+        if( plr->GetTeam() == 1 && sWorld.HordePlayers )
             sWorld.HordePlayers--;
-        else if( _player->GetTeam() == 0 && sWorld.AlliancePlayers )
+        else if( plr->GetTeam() == 0 && sWorld.AlliancePlayers )
             sWorld.AlliancePlayers--;
 
-        if( _player->m_bg )
-            _player->m_bg->RemovePlayer( _player, true );
+        if( plr->m_bg )
+            plr->m_bg->RemovePlayer( plr, true );
 
-        _player->RemoveFromBattlegroundQueue(0); // Pending BGs
-        _player->RemoveFromBattlegroundQueue(1); // Pending BGs
-        BattlegroundManager.RemovePlayerFromQueues( _player );
+        plr->RemoveFromBattlegroundQueue(0); // Pending BGs
+        plr->RemoveFromBattlegroundQueue(1); // Pending BGs
+        BattlegroundManager.RemovePlayerFromQueues( plr );
 
         //Issue a message telling all guild members that this player signed off
-        guildmgr.PlayerLoggedOff(_player->getPlayerInfo());
+        guildmgr.PlayerLoggedOff(plr->getPlayerInfo());
 
-        _player->GetItemInterface()->EmptyBuyBack();
+        plr->GetInventory()->EmptyBuyBack();
 
-        sLfgMgr.RemovePlayerFromLfgQueues( _player );
+        sLfgMgr.RemovePlayerFromLfgQueues( plr );
 
         // Save HP/Mana
-        _player->load_health = _player->GetUInt32Value( UNIT_FIELD_HEALTH );
+        plr->load_health = plr->GetUInt32Value( UNIT_FIELD_HEALTH );
 
-        objmgr.RemovePlayer( _player );
-        _player->ok_to_remove = true;
+        objmgr.RemovePlayer( plr );
+        plr->ok_to_remove = true;
 
-        if( _player->GetSummon() != NULL )
-            _player->GetSummon()->Remove( false, true, false );
+        if( plr->GetSummon() != NULL )
+            plr->GetSummon()->Remove( false, true, false );
 
         if( Save )
-            _player->SaveToDB(false);
+            plr->SaveToDB(false);
 
         // send to gms
         if( HasGMPermissions() && !bServerShutdown )
-            sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", _player->GetName(), GetAccountNameS(), GetPermissions());
+            sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
 
-        _player->m_AuraInterface.RemoveAllAuras();
-        if( _player->IsInWorld() )
-            _player->RemoveFromWorld();
+        plr->m_AuraInterface.RemoveAllAuras();
+        if( plr->IsInWorld() )
+            plr->RemoveFromWorld();
 
-        _player->m_playerInfo->m_loggedInPlayer = NULL;
+        plr->m_playerInfo->m_loggedInPlayer = NULL;
 
         if(!bServerShutdown) // Save our groups for the next startup.
         {
-            if(_player->GetGroup()) // Init group logout checks.
+            if(plr->GetGroup()) // Init group logout checks.
             {
                 // Remove player from the group if he is in a group and not in a raid.
-                if(!(_player->GetGroup()->GetGroupType() & GROUP_TYPE_RAID) && _socket && (_player->GetGroup()->GetOnlineMemberCount() == 0))
-                    _player->GetGroup()->Disband();
+                if(!(plr->GetGroup()->GetGroupType() & GROUP_TYPE_RAID) && _socket && (plr->GetGroup()->GetOnlineMemberCount() == 0))
+                    plr->GetGroup()->Disband();
                 else
-                    _player->m_playerInfo->m_Group->Update();
+                    plr->m_playerInfo->m_Group->Update();
             }
         }
 
@@ -382,7 +381,7 @@ void WorldSession::LogoutPlayer(bool Save)
         GetPlayer()->RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
 
         // Update Tracker status
-        sTracker.CheckPlayerForTracker(_player, false);
+        sTracker.CheckPlayerForTracker(plr, false);
 
         // Save our tutorials
         SaveTutorials();
@@ -390,8 +389,7 @@ void WorldSession::LogoutPlayer(bool Save)
         // Save our account data, if we have any
         SaveAccountData();
 
-        _player->Destruct();
-        _player = NULL;
+        plr->Destruct();
 
         OutPacket(SMSG_LOGOUT_COMPLETE, 0, NULL);
         sLog.Debug( "WorldSession","Sent SMSG_LOGOUT_COMPLETE Message" );
@@ -399,8 +397,6 @@ void WorldSession::LogoutPlayer(bool Save)
     _loggingOut = false;
 
     SetLogoutTimer(0);
-    if(_player != NULL)
-        _player = NULL;
 }
 
 void WorldSession::SendBuyFailed(uint64 guid, uint32 itemid, uint8 error)
@@ -704,7 +700,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_ENABLETAXI].handler                            = &WorldSession::HandleTaxiQueryAvaibleNodesOpcode;
     WorldPacketHandlers[CMSG_TAXINODE_STATUS_QUERY].handler                 = &WorldSession::HandleTaxiNodeStatusQueryOpcode;
     WorldPacketHandlers[CMSG_TAXIQUERYAVAILABLENODES].handler               = &WorldSession::HandleTaxiQueryAvaibleNodesOpcode;
-    WorldPacketHandlers[CMSG_ENABLETAXI].handler                            = &WorldSession::HandleTaxiQueryAvaibleNodesOpcode;
     WorldPacketHandlers[CMSG_ACTIVATETAXI].handler                          = &WorldSession::HandleActivateTaxiOpcode;
     WorldPacketHandlers[MSG_TABARDVENDOR_ACTIVATE].handler                  = &WorldSession::HandleTabardVendorActivateOpcode;
     WorldPacketHandlers[CMSG_BANKER_ACTIVATE].handler                       = &WorldSession::HandleBankerActivateOpcode;

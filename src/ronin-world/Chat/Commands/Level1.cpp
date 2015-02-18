@@ -227,7 +227,7 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
     if(ItemPrototype* it = sItemMgr.LookupEntry(itemid))
     {
         sWorld.LogGM(m_session, "used add item command, %u of item id %u [%s] to %s", count, it->ItemId, it->Name1, chr->GetName());
-        if(!chr->GetItemInterface()->CreateInventoryStacks(it, count, m_session->GetPlayer()->GetGUID()))
+        if(!chr->GetInventory()->CreateInventoryStacks(it, count, m_session->GetPlayer()->GetGUID()))
         {
             RedSystemMessage(m_session, "Failed to create any inventory stacks");
             return true;

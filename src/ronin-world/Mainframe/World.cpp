@@ -528,17 +528,7 @@ bool World::SetInitialWorldSettings()
     tl.waitForThreadsToExit();
 
     LoadNameGenData();
-    sLog.Notice("World", "WorldObject size: %u bytes", sizeof(WorldObject));
-    sLog.Notice("World", "GameObject size: %u bytes", sizeof(GameObject));
-    sLog.Notice("World", "AI size: %u bytes", sizeof(AIInterface));
-    sLog.Notice("World", "Unit size: %u bytes", sizeof(Unit) + sizeof(AIInterface));
-    sLog.Notice("World", "Creature size: %u bytes", sizeof(Creature) + sizeof(AIInterface));
-    sLog.Notice("World", "Vehicle size: %u bytes", sizeof(Vehicle) + sizeof(AIInterface));
-    sLog.Notice("World", "Player size: %u bytes", sizeof(Player) + sizeof(AIInterface) + sizeof(ItemInterface) + sizeof(WorldSession) + sizeof(MapMgr));
-    sLog.Notice("World", "Single Player size: %u bytes", sizeof(Player) + sizeof(AIInterface));
-    sLog.Notice("World", "MapMgr size: %u bytes", sizeof(MapMgr));
-    sLog.Notice("World", "ItemInterface size: %u bytes", sizeof(ItemInterface));
-    sLog.Notice("World", "WorldSession size: %u bytes", sizeof(WorldSession));
+
     sLog.Notice("World","Starting Transport System...");
     objmgr.LoadTransporters();
 

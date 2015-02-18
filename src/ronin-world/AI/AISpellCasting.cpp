@@ -313,7 +313,7 @@ Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, 
 {
     //Build potential target list
     std::set<Unit*> TargetSet;
-    for ( PlayerSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
+    for ( WorldObject::InRangePlayerSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
     {
         if ( IsValidUnitTarget( *PlayerIter, info, pTargetFilter, pMinRange, pMaxRange ) )
             TargetSet.insert( castPtr<Unit>( *PlayerIter ) );

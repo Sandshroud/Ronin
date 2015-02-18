@@ -463,31 +463,31 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
         recv_data >> itemslot;
         recv_data >> itemguid;
 
-        pItem = _player->GetItemInterface()->GetItemByGUID( itemguid );
-        real_item_slot = _player->GetItemInterface()->GetInventorySlotByGuid( itemguid );
-        if( pItem == NULL || pItem->HasFlag( ITEM_FIELD_FLAGS, ITEM_FLAG_CONJURED ) )
+        pItem = _player->GetInventory()->GetInventoryItem( itemguid );
+        real_item_slot = _player->GetInventory()->GetInventorySlotByGuid( itemguid );
+        if( pItem == NULL || pItem->HasFlag( ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED ) )
         {
-            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_CANNOT_TRADE_THAT);
+            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_TRADE_BOUND_ITEM);
             return;
         }
 
-        if( ( pItem->IsContainer() && (castPtr<Container>( pItem ))->HasItems() ) || real_item_slot >= 0 && real_item_slot < INVENTORY_SLOT_ITEM_START )
+        if( ( pItem->IsContainer() && pItem->HasItems() ) || real_item_slot >= 0 && real_item_slot < INVENTORY_SLOT_ITEM_START )
         {
-            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_CANT_TRADE_EQUIP_BAGS);
+            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_TRADE_EQUIPPED_BAG);
             return;
         }
 
-        if(pItem->IsAccountbound()) // don't mail account-bound items to another account
+        if(pItem->isAccountBound()) // don't mail account-bound items to another account
         {
             if(GetAccountId() != player->acct)
             {
-                SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_ACCOUNT_BOUND);
+                SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_NOT_SAME_ACCOUNT);
                 return;
             }
         }
-        else if(pItem->IsSoulbound())
+        else if(pItem->isSoulBound())
         {
-            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_CANNOT_TRADE_THAT);
+            SendMailError(MAIL_ERR_BAG_FULL, INV_ERR_TRADE_BOUND_ITEM);
             return;
         }
 
@@ -589,13 +589,12 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data )
         for( itr = items.begin(); itr != items.end(); itr++ )
         {
             pItem = *itr;
-            if( _player->GetItemInterface()->SafeRemoveAndRetreiveItemByGuid(pItem->GetGUID(), false) != pItem )
+            if( _player->GetInventory()->SafeRemoveAndRetreiveItemByGuid(pItem->GetGUID(), false) != pItem )
                 continue;       // should never be hit.
 
             sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
             pItem->RemoveFromWorld(false);
             pItem->SetOwner( NULL );
-            pItem->SaveToDB( INVENTORY_SLOT_NOT_SET, 0, true, NULL );
             msg.items.push_back( pItem->GetUInt32Value(OBJECT_FIELD_GUID) );
 
             if( HasGMPermissions() )
@@ -714,7 +713,7 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
     }
 
     // find a free bag slot
-    SlotResult result = _player->GetItemInterface()->FindFreeInventorySlot(item->GetProto());
+    SlotResult result = _player->GetInventory()->FindFreeInventorySlot(item->GetProto());
     if(result.Result == 0)
     {
         // no free slots left!
@@ -727,9 +726,9 @@ void WorldSession::HandleTakeItem(WorldPacket & recv_data )
 
     item->m_isDirty = true;
 
-    if( !_player->GetItemInterface()->SafeAddItem(item, result.ContainerSlot, result.Slot) )
+    if( !_player->GetInventory()->SafeAddItem(item, result.ContainerSlot, result.Slot) )
     {
-        if( !_player->GetItemInterface()->AddItemToFreeSlot(item) )
+        if( !_player->GetInventory()->AddItemToFreeSlot(item) )
         {
             // no free slots left!
             data << uint32(MAIL_ERR_BAG_FULL);
@@ -871,7 +870,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket & recv_data )
         return;
     }
 
-    SlotResult result = _player->GetItemInterface()->FindFreeInventorySlot(proto);
+    SlotResult result = _player->GetInventory()->FindFreeInventorySlot(proto);
     if(result.Result == 0)
     {
         data << uint32(MAIL_ERR_INTERNAL_ERROR);
@@ -882,7 +881,7 @@ void WorldSession::HandleMailCreateTextItem(WorldPacket & recv_data )
 
     Item* pItem = objmgr.CreateItem(8383, _player);
     pItem->SetTextID(message_id);
-    if( _player->GetItemInterface()->AddItemToFreeSlot(pItem) )
+    if( _player->GetInventory()->AddItemToFreeSlot(pItem) )
     {
         // mail now has an item after it
         message->copy_made = true;
@@ -901,7 +900,7 @@ void WorldSession::HandleItemTextQuery(WorldPacket & recv_data)
 
     std::string body = "Internal Error";
 
-    Item* item = _player->GetItemInterface()->GetItemByGUID(itemGuid);
+    Item* item = _player->GetInventory()->GetItemByGUID(itemGuid);
     WorldPacket data(SMSG_ITEM_TEXT_QUERY_RESPONSE, body.length() + 9);
     if(!item)
         data << uint8(1);

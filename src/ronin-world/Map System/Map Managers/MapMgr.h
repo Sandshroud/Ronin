@@ -40,17 +40,6 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-typedef RONIN_UNORDERED_SET<WorldObject*> ObjectSet;
-typedef RONIN_UNORDERED_SET<Player*> PlayerSet;
-typedef RONIN_UNORDERED_SET<Vehicle*> VehicleSet;
-typedef RONIN_UNORDERED_SET<Creature*> CreatureSet;
-typedef RONIN_UNORDERED_SET<GameObject*> GameObjectSet;
-typedef RONIN_UNORDERED_SET<uint64> CombatProgressMap;
-typedef RONIN_UNORDERED_MAP<uint32, WorldObject* > StorageMap;
-typedef RONIN_UNORDERED_MAP<uint32, Vehicle*> VehicleSqlIdMap;
-typedef RONIN_UNORDERED_MAP<uint32, Creature*> CreatureSqlIdMap;
-typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectSqlIdMap;
-
 #define MAX_VIEW_DISTANCE 38000
 #define MAX_TRANSPORTERS_PER_MAP 25
 #define RESERVE_EXPAND_SIZE 1024
@@ -65,6 +54,17 @@ class SERVER_DECL MapMgr : public CellHandler <MapCell>, public EventableObject,
     friend class ObjectUpdaterThread;
     friend class MapCell;
 public:
+
+    typedef RONIN_UNORDERED_SET<WorldObject*> ObjectSet;
+    typedef RONIN_UNORDERED_SET<Player*> PlayerSet;
+    typedef RONIN_UNORDERED_SET<Vehicle*> VehicleSet;
+    typedef RONIN_UNORDERED_SET<Creature*> CreatureSet;
+    typedef RONIN_UNORDERED_SET<GameObject*> GameObjectSet;
+    typedef RONIN_UNORDERED_SET<uint64> CombatProgressMap;
+    typedef RONIN_UNORDERED_MAP<uint32, WorldObject* > StorageMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Vehicle*> VehicleSqlIdMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Creature*> CreatureSqlIdMap;
+    typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectSqlIdMap;
 
     //This will be done in regular way soon
     Mutex m_objectinsertlock;

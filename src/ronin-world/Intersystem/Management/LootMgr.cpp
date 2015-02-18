@@ -533,7 +533,7 @@ LootRoll::LootRoll() : EventableObject()
 {
 }
 
-void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randomsuffixid, uint32 randompropertyid, MapMgr* mgr)
+void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randProp, uint32 randSeed, MapMgr* mgr)
 {
     _mgr = mgr;
     sEventMgr.AddEvent(this, &LootRoll::Finalize, EVENT_LOOT_ROLL_FINALIZE, 60000, 1,0);
@@ -541,8 +541,8 @@ void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid,
     _guid = guid;
     _slotid = slotid;
     _itemid = itemid;
-    _randomsuffixid = randomsuffixid;
-    _randompropertyid = randompropertyid;
+    _randomProp = randProp;
+    _randomSeed = randSeed;
     _remaining = groupcount;
 }
 
@@ -645,7 +645,7 @@ void LootRoll::Finalize()
     {
         /* all passed */
         data.Initialize(SMSG_LOOT_ALL_PASSED);
-        data << _guid << _groupcount << _itemid << _randomsuffixid << _randompropertyid;
+        data << _guid << _groupcount << _itemid << _randomProp << _randomSeed;
         std::set<WoWGuid>::iterator pitr = m_passRolls.begin();
         while(_player == NULL && pitr != m_passRolls.end())
         {
@@ -669,7 +669,7 @@ void LootRoll::Finalize()
 
     pLoot->items.at(_slotid).roll = 0;
     data.Initialize(SMSG_LOOT_ROLL_WON);
-    data << _guid << _slotid << _itemid << _randomsuffixid << _randompropertyid;
+    data << _guid << _slotid << _itemid << _randomProp << _randomSeed;
     data << _player->GetGUID() << uint8(highest) << uint8(hightype);
     if(_player->InGroup())
         _player->GetGroup()->SendPacketToAll(&data);
@@ -721,7 +721,7 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     // create packet
     WorldPacket data(SMSG_LOOT_ROLL, 34);
     data << _guid << _slotid << uint64(pInfo->guid);
-    data << _itemid << _randomsuffixid << _randompropertyid;
+    data << _itemid << _randomProp << _randomSeed;
 
     if(!pInfo->m_loggedInPlayer)
         choice = PASS;

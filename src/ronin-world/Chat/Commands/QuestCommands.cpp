@@ -57,12 +57,12 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
             // always remove collected items (need to be recollectable again in case of repeatable).
             for( uint32 y = 0; y < 6; y++)
                 if( qst->required_item[y] && qst->required_item[y] != srcItem )
-                    plr->GetItemInterface()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y]);
+                    plr->GetInventory()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y]);
 
             // Remove all items given by the questgiver at the beginning
             for(uint32 i = 0; i < 4; i++)
                 if(qst->receive_items[i] && qst->receive_items[i] != srcItem)
-                    plr->GetItemInterface()->RemoveInventoryStacks(qst->receive_items[i], qst->receive_itemcount[i] );
+                    plr->GetInventory()->RemoveInventoryStacks(qst->receive_items[i], qst->receive_itemcount[i] );
             plr->UpdateNearbyQuestGivers();
             plr->UpdateNearbyGameObjects();
         }
@@ -228,13 +228,13 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                         if(qst->receive_items[i] == 0)
                             continue;
                         if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->receive_items[i]))
-                            plr->GetItemInterface()->CreateInventoryStacks(proto, qst->receive_itemcount[i]);
+                            plr->GetInventory()->CreateInventoryStacks(proto, qst->receive_itemcount[i]);
                     }
 
                     if(qst->srcitem && qst->srcitem != qst->receive_items[0])
                     {
                         if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->srcitem))
-                            plr->GetItemInterface()->CreateInventoryStacks(proto, std::max(uint16(1), qst->srcitemcount));
+                            plr->GetInventory()->CreateInventoryStacks(proto, std::max(uint16(1), qst->srcitemcount));
                     }
 
                     plr->UpdateNearbyGameObjects();

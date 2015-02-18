@@ -20,7 +20,7 @@ public:
     MapCell();
     ~MapCell();
 
-    typedef std::unordered_set<WorldObject* > ObjectSet;
+    typedef RONIN_UNORDERED_SET<WorldObject*> CellObjectSet;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr);
@@ -32,8 +32,8 @@ public:
     bool HasPlayers() { return ((_playerCount > 0) ? true : false); }
     RONIN_INLINE size_t GetObjectCount() { return _objects.size(); }
     void RemoveObjects();
-    RONIN_INLINE ObjectSet::iterator Begin() { return _objects.begin(); }
-    RONIN_INLINE ObjectSet::iterator End() { return _objects.end(); }
+    RONIN_INLINE CellObjectSet::iterator Begin() { return _objects.begin(); }
+    RONIN_INLINE CellObjectSet::iterator End() { return _objects.end(); }
 
     //State Related
     void SetActivity(bool state);
@@ -62,12 +62,12 @@ public:
     uint16 GetPositionX() { return _x; }
     uint16 GetPositionY() { return _y; }
 
-    ObjectSet _respawnObjects;
+    CellObjectSet _respawnObjects;
 
 private:
     bool _forcedActive;
     uint16 _x,_y;
-    ObjectSet _objects;
+    CellObjectSet _objects;
     bool _active, _loaded;
     bool _unloadpending;
 

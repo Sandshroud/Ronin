@@ -550,7 +550,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
             }break;
         default:
             {
-                WorldPacket data(SMSG_EMOTE, 28 + unitName.length()+1);
+                WorldPacket data(SMSG_EMOTE, 12);
                 data << uint32(emText->textId);
                 data << GetPlayer()->GetGUID();
                 GetPlayer()->SendMessageToSet(&data, true);

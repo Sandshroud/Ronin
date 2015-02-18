@@ -430,7 +430,7 @@ void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
         ent = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
         break;
     case HIGHGUID_TYPE_ITEM:
-        ent = _player->GetItemInterface()->GetInventoryItem(guid);
+        ent = _player->GetInventory()->GetInventoryItem(guid);
         break;
     }
     if(ent == NULL)
@@ -469,7 +469,7 @@ void WorldSession::HandleGossipSelectOptionOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_ITEM)
     {
-        Item* pitem = _player->GetItemInterface()->GetInventoryItem(guid);
+        Item* pitem = _player->GetInventory()->GetInventoryItem(guid);
         if(pitem == NULL)
             return;
 

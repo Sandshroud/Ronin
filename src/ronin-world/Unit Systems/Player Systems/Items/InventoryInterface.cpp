@@ -6,13 +6,13 @@
 
 //
 //-------------------------------------------------------------------//
-ItemInterface::ItemInterface( Player* pPlayer ) : m_pOwner(pPlayer)
+PlayerInventory::PlayerInventory( Player* pPlayer ) : m_pOwner(pPlayer)
 {
 
 }
 
 //-------------------------------------------------------------------//
-ItemInterface::~ItemInterface()
+PlayerInventory::~PlayerInventory()
 {
     while(!m_itemPtrs.empty())
     {
@@ -24,7 +24,7 @@ ItemInterface::~ItemInterface()
     m_pOwner = NULL;
 }
 
-SlotResult ItemInterface::_addItem( Item* item, uint16 slot)
+SlotResult PlayerInventory::_addItem( Item* item, uint16 slot)
 {
     SlotResult result;
     result.result = ADD_ITEM_RESULT_ERROR;
@@ -121,7 +121,7 @@ SlotResult ItemInterface::_addItem( Item* item, uint16 slot)
     return result;
 }
 
-Item *ItemInterface::_removeItemBySlot(uint16 slot)
+Item *PlayerInventory::_removeItemBySlot(uint16 slot)
 {
     if(m_itemPtrs.find(slot) == m_itemPtrs.end())
         return NULL;
@@ -189,7 +189,7 @@ Item *ItemInterface::_removeItemBySlot(uint16 slot)
     return item;
 }
 
-bool ItemInterface::_findFreeSlot(ItemPrototype *proto, uint16 &slot)
+bool PlayerInventory::_findFreeSlot(ItemPrototype *proto, uint16 &slot)
 {
     uint16 bagSlot = 0xFF00, fallbackSpot = 0xFFFF;
     for(uint8 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++)
@@ -244,12 +244,22 @@ bool ItemInterface::_findFreeSlot(ItemPrototype *proto, uint16 &slot)
     return false;
 }
 
-bool ItemInterface::_findBestSlot(ItemPrototype *proto, uint16 &slot)
+bool PlayerInventory::_findBestSlot(ItemPrototype *proto, uint16 &slot)
 {
 
 }
 
-uint32 ItemInterface::BuildUpdateBlocksForPlayer(ByteBuffer *data)
+void PlayerInventory::AddToWorld()
+{
+
+}
+
+void PlayerInventory::RemoveFromWorld(bool destroy)
+{
+
+}
+
+uint32 PlayerInventory::BuildCreateUpdateBlocks(ByteBuffer *data)
 {
     uint32 count = 0;
     for(std::map<uint16, Item*>::iterator itr = m_itemPtrs.begin(); itr != m_itemPtrs.end(); itr++)
@@ -257,7 +267,7 @@ uint32 ItemInterface::BuildUpdateBlocksForPlayer(ByteBuffer *data)
     return count;
 }
 
-void ItemInterface::DestroyForPlayer(Player* plr)
+void PlayerInventory::DestroyForPlayer(Player* plr)
 {
     ASSERT(m_pOwner != NULL);
 
@@ -279,7 +289,7 @@ void ItemInterface::DestroyForPlayer(Player* plr)
     }
 }
 
-bool ItemInterface::IsBagSlot(uint8 slot)
+bool PlayerInventory::IsBagSlot(uint8 slot)
 {
     if((slot >= INVENTORY_SLOT_BAG_START && slot < INVENTORY_SLOT_BAG_END) || (slot >= BANK_SLOT_BAG_START && slot < BANK_SLOT_BAG_END))
     {
@@ -288,28 +298,28 @@ bool ItemInterface::IsBagSlot(uint8 slot)
     return false;
 }
 
-Item *ItemInterface::GetInventoryItem(uint16 slot)
+Item *PlayerInventory::GetInventoryItem(uint16 slot)
 {
     if(m_itemPtrs.find(slot) == m_itemPtrs.end())
         return NULL;
     return m_itemPtrs.at(slot);
 }
 
-Item *ItemInterface::GetInventoryItem(WoWGuid guid)
+Item *PlayerInventory::GetInventoryItem(WoWGuid guid)
 {
     if(m_itemSlots.find(guid) == m_itemSlots.end())
         return NULL;
     return GetInventoryItem(m_itemSlots.at(guid));
 }
 
-Item *ItemInterface::GetInventoryItem(ItemData *data)
+Item *PlayerInventory::GetInventoryItem(ItemData *data)
 {
     if(m_itemSlots.find(data->itemGuid) == m_itemSlots.end())
         return NULL;
     return GetInventoryItem(m_itemSlots.at(data->itemGuid));
 }
 
-uint16 ItemInterface::GetInventorySlotByEntry(uint32 itemId)
+uint16 PlayerInventory::GetInventorySlotByEntry(uint32 itemId)
 {
     for(auto itr = m_itemSlots.begin(); itr != m_itemSlots.end(); itr++)
     {
@@ -321,19 +331,19 @@ uint16 ItemInterface::GetInventorySlotByEntry(uint32 itemId)
     return INVENTORY_SLOT_NONE;
 }
 
-uint16 ItemInterface::GetInventorySlotByGuid(WoWGuid guid)
+uint16 PlayerInventory::GetInventorySlotByGuid(WoWGuid guid)
 {
     if(m_itemSlots.find(guid) == m_itemSlots.end())
         return INVENTORY_SLOT_NONE;
     return m_itemSlots.at(guid);
 }
 
-void ItemInterface::CheckAreaItems()
+void PlayerInventory::CheckAreaItems()
 {
 
 }
 
-void ItemInterface::RemoveConjuredItems()
+void PlayerInventory::RemoveConjuredItems()
 {
     std::set<WoWGuid> m_conjured(m_conjuredItems);
     do
@@ -350,7 +360,12 @@ void ItemInterface::RemoveConjuredItems()
     }while(m_conjured.size());
 }
 
-bool ItemInterface::CreateQuestItems(Quest *qst)
+void PlayerInventory::EmptyBuyBack()
+{
+
+}
+
+bool PlayerInventory::CreateQuestItems(Quest *qst)
 {
     if(qst->count_receiveitems == 0 && qst->srcitemcount == 0)
         return true;
@@ -381,7 +396,7 @@ bool ItemInterface::CreateQuestItems(Quest *qst)
     return true;
 }
 
-bool ItemInterface::CreateQuestRewards(Quest *qst, uint8 reward_slot)
+bool PlayerInventory::CreateQuestRewards(Quest *qst, uint8 reward_slot)
 {
     // Static Item reward
     /*for(uint32 i = 0; i < 4; i++)
@@ -395,19 +410,19 @@ bool ItemInterface::CreateQuestRewards(Quest *qst, uint8 reward_slot)
             {
                 Item* add;
                 SlotResult slotresult;
-                add = plr->GetItemInterface()->FindItemLessMax(qst->reward_item[i], qst->reward_itemcount[i], false);
+                add = FindItemLessMax(qst->reward_item[i], qst->reward_itemcount[i], false);
                 if (!add)
                 {
-                    slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
+                    slotresult = plr->GetPlayerInventory()->FindFreeInventorySlot(proto);
                     if(!slotresult.Result)
                     {
-                        plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
+                        BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
                     }
                     else
                     {
                         Item* itm = objmgr.CreateItem(qst->reward_item[i], plr);
                         itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_itemcount[i]));
-                        if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
+                        if( !SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
                         {
                             itm->Destruct();
                             itm = NULL;
@@ -433,19 +448,19 @@ bool ItemInterface::CreateQuestRewards(Quest *qst, uint8 reward_slot)
         {
             Item* add;
             SlotResult slotresult;
-            add = plr->GetItemInterface()->FindItemLessMax(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], false);
+            add = FindItemLessMax(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], false);
             if (!add)
             {
-                slotresult = plr->GetItemInterface()->FindFreeInventorySlot(proto);
+                slotresult = FindFreeInventorySlot(proto);
                 if(!slotresult.Result)
                 {
-                    plr->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
+                    BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
                 }
                 else
                 {
                     Item* itm = objmgr.CreateItem(qst->reward_choiceitem[reward_slot], plr);
                     itm->SetUInt32Value(ITEM_FIELD_STACK_COUNT, uint32(qst->reward_choiceitemcount[reward_slot]));
-                    if( !plr->GetItemInterface()->SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
+                    if( !SafeAddItem(itm,slotresult.ContainerSlot, slotresult.Slot) )
                     {
                         itm->Destruct();
                         itm = NULL;
@@ -463,7 +478,7 @@ bool ItemInterface::CreateQuestRewards(Quest *qst, uint8 reward_slot)
     return true;
 }
 
-bool ItemInterface::CreateInventoryStacks(ItemPrototype *proto, uint32 count, WoWGuid creatorGuid, bool fromNPC)
+bool PlayerInventory::CreateInventoryStacks(ItemPrototype *proto, uint32 count, WoWGuid creatorGuid, bool fromNPC)
 {
     uint8 pushFlags = fromNPC ? (creatorGuid.empty() ? 0x01 : 0x02) : 0x10;
     if(proto->MaxCount > 1)
@@ -512,22 +527,22 @@ bool ItemInterface::CreateInventoryStacks(ItemPrototype *proto, uint32 count, Wo
     return true;
 }
 
-bool ItemInterface::AddInventoryItemToSlot(Item *item, uint16 slot)
+bool PlayerInventory::AddInventoryItemToSlot(Item *item, uint16 slot)
 {
     return _addItem(item, slot).result == ADD_ITEM_RESULT_OK;
 }
 
-void ItemInterface::DestroyInventoryItem(uint16 slot)
+void PlayerInventory::DestroyInventoryItem(uint16 slot)
 {
 
 }
 
-Item *ItemInterface::RemoveInventoryItem(uint16 slot)
+Item *PlayerInventory::RemoveInventoryItem(uint16 slot)
 {
 
 }
 
-bool ItemInterface::RemoveInventoryStacks(uint32 entry, uint32 count, bool force)
+bool PlayerInventory::RemoveInventoryStacks(uint32 entry, uint32 count, bool force)
 {
     if(m_itemsByEntry.find(entry) == m_itemsByEntry.end())
         return false;
@@ -566,7 +581,7 @@ bool ItemInterface::RemoveInventoryStacks(uint32 entry, uint32 count, bool force
     return itemCount == 0;
 }
 
-void ItemInterface::BuildInvError(uint8 error, Item *src, Item *dst, uint32 misc)
+void PlayerInventory::BuildInvError(uint8 error, Item *src, Item *dst, uint32 misc)
 {
     if(m_pOwner == NULL || !m_pOwner->IsInWorld())
         return;
@@ -594,7 +609,7 @@ void ItemInterface::BuildInvError(uint8 error, Item *src, Item *dst, uint32 misc
     m_pOwner->GetSession()->SendPacket( &data );
 }
 
-void ItemInterface::SendItemPushResult(Item *item, uint16 invSlot, uint8 flags, uint32 totalCount)
+void PlayerInventory::SendItemPushResult(Item *item, uint16 invSlot, uint8 flags, uint32 totalCount)
 {
     WorldPacket data(SMSG_ITEM_PUSH_RESULT, 25);
     data << item->GetGUID();

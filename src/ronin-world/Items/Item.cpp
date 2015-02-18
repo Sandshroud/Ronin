@@ -53,7 +53,7 @@ void Item::Initialize(Player *owner)
             continue;
         if(_itemData->proto->Spells[i].Charges == -1)
         {
-            SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, -1);
+            SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, 0xFFFFFFFF);
             continue;
         }
         SetUInt32Value(ITEM_FIELD_SPELL_CHARGES+i, _itemData->itemSpellCharges);

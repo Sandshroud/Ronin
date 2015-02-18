@@ -6,168 +6,7 @@
 
 void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 {
-    CHECK_INWORLD_RETURN();
 
-    //can't use items while dead.
-    if(_player->getDeathState()==CORPSE)
-        return;
-
-    uint8 bagIndex, slot;
-    uint8 castCount;
-    uint64 itemGUID;
-    uint32 spellId;
-    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID;
-
-    Item* tmpItem = NULL;
-    tmpItem = _player->GetItemInterface()->GetInventoryItem(bagIndex,slot);
-
-    if (!tmpItem)
-        tmpItem = _player->GetItemInterface()->GetInventoryItem(slot);
-    if (!tmpItem)
-        return;
-
-    ItemPrototype *itemProto = tmpItem->GetProto();
-    if(!itemProto)
-        return;
-
-    if(sScriptMgr.CallScriptedItem(tmpItem,_player))
-        return;
-
-    tmpItem->Bind(ITEM_BIND_ON_USE);
-    if(itemProto->QuestId)
-    {
-        // Item Starter
-        Quest *qst = sQuestMgr.GetQuestPointer(itemProto->QuestId);
-        if(!qst)
-            return;
-
-        if( sQuestMgr.PlayerMeetsReqs(_player, qst, false) != QMGR_QUEST_AVAILABLE || qst->qst_min_level > _player->getLevel() )
-            return;
-
-        WorldPacket data;
-        sQuestMgr.BuildQuestDetails(&data, qst, tmpItem, 0, _player);
-        SendPacket(&data);
-    }
-
-    SpellCastTargets targets(recvPacket, _player->GetGUID());
-
-    uint32 x;
-    bool matching = false;
-    for(x = 0; x < 5; x++)
-    {
-        if(itemProto->Spells[x].Trigger == USE)
-        {
-            if(itemProto->Spells[x].Id == spellId)
-            {
-                matching = true;
-                break;
-            }
-        }
-    }
-
-    if(tmpItem->HasEnchantedOnUseSpell(spellId))
-        matching = true;
-
-    if(!matching)
-        return;
-
-    // check for spell id
-    SpellEntry *spellInfo = dbcSpell.LookupEntry( spellId );
-
-    if(!spellInfo)
-    {
-        sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
-        return;
-    }
-
-    if (spellInfo->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
-    {
-        if (_player->CombatStatus.IsInCombat() || _player->IsMounted())
-        {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_CANT_DO_IN_COMBAT);
-            return;
-        }
-
-        if(_player->GetStandState()!=STANDSTATE_SIT)
-            _player->SetStandState(STANDSTATE_SIT);
-    }
-
-    if(itemProto->RequiredLevel > 0)
-    {
-        if(_player->getLevel() < (uint32)itemProto->RequiredLevel)
-        {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
-            return;
-        }
-    }
-
-    if(itemProto->RequiredSkill > 0)
-    {
-        if(!_player->_HasSkillLine(itemProto->RequiredSkill))
-        {
-            _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
-            return;
-        }
-
-        if(itemProto->RequiredSkillRank > 0)
-        {
-            if(_player->_GetSkillLineCurrent(itemProto->RequiredSkill, false) < (uint32)itemProto->RequiredSkillRank)
-            {
-                _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_ITEM_RANK_NOT_ENOUGH);
-                return;
-            }
-        }
-    }
-
-    if( !_player->ignoreitemreq_cheat && (itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace) ))
-    {
-        _player->GetItemInterface()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_YOU_CAN_NEVER_USE_THAT_ITEM);
-        return;
-    }
-
-    if( !_player->Cooldown_CanCast( itemProto, x ) )
-    {
-        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_NOT_READY, castCount, 0);
-        return;
-    }
-
-    if(_player->m_currentSpell)
-    {
-        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
-        return;
-    }
-
-    if( itemProto->ForcedPetId >= 0 )
-    {
-        if( itemProto->ForcedPetId == 0 )
-        {
-            if( _player->GetGUID() != targets.m_unitTarget )
-            {
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_BAD_TARGETS, castCount, 0);
-                return;
-            }
-        }
-        else
-        {
-            if( !_player->GetSummon() || _player->GetSummon()->GetEntry() != (uint32)itemProto->ForcedPetId )
-            {
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
-                return;
-            }
-        }
-    }
-
-    if(!sHookInterface.OnCastSpell(_player, spellInfo))
-    {
-        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_UNKNOWN, castCount, 0);
-        return;
-    }
-
-    Spell* spell = new Spell(_player, spellInfo, false, NULL);
-    spell->extra_cast_number= castCount;
-    spell->i_caster = tmpItem;
-    if( spell->prepare(&targets) == SPELL_CANCAST_OK )
-        _player->Cooldown_AddItem( itemProto, x );
 }
 
 bool IsException(Player* plr, uint32 spellid);
@@ -245,7 +84,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         if((spellInfo->isAutoRepeatSpell()) /*spellInfo->Attributes == 327698*/) // auto shot..
         {
             //sLog.outString( "HandleSpellCast: Auto Shot-type spell cast (id %u, name %s)" , spellInfo->Id , spellInfo->Name );
-            Item* weapon = GetPlayer()->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+            Item* weapon = GetPlayer()->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
             if(!weapon)
                 return;
             uint32 spellid;
@@ -324,7 +163,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         if( targets.m_unitTarget && GetPlayer()->GetMapMgr() && spellInfo->isSpellDamagingEffect() )
         {
             Unit* pUnit = GetPlayer()->GetMapMgr()->GetUnit( targets.m_unitTarget );
-            if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ) && !pUnit->IsInRangeOppFactSet(GetPlayer()) && !pUnit->CombatStatus.DidDamageTo(GetPlayer()->GetGUID()))
+            if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ) && !pUnit->CombatStatus.DidDamageTo(GetPlayer()->GetGUID()))
             {
                 //GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
                 //GetPlayer()->Kick(5000);

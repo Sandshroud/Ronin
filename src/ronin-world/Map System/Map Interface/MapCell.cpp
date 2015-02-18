@@ -50,7 +50,7 @@ void MapCell::SetActivity(bool state)
     if(!_active && state)
     {
         // Move all objects to active set.
-        for(ObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
+        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
         {
             if(!(*itr)->Active && (*itr)->CanActivate())
                 (*itr)->Activate(_mapmgr);
@@ -62,7 +62,7 @@ void MapCell::SetActivity(bool state)
     else if(_active && !state)
     {
         // Move all objects from active set.
-        for(ObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
+        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
         {
             if((*itr)->Active)
                 (*itr)->Deactivate(_mapmgr);
@@ -85,7 +85,7 @@ void MapCell::RemoveObjects()
     {
         /* delete objects in pending respawn state */
         WorldObject* pObject;
-        for(ObjectSet::iterator itr = _respawnObjects.begin(); itr != _respawnObjects.end(); itr++)
+        for(CellObjectSet::iterator itr = _respawnObjects.begin(); itr != _respawnObjects.end(); itr++)
         {
             pObject = *itr;
             if(!pObject)
@@ -129,7 +129,7 @@ void MapCell::RemoveObjects()
     {
         //This time it's simpler! We just remove everything :)
         WorldObject* obj; //do this outside the loop!
-        for(ObjectSet::iterator itr = _objects.begin(); itr != _objects.end();)
+        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end();)
         {
             obj = (*itr);
             ++itr;

@@ -38,16 +38,13 @@ enum AuctionMailResult
 struct Auction
 {
     uint32 Id;
-
-    WoWGuid Owner;
-    WoWGuid HighestBidder;
-    uint32 HighestBid;
-
-    uint32 BuyoutPrice;
-    uint32 DepositAmount;
-
-    uint32 ExpiryTime;
-    ItemData* pItem;
+    WoWGuid owner;
+    WoWGuid highestBidder;
+    uint64 highestBid;
+    uint64 buyoutPrice;
+    uint64 depositAmount;
+    uint64 expirationTime;
+    ItemData* m_item;
 
     void DeleteFromDB();
     void SaveToDB(uint32 AuctionHouseId);
@@ -83,7 +80,7 @@ public:
 
 private:
     RWLock itemLock;
-    RONIN_UNORDERED_MAP<uint64, Item* > auctionedItems;
+    RONIN_UNORDERED_MAP<WoWGuid, ItemData* > auctionedItems;
 
     RWLock auctionLock;
     RONIN_UNORDERED_MAP<uint32, Auction*> auctions;

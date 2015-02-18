@@ -97,7 +97,7 @@ void ItemManager::LoadItemData()
 
                 ItemData *data = GetItemData(containerGuid);
                 data->containerData = new ItemData::ContainerData();
-                PlayerInventory *inventory = GetPlayerInventory(data->itemContainer);
+                ItemManager::PlayerInventory *inventory = GetPlayerInventory(data->itemContainer);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                 {
                     data->containerData->m_items.insert(std::make_pair(INVSLOT_ITEM((*itr2)->containerSlot), (*itr2)->itemGuid));
@@ -117,7 +117,7 @@ void ItemManager::LoadItemData()
             }break;
         case HIGHGUID_TYPE_PLAYER:
             {
-                PlayerInventory *inventory = GetPlayerInventory(containerGuid);
+                ItemManager::PlayerInventory *inventory = GetPlayerInventory(containerGuid);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                     inventory->m_playerInventory.insert(std::make_pair((*itr2)->containerSlot, (*itr2)->itemGuid));
                 itr->second.clear();
@@ -174,6 +174,7 @@ ItemData *ItemManager::CreateItemData(uint32 entry)
     for(uint8 i = 0; i < 10; i++)
         data->enchantData[i] = NULL;
     m_itemData.insert(std::make_pair(data->itemGuid, data));
+    return data;
 }
 
 void ItemManager::DeleteItemData(WoWGuid itemGuid)
@@ -184,6 +185,132 @@ void ItemManager::DeleteItemData(WoWGuid itemGuid)
     ItemData *data = m_itemData.at(itemGuid);
     m_itemData.erase(itemGuid);
     delete data;
+}
+
+uint32 ItemManager::BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, ItemData *item)
+{
+    bool container = item->containerData != NULL;
+    ByteBuffer buff;
+    uint32 stopFrameCount = 0;
+    buff << uint8(UPDATETYPE_CREATE_OBJECT);
+    buff << item->itemGuid.asPacked();
+    buff << uint8(container ? TYPEID_CONTAINER : TYPEID_ITEM);
+    buff << uint8(0) << uint8(0) << uint16(0) << uint8(0);
+    for(uint32 i = 0; i < stopFrameCount; i++)
+        buff << uint32(0);
+    UpdateMask mask(container ? CONTAINER_END : ITEM_END);
+    mask.SetBit(OBJECT_FIELD_GUID);
+    mask.SetBit(OBJECT_FIELD_GUID+1);
+    mask.SetBit(OBJECT_FIELD_TYPE);
+    mask.SetBit(OBJECT_FIELD_ENTRY);
+    mask.SetBit(OBJECT_FIELD_SCALE_X);
+    for(uint16 i = 0; i < ITEM_LENGTH; i++)
+    {
+        if(i == ITEM_FIELD_GIFTCREATOR || i == ITEM_FIELD_GIFTCREATOR+1)
+            if(item->giftData == NULL)
+                continue;
+        if(i == ITEM_FIELD_CREATE_PLAYED_TIME)
+            continue;
+        if(i >= ITEM_FIELD_ENCHANTMENT_DATA && i < ITEM_FIELD_PROPERTY_SEED)
+        {
+            uint8 index = i/3;
+            if(index < 10 && item->enchantData[index] == NULL)
+                continue;
+            else if(index >= 10 && item->itemRandomProperty == 0)
+                continue;
+        }
+
+        mask.SetBit(OBJECT_END+i);
+    }
+
+    uint32 byteCount = mask.GetUpdateBlockCount();
+    *data << uint8(byteCount);
+    data->append( mask.GetMask(), byteCount*4 );
+
+    //OBJECT_FIELD_GUID
+    buff << item->itemGuid;
+    //OBJECT_FIELD_TYPE
+    buff << uint32(TYPEMASK_TYPE_OBJECT|TYPEMASK_TYPE_ITEM|(container ? TYPEMASK_TYPE_CONTAINER : 0x00));
+    //OBJECT_FIELD_ENTRY
+    buff << item->itemGuid.getEntry();
+    //OBJECT_FIELD_SCALE_X
+    buff << float(1.f);
+    //ITEM_FIELD_OWNER
+    buff << pOwner->GetGUID();
+    //ITEM_FIELD_CONTAINED
+    buff << item->itemContainer;
+    //ITEM_FIELD_CREATOR
+    buff << item->itemCreator;
+    if(item->giftData)//ITEM_FIELD_GIFTCREATOR
+        buff << item->giftData->giftCreator;
+    //ITEM_FIELD_STACK_COUNT
+    buff << item->itemStackCount;
+    //ITEM_FIELD_DURATION
+    buff << uint32(0); // TODO
+    //ITEM_FIELD_SPELL_CHARGES
+    for(uint8 i = 0; i < 5; i++)
+    {
+        if(item->proto->Spells[i].Id == 0)
+        {
+            buff << uint32(0);
+            continue;
+        }
+        if(item->proto->Spells[i].Charges == -1)
+        {
+            buff << uint32(0xFFFFFFFF);
+            continue;
+        }
+
+        buff << item->itemSpellCharges;
+    }
+    //ITEM_FIELD_FLAGS
+    buff << item->itemFlags;
+    // Enchant data
+    for(uint32 i = 0; i < 10; i++)
+    {
+        if(item->enchantData[i] == NULL)
+            continue;
+        buff << item->enchantData[i]->enchantId;
+        buff << item->enchantData[i]->CalcTimeLeft();
+        buff << item->enchantData[i]->enchantCharges;
+    }
+
+    if(int32 randomPropertyId = item->itemRandomProperty)
+    {
+        if(randomPropertyId < 0)
+        {
+            if(ItemRandomSuffixEntry *randomSuffix = dbcItemRandomSuffix.LookupEntry(abs(randomPropertyId)))
+            {
+                for(uint8 i = 0; i < 3; i++)
+                    buff << uint32(randomSuffix->enchantments[i]);
+                buff << uint32(0) << uint32(0);
+            } else buff << uint32(0) << uint32(0) << uint32(0) << uint32(0) << uint32(0);
+        }
+        else if(ItemRandomPropertiesEntry *randomProperties = dbcItemRandomProperties.LookupEntry(randomPropertyId))
+        {
+            buff << uint32(0) << uint32(0);
+            for(uint8 i = 0; i < 3; i++)
+                buff << uint32(randomProperties->enchant_id[i]);
+        } else buff << uint32(0) << uint32(0) << uint32(0) << uint32(0) << uint32(0);
+    }
+
+    //ITEM_FIELD_PROPERTY_SEED
+    buff << item->itemRandomSeed;
+    //ITEM_FIELD_RANDOM_PROPERTIES_ID
+    buff << item->itemRandomProperty;
+    //ITEM_FIELD_DURABILITY
+    buff << item->itemDurability;
+    //ITEM_FIELD_MAXDURABILITY
+    buff << item->proto->MaxDurability;
+
+    data->append(buff.contents(), buff.size());
+    return 1;
+}
+
+uint32 ItemManager::CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor)
+{
+    uint32 buyPrice = proto->BuyPrice;
+    return buyPrice;
 }
 
 uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel);

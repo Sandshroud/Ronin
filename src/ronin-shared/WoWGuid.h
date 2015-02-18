@@ -92,6 +92,7 @@ public:
     bool empty() { return operator !(); };
     bool count() { return !empty(); }
     WGuidPacked *asPacked() { return new WGuidPacked(this); }
+    uint64 raw() { return this->operator uint64(); }
     uint32 getLow() { return GUID_LOPART(this->operator uint64()); }
     uint32 getEntry() { return GUID_ENPART(this->operator uint64()); }
     uint32 getHigh() { return GUID_HIPART(this->operator uint64()); }

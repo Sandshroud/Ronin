@@ -115,7 +115,7 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
     if(pAttacker->disarmed && pAttacker->IsPlayer())
     {
         offset=UNIT_FIELD_MINDAMAGE;
-        it = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
     }
     else if( weapon_damage_type == MELEE )
         offset = UNIT_FIELD_MINDAMAGE;
@@ -139,15 +139,15 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
     Item* BonusItem = NULL;
     if( pAttacker->IsPlayer() && weapon_damage_type == MELEE )
     {
-        BonusItem = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        BonusItem = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
     }
     else if(pAttacker->IsPlayer() && weapon_damage_type == OFFHAND )
     {
-        BonusItem = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+        BonusItem = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
     }
     else if(pAttacker->IsPlayer() && weapon_damage_type == RANGED )
     {
-        BonusItem = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+        BonusItem = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
     }
 
     if(offset == UNIT_FIELD_MINRANGEDDAMAGE)
@@ -172,7 +172,7 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
         {
             if(!pAttacker->disarmed)
             {
-                Item* it = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+                Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
                 if(it)
                 {
                     wspeed = (float)it->GetProto()->Delay;
@@ -238,7 +238,7 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
         {
             if(!pAttacker->disarmed)
             {
-                Item* it = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+                Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
 
                 if(it)
                     wspeed = (float)it->GetProto()->Delay;
@@ -271,7 +271,7 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
         {
             if(ability->Effect[0] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[1] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[2] == SPELL_EFFECT_DUMMYMELEE)
             {
-                it = castPtr<Player>(pAttacker)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+                it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
 
                 if(it)
                 {

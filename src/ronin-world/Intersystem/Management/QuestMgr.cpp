@@ -1122,7 +1122,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
             {
                 if( qle->GetQuest()->required_item[j] == entry )
                 {
-                    pcount = plr->GetItemInterface()->GetItemCount(entry);
+                    pcount = plr->GetInventory()->GetItemCount(entry);
                     CALL_QUESTSCRIPT_EVENT(qle->GetQuest()->id, OnPlayerItemPickup)(entry, pcount, plr, qle);
                     if(pcount < qle->GetQuest()->required_itemcount[j])
                     {
@@ -1288,7 +1288,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         {
             //always remove collected items (need to be recollectable again in case of repeatable).
             if( qst->required_item[y] )
-                plr->GetItemInterface()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y], true);
+                plr->GetInventory()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y], true);
         }
 
         qle->Finish();
@@ -1313,7 +1313,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
 
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
-        plr->GetItemInterface()->CreateQuestRewards(qst, reward_slot);
+        plr->GetInventory()->CreateQuestRewards(qst, reward_slot);
 
         // cast Effect Spell
         if(qst->reward_cast_on_player)
@@ -1336,7 +1336,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
         // Give reward items
-        plr->GetItemInterface()->CreateQuestRewards(qst, reward_slot);
+        plr->GetInventory()->CreateQuestRewards(qst, reward_slot);
 
         // cast learning spell
         if(qst->reward_spell)

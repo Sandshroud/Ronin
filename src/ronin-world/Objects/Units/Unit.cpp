@@ -674,7 +674,7 @@ void Unit::UpdateAttackDamageValues()
         {
             if(IsPlayer() && itr->second->m_spellInfo->EquippedItemClass != -1)
             {
-                if(Item *item = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
+                if(Item *item = castPtr<Player>(this)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
                     if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
                         baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
                 continue;
@@ -1538,17 +1538,17 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         switch( weapon_damage_type )
         {
         case MELEE:   // melee main hand weapon
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             break;
         case RANGED:  // ranged weapon
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
             break;
@@ -1558,7 +1558,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         // i.e. hammer of wrath
         if( ability && (ability->NameHash == SPELL_HASH_HAMMER_OF_WRATH || ability->NameHash == SPELL_HASH_AVENGER_S_SHIELD) )
         {
-            it = pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
+            it = pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
         }
@@ -1616,7 +1616,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     }
     else if(IsPlayer())
     {
-        it = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+        it = castPtr<Player>(this)->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
         if( it != NULL && (it->GetProto()->InventoryType == INVTYPE_WEAPON ||
             it->GetProto()->InventoryType == INVTYPE_2HWEAPON) && !ability )//dualwield to-hit penalty
         {
@@ -1886,7 +1886,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         switch( weapon_damage_type )
         {
         case MELEE:   // melee main hand weapon
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             if (it && it->GetProto())
             {
@@ -1896,7 +1896,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             }
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             hit_status |= HITSTATUS_DUALWIELD;//animation
             if (it && it->GetProto())
@@ -1907,7 +1907,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             }
             break;
         case RANGED:  // ranged weapon
-            it = disarmed ? NULL : pr->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
+            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
             if (it && it->GetProto())
                 dmg.school_type = it->GetProto()->DamageType;
@@ -2047,7 +2047,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         dodge = parry = glanc = 0.0f;
     else if(IsPlayer())
     {
-        it = castPtr<Player>(this)->GetItemInterface()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
+        it = castPtr<Player>(this)->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
         if( it != NULL && (it->GetProto()->InventoryType == INVTYPE_WEAPON ||
             it->GetProto()->InventoryType == INVTYPE_2HWEAPON) && !ability )//dualwield to-hit penalty
         {
@@ -2311,7 +2311,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------------block-----------------------------------------------------
             case 4:
                 {
-                    Item* shield = castPtr<Player>( pVictim )->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+                    Item* shield = castPtr<Player>( pVictim )->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
                     if( shield != NULL && !pVictim->disarmedShield )
                     {
                         targetEvent = 2;
@@ -2590,7 +2590,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 //--------------------------durability processing-------------------------------------------
     if(pVictim->IsPlayer())
     {
-        castPtr<Player>( pVictim )->GetItemInterface()->ReduceItemDurability();
+        castPtr<Player>( pVictim )->GetInventory()->ReduceItemDurability();
         if( !IsPlayer() )
         {
             Player* pr = castPtr<Player>( pVictim );
@@ -2599,7 +2599,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         }
         else
         {
-             castPtr<Player>(this)->GetItemInterface()->ReduceItemDurability();
+             castPtr<Player>(this)->GetInventory()->ReduceItemDurability();
         }
     }
     else if(pVictim->IsCreature())
@@ -2608,7 +2608,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         {
             if(!castPtr<Creature>(pVictim)->GetExtraInfo() || !castPtr<Creature>(pVictim)->GetExtraInfo()->no_skill_up)
             {
-                castPtr<Player>(this)->GetItemInterface()->ReduceItemDurability();
+                castPtr<Player>(this)->GetInventory()->ReduceItemDurability();
                 Player* pr = castPtr<Player>(this);
                 if( Rand( pr->GetSkillUpChance( SubClassSkill) * sWorld.getRate( RATE_SKILLCHANCE ) ) )
                     pr->_AdvanceSkillLine( SubClassSkill, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
@@ -2682,7 +2682,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if (ex->deleted)
                 continue;
 
-            for(InRangeUnitSet::iterator itr = m_unitsInRange.begin(); itr != m_unitsInRange.end(); itr++)
+            for(InRangeUnitSet::iterator itr = m_inRangeUnits.begin(); itr != m_inRangeUnits.end(); itr++)
             {
                 if((*itr) == NULL || (*itr) == pVictim)
                     continue;
@@ -3221,9 +3221,7 @@ uint8 Unit::CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered,
         return SPELL_FAILED_INTERRUPTED;
 
     SpellCastTargets targets;
-    targets.m_destX = x;
-    targets.m_destY = y;
-    targets.m_destZ = z;
+    targets.m_dest.ChangeCoords(x, y, z);
     targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
     Spell* newSpell = new Spell(castPtr<Unit>(this), Sp, triggered, NULL);
     if(forcedCastTime)
@@ -3257,7 +3255,7 @@ void Unit::RemoveFromWorld(bool free_guid)
         SetVehicle(NULL);
     }
 
-    if(GetInRangePlayersCount())
+    if(GetInRangePlayerCount())
     {
         for(std::unordered_set<Player* >::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
         {
@@ -3314,7 +3312,7 @@ void Unit::UpdateVisibility()
     {
         WorldObject* pObj;
         Player *plr = castPtr<Player>(this), *pl = NULL;
-        for( WorldObject::InRangeMap::iterator itr = m_objectsInRange.begin(); itr != m_objectsInRange.end();)
+        for( WorldObject::InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end();)
         {
             pObj = itr->second;
             ++itr;

@@ -33,7 +33,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     // lookup the object we will be looting
     Object* pLootEnt = NULL;
     if( GUID_HIPART(_player->GetLootGUID()) == HIGHGUID_TYPE_ITEM )
-        pLootEnt = _player->GetItemInterface()->GetInventoryItem(_player->GetLootGUID());
+        pLootEnt = _player->GetInventory()->GetInventoryItem(_player->GetLootGUID());
     else pLootEnt = _player->GetMapMgr()->_GetObject(_player->GetLootGUID());
     if( pLootEnt == NULL )
         return;
@@ -238,10 +238,10 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     case HIGHGUID_TYPE_ITEM:
         {
             // if we have no items left, destroy the item.
-            if( Item* pItem = _player->GetItemInterface()->GetInventoryItem(guid) )
+            if( Item* pItem = _player->GetInventory()->GetInventoryItem(guid) )
             {
                 if( !pItem->GetLoot()->HasItems(_player) )
-                    _player->GetItemInterface()->DeleteItem(pItem);
+                    _player->GetInventory()->DeleteItem(pItem);
             }
         }break;
     case HIGHGUID_TYPE_CREATURE:
@@ -544,7 +544,7 @@ void WorldSession::HandleZoneUpdateOpcode( WorldPacket & recv_data )
     _player->_EventExploration();
 
     //clear buyback
-    _player->GetItemInterface()->EmptyBuyBack();
+    _player->GetInventory()->EmptyBuyBack();
 }
 
 void WorldSession::HandleSetTargetOpcode( WorldPacket & recv_data )
@@ -927,7 +927,7 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
     data << uint32(slotUsedMask);   // will be replaced later
     for(uint32 slot = 0; slot < EQUIPMENT_SLOT_END; slot++)
     {
-        if( Item* item = player->GetItemInterface()->GetInventoryItem(slot) )
+        if( Item* item = player->GetInventory()->GetInventoryItem(slot) )
         {
             slotUsedMask |= (1 << slot);
 
@@ -1074,7 +1074,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
 
     if (pLoot->items.at(slotid).has_looted.size())
     {
-        GetPlayer()->GetItemInterface()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
+        GetPlayer()->GetInventory()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
         return;
     }
 
@@ -1634,7 +1634,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
             return AREA_TRIGGER_FAILURE_NO_ATTUNE_Q;
 
         //Do we need certain items?
-        if( pMapInfo->required_item && !pPlayer->GetItemInterface()->GetItemCount(pMapInfo->required_item))
+        if( pMapInfo->required_item && !pPlayer->GetInventory()->GetItemCount(pMapInfo->required_item))
             return AREA_TRIGGER_FAILURE_NO_ATTUNE_I;
 
         //Do we need to be in a group?
@@ -1665,7 +1665,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
 
                 //and we might need a key too.
                 bool reqkey = (pMapInfo->heroic_key[0]||pMapInfo->heroic_key[1])?true:false;
-                bool haskey = (pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[0]) || pPlayer->GetItemInterface()->GetItemCount(pMapInfo->heroic_key[1])) ? true : false;
+                bool haskey = (pPlayer->GetInventory()->GetItemCount(pMapInfo->heroic_key[0]) || pPlayer->GetInventory()->GetItemCount(pMapInfo->heroic_key[1])) ? true : false;
                 if(reqkey && !haskey)
                     return AREA_TRIGGER_FAILURE_NO_KEY;
             }

@@ -33,7 +33,7 @@ class Player;
 class UpdateData;
 class ByteBuffer;
 
-class SERVER_DECL ItemInterface
+class SERVER_DECL PlayerInventory
 {
 private:
     Player* m_pOwner;
@@ -53,12 +53,15 @@ protected:
     bool _findBestSlot(ItemPrototype *proto, uint16 &slot);
 
 public:
-    ItemInterface( Player* pPlayer );
-    ~ItemInterface();
+    PlayerInventory( Player* pPlayer );
+    ~PlayerInventory();
 
     Player *GetOwner() { return m_pOwner; }
 
-    uint32 BuildUpdateBlocksForPlayer(ByteBuffer *data);
+    void AddToWorld();
+    void RemoveFromWorld(bool destroy);
+
+    uint32 BuildCreateUpdateBlocks(ByteBuffer *data);
     void DestroyForPlayer(Player* plr);
 
     static bool IsBagSlot(uint8 slot);
@@ -77,6 +80,8 @@ public:
     // Interface hooks
     void CheckAreaItems();
     void RemoveConjuredItems();
+
+    void EmptyBuyBack();
 
     // Find slot only needs proto but require an item pointer to avoid nasty calls
     bool FindFreeSlot(Item *item, uint16 &slot) { ASSERT(item); return _findFreeSlot(item->GetProto(), slot); }
@@ -146,7 +151,7 @@ public:
 
 private:
     void SendItemPushResult(Item *item, uint16 invSlot, uint8 flags, uint32 totalCount);
-    bool IsSlotValidForItem(Item *item);
+    bool IsSlotValidForItem(ItemPrototype *proto, uint16 slot) { return true; }
 
     RONIN_INLINE bool IsValidSlot(Item *item, uint16 slot)
     {
@@ -178,32 +183,6 @@ private:
                 return false;
         } else if(cBagSlot >= BANK_SLOT_BAG_START && cBagSlot < BANK_SLOT_BAG_END)
             return false;
-        return IsSlotValidForItem(item);
-    }
-
-    RONIN_INLINE bool IsValidBankSlot(Item *item, uint16 slot)
-    {
-        uint8 cBagSlot = INVSLOT_BAG(slot), cSlot = INVSLOT_ITEM(slot);
-        if(cBagSlot == INVENTORY_SLOT_NONE)
-        {
-            if(cSlot < BANK_SLOT_ITEM_START || cSlot >= BANK_SLOT_BAG_END)
-                return false;
-            if(m_itemPtrs.find(slot) != m_itemPtrs.end())
-                return false;
-        }
-        else
-        {
-            if(cBagSlot < BANK_SLOT_BAG_START || cBagSlot >= BANK_SLOT_BAG_END)
-                return false;
-            uint16 iBagSlot = MAKE_INVSLOT(0xFF, cBagSlot);
-            if(m_itemPtrs.find(iBagSlot) == m_itemPtrs.end())
-                return false;
-            Item *item = m_itemPtrs.at(iBagSlot);
-            if(cSlot >= item->GetNumSlots())
-                return false;
-            if(item->HasItem(cSlot))
-                return false;
-        }
-        return IsSlotValidForItem(item);
+        return IsSlotValidForItem(item->GetProto(), slot);
     }
 };

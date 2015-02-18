@@ -186,6 +186,7 @@ SET(RONIN_SOURCE_DIRECTORIES
 "${ROOT_PATH}/src/ronin-world/Mainframe"
 "${ROOT_PATH}/src/ronin-world/Unit Systems"
 "${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems"
+"${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems/Items"
 "${ROOT_PATH}/src/ronin-world/ScriptInterface"
 "${ROOT_PATH}/src/ronin-world/Spell"
 "${ROOT_PATH}/src/ronin-world/Spell/Spellfixes")

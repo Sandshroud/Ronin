@@ -1193,15 +1193,30 @@ public:
     void EventSummonPet(Pet* new_pet); //if we charmed or simply summoned a pet, this function should get called
     void EventDismissPet(); //if pet/charm died or whatever happned we should call this function
 
+public:
     /************************************************************************/
-    /* Item Interface                                                       */
+    /* Player Items                                                         */
     /************************************************************************/
-    RONIN_INLINE ItemInterface* GetItemInterface() { return &m_ItemInterface; } // Player Inventory Item storage
-    RONIN_INLINE void ApplyItemMods(Item* item, uint8 slot, bool apply,bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
+    RONIN_INLINE void ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
+
+    // Pointer returns for player systems
+    RONIN_INLINE PlayerInventory* GetInventory() { return &m_inventory; }
+    RONIN_INLINE PlayerBank* GetBank() { return &m_bank; }
+    RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
+
+private:
+    void _ApplyItemMods( Item* item, uint8 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
 
     // item interface variables
-    ItemInterface m_ItemInterface;
+    PlayerInventory m_inventory;
 
+    // 
+    PlayerBank m_bank;
+
+    //
+    PlayerCurrency m_currency;
+
+public:
     /************************************************************************/
     /* Loot                                                                 */
     /************************************************************************/
@@ -1485,8 +1500,6 @@ public:
     GameObject* m_GM_SelectedGO;
 
     void _Relocate(uint32 mapid,const LocationVector & v, bool sendpending, bool force_new_world, uint32 instance_id);
-    void AddItemsToWorld();
-    void RemoveItemsFromWorld();
     void UpdateKnownCurrencies(uint32 itemId, bool apply);
     uint32 GetTotalItemLevel();
     uint32 GetAverageItemLevel(bool skipmissing = false);
@@ -1793,7 +1806,6 @@ protected:
     void _SavePet(QueryBuffer * buf);
 
     void _SavePetSpells(QueryBuffer * buf);
-    void _ApplyItemMods( Item* item, uint8 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
     void _EventAttack( bool offhand );
     void _EventExploration();
 

@@ -74,25 +74,21 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
     {
-        data >> m_src_transGuid.asPacked() >> m_srcX >> m_srcY >> m_srcZ;
+        data >> m_src_transGuid.asPacked() >> m_src.x >> m_src.y >> m_src.z;
         if( !( m_targetMask & TARGET_FLAG_DEST_LOCATION ) )
         {
             m_dest_transGuid = m_src_transGuid;
-            m_destX = m_srcX;
-            m_destY = m_srcY;
-            m_destZ = m_srcZ;
+            m_dest = m_src;
         }
     }
 
     if( m_targetMask & TARGET_FLAG_DEST_LOCATION )
     {
-        data >> m_dest_transGuid.asPacked() >> m_destX >> m_destY >> m_destZ;
+        data >> m_dest_transGuid.asPacked() >> m_dest.x >> m_dest.y >> m_dest.z;
         if( !( m_targetMask & TARGET_FLAG_SOURCE_LOCATION ) )
         {
             m_src_transGuid = m_dest_transGuid;
-            m_srcX = m_destX;
-            m_srcY = m_destY;
-            m_srcZ = m_destZ;
+            m_src = m_dest;
         }
     }
 
@@ -105,8 +101,8 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
         if(data.read<uint8>() == 1)
             data.read_skip<uint64>();
 
-        float dx = m_destX - m_srcX;
-        float dy = m_destY - m_srcY;
+        float dx = m_dest.x - m_src.x;
+        float dy = m_dest.y - m_src.y;
         if((missilepitch != (M_PI / 4)) && (missilepitch != -M_PI / 4))
             traveltime = (sqrtf(dx * dx + dy * dy) / (cosf(missilepitch) * missilespeed)) * 1000;
     }
@@ -123,10 +119,10 @@ void SpellCastTargets::write( WorldPacket& data )
         FastGUIDPack( data, m_itemTarget );
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
-        data << m_src_transGuid << m_srcX << m_srcY << m_srcZ;
+        data << m_src_transGuid << m_src.x << m_src.y << m_src.z;
 
     if( m_targetMask & TARGET_FLAG_DEST_LOCATION )
-        data << m_dest_transGuid << m_destX << m_destY << m_destZ;
+        data << m_dest_transGuid << m_dest.x << m_dest.y << m_dest.z;
 
     if (m_targetMask & TARGET_FLAG_STRING)
         data << m_strTarget;
@@ -456,17 +452,39 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float range )
 {
     float r = range*range;
-
-    for( std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    if(CanEffectTargetGameObjects(i))
     {
-        if((*itr)->IsUnit())
-            if( (!(castPtr<Unit>(*itr)->isAlive())) || ( (*itr)->IsCreature() && castPtr<Creature>(*itr)->IsTotem() ))
+        for( WorldObject::InRangeGameObjectSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+        {
+            if(!IsInrange( srcx, srcy, srcz, (*itr), r ))
                 continue;
 
-        if((*itr)->PhasedCanInteract(m_caster) == false)
+            if( u_caster != NULL )
+            {
+                if( sFactionSystem.isAttackable( u_caster, (*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
+                    _AddTarget((castPtr<Unit>(*itr)), i);
+            }
+            else //cast from GO
+            {
+                if( g_caster != NULL && g_caster->GetUInt64Value( GAMEOBJECT_FIELD_CREATED_BY ) && g_caster->m_summoner != NULL )
+                {
+                    //trap, check not to attack owner and friendly
+                    if( sFactionSystem.isAttackable( g_caster->m_summoner, castPtr<Unit>(*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
+                        _AddTarget((castPtr<Unit>(*itr)), i);
+                } else _AddTargetForced((*itr)->GetGUID(), i);
+            }
+            if( GetSpellProto()->MaxTargets )
+                if( m_hitTargetCount >= GetSpellProto()->MaxTargets )
+                    return;
+        }
+    }
+
+    for( WorldObject::InRangeUnitSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    {
+        if( (!(castPtr<Unit>(*itr)->isAlive())) || ( (*itr)->IsCreature() && castPtr<Creature>(*itr)->IsTotem() ))
             continue;
 
-        if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
+        if( GetSpellProto()->TargetCreatureType)
         {
             Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
@@ -478,14 +496,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
             if( u_caster != NULL )
             {
                 if( sFactionSystem.isAttackable( u_caster, (*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
-                {
-                    if((*itr)->IsUnit())
-                        _AddTarget((castPtr<Unit>(*itr)), i);
-                    else
-                    {
-                        _AddTargetForced((*itr)->GetGUID(), i);
-                    }
-                }
+                    _AddTarget((castPtr<Unit>(*itr)), i);
             }
             else //cast from GO
             {
@@ -494,9 +505,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
                     //trap, check not to attack owner and friendly
                     if( sFactionSystem.isAttackable( g_caster->m_summoner, castPtr<Unit>(*itr), !GetSpellProto()->isSpellStealthTargetCapable() ) )
                         _AddTarget((castPtr<Unit>(*itr)), i);
-                }
-                else
-                    _AddTargetForced((*itr)->GetGUID(), i);
+                } else _AddTargetForced((*itr)->GetGUID(), i);
             }
             if( GetSpellProto()->MaxTargets )
                 if( m_hitTargetCount >= GetSpellProto()->MaxTargets )
@@ -510,17 +519,11 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 {
     float r = range*range;
 
-    for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(WorldObject::InRangeGameObjectSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
-        // don't add objects that are units and dead
-        if(!(*itr)->IsGameObject())
+        if(!IsInrange( srcx, srcy, srcz, *itr, r ))
             continue;
-        GameObject * o = castPtr<GameObject>(*itr);
-
-        if( IsInrange( srcx, srcy, srcz, o, r ))
-        {
-            _AddTargetForced(o, i);
-        }
+        _AddTargetForced(*itr, i);
     }
 }
 
@@ -539,12 +542,12 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for( std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for( WorldObject::InRangeUnitSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
-        if( !( (*itr)->IsUnit() ) || !castPtr<Unit>(*itr)->isAlive() || !(*itr)->PhasedCanInteract(m_caster))
+        if(!castPtr<Unit>(*itr)->isAlive())
             continue;
 
-        if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
+        if( GetSpellProto()->TargetCreatureType)
         {
             Unit* Target = castPtr<Unit>((*itr));
             if(!(1<<(Target->GetCreatureType()-1) & GetSpellProto()->TargetCreatureType))
@@ -584,10 +587,11 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
             u_caster->SM_PFValue(SMT_RADIUS,&rMax,GetSpellProto()->SpellGroupType);
         }
     }
+
     float srcx=m_caster->GetPositionX(),srcy=m_caster->GetPositionY(),srcz=m_caster->GetPositionZ();
-    for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++ )
+    for(WorldObject::InRangeUnitSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
-        if( !( (*itr)->IsUnit() ) || !castPtr<Unit>(*itr)->isAlive() )
+        if( !castPtr<Unit>(*itr)->isAlive() )
             continue;
         if( GetSpellProto()->TargetCreatureType && (*itr)->IsUnit())
         {
@@ -823,12 +827,12 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
 
                 float r = RandomFloat(GetRadius(0));
                 float ang = RandomFloat(M_PI * 2);
-                t->m_destX = m_caster->GetPositionX() + (cosf(ang) * r);
-                t->m_destY = m_caster->GetPositionY() + (sinf(ang) * r);
-                t->m_destZ = m_caster->GetCHeightForPosition(true, t->m_destX, t->m_destY, m_caster->GetPositionZ() + 2.0f);
+                t->m_dest.x = m_caster->GetPositionX() + (cosf(ang) * r);
+                t->m_dest.y = m_caster->GetPositionY() + (sinf(ang) * r);
+                t->m_dest.z = m_caster->GetCHeightForPosition(true, t->m_dest.x, t->m_dest.y, m_caster->GetPositionZ() + 2.0f);
                 t->m_targetMask = TARGET_FLAG_DEST_LOCATION;
             }
-            while(sWorld.Collision && !sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), t->m_destX, t->m_destY, t->m_destZ));
+            while(sWorld.Collision && !sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), t->m_dest.x, t->m_dest.y, t->m_dest.z));
             result = true;
         }
         else if(TargetType & SPELL_TARGET_AREA)  //targetted aoe
@@ -837,18 +841,14 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
             {
                 t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
                 t->m_unitTarget = u_caster->GetAIInterface()->GetNextTarget()->GetGUID();
-                t->m_destX = u_caster->GetAIInterface()->GetNextTarget()->GetPositionX();
-                t->m_destY = u_caster->GetAIInterface()->GetNextTarget()->GetPositionY();
-                t->m_destZ = u_caster->GetAIInterface()->GetNextTarget()->GetPositionZ();
+                t->m_dest = u_caster->GetAIInterface()->GetNextTarget()->GetPosition();
                 result = true;
             }
 
             if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY)
             {
                 t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-                t->m_destX = u_caster->GetPositionX();
-                t->m_destY = u_caster->GetPositionY();
-                t->m_destZ = u_caster->GetPositionZ();
+                t->m_dest = u_caster->GetPosition();
                 result = true;
             }
             else if(u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT)) //spells like blizzard, rain of fire
@@ -858,9 +858,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 {
                     t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
                     t->m_unitTarget = target->GetGUID();
-                    t->m_destX = target->GetPositionX();
-                    t->m_destY = target->GetPositionY();
-                    t->m_destZ = target->GetPositionZ();
+                    t->m_dest = target->GetPosition();
                 }
                 result = true;
             }
@@ -868,9 +866,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
         else if(TargetType & SPELL_TARGET_AREA_SELF)
         {
             t->m_targetMask |= TARGET_FLAG_SOURCE_LOCATION;
-            t->m_destX = t->m_srcX = u_caster->GetPositionX();
-            t->m_destY = t->m_srcY = u_caster->GetPositionY();
-            t->m_destZ = t->m_srcZ = u_caster->GetPositionZ();
+            t->m_dest = t->m_src = u_caster->GetPosition();
             result = true;
         }
 
@@ -899,9 +895,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
             if(u_caster->GetAIInterface()->GetNextTarget() != NULL)
             {
                 t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-                t->m_destX = u_caster->GetAIInterface()->GetNextTarget()->GetPositionX();
-                t->m_destY = u_caster->GetAIInterface()->GetNextTarget()->GetPositionY();
-                t->m_destZ = u_caster->GetAIInterface()->GetNextTarget()->GetPositionZ();
+                t->m_dest = u_caster->GetAIInterface()->GetNextTarget()->GetPosition();
                 result = true;
             }
         }
@@ -1213,9 +1207,7 @@ void Spell::cast(bool check)
                 if(target != NULL)
                 {
                     m_targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-                    m_targets.m_destX = target->GetPositionX();
-                    m_targets.m_destY = target->GetPositionY();
-                    m_targets.m_destZ = target->GetPositionZ();
+                    m_targets.m_dest = target->GetPosition();
                     break;
                 }
             }
@@ -2400,7 +2392,7 @@ void Spell::_SetTargets(WoWGuid guid)
         if(p_caster != NULL)
         {
             if(m_targets.m_targetMask & TARGET_FLAG_ITEM)
-                itemTarget = p_caster->GetItemInterface()->GetItemByGUID(m_targets.m_itemTarget);
+                itemTarget = p_caster->GetInventory()->GetItemByGUID(m_targets.m_itemTarget);
             if(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
@@ -2432,7 +2424,7 @@ void Spell::_SetTargets(WoWGuid guid)
         if(p_caster != NULL && m_targets.m_itemTarget)
         {
             if(m_targets.m_targetMask & TARGET_FLAG_ITEM)
-                itemTarget = p_caster->GetItemInterface()->GetItemByGUID(m_targets.m_itemTarget);
+                itemTarget = p_caster->GetInventory()->GetItemByGUID(m_targets.m_itemTarget);
             if(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
@@ -2450,9 +2442,9 @@ void Spell::_SetTargets(WoWGuid guid)
         {
             if(p_caster != NULL)
             {
-                itemTarget = p_caster->GetItemInterface()->GetItemByGUID(guid);
+                itemTarget = p_caster->GetInventory()->GetItemByGUID(guid);
                 if(Player* plr = p_caster->GetTradeTarget())
-                    itemTarget = p_caster->GetItemInterface()->GetInventoryItem(plr->getTradeItem(guid.getLow()))
+                    itemTarget = p_caster->GetInventory()->GetInventoryItem(plr->getTradeItem(guid.getLow()))
             }
         }
         else
@@ -2482,7 +2474,7 @@ void Spell::_SetTargets(WoWGuid guid)
                 break;
             case HIGHGUID_TYPE_ITEM:
                 if( p_caster != NULL )
-                    itemTarget = p_caster->GetItemInterface()->GetItemByGUID(guid);
+                    itemTarget = p_caster->GetInventory()->GetItemByGUID(guid);
                 break;
             }
         }
@@ -2925,7 +2917,7 @@ uint8 Spell::CanCast(bool tolerate)
 
                 // for items that combine to create a new item, check if we have the required quantity of the item
                 if(i_caster->GetProto()->ItemId == GetSpellProto()->Reagent[0] && (i_caster->GetProto()->Flags != 268435520))
-                    if(p_caster->GetItemInterface()->GetItemCount(GetSpellProto()->Reagent[0]) < GetSpellProto()->ReagentCount[0] + 1)
+                    if(p_caster->GetInventory()->GetItemCount(GetSpellProto()->Reagent[0]) < GetSpellProto()->ReagentCount[0] + 1)
                         return SPELL_FAILED_NEED_MORE_ITEMS;
             }
 
@@ -2961,7 +2953,7 @@ uint8 Spell::CanCast(bool tolerate)
                 if( GetSpellProto()->Reagent[i] <= 0 || GetSpellProto()->ReagentCount[i] <= 0)
                     continue;
 
-                if(p_caster->GetItemInterface()->GetItemCount(GetSpellProto()->Reagent[i]) < GetSpellProto()->ReagentCount[i])
+                if(p_caster->GetInventory()->GetItemCount(GetSpellProto()->Reagent[i]) < GetSpellProto()->ReagentCount[i])
                     return SPELL_FAILED_NEED_MORE_ITEMS;
             }
         }
@@ -2969,13 +2961,13 @@ uint8 Spell::CanCast(bool tolerate)
         // check if we have the required tools, totems, etc
         if( GetSpellProto()->Totem[0] != 0)
         {
-            if(!p_caster->GetItemInterface()->GetItemCount(GetSpellProto()->Totem[0]))
+            if(!p_caster->GetInventory()->GetItemCount(GetSpellProto()->Totem[0]))
                 return SPELL_FAILED_TOTEMS;
         }
 
         if( GetSpellProto()->Totem[1] != 0)
         {
-            if(!p_caster->GetItemInterface()->GetItemCount(GetSpellProto()->Totem[1]))
+            if(!p_caster->GetInventory()->GetItemCount(GetSpellProto()->Totem[1]))
                 return SPELL_FAILED_TOTEMS;
         }
 
@@ -3001,10 +2993,10 @@ uint8 Spell::CanCast(bool tolerate)
             {
                 if( p_caster->HasDummyAura( SPELL_HASH_GLYPH_OF_RAISE_DEAD ) )
                     check = true;
-                else if( p_caster->GetItemInterface()->GetItemCount( 37201 ) )
+                else if( p_caster->GetInventory()->GetItemCount( 37201 ) )
                 {
                     check = true;
-                    p_caster->GetItemInterface()->RemoveItemAmt( 37201, 1 );
+                    p_caster->GetInventory()->RemoveItemAmt( 37201, 1 );
                 }
             }
             if( !check )
@@ -3110,7 +3102,7 @@ uint8 Spell::CanCast(bool tolerate)
                     i_target = t_player->getTradeItem(m_targets.m_targetIndex);
             }
         } // targeted item is not in a trade box, so get our own item
-        else i_target = p_caster->GetItemInterface()->GetItemByGUID( m_targets.m_itemTarget );
+        else i_target = p_caster->GetInventory()->GetItemByGUID( m_targets.m_itemTarget );
 
         // check to make sure we have a targeted item
         if( i_target == NULL )
@@ -3184,7 +3176,7 @@ uint8 Spell::CanCast(bool tolerate)
             if(!(proto->Flags & ITEM_FLAG_PROSPECTABLE))
                 return SPELL_FAILED_CANT_BE_PROSPECTED;
             // check if we have at least 5 of the item
-            if(p_caster->GetItemInterface()->GetItemCount(proto->ItemId) < 5)
+            if(p_caster->GetInventory()->GetItemCount(proto->ItemId) < 5)
                 return SPELL_FAILED_NEED_MORE_ITEMS;
             // check if we have high enough skill
             if(proto->RequiredSkillRank < 0 || p_caster->_GetSkillLineCurrent(SKILL_JEWELCRAFTING) < (uint32)proto->RequiredSkillRank)
@@ -3198,7 +3190,7 @@ uint8 Spell::CanCast(bool tolerate)
             if(!(proto->Flags & ITEM_FLAG_MILLABLE))
                 return SPELL_FAILED_CANT_BE_MILLED;
             // check if we have at least 5 of the item
-            if(p_caster->GetItemInterface()->GetItemCount(proto->ItemId) < 5)
+            if(p_caster->GetInventory()->GetItemCount(proto->ItemId) < 5)
                 return SPELL_FAILED_NEED_MORE_ITEMS;
             // check if we have high enough skill
             if(proto->RequiredSkillRank < 0 || p_caster->_GetSkillLineCurrent(SKILL_INSCRIPTION) < (uint32)proto->RequiredSkillRank)
@@ -3285,7 +3277,7 @@ uint8 Spell::CanCast(bool tolerate)
 
                 if( GetSpellProto()->Id == SPELL_RANGED_THROW)
                 {
-                    Item* itm = p_caster->GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+                    Item* itm = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
                     if(!itm || ((itm->GetDurability() == 0) && itm->GetDurabilityMax()))
                         return SPELL_FAILED_NO_AMMO;
                 }
@@ -3579,44 +3571,7 @@ uint8 Spell::CanCast(bool tolerate)
 
 void Spell::RemoveItems()
 {
-    // Item Charges & Used Item Removal
-    if(i_caster)
-    {
-        // Stackable Item -> remove 1 from stack
-        if(i_caster->GetUInt32Value(ITEM_FIELD_STACK_COUNT) > 1)
-            i_caster->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, -1);
-        // Expendable Item
-        else if(i_caster->GetProto()->Spells[0].Charges < 0
-             || i_caster->GetProto()->Spells[1].Charges == -1) // hackfix for healthstones/mana gems/depleted items
-        {
-            // if item has charges remaining -> remove 1 charge
-            if(((int32)i_caster->GetUInt32Value(ITEM_FIELD_SPELL_CHARGES)) < -1)
-                i_caster->ModSignedInt32Value(ITEM_FIELD_SPELL_CHARGES, 1);
-            else // if item has no charges remaining -> delete item
-            {
-                if(i_caster->GetOwner()) // wtf?
-                {
-                    i_caster->GetOwner()->GetItemInterface()->SafeFullRemoveItemByGuid(i_caster->GetGUID());
-                    i_caster = NULL;
-                }
-            }
-        }
-        // Non-Expendable Item -> remove 1 charge
-        else if(i_caster->GetProto()->Spells[0].Charges > 0)
-        {
-            i_caster->ModSignedInt32Value(ITEM_FIELD_SPELL_CHARGES, -1);
-            i_caster->m_isDirty = true;
-        }
-    }
 
-    // Reagent Removal
-    for(uint32 i=0; i<8 ;++i)
-    {
-        if( p_caster && GetSpellProto()->Reagent[i] && !p_caster->NoReagentCost)
-        {
-            p_caster->GetItemInterface()->RemoveItemAmt_ProtectPointer(GetSpellProto()->Reagent[i], GetSpellProto()->ReagentCount[i], &i_caster);
-        }
-    }
 }
 
 int32 Spell::CalculateEffect(uint32 i, Unit* target, int32 &bonusPoints)
@@ -3721,12 +3676,12 @@ void Spell::HandleTeleport(uint32 id, Unit* Target)
 
         default:
             {
-                if(m_targets.m_destX && m_targets.m_destY)
+                if(m_targets.m_dest.x && m_targets.m_dest.y)
                 {
                     mapid = pTarget->GetMapId();
-                    x = m_targets.m_destX;
-                    y = m_targets.m_destY;
-                    z = m_targets.m_destZ;
+                    x = m_targets.m_dest.x;
+                    y = m_targets.m_dest.y;
+                    z = m_targets.m_dest.z;
                     o = pTarget->GetOrientation();
                 }
                 else
@@ -3770,16 +3725,16 @@ void Spell::CreateItem(uint32 itemId)
     if( m_itemProto == NULL )
         return;
 
-    if (pUnit->GetItemInterface()->CanReceiveItem(m_itemProto, 1, NULL))
+    if (pUnit->GetInventory()->CanReceiveItem(m_itemProto, 1, NULL))
     {
         SendCastResult(SPELL_FAILED_TOO_MANY_OF_ITEM);
         return;
     }
 
-    add = pUnit->GetItemInterface()->FindItemLessMax(itemId, 1, false);
+    add = pUnit->GetInventory()->FindItemLessMax(itemId, 1, false);
     if (!add)
     {
-        slotresult = pUnit->GetItemInterface()->FindFreeInventorySlot(m_itemProto);
+        slotresult = pUnit->GetInventory()->FindFreeInventorySlot(m_itemProto);
         if(!slotresult.Result)
         {
              SendCastResult(SPELL_FAILED_TOO_MANY_OF_ITEM);
@@ -3787,7 +3742,7 @@ void Spell::CreateItem(uint32 itemId)
         }
 
         newItem = objmgr.CreateItem(itemId, pUnit);
-        AddItemResult result = pUnit->GetItemInterface()->SafeAddItem(newItem, slotresult.ContainerSlot, slotresult.Slot);
+        AddItemResult result = pUnit->GetInventory()->SafeAddItem(newItem, slotresult.ContainerSlot, slotresult.Slot);
         if(!result)
         {
             newItem->Destruct();
@@ -3804,7 +3759,7 @@ void Spell::CreateItem(uint32 itemId)
     else
     {
         add->SetUInt32Value(ITEM_FIELD_STACK_COUNT,add->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + damage);
-        p_caster->GetSession()->SendItemPushResult(add,true,false,true,false,p_caster->GetItemInterface()->GetBagSlotByGuid(add->GetGUID()),0xFFFFFFFF,1);
+        p_caster->GetSession()->SendItemPushResult(add,true,false,true,false,p_caster->GetInventory()->GetBagSlotByGuid(add->GetGUID()),0xFFFFFFFF,1);
         add->m_isDirty = true;
     }
 }
@@ -4335,28 +4290,13 @@ void Spell::DamageGosAround(uint32 i)
     uint32 spell_id = GetSpellProto()->Id;
     float r = GetRadius(i);
     r *= r;
-    WorldObject* o;
-
-    for (WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); ++itr)
+    LocationVector target = ((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) ? m_targets.m_dest : ((m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION) ? m_targets.m_src : m_caster->GetPosition()));
+    for (WorldObject::InRangeGameObjectSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr)
     {
-        o = *itr;
-        if (!o->IsGameObject())
+        GameObject *gObj = *itr;
+        if(gObj->GetDistance2dSq(target.x, target.y) > r)
             continue;
-        if(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION && o->GetDistance2dSq(m_targets.m_destX, m_targets.m_destY) <= r )
-        {
-            castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
-            return;
-        }
-        else if(m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION && o->GetDistance2dSq(m_targets.m_srcX, m_targets.m_srcY) <= r)
-        {
-            castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
-            return;
-        }
-        else
-        {
-            if(o->GetDistance2dSq(m_caster->GetPositionX(), m_caster->GetPositionY()) <= r)
-                castPtr<GameObject>(o)->TakeDamage(damage,m_caster,p_caster,spell_id);
-        }
+        gObj->TakeDamage(damage,m_caster,p_caster,spell_id);
     }
 }
 

@@ -164,6 +164,8 @@ struct ItemData
 
         uint32 CalcTimeLeft()
         {
+            if(expirationTime == 0)
+                return 0xFFFFFFFF;
             if(expirationTime <= UNIXTIME)
                 return 0;
             return uint32(1000*(UNIXTIME-expirationTime));
@@ -171,20 +173,21 @@ struct ItemData
     } *enchantData[10];
 };
 
-struct GuildBankItemStorage
-{
-    std::map<uint8, WoWGuid> bankTabs[6];
-};
-
-struct PlayerInventory
-{
-    std::map<uint16, WoWGuid> m_playerInventory;
-};
-
 #pragma pack(PRAGMA_POP)
 
 class SERVER_DECL ItemManager : public Singleton<ItemManager>
 {
+public:
+    struct GuildBankItemStorage
+    {
+        std::map<uint8, WoWGuid> bankTabs[6];
+    };
+
+    struct PlayerInventory
+    {
+        std::map<uint16, WoWGuid> m_playerInventory;
+    };
+
 public:
     ItemManager();
     ~ItemManager();
@@ -195,6 +198,10 @@ public:
     ItemData *CreateItemData(uint32 entry);
 
     void DeleteItemData(WoWGuid itemGuid);
+
+    uint32 GetSkillForItem(ItemPrototype *proto);
+    uint32 CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor);
+    uint32 BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, ItemData *item);
 
 private:
     std::map<WoWGuid, ItemData*> m_itemData;

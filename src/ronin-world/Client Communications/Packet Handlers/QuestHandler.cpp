@@ -32,7 +32,7 @@ void WorldSession::HandleQuestgiverStatusQueryOpcode( WorldPacket & recv_data )
     }
     else if(guidtype==HIGHGUID_TYPE_ITEM)
     {
-        if(Item* quest_giver = GetPlayer()->GetItemInterface()->GetInventoryItem(guid))
+        if(Item* quest_giver = GetPlayer()->GetInventory()->GetInventoryItem(guid))
             qst_giver = quest_giver;
         else return;
     }
@@ -133,7 +133,7 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype==HIGHGUID_TYPE_ITEM)
     {
-        if(Item* quest_giver = GetPlayer()->GetItemInterface()->GetInventoryItem(guid))
+        if(Item* quest_giver = GetPlayer()->GetInventory()->GetInventoryItem(guid))
         {
             if(qst->id == quest_giver->GetProto()->QuestId)
             {
@@ -217,7 +217,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_ITEM)
     {
-        Item* quest_giver = GetPlayer()->GetItemInterface()->GetInventoryItem(guid);
+        Item* quest_giver = GetPlayer()->GetInventory()->GetInventoryItem(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else return;
@@ -277,9 +277,9 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if(!_player->GetItemInterface()->CreateQuestItems(qst))
+    if(!_player->GetInventory()->CreateQuestItems(qst))
     {
-        _player->GetItemInterface()->BuildInvError(INV_ERR_BAG_FULL, NULL, NULL);
+        _player->GetInventory()->BuildInvError(INV_ERR_BAG_FULL, NULL, NULL);
         sQuestMgr.SendQuestFailed(FAILED_REASON_INV_FULL, qst, _player);
         return;
     }
@@ -331,17 +331,17 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
     uint32 srcItem = qPtr->srcitem;
     for(uint32 i = 0; i < 4; i++)
         if(qPtr->receive_items[i] && qPtr->receive_items[i] != srcItem)
-            _player->GetItemInterface()->RemoveInventoryStacks( qPtr->receive_items[i], qPtr->receive_itemcount[i] );
+            _player->GetInventory()->RemoveInventoryStacks( qPtr->receive_items[i], qPtr->receive_itemcount[i] );
 
     // Remove source item
     if(qPtr->srcitem)
-        _player->GetItemInterface()->RemoveInventoryStacks( qPtr->srcitem, qPtr->srcitemcount );
+        _player->GetInventory()->RemoveInventoryStacks( qPtr->srcitem, qPtr->srcitemcount );
 
     // Reset timed quests, remove timed event
     // always remove collected items (need to be recollectable again in case of repeatable).
     for( uint32 y = 0; y < 6; y++)
         if( qPtr->required_item[y] && qPtr->required_item[y] != srcItem )
-            _player->GetItemInterface()->RemoveInventoryStacks(qPtr->required_item[y], qPtr->required_itemcount[y]);
+            _player->GetInventory()->RemoveInventoryStacks(qPtr->required_item[y], qPtr->required_itemcount[y]);
 
     if(qPtr->required_timelimit > 0)
         if(sEventMgr.HasEvent(_player,EVENT_TIMED_QUEST_EXPIRE))

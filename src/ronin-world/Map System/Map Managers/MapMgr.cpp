@@ -542,7 +542,7 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
                     castPtr<Player>( curObj )->RemoveIfVisible(obj);
 
                 curObj->RemoveInRangeObject(obj);
-                obj->RemoveInRangeObject(curObj, &iter);
+                obj->RemoveInRangeObject(curObj);
             }
         }
     }
@@ -1739,7 +1739,7 @@ void MapMgr::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, ui
 
     MapCell *cell;
     uint32 posX, posY;
-    MapCell::ObjectSet::iterator iter, iend;
+    MapCell::CellObjectSet::iterator iter, iend;
     for (posX = startX; posX <= endX; ++posX )
     {
         for (posY = startY; posY <= endY; ++posY )
@@ -1772,7 +1772,7 @@ void MapMgr::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet
 
     uint32 posX, posY;
     MapCell *cell;
-    MapCell::ObjectSet::iterator iter, iend;
+    MapCell::CellObjectSet::iterator iter, iend;
     for (posX = startX; posX <= endX; ++posX )
     {
         for (posY = startY; posY <= endY; ++posY )

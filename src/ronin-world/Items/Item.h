@@ -71,6 +71,8 @@ public:
     virtual void AddToWorld();
     virtual bool IsContainer() { return m_isContainer; }
 
+    ItemData const *GetItemData() { return _itemData; };
+
     RONIN_INLINE ItemPrototype* GetProto() const { return m_itemProto; }
     RONIN_INLINE Player* GetOwner() const { return m_owner; }
     void SetOwner( Player* owner );

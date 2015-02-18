@@ -158,6 +158,12 @@ FILE(GLOB unit_system_player_system_sources
 source_group("Unit Systems\\Player Systems" FILES ${unit_system_player_system_sources})
 SET(group_sources ${group_sources} ${unit_system_player_system_sources})
 
+FILE(GLOB unit_system_player_system_item_sources
+"${prefix}/Unit Systems/Player Systems/Items/*.h"
+"${prefix}/Unit Systems/Player Systems/Items/*.cpp")
+source_group("Unit Systems\\Player Systems\\Items" FILES ${unit_system_player_system_item_sources})
+SET(group_sources ${group_sources} ${unit_system_player_system_item_sources})
+
 FILE(GLOB script_sources
 "${prefix}/ScriptInterface/*.h"
 "${prefix}/ScriptInterface/*.cpp")

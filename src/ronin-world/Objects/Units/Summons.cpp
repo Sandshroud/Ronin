@@ -205,9 +205,7 @@ void TotemSummon::SetupSpells()
 
         if(!SP_AppliesAura(TotemSpell, SPELL_AURA_PERIODIC_TRIGGER_SPELL))
         {
-            targets.m_destX = m_summon->GetPositionX();
-            targets.m_destY = m_summon->GetPositionY();
-            targets.m_destZ = m_summon->GetPositionZ();
+            targets.m_dest = m_summon->GetPosition();
             targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
         }
         (new Spell(m_summon, TotemSpell, true, 0))->prepare(&targets);
@@ -248,7 +246,7 @@ void Spell::SpellEffectSummon(uint32 i)
     LocationVector v(0.0f, 0.0f, 0.0f, 0.0f);
 
     if((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) != 0)
-        v = LocationVector(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ);
+        v = m_targets.m_dest;
     else v = u_caster->GetPosition();
 
     // Client adds these spells to the companion window, it's weird but then it happens anyways

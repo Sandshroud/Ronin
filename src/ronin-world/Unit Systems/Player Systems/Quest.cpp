@@ -241,7 +241,7 @@ bool QuestLogEntry::CanBeFinished()
 
     for(uint8 i = 0; i < 6; i++)
         if(m_quest->required_item[i])
-            if(m_Player->GetItemInterface()->GetItemCount(m_quest->required_item[i]) < m_quest->required_itemcount[i])
+            if(m_Player->GetInventory()->GetItemCount(m_quest->required_item[i]) < m_quest->required_itemcount[i])
                 return false;
 
     //Check for Gold & AreaTrigger Requirement s

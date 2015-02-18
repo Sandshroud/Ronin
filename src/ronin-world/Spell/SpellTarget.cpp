@@ -122,9 +122,7 @@ void Spell::HandleTargetNoObject()
     }
 
     m_targets.m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-    m_targets.m_destX = newx;
-    m_targets.m_destY = newy;
-    m_targets.m_destZ = newz;
+    m_targets.m_dest.ChangeCoords(newx, newy, newz);
 }
 
 bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
@@ -176,24 +174,13 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         //are we using a different location?
         if(TargetType & SPELL_TARGET_AREA)
         {
-            x = m_targets.m_destX;
-            y = m_targets.m_destY;
-            z = m_targets.m_destZ;
+            x = m_targets.m_dest.x;
+            y = m_targets.m_dest.y;
+            z = m_targets.m_dest.z;
         }
         else if(TargetType & SPELL_TARGET_AREA_CHAIN)
         {
-            //TODO: Add support for this in arcemu
-            /*WorldObject* lasttarget = NULL;
-            if (m_orderedObjects.size() > 0)
-            {
-                lasttarget = m_caster->GetMapMgr()->_GetObject(m_orderedObjects[m_orderedObjects.size() - 1]);
-                if (lasttarget != NULL)
-                {
-                    x = lasttarget->GetPositionX();
-                    y = lasttarget->GetPositionY();
-                    z = lasttarget->GetPositionZ();
-                }
-            }*/
+            //TODO: Support
         }
 
         if(!sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), x, y, z + 2, obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ() + 2))
@@ -219,23 +206,20 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     else
     {
         m_targets.m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-        source.x = m_targets.m_destX;
-        source.y = m_targets.m_destY;
-        source.z = m_targets.m_destZ;
+        source = m_targets.m_dest;
     }
 
     //caster might be in the aoe LOL
     if(m_caster->CalcDistance(source) <= r)
         AddTarget(i, TargetType, m_caster);
 
-    for(ObjectSet::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); ++itr)
+    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); ++itr)
     {
         if(maxtargets != 0 && ManagedTargets.size() >= maxtargets)
             break;
-
-        float dist = (*itr)->CalcDistance(source);
-        if(dist <= r)
-            AddTarget(i, TargetType, (*itr));
+        if(itr->second->CalcDistance(source) > r)
+            continue;
+        AddTarget(i, TargetType, itr->second);
     }
 }
 
@@ -251,14 +235,14 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     Player* p = castPtr<Player>(u);
     AddTarget(i, TargetType, p);
 
-    ObjectSet::iterator itr;
-    for(itr = u->GetInRangeSetBegin(); itr != u->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for(itr = u->GetInRangeUnitSetBegin(); itr != u->GetInRangeUnitSetEnd(); itr++)
     {
-        if(!(*itr)->IsUnit() || !castPtr<Unit>(*itr)->isAlive())
-            continue;
-
         //only affect players and pets
         if(!(*itr)->IsPlayer() && !(*itr)->IsPet())
+            continue;
+
+        if(!castPtr<Unit>(*itr)->isAlive())
             continue;
 
         if(!p->IsGroupMember(castPtr<Player>(*itr)))
@@ -283,10 +267,10 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
     Player* p = castPtr<Player>(u);
     AddTarget(i, TargetType, p);
 
-    ObjectSet::iterator itr;
-    for(itr = u->GetInRangeSetBegin(); itr != u->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for(itr = u->GetInRangeUnitSetBegin(); itr != u->GetInRangeUnitSetEnd(); itr++)
     {
-        if(!(*itr)->IsUnit() || !castPtr<Unit>(*itr)->isAlive())
+        if(!castPtr<Unit>(*itr)->isAlive())
             continue;
 
         //only affect players and pets
@@ -349,10 +333,10 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     if(jumps <= 1 || ManagedTargets.size() == 0) //1 because we've added the first target, 0 size if spell is resisted
         return;
 
-    ObjectSet::iterator itr;
-    for(itr = firstTarget->GetInRangeSetBegin(); itr != firstTarget->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for(itr = firstTarget->GetInRangeUnitSetBegin(); itr != firstTarget->GetInRangeUnitSetEnd(); itr++)
     {
-        if(!(*itr)->IsUnit() || !castPtr<Unit>((*itr))->isAlive())
+        if(!castPtr<Unit>((*itr))->isAlive())
             continue;
 
         if(RaidOnly)
@@ -381,10 +365,10 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
 
 void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    ObjectSet::iterator itr;
-    for(itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++)
+    WorldObject::InRangeUnitSet::iterator itr;
+    for(itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
     {
-        if(!((*itr)->IsUnit()) || !castPtr<Unit>((*itr))->isAlive())
+        if(!castPtr<Unit>((*itr))->isAlive())
             continue;
 
         //is Creature in range
@@ -402,22 +386,15 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
 
 void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    for(ObjectSet::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); ++itr)
+    for(WorldObject::InRangeGameObjectSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr)
     {
-        WorldObject* o = *itr;
-
-        if(!o->IsGameObject())
-            continue;
-
-        GameObject* go = castPtr<GameObject>(o);
-
+        GameObject* go = *itr;
         if(go->GetInfo()->TypeSpellFocus.FocusId == m_spellInfo->RequiresSpellFocus)
         {
             if(!m_caster->isInRange(go, r))
                 continue;
 
-            bool success = AddTarget(i, TargetType, go);
-            if(success)
+            if(AddTarget(i, TargetType, go))
                 return;
         }
     }

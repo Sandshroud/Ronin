@@ -1154,37 +1154,17 @@ Unit *MoonScriptCreatureAI::GetBestUnitTarget( TargetFilters pTargetFilter, floa
 {
     //Build potential target list
     UnitArray TargetArray;
-    if ( pTargetFilter & TargetFilter_Friendly )
+    for ( WorldObject::InRangeUnitSet::iterator ObjectIter = _unit->GetInRangeUnitSetBegin(); ObjectIter != _unit->GetInRangeUnitSetEnd(); ++ObjectIter )
     {
-        for ( RONIN_UNORDERED_SET< WorldObject *>::iterator ObjectIter = _unit->GetInRangeSetBegin(); ObjectIter != _unit->GetInRangeSetEnd(); ++ObjectIter )
-        {
-            if( IsValidUnitTarget(*ObjectIter, pTargetFilter, pMinRange, pMaxRange) )
-            {
-                if(pTargetFilter & TargetFilter_ManaClass)
-                {
-                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetArray.push_back( castPtr<Unit>( *ObjectIter ) );
-                } else TargetArray.push_back( castPtr<Unit>( *ObjectIter ) );
-            }
-        };
-
-        if ( IsValidUnitTarget( _unit, pTargetFilter ) )
-            TargetArray.push_back( _unit ); //Also add self as possible friendly target
+        if( !IsValidUnitTarget(*ObjectIter, pTargetFilter, pMinRange, pMaxRange) )
+            continue;
+        if(pTargetFilter & TargetFilter_ManaClass && (*ObjectIter)->getPowerType() != POWER_TYPE_MANA)
+            continue;
+        TargetArray.push_back(*ObjectIter);
     }
-    else
-    {
-        for ( WorldObject::InRangeUnitSet::iterator ObjectIter = _unit->GetInRangeOppFactsSetBegin(); ObjectIter != _unit->GetInRangeOppFactsSetEnd(); ++ObjectIter )
-        {
-            if( IsValidUnitTarget(*ObjectIter, pTargetFilter, pMinRange, pMaxRange) )
-            {
-                if(pTargetFilter & TargetFilter_ManaClass)
-                {
-                    if(castPtr<Unit>(*ObjectIter)->getPowerType() == POWER_TYPE_MANA)
-                        TargetArray.push_back( castPtr<Unit>( *ObjectIter ) );
-                } else TargetArray.push_back( castPtr<Unit>( *ObjectIter ) );
-            }
-        };
-    };
+
+    if ( pTargetFilter & TargetFilter_Friendly && IsValidUnitTarget( _unit, pTargetFilter ) )
+        TargetArray.push_back( _unit ); //Also add self as possible friendly target
 
     return ChooseBestTargetInArray( TargetArray, pTargetFilter );
 };

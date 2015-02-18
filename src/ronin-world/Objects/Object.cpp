@@ -262,7 +262,7 @@ void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
 
 uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
-    uint16 updateFlags = UPDATEFLAG_NONE;
+    uint16 updateFlags = IsVehicle() ? UPDATEFLAG_VEHICLE : UPDATEFLAG_NONE;
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
     if(GetTypeFlags() & TYPEMASK_TYPE_UNIT)
     {
@@ -289,8 +289,9 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
                 updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
             }break;
         }
-    } else updateFlags |= UPDATEFLAG_STATIONARY_POS;
-    if(IsVehicle()) updateFlags |= UPDATEFLAG_VEHICLE;
+    } else if(IsObject())
+        updateFlags |= UPDATEFLAG_STATIONARY_POS;
+
     if(target == this)
     {
         // player creating self
@@ -540,10 +541,6 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
 
     m_instanceId = 0;
     Active = false;
-
-    m_unitsInRange.clear();
-    m_objectsInRange.clear();
-    m_inRangePlayers.clear();
 }
 
 WorldObject::~WorldObject( )
@@ -1603,7 +1600,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     SpellEntry* m_reincarnSpellInfo = dbcSpell.LookupEntry( 20608 );
                     if( plrVictim->Cooldown_CanCast( m_reincarnSpellInfo ) )
                     {
-                        uint32 ankh_count = plrVictim->GetItemInterface()->GetItemCount( 17030 );
+                        uint32 ankh_count = plrVictim->GetInventory()->GetItemCount( 17030 );
                         if( ankh_count || castPtr<Player>(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
                             self_res_spell = 21169;
                     }

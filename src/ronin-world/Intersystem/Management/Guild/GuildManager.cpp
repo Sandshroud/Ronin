@@ -382,39 +382,6 @@ void GuildMgr::LoadAllGuilds()
         result = NULL;
     }
 
-    result = CharacterDatabase.Query("SELECT * FROM guild_bankitems");
-    if(result != NULL)
-    {
-        Field* f = NULL;
-        uint32 GuildId = 0, tabid = 0;
-        GuildBankTabStorage* BankTabStorage = NULL;
-        do
-        {
-            f = result->Fetch();
-            GuildId = f[0].GetUInt32();
-            tabid = f[1].GetUInt32();
-            if(tabid >= MAX_GUILD_BANK_TABS)
-                continue;
-            BankTabStorage = GetGuildBankTabStorage(GuildId);
-            if(BankTabStorage == NULL)
-                continue;
-
-            uint32 slot = f[2].GetUInt32();
-            if(slot >= MAX_GUILD_BANK_SLOTS)
-                continue;
-
-            uint32 itemGuid = f[3].GetUInt32();
-            Item* pItem = objmgr.LoadItem(itemGuid);
-            if(pItem == NULL)
-                continue;
-
-            BankTabStorage->m_Tabs[tabid]->pSlots[slot] = pItem;
-        }
-        while(result->NextRow());
-        delete result;
-        result = NULL;
-    }
-
     for(GuildInfoMap::iterator itr, itr2 = m_Guilds.begin(); itr2 != m_Guilds.end();)
     {
         itr = itr2++;

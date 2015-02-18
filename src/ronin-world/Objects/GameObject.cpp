@@ -137,9 +137,7 @@ void GameObject::Update(uint32 p_time)
                 }
 
                 SpellCastTargets tgt((*itr)->GetGUID());
-                tgt.m_destX = GetPositionX();
-                tgt.m_destY = GetPositionY();
-                tgt.m_destZ = GetPositionZ();
+                tgt.m_dest = GetPosition();
                 Spell* sp = new Spell(this, spell, true, NULL);
                 sp->prepare(&tgt);
 

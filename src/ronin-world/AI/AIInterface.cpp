@@ -192,9 +192,7 @@ void AIInterface::_UpdateTotem(uint32 p_time)
             m_nextTarget = NULL;
             targets.m_targetMask = TARGET_FLAG_SELF|TARGET_FLAG_SOURCE_LOCATION|TARGET_FLAG_DEST_LOCATION;
             targets.m_unitTarget = m_Unit->GetGUID();
-            targets.m_srcX = targets.m_destX = m_Unit->GetPositionX();
-            targets.m_srcY = targets.m_destY = m_Unit->GetPositionY();
-            targets.m_srcZ = targets.m_destZ = m_Unit->GetPositionZ();
+            targets.m_src = targets.m_dest = m_Unit->GetPosition();
         }
         else
         {
@@ -450,7 +448,7 @@ void AIInterface::CallGuards()
         return;
 
     Creature* m_Creature = castPtr<Creature>(m_Unit);
-    if( m_Creature->isDead() || !m_Creature->isAlive() || m_Creature->GetInRangePlayersCount() == 0 || m_Creature->GetMapMgr() == NULL || m_Creature->m_isGuard )
+    if( m_Creature->isDead() || !m_Creature->isAlive() || m_Creature->GetInRangePlayerCount() == 0 || m_Creature->GetMapMgr() == NULL || m_Creature->m_isGuard )
         return;
 
     if( getMSTime() > m_guardTimer && !IS_INSTANCE(m_Unit->GetMapId()) )

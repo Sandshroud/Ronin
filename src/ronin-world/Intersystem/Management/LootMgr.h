@@ -34,8 +34,8 @@ private:
     uint32 _groupcount;
     uint32 _slotid;
     uint32 _itemid;
-    uint32 _randomsuffixid;
-    uint32 _randompropertyid;
+    uint32 _randomProp;
+    uint32 _randomSeed;
     uint32 _remaining;
     uint64 _guid;
     MapMgr* _mgr;

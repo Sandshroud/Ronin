@@ -847,12 +847,9 @@ void Aura::EventPeriodicHeal( uint32 amount )
     {
         target_threat.reserve(m_caster->GetInRangeCount()); // this helps speed
 
-        for(std::unordered_set<WorldObject* >::iterator itr = m_caster->GetInRangeSetBegin(); itr != m_caster->GetInRangeSetEnd(); itr++)
+        for(WorldObject::InRangeUnitSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
         {
-            if((*itr)->GetTypeId() != TYPEID_UNIT)
-                continue;
-
-            unit = castPtr<Unit>((*itr));
+            unit = *itr;
             if(unit->GetAIInterface()->GetNextTarget() == m_target)
             {
                 target_threat.push_back(unit);
@@ -978,13 +975,10 @@ void Aura::SpellAuraModStealth(bool apply)
         // hack fix for vanish stuff
         if(m_spellProto->NameHash == SPELL_HASH_VANISH && m_target->IsPlayer())     // Vanish
         {
-            for(WorldObject::InRangeSet::iterator iter = m_target->GetInRangeSetBegin(); iter != m_target->GetInRangeSetEnd(); ++iter)
+            for(WorldObject::InRangeUnitSet::iterator iter = m_target->GetInRangeUnitSetBegin(); iter != m_target->GetInRangeUnitSetEnd(); ++iter)
             {
-                if((*iter) == NULL || !(*iter)->IsUnit())
-                    continue;
-
-                Unit* _unit = castPtr<Unit>(*iter);
-                if(!_unit || !_unit->isAlive())
+                Unit* _unit = *iter;
+                if(!_unit->isAlive())
                     continue;
 
                 if(_unit->GetCurrentSpell() && _unit->GetCurrentSpell()->GetUnitTarget() == m_target)
@@ -2151,14 +2145,13 @@ void Aura::SpellAuraFeignDeath(bool apply)
 
             data.Initialize(SMSG_CLEAR_TARGET);
             data << pTarget->GetGUID();
-            std::unordered_set< WorldObject* >::iterator itr,itr2;
-            WorldObject* pObject = NULL;
 
             //now get rid of mobs agro. pTarget->CombatStatus.AttackersForgetHate() - this works only for already attacking mobs
-            for(itr = pTarget->GetInRangeSetBegin(); itr != pTarget->GetInRangeSetEnd();)
+            WorldObject::InRangeUnitSet::iterator itr, itr2;
+            for(itr = pTarget->GetInRangeUnitSetBegin(); itr != pTarget->GetInRangeUnitSetEnd();)
             {
                 itr2 = itr++;
-                pObject = (*itr2);
+                WorldObject* pObject = (*itr2);
 
                 if(pObject->IsUnit() && (castPtr<Unit>(pObject))->isAlive())
                 {
@@ -2603,19 +2596,19 @@ void Aura::SpellAuraChannelDeathItem(bool apply)
                         return;
 
                     ItemPrototype *proto = sItemMgr.LookupEntry(itemid);
-                    if(pCaster->GetItemInterface()->CalculateFreeSlots(proto) > 0)
+                    if(pCaster->GetInventory()->CalculateFreeSlots(proto) > 0)
                     {
                         if(Item* item = objmgr.CreateItem(itemid,pCaster))
                         {
                             item->SetUInt64Value(ITEM_FIELD_CREATOR,pCaster->GetGUID());
-                            if(!pCaster->GetItemInterface()->AddItemToFreeSlot(item))
+                            if(!pCaster->GetInventory()->AddItemToFreeSlot(item))
                             {
-                                pCaster->GetItemInterface()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
+                                pCaster->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INVENTORY_FULL);
                                 item->Destruct();
                                 return;
                             }
 
-                            SlotResult * lr = pCaster->GetItemInterface()->LastSearchResult();
+                            SlotResult * lr = pCaster->GetInventory()->LastSearchResult();
                             pCaster->GetSession()->SendItemPushResult(item,true,false,true,true,lr->ContainerSlot,lr->Slot,1);
                         }
                     }

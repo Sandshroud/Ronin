@@ -13,37 +13,37 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
     uint32 count = std::min(recv_data.read<uint8>(), uint8(100));
 
     // Packet editting
-    if(!_player->GetItemInterface()->IsValidSrcSlot(srcSlot, false))
+    if(!_player->GetInventory()->IsValidSrcSlot(srcSlot, false))
         return;
-    Item *src = _player->GetItemInterface()->GetInventoryItem(srcSlot);
+    Item *src = _player->GetInventory()->GetInventoryItem(srcSlot);
     if(src == NULL)
         return;
-    if(!_player->GetItemInterface()->IsValidDstSlot(src, dstSlot, false))
+    if(!_player->GetInventory()->IsValidDstSlot(src, dstSlot, false))
         return;
     if(count == 0)
     {
-        _player->GetItemInterface()->BuildInvError(INV_ERR_CANT_STACK, src, NULL);
+        _player->GetInventory()->BuildInvError(INV_ERR_CANT_STACK, src, NULL);
         return;
     }
     if(count >= src->GetUInt32Value(ITEM_FIELD_STACK_COUNT))
     {
-        _player->GetItemInterface()->BuildInvError(INV_ERR_TOO_FEW_TO_SPLIT, src, NULL);
+        _player->GetInventory()->BuildInvError(INV_ERR_TOO_FEW_TO_SPLIT, src, NULL);
         return;
     }
 
-    Item *dst = _player->GetItemInterface()->GetInventoryItem(dstSlot);
+    Item *dst = _player->GetInventory()->GetInventoryItem(dstSlot);
     if(dst && dst->GetEntry() != src->GetEntry())
         return;
 
     if(src->isWrapped() || (dst && dst->isWrapped()) )
     {
-        _player->GetItemInterface()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
+        _player->GetInventory()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
         return;
     }
 
     if((src->GetProto()->MaxCount == 1) || (dst && dst->GetProto()->MaxCount == 1))
     {
-        _player->GetItemInterface()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
+        _player->GetInventory()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
         return;
     }
 
@@ -52,7 +52,7 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
         uint32 newCount = count + dst->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
         if(newCount > dst->GetProto()->MaxCount)
         {
-            _player->GetItemInterface()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
+            _player->GetInventory()->BuildInvError(INV_ERR_CANT_STACK, src, dst);
             return;
         }
 
@@ -67,22 +67,22 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 
         if(INVSLOT_ITEM(dstSlot) == INVENTORY_SLOT_NONE)
         {
-            if(!_player->GetItemInterface()->FindFreeSlot(dst, dstSlot))
+            if(!_player->GetInventory()->FindFreeSlot(dst, dstSlot))
             {
-                _player->GetItemInterface()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
+                _player->GetInventory()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
                 return;
             }
         }
 
-        if(!_player->GetItemInterface()->AddInventoryItemToSlot(dst, dstSlot))
+        if(!_player->GetInventory()->AddInventoryItemToSlot(dst, dstSlot))
         {
             sItemMgr.DeleteItemData(dst->GetGUID());
-            _player->GetItemInterface()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
+            _player->GetInventory()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
             delete dst;
             return;
         }
         src->SetStackSize(src->GetStackSize()-count);
-    } else _player->GetItemInterface()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
+    } else _player->GetInventory()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
 }
 
 void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
@@ -131,7 +131,7 @@ void WorldSession::HandleReadItemOpcode(WorldPacket &recvPacket)
     uint16 itemSlot;
     recvPacket >> itemSlot;
 
-    if(Item* item = _player->GetItemInterface()->GetInventoryItem(itemSlot))
+    if(Item* item = _player->GetInventory()->GetInventoryItem(itemSlot))
     {
         if(item->GetProto()->PageId)
         {

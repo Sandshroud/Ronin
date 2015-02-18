@@ -8,7 +8,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_ItemInterface(this)
+Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_currency(this), m_inventory(this), m_bank(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
@@ -661,7 +661,7 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
         }break;
     case 20: case 21: case 22:
         {
-            Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+(combatRating-20));
+            Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+(combatRating-20));
             if(item)
             {
                 AuraInterface::modifierMap ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING);
@@ -859,7 +859,7 @@ int32 Player::GetBaseAttackTime(uint8 weaponType)
         speed = 2500;
     else if( !disarmed )
     {
-        if(Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType))
+        if(Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType))
             speed = item->GetProto()->Delay;
     }
     return speed;
@@ -868,7 +868,7 @@ int32 Player::GetBaseAttackTime(uint8 weaponType)
 int32 Player::GetBaseMinDamage(uint8 weaponType)
 {
     int32 damage = 1.0f;
-    if( Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
+    if( Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
         if(disarmed == false) damage += item->GetProto()->minDamage;
     return damage;
 }
@@ -876,7 +876,7 @@ int32 Player::GetBaseMinDamage(uint8 weaponType)
 int32 Player::GetBaseMaxDamage(uint8 weaponType)
 {
     int32 damage = 2.0f;
-    if( Item *item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
+    if( Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType) )
         if(disarmed == false) damage += item->GetProto()->maxDamage;
     return damage;
 }
@@ -1027,7 +1027,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_talentInterface.SaveGlyphData(buf);
 
     // Inventory
-    GetItemInterface()->SavePlayerItems(bNewCharacter, buf);
+    SavePlayerItems(bNewCharacter, buf);
 
     // Known titles
     _SaveKnownTitles(buf);
@@ -2193,7 +2193,7 @@ void Player::EquipInit(PlayerCreateInfo *EquipInfo)
                     item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, (*is).amount);
                     if((*is).slot < INVENTORY_SLOT_BAG_END)
                     {
-                        if( !GetItemInterface()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
+                        if( !GetInventory()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
                         {
                             item->Destruct();
                             item = NULL;
@@ -2201,7 +2201,7 @@ void Player::EquipInit(PlayerCreateInfo *EquipInfo)
                     }
                     else
                     {
-                        if( !GetItemInterface()->AddItemToFreeSlot(item) )
+                        if( !GetInventory()->AddItemToFreeSlot(item) )
                         {
                             item->Destruct();
                             item = NULL;
@@ -3289,8 +3289,8 @@ void Player::addSpell(uint32 spell_id)
 void Player::DestroyForPlayer( Player* target, bool anim )
 {
     WorldObject::DestroyForPlayer( target, anim );
-    if(GetItemInterface())
-        GetItemInterface()->DestroyForPlayer(target);
+    if(GetInventory())
+        GetInventory()->DestroyForPlayer(target);
 }
 
 bool Player::canCast(SpellEntry *m_spellInfo)
@@ -3307,7 +3307,7 @@ bool Player::canCast(SpellEntry *m_spellInfo)
             {
             case 64:
                 {
-                    if((item = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND)) != NULL)
+                    if((item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND)) != NULL)
                     {
                         if(item->GetProto() && item->GetProto()->SubClass != ITEM_SUBCLASS_ARMOR_SHIELD)
                             return false;
@@ -3322,15 +3322,15 @@ bool Player::canCast(SpellEntry *m_spellInfo)
         }
         else // We want a weapon, but is this even required? Some weapon requiring spells don't have any data...
         {
-            if(GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
+            if(GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
             {
-                if((int32)GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->Class == m_spellInfo->EquippedItemClass)
+                if((int32)GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->Class == m_spellInfo->EquippedItemClass)
                 {
                     if (m_spellInfo->EquippedItemSubClass != 0)
                     {
                         if (m_spellInfo->EquippedItemSubClass != 173555 && m_spellInfo->EquippedItemSubClass != 96 && m_spellInfo->EquippedItemSubClass != 262156)
                         {
-                            if (!((1 << GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->SubClass)
+                            if (!((1 << GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->SubClass)
                                 & m_spellInfo->EquippedItemSubClass))
                                 return false;
                         }
@@ -3340,15 +3340,15 @@ bool Player::canCast(SpellEntry *m_spellInfo)
             else if(m_spellInfo->EquippedItemSubClass == 173555)
                 return false;
 
-            if (GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED))
+            if (GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED))
             {
-                if((int32)GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->Class == m_spellInfo->EquippedItemClass)
+                if((int32)GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->Class == m_spellInfo->EquippedItemClass)
                 {
                     if (m_spellInfo->EquippedItemSubClass != 0)
                     {
                         if (m_spellInfo->EquippedItemSubClass != 173555 && m_spellInfo->EquippedItemSubClass != 96 && m_spellInfo->EquippedItemSubClass != 262156)
                         {
-                            if (!((1 << GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->SubClass)
+                            if (!((1 << GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->SubClass)
                                 & m_spellInfo->EquippedItemSubClass))
                                 return false;
                         }
@@ -3583,7 +3583,7 @@ void Player::OnPushToWorld()
         OnWorldPortAck();
 
     m_beingPushed = false;
-    AddItemsToWorld();
+    m_inventory.AddToWorld();
     GetMovementInterface()->UnlockTransportData();
 
     // delay the unlock movement packet
@@ -3754,17 +3754,13 @@ void Player::RemoveFromWorld()
     }
 
     // Cancel trade if it's active.
-    Player* pTarget;
-    if(!mTradeTarget.empty())
+    if(m_tradeData)
     {
-        pTarget = GetTradeTarget();
-        if(pTarget)
+        if(Player* pTarget = GetTradeTarget())
             pTarget->ResetTradeVariables();
 
         ResetTradeVariables();
     }
-    //clear buyback
-    GetItemInterface()->EmptyBuyBack();
 
     if(m_Summon)
     {
@@ -3788,11 +3784,9 @@ void Player::RemoveFromWorld()
         m_SummonedObject = NULL;
     }
 
-    if(IsInWorld())
-    {
-        RemoveItemsFromWorld();
-        Unit::RemoveFromWorld(false);
-    }
+    m_inventory.RemoveFromWorld(false);
+
+    Unit::RemoveFromWorld(false);
 
     sWorld.mInWorldPlayerCount--;
 
@@ -3820,12 +3814,13 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
     ASSERT( item );
     if (slot >= INVENTORY_SLOT_BAG_END)
         return;
-    ItemPrototype* proto = item->GetProto();
+    ASSERT(item->GetOwner() == this);
 
     //fast check to skip mod applying if the item doesnt meat the requirements.
     if(item->GetUInt32Value( ITEM_FIELD_DURABILITY ) == 0 && item->GetUInt32Value( ITEM_FIELD_MAXDURABILITY ) && justdrokedown == false )
         return;
 
+    ItemPrototype* proto = item->GetProto();
     if(proto->minDamage && proto->maxDamage)
     {
         ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MINDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MIN, proto->minDamage);
@@ -3839,8 +3834,8 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
         if(int32 val = proto->Stats[i].Value)
             ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
 
-    //check for rnd prop
-    item->ModifyRandomPropertyBonuses( apply );
+    // Apply bonuses from random properties
+    item->ModifyRandomPropertyBonuses(apply);
 
     // Apply all enchantment bonuses
     item->ModifyEnchantmentBonuses(apply);
@@ -4084,7 +4079,7 @@ Corpse* Player::CreateCorpse()
     uint16 iIventoryType = 0;
     for (int8 i = 0; i < EQUIPMENT_SLOT_END; i++)
     {
-        if(Item *pItem = GetItemInterface()->GetInventoryItem(i))
+        if(Item *pItem = GetInventory()->GetInventoryItem(i))
         {
             iDisplayID = pItem->GetProto()->DisplayInfoID;
             iIventoryType = (uint16)pItem->GetProto()->InventoryType;
@@ -4174,7 +4169,7 @@ void Player::DeathDurabilityLoss(double percent)
 
     for (int8 i = 0; i < EQUIPMENT_SLOT_END; i++)
     {
-        if((pItem = GetItemInterface()->GetInventoryItem(i)))
+        if((pItem = GetInventory()->GetInventoryItem(i)))
         {
             pMaxDurability = pItem->GetUInt32Value(ITEM_FIELD_MAXDURABILITY);
             pDurability =  pItem->GetUInt32Value(ITEM_FIELD_DURABILITY);
@@ -4506,12 +4501,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
         return true;
 
     if(obj->IsPlayer() && castPtr<Player>(obj)->m_isGmInvisible)
-    {
-        if(bGMTagOn)
-            return true;
-
         return false;
-    }
 
     if(getDeathState() == CORPSE) // we are dead and we have released our spirit
     {
@@ -4903,7 +4893,7 @@ bool Player::HasQuestForItem(uint32 itemid)
                 continue;
 
             for( uint8 j = 0; j < 6; ++j )
-                if( qst->required_item[j] == itemid && ( GetItemInterface()->GetItemCount( itemid ) < qst->required_itemcount[j] ) )
+                if( qst->required_item[j] == itemid && ( GetInventory()->GetItemCount( itemid ) < qst->required_itemcount[j] ) )
                     return true;
         }
     }
@@ -4942,7 +4932,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     Object* lootEnt;
     // handle items
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_ITEM)
-        lootEnt = m_ItemInterface.GetItemByGUID(guid);
+        lootEnt = m_inventory.GetInventoryItem(guid);
     else lootEnt = m_mapMgr->_GetObject(guid);
     if( lootEnt == NULL )
         return;
@@ -4953,8 +4943,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     if( lootEnt->GetTypeId() == TYPEID_UNIT )
     {
         Creature* LootOwner = castPtr<Creature>( lootEnt );
-        uint32 GroupId = LootOwner->m_taggingGroup;
-        if( GroupId != 0 )
+        if( uint32 GroupId = LootOwner->m_taggingGroup )
             if(m_Group == NULL || GroupId != m_Group->GetID())
                 return;
         loot_method = LootOwner->m_lootMethod;
@@ -4965,13 +4954,11 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
         // not set
         if( m_Group != NULL )
             loot_method = m_Group->GetMethod();
-        else
-            loot_method = PARTY_LOOT_FFA;
+        else loot_method = PARTY_LOOT_FFA;
     }
 
     // add to looter set
     lootEnt->GetLoot()->looters.insert(GetLowGUID());
-
     m_lootGuid = guid;
 
     WorldPacket data(SMSG_LOOT_RESPONSE, 32), data2(32);
@@ -4982,24 +4969,19 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     data << uint8(0);//unk
 
     uint32 count = 0;
-    uint8 slottype = 0;
     std::vector<__LootItem>::iterator iter = lootEnt->GetLoot()->items.begin();
-    for(uint32 x = 0; iter != lootEnt->GetLoot()->items.end(); iter++, x++)
+    for(uint8 x = 0; iter != lootEnt->GetLoot()->items.end(); iter++, x++)
     {
-        if(iter->ffa_loot != 2)
+        if(x == 0xFF)
+            break;
+        ItemPrototype* itemProto = iter->proto;
+        if (!itemProto)
+            continue;
+        if((itemProto->Flags & DBC_ITEMFLAG_PARTY_LOOT) == 0)
         {
             if(iter->has_looted.size())
                 continue;
-        }
-        else
-        {
-            LooterSet::iterator itr = iter->has_looted.find(GetLowGUID());
-            if (itr != iter->has_looted.end())
-                continue;
-        }
-
-        ItemPrototype* itemProto = iter->item.itemproto;
-        if (!itemProto)
+        } else if (iter->has_looted.find(GetGUID()) != iter->has_looted.end())
             continue;
 
         //quest items check. type 4/5
@@ -5047,7 +5029,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                 continue;
         }
 
-        slottype = 0;
+        uint8 slottype = 0;
         if(lootEnt->IsObject() && m_Group != NULL && loot_type < 2)
         {
             switch(loot_method)
@@ -5070,60 +5052,36 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                 slottype = 0;
 
             /* if all people passed anyone can loot it? :P */
-            if(iter->passed)
-                slottype = 0;                   // All players passed on the loot
-
-            //if it is ffa loot and not an masterlooter
-            if(iter->ffa_loot)
-                slottype = 0;
+            if(iter->all_passed || itemProto->Flags & DBC_ITEMFLAG_PARTY_LOOT)
+                slottype = 0; // All players passed on the loot
         }
-
-        uint32 filldata[2] = {0, 0};
-        if(iter->iRandomSuffix)
-        {
-            filldata[0] = Item::GenerateRandomSuffixFactor(itemProto);
-            filldata[1] = uint32(-int32(iter->iRandomSuffix->id));
-        }
-        else if(iter->iRandomProperty)
-            filldata[1] = uint32(iter->iRandomProperty->ID);
 
         data << uint8(x);
         data << uint32(itemProto->ItemId);
         data << uint32(iter->StackSize);//nr of items of this type
-        data << uint32(iter->item.displayid);
-        data << filldata[0] << filldata[1];
+        data << uint32(itemProto->DisplayInfoID);
+        data << uint32(iter->randProp);
+        data << uint32(iter->randSeed);
         data << slottype;   // "still being rolled for" flag
-
         if(slottype == 1)
         {
             WorldObject *lootObj = castPtr<WorldObject>(lootEnt);
-            if(iter->roll == NULL && !iter->passed && iter->item.itemproto)
+            if(iter->roll == NULL && !iter->all_passed)
             {
-                uint32 ipid = 0;
-                uint32 factor = 0;
-                if(iter->iRandomProperty)
-                    ipid = iter->iRandomProperty->ID;
-                else if(iter->iRandomSuffix)
-                {
-                    factor = Item::GenerateRandomSuffixFactor(iter->item.itemproto);
-                    ipid = uint32(-int32(iter->iRandomSuffix->id));
-                }
-
-                iter->roll = new LootRoll;
-                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, iter->item.itemproto->ItemId, factor, uint32(ipid), GetMapMgr());
+                iter->roll = new LootRoll();
+                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, itemProto->ItemId, iter->randProp, iter->randSeed, GetMapMgr());
 
                 data2.Initialize(SMSG_LOOT_START_ROLL);
                 data2 << uint64(guid);
                 data2 << uint32(mapid);
                 data2 << uint32(x);
-                data2 << uint32(iter->item.itemproto->ItemId);
-                data2 << uint32(factor);
-                data2 << uint32(ipid);
+                data2 << uint32(itemProto->ItemId);
+                data2 << uint32(iter->randProp);
+                data2 << uint32(iter->randSeed);
                 data2 << uint32(iter->StackSize);
                 data2 << uint32(60000); // countdown
 
-                Group* pGroup = m_playerInfo->m_Group;
-                if(pGroup)
+                if(Group* pGroup = m_playerInfo->m_Group)
                 {
                     size_t maskpos = data2.wpos();
                     data2 << uint8(0);
@@ -5135,9 +5093,9 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                         for(GroupMembersSet::iterator itr = pGroup->GetSubGroup(i)->GetGroupMembersBegin(); itr != pGroup->GetSubGroup(i)->GetGroupMembersEnd(); itr++)
                         {
                             plr = (*itr)->m_loggedInPlayer;
-                            if(plr && plr->GetItemInterface()->CanReceiveItem(itemProto, iter->StackSize, NULL) == 0)
+                            if(plr && plr->GetInventory()->CanReceiveItem(itemProto, iter->StackSize, NULL) == 0)
                             {   // If we have pass on, or if we're not in range, we have to pass.
-                                if( plr->m_passOnLoot || ( !lootObj->IsInRangeSet(plr) ) )
+                                if( plr->m_passOnLoot || ( !lootObj->IsInRangeMap(plr) ) )
                                     iter->roll->PlayerRolled( (*itr), PASS );       // passed
                                 else
                                 {
@@ -5161,7 +5119,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                     if(CanNeedItem(itemProto))
                         canusemask |= ROLLMASK_NEED;
                     if(itemProto->DisenchantReqSkill > -1)
-                        if(_HasSkillLine(333) && (_GetSkillLineCurrent(333, true) > uint32(itemProto->DisenchantReqSkill)))
+                        if(_HasSkillLine(SKILL_ENCHANTING) && (_GetSkillLineCurrent(SKILL_ENCHANTING, true) > uint32(itemProto->DisenchantReqSkill)))
                             canusemask |= ROLLMASK_DISENCHANT;
 
                     data2 << canusemask;
@@ -5393,12 +5351,12 @@ void Player::RemoveQuestsFromLine(uint32 skill_line)
                 uint32 srcItem = qst->srcitem;
                 for( uint32 y = 0; y < 6; y++) //always remove collected items (need to be recollectable again in case of repeatable).
                     if( qst->required_item[y] && qst->required_item[y] != srcItem )
-                        GetItemInterface()->RemoveItemAmt(qst->required_item[y], qst->required_itemcount[y]);
+                        GetInventory()->RemoveItemAmt(qst->required_item[y], qst->required_itemcount[y]);
 
                 // Remove all items given by the questgiver at the beginning
                 for(uint32 j = 0; j < 4; j++)
                     if(qst->receive_items[j] && qst->receive_items[j] != srcItem )
-                        GetItemInterface()->RemoveItemAmt(qst->receive_items[j], qst->receive_itemcount[i] );
+                        GetInventory()->RemoveItemAmt(qst->receive_items[j], qst->receive_itemcount[i] );
 
                 delete m_questlog[i];
                 m_questlog[i] = NULL;
@@ -5462,11 +5420,7 @@ void Player::SendInitialLogonPackets()
     data << float(0.01666667f) << uint32(0);
     GetSession()->SendPacket( &data );
 
-    // Currencies
-    data.Initialize(SMSG_INIT_CURRENCY);
-    data.WriteBits(0, 23); // Count
-    data.FlushBits();
-    GetSession()->SendPacket( &data );
+    m_currency.SendInitialCurrency();
 
     data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
     data.WriteBitString(4, m_objGuid[5], m_objGuid[7], m_objGuid[3], m_objGuid[6]);
@@ -5527,19 +5481,19 @@ void Player::Reset_Spells()
 
 void Player::ResetTitansGrip()
 {
-    if(titanGrip || !GetItemInterface() || HasSpell(46917) || HasTalent(1867) || GetSession()->HasGMPermissions())
+    if(titanGrip || !GetInventory() || HasSpell(46917) || HasTalent(1867) || GetSession()->HasGMPermissions())
         return; // If we have the aura, return, spell, return talent, return, GM, who gives a shit, return.
 
-    Item* mainhand = GetItemInterface()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND);
-    Item* offhand = GetItemInterface()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND);
+    Item* mainhand = GetInventory()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND);
+    Item* offhand = GetInventory()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND);
     if(offhand && (offhand->GetProto()->InventoryType == INVTYPE_2HWEAPON || mainhand && mainhand->GetProto()->InventoryType == INVTYPE_2HWEAPON))
     {
         // we need to de-equip this
-        offhand = GetItemInterface()->SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND, false);
+        offhand = GetInventory()->SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND, false);
         if( offhand == NULL )
             return;     // should never happen
 
-        SlotResult result = GetItemInterface()->FindFreeInventorySlot(offhand->GetProto());
+        SlotResult result = GetInventory()->FindFreeInventorySlot(offhand->GetProto());
         if( !result.Result )
         {
             // no free slots for this item. try to send it by mail
@@ -5552,9 +5506,9 @@ void Player::ResetTitansGrip()
         }
         else
         {
-            if( !GetItemInterface()->SafeAddItem(offhand, result.ContainerSlot, result.Slot) )
+            if( !GetInventory()->SafeAddItem(offhand, result.ContainerSlot, result.Slot) )
             {
-                if( !GetItemInterface()->AddItemToFreeSlot(offhand) )   // shouldn't happen either.
+                if( !GetInventory()->AddItemToFreeSlot(offhand) )   // shouldn't happen either.
                 {
                     offhand->Destruct();
                     offhand = NULL;
@@ -6076,69 +6030,14 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
     ApplyPlayerRestState(false); // If we don't, and we teleport inside, we'll be rested regardless.
 }
 
-// Player::AddItemsToWorld
-// Adds all items to world, applies any modifiers for them.
-
-void Player::AddItemsToWorld()
-{
-    Item* pItem;
-    for(uint32 i = 0; i < MAX_INVENTORY_SLOT; i++)
-    {
-        if( pItem = GetItemInterface()->GetInventoryItem(i) )
-        {
-            pItem->SetInWorld();
-
-            if(i < INVENTORY_SLOT_BAG_END)    // only equipment slots get mods.
-                _ApplyItemMods(pItem, i, true, false, true);
-
-            if(pItem->IsContainer() && GetItemInterface()->IsBagSlot(i))
-            {
-                for(int32 e = 0; e < pItem->GetProto()->ContainerSlots; e++)
-                {
-                    if(Item* item = castPtr<Container>(pItem)->GetItem(e))
-                        item->SetInWorld();
-                }
-            }
-        }
-    }
-}
-
-// Player::RemoveItemsFromWorld
-// Removes all items from world, reverses any modifiers.
-
-void Player::RemoveItemsFromWorld()
-{
-    Item* pItem;
-    for(uint32 i = 0; i < MAX_INVENTORY_SLOT; i++)
-    {
-        pItem = m_ItemInterface.GetInventoryItem((int8)i);
-        if(pItem)
-        {
-            if(pItem->IsInWorld())
-            {
-                if(i < INVENTORY_SLOT_BAG_END)    // only equipment slots get mods.
-                    _ApplyItemMods(pItem, i, false, false, true);
-                pItem->RemoveFromWorld(false);
-            }
-
-            if(pItem->IsContainer() && GetItemInterface()->IsBagSlot(i))
-            {
-                for(int32 e = 0; e < pItem->GetProto()->ContainerSlots; e++)
-                {
-                    Item* item = castPtr<Container>(pItem)->GetItem(e);
-                    if(item && item->IsInWorld())
-                        item->RemoveFromWorld(false);
-                }
-            }
-        }
-    }
-}
-
 uint32 Player::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
 {
     uint32 count = 0;
     if(target == castPtr<Player>(this)) // we need to send create objects for all items.
-        count += GetItemInterface()->CreateForPlayer(data);
+    {
+        count += m_inventory.BuildCreateUpdateBlocks(data);
+        count += m_bank.BuildCreateUpdateBlocks(data);
+    }
     count += Unit::BuildCreateUpdateBlockForPlayer(data, target);
     return count;
 }
@@ -7148,17 +7047,13 @@ void Player::UpdatePvPArea()
 void Player::BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag)
 {
     Group* pGroup = NULL;
-    WorldObject* curObj;
-    for (WorldObject::InRangeSet::iterator iter = GetInRangeSetBegin(); iter != GetInRangeSetEnd();)
+    Player *curPlr;
+    for (WorldObject::InRangePlayerSet::iterator iter = GetInRangePlayerSetBegin(); iter != GetInRangePlayerSetEnd();)
     {
-        curObj = *iter;
+        curPlr = *iter;
         iter++;
-        if(curObj->IsPlayer())
-        {
-            pGroup = castPtr<Player>( curObj )->GetGroup();
-            if( pGroup == NULL || pGroup != GetGroup())
-                BuildFieldUpdatePacket( castPtr<Player>( curObj ), index, flag );
-        }
+        if((pGroup = curPlr->GetGroup()) && pGroup != GetGroup())
+            BuildFieldUpdatePacket( curPlr, index, flag );
     }
 }
 
@@ -7520,7 +7415,7 @@ uint32 Player::GetMainMeleeDamage(uint32 AP_owerride)
     }
 //////no druid ss
     ItemPrototype *proto = NULL;
-    if(Item *it = GetItemInterface()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
+    if(Item *it = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
         proto = disarmed ? NULL : it->GetProto();
 
     float bonus = ap_bonus*float(proto ? proto->Delay : 2000), tmp = 1.0f;
@@ -9193,7 +9088,7 @@ void Player::UpdateKnownCurrencies(uint32 itemId, bool apply)
 
 uint32 Player::GetTotalItemLevel()
 {
-    ItemInterface *Ii = GetItemInterface();
+    ItemInterface *Ii = GetInventory();
 
     uint32 playertotalitemlevel = 0;
 
@@ -9212,7 +9107,7 @@ uint32 Player::GetTotalItemLevel()
 
 uint32 Player::GetAverageItemLevel(bool skipmissing)
 {
-    ItemInterface *Ii = GetItemInterface();
+    ItemInterface *Ii = GetInventory();
 
     uint8 itemcount = 0;
     uint32 playertotalitemlevel = 0;
@@ -9520,10 +9415,10 @@ void Player::StartQuest(uint32 Id)
             if(Item* item = objmgr.CreateItem( qst->receive_items[i], this))
             {
                 item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->receive_itemcount[i]);
-                if(!GetItemInterface()->AddItemToFreeSlot(item))
+                if(!GetInventory()->AddItemToFreeSlot(item))
                 {
                     item->Destruct();
-                } else GetSession()->SendItemPushResult(item, false, true, false, true, GetItemInterface()->LastSearchItemBagSlot(), GetItemInterface()->LastSearchItemSlot(),1);
+                } else GetSession()->SendItemPushResult(item, false, true, false, true, GetInventory()->LastSearchItemBagSlot(), GetInventory()->LastSearchItemSlot(),1);
             }
         }
     }
@@ -9533,7 +9428,7 @@ void Player::StartQuest(uint32 Id)
         if(Item* item = objmgr.CreateItem( qst->srcitem, this ))
         {
             item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->srcitemcount ? qst->srcitemcount : 1);
-            if(!GetItemInterface()->AddItemToFreeSlot(item))
+            if(!GetInventory()->AddItemToFreeSlot(item))
                 item->Destruct();
         }
     }
