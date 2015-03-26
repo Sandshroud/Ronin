@@ -1752,7 +1752,7 @@ public:
     /************************************************************************/
     /* Spell Packet wrapper Please keep this separated                      */
     /************************************************************************/
-    void SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 Stat0, uint32 Stat1, uint32 Stat2, uint32 Stat3, uint32 Stat4);
+    void SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 *Stats);
     void SendLogXPGain(uint64 guid, uint32 NormalXP, uint32 RestedXP, bool type);
     void SendEnvironmentalDamageLog(const uint64 & guid, uint8 type, uint32 damage);
     void SendWorldStateUpdate(uint32 WorldState, uint32 Value);

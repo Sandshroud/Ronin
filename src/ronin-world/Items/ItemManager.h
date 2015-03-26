@@ -1,6 +1,8 @@
 
 #pragma once
 
+#define ITEM_GUID_RECYCLE_TIME 1296000 //60*24*15 - 60 seconds times 60 minutes times 24 hours times 15 days
+
 #pragma pack(PRAGMA_PACK)
 
 struct ItemPrototype
@@ -102,28 +104,30 @@ enum ItemDataFields : uint8
     ITEMDATA_FIELD_ITEMTEXTID       = 9,
     ITEMDATA_FIELD_ITEM_PLAYEDTIME  = 10,
     ITEMDATA_FIELD_ITEM_CHARGES     = 11,
-    ITEMDATA_FIELD_ITEM_GIFT_GUID   = 12,
+    ITEMDATA_FIELD_ITEM_GIFT_ITEMID = 12,
     ITEMDATA_FIELD_ITEM_GIFT_CREATOR= 13,
     ITEMDATA_FIELD_MAX
 };
 
-static const char *fieldNames[ITEMDATA_FIELD_MAX] =
+static const char *itemdata_fieldNames[ITEMDATA_FIELD_MAX] =
 {
-    "itemguid",
+    "guid",
     "containerguid",
     "creatorguid",
     "containerslot",
-    "itemstackcount",
-    "itemflags",
-    "itemrandomseed",
-    "itemrandomprop",
-    "itemdurability",
-    "itemtextid",
-    "itemplayedtime",
-    "itemcharges",
-    "itemgiftguid",
-    "itemgiftcreator"
+    "count",
+    "flags",
+    "randomseed",
+    "randomproperty",
+    "durability",
+    "textid",
+    "playedtime",
+    "spellcharges",
+    "giftitemid",
+    "giftcreatorguid"
 };
+
+#define ITEM_DATA_TABLE_UNIFORM_FIELDS "guid, containerguid, creatorguid, containerslot, count, flags, randomseed, randomproperty, durability, textid, playedtime, spellcharges, giftitemid, giftcreatorguid"
 
 #define MAKE_INVSLOT(bag, item) uint16((uint16(bag)<<8)|uint16(item))
 #define INVSLOT_SET_ITEMSLOT(slot, itemslot) (slot&=~0xFF) |= itemslot
@@ -135,7 +139,7 @@ struct ItemData
     WoWGuid itemGuid;
     WoWGuid itemContainer;
     WoWGuid itemCreator;
-    uint16 containerSlot;
+    uint16 inventorySlot;
     uint32 itemStackCount;
     uint32 itemFlags;
     uint32 itemRandomSeed;
@@ -148,7 +152,8 @@ struct ItemData
 
     struct ItemGiftData
     {
-        WoWGuid giftItemGuid, giftCreator;
+        uint32 giftItemId;
+        WoWGuid giftCreatorGuid;
     } *giftData;
 
     struct ContainerData
@@ -171,6 +176,14 @@ struct ItemData
             return uint32(1000*(UNIXTIME-expirationTime));
         }
     } *enchantData[10];
+};
+
+enum ItemDeletionReason
+{
+    ITEM_DELETION_CREATE_FAILED = 0,
+    ITEM_DELETION_USED          = 1,
+    ITEM_DELETION_DELETED       = 2,
+    ITEM_DELETION_DISENCHANTED  = 3
 };
 
 #pragma pack(PRAGMA_POP)
@@ -197,13 +210,15 @@ public:
     ItemData *GetItemData(WoWGuid itemGuid);
     ItemData *CreateItemData(uint32 entry);
 
-    void DeleteItemData(WoWGuid itemGuid);
+    void DeleteItemData(WoWGuid itemGuid, bool free_guid);
+    void DeleteItemFromDatabase(WoWGuid itemGuid, ItemDeletionReason reason);
 
     uint32 GetSkillForItem(ItemPrototype *proto);
     uint32 CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor);
     uint32 BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, ItemData *item);
 
 private:
+    std::vector<WoWGuid> m_freeGuids;
     std::map<WoWGuid, ItemData*> m_itemData;
 
     Mutex itemGuidLock;

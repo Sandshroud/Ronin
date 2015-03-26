@@ -12,14 +12,14 @@ void Auction::DeleteFromDB()
 
 void Auction::SaveToDB(uint32 AuctionHouseId)
 {
-    CharacterDatabase.Execute("INSERT INTO auctions VALUES(%u, %u, "I64FMTD", "I64FMTD", "I64FMTD", "I64FMTD", "I64FMTD", "I64FMTD", "I64FMTD")",
+    CharacterDatabase.Execute("INSERT INTO auctions VALUES(%u, %u, "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD")",
         Id, AuctionHouseId, m_item->itemGuid.raw(), owner.raw(), buyoutPrice, expirationTime, highestBidder, highestBid, depositAmount);
 }
 
 void Auction::UpdateInDB()
 {
-    CharacterDatabase.Execute("UPDATE auctions SET bidder = "I64FMTD" WHERE auctionId = %u", highestBidder, Id);
-    CharacterDatabase.Execute("UPDATE auctions SET bid = "I64FMTD" WHERE auctionId = %u", highestBid, Id);
+    CharacterDatabase.Execute("UPDATE auctions SET bidder = "UI64FMTD" WHERE auctionId = %u", highestBidder.raw(), Id);
+    CharacterDatabase.Execute("UPDATE auctions SET bid = "UI64FMTD" WHERE auctionId = %u", highestBid, Id);
 }
 
 AuctionHouse::AuctionHouse(uint32 ID)

@@ -532,14 +532,28 @@ bool PlayerInventory::AddInventoryItemToSlot(Item *item, uint16 slot)
     return _addItem(item, slot).result == ADD_ITEM_RESULT_OK;
 }
 
-void PlayerInventory::DestroyInventoryItem(uint16 slot)
+bool PlayerInventory::DestroyInventoryItem(uint16 slot, ItemDeletionReason reason = ITEM_DELETION_USED)
 {
+    Item *item = _removeItemBySlot(slot);
+    if(item == NULL)
+        return false;
 
+    sItemMgr.DeleteItemFromDatabase(item->GetGUID(), reason);
+    sItemMgr.DeleteItemData(item->GetGUID(), reason == ITEM_DELETION_USED);
+    item->Destruct();
 }
 
 Item *PlayerInventory::RemoveInventoryItem(uint16 slot)
 {
+    return _removeItemBySlot(slot);
+}
 
+Item *PlayerInventory::RemoveInventoryItem(WoWGuid guid)
+{
+    if(m_itemSlots.find(guid) == m_itemSlots.end())
+        return NULL;
+
+    return _removeItemBySlot(m_itemSlots.at(guid));
 }
 
 bool PlayerInventory::RemoveInventoryStacks(uint32 entry, uint32 count, bool force)
@@ -561,7 +575,7 @@ bool PlayerInventory::RemoveInventoryStacks(uint32 entry, uint32 count, bool for
         {
             if(itemCount >= item->GetStackSize())
             {
-                itemsToDelete.insert(item->GetContainerSlot());
+                itemsToDelete.insert(item->GetInventorySlot());
                 itemCount += item->GetStackSize();
             } else item->ModStackSize(itemCount);
         }

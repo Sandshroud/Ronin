@@ -194,18 +194,22 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
 
     if( pSpell->pLearnSpell )
     {
-        packetSMSG_PLAY_SPELL_VISUAL pck;
-        pck.guid = pCreature->GetGUID();
-        pck.visualid = 0x5b3;
-        _player->OutPacketToSet( SMSG_PLAY_SPELL_VISUAL, sizeof(packetSMSG_PLAY_SPELL_VISUAL), &pck, true );
+        WoWGuid guid = pCreature->GetGUID();
+        WorldPacket data(SMSG_PLAY_SPELL_VISUAL_KIT, 12);
+        data << uint32(0) << uint32(179) << uint32(0);
+        data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
+        data.WriteSeqByteString(8, guid[0], guid[4], guid[1], guid[6], guid[7], guid[2], guid[3], guid[5]);
+        pCreature->SendMessageToSet(&data, false);
 
-        pck.guid = _player->GetGUID();
-        pck.visualid = 0x16a;
-        _player->OutPacketToSet( SMSG_PLAY_SPELL_VISUAL_KIT, sizeof(packetSMSG_PLAY_SPELL_VISUAL), &pck, true );
+        guid = _player->GetGUID();
+        data.clear();
+        data << uint32(0) << uint32(362) << uint32(0);
+        data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
+        data.WriteSeqByteString(8, guid[0], guid[4], guid[1], guid[6], guid[7], guid[2], guid[3], guid[5]);
+        _player->SendMessageToSet(&data, true);
 
-        uint32 i;
         _player->forget = pSpell->DeleteSpell;
-        for( i = 0; i < 3; i++)
+        for( uint8 i = 0; i < 3; i++)
         {
             if(pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_PROFICIENCY || pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_LEARN_SPELL ||
                 pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_WEAPON)
@@ -217,7 +221,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
         _player->addSpell( pSpell->pLearnSpell->Id );
         _player->forget = 0;
 
-        for( i = 0; i < 3; i++)
+        for( uint8 i = 0; i < 3; i++)
         {
             if( pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_SKILL )
             {
@@ -238,8 +242,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
                         _player->_ModifySkillMaximum(skill, val);
                     else if(sWorld.StartLevel > 1 && (sle == NULL || (sle->categoryId != SKILL_TYPE_PROFESSION && sle->categoryId != SKILL_TYPE_SECONDARY)))
                         _player->_AddSkillLine( skill, 5*sWorld.StartLevel, val);
-                    else
-                        _player->_AddSkillLine( skill, 1, val);
+                    else _player->_AddSkillLine( skill, 1, val);
                 }
             }
         }

@@ -971,7 +971,7 @@ Item *ObjectMgr::CreateItem(uint32 entry, Player *player)
         if(ItemData *data = sItemMgr.CreateItemData(entry))
         {
             pReturn = new Item(data);
-            pReturn->Initialize(player);
+            pReturn->SetOwner(player);
         }
     }
     return pReturn;
@@ -985,7 +985,7 @@ Item* ObjectMgr::CreateItem(WoWGuid guid, Player *player)
         if(ItemData *data = sItemMgr.GetItemData(guid))
         {
             pReturn = new Item(data);
-            pReturn->Initialize(player);
+            pReturn->SetOwner(player);
         }
     }
 

@@ -4,6 +4,18 @@
 
 #pragma once
 
+/*
+MSVC++ 12.0 _MSC_VER == 1800 (Visual Studio 2013)
+MSVC++ 11.0 _MSC_VER == 1700 (Visual Studio 2012)
+MSVC++ 10.0 _MSC_VER == 1600 (Visual Studio 2010)
+MSVC++ 9.0  _MSC_VER == 1500 (Visual Studio 2008)
+MSVC++ 8.0  _MSC_VER == 1400 (Visual Studio 2005)
+MSVC++ 7.1  _MSC_VER == 1310 (Visual Studio 2003)
+MSVC++ 7.0  _MSC_VER == 1300
+MSVC++ 6.0  _MSC_VER == 1200
+MSVC++ 5.0  _MSC_VER == 1100
+*/
+
 enum TimeVariables
 {
     TIME_SECOND = 1,
@@ -327,18 +339,25 @@ Scripting system exports/imports
 
 #if COMPILER == COMPILER_MICROSOFT
 
-#define I64FMT "%016I64X"
-#define I64FMTD "%I64u"
-#define SI64FMTD "%I64d"
 #define snprintf _snprintf
+
+#if _MSC_VER >= 1400
+#define I64FMT "%016llX"
+#define I64FMTD "%lld"
+#define UI64FMTD "%llu"
+#else
+#define I64FMT "%016I64X"
+#define I64FMTD "%I64d"
+#define UI64FMTD "%I64u"
+#endif
 
 #else
 
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
 #define I64FMT "%016llX"
-#define I64FMTD "%llu"
-#define SI64FMTD "%lld"
+#define I64FMTD "%lld"
+#define UI64FMTD "%llu"
 
 #endif
 

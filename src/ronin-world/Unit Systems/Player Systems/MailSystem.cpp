@@ -619,7 +619,7 @@ void WorldSession::HandleMarkAsRead(WorldPacket & recv_data )
     recv_data >> mailbox >> message_id;
 
     MailMessage * message = _player->m_mailBox->GetMessage(message_id);
-    if(message == 0 || message->Expired()) return;
+    if(message == nullptr || message->Expired()) return;
 
     message->read_flag = true;
     if(!message->returned_flag)
@@ -642,7 +642,7 @@ void WorldSession::HandleMailDelete(WorldPacket & recv_data )
     data << message_id << uint32(MAIL_RES_DELETED);
 
     MailMessage * message = _player->m_mailBox->GetMessage(message_id);
-    if(message == 0 || message->Expired())
+    if(message == nullptr || message->Expired())
     {
         data << uint32(MAIL_ERR_INTERNAL_ERROR);
         SendPacket(&data);

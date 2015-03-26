@@ -985,39 +985,13 @@ void WorldSession::SystemMessage(const char * format, ...)
 
 void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator)
 {
-    if(lang > 0)
-    {
-        if(CanUseCommand('c') || (originator && originator->CanUseCommand('c')))
-            *(uint32*)&data->contents()[langpos] = LANG_UNIVERSAL;
-        else *(uint32*)&data->contents()[langpos] = lang;
-    } else *(uint32*)&data->contents()[langpos] = lang;
-
+    int32 session_lang = lang;
+    if(lang > 0 && (CanUseCommand('c') || (originator && originator->CanUseCommand('c'))))
+        session_lang = LANG_UNIVERSAL;
+    data->put<int32>(langpos, session_lang);
     if(guidPos != 0 && _player)
-        (*((uint64*)(&data->contents()[guidPos]))) = _player->GetGUID();
+        data->put<uint64>(guidPos, _player->GetGUID());
     SendPacket(data);
-}
-
-void WorldSession::SendItemPushResult(Item* pItem, bool Created, bool Received, bool SendToSet, bool NewItem, uint8 DestBagSlot, uint32 DestSlot, uint32 AddCount)
-{
-    packetSMSG_ITEM_PUSH_RESULT data;
-    data.guid = _player->GetGUID();
-    data.received = Received;
-    data.created = Created;
-    data.unk1 = 1;
-    data.destbagslot = DestBagSlot;
-    data.destslot = NewItem ? DestSlot : 0xFFFFFFFF;
-    data.entry = pItem->GetEntry();
-    data.seed = pItem->GetRandomSeed();
-    data.randomprop = pItem->GetRandomProperty();
-    data.count = AddCount;
-    data.stackcount = pItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
-
-    if(SendToSet)
-    {
-        if( _player->GetGroup() )
-            _player->GetGroup()->OutPacketToAll( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
-        else OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
-    } else OutPacket( SMSG_ITEM_PUSH_RESULT, sizeof( packetSMSG_ITEM_PUSH_RESULT ), &data );
 }
 
 void WorldSession::SendPacket(WorldPacket* packet)

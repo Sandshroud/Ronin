@@ -659,17 +659,16 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
         /* Add the members */
         for(uint8 i = 0; i < pCharter->SignatureCount; i++)
         {
-            PlayerInfo * info = objmgr.GetPlayerInfo(pCharter->Signatures[i]);
-            if(info)
+            if(PlayerInfo *info = objmgr.GetPlayerInfo(pCharter->Signatures[i]))
             {
                 team->AddMember(info);
             }
         }
 
-        if(Item *charter = _player->GetInventory()->GetInventoryItem(charterGuid))
+        if(Item *charter = _player->GetInventory()->RemoveInventoryItem(charterGuid))
         {
-            _player->GetInventory()->RemoveInventoryItem(charter->GetContainerSlot());
-            sItemMgr.DeleteItemData(charter->GetGUID());
+            sItemMgr.DeleteItemFromDatabase(charterGuid, ITEM_DELETION_USED);
+            sItemMgr.DeleteItemData(charterGuid, true);
             charter->Destruct();
         }
 

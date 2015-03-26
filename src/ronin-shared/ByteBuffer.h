@@ -50,7 +50,8 @@ public:
     void clear()
     {
         _storage.clear();
-        _rpos = _wpos = 0;
+        _rpos = _wpos = _curbitval = 0;
+        _bitpos = 8;
     }
 
     template <typename T> void append(T value)
@@ -80,7 +81,6 @@ public:
         return (bit != 0);
     }
 
-    // Will flush bits after writing
     void WriteBitString(uint32 count, ...)
     {
         va_list vl;
@@ -140,6 +140,15 @@ public:
     {
         if (b != 0)
             append<uint8>(b ^ 1);
+    }
+
+    void WriteSeqByteString(uint32 count, ...)
+    {
+        va_list vl;
+        va_start(vl, count);
+        for(uint32 i = 0; i < count; i++)
+            WriteByteSeq(uint8(va_arg(vl, uint32)));
+        va_end(vl);
     }
 
     template <typename T> void put(size_t pos,T value)

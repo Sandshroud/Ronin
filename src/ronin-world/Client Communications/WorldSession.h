@@ -213,7 +213,6 @@ public:
     int __fastcall Update(uint32 InstanceID);
 
     bool IsHighPriority();
-    void SendItemPushResult(Item* pItem, bool Created, bool Received, bool SendToSet, bool NewItem, uint8 DestBagSlot, uint32 DestSlot, uint32 AddCount);
     void SendBuyFailed(uint64 guid, uint32 itemid, uint8 error);
     void SendSellItem(uint64 vendorguid, uint64 itemid, uint8 error);
     void SendNotification(const char *message, ...);

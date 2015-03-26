@@ -4,34 +4,12 @@
 
 #include "StdAfx.h"
 
-Item::Item(ItemData *data) : m_itemProto(sItemMgr.LookupEntry(data->itemGuid.getEntry())), m_isContainer(m_itemProto->InventoryType == INVTYPE_BAG),
-    _itemData(data), Object(data->itemGuid, (IsContainer() ? CONTAINER_END : ITEM_END)), m_textid(0), m_wrappedItemGuid(0)
+Item::Item(ItemData *data) : _itemData(data), m_itemProto(data->proto), m_isContainer(m_itemProto->InventoryType == INVTYPE_BAG),
+    m_textid(_itemData->itemTextID), m_wrappedItemId(0), currentSlot(data->inventorySlot),
+    Object(data->itemGuid, (IsContainer() ? CONTAINER_END : ITEM_END))
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
     SetUInt32Value(OBJECT_FIELD_ENTRY, data->itemGuid.getEntry());
-    m_itemProto = sItemMgr.LookupEntry(GetEntry());
-    ASSERT(m_itemProto);
-    if(m_isContainer)
-    {
-        _container = new Item::Container();
-        SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, (_container->numSlots = m_itemProto->ContainerSlots));
-        for(std::map<uint8, WoWGuid>::iterator itr = data->containerData->m_items.begin(); itr != data->containerData->m_items.end(); itr++)
-            AddItem(itr->first, itr->second);
-    }
-}
-
-Item::~Item()
-{
-
-}
-
-bool CalculateEnchantDuration(time_t expirationTime, uint32 &duration);
-
-void Item::Initialize(Player *owner)
-{
-    if(m_owner = owner)
-        SetUInt64Value(ITEM_FIELD_OWNER, owner->GetGUID());
-
     SetUInt64Value(ITEM_FIELD_CONTAINED, _itemData->itemContainer);
     SetUInt64Value(ITEM_FIELD_CREATOR, _itemData->itemCreator);
     SetUInt32Value(ITEM_FIELD_STACK_COUNT, _itemData->itemStackCount);
@@ -39,12 +17,11 @@ void Item::Initialize(Player *owner)
     SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, _itemData->itemRandomSeed);
     SetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID, _itemData->itemRandomProperty);
     SetUInt32Value(ITEM_FIELD_DURABILITY, _itemData->itemDurability);
-    m_textid = _itemData->itemTextID;
     SetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME, _itemData->itemPlayedTime);
     if(_itemData->giftData)
     {
-        m_wrappedItemGuid = _itemData->giftData->giftItemGuid;
-        SetUInt64Value(ITEM_FIELD_GIFTCREATOR, _itemData->giftData->giftCreator);
+        SetUInt64Value(ITEM_FIELD_GIFTCREATOR, _itemData->giftData->giftCreatorGuid);
+        m_wrappedItemId = _itemData->giftData->giftItemId;
     }
 
     for(uint8 i = 0; i < 5; i++)
@@ -63,11 +40,8 @@ void Item::Initialize(Player *owner)
     {
         if(_itemData->enchantData[i])
         {
-            uint32 duration;
-            if(!CalculateEnchantDuration(_itemData->enchantData[i]->expirationTime, duration))
-                continue;
             SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA+(i*3), _itemData->enchantData[i]->enchantId);
-            SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA+1+(i*3), duration);
+            SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA+1+(i*3), _itemData->enchantData[i]->CalcTimeLeft());
             SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA+2+(i*3), _itemData->enchantData[i]->enchantCharges);
         }
     }
@@ -98,6 +72,26 @@ void Item::Initialize(Player *owner)
         }
     }
 
+    if(m_isContainer)
+    {
+        _container = new Item::Container();
+        SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, (_container->numSlots = m_itemProto->ContainerSlots));
+        for(std::map<uint8, WoWGuid>::iterator itr = data->containerData->m_items.begin(); itr != data->containerData->m_items.end(); itr++)
+            AddItem(itr->first, itr->second);
+    }
+
+    Init();
+}
+
+Item::~Item()
+{
+
+}
+
+bool CalculateEnchantDuration(time_t expirationTime, uint32 &duration);
+
+void Item::Init()
+{
     Object::Init();
 }
 
@@ -152,14 +146,14 @@ void Item::SetTextID(uint32 newTextId)
 void Item::SetItemSlot(uint8 slot)
 {
     INVSLOT_SET_ITEMSLOT(currentSlot, slot);
-    _itemData->containerSlot = currentSlot;
+    _itemData->inventorySlot = currentSlot;
     QueueItemDataUpdate(ITEMDATA_FIELD_CONTAINER_SLOT, uint32(currentSlot));
 }
 
 void Item::SetContainerSlot(uint16 containerSlot)
 {
     currentSlot = containerSlot;
-    _itemData->containerSlot = containerSlot;
+    _itemData->inventorySlot = containerSlot;
     QueueItemDataUpdate(ITEMDATA_FIELD_CONTAINER_SLOT, uint32(currentSlot));
 }
 
@@ -182,7 +176,7 @@ void Item::SetStackSize(uint32 newStackSize)
 {
     if(newStackSize == 0)
     {
-        QueueItemDeletion();
+        QueueItemDeletion(ITEM_DELETION_DELETED);
         RemoveFromWorld(true);
         Destruct();
         return;
@@ -339,24 +333,16 @@ void Item::ModPlayedTime(uint32 timetoadd)
 
 }
 
-void Item::QueueItemDeletion()
+void Item::QueueItemDeletion(ItemDeletionReason reason)
 {
-    std::stringstream ss;
-    ss << "INSERT INTO `deleted_item_data` VALUES(SELECT * FROM item_data WHERE itemguid = '" << uint64(GetGUID()) << "');";
-    CharacterDatabase.Execute(ss.str().c_str());
-    ss.str("DELETE FROM `item_data` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
-    CharacterDatabase.Execute(ss.str().c_str());
-    ss.str("DELETE FROM `item_enchantments` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
-    CharacterDatabase.Execute(ss.str().c_str());
-    ss.str("DELETE FROM `item_spellcharges` WHERE itemguid = '"); ss << uint64(GetGUID()) << "';";
-    CharacterDatabase.Execute(ss.str().c_str());
-    sItemMgr.DeleteItemData(GetGUID());
+    sItemMgr.DeleteItemFromDatabase(GetGUID(), reason);
+    sItemMgr.DeleteItemData(GetGUID(), true);
 }
 
 void Item::QueueItemDataUpdate(ItemDataFields fieldType, uint32 fieldValue)
 {
     std::stringstream ss;
-    ss << "UPDATE `item_data` SET '" << fieldNames[fieldType] << "' = '";
+    ss << "UPDATE `item_data` SET '" << itemdata_fieldNames[fieldType] << "' = '";
     ss << fieldValue << "' WHERE itemguid = '";
     ss << uint64(GetGUID()) << "';";
     if(IsInWorld() && m_owner && m_owner->IsInWorld())
@@ -367,7 +353,7 @@ void Item::QueueItemDataUpdate(ItemDataFields fieldType, uint32 fieldValue)
 void Item::QueueItemDataUpdate(ItemDataFields fieldType, uint64 fieldValue)
 {
     std::stringstream ss;
-    ss << "UPDATE `item_data` SET '" << fieldNames[fieldType] << "' = '";
+    ss << "UPDATE `item_data` SET '" << itemdata_fieldNames[fieldType] << "' = '";
     ss << fieldValue << "' WHERE itemguid = '";
     ss << uint64(GetGUID()) << "';";
     if(IsInWorld() && m_owner && m_owner->IsInWorld())

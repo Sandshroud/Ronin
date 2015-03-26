@@ -1451,7 +1451,7 @@ bool ChatHandler::HandleModifyScaleCommand(const char *args, WorldSession *m_ses
 
     float scale = atof(args);
     int save = m_session->CanUseCommand('z') ? 1 : 0;
-    if(sscanf(args, "%f %i", &scale, &save) < 1)
+    if(sscanf(args, "%f %d", &scale, &save) < 1)
         return false;
 
     if(scale > 255 || scale < 0)

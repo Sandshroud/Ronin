@@ -2779,6 +2779,8 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
     int32 newxp = GetUInt32Value(PLAYER_XP) + xp;
     uint32 level = GetUInt32Value(UNIT_FIELD_LEVEL);
     int32 nextlevelxp = sWorld.GetXPToNextLevel(level);
+    uint32 hpGain = 0, manaGain = 0, statGain[5] = {0, 0, 0, 0, 0};
+    UnitBaseStats *stats = baseStats;
     bool levelup = false;
 
     while(newxp >= nextlevelxp && newxp > 0)
@@ -2786,6 +2788,14 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
         ++level;
         newxp -= nextlevelxp;
         nextlevelxp = sWorld.GetXPToNextLevel(level);
+        if(UnitBaseStats *new_stats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level))
+        {
+            hpGain += new_stats->baseHP-stats->baseHP;
+            manaGain += new_stats->basePower-stats->basePower;
+            for(uint8 i = 0; i < 5; i++)
+                statGain[i] += new_stats->baseStat[i]-stats->baseStat[i];
+            stats = new_stats;
+        }
         levelup = true;
 
         if(level >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
@@ -2798,6 +2808,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
     if(levelup)
     {
         setLevel(level);
+        SendLevelupInfo(level, hpGain, manaGain, statGain);
 
         // ScriptMgr hook for OnPostLevelUp
         sHookInterface.OnPostLevelUp(this);

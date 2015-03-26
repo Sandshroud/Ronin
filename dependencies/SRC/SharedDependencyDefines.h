@@ -98,13 +98,20 @@ typedef unsigned __int8 uint8;
 
 #endif
 
-#ifdef _MSC_VER
+#if _MSC_VER
+
+#define snprintf _snprintf
 
 #define num_isnan(x) _isnan(x)
+#if _MSC_VER >= 1400
+#define I64FMT "%016llX"
+#define I64FMTD "%lld"
+#define UI64FMTD "%llu"
+#else
 #define I64FMT "%016I64X"
-#define I64FMTD "%I64u"
-#define SI64FMTD "%I64d"
-#define snprintf _snprintf
+#define I64FMTD "%I64d"
+#define UI64FMTD "%I64u"
+#endif
 
 #else
 
@@ -112,8 +119,8 @@ typedef unsigned __int8 uint8;
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
 #define I64FMT "%016llX"
-#define I64FMTD "%llu"
-#define SI64FMTD "%lld"
+#define I64FMTD "%lld"
+#define UI64FMTD "%llu"
 
 #endif
 

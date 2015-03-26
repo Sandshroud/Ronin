@@ -2677,12 +2677,10 @@ void Spell::SpellEffectDisenchant(uint32 i)
         if( it->GetLoot()->items.size() > 0 )
         {
             //Check for skill, we can increase it upto 75
-            uint32 skill=p_caster->_GetSkillLineCurrent( SKILL_ENCHANTING );
-            if(skill < 75)//can up skill
-            {
-                if(Rand(float(100-skill*100.0/75.0)))
-                    p_caster->_AdvanceSkillLine(SKILL_ENCHANTING, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
-            }
+            uint32 skill = p_caster->_GetSkillLineCurrent( SKILL_ENCHANTING );
+            if(skill < 75 && Rand(100.f-float(skill)*100.f/75.f))
+                p_caster->_AdvanceSkillLine(SKILL_ENCHANTING, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
+
             sLog.outDebug("SpellEffect","Succesfully disenchanted item %d", uint32(itemTarget->GetEntry()));
             p_caster->SendLoot( itemTarget->GetGUID(), itemTarget->GetOwner()->GetMapId(), LOOT_DISENCHANTING );
         }
@@ -2693,12 +2691,13 @@ void Spell::SpellEffectDisenchant(uint32 i)
             return;
         }
         // delete from db so it won't be re-saved
-        it->DeleteFromDB();
+        sItemMgr.DeleteItemFromDatabase(it->GetGUID(), ITEM_DELETION_DISENCHANTED);
         it->SetLooted();
     }
     if(it == i_caster)
         i_caster = NULL;
 }
+
 void Spell::SpellEffectInebriate(uint32 i) // lets get drunk!
 {
     if( playerTarget == NULL )
@@ -2729,29 +2728,29 @@ void Spell::SpellEffectFeedPet(uint32 i)  // Feed Pet
     - http://petopia.brashendeavors.net/html/articles/basics_feeding.shtml */
     int8 deltaLvl = pPet->getLevel() - itemTarget->GetProto()->ItemLevel;
     damage /= 1000; //damage of Feed pet spell is 35000
-    if(deltaLvl > 10)
-        damage = damage >> 1;//divide by 2
     if(deltaLvl > 20)
-        damage = damage >> 1;
+        damage >>= 2;
+    else if(deltaLvl > 10)
+        damage >>= 1;//divide by 2
     damage *= 1000;
 
-    SpellEntry *spellInfo = dbcSpell.LookupEntry(GetSpellProto()->EffectTriggerSpell[i]);
-    Spell* sp = new Spell(p_caster, spellInfo, true, NULL);
-    //sp->forced_basepoints[0] = damage - 1;
+    if(itemTarget->GetUInt32Value(ITEM_FIELD_STACK_COUNT) > 1)
+        itemTarget->ModifyStackSize(-1);
+    else
+    {
+        Item *rItem = p_caster->GetInventory()->RemoveInventoryItem(itemTarget->GetInventorySlot());
+        if(rItem != itemTarget)
+            return;
+
+        sItemMgr.DeleteItemFromDatabase(rItem->GetGUID(), ITEM_DELETION_USED);
+        sItemMgr.DeleteItemData(rItem->GetGUID(), true);
+        rItem->Destruct();
+    }
+
+    Spell* sp = new Spell(p_caster, dbcSpell.LookupEntry(GetSpellProto()->EffectTriggerSpell[i]), true, NULL);
     SpellCastTargets tgt;
     tgt.m_unitTarget = pPet->GetGUID();
     sp->prepare(&tgt);
-
-    if(itemTarget->GetUInt32Value(ITEM_FIELD_STACK_COUNT) > 1)
-    {
-        itemTarget->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, -1);
-        itemTarget->m_isDirty = true;
-    }
-    else
-    {
-        p_caster->GetInventory()->SafeFullRemoveItemByGuid(itemTarget->GetGUID());
-        itemTarget = NULL;
-    }
 }
 
 void Spell::SpellEffectReputation(uint32 i)
@@ -3229,7 +3228,7 @@ void Spell::SpellEffectProspecting(uint32 i)
 
     uint32 entry = itemTarget->GetEntry();
 
-    if(p_caster->GetInventory()->RemoveItemAmt(entry, 5))
+    if(p_caster->GetInventory()->RemoveInventoryStacks(entry, 5, false))
     {
         p_caster->SetLootGUID(p_caster->GetGUID());
         lootmgr.FillItemLoot(p_caster->GetLoot(), entry, p_caster->GetTeam());

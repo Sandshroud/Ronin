@@ -1921,7 +1921,6 @@ void Spell::SendCastResult(uint8 result)
         plr->Cooldown_OnCancel(m_spellInfo);
 
     uint32 Extra = 0;
-    // for some reason, the result extra is not working for anything, including SPELL_FAILED_REQUIRES_SPELL_FOCUS
     switch( result )
     {
     case SPELL_FAILED_REQUIRES_SPELL_FOCUS:
@@ -1951,23 +1950,7 @@ void Spell::SendCastResult(uint8 result)
         break;
     }
 
-    if( Extra )
-    {
-        packetSMSG_CASTRESULT_EXTRA pe;
-        pe.SpellId = GetSpellProto()->Id;
-        pe.ErrorMessage = result;
-        pe.MultiCast = extra_cast_number;
-        pe.Extra = Extra;
-        plr->GetSession()->OutPacket( SMSG_CAST_FAILED, sizeof( packetSMSG_CASTRESULT_EXTRA ), &pe );
-    }
-    else
-    {
-        packetSMSG_CASTRESULT pe;
-        pe.SpellId = GetSpellProto()->Id;
-        pe.ErrorMessage = result;
-        pe.MultiCast = extra_cast_number;
-        plr->GetSession()->OutPacket( SMSG_CAST_FAILED, sizeof( packetSMSG_CASTRESULT ), &pe );
-    }
+    plr->SendCastResult(m_spellInfo->Id, result, extra_cast_number, Extra);
 }
 
 bool Spell::IsNeedSendToClient()

@@ -9,7 +9,7 @@ SpellEntry *AIInterface::getSpellEntry(uint32 spellId)
     SpellEntry *spellInfo = dbcSpell.LookupEntry(spellId );
     if(!spellInfo)
     {
-        sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
+        sLog.outDebug("WORLD: unknown spell id %u\n", spellId);
         return NULL;
     }
 

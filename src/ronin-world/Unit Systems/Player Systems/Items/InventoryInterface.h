@@ -91,8 +91,9 @@ public:
     bool CreateQuestRewards(Quest *qst, uint8 reward_slot);
     bool CreateInventoryStacks(ItemPrototype *proto, uint32 count = 1, WoWGuid creatorGuid = 0, bool fromNPC = false);
     bool AddInventoryItemToSlot(Item *item, uint16 slot);
-    void DestroyInventoryItem(uint16 slot);
+    bool DestroyInventoryItem(uint16 slot, ItemDeletionReason reason = ITEM_DELETION_USED);
     Item *RemoveInventoryItem(uint16 slot);
+    Item *RemoveInventoryItem(WoWGuid guid);
     bool RemoveInventoryStacks(uint32 entry, uint32 count, bool force = true);
 
     void BuildInvError(uint8 error, Item *src, Item *dst, uint32 misc = 0);

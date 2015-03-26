@@ -65,7 +65,7 @@ public:
     Item(ItemData *data);
     ~Item();
 
-    virtual void Initialize(Player *owner);
+    virtual void Init();
     virtual void Destruct();
 
     virtual void AddToWorld();
@@ -102,14 +102,13 @@ public:
     void SetTextID(uint32 newtextId);
     uint32 GetTextID() { return m_textid; };
 
-    WoWGuid GetWrappedItemGuid() { return m_wrappedItemGuid; }
-    bool isWrapped() { return !m_wrappedItemGuid.empty(); }
+    bool isWrapped() { return ((GetEntry() == 5043 || GetEntry() == 5044) && m_wrappedItemId != 0); }
+    WoWGuid GetWrappedItemId() { return m_wrappedItemId; }
 
 protected:
     ItemPrototype* m_itemProto;
     EnchantmentMap m_enchantments;
-    WoWGuid m_wrappedItemGuid;
-    uint32 m_textid;
+    uint32 m_textid, m_wrappedItemId;
     Player *m_owner; // let's not bother the manager with unneeded requests
 
     uint16 currentSlot;
@@ -124,7 +123,7 @@ public:
     void SetCreatorGuid(WoWGuid creatorGuid);
     WoWGuid GetCreatorGuid() { return GetUInt64Value(ITEM_FIELD_CREATOR); }
 
-    uint16 GetContainerSlot() { return currentSlot; }
+    uint16 GetInventorySlot() { return currentSlot; }
     uint8 GetBagSlot() { return INVSLOT_BAG(currentSlot); }
     uint8 GetItemSlot() { return INVSLOT_ITEM(currentSlot); }
 
@@ -157,7 +156,7 @@ protected:
     void QueueItemDataUpdate(ItemDataFields fieldType, uint64 fieldValue);
 
 public:
-    void QueueItemDeletion();
+    void QueueItemDeletion(ItemDeletionReason reason);
 
 public: // Container function
     struct Container

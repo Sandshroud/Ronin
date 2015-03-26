@@ -43,7 +43,7 @@ void ItemManager::LoadItemData()
 
         data->itemContainer = fields[ITEMDATA_FIELD_CONTAINER_GUID].GetUInt64();
         data->itemCreator = fields[ITEMDATA_FIELD_CREATOR_GUID].GetUInt64();
-        data->containerSlot = fields[ITEMDATA_FIELD_CONTAINER_SLOT].GetUInt16();
+        data->inventorySlot = fields[ITEMDATA_FIELD_CONTAINER_SLOT].GetUInt16();
         data->itemStackCount = fields[ITEMDATA_FIELD_ITEMSTACKCOUNT].GetUInt32();
         data->itemFlags = fields[ITEMDATA_FIELD_ITEMFLAGS].GetUInt32();
         data->itemRandomSeed = fields[ITEMDATA_FIELD_ITEMRANDOMSEED].GetUInt32();
@@ -52,11 +52,11 @@ void ItemManager::LoadItemData()
         data->itemTextID = fields[ITEMDATA_FIELD_ITEMTEXTID].GetUInt32();
         data->itemPlayedTime = fields[ITEMDATA_FIELD_ITEM_PLAYEDTIME].GetUInt32();
         data->itemSpellCharges = fields[ITEMDATA_FIELD_ITEM_CHARGES].GetInt32();
-        if(WoWGuid giftItemGuid = fields[ITEMDATA_FIELD_ITEM_GIFT_GUID].GetUInt64())
+        if(uint32 giftItemId = fields[ITEMDATA_FIELD_ITEM_GIFT_ITEMID].GetUInt64())
         {
             data->giftData = new ItemData::ItemGiftData;
-            data->giftData->giftItemGuid = giftItemGuid;
-            data->giftData->giftCreator = fields[ITEMDATA_FIELD_ITEM_GIFT_CREATOR].GetUInt64();
+            data->giftData->giftItemId = giftItemId;
+            data->giftData->giftCreatorGuid = fields[ITEMDATA_FIELD_ITEM_GIFT_CREATOR].GetUInt64();
         }
 
         m_itemData.insert(std::make_pair(data->itemGuid, data));
@@ -100,8 +100,8 @@ void ItemManager::LoadItemData()
                 ItemManager::PlayerInventory *inventory = GetPlayerInventory(data->itemContainer);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                 {
-                    data->containerData->m_items.insert(std::make_pair(INVSLOT_ITEM((*itr2)->containerSlot), (*itr2)->itemGuid));
-                    inventory->m_playerInventory.insert(std::make_pair((*itr2)->containerSlot, (*itr2)->itemGuid));
+                    data->containerData->m_items.insert(std::make_pair(INVSLOT_ITEM((*itr2)->inventorySlot), (*itr2)->itemGuid));
+                    inventory->m_playerInventory.insert(std::make_pair((*itr2)->inventorySlot, (*itr2)->itemGuid));
                 }
                 itr->second.clear();
             }break;
@@ -110,7 +110,7 @@ void ItemManager::LoadItemData()
                 GuildBankItemStorage *guildStorage = GetGuildBankStorage(containerGuid);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
                 {
-                    uint8 tabId = INVSLOT_BAG((*itr2)->containerSlot), tabSlot = INVSLOT_ITEM((*itr2)->containerSlot);
+                    uint8 tabId = INVSLOT_BAG((*itr2)->inventorySlot), tabSlot = INVSLOT_ITEM((*itr2)->inventorySlot);
                     guildStorage->bankTabs[tabId].insert(std::make_pair(tabSlot, (*itr2)->itemGuid));
                 }
                 itr->second.clear();
@@ -119,7 +119,7 @@ void ItemManager::LoadItemData()
             {
                 ItemManager::PlayerInventory *inventory = GetPlayerInventory(containerGuid);
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                    inventory->m_playerInventory.insert(std::make_pair((*itr2)->containerSlot, (*itr2)->itemGuid));
+                    inventory->m_playerInventory.insert(std::make_pair((*itr2)->inventorySlot, (*itr2)->itemGuid));
                 itr->second.clear();
             }break;
             // Loooooot
@@ -160,7 +160,7 @@ ItemData *ItemManager::CreateItemData(uint32 entry)
     data->itemGuid = MAKE_NEW_GUID(newGuid, entry, HIGHGUID_TYPE_ITEM);
     data->itemContainer = 0;
     data->itemCreator = 0;
-    data->containerSlot = 0xFFFF;
+    data->inventorySlot = 0xFFFF;
     data->itemStackCount = 1;
     data->itemFlags = 0;
     data->itemRandomSeed = 0;
@@ -177,7 +177,7 @@ ItemData *ItemManager::CreateItemData(uint32 entry)
     return data;
 }
 
-void ItemManager::DeleteItemData(WoWGuid itemGuid)
+void ItemManager::DeleteItemData(WoWGuid itemGuid, bool free_guid)
 {
     if(m_itemData.find(itemGuid) == m_itemData.end())
         return;
@@ -185,6 +185,79 @@ void ItemManager::DeleteItemData(WoWGuid itemGuid)
     ItemData *data = m_itemData.at(itemGuid);
     m_itemData.erase(itemGuid);
     delete data;
+    if(free_guid)
+    {
+        CharacterDatabase.Execute("REPLACE INTO item_freeguids VALUES ('"UI64FMTD"');", itemGuid.raw());
+        m_freeGuids.push_back(itemGuid.raw());
+    }
+}
+
+void ItemManager::DeleteItemFromDatabase(WoWGuid itemGuid, ItemDeletionReason reason)
+{
+    if(m_itemData.find(itemGuid) == m_itemData.end())
+        return;
+
+    time_t now = UNIXTIME;
+    ItemData *data = m_itemData.at(itemGuid);
+    CharacterDatabase.Execute("DELETE FROM `item_data` WHERE guid = '"UI64FMTD"';", itemGuid.raw());
+    CharacterDatabase.Execute("DELETE FROM `item_enchantments` WHERE guid = '"UI64FMTD"';", itemGuid.raw());
+    switch(reason)
+    {
+    case ITEM_DELETION_CREATE_FAILED:
+        {
+            m_itemData.erase(itemGuid);
+            CharacterDatabase.Execute("REPLACE INTO item_freeguids VALUES ('"UI64FMTD"');", itemGuid.raw());
+            m_freeGuids.push_back(itemGuid.raw());
+            delete data;
+        }break;
+    case ITEM_DELETION_DELETED:
+        {
+            std::stringstream ss;
+            ss << "'" << data->itemGuid.raw() << "', ";
+            ss << "'" << data->itemContainer.raw() << "', ";
+            ss << "'" << data->itemCreator.raw() << "', ";
+            ss << "'" << data->inventorySlot << "', ";
+            ss << "'" << data->itemStackCount << "', ";
+            ss << "'" << data->itemFlags << "', ";
+            ss << "'" << data->itemRandomSeed << "', ";
+            ss << "'" << data->itemRandomProperty << "', ";
+            ss << "'" << data->itemDurability << "', ";
+            ss << "'" << data->itemTextID << "', ";
+            ss << "'" << data->itemPlayedTime << "', ";
+            ss << "'" << data->itemSpellCharges << "', ";
+            ss << "'" << uint32(data->giftData ? data->giftData->giftItemId : 0) << "', ";
+            ss << "'" << uint64(data->giftData ? data->giftData->giftCreatorGuid.raw() : 0) << "', ";
+            ss << "'" << uint64(now+ITEM_GUID_RECYCLE_TIME) << "'";
+            CharacterDatabase.Execute("INSERT INTO item_deletion_deleted (%s, expirationtime) VALUES(%s);", ITEM_DATA_TABLE_UNIFORM_FIELDS, ss.str().c_str());
+            for(uint8 i = 0; i < 10; i++)
+            {
+                if(ItemData::EnchantData *enchData = data->enchantData[i])
+                {
+                    CharacterDatabase.Execute("INSERT INTO item_deletion_deleted_enchants VALUES('"UI64FMTD"', '%u', '%u', '%u', '"UI64FMTD"');", itemGuid.raw(), i, enchData->enchantId, enchData->enchantCharges, enchData->expirationTime);
+                }
+            }
+        }break;
+    case ITEM_DELETION_DISENCHANTED:
+        {
+            std::stringstream ss;
+            ss << "'" << data->itemGuid.raw() << "', ";
+            ss << "'" << data->itemContainer.raw() << "', ";
+            ss << "'" << data->itemCreator.raw() << "', ";
+            ss << "'" << data->inventorySlot << "', ";
+            ss << "'" << data->itemStackCount << "', ";
+            ss << "'" << data->itemFlags << "', ";
+            ss << "'" << data->itemRandomSeed << "', ";
+            ss << "'" << data->itemRandomProperty << "', ";
+            ss << "'" << data->itemDurability << "', ";
+            ss << "'" << data->itemTextID << "', ";
+            ss << "'" << data->itemPlayedTime << "', ";
+            ss << "'" << data->itemSpellCharges << "', ";
+            ss << "'" << uint32(data->giftData ? data->giftData->giftItemId : 0) << "', ";
+            ss << "'" << uint64(data->giftData ? data->giftData->giftCreatorGuid.raw() : 0) << "', ";
+            ss << "'" << uint64(now+ITEM_GUID_RECYCLE_TIME) << "'";
+            CharacterDatabase.Execute("INSERT INTO item_deletion_disenchanted (%s, expirationtime) VALUES(%s);", ITEM_DATA_TABLE_UNIFORM_FIELDS, ss.str().c_str());
+        }break;
+    }
 }
 
 uint32 ItemManager::BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, ItemData *item)
@@ -242,7 +315,7 @@ uint32 ItemManager::BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, It
     //ITEM_FIELD_CREATOR
     buff << item->itemCreator;
     if(item->giftData)//ITEM_FIELD_GIFTCREATOR
-        buff << item->giftData->giftCreator;
+        buff << item->giftData->giftCreatorGuid;
     //ITEM_FIELD_STACK_COUNT
     buff << item->itemStackCount;
     //ITEM_FIELD_DURATION

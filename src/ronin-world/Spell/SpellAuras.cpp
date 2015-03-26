@@ -1029,10 +1029,10 @@ void Aura::SpellAuraModStealth(bool apply)
             {
                 m_target->RemoveFlag(PLAYER_FIELD_BYTES2, 0x2000);
 
-                packetSMSG_COOLDOWN_EVENT cd;
-                cd.guid = m_target->GetGUID();
-                cd.spellid = m_spellProto->Id;
-                castPtr<Player>(m_target)->GetSession()->OutPacket( SMSG_COOLDOWN_EVENT, sizeof(packetSMSG_COOLDOWN_EVENT), &cd);
+                WorldPacket data(SMSG_COOLDOWN_EVENT, 12);
+                data << m_spellProto->Id;
+                data << m_target->GetGUID();
+                castPtr<Player>(m_target)->SendPacket(&data);
             }
         }
 
@@ -1392,10 +1392,10 @@ void Aura::SpellAuraModShapeshift(bool apply)
             spellId2 = 71167;
             if(apply)
             {
-                packetSMSG_COOLDOWN_EVENT cd;
-                cd.spellid = m_spellProto->Id;
-                cd.guid = m_target->GetGUID();
-                p->GetSession()->OutPacket(SMSG_COOLDOWN_EVENT, sizeof(packetSMSG_COOLDOWN_EVENT), &cd);
+                WorldPacket data(SMSG_COOLDOWN_EVENT, 12);
+                data << m_spellProto->Id;
+                data << m_target->GetGUID();
+                castPtr<Player>(m_target)->SendPacket(&data);
             }
         }break;
 

@@ -62,13 +62,14 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
     else if(ItemData *newData = sItemMgr.CreateItemData(src->GetEntry()))
     {
         dst = new Item(newData);
-        dst->Initialize(_player);
+        dst->SetOwner(_player);
         dst->SetStackSize(count);
 
         if(INVSLOT_ITEM(dstSlot) == INVENTORY_SLOT_NONE)
         {
             if(!_player->GetInventory()->FindFreeSlot(dst, dstSlot))
             {
+                sItemMgr.DeleteItemFromDatabase(dst->GetGUID(), ITEM_DELETION_CREATE_FAILED);
                 _player->GetInventory()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
                 return;
             }
@@ -76,9 +77,8 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 
         if(!_player->GetInventory()->AddInventoryItemToSlot(dst, dstSlot))
         {
-            sItemMgr.DeleteItemData(dst->GetGUID());
+            sItemMgr.DeleteItemFromDatabase(dst->GetGUID(), ITEM_DELETION_CREATE_FAILED);
             _player->GetInventory()->BuildInvError(INV_ERR_SPLIT_FAILED, src, NULL);
-            delete dst;
             return;
         }
         src->SetStackSize(src->GetStackSize()-count);
