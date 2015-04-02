@@ -354,7 +354,7 @@ void PlayerInventory::RemoveConjuredItems()
             continue;
         if(Item *item = _removeItemBySlot(m_itemSlots.at(itemGuid)))
         {
-            sItemMgr.DeleteItemData(itemGuid);
+            sItemMgr.DeleteItemData(itemGuid, true);
             item->Destruct();
         }
     }while(m_conjured.size());

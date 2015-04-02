@@ -187,7 +187,6 @@ SET(RONIN_SOURCE_DIRECTORIES
 "${ROOT_PATH}/src/ronin-world/Unit Systems"
 "${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems"
 "${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems/Items"
-"${ROOT_PATH}/src/ronin-world/ScriptInterface"
 "${ROOT_PATH}/src/ronin-world/Spell"
 "${ROOT_PATH}/src/ronin-world/Spell/Spellfixes")
 
@@ -275,7 +274,6 @@ if(ONLY_DEPENDENCIES EQUAL 0)
 add_subdirectory(ronin-shared)
 add_subdirectory(ronin-logon)
 add_subdirectory(ronin-world)
-add_subdirectory(lacrimi)
 
 if(BUILD_TOOLS)
 add_subdirectory(tools)

@@ -307,15 +307,6 @@ bool Master::Run(int argc, char ** argv)
 
     sDBEngine.EndThreads();
 
-    if(sWorld.LacrimiThread != NULL) // Shut this down first...
-    {
-        sWorld.LacrimiThread->SelfTerminate();
-
-        sLog.Notice( "Shutdown", "Waiting for Lacrimi to finish shutting down..." );
-        while(sWorld.LacrimiThread->GetThreadState() == THREADSTATE_SELF_TERMINATE)
-            Sleep(100);
-    }
-
     sLog.Notice( "Database", "Clearing all pending queries..." );
 
     // kill the database thread first so we don't lose any queries/data

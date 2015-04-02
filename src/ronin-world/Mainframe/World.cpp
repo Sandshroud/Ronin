@@ -22,8 +22,6 @@ World::World()
     gm_force_robes = false;
     AHEnabled = true;
     IsPvPRealm = true;
-    LacrimiThread = NULL;
-    LacrimiPtr = NULL;
     authSeed1.SetRand(16 * 8);
     authSeed2.SetRand(16 * 8);
 

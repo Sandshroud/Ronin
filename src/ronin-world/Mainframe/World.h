@@ -17,7 +17,6 @@ class DynamicObject;
 class Player;
 class MapMgr;
 class Battleground;
-class Lacrimi;
 
 enum Rates
 {
@@ -662,9 +661,6 @@ protected:
     QueueSet mQueuedSessions;
 
 public:
-    ThreadContext* LacrimiThread;
-    Lacrimi* LacrimiPtr;
-
     bool GuildsLoading;
 
     std::string GmClientChannel;
