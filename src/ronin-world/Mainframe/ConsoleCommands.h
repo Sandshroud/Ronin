@@ -4,8 +4,6 @@
 
 #pragma once
 
-void reloadgossipscripts();
-
 bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[]);
 bool HandleSuicideCommand(BaseConsole * pConsole, int argc, const char * argv[]);
 bool HandleGMsCommand(BaseConsole * pConsole, int argc, const char * argv[]);
@@ -27,8 +25,3 @@ bool HandleBackupDBCommand(BaseConsole * pConsole, int argc, const char * argv[]
 bool HandleSaveAllCommand(BaseConsole * pConsole, int argc, const char * argv[]);
 bool HandleWhisperCommand(BaseConsole * pConsole, int argc, const char * argv[]);
 bool HandleNameHashCommand(BaseConsole * pConsole, int argc, const char * argv[]);
-bool HandleReloadAllScriptsCommand(BaseConsole * pConsole, int argc, const char * argv[]);
-bool HandleUnloadSingleScriptCommand(BaseConsole * pConsole, int argc, const char * argv[]);
-bool HandleUnloadAllScriptsCommand(BaseConsole * pConsole, int argc, const char * argv[]);
-bool HandleLoadNewScriptsCommand(BaseConsole * pConsole, int argc, const char * argv[]);
-bool HandleLoadSingleScriptCommand(BaseConsole * pConsole, int argc, const char * argv[]);

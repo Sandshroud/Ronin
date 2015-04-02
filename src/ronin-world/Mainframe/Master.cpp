@@ -197,8 +197,6 @@ bool Master::Run(int argc, char ** argv)
     std::string host = mainIni->ReadString( "Listen", "Host", DEFAULT_HOST );
     int wsport = mainIni->ReadInteger( "RealmData", "WorldServerPort", DEFAULT_WORLDSERVER_PORT );
 
-    new ScriptMgr();
-
     if( !sWorld.SetInitialWorldSettings() )
     {
         sLog.Error( "Server", "SetInitialWorldSettings() failed. Something went wrong? Exiting." );
@@ -368,10 +366,6 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice( "World", "~World()" );
     sWorld.Destruct();
-
-    sLog.Notice( "ScriptMgr", "~ScriptMgr()" );
-    sScriptMgr.UnloadScripts();
-    delete ScriptMgr::getSingletonPtr();
 
     sLog.Notice( "EventMgr", "~EventMgr()" );
     delete EventMgr::getSingletonPtr();

@@ -262,13 +262,6 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if(!sHookInterface.OnNewCharacter(race, class_, this, name.c_str()))
-    {
-        data << uint8(CHAR_CREATE_NAME_IN_USE);
-        SendPacket(&data);
-        return;
-    }
-
     if( class_ == DEATHKNIGHT )
     {
         if(!HasFlag(ACCOUNT_FLAG_XPACK_02))
@@ -723,8 +716,6 @@ void WorldSession::FullLogin(Player* plr)
         if( uint32 timediff = uint32(UNIXTIME) - plr->m_timeLogoff )
             plr->AddCalculatedRestXP(timediff);
     }
-
-    sHookInterface.OnFullLogin(plr);
 
     if(info->m_Group)
         info->m_Group->Update();

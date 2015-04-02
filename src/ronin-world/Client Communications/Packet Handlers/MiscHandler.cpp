@@ -213,10 +213,6 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                                         }
 
                                         pGO->CalcMineRemaining(true);
-
-                                        //Don't interfere with scripted GO's
-                                        if(!sEventMgr.HasEvent(pGO, EVENT_GMSCRIPT_EVENT))
-                                            pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
                                     }
                                 }
                             }
@@ -461,7 +457,6 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
     if(pPlayer)
     {
         WorldPacket data(SMSG_LOGOUT_RESPONSE, 5);
-        sHookInterface.OnLogoutRequest(pPlayer);
         if(pPlayer->m_isResting ||    // We are resting so log out instantly
             pPlayer->GetTaxiState() ||  // or we are on a taxi
             HasGMPermissions())        // or we are a gm
@@ -1362,16 +1357,8 @@ void WorldSession::HandleGameobjReportUseOpCode( WorldPacket& recv_data )
     uint64 guid;
     recv_data >> guid;
     GameObject* gameobj = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
-    if(gameobj != NULL && gameobj->GetInfo())
-    {
-        // Gossip Script
-        GossipScript* goscript = NULL;
-        if((goscript = sScriptMgr.GetRegisteredGossipScript(GTYPEID_GAMEOBJECT, gameobj->GetEntry(), false)))
-            goscript->GossipHello(gameobj, _player, true);
-
-        if(gameobj->CanActivate())
-            sQuestMgr.OnGameObjectActivate(_player, gameobj);
-    }
+    if(gameobj != NULL && gameobj->GetInfo() && gameobj->CanActivate())
+        sQuestMgr.OnGameObjectActivate(_player, gameobj);
 }
 
 void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
@@ -1672,112 +1659,11 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
         }
     }
 
-    if(!sHookInterface.OnCheckTeleportPrerequisites(pPlayer, mapid))
-        return AREA_TRIGGER_FAILURE_UNAVAILABLE;
-
     // Nothing more to check, should be ok
     return AREA_TRIGGER_FAILURE_OK;
 }
 
 void WorldSession::SendGossipForObject(Object *pEntity)
 {
-    std::list<QuestRelation *>::iterator it;
-    std::set<uint32> ql;
 
-    switch(pEntity->GetTypeId())
-    {
-    case TYPEID_GAMEOBJECT:
-        {
-            GameObject* Go = castPtr<GameObject>(pEntity);
-            if(GossipScript* Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_GAMEOBJECT, Go->GetEntry()))
-                Script->GossipHello(Go, _player, true);
-        }break;
-    case TYPEID_ITEM:
-        {
-            Item* pItem = castPtr<Item>(pEntity);
-            if(GossipScript* Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_ITEM, pItem->GetEntry()))
-                Script->GossipHello(pItem, _player, true);
-        }break;
-    case TYPEID_UNIT:
-        {
-            Creature* TalkingWith = castPtr<Creature>(pEntity);
-            if(!TalkingWith)
-                return;
-
-            //stop when talked to for 3 min
-            if(TalkingWith->GetAIInterface())
-                TalkingWith->GetAIInterface()->StopMovement(180000);
-
-            // unstealth meh
-            if( _player->InStealth() )
-                _player->m_AuraInterface.RemoveAllAurasOfType( SPELL_AURA_MOD_STEALTH );
-
-            // reputation
-            if(FactionEntry *faction = TalkingWith->GetFaction())
-                _player->Reputation_OnTalk(faction);
-
-            sLog.Debug( "WORLD"," Received CMSG_GOSSIP_HELLO from %u", TalkingWith->GetLowGUID());
-            if(GossipScript* Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_CTR, TalkingWith->GetEntry()))
-            {
-                if (!(TalkingWith->isQuestGiver() && TalkingWith->HasQuests()))
-                    Script->GossipHello(TalkingWith, _player, true);
-                else
-                {
-                    Script->GossipHello(TalkingWith, _player, false);
-                    if(!_player->CurrentGossipMenu)
-                        return;
-
-                    WorldPacket data(SMSG_GOSSIP_MESSAGE, 100);
-                    _player->CurrentGossipMenu->BuildPacket(data);
-                    uint32 count = 0;
-                    size_t pos = data.wpos();
-                    data << uint32(count);
-                    for (it = TalkingWith->QuestsBegin(); it != TalkingWith->QuestsEnd(); it++)
-                    {
-                        uint32 status = sQuestMgr.CalcQuestStatus(GetPlayer(), *it);
-                        if (status >= QMGR_QUEST_CHAT)
-                        {
-                            if((*it)->qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
-                                status = 8;
-
-                            if (!ql.count((*it)->qst->id) )
-                            {
-                                ql.insert((*it)->qst->id);
-                                count++;
-
-                                uint32 icon;
-                                uint32 questid = (*it)->qst->id;
-                                switch(status)
-                                {
-                                case QMGR_QUEST_FINISHED:
-                                    icon = 4;
-                                    break;
-                                case QMGR_QUEST_CHAT:
-                                    {
-                                        if((*it)->qst->qst_is_repeatable)
-                                            icon = 7;
-                                        else
-                                            icon = 8;
-                                    }break;
-                                default:
-                                    icon = status;
-                                    break;
-                                }
-
-                                data << uint32( questid );
-                                data << uint32( icon );
-                                data << uint32( (*it)->qst->qst_max_level );
-                                data << uint32( (*it)->qst->qst_flags );
-                                data << uint8( (*it)->qst->qst_is_repeatable ? 1 : 0 );
-                                data << (*it)->qst->qst_title;
-                            }
-                        }
-                    }
-                    data.put<uint32>(pos, count);
-                    SendPacket(&data);
-                    sLog.Debug( "WORLD"," Sent SMSG_GOSSIP_MESSAGE" );
-                }
-            }
-        }break;
-    }
 }

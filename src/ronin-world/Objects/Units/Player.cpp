@@ -4,8 +4,6 @@
 
 #include "StdAfx.h"
 
-#define COLLISION_MOUNT_CHECK_INTERVAL 1000
-
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
 Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_currency(this), m_inventory(this), m_bank(this)
@@ -275,8 +273,6 @@ void Player::Init()
     m_safeFall                      = 0;
     safefall                        = false;
     m_KickDelay                     = 0;
-    m_mallCheckTimer                = 0;
-    m_UpdateHookTimer               = 0;
     m_passOnLoot                    = false;
     m_changingMaps                  = true;
     m_magnetAura                    = NULL;
@@ -453,36 +449,6 @@ void Player::Update( uint32 p_time )
         m_P_regenTimer = 0;
     }
 
-    uint32 mstime = getMSTime();
-    if(mstime >= m_UpdateHookTimer)
-    {
-        sHookInterface.OnPlayerUpdate(this);
-        m_UpdateHookTimer = mstime+1000;
-    }
-
-    if(m_attacking)
-    {
-        // Check attack timer.
-        if(mstime >= m_attackTimer)
-            _EventAttack(false);
-
-        if( m_duelWield && mstime >= m_attackTimer_1 )
-            _EventAttack(true);
-    }
-
-    if( m_onAutoShot )
-    {
-        if( m_AutoShotAttackTimer > p_time )
-            m_AutoShotAttackTimer -= p_time;
-        else EventRepeatSpell();
-    }
-    else if(m_AutoShotAttackTimer > 0)
-    {
-        if(m_AutoShotAttackTimer > p_time)
-            m_AutoShotAttackTimer -= p_time;
-        else m_AutoShotAttackTimer = 0;
-    }
-
     // Handle our water stuff
     HandleBreathing(p_time);
 
@@ -516,16 +482,6 @@ void Player::Update( uint32 p_time )
         GetVehicle()->MoveVehicle(vposx, vposy, vposz, vposo);
     }
 
-    // Exploration
-    if(IsInWorld())
-    {
-        if(mstime >= m_explorationTimer)
-        {
-            _EventExploration();
-            m_explorationTimer = mstime + 1500;
-        }
-    }
-
     if(m_pvpTimer)
     {
         if(p_time >= m_pvpTimer)
@@ -538,24 +494,14 @@ void Player::Update( uint32 p_time )
         }
     }
 
-    if (IsInWorld() && GetMapMgr()->CanUseCollision(this))
+    // Exploration
+    if(IsInWorld())
     {
-        if( mstime >= m_mountCheckTimer )
+        m_explorationTimer += p_time;
+        if(m_explorationTimer >= 1500)
         {
-            if( sVMapInterface.IsIndoor( m_mapId, m_position.x, m_position.y, m_position.z ) )
-            {
-                //Mount expired?
-                if(IsMounted())
-                {
-                    // Qiraj battletanks work everywhere on map 531
-                    if (! (m_mapId == 531 && ( m_MountSpellId == 25953 || m_MountSpellId == 26054 || m_MountSpellId == 26055 || m_MountSpellId == 26056 )) )
-                        Dismount();
-                }
-
-                // Now remove all auras that are only usable outdoors (e.g. Travel form)
-                m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
-            }
-            m_mountCheckTimer = mstime + COLLISION_MOUNT_CHECK_INTERVAL;
+            _EventExploration();
+            m_explorationTimer = 0;
         }
     }
 
@@ -565,14 +511,6 @@ void Player::Update( uint32 p_time )
 
         if (m_drunkTimer > 10*1000)
             EventHandleSobering();
-    }
-
-    if(mstime >= m_mallCheckTimer)
-    {
-        if( sWorld.FunServerMall != -1 && GetAreaId() == uint32(sWorld.FunServerMall) )
-            if( IsPvPFlagged() )
-                RemovePvPFlag();
-        m_mallCheckTimer = mstime + 2000;
     }
 }
 
@@ -2169,8 +2107,6 @@ bool Player::Create(WorldPacket& data )
         } else EquipInit(info);
     } else EquipInit(info);
 
-    sHookInterface.OnCharacterCreate(castPtr<Player>(this));
-
     load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
     for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
         load_power[i] = GetPower(i);
@@ -2637,14 +2573,35 @@ void Player::_EventExploration()
 
         m_playerInfo->lastZone = m_zoneId;
 
-        sHookInterface.OnZone(castPtr<Player>(this), m_zoneId, m_oldZone);
-        CALL_INSTANCE_SCRIPT_EVENT( GetMapMgr(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
+        TRIGGER_INSTANCE_EVENT( GetMapMgr(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
 
         EventDBCChatUpdate(0xFFFFFFFF);
 
         GetMapMgr()->GetStateManager().SendWorldStates(this);
     }
 
+    if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
+    {
+        //Mount expired?
+        if(IsMounted())
+        {
+            switch(m_mapId)
+            {
+            case 531:
+                {
+                    // Qiraj battletanks work everywhere on map 531
+                    if(m_MountSpellId == 25953 || m_MountSpellId == 26054 || m_MountSpellId == 26055 || m_MountSpellId == 26056)
+                        break;
+                }
+            default:
+                Dismount();
+                break;
+            }
+        }
+
+        // Now remove all auras that are only usable outdoors (e.g. Travel form)
+        m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
+    }
     if(!m_areaId || m_areaId == 0xFFFF)
     {
         if(m_FlyingAura)
@@ -2689,8 +2646,7 @@ void Player::_EventExploration()
         }
     }
 
-    sHookInterface.OnPlayerChangeArea(this, m_zoneId, m_areaId, m_oldArea);
-    CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
 
     // bur: we dont want to explore new areas when on taxi
     if(!GetTaxiState() && !GetTransportGuid())
@@ -2809,9 +2765,6 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
     {
         setLevel(level);
         SendLevelupInfo(level, hpGain, manaGain, statGain);
-
-        // ScriptMgr hook for OnPostLevelUp
-        sHookInterface.OnPostLevelUp(this);
     }
 
     // Set the update bit
@@ -3620,7 +3573,6 @@ void Player::OnPushToWorld()
     if(m_FirstLogin)
     {
         sEventMgr.AddEvent(this, &Player::FullHPMP, EVENT_PLAYER_FULL_HPMP, 200, 0, 0);
-        sHookInterface.OnFirstEnterWorld(castPtr<Player>(this));
         m_FirstLogin = false;
     }
 
@@ -3628,11 +3580,8 @@ void Player::OnPushToWorld()
     if( m_mapMgr != NULL )
         m_mapMgr->GetStateManager().SendWorldStates(castPtr<Player>(this));
 
-    // execute some of zeh hooks
-    sHookInterface.OnEnterWorld(castPtr<Player>(this));
-    sHookInterface.OnZone(castPtr<Player>(this), m_zoneId, 0);
-    CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnZoneChange )( castPtr<Player>(this), m_zoneId, 0 );
-    CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerEnter )( castPtr<Player>(this) );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnZoneChange )( castPtr<Player>(this), m_zoneId, 0 );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerEnter )( castPtr<Player>(this) );
 
     if(m_TeleportState == 1)        // First world enter
         CompleteLoading();
@@ -3753,8 +3702,7 @@ void Player::RemoveFromWorld()
     for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
         load_power[i] = GetPower(i);
 
-    sHookInterface.OnPlayerChangeArea(this, 0, 0, GetAreaId());
-    CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnChangeArea )( this, 0, 0, GetAreaId() );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnChangeArea )( this, 0, 0, GetAreaId() );
 
     m_mapMgr->GetStateManager().ClearWorldStates(this);
 
@@ -3982,7 +3930,7 @@ Corpse* Player::RepopRequestedPlayer()
 
 void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
 {
-    if (PreventRes || !sHookInterface.OnResurrect(this))
+    if (PreventRes)
         return;
 
     sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_FORCED_RESURECT); //in case somebody resurected us before this event happened
@@ -4052,8 +4000,6 @@ void Player::KillPlayer()
 
     // combo points reset upon death
     NullComboPoints();
-
-    sHookInterface.OnDeath(castPtr<Player>(this));
 }
 
 Corpse* Player::CreateCorpse()
@@ -4244,7 +4190,7 @@ void Player::RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid)
     }
     itr->Destruct();
 
-    if(sHookInterface.OnRepop(castPtr<Player>(this)) && dest.x != 0 && dest.y != 0 && dest.z != 0)
+    if(dest.x != 0 && dest.y != 0 && dest.z != 0)
         SafeTeleport(mapid, 0, dest);
 }
 
@@ -6607,9 +6553,6 @@ void Player::SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourSt
 
 void Player::RequestDuel(Player* pTarget)
 {
-    if( sWorld.FunServerMall != -1 && GetAreaId() == (uint32)sWorld.FunServerMall )
-        return;
-
     // We Already Dueling or have already Requested a Duel
     if( DuelingWith != NULL )
         return;
@@ -6655,9 +6598,6 @@ void Player::RequestDuel(Player* pTarget)
 
 void Player::DuelCountdown()
 {
-    if( sWorld.FunServerMall != -1 && GetAreaId() == (uint32)sWorld.FunServerMall )
-        return;
-
     if( DuelingWith == NULL )
         return;
 
@@ -6686,9 +6626,6 @@ void Player::DuelCountdown()
 
 void Player::DuelBoundaryTest()
 {
-    if( sWorld.FunServerMall != -1 && GetAreaId() == (uint32)sWorld.FunServerMall )
-        return;
-
     //check if in bounds
     if(!IsInWorld())
         return;
@@ -6772,11 +6709,6 @@ void Player::EndDuel(uint8 WinCondition)
     data << uint8( 1 );
     SendPacket(&data);
     DuelingWith->SendPacket(&data);
-
-    // Handle OnDuelFinished hook
-    if ( WinCondition != 0 )
-        sHookInterface.OnDuelFinished( DuelingWith, this );
-    else sHookInterface.OnDuelFinished( this, DuelingWith );
 
     //Clear Duel Related Stuff
     if( GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GUID_LOPART(GetUInt64Value(PLAYER_DUEL_ARBITER))) : NULL )
@@ -7086,9 +7018,6 @@ void Player::LoginPvPSetup()
 
 void Player::PvPToggle()
 {
-    if( sWorld.FunServerMall != -1 && GetAreaId() == (uint32)sWorld.FunServerMall )
-        return;
-
     AreaTableEntry* at = dbcAreaTable.LookupEntry(GetAreaId());
     if(!sWorld.IsPvPRealm)
     {
@@ -7894,13 +7823,11 @@ void Player::_AdvanceSkillLine(uint16 SkillLine, uint16 Count /* = 1 */)
         /* Add it */
         _AddSkillLine(SkillLine, Count, getLevel() * 5);
         _UpdateMaxSkillCounts();
-        sHookInterface.OnAdvanceSkillLine(this, SkillLine, Count);
     }
     else
     {
         uint16 curr_sk = itr->second.CurrentValue;
         itr->second.CurrentValue = std::min(uint16(curr_sk + Count), itr->second.MaximumValue);
-        sHookInterface.OnAdvanceSkillLine(this, SkillLine, curr_sk);
 
         if (itr->second.CurrentValue != curr_sk)
             _UpdateSkillFields();
@@ -8130,8 +8057,6 @@ void Player::_AdvanceAllSkills(uint16 count, bool skipprof /* = false */, uint16
 
                 if((itr->second.CurrentValue + count) >= max)
                     itr->second.CurrentValue = max;
-
-                sHookInterface.OnAdvanceSkillLine(this, itr->second.Skill->id, itr->second.CurrentValue);
 
                 dirty = true;
                 continue;
@@ -8749,7 +8674,7 @@ void Player::GenerateLoot(Corpse* pCorpse)
 
     if( m_bg != NULL )
         m_bg->HookGenerateLoot(castPtr<Player>(this), pCorpse);
-    CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerLootGen )( this, pCorpse );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerLootGen )( this, pCorpse );
 }
 
 uint32 Player::GetMaxPersonalRating(bool Ignore2v2)
@@ -9443,11 +9368,9 @@ void Player::StartQuest(uint32 Id)
                 item->Destruct();
         }
     }
-    CALL_QUESTSCRIPT_EVENT(Id, OnQuestStart)(this, qle);
+    TRIGGER_QUEST_EVENT(Id, OnQuestStart)(this, qle);
 
     sQuestMgr.OnQuestAccepted(this,qst,NULL);
-
-    sHookInterface.OnQuestAccept(this, qst, NULL);
 }
 
 DrunkenState Player::GetDrunkenstateByValue(uint16 value)

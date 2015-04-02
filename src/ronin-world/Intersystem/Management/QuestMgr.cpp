@@ -882,7 +882,7 @@ bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
                     // (auto-dirtys it)
                     qle->SetObjectiveCount( j, qle->GetObjectiveCount(j) + 1 );
                     qle->SendUpdateAddKill( j );
-                    CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnGameObjectActivate )( entry, plr, qle );
+                    TRIGGER_QUEST_EVENT( qle->GetQuest()->id, OnGameObjectActivate )( entry, plr, qle );
 
                     if( qle->CanBeFinished() )
                         qle->SendQuestComplete();
@@ -934,7 +934,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                         // add another kill.(auto-dirtys it)
                         qle->SetObjectiveCount( j, qle->GetObjectiveCount(j) + 1 );
                         qle->SendUpdateAddKill( j );
-                        CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnCreatureKill)( creature_entry, plr, qle );
+                        TRIGGER_QUEST_EVENT( qle->GetQuest()->id, OnCreatureKill)( creature_entry, plr, qle );
                         qle->UpdatePlayerFields();
                         break;
                     }
@@ -982,7 +982,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                                         // (auto-dirtys it)
                                         qle->SetObjectiveCount(j, qle->GetObjectiveCount(j) + 1);
                                         qle->SendUpdateAddKill( j );
-                                        CALL_QUESTSCRIPT_EVENT( qle->GetQuest()->id, OnCreatureKill )( creature_entry, plr, qle );
+                                        TRIGGER_QUEST_EVENT( qle->GetQuest()->id, OnCreatureKill )( creature_entry, plr, qle );
 
                                         if( qle->CanBeFinished() )
                                             qle->SendQuestComplete();
@@ -1123,7 +1123,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
                 if( qle->GetQuest()->required_item[j] == entry )
                 {
                     pcount = plr->GetInventory()->GetItemCount(entry);
-                    CALL_QUESTSCRIPT_EVENT(qle->GetQuest()->id, OnPlayerItemPickup)(entry, pcount, plr, qle);
+                    TRIGGER_QUEST_EVENT(qle->GetQuest()->id, OnPlayerItemPickup)(entry, pcount, plr, qle);
                     if(pcount < qle->GetQuest()->required_itemcount[j])
                     {
                         WorldPacket data(SMSG_QUESTUPDATE_ADD_ITEM, 8);
@@ -1192,7 +1192,7 @@ void QuestMgr::OnPlayerAreaTrigger(Player* plr, uint32 areaTrigger)
                 if(qle->GetQuest()->required_areatriggers[j] == areaTrigger && !qle->HasAreaTrigger(j))
                 {
                     qle->SetAreaTrigger(j);
-                    CALL_QUESTSCRIPT_EVENT(qle->GetQuest()->id, OnCrossAreaTrigger)(areaTrigger, plr, qle);
+                    TRIGGER_QUEST_EVENT(qle->GetQuest()->id, OnCrossAreaTrigger)(areaTrigger, plr, qle);
                     if(qle->CanBeFinished())
                     {
                         plr->UpdateNearbyGameObjects();
@@ -1250,7 +1250,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         if(!qle)
             return;
         BuildQuestComplete(plr, qst);
-        CALL_QUESTSCRIPT_EVENT(qst->id, OnQuestComplete)(plr, qle);
+        TRIGGER_QUEST_EVENT(qst->id, OnQuestComplete)(plr, qle);
 
         if (plr->HasQuestSpell(qle->GetRequiredSpell()))
             plr->RemoveQuestSpell(qle->GetRequiredSpell());

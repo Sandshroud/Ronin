@@ -50,7 +50,7 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
         QuestLogEntry * qLogEntry = plr->GetQuestLogForEntry(qst->id);
         if (qLogEntry)
         {
-            CALL_QUESTSCRIPT_EVENT(qst->id, OnQuestCancel)(plr);
+            TRIGGER_QUEST_EVENT(qst->id, OnQuestCancel)(plr);
             qLogEntry->Finish();
 
             uint32 srcItem = qst->srcitem;
@@ -220,7 +220,7 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                     qle->Init(qst, plr, (uint32)open_slot);
                     qle->UpdatePlayerFields();
 
-                    CALL_QUESTSCRIPT_EVENT(quest_id, OnQuestStart)(plr, qle);
+                    TRIGGER_QUEST_EVENT(quest_id, OnQuestStart)(plr, qle);
 
                     // If the quest should give any items on begin, give them the items.
                     for(uint8 i = 0; i < 4; i++)
@@ -238,9 +238,6 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                     }
 
                     plr->UpdateNearbyGameObjects();
-
-                    sHookInterface.OnQuestAccept( plr, qst, NULL );
-
                     recout += "Quest has been added to the player's quest log.";
                 }
             }

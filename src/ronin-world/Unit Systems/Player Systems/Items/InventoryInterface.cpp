@@ -67,7 +67,7 @@ SlotResult PlayerInventory::_addItem( Item* item, uint16 slot)
             m_pOwner->SetUInt32Value( VisibleBase, item->GetUInt32Value( OBJECT_FIELD_ENTRY ) );
             m_pOwner->SetUInt32Value( VisibleBase+1, item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA ) );
             if(INVSLOT_ITEM(slot) == EQUIPMENT_SLOT_OFFHAND && item->GetProto()->Class == ITEM_CLASS_WEAPON)
-                m_pOwner->SetDuelWield(true);
+                m_pOwner->SetDualWield(true);
             if(m_pOwner->IsInWorld())
                 m_pOwner->ApplyItemMods( item, INVSLOT_ITEM(slot), true );
             if(uint32 itemSet = item->GetProto()->ItemSet)

@@ -69,20 +69,12 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
 void MapMgr::Init(bool Instance)
 {
     m_stateManager = new WorldStateManager(this);
-
-    // Create our script
-    _script = sScriptMgr.CreateMapManagerScriptForMapManager(_mapId, this, Instance);
-
-    sHookInterface.OnContinentCreate(this);
 }
 
 void MapMgr::Destruct()
 {
     sEventMgr.RemoveEvents(this);
     sEventMgr.RemoveEventHolder(m_instanceID);
-
-    _script->Destruct();
-    _script = NULL;
 
     if( m_stateManager != NULL )
     {
@@ -282,7 +274,7 @@ void MapMgr::PushObject(WorldObject* obj)
                 m_CreatureStorage[obj->GetLowGUID()] = creature;
                 if(creature->IsSpawn())
                     _sqlids_creatures.insert(std::make_pair( creature->GetSQL_id(), creature ) );
-                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( creature );
+                TRIGGER_INSTANCE_EVENT( this, OnCreaturePushToWorld )( creature );
             }break;
 
         case HIGHGUID_TYPE_VEHICLE:
@@ -292,7 +284,7 @@ void MapMgr::PushObject(WorldObject* obj)
                 m_VehicleStorage[obj->GetLowGUID()] = vehicle;
                 if(vehicle->IsSpawn())
                     _sqlids_creatures.insert(std::make_pair( vehicle->GetSQL_id(), vehicle ) );
-                CALL_INSTANCE_SCRIPT_EVENT( this, OnCreaturePushToWorld )( vehicle );
+                TRIGGER_INSTANCE_EVENT( this, OnCreaturePushToWorld )( vehicle );
             }break;
         case HIGHGUID_TYPE_GAMEOBJECT:
             {
@@ -300,7 +292,7 @@ void MapMgr::PushObject(WorldObject* obj)
                 m_gameObjectStorage.insert(std::make_pair(obj->GetLowGUID(), go));
                 if( go->m_spawn != NULL)
                     _sqlids_gameobjects.insert(std::make_pair(go->m_spawn->id, go ) );
-                CALL_INSTANCE_SCRIPT_EVENT( this, OnGameObjectPushToWorld )( go );
+                TRIGGER_INSTANCE_EVENT( this, OnGameObjectPushToWorld )( go );
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
 
@@ -377,7 +369,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
             if(castPtr<Vehicle>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Vehicle>(obj)->GetSQL_id());
             if(free_guid) _reusable_guids_vehicle.push_back(obj->GetLowGUID());
             m_VehicleStorage.erase(obj->GetLowGUID());
-            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Vehicle>(obj) );
+            TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Vehicle>(obj) );
         }break;
 
     case HIGHGUID_TYPE_CREATURE:
@@ -386,7 +378,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
             if(castPtr<Creature>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Creature>(obj)->GetSQL_id());
             if(free_guid) _reusable_guids_creature.push_back(obj->GetLowGUID());
             m_CreatureStorage.erase(obj->GetLowGUID());
-            CALL_INSTANCE_SCRIPT_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
+            TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
         }break;
 
     case HIGHGUID_TYPE_PET:
@@ -406,7 +398,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
         {
             m_gameObjectStorage.erase(obj->GetLowGUID());
             if(castPtr<GameObject>(obj)->m_spawn != NULL) _sqlids_gameobjects.erase(castPtr<GameObject>(obj)->m_spawn->id);
-            CALL_INSTANCE_SCRIPT_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
+            TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
             sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
         }break;
 
@@ -1297,12 +1289,10 @@ bool MapMgr::Do()
     sWorldStateTemplateManager.ApplyMapTemplate(this);
 
     // Call script OnLoad virtual procedure
-    CALL_INSTANCE_SCRIPT_EVENT( this, OnLoad )();
+    TRIGGER_INSTANCE_EVENT( this, OnLoad )();
 
     if( GetMapInfo()->type == INSTANCE_NULL )
     {
-        sHookInterface.OnContinentCreate(this);
-
         if(sWorld.ServerPreloading == 2)
         {
 #ifdef _WIN64
@@ -1500,9 +1490,6 @@ void MapMgr::_PerformObjectDuties()
 
     // Update our collision system via singular map system
     sVMapInterface.UpdateSingleMap(_mapId, m_instanceID, diff);
-
-    // Call our script's update function.
-    _script->Update(diff);
 
     // Update players.
     Player* ptr4;

@@ -115,12 +115,13 @@ enum OBJECT_UPDATE_FLAGS
 enum ObjectAreaFlags
 {
     OBJECT_AREA_FLAG_NONE           = 0x00,
-    OBJECT_AREA_FLAG_INCITY         = 0x01,
-    OBJECT_AREA_FLAG_INSANCTUARY    = 0x02,
-    OBJECT_AREA_FLAG_CONTESTED      = 0x04,
-    OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x08,
-    OBJECT_AREA_FLAG_HORDE_ZONE     = 0x10,
-    OBJECT_AREA_FLAG_ARENA_ZONE     = 0x20
+    OBJECT_AREA_FLAG_INDOORS        = 0x01,
+    OBJECT_AREA_FLAG_INCITY         = 0x02,
+    OBJECT_AREA_FLAG_INSANCTUARY    = 0x04,
+    OBJECT_AREA_FLAG_CONTESTED      = 0x08,
+    OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x10,
+    OBJECT_AREA_FLAG_HORDE_ZONE     = 0x20,
+    OBJECT_AREA_FLAG_ARENA_ZONE     = 0x40,
 };
 
 typedef struct
@@ -282,7 +283,6 @@ protected:
     bool m_objectUpdated;
 
 public:
-    // declaration to fix scripting
     RONIN_INLINE ObjectLoot* GetLoot() { return &m_loot; }
     RONIN_INLINE bool IsLooted() { return m_looted; }
     RONIN_INLINE void SetLooted() { m_looted = true; }

@@ -44,9 +44,7 @@ enum ObjectActiveState
 #define MAX_TRANSPORTERS_PER_MAP 25
 #define RESERVE_EXPAND_SIZE 1024
 
-#define FunctionCall(Mgr, Func) Mgr->GetMapScript()->Func
-#define ManagerCheck(Mgr) Mgr != NULL && Mgr->GetMapScript() != NULL
-#define CALL_INSTANCE_SCRIPT_EVENT( Mgr, Func ) if ( ManagerCheck(Mgr) ) FunctionCall(Mgr, Func)
+#define TRIGGER_INSTANCE_EVENT( Mgr, Func )
 
 class SERVER_DECL MapMgr : public CellHandler <MapCell>, public EventableObject, public ThreadContext
 {
@@ -230,8 +228,6 @@ public:
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
     bool CanUseCollision(WorldObject* obj);
 
-    RONIN_INLINE MapManagerScript *GetMapScript() { return _script; }
-
     virtual int32 event_GetInstanceID() { return m_instanceID; }
 
     void UpdateAllCells(bool apply, uint32 areamask = 0);
@@ -317,8 +313,6 @@ private:
     MapInfo *pMapInfo;
     MapEntry* pdbcMap;
     uint32 m_instanceID;
-
-    MapManagerScript *_script;
 
     /* Update System */
     Mutex m_updateMutex;

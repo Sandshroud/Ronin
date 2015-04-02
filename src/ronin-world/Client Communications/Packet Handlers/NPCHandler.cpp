@@ -456,60 +456,6 @@ void WorldSession::HandleGossipSelectOptionOpcode( WorldPacket & recv_data )
 
     recv_data >> guid >> unk24 >> option;
 
-    sLog.Debug("WORLD","CMSG_GOSSIP_SELECT_OPTION Option %i Guid %.8X", option, guid );
-    GossipScript* Script = NULL;
-    Object* qst_giver = NULL;
-    uint32 guidtype = GUID_HIPART(guid);
-
-    if(guidtype == HIGHGUID_TYPE_CREATURE)
-    {
-        Creature* crt = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
-        if(!crt)
-            return;
-
-        qst_giver = crt;
-        Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_CTR, crt->GetEntry());
-    }
-    else if(guidtype == HIGHGUID_TYPE_ITEM)
-    {
-        Item* pitem = _player->GetInventory()->GetInventoryItem(guid);
-        if(pitem == NULL)
-            return;
-
-        qst_giver = pitem;
-        Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_ITEM, pitem->GetEntry());
-    }
-    else if(guidtype == HIGHGUID_TYPE_GAMEOBJECT)
-    {
-        GameObject* gobj = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
-        if(!gobj)
-            return;
-
-        qst_giver = gobj;
-        Script = sScriptMgr.GetRegisteredGossipScript(GTYPEID_GAMEOBJECT, gobj->GetEntry());
-    }
-
-    if(!Script || !qst_giver)
-        return;
-
-    uint32 IntId = 0;
-    if(_player->CurrentGossipMenu)
-    {
-        GossipMenuItem item = _player->CurrentGossipMenu->GetItem(option);
-        IntId = item.IntId;
-        Coded = item.Coded;
-        uint32 money = item.BoxMoney;
-        if(money && (_player->GetUInt32Value(PLAYER_FIELD_COINAGE) >= money)) // Client side checks and whatnot.
-            _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -(int32(money)));
-    }
-
-    if(Coded)
-    {
-        if(recv_data.rpos() != recv_data.wpos())
-            recv_data >> BoxMessage;
-
-        Script->GossipSelectOption(qst_giver, _player, option, IntId, BoxMessage.c_str());
-    } else Script->GossipSelectOption(qst_giver, _player, option, IntId, NULL);
 }
 
 //////////////////////////////////////////////////////////////

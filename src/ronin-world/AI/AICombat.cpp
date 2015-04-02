@@ -28,12 +28,12 @@ void AIInterface::_UpdateCombat(uint32 p_time)
         }
 
         if( m_AIType != AITYPE_PET && (m_outOfCombatRange && m_Unit->GetDistanceSq(GetReturnPos()) > m_outOfCombatRange)
-            && m_AIState != STATE_EVADE && m_AIState != STATE_SCRIPTMOVE && !m_fleeTimer && !m_is_in_instance)
+            && m_AIState != STATE_EVADE && !m_fleeTimer && !m_is_in_instance)
         {
             HandleEvent( EVENT_LEAVECOMBAT, m_Unit, 0 );
             return;
         }
-        else if( m_nextTarget == NULL && m_AIState != STATE_FOLLOWING && m_AIState != STATE_SCRIPTMOVE && !m_fleeTimer )
+        else if( m_nextTarget == NULL && m_AIState != STATE_FOLLOWING && !m_fleeTimer )
         {
             SetNextTarget(GetMostHated());
             if( m_nextTarget == NULL )
@@ -99,8 +99,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
     }
 
     if(m_AIState == STATE_IDLE || m_AIState == STATE_FOLLOWING
-        || m_AIState == STATE_FEAR || m_AIState == STATE_WANDER
-        || m_AIState == STATE_SCRIPTMOVE)
+        || m_AIState == STATE_FEAR || m_AIState == STATE_WANDER)
         return;
     if(m_AIType == AITYPE_PET && m_Unit->IsPet())
     {
@@ -135,7 +134,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
 
                 _CalcDestinationAndMove(m_nextTarget, 10.0f);
                 if(!m_hasFled)
-                    CALL_SCRIPT_EVENT(m_Unit, OnFlee)(m_nextTarget);
+                    TRIGGER_AI_EVENT(m_Unit, OnFlee)(m_nextTarget);
 
                 SetAIState(STATE_FLEEING);
                 SetNextTarget(NULL);
@@ -169,7 +168,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 m_hasCalledForHelp = true; // We only want to call for Help once in a Fight.
                 if( m_Unit->GetTypeId() == TYPEID_UNIT )
                     objmgr.HandleMonsterSayEvent( castPtr<Creature>( m_Unit ), MONSTER_SAY_EVENT_CALL_HELP );
-                CALL_SCRIPT_EVENT( m_Unit, OnCallForHelp )();
+                TRIGGER_AI_EVENT( m_Unit, OnCallForHelp );
                 return;
             }
             else
@@ -253,52 +252,6 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 {
                     if(getUnitToFollow() != NULL)
                         MovementHandler.ClearFollowInformation(getUnitToFollow());
-
-                    if(m_Unit->isAttackReady(false) && !m_fleeTimer && m_AllowedToEnterCombat)
-                    {
-                        m_creatureState = ATTACKING;
-                        bool infront = m_Unit->isTargetInFront(m_nextTarget);
-                        if(!infront) // set InFront
-                        {
-                            // prevent mob from rotating while stunned
-                            if(!m_Unit->IsStunned())
-                            {
-                                setInFront(m_nextTarget);
-                                infront = true;
-                            }
-                        }
-                        else
-                        {
-                            m_Unit->setAttackTimer(0, false);
-                            if(m_nextTarget != NULL)
-                            {
-                                //we require to know if strike was succesfull. If there was no dmg then target cannot be dazed by it
-                                uint32 health_before_strike = m_nextTarget->GetUInt32Value(UNIT_FIELD_HEALTH);
-
-                                m_Unit->Strike( m_nextTarget, MELEE, NULL, 0, 0, 0, false, false, true );
-                                //now if the target is facing his back to us then we could just cast dazed on him :P
-                                //as far as i know dazed is casted by most of the creatures but feel free to remove this code if you think otherwise
-                                if(m_nextTarget != NULL && m_nextTarget->IsPlayer() && !m_Unit->IsPet() && health_before_strike > m_nextTarget->GetUInt32Value(UNIT_FIELD_HEALTH)
-                                    && Rand(m_Unit->CalculateDazeCastChance(m_nextTarget)))
-                                {
-                                    float our_facing = m_Unit->calcRadAngle(m_Unit->GetPositionX(),m_Unit->GetPositionY(),m_nextTarget->GetPositionX(),m_nextTarget->GetPositionY());
-                                    float his_facing = m_nextTarget->GetOrientation();
-                                    if(fabs(our_facing-his_facing) < CREATURE_DAZE_TRIGGER_ANGLE && !m_nextTarget->m_AuraInterface.HasNegativeAura(CREATURE_SPELL_TO_DAZE))
-                                    {
-                                        //This should have a chance to it. It's not always 100%.
-                                        SpellEntry *info = dbcSpell.LookupEntry(CREATURE_SPELL_TO_DAZE);
-                                        if(info == NULL)
-                                            return;
-
-                                        Spell* sp = new Spell(m_Unit, info, false, NULL);
-                                        SpellCastTargets targets;
-                                        targets.m_unitTarget = m_nextTarget->GetGUID();
-                                        sp->prepare(&targets);
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 else // Target out of Range -> Run to it
                 {
@@ -329,35 +282,6 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 {
                     if(getUnitToFollow() != NULL)
                         MovementHandler.ClearFollowInformation(getUnitToFollow());
-
-                    // FIXME: offhand shit
-                    if(m_Unit->isAttackReady(false) && !m_fleeTimer && m_AllowedToEnterCombat)
-                    {
-                        m_creatureState = ATTACKING;
-                        bool infront = m_Unit->isTargetInFront(m_nextTarget);
-
-                        if(!infront) // set InFront
-                        {
-                            //prevent mob from rotating while stunned
-                            if(!m_Unit->IsStunned())
-                            {
-                                setInFront(m_nextTarget);
-                                infront = true;
-                            }
-                        }
-                        else
-                        {
-                            m_Unit->setAttackTimer(0, false);
-                            SpellEntry *info = dbcSpell.LookupEntry(3018);
-                            if(info)
-                            {
-                                Spell* sp = NULL;
-                                sp = new Spell(m_Unit, info, false, NULL);
-                                SpellCastTargets targets(m_nextTarget->GetGUID());
-                                sp->prepare(&targets);
-                            }
-                        }
-                    }
                 }
                 else // Target out of Range -> Run to/from it, depending on current distance
                 {
@@ -436,7 +360,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         // Find new Assist Targets and remove old ones
         if(m_AIState == STATE_FLEEING)
             FindFriends(100.0f/*11.0*/);
-        else if(m_AIState != STATE_IDLE && m_AIState != STATE_SCRIPTIDLE)
+        else if(m_AIState != STATE_IDLE)
             FindFriends(16.0f/*4.0f*/);
     }
 
@@ -468,7 +392,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         if(m_aiTargets.size() == 0
             && m_AIState != STATE_IDLE && m_AIState != STATE_FOLLOWING
             && m_AIState != STATE_EVADE && m_AIState != STATE_FEAR
-            && m_AIState != STATE_WANDER && m_AIState != STATE_SCRIPTIDLE)
+            && m_AIState != STATE_WANDER)
         {
             if(firstLeaveCombat)
             {
@@ -486,7 +410,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         }
 
         // Find new Targets when we are ooc
-        if(m_AIState == STATE_IDLE || m_AIState == STATE_SCRIPTIDLE)
+        if(m_AIState == STATE_IDLE)
         {
             Unit* target = FindTarget();
             if(target)

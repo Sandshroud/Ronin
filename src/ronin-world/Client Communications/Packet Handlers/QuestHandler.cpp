@@ -291,11 +291,9 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     if(qst->count_required_item || qst_giver->GetTypeId() == TYPEID_GAMEOBJECT) // gameobject quests deactivate
         _player->UpdateNearbyGameObjects();
 
-    CALL_QUESTSCRIPT_EVENT(qst->id, OnQuestStart)(_player, qle);
+    TRIGGER_QUEST_EVENT(qst->id, OnQuestStart)(_player, qle);
 
     sQuestMgr.OnQuestAccepted(_player,qst,qst_giver);
-
-    sHookInterface.OnQuestAccept(_player, qst, qst_giver);
 }
 
 void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
@@ -323,7 +321,7 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    CALL_QUESTSCRIPT_EVENT(qPtr->id, OnQuestCancel)(_player);
+    TRIGGER_QUEST_EVENT(qPtr->id, OnQuestCancel)(_player);
 
     qEntry->Finish();
 
@@ -349,8 +347,6 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
 
     _player->UpdateNearbyQuestGivers();
     _player->UpdateNearbyGameObjects();
-
-    sHookInterface.OnQuestCancelled(_player, qPtr);
 
     _player->SaveToDB(false);
 }
@@ -525,8 +521,6 @@ void WorldSession::HandleQuestgiverCompleteQuestOpcode( WorldPacket & recvPacket
         SendPacket(&data);
         sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_REQUEST_ITEMS." );
     }
-
-    sHookInterface.OnQuestFinished(_player, qst, qst_giver);
 }
 
 void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)

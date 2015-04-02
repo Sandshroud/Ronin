@@ -365,7 +365,7 @@ bool AIInterface::FindFriends(float dist)
             continue;
         if(pCreature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9))
             continue;
-        if( pCreature->GetAIInterface()->getAIState() != STATE_IDLE && pCreature->GetAIInterface()->getAIState() != STATE_SCRIPTIDLE )
+        if( pCreature->GetAIInterface()->getAIState() != STATE_IDLE )
             continue;
         if( !sFactionSystem.CanEitherUnitAttack(GetMostHated(), pCreature) )
             continue;

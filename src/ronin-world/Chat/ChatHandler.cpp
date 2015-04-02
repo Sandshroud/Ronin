@@ -161,9 +161,6 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
     if(!_player->bGMTagOn && !ValidateText2(message))
         return;
 
-    if(!sHookInterface.OnChat(_player, type, lang, message, miscName))
-        return;
-
     if( lang != -1 && !GetPermissionCount() )
     {
         if(sWorld.flood_lines)
@@ -557,8 +554,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
             }break;
         }
 
-        sHookInterface.OnEmote(_player, EmoteType(emText->textId), pUnit);
-        if(pUnit) CALL_SCRIPT_EVENT(pUnit,OnEmote)(_player, EmoteType(emText->textId));
+        if(pUnit) TRIGGER_AI_EVENT(pUnit,OnEmote)(_player, EmoteType(emText->textId));
 
         data.Initialize(SMSG_TEXT_EMOTE);
         data << GetPlayer()->GetGUID();

@@ -184,12 +184,12 @@ void AI_Movement::Update(uint32 p_time)
                     m_moveType = MOVEMENTTYPE_DONTMOVEWP;
 
                 float wayO = m_nextPosO;
-                if((GetWayPointsCount() != 0) && (getAIState() == STATE_IDLE || getAIState() == STATE_SCRIPTMOVE)) //if we attacking don't use wps
+                if((GetWayPointsCount() != 0) && (getAIState() == STATE_IDLE)) //if we attacking don't use wps
                 {
                     WayPoint* wp = getWayPoint(getCurrentWaypoint());
                     if(wp)
                     {
-                        CALL_SCRIPT_EVENT(m_Unit, OnReachWP)(wp->id, !m_moveBackward);
+                        TRIGGER_AI_EVENT(m_Unit, OnReachWP)(wp->id, !m_moveBackward);
                         if(castPtr<Creature>(m_Unit)->has_waypoint_text)
                             objmgr.HandleMonsterSayEvent(castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
 
@@ -266,7 +266,7 @@ void AI_Movement::Update(uint32 p_time)
                 UpdateMove();
         }
     }
-    else if(getCreatureState() == STOPPED && (getAIState() == STATE_IDLE || getAIState() == STATE_SCRIPTMOVE) && !m_moveTimer && !m_timeToMove && UnitToFollow == NULL) //creature is stopped and out of Combat
+    else if(getCreatureState() == STOPPED && (getAIState() == STATE_IDLE) && !m_moveTimer && !m_timeToMove && UnitToFollow == NULL) //creature is stopped and out of Combat
     {
         if(m_Unit->GetUInt32Value(UNIT_FIELD_DISPLAYID) == 5233) //if Spirit Healer don't move
             return;

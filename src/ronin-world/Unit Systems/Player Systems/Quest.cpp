@@ -336,7 +336,7 @@ void QuestLogEntry::SendQuestComplete()
     WorldPacket data(SMSG_QUESTUPDATE_COMPLETE, 4);
     data << m_quest->id;
     m_Player->GetSession()->SendPacket(&data);
-    CALL_QUESTSCRIPT_EVENT(m_quest->id, OnQuestComplete)(m_Player, this);
+    TRIGGER_QUEST_EVENT(m_quest->id, OnQuestComplete)(m_Player, this);
 }
 
 void QuestLogEntry::SendUpdateAddKill(uint8 i)

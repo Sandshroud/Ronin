@@ -32,11 +32,6 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         SKIP_READ_PACKET(recvPacket);
         return;
     }
-    if(!sHookInterface.OnCastSpell(_player, spellInfo))
-    {
-        SKIP_READ_PACKET(recvPacket);
-        return;
-    }
 
     if(!_player->isAlive() && !spellInfo->isCastableWhileDead())
     {

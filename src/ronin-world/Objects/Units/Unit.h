@@ -400,13 +400,13 @@ public:
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
 
-    void setAttackTimer(int32 time, bool offhand);
-    bool isAttackReady(bool offhand);
+    void resetAttackTimer(uint8 typeMask);
+    void resetAttackDelay(uint8 typeMask);
     bool __fastcall canReachWithAttack(Unit* pVictim);
 
-    RONIN_INLINE void SetDuelWield(bool enabled)
+    RONIN_INLINE void SetDualWield(bool enabled)
     {
-        m_duelWield = enabled;
+        m_dualWield = enabled;
     }
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
@@ -604,8 +604,6 @@ public:
     uint32 m_triggerSpell;
     uint32 m_triggerDamage;
     uint32 m_canMove;
-
-    uint32 m_lastHauntInitialDamage;
 
     // Spell Effect Variables
     int32 m_silenced;
@@ -1018,7 +1016,6 @@ public:
 
     void OnPositionChange();
     void Dismount();
-    //  custom functions for scripting
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 
 protected:
@@ -1045,9 +1042,8 @@ public:
     uint32 m_p_DelayTimer;
     float m_Total_Regen;
     uint32 m_state;      // flags for keeping track of some states
-    uint32 m_attackTimer;   // timer for attack
-    uint32 m_attackTimer_1;
-    bool m_duelWield;
+    uint16 m_attackInterrupt, m_attackTimer[3], m_attackDelay[3];
+    bool m_attacking, m_dualWield, m_autoShot;
 
     /// Combat
     DeathState m_deathState;

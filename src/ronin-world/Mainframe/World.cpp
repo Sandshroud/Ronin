@@ -513,8 +513,6 @@ bool World::SetInitialWorldSettings()
             NavMeshInterface.Init();
     }
 
-    sScriptMgr.LoadScripts();
-
     // calling this puts all maps into our task list.
     sInstanceMgr.Load(&tl);
 
@@ -1221,10 +1219,6 @@ void World::Rehash(bool load)
 
     sLog.Init(mainIni->ReadInteger("LogLevel", "Screen", 1));
     QueryLog = mainIni->ReadBoolean("LogLevel", "Query", false);
-
-    // Script configs
-    LuaScriptPath = mainIni->ReadString("Script", "LuaScriptsLocation", "scripts");
-    GameMonkeyScriptPath = mainIni->ReadString("Script", "GameMonkeyScriptsLocation", "scripts");
 
     // Data configs
     DBCPath = mainIni->ReadString("Data", "DBCPath", "dbc");

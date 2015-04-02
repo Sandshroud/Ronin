@@ -5,7 +5,6 @@
 #pragma once
 
 class CreatureTemplate;
-class GossipScript;
 
 #define MAX_CREATURE_ITEMS 128
 #define MAX_CREATURE_LOOT 8
@@ -167,11 +166,9 @@ struct PetSpellCooldown
     int32 cooldown;
 };
 
-class CreatureAIScript;
-class GossipScript;
 class AuctionHouse;
 struct Trainer;
-#define CALL_SCRIPT_EVENT(obj, func) if(obj->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(obj)->GetScript() != NULL) castPtr<Creature>(obj)->GetScript()->func
+#define TRIGGER_AI_EVENT(obj, func)
 
 ///////////////////
 /// Creature object
@@ -409,10 +406,6 @@ public:
     RONIN_INLINE bool IsPickPocketed() { return m_PickPocketed; }
     RONIN_INLINE void SetPickPocketed(bool val = true) { m_PickPocketed = val; }
 
-    RONIN_INLINE CreatureAIScript * GetScript() { return _myScriptClass; }
-    void UpdateAIScript();
-    void LoadScript();
-
     uint32 m_TaxiNode;
     const char* GetName() { return _creatureData->Name;  }
 
@@ -430,7 +423,6 @@ public:
     uint32 GetRespawnTime() { if(_creatureData != NULL) return _creatureData->RespawnTime; else return 0; }
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
-    void TriggerScriptEvent(int);
 
     AuctionHouse * auctionHouse;
 
@@ -465,7 +457,6 @@ protected:
     CreatureInfoExtra * _extraInfo;
     LocationVector m_spawnLocation;
 
-    CreatureAIScript *_myScriptClass;
     bool m_limbostate;
     Trainer* mTrainer;
 
@@ -486,7 +477,6 @@ protected:
 
     bool m_PickPocketed;
 public:
-    //  custom functions for scripting
     RONIN_INLINE uint32 GetProtoItemDisplayId(uint8 i) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i); }
 
     // loooooot

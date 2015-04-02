@@ -1345,12 +1345,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             castPtr<Player>(this)->CreateResetGuardHostileFlagEvent();
         }
 
-        if(pVictim->IsPlayer() && !pVictim->CombatStatus.IsInCombat())
-            sHookInterface.OnEnterCombat( castPtr<Player>( pVictim ), castPtr<Unit>(this) );
-
-        if(IsPlayer() && ! castPtr<Player>(this)->CombatStatus.IsInCombat())
-            sHookInterface.OnEnterCombat( castPtr<Player>(this), castPtr<Player>(this) );
-
         if(plr != NULL && pVictim->IsCreature())
             castPtr<Creature>(pVictim)->Tag(plr);
 
@@ -1456,12 +1450,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     /* -------------------------- HIT THAT CAUSES VICTIM TO DIE ---------------------------*/
     if ((isCritter || health <= damage) )
     {
-        if( IsUnit() )
-        {
-            if(!sHookInterface.OnPreUnitDie( castPtr<Unit>(this), pVictim) )
-                return 0;
-        }
-
         if( pVictim->HasDummyAura(SPELL_HASH_GUARDIAN_SPIRIT) )
         {
             pVictim->CastSpell(pVictim, dbcSpell.LookupEntry(48153), true);
@@ -1511,7 +1499,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
-            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
+            TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
         }
         else
         {
@@ -1521,7 +1509,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
 
-            CALL_INSTANCE_SCRIPT_EVENT( m_mapMgr, OnCreatureDeath )( castPtr<Creature>(pVictim), pKiller );
+            TRIGGER_INSTANCE_EVENT( m_mapMgr, OnCreatureDeath )( castPtr<Creature>(pVictim), pKiller );
         }
 
         pVictim->SummonExpireAll(false);
@@ -1647,13 +1635,10 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             if( plr->m_bg != NULL )
                 plr->m_bg->HookOnPlayerKill( plr, pVictim );
-            CALL_INSTANCE_SCRIPT_EVENT( plr->GetMapMgr(), OnPlayerKillPlayer )( plr, pVictim );
+            TRIGGER_INSTANCE_EVENT( plr->GetMapMgr(), OnPlayerKillPlayer )( plr, pVictim );
 
             if( pVictim->IsPlayer() )
-            {
-                sHookInterface.OnKillPlayer( plr, castPtr<Player>( pVictim ) );
                 HonorHandler::OnPlayerKilled( plr, castPtr<Player>( pVictim ) );
-            }
             else
             {
                 // REPUTATION
@@ -1678,15 +1663,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         // player loot for battlegrounds
         if( pVictim->IsPlayer() )
         {
-            // set skinning flag, this is the "remove insignia"
-            if(ManagerCheck(m_mapMgr))
-            {
-                if(FunctionCall(m_mapMgr, MapSupportsPlayerLoot)())
-                {
-                    pVictim->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
-                    castPtr<Player>(pVictim)->m_insigniaTaken = false;
-                }
-            }
             if( castPtr<Player>(pVictim)->m_bg != NULL && castPtr<Player>(pVictim)->m_bg->SupportsPlayerLoot() )
             {
                 pVictim->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
@@ -1852,8 +1828,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             /* -------------------- REMOVE PET WHEN PLAYER DIES END---------------*/
         } else sLog.outDebug("DealDamage for unknown obj.");
 
-        if(IsUnit())
-            sHookInterface.OnPostUnitDie(castPtr<Unit>(this), pVictim);
         return health;
     }
     else /* ---------- NOT DEAD YET --------- */
@@ -2223,13 +2197,12 @@ uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
 
 void WorldObject::UpdateAreaInfo(MapMgr *mgr)
 {
+    m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && !IsInWorld())
     {
-        m_areaFlags = 0;
         m_zoneId = m_areaId = 0;
         return;
-    }
-    else if(mgr == NULL)
+    } else if(mgr == NULL)
         mgr = GetMapMgr();
 
     m_zoneId = m_areaId = mgr->GetAreaID(GetPositionX(), GetPositionY(), GetPositionZ());
@@ -2239,7 +2212,8 @@ void WorldObject::UpdateAreaInfo(MapMgr *mgr)
     if(at != NULL && at->ZoneId) // Set our Zone on add to world!
         SetZoneId(at->ZoneId);
 
-    m_areaFlags = OBJECT_AREA_FLAG_NONE;
+    if(sVMapInterface.IsIndoor(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
+        m_areaFlags |= OBJECT_AREA_FLAG_INDOORS;
     if(sVMapInterface.IsIncity(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
         m_areaFlags |= OBJECT_AREA_FLAG_INCITY;
     if(m_zoneId || m_areaId)

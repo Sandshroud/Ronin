@@ -172,8 +172,7 @@ enum QUEST_MOB_TYPES
     QUEST_MOB_TYPE_GAMEOBJECT = 1,
 };
 
-#define CALL_QUESTSCRIPT_EVENT(id, func) if(sScriptMgr.GetQuestScript(id) != NULL)\
-    sScriptMgr.GetQuestScript(id)->func
+#define TRIGGER_QUEST_EVENT(id, func)
 
 enum QuestCompletionStatus : uint8
 {

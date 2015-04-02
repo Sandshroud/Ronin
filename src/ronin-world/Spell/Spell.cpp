@@ -1887,9 +1887,6 @@ void Spell::finish()
 
     if( p_caster)
     {
-        if(!GetSpellFailed())
-            sHookInterface.OnPostSpellCast( p_caster, GetSpellProto(), unitTarget );
-
         if(p_caster->CooldownCheat && GetSpellProto())
             p_caster->ClearCooldownForSpell(GetSpellProto()->Id);
 
@@ -2472,8 +2469,6 @@ void Spell::HandleEffects(uint32 i)
     sLog.Debug( "Spell","Handling Effect id = %u, damage = %d", GetSpellProto()->Effect[i], damage);
 
     uint32 effect = GetSpellProto()->Effect[i];
-    sScriptMgr.HandleSpellEffectMod(GetSpellProto()->Id, i, this, effect);
-
     if( effect < TOTAL_SPELL_EFFECTS)
         (*this.*SpellEffectsHandler[effect])(i);
     else

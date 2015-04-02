@@ -423,9 +423,6 @@ void Spell::SpellEffectSchoolDMG(uint32 i) // dmg school
 
 void Spell::SpellEffectDummy(uint32 i) // Dummy(Scripted events)
 {
-    if(sScriptMgr.CallScriptedDummySpell(m_spellInfo->Id, i, this))
-        return;
-
     sLog.outDebug("Dummy spell not handled: %u%s\n", m_spellInfo->Id, ((ProcedOnSpell != NULL) ? (format(" proc'd on: %u", ProcedOnSpell->Id).c_str()) : ""));
 }
 
@@ -1157,8 +1154,6 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
                 if(p_caster->m_bg->HookSlowLockOpen(gameObjTarget,p_caster,this))
                     return;
 
-            sHookInterface.OnSlowLockOpen(gameObjTarget,p_caster);
-
             uint32 spellid = 23932;
             if(gameObjTarget->GetInfo()->RawData.ListedData[10])
                 spellid = gameObjTarget->GetInfo()->RawData.ListedData[10];
@@ -1189,8 +1184,8 @@ void Spell::SpellEffectOpenLock(uint32 i) // Open Lock
 
             if( gameObjTarget->GetType() == GAMEOBJECT_TYPE_GOOBER)
             {
-                CALL_GO_SCRIPT_EVENT(gameObjTarget, OnActivate)(castPtr<Player>(p_caster));
-                CALL_INSTANCE_SCRIPT_EVENT( gameObjTarget->GetMapMgr(), OnGameObjectActivate )( gameObjTarget, p_caster );
+                TRIGGER_GO_EVENT(gameObjTarget, OnActivate)(castPtr<Player>(p_caster));
+                TRIGGER_INSTANCE_EVENT( gameObjTarget->GetMapMgr(), OnGameObjectActivate )( gameObjTarget, p_caster );
             }
 
             if(sQuestMgr.OnGameObjectActivate(p_caster, gameObjTarget))
@@ -1222,8 +1217,8 @@ void Spell::SpellEffectOpenLockItem(uint32 i)
     if( caster->IsPlayer() && sQuestMgr.OnGameObjectActivate( (castPtr<Player>(caster)), gameObjTarget ) )
         castPtr<Player>(caster)->UpdateNearbyGameObjects();
 
-    CALL_GO_SCRIPT_EVENT(gameObjTarget, OnActivate)(castPtr<Player>(caster));
-    CALL_INSTANCE_SCRIPT_EVENT( gameObjTarget->GetMapMgr(), OnGameObjectActivate )( gameObjTarget, castPtr<Player>( caster ) );
+    TRIGGER_GO_EVENT(gameObjTarget, OnActivate)(castPtr<Player>(caster));
+    TRIGGER_INSTANCE_EVENT( gameObjTarget->GetMapMgr(), OnGameObjectActivate )( gameObjTarget, castPtr<Player>( caster ) );
     gameObjTarget->SetState(0);
 
     if( gameObjTarget->GetType() == GAMEOBJECT_TYPE_CHEST)
@@ -1271,12 +1266,6 @@ void Spell::SpellEffectProficiency(uint32 i)
 
 void Spell::SpellEffectSendEvent(uint32 i) //Send Event
 {
-    //This is mostly used to trigger events on quests or some places
-    if(sScriptMgr.CallScriptedDummySpell(m_spellInfo->Id, i, this))
-        return;
-    if(sScriptMgr.HandleScriptedSpellEffect(m_spellInfo->Id, i, this))
-        return;
-
     sLog.outDebug("Event spell not handled: %u%s\n", m_spellInfo->Id, ((ProcedOnSpell != NULL) ? (format(" proc'd on: %u", ProcedOnSpell->Id).c_str()) : ""));
 }
 
@@ -2203,13 +2192,6 @@ void Spell::SpellEffectSummonObjectWild(uint32 i)
 
 void Spell::SpellEffectScriptEffect(uint32 i) // Script Effect
 {
-    // Try a dummy SpellHandler
-    if(sScriptMgr.CallScriptedDummySpell(m_spellInfo->Id, i, this))
-        return;
-
-    if(sScriptMgr.HandleScriptedSpellEffect(m_spellInfo->Id, i, this))
-        return;
-
     sLog.outDebug("Unhandled Scripted Effect In Spell %u", m_spellInfo->Id);
 }
 
@@ -2258,15 +2240,6 @@ void Spell::SpellEffectDuel(uint32 i) // Duel
 
     uint32 areaId = p_caster->GetAreaId();
     AreaTableEntry * at = dbcAreaTable.LookupEntry(areaId);
-    if( sWorld.FunServerMall != -1 && areaId == (uint32)sWorld.FunServerMall )
-    {
-        if(at != NULL)
-            p_caster->SendAreaTriggerMessage("Sandshroud System: Dueling is not allowed in %s.", at->name);
-        else
-            p_caster->SendAreaTriggerMessage("Sandshroud System: Dueling is not allowed in the mall.");
-        return;
-    }
-
     if(p_caster->HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
     {
         SendCastResult(SPELL_FAILED_NO_DUELING);
@@ -2519,8 +2492,7 @@ void Spell::SpellEffectCharge(uint32 i)
     u_caster->addStateFlag(UF_ATTACKING);
     if(unitTarget)
         u_caster->smsg_AttackStart( unitTarget );
-    u_caster->setAttackTimer(time, false);
-    u_caster->setAttackTimer(time, true);
+    u_caster->resetAttackTimer(0xFF);
     if(p_caster) p_caster->EventAttackStart();
 }
 

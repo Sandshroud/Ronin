@@ -57,7 +57,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     if(pUnit->GetInstanceID() == m_Unit->GetInstanceID())
         m_Unit->SetUInt64Value(UNIT_FIELD_TARGET, pUnit->GetGUID());
 
-    CALL_SCRIPT_EVENT(m_Unit, OnCombatStart)(pUnit);
+    TRIGGER_AI_EVENT(m_Unit, OnCombatStart)(pUnit);
 
     //Mark raid as combat in progress if it concerns a boss
     if(m_Unit->IsCreature())
@@ -156,7 +156,7 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
     }
     else
     {
-        CALL_SCRIPT_EVENT(m_Unit, OnCombatStop)(getUnitToFollow());
+        TRIGGER_AI_EVENT(m_Unit, OnCombatStop)(getUnitToFollow());
         m_AIState = STATE_EVADE;
 
         SetUnitToFollow(NULL);
@@ -194,7 +194,7 @@ void AIInterface::EventDamageTaken(Unit* pUnit, uint32 misc1)
 
     pUnit->RemoveAura(24575);
 
-    CALL_SCRIPT_EVENT(m_Unit, OnDamageTaken)(pUnit, float(misc1));
+    TRIGGER_AI_EVENT(m_Unit, OnDamageTaken)(pUnit, float(misc1));
     modThreat(pUnit->GetGUID(), misc1, pUnit->GetInRangeRedirectThreat());
     pUnit->CombatStatus.OnDamageDealt(m_Unit, 1);
 }
@@ -228,7 +228,7 @@ void AIInterface::EventFear(Unit* pUnit, uint32 misc1)
     setFearTimer(0);
     SetUnitToFear(pUnit);
 
-    CALL_SCRIPT_EVENT(m_Unit, OnFear)(pUnit, 0);
+    TRIGGER_AI_EVENT(m_Unit, OnFear)(pUnit, 0);
     m_AIState = STATE_FEAR;
     StopMovement(1);
 
@@ -262,7 +262,7 @@ void AIInterface::EventWander(Unit* /*pUnit*/, uint32 misc1)
 {
     setWanderTimer(0);
 
-    //CALL_SCRIPT_EVENT(m_Unit, OnWander)(pUnit, 0); FIXME
+    //TRIGGER_AI_EVENT(m_Unit, OnWander)(pUnit, 0); FIXME
     m_AIState = STATE_WANDER;
     StopMovement(1);
 
@@ -302,7 +302,7 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
         ClearFollowInformation();
     }
 
-    CALL_SCRIPT_EVENT(m_Unit, OnDied)(pUnit);
+    TRIGGER_AI_EVENT(m_Unit, OnDied)(pUnit);
 
     m_AIState = STATE_IDLE;
 

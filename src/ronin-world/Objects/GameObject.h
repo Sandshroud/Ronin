@@ -5,8 +5,6 @@
 #pragma once
 
 class Player;
-class GameObjectAIScript;
-class GameObjectTemplate;
 
 enum GAMEOBJECT_BYTES
 {
@@ -334,7 +332,7 @@ struct GameObjectInfo
 
 #pragma pack(PRAGMA_POP)
 
-#define CALL_GO_SCRIPT_EVENT(obj, func) if(obj->GetTypeId() == TYPEID_GAMEOBJECT && obj->GetScript() != NULL) obj->GetScript()->func
+#define TRIGGER_GO_EVENT(obj, func)
 
 class SERVER_DECL GameObject : public WorldObject
 {
@@ -414,7 +412,6 @@ public:
 
     bool initiated;
     bool m_created;
-    bool m_scripted_use;
     float range;
     uint8 checkrate;
     uint16 counter;
@@ -425,8 +422,6 @@ public:
     int8 bannerslot;
     int8 bannerauraslot;
     CBattleground* m_battleground;
-
-    RONIN_INLINE GameObjectAIScript* GetScript() { return myScript; }
 
     void TrapSearchTarget();    // Traps need to find targets faster :P
 
@@ -446,12 +441,9 @@ public:
     uint32 GetGOReqSkill();
     MapCell * m_respawnCell;
 
-    RONIN_INLINE void SetScript(GameObjectAIScript *pScript) { myScript = pScript; }
-
     // loooot
     void GenerateLoot();
 
-//  custom functions for scripting
     void SetState(uint8 state) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state); }
     uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
     void SetAnimProgress(uint32 animprogress) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, animprogress ); }
@@ -493,7 +485,6 @@ protected:
     bool m_summonedGo;
     bool m_deleted;
     GameObjectInfo *pInfo;
-    GameObjectAIScript * myScript;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX]; // Crow: We could probably get away with using doubles...
     typedef std::map<uint32,uint64> ChairSlotAndUser;
     ChairSlotAndUser ChairListSlots;

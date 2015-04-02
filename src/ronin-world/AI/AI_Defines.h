@@ -79,9 +79,7 @@ enum AI_State
     STATE_MOVEWP,
     STATE_FEAR,
     STATE_WANDER,
-    STATE_STOPPED,
-    STATE_SCRIPTMOVE,
-    STATE_SCRIPTIDLE
+    STATE_STOPPED
 };
 
 enum AiEvents

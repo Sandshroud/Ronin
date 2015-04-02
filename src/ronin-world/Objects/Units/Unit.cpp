@@ -8,10 +8,10 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
 
-    m_lastHauntInitialDamage = 0;
-    m_attackTimer = 0;
-    m_attackTimer_1 = 0;
-    m_duelWield = false;
+    m_attackInterrupt = 0;
+    memset(&m_attackTimer, 0, sizeof(uint16)*3);
+    memset(&m_attackDelay, 0, sizeof(uint16)*3);
+    m_attacking = m_dualWield = m_autoShot = false;
 
     baseStats = NULL;
     m_statValuesChanged = false;
@@ -263,6 +263,46 @@ void Unit::Update( uint32 p_time )
         }
 
         CombatStatus.UpdateTargets();
+
+        if(m_attackInterrupt)
+        {
+            if(m_attackInterrupt <= p_time)
+                m_attackInterrupt = 0;
+            else m_attackInterrupt -= p_time;
+        }
+
+        if(m_attackInterrupt == 0 && false)//m_isAttacking)
+        {
+            m_attackTimer[0] += p_time;
+            if(m_attackTimer[0] >= m_attackDelay[0])
+            {
+                //_EventAttack(MELEE);
+                m_attackTimer[0] = 0;
+            }
+
+            if(m_dualWield)
+            {
+                m_attackTimer[1] += p_time;
+                if(m_attackTimer[1] >= m_attackDelay[1])
+                {
+                    //_EventAttack(OFFHAND);
+                    m_attackTimer[1] = 0;
+                }
+            }
+
+            if(m_attackTimer[2])
+            {
+                if(m_attackTimer[2] <= p_time)
+                    m_attackTimer[2] = 0;
+                else m_attackTimer[2] -= p_time;
+            }
+
+            if( m_autoShot && m_attackTimer[2] == 0 )
+            {
+                //_EventAttack(RANGED);
+                m_attackTimer[2] = m_attackDelay[2];
+            }
+        }
 
         /*-----------------------POWER & HP REGENERATION-----------------*/
         if( p_time >= m_H_regenTimer )
@@ -2145,8 +2185,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
             pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
-        CALL_SCRIPT_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
-        CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
+        TRIGGER_AI_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
+        TRIGGER_AI_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
         targetEvent = 1;
         vstate = DODGE;
         pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
@@ -2207,8 +2247,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
             pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
-        CALL_SCRIPT_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
-        CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
+        TRIGGER_AI_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
+        TRIGGER_AI_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
         targetEvent = 3;
         vstate = PARRY;
         pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
@@ -2332,8 +2372,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
                         if(dmg.full_damage <= (int32)blocked_damage)
                         {
-                            CALL_SCRIPT_EVENT(pVictim, OnTargetBlocked)(castPtr<Unit>(this), blocked_damage);
-                            CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnBlocked)(pVictim, blocked_damage);
+                            TRIGGER_AI_EVENT(pVictim, OnTargetBlocked)(castPtr<Unit>(this), blocked_damage);
+                            TRIGGER_AI_EVENT(castPtr<Unit>(this), OnBlocked)(pVictim, blocked_damage);
                             vstate = BLOCK;
                         }
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
@@ -2411,8 +2451,8 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
                     //emote
                     pVictim->Emote(EMOTE_ONESHOT_WOUND_CRITICAL);
 
-                    CALL_SCRIPT_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
-                    CALL_SCRIPT_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
+                    TRIGGER_AI_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
+                    TRIGGER_AI_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
                 } break;
 //--------------------------------crushing blow---------------------------------------------
             case 6:
@@ -3979,25 +4019,25 @@ void Unit::EventCancelSpell(Spell* ptr)
         m_currentSpell = NULL;
 }
 
-void Unit::setAttackTimer(int32 time, bool offhand)
+void Unit::resetAttackTimer(uint8 typeMask)
 {
-    if(!time)
-        time = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + (offhand ? 1 : 0));
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if((typeMask & 1<<i) == 0)
+            continue;
 
-    time = std::max(1000, float2int32(float(time) * GetFloatValue(UNIT_MOD_CAST_SPEED)));
-    if(time > 300000)       // just in case.. shouldn't happen though
-        time = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + (offhand ? 1 : 0));
-
-    if(offhand)
-        m_attackTimer_1 = getMSTime() + time;
-    else m_attackTimer = getMSTime() + time;
+        m_attackTimer[i] = 0;
+    }
 }
 
-bool Unit::isAttackReady(bool offhand)
+void Unit::resetAttackDelay(uint8 typeMask)
 {
-    if(offhand)
-        return (getMSTime() >= m_attackTimer_1) ? true : false;
-    return (getMSTime() >= m_attackTimer) ? true : false;
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if((typeMask & 1<<i) == 0)
+            continue;
+        m_attackDelay[i] = std::max<uint32>(1000, std::min<uint32>(0x7FFF, std::ceil(float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))*GetCastSpeedMod())));
+    }
 }
 
 void Unit::EventModelChange()

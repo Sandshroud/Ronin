@@ -19,7 +19,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
     m_quests = NULL;
     IP_shield = NULL;
     m_SellItems = NULL;
-    _myScriptClass = NULL;
     mTrainer = NULL;
     auctionHouse = NULL;
     m_escorter = NULL;
@@ -69,9 +68,6 @@ void Creature::Destruct()
 
     if(m_escorter)
         m_escorter = NULL;
-
-    if(_myScriptClass != 0)
-        _myScriptClass->Destroy();
 
     if(m_custom_waypoint_map != 0)
     {
@@ -293,18 +289,6 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
     WorldDatabase.Execute(ss.str().c_str());
     if(newSpawn && IsInWorld())
         GetMapMgr()->AddSpawn(GetMapMgr()->GetPosX(m_spawn->x), GetMapMgr()->GetPosY(m_spawn->y), m_spawn);
-}
-
-void Creature::LoadScript()
-{
-    _myScriptClass = sScriptMgr.CreateAIScriptClassForEntry(castPtr<Creature>(this));
-    if(_myScriptClass && _myScriptClass->LuaScript)
-        sEventMgr.AddEvent(this, &Creature::UpdateAIScript, EVENT_AI_UPDATE, 50, 0, 0);
-}
-
-void Creature::UpdateAIScript()
-{
-    _myScriptClass->AIUpdate(NULL, 0);
 }
 
 void Creature::DeleteFromDB()
@@ -1149,11 +1133,7 @@ void Creature::OnPushToWorld()
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
             CastSpell(this, sp, true);
 
-    LoadScript();
     Unit::OnPushToWorld();
-
-    if(_myScriptClass)
-        _myScriptClass->OnLoad();
 
     if(m_spawn)
     {
@@ -1218,12 +1198,6 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
         SetPosition( m_spawnLocation);
         m_respawnCell = pCell;
     } else Unit::RemoveFromWorld(true);
-}
-
-void Creature::TriggerScriptEvent(int ref)
-{
-    if( _myScriptClass )
-        _myScriptClass->StringFunctionCall(ref);
 }
 
 void Creature::DestroyCustomWaypointMap()

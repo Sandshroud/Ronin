@@ -496,7 +496,6 @@ void Arena::Finish()
             if( plr->m_bgScore.DamageDone == 0 && plr->m_bgScore.HealingDone == 0 )
                 continue;
 
-            sHookInterface.OnArenaFinish(plr, m_arenateamtype, plr->m_playerInfo->arenaTeam[m_arenateamtype], victorious, rated_match);
             plr->ResetAllCooldowns();
         }
     }

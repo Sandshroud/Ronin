@@ -1312,14 +1312,6 @@ public:
     const float& GetBindPositionZ( ) const { return m_bind_pos_z; }
     const uint32& GetBindMapId( ) const { return m_bind_mapid; }
     const uint32& GetBindZoneId( ) const { return m_bind_zoneid; }
-    void delayAttackTimer(int32 delay)
-    {
-        if(!delay)
-            return;
-
-        m_attackTimer += delay;
-        m_attackTimer_1 += delay;
-    }
 
     void SetShapeShift(uint8 ss);
     uint32 GetSpellForShapeshiftForm(uint8 ss, bool spellchecks = false);
@@ -1899,10 +1891,6 @@ protected:
 
     uint32 m_mountCheckTimer;
     void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
-
-public:
-    uint32 m_mallCheckTimer;
-    uint32 m_UpdateHookTimer;
 
 public:
     std::map<uint32, uint32> m_forcedReactions;

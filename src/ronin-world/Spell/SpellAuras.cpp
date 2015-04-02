@@ -513,9 +513,6 @@ void Aura::Remove()
         }
     } else m_target->CombatStatus.ForceRemoveAttacker( m_casterGuid );
 
-    if( m_caster != NULL && m_caster->IsPlayer() && m_caster->IsInWorld() )
-        sHookInterface.OnAuraRemove(castPtr<Player>(m_caster), m_spellProto->Id);
-
     if( m_spellProto->MechanicsType == MECHANIC_ENRAGED )
         m_target->RemoveFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE );
     else if( m_spellProto->Id == 642 )
@@ -794,9 +791,6 @@ void Aura::EventPeriodicDamage(uint32 amount)
 
 void Aura::SpellAuraDummy(bool apply)
 {
-    // Try a dummy SpellHandler
-    if(sScriptMgr.CallScriptedDummyAura(GetSpellId(), mod->i, this, apply))
-        return;
 
 }
 
@@ -1063,7 +1057,7 @@ void Aura::SpellAuraModInvisibility(bool apply)
 
         if(castPtr<Player>(m_target)->m_bg != NULL && castPtr<Player>(m_target)->m_bgHasFlag)
             castPtr<Player>(m_target)->m_bg->HookOnMount(castPtr<Player>(m_target));
-        CALL_INSTANCE_SCRIPT_EVENT( m_target->GetMapMgr(), OnPlayerMount )( castPtr<Player>(m_target) );
+        TRIGGER_INSTANCE_EVENT( m_target->GetMapMgr(), OnPlayerMount )( castPtr<Player>(m_target) );
     }
 
     if(m_spellProto->Effect[mod->i] == 128)
@@ -1805,10 +1799,6 @@ void Aura::SpellAuraModSpellHitChance(bool apply)
 
 void Aura::SpellAuraTransform(bool apply)
 {
-    // Try a dummy SpellHandler
-    if(sScriptMgr.CallScriptedDummyAura(GetSpellId(), mod->i, this, apply))
-        return;
-
     uint32 displayId = 0;
     CreatureData* data = sCreatureDataMgr.GetCreatureData(mod->m_miscValue[0]);
 
@@ -2382,7 +2372,7 @@ void Aura::SpellAuraMounted(bool apply)
 
         if(pPlayer->m_bg)
             pPlayer->m_bg->HookOnMount(pPlayer);
-        CALL_INSTANCE_SCRIPT_EVENT( pPlayer->GetMapMgr(), OnPlayerMount )( pPlayer );
+        TRIGGER_INSTANCE_EVENT( pPlayer->GetMapMgr(), OnPlayerMount )( pPlayer );
 
         m_target->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
 

@@ -275,8 +275,6 @@ void WorldSession::LogoutPlayer(bool Save)
     {
         _player = NULL;
 
-        sHookInterface.OnLogout(plr);
-
         sEventMgr.RemoveEvents(plr);
 
         //Duel Cancel on Leave

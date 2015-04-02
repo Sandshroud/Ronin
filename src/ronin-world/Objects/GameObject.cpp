@@ -21,7 +21,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_rotation = 0;
     m_quests = NULL;
     pInfo = NULL;
-    myScript = NULL;
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
@@ -196,7 +195,7 @@ void GameObject::TrapSearchTarget()
 void GameObject::Spawn( MapMgr* m)
 {
     PushToWorld(m);
-    CALL_GO_SCRIPT_EVENT(castPtr<GameObject>(this), OnSpawn)();
+    TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnSpawn);
 }
 
 void GameObject::Despawn( uint32 delay, uint32 respawntime)
@@ -220,7 +219,7 @@ void GameObject::Despawn( uint32 delay, uint32 respawntime)
         SetFlags(m_spawn->flags);
     }
 
-    CALL_GO_SCRIPT_EVENT(this, OnDespawn)();
+    TRIGGER_GO_EVENT(this, OnDespawn);
 
     if(respawntime)
     {
@@ -269,7 +268,6 @@ void GameObject::InitAI()
         return;
 
     initiated = true; // Initiate after check, so we do not spam if we return without a point.
-    myScript = sScriptMgr.CreateAIScriptClassForGameObject(GetEntry(), this);
 
     uint32 spellid = 0;
     switch(pInfo->Type)
@@ -384,7 +382,7 @@ bool GameObject::Load(GOSpawn *spawn)
     if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
         SetAnimProgress(100);
 
-    CALL_GO_SCRIPT_EVENT(castPtr<GameObject>(this), OnCreate)();
+    TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnCreate);
 
     _LoadQuests();
     return true;
@@ -717,23 +715,13 @@ void GameObject::TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster
     if(HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED))
     {
         if(m_Go_Uint32Values[GO_UINT32_HEALTH] == 0)
-        {
             SetStatusDestroyed();
-            sHookInterface.OnDestroyBuilding(this);
-        }
     }
     else if(!HasFlag(GAMEOBJECT_FLAGS,GO_FLAG_DAMAGED) && m_Go_Uint32Values[GO_UINT32_HEALTH] <= DamagedHealth)
     {
         if(m_Go_Uint32Values[GO_UINT32_HEALTH] != 0)
-        {
             SetStatusDamaged();
-            sHookInterface.OnDamageBuilding(this);
-        }
-        else
-        {
-            SetStatusDestroyed();
-            sHookInterface.OnDestroyBuilding(castPtr<GameObject>(this));
-        }
+        else SetStatusDestroyed();
     }
 
     WorldPacket data(SMSG_DESTRUCTIBLE_BUILDING_DAMAGE, 20);
@@ -804,7 +792,6 @@ void GameObject::SetStatusDestroyed()
 
 void GameObject::Use(Player *p)
 {
-    m_scripted_use = false;
     Spell* spell = NULL;
     SpellEntry *spellInfo = NULL;
     SpellCastTargets targets;
@@ -813,12 +800,8 @@ void GameObject::Use(Player *p)
         return;
 
     uint32 type = GetType();
-    if(myScript != NULL)
-        m_scripted_use = true;
-    CALL_GO_SCRIPT_EVENT(this, OnActivate)(p);
-    CALL_INSTANCE_SCRIPT_EVENT( p->GetMapMgr(), OnGameObjectActivate )( this, p );
-    if(m_scripted_use)
-        return;
+    TRIGGER_GO_EVENT(this, OnActivate);
+    TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnGameObjectActivate )( this, p );
 
     switch (type)
     {
@@ -931,7 +914,7 @@ void GameObject::Use(Player *p)
 
                 if(!p->m_bgFlagIneligible)
                     p->m_bg->HookFlagStand(p, this);
-                CALL_INSTANCE_SCRIPT_EVENT( p->GetMapMgr(), OnPlayerFlagStand )( p, this );
+                TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagStand )( p, this );
             }
             else
                 sLog.outError("Gameobject Type FlagStand activated while the player is not in a battleground, entry %u", goinfo->ID);
@@ -951,7 +934,7 @@ void GameObject::Use(Player *p)
                     p->GetVehicle()->RemovePassenger( p );
 
                 p->m_bg->HookFlagDrop(p, this);
-                CALL_INSTANCE_SCRIPT_EVENT( p->GetMapMgr(), OnPlayerFlagDrop )( p, this );
+                TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagDrop )( p, this );
             }
             else
                 sLog.outError("Gameobject Type Flag Drop activated while the player is not in a battleground, entry %u", goinfo->ID);

@@ -113,8 +113,6 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     } else m_CastTimer = 1000+toCast->casttime;
 
     toCast->lastcast = currentTime;
-    if(toCast->attackstoptimer)
-        m_Unit->setAttackTimer(m_CastTimer+toCast->attackstoptimer, false);
     StopMovement(m_CastTimer);
     m_AIState = STATE_CASTING;
 
@@ -382,7 +380,7 @@ Unit *AIInterface::GetTargetForSpell( AI_Spell* pSpell )
                     return m_Result;
                 }break;
             default:
-                sLog.outDebug("MoonScriptCreatureAI::GetTargetForSpell() : Invalid target type!\n");
+                sLog.outDebug("AIInterface::GetTargetForSpell() : Invalid target type!\n");
                 return NULL;
             }
         }

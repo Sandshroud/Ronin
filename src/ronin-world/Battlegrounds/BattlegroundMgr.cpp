@@ -116,8 +116,6 @@ CBattlegroundManager::CBattlegroundManager() : EventableObject()
 void CBattlegroundManager::Init()
 {
     sEventMgr.AddEvent(this, &CBattlegroundManager::EventQueueUpdate, false, EVENT_BATTLEGROUNDMGR_QUEUE_UPDATE, 5000, 0,0);
-
-    sHookInterface.OnBattlegroundManagerCreate();
 }
 
 CBattlegroundManager::~CBattlegroundManager()

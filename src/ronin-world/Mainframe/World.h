@@ -492,7 +492,6 @@ public:
     BigNumber authSeed1, authSeed2;
 
     Mutex queueMutex;
-    std::string LuaScriptPath, GameMonkeyScriptPath;
     std::string DBCPath, MapPath, vMapPath, MMapPath;
     float AreaUpdateDistance;
     bool AHEnabled, DisableBufferSaving;
