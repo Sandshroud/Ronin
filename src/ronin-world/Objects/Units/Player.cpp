@@ -965,7 +965,10 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_talentInterface.SaveGlyphData(buf);
 
     // Inventory
-    SavePlayerItems(bNewCharacter, buf);
+    m_inventory.SaveToDB(bNewCharacter, buf);
+
+    // Banking
+    m_bank.SaveToDB(bNewCharacter, buf);
 
     // Known titles
     _SaveKnownTitles(buf);
@@ -7744,19 +7747,19 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
     //Add to proficiency
     if(const ItemProf * prof = GetProficiencyBySkill(SkillLine))
     {
-        packetSMSG_SET_PROFICICENCY pr;
-        pr.ItemClass = prof->itemclass;
+        WorldPacket data(SMSG_SET_PROFICIENCY, 8);
+        data << uint32(prof->itemclass);
         if(prof->itemclass == 4)
         {
             armor_proficiency |= prof->subclass;
-            pr.Profinciency = armor_proficiency;
+            data << uint32(armor_proficiency);
         }
         else
         {
             weapon_proficiency |= prof->subclass;
-            pr.Profinciency = weapon_proficiency;
+            data << uint32(weapon_proficiency);
         }
-        m_session->OutPacket( SMSG_SET_PROFICIENCY, sizeof( packetSMSG_SET_PROFICICENCY ), &pr );
+        m_session->SendPacket(&data);
     }
 
     // hackfix for runeforging

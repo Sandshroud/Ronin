@@ -197,9 +197,10 @@ enum DamageFlags
 
 enum WeaponDamageType // this is NOT the same as SPELL_ENTRY_Spell_Dmg_Type, or Spell::GetType(), or SPELL_ENTRY_School !!
 {
-    MELEE   = 0,
-    OFFHAND = 1,
-    RANGED  = 2,
+    MELEE           = 0,
+    OFFHAND         = 1,
+    RANGED          = 2,
+    RANGED_AUTOSHOT = 3
 };
 
 enum VisualState
@@ -400,9 +401,22 @@ public:
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
 
+    bool __fastcall validateAttackTarget(WorldObject *target);
+    bool __fastcall canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId = 0);
     void resetAttackTimer(uint8 typeMask);
     void resetAttackDelay(uint8 typeMask);
-    bool __fastcall canReachWithAttack(Unit* pVictim);
+    void interruptAttackTimer(int16 delay)
+    {
+        if(delay < 0)
+        {
+            delay *= -1;
+            if(m_attackInterrupt > delay)
+                m_attackInterrupt -= delay;
+            else m_attackInterrupt = 0;
+        } else if(m_attackInterrupt + delay < 0x7FFF)
+            m_attackInterrupt += delay;
+        else m_attackInterrupt = 0x7FFF;
+    }
 
     RONIN_INLINE void SetDualWield(bool enabled)
     {
@@ -1037,13 +1051,14 @@ public:
     uint8 m_meleespell_cn;
     void _UpdateSpells(uint32 time);
 
-    uint32 m_H_regenTimer;
-    uint32 m_P_regenTimer;
-    uint32 m_p_DelayTimer;
     float m_Total_Regen;
+    uint32 m_H_regenTimer, m_P_regenTimer, m_p_DelayTimer;
     uint32 m_state;      // flags for keeping track of some states
+
+    WoWGuid m_attackTarget;
+    bool m_dualWield, m_autoShot;
     uint16 m_attackInterrupt, m_attackTimer[3], m_attackDelay[3];
-    bool m_attacking, m_dualWield, m_autoShot;
+    SpellEntry *m_autoShotSpell;
 
     /// Combat
     DeathState m_deathState;

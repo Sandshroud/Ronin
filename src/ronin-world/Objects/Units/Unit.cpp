@@ -8,10 +8,9 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
 
-    m_attackInterrupt = 0;
     memset(&m_attackTimer, 0, sizeof(uint16)*3);
     memset(&m_attackDelay, 0, sizeof(uint16)*3);
-    m_attacking = m_dualWield = m_autoShot = false;
+    m_dualWield = m_autoShot = false;
 
     baseStats = NULL;
     m_statValuesChanged = false;
@@ -264,43 +263,65 @@ void Unit::Update( uint32 p_time )
 
         CombatStatus.UpdateTargets();
 
-        if(m_attackInterrupt)
+        if(!isCasting())
         {
-            if(m_attackInterrupt <= p_time)
-                m_attackInterrupt = 0;
-            else m_attackInterrupt -= p_time;
-        }
-
-        if(m_attackInterrupt == 0 && false)//m_isAttacking)
-        {
-            m_attackTimer[0] += p_time;
-            if(m_attackTimer[0] >= m_attackDelay[0])
+            if(m_attackInterrupt)
             {
-                //_EventAttack(MELEE);
-                m_attackTimer[0] = 0;
+                if(m_attackInterrupt > p_time)
+                    m_attackInterrupt -= p_time;
+                else m_attackInterrupt = 0;
             }
 
-            if(m_dualWield)
+            if(m_attackInterrupt == 0 && m_attackTarget.raw())
             {
-                m_attackTimer[1] += p_time;
-                if(m_attackTimer[1] >= m_attackDelay[1])
+                WorldObject *target = GetInRangeObject(m_attackTarget);
+                if(!validateAttackTarget(target))
                 {
-                    //_EventAttack(OFFHAND);
-                    m_attackTimer[1] = 0;
+
                 }
-            }
+                else
+                {
+                    m_attackTimer[0] += p_time;
+                    if(m_attackTimer[0] >= m_attackDelay[0])
+                    {
+                        m_attackTimer[0] = m_attackDelay[0];
+                        if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
+                        {
+                            //_EventAttack(MELEE);
+                            m_attackTimer[0] = 0;
+                        }
+                    }
 
-            if(m_attackTimer[2])
-            {
-                if(m_attackTimer[2] <= p_time)
-                    m_attackTimer[2] = 0;
-                else m_attackTimer[2] -= p_time;
-            }
+                    if(m_dualWield)
+                    {
+                        m_attackTimer[1] += p_time;
+                        if(m_attackTimer[1] >= m_attackDelay[1])
+                        {
+                            m_attackTimer[1] = m_attackDelay[1];
+                            if(canReachWithAttack(OFFHAND, castPtr<Unit>(target)))
+                            {
+                                //_EventAttack(OFFHAND);
+                                m_attackTimer[1] = 0;
+                            }
+                        }
+                    }
 
-            if( m_autoShot && m_attackTimer[2] == 0 )
-            {
-                //_EventAttack(RANGED);
-                m_attackTimer[2] = m_attackDelay[2];
+                    if(m_attackTimer[2])
+                    {
+                        if(m_attackTimer[2] <= p_time)
+                            m_attackTimer[2] = 0;
+                        else m_attackTimer[2] -= p_time;
+                    }
+
+                    if( m_autoShot && m_attackTimer[2] == 0 )
+                    {
+                        if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                        {
+                            //_EventAttack(RANGED);
+                            m_attackTimer[2] = m_attackDelay[2];
+                        }
+                    }
+                }
             }
         }
 
@@ -1188,34 +1209,51 @@ float Unit::GetAreaOfEffectDamageMod()
     return mod;
 }
 
-bool Unit::canReachWithAttack(Unit* pVictim)
+bool Unit::validateAttackTarget(WorldObject *target)
+{
+    if(target == nullptr)
+        return false;
+    if(target->IsGameObject())
+    {
+
+        return false;
+    }
+    else if(!target->IsUnit())
+        return false;
+    else if(!sFactionSystem.isAttackable(this, target, false))
+        return false;
+
+    return true;
+}
+
+bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId)
 {
     if(GetMapId() != pVictim->GetMapId())
         return false;
 
-//  float targetreach = pVictim->GetCombatReach();
-    float selfreach;
-    if(IsPlayer())
-        selfreach = 5.0f; // minimum melee range, UNIT_FIELD_COMBATREACH is too small and used eg. in melee spells
-    else selfreach = GetFloatValue(UNIT_FIELD_COMBATREACH);
-
-    float targetradius;
-//  targetradius = pVictim->m_floatValues[UNIT_FIELD_BOUNDINGRADIUS]; //this is plain wrong. Represents i have no idea what :)
-    targetradius = pVictim->GetModelHalfSize();
-    float selfradius;
-//  selfradius = m_floatValues[UNIT_FIELD_BOUNDINGRADIUS];
-    selfradius = GetModelHalfSize();
-//  float targetscale = pVictim->m_floatValues[OBJECT_FIELD_SCALE_X];
-//  float selfscale = m_floatValues[OBJECT_FIELD_SCALE_X];
-
-    //float distance = sqrt(GetDistanceSq(pVictim));
-    float delta_x = pVictim->GetPositionX() - GetPositionX();
-    float delta_y = pVictim->GetPositionY() - GetPositionY();
-    float distance = sqrt(delta_x * delta_x + delta_y * delta_y);
-
-
-//  float attackreach = (((targetradius*targetscale) + selfreach) + (((selfradius*selfradius)*selfscale)+1.50f));
-    float attackreach = targetradius + selfreach + selfradius;
+    // minimum melee range, UNIT_FIELD_COMBATREACH is too small and used eg. in melee spells
+    float selfreach = IsPlayer() ? 5.f : GetFloatValue(UNIT_FIELD_COMBATREACH), selfradius = GetModelHalfSize();
+    float targetradius = pVictim->GetModelHalfSize(), distance = CalcDistance(pVictim);
+    float minRange = 0.f, maxRange = targetradius + selfreach + selfradius;
+    if(attackType == RANGED || attackType == RANGED_AUTOSHOT)
+    {
+        maxRange -= (attackType == RANGED_AUTOSHOT ? 0.f : selfreach);
+        if(SpellEntry *sp = dbcSpell.LookupEntry(spellId))
+        {
+            if(SpellRangeEntry* range = dbcSpellRange.LookupEntry(sp->rangeIndex))
+            {
+                minRange = GetDBCMinRange( range );
+                minRange *= minRange;
+                float spellRange = GetDBCMaxRange( range );
+                if( sp->SpellGroupType )
+                {
+                    SM_FFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+                    SM_PFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+                }
+                maxRange += spellRange;
+            } else return false;
+        } else return false;
+    }
 
     //formula adjustment for player side.
     if(IsPlayer())
@@ -1232,7 +1270,7 @@ bool Unit::canReachWithAttack(Unit* pVictim)
             lat = (lat > 500) ? 500 : lat;
 
             // calculate the added distance
-            attackreach += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
+            maxRange += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
         }
 
         if((move = GetMovementInterface()) && move->isMoving())
@@ -1244,10 +1282,31 @@ bool Unit::canReachWithAttack(Unit* pVictim)
             lat = (lat > 500) ? 500 : lat;
 
             // calculate the added distance
-            attackreach += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
+            maxRange += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
         }
     }
-    return (distance <= attackreach);
+    return (distance > minRange) && (distance <= maxRange);
+}
+
+void Unit::resetAttackTimer(uint8 typeMask)
+{
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if((typeMask & 1<<i) == 0)
+            continue;
+
+        m_attackTimer[i] = 0;
+    }
+}
+
+void Unit::resetAttackDelay(uint8 typeMask)
+{
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if((typeMask & 1<<i) == 0)
+            continue;
+        m_attackDelay[i] = std::max<uint32>(1000, std::min<uint32>(0x7FFF, std::ceil(float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))*GetCastSpeedMod())));
+    }
 }
 
 void Unit::SetDiminishTimer(uint32 index)
@@ -4017,27 +4076,6 @@ void Unit::EventCancelSpell(Spell* ptr)
         ptr->cancel();
     if(ptr == m_currentSpell)
         m_currentSpell = NULL;
-}
-
-void Unit::resetAttackTimer(uint8 typeMask)
-{
-    for(uint8 i = 0; i < 3; i++)
-    {
-        if((typeMask & 1<<i) == 0)
-            continue;
-
-        m_attackTimer[i] = 0;
-    }
-}
-
-void Unit::resetAttackDelay(uint8 typeMask)
-{
-    for(uint8 i = 0; i < 3; i++)
-    {
-        if((typeMask & 1<<i) == 0)
-            continue;
-        m_attackDelay[i] = std::max<uint32>(1000, std::min<uint32>(0x7FFF, std::ceil(float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))*GetCastSpeedMod())));
-    }
 }
 
 void Unit::EventModelChange()

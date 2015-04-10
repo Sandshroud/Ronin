@@ -1289,7 +1289,7 @@ bool MapMgr::Do()
     sWorldStateTemplateManager.ApplyMapTemplate(this);
 
     // Call script OnLoad virtual procedure
-    TRIGGER_INSTANCE_EVENT( this, OnLoad )();
+    TRIGGER_INSTANCE_EVENT( this, OnLoad );
 
     if( GetMapInfo()->type == INSTANCE_NULL )
     {

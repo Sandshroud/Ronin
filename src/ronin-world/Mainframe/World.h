@@ -326,17 +326,6 @@ public:
     void execute();
 };
 
-struct InsertQueueLoader : public Singleton<InsertQueueLoader>
-{
-private:
-    uint32 m_UpdateTimer;
-
-public:
-    InsertQueueLoader();
-    ~InsertQueueLoader();
-    void Update(uint32 timeDiff);
-};
-
 class TaskList
 {
     std::set<Task*> tasks;
@@ -604,8 +593,6 @@ public:
 
     void CharacterEnumProc(QueryResultVector& results, uint32 AccountId);
 
-    void PollCharacterInsertQueue(DatabaseConnection * con);
-    void PollMailboxInsertQueue(DatabaseConnection * con);
     void DisconnectUsersWithAccount(const char * account, WorldSession * session);
     void DisconnectUsersWithIP(const char * ip, WorldSession * session);
     void DisconnectUsersWithPlayerName(const char * plr, WorldSession * session);

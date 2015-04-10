@@ -358,9 +358,6 @@ bool Master::Run(int argc, char ** argv)
         WSACleanup();
     }
 
-    sLog.Notice("InsertQueueLoader", "~InsertQueueLoader()");
-    delete InsertQueueLoader::getSingletonPtr();
-
     sLog.Notice("LogonComm", "~LogonCommHandler()");
     delete LogonCommHandler::getSingletonPtr();
 

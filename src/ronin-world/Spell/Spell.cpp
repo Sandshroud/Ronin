@@ -1022,14 +1022,11 @@ uint8 Spell::prepare( SpellCastTargets * targets )
     SendSpellStart();
 
     // start cooldown handler
-    if( p_caster != NULL && !p_caster->CastTimeCheat )
+    if( p_caster != nullptr && !p_caster->CastTimeCheat )
         AddStartCooldown();
 
-    if( i_caster == NULL )
-    {
-        if( p_caster != NULL && m_timer > 0 )
-            p_caster->delayAttackTimer( m_timer + 1000 );
-    }
+    if( u_caster != nullptr && m_timer > 0 )
+        u_caster->interruptAttackTimer(m_timer+1000);
 
     // aura state removal
     if( GetSpellProto()->CasterAuraState && GetSpellProto()->CasterAuraState != AURASTATE_FLAG_JUDGEMENT )
@@ -1098,7 +1095,7 @@ void Spell::cancel()
 
                 if(m_timer > 0)
                 {
-                    p_caster->delayAttackTimer(-m_timer);
+                    p_caster->interruptAttackTimer(-m_timer);
                     RemoveItems();
                 }
              }
@@ -1746,7 +1743,7 @@ void Spell::AddTime(uint32 type)
             {
 //              sEventMgr.ModifyEventTimeLeft(p_caster,EVENT_ATTACK_TIMEOUT,PLAYER_ATTACK_TIMEOUT_INTERVAL,true);
                 // also add a new delay to offhand and main hand attacks to avoid cutting the cast short
-                p_caster->delayAttackTimer(delay);
+                p_caster->interruptAttackTimer(delay);
             }
         }
         else if(GetSpellProto()->IsSpellChannelSpell())
@@ -1755,8 +1752,7 @@ void Spell::AddTime(uint32 type)
             m_timer -= delay;
             if(m_timer < 0)
                 m_timer = 0;
-            else
-                p_caster->delayAttackTimer(-delay);
+            else p_caster->interruptAttackTimer(-delay);
 
             m_Delayed = true;
             if(m_timer > 0)

@@ -129,7 +129,7 @@ void ItemManager::LoadItemData()
         case HIGHGUID_TYPE_GAMEOBJECT:
             {
                 for(std::set<ItemData*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                    DeleteItemData((*itr2)->itemGuid);
+                    DeleteItemData((*itr2)->itemGuid, true);
                 itr->second.clear();
             }break;
         }
@@ -157,6 +157,7 @@ ItemData *ItemManager::CreateItemData(uint32 entry)
     uint32 newGuid = ++m_hiItemGuid;
     itemGuidLock.Release();
     ItemData *data = new ItemData();
+    data->proto = proto;
     data->itemGuid = MAKE_NEW_GUID(newGuid, entry, HIGHGUID_TYPE_ITEM);
     data->itemContainer = 0;
     data->itemCreator = 0;
