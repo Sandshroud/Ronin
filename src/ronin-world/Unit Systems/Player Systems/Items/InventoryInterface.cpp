@@ -145,8 +145,11 @@ Item *PlayerInventory::_removeItemBySlot(uint16 slot)
         {
             m_pOwner->SetUInt64Value(PLAYER_VISIBLE_ITEM + (INVSLOT_ITEM(slot) * PLAYER_VISIBLE_ITEM_LENGTH), 0);
             if(INVSLOT_ITEM(slot) == EQUIPMENT_SLOT_OFFHAND && item->GetProto()->Class == ITEM_CLASS_WEAPON)
-                m_pOwner->SetDuelWield(false);
-            if(m_pOwner->IsInWorld()) m_pOwner->ApplyItemMods( item, INVSLOT_ITEM(slot), false );
+                m_pOwner->SetDualWield(false);
+
+            if(m_pOwner->IsInWorld())
+                m_pOwner->ApplyItemMods( item, INVSLOT_ITEM(slot), false );
+
             if(uint32 itemSet = item->GetProto()->ItemSet)
             {
                 if(ItemSetEntry* set = dbcItemSet.LookupEntry(itemSet))

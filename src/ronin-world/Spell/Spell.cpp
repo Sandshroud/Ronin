@@ -2368,7 +2368,8 @@ void Spell::_SetTargets(WoWGuid guid)
         if(p_caster != NULL)
         {
             if(m_targets.m_targetMask & TARGET_FLAG_ITEM)
-                itemTarget = p_caster->GetInventory()->GetItemByGUID(m_targets.m_itemTarget);
+                itemTarget = p_caster->GetInventory()->GetInventoryItem(m_targets.m_itemTarget);
+
             if(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
@@ -2400,7 +2401,8 @@ void Spell::_SetTargets(WoWGuid guid)
         if(p_caster != NULL && m_targets.m_itemTarget)
         {
             if(m_targets.m_targetMask & TARGET_FLAG_ITEM)
-                itemTarget = p_caster->GetInventory()->GetItemByGUID(m_targets.m_itemTarget);
+                itemTarget = p_caster->GetInventory()->GetInventoryItem(m_targets.m_itemTarget);
+
             if(m_targets.m_targetMask & TARGET_FLAG_TRADE_ITEM)
             {
                 Player* p_trader = p_caster->GetTradeTarget();
@@ -2418,7 +2420,7 @@ void Spell::_SetTargets(WoWGuid guid)
         {
             if(p_caster != NULL)
             {
-                itemTarget = p_caster->GetInventory()->GetItemByGUID(guid);
+                itemTarget = p_caster->GetInventory()->GetInventoryItem(guid);
                 if(Player* plr = p_caster->GetTradeTarget())
                     itemTarget = p_caster->GetInventory()->GetInventoryItem(plr->getTradeItem(guid.getLow()))
             }
