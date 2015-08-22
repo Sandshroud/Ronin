@@ -33,15 +33,13 @@ void DynamicObject::Create(WorldObject* caster, Spell* pSpell, float x, float y,
 {
     // Call the object create function
     WorldObject::_Create(caster->GetMapId(), x, y, z, 0.0f);
+    casterLevel = caster->getLevel();
     casterGuid = caster->GetGUID();
-    if(!caster->IsPlayer() && pSpell->p_caster)
-        casterGuid = pSpell->p_caster->GetGUID();
-
-    m_spellProto = pSpell->m_spellInfo;
+    m_spellProto = pSpell->GetSpellProto();
     m_position.ChangeCoords(x, y, z);
 
     SetUInt32Value(OBJECT_FIELD_ENTRY, m_spellProto->Id);
-    SetUInt64Value(DYNAMICOBJECT_CASTER, caster->GetGUID());
+    SetUInt64Value(DYNAMICOBJECT_CASTER, casterGuid);
     SetUInt32Value(DYNAMICOBJECT_BYTES, 0x01);
     SetUInt32Value(DYNAMICOBJECT_SPELLID, m_spellProto->Id);
     SetFloatValue(DYNAMICOBJECT_RADIUS, radius);
@@ -50,9 +48,7 @@ void DynamicObject::Create(WorldObject* caster, Spell* pSpell, float x, float y,
     m_aliveDuration = duration;
     m_factionTemplate = caster->GetFactionTemplate();
 
-    if(pSpell->g_caster)
-        PushToWorld(pSpell->g_caster->GetMapMgr());
-    else PushToWorld(caster->GetMapMgr());
+    PushToWorld(caster->GetMapMgr());
 
     if(caster->IsUnit() && m_spellProto->isChanneledSpell())
     {
@@ -116,9 +112,9 @@ void DynamicObject::UpdateTargets(uint32 p_time)
         radius *= radius;
 
         // Looking for targets in the WorldObject set
-        for(WorldObject::InRangeUnitSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr)
+        for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr)
         {
-            target = *itr;
+            target = GetInRangeObject<Unit>(*itr);
             if(!target->isAlive())
                 continue;
 

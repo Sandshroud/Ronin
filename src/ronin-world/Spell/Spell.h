@@ -54,7 +54,13 @@ public:
     std::string m_strTarget;
 };
 
-typedef void(Spell::*pSpellEffect)(uint32 i);
+enum SpellEffectTargetFlags
+{
+    EFF_TARGET_FLAGS_NONE       = 0,
+    EFF_TARGET_FLAGS_GAMEOBJ    = 1,
+    EFF_TARGET_FLAGS_UNIT       = 2,
+    EFF_TARGET_FLAGS_PLAYER     = 3
+};
 
 #define GO_FISHING_BOBBER 35591
 
@@ -72,13 +78,20 @@ struct SpellTarget
 typedef std::map<uint64, SpellTarget> SpellTargetMap;
 
 // Spell instance
-class SERVER_DECL Spell : public EventableObject
+class SERVER_DECL Spell : public SpellEffectClass
 {
 public:
-    friend class DummySpellHandler;
     Spell( WorldObject* Caster, SpellEntry *info, bool triggered, Aura* aur);
     ~Spell();
     virtual void Destruct();
+
+    void GetSpellDestination(LocationVector &dest)
+    {
+        SpellEffectClass::GetSpellDestination(dest);
+        if((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) == 0)
+            return;
+        dest = m_targets.m_dest;
+    }
 
     float m_missilePitch;
     uint32 m_missileTravelTime, m_MSTimeToAddToTravel;
@@ -117,9 +130,9 @@ public:
     // Finishes the casted spell
     void finish();
     // Handle the Effects of the Spell
-    void HandleEffects(uint32 i);
+    void HandleEffects(uint32 i, WorldObject *target);
     // Cancel spell effect due to things like a glyph
-    bool CanHandleSpellEffect(uint32 i, uint32 namehash);
+    bool CanHandleSpellEffect(uint32 i);
     // Take Power from the caster based on spell power usage
     bool TakePower();
     // Has power?
@@ -131,7 +144,7 @@ public:
     // Removes reagents, ammo, and items/charges
     void RemoveItems();
     // Calculates the i'th effect value
-    int32 CalculateEffect(uint32 effIndex, Unit* target, int32 &bonusPoints);
+    int32 CalculateEffect(uint32 effIndex, WorldObject* target);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Determines how much skill caster going to gain
@@ -149,7 +162,6 @@ public:
     bool HandleDestTargetHit(uint64 guid, uint32 MSTime);
 
     RONIN_INLINE uint32 getState() { return m_spellState; }
-    RONIN_INLINE void SetUnitTarget(Unit* punit){unitTarget=punit;}
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
 
     // Send Packet functions
@@ -166,150 +178,14 @@ public:
     static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
 
 
-    void HandleAddAura(WoWGuid guid);
+    void HandleAddAura(Unit *target);
     void writeSpellGoTargets( WorldPacket * data );
 
-    SpellEntry* m_spellInfo;
     uint32 m_triggeredSpellId;
     SpellEntry *ProcedOnSpell;  //some spells need to know the origins of the proc too
     SpellCastTargets m_targets;
 
     void CreateItem(uint32 itemId);
-
-    // Effect Handlers
-    void SpellEffectNULL(uint32 i);
-    void SpellEffectInstantKill(uint32 i);
-    void SpellEffectSchoolDMG(uint32 i);
-    void SpellEffectDummy(uint32 i);
-    void SpellEffectRestoreHealthPct(uint32 i);
-    void SpellEffectRestoreManaPct(uint32 i);
-    void SpellEffectTeleportUnits(uint32 i);
-    void SpellEffectApplyAura(uint32 i);
-    void SpellEffectPowerDrain(uint32 i);
-    void SpellEffectHealthLeech(uint32 i);
-    void SpellEffectHeal(uint32 i);
-    void SpellEffectBind(uint32 i);
-    void SpellEffectQuestComplete(uint32 i);
-    void SpellEffectWeapondamageNoschool(uint32 i);
-    void SpellEffectResurrect(uint32 i);
-    void SpellEffectAddExtraAttacks(uint32 i);
-    void SpellEffectDodge(uint32 i);
-    void SpellEffectBlock(uint32 i);
-    void SpellEffectParry(uint32 i);
-    void SpellEffectCreateItem(uint32 i);
-    void SpellEffectPersistentAA(uint32 i);
-    void SpellEffectSummon(uint32 i);
-    void SpellEffectLeap(uint32 i);
-    void SpellEffectEnergize(uint32 i);
-    void SpellEffectWeaponDmgPerc(uint32 i);
-    void SpellEffectTriggerMissile(uint32 i);
-    void SpellEffectOpenLock(uint32 i);
-    void SpellEffectApplyAA(uint32 i);
-    void SpellEffectLearnSpell(uint32 i);
-    void SpellEffectSpellDefense(uint32 i);
-    void SpellEffectDispel(uint32 i);
-    void SpellEffectSkillStep(uint32 i);
-    void SpellEffectDetect(uint32 i);
-    void SpellEffectSummonObject(uint32 i);
-    void SpellEffectEnchantItem(uint32 i);
-    void SpellEffectEnchantItemTemporary(uint32 i);
-    void SpellEffectTameCreature(uint32 i);
-    void SpellEffectSummonPet(uint32 i);
-    void SpellEffectWeapondamage(uint32 i);
-    void SpellEffectPowerBurn(uint32 i);
-    void SpellEffectThreat(uint32 i);
-    void SpellEffectTriggerSpell(uint32 i);
-    void SpellEffectHealthFunnel(uint32 i);
-    void SpellEffectPowerFunnel(uint32 i);
-    void SpellEffectHealMaxHealth(uint32 i);
-    void SpellEffectInterruptCast(uint32 i);
-    void SpellEffectDistract(uint32 i);
-    void SpellEffectPickpocket(uint32 i);
-    void SpellEffectAddFarsight(uint32 i);
-    void SpellEffectResetTalents(uint32 i);
-    void SpellEffectUseGlyph(uint32 i);
-    void SpellEffectHealMechanical(uint32 i);
-    void SpellEffectSummonObjectWild(uint32 i);
-    void SpellEffectScriptEffect(uint32 i);
-    void SpellEffectSanctuary(uint32 i);
-    void SpellEffectAddComboPoints(uint32 i);
-    void SpellEffectCreateHouse(uint32 i);
-    void SpellEffectDuel(uint32 i);
-    void SpellEffectStuck(uint32 i);
-    void SpellEffectSummonPlayer(uint32 i);
-    void SpellEffectActivateObject(uint32 i);
-    void SpellEffectWMODamage(uint32 i);
-    void SpellEffectWMORepair(uint32 i);
-    void SpellEffectChangeWMOState(uint32 i);
-    void SpellEffectProficiency(uint32 i);
-    void SpellEffectSendEvent(uint32 i);
-    void SpellEffectSkinning(uint32 i);
-    void SpellEffectCharge(uint32 i);
-    void SpellEffectPlaceTotemsOnBar(uint32 i);
-    void SpellEffectKnockBack(uint32 i);
-    void SpellEffectInebriate(uint32 i);
-    void SpellEffectFeedPet(uint32 i);
-    void SpellEffectDismissPet(uint32 i);
-    void SpellEffectReputation(uint32 i);
-    void SpellEffectSummonObjectSlot(uint32 i);
-    void SpellEffectDispelMechanic(uint32 i);
-    void SpellEffectSummonDeadPet(uint32 i);
-    void SpellEffectDestroyAllTotems(uint32 i);
-    void SpellEffectSummonDemonOld(uint32 i);
-    void SpellEffectAttackMe(uint32 i);
-    void SpellEffectSkill(uint32 i);
-    void SpellEffectApplyPetAura(uint32 i);
-    void SpellEffectDummyMelee(uint32 i);
-    void SpellEffectPull( uint32 i );
-    void SpellEffectSpellSteal(uint32 i);
-    void SpellEffectProspecting(uint32 i);
-    void SpellEffectOpenLockItem(uint32 i);
-    void SpellEffectSelfResurrect(uint32 i);
-    void SpellEffectDisenchant(uint32 i);
-    void SpellEffectWeapon(uint32 i);
-    void SpellEffectDefense(uint32 i);
-    void SpellEffectLanguage(uint32 i);
-    void SpellEffectDualWield(uint32 i);
-    void SpellEffectSkinPlayerCorpse(uint32 i);
-    void SpellEffectResurrectNew(uint32 i);
-    void SpellEffectTranformItem(uint32);
-    void SpellEffectEnvironmentalDamage(uint32);
-    void SpellEffectLearnPetSpell(uint32 i);
-    void SpellEffectEnchantHeldItem(uint32 i);
-    void SpellEffectAddHonor(uint32 i);
-    void SpellEffectSpawn(uint32 i);
-    void SpellEffectRedirectThreat(uint32 i);
-    void SpellEffectPlayMusic(uint32 i);
-    void SpellEffectTriggerSpellWithValue(uint32 i);
-    void SpellEffectJump(uint32 i);
-    void SpellEffectTeleportToCaster(uint32 i);
-    void SpellEffectMilling(uint32 i);
-    void SpellEffectAllowPetRename(uint32 i);
-    void SpellEffectAddPrismaticSocket(uint32 i);
-    void SpellEffectActivateRune(uint32 i);
-    void SpellEffectFailQuest(uint32 i);
-    void SpellEffectStartQuest(uint32 i);
-    void SpellEffectCreatePet(uint32 i);
-    void SpellEffectTitanGrip(uint32 i);
-    void SpellEffectCreateRandomItem(uint32 i);
-    void SpellEffectSendTaxi(uint32 i);
-    void SpellEffectKillCredit(uint32 i);
-    void SpellEffectForceCast(uint32 i);
-    void SpellEffectSetTalentSpecsCount(uint32 i);
-    void SpellEffectActivateTalentSpec(uint32 i);
-    void SpellEffectDisengage(uint32 i);
-    void SpellEffectClearFinishedQuest(uint32 i);
-    void SpellEffectApplyDemonAura(uint32 i);
-    void SpellEffectRemoveAura(uint32 i);
-
-    // Summons
-    void SummonWild(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonTotem(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonGuardian(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonTemporaryPet(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonPossessed(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonCompanion(uint32 i, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonVehicle( uint32 i, SummonPropertiesEntry *spe, CreatureData *proto, LocationVector &v );
 
     // Spell Targets
     void HandleTargetNoObject();
@@ -325,12 +201,6 @@ public:
 
     void Heal(uint8 effIndex, int32 amount);
 
-    GameObject*         g_caster;
-    Unit*               u_caster;
-    Item*               i_caster;
-    Player*             p_caster;
-    WorldObject*             m_caster;
-    Vehicle*            v_caster;
     std::map<uint64, Aura*> m_tempAuras;
 
     bool SpellEffectUpdateQuest(uint32 questid);
@@ -340,78 +210,57 @@ public:
     // This returns SPELL_ENTRY_Spell_Dmg_Type where 0 = SPELL_DMG_TYPE_NONE, 1 = SPELL_DMG_TYPE_MAGIC, 2 = SPELL_DMG_TYPE_MELEE, 3 = SPELL_DMG_TYPE_RANGED
     // It should NOT be used for weapon_damage_type which needs: 0 = MELEE, 1 = OFFHAND, 2 = RANGED
     RONIN_INLINE uint32 GetType() { return ( GetSpellProto()->Spell_Dmg_Type == SPELL_DMG_TYPE_NONE ? SPELL_DMG_TYPE_MAGIC : GetSpellProto()->Spell_Dmg_Type ); }
-    RONIN_INLINE Item* GetItemTarget() { return itemTarget; }
-    RONIN_INLINE Unit* GetUnitTarget() { return unitTarget; }
-    RONIN_INLINE Player* GetPlayerTarget() { return playerTarget; }
-    RONIN_INLINE GameObject* GetGameObjectTarget() { return gameObjTarget; }
 
     int32 chaindamage;
     // -------------------------------------------
-
-    bool IsAspect();
-    bool IsSeal();
     static bool IsBinary(SpellEntry * sp);
 
     int32 GetDuration()
     {
-        if(bDurSet)
-            return Dur;
+        if(b_durSet == false)
+        {
+            b_durSet = true;
+            m_duration = GetSpellInfoDuration(m_spellInfo, m_caster);
+        }
+        return m_duration;
+    }
 
-        bDurSet = true;
-        Dur = GetSpellInfoDuration(m_spellInfo, u_caster, unitTarget);
-        return Dur;
+    RONIN_INLINE void SetInternalRadius(uint32 i)
+    {
+        b_radSet[i] = true;
+        m_radius[0][i] = ::GetDBCRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
+        m_radius[1][i] = ::GetDBCFriendlyRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
+        if(GetSpellProto()->SpellGroupType && m_caster && m_caster->IsUnit())
+        {
+            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[0][i], GetSpellProto()->SpellGroupType);
+            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[0][i], GetSpellProto()->SpellGroupType);
+            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[1][i], GetSpellProto()->SpellGroupType);
+            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[1][i], GetSpellProto()->SpellGroupType);
+        }
     }
 
     RONIN_INLINE float GetRadius(uint32 i)
     {
-        if(bRadSet[i])
-            return Rad[i];
-        bRadSet[i] = true;
-        Rad[i] = ::GetDBCRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
-        if(GetSpellProto()->SpellGroupType && u_caster)
-        {
-            u_caster->SM_FFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
-            u_caster->SM_PFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
-        }
-
-        return Rad[i];
+        if(b_radSet[i] == false)
+            SetInternalRadius(i);
+        return m_radius[0][i];
     }
 
     RONIN_INLINE float GetFriendlyRadius(uint32 i)
     {
-        if(bRadSet[i])
-            return Rad[i];
-        bRadSet[i] = true;
-        Rad[i] = ::GetDBCFriendlyRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
-        if(GetSpellProto()->SpellGroupType && u_caster)
-        {
-            u_caster->SM_FFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
-            u_caster->SM_PFValue(SMT_RADIUS,&Rad[i],GetSpellProto()->SpellGroupType);
-        }
-
-        return Rad[i];
-    }
-
-    RONIN_INLINE static uint32 GetBaseThreat(uint32 dmg)
-    {
-        //there should be a formula to determine what spell cause threat and which don't
-/*      switch(GetSpellProto()->NameHash)
-        {
-            //hunter's mark
-            case 4287212498:
-                {
-                    return 0;
-                }break;
-        }*/
-        return dmg;
+        if(b_radSet[i] == false)
+            SetInternalRadius(i);
+        return m_radius[1][i];
     }
 
     RONIN_INLINE static bool HasMechanic(SpellEntry * sp, uint32 MechanicsType)
     {
-        return sp->MechanicsType == MechanicsType ||
-            (uint32)sp->EffectMechanic[0] == MechanicsType ||
-            (uint32)sp->EffectMechanic[1] == MechanicsType ||
-            (uint32)sp->EffectMechanic[2] == MechanicsType;
+        if(sp->MechanicsType == MechanicsType)
+            return true;
+        for(uint8 i = 0; i < 3; i++)
+            if(sp->EffectMechanic[i] == MechanicsType)
+                return true;
+        return false;
     }
 
     RONIN_INLINE static uint32 GetMechanic(SpellEntry * sp)
@@ -424,7 +273,6 @@ public:
             return sp->EffectMechanic[1];
         if(sp->EffectMechanic[0])
             return sp->EffectMechanic[0];
-
         return 0;
     }
 
@@ -434,7 +282,6 @@ public:
             return sp->EffectMechanic[i];
         if(sp->MechanicsType)
             return sp->MechanicsType;
-
         return 0;
     }
 
@@ -443,10 +290,8 @@ public:
     bool IsInvisibilitySpell();
     bool CanEffectTargetGameObjects(uint32 i);
 
-    int32 damage, bdamage;
-    int32 TotalDamage;
+    int32 damage;
     Aura* m_triggeredByAura;
-    uint32 AdditionalCritChance;
 
     bool static_damage;
     bool m_triggeredSpell;
@@ -507,21 +352,15 @@ protected:
     bool    m_ForceConsumption;
 
     // Current Targets to be used in effect handler
-    Unit*           unitTarget;
-    Item*           itemTarget;
-    GameObject*     gameObjTarget;
-    Player*         playerTarget;
-    Corpse*         corpseTarget;
-    uint32          add_damage;
+    WoWGuid objTargetGuid, itemTargetGuid, m_magnetTarget;
 
-    uint8           cancastresult;
-    int32           Dur;
-    bool            bDurSet;
-    float           Rad[3];
-    bool            bRadSet[3];
-    bool            m_cancelled;
-    bool            m_isCasting;
-    bool            m_projectileWait;
+    uint8  cancastresult;
+    int32  m_duration;
+    float  m_radius[2][3];
+    bool   b_radSet[3], b_durSet;
+    bool   m_cancelled;
+    bool   m_isCasting;
+    bool   m_projectileWait;
 
     void DamageGosAround(uint32 i);
     bool UseMissileDelay();
@@ -534,37 +373,23 @@ protected:
     }
 
 private:
-    SpellTargetMap TargetMap;
-    SpellTargetMap ManagedTargets;
+    SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
 
-    // adds a target to the list, performing DidHit checks
-    void _AddTarget(Unit* target, const uint32 effectid);
-
-    // adds a target to the list, negating DidHit checks
-    void _AddTargetForced(const WoWGuid& guid, const uint32 effectid);
-    void _AddTargetForced(WorldObject * target, const uint32 effectid) { if(target) _AddTargetForced(target->GetGUID(), effectid); }
+    // adds a target to the list, performing DidHit checks on units
+    template<class T> void _AddTarget(T* target, const uint32 effectid);
+    template<class T> void _AddTarget(Unit *target, const uint32 effectid);
 
     // didhit checker
     uint8 _DidHit(uint32 index, Unit* target, uint8 &reflectout);
 
-    // gets the pointer of an object (optimized for spell system)
-    WorldObject* _LookupObject(const WoWGuid& guid);
-
-    // sets the pointers (unitTarget, itemTarget, etc) for a given guid
-    void _SetTargets(WoWGuid guid);
-
-    friend class DynamicObject;
     void DetermineSkillUp(uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
     void DetermineSkillUp(uint32 skillid);
 
-    uint32 m_hitTargetCount;
-    uint32 m_missTargetCount;
+    uint32 m_hitTargetCount, m_missTargetCount;
 
-    // magnet
-    WoWGuid m_magnetTarget;
+public:
+    static std::map<uint8, uint32> m_implicitTargetFlags;
 };
-
-extern uint32 implicitTargetFlags[150];
 
 void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * spell);
 void UnapplyDiminishingReturnTimer(Unit* Target, SpellEntry * spell);

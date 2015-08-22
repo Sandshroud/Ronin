@@ -100,19 +100,12 @@ public:
         return 0.0f;
     }
 
-    void ChangeCoords(float X, float Y, float Z, float O)
+    void ChangeCoords(float X, float Y, float Z, float O = 0.f)
     {
         x = X;
         y = Y;
         z = Z;
         o = O;
-    }
-
-    void ChangeCoords(float X, float Y, float Z)
-    {
-        x = X;
-        y = Y;
-        z = Z;
     }
 
     // add/subtract/equality vectors

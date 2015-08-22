@@ -58,7 +58,7 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     Creature::Load(0, position.x, position.y, position.z, position.o);
 
-    GetAIInterface()->Init(castPtr<Unit>(this), AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
+    GetAIInterface()->Init(this, AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
     SetFaction(m_owner->GetFactionID());
     SetZoneId(m_owner->GetZoneId());
@@ -68,20 +68,17 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     if(m_owner->IsPvPFlagged())
         SetPvPFlag();
-    else
-        RemovePvPFlag();
+    else RemovePvPFlag();
 
     if(m_owner->IsFFAPvPFlagged())
         SetFFAPvPFlag();
-    else
-        RemoveFFAPvPFlag();
+    else RemoveFFAPvPFlag();
 
     SetCreatedByGUID(m_owner->GetGUID());
 
     if(m_owner->IsSummon())
         SetSummonedByGUID(m_owner->GetSummonedByGUID());
-    else
-        SetSummonedByGUID(m_owner->GetGUID());
+    else SetSummonedByGUID(m_owner->GetGUID());
 
     if(m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
@@ -99,6 +96,7 @@ void SummonHandler::Initialize(Summon* n_summon)
 
 void CompanionSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
+    SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->SetFaction(35);
     m_summon->setLevel(1);
     m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, MOVEMENTTYPE_NONE, owner);
@@ -114,6 +112,7 @@ void CompanionSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
 
 void GuardianSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
+    SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->SetPowerType(POWER_TYPE_MANA);
     m_summon->SetMaxPower(POWER_TYPE_MANA, m_summon->GetMaxPower(POWER_TYPE_MANA) + 28 + 10 * m_summon->getLevel());
     m_summon->SetPower(POWER_TYPE_MANA, m_summon->GetPower(POWER_TYPE_MANA) + 28 + 10 * m_summon->getLevel());
@@ -130,12 +129,14 @@ void GuardianSummon::Load(Unit* owner, LocationVector & position, uint32 spellid
 
 void PossessedSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
+    SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->setLevel(owner->getLevel());
     m_summon->GetAIInterface()->StopMovement(0);
 }
 
 void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
+    SummonHandler::Load(owner, position, spellid, summonslot);
     uint32 displayID = m_summon->GetCreatureData()->DisplayInfo[0];
     if( owner->IsPlayer() && castPtr<Player>(owner)->GetTeam() == 0 )
     {
@@ -220,18 +221,19 @@ void TotemSummon::SetupSpells()
 void WildSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
     m_summon->setLevel(owner->getLevel());
+    SummonHandler::Load(owner, position, spellid, summonslot);
 }
 
-void Spell::SpellEffectSummon(uint32 i)
+void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 amount)
 {
-    if(u_caster == NULL )
-         return;
+    if(!m_caster->IsUnit())
+        return;
+    Unit *u_caster = castPtr<Unit>(m_caster);
+    uint32 entry = m_spellInfo->EffectMiscValue[i];
 
     SummonPropertiesEntry * spe = dbcSummonProperties.LookupEntry( GetSpellProto()->EffectMiscValueB[i] );
     if( spe == NULL )
         return;
-
-    uint32 entry = m_spellInfo->EffectMiscValue[ i ];
 
     CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
@@ -240,25 +242,22 @@ void Spell::SpellEffectSummon(uint32 i)
         return;
     }
 
-    if(damage == 0)
-        damage = 1;
+    // Damage must be 1 or more
+    amount = std::max(1, amount);
 
-    LocationVector v(0.0f, 0.0f, 0.0f, 0.0f);
-
-    if((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) != 0)
-        v = m_targets.m_dest;
-    else v = u_caster->GetPosition();
+    LocationVector v;
+    GetSpellDestination(v);
 
     // Client adds these spells to the companion window, it's weird but then it happens anyways
     if(spe->slot == 5)
     {
-        SummonCompanion(i, spe, ctrData, v);
+        SummonCompanion(u_caster, i, spe, ctrData, v);
         return;
     }
 
     // Delete any objects in my slots. Slot 0 can have unlimited objects.
-    if( spe->slot != 0 && spe->slot < 7 && u_caster->m_Summons[ spe->slot ].size() )
-        u_caster->SummonExpireSlot(spe->slot);
+    if( target->IsUnit() && spe->slot != 0 && spe->slot < 7 && castPtr<Unit>(target)->m_Summons[ spe->slot ].size() )
+        castPtr<Unit>(target)->SummonExpireSlot(spe->slot);
 
     switch( spe->controltype )
     {
@@ -266,23 +265,23 @@ void Spell::SpellEffectSummon(uint32 i)
         {
             if(spe->Id == 121)
             {
-                SummonTotem(i, spe, ctrData, v);
+                SummonTotem(u_caster, i, spe, ctrData, v);
                 return;
             }
         }break;
     case DBC_SUMMON_CONTROL_TYPE_PET:
         {
-            SummonTemporaryPet(i, spe, ctrData, v);
+            SummonTemporaryPet(u_caster, i, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_CONTROL_TYPE_POSSESSED:
         {
-            SummonPossessed(i, spe, ctrData, v);
+            SummonPossessed(u_caster, i, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_CONTROL_TYPE_VEHICLE:
         {
-            SummonVehicle( i, spe, ctrData, v );
+            SummonVehicle(u_caster, i, spe, ctrData, v);
             return;
         }break;
     }
@@ -294,38 +293,38 @@ void Spell::SpellEffectSummon(uint32 i)
     case DBC_SUMMON_TYPE_OPPONENT:
         {
             if(spe->controltype == DBC_SUMMON_CONTROL_TYPE_GUARDIAN)
-                SummonGuardian(i, spe, ctrData, v);
-            else SummonWild(i, spe, ctrData, v);
+                SummonGuardian(u_caster, i, spe, ctrData, v);
+            else SummonWild(u_caster, i, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_TYPE_PET:
         {
-            SummonTemporaryPet(i, spe, ctrData, v);
+            SummonTemporaryPet(u_caster, i, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_GUARDIAN:
     case DBC_SUMMON_TYPE_MINION:
     case DBC_SUMMON_TYPE_RUNEBLADE:
         {
-            SummonGuardian(i, spe, ctrData, v);
+            SummonGuardian(u_caster, i, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_TOTEM:
         {
-            SummonTotem(i, spe, ctrData, v);
+            SummonTotem(u_caster, i, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_COMPANION:
         {   // These are used as guardians in some quests
             if(spe->slot == 6)
-                SummonGuardian(i, spe, ctrData, v);
-            else SummonCompanion(i, spe, ctrData, v);
+                SummonGuardian(u_caster, i, spe, ctrData, v);
+            else SummonCompanion(u_caster, i, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_VEHICLE:
     case DBC_SUMMON_TYPE_MOUNT:
         {
-            SummonVehicle( i, spe, ctrData, v );
+            SummonVehicle(u_caster, i, spe, ctrData, v );
         }break;
     case DBC_SUMMON_TYPE_LIGHTWELL:
         {
-            SummonGuardian(i, spe, ctrData, v);
+            SummonGuardian(u_caster, i, spe, ctrData, v);
         }break;
     default:
         {
@@ -334,14 +333,8 @@ void Spell::SpellEffectSummon(uint32 i)
     }
 }
 
-void Spell::SummonWild(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonWild(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(g_caster != NULL)
-        u_caster = g_caster->m_summoner;
-
-    if(u_caster == NULL)
-        return;
-
     int32 duration = GetDuration();
     uint32 slot = Properties ? Properties->slot : 0;
     for(int32 j = 0; j < damage; j++)
@@ -364,14 +357,14 @@ void Spell::SummonWild(uint32 i, SummonPropertiesEntry * Properties, CreatureDat
 
         if(Properties)
         {
-            if((p_caster != NULL) && (Properties->slot != 0))
+            if(u_caster->IsPlayer() && (Properties->slot != 0))
             {
                 WorldPacket data(SMSG_TOTEM_CREATED, 17);
                 data << uint8(Properties->slot - 1);
                 data << uint64(s->GetGUID());
                 data << int32(duration);
                 data << uint32(m_spellInfo->Id);
-                p_caster->SendPacket(&data);
+                castPtr<Player>(u_caster)->SendPacket(&data);
             }
         }
     }
@@ -380,11 +373,8 @@ void Spell::SummonWild(uint32 i, SummonPropertiesEntry * Properties, CreatureDat
         sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonTotem(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonTotem(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(u_caster == NULL)
-        return;
-
     uint32 slot = Properties ? Properties->slot : 1;
     bool xSubtractX = true;
     bool xSubtractY = true;
@@ -414,14 +404,14 @@ void Spell::SummonTotem(uint32 i, SummonPropertiesEntry * Properties, CreatureDa
     s->PushToWorld(u_caster->GetMapMgr());
 
     int32 duration = GetDuration();
-    if(p_caster != NULL)
+    if(u_caster->IsPlayer())
     {
         WorldPacket data(SMSG_TOTEM_CREATED, 17);
         data << uint8(slot - 1);
         data << uint64(s->GetGUID());
         data << int32(duration);
         data << uint32(m_spellInfo->Id);
-        p_caster->SendPacket(&data);
+        castPtr<Player>(u_caster)->SendPacket(&data);
     }
 
     if(duration > 0)
@@ -429,14 +419,8 @@ void Spell::SummonTotem(uint32 i, SummonPropertiesEntry * Properties, CreatureDa
     else sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, 60 * 60 * 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonGuardian(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v) // Summon Guardian
+void Spell::SummonGuardian(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v) // Summon Guardian
 {
-    if(g_caster != NULL)
-        u_caster = g_caster->m_summoner;
-
-    if(u_caster == NULL)
-        return;
-
     float angle_for_each_spawn = -float(float(M_PI * 2) / damage);
 
     // it's health., or a fucked up infernal.
@@ -468,14 +452,14 @@ void Spell::SummonGuardian(uint32 i, SummonPropertiesEntry * Properties, Creatur
         s->GetAIInterface()->SetUnitToFollowAngle(followangle);
         s->PushToWorld(u_caster->GetMapMgr());
 
-        if((p_caster != NULL) && (slot != 0))
+        if(u_caster->IsPlayer() && (slot != 0))
         {
             WorldPacket data(SMSG_TOTEM_CREATED, 17);
             data << uint8(slot - 1);
             data << uint64(s->GetGUID());
             data << int32(duration);
             data << uint32(m_spellInfo->Id);
-            p_caster->SendPacket(&data);
+            castPtr<Player>(u_caster)->SendPacket(&data);
         }
 
         // Lightwell
@@ -493,17 +477,13 @@ void Spell::SummonGuardian(uint32 i, SummonPropertiesEntry * Properties, Creatur
         sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonTemporaryPet(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonTemporaryPet(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(p_caster == NULL)
-        return;
-
-    if(p_caster->GetSummon())
+    if(u_caster->IsPlayer() && castPtr<Player>(u_caster)->GetSummon())
     {
-        if(p_caster->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-            p_caster->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
-        else
-            p_caster->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
+        if(castPtr<Player>(u_caster)->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
+            castPtr<Player>(u_caster)->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
+        else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
     }
 
     int32 count = damage;
@@ -530,7 +510,7 @@ void Spell::SummonTemporaryPet(uint32 i, SummonPropertiesEntry * Properties, Cre
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), spawnLoc.x, spawnLoc.y) * float(M_PI) / 180.0f);
 
         u_caster->AddSummonToSlot(slot, pet);
-        pet->CreateAsSummon(NULL, p_caster, &spawnLoc, m_spellInfo, 1, duration);
+        pet->CreateAsSummon(NULL, u_caster, &spawnLoc, m_spellInfo, 1, duration);
         pet->GetAIInterface()->SetUnitToFollowAngle(followangle);
     }
 
@@ -538,19 +518,16 @@ void Spell::SummonTemporaryPet(uint32 i, SummonPropertiesEntry * Properties, Cre
         sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonPossessed(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonPossessed(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(p_caster == NULL)
-        return;
-
-    if(p_caster->GetSummon())
+    if(u_caster->IsPlayer() && castPtr<Player>(u_caster)->GetSummon())
     {
-        if(p_caster->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-            p_caster->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
-        else p_caster->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
+        if(castPtr<Player>(u_caster)->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
+            castPtr<Player>(u_caster)->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
+        else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
     }
 
-    Summon* s = p_caster->GetMapMgr()->CreateSummon(data->Entry);
+    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
     if(s == NULL)
         return;
 
@@ -560,21 +537,20 @@ void Spell::SummonPossessed(uint32 i, SummonPropertiesEntry * Properties, Creatu
     int32 duration = GetDuration();
     uint32 slot = Properties ? Properties->slot : 0;
     s->CreateAs(new PossessedSummon());
-    s->Load(p_caster, v, m_spellInfo->Id, slot);
+    s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
-    s->PushToWorld(p_caster->GetMapMgr());
+    s->PushToWorld(u_caster->GetMapMgr());
 
-    p_caster->Possess(s);
+    if(u_caster->IsPlayer())
+        castPtr<Player>(u_caster)->Possess(s);
+    //else s->SetPossessedBy(u_caster);
 
     if(duration > 0)
         sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonCompanion(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonCompanion(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(u_caster == NULL)
-        return;
-
     if(u_caster->GetSummonedCritterGUID() != 0)
     {
         Creature* critter = u_caster->GetMapMgr()->GetCreature(u_caster->GetSummonedCritterGUID());
@@ -605,13 +581,9 @@ void Spell::SummonCompanion(uint32 i, SummonPropertiesEntry * Properties, Creatu
         sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Spell::SummonVehicle(uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
+void Spell::SummonVehicle(Unit *u_caster, uint32 i, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if( u_caster == NULL )
-        return;
-
-    // If it has no vehicle id, then we can't really do anything with it as a vehicle :/
-    if( data->Vehicle_entry == 0 )
+    if(data->Vehicle_entry == 0) // If it has no vehicle id, then we can't really do anything with it as a vehicle :/
         return;
 
     Vehicle *veh = u_caster->GetMapMgr()->CreateVehicle( data->Entry );

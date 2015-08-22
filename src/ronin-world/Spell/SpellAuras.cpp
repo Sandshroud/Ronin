@@ -3858,17 +3858,6 @@ void Aura::RecalculateModBaseAmounts()
     for(uint32 i = 0; i < m_modcount; i++)
     {
         int32 value = m_spellProto->CalculateSpellPoints(m_modList[i].i, casterLevel, casterComboPoints);
-        if( playerCaster != NULL )
-        {
-            SpellOverrideMap::iterator itr = playerCaster->mSpellOverrideMap.find(GetSpellProto()->Id);
-            if(itr != playerCaster->mSpellOverrideMap.end())
-            {
-                ScriptOverrideList::iterator itrSO;
-                for(itrSO = itr->second->begin(); itrSO != itr->second->end(); itrSO++)
-                    value += RandomUInt((*itrSO)->damage);
-            }
-        }
-
         if( unitCaster != NULL )
         {
             int32 spell_flat_modifers = 0, spell_pct_modifers = 0;
@@ -4104,26 +4093,7 @@ void Aura::SpellAuraPeriodicTriggerSpellWithValue(bool apply)
 
 void Aura::SpellAuraModCritChanceAll(bool apply)
 {
-    if( !m_target || !m_target->IsPlayer() )
-        return;
 
-    Player* plr = castPtr<Player>(m_target);
-
-    if( apply )
-    {
-        WeaponModifier md;
-        md.value = float(mod->m_amount);
-        md.wclass = m_spellProto->EquippedItemClass;
-        md.subclass = m_spellProto->EquippedItemSubClass;
-        plr->tocritchance.insert( std::make_pair(GetSpellId(), md) );
-
-        plr->SetSpellCritFromSpell( plr->GetSpellCritFromSpell() + float(mod->m_amount) );
-    }
-    else
-    {
-        plr->tocritchance.erase( GetSpellId() );
-        plr->SetSpellCritFromSpell( plr->GetSpellCritFromSpell() - float(mod->m_amount) );
-    }
 }
 
 void Aura::SpellAuraOpenStable(bool apply)

@@ -847,19 +847,17 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    InRangePlayerSet::iterator itr = m_inRangePlayers.begin(), it_end = m_inRangePlayers.end();
-    bool gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
-    while(itr != it_end)
+    bool gm = GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false;
+    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
-        Player *plr = *itr;
-        ++itr;
-        if(plr==NULL)
-            continue;
-        if(plr->GetSession() == NULL)
-            continue;
-        if(gm && plr->GetSession()->GetPermissionCount() == 0)
-            continue;
-        plr->GetSession()->OutPacket(Opcode, Len, Data);
+        if(Player *plr = GetInRangeObject<Player>(*itr))
+        {
+            if(plr->GetSession() == NULL)
+                continue;
+            if(gm && plr->GetSession()->GetPermissionCount() == 0)
+                continue;
+            plr->GetSession()->OutPacket(Opcode, Len, Data);
+        }
     }
 }
 
@@ -875,32 +873,16 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
         myTeam = castPtr<Player>(this)->GetTeam();
     }
 
-    InRangePlayerSet::iterator itr = m_inRangePlayers.begin(), it_end = m_inRangePlayers.end();
-    if(data->GetOpcode() == SMSG_MESSAGECHAT)
+    bool gm = data->GetOpcode() == SMSG_MESSAGECHAT ? false : ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
+    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
-        while(itr != it_end)
+        if(Player *plr = GetInRangeObject<Player>(*itr))
         {
-            Player *plr = *itr;
-            ++itr;
-            if(plr == NULL || plr->GetSession() == NULL)
+            if(plr->GetSession() == NULL)
                 continue;
             if(myteam_only && plr->GetTeam() != myTeam)
-                continue;
-            plr->GetSession()->SendPacket(data);
-        }
-    }
-    else
-    {
-        bool gm = ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
-        while(itr != it_end)
-        {
-            Player *plr = *itr;
-            ++itr;
-            if(plr == NULL || plr->GetSession() == NULL)
                 continue;
             if(gm && plr->GetSession()->GetPermissionCount() == 0)
-                continue;
-            if(myteam_only && plr->GetTeam() != myTeam)
                 continue;
             plr->GetSession()->SendPacket(data);
         }
@@ -1848,20 +1830,20 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     return damage;
 }
 
-int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool static_damage, bool no_remove_auras, uint32 AdditionalCritChance)
+void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool no_remove_auras)
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
 //==========================================================================================
     if(!pVictim || !pVictim->isAlive())
-        return 0;
+        return;
 
     SpellEntry *spellInfo = dbcSpell.LookupEntry( spellID );
     if(!spellInfo)
-        return 0;
+        return;
 
     if (IsPlayer() && !castPtr<Player>(this)->canCast(spellInfo))
-        return 0;
+        return;
 //==========================================================================================
 //==============================Variables Initialization====================================
 //==========================================================================================
@@ -1874,24 +1856,11 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
 //==============================+Spell Damage Bonus Calculations============================
 //==========================================================================================
 //------------------------------by stats----------------------------------------------------
-    if( IsUnit() && !static_damage )
+    if( IsUnit() )
     {
         caster->m_AuraInterface.RemoveAllAurasByInterruptFlag( AURA_INTERRUPT_ON_START_ATTACK );
 
         res = caster->GetSpellBonusDamage( pVictim, spellInfo, 0, ( int )res, false );
-
-        // Aura 271 - Mods Damage for particular casters spells
-        Unit::DamageTakenPctModPerCasterType::iterator it = pVictim->DamageTakenPctModPerCaster.find(GetGUID());
-        while(it != pVictim->DamageTakenPctModPerCaster.end() && GetGUID() == it->first)
-        {
-            if(spellInfo->SpellGroupType[0] & it->second.first[0] ||
-                spellInfo->SpellGroupType[1] & it->second.first[1] ||
-                spellInfo->SpellGroupType[2] & it->second.first[2])
-            {
-                res *= float(100 + it->second.second) / 100;
-            }
-            it++;
-        }
 
 //==========================================================================================
 //==============================Post +SpellDamage Bonus Modifications=======================
@@ -1909,7 +1878,6 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
                 if( pVictim->IsPlayer() )
                     CritChance += castPtr<Player>(pVictim)->res_R_crit_get();
                 CritChance += float(pVictim->AttackerCritChanceMod[spellInfo->School]);
-                CritChance += AdditionalCritChance;
                 CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
                 if( spellInfo->IsSpellMeleeSpell() ) CritChance += (float)(pVictim->AttackerCritChanceMod[0]);
             }
@@ -1925,7 +1893,6 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
                     caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
                 }
 
-                CritChance += AdditionalCritChance;
                 CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
             }
 
@@ -2027,12 +1994,6 @@ int32 WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 
         if( pVictim->GetCurrentSpell() )
             pVictim->GetCurrentSpell()->AddTime( school );
     }
-
-//==========================================================================================
-//==============================Post Damage Processing======================================
-//==========================================================================================
-
-    return res;
 }
 
 //*****************************************************************************************

@@ -41,7 +41,6 @@ void Player::Init()
     SoulStone                       = 0;
     SoulStoneReceiver               = 0;
     bReincarnation                  = false;
-    Seal                            = 0;
     m_session                       = 0;
     TrackingSpell                   = 0;
     m_status                        = 0;
@@ -61,14 +60,6 @@ void Player::Init()
     m_taxi_pos_y                    = 0;
     m_taxi_pos_z                    = 0;
     m_taxi_ride_time                = 0;
-    m_blockfromspellPCT             = 0;
-    m_blockfromspell                = 0;
-    m_critfromspell                 = 0;
-    m_spellcritfromspell            = 0;
-    m_dodgefromspell                = 0;
-    m_parryfromspell                = 0;
-    m_hitfromspell                  = 0;
-    m_hitfrommeleespell             = 0;
     m_meleeattackspeedmod           = 1.0f;
     m_rangedattackspeedmod          = 1.0f;
     m_cheatDeathRank                = 0;
@@ -968,7 +959,10 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_inventory.SaveToDB(bNewCharacter, buf);
 
     // Banking
-    m_bank.SaveToDB(bNewCharacter, buf);
+    m_bank.SaveToDB(buf);
+
+    // Currency
+    m_currency.SaveToDB(buf);
 
     // Known titles
     _SaveKnownTitles(buf);
@@ -5348,19 +5342,18 @@ void Player::SendInitialLogonPackets()
     GetSession()->SendPacket( &data );
 
     // Proficiencies
-    packetSMSG_SET_PROFICICENCY pr;
-    pr.ItemClass = 4;
-    pr.Profinciency = armor_proficiency;
-    m_session->OutPacket( SMSG_SET_PROFICIENCY, sizeof(packetSMSG_SET_PROFICICENCY), &pr );
-    pr.ItemClass = 2;
-    pr.Profinciency = weapon_proficiency;
-    m_session->OutPacket( SMSG_SET_PROFICIENCY, sizeof(packetSMSG_SET_PROFICICENCY), &pr );
+    data.Initialize(SMSG_SET_PROFICIENCY, 5);
+    data << uint8(0x02) << weapon_proficiency;
+    GetSession()->SendPacket(&data);
+    data.Initialize(SMSG_SET_PROFICIENCY, 5);
+    data << uint8(0x04) << armor_proficiency;
+    GetSession()->SendPacket(&data);
 
     //Initial Spells
     smsg_InitialSpells();
 
     data.Initialize(SMSG_SEND_UNLEARN_SPELLS, 4);
-    data << uint32(0);                                      // count, for (count) uint32;
+    data << uint32(0); // count, for (count) uint32;
     GetSession()->SendPacket(&data);
 
     if(sWorld.m_useAccountData)
@@ -7747,19 +7740,16 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
     //Add to proficiency
     if(const ItemProf * prof = GetProficiencyBySkill(SkillLine))
     {
-        WorldPacket data(SMSG_SET_PROFICIENCY, 8);
-        data << uint32(prof->itemclass);
-        if(prof->itemclass == 4)
+        if(prof->itemclass == 2 && ((weapon_proficiency&prof->subclass) == 0)
+            || prof->itemclass == 4 && ((armor_proficiency&prof->subclass) == 0))
         {
-            armor_proficiency |= prof->subclass;
-            data << uint32(armor_proficiency);
+            WorldPacket data(SMSG_SET_PROFICIENCY, 8);
+            data << uint32(prof->itemclass);
+            if(prof->itemclass == 4)
+                data << uint32(armor_proficiency |= prof->subclass);
+            else data << uint32(weapon_proficiency |= prof->subclass);
+            m_session->SendPacket(&data);
         }
-        else
-        {
-            weapon_proficiency |= prof->subclass;
-            data << uint32(weapon_proficiency);
-        }
-        m_session->SendPacket(&data);
     }
 
     // hackfix for runeforging
@@ -9354,10 +9344,11 @@ void Player::StartQuest(uint32 Id)
             if(Item* item = objmgr.CreateItem( qst->receive_items[i], this))
             {
                 item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->receive_itemcount[i]);
-                if(!GetInventory()->AddItemToFreeSlot(item))
+                if(!GetInventory()->AddInventoryItemToSlot(item, INVENTORY_SLOT_NONE))
                 {
+                    sItemMgr.DeleteItemData(item->GetGUID(), true);
                     item->Destruct();
-                } else GetSession()->SendItemPushResult(item, false, true, false, true, GetInventory()->LastSearchItemBagSlot(), GetInventory()->LastSearchItemSlot(),1);
+                }
             }
         }
     }

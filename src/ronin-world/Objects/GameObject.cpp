@@ -112,17 +112,10 @@ void GameObject::Update(uint32 p_time)
                 return;
         }
 
-        Unit* pUnit;
-        float dist;
-        WorldObject::InRangeUnitSet::iterator itr;
-        for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+        for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
         {
-            if(!(*itr)->IsUnit())
-                continue;
-            pUnit = castPtr<Unit>(*itr);
-
-            dist = GetDistanceSq(pUnit);
-            if(pUnit != m_summoner && dist <= range)
+            Unit *pUnit = GetInRangeObject<Unit>(*itr);
+            if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
             {
                 if(m_summonedGo)
                 {
@@ -135,9 +128,9 @@ void GameObject::Update(uint32 p_time)
                         continue;
                 }
 
-                SpellCastTargets tgt((*itr)->GetGUID());
-                tgt.m_dest = GetPosition();
                 Spell* sp = new Spell(this, spell, true, NULL);
+                SpellCastTargets tgt(pUnit->GetGUID());
+                tgt.m_dest = GetPosition();
                 sp->prepare(&tgt);
 
                 if(m_summonedGo)

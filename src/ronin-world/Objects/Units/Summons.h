@@ -41,9 +41,6 @@ public:
     CompanionSummon() { };
     ~CompanionSummon() { };
 
-    void Destruct() { };
-    void OnPushToWorld() { };
-    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_COMPANION; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -54,9 +51,6 @@ public:
     GuardianSummon() { };
     ~GuardianSummon() { };
 
-    void Destruct() { };
-    void OnPushToWorld() { };
-    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_GUARDIAN; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -67,9 +61,6 @@ public:
     PossessedSummon() { };
     ~PossessedSummon() { };
 
-    void Destruct() { };
-    void OnPushToWorld() { };
-    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_POSSESSED; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -81,9 +72,7 @@ public:
     ~TotemSummon() { };
 
     void SetupSpells();
-    void Destruct() { };
     void OnPushToWorld() { SetupSpells(); };
-    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_TOTEM; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -94,9 +83,6 @@ public:
     WildSummon() { };
     ~WildSummon() { };
 
-    void Destruct() { };
-    void OnPushToWorld() { };
-    void OnRemoveInRangeObject(WorldObject* object) { };
     uint8 GetSummonType() { return SUMMON_TYPE_WILD; };
     void Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot);
 };
@@ -118,13 +104,13 @@ public:
     void Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot);
 
     int32 GetSummonSlot() { return summonslot; };
-    WorldObject* GetSummonOwner() { return s_Owner; };
+    Unit* GetSummonOwner() { return s_Owner; };
     // Returns the internal summon type or none
     uint8 GetSummonType() { return m_Internal ? m_Internal->GetSummonType() : SUMMON_TYPE_NONE; };
 
 private:
     SummonHandler* m_Internal;
 
-    int32 summonslot;   // Summon slot of the creature in the owner's summonhandler, -1 means no slot
-    Unit* s_Owner;      // Summoner of the creature
+    int32 summonslot;       // Summon slot of the creature in the owner's summonhandler, -1 means no slot
+    Unit* s_Owner;          // Summoner of the creature
 };

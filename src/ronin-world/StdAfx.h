@@ -164,6 +164,8 @@ extern "C" {
 #include "CurrencyInterface.h"
 #include "Player.h"
 #include "FactionSystem.h"
+#include "BaseSpell.h"
+#include "SpellEffects.h"
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "ClassSpells.h"

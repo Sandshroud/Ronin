@@ -1867,13 +1867,13 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, u
     return res;
 }
 
-int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
+void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
 //==========================================================================================
     if(!pVictim->isAlive() || !isAlive()  || IsStunned() || IsPacified() || IsFeared())
-        return 0;
+        return;
 
     if(!isTargetInFront(pVictim))
     {
@@ -1882,7 +1882,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if( !(ability && ability->isSpellBackAttackCapable()) )
             {
                 castPtr<Player>(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
-                return 0;
+                return;
             }
         }
     }
@@ -2766,7 +2766,7 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
         do
         {
             m_extraattacks[1]--;
-            realdamage += Strike( pVictim, weapon_damage_type, NULL, 0, 0, 0, 0, true, false );
+            Strike( pVictim, weapon_damage_type, NULL, 0, 0, 0, 0, true, false );
         }while( m_extraattacks[1] > 0 && m_extraattacks[0] == 0 );
     }
 
@@ -2781,14 +2781,14 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
             if (ex->deleted)
                 continue;
 
-            for(InRangeUnitSet::iterator itr = m_inRangeUnits.begin(); itr != m_inRangeUnits.end(); itr++)
+            for(InRangeSet::iterator itr = m_inRangeUnits.begin(); itr != m_inRangeUnits.end(); itr++)
             {
                 if((*itr) == NULL || (*itr) == pVictim)
                     continue;
 
                 if(CalcDistance(*itr) < 5.0f && sFactionSystem.isAttackable(castPtr<Unit>(this), (*itr)) && isTargetInFront(*itr) && !castPtr<Unit>(*itr)->IsPacified())
                 {
-                    realdamage += Strike( castPtr<Unit>( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, ex->spell_info->isUnstoppableForce() );
+                    Strike( castPtr<Unit>( *itr ), weapon_damage_type, ex->spell_info, ex->i, add_damage, pct_dmg_mod, exclusive_damage, false, ex->spell_info->isUnstoppableForce() );
                     break;
                 }
             }
@@ -2807,7 +2807,6 @@ int32 Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* abilit
 
         m_extrastriketarget = 0;
     }
-    return realdamage;
 }
 
 

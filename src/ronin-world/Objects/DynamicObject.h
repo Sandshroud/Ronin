@@ -23,9 +23,11 @@ public:
     void OnRemoveInRangeObject(WorldObject* pObj);
     void Remove();
 
+    uint32 getLevel() { return casterLevel; }
     uint64 GetCasterGuid() { return casterGuid; }
 
 protected:
+    uint32 casterLevel;
     uint64 casterGuid;
 
     SpellEntry * m_spellProto;

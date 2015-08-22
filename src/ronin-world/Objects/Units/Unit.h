@@ -493,7 +493,7 @@ public:
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 &reflectout );
-    int32 Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
+    void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     void RemoveExtraStrikeTarget(SpellEntry *spell_info);
     void AddExtraStrikeTarget(SpellEntry *spell_info, uint8 effIndex, uint32 charges);
@@ -697,12 +697,6 @@ public:
     void SM_FFValue( uint32 modifier, float* v, uint32* group ) { m_AuraInterface.SM_FFValue(modifier, v, group); }
     void SM_PIValue( uint32 modifier, int32* v, uint32* group ) { m_AuraInterface.SM_PIValue(modifier, v, group); }
     void SM_PFValue( uint32 modifier, float* v, uint32* group ) { m_AuraInterface.SM_PFValue(modifier, v, group); }
-
-
-    // Multimap used to handle aura 271
-    // key is caster GUID and value is a pair of SpellMask pointer and mod value
-    typedef std::tr1::unordered_multimap<WoWGuid, std::pair<uint32*, int32> > DamageTakenPctModPerCasterType;
-    DamageTakenPctModPerCasterType DamageTakenPctModPerCaster;
 
     //Events
     void Emote (EmoteType emote);
@@ -920,7 +914,6 @@ public:
     SpellEntry * pLastSpell;
     bool bProcInUse;
     bool bInvincible;
-    Player* m_redirectSpellPackets;
     void UpdateVisibility();
 
     //! Is PVP flagged?

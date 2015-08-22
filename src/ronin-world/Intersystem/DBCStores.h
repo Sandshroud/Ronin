@@ -931,7 +931,7 @@ struct SpellEntry
     uint32 GeneratedThreat;
     uint32 SpellSkillLine;
     uint32 CustomAttributes[3];
-    bool isUnique, always_apply;
+    bool isUnique, always_apply, inline_effects;
 
     // Calculations
     int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)

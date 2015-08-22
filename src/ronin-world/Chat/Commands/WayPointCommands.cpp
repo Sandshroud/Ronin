@@ -1294,17 +1294,15 @@ bool ChatHandler::HandleWaypointAddFlyCommand(const char * args, WorldSession * 
 bool ChatHandler::HandleNpcSelectCommand(const char * args, WorldSession * m_session)
 {
     Creature* un = NULL;
-    float dist = 999999.0f;
-    float dist2;
+    float dist = 999999.0f, dist2 = 0.f;
     Player* plr = m_session->GetPlayer();
-    WorldObject::InRangeUnitSet::iterator itr;
-    for(itr = plr->GetInRangeUnitSetBegin(); itr != plr->GetInRangeUnitSetEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = plr->GetInRangeCreatureSetBegin(); itr != plr->GetInRangeCreatureSetEnd(); itr++)
     {
-        if(!(*itr)->IsCreature())
+        WorldObject *obj = plr->GetInRangeObject(*itr);
+        if( (dist2 = plr->GetDistance2dSq(obj)) >= dist )
             continue;
-        if( (dist2 = plr->GetDistance2dSq(*itr)) >= dist )
-            continue;
-        un = castPtr<Creature>(*itr);
+
+        un = castPtr<Creature>(obj);
         dist = dist2;
     }
 

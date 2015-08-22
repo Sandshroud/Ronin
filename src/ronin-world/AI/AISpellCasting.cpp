@@ -107,7 +107,7 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     if(toCast->info->IsSpellChannelSpell())
     {
         m_CastTimer = 1000;
-        int32 duration = GetSpellInfoDuration(toCast->info, m_Unit, Target);
+        int32 duration = GetSpellInfoDuration(toCast->info, m_Unit);
         if(duration > 0)
             m_CastTimer += duration;
     } else m_CastTimer = 1000+toCast->casttime;
@@ -311,10 +311,11 @@ Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, 
 {
     //Build potential target list
     std::set<Unit*> TargetSet;
-    for ( WorldObject::InRangePlayerSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
+    for ( WorldObject::InRangeSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
     {
-        if ( IsValidUnitTarget( *PlayerIter, info, pTargetFilter, pMinRange, pMaxRange ) )
-            TargetSet.insert( castPtr<Unit>( *PlayerIter ) );
+        Player *plr = m_Unit->GetInRangeObject<Player>(*PlayerIter);
+        if ( IsValidUnitTarget( plr, info, pTargetFilter, pMinRange, pMaxRange ) )
+            TargetSet.insert(plr);
     }
 
     return ChooseBestTargetInSet( TargetSet, pTargetFilter );

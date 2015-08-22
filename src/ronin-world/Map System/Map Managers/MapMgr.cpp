@@ -1015,11 +1015,11 @@ void MapMgr::_UpdateObjects()
             // build the update
             if(count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC))
             {
-                for(PlayerSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
+                for(WorldObject::InRangeSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
                 {
-                    Player *plrTarget = *itr;
+                    Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
                     ++itr;
-                    if(!plrTarget->IsVisible(wObj))
+                    if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
                         continue; // Make sure that the target player can see us.
                     uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
                     if(targetFlag & UF_FLAG_PARTY_MEMBER)

@@ -4,16 +4,14 @@
 
 #include "StdAfx.h"
 
-uint32 implicitTargetFlags[150];
-
 uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
 {
-    uint32 type = implicitTargetFlags[implicittarget];
+    uint32 type = m_implicitTargetFlags[implicittarget];
 
     //CHAIN SPELLS ALWAYS CHAIN!
     uint32 jumps = m_spellInfo->EffectChainTarget[i];
-    if(u_caster != NULL)
-        u_caster->SM_FIValue(SMT_JUMP_REDUCE, (int32*)&jumps, m_spellInfo->SpellGroupType);
+    if(m_caster->IsUnit())
+        castPtr<Unit>(m_caster)->SM_FIValue(SMT_JUMP_REDUCE, (int32*)&jumps, m_spellInfo->SpellGroupType);
     if(jumps != 0)
         type |= SPELL_TARGET_AREA_CHAIN;
     return type;
@@ -26,10 +24,8 @@ void Spell::FillTargetMap(uint32 i)
     if(!m_caster->IsInWorld())
         return;
 
-    uint32 TargetType = SPELL_TARGET_NONE;
-
     // Get our info from A regardless of nullity
-    TargetType |= GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
+    uint32 TargetType = GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
 
     //never get info from B if it is 0 :P
     if(m_spellInfo->EffectImplicitTargetB[i] != 0)
@@ -44,33 +40,30 @@ void Spell::FillTargetMap(uint32 i)
 
     //always add this guy :P
     if(!(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
-    {
-        WorldObject* target = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
-        AddTarget(i, TargetType, target);
-    }
+        if(WorldObject* target = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget))
+            AddTarget(i, TargetType, target);
 
     if(TargetType & SPELL_TARGET_OBJECT_SELF)
         AddTarget(i, TargetType, m_caster);
 
     if(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
         AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-    if (TargetType & SPELL_TARGET_OBJECT_CURTOTEMS && u_caster != NULL)
+    if (TargetType & SPELL_TARGET_OBJECT_CURTOTEMS && m_caster->IsUnit())
     {
         std::vector<Creature*> m_totemList;
-        u_caster->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
+        castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
         for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
             AddTarget(i, TargetType, *itr);
     }
 
-    if(TargetType & SPELL_TARGET_OBJECT_CURPET && p_caster != NULL)
-        AddTarget(i, TargetType, p_caster->GetSummon());
+    if(TargetType & SPELL_TARGET_OBJECT_CURPET && m_caster->IsPlayer())
+        AddTarget(i, TargetType, castPtr<Player>(m_caster)->GetSummon());
 
     if(TargetType & SPELL_TARGET_OBJECT_PETOWNER)
     {
-        WoWGuid guid = m_targets.m_unitTarget;
-        if(guid.getHigh() == HIGHGUID_TYPE_PET)
+        if(m_targets.m_unitTarget.getHigh() == HIGHGUID_TYPE_PET)
         {
-            if(Pet* p = m_caster->GetMapMgr()->GetPet(guid))
+            if(Pet* p = m_caster->GetMapMgr()->GetPet(m_targets.m_unitTarget))
                 AddTarget(i, TargetType, p->GetPetOwner());
         }
     }
@@ -78,18 +71,16 @@ void Spell::FillTargetMap(uint32 i)
     //targets party, not raid
     if((TargetType & SPELL_TARGET_AREA_PARTY) && !(TargetType & SPELL_TARGET_AREA_RAID))
     {
-        if(p_caster == NULL && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
+        if(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
             AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-        else
-            AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
+        else AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
     }
 
     if(TargetType & SPELL_TARGET_AREA_RAID)
     {
-        if(p_caster == NULL && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
+        if(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
             AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-        else
-            AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
+        else AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
     }
 
     if(TargetType & SPELL_TARGET_AREA_CHAIN)
@@ -215,7 +206,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
 
     for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); ++itr)
     {
-        if(maxtargets != 0 && ManagedTargets.size() >= maxtargets)
+        if(maxtargets != 0 && TargetMap.size() >= maxtargets)
             break;
         if(itr->second->CalcDistance(source) > r)
             continue;
@@ -330,7 +321,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
 
     AddTarget(i, TargetType, firstTarget);
 
-    if(jumps <= 1 || ManagedTargets.size() == 0) //1 because we've added the first target, 0 size if spell is resisted
+    if(jumps <= 1 || TargetMap.size() == 0) //1 because we've added the first target, 0 size if spell is resisted
         return;
 
     WorldObject::InRangeUnitSet::iterator itr;
@@ -355,9 +346,9 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
         size_t oldsize;
         if(IsInrange(firstTarget->GetPositionX(), firstTarget->GetPositionY(), firstTarget->GetPositionZ(), (*itr), range))
         {
-            oldsize = ManagedTargets.size();
+            oldsize = TargetMap.size();
             AddTarget(i, TargetType, (*itr));
-            if(ManagedTargets.size() == oldsize || ManagedTargets.size() >= jumps) //either out of jumps or a resist
+            if(TargetMap.size() == oldsize || TargetMap.size() >= jumps) //either out of jumps or a resist
                 return;
         }
     }
@@ -379,7 +370,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
                 AddTarget(i, TargetType, (*itr));
             }
         }
-        if(maxtargets != 0 && ManagedTargets.size() >= maxtargets)
+        if(maxtargets != 0 && TargetMap.size() >= maxtargets)
             return;
     }
 }

@@ -59,6 +59,8 @@ public:
     void ResetDeathClock(){ m_time = time( NULL ); }
     time_t GetDeathClock(){ return m_time; }
 
+    // Corpses are always level 1
+    uint32 getLevel() { return 1; };
 private:
     uint32 m_state;
     time_t m_time;

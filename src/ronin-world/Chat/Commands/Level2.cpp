@@ -538,33 +538,29 @@ bool ChatHandler::HandleMonsterYellCommand(const char* args, WorldSession *m_ses
 
 bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 {
-    GameObject* GObj = NULL;
+    Player *plr = m_session->GetPlayer();
 
-    bool bUseNext = false;
+    GameObject* GObj = NULL;
     float cDist = 9999.f, nDist = 0.f;
-    WorldObject::InRangeGameObjectSet::iterator itr, itr2 = m_session->GetPlayer()->GetInRangeGameObjectSetEnd();
-    for(itr = m_session->GetPlayer()->GetInRangeGameObjectSetBegin(); itr != itr2; itr++ )
+    for(WorldObject::InRangeSet::iterator itr = plr->GetInRangeGameObjectSetBegin(); itr != plr->GetInRangeGameObjectSetEnd(); ++itr )
     {
-        if( (nDist = m_session->GetPlayer()->CalcDistance( *itr )) < cDist )
+        if(GameObject *gob = plr->GetInRangeObject<GameObject>(*itr))
         {
-            GObj = castPtr<GameObject>(*itr);
-            cDist = nDist;
-            nDist = 0.0f;
+            if( (nDist = plr->CalcDistance(gob)) < cDist )
+            {
+                GObj = gob;
+                cDist = nDist;
+            }
         }
     }
 
-    if( GObj == NULL )
+    if( (plr->m_GM_SelectedGO = GObj) == NULL )
     {
-        m_session->GetPlayer()->m_GM_SelectedGO = NULL;
         RedSystemMessage(m_session, "No inrange GameObject found.");
         return true;
     }
 
-    m_session->GetPlayer()->m_GM_SelectedGO = GObj;
-
-    GreenSystemMessage(m_session, "Selected GameObject [ %s ] which is %.3f meters away from you.",
-        GameObjectNameStorage.LookupEntry(GObj->GetEntry())->Name, m_session->GetPlayer()->CalcDistance(GObj));
-
+    GreenSystemMessage(m_session, "Selected GameObject [ %s ] which is %.3f meters away from you.", GameObjectNameStorage.LookupEntry(GObj->GetEntry())->Name, cDist);
     return true;
 }
 

@@ -515,13 +515,14 @@ bool PlayerInventory::CreateInventoryStacks(ItemPrototype *proto, uint32 count, 
         if(data == NULL)
             return false;
         Item *item = new Item(data);
-        item->Initialize(m_pOwner);
+        item->SetOwner(m_pOwner);
         item->ModStackSize(count);
-        if(creatorGuid.count()) item->SetCreatorGuid(creatorGuid);
+        if(creatorGuid.count())
+            item->SetCreatorGuid(creatorGuid);
 
         if(!AddInventoryItemToSlot(item, targetSlot))
         {
-            sItemMgr.DeleteItemData(item->GetGUID());
+            sItemMgr.DeleteItemData(item->GetGUID(), true);
             item->Destruct();
             return false;
         }

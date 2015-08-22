@@ -351,14 +351,13 @@ bool AIInterface::FindFriends(float dist)
     ai_TargetLock.Release();
 
     Unit *result = NULL;
-    for(WorldObject::InRangeUnitSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
-        if((*itr) == NULL || !(*itr)->IsInWorld())
-            continue;
-        if((*itr)->IsPlayer())
+        Unit *unit = m_Unit->GetInRangeObject<Unit>(*itr);
+        if(unit == NULL || !unit->IsInWorld() || unit->IsPlayer())
             continue;
 
-        Creature *pCreature = castPtr<Creature>((*itr));
+        Creature *pCreature = castPtr<Creature>(unit);
         if(!pCreature->isAlive())
             continue;
         if(pCreature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
@@ -477,13 +476,10 @@ void AIInterface::CallGuards()
         m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, team ? LANG_ORCISH : LANG_COMMON, "Guards!");
 
         uint8 spawned = 0;
-        std::unordered_set<Player*>::iterator hostileItr = m_Unit->GetInRangePlayerSetBegin();
-        for(; hostileItr != m_Unit->GetInRangePlayerSetEnd(); ++hostileItr)
+        for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangePlayerSetBegin(); itr != m_Unit->GetInRangePlayerSetEnd(); ++itr)
         {
-            if(spawned >= 3)
-                break;
-
-            if(!sFactionSystem.CanEitherUnitAttack(*hostileItr, m_Unit))
+            Player *plr = m_Unit->GetInRangeObject<Player>(*itr);
+            if(!sFactionSystem.CanEitherUnitAttack(plr, m_Unit))
                 continue;
 
             Creature* guard = m_Unit->GetMapMgr()->CreateCreature(guardId);
@@ -510,7 +506,9 @@ void AIInterface::CallGuards()
             sEventMgr.AddEvent(guard, &Creature::SafeDelete, EVENT_CREATURE_SAFE_DELETE, 60*5*1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             //Start patrolling if nothing else to do.
             sEventMgr.AddEvent(guard, &Creature::SetGuardWaypoints, EVENT_UNK, 10000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            spawned++;
+
+            if(++spawned == 3)
+                break;
         }
     }
 }

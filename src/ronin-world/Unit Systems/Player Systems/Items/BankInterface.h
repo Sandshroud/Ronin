@@ -19,6 +19,8 @@ public:
     PlayerBank( Player* pPlayer );
     ~PlayerBank();
 
+    void SaveToDB(QueryBuffer *buf);
+
     uint32 BuildCreateUpdateBlocks(ByteBuffer *data);
     void DestroyForPlayer(Player* plr);
 

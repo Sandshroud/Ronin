@@ -620,9 +620,6 @@ void EyeOfTheStorm::UpdateCPs()
     //   loop through inrange players, for new ones, send the enable CP worldstate.
     //   the value of the map is a timestamp of the last update, to avoid cpu time wasted
     //   doing lookups of objects that have already been updated
-
-    std::unordered_set<Player*  >::iterator itr;
-    std::unordered_set<Player*  >::iterator itrend;
     std::map<WoWGuid, uint32>::iterator it2, it3;
     uint32 timeptr = (uint32)UNIXTIME;
     bool in_range;
@@ -632,31 +629,33 @@ void EyeOfTheStorm::UpdateCPs()
 
     for(i = 0; i < EOTS_TOWER_COUNT; i++)
     {
-        itr = m_CPStatusGO[i]->GetInRangePlayerSetBegin();
-        itrend = m_CPStatusGO[i]->GetInRangePlayerSetEnd();
         plrcounts[0] = plrcounts[1] = 0;
 
-        for(; itr != itrend; itr++)
+        for(WorldObject::InRangeSet::iterator itr = m_CPStatusGO[i]->GetInRangePlayerSetBegin(); itr != m_CPStatusGO[i]->GetInRangePlayerSetEnd(); itr++)
         {
-            if( !(*itr)->IsPvPFlagged() || (*itr)->InStealth() || (*itr)->m_invisible || (*itr)->SchoolImmunityList[0] || (*itr)->m_bgFlagIneligible )
+            Player *plr = m_CPStatusGO[i]->GetInRangeObject<Player>(*itr);
+            if(plr == NULL)
+                continue;
+
+            if( !plr->IsPvPFlagged() || plr->InStealth() || plr->m_invisible || plr->SchoolImmunityList[0] || plr->m_bgFlagIneligible )
                 is_valid = false;
             else
                 is_valid = true;
 
-            in_range = ((*itr)->isAlive() && m_CPStatusGO[i]->GetDistanceSq((*itr)) <= EOTS_CAPTURE_DISTANCE) ? true : false;
+            in_range = (plr->isAlive() && m_CPStatusGO[i]->GetDistanceSq(plr) <= EOTS_CAPTURE_DISTANCE) ? true : false;
 
-            it2 = m_CPStored[i].find((*itr)->GetGUID());
+            it2 = m_CPStored[i].find(plr->GetGUID());
             if( it2 == m_CPStored[i].end() )
             {
                 // new player :)
                 if( in_range )
                 {
-                    (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_DISPLAY, 1);
-                    (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_VALUE, m_CPStatus[i]);
-                    m_CPStored[i].insert(std::make_pair((*itr)->GetGUID(), timeptr));
+                    plr->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_DISPLAY, 1);
+                    plr->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_VALUE, m_CPStatus[i]);
+                    m_CPStored[i].insert(std::make_pair(plr->GetGUID(), timeptr));
 
                     if( is_valid )
-                        plrcounts[(*itr)->GetTeam()]++;
+                        plrcounts[plr->GetTeam()]++;
                 }
             }
             else
@@ -664,15 +663,15 @@ void EyeOfTheStorm::UpdateCPs()
                 // oldie
                 if( !in_range )
                 {
-                    (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_DISPLAY, 0);
+                    plr->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_DISPLAY, 0);
                     m_CPStored[i].erase(it2);
                 }
                 else
                 {
-                    (*itr)->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_VALUE, m_CPStatus[i]);
+                    plr->SendWorldStateUpdate(WORLDSTATE_EOTS_PVP_CAPTURE_BAR_VALUE, m_CPStatus[i]);
                     it2->second = timeptr;
                     if( is_valid )
-                        plrcounts[(*itr)->GetTeam()]++;
+                        plrcounts[plr->GetTeam()]++;
                 }
             }
         }

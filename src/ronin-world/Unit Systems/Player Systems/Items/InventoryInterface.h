@@ -56,6 +56,8 @@ public:
     PlayerInventory( Player* pPlayer );
     ~PlayerInventory();
 
+    void SaveToDB(bool newChar, QueryBuffer *buf);
+
     Player *GetOwner() { return m_pOwner; }
 
     void AddToWorld();

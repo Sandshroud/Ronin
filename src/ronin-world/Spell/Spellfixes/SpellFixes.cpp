@@ -329,7 +329,7 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     sp->NameHash = crc32((const unsigned char*)sp->Name, (unsigned int)strlen(sp->Name)); //need these set before we start processing spells
     sp->RankNumber = sp->GeneratedThreat = sp->SpellSkillLine = 0;
     for(uint8 i = 0; i < 3; i++) sp->CustomAttributes[i] = 0;
-    sp->isUnique = sp->always_apply = false;
+    sp->isUnique = sp->always_apply = sp->inline_effects = false;
 
     // parse rank text
     if( !sscanf( sp->Rank, "Rank %d", (unsigned int*)&sp->RankNumber) )
@@ -352,75 +352,71 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     }
 }
 
-extern uint32 implicitTargetFlags[150];
-
 void SetupSpellTargets()
 {
-    memset(implicitTargetFlags, SPELL_TARGET_NONE, sizeof(uint32)*150);
-
-    implicitTargetFlags[0] = (SPELL_TARGET_REQUIRE_ITEM | SPELL_TARGET_REQUIRE_GAMEOBJECT);
-    implicitTargetFlags[1] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[3] = (SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[4] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[5] = (SPELL_TARGET_OBJECT_CURPET);
-    implicitTargetFlags[6] = (SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[7] = (SPELL_TARGET_OBJECT_SCRIPTED);
-    implicitTargetFlags[8] = (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[15] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[16] = (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    //implicitTargetFlags[17] = (SPELL_TARGET_AREA);
-    implicitTargetFlags[18] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_NO_OBJECT);
-    implicitTargetFlags[20] = (SPELL_TARGET_AREA_PARTY);
-    implicitTargetFlags[21] = (SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[22] = (SPELL_TARGET_AREA_SELF);
-    implicitTargetFlags[23] = (SPELL_TARGET_REQUIRE_GAMEOBJECT);
-    implicitTargetFlags[24] = (SPELL_TARGET_AREA_CONE | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[25] = (SPELL_TARGET_ANY_OBJECT);
-    implicitTargetFlags[26] = (SPELL_TARGET_REQUIRE_GAMEOBJECT | SPELL_TARGET_REQUIRE_ITEM);
-    implicitTargetFlags[27] = (SPELL_TARGET_OBJECT_PETOWNER);
-    implicitTargetFlags[28] = (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[29] = (SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_SELF);
-    implicitTargetFlags[30] = (SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[31] = (SPELL_TARGET_REQUIRE_FRIENDLY | SPELL_TARGET_AREA);
-    //implicitTargetFlags[32] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[33] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_PARTY);
-    implicitTargetFlags[35] = (SPELL_TARGET_AREA_PARTY);
-    implicitTargetFlags[36] = (SPELL_TARGET_OBJECT_SCRIPTED);
-    implicitTargetFlags[37] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID);
-    implicitTargetFlags[39] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[40] = (SPELL_TARGET_OBJECT_SCRIPTED);
-    implicitTargetFlags[41] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[42] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[43] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[44] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[45] = (SPELL_TARGET_AREA_CHAIN | SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[46] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[47] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_NO_OBJECT); //dont fill target map for this (fucks up some spell visuals)
-    implicitTargetFlags[48] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[49] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[50] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[52] = (SPELL_TARGET_AREA);
-    implicitTargetFlags[53] = (SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[54] = (SPELL_TARGET_AREA_CONE | SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[56] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_RAID); //used by commanding shout] = (targets raid now
-    implicitTargetFlags[57] = (SPELL_TARGET_REQUIRE_FRIENDLY | SPELL_TARGET_AREA_PARTY);
-    implicitTargetFlags[61] = (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_RAID | SPELL_TARGET_OBJECT_TARCLASS | SPELL_TARGET_REQUIRE_FRIENDLY);
-    implicitTargetFlags[63] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[64] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[65] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[66] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[67] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[69] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[72] = (SPELL_TARGET_AREA_RANDOM);
-    implicitTargetFlags[73] = (SPELL_TARGET_OBJECT_SELF);
-    implicitTargetFlags[76] = (SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[77] = (SPELL_TARGET_REQUIRE_ATTACKABLE);
-    implicitTargetFlags[86] = (SPELL_TARGET_AREA_RANDOM);
-    implicitTargetFlags[87] = (SPELL_TARGET_AREA);
-    implicitTargetFlags[89] = (SPELL_TARGET_AREA);
-    implicitTargetFlags[90] = (SPELL_TARGET_OBJECT_CURCRITTER);
-    implicitTargetFlags[104] = (SPELL_TARGET_REQUIRE_ATTACKABLE | SPELL_TARGET_AREA_CONE);
-    implicitTargetFlags[149] = SPELL_TARGET_NOT_IMPLEMENTED;
+    Spell::m_implicitTargetFlags.insert(std::make_pair(0, (SPELL_TARGET_REQUIRE_ITEM | SPELL_TARGET_REQUIRE_GAMEOBJECT)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(1, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(3, SPELL_TARGET_REQUIRE_FRIENDLY));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(4, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_REQUIRE_FRIENDLY)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(5, SPELL_TARGET_OBJECT_CURPET));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(6, SPELL_TARGET_REQUIRE_ATTACKABLE));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(7, SPELL_TARGET_OBJECT_SCRIPTED));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(8, (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(15, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(16, (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    //Spell::m_implicitTargetFlags.insert(std::make_pair(17, SPELL_TARGET_AREA));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(18, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_NO_OBJECT)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(20, SPELL_TARGET_AREA_PARTY));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(21, SPELL_TARGET_REQUIRE_FRIENDLY));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(22, SPELL_TARGET_AREA_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(23, SPELL_TARGET_REQUIRE_GAMEOBJECT));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(24, (SPELL_TARGET_AREA_CONE | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(25, SPELL_TARGET_ANY_OBJECT));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(26, (SPELL_TARGET_REQUIRE_GAMEOBJECT | SPELL_TARGET_REQUIRE_ITEM)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(27, SPELL_TARGET_OBJECT_PETOWNER));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(28, (SPELL_TARGET_AREA | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(29, (SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_SELF)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(30, SPELL_TARGET_REQUIRE_FRIENDLY));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(31, (SPELL_TARGET_REQUIRE_FRIENDLY | SPELL_TARGET_AREA)));
+    //Spell::m_implicitTargetFlags.insert(std::make_pair(32, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(33, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_PARTY)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(35, SPELL_TARGET_AREA_PARTY));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(36, SPELL_TARGET_OBJECT_SCRIPTED));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(37, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(39, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(40, SPELL_TARGET_OBJECT_SCRIPTED));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(41, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(42, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(43, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(44, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(45, (SPELL_TARGET_AREA_CHAIN | SPELL_TARGET_REQUIRE_FRIENDLY)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(46, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(47, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_NO_OBJECT))); //dont fill target map for this (fucks up some spell visuals)
+    Spell::m_implicitTargetFlags.insert(std::make_pair(48, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(49, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(50, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(52, SPELL_TARGET_AREA));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(53, (SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(54, (SPELL_TARGET_AREA_CONE | SPELL_TARGET_REQUIRE_ATTACKABLE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(56, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_RAID))); //used by commanding shout, targets raid now
+    Spell::m_implicitTargetFlags.insert(std::make_pair(57, (SPELL_TARGET_REQUIRE_FRIENDLY | SPELL_TARGET_AREA_PARTY)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(61, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_RAID | SPELL_TARGET_OBJECT_TARCLASS | SPELL_TARGET_REQUIRE_FRIENDLY)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(63, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(64, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(65, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(66, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(67, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(69, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(72, SPELL_TARGET_AREA_RANDOM));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(73, SPELL_TARGET_OBJECT_SELF));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(76, SPELL_TARGET_REQUIRE_ATTACKABLE));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(77, SPELL_TARGET_REQUIRE_ATTACKABLE));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(86, SPELL_TARGET_AREA_RANDOM));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(87, SPELL_TARGET_AREA));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(89, SPELL_TARGET_AREA));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(90, SPELL_TARGET_OBJECT_CURCRITTER));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(104, (SPELL_TARGET_REQUIRE_ATTACKABLE | SPELL_TARGET_AREA_CONE)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(149, SPELL_TARGET_NOT_IMPLEMENTED));
 }
 
 void PoolSpellData()

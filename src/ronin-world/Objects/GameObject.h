@@ -387,6 +387,8 @@ public:
         m_summonedGo = true;
     }
 
+    Unit *GetSummoner() { return m_summoner; }
+
     Unit* CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot);
     void _Expire();
 
@@ -444,18 +446,19 @@ public:
     // loooot
     void GenerateLoot();
 
-    void SetState(uint8 state) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state); }
-    uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
-    void SetAnimProgress(uint32 animprogress) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, animprogress ); }
-    uint32 GetAnimProgress() { return GetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS ); }
-    void SetFlags(uint32 flags) { SetUInt32Value(GAMEOBJECT_FLAGS, flags ); }
-    uint32 GetFlags() { return GetUInt32Value( GAMEOBJECT_FLAGS ); }
-    void SetType(uint8 type) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID, type ); }
-    uint8 GetType() { return GetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID ); }
-    void SetLevel(uint32 level) { SetUInt32Value( GAMEOBJECT_LEVEL, level ); }
-    uint32 GetLevel() { return GetUInt32Value( GAMEOBJECT_LEVEL ); }
+    RONIN_INLINE void SetState(uint8 state) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state); }
+    RONIN_INLINE uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
+    RONIN_INLINE void SetAnimProgress(uint32 animprogress) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, animprogress ); }
+    RONIN_INLINE uint32 GetAnimProgress() { return GetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS ); }
+    RONIN_INLINE void SetFlags(uint32 flags) { SetUInt32Value(GAMEOBJECT_FLAGS, flags ); }
+    RONIN_INLINE uint32 GetFlags() { return GetUInt32Value( GAMEOBJECT_FLAGS ); }
+    RONIN_INLINE void SetType(uint8 type) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID, type ); }
+    RONIN_INLINE uint8 GetType() { return GetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID ); }
+    RONIN_INLINE void SetLevel(uint32 level) { SetUInt32Value( GAMEOBJECT_LEVEL, level ); }
+    RONIN_INLINE uint32 getLevel() { return GetUInt32Value( GAMEOBJECT_LEVEL ); }
+
     void SetDisplayId(uint32 id);
-    uint32 GetDisplayId() { return GetUInt32Value( GAMEOBJECT_DISPLAYID ); }
+    RONIN_INLINE uint32 GetDisplayId() { return GetUInt32Value( GAMEOBJECT_DISPLAYID ); }
 
     //Destructable Building
     void TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid = 0);
@@ -465,27 +468,26 @@ public:
     //Aura Generator
     void AuraGenSearchTarget();
 
-    uint32 GetGOui32Value(uint32 id)
+    RONIN_INLINE uint32 GetGOui32Value(uint32 id)
     {
         if(id < GO_UINT32_MAX)
             return m_Go_Uint32Values[id];
 
         return 0;
-    };
+    }
 
-    void SetGOui32Value(uint32 id, uint32 value)
+    RONIN_INLINE void SetGOui32Value(uint32 id, uint32 value)
     {
         if(id < GO_UINT32_MAX)
             m_Go_Uint32Values[id] = value;
-    };
+    }
 
     void Use(Player *p);
 
 protected:
-    bool m_summonedGo;
-    bool m_deleted;
+    bool m_summonedGo, m_deleted;
     GameObjectInfo *pInfo;
-    uint32 m_Go_Uint32Values[GO_UINT32_MAX]; // Crow: We could probably get away with using doubles...
+    uint32 m_Go_Uint32Values[GO_UINT32_MAX];
     typedef std::map<uint32,uint64> ChairSlotAndUser;
     ChairSlotAndUser ChairListSlots;
 };

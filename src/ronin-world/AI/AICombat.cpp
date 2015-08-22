@@ -436,9 +436,9 @@ Unit* AIInterface::FindTarget()
     if(m_Unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
         return NULL;
 
-    for( WorldObject::InRangeUnitSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); )
+    for( WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
-        pUnit = (*itr++);
+        pUnit = m_Unit->GetInRangeObject<Unit>(*itr);
         if( pUnit->isDead() || pUnit->m_invisible ) // skip invisible units
             continue;
         // Check the aggro range

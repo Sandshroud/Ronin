@@ -990,7 +990,6 @@ public:
     //Spells variables
     StrikeSpellMap      m_onStrikeSpells;
     StrikeSpellDmgMap   m_onStrikeSpellDmg;
-    SpellOverrideMap    mSpellOverrideMap;
     SpellSet            mSpells;
     SpellSet            mShapeShiftSpells;
 
@@ -1290,18 +1289,6 @@ public:
     float SpellHasteRatingBonus;
 
     bool canCast(SpellEntry *m_spellInfo);
-    RONIN_INLINE float GetBlockFromSpell() { return m_blockfromspell; }
-    RONIN_INLINE float GetSpellCritFromSpell() { return m_spellcritfromspell; }
-    RONIN_INLINE float GetHitFromMeleeSpell() { return m_hitfrommeleespell; }
-    RONIN_INLINE float GetHitFromSpell() { return m_hitfromspell; }
-    RONIN_INLINE float GetParryFromSpell() { return m_parryfromspell; }
-    RONIN_INLINE float GetDodgeFromSpell() { return m_dodgefromspell; }
-    void SetBlockFromSpell(float value) { m_blockfromspell = value; }
-    void SetSpellCritFromSpell(float value) { m_spellcritfromspell = value; }
-    void SetParryFromSpell(float value) { m_parryfromspell = value; }
-    void SetDodgeFromSpell(float value) { m_dodgefromspell = value; }
-    void SetHitFromMeleeSpell(float value) { m_hitfrommeleespell = value; }
-    void SetHitFromSpell(float value) { m_hitfromspell = value; }
     void SendPetUntrainConfirm();
     void SendXPToggleConfirm();
     void SetPlayerStatus(uint8 pStatus) { m_status = pStatus; }
@@ -1484,9 +1471,6 @@ public:
 
     bool bReincarnation;
 
-    std::map<uint32, WeaponModifier> damagedone;
-    std::map<uint32, WeaponModifier> tocritchance;
-    uint32 Seal;
     int32 rageFromDamageDealt;
     // GameObject commands
     GameObject* m_GM_SelectedGO;
@@ -1565,15 +1549,9 @@ public:
     BGScore m_bgScore;
     uint32 m_bgTeam;
 
-    void EventTeleport(uint32 mapid, float x, float y, float z, float o);
-    void EventTeleport(uint32 mapid, float x, float y, float z)
-    {
-        EventTeleport(mapid, x, y, z, 0.0f);
-    }
-
+    void EventTeleport(uint32 mapid, float x, float y, float z, float o = 0.f);
     void BroadcastMessage(const char* Format, ...);
-    std::map<uint32, std::set<uint32> > SummonSpells;
-    std::map<uint32, PetSpellMap*> PetSpells;
+
     void AddSummonSpell(uint32 Entry, uint32 SpellID);
     void RemoveSummonSpell(uint32 Entry, uint32 SpellID);
     std::set<uint32>* GetSummonSpells(uint32 Entry);
@@ -1847,15 +1825,6 @@ protected:
     uint8 m_restState;
     uint32 m_restAmount;
     AreaTrigger* LastAreaTrigger;
-    //combat mods
-    float m_blockfromspell;
-    float m_blockfromspellPCT;
-    float m_critfromspell;
-    float m_spellcritfromspell;
-    float m_dodgefromspell;
-    float m_parryfromspell;
-    float m_hitfromspell;
-    float m_hitfrommeleespell;
 
     uint32 armor_proficiency;
     uint32 weapon_proficiency;

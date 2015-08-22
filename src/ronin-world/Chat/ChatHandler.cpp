@@ -387,8 +387,9 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
             case CHAT_MSG_SAY:
                 {
                     SendChatPacket(&broadcast, 1, pos, lang, this);
-                    for(std::unordered_set<Player*  >::iterator itr = _player->m_inRangePlayers.begin(); itr != _player->m_inRangePlayers.end(); itr++)
-                        (*itr)->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                    for(WorldObject::InRangeSet::iterator itr = _player->GetInRangePlayerSetBegin(); itr != _player->GetInRangePlayerSetEnd(); itr++)
+                        if(Player *target = _player->GetInRangeObject<Player>(*itr))
+                            target->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
                     if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[say] %s: %s", _player->GetName(), message.c_str());
                 } break;
             case CHAT_MSG_PARTY:
