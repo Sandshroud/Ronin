@@ -123,8 +123,9 @@ public:
     // Cancels the current spell
     void cancel();
     // Update spell state based on time difference
-    void update(uint32 difftime);
+    void Update(uint32 difftime);
     void updatePosition(float x, float y, float z);
+    void _UpdateChanneledSpell(uint32 difftime);
     // Casts the spell
     void cast(bool);
     // Finishes the casted spell
@@ -166,13 +167,9 @@ public:
 
     // Send Packet functions
     bool IsNeedSendToClient();
-    void SendCastResult(uint8 result);
     void SendSpellStart();
     void SendSpellGo();
     void SendProjectileUpdate();
-    void SendInterrupted(uint8 result);
-    void SendChannelUpdate(uint32 time);
-    void SendChannelStart(int32 duration);
     void SendResurrectRequest(Player* target);
     static void SendHealSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
     static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
@@ -304,7 +301,6 @@ public:
 
     int32 damageToHit;
     uint32 castedItemId;
-    uint8 extra_cast_number;
     uint32 m_pushbackCount;
 
     bool duelSpell;

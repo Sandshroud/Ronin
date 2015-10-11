@@ -1610,7 +1610,7 @@ void Spell::AddTime(uint32 type)
     }
 }
 
-void Spell::update(uint32 difftime)
+void Spell::Update(uint32 difftime)
 {
     // ffs stealth capping
     if( p_caster && GetGameObjectTarget() && p_caster->InStealth() )
@@ -1643,13 +1643,12 @@ void Spell::update(uint32 difftime)
             {
                 if((int32)difftime >= m_timer)
                     m_timer = 0;
-                else
-                    m_timer -= difftime;
+                else m_timer -= difftime;
             }
 
             if(m_timer <= 0)
             {
-                SendChannelUpdate(0);
+                _UpdateChanneledSpell(0);
                 finish();
             }
         }break;
@@ -1987,87 +1986,6 @@ void Spell::writeSpellGoTargets( WorldPacket * data )
             }
         }
     }
-}
-
-void Spell::SendInterrupted(uint8 result)
-{
-    SetSpellFailed();
-
-    if(!m_caster->IsInWorld()) 
-        return;
-
-    WorldPacket data(SMSG_SPELL_FAILURE, 13);
-    data << m_caster->GetGUID();
-    data << uint8(extra_cast_number);
-    data << uint32(GetSpellProto()->Id);
-    data << uint8(result);
-    m_caster->SendMessageToSet(&data, true);
-
-    data.Initialize(SMSG_SPELL_FAILED_OTHER);
-    data << m_caster->GetGUID();
-    data << uint8(extra_cast_number);
-    data << uint32(GetSpellProto()->Id);
-    data << uint8(result);
-    m_caster->SendMessageToSet(&data, false);
-}
-
-void Spell::SendChannelUpdate(uint32 time)
-{
-    if(u_caster && time == 0)
-    {
-        if( u_caster->IsInWorld() && u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))
-        {
-            DynamicObject* dynObj = u_caster->GetMapMgr()->GetDynamicObject(u_caster->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
-            if(dynObj)
-            {
-                dynObj->RemoveFromWorld(true);
-                dynObj->Destruct();
-                dynObj = NULL;
-            }
-        }
-
-        if( p_caster && p_caster->IsInWorld() && p_caster->GetUInt64Value(PLAYER_FARSIGHT) )
-        {
-            DynamicObject* dynObj = p_caster->GetMapMgr()->GetDynamicObject(p_caster->GetUInt32Value(PLAYER_FARSIGHT));
-            if( dynObj )
-            {
-                dynObj->RemoveFromWorld(true);
-                dynObj->Destruct();
-                dynObj = NULL;
-                p_caster->SetUInt32Value(PLAYER_FARSIGHT, 0);
-            }
-            p_caster->SetUInt64Value(PLAYER_FARSIGHT, 0);
-            p_caster->GetMapMgr()->ChangeFarsightLocation(p_caster, p_caster->GetPositionX(), p_caster->GetPositionY(), false);
-        }
-
-        u_caster->SetChannelSpellTargetGUID(0);
-        u_caster->SetChannelSpellId(0);
-    }
-
-    if(!p_caster)
-        return;
-
-    WorldPacket data(MSG_CHANNEL_UPDATE, 12);
-    data << m_caster->GetGUID();
-    data << time;
-    p_caster->SendMessageToSet(&data, true);
-}
-
-void Spell::SendChannelStart(int32 duration)
-{
-    if (m_caster->GetTypeId() != TYPEID_GAMEOBJECT)
-    {
-        WorldPacket data(MSG_CHANNEL_START, 16);
-        data << m_caster->GetGUID();
-        data << GetSpellProto()->Id;
-        data << duration;
-        m_caster->SendMessageToSet(&data, true);
-    }
-
-    m_castTime = m_timer = duration;
-
-    if( u_caster != NULL )
-        u_caster->SetChannelSpellId(GetSpellProto()->Id);
 }
 
 void Spell::SendResurrectRequest(Player* target)
