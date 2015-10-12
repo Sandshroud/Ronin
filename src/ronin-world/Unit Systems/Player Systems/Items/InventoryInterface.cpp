@@ -24,6 +24,20 @@ PlayerInventory::~PlayerInventory()
     m_pOwner = NULL;
 }
 
+void PlayerInventory::LoadFromDB(QueryResult *result)
+{
+    if(result == NULL)
+        return;
+
+    do
+    {
+        Field *fields = result->Fetch();
+        int8 container = fields[1].GetInt8();
+        uint8 slot = fields[2].GetUInt8();
+        uint32 itemGuid = fields[3].GetUInt32();
+    }while(result->NextRow());
+}
+
 void PlayerInventory::SaveToDB(bool newChar, QueryBuffer *buf)
 {
 

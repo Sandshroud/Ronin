@@ -168,7 +168,10 @@ public:
             m_entries.insert(std::make_pair(entry, block));
         }
 
-        sLog.Notice("DBC", "Loaded %s (%u rows)", name, header.rows);
+        std::string file_name(name);
+        if(file_name.find_last_of('/') != std::string::npos)
+            file_name = file_name.substr(file_name.find_last_of('/')+1, file_name.size());
+        sLog.Notice("DBC", "Loaded %s (%u rows)", file_name.c_str(), header.rows);
         return true;
     }
 

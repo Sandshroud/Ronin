@@ -183,12 +183,10 @@ void Player::Init()
     m_TeleportState                 = 1;
     m_beingPushed                   = false;
     m_FlyingAura                    = 0;
-    rename_pending                  = false;
     titanGrip                       = false;
     iInstanceType                   = 0;
     iRaidType                       = 0;
     m_XPoff                         = false;
-    customizable                    = false;
     memset(reputationByListId, 0, sizeof(FactionReputation*) * 128);
     AnnihilationProcChance          = 0;
 
@@ -785,21 +783,19 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         in_arena = true;
 
     std::stringstream ss;
-    ss << "REPLACE INTO characters VALUES ("
+    ss << "REPLACE INTO character_data VALUES ("
     << GetLowGUID() << ", "
     << GetSession()->GetAccountId() << ","
     << "'" << m_name.c_str() << "', "
     << uint32(getRace()) << ","
     << uint32(getClass()) << ","
     << uint32(getGender()) << ","
-    << uint32(customizable ? 1 : 0) << ","
     << uint32(getLevel()) << ","
-    << uint32(m_XPoff ? 1 : 0) << ","
     << GetUInt32Value(PLAYER_XP) << ","
-    << GetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX) << ","
     << GetUInt32Value(PLAYER_CHOSEN_TITLE) << ","
     << GetUInt64Value(PLAYER_FIELD_COINAGE) << ","
     << GetUInt32Value(PLAYER_CHARACTER_POINTS) << ","
+    << GetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX) << ","
     << GetUInt32Value(UNIT_FIELD_HEALTH) << ","
     << uint32(GetPVPRank()) << ","
     << GetUInt32Value(PLAYER_BYTES) << ","
@@ -853,8 +849,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << uint32(m_restState) << ", "
     << uint32(m_restAmount) << ", "
     << uint32(m_deathState) << ", "
-    << uint32(m_FirstLogin) << ", "
-    << uint32(rename_pending) << ", "
     << uint32(m_StableSlotCount) << ", ";
 
     // instances
@@ -978,7 +972,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_factions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_items WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_inventory WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_powers WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_pvp_data WHERE guid = '%u'", m_objGuid.getLow());
@@ -1030,7 +1024,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     setRace(fields[PLAYERLOAD_FIELD_RACE].GetUInt8());
     setClass(fields[PLAYERLOAD_FIELD_CLASS].GetUInt8());
     setGender(fields[PLAYERLOAD_FIELD_GENDER].GetUInt8());
-    customizable = fields[PLAYERLOAD_FIELD_CUSTOMIZE_FLAGS].GetBool();
 
     // set race dbc
     myRace = dbcCharRace.LookupEntry(getRace());
@@ -1152,8 +1145,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     SetUInt32Value(UNIT_FIELD_HEALTH, load_health);
-    m_FirstLogin = fields[PLAYERLOAD_FIELD_FIRST_LOGON].GetBool();
-    rename_pending = fields[PLAYERLOAD_FIELD_FORCE_RENAME_PENDING].GetBool();
     m_StableSlotCount = fields[PLAYERLOAD_FIELD_TOTALSTABLESLOTS].GetUInt32();
     m_bgEntryPointMap = fields[PLAYERLOAD_FIELD_ENTRYPOINT_MAP].GetUInt32();
     m_bgEntryPointX = fields[PLAYERLOAD_FIELD_ENTRYPOINT_X].GetFloat();
@@ -1203,6 +1194,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
+    m_inventory.LoadFromDB(results[PLAYER_LO_ITEMS].result);
 
     _setFaction();
 
@@ -1770,8 +1762,8 @@ void Player::_SaveSpells(QueryBuffer * buf)
 
     if(ss.str().length())
     {
-        if(buf)buf->AddQuery("REPLACE INTO character_social VALUES %s;", ss.str().c_str());
-        else CharacterDatabase.Execute("REPLACE INTO character_social VALUES %s;", ss.str().c_str());
+        if(buf)buf->AddQuery("REPLACE INTO character_spells VALUES %s;", ss.str().c_str());
+        else CharacterDatabase.Execute("REPLACE INTO character_spells VALUES %s;", ss.str().c_str());
     }
 }
 
@@ -1995,8 +1987,6 @@ bool Player::Create(WorldPacket& data )
 
     for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
         mSpells.insert((*sp));
-
-    m_FirstLogin = true;
 
     SkillLineEntry * se;
     for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
@@ -2757,17 +2747,17 @@ void Player::_SavePet(QueryBuffer * buf)
     // Remove any existing info
     if(buf == NULL)
     {
-        CharacterDatabase.Execute("DELETE FROM playerpets WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
-        CharacterDatabase.Execute("DELETE FROM playerpettalents WHERE ownerguid=%u", GetLowGUID());
-        CharacterDatabase.Execute("DELETE FROM playerpetactionbar WHERE ownerguid=%u", GetLowGUID());
-        CharacterDatabase.Execute("DELETE FROM playerpetspells WHERE ownerguid=%u", GetLowGUID());
+        CharacterDatabase.Execute("DELETE FROM pet_data WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
+        CharacterDatabase.Execute("DELETE FROM pet_talents WHERE ownerguid=%u", GetLowGUID());
+        CharacterDatabase.Execute("DELETE FROM pet_actionbar WHERE ownerguid=%u", GetLowGUID());
+        CharacterDatabase.Execute("DELETE FROM pet_spells WHERE ownerguid=%u", GetLowGUID());
     }
     else
     {
-        buf->AddQuery("DELETE FROM playerpets WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
-        buf->AddQuery("DELETE FROM playerpetactionbar WHERE ownerguid=%u", GetLowGUID());
-        buf->AddQuery("DELETE FROM playerpetspells WHERE ownerguid=%u", GetLowGUID());
-        buf->AddQuery("DELETE FROM playerpettalents WHERE ownerguid=%u", GetLowGUID());
+        buf->AddQuery("DELETE FROM pet_data WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
+        buf->AddQuery("DELETE FROM pet_actionbar WHERE ownerguid=%u", GetLowGUID());
+        buf->AddQuery("DELETE FROM pet_spells WHERE ownerguid=%u", GetLowGUID());
+        buf->AddQuery("DELETE FROM pet_talents WHERE ownerguid=%u", GetLowGUID());
     }
 
     std::stringstream ss;
@@ -2790,7 +2780,7 @@ void Player::_SavePet(QueryBuffer * buf)
             bool first = true;
             if(m_Summon->mSpells.size())
             {
-                ss << "INSERT INTO playerpetspells VALUES ";
+                ss << "INSERT INTO pet_spells VALUES ";
                 for(; itr != m_Summon->mSpells.end(); itr++)
                 {
                     if(first)
@@ -2813,7 +2803,7 @@ void Player::_SavePet(QueryBuffer * buf)
             if(m_Summon->m_talents.size())
             {
                 PetTalentMap::iterator itr2 = m_Summon->m_talents.begin();
-                ss << "INSERT INTO playerpettalents VALUES ";
+                ss << "INSERT INTO pet_talents VALUES ";
                 first = true;
                 for(; itr2 != m_Summon->m_talents.end(); itr2++)
                 {
@@ -2838,7 +2828,7 @@ void Player::_SavePet(QueryBuffer * buf)
     for(std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin(); itr != m_Pets.end(); itr++)
     {
         ss.rdbuf()->str("");
-        ss << "REPLACE INTO playerpets VALUES('"
+        ss << "REPLACE INTO pet_data VALUES('"
             << GetLowGUID() << "','"
             << itr->second->number << "','"
             << CharacterDatabase.EscapeString(itr->second->name).c_str() << "','"
@@ -2857,7 +2847,7 @@ void Player::_SavePet(QueryBuffer * buf)
             buf->AddQueryStr(ss.str());
 
         ss.rdbuf()->str("");
-        ss << "REPLACE INTO playerpetactionbar VALUES('";
+        ss << "REPLACE INTO pet_actionbar VALUES('";
         // save action bar
         ss << GetLowGUID() << "','"
         << itr->second->number << "'";
@@ -3375,12 +3365,6 @@ void Player::OnPushToWorld()
     data << GetGUID().asPacked();
     m_AuraInterface.BuildAuraUpdateAllPacket(&data);
     SendPacket(&data);
-
-    if(m_FirstLogin)
-    {
-        sEventMgr.AddEvent(this, &Player::FullHPMP, EVENT_PLAYER_FULL_HPMP, 200, 0, 0);
-        m_FirstLogin = false;
-    }
 
     // send world states
     if( m_mapMgr != NULL )

@@ -325,45 +325,8 @@ bool BasicTaskExecutor::run()
 
 void ApplyNormalFixes();
 
-void PreStartQueries()
-{
-    QueryResult * result;
-
-    result = WorldDatabase.Query("SELECT * FROM prestartqueries ORDER BY seq ASC");
-    if(result)
-    {
-        sLog.Notice("DataBase","Found and executing %u prestart queries on World tables.",result->GetRowCount());
-        do
-        {
-            Field * f = result->Fetch();
-            std::string e_query =  f[0].GetString();
-            WorldDatabase.Execute(e_query.c_str());
-        }while(result->NextRow());
-
-        delete result;
-        WorldDatabase.Execute("DELETE FROM prestartqueries WHERE SingleShot = 1;");
-    }
-
-    result = CharacterDatabase.Query("SELECT * FROM prestartqueries ORDER BY seq ASC");
-    if(result)
-    {
-        sLog.Notice("DataBase","Found and executing %u prestart queries on Character tables.",result->GetRowCount());
-        do
-        {
-            Field * f = result->Fetch();
-            std::string e_query =  f[0].GetString();
-            CharacterDatabase.Execute(e_query.c_str());
-        }while(result->NextRow());
-
-        delete result;
-        CharacterDatabase.Execute("DELETE FROM prestartqueries WHERE SingleShot = 1;");
-    }
-}
-
 bool World::SetInitialWorldSettings()
 {
-    //Perform pre-starting queries on World- and Character-DataBase
-    PreStartQueries();
     CharacterDatabase.WaitExecute("UPDATE character_data SET online = 0 WHERE online = 1");
 
     sLog.Notice("World", "Starting up...");
@@ -1553,12 +1516,12 @@ void World::BackupDB()
 #ifndef WIN32
     const char *tables[] =
     { "account_data", "account_forced_permissions", "achievements", "arenateams", "auctions",
-      "banned_names", "characters", "characters_insert_queue", "charters", "corpses", "gm_tickets",
+      "banned_names", "character_data", "character_data_insert_queue", "charters", "corpses", "gm_tickets",
       "groups", "guild_bankitems", "guild_banklogs", "guild_banktabs",
       "guild_data", "guild_logs", "guild_ranks", "guilds",
       "instances", "mailbox", "mailbox_insert_queue", "news_timers",
-      "playercooldowns", "playeritems", "playeritems_insert_queue", "playerpets",
-      "playerpetspells", "playerpettalents", "playersummons", "playersummonspells", "questlog",
+      "playercooldowns", "item_data", "character_inventory", "pet_data",
+      "pet_spells", "pet_talents", "playersummons", "playersummonspells", "questlog",
       "server_settings", "social_friends", "social_ignores", "tutorials",
       "worldstate_save_data", NULL };
     char cmd[1024];

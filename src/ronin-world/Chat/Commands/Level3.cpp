@@ -281,7 +281,7 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
         SystemMessage(m_session, "Banning player '%s' in database for '%s'.", pCharacter, pReason);
         std::string escaped_reason = CharacterDatabase.EscapeString(std::string(pReason));
 
-        CharacterDatabase.Execute("UPDATE characters SET banned = %u, banReason = '%s' WHERE guid = %u",
+        CharacterDatabase.Execute("UPDATE character_data SET banned = %u, banReason = '%s' WHERE guid = %u",
             BanTime ? BanTime+(uint32)UNIXTIME : 1, escaped_reason.c_str(), pInfo->guid);
     }
 
@@ -321,7 +321,7 @@ bool ChatHandler::HandleUnBanCharacterCommand(const char* args, WorldSession *m_
     }
 
     // Unban in database
-    CharacterDatabase.Execute("UPDATE characters SET banned = 0 WHERE name = '%s'", CharacterDatabase.EscapeString(std::string(Character)).c_str());
+    CharacterDatabase.Execute("UPDATE character_data SET banned = 0 WHERE name = '%s'", CharacterDatabase.EscapeString(std::string(Character)).c_str());
 
     SystemMessage(m_session, "Unbanned character %s in database.", Character);
     sWorld.LogGM(m_session, "used unban character on %s", Character);
@@ -1816,12 +1816,10 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
     Player* plr = objmgr.GetPlayer(pi->guid);
     if(plr == NULL)
     {
-        CharacterDatabase.Execute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", pi->guid.getLow());
+        CharacterDatabase.Execute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", pi->guid.getLow());
     }
     else
     {
-        plr->rename_pending = true;
-        plr->SaveToDB(false);
         BlueSystemMessageToPlr(plr, "%s forced your character to be renamed next logon.", m_session->GetPlayer()->GetName());
     }
 
@@ -1848,12 +1846,10 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
     Player* plr = objmgr.GetPlayer(pi->guid);
     if(plr == NULL)
     {
-        CharacterDatabase.Execute("UPDATE characters SET customizable = 1 WHERE guid = %u", pi->guid.getLow());
+        CharacterDatabase.Execute("UPDATE character_data SET customizable = 1 WHERE guid = %u", pi->guid.getLow());
     }
     else
     {
-        plr->customizable = true;
-        plr->SaveToDB(false);
         BlueSystemMessageToPlr(plr, "%s granted you a character recustomization, please relog.", m_session->GetPlayer()->GetName());
     }
 

@@ -472,7 +472,7 @@ void Pet::InitializeMe()
     if(Summon == false)
     {
         // Pull from database... :/
-        QueryResult * query = CharacterDatabase.Query("SELECT * FROM playerpetspells WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
+        QueryResult * query = CharacterDatabase.Query("SELECT * FROM pet_spells WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
         if(query)
         {
             do
@@ -489,7 +489,7 @@ void Pet::InitializeMe()
 
         // Pull from database... :/
         uint8 spentPoints = 0;
-        QueryResult * query2 = CharacterDatabase.Query("SELECT * FROM playerpettalents WHERE ownerguid=%u AND petnumber=%u",m_Owner->GetLowGUID(), m_PetNumber);
+        QueryResult * query2 = CharacterDatabase.Query("SELECT * FROM pet_talents WHERE ownerguid=%u AND petnumber=%u",m_Owner->GetLowGUID(), m_PetNumber);
         if(query2)
         {
             do
@@ -587,8 +587,8 @@ void Pet::Dismiss(bool bSafeDelete)//Abandon pet
     {
         if(!Summon && m_Owner)
         {
-            CharacterDatabase.Execute("DELETE FROM playerpetspells WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
-            CharacterDatabase.Execute("DELETE FROM playerpettalents WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
+            CharacterDatabase.Execute("DELETE FROM pet_spells WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
+            CharacterDatabase.Execute("DELETE FROM pet_talents WHERE ownerguid=%u AND petnumber=%u", m_Owner->GetLowGUID(), m_PetNumber);
         }
 
         if(m_Owner != NULL)

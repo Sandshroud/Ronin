@@ -581,14 +581,13 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_RACE,
     PLAYERLOAD_FIELD_CLASS,
     PLAYERLOAD_FIELD_GENDER,
-    PLAYERLOAD_FIELD_CUSTOMIZE_FLAGS,
     PLAYERLOAD_FIELD_LEVEL,
     PLAYERLOAD_FIELD_XP_DISABLED,
     PLAYERLOAD_FIELD_EXPERIENCE,
-    PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
     PLAYERLOAD_FIELD_SELECTED_TITLE,
     PLAYERLOAD_FIELD_GOLD,
     PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS,
+    PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
     PLAYERLOAD_FIELD_CURRENTHP,
     PLAYERLOAD_FIELD_CURRENT_PVPRANK,
     PLAYERLOAD_FIELD_PLAYERBYTES,
@@ -613,8 +612,6 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_RESTSTATE,
     PLAYERLOAD_FIELD_RESTTIME,
     PLAYERLOAD_FIELD_DEATHSTATE,
-    PLAYERLOAD_FIELD_FIRST_LOGON,
-    PLAYERLOAD_FIELD_FORCE_RENAME_PENDING,
     PLAYERLOAD_FIELD_TOTALSTABLESLOTS,
     PLAYERLOAD_FIELD_ENTRYPOINT_MAP,
     PLAYERLOAD_FIELD_ENTRYPOINT_X,
@@ -1246,7 +1243,6 @@ public:
 
     std::set<uint32> OnMeleeAuras;
     void LoadNamesFromDB(uint32 guid);
-    bool m_FirstLogin;
 
     /************************************************************************/
     /* Death system                                                         */
@@ -1597,9 +1593,7 @@ public:
     bool CanSignCharter(Charter * charter, Player* requester);
     uint32 m_FlyingAura;
     std::stringstream LoadAuras;
-    bool rename_pending;
     bool m_XPoff;
-    bool customizable;
     uint32 iInstanceType;
     uint32 iRaidType;
     uint32 AnnihilationProcChance;

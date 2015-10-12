@@ -27,6 +27,11 @@ struct SlotResult
     std::set<uint16> splitSlot;
 };
 
+#define MAKE_INVSLOT(bag, item) uint16((uint16(bag)<<8)|uint16(item))
+#define INVSLOT_SET_ITEMSLOT(slot, itemslot) (slot&=~0xFF) |= itemslot
+#define INVSLOT_BAG(slot) uint8(((slot&0xFF00)>>8))
+#define INVSLOT_ITEM(slot) uint8(slot&0x00FF)
+
 class Item;
 class Container;
 class Player;
@@ -56,6 +61,7 @@ public:
     PlayerInventory( Player* pPlayer );
     ~PlayerInventory();
 
+    void LoadFromDB(QueryResult *result);
     void SaveToDB(bool newChar, QueryBuffer *buf);
 
     Player *GetOwner() { return m_pOwner; }

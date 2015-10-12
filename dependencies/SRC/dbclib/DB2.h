@@ -209,7 +209,10 @@ public:
             m_entries.insert(std::make_pair(entry, block));
         }
 
-        sLog.Notice("DB2", "Loaded %s (%u rows build %u)", name, header.rows, header.build);
+        std::string file_name(name);
+        if(file_name.find_last_of('/') != std::string::npos)
+            file_name = file_name.substr(file_name.find_last_of('/')+1, file_name.size());
+        sLog.Notice("DB2", "Loaded %s (%u rows build %u)", file_name.c_str(), header.rows, header.build);
         return true;
     }
 

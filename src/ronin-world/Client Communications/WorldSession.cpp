@@ -1104,7 +1104,7 @@ void WorldSession::LoadAccountData()
 {
     if(sWorld.m_useAccountData)
     {
-        QueryResult *pResult = CharacterDatabase.Query("SELECT * FROM account_data WHERE acct = %u", GetAccountId());
+        QueryResult *pResult = CharacterDatabase.Query("SELECT * FROM account_data WHERE accountid = %u", GetAccountId());
         if( pResult == NULL )
             return;
 

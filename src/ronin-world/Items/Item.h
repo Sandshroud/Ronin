@@ -56,7 +56,7 @@ typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 class SERVER_DECL Item : public Object
 {
 public:
-    Item(ItemData *data);
+    Item(uint32 owner_guid, uint32 low_guid);
     ~Item();
 
     virtual void Init();

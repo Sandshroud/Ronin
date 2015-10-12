@@ -775,7 +775,7 @@ bool ChatHandler::xxx(const char* args, WorldSession *m_session)
             for(itr = talents->begin(); itr != talents->end(); itr++)
             {
                 std::stringstream ss;
-                ss << "INSERT INTO playertalents (guid, spec, tid, rank) VALUES "
+                ss << "INSERT INTO character_talents (guid, spec, tid, rank) VALUES "
                     << "(" << fields[0].GetUInt32() << ","
                     << uint32(s) << ","
                     << itr->first << ","

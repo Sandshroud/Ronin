@@ -20,7 +20,7 @@ GuildMgr::GuildMgr()
     m_updateTimer = 0;
     m_GuildsLoading = true;
 
-    QueryResult *result = CharacterDatabase.Query("SELECT MAX(guildId) FROM guilds");
+    QueryResult *result = CharacterDatabase.Query("SELECT MAX(guildId) FROM guild_data");
     if(result)
     {
         m_hiGuildId = result->Fetch()[0].GetUInt32();
@@ -109,7 +109,7 @@ void GuildMgr::LoadAllGuilds()
     sWorld.GuildsLoading = true;
     sLog.Notice("GuildMgr", "Loading Guilds.");
 
-    QueryResult *result = CharacterDatabase.Query( "SELECT * FROM guilds" );
+    QueryResult *result = CharacterDatabase.Query( "SELECT * FROM guild_data" );
     if(result)
     {
         uint32 c = 0;
@@ -414,7 +414,6 @@ void GuildMgr::AddDestructionQueries(uint32 guildid)
 #ifdef USE_QMGR_QUERYBUFFER
     QueryBuffer *qb = new QueryBuffer();
 #endif
-    QMGR_EXECUTE("DELETE FROM `guilds` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_data` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_logs` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_ranks` WHERE guildId = '%u';", guildid);
@@ -600,7 +599,7 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
 #endif
 
     uint32 GuildId = guildInfo->m_guildId;
-    QMGR_EXECUTE("REPLACE INTO guilds VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %u, %u);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
+    QMGR_EXECUTE("REPLACE INTO guild_data VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %u, %u);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
         guildInfo->m_guildLevel, guildInfo->m_emblemStyle, guildInfo->m_emblemColor, guildInfo->m_borderColor, guildInfo->m_borderStyle, guildInfo->m_backgroundColor, CharacterDatabase.EscapeString(guildInfo->m_guildInfo).c_str(), 
         CharacterDatabase.EscapeString(guildInfo->m_motd).c_str(), guildInfo->m_creationTimeStamp, GUID_HIPART(guildInfo->m_bankBalance), GUID_LOPART(guildInfo->m_bankBalance));
 

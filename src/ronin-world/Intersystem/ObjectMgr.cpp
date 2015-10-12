@@ -285,7 +285,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 void ObjectMgr::LoadPlayersInfo()
 {
     PlayerInfo * pn;
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,level,gender,zoneId,timestamp,acct,instance_id,mapId,positionX,positionY,positionZ,orientation FROM characters");
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,level,gender,zoneId,timestamp,acct,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
     uint32 period, c;
     if(result)
     {
@@ -319,7 +319,7 @@ void ObjectMgr::LoadPlayersInfo()
                 char temp[300];
                 snprintf(temp, 300, "%s__%X__", pn->name, pn->guid);
                 sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->name,temp,pn->guid);
-                CharacterDatabase.WaitExecute("UPDATE characters SET name = '%s', forced_rename_pending = 1 WHERE guid = %u",
+                CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u",
                     CharacterDatabase.EscapeString(std::string(temp)).c_str(), pn->guid);
 
                 free(pn->name);
@@ -566,7 +566,7 @@ void ObjectMgr::SetHighestGuids()
 {
     QueryResult *result;
 
-    result = CharacterDatabase.Query( "SELECT MAX(guid) FROM characters" );
+    result = CharacterDatabase.Query( "SELECT MAX(guid) FROM character_data" );
     if( result )
     {
         m_hiPlayerGuid = result->Fetch()[0].GetUInt32();
@@ -624,14 +624,14 @@ void ObjectMgr::ListGuidAmounts()
     uint32 amount[8];
     std::string name[8] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets", "Creatures", "Gameobjects", "Vehicles"};
 
-    result = CharacterDatabase.Query("SELECT guid FROM characters");
+    result = CharacterDatabase.Query("SELECT guid FROM character_data");
     if(result)
     {
         amount[0] = result->GetRowCount();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT guid FROM playeritems");
+    result = CharacterDatabase.Query("SELECT guid FROM item_data");
     if(result)
     {
         amount[1] = result->GetRowCount();

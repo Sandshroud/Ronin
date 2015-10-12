@@ -54,14 +54,6 @@ bool MailMessage::LoadFromDB(Field * fields)
     deleted_flag = fields[i++].GetBool();
     returned_flag = fields[i++].GetBool();
 
-/*
-        if( msg.deleted_flag )
-        {
-            CharacterDatabase.WaitExecute( "DELETE FROM playeritems WHERE itemtext = %u", msg.message_id );
-            CharacterDatabase.WaitExecute( "DELETE FROM mailbox WHERE message_id = %u", msg.message_id );
-        }else
-*/
-
     return (!deleted_flag || copy_made);
 }
 

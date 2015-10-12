@@ -316,7 +316,7 @@ bool Master::Run(int argc, char ** argv)
 
     guildmgr.SaveAllGuilds();
     sWorld.LogoutPlayers(); //(Also saves players).
-    CharacterDatabase.Execute("UPDATE characters SET online = 0");
+    CharacterDatabase.Execute("UPDATE character_data SET online = 0");
 
     sLog.Notice("Server", "Shutting down random generator.");
     CleanupRandomNumberGenerators();

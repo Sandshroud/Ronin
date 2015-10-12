@@ -30,8 +30,8 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf)
 
     // delete old talents first
     if(buf == NULL)
-        CharacterDatabase.Execute("DELETE FROM playertalents WHERE guid = %u", m_Player->GetLowGUID() );
-    else buf->AddQuery("DELETE FROM playertalents WHERE guid = %u", m_Player->GetLowGUID() );
+        CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
+    else buf->AddQuery("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
 
     for(uint8 s = 0; s < m_specCount; s++)
     {
@@ -42,7 +42,7 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf)
         {
             bool first = true;
             std::stringstream ss;
-            ss << "INSERT INTO playertalents VALUES ";
+            ss << "INSERT INTO character_talents VALUES ";
             std::map<uint32, uint8>::iterator itr;
             for(itr = talents->begin(); itr != talents->end(); itr++)
             {
@@ -73,7 +73,7 @@ void TalentInterface::LoadTalentData(QueryResult *result)
             uint8 talentRank = 0, spec = fields[0].GetInt8();
             if(spec >= m_specCount)
             {
-                sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in playertalents", spec, m_Player->GetLowGUID());
+                sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in character_talents", spec, m_Player->GetLowGUID());
                 continue;
             }
 

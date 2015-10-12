@@ -9,7 +9,7 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
     WoWGuid guid;
     uint32 uCount = 0;
     uint32 ts = getMSTime();
-    QueryResult * result = CharacterDatabase.Query("SELECT guid, name FROM characters");
+    QueryResult * result = CharacterDatabase.Query("SELECT guid, name FROM character_data");
     if( result )
     {
         do
@@ -23,11 +23,10 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
                 printf("renaming character %s, %u\n", pName, guid.getLow());
                 if( Player* pPlayer = objmgr.GetPlayer(guid) )
                 {
-                    pPlayer->rename_pending = true;
                     pPlayer->GetSession()->SystemMessage("Your character has had a force rename set, you will be prompted to rename your character at next login in conformance with server rules.");
                 }
 
-                CharacterDatabase.WaitExecute("UPDATE characters SET forced_rename_pending = 1 WHERE guid = %u", guid);
+                CharacterDatabase.WaitExecute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", guid);
                 ++uCount;
             }
 
@@ -83,9 +82,9 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             Field *fields = result->Fetch();
             std::string name = fields[7].GetString();
             WoWGuid charGuid = fields[0].GetUInt64();
-            WoWGuid guildGuid = fields[18].GetUInt32() ? MAKE_NEW_GUID(fields[18].GetUInt32(), 0, 0x1FF6) : 0;
+            WoWGuid guildGuid = fields[14].GetUInt32() ? MAKE_NEW_GUID(fields[14].GetUInt32(), 0, 0x1FF6) : 0;
             uint8 _race = fields[2].GetUInt8(), _class = fields[3].GetUInt8(), _level = fields[1].GetUInt8();
-            uint32 flags = fields[17].GetUInt32(), _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
+            uint32 flags = 0, _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
             uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
             float x = fields[8].GetFloat(), y = fields[9].GetFloat(), z = fields[10].GetFloat();
             uint8 hairStyle = ((_bytes1>>16)&0xFF), hairColor = ((_bytes1>>24)&0xFF), facialHair = (_bytes2&0xFF), face = ((_bytes1>>8)&0xFF), skin = (_bytes1&0xFF);
@@ -104,17 +103,17 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 player_flags |= 0x400;
             if(flags & PLAYER_FLAG_NOCLOAK)
                 player_flags |= 0x800;
-            if(fields[15].GetUInt32() != 0)
+            if(fields[13].GetUInt32() != 0)
                 player_flags |= 0x2000;
-            if(fields[16].GetUInt32() != 0)
+            /*if(fields[14].GetUInt32() != 0)
                 player_flags |= 0x4000;
             uint64 banned = fields[13].GetUInt64();
             if(banned && (banned < 10 || banned > UNIXTIME))
-                player_flags |= 0x1000000;
+                player_flags |= 0x1000000;*/
 
             QueryResult *res = NULL;
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(res = CharacterDatabase.Query("SELECT entry, level FROM playerpets WHERE ownerguid='%u' AND active = 1", charGuid.getLow()))
+            if(res = CharacterDatabase.Query("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", charGuid.getLow()))
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -125,7 +124,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 delete res;
             }
 
-            if(res = CharacterDatabase.Query("SELECT containerslot, slot, entry, enchantments FROM playeritems WHERE ownerguid=%u", charGuid.getLow()))
+            if(res = CharacterDatabase.Query("SELECT containerslot, slot, entry, enchantments FROM item_data WHERE ownerguid=%u", charGuid.getLow()))
             {
                 do
                 {
@@ -219,7 +218,7 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
         return;
 
     AsyncQuery * q = new AsyncQuery( new SQLClassCallbackP1<World, uint32>(World::getSingletonPtr(), &World::CharacterEnumProc, GetAccountId()) );
-    q->AddQuery("SELECT guid, level, race, class, gender, bytes, bytes2, name, positionX, positionY, positionZ, mapId, zoneId, banned, restState, deathstate, forced_rename_pending, player_flags, guild_data.guildid, customizable FROM characters LEFT JOIN guild_data ON characters.guid = guild_data.playerid WHERE acct=%u ORDER BY guid ASC LIMIT 10", GetAccountId());
+    q->AddQuery("SELECT guid, level, race, class, gender, bytes, bytes2, name, positionX, positionY, positionZ, mapId, zoneId, deathstate, guild_members.guildid FROM character_data LEFT JOIN guild_members ON character_data.guid = guild_members.playerid WHERE acct=%u ORDER BY guid ASC LIMIT 10", GetAccountId());
     m_asyncQuery = true;
     CharacterDatabase.QueueAsyncQuery(q);
 }
@@ -355,7 +354,7 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
     PlayerInfo * inf = objmgr.GetPlayerInfo(guid);
     if( inf != NULL && inf->m_loggedInPlayer == NULL )
     {
-        QueryResult * result = CharacterDatabase.Query("SELECT name FROM characters WHERE guid = %u AND acct = %u", guid, _accountId);
+        QueryResult * result = CharacterDatabase.Query("SELECT name FROM character_data WHERE guid = %u AND acct = %u", guid, _accountId);
         if(!result)
             return CHAR_DELETE_FAILED;
 
@@ -394,7 +393,7 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
 
         sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", name.c_str(), guid.getLow());
 
-        CharacterDatabase.WaitExecute("DELETE FROM characters WHERE guid = %u", guid.getLow());
+        CharacterDatabase.WaitExecute("DELETE FROM character_data WHERE guid = %u", guid.getLow());
 
         if(Corpse* c=objmgr.GetCorpseByOwner(guid.getLow()))
             CharacterDatabase.Execute("DELETE FROM corpses WHERE guid = %u", c->GetLowGUID());
@@ -406,15 +405,15 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
         CharacterDatabase.Execute("DELETE FROM guild_data WHERE playerid = %u", guid.getLow());
         CharacterDatabase.Execute("DELETE FROM instances WHERE creator_guid = %u", guid.getLow());
         CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playercooldowns WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playerglyphs WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playeritems WHERE ownerguid=%u",guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playerpets WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playerpetspells WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playerskills WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playerspells WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playersummonspells WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM playertalents WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_cooldowns WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_items WHERE ownerguid=%u",guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_pets WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_petspells WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_skills WHERE player_guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_spells WHERE guid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_summonspells WHERE ownerguid = %u", guid.getLow());
+        CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", guid.getLow());
         CharacterDatabase.Execute("DELETE FROM questlog WHERE player_guid = %u", guid.getLow());
         CharacterDatabase.Execute("DELETE FROM social_friends WHERE character_guid = %u OR friend_guid = %u", guid.getLow(), guid.getLow());
         CharacterDatabase.Execute("DELETE FROM social_ignores WHERE character_guid = %u OR ignore_guid = %u", guid.getLow(), guid.getLow());
@@ -439,7 +438,7 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
     if(pi == NULL)
         return;
 
-    QueryResult * result = CharacterDatabase.Query("SELECT forced_rename_pending FROM characters WHERE guid = %u AND acct = %u", guid.getLow(), _accountId);
+    QueryResult * result = CharacterDatabase.Query("SELECT forced_rename_pending FROM character_data WHERE guid = %u AND acct = %u", guid.getLow(), _accountId);
     if(result == NULL)
         return;
     delete result;
@@ -499,7 +498,7 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
     sWorld.LogPlayer(this, "a rename was pending. Renamed character %s (GUID: %u) to %s.", pi->name, pi->guid, name.c_str());
 
     // If we're here, the name is okay.
-    CharacterDatabase.Query("UPDATE characters SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u",name.c_str(), guid.getLow(), _accountId);
+    CharacterDatabase.Query("UPDATE character_data SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u",name.c_str(), guid.getLow(), _accountId);
     free(pi->name);
     pi->name = strdup(name.c_str());
 
@@ -686,7 +685,7 @@ void WorldSession::FullLogin(Player* plr)
         sWorld.HordePlayers++;
     else sWorld.AlliancePlayers++;
 
-    if(sWorld.SendMovieOnJoin && plr->m_FirstLogin && !HasGMPermissions())
+    if(sWorld.SendMovieOnJoin && false)//plr->m_FirstLogin && !HasGMPermissions())
         plr->SendCinematic(plr->myRace->CinematicId);
 
     sLog.Debug( "WorldSession","Created new player for existing players (%s)", plr->GetName() );
@@ -763,7 +762,7 @@ bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_sessio
         plr->SetName(new_name);
         BlueSystemMessageToPlr(plr, "%s changed your name to '%s'.", m_session->GetPlayer()->GetName(), new_name.c_str());
         plr->SaveToDB(false);
-    } else CharacterDatabase.WaitExecute("UPDATE characters SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->guid.getLow());
+    } else CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->guid.getLow());
 
     GreenSystemMessage(m_session, "Changed name of '%s' to '%s'.", (char*)name1, (char*)name2);
     sWorld.LogGM(m_session, "renamed character %s (GUID: %u) to %s", (char*)name1, pi->guid, (char*)name2);
@@ -842,7 +841,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     if( pi == NULL )
         return;
 
-    QueryResult* result = CharacterDatabase.Query("SELECT bytes2 FROM characters WHERE guid = '%u'", guid.getLow());
+    QueryResult* result = CharacterDatabase.Query("SELECT bytes2 FROM character_data WHERE guid = '%u'", guid.getLow());
     if(!result)
         return;
 
@@ -891,13 +890,13 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
         free(pi->name);
         pi->name = strdup(name.c_str());
 
-        CharacterDatabase.Execute("UPDATE characters SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), guid.getLow());
+        CharacterDatabase.Execute("UPDATE character_data SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), guid.getLow());
     }
     Field* fields = result->Fetch();
     uint32 player_bytes2 = fields[0].GetUInt32();
     player_bytes2 &= ~0xFF;
     player_bytes2 |= facialHair;
-    CharacterDatabase.Execute("UPDATE characters SET gender = '%u', bytes = '%u', bytes2 = '%u', customizable = '0' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, guid.getLow());
+    CharacterDatabase.Execute("UPDATE character_data SET gender = '%u', bytes = '%u', bytes2 = '%u', customizable = '0' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, guid.getLow());
     delete result;
 
     //WorldPacket data(SMSG_CHAR_CUSTOMIZE, recv_data.size() + 1);
