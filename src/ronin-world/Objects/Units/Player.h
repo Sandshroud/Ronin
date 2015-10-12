@@ -1715,7 +1715,6 @@ protected:
     void _LoadPetSpells(QueryResult * result);
     void _SavePet(QueryBuffer * buf);
 
-    void _SavePetSpells(QueryBuffer * buf);
     void _EventAttack( bool offhand );
     void _EventExploration();
 

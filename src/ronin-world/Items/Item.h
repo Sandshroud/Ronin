@@ -4,12 +4,6 @@
 
 #pragma once
 
-const static ItemProf prof[22];
-const static uint16 arm_skills[7];
-const static uint16 weap_skills[21];
-const static float pricemod[9];
-const static float SuffixMods[NUM_INVENTORY_TYPES];
-
 // -1 from client enchantment slot number
 enum EnchantmentSlot
 {

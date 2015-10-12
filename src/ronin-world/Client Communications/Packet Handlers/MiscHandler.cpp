@@ -234,11 +234,11 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     case HIGHGUID_TYPE_ITEM:
         {
             // if we have no items left, destroy the item.
-            if( Item* pItem = _player->GetInventory()->GetInventoryItem(guid) )
+            /*if( Item* pItem = _player->GetInventory()->GetInventoryItem(guid) )
             {
                 if( !pItem->GetLoot()->HasItems(_player) )
                     _player->GetInventory()->DeleteItem(pItem);
-            }
+            }*/
         }break;
     case HIGHGUID_TYPE_CREATURE:
         {

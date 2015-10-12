@@ -19,6 +19,7 @@ public:
     PlayerBank( Player* pPlayer );
     ~PlayerBank();
 
+    void LoadFromDB(QueryResult *result);
     void SaveToDB(QueryBuffer *buf);
 
     uint32 BuildCreateUpdateBlocks(ByteBuffer *data);

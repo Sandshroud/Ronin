@@ -352,6 +352,8 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     }
 }
 
+std::map<uint8, uint32> Spell::m_implicitTargetFlags;
+
 void SetupSpellTargets()
 {
     Spell::m_implicitTargetFlags.insert(std::make_pair(0, (SPELL_TARGET_REQUIRE_ITEM | SPELL_TARGET_REQUIRE_GAMEOBJECT)));

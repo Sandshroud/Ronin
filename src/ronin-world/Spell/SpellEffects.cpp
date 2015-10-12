@@ -21,6 +21,8 @@ void SpellEffectClass::Destruct()
     BaseSpell::Destruct();
 }
 
+std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectMap;
+
 void SpellEffectClass::InitializeSpellEffectClass()
 {
     m_spellEffectMap[SPELL_EFFECT_NULL]                         = &SpellEffectClass::SpellEffectNULL;

@@ -958,10 +958,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
 
     // Pets
     if(getClass() == HUNTER || getClass() == WARLOCK)
-    {
         _SavePet(buf);
-        _SavePetSpells(buf);
-    }
 
     ForceSaved = false;
     m_nextSave = 120000;

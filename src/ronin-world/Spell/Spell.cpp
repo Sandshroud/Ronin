@@ -1367,6 +1367,11 @@ void Spell::Update(uint32 difftime)
     }
 }
 
+void Spell::_UpdateChanneledSpell(uint32 difftime)
+{
+
+}
+
 void Spell::updatePosition(float x, float y, float z)
 {
     if((GetSpellProto()->InterruptFlags & CAST_INTERRUPT_ON_MOVEMENT) &&

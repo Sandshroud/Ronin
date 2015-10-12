@@ -381,6 +381,21 @@ uint32 ItemManager::BuildCreateBlockForData(ByteBuffer *data, Player *pOwner, It
     return 1;
 }
 
+const static uint32 arm_skills[7] = { 0, SKILL_CLOTH, SKILL_LEATHER, SKILL_MAIL, SKILL_PLATE_MAIL, 0, SKILL_SHIELD };
+const static uint32 weap_skills[20] = { SKILL_AXES, SKILL_2H_AXES, SKILL_BOWS, SKILL_GUNS, SKILL_MACES, SKILL_2H_MACES, SKILL_POLEARMS, SKILL_SWORDS, SKILL_2H_SWORDS, 0, SKILL_STAVES, 0, 0, SKILL_FIST_WEAPONS, 0, SKILL_DAGGERS, SKILL_THROWN, SKILL_SPEARS, SKILL_CROSSBOWS, SKILL_WANDS };
+
+uint32 ItemManager::GetSkillForItem(ItemPrototype *proto)
+{
+    uint32 skill = SKILL_UNARMED;
+    if(proto->Class == 4 && proto->SubClass < 7 )
+        skill = arm_skills[proto->SubClass];
+    else if( proto->Class == 2 && proto->SubClass < 20 )//no skill for fishing
+        skill = weap_skills[proto->SubClass];
+    if( skill == 0 || skill == SKILL_FIST_WEAPONS )
+        skill = SKILL_UNARMED;
+    return SKILL_UNARMED;
+}
+
 uint32 ItemManager::CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor)
 {
     uint32 buyPrice = proto->BuyPrice;

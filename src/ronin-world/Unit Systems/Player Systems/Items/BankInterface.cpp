@@ -4,6 +4,26 @@
 
 #include "StdAfx.h"
 
+PlayerBank::PlayerBank(Player *pPlayer)
+{
+
+}
+
+PlayerBank::~PlayerBank()
+{
+
+}
+
+void PlayerBank::LoadFromDB(QueryResult *result)
+{
+
+}
+
+void PlayerBank::SaveToDB(QueryBuffer *buf)
+{
+
+}
+
 uint32 PlayerBank::BuildCreateUpdateBlocks(ByteBuffer *data)
 {
     uint32 count = 0;

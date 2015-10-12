@@ -186,4 +186,59 @@ typedef struct
     uint32 subclass;
 } ItemProf;
 
-const ItemProf* GetProficiencyBySkill(uint32 skill);
+const static ItemProf prof[22] = { {4, 2}, {4, 4}, {4, 8}, {4, 16}, {4, 64},
+                                   {2, 1}, {2, 2}, {2, 4}, {2, 8}, {2, 16}, {2, 32}, {2, 64}, {2, 128}, {2, 256}, {2, 1024}, {2, 8192}, {2, 32768}, {2, 65536}, {2, 131072},
+                                   {2, 262144}, {2, 524288}, {2, 1048576} };
+
+RONIN_INLINE const ItemProf* GetProficiencyBySkill( uint32 skill )
+{
+    switch( skill )
+    {
+    case SKILL_CLOTH:
+        return &prof[0];
+    case SKILL_LEATHER:
+        return &prof[1];
+    case SKILL_MAIL:
+        return &prof[2];
+    case SKILL_PLATE_MAIL:
+        return &prof[3];
+    case SKILL_SHIELD:
+        return &prof[4];
+    case SKILL_AXES:
+        return &prof[5];
+    case SKILL_2H_AXES:
+        return &prof[6];
+    case SKILL_BOWS:
+        return &prof[7];
+    case SKILL_GUNS:
+        return &prof[8];
+    case SKILL_MACES:
+        return &prof[9];
+    case SKILL_2H_MACES:
+        return &prof[10];
+    case SKILL_POLEARMS:
+        return &prof[11];
+    case SKILL_SWORDS:
+        return &prof[12];
+    case SKILL_2H_SWORDS:
+        return &prof[13];
+    case SKILL_STAVES:
+        return &prof[14];
+    case SKILL_FIST_WEAPONS:
+        return &prof[15];
+    case SKILL_DAGGERS:
+        return &prof[16];
+    case SKILL_THROWN:
+        return &prof[17];
+    case SKILL_SPEARS:
+        return &prof[18];
+    case SKILL_CROSSBOWS:
+        return &prof[19];
+    case SKILL_WANDS:
+        return &prof[20];
+    case SKILL_FISHING:
+        return &prof[21];
+    default:
+        return NULL;
+    }
+}

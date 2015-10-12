@@ -24,6 +24,11 @@ PlayerInventory::~PlayerInventory()
     m_pOwner = NULL;
 }
 
+void PlayerInventory::SaveToDB(bool newChar, QueryBuffer *buf)
+{
+
+}
+
 SlotResult PlayerInventory::_addItem( Item* item, uint16 slot)
 {
     SlotResult result;
@@ -544,6 +549,7 @@ bool PlayerInventory::DestroyInventoryItem(uint16 slot, ItemDeletionReason reaso
     sItemMgr.DeleteItemFromDatabase(item->GetGUID(), reason);
     sItemMgr.DeleteItemData(item->GetGUID(), reason == ITEM_DELETION_USED);
     item->Destruct();
+    return true;
 }
 
 Item *PlayerInventory::RemoveInventoryItem(uint16 slot)
