@@ -1305,20 +1305,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             pVictim->m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_ANY_DAMAGE_TAKEN);
     }
 
-    // Paladin: Blessing of Sacrifice, and Warlock: Soul Link
-    if( pVictim->m_damageSplitTarget.active)
-    {
-        if( spellId )
-        {
-            SpellEntry *spell = dbcSpell.LookupEntry(spellId);
-            damage = (float)pVictim->DoDamageSplitTarget(damage, spell->School, false);
-        }
-        else
-        {
-            damage = (float)pVictim->DoDamageSplitTarget(damage, 0, true);
-        }
-    }
-
     if(IsUnit() && castPtr<Unit>(this)->isAlive() )
     {
         if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && castPtr<Player>(this)->m_hasInRangeGuards )
@@ -1466,10 +1452,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 SpellEntry* sorInfo = dbcSpell.LookupEntry(54223);
                 if( sorInfo != NULL && castPtr<Player>(pVictim)->Cooldown_CanCast( sorInfo ))
                 {
-                    Spell* sor(new Spell( pVictim, sorInfo, false, NULL ));
-                    SpellCastTargets targets;
-                    targets.m_unitTarget = pVictim->GetGUID();
-                    sor->prepare(&targets);
+                    SpellCastTargets targets(pVictim->GetGUID());
+                    if(Spell* sor = new Spell( pVictim, sorInfo))
+                        sor->prepare(&targets, false);
                     return 0;
                 }
             }
@@ -1600,14 +1585,12 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             if( castPtr<Player>( pVictim)->HasDummyAura(SPELL_HASH_SPIRIT_OF_REDEMPTION) ) //check for spirit of Redemption
             {
-                SpellEntry* sorInfo = dbcSpell.LookupEntry(27827);
-                if( sorInfo != NULL )
+                if (SpellEntry* sorInfo = dbcSpell.LookupEntry(27827))
                 {
                     pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-                    Spell* sor(new Spell( pVictim, sorInfo, true, NULL ));
-                    SpellCastTargets targets;
-                    targets.m_unitTarget = pVictim->GetGUID();
-                    sor->prepare(&targets);
+                    SpellCastTargets targets(pVictim->GetGUID());
+                    if(Spell* sor = new Spell( pVictim, sorInfo ))
+                        sor->prepare(&targets, true);
                 }
             }
         }
@@ -1875,18 +1858,10 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
             if( spellInfo->IsSpellWeaponSpell() )
             {
                 CritChance = GetFloatValue( PLAYER_RANGED_CRIT_PERCENTAGE );
-                if( pVictim->IsPlayer() )
-                    CritChance += castPtr<Player>(pVictim)->res_R_crit_get();
-                CritChance += float(pVictim->AttackerCritChanceMod[spellInfo->School]);
                 CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
-                if( spellInfo->IsSpellMeleeSpell() ) CritChance += (float)(pVictim->AttackerCritChanceMod[0]);
             }
             else
             {
-                CritChance = caster->spellcritperc + caster->SpellCritChanceSchool[school] + pVictim->AttackerCritChanceMod[school];
-                if( caster->IsPlayer() && ( pVictim->m_rooted - pVictim->m_stunned ) )
-                    CritChance += castPtr<Player>( caster )->m_RootedCritChanceBonus;
-
                 if( spellInfo->SpellGroupType )
                 {
                     caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
@@ -1970,10 +1945,6 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     int32 ires = float2int32(res);
 
 //--------------------------split damage-----------------------------------------------
-    // Paladin: Blessing of Sacrifice, and Warlock: Soul Link
-    if( pVictim->m_damageSplitTarget.active)
-        ires = pVictim->DoDamageSplitTarget(ires, spellInfo->School, false);
-
     SendSpellNonMeleeDamageLog(this, pVictim, spellID, ires, school, abs_dmg, dmg.resisted_damage, false, 0, critical, IsPlayer());
 
     if( ires > 0 ) // only deal damage if its >0
@@ -1984,9 +1955,6 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
         if( IsUnit() )
             castPtr<Unit>(this)->CombatStatus.OnDamageDealt(pVictim, 1);
     }
-
-    if( IsPlayer() )
-        castPtr<Player>(this)->m_casted_amount[school] = ( uint32 )res;
 
     if( (dmg.full_damage == 0 && abs_dmg) == 0 )
     {
@@ -2057,7 +2025,7 @@ int32 WorldObject::event_GetInstanceID()
 
 void WorldObject::EventSpellHit(Spell* pSpell)
 {
-    if( IsInWorld() && pSpell->m_caster != NULL )
+    if( IsInWorld() && pSpell->GetCaster() != NULL )
         pSpell->cast(false);
     else pSpell->Destruct();
 }
@@ -2320,8 +2288,8 @@ void WorldObject::CastSpell( WorldObject* Target, SpellEntry* Sp, bool triggered
     if( Sp == NULL )
         return;
 
-    Spell* newSpell = new Spell(this, Sp, triggered, NULL);
-    SpellCastTargets targets(0);
+    Spell* newSpell = new Spell(this, Sp);
+    SpellCastTargets targets;
     if(Target)
     {
         if(Target->IsUnit())
@@ -2329,15 +2297,13 @@ void WorldObject::CastSpell( WorldObject* Target, SpellEntry* Sp, bool triggered
         else targets.m_targetMask |= TARGET_FLAG_OBJECT;
         targets.m_unitTarget = Target->GetGUID();
     } else newSpell->GenerateTargets(&targets);
-    newSpell->prepare(&targets);
+    newSpell->prepare(&targets, triggered);
 }
 
 void WorldObject::CastSpell( WorldObject* Target, uint32 SpellID, bool triggered )
 {
-    SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
-    if(ent == NULL) return;
-
-    CastSpell(Target, ent, triggered);
+    if(SpellEntry * ent = dbcSpell.LookupEntry(SpellID))
+        CastSpell(Target, ent, triggered);
 }
 
 void WorldObject::CastSpell( uint64 targetGuid, SpellEntry* Sp, bool triggered )
@@ -2346,14 +2312,12 @@ void WorldObject::CastSpell( uint64 targetGuid, SpellEntry* Sp, bool triggered )
         return;
 
     SpellCastTargets targets(targetGuid);
-    Spell* newSpell(new Spell(this, Sp, triggered, NULL));
-    newSpell->prepare(&targets);
+    if(Spell* newSpell = new Spell(this, Sp))
+        newSpell->prepare(&targets, triggered);
 }
 
 void WorldObject::CastSpell( uint64 targetGuid, uint32 SpellID, bool triggered )
 {
-    SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
-    if(ent == 0) return;
-
-    CastSpell(targetGuid, ent, triggered);
+    if(SpellEntry * ent = dbcSpell.LookupEntry(SpellID))
+        CastSpell(targetGuid, ent, triggered);
 }

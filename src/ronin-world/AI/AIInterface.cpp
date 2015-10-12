@@ -205,13 +205,15 @@ void AIInterface::_UpdateTotem(uint32 p_time)
                 return;
         }
 
-        Spell *pSpell = new Spell(m_Unit, m_totemSpell, true, NULL);
         if(m_nextTarget)
         {
             targets.m_targetMask = TARGET_FLAG_OBJECT|TARGET_FLAG_UNIT;
             targets.m_unitTarget = m_nextTarget->GetGUID();
         }
-        pSpell->prepare(&targets);
+
+        if(Spell *pSpell = new Spell(m_Unit, m_totemSpell))
+            pSpell->prepare(&targets, true);
+
         m_totemSpellTimer = m_totemSpellTime;
     } else m_totemSpellTimer -= p_time;
 }
@@ -267,7 +269,6 @@ bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellE
         caster->SM_FIValue(SMT_THREAT_REDUCED,(int32*)&amount,sp->SpellGroupType);
         caster->SM_PIValue(SMT_THREAT_REDUCED,(int32*)&amount,sp->SpellGroupType);
     }
-    amount += (amount * caster->GetGeneratedThreatModifier() / 100);
 
     bool casterInList = false, victimInList = false;
 

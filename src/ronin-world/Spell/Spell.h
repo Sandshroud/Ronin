@@ -81,7 +81,7 @@ typedef std::map<uint64, SpellTarget> SpellTargetMap;
 class SERVER_DECL Spell : public SpellEffectClass
 {
 public:
-    Spell( WorldObject* Caster, SpellEntry *info, bool triggered, Aura* aur);
+    Spell( WorldObject* Caster, SpellEntry *info, uint8 castNumber = 0, Aura* aur = NULL);
     ~Spell();
     virtual void Destruct();
 
@@ -119,7 +119,7 @@ public:
     // Fills the target map of the spell packet
     void FillTargetMap(uint32);
     // Prepares the spell thats going to cast to targets
-    uint8 prepare(SpellCastTargets * targets);
+    uint8 prepare(SpellCastTargets *targets, bool triggered);
     // Cancels the current spell
     void cancel();
     // Update spell state based on time difference
@@ -156,11 +156,8 @@ public:
     uint32 GetTargetType(uint32 implicittarget, uint32 i);
     void AddCooldown();
     void AddStartCooldown();
-    void CalcDestLocationHit();
+
     bool Reflect(Unit* refunit);
-    uint32 StartDestLocationCastTime;
-    void HandleRemoveDestTarget(uint64 guid);
-    bool HandleDestTargetHit(uint64 guid, uint32 MSTime);
 
     RONIN_INLINE uint32 getState() { return m_spellState; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
@@ -196,7 +193,7 @@ public:
 
     uint64 static FindLowestHealthRaidMember(Player* Target, uint32 dist);
 
-    void Heal(uint8 effIndex, int32 amount);
+    void Heal(Unit *target, uint8 effIndex, int32 amount);
 
     std::map<uint64, Aura*> m_tempAuras;
 
@@ -211,44 +208,6 @@ public:
     int32 chaindamage;
     // -------------------------------------------
     static bool IsBinary(SpellEntry * sp);
-
-    int32 GetDuration()
-    {
-        if(b_durSet == false)
-        {
-            b_durSet = true;
-            m_duration = GetSpellInfoDuration(m_spellInfo, m_caster);
-        }
-        return m_duration;
-    }
-
-    RONIN_INLINE void SetInternalRadius(uint32 i)
-    {
-        b_radSet[i] = true;
-        m_radius[0][i] = ::GetDBCRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
-        m_radius[1][i] = ::GetDBCFriendlyRadius(dbcSpellRadius.LookupEntry(GetSpellProto()->EffectRadiusIndex[i]));
-        if(GetSpellProto()->SpellGroupType && m_caster && m_caster->IsUnit())
-        {
-            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[0][i], GetSpellProto()->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[0][i], GetSpellProto()->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[1][i], GetSpellProto()->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[1][i], GetSpellProto()->SpellGroupType);
-        }
-    }
-
-    RONIN_INLINE float GetRadius(uint32 i)
-    {
-        if(b_radSet[i] == false)
-            SetInternalRadius(i);
-        return m_radius[0][i];
-    }
-
-    RONIN_INLINE float GetFriendlyRadius(uint32 i)
-    {
-        if(b_radSet[i] == false)
-            SetInternalRadius(i);
-        return m_radius[1][i];
-    }
 
     RONIN_INLINE static bool HasMechanic(SpellEntry * sp, uint32 MechanicsType)
     {
@@ -310,11 +269,6 @@ public:
         m_cancelled = true;
     }
 
-    /// Spell state's
-    /// Spell failed
-    RONIN_INLINE bool GetSpellFailed(){return m_Spell_Failed;}
-    RONIN_INLINE void SetSpellFailed(bool failed = true) { m_Spell_Failed = failed; }
-
     Spell* m_reflectedParent;
     uint32 m_ForcedCastTime;
 
@@ -340,9 +294,7 @@ protected:
 
     /// Spell state's
     bool    m_usesMana;
-    bool    m_Spell_Failed;     //for 5sr
     bool    m_Delayed;
-    uint32  m_spellState;
     int32   m_castTime;
     int32   m_timer;
     bool    m_ForceConsumption;
@@ -351,9 +303,6 @@ protected:
     WoWGuid objTargetGuid, itemTargetGuid, m_magnetTarget;
 
     uint8  cancastresult;
-    int32  m_duration;
-    float  m_radius[2][3];
-    bool   b_radSet[3], b_durSet;
     bool   m_cancelled;
     bool   m_isCasting;
     bool   m_projectileWait;
@@ -372,11 +321,10 @@ private:
     SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
 
     // adds a target to the list, performing DidHit checks on units
-    template<class T> void _AddTarget(T* target, const uint32 effectid);
-    template<class T> void _AddTarget(Unit *target, const uint32 effectid);
+    void _AddTarget(WorldObject* target, const uint32 effectid);
 
     // didhit checker
-    uint8 _DidHit(uint32 index, Unit* target, uint8 &reflectout);
+    uint8 _DidHit(uint32 index, Unit* target, uint8 *reflectout = NULL);
 
     void DetermineSkillUp(uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
     void DetermineSkillUp(uint32 skillid);

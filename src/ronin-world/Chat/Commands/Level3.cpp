@@ -1378,9 +1378,9 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
             }
             else
             {
-                Spell* sp = new Spell(plr, info, true, NULL);
                 SpellCastTargets targets(plr->GetGUID());
-                sp->prepare(&targets);
+                if(Spell* sp = new Spell(plr, info))
+                    sp->prepare(&targets, true);
             }
         }
     }

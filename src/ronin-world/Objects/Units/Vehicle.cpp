@@ -535,7 +535,6 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
 
     if(slot == 0)
     {
-        m_redirectSpellPackets = NULL;
         CombatStatus.Vanished();
         pPassenger->SetUInt64Value( UNIT_FIELD_CHARM, 0 );
         SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
@@ -675,8 +674,6 @@ void Vehicle::_AddToSlot(Unit* pPassenger, uint8 slot)
         {
             if(m_vehicleSeats[slot]->IsControllable())
             {
-                m_redirectSpellPackets = pPlayer;
-
                 // send "switch mover" packet
                 data.Initialize(SMSG_CLIENT_CONTROL_UPDATE);
                 data << GetGUID() << uint8(1);

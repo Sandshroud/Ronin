@@ -206,9 +206,7 @@ void Player::ModStanding(uint32 Faction, int32 Value)
     }
     else
     {
-        int32 oldValue = itr->second->standing;
-        int32 modValue = Value + (pctReputationMod > 0 ? Value * pctReputationMod / 100 : 0);
-        int32 newValue = oldValue + modValue;
+        int32 newValue = itr->second->standing + Value;
         itr->second->standing = newValue < -42000 ? -42000 : newValue > 42999 ? 42999 : newValue;
         OnModStanding(faction, itr->second);
     }

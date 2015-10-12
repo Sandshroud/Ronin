@@ -103,8 +103,6 @@ class SERVER_DECL Group
 public:
     friend class SubGroup;
 
-    std::map<WoWGuid, WoWGuid> m_BeaconOfLightTargets;
-
     static Group* Create();
 
     Group(bool Assign);
@@ -113,8 +111,6 @@ public:
     // Adding/Removal Management
     bool AddMember(PlayerInfo * info, int32 subgroupid=-1);
     void RemovePlayer(PlayerInfo * info);
-    void AddBeaconOfLightTarget(WoWGuid GUID, WoWGuid Caster);
-    void RemoveBeaconOfLightTarget(WoWGuid , WoWGuid Caster);
 
     // Leaders and Looting
     void SetLeader(Player* pPlayer,bool silent);

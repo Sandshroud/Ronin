@@ -271,12 +271,11 @@ void EyeOfTheStorm::HookOnAreaTrigger(Player* plr, uint32 id)
         if(m_EOTSbuffs[x] && m_EOTSbuffs[x]->IsInWorld())
         {
             spellid = m_EOTSbuffs[x]->GetInfo()->GetSpellID();
-            SpellEntry * sp = dbcSpell.LookupEntry(spellid);
-            if(sp)
+            if(SpellEntry * sp = dbcSpell.LookupEntry(spellid))
             {
-                Spell* pSpell = (new Spell(plr, sp, true, NULL));
                 SpellCastTargets targets(plr->GetGUID());
-                pSpell->prepare(&targets);
+                if(Spell* pSpell = new Spell(plr, sp))
+                    pSpell->prepare(&targets, true);
             }
             m_EOTSbuffs[x]->Despawn(0, EOTS_BUFF_RESPAWN_TIME);
         }
@@ -637,10 +636,9 @@ void EyeOfTheStorm::UpdateCPs()
             if(plr == NULL)
                 continue;
 
-            if( !plr->IsPvPFlagged() || plr->InStealth() || plr->m_invisible || plr->SchoolImmunityList[0] || plr->m_bgFlagIneligible )
+            if( !plr->IsPvPFlagged() || /*plr->InStealth() ||*/ plr->m_invisible || plr->m_bgFlagIneligible )
                 is_valid = false;
-            else
-                is_valid = true;
+            else is_valid = true;
 
             in_range = (plr->isAlive() && m_CPStatusGO[i]->GetDistanceSq(plr) <= EOTS_CAPTURE_DISTANCE) ? true : false;
 

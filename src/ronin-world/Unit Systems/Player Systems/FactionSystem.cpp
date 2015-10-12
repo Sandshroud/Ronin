@@ -145,7 +145,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
 
     // we cannot attack sheathed units. Maybe checked in other places too ?
     // !! warning, this presumes that objA is attacking ObjB
-    if( CheckStealth && objB->IsUnit() && castPtr<Unit>(objB)->InStealth() )
+    if( CheckStealth && objB->IsUnit() /*&& castPtr<Unit>(objB)->InStealth()*/ )
         if(objA->CalcDistance(objB) > 5.0f)
             return FI_STATUS_FRIENDLY;
     // Get players (or owners of pets/totems)
@@ -343,8 +343,8 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
     if(unitA->IsVehicle() && castPtr<Vehicle>(unitA)->GetPassengerSlot(unitB) != -1)
         return false;
     // Only check target for stealth
-    if( CheckStealth && unitB->InStealth() && unitA->CalcDistance(unitB) > 5.0f)
-        return false;
+    /*if( CheckStealth && unitB->InStealth() && unitA->CalcDistance(unitB) > 5.0f)
+        return false;*/
     if(GetUnitAreaInteractionStatus(unitA, unitB) < FI_STATUS_NEUTRAL)
         return false;
 

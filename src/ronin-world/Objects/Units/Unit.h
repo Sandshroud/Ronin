@@ -29,15 +29,6 @@ typedef struct
     uint32 maxdmg;
 } OnHitSpell;
 
-struct DamageSplitTarget
-{
-    uint64 m_target; // we store them
-    uint32 m_spellId;
-    float m_pctDamageSplit; // % of taken damage to transfer (i.e. Soul Link)
-    uint32 m_flatDamageSplit; // flat damage to transfer (i.e. Blessing of Sacrifice)
-    bool active;
-};
-
 typedef struct
 {
     SpellEntry *spell_info;
@@ -489,14 +480,10 @@ public:
     RONIN_INLINE float GetDamageDonePctMod(uint8 school);
     RONIN_INLINE int32 GetHealingDoneMod();
     RONIN_INLINE float GetHealingDonePctMod();
-    int32 GetHealingTakenMod() { return HealTakenMod; }
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
-    uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 &reflectout );
+    uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout = NULL);
     void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
-
-    void RemoveExtraStrikeTarget(SpellEntry *spell_info);
-    void AddExtraStrikeTarget(SpellEntry *spell_info, uint8 effIndex, uint32 charges);
 
     int32 CalculateAttackPower();
     int32 CalculateRangedAttackPower();
@@ -535,11 +522,6 @@ public:
     bool IsDazed();
     float CalculateDazeCastChance(Unit* target);
 
-    // Stealth
-    RONIN_INLINE int32 GetStealthLevel() { return (m_stealthLevel + (getLevel() * 5)); }
-    RONIN_INLINE int32 GetStealthDetectBonus() { return m_stealthDetectBonus; }
-    RONIN_INLINE void SetStealth(uint32 id) { m_stealth = id; }
-    RONIN_INLINE bool InStealth() { return (m_stealth!=0 ? true : false); }
     float detectRange;
 
     // Invisibility
@@ -634,13 +616,6 @@ public:
     void RemoveOnAuraRemoveSpell(uint32 NameHash);
     void OnAuraRemove(uint32 NameHash, Unit* m_target);
 
-    // Split Damage
-    struct DamageSplitTarget m_damageSplitTarget;
-    uint32 DoDamageSplitTarget(uint32 res, uint32 school_type, bool melee_dmg);
-
-    // Spell Crit
-    float spellcritperc;
-
     //dummy auras, spell stuff
     RONIN_INLINE void AddDummyAura( SpellEntry* sp ) { m_DummyAuras[sp->NameHash] = sp; }
     RONIN_INLINE bool HasDummyAura( uint32 namehash ) { return m_DummyAuras[namehash] != NULL; }
@@ -650,31 +625,20 @@ public:
     // AIInterface
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
-    // Threat mod
-    RONIN_INLINE int32 GetThreatModifier() { return m_threatModifyer; }
-    RONIN_INLINE void ModThreatModifier(int32 mod) { m_threatModifyer += mod; }
-    RONIN_INLINE int32 GetGeneratedThreatModifier() { return m_generatedThreatModifyer; }
-    RONIN_INLINE void ModGeneratedThreatModifier(int32 mod) { m_generatedThreatModifyer += mod; }
-
     // DK:Affect
     RONIN_INLINE uint32 IsPacified() { return m_pacified; }
     RONIN_INLINE uint32 IsStunned() { return m_stunned; }
     RONIN_INLINE uint32 IsFeared() { return m_fearmodifiers; }
-    RONIN_INLINE uint32 GetResistChanceMod() { return m_resistChance; }
-    RONIN_INLINE void SetResistChanceMod(uint32 amount) { m_resistChance=amount; }
-
     RONIN_INLINE uint16 HasNoInterrupt() { return m_noInterrupt; }
+
     bool setDetectRangeMod(uint64 guid, int32 amount);
     void unsetDetectRangeMod(uint64 guid);
     int32 getDetectRangeMod(uint64 guid);
     uint32 Heal(Unit* target,uint32 SpellId, uint32 amount, bool silent = false);
     void Energize(Unit* target,uint32 SpellId, uint32 amount, uint32 type);
 
-    uint32 SchoolCastPrevent[7];
-
     uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
-    int32 RAPvModifier;
-    int32 APvModifier;
+
     WoWGuid stalkedby;
     uint32 GetMechanicDispels(uint8 mechanic);
     float GetMechanicResistPCT(uint8 mechanic);
@@ -793,7 +757,6 @@ public:
     //In-Range
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
 
-    RONIN_INLINE void AddDelayedSpell(Spell* toAdd) { DelayedSpells.insert(toAdd); };
     RONIN_INLINE Spell* GetCurrentSpell() { return m_currentSpell; }
     RONIN_INLINE void SetCurrentSpell(Spell* cSpell) { m_currentSpell = cSpell; }
 
@@ -803,35 +766,12 @@ public:
 
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
-    float DamageDonePctMod[7];
-
-    std::map<uint32, uint32> HealDoneBonusBySpell;
-    int32 HealDoneModPos;
-    int32 HealDoneBase;
-    float HealDonePctMod;
-    int32 HealTakenMod;
-    float HealTakenPctMod;
-
-    uint32 SchoolImmunityList[7];
-    float SpellCritChanceSchool[7];
-    int32 PowerCostMod[7];
-    float PowerCostPctMod[7]; // armor penetration & spell penetration
-    int32 AttackerCritChanceMod[7];
-    uint32 SpellDelayResist[7];
-
-    int32 PctRegenModifier;
-    float PctPowerRegenModifier[4];
-
     // Auras Modifiers
     int32 m_pacified;
     int32 m_interruptRegen;
-    int32 m_resistChance;
     int32 m_powerRegenPCT;
     int32 m_stunned;
-    int32 m_extraattacks[2];
-    int32 m_extrastriketarget;
-    int32 m_extrastriketargetc;
-    std::list<ExtraStrike*> m_extraStrikeTargets;
+
     int32 m_fearmodifiers;
 
     int32 m_noInterrupt;
@@ -848,9 +788,8 @@ public:
     void RemoveInvisibility();
 
     RONIN_INLINE void ChangePetTalentPointModifier(bool Increment) { Increment ? m_PetTalentPointModifier++ : m_PetTalentPointModifier-- ; };
-    uint32 m_stealth;
+
     bool m_can_stealth;
-    int32 m_modlanguage;
 
     RONIN_INLINE uint32 GetCharmTempVal() { return m_charmtemp; }
     RONIN_INLINE void SetCharmTempVal(uint32 val) { m_charmtemp = val; }
@@ -1056,13 +995,6 @@ public:
     /// Combat
     DeathState m_deathState;
 
-    // Stealth
-    uint32 m_stealthLevel;
-    uint32 m_stealthDetectBonus;
-
-    int32 m_manashieldamt;
-    SpellEntry * m_manaShieldSpell;
-
     // DK:pet
     //uint32 m_pet_state;
     //uint32 m_pet_action;
@@ -1070,14 +1002,11 @@ public:
 
     // Spell currently casting
     Spell* m_currentSpell;
-    std::set<Spell*> DelayedSpells;
 
     // AI
     AIInterface m_aiInterface;
 
     bool can_parry;//will be enabled by block spell
-    int32 m_threatModifyer;
-    int32 m_generatedThreatModifyer;
 
     // Quest emote
     uint8 m_emoteState;

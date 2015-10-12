@@ -590,12 +590,11 @@ void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
         sEventMgr.AddEvent(castPtr<ArathiBasin>(this),&ArathiBasin::SpawnBuff,x,EVENT_AB_RESPAWN_BUFF,AB_BUFF_RESPAWN_TIME,1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
         // cast the spell on the player
-        SpellEntry * sp = dbcSpell.LookupEntry(spellid);
-        if(sp)
+        if(SpellEntry * sp = dbcSpell.LookupEntry(spellid))
         {
-            Spell* pSpell(new Spell(plr, sp, true, NULL));
             SpellCastTargets targets(plr->GetGUID());
-            pSpell->prepare(&targets);
+            if(Spell* pSpell = new Spell(plr, sp))
+                pSpell->prepare(&targets, true);
         }
     }
 }

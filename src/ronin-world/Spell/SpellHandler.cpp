@@ -168,9 +168,8 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             }
         }
 
-        Spell* spell = new Spell(GetPlayer(), spellInfo, false, NULL);
-        spell->extra_cast_number = cn;
-        spell->prepare(&targets);
+        if(Spell* spell = new Spell(GetPlayer(), spellInfo, cn))
+            spell->prepare(&targets, false);
     }
 }
 
@@ -245,13 +244,10 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
             return;
     }
     else if ((!_player->m_CurrentCharm || guid != _player->m_CurrentCharm->GetGUID()) && _player->GetVehicle() == NULL)
-    {
         return;
-    }
 
-    Spell* pSpell = new Spell(caster, sp, false, NULL);
-    pSpell->extra_cast_number = castnumber;
-    pSpell->prepare(&targets);
+    if(Spell* pSpell = new Spell(caster, sp, castnumber))
+        pSpell->prepare(&targets, false);
 }
 
 bool IsException(Player* plr, uint32 spellid)

@@ -153,49 +153,19 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
     if(offset == UNIT_FIELD_MINRANGEDDAMAGE)
     {
         //starting from base attack power then we apply mods on it
-        //ap += pAttacker->GetRAP();
-        ap += pVictim->RAPvModifier;
-
-        if(!pVictim->IsPlayer() && castPtr<Creature>(pVictim)->GetCreatureData())
-        {
-            uint32 creatType = castPtr<Creature>(pVictim)->GetCreatureData()->Type;
-            ap += (float)pAttacker->GetCreatureRangedAttackPowerMod(creatType);
-
-            if(pAttacker->IsPlayer())
-            {
-                min_damage = (min_damage + castPtr<Player>(pAttacker)->IncreaseDamageByType[creatType]) * (1 + castPtr<Player>(pAttacker)->IncreaseDamageByTypePCT[creatType]);
-                max_damage = (max_damage + castPtr<Player>(pAttacker)->IncreaseDamageByType[creatType]) * (1 + castPtr<Player>(pAttacker)->IncreaseDamageByTypePCT[creatType]);
-            }
-        }
-
         if(pAttacker->IsPlayer())
         {
             if(!pAttacker->disarmed)
             {
-                Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
-                if(it)
-                {
+                if(Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED))
                     wspeed = (float)it->GetProto()->Delay;
-                }
-                else
-                    wspeed = 2000;
-            }
-            else
-                wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
-        }
-        else
-        {
-            wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
-        }
+                else wspeed = 2000;
+            } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
+        } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
 
         //ranged weapon normalization.
-        if(pAttacker->IsPlayer() && ability)
-        {
-            if(ability->Effect[0] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[1] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[2] == SPELL_EFFECT_DUMMYMELEE)
-            {
-                wspeed = 2800;
-            }
-        }
+        if(pAttacker->IsPlayer() && ability && (ability->Effect[0] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[1] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[2] == SPELL_EFFECT_DUMMYMELEE))
+            wspeed = 2800;
 
         //Weapon speed constant in feral forms
         if(pAttacker->IsPlayer())
@@ -219,66 +189,35 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
     {
         //MinD = AP(28AS-(WS/7))-MaxD
         //starting from base attack power then we apply mods on it
-        //ap += pAttacker->GetAP();
-        ap += pVictim->APvModifier;
-
-        if(!pVictim->IsPlayer() && castPtr<Creature>(pVictim)->GetCreatureData())
-        {
-            uint32 creatType = castPtr<Creature>(pVictim)->GetCreatureData()->Type;
-            ap += (float)pAttacker->GetCreatureAttackPowerMod(creatType);
-
-            if(pAttacker->IsPlayer())
-            {
-                min_damage = (min_damage + castPtr<Player>(pAttacker)->IncreaseDamageByType[creatType]) * (1 + castPtr<Player>(pAttacker)->IncreaseDamageByTypePCT[creatType]);
-                max_damage = (max_damage + castPtr<Player>(pAttacker)->IncreaseDamageByType[creatType]) * (1 + castPtr<Player>(pAttacker)->IncreaseDamageByTypePCT[creatType]);
-            }
-        }
-
         if(pAttacker->IsPlayer())
         {
             if(!pAttacker->disarmed)
             {
-                Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-
-                if(it)
+                if(Item* it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
                     wspeed = (float)it->GetProto()->Delay;
-                else
-                    wspeed = 2000;
-            }
-            else
-                wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
+                else wspeed = 2000;
+            } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
 
             if(ability && ability->SpellGroupType)
             {
                 int32 apall = pAttacker->CalculateAttackPower();
-                /* this spell modifier doesn't exist. also need to clear up how the AP is used here
-                int32 apb=0;
-                SM_FIValue(pAttacker->SM[SMT_ATTACK_POWER_BONUS][1],&apb,ability->SpellGroupType);
-
-                if(apb)
-                    ap += apall*((float)apb/100);
-                else*/
-                    ap = float(apall);
+                ap = float(apall);
             }
-        }
-        else
-        {
-            wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
-        }
+        } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
 
         //Normalized weapon damage checks.
         if(pAttacker->IsPlayer() && ability)
         {
             if(ability->Effect[0] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[1] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[2] == SPELL_EFFECT_DUMMYMELEE)
             {
-                it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-
-                if(it)
+                if(it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
                 {
                     if(it->GetProto()->Class == ITEM_CLASS_WEAPON) //weapon
                     {
-                        if(it->GetProto()->InventoryType == INVTYPE_2HWEAPON) wspeed = 3300;
-                        else if(it->GetProto()->SubClass == 15) wspeed = 1700;
+                        if(it->GetProto()->InventoryType == INVTYPE_2HWEAPON)
+                            wspeed = 3300;
+                        else if(it->GetProto()->SubClass == 15)
+                            wspeed = 1700;
                         else wspeed = 2400;
                     }
                 }

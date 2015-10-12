@@ -336,24 +336,9 @@ public:
                 return false;
         }
 
-        if(obj->InStealth()) // Stealth Detection (  I Hate Rogues :P  )
+        if(obj->HasDummyAura(0xFFFFFFFF)) // Stealth Detection (  I Hate Rogues :P  )
         {
-            if(isTargetInFront(obj)) // stealthed player is in front of creature
-            {
-                int32 hide_level = (getLevel() * 5 + GetStealthDetectBonus()) - obj->GetStealthLevel();
-                detectRange = (hide_level * 0.15f) + 5;
-
-                if(detectRange < 1.0f)
-                    detectRange = 1.0f; // Minimum Detection Range = 1yd
-            }
-            else // stealthed player is behind creature
-            {
-                if(GetStealthDetectBonus() > 500)
-                    return true; // immune to stealth
-                else
-                    detectRange = 0.0f;
-            }
-
+            // TODO STEALTH DETECTION SEMPAI
             detectRange += GetFloatValue(UNIT_FIELD_BOUNDINGRADIUS); // adjust range for size of creature
             detectRange += obj->GetFloatValue(UNIT_FIELD_BOUNDINGRADIUS); // adjust range for size of stealthed player
 

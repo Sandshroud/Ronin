@@ -128,10 +128,10 @@ void GameObject::Update(uint32 p_time)
                         continue;
                 }
 
-                Spell* sp = new Spell(this, spell, true, NULL);
                 SpellCastTargets tgt(pUnit->GetGUID());
                 tgt.m_dest = GetPosition();
-                sp->prepare(&tgt);
+                if(Spell* sp = new Spell(this, spell))
+                    sp->prepare(&tgt, true);
 
                 if(m_summonedGo)
                 {
@@ -748,11 +748,11 @@ void GameObject::AuraGenSearchTarget()
     if(!IsInWorld() || m_deleted || !spell)
         return;
 
-    WorldObject::InRangeUnitSet::iterator itr;
+    WorldObject::InRangeSet::iterator itr;
     for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
-        Unit *unit = *itr;
-        if(GetDistanceSq((*itr)) > pInfo->AuraGenerator.Radius)
+        Unit *unit = GetInRangeObject<Unit>(*itr);
+        if (GetDistanceSq(unit) > pInfo->AuraGenerator.Radius)
             continue;
         if(unit->HasAura(spell->Id))
             continue;
@@ -785,9 +785,7 @@ void GameObject::SetStatusDestroyed()
 
 void GameObject::Use(Player *p)
 {
-    Spell* spell = NULL;
     SpellEntry *spellInfo = NULL;
-    SpellCastTargets targets;
     GameObjectInfo *goinfo = GetInfo();
     if (!goinfo)
         return;
@@ -870,10 +868,9 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_CHEST://cast da spell
         {
             spellInfo = dbcSpell.LookupEntry( OPEN_CHEST );
-            spell = new Spell(p, spellInfo, true, NULL);
-            p->SetCurrentSpell(spell);
-            targets.m_unitTarget = GetGUID();
-            spell->prepare(&targets);
+            SpellCastTargets targets(GetGUID());
+            if(Spell *spell = new Spell(p, spellInfo))
+                spell->prepare(&targets, true);
         }break;
     case GAMEOBJECT_TYPE_FISHINGNODE:
         {
@@ -896,8 +893,8 @@ void GameObject::Use(Player *p)
             // battleground/warsong gulch flag
             if(p->m_bg)
             {
-                if( p->m_stealth )
-                    p->RemoveAura( p->m_stealth );
+                /*if( p->m_stealth )
+                    p->RemoveAura( p->m_stealth );*/
 
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
@@ -917,8 +914,8 @@ void GameObject::Use(Player *p)
             // Dropped flag
             if(p->m_bg)
             {
-                if( p->m_stealth )
-                    p->RemoveAura( p->m_stealth );
+                /*if( p->m_stealth )
+                    p->RemoveAura( p->m_stealth );*/
 
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
@@ -948,10 +945,10 @@ void GameObject::Use(Player *p)
                 sLog.outError("Gameobject Type Spellcaster doesn't have a spell to cast entry %u", goinfo->ID);
                 return;
             }
-            Spell* spell(new Spell(p, info, false, NULL));
-            SpellCastTargets targets;
-            targets.m_unitTarget = p->GetGUID();
-            spell->prepare(&targets);
+
+            SpellCastTargets targets(p->GetGUID());
+            if(Spell* spell = new Spell(p, info))
+                spell->prepare(&targets, false);
             if(charges > 0 && !--charges)
                 ExpireAndDelete();
         }break;
@@ -1003,42 +1000,35 @@ void GameObject::Use(Player *p)
                         if(!GetGOui32Value(GO_UINT32_M_RIT_TARGET))
                             return;
 
-                        info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        if(!info)
+                        if((info = dbcSpell.LookupEntry(goinfo->GetSpellID())) == NULL)
                             break;
                         Player* target = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_TARGET));
-                        if(!target)
+                        if(target == NULL)
                             return;
 
-                        spell = (new Spell(this,info,true,NULL));
-                        SpellCastTargets targets;
-                        targets.m_unitTarget = target->GetGUID();
-                        spell->prepare(&targets);
+                        SpellCastTargets targets(target->GetGUID());
+                        if(Spell *spell = new Spell(this, info))
+                            spell->prepare(&targets, true);
                     }break;
                 case 177193:// doom portal
                     {
-                        Player* psacrifice = NULL;
-                        Spell* spell = NULL;
-
                         // kill the sacrifice player
-                        psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(goinfo->Arbiter.ReqParticipants-1))]);
+                        Player* psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(goinfo->Arbiter.ReqParticipants-1))]);
                         Player* pCaster = GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!psacrifice || !pCaster)
                             return;
-
-                        info = dbcSpell.LookupEntry(goinfo->Arbiter.CasterTargetSpell);
-                        if(!info)
+                        if((info = dbcSpell.LookupEntry(goinfo->Arbiter.CasterTargetSpell)) == NULL)
                             break;
-                        spell = (new Spell(psacrifice, info, true, NULL));
-                        targets.m_unitTarget = psacrifice->GetGUID();
-                        spell->prepare(&targets);
+
+                        SpellCastTargets targets(psacrifice->GetGUID());
+                        if(Spell *spell = new Spell(psacrifice, info))
+                            spell->prepare(&targets, true);
 
                         // summons demon
-                        info = dbcSpell.LookupEntry(goinfo->Arbiter.SpellId);
-                        spell = (new Spell(pCaster, info, true, NULL));
-                        SpellCastTargets targets;
                         targets.m_unitTarget = pCaster->GetGUID();
-                        spell->prepare(&targets);
+                        if(info = dbcSpell.LookupEntry(goinfo->Arbiter.SpellId))
+                            if(Spell *spell = new Spell(pCaster, info))
+                                spell->prepare(&targets, true);
                     }break;
                 case 179944:// Summoning portal for meeting stones
                     {
@@ -1051,9 +1041,9 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(plr->GetGUID());
-                        spell->prepare(&targets);
+                        if(Spell* spell = new Spell(pleader, info))
+                            spell->prepare(&targets, true);
 
                         /* expire the GameObject* */
                         ExpireAndDelete();
@@ -1065,9 +1055,9 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
-                        spell->prepare(&targets);
+                        if(Spell* spell = new Spell(pleader, info))
+                            spell->prepare(&targets, true);
 
                         ExpireAndDelete();
                         pleader->InterruptCurrentSpell();
@@ -1080,9 +1070,9 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
-                        spell->prepare(&targets);
+                        if(Spell* spell = new Spell(pleader, info))
+                            spell->prepare(&targets, true);
 
                         ExpireAndDelete();
                         pleader->InterruptCurrentSpell();
@@ -1095,9 +1085,9 @@ void GameObject::Use(Player *p)
                             return;
 
                         info = dbcSpell.LookupEntry(goinfo->GetSpellID());
-                        Spell* spell(new Spell(pleader, info, true, NULL));
                         SpellCastTargets targets(pleader->GetGUID());
-                        spell->prepare(&targets);
+                        if(Spell* spell = new Spell(pleader, info))
+                            spell->prepare(&targets, true);
                     }break;
                 }
             }

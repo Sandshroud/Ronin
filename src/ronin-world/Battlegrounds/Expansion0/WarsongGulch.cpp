@@ -126,10 +126,9 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
         if(m_buffs[buffslot] != 0 && m_buffs[buffslot]->IsInWorld())
         {
             /* apply the buff */
-            SpellEntry * sp = dbcSpell.LookupEntry(m_buffs[buffslot]->GetInfo()->GetSpellID());
-            Spell* s(new Spell(plr, sp, true, NULL));
             SpellCastTargets targets(plr->GetGUID());
-            s->prepare(&targets);
+            if(Spell* buff = new Spell(plr, dbcSpell.LookupEntry(m_buffs[buffslot]->GetInfo()->GetSpellID())))
+                buff->prepare(&targets, true);
 
             /* despawn the gameobject (not delete!) */
             m_buffs[buffslot]->Despawn(0, BUFF_RESPAWN_TIME);
@@ -273,9 +272,9 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
     plr->m_bgHasFlag = true;
 
     SpellEntry * pSp = dbcSpell.LookupEntry(23333 + (plr->GetTeam() * 2));
-    Spell* sp = new Spell(plr, pSp, true, NULL);
     SpellCastTargets targets(plr->GetGUID());
-    sp->prepare(&targets);
+    if(Spell* sp = new Spell(plr, pSp))
+        sp->prepare(&targets, true);
     m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
 }
 
@@ -314,16 +313,16 @@ void WarsongGulch::HookFlagStand(Player* plr, GameObject* obj)
     if( plr->GetVehicle() )
         plr->GetVehicle()->RemovePassenger(plr);
 
-    if( plr->m_stealth )
-        plr->RemoveAura( plr->m_stealth );
+    /*if( plr->m_stealth )
+        plr->RemoveAura( plr->m_stealth );*/
 
     if( plr->m_bgFlagIneligible )
         return;
 
     SpellEntry * pSp = dbcSpell.LookupEntry(23333 + (plr->GetTeam() * 2));
-    Spell* sp(new Spell(plr, pSp, true, NULL));
     SpellCastTargets targets(plr->GetGUID());
-    sp->prepare(&targets);
+    if(Spell* sp = new Spell(plr, pSp))
+        sp->prepare(&targets, true);
 
     /* set the flag holder */
     m_flagHolders[plr->GetTeam()] = plr->GetLowGUID();

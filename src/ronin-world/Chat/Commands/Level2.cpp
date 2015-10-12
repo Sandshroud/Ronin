@@ -361,16 +361,11 @@ bool ChatHandler::HandleCastSpellCommand(const char* args, WorldSession *m_sessi
         return false;
     }
 
-    Spell* sp = new Spell(caster, spellentry, false, NULL);
-    if(!sp)
-    {
-        RedSystemMessage(m_session, "Spell failed creation!");
-        return false;
-    }
     BlueSystemMessage(m_session, "Casting spell %d on target.", spellid);
     SpellCastTargets targets;
     targets.m_unitTarget = target->GetGUID();
-    sp->prepare(&targets);
+    if(Spell* sp = new Spell(caster, spellentry))
+        sp->prepare(&targets, false);
     sWorld.LogGM(m_session, "Used castspell command on %s" , target->GetName());
     return true;
 }

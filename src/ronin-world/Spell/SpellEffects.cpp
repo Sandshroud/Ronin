@@ -6,7 +6,7 @@
 
 #include "StdAfx.h"
 
-SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info) : BaseSpell(caster, info)
+SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber) : BaseSpell(caster, info, castNumber)
 {
 
 }
@@ -14,6 +14,11 @@ SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info) : Base
 SpellEffectClass::~SpellEffectClass()
 {
 
+}
+
+void SpellEffectClass::Destruct()
+{
+    BaseSpell::Destruct();
 }
 
 void SpellEffectClass::InitializeSpellEffectClass()
@@ -163,7 +168,7 @@ void SpellEffectClass::SpellEffectNULL(uint32 i, WorldObject *target, int32 amou
 {
     sLog.Debug("Spell","Unhandled spell effect %u in spell %u.", m_spellInfo->Effect[i], m_spellInfo->Id);
 }
-
+/*
 void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int32 amount)
 {
     if(!target->IsUnit() || castPtr<Unit>(target)->isAlive())
@@ -311,91 +316,53 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
             castPtr<Player>(m_caster)->SetFFAPvPFlag();
     }
 
-    uint32 dmg = damage;
-    if(GetSpellProto()->EffectChainTarget[i])//chain
-    {
-        if( GetSpellProto()->Id == 53595 ) // Hammer of the righteous
-        {
-            if( p_caster == NULL )
-                return;
-
-            static_damage = true;
-            float WMIN = 1.0f;
-            float WMAX = 2.0f;
-            float MWS = 2.0f;
-            Item* it = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-            if( it && it->GetProto() )
-            {
-                WMIN = it->GetProto()->minDamage;
-                WMAX = it->GetProto()->maxDamage;
-                MWS = it->GetProto()->Delay / 1000.0f;
-            }   // Crow: Do not randomize 0, it will crash.
-
-            dmg = float2int32(((WMIN + RandomUInt(WMAX-WMIN)) / (2 * MWS)) * 4 + (u_caster->GetStrength() / 5.5f) * 4 + (u_caster->CalculateAttackPower() / 14) * 4);
-        }
-        else
-        {
-            int32 reduce = (int32)(GetSpellProto()->EffectDamageMultiplier[i] * 100.0f);
-
-            if(reduce && chaindamage)
-                chaindamage = chaindamage * reduce / 100;
-        }
-    }
-
     // check for no more damage left (chains)
-    if( dmg < 0 )
-        return;
-
-    // stealthed stuff
-    if( m_projectileWait && unitTarget->InStealth() )
+    if (amount < 0)
         return;
 
     if(GetSpellProto()->speed > 0)
-        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, dmg, m_triggeredSpellId == 0, false);
+        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, false, false);
     else
     {
-        if( GetType() == SPELL_DMG_TYPE_MAGIC )
+        if(false)
         {
-            m_caster->SpellNonMeleeDamageLog( unitTarget, GetSpellProto()->Id, dmg, m_triggeredSpellId == 0, false );
+            m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, false, false);
         }
-        else
+        else if (m_caster->IsUnit())
         {
-            if( u_caster != NULL )
-            {
-                uint32 _type = MELEE;
-                if( GetType() == SPELL_DMG_TYPE_RANGED )
-                    _type = RANGED;
-                else if (GetSpellProto()->reqOffHandWeapon())
-                    _type =  OFFHAND;
-                u_caster->Strike( unitTarget, _type, GetSpellProto(), i, 0, 0, dmg, m_triggeredSpellId != 0, true );
-            }
+            uint32 _type = MELEE;
+            if( false )
+                _type = RANGED;
+            else if (GetSpellProto()->reqOffHandWeapon())
+                _type =  OFFHAND;
+            castPtr<Unit>(m_caster)->Strike(unitTarget, _type, GetSpellProto(), i, 0, 0, amount, false, true);
         }
     }
 }
 
 void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount) // Dummy(Scripted events)
 {
-    sLog.outDebug("Dummy spell not handled: %u%s\n", m_spellInfo->Id, ((ProcedOnSpell != NULL) ? (format(" proc'd on: %u", ProcedOnSpell->Id).c_str()) : ""));
+    sLog.outDebug("Dummy spell not handled: %u\n", m_spellInfo->Id);
 }
 
 void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount)  // Teleport Units
 {
     uint32 spellId = GetSpellProto()->Id;
 
-    if( unitTarget == NULL )
+    if (target == NULL)
         return;
 
     // Shadowstep
-    if( (GetSpellProto()->NameHash == SPELL_HASH_SHADOWSTEP) && p_caster && p_caster->IsInWorld() )
+    if( (GetSpellProto()->NameHash == SPELL_HASH_SHADOWSTEP) && m_caster->IsPlayer() && m_caster->IsInWorld() )
     {
-        /* this is rather tricky actually. we have to calculate the orientation of the creature/player, and then calculate a little bit of distance behind that. */
+        // this is rather tricky actually. we have to calculate the orientation of the creature/player, and then calculate a little bit of distance behind that.
         float ang;
-        Unit* pTarget = unitTarget;
+        WorldObject* pTarget = target;
         if( pTarget == m_caster )
         {
-            /* try to get a selection */
-            pTarget = m_caster->GetMapMgr()->GetUnit(p_caster->GetSelection());
-            if( (pTarget == NULL ) || !sFactionSystem.isAttackable(p_caster, pTarget, !GetSpellProto()->isSpellStealthTargetCapable() ) || (pTarget->CalcDistance(p_caster) > 30.0f))
+            // try to get a selection
+            pTarget = m_caster->GetMapMgr()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
+            if( (pTarget == NULL ) || !sFactionSystem.isAttackable(m_caster, pTarget, !GetSpellProto()->isSpellStealthTargetCapable() ) || (pTarget->CalcDistance(m_caster) > 30.0f))
                 return;
         }
 
@@ -403,37 +370,37 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
         {
             if( pTarget->GetUInt64Value( UNIT_FIELD_TARGET ) != 0 )
             {
-                /* We're chasing a target. We have to calculate the angle to this target, this is our orientation. */
+                // We're chasing a target. We have to calculate the angle to this target, this is our orientation.
                 ang = m_caster->calcAngle(m_caster->GetPositionX(), m_caster->GetPositionY(), pTarget->GetPositionX(), pTarget->GetPositionY());
 
-                /* convert degree angle to radians */
+                // convert degree angle to radians
                 ang = ang * float(M_PI) / 180.0f;
             }
             else
             {
-                /* Our orientation has already been set. */
-                ang = pTarget->GetOrientation();
+                // Our orientation has already been set.
+                ang = target->GetOrientation();
             }
         }
         else
         {
-            /* Players orientation is sent in movement packets */
+            // Players orientation is sent in movement packets
             ang = pTarget->GetOrientation();
         }
 
         // avoid teleporting into the model on scaled models
-        const static float shadowstep_distance = 1.6f * GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( unitTarget->GetUInt32Value(UNIT_FIELD_DISPLAYID)));
+        const static float shadowstep_distance = 1.6f * GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( target->GetUInt32Value(UNIT_FIELD_DISPLAYID)));
         float new_x = pTarget->GetPositionX() - (shadowstep_distance * cosf(ang));
         float new_y = pTarget->GetPositionY() - (shadowstep_distance * sinf(ang));
         float new_z = pTarget->GetCHeightForPosition(true);
-        /* Send a movement packet to "charge" at this target. Similar to warrior charge. */
-        p_caster->z_axisposition = 0.0f;
-        p_caster->SafeTeleport(p_caster->GetMapId(), p_caster->GetInstanceID(), LocationVector(new_x, new_y, new_z, pTarget->GetOrientation()));
+        // Send a movement packet to "charge" at this target. Similar to warrior charge.
+        castPtr<Player>(m_caster)->z_axisposition = 0.0f;
+        castPtr<Player>(m_caster)->SafeTeleport(m_caster->GetMapId(), m_caster->GetInstanceID(), LocationVector(new_x, new_y, new_z, pTarget->GetOrientation()));
         return;
     }
 
-    if(unitTarget->IsPlayer())
-        HandleTeleport(spellId, unitTarget);
+    if(target->IsPlayer())
+        HandleTeleport(spellId, target);
 }
 
 void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount)  // Apply Aura
@@ -454,7 +421,7 @@ void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32
         }
     }
 
-    /* Aura Mastery + Aura Of Concentration = No Interrupting effects */
+    // Aura Mastery + Aura Of Concentration = No Interrupting effects
     if(GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_MOD_SILENCE && unitTarget->HasAura(31821) && unitTarget->HasAura(19746))
         return;
 
@@ -1261,9 +1228,6 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
 
     if(playerTarget!=NULL)
     {
-        /*if(u_caster && isHostile(playerTarget, u_caster))
-            return;*/
-
         uint32 spellToLearn = GetSpellProto()->EffectTriggerSpell[i];
         playerTarget->addSpell(spellToLearn);
         //smth is wrong here, first we add this spell to player then we may cast it on player...
@@ -2152,7 +2116,7 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
     if( unitTarget == NULL )
         return;
 
-    WorldObject::InRangeUnitSet::iterator itr, it2;
+    WorldObject::InRangeSet::iterator itr, it2;
     for( itr = unitTarget->GetInRangeUnitSetBegin(); itr != unitTarget->GetInRangeUnitSetEnd(); )
     {
         it2 = itr++;
@@ -2268,15 +2232,7 @@ void SpellEffectClass::SpellEffectSummonPlayer(uint32 i, WorldObject *target, in
 
 void SpellEffectClass::SpellEffectActivateObject(uint32 i, WorldObject *target, int32 amount) // Activate WorldObject
 {
-/*  if( p_caster == NULL)
-        return;
 
-    if( gameObjTarget == NULL)
-        return;
-
-    gameObjTarget->SetUInt32Value(GAMEOBJECT_DYNAMIC, 1);
-
-    sEventMgr.AddEvent(gameObjTarget, &GameObject::Deactivate, EVENT_GAMEOBJECT_DEACTIVATE, GetDuration(), 1);*/
 }
 
 void SpellEffectClass::SpellEffectWMODamage(uint32 i, WorldObject *target, int32 amount)
@@ -2465,7 +2421,7 @@ void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target
         SpellEntry* sp = dbcSpell.LookupEntry(spell);
         if(sp == NULL || !p_caster->HasSpell(spell))
             continue;
-        if(/*!IsTotemSpell(sp) || */p_caster->SpellHasCooldown(spell))
+        if(!IsTotemSpell(sp) || p_caster->SpellHasCooldown(spell))
             continue;
         Spell* pSpell = new Spell(p_caster, sp, true, NULL);
         if(!pSpell->HasPower())
@@ -2647,9 +2603,9 @@ void SpellEffectClass::SpellEffectFeedPet(uint32 i, WorldObject *target, int32 a
     if(pPet== NULL)
         return;
 
-    /** Cast feed pet effect
-    - effect is item level and pet level dependent, aura ticks are 35, 17, 8 (*1000) happiness
-    - http://petopia.brashendeavors.net/html/articles/basics_feeding.shtml */
+    //// Cast feed pet effect
+    // effect is item level and pet level dependent, aura ticks are 35, 17, 8 (*1000) happiness
+    // http://petopia.brashendeavors.net/html/articles/basics_feeding.shtml
     int8 deltaLvl = pPet->getLevel() - itemTarget->GetProto()->ItemLevel;
     damage /= 1000; //damage of Feed pet spell is 35000
     if(deltaLvl > 20)
@@ -2777,15 +2733,7 @@ void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, i
     }
 }
 
-/* This effect has 2 functions
- * 1. It delete's all current totems from the player
- * 2. It returns a percentage of the mana back to the player
- *
- * Bur kick my ass if this is not safe:P
-*/
-
 uint32 TotemSpells[4] = { 63, 81, 82, 83 };
-
 void SpellEffectClass::SpellEffectDestroyAllTotems(uint32 i, WorldObject *target, int32 amount)
 {
     if(p_caster == NULL || !p_caster->IsInWorld())
@@ -3580,4 +3528,4 @@ void SpellEffectClass::SpellEffectFailQuest(uint32 i, WorldObject *target, int32
         return;
 
     sQuestMgr.SendQuestFailed(FAILED_REASON_FAILED, qst, p_caster);
-}
+}*/

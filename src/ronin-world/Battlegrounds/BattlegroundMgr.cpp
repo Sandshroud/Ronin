@@ -1493,8 +1493,8 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
             {
                 SpellCastTargets targets;
                 targets.m_unitTarget = plr->GetGUID();
-                Spell* sp = new Spell(plr,spellInfo,true,NULL);
-                sp->prepare(&targets);
+                if(Spell* sp = new Spell(plr,spellInfo))
+                    sp->prepare(&targets, true);
             }
         }
 
@@ -1974,8 +1974,8 @@ bool CBattleground::HookSlowLockOpen(GameObject* pGo, Player* pPlayer, Spell* pS
     if( pPlayer->GetVehicle() )
         pPlayer->GetVehicle()->RemovePassenger(pPlayer);
 
-    if( pPlayer->m_stealth )
-        pPlayer->RemoveAura( pPlayer->m_stealth );
+    /*if( pPlayer->m_stealth )
+        pPlayer->RemoveAura( pPlayer->m_stealth );*/
 
     return false;
 }

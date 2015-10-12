@@ -535,14 +535,6 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
         else if(!IsValidUnitTarget(unit, NULL, TargetFilter_None, 0.f, m_outOfCombatRange))
             continue;
 
-        if((itr->second + unit->GetThreatModifier()) > CurrentThreat)
-        {
-            /* new target */
-            ResultUnit = unit;
-            CurrentThreat = itr->second + unit->GetThreatModifier();
-            m_currentHighestThreat = CurrentThreat;
-        }
-
         /* there are no more checks needed here... the needed checks are done by CheckTarget() */
     }
     ai_TargetLock.Release();
@@ -584,11 +576,11 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         else if(!IsValidUnitTarget(unit, NULL, TargetFilter_None, 0.f, m_outOfCombatRange))
             continue;
 
-        if((itr->second + unit->GetThreatModifier()) > currentTarget.second && unit != ResultUnit)
+        if(itr->second > currentTarget.second && unit != ResultUnit)
         {
             /* new target */
             currentTarget.first = unit;
-            currentTarget.second = itr->second + unit->GetThreatModifier();
+            currentTarget.second = itr->second;
             m_currentHighestThreat = currentTarget.second;
         }
     }
@@ -643,8 +635,6 @@ float AIInterface::_CalcAggroRange(Unit* target)
     // SPELL_AURA_MOD_DETECT_RANGE
     int32 modDetectRange = target->getDetectRangeMod(m_Unit->GetGUID());
     AggroRange += modDetectRange;
-    if(target->IsPlayer())
-        AggroRange += castPtr<Player>( target )->DetectedRange;
     if(AggroRange < 5.0f)
         AggroRange = 5.0f;
     AggroRange *= 1.5f;
@@ -697,7 +687,7 @@ bool AIInterface::modThreat(WoWGuid guid, int32 mod, Unit *redirect, float redir
             } else it->second += partmod;
             ASSERT(it != m_aiTargets.end());
 
-            int32 tempthreat = it->second + redirect->GetThreatModifier();
+            int32 tempthreat = it->second;
             if(tempthreat < 1) tempthreat = 1;
             if(tempthreat > m_currentHighestThreat)
             {
@@ -723,7 +713,6 @@ bool AIInterface::modThreat(WoWGuid guid, int32 mod, Unit *redirect, float redir
 
     if(Unit *unit = m_Unit->GetMapMgr()->GetUnit(guid))
     {
-        threatVal += unit->GetThreatModifier();
         if(threatVal < 1) threatVal = 1;
         if(threatVal > m_currentHighestThreat)
         {
@@ -939,7 +928,7 @@ uint32 AIInterface::_CalcThreat(uint32 damage, SpellEntry * sp, Unit* Attacker)
     }
 
     // modify mod by Affects
-    mod += (mod * Attacker->GetGeneratedThreatModifier() / 100);
+    //mod += (mod * Attacker->GetGeneratedThreatModifier() / 100);
     return mod;
 }
 

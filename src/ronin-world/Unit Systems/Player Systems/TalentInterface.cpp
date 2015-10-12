@@ -233,12 +233,6 @@ void TalentInterface::ResetSpec(uint8 spec, bool silent)
         if( m_Player->getClass() == SHAMAN && m_Player->_HasSkillLine( SKILL_DUAL_WIELD ) )
             m_Player->_RemoveSkillLine( SKILL_DUAL_WIELD );
 
-        if( m_Player->getClass() == WARRIOR )
-        {
-            m_Player->titanGrip = false;
-            m_Player->ResetTitansGrip();
-        }
-
         m_currentTalentPoints = m_availableTalentPoints;
     }
     talentMap->clear();
@@ -341,8 +335,8 @@ void TalentInterface::ApplyTalent(uint32 spellid)
     SpellCastTargets tgt;
     tgt.m_targetMask |= TARGET_FLAG_UNIT;
     tgt.m_unitTarget = m_Player->GetGUID();
-    Spell* sp = new Spell(m_Player, spellInfo, true, NULL);
-    sp->prepare(&tgt);
+    if(Spell* sp = new Spell(m_Player, spellInfo))
+        sp->prepare(&tgt, true);
 }
 
 void TalentInterface::RemoveTalent(uint32 spellid)

@@ -95,10 +95,9 @@ SlotResult PlayerInventory::_addItem( Item* item, uint16 slot)
                             {
                                 if( m_set->size() == set->spellRequiredItemCount[x])
                                 {   //cast new spell
-                                    Spell* spell = new Spell( m_pOwner, info, true, NULL );
-                                    SpellCastTargets targets;
-                                    targets.m_unitTarget = m_pOwner->GetGUID();
-                                    spell->prepare( &targets );
+                                    SpellCastTargets targets(m_pOwner->GetGUID());
+                                    if(Spell* spell = new Spell( m_pOwner, info ))
+                                        spell->prepare( &targets, true );
                                 }
                             }
                         }
@@ -249,7 +248,7 @@ bool PlayerInventory::_findFreeSlot(ItemPrototype *proto, uint16 &slot)
 
 bool PlayerInventory::_findBestSlot(ItemPrototype *proto, uint16 &slot)
 {
-
+    return false;
 }
 
 void PlayerInventory::AddToWorld()
@@ -536,7 +535,7 @@ bool PlayerInventory::AddInventoryItemToSlot(Item *item, uint16 slot)
     return _addItem(item, slot).result == ADD_ITEM_RESULT_OK;
 }
 
-bool PlayerInventory::DestroyInventoryItem(uint16 slot, ItemDeletionReason reason = ITEM_DELETION_USED)
+bool PlayerInventory::DestroyInventoryItem(uint16 slot, ItemDeletionReason reason)
 {
     Item *item = _removeItemBySlot(slot);
     if(item == NULL)
@@ -591,7 +590,7 @@ bool PlayerInventory::RemoveInventoryStacks(uint32 entry, uint32 count, bool for
         {
             if(Item *item = _removeItemBySlot(*itr))
             {
-                sItemMgr.DeleteItemData(item->GetGUID());
+                sItemMgr.DeleteItemData(item->GetGUID(), true);
                 item->Destruct();
             }
         }

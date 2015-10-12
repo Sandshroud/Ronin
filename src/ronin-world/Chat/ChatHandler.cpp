@@ -234,19 +234,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
     WorldPacket broadcast(type, 50);
     if(packetLang)
-    {
         lang = CanUseCommand('c') ? LANG_UNIVERSAL : lang;
-        if(lang != LANG_UNIVERSAL)
-        {
-            if(_player->m_modlanguage < 0)
-            {
-                if(!sWorld.cross_faction_world && lang == LANG_UNIVERSAL && !CanUseCommand('c'))
-                    return;
-                if(lang > 0 && LanguageSkills[lang] && _player->_HasSkillLine(LanguageSkills[lang]) == false)
-                    return;
-            } else lang = _player->m_modlanguage;
-        }
-    }
 
     switch(type)
     {

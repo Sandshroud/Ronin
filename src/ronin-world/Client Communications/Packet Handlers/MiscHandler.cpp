@@ -554,9 +554,6 @@ void WorldSession::HandleSetSelectionOpcode( WorldPacket & recv_data )
 
     _player->SetUInt64Value(UNIT_FIELD_TARGET, guid);
     _player->SetSelection(guid);
-
-    if(_player->m_comboPoints)
-        _player->UpdateComboPoints();
 }
 
 void WorldSession::HandleStandStateChangeOpcode( WorldPacket & recv_data )
@@ -974,10 +971,10 @@ void WorldSession::HandleSelfResurrectOpcode(WorldPacket& recv_data)
         SpellEntry * sp = dbcSpell.LookupEntry(self_res_spell);
         if(sp != NULL)
         {
-            Spell* s = new Spell(_player, sp, false, NULL);
             SpellCastTargets tgt;
             tgt.m_unitTarget=_player->GetGUID();
-            s->prepare(&tgt);
+            if(Spell* s = new Spell(_player, sp))
+                s->prepare(&tgt, false);
         }
     }
 }

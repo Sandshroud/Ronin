@@ -202,9 +202,6 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
         // Change the power type to FOCUS
         SetPowerType(POWER_TYPE_FOCUS);
 
-        // create our spells
-        SetDefaultSpells();
-
         InitTalentsForLevel(true);
 
         m_PetNumber = castPtr<Player>(owner)->GeneratePetNumber();
@@ -348,9 +345,9 @@ void Pet::InitializeSpells()
         if( info->isPassiveSpell() )
         {
             // Cast on self..
-            Spell* sp = new Spell(this, info, true, NULL);
             SpellCastTargets targets(GetGUID());
-            sp->prepare(&targets);
+            if(Spell* sp = new Spell(this, info))
+                sp->prepare(&targets, true);
             continue;
         }
 
@@ -471,9 +468,6 @@ void Pet::InitializeMe()
         m_aiInterface.disable_melee = true;
 
     ApplyStatsForLevel();
-
-    // Load our spells
-    SetDefaultSpells();
 
     if(Summon == false)
     {
@@ -741,25 +735,6 @@ void Pet::LevelUpTo(uint32 level)
 
 }
 
-void Pet::SetDefaultSpells()
-{
-    if(Summon)
-    {
-        // this one's easy :p we just pull em from the owner.
-        std::map<uint32, std::set<uint32> >::iterator it1;
-        std::set<uint32>::iterator it2;
-        it1 = m_Owner->SummonSpells.find(GetEntry());
-        if(it1 != m_Owner->SummonSpells.end())
-        {
-            it2 = it1->second.begin();
-            for(; it2 != it1->second.end(); it2++)
-            {
-                AddSpell(dbcSpell.LookupEntry(*it2), false, false);
-            }
-        }
-    }
-}
-
 void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
 {
     // Cast on self if we're a passive spell
@@ -767,9 +742,9 @@ void Pet::AddSpell(SpellEntry * sp, bool learning, bool sendspells)
     {
         if(IsInWorld())
         {
-            Spell* spell = new Spell(this, sp, true, NULL);
             SpellCastTargets targets(GetGUID());
-            spell->prepare(&targets);
+            if(Spell* spell = new Spell(this, sp))
+                spell->prepare(&targets,true);
             mSpells[sp] = 0x0100;
         }
     }

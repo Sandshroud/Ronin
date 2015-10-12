@@ -1014,15 +1014,12 @@ public:
     static Standing     GetReputationRankFromStanding(int32 Standing_);
 
     bool titanGrip;
-    void ResetTitansGrip();
 
     /************************************************************************/
     /* Factions                                                             */
     /************************************************************************/
     void smsg_InitialFactions();
     uint32 GetInitialFactionId();
-    // factions variables
-    int32 pctReputationMod;
 
     /************************************************************************/
     /* PVP                                                                  */
@@ -1235,7 +1232,7 @@ public:
     RONIN_INLINE WorldSession* GetSession() const { return m_session; }
     void SetSession(WorldSession *s) { m_session = s; }
     void SetBindPoint(float x, float y, float z, uint32 m, uint32 v) { m_bind_pos_x = x; m_bind_pos_y = y; m_bind_pos_z = z; m_bind_mapid = m; m_bind_zoneid = v;}
-    float offhand_dmg_mod;
+
     float GetSpellTimeMod(uint32 id);
     int GetSpellDamageMod(uint32 id);
     int32 GetSpellManaMod(uint32 id);
@@ -1330,7 +1327,6 @@ public:
     int m_lifetapbonus;
     uint32 m_lastShotTime;
 
-    bool m_bUnlimitedBreath;
     void SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen);
     void StopMirrorTimer(MirrorTimerType Type);
     void HandleBreathing(uint32 time_diff);
@@ -1378,8 +1374,7 @@ public:
     void EventAllowTiggerPort(bool enable);
     float m_meleeattackspeedmod;
     float m_rangedattackspeedmod;
-    uint32 m_modblockabsorbvalue;
-    uint32 m_modblockvaluefromspells;
+
     void SendInitialLogonPackets();
     void Reset_Spells();
     void Reset_ToLevel1();
@@ -1425,29 +1420,6 @@ public:
 
     bool m_massSummonEnabled;
 
-    RONIN_INLINE float res_M_crit_get(){return m_resist_critical[0];}
-    RONIN_INLINE void res_M_crit_set(float newvalue){m_resist_critical[0]=newvalue;}
-    RONIN_INLINE float res_R_crit_get(){return m_resist_critical[1];}
-    RONIN_INLINE void res_R_crit_set(float newvalue){m_resist_critical[1]=newvalue;}
-
-    float m_resist_critical[2];//when we are a victim we can have talents to decrease chance for critical hit. This is a negative value and it's added to critchances
-    float m_resist_hit[3]; // 0 = melee; 1= ranged; 2=spells
-    uint32 m_modphyscritdmgPCT;
-    uint32 m_RootedCritChanceBonus; // Class Script Override: Shatter
-    uint32 m_Illumination_amount; // Class Script Override: Illumination
-    float Damageshield_amount; // Damage Shield
-
-    uint32 m_casted_amount[7]; //Last casted spells amounts. Need for some spells. Like Ignite etc. DOesn't count HoTs and DoTs. Only directs
-
-    uint32 StatModPctPos[5];
-    uint32 StatModPctNeg[5];
-    uint32 TotalStatModPctPos[5];
-    uint32 TotalStatModPctNeg[5];
-    int32 IncreaseDamageByType[12]; //mod dmg by creature type
-    float IncreaseDamageByTypePCT[12];
-    float IncreaseCricticalByTypePCT[12];
-    int32 DetectedRange;
-    float PctIgnoreRegenModifier;
     RONIN_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, GetUInt32Value(index)); };
     float CalcPercentForRating(uint32 index, uint32 rating);
     void RecalcAllRatings();
@@ -1552,12 +1524,9 @@ public:
     void EventTeleport(uint32 mapid, float x, float y, float z, float o = 0.f);
     void BroadcastMessage(const char* Format, ...);
 
-    void AddSummonSpell(uint32 Entry, uint32 SpellID);
-    void RemoveSummonSpell(uint32 Entry, uint32 SpellID);
-    std::set<uint32>* GetSummonSpells(uint32 Entry);
     LockedQueue<WorldPacket*> delayedPackets;
     std::set<Player*  > gmTargets;
-    uint32 m_UnderwaterMaxTime;
+
     RONIN_INLINE void setMyCorpse(Corpse* corpse) { myCorpse = corpse; }
     RONIN_INLINE Corpse* getMyCorpse() { return myCorpse; }
 
@@ -1639,34 +1608,6 @@ public:
     FactionReputation * reputationByListId[128];
     Channel* watchedchannel;
 
-    WoWGuid m_comboTarget;
-    int8 m_comboPoints;
-    bool m_retainComboPoints;
-    int8 m_spellcomboPoints; // rogue talent Ruthlessness will change combopoints while consuming them. solutions 1) add post cast prochandling, 2) delay adding the CP
-    void UpdateComboPoints();
-
-    RONIN_INLINE void AddComboPoints(uint64 target, uint8 count)
-    {
-        if(m_comboTarget == target)
-            m_comboPoints += count;
-        else
-        {
-            m_comboTarget = target;
-            m_comboPoints = count;
-        }
-        UpdateComboPoints();
-    }
-
-    RONIN_INLINE void NullComboPoints()
-    {
-        if(!m_retainComboPoints)
-        {
-            m_comboTarget = m_comboPoints = m_spellcomboPoints = 0;
-        }
-        UpdateComboPoints();
-        sEventMgr.RemoveEvents( this, EVENT_COMBO_POINT_CLEAR_FOR_TARGET );
-    }
-
     uint32 m_speedChangeCounter;
 
     // HACKKKKK
@@ -1713,7 +1654,6 @@ public:
 
     Creature* m_tempSummon;
     bool m_deathVision;
-    SpellEntry * last_heal_spell;
 
     void RemoveFromBattlegroundQueue(uint32 queueSlot, bool forced = false);
     void FullHPMP();
@@ -1896,11 +1836,6 @@ public:
     PlayerInfo * m_playerInfo;
     PlayerInfo * getPlayerInfo() const {return m_playerInfo;}
     PlayerCreateInfo *getPlayerCreateInfo() const {return info; }
-    uint32 m_skipCastCheck[3];  // spell group relation of spell types that should ignore some cancast checks
-    uint32 m_castFilter[3];     // spell group relation of only spells that player can currently cast
-
-    // grounding totem
-    Aura* m_magnetAura;
 
     // mage invisibility
     bool m_mageInvisibility;

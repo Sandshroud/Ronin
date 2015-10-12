@@ -137,7 +137,7 @@ public:
 
     void BeginSearch()
     {
-        // iteminterface doesn't use mutexes, maybe it should :P
+        // interface doesn't use mutexes, maybe it should :P
         ASSERT(!m_searchInProgress);
         m_target->m_lock.Acquire();
         m_itr = m_target->m_members.begin();

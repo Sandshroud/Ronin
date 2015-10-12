@@ -498,8 +498,6 @@ void Creature::RegenerateHealth(bool isinterrupted)
     {
         //though creatures have their stats we use some wierd formula for amt
         float amt = getLevel()*2.0f;
-        if (PctRegenModifier)
-            amt += (amt * PctRegenModifier) / 100;
         if(amt <= 1.0f)//this fixes regen like 0.98
             cur++;
         else cur += (uint32)amt;
@@ -525,7 +523,7 @@ void Creature::RegenerateMana(bool isinterrupted)
 
     if(isinterrupted || GetAIInterface()->getAIState() == STATE_EVADE)
     {
-        float amt = (getLevel()+10)*PctPowerRegenModifier[POWER_TYPE_MANA]/10;
+        float amt = (getLevel()+10);
         if(amt <= 1.0)//this fixes regen like 0.98
             cur++;
         else cur += (uint32)amt;
