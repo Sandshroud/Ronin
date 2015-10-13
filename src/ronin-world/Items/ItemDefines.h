@@ -518,6 +518,7 @@ enum dbcItemQuality : uint8
 
 enum dbcItemFlags : uint32
 {
+    DBC_ITEMFLAG_SOULBOUND              = 0x00000001,
     DBC_ITEMFLAG_CONJURED               = 0x00000002,
     DBC_ITEMFLAG_OPENABLE               = 0x00000004,
     DBC_ITEMFLAG_HEROIC                 = 0x00000008,

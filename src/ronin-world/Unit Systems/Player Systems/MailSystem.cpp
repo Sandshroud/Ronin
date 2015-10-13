@@ -207,33 +207,7 @@ uint8 Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
         std::vector<uint64>::iterator itr;
         for( itr = msg->items.begin( ); itr != msg->items.end( ); itr++ )
         {
-            ItemData *item = sItemMgr.GetItemData(*itr);
-            if( item == NULL )
-                continue;
 
-            data << uint8(count++);
-            data << item->itemGuid.getLow();
-            data << item->itemGuid.getEntry();
-
-            for( uint8 j = 0; j < 10; ++j )
-            {
-                uint32 timeLeft = 0;
-                if(item->enchantData[j] == NULL || (timeLeft = item->enchantData[j]->CalcTimeLeft()) == 0)
-                {
-                    data << uint32(0) << uint32(0) << uint32(0);
-                    continue;
-                }
-
-                data << uint32(item->enchantData[j]->enchantId) << uint32(timeLeft) << uint32(item->enchantData[j]->enchantCharges);
-            }
-
-            data << item->itemRandomProperty;
-            data << item->itemRandomSeed;
-            data << item->itemStackCount;
-            data << item->itemSpellCharges;
-            data << item->proto->MaxDurability;
-            data << item->itemDurability;
-            data << uint8(0);
         }
         data.put< uint8 >( pos, count );
     }

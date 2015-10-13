@@ -195,19 +195,19 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
 
     if(guidtype == HIGHGUID_TYPE_CREATURE)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
-        if(quest_giver)
+        if(Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid)))
+        {
             qst_giver = quest_giver;
+            bValid = quest_giver->isQuestGiver();
+            hasquest = quest_giver->HasQuest(quest_id, 1);
+            if(bValid)
+                qst = sQuestMgr.GetQuestPointer(quest_id);
+        }
         else return;
-        bValid = quest_giver->isQuestGiver();
-        hasquest = quest_giver->HasQuest(quest_id, 1);
-        if(bValid)
-            qst = sQuestMgr.GetQuestPointer(quest_id);
     }
     else if(guidtype == HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
-        if(quest_giver)
+        if(GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid)))
             qst_giver = quest_giver;
         else return;
         //bValid = quest_giver->isQuestGiver();
@@ -217,20 +217,20 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_ITEM)
     {
-        Item* quest_giver = GetPlayer()->GetInventory()->GetInventoryItem(guid);
-        if(quest_giver)
+        if(Item* quest_giver = GetPlayer()->GetInventory()->GetItemByGUID(guid))
+        {
             qst_giver = quest_giver;
+            bValid = true;
+            bSkipLevelCheck = true;
+            qst = sQuestMgr.GetQuestPointer(quest_id);
+            if( qst && qst->id != quest_giver->GetProto()->QuestId )
+                return;
+        }
         else return;
-        bValid = true;
-        bSkipLevelCheck = true;
-        qst = sQuestMgr.GetQuestPointer(quest_id);
-        if( qst && qst->id != quest_giver->GetProto()->QuestId )
-            return;
     }
     else if(guidtype == HIGHGUID_TYPE_PLAYER)
     {
-        Player* quest_giver = _player->GetMapMgr()->GetPlayer((uint32)guid);
-        if(quest_giver)
+        if(Player* quest_giver = _player->GetMapMgr()->GetPlayer((uint32)guid))
             qst_giver = quest_giver;
         else return;
         bValid = true;
@@ -277,11 +277,16 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if(!_player->GetInventory()->CreateQuestItems(qst))
+    if(qst->count_receiveitems || qst->srcitem)
     {
-        _player->GetInventory()->BuildInvError(INV_ERR_BAG_FULL, NULL, NULL);
-        sQuestMgr.SendQuestFailed(FAILED_REASON_INV_FULL, qst, _player);
-        return;
+        uint32 slots_required = qst->count_receiveitems;
+
+        if(_player->GetInventory()->CalculateFreeSlots(NULL) < slots_required)
+        {
+            _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_BAG_FULL);
+            sQuestMgr.SendQuestFailed(FAILED_REASON_INV_FULL, qst, _player);
+            return;
+        }
     }
 
     QuestLogEntry *qle = new QuestLogEntry();
@@ -290,8 +295,6 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
 
     if(qst->count_required_item || qst_giver->GetTypeId() == TYPEID_GAMEOBJECT) // gameobject quests deactivate
         _player->UpdateNearbyGameObjects();
-
-    TRIGGER_QUEST_EVENT(qst->id, OnQuestStart)(_player, qle);
 
     sQuestMgr.OnQuestAccepted(_player,qst,qst_giver);
 }
@@ -329,17 +332,17 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
     uint32 srcItem = qPtr->srcitem;
     for(uint32 i = 0; i < 4; i++)
         if(qPtr->receive_items[i] && qPtr->receive_items[i] != srcItem)
-            _player->GetInventory()->RemoveInventoryStacks( qPtr->receive_items[i], qPtr->receive_itemcount[i] );
+            _player->GetInventory()->RemoveItemAmt( qPtr->receive_items[i], qPtr->receive_itemcount[i] );
 
     // Remove source item
     if(qPtr->srcitem)
-        _player->GetInventory()->RemoveInventoryStacks( qPtr->srcitem, qPtr->srcitemcount );
+        _player->GetInventory()->RemoveItemAmt( qPtr->srcitem, 1 );
 
     // Reset timed quests, remove timed event
     // always remove collected items (need to be recollectable again in case of repeatable).
     for( uint32 y = 0; y < 6; y++)
         if( qPtr->required_item[y] && qPtr->required_item[y] != srcItem )
-            _player->GetInventory()->RemoveInventoryStacks(qPtr->required_item[y], qPtr->required_itemcount[y]);
+            _player->GetInventory()->RemoveItemAmt(qPtr->required_item[y], qPtr->required_itemcount[y]);
 
     if(qPtr->required_timelimit > 0)
         if(sEventMgr.HasEvent(_player,EVENT_TIMED_QUEST_EXPIRE))

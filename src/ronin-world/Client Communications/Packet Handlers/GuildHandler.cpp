@@ -597,7 +597,7 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
         _player->m_playerInfo->charterId[CHARTER_TYPE_GUILD] = 0;
         gc->Destroy();
 
-        _player->GetInventory()->RemoveInventoryStacks(ITEM_ENTRY_GUILD_CHARTER, 1);
+        _player->GetInventory()->RemoveItemAmt(ITEM_ENTRY_GUILD_CHARTER, 1);
     }
     else
     {
@@ -665,13 +665,7 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
             }
         }
 
-        if(Item *charter = _player->GetInventory()->RemoveInventoryItem(charterGuid))
-        {
-            sItemMgr.DeleteItemFromDatabase(charterGuid, ITEM_DELETION_USED);
-            sItemMgr.DeleteItemData(charterGuid, true);
-            charter->Destruct();
-        }
-
+        _player->GetInventory()->SafeFullRemoveItemByGuid(charterGuid);
         _player->m_playerInfo->charterId[pCharter->CharterType] = NULL;
         pCharter->Destroy();
     }

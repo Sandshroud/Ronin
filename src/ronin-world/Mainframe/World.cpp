@@ -418,7 +418,6 @@ bool World::SetInitialWorldSettings()
     tl.wait();
 
     ApplyNormalFixes();
-    MAKE_TASK(ItemManager, LoadItemData);
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(QuestMgr, LoadQuestPOI);

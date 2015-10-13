@@ -1338,22 +1338,7 @@ void GuildMgr::Packet_SendGuildBankTab(WorldSession* m_session, uint8 TabSlot, b
     {
         if(pTab->pSlots[j] != NULL)
         {
-            ++count;
-            tabBits.WriteBit(0);
-            ItemData *itemData = pTab->pSlots[j];
 
-            uint32 enchantCount = 0;
-            tabBits.WriteBits(enchantCount, 23);
-            data << uint32(0);
-            data << uint32(0);
-            data << uint32(0);
-            data << uint32(itemData->itemStackCount);
-            data << uint32(j);
-            data << uint32(0);
-            data << uint32(itemData->itemGuid.getEntry());
-            data << uint32(itemData->itemRandomProperty);
-            data << uint32(abs(itemData->itemSpellCharges));
-            data << uint32(itemData->itemRandomSeed);
         }
     }
     data.WriteBits(count, 20);

@@ -1284,13 +1284,6 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         if( qst->required_spell && plr->HasQuestSpell(qle->GetRequiredSpell()) )
             plr->RemoveQuestSpell(qle->GetRequiredSpell());
 
-        for( uint32 y = 0; y < 6; y++)
-        {
-            //always remove collected items (need to be recollectable again in case of repeatable).
-            if( qst->required_item[y] )
-                plr->GetInventory()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y], true);
-        }
-
         qle->Finish();
     }
 
@@ -1313,8 +1306,6 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
 
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
-        plr->GetInventory()->CreateQuestRewards(qst, reward_slot);
-
         // cast Effect Spell
         if(qst->reward_cast_on_player)
         {
@@ -1334,9 +1325,6 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         GiveQuestTitleReward(plr, qst);
 
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
-
-        // Give reward items
-        plr->GetInventory()->CreateQuestRewards(qst, reward_slot);
 
         // cast learning spell
         if(qst->reward_spell)

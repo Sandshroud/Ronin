@@ -3,6 +3,18 @@
 
 initialiseSingleton( ItemManager );
 
+const uint32 ItemManager::arm_skills[7] = { 0, SKILL_CLOTH, SKILL_LEATHER, SKILL_MAIL, SKILL_PLATE_MAIL, 0, SKILL_SHIELD };
+const uint32 ItemManager::weap_skills[21] = { SKILL_AXES, SKILL_2H_AXES, SKILL_BOWS, SKILL_GUNS, SKILL_MACES, SKILL_2H_MACES, SKILL_POLEARMS, SKILL_SWORDS, SKILL_2H_SWORDS, 0, SKILL_STAVES, 0, 0, SKILL_FIST_WEAPONS, 0, SKILL_DAGGERS, SKILL_THROWN, SKILL_SPEARS, SKILL_CROSSBOWS, SKILL_WANDS, SKILL_FISHING };
+const char *ItemManager::g_itemQualityColours[ITEM_QUALITY_DBC_MAX] = {
+    "|cff9d9d9d",   // Grey
+    "|cffffffff",   // White
+    "|cff1eff00",   // Green
+    "|cff0070dd",   // Blue
+    "|cffa335ee",   // Purple
+    "|cffff8000",   // Orange
+    "|cffe6cc80"    // Artifact
+};
+
 ItemManager::ItemManager()
 {
 
@@ -13,25 +25,46 @@ ItemManager::~ItemManager()
 
 }
 
-const static uint32 arm_skills[7] = { 0, SKILL_CLOTH, SKILL_LEATHER, SKILL_MAIL, SKILL_PLATE_MAIL, 0, SKILL_SHIELD };
-const static uint32 weap_skills[20] = { SKILL_AXES, SKILL_2H_AXES, SKILL_BOWS, SKILL_GUNS, SKILL_MACES, SKILL_2H_MACES, SKILL_POLEARMS, SKILL_SWORDS, SKILL_2H_SWORDS, 0, SKILL_STAVES, 0, 0, SKILL_FIST_WEAPONS, 0, SKILL_DAGGERS, SKILL_THROWN, SKILL_SPEARS, SKILL_CROSSBOWS, SKILL_WANDS };
-
 uint32 ItemManager::GetSkillForItem(ItemPrototype *proto)
 {
     uint32 skill = SKILL_UNARMED;
     if(proto->Class == 4 && proto->SubClass < 7 )
         skill = arm_skills[proto->SubClass];
-    else if( proto->Class == 2 && proto->SubClass < 20 )//no skill for fishing
+    else if( proto->Class == 2 && proto->SubClass < 20 )//no skill for fishing(21)
         skill = weap_skills[proto->SubClass];
     if( skill == 0 || skill == SKILL_FIST_WEAPONS )
         skill = SKILL_UNARMED;
     return SKILL_UNARMED;
 }
 
-uint32 ItemManager::CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor)
+uint64 ItemManager::CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor)
 {
-    uint32 buyPrice = proto->BuyPrice;
+    uint64 buyPrice = 0xFFFFFFFFFFFFFFFF;
+    if(ItemPrototype *proto = LookupEntry(itemId))
+    {
+        buyPrice = proto->BuyPrice;
+        buyPrice *= count;
+    }
+
+    // Prevent overflow of double conversions by only allowing 2^48
+    if( (buyPrice&0xFFFF000000000000) == 0 && player != NULL && vendor != NULL )
+    {
+        Standing plrstanding = player->GetStandingRank( vendor->GetFactionID() );
+        if(plrstanding > STANDING_NEUTRAL)
+            buyPrice = double2int64(double(buyPrice) * (1.f - (0.05f*uint8(plrstanding-STANDING_NEUTRAL))));
+    }
     return buyPrice;
+}
+
+uint64 ItemManager::CalculateSellPrice(uint32 itemId, uint32 count)
+{
+    uint64 sellPrice = 0;
+    if(ItemPrototype *proto = LookupEntry(itemId))
+    {
+        sellPrice = proto->SellPrice;
+        sellPrice *= count;
+    }
+    return sellPrice;
 }
 
 uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel);
@@ -139,12 +172,17 @@ void ItemManager::InitializeItemPrototypes()
 
 void ItemManager::LoadItemOverrides()
 {
+#define CHECK_OVERRIDE_VALUE(proto, field, function, count, flag) if(proto->field != fields[count].function()) { proto->field = fields[count].function(); overrideFlags |= flag; }count++;
+
     ItemPrototype* proto = NULL;
     sLog.Notice("ItemPrototypeSystem", "Loading item overrides...");
     QueryResult* result = WorldDatabase.Query("SELECT * FROM item_overrides");
     if(result != NULL)
     {
-        if(result->GetFieldCount() == 109)
+        uint32 fieldCount = result->GetFieldCount();
+        if(fieldCount != 109)
+            sLog.outError("Incorrect field count in item override table %u\n", fieldCount);
+        else
         {
             uint8 overrideFlags = 0x00;
             uint32 entry = 0, field_Count = 0;
@@ -232,21 +270,10 @@ void ItemManager::LoadItemOverrides()
                     overrideFlags = 0x01 | 0x02;
                 } else proto = m_itemPrototypeContainer.at(entry);
 
-                if(proto->Class != fields[field_Count].GetUInt32())
-                {
-                    proto->Class = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
-                if(proto->SubClass != fields[field_Count].GetUInt32())
-                {
-                    proto->SubClass = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
-                if(proto->subClassSound != fields[field_Count].GetInt32())
-                {
-                    proto->subClassSound = fields[field_Count].GetInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
+                CHECK_OVERRIDE_VALUE(proto, Class, GetUInt32, field_Count, 0x01);
+                CHECK_OVERRIDE_VALUE(proto, SubClass, GetUInt32, field_Count, 0x01);
+                CHECK_OVERRIDE_VALUE(proto, subClassSound, GetInt32, field_Count, 0x01);
+                // Avoid macro usage for name as we need to update lowercase as well
                 if(strcmp(proto->Name1, fields[field_Count].GetString()))
                 {
                     proto->Name1 = strdup(fields[field_Count].GetString());
@@ -256,290 +283,84 @@ void ItemManager::LoadItemOverrides()
                     for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
                         proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
                 }field_Count++;
-                if(proto->DisplayInfoID != fields[field_Count].GetUInt32())
-                {
-                    proto->DisplayInfoID = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
-                if(proto->Quality != fields[field_Count].GetUInt32())
-                {
-                    proto->Quality = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->Flags != fields[field_Count].GetUInt32())
-                {
-                    proto->Flags = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->FlagsExtra != fields[field_Count].GetUInt32())
-                {
-                    proto->FlagsExtra = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->BuyPrice != fields[field_Count].GetUInt32())
-                {
-                    proto->BuyPrice = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->SellPrice != fields[field_Count].GetUInt32())
-                {
-                    proto->SellPrice = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->InventoryType != fields[field_Count].GetUInt32())
-                {
-                    proto->InventoryType = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
-                if(proto->AllowableClass != fields[field_Count].GetUInt32())
-                {
-                    proto->AllowableClass = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->AllowableRace != fields[field_Count].GetUInt32())
-                {
-                    proto->AllowableRace = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ItemLevel != fields[field_Count].GetUInt32())
-                {
-                    proto->ItemLevel = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredLevel != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredLevel = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredSkill != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredSkill = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredSkillRank != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredSkillRank = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredSpell != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredSpell = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredPlayerRank1 != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredPlayerRank1 = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredPlayerRank2 != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredPlayerRank2 = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredFaction != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredFaction = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RequiredFactionStanding != fields[field_Count].GetUInt32())
-                {
-                    proto->RequiredFactionStanding = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->MaxCount != fields[field_Count].GetUInt32())
-                {
-                    proto->MaxCount = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->Unique != fields[field_Count].GetUInt32())
-                {
-                    proto->Unique = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ContainerSlots != fields[field_Count].GetUInt32())
-                {
-                    proto->ContainerSlots = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
+                CHECK_OVERRIDE_VALUE(proto, DisplayInfoID, GetUInt32, field_Count, 0x01);
+                CHECK_OVERRIDE_VALUE(proto, Quality, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Flags, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, FlagsExtra, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, BuyPrice, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, SellPrice, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, InventoryType, GetUInt32, field_Count, 0x01);
+                CHECK_OVERRIDE_VALUE(proto, AllowableClass, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, AllowableRace, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemLevel, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredLevel, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredSkill, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredSkillRank, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredSpell, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredPlayerRank1, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredPlayerRank2, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredFaction, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RequiredFactionStanding, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, MaxCount, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Unique, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ContainerSlots, GetUInt32, field_Count, 0x02);
                 for(uint8 i = 0; i < 10; i++)
                 {
-                    if(proto->Stats[i].Type != fields[field_Count].GetUInt32())
-                    {
-                        proto->Stats[i].Type = fields[field_Count].GetUInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Stats[i].Value != fields[field_Count].GetInt32())
-                    {
-                        proto->Stats[i].Value = fields[field_Count].GetInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
+                    CHECK_OVERRIDE_VALUE(proto, Stats[i].Type, GetUInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Stats[i].Value, GetInt32, field_Count, 0x02);
                 }
-                if(proto->DamageType != fields[field_Count].GetUInt32())
-                {
-                    proto->DamageType = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->Delay != fields[field_Count].GetUInt32())
-                {
-                    proto->Delay = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->Range != fields[field_Count].GetFloat())
-                {
-                    proto->Range = fields[field_Count].GetFloat();
-                    overrideFlags |= 0x02;
-                }field_Count++;
+                CHECK_OVERRIDE_VALUE(proto, DamageType, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Delay, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Range, GetFloat, field_Count, 0x02);
                 for(uint8 i = 0; i < 5; i++)
                 {
-                    if(proto->Spells[i].Id != fields[field_Count].GetUInt32())
-                    {
-                        proto->Spells[i].Id = fields[field_Count].GetUInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Spells[i].Trigger != fields[field_Count].GetUInt32())
-                    {
-                        proto->Spells[i].Trigger = fields[field_Count].GetUInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Spells[i].Charges != fields[field_Count].GetInt32())
-                    {
-                        proto->Spells[i].Charges = fields[field_Count].GetInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Spells[i].Cooldown != fields[field_Count].GetInt32())
-                    {
-                        proto->Spells[i].Cooldown = fields[field_Count].GetInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Spells[i].Category != fields[field_Count].GetUInt32())
-                    {
-                        proto->Spells[i].Category = fields[field_Count].GetUInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
-                    if(proto->Spells[i].CategoryCooldown != fields[field_Count].GetInt32())
-                    {
-                        proto->Spells[i].CategoryCooldown = fields[field_Count].GetInt32();
-                        overrideFlags |= 0x02;
-                    }field_Count++;
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].Id, GetUInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].Trigger, GetUInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].Charges, GetInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].Cooldown, GetInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].Category, GetUInt32, field_Count, 0x02);
+                    CHECK_OVERRIDE_VALUE(proto, Spells[i].CategoryCooldown, GetInt32, field_Count, 0x02);
                 }
-                if(proto->Bonding != fields[field_Count].GetUInt32())
-                {
-                    proto->Bonding = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
+                CHECK_OVERRIDE_VALUE(proto, Bonding, GetUInt32, field_Count, 0x02);
+                // Avoid macro for description as well, it needs to use strdup
                 if(strcmp(proto->Description, fields[field_Count].GetString()))
                 {
                     proto->Description = strdup(fields[field_Count].GetString());
                     overrideFlags |= 0x02;
                 }field_Count++;
-                if(proto->PageId != fields[field_Count].GetUInt32())
-                {
-                    proto->PageId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->PageLanguage != fields[field_Count].GetUInt32())
-                {
-                    proto->PageLanguage = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->PageMaterial != fields[field_Count].GetUInt32())
-                {
-                    proto->PageMaterial = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->QuestId != fields[field_Count].GetUInt32())
-                {
-                    proto->QuestId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->LockId != fields[field_Count].GetUInt32())
-                {
-                    proto->LockId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->LockMaterial != fields[field_Count].GetUInt32())
-                {
-                    proto->LockMaterial = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->SheathID != fields[field_Count].GetUInt32())
-                {
-                    proto->SheathID = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x01;
-                }field_Count++;
-                if(proto->RandomPropId != fields[field_Count].GetUInt32())
-                {
-                    proto->RandomPropId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->RandomSuffixId != fields[field_Count].GetUInt32())
-                {
-                    proto->RandomSuffixId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ItemSet != fields[field_Count].GetUInt32())
-                {
-                    proto->ItemSet = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ZoneNameID != fields[field_Count].GetUInt32())
-                {
-                    proto->ZoneNameID = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->MapID != fields[field_Count].GetUInt32())
-                {
-                    proto->MapID = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->BagFamily != fields[field_Count].GetUInt32())
-                {
-                    proto->BagFamily = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->SocketBonus != fields[field_Count].GetUInt32())
-                {
-                    proto->SocketBonus = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->GemProperties != fields[field_Count].GetUInt32())
-                {
-                    proto->GemProperties = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ArmorDamageModifier != fields[field_Count].GetFloat())
-                {
-                    proto->ArmorDamageModifier = fields[field_Count].GetFloat();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->Duration != fields[field_Count].GetUInt32())
-                {
-                    proto->Duration = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->ItemLimitCategory != fields[field_Count].GetUInt32())
-                {
-                    proto->ItemLimitCategory = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->HolidayId != fields[field_Count].GetUInt32())
-                {
-                    proto->HolidayId = fields[field_Count].GetUInt32();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(proto->StatScalingFactor != fields[field_Count].GetFloat())
-                {
-                    proto->StatScalingFactor = fields[field_Count].GetFloat();
-                    overrideFlags |= 0x02;
-                }field_Count++;
-                if(overrideFlags > 0) m_overwritten.insert(std::make_pair(entry, overrideFlags));
+                CHECK_OVERRIDE_VALUE(proto, PageId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, PageLanguage, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, PageMaterial, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, QuestId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, LockId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, LockMaterial, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, SheathID, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RandomPropId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, RandomSuffixId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemSet, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ZoneNameID, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, MapID, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, BagFamily, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, SocketBonus, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, GemProperties, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ArmorDamageModifier, GetFloat, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Duration, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemLimitCategory, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, HolidayId, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, StatScalingFactor, GetFloat, field_Count, 0x02);
+
+                if(overrideFlags > 0)
+                    m_overwritten.insert(std::make_pair(entry, overrideFlags));
                 proto = NULL;
                 overrideFlags = 0;
                 entry = field_Count = 0;
             } while( result->NextRow() );
             sLog.Notice("ItemPrototypeSystem", "%u item overrides loaded!", m_overwritten.size());
-        } delete result;    
+        }
+        delete result;
     }
+
+#undef CHECK_OVERRIDE_VALUE
 
     sLog.Notice("ItemPrototypeSystem", "Setting static dbc data...");
     uint8 i = 0;

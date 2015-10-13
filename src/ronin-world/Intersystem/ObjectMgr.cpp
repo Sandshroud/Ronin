@@ -963,35 +963,6 @@ void ObjectMgr::LoadSpellFixes()
     }
 }
 
-Item *ObjectMgr::CreateItem(uint32 entry, Player *player)
-{
-    Item* pReturn = NULL;
-    if(ItemPrototype *proto = sItemMgr.LookupEntry(entry))
-    {
-        if(ItemData *data = sItemMgr.CreateItemData(entry))
-        {
-            pReturn = new Item(data);
-            pReturn->SetOwner(player);
-        }
-    }
-    return pReturn;
-}
-
-Item* ObjectMgr::CreateItem(WoWGuid guid, Player *player)
-{
-    Item* pReturn = NULL;
-    if(ItemPrototype *proto = sItemMgr.LookupEntry(guid.getEntry()))
-    {
-        if(ItemData *data = sItemMgr.GetItemData(guid))
-        {
-            pReturn = new Item(data);
-            pReturn->SetOwner(player);
-        }
-    }
-
-    return pReturn;
-}
-
 void ObjectMgr::LoadCorpses(MapMgr* mgr)
 {
     QueryResult *result = CharacterDatabase.Query("SELECT * FROM corpses WHERE mapId = %u", mgr->GetMapId());

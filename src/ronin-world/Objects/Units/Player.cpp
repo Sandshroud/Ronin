@@ -6,7 +6,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_inventory(this), m_bank(this), m_currency(this)
+Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_inventory(this), m_currency(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
@@ -905,10 +905,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_talentInterface.SaveGlyphData(buf);
 
     // Inventory
-    m_inventory.SaveToDB(bNewCharacter, buf);
-
-    // Banking
-    m_bank.SaveToDB(buf);
+    m_inventory.mSaveItemsToDatabase(bNewCharacter, buf);
 
     // Currency
     m_currency.SaveToDB(buf);
@@ -1194,7 +1191,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
-    m_inventory.LoadFromDB(results[PLAYER_LO_ITEMS].result);
+    m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result);
 
     _setFaction();
 
@@ -3050,7 +3047,7 @@ void Player::DestroyForPlayer( Player* target, bool anim )
 {
     WorldObject::DestroyForPlayer( target, anim );
     if(GetInventory())
-        GetInventory()->DestroyForPlayer(target);
+        GetInventory()->m_DestroyForPlayer(target);
 }
 
 bool Player::canCast(SpellEntry *m_spellInfo)
@@ -3343,7 +3340,7 @@ void Player::OnPushToWorld()
         OnWorldPortAck();
 
     m_beingPushed = false;
-    m_inventory.AddToWorld();
+    //m_inventory.AddToWorld();
     GetMovementInterface()->UnlockTransportData();
 
     // delay the unlock movement packet
@@ -3533,7 +3530,7 @@ void Player::RemoveFromWorld()
         m_SummonedObject = NULL;
     }
 
-    m_inventory.RemoveFromWorld(false);
+    //m_inventory.RemoveFromWorld(false);
 
     Unit::RemoveFromWorld(false);
 
@@ -4562,7 +4559,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     Object* lootEnt;
     // handle items
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_ITEM)
-        lootEnt = m_inventory.GetInventoryItem(guid);
+        lootEnt = m_inventory.GetItemByGUID(guid);
     else lootEnt = m_mapMgr->_GetObject(guid);
     if( lootEnt == NULL )
         return;
@@ -5606,10 +5603,7 @@ uint32 Player::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target 
 {
     uint32 count = 0;
     if(target == castPtr<Player>(this)) // we need to send create objects for all items.
-    {
-        count += m_inventory.BuildCreateUpdateBlocks(data);
-        count += m_bank.BuildCreateUpdateBlocks(data);
-    }
+        //count += m_inventory.BuildCreateUpdateBlocks(data);
     count += Unit::BuildCreateUpdateBlockForPlayer(data, target);
     return count;
 }
@@ -8876,32 +8870,6 @@ void Player::StartQuest(uint32 Id)
     qle->Init(qst, this, log_slot);
     qle->UpdatePlayerFields();
 
-    // If the quest should give any items on begin, give them the items.
-    for(uint32 i = 0; i < 4; i++)
-    {
-        if(qst->receive_items[i])
-        {
-            if(Item* item = objmgr.CreateItem( qst->receive_items[i], this))
-            {
-                item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->receive_itemcount[i]);
-                if(!GetInventory()->AddInventoryItemToSlot(item, INVENTORY_SLOT_NONE))
-                {
-                    sItemMgr.DeleteItemData(item->GetGUID(), true);
-                    item->Destruct();
-                }
-            }
-        }
-    }
-
-    /*if(qst->srcitem && qst->srcitem != qst->receive_items[0])
-    {
-        if(Item* item = objmgr.CreateItem( qst->srcitem, this ))
-        {
-            item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, qst->srcitemcount ? qst->srcitemcount : 1);
-            if(!GetInventory()->AddItemToFreeSlot(item))
-                item->Destruct();
-        }
-    }*/
     TRIGGER_QUEST_EVENT(Id, OnQuestStart)(this, qle);
 
     sQuestMgr.OnQuestAccepted(this,qst,NULL);

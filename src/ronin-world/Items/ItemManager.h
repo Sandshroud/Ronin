@@ -97,7 +97,13 @@ public:
     ~ItemManager();
 
     uint32 GetSkillForItem(ItemPrototype *proto);
-    uint32 CalculateBuyPrice(ItemPrototype *proto, Player *player, Creature *vendor);
+    uint64 CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor);
+    uint64 CalculateSellPrice(uint32 itemId, uint32 count);
+
+public:
+    static const uint32 arm_skills[7];
+    static const uint32 weap_skills[21];
+    static const char *g_itemQualityColours[ITEM_QUALITY_DBC_MAX];
 
 public:
     void InitializeItemPrototypes();
@@ -133,9 +139,3 @@ private:
 };
 
 #define sItemMgr ItemManager::getSingleton()
-
-typedef struct
-{
-    uint32 setid;
-    uint32 itemscount;
-}ItemSet;

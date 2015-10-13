@@ -391,7 +391,7 @@ class Spell;
 class Item;
 class Container;
 class WorldSession;
-class ItemInterface;
+class PlayerInventory;
 class GossipMenu;
 struct TaxiPathNode;
 
@@ -1194,7 +1194,6 @@ public:
 
     // Pointer returns for player systems
     RONIN_INLINE PlayerInventory* GetInventory() { return &m_inventory; }
-    RONIN_INLINE PlayerBank* GetBank() { return &m_bank; }
     RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
 
 private:
@@ -1202,9 +1201,6 @@ private:
 
     // item interface variables
     PlayerInventory m_inventory;
-
-    // 
-    PlayerBank m_bank;
 
     //
     PlayerCurrency m_currency;
@@ -1619,7 +1615,7 @@ public:
         return m_mapMgr->GetPlayer(m_tradeData->targetGuid);
     }
 
-    ItemData* getTradeItem(uint8 slot)
+    Item* getTradeItem(uint8 slot)
     {
         if(m_tradeData == NULL)
             return NULL;
@@ -1724,7 +1720,7 @@ protected:
         uint64 gold;
         uint32 enchantId;
         WoWGuid targetGuid;
-        ItemData* tradeItems[7];
+        Item* tradeItems[7];
         PlayerTradeStatus tradeStep;
     } *m_tradeData;
 

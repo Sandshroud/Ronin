@@ -131,7 +131,7 @@ struct GuildBankTab
     std::string szTabName;
     std::string szTabIcon;
     std::string szTabInfo;
-    ItemData *pSlots[MAX_GUILD_BANK_SLOTS];
+    Item *pSlots[MAX_GUILD_BANK_SLOTS];
 };
 
 struct GuildBankTabStorage

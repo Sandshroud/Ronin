@@ -27,16 +27,6 @@ enum EnchantmentSlot
     MAX_ENCHANTMENT_SLOT            = 15
 };
 
-enum ItemFlags : uint32
-{
-    ITEM_FLAG_SOULBOUND     = 0x000001,
-    ITEM_FLAG_UNLOCKED      = 0x000004,
-    ITEM_FLAG_WRAPPED       = 0x000008,
-    ITEM_FLAG_BOP_TRADABLE  = 0x000100,
-    ITEM_FLAG_READABLE      = 0x000200,
-    ITEM_FLAG_REFUNDABLE    = 0x010000,
-};
-
 struct EnchantmentInstance
 {
     SpellItemEnchantEntry *Enchantment;
@@ -51,168 +41,192 @@ struct EnchantmentInstance
 
 typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 
-#define RANDOM_SUFFIX_MAGIC_CALCULATION( __suffix, __scale ) int32( float( ( float( ( __suffix ) ) * float( ( __scale ) ) ) ) / 13340.0f );
-
 class SERVER_DECL Item : public Object
 {
 public:
-    Item(uint32 owner_guid, uint32 low_guid);
-    ~Item();
+    Item(ItemPrototype *proto, uint32 owner, uint32 counter, uint32 fieldcount = ITEM_END);
 
+    virtual ~Item();
     virtual void Init();
     virtual void Destruct();
 
-    virtual void AddToWorld();
-    virtual bool IsContainer() { return m_isContainer; }
+    //! DB Serialization
+    void LoadFromDB( Field *fields );
+    void SaveToDB( int8 containerslot, uint8 slot, bool firstsave, QueryBuffer* buf );
+    bool LoadAuctionItemFromDB( uint64 guid );
+    void DeleteFromDB();
 
-    ItemData const *GetItemData() { return _itemData; };
-
-    RONIN_INLINE ItemPrototype* GetProto() const { return m_itemProto; }
+    RONIN_INLINE ItemPrototype* GetProto() const { return m_proto; }
     RONIN_INLINE Player* GetOwner() const { return m_owner; }
     void SetOwner( Player* owner );
 
-    bool IsEligibleForRefund();
+    void SetOwnerGUID(uint64 GUID) { SetUInt64Value(ITEM_FIELD_OWNER, GUID);   }
+    uint64 GetOwnerGUID() { return GetUInt64Value(ITEM_FIELD_OWNER);  }
 
-    bool isSoulBound() { return GetItemFlags() & ITEM_FLAG_SOULBOUND; };
-    bool isAccountBound() { return (m_itemProto->Flags & DBC_ITEMFLAG_BIND_TO_ACCOUNT); }
-    uint8 GetBoundStatus()
+    void SetContainerGUID(uint64 GUID) { SetUInt64Value(ITEM_FIELD_CONTAINED, GUID);   }
+    uint64 GetContainerGUID() { return GetUInt64Value(ITEM_FIELD_CONTAINED);   }
+
+    void SetCreatorGUID(uint64 GUID) { SetUInt64Value(ITEM_FIELD_CREATOR, GUID); }
+    void SetGiftCreatorGUID(uint64 GUID) { SetUInt64Value(ITEM_FIELD_GIFTCREATOR, GUID); }
+
+    uint64 GetCreatorGUID() { return GetUInt64Value(ITEM_FIELD_CREATOR); }
+    uint64 GetGiftCreatorGUID() { return GetUInt64Value(ITEM_FIELD_GIFTCREATOR); }
+
+    void SetStackCount(uint32 amt) { SetUInt32Value(ITEM_FIELD_STACK_COUNT,  amt); }
+    uint32 GetStackCount() { return GetUInt32Value(ITEM_FIELD_STACK_COUNT); }
+    void ModStackCount(int32 val) { ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, val); }
+
+    void SetDuration(uint32 durationseconds) { SetUInt32Value(ITEM_FIELD_DURATION, durationseconds); }
+    uint32 GetDuration() { return GetUInt32Value(ITEM_FIELD_DURATION); }
+
+    void SetCharges(uint32 index, uint32 charges) { SetUInt32Value(ITEM_FIELD_SPELL_CHARGES + index, charges); }
+    void ModCharges(uint32 index, int32 val) { ModSignedInt32Value(ITEM_FIELD_SPELL_CHARGES + index, val); }
+    uint32 GetCharges(uint32 index) const { return GetUInt32Value(ITEM_FIELD_SPELL_CHARGES + index); }
+
+    /////////////////////////////////////////////////// FLAGS ////////////////////////////////////////////////////////////
+
+    void SoulBind() { SetFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_SOULBOUND); }
+    uint32 IsSoulbound() { return HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_SOULBOUND); }
+
+    void AccountBind() { SetFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_BIND_TO_ACCOUNT); }
+    uint32 IsAccountbound() { return HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_BIND_TO_ACCOUNT);  }
+
+    void MakeConjured() { SetFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED); }
+    uint32 IsConjured() { return HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED); }
+
+    void Lock() { RemoveFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_OPENABLE); }
+    void UnLock() { SetFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_OPENABLE); }
+
+    void Wrap() { SetFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_ITEM_WRAPPER); }
+    void UnWrap() { RemoveFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_ITEM_WRAPPER); }
+
+    void ClearFlags() { SetFlag(ITEM_FIELD_FLAGS, 0); }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    uint32 GetItemRandomPropertyId() const { return m_uint32Values[ITEM_FIELD_RANDOM_PROPERTIES_ID]; }
+    uint32 GetItemPropertySeed() { return m_uint32Values[ITEM_FIELD_PROPERTY_SEED]; }
+
+    void SetItemRandomPropertyData(uint32 id, uint32 seed)
     {
-        if(isAccountBound())
-            return 0x08;
-        if(isSoulBound())
-            return 0x04;
-        return 0x00;
+        SetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID, id);
+        SetUInt32Value(ITEM_FIELD_PROPERTY_SEED, seed);
     }
 
+    void SetDurability(uint32 Value) { SetUInt32Value(ITEM_FIELD_DURABILITY, Value); };
+    void SetDurabilityMax(uint32 Value) { SetUInt32Value(ITEM_FIELD_MAXDURABILITY, Value); };
+
+    uint32 GetDurability() { return GetUInt32Value(ITEM_FIELD_DURABILITY); }
+    uint32 GetDurabilityMax() { return GetUInt32Value(ITEM_FIELD_MAXDURABILITY); }
+
+    void SetDurabilityToMax() { SetUInt32Value(ITEM_FIELD_DURABILITY, GetUInt32Value(ITEM_FIELD_MAXDURABILITY)); }
+
+    uint32 GetEnchantmentId(uint32 index) { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 3 * index); }
+    void SetEnchantmentId(uint32 index, uint32 value) { SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 3 * index, value); }
+
+    uint32 GetEnchantmentDuration(uint32 index) { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 1 + 3 * index); }
+    void SetEnchantmentDuration(uint32 index, uint32 value) { SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 1 + 3 * index, value); }
+
+    uint32 GetEnchantmentCharges(uint32 index) { return GetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 2 + 3 * index); }
+    void SetEnchantmentCharges(uint32 index, uint32 value) { SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA + 2 + 3 * index, value); }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool IsEligibleForRefund();
     RONIN_INLINE void Bind(uint32 bondtype)
     {
-        if(bondtype == ITEM_BIND_NONE || GetBoundStatus())
-            return;
-        if(GetProto()->Bonding != bondtype)
-            return;
-        AddItemFlag(ITEM_FLAG_SOULBOUND);
-    }
-
-    void SetTextID(uint32 newtextId);
-    uint32 GetTextID() { return m_textid; };
-
-    bool isWrapped() { return ((GetEntry() == 5043 || GetEntry() == 5044) && m_wrappedItemId != 0); }
-    WoWGuid GetWrappedItemId() { return m_wrappedItemId; }
-
-protected:
-    ItemPrototype* m_itemProto;
-    EnchantmentMap m_enchantments;
-    uint32 m_textid, m_wrappedItemId;
-    Player *m_owner; // let's not bother the manager with unneeded requests
-
-    uint16 currentSlot;
-    bool m_isContainer;
-
-public:
-    void SetItemSlot(uint8 slot);
-    void SetContainerSlot(uint16 slot);
-    void SetContainerData(WoWGuid newContainer, uint16 slot);
-    WoWGuid GetContainerGuid() { return GetUInt64Value(ITEM_FIELD_CONTAINED); }
-
-    void SetCreatorGuid(WoWGuid creatorGuid);
-    WoWGuid GetCreatorGuid() { return GetUInt64Value(ITEM_FIELD_CREATOR); }
-
-    uint16 GetInventorySlot() { return currentSlot; }
-    uint8 GetBagSlot() { return INVSLOT_BAG(currentSlot); }
-    uint8 GetItemSlot() { return INVSLOT_ITEM(currentSlot); }
-
-    void SetStackSize(uint32 newStackSize);
-    void ModStackSize(int32 &stackSizeMod);
-    void ModStackSize(uint32 &stackSizeMod);
-    void ModifyStackSize(int32 stackSizeMod);
-    uint32 GetStackSize() { return GetUInt32Value(ITEM_FIELD_STACK_COUNT); }
-
-    void AddItemFlag(uint32 itemFlag);
-    void RemoveItemFlag(uint32 itemFlag);
-    uint32 GetItemFlags() { return GetUInt32Value(ITEM_FIELD_FLAGS); }
-
-    void SetRandomPropData(uint32 randomProp, uint32 randomSeed = 0);
-    uint32 GetRandomSeed() { return GetUInt32Value(ITEM_FIELD_PROPERTY_SEED); }
-    uint32 GetRandomProperty() { return GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID); }
-
-    void SetDurability(uint32 newDurability);
-    void ModDurability(bool apply, float modPct);
-    uint32 GetDurability() { return GetUInt32Value(ITEM_FIELD_DURABILITY); }
-
-    void UpdatePlayedTime();
-    void ModPlayedTime(uint32 timeToAdd);
-    uint32 GetPlayedTime() { return GetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME); }
-
-protected:
-    ItemData *_itemData;
-
-    void QueueItemDataUpdate(ItemDataFields fieldType, uint32 fieldValue);
-    void QueueItemDataUpdate(ItemDataFields fieldType, uint64 fieldValue);
-
-public:
-    void QueueItemDeletion(ItemDeletionReason reason);
-
-public: // Container function
-    struct Container
-    {
-        uint32 numSlots;
-        std::map<uint8, WoWGuid> m_items;
-    }*_container;
-
-    uint32 GetNumSlots()
-    {
-        if(_container == NULL)
-            return 0;
-        return _container->numSlots;
-    }
-
-    bool HasItems()
-    {
-        if(_container == NULL)
-            return false;
-        return !_container->m_items.empty();
-    }
-
-    bool HasItem(uint8 slot)
-    {
-        if(_container == NULL)
-            return false;
-        return _container->m_items.find(slot) != _container->m_items.end();
-    }
-
-    bool AddItem(uint8 slot, WoWGuid itemGuid)
-    {
-        if(_container == NULL)
-            return false;
-        if(_container->m_items.find(slot) != _container->m_items.end())
-            return false;
-        _container->m_items.insert(std::make_pair(slot, itemGuid));
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1+(slot*2), itemGuid);
-        return true;
-    }
-
-    void RemoveItem(uint8 slot)
-    {
-        if(_container == NULL)
-            return;
-        _container->m_items.erase(slot);
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1+(slot*2), 0);
-    }
-
-    uint8 RemoveItem(WoWGuid guid)
-    {
-        if(_container)
+        if(ItemPrototype *proto = GetProto())
         {
-            for(auto itr = _container->m_items.begin(); itr != _container->m_items.end(); itr++)
-            {
-                if(itr->second == guid)
-                {
-                    uint8 slot = itr->first;
-                    _container->m_items.erase(itr);
-                    return slot;
-                }
-            }
+            if(bondtype != ITEM_BIND_NONE && proto->Bonding == bondtype)
+                SoulBind();
+            if(proto->Flags & DBC_ITEMFLAG_BIND_TO_ACCOUNT)
+                AccountBind();
         }
-        return INVENTORY_SLOT_MAX;
     }
+
+    RONIN_INLINE uint32 GetChargesLeft()
+    {
+        for( uint32 x = 0; x < 5; x++ )
+            if( m_proto->Spells[x].Id )
+                return GetUInt32Value( ITEM_FIELD_SPELL_CHARGES + x );
+        return 0;
+    }
+
+    RONIN_INLINE time_t GetEnchantmentApplytime( uint32 slot )
+    {
+        EnchantmentMap::iterator itr;
+        if((itr = m_enchantments.find(slot)) != m_enchantments.end())
+            return itr->second.ApplyTime;
+        return 0;
+    }
+
+    //! Adds an enchantment to the item.
+    int32 AddEnchantment( SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
+    uint32 GetMaxSocketsCount();
+
+    const char* ConstructItemLink() { return m_proto->ConstructItemLink(GetItemRandomPropertyId(), GetItemPropertySeed(), GetStackCount()).c_str(); }
+
+    //! Removes an enchantment from the item.
+    void RemoveEnchantment( uint32 EnchantmentSlot );
+
+    // Removes related temporary enchants
+    void RemoveRelatedEnchants( SpellItemEnchantEntry* newEnchant );
+
+    //! Adds the bonus on an enchanted item.
+    void ApplyEnchantmentBonus( uint32 Slot, bool Apply );
+
+    //! Applies all enchantment bonuses (use on equip)
+    void ApplyEnchantmentBonuses();
+
+    //! Removes all enchantment bonuses (use on dequip)
+    void RemoveEnchantmentBonuses();
+
+    //! Event to remove an enchantment.
+    void EventRemoveEnchantment( uint32 Slot );
+
+    //! Check if we have an enchantment of this id?
+    int32 HasEnchantment( uint32 Id );
+
+    //! Modify the time of an existing enchantment.
+    void ModifyEnchantmentTime( uint32 Slot, uint32 Duration );
+
+    //! Find free enchantment slot.
+    int32 FindFreeEnchantSlot( SpellItemEnchantEntry* Enchantment, uint32 random_type );
+
+    //! Removes all enchantments.
+    void RemoveAllEnchantments( bool OnlyTemporary );
+
+    //! Sends SMSG_ITEM_UPDATE_ENCHANT_TIME
+    void SendEnchantTimeUpdate( uint32 Slot, uint32 Duration );
+
+    //! Applies any random properties the item has.
+    void ApplyRandomProperties( bool apply );
+
+    void RemoveProfessionEnchant();
+    void RemoveSocketBonusEnchant();
+
+    RONIN_INLINE void SetCount( uint32 amt ) { SetUInt32Value( ITEM_FIELD_STACK_COUNT, amt ); }
+    RONIN_INLINE bool IsAmmoBag() { return (m_proto->Class == ITEM_CLASS_QUIVER); }
+
+    void RemoveFromWorld();
+
+    bool locked;
+    bool m_isDirty;
+
+    uint32 CountGemsWithLimitId(uint32 Limit);
+    EnchantmentInstance* GetEnchantment( uint32 slot );
+    bool IsGemRelated( SpellItemEnchantEntry* Enchantment );
+
+    static uint32 GenerateRandomSuffixFactor( ItemPrototype* m_itemProto );
+
+    bool HasEnchantments() { return ( m_enchantments.size() > 0 ) ? true : false; }
+
+    uint32 GetTextID() { return m_textId; };
+    void SetTextID(uint32 newtxt) { m_textId = newtxt; };
+
+protected:
+    Player* m_owner; // let's not bother the manager with unneeded requests
+    ItemPrototype* m_proto;
+    uint32 m_textId;
+    EnchantmentMap m_enchantments;
 };

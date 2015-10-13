@@ -794,7 +794,7 @@ bool ChatHandler::HandleAddItemSetCommand(const char* args, WorldSession* m_sess
         if((*itr)->ItemSetRank && (*itr)->ItemSetRank != rank)
             continue;
 
-        if(!chr->GetInventory()->CreateInventoryStacks(*itr, 1, m_session->GetPlayer()->GetGUID()))
+        //if(!chr->GetInventory()->CreateInventoryStacks(*itr, 1, m_session->GetPlayer()->GetGUID()))
         {
             RedSystemMessage(m_session, "Failed to create any inventory stacks");
             return true;
@@ -1792,7 +1792,7 @@ bool ChatHandler::HandleRemoveItemCommand(const char * args, WorldSession * m_se
     if(plr == NULL)
         return true;
 
-    plr->GetInventory()->RemoveInventoryStacks(item_id, count, true);
+    //plr->GetInventory()->RemoveInventoryStacks(item_id, count, true);
     sWorld.LogGM(m_session, "used remove item id %u count %u from %s", item_id, count, plr->GetName());
     BlueSystemMessage(m_session, "Removing %u copies of item %u from %s's inventory.", count, item_id, plr->GetName());
     BlueSystemMessage(plr->GetSession(), "%s removed %u copies of item %u from your inventory.", m_session->GetPlayer()->GetName(), count, item_id);

@@ -403,7 +403,7 @@ static inline int float2int32(const float value)
 }
 
 /// Fastest Method of long2int32
-static inline int long2int32(const double value)
+static inline int double2int32(const double value)
 {
 #if !defined(_WIN64) && COMPILER == COMPILER_MICROSOFT
     int i;
@@ -418,6 +418,14 @@ static inline int long2int32(const double value)
   n.asDouble = value + 6755399441055744.0;
   return n.asInt [0];
 #endif
+}
+
+/// Fastest Method of double2int64
+static inline long long int double2int64(const double value)
+{
+  union { long long int asInt; double asDouble; } n;
+  n.asDouble = value + 6755399441055744.0;
+  return n.asInt;
 }
 
 #if COMPILER == COMPILER_MICROSOFT

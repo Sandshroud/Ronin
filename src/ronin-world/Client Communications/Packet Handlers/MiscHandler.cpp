@@ -33,7 +33,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     // lookup the object we will be looting
     Object* pLootEnt = NULL;
     if( GUID_HIPART(_player->GetLootGUID()) == HIGHGUID_TYPE_ITEM )
-        pLootEnt = _player->GetInventory()->GetInventoryItem(_player->GetLootGUID());
+        pLootEnt = _player->GetInventory()->GetItemByGUID(_player->GetLootGUID());
     else pLootEnt = _player->GetMapMgr()->_GetObject(_player->GetLootGUID());
     if( pLootEnt == NULL )
         return;
@@ -1066,7 +1066,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
 
     if (pLoot->items.at(slotid).has_looted.size())
     {
-        GetPlayer()->GetInventory()->BuildInvError(INV_ERR_LOOT_GONE, NULL, NULL);
+        GetPlayer()->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_LOOT_GONE);
         return;
     }
 

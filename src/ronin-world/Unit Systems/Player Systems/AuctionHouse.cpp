@@ -13,7 +13,7 @@ void Auction::DeleteFromDB()
 void Auction::SaveToDB(uint32 AuctionHouseId)
 {
     CharacterDatabase.Execute("INSERT INTO auctions VALUES(%u, %u, "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD")",
-        Id, AuctionHouseId, m_item->itemGuid.raw(), owner.raw(), buyoutPrice, expirationTime, highestBidder, highestBid, depositAmount);
+        Id, AuctionHouseId, m_item->GetGUID().raw(), owner.raw(), buyoutPrice, expirationTime, highestBidder, highestBid, depositAmount);
 }
 
 void Auction::UpdateInDB()
@@ -105,7 +105,7 @@ void AuctionHouse::AddAuction(Auction * auct)
 
     // add the item
     itemLock.AcquireWriteLock();
-    auctionedItems.insert( RONIN_UNORDERED_MAP<WoWGuid, ItemData* >::value_type( auct->m_item->itemGuid, auct->m_item ) );
+    auctionedItems.insert( RONIN_UNORDERED_MAP<WoWGuid, Item* >::value_type( auct->m_item->GetGUID().raw(), auct->m_item ) );
     itemLock.ReleaseWriteLock();
 
     sLog.Debug("AuctionHouse", "%u: Add auction %u, expire@ %u.", dbc->id, auct->Id, auct->expirationTime);
@@ -133,22 +133,22 @@ void AuctionHouse::RemoveAuction(Auction * auct)
     case AUCTION_REMOVE_EXPIRED:
         {
             // ItemEntry:0:3
-            snprintf(subject, 100, "%u:0:3", (unsigned int)auct->m_item->itemGuid.getEntry());
+            snprintf(subject, 100, "%u:0:3", (unsigned int)auct->m_item->GetGUID().getEntry());
 
             // Auction expired, resend item, no money to owner.
-            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->owner, subject, "", 0, 0, auct->m_item->itemGuid, STATIONERY_AUCTION, true);
+            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->owner, subject, "", 0, 0, auct->m_item->GetGUID(), STATIONERY_AUCTION, true);
         }break;
 
     case AUCTION_REMOVE_WON:
         {
             // ItemEntry:0:1
-            snprintf(subject, 100, "%u:0:1", (unsigned int)auct->m_item->itemGuid.getEntry());
+            snprintf(subject, 100, "%u:0:1", (unsigned int)auct->m_item->GetGUID().getEntry());
 
             // <owner player guid>:bid:buyout
             snprintf(body, 200, "%X:%u:%u", auct->owner.getLow(), auct->highestBid, auct->buyoutPrice);
 
             // Auction won by highest bidder. He gets the item.
-            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->highestBidder, subject, body, 0, 0, auct->m_item->itemGuid, STATIONERY_AUCTION, true);
+            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->highestBidder, subject, body, 0, 0, auct->m_item->GetGUID(), STATIONERY_AUCTION, true);
 
             // Send a mail to the owner with his cut of the price.
             uint32 auction_cut = float2int32(float(cut_percent * float(auct->highestBid)));
@@ -157,7 +157,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
                 amount = 0;
 
             // ItemEntry:0:2
-            snprintf(subject, 100, "%u:0:2", (unsigned int)auct->m_item->itemGuid.getEntry());
+            snprintf(subject, 100, "%u:0:2", (unsigned int)auct->m_item->GetGUID().getEntry());
 
             // <hex player guid>:bid:0:deposit:cut
             if(auct->highestBid == auct->buyoutPrice)      // Buyout
@@ -169,13 +169,13 @@ void AuctionHouse::RemoveAuction(Auction * auct)
         }break;
     case AUCTION_REMOVE_CANCELLED:
         {
-            snprintf(subject, 100, "%u:0:5", (unsigned int)auct->m_item->itemGuid.getEntry());
+            snprintf(subject, 100, "%u:0:5", (unsigned int)auct->m_item->GetGUID().getEntry());
             uint32 cut = uint32(float(cut_percent * auct->highestBid));
             Player* plr = objmgr.GetPlayer(auct->owner);
             if(cut && plr && plr->GetUInt32Value(PLAYER_FIELD_COINAGE) >= cut)
                 plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -((int32)cut));
 
-            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, GetID(), auct->owner, subject, "", 0, 0, auct->m_item->itemGuid, STATIONERY_AUCTION, true);
+            sMailSystem.DeliverMessage(MAILTYPE_AUCTION, GetID(), auct->owner, subject, "", 0, 0, auct->m_item->GetGUID(), STATIONERY_AUCTION, true);
 
             // return bidders money
             if(auct->highestBidder)
@@ -191,7 +191,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
     itemLock.AcquireWriteLock();
 
     auctions.erase(auct->Id);
-    auctionedItems.erase(auct->m_item->itemGuid);
+    auctionedItems.erase(auct->m_item->GetGUID());
 
     auctionLock.ReleaseWriteLock();
     itemLock.ReleaseWriteLock();
@@ -221,19 +221,8 @@ void WorldSession::HandleAuctionListBidderItems( WorldPacket & recv_data )
 void Auction::AddToPacket(WorldPacket & data)
 {
     data << Id;
-    data << m_item->itemGuid.getEntry();
+    data << m_item->GetGUID().getEntry();
 
-    for (uint8 i = 0; i < 10; i++)
-    {
-        data << m_item->enchantData[i]->enchantId;
-        data << m_item->enchantData[i]->CalcTimeLeft();
-        data << m_item->enchantData[i]->enchantCharges;
-    }
-
-    data << m_item->itemRandomProperty;
-    data << m_item->itemRandomSeed;
-    data << m_item->itemStackCount;  // Amount
-    data << m_item->itemSpellCharges;
     data << uint32(0);              // Unknown
     data << owner;                  // Owner guid
     data << highestBid;             // Current prize
@@ -330,7 +319,7 @@ void AuctionHouse::SendAuctionNotificationPacket(Player* plr, Auction * auct)
     data << uint64(auct->highestBidder);
     data << uint32(0);
     data << uint32(0);
-    data << auct->m_item->itemGuid.getEntry();
+    data << auct->m_item->GetGUID().getEntry();
     data << uint32(0);
 
     plr->GetSession()->SendPacket(&data);
@@ -367,7 +356,7 @@ void WorldSession::HandleAuctionPlaceBid( WorldPacket & recv_data )
     {
         // Return the money to the last highest bidder.
         char subject[100];
-        snprintf(subject, 100, "%u:0:0", (int)auct->m_item->itemGuid.getEntry());
+        snprintf(subject, 100, "%u:0:0", (int)auct->m_item->GetGUID().getEntry());
         sMailSystem.DeliverMessage(MAILTYPE_AUCTION, ah->GetID(), auct->highestBidder, subject, "", auct->highestBid, 0, 0, STATIONERY_AUCTION, true);
 
     }
@@ -444,7 +433,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
 
     // Get item
     Item* pItem = _player->GetInventory()->GetInventoryItem(item);
-    if( !pItem || pItem->isSoulBound() || pItem->isAccountBound() || pItem->HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED) )
+    if( !pItem || pItem->IsSoulbound() || pItem->IsAccountbound() || pItem->HasFlag(ITEM_FIELD_FLAGS, DBC_ITEMFLAG_CONJURED) )
     {
         WorldPacket data(SMSG_AUCTION_COMMAND_RESULT, 8);
         data << uint32(0);
@@ -487,7 +476,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
     auct->highestBidder = 0;    // hm
     auct->Id = sAuctionMgr.GenerateAuctionId();
     auct->owner = _player->GetLowGUID();
-    auct->m_item = sItemMgr.GetItemData(pItem->GetGUID());
+    auct->m_item = pItem;
     auct->Deleted = false;
     auct->DeletedReason = 0;
     auct->depositAmount = item_deposit;
@@ -551,7 +540,7 @@ void AuctionHouse::SendAuctionList(Player* plr, WorldPacket * packet)
     {
         if(itr->second->Deleted)
             continue;
-        ItemPrototype *proto = itr->second->m_item->proto;
+        ItemPrototype *proto = itr->second->m_item->GetProto();
 
         // Check the auction for parameters
 
@@ -652,17 +641,6 @@ void AuctionHouse::LoadAuctions()
         fields = result->Fetch();
         auct = new Auction;
         auct->Id = fields[0].GetUInt32();
-
-        ItemData *pData = sItemMgr.GetItemData(fields[2].GetUInt64());
-        if(pData == NULL)
-        {
-            printf("Deleting auction for invalid item %u (%u)\n", auct->Id, fields[2].GetUInt32());
-            CharacterDatabase.Execute("DELETE FROM auctions WHERE auctionId=%u", auct->Id);
-            delete auct;
-            continue;
-        }
-
-        auct->m_item = pData;
         auct->owner = fields[3].GetUInt64();
         auct->buyoutPrice = fields[4].GetUInt64();
         auct->expirationTime = fields[5].GetUInt64();

@@ -44,7 +44,7 @@ struct Auction
     uint64 buyoutPrice;
     uint64 depositAmount;
     uint64 expirationTime;
-    ItemData* m_item;
+    Item* m_item;
 
     void DeleteFromDB();
     void SaveToDB(uint32 AuctionHouseId);
@@ -80,7 +80,7 @@ public:
 
 private:
     RWLock itemLock;
-    RONIN_UNORDERED_MAP<WoWGuid, ItemData* > auctionedItems;
+    RONIN_UNORDERED_MAP<WoWGuid, Item* > auctionedItems;
 
     RWLock auctionLock;
     RONIN_UNORDERED_MAP<uint32, Auction*> auctions;

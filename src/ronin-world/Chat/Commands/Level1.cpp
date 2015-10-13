@@ -206,40 +206,49 @@ bool ChatHandler::HandleKickCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_session)
 {
+    uint32 itemid, count = 1;
+    int32 randomprop = 0;
+
     if(strlen(args) < 1)
         return false;
 
-    uint32 itemid, count = 1;
-    if(sscanf(args, "%u %u", &itemid, &count) < 1)
+    if(sscanf(args, "%u %u %i", &itemid, &count, &randomprop) < 1)
     {
         // check for item link
         uint16 ofs = GetItemIDFromLink(args, &itemid);
         if(itemid == 0)
             return false;
-        sscanf(args+ofs,"%u", &count); // these may be empty
+        sscanf(args+ofs,"%u %i", &count, &randomprop); // these may be empty
     }
 
-    count = std::max(count, uint32(1));
+    if(count < 1)
+        count = 1;
+
     Player* chr = getSelectedChar(m_session);
     if (chr == NULL)
         return true;
 
-    if(ItemPrototype* it = sItemMgr.LookupEntry(itemid))
+    ItemPrototype* it = sItemMgr.LookupEntry(itemid);
+    if(it)
     {
-        sWorld.LogGM(m_session, "used add item command, %u of item id %u [%s] to %s", count, it->ItemId, it->Name1, chr->GetName());
-        if(!chr->GetInventory()->CreateInventoryStacks(it, count, m_session->GetPlayer()->GetGUID()))
+        sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name1, chr->GetName());
+
+        if(!chr->GetInventory()->AddItemById(itemid, count, randomprop, false, m_session->GetPlayer()))
         {
-            RedSystemMessage(m_session, "Failed to create any inventory stacks");
+            m_session->SendNotification("No free slots were found in your inventory!");
             return true;
         }
 
-        std::string itemlink = it->ConstructItemLink(0, 0, std::min(count, it->MaxCount));
-        if(chr->GetSession() == m_session)
-            SystemMessage(m_session, "Adding item %u %s to your inventory.", it->ItemId, itemlink.c_str());
-        else // Since we get that You Recieved Item bullcrap, we don't need this.
+        if(chr->GetSession() != m_session) // Since we get that You Recieved Item bullcrap, we don't need this.
         {
+            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
             SystemMessage(m_session, "Adding item %u %s to %s's inventory.", it->ItemId, itemlink.c_str(), chr->GetName());
             SystemMessageToPlr(chr, "%s added item %u %s to your inventory.", m_session->GetPlayer()->GetName(), itemid, itemlink.c_str());
+        }
+        else
+        {
+            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
+            SystemMessage(m_session, "Adding item %u %s to your inventory.", it->ItemId, itemlink.c_str());
         }
         return true;
     }

@@ -57,12 +57,12 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
             // always remove collected items (need to be recollectable again in case of repeatable).
             for( uint32 y = 0; y < 6; y++)
                 if( qst->required_item[y] && qst->required_item[y] != srcItem )
-                    plr->GetInventory()->RemoveInventoryStacks(qst->required_item[y], qst->required_itemcount[y]);
+                    plr->GetInventory()->RemoveItemAmt(qst->required_item[y], qst->required_itemcount[y]);
 
             // Remove all items given by the questgiver at the beginning
             for(uint32 i = 0; i < 4; i++)
                 if(qst->receive_items[i] && qst->receive_items[i] != srcItem)
-                    plr->GetInventory()->RemoveInventoryStacks(qst->receive_items[i], qst->receive_itemcount[i] );
+                    plr->GetInventory()->RemoveItemAmt(qst->receive_items[i], qst->receive_itemcount[i] );
             plr->UpdateNearbyQuestGivers();
             plr->UpdateNearbyGameObjects();
         }
@@ -221,21 +221,6 @@ bool ChatHandler::HandleQuestStartCommand(const char * args, WorldSession * m_se
                     qle->UpdatePlayerFields();
 
                     TRIGGER_QUEST_EVENT(quest_id, OnQuestStart)(plr, qle);
-
-                    // If the quest should give any items on begin, give them the items.
-                    for(uint8 i = 0; i < 4; i++)
-                    {
-                        if(qst->receive_items[i] == 0)
-                            continue;
-                        if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->receive_items[i]))
-                            plr->GetInventory()->CreateInventoryStacks(proto, qst->receive_itemcount[i]);
-                    }
-
-                    if(qst->srcitem && qst->srcitem != qst->receive_items[0])
-                    {
-                        if(ItemPrototype *proto = sItemMgr.LookupEntry(qst->srcitem))
-                            plr->GetInventory()->CreateInventoryStacks(proto, std::max(uint16(1), qst->srcitemcount));
-                    }
 
                     plr->UpdateNearbyGameObjects();
                     recout += "Quest has been added to the player's quest log.";
