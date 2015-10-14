@@ -165,16 +165,26 @@ void Unit::Destruct()
     WorldObject::Destruct();
 }
 
-void Unit::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+void Unit::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
-    m_movementInterface.WriteObjectUpdate(bits, bytes);
+    m_movementInterface.WriteObjectUpdateBits(bits);
 }
 
-void Unit::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+void Unit::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
     WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
     bits->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
     bits->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
+}
+
+void Unit::_WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target)
+{
+    m_movementInterface.WriteObjectUpdateBytes(bytes);
+}
+
+void Unit::_WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target)
+{
+    WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
     bytes->WriteByteSeq(targetGuid[4]);
     bytes->WriteByteSeq(targetGuid[0]);
     bytes->WriteByteSeq(targetGuid[3]);

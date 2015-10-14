@@ -398,7 +398,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
             }
 
             data2 << uint32(data.size());
-            data2 << data;
+            data2.append(data.contents(), data.size());
         }
 
         data2 << uint32(type);

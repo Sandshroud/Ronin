@@ -961,6 +961,7 @@ bool Player::LoadFromDB()
 {
     AsyncQuery * q = new AsyncQuery( new SQLClassCallbackP0<Player>(this, &Player::LoadFromDBProc) );
     q->AddQuery("SELECT * FROM character_data WHERE guid='%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_actions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_auras WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_bans WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_cooldowns WHERE guid = '%u'", m_objGuid.getLow());
@@ -972,7 +973,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_inventory WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_powers WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_pvp_data WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_quests_completed WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_skills WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_social WHERE guid = '%u'", m_objGuid.getLow());
@@ -1076,7 +1077,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     // Set our base stats
     baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level);
 
-    m_XPoff = fields[PLAYERLOAD_FIELD_XP_DISABLED].GetBool();
+    m_XPoff = false;
     // set xp
     SetUInt32Value(PLAYER_XP, fields[PLAYERLOAD_FIELD_EXPERIENCE].GetUInt32());
 
@@ -1200,7 +1201,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     else _AddLanguages(sWorld.cross_faction_world);
 
     OnlineTime = UNIXTIME;
-    if(IsInGuild()) SetUInt32Value(PLAYER_GUILD_TIMESTAMP, OnlineTime);
+    if(IsInGuild())
+        SetUInt32Value(PLAYER_GUILD_TIMESTAMP, OnlineTime);
     if( fields[PLAYERLOAD_FIELD_NEEDS_POSITION_RESET].GetBool() )
         EjectFromInstance();
     if( fields[PLAYERLOAD_FIELD_NEEDS_TALENT_RESET].GetBool() )
@@ -1221,6 +1223,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
             SendDelayedPacket(data);
         }
     }
+    m_movementInterface.OnRelocate(m_position);
 }
 
 void Player::_LoadPlayerAuras(QueryResult *result)
@@ -1631,15 +1634,14 @@ void Player::_LoadSkills(QueryResult *result)
         SkillLineEntry *skillLine = dbcSkillLine.LookupEntry(skillId);
         if(skillLine == NULL)
             continue;
-
-        PlayerSkill inf;
+        uint8 skillPos = fields[2].GetUInt8();
+        PlayerSkill &inf = m_skillsByIndex[skillPos];
         inf.Skill = skillLine;
-        inf.SkillPos = fields[2].GetUInt8();
+        inf.SkillPos = skillPos;
         inf.CurrentValue = fields[3].GetUInt16();
         inf.MaximumValue = fields[4].GetUInt16();
         inf.BonusValue = inf.BonusTalent = 0;
         m_skills.insert( std::make_pair( skillId, inf ) );
-        m_skillsByIndex.insert(std::make_pair(inf.SkillPos, &inf));
     }while(result->NextRow());
     _UpdateSkillFields();
 }
@@ -7293,14 +7295,14 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
     }
     else
     {
-        PlayerSkill inf;
+        uint8 skillPos = GetFreeSkillPosition();
+        PlayerSkill &inf = m_skillsByIndex[skillPos];
         inf.Skill = CheckedSkill;
+        inf.SkillPos = skillPos;
         inf.MaximumValue = Max_sk;
         inf.CurrentValue = ( inf.Skill->id != SKILL_RIDING ? Curr_sk : Max_sk );
-        inf.SkillPos = GetFreeSkillPosition();
         inf.BonusValue = inf.BonusTalent = 0;
         m_skills.insert( std::make_pair( SkillLine, inf ) );
-        m_skillsByIndex.insert(std::make_pair(inf.SkillPos, &inf));
         _UpdateSkillFields();
     }
 
@@ -7350,13 +7352,13 @@ void Player::_UpdateSkillFields()
         uint32 field = i/2, offset = i&1;
         if(m_skillsByIndex.find(i) != m_skillsByIndex.end())
         {
-            PlayerSkill *skill = m_skillsByIndex.at(i);
-            SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, skill->Skill->id);
+            PlayerSkill &skill = m_skillsByIndex.at(i);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, skill.Skill->id);
             SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, skill->CurrentValue);
-            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, skill->MaximumValue);
-            SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, skill->BonusValue);
-            SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, skill->BonusTalent);
+            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, skill.CurrentValue);
+            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, skill.MaximumValue);
+            SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, skill.BonusValue);
+            SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, skill.BonusTalent);
         }
         else
         {
@@ -7415,8 +7417,9 @@ void Player::_RemoveSkillLine(uint16 SkillLine)
     if(itr == m_skills.end())
         return;
 
-    m_skillsByIndex.erase(itr->second.SkillPos);
+    uint8 skillPos = itr->second.SkillPos;
     m_skills.erase(itr);
+    m_skillsByIndex.erase(skillPos);
     _UpdateSkillFields();
 }
 
@@ -7508,22 +7511,11 @@ void Player::_RemoveLanguages()
         if(itr->second.Skill->categoryId == SKILL_TYPE_LANGUAGE)
         {
             it2 = itr++;
-            m_skillsByIndex.erase(it2->second.SkillPos);
+            uint8 skillPos = it2->second.SkillPos;
             m_skills.erase(it2);
+            m_skillsByIndex.erase(skillPos);
         } else ++itr;
     }
-}
-
-bool PlayerSkill::Reset(uint32 Id)
-{
-    MaximumValue = 0;
-    CurrentValue = 0;
-    BonusValue = 0;
-    Skill = (Id == 0) ? NULL : dbcSkillLine.LookupEntry(Id);
-    if(Skill == NULL)
-        return false;
-
-    return true;
 }
 
 void Player::_AddLanguages(bool All)
@@ -7533,7 +7525,6 @@ void Player::_AddLanguages(bool All)
      * - Burlex
      */
 
-    PlayerSkill sk;
     uint32 spell_id;
     static uint32 skills[] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_TAURAHE, SKILL_LANG_THALASSIAN,
         SKILL_LANG_TROLL, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_DRAENEI, 0 };
@@ -7546,13 +7537,15 @@ void Player::_AddLanguages(bool All)
                 break;
             if(m_skills.find(skills[i]) != m_skills.end())
                 continue;
-            if(!sk.Reset(skills[i]))
+            SkillLineEntry *skillEntry = dbcSkillLine.LookupEntry(skills[i]);
+            if(skillEntry == NULL)
                 continue;
 
-            sk.MaximumValue = sk.CurrentValue = 300;
-            sk.SkillPos = GetFreeSkillPosition();
-            m_skills.insert( std::make_pair(skills[i], sk) );
-            m_skillsByIndex.insert(std::make_pair(sk.SkillPos, &sk));
+            uint8 skillPos = GetFreeSkillPosition();
+            PlayerSkill &skill = m_skillsByIndex[skillPos];
+            skill.MaximumValue = skill.CurrentValue = 300;
+            skill.Skill = skillEntry; skill.SkillPos = skillPos;
+            m_skills.insert( std::make_pair(skills[i], skill) );
             if((spell_id = ::GetSpellForLanguageSkill(skills[i])))
                 addSpell(spell_id);
         }
@@ -7566,19 +7559,16 @@ void Player::_AddLanguages(bool All)
                 continue;
             if(m_skills.find(itr->skillid) != m_skills.end())
                 continue;
+            if(en->categoryId != SKILL_TYPE_LANGUAGE)
+                continue;
 
-            if(en->categoryId == SKILL_TYPE_LANGUAGE)
-            {
-                if(sk.Reset(itr->skillid))
-                {
-                    sk.MaximumValue = sk.CurrentValue = 300;
-                    sk.SkillPos = GetFreeSkillPosition();
-                    m_skills.insert( std::make_pair(itr->skillid, sk) );
-                    m_skillsByIndex.insert(std::make_pair(sk.SkillPos, &sk));
-                    if((spell_id = ::GetSpellForLanguageSkill(itr->skillid)))
-                        addSpell(spell_id);
-                }
-            }
+            uint8 skillPos = GetFreeSkillPosition();
+            PlayerSkill &skill = m_skillsByIndex[skillPos];
+            skill.MaximumValue = skill.CurrentValue = 300;
+            skill.Skill = en; skill.SkillPos = skillPos;
+            m_skills.insert( std::make_pair(itr->skillid, skill) );
+            if((spell_id = ::GetSpellForLanguageSkill(itr->skillid)))
+                addSpell(spell_id);
         }
     }
 

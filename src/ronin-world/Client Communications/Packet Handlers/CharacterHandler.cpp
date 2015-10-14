@@ -124,29 +124,19 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 delete res;
             }
 
-            if(res = CharacterDatabase.Query("SELECT containerslot, slot, entry, enchantments FROM item_data WHERE ownerguid=%u", charGuid.getLow()))
+            if(res = CharacterDatabase.Query("SELECT container, slot, character_inventory.itemguid, item_enchantments.enchantid FROM character_inventory LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot > 0 AND slot < %u", charGuid.getLow(), EQUIPMENT_SLOT_END))
             {
                 do
                 {
                     int8 containerslot = res->Fetch()[0].GetInt8(), slot = res->Fetch()[1].GetInt8();
-                    if( containerslot == -1 && slot < EQUIPMENT_SLOT_END && slot >= 0 )
+                    WoWGuid itemGuid(res->Fetch()[2].GetUInt64());
+                    if(ItemPrototype *proto = sItemMgr.LookupEntry(itemGuid.getEntry()))
                     {
-                        ItemPrototype *proto = sItemMgr.LookupEntry(res->Fetch()[2].GetUInt32());
-                        if(proto)
-                        {
-                            // slot0 = head, slot14 = cloak
-                            items[slot].invtype = proto->InventoryType;
-                            items[slot].displayid = proto->DisplayInfoID;
-                            if( slot == EQUIPMENT_SLOT_MAINHAND || slot == EQUIPMENT_SLOT_OFFHAND )
-                            {
-                                // get enchant visual ID
-                                uint32 enchantid = 0;
-                                const char *enchant_field = res->Fetch()[3].GetString();
-                                if( sscanf( enchant_field , "%u,0,0;" , (unsigned int *)&enchantid ) == 1 && enchantid > 0 )
-                                    if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( enchantid ) )
-                                        items[slot].enchantment = enc->visualAura;
-                            }
-                        }
+                        // slot0 = head, slot14 = cloak
+                        items[slot].invtype = proto->InventoryType;
+                        items[slot].displayid = proto->DisplayInfoID;
+                        if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( res->Fetch()[3].GetUInt32() ) )
+                            items[slot].enchantment = enc->visualAura;
                     }
                 } while(res->NextRow());
                 delete res;
@@ -207,8 +197,8 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
     bitBuff.FlushBits();
 
     WorldPacket data(SMSG_CHARACTER_ENUM, 200);
-    data << bitBuff;
-    if (num) data << byteBuff;
+    data.append(bitBuff.contents(), bitBuff.size());
+    data.append(byteBuff.contents(), byteBuff.size());
     SendPacket( &data );
 }
 
@@ -637,7 +627,7 @@ void WorldSession::FullLogin(Player* plr)
     SendPacket(&data);
 
     // Set TIME OF LOGIN
-    CharacterDatabase.Execute("UPDATE characters SET online = 1 WHERE guid = %u" , plr->GetLowGUID());
+    CharacterDatabase.Execute("UPDATE character_data SET online = 1 WHERE guid = %u" , plr->GetLowGUID());
 
     bool enter_world = true;
 

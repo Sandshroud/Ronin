@@ -108,8 +108,9 @@ enum OBJECT_UPDATE_FLAGS
     UPDATEFLAG_ROTATION         = 0x0200,
     UPDATEFLAG_UNK3             = 0x0400,
     UPDATEFLAG_ANIMKITS         = 0x0800,
-    UPDATEFLAG_UNK5             = 0x1000,
-    UPDATEFLAG_UNK6             = 0x2000
+    UPDATEFLAG_TRANSPORT_ARR    = 0x1000,
+    UPDATEFLAG_ENABLE_PORTALS   = 0x2000,
+    UPDATEFLAG_UNK2             = 0x4000,
 };
 
 enum ObjectAreaFlags
@@ -207,9 +208,13 @@ private:
     void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask );
 
     void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+
+    virtual void _WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target);
+    virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
+
+    virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
+    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
 
 public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
@@ -330,8 +335,6 @@ public:
     void PushToWorld(MapMgr* );
     virtual void OnPushToWorld() { }
     virtual void OnPrePushToWorld() { }
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target) {};
 
     virtual void OnFieldUpdated(uint32 index);
 

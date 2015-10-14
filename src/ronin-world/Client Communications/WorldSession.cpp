@@ -376,7 +376,7 @@ void WorldSession::LogoutPlayer(bool Save)
         }
 
         // Remove the "player locked" flag, to allow movement on next login
-        GetPlayer()->RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
+        plr->RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
 
         // Update Tracker status
         sTracker.CheckPlayerForTracker(plr, false);

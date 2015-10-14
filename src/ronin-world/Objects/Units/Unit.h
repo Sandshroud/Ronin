@@ -344,8 +344,11 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual void _WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-    virtual void _WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
+    virtual void _WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target);
+    virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
+
+    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target);
+    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target);
 
     virtual void Update( uint32 time );
     virtual void OnFieldUpdated(uint32 index);

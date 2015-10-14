@@ -242,7 +242,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     gInfo->m_guildRosterBufferLock.Acquire();
     printf("Guild roster buffer size: %u members: %u\n", gInfo->m_guildRosterBuffer.size(), MemberMapStorage->MemberMap.size());
     WorldPacket data(SMSG_GUILD_ROSTER, gInfo->m_guildRosterBuffer.size());
-    data << gInfo->m_guildRosterBuffer;
+    data.append(gInfo->m_guildRosterBuffer.contents(), gInfo->m_guildRosterBuffer.size());
     gInfo->m_guildRosterBufferLock.Release();
     m_session->SendPacket(&data);
     Packet_SendGuildRankInfo(m_session);

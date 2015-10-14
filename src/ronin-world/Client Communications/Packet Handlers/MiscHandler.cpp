@@ -758,7 +758,7 @@ void WorldSession::HandleRequestAccountData(WorldPacket& recv_data)
     data << uint32(id);
     data << uint32(res->timeStamp);
     data << uint32(res->sz);
-    data << bbuff;
+    data.append(bbuff.contents(), bbuff.size());
     SendPacket(&data);
 }
 

@@ -495,7 +495,6 @@ struct PlayerSkill
     uint16 BonusValue;
     uint16 BonusTalent;
     float GetSkillUpChance();
-    bool Reset(uint32 Id);
 };
 
 class ArenaTeam;
@@ -582,7 +581,6 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_CLASS,
     PLAYERLOAD_FIELD_GENDER,
     PLAYERLOAD_FIELD_LEVEL,
-    PLAYERLOAD_FIELD_XP_DISABLED,
     PLAYERLOAD_FIELD_EXPERIENCE,
     PLAYERLOAD_FIELD_SELECTED_TITLE,
     PLAYERLOAD_FIELD_GOLD,
@@ -653,7 +651,7 @@ typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
 typedef std::unordered_map<uint32, PlayerSkill>     SkillMap;
-typedef std::map<uint8, PlayerSkill*>               SkillReferenceMap;
+typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
 typedef std::set<Player* *>                         ReferenceSet;
 typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
 

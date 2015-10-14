@@ -255,12 +255,6 @@ public:
         return *this;
     }
 
-    ByteBuffer &operator<<(ByteBuffer value)
-    {
-        append(value.contents(), value.size());
-        return *this;
-    }
-
     // stream like operators for reading data
     ByteBuffer &operator>>(bool &value)
     {

@@ -285,7 +285,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 void ObjectMgr::LoadPlayersInfo()
 {
     PlayerInfo * pn;
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,level,gender,zoneId,timestamp,acct,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,level,zoneId,acct,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
     uint32 period, c;
     if(result)
     {

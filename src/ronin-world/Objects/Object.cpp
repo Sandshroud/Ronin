@@ -367,7 +367,7 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     uint32 byteCount = mask.GetUpdateBlockCount();
     *data << uint8(byteCount);
     data->append( mask.GetMask(), byteCount*4 );
-    *data << fields;
+    data->append(fields.contents(), fields.size());
 }
 
 //=======================================================================================
@@ -392,10 +392,6 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
-    ByteBuffer bytes;
-    uint32 stopFrameCount = 0;
-    for(uint32 i = 0; i < stopFrameCount; i++)
-        bytes << uint32(0);
     data->WriteBit(0);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_ROTATION);
@@ -404,92 +400,119 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_SELF);
     data->WriteBit(flags & UPDATEFLAG_VEHICLE);
     data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits(stopFrameCount, 24);
+    data->WriteBits(0, 24);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
     data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
-    data->WriteBit(flags & UPDATEFLAG_UNK5);
+    data->WriteBit(flags & UPDATEFLAG_TRANSPORT_ARR);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
 
     if(flags & UPDATEFLAG_LIVING)
-        _WriteLivingMovementUpdate(data, &bytes, target);
+        _WriteLivingMovementUpdateBits(data, target);
+
+    // used only with GO's, placeholder
+    if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
+        data->WriteBitString(10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+    if(flags & UPDATEFLAG_HAS_TARGET)
+        _WriteTargetMovementUpdateBits(data, target);
+
+    if (flags & UPDATEFLAG_ANIMKITS)
+        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
+
+    data->FlushBits();
+    if(flags & UPDATEFLAG_LIVING)
+        _WriteLivingMovementUpdateBytes(data, target);
 
     if(flags & UPDATEFLAG_VEHICLE)
-        bytes << float(castPtr<Vehicle>(this)->GetOrientation()) << castPtr<Vehicle>(this)->GetVehicleEntry();
+        *data << float(castPtr<WorldObject>(this)->GetOrientation()) << castPtr<Vehicle>(this)->GetVehicleEntry();
+
+    if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
+    {
+        // no transguid 0, 5
+        // No transtime3
+        // no tansguid 3
+        *data << float(0.f);
+        // no transguid 4, 6, 1
+        *data << uint32(0);
+        *data << float(0.f);
+        // no transguid 2, 7
+        *data << float(0.f);
+        *data << uint8(0xFF);
+        *data << float(0.f);
+        // No transtime2
+    }
 
     if(flags & UPDATEFLAG_ROTATION)
     {
         uint64 rotation = 0;
         if(IsGameObject()) rotation = castPtr<GameObject>(this)->m_rotation;
-        bytes << uint64(rotation); //blizz 64bit rotation
+        *data << uint64(rotation); //blizz 64bit rotation
+    }
+
+    if (flags & UPDATEFLAG_TRANSPORT_ARR)
+    {
+        for(uint8 i = 0; i < 4; i++)
+            *data << float(0.0f);
+        *data << uint8(0);
+        for(uint8 x = 0; x < 3; x++)
+            for(uint8 y = 0; y < 4; y++)
+                *data << float(0.0f);
     }
 
     if (flags & UPDATEFLAG_STATIONARY_POS)
-        _WriteStationaryPosition(data, &bytes, target);
+        _WriteStationaryPositionBytes(data, target);
 
     if(flags & UPDATEFLAG_HAS_TARGET)
-        _WriteTargetMovementUpdate(data, &bytes, target);
+        _WriteTargetMovementUpdateBytes(data, target);
 
     if (flags & UPDATEFLAG_ANIMKITS)
     {
-        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
-        if(false) bytes << uint16(0); // AnimKit1
-        if(false) bytes << uint16(0); // AnimKit2
-        if(false) bytes << uint16(0); // AnimKit3
+        if(false) *data << uint16(0); // AnimKit1
+        if(false) *data << uint16(0); // AnimKit2
+        if(false) *data << uint16(0); // AnimKit3
     }
 
     if(flags & UPDATEFLAG_TRANSPORT)
     {
         if(IsTransport())
-            bytes << castPtr<Transporter>(this)->m_timer;
-        else bytes << (uint32)getMSTime();
+            *data << castPtr<Transporter>(this)->m_timer;
+        else *data << (uint32)getMSTime();
     }
-
-    *data << bytes;
 }
 
-void Object::_WriteLivingMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
-{
-    bits->WriteBit(1);
-    bits->WriteBit(1);
-    bits->WriteBits(0, 3);
-    bits->WriteBit(0);
-    bits->WriteBit(1);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(1);
-    bits->WriteBit(0);
-    bits->WriteBit(1);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(0);
-    bits->WriteBit(1);
-
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<uint32>(0);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-    bytes->append<float>(0.f);
-}
-
-void Object::_WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+void Object::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
 {
     *bytes << float(0.f) << float(0.f) << float(0.f) << float(0.f);
 }
 
-void Object::_WriteTargetMovementUpdate(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
+void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
+{
+    bits->WriteBit(1); // We have no movement flags
+    bits->WriteBit(1); // We have no orientation
+    bits->WriteBits(0, 3); // Guid mask
+    // 30 movementflag bits
+    bits->WriteBit(0); // unk
+    bits->WriteBit(1); // We have no pitch
+    bits->WriteBit(0); // We have spline disabled
+    bits->WriteBit(0); // We have no fall data
+    bits->WriteBit(1); // We have no elevation
+    bits->WriteBit(0); // Guid mask
+    bits->WriteBit(0); // We have no transport
+    bits->WriteBit(1); // We have no timestamp
+    // Transport bits
+    bits->WriteBit(0); // Guid mask
+    // Spline bits
+    bits->WriteBit(0); // Guid mask
+    // hasFalldirection
+    bits->WriteBit(0); // Guid mask
+    bits->WriteBit(0); // Unk
+    bits->WriteBit(1); // We have no movementflags2
+    // Movementflag2 bits
+}
+
+void Object::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
     // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
     bits->WriteBits(0, 8);

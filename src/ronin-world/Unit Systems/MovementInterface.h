@@ -402,7 +402,8 @@ private:
 
 public:
     void AppendSplineData(bool bits, ByteBuffer *buffer);
-    void WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes);
+    void WriteObjectUpdateBits(ByteBuffer *bits);
+    void WriteObjectUpdateBytes(ByteBuffer *bytes);
 
     // Movement codes
     void HandlePlayerMove(bool read, ByteBuffer &buffer);

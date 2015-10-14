@@ -792,7 +792,7 @@ void MovementInterface::OnTaxiEnd()
 
 void MovementInterface::OnRelocate(LocationVector destination)
 {
-
+    *m_serverLocation = destination;
 }
 
 bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
@@ -928,7 +928,7 @@ void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer)
 
 }
 
-void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
+void MovementInterface::WriteObjectUpdateBits(ByteBuffer *bits)
 {
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
     hasOrientation = !G3D::fuzzyEq(m_serverLocation->o, 0.0f), hasTransportData = !m_transportGuid.empty(),
@@ -969,12 +969,21 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_BIT(bits, true, false);
     DO_BIT(bits, hasMovementFlags2, false);
     if (hasMovementFlags2) HandleMovementFlags2(false, bits);
+}
+
+void MovementInterface::WriteObjectUpdateBytes(ByteBuffer *bytes)
+{
+    bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
+    hasOrientation = !G3D::fuzzyEq(m_serverLocation->o, 0.0f), hasTransportData = !m_transportGuid.empty(),
+    hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
+    hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
+    hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
     // Append our bytes
     DO_SEQ_BYTE(bytes, m_moverGuid[4]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN_BACK));
+    DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_sin);
-    DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(bytes, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(bytes, hasFallData, float, m_jumpZSpeed);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM_BACK));
@@ -993,13 +1002,13 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BYTES(bytes, hasTransportData, float, m_transportLocation.z);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[0], uint8, m_transportGuid[0]);
     DO_COND_BYTES(bytes, hasTransportData && hasTransportVehicleId, uint32, m_vehicleId);
-    DO_COND_BYTES(bytes, hasTransportData, uint32, m_transportSeatId);
+    DO_COND_BYTES(bytes, hasTransportData, int8, m_transportSeatId);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[1], uint8, m_transportGuid[1]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[6], uint8, m_transportGuid[6]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[2], uint8, m_transportGuid[2]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[4], uint8, m_transportGuid[4]);
     DO_BYTES(bytes, float, m_serverLocation->x);
-    DO_BYTES(bytes, float,  GetMoveSpeed(MOVE_SPEED_PITCHRATE));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_PITCHRATE));
     DO_SEQ_BYTE(bytes, m_moverGuid[3]);
     DO_SEQ_BYTE(bytes, m_moverGuid[0]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM));
@@ -1009,13 +1018,13 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
 }
 
 #undef DO_BIT
