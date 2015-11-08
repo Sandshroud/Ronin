@@ -19,13 +19,6 @@ static float EOTSBuffCoordinates[4][4] = {
     { 2302.68994140625f, 1391.27001953125f, 1197.77001953125f, -1.50098f},
 };
 
-static float EOTSBuffRotations[4][2] = {
-    { 0.681998f, -0.731354f },
-    { 0.771625f, 0.636078f },
-    { 0.422618f, -0.906308f },
-    { 0.743145f, 0.669131f },
-};
-
 static uint32 EOTSbuffentrys[4] = {
     184964,
     184971,
@@ -77,11 +70,6 @@ static const float EOTSStartLocations[2][3] = {
 const float EOTSBubbleLocations[2][5] = {
     { 184719, 1803.21f, 1539.49f, 1261.09f, 3.14159f },
     { 184720, 2527.6f, 1596.91f, 1262.13f, -3.12414f },
-};
-
-const float EOTSBubbleRotations[2][4] = {
-    { -0.173642f, -0.001515f, 0.984770f, -0.008594f },
-    { -0.173642f, -0.001515f, 0.984770f, -0.008594f },
 };
 
 static const uint32 EOTSNeturalDisplayFields[EOTS_TOWER_COUNT] = {
@@ -938,8 +926,6 @@ void EyeOfTheStorm::SpawnBuff(uint32 x)
     {
         m_EOTSbuffs[x] = SpawnGameObject(rand_buffid, EOTSBuffCoordinates[x][0], EOTSBuffCoordinates[x][1], EOTSBuffCoordinates[x][2], EOTSBuffCoordinates[x][3], 0, 114, 1);
 
-        m_EOTSbuffs[x]->SetFloatValue(GAMEOBJECT_ROTATION_02, EOTSBuffRotations[x][0]);
-        m_EOTSbuffs[x]->SetFloatValue(GAMEOBJECT_ROTATION_03, EOTSBuffRotations[x][1]);
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 0, 1);      //STATE
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 1, 6);      //GAMEOBJECT_TYPEID
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 3, 100);    //ANIM_PROGRESS

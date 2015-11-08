@@ -278,11 +278,6 @@ enum EAreaTriggerFields
 #define UNIT_FIELD_INTELLECT                    UNIT_FIELD_STATS+3
 #define UNIT_FIELD_SPIRIT                       UNIT_FIELD_STATS+4
 
-#define GAMEOBJECT_ROTATION                     GAMEOBJECT_PARENTROTATION
-#define GAMEOBJECT_ROTATION_01                  GAMEOBJECT_PARENTROTATION+1
-#define GAMEOBJECT_ROTATION_02                  GAMEOBJECT_PARENTROTATION+2
-#define GAMEOBJECT_ROTATION_03                  GAMEOBJECT_PARENTROTATION+3
-
 #define PLAYER_GUILDID                          OBJECT_FIELD_DATA
 #define PLAYER_QUEST_LOG_END                    PLAYER_QUEST_LOG+250
 
@@ -317,15 +312,15 @@ enum EAreaTriggerFields
 #define PLAYER_RATING_MODIFIER_MASTERY                          PLAYER_FIELD_COMBAT_RATING_1+25
 #define PLAYER_RATING_MODIFIER_MAX                              PLAYER_FIELD_COMBAT_RATING_1+26
 
-extern uint32 ObjectUpdateFieldFlags[OBJECT_LENGTH];
-extern uint32 ItemUpdateFieldFlags[ITEM_LENGTH];
-extern uint32 ContainerUpdateFieldFlags[CONTAINER_LENGTH];
-extern uint32 UnitUpdateFieldFlags[UNIT_LENGTH];
-extern uint32 PlayerUpdateFieldFlags[PLAYER_LENGTH];
-extern uint32 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH];
-extern uint32 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH];
-extern uint32 CorpseUpdateFieldFlags[CORPSE_LENGTH];
-extern uint32 AreaTriggerUpdateFieldFlags[AREATRIGGER_LENGTH];
+extern uint16 ObjectUpdateFieldFlags[OBJECT_LENGTH];
+extern uint16 ItemUpdateFieldFlags[ITEM_LENGTH];
+extern uint16 ContainerUpdateFieldFlags[CONTAINER_LENGTH];
+extern uint16 UnitUpdateFieldFlags[UNIT_LENGTH];
+extern uint16 PlayerUpdateFieldFlags[PLAYER_LENGTH];
+extern uint16 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH];
+extern uint16 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH];
+extern uint16 CorpseUpdateFieldFlags[CORPSE_LENGTH];
+extern uint16 AreaTriggerUpdateFieldFlags[AREATRIGGER_LENGTH];
 
 enum UpdatefieldFlags : uint16
 {

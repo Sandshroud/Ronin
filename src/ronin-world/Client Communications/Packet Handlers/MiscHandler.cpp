@@ -240,7 +240,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                     _player->GetInventory()->DeleteItem(pItem);
             }*/
         }break;
-    case HIGHGUID_TYPE_CREATURE:
+    case HIGHGUID_TYPE_UNIT:
         {
             if( Unit* pLootTarget = _player->GetMapMgr()->GetUnit(guid) )
             {
@@ -1048,7 +1048,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
         return;
 
     //now its time to give the loot to the target player
-    if(GUID_HIPART(GetPlayer()->GetLootGUID()) == HIGHGUID_TYPE_CREATURE)
+    if(GUID_HIPART(GetPlayer()->GetLootGUID()) == HIGHGUID_TYPE_UNIT)
     {
         if ((pCreature = _player->GetMapMgr()->GetCreature(GUID_LOPART(creatureguid))) == NULL)
             return;

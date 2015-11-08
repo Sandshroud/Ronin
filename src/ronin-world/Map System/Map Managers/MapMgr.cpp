@@ -267,7 +267,7 @@ void MapMgr::PushObject(WorldObject* obj)
             m_PetStorage[obj->GetLowGUID()] = castPtr<Pet>( obj );
             break;
 
-        case HIGHGUID_TYPE_CREATURE:
+        case HIGHGUID_TYPE_UNIT:
             {
                 Creature *creature = castPtr<Creature>(obj);
                 ASSERT((obj->GetLowGUID()) <= m_CreatureHighGuid);
@@ -372,7 +372,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
             TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Vehicle>(obj) );
         }break;
 
-    case HIGHGUID_TYPE_CREATURE:
+    case HIGHGUID_TYPE_UNIT:
         {
             ASSERT(obj->GetLowGUID() <= m_CreatureHighGuid);
             if(castPtr<Creature>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Creature>(obj)->GetSQL_id());
@@ -411,7 +411,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
     }
 
     // That object types are not map objects. TODO: add AI groups here?
-    if(obj->GetTypeId() == TYPEID_ITEM || obj->GetTypeId() == TYPEID_CONTAINER || obj->GetTypeId() == TYPEID_UNUSED)
+    if(obj->GetTypeId() == TYPEID_ITEM || obj->GetTypeId() == TYPEID_CONTAINER)
         return;
 
     if(obj->GetTypeId() == TYPEID_CORPSE)
@@ -1412,7 +1412,7 @@ Unit* MapMgr::GetUnit(WoWGuid guid)
 {
     switch(guid.getHigh())
     {
-    case HIGHGUID_TYPE_CREATURE: return GetCreature(guid);
+    case HIGHGUID_TYPE_UNIT: return GetCreature(guid);
     case HIGHGUID_TYPE_PLAYER: return GetPlayer(guid);
     case HIGHGUID_TYPE_PET: return GetPet(guid);
     case HIGHGUID_TYPE_VEHICLE: return GetVehicle(guid);
@@ -1427,7 +1427,7 @@ WorldObject* MapMgr::_GetObject(WoWGuid guid)
     {
     case HIGHGUID_TYPE_VEHICLE: return GetVehicle(guid);
     case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(guid);
-    case HIGHGUID_TYPE_CREATURE: return GetCreature(guid);
+    case HIGHGUID_TYPE_UNIT: return GetCreature(guid);
     case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(guid);
     case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(guid.getLow());
     case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(guid.getLow());
@@ -1845,9 +1845,9 @@ Creature* MapMgr::CreateCreature(uint32 entry)
         _reusable_guids_creature.pop_front();
     } else low_guid = ++m_CreatureHighGuid;
 
-    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
+    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_UNIT));
     cr->Init();
-    ASSERT( cr->GetHighGUID() == HIGHGUID_TYPE_CREATURE );
+    ASSERT( cr->GetHighGUID() == HIGHGUID_TYPE_UNIT );
     return cr;
 }
 
@@ -1867,9 +1867,9 @@ Summon* MapMgr::CreateSummon(uint32 entry)
         _reusable_guids_creature.pop_front();
     } else low_guid = ++m_CreatureHighGuid;
 
-    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_CREATURE));
+    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_UNIT));
     sum->Init();
-    ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_CREATURE );
+    ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_UNIT );
     return sum;
 }
 

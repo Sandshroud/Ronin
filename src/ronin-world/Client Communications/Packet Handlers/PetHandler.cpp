@@ -15,7 +15,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
     recv_data >> misc;
     recv_data >> action;
 
-    if(GUID_HIPART(petGuid) == HIGHGUID_TYPE_CREATURE)
+    if(GUID_HIPART(petGuid) == HIGHGUID_TYPE_UNIT)
     {
         Creature* pCharm = GetPlayer()->GetMapMgr()->GetCreature(GUID_LOPART(petGuid));
         if(!pCharm)

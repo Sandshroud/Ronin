@@ -426,7 +426,7 @@ void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
     Object* ent = NULL;
     switch(GUID_HIPART(guid)) // Crow: Could possibly do GetObject because I don't think we need items...
     {
-    case HIGHGUID_TYPE_CREATURE:
+    case HIGHGUID_TYPE_UNIT:
         ent = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
         break;
     case HIGHGUID_TYPE_GAMEOBJECT:

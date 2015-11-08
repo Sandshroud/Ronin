@@ -47,8 +47,7 @@ void GameObject::Destruct()
     if(m_ritualmembers)
         delete[] m_ritualmembers;
 
-    uint32 guid = GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY);
-    if(guid)
+    if(uint32 guid = GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY))
     {
         Player* plr = objmgr.GetPlayer(guid);
         if(plr && plr->GetSummonedObject() == this)
@@ -83,11 +82,6 @@ void GameObject::Destruct()
         m_battleground = NULL;
     }
     WorldObject::Destruct();
-}
-
-void GameObject::_WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target)
-{
-    *bytes << float(GetOrientation()) << float(GetPositionX()) << float(GetPositionY()) << float(GetPositionZ());
 }
 
 void GameObject::Update(uint32 p_time)
@@ -170,7 +164,13 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     WorldObject::_Create( mapid, x, y, z, ang );
     SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
 
-    UpdateRotation();
+    float rotation[4] = { 0.f, 0.f, 0.f, 1.f };
+    for(uint8 i = 0; i < 4; i++)
+    {
+        /*if(RotationData *data = objmgr.getobjectrotation())
+            rotation[i] = data->rotation[i];*/
+        SetFloatValue(GAMEOBJECT_PARENTROTATION + i, rotation[i]);
+    }
 
     SetState(1);
     SetDisplayId(pInfo->DisplayID );
@@ -651,32 +651,6 @@ uint32 GameObject::GetGOReqSkill()
 void GameObject::GenerateLoot()
 {
 
-}
-
-// Convert from radians to blizz rotation system
-void GameObject::UpdateRotation(float orientation3, float orientation4)
-{
-    static double const rotationMath = atan(pow(2.0f, -20.0f));
-
-    m_rotation = 0;
-    double sinRotation = sin(GetOrientation() / 2.0f);
-    double cosRotation = cos(GetOrientation() / 2.0f);
-
-    if(cosRotation >= 0)
-        m_rotation = (uint64)(sinRotation / rotationMath * 1.0f) & 0x1FFFFF;
-    else
-        m_rotation = (uint64)(sinRotation / rotationMath * -1.0f) & 0x1FFFFF;
-
-    if(orientation3 == 0.0f && orientation4 == 0.0f)
-    {
-        orientation3 = (float) sinRotation;
-        orientation4 = (float) cosRotation;
-    }
-
-    SetFloatValue(GAMEOBJECT_ROTATION, 0.0f);
-    SetFloatValue(GAMEOBJECT_ROTATION_01, 0.0f);
-    SetFloatValue(GAMEOBJECT_ROTATION_02, orientation3);
-    SetFloatValue(GAMEOBJECT_ROTATION_03, orientation4);
 }
 
 void GameObject::SetDisplayId(uint32 id)

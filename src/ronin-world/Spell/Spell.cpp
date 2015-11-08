@@ -925,7 +925,7 @@ void Spell::cast(bool check)
 
     if(cancastresult == SPELL_CANCAST_OK)
     {
-        if (m_caster->IsPlayer() && !m_triggeredSpell && m_caster->IsInWorld() && GUID_HIPART(m_targets.m_unitTarget) == HIGHGUID_TYPE_CREATURE)
+        if (m_caster->IsPlayer() && !m_triggeredSpell && m_caster->IsInWorld() && GUID_HIPART(m_targets.m_unitTarget) == HIGHGUID_TYPE_UNIT)
             sQuestMgr.OnPlayerCast(castPtr<Player>(m_caster), GetSpellProto()->Id, m_targets.m_unitTarget);
 
         // trigger on next attack

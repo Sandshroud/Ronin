@@ -217,8 +217,6 @@ public:
     EnchantmentInstance* GetEnchantment( uint32 slot );
     bool IsGemRelated( SpellItemEnchantEntry* Enchantment );
 
-    static uint32 GenerateRandomSuffixFactor( ItemPrototype* m_itemProto );
-
     bool HasEnchantments() { return ( m_enchantments.size() > 0 ) ? true : false; }
 
     uint32 GetTextID() { return m_textId; };

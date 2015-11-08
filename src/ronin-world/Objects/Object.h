@@ -8,19 +8,18 @@ enum HIGHGUID_TYPE
 {
     HIGHGUID_TYPE_PLAYER            = 0x0000,
     HIGHGUID_TYPE_WAYPOINT          = 0x1000,
-    HIGHGUID_TYPE_ITEM              = 0x4000,
+    HIGHGUID_TYPE_ITEM              = 0x4700,
     HIGHGUID_TYPE_GAMEOBJECT        = 0xF110,
     HIGHGUID_TYPE_TRANSPORTER       = 0xF120,
-    HIGHGUID_TYPE_CREATURE          = 0xF130,
     HIGHGUID_TYPE_UNIT              = 0xF130,
     HIGHGUID_TYPE_PET               = 0xF140,
     HIGHGUID_TYPE_VEHICLE           = 0xF150,
     HIGHGUID_TYPE_DYNAMICOBJECT     = 0xF100,
-    HIGHGUID_TYPE_CORPSE            = 0xF101,
-    HIGHGUID_TYPE_AREATRIGGER       = 0xF102,
+    HIGHGUID_TYPE_CORPSE            = 0xF500,
     HIGHGUID_TYPE_MO_TRANSPORT      = 0x1FC0,
+    HIGHGUID_TYPE_INSTANCE          = 0x1F40,
     HIGHGUID_TYPE_GROUP             = 0x1F50,
-    HIGHGUID_TYPE_GUILD             = 0x1FF6,
+    HIGHGUID_TYPE_GUILD             = 0x1FF7,
 //===============================================
     HIGHGUID_TYPE_MASK              = 0xFFFF0000,
     LOWGUID_ENTRY_MASK              = 0x0000FFFF,
@@ -38,13 +37,13 @@ enum TypeMask
     TYPEMASK_TYPE_DYNAMICOBJECT = 0x00000040,
     TYPEMASK_TYPE_CORPSE        = 0x00000080,
     TYPEMASK_TYPE_AREATRIGGER   = 0x00000100,
-    TYPEMASK_TYPE_AIGROUP       = 0x00000200,
-    TYPEMASK_TYPE_UNUSED        = 0x00000400,
-    TYPEMASK_TYPE_UNUSED2       = 0x00000800,
-    TYPEMASK_TYPE_UNUSED3       = 0x00001000,
-    TYPEMASK_TYPE_UNUSED4       = 0x00002000,
-    TYPEMASK_TYPE_UNUSED5       = 0x00004000,
-    TYPEMASK_TYPE_UNUSED6       = 0x00008000,
+    TYPEMASK_TYPE_UNUSED2       = 0x00000200,
+    TYPEMASK_TYPE_UNUSED3       = 0x00000400,
+    TYPEMASK_TYPE_UNUSED4       = 0x00000800,
+    TYPEMASK_TYPE_UNUSED5       = 0x00001000,
+    TYPEMASK_TYPE_UNUSED6       = 0x00002000,
+    TYPEMASK_TYPE_UNUSED7       = 0x00004000,
+    TYPEMASK_TYPE_UNUSED8       = 0x00008000,
     TYPEMASK_TYPE_MASK          = 0x0000FFFF,
     // Upper 16 bits are flag
     TYPEMASK_FLAG_IN_GUILD      = 0x00010000
@@ -68,29 +67,14 @@ enum TYPEID
     TYPEID_GAMEOBJECT       = 5,
     TYPEID_DYNAMICOBJECT    = 6,
     TYPEID_CORPSE           = 7,
-    TYPEID_AREATRIGGER      = 8,
-    TYPEID_AIGROUP          = 9,
-    TYPEID_UNUSED           = 10,//used to signal invalid reference (object dealocated but someone is still using it)
+    TYPEID_AREATRIGGER      = 8
 };
 
 enum OBJECT_UPDATE_TYPE {
     UPDATETYPE_VALUES = 0,
-    //  8 bytes - GUID
-    //  Goto Update Block
     UPDATETYPE_CREATE_OBJECT = 1,
-    //  8 bytes - GUID
-    //  1 byte - Object Type (*)
-    //  Goto Position Update
-    //  Goto Update Block
     UPDATETYPE_CREATE_PLAYEROBJ = 2,
-    //  8 bytes - GUID
-    //  1 byte - Object Type (*)
-    //  Goto Position Update
-    //  Goto Update Block
     UPDATETYPE_OUT_OF_RANGE_OBJECTS = 3
-    //  4 bytes - Count
-    //  Loop Count Times:
-    //  8 bytes - GUID
 };
 
 enum OBJECT_UPDATE_FLAGS
@@ -195,8 +179,8 @@ public:
     //! Mark values that need updating for specified player.
     bool _SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags);
 
-    uint32 GetUpdateFlag(Player *target);
-    void GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length);
+    uint16 GetUpdateFlag(Player *target);
+    void GetUpdateFieldData(uint8 type, uint16 *&flags, uint16 &length);
 
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
@@ -213,8 +197,8 @@ private:
     virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
 
     virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
-    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
-    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target);
+    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target);
 
 public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
@@ -318,6 +302,8 @@ public:
     virtual void Destruct();
 
     virtual bool IsObject() { return true; }
+
+    virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
 
     WorldPacket* BuildFieldUpdatePacket(uint32 index,uint32 value);
     void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);

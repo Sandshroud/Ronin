@@ -205,6 +205,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
     LockWriteBuffer();
 
+    printf("Sending opcode %s (0x%.4X)\n", sOpcodeMgr.GetOpcodeName(opcode), opcode);
     // Encrypt the packet
     // First, create the header.
     ServerPktHeader Header(len + 2, newOpcode);

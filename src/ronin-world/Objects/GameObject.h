@@ -10,7 +10,7 @@ enum GAMEOBJECT_BYTES
 {
     GAMEOBJECT_BYTES_STATE          = 0,
     GAMEOBJECT_BYTES_TYPE_ID        = 1,
-    GAMEOBJECT_BYTES_UNK            = 2, // todo: unknown atm
+    GAMEOBJECT_BYTES_ART_KIT        = 2,
     GAMEOBJECT_BYTES_ANIMPROGRESS   = 3,
 };
 
@@ -258,7 +258,7 @@ struct GameObjectInfo
         struct { uint32 WhenToPause; /* 1 */ uint32 StartOpen; uint32 AutoClose; } TrapDoor;
 
         // not use for specific field access (only for output with loop by all filed), also this determinate max union size
-        struct { uint32 ListedData[32]; } RawData;
+        struct { uint32 ListedData[24]; } RawData;
     };
 
     uint32 GetSpellID()
@@ -342,8 +342,6 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual void _WriteStationaryPosition(ByteBuffer *bits, ByteBuffer *bytes, Player *target);
-
     virtual void Update(uint32 p_time);
 
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
@@ -362,7 +360,6 @@ public:
     void SaveToDB();
     void DeleteFromDB();
     void EventCloseDoor();
-    void UpdateRotation(float orientation3 = 0.0f, float orientation4 = 0.0f);
 
     //Fishing stuff
     void UseFishingNode(Player* player);
@@ -448,6 +445,8 @@ public:
 
     RONIN_INLINE void SetState(uint8 state) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state); }
     RONIN_INLINE uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
+    RONIN_INLINE void SetArtKit(uint8 kit) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ART_KIT, kit); }
+    RONIN_INLINE uint8 GetArtKit() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ART_KIT); }
     RONIN_INLINE void SetAnimProgress(uint32 animprogress) { SetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, animprogress ); }
     RONIN_INLINE uint32 GetAnimProgress() { return GetByte( GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS ); }
     RONIN_INLINE void SetFlags(uint32 flags) { SetUInt32Value(GAMEOBJECT_FLAGS, flags ); }

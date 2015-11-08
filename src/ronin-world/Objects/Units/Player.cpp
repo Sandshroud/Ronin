@@ -1028,9 +1028,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     myClass = dbcCharClass.LookupEntry(getClass());
     if( myClass == NULL || myRace == NULL )
     {
-        printf("No class/race data\n");
         // bad character
-        printf("guid %u failed to login, no race or class dbc found. (race %u class %u)\n", uint(GetLowGUID()), uint(getRace()), uint(getClass()));
         RemovePendingPlayer();
         return;
     }
@@ -1050,10 +1048,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetPowerType(myClass->power_type);
 
     // obtain player create info
-    info = objmgr.GetPlayerCreateInfo(getRace(), getClass());
-    if( info == NULL )
+    if( (info = objmgr.GetPlayerCreateInfo(getRace(), getClass())) == NULL )
     {
-        printf("No player create info\n");
         sLog.Error("PlayerCreateInfo", "Character of guid %u creation failed due to non existant or invalid playercreateinfo.", uint(GetLowGUID()));
         RemovePendingPlayer();
         return;
@@ -3075,7 +3071,7 @@ bool Player::canCast(SpellEntry *m_spellInfo)
                 }break;
             default:
                 {
-                    printf("Unknown Equipped Item Requirements: %u/%u\n", m_spellInfo->EquippedItemClass, m_spellInfo->EquippedItemSubClass);
+                    sLog.outError("Unknown Equipped Item Requirements: %u/%u\n", m_spellInfo->EquippedItemClass, m_spellInfo->EquippedItemSubClass);
                 }break;
             }
         }
@@ -3452,7 +3448,6 @@ void Player::SendObjectUpdate(WoWGuid guid)
         return;
     }
 
-    printf("Sending update with size %u type %s %s\n", data.size(), (GetGUID() == guid ? "Player" : "Non Player"), (IsInWorld() ? "Is in world" : "Out of world"));
     data.put<uint32>(2, count);
     // send uncompressed because it's specified
     m_session->SendPacket(&data);
@@ -7524,13 +7519,30 @@ void Player::_AddLanguages(bool All)
      * Otherwise weird stuff could happen :P
      * - Burlex
      */
-
     uint32 spell_id;
-    static uint32 skills[] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_TAURAHE, SKILL_LANG_THALASSIAN,
-        SKILL_LANG_TROLL, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_DRAENEI, 0 };
+    for(std::list<CreateInfo_SkillStruct>::iterator itr = info->skills.begin(); itr != info->skills.end(); itr++)
+    {
+        SkillLineEntry *en = dbcSkillLine.LookupEntry(itr->skillid);
+        if(en == NULL)
+            continue;
+        if(m_skills.find(itr->skillid) != m_skills.end())
+            continue;
+        if(en->categoryId != SKILL_TYPE_LANGUAGE)
+            continue;
 
+        uint8 skillPos = GetFreeSkillPosition();
+        PlayerSkill &skill = m_skillsByIndex[skillPos];
+        skill.MaximumValue = skill.CurrentValue = 300;
+        skill.Skill = en; skill.SkillPos = skillPos;
+        m_skills.insert( std::make_pair(itr->skillid, skill) );
+        if((spell_id = ::GetSpellForLanguageSkill(itr->skillid)))
+            addSpell(spell_id);
+    }
     if(All)
     {
+        static uint32 skills[] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_TAURAHE, SKILL_LANG_THALASSIAN,
+            SKILL_LANG_TROLL, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_DRAENEI, 0 };
+
         for(uint32 i = 0; skills[i] != 0; i++)
         {
             if(!skills[i])
@@ -7547,27 +7559,6 @@ void Player::_AddLanguages(bool All)
             skill.Skill = skillEntry; skill.SkillPos = skillPos;
             m_skills.insert( std::make_pair(skills[i], skill) );
             if((spell_id = ::GetSpellForLanguageSkill(skills[i])))
-                addSpell(spell_id);
-        }
-    }
-    else
-    {
-        for(std::list<CreateInfo_SkillStruct>::iterator itr = info->skills.begin(); itr != info->skills.end(); itr++)
-        {
-            SkillLineEntry *en = dbcSkillLine.LookupEntry(itr->skillid);
-            if(en == NULL)
-                continue;
-            if(m_skills.find(itr->skillid) != m_skills.end())
-                continue;
-            if(en->categoryId != SKILL_TYPE_LANGUAGE)
-                continue;
-
-            uint8 skillPos = GetFreeSkillPosition();
-            PlayerSkill &skill = m_skillsByIndex[skillPos];
-            skill.MaximumValue = skill.CurrentValue = 300;
-            skill.Skill = en; skill.SkillPos = skillPos;
-            m_skills.insert( std::make_pair(itr->skillid, skill) );
-            if((spell_id = ::GetSpellForLanguageSkill(itr->skillid)))
                 addSpell(spell_id);
         }
     }

@@ -80,8 +80,9 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
     if(CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry))
     {
         data << entry;
-        data << ctrData->Name << uint8(0) << uint8(0) << uint8(0);
-        data << ctrData->Name << uint8(0) << uint8(0) << uint8(0);
+        data << ctrData->Name;
+        for(uint8 i = 0; i < 7; i++)
+            data << uint8(0);
         data << ctrData->SubName;
         data << ctrData->InfoStr;
         data << ctrData->Flags;
@@ -99,12 +100,14 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
         data << ctrData->PowerMod;
         data << ctrData->Leader;
         uint8 index = 0;
-        std::vector<uint32>* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry);
-        for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+        if(std::vector<uint32>* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry))
         {
-            data << (*itr);
-            if(++index == 6)
-                break;
+            for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+            {
+                data << (*itr);
+                if(++index == 6)
+                    break;
+            }
         }
         for(uint8 i = index; i < 6; i++)
             data << uint32(0);
@@ -143,16 +146,18 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     data << goinfo->Icon;
     data << goinfo->CastBarText;
     data << uint8(0);
-    for(uint32 d = 0; d < 32; d++)
+    for(uint32 d = 0; d < 24; d++)
         data << goinfo->RawData.ListedData[d];
     data << float(1.f);
     uint8 index = 0;
-    std::vector<uint32>* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID);
-    for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+    if(std::vector<uint32>* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID))
     {
-        data << (*itr);
-        if(++index == 6)
-            break;
+        for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
+        {
+            data << (*itr);
+            if(++index == 6)
+                break;
+        }
     }
     for(uint8 i = index; i < 6; i++)
         data << uint32(0);

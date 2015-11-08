@@ -185,8 +185,7 @@ void Object::SetUpdateField(uint32 index)
 bool Object::_SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags)
 {
     bool res = false;
-    uint16 typeMask = GetTypeFlags();
-    uint32 offset = 0, *flags, fLen = 0;
+    uint16 typeMask = GetTypeFlags(), offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
         if(typeMask & 1<<f)
@@ -206,9 +205,9 @@ bool Object::_SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags)
     return res;
 }
 
-uint32 Object::GetUpdateFlag(Player *target)
+uint16 Object::GetUpdateFlag(Player *target)
 {
-    uint32 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
+    uint16 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
     if(target)
     {
         switch (GetTypeId())
@@ -244,7 +243,7 @@ uint32 Object::GetUpdateFlag(Player *target)
     return flag;
 }
 
-void Object::GetUpdateFieldData(uint8 type, uint32 *&flags, uint32 &length)
+void Object::GetUpdateFieldData(uint8 type, uint16 *&flags, uint16 &length)
 {
     switch (type)
     {
@@ -267,7 +266,9 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     if(GetTypeFlags() & TYPEMASK_TYPE_UNIT)
     {
         updateFlags |= UPDATEFLAG_LIVING;
-        updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
+        // Players or player linked units
+        if(IsPlayer() || IsPet() || IsTotem() || IsSummon())
+            updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
     }
     else if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
     {
@@ -309,7 +310,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     *data << uint8(updatetype);
     *data << m_objGuid.asPacked();
     *data << uint8(GetTypeId());
-    // 
+    // Send our object type update
     _BuildMovementUpdate(data, updateFlags, target);
     // this will cache automatically if needed
     _BuildCreateValuesUpdate( data, target );
@@ -343,8 +344,7 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 {
     ByteBuffer fields;
     UpdateMask mask(m_valuesCount);
-    uint16 typeMask = GetTypeFlags();
-    uint32 uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
+    uint16 typeMask = GetTypeFlags(), uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
         if(typeMask & 1<<f)
@@ -355,7 +355,7 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
                 if(m_uint32Values[offset] == 0)
                     continue;
 
-                if((flags[i] & m_notifyFlags) || (flags[i] & uFlag))
+                if(flags[i] & (uFlag|m_notifyFlags))
                 {
                     mask.SetBit(offset);
                     fields << m_uint32Values[offset];
@@ -484,11 +484,13 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
 
 void Object::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
 {
+    printf("Writing empty stationary\n");
     *bytes << float(0.f) << float(0.f) << float(0.f) << float(0.f);
 }
 
 void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
+    printf("Writing empty livingbit\n");
     bits->WriteBit(1); // We have no movement flags
     bits->WriteBit(1); // We have no orientation
     bits->WriteBits(0, 3); // Guid mask
@@ -514,9 +516,13 @@ void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
 
 void Object::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
+    printf("Writing empty targetbit\n");
     // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
     bits->WriteBits(0, 8);
 }
+
+void Object::_WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) { printf("Writing empty livingbyte\n"); }
+void Object::_WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) { printf("Writing empty targetbyte\n"); }
 
 void Object::DestroyForPlayer(Player* target, bool anim)
 {
@@ -596,6 +602,11 @@ void WorldObject::Destruct()
     m_instanceId = -1;
     sEventMgr.RemoveEvents(this);
     Object::Destruct();
+}
+
+void WorldObject::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
+{
+    *bytes << GetOrientation() << GetPositionX() << GetPositionY() << GetPositionZ();
 }
 
 //That is dirty fix it actually creates update of 1 field with

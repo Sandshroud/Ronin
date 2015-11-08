@@ -112,7 +112,7 @@ public:
 
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_CREATURE);
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT);
         RONIN_UNORDERED_MAP<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
         return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
     }

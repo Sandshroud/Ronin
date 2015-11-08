@@ -573,12 +573,6 @@ uint32 Item::GetMaxSocketsCount()
     return c;
 }
 
-uint32 Item::GenerateRandomSuffixFactor( ItemPrototype* m_itemProto )
-{
-    double value = ( value * double( m_itemProto->ItemLevel ) ) + 0.5;
-    return double2int32( value );
-}
-
 std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack)
 {
     if( Quality > ITEM_QUALITY_DBC_MAX )

@@ -2218,7 +2218,6 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
 
     float radius = atof(args)+go->GetOrientation();
     go->SetOrientation(radius);
-    go->UpdateRotation();
     go->RemoveFromWorld(true);
     go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
     go->SaveToDB();

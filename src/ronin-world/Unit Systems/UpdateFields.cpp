@@ -1,7 +1,7 @@
 
 #include "StdAfx.h"
 
-uint32 ObjectUpdateFieldFlags[OBJECT_LENGTH] =
+uint16 ObjectUpdateFieldFlags[OBJECT_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // OBJECT_FIELD_GUID
     UF_FLAG_PUBLIC,                                         // OBJECT_FIELD_GUID+1
@@ -13,7 +13,7 @@ uint32 ObjectUpdateFieldFlags[OBJECT_LENGTH] =
     UF_FLAG_NONE,                                           // OBJECT_FIELD_PADDING
 };
 
-uint32 ItemUpdateFieldFlags[ITEM_LENGTH] =
+uint16 ItemUpdateFieldFlags[ITEM_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // ITEM_FIELD_OWNER
     UF_FLAG_PUBLIC,                                         // ITEM_FIELD_OWNER+1
@@ -83,7 +83,7 @@ uint32 ItemUpdateFieldFlags[ITEM_LENGTH] =
     UF_FLAG_PUBLIC                                          // ITEM_FIELD_CREATE_PLAYED_TIME
 };
 
-uint32 ContainerUpdateFieldFlags[CONTAINER_LENGTH] =
+uint16 ContainerUpdateFieldFlags[CONTAINER_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // CONTAINER_FIELD_NUM_SLOTS
     UF_FLAG_NONE,                                           // CONTAINER_ALIGN_PAD
@@ -161,7 +161,7 @@ uint32 ContainerUpdateFieldFlags[CONTAINER_LENGTH] =
     UF_FLAG_PUBLIC,                                         // CONTAINER_FIELD_SLOT_1+71
 };
 
-uint32 UnitUpdateFieldFlags[UNIT_LENGTH] =
+uint16 UnitUpdateFieldFlags[UNIT_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // UNIT_FIELD_CHARM
     UF_FLAG_PUBLIC,                                         // UNIT_FIELD_CHARM+1
@@ -303,7 +303,7 @@ uint32 UnitUpdateFieldFlags[UNIT_LENGTH] =
     UF_FLAG_NONE                                            // UNIT_FIELD_PADDING
 };
 
-uint32 PlayerUpdateFieldFlags[PLAYER_LENGTH] =
+uint16 PlayerUpdateFieldFlags[PLAYER_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // PLAYER_DUEL_ARBITER
     UF_FLAG_PUBLIC,                                         // PLAYER_DUEL_ARBITER+1
@@ -1545,7 +1545,7 @@ uint32 PlayerUpdateFieldFlags[PLAYER_LENGTH] =
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_MOD_HASTE_REGEN
 };
 
-uint32 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH] =
+uint16 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // GAMEOBJECT_FIELD_CREATED_BY
     UF_FLAG_PUBLIC,                                         // GAMEOBJECT_FIELD_CREATED_BY+1
@@ -1561,7 +1561,7 @@ uint32 GameObjectUpdateFieldFlags[GAMEOBJECT_LENGTH] =
     UF_FLAG_PUBLIC,                                         // GAMEOBJECT_BYTES_1
 };
 
-uint32 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH] =
+uint16 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // DYNAMICOBJECT_CASTER
     UF_FLAG_PUBLIC,                                         // DYNAMICOBJECT_CASTER+1
@@ -1571,7 +1571,7 @@ uint32 DynamicObjectUpdateFieldFlags[DYNAMICOBJECT_LENGTH] =
     UF_FLAG_PUBLIC,                                         // DYNAMICOBJECT_CASTTIME
 };
 
-uint32 CorpseUpdateFieldFlags[CORPSE_LENGTH] =
+uint16 CorpseUpdateFieldFlags[CORPSE_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // CORPSE_FIELD_OWNER
     UF_FLAG_PUBLIC,                                         // CORPSE_FIELD_OWNER+1
@@ -1603,7 +1603,7 @@ uint32 CorpseUpdateFieldFlags[CORPSE_LENGTH] =
     UF_FLAG_DYNAMIC,                                        // CORPSE_FIELD_DYNAMIC_FLAGS
 };
 
-uint32 AreaTriggerUpdateFieldFlags[AREATRIGGER_LENGTH] =
+uint16 AreaTriggerUpdateFieldFlags[AREATRIGGER_LENGTH] =
 {
     UF_FLAG_PUBLIC,                                         // AREATRIGGER_SPELLID
     UF_FLAG_PUBLIC,                                         // AREATRIGGER_SPELLVISUALID
