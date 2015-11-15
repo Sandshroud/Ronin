@@ -91,7 +91,7 @@ void ItemManager::InitializeItemPrototypes()
         proto->minDamage = 0;
         proto->maxDamage = 0;
         proto->Armor = 0;
-        proto->MaxDurability = 0;
+        proto->Durability = 0;
         // These are set later.
         proto->ItemId = itemData->ID;
         proto->Class = itemData->Class;
@@ -137,6 +137,7 @@ void ItemManager::InitializeItemPrototypes()
             proto->ItemContent[i] = sparse->SocketContent[i];
         }
 
+        proto->ScalingStatDistribution = sparse->ScalingStatDistribution;
         proto->DamageType = sparse->DamageType;
         proto->Delay = sparse->Delay;
         proto->Range = sparse->RangedModRange;
@@ -155,6 +156,7 @@ void ItemManager::InitializeItemPrototypes()
         proto->ZoneNameID = sparse->Area;
         proto->MapID = sparse->Map;
         proto->BagFamily = sparse->BagFamily;
+        proto->TotemCategory = sparse->TotemCategory;
         proto->SocketBonus = sparse->SocketBonus;
         proto->GemProperties = sparse->GemProperties;
         proto->ArmorDamageModifier = sparse->ArmorDamageModifier;
@@ -180,7 +182,7 @@ void ItemManager::LoadItemOverrides()
     if(result != NULL)
     {
         uint32 fieldCount = result->GetFieldCount();
-        if(fieldCount != 109)
+        if(fieldCount != 111)
             sLog.outError("Incorrect field count in item override table %u\n", fieldCount);
         else
         {
@@ -222,6 +224,7 @@ void ItemManager::LoadItemOverrides()
                     proto->minDamage = 0;
                     proto->maxDamage = 0;
                     proto->Armor = 0;
+                    proto->Durability = 0;
                     for(uint8 i = 0; i < 10; i++)
                     {
                         proto->Stats[i].Type = 0;
@@ -240,6 +243,7 @@ void ItemManager::LoadItemOverrides()
                         proto->ItemContent[i] = 0;
                     }
 
+                    proto->ScalingStatDistribution = 0;
                     proto->DamageType = 0;
                     proto->Delay = 0;
                     proto->Range = 0;
@@ -255,10 +259,10 @@ void ItemManager::LoadItemOverrides()
                     proto->RandomPropId = 0;
                     proto->RandomSuffixId = 0;
                     proto->ItemSet = 0;
-                    proto->MaxDurability = 0;
                     proto->ZoneNameID = 0;
                     proto->MapID = 0;
                     proto->BagFamily = 0;
+                    proto->TotemCategory = 0;
                     proto->SocketBonus = 0;
                     proto->GemProperties = 0;
                     proto->ArmorDamageModifier = 0;
@@ -309,6 +313,7 @@ void ItemManager::LoadItemOverrides()
                     CHECK_OVERRIDE_VALUE(proto, Stats[i].Type, GetUInt32, field_Count, 0x02);
                     CHECK_OVERRIDE_VALUE(proto, Stats[i].Value, GetInt32, field_Count, 0x02);
                 }
+                CHECK_OVERRIDE_VALUE(proto, ScalingStatDistribution, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, DamageType, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, Delay, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, Range, GetFloat, field_Count, 0x02);
@@ -341,6 +346,7 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, ZoneNameID, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, MapID, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, BagFamily, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, TotemCategory, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, SocketBonus, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, GemProperties, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, ArmorDamageModifier, GetFloat, field_Count, 0x02);
@@ -377,7 +383,7 @@ void ItemManager::LoadItemOverrides()
         ArmorQ = NULL, ArmorS = NULL, ArmorT = NULL, ArmorE = NULL, Damage = NULL;
         if(proto->Class == ITEM_CLASS_WEAPON)
         {
-            proto->MaxDurability = CalcWeaponDurability(proto->SubClass, proto->Quality, proto->ItemLevel);
+            proto->Durability = CalcWeaponDurability(proto->SubClass, proto->Quality, proto->ItemLevel);
             switch(proto->InventoryType)
             {
             case INVTYPE_WEAPON:
@@ -437,7 +443,7 @@ void ItemManager::LoadItemOverrides()
                     ArmorT = dbcArmorTotal.LookupEntry(proto->ItemLevel);
                 }
             }
-            proto->MaxDurability = CalcArmorDurability(inventoryType, proto->Quality, proto->ItemLevel);
+            proto->Durability = CalcArmorDurability(inventoryType, proto->Quality, proto->ItemLevel);
         }
 
         if(Damage)

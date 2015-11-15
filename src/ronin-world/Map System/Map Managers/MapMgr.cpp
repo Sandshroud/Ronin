@@ -660,7 +660,7 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
                                         plObj->AddVisibleObject( curObj );
                                         if(int count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
                                         {
-                                            plObj->PushUpdateBlock( &m_createBuffer, count );
+                                            plObj->PushUpdateBlock(&m_createBuffer, count);
                                             m_createBuffer.clear();
                                         }
                                     }
@@ -814,7 +814,7 @@ void MapMgr::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
                     if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateBlock( &m_createBuffer, count );
+                        plObj->PushUpdateBlock(&m_createBuffer, count);
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -854,7 +854,7 @@ void MapMgr::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
                     else if(cansee && !isvisible)
                     {
                         count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj );
-                        plObj->PushUpdateBlock( &m_createBuffer, count );
+                        plObj->PushUpdateBlock(&m_createBuffer, count);
                         plObj->AddVisibleObject( curObj );
                         m_createBuffer.clear();
                     }
@@ -921,7 +921,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     {
                         if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
                         {
-                            plObj->PushUpdateBlock( &m_createBuffer, count );
+                            plObj->PushUpdateBlock(&m_createBuffer, count);
                             plObj->AddVisibleObject( curObj );
                             m_createBuffer.clear();
                         }
@@ -965,7 +965,7 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                     {
                         if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
                         {
-                            plObj->PushUpdateBlock( &m_createBuffer, count );
+                            plObj->PushUpdateBlock(&m_createBuffer, count);
                             plObj->AddVisibleObject( curObj );
                             m_createBuffer.clear();
                         }

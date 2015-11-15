@@ -39,6 +39,9 @@ struct ItemPrototype
     uint32 minDamage;
     uint32 maxDamage;
     uint32 Armor;
+    uint32 Durability;
+
+    uint32 ScalingStatDistribution;
     uint32 DamageType;
     uint32 Delay;
     float  Range;
@@ -63,10 +66,10 @@ struct ItemPrototype
     uint32 RandomPropId;
     uint32 RandomSuffixId;
     uint32 ItemSet;
-    uint32 MaxDurability;
     uint32 ZoneNameID;
     uint32 MapID;
     uint32 BagFamily;
+    uint32 TotemCategory;
     uint32 ItemSocket[3];
     uint32 ItemContent[3];
     uint32 SocketBonus;

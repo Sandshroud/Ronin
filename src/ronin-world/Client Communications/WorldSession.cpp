@@ -1125,7 +1125,7 @@ void WorldSession::SaveAccountData()
     if( sWorld.m_useAccountData )
     {
         std::stringstream fieldName, datastring;
-        fieldName << "acct";
+        fieldName << "accountid";
         datastring << "'" << _accountId << "'";
         for(uint32 ui = 0; ui < 8; ++ui)
         {

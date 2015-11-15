@@ -698,7 +698,7 @@ void WorldSession::SendInventoryList(Creature* unit)
                 data << curItem->DisplayInfoID;
                 data << av_am;
                 data << sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, _player, unit);
-                data << curItem->MaxDurability;
+                data << curItem->Durability;
                 data << itr->second.amount;
                 data << extendedCostId;
                 data << uint8(0);

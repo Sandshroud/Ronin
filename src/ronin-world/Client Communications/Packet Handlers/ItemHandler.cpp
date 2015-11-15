@@ -920,13 +920,11 @@ void WorldSession::HandleRepairItemOpcode(WorldPacket &recvPacket)
                 }
                 else
                 {
-                    if( pItem->GetProto()->MaxDurability > 0 && i < INVENTORY_SLOT_BAG_END && pItem->GetDurability() <= 0 )
+                    if( pItem->GetProto()->Durability > 0 && i < INVENTORY_SLOT_BAG_END && pItem->GetDurability() <= 0 )
                     {
                         RepairItem( _player, pItem, guildmoney );
                         _player->ApplyItemMods( pItem, i, true );
-                    }
-                    else
-                        RepairItem( _player, pItem, guildmoney );
+                    } else RepairItem( _player, pItem, guildmoney );
                 }
             }
         }

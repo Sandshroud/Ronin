@@ -67,7 +67,7 @@ void Item::LoadFromDB(Field* fields)
 
     SetTextID( fields[11].GetUInt32() );
 
-    SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_proto->MaxDurability );
+    SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_proto->Durability );
     SetUInt32Value( ITEM_FIELD_DURABILITY, fields[12].GetUInt32() );
 
     std::string enchant_field = fields[15].GetString();

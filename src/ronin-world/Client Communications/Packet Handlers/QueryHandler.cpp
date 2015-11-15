@@ -146,8 +146,7 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     data << goinfo->Icon;
     data << goinfo->CastBarText;
     data << uint8(0);
-    for(uint32 d = 0; d < 24; d++)
-        data << goinfo->RawData.ListedData[d];
+    data.append((const uint8*)goinfo->RawData.ListedData, 24*sizeof(uint32));
     data << float(1.f);
     uint8 index = 0;
     if(std::vector<uint32>* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID))
@@ -257,23 +256,44 @@ void WorldSession::HandleQuestQueryOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
 {
-    uint32 count, type;
-    recvPacket >> count >> type;
+    uint32 type, count;
+    recvPacket >> type;
     if (type != 0x50238EC2 && type != 0x919BE54E)
     {
         sLog.outString("Client tried to request update item data from non-handled update type");
         return;
     }
 
+    std::vector<uint8> masks;
+    count = recvPacket.ReadBits(23);
+    masks.reserve(count);
+    memset(&masks[0], 0, count);
+
     for (uint32 i = 0; i < count; ++i)
+        recvPacket.ReadGuidMaskBits(masks[i], 8, 0, 4, 7, 2, 5, 3, 6, 1);
+
+    for (uint32 c = 0; c < count; ++c)
     {
         uint32 item;
+        WoWGuid guid;
+        for(uint8 i = 0; i < 8; i++)
+            if(masks[c] & 1<<i)
+                guid[i] = 1;
+
+        recvPacket.ReadByteSeq(guid[5]);
+        recvPacket.ReadByteSeq(guid[6]);
+        recvPacket.ReadByteSeq(guid[7]);
+        recvPacket.ReadByteSeq(guid[0]);
+        recvPacket.ReadByteSeq(guid[1]);
+        recvPacket.ReadByteSeq(guid[3]);
+        recvPacket.ReadByteSeq(guid[4]);
         recvPacket >> item;
-        recvPacket.read_skip(8);
+        recvPacket.ReadByteSeq(guid[2]);
 
         WorldPacket data2(SMSG_DB_REPLY, 700);
-        data2 << uint32(type); // Needed?
         data2 << uint32(item);
+        data2 << uint32(type); // Needed?
+        data2 << uint32(sWorld.GetStartTime());
         ItemPrototype* proto = sItemMgr.LookupEntry(item);
         if (!proto) // Item does not exist
         {
@@ -301,6 +321,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                 data << uint32(proto->Quality);
                 data << uint32(proto->Flags);
                 data << uint32(proto->FlagsExtra);
+                data << float(0.f) << float(0.f);
                 data << int32(proto->BuyPrice);
                 data << uint32(proto->SellPrice);
                 data << uint32(proto->InventoryType);
@@ -329,7 +350,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                 for (uint32 x = 0; x < 20; ++x) // 20 unk fields
                     data << uint32(0);
 
-                data << uint32(0);
+                data << uint32(proto->ScalingStatDistribution);
                 data << uint32(proto->DamageType);
                 data << uint32(proto->Delay);
                 data << float(proto->Range);
@@ -377,12 +398,11 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                 data << int32(proto->RandomPropId);
                 data << int32(proto->RandomSuffixId);
                 data << uint32(proto->ItemSet);
-                data << uint32(proto->MaxDurability);
 
                 data << uint32(proto->ZoneNameID);
                 data << uint32(proto->MapID);
                 data << uint32(proto->BagFamily);
-                data << uint32(0);
+                data << uint32(proto->TotemCategory);
 
                 for (uint32 x = 0; x < 3; ++x)
                     data << uint32(proto->ItemSocket[x]);
@@ -396,10 +416,8 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                 data << int32(proto->Duration);
                 data << uint32(proto->ItemLimitCategory);
                 data << uint32(proto->HolidayId);
-
                 data << float(proto->StatScalingFactor); // StatScalingFactor
-                data << uint32(0);
-                data << uint32(0);
+                data << uint32(0) << uint32(0);
             }
 
             data2 << uint32(data.size());

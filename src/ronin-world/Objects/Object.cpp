@@ -475,11 +475,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     }
 
     if(flags & UPDATEFLAG_TRANSPORT)
-    {
-        if(IsTransport())
-            *data << castPtr<Transporter>(this)->m_timer;
-        else *data << (uint32)getMSTime();
-    }
+        *data << uint32(getMSTime());
 }
 
 void Object::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
@@ -632,7 +628,7 @@ void WorldObject::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Va
 void WorldObject::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
 {
     *buf << uint8(UPDATETYPE_VALUES);
-    *buf << GetGUID();
+    *buf << m_objGuid.asPacked();
 
     uint32 mBlocks = Index/32+1;
     *buf << (uint8)mBlocks;
