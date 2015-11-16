@@ -4,9 +4,8 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false), m_objectUpdated(false)
 {
-    m_updateMask.SetCount(m_valuesCount);
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
 
@@ -207,7 +206,7 @@ bool Object::_SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags)
 
 uint16 Object::GetUpdateFlag(Player *target)
 {
-    uint16 flag = UF_FLAG_PUBLIC + (target == this ? UF_FLAG_PRIVATE : 0);
+    uint16 flag = (target == this ? UF_FLAGMASK_SELF : UF_FLAGMASK_PUBLIC);
     if(target)
     {
         switch (GetTypeId())
@@ -261,25 +260,16 @@ void Object::GetUpdateFieldData(uint8 type, uint16 *&flags, uint16 &length)
 
 uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
-    uint16 updateFlags = IsVehicle() ? UPDATEFLAG_VEHICLE : UPDATEFLAG_NONE;
+    uint16 updateFlags = m_updateFlags;
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
-    if(GetTypeFlags() & TYPEMASK_TYPE_UNIT)
+    // Players or player linked units
+    if(IsPlayer() || IsPet() || IsTotem() || IsSummon())
+        updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
+
+    if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
     {
-        updateFlags |= UPDATEFLAG_LIVING;
-        // Players or player linked units
-        if(IsPlayer() || IsPet() || IsTotem() || IsSummon())
-            updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
-    }
-    else if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
-    {
-        updateFlags = UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
         switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
         {
-        case GAMEOBJECT_TYPE_TRANSPORT:
-        case GAMEOBJECT_TYPE_MO_TRANSPORT:
-            {
-                updateFlags |= UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT;
-            }break;
         case GAMEOBJECT_TYPE_TRAP:
         case GAMEOBJECT_TYPE_DUEL_ARBITER:
         case GAMEOBJECT_TYPE_FLAGSTAND:
@@ -290,21 +280,15 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
                 updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
             }break;
         }
-    } else if(IsObject())
-        updateFlags |= UPDATEFLAG_STATIONARY_POS;
+    }
 
     if(target == this)
     {
         // player creating self
         updateFlags |= UPDATEFLAG_SELF;
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
-    }
-
-    if(IsUnit())
-    {
-        if (castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
-            updateFlags |= UPDATEFLAG_HAS_TARGET;
-    }
+    } else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
+        updateFlags |= UPDATEFLAG_HAS_TARGET;
 
     // build our actual update
     *data << uint8(updatetype);
@@ -358,15 +342,16 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
                 if(flags[i] & (uFlag|m_notifyFlags))
                 {
                     mask.SetBit(offset);
-                    fields << m_uint32Values[offset];
+                    /*if(IsGameObject() && offset == GAMEOBJECT_DISPLAYID)
+                        fields << uint32(0);
+                    else*/ fields << m_uint32Values[offset];
                 }
             }
         }
     }
 
-    uint32 byteCount = mask.GetUpdateBlockCount();
-    *data << uint8(byteCount);
-    data->append( mask.GetMask(), byteCount*4 );
+    *data << uint8(mask.GetBlockCount());
+    data->append(mask.GetMask(), mask.GetLength() );
     data->append(fields.contents(), fields.size());
 }
 
@@ -377,12 +362,11 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask)
 {
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
-    uint32 byteCount = updateMask->GetUpdateBlockCount();
-    uint32 valueCount = std::min(byteCount*32, m_valuesCount);
+    uint32 byteCount = updateMask->GetBlockCount();
 
     *data << uint8(byteCount);
     data->append( updateMask->GetMask(), byteCount*4 );
-    for( uint32 index = 0; index < valueCount; index++ )
+    for( uint32 index = 0; index < m_valuesCount; index++ )
         if( updateMask->GetBit( index ) )
             *data << m_uint32Values[index];
 }
@@ -480,13 +464,11 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
 
 void Object::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
 {
-    printf("Writing empty stationary\n");
     *bytes << float(0.f) << float(0.f) << float(0.f) << float(0.f);
 }
 
 void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
-    printf("Writing empty livingbit\n");
     bits->WriteBit(1); // We have no movement flags
     bits->WriteBit(1); // We have no orientation
     bits->WriteBits(0, 3); // Guid mask
@@ -512,13 +494,9 @@ void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
 
 void Object::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
 {
-    printf("Writing empty targetbit\n");
     // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
     bits->WriteBits(0, 8);
 }
-
-void Object::_WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) { printf("Writing empty livingbyte\n"); }
-void Object::_WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) { printf("Writing empty targetbyte\n"); }
 
 void Object::DestroyForPlayer(Player* target, bool anim)
 {
@@ -811,7 +789,7 @@ WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
 {
     ///////////////////////////////////////
     //Update player on the client with TELEPORT_ACK
-    if( IsInWorld() )       // only send when inworld
+    if(IsPlayer() && IsInWorld() )       // only send when inworld
         castPtr<Player>(this)->SetPlayerStatus( TRANSFER_PENDING );
 
     WorldPacket * data = new WorldPacket(MSG_MOVE_TELEPORT, 80);

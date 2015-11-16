@@ -420,10 +420,6 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
         }break;
     }
 
-    if(uint16 distributeOpcode = GetInternalMovementCode(moveCode))
-    {
-    }
-
     return true;
 }
 
@@ -568,15 +564,7 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode)
     }
 
     if(uint32 emoteState = m_Unit->GetUInt32Value(UNIT_NPC_EMOTESTATE))
-    {
-        bool remove = true;
-        if(EmoteEntry *emote = dbcEmote.LookupEntry(emoteState))
-        {
-            printf("EmoteType: %u %u\n", emote->emoteType, emote->unitStandState);
-        }
-
-        if(remove) m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
-    }
+        m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
 
     /************************************************************************/
     /* Remove Spells                                                        */
@@ -792,7 +780,7 @@ void MovementInterface::OnTaxiEnd()
 
 void MovementInterface::OnRelocate(LocationVector destination)
 {
-    *m_serverLocation = destination;
+
 }
 
 bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
@@ -949,7 +937,7 @@ void MovementInterface::WriteObjectUpdateBits(ByteBuffer *bits)
     DO_BIT(bits, hasSplineElevation, false);
     DO_BIT(bits, m_moverGuid[5], true);
     DO_BIT(bits, hasTransportData, true);
-    DO_BIT(bits, true, false); // !Hastimestamp
+    DO_BIT(bits, true, false); // We have a timestamp, but the question is if we have no timestamp
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[1], true);
     DO_COND_BIT(bits, hasTransportData, hasTransportTime2, true);
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[4], true);
@@ -978,6 +966,7 @@ void MovementInterface::WriteObjectUpdateBytes(ByteBuffer *bytes)
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
+
     // Append our bytes
     DO_SEQ_BYTE(bytes, m_moverGuid[4]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN_BACK));

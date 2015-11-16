@@ -7,6 +7,7 @@
 GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
+    m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
 
     SetAnimProgress(100);
     counter = 0;
@@ -162,20 +163,15 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
 
     m_created = true;
     WorldObject::_Create( mapid, x, y, z, ang );
+    if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT || pInfo->Type == GAMEOBJECT_TYPE_MO_TRANSPORT)
+        m_updateFlags |= (UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT);
+
     SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-
-    float rotation[4] = { 0.f, 0.f, 0.f, 1.f };
-    for(uint8 i = 0; i < 4; i++)
-    {
-        /*if(RotationData *data = objmgr.getobjectrotation())
-            rotation[i] = data->rotation[i];*/
-        SetFloatValue(GAMEOBJECT_PARENTROTATION + i, rotation[i]);
-    }
-
     SetState(1);
     SetDisplayId(pInfo->DisplayID );
     SetType(pInfo->Type);
     SetFlags(pInfo->DefaultFlags);
+    SetAnimProgress(255);
     InitAI();
     return true;
 }
@@ -357,19 +353,19 @@ void GameObject::InitAI()
     checkrate = 20;//once in 2 seconds
 }
 
-bool GameObject::Load(GOSpawn *spawn)
+bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
 {
-    if(!CreateFromProto(spawn->entry,0,spawn->x,spawn->y,spawn->z,spawn->facing))
+    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z,spawn->facing))
         return false;
 
     m_spawn = spawn;
-    SetFlags(spawn->flags);
-    SetState(spawn->state);
     if(spawn->faction)
     {
         SetUInt32Value(GAMEOBJECT_FACTION,spawn->faction);
         m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
     }
+    SetFlags(spawn->flags);
+    SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
 
     if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )

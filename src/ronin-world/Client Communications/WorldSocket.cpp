@@ -439,22 +439,19 @@ void WorldSocket::Authenticate()
     data << uint32(CL_BUILD_SUPPORT);
     SendPacket(&data);
 
-    if(sItemMgr.HotfixOverridesSize())
+    data.Initialize(SMSG_HOTFIX_NOTIFY, 12); // Blop or not, client will accept the info
+    if(size_t count = sItemMgr.HotfixOverridesSize())
     {
-        WorldPacket hotFix(SMSG_HOTFIX_NOTIFY, 100); // Blop or not, client will accept the info
-        hotFix << uint32(0); // count
-        hotFix << uint32(true ? 0x919BE54E : 0x50238EC2); // This can be either, the client will ask for both if no current db2 info is found
-        uint32 count = 0;
+        data << uint32(count); // count
+        data << uint32(true ? 0x919BE54E : 0x50238EC2); // This can be either, the client will ask for both if no current db2 info is found
         for(std::map<uint32, uint8>::iterator itr = sItemMgr.HotfixOverridesBegin(); itr != sItemMgr.HotfixOverridesEnd(); itr++)
         {
-            hotFix << uint32(((itr->second & 0x02) ? 0x50238EC2 : 0x919BE54E));
-            hotFix << uint32(UNIXTIME);
-            hotFix << itr->first;
-            count++;
+            data << uint32(((itr->second & 0x02) ? 0x50238EC2 : 0x919BE54E));
+            data << uint32(sWorld.GetStartTime());
+            data << itr->first;
         }
-        hotFix.put<uint32>(0, count);
-        SendPacket(&hotFix);
-    }
+    } else data << uint32(0);
+    SendPacket(&data);
 
     data.Initialize(SMSG_TUTORIAL_FLAGS, 4 * 8);
     for (uint32 i = 0; i < 8; ++i)
@@ -614,6 +611,7 @@ void WorldSocket::OnRecvData()
             }break;
         default:
             {
+                //printf("Queuing packet %s(0x%.4X)\n", sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
                 if(mSession)
                 {
                     mSession->QueuePacket(Packet);

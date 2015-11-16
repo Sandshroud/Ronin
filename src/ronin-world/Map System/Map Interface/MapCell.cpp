@@ -202,7 +202,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
             if(go == NULL)
                 continue;
 
-            if(go->Load(*i))
+            if(go->Load(_mapmgr->GetMapId(), *i))
             {
                 go->PushToWorld(_mapmgr);
                 TRIGGER_GO_EVENT(go, OnSpawn);

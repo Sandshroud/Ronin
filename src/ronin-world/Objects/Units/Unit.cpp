@@ -7,6 +7,7 @@
 Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(), m_movementInterface(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
+    m_updateFlags |= UPDATEFLAG_LIVING;
 
     memset(&m_attackTimer, 0, sizeof(uint16)*3);
     memset(&m_attackDelay, 0, sizeof(uint16)*3);
@@ -3182,6 +3183,7 @@ void Unit::RemoveFromWorld(bool free_guid)
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
+    m_movementInterface.OnRelocate(LocationVector(newX, newY, newZ, newOrientation));
     WorldObject::SetPosition(newX, newY, newZ, newOrientation);
 }
 

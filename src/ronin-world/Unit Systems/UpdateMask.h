@@ -6,89 +6,66 @@
 
 class UpdateMask
 {
-    uint32 *m_mask;
-    uint32 mCount; // in values
-    uint32 mBlocks; // in uint32 blocks
-
 public:
-    UpdateMask( ) : m_mask( 0 ), mCount( 0 ), mBlocks( 0 ) { }
-    UpdateMask( const UpdateMask& mask ) : m_mask( 0 ) { *this = mask; }
-    UpdateMask(uint32 valCount) : m_mask( 0 ), mCount( 0 ), mBlocks( 0 ) { SetCount(valCount); }
+    UpdateMask() : mCount(0), mBlocks(0), mUpdateMask(0) { }
+    UpdateMask(uint32 count) : mCount(0), mBlocks(0), mUpdateMask(0) { SetCount(count); }
+    UpdateMask(const UpdateMask& mask) : mUpdateMask(0) { *this = mask; }
 
-    uint32 AByte(const uint32 index) { return (uint32)floor(float(index)/32.0f); }
-    uint8 ABit(const uint32 index) { return index%32; }
-
-    ~UpdateMask( )
+    ~UpdateMask()
     {
-        if(m_mask)
-            delete [] m_mask;
+        delete[] mUpdateMask;
     }
 
-    void SetBit( const uint32 index )
-    {
-        ASSERT(index < mCount);
-        m_mask[AByte(index)] |= uint32(uint32(1) << ABit(index));
-    }
+    RONIN_INLINE void SetBit(uint32 index) { ((uint8*)mUpdateMask)[ index >> 3 ] |= 1 << (index & 0x7); }
+    RONIN_INLINE void UnsetBit(uint32 index) { ((uint8*)mUpdateMask)[ index >> 3 ] &= (0xff ^ (1 << (index & 0x7))); }
+    RONIN_INLINE bool GetBit(uint32 index) const { return (((uint8*)mUpdateMask)[ index >> 3 ] & (1 << (index & 0x7))) != 0; }
 
-    void UnsetBit( const uint32 index )
-    {
-        ASSERT(index < mCount);
-        m_mask[AByte(index)] &= ~uint32(uint32(1) << ABit(index));
-    }
-
-    bool GetBit( const uint32 index )
-    {
-        ASSERT(index < mCount);
-        return (m_mask[AByte(index)] & uint32(uint32(1) << ABit(index)));
-    }
-
-    RONIN_INLINE uint32 GetLength() const { return (mBlocks*sizeof(uint32)); }
-    RONIN_INLINE uint32 GetBlockCount() const {return mBlocks;}
+    RONIN_INLINE uint32 GetBlockCount() const { return mBlocks; }
+    RONIN_INLINE uint32 GetLength() const { return mBlocks << 2; }
     RONIN_INLINE uint32 GetCount() const { return mCount; }
-    RONIN_INLINE const uint8* GetMask() const { return (uint8*)m_mask; }
+    RONIN_INLINE uint8* GetMask() { return (uint8*)mUpdateMask; }
 
-    uint32 GetUpdateBlockCount() const
+    RONIN_INLINE void SetCount(uint32 valuesCount)
     {
-        for(uint32 x = mBlocks-1; x >= 0; x--)
-        { if(m_mask[x]) return x+1; }
-        return 1;
-    }
-
-    void SetCount(uint32 valuesCount)
-    {
-        if(m_mask)
-            delete [] m_mask;
+        if(mUpdateMask)
+            delete[] mUpdateMask;
 
         mCount = valuesCount;
         mBlocks = (valuesCount + 31) / 32;
 
-        m_mask = new uint32[mBlocks];
-        memset(m_mask, 0, mBlocks*sizeof(uint32));
+        mUpdateMask = new uint32[mBlocks];
+        memset(mUpdateMask, 0, GetLength());
     }
 
-    void Clear() { if (m_mask) memset(m_mask, 0, mBlocks*sizeof(uint32)); }
-    UpdateMask& operator = ( const UpdateMask& mask )
+    RONIN_INLINE void Clear()
+    {
+        if (mUpdateMask)
+            memset(mUpdateMask, 0, GetLength());
+    }
+
+    UpdateMask& operator = (const UpdateMask& mask)
     {
         SetCount(mask.mCount);
-        memcpy(m_mask, mask.m_mask, mBlocks*sizeof(uint32));
+        memcpy(mUpdateMask, mask.mUpdateMask, GetLength());
+
         return *this;
     }
 
-    void operator &= ( const UpdateMask& mask )
+    void operator &= (const UpdateMask& mask)
     {
         ASSERT(mask.mCount <= mCount);
-        for(uint32 i = 0; i < mBlocks; i++)
-            m_mask[i] &= mask.m_mask[i];
+        for (uint32 i = 0; i < mBlocks; ++i)
+            mUpdateMask[i] &= mask.mUpdateMask[i];
     }
 
-    void operator |= ( const UpdateMask& mask )
+    void operator |= (const UpdateMask& mask)
     {
         ASSERT(mask.mCount <= mCount);
-        for(uint32 i = 0; i < mBlocks; i++)
-            m_mask[i] |= mask.m_mask[i];
+        for (uint32 i = 0; i < mBlocks; ++i)
+            mUpdateMask[i] |= mask.mUpdateMask[i];
     }
 
-    UpdateMask operator & ( const UpdateMask& mask ) const
+    UpdateMask operator & (const UpdateMask& mask) const
     {
         ASSERT(mask.mCount <= mCount);
 
@@ -98,7 +75,7 @@ public:
         return newmask;
     }
 
-    UpdateMask operator | ( const UpdateMask& mask ) const
+    UpdateMask operator | (const UpdateMask& mask) const
     {
         ASSERT(mask.mCount <= mCount);
 
@@ -107,4 +84,9 @@ public:
         newmask |= mask;
         return newmask;
     }
+
+private:
+    uint32 mCount;
+    uint32 mBlocks;
+    uint32* mUpdateMask;
 };

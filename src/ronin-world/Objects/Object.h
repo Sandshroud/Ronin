@@ -197,8 +197,8 @@ private:
     virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
 
     virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
-    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target);
-    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target);
+    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
+    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
 
 public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
@@ -260,6 +260,8 @@ protected:
 
     //! Object's guid
     WoWGuid m_objGuid;
+    //! Flags for building update data
+    uint32 m_updateFlags;
     //! Number of properties
     uint32 m_valuesCount;
     //! Notification flags for updates

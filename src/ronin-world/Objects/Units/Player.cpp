@@ -6,7 +6,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : m_playerInfo(NULL), Unit(guid, fieldCount), m_talentInterface(this), m_inventory(this), m_currency(this)
+Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_talentInterface(this), m_inventory(this), m_currency(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
@@ -5807,11 +5807,12 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
     _bufferS.Acquire();
 
     // Set data size for limiting update blocks to 45Kb
-    if( (data->size() + bUpdateDataBuffer.size() ) >= 0xAFFF )
+    if((data->size() + bUpdateDataBuffer.size() ) >= 0xAFFF )
         PopPendingUpdates();
 
     mUpdateDataCount += updatecount;
     bUpdateDataBuffer.append(data->contents(), data->size());
+    PopPendingUpdates();
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)

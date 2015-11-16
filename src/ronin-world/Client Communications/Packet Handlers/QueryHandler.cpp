@@ -160,7 +160,6 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     }
     for(uint8 i = index; i < 6; i++)
         data << uint32(0);
-    data << uint32(0);
     SendPacket( &data );
 }
 

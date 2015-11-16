@@ -648,7 +648,6 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
     float y = chr->GetPositionY();
     float z = chr->GetPositionZ();
     float o = chr->GetOrientation();
-    go->CreateFromProto(EntryID,mapid,x,y,z,o);
     BlueSystemMessage(m_session, "Spawning Gameobject(%u) at current position", EntryID);
 
     if(Save == true) // If we're saving, create template and add index
@@ -665,12 +664,12 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         gs->y = y;
         gs->z = z;
         gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
-        go->Load(gs);
+        go->Load(mapid, gs);
         go->SaveToDB();
         uint32 cx = chr->GetMapMgr()->GetPosX(x);
         uint32 cy = chr->GetMapMgr()->GetPosY(y);
         chr->GetMapMgr()->AddGoSpawn(cx, cy, gs);
-    }
+    } else go->CreateFromProto(EntryID,mapid,x,y,z,o);
 
     go->SetInstanceID(chr->GetInstanceID());
     go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
