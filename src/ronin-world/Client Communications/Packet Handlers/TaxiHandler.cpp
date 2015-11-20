@@ -41,7 +41,7 @@ void WorldSession::HandleTaxiQueryAvaibleNodesOpcode( WorldPacket & recv_data )
     sLog.Debug( "WORLD"," Received CMSG_TAXIQUERYAVAILABLENODES" );
     uint64 guid;
     recv_data >> guid;
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
     if(!pCreature) return;
 
     SendTaxiList(pCreature);
@@ -169,7 +169,7 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     // hippogryph: 479
     uint32 modelid = 0;
     CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( (_player->GetTeam() ? taxinode->horde_mount : taxinode->alliance_mount) );
-    if(ctrData == NULL || ((modelid = ctrData->DisplayInfo[0]) == 0))
+    if(ctrData == NULL || ((modelid = ctrData->displayInfo[0]) == 0))
     {
         if(_player->GetTeam())
         {

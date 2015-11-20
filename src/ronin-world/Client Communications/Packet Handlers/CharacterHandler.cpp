@@ -117,8 +117,8 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
-                    petFamily = petData->Family;
-                    petDisplay = petData->DisplayInfo[0];
+                    petFamily = petData->family;
+                    petDisplay = petData->displayInfo[0];
                 }
                 petLevel = res->Fetch()[1].GetUInt32();
                 delete res;

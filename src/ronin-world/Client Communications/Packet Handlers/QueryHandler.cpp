@@ -66,7 +66,7 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
         data << "WayPoint" << uint8(0) << uint8(0) << uint8(0);
         data << "Level is WayPoint ID";
         data << uint8(0);
-        for(uint32 i = 0; i < 10; i++)
+        for(uint32 i = 0; i < 11; i++)
             data << uint32(0);
         data << float(0.0f);
         data << float(0.0f);
@@ -80,39 +80,28 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
     if(CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry))
     {
         data << entry;
-        data << ctrData->Name;
-        for(uint8 i = 0; i < 7; i++)
-            data << uint8(0);
-        data << ctrData->SubName;
-        data << ctrData->InfoStr;
-        data << ctrData->Flags;
-        data << uint32(0);
-        data << ctrData->Type;
-        data << ctrData->Family;
-        data << ctrData->Rank;
-        data << ctrData->KillCredit[0];
-        data << ctrData->KillCredit[1];
-        data << ctrData->DisplayInfo[0];
-        data << ctrData->DisplayInfo[1];
-        data << ctrData->DisplayInfo[2];
-        data << ctrData->DisplayInfo[3];
-        data << ctrData->HealthMod;
-        data << ctrData->PowerMod;
-        data << ctrData->Leader;
-        uint8 index = 0;
-        if(std::vector<uint32>* objQuestLoot = lootmgr.GetCreatureQuestLoot(entry))
-        {
-            for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
-            {
-                data << (*itr);
-                if(++index == 6)
-                    break;
-            }
-        }
-        for(uint8 i = index; i < 6; i++)
-            data << uint32(0);
-        data << uint32(0);  // CreatureMovementInfo.dbc
-        data << uint32(0);
+        data << ctrData->maleName << uint8(0) << uint8(0) << uint8(0);
+        data << ctrData->femaleName << uint8(0) << uint8(0) << uint8(0);
+        data << ctrData->subName;
+        data << ctrData->iconName;
+        data << ctrData->flags;
+        data << ctrData->flags2;
+        data << ctrData->type;
+        data << ctrData->family;
+        data << ctrData->rank;
+        data << ctrData->killCredit[0];
+        data << ctrData->killCredit[1];
+        data << ctrData->displayInfo[0];
+        data << ctrData->displayInfo[1];
+        data << ctrData->displayInfo[2];
+        data << ctrData->displayInfo[3];
+        data << ctrData->healthMod;
+        data << ctrData->powerMod;
+        data << ctrData->leader;
+        for(uint8 i = 0; i < 6; i++)
+            data << ctrData->questItems[i];
+        data << ctrData->dbcMovementId;
+        data << ctrData->expansionId;
         SendPacket( &data );
     }
     else
@@ -146,20 +135,11 @@ void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
     data << goinfo->Icon;
     data << goinfo->CastBarText;
     data << uint8(0);
-    data.append((const uint8*)goinfo->RawData.ListedData, 24*sizeof(uint32));
-    data << float(1.f);
-    uint8 index = 0;
-    if(std::vector<uint32>* objQuestLoot = lootmgr.GetGameObjectQuestLoot(entryID))
-    {
-        for(auto itr = objQuestLoot->begin(); itr != objQuestLoot->end(); itr++)
-        {
-            data << (*itr);
-            if(++index == 6)
-                break;
-        }
-    }
-    for(uint8 i = index; i < 6; i++)
-        data << uint32(0);
+    data.append(goinfo->data.raw.data, 32);
+    data << float(goinfo->sizeMod);
+    for(uint8 i = 0; i < 6; i++)
+        data << uint32(goinfo->questItems[i]);
+    data << uint32(0);
     SendPacket( &data );
 }
 

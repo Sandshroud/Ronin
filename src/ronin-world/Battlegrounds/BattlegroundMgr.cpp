@@ -1375,7 +1375,7 @@ Creature* CBattleground::SpawnCreature(uint32 entry,float x, float y, float z, f
 {
     if (Creature *c = m_mapMgr->CreateCreature(entry))
     {
-        c->Load(m_mapMgr->iInstanceMode, x, y, z, o);
+        c->Load(m_mapMgr->GetMapId(), x, y, z, o, m_mapMgr->iInstanceMode);
         c->PushToWorld(m_mapMgr);
 		return c;
     }
@@ -1626,7 +1626,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
     if (pCreature == NULL)
         return NULL;
 
-    pCreature->Create(m_mapMgr->GetMapId(), x, y, z, o);
+    pCreature->Load(m_mapMgr->GetMapId(), x, y, z, o, 0);
     pCreature->SetInstanceID(m_mapMgr->GetInstanceID());
     pCreature->SetUInt32Value(OBJECT_FIELD_ENTRY, 13116 + horde);
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);

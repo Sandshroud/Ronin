@@ -377,7 +377,7 @@ void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r,
     for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr)
     {
         GameObject* go = m_caster->GetInRangeObject<GameObject>(*itr);
-        if(go->GetInfo()->TypeSpellFocus.FocusId == m_spellInfo->RequiresSpellFocus)
+        if(go->GetInfo()->data.spellFocus.focusId == m_spellInfo->RequiresSpellFocus)
         {
             if(!m_caster->isInRange(go, r))
                 continue;
@@ -396,8 +396,7 @@ uint64 Spell::FindLowestHealthRaidMember(Player* Target, uint32 dist)
 
     uint64 lowestHealthTarget = Target->GetGUID();
     uint32 lowestHealthPct = Target->GetHealthPct();
-    Group *group = Target->GetGroup();
-    if(group)
+    if(Group *group = Target->GetGroup())
     {
         group->Lock();
         for(uint32 j = 0; j < group->GetSubGroupCount(); ++j) {

@@ -1104,6 +1104,9 @@ enum Opcodes
     SMSG_SERVER_INFO_RESPONSE,                                    // 4.3.4:0x74B5
     SMSG_SERVER_MESSAGE,                                          // 4.3.4:0x6C04
     SMSG_SERVER_PERF,                                             // 4.3.4:0x74B6
+    SMSG_SET_AI_ANIM_KIT,                                         // 4.3.4:0x4626
+    SMSG_SET_MOVEMENT_ANIM_KIT,                                   // 4.3.4:0x0F14
+    SMSG_SET_MELEE_ANIM_KIT,                                      // 4.3.4:0x6715
     SMSG_SET_DF_FAST_LAUNCH_RESULT,                               // 4.3.4:0x35B6
     SMSG_SET_FACTION_ATWAR,                                       // 4.3.4:0x4216
     SMSG_SET_FACTION_STANDING,                                    // 4.3.4:0x0126

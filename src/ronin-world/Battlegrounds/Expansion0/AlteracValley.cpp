@@ -323,13 +323,13 @@ AVNode::AVNode( AlteracValley* parent, AVNodeTemplate *tmpl, uint32 nodeid) : m_
         // then we are probably a tower.
         const AVSpawnLocation *spi = g_initalGuardLocations[nodeid];
         CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(m_template->m_initialSpawnId);
-        sLog.outDebug("spawning guards at bunker %s of %s (%u)", m_template->m_name, ctrData->Name, ctrData->Entry);
+        sLog.outDebug("spawning guards at bunker %s of %s (%u)", m_template->m_name, ctrData->maleName, ctrData->entry);
 
         while(spi->x != 0.0f)
         {
-            if(Creature *sp = m_bg->GetMapMgr()->CreateCreature(ctrData->Entry))
+            if(Creature *sp = m_bg->GetMapMgr()->CreateCreature(ctrData->entry))
             {
-                sp->Load(MODE_5PLAYER_NORMAL, spi->x, spi->y, spi->z, spi->o);
+                sp->Load(m_bg->GetId(), spi->x, spi->y, spi->z, spi->o, MODE_5PLAYER_NORMAL);
                 sp->PushToWorld(m_bg->GetMapMgr());
             }
             ++spi;

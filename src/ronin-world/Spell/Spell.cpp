@@ -1639,7 +1639,7 @@ void Spell::writeSpellGoTargets( WorldPacket * data )
 
 void Spell::SendResurrectRequest(Player* target)
 {
-    const char* name = m_caster->IsCreature() ? castPtr<Creature>(m_caster)->GetCreatureData()->Name : "";
+    const char* name = m_caster->IsCreature() ? castPtr<Creature>(m_caster)->GetName() : "";
     WorldPacket data(SMSG_RESURRECT_REQUEST, 12+strlen(name)+3);
     data << m_caster->GetGUID();
     data << uint32(strlen(name) + 1);
@@ -2117,7 +2117,7 @@ uint8 Spell::CanCast(bool tolerate)
                 }
 
                 // lets read the distance from database
-                focusRange = (float)info->TypeSpellFocus.Dist;
+                focusRange = (float)info->data.spellFocus.dist;
 
                 // is that possible?
                 if( !focusRange )
@@ -2126,7 +2126,7 @@ uint8 Spell::CanCast(bool tolerate)
                 if(!IsInrange(p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ(), target, (focusRange * focusRange)))
                     continue;
 
-                if(info->TypeSpellFocus.FocusId == GetSpellProto()->RequiresSpellFocus)
+                if(info->data.spellFocus.focusId == GetSpellProto()->RequiresSpellFocus)
                 {
                     found = true;
                     break;
@@ -2256,7 +2256,7 @@ uint8 Spell::CanCast(bool tolerate)
                         else if(target->GetTypeId() == TYPEID_UNIT)
                         {
                             Creature* c =  castPtr<Creature>(target);
-                            if (c&&c->GetCreatureData()&&c->GetCreatureData()->Rank >ELITE_ELITE)
+                            if (c&&c->GetCreatureData()&&c->GetCreatureData()->rank >ELITE_ELITE)
                                 return SPELL_FAILED_HIGHLEVEL;
                         }
                     }
@@ -3353,12 +3353,10 @@ bool TargetTypeCheck(WorldObject* obj,uint32 ReqCreatureTypeMask)
     {
         Creature* cr = castPtr<Creature>(obj);
         CreatureData* inf = cr->GetCreatureData();
-        if( inf == NULL || !( 1 << ( inf->Type - 1 ) & ReqCreatureTypeMask ) )
+        if( inf == NULL || !( 1 << ( inf->type - 1 ) & ReqCreatureTypeMask ) )
             return false;
-    }
-    else if(obj->IsPlayer() && !(UNIT_TYPE_HUMANOID_BIT & ReqCreatureTypeMask))
+    } else if(obj->IsPlayer() && !(UNIT_TYPE_HUMANOID_BIT & ReqCreatureTypeMask))
         return false;
-    else return false;//omg, how in the hack did we cast it on a GO ? But who cares ?
     return true;
 }
 

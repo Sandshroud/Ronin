@@ -83,7 +83,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt)
         un->GetMovementInterface()->setRooted(true);
     }
 
-    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )
+    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
         disable_targeting = true;
 
     m_guardTimer = getMSTime();
@@ -108,7 +108,7 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
         un->GetMovementInterface()->setRooted(true);
     }
 
-    if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER )
+    if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
         disable_targeting = true;
 
     MovementHandler.Initialize(this, un, mt);
@@ -133,7 +133,7 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
             return;
         }
 
-        if(castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->Type == CRITTER)
+        if(castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER)
             return;
     }
 
@@ -381,7 +381,7 @@ bool AIInterface::FindFriends(float dist)
 
     // check if we're a civillan, in which case summon guards on a despawn timer
     CreatureData * ctrData = castPtr<Creature>(m_Unit)->GetCreatureData();
-    if( ctrData && ctrData->Type == HUMANOID && ctrData->Civilian )
+    if( ctrData && ctrData->type == HUMANOID && ctrData->Civilian )
         CallGuards();
 
     if(result)
@@ -487,7 +487,7 @@ void AIInterface::CallGuards()
             if(guard == NULL)
                 continue;
 
-            guard->Load(m_Unit->GetMapMgr()->iInstanceMode, x, y, z);
+            guard->Load(m_Unit->GetMapId(), x, y, z, 0.f, m_Unit->GetMapMgr()->iInstanceMode);
             guard->SetInstanceID(m_Unit->GetInstanceID());
             guard->SetZoneId(m_Unit->GetZoneId());
             guard->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP); /* shitty DBs */

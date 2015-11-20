@@ -1284,7 +1284,7 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
         Creature* cr = getSelectedCreature(m_session, false);
         if(cr)
         {
-            std::string creaturename = cr->GetCreatureData() ? cr->GetCreatureData()->Name : "Unknown Being";
+            std::string creaturename = cr->GetName();
 
             sWorld.LogGM(m_session, "used modify field value: [creature]%s, %u on %s", fieldname, av, creaturename.c_str());
 
@@ -1378,13 +1378,10 @@ bool ChatHandler::CmdSetFloatField(WorldSession *m_session, uint32 field, uint32
         if(cr)
         {
             if(!(field < UNIT_END && fieldmax < UNIT_END)) return false;
-            std::string creaturename = "Unknown Being";
-            if(cr->GetCreatureData())
-                creaturename = cr->GetCreatureData()->Name;
+            std::string creaturename = cr->GetName();
             if(fieldmax)
                 BlueSystemMessage(m_session, "Setting %s of %s to %.1f/%.1f.", fieldname, creaturename.c_str(), av, mv);
-            else
-                BlueSystemMessage(m_session, "Setting %s of %s to %.1f.", fieldname, creaturename.c_str(), av);
+            else BlueSystemMessage(m_session, "Setting %s of %s to %.1f.", fieldname, creaturename.c_str(), av);
             cr->SetFloatValue(field, av);
             sWorld.LogGM(m_session, "used modify field value: [creature]%s, %f on %s", fieldname, av, creaturename.c_str());
             if(fieldmax)

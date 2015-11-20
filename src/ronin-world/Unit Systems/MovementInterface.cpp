@@ -905,8 +905,8 @@ void MovementInterface::MoveFallReset(WorldPacket *packet)
 
 }
 
-#define DO_BIT(buff, val, result) buff->WriteBit(val ? (result ? 1 : 0) : (result ? 0 : 1));
-#define DO_COND_BIT(buff, cond, val, result) if(cond) buff->WriteBit(val ? result : !result);
+#define DO_BIT(buff, val) buff->WriteBit(val ? 1 : 0);
+#define DO_COND_BIT(buff, cond, val) if(cond) buff->WriteBit(val ? 1 : 0);
 #define DO_BYTES(buff, type, val) buff->append<type>(val);
 #define DO_COND_BYTES(buff, cond, type, val) if(cond) buff->append<type>(val);
 #define DO_SEQ_BYTE(buff, val) buff->WriteByteSeq(val);
@@ -924,38 +924,38 @@ void MovementInterface::WriteObjectUpdateBits(ByteBuffer *bits)
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
     // Append our bits
-    DO_BIT(bits, hasMovementFlags, false);
-    DO_BIT(bits, hasOrientation, false);
-    DO_BIT(bits, m_moverGuid[7], true);
-    DO_BIT(bits, m_moverGuid[3], true);
-    DO_BIT(bits, m_moverGuid[2], true);
+    DO_BIT(bits, !hasMovementFlags);
+    DO_BIT(bits, !hasOrientation);
+    DO_BIT(bits, m_moverGuid[7]);
+    DO_BIT(bits, m_moverGuid[3]);
+    DO_BIT(bits, m_moverGuid[2]);
     if (hasMovementFlags) HandleMovementFlags(false, bits);
-    DO_BIT(bits, hasSpline && m_Unit->IsPlayer(), true);
-    DO_BIT(bits, hasPitch, false);
-    DO_BIT(bits, hasSpline, true);
-    DO_BIT(bits, hasFallData, true);
-    DO_BIT(bits, hasSplineElevation, false);
-    DO_BIT(bits, m_moverGuid[5], true);
-    DO_BIT(bits, hasTransportData, true);
-    DO_BIT(bits, true, false); // We have a timestamp, but the question is if we have no timestamp
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[1], true);
-    DO_COND_BIT(bits, hasTransportData, hasTransportTime2, true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[4], true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[0], true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[6], true);
-    DO_COND_BIT(bits, hasTransportData, hasTransportVehicleId, true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[7], true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[5], true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[3], true);
-    DO_COND_BIT(bits, hasTransportData, m_transportGuid[2], true);
-    DO_BIT(bits, m_moverGuid[4], true);
+    DO_BIT(bits, hasSpline && m_Unit->IsPlayer());
+    DO_BIT(bits, !hasPitch);
+    DO_BIT(bits, hasSpline);
+    DO_BIT(bits, hasFallData);
+    DO_BIT(bits, !hasSplineElevation);
+    DO_BIT(bits, m_moverGuid[5]);
+    DO_BIT(bits, hasTransportData);
+    DO_BIT(bits, false); // We have a timestamp, but the question is if we have no timestamp
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[1]);
+    DO_COND_BIT(bits, hasTransportData, hasTransportTime2);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[4]);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[0]);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[6]);
+    DO_COND_BIT(bits, hasTransportData, hasTransportVehicleId);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[7]);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[5]);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[3]);
+    DO_COND_BIT(bits, hasTransportData, m_transportGuid[2]);
+    DO_BIT(bits, m_moverGuid[4]);
     if(hasSpline) AppendSplineData(true, bits);
-    DO_BIT(bits, m_moverGuid[6], true);
-    DO_COND_BIT(bits, hasFallData, hasFallDirection, true);
-    DO_BIT(bits, m_moverGuid[0], true);
-    DO_BIT(bits, m_moverGuid[1], true);
-    DO_BIT(bits, true, false);
-    DO_BIT(bits, hasMovementFlags2, false);
+    DO_BIT(bits, m_moverGuid[6]);
+    DO_COND_BIT(bits, hasFallData, hasFallDirection);
+    DO_BIT(bits, m_moverGuid[0]);
+    DO_BIT(bits, m_moverGuid[1]);
+    DO_BIT(bits, false);
+    DO_BIT(bits, !hasMovementFlags2);
     if (hasMovementFlags2) HandleMovementFlags2(false, bits);
 }
 
@@ -970,9 +970,9 @@ void MovementInterface::WriteObjectUpdateBytes(ByteBuffer *bytes)
     // Append our bytes
     DO_SEQ_BYTE(bytes, m_moverGuid[4]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN_BACK));
-    DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_XYSpeed);
     DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_sin);
+    DO_COND_BYTES(bytes, hasFallDirection, float, m_jump_cos);
     DO_COND_BYTES(bytes, hasFallData, uint32, m_jumpTime);
     DO_COND_BYTES(bytes, hasFallData, float, m_jumpZSpeed);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM_BACK));
@@ -1007,13 +1007,13 @@ void MovementInterface::WriteObjectUpdateBytes(ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
-    DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
+    DO_SEQ_BYTE(bytes, m_moverGuid[6]);
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
 }
 
 #undef DO_BIT

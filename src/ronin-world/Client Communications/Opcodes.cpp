@@ -1283,6 +1283,9 @@ void OpcodeManager::SetOpcodeListData()
     SetOpcodeData(SMSG_WORLD_STATE_UI_TIMER_UPDATE, "SMSG_WORLD_STATE_UI_TIMER_UPDATE", 0x4A14);
     SetOpcodeData(SMSG_XP_GAIN_ABORTED, "SMSG_XP_GAIN_ABORTED", 0x50B4);
     SetOpcodeData(SMSG_ZONE_UNDER_ATTACK, "SMSG_ZONE_UNDER_ATTACK", 0x0A06);
+    SetOpcodeData(SMSG_SET_AI_ANIM_KIT, "SMSG_SET_AI_ANIM_KIT", 0x4626);
+    SetOpcodeData(SMSG_SET_MOVEMENT_ANIM_KIT, "SMSG_SET_MOVEMENT_ANIM_KIT", 0x0F14);
+    SetOpcodeData(SMSG_SET_MELEE_ANIM_KIT, "SMSG_SET_MELEE_ANIM_KIT", 0x6715);
 }
 
 void OpcodeManager::SetOpcodeData(uint32 opcode, char* name, uint32 newOpcode)

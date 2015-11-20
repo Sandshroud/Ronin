@@ -609,12 +609,12 @@ void LootRoll::Finalize()
     uint32 guidtype = GUID_HIPART(_guid);
     if( guidtype == HIGHGUID_TYPE_UNIT )
     {
-        if(Creature* pc = _mgr->GetCreature(GUID_LOPART(_guid)))
+        if(Creature* pc = _mgr->GetCreature(_guid))
             pLoot = pc->GetLoot();
     }
     else if( guidtype == HIGHGUID_TYPE_GAMEOBJECT )
     {
-        if(GameObject* go = _mgr->GetGameObject(GUID_LOPART(_guid)))
+        if(GameObject* go = _mgr->GetGameObject(_guid))
             pLoot = go->GetLoot();
     }
 

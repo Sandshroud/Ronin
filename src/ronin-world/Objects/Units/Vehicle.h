@@ -50,8 +50,6 @@ public:
 
     void InitSeats(uint32 vehicleEntry, Player* pRider = NULL);
     virtual void Update(uint32 time);
-    bool Load(CreatureSpawn *spawn, uint32 mode);
-    bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);
 
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
@@ -86,14 +84,18 @@ public:
     //---------------------------------------
 
     bool IsFull() { return m_ppassengerCount >= m_maxPassengers; }
-    bool Initialised;
-    bool m_CreatedFromSpell;
-    uint32 m_CastSpellOnMount;
+    bool IsInitialized() { return m_initialized; }
+    bool CreatedFromSpell() { return m_CreatedFromSpell; }
+    uint32 GetCastSpellOnMount() { return m_CastSpellOnMount; }
 
 private:
     void _AddToSlot(Unit* pPassenger, uint8 slot);
 
 protected:
+    bool m_initialized;
+    bool m_CreatedFromSpell;
+    uint32 m_CastSpellOnMount;
+
     uint64 vehicleguid;
     uint8 m_ppassengerCount;
     uint8 m_maxPassengers;

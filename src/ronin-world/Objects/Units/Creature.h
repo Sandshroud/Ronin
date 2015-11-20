@@ -194,19 +194,10 @@ public:
     int32 GetBonusRangedAttackPower() { return 0; };
     int32 GetBonusResistance(uint8 school) { return _creatureData->Resistances[school]; }
 
-    virtual bool Load(CreatureSpawn *spawn, uint32 mode);
-    virtual bool Load(uint32 mode, float x, float y, float z, float o = 0.0f);
+    void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL);
 
     void AddToWorld();
     void RemoveFromWorld(bool addrespawnevent, bool free_guid);
-
-    /// Creation
-    void Create ( uint32 mapid, float x, float y, float z, float ang);
-
-    float GetSpawnX() { return m_spawnLocation.x; }
-    float GetSpawnY() { return m_spawnLocation.y; }
-    float GetSpawnZ() { return m_spawnLocation.z; }
-    float GetSpawnO() { return m_spawnLocation.o; }
 
     /// Arena organizers
     RONIN_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
@@ -392,7 +383,7 @@ public:
     RONIN_INLINE void SetPickPocketed(bool val = true) { m_PickPocketed = val; }
 
     uint32 m_TaxiNode;
-    const char* GetName() { return _creatureData->Name;  }
+    const char* GetName() { return m_gender ? _creatureData->femaleName : _creatureData->maleName;  }
 
     RONIN_INLINE bool IsSpawn() { return m_spawn != NULL; }
     RONIN_INLINE CreatureSpawn *GetSpawn() { return m_spawn; }
@@ -404,7 +395,7 @@ public:
     void FormationLinkUp(uint32 SqlId);
     void ChannelLinkUpGO(uint32 SqlId);
     void ChannelLinkUpCreature(uint32 SqlId);
-    WayPoint * CreateWaypointStruct();
+    RONIN_INLINE WayPoint * CreateWaypointStruct() { return new WayPoint(); }
     uint32 GetRespawnTime() { if(_creatureData != NULL) return _creatureData->RespawnTime; else return 0; }
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
@@ -437,10 +428,10 @@ public:
     }
 
 protected:
+    bool m_gender;
     CreatureSpawn * m_spawn;
     CreatureData *_creatureData;
     CreatureInfoExtra * _extraInfo;
-    LocationVector m_spawnLocation;
 
     bool m_limbostate;
     Trainer* mTrainer;

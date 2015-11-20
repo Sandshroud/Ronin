@@ -45,7 +45,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     MovementHandler.EventEnterCombat(misc1);
 
     // dismount if mounted
-    if(m_Unit->IsCreature() && !(castPtr<Creature>(m_Unit)->GetCreatureData()->Flags & 2048))
+    if(m_Unit->IsCreature() && !(castPtr<Creature>(m_Unit)->GetCreatureData()->flags & 2048))
         m_Unit->Dismount();
 
     if(m_AIState != STATE_ATTACKING)
@@ -63,7 +63,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     if(m_Unit->IsCreature())
         if(m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->GetMapInfo() && m_Unit->GetMapMgr()->GetdbcMap()->IsRaid())
             if(Creature* cr = castPtr<Creature>(m_Unit))
-                if(cr->GetCreatureData() && (cr->GetCreatureData()->Rank == ELITE_WORLDBOSS || cr->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
+                if(cr->GetCreatureData() && (cr->GetCreatureData()->rank == ELITE_WORLDBOSS || cr->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
                     m_Unit->GetMapMgr()->AddCombatInProgress(m_Unit->GetGUID());
 
     if(pUnit->IsPlayer() && castPtr<Player>(pUnit)->InGroup())

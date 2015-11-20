@@ -193,13 +193,6 @@ private:
 
     void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
 
-    virtual void _WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target);
-    virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
-
-    virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
-    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
-    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target) {};
-
 public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
 
@@ -250,8 +243,6 @@ public:
     virtual void RemoveFromWorld(bool free_guid) { m_inWorld = false; }
 
 protected:
-    Mutex m_objlock;
-
     //! Object properties.
     union {
         uint32 *m_uint32Values;
@@ -305,8 +296,6 @@ public:
 
     virtual bool IsObject() { return true; }
 
-    virtual void _WriteStationaryPositionBytes(ByteBuffer *bits, Player *target);
-
     WorldPacket* BuildFieldUpdatePacket(uint32 index,uint32 value);
     void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);
     void BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value);
@@ -343,14 +332,10 @@ public:
     RONIN_INLINE const float& GetOrientation( ) const { return m_position.o; }
     RONIN_INLINE void SetOrientation( float &o ) { m_position.o = o; }
 
-    virtual float GetSpawnX() { return 0.f; }
-    virtual float GetSpawnY() { return 0.f; }
-    virtual float GetSpawnZ() { return 0.f; }
-    virtual float GetSpawnO() { return 0.f; }
-
-    bool canWalk();
-    bool canSwim();
-    bool canFly();
+    RONIN_INLINE float GetSpawnX() { return m_spawnLocation.x; }
+    RONIN_INLINE float GetSpawnY() { return m_spawnLocation.y; }
+    RONIN_INLINE float GetSpawnZ() { return m_spawnLocation.z; }
+    RONIN_INLINE float GetSpawnO() { return m_spawnLocation.o; }
 
     RONIN_INLINE const LocationVector & GetPosition() { return m_position; }
     RONIN_INLINE LocationVector & GetPositionNC() { return m_position; }
@@ -600,7 +585,7 @@ protected:
     //! Current object faction
     FactionTemplateEntry *m_factionTemplate;
     // Current map location
-    LocationVector m_position, m_lastMapUpdatePosition;
+    LocationVector m_position, m_spawnLocation, m_lastMapUpdatePosition;
 
     //! Set of Objects in range.
     InRangeSet m_objectsInRange, m_inRangeUnits, m_inRangePlayers, m_inRangeCreatures, m_inRangeGameObjects;

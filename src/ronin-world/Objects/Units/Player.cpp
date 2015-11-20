@@ -371,6 +371,7 @@ void Player::Destruct()
     Unit::Destruct();
 }
 
+static uint32 strength = 42;
 void Player::Update( uint32 p_time )
 {
     if(!IsInWorld())
@@ -444,6 +445,7 @@ void Player::Update( uint32 p_time )
         m_explorationTimer += p_time;
         if(m_explorationTimer >= 1500)
         {
+            SetUInt32Value(UNIT_FIELD_STRENGTH, strength++);
             _EventExploration();
             m_explorationTimer = 0;
         }
@@ -732,9 +734,7 @@ int32 Player::GetBonusResistance(uint8 school)
 
 int32 Player::GetBaseAttackTime(uint8 weaponType)
 {
-    int32 speed = 0;
-    if(weaponType == 0)
-        speed = 2000;
+    int32 speed = 2000;
     if( GetShapeShift() == FORM_CAT && weaponType != 2 )
         speed = 1500;
     else if( weaponType == 0 && GetShapeShift() == FORM_BEAR || GetShapeShift() == FORM_DIREBEAR )
@@ -6237,7 +6237,7 @@ void Player::DuelBoundaryTest()
     if(!IsInWorld())
         return;
 
-    GameObject* pGameObject = GetMapMgr()->GetGameObject(GUID_LOPART(GetUInt64Value(PLAYER_DUEL_ARBITER)));
+    GameObject* pGameObject = GetMapMgr()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER));
     if(!pGameObject)
     {
         EndDuel(DUEL_WINNER_RETREAT);
@@ -6318,7 +6318,7 @@ void Player::EndDuel(uint8 WinCondition)
     DuelingWith->SendPacket(&data);
 
     //Clear Duel Related Stuff
-    if( GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GUID_LOPART(GetUInt64Value(PLAYER_DUEL_ARBITER))) : NULL )
+    if( GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
     {
         arbiter->RemoveFromWorld( true );
         arbiter->Destruct();

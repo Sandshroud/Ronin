@@ -850,7 +850,7 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
     recv_data >> guid;
     sLog.outDebug("WORLD: CMSG_GAMEOBJ_USE: [GUID %d]", guid);
 
-    GameObject* obj = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+    GameObject* obj = _player->GetMapMgr()->GetGameObject(guid);
     if (!obj)
         return;
     obj->Use(_player);
@@ -1050,7 +1050,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     //now its time to give the loot to the target player
     if(GUID_HIPART(GetPlayer()->GetLootGUID()) == HIGHGUID_TYPE_UNIT)
     {
-        if ((pCreature = _player->GetMapMgr()->GetCreature(GUID_LOPART(creatureguid))) == NULL)
+        if ((pCreature = _player->GetMapMgr()->GetCreature(creatureguid)) == NULL)
             return;
         pLoot = pCreature->GetLoot();
     }
@@ -1353,7 +1353,7 @@ void WorldSession::HandleGameobjReportUseOpCode( WorldPacket& recv_data )
 
     uint64 guid;
     recv_data >> guid;
-    GameObject* gameobj = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+    GameObject* gameobj = _player->GetMapMgr()->GetGameObject(guid);
     if(gameobj != NULL && gameobj->GetInfo() && gameobj->CanActivate())
         sQuestMgr.OnGameObjectActivate(_player, gameobj);
 }

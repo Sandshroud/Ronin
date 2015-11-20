@@ -4,6 +4,9 @@
 
 #pragma once
 
+class CreatureData;
+class CreatureInfoExtra;
+
 class SERVER_DECL AIInterface
 {
     friend class AI_Movement;
@@ -49,6 +52,8 @@ public:
 
     RONIN_INLINE uint32 getOutOfCombatRange() { return m_outOfCombatRange; }
     void setOutOfCombatRange(uint32 val) { m_outOfCombatRange = val; }
+
+    void InitalizeExtraInfo(CreatureData *, CreatureInfoExtra *, uint32);
 
     // Spell
     SpellEntry *getSpellEntry(uint32 spellId);

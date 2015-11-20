@@ -9,7 +9,7 @@ Vehicle::Vehicle(CreatureData *data, uint64 guid) : Creature(data, guid)
     m_ppassengerCount = NULL;
     m_maxPassengers = NULL;
     m_seatSlotMax = NULL;
-    Initialised = false;
+    m_initialized = false;
     m_CreatedFromSpell = false;
     m_CastSpellOnMount = NULL;
 }
@@ -56,12 +56,18 @@ void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
         }
     }
 
-    Initialised = true;
+    m_initialized = true;
 
     if(!m_maxPassengers || !m_seatSlotMax || pRider == NULL)
         return;
 
     AddPassenger( pRider );
+}
+
+void Vehicle::OnPushToWorld()
+{
+    InstallAccessories();
+    Creature::OnPushToWorld();
 }
 
 void Vehicle::InstallAccessories()
@@ -107,13 +113,7 @@ void Vehicle::InstallAccessories()
             continue;
 
         float offsetX = m_vehicleSeats[i]->m_attachmentOffsetX, offsetY = m_vehicleSeats[i]->m_attachmentOffsetY, offsetZ = m_vehicleSeats[i]->m_attachmentOffsetZ;
-        if(!passenger->Load((IsInInstance() ? map->iInstanceMode : MODE_5PLAYER_NORMAL), GetPositionX()+offsetX, GetPositionY()+offsetY, GetPositionZ()+offsetZ))
-        {
-            delete passenger;
-            continue;
-        }
-
-        passenger->Init();
+        passenger->Load(GetMapId(), GetPositionX()+offsetX, GetPositionY()+offsetY, GetPositionZ()+offsetZ, 0.f, (IsInInstance() ? map->iInstanceMode : MODE_5PLAYER_NORMAL));
         passenger->GetMovementInterface()->LockTransportData();
         passenger->GetMovementInterface()->SetTransportData(GetGUID(), ctrData->Vehicle_entry, offsetX, offsetY, offsetZ, 0.0f, i);
 
@@ -127,80 +127,6 @@ void Vehicle::InstallAccessories()
         AddPassenger(passenger, i, true);
         passenger->PushToWorld(map);
     }
-}
-
-bool Vehicle::Load(uint32 mode, float x, float y, float z, float o /* = 0.0f */)
-{
-    if((m_vehicleEntry = _creatureData->Vehicle_entry) == -1)
-    {
-        m_vehicleEntry = 124;
-        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", _creatureData->Entry);
-    }
-
-    m_maxPassengers = m_seatSlotMax = 0;
-    if((vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry )) == NULL)
-    {
-        sLog.outDebug("Attempted to create non-existant vehicle %u.", GetVehicleEntry());
-        return false;
-    }
-
-    for( uint32 i = 0; i < 8; i++ )
-    {
-        if( vehicleData->m_seatID[i] )
-        {
-            m_vehicleSeats[i] = dbcVehicleSeat.LookupEntry( vehicleData->m_seatID[i] );
-            m_seatSlotMax = i+1;
-
-            if(m_vehicleSeats[i]->IsUsable())
-            {
-                seatisusable[i] = true;
-                ++m_maxPassengers;
-            }
-        }
-    }
-
-    Initialised = true;
-
-    return Creature::Load(mode, x, y, z, o);
-}
-
-bool Vehicle::Load(CreatureSpawn *spawn, uint32 mode)
-{
-    if((m_vehicleEntry = _creatureData->Vehicle_entry) == -1)
-    {
-        m_vehicleEntry = 124;
-        sLog.outDebug("Attempted to create vehicle %u with invalid vehicle_entry, defaulting to 124, check your creature_proto table.", _creatureData->Entry);
-    }
-
-    m_maxPassengers = m_seatSlotMax = 0;
-    if((vehicleData = dbcVehicle.LookupEntry( m_vehicleEntry )) == NULL)
-    {
-        sLog.outDebug("Attempted to create non-existant vehicle %u.", GetVehicleEntry());
-        return false;
-    }
-
-    for( uint32 i = 0; i < 8; i++ )
-    {
-        if( vehicleData->m_seatID[i] )
-        {
-            m_vehicleSeats[i] = dbcVehicleSeat.LookupEntry( vehicleData->m_seatID[i] );
-            m_seatSlotMax = i + 1;
-
-            if(m_vehicleSeats[i]->IsUsable())
-            {
-                seatisusable[i] = true;
-                ++m_maxPassengers;
-            }
-        }
-    }
-    Initialised = true;
-
-    return Creature::Load(spawn, mode);
-}
-
-void Vehicle::OnPushToWorld()
-{
-    InstallAccessories();
 }
 
 void Vehicle::SendSpells(uint32 entry, Player* plr)

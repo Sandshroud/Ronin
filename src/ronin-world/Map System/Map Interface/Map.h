@@ -48,6 +48,8 @@ typedef struct
     uint32 id;//spawn ID
     uint32 entry;
     float  x, y, z, o;
+    uint32 modelId;
+    uint8 modelGender;
 
     uint32 flags;
     uint32 factionid;
@@ -61,16 +63,23 @@ typedef struct
 
     SpawnBytes *Bytes;
     SpawnChannelData *ChannelData;
+
+    bool GetModelData(uint8 &gender, uint32 &model)
+    {
+        if(model = modelId)
+        {
+            gender = modelGender;
+            return true;
+        }
+        return false;
+    }
 }CreatureSpawn;
 
 typedef struct GOSpawn
 {
     uint32  id;//spawn ID
     uint32  entry;
-    float   x;
-    float   y;
-    float   z;
-    float   facing;
+    float  x, y, z, o;
     uint32  state;
     uint32  flags;
     uint32  faction;

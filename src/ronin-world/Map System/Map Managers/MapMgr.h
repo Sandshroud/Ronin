@@ -86,8 +86,9 @@ public:
 
     RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
     {
-        GameObjectMap::iterator itr = m_gameObjectStorage.find(GUID_LOPART(guid));
-        return (itr != m_gameObjectStorage.end()) ? m_gameObjectStorage[GUID_LOPART(guid)] : NULL;
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
+        GameObjectMap::iterator itr = m_gameObjectStorage.find(guid.getLow());
+        return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
     }
 
 /////////////////////////////////////////////////////////

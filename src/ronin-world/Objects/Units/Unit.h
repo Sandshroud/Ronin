@@ -344,12 +344,6 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual void _WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target);
-    virtual void _WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target);
-
-    virtual void _WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target);
-    virtual void _WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target);
-
     virtual void Update( uint32 time );
     virtual void OnFieldUpdated(uint32 index);
     virtual void UpdateFieldValues();
@@ -479,10 +473,30 @@ public:
         return result;
     }
 
-    RONIN_INLINE int32 GetDamageDoneMod(uint8 school);
-    RONIN_INLINE float GetDamageDonePctMod(uint8 school);
-    RONIN_INLINE int32 GetHealingDoneMod();
-    RONIN_INLINE float GetHealingDonePctMod();
+    int32 GetDamageDoneMod(uint8 school);
+    float GetDamageDonePctMod(uint8 school);
+    int32 GetHealingDoneMod();
+    float GetHealingDonePctMod();
+
+    uint32 GetMechanicDispels(uint8 mechanic);
+    float GetMechanicResistPCT(uint8 mechanic);
+    float GetDamageTakenByMechPCTMod(uint8 mechanic);
+    float GetMechanicDurationPctMod(uint8 mechanic);
+
+    uint32 GetDispelImmunity(uint8 dispel);
+    float GetDispelResistancesPCT(uint8 dispel);
+    int32 GetCreatureRangedAttackPowerMod(uint32 creatureType);
+    int32 GetCreatureAttackPowerMod(uint32 creatureType);
+    int32 GetRangedDamageTakenMod();
+    float GetCritMeleeDamageTakenModPct(uint32 school);
+    float GetCritRangedDamageTakenModPct(uint32 school);
+    int32 GetDamageTakenMod(uint32 school);
+    float GetDamageTakenModPct(uint32 school);
+    float GetAreaOfEffectDamageMod();
+
+    bool canWalk();
+    bool canSwim();
+    bool canFly();
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout = NULL);
@@ -612,6 +626,13 @@ public:
     uint8 GetOnMeleeSpellEcn() { return m_meleespell_cn; }
     void CastOnMeleeSpell();
 
+    uint16 GetAIAnimKitId() const { return _aiAnimKitId; }
+    void SetAIAnimKitId(uint16 animKitId);
+    uint16 GetMovementAnimKitId() const { return _movementAnimKitId; }
+    void SetMovementAnimKitId(uint16 animKitId);
+    uint16 GetMeleeAnimKitId() const { return _meleeAnimKitId; }
+    void SetMeleeAnimKitId(uint16 animKitId);
+
     // On Aura Remove Procs
     RONIN_MAP<uint32, onAuraRemove* > m_onAuraRemoveSpells;
 
@@ -643,21 +664,6 @@ public:
     uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
 
     WoWGuid stalkedby;
-    uint32 GetMechanicDispels(uint8 mechanic);
-    float GetMechanicResistPCT(uint8 mechanic);
-    float GetDamageTakenByMechPCTMod(uint8 mechanic);
-    float GetMechanicDurationPctMod(uint8 mechanic);
-
-    uint32 GetDispelImmunity(uint8 dispel);
-    float GetDispelResistancesPCT(uint8 dispel);
-    int32 GetCreatureRangedAttackPowerMod(uint32 creatureType);
-    int32 GetCreatureAttackPowerMod(uint32 creatureType);
-    int32 GetRangedDamageTakenMod();
-    float GetCritMeleeDamageTakenModPct(uint32 school);
-    float GetCritRangedDamageTakenModPct(uint32 school);
-    int32 GetDamageTakenMod(uint32 school);
-    float GetDamageTakenModPct(uint32 school);
-    float GetAreaOfEffectDamageMod();
 
     //SM
     void SM_FIValue( uint32 modifier, int32* v, uint32* group ) { m_AuraInterface.SM_FIValue(modifier, v, group); }
@@ -1018,6 +1024,10 @@ public:
     uint32 m_charmtemp;
 
     std::map<uint32, SpellEntry*> m_DummyAuras;
+
+    uint16 _aiAnimKitId;
+    uint16 _movementAnimKitId;
+    uint16 _meleeAnimKitId;
 
 public:
     void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );

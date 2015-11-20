@@ -7,9 +7,10 @@ CreatureDataManager::~CreatureDataManager()
 {
     for(std::map<uint32, CreatureData*>::iterator itr = m_creatureData.begin(); itr != m_creatureData.end(); itr++)
     {
-        free(itr->second->Name);
-        free(itr->second->SubName);
-        free(itr->second->InfoStr);
+        free(itr->second->maleName);
+        free(itr->second->femaleName);
+        free(itr->second->subName);
+        free(itr->second->iconName);
         delete itr->second;
     }
     m_creatureData.clear();
@@ -33,25 +34,23 @@ void CreatureDataManager::LoadFromDB()
         Field *feilds = result->Fetch();
 
         CreatureData *ctrData = new CreatureData();
-        ctrData->Entry = feilds[field_count++].GetUInt32();
-        // Parse name data
-        ctrData->Name = strdup(feilds[field_count++].GetString());
-        ctrData->SubName = strdup(feilds[field_count++].GetString());
-        ctrData->InfoStr = strdup(feilds[field_count++].GetString());
-        ctrData->Flags = feilds[field_count++].GetUInt32();
-        ctrData->Type = feilds[field_count++].GetUInt32();
-        ctrData->TypeFlags = feilds[field_count++].GetUInt32();
-        ctrData->Family = feilds[field_count++].GetUInt32();
-        ctrData->Rank = feilds[field_count++].GetUInt32();
-        ctrData->KillCredit[0] = feilds[field_count++].GetUInt32();
-        ctrData->KillCredit[1] = feilds[field_count++].GetUInt32();
+        ctrData->entry = feilds[field_count++].GetUInt32();
+        ctrData->maleName = strdup(feilds[field_count++].GetString());
+        ctrData->femaleName = strdup(feilds[field_count++].GetString());
+        ctrData->subName = strdup(feilds[field_count++].GetString());
+        ctrData->iconName = strdup(feilds[field_count++].GetString());
+        ctrData->flags = feilds[field_count++].GetUInt32();
+        ctrData->flags2 = feilds[field_count++].GetUInt32();
+        ctrData->type = feilds[field_count++].GetUInt32();
+        ctrData->family = feilds[field_count++].GetUInt32();
+        ctrData->rank = feilds[field_count++].GetUInt32();
+        ctrData->killCredit[0] = feilds[field_count++].GetUInt32();
+        ctrData->killCredit[1] = feilds[field_count++].GetUInt32();
         for(uint8 i = 0; i < 4; i++)
-            ctrData->DisplayInfo[i] = feilds[field_count++].GetUInt32();
-        ctrData->HealthMod = feilds[field_count++].GetFloat();
-        ctrData->PowerMod = feilds[field_count++].GetFloat();
-        ctrData->Civilian = feilds[field_count++].GetUInt8();
-        ctrData->Leader = feilds[field_count++].GetUInt8();
-        // Parse proto data
+            ctrData->displayInfo[i] = feilds[field_count++].GetUInt32();
+        ctrData->healthMod = feilds[field_count++].GetFloat();
+        ctrData->powerMod = feilds[field_count++].GetFloat();
+        ctrData->leader = feilds[field_count++].GetUInt8();
         ctrData->MinLevel = feilds[field_count++].GetUInt32();
         ctrData->MaxLevel = feilds[field_count++].GetUInt32();
         ctrData->Faction = feilds[field_count++].GetUInt32();
@@ -61,6 +60,7 @@ void CreatureDataManager::LoadFromDB()
         ctrData->MinPower = feilds[field_count++].GetUInt32();
         ctrData->MaxPower = feilds[field_count++].GetUInt32();
         ctrData->Scale = feilds[field_count++].GetFloat();
+        ctrData->LootType = feilds[field_count++].GetUInt32();
         ctrData->NPCFLags = feilds[field_count++].GetUInt32();
         ctrData->AttackTime = feilds[field_count++].GetUInt32();
         ctrData->AttackType = feilds[field_count++].GetUInt32();
@@ -78,20 +78,19 @@ void CreatureDataManager::LoadFromDB()
         ctrData->CombatReach = feilds[field_count++].GetFloat();
         ctrData->BoundingRadius = feilds[field_count++].GetFloat();
         const char* aurastring = feilds[field_count++].GetString();
+        ctrData->Civilian = feilds[field_count++].GetUInt32();
         ctrData->Boss = feilds[field_count++].GetUInt32();
         ctrData->Money = feilds[field_count++].GetInt32();
         ctrData->Invisibility_type = feilds[field_count++].GetUInt32();
-        ctrData->Walk_speed = feilds[field_count++].GetFloat();
-        ctrData->Run_speed = feilds[field_count++].GetFloat();
-        ctrData->Fly_speed = feilds[field_count++].GetFloat();
+        ctrData->walkSpeed = feilds[field_count++].GetFloat();
+        ctrData->runSpeed = feilds[field_count++].GetFloat();
+        ctrData->flySpeed = feilds[field_count++].GetFloat();
         ctrData->Extra_a9_flags = feilds[field_count++].GetUInt32();
         ctrData->AuraMechanicImmunity = feilds[field_count++].GetUInt32();
         ctrData->Vehicle_entry = feilds[field_count++].GetInt32();
         ctrData->BattleMasterType = feilds[field_count++].GetUInt32();
         ctrData->SpellClickid = feilds[field_count++].GetUInt32();
         ctrData->CanMove = feilds[field_count++].GetUInt32();
-        ctrData->lowercase_name.append(ctrData->Name);
-        RONIN_UTIL::TOLOWER(ctrData->lowercase_name);
 
         if(aurastring && strlen(aurastring))
         {
@@ -104,7 +103,7 @@ void CreatureDataManager::LoadFromDB()
         if (ctrData->AttackType > SCHOOL_ARCANE)
             ctrData->AttackType = SCHOOL_NORMAL;
 
-        m_creatureData.insert(std::make_pair(ctrData->Entry, ctrData));
+        m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());
 
     if( result = WorldDatabase.Query( "SELECT * FROM ai_agents" ) )

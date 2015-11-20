@@ -4,6 +4,24 @@
 
 #include "StdAfx.h"
 
+void AIInterface::InitalizeExtraInfo(CreatureData *data, CreatureInfoExtra *info, uint32 mode)
+{
+    for(std::list<AI_Spell*>::iterator itr = data->spells.begin(); itr != data->spells.end(); itr++)
+        if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
+            addSpellToList(*itr);
+
+    m_canRangedAttack = info ? info->m_canRangedAttack : false;
+    m_canCallForHelp = info ? info->m_canCallForHelp : false;
+    m_CallForHelpHealth = info ? info->m_callForHelpHP : 0.f;
+    m_canFlee = info ? info->m_canFlee : false;
+    m_FleeHealth = info ? info->m_fleeHealth : 0.f;
+    m_FleeDuration = info ? info->m_fleeDuration : 0;
+
+    //these fields are always 0 in db
+    setMoveType(0);
+    setMoveRunFlag(0);
+}
+
 SpellEntry *AIInterface::getSpellEntry(uint32 spellId)
 {
     SpellEntry *spellInfo = dbcSpell.LookupEntry(spellId );
@@ -161,7 +179,7 @@ bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uin
 
     if ( pFilter & TargetFilter_Corpse )
     {   //Skip dead ( if required ), feign death or invisible targets
-        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || castPtr<Creature>( UnitTarget )->GetCreatureData()->Rank == ELITE_WORLDBOSS )
+        if ( UnitTarget->isAlive() || !UnitTarget->IsCreature() || castPtr<Creature>( UnitTarget )->GetCreatureData()->rank == ELITE_WORLDBOSS )
             return false;
     }
     else if ( !UnitTarget->isAlive() )

@@ -56,7 +56,7 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 {
     ASSERT(m_owner);
 
-    Creature::Load(0, position.x, position.y, position.z, position.o);
+    Creature::Load(m_owner->GetMapId(), position.x, position.y, position.z, position.o, 0);
 
     GetAIInterface()->Init(this, AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
@@ -137,24 +137,24 @@ void PossessedSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
 void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
     SummonHandler::Load(owner, position, spellid, summonslot);
-    uint32 displayID = m_summon->GetCreatureData()->DisplayInfo[0];
+    uint32 displayID = m_summon->GetCreatureData()->displayInfo[0];
     if( owner->IsPlayer() && castPtr<Player>(owner)->GetTeam() == 0 )
     {
-        if ( m_summon->GetCreatureData()->DisplayInfo[1] != 0 )
-            displayID = m_summon->GetCreatureData()->DisplayInfo[1];
+        if ( m_summon->GetCreatureData()->displayInfo[1] != 0 )
+            displayID = m_summon->GetCreatureData()->displayInfo[1];
         else //this is the case when you are using a blizzlike db
         {
-            if( m_summon->GetCreatureData()->DisplayInfo[0] == 4587 )
+            if( m_summon->GetCreatureData()->displayInfo[0] == 4587 )
                 displayID = 19075;
-            else if( m_summon->GetCreatureData()->DisplayInfo[0] == 4588 )
+            else if( m_summon->GetCreatureData()->displayInfo[0] == 4588 )
                 displayID = 19073;
-            else if( m_summon->GetCreatureData()->DisplayInfo[0] == 4589 )
+            else if( m_summon->GetCreatureData()->displayInfo[0] == 4589 )
                 displayID = 19074;
-            else if( m_summon->GetCreatureData()->DisplayInfo[0] == 4590 )
+            else if( m_summon->GetCreatureData()->displayInfo[0] == 4590 )
                 displayID = 19071;
-            else if( m_summon->GetCreatureData()->DisplayInfo[0] == 4683 )
+            else if( m_summon->GetCreatureData()->displayInfo[0] == 4683 )
                 displayID = 19074;
-            else displayID = m_summon->GetCreatureData()->DisplayInfo[0];
+            else displayID = m_summon->GetCreatureData()->displayInfo[0];
         }
     }
 
@@ -169,7 +169,7 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     m_summon->SetBoundingRadius(1.0f);
     m_summon->SetCombatReach(1.0f);
     m_summon->SetDisplayId(displayID);
-    m_summon->SetNativeDisplayId(m_summon->GetCreatureData()->DisplayInfo[0]);
+    m_summon->SetNativeDisplayId(m_summon->GetCreatureData()->displayInfo[0]);
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
 
     m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, MOVEMENTTYPE_NONE, owner);
@@ -346,7 +346,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         SpawnLocation.y += (GetRadius(i) * (sinf(followangle + v.o)));
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI) / 180.0f);
 
-        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
+        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
         if(s == NULL)
             return;
 
@@ -393,7 +393,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     if(fabs(landdiff) <= 15)
         v.z = landh;
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
+    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -430,7 +430,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         count = 1;
     else if (amount < 1 || (Properties->summonPropFlags & 2 || Properties->Id == 711))
         count = 1;
-    if(data->Entry == 31216) // mirror image
+    if(data->entry == 31216) // mirror image
         count = 3;
 
     int32 duration = GetDuration();
@@ -443,7 +443,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         SpawnLocation.y += (GetRadius(i) * (sinf(followangle)));
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI / ((180 / count) * (j + 1))));
 
-        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
+        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
         if(s == NULL)
             return;
 
@@ -528,7 +528,7 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
         else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
     }
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
+    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -561,11 +561,11 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
 
         // Before WOTLK when you casted the companion summon spell the second time it removed the companion
         // Customized servers or old databases could still use this method
-        if(data->Entry == currententry)
+        if(data->entry == currententry)
             return;
     }
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->Entry);
+    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -587,8 +587,8 @@ void SpellEffectClass::SummonVehicle(Unit *u_caster, uint32 i, int32 amount, Sum
     if(data->Vehicle_entry == 0) // If it has no vehicle id, then we can't really do anything with it as a vehicle :/
         return;
 
-    Vehicle *veh = u_caster->GetMapMgr()->CreateVehicle( data->Entry );
-    veh->Load(u_caster->GetMapMgr()->iInstanceMode, v.x, v.y, v.z, v.o);
+    Vehicle *veh = u_caster->GetMapMgr()->CreateVehicle( data->entry );
+    veh->Load(u_caster->GetMapId(), v.x, v.y, v.z, v.o, u_caster->GetMapMgr()->iInstanceMode);
     veh->SetCreatedBySpell( m_spellInfo->Id );
     veh->SetCreatedByGUID( u_caster->GetGUID() );
     veh->SetSummonedByGUID( u_caster->GetGUID() );

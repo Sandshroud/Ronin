@@ -56,7 +56,7 @@ bool FillPathVector(uint32 PathID, TransportPath & Path)
 bool Transporter::GenerateWaypoints()
 {
     TransportPath path;
-    FillPathVector(GetInfo()->MoTransport.TaxiPathId, path);
+    FillPathVector(GetInfo()->data.moTransport.taxiPathId, path);
 
     if(path.Size() == 0) return false;
 

@@ -113,6 +113,10 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
         m_passengers[i] = NULL;
     }
     pVehicle = NULL;
+
+    _aiAnimKitId = 0;
+    _movementAnimKitId = 0;
+    _meleeAnimKitId = 0;
 }
 
 Unit::~Unit()
@@ -130,6 +134,9 @@ void Unit::Init()
 
     CombatStatus.SetUnit(castPtr<Unit>(this));
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
+
+    for(uint8 i = 0; i < 3; i++)
+        SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, GetBaseAttackTime(i));
 }
 
 void Unit::Destruct()
@@ -164,36 +171,6 @@ void Unit::Destruct()
     }
 
     WorldObject::Destruct();
-}
-
-void Unit::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
-{
-    m_movementInterface.WriteObjectUpdateBits(bits);
-}
-
-void Unit::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
-{
-    WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
-    bits->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
-    bits->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
-}
-
-void Unit::_WriteLivingMovementUpdateBytes(ByteBuffer *bytes, Player *target)
-{
-    m_movementInterface.WriteObjectUpdateBytes(bytes);
-}
-
-void Unit::_WriteTargetMovementUpdateBytes(ByteBuffer *bytes, Player *target)
-{
-    WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
-    bytes->WriteByteSeq(targetGuid[4]);
-    bytes->WriteByteSeq(targetGuid[0]);
-    bytes->WriteByteSeq(targetGuid[3]);
-    bytes->WriteByteSeq(targetGuid[5]);
-    bytes->WriteByteSeq(targetGuid[7]);
-    bytes->WriteByteSeq(targetGuid[6]);
-    bytes->WriteByteSeq(targetGuid[2]);
-    bytes->WriteByteSeq(targetGuid[1]);
 }
 
 void Unit::Update( uint32 p_time )
@@ -1170,6 +1147,58 @@ float Unit::GetAreaOfEffectDamageMod()
     return mod;
 }
 
+bool Unit::canWalk()
+{
+    if(IsCreature())
+    {
+        Creature* ctr = castPtr<Creature>(this);
+        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+            return true;
+        if(ctr->GetCanMove() & LIMIT_GROUND)
+            return true;
+    } else if(IsPlayer())
+        return true;
+    return false;
+}
+
+bool Unit::canSwim()
+{
+    if(IsCreature())
+    {
+        Creature* ctr = castPtr<Creature>(this);
+        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+            return true;
+        if(ctr->GetCanMove() & LIMIT_WATER)
+            return true;
+    } else if(IsPlayer())
+        return true;
+    return false;
+}
+
+bool Unit::canFly()
+{
+    if(IsVehicle())
+        return false;
+    else if(IsCreature())
+    {
+        Creature* ctr = castPtr<Creature>(this);
+        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+            return true;
+        if(ctr->GetCanMove() & LIMIT_AIR)
+            return true;
+    }
+    else if(IsPlayer())
+    {
+        Player* plr = castPtr<Player>(this);
+        if(plr->m_FlyingAura)
+            return true;
+        if(plr->FlyCheat)
+            return true;
+    }
+
+    return false;
+}
+
 bool Unit::validateAttackTarget(WorldObject *target)
 {
     if(target == nullptr)
@@ -1573,7 +1602,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
             dodge = pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f; // what is this value?
 
         victim_skill = pVictim->getLevel() * 5;
-        if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
+        if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
         {
             victim_skill = std::max(victim_skill,((int32)getLevel()+3)*5); //used max to avoid situation when lowlvl hits boss.
         }
@@ -1645,7 +1674,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         if(GetTypeId() == TYPEID_UNIT)
         {
             Creature* c = castPtr<Creature>(this);
-            if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
+            if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
     }
@@ -1925,7 +1954,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         if( pVictim->GetTypeId() == TYPEID_UNIT )
         {
             Creature* c = castPtr<Creature>( pVictim );
-            if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS) )
+            if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS) )
             {
                 victim_skill = std::max( victim_skill, ( (int32)getLevel() + 3 ) * 5 ); //used max to avoid situation when lowlvl hits boss.
             }
@@ -1993,7 +2022,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         if(GetTypeId() == TYPEID_UNIT)
         {
             Creature* c = castPtr<Creature>(this);
-            if(c && c->GetCreatureData() && (c->GetCreatureData()->Rank == ELITE_WORLDBOSS || c->GetCreatureData()->Flags & CREATURE_FLAGS1_BOSS))
+            if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
                 self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
         crit = 5.0f; //will be modified later
@@ -2829,8 +2858,8 @@ void Unit::SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Pla
 {
     ASSERT(plr);
 
-    char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
-    if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
+    const char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
+    if(IsCreature()) name = castPtr<Creature>(this)->GetName();
 
     WorldPacket data;
     sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
@@ -2844,14 +2873,14 @@ void Unit::SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, 
         return;
 
     WorldPacket data;
-    sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, ctrData->Name, msg, "", 0);
+    sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, ctrData->maleName, msg, "", 0);
     SendMessageToSet(&data, true);
 }
 
 void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
 {
-    char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
-    if(IsCreature()) name = castPtr<Creature>(this)->GetCreatureData()->Name;
+    const char* name = IsPlayer() ? castPtr<Player>(this)->GetName() : "";
+    if(IsCreature()) name = castPtr<Creature>(this)->GetName();
 
     WorldPacket data;
     sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
@@ -3284,6 +3313,45 @@ void Unit::CastOnMeleeSpell()
     SetOnMeleeSpell(0, 0);
 }
 
+void Unit::SetAIAnimKitId(uint16 animKitId)
+{
+    if (_aiAnimKitId == animKitId)
+        return;
+
+    _aiAnimKitId = animKitId;
+
+    WorldPacket data(SMSG_SET_AI_ANIM_KIT, 8 + 2);
+    data << m_objGuid.asPacked();
+    data << uint16(animKitId);
+    SendMessageToSet(&data, true);
+}
+
+void Unit::SetMovementAnimKitId(uint16 animKitId)
+{
+    if (_movementAnimKitId == animKitId)
+        return;
+
+    _movementAnimKitId = animKitId;
+
+    WorldPacket data(SMSG_SET_MOVEMENT_ANIM_KIT, 8 + 2);
+    data << m_objGuid.asPacked();
+    data << uint16(animKitId);
+    SendMessageToSet(&data, true);
+}
+
+void Unit::SetMeleeAnimKitId(uint16 animKitId)
+{
+    if (_meleeAnimKitId == animKitId)
+        return;
+
+    _meleeAnimKitId = animKitId;
+
+    WorldPacket data(SMSG_SET_MELEE_ANIM_KIT, 8 + 2);
+    data << m_objGuid.asPacked();
+    data << uint16(animKitId);
+    SendMessageToSet(&data, true);
+}
+
 void Unit::EventHealthChangeSinceLastUpdate()
 {
     uint8 pct = GetHealthPct();
@@ -3375,47 +3443,45 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
 
-    Creature* p = GetMapMgr()->CreateCreature(guardian_entry);
-    if(p == NULL)
-        return NULL;
-
-    p->SetInstanceID(GetMapMgr()->GetInstanceID());
-    p->Load(GetMapMgr()->iInstanceMode, x, y, v.z, angle);
-
-    if (lvl != 0)
+    if(Creature* p = GetMapMgr()->CreateCreature(guardian_entry))
     {
-        /* MANA */
-        if(uint32 maxMana = p->GetMaxPower(POWER_TYPE_MANA)+28+10*lvl)
+        p->Load(GetMapId(), x, y, v.z, angle, GetMapMgr()->iInstanceMode);
+        p->SetInstanceID(GetMapMgr()->GetInstanceID());
+
+        if (lvl != 0)
         {
-            p->SetPowerType(POWER_TYPE_MANA);
-            p->SetMaxPower(POWER_TYPE_MANA, maxMana);
-            p->SetPower(POWER_TYPE_MANA, maxMana);
+            /* MANA */
+            if(uint32 maxMana = p->GetMaxPower(POWER_TYPE_MANA)+28+10*lvl)
+            {
+                p->SetPowerType(POWER_TYPE_MANA);
+                p->SetMaxPower(POWER_TYPE_MANA, maxMana);
+                p->SetPower(POWER_TYPE_MANA, maxMana);
+            }
+            /* HEALTH */
+            p->SetUInt32Value(UNIT_FIELD_MAXHEALTH,p->GetUInt32Value(UNIT_FIELD_MAXHEALTH)+28+30*lvl);
+            p->SetUInt32Value(UNIT_FIELD_HEALTH,p->GetUInt32Value(UNIT_FIELD_HEALTH)+28+30*lvl);
+            /* LEVEL */
+            p->SetUInt32Value(UNIT_FIELD_LEVEL, lvl);
         }
-        /* HEALTH */
-        p->SetUInt32Value(UNIT_FIELD_MAXHEALTH,p->GetUInt32Value(UNIT_FIELD_MAXHEALTH)+28+30*lvl);
-        p->SetUInt32Value(UNIT_FIELD_HEALTH,p->GetUInt32Value(UNIT_FIELD_HEALTH)+28+30*lvl);
-        /* LEVEL */
-        p->SetUInt32Value(UNIT_FIELD_LEVEL, lvl);
+
+        p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
+        p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
+        p->SetZoneId(GetZoneId());
+        p->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+        p->_setFaction();
+
+        p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,castPtr<Unit>(this));
+        p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
+        p->GetAIInterface()->SetUnitToFollowAngle(angle);
+        p->GetAIInterface()->SetFollowDistance(3.0f);
+        p->PushToWorld(GetMapMgr());
+
+        if(duration)
+            sEventMgr.AddEvent(this, &Unit::SummonExpireSlot, Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+
+        return p;
     }
-
-    p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
-    p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
-    p->SetZoneId(GetZoneId());
-    p->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    p->_setFaction();
-
-    p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,castPtr<Unit>(this));
-    p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
-    p->GetAIInterface()->SetUnitToFollowAngle(angle);
-    p->GetAIInterface()->SetFollowDistance(3.0f);
-
-    p->PushToWorld(GetMapMgr());
-
-    if(duration)
-        sEventMgr.AddEvent(this, &Unit::SummonExpireSlot, Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
-
-    return castPtr<Unit>(p);
-
+    return NULL;
 }
 
 void Unit::SummonExpireAll(bool clearowner)
@@ -3935,7 +4001,7 @@ void Creature::Tag(Player* plr)
     if( m_taggingPlayer != 0 )
         return;
 
-    if(GetCreatureData() && GetCreatureData()->Type == CRITTER || IsPet())
+    if(GetCreatureData() && GetCreatureData()->type == CRITTER || IsPet())
         return;
 
     m_taggingPlayer = plr->GetLowGUID();
@@ -4349,12 +4415,10 @@ uint32 Unit::GetCreatureType()
 {
     if(IsCreature())
     {
-        CreatureData * ci = castPtr<Creature>(this)->GetCreatureData();
-        if(ci && ci->Type)
-            return ci->Type;
-        return 0;
+        if(CreatureData * ci = castPtr<Creature>(this)->GetCreatureData())
+            return ci->type;
     }
-    if(IsPlayer())
+    else if(IsPlayer())
     {
         Player *plr = castPtr<Player>(this);
         if(plr->GetShapeShift())

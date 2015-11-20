@@ -1832,7 +1832,7 @@ Vehicle* MapMgr::CreateVehicle(uint32 entry)
 Creature* MapMgr::CreateCreature(uint32 entry)
 {
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
-    if(ctrData == NULL)
+    if(ctrData == NULL || !ctrData->HasValidModelData())
     {
         sLog.Warning("MapMgr", "Skipping CreateCreature for entry %u due to incomplete database.", entry);
         return NULL;

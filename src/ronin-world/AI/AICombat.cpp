@@ -154,7 +154,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 default:
                     {
                         std::stringstream ss;
-                        ss << castPtr<Creature>( m_Unit )->GetCreatureData()->Name << " attempts to run away in fear!";
+                        ss << castPtr<Creature>( m_Unit )->GetName() << " attempts to run away in fear!";
                         m_Unit->SendChatMessage(CHAT_MSG_MONSTER_EMOTE, LANG_UNIVERSAL, ss.str().c_str());
                     }break;
                 }
@@ -626,8 +626,8 @@ float AIInterface::_CalcAggroRange(Unit* target)
         AggroRange += AggroRange * ((lvlDiff - 8) * 5 / 100);
 
     // Multiply by elite value
-    if(m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData()->Rank > 0)
-        AggroRange *= (castPtr<Creature>(m_Unit)->GetCreatureData()->Rank) * 1.50f;
+    if(m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData()->rank > 0)
+        AggroRange *= (castPtr<Creature>(m_Unit)->GetCreatureData()->rank) * 1.50f;
 
     if(AggroRange > 40.0f) // cap at 40.0f
         AggroRange = 40.0f;

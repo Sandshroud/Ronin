@@ -1336,7 +1336,7 @@ void Aura::SpellAuraTransform(bool apply)
 
     if(data == NULL)
         sLog.Debug("Aura","SpellAuraTransform cannot find CreatureData for id %d",mod->m_miscValue[0]);
-    else displayId = data->DisplayInfo[0];
+    else displayId = data->displayInfo[0];
 
     if( m_target->IsPlayer() && castPtr<Player>(m_target)->IsMounted() )
         m_target->Dismount();
@@ -1864,10 +1864,10 @@ void Aura::SpellAuraMounted(bool apply)
         m_target->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
 
         CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(mod->m_miscValue[0]);
-        if(ctrData == NULL || ctrData->DisplayInfo[0] == 0)
+        if(ctrData == NULL || ctrData->displayInfo[0] == 0)
             return;
 
-        m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->DisplayInfo[0]);
+        m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
         pPlayer->m_MountSpellId = m_spellProto->Id;
         pPlayer->m_FlyingAura = 0;
 

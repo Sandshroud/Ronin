@@ -10,10 +10,9 @@
 
 #define M_PI 3.14159265358979323846f
 
-Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
+Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data)
 {
-    if(_creatureData = data)
-        SetEntry(_creatureData->Entry);
+    SetEntry(data->entry);
 
     m_spawn = NULL;
     m_quests = NULL;
@@ -33,7 +32,10 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid)
     m_enslaveSpell = 0;
 
     m_TaxiNode = 0;
+    original_flags = 0;
     original_emotestate = 0;
+    original_MountedDisplayID = 0;
+
     m_custom_waypoint_map = 0;
     BaseAttackType = SCHOOL_NORMAL;
     m_taggingPlayer = m_taggingGroup = 0;
@@ -92,9 +94,9 @@ void Creature::Update( uint32 p_time )
     if(m_corpseEvent)
     {
         sEventMgr.RemoveEvents(this);
-        if (_creatureData->Rank == ELITE_WORLDBOSS || _creatureData->Flags & CREATURE_FLAGS1_BOSS)
+        if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
             sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        else if ( _creatureData->Rank == ELITE_RAREELITE || _creatureData->Rank == ELITE_RARE)
+        else if ( _creatureData->rank == ELITE_RAREELITE || _creatureData->rank == ELITE_RARE)
             sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
         else sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
@@ -181,23 +183,17 @@ void Creature::OnRespawn( MapMgr* m)
     PushToWorld(m);
 }
 
-void Creature::Create(uint32 mapid, float x, float y, float z, float ang)
-{
-    WorldObject::_Create( mapid, x, y, z, ang );
-    m_spawnLocation.ChangeCoords(x, y, z, ang);
-}
-
 ///////////
 /// Looting
 uint32 Creature::GetRequiredLootSkill()
 {
-    if(GetCreatureData()->Flags & CREATURE_FLAGS1_HERBLOOT)
+    if(GetCreatureData()->flags & CREATURE_FLAGS1_HERBLOOT)
         return SKILL_HERBALISM;     // herbalism
-    else if(GetCreatureData()->Flags & CREATURE_FLAGS1_MININGLOOT)
+    else if(GetCreatureData()->flags & CREATURE_FLAGS1_MININGLOOT)
         return SKILL_MINING;        // mining
-    else if(GetCreatureData()->Flags & CREATURE_FLAGS1_ENGINEERLOOT)
+    else if(GetCreatureData()->flags & CREATURE_FLAGS1_ENGINEERLOOT)
         return SKILL_ENGINERING;
-    else return SKILL_SKINNING;      // skinning
+    return SKILL_SKINNING;      // skinning
 }
 
 void Creature::GenerateLoot()
@@ -224,11 +220,11 @@ void Creature::GenerateLoot()
     else if(_creatureData->Money == 0)
     {
         CreatureData *info = GetCreatureData();
-        if (info && info->Type != BEAST)
+        if (info && info->type != BEAST)
         {
             if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
-                GetLoot()->gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
-            else GetLoot()->gold = uint32((info->Rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
+                GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
+            else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
         } else GetLoot()->gold = 0; // Beasts don't drop money
     } else GetLoot()->gold = uint32(_creatureData->Money);
     if(GetLoot()->gold)
@@ -644,28 +640,28 @@ void Creature::ChannelLinkUpCreature(uint32 SqlId)
     }
 }
 
-WayPoint * Creature::CreateWaypointStruct()
+void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn)
 {
-    return new WayPoint();
-}
+    // Set our spawn pointer
+    m_spawn = spawn;
 
-bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
-{
+    // Set worldobject Create data
+    _Create(mapId, x, y, z, o);
+
     //Use proto displayid (random + gender generator), unless there is an id  specified in spawn->displayid
     uint8 gender; uint32 model;
-    if(!_creatureData->GenerateModelId(gender, model))
-        return false;
+    if(!m_spawn->GetModelData(gender, model))
+        _creatureData->GenerateModelId(gender, model);
 
-    m_spawn = spawn;
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 
     uint32 level = _creatureData->MinLevel;
     if(_creatureData->MaxLevel > _creatureData->MinLevel)
         level += RandomUInt(_creatureData->MaxLevel-_creatureData->MinLevel);
 
-    original_flags = spawn->flags;
-    original_emotestate = spawn->emote_state;
-    original_MountedDisplayID = spawn->MountedDisplayID;
+    original_flags = m_spawn ? m_spawn->flags : 0;
+    original_emotestate = m_spawn ? m_spawn->emote_state : 0;
+    original_MountedDisplayID = m_spawn ? m_spawn->MountedDisplayID : 0;
 
     //Set fields
     for(uint32 i = 0; i < 7; i++)
@@ -678,18 +674,21 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     SetUInt32Value(UNIT_FIELD_HEALTH, baseHP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, baseHP);
 
-    if(spawn->Bytes)
+    if(m_spawn && m_spawn->Bytes)
     {
-        SetUInt32Value(UNIT_FIELD_BYTES_0, spawn->Bytes->bytes);
-        SetUInt32Value(UNIT_FIELD_BYTES_1, spawn->Bytes->bytes1);
-        SetUInt32Value(UNIT_FIELD_BYTES_2, spawn->Bytes->bytes2);
+        SetUInt32Value(UNIT_FIELD_BYTES_0, m_spawn->Bytes->bytes);
+        SetUInt32Value(UNIT_FIELD_BYTES_1, m_spawn->Bytes->bytes1);
+        SetUInt32Value(UNIT_FIELD_BYTES_2, m_spawn->Bytes->bytes2);
+    }
+    else
+    {
+        SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
+        SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
+        if(_creatureData->MaxPower)
+            SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
     }
 
-    SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
-    SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
-    if(_creatureData->MaxPower) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
-
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
 
@@ -713,25 +712,23 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->Item2);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->Item3);
 
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, spawn->factionid);
-    SetUInt32Value(UNIT_FIELD_FLAGS, spawn->flags);
+    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, m_spawn ? m_spawn->factionid : _creatureData->Faction);
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->BoundingRadius);
     SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->CombatReach);
+    SetUInt32Value(UNIT_FIELD_FLAGS, m_spawn ? m_spawn->flags : 0);
 
     // set position
-    SetPosition( spawn->x, spawn->y, spawn->z, spawn->o);
-    m_spawnLocation.ChangeCoords(spawn->x, spawn->y, spawn->z, spawn->o);
-    m_aiInterface.SetWaypointMap(objmgr.GetWayPointMap(spawn->id));
+    if(WayPointMap *WPMap = (m_spawn ? objmgr.GetWayPointMap(m_spawn->id) : NULL))
+        m_aiInterface.SetWaypointMap(WPMap);
 
     //use proto faction if spawn faction is unspecified
-    m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->factionid ? spawn->factionid : _creatureData->Faction);
-    if(m_factionTemplate)
+    if(m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE)))
     {
         // not a neutral creature
         FactionEntry *faction = m_factionTemplate->GetFaction();
         if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
             GetAIInterface()->m_canCallForHelp = true;
-    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", spawn->entry);
+    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", GetEntry());
 
 //SETUP NPC FLAGS
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
@@ -755,47 +752,16 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
 
 ////////////AI
-
-    // kek
-    for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
-        if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
-            m_aiInterface.addSpellToList(*itr);
-
-    m_aiInterface.m_canRangedAttack = false;
-    m_aiInterface.m_canCallForHelp = false;
-    m_aiInterface.m_CallForHelpHealth = 0.0f;
-    m_aiInterface.m_canFlee = false;
-    m_aiInterface.m_FleeHealth = 0.0f;
-    m_aiInterface.m_FleeDuration = 0;
-    m_aiInterface.sendflee_message = false;
-    m_aiInterface.flee_message = "";
-    if(_extraInfo != NULL)
-    {
-        m_aiInterface.m_canRangedAttack = _extraInfo->m_canRangedAttack;
-        m_aiInterface.m_canCallForHelp = _extraInfo->m_canCallForHelp;
-        m_aiInterface.m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
-        m_aiInterface.m_canFlee = _extraInfo->m_canFlee;
-        m_aiInterface.m_FleeHealth = _extraInfo->m_fleeHealth;
-        m_aiInterface.m_FleeDuration = _extraInfo->m_fleeDuration;
-        m_aiInterface.sendflee_message = _extraInfo->sendflee_message;
-        m_aiInterface.flee_message = _extraInfo->flee_message;
-    }
-
-    if(m_aiInterface.m_CallForHelpHealth == 0.0f && _creatureData->Civilian >= 1)
-        m_aiInterface.m_CallForHelpHealth = 100;
-
-    //these fields are always 0 in db
-    GetAIInterface()->setMoveType(0);
-    GetAIInterface()->setMoveRunFlag(0);
+    m_aiInterface.InitalizeExtraInfo(_creatureData, _extraInfo, mode);
 
     // load formation data
-    Formation* form = sFormationMgr.GetFormation(spawn->id);
-    m_aiInterface.SetFormationSQLId( (form == NULL ? 0 : form->fol) );
-    m_aiInterface.SetFormationFollowDistance( (form == NULL ? 0.0f : form->dist) );
-    m_aiInterface.SetFormationFollowAngle( (form == NULL ? 0.0f : form->ang) );
+    Formation* form = m_spawn ? sFormationMgr.GetFormation(m_spawn->id) : NULL;
+    m_aiInterface.SetFormationSQLId(form ? form->fol : 0);
+    m_aiInterface.SetFormationFollowDistance(form ? form->dist : 0.f);
+    m_aiInterface.SetFormationFollowAngle(form ? form->ang : 0.f);
 
 //////////////AI
-    myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
+    myFamily = dbcCreatureFamily.LookupEntry(_creatureData->family);
 
     switch(_creatureData->Powertype)
     {
@@ -851,7 +817,7 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
         GetMovementInterface()->setRooted(true);
 
     /* creature death state */
-    if(spawn->death_state == 1)
+    if(m_spawn && m_spawn->death_state == 1)
     {
         uint32 newhealth = GetUInt32Value(UNIT_FIELD_HEALTH) / 100;
         if(!newhealth)
@@ -863,266 +829,33 @@ bool Creature::Load(CreatureSpawn *spawn, uint32 mode)
     }
 
     m_invisFlag = _creatureData->Invisibility_type;
-    if( spawn->stand_state )
-        SetStandState( (uint8)spawn->stand_state );
+    if( m_spawn && m_spawn->stand_state )
+        SetStandState(m_spawn->stand_state);
 
-    uint32 tmpitemid;
-    if(tmpitemid = _creatureData->Item1)
+    if(uint32 tmpitemid = _creatureData->Item1)
     {
-        ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid);
-        if(DBCItem)
+        if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
-            {
-                b_has_shield = true;
-                IP_shield = sItemMgr.LookupEntry(tmpitemid);
-            }
+                b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
             else if(getLevel() > 10)
                 setcanperry(true); // Who cares what else it is, set parry = true.
         }
     }
 
-    if(tmpitemid = _creatureData->Item2)
+    if(uint32 tmpitemid = _creatureData->Item2)
     {
-        ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid);
-        if(DBCItem)
+        if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
             if(!b_has_shield && DBCItem->InventoryType == INVTYPE_SHIELD)
-            {
-                b_has_shield = true;
-                IP_shield = sItemMgr.LookupEntry(tmpitemid);
-            }
-            else if(getLevel() > 10)
-            {
-                if(DBCItem->InventoryType == INVTYPE_WEAPONOFFHAND
-                    || DBCItem->InventoryType == INVTYPE_WEAPON)
-                    setcanperry(true); // We can hold non weapons here, so we need to be careful and do checks.
-            }
+                b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
+            else if(getLevel() > 10 && (DBCItem->InventoryType == INVTYPE_WEAPONOFFHAND || DBCItem->InventoryType == INVTYPE_WEAPON))
+                setcanperry(true); // We can hold non weapons here, so we need to be careful and do checks.
         }
     }
 
-    return true;
-}
-
-bool Creature::Load(uint32 mode, float x, float y, float z, float o)
-{
-    uint8 gender; uint32 model;
-    if(!_creatureData->GenerateModelId(gender, model))
-        return false;
-
-    _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
-
-    uint32 level = _creatureData->MinLevel;
-    if(_creatureData->MaxLevel > _creatureData->MinLevel)
-        level += RandomUInt(_creatureData->MaxLevel-_creatureData->MinLevel);
-
-    for(uint32 i = 0; i < 7; i++)
-        SetUInt32Value(UNIT_FIELD_RESISTANCES+i,_creatureData->Resistances[i]);
-
-    uint32 baseHP = _creatureData->MinHealth;
-    if(_creatureData->MaxHealth > _creatureData->MinHealth)
-        baseHP += RandomUInt(_creatureData->MaxHealth - _creatureData->MinHealth);
-    SetUInt32Value(UNIT_FIELD_HEALTH, baseHP);
-    SetUInt32Value(UNIT_FIELD_MAXHEALTH, baseHP);
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, baseHP);
-
-    SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
-    SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
-    if(_creatureData->MaxPower) SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
-    SetByte(UNIT_FIELD_BYTES_0, 2, gender);
-
-    float dbcscale = GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model ));
-    float realscale = (_creatureData->Scale > 0.0f ? _creatureData->Scale : dbcscale);
-    SetFloatValue(OBJECT_FIELD_SCALE_X, realscale);
-    sLog.Debug("Creature","NPC %u (model %u) got scale %f, found in DBC %f, found in Proto: %f", _creatureData->Entry, model, realscale, dbcscale, _creatureData->Scale);
-
-    SetUInt32Value(UNIT_FIELD_DISPLAYID,model);
-    SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID,model);
-
-    EventModelChange();
-
-    setLevel(level);
-
-    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME,_creatureData->AttackTime);
-    SetFloatValue(UNIT_FIELD_MINDAMAGE, _creatureData->MinDamage);
-    SetFloatValue(UNIT_FIELD_MAXDAMAGE, _creatureData->MaxDamage);
-
-    SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME,_creatureData->RangedAttackTime);
-    SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE,_creatureData->RangedMinDamage);
-    SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE,_creatureData->RangedMaxDamage);
-
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, _creatureData->Item1);
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->Item2);
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->Item3);
-
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, _creatureData->Faction);
-    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->BoundingRadius);
-    SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->CombatReach);
-    original_emotestate = 0;
-
-    // set position
-    SetPosition( x, y, z, o);
-    m_spawnLocation.ChangeCoords(x, y, z, o);
-    m_factionTemplate = dbcFactionTemplate.LookupEntry(_creatureData->Faction);
-    if(m_factionTemplate)
-    {
-        FactionEntry *faction = m_factionTemplate->GetFaction();
-        // not a neutral creature
-        if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
-            GetAIInterface()->m_canCallForHelp = true;
-    }
-
-    //SETUP NPC FLAGS
-    SetUInt32Value(UNIT_NPC_FLAGS,_creatureData->NPCFLags);
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
-        m_SellItems = objmgr.GetVendorList(GetEntry());
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ) )
-        _LoadQuests();
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR) )
-        m_TaxiNode = sTaxiMgr.GetNearestTaxiNode( m_position.x, m_position.y, m_position.z, GetMapId() );
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER) || HasFlag(UNIT_NPC_FLAGS,UNIT_NPC_FLAG_TRAINER_PROF))
-        mTrainer = objmgr.GetTrainer(GetEntry());
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
-        auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
-
-    BaseAttackType=_creatureData->AttackType;
-
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
-
-    ////////////AI
-
-    // kek
-    for(std::list<AI_Spell*>::iterator itr = _creatureData->spells.begin(); itr != _creatureData->spells.end(); itr++)
-        if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
-            m_aiInterface.addSpellToList(*itr);
-
-    m_aiInterface.m_canRangedAttack = false;
-    m_aiInterface.m_canCallForHelp = false;
-    m_aiInterface.m_CallForHelpHealth = 0.0f;
-    m_aiInterface.m_canFlee = false;
-    m_aiInterface.m_FleeHealth = 0.0f;
-    m_aiInterface.m_FleeDuration = 0;
-    if(_extraInfo != NULL)
-    {
-        m_aiInterface.m_canRangedAttack = _extraInfo->m_canRangedAttack;
-        m_aiInterface.m_canCallForHelp = _extraInfo->m_canCallForHelp;
-        m_aiInterface.m_CallForHelpHealth = _extraInfo->m_callForHelpHP;
-        m_aiInterface.m_canFlee = _extraInfo->m_canFlee;
-        m_aiInterface.m_FleeHealth = _extraInfo->m_fleeHealth;
-        m_aiInterface.m_FleeDuration = _extraInfo->m_fleeDuration;
-    }
-
-    //these fields are always 0 in db
-    GetAIInterface()->setMoveType(0);
-    GetAIInterface()->setMoveRunFlag(0);
-
-    // load formation data
-    m_aiInterface.SetFormationSQLId(0);
-    m_aiInterface.SetFormationFollowAngle(0.0f);
-    m_aiInterface.SetFormationFollowDistance(0.0f);
-
-    //////////////AI
-    myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
-
-    if(m_aiInterface.m_CallForHelpHealth == 0.0f && _creatureData->Civilian >= 1)
-        m_aiInterface.m_CallForHelpHealth = 100;
-
-    switch(_creatureData->Powertype)
-    {
-    case POWER_TYPE_MANA:
-        {
-            SetPowerType(POWER_TYPE_MANA);
-            SetPower(POWER_TYPE_MANA,_creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_MANA,_creatureData->MaxPower);
-            SetUInt32Value(UNIT_FIELD_BASE_MANA, _creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_RAGE:
-        {
-            SetPowerType(POWER_TYPE_RAGE);
-            SetPower(POWER_TYPE_RAGE,_creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RAGE,_creatureData->MaxPower*10);
-        }break;
-    case POWER_TYPE_FOCUS:
-        {
-            SetPowerType(POWER_TYPE_FOCUS);
-            SetPower(POWER_TYPE_FOCUS,_creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_FOCUS,_creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_ENERGY:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY,_creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_ENERGY,_creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_RUNE:
-        {
-            SetPowerType(POWER_TYPE_RUNE);
-            SetPower(POWER_TYPE_RUNE,_creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RUNE,_creatureData->MaxPower*10);
-        }break;
-    case POWER_TYPE_RUNIC:
-        {
-            SetPowerType(POWER_TYPE_RUNIC);
-            SetPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
-        }break;
-    default:
-        {
-            sLog.outError("Creature %u has an unhandled powertype.", GetEntry());
-        }break;
-    }
-
-    has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
-    has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
-    m_aiInterface.m_isGuard = isGuard(GetEntry());
-
-    //CanMove (overrules AI)
-    if(!GetCanMove())
-        GetMovementInterface()->setRooted(true);
-
-    m_invisFlag = _creatureData->Invisibility_type;
-
-    uint32 tmpitemid;
-    if(tmpitemid = _creatureData->Item1)
-    {
-        ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid);
-        if(DBCItem)
-        {
-            if(DBCItem->InventoryType == INVTYPE_SHIELD)
-            {
-                b_has_shield = true;
-                IP_shield = sItemMgr.LookupEntry(tmpitemid);
-            }
-            else if(getLevel() > 10)
-                setcanperry(true); // Who cares what else it is, set parry = true.
-        }
-    }
-
-    if(!b_has_shield && (tmpitemid = _creatureData->Item2))
-    {
-        ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid);
-        if(DBCItem)
-        {
-            if(DBCItem->InventoryType == INVTYPE_SHIELD)
-            {
-                b_has_shield = true;
-                IP_shield = sItemMgr.LookupEntry(tmpitemid);
-            }
-            else if(getLevel() > 10)
-            {
-                if(DBCItem->InventoryType == INVTYPE_WEAPONOFFHAND
-                    || DBCItem->InventoryType == INVTYPE_WEAPON)
-                    setcanperry(true); // We can hold non weapons here, so we need to be careful and do checks.
-            }
-        }
-    }
-
-    return true;
+    if(IsVehicle())
+        castPtr<Vehicle>(this)->InitSeats(_creatureData->Vehicle_entry, NULL);
 }
 
 void Creature::OnPushToWorld()

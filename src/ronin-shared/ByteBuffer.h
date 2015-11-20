@@ -475,7 +475,7 @@ public:
 
     // appending to the end of buffer
     void append(const std::string& str) { append((uint8 *)str.c_str(),str.size() + 1); }
-    void append(const char *src, size_t cnt) { append((const uint8*)src, cnt); }
+    template<class T> void append(const T *src, size_t cnt) { return append((const uint8 *)src, cnt * sizeof(T)); }
     void append(const uint8 *src, size_t cnt)
     {
         if(!cnt) return;

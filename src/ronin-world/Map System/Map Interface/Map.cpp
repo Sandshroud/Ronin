@@ -90,7 +90,7 @@ Map::~Map()
         sVMapInterface.DeactivateMap(_mapId);
 }
 
-bool first_table_warning = true;
+static bool first_table_warning = true;
 bool CheckResultLengthCreatures(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
@@ -105,11 +105,10 @@ bool CheckResultLengthCreatures(QueryResult * res)
 
         return false;
     }
-    else
-        return true;
+    return true;
 }
 
-bool first_table_warningg = true;
+static bool first_table_warningg = true;
 bool CheckResultLengthGameObject(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
@@ -124,8 +123,7 @@ bool CheckResultLengthGameObject(QueryResult * res)
 
         return false;
     }
-    else
-        return true;
+    return true;
 }
 
 void Map::LoadSpawns(bool reload /* = false */)
@@ -201,6 +199,7 @@ void Map::LoadSpawns(bool reload /* = false */)
                     cspawn->emote_state = fields[12].GetUInt32();
                     cspawn->death_state = fields[13].GetUInt16();
                     cspawn->stand_state = fields[14].GetUInt8();
+                    cspawn->MountedDisplayID = fields[18].GetUInt32();
                     cspawn->vehicle = fields[20].GetBool();
                     cspawn->CanMove = fields[21].GetUInt32();
                     cspawn->vendormask = fields[22].GetUInt32();
@@ -223,7 +222,6 @@ void Map::LoadSpawns(bool reload /* = false */)
                         cspawn->Bytes = NULL;
                     }
 
-                    cspawn->MountedDisplayID = fields[18].GetUInt32();
                     uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x);
                     uint32 celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
                     GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
@@ -251,14 +249,11 @@ void Map::LoadSpawns(bool reload /* = false */)
                     gspawn->x = fields[3].GetFloat();
                     gspawn->y = fields[4].GetFloat();
                     gspawn->z = fields[5].GetFloat();
-                    gspawn->facing = fields[6].GetFloat();
+                    gspawn->o = fields[6].GetFloat();
                     gspawn->state = fields[7].GetUInt32();
                     gspawn->flags = fields[8].GetUInt32();
                     gspawn->faction = fields[9].GetUInt32();
-                    gspawn->scale = fields[10].GetFloat();
-                    if(gspawn->scale > 255.0f)
-                        gspawn->scale = 255.0f;
-
+                    gspawn->scale = std::min<float>(255.f, fields[10].GetFloat());
                     uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x);
                     uint32 celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
                     GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);

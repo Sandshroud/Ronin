@@ -4,21 +4,24 @@
 #pragma pack(PRAGMA_PACK)
 struct CreatureData
 {
-    uint32 Entry;
-    char * Name;
-    char * SubName;
-    char * InfoStr;
-    uint32 Flags;
-    uint32 Type;
-    uint32 TypeFlags;
-    uint32 Family;
-    uint32 Rank;
-    uint32 KillCredit[2];
-    uint32 DisplayInfo[4];
-    float  HealthMod;
-    float  PowerMod;
-    uint8  Civilian;
-    uint8  Leader;
+    uint32 entry;
+    char * maleName;
+    char * femaleName;
+    char * subName;
+    char * iconName;
+    uint32 flags;
+    uint32 flags2;
+    uint32 type;
+    uint32 family;
+    uint32 rank;
+    uint32 killCredit[2];
+    uint32 displayInfo[4];
+    float  healthMod;
+    float  powerMod;
+    uint8  leader;
+    uint32 questItems[6];
+    uint32 dbcMovementId;
+    uint32 expansionId;
 
     uint32 MinLevel;
     uint32 MaxLevel;
@@ -29,6 +32,7 @@ struct CreatureData
     uint32 MinPower;
     uint32 MaxPower;
     float  Scale;
+    uint32 LootType;
     uint32 NPCFLags;
     uint32 AttackTime;
     uint32 AttackType;
@@ -45,12 +49,13 @@ struct CreatureData
     float  CombatReach;
     float  BoundingRadius;
     std::set<uint32> Auras;
-    uint32 Boss;
+    uint8  Civilian;
+    uint8  Boss;
     int32  Money;
     uint32 Invisibility_type;
-    float  Walk_speed;
-    float  Run_speed;
-    float  Fly_speed;
+    float  walkSpeed;
+    float  runSpeed;
+    float  flySpeed;
     uint32 Extra_a9_flags;
     uint32 AuraMechanicImmunity;
     int32  Vehicle_entry;
@@ -58,21 +63,33 @@ struct CreatureData
     uint32 SpellClickid;
     uint32 CanMove;
 
-    bool GenerateModelId(uint8 &gender, uint32 &model)
+    bool HasValidModelData()
     {
-        std::vector<uint32> modelSet;
-        for(uint8 i = 0; i < 4; i++)
-            if(DisplayInfo[i])
-                modelSet.push_back(DisplayInfo[i]);
-        if(modelSet.empty())
-            return false;
-        uint32 r = modelSet.size() > 1 ? RandomUInt(modelSet.size()-1) : 0;
-        gender = ((r == 1 || r == 3) ? 1 : 0);
-        model = modelSet[r];//.at(r);
         return true;
     }
 
-    std::string lowercase_name;
+    void GenerateModelId(uint8 &gender, uint32 &model)
+    {
+        std::vector<uint32> modelSet;
+        for(uint8 i = 0; i < 4; i++)
+            if(uint32 displayId = displayInfo[i])
+                modelSet.push_back(displayId);
+        // Just in case
+        if(modelSet.empty())
+            return;
+
+        uint32 r = modelSet.size() > 1 ? RandomUInt(modelSet.size()-1) : 0;
+        gender = ((r == 1 || r == 3) ? 1 : 0);
+        model = modelSet[r];//.at(r);
+    }
+
+    const char *GetFullName()
+    {
+        if(strlen(femaleName))
+            return format("%s|%s", maleName, femaleName).c_str();
+        return maleName;
+    }
+
     std::list<AI_Spell*> spells;
 };
 #pragma pack(PRAGMA_POP)

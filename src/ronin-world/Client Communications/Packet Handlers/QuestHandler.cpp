@@ -18,7 +18,7 @@ void WorldSession::HandleQuestgiverStatusQueryOpcode( WorldPacket & recv_data )
     uint32 guidtype = GUID_HIPART(guid);
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -38,7 +38,7 @@ void WorldSession::HandleQuestgiverStatusQueryOpcode( WorldPacket & recv_data )
     }
     else if(guidtype==HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -64,7 +64,7 @@ void WorldSession::HandleQuestgiverHelloOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* qst_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+    Creature* qst_giver = _player->GetMapMgr()->GetCreature(guid);
 
     if (!qst_giver)
     {
@@ -111,7 +111,7 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     uint32 guidtype = GUID_HIPART(guid);
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -122,7 +122,7 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -195,7 +195,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        if(Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid)))
+        if(Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid))
         {
             qst_giver = quest_giver;
             bValid = quest_giver->isQuestGiver();
@@ -207,7 +207,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_GAMEOBJECT)
     {
-        if(GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid)))
+        if(GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid))
             qst_giver = quest_giver;
         else return;
         //bValid = quest_giver->isQuestGiver();
@@ -230,7 +230,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     }
     else if(guidtype == HIGHGUID_TYPE_PLAYER)
     {
-        if(Player* quest_giver = _player->GetMapMgr()->GetPlayer((uint32)guid))
+        if(Player* quest_giver = _player->GetMapMgr()->GetPlayer(guid))
             qst_giver = quest_giver;
         else return;
         bValid = true;
@@ -373,7 +373,7 @@ void WorldSession::HandleQuestgiverRequestRewardOpcode( WorldPacket & recv_data 
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -397,7 +397,7 @@ void WorldSession::HandleQuestgiverRequestRewardOpcode( WorldPacket & recv_data 
     }
     else if(guidtype==HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else return; // oops..
@@ -458,7 +458,7 @@ void WorldSession::HandleQuestgiverCompleteQuestOpcode( WorldPacket & recvPacket
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -479,7 +479,7 @@ void WorldSession::HandleQuestgiverCompleteQuestOpcode( WorldPacket & recvPacket
     }
     else if(guidtype==HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -550,7 +550,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
-        Creature* quest_giver = _player->GetMapMgr()->GetCreature(GUID_LOPART(guid));
+        Creature* quest_giver = _player->GetMapMgr()->GetCreature(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else
@@ -561,7 +561,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
     }
     else if(guidtype==HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(GUID_LOPART(guid));
+        GameObject* quest_giver = _player->GetMapMgr()->GetGameObject(guid);
         if(quest_giver)
             qst_giver = quest_giver;
         else

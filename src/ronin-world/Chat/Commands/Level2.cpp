@@ -125,7 +125,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         }
     }
 
-    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetSQL_id(), unit->GetCreatureData() ? unit->GetCreatureData()->Name : "wtfbbqhax", unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
+    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetSQL_id(), unit->GetName(), unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
     BlueSystemMessage(m_session, "Deleted creature ID %u", unit->GetSQL_id());
     unit->DeleteFromDB();
     if(!unit->IsInWorld())
@@ -655,7 +655,6 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         // Create spawn instance
         GOSpawn *gs = new GOSpawn;
         gs->entry = go->GetEntry();
-        gs->facing = go->GetOrientation();
         gs->faction = go->GetUInt32Value(GAMEOBJECT_FACTION);
         gs->flags = go->GetUInt32Value(GAMEOBJECT_FLAGS);
         gs->id = objmgr.GenerateGameObjectSpawnID();
@@ -663,6 +662,7 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         gs->x = x;
         gs->y = y;
         gs->z = z;
+        gs->o = o;
         gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
         go->Load(mapid, gs);
         go->SaveToDB();

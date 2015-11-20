@@ -267,10 +267,10 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_SPELL_FOCUS://redirect to properties of another go
         {
-            if( pInfo->TypeSpellFocus.LinkedTrapId == 0 )
+            if( pInfo->data.spellFocus.linkedTrapId == 0 )
                 return;
 
-            uint32 objectid = pInfo->TypeSpellFocus.LinkedTrapId;
+            uint32 objectid = pInfo->data.spellFocus.linkedTrapId;
             GameObjectInfo* gopInfo = GameObjectNameStorage.LookupEntry( objectid );
             if(gopInfo == NULL)
             {
@@ -278,13 +278,13 @@ void GameObject::InitAI()
                 return;
             }
 
-            if(gopInfo->RawData.ListedData[4])
-                spellid = gopInfo->RawData.ListedData[4];
+            if(gopInfo->data.raw.data[4])
+                spellid = gopInfo->data.raw.data[4];
         }break;
     case GAMEOBJECT_TYPE_RITUAL:
         {
-            m_ritualmembers = new uint32[pInfo->Arbiter.ReqParticipants];
-            memset(m_ritualmembers, 0, (sizeof(uint32)*(pInfo->Arbiter.ReqParticipants)));
+            m_ritualmembers = new uint32[pInfo->data.ritual.reqParticipants];
+            memset(m_ritualmembers, 0, (sizeof(uint32)*(pInfo->data.ritual.reqParticipants)));
             return;
         }break;
     case GAMEOBJECT_TYPE_CHEST:
@@ -308,13 +308,13 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING:
         {
-            m_Go_Uint32Values[GO_UINT32_HEALTH] = pInfo->DestructableBuilding.IntactNumHits+pInfo->DestructableBuilding.DamagedNumHits;
+            m_Go_Uint32Values[GO_UINT32_HEALTH] = pInfo->data.building.intactNumHits+pInfo->data.building.damagedNumHits;
             SetAnimProgress(255);
             return;
         }break;
     case GAMEOBJECT_TYPE_AURA_GENERATOR:
         {
-            spellid = GetInfo()->AuraGenerator.AuraID1;
+            spellid = GetInfo()->data.auraGenerator.auraID1;
             sEventMgr.AddEvent(this, &GameObject::AuraGenSearchTarget, EVENT_GAMEOBJECT_TRAP_SEARCH_TARGET, 1000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             return;
         }break;
@@ -355,7 +355,7 @@ void GameObject::InitAI()
 
 bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
 {
-    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z,spawn->facing))
+    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z,spawn->o))
         return false;
 
     m_spawn = spawn;
@@ -547,8 +547,8 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     float m_followAngle = angle + v.o;
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
+    p->Load(GetMapId(), x, y, v.z, angle, GetMapMgr()->iInstanceMode);
     p->SetInstanceID(GetMapMgr()->GetInstanceID());
-    p->Load(GetMapMgr()->iInstanceMode, x, y, v.z, angle);
     p->setLevel(u_caster->getLevel());
 
     p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
@@ -667,8 +667,8 @@ void GameObject::TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster
     if(HasFlag(GAMEOBJECT_FLAGS,GO_FLAG_DESTROYED)) // Already destroyed
         return;
 
-    uint32 IntactHealth = pInfo->DestructableBuilding.IntactNumHits;
-    uint32 DamagedHealth = pInfo->DestructableBuilding.DamagedNumHits;
+    uint32 IntactHealth = pInfo->data.building.intactNumHits;
+    uint32 DamagedHealth = pInfo->data.building.damagedNumHits;
 
     if(m_Go_Uint32Values[GO_UINT32_HEALTH] > amount)
         m_Go_Uint32Values[GO_UINT32_HEALTH] -= amount;
@@ -702,8 +702,8 @@ void GameObject::SetStatusRebuilt()
 {
     RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED | GO_FLAG_DESTROYED);
     SetDisplayId(pInfo->DisplayID);
-    uint32 IntactHealth = pInfo->DestructableBuilding.IntactNumHits;
-    uint32 DamagedHealth = pInfo->DestructableBuilding.DamagedNumHits;
+    uint32 IntactHealth = pInfo->data.building.intactNumHits;
+    uint32 DamagedHealth = pInfo->data.building.damagedNumHits;
     m_Go_Uint32Values[GO_UINT32_HEALTH] = IntactHealth + DamagedHealth;
 }
 
@@ -722,7 +722,7 @@ void GameObject::AuraGenSearchTarget()
     for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
         Unit *unit = GetInRangeObject<Unit>(*itr);
-        if (GetDistanceSq(unit) > pInfo->AuraGenerator.Radius)
+        if (GetDistanceSq(unit) > pInfo->data.auraGenerator.radius)
             continue;
         if(unit->HasAura(spell->Id))
             continue;
@@ -733,22 +733,22 @@ void GameObject::AuraGenSearchTarget()
 void GameObject::SetStatusDamaged()
 {
     SetFlags(GO_FLAG_DAMAGED);
-    if(pInfo->DestructableBuilding.DestructibleData != 0)
+    if(pInfo->data.building.destructibleData != 0)
     {
         if(DestructibleModelDataEntry *display = NULL)//dbcDestructibleModelDataEntry.LookupEntry( pInfo->DestructableBuilding.DestructibleData ))
             SetDisplayId(display->GetDisplayId(1));
-    } else SetDisplayId(pInfo->DestructableBuilding.DamagedDisplayId);
+    } else SetDisplayId(pInfo->data.building.damagedDisplayId);
 }
 
 void GameObject::SetStatusDestroyed()
 {
     RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED);
     SetFlags(GO_FLAG_DESTROYED);
-    if(pInfo->DestructableBuilding.DestructibleData != 0)
+    if(pInfo->data.building.destructibleData != 0)
     {
         if(DestructibleModelDataEntry *display = NULL)//dbcDestructibleModelDataEntry.LookupEntry( pInfo->DestructableBuilding.DestructibleData ))
             SetDisplayId(display->GetDisplayId(3));
-    } else SetDisplayId(pInfo->DestructableBuilding.DestroyedDisplayId);
+    } else SetDisplayId(pInfo->data.building.destroyedDisplayId);
 }
 
 #define OPEN_CHEST 11437
@@ -768,7 +768,7 @@ void GameObject::Use(Player *p)
     {
     case GAMEOBJECT_TYPE_CHAIR:
         {
-            if(goinfo->Chair.OnlyCreatorUse)
+            if(goinfo->data.chair.onlyCreatorUse)
             {
                 if(p->GetGUID() != GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
                     return;
@@ -779,9 +779,9 @@ void GameObject::Use(Player *p)
 
             if (!ChairListSlots.size())
             {
-                if (goinfo->Chair.Slots > 0)
+                if (goinfo->data.chair.slots > 0)
                 {
-                    for (uint32 i = 0; i < goinfo->Chair.Slots; ++i)
+                    for (uint32 i = 0; i < goinfo->data.chair.slots; ++i)
                         ChairListSlots[i] = 0;
                 } else ChairListSlots[0] = 0;
             }
@@ -795,7 +795,7 @@ void GameObject::Use(Player *p)
             for (ChairSlotAndUser::iterator itr = ChairListSlots.begin(); itr != ChairListSlots.end(); ++itr)
             {
                 float size = GetFloatValue(OBJECT_FIELD_SCALE_X);
-                float relativeDistance = (size*itr->first)-(size*(goinfo->Chair.Slots-1)/2.0f);
+                float relativeDistance = (size*itr->first)-(size*(goinfo->data.chair.slots-1)/2.0f);
 
                 float x_i = GetPositionX() + relativeDistance * cos(orthogonalOrientation);
                 float y_i = GetPositionY() + relativeDistance * sin(orthogonalOrientation);
@@ -830,7 +830,7 @@ void GameObject::Use(Player *p)
                 {
                     itr->second = p->GetGUID();
                     p->Teleport( x_lowest, y_lowest, GetPositionZ(), GetOrientation() );
-                    p->SetStandState(STANDSTATE_SIT_LOW_CHAIR+goinfo->Chair.Height);
+                    p->SetStandState(STANDSTATE_SIT_LOW_CHAIR+goinfo->data.chair.height);
                     return;
                 }
             }
@@ -925,11 +925,11 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_RITUAL:
         {
             // store the members in the ritual, cast sacrifice spell, and summon.
-            uint32 i = 0;
+            uint32 i = 0, reqParticipants = goinfo->data.ritual.reqParticipants;
             if(!m_ritualmembers || !GetGOui32Value(GO_UINT32_RIT_SPELL) || !GetGOui32Value(GO_UINT32_M_RIT_CASTER))
                 return;
 
-            for(i = 0; i < goinfo->Arbiter.ReqParticipants; i++)
+            for(i = 0; i < reqParticipants; i++)
             {
                 if(!m_ritualmembers[i])
                 {
@@ -948,11 +948,11 @@ void GameObject::Use(Player *p)
                 }
             }
 
-            if(i == goinfo->Arbiter.ReqParticipants - 1)
+            if(i == reqParticipants - 1)
             {
                 SetGOui32Value(GO_UINT32_RIT_SPELL, 0);
                 Player* plr;
-                for(i = 0; i < goinfo->Arbiter.ReqParticipants; i++)
+                for(i = 0; i < reqParticipants; i++)
                 {
                     plr = p->GetMapMgr()->GetPlayer(m_ritualmembers[i]);
                     if(plr != NULL)
@@ -983,11 +983,11 @@ void GameObject::Use(Player *p)
                 case 177193:// doom portal
                     {
                         // kill the sacrifice player
-                        Player* psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(goinfo->Arbiter.ReqParticipants-1))]);
+                        Player* psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(reqParticipants-1))]);
                         Player* pCaster = GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!psacrifice || !pCaster)
                             return;
-                        if((info = dbcSpell.LookupEntry(goinfo->Arbiter.CasterTargetSpell)) == NULL)
+                        if((info = dbcSpell.LookupEntry(goinfo->data.ritual.casterTargetSpell)) == NULL)
                             break;
 
                         SpellCastTargets targets(psacrifice->GetGUID());
@@ -996,7 +996,7 @@ void GameObject::Use(Player *p)
 
                         // summons demon
                         targets.m_unitTarget = pCaster->GetGUID();
-                        if(info = dbcSpell.LookupEntry(goinfo->Arbiter.SpellId))
+                        if(info = dbcSpell.LookupEntry(goinfo->data.ritual.spellId))
                             if(Spell *spell = new Spell(pCaster, info))
                                 spell->prepare(&targets, true);
                     }break;
@@ -1075,10 +1075,10 @@ void GameObject::Use(Player *p)
         }break;
     case GAMEOBJECT_TYPE_CAMERA://eye of azora
         {
-            if(goinfo->Camera.CinematicId)
+            if(uint32 cinematic = goinfo->data.camera.cinematicId)
             {
                 WorldPacket data(SMSG_TRIGGER_CINEMATIC, 4);
-                data << uint32(goinfo->Camera.CinematicId);
+                data << uint32(cinematic);
                 p->GetSession()->SendPacket(&data);
             }
             else

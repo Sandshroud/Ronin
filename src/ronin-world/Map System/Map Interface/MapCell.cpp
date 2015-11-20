@@ -164,32 +164,30 @@ void MapCell::LoadObjects(CellSpawns * sp)
         return;
 
     _loaded = true;
+    uint32 mapId = _mapmgr->GetMapId();
     Instance * pInstance = _mapmgr->pInstance;
     if(sp->CreatureSpawns.size())//got creatures
     {
         Creature* c = NULL;
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
-            if(pInstance && pInstance->m_killedNpcs.find((*i)->id) != pInstance->m_killedNpcs.end())
+            CreatureSpawn *spawn = *i;
+            if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
                 continue;
 
-            c = (*i)->vehicle ? _mapmgr->CreateVehicle((*i)->entry) : _mapmgr->CreateCreature((*i)->entry);
-            if(c == NULL)
-                continue;
-
-            c->SetMapId(_mapmgr->GetMapId());
-            c->SetInstanceID(_mapmgr->GetInstanceID());
-            if(c->Load(*i, _mapmgr->iInstanceMode))
+            if(c = spawn->vehicle ? _mapmgr->CreateVehicle(spawn->entry) : _mapmgr->CreateCreature(spawn->entry))
             {
-                if(c->CanAddToWorld())
+                c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _mapmgr->iInstanceMode, spawn);
+                c->SetInstanceID(_mapmgr->GetInstanceID());
+                if(!c->CanAddToWorld())
                 {
-                    c->PushToWorld(_mapmgr);
+                    c->Destruct();
+                    c = NULL;
                     continue;
                 }
-            }
 
-            c->Destruct();
-            c = NULL;
+                c->PushToWorld(_mapmgr);
+            }
         }
     }
 
@@ -202,7 +200,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
             if(go == NULL)
                 continue;
 
-            if(go->Load(_mapmgr->GetMapId(), *i))
+            if(go->Load(mapId, *i))
             {
                 go->PushToWorld(_mapmgr);
                 TRIGGER_GO_EVENT(go, OnSpawn);

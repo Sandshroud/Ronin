@@ -299,7 +299,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
     if(gi == NULL)
         return;
 
-    gi_aura = gi->Button.LinkedTrap ? GameObjectNameStorage.LookupEntry(gi->Button.LinkedTrap) : NULL;
+    gi_aura = gi->data.button.linkedTrap ? GameObjectNameStorage.LookupEntry(gi->data.button.linkedTrap) : NULL;
     if(m_ioccontrolPoints[Id])
     {
         if(m_ioccontrolPoints[Id]->IsInWorld())

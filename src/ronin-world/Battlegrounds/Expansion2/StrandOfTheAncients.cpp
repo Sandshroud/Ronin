@@ -145,13 +145,7 @@ StrandOfTheAncients::StrandOfTheAncients(MapMgr* mgr, uint32 id, uint32 lgroup, 
     {
         if(m_cannons[x] = m_mapMgr->CreateCreature(27894))
         {
-            if(!m_cannons[x]->Load(m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]))
-            {
-                delete m_cannons[x];
-                m_cannons[x] = NULL;
-                continue;
-            }
-
+            m_cannons[x]->Load(m_mapMgr->GetMapId(), m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3], m_mapMgr->iInstanceMode);
             m_cannons[x]->PushToWorld(m_mapMgr);
 
             //Change Cannon Factions
@@ -297,13 +291,15 @@ void StrandOfTheAncients::Respawn()
 {
     for(uint32 y = 0; y < 4; y++)
     {
-        if(y == 0)
-            for(uint32 z = 0; z < 9; z++)
-                m_cannons[z]->Destruct();
-
         m_gates[y]->Destruct();
         m_gateSigils[y]->Destruct();
         m_gateTransporters[y]->Destruct();
+
+        if(y != 0)
+            continue;
+
+        for(uint32 z = 0; z < 9; z++)
+            m_cannons[z]->Destruct();
     }
 
     m_endgate->Destruct();
@@ -313,7 +309,7 @@ void StrandOfTheAncients::Respawn()
     {
         if(m_cannons[x] = m_mapMgr->CreateCreature(27894))
         {
-            m_cannons[x]->Load(m_mapMgr->iInstanceMode, m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3]);
+            m_cannons[x]->Load(m_mapMgr->GetMapId(), m_cannonsLocations[x][0], m_cannonsLocations[x][1], m_cannonsLocations[x][2], m_cannonsLocations[x][3], m_mapMgr->iInstanceMode);
             m_cannons[x]->PushToWorld(m_mapMgr);
 
             //Change Cannon Factions

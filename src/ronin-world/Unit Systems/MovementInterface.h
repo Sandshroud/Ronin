@@ -337,6 +337,10 @@ public:
     void UnlockTransportData() { m_isTransportLocked = false; }
 
     WoWGuid GetTransportGuid() { return m_transportGuid; }
+    uint32 GetTransportTime() { return m_transportTime; }
+    uint32 GetTransportTime2() { return m_transportTime2; }
+    uint32 GetTransportVehicleId() { return m_vehicleId; }
+    int8 GetTransportSeat() { return m_transportSeatId; }
     void GetTransportPosition(float &x, float &y, float &z, float &o)
     {
         x = m_transportLocation.x;
@@ -367,7 +371,7 @@ public:
     {
         m_vehicleId = 0;
         m_transportGuid = 0;
-        m_transportSeatId = 0;
+        m_transportSeatId = 0xFF;
         m_transportTime = m_transportTime2 = 0;
         m_transportLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
     }

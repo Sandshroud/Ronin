@@ -260,11 +260,17 @@ void Object::GetUpdateFieldData(uint8 type, uint16 *&flags, uint16 &length)
 
 uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
-    uint16 updateFlags = m_updateFlags;
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
     // Players or player linked units
     if(IsPlayer() || IsPet() || IsTotem() || IsSummon())
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
+
+    uint16 updateFlags = m_updateFlags;
+    if(target == this)
+    {   // player creating self
+        updateFlags |= UPDATEFLAG_SELF;
+    } else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
+        updateFlags |= UPDATEFLAG_HAS_TARGET;
 
     if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
     {
@@ -281,14 +287,6 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
             }break;
         }
     }
-
-    if(target == this)
-    {
-        // player creating self
-        updateFlags |= UPDATEFLAG_SELF;
-        updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
-    } else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
-        updateFlags |= UPDATEFLAG_HAS_TARGET;
 
     // build our actual update
     *data << uint8(updatetype);
@@ -317,7 +315,7 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFl
 
 uint32 Object::BuildOutOfRangeUpdateBlock(ByteBuffer *data)
 {
-    *data << GetGUID().asPacked();
+    *data << m_objGuid.asPacked();
     return 1;
 }
 
@@ -342,14 +340,13 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
                 if(flags[i] & (uFlag|m_notifyFlags))
                 {
                     mask.SetBit(offset);
-                    /*if(IsGameObject() && offset == GAMEOBJECT_DISPLAYID)
-                        fields << uint32(0);
-                    else*/ fields << m_uint32Values[offset];
+                    fields << uint32((IsGameObject() && offset == GAMEOBJECT_DISPLAYID) ? 0 : m_uint32Values[offset]);
                 }
             }
         }
     }
 
+    ASSERT(mask.GetBlockCount()*4 == mask.GetLength());
     *data << uint8(mask.GetBlockCount());
     data->append(mask.GetMask(), mask.GetLength() );
     data->append(fields.contents(), fields.size());
@@ -376,6 +373,10 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
+    uint32 stopFrameCount = 0;
+    if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
+        stopFrameCount = 0; //castPtr<GameObject>(this)->GetInfo()->data.transport.;
+
     data->WriteBit(0);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_ROTATION);
@@ -384,7 +385,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_SELF);
     data->WriteBit(flags & UPDATEFLAG_VEHICLE);
     data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits(0, 24);
+    data->WriteBits(stopFrameCount, 24);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
     data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
@@ -393,109 +394,119 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
 
     if(flags & UPDATEFLAG_LIVING)
-        _WriteLivingMovementUpdateBits(data, target);
+        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdateBits(data);
 
     // used only with GO's, placeholder
     if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
-        data->WriteBitString(10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    {
+        WoWGuid guid = castPtr<Unit>(this)->GetTransportGuid();
+        data->WriteBit(guid[5]);
+        data->WriteBit(0);                                                      // Has GO transport time 3
+        data->WriteBit(guid[0]);
+        data->WriteBit(guid[3]);
+        data->WriteBit(guid[6]);
+        data->WriteBit(guid[1]);
+        data->WriteBit(guid[4]);
+        data->WriteBit(guid[2]);
+        data->WriteBit(0);                                                      // Has GO transport time 2
+        data->WriteBit(guid[7]);
+    }
 
     if(flags & UPDATEFLAG_HAS_TARGET)
-        _WriteTargetMovementUpdateBits(data, target);
+    {
+        WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
+        data->WriteBitString(4, targetGuid[2], targetGuid[7], targetGuid[0], targetGuid[4]);
+        data->WriteBitString(4, targetGuid[5], targetGuid[6], targetGuid[1], targetGuid[3]);
+    }
 
     if (flags & UPDATEFLAG_ANIMKITS)
-        data->WriteBitString(3, 1, 1, 1); // Missing Anim kits 1,2,3
+    {
+        Unit *uThis = castPtr<Unit>(this);
+        data->WriteBit(uThis->GetAIAnimKitId() == 0);
+        data->WriteBit(uThis->GetMovementAnimKitId() == 0);
+        data->WriteBit(uThis->GetMeleeAnimKitId() == 0);
+    }
 
     data->FlushBits();
+
+    // Now we do byte data
+    for(uint32 i = 0; i < stopFrameCount; i++)
+        *data << uint32(0);
+
     if(flags & UPDATEFLAG_LIVING)
-        _WriteLivingMovementUpdateBytes(data, target);
+        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdateBytes(data);
 
     if(flags & UPDATEFLAG_VEHICLE)
-        *data << float(castPtr<WorldObject>(this)->GetOrientation()) << castPtr<Vehicle>(this)->GetVehicleEntry();
+        *data << float(castPtr<WorldObject>(this)->GetOrientation()) << uint32(castPtr<Vehicle>(this)->GetVehicleEntry());
 
     if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
     {
-        // no transguid 0, 5
-        // No transtime3
-        // no tansguid 3
-        *data << float(0.f);
-        // no transguid 4, 6, 1
-        *data << uint32(0);
-        *data << float(0.f);
-        // no transguid 2, 7
-        *data << float(0.f);
-        *data << uint8(0xFF);
-        *data << float(0.f);
-        // No transtime2
+        Unit *uThis = castPtr<Unit>(this);
+        WoWGuid guid = uThis->GetTransportGuid();
+        MovementInterface *mi = uThis->GetMovementInterface();
+        float tX, tY, tZ, tO;
+        mi->GetTransportPosition(tX, tY, tZ, tO);
+        data->WriteByteSeq(guid[0]);
+        data->WriteByteSeq(guid[5]);
+        if (uint32 vehicleId = mi->GetTransportVehicleId())
+            *data << uint32(vehicleId);
+        data->WriteByteSeq(guid[3]);
+        *data << float(tX);
+        data->WriteByteSeq(guid[4]);
+        data->WriteByteSeq(guid[6]);
+        data->WriteByteSeq(guid[1]);
+        *data << uint32(mi->GetTransportTime());
+        *data << float(tY);
+        data->WriteByteSeq(guid[2]);
+        data->WriteByteSeq(guid[7]);
+        *data << float(tZ);
+        *data << int8(mi->GetTransportSeat());
+        *data << float(tO);
+        if (uint32 transportTime2 = mi->GetTransportTime2())
+            *data << uint32(transportTime2);
     }
 
     if(flags & UPDATEFLAG_ROTATION)
-    {
-        uint64 rotation = 0;
-        if(IsGameObject()) rotation = castPtr<GameObject>(this)->m_rotation;
-        *data << uint64(rotation); //blizz 64bit rotation
-    }
+        *data << uint64(castPtr<GameObject>(this)->m_rotation); //blizz 64bit rotation
 
     if (flags & UPDATEFLAG_TRANSPORT_ARR)
     {
-        for(uint8 i = 0; i < 4; i++)
-            *data << float(0.0f);
+        *data << float(0.0f) << float(0.0f) << float(0.0f) << float(0.0f);
         *data << uint8(0);
-        for(uint8 x = 0; x < 3; x++)
-            for(uint8 y = 0; y < 4; y++)
-                *data << float(0.0f);
+        *data << float(0.0f) << float(0.0f) << float(0.0f) << float(0.0f);
+        *data << float(0.0f) << float(0.0f) << float(0.0f) << float(0.0f);
+        *data << float(0.0f) << float(0.0f) << float(0.0f) << float(0.0f);
     }
 
     if (flags & UPDATEFLAG_STATIONARY_POS)
-        _WriteStationaryPositionBytes(data, target);
+    {
+        WorldObject *obj = castPtr<WorldObject>(this);
+        *data << float(obj->GetSpawnO());
+        *data << float(obj->GetSpawnX());
+        *data << float(obj->GetSpawnY());
+        *data << float(obj->GetSpawnZ());
+    }
 
     if(flags & UPDATEFLAG_HAS_TARGET)
-        _WriteTargetMovementUpdateBytes(data, target);
+    {
+        WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
+        data->WriteSeqByteString(4, targetGuid[4], targetGuid[0], targetGuid[3], targetGuid[5]);
+        data->WriteSeqByteString(4, targetGuid[7], targetGuid[6], targetGuid[2], targetGuid[1]);
+    }
 
     if (flags & UPDATEFLAG_ANIMKITS)
     {
-        if(false) *data << uint16(0); // AnimKit1
-        if(false) *data << uint16(0); // AnimKit2
-        if(false) *data << uint16(0); // AnimKit3
+        Unit *uThis = castPtr<Unit>(this);
+        if (uThis->GetAIAnimKitId())
+            *data << uint16(uThis->GetAIAnimKitId());
+        if (uThis->GetMovementAnimKitId())
+            *data << uint16(uThis->GetMovementAnimKitId());
+        if (uThis->GetMeleeAnimKitId())
+            *data << uint16(uThis->GetMeleeAnimKitId());
     }
 
     if(flags & UPDATEFLAG_TRANSPORT)
         *data << uint32(getMSTime());
-}
-
-void Object::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
-{
-    *bytes << float(0.f) << float(0.f) << float(0.f) << float(0.f);
-}
-
-void Object::_WriteLivingMovementUpdateBits(ByteBuffer *bits, Player *target)
-{
-    bits->WriteBit(1); // We have no movement flags
-    bits->WriteBit(1); // We have no orientation
-    bits->WriteBits(0, 3); // Guid mask
-    // 30 movementflag bits
-    bits->WriteBit(0); // unk
-    bits->WriteBit(1); // We have no pitch
-    bits->WriteBit(0); // We have spline disabled
-    bits->WriteBit(0); // We have no fall data
-    bits->WriteBit(1); // We have no elevation
-    bits->WriteBit(0); // Guid mask
-    bits->WriteBit(0); // We have no transport
-    bits->WriteBit(1); // We have no timestamp
-    // Transport bits
-    bits->WriteBit(0); // Guid mask
-    // Spline bits
-    bits->WriteBit(0); // Guid mask
-    // hasFalldirection
-    bits->WriteBit(0); // Guid mask
-    bits->WriteBit(0); // Unk
-    bits->WriteBit(1); // We have no movementflags2
-    // Movementflag2 bits
-}
-
-void Object::_WriteTargetMovementUpdateBits(ByteBuffer *bits, Player *target)
-{
-    // Objects have no targets, this will be overwritten by Unit::_WriteTargetMovementUpdate
-    bits->WriteBits(0, 8);
 }
 
 void Object::DestroyForPlayer(Player* target, bool anim)
@@ -576,11 +587,6 @@ void WorldObject::Destruct()
     m_instanceId = -1;
     sEventMgr.RemoveEvents(this);
     Object::Destruct();
-}
-
-void WorldObject::_WriteStationaryPositionBytes(ByteBuffer *bytes, Player *target)
-{
-    *bytes << GetOrientation() << GetPositionX() << GetPositionY() << GetPositionZ();
 }
 
 //That is dirty fix it actually creates update of 1 field with
@@ -783,6 +789,7 @@ void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
 {
     m_mapId = mapid;
     m_position.ChangeCoords(x, y, z, ang);
+    m_spawnLocation.ChangeCoords(x, y, z, ang);
 }
 
 WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
@@ -982,58 +989,6 @@ void WorldObject::RemoveFromWorld(bool free_guid)
     // update our event holder
     event_Relocate();
     Object::RemoveFromWorld(free_guid);
-}
-
-bool WorldObject::canWalk()
-{
-    if(IsCreature())
-    {
-        Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
-            return true;
-        if(ctr->GetCanMove() & LIMIT_GROUND)
-            return true;
-    } else if(IsPlayer())
-        return true;
-    return false;
-}
-
-bool WorldObject::canSwim()
-{
-    if(IsCreature())
-    {
-        Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
-            return true;
-        if(ctr->GetCanMove() & LIMIT_WATER)
-            return true;
-    } else if(IsPlayer())
-        return true;
-    return false;
-}
-
-bool WorldObject::canFly()
-{
-    if(IsVehicle())
-        return false;
-    else if(IsCreature())
-    {
-        Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
-            return true;
-        if(ctr->GetCanMove() & LIMIT_AIR)
-            return true;
-    }
-    else if(IsPlayer())
-    {
-        Player* plr = castPtr<Player>(this);
-        if(plr->m_FlyingAura)
-            return true;
-        if(plr->FlyCheat)
-            return true;
-    }
-
-    return false;
 }
 
 bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)
@@ -1410,9 +1365,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     bool isCritter = false;
     if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetCreatureData())
     {
-        if(castPtr<Creature>(pVictim)->GetCreatureData()->Type == CRITTER)
+        if(castPtr<Creature>(pVictim)->GetCreatureData()->type == CRITTER)
             isCritter = true;
-        else if(isTargetDummy(castPtr<Creature>(pVictim)->GetCreatureData()->Entry) && health <= damage)
+        else if(isTargetDummy(castPtr<Creature>(pVictim)->GetCreatureData()->entry) && health <= damage)
         {   //Dummy trainers can't die
             uint32 newh = 5; // Just limit to 5HP (can't use 1HP here).
             if(pVictim->GetMaxHealth() < 5)
@@ -1739,23 +1694,18 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                             castPtr<Unit>(this)->GiveGroupXP( pVictim, petOwner );
                             //TODO: pet xp if player in group
                         }
-                        else
+                        else if( uint32 xp = CalculateXpToGive( pVictim, petOwner ) )
                         {
-                            uint32 xp = CalculateXpToGive( pVictim, petOwner );
-                            if( xp > 0 )
+                            petOwner->GiveXP( xp, victimGuid, true );
+                            if( !castPtr<Pet>(this)->IsSummonedPet() )
                             {
-                                petOwner->GiveXP( xp, victimGuid, true );
-                                if( !castPtr<Pet>(this)->IsSummonedPet() )
-                                {
-                                    xp = CalculateXpToGive( pVictim, castPtr<Pet>(this) );
-                                    if( xp > 0 )
-                                        castPtr<Pet>(this)->GiveXP( xp );
-                                }
+                                if( xp = CalculateXpToGive( pVictim, castPtr<Pet>(this) ) )
+                                    castPtr<Pet>(this)->GiveXP( xp );
                             }
                         }
                     }
-                    if( petOwner != NULL && pVictim->GetTypeId() != TYPEID_PLAYER &&
-                        pVictim->GetTypeId() == TYPEID_UNIT )
+
+                    if( petOwner != NULL && pVictim->GetTypeId() != TYPEID_PLAYER && pVictim->GetTypeId() == TYPEID_UNIT )
                         sQuestMgr.OnPlayerKill( petOwner, castPtr<Creature>( pVictim ) );
                 }
                 /* ----------------------------- PET XP HANDLING END-------------- */

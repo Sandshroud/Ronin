@@ -148,14 +148,11 @@ void Pet::Destruct()
 
 void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry* created_by_spell, uint32 type, uint32 expiretime)
 {
-    if(Position != NULL)
-        Load(0, Position->x, Position->y, Position->z, Position->o);
-    else Load(0, owner->GetPositionX(), owner->GetPositionY(), owner->GetPositionZ(), owner->GetOrientation());
+    Load(owner->GetMapId(), Position ? Position->x : owner->GetPositionX(), Position ? Position->y : owner->GetPositionY(), Position ? Position->z : owner->GetPositionZ(), Position ? Position->o : owner->GetOrientation(), 0);
 
     EventModelChange();
     m_Owner = castPtr<Player>(owner);
     m_OwnerGuid = owner->GetGUID();
-    myFamily = dbcCreatureFamily.LookupEntry(_creatureData->Family);
     if( myFamily == NULL || myFamily->name == NULL )
         m_name = "Pet";
     else m_name.assign( myFamily->name );
@@ -386,9 +383,8 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     m_OwnerGuid = m_Owner->GetGUID();
     m_PlayerPetInfo = playerPetInfo;
 
-    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->Family);
-    Load(0, owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
-    Create(owner->GetMapId(), owner->GetPositionX() + 2 , owner->GetPositionY() +2, owner->GetPositionZ(), owner->GetOrientation());
+    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->family);
+    Load(owner->GetMapId(), owner->GetPositionX() + 2.f, owner->GetPositionY() + 2.f, owner->GetPositionZ(), owner->GetOrientation(), 0);
 
     //LoadValues(m_PlayerPetInfo->fields.c_str());
     if(getLevel() == 0)
@@ -457,7 +453,7 @@ void Pet::InitializeMe()
     m_Owner->SetUInt64Value(UNIT_FIELD_SUMMON, GetGUID());
     SetUInt32Value(UNIT_FIELD_PETNUMBER, GetLowGUID());
     SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, (uint32)UNIXTIME);
-    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->Family);
+    myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->family);
     SetPetDiet();
     _setFaction();
     m_State = 1;        // dont set agro on spawn
@@ -1022,7 +1018,7 @@ void Pet::ApplySummonLevelAbilities()
     }
     if(stat_index < 0)
     {
-        sLog.outDebug("PETSTAT: No stat index found for entry %u, `%s`!", GetEntry(), _creatureData->Name);
+        sLog.outDebug("PETSTAT: No stat index found for entry %u, `%s`!", GetEntry(), GetName());
         return;
     }
 

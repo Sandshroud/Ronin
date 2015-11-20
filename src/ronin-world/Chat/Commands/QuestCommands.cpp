@@ -423,7 +423,7 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
                 delete spawnResult1;
             } else spawnId1 = "N/A";
 
-            recout = "|cff00ccffQuest Starter found: creature id, spawnid, name\n\n";
+            recout = "|cff00ccffQuest Starter found: creature id, spawnid, name, name2\n\n";
             SendMultilineMessage(m_session, recout.c_str());
 
             recout = "|cff00ccff";
@@ -431,7 +431,9 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
             recout += ", ";
             recout += spawnId1.c_str();
             recout += ", ";
-            recout += creatureData->Name;
+            recout += creatureData->maleName;
+            recout += ", ";
+            recout += creatureData->femaleName;
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }
@@ -1059,14 +1061,10 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
         std::string creatureId1 = MyConvertIntToString(fields[0].GetUInt32());
 
         delete objectResult1;
-
-        std::string creatureName1 = "N/A";
         CreatureData *creatureResult1 = sCreatureDataMgr.GetCreatureData(atol(creatureId1.c_str()));
 
         if(creatureResult1)
         {
-            creatureName1 = creatureResult1->Name;
-
             my_query1 = "SELECT id FROM creature_spawns WHERE entry = " + creatureId1;
             QueryResult *spawnResult1 = WorldDatabase.Query(my_query1.c_str());
 
@@ -1079,7 +1077,7 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
                 delete spawnResult1;
             } else spawnId1 = "N/A";
 
-            recout = "|cff00ccffQuest Finisher found: creature id, spawnid, name\n\n";
+            recout = "|cff00ccffQuest Finisher found: creature id, spawnid, name, name2\n\n";
             SendMultilineMessage(m_session, recout.c_str());
 
             recout = "|cff00ccff";
@@ -1087,7 +1085,9 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
             recout += ", ";
             recout += spawnId1.c_str();
             recout += ", ";
-            recout += creatureName1.c_str();
+            recout += creatureResult1->maleName;
+            recout += ", ";
+            recout += creatureResult1->femaleName;
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }
@@ -1182,12 +1182,8 @@ bool ChatHandler::HandleQuestSpawnCommand(const char * args, WorldSession * m_se
 
     delete objectResult;
 
-    std::string starterName = "N/A";
     CreatureData *creatureResult = sCreatureDataMgr.GetCreatureData(atol(starterId.c_str()));
-
-    if(creatureResult)
-        starterName = creatureResult->Name;
-    else
+    if(creatureResult == NULL)
     {
         recout = "|cff00ccffNo quest starter info found.\n\n";
         SendMultilineMessage(m_session, recout.c_str());
@@ -1213,13 +1209,15 @@ bool ChatHandler::HandleQuestSpawnCommand(const char * args, WorldSession * m_se
 
     delete spawnResult;
 
-    recout = "|cff00ccffPorting to Quest Starter/Giver: id, name\n\n";
+    recout = "|cff00ccffPorting to Quest Starter/Giver: id, name, name2\n\n";
     SendMultilineMessage(m_session, recout.c_str());
 
     recout = "|cff00ccff";
     recout += starterId.c_str();
     recout += ", ";
-    recout += starterName.c_str();
+    recout += creatureResult->maleName;
+    recout += ", ";
+    recout += creatureResult->femaleName;
     recout += "\n\n";
     SendMultilineMessage(m_session, recout.c_str());
 
