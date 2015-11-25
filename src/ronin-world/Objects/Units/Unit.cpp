@@ -133,8 +133,15 @@ void Unit::Init()
     m_aiInterface.Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
 
     CombatStatus.SetUnit(castPtr<Unit>(this));
+
+    // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
+    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
+    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
+    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
+    SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
+    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 1.f);
     for(uint8 i = 0; i < 3; i++)
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, GetBaseAttackTime(i));
 }
@@ -858,7 +865,7 @@ void Unit::UpdateHoverValues()
     if(!m_AuraInterface.GetModMaskBit(SPELL_AURA_HOVER))
         return;
 
-    float val = 0.0f;
+    float val = 1.0f;
     AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_HOVER);
     for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
         val += float(itr->second->m_amount)/2.0f;
@@ -1907,15 +1914,11 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     uint32 vskill           = 0;
     bool disable_dR         = false;
 
+    dmg.school_type = SCHOOL_NORMAL;
     if(ability)
         dmg.school_type = ability->School;
-    else
-    {
-        if (GetTypeId() == TYPEID_UNIT)
-            dmg.school_type = castPtr<Creature>(this)->BaseAttackType;
-        else
-            dmg.school_type = SCHOOL_NORMAL;
-    }
+    else if (GetTypeId() == TYPEID_UNIT)
+        dmg.school_type = castPtr<Creature>(this)->GetCreatureData()->attackType;
 
 //==========================================================================================
 //==============================Victim Skill Base Calculation===============================
@@ -3244,10 +3247,10 @@ void Unit::UpdateVisibility()
             can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
             if(can_see && !is_visible)
             {
+                plr->AddVisibleObject(pObj);
                 if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
                 {
                     plr->PushUpdateBlock(&buffer, count);
-                    plr->AddVisibleObject(pObj);
                     buffer.clear();
                 }
             }
@@ -3263,10 +3266,10 @@ void Unit::UpdateVisibility()
                 can_see = pl->CanSee( plr ), is_visible = pl->GetVisibility( plr, &it3 );
                 if( can_see && !is_visible )
                 {
+                    pl->AddVisibleObject(plr);
                     if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
                     {
                         pl->PushUpdateBlock(&buffer, count);
-                        pl->AddVisibleObject(plr);
                         buffer.clear();
                     }
                 }
@@ -3291,10 +3294,10 @@ void Unit::UpdateVisibility()
             }
             else if(can_see && !is_visible)
             {
+                plr->AddVisibleObject(this);
                 if(count = BuildCreateUpdateBlockForPlayer(&buffer, plr))
                 {
                     plr->PushUpdateBlock(&buffer, count);
-                    plr->AddVisibleObject(this);
                     buffer.clear();
                 }
             }
@@ -3949,35 +3952,7 @@ void Unit::EventModelChange()
 
 void Creature::UpdateLootAnimation(Player* Looter)
 {
-    if( GetLoot()->HasLoot(Looter) )
-    {
-        // update players with lootable flags
-        for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
-        {
-            Player* plr = GetInRangeObject<Player>(*itr);
-            if( ( plr->GetLowGUID() == m_taggingPlayer ) ||
-                ( plr->GetGroup() != NULL && plr->GetGroupID() == m_taggingGroup ) )
-            {
-                // only have to do the sparkly animation
-                // TODO: do this by loot type for groups
-                // switch(m_lootMethod)
-                BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_LOOTABLE);
-            }
-        }
-    }
-    else
-    {
-        // we are still alive, probably updating tapped state
-        for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
-        {
-            Player* plr = GetInRangeObject<Player>(*itr);
-            if( m_taggingPlayer == NULL )
-                BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS));
-            else if((plr->GetLowGUID() == m_taggingPlayer) || (plr->GetGroup() != NULL && plr->GetGroup()->GetID() == m_taggingGroup))
-                BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_TAPPED_BY_PLAYER); // tagger.
-            else BuildFieldUpdatePacket(plr, UNIT_DYNAMIC_FLAGS, GetUInt32Value(UNIT_DYNAMIC_FLAGS) | U_DYN_FLAG_TAGGED_BY_OTHER);
-        }
-    }
+
 }
 
 void Creature::ClearTag()
@@ -4368,7 +4343,7 @@ void Unit::ResetFaction()
     uint32 faction = 35;
     if(IsPlayer())
         faction = castPtr<Player>(this)->GetInfo()->factiontemplate;
-    else if(IsCreature()) faction = castPtr<Creature>(this)->GetCreatureData()->Faction;
+    else if(IsCreature()) faction = castPtr<Creature>(this)->GetCreatureData()->faction;
 
     SetFaction(faction);
 }

@@ -253,7 +253,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                     if(!pLootTarget->IsPet() && !castPtr<Creature>(pLootTarget)->IsSummon()
                         && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->Skinned)
                     {
-                        pLootTarget->BuildFieldUpdatePacket( _player, UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE );
+
                     }
                 }
             }
@@ -549,11 +549,11 @@ void WorldSession::HandleSetTargetOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleSetSelectionOpcode( WorldPacket & recv_data )
 {
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    _player->SetUInt64Value(UNIT_FIELD_TARGET, guid);
     _player->SetSelection(guid);
+    _player->SetUInt64Value(UNIT_FIELD_TARGET, guid);
 }
 
 void WorldSession::HandleStandStateChangeOpcode( WorldPacket & recv_data )

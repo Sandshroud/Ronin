@@ -2444,12 +2444,7 @@ void Aura::SpellAuraEmphaty(bool apply)
     if(m_caster == NULL || m_target == NULL || !m_caster->IsPlayer())
         return;
 
-    // Show extra info about beast
-    uint32 dynflags = m_target->GetUInt32Value(UNIT_DYNAMIC_FLAGS);
-    if(apply)
-        dynflags |= U_DYN_FLAG_PLAYER_INFO;
-
-    m_target->BuildFieldUpdatePacket(castPtr<Player>(m_caster), UNIT_DYNAMIC_FLAGS, dynflags);
+    m_target->SetUInt32Value(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_PLAYER_INFO);
 }
 
 void Aura::SpellAuraUntrackable(bool apply)

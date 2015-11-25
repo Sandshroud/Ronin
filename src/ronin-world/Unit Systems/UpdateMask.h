@@ -9,31 +9,32 @@ class UpdateMask
 public:
     UpdateMask() : mCount(0), mBlocks(0), mUpdateMask(0) { }
     UpdateMask(uint32 count) : mCount(0), mBlocks(0), mUpdateMask(0) { SetCount(count); }
-    UpdateMask(const UpdateMask& mask) : mUpdateMask(0) { *this = mask; }
-
-    ~UpdateMask()
+    UpdateMask(UpdateMask const&mask) : mUpdateMask(NULL)
     {
-        delete[] mUpdateMask;
+        SetCount(mask.GetCount());
+        memcpy(mUpdateMask, mask.mUpdateMask, mask.GetLength());
     }
 
-    RONIN_INLINE void SetBit(uint32 index) { ((uint8*)mUpdateMask)[ index >> 3 ] |= 1 << (index & 0x7); }
-    RONIN_INLINE void UnsetBit(uint32 index) { ((uint8*)mUpdateMask)[ index >> 3 ] &= (0xff ^ (1 << (index & 0x7))); }
-    RONIN_INLINE bool GetBit(uint32 index) const { return (((uint8*)mUpdateMask)[ index >> 3 ] & (1 << (index & 0x7))) != 0; }
+    ~UpdateMask() { delete[] mUpdateMask; }
 
-    RONIN_INLINE uint32 GetBlockCount() const { return mBlocks; }
-    RONIN_INLINE uint32 GetLength() const { return mBlocks << 2; }
+    RONIN_INLINE void SetBit(uint32 index) { mUpdateMask[index>>3] |= 1 << (index & 0x7); }
+    RONIN_INLINE void UnsetBit(uint32 index) { mUpdateMask[index>>3] &= ~(1 << (index & 0x7)); }
+    RONIN_INLINE bool GetBit(uint32 index) const { return (mUpdateMask[index>>3] & (1 << (index & 0x7))) != 0; }
+
+    RONIN_INLINE uint32 GetBlockCount() const { return mBlocks>>2; }
+    RONIN_INLINE uint32 GetLength() const { return mBlocks; }
     RONIN_INLINE uint32 GetCount() const { return mCount; }
-    RONIN_INLINE uint8* GetMask() { return (uint8*)mUpdateMask; }
+    RONIN_INLINE uint8* GetMask() { return mUpdateMask; }
 
     RONIN_INLINE void SetCount(uint32 valuesCount)
     {
         if(mUpdateMask)
             delete[] mUpdateMask;
 
-        mCount = valuesCount;
-        mBlocks = (valuesCount + 31) / 32;
+        mBlocks = (mCount = valuesCount)+7;
+        mBlocks >>= 5; mBlocks += 1; mBlocks <<= 2;
 
-        mUpdateMask = new uint32[mBlocks];
+        mUpdateMask = new uint8[mBlocks];
         memset(mUpdateMask, 0, GetLength());
     }
 
@@ -47,7 +48,6 @@ public:
     {
         SetCount(mask.mCount);
         memcpy(mUpdateMask, mask.mUpdateMask, GetLength());
-
         return *this;
     }
 
@@ -88,5 +88,5 @@ public:
 private:
     uint32 mCount;
     uint32 mBlocks;
-    uint32* mUpdateMask;
+    uint8 *mUpdateMask;
 };

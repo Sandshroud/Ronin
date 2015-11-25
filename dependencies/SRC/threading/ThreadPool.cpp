@@ -108,7 +108,7 @@ bool RunThread(ThreadContext * target)
     bool res = false;
     THREAD_TRY_EXECUTION {
     res = target->run();
-    } THREAD_HANDLE_CRASH
+    } THREAD_HANDLE_CRASH;
     return res;
 }
 

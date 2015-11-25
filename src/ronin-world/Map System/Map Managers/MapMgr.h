@@ -100,6 +100,7 @@ public:
 
     RONIN_INLINE Vehicle* GetVehicle(WoWGuid guid)
     {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
         RONIN_UNORDERED_MAP<WoWGuid, Vehicle*>::iterator itr = m_VehicleStorage.find(guid);
         return ((itr != m_VehicleStorage.end()) ? itr->second : NULL);
     }
@@ -354,8 +355,6 @@ public:
     // bytebuffer caching
     ByteBuffer m_updateBuffer;
     ByteBuffer m_createBuffer;
-    ByteBuffer m_updateBuildBuffer;
-    ByteBuffer m_compressionBuffer;
 
 public:
     void ClearCorpse(Corpse* remove) { std::unordered_set<Corpse* >::iterator itr; if((itr = m_corpses.find(remove)) != m_corpses.end()) m_corpses.erase(itr); };

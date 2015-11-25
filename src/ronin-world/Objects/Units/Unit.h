@@ -173,6 +173,7 @@ enum UnitDynamicFlags
     U_DYN_FLAG_PLAYER_INFO      = 0x10,
     U_DYN_FLAG_DEAD             = 0x20,
     U_DYN_FLAG_REFER_A_FRIEND   = 0x40,
+    U_DYN_FLAG_TAPPED_BY_ALL_THREAT_LIST = 0x80        // Lua_UnitIsTappedByAllThreatList
 };
 
 enum DamageFlags

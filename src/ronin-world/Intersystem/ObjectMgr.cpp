@@ -1763,9 +1763,7 @@ void ObjectMgr::LoadInstanceReputationModifiers()
             m->mapid = mod.mapid;
             m->mods.push_back(mod);
             m_reputation_instance.insert( std::make_pair( m->mapid, m ) );
-        }
-        else
-            itr->second->mods.push_back(mod);
+        } else itr->second->mods.push_back(mod);
 
     } while(result->NextRow());
     sLog.Notice("ObjectMgr", "%u instance reputation modifiers loaded.", m_reputation_instance.size());
@@ -1776,7 +1774,6 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
 {
     uint32 team = pPlayer->GetTeam();
     MapEntry* map = dbcMap.LookupEntry(pPlayer->GetMapId());
-    bool is_boss, is_heroic;
     if(pVictim->GetTypeId() != TYPEID_UNIT)
         return false;
 
@@ -1784,7 +1781,7 @@ bool ObjectMgr::HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim
     if(itr == m_reputation_instance.end())
         return false;
 
-    is_boss = castPtr<Creature>( pVictim )->GetCreatureData()->Boss > 0;
+    bool is_boss = castPtr<Creature>( pVictim )->isBoss(), is_heroic = false;
 
     if(map->IsRaid()) // We are good here I guess.
         is_heroic = (pPlayer->IsInWorld() && pPlayer->iRaidType >= MODE_10PLAYER_HEROIC && pPlayer->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL) ? true : false;

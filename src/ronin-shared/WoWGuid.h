@@ -61,8 +61,8 @@ public:
     operator uint64() const { return ((uint64*)blocks)[0]; }
     operator double() const { return (double)this->operator uint64(); }
 
-    void Clean();
-    uint8 GenMask();
+    void Clean() { ((uint64*)blocks)[0] = uint64(0); }
+    void Set(uint8 i, uint8 val) { blocks[i] = val; };
     uint8& operator[](int index) { ASSERT(index < sizeof(uint64)); return blocks[index]; }
     uint8 const& operator[](int index) const { ASSERT(index < sizeof(uint64)); return blocks[index]; }
     uint64 operator |( const WoWGuid& val ) const { return ((uint64)*this | (uint64)val); }

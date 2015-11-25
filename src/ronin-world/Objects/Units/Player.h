@@ -1481,12 +1481,9 @@ public:
     bool sentMOTD;
     void sendMOTD();
 
-    void PushOutOfRange(const WoWGuid & guid);
+    void PushOutOfRange(WoWGuid guid);
     void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
     void PopPendingUpdates();
-
-    bool CompressAndSendUpdateBuffer(uint32 size, const uint8* update_buffer, ByteBuffer *pCompressionBuffer);
-    void ClearAllPendingUpdates();
 
     uint32 GetArmorProficiency() { return armor_proficiency; }
     uint32 GetWeaponProficiency() { return weapon_proficiency; }
@@ -1693,8 +1690,8 @@ protected:
     /* Update system components */
     Mutex _bufferS;
     bool bProcessPending;
-    uint32 mUpdateDataCount, mOutOfRangeIdCount;
-    ByteBuffer bUpdateDataBuffer, mOutOfRangeIds;
+    uint32 m_updateDataCount, m_OutOfRangeIdCount;
+    ByteBuffer m_updateDataBuff, m_OutOfRangeIds;
     /* End update system */
 
     void _LoadPet(QueryResult * result);

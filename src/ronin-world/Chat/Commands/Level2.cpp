@@ -138,13 +138,18 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         uint32 celly = unitMgr->GetPosX(unit->GetSpawn()->y);
         if(cellx <= _sizeX && celly <= _sizeY )
         {
-            CellSpawns *c = unitMgr->GetBaseMap()->GetSpawnsList(cellx, celly);
-            if( c != NULL )
+            if(CellSpawns *c = unitMgr->GetBaseMap()->GetSpawnsList(cellx, celly))
             {
-                CreatureSpawnList::iterator itr, itr2;
-                for(itr = c->CreatureSpawns.begin(); itr != c->CreatureSpawns.end();)
-                    if((*(itr2 = itr++)) == unit->GetSpawn())
-                        c->CreatureSpawns.erase(itr2);
+                for(CreatureSpawnList::iterator itr = c->CreatureSpawns.begin(); itr != c->CreatureSpawns.end();)
+                {
+                    if(*itr == unit->GetSpawn())
+                    {
+                        c->CreatureSpawns.erase(itr);
+                        delete unit->GetSpawn();
+                        break;
+                    }
+                    ++itr;
+                }
             }
         }
     }

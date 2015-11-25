@@ -23,48 +23,47 @@ struct CreatureData
     uint32 dbcMovementId;
     uint32 expansionId;
 
-    uint32 MinLevel;
-    uint32 MaxLevel;
-    uint32 Faction;
-    uint32 MinHealth;
-    uint32 MaxHealth;
-    uint8 Powertype;
-    uint32 MinPower;
-    uint32 MaxPower;
-    float  Scale;
-    uint32 LootType;
+    uint32 minLevel;
+    uint32 maxLevel;
+    uint32 faction;
+    uint32 minHealth;
+    uint32 maxHealth;
+    uint8  powerType;
+    uint32 minPower;
+    uint32 maxPower;
+    float  scale;
+    uint32 lootType;
     uint32 NPCFLags;
-    uint32 AttackTime;
-    uint32 AttackType;
-    float  MinDamage;
-    float  MaxDamage;
-    uint32 RangedAttackTime;
-    float  RangedMinDamage;
-    float  RangedMaxDamage;
-    uint32 Item1;
-    uint32 Item2;
-    uint32 Item3;
-    uint32 RespawnTime;
-    uint32 Resistances[7];
-    float  CombatReach;
-    float  BoundingRadius;
-    std::set<uint32> Auras;
-    uint8  Civilian;
-    uint8  Boss;
-    int32  Money;
-    uint32 Invisibility_type;
+    uint32 attackTime;
+    uint32 attackType;
+    float  minDamage;
+    float  maxDamage;
+    uint32 rangedAttackTime;
+    float  rangedMinDamage;
+    float  rangedMaxDamage;
+    uint32 inventoryItem[3];
+    uint32 respawnTime;
+    uint32 resistances[7];
+    float  combatReach;
+    float  boundingRadius;
+    int32  money;
+    uint32 invisType;
     float  walkSpeed;
     float  runSpeed;
     float  flySpeed;
-    uint32 Extra_a9_flags;
-    uint32 AuraMechanicImmunity;
-    int32  Vehicle_entry;
-    uint32 BattleMasterType;
-    uint32 SpellClickid;
-    uint32 CanMove;
+    uint32 auraMechanicImmunity;
+    uint32 vehicleEntry;
+    uint32 spellClickid;
+    uint32 movementMask;
+    uint32 battleMasterType;
+
+    std::set<uint32> Auras;
 
     bool HasValidModelData()
     {
+        if(displayInfo[0] == 0 && displayInfo[1] == 0
+            && displayInfo[2] == 0 && displayInfo[3] == 0)
+            return false;
         return true;
     }
 

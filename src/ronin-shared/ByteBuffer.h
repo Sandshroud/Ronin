@@ -258,10 +258,20 @@ public:
 
     ByteBuffer &operator<<(WGuidPacked *value)
     {
-        uint8 mask = value->m_guid->GenMask();
-        append<uint8>(mask);
-        for(uint8 i = 0; i < BitCount8(mask); i++)
-            append<uint8>((*value->m_guid)[i]);
+        uint64 guid = value->m_guid->raw();
+        uint8 len = 1, packGUID[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for (uint8 i = 0; guid != 0; ++i)
+        {
+            if (guid & 0xFF)
+            {
+                packGUID[0] |= uint8(1 << i);
+                packGUID[len] = uint8(guid & 0xFF);
+                ++len;
+            }
+
+            guid >>= 8;
+        }
+        append(packGUID, len);
         delete value;
         return *this;
     }
@@ -343,10 +353,16 @@ public:
 
     ByteBuffer &operator>>(WGuidPacked *value)
     {
-        uint8 mask = read<uint8>();
-        for(uint8 i = 0; i < BitCount8(mask); i++)
-            (*value->m_guid)[i] = read<uint8>();
-        delete value;
+        WoWGuid *guid = value->m_guid;
+        uint8 guidmark = read<uint8>();
+        for (uint8 i = 0; i < 8; ++i)
+        {
+            uint8 byte = 0;
+            if (guidmark & (uint8(0x01) << i))
+                byte = read<uint8>();
+            guid->Set(i, byte);
+        }
+
         return *this;
     }
 

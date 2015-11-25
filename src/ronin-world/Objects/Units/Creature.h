@@ -58,6 +58,7 @@ struct CreatureInfoExtra
     std::string flee_message;
     bool   no_skill_up;
     bool   no_xp;
+    bool   isBoss;
 };
 
 #pragma pack(PRAGMA_POP)
@@ -184,15 +185,15 @@ public:
     /// Updates
     virtual void Update( uint32 time );
 
-    int32 GetBonusMana() { if(_creatureData->Powertype != POWER_TYPE_MANA) return 0; return _creatureData->MinPower; }
-    int32 GetBonusHealth() { return _creatureData->MinHealth; }
+    int32 GetBonusMana() { if(_creatureData->powerType != POWER_TYPE_MANA) return 0; return _creatureData->minPower; }
+    int32 GetBonusHealth() { return _creatureData->minHealth; }
     int32 GetBonusStat(uint8 type) { return 0; };
     int32 GetBaseAttackTime(uint8 weaponType);
-    int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->MinDamage; }
-    int32 GetBaseMaxDamage(uint8 weaponType) { return _creatureData->MaxDamage; }
+    int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->minDamage; }
+    int32 GetBaseMaxDamage(uint8 weaponType) { return _creatureData->maxDamage; }
     int32 GetBonusAttackPower() { return 0; };
     int32 GetBonusRangedAttackPower() { return 0; };
-    int32 GetBonusResistance(uint8 school) { return _creatureData->Resistances[school]; }
+    int32 GetBonusResistance(uint8 school) { return _creatureData->resistances[school]; }
 
     void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL);
 
@@ -385,6 +386,8 @@ public:
     uint32 m_TaxiNode;
     const char* GetName() { return m_gender ? _creatureData->femaleName : _creatureData->maleName;  }
 
+    bool isBoss();
+    bool isCivilian();
     RONIN_INLINE bool IsSpawn() { return m_spawn != NULL; }
     RONIN_INLINE CreatureSpawn *GetSpawn() { return m_spawn; }
     RONIN_INLINE CreatureData *GetCreatureData() { return _creatureData; }
@@ -395,8 +398,8 @@ public:
     void FormationLinkUp(uint32 SqlId);
     void ChannelLinkUpGO(uint32 SqlId);
     void ChannelLinkUpCreature(uint32 SqlId);
-    RONIN_INLINE WayPoint * CreateWaypointStruct() { return new WayPoint(); }
-    uint32 GetRespawnTime() { if(_creatureData != NULL) return _creatureData->RespawnTime; else return 0; }
+    static WayPoint * CreateWaypointStruct() { return new WayPoint(); }
+    uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
     void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
 
@@ -413,12 +416,7 @@ public:
     void RemoveLimboState(Unit* healer);
     void SetGuardWaypoints();
     MapCell * m_respawnCell;
-    uint32 GetCanMove()
-    {
-        if(m_spawn)
-            return m_spawn->CanMove;
-        return _creatureData->CanMove;
-    }
+    uint32 GetCanMove() { return m_spawn ? m_spawn->CanMove : _creatureData->movementMask; }
 
     bool HasNpcFlag(uint32 Flag)
     {
@@ -488,6 +486,5 @@ public: // values
     uint32 original_flags;
     uint32 original_emotestate;
     uint32 original_MountedDisplayID;
-    int8 BaseAttackType;
     int8 m_lootMethod;
 };

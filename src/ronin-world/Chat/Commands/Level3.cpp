@@ -1689,7 +1689,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    bool spVehicle = ctrData->Vehicle_entry > 0 ? true : false;
+    bool spVehicle = ctrData->vehicleEntry > 0 ? true : false;
     Creature* p = spVehicle ? plr->GetMapMgr()->CreateVehicle(entry) : plr->GetMapMgr()->CreateCreature(entry);
     if(p == NULL)
     {
@@ -1709,9 +1709,9 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->y = plr->GetPositionY();
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
-        sp->factionid = ctrData->Faction;
+        sp->factionid = ctrData->faction;
         sp->vehicle = spVehicle;
-        sp->CanMove = ctrData->CanMove;
+        sp->CanMove = ctrData->movementMask;
         sp->vendormask = 1;
         sp->Bytes = NULL;
         sp->ChannelData = NULL;

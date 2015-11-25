@@ -53,16 +53,14 @@ void WorldSession::HandleQueryTimeOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
 {
-    uint32 entry;
-    uint64 guid;
+    uint32 entry; WoWGuid guid;
+    recv_data >> entry >> guid;
 
-    recv_data >> entry;
-    recv_data >> guid;
-
-    WorldPacket data(SMSG_CREATURE_QUERY_RESPONSE, 150);
+    WorldPacket data(SMSG_CREATURE_QUERY_RESPONSE, 100);
     if(entry == 300000)
     {
-        data << (uint32)entry;
+        data << entry;
+        data << "WayPoint" << uint8(0) << uint8(0) << uint8(0);
         data << "WayPoint" << uint8(0) << uint8(0) << uint8(0);
         data << "Level is WayPoint ID";
         data << uint8(0);
@@ -73,11 +71,8 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
         data << uint8(0);
         for(uint32 i = 0; i < 8; i++)
             data << uint32(0);
-        SendPacket( &data );
-        return;
     }
-
-    if(CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry))
+    else if(CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(entry))
     {
         data << entry;
         data << ctrData->maleName << uint8(0) << uint8(0) << uint8(0);
@@ -103,12 +98,8 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
         data << ctrData->dbcMovementId;
         data << ctrData->expansionId;
         SendPacket( &data );
-    }
-    else
-    {
-        data << uint32(entry | 0x80000000);
-        SendPacket(&data);
-    }
+    } else data << uint32(entry | 0x80000000);
+    SendPacket(&data);
 }
 
 //////////////////////////////////////////////////////////////
@@ -116,30 +107,25 @@ void WorldSession::HandleCreatureQueryOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleGameObjectQueryOpcode( WorldPacket & recv_data )
 {
-    uint32 entryID;
-    uint64 guid;
-    recv_data >> entryID;
-    recv_data >> guid;
+    uint32 entry; WoWGuid guid;
+    recv_data >> entry >> guid;
 
-    sLog.Debug("WORLD","HandleGameObjectQueryOpcode CMSG_GAMEOBJECT_QUERY '%u'", entryID);
-
-    GameObjectInfo* goinfo = GameObjectNameStorage.LookupEntry(entryID);
-    if(goinfo == NULL)
-        return;
-
-    WorldPacket data(SMSG_GAMEOBJECT_QUERY_RESPONSE, 150);
-    data << entryID;
-    data << goinfo->Type;
-    data << goinfo->DisplayID;
-    data << goinfo->Name << uint8(0) << uint8(0) << uint8(0);
-    data << goinfo->Icon;
-    data << goinfo->CastBarText;
-    data << uint8(0);
-    data.append(goinfo->data.raw.data, 32);
-    data << float(goinfo->sizeMod);
-    for(uint8 i = 0; i < 6; i++)
-        data << uint32(goinfo->questItems[i]);
-    data << uint32(0);
+    WorldPacket data(SMSG_GAMEOBJECT_QUERY_RESPONSE, 100);
+    if(GameObjectInfo* goinfo = GameObjectNameStorage.LookupEntry(entry))
+    {
+        data << entry;
+        data << goinfo->Type;
+        data << goinfo->DisplayID;
+        data << goinfo->Name << uint8(0) << uint8(0) << uint8(0);
+        data << goinfo->Icon;
+        data << goinfo->CastBarText;
+        data << uint8(0);
+        data.append(goinfo->data.raw.data, 32);
+        data << float(goinfo->sizeMod);
+        for(uint8 i = 0; i < 6; i++)
+            data << uint32(goinfo->questItems[i]);
+        data << uint32(0);
+    } else data << uint32(entry | 0x80000000);
     SendPacket( &data );
 }
 

@@ -16,12 +16,11 @@ CreatureDataManager::~CreatureDataManager()
     m_creatureData.clear();
 }
 
-static const char * tableColumns = "name, subname, info_str, flags1, type, loot_skill_type, family, rank, unk4, spelldataid, "
-    "male_displayid, female_displayid, male_displayid2, female_displayid2, unknown_float1, unknown_float2, civilian, leader, minlevel, maxlevel, "
-    "faction, minhealth, maxhealth, powertype, minpower, maxpower, scale, npcflags, attacktime, attacktype, mindamage, maxdamage, "
-    "rangedattacktime, rangedmindamage, rangedmaxdamage, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, "
-    "frostresist, shadowresist, arcaneresist, combat_reach, bounding_radius, auras, boss, money, invisibility_type, walk_speed, run_speed, fly_speed, "
-    "extra_a9_flags, auraimmune_flag, vehicle_entry, battlemastertype, spellclickid, canmove";
+static const char * tableColumns = "maleName, femaleName, subname, iconName, flags, flags2, type, family, rank, killCredit, killCreditSpellId, maleDisplayId, femaleDisplayId, "
+    "maleDisplayId2, femaleDisplayId2, healthMod, powerMod, leader, questItem1, questItem2, questItem3, questItem4, questItem5, questItem6, movementId, expansionId, "
+    "minlevel, maxlevel, faction, minhealth, maxhealth, powertype, minpower, maxpower, scale, lootType, npcflags, attacktime, attacktype, mindamage, maxdamage, "
+    "rangedattacktime, rangedmindamage, rangedmaxdamage, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
+    "combatReach, boundingRadius, money, invisibilityType, walkSpeed, runSpeed, flySpeed, auraimmune_flag, vehicle_entry, spellclickid, canmove, battlemastertype, auras";
 void CreatureDataManager::LoadFromDB()
 {
     QueryResult *result = WorldDatabase.Query("SELECT creature_names.entry, %s FROM creature_names INNER JOIN creature_proto ON creature_names.entry = creature_proto.entry", tableColumns);
@@ -51,46 +50,47 @@ void CreatureDataManager::LoadFromDB()
         ctrData->healthMod = feilds[field_count++].GetFloat();
         ctrData->powerMod = feilds[field_count++].GetFloat();
         ctrData->leader = feilds[field_count++].GetUInt8();
-        ctrData->MinLevel = feilds[field_count++].GetUInt32();
-        ctrData->MaxLevel = feilds[field_count++].GetUInt32();
-        ctrData->Faction = feilds[field_count++].GetUInt32();
-        ctrData->MinHealth = feilds[field_count++].GetUInt32();
-        ctrData->MaxHealth = feilds[field_count++].GetUInt32();
-        ctrData->Powertype = feilds[field_count++].GetUInt8();
-        ctrData->MinPower = feilds[field_count++].GetUInt32();
-        ctrData->MaxPower = feilds[field_count++].GetUInt32();
-        ctrData->Scale = feilds[field_count++].GetFloat();
-        ctrData->LootType = feilds[field_count++].GetUInt32();
+        for(uint8 i = 0; i < 6; i++)
+            ctrData->questItems[i] = feilds[field_count++].GetUInt32();
+        ctrData->dbcMovementId = feilds[field_count++].GetUInt32();
+        ctrData->expansionId = feilds[field_count++].GetUInt32();
+        ctrData->minLevel = feilds[field_count++].GetUInt32();
+        ctrData->maxLevel = feilds[field_count++].GetUInt32();
+        ctrData->faction = feilds[field_count++].GetUInt32();
+        ctrData->minHealth = feilds[field_count++].GetUInt32();
+        ctrData->maxHealth = feilds[field_count++].GetUInt32();
+        ctrData->powerType = feilds[field_count++].GetUInt8();
+        ctrData->minPower = feilds[field_count++].GetUInt32();
+        ctrData->maxPower = feilds[field_count++].GetUInt32();
+        ctrData->scale = feilds[field_count++].GetFloat();
+        ctrData->lootType = feilds[field_count++].GetUInt32();
         ctrData->NPCFLags = feilds[field_count++].GetUInt32();
-        ctrData->AttackTime = feilds[field_count++].GetUInt32();
-        ctrData->AttackType = feilds[field_count++].GetUInt32();
-        ctrData->MinDamage = feilds[field_count++].GetFloat();
-        ctrData->MaxDamage = feilds[field_count++].GetFloat();
-        ctrData->RangedAttackTime = feilds[field_count++].GetUInt32();
-        ctrData->RangedMinDamage = feilds[field_count++].GetFloat();
-        ctrData->RangedMaxDamage = feilds[field_count++].GetFloat();
-        ctrData->Item1 = feilds[field_count++].GetUInt32();
-        ctrData->Item2 = feilds[field_count++].GetUInt32();
-        ctrData->Item3 = feilds[field_count++].GetUInt32();
-        ctrData->RespawnTime = feilds[field_count++].GetUInt32();
+        ctrData->attackTime = feilds[field_count++].GetUInt32();
+        ctrData->attackType = std::min<uint32>(SCHOOL_ARCANE, feilds[field_count++].GetUInt32());
+        ctrData->minDamage = feilds[field_count++].GetFloat();
+        ctrData->maxDamage = feilds[field_count++].GetFloat();
+        ctrData->rangedAttackTime = feilds[field_count++].GetUInt32();
+        ctrData->rangedMinDamage = feilds[field_count++].GetFloat();
+        ctrData->rangedMaxDamage = feilds[field_count++].GetFloat();
+        ctrData->inventoryItem[0] = feilds[field_count++].GetUInt32();
+        ctrData->inventoryItem[1] = feilds[field_count++].GetUInt32();
+        ctrData->inventoryItem[2] = feilds[field_count++].GetUInt32();
+        ctrData->respawnTime = feilds[field_count++].GetUInt32();
         for(uint8 i = 0; i < 7; i++)
-            ctrData->Resistances[i] = feilds[field_count++].GetUInt32();
-        ctrData->CombatReach = feilds[field_count++].GetFloat();
-        ctrData->BoundingRadius = feilds[field_count++].GetFloat();
-        const char* aurastring = feilds[field_count++].GetString();
-        ctrData->Civilian = feilds[field_count++].GetUInt32();
-        ctrData->Boss = feilds[field_count++].GetUInt32();
-        ctrData->Money = feilds[field_count++].GetInt32();
-        ctrData->Invisibility_type = feilds[field_count++].GetUInt32();
+            ctrData->resistances[i] = feilds[field_count++].GetUInt32();
+        ctrData->combatReach = feilds[field_count++].GetFloat();
+        ctrData->boundingRadius = feilds[field_count++].GetFloat();
+        ctrData->money = feilds[field_count++].GetInt32();
+        ctrData->invisType = feilds[field_count++].GetUInt32();
         ctrData->walkSpeed = feilds[field_count++].GetFloat();
         ctrData->runSpeed = feilds[field_count++].GetFloat();
         ctrData->flySpeed = feilds[field_count++].GetFloat();
-        ctrData->Extra_a9_flags = feilds[field_count++].GetUInt32();
-        ctrData->AuraMechanicImmunity = feilds[field_count++].GetUInt32();
-        ctrData->Vehicle_entry = feilds[field_count++].GetInt32();
-        ctrData->BattleMasterType = feilds[field_count++].GetUInt32();
-        ctrData->SpellClickid = feilds[field_count++].GetUInt32();
-        ctrData->CanMove = feilds[field_count++].GetUInt32();
+        ctrData->auraMechanicImmunity = feilds[field_count++].GetUInt32();
+        ctrData->vehicleEntry = feilds[field_count++].GetUInt32();
+        ctrData->spellClickid = feilds[field_count++].GetUInt32();
+        ctrData->movementMask = feilds[field_count++].GetUInt32();
+        ctrData->battleMasterType = feilds[field_count++].GetUInt32();
+        const char* aurastring = feilds[field_count++].GetString();
 
         if(aurastring && strlen(aurastring))
         {
@@ -99,9 +99,6 @@ void CreatureDataManager::LoadFromDB()
                 if(uint32 id = atol((*it).c_str()))
                     ctrData->Auras.insert( id );
         }
-
-        if (ctrData->AttackType > SCHOOL_ARCANE)
-            ctrData->AttackType = SCHOOL_NORMAL;
 
         m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());

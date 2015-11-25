@@ -158,10 +158,10 @@ void Player::Init()
     m_SummonedObject                = NULL;
     m_currentLoot                   = (uint64)NULL;
     roll                            = 0;
-    mUpdateDataCount                = 0;
-    mOutOfRangeIdCount              = 0;
-    bUpdateDataBuffer.reserve(65000);
-    mOutOfRangeIds.reserve(1000);
+    m_updateDataCount               = 0;
+    m_OutOfRangeIdCount             = 0;
+    m_updateDataBuff.reserve(0xAFFF);
+    m_OutOfRangeIds.reserve(0xFFFF);
     bProcessPending                 = false;
 
     for(uint8 i = 0; i < QUEST_LOG_COUNT; i++)
@@ -245,6 +245,9 @@ void Player::Init()
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
     mSpells.clear();
+
+    // We're players!
+    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
 }
 
 void Player::Destruct()
@@ -445,7 +448,6 @@ void Player::Update( uint32 p_time )
         m_explorationTimer += p_time;
         if(m_explorationTimer >= 1500)
         {
-            SetUInt32Value(UNIT_FIELD_STRENGTH, strength++);
             _EventExploration();
             m_explorationTimer = 0;
         }
@@ -1105,21 +1107,13 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.f);
 
     // Initialize 'normal' fields
-    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
-
-    // We're players!
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 0.388999998569489f );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
 
     SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, info->factiontemplate);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId[getGender()]);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId[getGender()]);
     EventModelChange();
-
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
 
     m_bind_mapid = fields[PLAYERLOAD_FIELD_BINDMAPID].GetUInt32();
     m_bind_pos_x = fields[PLAYERLOAD_FIELD_BINDPOSITION_X].GetFloat();
@@ -1204,7 +1198,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     if( fields[PLAYERLOAD_FIELD_NEEDS_TALENT_RESET].GetBool() )
         m_talentInterface.ResetAllSpecs();
 
-    SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER); // enables automatic power regen
     m_session->FullLogin(this);
 
     if( !isAlive() )
@@ -1934,16 +1927,16 @@ bool Player::Create(WorldPacket& data )
 
     switch(race)
     {
-        case RACE_TAUREN:   AddTaximaskNode(22);                        break;
-        case RACE_HUMAN:    AddTaximaskNode(2);                         break;
-        case RACE_DWARF:    AddTaximaskNode(6);                         break;
-        case RACE_GNOME:    AddTaximaskNode(6);                         break;
-        case RACE_ORC:      AddTaximaskNode(23);                        break;
-        case RACE_TROLL:    AddTaximaskNode(23);                        break;
-        case RACE_UNDEAD:   AddTaximaskNode(11);                        break;
-        case RACE_NIGHTELF: {AddTaximaskNode(26); AddTaximaskNode(27);} break;
-        case RACE_BLOODELF: AddTaximaskNode(82);                        break;
-        case RACE_DRAENEI:  AddTaximaskNode(94);                        break;
+    case RACE_TAUREN:   AddTaximaskNode(22);                        break;
+    case RACE_HUMAN:    AddTaximaskNode(2);                         break;
+    case RACE_DWARF:    AddTaximaskNode(6);                         break;
+    case RACE_GNOME:    AddTaximaskNode(6);                         break;
+    case RACE_ORC:      AddTaximaskNode(23);                        break;
+    case RACE_TROLL:    AddTaximaskNode(23);                        break;
+    case RACE_UNDEAD:   AddTaximaskNode(11);                        break;
+    case RACE_NIGHTELF: AddTaximaskNode(26); AddTaximaskNode(27);   break;
+    case RACE_BLOODELF: AddTaximaskNode(82);                        break;
+    case RACE_DRAENEI:  AddTaximaskNode(94);                        break;
     }
     // team dependant taxi node
     AddTaximaskNode(100-m_team);
@@ -1952,7 +1945,6 @@ bool Player::Create(WorldPacket& data )
     if(class_ == DEATHKNIGHT && level < 55) level = 55;
     setLevel(level);
 
-    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
 
     SetFaction( info->factiontemplate );
@@ -1962,10 +1954,6 @@ bool Player::Create(WorldPacket& data )
         SetShapeShift(FORM_BATTLESTANCE);
 
     SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
-    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, 0.388999998569489f );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
     SetByte(PLAYER_BYTES, 0, skin);
     SetByte(PLAYER_BYTES, 1, face);
     SetByte(PLAYER_BYTES, 2, hairStyle);
@@ -3363,10 +3351,10 @@ void Player::OnPushToWorld()
 
     // send world states
     if( m_mapMgr != NULL )
-        m_mapMgr->GetStateManager().SendWorldStates(castPtr<Player>(this));
+        m_mapMgr->GetStateManager().SendWorldStates(this);
 
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnZoneChange )( castPtr<Player>(this), m_zoneId, 0 );
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerEnter )( castPtr<Player>(this) );
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnZoneChange )(this, m_zoneId, 0);
+    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerEnter )(this);
 
     if(m_TeleportState == 1)        // First world enter
         CompleteLoading();
@@ -3410,11 +3398,11 @@ void Player::OnPushToWorld()
     if( m_mapMgr != NULL && m_mapMgr->m_battleground != NULL && m_bg != m_mapMgr->m_battleground )
     {
         m_bg = m_mapMgr->m_battleground;
-        m_bg->PortPlayer( castPtr<Player>(this), true );
+        m_bg->PortPlayer( this, true );
     }
 
     if( m_bg != NULL && m_mapMgr != NULL )
-        m_bg->OnPlayerPushed( castPtr<Player>(this) );
+        m_bg->OnPlayerPushed(this);
 
     m_changingMaps = false;
 }
@@ -3451,7 +3439,6 @@ void Player::SendObjectUpdate(WoWGuid guid)
     data.put<uint32>(2, count);
     // send uncompressed because it's specified
     m_session->SendPacket(&data);
-    PopPendingUpdates();
 }
 
 void Player::RemoveFromWorld()
@@ -3773,7 +3760,6 @@ void Player::KillPlayer()
     StopMirrorTimer(1);
     StopMirrorTimer(2);
 
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED); //player death animation, also can be used with DYNAMIC_FLAGS <- huh???
     SetUInt32Value( UNIT_DYNAMIC_FLAGS, 0x00 );
     SetPower(POWER_TYPE_RAGE, 0);
     SetPower(POWER_TYPE_RUNIC, 0);
@@ -5599,7 +5585,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
 uint32 Player::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
 {
     uint32 count = 0;
-    if(target == castPtr<Player>(this)) // we need to send create objects for all items.
+    if(target == castPtr<Player>(this)); // we need to send create objects for all items.
         //count += m_inventory.BuildCreateUpdateBlocks(data);
     count += Unit::BuildCreateUpdateBlockForPlayer(data, target);
     return count;
@@ -5786,11 +5772,11 @@ void Player::sendMOTD()
     guildmgr.PlayerLoggedIn(m_playerInfo);
 }
 
-void Player::PushOutOfRange(const WoWGuid & guid)
+void Player::PushOutOfRange(WoWGuid guid)
 {
     _bufferS.Acquire();
-    mOutOfRangeIds << guid;
-    ++mOutOfRangeIdCount;
+    ++m_OutOfRangeIdCount;
+    m_OutOfRangeIds << guid.asPacked();
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)
@@ -5807,12 +5793,11 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
     _bufferS.Acquire();
 
     // Set data size for limiting update blocks to 45Kb
-    if((data->size() + bUpdateDataBuffer.size() ) >= 0xAFFF )
+    if( (data->size() + m_updateDataBuff.size()) >= 0xAFFF )
         PopPendingUpdates();
 
-    mUpdateDataCount += updatecount;
-    bUpdateDataBuffer.append(data->contents(), data->size());
-    PopPendingUpdates();
+    m_updateDataCount += updatecount;
+    m_updateDataBuff.append(data->contents(), data->size());
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)
@@ -5827,41 +5812,29 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 void Player::PopPendingUpdates()
 {
     _bufferS.Acquire();
-    if(bUpdateDataBuffer.size() || mOutOfRangeIdCount)
+    if(m_updateDataCount || m_OutOfRangeIdCount)
     {
-        size_t c = 0, bBuffer_size = 6 + bUpdateDataBuffer.size();
-        if(mOutOfRangeIdCount) bBuffer_size += 5+mOutOfRangeIds.size();
-        uint8 *update_buffer = NULL;
-        if(IsInWorld())
+        WorldPacket data(SMSG_UPDATE_OBJECT, 2 + 4 + (m_OutOfRangeIdCount ? 1 + 4 + m_OutOfRangeIds.size() : 0) + m_updateDataBuff.size());
+        data << uint16(m_mapId) << uint32(m_updateDataCount + (m_OutOfRangeIdCount ? 1 : 0));
+        if(m_OutOfRangeIdCount)
         {
-            GetMapMgr()->m_updateBuildBuffer.resize(bBuffer_size);
-            update_buffer = (uint8*)GetMapMgr()->m_updateBuildBuffer.contents();
-        } else update_buffer = new uint8[bBuffer_size];
-
-        *(uint16*)&update_buffer[c] = uint16(GetMapId()); c += 2;
-        *(uint32*)&update_buffer[c] = mUpdateDataCount+(mOutOfRangeIdCount?1:0); c += 4;
-        if(mOutOfRangeIdCount)
-        {
-            *(uint8*)&update_buffer[c] = UPDATETYPE_OUT_OF_RANGE_OBJECTS; c += 1;
-            *(uint32*)&update_buffer[c] = mOutOfRangeIdCount; c += 4;
-            memcpy(&update_buffer[c], mOutOfRangeIds.contents(), mOutOfRangeIds.size());
-            c += mOutOfRangeIds.size();
-            mOutOfRangeIds.clear();
-            mOutOfRangeIdCount = 0;
+            data << uint8(UPDATETYPE_OUT_OF_RANGE_OBJECTS);
+            data << uint32(m_OutOfRangeIdCount);
+            data.append(m_OutOfRangeIds.contents(), m_OutOfRangeIds.size());
+            m_OutOfRangeIds.clear();
+            m_OutOfRangeIdCount = 0;
         }
 
-        memcpy(&update_buffer[c], bUpdateDataBuffer.contents(), bUpdateDataBuffer.size());
-        c += bUpdateDataBuffer.size();
-        // clear our update buffer and count
-        bUpdateDataBuffer.clear();
-        mUpdateDataCount = 0;
+        if(m_updateDataCount)
+        {
+            data.append(m_updateDataBuff.contents(), m_updateDataBuff.size());
+            // clear our update buffer and count
+            m_updateDataBuff.clear();
+            m_updateDataCount = 0;
+        }
 
-        // compress update packet
-        m_session->OutPacket(SMSG_UPDATE_OBJECT, (uint16)c, update_buffer); // send uncompressed packet -> because we failed
-
-        if(IsInWorld())
-            GetMapMgr()->m_updateBuildBuffer.clear();
-        else delete [] update_buffer;
+        // Send our packet
+        m_session->SendPacket(&data);
     }
 
     bProcessPending = false;
@@ -5875,15 +5848,6 @@ void Player::PopPendingUpdates()
         m_session->SendPacket(pck);
         delete pck;
     }
-}
-
-void Player::ClearAllPendingUpdates()
-{
-    _bufferS.Acquire();
-    bProcessPending = false;
-    mUpdateDataCount=0;
-    bUpdateDataBuffer.clear();
-    _bufferS.Release();
 }
 
 void Player::CleanupGossipMenu()
@@ -6596,15 +6560,7 @@ void Player::UpdatePvPArea()
 
 void Player::BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag)
 {
-    Group* pGroup = NULL;
-    Player *curPlr;
-    for (WorldObject::InRangeSet::iterator iter = GetInRangePlayerSetBegin(); iter != GetInRangePlayerSetEnd();)
-    {
-        curPlr = GetInRangeObject<Player>(*iter);
-        iter++;
-        if((pGroup = curPlr->GetGroup()) && pGroup != GetGroup())
-            BuildFieldUpdatePacket( curPlr, index, flag );
-    }
+
 }
 
 void Player::LoginPvPSetup()

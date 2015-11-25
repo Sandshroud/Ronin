@@ -37,7 +37,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     original_MountedDisplayID = 0;
 
     m_custom_waypoint_map = 0;
-    BaseAttackType = SCHOOL_NORMAL;
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
@@ -108,9 +107,9 @@ int32 Creature::GetBaseAttackTime(uint8 weaponType)
 {
     switch(weaponType)
     {
-    case 0: return _creatureData->AttackTime;
+    case 0: return _creatureData->attackTime;
     case 1: return 0;
-    case 2: return _creatureData->RangedAttackTime;
+    case 2: return _creatureData->rangedAttackTime;
     }
     return 2000;
 }
@@ -137,14 +136,11 @@ void Creature::OnRemoveCorpse()
 
         sLog.Debug("Creature","OnRemoveCorpse Removing corpse of "I64FMT"...", GetGUID());
 
-        if((_creatureData->Boss && GetMapMgr()->GetMapInfo() && GetMapMgr()->GetdbcMap()->IsRaid()) || m_noRespawn)
+        if(((_extraInfo && _extraInfo->isBoss) && GetMapMgr()->GetMapInfo() && GetMapMgr()->GetdbcMap()->IsRaid()) || m_noRespawn)
             RemoveFromWorld(false, true);
-        else
-        {
-            if(_creatureData->RespawnTime)
-                RemoveFromWorld(true, false);
-            else RemoveFromWorld(false, true);
-        }
+        else if(_creatureData->respawnTime)
+            RemoveFromWorld(true, false);
+        else RemoveFromWorld(false, true);
 
         SetDeathState(DEAD);
         SetPosition(GetSpawnX(), GetSpawnY(), GetSpawnZ(), GetSpawnO());
@@ -212,12 +208,12 @@ void Creature::GenerateLoot()
     lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), difficulty, team);
 
     // -1 , no gold; 0 calculated according level; >0 coppercoins
-    if( _creatureData->Money == -1)
+    if( _creatureData->money == -1)
     {
         GetLoot()->gold = 0;
         return;
     }
-    else if(_creatureData->Money == 0)
+    else if(_creatureData->money == 0)
     {
         CreatureData *info = GetCreatureData();
         if (info && info->type != BEAST)
@@ -226,7 +222,7 @@ void Creature::GenerateLoot()
                 GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
             else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
         } else GetLoot()->gold = 0; // Beasts don't drop money
-    } else GetLoot()->gold = uint32(_creatureData->Money);
+    } else GetLoot()->gold = uint32(_creatureData->money);
     if(GetLoot()->gold)
         GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
 }
@@ -423,8 +419,8 @@ void Creature::RemoveFromWorld(bool addrespawnevent, bool free_guid)
     else
     {
         uint32 delay = 0;
-        if(addrespawnevent && _creatureData->RespawnTime > 0)
-            delay = _creatureData->RespawnTime;
+        if(addrespawnevent && _creatureData->respawnTime > 0)
+            delay = _creatureData->respawnTime;
         Despawn(0, delay);
     }
 }
@@ -446,10 +442,7 @@ void Creature::EnslaveExpire()
     SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
     SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
 
-    SetFaction(_creatureData->Faction, false);
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, _creatureData->Faction);
-    _setFaction();
-
+    SetFaction(_creatureData->faction, false);
     GetAIInterface()->Init(this, AITYPE_AGRO, MOVEMENTTYPE_NONE);
 }
 
@@ -597,6 +590,16 @@ void Creature::UpdateItemAmount(uint32 itemid)
     }
 }
 
+bool Creature::isBoss()
+{
+    return false;
+}
+
+bool Creature::isCivilian()
+{
+    return false;
+}
+
 void Creature::FormationLinkUp(uint32 SqlId)
 {
     if(!m_mapMgr)       // shouldnt happen
@@ -631,10 +634,10 @@ void Creature::ChannelLinkUpCreature(uint32 SqlId)
     if(!IsInWorld()) // shouldnt happen
         return;
 
+    event_RemoveEvents(EVENT_CREATURE_CHANNEL_LINKUP);
     Creature* go = m_mapMgr->GetSqlIdCreature(SqlId);
     if(go != NULL && m_spawn->ChannelData)
     {
-        event_RemoveEvents(EVENT_CREATURE_CHANNEL_LINKUP);
         SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, go->GetGUID());
         SetUInt32Value(UNIT_CHANNEL_SPELL, m_spawn->ChannelData->channel_spell);
     }
@@ -655,21 +658,21 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 
-    uint32 level = _creatureData->MinLevel;
-    if(_creatureData->MaxLevel > _creatureData->MinLevel)
-        level += RandomUInt(_creatureData->MaxLevel-_creatureData->MinLevel);
+    uint32 level = _creatureData->minLevel;
+    if(_creatureData->maxLevel > _creatureData->minLevel)
+        level += RandomUInt(_creatureData->maxLevel-_creatureData->minLevel);
 
     original_flags = m_spawn ? m_spawn->flags : 0;
     original_emotestate = m_spawn ? m_spawn->emote_state : 0;
     original_MountedDisplayID = m_spawn ? m_spawn->MountedDisplayID : 0;
 
     //Set fields
-    for(uint32 i = 0; i < 7; i++)
-        SetUInt32Value(UNIT_FIELD_RESISTANCES+i,_creatureData->Resistances[i]);
+    for(uint8 i = 0; i < 7; i++)
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+i, _creatureData->resistances[i]);
 
-    uint32 baseHP = _creatureData->MinHealth;
-    if(_creatureData->MaxHealth > _creatureData->MinHealth)
-        baseHP += RandomUInt(_creatureData->MaxHealth - _creatureData->MinHealth);
+    uint32 baseHP = _creatureData->minHealth;
+    if(_creatureData->maxHealth > _creatureData->minHealth)
+        baseHP += RandomUInt(_creatureData->maxHealth - _creatureData->minHealth);
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, baseHP);
     SetUInt32Value(UNIT_FIELD_HEALTH, baseHP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, baseHP);
@@ -680,41 +683,43 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         SetUInt32Value(UNIT_FIELD_BYTES_1, m_spawn->Bytes->bytes1);
         SetUInt32Value(UNIT_FIELD_BYTES_2, m_spawn->Bytes->bytes2);
     }
-    else
-    {
-        SetByte(UNIT_FIELD_BYTES_0, 0, RACE_HUMAN);
-        SetByte(UNIT_FIELD_BYTES_0, 1, WARRIOR);
-        if(_creatureData->MaxPower)
-            SetByte(UNIT_FIELD_BYTES_0, 1, MAGE);
-    }
 
+    /*if(_creatureData->family == HUMANOID)
+    {
+        uint8 race = RACE_HUMAN;
+        if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
+            if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
+                race = extraInfo->Race;
+
+        SetByte(UNIT_FIELD_BYTES_0, 0, race);
+    }*/
+
+    SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->maxPower ? MAGE : WARRIOR);
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
+    SetUInt32Value(UNIT_FIELD_COMBATREACH, model);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
 
     EventModelChange();
 
-    float realscale = (_creatureData->Scale > 0.0f ? _creatureData->Scale : GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( model )));
-    sLog.Debug("Creatures","NPC %u (model %u) got scale %f", GetEntry(), model, realscale);
-    SetFloatValue(OBJECT_FIELD_SCALE_X, realscale);
-
     setLevel(level);
+    SetFloatValue(OBJECT_FIELD_SCALE_X, _creatureData->scale);
     SetUInt32Value(UNIT_NPC_EMOTESTATE, original_emotestate);
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID,original_MountedDisplayID);
-    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME,_creatureData->AttackTime);
-    SetFloatValue(UNIT_FIELD_MINDAMAGE, _creatureData->MinDamage);
-    SetFloatValue(UNIT_FIELD_MAXDAMAGE, _creatureData->MaxDamage);
-    SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME,_creatureData->RangedAttackTime);
-    SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE,_creatureData->RangedMinDamage);
-    SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE,_creatureData->RangedMaxDamage);
+    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, original_MountedDisplayID);
+    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, _creatureData->attackTime);
+    SetFloatValue(UNIT_FIELD_MINDAMAGE, _creatureData->minDamage);
+    SetFloatValue(UNIT_FIELD_MAXDAMAGE, _creatureData->maxDamage);
+    SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME, _creatureData->rangedAttackTime);
+    SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE, _creatureData->rangedMinDamage);
+    SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE, _creatureData->rangedMaxDamage);
 
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, _creatureData->Item1);
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->Item2);
-    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->Item3);
+    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, _creatureData->inventoryItem[0]);
+    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
+    SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);
 
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, m_spawn ? m_spawn->factionid : _creatureData->Faction);
-    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->BoundingRadius);
-    SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->CombatReach);
+    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, m_spawn ? m_spawn->factionid : _creatureData->faction);
+    SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
+    SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
     SetUInt32Value(UNIT_FIELD_FLAGS, m_spawn ? m_spawn->flags : 0);
 
     // set position
@@ -730,7 +735,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
             GetAIInterface()->m_canCallForHelp = true;
     } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", GetEntry());
 
-//SETUP NPC FLAGS
+    //SETUP NPC FLAGS
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
@@ -748,10 +753,9 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
-    BaseAttackType=_creatureData->AttackType;
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
 
-////////////AI
+    ////////////AI
     m_aiInterface.InitalizeExtraInfo(_creatureData, _extraInfo, mode);
 
     // load formation data
@@ -760,52 +764,23 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     m_aiInterface.SetFormationFollowDistance(form ? form->dist : 0.f);
     m_aiInterface.SetFormationFollowAngle(form ? form->ang : 0.f);
 
-//////////////AI
+    //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->family);
 
-    switch(_creatureData->Powertype)
+    if(uint32 maxPower = _creatureData->maxPower)
     {
-    case POWER_TYPE_MANA:
+        switch(_creatureData->powerType)
         {
-            SetPowerType(POWER_TYPE_MANA);
-            SetPower(POWER_TYPE_MANA, _creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_MANA,_creatureData->MaxPower);
-            SetUInt32Value(UNIT_FIELD_BASE_MANA, _creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_RAGE:
-        {
-            SetPowerType(POWER_TYPE_RAGE);
-            SetPower(POWER_TYPE_RAGE, _creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RAGE,_creatureData->MaxPower*10);
-        }break;
-    case POWER_TYPE_FOCUS:
-        {
-            SetPowerType(POWER_TYPE_FOCUS);
-            SetPower(POWER_TYPE_FOCUS, _creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_FOCUS,_creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_ENERGY:
-        {
-            SetPowerType(POWER_TYPE_ENERGY);
-            SetPower(POWER_TYPE_ENERGY, _creatureData->MaxPower);
-            SetMaxPower(POWER_TYPE_ENERGY,_creatureData->MaxPower);
-        }break;
-    case POWER_TYPE_RUNE:
-        {
-            SetPowerType(POWER_TYPE_RUNE);
-            SetPower(POWER_TYPE_RUNE, _creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RUNE,_creatureData->MaxPower*10);
-        }break;
-    case POWER_TYPE_RUNIC:
-        {
-            SetPowerType(POWER_TYPE_RUNIC);
-            SetPower(POWER_TYPE_RUNIC, _creatureData->MaxPower*10);
-            SetMaxPower(POWER_TYPE_RUNIC,_creatureData->MaxPower*10);
-        }break;
-    default:
-        {
-            sLog.outError("Creature %u has an unhandled powertype.", GetEntry());
-        }break;
+        case POWER_TYPE_RAGE:
+        case POWER_TYPE_RUNE:
+        case POWER_TYPE_RUNIC:
+            maxPower *= 10;
+            break;
+        }
+
+        SetPowerType(_creatureData->powerType);
+        SetPower(_creatureData->powerType, maxPower);
+        SetMaxPower(_creatureData->powerType, maxPower);
     }
 
     has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
@@ -819,20 +794,17 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     /* creature death state */
     if(m_spawn && m_spawn->death_state == 1)
     {
-        uint32 newhealth = GetUInt32Value(UNIT_FIELD_HEALTH) / 100;
-        if(!newhealth)
-            newhealth = 1;
-        SetUInt32Value(UNIT_FIELD_HEALTH, 1);
+        SetUInt32Value(UNIT_FIELD_HEALTH, std::max<uint32>(1, baseHP/100));
+        SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
         m_limbostate = true;
         bInvincible = true;
-        SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
     }
 
-    m_invisFlag = _creatureData->Invisibility_type;
+    m_invisFlag = _creatureData->invisType;
     if( m_spawn && m_spawn->stand_state )
         SetStandState(m_spawn->stand_state);
 
-    if(uint32 tmpitemid = _creatureData->Item1)
+    if(uint32 tmpitemid = _creatureData->inventoryItem[0])
     {
         if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
@@ -843,7 +815,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         }
     }
 
-    if(uint32 tmpitemid = _creatureData->Item2)
+    if(uint32 tmpitemid = _creatureData->inventoryItem[1])
     {
         if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
@@ -855,7 +827,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     }
 
     if(IsVehicle())
-        castPtr<Vehicle>(this)->InitSeats(_creatureData->Vehicle_entry, NULL);
+        castPtr<Vehicle>(this)->InitSeats(_creatureData->vehicleEntry, NULL);
 }
 
 void Creature::OnPushToWorld()

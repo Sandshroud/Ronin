@@ -184,7 +184,7 @@ public:
 
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
-    uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, uint32 updateFlags );
+    uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, uint32 updateFlags, uint32 expectedField = 0);
     uint32 __fastcall BuildOutOfRangeUpdateBlock( ByteBuffer *buf );
 
 private:
@@ -295,10 +295,6 @@ public:
     virtual void Destruct();
 
     virtual bool IsObject() { return true; }
-
-    WorldPacket* BuildFieldUpdatePacket(uint32 index,uint32 value);
-    void BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value);
-    void BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value);
 
     float GetCHeightForPosition(bool checkwater = false, float x = 0.0f, float y = 0.0f, float z = 0.0f);
 

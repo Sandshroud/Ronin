@@ -1067,8 +1067,9 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
     if(!m_session->GetPlayer()->IsInWorld())
         return NULL;
 
-    Unit *unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
-    if(unit->IsPlayer()) unit = NULL; // GetUnit also returns players
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    Unit *unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(guid);
+    if(unit && unit->IsPlayer()) unit = NULL; // GetUnit also returns players
     if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a creature.");
     return unit ? castPtr<Creature>(unit) : NULL;
@@ -1428,7 +1429,7 @@ bool ChatHandler::HandleModifyFactionCommand(const char *args, WorldSession *m_s
 
     uint32 faction = atol(args);
     if(!faction && unit->IsCreature())
-        faction = castPtr<Creature>(unit)->GetCreatureData()->Faction;
+        faction = castPtr<Creature>(unit)->GetCreatureData()->faction;
 
     BlueSystemMessage(m_session, "Set target's faction to %u", faction);
 
@@ -1455,7 +1456,7 @@ bool ChatHandler::HandleModifyScaleCommand(const char *args, WorldSession *m_ses
         return false;
 
     if(!scale && unit->IsCreature())
-        scale = castPtr<Creature>(unit)->GetCreatureData()->Scale;
+        scale = castPtr<Creature>(unit)->GetCreatureData()->scale;
 
     BlueSystemMessage(m_session, "Set target's scale to %f", scale);
     unit->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);

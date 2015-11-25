@@ -269,8 +269,8 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     if(target == this)
     {   // player creating self
         updateFlags |= UPDATEFLAG_SELF;
-    } else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
-        updateFlags |= UPDATEFLAG_HAS_TARGET;
+    } /*else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
+        updateFlags |= UPDATEFLAG_HAS_TARGET;*/
 
     if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
     {
@@ -288,6 +288,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
         }
     }
 
+    printf("Object update 0x%.4X | %u ", m_objGuid.getHigh(), updateFlags);
     // build our actual update
     *data << uint8(updatetype);
     *data << m_objGuid.asPacked();
@@ -296,15 +297,17 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     _BuildMovementUpdate(data, updateFlags, target);
     // this will cache automatically if needed
     _BuildCreateValuesUpdate( data, target );
+    printf("\n");
     // update count: 1 ;)
     return 1;
 }
 
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFlags)
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFlags, uint32 expectedField)
 {
     UpdateMask updateMask(m_valuesCount);
-    if(_SetUpdateBits(&updateMask, updateFlags))
+    if(expectedField || _SetUpdateBits(&updateMask, updateFlags))
     {
+        if(expectedField != 0) updateMask.SetBit(expectedField);
         *data << uint8(UPDATETYPE_VALUES);     // update type == update
         *data << m_objGuid.asPacked();
         _BuildChangedValuesUpdate( data, &updateMask );
@@ -324,16 +327,18 @@ uint32 Object::BuildOutOfRangeUpdateBlock(ByteBuffer *data)
 //=======================================================================================
 void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 {
-    ByteBuffer fields;
-    UpdateMask mask(m_valuesCount);
+    ByteBuffer fields; // Cut down on value cycling for players that aren't us
+    UpdateMask mask((IsPlayer() && target != this) ? PLAYER_END_NOT_SELF : m_valuesCount);
     uint16 typeMask = GetTypeFlags(), uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
         if(typeMask & 1<<f)
         {
             GetUpdateFieldData(f, flags, fLen);
-            for(uint32 i = 0; i < fLen; i++, offset++)
+            for(uint16 i = 0; i < fLen; i++, offset++)
             {
+                if(offset >= mask.GetCount())
+                    break;
                 if(m_uint32Values[offset] == 0)
                     continue;
 
@@ -346,9 +351,9 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
         }
     }
 
-    ASSERT(mask.GetBlockCount()*4 == mask.GetLength());
+    printf("| %u | %u", mask.GetLength(), fields.size());
     *data << uint8(mask.GetBlockCount());
-    data->append(mask.GetMask(), mask.GetLength() );
+    data->append(mask.GetMask(), mask.GetLength());
     data->append(fields.contents(), fields.size());
 }
 
@@ -363,7 +368,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 
     *data << uint8(byteCount);
     data->append( updateMask->GetMask(), byteCount*4 );
-    for( uint32 index = 0; index < m_valuesCount; index++ )
+    for( uint32 index = 0; index < updateMask->GetCount(); index++ )
         if( updateMask->GetBit( index ) )
             *data << m_uint32Values[index];
 }
@@ -587,41 +592,6 @@ void WorldObject::Destruct()
     m_instanceId = -1;
     sEventMgr.RemoveEvents(this);
     Object::Destruct();
-}
-
-//That is dirty fix it actually creates update of 1 field with
-//the given value ignoring existing changes in fields and so on
-//usefull if we want update this field for certain players
-//NOTE: it does not change fields. This is also very fast method
-WorldPacket *WorldObject::BuildFieldUpdatePacket(uint32 index, uint32 value)
-{
-    WorldPacket * packet = new WorldPacket(SMSG_UPDATE_OBJECT, 1500);
-    *packet << uint16(GetMapId());
-    *packet << uint32(1);//number of update/create blocks
-    BuildFieldUpdatePacket(packet, index, value);
-    return packet;
-}
-
-void WorldObject::BuildFieldUpdatePacket(Player* Target, uint32 Index, uint32 Value)
-{
-    ByteBuffer buf(500);
-    BuildFieldUpdatePacket(&buf, Index, Value);
-    Target->PushUpdateBlock(&buf, 1);
-}
-
-void WorldObject::BuildFieldUpdatePacket(ByteBuffer * buf, uint32 Index, uint32 Value)
-{
-    *buf << uint8(UPDATETYPE_VALUES);
-    *buf << m_objGuid.asPacked();
-
-    uint32 mBlocks = Index/32+1;
-    *buf << (uint8)mBlocks;
-
-    for(uint32 dword_n = mBlocks-1; dword_n; dword_n--)
-        *buf <<(uint32)0;
-
-    *buf <<(((uint32)(1))<<(Index%32));
-    *buf << Value;
 }
 
 /* Crow:

@@ -380,8 +380,7 @@ bool AIInterface::FindFriends(float dist)
     }
 
     // check if we're a civillan, in which case summon guards on a despawn timer
-    CreatureData * ctrData = castPtr<Creature>(m_Unit)->GetCreatureData();
-    if( ctrData && ctrData->type == HUMANOID && ctrData->Civilian )
+    if(castPtr<Creature>(m_Unit)->isCivilian())
         CallGuards();
 
     if(result)
@@ -671,7 +670,7 @@ uint32 AIInterface::GetWeaponEmoteType(bool ranged)
     {
         if(ranged == false)
         {
-            uint32 weaponids[2] = { ctrData->Item1, ctrData->Item2 };
+            uint32 weaponids[2] = { ctrData->inventoryItem[0], ctrData->inventoryItem[1] };
             for(uint8 i = 0; i < 2; i++)
             {
                 if(weaponids[i])
@@ -695,9 +694,9 @@ uint32 AIInterface::GetWeaponEmoteType(bool ranged)
                 }
             }
         }
-        else if(ctrData->Item3)
+        else if(ctrData->inventoryItem[2])
         {
-            if(ItemDataEntry* ItemE = db2Item.LookupEntry(ctrData->Item3))
+            if(ItemDataEntry* ItemE = db2Item.LookupEntry(ctrData->inventoryItem[2]))
                 if(ItemE->SubClass == ITEM_SUBCLASS_WEAPON_GUN || ItemE->SubClass == ITEM_SUBCLASS_WEAPON_CROSSBOW)
                     emotetype = EMOTE_STATE_READY_RIFLE;
         }

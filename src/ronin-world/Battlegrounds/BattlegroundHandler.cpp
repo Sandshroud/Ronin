@@ -73,7 +73,7 @@ void WorldSession::HandleBattleMasterHelloOpcode(WorldPacket &recv_data)
     if( pCreature == NULL )
         return;
 
-    SendBattlegroundList( pCreature, pCreature->GetCreatureData()->BattleMasterType );
+    SendBattlegroundList( pCreature, pCreature->GetCreatureData()->battleMasterType );
 }
 
 void WorldSession::HandleLeaveBattlefieldOpcode(WorldPacket &recv_data)

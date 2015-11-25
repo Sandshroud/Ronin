@@ -6,6 +6,8 @@
 
 Vehicle::Vehicle(CreatureData *data, uint64 guid) : Creature(data, guid)
 {
+    m_updateFlags |= UPDATEFLAG_VEHICLE;
+
     m_ppassengerCount = NULL;
     m_maxPassengers = NULL;
     m_seatSlotMax = NULL;
@@ -41,7 +43,7 @@ void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
         return;
     }
 
-    for( uint32 i = 0; i < 8; i++ )
+    for( uint8 i = 0; i < 8; i++ )
     {
         if( vehicleData->m_seatID[i] )
         {
@@ -83,7 +85,7 @@ void Vehicle::InstallAccessories()
     if(map == NULL) // Shouldn't ever really happen.
         return;
 
-    for(int i = 0; i < 8; i++)
+    for(uint8 i = 0; i < 8; i++)
     {
         SeatInfo seatinfo = acc->seats[i];
         if(!seatinfo.accessoryentry || (seatinfo.accessoryentry == GetEntry()))
@@ -108,18 +110,18 @@ void Vehicle::InstallAccessories()
         if(m_passengers[i])
             RemovePassenger(m_passengers[i]);
 
-        Creature *passenger = ((ctrData->Vehicle_entry > 0) ? map->CreateVehicle(seatinfo.accessoryentry) : map->CreateCreature(seatinfo.accessoryentry));
+        Creature *passenger = ((ctrData->vehicleEntry > 0) ? map->CreateVehicle(seatinfo.accessoryentry) : map->CreateCreature(seatinfo.accessoryentry));
         if(passenger == NULL)
             continue;
 
         float offsetX = m_vehicleSeats[i]->m_attachmentOffsetX, offsetY = m_vehicleSeats[i]->m_attachmentOffsetY, offsetZ = m_vehicleSeats[i]->m_attachmentOffsetZ;
         passenger->Load(GetMapId(), GetPositionX()+offsetX, GetPositionY()+offsetY, GetPositionZ()+offsetZ, 0.f, (IsInInstance() ? map->iInstanceMode : MODE_5PLAYER_NORMAL));
         passenger->GetMovementInterface()->LockTransportData();
-        passenger->GetMovementInterface()->SetTransportData(GetGUID(), ctrData->Vehicle_entry, offsetX, offsetY, offsetZ, 0.0f, i);
+        passenger->GetMovementInterface()->SetTransportData(GetGUID(), ctrData->vehicleEntry, offsetX, offsetY, offsetZ, 0.0f, i);
 
         if(passenger->IsVehicle())
         {
-            castPtr<Vehicle>(passenger)->InitSeats(ctrData->Vehicle_entry);
+            castPtr<Vehicle>(passenger)->InitSeats(ctrData->vehicleEntry);
             if(passenger->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK))
                 passenger->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK); // Accessory
         }
@@ -149,7 +151,7 @@ void Vehicle::SendSpells(uint32 entry, Player* plr)
     data << uint32(0);
     data << uint32(0x00000101);
 
-    for (uint32 i = 0; i < 6; i++)
+    for (uint8 i = 0; i < 6; i++)
     {
         uint32 spellId = acc->VehicleSpells[i];
         if (!spellId)
@@ -232,7 +234,7 @@ void Vehicle::Despawn(uint32 delay, uint32 respawntime)
 
     if(respawntime)
     {
-        for(int i = 0; i < 8; i++)
+        for(uint8 i = 0; i < 8; i++)
         {
             if(m_passengers[i] != NULL)
             {
@@ -441,7 +443,7 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
             {
                 uint32 health = GetUInt32Value(UNIT_FIELD_HEALTH);
                 uint32 maxhealth = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-                uint32 protomaxhealth = _creatureData->MaxHealth;
+                uint32 protomaxhealth = _creatureData->maxHealth;
                 uint32 healthdiff = maxhealth - health;
                 uint32 plritemlevel = plr->GetTotalItemLevel();
                 uint32 convrate = vehicledata->healthunitfromitemlev;
@@ -449,7 +451,7 @@ void Vehicle::RemovePassenger(Unit* pPassenger)
                 if(plritemlevel != 0 && convrate != 0)
                 {
                     uint32 healthloss = healthdiff+plritemlevel*convrate;
-                    SetUInt32Value(UNIT_FIELD_HEALTH, _creatureData->MaxHealth - healthloss);
+                    SetUInt32Value(UNIT_FIELD_HEALTH, _creatureData->maxHealth - healthloss);
                 }
                 else if(protomaxhealth > healthdiff)
                     SetUInt32Value(UNIT_FIELD_HEALTH, protomaxhealth-healthdiff);
@@ -740,10 +742,10 @@ void WorldSession::HandleSpellClick( WorldPacket & recv_data )
             }
             return;
         }
-        SpellEntry * sp = dbcSpell.LookupEntry(ctr->GetCreatureData()->SpellClickid);
-        if(sp != NULL)
+
+        if(SpellEntry * sp = dbcSpell.LookupEntry(ctr->GetCreatureData()->spellClickid))
             unit->CastSpell(_player, sp, true);
-        else sLog.outDebug("[SPELLCLICK]: Invalid Spell ID %u creature %u", ctr->GetCreatureData()->SpellClickid, ctr->GetEntry());
+        else sLog.outDebug("[SPELLCLICK]: Invalid Spell ID %u creature %u", ctr->GetCreatureData()->spellClickid, ctr->GetEntry());
         return;
     }
 
