@@ -258,12 +258,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
     if ( slot < EQUIPMENT_SLOT_END && ContainerSlot == INVENTORY_SLOT_NOT_SET )
     {
         int VisibleBase = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
-        if( VisibleBase >= PLAYER_CHOSEN_TITLE )
-        {
-            printf("Slot warning: slot: %d\n", slot);
-            OutputCrashLogLine("Slot warning: slot: %d\n", slot);
-        }
-        else
+        if( VisibleBase < PLAYER_CHOSEN_TITLE )
         {
             m_pOwner->SetUInt32Value( VisibleBase, item->GetUInt32Value( OBJECT_FIELD_ENTRY ) );
             m_pOwner->SetUInt32Value( VisibleBase + 1, item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA ) );

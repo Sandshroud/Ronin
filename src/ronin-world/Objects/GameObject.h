@@ -544,6 +544,7 @@ public:
     bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang);
 
     bool Load(uint32 mapId, GOSpawn *spawn);
+    void UpdateRotation();
 
     void Spawn( MapMgr* m);
     void Despawn( uint32 delay, uint32 respawntime);

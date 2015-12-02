@@ -21,9 +21,15 @@ void PlayerCurrency::LoadFromDB(QueryResult *result)
 
 void PlayerCurrency::SaveToDB(QueryBuffer *buf)
 {
-    buf->AddQuery("DELETE FROM character_currency WHERE guid = '';", m_player->GetLowGUID());
+    if(buf != NULL)
+        buf->AddQuery("DELETE FROM character_currency WHERE guid = '';", m_player->GetLowGUID());
+    else CharacterDatabase.Execute("DELETE FROM character_currency WHERE guid = '';", m_player->GetLowGUID());
     for(std::map<uint32, uint32>::iterator itr = m_currencies.begin(); itr != m_currencies.end(); itr++)
-        buf->AddQuery("INSERT INTO character_currency VALUES(%u, %u, %u);", m_player->GetLowGUID(), itr->first, itr->second);
+    {
+        if(buf != NULL)
+            buf->AddQuery("INSERT INTO character_currency VALUES(%u, %u, %u);", m_player->GetLowGUID(), itr->first, itr->second);
+        else CharacterDatabase.Execute("INSERT INTO character_currency VALUES(%u, %u, %u);", m_player->GetLowGUID(), itr->first, itr->second);
+    }
 }
 
 void PlayerCurrency::SendInitialCurrency()

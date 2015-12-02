@@ -7,7 +7,7 @@
 GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
-    m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
+    m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
 
     counter = 0;
     bannerslot = bannerauraslot = -1;
@@ -170,7 +170,7 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     SetDisplayId(pInfo->DisplayID );
     SetType(pInfo->Type);
     SetFlags(pInfo->DefaultFlags);
-    //SetAnimProgress(255);
+    UpdateRotation();
     InitAI();
     return true;
 }
@@ -371,6 +371,54 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
 
     _LoadQuests();
     return true;
+}
+
+using G3D::Quat;
+struct QuaternionCompressed
+{
+    QuaternionCompressed() : m_raw(0) {}
+    QuaternionCompressed(int64 val) : m_raw(val) {}
+    QuaternionCompressed(const Quat& quat) { Set(quat); }
+
+    enum
+    {
+        PACK_COEFF_YZ = 1 << 20,
+        PACK_COEFF_X = 1 << 21,
+    };
+
+    void Set(const Quat& quat)
+    {
+        int8 w_sign = (quat.w >= 0 ? 1 : -1);
+        int64 X = int32(quat.x * PACK_COEFF_X) * w_sign & ((1 << 22) - 1);
+        int64 Y = int32(quat.y * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
+        int64 Z = int32(quat.z * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
+        m_raw = Z | (Y << 21) | (X << 42);
+    }
+
+    Quat Unpack() const
+    {
+        double x = (double)(m_raw >> 42) / (double)PACK_COEFF_X;
+        double y = (double)(m_raw << 22 >> 43) / (double)PACK_COEFF_YZ;
+        double z = (double)(m_raw << 43 >> 43) / (double)PACK_COEFF_YZ;
+        double w = 1 - (x * x + y * y + z * z);
+        ASSERT(w >= 0);
+        w = sqrt(w);
+
+        return Quat(x, y, z, w);
+    }
+
+    int64 m_raw;
+};
+
+void GameObject::UpdateRotation()
+{
+    Quat rotation = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
+    rotation.unitize();
+    m_rotation = QuaternionCompressed(rotation).m_raw;
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, rotation.x);
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, rotation.y);
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, rotation.z);
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, rotation.w);
 }
 
 void GameObject::DeleteFromDB()

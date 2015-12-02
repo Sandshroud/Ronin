@@ -86,7 +86,7 @@ void Player::Init()
     m_invitersGuid                  = 0;
     forget                          = 0;
     m_invitersGuid                  = 0;
-    ResetTradeVariables();
+    m_tradeData                     = NULL;
     DuelingWith                     = NULL;
     m_duelCountdownTimer            = 0;
     m_duelStatus                    = 0;
@@ -253,14 +253,6 @@ void Player::Init()
 void Player::Destruct()
 {
     sEventMgr.RemoveEvents(castPtr<Player>(this));
-
-    if(!ok_to_remove)
-    {
-        printf("Player deleted from non-logoutplayer!\n");
-        OutputCrashLogLine("Player deleted from non-logoutplayer!");
-        CThreadPool::Suicide();
-    }
-
     objmgr.RemovePlayer(this);
 
     if(m_session)
@@ -1779,7 +1771,7 @@ void Player::_SaveTaxiMasks(QueryBuffer * buf)
         {
             if(ss.str().length())
                 ss << ", ";
-            ss << "(" << GetLowGUID() << ", " << taxiMask << ")";
+            ss << "(" << GetLowGUID() << ", " << uint32(i) << ", " << taxiMask << ")";
         }
     }
 
@@ -5798,6 +5790,7 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 
     m_updateDataCount += updatecount;
     m_updateDataBuff.append(data->contents(), data->size());
+    PopPendingUpdates();
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)

@@ -299,17 +299,16 @@ void ObjectMgr::LoadPlayersInfo()
             pn->name = strdup(fields[1].GetString());
             pn->race = fields[2].GetUInt8();
             pn->_class = fields[3].GetUInt8();
-            pn->lastLevel = fields[4].GetUInt32();
-            pn->gender = fields[5].GetUInt8();
+            pn->gender = fields[4].GetUInt8();
+            pn->lastLevel = fields[5].GetUInt32();
             pn->lastZone = fields[6].GetUInt32();
-            pn->lastOnline = fields[7].GetUInt32();
-            pn->acct = fields[8].GetUInt32();
-            pn->curInstanceID = fields[9].GetUInt32();
-            pn->lastmapid = fields[10].GetUInt32();
-            pn->lastpositionx = fields[11].GetFloat();
-            pn->lastpositiony = fields[12].GetFloat();
-            pn->lastpositionz = fields[13].GetFloat();
-            pn->lastorientation = fields[14].GetFloat();
+            pn->acct = fields[7].GetUInt32();
+            pn->curInstanceID = fields[8].GetUInt32();
+            pn->lastmapid = fields[9].GetUInt32();
+            pn->lastpositionx = fields[10].GetFloat();
+            pn->lastpositiony = fields[11].GetFloat();
+            pn->lastpositionz = fields[12].GetFloat();
+            pn->lastorientation = fields[13].GetFloat();
             CharRaceEntry * race = dbcCharRace.LookupEntry(pn->race);
             pn->team = race->TeamId;
 
@@ -373,8 +372,8 @@ void ObjectMgr::LoadPlayerCreateInfo()
         return;
     }
 
+    uint8 fieldcount;
     PlayerCreateInfo *pPlayerCreateInfo;
-    int fieldcount = 0;
 
     do
     {
@@ -408,65 +407,77 @@ void ObjectMgr::LoadPlayerCreateInfo()
         pPlayerCreateInfo->positionY = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->positionZ = fields[fieldcount++].GetFloat();
         pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
-
-        QueryResult *sk_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid = %u", pPlayerCreateInfo->index);
-        if(sk_sql)
-        {
-            do
-            {
-                Field *fields = sk_sql->Fetch();
-                CreateInfo_SkillStruct tsk;
-                tsk.skillid = fields[1].GetUInt32();
-                tsk.currentval = fields[2].GetUInt32();
-                tsk.maxval = fields[3].GetUInt32();
-                pPlayerCreateInfo->skills.push_back(tsk);
-            } while(sk_sql->NextRow());
-            delete sk_sql;
-        }
-
-        QueryResult *sp_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_spells WHERE indexid = %u", pPlayerCreateInfo->index);
-        if(sp_sql)
-        {
-            do
-            {
-                pPlayerCreateInfo->spell_list.insert(sp_sql->Fetch()[1].GetUInt32());
-            } while(sp_sql->NextRow());
-            delete sp_sql;
-        }
-
-        QueryResult *items_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_items WHERE indexid = %u", pPlayerCreateInfo->index);
-        if(items_sql)
-        {
-            do
-            {
-                Field *fields = items_sql->Fetch();
-                CreateInfo_ItemStruct itm;
-                itm.protoid = fields[1].GetUInt32();
-                itm.slot = fields[2].GetUInt8();
-                itm.amount = fields[3].GetUInt32();
-                pPlayerCreateInfo->items.push_back(itm);
-            } while(items_sql->NextRow());
-            delete items_sql;
-        }
-
-        QueryResult *bars_sql = WorldDatabase.Query("SELECT * FROM playercreateinfo_bars WHERE class = %u", pPlayerCreateInfo->class_ );
-        if(bars_sql)
-        {
-            do
-            {
-                Field *fields = bars_sql->Fetch();
-                CreateInfo_ActionBarStruct bar;
-                bar.button = fields[2].GetUInt8();
-                bar.action = fields[3].GetUInt32();
-                bar.type = fields[4].GetUInt8();
-                pPlayerCreateInfo->actionbars.push_back(bar);
-            } while(bars_sql->NextRow());
-            delete bars_sql;
-        }
-
         mPlayerCreateInfo[pPlayerCreateInfo->index] = pPlayerCreateInfo;
     } while( result->NextRow() );
     delete result;
+
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint8 index = fields[0].GetUInt8();
+            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
+                continue;
+
+            CreateInfo_SkillStruct tsk;
+            tsk.skillid = fields[1].GetUInt32();
+            tsk.currentval = fields[2].GetUInt32();
+            tsk.maxval = fields[3].GetUInt32();
+            mPlayerCreateInfo[index]->skills.push_back(tsk);
+        } while( result->NextRow() );
+        delete result;
+    }
+
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_spells WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint8 index = fields[0].GetUInt8();
+            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
+                continue;
+
+            mPlayerCreateInfo[index]->spell_list.insert(fields[1].GetUInt32());
+        } while( result->NextRow() );
+        delete result;
+    }
+
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_items WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint8 index = fields[0].GetUInt8();
+            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
+                continue;
+
+            CreateInfo_ItemStruct itm;
+            itm.protoid = fields[1].GetUInt32();
+            itm.slot = fields[2].GetUInt8();
+            itm.amount = fields[3].GetUInt32();
+            mPlayerCreateInfo[index]->spell_list.insert(fields[1].GetUInt32());
+        } while( result->NextRow() );
+        delete result;
+    }
+
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_bars"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint8 race = fields[0].GetUInt8(), _class = fields[1].GetUInt8();
+            if((pPlayerCreateInfo = GetPlayerCreateInfo(race, _class)) == NULL)
+                continue;
+
+            CreateInfo_ActionBarStruct bar;
+            bar.button = fields[2].GetUInt8();
+            bar.action = fields[3].GetUInt32();
+            bar.type = fields[4].GetUInt8();
+            pPlayerCreateInfo->actionbars.push_back(bar);
+        } while( result->NextRow() );
+        delete result;
+    }
 
     sLog.Notice("ObjectMgr", "%u player create infos loaded.", mPlayerCreateInfo.size());
 }
