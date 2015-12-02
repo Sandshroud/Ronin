@@ -37,7 +37,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     //Vehicle
     m_inVehicleSeatId = 0xFF;
     m_CurrentVehicle = NULL;
-    ExitingVehicle = false;
 
     //DK:modifiers
     for( uint32 x = 0; x < 4; x++ )
@@ -104,19 +103,10 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_DummyAuras.clear();
     m_LastSpellManaCost = 0;
 
-    m_mountSpell = 0;
-    m_vehicleEntry = 0;
-    for(uint8 i = 0; i < 8; i++)
-    {
-        m_vehicleSeats[i] = NULL;
-        seatisusable[i] = false;
-        m_passengers[i] = NULL;
-    }
-    pVehicle = NULL;
-
-    _aiAnimKitId = 0;
-    _movementAnimKitId = 0;
-    _meleeAnimKitId = 0;
+    m_vehicleKitId = 0;
+    m_aiAnimKitId = 0;
+    m_movementAnimKitId = 0;
+    m_meleeAnimKitId = 0;
 }
 
 Unit::~Unit()
@@ -3316,12 +3306,25 @@ void Unit::CastOnMeleeSpell()
     SetOnMeleeSpell(0, 0);
 }
 
-void Unit::SetAIAnimKitId(uint16 animKitId)
+void Unit::InitVehicleKit(uint32 vehicleKitId)
 {
-    if (_aiAnimKitId == animKitId)
+    if (m_vehicleKitId == vehicleKitId)
         return;
 
-    _aiAnimKitId = animKitId;
+    m_vehicleKitId = vehicleKitId;
+
+    WorldPacket data(SMSG_PLAYER_VEHICLE_DATA, 8 + 2);
+    data << m_objGuid.asPacked();
+    data << uint16(vehicleKitId);
+    SendMessageToSet(&data, true);
+}
+
+void Unit::SetAIAnimKitId(uint16 animKitId)
+{
+    if (m_aiAnimKitId == animKitId)
+        return;
+
+    m_aiAnimKitId = animKitId;
 
     WorldPacket data(SMSG_SET_AI_ANIM_KIT, 8 + 2);
     data << m_objGuid.asPacked();
@@ -3331,10 +3334,10 @@ void Unit::SetAIAnimKitId(uint16 animKitId)
 
 void Unit::SetMovementAnimKitId(uint16 animKitId)
 {
-    if (_movementAnimKitId == animKitId)
+    if (m_movementAnimKitId == animKitId)
         return;
 
-    _movementAnimKitId = animKitId;
+    m_movementAnimKitId = animKitId;
 
     WorldPacket data(SMSG_SET_MOVEMENT_ANIM_KIT, 8 + 2);
     data << m_objGuid.asPacked();
@@ -3344,10 +3347,10 @@ void Unit::SetMovementAnimKitId(uint16 animKitId)
 
 void Unit::SetMeleeAnimKitId(uint16 animKitId)
 {
-    if (_meleeAnimKitId == animKitId)
+    if (m_meleeAnimKitId == animKitId)
         return;
 
-    _meleeAnimKitId = animKitId;
+    m_meleeAnimKitId = animKitId;
 
     WorldPacket data(SMSG_SET_MELEE_ANIM_KIT, 8 + 2);
     data << m_objGuid.asPacked();
@@ -4406,60 +4409,10 @@ uint32 Unit::GetCreatureType()
     return 0;
 }
 
-void Unit::RemovePassenger(Unit* pPassenger)
-{
-    if(IsVehicle())
-        castPtr<Vehicle>(this)->RemovePassenger(pPassenger);
-    else if(IsPlayer())
-        castPtr<Player>(this)->RemovePassenger(pPassenger);
-}
-
-void Unit::ChangeSeats(Unit* pPassenger, uint8 seatid)
-{
-    if(IsVehicle())
-        castPtr<Vehicle>(this)->ChangeSeats(pPassenger, seatid);
-    else if(IsPlayer())
-        castPtr<Player>(this)->ChangeSeats(pPassenger, seatid);
-}
-
-/* This function changes a vehicles position server side to
-keep us in sync with the client, so that the vehicle doesn't
-get dismissed because the server thinks its gone out of range
-of its passengers*/
-void Unit::MoveVehicle(float x, float y, float z, float o) //thanks andy
-{
-    SetPosition(x, y, z, o);
-    for(uint8 i = 0; i < 8; i++)
-    {
-        if(m_passengers[i] != NULL)
-        {
-            m_passengers[i]->SetPosition(x,y,z,o);
-        }
-    }
-}
-
-int8 Unit::GetPassengerSlot(Unit* pPassenger)
-{
-    for(uint8 i = 0; i < 9; i++)
-    {
-        if( m_passengers[i] == pPassenger ) // Found a slot
-        {
-            return i;
-            break;
-        }
-    }
-    return -1;
-}
-
-void Unit::DeletePassengerData(Unit* pPassenger)
-{
-    uint8 slot = pPassenger->GetSeatID();
-    pPassenger->SetSeatID(NULL);
-    m_passengers[slot] = NULL;
-}
-
 bool Unit::CanEnterVehicle(Player * requester)
 {
+    if(GetVehicleKitId() == 0)
+        return false;
     if(requester == NULL || !requester->IsInWorld())
         return false;
 
@@ -4498,23 +4451,11 @@ bool Unit::CanEnterVehicle(Player * requester)
 
         if( sEventMgr.HasEvent( v, EVENT_VEHICLE_SAFE_DELETE ) )
             return false;
-
-        if(GetControllingPlayer())
-        {
-            Player * p = GetControllingPlayer();
-            if(p->GetGroup() == NULL)
-                return false;
-            if(!p->GetGroup()->HasMember(requester))
-                return false;
-        }
     }
 
     if(IsPlayer())
     {
         Player * p = castPtr<Player>(this);
-
-        if(p->GetVehicleEntry() == 0)
-            return false;
         if(p->GetGroup() == NULL)
             return false;
         if(!p->GetGroup()->HasMember(requester))

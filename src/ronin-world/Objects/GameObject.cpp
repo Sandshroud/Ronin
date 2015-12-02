@@ -9,7 +9,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
 
-    SetAnimProgress(100);
     counter = 0;
     bannerslot = bannerauraslot = -1;
     m_summonedGo = false;
@@ -171,7 +170,7 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     SetDisplayId(pInfo->DisplayID );
     SetType(pInfo->Type);
     SetFlags(pInfo->DefaultFlags);
-    SetAnimProgress(255);
+    //SetAnimProgress(255);
     InitAI();
     return true;
 }
@@ -367,9 +366,6 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     SetFlags(spawn->flags);
     SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
-
-    if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
-        SetAnimProgress(100);
 
     TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnCreate);
 

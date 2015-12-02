@@ -291,8 +291,8 @@ void AIInterface::EventUnwander(Unit* /*pUnit*/, uint32 misc1)
 
 void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
 {
-    if( m_Unit->GetVehicle(true) )
-        castPtr<Vehicle>(m_Unit->GetVehicle())->RemovePassenger(m_Unit);
+    if( Vehicle *veh = m_Unit->GetVehicle() )
+        veh->RemovePassenger(m_Unit);
 
     if( m_Unit->IsCreature() )
     {

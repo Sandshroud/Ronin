@@ -262,17 +262,24 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
     // Players or player linked units
-    if(IsPlayer() || IsPet() || IsTotem() || IsSummon())
+    if(IsPlayer() || IsPet() || IsCorpse() || IsDynamicObj() || IsTotem() || IsSummon())
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
 
     uint16 updateFlags = m_updateFlags;
-    if(target == this)
-    {   // player creating self
+    if(target == this) // player creating self
         updateFlags |= UPDATEFLAG_SELF;
-    } /*else if(IsUnit() && castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_TARGET))
-        updateFlags |= UPDATEFLAG_HAS_TARGET;*/
+    else if(Unit *unit = (IsUnit() ? castPtr<Unit>(this) : NULL))
+    {
+        if(unit->GetUInt64Value(UNIT_FIELD_TARGET))
+            updateFlags |= UPDATEFLAG_HAS_TARGET;
 
-    if(GetTypeFlags() & TYPEMASK_TYPE_GAMEOBJECT)
+        if(unit->GetVehicleKitId())
+            updateFlags |= UPDATEFLAG_VEHICLE;
+
+        if (unit->GetAIAnimKitId() || unit->GetMovementAnimKitId() || unit->GetMeleeAnimKitId())
+            updateFlags |= UPDATEFLAG_ANIMKITS;
+    }
+    else if(IsGameObject())
     {
         switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
         {
@@ -288,7 +295,6 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
         }
     }
 
-    printf("Object update 0x%.4X | %u ", m_objGuid.getHigh(), updateFlags);
     // build our actual update
     *data << uint8(updatetype);
     *data << m_objGuid.asPacked();
@@ -297,7 +303,6 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     _BuildMovementUpdate(data, updateFlags, target);
     // this will cache automatically if needed
     _BuildCreateValuesUpdate( data, target );
-    printf("\n");
     // update count: 1 ;)
     return 1;
 }
@@ -314,12 +319,6 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFl
         return 1;
     }
     return 0;
-}
-
-uint32 Object::BuildOutOfRangeUpdateBlock(ByteBuffer *data)
-{
-    *data << m_objGuid.asPacked();
-    return 1;
 }
 
 //=======================================================================================
@@ -345,13 +344,12 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
                 if(flags[i] & (uFlag|m_notifyFlags))
                 {
                     mask.SetBit(offset);
-                    fields << uint32((IsGameObject() && offset == GAMEOBJECT_DISPLAYID) ? 0 : m_uint32Values[offset]);
+                    fields << uint32(m_uint32Values[offset]);
                 }
             }
         }
     }
 
-    printf("| %u | %u", mask.GetLength(), fields.size());
     *data << uint8(mask.GetBlockCount());
     data->append(mask.GetMask(), mask.GetLength());
     data->append(fields.contents(), fields.size());
@@ -364,10 +362,8 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask)
 {
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
-    uint32 byteCount = updateMask->GetBlockCount();
-
-    *data << uint8(byteCount);
-    data->append( updateMask->GetMask(), byteCount*4 );
+    *data << uint8(updateMask->GetBlockCount());
+    data->append( updateMask->GetMask(), updateMask->GetLength() );
     for( uint32 index = 0; index < updateMask->GetCount(); index++ )
         if( updateMask->GetBit( index ) )
             *data << m_uint32Values[index];
@@ -378,6 +374,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
+    ByteBuffer livingBuffer;
     uint32 stopFrameCount = 0;
     if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
         stopFrameCount = 0; //castPtr<GameObject>(this)->GetInfo()->data.transport.;
@@ -399,21 +396,23 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
 
     if(flags & UPDATEFLAG_LIVING)
-        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdateBits(data);
+        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdate(data, &livingBuffer);
 
     // used only with GO's, placeholder
     if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
     {
-        WoWGuid guid = castPtr<Unit>(this)->GetTransportGuid();
+        Unit *uThis = castPtr<Unit>(this);
+        WoWGuid guid = uThis->GetTransportGuid();
+        MovementInterface *mi = uThis->GetMovementInterface();
         data->WriteBit(guid[5]);
-        data->WriteBit(0);                                                      // Has GO transport time 3
+        data->WriteBit(mi->GetTransportVehicleId() > 0);// Has GO transport time 3
         data->WriteBit(guid[0]);
         data->WriteBit(guid[3]);
         data->WriteBit(guid[6]);
         data->WriteBit(guid[1]);
         data->WriteBit(guid[4]);
         data->WriteBit(guid[2]);
-        data->WriteBit(0);                                                      // Has GO transport time 2
+        data->WriteBit(mi->GetTransportTime2() > 0);    // Has GO transport time 2
         data->WriteBit(guid[7]);
     }
 
@@ -439,10 +438,10 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
         *data << uint32(0);
 
     if(flags & UPDATEFLAG_LIVING)
-        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdateBytes(data);
+        data->append(livingBuffer.contents(), livingBuffer.size());
 
     if(flags & UPDATEFLAG_VEHICLE)
-        *data << float(castPtr<WorldObject>(this)->GetOrientation()) << uint32(castPtr<Vehicle>(this)->GetVehicleEntry());
+        *data << float(castPtr<WorldObject>(this)->GetOrientation()) << uint32(castPtr<Unit>(this)->GetVehicleKitId());
 
     if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
     {
@@ -502,12 +501,12 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     if (flags & UPDATEFLAG_ANIMKITS)
     {
         Unit *uThis = castPtr<Unit>(this);
-        if (uThis->GetAIAnimKitId())
-            *data << uint16(uThis->GetAIAnimKitId());
-        if (uThis->GetMovementAnimKitId())
-            *data << uint16(uThis->GetMovementAnimKitId());
-        if (uThis->GetMeleeAnimKitId())
-            *data << uint16(uThis->GetMeleeAnimKitId());
+        if (uint16 animKit = uThis->GetAIAnimKitId())
+            *data << uint16(animKit);
+        if (uint16 animKit = uThis->GetMovementAnimKitId())
+            *data << uint16(animKit);
+        if (uint16 animKit = uThis->GetMeleeAnimKitId())
+            *data << uint16(animKit);
     }
 
     if(flags & UPDATEFLAG_TRANSPORT)

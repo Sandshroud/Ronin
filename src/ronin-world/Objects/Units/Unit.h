@@ -627,11 +627,13 @@ public:
     uint8 GetOnMeleeSpellEcn() { return m_meleespell_cn; }
     void CastOnMeleeSpell();
 
-    uint16 GetAIAnimKitId() const { return _aiAnimKitId; }
+    uint32 GetVehicleKitId() const { return m_vehicleKitId; }
+    void InitVehicleKit(uint32 vehicleKitId);
+    uint16 GetAIAnimKitId() const { return m_aiAnimKitId; }
     void SetAIAnimKitId(uint16 animKitId);
-    uint16 GetMovementAnimKitId() const { return _movementAnimKitId; }
+    uint16 GetMovementAnimKitId() const { return m_movementAnimKitId; }
     void SetMovementAnimKitId(uint16 animKitId);
-    uint16 GetMeleeAnimKitId() const { return _meleeAnimKitId; }
+    uint16 GetMeleeAnimKitId() const { return m_meleeAnimKitId; }
     void SetMeleeAnimKitId(uint16 animKitId);
 
     // On Aura Remove Procs
@@ -715,52 +717,12 @@ public:
     RONIN_INLINE float GetStat(uint32 stat) const { return float(GetUInt32Value(UNIT_FIELD_STATS+stat)); }
 
     uint32 m_uAckCounter;
-    //Vehicle
-    bool ExitingVehicle;
-    bool ChangingSeats;
-    Player* pVehicle;
-    bool seatisusable[8];
-    Unit* m_passengers[8];
-    uint32 m_mountSpell;
-    uint32 m_vehicleEntry;
-    VehicleSeatEntry* m_vehicleSeats[8];
-    RONIN_INLINE Unit* GetControllingUnit() { return m_passengers[0]; }
-    RONIN_INLINE Player* GetControllingPlayer() { return (m_passengers[0] ? m_passengers[0]->IsPlayer() ? castPtr<Player>(m_passengers[0]) : NULL : NULL); }
-
-    RONIN_INLINE uint32 GetVehicleEntry() { return m_vehicleEntry; };
-    RONIN_INLINE void SetVehicleEntry(uint32 entry) { m_vehicleEntry = entry; }
-
-    void RemovePassenger(Unit* passenger);
-    int8 GetPassengerSlot(Unit* pPassenger);
-    void DeletePassengerData(Unit* pPassenger);
-    void ChangeSeats(Unit* pPassenger, uint8 seatid);
-    void MoveVehicle(float x, float y, float z, float o);
 
     RONIN_INLINE int8 GetSeatID() { return m_inVehicleSeatId; }
-    RONIN_INLINE Unit* GetVehicle(bool forcevehicle = false)
-    {
-        if(m_CurrentVehicle)
-            return castPtr<Unit>(m_CurrentVehicle);
-        if(pVehicle && !forcevehicle)
-            return castPtr<Unit>(pVehicle);
-        return NULL;
-    }
+    RONIN_INLINE Vehicle* GetVehicle() { return m_CurrentVehicle; }
 
     RONIN_INLINE void SetSeatID(int8 seat) { m_inVehicleSeatId = seat; }
-    RONIN_INLINE void SetVehicle(Unit *v)
-    {
-        if(v == NULL)
-        {
-            m_CurrentVehicle = NULL;
-            pVehicle = NULL;
-            return;
-        }
-
-        if(v->IsVehicle())
-            m_CurrentVehicle = castPtr<Vehicle>(v);
-        else if(v->IsPlayer())
-            pVehicle = castPtr<Player>(v);
-    }
+    RONIN_INLINE void SetVehicle(Vehicle *v) { m_CurrentVehicle = v; }
 
     bool CanEnterVehicle(Player * requester);
 
@@ -1026,18 +988,22 @@ public:
 
     std::map<uint32, SpellEntry*> m_DummyAuras;
 
-    uint16 _aiAnimKitId;
-    uint16 _movementAnimKitId;
-    uint16 _meleeAnimKitId;
+    uint32 m_vehicleKitId;
+    uint16 m_aiAnimKitId;
+    uint16 m_movementAnimKitId;
+    uint16 m_meleeAnimKitId;
 
 public:
+    virtual const char* GetName() = 0;
     void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );
     void Teleport(float x, float y, float z, float o);
     void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
     uint32 GetCreatureType();
-    virtual const char* GetName() = 0;
     bool IsSitting();
+
+    bool m_changingSeats, m_exitingVehicle;
+
 private:
     uint8 m_inVehicleSeatId;
     Vehicle* m_CurrentVehicle;

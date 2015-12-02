@@ -5828,7 +5828,6 @@ void Player::PopPendingUpdates()
         if(m_updateDataCount)
         {
             data.append(m_updateDataBuff.contents(), m_updateDataBuff.size());
-            // clear our update buffer and count
             m_updateDataBuff.clear();
             m_updateDataCount = 0;
         }

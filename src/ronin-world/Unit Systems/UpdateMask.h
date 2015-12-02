@@ -35,7 +35,7 @@ public:
         mBlocks >>= 5; mBlocks += 1; mBlocks <<= 2;
 
         mUpdateMask = new uint8[mBlocks];
-        memset(mUpdateMask, 0, GetLength());
+        memset(mUpdateMask, 0, mBlocks);
     }
 
     RONIN_INLINE void Clear()

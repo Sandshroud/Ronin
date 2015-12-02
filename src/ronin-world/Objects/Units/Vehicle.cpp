@@ -6,8 +6,6 @@
 
 Vehicle::Vehicle(CreatureData *data, uint64 guid) : Creature(data, guid)
 {
-    m_updateFlags |= UPDATEFLAG_VEHICLE;
-
     m_ppassengerCount = NULL;
     m_maxPassengers = NULL;
     m_seatSlotMax = NULL;
@@ -43,6 +41,7 @@ void Vehicle::InitSeats(uint32 vehicleEntry, Player* pRider)
         return;
     }
 
+    InitVehicleKit(vehicleEntry);
     for( uint8 i = 0; i < 8; i++ )
     {
         if( vehicleData->m_seatID[i] )
@@ -238,8 +237,7 @@ void Vehicle::Despawn(uint32 delay, uint32 respawntime)
         {
             if(m_passengers[i] != NULL)
             {
-                if(m_passengers[i]->IsPlayer())
-                    // Remove any passengers
+                if(m_passengers[i]->IsPlayer()) // Remove any passengers
                     RemovePassenger(m_passengers[i]);
                 else
                     m_passengers[i]->Destruct();
@@ -693,12 +691,12 @@ void WorldSession::HandleVehicleDismiss(WorldPacket & recv_data)
     if(!_player->GetVehicle())
         return;
 
-    _player->ExitingVehicle = true;
+    _player->m_exitingVehicle = true;
     if((recv_data.rpos() != recv_data.wpos()) && (/*So we don't get disconnected due to size checks.*/recv_data.size() <= 90))
         HandleMovementOpcodes(recv_data);
 
     _player->GetVehicle()->RemovePassenger(GetPlayer());
-    _player->ExitingVehicle = false;
+    _player->m_exitingVehicle = false;
 }
 
 /* This function handles the packet from the client which is
@@ -762,8 +760,8 @@ void WorldSession::HandleRequestSeatChange( WorldPacket & recv_data )
 {
     WoWGuid Vehicleguid;
     int8 RequestedSeat;
-    Unit* cv = _player->GetVehicle();
-    _player->ChangingSeats = true;
+    Vehicle* cv = _player->GetVehicle();
+    _player->m_changingSeats = true;
 
     if(recv_data.GetOpcode() == CMSG_REQUEST_VEHICLE_PREV_SEAT)
     {
@@ -783,7 +781,7 @@ void WorldSession::HandleRequestSeatChange( WorldPacket & recv_data )
         if(cv->m_vehicleSeats[newseat] && cv->seatisusable[newseat])
             cv->ChangeSeats(_player, newseat);
 
-        _player->ChangingSeats = false;
+        _player->m_changingSeats = false;
         return;
     }
     else if(recv_data.GetOpcode() == CMSG_REQUEST_VEHICLE_NEXT_SEAT)
@@ -803,7 +801,7 @@ void WorldSession::HandleRequestSeatChange( WorldPacket & recv_data )
         if(cv->m_vehicleSeats[newseat] && cv->seatisusable[newseat])
             cv->ChangeSeats(_player, newseat);
 
-        _player->ChangingSeats = false;
+        _player->m_changingSeats = false;
         return;
     }
     else if(recv_data.GetOpcode() == CMSG_REQUEST_VEHICLE_SWITCH_SEAT)
@@ -823,12 +821,48 @@ void WorldSession::HandleRequestSeatChange( WorldPacket & recv_data )
     {
         cv->RemovePassenger(_player);
         vehicle->AddPassenger(_player, RequestedSeat);
-        _player->ChangingSeats = false;
+        _player->m_changingSeats = false;
         return;
     }
 
     cv->ChangeSeats(_player, RequestedSeat);
-    _player->ChangingSeats = false;
+    _player->m_changingSeats = false;
+}
+
+/* This function changes a vehicles position server side to
+keep us in sync with the client, so that the vehicle doesn't
+get dismissed because the server thinks its gone out of range
+of its passengers*/
+void Vehicle::MoveVehicle(float x, float y, float z, float o) //thanks andy
+{
+    SetPosition(x, y, z, o);
+    for(uint8 i = 0; i < 8; i++)
+    {
+        if(m_passengers[i] != NULL)
+        {
+            m_passengers[i]->SetPosition(x,y,z,o);
+        }
+    }
+}
+
+int8 Vehicle::GetPassengerSlot(Unit* pPassenger)
+{
+    for(uint8 i = 0; i < 9; i++)
+    {
+        if( m_passengers[i] == pPassenger ) // Found a slot
+        {
+            return i;
+            break;
+        }
+    }
+    return -1;
+}
+
+void Vehicle::DeletePassengerData(Unit* pPassenger)
+{
+    uint8 slot = pPassenger->GetSeatID();
+    pPassenger->SetSeatID(NULL);
+    m_passengers[slot] = NULL;
 }
 
 void Vehicle::ChangeSeats(Unit* unit, uint8 seatid)

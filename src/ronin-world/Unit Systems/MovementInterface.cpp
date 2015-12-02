@@ -430,7 +430,7 @@ void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
         if(m_currSpeeds[speedType] == speed || m_pendingSpeeds[speedType] == speed)
             return;
 
-        m_speedTimers[speedType] = std::min(2000+castPtr<Player>(m_Unit)->GetSession()->GetLatency()*15, uint32(7500));
+        m_speedTimers[speedType] = std::min<uint32>(2000+castPtr<Player>(m_Unit)->GetSession()->GetLatency()*15, 7500);
         m_speedCounters[speedType]++;
         m_pendingSpeeds[speedType] = speed;
 
@@ -911,18 +911,15 @@ void MovementInterface::MoveFallReset(WorldPacket *packet)
 #define DO_COND_BYTES(buff, cond, type, val) if(cond) buff->append<type>(val);
 #define DO_SEQ_BYTE(buff, val) buff->WriteByteSeq(val);
 
-void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer)
-{
-
-}
-
-void MovementInterface::WriteObjectUpdateBits(ByteBuffer *bits)
+void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer) { }
+void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 {
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
-    hasOrientation = !G3D::fuzzyEq(m_serverLocation->o, 0.0f), hasTransportData = !m_transportGuid.empty(),
+    hasOrientation = !G3D::fuzzyEq(0.0f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
+
     // Append our bits
     DO_BIT(bits, !hasMovementFlags);
     DO_BIT(bits, !hasOrientation);
@@ -957,15 +954,6 @@ void MovementInterface::WriteObjectUpdateBits(ByteBuffer *bits)
     DO_BIT(bits, false);
     DO_BIT(bits, !hasMovementFlags2);
     if (hasMovementFlags2) HandleMovementFlags2(false, bits);
-}
-
-void MovementInterface::WriteObjectUpdateBytes(ByteBuffer *bytes)
-{
-    bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
-    hasOrientation = !G3D::fuzzyEq(m_serverLocation->o, 0.0f), hasTransportData = !m_transportGuid.empty(),
-    hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
-    hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
-    hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
 
     // Append our bytes
     DO_SEQ_BYTE(bytes, m_moverGuid[4]);

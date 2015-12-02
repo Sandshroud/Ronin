@@ -112,12 +112,12 @@ static bool first_table_warningg = true;
 bool CheckResultLengthGameObject(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
-    if( fieldcount != 12 )
+    if( fieldcount != 11 )
     {
         if( first_table_warningg )
         {
             first_table_warningg = false;
-            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 12).c_str(),
+            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 11).c_str(),
                 "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
         }
 

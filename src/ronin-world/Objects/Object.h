@@ -7,18 +7,18 @@
 enum HIGHGUID_TYPE
 {
     HIGHGUID_TYPE_PLAYER            = 0x0000,
-    HIGHGUID_TYPE_WAYPOINT          = 0x1000,
-    HIGHGUID_TYPE_ITEM              = 0x4700,
-    HIGHGUID_TYPE_GAMEOBJECT        = 0xF110,
-    HIGHGUID_TYPE_TRANSPORTER       = 0xF120,
-    HIGHGUID_TYPE_UNIT              = 0xF130,
-    HIGHGUID_TYPE_PET               = 0xF140,
-    HIGHGUID_TYPE_VEHICLE           = 0xF150,
-    HIGHGUID_TYPE_DYNAMICOBJECT     = 0xF100,
-    HIGHGUID_TYPE_CORPSE            = 0xF500,
-    HIGHGUID_TYPE_MO_TRANSPORT      = 0x1FC0,
-    HIGHGUID_TYPE_INSTANCE          = 0x1F40,
-    HIGHGUID_TYPE_GROUP             = 0x1F50,
+    HIGHGUID_TYPE_WAYPOINT          = 0x0100,
+    HIGHGUID_TYPE_ITEM              = 0x0470,
+    HIGHGUID_TYPE_GAMEOBJECT        = 0x0F11,
+    HIGHGUID_TYPE_TRANSPORTER       = 0x0F12,
+    HIGHGUID_TYPE_UNIT              = 0x0F13,
+    HIGHGUID_TYPE_PET               = 0x0F14,
+    HIGHGUID_TYPE_VEHICLE           = 0x0F15,
+    HIGHGUID_TYPE_DYNAMICOBJECT     = 0x0F10,
+    HIGHGUID_TYPE_CORPSE            = 0x0F50,
+    HIGHGUID_TYPE_MO_TRANSPORT      = 0x01FC,
+    HIGHGUID_TYPE_INSTANCE          = 0x01F4,
+    HIGHGUID_TYPE_GROUP             = 0x01F5,
     HIGHGUID_TYPE_GUILD             = 0x1FF7,
 //===============================================
     HIGHGUID_TYPE_MASK              = 0xFFFF0000,
@@ -185,7 +185,6 @@ public:
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, uint32 updateFlags, uint32 expectedField = 0);
-    uint32 __fastcall BuildOutOfRangeUpdateBlock( ByteBuffer *buf );
 
 private:
     void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );

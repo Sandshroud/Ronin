@@ -62,6 +62,7 @@ public:
     virtual void SetDeathState(DeathState s);
     void ChangeSeats(Unit* pPassenger, uint8 seatid);
     uint32 GetVehiclePowerType() { return (vehicleData ? vehicleData->m_powerType : 0); };
+    void MoveVehicle(float x, float y, float z, float o);
 
     //---------------------------------------
     // Accessors
@@ -78,6 +79,9 @@ public:
         return m_passengers[seat];
     }
 
+    int8 GetPassengerSlot(Unit* pPassenger);
+    void DeletePassengerData(Unit* pPassenger);
+
     void InstallAccessories();
     //---------------------------------------
     // End accessors
@@ -87,6 +91,13 @@ public:
     bool IsInitialized() { return m_initialized; }
     bool CreatedFromSpell() { return m_CreatedFromSpell; }
     uint32 GetCastSpellOnMount() { return m_CastSpellOnMount; }
+
+    //Vehicle
+    RONIN_INLINE Unit* GetControllingUnit() { return m_passengers[0]; }
+    RONIN_INLINE Player* GetControllingPlayer() { return (m_passengers[0] && m_passengers[0]->IsPlayer() ? castPtr<Player>(m_passengers[0]) : NULL); }
+
+    RONIN_INLINE uint32 GetVehicleEntry() { return m_vehicleEntry; };
+    RONIN_INLINE void SetVehicleEntry(uint32 entry) { m_vehicleEntry = entry; }
 
 private:
     void _AddToSlot(Unit* pPassenger, uint8 slot);
@@ -100,6 +111,13 @@ protected:
     uint8 m_ppassengerCount;
     uint8 m_maxPassengers;
     uint8 m_seatSlotMax;
+
+public:
+    bool seatisusable[8];
+    Unit* m_passengers[8];
+    uint32 m_mountSpell;
+    uint32 m_vehicleEntry;
+    VehicleSeatEntry* m_vehicleSeats[8];
 
     VehicleEntry* vehicleData;
 };

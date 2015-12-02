@@ -308,8 +308,8 @@ void WorldSession::LogoutPlayer(bool Save)
         plr->CleanupChannels();
 
         // Remove from vehicle for now.
-        if(plr->GetVehicle(true))
-            castPtr<Vehicle>(plr->GetVehicle())->RemovePassenger(plr);
+        if(Vehicle *veh = plr->GetVehicle())
+            veh->RemovePassenger(plr);
 
         if( plr->m_CurrentTransporter != NULL )
         {

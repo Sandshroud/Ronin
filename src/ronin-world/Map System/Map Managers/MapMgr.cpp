@@ -239,7 +239,6 @@ void MapMgr::PushObject(WorldObject* obj)
     {
         sLog.Debug("MapMgr","Creating player "I64FMT" for himself.", obj->GetGUID());
         plObj->PushUpdateBlock(&m_createBuffer, count);
-        plObj->PopPendingUpdates();
         m_createBuffer.clear();
     }
 
@@ -250,7 +249,7 @@ void MapMgr::PushObject(WorldObject* obj)
      //Add to the mapmanager's object list
     if(plObj)
     {
-        m_PlayerStorage[plObj->GetLowGUID()] = plObj;
+        m_PlayerStorage[plObj->GetGUID()] = plObj;
         UpdateCellActivity(cx, cy, 2);
     }
     else
@@ -296,7 +295,7 @@ void MapMgr::PushObject(WorldObject* obj)
             }break;
 
         case HIGHGUID_TYPE_DYNAMICOBJECT:
-            m_DynamicObjectStorage[obj->GetLowGUID()] = castPtr<DynamicObject>(obj);
+            m_DynamicObjectStorage[obj->GetGUID()] = castPtr<DynamicObject>(obj);
             break;
         }
     }
@@ -470,7 +469,7 @@ void MapMgr::RemoveObject(WorldObject* obj, bool free_guid)
             uint32 y = GetPosY(obj->GetPositionY());
             UpdateCellActivity(x, y, 2);
         }
-        m_PlayerStorage.erase( castPtr<Player>( obj )->GetLowGUID() );
+        m_PlayerStorage.erase( castPtr<Player>( obj )->GetGUID() );
 
         // Setting an instance ID here will trigger the session to be removed
         // by MapMgr::run(). :)

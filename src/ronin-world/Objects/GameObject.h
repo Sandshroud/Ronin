@@ -585,14 +585,6 @@ public:
     void ExpireAndDelete();
     void ExpireAndDelete(uint32 delay);
 
-    RONIN_INLINE bool isQuestGiver()
-    {
-        if( GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) == 2)
-            return true;
-        else
-            return false;
-    };
-
     /// Quest data
     std::list<QuestRelation *>* m_quests;
 
@@ -651,6 +643,8 @@ public:
 
     void SetDisplayId(uint32 id);
     RONIN_INLINE uint32 GetDisplayId() { return GetUInt32Value( GAMEOBJECT_DISPLAYID ); }
+
+    RONIN_INLINE bool isQuestGiver() { return GetType() == GAMEOBJECT_TYPE_QUESTGIVER; }
 
     //Destructable Building
     void TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid = 0);

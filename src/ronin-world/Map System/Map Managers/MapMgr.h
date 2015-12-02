@@ -153,6 +153,7 @@ public:
     PlayerStorageMap m_PlayerStorage;
     RONIN_INLINE Player* GetPlayer(WoWGuid guid)
     {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_PLAYER);
         PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
         return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULL;
     }
