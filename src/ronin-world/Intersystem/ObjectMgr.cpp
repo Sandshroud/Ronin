@@ -9,6 +9,7 @@ initialiseSingleton( ObjectMgr );
 ObjectMgr::ObjectMgr()
 {
     m_hiPetGuid = 0;
+    m_hiItemGuid = 0;
     m_hiGroupId = 1;
     m_mailid = 0;
     m_hiPlayerGuid = 0;
@@ -584,6 +585,13 @@ void ObjectMgr::SetHighestGuids()
         delete result;
     }
 
+    result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance");
+    if( result )
+    {
+        m_hiItemGuid = (uint32)result->Fetch()[0].GetUInt32();
+        delete result;
+    }
+
     result = CharacterDatabase.Query( "SELECT MAX(guid) FROM corpses" );
     if( result )
     {
@@ -625,6 +633,7 @@ void ObjectMgr::SetHighestGuids()
     sLog.Notice("ObjectMgr", "HighGuid(PLAYER) = %u", m_hiPlayerGuid);
     sLog.Notice("ObjectMgr", "HighGuid(GAMEOBJ) = %u", m_hiGameObjectSpawnId);
     sLog.Notice("ObjectMgr", "HighGuid(UNIT) = %u", m_hiCreatureSpawnId);
+    sLog.Notice("ObjectMgr", "HighGuid(ITEM) = %u", m_hiItemGuid);
     sLog.Notice("ObjectMgr", "HighGuid(GROUP) = %u", m_hiGroupId);
     sLog.Notice("ObjectMgr", "HighGuid(EQSETS) = %u", m_equipmentSetGuid);
 }
@@ -703,6 +712,15 @@ uint32 ObjectMgr::GenerateMailID()
 uint64 ObjectMgr::GenerateEquipmentSetGuid()
 {
     return m_equipmentSetGuid++;
+}
+
+uint32 ObjectMgr::GenerateItemGuid()
+{
+    uint32 ret = 0;
+    m_guidGenMutex.Acquire();
+    ret = ++m_hiItemGuid;
+    m_guidGenMutex.Release();
+    return ret;
 }
 
 uint32 ObjectMgr::GeneratePlayerGuid()
@@ -972,6 +990,40 @@ void ObjectMgr::LoadSpellFixes()
         }while(result->NextRow());
         delete result;
     }
+}
+
+Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
+{
+    ItemPrototype * proto = sItemMgr.LookupEntry(entry);
+    if(proto == NULL)
+        return NULL;
+
+    Item *ret = NULL;
+    if(proto->InventoryType == INVTYPE_BAG)
+        ret = new Container(proto, GenerateItemGuid());
+    else ret = new Item(proto, GenerateItemGuid());
+    ret->Init();
+    ret->SetOwner(owner);
+    ret->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
+    return ret;
+}
+
+Item* ObjectMgr::LoadItem(uint64 guid)
+{
+    Item* pReturn = NULL;
+    if(QueryResult * result = CharacterDatabase.Query("SELECT * FROM item_instance WHERE guid = %u", GUID_LOPART(guid)))
+    {
+        if(ItemPrototype * pProto = sItemMgr.LookupEntry(result->Fetch()[2].GetUInt32()))
+        {
+            if(pProto->InventoryType == INVTYPE_BAG)
+                pReturn = new Container(pProto, GUID_LOPART(guid));
+            else pReturn = new Item(pProto, GUID_LOPART(guid));
+            pReturn->LoadFromDB(result->Fetch());
+        }
+        delete result;
+    }
+
+    return pReturn;
 }
 
 void ObjectMgr::LoadCorpses(MapMgr* mgr)

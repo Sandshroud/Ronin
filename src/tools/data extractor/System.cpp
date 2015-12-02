@@ -1199,7 +1199,7 @@ void ExtractMapsFromMpq(uint32 build)
                 sprintf(mpq_filename, "World\\Maps\\%s\\%s_%u_%u.adt", map_ids[z].name, map_ids[z].name, x, y);
                 uint32 Offset = ftell(out_file);
                 if(ConvertADT(out_file, mpq_filename, y, x, build))
-                    offsets[x][y] = Offset;
+                    offsets[y][x] = Offset;
             }
 
             // draw progress bar

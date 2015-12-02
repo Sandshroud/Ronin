@@ -964,7 +964,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_factions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_inventory WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT character_inventory.guid,character_inventory.itemguid,item_data.itementry,item_data.containerguid,item_data.creatorguid,item_data.count,item_data.flags,item_data.randomseed,item_data.randomproperty,item_data.durability,item_data.textid,item_data.playedtime,item_data.spellcharges,item_data.giftitemid,item_data.giftcreatorguid,character_inventory.container,character_inventory.slot FROM character_inventory JOIN item_data ON character_inventory.guid = item_data.ownerguid AND character_inventory.itemguid = item_data.itemguid WHERE character_inventory.guid = '%u' ORDER BY container,slot", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_powers WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
@@ -2028,7 +2028,25 @@ bool Player::Create(WorldPacket& data )
 
 void Player::EquipInit(PlayerCreateInfo *EquipInfo)
 {
+    for(std::list<CreateInfo_ItemStruct>::iterator is = EquipInfo->items.begin(); is!=EquipInfo->items.end(); is++)
+    {
+        if((*is).protoid == 0)
+            continue;
 
+        if(ItemPrototype* proto = sItemMgr.LookupEntry((*is).protoid))
+        {
+            if(Item* item = objmgr.CreateItem(proto->ItemId, this))
+            {
+                item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, (*is).amount);
+                if((*is).slot < INVENTORY_SLOT_BAG_END)
+                {
+                    if( !GetInventory()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
+                        item->Destruct();
+                } else if( !GetInventory()->AddItemToFreeSlot(item) )
+                    item->Destruct();
+            }
+        }
+    }
 }
 
 void Player::setLevel(uint32 level)
@@ -5577,8 +5595,8 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
 uint32 Player::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
 {
     uint32 count = 0;
-    if(target == castPtr<Player>(this)); // we need to send create objects for all items.
-        //count += m_inventory.BuildCreateUpdateBlocks(data);
+    if(target == castPtr<Player>(this)) // we need to send create objects for all items.
+        count += m_inventory.m_CreateForPlayer(data);
     count += Unit::BuildCreateUpdateBlockForPlayer(data, target);
     return count;
 }

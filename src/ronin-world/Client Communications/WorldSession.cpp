@@ -481,8 +481,11 @@ void WorldSession::SendNotification(const char *message, ...)
     va_start(ap, message);
     char msg1[1024];
     vsnprintf(msg1,1024, message,ap);
-    WorldPacket data(SMSG_NOTIFICATION, strlen(msg1) + 1);
-    data << msg1;
+    size_t stringLen = strlen(msg1);
+    WorldPacket data(SMSG_NOTIFICATION, stringLen + 2);
+    data.WriteBits(stringLen, 13);
+    data.FlushBits();
+    data.append(msg1, stringLen);
     SendPacket(&data);
 }
 

@@ -106,19 +106,13 @@ void PlayerInventory::m_DestroyForPlayer(Player* plr)
 //-------------------------------------------------------------------//
 Item* PlayerInventory::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot)
 {
-    ItemPrototype *pProto = sItemMgr.LookupEntry(ItemId);
-    if(!pProto) { return NULL; }
-
-    if(pProto->InventoryType == INVTYPE_BAG)
+    if(ItemPrototype *pProto = sItemMgr.LookupEntry(ItemId))
     {
-        Container* pItem = new Container(pProto, m_pOwner->GetLowGUID(), 0);
-        if(m_AddItem(pItem, ContainerSlot, slot))
-            return pItem;
-        pItem->Destruct();
-    }
-    else
-    {
-        Item* pItem = new Item(pProto, m_pOwner->GetLowGUID(), 0);
+        Item* pItem = NULL;
+        if(pProto->InventoryType == INVTYPE_BAG)
+            pItem = new Container(pProto, objmgr.GenerateItemGuid());
+        else pItem = new Item(pProto, objmgr.GenerateItemGuid());
+        pItem->SetOwner(m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
             return pItem;
         pItem->Destruct();
@@ -161,9 +155,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
         {
             slot = result.Slot;
             ContainerSlot = result.ContainerSlot;
-        }
-        else
-            return ADD_ITEM_RESULT_ERROR;
+        } else return ADD_ITEM_RESULT_ERROR;
     }
 
     item->m_isDirty = true;
@@ -197,20 +189,18 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
         if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
         {
             //ASSERT(m_pItems[slot] == NULL);
-            if(GetInventoryItem(slot) != NULL /*|| (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(118))*/)
+            if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->_HasSkillLine(118)))
             {
                 result = FindFreeInventorySlot(item->GetProto());
 
                 // send message to player
-                sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.",
-                    item->GetProto()->Name1);
+                sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.", item->GetProto()->Name1);
                 if(result.Result == true)
                 {
                     // Found a new slot for that item.
                     slot = result.Slot;
                     ContainerSlot = result.ContainerSlot;
-                }
-                else return ADD_ITEM_RESULT_ERROR;
+                } else return ADD_ITEM_RESULT_ERROR;
             }
 
             if(!GetInventoryItem(slot)) //slot is free, add item.
@@ -227,11 +217,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
                     m_pOwner->PushUpdateBlock(&buf, count);
                 }
                 m_pOwner->SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot*2), item->GetGUID());
-            }
-            else
-            {
-                return ADD_ITEM_RESULT_ERROR;
-            }
+            } else return ADD_ITEM_RESULT_ERROR;
         }
         else //case 2: item is from a bag container
         {
@@ -2470,19 +2456,11 @@ void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
             if( proto != NULL )
             {
                 if( proto->InventoryType == INVTYPE_BAG )
-                {
-                    //item = new Container( HIGHGUID_TYPE_CONTAINER, fields[1].GetUInt32() );
-                    item->Init();
-                    castPtr<Container>( item )->LoadFromDB( fields );
+                    item = new Container( proto, fields[1].GetUInt32() );
+                else item = new Item( proto, fields[1].GetUInt32() );
 
-                }
-                else
-                {
-                    //item = new Item( HIGHGUID_TYPE_ITEM, fields[1].GetUInt32() );
-                    item->Init();
-                    item->LoadFromDB( fields );
-
-                }
+                item->Init();
+                item->LoadFromDB( fields );
                 if( SafeAddItem( item, containerslot, slot ) )
                     item->m_isDirty = false;
                 else
@@ -2491,8 +2469,7 @@ void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
                     item = NULL;
                 }
             }
-        }
-        while( result->NextRow() );
+        } while( result->NextRow() );
     }
 }
 
@@ -2839,7 +2816,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
         }
 
         // create new item
-        Item *item = NULL;//objmgr.CreateItem( itemid, chr );
+        Item *item = objmgr.CreateItem( itemid, chr );
         if( item == NULL )
             return false;
 

@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Item::Item(ItemPrototype *proto, uint32 owner, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(HIGHGUID_TYPE_ITEM, proto->ItemId, counter), fieldcount), m_proto(proto)
+Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(HIGHGUID_TYPE_ITEM, proto->ItemId, counter), fieldcount), m_proto(proto), m_textId(0)
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
 
@@ -29,27 +29,23 @@ void Item::Destruct()
     Object::Destruct();
 }
 
-char* GemReadFormat[3] =
-{
-    "0:%u;",
-    "1:%u;",
-    "2:%u;",
-};
-
 void Item::LoadFromDB(Field* fields)
 {
-    int32 count;
-    uint32 itemid = fields[2].GetUInt32(), random_prop = fields[9].GetUInt32(), random_suffix = fields[10].GetUInt32();
+    SetUInt32Value(OBJECT_FIELD_ENTRY, fields[2].GetUInt32());
+    m_uint32Values[ITEM_FIELD_CONTAINED] = fields[3].GetUInt32();
+    m_uint32Values[ITEM_FIELD_CREATOR] = fields[4].GetUInt32();
 
-    SetUInt32Value( OBJECT_FIELD_ENTRY, itemid );
-
-    m_uint32Values[ITEM_FIELD_GIFTCREATOR] = fields[4].GetUInt32();
-    m_uint32Values[ITEM_FIELD_CREATOR] = fields[5].GetUInt32();
-
-    count = fields[6].GetUInt32();
+    uint32 count = fields[5].GetUInt32();
     if(m_proto->MaxCount > 0 && count > m_proto->MaxCount)
         count = m_proto->MaxCount;
     SetUInt32Value( ITEM_FIELD_STACK_COUNT, count);
+    SetUInt32Value( ITEM_FIELD_FLAGS, fields[6].GetUInt32() );
+    SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, fields[7].GetUInt32() );
+    SetUInt32Value( ITEM_FIELD_RANDOM_PROPERTIES_ID, fields[8].GetUInt32() );
+    SetUInt32Value( ITEM_FIELD_DURABILITY, fields[9].GetUInt32() );
+    SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_proto->Durability );
+    SetTextID( fields[10].GetUInt32() );
+    SetUInt32Value( ITEM_FIELD_CREATE_PLAYED_TIME, fields[11].GetUInt32() );
 
     // Again another for that did not indent to make it do anything for more than
     // one iteration x == 0 was the only one executed
@@ -57,44 +53,17 @@ void Item::LoadFromDB(Field* fields)
     {
         if( m_proto->Spells[x].Id )
         {
-            SetUInt32Value( ITEM_FIELD_SPELL_CHARGES + x , fields[7].GetUInt32() );
+            SetUInt32Value( ITEM_FIELD_SPELL_CHARGES + x , fields[12].GetUInt32() );
             break;
         }
     }
+    SetUInt32Value( ITEM_FIELD_GIFTCREATOR, fields[14].GetUInt32() );
 
-    SetUInt32Value( ITEM_FIELD_FLAGS, fields[8].GetUInt32() );
     Bind(ITEM_BIND_ON_PICKUP); // Check if we need to bind our shit.
-
-    SetTextID( fields[11].GetUInt32() );
-
-    SetUInt32Value( ITEM_FIELD_MAXDURABILITY, m_proto->Durability );
-    SetUInt32Value( ITEM_FIELD_DURABILITY, fields[12].GetUInt32() );
-
-    std::string enchant_field = fields[15].GetString();
-    std::vector< std::string > enchants;//StrSplit( enchant_field, ";" );
-    uint32 enchant_id;
-    SpellItemEnchantEntry* entry;
-    uint32 time_left;
-    uint32 enchslot;
-    uint32 dummy = 0;
-
-    for( std::vector<std::string>::iterator itr = enchants.begin(); itr != enchants.end(); itr++ )
-    {
-        if( sscanf( (*itr).c_str(), "%u,%u,%u,%u", (unsigned int*)&enchant_id, (unsigned int*)&time_left, (unsigned int*)&enchslot, (unsigned int*)&dummy) > 3 )
-        {
-            entry = dbcSpellItemEnchant.LookupEntry( enchant_id );
-            if( entry && entry->Id == enchant_id )
-            {
-                AddEnchantment( entry, time_left, ( time_left == 0 ), false, false, enchslot, 0, ((dummy > 0) ? true : false) );
-                //(enchslot != 2) ? false : true, false);
-            }
-        }
-    }
 
     ApplyRandomProperties( false );
 
-    Charter* charter = guildmgr.GetCharterByItemGuid(GetLowGUID());
-    if(charter != NULL)
+    if(Charter* charter = guildmgr.GetCharterByItemGuid(GetLowGUID()))
     {
         SetUInt32Value(ITEM_FIELD_ENCHANTMENT_DATA, charter->GetID());
 
@@ -193,56 +162,40 @@ void Item::SaveToDB( int8 containerslot, uint8 slot, bool firstsave, QueryBuffer
 
     std::stringstream ss;
 
-    ss << "REPLACE INTO playeritems VALUES(";
+    ss << "REPLACE INTO item_data VALUES(";
 
     ss << m_uint32Values[ITEM_FIELD_OWNER] << ",";
     ss << m_uint32Values[OBJECT_FIELD_GUID] << ",";
     ss << m_uint32Values[OBJECT_FIELD_ENTRY] << ",";
-    ss << m_uint32Values[ITEM_FIELD_GIFTCREATOR] << ",";
+    ss << m_uint32Values[ITEM_FIELD_CONTAINED] << ",";
     ss << m_uint32Values[ITEM_FIELD_CREATOR] << ",";
-
     ss << GetUInt32Value(ITEM_FIELD_STACK_COUNT) << ",";
-    ss << (int32)GetChargesLeft() << ",";
     ss << GetUInt32Value(ITEM_FIELD_FLAGS) << ",";
-    ss << GetTextID() << ",";
+    ss << GetUInt32Value(ITEM_FIELD_PROPERTY_SEED) << ",";
+    ss << GetUInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID) << ",";
     ss << GetUInt32Value(ITEM_FIELD_DURABILITY) << ",";
-    ss << static_cast<int>(containerslot) << ",";
-    ss << static_cast<int>(slot) << ",'";
-
-    // Pack together enchantment fields
-    if( m_enchantments.size() > 0 )
-    {
-        EnchantmentMap::iterator itr = m_enchantments.begin();
-        for(; itr != m_enchantments.end(); itr++)
-        {
-            if( itr->second.RemoveAtLogout )
-                continue;
-
-            uint32 elapsed_duration = uint32( UNIXTIME - itr->second.ApplyTime );
-            int32 remaining_duration = itr->second.Duration - elapsed_duration;
-            if( remaining_duration < 0 )
-                remaining_duration = 0;
-
-            if( itr->second.Enchantment && ( remaining_duration && remaining_duration > 5 ) || ( itr->second.Duration == 0 ) )
-            {
-                ss << itr->second.Enchantment->Id << ",";
-                ss << remaining_duration << ",";
-                ss << itr->second.Slot << ",";
-                ss << uint32(itr->second.Dummy ? 1 : 0) << ";";
-            }
-        }
-    }
-
-    ss << "')";
+    ss << GetTextID() << ",";
+    ss << GetUInt32Value(ITEM_FIELD_CREATE_PLAYED_TIME) << ",";
+    ss << (int32)GetChargesLeft() << ",";
+    ss << uint32(0) << ", " << GetUInt32Value(ITEM_FIELD_GIFTCREATOR) << ")";
 
     if( firstsave )
+    {
         CharacterDatabase.WaitExecute( ss.str().c_str() );
+        CharacterDatabase.WaitExecute("REPLACE INTO character_inventory VALUES(%u, %u, %i, %u);", m_owner->GetLowGUID(), GetLowGUID(), containerslot, slot);
+    }
     else
     {
         if( buf == NULL )
+        {
             CharacterDatabase.Execute( ss.str().c_str() );
+            CharacterDatabase.Execute("REPLACE INTO character_inventory VALUES(%u, %u, %i, %u);", m_owner->GetLowGUID(), GetLowGUID(), containerslot, slot);
+        }
         else
+        {
             buf->AddQueryStr( ss.str() );
+            buf->AddQueryStr(format("REPLACE INTO character_inventory VALUES(%u, %u, %i, %u);", m_owner->GetLowGUID(), GetLowGUID(), containerslot, slot));
+        }
     }
 
     m_isDirty = false;
@@ -319,9 +272,9 @@ int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, 
             return Slot;
 
         /* Only apply the enchantment bonus if we're equipped */
-        /*uint8 slot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
+        uint8 slot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
         if( slot > EQUIPMENT_SLOT_START && slot < EQUIPMENT_SLOT_END )
-            ApplyEnchantmentBonus( Slot, true );*/
+            ApplyEnchantmentBonus( Slot, true );
     }
 
     m_owner->SaveToDB(false);
@@ -371,12 +324,12 @@ void Item::ApplyEnchantmentBonus( uint32 Slot, bool Apply )
     itr->second.BonusApplied = Apply;
 
     // Apply the visual on the player.
-    /*uint32 ItemSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
+    uint32 ItemSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
     if(ItemSlot < EQUIPMENT_SLOT_END && Slot < 1)
     {
         uint32 VisibleBase = PLAYER_VISIBLE_ITEM + 1 + ItemSlot * PLAYER_VISIBLE_ITEM_LENGTH;
         m_owner->SetUInt16Value( VisibleBase, Slot, Apply ? Entry->Id : 0 );
-    }*/
+    }
 
     if( Apply )
     {

@@ -228,8 +228,7 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
     if (chr == NULL)
         return true;
 
-    ItemPrototype* it = sItemMgr.LookupEntry(itemid);
-    if(it)
+    if(ItemPrototype* it = sItemMgr.LookupEntry(itemid))
     {
         sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name1, chr->GetName());
 
@@ -252,11 +251,9 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
         }
         return true;
     }
-    else
-    {
-        RedSystemMessage(m_session, "Item %d is not a valid item!",itemid);
-        return true;
-    }
+
+    RedSystemMessage(m_session, "Item %d is not a valid item!",itemid);
+    return true;
 }
 
 bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)

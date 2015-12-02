@@ -44,7 +44,7 @@ typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
 class SERVER_DECL Item : public Object
 {
 public:
-    Item(ItemPrototype *proto, uint32 owner, uint32 counter, uint32 fieldcount = ITEM_END);
+    Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount = ITEM_END);
 
     virtual ~Item();
     virtual void Init();

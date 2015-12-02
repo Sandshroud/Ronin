@@ -10,7 +10,7 @@
 class SERVER_DECL Container : public Item
 {
 public:
-    Container(ItemPrototype *proto, uint32 owner, uint32 counter);
+    Container(ItemPrototype *proto, uint32 counter);
     ~Container();
 
     virtual void Init();

@@ -331,6 +331,9 @@ public:
     Mutex _recallLock;
     RecallSet m_recallLocations;
 
+    Item* CreateItem(uint32 entry,Player* owner);
+    Item* LoadItem(uint64 guid);
+
     // Groups
     Group * GetGroupByLeader(Player* pPlayer);
     Group * GetGroupById(uint32 id);
@@ -459,6 +462,7 @@ public:
     uint32 GenerateMailID();
 
     uint64 GenerateEquipmentSetGuid();
+    uint32 GenerateItemGuid();
 
     void LoadTransporters();
     void ProcessGameobjectQuests();
@@ -551,6 +555,7 @@ protected:
     uint64 m_equipmentSetGuid;
     // highest GUIDs, used for creating new objects
     Mutex m_guidGenMutex;
+    uint32 m_hiItemGuid;
     uint32 m_hiGroupId;
 
     ReputationModMap m_reputation_faction;

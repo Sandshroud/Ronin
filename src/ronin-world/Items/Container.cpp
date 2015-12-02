@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Container::Container(ItemPrototype *proto, uint32 owner, uint32 counter) : Item(proto, owner, counter, CONTAINER_END)
+Container::Container(ItemPrototype *proto, uint32 counter) : Item(proto, counter, CONTAINER_END)
 {
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
 
