@@ -130,7 +130,6 @@ void Player::Init()
     CooldownCheat                   = false;
     CastTimeCheat                   = false;
     PowerCheat                      = false;
-    FlyCheat                        = false;
     weapon_proficiency              = 0x4000;//2^14
     armor_proficiency               = 1;
     m_LastUnderwaterState           = 0;
@@ -452,6 +451,46 @@ void Player::Update( uint32 p_time )
         if (m_drunkTimer > 10*1000)
             EventHandleSobering();
     }
+
+    ProcessPendingItemUpdates();
+}
+
+void Player::ProcessPendingItemUpdates()
+{
+    if(m_pendingUpdates.empty())
+        return;
+
+    ByteBuffer buff(200);
+    while(m_pendingUpdates.size())
+    {
+        Item *item = *m_pendingUpdates.begin();
+        m_pendingUpdates.erase(m_pendingUpdates.begin());
+        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
+        {
+            PushUpdateBlock(&buff, count);
+            buff.clear();
+        }
+    }
+
+    if(IsInWorld())
+    {
+        m_mapMgr->ObjectUpdated(this);
+        m_objectUpdated = true;
+    }
+}
+
+void Player::ItemFieldUpdated(Item *item)
+{
+    if(m_pendingUpdates.find(item) != m_pendingUpdates.end())
+        return;
+    m_pendingUpdates.insert(item);
+}
+
+void Player::ItemDestructed(Item *item)
+{
+    if(m_pendingUpdates.find(item) == m_pendingUpdates.end())
+        return;
+    m_pendingUpdates.erase(item);
 }
 
 void Player::OnFieldUpdated(uint32 index)
@@ -3287,17 +3326,13 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
 
 void Player::AddToWorld(bool loggingin /* = false */)
 {
-    FlyCheat = false;
 
     // check transporter
     if(m_movementInterface.OnTransport() && m_CurrentTransporter)
     {
         LocationVector pos;
         m_movementInterface.GetTransportPosition(pos);
-        SetPosition(m_CurrentTransporter->GetPositionX() + pos.x,
-            m_CurrentTransporter->GetPositionY() + pos.y,
-            m_CurrentTransporter->GetPositionZ() + pos.z,
-            GetOrientation());
+        SetPosition(m_CurrentTransporter->GetPositionX() + pos.x, m_CurrentTransporter->GetPositionY() + pos.y, m_CurrentTransporter->GetPositionZ() + pos.z, GetOrientation());
     }
 
     if(IsInWorld())
@@ -3336,7 +3371,7 @@ void Player::OnPushToWorld()
         OnWorldPortAck();
 
     m_beingPushed = false;
-    //m_inventory.AddToWorld();
+
     GetMovementInterface()->UnlockTransportData();
 
     // delay the unlock movement packet
@@ -3349,6 +3384,8 @@ void Player::OnPushToWorld()
     CastSpell(this, 836, true);
 
     Unit::OnPushToWorld();
+
+    m_inventory.AddToWorld();
 
     // Update PVP Situation
     LoginPvPSetup();
@@ -3523,8 +3560,6 @@ void Player::RemoveFromWorld()
         } else sEventMgr.AddEvent(m_SummonedObject, &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
         m_SummonedObject = NULL;
     }
-
-    //m_inventory.RemoveFromWorld(false);
 
     Unit::RemoveFromWorld(false);
 
@@ -7667,7 +7702,7 @@ PlayerInfo::PlayerInfo(WoWGuid _guid)
     GuildId = GuildRank = 0;
     m_loggedInPlayer = NULL;
     arenaTeam[0] = arenaTeam[1] = arenaTeam[2] = NULL;
-    charterId[0] = charterId[1] = charterId[2] = 0;
+    charterId[0] = charterId[1] = charterId[2] = charterId[3] = 0;
 }
 
 PlayerInfo::~PlayerInfo()

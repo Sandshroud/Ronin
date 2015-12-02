@@ -49,6 +49,8 @@ public:
     PlayerInventory( Player* pPlayer );
     ~PlayerInventory();
 
+    void AddToWorld();
+
     Player* GetOwner() { return m_pOwner; }
     bool IsBagSlot(int16 slot);
 

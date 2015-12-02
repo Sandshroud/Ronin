@@ -125,17 +125,13 @@ void Container::SwapItems(uint8 SrcSlot, uint8 DstSlot)
     {
         SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2),  m_itemSlots[DstSlot]->GetGUID()  );
         m_itemSlots[DstSlot]->m_isDirty = true;
-    }
-    else
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2), 0 );
+    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (DstSlot*2), 0 );
 
     if( m_itemSlots[SrcSlot])
     {
         SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), m_itemSlots[SrcSlot]->GetGUID() );
         m_itemSlots[SrcSlot]->m_isDirty = true;
-    }
-    else
-        SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), 0 );
+    } else SetUInt64Value(CONTAINER_FIELD_SLOT_1  + (SrcSlot*2), 0 );
 }
 
 Item* Container::SafeRemoveAndRetreiveItemFromSlot(uint8 slot, bool destroy)

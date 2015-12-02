@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(HIGHGUID_TYPE_ITEM, proto->ItemId, counter), fieldcount), m_proto(proto), m_textId(0)
+Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(counter, proto->ItemId, HIGHGUID_TYPE_ITEM), fieldcount), m_owner(0), m_proto(proto), m_textId(0)
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
 
@@ -19,6 +19,11 @@ Item::~Item()
 void Item::Init()
 {
     Object::Init();
+
+    // Set our defaults, these will be overwritten by loading
+    SetUInt32Value(ITEM_FIELD_STACK_COUNT, 0x00000001);
+    SetUInt32Value(ITEM_FIELD_DURABILITY, m_proto->Durability);
+    SetUInt32Value(ITEM_FIELD_MAXDURABILITY, m_proto->Durability);
 }
 
 void Item::Destruct()
@@ -27,6 +32,12 @@ void Item::Destruct()
         RemoveFromWorld();
 
     Object::Destruct();
+}
+
+void Item::OnFieldUpdated(uint32 field)
+{
+    if(m_owner && IsInWorld())
+        m_owner->ItemFieldUpdated(this);
 }
 
 void Item::LoadFromDB(Field* fields)
@@ -223,7 +234,10 @@ void Item::RemoveFromWorld()
 {
     // if we have an owner->send destroy
     if( m_owner != NULL )
+    {
+        m_owner->ItemDestructed(this);
         DestroyForPlayer( m_owner );
+    }
 }
 
 void Item::SetOwner( Player* owner )

@@ -1189,8 +1189,6 @@ bool Unit::canFly()
         Player* plr = castPtr<Player>(this);
         if(plr->m_FlyingAura)
             return true;
-        if(plr->FlyCheat)
-            return true;
     }
 
     return false;

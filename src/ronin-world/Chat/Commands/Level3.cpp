@@ -877,7 +877,6 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
     print_cheat_status("Cooldown", plyr->CooldownCheat);
     print_cheat_status("CastTime", plyr->CastTimeCheat);
     print_cheat_status("Power", plyr->PowerCheat);
-    print_cheat_status("Fly", plyr->FlyCheat);
     print_cheat_status("AuraStack", plyr->stack_cheat);
     print_cheat_status("TriggerPass", plyr->triggerpass_cheat);
     if( plyr->GetSession() && plyr->GetSession()->CanUseCommand('a') )
@@ -894,62 +893,6 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
 
 bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
 {
-    Player* chr = getSelectedChar(m_session, false);
-
-    if(!chr)
-    {
-        Creature* ctr = getSelectedCreature(m_session, false);
-        if(ctr != NULL)
-        {
-            if(!*args)
-            {
-                if (ctr->HasByteFlag(UNIT_FIELD_BYTES_1, 3, 0x02))
-                    args = "off";
-                else 
-                    args = "on";
-            }
-
-            if(strcmp(args, "on") == 0)
-            {
-                //ctr->EnableFlight();
-                return true;
-            }
-            else if(strcmp(args, "off") == 0)
-            {
-                //ctr->DisableFlight();
-                return true;
-            }
-
-            return false;
-        }
-
-        chr = m_session->GetPlayer();
-    }
-
-    if(!*args)
-    {
-        if (chr->FlyCheat)
-            args = "off";
-        else args = "on";
-    }
-
-    if(strcmp(args, "on") == 0)
-    {
-        //chr->EnableFlight();
-        BlueSystemMessage(m_session, "Activated the fly cheat on %s.", chr->GetName());
-        if(chr != m_session->GetPlayer())
-            sWorld.LogGM(m_session, "enabled flying mode for %s", chr->GetName());
-        return true;
-    }
-    else if(strcmp(args, "off") == 0)
-    {
-        //chr->DisableFlight();
-        BlueSystemMessage(m_session, "Deactivated the fly cheat on %s.", chr->GetName());
-        if( chr != m_session->GetPlayer() )
-            sWorld.LogGM( m_session, "disabled flying mode for %s", chr->GetName() );
-        return true;
-    }
-
     return false;
 }
 

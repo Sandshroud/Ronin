@@ -236,6 +236,9 @@ uint16 Object::GetUpdateFlag(Player *target)
                 if (target->GetGUID() == castPtr<Corpse>(this)->GetUInt64Value(CORPSE_FIELD_OWNER))
                     flag |= UF_FLAG_OWNER;
             }break;
+        case TYPEID_ITEM:
+            flag = 0xFFFF;
+            break;
         }
     }
 

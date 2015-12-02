@@ -15,6 +15,7 @@ public:
 
     virtual void Init();
     virtual void Destruct();
+    virtual bool IsContainer() { return true; }
 
     void LoadFromDB( Field*fields);
 

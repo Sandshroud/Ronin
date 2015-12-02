@@ -17,7 +17,6 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
     Item* DstItem = NULL;
 
     int8 DstInvSlot=0, DstSlot=0, SrcInvSlot=0, SrcSlot=0, error=0;
-
     recv_data >> DstInvSlot >> DstSlot >> SrcInvSlot >> SrcSlot;
 
     sLog.outDebug("ITEM: swap, DstInvSlot %i DstSlot %i SrcInvSlot %i SrcSlot %i", DstInvSlot, DstSlot, SrcInvSlot, SrcSlot);

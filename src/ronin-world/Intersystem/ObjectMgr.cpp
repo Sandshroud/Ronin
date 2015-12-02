@@ -412,7 +412,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
     } while( result->NextRow() );
     delete result;
 
-    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills"))
     {
         do
         {
@@ -430,7 +430,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
         delete result;
     }
 
-    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_spells WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_spells"))
     {
         do
         {
@@ -444,7 +444,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
         delete result;
     }
 
-    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_items WHERE indexid IN(SELECT Index FROM playercreateinfo)"))
+    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_items"))
     {
         do
         {
@@ -457,7 +457,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
             itm.protoid = fields[1].GetUInt32();
             itm.slot = fields[2].GetUInt8();
             itm.amount = fields[3].GetUInt32();
-            mPlayerCreateInfo[index]->spell_list.insert(fields[1].GetUInt32());
+            mPlayerCreateInfo[index]->items.push_back(itm);
         } while( result->NextRow() );
         delete result;
     }
@@ -577,51 +577,43 @@ void ObjectMgr::LoadRecallPoints()
 void ObjectMgr::SetHighestGuids()
 {
     QueryResult *result;
-
-    result = CharacterDatabase.Query( "SELECT MAX(guid) FROM character_data" );
-    if( result )
+    if( result = CharacterDatabase.Query( "SELECT MAX(guid) FROM character_data" ) )
     {
         m_hiPlayerGuid = result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance");
-    if( result )
+    if( result = CharacterDatabase.Query("SELECT MAX(itemguid) FROM item_data") )
     {
         m_hiItemGuid = (uint32)result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = CharacterDatabase.Query( "SELECT MAX(guid) FROM corpses" );
-    if( result )
+    if( result = CharacterDatabase.Query( "SELECT MAX(guid) FROM corpses" ) )
     {
         m_hiCorpseGuid = result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = WorldDatabase.Query("SELECT MAX(id) FROM creature_spawns");
-    if(result)
+    if(result = WorldDatabase.Query("SELECT MAX(id) FROM creature_spawns"))
     {
         m_hiCreatureSpawnId = result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = WorldDatabase.Query("SELECT MAX(id) FROM gameobject_spawns");
-    if(result)
+    if(result = WorldDatabase.Query("SELECT MAX(id) FROM gameobject_spawns"))
     {
         m_hiGameObjectSpawnId = result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(group_id) FROM groups");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT MAX(group_id) FROM groups"))
     {
         m_hiGroupId = result->Fetch()[0].GetUInt32();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT MAX(setguid) FROM equipmentsets");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT MAX(setguid) FROM equipmentsets"))
     {
         m_equipmentSetGuid = result->Fetch()[0].GetUInt64();
         delete result;
@@ -999,12 +991,12 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
         return NULL;
 
     Item *ret = NULL;
+    uint32 counter = GenerateItemGuid();
     if(proto->InventoryType == INVTYPE_BAG)
-        ret = new Container(proto, GenerateItemGuid());
-    else ret = new Item(proto, GenerateItemGuid());
+        ret = new Container(proto, counter);
+    else ret = new Item(proto, counter);
     ret->Init();
     ret->SetOwner(owner);
-    ret->SetUInt32Value(ITEM_FIELD_STACK_COUNT, 1);
     return ret;
 }
 

@@ -669,6 +669,11 @@ public:
 
     void Update( uint32 time );
 
+    void ProcessPendingItemUpdates();
+    std::set<Item*> m_pendingUpdates;
+    void ItemFieldUpdated(Item *item);
+    void ItemDestructed(Item *item);
+
     void OnFieldUpdated(uint32 index);
     /************************************************************************/
     /* Update fields System                                                 */
@@ -1491,7 +1496,6 @@ public:
     bool CooldownCheat;
     bool CastTimeCheat;
     bool PowerCheat;
-    bool FlyCheat;
 
     int32 m_lastAreaUpdateMap;
     uint32 m_oldZone, m_oldArea;

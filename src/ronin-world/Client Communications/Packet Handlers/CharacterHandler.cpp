@@ -82,7 +82,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             Field *fields = result->Fetch();
             std::string name = fields[7].GetString();
             WoWGuid charGuid = fields[0].GetUInt64();
-            WoWGuid guildGuid = fields[14].GetUInt32() ? MAKE_NEW_GUID(fields[14].GetUInt32(), 0, 0x1FF6) : 0;
+            WoWGuid guildGuid = fields[14].GetUInt32() ? MAKE_NEW_GUID(fields[14].GetUInt32(), 0, HIGHGUID_TYPE_GUILD) : 0;
             uint8 _race = fields[2].GetUInt8(), _class = fields[3].GetUInt8(), _level = fields[1].GetUInt8();
             uint32 flags = 0, _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
             uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
@@ -124,18 +124,18 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 delete res;
             }
 
-            if(res = CharacterDatabase.Query("SELECT container, slot, character_inventory.itemguid, item_enchantments.enchantid FROM character_inventory LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot > 0 AND slot < %u", charGuid.getLow(), EQUIPMENT_SLOT_END))
+            if(res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot > 0 AND slot < 19", charGuid.getLow()))
             {
                 do
                 {
-                    int8 containerslot = res->Fetch()[0].GetInt8(), slot = res->Fetch()[1].GetInt8();
-                    WoWGuid itemGuid(res->Fetch()[2].GetUInt64());
-                    if(ItemPrototype *proto = sItemMgr.LookupEntry(itemGuid.getEntry()))
+                    Field *fields = res->Fetch();
+                    int8 containerslot = fields[0].GetInt8(), slot = fields[1].GetInt8();
+                    if(ItemPrototype *proto = sItemMgr.LookupEntry(fields[2].GetUInt32()))
                     {
                         // slot0 = head, slot14 = cloak
                         items[slot].invtype = proto->InventoryType;
                         items[slot].displayid = proto->DisplayInfoID;
-                        if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( res->Fetch()[3].GetUInt32() ) )
+                        if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( fields[3].GetUInt32() ) )
                             items[slot].enchantment = enc->visualAura;
                     }
                 } while(res->NextRow());
@@ -363,11 +363,12 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
         {
             if( inf->charterId[i] != 0 )
             {
-                Charter *pCharter = guildmgr.GetCharter(inf->charterId[i], (CharterTypes)i);
-                if( pCharter->LeaderGuid == inf->guid.getLow() )
-                    pCharter->Destroy();
-                else
-                    pCharter->RemoveSignature(inf->guid.getLow());
+                if(Charter *pCharter = guildmgr.GetCharter(inf->charterId[i], (CharterTypes)i))
+                {
+                    if( pCharter->LeaderGuid == inf->guid.getLow() )
+                        pCharter->Destroy();
+                    else pCharter->RemoveSignature(inf->guid.getLow());
+                }
             }
         }
 

@@ -29,6 +29,21 @@ PlayerInventory::~PlayerInventory()
     m_pOwner = NULL;
 }
 
+void PlayerInventory::AddToWorld()
+{
+    for(uint8 i = 0; i < MAX_INVENTORY_SLOT; i++)
+    {
+        if(m_pItems[i])
+        {
+            m_pItems[i]->AddToWorld();
+            if(m_pItems[i]->IsContainer() && m_pItems[i]->GetProto() && m_pItems[i]->GetProto()->ContainerSlots > 0)
+                for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
+                    if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
+                        pItem->AddToWorld();
+        }
+    }
+}
+
 //-------------------------------------------------------------------// 100%
 uint32 PlayerInventory::m_CreateForPlayer(ByteBuffer *data)
 {
@@ -47,17 +62,11 @@ uint32 PlayerInventory::m_CreateForPlayer(ByteBuffer *data)
                 {
                     for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
                     {
-                        Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e);
-                        if(pItem)
+                        if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
                         {
                             if(pItem->IsContainer())
-                            {
                                 count += (castPtr<Container>(pItem))->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                            }
-                            else
-                            {
-                                count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                            }
+                            else count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
                         }
                     }
                 }
@@ -90,8 +99,7 @@ void PlayerInventory::m_DestroyForPlayer(Player* plr)
                 {
                     for(int32 e = 0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
                     {
-                        Item* pItem = castPtr<Container>(m_pItems[i])->GetItem(e);
-                        if(pItem)
+                        if(Item* pItem = castPtr<Container>(m_pItems[i])->GetItem(e))
                             pItem->DestroyForPlayer( plr );
                     }
                 }
@@ -108,11 +116,7 @@ Item* PlayerInventory::SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slo
 {
     if(ItemPrototype *pProto = sItemMgr.LookupEntry(ItemId))
     {
-        Item* pItem = NULL;
-        if(pProto->InventoryType == INVTYPE_BAG)
-            pItem = new Container(pProto, objmgr.GenerateItemGuid());
-        else pItem = new Item(pProto, objmgr.GenerateItemGuid());
-        pItem->SetOwner(m_pOwner);
+        Item* pItem = objmgr.CreateItem(ItemId, m_pOwner);
         if(m_AddItem(pItem, ContainerSlot, slot))
             return pItem;
         pItem->Destruct();
@@ -138,6 +142,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
         sLog.outString("%s: slot (%d) >= MAX_INVENTORY_SLOT (%d)", __FUNCTION__, slot, MAX_INVENTORY_SLOT);
         return ADD_ITEM_RESULT_ERROR;
     }
+
     if ( ContainerSlot >= MAX_INVENTORY_SLOT )
     {
         sLog.outString("%s: ContainerSlot (%d) >= MAX_INVENTORY_SLOT (%d)", __FUNCTION__, ContainerSlot, MAX_INVENTORY_SLOT);
@@ -183,62 +188,58 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
         }
     }
 
-    if(item->GetProto())
+    if(item->GetProto() == NULL)
+        return ADD_ITEM_RESULT_ERROR;
+
+    //case 1, item is from backpack container
+    if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
     {
-        //case 1, item is from backpack container
-        if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
+        //ASSERT(m_pItems[slot] == NULL);
+        if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->_HasSkillLine(118)))
         {
-            //ASSERT(m_pItems[slot] == NULL);
-            if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->_HasSkillLine(118)))
-            {
-                result = FindFreeInventorySlot(item->GetProto());
+            result = FindFreeInventorySlot(item->GetProto());
 
-                // send message to player
-                sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.", item->GetProto()->Name1);
-                if(result.Result == true)
-                {
-                    // Found a new slot for that item.
-                    slot = result.Slot;
-                    ContainerSlot = result.ContainerSlot;
-                } else return ADD_ITEM_RESULT_ERROR;
-            }
-
-            if(!GetInventoryItem(slot)) //slot is free, add item.
+            // send message to player
+            sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.", item->GetProto()->Name1);
+            if(result.Result == true)
             {
-                item->SetOwner( m_pOwner );
-                item->SetUInt64Value(ITEM_FIELD_CONTAINED, m_pOwner->GetGUID());
-                m_pItems[slot] = item;
-                item->Bind(ITEM_BIND_ON_PICKUP);
-                if( m_pOwner->IsInWorld() && !item->IsInWorld())
-                {
-                    item->AddToWorld();
-                    ByteBuffer buf(2500);
-                    uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner );
-                    m_pOwner->PushUpdateBlock(&buf, count);
-                }
-                m_pOwner->SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot*2), item->GetGUID());
+                // Found a new slot for that item.
+                slot = result.Slot;
+                ContainerSlot = result.ContainerSlot;
             } else return ADD_ITEM_RESULT_ERROR;
         }
-        else //case 2: item is from a bag container
+
+        if(!GetInventoryItem(slot)) //slot is free, add item.
         {
-            if( GetInventoryItem(ContainerSlot) && GetInventoryItem(ContainerSlot)->IsContainer() &&
-                slot < (int32)GetInventoryItem(ContainerSlot)->GetProto()->ContainerSlots) //container exists
+            item->SetOwner( m_pOwner );
+            item->SetUInt64Value(ITEM_FIELD_CONTAINED, m_pOwner->GetGUID());
+            m_pItems[slot] = item;
+            item->Bind(ITEM_BIND_ON_PICKUP);
+            if( m_pOwner->IsInWorld() && !item->IsInWorld())
             {
-                bool result = castPtr<Container>(m_pItems[ContainerSlot])->AddItem(slot, item);
-                if( !result )
-                {
-                    return ADD_ITEM_RESULT_ERROR;
-                }
+                item->AddToWorld();
+                ByteBuffer buf(2500);
+                uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner );
+                m_pOwner->PushUpdateBlock(&buf, count);
             }
-            else
+            m_pOwner->SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot*2), item->GetGUID());
+        } else return ADD_ITEM_RESULT_ERROR;
+    }
+    else //case 2: item is from a bag container
+    {
+        if( GetInventoryItem(ContainerSlot) && GetInventoryItem(ContainerSlot)->IsContainer() &&
+            slot < (int32)GetInventoryItem(ContainerSlot)->GetUInt32Value(CONTAINER_FIELD_NUM_SLOTS)) //container exists
+        {
+            bool result = castPtr<Container>(m_pItems[ContainerSlot])->AddItem(slot, item);
+            if( !result )
             {
                 return ADD_ITEM_RESULT_ERROR;
             }
         }
-    }
-    else
-    {
-        return ADD_ITEM_RESULT_ERROR;
+        else
+        {
+            return ADD_ITEM_RESULT_ERROR;
+        }
     }
 
     if ( slot < EQUIPMENT_SLOT_END && ContainerSlot == INVENTORY_SLOT_NOT_SET )
@@ -2448,12 +2449,8 @@ void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
         do
         {
             Field* fields = result->Fetch();
-
-            containerslot = fields[13].GetInt8();
-            slot = fields[14].GetInt8();
-            proto = sItemMgr.LookupEntry(fields[2].GetUInt32());
-
-            if( proto != NULL )
+            containerslot = fields[15].GetInt8(), slot = fields[16].GetUInt8();
+            if( proto = sItemMgr.LookupEntry(fields[2].GetUInt32()) )
             {
                 if( proto->InventoryType == INVTYPE_BAG )
                     item = new Container( proto, fields[1].GetUInt32() );
@@ -2861,8 +2858,7 @@ void PlayerInventory::SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlo
     }
     else
     {
-        Item* SrcItem = GetInventoryItem(SrcInvSlot, SrcSlot);
-        Item* DstItem = GetInventoryItem(DstInvSlot, DstSlot);
+        Item *SrcItem = GetInventoryItem(SrcInvSlot, SrcSlot), *DstItem = GetInventoryItem(DstInvSlot, DstSlot);
 
         //Check for stacking
         if(DstItem && SrcItem->GetEntry()==DstItem->GetEntry() && (SrcItem->GetProto()->MaxCount < 0 || SrcItem->GetProto()->MaxCount > 1))
@@ -2878,11 +2874,7 @@ void PlayerInventory::SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlo
             }
             else
             {
-                if(DstItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT) == DstItem->GetProto()->MaxCount)
-                {
-
-                }
-                else
+                if(DstItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT) != DstItem->GetProto()->MaxCount)
                 {
                     int32 delta=DstItem->GetProto()->MaxCount-DstItem->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
                     DstItem->SetUInt32Value(ITEM_FIELD_STACK_COUNT,DstItem->GetProto()->MaxCount);
