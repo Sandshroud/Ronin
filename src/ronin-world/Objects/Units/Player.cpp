@@ -130,8 +130,8 @@ void Player::Init()
     CooldownCheat                   = false;
     CastTimeCheat                   = false;
     PowerCheat                      = false;
-    weapon_proficiency              = 0x4000;//2^14
-    armor_proficiency               = 1;
+    m_weaponProficiency             = 0;
+    m_armorProficiency              = 0;
     m_LastUnderwaterState           = 0;
     m_MirrorTimer[0]                = -1;
     m_MirrorTimer[1]                = -1;
@@ -365,7 +365,6 @@ void Player::Destruct()
     Unit::Destruct();
 }
 
-static uint32 strength = 42;
 void Player::Update( uint32 p_time )
 {
     if(!IsInWorld())
@@ -394,32 +393,7 @@ void Player::Update( uint32 p_time )
     // Autosave
     if(m_nextSave > p_time)
         m_nextSave -= p_time;
-    else
-    {
-        m_nextSave = 0;
-        SaveToDB(false);
-    }
-
-    if(m_CurrentTransporter && !m_movementInterface.isTransportLocked())
-    {
-        // Update our position, using trnasporter X/Y
-        float c_tposx, c_tposy, c_tposz, c_tposo;
-        m_movementInterface.GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-        c_tposx += m_CurrentTransporter->GetPositionX();
-        c_tposy += m_CurrentTransporter->GetPositionY();
-        c_tposz += m_CurrentTransporter->GetPositionZ();
-        SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-    }
-
-    if(GetVehicle())
-    {
-        // Update our position
-        float vposx = GetVehicle()->GetPositionX();
-        float vposy = GetVehicle()->GetPositionY();
-        float vposz = GetVehicle()->GetPositionZ();
-        float vposo = GetVehicle()->GetOrientation();
-        GetVehicle()->MoveVehicle(vposx, vposy, vposz, vposo);
-    }
+    else SaveToDB(false);
 
     if(m_pvpTimer)
     {
@@ -447,7 +421,6 @@ void Player::Update( uint32 p_time )
     if (m_drunk)
     {
         m_drunkTimer += p_time;
-
         if (m_drunkTimer > 10*1000)
             EventHandleSobering();
     }
@@ -587,7 +560,7 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
                     // Weapon ratings are 0x01, so skip them here
                     if((itr->second->m_miscValue[0] & 0x1) == 0)
                         continue;
-                    if(itr->second->m_spellInfo->EquippedItemSubClass & (1<<item->GetProto()->SubClass))
+                    if(itr->second->m_spellInfo->EquippedItemSubClassMask & (1<<item->GetProto()->SubClass))
                         val += itr->second->m_amount;
                 }
             }
@@ -908,7 +881,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << uint32(m_talentInterface.GetSpecCount()) << ", "
     << uint32(m_talentInterface.GetTalentResets()) << ", "
     << uint32(m_talentInterface.GetAvailableTalentPoints()) << ", ";
-    uint16 talentStack = 0xFFFF;
+    uint32 talentStack = 0x00000000;
     m_talentInterface.GetActiveTalentTabStack(talentStack);
     ss << uint32(talentStack) << ", " << "0, 0)";  // Reset for position and talents
 
@@ -1035,7 +1008,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_bans WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_cooldowns WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_criteria_data WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_equipmentsets WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_equipmentsets WHERE ownerguid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_factions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
@@ -3131,7 +3104,7 @@ bool Player::canCast(SpellEntry *m_spellInfo)
         if(m_spellInfo->EquippedItemClass == 4)
         {
             Item* item = NULL;
-            switch(m_spellInfo->EquippedItemSubClass)
+            switch(m_spellInfo->EquippedItemSubClassMask)
             {
             case 64:
                 {
@@ -3144,7 +3117,7 @@ bool Player::canCast(SpellEntry *m_spellInfo)
                 }break;
             default:
                 {
-                    sLog.outError("Unknown Equipped Item Requirements: %u/%u\n", m_spellInfo->EquippedItemClass, m_spellInfo->EquippedItemSubClass);
+                    sLog.outError("Unknown Equipped Item Requirements: %u/%u\n", m_spellInfo->EquippedItemClass, m_spellInfo->EquippedItemSubClassMask);
                 }break;
             }
         }
@@ -3154,36 +3127,36 @@ bool Player::canCast(SpellEntry *m_spellInfo)
             {
                 if((int32)GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->Class == m_spellInfo->EquippedItemClass)
                 {
-                    if (m_spellInfo->EquippedItemSubClass != 0)
+                    if (m_spellInfo->EquippedItemSubClassMask != 0)
                     {
-                        if (m_spellInfo->EquippedItemSubClass != 173555 && m_spellInfo->EquippedItemSubClass != 96 && m_spellInfo->EquippedItemSubClass != 262156)
+                        if (m_spellInfo->EquippedItemSubClassMask != 173555 && m_spellInfo->EquippedItemSubClassMask != 96 && m_spellInfo->EquippedItemSubClassMask != 262156)
                         {
                             if (!((1 << GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)->GetProto()->SubClass)
-                                & m_spellInfo->EquippedItemSubClass))
+                                & m_spellInfo->EquippedItemSubClassMask))
                                 return false;
                         }
                     }
                 }
             }
-            else if(m_spellInfo->EquippedItemSubClass == 173555)
+            else if(m_spellInfo->EquippedItemSubClassMask == 173555)
                 return false;
 
             if (GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED))
             {
                 if((int32)GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->Class == m_spellInfo->EquippedItemClass)
                 {
-                    if (m_spellInfo->EquippedItemSubClass != 0)
+                    if (m_spellInfo->EquippedItemSubClassMask != 0)
                     {
-                        if (m_spellInfo->EquippedItemSubClass != 173555 && m_spellInfo->EquippedItemSubClass != 96 && m_spellInfo->EquippedItemSubClass != 262156)
+                        if (m_spellInfo->EquippedItemSubClassMask != 173555 && m_spellInfo->EquippedItemSubClassMask != 96 && m_spellInfo->EquippedItemSubClassMask != 262156)
                         {
                             if (!((1 << GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED)->GetProto()->SubClass)
-                                & m_spellInfo->EquippedItemSubClass))
+                                & m_spellInfo->EquippedItemSubClassMask))
                                 return false;
                         }
                     }
                 }
             }
-            else if (m_spellInfo->EquippedItemSubClass == 262156)
+            else if (m_spellInfo->EquippedItemSubClassMask == 262156)
                 return false;
         }
     }
@@ -3360,42 +3333,12 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
     m_questlog[slot] = entry;
 }
 
-void Player::AddToWorld(bool loggingin /* = false */)
-{
-
-    // check transporter
-    if(m_movementInterface.OnTransport() && m_CurrentTransporter)
-    {
-        LocationVector pos;
-        m_movementInterface.GetTransportPosition(pos);
-        SetPosition(m_CurrentTransporter->GetPositionX() + pos.x, m_CurrentTransporter->GetPositionY() + pos.y, m_CurrentTransporter->GetPositionZ() + pos.z, GetOrientation());
-    }
-
-    if(IsInWorld())
-        return;
-
-    m_beingPushed = true;
-    WorldObject::AddToWorld();
-
-    // Add failed.
-    if(m_mapMgr == NULL)
-    {
-        sLog.Debug("WorldSession","Adding player %s to map %u failed.",GetName(),GetMapId());
-        // eject from instance
-        m_beingPushed = false;
-        EjectFromInstance();
-        return;
-    }
-
-    if(m_session)
-        m_session->SetInstance(m_mapMgr->GetInstanceID());
-
-    EventHealthChangeSinceLastUpdate(); // just in case
-}
-
 void Player::OnPrePushToWorld()
 {
+    if(m_TeleportState == 1)        // First world enter
+        SoftLoadPlayer();
     SendInitialLogonPackets();
+    printf("PostPrePushToWorld\n");
 }
 
 void Player::OnPushToWorld()
@@ -3405,6 +3348,8 @@ void Player::OnPushToWorld()
 
     if(m_TeleportState == 2)   // Worldport Ack
         OnWorldPortAck();
+    else if(m_TeleportState = 1)
+        CompleteLoading();
 
     m_beingPushed = false;
 
@@ -3438,9 +3383,6 @@ void Player::OnPushToWorld()
 
     TRIGGER_INSTANCE_EVENT( m_mapMgr, OnZoneChange )(this, m_zoneId, 0);
     TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerEnter )(this);
-
-    if(m_TeleportState == 1)        // First world enter
-        CompleteLoading();
 
     m_TeleportState = 0;
 
@@ -3922,9 +3864,8 @@ Corpse* Player::CreateCorpse()
 
     // spawn
     if( m_mapMgr == NULL )
-        pCorpse->AddToWorld();
-    else
-        pCorpse->PushToWorld(m_mapMgr);
+        sInstanceMgr.PushToWorldQueue(pCorpse);
+    else pCorpse->PushToWorld(m_mapMgr);
 
     // add deletion event if bone corpse
     if( pCorpse->GetUInt64Value(CORPSE_FIELD_OWNER) == 0 )
@@ -4552,8 +4493,7 @@ void Player::SetDrunk(uint16 value, uint32 itemId)
 void Player::EventHandleSobering()
 {
     m_drunkTimer = 0;
-    uint32 drunk = (m_drunk <= 256) ? 0 : (m_drunk - 256);
-    SetDrunk(drunk);
+    SetDrunk((m_drunk <= 256) ? 0 : (m_drunk - 256));
 }
 
 void Player::LoadTaxiMask(const char* data)
@@ -5055,6 +4995,15 @@ void Player::RemoveQuestsFromLine(uint32 skill_line)
     UpdateNearbyGameObjects();
 }
 
+void Player::SendProficiency(bool armorProficiency)
+{
+    WorldPacket data(SMSG_SET_PROFICIENCY, 5);
+    if(armorProficiency)
+        data << uint8(ITEM_CLASS_ARMOR) << GetArmorProficiency();
+    else data << uint8(ITEM_CLASS_WEAPON) << GetWeaponProficiency();
+    SendPacket(&data);
+}
+
 void Player::SendInitialLogonPackets()
 {
     // Initial Packets... they seem to be re-sent on port.
@@ -5066,13 +5015,8 @@ void Player::SendInitialLogonPackets()
     data << m_bind_zoneid;
     GetSession()->SendPacket( &data );
 
-    // Proficiencies
-    data.Initialize(SMSG_SET_PROFICIENCY, 5);
-    data << uint8(0x02) << weapon_proficiency;
-    GetSession()->SendPacket(&data);
-    data.Initialize(SMSG_SET_PROFICIENCY, 5);
-    data << uint8(0x04) << armor_proficiency;
-    GetSession()->SendPacket(&data);
+    SendProficiency(true);
+    SendProficiency(false);
 
     //Initial Spells
     smsg_InitialSpells();
@@ -6754,11 +6698,9 @@ void Player::ResetPvPTimer()
     m_pvpTimer = 300000;
 }
 
-void Player::CompleteLoading()
+void Player::SoftLoadPlayer()
 {
-    SpellCastTargets targets;
-    targets.m_unitTarget = GetGUID();
-    targets.m_targetMask = TARGET_FLAG_UNIT;
+    SpellCastTargets targets(GetGUID());
     for(SpellSet::iterator itr = mSpells.begin(); itr != mSpells.end(); itr++)
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
@@ -6803,7 +6745,10 @@ void Player::CompleteLoading()
 
     // Update our field values
     UpdateFieldValues();
+}
 
+void Player::CompleteLoading()
+{
     if(iActivePet)
         SpawnPet(iActivePet);      // only spawn if >0
 
@@ -7337,21 +7282,6 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
         inf.BonusValue = inf.BonusTalent = 0;
         m_skills.insert( std::make_pair( SkillLine, inf ) );
         _UpdateSkillFields();
-    }
-
-    //Add to proficiency
-    if(const ItemProf * prof = GetProficiencyBySkill(SkillLine))
-    {
-        if(prof->itemclass == 2 && ((weapon_proficiency&prof->subclass) == 0)
-            || prof->itemclass == 4 && ((armor_proficiency&prof->subclass) == 0))
-        {
-            WorldPacket data(SMSG_SET_PROFICIENCY, 8);
-            data << uint32(prof->itemclass);
-            if(prof->itemclass == 4)
-                data << uint32(armor_proficiency |= prof->subclass);
-            else data << uint32(weapon_proficiency |= prof->subclass);
-            m_session->SendPacket(&data);
-        }
     }
 
     // hackfix for runeforging

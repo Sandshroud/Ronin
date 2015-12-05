@@ -61,7 +61,7 @@ public:
 
     uint8 GetActiveTalentTab() { return m_specs[m_activeSpec].ActiveTalentTab; }
     void SetActiveTalentTab(uint8 talentTree) { m_specs[m_activeSpec].ActiveTalentTab = talentTree; }
-    void GetActiveTalentTabStack(uint16 &output);
+    void GetActiveTalentTabStack(uint32 &output);
 
     uint8 GetSpecCount() { return m_specCount; }
     uint8 GetActiveSpec() { return m_activeSpec; }

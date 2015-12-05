@@ -227,7 +227,10 @@ void Item::DeleteFromDB()
         }
     }
 
-    CharacterDatabase.Execute( "DELETE FROM playeritems WHERE guid = %u", m_uint32Values[OBJECT_FIELD_GUID] );
+    CharacterDatabase.Execute( "DELETE FROM item_data WHERE ownerguid = %u AND itemguid = %u", m_uint32Values[ITEM_FIELD_OWNER], m_uint32Values[OBJECT_FIELD_GUID] );
+    if(m_uint32Values[ITEM_FIELD_OWNER])
+        CharacterDatabase.Execute( "DELETE FROM character_inventory WHERE guid = %u AND itemguid = %u", m_uint32Values[ITEM_FIELD_OWNER], m_uint32Values[OBJECT_FIELD_GUID] );
+
 }
 
 void Item::RemoveFromWorld()

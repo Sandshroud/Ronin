@@ -292,10 +292,10 @@ int32 TalentInterface::CalculateSpentPoints(uint8 spec, int32 talentTree)
     return spentPoints;
 }
 
-void TalentInterface::GetActiveTalentTabStack(uint16 &output)
+void TalentInterface::GetActiveTalentTabStack(uint32 &output)
 {
-    for(uint32 i = 0; i < m_specCount; i++)
-        output |= uint16(m_specs[i].ActiveTalentTab)<<(i*8);
+    for(uint8 i = 0; i < MAX_SPEC_COUNT; i++)
+        output |= uint32(m_specs[i].ActiveTalentTab)<<(i*8);
 }
 
 void TalentInterface::ApplyTalent(uint32 spellid)

@@ -197,7 +197,6 @@ public:
 
     void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL);
 
-    void AddToWorld();
     void RemoveFromWorld(bool addrespawnevent, bool free_guid);
 
     /// Arena organizers

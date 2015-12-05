@@ -238,8 +238,7 @@ public:
 
     // In world bools
     virtual bool IsInWorld() { return m_inWorld; }
-    virtual void AddToWorld() { m_inWorld = true; }
-    virtual void RemoveFromWorld(bool free_guid) { m_inWorld = false; }
+    void SetInWorld(bool res) { m_inWorld = res; }
 
 protected:
     //! Object properties.
@@ -301,7 +300,6 @@ public:
 
     //! True if object exists in world
     virtual bool IsInWorld() { return m_mapMgr != NULL; }
-    virtual void AddToWorld();
     virtual void RemoveFromWorld(bool free_guid);
 
     void PushToWorld(MapMgr* );
@@ -443,6 +441,9 @@ public:
 
     RONIN_INLINE WorldObject *GetInRangeObject(WoWGuid guid)
     {
+        if(GetGUID() == guid)
+            return this;
+
         InRangeMap::iterator itr = m_inRangeObjects.find(guid);
         if(itr != m_inRangeObjects.end())
             return itr->second;
@@ -451,6 +452,9 @@ public:
 
     template<typename T> RONIN_INLINE T *GetInRangeObject(WoWGuid guid)
     {
+        if(GetGUID() == guid)
+            return castPtr<T>(this);
+
         InRangeMap::iterator itr;
         if((itr = m_inRangeObjects.find(guid)) != m_inRangeObjects.end())
             return castPtr<T>(itr->second);

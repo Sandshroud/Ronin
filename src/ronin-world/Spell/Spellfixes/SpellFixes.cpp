@@ -62,6 +62,9 @@ void ApplyNormalFixes()
     sLog.Notice("World", "Setting target flags...");
     SetupSpellTargets();
 
+    sLog.Notice("World", "Initializing spell effect class...");
+    SpellEffectClass::InitializeSpellEffectClass();
+
     sLog.Notice("World", "Processing %u dummy spells...", dummySpells.size());
     for(std::set<uint32>::iterator itr = dummySpells.begin(); itr != dummySpells.end(); itr++)
     {   // Crow: Create the dummy spell, and apply fixs :D
@@ -281,7 +284,7 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     // SpellEquippedItemsEntry
     sp->EquippedItemClass = 0;
     sp->EquippedItemInventoryTypeMask = 0;
-    sp->EquippedItemSubClass = 0;
+    sp->EquippedItemSubClassMask = 0;
     // SpellInterruptsEntry
     sp->AuraInterruptFlags = 0;
     sp->ChannelInterruptFlags = 0;
@@ -529,7 +532,7 @@ void PoolSpellData()
         {
             spellInfo->EquippedItemClass = EquippedItems->EquippedItemClass;
             spellInfo->EquippedItemInventoryTypeMask = EquippedItems->EquippedItemInventoryTypeMask;
-            spellInfo->EquippedItemSubClass = EquippedItems->EquippedItemSubClassMask;
+            spellInfo->EquippedItemSubClassMask = EquippedItems->EquippedItemSubClassMask;
         }
 
         //SpellInterruptsEntry

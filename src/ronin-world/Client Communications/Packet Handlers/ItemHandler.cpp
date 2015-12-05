@@ -262,9 +262,8 @@ void WorldSession::HandleDestroyItemOpcode( WorldPacket & recv_data )
     recv_data >> SrcInvSlot >> SrcSlot >> data;
 
     sLog.outDebug( "ITEM: destroy, SrcInv Slot: %i Src slot: %i", SrcInvSlot, SrcSlot );
-    Item* it = _player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot);
 
-    if(it)
+    if(Item* it = _player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot))
     {
         if(it->IsContainer())
         {
@@ -334,7 +333,6 @@ void WorldSession::HandleDestroyItemOpcode( WorldPacket & recv_data )
         sQuestMgr.OnPlayerDropItem(_player, pItem->GetEntry());
         pItem->DeleteFromDB();
         pItem->Destruct();
-        pItem = NULL;
     }
 }
 

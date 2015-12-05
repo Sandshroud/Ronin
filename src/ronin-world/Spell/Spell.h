@@ -321,7 +321,7 @@ private:
     SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
 
     // adds a target to the list, performing DidHit checks on units
-    void _AddTarget(WorldObject* target, const uint32 effectid);
+    void _AddTarget(WorldObject* target, const uint32 effIndex);
 
     // didhit checker
     uint8 _DidHit(uint32 index, Unit* target, uint8 *reflectout = NULL);

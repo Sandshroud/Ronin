@@ -378,14 +378,6 @@ void Creature::SetDeathState(DeathState s)
     }
 }
 
-void Creature::AddToWorld()
-{
-    if(!CanAddToWorld())
-        return;
-
-    WorldObject::AddToWorld();
-}
-
 bool Creature::CanAddToWorld()
 {
     if(_creatureData == NULL)

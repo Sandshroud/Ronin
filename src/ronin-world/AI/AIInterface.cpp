@@ -500,7 +500,7 @@ void AIInterface::CallGuards()
             uint32 t = spawned ? 0 : RandomUInt(8)*1000;
             if( t == 0 )
                 guard->PushToWorld(m_Unit->GetMapMgr());
-            else sEventMgr.AddEvent(guard,&Creature::AddToWorld, EVENT_UNK, t, 1, 0);
+            else sInstanceMgr.PushToWorldQueue(guard); // Todo: delayed pushes
 
             //despawn after 5 minutes.
             sEventMgr.AddEvent(guard, &Creature::SafeDelete, EVENT_CREATURE_SAFE_DELETE, 60*5*1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);

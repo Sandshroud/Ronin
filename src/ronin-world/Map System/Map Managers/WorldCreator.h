@@ -139,6 +139,8 @@ public:
     }
 
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
+
+    bool PushToWorldQueue(WorldObject *obj);
     MapMgr* GetInstance(WorldObject* obj);
     MapMgr* GetInstance(uint32 MapId, uint32 InstanceId);
     MapMgr* ClusterCreateInstance(uint32 mapid, uint32 instanceid);

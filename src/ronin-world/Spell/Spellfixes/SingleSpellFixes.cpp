@@ -6,7 +6,7 @@
 
 void ApplySingleSpellFixes(SpellEntry *sp)
 {
-    if( sp->EquippedItemClass == 2 && sp->EquippedItemSubClass & (0x10|0x100|0x40000) ) // 4 + 8 + 262144 ( becomes item classes 2, 3 and 18 which correspond to bow, gun and crossbow respectively)
+    if( sp->EquippedItemClass == 2 && sp->EquippedItemSubClassMask & (0x10|0x100|0x40000) ) // 4 + 8 + 262144 ( becomes item classes 2, 3 and 18 which correspond to bow, gun and crossbow respectively)
         sp->CustomAttributes[1] |= 0x10;
 
 /*    if( IsTargetingStealthed( sp ) )

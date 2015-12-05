@@ -859,7 +859,7 @@ struct SpellEntry
     // SpellEquippedItemsEntry
     int32 EquippedItemClass;
     int32 EquippedItemInventoryTypeMask;
-    int32 EquippedItemSubClass;
+    int32 EquippedItemSubClassMask;
 
     // SpellInterruptsEntry
     uint32 AuraInterruptFlags;

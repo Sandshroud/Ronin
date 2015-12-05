@@ -510,7 +510,7 @@ Corpse* ObjectMgr::LoadCorpse(uint32 guid)
 
         pCorpse->SetLoadedFromDB(true);
         pCorpse->SetInstanceID(fields[8].GetUInt32());
-        pCorpse->AddToWorld();
+        sInstanceMgr.PushToWorldQueue(pCorpse);
     } while( result->NextRow() );
 
     delete result;

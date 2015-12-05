@@ -834,7 +834,6 @@ public:
     bool ok_to_remove;
     void EquipInit(PlayerCreateInfo *EquipInfo);
 
-    void AddToWorld(bool loggingin = false);
     void RemoveFromWorld();
     bool Create ( WorldPacket &data );
 
@@ -1491,8 +1490,11 @@ public:
     void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
     void PopPendingUpdates();
 
-    uint32 GetArmorProficiency() { return armor_proficiency; }
-    uint32 GetWeaponProficiency() { return weapon_proficiency; }
+    void SendProficiency(bool armorProficiency);
+    uint32 GetArmorProficiency() { return m_armorProficiency; }
+    uint32 GetWeaponProficiency() { return m_weaponProficiency; }
+    void AddArmorProficiency(uint32 flag) { m_armorProficiency |= flag; };
+    void AddWeaponProficiency(uint32 flag) { m_weaponProficiency |= flag; };
 
     bool CooldownCheat;
     bool CastTimeCheat;
@@ -1580,6 +1582,7 @@ public:
     void OnPrePushToWorld();
     void OnWorldPortAck();
     void OnWorldLogin();
+    void SoftLoadPlayer();
     void CompleteLoading();
     void SendObjectUpdate(WoWGuid guid);
 
@@ -1755,8 +1758,7 @@ protected:
     uint32 m_restAmount;
     AreaTrigger* LastAreaTrigger;
 
-    uint32 armor_proficiency;
-    uint32 weapon_proficiency;
+    uint32 m_armorProficiency, m_weaponProficiency;
     // STATUS
     uint8 m_status;
     // guid of current selection

@@ -876,41 +876,6 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     }
 }
 
-void WorldObject::AddToWorld()
-{
-    MapMgr* mapMgr = sInstanceMgr.GetInstance(this);
-    if(mapMgr == NULL)
-        return;
-
-    if(IsPlayer())
-    {
-        // battleground checks
-        Player* p = castPtr<Player>(this);
-        if( p->m_bg == NULL && mapMgr->m_battleground != NULL )
-        {
-            // player hasn't been registered in the battleground, ok.
-            // that means we re-logged into one. if it's an arena, don't allow it!
-            // also, don't allow them in if the bg is full.
-
-            if( !mapMgr->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
-                return;
-        }
-
-        // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
-        if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapMgr->GetdbcMap()->IsRaid() || mapMgr->GetMapInfo()->type == INSTANCE_MULTIMODE))
-            return;
-    } else UpdateAreaInfo(mapMgr);
-
-    m_mapMgr = mapMgr;
-
-    mapMgr->AddObject(this);
-
-    // correct incorrect instance id's
-    m_instanceId = m_mapMgr->GetInstanceID();
-
-    Object::AddToWorld();
-}
-
 //Unlike addtoworld it pushes it directly ignoring add pool
 //this can only be called from the thread of mapmgr!!!
 void WorldObject::PushToWorld(MapMgr* mgr)
@@ -929,11 +894,12 @@ void WorldObject::PushToWorld(MapMgr* mgr)
 
     m_mapId = mgr->GetMapId();
     m_instanceId = mgr->GetInstanceID();
+    UpdateAreaInfo(mgr);
 
-    if(!IsPlayer())
-        UpdateAreaInfo(mgr);
-    m_mapMgr = mgr;
     OnPrePushToWorld();
+
+    // Set our map manager
+    m_mapMgr = mgr;
 
     mgr->PushObject(this);
 
@@ -942,6 +908,9 @@ void WorldObject::PushToWorld(MapMgr* mgr)
 
     // call virtual function to handle stuff.. :P
     OnPushToWorld();
+
+    // Set Object in world
+    Object::SetInWorld(true);
 }
 
 void WorldObject::RemoveFromWorld(bool free_guid)
@@ -960,7 +929,9 @@ void WorldObject::RemoveFromWorld(bool free_guid)
 
     // update our event holder
     event_Relocate();
-    Object::RemoveFromWorld(free_guid);
+
+    // Set Object out of world
+    Object::SetInWorld(false);
 }
 
 bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)

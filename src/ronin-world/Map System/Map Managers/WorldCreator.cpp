@@ -394,6 +394,40 @@ const uint32 GetBGForMapID(uint32 type)
     return 0;
 };
 
+bool InstanceMgr::PushToWorldQueue(WorldObject *obj)
+{
+    if(MapMgr* mapMgr = GetInstance(obj))
+    {
+        if(Player* p = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
+        {
+            // battleground checks
+            if( p->m_bg == NULL && mapMgr->m_battleground != NULL )
+            {
+                // player hasn't been registered in the battleground, ok.
+                // that means we re-logged into one. if it's an arena, don't allow it!
+                // also, don't allow them in if the bg is full.
+                if( !mapMgr->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
+                    return false;
+            }
+
+            // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
+            if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapMgr->GetdbcMap()->IsRaid() || mapMgr->GetMapInfo()->type == INSTANCE_MULTIMODE))
+                return false;
+
+            p->m_beingPushed = true;
+            if(WorldSession *sess = p->GetSession())
+                sess->SetInstance(mapMgr->GetInstanceID());
+        }
+        else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
+            if(!c->CanAddToWorld())
+                return false;
+
+        mapMgr->AddObject(obj);
+        return true;
+    }
+    return false;
+}
+
 MapMgr* InstanceMgr::GetInstance(WorldObject* obj)
 {
     Player* plr = NULL;

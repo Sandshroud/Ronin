@@ -776,7 +776,6 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     else if( m_triggeredSpell || ProcedOnSpell != NULL)
         cancastresult = SPELL_CANCAST_OK;
     else cancastresult = CanCast(false);
-
     ccr = cancastresult;
 
     if( cancastresult != SPELL_CANCAST_OK )
@@ -790,7 +789,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
         return ccr;
     }
 
-    if( m_triggeredSpell && (!GetSpellProto()->IsSpellChannelSpell() || !GetSpellInfoDuration(GetSpellProto(), m_caster)))
+    if( m_triggeredSpell && !(GetSpellProto()->IsSpellChannelSpell() || m_castTime > 0))
     {
         cast( false );
         return ccr;
@@ -1756,7 +1755,7 @@ void Spell::HandleEffects(uint32 i, WorldObject *target)
     uint32 effect = GetSpellProto()->Effect[i];
     if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
         (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, CalculateEffect(i, target));
-    else sLog.Debug("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
+    else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
 }
 
 void Spell::HandleAddAura(Unit *target)
@@ -3008,21 +3007,22 @@ uint32 GetDiminishingGroup(uint32 NameHash)
     return ret;
 }
 
-void Spell::_AddTarget(WorldObject* target, const uint32 effectid)
+void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
 {
     // Check if we're in the current list already, and if so, don't readd us.
-    if(m_effectTargetMaps[effectid].find(target->GetGUID()) != m_effectTargetMaps[effectid].end())
+    if(m_effectTargetMaps[effIndex].find(target->GetGUID()) != m_effectTargetMaps[effIndex].end())
         return;
 
     bool found = false;
     // look for the target in the list already
     SpellTargetMap::iterator itr = m_fullTargetMap.find(target->GetGUID());
     if(found = (itr != m_fullTargetMap.end()))
-        itr->second.EffectMask |= (1 << effectid);
+        itr->second.EffectMask |= (1 << effIndex);
 
     // setup struct
     SpellTarget tgt;
     tgt.Guid = target->GetGUID();
+    tgt.EffectMask = (1<<effIndex);
 
     if(m_spellInfo->speed > 0.0f)
     {
@@ -3037,10 +3037,10 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effectid)
     } else tgt.DestinationTime = 0;
 
     // work out hit result (always true if we are a GO)
-    tgt.HitResult = target->IsUnit() ? _DidHit(effectid, castPtr<Unit>(target), &tgt.ReflectResult) : SPELL_DID_HIT_SUCCESS;
+    tgt.HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt.ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
     // add to the list
-    m_effectTargetMaps[effectid].insert(std::make_pair(target->GetGUID(), tgt));
+    m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
     if(!found) m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
 
     // add counter

@@ -513,17 +513,12 @@ void AVNode::Spawn()
         // spawn the flag.
         const AVGameObject* g = &m_template->m_glowLocation;
         sLog.outDebug("AVNode::Spawn(%s) : Spawning glow", m_template->m_name);
-        if(m_glow)
+        if(m_glow && (m_glow->GetEntry() != g->id[m_state] || !sInstanceMgr.PushToWorldQueue(m_glow)))
         {
-            if(m_glow->GetEntry() == g->id[m_state])
-                m_glow->AddToWorld();
-            else
-            {
-                if(m_glow->IsInWorld())
-                    m_glow->RemoveFromWorld(true);
-                else m_glow->Destruct();
-                m_glow = NULL;
-            }
+            if(m_glow->IsInWorld())
+                m_glow->RemoveFromWorld(true);
+            else m_glow->Destruct();
+            m_glow = NULL;
         }
 
         if( m_glow == NULL )

@@ -673,7 +673,7 @@ void WorldSession::FullLogin(Player* plr)
         info->m_Group->Update();
 
     if(enter_world && !plr->IsInWorld())
-        plr->AddToWorld(true);
+        sInstanceMgr.PushToWorldQueue(plr);
 
     sTracker.CheckPlayerForTracker(plr, true);
 

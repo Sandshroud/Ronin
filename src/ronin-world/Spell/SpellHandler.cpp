@@ -6,7 +6,148 @@
 
 void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    //can't use items while dead.
+    if(_player->getDeathState()==CORPSE)
+        return;
+
+    uint8 bagIndex, slot, castCount;
+    uint64 itemGUID;
+    uint32 spellId;
+    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID;
+
+    Item* tmpItem = _player->GetInventory()->GetInventoryItem(bagIndex, slot);
+    if (tmpItem == NULL && (tmpItem = _player->GetInventory()->GetInventoryItem(slot)) == NULL)
+        return;
+
+    ItemPrototype *itemProto = tmpItem->GetProto();
+    if(itemProto == NULL)
+        return;
+
+    tmpItem->Bind(ITEM_BIND_ON_USE);
+    if(itemProto->QuestId)
+    {
+        // Item Starter
+        Quest *qst = sQuestMgr.GetQuestPointer(itemProto->QuestId);
+        if(!qst)
+            return;
+
+        if( sQuestMgr.PlayerMeetsReqs(_player, qst, false) != QMGR_QUEST_AVAILABLE || qst->qst_min_level > _player->getLevel() )
+            return;
+
+        WorldPacket data;
+        sQuestMgr.BuildQuestDetails(&data, qst, tmpItem, 0, _player);
+        SendPacket(&data);
+    }
+
+    SpellCastTargets targets(recvPacket, _player->GetGUID());
+    targets.m_itemTarget = itemGUID;
+    uint8 x;
+    bool matching = false;
+    for(x = 0; x < 5; x++)
+    {
+        if(itemProto->Spells[x].Trigger == USE)
+        {
+            if(itemProto->Spells[x].Id == spellId)
+            {
+                matching = true;
+                break;
+            }
+        }
+    }
+
+    if(matching == false)
+        return;
+
+    // check for spell id
+    SpellEntry *spellInfo = dbcSpell.LookupEntry( spellId );
+    if(spellInfo == NULL)
+    {
+        sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
+        return;
+    }
+
+    if (spellInfo->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
+    {
+        if (_player->CombatStatus.IsInCombat() || _player->IsMounted())
+        {
+            _player->GetInventory()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_NOT_IN_COMBAT);
+            return;
+        }
+
+        if(_player->GetStandState()!=STANDSTATE_SIT)
+            _player->SetStandState(STANDSTATE_SIT);
+    }
+
+    if(itemProto->RequiredLevel > 0)
+    {
+        if(_player->getLevel() < (uint32)itemProto->RequiredLevel)
+        {
+            _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_RANK);
+            return;
+        }
+    }
+
+    if(itemProto->RequiredSkill > 0)
+    {
+        if(!_player->_HasSkillLine(itemProto->RequiredSkill))
+        {
+            _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_RANK);
+            return;
+        }
+
+        if(itemProto->RequiredSkillRank > 0)
+        {
+            if(_player->_GetSkillLineCurrent(itemProto->RequiredSkill, false) < (uint32)itemProto->RequiredSkillRank)
+            {
+                _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_RANK);
+                return;
+            }
+        }
+    }
+
+    if( !_player->ignoreitemreq_cheat && (itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace) ))
+    {
+        _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_EVER);
+        return;
+    }
+
+    if( !_player->Cooldown_CanCast( itemProto, x ) )
+    {
+        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_NOT_READY, castCount, 0);
+        return;
+    }
+
+    if(_player->m_currentSpell)
+    {
+        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
+        return;
+    }
+
+    if( itemProto->ForcedPetId >= 0 )
+    {
+        if( itemProto->ForcedPetId == 0 )
+        {
+            if( _player->GetGUID() != targets.m_unitTarget )
+            {
+                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_BAD_TARGETS, castCount, 0);
+                return;
+            }
+        }
+        else
+        {
+            if( !_player->GetSummon() || _player->GetSummon()->GetEntry() != (uint32)itemProto->ForcedPetId )
+            {
+                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
+                return;
+            }
+        }
+    }
+
+    if(Spell* spell = new Spell(_player, spellInfo, castCount))
+        if( spell->prepare(&targets, false) == SPELL_CANCAST_OK )
+            _player->Cooldown_AddItem( itemProto, x );
 }
 
 bool IsException(Player* plr, uint32 spellid);

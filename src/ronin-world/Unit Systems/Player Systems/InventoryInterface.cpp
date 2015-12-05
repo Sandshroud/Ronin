@@ -35,11 +35,11 @@ void PlayerInventory::AddToWorld()
     {
         if(m_pItems[i])
         {
-            m_pItems[i]->AddToWorld();
+            m_pItems[i]->SetInWorld(true);
             if(m_pItems[i]->IsContainer() && m_pItems[i]->GetProto() && m_pItems[i]->GetProto()->ContainerSlots > 0)
                 for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
                     if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
-                        pItem->AddToWorld();
+                        pItem->SetInWorld(true);
         }
     }
 }
@@ -217,10 +217,10 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
             item->Bind(ITEM_BIND_ON_PICKUP);
             if( m_pOwner->IsInWorld() && !item->IsInWorld())
             {
-                item->AddToWorld();
+                item->SetInWorld(true);
                 ByteBuffer buf(2500);
-                uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner );
-                m_pOwner->PushUpdateBlock(&buf, count);
+                if(uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner ))
+                    m_pOwner->PushUpdateBlock(&buf, count);
             }
             m_pOwner->SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot*2), item->GetGUID());
         } else return ADD_ITEM_RESULT_ERROR;

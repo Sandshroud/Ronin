@@ -42,7 +42,6 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_RESURRECT]                    = &SpellEffectClass::SpellEffectResurrect; // 18
     m_spellEffectMap[SPELL_EFFECT_ADD_EXTRA_ATTACKS]            = &SpellEffectClass::SpellEffectAddExtraAttacks; // 19
     m_spellEffectMap[SPELL_EFFECT_DODGE]                        = &SpellEffectClass::SpellEffectDodge; // 20
-    m_spellEffectMap[SPELL_EFFECT_EVADE]                        = &SpellEffectClass::SpellEffectNULL; // 21
     m_spellEffectMap[SPELL_EFFECT_PARRY]                        = &SpellEffectClass::SpellEffectParry; // 22
     m_spellEffectMap[SPELL_EFFECT_BLOCK]                        = &SpellEffectClass::SpellEffectBlock; // 23
     m_spellEffectMap[SPELL_EFFECT_CREATE_ITEM]                  = &SpellEffectClass::SpellEffectCreateItem; // 24
@@ -155,7 +154,6 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_QUEST_OFFER]                  = &SpellEffectClass::SpellEffectStartQuest; // 150
     m_spellEffectMap[SPELL_EFFECT_TRIGGER_SPELL_2]              = &SpellEffectClass::SpellEffectTriggerSpell;
     m_spellEffectMap[SPELL_EFFECT_CREATE_PET]                   = &SpellEffectClass::SpellEffectCreatePet;
-    m_spellEffectMap[SPELL_EFFECT_TEACH_TAXI_NODE]              = &SpellEffectClass::SpellEffectNULL;
     m_spellEffectMap[SPELL_EFFECT_TITAN_GRIP]                   = &SpellEffectClass::SpellEffectTitanGrip;
     m_spellEffectMap[SPELL_EFFECT_ENCHANT_ITEM_PRISMATIC]       = &SpellEffectClass::SpellEffectAddPrismaticSocket;
     m_spellEffectMap[SPELL_EFFECT_CREATE_ITEM_2]                = &SpellEffectClass::SpellEffectCreateRandomItem;
@@ -620,23 +618,24 @@ void SpellEffectClass::SpellEffectProficiency(uint32 i, WorldObject *target, int
     if(!target->IsPlayer())
         return;
 
+    // Only allow armor and weapon proficiencies
+    if(m_spellInfo->EquippedItemClass != ITEM_CLASS_ARMOR && m_spellInfo->EquippedItemClass != ITEM_CLASS_WEAPON)
+        return;
+
     Player *playerTarget = castPtr<Player>(target);
-    if (SkillLineAbilityEntry* skillability = objmgr.GetSpellSkill(GetSpellProto()->Id))
-    {
-        if(SkillLineEntry* sk = dbcSkillLine.LookupEntry(skillability->skilline))
-        {
-            if(!playerTarget->_HasSkillLine(skillability->skilline))
-            {
-                printf("Skilldata\n");
-                if(sk && sk->categoryId == SKILL_TYPE_WEAPON)
-                {
-                    if(sWorld.StartLevel > 1)
-                        playerTarget->_AddSkillLine(skillability->skilline, 5*sWorld.StartLevel, 5*playerTarget->getLevel());
-                    else playerTarget->_AddSkillLine(skillability->skilline, 1, 5*playerTarget->getLevel());
-                } else playerTarget->_AddSkillLine(skillability->skilline, 1, 1);
-            } else printf("Has Skillline\n");
-        } else printf("No skillLine\n");
-    } else printf("No skillspell\n");
+    uint32 proficiency = m_spellInfo->EquippedItemClass == ITEM_CLASS_ARMOR ? playerTarget->GetArmorProficiency() : playerTarget->GetWeaponProficiency();
+    // See if we already have the proficiency
+    if(proficiency & m_spellInfo->EquippedItemSubClassMask)
+        return;
+    if(m_spellInfo->EquippedItemClass == ITEM_CLASS_ARMOR)
+        playerTarget->AddArmorProficiency(m_spellInfo->EquippedItemSubClassMask);
+    else playerTarget->AddWeaponProficiency(m_spellInfo->EquippedItemSubClassMask);
+
+    // If we're not in world just return
+    if(!playerTarget->IsInWorld())
+        return;
+    printf("Sending proficiency\n");
+    playerTarget->SendProficiency(m_spellInfo->EquippedItemClass == ITEM_CLASS_ARMOR);
 }
 
 void SpellEffectClass::SpellEffectSendEvent(uint32 i, WorldObject *target, int32 amount) //Send Event
