@@ -779,7 +779,7 @@ void World::DeleteGlobalSession(WorldSession *GlobalSession)
     RemoveGlobalSession(GlobalSession);
 
     // delete us
-    GlobalSession->Delete();
+    delete GlobalSession;
     SessionsMutex.Release();
 }
 

@@ -734,8 +734,6 @@ public:
 
     uint32 m_CombatUpdateTimer;
 
-    RONIN_INLINE void setcanperry(bool newstatus){can_parry=newstatus;}
-
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
     // Auras Modifiers
@@ -977,8 +975,6 @@ public:
 
     // AI
     AIInterface m_aiInterface;
-
-    bool can_parry;//will be enabled by block spell
 
     // Quest emote
     uint8 m_emoteState;

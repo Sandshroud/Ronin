@@ -990,6 +990,42 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         CharacterDatabase.AddQueryBuffer(buf);
 }
 
+void Player::DeleteFromDB(WoWGuid guid)
+{
+    if(Corpse* c = objmgr.GetCorpseByOwner(guid.getLow()))
+        CharacterDatabase.Execute("DELETE FROM corpses WHERE guid = %u", c->GetLowGUID());
+    CharacterDatabase.Execute("DELETE FROM auctions WHERE owner = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM charters WHERE leaderGuid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM guild_members WHERE playerid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM item_enchantments WHERE itemguid IN(SELECT itemguid FROM item_data WHERE ownerguid = %u)", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM item_data WHERE ownerguid = %u", guid.getLow());
+
+    CharacterDatabase.Execute("DELETE FROM character_achievements WHERE player = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_actions WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_auras WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_bans WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_cooldowns WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_criteria_data WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_currency WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_equipmentsets WHERE ownerguid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_exploration WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_factions WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_inventory WHERE guid=%u",guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_known_titles WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_powers WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_questlog WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_quests_completed WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_skills WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_social WHERE guid = %u OR socialguid = %u", guid.getLow(), guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_spells WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_taximasks WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_timestamps WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_data WHERE guid = %u", guid.getLow());
+}
+
 bool Player::LoadFromDB()
 {
     AsyncQuery * q = new AsyncQuery( new SQLClassCallbackP0<Player>(this, &Player::LoadFromDBProc) );

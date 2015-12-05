@@ -810,8 +810,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         {
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
                 b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
-            else if(getLevel() > 10)
-                setcanperry(true); // Who cares what else it is, set parry = true.
         }
     }
 
@@ -821,8 +819,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         {
             if(!b_has_shield && DBCItem->InventoryType == INVTYPE_SHIELD)
                 b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
-            else if(getLevel() > 10 && (DBCItem->InventoryType == INVTYPE_WEAPONOFFHAND || DBCItem->InventoryType == INVTYPE_WEAPON))
-                setcanperry(true); // We can hold non weapons here, so we need to be careful and do checks.
         }
     }
 

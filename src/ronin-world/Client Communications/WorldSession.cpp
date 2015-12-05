@@ -139,7 +139,7 @@ int WorldSession::Update(uint32 InstanceID)
     {
         WorldPacket *packet;
         OpcodeHandler * Handler;
-        while (_socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
+        while (!bDeleted && InstanceID == instanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
 
@@ -151,51 +151,37 @@ int WorldSession::Update(uint32 InstanceID)
                 if(Handler->status != STATUS_IGNORED)
                 {
                     if(Handler->status == STATUS_LOGGEDIN && !_player && Handler->handler != 0)
-                    {
-                        sLog.Warning("WorldSession", "Received unexpected/wrong state packet(Logged In) with opcode %s (0x%.4X)",
-                            sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
-                    }
+                        sLog.Warning("WorldSession", "Received unexpected/wrong state packet(Logged In) with opcode %s (0x%.4X)", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
                     else if(Handler->status == STATUS_IN_OR_LOGGINGOUT && !_player && !_recentlogout && Handler->handler != 0)
-                    {
-                        sLog.Warning("WorldSession", "Received unexpected/wrong state packet(In or Out) with opcode %s (0x%.4X)",
-                            sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
-                    }
+                        sLog.Warning("WorldSession", "Received unexpected/wrong state packet(In or Out) with opcode %s (0x%.4X)", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
+                    else if(Handler->handler == 0)
+                        sLog.Warning("WorldSession", "Received unhandled packet with opcode %s (0x%.4X)", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
                     else
-                    {
-                        // Valid Packet :>
-                        if(Handler->handler == 0)
-                            sLog.Warning("WorldSession", "Received unhandled packet with opcode %s (0x%.4X)", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
-                        else
+                    {   // Valid Packet :>
+                        try
                         {
-                            bool fail = false;
-                            try { (this->*Handler->handler)(*packet); }
-                            catch (ByteBufferException &)
-                            {
-                                fail = true;
-                                sLog.Error("WorldSession", "Incorrect handling of opcode %s (0x%.4X) REPORT TO DEVS", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode());
-                            }
+                            (this->*Handler->handler)(*packet);
 
-                            if(!fail && sLog.GetLogLevel() >= 5 && (packet->rpos() < packet->wpos()))
+                            if(sLog.GetLogLevel() >= 5 && (packet->rpos() < packet->wpos()))
                                 LogUnprocessedTail(packet);
-
-                            if(Handler->status == STATUS_AUTHED)
-                                if(packet->GetOpcode() != CMSG_SET_ACTIVE_VOICE_CHANNEL)
-                                    _recentlogout = false;
                         }
+                        catch (ByteBufferException &)
+                        { sLog.Error("WorldSession", "Incorrect handling of opcode %s (0x%.4X) REPORT TO DEVS", sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode()); }
+
+                        if(Handler->status == STATUS_AUTHED && packet->GetOpcode() != CMSG_SET_ACTIVE_VOICE_CHANNEL)
+                            _recentlogout = false;
                     }
                 }
             }
 
             delete packet;
-            if(InstanceID != instanceId)
-                return 2; // If we hit this it means that an opcode has changed our map.
-            if( bDeleted )
-                return 1;
         }
     }
 
     if(InstanceID != instanceId)
         return 2; // If we hit this it means that an opcode has changed our map.
+    if( bDeleted )
+        return 1;
 
     if( _logoutTime && (m_currMsTime >= _logoutTime) && instanceId == InstanceID)
     {
@@ -964,8 +950,7 @@ void WorldSession::LogUnprocessedTail(WorldPacket *packet)
 {
     sLog.outError( "SESSION: opcode %s (0x%.4X) has unprocessed tail data \n"
         "The size recieved is %u while the packet size is %u\n",
-        sOpcodeMgr.GetOpcodeName(packet->GetOpcode()),
-        packet->GetOpcode(),
+        sOpcodeMgr.GetOpcodeName(packet->GetOpcode()), packet->GetOpcode(),
         packet->rpos(), packet->wpos());
 
     packet->print_storage();
@@ -1035,12 +1020,6 @@ void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
     }
 
     _socket->OutPacket(opcode, (data == NULL ? 0 : len), data, false);
-}
-
-void WorldSession::Delete()
-{
-    //deleteMutex.Acquire();
-    delete this;
 }
 
 void WorldSession::HandleRealmSplit(WorldPacket & recv_data)

@@ -109,8 +109,6 @@ public:
     RONIN_INLINE void SendPacket(WorldPacket* packet);
     void OutPacket(uint16 opcode, uint16 len = 0, const void* data = NULL);
 
-    void Delete();
-
     void SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
 
     // Process Logs

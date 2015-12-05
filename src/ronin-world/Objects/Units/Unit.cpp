@@ -86,7 +86,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_diminishActive = false;
     pLastSpell = 0;
     bInvincible = false;
-    can_parry = false;
     bProcInUse = false;
 
     m_temp_summon=false;
@@ -1580,7 +1579,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
                     dodge = pVictim->GetFloatValue( PLAYER_DODGE_PERCENTAGE );
                 }
 //--------------------------------parry chance----------------------------------------------
-                if(pVictim->can_parry && !disarmed)
+                if(true && !disarmed)
                 {
                     parry = pVictim->GetFloatValue( PLAYER_PARRY_PERCENTAGE );
                 }
@@ -1606,7 +1605,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         {
             if( c->b_has_shield && !pVictim->disarmedShield && pVictim->GetUInt32Value(UNIT_FIELD_STRENGTH))
                 block = 5.0f+(victim_skill*0.04f)+(pVictim->GetUInt32Value(UNIT_FIELD_STRENGTH)/2);
-            if(pVictim->can_parry && !disarmed) // VictimSkill*0.04 per point
+            if(true && !disarmed) // VictimSkill*0.04 per point
                 parry = (victim_skill*0.04f);
         }
     }
@@ -1927,7 +1926,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     dodge = pVictim->GetFloatValue( PLAYER_DODGE_PERCENTAGE );
                 }
 //--------------------------------parry chance----------------------------------------------
-                if(pVictim->can_parry && !disarmed)
+                if(true && !disarmed)
                 {
                     parry = pVictim->GetFloatValue( PLAYER_PARRY_PERCENTAGE );
                 }

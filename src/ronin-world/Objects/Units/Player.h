@@ -715,6 +715,7 @@ public:
     /* Serialize character to db                                            */
     /************************************************************************/
     void SaveToDB(bool bNewCharacter);
+    static void DeleteFromDB(WoWGuid guid);
 
     bool LoadFromDB();
     void LoadFromDBProc(QueryResultVector & results);

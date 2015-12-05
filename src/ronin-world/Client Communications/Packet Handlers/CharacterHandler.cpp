@@ -345,20 +345,20 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
     if( inf != NULL && inf->m_loggedInPlayer == NULL )
     {
         QueryResult * result = CharacterDatabase.Query("SELECT name FROM character_data WHERE guid = %u AND acct = %u", guid, _accountId);
-        if(!result)
+        if(result == NULL)
             return CHAR_DELETE_FAILED;
-
-        if(inf->GuildId)
-        {
-            GuildMember* gMember = guildmgr.GetGuildMember(inf->guid.getLow());
-            if(gMember->pRank->iId == 0)
-                return CHAR_DELETE_FAILED_GUILD_LEADER;
-            guildmgr.RemoveMember(NULL, inf);
-        }
-
         std::string name = result->Fetch()[0].GetString();
         delete result;
 
+        GuildMember* gMember = inf->GuildId ? guildmgr.GetGuildMember(inf->guid.getLow()) : NULL;
+        if(gMember != NULL && gMember->pRank->iId == 0)
+            return CHAR_DELETE_FAILED_GUILD_LEADER;
+
+        for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
+            if( inf->arenaTeam[i] != NULL && inf->arenaTeam[i]->m_leader == guid )
+                return CHAR_DELETE_FAILED_ARENA_CAPTAIN;
+
+        guildmgr.RemoveMember(NULL, inf);
         for(uint8 i = 0; i < NUM_CHARTER_TYPES; i++)
         {
             if( inf->charterId[i] != 0 )
@@ -373,41 +373,11 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
         }
 
         for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
-        {
-            if( inf->arenaTeam[i] != NULL )
-            {
-                if( inf->arenaTeam[i]->m_leader == guid )
-                    return CHAR_DELETE_FAILED_ARENA_CAPTAIN;
-                inf->arenaTeam[i]->RemoveMember(inf);
-            }
-        }
+            if( ArenaTeam *arTeam = inf->arenaTeam[i] )
+                arTeam->RemoveMember(inf);
 
         sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", name.c_str(), guid.getLow());
-
-        CharacterDatabase.WaitExecute("DELETE FROM character_data WHERE guid = %u", guid.getLow());
-
-        if(Corpse* c=objmgr.GetCorpseByOwner(guid.getLow()))
-            CharacterDatabase.Execute("DELETE FROM corpses WHERE guid = %u", c->GetLowGUID());
-
-        CharacterDatabase.Execute("DELETE FROM achievements WHERE player = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM auctions WHERE owner = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM charters WHERE leaderGuid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM gm_tickets WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM guild_data WHERE playerid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM instances WHERE creator_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_cooldowns WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_items WHERE ownerguid=%u",guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_pets WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_petspells WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_skills WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_spells WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_summonspells WHERE ownerguid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM questlog WHERE player_guid = %u", guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM social_friends WHERE character_guid = %u OR friend_guid = %u", guid.getLow(), guid.getLow());
-        CharacterDatabase.Execute("DELETE FROM social_ignores WHERE character_guid = %u OR ignore_guid = %u", guid.getLow(), guid.getLow());
+        Player::DeleteFromDB(guid);
 
         /* remove player info */
         objmgr.DeletePlayerInfo(guid.getLow());
