@@ -90,6 +90,15 @@ public:
         va_end(vl);
     }
 
+    void WriteGuidBitString(uint32 count, WoWGuid guid, ...)
+    {
+        va_list vl;
+        va_start(vl, guid);
+        for(uint32 i = 0; i < count; i++)
+            WriteBit(guid[va_arg(vl, uint32)]);
+        va_end(vl);
+    }
+
     bool ReadBit()
     {
         ++_bitpos;
@@ -153,12 +162,13 @@ public:
             append<uint8>(b ^ 1);
     }
 
-    void WriteSeqByteString(uint32 count, ...)
+    void WriteSeqByteString(int guid, uint32 count, ...) = delete;
+    void WriteSeqByteString(uint32 count, WoWGuid guid, ...)
     {
         va_list vl;
-        va_start(vl, count);
+        va_start(vl, guid);
         for(uint32 i = 0; i < count; i++)
-            WriteByteSeq(uint8(va_arg(vl, uint32)));
+            WriteByteSeq(guid[(va_arg(vl, uint32))]);
         va_end(vl);
     }
 

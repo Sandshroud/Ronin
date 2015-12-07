@@ -12,6 +12,7 @@ enum ActionButtonType
     ACTION_BUTTON_SPELL     = 0x00,
     ACTION_BUTTON_C         = 0x01,
     ACTION_BUTTON_EQSET     = 0x20,
+    ACTION_BUTTON_EXPANDABLE= 0x30,
     ACTION_BUTTON_MACRO     = 0x40,
     ACTION_BUTTON_CMACRO    = ACTION_BUTTON_C | ACTION_BUTTON_MACRO,
     ACTION_BUTTON_ITEM      = 0x80
@@ -39,7 +40,7 @@ public:
 
     void SaveTalentData(QueryBuffer * buf);
     void LoadTalentData(QueryResult *result);
-    void SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, uint32 availablePoints, uint32 activeSpecStack);
+    void SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, int32 bonusTalentPoints, uint32 activeSpecStack);
 
     void InitActiveSpec();
     void SendTalentInfo();
@@ -47,8 +48,7 @@ public:
     void BuildPlayerTalentInfo(WorldPacket *data);
     void BuildPlayerActionInfo(WorldPacket *data);
 
-    void ResetAvailableTalentPoints();
-    void ModAvailableTalentPoints(int32 talentPoints);
+    void ModTalentPoints(int32 talentPoints);
 
     // Specs
     void ResetAllSpecs();
@@ -57,6 +57,7 @@ public:
     void UnlockSpec(uint8 spec);
     void ApplySpec(uint8 spec);
 
+    void RecalculateAvailableTalentPoints();
     int32 CalculateSpentPoints(uint8 spec, int32 talentTree = -1);
 
     uint8 GetActiveTalentTab() { return m_specs[m_activeSpec].ActiveTalentTab; }
@@ -74,7 +75,7 @@ public:
     bool LearnTalent(uint32 talentId, uint8 talentRank);
 
     uint32 GetTalentResets() { return m_talentResetCounter; }
-    uint32 GetAvailableTalentPoints() { return m_availableTalentPoints; }
+    int32 GetBonusTalentPoints() { return m_bonusTalentPoints; }
 
     // Talent map
     TalentStorageMap *getTalentMap() { return &m_specs[m_activeSpec].m_talents; }
@@ -111,8 +112,6 @@ public:
 private:
     Player *m_Player;
 
-    bool m_queuedActions;
-
     // Talent specs
     uint32 m_talentResetCounter;
     uint8 m_activeSpec, m_specCount;
@@ -127,5 +126,6 @@ private:
     Mutex m_specLock;
 
     // Talent points
-    int32 m_currentTalentPoints, m_availableTalentPoints;
+    uint32 m_currentTalentPoints, m_availableTalentPoints;
+    int32 m_bonusTalentPoints;
 };

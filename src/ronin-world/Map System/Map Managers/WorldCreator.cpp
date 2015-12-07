@@ -1081,36 +1081,25 @@ void InstanceMgr::CheckForExpiredInstances()
 
 void InstanceMgr::BuildSavedInstancesForPlayer(Player* plr)
 {
-    WorldPacket data(4);
-    Instance * in;
-    InstanceMap::iterator itr;
-    InstanceMap * instancemap;
-    uint32 i;
-
+    std::set<uint32> mapIds;
     if(!plr->IsInWorld() || plr->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL)
     {
         m_mapLock.Acquire();
-        for(i = 0; i < NUM_MAPS; i++)
+        for(uint32 i = 0; i < NUM_MAPS; i++)
         {
             if(m_instances[i] != NULL)
             {
-                instancemap = m_instances[i];
-                for(itr = instancemap->begin(); itr != instancemap->end();)
+                InstanceMap *instancemap = m_instances[i];
+                for(InstanceMap::iterator itr = instancemap->begin(); itr != instancemap->end();)
                 {
-                    in = itr->second;
+                    Instance *in = itr->second;
                     ++itr;
 
                     if( !in->m_dbcMap->IsRaid() && (PlayerOwnsInstance(in, plr) >= OWNER_CHECK_OK) )
                     {
                         m_mapLock.Release();
 
-                        data.SetOpcode(SMSG_UPDATE_LAST_INSTANCE);
-                        data << uint32(in->m_mapId);
-                        plr->GetSession()->SendPacket(&data);
-
-                        data.Initialize(SMSG_UPDATE_INSTANCE_OWNERSHIP);
-                        data << uint32(0x01);
-                        plr->GetSession()->SendPacket(&data);
+                        mapIds.insert(in->m_mapId);
                         break; //next mapid
                     }
                 }
@@ -1119,9 +1108,12 @@ void InstanceMgr::BuildSavedInstancesForPlayer(Player* plr)
         m_mapLock.Release();
     }
 
-    data.SetOpcode(SMSG_UPDATE_INSTANCE_OWNERSHIP);
-    data << uint32(0x00);
+    WorldPacket data(SMSG_UPDATE_INSTANCE_OWNERSHIP, 4);
+    data << uint32(mapIds.size() ? 0x01 : 0x00);
     plr->GetSession()->SendPacket(&data);
+
+    for(std::set<uint32>::iterator itr = mapIds.begin(); itr != mapIds.end(); itr++)
+        plr->GetSession()->OutPacket(SMSG_UPDATE_LAST_INSTANCE, 4, ((uint8*)*itr));
 }
 
 void InstanceMgr::BuildSavedRaidInstancesForPlayer(Player* plr)

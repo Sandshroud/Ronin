@@ -159,7 +159,7 @@ void CBattlegroundManager::AddAverageQueueTime(uint32 BgType, uint32 queueTime)
     m_averageQueueTimes[BgType][0] = queueTime;
 }
 
-void CBattlegroundManager::HandleBattlegroundListPacket(WorldSession * m_session, uint32 BattlegroundType, uint64 requestguid)
+void CBattlegroundManager::HandleBattlegroundListPacket(WorldSession * m_session, uint32 BattlegroundType, WoWGuid requestguid)
 {
     if( !IsValidBG(BattlegroundType))
         return;
@@ -171,28 +171,22 @@ void CBattlegroundManager::HandleBattlegroundListPacket(WorldSession * m_session
     uint32 LoseHonorP = m_session->GetPlayer()->GenerateRBGReward(m_session->GetPlayer()->getLevel(),5);
     uint32 LevelGroup = GetLevelGrouping(m_session->GetPlayer()->getLevel());
 
-    WorldPacket data(SMSG_BATTLEFIELD_LIST, 18);
-    data << uint64(requestguid);
-    data << uint8(requestguid ? 0 : 1);             // Joining from Player Screen?
-    data << BattlegroundType;                       // BG ID
-    data << uint8(IS_ARENA(BattlegroundType));      // unk 3.3
-    data << uint8(0);                               // unk 3.3
-    data << uint8(m_session->GetPlayer()->randombgwinner); // Has Reward?
-    data << ArenaP; // Arena points
-    data << HonorP; // Honor points
-    data << LoseHonorP; // Lose honor
-    data << uint8(random);
-    if(random)
-    {
-        data << uint8(m_session->GetPlayer()->randombgwinner);  // Has Reward?
-        data << ArenaP; // Arena points
-        data << HonorP; // Honor points
-        data << LoseHonorP; // Lose honor
-    }
+    WorldPacket data(SMSG_BATTLEFIELD_LIST, 55);
+    data << uint32(0); // 4.3.4 winC Weekend
+    data << uint32(0); // 4.3.4 winC Random
+    data << uint32(0); // 4.3.4 loss Weekend
+    data << BattlegroundType; // BG ID
+    data << uint32(0); // 4.3.4 loss Random
+    data << uint32(0); // 4.3.4 win Random
+    data << uint32(0); // 4.3.4 win Weekend
+    data << uint8(0); // Maxlevel
+    data << uint8(0); // Minlevel
+    data.WriteGuidBitString(3, requestguid, 0, 1, 7);
+    data.WriteBit(false); // holidayBG curBonus
+    data.WriteBit(false); // randBG Curbonus
 
-    size_t CountPos = data.wpos();
-    data << uint32(0);              //count
-
+    ByteBuffer buff;
+    uint32 count = 0;
     if(!IS_ARENA(BattlegroundType))
     {
         /* Append the battlegrounds */
@@ -201,13 +195,23 @@ void CBattlegroundManager::HandleBattlegroundListPacket(WorldSession * m_session
         {
             if( itr->second->GetLevelGroup() == LevelGroup  && !itr->second->HasEnded() )
             {
-                data << uint32(itr->first);
-                ++Count;
+                buff << uint32(itr->first);
+                ++count;
             }
         }
         m_instanceLock.Release();
-        *(uint32*)&data.contents()[CountPos] = Count;
     }
+    data.WriteBits(count, 24);
+    data.WriteGuidBitString(4, requestguid, 6, 4, 2, 3);
+    data.WriteBit(true);                   // unk
+    data.WriteByteSeq(requestguid[5]);
+    data.WriteBit(true);                   // signals EVENT_PVPQUEUE_ANYWHERE_SHOW if set
+
+    data.WriteSeqByteString(4, requestguid, 6, 1, 7, 5);
+    data.FlushBits();
+    if (count)
+        data.append(buff.contents(), buff.size());
+    data.WriteSeqByteString(4, requestguid, 0, 2, 4, 3);
     m_session->SendPacket(&data);
 }
 

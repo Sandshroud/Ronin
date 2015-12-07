@@ -724,7 +724,7 @@ bool ChatHandler::HandleModifyTPsCommand(const char* args, WorldSession *m_sessi
         return true;
     }
 
-    Pl->m_talentInterface.ModAvailableTalentPoints(TP1);
+    Pl->m_talentInterface.ModTalentPoints(TP1);
     sWorld.LogGM(m_session, "Modified %s talents to %u", Pl->GetName(), TP1);
     return true;
 }

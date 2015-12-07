@@ -3085,12 +3085,8 @@ void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forced
         return;
 
     Spell* newSpell = new Spell(this, Sp);
-    SpellCastTargets targets(0);
-    if(Target)
-    {
-        targets.m_targetMask |= TARGET_FLAG_UNIT;
-        targets.m_unitTarget = Target->GetGUID();
-    } else newSpell->GenerateTargets(&targets);
+    SpellCastTargets targets(Target ? Target->GetGUID() : 0);
+    if(Target == NULL) newSpell->GenerateTargets(&targets);
     if(forcedCastTime) newSpell->m_ForcedCastTime = forcedCastTime;
     newSpell->prepare(&targets, triggered);
 }
@@ -3359,8 +3355,7 @@ void Unit::EventHealthChangeSinceLastUpdate()
 {
     uint8 pct = GetHealthPct();
 
-    uint32 toSet = 0;
-    uint32 toRemove = 0;
+    uint32 toSet = 0, toRemove = 0;
     if( pct <= 35 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
         toSet |= AURASTATE_FLAG_HEALTH35;
     else if( pct > 35 && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
@@ -3411,23 +3406,6 @@ void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
 void Unit::SetFacing(float newo)
 {
     SetOrientation(newo);
-    /*WorldPacket data(40);
-    data.SetOpcode(MSG_MOVE_SET_FACING);
-    data << GetGUID();
-    data << (uint32)0; //flags
-    data << (uint32)0; //time
-    data << GetPositionX() << GetPositionY() << GetPositionZ() << newo;
-    data << (uint32)0; //unk
-    SendMessageToSet( &data, false );*/
-
-    /*WorldPacket data(SMSG_MONSTER_MOVE, 60);
-    data << GetGUID();
-    data << m_position << getMSTime();
-    data << uint8(4) << newo;
-    data << uint32(0x00000000);     // flags
-    data << uint32(0);              // time
-    data << m_position;             // position
-    SendMessageToSet(&data, true);*/
     m_aiInterface.SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
 }
 

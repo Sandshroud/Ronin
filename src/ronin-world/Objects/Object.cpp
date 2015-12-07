@@ -112,11 +112,12 @@ void Object::SetUInt64Value( const uint32 index, const uint64 value )
 void Object::SetFlag( const uint32 index, uint32 newFlag )
 {
     ASSERT( index < m_valuesCount );
-    if(m_uint32Values[ index ] & newFlag)
-        return;
 
-    m_uint32Values[ index ] |= newFlag;
-    SetUpdateField(index);
+    uint32 prevValue = m_uint32Values[index];
+    m_uint32Values[index] |= newFlag;
+    // Only set the field for update if the value changes
+    if(prevValue != m_uint32Values[index])
+        SetUpdateField(index);
 }
 
 void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
@@ -497,8 +498,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     if(flags & UPDATEFLAG_HAS_TARGET)
     {
         WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
-        data->WriteSeqByteString(4, targetGuid[4], targetGuid[0], targetGuid[3], targetGuid[5]);
-        data->WriteSeqByteString(4, targetGuid[7], targetGuid[6], targetGuid[2], targetGuid[1]);
+        data->WriteSeqByteString(8, targetGuid, 4, 0, 3, 5, 7, 6, 2, 1);
     }
 
     if (flags & UPDATEFLAG_ANIMKITS)

@@ -142,12 +142,10 @@ enum MovementState
 
 enum MonsterMoveFlags   // for AIInterface::SendMoveToPacket
 {
-    MONSTER_MOVE_FLAG_STAND     = 0x0,
-    MONSTER_MOVE_FLAG_TELEPORT  = 0x100,
-    MONSTER_MOVE_FLAG_JUMP      = 0x800,
-    MONSTER_MOVE_FLAG_WALK      = 0x1000,
-    MONSTER_MOVE_FLAG_FLY       = 0x2000,
-    MONSTER_MOVE_FLAG_FLY2      = 0x3000,
+    MONSTER_MOVE_FLAG_NONE      = 0x0,
+    MONSTER_MOVE_FLAG_FLY       = 0x00000200,
+    MONSTER_MOVE_FLAG_WALK      = 0x00002000,
+    MONSTER_MOVE_FLAG_JUMP      = 0x02000000,
 };
 
 enum BehaviorType

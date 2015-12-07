@@ -583,33 +583,23 @@ void AI_Movement::SendMoveToPacket(float toX, float toY, float toZ, float toO, u
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
     data << posX << posY << posZ;
-    data << getMSTime();
+    data << uint32(0);
     if(time == 0 && posX == toX && posY == toY && posZ == toZ)
         data << uint8(1); //stop
-    else
-    {
-        data << uint8(orientation ? 4 : 0);
-        if(orientation)
-            data << float( toO );
-        data << MoveFlags;
-        data << time;
-        if(MoveFlags & MONSTER_MOVE_FLAG_JUMP)
-            data << float((toZ - m_Unit->GetPositionZ()) + 4.0f) << uint32(0);
-        data << uint32(1);  // 1 waypoint
-        data << toX << toY << toZ;
-    }
+    else if(orientation)
+        data << uint8(4) << float(toO);
+    else data << uint8(0);
 
+    data << MoveFlags << time;
+    if(MoveFlags & MONSTER_MOVE_FLAG_JUMP)
+        data << float((toZ - m_Unit->GetPositionZ()) + 4.0f) << uint32(0);
+
+    data << uint32(1) << toX << toY << toZ;
     if(playerTarget == NULL)
         m_Unit->SendMessageToSet( &data, m_Unit->IsPlayer() ? true : false );
-    else
-    {
-        if(playerTarget->IsInWorld())
-            playerTarget->GetSession()->SendPacket(&data);
-        else
-        {
-            playerTarget->CopyAndSendDelayedPacket(&data);
-        }
-    }
+    else if(playerTarget->IsInWorld())
+        playerTarget->GetSession()->SendPacket(&data);
+    else playerTarget->CopyAndSendDelayedPacket(&data);
 }
 
 void AI_Movement::SendMoveToPacket(Player* playerTarget)
@@ -644,7 +634,7 @@ void AI_Movement::SendMoveToPacket(Player* playerTarget)
     data << uint32(MovementMap.size()-1);   // waypoint count
     data << m_destinationX << m_destinationY << m_destinationZ;
 
-    int32 packedlocationshit = 0;
+    uint32 packedlocationshit = 0;
     while(itr != MovementMap.end())
     {
         packedlocationshit = 0;
@@ -657,16 +647,9 @@ void AI_Movement::SendMoveToPacket(Player* playerTarget)
 
     if(playerTarget == NULL)
         m_Unit->SendMessageToSet( &data, m_Unit->IsPlayer());
-    else
-    {
-        if(playerTarget->IsInWorld())
-            playerTarget->GetSession()->SendPacket(&data);
-        else
-        {
-            playerTarget->CopyAndSendDelayedPacket(&data);
-            delete &data;
-        }
-    }
+    else if(playerTarget->IsInWorld())
+        playerTarget->GetSession()->SendPacket(&data);
+    else playerTarget->CopyAndSendDelayedPacket(&data);
 }
 
 void AI_Movement::MoveTo(float x, float y, float z, float o, bool IgnorePathMap)
@@ -712,7 +695,7 @@ void AI_Movement::SendJumpTo(float toX, float toY, float toZ, uint32 moveTime, f
     data << moveTime;
     data << float(arc);
     data << uint32(0);
-    data << uint32(1);
+    data << uint32(3);
     data << toX << toY << toZ;
     m_Unit->SendMessageToSet( &data, m_Unit->IsPlayer() ? true : false );
 }

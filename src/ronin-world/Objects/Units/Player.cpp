@@ -880,7 +880,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << uint32(m_talentInterface.GetActiveSpec()) << ", "
     << uint32(m_talentInterface.GetSpecCount()) << ", "
     << uint32(m_talentInterface.GetTalentResets()) << ", "
-    << uint32(m_talentInterface.GetAvailableTalentPoints()) << ", ";
+    << int32(m_talentInterface.GetBonusTalentPoints()) << ", ";
     uint32 talentStack = 0x00000000;
     m_talentInterface.GetActiveTalentTabStack(talentStack);
     ss << uint32(talentStack) << ", " << "0, 0)";  // Reset for position and talents
@@ -1103,6 +1103,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     if(level > maxlevel) level = maxlevel;
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
 
+    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sWorld.GetXPToNextLevel(level));
     // Set correct maximum level
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, maxlevel);
 
@@ -1200,9 +1201,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     uint32 talentActiveSpec = fields[PLAYERLOAD_FIELD_ACTIVE_SPEC].GetUInt32(),
         talentSpecCount = fields[PLAYERLOAD_FIELD_SPEC_COUNT].GetUInt32(),
         talentResetCounter = fields[PLAYERLOAD_FIELD_TALENT_RESET_COUNTER].GetUInt32(),
-        talentAvailablePoints = fields[PLAYERLOAD_FIELD_AVAILABLE_TALENT_POINTS].GetUInt32(),
+        talentbonusPoints = fields[PLAYERLOAD_FIELD_BONUS_TALENT_POINTS].GetInt32(),
         activeTalentSpecStack = fields[PLAYERLOAD_FIELD_ACTIVE_TALENT_SPECSTACK].GetUInt32();
-    m_talentInterface.SetTalentData(talentActiveSpec, talentSpecCount, talentResetCounter, talentAvailablePoints, activeTalentSpecStack);
+    m_talentInterface.SetTalentData(talentActiveSpec, talentSpecCount, talentResetCounter, talentbonusPoints, activeTalentSpecStack);
 
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
     _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
@@ -1981,9 +1982,7 @@ bool Player::Create(WorldPacket& data )
     // team dependant taxi node
     AddTaximaskNode(100-m_team);
 
-    uint32 level = std::max(uint8(1), sWorld.StartLevel);
-    if(class_ == DEATHKNIGHT && level < 55) level = 55;
-    setLevel(level);
+    setLevel(std::max<uint32>(class_ == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel));
 
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
 
@@ -1992,6 +1991,8 @@ bool Player::Create(WorldPacket& data )
     SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
     if(class_ == WARRIOR)
         SetShapeShift(FORM_BATTLESTANCE);
+    else if(class_ == DEATHKNIGHT)
+        m_talentInterface.ModTalentPoints(-24);
 
     SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
     SetByte(PLAYER_BYTES, 0, skin);
@@ -2002,7 +2003,6 @@ bool Player::Create(WorldPacket& data )
     SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
     SetByte(PLAYER_BYTES_3, 0, gender);
 
-    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, 400);// sWorld.GetXPToNextLevel(getLevel()));
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(castPtr<Player>(this)));
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 
@@ -2115,7 +2115,7 @@ void Player::setLevel(uint32 level)
         {
             if(level <= 9)
                 m_talentInterface.ResetAllSpecs();
-            else m_talentInterface.ModAvailableTalentPoints(level-currLevel);
+            else m_talentInterface.RecalculateAvailableTalentPoints();
         }
         UpdateNearbyQuestGivers(); // For quests that require levels
         SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
@@ -3338,7 +3338,6 @@ void Player::OnPrePushToWorld()
     if(m_TeleportState == 1)        // First world enter
         SoftLoadPlayer();
     SendInitialLogonPackets();
-    printf("PostPrePushToWorld\n");
 }
 
 void Player::OnPushToWorld()
@@ -3366,7 +3365,11 @@ void Player::OnPushToWorld()
 
     Unit::OnPushToWorld();
 
+    // Item stats
     m_inventory.AddToWorld();
+
+    // Update stats
+    UpdateFieldValues();
 
     // Update PVP Situation
     LoginPvPSetup();
@@ -3479,6 +3482,8 @@ void Player::RemoveFromWorld()
         if( charmer != NULL )
             charmer->UnPossess();
     }
+
+    m_inventory.RemoveFromWorld();
 
     m_resurrectHealth = 0;
     m_resurrectMana = 0;
@@ -5018,6 +5023,9 @@ void Player::SendInitialLogonPackets()
     SendProficiency(true);
     SendProficiency(false);
 
+    // Send player talent info
+    m_talentInterface.SendTalentInfo();
+
     //Initial Spells
     smsg_InitialSpells();
 
@@ -5025,13 +5033,8 @@ void Player::SendInitialLogonPackets()
     data << uint32(0); // count, for (count) uint32;
     GetSession()->SendPacket(&data);
 
-    if(sWorld.m_useAccountData)
-    {   //Lock Initial Actions
-        data.Initialize(SMSG_ACTION_BUTTONS, PLAYER_ACTION_BUTTON_COUNT*4+1);
-        m_talentInterface.BuildPlayerActionInfo(&data);
-        data.put<uint8>(0, 0);
-        SendPacket(&data);
-    }
+    // Send our action bar
+    m_talentInterface.SendInitialActions();
 
     //Factions
     smsg_InitialFactions();
@@ -5045,16 +5048,8 @@ void Player::SendInitialLogonPackets()
     m_currency.SendInitialCurrency();
 
     data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
-    data.WriteBitString(4, m_objGuid[5], m_objGuid[7], m_objGuid[3], m_objGuid[6]);
-    data.WriteBitString(4, m_objGuid[0], m_objGuid[4], m_objGuid[1], m_objGuid[2]);
-    data.WriteByteSeq(m_objGuid[6]);
-    data.WriteByteSeq(m_objGuid[2]);
-    data.WriteByteSeq(m_objGuid[3]);
-    data.WriteByteSeq(m_objGuid[0]);
-    data.WriteByteSeq(m_objGuid[5]);
-    data.WriteByteSeq(m_objGuid[7]);
-    data.WriteByteSeq(m_objGuid[1]);
-    data.WriteByteSeq(m_objGuid[4]);
+    data.WriteGuidBitString(8, m_objGuid, 5, 7, 3, 6, 0, 4, 1, 2);
+    data.WriteSeqByteString(8, m_objGuid, 6, 2, 3, 0, 5, 7, 1, 4);
     GetSession()->SendPacket( &data );
 
     sLog.Debug("WORLD","Sent initial logon packets for %s.", GetName());
@@ -5062,9 +5057,6 @@ void Player::SendInitialLogonPackets()
 
 void Player::Reset_Spells()
 {
-    Mutex lock;
-    lock.Acquire();
-
     PlayerCreateInfo *info = objmgr.GetPlayerCreateInfo(getRace(), getClass());
     ASSERT(info);
     SpellSet spelllist;
@@ -5097,8 +5089,6 @@ void Player::Reset_Spells()
         if(*itr)
             addSpell(*itr);
     }
-
-    lock.Release();
 }
 
 void Player::Reset_ToLevel1()
@@ -5823,7 +5813,6 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 
     m_updateDataCount += updatecount;
     m_updateDataBuff.append(data->contents(), data->size());
-    PopPendingUpdates();
 
     // add to process queue
     if(m_mapMgr && !bProcessPending)
@@ -6717,6 +6706,7 @@ void Player::SoftLoadPlayer()
         }
     }
 
+    // Initialize our talent info
     m_talentInterface.InitActiveSpec();
 
     if(isDead()) // only add aura's to the living (death aura set elsewhere)
@@ -6742,9 +6732,6 @@ void Player::SoftLoadPlayer()
             CastSpell(castPtr<Unit>(this), dbcSpell.LookupEntry(2457), true);
     }
     // this needs to be after the cast of passive spells, because it will cast ghost form, after the remove making it in ghost alive, if no corpse.
-
-    // Update our field values
-    UpdateFieldValues();
 }
 
 void Player::CompleteLoading()
@@ -6758,12 +6745,12 @@ void Player::CompleteLoading()
         const char * message = ("This character is banned for  %s.\n You will be kicked in 30 secs.", GetBanReason().c_str());
 
         // Send warning after 30sec, as he might miss it if it's send inmedeately.
-        sEventMgr.AddEvent( castPtr<Player>(this), &Player::_Warn, message, EVENT_UNIT_SENDMESSAGE, 30000, 1, 0);
-        sEventMgr.AddEvent( castPtr<Player>(this), &Player::_Kick, EVENT_PLAYER_KICK, 60000, 1, 0 );
+        sEventMgr.AddEvent(this, &Player::_Warn, message, EVENT_UNIT_SENDMESSAGE, 30000, 1, 0);
+        sEventMgr.AddEvent(this, &Player::_Kick, EVENT_PLAYER_KICK, 60000, 1, 0 );
     }
 
     if(m_playerInfo->m_Group)
-        sEventMgr.AddEvent(castPtr<Player>(this), &Player::EventGroupFullUpdate, EVENT_UNK, 100, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        sEventMgr.AddEvent(this, &Player::EventGroupFullUpdate, EVENT_UNK, 100, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     if(raidgrouponlysent)
     {
@@ -6773,7 +6760,7 @@ void Player::CompleteLoading()
         raidgrouponlysent=false;
     }
 
-    sInstanceMgr.BuildSavedInstancesForPlayer(castPtr<Player>(this));
+    sInstanceMgr.BuildSavedInstancesForPlayer(this);
 }
 
 void Player::OnWorldPortAck()
@@ -6870,14 +6857,11 @@ bool Player::CanSignCharter(Charter * charter, Player* requester)
 {
     if(charter->CharterType >= CHARTER_TYPE_ARENA_2V2 && m_playerInfo->arenaTeam[charter->CharterType-1] != NULL)
         return false;
-
     if(charter->CharterType == CHARTER_TYPE_GUILD && m_playerInfo->GuildId != 0)
         return false;
-
     if(m_playerInfo->charterId[charter->CharterType] != 0 || requester->GetTeam() != GetTeam())
         return false;
-    else
-        return true;
+    return true;
 }
 
 void Player::SetShapeShift(uint8 ss)
@@ -6904,12 +6888,11 @@ void Player::SetShapeShift(uint8 ss)
     }
 
     // now dummy-handler stupid hacky fixed shapeshift spells (leader of the pack, etc)
-    for( itr = mShapeShiftSpells.begin(); itr != mShapeShiftSpells.end(); )
+    for( itr = mShapeShiftSpells.begin(); itr != mShapeShiftSpells.end(); itr++)
     {
         SpellEntry *sp = dbcSpell.LookupEntry( *itr );
         if( sp == NULL)
             continue;
-        ++itr;
 
         if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
             if(Spell *spe = new Spell( this, sp))

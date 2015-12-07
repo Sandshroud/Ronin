@@ -198,14 +198,14 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
         WorldPacket data(SMSG_PLAY_SPELL_VISUAL_KIT, 12);
         data << uint32(0) << uint32(179) << uint32(0);
         data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
-        data.WriteSeqByteString(8, guid[0], guid[4], guid[1], guid[6], guid[7], guid[2], guid[3], guid[5]);
+        data.WriteSeqByteString(8, guid, 0, 4, 1, 6, 7, 2, 3, 5);
         pCreature->SendMessageToSet(&data, false);
 
         guid = _player->GetGUID();
         data.clear();
         data << uint32(0) << uint32(362) << uint32(0);
         data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
-        data.WriteSeqByteString(8, guid[0], guid[4], guid[1], guid[6], guid[7], guid[2], guid[3], guid[5]);
+        data.WriteSeqByteString(8, guid, 0, 4, 1, 6, 7, 2, 3, 5);
         _player->SendMessageToSet(&data, true);
 
         _player->forget = pSpell->DeleteSpell;

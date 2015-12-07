@@ -94,13 +94,29 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
     if(m_castFlags & 0x2)
     {
         data >> missilepitch >> missilespeed;
-        if(data.read<uint8>() == 1)
-            data.read_skip<uint64>();
 
         float dx = m_dest.x - m_src.x;
         float dy = m_dest.y - m_src.y;
         if((missilepitch != (M_PI / 4)) && (missilepitch != -M_PI / 4))
             traveltime = (sqrtf(dx * dx + dy * dy) / (cosf(missilepitch) * missilespeed)) * 1000;
+    }
+    else if (m_castFlags & 0x08)         // has archaeology weight
+    {
+        uint32 count = data.read<uint32>();
+        for (uint32 i = 0; i < count; ++i)
+        {
+            switch (data.read<uint8>()) // Type
+            {
+            case 1:                         // Fragments
+                data.read_skip<uint32>();   // Currency entry
+                data.read_skip<uint32>();   // Currency count
+                break;
+            case 2:                         // Keystones
+                data.read_skip<uint32>();   // Item entry
+                data.read_skip<uint32>();   // Item count
+                break;
+            }
+        }
     }
 }
 
@@ -109,16 +125,16 @@ void SpellCastTargets::write( WorldPacket& data )
     data << m_targetMask;
 
     if( m_targetMask & (TARGET_FLAG_UNIT | TARGET_FLAG_CORPSE | TARGET_FLAG_CORPSE2 | TARGET_FLAG_OBJECT | TARGET_FLAG_GLYPH) )
-        FastGUIDPack( data, m_unitTarget );
+        data << m_unitTarget.asPacked();
 
     if( m_targetMask & ( TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM ) )
-        FastGUIDPack( data, m_itemTarget );
+        data << m_itemTarget.asPacked();
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
-        data << m_src_transGuid << m_src.x << m_src.y << m_src.z;
+        data << m_src_transGuid.asPacked() << m_src.x << m_src.y << m_src.z;
 
     if( m_targetMask & TARGET_FLAG_DEST_LOCATION )
-        data << m_dest_transGuid << m_dest.x << m_dest.y << m_dest.z;
+        data << m_dest_transGuid.asPacked() << m_dest.x << m_dest.y << m_dest.z;
 
     if (m_targetMask & TARGET_FLAG_STRING)
         data << m_strTarget;
@@ -1488,8 +1504,8 @@ void Spell::SendSpellStart()
     }
 
     WorldPacket data(SMSG_SPELL_START, 150);
-    data << m_caster->GetGUID();
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
+    data << m_caster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
@@ -1551,8 +1567,8 @@ void Spell::SendSpellGo()
     }
 
     WorldPacket data(SMSG_SPELL_GO, 200);
-    data << m_caster->GetGUID();
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
+    data << m_caster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);

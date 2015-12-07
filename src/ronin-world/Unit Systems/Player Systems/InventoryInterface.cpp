@@ -35,11 +35,32 @@ void PlayerInventory::AddToWorld()
     {
         if(m_pItems[i])
         {
+            if(!m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
+                m_pOwner->ApplyItemMods(m_pItems[i], i, true, false);
+
             m_pItems[i]->SetInWorld(true);
-            if(m_pItems[i]->IsContainer() && m_pItems[i]->GetProto() && m_pItems[i]->GetProto()->ContainerSlots > 0)
-                for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
-                    if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
+            if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
+                for(uint8 e = 0; e < pContainer->GetSlotCount(); e++)
+                    if(Item* pItem = pContainer->GetItem(e))
                         pItem->SetInWorld(true);
+        }
+    }
+}
+
+void PlayerInventory::RemoveFromWorld()
+{
+    for(uint8 i = 0; i < MAX_INVENTORY_SLOT; i++)
+    {
+        if(m_pItems[i])
+        {
+            if(m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
+                m_pOwner->ApplyItemMods(m_pItems[i], i, false, false);
+            m_pItems[i]->SetInWorld(false);
+
+            if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
+                for(uint8 e = 0; e < pContainer->GetSlotCount(); e++)
+                    if(Item* pItem = pContainer->GetItem(e))
+                        pItem->SetInWorld(false);
         }
     }
 }
@@ -2050,29 +2071,26 @@ Item* PlayerInventory::GetItemByGUID(uint64 Guid)
 //-------------------------------------------------------------------//
 void PlayerInventory::BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error)
 {
-    WorldPacket data(22);
-
-    data.Initialize( SMSG_INVENTORY_CHANGE_FAILURE );
+    WorldPacket data(SMSG_INVENTORY_CHANGE_FAILURE, 22);
     data << Error;
-
-    if(Error == 1)
+    if (Error != INV_ERR_OK)
     {
-        if(SrcItem)
+        data << uint64(SrcItem ? SrcItem->GetGUID() : 0);
+        data << uint64(DstItem ? DstItem->GetGUID() : 0);
+        data << uint8(0);
+        switch(Error)
         {
-            data << SrcItem->GetProto()->RequiredLevel;
-        }
-    }
-
-    data << (SrcItem ? SrcItem->GetGUID() : uint64(0));
-    data << (DstItem ? DstItem->GetGUID() : uint64(0));
-    data << uint8(0);
-    if(Error == INV_ERR_PURCHASE_LEVEL_TOO_LOW)
-    {
-        uint32 level = 0;
-        if(SrcItem)
-        {
-            level = SrcItem->GetProto()->RequiredLevel;
-            data << uint32(level);
+        case INV_ERR_PURCHASE_LEVEL_TOO_LOW:
+            data << uint32(SrcItem ? SrcItem->GetProto()->RequiredLevel : 0);
+            break;
+        case INV_ERR_NO_OUTPUT:
+            data << uint64(0) << uint32(0) << uint64(0);
+            break;
+        case INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS:
+        case INV_ERR_ITEM_MAX_LIMIT_CATEGORY_SOCKETED_EXCEEDED_IS:
+        case INV_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED_IS:
+            data << uint32(SrcItem ? SrcItem->GetProto()->ItemLimitCategory : 0);
+            break;
         }
     }
 
@@ -2432,6 +2450,19 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
         }
     }
 
+    //src item is equiped now
+    if( srcslot < INVENTORY_SLOT_BAG_END )
+    {
+        if( m_pItems[srcslot] != NULL )
+            m_pOwner->ApplyItemMods( m_pItems[srcslot], srcslot, true );
+    }
+
+    //dst item is equiped now
+    if( dstslot < INVENTORY_SLOT_BAG_END )
+    {
+        if( m_pItems[dstslot] != NULL )
+            m_pOwner->ApplyItemMods( m_pItems[dstslot], dstslot, true );
+    }
     return true;
 }
 

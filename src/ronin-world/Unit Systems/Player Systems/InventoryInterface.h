@@ -50,6 +50,7 @@ public:
     ~PlayerInventory();
 
     void AddToWorld();
+    void RemoveFromWorld();
 
     Player* GetOwner() { return m_pOwner; }
     bool IsBagSlot(int16 slot);

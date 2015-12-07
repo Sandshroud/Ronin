@@ -771,42 +771,7 @@ void WorldSession::HandleSetActionButtonOpcode(WorldPacket& recv_data)
 
     type = ACTION_BUTTON_TYPE(PackedAction);
     action = ACTION_BUTTON_ACTION(PackedAction);
-
-    sLog.outDebug("BUTTON: %u ACTION: %u TYPE: %u", button, action, type );
-    if(PackedAction == 0)
-    {
-        sLog.outDebug( "MISC: Remove action from button %u", button );
-        GetPlayer()->m_talentInterface.setAction(button, 0, 0);
-    }
-    else
-    {
-        switch(type)
-        {
-        case ACTION_BUTTON_SPELL:
-            {
-                sLog.outDebug( "MISC: Added Spell %u into button %u", action, button );
-            }break;
-        case ACTION_BUTTON_EQSET:
-            {
-                sLog.outDebug( "MISC: Added EquipmentSet %u into button %u", action, button );
-            }break;
-        case ACTION_BUTTON_MACRO:
-        case ACTION_BUTTON_CMACRO:
-            {
-                sLog.outDebug( "MISC: Added Macro %u into button %u", action, button );
-            }break;
-        case ACTION_BUTTON_ITEM:
-            {
-                sLog.outDebug( "MISC: Added Item %u into button %u", action, button );
-            }break;
-        default:
-            {
-                sLog.outDebug( "Unknown Action Type %u for button %u", action, button );
-                return;
-            }break;
-        }
-        GetPlayer()->m_talentInterface.setAction(button,action,type);
-    }
+    _player->m_talentInterface.setAction(button,action,type);
 }
 
 void WorldSession::HandleSetWatchedFactionIndexOpcode(WorldPacket &recvPacket)

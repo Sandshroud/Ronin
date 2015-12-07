@@ -5,8 +5,7 @@ TalentInterface::TalentInterface(Player *plr) : m_Player(plr)
 {
     m_specCount = 1;
     m_activeSpec = 0;
-    m_queuedActions = false;
-    m_talentResetCounter = m_availableTalentPoints = 0;
+    m_talentResetCounter = m_availableTalentPoints = m_bonusTalentPoints = 0;
     m_specs[0].ActiveTalentTab = m_specs[1].ActiveTalentTab = 0xFF;
     memset(&m_specs[0].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
     memset(&m_specs[1].Glyphs, 0, sizeof(uint16)*GLYPHS_COUNT);
@@ -24,41 +23,32 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf)
     ASSERT(m_specCount > 0);
     m_specLock.Acquire();
 
-    int32 savedTalents = m_availableTalentPoints;
-    if(savedTalents < 0) savedTalents = 0;
-    if(savedTalents > 0xFFF) savedTalents = 0xFFF;
-
     // delete old talents first
     if(buf == NULL)
         CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
     else buf->AddQuery("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
 
+    std::stringstream ss;
     for(uint8 s = 0; s < m_specCount; s++)
     {
-        if(s > MAX_SPEC_COUNT)
-            break;
         TalentStorageMap *talents = &m_specs[s].m_talents;
         if(talents->size())
         {
-            bool first = true;
-            std::stringstream ss;
-            ss << "INSERT INTO character_talents VALUES ";
-            std::map<uint32, uint8>::iterator itr;
-            for(itr = talents->begin(); itr != talents->end(); itr++)
+            for(std::map<uint32, uint8>::iterator itr = talents->begin(); itr != talents->end(); itr++)
             {
-                if(first)
-                    first = false;
-                else
-                    ss << ",";
-
+                if(ss.str().length())
+                    ss << ", ";
                 ss << "(" << m_Player->GetLowGUID() << "," << uint32(s) << "," << itr->first << "," << uint32(itr->second) << ")";
             }
-
-            if(buf == NULL)
-                CharacterDatabase.Execute(ss.str().c_str());
-            else buf->AddQueryStr(ss.str());
         }
     }
+
+    if(ss.str().empty())
+        return;
+
+    if(buf == NULL)
+        CharacterDatabase.Execute("INSERT INTO character_talents VALUES %s", ss.str().c_str());
+    else buf->AddQuery("INSERT INTO character_talents VALUES %s", ss.str().c_str());
     m_specLock.Release();
 }
 
@@ -70,33 +60,35 @@ void TalentInterface::LoadTalentData(QueryResult *result)
         {
             uint32 talentId;
             Field *fields = result->Fetch();
-            uint8 talentRank = 0, spec = fields[0].GetInt8();
+            uint8 talentRank = 0, spec = fields[1].GetInt8();
             if(spec >= m_specCount)
             {
                 sLog.outDebug("Out of range spec number [%d] for player with GUID [%d] in character_talents", spec, m_Player->GetLowGUID());
                 continue;
             }
 
-            talentId = fields[1].GetUInt32();
-            talentRank = fields[2].GetUInt8();
+            talentId = fields[2].GetUInt32();
+            talentRank = fields[3].GetUInt8();
             m_specs[spec].m_talents.insert(std::make_pair(talentId, talentRank));
         } while(result->NextRow());
     }
 }
 
-void TalentInterface::SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, uint32 availablePoints, uint32 activeSpecStack)
+void TalentInterface::SetTalentData(uint8 activeSpec, uint8 specCount, uint32 resetCounter, int32 bonusTalentPoints, uint32 activeSpecStack)
 {
     m_activeSpec = activeSpec, m_specCount = specCount;
     if(m_specCount > MAX_SPEC_COUNT) m_specCount = MAX_SPEC_COUNT;
     if(m_activeSpec >= m_specCount ) m_activeSpec = 0;
     m_talentResetCounter = resetCounter;
-    m_availableTalentPoints = availablePoints;
+    m_bonusTalentPoints = bonusTalentPoints;
     m_specs[0].ActiveTalentTab = uint8(activeSpecStack&0xFF);
     m_specs[1].ActiveTalentTab = uint8(activeSpecStack>>8);
 }
 
 void TalentInterface::InitActiveSpec()
 {
+    m_availableTalentPoints = dbcNumTalents.LookupEntry(std::min<uint32>(100, m_Player->getLevel()))->talentPoints;
+
     // We could use the pre-created function but we need to apply the talents
     uint32 spentPoints = 0;//CalculateSpentPoints(m_activeSpec);
     for(TalentStorageMap::iterator itr = m_specs[m_activeSpec].m_talents.begin(); itr != m_specs[m_activeSpec].m_talents.end(); itr++)
@@ -110,7 +102,7 @@ void TalentInterface::InitActiveSpec()
         spentPoints += itr->second;
     }
 
-    m_currentTalentPoints = m_availableTalentPoints;
+    m_currentTalentPoints = std::max<int32>(0, m_availableTalentPoints+m_bonusTalentPoints);
     if(m_currentTalentPoints <= spentPoints)
         m_currentTalentPoints = 0;
     else m_currentTalentPoints -= spentPoints;
@@ -119,9 +111,6 @@ void TalentInterface::InitActiveSpec()
     for(uint8 i = 0; i < GLYPHS_COUNT; i++)
         if(uint16 glyphId = m_specs[m_activeSpec].Glyphs[i])
             ApplyGlyph(i, glyphId);
-
-    SendTalentInfo();
-    SendInitialActions();
 }
 
 void TalentInterface::SendTalentInfo()
@@ -162,54 +151,28 @@ void TalentInterface::BuildPlayerTalentInfo(WorldPacket *packet)
 
 void TalentInterface::BuildPlayerActionInfo(WorldPacket *packet)
 {
-    *packet << uint8(m_queuedActions ? 1 : 0); // Action button list packet
     m_specLock.Acquire();
     for(uint8 i = 0; i < PLAYER_ACTION_BUTTON_COUNT; i++)
         *packet << m_specs[m_activeSpec].m_actions[i].PackedData;
-    m_queuedActions = false;
+    *packet << uint8(1); // Action button list packet
     m_specLock.Release();
 }
 
-void TalentInterface::ResetAvailableTalentPoints()
-{
-    m_availableTalentPoints = 0;
-    if(m_Player->getLevel() >= 10)
-        m_availableTalentPoints += m_Player->getLevel()-9;
-    SendTalentInfo();
-}
-
-void TalentInterface::ModAvailableTalentPoints(int32 talentPoints)
+void TalentInterface::ModTalentPoints(int32 talentPoints)
 {
     if(talentPoints == 0)
         return;
 
-    if(talentPoints < 0)
-    {
-        bool forceReset = false;
-        if(m_availableTalentPoints < abs(talentPoints))
-        { forceReset=true; m_availableTalentPoints = 0; }
-        else m_availableTalentPoints += talentPoints;
-        for(uint8 i = 0; i < m_specCount; i++)
-        {
-            if(forceReset || m_availableTalentPoints < CalculateSpentPoints(i))
-                ResetSpec(i, true);
-            else if(i == m_activeSpec)
-                m_currentTalentPoints += talentPoints;
-        }
-    }
-    else
-    {
-        m_availableTalentPoints += talentPoints;
-        m_currentTalentPoints += talentPoints;
-    }
-    SendTalentInfo();
+    m_bonusTalentPoints += talentPoints;
+    RecalculateAvailableTalentPoints();
 }
 
 void TalentInterface::ResetAllSpecs()
 {
+    RecalculateAvailableTalentPoints();
     for(uint8 i = 0; i < m_specCount; i++)
         ResetSpec(i, true);
-    ResetAvailableTalentPoints();
+    SendTalentInfo();
 }
 
 void TalentInterface::ResetSpec(uint8 spec, bool silent)
@@ -220,12 +183,8 @@ void TalentInterface::ResetSpec(uint8 spec, bool silent)
     if(spec == m_activeSpec)
     {
         for(TalentStorageMap::iterator itr = talentMap->begin(); itr != talentMap->end(); itr++)
-        {
-            TalentEntry *te = dbcTalent.LookupEntry(itr->first);
-            if(te == NULL)
-                continue;
-            RemoveTalent(te->RankID[itr->second]);
-        }
+            if(TalentEntry *te = dbcTalent.LookupEntry(itr->first))
+                RemoveTalent(te->RankID[itr->second]);
 
         // The dual wield skill for shamans can only be added by talents.
         // so when reset, the dual wield skill should be removed too.
@@ -233,7 +192,7 @@ void TalentInterface::ResetSpec(uint8 spec, bool silent)
         if( m_Player->getClass() == SHAMAN && m_Player->_HasSkillLine( SKILL_DUAL_WIELD ) )
             m_Player->_RemoveSkillLine( SKILL_DUAL_WIELD );
 
-        m_currentTalentPoints = m_availableTalentPoints;
+        m_currentTalentPoints = std::max<int32>(0, m_availableTalentPoints+m_bonusTalentPoints);
     }
     talentMap->clear();
     m_specs[spec].ActiveTalentTab = 0xFF;
@@ -255,7 +214,6 @@ void TalentInterface::ApplySpec(uint8 spec)
     if(spec == m_activeSpec)
         return;
 
-    m_queuedActions = true;
     WorldPacket data(SMSG_ACTION_BUTTONS, 1);
     data << uint8(2);
     m_Player->SendPacket(&data);
@@ -273,6 +231,23 @@ void TalentInterface::ApplySpec(uint8 spec)
 
     m_activeSpec = spec;
     InitActiveSpec();
+}
+
+void TalentInterface::RecalculateAvailableTalentPoints()
+{
+    uint32 availableTalents = dbcNumTalents.LookupEntry(std::min<uint32>(100, m_Player->getLevel()))->talentPoints;
+    bool reset = availableTalents < m_availableTalentPoints;
+    m_availableTalentPoints = availableTalents;
+    availableTalents += m_bonusTalentPoints;
+    for(uint8 i = 0; i < m_specCount; i++)
+    {
+        uint32 spentPoints = CalculateSpentPoints(i);
+        if(reset && availableTalents < spentPoints)
+            ResetSpec(i, true);
+        else if(i == m_activeSpec)
+            m_currentTalentPoints = std::max<int32>(0, availableTalents-spentPoints);
+    }
+    SendTalentInfo();
 }
 
 int32 TalentInterface::CalculateSpentPoints(uint8 spec, int32 talentTree)
@@ -546,8 +521,8 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
             return SPELL_FAILED_UNIQUE_GLYPH;
     }
 
-    if( glyphType[slot] != glyph->TypeFlags || // Glyph type doesn't match
-            (m_Player->GetUInt32Value(PLAYER_GLYPHS_ENABLED) & (1 << slot)) == 0) // slot is not enabled
+    // Glyph type does not match or slot is not enabled
+    if( glyphType[slot] != glyph->TypeFlags || (m_Player->GetUInt32Value(PLAYER_GLYPHS_ENABLED) & (1 << slot)) == 0)
         return SPELL_FAILED_INVALID_GLYPH;
 
     UnapplyGlyph(slot);
@@ -559,12 +534,49 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
 
 void TalentInterface::SaveActionButtonData(QueryBuffer *buf)
 {
+    std::stringstream ss;
+    for(uint8 i = 0; i < m_specCount; i++)
+    {
+        for(uint8 x = 0; x < PLAYER_ACTION_BUTTON_COUNT; x++)
+        {
+            if(m_specs[i].m_actions[x].PackedData == 0)
+                continue;
 
+            if(ss.str().length())
+                ss << ", ";
+
+            ss << "(" << m_Player->GetLowGUID() << ", " << uint32(i) << ", " << uint32(x) << ", " << m_specs[i].m_actions[x].PackedData << ")";
+        }
+    }
+
+    if(buf)
+    {
+        buf->AddQuery("DELETE FROM character_actions WHERE guid = '%u';", m_Player->GetLowGUID());
+        if(ss.str().empty())
+            return;
+        buf->AddQuery("REPLACE INTO character_actions VALUES %s", ss.str().c_str());
+        return;
+    }
+
+    CharacterDatabase.Execute("DELETE FROM character_actions WHERE guid = '%u';", m_Player->GetLowGUID());
+    if(ss.str().empty())
+        return;
+    CharacterDatabase.Execute("REPLACE INTO character_actions VALUES %s", ss.str().c_str());
 }
 
 void TalentInterface::LoadActionButtonData(QueryResult *result)
 {
+    if(result == NULL)
+        return;
 
+    do
+    {
+        Field *fields = result->Fetch();
+        uint8 spec = fields[1].GetUInt8();
+        uint8 offset = fields[2].GetUInt8();
+        uint32 value = fields[3].GetUInt32();
+        m_specs[spec].m_actions[offset].PackedData = value;
+    }while(result->NextRow());
 }
 
 void TalentInterface::SendInitialActions()
