@@ -1238,7 +1238,7 @@ public:
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     virtual void DestroyForPlayer( Player* target, bool anim = false);
 
-    std::deque<Aura*> m_loadAuras;
+    std::deque<std::pair<uint8, Aura*>> m_loadAuras;
 
     std::set<uint32> OnMeleeAuras;
     void LoadNamesFromDB(uint32 guid);

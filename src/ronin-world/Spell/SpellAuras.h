@@ -120,12 +120,11 @@ public:
     void SetPositive() { m_positive = true; }
 
     Unit* GetUnitCaster();
-    RONIN_INLINE WorldObject* GetCaster() { return GetUnitCaster();}
-    RONIN_INLINE WoWGuid GetCasterGUID(){return m_casterGuid;}
+    RONIN_INLINE WorldObject* GetCaster() { return GetUnitCaster(); }
+    RONIN_INLINE WoWGuid GetCasterGUID() { return m_casterGuid; }
 
-    RONIN_INLINE WorldObject* GetTarget() {return ((m_target != NULL && m_target->IsInWorld()) ? m_target: NULL);}
-    RONIN_INLINE Unit* GetUnitTarget() {return castPtr<Unit>(GetTarget());}
-    RONIN_INLINE uint64 GetTargetGUID(){return m_target->GetGUID();}
+    RONIN_INLINE Unit* GetUnitTarget() { return m_target; }
+    RONIN_INLINE uint64 GetTargetGUID() { return m_target->GetGUID(); }
 
     void RemoveIfNecessary();
 
@@ -468,8 +467,7 @@ private:
         return (r <= square_r);
     }
 
-    Unit* m_target;
-    Player* p_target;
+    Unit *m_target;
     WoWGuid m_casterGuid;
     WoWGuid periodic_target;
 

@@ -523,7 +523,7 @@ void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32
         m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
     } else pAura = m_tempAuras.at(unitTarget->GetGUID());
 
-    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],amount,GetSpellProto()->EffectMiscValue[i],GetSpellProto()->EffectMiscValueB[i],i);
+    pAura->AddMod(i, GetSpellProto()->EffectApplyAuraName[i], amount);
 }
 
 void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount)  // Power Drain
@@ -752,7 +752,6 @@ void SpellEffectClass::SpellEffectProficiency(uint32 i, WorldObject *target, int
     // If we're not in world just return
     if(!playerTarget->IsInWorld())
         return;
-    printf("Sending proficiency\n");
     playerTarget->SendProficiency(m_spellInfo->EquippedItemClass == ITEM_CLASS_ARMOR);
 }
 

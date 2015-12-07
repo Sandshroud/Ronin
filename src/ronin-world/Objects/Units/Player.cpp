@@ -353,7 +353,7 @@ void Player::Destruct()
         delete itr->second;
     while(!m_loadAuras.empty())
     {
-        Aura *aur = m_loadAuras.front();
+        Aura *aur = m_loadAuras.front().second;
         m_loadAuras.pop_front();
         delete aur;
     }
@@ -1290,7 +1290,7 @@ void Player::_LoadPlayerAuras(QueryResult *result)
                 continue;
             aur->AddMod(x, sp->EffectApplyAuraName[x], fields[8+x].GetInt32(), fields[11+x].GetUInt32(), fields[14+x].GetInt32(), fields[17+x].GetFloat());
         }
-        m_loadAuras.push_back(aur);
+        m_loadAuras.push_back(std::make_pair(auraSlot, aur));
     }while(result->NextRow());
 }
 
@@ -1322,11 +1322,11 @@ void Player::_SavePlayerAuras(QueryBuffer * buf)
         ss << "(" << GetLowGUID()
         << ", " << uint32(i)
         << ", " << aur->GetSpellId()
-        << ", " << aur->GetAuraFlags()
-        << ", " << aur->GetAuraLevel()
-        << ", " << aur->getStackSizeOrProcCharges()
-        << ", '" << uint64(aur->GetCasterGUID())
-        << "', " << aur->GetExpirationTime()
+        << ", " << uint32(aur->GetAuraFlags())
+        << ", " << uint32(aur->GetAuraLevel())
+        << ", " << int32(aur->getStackSizeOrProcCharges())
+        << ", " << uint64(aur->GetCasterGUID())
+        << ", " << uint64(aur->GetExpirationTime())
         << ", " << int32(mods[0] ? mods[0]->m_baseAmount : 0)
         << ", " << int32(mods[1] ? mods[1]->m_baseAmount : 0)
         << ", " << int32(mods[2] ? mods[2]->m_baseAmount : 0)
@@ -1342,11 +1342,10 @@ void Player::_SavePlayerAuras(QueryBuffer * buf)
         ss << ")";
     }
 
-    if(ss.str().length())
-    {
-        if(buf)buf->AddQuery("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
-        else CharacterDatabase.Execute("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
-    }
+    if(ss.str().empty())
+        return;
+    if(buf)buf->AddQuery("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
+    else CharacterDatabase.Execute("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
 }
 
 void Player::_LoadPlayerCooldowns(QueryResult *result)
@@ -6367,13 +6366,9 @@ void Player::BroadcastMessage(const char* Format, ...)
 
 float Player::CalcPercentForRating( uint32 index, uint32 rating )
 {
-    uint32 relative_index = index - (PLAYER_FIELD_COMBAT_RATING_1);
-    uint32 reallevel = GetUInt32Value(UNIT_FIELD_LEVEL);
-    uint32 level = reallevel > MAXIMUM_ATTAINABLE_LEVEL ? MAXIMUM_ATTAINABLE_LEVEL : reallevel;
-    float val = 1.0f;
-    if( gtFloat * pDBCEntry = dbcCombatRating.LookupEntry( relative_index * 100 + level - 1 ) )
-        val = pDBCEntry->val;
-    return float(rating/val);
+    uint32 relative_index = index - (PLAYER_FIELD_COMBAT_RATING_1), level = std::min<uint32>(MAXIMUM_ATTAINABLE_LEVEL, GetUInt32Value(UNIT_FIELD_LEVEL));
+    gtFloat *pDBCEntry = dbcCombatRating.LookupEntry( (relative_index * 100) + level - 1 );
+    return float(rating/(pDBCEntry ? pDBCEntry->val : 1.f));
 }
 
 bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O)
@@ -6715,7 +6710,7 @@ void Player::SoftLoadPlayer()
     {
         while(!m_loadAuras.empty())
         {
-            Aura *aur = m_loadAuras.front();
+            Aura *aur = m_loadAuras.front().second;
             m_loadAuras.pop_front();
             delete aur;
         }
@@ -6724,9 +6719,9 @@ void Player::SoftLoadPlayer()
     {
         while(!m_loadAuras.empty())
         {
-            Aura *aur = m_loadAuras.front();
+            std::pair<uint8, Aura*> pair = m_loadAuras.front();
+            AddAura(pair.second, pair.first);
             m_loadAuras.pop_front();
-            AddAura(aur);
         }
 
         // warrior has to have battle stance
@@ -8599,6 +8594,10 @@ uint8 Player::GetGuildMemberFlags()
 
 uint32 Player::GenerateShapeshiftModelId(uint32 form)
 {
+    SpellShapeshiftFormEntry *ssEntry = dbcSpellShapeshiftForm.LookupEntry(form);
+    if(ssEntry && ssEntry->modelID_H && GetTeam() == HORDE)
+        return ssEntry->modelID_H;
+
     switch(form)
     {
     case FORM_CAT:
@@ -8774,7 +8773,7 @@ uint32 Player::GenerateShapeshiftModelId(uint32 form)
     case FORM_SPIRITOFREDEMPTION:
         return 16031;
     }
-    return 0;
+    return ssEntry ? ssEntry->modelID_A : 0;
 }
 
 void Player::ClearRuneCooldown(uint8 index)

@@ -347,7 +347,6 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
-    p_target = (target->IsPlayer() ? castPtr<Player>(target) : NULL);
     m_stackSizeorProcCharges = (m_spellProto->procCharges ? (-int16(m_spellProto->procCharges&0xFF)) : 1);
     if(!IsPassive())
     {
@@ -372,24 +371,11 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
             castPtr<Unit>(caster)->SM_PIValue(SMT_CHARGES, (int32*)&procCharges, m_spellProto->SpellGroupType);
             m_stackSizeorProcCharges = -(procCharges&0xFF);
         }
-
-        /*if( sFactionSystem.isAttackable( castPtr<Unit>(caster), target, false ) )
-        {
-            if( target->InStealth() && target != caster )
-                target->RemoveStealth();
-        }*/
-
-        if(m_target->IsPlayer() && castPtr<Player>(m_target)->DuelingWith)
-        {
-            if( castPtr<Player>(m_target)->DuelingWith->GetGUID() == m_casterGuid )
-                m_castInDuel = true;
-        }
     }
 
     m_castedItemId = 0;
     m_triggeredSpellId = 0;
     periodic_target = 0;
-    sLog.Debug("Aura","Constructor %u (%s) from %u.", m_spellProto->Id, m_spellProto->Name, m_target->GetLowGUID());
 }
 
 Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
@@ -397,7 +383,6 @@ Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, i
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
-    p_target = (target->IsPlayer() ? castPtr<Player>(target) : NULL);
     m_stackSizeorProcCharges = auraStackCharge;
     if(expirationTime)
     {
@@ -411,8 +396,6 @@ Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, i
     m_castedItemId = 0;
     m_triggeredSpellId = 0;
     periodic_target = 0;
-
-    sLog.Debug("Aura","Constructor %u (%s) from %u.", m_spellProto->Id, m_spellProto->Name, m_target->GetLowGUID());
 }
 
 Aura::~Aura()
@@ -517,7 +500,6 @@ void Aura::Remove()
     }
 
     m_target = NULL;
-    p_target = NULL;
     m_casterGuid = 0;
 
     delete this;
@@ -526,11 +508,7 @@ void Aura::Remove()
 void Aura::OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid)
 {
     // Get our unit target so we can test against the given guid
-    Unit *target = GetUnitTarget();
-    if(target == NULL)
-        return;
-
-    if(target->GetGUID() == targetGuid)
+    if(m_target->GetGUID() == targetGuid)
         RecalculateModBaseAmounts();
 }
 
@@ -1145,7 +1123,33 @@ void Aura::SpellAuraModIncreaseEnergy(bool apply)
 
 void Aura::SpellAuraModShapeshift(bool apply)
 {
+    if( !m_target->IsPlayer())
+        return;
+    Player *p = castPtr<Player>(m_target);
 
+    uint32 modelId = p->GenerateShapeshiftModelId(mod->m_miscValue[0]);
+    if( apply )
+    {
+        if( modelId != 0 )
+        {
+            printf("ModelID %u\n", modelId);
+            m_target->SetUInt32Value( UNIT_FIELD_DISPLAYID, modelId );
+            m_target->EventModelChange();
+        }
+
+        p->SetShapeShift( mod->m_miscValue[0] );
+    }
+    else
+    {
+        m_target->SetUInt32Value(UNIT_FIELD_DISPLAYID, m_target->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID));
+        m_target->EventModelChange();
+
+        p->m_ShapeShifted = 0;
+        p->SetShapeShift(0);
+
+        if(m_target->HasAura(52610))
+            m_target->RemoveAura(52610);
+    }
 }
 
 void Aura::SpellAuraModEffectImmunity(bool apply)
@@ -2967,7 +2971,7 @@ uint8 Aura::GetMaxProcCharges(Unit* caster)
 
 void Aura::RecalculateModBaseAmounts()
 {
-    Unit *unitCaster = GetUnitCaster(), *unitTarget = GetUnitTarget();
+    Unit *unitCaster = GetUnitCaster();
     Player *playerCaster = unitCaster ? unitCaster->IsPlayer() ? castPtr<Player>(unitCaster) : NULL : NULL;
     uint32 casterLevel = unitCaster ? unitCaster->getLevel() : 0, casterComboPoints = 0;
     for(uint32 i = 0; i < m_modcount; i++)
