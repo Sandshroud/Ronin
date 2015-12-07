@@ -355,7 +355,6 @@ enum AuraFlags
     AFLAG_EFF_INDEX_1       = 0x02,
     AFLAG_EFF_INDEX_2       = 0x04,
     AFLAG_NOT_GUID          = 0x08,
-    AFLAG_CANCELLABLE       = 0x10,
     AFLAG_HAS_DURATION      = 0x20,
     AFLAG_EFF_AMOUNT_SEND   = 0x40,
     AFLAG_NEGATIVE          = 0x80,

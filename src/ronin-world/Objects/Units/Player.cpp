@@ -2104,6 +2104,7 @@ void Player::setLevel(uint32 level)
     if(currLevel == level)
         return;
 
+    UpdateFieldValues();
     _UpdateMaxSkillCounts();
     if (m_playerInfo)
         m_playerInfo->lastLevel = level;
@@ -2117,6 +2118,7 @@ void Player::setLevel(uint32 level)
                 m_talentInterface.ResetAllSpecs();
             else m_talentInterface.RecalculateAvailableTalentPoints();
         }
+
         UpdateNearbyQuestGivers(); // For quests that require levels
         SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
         SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));

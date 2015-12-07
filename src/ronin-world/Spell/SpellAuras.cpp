@@ -344,7 +344,7 @@ Unit* Aura::GetUnitCaster()
 
 Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
     : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_expirationTime(0), m_casterGuid(caster->GetGUID()),
-    m_auraSlot(255), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
+    m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
     p_target = (target->IsPlayer() ? castPtr<Player>(target) : NULL);
@@ -353,10 +353,9 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
     {
         m_auraFlags |= AFLAG_EFF_AMOUNT_SEND;
         if(m_positive && !m_spellProto->isForcedApplication())
-            m_auraFlags |= AFLAG_POSITIVE|AFLAG_CANCELLABLE;
-        else if(m_positive)
             m_auraFlags |= AFLAG_POSITIVE;
-        else m_auraFlags |= AFLAG_NEGATIVE;
+        else if(!m_positive)
+            m_auraFlags |= AFLAG_NEGATIVE;
     }
 
     m_modcount = 0;
@@ -395,7 +394,7 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
 
 Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
     : m_target(target), m_spellProto(proto), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_expirationTime(0), m_casterGuid(casterGuid),
-    m_auraSlot(255), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
+    m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
     p_target = (target->IsPlayer() ? castPtr<Player>(target) : NULL);
@@ -659,7 +658,7 @@ void Aura::BuildAuraUpdate()
 void Aura::BuildAuraUpdatePacket(WorldPacket *data)
 {
     *data << uint8(m_auraSlot);
-    if(m_stackSizeorProcCharges == 0)
+    if(m_deleted || m_stackSizeorProcCharges == 0)
     {
         *data << uint32(0);
         return;

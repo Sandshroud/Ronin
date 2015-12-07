@@ -157,7 +157,6 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
     m_castPositionX = m_castPositionY = m_castPositionZ = 0;
     m_triggeredSpell = false;
     m_AreaAura = false;
-    static_damage = false;
 
     m_triggeredByAura = aur;
 
@@ -191,9 +190,6 @@ void Spell::Destruct()
 {
     if( m_caster && m_caster->IsUnit() && castPtr<Unit>(m_caster)->GetCurrentSpell() == this )
         castPtr<Unit>(m_caster)->SetCurrentSpell(NULL);
-    for(std::map<uint64, Aura*>::iterator itr = m_tempAuras.begin(); itr != m_tempAuras.end(); itr++)
-        delete itr->second;
-    m_tempAuras.clear();
 
     objTargetGuid.Clean();
     itemTargetGuid.Clean();
@@ -1764,56 +1760,6 @@ int32 Spell::CalculateCost(int32 &powerField)
     return cost;
 }
 
-void Spell::HandleEffects(uint32 i, WorldObject *target)
-{
-    static_damage = false;
-
-    uint32 effect = GetSpellProto()->Effect[i];
-    if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
-        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, CalculateEffect(i, target));
-    else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
-}
-
-void Spell::HandleAddAura(Unit *target)
-{
-    if(target == NULL)
-        return;
-
-    // Applying an aura to a flagged target will cause you to get flagged.
-    // self casting doesnt flag himself.
-    if( m_caster->IsPlayer() && m_caster->GetGUID() != target->GetGUID() && target->IsPvPFlagged() )
-    {
-        Player *plr = castPtr<Player>(m_caster);
-        if( !plr->IsPvPFlagged() )
-            plr->PvPToggle();
-        else plr->SetPvPFlag();
-    }
-
-    if( GetSpellProto()->MechanicsType == 31 )
-        target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE);
-
-    // avoid map corruption
-    if(target->GetInstanceID() != m_caster->GetInstanceID())
-        return;
-
-    if(m_tempAuras.find(target->GetGUID()) != m_tempAuras.end())
-    {
-        Aura *aur = m_tempAuras.at(target->GetGUID());
-        m_tempAuras.erase(target->GetGUID());
-
-        // did our effects kill the target?
-        if( target->isDead() && !GetSpellProto()->isDeathPersistentAura())
-        {
-            // free pointer
-            target->RemoveAura(aur);
-            return;
-        }
-
-        // Add the aura to our target
-        target->AddAura(aur);
-    }
-}
-
 bool Spell::IsBinary(SpellEntry * sp)
 {
     // Normally, damage spells are only binary if they have an additional non-damage effect
@@ -2516,38 +2462,6 @@ uint8 Spell::CanCast(bool tolerate)
 void Spell::RemoveItems()
 {
 
-}
-
-int32 Spell::CalculateEffect(uint32 i, WorldObject* target)
-{
-    int32 value = GetSpellProto()->CalculateSpellPoints(i, m_caster->getLevel(), 0);
-    if( m_caster->IsUnit() )
-    {
-        Unit * u_caster = castPtr<Unit>(m_caster);
-        int32 spell_mods[2] = { 0, 0 };
-        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_mods[0], GetSpellProto()->SpellGroupType);
-        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_mods[1], GetSpellProto()->SpellGroupType);
-
-        if( i == 0 )
-        {
-            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
-            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
-        }
-        else if( i == 1 )
-        {
-            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
-            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
-        }
-
-        if( ( i == 2 ) || ( i == 1 && GetSpellProto()->Effect[2] == 0 ) || ( i == 0 && GetSpellProto()->Effect[1] == 0 && GetSpellProto()->Effect[2] == 0 ) )
-        {
-            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
-            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
-        }
-        value += float2int32(value * float(spell_mods[1] / 100.f)) + spell_mods[0];
-    }
-
-    return value;
 }
 
 void Spell::HandleTeleport(uint32 id, Unit* Target)

@@ -524,6 +524,14 @@ void PoolSpellData()
             spellInfo->StartRecoveryTime = sCooldowns->StartRecoveryTime;
         }
 
+        //SpellDurationEntry
+        if(SpellDurationEntry *sDuration = dbcSpellDuration.LookupEntry(spellInfo->DurationIndex))
+        {
+            spellInfo->Duration[0] = sDuration->Duration1;
+            spellInfo->Duration[1] = sDuration->Duration2;
+            spellInfo->Duration[2] = sDuration->Duration3;
+        }
+
         //SpellEffectEntry
 
         //SpellEquippedItemsEntry

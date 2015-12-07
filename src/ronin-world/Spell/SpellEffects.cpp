@@ -18,7 +18,87 @@ SpellEffectClass::~SpellEffectClass()
 
 void SpellEffectClass::Destruct()
 {
+    for(std::map<uint64, Aura*>::iterator itr = m_tempAuras.begin(); itr != m_tempAuras.end(); itr++)
+        delete itr->second;
+    m_tempAuras.clear();
+
     BaseSpell::Destruct();
+}
+
+int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
+{
+    int32 value = GetSpellProto()->CalculateSpellPoints(i, m_caster->getLevel(), 0);
+    if( m_caster->IsUnit() )
+    {
+        Unit * u_caster = castPtr<Unit>(m_caster);
+        int32 spell_mods[2] = { 0, 0 };
+        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_mods[0], GetSpellProto()->SpellGroupType);
+        u_caster->SM_FIValue(SMT_MISC_EFFECT, &spell_mods[1], GetSpellProto()->SpellGroupType);
+
+        if( i == 0 )
+        {
+            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_FIRST_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
+        }
+        else if( i == 1 )
+        {
+            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_SECOND_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
+        }
+
+        if( ( i == 2 ) || ( i == 1 && GetSpellProto()->Effect[2] == 0 ) || ( i == 0 && GetSpellProto()->Effect[1] == 0 && GetSpellProto()->Effect[2] == 0 ) )
+        {
+            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS, &spell_mods[0], GetSpellProto()->SpellGroupType);
+            u_caster->SM_FIValue(SMT_LAST_EFFECT_BONUS, &spell_mods[1], GetSpellProto()->SpellGroupType);
+        }
+        value += float2int32(value * float(spell_mods[1] / 100.f)) + spell_mods[0];
+    }
+
+    return value;
+}
+
+void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
+{
+    uint32 effect = GetSpellProto()->Effect[i];
+    if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
+        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, CalculateEffect(i, target));
+    else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
+}
+
+void SpellEffectClass::HandleAddAura(Unit *target)
+{
+    if(target == NULL)
+        return;
+
+    // Applying an aura to a flagged target will cause you to get flagged.
+    // self casting doesnt flag himself.
+    if( m_caster->IsPlayer() && m_caster->GetGUID() != target->GetGUID() && target->IsPvPFlagged() )
+    {
+        Player *plr = castPtr<Player>(m_caster);
+        if( !plr->IsPvPFlagged() )
+            plr->PvPToggle();
+        else plr->SetPvPFlag();
+    }
+
+    if( GetSpellProto()->MechanicsType == 31 )
+        target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE);
+
+    if(m_tempAuras.find(target->GetGUID()) != m_tempAuras.end())
+    {
+        Aura *aur = m_tempAuras.at(target->GetGUID());
+        m_tempAuras.erase(target->GetGUID());
+
+        // did our effects kill the target?
+        if( target->isDead() && !GetSpellProto()->isDeathPersistentAura())
+        {
+            // free pointer
+            target->RemoveAura(aur);
+            return;
+        }
+
+        // Add the aura to our target
+        target->AddAura(aur);
+    }
 }
 
 std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectMap;
@@ -405,7 +485,45 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
 
 void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount)  // Apply Aura
 {
+    if(!target->IsUnit())
+        return;
+    Unit *unitTarget = castPtr<Unit>(target);
 
+    //Aura Immune Flag Check
+    if ( unitTarget->IsCreature() )
+    {
+        if(Creature* c = castPtr<Creature>( unitTarget ))
+        {
+            if(c->GetCreatureData()->auraMechanicImmunity)
+            {
+                if(c->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<GetSpellProto()->MechanicsType))
+                    return;
+            }
+        }
+    }
+
+    // Aura Mastery + Aura Of Concentration = No Interrupting effects
+    if(GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_MOD_SILENCE && unitTarget->HasAura(31821) && unitTarget->HasAura(19746))
+        return;
+
+    if( unitTarget->isDead() && !GetSpellProto()->isDeathPersistentAura() )
+        return;
+
+    // avoid map corruption.
+    if(unitTarget->GetInstanceID()!=m_caster->GetInstanceID())
+        return;
+
+    //check if we already have stronger aura
+    Aura* pAura = NULL;
+    if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
+    {
+        if(m_caster->IsGameObject() && m_caster->GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY) && castPtr<GameObject>(m_caster)->m_summoner)
+            pAura = new Aura(GetSpellProto(), castPtr<GameObject>(m_caster)->m_summoner, unitTarget);
+        else pAura = new Aura(GetSpellProto(), m_caster, unitTarget);
+        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
+    } else pAura = m_tempAuras.at(unitTarget->GetGUID());
+
+    pAura->AddMod(GetSpellProto()->EffectApplyAuraName[i],amount,GetSpellProto()->EffectMiscValue[i],GetSpellProto()->EffectMiscValueB[i],i);
 }
 
 void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount)  // Power Drain

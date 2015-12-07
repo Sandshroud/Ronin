@@ -328,12 +328,8 @@ void WorldSession::HandleCancelAuraOpcode( WorldPacket& recvPacket)
     recvPacket >> spellId;
     if(_player->m_currentSpell && _player->m_currentSpell->GetSpellProto()->Id == spellId)
         _player->m_currentSpell->cancel();
-    else
-    {
-        SpellEntry* info = dbcSpell.LookupEntry(spellId);
+    else if(SpellEntry* info = dbcSpell.LookupEntry(spellId))
         _player->m_AuraInterface.RemoveAllPosAurasByNameHash(info->NameHash);
-        sLog.Debug("Aura","Removing aura with names %s", info->Name);
-    }
 }
 
 void WorldSession::HandleCancelChannellingOpcode( WorldPacket& recvPacket)

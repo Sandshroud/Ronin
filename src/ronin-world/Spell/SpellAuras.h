@@ -99,8 +99,7 @@ public:
             return -1;
         if(m_expirationTime <= UNIXTIME)
             return 0;
-        uint32 timeLeft = m_expirationTime-UNIXTIME;
-        return timeLeft*1000;
+        return (m_expirationTime-UNIXTIME)*1000;
     }
 
     RONIN_INLINE uint32 GetTriggeredSpellId() { return m_triggeredSpellId; }

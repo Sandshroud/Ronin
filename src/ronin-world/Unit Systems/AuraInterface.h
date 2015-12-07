@@ -144,7 +144,7 @@ public:
 
 private:
     Unit* m_Unit;
-    std::map<uint8, Aura*> m_auras;
+    Aura *m_auras[TOTAL_AURAS];
 
     /*******************
     **** Modifiers

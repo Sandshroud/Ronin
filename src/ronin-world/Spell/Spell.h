@@ -130,8 +130,6 @@ public:
     void cast(bool);
     // Finishes the casted spell
     void finish();
-    // Handle the Effects of the Spell
-    void HandleEffects(uint32 i, WorldObject *target);
     // Cancel spell effect due to things like a glyph
     bool CanHandleSpellEffect(uint32 i);
     // Take Power from the caster based on spell power usage
@@ -144,8 +142,6 @@ public:
     uint8 CanCast(bool tolerate);
     // Removes reagents, ammo, and items/charges
     void RemoveItems();
-    // Calculates the i'th effect value
-    int32 CalculateEffect(uint32 effIndex, WorldObject* target);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Determines how much skill caster going to gain
@@ -171,8 +167,6 @@ public:
     static void SendHealSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
     static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
 
-
-    void HandleAddAura(Unit *target);
     void writeSpellGoTargets( WorldPacket * data );
 
     uint32 m_triggeredSpellId;
@@ -194,8 +188,6 @@ public:
     uint64 static FindLowestHealthRaidMember(Player* Target, uint32 dist);
 
     void Heal(Unit *target, uint8 effIndex, int32 amount);
-
-    std::map<uint64, Aura*> m_tempAuras;
 
     bool SpellEffectUpdateQuest(uint32 questid);
 
@@ -249,7 +241,6 @@ public:
     int32 damage;
     Aura* m_triggeredByAura;
 
-    bool static_damage;
     bool m_triggeredSpell;
     bool m_AreaAura;
     //uint32 TriggerSpellId;        // used to set next spell to use

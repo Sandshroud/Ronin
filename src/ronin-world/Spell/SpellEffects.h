@@ -11,12 +11,24 @@ public:
     ~SpellEffectClass();
     virtual void Destruct();
 
+    // Calculates the i'th effect value
+    int32 CalculateEffect(uint32 effIndex, WorldObject* target);
+
+    // Handle the Effects of the Spell
+    void HandleEffects(uint32 i, WorldObject *target);
+
+    // Add auras after handling effects
+    void HandleAddAura(Unit *target);
+
     static void InitializeSpellEffectClass();
     typedef void (SpellEffectClass::*pSpellEffect)(uint32 i, WorldObject *target, int32 amount);
 
     static std::map<uint8, pSpellEffect> m_spellEffectMap;
 
     virtual void GetSpellDestination(LocationVector &dest) { m_caster->GetPosition(dest); }
+
+private:
+    std::map<uint64, Aura*> m_tempAuras;
 
 protected: // Effect Handlers
     void SpellEffectNULL(uint32 i, WorldObject *target, int32 amount);
