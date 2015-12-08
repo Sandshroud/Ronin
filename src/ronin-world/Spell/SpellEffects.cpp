@@ -382,12 +382,6 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
         return;
 
     Unit *unitTarget = castPtr<Unit>(target);
-    if(false)//unitTarget->SchoolImmunityList[GetSpellProto()->School])
-    {
-        SendCastResult(SPELL_FAILED_IMMUNE);
-        return;
-    }
-
     if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
     {
         if( unitTarget->IsPvPFlagged() )

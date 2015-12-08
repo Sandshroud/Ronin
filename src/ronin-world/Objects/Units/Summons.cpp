@@ -191,19 +191,19 @@ void TotemSummon::SetupSpells()
     // Set up AI, depending on our spells.
     bool castingtotem = true;
 
-    if((SP_HasEffect(TotemSpell, SPELL_EFFECT_SUMMON)
-        || SP_HasEffect(TotemSpell, SPELL_EFFECT_APPLY_AURA)
-        || SP_HasEffect(TotemSpell, SPELL_EFFECT_HEALTH_FUNNEL)
-        || SP_HasEffect(TotemSpell, SPELL_EFFECT_APPLY_AREA_AURA)
-        || SP_HasEffect(TotemSpell, SPELL_EFFECT_PERSISTENT_AREA_AURA))
-        && SP_AppliesAura(TotemSpell, SPELL_AURA_PERIODIC_TRIGGER_SPELL))
+    if((TotemSpell->HasEffect(SPELL_EFFECT_SUMMON)
+        || TotemSpell->HasEffect(SPELL_EFFECT_APPLY_AURA)
+        || TotemSpell->HasEffect(SPELL_EFFECT_HEALTH_FUNNEL)
+        || TotemSpell->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA)
+        || TotemSpell->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA))
+        && TotemSpell->AppliesAura(SPELL_AURA_PERIODIC_TRIGGER_SPELL))
         castingtotem = false;
 
     if(!castingtotem)
     {
         // We're an area aura. Simply cast the spell.
         SpellCastTargets targets;
-        if(!SP_AppliesAura(TotemSpell, SPELL_AURA_PERIODIC_TRIGGER_SPELL))
+        if(!TotemSpell->AppliesAura(SPELL_AURA_PERIODIC_TRIGGER_SPELL))
         {
             targets.m_dest = m_summon->GetPosition();
             targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;

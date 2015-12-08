@@ -174,7 +174,7 @@ uint8 GetLiquidType(float x, float y, TileTerrainInformation* Tile)
     return retVal;
 }
 
-uint16 GetAreaFlags(float x, float y, TileTerrainInformation* Tile)
+uint16 GetAreaEntry(float x, float y, TileTerrainInformation* Tile)
 {
     uint16 retVal = 0xFFFF;
     if(Tile && Tile->short_AI)
@@ -336,7 +336,9 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
 
         if((flags[2] & 0x01) == 0)
         {
+            tile->short_LE = new TileTerrainInformation::sLE;
             tile->byte_LI = new TileTerrainInformation::bLI;
+            fread(&tile->short_LE->LE, sizeof(uint16), 16*16, FileDescriptor);
             fread(&tile->byte_LI->LI, sizeof(uint8), 16*16, FileDescriptor);
         } else fread(&tile->liquidData[4], sizeof(uint8), 1, FileDescriptor);
 
@@ -347,6 +349,11 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
             fread(tile->m_liquidHeight, sizeof(float), tile->liquidData[2] * tile->liquidData[3], FileDescriptor);
         } else fread(&tile->mapHeight[2], sizeof(float), 1, FileDescriptor);
 
+        if(flags[0] & 0x02)
+        {
+            tile->short_HI = new TileTerrainInformation::sHI;
+            fread(&tile->short_HI->HI, sizeof(uint16), 16*16, FileDescriptor);
+        }
     }
     // Release the mutex.
     mutex.Release();
@@ -473,7 +480,7 @@ uint16 TerrainMgr::GetAreaID(float x, float y, float z)
     }
 
     // Find the offset in the 2d array.
-    uint16 AreaId = GetAreaFlags(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
+    uint16 AreaId = GetAreaEntry(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
 
     // Return our cached information.
     mutex.Release();

@@ -988,6 +988,7 @@ struct SpellEntry
     bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 11) return false; return (Attributes[index] & attributeFlag); }
     bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
     bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); }
+    bool AppliesAura(uint32 auraName) { return (EffectApplyAuraName[0] == auraName || EffectApplyAuraName[1] == auraName || EffectApplyAuraName[2] == auraName); }
 
     // Attribute parsing
     bool reqAmmoForSpell() { return HasAttribute(0, 0x02); }

@@ -334,13 +334,9 @@ bool World::SetInitialWorldSettings()
     m_lastTick = UNIXTIME;
 
     // TODO: clean this
-    time_t tiempo;
-    char hour[3];
-    char minute[3];
-    char second[3];
-    struct tm *tmPtr;
-    tiempo = UNIXTIME;
-    tmPtr = localtime(&tiempo);
+    time_t tiempo = UNIXTIME;
+    char hour[3], minute[3], second[3];
+    struct tm *tmPtr = localtime(&tiempo);
     strftime( hour, 3, "%H", tmPtr );
     strftime( minute, 3, "%M", tmPtr );
     strftime( second, 3, "%S", tmPtr );
@@ -409,8 +405,7 @@ bool World::SetInitialWorldSettings()
 
     Storage_LoadAdditionalTables();
 
-    ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(),
-        &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
+    ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
     MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
@@ -496,8 +491,7 @@ bool World::SetInitialWorldSettings()
         sLog.Notice("World", "Background loot loading...");
 
         // loot background loading in a lower priority thread.
-        ThreadPool.ExecuteTask("LootLoader", new BasicTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot),
-            BTE_PRIORITY_LOW));
+        ThreadPool.ExecuteTask("LootLoader", new BasicTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot), BTE_PRIORITY_LOW));
     }
     else
     {
@@ -542,7 +536,6 @@ bool World::SetInitialWorldSettings()
                     team = HORDE;
                 SetRestedArea(areaentry->AreaId, team);
             }
-
         }
     }
     sLog.Notice("World", "Hashed %u sanctuaries", m_sanctuaries.size());

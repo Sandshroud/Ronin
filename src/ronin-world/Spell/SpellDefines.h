@@ -844,10 +844,6 @@ RONIN_INLINE uint8 SchoolMask(uint8 school)
     return spellMaskArray[school];
 }
 
-SERVER_DECL int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, WorldObject* u_caster);
-SERVER_DECL bool SP_HasEffect(SpellEntry* spellInfo, uint32 EffectId);
-SERVER_DECL bool SP_AppliesAura(SpellEntry* spellInfo, uint32 EffectId);
-
 enum ReplenishType
 {
     REPLENISH_UNDEFINED = 0,

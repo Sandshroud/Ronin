@@ -26,7 +26,11 @@ public:
         if (b_durSet == false)
         {
             b_durSet = true;
-            m_duration = GetSpellInfoDuration(m_spellInfo, m_caster);
+            if((m_duration = m_spellInfo->CalculateSpellDuration(m_caster->getLevel(), 0)) != -1 && m_spellInfo->SpellGroupType && m_caster->IsUnit())
+            {
+                castPtr<Unit>(m_caster)->SM_FIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
+                castPtr<Unit>(m_caster)->SM_PIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
+            }
         }
         return m_duration;
     }

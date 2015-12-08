@@ -333,8 +333,7 @@ bool VMapInterface::GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 
         if(flags & WMO_FLAG_WMO_EXISTS)
         {
             res = true;
-            WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid);
-            if(WMOEntry != NULL)
+            if(WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid))
                 areaId = WMOEntry->areaId;
         }
     }

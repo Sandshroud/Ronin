@@ -20,6 +20,9 @@ typedef struct
     struct sV9 { uint16 V9[129*129]; } *short_V9;
     struct fV9 { float V9[129*129]; } *float_V9;
 
+    struct sHI { uint16 HI[16*16]; } *short_HI;
+
+    struct sLE { uint16 LE[16*16]; } *short_LE;
     struct bLI { uint8 LI[16*16]; } *byte_LI;
     struct mLI { uint16 LI[16]; } *mask_LI;
     float *m_liquidHeight;

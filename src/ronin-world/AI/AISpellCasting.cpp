@@ -124,7 +124,7 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     if(toCast->info->IsSpellChannelSpell())
     {
         m_CastTimer = 1000;
-        int32 duration = GetSpellInfoDuration(toCast->info, m_Unit);
+        int32 duration = toCast->info->CalculateSpellDuration(m_Unit->getLevel(), 0);
         if(duration > 0)
             m_CastTimer += duration;
     } else m_CastTimer = 1000+toCast->casttime;

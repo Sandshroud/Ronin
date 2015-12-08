@@ -6,50 +6,6 @@
 
 #define SPELL_CHANNEL_UPDATE_INTERVAL 1000
 
-bool SP_HasEffect(SpellEntry* spellInfo, uint32 EffectId)
-{
-    if(spellInfo == NULL)
-        return false;
-
-    if(spellInfo->Effect[0] == EffectId)
-        return true;
-    if(spellInfo->Effect[1] == EffectId)
-        return true;
-    if(spellInfo->Effect[2] == EffectId)
-        return true;
-    return false;
-}
-
-bool SP_AppliesAura(SpellEntry* spellInfo, uint32 AuraName)
-{
-    if(spellInfo == NULL)
-        return false;
-
-    if(spellInfo->EffectApplyAuraName[0] == AuraName)
-        return true;
-    if(spellInfo->EffectApplyAuraName[1] == AuraName)
-        return true;
-    if(spellInfo->EffectApplyAuraName[2] == AuraName)
-        return true;
-    return false;
-}
-
-int32 GetSpellInfoDuration(SpellEntry* m_spellInfo, WorldObject* m_caster)
-{
-    uint32 spellLevel = m_caster ? m_caster->getLevel() : m_spellInfo->spellLevel;
-    int32 duration = m_spellInfo->CalculateSpellDuration(spellLevel, 0);
-    if(duration == -1)
-        return -1;
-
-    if(m_spellInfo->SpellGroupType && m_caster && m_caster->IsUnit())
-    {
-        castPtr<Unit>(m_caster)->SM_FIValue(SMT_DURATION, (int32*)&duration, m_spellInfo->SpellGroupType);
-        castPtr<Unit>(m_caster)->SM_PIValue(SMT_DURATION, (int32*)&duration, m_spellInfo->SpellGroupType);
-    }
-    return duration;
-}
-
-
 enum SpellTargetSpecification
 {
     TARGET_SPECT_NONE       = 0,

@@ -2050,10 +2050,9 @@ void WorldObject::UpdateAreaInfo(MapMgr *mgr)
     {
         if(sWorld.CheckSanctuary(GetMapId(), m_zoneId, m_areaId))
             m_areaFlags |= OBJECT_AREA_FLAG_INSANCTUARY;
+
         AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
-        if(at == NULL)
-            at = dbcAreaTable.LookupEntry(m_zoneId);
-        if(at)
+        if(at != NULL || (at = dbcAreaTable.LookupEntry(m_zoneId)) != NULL)
         {
             if(at->category == AREAC_CONTESTED)
                 m_areaFlags |= OBJECT_AREA_FLAG_CONTESTED;
