@@ -645,7 +645,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     //Use proto displayid (random + gender generator), unless there is an id  specified in spawn->displayid
     uint8 gender; uint32 model;
-    if(!m_spawn->GetModelData(gender, model))
+    if(m_spawn == NULL || !m_spawn->GetModelData(gender, model))
         _creatureData->GenerateModelId(gender, model);
 
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());

@@ -4257,27 +4257,18 @@ bool Unit::IsFFAPvPFlagged()
 
 void Unit::SetFFAPvPFlag()
 {
-    if(IsFFAPvPFlagged()) return;
+    if(IsFFAPvPFlagged())
+        return;
 
     SetByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_FFA_PVP);
 }
 
 void Unit::RemoveFFAPvPFlag()
 {
-    if(!IsFFAPvPFlagged()) return;
+    if(!IsFFAPvPFlagged())
+        return;
 
     RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_FFA_PVP);
-}
-
-void Unit::OnPositionChange()
-{
-    if(GetVehicle() == NULL)
-        return;
-    if(GetVehicle()->GetControllingUnit() != this)
-        return;
-    if(G3D::fuzzyEq(m_position.Distance2D(GetVehicle()->GetPositionX(), GetVehicle()->GetPositionY()), 0.0f) && GetOrientation() == GetVehicle()->GetOrientation())
-        return; //check orientation too since == operator of locationvector doesnt
-    GetVehicle()->MoveVehicle(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
 }
 
 void Unit::Dismount()

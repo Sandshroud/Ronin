@@ -334,27 +334,17 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
             SendAuthResponse(AUTH_ALREADY_LOGGING_IN, false);
             return;
         }
-        else if(session->GetPlayer())
-        {
-            // Disconnect the target player from the session
-            session->Disconnect();
 
-            // clear the logout timer so he times out straight away
-            session->LogoutPlayer(false);
-        }
-        else 
-        {
-            // Disconnect the target player from the session
-            session->Disconnect();
+        // Disconnect the target player from the session
+        session->Disconnect();
 
-            if(session->GetInstance() == 0)
-                sWorld.DeleteGlobalSession(session);
-        }
+        if(session->GetPlayer()) // clear the logout timer so he times out straight away
+            session->LogoutPlayer();
+
+        sWorld.DeleteGlobalSession(session, (session->GetInstance() == 0));
     }
 
     Sha1Hash sha;
-
-    uint32 t = 0;
     if( m_fullAccountName == NULL )             // should never happen !
         sha.UpdateData(AccountName);
     else
@@ -366,6 +356,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
         m_fullAccountName = NULL;
     }
 
+    uint32 t = 0;
     sha.UpdateData((uint8 *)&t, 4);
     sha.UpdateData((uint8 *)&mClientSeed, 4);
     sha.UpdateData((uint8 *)&mSeed, 4);

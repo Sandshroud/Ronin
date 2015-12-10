@@ -71,30 +71,18 @@ uint32 PlayerInventory::m_CreateForPlayer(ByteBuffer *data)
     ASSERT(m_pOwner != NULL);
     uint32 count = 0;
 
-    for(int i = 0; i < MAX_INVENTORY_SLOT; i++)
+    for(uint8 i = 0; i < MAX_INVENTORY_SLOT; i++)
     {
         if(m_pItems[i])
         {
-            if(m_pItems[i]->IsContainer())
+            count += m_pItems[i]->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
+            if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
             {
-                count += (castPtr<Container>(m_pItems[i]))->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
-
-                if(m_pItems[i]->GetProto() && m_pItems[i]->GetProto()->ContainerSlots > 0)
+                for(uint8 e = 0; e < pContainer->GetSlotCount(); e++)
                 {
-                    for(int32 e=0; e < m_pItems[i]->GetProto()->ContainerSlots; e++)
-                    {
-                        if(Item* pItem = (castPtr<Container>(m_pItems[i]))->GetItem(e))
-                        {
-                            if(pItem->IsContainer())
-                                count += (castPtr<Container>(pItem))->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                            else count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
-                        }
-                    }
+                    if(Item* pItem = pContainer->GetItem(e))
+                        count += pItem->BuildCreateUpdateBlockForPlayer( data, m_pOwner );
                 }
-            }
-            else
-            {
-                count += m_pItems[i]->BuildCreateUpdateBlockForPlayer(data, m_pOwner);
             }
         }
     }

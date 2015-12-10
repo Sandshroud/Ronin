@@ -351,7 +351,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 GetPlayer()->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK);
                 if(GetPlayer()->m_bg)
                     sEventMgr.AddEvent(GetPlayer(), &Player::BattlegroundKick, EVENT_PLAYER_BG_KICK, 30000, 1, 0);
-                sEventMgr.AddEvent(GetPlayer(), &Player::ForceLogout, true, EVENT_PLAYER_FORCE_LOGOUT, 1800000, 1, 0);
+                sEventMgr.AddEvent(GetPlayer(), &Player::ForceLogout, EVENT_PLAYER_FORCE_LOGOUT, 1800000, 1, 0);
             }
         } break;
     case CHAT_MSG_DND:

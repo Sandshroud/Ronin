@@ -361,6 +361,11 @@ void MovementInterface::Update(uint32 diff)
             } else m_speedTimers[i] -= diff;
         }
     }
+
+    if(!m_Unit->IsPlayer())
+        return;
+
+    HandleBreathing();
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
@@ -392,6 +397,7 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
         return false;
     if(!UpdateMovementData(moveCode))
         return false;
+
     m_Unit->SetPosition(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z, m_clientLocation.o);
     switch(moveCode)
     {
@@ -627,13 +633,10 @@ void MovementInterface::HandleMovementFlags(bool read, ByteBuffer *buffer)
         // Clear previous movement flags
         m_movementFlags[0] = m_movementFlags[1] = m_movementFlags[2] = m_movementFlags[3] = 0;
         uint32 movementFlags = buffer->ReadBits(30);
-        for(uint8 i = 0; i < 30; i++)
-        {
-            if((movementFlags & 1<<i) == 0)
-                continue;
-            uint8 byte = floor(i/8.f);
-            m_movementFlags[byte] |= 1<<(i%8);
-        }
+        m_movementFlags[0] = (movementFlags)&0xFF;
+        m_movementFlags[1] = (movementFlags>>8)&0xFF;
+        m_movementFlags[2] = (movementFlags>>16)&0xFF;
+        m_movementFlags[3] = (movementFlags>>24)&0xFF;
     }
     else
     {
@@ -652,14 +655,8 @@ void MovementInterface::HandleMovementFlags2(bool read, ByteBuffer *buffer)
         // Clear previous movement flags
         m_movementFlags[4] = m_movementFlags[5] = 0;
         uint16 movementFlags2 = buffer->ReadBits(12);
-        for(uint8 i = 0; i < 12; i++)
-        {
-            if((movementFlags2 & 1<<i) == 0)
-                continue;
-            if(i >= 8)
-                m_movementFlags[5] |= 1<<(i%8);
-            m_movementFlags[4] |= 1<<i;
-        }
+        m_movementFlags[4] = (movementFlags2)&0xFF;
+        m_movementFlags[5] = (movementFlags2>>8)&0xFF;
     }
     else
     {
@@ -915,7 +912,7 @@ void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer) { }
 void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 {
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
-    hasOrientation = !G3D::fuzzyEq(0.0f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
+    hasOrientation = !G3D::fuzzyEq(0.f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
@@ -927,7 +924,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_BIT(bits, m_moverGuid[3]);
     DO_BIT(bits, m_moverGuid[2]);
     if (hasMovementFlags) HandleMovementFlags(false, bits);
-    DO_BIT(bits, hasSpline && m_Unit->IsPlayer());
+    DO_BIT(bits, false);
     DO_BIT(bits, !hasPitch);
     DO_BIT(bits, hasSpline);
     DO_BIT(bits, hasFallData);
@@ -995,13 +992,13 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
 }
 
 #undef DO_BIT

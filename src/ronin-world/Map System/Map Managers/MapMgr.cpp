@@ -38,8 +38,8 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
     thread_running = false;
 
     // buffers
-    m_updateBuffer.reserve(50000);
-    m_createBuffer.reserve(20000);
+    m_createBuffer.reserve(0x7FFF);
+    m_updateBuffer.reserve(0x1FF);
 
     m_PlayerStorage.clear();
     m_PetStorage.clear();
@@ -239,6 +239,7 @@ void MapMgr::PushObject(WorldObject* obj)
     {
         sLog.Debug("MapMgr","Creating player "I64FMT" for himself.", obj->GetGUID());
         plObj->PushUpdateBlock(&m_createBuffer, count);
+        plObj->PopPendingUpdates();
         m_createBuffer.clear();
     }
 
@@ -691,9 +692,6 @@ void MapMgr::ChangeObjectLocation( WorldObject* obj )
                 obj->RemoveInRangeObject(curObj);
             }
         }
-
-        if(Unit *uObj = (obj->IsUnit() ? castPtr<Unit>(obj) : NULL))
-            uObj->OnPositionChange();
     }
 
 }
@@ -874,20 +872,14 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
     if( cell == NULL )
         return;
 
-    int count;
-    WorldObject* obj = NULL;
-    Player* plObj = NULL;
-    WorldObject* curObj = NULL;
-    Player* plObj2 = NULL;
-    bool cansee, isvisible;
-    ObjectSet::iterator itr;
-    ObjectSet::iterator iter = cell->Begin();
-    obj = _GetObject(guid);
+    WorldObject *obj = _GetObject(guid), *curObj = NULL;
     if(obj == NULL)
         return;
-    if(obj->IsPlayer())
-        plObj = castPtr<Player>(obj);
+    Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL, *plObj2 = NULL;
 
+    uint32 count = 0;
+    bool cansee, isvisible;
+    ObjectSet::iterator iter = cell->Begin(), vis_itr;
     while( iter != cell->End() )
     {
         curObj = *iter;
@@ -908,7 +900,6 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                 if( curObj->IsPlayer() )
                 {
                     plObj2 = castPtr<Player>( curObj );
-
                     if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
                     {
                         plObj2->AddVisibleObject(obj);
@@ -937,11 +928,11 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                 {
                     plObj2 = castPtr<Player>( curObj );
                     cansee = plObj2->CanSee(obj);
-                    isvisible = plObj2->GetVisibility(obj, &itr);
+                    isvisible = plObj2->GetVisibility(obj, &vis_itr);
                     if(!cansee && isvisible)
                     {
                         plObj2->PushOutOfRange(obj->GetGUID());
-                        plObj2->RemoveVisibleObject(itr);
+                        plObj2->RemoveVisibleObject(vis_itr);
                     }
                     else if(cansee && !isvisible)
                     {
@@ -957,11 +948,11 @@ void MapMgr::UpdateInRangeSet(uint64 guid, MapCell* cell )
                 if( plObj )
                 {
                     cansee = plObj->CanSee( curObj );
-                    isvisible = plObj->GetVisibility( curObj, &itr );
+                    isvisible = plObj->GetVisibility( curObj, &vis_itr );
                     if(!cansee && isvisible)
                     {
                         plObj->PushOutOfRange( curObj->GetGUID() );
-                        plObj->RemoveVisibleObject( itr );
+                        plObj->RemoveVisibleObject( vis_itr );
                     }
                     else if(cansee && !isvisible)
                     {
@@ -989,6 +980,7 @@ void MapMgr::_UpdateObjects()
 
     uint32 count = 0;
     WorldObject *wObj;
+    PlayerSet m_partyTargets, m_petTargets;
     ObjectSet::iterator iter = _updates.begin();
     for(; iter != _updates.end();)
     {
@@ -1013,40 +1005,35 @@ void MapMgr::_UpdateObjects()
             if( wObj->IsUnit() && wObj->HasUpdateField( UNIT_FIELD_HEALTH ) )
                 castPtr<Unit>( wObj )->EventHealthChangeSinceLastUpdate();
 
-            PlayerSet m_partyTargets, m_petTargets;
             // build the update
-            if(count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC))
+            count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC);
+            for(WorldObject::InRangeSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
             {
-                for(WorldObject::InRangeSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
-                {
-                    Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
-                    ++itr;
-                    if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
-                        continue; // Make sure that the target player can see us.
-                    uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
-                    if(targetFlag & UF_FLAG_PARTY_MEMBER)
-                        m_partyTargets.insert(plrTarget);
-                    else if(targetFlag & UF_FLAG_OWNER)
-                        m_petTargets.insert(plrTarget);
-                    else plrTarget->PushUpdateBlock( &m_updateBuffer, count );
-                }
-                m_updateBuffer.clear();
+                Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
+                ++itr;
+                if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
+                    continue; // Make sure that the target player can see us.
+                uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
+                if(targetFlag & UF_FLAG_PARTY_MEMBER)
+                    m_partyTargets.insert(plrTarget);
+                else if(targetFlag & UF_FLAG_OWNER)
+                    m_petTargets.insert(plrTarget);
+                else if(count > 0 && m_updateBuffer.size())
+                    plrTarget->PushUpdateBlock(&m_updateBuffer, count);
             }
+            m_updateBuffer.clear();
 
             if(m_partyTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PARTY_MEMBER)))
-            {
                 for(PlayerSet::iterator itr = m_partyTargets.begin(); itr != m_partyTargets.end(); itr++)
                     (*itr)->PushUpdateBlock( &m_updateBuffer, count );
-                m_updateBuffer.clear();
-                m_partyTargets.clear();
-            }
+            m_updateBuffer.clear();
+            m_partyTargets.clear();
+
             if(m_petTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_OWN_PET)))
-            {
                 for(PlayerSet::iterator itr = m_petTargets.begin(); itr != m_petTargets.end(); itr++)
                     (*itr)->PushUpdateBlock( &m_updateBuffer, count );
-                m_updateBuffer.clear();
-                m_petTargets.clear();
-            }
+            m_updateBuffer.clear();
+            m_petTargets.clear();
         }
         wObj->ClearUpdateMask();
     }
@@ -1597,6 +1584,13 @@ void MapMgr::_PerformObjectDuties()
                 continue;
             }
 
+            if(MapSession->GetPlayer() == NULL)
+            {
+                MapSessions.erase(it2);
+                delete MapSession;
+                continue;
+            }
+
             // Don't update players not on our map.
             // If we abort in the handler, it means we will "lose" packets, or not process this.
             // .. and that could be diasterous to our client :P
@@ -1653,7 +1647,7 @@ void MapMgr::TeleportPlayers()
             ++__player_iterator;
 
             if(ptr->GetSession())
-                ptr->GetSession()->LogoutPlayer(false);
+                ptr->GetSession()->LogoutPlayer();
             else
             {
                 ptr->Destruct();

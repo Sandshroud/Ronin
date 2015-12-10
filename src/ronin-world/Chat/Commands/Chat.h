@@ -199,11 +199,11 @@ public:
     ~ChatHandler();
 
     size_t FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid = 0, WoWGuid receiverGuid = 0, std::string senderName = "", std::string message = "", std::string receiverName = "", uint8 chatTag = 0);
-    void FillSystemMessageData(WorldPacket *data, const char* message );
+    static void FillSystemMessageData(WorldPacket *data, const char* message );
 
     int ParseCommands(const char* text, WorldSession *m_session);
 
-    void SystemMessage(WorldSession *m_session, const char *message, ...);
+    static void SystemMessage(WorldSession *m_session, const char *message, ...);
     void ColorSystemMessage(WorldSession *m_session, const char *colorcode, const char *message, ...);
     void RedSystemMessage(WorldSession *m_session, const char *message, ...);
     void GreenSystemMessage(WorldSession *m_session, const char *message, ...);

@@ -930,7 +930,6 @@ public:
 
     int32 m_LastSpellManaCost;
 
-    void OnPositionChange();
     void Dismount();
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 

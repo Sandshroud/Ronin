@@ -49,7 +49,7 @@ WorldSession::~WorldSession()
     if(_player != NULL)
     {
         printf("warning: logged out player in worldsession destructor");
-        LogoutPlayer(true);
+        LogoutPlayer();
     }
 
     if(permissions)
@@ -125,7 +125,7 @@ int WorldSession::Update(uint32 InstanceID)
             if(  (uint32)UNIXTIME - m_lastPing > 120 )
             {
                 sLog.Debug("WorldSession","Removing InQueue player due to socket timeout.");
-                LogoutPlayer(true);
+                LogoutPlayer();
                 bDeleted = true;
                 return 1;
             }
@@ -193,7 +193,7 @@ int WorldSession::Update(uint32 InstanceID)
             if(  (uint32)UNIXTIME - m_lastPing > 120 )
             {
                 sLog.Debug("WorldSession","Removing InQueue player due to socket timeout.");
-                LogoutPlayer(true);
+                LogoutPlayer();
                 bDeleted = true;
                 return 1;
             }
@@ -201,7 +201,7 @@ int WorldSession::Update(uint32 InstanceID)
             return 0;
         }
 
-        LogoutPlayer(true);
+        LogoutPlayer();
         if( _socket == NULL )
         {
             bDeleted = true;
@@ -248,7 +248,7 @@ bool WorldSession::IsHighPriority()
     return res;
 }
 
-void WorldSession::LogoutPlayer(bool Save)
+void WorldSession::LogoutPlayer()
 {
     _updatecount = 0;
     if( _loggingOut )
@@ -274,12 +274,10 @@ void WorldSession::LogoutPlayer(bool Save)
         }
 
 #ifndef GM_TICKET_MY_MASTER_COMPATIBLE
-        GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(plr->GetGUID());
-        if(ticket != NULL)
+        if(GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(plr->GetGUID()))
         {
             //Send status change to gm_sync_channel
-            Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), plr);
-            if(chn)
+            if(Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), plr))
             {
                 std::stringstream ss;
                 ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_ONLINESTATE;
@@ -336,17 +334,17 @@ void WorldSession::LogoutPlayer(bool Save)
         if( plr->GetSummon() != NULL )
             plr->GetSummon()->Remove( false, true, false );
 
-        if( Save )
+        if(plr->IsInWorld())
+        {
             plr->SaveToDB(false);
+            plr->RemoveFromWorld();
+        }
 
         // send to gms
         if( HasGMPermissions() && !bServerShutdown )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
 
         plr->m_AuraInterface.RemoveAllAuras();
-        if( plr->IsInWorld() )
-            plr->RemoveFromWorld();
-
         plr->m_playerInfo->m_loggedInPlayer = NULL;
 
         if(!bServerShutdown) // Save our groups for the next startup.

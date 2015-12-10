@@ -354,8 +354,7 @@ public:
     WorldStateManager* m_stateManager;
 
     // bytebuffer caching
-    ByteBuffer m_updateBuffer;
-    ByteBuffer m_createBuffer;
+    ByteBuffer m_createBuffer, m_updateBuffer;
 
 public:
     void ClearCorpse(Corpse* remove) { std::unordered_set<Corpse* >::iterator itr; if((itr = m_corpses.find(remove)) != m_corpses.end()) m_corpses.erase(itr); };

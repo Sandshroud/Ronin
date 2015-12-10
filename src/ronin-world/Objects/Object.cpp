@@ -271,7 +271,10 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 
     uint16 updateFlags = m_updateFlags;
     if(target == this) // player creating self
+    {
+        printf("Creating self\n");
         updateFlags |= UPDATEFLAG_SELF;
+    }
     else if(Unit *unit = (IsUnit() ? castPtr<Unit>(this) : NULL))
     {
         if(unit->GetUInt64Value(UNIT_FIELD_TARGET))
@@ -285,6 +288,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     }
     else if(IsGameObject())
     {
+        return 0;
         switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
         {
         case GAMEOBJECT_TYPE_TRAP:
@@ -887,7 +891,7 @@ void WorldObject::PushToWorld(MapMgr* mgr)
         if(IsPlayer())
         {
             sLog.Error("WorldObject","Kicking Player %s due to empty MapMgr;",castPtr<Player>(this)->GetName());
-            castPtr<Player>(this)->GetSession()->LogoutPlayer(false);
+            castPtr<Player>(this)->GetSession()->LogoutPlayer();
         }
         return; //instance add failed
     }
@@ -2161,6 +2165,15 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 
     if (GetMapMgr() && GetMapMgr()->CanUseCollision(this))
         return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), x, y, z) );
+    return true;
+}
+
+bool WorldObject::AreaCanInteract(WorldObject *pObj)
+{
+    if((GetAreaId() == 4551 || GetAreaId() == 4553) && pObj->GetAreaId() != 4553 && pObj->GetAreaId() != 4551)
+        return false;
+    if((pObj->GetAreaId() == 4551 || pObj->GetAreaId() == 4553) && GetAreaId() != 4553 && GetAreaId() != 4551)
+        return false;
     return true;
 }
 

@@ -1425,7 +1425,7 @@ public:
     void RegenerateHealth(bool inCombat);
 
     void BattlegroundKick() { if(m_bg) m_bg->RemovePlayer(this, false); };
-    void ForceLogout(bool save) { GetSession()->LogoutPlayer(save); };
+    void ForceLogout() { GetSession()->LogoutPlayer(); };
 
     uint32 SoulStone;
     uint32 SoulStoneReceiver;

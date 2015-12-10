@@ -4217,20 +4217,17 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
     if (obj == castPtr<Player>(this))
        return true;
 
-    uint32 object_type = obj->GetTypeId();
-
+    if( !AreaCanInteract(obj) )
+        return false;
     // We can't see any objects in another phase
     // unless they're in ALL_PHASES
     if( !PhasedCanInteract(obj) )
         return false;
 
-    /* I'm a GM, I can see EVERYTHING! :D */
-    if( bGMTagOn )
-        return true;
-
-    if(obj->IsPlayer() && castPtr<Player>(obj)->m_isGmInvisible)
+    if(!bGMTagOn && obj->IsPlayer() && castPtr<Player>(obj)->m_isGmInvisible)
         return false;
 
+    uint32 object_type = obj->GetTypeId();
     if(getDeathState() == CORPSE) // we are dead and we have released our spirit
     {
         if(object_type == TYPEID_PLAYER)
@@ -5603,8 +5600,7 @@ uint32 Player::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target 
     uint32 count = 0;
     if(target == castPtr<Player>(this)) // we need to send create objects for all items.
         count += m_inventory.m_CreateForPlayer(data);
-    count += Unit::BuildCreateUpdateBlockForPlayer(data, target);
-    return count;
+    return count+Unit::BuildCreateUpdateBlockForPlayer(data, target);
 }
 
 void Player::_Warn(const char *message)
@@ -5805,6 +5801,10 @@ void Player::PushOutOfRange(WoWGuid guid)
 
 void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 {
+    // Cause lazy
+    if(updatecount == 0)
+        return;
+
     // imagine the bytebuffer getting appended from 2 threads at once! :D
     _bufferS.Acquire();
 

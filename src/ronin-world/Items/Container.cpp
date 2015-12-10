@@ -8,7 +8,7 @@ Container::Container(ItemPrototype *proto, uint32 counter) : Item(proto, counter
 {
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
 
-    SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, proto->ContainerSlots);
+    SetSlotCount(proto->ContainerSlots);
 }
 
 Container::~Container( )
@@ -31,30 +31,22 @@ void Container::LoadFromDB( Field *fields )
     Item::LoadFromDB(fields);
 }
 
-int8 Container::FindFreeSlot()
+uint8 Container::FindFreeSlot()
 {
-    int8 TotalSlots = GetSlotCount();
-    for (int8 i=0; i < TotalSlots; i++)
-    {
-        if(!m_itemSlots[i])
-        {
+    uint8 TotalSlots = GetSlotCount();
+    for (uint8 i = 0; i < TotalSlots; i++)
+        if(m_itemSlots[i] == NULL)
             return i;
-        }
-    }
     sLog.Debug( "Container","FindFreeSlot: no slot available" );
     return ITEM_NO_SLOT_AVAILABLE;
 }
 
 bool Container::HasItems()
 {
-    int8 TotalSlots = GetSlotCount();
-    for (int8 i=0; i < TotalSlots; i++)
-    {
+    uint8 TotalSlots = GetSlotCount();
+    for (uint8 i = 0; i < TotalSlots; i++)
         if(m_itemSlots[i])
-        {
             return true;
-        }
-    }
     return false;
 }
 
@@ -136,15 +128,14 @@ void Container::SwapItems(uint8 SrcSlot, uint8 DstSlot)
 
 Item* Container::SafeRemoveAndRetreiveItemFromSlot(uint8 slot, bool destroy)
 {
-    if (slot >= GetUInt32Value(CONTAINER_FIELD_NUM_SLOTS))
+    if (slot >= GetSlotCount())
         return NULL;
 
     Item* pItem = m_itemSlots[slot];
-
     if (pItem == NULL || pItem == this)
         return NULL;
-    m_itemSlots[slot] = NULL;
 
+    m_itemSlots[slot] = NULL;
     if( pItem->GetOwner() == m_owner )
     {
         SetUInt64Value(CONTAINER_FIELD_SLOT_1  + slot*2, 0 );
@@ -163,7 +154,7 @@ Item* Container::SafeRemoveAndRetreiveItemFromSlot(uint8 slot, bool destroy)
 
 bool Container::SafeFullRemoveItemFromSlot(uint8 slot)
 {
-    if (slot < 0 || (int32)slot >= GetProto()->ContainerSlots)
+    if (slot >= GetSlotCount())
         return false;
 
     Item* pItem = m_itemSlots[slot];
@@ -179,7 +170,6 @@ bool Container::SafeFullRemoveItemFromSlot(uint8 slot)
         pItem->RemoveFromWorld();
     pItem->DeleteFromDB();
     pItem->Destruct();
-
     return true;
 }
 
@@ -217,15 +207,8 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint8 *r_slot)
 void Container::SaveBagToDB(uint8 slot, bool first, QueryBuffer * buf)
 {
     SaveToDB(INVENTORY_SLOT_NOT_SET, slot, first, buf);
-
-    if(m_proto->ContainerSlots > 0)
-    {
-        for(int32 i = 0; i < m_proto->ContainerSlots; i++)
-        {
-            if (m_itemSlots[i] && !((m_itemSlots[i]->GetProto()->Flags)& 2) )
-            {
-                m_itemSlots[i]->SaveToDB(slot, i, first, buf);
-            }
-        }
-    }
+    uint8 slotCount = GetSlotCount();
+    for(uint8 i = 0; i < slotCount; i++)
+        if (m_itemSlots[i] && !((m_itemSlots[i]->GetProto()->Flags)& 2) )
+            m_itemSlots[i]->SaveToDB(slot, i, first, buf);
 }

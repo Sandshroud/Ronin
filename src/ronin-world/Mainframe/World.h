@@ -414,7 +414,7 @@ public:
 
     void AddGlobalSession(WorldSession *GlobalSession);
     void RemoveGlobalSession(WorldSession *GlobalSession);
-    void DeleteGlobalSession(WorldSession *GlobalSession);
+    void DeleteGlobalSession(WorldSession *GlobalSession, bool destruct = true);
 
     Mutex m_compressionLock;
     std::deque<ByteBuffer*> m_compressionBuffers;

@@ -192,7 +192,7 @@ public:
         else    _logoutTime = 0;
     }
 
-    void LogoutPlayer(bool Save);
+    void LogoutPlayer();
 
     RONIN_INLINE void QueuePacket(WorldPacket* packet)
     {

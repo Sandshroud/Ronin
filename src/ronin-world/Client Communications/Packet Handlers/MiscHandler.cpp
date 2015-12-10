@@ -495,18 +495,18 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandlePlayerLogoutOpcode( WorldPacket & recv_data )
 {
-    sLog.Debug( "WORLD"," Recvd CMSG_PLAYER_LOGOUT Message" );
-    if(!HasGMPermissions())
+    if(HasGMPermissions())
     {
-        // send "You do not have permission to use this"
-        SendNotification(NOTIFICATION_MESSAGE_NO_PERMISSION);
-    } else LogoutPlayer(true);
+        LogoutPlayer();
+        return;
+    }
+
+    // send "You do not have permission to use this"
+    SendNotification(NOTIFICATION_MESSAGE_NO_PERMISSION);
 }
 
 void WorldSession::HandleLogoutCancelOpcode( WorldPacket & recv_data )
 {
-    sLog.Debug( "WORLD"," Recvd CMSG_LOGOUT_CANCEL Message" );
-
     Player* pPlayer = GetPlayer();
     if(!pPlayer || !_logoutTime)
         return;

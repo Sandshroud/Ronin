@@ -550,6 +550,7 @@ public:
     void PlaySoundToSet(uint32 sound_entry);
     void EventSpellHit(Spell* pSpell);
 
+    bool AreaCanInteract(WorldObject *pObj);
     bool PhasedCanInteract(WorldObject* pObj);
 
     // Area flags

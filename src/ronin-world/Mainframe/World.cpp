@@ -101,7 +101,7 @@ void World::LogoutPlayers()
 {
     sLog.Notice("World", "Logging out players...");
     for(SessionMap::iterator i = m_sessions.begin(); i != m_sessions.end(); i++)
-        (i->second)->LogoutPlayer(true);
+        (i->second)->LogoutPlayer();
 
     sLog.Notice("World", "Deleting sessions...");
     WorldSession * Session;
@@ -752,7 +752,7 @@ std::string World::GenerateName(uint32 type)
     return _namegendata[type].at(ent).name;
 }
 
-void World::DeleteGlobalSession(WorldSession *GlobalSession)
+void World::DeleteGlobalSession(WorldSession *GlobalSession, bool destruct)
 {
     SessionsMutex.Acquire();
     //If it's a GM, remove him from GM session map
@@ -765,14 +765,16 @@ void World::DeleteGlobalSession(WorldSession *GlobalSession)
 
     // remove from big map
     m_sessionlock.AcquireWriteLock();
-    m_sessions.erase(GlobalSession->GetAccountId());
+    if(m_sessions.find(GlobalSession->GetAccountId()) != m_sessions.end() && m_sessions.at(GlobalSession->GetAccountId()) == GlobalSession)
+        m_sessions.erase(GlobalSession->GetAccountId());
     m_sessionlock.ReleaseWriteLock();
 
     // Remove us from the map
     RemoveGlobalSession(GlobalSession);
 
     // delete us
-    delete GlobalSession;
+    if(destruct)
+        delete GlobalSession;
     SessionsMutex.Release();
 }
 

@@ -29,7 +29,7 @@ public:
         return NULL;
     }
 
-    int8 FindFreeSlot();
+    uint8 FindFreeSlot();
     bool HasItems();
 
     void SwapItems(uint8 SrcSlot, uint8 DstSlot);
@@ -39,7 +39,7 @@ public:
     void SaveBagToDB(uint8 slot, bool first, QueryBuffer * buf);
 
     uint8 GetSlotCount() { return (m_uint32Values[CONTAINER_FIELD_NUM_SLOTS]&0xFF); }
-    void SetNumContainerSlots(uint32 count) { SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, std::min<uint32>(MAX_CONTAINER_SLOTS, count)); }
+    void SetSlotCount(uint32 count) { SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, std::min<uint32>(MAX_CONTAINER_SLOTS, count)); }
 
 protected:
     std::map<uint8, Item*> m_itemSlots;
