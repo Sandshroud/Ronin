@@ -598,8 +598,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
     p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
     p->SetZoneId(GetZoneId());
-    p->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    p->_setFaction();
+    p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
     p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,u_caster);
     p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));

@@ -1274,9 +1274,6 @@ public:
     void LeftChannel(Channel *c);
     void CleanupChannels();
     //Attack stuff
-    void EventAttackStart();
-    void EventAttackStop();
-    void EventAttackUpdateSpeed() { }
     void EventDeath();
     //Note:ModSkillLine -> value+=amt;ModSkillMax -->value=amt; --wierd
     float GetSkillUpChance(uint32 id);
@@ -1466,7 +1463,6 @@ public:
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;
-    void _EventCharmAttack();
     void _Warn(const char *message);
     void _Kick();
     void _Disconnect();
@@ -1673,8 +1669,6 @@ public:
     uint64 m_areaSpiritHealer_guid;
     bool m_finishingmovesdodge;
 
-    RONIN_INLINE bool IsAttacking() {return m_attacking; }
-
     void SendPacket(WorldPacket* data);
     void SendDelayedPacket(WorldPacket * data);
     void CopyAndSendDelayedPacket(WorldPacket * data);
@@ -1711,7 +1705,6 @@ protected:
     void _LoadPetSpells(QueryResult * result);
     void _SavePet(QueryBuffer * buf);
 
-    void _EventAttack( bool offhand );
     void _EventExploration();
 
     // Water level related stuff
@@ -1734,8 +1727,6 @@ protected:
     /* Player Class systems, info and misc things                           */
     /************************************************************************/
     PlayerCreateInfo *info;
-    uint32      m_AttackMsgTimer;   // "too far away" and "wrong facing" timer
-    bool        m_attacking;
     std::string m_name; // max 21 character name
 
     // Character Ban

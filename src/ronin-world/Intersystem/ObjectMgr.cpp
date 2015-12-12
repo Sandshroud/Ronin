@@ -394,6 +394,7 @@ void ObjectMgr::LoadPlayerCreateInfo()
         pPlayerCreateInfo->factiontemplate = raceEntry->FactionId;
         pPlayerCreateInfo->displayId[0] = raceEntry->maleModel;
         pPlayerCreateInfo->displayId[1] = raceEntry->femaleModel;
+        pPlayerCreateInfo->requiredExpansion = raceEntry->requiredExpansion;
 
         CharClassEntry *classEntry = dbcCharClass.LookupEntry(fields[fieldcount++].GetUInt8());
         if(classEntry == NULL)

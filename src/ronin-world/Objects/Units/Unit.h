@@ -371,6 +371,7 @@ public:
     void UpdatePowerCostValues();
     void UpdateHoverValues();
 
+    bool m_needRecalculateAllFields;
     bool m_needStatRecalculation;
     bool m_statValuesChanged;
     virtual int32 GetBonusMana() = 0;
@@ -532,9 +533,16 @@ public:
     RONIN_INLINE void DelayPowerRegeneration(uint32 time) { m_p_DelayTimer = time; }
 
     void DeMorph();
-    void smsg_AttackStart(Unit* pVictim);
+
+    RONIN_INLINE bool IsAttacking() { return !m_attackTarget.empty(); }
+
+    void EventAttack(Unit *target, WeaponDamageType attackType);
+    void EventAttackStart(WoWGuid guid);
+    void EventAttackStop();
+
+    void smsg_AttackStart(WoWGuid victimGuid);
+    void smsg_AttackStop(WoWGuid victimGuid);
     void smsg_AttackStop(Unit* pVictim);
-    void smsg_AttackStop(uint64 victimGuid);
 
     bool IsDazed();
     float CalculateDazeCastChance(Unit* target);
@@ -624,7 +632,7 @@ public:
     RONIN_INLINE void SetOnMeleeSpell(uint32 spell, uint8 cast_number ) { m_meleespell = spell; m_meleespell_cn = cast_number; }
     RONIN_INLINE uint32 GetOnMeleeSpell() { return m_meleespell; }
     uint8 GetOnMeleeSpellEcn() { return m_meleespell_cn; }
-    void CastOnMeleeSpell();
+    void CastOnMeleeSpell(Unit *target);
 
     uint32 GetVehicleKitId() const { return m_vehicleKitId; }
     void InitVehicleKit(uint32 vehicleKitId);

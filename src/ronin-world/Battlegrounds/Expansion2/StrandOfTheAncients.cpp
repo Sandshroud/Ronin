@@ -150,9 +150,9 @@ StrandOfTheAncients::StrandOfTheAncients(MapMgr* mgr, uint32 id, uint32 lgroup, 
 
             //Change Cannon Factions
             if(Attackers == HORDE)
-                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
+                m_cannons[x]->SetFactionTemplate(1981);
             else if(Attackers == ALLIANCE)
-                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
+                m_cannons[x]->SetFactionTemplate(1892);
         }
     }
 
@@ -314,9 +314,9 @@ void StrandOfTheAncients::Respawn()
 
             //Change Cannon Factions
             if(Attackers == HORDE)
-                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1981);
+                m_cannons[x]->SetFactionTemplate(1981);
             else if(Attackers == ALLIANCE)
-                m_cannons[x]->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 1892);
+                m_cannons[x]->SetFactionTemplate(1892);
         }
     }
 

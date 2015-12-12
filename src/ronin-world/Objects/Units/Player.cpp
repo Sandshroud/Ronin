@@ -143,7 +143,6 @@ void Player::Init()
     m_AutoShotDuration              = 0;
     m_AutoShotAttackTimer           = 0;
     m_AutoShotSpell                 = NULL;
-    m_AttackMsgTimer                = 0;
     m_GM_SelectedGO                 = NULL;
 
     m_regenTimerCount = 0;
@@ -168,7 +167,6 @@ void Player::Init()
 
     CurrentGossipMenu               = NULL;
     rageFromDamageDealt             = 0;
-    m_attacking                     = false;
     myCorpse                        = NULL;
     blinked                         = false;
     blinktimer                      = getMSTime();
@@ -480,7 +478,7 @@ void Player::UpdateFieldValues()
 
     Unit::UpdateFieldValues();
 
-    m_needStatRecalculation = m_statValuesChanged = false;
+    m_needRecalculateAllFields = m_needStatRecalculation = m_statValuesChanged = false;
     m_AuraInterface.ClearModMaskBits();
     itemBonusMask.Clear();
 }
@@ -570,7 +568,7 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
 
 bool Player::CombatRatingUpdateRequired(uint32 combatRating)
 {
-    bool res = (m_statValuesChanged && m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT).size());
+    bool res = m_needRecalculateAllFields|(m_statValuesChanged && m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT).size());
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RATING);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RATING_FROM_STAT);
     if(ratingsToModBonus[combatRating])
@@ -743,9 +741,12 @@ int32 Player::GetBaseAttackTime(uint8 weaponType)
         speed = 1500;
     else if( weaponType == 0 && GetShapeShift() == FORM_BEAR || GetShapeShift() == FORM_DIREBEAR )
         speed = 2500;
-    else if( !disarmed )
+    else
     {
-        if(Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType))
+        Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType);
+        if(item == NULL)
+            speed = 0;
+        else if(!disarmed)
             speed = item->GetProto()->Delay;
     }
     return speed;
@@ -1150,7 +1151,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
 
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, info->factiontemplate);
+    SetFactionTemplate(info->factiontemplate);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId[getGender()]);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId[getGender()]);
     EventModelChange();
@@ -1223,8 +1224,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
     m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result);
-
-    _setFaction();
 
     if(m_session->CanUseCommand('c'))
         _AddLanguages(true);
@@ -2325,173 +2324,6 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
         m_taxiPaths.erase(m_taxiPaths.begin());
         TaxiStart(p, taxi_model_id, 0);
     }
-}
-
-void Player::_EventAttack( bool offhand )
-{
-/*    if (m_currentSpell)
-    {
-        if(m_currentSpell->GetSpellProto()->IsSpellChannelSpell()) // this is a channeled spell - ignore the attack event
-            return;
-
-        m_currentSpell->cancel();
-        setAttackTimer(500, offhand);
-        return;
-    }
-
-    if( IsFeared() || IsStunned() )
-        return;
-
-    Unit* pVictim = NULL;
-    if(m_curSelection)
-        pVictim = GetMapMgr()->GetUnit(m_curSelection);
-
-    // Can't find victim, stop attacking
-    if (!pVictim || !sFactionSystem.isAttackable( this, pVictim ) )
-    {
-        sLog.outDebug("Player::Update:  No valid current selection to attack, stopping attack.");
-        smsg_AttackStop(pVictim);
-        setHRegenTimer(5000); //prevent clicking off creature for a quick heal
-        EventAttackStop();
-        return;
-    }
-
-    if (!canReachWithAttack(pVictim))
-    {
-        if(m_AttackMsgTimer != 1)
-        {
-            m_session->OutPacket(SMSG_ATTACKSWING_NOTINRANGE);
-            m_AttackMsgTimer = 1;
-        }
-        setAttackTimer(300, offhand);
-    }
-    else if(!isTargetInFront(pVictim))
-    {
-        // We still have to do this one.
-        if(m_AttackMsgTimer != 2)
-        {
-            m_session->OutPacket(SMSG_ATTACKSWING_BADFACING);
-            m_AttackMsgTimer = 2;
-        }
-        setAttackTimer(300, offhand);
-    }
-    else
-    {
-        m_AttackMsgTimer = 0;
-
-        // Set to weapon time.
-        setAttackTimer(0, offhand);
-
-        if(InStealth())
-        {
-            RemoveAura( m_stealth );
-            SetStealth(0);
-        }
-
-        if (!GetOnMeleeSpell() || offhand)
-            Strike( pVictim, ( offhand ? OFFHAND : MELEE ), NULL, 0, 0, 0, false, false, true);
-        else
-            CastOnMeleeSpell();
-    }*/
-}
-
-void Player::_EventCharmAttack()
-{
-    if(!m_CurrentCharm)
-        return;
-
-    Unit* pVictim = NULL;
-    if(!IsInWorld())
-    {
-        m_CurrentCharm=NULL;
-        sEventMgr.RemoveEvents(castPtr<Player>(this),EVENT_PLAYER_CHARM_ATTACK);
-        return;
-    }
-
-    if(m_curSelection.empty())
-    {
-        sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_CHARM_ATTACK);
-        return;
-    }
-
-    pVictim= GetMapMgr()->GetUnit(m_curSelection);
-
-    //Can't find victim, stop attacking
-    if (!pVictim)
-    {
-        sLog.Debug( "WORLD"," "I64FMT" doesn't exist.",m_curSelection);
-        sLog.outDebug("Player::Update:  No valid current selection to attack, stopping attack\n");
-        setHRegenTimer(5000); //prevent clicking off creature for a quick heal
-        clearStateFlag(UF_ATTACKING);
-        EventAttackStop();
-    }
-    else
-    {
-        if (!m_CurrentCharm->canReachWithAttack(MELEE, pVictim))
-        {
-            if(m_AttackMsgTimer == 0)
-            {
-                //m_session->OutPacket(SMSG_ATTACKSWING_NOTINRANGE);
-                m_AttackMsgTimer = 2000;        // 2 sec till next msg.
-            }
-            // Shorten, so there isnt a delay when the client IS in the right position.
-            sEventMgr.ModifyEventTimeLeft(castPtr<Player>(this), EVENT_PLAYER_CHARM_ATTACK, 100);
-        }
-        else if(!m_CurrentCharm->isTargetInFront(pVictim))
-        {
-            if(m_AttackMsgTimer == 0)
-            {
-                m_session->OutPacket(SMSG_ATTACKSWING_BADFACING);
-                m_AttackMsgTimer = 2000;        // 2 sec till next msg.
-            }
-            // Shorten, so there isnt a delay when the client IS in the right position.
-            sEventMgr.ModifyEventTimeLeft(castPtr<Player>(this), EVENT_PLAYER_CHARM_ATTACK, 100);
-        }
-        else
-        {
-            //if(pVictim->GetTypeId() == TYPEID_UNIT)
-            //  pVictim->GetAIInterface()->StopMovement(5000);
-
-            //pvp timeout reset
-            /*if(pVictim->IsPlayer())
-            {
-                if( castPtr<Player>( pVictim )->DuelingWith == NULL)//Dueling doesn't trigger PVP
-                    castPtr<Player>( pVictim )->PvPTimeoutUpdate(false); //update targets timer
-
-                if(DuelingWith == NULL)//Dueling doesn't trigger PVP
-                    PvPTimeoutUpdate(false); //update casters timer
-            }*/
-
-            if (!m_CurrentCharm->GetOnMeleeSpell())
-            {
-                m_CurrentCharm->Strike( pVictim, MELEE, NULL, 0, 0, 0, false, false, true );
-            }
-            else
-            {
-                SpellEntry *spellInfo = dbcSpell.LookupEntry(m_CurrentCharm->GetOnMeleeSpell());
-                uint8 cn = m_meleespell_cn;
-                m_CurrentCharm->SetOnMeleeSpell(0, 0);
-                SpellCastTargets targets(GetSelection());
-                if(Spell* spell = new Spell(m_CurrentCharm,spellInfo,cn))
-                    spell->prepare(&targets, true);
-            }
-        }
-    }
-}
-
-void Player::EventAttackStart()
-{
-    m_attacking = true;
-    if( IsMounted() )
-        Dismount();
-}
-
-void Player::EventAttackStop()
-{
-    if( m_CurrentCharm != NULL )
-        sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_CHARM_ATTACK);
-
-    m_attacking = false;
 }
 
 void Player::_EventExploration()
@@ -7108,7 +6940,7 @@ void Player::Possess(Unit* pTarget)
 
     pTarget->SetUInt64Value(UNIT_FIELD_CHARMEDBY, GetGUID());
     pTarget->SetCharmTempVal(pTarget->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    pTarget->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+    pTarget->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     pTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE);
 
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
@@ -7117,9 +6949,6 @@ void Player::Possess(Unit* pTarget)
     WorldPacket data1(SMSG_CLIENT_CONTROL_UPDATE, 10);      /* burlex: this should be renamed SMSG_SWITCH_ACTIVE_MOVER :P */
     data1 << pTarget->GetGUID() << uint8(1);
     m_session->SendPacket(&data1);
-
-    /* update target faction set */
-    pTarget->_setFaction();
 
     /* build + send pet_spells packet */
     if(pTarget->m_temp_summon)
@@ -7185,8 +7014,7 @@ void Player::UnPossess()
 
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
     pTarget->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE);
-    pTarget->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, pTarget->GetCharmTempVal());
-    pTarget->_setFaction();
+    pTarget->SetFactionTemplate(pTarget->GetCharmTempVal());
 
     /* send "switch mover" packet */
     WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, 10);

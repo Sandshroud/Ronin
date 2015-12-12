@@ -527,7 +527,7 @@ public:
     void SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate );
 
     //object faction
-    void _setFaction();
+    void SetFactionTemplate(uint32 templateId);
     FactionTemplateEntry *GetFactionTemplate() { return m_factionTemplate; };
     uint32 GetFactionID() { return m_factionTemplate ? m_factionTemplate->Faction : 0; }
     FactionEntry *GetFaction() { return m_factionTemplate ? m_factionTemplate->GetFaction() : NULL; }

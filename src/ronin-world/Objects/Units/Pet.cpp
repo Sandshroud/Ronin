@@ -204,7 +204,7 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
         m_PetNumber = castPtr<Player>(owner)->GeneratePetNumber();
     }
 
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+    SetFactionTemplate(owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     m_PartySpellsUpdateTimer = 0;
 
     m_ExpireTime = expiretime;
@@ -394,7 +394,7 @@ void Pet::LoadFromDB(Player* owner, PlayerPet * playerPetInfo)
     }
     ApplyStatsForLevel();
 
-    //SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+    //SetFactionTemplate(owner->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
     m_PetNumber = m_PlayerPetInfo->number;
     m_PetXP = m_PlayerPetInfo->xp;
@@ -455,7 +455,6 @@ void Pet::InitializeMe()
     SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, (uint32)UNIXTIME);
     myFamily = dbcCreatureFamily.LookupEntry(GetCreatureData()->family);
     SetPetDiet();
-    _setFaction();
     m_State = 1;        // dont set agro on spawn
 
     EventModelChange();

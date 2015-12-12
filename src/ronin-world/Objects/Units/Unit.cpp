@@ -9,6 +9,7 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
     m_updateFlags |= UPDATEFLAG_LIVING;
 
+    m_attackInterrupt = 0;
     memset(&m_attackTimer, 0, sizeof(uint16)*3);
     memset(&m_attackDelay, 0, sizeof(uint16)*3);
     m_dualWield = m_autoShot = false;
@@ -16,6 +17,7 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     baseStats = NULL;
     m_statValuesChanged = false;
     m_needStatRecalculation = true;
+    m_needRecalculateAllFields = true;
 
     m_ignoreArmorPct = 0.0f;
     m_ignoreArmorPctMaceSpec = 0.0f;
@@ -127,8 +129,6 @@ void Unit::Init()
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
-    for(uint8 i = 0; i < 3; i++)
-        SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, GetBaseAttackTime(i));
 }
 
 void Unit::Destruct()
@@ -196,27 +196,33 @@ void Unit::Update( uint32 p_time )
                 else m_attackInterrupt = 0;
             }
 
-            if(m_attackInterrupt == 0 && m_attackTarget.raw())
+            if(m_attackTarget.empty())
+                m_attackTimer[0] = m_attackTimer[1] = m_attackTimer[2] = 0;
+            else if(m_attackInterrupt == 0)
             {
-                WorldObject *target = GetInRangeObject(m_attackTarget);
+                Unit *target = GetInRangeObject<Unit>(m_attackTarget);
                 if(!validateAttackTarget(target))
-                {
-
-                }
+                    EventAttackStop();
                 else
                 {
-                    m_attackTimer[0] += p_time;
-                    if(m_attackTimer[0] >= m_attackDelay[0])
+                    if(m_attackDelay[0])
                     {
-                        m_attackTimer[0] = m_attackDelay[0];
-                        if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
+                        m_attackTimer[0] += p_time;
+                        if(m_attackTimer[0] >= m_attackDelay[0])
                         {
-                            //_EventAttack(MELEE);
-                            m_attackTimer[0] = 0;
+                            m_attackTimer[0] = m_attackDelay[0];
+                            if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
+                            {
+                                EventAttack(target, MELEE);
+                                m_attackTimer[0] = 0;
+                                if(m_dualWield && m_attackTimer[1] > 300)
+                                    m_attackTimer[1] -= 300;
+                                else m_attackTimer[1] = 0;
+                            }
                         }
                     }
 
-                    if(m_dualWield)
+                    if(m_dualWield && m_attackDelay[1])
                     {
                         m_attackTimer[1] += p_time;
                         if(m_attackTimer[1] >= m_attackDelay[1])
@@ -224,25 +230,25 @@ void Unit::Update( uint32 p_time )
                             m_attackTimer[1] = m_attackDelay[1];
                             if(canReachWithAttack(OFFHAND, castPtr<Unit>(target)))
                             {
-                                //_EventAttack(OFFHAND);
+                                EventAttack(target, OFFHAND);
                                 m_attackTimer[1] = 0;
                             }
                         }
                     }
 
-                    if(m_attackTimer[2])
+                    if(m_attackDelay[2])
                     {
                         if(m_attackTimer[2] <= p_time)
                             m_attackTimer[2] = 0;
                         else m_attackTimer[2] -= p_time;
-                    }
 
-                    if( m_autoShot && m_attackTimer[2] == 0 )
-                    {
-                        if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                        if( m_autoShot && m_attackTimer[2] == 0 )
                         {
-                            //_EventAttack(RANGED);
-                            m_attackTimer[2] = m_attackDelay[2];
+                            if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                            {
+                                EventAttack(target, RANGED);
+                                m_attackTimer[2] = m_attackDelay[2];
+                            }
                         }
                     }
                 }
@@ -315,13 +321,13 @@ void Unit::UpdateFieldValues()
 
 void Unit::ClearFieldUpdateValues()
 {
-    m_needStatRecalculation = m_statValuesChanged = false;
+    m_needRecalculateAllFields = m_needStatRecalculation = m_statValuesChanged = false;
     m_AuraInterface.ClearModMaskBits();
 }
 
 bool Unit::StatUpdateRequired()
 {
-    bool res = m_needStatRecalculation;
+    bool res = m_needRecalculateAllFields|m_needStatRecalculation;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_STAT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_PERCENT_STAT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
@@ -330,7 +336,7 @@ bool Unit::StatUpdateRequired()
 
 bool Unit::HealthUpdateRequired()
 {
-    bool res = m_statValuesChanged;
+    bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_HEALTH_PCT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_MAX_HEALTH);
@@ -341,7 +347,7 @@ bool Unit::HealthUpdateRequired()
 
 bool Unit::PowerUpdateRequired()
 {
-    bool res = m_statValuesChanged;
+    bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
     return res;
@@ -358,14 +364,16 @@ bool Unit::RegenUpdateRequired()
 
 bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
 {
-    bool res = false;
+    bool res = m_needRecalculateAllFields;
+    if(IsPlayer() && res) printf("Need recalculate all fields\n");
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACKSPEED);
+    if(IsPlayer() && res) printf("attackspeed mod\n");
     return res;
 }
 
 bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
 {
-    bool res = m_statValuesChanged|AttackTimeUpdateRequired(weaponType);
+    bool res = m_needRecalculateAllFields|m_statValuesChanged|AttackTimeUpdateRequired(weaponType);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_DONE);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
 
@@ -374,21 +382,21 @@ bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
 
 bool Unit::APUpdateRequired()
 {
-    bool res = m_statValuesChanged;
+    bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT);
     return res;
 }
 
 bool Unit::RAPUpdateRequired()
 {
-    bool res = m_statValuesChanged;
+    bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
     return res;
 }
 
 bool Unit::ResUpdateRequired()
 {
-    bool res = false;
+    bool res = m_needRecalculateAllFields;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE_PCT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_RESISTANCE);
@@ -591,6 +599,7 @@ void Unit::UpdateRegenValues()
 
 void Unit::UpdateAttackTimeValues()
 {
+    uint8 updateMask =0x00;
     for(uint8 i = 0; i < 3; i++)
     {
         if(!AttackTimeUpdateRequired(i))
@@ -604,13 +613,13 @@ void Unit::UpdateAttackTimeValues()
             for(AuraInterface::modifierMap::iterator itr = attackTimeMod.begin(); itr != attackTimeMod.end(); itr++)
                 attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
 
-            if(i == 2) attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_HASTE);
+            if(i == RANGED) attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_HASTE);
             else attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_HASTE);
             for(AuraInterface::modifierMap::iterator itr = attackTimeMod.begin(); itr != attackTimeMod.end(); itr++)
                 attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
 
-            if(IsPlayer() && i == 2) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
-            else attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
+            if(IsPlayer() && i == RANGED) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
+            else if(IsPlayer()) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
 
             baseAttack = float2int32(floor(float(baseAttack)/attackSpeedMod));
             if(baseAttack < 500)
@@ -618,8 +627,12 @@ void Unit::UpdateAttackTimeValues()
             else if(baseAttack > 12000)
                 baseAttack = 12000;
         }
+        updateMask |= 1<<i;
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
     }
+
+    if(updateMask > 0)
+        resetAttackDelay(updateMask);
 }
 
 static uint32 minAttackPowers[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
@@ -631,7 +644,7 @@ void Unit::UpdateAttackDamageValues()
         if(!AttackDamageUpdateRequired(i))
             continue;
 
-        if(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i) == 0.0f)
+        if(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i) == 0)
         {
             SetFloatValue(minAttackPowers[i], 0);
             SetFloatValue(minAttackPowers[i]+1, 0);
@@ -639,7 +652,7 @@ void Unit::UpdateAttackDamageValues()
         }
 
         float apBonus = float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))/1000.f;
-        uint32 baseMinDamage = GetBaseMinDamage(i), baseMaxDamage = GetBaseMaxDamage(i);
+        float baseMinDamage = GetBaseMinDamage(i), baseMaxDamage = GetBaseMaxDamage(i);
         if(IsInFeralForm())
         {
             uint32 level = std::min(getLevel(), uint32(60));
@@ -666,6 +679,13 @@ void Unit::UpdateAttackDamageValues()
             }
             if(itr->second->m_miscValue[0] & 0x01)
                 baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
+        }
+
+        // Offhand weapons do 50% of actual damage
+        if(i == OFFHAND)
+        {
+            baseMinDamage *= 0.5f;
+            baseMaxDamage *= 0.5f;
         }
 
         SetFloatValue(minAttackPowers[i], baseMinDamage);
@@ -1187,11 +1207,8 @@ bool Unit::validateAttackTarget(WorldObject *target)
 {
     if(target == nullptr)
         return false;
-    if(target->IsGameObject())
-    {
-
+    else if(target->IsGameObject())
         return false;
-    }
     else if(!target->IsUnit())
         return false;
     else if(!sFactionSystem.isAttackable(this, target, false))
@@ -1279,7 +1296,17 @@ void Unit::resetAttackDelay(uint8 typeMask)
     {
         if((typeMask & 1<<i) == 0)
             continue;
-        m_attackDelay[i] = std::max<uint32>(1000, std::min<uint32>(0x7FFF, std::ceil(float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))*GetCastSpeedMod())));
+
+        uint32 baseAttackTime = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i);
+        if(baseAttackTime == 0)
+        {
+            m_attackDelay[i] = 0;
+            continue;
+        }
+
+        m_attackDelay[i] = std::max<uint32>(1000, std::min<uint32>(0x7FFF, std::ceil(float(baseAttackTime)*GetCastSpeedMod())));
+        if(i == OFFHAND && m_attackDelay[i] > 0)
+            m_dualWield = true;
     }
 }
 
@@ -2638,45 +2665,53 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------extra strikes processing----------------------------------------
 }
 
-
-void Unit::smsg_AttackStop(Unit* pVictim)
+void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
-    if(!pVictim)
-        return;
-
-    WorldPacket data(SMSG_ATTACKSTOP, 20);
-    if(GetTypeId() == TYPEID_PLAYER)
-    {
-        data << pVictim->GetGUID();
-        data << uint8(0);
-        data << uint32(0);
-        castPtr<Player>(this)->GetSession()->SendPacket( &data );
-        data.clear();
-    }
-
-    data << GetGUID();
-    data << pVictim->GetGUID();
-    data << uint32(0);
-    SendMessageToSet(&data, true );
+    if (!GetOnMeleeSpell() || attackType == OFFHAND)
+        Strike( target, attackType, NULL, 0, 0, 0, false, false, true);
+    else CastOnMeleeSpell(target);
 }
 
-void Unit::smsg_AttackStop(uint64 victimGuid)
+void Unit::EventAttackStart(WoWGuid guid)
 {
-    WorldPacket data(20);
-    data.Initialize( SMSG_ATTACKSTOP );
-    data << GetGUID();
-    FastGUIDPack(data, victimGuid);
-    data << uint32( 0 );
-    SendMessageToSet(&data, IsPlayer());
+    m_attackTarget = guid;
+    smsg_AttackStart(m_attackTarget);
+    Dismount();
 }
 
-void Unit::smsg_AttackStart(Unit* pVictim)
+void Unit::EventAttackStop()
+{
+    smsg_AttackStop(m_attackTarget);
+    m_attackTarget.Clean();
+}
+
+void Unit::smsg_AttackStart(WoWGuid victimGuid)
 {
     // Send out ATTACKSTART
     WorldPacket data(SMSG_ATTACKSTART, 16);
-    data << GetGUID();
-    data << pVictim->GetGUID();
-    SendMessageToSet(&data, false);
+    data << GetGUID() << victimGuid;
+    SendMessageToSet(&data, IsPlayer());
+}
+
+void Unit::smsg_AttackStop(WoWGuid victimGuid)
+{
+    WorldPacket data(SMSG_ATTACKSTOP, 20);
+    data << GetGUID().asPacked();
+    data << victimGuid.asPacked();
+    data << uint32(0);
+    SendMessageToSet(&data, IsPlayer());
+}
+
+void Unit::smsg_AttackStop(Unit* pVictim)
+{
+    if(pVictim == NULL)
+        return;
+
+    WorldPacket data(SMSG_ATTACKSTOP, 20);
+    data << GetGUID().asPacked();
+    data << pVictim->GetGUID().asPacked();
+    data << uint32(0);
+    SendMessageToSet(&data, IsPlayer());
 }
 
 void Unit::_UpdateSpells( uint32 time )
@@ -3268,11 +3303,11 @@ void Unit::UpdateVisibility()
     }
 }
 
-void Unit::CastOnMeleeSpell()
+void Unit::CastOnMeleeSpell(Unit *target)
 {
     if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
     {
-        SpellCastTargets targets(GetUInt64Value(UNIT_FIELD_TARGET));
+        SpellCastTargets targets(target->GetGUID());
         if(Spell *spell = new Spell(this, spellInfo, GetOnMeleeSpellEcn() ))
             spell->prepare( &targets, true);
     }
@@ -3438,8 +3473,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
         p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
         p->SetZoneId(GetZoneId());
-        p->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE,GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-        p->_setFaction();
+        p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
         p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,castPtr<Unit>(this));
         p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
@@ -4290,9 +4324,7 @@ void Unit::Dismount()
 
 void Unit::SetFaction(uint32 faction, bool save)
 {
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, faction);
-    _setFaction();
-
+    SetFactionTemplate(faction);
     if(save && IsCreature() && castPtr<Creature>(this)->IsSpawn())
         castPtr<Creature>(this)->SaveToDB();
 }

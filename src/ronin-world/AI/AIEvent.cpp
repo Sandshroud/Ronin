@@ -89,7 +89,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     }
 
     //Zack : Put mob into combat animation. Take out weapons and start to look serious :P
-    m_Unit->smsg_AttackStart(pUnit);
+    m_Unit->EventAttackStart(pUnit->GetGUID());
 }
 
 void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)

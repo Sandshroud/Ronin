@@ -6,17 +6,18 @@
 
 struct PlayerCreateInfo
 {
-    uint8   index;
-    uint8   race;
-    uint32  factiontemplate;
-    uint8   class_;
-    uint32  mapId;
-    uint32  zoneId;
-    float   positionX;
-    float   positionY;
-    float   positionZ;
-    float   Orientation;
-    uint16  displayId[2];
+    uint8  index;
+    uint8  race;
+    uint32 factiontemplate;
+    uint8  class_;
+    uint32 mapId;
+    uint32 zoneId;
+    float  positionX;
+    float  positionY;
+    float  positionZ;
+    float  Orientation;
+    uint16 displayId[2];
+    uint32 requiredExpansion;
 
     std::list<CreateInfo_ItemStruct> items;
     std::list<CreateInfo_SkillStruct> skills;

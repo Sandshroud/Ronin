@@ -21,24 +21,6 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
         if(!pCharm)
             return;
 
-        // must be a mind controled creature..
-        if(action == PET_ACTION_ACTION)
-        {
-            switch(misc)
-            {
-            case PET_ACTION_ATTACK:
-                {
-                    if(!sEventMgr.HasEvent(_player, EVENT_PLAYER_CHARM_ATTACK))
-                    {
-                        uint32 timer = pCharm->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
-                        if(!timer) timer = 2000;
-
-                        sEventMgr.AddEvent(_player, &Player::_EventCharmAttack, EVENT_PLAYER_CHARM_ATTACK, timer, 0,0);
-                        _player->_EventCharmAttack();
-                    }
-                }break;
-            }
-        }
         return;
     }
 

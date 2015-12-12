@@ -1124,13 +1124,10 @@ bool WorldObject::isInRange(WorldObject* target, float range)
     return( dist <= range );
 }
 
-void WorldObject::_setFaction()
+void WorldObject::SetFactionTemplate(uint32 templateId)
 {
-    // Clear our old faction info
-    if(GetTypeId() == TYPEID_UNIT || IsPlayer())
-        m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    else if(GetTypeId() == TYPEID_GAMEOBJECT)
-        m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(GAMEOBJECT_FACTION));
+    m_factionTemplate = dbcFactionTemplate.LookupEntry(templateId);
+    SetUInt32Value(IsGameObject() ? GAMEOBJECT_FACTION : UNIT_FIELD_FACTIONTEMPLATE, templateId);
 }
 
 int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)
@@ -1887,8 +1884,8 @@ void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target,
 
     uint32 dmg = Damage-AbsorbedDamage-ResistedDamage-BlockedDamage;
     WorldPacket data(SMSG_SPELLNONMELEEDAMAGELOG, 16+4+4+4+1+4+4+1+1+4+4+1);
-    data << Target->GetGUID();
-    data << Caster->GetGUID();
+    data << Target->GetGUID().asPacked();
+    data << Caster->GetGUID().asPacked();
     data << uint32(SpellID);                // SpellID / AbilityID
     data << uint32(dmg);                    // All Damage
     data << uint32(overkill);               // Overkill
@@ -2047,14 +2044,14 @@ void WorldObject::PlaySoundToPlayer( Player* plr, uint32 sound_entry )
         return;
 
     WorldPacket data(SMSG_PLAY_SOUND, 4);
-    data << sound_entry;
+    data << sound_entry << GetGUID();
     plr->GetSession()->SendPacket( &data );
 }
 
 void WorldObject::PlaySoundToSet(uint32 sound_entry)
 {
     WorldPacket data(SMSG_PLAY_SOUND, 4);
-    data << sound_entry;
+    data << sound_entry << GetGUID();
     SendMessageToSet(&data, true);
 }
 
@@ -2067,8 +2064,8 @@ void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32
     uint32 schooldam = SchoolMask(dmg->school_type);
     WorldPacket data(SMSG_ATTACKERSTATEUPDATE, 108);
     data << uint32(hit_status);
-    data << GetGUID();
-    data << Target->GetGUID();
+    data << GetGUID().asPacked();
+    data << Target->GetGUID().asPacked();
     data << uint32(realdamage);                 // Realdamage;
     data << uint32(overkill);                   // Overkill
     data << uint8(1);                           // Damage type counter / swing type
@@ -2077,13 +2074,9 @@ void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32
     data << uint32(dmg->full_damage);           // Damage amount
 
     if(hit_status & (HITSTATUS_ABSORBED | HITSTATUS_ABSORBED2))
-    {
         data << (uint32)abs;                    // Damage absorbed
-    }
     if(hit_status & (HITSTATUS_RESIST | HITSTATUS_RESIST2))
-    {
         data << uint32(dmg->resisted_damage);   // Damage resisted
-    }
 
     data << uint8(vstate);                      // new victim state
     data << uint32(0);

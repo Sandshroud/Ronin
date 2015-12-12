@@ -382,11 +382,7 @@ bool Creature::CanAddToWorld()
 
     // force set faction
     if(GetFaction() == NULL)
-    {
-        _setFaction();
-        if(GetFaction() == NULL)
-            return false;
-    }
+        return false;
 
     return true;
 }
@@ -697,7 +693,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);
 
-    SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, m_spawn ? m_spawn->factionid : _creatureData->faction);
+    SetFactionTemplate(m_spawn ? m_spawn->factionid : _creatureData->faction);
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
     SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
     SetUInt32Value(UNIT_FIELD_FLAGS, m_spawn ? m_spawn->flags : 0);

@@ -1639,7 +1639,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
     pCreature->SetUInt32Value(UNIT_FIELD_MAXHEALTH, 10000);
 
     pCreature->setLevel(60);
-    pCreature->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, 84 - horde);
+    pCreature->SetFactionTemplate(84 - horde);
     pCreature->SetUInt32Value(UNIT_FIELD_BYTES_0, 0 | (2 << 8) | (1 << 16));
 
     pCreature->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, 22802);
@@ -1662,7 +1662,6 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
     pCreature->SetUInt32Value(UNIT_FIELD_BYTES_2, 1 | (0x10 << 8));
 
     pCreature->SetPvPFlag();
-    pCreature->_setFaction();
 
     pCreature->PushToWorld(m_mapMgr);
     return pCreature;

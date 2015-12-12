@@ -10,16 +10,14 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 
     WoWGuid guid;
     recv_data >> guid;
-    if(!guid)
+    if(guid.empty() || _player->bGMTagOn)
     {
-        // does this mean cancel combat?
         HandleAttackStopOpcode(recv_data);
         return;
     }
 
     // AttackSwing
     sLog.Debug( "WORLD"," Recvd CMSG_ATTACKSWING Message" );
-
     if(GetPlayer()->IsPacified() || GetPlayer()->IsStunned() || GetPlayer()->IsFeared())
         return;
 
@@ -45,21 +43,13 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
         return;
     }
 
-    _player->smsg_AttackStart(pEnemy);
-    _player->EventAttackStart();
+    _player->EventAttackStart(guid);
 }
 
 void WorldSession::HandleAttackStopOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    if(WoWGuid guid = GetPlayer()->GetSelection())
-    {
-        if(Unit* pEnemy = _player->GetMapMgr()->GetUnit(guid))
-        {
-            GetPlayer()->EventAttackStop();
-            GetPlayer()->smsg_AttackStop(pEnemy);
-        }
-    }
+    GetPlayer()->EventAttackStop();
 }
 

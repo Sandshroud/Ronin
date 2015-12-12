@@ -197,9 +197,8 @@ void World::Destruct()
 
 void World::ParseFactionTemplate()
 {
-    uint32 numRows = dbcFactionTemplate.GetNumRows();
-    sLog.Notice("World", "Setting %u faction pointers in template class", numRows);
-    for(uint32 i = 0; i < numRows; i++)
+    sLog.Notice("World", "Setting %u faction pointers in template class", dbcFactionTemplate.GetNumRows());
+    for(uint32 i = 0; i < dbcFactionTemplate.GetNumRows(); i++)
         if(FactionTemplateEntry *entry = dbcFactionTemplate.LookupRow(i))
             entry->m_faction = dbcFaction.LookupEntry(entry->Faction);
 }
