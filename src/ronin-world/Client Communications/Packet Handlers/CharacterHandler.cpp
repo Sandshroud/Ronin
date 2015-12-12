@@ -603,8 +603,8 @@ void WorldSession::FullLogin(Player* plr)
                 plr->SetMapId(pTrans->GetMapId());
 
                 WorldPacket dataw(SMSG_NEW_WORLD, 20);
-                dataw << c_tposx << c_tposo << c_tposz;
-                dataw << pTrans->GetMapId() << c_tposy;
+                dataw << c_tposx << c_tposo << c_tposy;
+                dataw << pTrans->GetMapId() << c_tposz;
                 SendPacket(&dataw);
 
                 // shit is sent in worldport ack.

@@ -317,16 +317,21 @@ struct PlayerInfo
     uint8 charClass;
     uint8 charGender;
     uint32 charTeam;
-    uint32 curInstanceID;
-    uint32 lastmapid;
-    float lastpositionx;
-    float lastpositiony;
-    float lastpositionz;
-    float lastorientation;
 
-    time_t lastOnline;
+    // Location information
+    uint32 lastMapID;
+    uint32 lastInstanceID;
+    float lastPositionX;
+    float lastPositionY;
+    float lastPositionZ;
+    float lastOrientation;
     uint32 lastZone;
     uint32 lastLevel;
+    time_t lastOnline;
+
+    // Misc data
+    uint32 achievementPoints;
+    uint32 professionId[2], professionSkill[2], professionRank[2];
 
     Group * m_Group;
     int8 subGroup;

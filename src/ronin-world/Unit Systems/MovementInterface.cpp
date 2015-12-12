@@ -740,11 +740,11 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
 
     m_destMapId = mapId;
     m_destInstanceId = instanceId;
-    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z);
+    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z, NormAngle(destination.o));
 
-    WorldPacket data(SMSG_NEW_WORLD, 25);
-    data << destination.x << destination.o << destination.z;
-    data << mapId << destination.y;
+    WorldPacket data(SMSG_NEW_WORLD, 20);
+    data << destination.x << destination.o << destination.y;
+    data << mapId << destination.z;
     castPtr<Player>(m_Unit)->SendPacket( &data );
 }
 

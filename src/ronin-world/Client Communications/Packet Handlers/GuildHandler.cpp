@@ -20,6 +20,15 @@ void WorldSession::HandleGuildXP(WorldPacket & recv_data)
     guildmgr.Packet_SendGuildXP(this);
 }
 
+void WorldSession::HandleGuildMaxDailyXP(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    WorldPacket data(SMSG_GUILD_MAX_DAILY_XP, 8);
+    data << uint64(0xFFFFFF);
+    SendPacket(&data);
+}
+
 void WorldSession::HandleGuildNews(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
@@ -90,6 +99,8 @@ void WorldSession::HandleGuildPermissions(WorldPacket & recv_data)
 void WorldSession::HandleGuildPartyState(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
+    if(_player->GetGroup() == NULL)
+        return;
 
     guildmgr.Packet_SendGuildPartyState(this);
 }
@@ -135,20 +146,36 @@ void WorldSession::HandleGuildPromote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::string promoteeName;
-    recv_data >> promoteeName;
+    WoWGuid targetGuid;
+    recv_data.ReadGuidBitString(8, targetGuid, 7, 2, 5, 6, 1, 0, 3, 4);
+    recv_data.ReadGuidByteString(8, targetGuid, 0, 5, 2, 3, 6, 4, 1, 7);
 
-    guildmgr.Packet_PromoteGuildMember(this, promoteeName);
+    if(PlayerInfo* Promoted = objmgr.GetPlayerInfo(targetGuid))
+    {
+        guildmgr.Packet_PromoteGuildMember(this, Promoted);
+        return;
+    }
+
+    SendGuildCommandResult(this, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_FOUND);
+    return;
 }
 
 void WorldSession::HandleGuildDemote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::string demoteeName;
-    recv_data >> demoteeName;
+    WoWGuid targetGuid;
+    recv_data.ReadGuidBitString(8, targetGuid, 7, 1, 5, 6, 2, 3, 0, 4);
+    recv_data.ReadGuidByteString(8, targetGuid, 1, 2, 7, 5, 6, 0, 4, 3);
 
-    guildmgr.Packet_DemoteGuildMember(this, demoteeName);
+    if(PlayerInfo* Demoted = objmgr.GetPlayerInfo(targetGuid))
+    {
+        guildmgr.Packet_DemoteGuildMember(this, Demoted);
+        return;
+    }
+
+    SendGuildCommandResult(this, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_FOUND);
+    return;
 }
 
 void WorldSession::HandleGuildLeave(WorldPacket & recv_data)
@@ -180,45 +207,12 @@ void WorldSession::HandleGuildDisband(WorldPacket & recv_data)
     guildmgr.Packet_DisbandGuild(this);
 }
 
-void WorldSession::HandleGuildLeader(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    std::string name;
-    recv_data >> name;
-    PlayerInfo * dstplr = objmgr.GetPlayerInfoByName(name.c_str());
-    if( dstplr == NULL )
-        return;
-
-    guildmgr.Packet_ChangeGuildLeader(this, dstplr);
-}
-
 void WorldSession::HandleGuildMotd(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
     std::string motd = recv_data.ReadString(recv_data.ReadBits(11));
 
     guildmgr.Packet_SetMotd(this, motd);
-}
-
-void WorldSession::HandleGuildEditRank(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    std::string newName;
-    uint32 rankId, RankRights, iFlags[MAX_GUILD_BANK_TABS];
-    int32 DailyGoldLimit, iStacksPerDay[MAX_GUILD_BANK_TABS];
-
-    recv_data >> rankId >> RankRights >> newName;
-    recv_data >> DailyGoldLimit;
-
-    for(uint8 i = 0; i < MAX_GUILD_BANK_TABS; i++)
-    {
-        recv_data >> iFlags[i];
-        recv_data >> iStacksPerDay[i];
-    }
-
-    guildmgr.Packet_HandleEditRank(this, newName, rankId, RankRights, DailyGoldLimit, iFlags, iStacksPerDay);
 }
 
 void WorldSession::HandleGuildAddRank(WorldPacket & recv_data)

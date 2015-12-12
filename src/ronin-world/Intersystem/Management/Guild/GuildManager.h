@@ -176,6 +176,10 @@ struct GuildMember
             uLastItemWithdrawReset[i] = 0;
             uItemWithdrawlsSinceLastReset[i] = 0;
         }
+        guildReputation = 0;
+        weekReputation = 0;
+        weeklyActivity = 0;
+        totalActivity = 0;
     }
 
     uint32 guildId;
@@ -189,6 +193,11 @@ struct GuildMember
     uint32 uWithdrawlsSinceLastReset;
     uint32 uLastItemWithdrawReset[MAX_GUILD_BANK_TABS];
     uint32 uItemWithdrawlsSinceLastReset[MAX_GUILD_BANK_TABS];
+
+    uint32 guildReputation;
+    uint32 weekReputation;
+    uint32 weeklyActivity;
+    uint32 totalActivity;
 };
 
 typedef std::unordered_map<WoWGuid, GuildMember*> GuildMemberMap;
@@ -259,6 +268,8 @@ public:
     GuildRank* FindLowestRank(GuildRankStorage* Ranks);
     GuildRank* FindHighestRank(GuildRankStorage* Ranks);
     GuildRankStorage* ConstructRankStorage(uint32 GuildId);
+
+    uint32 GetWeeklyRepCap();
 
     uint32 RemoveGuildRank(uint32 GuildId);
     bool HasGuildRights(Player* plr, uint32 Rights);
@@ -451,8 +462,8 @@ public: // Direct Packet Handlers
 
     // Member Handlers
     void Packet_ChangeGuildLeader(WorldSession* m_session, PlayerInfo* newLeader);
-    void Packet_DemoteGuildMember(WorldSession* m_session, std::string demoteeName);
-    void Packet_PromoteGuildMember(WorldSession* m_session, std::string promoteeName);
+    void Packet_DemoteGuildMember(WorldSession* m_session, PlayerInfo *demoteeInfo);
+    void Packet_PromoteGuildMember(WorldSession* m_session, PlayerInfo *promoteeInfo);
 
     // Bank Handlers
     void Packet_WithdrawItem(WorldSession* m_session, uint8 dest_bank, uint8 dest_bankslot, uint8 source_bank, uint8 source_bankslot, uint32 itementry, uint8 autostore, int32 splitted_count);

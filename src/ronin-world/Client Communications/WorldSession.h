@@ -502,6 +502,7 @@ protected:
     // Guild
     void HandleGuildQuery(WorldPacket & recv_data);
     void HandleGuildXP(WorldPacket & recv_data);
+    void HandleGuildMaxDailyXP(WorldPacket & recv_data);
     void HandleGuildNews(WorldPacket & recv_data);
     void HandleGuildRanks(WorldPacket & recv_data);
     void HandleGuildRoster(WorldPacket & recv_data);
@@ -517,9 +518,7 @@ protected:
     void HandleGuildLeave(WorldPacket & recv_data);
     void HandleGuildRemove(WorldPacket & recv_data);
     void HandleGuildDisband(WorldPacket & recv_data);
-    void HandleGuildLeader(WorldPacket & recv_data);
     void HandleGuildMotd(WorldPacket & recv_data);
-    void HandleGuildEditRank(WorldPacket & recv_data);
     void HandleGuildAddRank(WorldPacket & recv_data);
     void HandleGuildDelRank(WorldPacket & recv_data);
     void HandleGuildSetNote(WorldPacket & recv_data);

@@ -302,12 +302,12 @@ void ObjectMgr::LoadPlayersInfo()
             pn->charGender = fields[5].GetUInt8();
             pn->lastLevel = fields[6].GetUInt32();
             pn->lastZone = fields[7].GetUInt32();
-            pn->curInstanceID = fields[8].GetUInt32();
-            pn->lastmapid = fields[9].GetUInt32();
-            pn->lastpositionx = fields[10].GetFloat();
-            pn->lastpositiony = fields[11].GetFloat();
-            pn->lastpositionz = fields[12].GetFloat();
-            pn->lastorientation = fields[13].GetFloat();
+            pn->lastInstanceID = fields[8].GetUInt32();
+            pn->lastMapID = fields[9].GetUInt32();
+            pn->lastPositionX = fields[10].GetFloat();
+            pn->lastPositionY = fields[11].GetFloat();
+            pn->lastPositionZ = fields[12].GetFloat();
+            pn->lastOrientation = fields[13].GetFloat();
             if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
                 pn->charTeam = race->TeamId;
 

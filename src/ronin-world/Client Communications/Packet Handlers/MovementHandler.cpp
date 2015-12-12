@@ -3176,7 +3176,7 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             c_tposz += trans->GetPositionZ();
 
             WorldPacket dataw(SMSG_NEW_WORLD, 20);
-            dataw << trans->GetMapId() << c_tposx << c_tposy << c_tposz << c_tposo;
+            dataw << c_tposx << c_tposo << c_tposy << trans->GetMapId() << c_tposz;
             plr->SendPacket(&dataw);
 
             plr->SetMapId(trans->GetMapId());

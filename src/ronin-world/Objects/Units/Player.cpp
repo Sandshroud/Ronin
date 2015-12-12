@@ -823,12 +823,12 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
 
     if(m_playerInfo)
     {
-        m_playerInfo->curInstanceID = m_instanceId;
-        m_playerInfo->lastmapid = mapid;
-        m_playerInfo->lastpositionx = posx;
-        m_playerInfo->lastpositiony = posy;
-        m_playerInfo->lastpositionz = posz;
-        m_playerInfo->lastorientation = poso;
+        m_playerInfo->lastInstanceID = m_instanceId;
+        m_playerInfo->lastMapID = mapid;
+        m_playerInfo->lastPositionX = posx;
+        m_playerInfo->lastPositionY = posy;
+        m_playerInfo->lastPositionZ = posz;
+        m_playerInfo->lastOrientation = poso;
     }
 
     ss << mapid << ", "
@@ -2504,6 +2504,7 @@ void Player::_EventExploration()
         return;
     if(m_lastAreaUpdateMap == GetMapId() && m_lastAreaPosition.Distance(GetPosition()) < sWorld.AreaUpdateDistance)
         return;
+    bool newMap = m_lastAreaUpdateMap != GetMapId();
     m_lastAreaUpdateMap = GetMapId();
     m_lastAreaPosition = GetPosition();
 
@@ -2524,7 +2525,7 @@ void Player::_EventExploration()
         // This must be called every update, to keep data fresh.
         EventDBCChatUpdate(0xFFFFFFFF);
     }
-    else if( m_oldZone != m_zoneId )
+    else if( m_oldZone != m_zoneId || newMap )
     {
         sWeatherMgr.SendWeather(this);
 
@@ -6471,9 +6472,9 @@ void Player::SafeTeleport(MapMgr* mgr, LocationVector vec)
     data << mgr->GetMapId();
     GetSession()->SendPacket(&data);
 
-    data.Initialize(SMSG_NEW_WORLD);
-    data << vec.x << vec.o << vec.z;
-    data << mgr->GetMapId() << vec.y;
+    data.Initialize(SMSG_NEW_WORLD, 20);
+    data << vec.x << vec.o << vec.y;
+    data << mgr->GetMapId() << vec.z;
     GetSession()->SendPacket(&data);
 
     SetPlayerStatus(TRANSFER_PENDING);
@@ -7643,8 +7644,8 @@ PlayerInfo::PlayerInfo(WoWGuid _guid)
     accountId = 0;
     charName = "";
     charRace = charClass = charGender = 0;
-    charTeam = curInstanceID = lastmapid = 0;
-    lastpositionx = lastpositiony = lastpositionz = lastorientation = 0.f;
+    charTeam = lastInstanceID = lastMapID = 0;
+    lastPositionX = lastPositionY = lastPositionZ = lastOrientation = 0.f;
     lastOnline = 0; lastZone = lastLevel = 0;
     m_Group = NULL; subGroup = 0;
     GuildId = GuildRank = 0;

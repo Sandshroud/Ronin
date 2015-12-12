@@ -760,8 +760,8 @@ float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, floa
 void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
 {
     m_mapId = mapid;
-    m_position.ChangeCoords(x, y, z, ang);
-    m_spawnLocation.ChangeCoords(x, y, z, ang);
+    m_position.ChangeCoords(x, y, z, NormAngle(ang));
+    m_spawnLocation = m_position;
 }
 
 WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
@@ -1098,7 +1098,7 @@ bool WorldObject::isTargetInFront(WorldObject* target)
         return true;
 
     // move arc to range 0.. 2*pi
-    float arc = NormAngle(static_cast<float>(M_PI/2));
+    float arc = float(M_PI)/2.f;
 
     float angle = GetAngle(GetPositionX(), GetPositionY(), target->GetPositionX(), target->GetPositionY());
     angle -= m_position.o;

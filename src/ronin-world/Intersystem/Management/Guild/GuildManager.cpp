@@ -286,9 +286,7 @@ void GuildMgr::LoadAllGuilds()
             {
                 MemberMapStorage = new GuildMemberMapStorage(GuildId);
                 m_GuildMemberMaps.insert(std::make_pair(GuildId, MemberMapStorage));
-            }
-            else
-                MemberMapStorage = m_GuildMemberMaps[GuildId];
+            } else MemberMapStorage = m_GuildMemberMaps[GuildId];
 
             MemberMapStorage->MemberMap.insert(std::make_pair(gm->pPlayer->charGuid, gm));
             m_GuildMembers.insert(std::make_pair(gm->pPlayer->charGuid, gm));
@@ -1162,6 +1160,11 @@ uint64 GuildMgr::CalculateAvailableAmount(GuildMember* gMember)
     if((UNIXTIME - gMember->uLastWithdrawReset) >= TIME_DAY)
         return gMember->pRank->iGoldLimitPerDay;
     return (gMember->pRank->iGoldLimitPerDay - gMember->uWithdrawlsSinceLastReset);
+}
+
+uint32 GuildMgr::GetWeeklyRepCap()
+{
+    return 0x00FFFFFF;
 }
 
 void GuildMgr::OnMoneyWithdraw(GuildMember* gMember, uint32 amount)

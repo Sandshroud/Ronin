@@ -282,6 +282,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
 
     ByteBuffer buffer;
     std::set<uint32> accountIds;
+    uint32 weeklyRepCap = GetWeeklyRepCap();
     WorldPacket data(SMSG_GUILD_ROSTER, (4 + gInfo->m_motd.length() + 1 + gInfo->m_guildInfo.length() + 1 + 4 + MemberMapStorage->MemberMap.size() * 50));
     data.WriteBits(gInfo->m_motd.length(), 11);
     data.WriteBits(MemberMapStorage->MemberMap.size(), 18);
@@ -311,20 +312,19 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         }
 
         buffer << uint8(pInfo->charClass);
-        buffer << uint32(0); // unk
+        buffer << uint32(gMember->guildReputation);
         buffer.WriteByteSeq(guid[0]);
-        buffer << uint64(0); // weekly activity
+        buffer << uint64(gMember->weeklyActivity);
         buffer << uint32(gMember->pRank->iId);
-        buffer << uint32(0); // achievement points
-        // professions: id, value, rank
-        buffer << uint32(0) << uint32(0) << uint32(0);
-        buffer << uint32(0) << uint32(0) << uint32(0);
+        buffer << uint32(pInfo->achievementPoints); // achievement points
+        for(uint8 i = 0; i < 2; i++) // professions: id, value, rank
+            buffer << pInfo->professionId[i] << pInfo->professionSkill[i] << pInfo->professionRank[i];
         buffer.WriteByteSeq(guid[2]);
         buffer << uint8(flags);
         buffer << uint32(pInfo->lastZone);
-        buffer << uint64(0); // Total activity
+        buffer << uint64(gMember->totalActivity);
         buffer.WriteByteSeq(guid[7]);
-        buffer << uint32(0); // Remaining guild week Rep
+        buffer << uint32(std::max<int>(0, weeklyRepCap - gMember->weekReputation)); // Remaining guild week Rep
         buffer.append(gMember->szPublicNote.c_str(), gMember->szPublicNote.length());
         buffer.WriteByteSeq(guid[3]);
         buffer << uint8(pInfo->lastLevel);
@@ -350,9 +350,9 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     data.append(gInfo->m_motd.c_str(), gInfo->m_motd.length());
 
     data << uint32(accountIds.size());
-    data << uint32(0);  // weekly rep cap
+    data << uint32(weeklyRepCap);  // weekly rep cap
     data << uint32(RONIN_UTIL::secsToTimeBitFields(gInfo->m_creationTimeStamp));
-    data << uint32(0); // No idea
+    data << uint32(0xFFFF);
 
     MemberMapStorage->MemberMapLock.Release();
     m_session->SendPacket(&data);
@@ -805,12 +805,18 @@ void GuildMgr::Packet_ChangeGuildLeader(WorldSession* m_session, PlayerInfo* new
     LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_LEADER_CHANGED, plr->GetName(), newLeader->charName.c_str());
 }
 
-void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, std::string demoteeName)
+void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, PlayerInfo *demoteeInfo)
 {
     Player* plr = m_session->GetPlayer();
     if(!plr->IsInGuild())
     {
         SendGuildCommandResult(m_session, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_IN_GUILD);
+        return;
+    }
+
+    if(plr->GetGuildId() != demoteeInfo->GuildId)
+    {
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, demoteeInfo->charName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
@@ -828,23 +834,10 @@ void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, std::string dem
         return;
     }
 
-    PlayerInfo* Demoted = objmgr.GetPlayerInfoByName(demoteeName.c_str());
-    if(Demoted == NULL)
-    {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_FOUND);
-        return;
-    }
-
-    if(plr->GetGuildId() != Demoted->GuildId)
-    {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, demoteeName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
-        return;
-    }
-
-    GuildMember* gMember = GetGuildMember(plr->GetGUID()), *DemotedMember = GetGuildMember(Demoted->charGuid);
+    GuildMember* gMember = GetGuildMember(plr->GetGUID()), *DemotedMember = GetGuildMember(demoteeInfo->charGuid);
     if(gMember == NULL || DemotedMember == NULL)
     {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, demoteeName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, demoteeInfo->charName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
@@ -885,22 +878,28 @@ void GuildMgr::Packet_DemoteGuildMember(WorldSession* m_session, std::string dem
     DemotedMember->pPlayer->GuildRank = nh;
 
     // log it
-    LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_DEMOTION, plr->GetName(), demoteeName.c_str(), newRank->szRankName.c_str());
-    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_DEMOTION, plr->GetLowGUID(), Demoted->charGuid.getLow(), newRank->iId);
+    LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_DEMOTION, plr->GetName(), demoteeInfo->charName.c_str(), newRank->szRankName.c_str());
+    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_DEMOTION, plr->GetLowGUID(), demoteeInfo->charGuid.getLow(), newRank->iId);
 
     // if the player is online, update his guildrank
-    if(Demoted->m_loggedInPlayer)
-        Demoted->m_loggedInPlayer->SetGuildRank(nh);
+    if(demoteeInfo->m_loggedInPlayer)
+        demoteeInfo->m_loggedInPlayer->SetGuildRank(nh);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
     gInfo->m_GuildLock.Release();
 }
 
-void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, std::string promoteeName)
+void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, PlayerInfo *promoteeInfo)
 {
     Player* plr = m_session->GetPlayer();
     if(!plr->IsInGuild())
     {
         SendGuildCommandResult(m_session, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_IN_GUILD);
+        return;
+    }
+
+    if(promoteeInfo->GuildId != plr->GetGuildId())
+    {
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, promoteeInfo->charName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
@@ -918,23 +917,10 @@ void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, std::string pr
         return;
     }
 
-    PlayerInfo* Promoted = objmgr.GetPlayerInfoByName(promoteeName.c_str());
-    if(Promoted == NULL)
-    {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, "", GUILD_PLAYER_NOT_FOUND);
-        return;
-    }
-
-    if(plr->GetGuildId() != Promoted->GuildId)
-    {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, std::string(std::string("1") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
-        return;
-    }
-
-    GuildMember* gMember = GetGuildMember(plr->GetGUID()), *PromotedMember = GetGuildMember(Promoted->charGuid);
+    GuildMember* gMember = GetGuildMember(plr->GetGUID()), *PromotedMember = GetGuildMember(promoteeInfo->charGuid);
     if(gMember == NULL || PromotedMember == NULL)
     {
-        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, std::string(std::string("2 ") + promoteeName).c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
+        SendGuildCommandResult(m_session, GUILD_PROMOTE_S, promoteeInfo->charName.c_str(), GUILD_PLAYER_NOT_IN_GUILD_S);
         return;
     }
 
@@ -970,12 +956,12 @@ void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, std::string pr
     PromotedMember->pPlayer->GuildRank = nh;
 
     // log it
-    LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_PROMOTION, plr->GetName(), promoteeName.c_str(), newRank->szRankName.c_str());
-    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_PROMOTION, plr->GetLowGUID(), Promoted->charGuid.getLow(), newRank->iId);
+    LogGuildEvent(NULL, plr->GetGuildId(), GUILD_EVENT_PROMOTION, plr->GetName(), promoteeInfo->charName.c_str(), newRank->szRankName.c_str());
+    AddGuildLogEntry(plr->GetGuildId(), GUILD_LOG_EVENT_PROMOTION, plr->GetLowGUID(), promoteeInfo->charGuid.getLow(), newRank->iId);
 
     // if the player is online, update his guildrank
-    if(Promoted->m_loggedInPlayer)
-        Promoted->m_loggedInPlayer->SetGuildRank(nh);
+    if(promoteeInfo->m_loggedInPlayer)
+        promoteeInfo->m_loggedInPlayer->SetGuildRank(nh);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
     gInfo->m_GuildLock.Release();
 }

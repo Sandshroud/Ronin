@@ -787,6 +787,7 @@ void WorldSession::InitPacketHandlerTable()
     // Guild System
     WorldPacketHandlers[CMSG_GUILD_QUERY].handler                           = &WorldSession::HandleGuildQuery;
     WorldPacketHandlers[CMSG_QUERY_GUILD_XP].handler                        = &WorldSession::HandleGuildXP;
+    WorldPacketHandlers[CMSG_GUILD_REQUEST_MAX_DAILY_XP].handler            = &WorldSession::HandleGuildMaxDailyXP;
     WorldPacketHandlers[CMSG_GUILD_QUERY_NEWS].handler                      = &WorldSession::HandleGuildNews;
     WorldPacketHandlers[CMSG_GUILD_QUERY_RANKS].handler                     = &WorldSession::HandleGuildRanks;
     WorldPacketHandlers[CMSG_GUILD_ROSTER].handler                          = &WorldSession::HandleGuildRoster;
@@ -804,7 +805,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_GUILD_REMOVE].handler                          = &WorldSession::HandleGuildRemove;
     WorldPacketHandlers[CMSG_GUILD_DISBAND].handler                         = &WorldSession::HandleGuildDisband;
     WorldPacketHandlers[CMSG_GUILD_MOTD].handler                            = &WorldSession::HandleGuildMotd;
-    WorldPacketHandlers[CMSG_GUILD_ASSIGN_MEMBER_RANK].handler              = &WorldSession::HandleGuildEditRank;
     WorldPacketHandlers[CMSG_GUILD_ADD_RANK].handler                        = &WorldSession::HandleGuildAddRank;
     WorldPacketHandlers[CMSG_GUILD_DEL_RANK].handler                        = &WorldSession::HandleGuildDelRank;
     WorldPacketHandlers[CMSG_GUILD_SET_NOTE].handler                        = &WorldSession::HandleGuildSetNote;

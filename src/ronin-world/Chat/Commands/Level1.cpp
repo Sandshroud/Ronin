@@ -341,12 +341,11 @@ bool ChatHandler::HandleAppearCommand(const char* args, WorldSession *m_session)
         {
             if(!chr) // Send message telling
                 ss << "Player " << args << " is not logged in.";
-            else
-                ss << "Player " << args << " is not available.";
+            else ss << "Player " << args << " is not available.";
 
-            if(PI->lastpositionx != 0.0f && PI->lastpositiony != 0.0f)
+            if(PI->lastPositionX != 0.0f && PI->lastPositionY != 0.0f)
             {
-                m_session->GetPlayer()->SafeTeleport(PI->lastmapid, PI->curInstanceID, PI->lastpositionx, PI->lastpositiony, PI->lastpositionz+1.0f, PI->lastorientation);
+                m_session->GetPlayer()->SafeTeleport(PI->lastMapID, PI->lastInstanceID, PI->lastPositionX, PI->lastPositionY, PI->lastPositionZ+1.0f, PI->lastOrientation);
                 ss << "\nTeleporting to last known location of player " << args;
                 sWorld.LogGM(m_session, "Appeared to the last known location of %s", args);
             }

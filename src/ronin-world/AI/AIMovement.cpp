@@ -587,7 +587,7 @@ void AI_Movement::SendMoveToPacket(float toX, float toY, float toZ, float toO, u
     if(time == 0 && posX == toX && posY == toY && posZ == toZ)
         data << uint8(1); //stop
     else if(orientation)
-        data << uint8(4) << float(toO);
+        data << uint8(4) << float(NormAngle(toO));
     else data << uint8(0);
 
     data << MoveFlags << time;
@@ -627,7 +627,7 @@ void AI_Movement::SendMoveToPacket(Player* playerTarget)
     data << startx << starty << startz;
     data << PathMap->StartTime;
     if(m_destinationO)
-        data << uint8(4) << float( m_destinationO );
+        data << uint8(4) << float( NormAngle(m_destinationO) );
     else data << uint8(0);
     data << getMoveFlags();
     data << PathMap->TotalMoveTime;
