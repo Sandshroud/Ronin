@@ -27,8 +27,6 @@ typedef struct {
     uint8   I[50];              // account name
 } sAuthLogonChallenge_C;
 
-typedef sAuthLogonChallenge_C sAuthReconnectChallenge_C;
-
 typedef struct {
     uint8   cmd;            // 0x00 CMD_AUTH_LOGON_CHALLENGE
     uint8   error;          // 0 - ok

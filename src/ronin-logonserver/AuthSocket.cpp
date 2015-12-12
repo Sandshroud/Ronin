@@ -617,7 +617,7 @@ void AuthSocket::HandleReconnectChallenge()
         pkt << (uint8)  0x02;   //ReconnectChallenge
         pkt << (uint8)  0x00;
         rs.SetRand(16*8);
-        pkt << rs.AsByteArray();    // 16 bytes random
+        pkt.append(rs.AsByteArray(), 16);    // 16 bytes random
         pkt << uint64(0x00) << uint64(0x00);    // 16 bytes zeros
         Send(pkt.contents(), uint32(pkt.size()));
     }
@@ -644,27 +644,6 @@ void AuthSocket::HandleReconnectProof()
         return;
     }
 
-    if(GetBuild() <= 6005 || GetBuild() > 12340)
-    {
-        GetReadBuffer()->Remove(GetWriteBuffer()->GetSize());
-
-        if(!m_account->SessionKey)
-        {
-            uint8 buffer[4];
-            buffer[0] = 3;
-            buffer[1] = 0;
-            buffer[2] = 1;
-            buffer[3] = 0;
-            Send(buffer, 4);
-        }
-        else
-        {
-            uint32 x = 3;
-            Send((const uint8*)&x, 4);
-        }
-        return;
-    }
-
     if(GetReadBuffer()->GetSize() < sizeof(sAuthLogonProofKey_C))
         return;
 
@@ -686,16 +665,15 @@ void AuthSocket::HandleReconnectProof()
         ByteBuffer pkt;
         pkt << (uint8)  0x03;   //ReconnectProof
         pkt << (uint8)  0x00;
-        pkt << (uint16) 0x00;   // 2 bytes zeros
+        if(GetBuild() > 6141)
+            pkt << (uint16) 0x0000;   // 2 bytes zeros
         Send(pkt.contents(), uint32(pkt.size()));
 
         // we're authenticated now :)
         m_authenticated = true;
 
         sLog.Debug("AuthReConnectProof","Authentication Success.");
-    }
-    else
-        sLog.Debug("AuthReConnectProof","Authentication Failed.");
+    } else sLog.Debug("AuthReConnectProof","Authentication Failed.");
 }
 
 void AuthSocket::HandleTransferAccept()
