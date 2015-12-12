@@ -5884,6 +5884,9 @@ bool Player::AllowChannelAtLocation(uint32 dbcID, AreaTableEntry *areaTable)
         {
             if(sWorld.trade_world_chat == 0)
                 result = areaTable ? ((areaTable->AreaFlags & AREA_CITY_AREA) || (areaTable->AreaFlags & AREA_CITY)) : false;
+            // Set GM Island to always have trade chat
+            if(areaTable && areaTable->AreaId == 876)
+                result = true;
         }break;
     case 26:
         {

@@ -333,7 +333,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         buffer.WriteByteSeq(guid[4]);
         buffer << uint8(0); // unk
         buffer.WriteByteSeq(guid[1]);
-        buffer << float(player ? 0.f : float(UNIXTIME - pInfo->lastOnline) / 86400.f);
+        buffer << float(player ? 0.f : (float(UNIXTIME - pInfo->lastOnline) / 86400.f));
         buffer.append(gMember->szOfficerNote.c_str(), gMember->szOfficerNote.length());
         buffer.WriteByteSeq(guid[6]);
         buffer.append(pInfo->charName.c_str(), pInfo->charName.length());
@@ -352,7 +352,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     data << uint32(accountIds.size());
     data << uint32(weeklyRepCap);  // weekly rep cap
     data << uint32(RONIN_UTIL::secsToTimeBitFields(gInfo->m_creationTimeStamp));
-    data << uint32(0xFFFF);
+    data << uint32(0);
 
     MemberMapStorage->MemberMapLock.Release();
     m_session->SendPacket(&data);
@@ -360,13 +360,44 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
 
 void GuildMgr::Packet_SendGuildXP(WorldSession *session)
 {
+    Player *plr = session->GetPlayer();
+    if(plr == NULL || !plr->IsInGuild())
+        return;
+
+    GuildMember *gMember = GetGuildMember(plr->GetGUID());
+    if(gMember == NULL)
+        return;
+
+    GuildInfo *gInfo = GetGuildInfo(plr->GetGuildId());
+    if(gInfo == NULL)
+        return;
+
+    gInfo->guildXPLock.Acquire();
+    uint64 xpTillNextLevel = GetXPForNextGuildLevel(gInfo->m_guildLevel), guildXP = xpTillNextLevel ? gInfo->m_guildExperience : 0;
+    if(xpTillNextLevel && guildXP)
+        xpTillNextLevel -= guildXP;
+
     WorldPacket data(SMSG_GUILD_XP, 40);
-    data << uint64(0);      // Member xp given today
-    data << uint64(0xFFFF); // XP missing for next level
-    data << uint64(0x0000); // XP gained today
-    data << uint64(0);      // Member xp given this week
-    data << uint64(0x0000); // Total XP
+    data << uint64(gInfo->m_xpGainedToday); // Member xp given today
+    data << uint64(xpTillNextLevel);        // XP missing for next level
+    data << uint64(gMember->guildXPToday);  // XP gained today
+    data << uint64(gMember->guildWeekXP);   // Member xp given this week
+    data << uint64(guildXP);                // Total XP
+    gInfo->guildXPLock.Release();
     session->SendPacket(&data);
+}
+
+void GuildMgr::Packet_SendGuildMaxDailyXP(WorldSession *session, WoWGuid guid)
+{
+    if(GuildMember *gMember = GetGuildMember(session->GetPlayer()->GetGUID()))
+    {
+        if(gMember->guildId == guid.getLow())
+        {
+            WorldPacket data(SMSG_GUILD_MAX_DAILY_XP, 8);
+            data << uint64(gMember->pRank->DailyXPCap*gMember->guildXPCapModifier);
+            session->SendPacket(&data);
+        }
+    }
 }
 
 void GuildMgr::Packet_SendGuildNews(WorldSession *session)

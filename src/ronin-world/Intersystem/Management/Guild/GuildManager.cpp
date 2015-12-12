@@ -19,6 +19,7 @@ GuildMgr::GuildMgr()
     m_hiGuildId = 0;
     m_updateTimer = 0;
     m_GuildsLoading = true;
+    m_weeklyRepCap = 0x1117;
 
     QueryResult *result = CharacterDatabase.Query("SELECT MAX(guildId) FROM guild_data");
     if(result)
@@ -133,6 +134,8 @@ void GuildMgr::LoadAllGuilds()
             gInfo->m_motd = std::string(strlen(temp = f[10].GetString()) ? strdup(temp) : "No message set.");
             gInfo->m_creationTimeStamp = f[11].GetUInt32();
             gInfo->m_bankBalance = f[12].GetUInt64();
+            gInfo->m_xpGainedToday = f[13].GetUInt64();
+            gInfo->m_guildExperience = f[14].GetUInt64();
             gInfo->m_commandLogging = true;
             m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
             m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
@@ -576,10 +579,12 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
         qb = new QueryBuffer();
 #endif
 
+    guildInfo->guildXPLock.Acquire();
     uint32 GuildId = guildInfo->m_guildId;
-    QMGR_EXECUTE("REPLACE INTO guild_data VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %llu);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
+    QMGR_EXECUTE("REPLACE INTO guild_data VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %llu, %llu, %llu);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
         guildInfo->m_guildLevel, guildInfo->m_emblemStyle, guildInfo->m_emblemColor, guildInfo->m_borderColor, guildInfo->m_borderStyle, guildInfo->m_backgroundColor, CharacterDatabase.EscapeString(guildInfo->m_guildInfo).c_str(), 
-        CharacterDatabase.EscapeString(guildInfo->m_motd).c_str(), guildInfo->m_creationTimeStamp, guildInfo->m_bankBalance);
+        CharacterDatabase.EscapeString(guildInfo->m_motd).c_str(), guildInfo->m_creationTimeStamp, guildInfo->m_bankBalance, guildInfo->m_xpGainedToday, guildInfo->m_guildExperience);
+    guildInfo->guildXPLock.Release();
 
     guildInfo->m_GuildStatus = GUILD_STATUS_NORMAL;
     uint32 count = 0;
@@ -900,6 +905,9 @@ void GuildMgr::CreateGuildFromCharter(Charter* charter)
     gInfo->m_bankBalance = 0;
     gInfo->m_guildInfo = "";
     gInfo->m_motd = "No message set.";
+    gInfo->m_commandLogging = true;
+    gInfo->m_xpGainedToday = 0;
+    gInfo->m_guildExperience = 0;
     gInfo->m_GuildStatus = GUILD_STATUS_NEW;
     m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
     m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
@@ -951,6 +959,8 @@ void GuildMgr::CreateGuildFromCommand(std::string name, uint32 gLeader)
     gInfo->m_guildInfo = "";
     gInfo->m_motd = "No message set.";
     gInfo->m_commandLogging = true;
+    gInfo->m_xpGainedToday = 0;
+    gInfo->m_guildExperience = 0;
     gInfo->m_GuildStatus = GUILD_STATUS_NEW;
     m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
     m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
@@ -1160,11 +1170,6 @@ uint64 GuildMgr::CalculateAvailableAmount(GuildMember* gMember)
     if((UNIXTIME - gMember->uLastWithdrawReset) >= TIME_DAY)
         return gMember->pRank->iGoldLimitPerDay;
     return (gMember->pRank->iGoldLimitPerDay - gMember->uWithdrawlsSinceLastReset);
-}
-
-uint32 GuildMgr::GetWeeklyRepCap()
-{
-    return 0x00FFFFFF;
 }
 
 void GuildMgr::OnMoneyWithdraw(GuildMember* gMember, uint32 amount)

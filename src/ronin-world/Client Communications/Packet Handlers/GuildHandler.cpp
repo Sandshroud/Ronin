@@ -24,9 +24,11 @@ void WorldSession::HandleGuildMaxDailyXP(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    WorldPacket data(SMSG_GUILD_MAX_DAILY_XP, 8);
-    data << uint64(0xFFFFFF);
-    SendPacket(&data);
+    WoWGuid guid;
+    recv_data.ReadGuidBitString(8, guid, 0, 3, 5, 1, 4, 6, 7, 2);
+    recv_data.ReadGuidByteString(8, guid, 7, 4, 3, 5, 1, 2, 6, 0);
+
+    guildmgr.Packet_SendGuildMaxDailyXP(this, guid);
 }
 
 void WorldSession::HandleGuildNews(WorldPacket & recv_data)

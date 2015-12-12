@@ -9,10 +9,11 @@
 // Guild Challenge
 #define GUILD_CHALLENGES_TYPES 4
 
-const uint32 GuildChallengeGoldReward[GUILD_CHALLENGES_TYPES]         = { 0, 250,    1000,    500 };
-const uint32 GuildChallengeMaxLevelGoldReward[GUILD_CHALLENGES_TYPES] = { 0, 125,    500,     250 };
-const uint32 GuildChallengeXPReward[GUILD_CHALLENGES_TYPES]           = { 0, 300000, 3000000, 1500000 };
-const uint32 GuildChallengesPerWeek[GUILD_CHALLENGES_TYPES]           = { 0, 7,      1,       3 };
+static const uint32 GuildChallengeGoldReward[GUILD_CHALLENGES_TYPES]         = { 0, 250,    1000,    500 };
+static const uint32 GuildChallengeMaxLevelGoldReward[GUILD_CHALLENGES_TYPES] = { 0, 125,    500,     250 };
+static const uint32 GuildChallengeXPReward[GUILD_CHALLENGES_TYPES]           = { 0, 300000, 3000000, 1500000 };
+static const uint32 GuildChallengesPerWeek[GUILD_CHALLENGES_TYPES]           = { 0, 7,      1,       3 };
+static const uint64 GuildXPPerLevel[24] = { 1658, 1824, 1990, 2155, 2322, 2488, 2653, 2819, 2985, 3151, 3317, 3482, 3649, 3814, 3980, 4145, 4312, 4478, 4643, 4809, 4975, 5141, 5306, 5473 };
 
 struct GuildInfo
 {
@@ -37,6 +38,10 @@ struct GuildInfo
     std::string m_guildName;
     std::string m_guildInfo;
     std::string m_motd;
+
+    Mutex guildXPLock;
+    uint64 m_xpGainedToday;
+    uint64 m_guildExperience;
 };
 
 struct GuildRankTabPermissions
@@ -51,6 +56,7 @@ struct GuildRank
     {
         iId = RankId;
         iRights = RankRights;
+        DailyXPCap = 0x77220C;
         szRankName = RankName;
         iGoldLimitPerDay = FullPermissions ? -1 : 0;
         for(uint32 j = 0; j < MAX_GUILD_BANK_TABS; ++j)
@@ -62,6 +68,7 @@ struct GuildRank
 
     uint32 iId;
     uint32 iRights;
+    uint32 DailyXPCap;
     std::string szRankName;
     int32 iGoldLimitPerDay;
     GuildRankTabPermissions iTabPermissions[MAX_GUILD_BANK_TABS];
@@ -176,10 +183,15 @@ struct GuildMember
             uLastItemWithdrawReset[i] = 0;
             uItemWithdrawlsSinceLastReset[i] = 0;
         }
+        guildRepCapModifier = 1;
         guildReputation = 0;
         weekReputation = 0;
         weeklyActivity = 0;
         totalActivity = 0;
+
+        guildXPCapModifier = 1;
+        guildXPToday = 0;
+        guildWeekXP = 0;
     }
 
     uint32 guildId;
@@ -194,10 +206,15 @@ struct GuildMember
     uint32 uLastItemWithdrawReset[MAX_GUILD_BANK_TABS];
     uint32 uItemWithdrawlsSinceLastReset[MAX_GUILD_BANK_TABS];
 
+    uint32 guildRepCapModifier;
     uint32 guildReputation;
     uint32 weekReputation;
     uint32 weeklyActivity;
     uint32 totalActivity;
+
+    uint32 guildXPCapModifier;
+    uint64 guildXPToday;
+    uint64 guildWeekXP;
 };
 
 typedef std::unordered_map<WoWGuid, GuildMember*> GuildMemberMap;
@@ -269,7 +286,8 @@ public:
     GuildRank* FindHighestRank(GuildRankStorage* Ranks);
     GuildRankStorage* ConstructRankStorage(uint32 GuildId);
 
-    uint32 GetWeeklyRepCap();
+    uint32 GetWeeklyRepCap() { return m_weeklyRepCap; }
+    uint64 GetXPForNextGuildLevel(uint32 level) { ASSERT(level); return level >= 25 ? 0 : (GuildXPPerLevel[level-1]*1000); }
 
     uint32 RemoveGuildRank(uint32 GuildId);
     bool HasGuildRights(Player* plr, uint32 Rights);
@@ -438,6 +456,7 @@ public: // Direct Packet Handlers
     // Requests
     void Packet_SendGuildLog(WorldSession* m_session);
     void Packet_SendGuildXP(WorldSession *m_session);
+    void Packet_SendGuildMaxDailyXP(WorldSession *m_session, WoWGuid guid);
     void Packet_SendGuildNews(WorldSession *m_session);
     void Packet_SendGuildRankInfo(WorldSession *m_session);
     void Packet_SendGuildRoster(WorldSession* m_session);
@@ -481,6 +500,7 @@ public: // Direct Packet Handlers
 private:
     bool m_GuildsLoaded;
     bool m_GuildsLoading;
+    uint32 m_weeklyRepCap;
 
     /***************
     ** Charter section.
