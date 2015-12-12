@@ -19,7 +19,6 @@ class Spell;
 class AIInterface;
 class GameObject;
 class Creature;
-class Vehicle;
 struct CreatureData;
 
 typedef struct
@@ -718,14 +717,6 @@ public:
 
     uint32 m_uAckCounter;
 
-    RONIN_INLINE int8 GetSeatID() { return m_inVehicleSeatId; }
-    RONIN_INLINE Vehicle* GetVehicle() { return m_CurrentVehicle; }
-
-    RONIN_INLINE void SetSeatID(int8 seat) { m_inVehicleSeatId = seat; }
-    RONIN_INLINE void SetVehicle(Vehicle *v) { m_CurrentVehicle = v; }
-
-    bool CanEnterVehicle(Player * requester);
-
     //In-Range
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
 
@@ -996,10 +987,4 @@ public:
     void EventResetRedirectThreat();
     uint32 GetCreatureType();
     bool IsSitting();
-
-    bool m_changingSeats, m_exitingVehicle;
-
-private:
-    uint8 m_inVehicleSeatId;
-    Vehicle* m_CurrentVehicle;
 };

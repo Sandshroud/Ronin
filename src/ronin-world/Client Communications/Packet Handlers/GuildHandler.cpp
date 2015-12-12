@@ -10,15 +10,102 @@ void WorldSession::HandleGuildQuery(WorldPacket & recv_data)
 
     WoWGuid guildId, playerGuid;
     recv_data >> guildId >> playerGuid;
-    guildmgr.Packet_SendGuildQuery(this, guildId.getLow());
+    guildmgr.Packet_SendGuildQuery(this, guildId.getLow(), playerGuid);
+}
+
+void WorldSession::HandleGuildXP(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildXP(this);
+}
+
+void WorldSession::HandleGuildNews(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildNews(this);
+}
+
+void WorldSession::HandleGuildRanks(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    WoWGuid guildId;
+    recv_data.ReadGuidBitString(8, guildId, 2, 3, 0, 6, 4, 7, 5, 1);
+    recv_data.ReadGuidByteString(8, guildId, 3, 4, 5, 7, 1, 0, 6, 2);
+    guildmgr.Packet_SendGuildRankInfo(this);
+}
+
+void WorldSession::HandleGuildRoster(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    WoWGuid guid1, guid2;
+
+    recv_data.ReadGuidBitString(2, guid2, 2, 3);
+    recv_data.ReadGuidBitString(2, guid1, 6, 0);
+    recv_data.ReadGuidBitString(1, guid2, 7);
+    recv_data.ReadGuidBitString(1, guid1, 2);
+    recv_data.ReadGuidBitString(2, guid2, 6, 4);
+    recv_data.ReadGuidBitString(1, guid1, 1);
+    recv_data.ReadGuidBitString(1, guid2, 5);
+    recv_data.ReadGuidBitString(2, guid1, 4, 3);
+    recv_data.ReadGuidBitString(1, guid2, 0);
+    recv_data.ReadGuidBitString(1, guid1, 5);
+    recv_data.ReadGuidBitString(1, guid2, 1);
+    recv_data.ReadGuidBitString(1, guid1, 7);
+
+    // Skip the rest of the packet
+    recv_data.rpos(recv_data.size());
+    // This is wrong, gotta find the right structure
+    /*recv_data.ReadGuidByteString(1, guid1, 3);
+    recv_data.ReadGuidByteString(1, guid2, 4);
+    recv_data.ReadGuidByteString(4, guid1, 7, 2, 4, 0);
+    recv_data.ReadGuidByteString(1, guid2, 5);
+    recv_data.ReadGuidByteString(1, guid1, 1);
+    recv_data.ReadGuidByteString(2, guid2, 0, 6);
+    recv_data.ReadGuidByteString(1, guid1, 5);
+    recv_data.ReadGuidByteString(4, guid2, 7, 2, 3, 1);
+    recv_data.ReadGuidByteString(1, guid1, 6);*/
+
+    guildmgr.Packet_SendGuildRoster(this);
+}
+
+void WorldSession::HandleGuildRewards(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+    recv_data.read_skip<uint32>(); // Unk
+
+    guildmgr.Packet_SendGuildRewards(this);
+}
+
+void WorldSession::HandleGuildPermissions(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildPermissions(this);
+}
+
+void WorldSession::HandleGuildPartyState(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildPartyState(this);
+}
+
+void WorldSession::HandleGuildChallengeUpdate(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    guildmgr.Packet_SendGuildChallengeUpdate(this);
 }
 
 void WorldSession::HandleInviteToGuild(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::string inviteeName;
-    recv_data >> inviteeName;
+    std::string inviteeName = recv_data.ReadString(recv_data.ReadBits(7));
     guildmgr.Packet_HandleGuildInvite(this, inviteeName);
 }
 
@@ -40,23 +127,8 @@ void WorldSession::HandleSetGuildInformation(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::string NewGuildInfo;
-    recv_data >> NewGuildInfo;
+    std::string NewGuildInfo = recv_data.ReadString(recv_data.ReadBits(12));
     guildmgr.Packet_SetGuildInformation(this, NewGuildInfo);
-}
-
-void WorldSession::HandleGuildRoster(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    guildmgr.Packet_SendGuildRoster(this);
-}
-
-void WorldSession::HandleGuildRanks(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-
-    guildmgr.Packet_SendGuildRankInfo(this);
 }
 
 void WorldSession::HandleGuildPromote(WorldPacket & recv_data)
@@ -90,10 +162,11 @@ void WorldSession::HandleGuildRemove(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::string name;
-    recv_data >> name;
+    WoWGuid memberGuid;
+    recv_data.ReadGuidBitString(8, memberGuid, 6, 5, 4, 0, 1, 3, 7, 2);
+    recv_data.ReadGuidByteString(8, memberGuid, 2, 6, 5, 7, 1, 4, 3, 0);
 
-    PlayerInfo * dstplr = objmgr.GetPlayerInfoByName(name.c_str());
+    PlayerInfo * dstplr = objmgr.GetPlayerInfo(memberGuid);
     if( dstplr == NULL )
         return;
 
@@ -123,9 +196,7 @@ void WorldSession::HandleGuildLeader(WorldPacket & recv_data)
 void WorldSession::HandleGuildMotd(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    std::string motd = "";
-    if(recv_data.size())
-        recv_data >> motd;
+    std::string motd = recv_data.ReadString(recv_data.ReadBits(11));
 
     guildmgr.Packet_SetMotd(this, motd);
 }
@@ -168,22 +239,26 @@ void WorldSession::HandleGuildDelRank(WorldPacket & recv_data)
     guildmgr.Packet_HandleDeleteRank(this);
 }
 
-void WorldSession::HandleGuildSetPublicNote(WorldPacket & recv_data)
+void WorldSession::HandleGuildSetNote(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
-    std::string target, newnote;
-    recv_data >> target >> newnote;
 
-    guildmgr.Packet_SetPublicNote(this, target, newnote);
-}
+    WoWGuid targetGuid;
+    recv_data.ReadGuidBitString(6, targetGuid, 1, 4, 5, 3, 0, 7);
+    bool officer = !recv_data.ReadBit();
+    recv_data.ReadGuidBitString(1, targetGuid, 6);
+    size_t noteLen = recv_data.ReadBits(8);
+    recv_data.ReadGuidBitString(1, targetGuid, 2);
 
-void WorldSession::HandleGuildSetOfficerNote(WorldPacket & recv_data)
-{
-    CHECK_INWORLD_RETURN();
-    std::string target, newnote;
-    recv_data >> target >> newnote;
+    recv_data.ReadGuidByteString(7, targetGuid, 4, 5, 0, 3, 1, 6, 7);
+    std::string newnote = recv_data.ReadString(noteLen);
+    recv_data.ReadGuidByteString(1, targetGuid, 2);
 
-    guildmgr.Packet_SetOfficerNote(this, target, newnote);
+    PlayerInfo *pInfo = objmgr.GetPlayerInfo(targetGuid);
+    if(pInfo == NULL)
+        return;
+
+    guildmgr.Packet_SetMemberNote(this, pInfo, officer, newnote);;
 }
 
 void WorldSession::HandleSaveGuildEmblem(WorldPacket & recv_data)

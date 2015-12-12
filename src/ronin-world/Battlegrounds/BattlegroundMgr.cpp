@@ -1975,9 +1975,6 @@ void CBattleground::GiveHonorToTeam(uint32 team, uint32 amt)
 
 bool CBattleground::HookSlowLockOpen(GameObject* pGo, Player* pPlayer, Spell* pSpell)
 {
-    if( pPlayer->GetVehicle() )
-        pPlayer->GetVehicle()->RemovePassenger(pPlayer);
-
     /*if( pPlayer->m_stealth )
         pPlayer->RemoveAura( pPlayer->m_stealth );*/
 

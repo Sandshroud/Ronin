@@ -113,6 +113,7 @@ enum Languages
 #define MSG_COLOR_BLUE          "|cff0000ff"
 #define MSG_COLOR_GREEN         "|cff00ff00"
 #define MSG_COLOR_RED           "|cffff0000"
+#define MSG_COLOR_CRIMSON       "|cffdc143c"
 #define MSG_COLOR_GOLD          "|cffffcc00"
 #define MSG_COLOR_GREY          "|cff888888"
 #define MSG_COLOR_WHITE         "|cffffffff"

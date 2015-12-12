@@ -302,15 +302,15 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pNewChar->SaveToDB(true);
 
     PlayerInfo *pn = new PlayerInfo(pNewChar->GetGUID());
-    pn->name = strdup(pNewChar->GetName());
-    pn->_class = pNewChar->getClass();
-    pn->race = pNewChar->getRace();
-    pn->gender = pNewChar->getGender();
+    pn->accountId = GetAccountId();
+    pn->charName = pNewChar->GetName();
+    pn->charClass = pNewChar->getClass();
+    pn->charRace = pNewChar->getRace();
+    pn->charGender = pNewChar->getGender();
+    pn->charTeam = pNewChar->GetTeam();
     pn->lastLevel = pNewChar->getLevel();
     pn->lastZone = pNewChar->GetZoneId();
     pn->lastOnline = UNIXTIME;
-    pn->team = pNewChar->GetTeam();
-    pn->acct = GetAccountId();
     objmgr.AddPlayerInfo(pn);
 
     pNewChar->ok_to_remove = true;
@@ -350,7 +350,7 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
         std::string name = result->Fetch()[0].GetString();
         delete result;
 
-        GuildMember* gMember = inf->GuildId ? guildmgr.GetGuildMember(inf->guid.getLow()) : NULL;
+        GuildMember* gMember = inf->GuildId ? guildmgr.GetGuildMember(inf->charGuid) : NULL;
         if(gMember != NULL && gMember->pRank->iId == 0)
             return CHAR_DELETE_FAILED_GUILD_LEADER;
 
@@ -365,9 +365,9 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
             {
                 if(Charter *pCharter = guildmgr.GetCharter(inf->charterId[i], (CharterTypes)i))
                 {
-                    if( pCharter->LeaderGuid == inf->guid.getLow() )
+                    if( pCharter->LeaderGuid == inf->charGuid.getLow() )
                         pCharter->Destroy();
-                    else pCharter->RemoveSignature(inf->guid.getLow());
+                    else pCharter->RemoveSignature(inf->charGuid.getLow());
                 }
             }
         }
@@ -454,14 +454,13 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
 
     // correct capitalization
     CapitalizeString(name);
-    objmgr.RenamePlayerInfo(pi, pi->name, name.c_str());
+    objmgr.RenamePlayerInfo(pi, pi->charName.c_str(), name.c_str());
 
-    sWorld.LogPlayer(this, "a rename was pending. Renamed character %s (GUID: %u) to %s.", pi->name, pi->guid, name.c_str());
+    sWorld.LogPlayer(this, "a rename was pending. Renamed character %s (GUID: %u) to %s.", pi->charName.c_str(), pi->charGuid.getLow(), name.c_str());
+    pi->charName = name;
 
     // If we're here, the name is okay.
-    CharacterDatabase.Query("UPDATE character_data SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u",name.c_str(), guid.getLow(), _accountId);
-    free(pi->name);
-    pi->name = strdup(name.c_str());
+    CharacterDatabase.Query("UPDATE character_data SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u", name.c_str(), guid.getLow(), _accountId);
 
     data << uint8(0) << guid << name;
     SendPacket(&data);
@@ -563,23 +562,6 @@ void WorldSession::FullLogin(Player* plr)
         } else plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);
     }
 
-    // Make sure our name exists (for premade system)
-    PlayerInfo * info = objmgr.GetPlayerInfo(plr->GetGUID());
-    if(info == NULL)
-    {
-        info = new PlayerInfo(plr->GetGUID());
-        info->_class = plr->getClass();
-        info->gender = plr->getGender();
-        info->name = strdup(plr->GetName());
-        info->lastLevel = plr->getLevel();
-        info->lastOnline = UNIXTIME;
-        info->lastZone = plr->GetZoneId();
-        info->race = plr->getRace();
-        info->team = plr->GetTeam();
-        objmgr.AddPlayerInfo(info);
-    }
-
-    plr->m_playerInfo = info;
     for(uint32 z = 0; z < NUM_ARENA_TEAM_TYPES; ++z)
     {
         if(plr->m_playerInfo->arenaTeam[z] != NULL)
@@ -590,8 +572,6 @@ void WorldSession::FullLogin(Player* plr)
             else plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 1);
         }
     }
-
-    info->m_loggedInPlayer = plr;
 
     data.Initialize(SMSG_LEARNED_DANCE_MOVES, 8);
     data << uint32(0) << uint32(0);
@@ -637,9 +617,6 @@ void WorldSession::FullLogin(Player* plr)
         }
     }
 
-    if(plr->GetVehicle())
-        plr->GetVehicle()->RemovePassenger(plr);
-
     sLog.Debug( "WorldSession","Player %s logged in.", plr->GetName());
 
     if(plr->GetTeam() == 1)
@@ -669,8 +646,8 @@ void WorldSession::FullLogin(Player* plr)
             plr->AddCalculatedRestXP(timediff);
     }
 
-    if(info->m_Group)
-        info->m_Group->Update();
+    if(Group *group = plr->GetGroup())
+        group->Update();
 
     if(enter_world && !plr->IsInWorld())
         sInstanceMgr.PushToWorldQueue(plr);
@@ -712,22 +689,20 @@ bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_sessio
         return true;
     }
 
-    objmgr.RenamePlayerInfo(pi, pi->name, new_name.c_str());
-
-    free(pi->name);
-    pi->name = strdup(new_name.c_str());
+    objmgr.RenamePlayerInfo(pi, pi->charName.c_str(), new_name.c_str());
+    pi->charName = new_name;
 
     // look in world for him
-    if(Player* plr = objmgr.GetPlayer(pi->guid))
+    if(Player* plr = objmgr.GetPlayer(pi->charGuid))
     {
         plr->SetName(new_name);
         BlueSystemMessageToPlr(plr, "%s changed your name to '%s'.", m_session->GetPlayer()->GetName(), new_name.c_str());
         plr->SaveToDB(false);
-    } else CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->guid.getLow());
+    } else CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->charGuid.getLow());
 
     GreenSystemMessage(m_session, "Changed name of '%s' to '%s'.", (char*)name1, (char*)name2);
-    sWorld.LogGM(m_session, "renamed character %s (GUID: %u) to %s", (char*)name1, pi->guid, (char*)name2);
-    sWorld.LogPlayer(m_session, "GM renamed character %s (GUID: %u) to %s", (char*)name1, pi->guid, ((char*)name2));
+    sWorld.LogGM(m_session, "renamed character %s (GUID: %u) to %s", (char*)name1, pi->charGuid.getLow(), (char*)name2);
+    sWorld.LogPlayer(m_session, "GM renamed character %s (GUID: %u) to %s", (char*)name1, pi->charGuid.getLow(), ((char*)name2));
     return true;
 }
 
@@ -806,7 +781,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     if(!result)
         return;
 
-    if(name != pi->name)
+    if(name != pi->charName)
     {
         // Check name for rule violation.
         const char * szName = name.c_str();
@@ -846,13 +821,12 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
 
         // correct capitalization
         CapitalizeString(name);
-        objmgr.RenamePlayerInfo(pi, pi->name, name.c_str());
-        // If we're here, the name is okay.
-        free(pi->name);
-        pi->name = strdup(name.c_str());
+        objmgr.RenamePlayerInfo(pi, pi->charName.c_str(), name.c_str());
+        pi->charName = name;
 
         CharacterDatabase.Execute("UPDATE character_data SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), guid.getLow());
     }
+
     Field* fields = result->Fetch();
     uint32 player_bytes2 = fields[0].GetUInt32();
     player_bytes2 &= ~0xFF;

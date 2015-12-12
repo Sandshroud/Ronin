@@ -1319,3 +1319,13 @@ void WorldSession::HandleWrapItemOpcode( WorldPacket& recv_data )
 {
 
 }
+
+void WorldSession::HandleItemRefundInfoOpcode( WorldPacket& recv_data )
+{
+
+}
+
+void WorldSession::HandleItemRefundRequestOpcode( WorldPacket& recv_data )
+{
+
+}

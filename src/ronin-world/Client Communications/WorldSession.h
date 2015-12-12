@@ -206,6 +206,7 @@ public:
     {
         if(_socket && _socket->IsConnected())
             _socket->Disconnect();
+        _socket = NULL;
     }
 
     int __fastcall Update(uint32 InstanceID);
@@ -500,11 +501,17 @@ protected:
 
     // Guild
     void HandleGuildQuery(WorldPacket & recv_data);
+    void HandleGuildXP(WorldPacket & recv_data);
+    void HandleGuildNews(WorldPacket & recv_data);
+    void HandleGuildRanks(WorldPacket & recv_data);
+    void HandleGuildRoster(WorldPacket & recv_data);
+    void HandleGuildRewards(WorldPacket & recv_data);
+    void HandleGuildPermissions(WorldPacket & recv_data);
+    void HandleGuildPartyState(WorldPacket & recv_data);
+    void HandleGuildChallengeUpdate(WorldPacket & recv_data);
     void HandleInviteToGuild(WorldPacket & recv_data);
     void HandleGuildAccept(WorldPacket & recv_data);
     void HandleGuildDecline(WorldPacket & recv_data);
-    void HandleGuildRoster(WorldPacket & recv_data);
-    void HandleGuildRanks(WorldPacket & recv_data);
     void HandleGuildPromote(WorldPacket & recv_data);
     void HandleGuildDemote(WorldPacket & recv_data);
     void HandleGuildLeave(WorldPacket & recv_data);
@@ -515,8 +522,7 @@ protected:
     void HandleGuildEditRank(WorldPacket & recv_data);
     void HandleGuildAddRank(WorldPacket & recv_data);
     void HandleGuildDelRank(WorldPacket & recv_data);
-    void HandleGuildSetPublicNote(WorldPacket & recv_data);
-    void HandleGuildSetOfficerNote(WorldPacket & recv_data);
+    void HandleGuildSetNote(WorldPacket & recv_data);
     void HandleSaveGuildEmblem(WorldPacket & recv_data);
     void HandleCharterBuy(WorldPacket & recv_data);
     void HandleCharterShowSignatures(WorldPacket & recv_data);
@@ -635,13 +641,6 @@ protected:
     void HandleAlterAppearance(WorldPacket & recv_data);
     void HandleAchievementInspect(WorldPacket & recv_data);
     void HandleRemoveGlyph(WorldPacket & recv_data);
-
-    //Vehicles
-    void HandleVehicleDismiss(WorldPacket & recv_data);
-    void HandleSpellClick( WorldPacket & recv_data );
-    void HandleRequestSeatChange( WorldPacket & recv_data );
-    void HandleEjectPassenger( WorldPacket & recv_data );
-    void HandleVehicleMountEnter( WorldPacket & recv_data );
 
     //MISC
     void HandleReadyForAccountDataTimes(WorldPacket &recv_data);

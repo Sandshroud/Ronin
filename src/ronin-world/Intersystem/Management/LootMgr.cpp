@@ -708,7 +708,7 @@ void LootRoll::Finalize()
 
 void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
 {
-    if(m_NeedRolls.find(pInfo->guid) != m_NeedRolls.end() || m_GreedRolls.find(pInfo->guid) != m_GreedRolls.end() || m_DisenchantRolls.find(pInfo->guid) != m_DisenchantRolls.end())
+    if(m_NeedRolls.find(pInfo->charGuid) != m_NeedRolls.end() || m_GreedRolls.find(pInfo->charGuid) != m_GreedRolls.end() || m_DisenchantRolls.find(pInfo->charGuid) != m_DisenchantRolls.end())
         return; // dont allow cheaters
 
     ItemPrototype* proto = sItemMgr.LookupEntry(_itemid);
@@ -720,7 +720,7 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     int roll = RandomUInt(99)+1;
     // create packet
     WorldPacket data(SMSG_LOOT_ROLL, 34);
-    data << _guid << _slotid << uint64(pInfo->guid);
+    data << _guid << _slotid << pInfo->charGuid;
     data << _itemid << _randomProp << _randomSeed;
 
     if(!pInfo->m_loggedInPlayer)
@@ -732,18 +732,18 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
         {
             if(pInfo->m_loggedInPlayer->CanNeedItem(proto))
             {
-                m_NeedRolls.insert( std::make_pair(pInfo->guid, roll) );
+                m_NeedRolls.insert( std::make_pair(pInfo->charGuid, roll) );
                 data << uint8(roll) << uint8(NEED);
             }
             else
             {
-                m_passRolls.insert( pInfo->guid );
+                m_passRolls.insert( pInfo->charGuid );
                 data << uint8(128) << uint8(128);
             }
         }break;
     case GREED:
         {
-            m_GreedRolls.insert( std::make_pair(pInfo->guid, roll) );
+            m_GreedRolls.insert( std::make_pair(pInfo->charGuid, roll) );
             data << uint8(roll) << uint8(GREED);
         }break;
     case DISENCHANT:
@@ -760,18 +760,18 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
 
             if(acceptableroll)
             {
-                m_DisenchantRolls.insert( std::make_pair(pInfo->guid, roll) );
+                m_DisenchantRolls.insert( std::make_pair(pInfo->charGuid, roll) );
                 data << uint8(roll) << uint8(DISENCHANT);
             }
             else
             {
-                m_passRolls.insert( pInfo->guid );
+                m_passRolls.insert( pInfo->charGuid );
                 data << uint8(128) << uint8(128);
             }
         }break;
     default: //pass
         {
-            m_passRolls.insert( pInfo->guid );
+            m_passRolls.insert( pInfo->charGuid );
             data << uint8(128) << uint8(128);
         }break;
     }

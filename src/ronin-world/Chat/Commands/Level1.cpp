@@ -300,12 +300,12 @@ bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)
         {
             Player* pPlayer = m_session->GetPlayer();
             char query[512];
-            snprintf((char*) &query,512, "UPDATE character_data SET mapId = %u, positionX = %f, positionY = %f, positionZ = %f, zoneId = %u WHERE guid = %u;", pPlayer->GetMapId(), pPlayer->GetPositionX(), pPlayer->GetPositionY(), pPlayer->GetPositionZ(), pPlayer->GetZoneId(), pinfo->guid);
+            snprintf((char*) &query,512, "UPDATE character_data SET mapId = %u, positionX = %f, positionY = %f, positionZ = %f, zoneId = %u WHERE guid = %u;", pPlayer->GetMapId(), pPlayer->GetPositionX(), pPlayer->GetPositionY(), pPlayer->GetPositionZ(), pPlayer->GetZoneId(), pinfo->charGuid.getLow());
             CharacterDatabase.Execute(query);
             char buf[256];
-            snprintf((char*)buf,256,"(Offline) %s has been summoned.", pinfo->name);
+            snprintf((char*)buf,256,"(Offline) %s has been summoned.", pinfo->charName.c_str());
             SystemMessage(m_session, buf);
-            sWorld.LogGM(m_session, "Summoned offline player %s", pinfo->name);
+            sWorld.LogGM(m_session, "Summoned offline player %s", pinfo->charName.c_str());
         }
     }
     return true;

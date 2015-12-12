@@ -95,14 +95,7 @@ void MapCell::RemoveObjects()
             {
             case TYPEID_UNIT:
                 {
-                    if( pObject->IsVehicle() )
-                    {
-                        _mapmgr->_reusable_guids_vehicle.push_back( pObject->GetLowGUID() );
-                        castPtr<Vehicle>(pObject)->m_respawnCell = NULL;
-                        castPtr<Vehicle>(pObject)->Destruct();
-                        pObject = NULL;
-                    }
-                    else if( !pObject->IsPet() )
+                    if( !pObject->IsPet() )
                     {
                         _mapmgr->_reusable_guids_creature.push_back( pObject->GetLowGUID() );
                         castPtr<Creature>(pObject)->m_respawnCell = NULL;
@@ -175,7 +168,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
             if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
                 continue;
 
-            if(c = spawn->vehicle ? _mapmgr->CreateVehicle(spawn->entry) : _mapmgr->CreateCreature(spawn->entry))
+            if(c = _mapmgr->CreateCreature(spawn->entry))
             {
                 c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _mapmgr->iInstanceMode, spawn);
                 c->SetInstanceID(_mapmgr->GetInstanceID());

@@ -2920,11 +2920,7 @@ void Aura::SpellAuraProcTriggerWithValue(bool apply)
 
 void Aura::SpellAuraVehiclePassenger(bool apply)
 {
-    if(!GetUnitCaster() || !GetUnitCaster()->IsVehicle())
-        return;
-    if(apply)
-        castPtr<Vehicle>(GetCaster())->AddPassenger(m_target,GetSpellProto()->EffectMiscValue[mod->i],true);
-    else castPtr<Vehicle>(GetCaster())->RemovePassenger(m_target);
+
 }
 
 void Aura::SpellAuraReduceEffectDuration(bool apply)

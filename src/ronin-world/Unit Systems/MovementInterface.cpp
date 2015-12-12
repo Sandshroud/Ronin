@@ -35,7 +35,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterS
     m_underwaterState = 0;
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
-    m_heightOffset = 0.f;
+    m_heightOffset = 0.001f;
 
     ClearTransportData();
     m_extra.clear();
@@ -391,6 +391,9 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
 {
     if(!TerrainMgr::AreCoordinatesValid(m_clientLocation.x, m_clientLocation.y))
         return false;
+
+    // Normalize the client orientation here
+    m_clientLocation.o = NormAngle(m_clientLocation.o);
 
     UpdateMovementFlagMask();
     if(!UpdateAcknowledgementData(moveCode))

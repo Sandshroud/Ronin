@@ -15,20 +15,6 @@ class TemplateMgr;
 
 struct Formation;
 
-struct SpawnBytes
-{
-    SpawnBytes(uint32 _bytes = 0, uint32 _bytes1 = 0, uint32 _bytes2 = 0)
-    {
-        bytes = _bytes;
-        bytes1 = _bytes1;
-        bytes2 = _bytes2;
-    }
-
-    uint32 bytes;
-    uint32 bytes1;
-    uint32 bytes2;
-};
-
 struct SpawnChannelData
 {
     SpawnChannelData(uint32 _channel_spell = 0, uint32 _channel_target_go = 0, uint32 _channel_target_creature = 0)
@@ -55,13 +41,11 @@ typedef struct
     uint32 factionid;
     uint32 emote_state;
     uint8  stand_state;
-    bool   vehicle;
     uint32 CanMove;
     int32  vendormask;
     uint16 death_state;
     uint32 MountedDisplayID;
 
-    SpawnBytes *Bytes;
     SpawnChannelData *ChannelData;
 
     bool GetModelData(uint8 &gender, uint32 &model)

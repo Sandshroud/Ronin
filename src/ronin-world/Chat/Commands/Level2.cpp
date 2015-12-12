@@ -109,22 +109,6 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    if(unit->IsVehicle())
-    {
-        Vehicle* veh = castPtr<Vehicle>(unit);
-        for(int i = 0; i < 8; i++)
-        {
-            if(!veh->GetPassenger(i))
-                continue;
-
-            // Remove any players
-            if(veh->GetPassenger(i)->IsPlayer())
-                veh->RemovePassenger(veh->GetPassenger(i));
-            else // Remove any units.
-                veh->GetPassenger(i)->RemoveFromWorld(true);
-        }
-    }
-
     sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetSQL_id(), unit->GetName(), unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
     BlueSystemMessage(m_session, "Deleted creature ID %u", unit->GetSQL_id());
     unit->DeleteFromDB();

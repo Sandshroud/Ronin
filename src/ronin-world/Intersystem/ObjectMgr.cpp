@@ -128,7 +128,6 @@ ObjectMgr::~ObjectMgr()
     for(RONIN_UNORDERED_MAP<WoWGuid, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
     {
         itr->second->m_Group = NULL;
-        free(itr->second->name);
         delete itr->second;
     }
 
@@ -217,12 +216,11 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
         pl->m_Group = NULL;
     }
 
-    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pl->name);
+    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pl->charName);
     i2 = m_playersInfoByName.find(pnam);
     if( i2 != m_playersInfoByName.end() && i2->second == pl )
         m_playersInfoByName.erase( i2 );
 
-    free(pl->name);
     delete i->second;
     m_playersinfo.erase(i);
 
@@ -245,8 +243,8 @@ PlayerInfo *ObjectMgr::GetPlayerInfo( WoWGuid guid )
 void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 {
     playernamelock.AcquireWriteLock();
-    m_playersinfo[pn->guid] =  pn;
-    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pn->name);
+    m_playersinfo[pn->charGuid] =  pn;
+    std::string pnam = RONIN_UTIL::TOLOWER_RETURN(pn->charName);
     m_playersInfoByName[pnam] = pn;
     playernamelock.ReleaseWriteLock();
 }
@@ -286,7 +284,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 void ObjectMgr::LoadPlayersInfo()
 {
     PlayerInfo * pn;
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,level,zoneId,acct,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,acct,name,race,class,gender,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
     uint32 period, c;
     if(result)
     {
@@ -297,41 +295,44 @@ void ObjectMgr::LoadPlayersInfo()
         {
             Field *fields = result->Fetch();
             pn = new PlayerInfo(fields[0].GetUInt64());
-            pn->name = strdup(fields[1].GetString());
-            pn->race = fields[2].GetUInt8();
-            pn->_class = fields[3].GetUInt8();
-            pn->gender = fields[4].GetUInt8();
-            pn->lastLevel = fields[5].GetUInt32();
-            pn->lastZone = fields[6].GetUInt32();
-            pn->acct = fields[7].GetUInt32();
+            pn->accountId = fields[1].GetUInt32();
+            pn->charName = strdup(fields[2].GetString());
+            pn->charRace = fields[3].GetUInt8();
+            pn->charClass = fields[4].GetUInt8();
+            pn->charGender = fields[5].GetUInt8();
+            pn->lastLevel = fields[6].GetUInt32();
+            pn->lastZone = fields[7].GetUInt32();
             pn->curInstanceID = fields[8].GetUInt32();
             pn->lastmapid = fields[9].GetUInt32();
             pn->lastpositionx = fields[10].GetFloat();
             pn->lastpositiony = fields[11].GetFloat();
             pn->lastpositionz = fields[12].GetFloat();
             pn->lastorientation = fields[13].GetFloat();
-            CharRaceEntry * race = dbcCharRace.LookupEntry(pn->race);
-            pn->team = race->TeamId;
+            if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
+                pn->charTeam = race->TeamId;
 
-            if( GetPlayerInfoByName(pn->name) != NULL )
+            std::string lpn = RONIN_UTIL::TOLOWER_RETURN(pn->charName);
+            if( GetPlayerInfoByName(lpn.c_str()) != NULL )
             {
                 // gotta rename him
                 char temp[300];
-                snprintf(temp, 300, "%s__%X__", pn->name, pn->guid);
-                sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->name,temp,pn->guid);
-                CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u",
-                    CharacterDatabase.EscapeString(std::string(temp)).c_str(), pn->guid);
-
-                free(pn->name);
-                pn->name = strdup(temp);
+                snprintf(temp, 300, "%s__%X__", pn->charName.c_str(), pn->charGuid.getLow());
+                sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->charName.c_str(), temp, pn->charGuid.getLow());
+                CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u", CharacterDatabase.EscapeString(std::string(temp)).c_str(), pn->charGuid.getLow());
+                pn->charName = temp;
             }
 
-            std::string lpn = pn->name;
-            RONIN_UTIL::TOLOWER(lpn);
+            if(GuildMember *member = guildmgr.GetGuildMember(pn->charGuid))
+            {
+                pn->GuildId = member->guildId;
+                pn->GuildRank = member->pRank->iId;
+            }
+
+            // Store playerinfo by name
             m_playersInfoByName[lpn] = pn;
 
             //this is startup -> no need in lock -> don't use addplayerinfo
-            m_playersinfo[pn->guid] = pn;
+            m_playersinfo[pn->charGuid] = pn;
 
             if( !((++c) % period) )
                 sLog.Notice("PlayerInfo", "Done %u/%u, %u% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
@@ -633,8 +634,8 @@ void ObjectMgr::SetHighestGuids()
 void ObjectMgr::ListGuidAmounts()
 {
     QueryResult *result;
-    uint32 amount[8];
-    std::string name[8] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets", "Creatures", "Gameobjects", "Vehicles"};
+    uint32 amount[7];
+    std::string name[7] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets", "Creatures", "Gameobjects"};
 
     result = CharacterDatabase.Query("SELECT guid FROM character_data");
     if(result)
@@ -685,14 +686,7 @@ void ObjectMgr::ListGuidAmounts()
         delete result;
     }
 
-    result = WorldDatabase.Query("SELECT id FROM creature_spawns WHERE vehicle > '0'");
-    if(result)
-    {
-        amount[7] = result->GetRowCount();
-        delete result;
-    }
-
-    for(int i = 0; i < 8; i++)
+    for(int i = 0; i < 7; i++)
         sLog.Notice("ObjectMgr", "Load Amount(%s) = %u", name[i].c_str(), amount[i] ? amount[i] : 0);
 }
 

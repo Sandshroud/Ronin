@@ -584,17 +584,5 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
 
 void SpellEffectClass::SummonVehicle(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    // If it has no vehicle id, then we can't really do anything with it as a vehicle :/
-    if(Vehicle *veh = u_caster->GetMapMgr()->CreateVehicle( data->entry ))
-    {
-        veh->Load(u_caster->GetMapId(), v.x, v.y, v.z, v.o, u_caster->GetMapMgr()->iInstanceMode);
-        veh->SetCreatedBySpell( m_spellInfo->Id );
-        veh->SetCreatedByGUID( u_caster->GetGUID() );
-        veh->SetSummonedByGUID( u_caster->GetGUID() );
-        veh->RemoveFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK );
-        veh->PushToWorld( u_caster->GetMapMgr() );
 
-        // Need to delay this a bit since first the client needs to see the vehicle
-        veh->AddPassenger(u_caster, 0, true);
-    }
 }

@@ -271,10 +271,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 
     uint16 updateFlags = m_updateFlags;
     if(target == this) // player creating self
-    {
-        printf("Creating self\n");
         updateFlags |= UPDATEFLAG_SELF;
-    }
     else if(Unit *unit = (IsUnit() ? castPtr<Unit>(this) : NULL))
     {
         if(unit->GetUInt64Value(UNIT_FIELD_TARGET))
@@ -288,7 +285,6 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     }
     else if(IsGameObject())
     {
-        return 0;
         switch(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID))
         {
         case GAMEOBJECT_TYPE_TRAP:
@@ -311,8 +307,8 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     _BuildMovementUpdate(data, updateFlags, target);
     // this will cache automatically if needed
     _BuildCreateValuesUpdate( data, target );
-    // update count: 1 ;)
-    return 1;
+
+    return 1; // update count: 1 ;)
 }
 
 uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFlags, uint32 expectedField)
@@ -811,10 +807,10 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     if(m_lastMapUpdatePosition.Distance2DSq(newX, newY) > 4.0f)     /* 2.0f */
         updateMap = true;
 
-    m_position.ChangeCoords(newX, newY, newZ, newOrientation);
+    m_position.ChangeCoords(newX, newY, newZ, NormAngle(newOrientation));
     if (IsInWorld() && updateMap)
     {
-        m_lastMapUpdatePosition.ChangeCoords(newX,newY,newZ,newOrientation);
+        m_lastMapUpdatePosition = m_position;
         m_mapMgr->ChangeObjectLocation(this);
 
         if( IsPlayer() && castPtr<Player>(this)->GetGroup() && castPtr<Player>(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
@@ -1095,18 +1091,6 @@ float GetAngle(float x, float y, float Targetx, float Targety)
     return ang;
 }
 
-float Normalize(float o)
-{
-    if (o < 0)
-    {
-        float mod = o *-1;
-        mod = fmod(mod, 2.0f * static_cast<float>(M_PI));
-        mod = -mod + 2.0f * static_cast<float>(M_PI);
-        return mod;
-    }
-    return fmod(o, 2.0f * static_cast<float>(M_PI));
-}
-
 bool WorldObject::isTargetInFront(WorldObject* target)
 {
     // always have self in arc
@@ -1114,13 +1098,13 @@ bool WorldObject::isTargetInFront(WorldObject* target)
         return true;
 
     // move arc to range 0.. 2*pi
-    float arc = Normalize(static_cast<float>(M_PI/2));
+    float arc = NormAngle(static_cast<float>(M_PI/2));
 
     float angle = GetAngle(GetPositionX(), GetPositionY(), target->GetPositionX(), target->GetPositionY());
     angle -= m_position.o;
 
     // move angle to range -pi +pi
-    angle = Normalize(angle);
+    angle = NormAngle(angle);
     if(angle > M_PI)
         angle -= 2.0f*M_PI;
 
@@ -1950,9 +1934,7 @@ void WorldObject::Activate(MapMgr* mgr)
     switch(GetTypeId())
     {
     case TYPEID_UNIT:
-        if(IsVehicle())
-            mgr->activeVehicles.insert(castPtr<Vehicle>(this));
-        else mgr->activeCreatures.insert(castPtr<Creature>(this));
+        mgr->activeCreatures.insert(castPtr<Creature>(this));
         break;
 
     case TYPEID_GAMEOBJECT:
@@ -1970,22 +1952,11 @@ void WorldObject::Deactivate(MapMgr* mgr)
     {
     case TYPEID_UNIT:
         {
-            if(IsVehicle())
-            {
-                // check iterator
-                if( mgr->__vehicle_iterator != mgr->activeVehicles.end() && (*mgr->__vehicle_iterator) == castPtr<Vehicle>(this) )
-                    ++mgr->__vehicle_iterator;
+            // check iterator
+            if( mgr->__creature_iterator != mgr->activeCreatures.end() && (*mgr->__creature_iterator) == castPtr<Creature>(this) )
+                ++mgr->__creature_iterator;
 
-                mgr->activeVehicles.erase(castPtr<Vehicle>(this));
-            }
-            else
-            {
-                // check iterator
-                if( mgr->__creature_iterator != mgr->activeCreatures.end() && (*mgr->__creature_iterator) == castPtr<Creature>(this) )
-                    ++mgr->__creature_iterator;
-
-                mgr->activeCreatures.erase(castPtr<Creature>(this));
-            }
+            mgr->activeCreatures.erase(castPtr<Creature>(this));
         }break;
 
     case TYPEID_GAMEOBJECT:
@@ -2145,27 +2116,17 @@ void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32
 
 bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 {
-    float Onoselevel = 2.0f;
-    float Tnoselevel = 2.0f;
-    if(IsPlayer())
-        Onoselevel = castPtr<Player>(this)->m_noseLevel;
-    if(pObj->IsPlayer())
-        Tnoselevel = castPtr<Player>(pObj)->m_noseLevel;
-
-    if (GetMapMgr() && GetMapMgr()->CanUseCollision(this) && GetMapMgr()->CanUseCollision(pObj))
-        return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel + pObj->GetFloatValue(UNIT_FIELD_HOVERHEIGHT)) );
-    return true;
+    if(!IsInWorld() || !GetMapMgr()->CanUseCollision(this) || !GetMapMgr()->CanUseCollision(pObj))
+        return true;
+    float Onoselevel = IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f, Tnoselevel = pObj->IsPlayer() ? castPtr<Player>(pObj)->m_noseLevel : 2.f;
+    return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel, pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel) );
 }
 
 bool WorldObject::IsInLineOfSight(float x, float y, float z)
 {
-    float Onoselevel = 2.0f;
-    if(IsPlayer())
-        Onoselevel = castPtr<Player>(this)->m_noseLevel;
-
-    if (GetMapMgr() && GetMapMgr()->CanUseCollision(this))
-        return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel + GetFloatValue(UNIT_FIELD_HOVERHEIGHT), x, y, z) );
-    return true;
+    if(!IsInWorld() || !GetMapMgr()->CanUseCollision(this))
+        return true;
+    return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f), x, y, z) );
 }
 
 bool WorldObject::AreaCanInteract(WorldObject *pObj)

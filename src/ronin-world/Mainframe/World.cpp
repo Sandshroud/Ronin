@@ -8,6 +8,9 @@ initialiseSingleton( World );
 
 World::World()
 {
+    SendServerData = 1;
+    m_hashInfo = format("%s-%s-%s", RONIN_UTIL::TOUPPER_RETURN(BUILD_HASH_STR).c_str(), ARCH, CONFIG);
+
     m_StartTime = 0;
     m_playerLimit = 0;
     GmClientChannel = "";
@@ -1018,6 +1021,44 @@ void World::GetStats(uint32 * GMCount, float * AverageLatency)
 
     *AverageLatency = count ? (float)((float)avg / (float)count) : 0;
     *GMCount = gm;
+}
+
+bool World::BuildMoTDPacket(WorldSession *session, WorldPacket *packet)
+{
+    uint32 linecount = 0;
+    *packet << uint32(linecount);
+    if(m_motd.length())
+    {
+        std::string str_motd = sWorld.GetMotd();
+        std::string::size_type pos = 0, nextpos;
+        while ((nextpos = str_motd.find('@', pos)) != std::string::npos)
+        {
+            if (nextpos != pos)
+            {
+                *packet << str_motd.substr(pos, nextpos - pos);
+                ++linecount;
+            }
+            pos = nextpos + 1;
+        }
+
+        if (pos < str_motd.length())
+        {
+            *packet << str_motd.substr(pos);
+            ++linecount;
+        }
+    }
+
+    if(session->HasGMPermissions())
+    {
+        // Send revision
+        *packet << format("Server: %sRonin v%u|r%s | %s|r", MSG_COLOR_CRIMSON, BUILD_REVISION, MSG_COLOR_TORQUISEBLUE, m_hashInfo.c_str());
+        *packet << format("Online Players: %s%u|r Peak: %s%u|r Connections: %s%u|r", MSG_COLOR_TORQUISEBLUE, GetSessionCount(), MSG_COLOR_TORQUISEBLUE, PeakSessionCount, MSG_COLOR_TORQUISEBLUE, mAcceptedConnections);
+        *packet << format("Server Uptime: %s%s|r", MSG_COLOR_TORQUISEBLUE, GetUptimeString().c_str());
+        linecount += 3;
+    }
+
+    packet->put(0, linecount);
+    return linecount > 0;
 }
 
 void TaskList::AddTask(Task * task)

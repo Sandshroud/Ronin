@@ -429,6 +429,7 @@ public:
     RONIN_INLINE std::string getGmClientChannel() { return GmClientChannel; }
 
     // MOTD line 1
+    bool BuildMoTDPacket(WorldSession *session, WorldPacket *packet);
     void SetMotd(const char *motd) { m_motd = motd; }
     RONIN_INLINE const char* GetMotd() const { return m_motd.c_str(); }
     RONIN_INLINE time_t GetGameTime() const { return m_gameTime; }
@@ -562,6 +563,7 @@ public:
         return NULL;
     }
 
+    uint32 SendServerData;
     uint32 HordePlayers, AlliancePlayers, PeakSessionCount;
     bool IsPvPRealm, SendMovieOnJoin;
     int32 FunServerMall, LogoutDelay;
@@ -639,7 +641,7 @@ protected:
     float regen_values[MAX_RATES];
 
     uint32 m_playerLimit;
-    std::string m_motd;
+    std::string m_motd, m_hashInfo;
 
     time_t m_gameTime, m_lastTick;
     uint32 m_StartTime, m_queueUpdateTimer;

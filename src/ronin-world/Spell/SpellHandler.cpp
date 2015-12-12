@@ -360,8 +360,6 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
         caster = _player->m_CurrentCharm;
     else if (_player->m_Summon != NULL)
         caster = _player->m_Summon;
-    else if (_player->GetVehicle() != NULL)
-        caster = _player->GetVehicle();
     if (caster == NULL)
         return;
 
@@ -375,12 +373,9 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
     SpellCastTargets targets(recvPacket, caster->GetGUID());
 
     // Summoned Elemental's Freeze
-    if (spellid == 33395)
-    {
-        if (!_player->m_Summon)
-            return;
-    }
-    else if ((!_player->m_CurrentCharm || guid != _player->m_CurrentCharm->GetGUID()) && _player->GetVehicle() == NULL)
+    if (spellid == 33395 && !_player->m_Summon)
+        return;
+    else if (!_player->m_CurrentCharm || guid != _player->m_CurrentCharm->GetGUID())
         return;
 
     if(Spell* pSpell = new Spell(caster, sp, castnumber))

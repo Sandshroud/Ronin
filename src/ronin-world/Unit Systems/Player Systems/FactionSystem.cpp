@@ -151,12 +151,6 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     // Get players (or owners of pets/totems)
     Player* player_objA = GetPlayerFromObject(objA);
     Player* player_objB = GetPlayerFromObject(objB);
-    if(objA->IsUnit() && objB->IsVehicle())
-        if(castPtr<Vehicle>(objB)->GetPassengerSlot(castPtr<Unit>(objA)) != -1)
-            return FI_STATUS_FRIENDLY;
-    else if(objB->IsUnit() && objA->IsVehicle())
-        if(castPtr<Vehicle>(objA)->GetPassengerSlot(castPtr<Unit>(objB)) != -1)
-            return FI_STATUS_FRIENDLY;
 
     // Always kill critters
     if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == CRITTER)
@@ -337,10 +331,6 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
     if(IsInteractionLocked(unitA) || IsInteractionLocked(unitB))
         return false;
     if(!unitA->PhasedCanInteract(unitB) || !unitB->PhasedCanInteract(unitA))
-        return false;
-    if(unitB->IsVehicle() && castPtr<Vehicle>(unitB)->GetPassengerSlot(unitA) != -1)
-        return false;
-    if(unitA->IsVehicle() && castPtr<Vehicle>(unitA)->GetPassengerSlot(unitB) != -1)
         return false;
     // Only check target for stealth
     /*if( CheckStealth && unitB->InStealth() && unitA->CalcDistance(unitB) > 5.0f)

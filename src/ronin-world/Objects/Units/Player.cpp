@@ -25,6 +25,7 @@ Player::~Player ( )
 void Player::Init()
 {
     Unit::Init();
+    m_hasSentMoTD                   = false;
     m_lastAreaUpdateMap             = -1;
     m_oldZone                       = 0;
     m_oldArea                       = 0;
@@ -148,7 +149,6 @@ void Player::Init()
     m_regenTimerCount = 0;
     for (uint8 i = 0; i < 6; i++)
         m_powerFraction[i] = 0;
-    sentMOTD                        = false;
     m_targetIcon                    = 0;
     m_MountSpellId                  = 0;
     bHasBindDialogOpen              = false;
@@ -430,19 +430,17 @@ void Player::Update( uint32 p_time )
 
 void Player::ProcessPendingItemUpdates()
 {
-    if(m_pendingUpdates.empty())
+    if(m_pendingUpdates.empty() || !IsInWorld())
         return;
 
-    ByteBuffer buff(200);
+    ByteBuffer &buff = GetMapMgr()->m_updateBuffer;
     while(m_pendingUpdates.size())
     {
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
         if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
-        {
             PushUpdateBlock(&buff, count);
-            buff.clear();
-        }
+        buff.clear();
     }
 
     if(IsInWorld())
@@ -1080,6 +1078,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         SetGuildId(m_playerInfo->GuildId);
         SetGuildRank(m_playerInfo->GuildRank);
         SetGuildLevel(gInfo->m_guildLevel);
+        SetUInt32Value(PLAYER_GUILD_TIMESTAMP, UNIXTIME);
     }
 
     m_bgTeam = m_team = myRace->TeamId;
@@ -1139,7 +1138,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_position.x    = fields[PLAYERLOAD_FIELD_POSITION_X].GetFloat();
     m_position.y    = fields[PLAYERLOAD_FIELD_POSITION_Y].GetFloat();
     m_position.z    = fields[PLAYERLOAD_FIELD_POSITION_Z].GetFloat();
-    m_position.o    = fields[PLAYERLOAD_FIELD_POSITION_O].GetFloat();
+    m_position.o    = NormAngle(fields[PLAYERLOAD_FIELD_POSITION_O].GetFloat());
     m_instanceId    = fields[PLAYERLOAD_FIELD_INSTANCE_ID].GetUInt32();
     m_zoneId        = fields[PLAYERLOAD_FIELD_ZONEID].GetUInt32();
 
@@ -1232,12 +1231,27 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     else _AddLanguages(sWorld.cross_faction_world);
 
     OnlineTime = UNIXTIME;
-    if(IsInGuild())
-        SetUInt32Value(PLAYER_GUILD_TIMESTAMP, OnlineTime);
     if( fields[PLAYERLOAD_FIELD_NEEDS_POSITION_RESET].GetBool() )
         EjectFromInstance();
     if( fields[PLAYERLOAD_FIELD_NEEDS_TALENT_RESET].GetBool() )
         m_talentInterface.ResetAllSpecs();
+
+    // Make sure our name exists (for premade system)
+    if((m_playerInfo = objmgr.GetPlayerInfo(m_objGuid)) == NULL)
+    {
+        m_playerInfo = new PlayerInfo(m_objGuid);
+        m_playerInfo->charClass = getClass();
+        m_playerInfo->charRace = getRace();
+        m_playerInfo->charGender = getGender();
+        m_playerInfo->charName = GetName();
+        m_playerInfo->charTeam = GetTeam();
+        m_playerInfo->lastLevel = getLevel();
+        m_playerInfo->lastZone = GetZoneId();
+        m_playerInfo->lastOnline = UNIXTIME;
+        objmgr.AddPlayerInfo(m_playerInfo);
+    }
+
+    m_playerInfo->m_loggedInPlayer = this;
 
     m_session->FullLogin(this);
 
@@ -3352,14 +3366,13 @@ void Player::OnPushToWorld()
         CompleteLoading();
 
     m_beingPushed = false;
+    sWorld.mInWorldPlayerCount++;
 
     GetMovementInterface()->UnlockTransportData();
 
-    // delay the unlock movement packet
     WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
     data << uint32(0);
     SendPacket(&data);
-    sWorld.mInWorldPlayerCount++;
 
     // Login spell
     CastSpell(this, 836, true);
@@ -3474,13 +3487,12 @@ void Player::RemoveFromWorld()
 {
     EndDuel( 0 );
 
-    if( m_CurrentCharm && m_CurrentCharm != GetVehicle() )
+    if( m_CurrentCharm )
         UnPossess();
 
     if( GetUInt64Value(UNIT_FIELD_CHARMEDBY) != 0 && IsInWorld() )
     {
-        Player* charmer = m_mapMgr->GetPlayer(GetUInt64Value(UNIT_FIELD_CHARMEDBY));
-        if( charmer != NULL )
+        if(Player* charmer = m_mapMgr->GetPlayer(GetUInt64Value(UNIT_FIELD_CHARMEDBY)))
             charmer->UnPossess();
     }
 
@@ -3557,12 +3569,6 @@ void Player::RemoveFromWorld()
         m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
         m_CurrentTransporter = NULL;
         GetMovementInterface()->ClearTransportData();
-    }
-
-    if( GetVehicle() )
-    {
-        GetVehicle()->RemovePassenger(castPtr<Player>(this));
-        SetVehicle(NULL);
     }
 
     m_changingMaps = true;
@@ -4431,11 +4437,8 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
     if( pObj == m_CurrentCharm)
     {
         Unit* p = m_CurrentCharm;
+        UnPossess();
 
-        if(pObj == GetVehicle())
-            GetVehicle()->RemovePassenger(castPtr<Player>(this));
-        else
-            UnPossess();
         if(m_currentSpell)
             m_currentSpell->cancel();      // cancel the spell
         m_CurrentCharm=NULL;
@@ -5011,18 +5014,30 @@ void Player::SendInitialLogonPackets()
 {
     // Initial Packets... they seem to be re-sent on port.
     WorldPacket data(SMSG_BINDPOINTUPDATE, 32);
-    data << m_bind_pos_x;
-    data << m_bind_pos_y;
-    data << m_bind_pos_z;
-    data << m_bind_mapid;
-    data << m_bind_zoneid;
-    GetSession()->SendPacket( &data );
+    data << m_bind_pos_x << m_bind_pos_y << m_bind_pos_z;
+    data << m_bind_mapid << m_bind_zoneid;
+    SendPacket( &data );
 
     SendProficiency(true);
     SendProficiency(false);
 
     // Send player talent info
     m_talentInterface.SendTalentInfo();
+
+    data.Initialize(SMSG_WORLD_SERVER_INFO, 5);
+    data.WriteBit(0);                                               // HasRestrictedLevel
+    data.WriteBit(0);                                               // HasRestrictedMoney
+    data.WriteBit(0);                                               // IneligibleForLoot
+    //if (IneligibleForLoot)
+    //    data << uint32(0);                                        // EncounterMask
+    data << uint8(0);                                               // IsOnTournamentRealm
+    //if (HasRestrictedMoney)
+    //    data << uint32(100000);                                   // RestrictedMoney (starter accounts)
+    //if (HasRestrictedLevel)
+    //    data << uint32(20);                                       // RestrictedLevel (starter accounts)
+    data << uint32(sWorld.GetGameTime()-84600);   // LastWeeklyReset (not instance reset)
+    data << uint32(0);
+    GetSession()->SendPacket(&data); 
 
     //Initial Spells
     smsg_InitialSpells();
@@ -5763,27 +5778,6 @@ void Player::ResetAllCooldowns()
     ClearCooldownsOnLines(skilllines, 0);
 }
 
-void Player::sendMOTD()
-{
-    // Send first line of MOTD
-    WorldPacket datat(SMSG_MOTD, 10);
-    datat << uint32(1);
-    datat << sWorld.GetMotd();
-    SendPacket(&datat);
-
-    // Send revision
-    BroadcastMessage("%sServer:|r%s Project Ronin %s|r %s r%u/%s-%s-%s", MSG_COLOR_GOLD,
-        MSG_COLOR_ORANGEY, MSG_COLOR_TORQUISEBLUE, BUILD_TAG, BUILD_REVISION, BUILD_HASH_STR, ARCH, CONFIG);
-    BroadcastMessage("%sOnline Players:|r%s %u |r%sPeak:|r%s %u |r%sAccepted Connections:|r%s %u |r", MSG_COLOR_GOLD,
-        MSG_COLOR_TORQUISEBLUE, sWorld.GetSessionCount(), MSG_COLOR_GOLD, MSG_COLOR_TORQUISEBLUE,
-        sWorld.PeakSessionCount, MSG_COLOR_GOLD, MSG_COLOR_TORQUISEBLUE, sWorld.mAcceptedConnections);
-
-    BroadcastMessage("%sServer Uptime:|r%s %s|r", MSG_COLOR_GOLD, MSG_COLOR_TORQUISEBLUE, sWorld.GetUptimeString().c_str());
-
-    //Issue a message telling all guild members that this player has signed on
-    guildmgr.PlayerLoggedIn(m_playerInfo);
-}
-
 void Player::PushOutOfRange(WoWGuid guid)
 {
     _bufferS.Acquire();
@@ -5986,9 +5980,17 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
 
 void Player::SetGuildId(uint32 guildId)
 {
-    if(guildId) SetFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
-    else RemoveFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
     SetUInt64Value(PLAYER_GUILDID, guildId ? MAKE_NEW_GUID(guildId, 0, HIGHGUID_TYPE_GUILD) : 0);
+    if(guildId)
+    {
+        SetFlag(PLAYER_FLAGS, 0x10000000);
+        SetFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
+    }
+    else
+    {
+        RemoveFlag(PLAYER_FLAGS, 0x10000000);
+        RemoveFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
+    }
 }
 
 void Player::SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourStatus, uint32 misc, uint32 misc2)
@@ -7637,11 +7639,11 @@ void Player::RemoveQuestMob(uint32 entry) //Only for Kill Quests
 
 PlayerInfo::PlayerInfo(WoWGuid _guid)
 {
-    guid = _guid;
-    acct = 0;
-    name = "";
-    race = gender = _class = 0;
-    team = curInstanceID = lastmapid = 0;
+    charGuid = _guid;
+    accountId = 0;
+    charName = "";
+    charRace = charClass = charGender = 0;
+    charTeam = curInstanceID = lastmapid = 0;
     lastpositionx = lastpositiony = lastpositionz = lastorientation = 0.f;
     lastOnline = 0; lastZone = lastLevel = 0;
     m_Group = NULL; subGroup = 0;
@@ -7948,23 +7950,23 @@ void Player::Social_AddFriend(std::string name, std::string note)
 
     if( info == m_playerInfo ) // are we ourselves?
     {
-        data << uint8(FRIEND_SELF) << info->guid;
+        data << uint8(FRIEND_SELF) << info->charGuid;
         m_session->SendPacket(&data);
         return;
     }
 
-    if( info->team != m_playerInfo->team ) // team check
+    if( info->charTeam != m_playerInfo->charTeam ) // team check
     {
-        data << uint8(FRIEND_ENEMY) << info->guid;
+        data << uint8(FRIEND_ENEMY) << info->charGuid;
         m_session->SendPacket(&data);
         return;
     }
 
     m_socialLock.Acquire();
     std::map<WoWGuid, std::string>::iterator itr;
-    if((itr = m_friends.find(info->guid)) != m_friends.end())
+    if((itr = m_friends.find(info->charGuid)) != m_friends.end())
     {
-        data << uint8(FRIEND_ALREADY) << info->guid;
+        data << uint8(FRIEND_ALREADY) << info->charGuid;
         m_session->SendPacket(&data);
         m_socialLock.Release();
         return;
@@ -7972,22 +7974,22 @@ void Player::Social_AddFriend(std::string name, std::string note)
 
     Player *newfriend = info->m_loggedInPlayer;
     data << uint8(newfriend ? FRIEND_ADDED_ONLINE : FRIEND_ADDED_OFFLINE);
-    data << info->guid;
+    data << info->charGuid;
     if( newfriend )
     {
         data << note;
         data << info->m_loggedInPlayer->GetChatTag();
         data << info->m_loggedInPlayer->GetZoneId();
         data << info->lastLevel;
-        data << uint32(info->_class);
+        data << uint32(info->charClass);
     }
 
-    m_friends.insert( std::make_pair(info->guid, note) );
+    m_friends.insert( std::make_pair(info->charGuid, note) );
     m_socialLock.Release();
     m_session->SendPacket(&data);
 
     // dump into the db
-    CharacterDatabase.Execute("INSERT INTO social_friends VALUES(%u, %u, '%s')", GetLowGUID(), info->guid.getLow(), CharacterDatabase.EscapeString(std::string(note)).c_str());
+    CharacterDatabase.Execute("INSERT INTO social_friends VALUES(%u, %u, '%s')", GetLowGUID(), info->charGuid.getLow(), CharacterDatabase.EscapeString(std::string(note)).c_str());
 }
 
 void Player::Social_RemoveFriend(WoWGuid guid)
@@ -8045,29 +8047,29 @@ void Player::Social_AddIgnore(std::string name)
     // are we ourselves?
     if( info == m_playerInfo )
     {
-        data << uint8(FRIEND_IGNORE_SELF) << info->guid;
+        data << uint8(FRIEND_IGNORE_SELF) << info->charGuid;
         m_session->SendPacket(&data);
         return;
     }
 
     m_socialLock.Acquire();
     std::map<WoWGuid, std::string>::iterator itr;
-    if((itr = m_ignores.find(info->guid)) != m_ignores.end())
+    if((itr = m_ignores.find(info->charGuid)) != m_ignores.end())
     {
-        data << uint8(FRIEND_IGNORE_ALREADY) << info->guid;
+        data << uint8(FRIEND_IGNORE_ALREADY) << info->charGuid;
         m_session->SendPacket(&data);
         m_socialLock.Release();
         return;
     }
 
-    data << uint8(FRIEND_IGNORE_ADDED) << info->guid;
-    m_ignores.insert(std::make_pair(info->guid, "IGNORE"));
+    data << uint8(FRIEND_IGNORE_ADDED) << info->charGuid;
+    m_ignores.insert(std::make_pair(info->charGuid, "IGNORE"));
 
     m_socialLock.Release();
     m_session->SendPacket(&data);
 
     // dump into db
-    CharacterDatabase.Execute("INSERT INTO social_ignores VALUES(%u, %u)", GetLowGUID(), info->guid);
+    CharacterDatabase.Execute("INSERT INTO social_ignores VALUES(%u, %u)", GetLowGUID(), info->charGuid.getLow());
 }
 
 void Player::Social_RemoveIgnore(WoWGuid guid)

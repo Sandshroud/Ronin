@@ -118,7 +118,9 @@ void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recv_data)
 
 void MovementInterface::HandlePlayerMove(bool read, ByteBuffer &buffer)
 {
-    BUILD_LOCATION_LIST();
+    LocationVector *pos = &m_clientLocation;
+    LocationVector *transPos = &m_clientTransLocation;
+
     BUILD_BOOL_LIST();
     BUILD_GUID_LIST();
     DO_BIT(read, buffer, hasFallData, true);
@@ -3158,10 +3160,7 @@ void MovementInterface::HandleSetTurnRate(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
 {
-    printf("Handling worldport\n");
     Player *plr = castPtr<Player>(m_Unit);
-    sLog.Debug( "WORLD"," got MSG_MOVE_WORLDPORT_ACK." );
-
     plr->SetPlayerStatus(NONE);
     sEventMgr.RemoveEvents(plr, EVENT_PLAYER_CHECK_STATUS_Transfer);
     if(!plr->IsInWorld())

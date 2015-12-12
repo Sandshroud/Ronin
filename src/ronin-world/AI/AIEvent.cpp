@@ -291,9 +291,6 @@ void AIInterface::EventUnwander(Unit* /*pUnit*/, uint32 misc1)
 
 void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
 {
-    if( Vehicle *veh = m_Unit->GetVehicle() )
-        veh->RemovePassenger(m_Unit);
-
     if( m_Unit->IsCreature() )
     {
         if( castPtr<Creature>(m_Unit)->has_combat_text )

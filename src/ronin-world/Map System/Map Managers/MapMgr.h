@@ -16,7 +16,6 @@ class GameObject;
 class Creature;
 class Player;
 class Pet;
-class Vehicle;
 class Transporter;
 class Corpse;
 class CBattleground;
@@ -55,12 +54,10 @@ public:
 
     typedef RONIN_UNORDERED_SET<WorldObject*> ObjectSet;
     typedef RONIN_UNORDERED_SET<Player*> PlayerSet;
-    typedef RONIN_UNORDERED_SET<Vehicle*> VehicleSet;
     typedef RONIN_UNORDERED_SET<Creature*> CreatureSet;
     typedef RONIN_UNORDERED_SET<GameObject*> GameObjectSet;
     typedef RONIN_UNORDERED_SET<uint64> CombatProgressMap;
     typedef RONIN_UNORDERED_MAP<uint32, WorldObject* > StorageMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Vehicle*> VehicleSqlIdMap;
     typedef RONIN_UNORDERED_MAP<uint32, Creature*> CreatureSqlIdMap;
     typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectSqlIdMap;
 
@@ -92,20 +89,6 @@ public:
     }
 
 /////////////////////////////////////////////////////////
-// Local (mapmgr) storage/generation of Vehicles
-/////////////////////////////////////////////
-    uint32 m_VehicleHighGuid;
-    RONIN_UNORDERED_MAP<WoWGuid, Vehicle*> m_VehicleStorage;
-    Vehicle* CreateVehicle(uint32 entry);
-
-    RONIN_INLINE Vehicle* GetVehicle(WoWGuid guid)
-    {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
-        RONIN_UNORDERED_MAP<WoWGuid, Vehicle*>::iterator itr = m_VehicleStorage.find(guid);
-        return ((itr != m_VehicleStorage.end()) ? itr->second : NULL);
-    }
-
-/////////////////////////////////////////////////////////
 // Local (mapmgr) storage/generation of Creatures
 /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
@@ -114,7 +97,7 @@ public:
 
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT);
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT || guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
         RONIN_UNORDERED_MAP<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
         return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
     }
@@ -258,7 +241,6 @@ public:
     }
 
     void UnloadCell(uint32 x,uint32 y);
-    void EventRespawnVehicle(Vehicle* v, MapCell * p);
     void EventRespawnCreature(Creature* c, MapCell * p);
     void EventRespawnGameObject(GameObject* o, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
@@ -333,7 +315,6 @@ public:
     Mutex ActiveLock;
     GameObjectSet activeGameObjects;
     CreatureSet activeCreatures;
-    VehicleSet activeVehicles;
 
     EventableObjectHolder eventHolder;
     CBattleground* m_battleground;
@@ -344,7 +325,6 @@ public:
     Creature* GetSqlIdCreature(uint32 sqlid);
     GameObject* GetSqlIdGameObject(uint32 sqlid);
     std::deque<uint32> _reusable_guids_creature;
-    std::deque<uint32> _reusable_guids_vehicle;
 
     bool forced_expire;
     bool thread_kill_only;
@@ -377,7 +357,6 @@ public:
     PetStorageMap::iterator __pet_iterator;
     PlayerStorageMap::iterator __player_iterator;
 
-    VehicleSet::iterator __vehicle_iterator;
     CreatureSet::iterator __creature_iterator;
     GameObjectSet::iterator __gameobject_iterator;
 

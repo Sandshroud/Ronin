@@ -176,7 +176,7 @@ bool ChatHandler::HandleGMTicketListCommand(const char* args, WorldSession *m_se
         ss << ":" << (*itr)->guid.getLow();
         ss << ":" << (plr == NULL ? (*itr)->level : plr->getLevel());
         ss << ":" << (plr == NULL ? 0 : plr->IsInWorld());
-        ss << ":" << (aplri == NULL ? "" : aplri->name);
+        ss << ":" << (aplri == NULL ? "" : aplri->charName.c_str());
         ss << ":" << (plr == NULL ? (*itr)->name : plr->GetName());
         ss << ":" << (*itr)->comment;
         chn->Say(cplr, ss.str().c_str(), cplr, true);

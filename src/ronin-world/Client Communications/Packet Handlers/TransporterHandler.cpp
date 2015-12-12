@@ -358,9 +358,6 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
             if(plr->isDead())
                 plr->RemoteRevive();
 
-            if( plr->GetVehicle() )
-                plr->GetVehicle()->RemovePassenger( plr );
-
             plr->GetMovementInterface()->LockTransportData();
             plr->GetSession()->SendPacket(&Pending);
             plr->_Relocate(mapid, v, false, true, 0);

@@ -291,10 +291,6 @@ void WorldSession::LogoutPlayer()
         // part channels
         plr->CleanupChannels();
 
-        // Remove from vehicle for now.
-        if(Vehicle *veh = plr->GetVehicle())
-            veh->RemovePassenger(plr);
-
         if( plr->m_CurrentTransporter != NULL )
         {
             plr->m_CurrentTransporter->RemovePlayer( plr );
@@ -718,6 +714,8 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_CANCEL_TEMP_ENCHANTMENT].handler               = &WorldSession::HandleCancelTemporaryEnchantmentOpcode;
     WorldPacketHandlers[CMSG_SOCKET_GEMS].handler                           = &WorldSession::HandleInsertGemOpcode;
     WorldPacketHandlers[CMSG_WRAP_ITEM].handler                             = &WorldSession::HandleWrapItemOpcode;
+    WorldPacketHandlers[CMSG_ITEM_REFUND_INFO].handler                      = &WorldSession::HandleItemRefundInfoOpcode;
+    WorldPacketHandlers[CMSG_ITEM_REFUND].handler                           = &WorldSession::HandleItemRefundRequestOpcode;
 
     // Spell System / Talent System
     WorldPacketHandlers[CMSG_USE_ITEM].handler                              = &WorldSession::HandleUseItemOpcode;
@@ -788,11 +786,18 @@ void WorldSession::InitPacketHandlerTable()
 
     // Guild System
     WorldPacketHandlers[CMSG_GUILD_QUERY].handler                           = &WorldSession::HandleGuildQuery;
-    WorldPacketHandlers[CMSG_GUILD_QUERY].status                            = STATUS_AUTHED;
+    WorldPacketHandlers[CMSG_QUERY_GUILD_XP].handler                        = &WorldSession::HandleGuildXP;
+    WorldPacketHandlers[CMSG_GUILD_QUERY_NEWS].handler                      = &WorldSession::HandleGuildNews;
+    WorldPacketHandlers[CMSG_GUILD_QUERY_RANKS].handler                     = &WorldSession::HandleGuildRanks;
+    WorldPacketHandlers[CMSG_GUILD_ROSTER].handler                          = &WorldSession::HandleGuildRoster;
+    WorldPacketHandlers[CMSG_QUERY_GUILD_REWARDS].handler                   = &WorldSession::HandleGuildRewards;
+    WorldPacketHandlers[CMSG_GUILD_PERMISSIONS].handler                     = &WorldSession::HandleGuildPermissions;
+    WorldPacketHandlers[CMSG_GUILD_REQUEST_PARTY_STATE].handler             = &WorldSession::HandleGuildPartyState;
+    WorldPacketHandlers[CMSG_GUILD_REQUEST_CHALLENGE_UPDATE].handler        = &WorldSession::HandleGuildChallengeUpdate;
+
     WorldPacketHandlers[CMSG_GUILD_INVITE].handler                          = &WorldSession::HandleInviteToGuild;
     WorldPacketHandlers[CMSG_GUILD_ACCEPT].handler                          = &WorldSession::HandleGuildAccept;
     WorldPacketHandlers[CMSG_GUILD_DECLINE].handler                         = &WorldSession::HandleGuildDecline;
-    WorldPacketHandlers[CMSG_GUILD_ROSTER].handler                          = &WorldSession::HandleGuildRoster;
     WorldPacketHandlers[CMSG_GUILD_PROMOTE].handler                         = &WorldSession::HandleGuildPromote;
     WorldPacketHandlers[CMSG_GUILD_DEMOTE].handler                          = &WorldSession::HandleGuildDemote;
     WorldPacketHandlers[CMSG_GUILD_LEAVE].handler                           = &WorldSession::HandleGuildLeave;
@@ -802,6 +807,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_GUILD_ASSIGN_MEMBER_RANK].handler              = &WorldSession::HandleGuildEditRank;
     WorldPacketHandlers[CMSG_GUILD_ADD_RANK].handler                        = &WorldSession::HandleGuildAddRank;
     WorldPacketHandlers[CMSG_GUILD_DEL_RANK].handler                        = &WorldSession::HandleGuildDelRank;
+    WorldPacketHandlers[CMSG_GUILD_SET_NOTE].handler                        = &WorldSession::HandleGuildSetNote;
     WorldPacketHandlers[CMSG_PETITION_BUY].handler                          = &WorldSession::HandleCharterBuy;
     WorldPacketHandlers[CMSG_PETITION_SHOW_SIGNATURES].handler              = &WorldSession::HandleCharterShowSignatures;
     WorldPacketHandlers[CMSG_TURN_IN_PETITION].handler                      = &WorldSession::HandleCharterTurnInCharter;
@@ -816,8 +822,9 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_GUILD_BANK_BUY_TAB].handler                    = &WorldSession::HandleGuildBankBuyTab;
     WorldPacketHandlers[CMSG_GUILD_BANK_UPDATE_TAB].handler                 = &WorldSession::HandleGuildBankModifyTab;
     WorldPacketHandlers[CMSG_GUILD_BANK_SWAP_ITEMS].handler                 = &WorldSession::HandleGuildBankSwapItem;
-    WorldPacketHandlers[CMSG_GUILD_BANK_WITHDRAW_MONEY].handler             = &WorldSession::HandleGuildBankWithdrawMoney;
     WorldPacketHandlers[CMSG_GUILD_BANK_DEPOSIT_MONEY].handler              = &WorldSession::HandleGuildBankDepositMoney;
+    WorldPacketHandlers[CMSG_GUILD_BANK_WITHDRAW_MONEY].handler             = &WorldSession::HandleGuildBankWithdrawMoney;
+    WorldPacketHandlers[CMSG_GUILD_BANK_MONEY_WITHDRAWN_QUERY].handler      = &WorldSession::HandleGuildBankGetAvailableAmount;
     WorldPacketHandlers[CMSG_GUILD_BANK_QUERY_TAB].handler                  = &WorldSession::HandleGuildBankViewTab;
 
     // Tutorials
@@ -923,17 +930,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_CALENDAR_EVENT_MODERATOR_STATUS].handler       = &WorldSession::HandleCalendarEventModeratorStatus;
     WorldPacketHandlers[CMSG_CALENDAR_COMPLAIN].handler                     = &WorldSession::HandleCalendarComplain;
     WorldPacketHandlers[CMSG_CALENDAR_GET_NUM_PENDING].handler              = &WorldSession::HandleCalendarGetNumPending;
-
-    // Vehicles
-    WorldPacketHandlers[CMSG_SPELLCLICK].handler                            = &WorldSession::HandleSpellClick;
-    WorldPacketHandlers[CMSG_DISMISS_CONTROLLED_VEHICLE].handler            = &WorldSession::HandleVehicleDismiss;
-    WorldPacketHandlers[CMSG_REQUEST_VEHICLE_EXIT].handler                  = &WorldSession::HandleVehicleDismiss;
-    WorldPacketHandlers[CMSG_REQUEST_VEHICLE_PREV_SEAT].handler             = &WorldSession::HandleRequestSeatChange;
-    WorldPacketHandlers[CMSG_REQUEST_VEHICLE_NEXT_SEAT].handler             = &WorldSession::HandleRequestSeatChange;
-    WorldPacketHandlers[CMSG_REQUEST_VEHICLE_SWITCH_SEAT].handler           = &WorldSession::HandleRequestSeatChange;
-    WorldPacketHandlers[CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE].handler    = &WorldSession::HandleRequestSeatChange;
-    WorldPacketHandlers[CMSG_EJECT_PASSENGER].handler                       = &WorldSession::HandleEjectPassenger;
-    WorldPacketHandlers[CMSG_PLAYER_VEHICLE_ENTER].handler                  = &WorldSession::HandleVehicleMountEnter;
 
     /// Empty packets
 }

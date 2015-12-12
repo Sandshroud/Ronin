@@ -117,19 +117,6 @@ public:
             WriteBit((value >> i) & 1);
     }
 
-    void AppendBitBuffer(ByteBuffer *buff)
-    {
-        for(size_t i = 0; i < buff->size(); i++)
-        {
-            if(i == buff->size()-1)
-            {
-                if(buff->bitpos())
-                    WriteBits(buff->read<uint8>(), buff->bitpos());
-                else WriteBits(buff->read<uint8>(), 8);
-            } else WriteBits(buff->read<uint8>(), 8);
-        }
-    }
-
     uint32 ReadBits(size_t bits)
     {
         uint32 value = 0;
@@ -139,6 +126,24 @@ public:
     }
 
     // Read guid mask bits
+    void ReadGuidBitString(uint32 count, WoWGuid &guid, ...)
+    {
+        va_list vl;
+        va_start(vl, guid);
+        for(uint32 i = 0; i < count; i++)
+            guid[va_arg(vl, uint32)] = ReadBit();
+        va_end(vl);
+    }
+
+    void ReadGuidByteString(uint32 count, WoWGuid &guid, ...)
+    {
+        va_list vl;
+        va_start(vl, guid);
+        for(uint32 i = 0; i < count; i++)
+            ReadByteSeq(guid[(va_arg(vl, uint32))]);
+        va_end(vl);
+    }
+
     uint8 ReadGuidMaskBit(uint8 offset) { return uint8(ReadBit() ? 1<<offset : 0); }
     void ReadGuidMaskBits(uint8 &mask, uint32 count, ...)
     {
@@ -500,13 +505,14 @@ public:
     void zerofill(size_t len) { for(size_t i = 0; i < len; i++) append<uint8>(0); }
 
     // appending to the end of buffer
-    void append(const std::string& str) { append((uint8 *)str.c_str(),str.size() + 1); }
+    void append(const std::string& str) { append((uint8 *)str.c_str(), str.size() + 1); }
     template<class T> void append(const T *src, size_t cnt) { return append((const uint8 *)src, cnt * sizeof(T)); }
     void append(const uint8 *src, size_t cnt)
     {
-        if(!cnt) return;
-        ASSERT(size() < 1000000);
+        if(cnt == 0)
+            return;
 
+        ASSERT(size() < 1000000);
         FlushBits();
         if (_storage.size() < _wpos + cnt)
             _storage.resize(_wpos + cnt);

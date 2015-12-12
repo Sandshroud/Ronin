@@ -468,17 +468,17 @@ void Channel::Unban(Player* plr, PlayerInfo * bplr)
         return;
     }
 
-    std::set<WoWGuid>::iterator it2 = m_bannedMembers.find(bplr->guid);
+    std::set<WoWGuid>::iterator it2 = m_bannedMembers.find(bplr->charGuid);
     if(it2 == m_bannedMembers.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
-        data << uint64(bplr->guid);
+        data << bplr->charGuid;
         plr->GetSession()->SendPacket(&data);
         return;
     }
 
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_UNBANNED);
-    data << uint64(bplr->guid);
+    data << bplr->charGuid;
     SendToAll(&data);
     m_bannedMembers.erase(it2);
 }

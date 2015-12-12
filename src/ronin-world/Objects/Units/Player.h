@@ -310,13 +310,13 @@ struct PlayerInfo
 {
     PlayerInfo(WoWGuid _guid);
     ~PlayerInfo();
-    WoWGuid guid;
-    uint32 acct;
-    char * name;
-    uint8 race;
-    uint8 gender;
-    uint8 _class;
-    uint32 team;
+    WoWGuid charGuid;
+    uint32 accountId;
+    std::string charName;
+    uint8 charRace;
+    uint8 charClass;
+    uint8 charGender;
+    uint32 charTeam;
     uint32 curInstanceID;
     uint32 lastmapid;
     float lastpositionx;
@@ -1483,9 +1483,6 @@ public:
     PlayerCooldownMap GetCooldownMap(uint8 index = COOLDOWN_TYPE_SPELL) { return m_cooldownMap[index]; };
     bool SpellHasCooldown(uint32 spellid) { return (m_cooldownMap[COOLDOWN_TYPE_SPELL].find(spellid) != m_cooldownMap[COOLDOWN_TYPE_SPELL].end()); };
 
-    bool sentMOTD;
-    void sendMOTD();
-
     void PushOutOfRange(WoWGuid guid);
     void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
     void PopPendingUpdates();
@@ -1500,6 +1497,7 @@ public:
     bool CastTimeCheat;
     bool PowerCheat;
 
+    bool m_hasSentMoTD;
     int32 m_lastAreaUpdateMap;
     uint32 m_oldZone, m_oldArea;
 
@@ -1818,7 +1816,7 @@ private:
 
 public:
     bool Social_IsIgnoring(WoWGuid guid);
-    bool Social_IsIgnoring(PlayerInfo * info) { return Social_IsIgnoring(info->guid); }
+    bool Social_IsIgnoring(PlayerInfo * info) { return Social_IsIgnoring(info->charGuid); }
 
     /************************************************************************/
     /* end social                                                           */

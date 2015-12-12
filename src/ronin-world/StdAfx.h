@@ -186,7 +186,6 @@ extern "C" {
 #include "ObjectStorage.h"
 #include "VoiceChatClientSocket.h"
 #include "VoiceChatHandler.h"
-#include "Vehicle.h"
 #include "Tracker.h"
 #include "WarnSystem.h"
 

@@ -578,6 +578,7 @@ void WorldSession::HandleCancelPetAura(WorldPacket& recvPacket)
         sLog.outError("WORLD: unknown PET spell id %u", spellId);
         return;
     }
+
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_PET)
     {
         Pet* p = _player->GetMapMgr()->GetPet((uint32)guid);
@@ -590,30 +591,6 @@ void WorldSession::HandleCancelPetAura(WorldPacket& recvPacket)
         if (p->GetOwner() != _player)
         {
             sLog.outError("HandleCancelPetAura %u isn't pet of player %s", uint32(GUID_LOPART(guid)),GetPlayer()->GetName());
-            return;
-        }
-
-        if (!p->isAlive())
-        {
-            WorldPacket data(SMSG_PET_ACTION_FEEDBACK, 1);
-            data << uint8(1);
-            SendPacket(&data);
-            return;
-        }
-        p->RemoveAura(spellId);
-    }
-    if(GUID_HIPART(guid) == HIGHGUID_TYPE_VEHICLE)
-    {
-        Vehicle* p = _player->GetMapMgr()->GetVehicle((uint32)guid);
-        if (!p)
-        {
-            sLog.outError("Vehicle %u not exist.", uint32(GUID_LOPART(guid)));
-            return;
-        }
-
-        if (p->GetControllingPlayer() != _player)
-        {
-            sLog.outError("HandleCancelPetAura %u isn't the vehicle of player %s", uint32(GUID_LOPART(guid)),GetPlayer()->GetName());
             return;
         }
 

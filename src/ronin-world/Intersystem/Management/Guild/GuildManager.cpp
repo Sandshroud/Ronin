@@ -130,9 +130,9 @@ void GuildMgr::LoadAllGuilds()
             gInfo->m_borderColor = f[7].GetUInt32();
             gInfo->m_backgroundColor = f[8].GetUInt32();
             gInfo->m_guildInfo = std::string(strlen(temp = f[9].GetString()) ? strdup(temp) : "");
-            gInfo->m_motd = std::string(strlen(temp = f[10].GetString()) ? strdup(temp) : "");
+            gInfo->m_motd = std::string(strlen(temp = f[10].GetString()) ? strdup(temp) : "No message set.");
             gInfo->m_creationTimeStamp = f[11].GetUInt32();
-            gInfo->m_bankBalance = uint64(uint64(f[13].GetUInt64()) | (uint64(f[12].GetUInt32())<<32));
+            gInfo->m_bankBalance = f[12].GetUInt64();
             gInfo->m_commandLogging = true;
             m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
             m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
@@ -235,7 +235,7 @@ void GuildMgr::LoadAllGuilds()
         result = NULL;
     }
 
-    result = CharacterDatabase.Query("SELECT * FROM guild_data");
+    result = CharacterDatabase.Query("SELECT * FROM guild_members");
     if(result != NULL)
     {
         Field* f = NULL;
@@ -255,7 +255,7 @@ void GuildMgr::LoadAllGuilds()
                 rankstorage = ConstructRankStorage(GuildId);
 
             uint32 guid = f[1].GetUInt32();
-            GuildMember* gm = new GuildMember(guid, objmgr.GetPlayerInfo(guid), NULL);
+            GuildMember* gm = new GuildMember(GuildId, guid, objmgr.GetPlayerInfo(guid), NULL);
             if(gm->pPlayer == NULL)
             {
                 delete gm;
@@ -290,8 +290,8 @@ void GuildMgr::LoadAllGuilds()
             else
                 MemberMapStorage = m_GuildMemberMaps[GuildId];
 
-            MemberMapStorage->MemberMap.insert(std::make_pair(gm->pPlayer->guid, gm));
-            m_GuildMembers.insert(std::make_pair(gm->pPlayer->guid, gm));
+            MemberMapStorage->MemberMap.insert(std::make_pair(gm->pPlayer->charGuid, gm));
+            m_GuildMembers.insert(std::make_pair(gm->pPlayer->charGuid, gm));
 
             gInfo = NULL;
             rankstorage = NULL;
@@ -401,9 +401,6 @@ void GuildMgr::LoadAllGuilds()
             m_GuildTabs.insert(std::make_pair(itr->first, new GuildBankTabStorage(itr->first)));
     }
 
-    for(GuildInfoMap::iterator itr = m_Guilds.begin(); itr != m_Guilds.end(); itr++)
-        RebuildGuildRosterBuffer(itr->first);
-
     sLog.Notice("GuildMgr", "%u guilds loaded.", m_Guilds.size());
     sWorld.GuildsLoading = false;
     m_GuildsLoading = false;
@@ -415,6 +412,7 @@ void GuildMgr::AddDestructionQueries(uint32 guildid)
     QueryBuffer *qb = new QueryBuffer();
 #endif
     QMGR_EXECUTE("DELETE FROM `guild_data` WHERE guildId = '%u';", guildid);
+    QMGR_EXECUTE("DELETE FROM `guild_members` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_logs` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_ranks` WHERE guildId = '%u';", guildid);
     QMGR_EXECUTE("DELETE FROM `guild_banklogs` WHERE guildId = '%u';", guildid);
@@ -431,14 +429,13 @@ void GuildMgr::SetNote(PlayerInfo* pInfo, std::string Note, bool Officer)
     if(gInfo == NULL)
         return;
 
-    GuildMember* gMember = GetGuildMember(pInfo->guid);
+    GuildMember* gMember = GetGuildMember(pInfo->charGuid);
     if(gMember == NULL)
         return;
 
     if(Officer)
         gMember->szOfficerNote = Note;
     else gMember->szPublicNote = Note;
-    RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
 }
 
@@ -530,7 +527,7 @@ void GuildMgr::LogGuildBankAction(uint64 GuildId, uint8 iAction, uint32 uGuid, u
     gInfo->m_GuildLock.Release();
 }
 
-void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, const char* arguement1, const char* arguement2, const char* arguement3, const char* arguement4)
+void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, std::string arguement1, std::string arguement2, std::string arguement3, std::string arguement4)
 {
     if(plr != NULL)
         GuildId = plr->GetGuildId();
@@ -541,33 +538,17 @@ void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, const ch
     if(gInfo == NULL || !gInfo->m_commandLogging)
         return;
 
-    size_t size = strlen(arguement1), count = 1;
-    if(arguement2 != NULL)
-    {
-        count++;
-        size += strlen(arguement2);
-    }
-    if(arguement3 != NULL)
-    {
-        count++;
-        size += strlen(arguement3);
-    }
-    if(arguement4 != NULL)
-    {
-        count++;
-        size += strlen(arguement4);
-    }
-
-    WorldPacket data(SMSG_GUILD_EVENT, 2+uint32(size));
+    uint8 count = 1 + (arguement2.length() ? 1 : 0) + (arguement3.length() ? 1 : 0) + (arguement4.length() ? 1 : 0);
+    WorldPacket data(SMSG_GUILD_EVENT, 2 + arguement1.length() + arguement2.length() + arguement3.length() + arguement4.length());
     data << uint8(iEvent);
     data << uint8(count);
-    data << strdup(arguement1);
-    if(count > 1)
-        data << strdup(arguement2);
-    if(count > 2)
-        data << strdup(arguement3);
-    if(count > 3)
-        data << strdup(arguement4);
+    data << arguement1;
+    if(arguement2.length())
+        data << arguement2;
+    if(arguement3.length())
+        data << arguement3;
+    if(arguement4.length())
+        data << arguement4;
     if(plr != NULL)
     {
         if(plr->IsInWorld())
@@ -576,8 +557,7 @@ void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, const ch
     }
     else
     {
-        GuildMemberMapStorage* MemberMapStorage = GetGuildMemberMapStorage(GuildId);
-        if(MemberMapStorage != NULL)
+        if(GuildMemberMapStorage* MemberMapStorage = GetGuildMemberMapStorage(GuildId))
         {
             Player* target = NULL;
             MemberMapStorage->MemberMapLock.Acquire();
@@ -599,9 +579,9 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
 #endif
 
     uint32 GuildId = guildInfo->m_guildId;
-    QMGR_EXECUTE("REPLACE INTO guild_data VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %u, %u);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
+    QMGR_EXECUTE("REPLACE INTO guild_data VALUES(%u, \'%s\', %u, %u, %u, %u, %u, %u, %u, \'%s\', \'%s\', %u, %llu);", GuildId, CharacterDatabase.EscapeString(guildInfo->m_guildName).c_str(), guildInfo->m_guildLeader,
         guildInfo->m_guildLevel, guildInfo->m_emblemStyle, guildInfo->m_emblemColor, guildInfo->m_borderColor, guildInfo->m_borderStyle, guildInfo->m_backgroundColor, CharacterDatabase.EscapeString(guildInfo->m_guildInfo).c_str(), 
-        CharacterDatabase.EscapeString(guildInfo->m_motd).c_str(), guildInfo->m_creationTimeStamp, GUID_HIPART(guildInfo->m_bankBalance), GUID_LOPART(guildInfo->m_bankBalance));
+        CharacterDatabase.EscapeString(guildInfo->m_motd).c_str(), guildInfo->m_creationTimeStamp, guildInfo->m_bankBalance);
 
     guildInfo->m_GuildStatus = GUILD_STATUS_NORMAL;
     uint32 count = 0;
@@ -650,7 +630,7 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
     {
         MapStorage->MemberMapLock.Acquire();
         std::stringstream guildData;
-        guildData << "DELETE FROM `guild_data` WHERE `guildid` = '%u' AND `playerid` NOT IN(";
+        guildData << "DELETE FROM `guild_members` WHERE `guildid` = '%u' AND `playerid` NOT IN(";
         for(GuildMemberMap::iterator itr = MapStorage->MemberMap.begin(); itr != MapStorage->MemberMap.end(); itr++)
         {
             if(first)
@@ -664,16 +644,14 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
         {
             guildData << ");";
             QMGR_EXECUTE(guildData.str().c_str());
-        }
-        else
-            QMGR_EXECUTE("DELETE FROM `guild_data` WHERE `guildid` = '%u';");
+        } else QMGR_EXECUTE("DELETE FROM `guild_members` WHERE `guildid` = '%u';");
 
         // Clear for next part.
         count = 0;
         first = true;
 
         std::stringstream guildData2;
-        guildData2 << "REPLACE INTO `guild_data` VALUES";
+        guildData2 << "REPLACE INTO `guild_members` VALUES";
         for(GuildMemberMap::iterator itr = MapStorage->MemberMap.begin(); itr != MapStorage->MemberMap.end(); itr++)
         {
             if(first)
@@ -694,9 +672,7 @@ void GuildMgr::SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo)
             QMGR_EXECUTE(guildData2.str().c_str());
         }
         MapStorage->MemberMapLock.Release();
-    }
-    else
-        QMGR_EXECUTE("DELETE FROM `guild_data` WHERE `guildid` = '%u';", GuildId);
+    } else QMGR_EXECUTE("DELETE FROM `guild_members` WHERE `guildid` = '%u';", GuildId);
 
     count = 0;
     first = true;
@@ -917,6 +893,7 @@ void GuildMgr::CreateGuildFromCharter(Charter* charter)
     gInfo->m_guildName = charter->GuildName;
     gInfo->m_guildLeader = charter->LeaderGuid;
     gInfo->m_creationTimeStamp = (uint32)UNIXTIME;
+    gInfo->m_guildLevel = 1;
     gInfo->m_emblemStyle = 0;
     gInfo->m_emblemColor = 0;
     gInfo->m_borderStyle = 0;
@@ -924,7 +901,7 @@ void GuildMgr::CreateGuildFromCharter(Charter* charter)
     gInfo->m_backgroundColor = 0;
     gInfo->m_bankBalance = 0;
     gInfo->m_guildInfo = "";
-    gInfo->m_motd = "";
+    gInfo->m_motd = "No message set.";
     gInfo->m_GuildStatus = GUILD_STATUS_NEW;
     m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
     m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
@@ -966,6 +943,7 @@ void GuildMgr::CreateGuildFromCommand(std::string name, uint32 gLeader)
     gInfo->m_guildName = name;
     gInfo->m_guildLeader = gLeader;
     gInfo->m_creationTimeStamp = (uint32)UNIXTIME;
+    gInfo->m_guildLevel = 1;
     gInfo->m_emblemStyle = 0;
     gInfo->m_emblemColor = 0;
     gInfo->m_borderStyle = 0;
@@ -973,7 +951,7 @@ void GuildMgr::CreateGuildFromCommand(std::string name, uint32 gLeader)
     gInfo->m_backgroundColor = 0;
     gInfo->m_bankBalance = 0;
     gInfo->m_guildInfo = "";
-    gInfo->m_motd = "";
+    gInfo->m_motd = "No message set.";
     gInfo->m_commandLogging = true;
     gInfo->m_GuildStatus = GUILD_STATUS_NEW;
     m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
@@ -1266,7 +1244,6 @@ void GuildMgr::CreateGuildRank(GuildRankStorage* storage, const char* szRankName
             storage->ssid = i+1;
             storage->m_ranks[i] = new GuildRank(i, iPermissions, szRankName, bFullGuildBankPermissions);
             storage->RankLock.Release();
-            RebuildGuildRosterBuffer(gInfo->m_guildId);
             gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
             gInfo->m_GuildLock.Release();
 //          sLog.Notice("Guild", "Created rank %u on guild %u (%s)", i, storage->GuildId, szRankName);
@@ -1311,7 +1288,6 @@ uint32 GuildMgr::RemoveGuildRank(uint32 GuildId)
     storage->ssid--; // Decremention.
     storage->m_ranks[pLowestRank->iId] = NULL;
     delete pLowestRank;
-    RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
     gInfo->m_GuildLock.Release();
     storage->RankLock.Release();
@@ -1342,110 +1318,12 @@ bool GuildMgr::Disband(uint32 GuildId)
 void GuildMgr::PlayerLoggedIn(PlayerInfo* plr)
 {
     SendMotd(plr);
-    LogGuildEvent(NULL, plr->GuildId, GUILD_EVENT_HASCOMEONLINE, plr->name);
+    LogGuildEvent(NULL, plr->GuildId, GUILD_EVENT_HASCOMEONLINE, plr->charName.c_str());
 }
 
 void GuildMgr::PlayerLoggedOff(PlayerInfo* plr)
 {
-    LogGuildEvent(NULL, plr->GuildId, GUILD_EVENT_HASGONEOFFLINE, plr->name);
-}
-
-void GuildMgr::RebuildGuildRosterBuffer(uint32 guildId)
-{
-    GuildInfo *gInfo = GetGuildInfo(guildId);
-    if(gInfo == NULL)
-        return;
-    GuildMemberMapStorage *memberMap = GetGuildMemberMapStorage(guildId);
-    if(memberMap == NULL)
-        return;
-
-    memberMap->MemberMapLock.Acquire();
-    gInfo->m_guildRosterBufferLock.Acquire();
-    gInfo->m_guildRosterBuffer.clear();
-
-    if(gInfo->m_motd.length())
-        gInfo->m_guildRosterBuffer << gInfo->m_motd.c_str();
-    else gInfo->m_guildRosterBuffer << uint8(0);
-
-    // Send member count
-    gInfo->m_guildRosterBuffer << uint32(memberMap->MemberMap.size());
-
-    // Packed uint8 - each bit resembles some flag.
-    uint32 totalBytesToSend = uint32(ceil(float(memberMap->MemberMap.size()) / 8.0f));
-    for (uint32 i = 0; i < totalBytesToSend; ++i)
-        gInfo->m_guildRosterBuffer << uint8(0); //unk
-
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {
-        if(itr->second->szPublicNote.length())
-            gInfo->m_guildRosterBuffer << itr->second->szPublicNote.c_str();
-        else gInfo->m_guildRosterBuffer << uint8(0);
-    }
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint64(0);
-
-    if(gInfo->m_guildInfo.length())
-        gInfo->m_guildRosterBuffer << gInfo->m_guildInfo.c_str();
-    else gInfo->m_guildRosterBuffer << uint8(0);
-
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {   // Guild member flags
-        if(itr->second->pPlayer->m_loggedInPlayer)
-            gInfo->m_guildRosterBuffer << uint8(itr->second->pPlayer->m_loggedInPlayer->GetGuildMemberFlags());
-        else gInfo->m_guildRosterBuffer << uint8(0);
-    }
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << itr->second->pPlayer->lastZone; // ZoneId
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint32(0); // Achievement Points
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {
-        if(itr->second->szOfficerNote.length())
-            gInfo->m_guildRosterBuffer << itr->second->szOfficerNote.c_str();
-        else gInfo->m_guildRosterBuffer << uint8(0);
-    }
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint64(0); // Total activity
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint8(0);  // Unk
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint64(itr->second->PlrGuid); // Guid
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint8(itr->second->pPlayer->_class); // Class
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << itr->second->pPlayer->name; // Name
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint32(0);  // Unk
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint32(itr->second->pPlayer->GuildRank); // Rank
-    int i = 0;
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {   // unk
-        if (++i == 1) gInfo->m_guildRosterBuffer << uint32(0x0220);
-        else gInfo->m_guildRosterBuffer << uint32(0);
-    }
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint8(itr->second->pPlayer->lastLevel); // cached level
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {
-        for(uint8 i = 0; i < 2; i++)
-        {   // Profession data
-            gInfo->m_guildRosterBuffer << uint32(0);
-            gInfo->m_guildRosterBuffer << uint32(0);
-            gInfo->m_guildRosterBuffer << uint32(0);
-        }
-    }
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-        gInfo->m_guildRosterBuffer << uint32(0); // Remaining guild rep
-    for(GuildMemberMap::iterator itr = memberMap->MemberMap.begin(); itr != memberMap->MemberMap.end(); ++itr)
-    {
-        if(itr->second->pPlayer->m_loggedInPlayer)
-            gInfo->m_guildRosterBuffer << float(0); // Logged in vs logged out
-        else gInfo->m_guildRosterBuffer << float(float(UNIXTIME - itr->second->pPlayer->lastOnline) / TIME_DAY);
-    }
-
-    gInfo->m_guildRosterBufferLock.Release();
-    memberMap->MemberMapLock.Release();
+    LogGuildEvent(NULL, plr->GuildId, GUILD_EVENT_HASGONEOFFLINE, plr->charName.c_str());
 }
 
 void GuildMgr::SendMotd(PlayerInfo* plr, uint32 guildid)
@@ -1493,7 +1371,7 @@ void GuildMgr::RemoveMember(Player* remover, PlayerInfo* removee)
     }
 
     GuildMember* ToRemove = NULL;
-    GuildMemberMap::iterator itr = m_GuildMembers.find(removee->guid);
+    GuildMemberMap::iterator itr = m_GuildMembers.find(removee->charGuid);
     if(itr != m_GuildMembers.end())
     {
         ToRemove = itr->second;
@@ -1504,7 +1382,7 @@ void GuildMgr::RemoveMember(Player* remover, PlayerInfo* removee)
     if(MemberMapStorage != NULL)
     {
         MemberMapStorage->MemberMapLock.Acquire();
-        GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.find(removee->guid);
+        GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.find(removee->charGuid);
         if(itr != MemberMapStorage->MemberMap.end())
             MemberMapStorage->MemberMap.erase(itr);
         MemberMapStorage->MemberMapLock.Release();
@@ -1520,18 +1398,17 @@ void GuildMgr::RemoveMember(Player* remover, PlayerInfo* removee)
     {
         if(removee->m_loggedInPlayer)
         {
-            Player* plr = objmgr.GetPlayer(removee->guid);
-            if(plr)
+            if(Player* plr = objmgr.GetPlayer(removee->charGuid))
                 sChatHandler.SystemMessageToPlr(plr, "You have been kicked from the guild by %s", remover->GetName());
         }
 
-        LogGuildEvent(NULL, GuildId, GUILD_EVENT_REMOVED, removee->name, remover->GetName());
-        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_REMOVAL, remover->GetLowGUID(), removee->guid.getLow());
+        LogGuildEvent(NULL, GuildId, GUILD_EVENT_REMOVED, removee->charName.c_str(), remover->GetName());
+        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_REMOVAL, remover->GetLowGUID(), removee->charGuid.getLow());
     }
     else
     {
-        LogGuildEvent(NULL, GuildId, GUILD_EVENT_LEFT, removee->name);
-        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_LEFT, removee->guid.getLow());
+        LogGuildEvent(NULL, GuildId, GUILD_EVENT_LEFT, removee->charName.c_str());
+        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_LEFT, removee->charGuid.getLow());
     }
 
     removee->GuildId = 0;
@@ -1542,7 +1419,6 @@ void GuildMgr::RemoveMember(Player* remover, PlayerInfo* removee)
         removee->m_loggedInPlayer->SetGuildId(0);
     }
 
-    RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
 }
 
@@ -1554,7 +1430,7 @@ void GuildMgr::ForceRemoveMember(Player* remover, PlayerInfo* removee)
         return;
 
     GuildMember* ToRemove = NULL;
-    GuildMemberMap::iterator itr = m_GuildMembers.find(removee->guid);
+    GuildMemberMap::iterator itr = m_GuildMembers.find(removee->charGuid);
     if(itr != m_GuildMembers.end())
     {
         ToRemove = itr->second;
@@ -1565,7 +1441,7 @@ void GuildMgr::ForceRemoveMember(Player* remover, PlayerInfo* removee)
     if(MemberMapStorage != NULL)
     {
         MemberMapStorage->MemberMapLock.Acquire();
-        GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.find(removee->guid);
+        GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.find(removee->charGuid);
         if(itr != MemberMapStorage->MemberMap.end())
             MemberMapStorage->MemberMap.erase(itr);
         MemberMapStorage->MemberMapLock.Release();
@@ -1581,18 +1457,18 @@ void GuildMgr::ForceRemoveMember(Player* remover, PlayerInfo* removee)
     {
         if(removee->m_loggedInPlayer)
         {
-            Player* plr = objmgr.GetPlayer(removee->guid);
+            Player* plr = objmgr.GetPlayer(removee->charGuid);
             if(plr)
                 sChatHandler.SystemMessageToPlr(plr, "You have been kicked from the guild by %s", remover->GetName());
         }
 
-        LogGuildEvent(NULL, GuildId, GUILD_EVENT_REMOVED, removee->name, remover->GetName());
-        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_REMOVAL, remover->GetLowGUID(), removee->guid.getLow());
+        LogGuildEvent(NULL, GuildId, GUILD_EVENT_REMOVED, removee->charName.c_str(), remover->GetName());
+        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_REMOVAL, remover->GetLowGUID(), removee->charGuid.getLow());
     }
     else
     {
-        LogGuildEvent(NULL, GuildId, GUILD_EVENT_LEFT, removee->name);
-        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_LEFT, removee->guid.getLow());
+        LogGuildEvent(NULL, GuildId, GUILD_EVENT_LEFT, removee->charName.c_str());
+        AddGuildLogEntry(GuildId, GUILD_LOG_EVENT_LEFT, removee->charGuid.getLow());
     }
 
     removee->GuildId = 0;
@@ -1603,7 +1479,6 @@ void GuildMgr::ForceRemoveMember(Player* remover, PlayerInfo* removee)
         removee->m_loggedInPlayer->SetGuildId(0);
     }
 
-    RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
 }
 
@@ -1633,14 +1508,12 @@ void GuildMgr::AddGuildMember(GuildInfo* gInfo, PlayerInfo* newmember, WorldSess
         r = FindLowestRank(RankStorage);
     }
 
-    if(r == NULL)
-        r = FindLowestRank(RankStorage);
-
-    if(r == NULL) // shouldn't happen
+    if(r == NULL && (r = FindLowestRank(RankStorage)) == NULL)
         return;
+
     uint32 rank = r->iId;
 
-    GuildMember* pm = new GuildMember(newmember->guid, newmember, r);
+    GuildMember* pm = new GuildMember(gInfo->m_guildId, newmember->charGuid, newmember, r);
     GuildMemberMapStorage* MemberList = GetGuildMemberMapStorage(gInfo->m_guildId);
     m_GuildMembers.insert(std::make_pair(pm->PlrGuid, pm));
     MemberList->MemberMapLock.Acquire();
@@ -1658,10 +1531,9 @@ void GuildMgr::AddGuildMember(GuildInfo* gInfo, PlayerInfo* newmember, WorldSess
         SendMotd(newmember);
     }
 
-    RebuildGuildRosterBuffer(gInfo->m_guildId);
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
-    LogGuildEvent(NULL, gInfo->m_guildId, GUILD_EVENT_JOINED, newmember->name);
-    AddGuildLogEntry(gInfo->m_guildId, GUILD_LOG_EVENT_JOIN, newmember->guid.getLow());
+    LogGuildEvent(NULL, gInfo->m_guildId, GUILD_EVENT_JOINED, newmember->charName.c_str());
+    AddGuildLogEntry(gInfo->m_guildId, GUILD_LOG_EVENT_JOIN, newmember->charGuid.getLow());
 }
 
 void GuildMgr::GuildChat(WorldSession* m_session, uint32 Language, const char* message)

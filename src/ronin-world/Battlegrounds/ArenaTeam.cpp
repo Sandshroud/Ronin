@@ -202,19 +202,16 @@ void ArenaTeam::Roster(WorldPacket & data)
     data << uint8(0); //3.0.8, played? Specifies whether we are sending 2 extra floats for each member
     data << m_memberCount;
     data << GetPlayersPerTeam();
-
     for(uint32 i = 0; i < m_memberCount; i++)
     {
-        PlayerInfo* info = m_members[i].Info;
-        // TODO : burlex figure out why this became null
-        if( info != NULL )
+        if( PlayerInfo* info = m_members[i].Info )
         {
-            data << uint64(info->guid);
+            data << info->charGuid;
             data << uint8( (info->m_loggedInPlayer != NULL) ? 1 : 0 );
-            data << info->name;
-            data << uint32( m_members[i].Info->guid == m_leader ? 0 : 1); // Unk
+            data << info->charName;
+            data << uint32( m_members[i].Info->charGuid == m_leader ? 0 : 1); // Unk
             data << uint8( info->lastLevel );
-            data << uint8( info->_class );
+            data << uint8( info->charClass );
             data << m_members[i].Played_ThisWeek;
             data << m_members[i].Won_ThisWeek;
             data << m_members[i].Played_ThisSeason;
@@ -248,7 +245,7 @@ void ArenaTeam::SaveToDB()
     {
         if(m_members[i].Info)
         {
-            ss << ",'" << uint64(m_members[i].Info->guid) << " " << m_members[i].Played_ThisWeek << " "
+            ss << ",'" << m_members[i].Info->charGuid.getLow() << " " << m_members[i].Played_ThisWeek << " "
                 << m_members[i].Won_ThisWeek << " " << m_members[i].Played_ThisSeason << " "
                 << m_members[i].Won_ThisSeason << " " << m_members[i].PersonalRating << "'";
         }
@@ -271,7 +268,7 @@ bool ArenaTeam::HasMember(WoWGuid guid)
 {
     for(uint32 i = 0; i < m_memberCount; i++)
     {
-        if(m_members[i].Info && m_members[i].Info->guid == guid)
+        if(m_members[i].Info && m_members[i].Info->charGuid == guid)
             return true;
     }
     return false;
@@ -280,9 +277,9 @@ bool ArenaTeam::HasMember(WoWGuid guid)
 void ArenaTeam::SetLeader(PlayerInfo * info)
 {
     WoWGuid old_leader = m_leader;
-    m_leader = info->guid;
+    m_leader = info->charGuid;
     char buffer[1024];
-    snprintf(buffer, 1024,"%s is now the captain of the arena team, '%s'.", info->name, m_name.c_str());
+    snprintf(buffer, 1024,"%s is now the captain of the arena team, '%s'.", info->charName.c_str(), m_name.c_str());
     WorldPacket data;
     sChatHandler.FillSystemMessageData(&data, buffer);
     SendPacket(&data);
@@ -295,7 +292,7 @@ void ArenaTeam::SetLeader(PlayerInfo * info)
             if(m_members[i].Info->m_loggedInPlayer)
                 m_members[i].Info->m_loggedInPlayer->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (m_type*6) + 1, 0);
         }
-        else if(m_members[i].Info->guid == old_leader)
+        else if(m_members[i].Info->charGuid == old_leader)
         {
             if(m_members[i].Info->m_loggedInPlayer)
                 m_members[i].Info->m_loggedInPlayer->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (m_type*6) + 1, 1);
@@ -322,7 +319,7 @@ ArenaTeamMember* ArenaTeam::GetMemberByGuid(WoWGuid guid)
 
     for(uint32 i = 0; i < m_memberCount; i++)
     {
-        if(m_members[i].Info && m_members[i].Info->guid == guid)
+        if(m_members[i].Info && m_members[i].Info->charGuid == guid)
             return &m_members[i];
     }
     return NULL;
@@ -457,7 +454,7 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(!team->HasMember(inf->guid))
+    if(!team->HasMember(inf->charGuid))
     {
         SystemMessage("That player is not in your arena team.");
         return;
@@ -466,11 +463,11 @@ void WorldSession::HandleArenaTeamRemoveMemberOpcode(WorldPacket & recv_data)
     if(team->RemoveMember(inf))
     {
         char buffer[1024];
-        snprintf(buffer,1024,"%s was removed from the arena team '%s'.", inf->name, team->m_name.c_str());
+        snprintf(buffer,1024,"%s was removed from the arena team '%s'.", inf->charName.c_str(), team->m_name.c_str());
         WorldPacket data;
         sChatHandler.FillSystemMessageData(&data, buffer);
         SendPacket(&data);
-        SystemMessage("Removed %s from the arena team '%s'.", inf->name, team->m_name.c_str());
+        SystemMessage("Removed %s from the arena team '%s'.", inf->charName.c_str(), team->m_name.c_str());
     }
 }
 
@@ -630,7 +627,7 @@ void WorldSession::HandleArenaTeamPromoteOpcode(WorldPacket & recv_data)
         return;
     }
 
-    if(!team->HasMember(inf->guid))
+    if(!team->HasMember(inf->charGuid))
     {
         SystemMessage("That player is not a member of your arena team.");
         return;

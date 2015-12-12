@@ -703,9 +703,6 @@ void AI_Movement::SendJumpTo(float toX, float toY, float toZ, uint32 moveTime, f
 void AI_Movement::StopMovement(uint32 time, bool stopatcurrent)
 {
     ASSERT(m_Unit != NULL);
-    if(m_Unit->GetVehicle())
-        return;
-
     if(PathMap != NULL)
     {
         delete PathMap->InternalMap;

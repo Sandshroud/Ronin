@@ -17,22 +17,29 @@ void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
     if(pn == NULL)
         return;
 
+    WorldPacket data;
     // We query our own name on player create so check to send MOTD
-    if(!_player->sentMOTD)
+    if(!_player->m_hasSentMoTD)
     {
-        _player->sendMOTD();
-        _player->sentMOTD = true;
+        data.Initialize(SMSG_MOTD, 10);
+        if(sWorld.BuildMoTDPacket(this, &data))
+            SendPacket(&data);
+
+        //Issue a message telling all guild members that this player has signed on
+        guildmgr.PlayerLoggedIn(pn);
+
+        _player->m_hasSentMoTD = true;
     }
 
-    sLog.Debug("WorldSession","Received CMSG_NAME_QUERY for: %s", pn->name );
-    WorldPacket data(SMSG_NAME_QUERY_RESPONSE, 15+strlen(pn->name));
+    sLog.Debug("WorldSession","Received CMSG_NAME_QUERY for: %s", pn->charName.c_str() );
+    data.Initialize(SMSG_NAME_QUERY_RESPONSE, 15+pn->charName.length());
     data << guid.asPacked();
     data << uint8(0);
-    data << pn->name;
+    data << pn->charName;
     data << uint8(0);
-    data << uint8(pn->race);
-    data << uint8(pn->gender);
-    data << uint8(pn->_class);
+    data << uint8(pn->charRace);
+    data << uint8(pn->charGender);
+    data << uint8(pn->charClass);
     data << uint8(0);
     SendPacket( &data );
 }

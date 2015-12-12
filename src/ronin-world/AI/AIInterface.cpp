@@ -233,13 +233,6 @@ void AIInterface::AttackReaction(Unit* pUnit, uint32 damage_dealt, uint32 spellI
     if( m_Unit == pUnit || m_Unit->IsVehicle() )
         return;
 
-    if(pUnit->IsVehicle())
-    {
-        uint32 count = castPtr<Vehicle>(pUnit)->GetPassengerCount();
-        if(!count) // No players.
-            return;
-    }
-
     uint32 threat = _CalcThreat(damage_dealt, spellId ? dbcSpell.LookupEntry(spellId) : NULL, pUnit);
     if( m_AIState == STATE_IDLE || m_AIState == STATE_FOLLOWING )
     {

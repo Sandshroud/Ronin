@@ -913,9 +913,6 @@ void GameObject::Use(Player *p)
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
 
-                if( p->GetVehicle() )
-                    p->GetVehicle()->RemovePassenger( p );
-
                 if(!p->m_bgFlagIneligible)
                     p->m_bg->HookFlagStand(p, this);
                 TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagStand )( p, this );
@@ -933,9 +930,6 @@ void GameObject::Use(Player *p)
 
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
-
-                if( p->GetVehicle() )
-                    p->GetVehicle()->RemovePassenger( p );
 
                 p->m_bg->HookFlagDrop(p, this);
                 TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagDrop )( p, this );

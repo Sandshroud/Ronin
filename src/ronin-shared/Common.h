@@ -428,6 +428,22 @@ static inline long long int double2int64(const double value)
   return n.asInt;
 }
 
+// modulos a radian orientation to the range of 0..2PI
+static inline float NormAngle(float o)
+{
+    // fmod only supports positive numbers. Thus we have
+    // to emulate negative numbers
+    if (o < 0)
+    {
+        float mod = o * -1;
+        mod = fmodf(mod, 6.2832f);
+        mod = -mod + 6.2832f;
+        return mod;
+    } else if(o < 6.2832f)
+        return o;
+    return fmod(o, 6.2832f);
+}
+
 #if COMPILER == COMPILER_MICROSOFT
 #pragma float_control(pop)
 #endif

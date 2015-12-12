@@ -310,9 +310,6 @@ void WarsongGulch::HookFlagStand(Player* plr, GameObject* obj)
     if (itr != plr->m_forcedReactions.end())
         return;
 
-    if( plr->GetVehicle() )
-        plr->GetVehicle()->RemovePassenger(plr);
-
     /*if( plr->m_stealth )
         plr->RemoveAura( plr->m_stealth );*/
 

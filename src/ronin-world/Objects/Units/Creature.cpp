@@ -61,6 +61,8 @@ Creature::~Creature()
 void Creature::Init()
 {
     Unit::Init();
+    if(uint32 vehicleKitId = _creatureData->vehicleEntry)
+        InitVehicleKit(vehicleKitId);
 }
 
 void Creature::Destruct()
@@ -248,7 +250,6 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
     m_spawn->emote_state = uint32(original_emotestate);
     m_spawn->death_state = getDeathState();
     m_spawn->stand_state = GetStandState();
-    m_spawn->vehicle = IsVehicle();
     m_spawn->CanMove = GetCanMove();
     m_spawn->vendormask = newSpawn ? 0x01 : GetVendorMask();
 
@@ -263,9 +264,6 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
         << float(m_spawn->o) << ","
         << uint32(m_spawn->factionid) << ","
         << uint32(m_spawn->flags) << ","
-        << uint32(m_spawn->Bytes ? m_spawn->Bytes->bytes : 0) << ","
-        << uint32(m_spawn->Bytes ? m_spawn->Bytes->bytes1 : 0) << ","
-        << uint32(m_spawn->Bytes ? m_spawn->Bytes->bytes2 : 0) << ","
         << uint32(m_spawn->emote_state) << ","
         << uint32(m_spawn->death_state) << ", "
         << uint32(m_spawn->stand_state) << ", "
@@ -274,7 +272,6 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
         << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_target_creature : 0) << ","
         << uint32(m_spawn->MountedDisplayID) << ", "
         << int32(1) << ", "
-        << uint32(m_spawn->vehicle ? 1 : 0) << ", "
         << uint32(m_spawn->CanMove) << ", "
         << int32(m_spawn->vendormask) << " )";
 
@@ -669,26 +666,17 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_FIELD_HEALTH, baseHP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, baseHP);
 
-    if(m_spawn && m_spawn->Bytes)
-    {
-        SetUInt32Value(UNIT_FIELD_BYTES_0, m_spawn->Bytes->bytes);
-        SetUInt32Value(UNIT_FIELD_BYTES_1, m_spawn->Bytes->bytes1);
-        SetUInt32Value(UNIT_FIELD_BYTES_2, m_spawn->Bytes->bytes2);
-    }
-
-    /*if(_creatureData->family == HUMANOID)
+    if(_creatureData->family == HUMANOID)
     {
         uint8 race = RACE_HUMAN;
         if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
             if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
                 race = extraInfo->Race;
-
         SetByte(UNIT_FIELD_BYTES_0, 0, race);
-    }*/
+    }
 
     SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->maxPower ? MAGE : WARRIOR);
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
-    SetUInt32Value(UNIT_FIELD_COMBATREACH, model);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
 
@@ -813,9 +801,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
                 b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
         }
     }
-
-    if(IsVehicle())
-        castPtr<Vehicle>(this)->InitSeats(_creatureData->vehicleEntry, NULL);
 }
 
 void Creature::OnPushToWorld()

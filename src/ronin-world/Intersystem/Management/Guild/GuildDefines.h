@@ -88,8 +88,6 @@ enum typecommand
     GUILD_PROMOTE_S                 = 0x03,
     GUILD_FOUNDER_S                 = 0x0C,
     GUILD_MEMBER_S                  = 0x0D,
-    GUILD_PUBLIC_NOTE_CHANGED_S     = 0x13,
-    GUILD_OFFICER_NOTE_CHANGED_S    = 0x14,
 };
 
 enum GuildRankRights
@@ -183,7 +181,7 @@ enum GuildStatuses
 #define ARENA_TEAM_CHARTER_5v5_COST     2000000 // 200 G
 
 #define MAX_GUILD_BANK_SLOTS 98
-#define MAX_GUILD_BANK_TABS 6
+#define MAX_GUILD_BANK_TABS 8
 
 void SendGuildCommandResult(WorldSession* pClient, uint32 iCmd, const char* szMsg, uint32 iType);
 void SendTurnInPetitionResult( WorldSession * pClient, uint32 result );

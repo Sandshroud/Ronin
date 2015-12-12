@@ -55,12 +55,6 @@ Map::~Map()
                     cs = (*i);
                     i++;
 
-                    if(cs->Bytes != NULL)
-                    {
-                        delete cs->Bytes;
-                        cs->Bytes = NULL;
-                    }
-
                     if(cs->ChannelData != NULL)
                     {
                         delete cs->ChannelData;
@@ -94,7 +88,7 @@ static bool first_table_warning = true;
 bool CheckResultLengthCreatures(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
-    if( fieldcount != 23 )
+    if( fieldcount != 19 )
     {
         if( first_table_warning )
         {
@@ -148,12 +142,6 @@ void Map::LoadSpawns(bool reload /* = false */)
                         cs = (*i);
                         i++;
 
-                        if(cs->Bytes != NULL)
-                        {
-                            delete cs->Bytes;
-                            cs->Bytes = NULL;
-                        }
-
                         if(cs->ChannelData != NULL)
                         {
                             delete cs->ChannelData;
@@ -179,8 +167,7 @@ void Map::LoadSpawns(bool reload /* = false */)
 
     for(tableiterator = ExtraMapCreatureTables.begin(); tableiterator != ExtraMapCreatureTables.end(); ++tableiterator)
     {
-        result = WorldDatabase.Query("SELECT * FROM %s WHERE Map = %u", (*tableiterator).c_str(), _mapId);
-        if(result)
+        if(result = WorldDatabase.Query("SELECT * FROM %s WHERE Map = %u", (*tableiterator).c_str(), _mapId))
         {
             if(CheckResultLengthCreatures( result) )
             {
@@ -193,33 +180,25 @@ void Map::LoadSpawns(bool reload /* = false */)
                     cspawn->x = fields[3].GetFloat();
                     cspawn->y = fields[4].GetFloat();
                     cspawn->z = fields[5].GetFloat();
-                    cspawn->o = fields[6].GetFloat();
+                    cspawn->o = NormAngle(fields[6].GetFloat());
                     cspawn->flags = fields[8].GetUInt32();
                     cspawn->factionid = fields[7].GetUInt32();
-                    cspawn->emote_state = fields[12].GetUInt32();
-                    cspawn->death_state = fields[13].GetUInt16();
-                    cspawn->stand_state = fields[14].GetUInt8();
-                    cspawn->MountedDisplayID = fields[18].GetUInt32();
-                    cspawn->vehicle = fields[20].GetBool();
-                    cspawn->CanMove = fields[21].GetUInt32();
-                    cspawn->vendormask = fields[22].GetUInt32();
+                    cspawn->emote_state = fields[9].GetUInt32();
+                    cspawn->death_state = fields[10].GetUInt16();
+                    cspawn->stand_state = fields[11].GetUInt8();
+                    cspawn->MountedDisplayID = fields[15].GetUInt32();
+                    cspawn->CanMove = fields[17].GetUInt32();
+                    cspawn->vendormask = fields[18].GetUInt32();
+                    cspawn->modelId = 0;
+                    cspawn->modelGender = 0;
 
-                    cspawn->Bytes = new SpawnBytes(fields[9].GetUInt32(), fields[10].GetUInt32(), fields[11].GetUInt32());
-                    if(cspawn->Bytes->bytes == 0 &&
-                        cspawn->Bytes->bytes1 == 0 &&
-                        cspawn->Bytes->bytes2 == 0)
-                    {
-                        delete cspawn->Bytes;
-                        cspawn->Bytes = NULL;
-                    }
-
-                    cspawn->ChannelData = new SpawnChannelData(fields[15].GetUInt32(), fields[16].GetUInt32(), fields[17].GetUInt32());
+                    cspawn->ChannelData = new SpawnChannelData(fields[12].GetUInt32(), fields[13].GetUInt32(), fields[14].GetUInt32());
                     if(cspawn->ChannelData->channel_spell == 0 &&
                         cspawn->ChannelData->channel_target_go == 0 &&
                         cspawn->ChannelData->channel_target_creature == 0)
                     {
-                        delete cspawn->Bytes;
-                        cspawn->Bytes = NULL;
+                        delete cspawn->ChannelData;
+                        cspawn->ChannelData = NULL;
                     }
 
                     uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x);
@@ -249,7 +228,7 @@ void Map::LoadSpawns(bool reload /* = false */)
                     gspawn->x = fields[3].GetFloat();
                     gspawn->y = fields[4].GetFloat();
                     gspawn->z = fields[5].GetFloat();
-                    gspawn->o = fields[6].GetFloat();
+                    gspawn->o = NormAngle(fields[6].GetFloat());
                     gspawn->state = fields[7].GetUInt32();
                     gspawn->flags = fields[8].GetUInt32();
                     gspawn->faction = fields[9].GetUInt32();

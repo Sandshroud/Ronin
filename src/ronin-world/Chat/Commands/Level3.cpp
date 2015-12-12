@@ -281,8 +281,7 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
         SystemMessage(m_session, "Banning player '%s' in database for '%s'.", pCharacter, pReason);
         std::string escaped_reason = CharacterDatabase.EscapeString(std::string(pReason));
 
-        CharacterDatabase.Execute("UPDATE character_data SET banned = %u, banReason = '%s' WHERE guid = %u",
-            BanTime ? BanTime+(uint32)UNIXTIME : 1, escaped_reason.c_str(), pInfo->guid);
+        CharacterDatabase.Execute("UPDATE character_data SET banned = %u, banReason = '%s' WHERE guid = %u", BanTime ? BanTime+(uint32)UNIXTIME : 1, escaped_reason.c_str(), pInfo->charGuid.getLow());
     }
 
     SystemMessage(m_session, "This ban is due to expire %s%s.", BanTime ? "on " : "", BanTime ? RONIN_UTIL::ConvertTimeStampToDataTime(BanTime+(uint32)UNIXTIME).c_str() : "Never");
@@ -1611,12 +1610,6 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         save = (uint32)m_session->CanUseCommand('z');
     }
 
-    if(plr->GetVehicle())
-    {
-        SystemMessage(m_session, "You may not spawn on a vehicle.");
-        return true;
-    }
-
     MapMgr *mgr = plr->GetMapMgr();
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
@@ -1632,8 +1625,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    bool spVehicle = ctrData->vehicleEntry > 0 ? true : false;
-    Creature* p = spVehicle ? plr->GetMapMgr()->CreateVehicle(entry) : plr->GetMapMgr()->CreateCreature(entry);
+    Creature* p = plr->GetMapMgr()->CreateCreature(entry);
     if(p == NULL)
     {
         RedSystemMessage(m_session, "Could not create spawn.");
@@ -1653,10 +1645,8 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
         sp->factionid = ctrData->faction;
-        sp->vehicle = spVehicle;
         sp->CanMove = ctrData->movementMask;
         sp->vendormask = 1;
-        sp->Bytes = NULL;
         sp->ChannelData = NULL;
         sp->emote_state = 0;
         sp->flags = 0;
@@ -1755,19 +1745,13 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
         return true;
     }
 
-    Player* plr = objmgr.GetPlayer(pi->guid);
-    if(plr == NULL)
-    {
-        CharacterDatabase.Execute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", pi->guid.getLow());
-    }
-    else
-    {
+    if(Player* plr = objmgr.GetPlayer(pi->charGuid))
         BlueSystemMessageToPlr(plr, "%s forced your character to be renamed next logon.", m_session->GetPlayer()->GetName());
-    }
+    else CharacterDatabase.Execute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", pi->charGuid.getLow());
 
-    CharacterDatabase.Execute("INSERT INTO banned_names VALUES('%s')", CharacterDatabase.EscapeString(std::string(pi->name)).c_str());
+    CharacterDatabase.Execute("INSERT INTO banned_names VALUES('%s')", CharacterDatabase.EscapeString(pi->charName).c_str());
     GreenSystemMessage(m_session, "Forcing %s to rename his character next logon.", args);
-    sWorld.LogGM(m_session, "forced %s to rename his charater (%u)", pi->name, pi->guid);
+    sWorld.LogGM(m_session, "forced %s to rename his character (%u)", pi->charName.c_str(), pi->charGuid.getLow());
     return true;
 }
 
@@ -1785,18 +1769,12 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
         return true;
     }
 
-    Player* plr = objmgr.GetPlayer(pi->guid);
-    if(plr == NULL)
-    {
-        CharacterDatabase.Execute("UPDATE character_data SET customizable = 1 WHERE guid = %u", pi->guid.getLow());
-    }
-    else
-    {
+    if(Player* plr = objmgr.GetPlayer(pi->charGuid))
         BlueSystemMessageToPlr(plr, "%s granted you a character recustomization, please relog.", m_session->GetPlayer()->GetName());
-    }
+    else CharacterDatabase.Execute("UPDATE character_data SET customizable = 1 WHERE guid = %u", pi->charGuid.getLow());
 
     GreenSystemMessage(m_session, "Granting %s a character recustomization on his/her next character logon.", args);
-    sWorld.LogGM(m_session, "Granted %s a character recustomization (%u)", pi->name, pi->guid);
+    sWorld.LogGM(m_session, "Granted %s a character recustomization (%u)", pi->charName.c_str(), pi->charGuid.getLow());
     return true;
 }
 

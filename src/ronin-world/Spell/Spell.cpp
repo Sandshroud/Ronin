@@ -1957,9 +1957,6 @@ uint8 Spell::CanCast(bool tolerate)
                 if( p_caster->m_MountSpellId )
                     p_caster->RemoveAura( p_caster->m_MountSpellId );
 
-                if( p_caster->GetVehicle() )
-                    p_caster->GetVehicle()->RemovePassenger( p_caster );
-
                 p_caster->RemoveStealth();
                 break;
             }

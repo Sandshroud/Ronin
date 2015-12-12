@@ -99,10 +99,8 @@ bool SubGroup::AddPlayer(PlayerInfo * info)
 bool SubGroup::HasMember(WoWGuid guid)
 {
     for( GroupMembersSet::iterator itr = m_GroupMembers.begin(); itr != m_GroupMembers.end(); itr++ )
-        if( (*itr) != NULL )
-            if( (*itr)->guid == guid )
-                return true;
-
+        if( (*itr) != NULL && (*itr)->charGuid == guid )
+            return true;
     return false;
 }
 
@@ -296,7 +294,7 @@ void Group::Update()
                             if( (*itr2) == NULL )
                                 continue;
 
-                            data << (*itr2)->name << (*itr2)->guid << uint32(0);    // highguid
+                            data << (*itr2)->charName << (*itr2)->charGuid << uint32(0);    // highguid
 
                             if( (*itr2)->m_loggedInPlayer != NULL )
                                 data << uint8( 1 );
@@ -320,9 +318,9 @@ void Group::Update()
                     }
                 }
 
-                data << uint64( m_Leader ? m_Leader->guid : 0 );
+                data << uint64( m_Leader ? m_Leader->charGuid : 0 );
                 data << uint8( m_LootMethod );
-                data << uint64( m_Looter ? m_Looter->guid : 0);
+                data << uint64( m_Looter ? m_Looter->charGuid : 0);
                 data << uint8( m_LootThreshold );
                 data << uint8( m_difficulty );      // 5 Normal/Heroic.
                 data << uint8( m_raiddifficulty );  // 10/25 man.
@@ -807,17 +805,17 @@ void Group::SaveToDB()
         << uint32(m_raiddifficulty) << ",";
 
     if(m_assistantLeader)
-        ss << m_assistantLeader->guid.getLow() << ",";
+        ss << m_assistantLeader->charGuid.getLow() << ",";
     else
         ss << "0,";
 
     if(m_mainTank)
-        ss << m_mainTank->guid.getLow() << ",";
+        ss << m_mainTank->charGuid.getLow() << ",";
     else
         ss << "0,";
 
     if(m_mainAssist)
-        ss << m_mainAssist->guid.getLow() << ",";
+        ss << m_mainAssist->charGuid.getLow() << ",";
     else
         ss << "0,";
 
@@ -828,7 +826,7 @@ void Group::SaveToDB()
         {
             for(GroupMembersSet::iterator itr = m_SubGroups[i]->GetGroupMembersBegin(); j<5 && itr != m_SubGroups[i]->GetGroupMembersEnd(); j++, itr++)
             {
-                ss << (*itr)->guid.getLow() << ",";
+                ss << (*itr)->charGuid.getLow() << ",";
             }
         }
 
@@ -971,13 +969,6 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
         if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->getPowerType() < POWER_TYPE_MAX)
             *data << uint16(pPlayer->GetSummon()->GetMaxPower(pPlayer->GetSummon()->getPowerType()));
         else *data << uint16(0);
-    }
-
-    if (Flags & GROUP_UPDATE_FLAG_VEHICLE_ENTRY)
-    {
-        if (pPlayer->GetVehicle() != NULL)
-            *data << pPlayer->GetVehicle()->GetVehicleEntry();
-        else *data << uint32(0);
     }
 
     if(Distribute && pPlayer->IsInWorld())

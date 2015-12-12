@@ -34,10 +34,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     // Pet Talents...WOOT!
     m_PetTalentPointModifier = 0;
 
-    //Vehicle
-    m_inVehicleSeatId = 0xFF;
-    m_CurrentVehicle = NULL;
-
     //DK:modifiers
     for( uint32 x = 0; x < 4; x++ )
         m_ObjectSlots[x] = 0;
@@ -130,7 +126,7 @@ void Unit::Init()
     SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
-    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 1.f);
+    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
     for(uint8 i = 0; i < 3; i++)
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, GetBaseAttackTime(i));
 }
@@ -146,12 +142,6 @@ void Unit::Destruct()
 
     if(m_currentSpell)
         m_currentSpell->cancel();
-
-    if( GetVehicle() != NULL )
-    {
-        GetVehicle()->RemovePassenger( castPtr<Unit>(this) );
-        SetVehicle(NULL);
-    }
 
     m_DummyAuras.clear();
 
@@ -854,7 +844,7 @@ void Unit::UpdateHoverValues()
     if(!m_AuraInterface.GetModMaskBit(SPELL_AURA_HOVER))
         return;
 
-    float val = 1.0f;
+    float val = 0.001f;
     AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_HOVER);
     for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
         val += float(itr->second->m_amount)/2.0f;
@@ -3157,15 +3147,6 @@ void Unit::RemoveFromWorld(bool free_guid)
 {
     SummonExpireAll(false);
 
-    if( GetVehicle() )
-    {
-        if(IsPlayer())
-            GetVehicle()->RemovePassenger(this);
-        else GetVehicle()->DeletePassengerData(this);
-
-        SetVehicle(NULL);
-    }
-
     if(GetInRangePlayerCount())
     {
         for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
@@ -3198,7 +3179,6 @@ void Unit::RemoveFromWorld(bool free_guid)
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
-    m_movementInterface.OnRelocate(LocationVector(newX, newY, newZ, newOrientation));
     WorldObject::SetPosition(newX, newY, newZ, newOrientation);
 }
 
@@ -3305,10 +3285,14 @@ void Unit::InitVehicleKit(uint32 vehicleKitId)
         return;
 
     m_vehicleKitId = vehicleKitId;
+    m_updateFlags |= UPDATEFLAG_VEHICLE;
 
-    WorldPacket data(SMSG_PLAYER_VEHICLE_DATA, 8 + 2);
+    if(!IsInWorld())
+        return;
+
+    WorldPacket data(SMSG_PLAYER_VEHICLE_DATA, 8 + 4);
     data << m_objGuid.asPacked();
-    data << uint16(vehicleKitId);
+    data << uint32(vehicleKitId);
     SendMessageToSet(&data, true);
 }
 
@@ -3318,6 +3302,9 @@ void Unit::SetAIAnimKitId(uint16 animKitId)
         return;
 
     m_aiAnimKitId = animKitId;
+
+    if(!IsInWorld())
+        return;
 
     WorldPacket data(SMSG_SET_AI_ANIM_KIT, 8 + 2);
     data << m_objGuid.asPacked();
@@ -3331,6 +3318,9 @@ void Unit::SetMovementAnimKitId(uint16 animKitId)
         return;
 
     m_movementAnimKitId = animKitId;
+
+    if(!IsInWorld())
+        return;
 
     WorldPacket data(SMSG_SET_MOVEMENT_ANIM_KIT, 8 + 2);
     data << m_objGuid.asPacked();
@@ -4373,62 +4363,6 @@ uint32 Unit::GetCreatureType()
         }
     }
     return 0;
-}
-
-bool Unit::CanEnterVehicle(Player * requester)
-{
-    if(GetVehicleKitId() == 0)
-        return false;
-    if(requester == NULL || !requester->IsInWorld())
-        return false;
-
-    if(GetInstanceID() != requester->GetInstanceID())
-        return false;
-
-    if(!isAlive() || !requester->isAlive())
-        return false;
-
-    if(requester->CalcDistance(this) >= GetModelHalfSize()+5.0f)
-        return false;
-
-    if(sFactionSystem.isHostile(this, requester))
-        return false;
-
-    if(requester->m_CurrentCharm)
-        return false;
-
-    if(requester->m_isGmInvisible)
-    {
-        sChatHandler.GreenSystemMessage(requester->GetSession(), "Please turn off invis before entering vehicle.");
-        return false;
-    }
-
-    if(IsVehicle())
-    {
-        Vehicle *v = castPtr<Vehicle>(this);
-        if(!v->GetMaxPassengerCount())
-            return false;
-
-        if(!v->GetMaxSeat())
-            return false;
-
-        if(v->IsFull())
-            return false;
-
-        if( sEventMgr.HasEvent( v, EVENT_VEHICLE_SAFE_DELETE ) )
-            return false;
-    }
-
-    if(IsPlayer())
-    {
-        Player * p = castPtr<Player>(this);
-        if(p->GetGroup() == NULL)
-            return false;
-        if(!p->GetGroup()->HasMember(requester))
-            return false;
-    }
-
-    return true;
 }
 
 bool Unit::IsSitting()

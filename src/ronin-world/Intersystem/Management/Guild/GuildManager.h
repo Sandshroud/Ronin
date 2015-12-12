@@ -6,6 +6,14 @@
 
 #pragma pack(PRAGMA_PACK)
 
+// Guild Challenge
+#define GUILD_CHALLENGES_TYPES 4
+
+const uint32 GuildChallengeGoldReward[GUILD_CHALLENGES_TYPES]         = { 0, 250,    1000,    500 };
+const uint32 GuildChallengeMaxLevelGoldReward[GUILD_CHALLENGES_TYPES] = { 0, 125,    500,     250 };
+const uint32 GuildChallengeXPReward[GUILD_CHALLENGES_TYPES]           = { 0, 300000, 3000000, 1500000 };
+const uint32 GuildChallengesPerWeek[GUILD_CHALLENGES_TYPES]           = { 0, 7,      1,       3 };
+
 struct GuildInfo
 {
     uint32 m_GuildStatus;
@@ -14,6 +22,7 @@ struct GuildInfo
     /** Internal variables
      */
     uint32 m_guildId;
+    uint32 m_guildLevel;
     uint32 m_emblemStyle;
     uint32 m_emblemColor;
     uint32 m_borderStyle;
@@ -21,7 +30,6 @@ struct GuildInfo
     uint32 m_backgroundColor;
 
     WoWGuid m_guildLeader;
-    uint32 m_guildLevel;
     uint32 m_creationTimeStamp;
     uint64 m_bankBalance;
     bool m_commandLogging;
@@ -29,9 +37,6 @@ struct GuildInfo
     std::string m_guildName;
     std::string m_guildInfo;
     std::string m_motd;
-
-    Mutex m_guildRosterBufferLock;
-    ByteBuffer m_guildRosterBuffer;
 };
 
 struct GuildRankTabPermissions
@@ -157,8 +162,9 @@ struct GuildBankTabStorage
 
 struct GuildMember
 {
-    GuildMember(WoWGuid PlrLowGuid, PlayerInfo *PlrI, GuildRank *GRank)
+    GuildMember(uint32 _guildId, WoWGuid PlrLowGuid, PlayerInfo *PlrI, GuildRank *GRank)
     {
+        guildId = _guildId;
         pRank = GRank;
         pPlayer = PlrI;
         PlrGuid = PlrLowGuid;
@@ -172,6 +178,7 @@ struct GuildMember
         }
     }
 
+    uint32 guildId;
     WoWGuid PlrGuid;
     GuildRank *pRank;
     PlayerInfo *pPlayer;
@@ -244,7 +251,7 @@ public:
     void SetNote(PlayerInfo* pInfo, std::string Note, bool Officer);
     void LogGuildBankAction(uint64 GuildId, uint8 iAction, uint32 uGuid, uint32 uEntry, uint8 iStack, uint32 tabId);
     void AddGuildLogEntry(uint32 GuildId, uint8 iEvent, uint32 arguement1, uint32 arguement2 = 0, uint32 arguement3 = 0);
-    void LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, const char* arguement1, const char* arguement2 = NULL, const char* arguement3 = NULL, const char* arguement4 = NULL);
+    void LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, std::string arguement1, std::string arguement2 = "", std::string arguement3 = "", std::string arguement4 = "");
 
     void CreateGuildFromCharter(Charter* charter);
     void CreateGuildFromCommand(std::string name, uint32 gLeader);
@@ -399,7 +406,6 @@ public: // Guild Functions and calls
     bool Disband(uint32 guildId);
     void PlayerLoggedIn(PlayerInfo* plr);
     void PlayerLoggedOff(PlayerInfo* plr);
-    void RebuildGuildRosterBuffer(uint32 guildId);
     void SendMotd(PlayerInfo* plr, uint32 guildid = 0);
     void RemoveMember(Player* remover, PlayerInfo* removee);
     void ForceRemoveMember(Player* remover, PlayerInfo* removee);
@@ -420,17 +426,22 @@ public: // Direct Packet Handlers
 
     // Requests
     void Packet_SendGuildLog(WorldSession* m_session);
-    void Packet_SendGuildRoster(WorldSession* m_session);
+    void Packet_SendGuildXP(WorldSession *m_session);
+    void Packet_SendGuildNews(WorldSession *m_session);
     void Packet_SendGuildRankInfo(WorldSession *m_session);
-    void Packet_SendGuildQuery(WorldSession* m_session, uint32 guildid);
+    void Packet_SendGuildRoster(WorldSession* m_session);
+    void Packet_SendGuildRewards(WorldSession* m_session);
+    void Packet_SendGuildPermissions(WorldSession* m_session);
+    void Packet_SendGuildPartyState(WorldSession* m_session);
+    void Packet_SendGuildChallengeUpdate(WorldSession* m_session);
+    void Packet_SendGuildQuery(WorldSession* m_session, uint32 guildid, WoWGuid targetPlayer = 0);
     void Packet_SendGuildBankLog(WorldSession* m_session, uint32 slotid);
     void Packet_SendGuildBankText(WorldSession* m_session, uint8 TabSlot);
 
     // Information
     void Packet_SetGuildInformation(WorldSession* m_session, std::string guildInfo);
     void Packet_SetGuildBankText(WorldSession* m_session, uint32 tabid, std::string tabtext);
-    void Packet_SetPublicNote(WorldSession* m_session, std::string playername, std::string note);
-    void Packet_SetOfficerNote(WorldSession* m_session, std::string playername, std::string note);
+    void Packet_SetMemberNote(WorldSession* m_session, PlayerInfo* pInfo, bool officer, std::string note);
     void Packet_SaveGuildEmblem(WorldSession* m_session, uint32 emblemStyle, uint32 emblemColor, uint32 borderStyle, uint32 borderColor, uint32 backgroundColor);
 
     // Rank Handlers
