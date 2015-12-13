@@ -635,53 +635,46 @@ void ObjectMgr::SetHighestGuids()
 void ObjectMgr::ListGuidAmounts()
 {
     QueryResult *result;
-    uint32 amount[7];
+    uint32 amount[7] = { 0, 0, 0, 0, 0, 0, 0 };
     std::string name[7] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets", "Creatures", "Gameobjects"};
 
-    result = CharacterDatabase.Query("SELECT guid FROM character_data");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT guid FROM character_data"))
     {
         amount[0] = result->GetRowCount();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT guid FROM item_data");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT itemguid FROM item_data"))
     {
         amount[1] = result->GetRowCount();
         delete result;
     }
 
-    result = CharacterDatabase.Query( "SELECT guid FROM corpses" );
-    if(result)
+    if(result = CharacterDatabase.Query( "SELECT guid FROM corpses" ))
     {
         amount[2] = result->GetRowCount();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT group_id FROM groups");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT group_id FROM groups"))
     {
         amount[3] = result->GetRowCount();
         delete result;
     }
 
-    result = CharacterDatabase.Query("SELECT guid FROM gm_tickets");
-    if(result)
+    if(result = CharacterDatabase.Query("SELECT guid FROM gm_tickets"))
     {
         amount[4] = result->GetRowCount();
         delete result;
     }
 
-    result = WorldDatabase.Query("SELECT id FROM creature_spawns");
-    if(result)
+    if(result = WorldDatabase.Query("SELECT id FROM creature_spawns"))
     {
         amount[5] = result->GetRowCount();
         delete result;
     }
 
-    result = WorldDatabase.Query("SELECT id FROM gameobject_spawns");
-    if(result)
+    if(result = WorldDatabase.Query("SELECT id FROM gameobject_spawns"))
     {
         amount[6] = result->GetRowCount();
         delete result;

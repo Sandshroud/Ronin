@@ -16,9 +16,15 @@ public:
 
     // Handle the Effects of the Spell
     void HandleEffects(uint32 i, WorldObject *target);
-
     // Add auras after handling effects
     void HandleAddAura(Unit *target);
+    // Handles Teleport function
+    void HandleTeleport(uint32 id, Unit* Target);
+    // Handles healing function
+    void Heal(Unit *target, uint8 effIndex, int32 amount);
+    // Handles skill up
+    void DetermineSkillUp(Player *target, uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
+    void DetermineSkillUp(Player *target, uint32 skillid);
 
     static void InitializeSpellEffectClass();
     typedef void (SpellEffectClass::*pSpellEffect)(uint32 i, WorldObject *target, int32 amount);
@@ -47,9 +53,6 @@ protected: // Effect Handlers
     void SpellEffectWeaponDamageNoSchool(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectResurrect(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectAddExtraAttacks(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectDodge(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectBlock(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectParry(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectCreateItem(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectPersistentAA(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSummon(uint32 i, WorldObject *target, int32 amount);
@@ -60,7 +63,6 @@ protected: // Effect Handlers
     void SpellEffectOpenLock(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectApplyAA(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectLearnSpell(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectSpellDefense(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDispel(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSkillStep(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDetect(uint32 i, WorldObject *target, int32 amount);
@@ -87,7 +89,6 @@ protected: // Effect Handlers
     void SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSanctuary(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectAddComboPoints(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectCreateHouse(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDuel(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectStuck(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSummonPlayer(uint32 i, WorldObject *target, int32 amount);
@@ -112,7 +113,6 @@ protected: // Effect Handlers
     void SpellEffectSummonDemonOld(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectAttackMe(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSkill(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectApplyPetAura(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectPull(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount);
@@ -121,7 +121,6 @@ protected: // Effect Handlers
     void SpellEffectSelfResurrect(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDisenchant(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectWeapon(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectDefense(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectLanguage(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectDualWield(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount);

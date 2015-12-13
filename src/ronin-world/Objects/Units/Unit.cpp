@@ -125,7 +125,7 @@ void Unit::Init()
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f );
+    SetFloatValue(UNIT_FIELD_COMBATREACH, IsPlayer() ? 5.f : 1.5f );
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
@@ -196,58 +196,69 @@ void Unit::Update( uint32 p_time )
                 else m_attackInterrupt = 0;
             }
 
-            if(m_attackTarget.empty())
-                m_attackTimer[0] = m_attackTimer[1] = m_attackTimer[2] = 0;
-            else if(m_attackInterrupt == 0)
+            if(m_attackInterrupt == 0)
             {
-                Unit *target = GetInRangeObject<Unit>(m_attackTarget);
-                if(!validateAttackTarget(target))
-                    EventAttackStop();
-                else
+                if(m_attackTarget.empty())
                 {
                     if(m_attackDelay[0])
-                    {
-                        m_attackTimer[0] += p_time;
-                        if(m_attackTimer[0] >= m_attackDelay[0])
-                        {
-                            m_attackTimer[0] = m_attackDelay[0];
-                            if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
-                            {
-                                EventAttack(target, MELEE);
-                                m_attackTimer[0] = 0;
-                                if(m_dualWield && m_attackTimer[1] > 300)
-                                    m_attackTimer[1] -= 300;
-                                else m_attackTimer[1] = 0;
-                            }
-                        }
-                    }
-
+                        m_attackTimer[0] = std::min<uint32>(m_attackDelay[0], m_attackTimer[0]+p_time);
                     if(m_dualWield && m_attackDelay[1])
+                        m_attackTimer[1] = std::min<uint32>(m_attackDelay[1], m_attackTimer[1]+p_time);
+                    if(m_attackTimer[2] <= p_time)
+                        m_attackTimer[2] = 0;
+                    else m_attackTimer[2] -= p_time;
+                }
+                else
+                {
+                    Unit *target = GetInRangeObject<Unit>(m_attackTarget);
+                    if(!validateAttackTarget(target))
+                        EventAttackStop();
+                    else
                     {
-                        m_attackTimer[1] += p_time;
-                        if(m_attackTimer[1] >= m_attackDelay[1])
+                        if(m_attackDelay[0])
                         {
-                            m_attackTimer[1] = m_attackDelay[1];
-                            if(canReachWithAttack(OFFHAND, castPtr<Unit>(target)))
+                            m_attackTimer[0] += p_time;
+                            if(m_attackTimer[0] >= m_attackDelay[0])
                             {
-                                EventAttack(target, OFFHAND);
-                                m_attackTimer[1] = 0;
+                                m_attackTimer[0] = m_attackDelay[0];
+                                if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
+                                {
+                                    EventAttack(target, MELEE);
+                                    m_attackTimer[0] = 0;
+                                    if(m_dualWield && m_attackTimer[1] > 300)
+                                        m_attackTimer[1] -= 800;
+                                    else m_attackTimer[1] = 0;
+                                }
                             }
                         }
-                    }
 
-                    if(m_attackDelay[2])
-                    {
-                        if(m_attackTimer[2] <= p_time)
-                            m_attackTimer[2] = 0;
-                        else m_attackTimer[2] -= p_time;
-
-                        if( m_autoShot && m_attackTimer[2] == 0 )
+                        if(m_dualWield && m_attackDelay[1])
                         {
-                            if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                            m_attackTimer[1] += p_time;
+                            if(m_attackTimer[1] >= m_attackDelay[1])
                             {
-                                EventAttack(target, RANGED);
-                                m_attackTimer[2] = m_attackDelay[2];
+                                m_attackTimer[1] = m_attackDelay[1];
+                                if(canReachWithAttack(OFFHAND, castPtr<Unit>(target)))
+                                {
+                                    EventAttack(target, OFFHAND);
+                                    m_attackTimer[1] = 0;
+                                }
+                            }
+                        }
+
+                        if(m_attackDelay[2])
+                        {
+                            if(m_attackTimer[2] <= p_time)
+                                m_attackTimer[2] = 0;
+                            else m_attackTimer[2] -= p_time;
+
+                            if( m_autoShot && m_attackTimer[2] == 0 )
+                            {
+                                if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                                {
+                                    EventAttack(target, RANGED);
+                                    m_attackTimer[2] = m_attackDelay[2];
+                                }
                             }
                         }
                     }
@@ -365,9 +376,7 @@ bool Unit::RegenUpdateRequired()
 bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
 {
     bool res = m_needRecalculateAllFields;
-    if(IsPlayer() && res) printf("Need recalculate all fields\n");
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACKSPEED);
-    if(IsPlayer() && res) printf("attackspeed mod\n");
     return res;
 }
 
@@ -490,6 +499,7 @@ void Unit::UpdateHealthValues()
     for(AuraInterface::modifierMap::iterator itr = increaseHPMod.begin(); itr != increaseHPMod.end(); itr++)
         HP *= float(abs(itr->second->m_amount))/100.f;
 
+    HP *= GetHealthMod();
     if(GetUInt32Value(UNIT_FIELD_HEALTH) > HP)
         SetUInt32Value(UNIT_FIELD_HEALTH, HP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
@@ -515,6 +525,8 @@ void Unit::UpdatePowerValues()
         increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
         for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
             if(itr->second->m_miscValue[0] == 0) power *= float(abs(itr->second->m_amount))/100.f;
+
+        power *= GetPowerMod();
         if(GetPower(POWER_TYPE_MANA) > power)
             SetPower(POWER_TYPE_MANA, power);
         SetMaxPower(POWER_TYPE_MANA, power);
@@ -532,6 +544,7 @@ void Unit::UpdatePowerValues()
             for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod.begin(); itr != increaseEnergyMod.end(); itr++)
                 if(itr->second->m_miscValue[0] == powerType) power *= float(abs(itr->second->m_amount))/100.f;
         }
+
         if(GetPower(powerType) > power)
             SetPower(powerType, power);
         SetMaxPower(powerType, power);
@@ -1223,7 +1236,7 @@ bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32
         return false;
 
     // minimum melee range, UNIT_FIELD_COMBATREACH is too small and used eg. in melee spells
-    float selfreach = IsPlayer() ? 5.f : GetFloatValue(UNIT_FIELD_COMBATREACH), selfradius = GetModelHalfSize();
+    float selfreach = GetFloatValue(UNIT_FIELD_COMBATREACH), selfradius = GetModelHalfSize();
     float targetradius = pVictim->GetModelHalfSize(), distance = CalcDistance(pVictim);
     float minRange = 0.f, maxRange = targetradius + selfreach + selfradius;
     if(attackType == RANGED || attackType == RANGED_AUTOSHOT)
@@ -3652,13 +3665,11 @@ void CombatStatusHandler::UpdateFlag()
         m_lastStatus = n_status;
         if(n_status)
         {
-            //printf(I64FMT" is now in combat.\n", m_Unit->GetGUID());
             m_Unit->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
             if(!m_Unit->hasStateFlag(UF_ATTACKING)) m_Unit->addStateFlag(UF_ATTACKING);
         }
         else
         {
-            //printf(I64FMT" is no longer in combat.\n", m_Unit->GetGUID());
             m_Unit->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
             if(m_Unit->hasStateFlag(UF_ATTACKING)) m_Unit->clearStateFlag(UF_ATTACKING);
 
@@ -3699,7 +3710,6 @@ bool CombatStatusHandler::IsAttacking(Unit* pTarget)
 void CombatStatusHandler::ForceRemoveAttacker(const uint64& guid)
 {
     // called on aura remove, etc.
-    //printf("ForceRemoveAttacker "I64FMT"\n", guid);
     UnitGuidMap::iterator itr = m_attackers.find(guid);
     if(itr == m_attackers.end())
         return;
@@ -3711,7 +3721,6 @@ void CombatStatusHandler::ForceRemoveAttacker(const uint64& guid)
 void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
 {
     // called on aura remove, etc.
-    //printf("Trying to remove attack target "I64FMT" from "I64FMT"\n", pTarget->GetGUID(), m_Unit->GetGUID());
     StorageMap::iterator itr = m_attackTimerMap.find(pTarget->GetGUID());
     if(itr == m_attackTimerMap.end())
         return;
@@ -3728,7 +3737,6 @@ void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
         else
         {
             uint32 new_t = (uint32)UNIXTIME + COMBAT_TIMEOUT_IN_SECONDS;
-            //printf("Setting attack target "I64FMT" on "I64FMT" to time out after 5 seconds.\n", pTarget->GetGUID(), m_Unit->GetGUID());
             if( itr->second < new_t )
                 itr->second = new_t;
         }
@@ -3747,7 +3755,6 @@ void CombatStatusHandler::RemoveExistence(Unit *pUnit)
 void CombatStatusHandler::OnDamageDealt(Unit* pTarget, uint32 damage)
 {
     // we added an aura, or dealt some damage to a target. they need to have us as an attacker, and they need to be our attack target if not.
-    //printf("OnDamageDealt to "I64FMT" from "I64FMT" timeout %u\n", pTarget->GetGUID(), m_Unit->GetGUID(), timeout);
     if(pTarget == m_Unit)
         return;
 
@@ -3785,7 +3792,6 @@ void CombatStatusHandler::UpdateTargets()
         if( itr->second > mytm )
             continue;
 
-        //printf("Timeout for attack target "I64FMT" on "I64FMT" expired.\n", it2->first, m_Unit->GetGUID());
         if(WorldObject *pWObj = m_Unit->GetInRangeObject(itr->first))
         {
             ASSERT(pWObj->IsUnit());
@@ -3948,7 +3954,7 @@ void Unit::EventModelChange()
 {
     //TODO: if has mount, grab mount model and add the z value of attachment 0
     if(CreatureBoundDataEntry *boundData = dbcCreatureBoundData.LookupEntry(GetUInt32Value(UNIT_FIELD_DISPLAYID)))
-        m_modelhalfsize = boundData->High[2]/2;
+        m_modelhalfsize = boundData->High[2]/2.f;
     else m_modelhalfsize = 1.0f;
 }
 

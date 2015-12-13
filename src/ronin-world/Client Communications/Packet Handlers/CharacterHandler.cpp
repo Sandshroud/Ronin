@@ -847,6 +847,23 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     SendPacket(&data);
 }
 
+void WorldSession::HandleRandomizeCharNameOpcode(WorldPacket &recvData)
+{
+    uint8 gender, race;
+    recvData >> race >> gender;
+
+    WorldPacket data(SMSG_RANDOMIZE_CHAR_NAME, 10);
+    data.WriteBit(0); // unk
+    if (Player::IsValidRace(race) && Player::IsValidGender(gender))
+    {
+        std::string name = "";//sWorld.GetRandomCharacterName(race, gender);
+        data.WriteBits(name.size(), 7);
+        data.WriteString(name);
+    } else data.WriteBits(0, 7);
+
+    SendPacket(&data);
+}
+
 void WorldSession::HandleEquipmentSetSave(WorldPacket &recv_data)
 {
 

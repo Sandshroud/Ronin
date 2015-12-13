@@ -185,8 +185,10 @@ public:
     /// Updates
     virtual void Update( uint32 time );
 
-    int32 GetBonusMana() { if(_creatureData->powerType != POWER_TYPE_MANA) return 0; return _creatureData->minPower; }
-    int32 GetBonusHealth() { return _creatureData->minHealth; }
+    float GetPowerMod() { return _creatureData->powerMod; }
+    float GetHealthMod() { return _creatureData->healthMod; }
+    int32 GetBonusMana() { return 0; }
+    int32 GetBonusHealth() { return 5; }
     int32 GetBonusStat(uint8 type) { return 0; };
     int32 GetBaseAttackTime(uint8 weaponType);
     int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->minDamage; }

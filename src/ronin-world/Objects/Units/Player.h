@@ -62,7 +62,9 @@ enum ClassMasks
     CLASSMASK_MAGE          = 0x0080, // 128
     CLASSMASK_WARLOCK       = 0x0100, // 256
     CLASSMASK_NONE          = 0x0200, // 512
-    CLASSMASK_DRUID         = 0x0400  // 1024
+    CLASSMASK_DRUID         = 0x0400, // 1024
+    CLASSMASK_ALL_PLAYABLE   = CLASSMASK_WARRIOR | CLASSMASK_PALADIN | CLASSMASK_HUNTER | CLASSMASK_ROGUE | CLASSMASK_PRIEST | CLASSMASK_DEATHKNIGHT
+    | CLASSMASK_SHAMAN | CLASSMASK_MAGE | CLASSMASK_WARLOCK | CLASSMASK_DRUID
 };
 
 enum Races
@@ -75,8 +77,15 @@ enum Races
     RACE_TAUREN = 6,
     RACE_GNOME = 7,
     RACE_TROLL = 8,
+    RACE_GOBLIN = 9,
     RACE_BLOODELF = 10,
-    RACE_DRAENEI = 11
+    RACE_DRAENEI = 11,
+    RACE_WORGEN = 22,
+    RACEMASK_ALL_PLAYABLE = ((1<<(RACE_HUMAN-1))  |(1<<(RACE_ORC-1))   |(1<<(RACE_DWARF-1))   | \
+                            (1<<(RACE_NIGHTELF-1))|(1<<(RACE_UNDEAD-1))|(1<<(RACE_TAUREN-1))  | \
+                            (1<<(RACE_GNOME-1))   |(1<<(RACE_TROLL-1)) |(1<<(RACE_BLOODELF-1))| \
+                            (1<<(RACE_DRAENEI-1)) |(1<<(RACE_GOBLIN-1))|(1<<(RACE_WORGEN-1)))
+
 };
 
 static const uint32 TalentTreesPerClass[DRUID+1][3] =  {
@@ -696,6 +705,8 @@ public:
     bool ResUpdateRequired();
     bool CombatRatingUpdateRequired(uint32 combatRating);
 
+    float GetPowerMod() { return 1.f; }
+    float GetHealthMod() { return 1.f; }
     int32 GetBonusMana();
     int32 GetBonusHealth();
     int32 GetBonusStat(uint8 type);
@@ -803,6 +814,9 @@ public:
 
     void EventTimeoutLfgInviter();
 
+    static bool IsValidGender(uint8 Gender) { return Gender <= 1; }
+    static bool IsValidClass(uint8 Class) { return ((1 << (Class - 1)) & CLASSMASK_ALL_PLAYABLE) != 0; }
+    static bool IsValidRace(uint8 Race) { return ((1 << (Race - 1)) & RACEMASK_ALL_PLAYABLE) != 0; }
 
 public:
     void EventDBCChatUpdate(uint32 dbcID);

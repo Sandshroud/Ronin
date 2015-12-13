@@ -655,27 +655,19 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     for(uint8 i = 0; i < 7; i++)
         SetUInt32Value(UNIT_FIELD_RESISTANCES+i, _creatureData->resistances[i]);
 
-    uint32 baseHP = _creatureData->minHealth;
-    if(_creatureData->maxHealth > _creatureData->minHealth)
-        baseHP += RandomUInt(_creatureData->maxHealth - _creatureData->minHealth);
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, baseHP);
-    SetUInt32Value(UNIT_FIELD_HEALTH, baseHP);
-    SetUInt32Value(UNIT_FIELD_MAXHEALTH, baseHP);
-
+    uint8 race = RACE_HUMAN;
     if(_creatureData->family == HUMANOID)
     {
-        uint8 race = RACE_HUMAN;
         if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
             if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
                 race = extraInfo->Race;
-        SetByte(UNIT_FIELD_BYTES_0, 0, race);
     }
 
-    SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->maxPower ? MAGE : WARRIOR);
+    SetByte(UNIT_FIELD_BYTES_0, 0, race);
+    SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->Class);
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
-
     EventModelChange();
 
     setLevel(level);
@@ -697,6 +689,11 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
     SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
     SetUInt32Value(UNIT_FIELD_FLAGS, m_spawn ? m_spawn->flags : 0);
+
+    UpdateFieldValues();
+
+    // Max out health
+    SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
 
     // set position
     if(WayPointMap *WPMap = (m_spawn ? objmgr.GetWayPointMap(m_spawn->id) : NULL))
@@ -729,8 +726,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);   // better set this one
-
     ////////////AI
     m_aiInterface.InitalizeExtraInfo(_creatureData, _extraInfo, mode);
 
@@ -743,22 +738,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->family);
 
-    if(uint32 maxPower = _creatureData->maxPower)
-    {
-        switch(_creatureData->powerType)
-        {
-        case POWER_TYPE_RAGE:
-        case POWER_TYPE_RUNE:
-        case POWER_TYPE_RUNIC:
-            maxPower *= 10;
-            break;
-        }
-
-        SetPowerType(_creatureData->powerType);
-        SetPower(_creatureData->powerType, maxPower);
-        SetMaxPower(_creatureData->powerType, maxPower);
-    }
-
     has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
     has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
     m_aiInterface.m_isGuard = isGuard(GetEntry());
@@ -770,7 +749,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     /* creature death state */
     if(m_spawn && m_spawn->death_state == 1)
     {
-        SetUInt32Value(UNIT_FIELD_HEALTH, std::max<uint32>(1, baseHP/100));
+        SetUInt32Value(UNIT_FIELD_HEALTH, 1);
         SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
         m_limbostate = true;
         bInvincible = true;

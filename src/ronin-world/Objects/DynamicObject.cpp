@@ -30,7 +30,7 @@ void DynamicObject::Destruct()
     WorldObject::Destruct();
 }
 
-void DynamicObject::Create(WorldObject* caster, Spell* pSpell, float x, float y, float z, int32 duration, float radius)
+void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius)
 {
     // Call the object create function
     WorldObject::_Create(caster->GetMapId(), x, y, z, 0.0f);

@@ -4,6 +4,7 @@
 
 #pragma once
 
+class BaseSpell;
 struct SpellEntry;
 
 typedef std::set<uint64>  DynamicObjectList;
@@ -16,7 +17,7 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    void Create(WorldObject* caster, Spell* pSpell, float x, float y, float z, int32 duration, float radius);
+    void Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius);
     void UpdateTargets(uint32 p_time);
 
     void AddInRangeObject(WorldObject* pObj);

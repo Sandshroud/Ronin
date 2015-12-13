@@ -325,7 +325,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         buffer << uint64(gMember->totalActivity);
         buffer.WriteByteSeq(guid[7]);
         buffer << uint32(std::max<int>(0, weeklyRepCap - gMember->weekReputation)); // Remaining guild week Rep
-        buffer.append(gMember->szPublicNote.c_str(), gMember->szPublicNote.length());
+        buffer.WriteString(gMember->szPublicNote);
         buffer.WriteByteSeq(guid[3]);
         buffer << uint8(pInfo->lastLevel);
         buffer << int32(0); // unk
@@ -334,9 +334,9 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         buffer << uint8(0); // unk
         buffer.WriteByteSeq(guid[1]);
         buffer << float(player ? 0.f : (float(UNIXTIME - pInfo->lastOnline) / 86400.f));
-        buffer.append(gMember->szOfficerNote.c_str(), gMember->szOfficerNote.length());
+        buffer.WriteString(gMember->szOfficerNote);
         buffer.WriteByteSeq(guid[6]);
-        buffer.append(pInfo->charName.c_str(), pInfo->charName.length());
+        buffer.WriteString(pInfo->charName);
 
         if(accountIds.find(pInfo->accountId) == accountIds.end())
             accountIds.insert(pInfo->accountId);
@@ -346,8 +346,8 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     data.FlushBits();
     data.append(buffer.contents(), buffer.size());
 
-    data.append(gInfo->m_guildInfo.c_str(), gInfo->m_guildInfo.length());
-    data.append(gInfo->m_motd.c_str(), gInfo->m_motd.length());
+    data.WriteString(gInfo->m_guildInfo);
+    data.WriteString(gInfo->m_motd);
 
     data << uint32(accountIds.size());
     data << uint32(weeklyRepCap);  // weekly rep cap
@@ -465,7 +465,7 @@ void GuildMgr::Packet_SendGuildRankInfo(WorldSession* m_session)
 
         buffer << uint32(rank ? rank->iGoldLimitPerDay : 0);
         buffer << uint32(rank ? rank->iRights : 0);
-        if(rank) buffer.append(rank->szRankName.c_str(), rank->szRankName.length());
+        buffer.WriteString(rank ? rank->szRankName : "");
         buffer << uint32(i);
     }
     data.FlushBits();

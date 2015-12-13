@@ -374,6 +374,8 @@ public:
     bool m_needRecalculateAllFields;
     bool m_needStatRecalculation;
     bool m_statValuesChanged;
+    virtual float GetPowerMod() = 0;
+    virtual float GetHealthMod() = 0;
     virtual int32 GetBonusMana() = 0;
     virtual int32 GetBonusHealth() = 0;
     virtual int32 GetBonusStat(uint8 type) = 0;

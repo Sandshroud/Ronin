@@ -80,7 +80,7 @@ char input_path[128] = ".";
 struct M2Header
 {
     char id[4];
-    unsigned char version[4];
+    uint8 version[4];
     uint32 nameLength;
     uint32 nameOfs;
     uint32 type;
@@ -107,8 +107,8 @@ struct M2Header
 
     uint32 nTransparency;
     uint32 ofsTransparency;
-    uint32 nUVAnimation;
-    uint32 ofsUVAnimation;
+    uint32 nTextureanimations;
+    uint32 ofsTextureanimations;
     uint32 nTexReplace;
     uint32 ofsTexReplace;
 
@@ -120,12 +120,12 @@ struct M2Header
     uint32 nTexLookup;
     uint32 ofsTexLookup;
 
-    uint32 nTexUnitLookup;
-    uint32 ofsTexUnitLookup;
-    uint32 nTransparencyLookup;
-    uint32 ofsTransparencyLookup;
-    uint32 nUVAnimLookup;
-    uint32 ofsUVAnimLookup;
+    uint32 nTexUnits;
+    uint32 ofsTexUnits;
+    uint32 nTransLookup;
+    uint32 ofsTransLookup;
+    uint32 nTexAnimLookup;
+    uint32 ofsTexAnimLookup;
 
     float vertexbox1[3];
     float vertexbox2[3];
@@ -143,10 +143,10 @@ struct M2Header
 
     uint32 nAttachments;
     uint32 ofsAttachments;
-    uint32 nAttachmentLookup;
-    uint32 ofsAttachmentLookup;
-    uint32 nEvents;
-    uint32 ofsEvents;
+    uint32 nAttachLookup;
+    uint32 ofsAttachLookup;
+    uint32 nAttachments_2;
+    uint32 ofsAttachments_2;
     uint32 nLights;
     uint32 ofsLights;
     uint32 nCameras;

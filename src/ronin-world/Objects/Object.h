@@ -212,7 +212,7 @@ public:
     uint32 GetEntry() { return GetUInt32Value(OBJECT_FIELD_ENTRY); }
     void SetEntry(uint32 value) { SetUInt32Value(OBJECT_FIELD_ENTRY, value); }
 
-    float GetObjectScale() { return GetUInt32Value(OBJECT_FIELD_SCALE_X); }
+    float GetObjectScale() { return GetFloatValue(OBJECT_FIELD_SCALE_X); }
     void SetObjectScale(float scale) { SetFloatValue(OBJECT_FIELD_SCALE_X, scale); };
 
     RONIN_INLINE uint32 GetEntryFromGUID() { return m_objGuid.getEntry(); }

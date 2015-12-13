@@ -23,14 +23,11 @@ struct CreatureData
     uint32 dbcMovementId;
     uint32 expansionId;
 
+    uint8  Class;
     uint32 minLevel;
     uint32 maxLevel;
     uint32 faction;
-    uint32 minHealth;
-    uint32 maxHealth;
     uint8  powerType;
-    uint32 minPower;
-    uint32 maxPower;
     float  scale;
     uint32 lootType;
     uint32 NPCFLags;

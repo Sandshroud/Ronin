@@ -18,7 +18,7 @@ CreatureDataManager::~CreatureDataManager()
 
 static const char * tableColumns = "maleName, femaleName, subname, iconName, flags, flags2, type, family, rank, killCredit, killCreditSpellId, maleDisplayId, femaleDisplayId, "
     "maleDisplayId2, femaleDisplayId2, healthMod, powerMod, leader, questItem1, questItem2, questItem3, questItem4, questItem5, questItem6, movementId, expansionId, "
-    "minlevel, maxlevel, faction, minhealth, maxhealth, powertype, minpower, maxpower, scale, lootType, npcflags, attacktime, attacktype, mindamage, maxdamage, "
+    "class, minlevel, maxlevel, faction, powertype, scale, lootType, npcflags, attacktime, attacktype, mindamage, maxdamage, "
     "rangedattacktime, rangedmindamage, rangedmaxdamage, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
     "combatReach, boundingRadius, money, invisibilityType, walkSpeed, runSpeed, flySpeed, auraimmune_flag, vehicle_entry, spellclickid, canmove, battlemastertype, auras";
 void CreatureDataManager::LoadFromDB()
@@ -54,14 +54,11 @@ void CreatureDataManager::LoadFromDB()
             ctrData->questItems[i] = feilds[field_count++].GetUInt32();
         ctrData->dbcMovementId = feilds[field_count++].GetUInt32();
         ctrData->expansionId = feilds[field_count++].GetUInt32();
+        ctrData->Class = feilds[field_count++].GetUInt8();
         ctrData->minLevel = feilds[field_count++].GetUInt32();
         ctrData->maxLevel = feilds[field_count++].GetUInt32();
         ctrData->faction = feilds[field_count++].GetUInt32();
-        ctrData->minHealth = feilds[field_count++].GetUInt32();
-        ctrData->maxHealth = feilds[field_count++].GetUInt32();
         ctrData->powerType = feilds[field_count++].GetUInt8();
-        ctrData->minPower = feilds[field_count++].GetUInt32();
-        ctrData->maxPower = feilds[field_count++].GetUInt32();
         ctrData->scale = feilds[field_count++].GetFloat();
         ctrData->lootType = feilds[field_count++].GetUInt32();
         ctrData->NPCFLags = feilds[field_count++].GetUInt32();
