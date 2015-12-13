@@ -1523,8 +1523,7 @@ void Spell::writeSpellGoTargets( WorldPacket * data )
 
 bool Spell::HasPower()
 {
-    int32 powerField = 0;
-    int32 cost = CalculateCost(powerField);
+    int32 powerField = 0, cost = CalculateCost(powerField);
     if(powerField == -1)
         return false;
     if (cost <= 0)
@@ -1538,8 +1537,7 @@ bool Spell::HasPower()
 
 bool Spell::TakePower()
 {
-    int32 powerField = 0;
-    int32 cost = CalculateCost(powerField);
+    int32 powerField = 0, cost = CalculateCost(powerField);
     if(powerField == -1)
         return false;
     if (cost <= 0)

@@ -1099,8 +1099,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     assert(info);
 
     // set level
-    uint32 maxlevel = sWorld.GetMaxLevel(this), level = fields[PLAYERLOAD_FIELD_LEVEL].GetUInt32();
-    if(level > maxlevel) level = maxlevel;
+    uint32 maxlevel = sWorld.GetMaxLevel(this), level = std::min<uint32>(maxlevel, fields[PLAYERLOAD_FIELD_LEVEL].GetUInt32());
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
 
     SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sWorld.GetXPToNextLevel(level));
@@ -2015,7 +2014,7 @@ bool Player::Create(WorldPacket& data )
     SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
     SetByte(PLAYER_BYTES_3, 0, gender);
 
-    SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(castPtr<Player>(this)));
+    SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(this));
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 
     m_StableSlotCount = 0;
@@ -2451,9 +2450,7 @@ void Player::_EventExploration()
                 WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
                 data << at->AreaId << explore_xp;
                 m_session->SendPacket(&data);
-
-                if(getLevel() < GetUInt32Value(PLAYER_FIELD_MAX_LEVEL) && explore_xp)
-                    GiveXP(explore_xp, 0, false);
+                GiveXP(explore_xp, 0, false);
             }
         }
 
@@ -2462,24 +2459,20 @@ void Player::_EventExploration()
 
     // Check for a restable area
     bool rest_on = restmap;
-    restinfo = sWorld.GetRestedAreaInfo(at->AreaId);
-    if(restinfo)
+    if(restinfo = sWorld.GetRestedAreaInfo(at->AreaId))
     {
         if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
             rest_on = true;
-        else
-            rest_on = false;
+        else rest_on = false;
     }
     else if(at->ZoneId) // Crow: Shouldn't have to do this.
     {
         //second AT check for subzones.
-        restinfo = sWorld.GetRestedAreaInfo(at->ZoneId);
-        if(restinfo)
+        if(restinfo = sWorld.GetRestedAreaInfo(at->ZoneId))
         {
             if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
                 rest_on = true;
-            else
-                rest_on = false;
+            else rest_on = false;
         }
     }
 

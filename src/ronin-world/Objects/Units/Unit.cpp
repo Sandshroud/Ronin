@@ -4240,6 +4240,7 @@ void Unit::SetPower(EUnitFields field, uint32 value)
         return;
 
     SetUInt32Value(field, value);
+    SendPowerUpdate(field);
 }
 
 void Unit::SetMaxPower(EUnitFields field, uint32 value)

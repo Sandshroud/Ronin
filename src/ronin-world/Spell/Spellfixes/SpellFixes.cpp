@@ -304,6 +304,16 @@ void SetSingleSpellDefaults(SpellEntry *sp)
         sp->Reagent[i] = 0;
         sp->ReagentCount[i] = 0;
     }
+    // SpellScalingEntry
+    sp->castTimeMin = 0;
+    sp->castTimeMax = 0;
+    sp->castScalingMaxLevel = 0;
+    sp->playerClass = 0;
+    for(uint8 i = 0; i < 3; i++)
+        for(uint8 s = 0; s < 3; s++)
+            sp->coeff[i][s] = 0.f;
+    sp->coefBase = 0.f;
+    sp->coefLevelBase = 0;
     // SpellShapeshiftEntry
     sp->RequiredShapeShift = 0;
     sp->ShapeshiftExclude = 0;
@@ -580,6 +590,20 @@ void PoolSpellData()
                 spellInfo->Reagent[i] = sReagent->Reagent[i];
                 spellInfo->ReagentCount[i] = sReagent->ReagentCount[i];
             }
+        }
+
+        //SpellScalingEntry
+        if(SpellScalingEntry *scalingEntry = dbcSpellScaling.LookupEntry(spellInfo->SpellScalingId))
+        {
+            spellInfo->castTimeMin = scalingEntry->castTimeMin;
+            spellInfo->castTimeMax = scalingEntry->castTimeMax;
+            spellInfo->castScalingMaxLevel = scalingEntry->castScalingMaxLevel;
+            spellInfo->playerClass = scalingEntry->playerClass;
+            for(uint8 i = 0; i < 3; i++)
+                for(uint8 s = 0; s < 3; s++)
+                    spellInfo->coeff[i][s] = scalingEntry->coeff[i][s];
+            spellInfo->coefBase = scalingEntry->CoefBase;
+            spellInfo->coefLevelBase = scalingEntry->CoefLevelBase;
         }
 
         //SpellShapeshiftEntry

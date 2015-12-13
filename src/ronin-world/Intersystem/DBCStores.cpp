@@ -319,6 +319,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCrit);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCritBase);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegen);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegenBase);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellScalar);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPPerStam);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 const char* gtFloatFormat = "uf";
@@ -452,5 +453,67 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/gtOCTHpPerStamina.dbc", datapath), gtFloatFormat, dbcHPPerStam);
     ADD_LOAD_DB(format("%s/gtOCTRegenMP.dbc", datapath), gtFloatFormat, dbcManaRegen);
     ADD_LOAD_DB(format("%s/gtRegenMPPerSpt.dbc", datapath), gtFloatFormat, dbcManaRegenBase);
+    ADD_LOAD_DB(format("%s/gtSpellScaling.dbc", datapath), gtFloatFormat, dbcSpellScalar);
     ADD_LOAD_DB(format("%s/gtOCTClassCombatRatingScalar.dbc", datapath), gtFloatFormat, dbcCombatRatingScaling);
+}
+
+int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
+{
+    int32 basePoints = 0;
+    float comboDamage = 0.0f;
+    gtFloat *gtScalingEntry = NULL;
+    if (coeff[0][effIndex] > 0.f)
+    {
+        uint32 gtSpellScalingId = level - 1;
+        if (playerClass == -1)
+            gtSpellScalingId += 1100;
+        else gtSpellScalingId += (playerClass - 1) * 100;
+        gtScalingEntry = dbcSpellScalar.LookupEntry(gtSpellScalingId);
+    }
+
+    if (gtScalingEntry)
+    {
+        float scale = gtScalingEntry->val;
+        if (castTimeMax > 0 && castScalingMaxLevel > level)
+            scale *= float(castTimeMin + float(level - 1) * (castTimeMax - castTimeMin) / (castScalingMaxLevel - 1)) / float(castTimeMax);
+        if (coefLevelBase > level) scale *= (1.0f - coefBase) * (level - 1) / (coefLevelBase - 1) + coefBase;
+
+        basePoints = int32(coeff[0][effIndex] * scale);
+        int32 randomPoints = int32(coeff[0][effIndex] * scale * coeff[1][effIndex]);
+        basePoints += ((RandomFloat(2.f)-1.f)*randomPoints) / 2;
+        comboDamage = uint32(coeff[2][effIndex] * scale);
+    }
+    else
+    {
+        if (maxLevel)
+            level = std::min<int32>(level, maxLevel);
+        level = std::max<int32>(level, baseLevel);
+        level = std::max<int32>(level, spellLevel) - spellLevel;
+
+        float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
+        basePoints = EffectBasePoints[effIndex];
+        basePoints += int32(level * basePointsPerLevel);
+        int32 randomPoints = int32(EffectDieSides[basePoints]);
+        comboDamage = EffectPointsPerComboPoint[basePoints];
+
+        switch (randomPoints)
+        {
+            case 0:                                             // not used
+            case 1: basePoints += 1; break;                     // range 1..1
+            default:
+            {
+                // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
+                int32 randvalue = (randomPoints >= 1) ? (rand() % randomPoints) : -(rand() % -randomPoints);
+                basePoints += randvalue;
+                break;
+            }
+        }
+    }
+
+    basePoints += int32(comboDamage * comboPoints);
+
+    if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
+        && (Effect[effIndex] != SPELL_EFFECT_APPLY_AURA || EffectApplyAuraName[effIndex] != SPELL_AURA_MOD_DECREASE_SPEED))
+        basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevel) / 1000.0f));
+    return basePoints;
 }

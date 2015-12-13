@@ -934,29 +934,7 @@ struct SpellEntry
     bool isUnique, always_apply, inline_effects;
 
     // Calculations
-    int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
-    {
-        int32 points = EffectBasePoints[effIndex], calcLevel = level;
-        if(EffectRealPointsPerLevel[effIndex])
-        {
-            if(calcLevel < spellLevel)
-                calcLevel = baseLevel;
-            else
-            {
-                calcLevel -= spellLevel;
-                if(calcLevel < baseLevel)
-                    calcLevel = baseLevel;
-                else if (maxLevel && calcLevel > maxLevel)
-                    calcLevel = maxLevel;
-            }
-            points += float2int32(float(calcLevel)*EffectRealPointsPerLevel[effIndex]);
-        }
-        if(EffectDieSides[effIndex] > 1)
-            points += rand() % EffectDieSides[effIndex];
-        if(EffectPointsPerComboPoint[effIndex] >= 1)
-            points += comboPoints*EffectPointsPerComboPoint[effIndex];
-        return points;
-    }
+    int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints);
 
     int32 CalculateSpellDuration(int32 level, int32 comboPoints)
     {
@@ -1936,6 +1914,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCrit);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCritBase);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegen);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellScalar);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 

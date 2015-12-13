@@ -50,8 +50,7 @@ uint32 World::GetMaxLevel(Player* plr)
         level = 80;
     else if( plr->GetSession()->HasFlag(ACCOUNT_FLAG_XPACK_01) )
         level = 70;
-    else // Classic World of Warcraft
-        level = 60;
+    else level = 60;// Classic World of Warcraft
     return level;
 }
 
