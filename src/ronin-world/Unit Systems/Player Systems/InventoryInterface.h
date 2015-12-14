@@ -61,6 +61,8 @@ public:
     void mLoadItemsFromDatabase(QueryResult * result);
     void mSaveItemsToDatabase(bool first, QueryBuffer * buf);
 
+    void mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB);
+
     Item* GetInventoryItem(int16 slot);
     Item* GetInventoryItem(int16 ContainerSlot, int16 slot);
     int16 GetInventorySlotById(uint32 ID);

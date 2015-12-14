@@ -149,7 +149,7 @@ public:
         {
             T *block = new T();
             uint32 c = 0, stringCount = 0;
-            uint32 *dest_ptr = (uint32*)block;
+            uint8 *dest_ptr = (uint8*)block;
             const char * t = CFormat;
             size_t len = strlen(CFormat);
             while(*t != 0)
@@ -163,11 +163,11 @@ public:
 
                 switch(*t)
                 {
-                case 'x': // Byte skip
+                case 'x': // integer skip
                     {
                         fseek(f, 4, SEEK_CUR);
                     }break;
-                case 'p': // Padding, bit skip
+                case 'p': // Padding, byte skip
                     {
                         fseek(f, 1, SEEK_CUR);
                     }break;
@@ -190,12 +190,12 @@ public:
                                 ptr = m_stringData + val;
                             else ptr = (char*)null_str;
                             *new_ptr = ptr; new_ptr++;
-                            dest_ptr = (uint32*)new_ptr;
+                            dest_ptr = (uint8*)new_ptr;
                         }
                         else
                         {
-                            *dest_ptr = val;
-                            dest_ptr++;
+                            *((uint32*)dest_ptr) = val;
+                            dest_ptr += 4;
                         }
                     }break;
                 }

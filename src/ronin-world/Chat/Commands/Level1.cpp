@@ -558,7 +558,6 @@ bool ChatHandler::HandleEmoteCommand(const char* args, WorldSession *m_session)
     if(!target) 
         return false;
 
-    target->original_emotestate = emote;
     target->SetUInt32Value(UNIT_NPC_EMOTESTATE, emote);
     if(target->IsSpawn() && m_session->CanUseCommand('z'))
         target->SaveToDB();

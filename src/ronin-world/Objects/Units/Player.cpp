@@ -995,7 +995,7 @@ void Player::DeleteFromDB(WoWGuid guid)
     CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_taximasks WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_timestamps WHERE guid = %u", guid.getLow());
-    CharacterDatabase.Execute("DELETE FROM character_data WHERE guid = %u", guid.getLow());
+    CharacterDatabase.WaitExecute("DELETE FROM character_data WHERE guid = %u", guid.getLow());
 }
 
 bool Player::LoadFromDB()
@@ -1087,7 +1087,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetNoseLevel();
 
     // set power type
-    SetPowerType(myClass->power_type);
+    SetPowerType(myClass->powerType);
 
     // obtain player create info
     if( (info = objmgr.GetPlayerCreateInfo(getRace(), getClass())) == NULL )
@@ -1962,7 +1962,7 @@ bool Player::Create(WorldPacket& data )
     }
 
     m_team = myRace->TeamId;
-    uint8 powertype = uint8(myClass->power_type);
+    uint8 powertype = uint8(myClass->powerType);
 
     // Automatically add the race's taxi hub to the character's taximask at creation time ( 1 << (taxi_node_id-1) )
     memset(m_taximask,0,sizeof(m_taximask));
@@ -2022,90 +2022,71 @@ bool Player::Create(WorldPacket& data )
     for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
         mSpells.insert((*sp));
 
-    SkillLineEntry * se;
-    for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
-    {
-        se = dbcSkillLine.LookupEntry(ss->skillid);
-        if(se == NULL)
-            continue;
-
-        if(se->categoryId != SKILL_TYPE_LANGUAGE)
-        {
-            if( sWorld.StartLevel > 1 )
-                _AddSkillLine(se->id, sWorld.StartLevel * 5, sWorld.StartLevel * 5 );
-            else _AddSkillLine(se->id, ss->currentval, ss->maxval);
-        }
-    }
     _UpdateMaxSkillCounts();
 
     _InitialReputation();
 
     // Add actionbars
-    for(std::list<CreateInfo_ActionBarStruct>::iterator itr = info->actionbars.begin();itr!=info->actionbars.end();itr++)
+    for(std::list<CreateInfo_ActionBarStruct>::iterator itr = info->bars.begin();itr!=info->bars.end();itr++)
     {
         m_talentInterface.setAction(itr->button, itr->action, itr->type, 0);
         m_talentInterface.setAction(itr->button, itr->action, itr->type, 1);
     }
 
-    if( GetSession()->HasGMPermissions() && sWorld.gm_force_robes )
+    ignoreitemreq_cheat = true;
+    // Force GM robes on GM's except 'az' status (if set to 1 in world.conf)
+    if( GetSession()->HasGMPermissions() && sWorld.gm_force_robes && strstr(GetSession()->GetPermissions(), "az") == NULL)
     {
-        // Force GM robes on GM's except 'az' status (if set to 1 in world.conf)
-        if( strstr(GetSession()->GetPermissions(), "az") == NULL)
+        GetInventory()->mAddItemToBestSlot(sItemMgr.LookupEntry(12064), 1, true);
+        GetInventory()->mAddItemToBestSlot(sItemMgr.LookupEntry(2586), 1, true);
+        GetInventory()->mAddItemToBestSlot(sItemMgr.LookupEntry(11508), 1, true);
+    }
+    else
+    {
+        for(std::list<CreateInfo_ItemStruct>::iterator is = info->items.begin(); is!= info->items.end(); is++)
+            if(ItemPrototype *proto = sItemMgr.LookupEntry((*is).protoid))
+                GetInventory()->mAddItemToBestSlot(proto, (*is).amount, true);
+
+        if(CharStartOutfitEntry *startOutfit = sWorld.GetStartOutfitEntry(race, class_, gender))
         {
-            //We need to dupe this
-            PlayerCreateInfo *GMinfo = new PlayerCreateInfo();
-            memcpy(GMinfo, info, sizeof(info));
+            for (uint8 s = 0; s < 24; ++s)
+            {
+                if (startOutfit->itemId[s] <= 0)
+                    continue;
 
-            GMinfo->items.clear();
-            CreateInfo_ItemStruct itm;
+                ItemPrototype *proto = sItemMgr.LookupEntry(startOutfit->itemId[s]);
+                if(proto == NULL)
+                    continue;
 
-            itm.protoid = 11508; //Feet
-            itm.slot = 7;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
+                // BuyCount by default
+                int32 count = proto->MaxCount;
 
-            itm.protoid = 2586;//Chest
-            itm.slot = 4;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
+                // special amount for foor/drink
+                if (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_CLASS_REAGENT)
+                {
+                    switch (proto->Spells[0].Category)
+                    {
+                    case 11:                                // food
+                        count = getClass() == DEATHKNIGHT ? 10 : 4;
+                        break;
+                    case 59:                                // drink
+                        count = 2;
+                        break;
+                    }
+                    if (proto->MaxCount < count)
+                        count = proto->MaxCount;
+                }
 
-            itm.protoid = 12064;//head
-            itm.slot = 0;
-            itm.amount = 1;
-            GMinfo->items.push_back(itm);
-
-            EquipInit(GMinfo);
-            delete GMinfo;
-        } else EquipInit(info);
-    } else EquipInit(info);
+                GetInventory()->mAddItemToBestSlot(proto, count, false);
+            }
+        }
+    }
+    ignoreitemreq_cheat = false;
 
     load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
     for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
         load_power[i] = GetPower(i);
     return true;
-}
-
-void Player::EquipInit(PlayerCreateInfo *EquipInfo)
-{
-    for(std::list<CreateInfo_ItemStruct>::iterator is = EquipInfo->items.begin(); is!=EquipInfo->items.end(); is++)
-    {
-        if((*is).protoid == 0)
-            continue;
-
-        if(ItemPrototype* proto = sItemMgr.LookupEntry((*is).protoid))
-        {
-            if(Item* item = objmgr.CreateItem(proto->ItemId, this))
-            {
-                item->SetUInt32Value(ITEM_FIELD_STACK_COUNT, (*is).amount);
-                if((*is).slot < INVENTORY_SLOT_BAG_END)
-                {
-                    if( !GetInventory()->SafeAddItem(item, INVENTORY_SLOT_NOT_SET, (*is).slot) )
-                        item->Destruct();
-                } else if( !GetInventory()->AddItemToFreeSlot(item) )
-                    item->Destruct();
-            }
-        }
-    }
 }
 
 void Player::setLevel(uint32 level)
@@ -7294,27 +7275,10 @@ void Player::_AddLanguages(bool All)
      * Otherwise weird stuff could happen :P
      * - Burlex
      */
-    uint32 spell_id;
-    for(std::list<CreateInfo_SkillStruct>::iterator itr = info->skills.begin(); itr != info->skills.end(); itr++)
-    {
-        SkillLineEntry *en = dbcSkillLine.LookupEntry(itr->skillid);
-        if(en == NULL)
-            continue;
-        if(m_skills.find(itr->skillid) != m_skills.end())
-            continue;
-        if(en->categoryId != SKILL_TYPE_LANGUAGE)
-            continue;
 
-        uint8 skillPos = GetFreeSkillPosition();
-        PlayerSkill &skill = m_skillsByIndex[skillPos];
-        skill.MaximumValue = skill.CurrentValue = 300;
-        skill.Skill = en; skill.SkillPos = skillPos;
-        m_skills.insert( std::make_pair(itr->skillid, skill) );
-        if((spell_id = ::GetSpellForLanguageSkill(itr->skillid)))
-            addSpell(spell_id);
-    }
     if(All)
     {
+        uint32 spell_id;
         static uint32 skills[] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_TAURAHE, SKILL_LANG_THALASSIAN,
             SKILL_LANG_TROLL, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_DRAENEI, 0 };
 

@@ -128,7 +128,6 @@ enum LimitedMovementFlag
     LIMIT_GROUND        = 0x1,
     LIMIT_WATER         = 0x2,
     LIMIT_AIR           = 0x4,
-    LIMIT_ON_OBJ        = 0x8,
     LIMIT_ANYWHERE      = LIMIT_GROUND | LIMIT_WATER | LIMIT_AIR
 };
 

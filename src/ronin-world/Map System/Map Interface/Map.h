@@ -15,48 +15,13 @@ class TemplateMgr;
 
 struct Formation;
 
-struct SpawnChannelData
-{
-    SpawnChannelData(uint32 _channel_spell = 0, uint32 _channel_target_go = 0, uint32 _channel_target_creature = 0)
-    {
-        channel_spell = _channel_spell;
-        channel_target_go = _channel_target_go;
-        channel_target_creature = _channel_target_creature;
-    }
-
-    uint32 channel_spell;
-    uint32 channel_target_go;
-    uint32 channel_target_creature;
-};
-
 typedef struct
 {
     uint32 id;//spawn ID
     uint32 entry;
-    float  x, y, z, o;
+    float x, y, z, o;
     uint32 modelId;
-    uint8 modelGender;
-
-    uint32 flags;
-    uint32 factionid;
-    uint32 emote_state;
-    uint8  stand_state;
-    uint32 CanMove;
-    int32  vendormask;
-    uint16 death_state;
-    uint32 MountedDisplayID;
-
-    SpawnChannelData *ChannelData;
-
-    bool GetModelData(uint8 &gender, uint32 &model)
-    {
-        if(model = modelId)
-        {
-            gender = modelGender;
-            return true;
-        }
-        return false;
-    }
+    int32 vendormask;
 }CreatureSpawn;
 
 typedef struct GOSpawn

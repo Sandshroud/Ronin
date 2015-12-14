@@ -6,10 +6,9 @@
 
 struct PlayerCreateInfo
 {
-    uint8  index;
     uint8  race;
-    uint32 factiontemplate;
     uint8  class_;
+    uint32 factiontemplate;
     uint32 mapId;
     uint32 zoneId;
     float  positionX;
@@ -19,10 +18,9 @@ struct PlayerCreateInfo
     uint16 displayId[2];
     uint32 requiredExpansion;
 
-    std::list<CreateInfo_ItemStruct> items;
-    std::list<CreateInfo_SkillStruct> skills;
-    std::list<CreateInfo_ActionBarStruct> actionbars;
     std::set<uint32> spell_list;
+    std::list<CreateInfo_ItemStruct> items;
+    std::list<CreateInfo_ActionBarStruct> bars;
 };
 
 #pragma pack(PRAGMA_PACK)
@@ -293,7 +291,7 @@ public:
     typedef RONIN_UNORDERED_MAP<uint64, Item* >                              ItemMap;
     typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                         CorpseCollectorMap;
     typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                         PlayerNameMap;
-    typedef RONIN_UNORDERED_MAP<uint32, PlayerCreateInfo*>                   PlayerCreateInfoMap;
+    typedef RONIN_UNORDERED_MAP<uint16, PlayerCreateInfo*>                   PlayerCreateInfoMap;
     typedef RONIN_UNORDERED_MAP<uint32, SkillLineAbilityEntry*>              SLMap;
     typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >    VendorMap;
     typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                       TransportMap;

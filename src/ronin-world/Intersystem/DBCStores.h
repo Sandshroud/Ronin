@@ -95,8 +95,8 @@ struct BattleMasterListEntry
 
 struct CharClassEntry
 {
-    uint32 class_id;
-    uint32 power_type;
+    uint32 classId;
+    uint32 powerType;
     //char *unkname
     char* name;
     //char *name2;
@@ -146,11 +146,8 @@ struct CharRaceEntry
 struct CharStartOutfitEntry
 {
     uint32 index;
-    uint8 Race;
-    uint8 Class;
-    uint8 Gender;
-    //uint8 padding;
-    uint32 itemId[24];
+    uint8 Race, Class, Gender, padding;
+    int32 itemId[24];
     //uint32 itemDisplayId[24];
     //uint32 itemInventorySlot[24];
     //uint32 unk[2];

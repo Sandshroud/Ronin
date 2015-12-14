@@ -514,12 +514,14 @@ bool World::SetInitialWorldSettings()
             Sleep( 100 );
     }
 
+    for(uint32 i = 0; i < dbcCharStartOutfit.GetNumRows(); i++)
+        if(CharStartOutfitEntry *startOutfit = dbcCharStartOutfit.LookupRow(i))
+            StoreCharacterStartingOutfit(startOutfit);
+    sLog.Notice("World", "Hashed %u/%u starting outfits", m_startingOutfits.size(), dbcCharStartOutfit.GetNumRows());
+
     for(uint32 i = 0; i < dbcAreaTable.GetNumRows(); i++)
     {
         AreaTableEntry *areaentry = dbcAreaTable.LookupRow(i);
-        if(areaentry == NULL)
-            continue;
-
         if(m_sanctuaries.find(areaentry->AreaId) == m_sanctuaries.end())
         {
             if(areaentry->category == AREAC_SANCTUARY || areaentry->AreaFlags & AREA_SANCTUARY)

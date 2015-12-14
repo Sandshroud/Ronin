@@ -50,20 +50,8 @@ Map::~Map()
             {
                 sp = itr2->second;
                 itr2->second = NULL;
-                for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(), i2; i != sp->CreatureSpawns.end();)
-                {
-                    cs = (*i);
-                    i++;
-
-                    if(cs->ChannelData != NULL)
-                    {
-                        delete cs->ChannelData;
-                        cs->ChannelData = NULL;
-                    }
-
-                    delete cs;
-                    cs = NULL;
-                }
+                for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(), i2; i != sp->CreatureSpawns.end(); i++)
+                    delete (*i);
 
                 for(GOSpawnList::iterator it = sp->GOSpawns.begin(); it!=sp->GOSpawns.end(); it++)
                     delete (*it);
@@ -88,7 +76,7 @@ static bool first_table_warning = true;
 bool CheckResultLengthCreatures(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
-    if( fieldcount != 19 )
+    if( fieldcount != 9 )
     {
         if( first_table_warning )
         {
@@ -137,19 +125,8 @@ void Map::LoadSpawns(bool reload /* = false */)
                 {
                     sp = itr2->second;
                     itr2->second = NULL;
-                    for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(); i != sp->CreatureSpawns.end();)
-                    {
-                        cs = (*i);
-                        i++;
-
-                        if(cs->ChannelData != NULL)
-                        {
-                            delete cs->ChannelData;
-                            cs->ChannelData = NULL;
-                        }
-
-                        delete cs;
-                    }
+                    for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(); i != sp->CreatureSpawns.end(); i++)
+                        delete (*i);
 
                     for(GOSpawnList::iterator it = sp->GOSpawns.begin(); it!=sp->GOSpawns.end(); it++)
                         delete (*it);
@@ -181,28 +158,10 @@ void Map::LoadSpawns(bool reload /* = false */)
                     cspawn->y = fields[4].GetFloat();
                     cspawn->z = fields[5].GetFloat();
                     cspawn->o = NormAngle(fields[6].GetFloat());
-                    cspawn->flags = fields[8].GetUInt32();
-                    cspawn->factionid = fields[7].GetUInt32();
-                    cspawn->emote_state = fields[9].GetUInt32();
-                    cspawn->death_state = fields[10].GetUInt16();
-                    cspawn->stand_state = fields[11].GetUInt8();
-                    cspawn->MountedDisplayID = fields[15].GetUInt32();
-                    cspawn->CanMove = fields[17].GetUInt32();
-                    cspawn->vendormask = fields[18].GetUInt32();
-                    cspawn->modelId = 0;
-                    cspawn->modelGender = 0;
+                    cspawn->modelId = fields[7].GetUInt32();
+                    cspawn->vendormask = fields[8].GetUInt32();
 
-                    cspawn->ChannelData = new SpawnChannelData(fields[12].GetUInt32(), fields[13].GetUInt32(), fields[14].GetUInt32());
-                    if(cspawn->ChannelData->channel_spell == 0 &&
-                        cspawn->ChannelData->channel_target_go == 0 &&
-                        cspawn->ChannelData->channel_target_creature == 0)
-                    {
-                        delete cspawn->ChannelData;
-                        cspawn->ChannelData = NULL;
-                    }
-
-                    uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x);
-                    uint32 celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
+                    uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x), celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
                     GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
                     ++CreatureSpawnCount;
                 }while(result->NextRow());
@@ -233,8 +192,8 @@ void Map::LoadSpawns(bool reload /* = false */)
                     gspawn->flags = fields[8].GetUInt32();
                     gspawn->faction = fields[9].GetUInt32();
                     gspawn->scale = std::min<float>(255.f, fields[10].GetFloat());
-                    uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x);
-                    uint32 celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
+
+                    uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x), celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
                     GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);
                 }while(result->NextRow());
             }

@@ -1216,8 +1216,8 @@ AddItemResult PlayerInventory::AddItemToFreeSlot(Item* item)
     {
         if(m_pItems[i] == NULL)
         {
-            result3 = SafeAddItem(item, INVENTORY_SLOT_NOT_SET, i);
-            if(result3) {
+            if(result3 = SafeAddItem(item, INVENTORY_SLOT_NOT_SET, i))
+            {
                 result.ContainerSlot = INVENTORY_SLOT_NOT_SET;
                 result.Slot = i;
                 result.Result = true;
@@ -1236,8 +1236,8 @@ AddItemResult PlayerInventory::AddItemToFreeSlot(Item* item)
                 Item* item2 = castPtr<Container>(m_pItems[i])->GetItem(j);
                 if (item2 == NULL)
                 {
-                    result3 = SafeAddItem(item, i, j);
-                    if(result3) {
+                    if(result3 = SafeAddItem(item, i, j))
+                    {
                         result.ContainerSlot = i;
                         result.Slot = j;
                         result.Result = true;
@@ -1462,9 +1462,9 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
     
         if( proto->ItemLimitCategory )
         {
-            ItemLimitCategoryEntry * il = dbcItemLimitCategory.LookupEntry( proto->ItemLimitCategory );
-            if( il != NULL && GetEquippedItemCountWithLimitId( proto->ItemLimitCategory ) >= il->MaxAmount )
-                return INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS;
+            if(ItemLimitCategoryEntry * il = dbcItemLimitCategory.LookupEntry( proto->ItemLimitCategory ))
+                if( GetEquippedItemCountWithLimitId( proto->ItemLimitCategory ) >= il->MaxAmount )
+                    return INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS;
         }
 
         if(IsEquipped(proto->ItemId))
@@ -1508,7 +1508,6 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
         if(!m_pOwner->ignoreitemreq_cheat && proto->Class == ITEM_CLASS_ARMOR)
         {
             uint32 subClass = proto->SubClass;
-            //if(subClass && proto->ScalingStatsEntry > 0) subClass -= 1;
             if(!(m_pOwner->GetArmorProficiency()&(((uint32)(1))<<subClass)))
                 return INV_ERR_PROFICIENCY_NEEDED;
 
@@ -1766,25 +1765,6 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
             else if(type == INVTYPE_BAG)
                 return 0;
             return INV_ERR_NOT_A_BAG;
-        }break;
-    case INVENTORY_SLOT_ITEM_1:
-    case INVENTORY_SLOT_ITEM_2:
-    case INVENTORY_SLOT_ITEM_3:
-    case INVENTORY_SLOT_ITEM_4:
-    case INVENTORY_SLOT_ITEM_5:
-    case INVENTORY_SLOT_ITEM_6:
-    case INVENTORY_SLOT_ITEM_7:
-    case INVENTORY_SLOT_ITEM_8:
-    case INVENTORY_SLOT_ITEM_9:
-    case INVENTORY_SLOT_ITEM_10:
-    case INVENTORY_SLOT_ITEM_11:
-    case INVENTORY_SLOT_ITEM_12:
-    case INVENTORY_SLOT_ITEM_13:
-    case INVENTORY_SLOT_ITEM_14:
-    case INVENTORY_SLOT_ITEM_15:
-    case INVENTORY_SLOT_ITEM_16:
-        {
-            return 0;
         }break;
     default:
         return 0;
@@ -2516,6 +2496,107 @@ void PlayerInventory::mSaveItemsToDatabase(bool first, QueryBuffer * buf)
             }
         }
     }
+}
+
+// Only called at character create
+void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB)
+{
+    if(proto == NULL)
+        return;
+
+    Item *item = NULL;
+    switch(proto->Class)
+    {
+    case ITEM_CLASS_CONTAINER:
+        {
+            if(proto->BagFamily)
+            {
+                for(uint32 slot = INVENTORY_SLOT_BAG_4; slot >= INVENTORY_SLOT_BAG_1; slot--)
+                {
+                    if(GetInventoryItem(slot) != NULL)
+                        continue;
+                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                        continue;
+                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                        return;
+                }
+            }
+            else
+            {
+                for(uint32 slot = INVENTORY_SLOT_BAG_1; slot < INVENTORY_SLOT_BAG_END; slot++)
+                {
+                    if(GetInventoryItem(slot) != NULL)
+                        continue;
+                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                        continue;
+                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                        return;
+                }
+            }
+        } break;
+    case ITEM_CLASS_WEAPON:
+        if(GetInventoryItem(EQUIPMENT_SLOT_MAINHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND ) == ADD_ITEM_RESULT_OK)
+            return;
+        if(GetInventoryItem(EQUIPMENT_SLOT_OFFHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND ) == ADD_ITEM_RESULT_OK)
+            return;
+        if(GetInventoryItem(EQUIPMENT_SLOT_RANGED) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_RANGED ) == ADD_ITEM_RESULT_OK)
+            return;
+        break;
+    case ITEM_CLASS_ARMOR:
+        {
+            for(uint32 slot = EQUIPMENT_SLOT_START; slot <= EQUIPMENT_SLOT_BACK; slot++)
+            {
+                if(GetInventoryItem(slot) != NULL)
+                    continue;
+                if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                    continue;
+                if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                    return;
+            }
+        }break;
+    }
+
+    // Check for bagfamily first
+    if(proto->BagFamily)
+    {
+        for(uint8 slot = INVENTORY_SLOT_BAG_1; slot < INVENTORY_SLOT_BAG_END; slot++)
+        {
+            if(Item *bagItem = GetInventoryItem(slot))
+            {
+                if(!bagItem->IsContainer())
+                    continue;
+                if(bagItem->GetProto()->BagFamily != proto->BagFamily)
+                    continue;
+
+                if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), NULL))
+                    return;
+            }
+        }
+    }
+
+    for(uint32 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; slot++)
+    {
+        if(GetInventoryItem(slot) != NULL)
+            continue;
+        if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+            return;
+    }
+
+    for(uint8 slot = INVENTORY_SLOT_BAG_1; slot < INVENTORY_SLOT_BAG_END; slot++)
+    {
+        if(Item *bagItem = GetInventoryItem(slot))
+        {
+            if(!bagItem->IsContainer())
+                continue;
+            if(bagItem->GetProto()->BagFamily != proto->BagFamily)
+                continue;
+            if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), NULL))
+                return;
+        }
+    }
+
+    if(item != NULL)
+        delete item;
 }
 
 AddItemResult PlayerInventory::AddItemToFreeBankSlot(Item* item)

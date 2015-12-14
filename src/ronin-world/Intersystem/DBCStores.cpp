@@ -47,7 +47,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(CharRaceEntry, dbcCharRace);
 const char* charraceFormat = "uxuxuuxxxxxxuusxxxxxuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharStartOutfitEntry, dbcCharStartOutfit);
-const char* charstartoutfitFormat = "ubbbpuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+const char* charstartoutfitFormat = "ubbbbuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharTitleEntry, dbcCharTitle);
 const char* chartitlesFormat = "uxsxux";

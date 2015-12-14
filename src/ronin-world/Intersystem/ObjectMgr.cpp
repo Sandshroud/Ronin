@@ -25,31 +25,25 @@ ObjectMgr::~ObjectMgr()
 
     sLog.Notice("ObjectMgr", "Deleting Itemsets...");
     for(ItemSetContentMap::iterator i = mItemSets.begin(); i != mItemSets.end(); i++)
-    {
         delete i->second;
-    }
     mItemSets.clear();
 
     sLog.Notice("ObjectMgr", "Deleting PlayerCreateInfo...");
-    for( PlayerCreateInfoMap::iterator i = mPlayerCreateInfo.begin( ); i != mPlayerCreateInfo.end( ); ++ i ) {
+    for( PlayerCreateInfoMap::iterator i = mPlayerCreateInfo.begin( ); i != mPlayerCreateInfo.end( ); ++ i )
         delete i->second;
-    }
     mPlayerCreateInfo.clear( );
 
     sLog.Notice("ObjectMgr", "Deleting Vendors...");
     for( VendorMap::iterator i = mVendors.begin( ); i != mVendors.end( ); ++ i )
-    {
         delete i->second;
-    }
 
     sLog.Notice("ObjectMgr", "Deleting Spell Override...");
     for(OverrideIdMap::iterator i = mOverrideIdMap.begin(); i != mOverrideIdMap.end(); i++)
-    {
         delete i->second;
-    }
 
     sLog.Notice("ObjectMgr", "Deleting Trainers...");
-    for( TrainerMap::iterator i = mTrainers.begin( ); i != mTrainers.end( ); ++ i) {
+    for( TrainerMap::iterator i = mTrainers.begin( ); i != mTrainers.end( ); ++ i)
+    {
         Trainer * t = i->second;
         if(t->UIMessage)
             delete [] t->UIMessage;
@@ -367,81 +361,59 @@ void ObjectMgr::LoadPlayerCreateInfo()
         return;
     }
 
-    if( result->GetFieldCount() < 9 )
+    if( result->GetFieldCount() < 8 )
     {
         sLog.Error("PlayerCreateInfo", "Incorrect number of columns in playercreateinfo found %u, should be 9. check for sql updates", result->GetFieldCount());
         delete result;
         return;
     }
 
-    uint8 fieldcount;
-    PlayerCreateInfo *pPlayerCreateInfo;
-
     do
     {
-        fieldcount = 0;
         Field *fields = result->Fetch();
-        pPlayerCreateInfo = new PlayerCreateInfo();
-        pPlayerCreateInfo->index = fields[fieldcount++].GetUInt8();
-        CharRaceEntry *raceEntry = dbcCharRace.LookupEntry(fields[fieldcount++].GetUInt8());
-        if(raceEntry == NULL)
+        PlayerCreateInfo *pPlayerCreateInfo = new PlayerCreateInfo();
+        CharRaceEntry *raceEntry = dbcCharRace.LookupEntry(fields[0].GetUInt8());
+        CharClassEntry *classEntry = dbcCharClass.LookupEntry(fields[1].GetUInt8());
+        if(raceEntry == NULL || classEntry == NULL)
         {
-            sLog.Error("PlayerCreateInfo", "Incorrect race entry for index %u", pPlayerCreateInfo->index);
             delete pPlayerCreateInfo;
             continue;
         }
         pPlayerCreateInfo->race = raceEntry->RaceId;
+        pPlayerCreateInfo->class_ = classEntry->classId;
         pPlayerCreateInfo->factiontemplate = raceEntry->FactionId;
         pPlayerCreateInfo->displayId[0] = raceEntry->maleModel;
         pPlayerCreateInfo->displayId[1] = raceEntry->femaleModel;
-        pPlayerCreateInfo->requiredExpansion = raceEntry->requiredExpansion;
+        pPlayerCreateInfo->requiredExpansion = std::max<uint32>(classEntry->requiredExpansion, raceEntry->requiredExpansion);
 
-        CharClassEntry *classEntry = dbcCharClass.LookupEntry(fields[fieldcount++].GetUInt8());
-        if(classEntry == NULL)
+        uint16 index = uint16(classEntry->classId)|(uint16(raceEntry->RaceId)<<8);
+        if(mPlayerCreateInfo.find(index) != mPlayerCreateInfo.end())
         {
-            sLog.Error("PlayerCreateInfo", "Incorrect race entry for index %u", pPlayerCreateInfo->index);
             delete pPlayerCreateInfo;
             continue;
         }
-        pPlayerCreateInfo->class_ = classEntry->class_id;
-        pPlayerCreateInfo->mapId = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->zoneId = fields[fieldcount++].GetUInt32();
-        pPlayerCreateInfo->positionX = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->positionY = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->positionZ = fields[fieldcount++].GetFloat();
-        pPlayerCreateInfo->Orientation = fields[fieldcount++].GetFloat();
-        mPlayerCreateInfo[pPlayerCreateInfo->index] = pPlayerCreateInfo;
+
+        pPlayerCreateInfo->mapId = fields[2].GetUInt32();
+        pPlayerCreateInfo->zoneId = fields[3].GetUInt32();
+        pPlayerCreateInfo->positionX = fields[4].GetFloat();
+        pPlayerCreateInfo->positionY = fields[5].GetFloat();
+        pPlayerCreateInfo->positionZ = fields[6].GetFloat();
+        pPlayerCreateInfo->Orientation = fields[7].GetFloat();
+        mPlayerCreateInfo.insert(std::make_pair(index, pPlayerCreateInfo));
     } while( result->NextRow() );
     delete result;
-
-    if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_skills"))
-    {
-        do
-        {
-            Field *fields = result->Fetch();
-            uint8 index = fields[0].GetUInt8();
-            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
-                continue;
-
-            CreateInfo_SkillStruct tsk;
-            tsk.skillid = fields[1].GetUInt32();
-            tsk.currentval = fields[2].GetUInt32();
-            tsk.maxval = fields[3].GetUInt32();
-            mPlayerCreateInfo[index]->skills.push_back(tsk);
-        } while( result->NextRow() );
-        delete result;
-    }
 
     if(result = WorldDatabase.Query("SELECT * FROM playercreateinfo_spells"))
     {
         do
         {
             Field *fields = result->Fetch();
-            uint8 index = fields[0].GetUInt8();
-            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
+            uint8 race = fields[0].GetUInt8(), _class = fields[1].GetUInt8();
+            PlayerCreateInfo *pPlayerCreateInfo = GetPlayerCreateInfo(race, _class);
+            if(pPlayerCreateInfo == NULL)
                 continue;
 
-            mPlayerCreateInfo[index]->spell_list.insert(fields[1].GetUInt32());
+            pPlayerCreateInfo->spell_list.insert(fields[2].GetUInt32());
         } while( result->NextRow() );
         delete result;
     }
@@ -451,15 +423,15 @@ void ObjectMgr::LoadPlayerCreateInfo()
         do
         {
             Field *fields = result->Fetch();
-            uint8 index = fields[0].GetUInt8();
-            if(mPlayerCreateInfo.find(index) == mPlayerCreateInfo.end())
+            uint8 race = fields[0].GetUInt8(), _class = fields[1].GetUInt8();
+            PlayerCreateInfo *pPlayerCreateInfo = GetPlayerCreateInfo(race, _class);
+            if(pPlayerCreateInfo == NULL)
                 continue;
 
             CreateInfo_ItemStruct itm;
-            itm.protoid = fields[1].GetUInt32();
-            itm.slot = fields[2].GetUInt8();
+            itm.protoid = fields[2].GetUInt32();
             itm.amount = fields[3].GetUInt32();
-            mPlayerCreateInfo[index]->items.push_back(itm);
+            pPlayerCreateInfo->items.push_back(itm);
         } while( result->NextRow() );
         delete result;
     }
@@ -470,14 +442,15 @@ void ObjectMgr::LoadPlayerCreateInfo()
         {
             Field *fields = result->Fetch();
             uint8 race = fields[0].GetUInt8(), _class = fields[1].GetUInt8();
-            if((pPlayerCreateInfo = GetPlayerCreateInfo(race, _class)) == NULL)
+            PlayerCreateInfo *pPlayerCreateInfo = GetPlayerCreateInfo(race, _class);
+            if(pPlayerCreateInfo == NULL)
                 continue;
 
             CreateInfo_ActionBarStruct bar;
             bar.button = fields[2].GetUInt8();
             bar.action = fields[3].GetUInt32();
             bar.type = fields[4].GetUInt8();
-            pPlayerCreateInfo->actionbars.push_back(bar);
+            pPlayerCreateInfo->bars.push_back(bar);
         } while( result->NextRow() );
         delete result;
     }
@@ -782,12 +755,9 @@ Player* ObjectMgr::GetPlayer(WoWGuid guid)
 
 PlayerCreateInfo* ObjectMgr::GetPlayerCreateInfo(uint8 race, uint8 class_) const
 {
-    PlayerCreateInfoMap::const_iterator itr;
-    for (itr = mPlayerCreateInfo.begin(); itr != mPlayerCreateInfo.end(); itr++)
-    {
-        if( (itr->second->race == race) && (itr->second->class_ == class_) )
-            return itr->second;
-    }
+    uint16 index = uint16(class_)|(uint16(race)<<8);
+    if(mPlayerCreateInfo.find(index) != mPlayerCreateInfo.end())
+        return mPlayerCreateInfo.at(index);
     return NULL;
 }
 

@@ -563,6 +563,21 @@ public:
         return NULL;
     }
 
+    std::map<uint32, CharStartOutfitEntry*> m_startingOutfits;
+    void StoreCharacterStartingOutfit(CharStartOutfitEntry *entry)
+    {
+        uint32 index = uint32((uint32(entry->Race)<<16)|(uint32(entry->Class)<<8)|uint32(entry->Gender));
+        if(m_startingOutfits.find(index) == m_startingOutfits.end())
+            m_startingOutfits.insert(std::make_pair(index, entry));
+    }
+    CharStartOutfitEntry *GetStartOutfitEntry(uint8 race, uint8 _class, uint8 gender)
+    {
+        uint32 index = uint32((uint32(race)<<16)|(uint32(_class)<<8)|uint32(gender));
+        if(m_startingOutfits.find(index) != m_startingOutfits.end())
+            return m_startingOutfits.at(index);
+        return NULL;
+    }
+
     uint32 SendServerData;
     uint32 HordePlayers, AlliancePlayers, PeakSessionCount;
     bool IsPvPRealm, SendMovieOnJoin;

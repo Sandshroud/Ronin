@@ -416,8 +416,7 @@ void ObjectMgr::LoadTransporters()
 
 void Transporter::OnPushToWorld()
 {
-    // Create waypoint event
-    sEventMgr.AddEvent(this, &Transporter::UpdatePosition, EVENT_TRANSPORTER_NEXT_WAYPOINT, 100, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+
 }
 
 uint32 Transporter::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )

@@ -64,12 +64,22 @@ struct CreatureData
         return true;
     }
 
-    void GenerateModelId(uint8 &gender, uint32 &model)
+    void VerifyModelInfo(uint32 &model, uint32 &gender)
     {
         std::vector<uint32> modelSet;
         for(uint8 i = 0; i < 4; i++)
+        {
             if(uint32 displayId = displayInfo[i])
+            {
+                if(displayId == model)
+                {
+                    gender = ((i == 1 || i == 3) ? 1 : 0);
+                    return;
+                }
                 modelSet.push_back(displayId);
+            }
+        }
+
         // Just in case
         if(modelSet.empty())
             return;

@@ -424,9 +424,6 @@ bool ChatHandler::HandleNPCSetOnObjectCommand(const char * args, WorldSession * 
         return true;
     }
 
-    crt->GetSpawn()->CanMove |= LIMIT_ON_OBJ;
-    crt->SaveToDB();
-
     BlueSystemMessage(m_session, "Setting creature on object(%u)", crt->GetCanMove());
     sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->GetSQL_id());
     return true;

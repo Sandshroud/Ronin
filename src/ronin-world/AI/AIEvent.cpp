@@ -31,12 +31,6 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
         Creature* cr = castPtr<Creature>(m_Unit);
         if( cr->has_combat_text )
             objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ENTER_COMBAT );
-
-        if( cr->IsSpawn() && cr->GetSpawn()->ChannelData )
-        {
-            m_Unit->SetUInt32Value(UNIT_CHANNEL_SPELL, 0);
-            m_Unit->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, 0);
-        }
     }
 
     // Stop the emote
@@ -106,23 +100,6 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
 
         if( cr->has_combat_text )
             objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ON_COMBAT_STOP );
-
-        if(cr->IsSpawn())
-        {
-            if(cr->GetSpawn()->ChannelData)
-            {
-                if(cr->GetSpawn()->ChannelData->channel_target_go)
-                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpGO, cr->GetSpawn()->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
-
-                if(cr->GetSpawn()->ChannelData->channel_target_creature)
-                    sEventMgr.AddEvent( cr, &Creature::ChannelLinkUpCreature, cr->GetSpawn()->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0 );
-            }
-
-            // Remount if mounted
-            if( cr->GetSpawn()->MountedDisplayID )
-                m_Unit->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, cr->GetSpawn()->MountedDisplayID );
-        }
-        m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, cr->original_emotestate);
     }
 
     //reset ProcCount

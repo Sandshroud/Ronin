@@ -245,15 +245,7 @@ struct spells
 struct CreateInfo_ItemStruct
 {
     uint32  protoid;
-    uint8   slot;
     uint32  amount;
-};
-
-struct CreateInfo_SkillStruct
-{
-    uint32  skillid;
-    uint32  currentval;
-    uint32  maxval;
 };
 
 struct CreateInfo_ActionBarStruct
@@ -851,7 +843,6 @@ protected:
 public:
 
     bool ok_to_remove;
-    void EquipInit(PlayerCreateInfo *EquipInfo);
 
     void RemoveFromWorld();
     bool Create ( WorldPacket &data );

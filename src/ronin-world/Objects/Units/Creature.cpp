@@ -32,9 +32,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_enslaveSpell = 0;
 
     m_TaxiNode = 0;
-    original_flags = 0;
-    original_emotestate = 0;
-    original_MountedDisplayID = 0;
 
     m_custom_waypoint_map = 0;
     m_taggingPlayer = m_taggingGroup = 0;
@@ -156,24 +153,9 @@ void Creature::OnRespawn( MapMgr* m)
     SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
 
-    SetUInt32Value(UNIT_FIELD_FLAGS, original_flags);
-    SetUInt32Value(UNIT_NPC_EMOTESTATE, original_emotestate);
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, original_MountedDisplayID);
     Skinned = false;
     m_taggingGroup = m_taggingPlayer = 0;
     m_lootMethod = -1;
-
-    /* creature death state */
-    if(m_spawn && m_spawn->death_state == 1)
-    {
-        uint32 newhealth = GetUInt32Value(UNIT_FIELD_HEALTH) / 100;
-        if(!newhealth)
-            newhealth = 1;
-        SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-        m_limbostate = true;
-        bInvincible = true;
-        SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
-    }
 
     SetDeathState(ALIVE);
     GetAIInterface()->StopMovement(0); // after respawn monster can move
@@ -245,12 +227,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
     m_spawn->y = (!saveposition && (m_spawn != NULL)) ? m_spawn->y : m_position.y;
     m_spawn->z = (!saveposition && (m_spawn != NULL)) ? m_spawn->z : m_position.z;
     m_spawn->o = (!saveposition && (m_spawn != NULL)) ? m_spawn->o : m_position.o;
-    m_spawn->factionid = GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE);
-    m_spawn->flags = uint32(original_flags);
-    m_spawn->emote_state = uint32(original_emotestate);
-    m_spawn->death_state = getDeathState();
-    m_spawn->stand_state = GetStandState();
-    m_spawn->CanMove = GetCanMove();
+    m_spawn->modelId = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
     m_spawn->vendormask = newSpawn ? 0x01 : GetVendorMask();
 
     std::stringstream ss;
@@ -262,17 +239,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
         << float(m_spawn->y) << ","
         << float(m_spawn->z) << ","
         << float(m_spawn->o) << ","
-        << uint32(m_spawn->factionid) << ","
-        << uint32(m_spawn->flags) << ","
-        << uint32(m_spawn->emote_state) << ","
-        << uint32(m_spawn->death_state) << ", "
-        << uint32(m_spawn->stand_state) << ", "
-        << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_spell : 0) << ","
-        << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_target_go : 0) << ","
-        << uint32(m_spawn->ChannelData ? m_spawn->ChannelData->channel_target_creature : 0) << ","
-        << uint32(m_spawn->MountedDisplayID) << ", "
-        << int32(1) << ", "
-        << uint32(m_spawn->CanMove) << ", "
+        << uint32(m_spawn->modelId) << ","
         << int32(m_spawn->vendormask) << " )";
 
     WorldDatabase.Execute(ss.str().c_str());
@@ -590,41 +557,11 @@ void Creature::FormationLinkUp(uint32 SqlId)
     if(!m_mapMgr)       // shouldnt happen
         return;
 
-    Creature* creature = NULL;
-    creature = m_mapMgr->GetSqlIdCreature(SqlId);
-    if( creature != NULL )
+    if( Creature *creature = m_mapMgr->GetSqlIdCreature(SqlId) )
     {
         m_aiInterface.SetFormationLinkTarget(creature);
         haslinkupevent = false;
         event_RemoveEvents(EVENT_CREATURE_FORMATION_LINKUP);
-    }
-}
-
-void Creature::ChannelLinkUpGO(uint32 SqlId)
-{
-    if(!m_mapMgr)       // shouldnt happen
-        return;
-
-    GameObject* go = m_mapMgr->GetSqlIdGameObject(SqlId);
-    if(go != NULL && m_spawn->ChannelData)
-    {
-        event_RemoveEvents(EVENT_CREATURE_CHANNEL_LINKUP);
-        SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, go->GetGUID());
-        SetUInt32Value(UNIT_CHANNEL_SPELL, m_spawn->ChannelData->channel_spell);
-    }
-}
-
-void Creature::ChannelLinkUpCreature(uint32 SqlId)
-{
-    if(!IsInWorld()) // shouldnt happen
-        return;
-
-    event_RemoveEvents(EVENT_CREATURE_CHANNEL_LINKUP);
-    Creature* go = m_mapMgr->GetSqlIdCreature(SqlId);
-    if(go != NULL && m_spawn->ChannelData)
-    {
-        SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, go->GetGUID());
-        SetUInt32Value(UNIT_CHANNEL_SPELL, m_spawn->ChannelData->channel_spell);
     }
 }
 
@@ -635,33 +572,24 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     // Set worldobject Create data
     _Create(mapId, x, y, z, o);
-
-    //Use proto displayid (random + gender generator), unless there is an id  specified in spawn->displayid
-    uint8 gender; uint32 model;
-    if(m_spawn == NULL || !m_spawn->GetModelData(gender, model))
-        _creatureData->GenerateModelId(gender, model);
-
+    // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
+
+    uint32 model = 0, gender=0;
+    _creatureData->VerifyModelInfo(model, gender);
 
     uint32 level = _creatureData->minLevel;
     if(_creatureData->maxLevel > _creatureData->minLevel)
         level += RandomUInt(_creatureData->maxLevel-_creatureData->minLevel);
-
-    original_flags = m_spawn ? m_spawn->flags : 0;
-    original_emotestate = m_spawn ? m_spawn->emote_state : 0;
-    original_MountedDisplayID = m_spawn ? m_spawn->MountedDisplayID : 0;
 
     //Set fields
     for(uint8 i = 0; i < 7; i++)
         SetUInt32Value(UNIT_FIELD_RESISTANCES+i, _creatureData->resistances[i]);
 
     uint8 race = RACE_HUMAN;
-    if(_creatureData->family == HUMANOID)
-    {
-        if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
-            if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
-                race = extraInfo->Race;
-    }
+    if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
+        if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
+            race = extraInfo->Race;
 
     SetByte(UNIT_FIELD_BYTES_0, 0, race);
     SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->Class);
@@ -672,8 +600,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     setLevel(level);
     SetFloatValue(OBJECT_FIELD_SCALE_X, _creatureData->scale);
-    SetUInt32Value(UNIT_NPC_EMOTESTATE, original_emotestate);
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, original_MountedDisplayID);
     SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, _creatureData->attackTime);
     SetFloatValue(UNIT_FIELD_MINDAMAGE, _creatureData->minDamage);
     SetFloatValue(UNIT_FIELD_MAXDAMAGE, _creatureData->maxDamage);
@@ -685,10 +611,9 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);
 
-    SetFactionTemplate(m_spawn ? m_spawn->factionid : _creatureData->faction);
+    SetFactionTemplate(_creatureData->faction);
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
     SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
-    SetUInt32Value(UNIT_FIELD_FLAGS, m_spawn ? m_spawn->flags : 0);
 
     UpdateFieldValues();
 
@@ -746,18 +671,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if(!GetCanMove())
         GetMovementInterface()->setRooted(true);
 
-    /* creature death state */
-    if(m_spawn && m_spawn->death_state == 1)
-    {
-        SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-        SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_DEAD);
-        m_limbostate = true;
-        bInvincible = true;
-    }
-
     m_invisFlag = _creatureData->invisType;
-    if( m_spawn && m_spawn->stand_state )
-        SetStandState(m_spawn->stand_state);
 
     if(uint32 tmpitemid = _creatureData->inventoryItem[0])
     {
@@ -793,15 +707,6 @@ void Creature::OnPushToWorld()
             // add event
             sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface.GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
             haslinkupevent = true;
-        }
-
-        if(m_spawn->ChannelData)
-        {
-            if(m_spawn->ChannelData->channel_target_creature)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::ChannelLinkUpCreature, m_spawn->ChannelData->channel_target_creature, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
-
-            if(m_spawn->ChannelData->channel_target_go)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::ChannelLinkUpGO, m_spawn->ChannelData->channel_target_go, EVENT_CREATURE_CHANNEL_LINKUP, 1000, 5, 0);  // only 5 attempts
         }
     }
 
@@ -869,7 +774,6 @@ void Creature::RemoveLimboState(Unit* healer)
         return;
 
     m_limbostate = false;
-    SetUInt32Value(UNIT_NPC_EMOTESTATE, m_spawn ? m_spawn->emote_state : 0);
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     bInvincible = false;
 }

@@ -397,8 +397,6 @@ public:
 
     CreatureFamilyEntry * myFamily;
     void FormationLinkUp(uint32 SqlId);
-    void ChannelLinkUpGO(uint32 SqlId);
-    void ChannelLinkUpCreature(uint32 SqlId);
     static WayPoint * CreateWaypointStruct() { return new WayPoint(); }
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
     void OnPushToWorld();
@@ -417,7 +415,7 @@ public:
     void RemoveLimboState(Unit* healer);
     void SetGuardWaypoints();
     MapCell * m_respawnCell;
-    uint32 GetCanMove() { return m_spawn ? m_spawn->CanMove : _creatureData->movementMask; }
+    uint32 GetCanMove() { return _creatureData->movementMask; }
 
     bool HasNpcFlag(uint32 Flag)
     {
@@ -484,8 +482,5 @@ public: // values
     bool m_noDeleteAfterDespawn;
     uint32 m_taggingGroup;
     uint32 m_taggingPlayer;
-    uint32 original_flags;
-    uint32 original_emotestate;
-    uint32 original_MountedDisplayID;
     int8 m_lootMethod;
 };

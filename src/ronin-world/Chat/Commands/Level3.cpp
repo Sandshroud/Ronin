@@ -1450,13 +1450,6 @@ bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_se
     PlayerCreateInfo * info = objmgr.GetPlayerCreateInfo(plr->getRace(), plr->getClass());
     if(!info) return true;
 
-    for(std::list<CreateInfo_SkillStruct>::iterator ss = info->skills.begin(); ss!=info->skills.end(); ss++)
-    {
-        se = dbcSkillLine.LookupEntry(ss->skillid);
-        if(se->categoryId != SKILL_TYPE_LANGUAGE && ss->skillid && ss->currentval && ss->maxval)
-            plr->_AddSkillLine(ss->skillid, ss->currentval, ss->maxval);
-    }
-
     //Chances depend on stats must be in this order!
     plr->_UpdateMaxSkillCounts();
     plr->_AddLanguages(false);
@@ -1644,22 +1637,8 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->y = plr->GetPositionY();
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
-        sp->factionid = ctrData->faction;
-        sp->CanMove = ctrData->movementMask;
+        sp->modelId = p->GetNativeDisplayId();
         sp->vendormask = 1;
-        sp->ChannelData = NULL;
-        sp->emote_state = 0;
-        sp->flags = 0;
-        sp->stand_state = 0;
-        sp->MountedDisplayID = 0;
-
-        if(CreatureInfoExtra* extrainfo = CreatureInfoExtraStorage.LookupEntry(entry))
-        {
-            sp->emote_state = extrainfo->default_emote_state;
-            sp->flags = extrainfo->default_flags;
-            sp->stand_state = extrainfo->default_stand_state;
-            sp->MountedDisplayID = extrainfo->default_MountedDisplayID;
-        }
     }
 
     p->Load(mgr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation(), mode, sp);
