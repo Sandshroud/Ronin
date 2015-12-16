@@ -330,7 +330,7 @@ public:
     Mutex _recallLock;
     RecallSet m_recallLocations;
 
-    Item* CreateItem(uint32 entry,Player* owner);
+    Item* CreateItem(uint32 entry,Player* owner, uint32 count = 1);
     Item* LoadItem(uint64 guid);
 
     // Groups

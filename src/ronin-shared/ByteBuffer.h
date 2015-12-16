@@ -144,16 +144,6 @@ public:
         va_end(vl);
     }
 
-    uint8 ReadGuidMaskBit(uint8 offset) { return uint8(ReadBit() ? 1<<offset : 0); }
-    void ReadGuidMaskBits(uint8 &mask, uint32 count, ...)
-    {
-        va_list vl;
-        va_start(vl, count);
-        for(uint32 i = 0; i < count; i++)
-            mask |= ReadGuidMaskBit(uint8(va_arg(vl, uint32)));
-        va_end(vl);
-    }
-
     // Reads a byte (if needed) in-place
     void ReadByteSeq(uint8& b)
     {

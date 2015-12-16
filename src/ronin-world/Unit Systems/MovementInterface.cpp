@@ -35,7 +35,6 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterS
     m_underwaterState = 0;
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
-    m_heightOffset = 0.001f;
 
     ClearTransportData();
     m_extra.clear();
@@ -966,7 +965,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM_BACK));
     DO_COND_BYTES(bytes, hasSplineElevation, float, splineElevation);
     if(hasSpline) AppendSplineData(false, bytes);// Write spline data
-    DO_BYTES(bytes, float, m_serverLocation->z-m_heightOffset);
+    DO_BYTES(bytes, float, m_serverLocation->z);
     DO_SEQ_BYTE(bytes, m_moverGuid[5]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[5], uint8, m_transportGuid[5]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[7], uint8, m_transportGuid[7]);

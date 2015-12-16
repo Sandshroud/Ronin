@@ -455,12 +455,7 @@ bool World::SetInitialWorldSettings()
     sAuctionMgr.LoadAuctionHouses();
 
     sComTableStore.Load();
-    sLog.Notice("WordFilter", "Loading...");
 
-    g_characterNameFilter = new WordFilter();
-    g_chatFilter = new WordFilter();
-    g_characterNameFilter->Load("wordfilter_character_names");
-    g_chatFilter->Load("wordfilter_chat");
     sLog.Success("World", "Database loaded in %ums.", getMSTime() - start_time);
 
     if(Collision)

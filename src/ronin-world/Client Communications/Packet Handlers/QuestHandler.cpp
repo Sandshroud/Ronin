@@ -61,7 +61,7 @@ void WorldSession::HandleQuestgiverHelloOpcode( WorldPacket & recv_data )
     sLog.Debug( "WORLD"," Received CMSG_QUESTGIVER_HELLO." );
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
     Creature* qst_giver = _player->GetMapMgr()->GetCreature(guid);

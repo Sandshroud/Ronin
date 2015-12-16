@@ -102,7 +102,6 @@ extern "C" {
 #include "Opcodes.h"
 #include "WorldStates.h"
 
-#include "WordFilter.h"
 #include "SpellNameHashes.h"
 #include "SpellDefines.h"
 #include "EventMgr.h"

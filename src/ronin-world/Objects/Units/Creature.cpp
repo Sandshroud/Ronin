@@ -354,6 +354,40 @@ bool Creature::CanAddToWorld()
     return true;
 }
 
+void Creature::OnPushToWorld()
+{
+    for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
+        if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
+            CastSpell(this, sp, true);
+
+    Unit::OnPushToWorld();
+
+    if(m_spawn)
+    {
+        if(m_aiInterface.GetFormationSQLId())
+        {
+            // add event
+            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface.GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            haslinkupevent = true;
+        }
+    }
+
+    m_aiInterface.m_is_in_instance = (m_mapMgr->GetMapInfo()->type!=INSTANCE_NULL) ? true : false;
+    if (HasItems())
+    {
+        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
+        {
+            if (itr->second.max_amount == 0)
+                itr->second.available_amount=0;
+            else if (itr->second.available_amount < itr->second.max_amount)
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, VENDOR_ITEMS_UPDATE_TIME, 1,0);
+        }
+    }
+
+    if(GetAreaFlags() & OBJECT_AREA_FLAG_INSANCTUARY)
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_2);
+}
+
 void Creature::RemoveFromWorld(bool addrespawnevent, bool free_guid)
 {
     m_taggingPlayer = m_taggingGroup = 0;
@@ -688,37 +722,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         {
             if(!b_has_shield && DBCItem->InventoryType == INVTYPE_SHIELD)
                 b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
-        }
-    }
-}
-
-void Creature::OnPushToWorld()
-{
-    for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
-        if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
-            CastSpell(this, sp, true);
-
-    Unit::OnPushToWorld();
-
-    if(m_spawn)
-    {
-        if(m_aiInterface.GetFormationSQLId())
-        {
-            // add event
-            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface.GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            haslinkupevent = true;
-        }
-    }
-
-    m_aiInterface.m_is_in_instance = (m_mapMgr->GetMapInfo()->type!=INSTANCE_NULL) ? true : false;
-    if (HasItems())
-    {
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if (itr->second.max_amount == 0)
-                itr->second.available_amount=0;
-            else if (itr->second.available_amount < itr->second.max_amount)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, VENDOR_ITEMS_UPDATE_TIME, 1,0);
         }
     }
 }

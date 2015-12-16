@@ -53,6 +53,8 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
     //Erm, reset it here in case player deleted his DK.
     m_hasDeathKnight = false;
+    m_characterMapIds.clear();
+
     ByteBuffer bitBuff, byteBuff;
     bitBuff.WriteBits(0, 23);
     bitBuff.WriteBit(1);
@@ -88,6 +90,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
             float x = fields[8].GetFloat(), y = fields[9].GetFloat(), z = fields[10].GetFloat();
             uint8 hairStyle = ((_bytes1>>16)&0xFF), hairColor = ((_bytes1>>24)&0xFF), facialHair = (_bytes2&0xFF), face = ((_bytes1>>8)&0xFF), skin = (_bytes1&0xFF);
+            m_characterMapIds.insert(std::make_pair(charGuid, mapId));
 
             uint32 customizationFlag = 0;
             if (false) customizationFlag = 0x01;
@@ -492,7 +495,11 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     uint8 response = CHAR_LOGIN_NO_CHARACTER;
 
     //already active?
-    if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
+    if(m_characterMapIds.find(guid) == m_characterMapIds.end())
+        response = CHAR_LOGIN_NO_CHARACTER;
+    else if(WorldMapInfoStorage.LookupEntry(m_characterMapIds.at(guid)) == NULL)
+        response = CHAR_LOGIN_NO_WORLD;
+    else if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
     else if( PlayerInfo * plrInfo = objmgr.GetPlayerInfo(guid) )
         response = CHAR_LOGIN_SUCCESS;

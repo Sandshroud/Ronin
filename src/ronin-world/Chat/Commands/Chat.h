@@ -187,8 +187,6 @@ class SERVER_DECL CommandTableStorage : public Singleton<CommandTableStorage>
 public:
     void Init();
     void Dealloc();
-    void Load();
-    void Override(const char * command, const char * level);
     RONIN_INLINE ChatCommand * Get() { return _commandTable; }
 };
 

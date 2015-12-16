@@ -323,7 +323,7 @@ public:
     RONIN_INLINE const float& GetPositionY( ) const { return m_position.y; }
     RONIN_INLINE const float& GetPositionZ( ) const { return m_position.z; }
     RONIN_INLINE const float& GetOrientation( ) const { return m_position.o; }
-    RONIN_INLINE void SetOrientation( float &o ) { m_position.o = o; }
+    RONIN_INLINE void SetOrientation( float &o ) { m_position.o = NormAngle(o); }
 
     RONIN_INLINE float GetSpawnX() { return m_spawnLocation.x; }
     RONIN_INLINE float GetSpawnY() { return m_spawnLocation.y; }

@@ -199,6 +199,8 @@ public:
 
     void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL);
 
+    bool CanAddToWorld();
+    void OnPushToWorld();
     void RemoveFromWorld(bool addrespawnevent, bool free_guid);
 
     /// Arena organizers
@@ -385,7 +387,7 @@ public:
     RONIN_INLINE void SetPickPocketed(bool val = true) { m_PickPocketed = val; }
 
     uint32 m_TaxiNode;
-    const char* GetName() { return m_gender ? _creatureData->femaleName : _creatureData->maleName;  }
+    const char* GetName() { return m_gender && !_creatureData->femaleName.empty() ? _creatureData->femaleName.c_str() : _creatureData->maleName.c_str();  }
 
     bool isBoss();
     bool isCivilian();
@@ -399,13 +401,11 @@ public:
     void FormationLinkUp(uint32 SqlId);
     static WayPoint * CreateWaypointStruct() { return new WayPoint(); }
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
-    void OnPushToWorld();
     void Despawn(uint32 delay, uint32 respawntime);
 
     AuctionHouse * auctionHouse;
 
     void DeleteMe();
-    bool CanAddToWorld();
 
     WayPointMap * m_custom_waypoint_map;
     Player* m_escorter;

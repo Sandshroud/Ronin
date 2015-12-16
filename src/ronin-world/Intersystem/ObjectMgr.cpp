@@ -409,11 +409,8 @@ void ObjectMgr::LoadPlayerCreateInfo()
         {
             Field *fields = result->Fetch();
             uint8 race = fields[0].GetUInt8(), _class = fields[1].GetUInt8();
-            PlayerCreateInfo *pPlayerCreateInfo = GetPlayerCreateInfo(race, _class);
-            if(pPlayerCreateInfo == NULL)
-                continue;
-
-            pPlayerCreateInfo->spell_list.insert(fields[2].GetUInt32());
+            if(PlayerCreateInfo *pPlayerCreateInfo = GetPlayerCreateInfo(race, _class))
+                pPlayerCreateInfo->spell_list.insert(fields[2].GetUInt32());
         } while( result->NextRow() );
         delete result;
     }
@@ -942,7 +939,7 @@ void ObjectMgr::LoadSpellFixes()
     }
 }
 
-Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
+Item* ObjectMgr::CreateItem(uint32 entry,Player* owner, uint32 count)
 {
     ItemPrototype * proto = sItemMgr.LookupEntry(entry);
     if(proto == NULL)
@@ -954,6 +951,7 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner)
         ret = new Container(proto, counter);
     else ret = new Item(proto, counter);
     ret->Init();
+    ret->SetCount(count);
     ret->SetOwner(owner);
     return ret;
 }

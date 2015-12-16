@@ -1602,7 +1602,7 @@ public:
     uint32 AnnihilationProcChance;
     RONIN_INLINE void SetName(std::string& name) { m_name = name; }
     // spell to (delay, last time)
-    FactionReputation * reputationByListId[128];
+    FactionReputation * reputationByListId[256];
     Channel* watchedchannel;
 
     uint32 m_speedChangeCounter;

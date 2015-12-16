@@ -39,6 +39,8 @@ GameObject::~GameObject()
 
 void GameObject::Init()
 {
+    SetAnimProgress(0xFF);
+
     WorldObject::Init();
 }
 
@@ -166,12 +168,13 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
         m_updateFlags |= (UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT);
 
     SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-    SetState(1);
-    SetDisplayId(pInfo->DisplayID );
-    SetType(pInfo->Type);
+    SetDisplayId(pInfo->DisplayID);
     SetFlags(pInfo->DefaultFlags);
+    SetType(pInfo->Type);
+    SetState(0x01);
     UpdateRotation();
     InitAI();
+
     return true;
 }
 
@@ -366,6 +369,8 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     SetFlags(spawn->flags);
     SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
+    if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
+        SetAnimProgress(100);
 
     TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnCreate);
 

@@ -145,30 +145,29 @@ void Mailbox::Load(QueryResult * result)
     } while(result->NextRow());
 }
 
-WorldPacket * Mailbox::MailboxListingPacket()
+void Mailbox::MailboxListingPacket(WorldPacket *packet)
 {
-    WorldPacket * data = new WorldPacket(SMSG_MAIL_LIST_RESULT, 500);
+    packet->Initialize(SMSG_MAIL_LIST_RESULT, 500);
     MessageMap::iterator itr;
     uint32 realcount = 0;
     uint32 count = 0;
-    *data << uint32(0);  // realcount - this can be used to tell the client we have more mail than that fits into this packet
-    *data << uint8(0);   // size placeholder
+    *packet << uint32(0);  // realcount - this can be used to tell the client we have more mail than that fits into this packet
+    *packet << uint8(0);   // size placeholder
 
     for(itr = Messages.begin(); itr != Messages.end(); itr++)
     {
-        if(uint8 msgCount = AddMessageToListingPacket(*data, &itr->second))
+        if(uint8 msgCount = AddMessageToListingPacket(*packet, &itr->second))
         {
             if(msgCount == 2) ++count;
             ++realcount;
         }
     }
 
-    data->put<uint32>(0, realcount);
-    data->put<uint8>(4, count);
+    packet->put<uint32>(0, realcount);
+    packet->put<uint8>(4, count);
 
     // do cleanup on request mail
     //CleanupExpiredMessages();
-    return data;
 }
 
 uint8 Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
@@ -215,49 +214,32 @@ uint8 Mailbox::AddMessageToListingPacket(WorldPacket& data,MailMessage *msg)
     return 2;
 }
 
-WorldPacket * Mailbox::MailboxTimePacket()
+void Mailbox::MailboxTimePacket(WorldPacket *packet)
 {
-
-    WorldPacket * data = new WorldPacket(MSG_QUERY_NEXT_MAIL_TIME, 100);
-    uint32 count = 0;
-    MessageMap::iterator iter;
-
-
-    *data << uint32(0) << uint32(0);
-
-    for( iter = Messages.begin(); iter != Messages.end(); iter++ )
+    packet->Initialize(MSG_QUERY_NEXT_MAIL_TIME, 100);
+    if(Messages.size())
     {
-        if(AddMessageToTimePacket(* data, &iter->second))
-        {
-            ++count;
-        }
-    }
+        uint32 count = 0;
+        *packet << uint32(0) << uint32(0);
+        for(MessageMap::iterator iter = Messages.begin(); iter != Messages.end(); iter++ )
+            if(AddMessageToTimePacket(* packet, &iter->second))
+                if(++count == 2)
+                    break;
 
-    if(count==0)
-    {
-        data->put(0, uint32(0xc7a8c000));
-//      *(uint32*)(data->contents()[0])=0xc7a8c000;
-    }
-    else
-    {
-        data->put(4, uint32(count));
-//      *(uint32*)(data->contents()[0])=uint32(0);
-//      *(uint32*)(data->contents()[4])=count;
-    }
-    return data;
+        packet->put<uint32>(0, count);
+    } else *packet << uint32(0xC7A8C000) << uint32(0);
 }
 
 bool Mailbox::AddMessageToTimePacket(WorldPacket& data,MailMessage *msg)
 {
     if ( msg->deleted_flag == 1 || msg->read_flag == 1  || msg->Expired() || (uint32)UNIXTIME < msg->delivery_time )
         return false;
-    // unread message, w00t.
+
     data << uint64(msg->sender_guid);
     data << uint32(0);
     data << uint32(0);// money or smth?
     data << uint32(msg->stationary);
-    //data << float(UNIXTIME-msg->delivery_time);
-    data << float(-9.0f);   // maybe the above?
+    data << uint32(0xC6000000); // float unk, time or something
     return true;
 }
 
@@ -538,9 +520,9 @@ void WorldSession::HandleItemTextQuery(WorldPacket & recv_data)
 
 void WorldSession::HandleMailTime(WorldPacket & recv_data)
 {
-    WorldPacket * data = _player->m_mailBox->MailboxTimePacket();
-    SendPacket(data);
-    delete data;
+    WorldPacket data;
+    _player->m_mailBox->MailboxTimePacket(&data);
+    SendPacket(&data);
 }
 
 void WorldSession::SendMailError(uint32 error, uint32 extra)
@@ -557,7 +539,8 @@ void WorldSession::HandleGetMail(WorldPacket & recv_data )
 {
     uint64 mailbox;
     recv_data >> mailbox;
-    WorldPacket * data = _player->m_mailBox->MailboxListingPacket();
-    SendPacket(data);
-    delete data;
+
+    WorldPacket data;
+    _player->m_mailBox->MailboxListingPacket(&data);
+    SendPacket(&data);
 }

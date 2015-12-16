@@ -823,7 +823,7 @@ struct SpellEntry
     //uint32 modalNextSpell;
     uint32 SpellGroupType[3];
     uint32 SpellFamilyName;
-    //char *description; // 4.x
+    std::string spellBookDescription;
 
     // SpellCooldownsEntry
     uint32 CategoryRecoveryTime;
@@ -921,7 +921,7 @@ struct SpellEntry
     float radiusFriend[3];
 
     // Custom
-    uint32 Class;
+    uint8 Class;
     uint32 School;
     uint32 NameHash;
     uint32 RankNumber;
@@ -1207,7 +1207,7 @@ struct SpellClassOptionsEntry
     //uint32    modalNextSpell;     // 1        m_modalNextSpell not used
     uint32    SpellFamilyFlags[3];  // 2-4
     uint32    SpellFamilyName;      // 5      m_spellClassSet
-    //char *Description;            // 6 4.0.0
+    char     *Description;            // 6 4.0.0
 };
 
 // SpellCooldowns.dbc

@@ -583,7 +583,6 @@ protected:
     } m_extra;
 
 protected: // Speed and Status information
-    float m_heightOffset; // Hover diff etc
     float m_currSpeeds[MOVE_SPEED_MAX], m_speedOffset[MOVE_SPEED_MAX];
 
     // Pending speeds

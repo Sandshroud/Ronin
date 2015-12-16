@@ -184,7 +184,7 @@ void Player::Init()
     iInstanceType                   = 0;
     iRaidType                       = 0;
     m_XPoff                         = false;
-    memset(reputationByListId, 0, sizeof(FactionReputation*) * 128);
+    memset(reputationByListId, 0, sizeof(FactionReputation*) * 256);
     AnnihilationProcChance          = 0;
 
     for(uint8 i = 0; i < 6; i++)
@@ -393,6 +393,9 @@ void Player::Update( uint32 p_time )
         m_nextSave -= p_time;
     else SaveToDB(false);
 
+    if(!IsInWorld())
+        return;
+
     if(m_pvpTimer)
     {
         if(p_time >= m_pvpTimer)
@@ -406,14 +409,11 @@ void Player::Update( uint32 p_time )
     }
 
     // Exploration
-    if(IsInWorld())
+    m_explorationTimer += p_time;
+    if(m_explorationTimer >= 1500)
     {
-        m_explorationTimer += p_time;
-        if(m_explorationTimer >= 1500)
-        {
-            _EventExploration();
-            m_explorationTimer = 0;
-        }
+        _EventExploration();
+        m_explorationTimer = 0;
     }
 
     if (m_drunk)
@@ -2020,7 +2020,7 @@ bool Player::Create(WorldPacket& data )
     m_StableSlotCount = 0;
 
     for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
-        mSpells.insert((*sp));
+        mSpells.insert(*sp);
 
     _UpdateMaxSkillCounts();
 
@@ -2059,7 +2059,7 @@ bool Player::Create(WorldPacket& data )
                     continue;
 
                 // BuyCount by default
-                int32 count = proto->MaxCount;
+                uint32 count = proto->BuyCount;
 
                 // special amount for foor/drink
                 if (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_CLASS_REAGENT)
@@ -2073,8 +2073,8 @@ bool Player::Create(WorldPacket& data )
                         count = 2;
                         break;
                     }
-                    if (proto->MaxCount < count)
-                        count = proto->MaxCount;
+                    if (proto->Unique < count)
+                        count = proto->Unique;
                 }
 
                 GetInventory()->mAddItemToBestSlot(proto, count, false);
@@ -2532,31 +2532,17 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
 
 void Player::smsg_InitialSpells()
 {
-    PlayerCooldownMap::iterator itr, itr2;
-
     uint16 spellCount = (uint16)mSpells.size();
-    size_t itemCount = m_cooldownMap[0].size() + m_cooldownMap[1].size();
+    WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + ((m_cooldownMap[0].size() + m_cooldownMap[1].size()) * 4) );
+    data << uint8(0) << uint16(spellCount); // spell count
+
+    for (SpellSet::iterator sitr = mSpells.begin(); sitr != mSpells.end(); ++sitr)
+        data << uint32(*sitr) << uint16(0x0000);
+
     uint32 mstime = getMSTime();
-    size_t pos;
-
-    WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + (itemCount * 4) );
-    data << uint8(0);
-    data << uint16(spellCount); // spell count
-
-    SpellSet::iterator sitr;
-    for (sitr = mSpells.begin(); sitr != mSpells.end(); ++sitr)
-    {
-        // todo: check out when we should send 0x0 and when we should send 0xeeee
-        // this is not slot, values is always eeee or 0, seems to be cooldown
-        data << uint32(*sitr);                 // spell id
-        data << uint16(0x0000);
-    }
-
-    pos = data.wpos();
+    size_t pos = data.wpos(), itemCount = 0;
     data << uint16(0);        // placeholder
-
-    itemCount = 0;
-    for( itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end(); )
+    for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end(); )
     {
         itr2 = itr++;
 
@@ -2578,7 +2564,7 @@ void Player::smsg_InitialSpells()
         sLog.outDebug("sending spell cooldown for spell %u to %u ms", itr2->first, itr2->second.ExpireTime - mstime);
     }
 
-    for( itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end(); )
+    for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end(); )
     {
         itr2 = itr++;
 
@@ -2594,14 +2580,12 @@ void Player::smsg_InitialSpells()
         data << uint16( itr2->first );                      // spell category
         data << uint32( 0 );                                // cooldown remaining in ms (for spell)
         data << uint32( itr2->second.ExpireTime - mstime ); // cooldown remaining in ms (for category)
-
         ++itemCount;
 
         sLog.outDebug("InitialSpells", "sending category cooldown for cat %u to %u ms", itr2->first, itr2->second.ExpireTime - mstime);
     }
 
-    *(uint16*)&data.contents()[pos] = (uint16)itemCount;
-
+    data.put<uint16>(pos, itemCount);
     GetSession()->SendPacket(&data);
 }
 
@@ -4835,6 +4819,7 @@ void Player::SendInitialLogonPackets()
     data.WriteBit(0);                                               // HasRestrictedLevel
     data.WriteBit(0);                                               // HasRestrictedMoney
     data.WriteBit(0);                                               // IneligibleForLoot
+    data.FlushBits();
     //if (IneligibleForLoot)
     //    data << uint32(0);                                        // EncounterMask
     data << uint8(0);                                               // IsOnTournamentRealm

@@ -2517,7 +2517,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                         continue;
                     if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                         continue;
-                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                         return;
                 }
             }
@@ -2529,17 +2529,17 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                         continue;
                     if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                         continue;
-                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                    if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                         return;
                 }
             }
         } break;
     case ITEM_CLASS_WEAPON:
-        if(GetInventoryItem(EQUIPMENT_SLOT_MAINHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND ) == ADD_ITEM_RESULT_OK)
+        if(GetInventoryItem(EQUIPMENT_SLOT_MAINHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND ) == ADD_ITEM_RESULT_OK)
             return;
-        if(GetInventoryItem(EQUIPMENT_SLOT_OFFHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND ) == ADD_ITEM_RESULT_OK)
+        if(GetInventoryItem(EQUIPMENT_SLOT_OFFHAND) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_OFFHAND ) == ADD_ITEM_RESULT_OK)
             return;
-        if(GetInventoryItem(EQUIPMENT_SLOT_RANGED) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_RANGED ) == ADD_ITEM_RESULT_OK)
+        if(GetInventoryItem(EQUIPMENT_SLOT_RANGED) == NULL && SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_RANGED ) == ADD_ITEM_RESULT_OK)
             return;
         break;
     case ITEM_CLASS_ARMOR:
@@ -2550,7 +2550,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                     continue;
                 if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                     continue;
-                if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+                if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                     return;
             }
         }break;
@@ -2568,7 +2568,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                 if(bagItem->GetProto()->BagFamily != proto->BagFamily)
                     continue;
 
-                if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), NULL))
+                if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), NULL))
                     return;
             }
         }
@@ -2578,7 +2578,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
     {
         if(GetInventoryItem(slot) != NULL)
             continue;
-        if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
+        if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
             return;
     }
 
@@ -2590,7 +2590,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                 continue;
             if(bagItem->GetProto()->BagFamily != proto->BagFamily)
                 continue;
-            if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner))), NULL))
+            if(castPtr<Container>(bagItem)->AddItemToFreeSlot((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), NULL))
                 return;
         }
     }

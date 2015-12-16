@@ -98,25 +98,23 @@ RONIN_INLINE bool RankChangedFlat(int32 Standing, int32 NewStanding)
 
 void Player::smsg_InitialFactions()
 {
-    WorldPacket data( SMSG_INITIALIZE_FACTIONS, 644 );
-    data << uint32( 128 );
+    WorldPacket data( SMSG_INITIALIZE_FACTIONS, 4+(256*5) );
+    data << uint32( 256 );
     FactionReputation * rep;
-    for ( uint32 i = 0; i < 128; ++i )
+    for ( uint32 i = 0; i < 256; ++i )
     {
-        rep = reputationByListId[i];
-        if ( rep == NULL )
-            data << uint8(0) << uint32(0);
-        else data << rep->flag << rep->CalcStanding();
+        if ( rep = reputationByListId[i] )
+            data << rep->flag << rep->CalcStanding();
+        else data << uint8(0) << uint32(0);
     }
     m_session->SendPacket(&data);
 }
 
 uint32 Player::GetInitialFactionId()
 {
-    PlayerCreateInfo * pci = objmgr.GetPlayerCreateInfo(getRace(), getClass());
-    if( pci )
+    if( PlayerCreateInfo * pci = objmgr.GetPlayerCreateInfo(getRace(), getClass()) )
         return pci->factiontemplate;
-    else return 35;
+    return 35;
 }
 
 void Player::_InitialReputation()
@@ -175,7 +173,7 @@ Standing Player::GetStandingRank(uint32 Faction)
 
 bool Player::IsHostileBasedOnReputation(FactionEntry *faction)
 {
-    if( faction->RepListId < 0 || faction->RepListId >= 128 )
+    if( faction->RepListId < 0 || faction->RepListId >= 256 )
         return false;
 
     FactionReputation * rep = reputationByListId[faction->RepListId];
@@ -214,7 +212,7 @@ void Player::ModStanding(uint32 Faction, int32 Value)
 
 void Player::SetAtWar(uint32 Faction, bool Set)
 {
-    if( Faction >= 128 )
+    if( Faction >= 256 )
         return;
 
     FactionReputation * rep = reputationByListId[Faction];
@@ -235,7 +233,7 @@ void Player::SetAtWar(uint32 Faction, bool Set)
 
 bool Player::IsAtWar(uint32 factionId)
 {
-    if( factionId >= 128 )
+    if( factionId >= 256 )
         return false;
     FactionReputation *rep = reputationByListId[factionId];
     if(rep == NULL)

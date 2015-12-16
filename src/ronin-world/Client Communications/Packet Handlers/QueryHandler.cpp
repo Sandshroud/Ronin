@@ -238,35 +238,37 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
 
     std::vector<uint8> masks;
     count = recvPacket.ReadBits(23);
-    masks.reserve(count);
-    memset(&masks[0], 0, count);
-
+    WoWGuid *guids = new WoWGuid[count];
     for (uint32 i = 0; i < count; ++i)
-        recvPacket.ReadGuidMaskBits(masks[i], 8, 0, 4, 7, 2, 5, 3, 6, 1);
+    {
+        guids[i][0] = recvPacket.ReadBit();
+        guids[i][4] = recvPacket.ReadBit();
+        guids[i][7] = recvPacket.ReadBit();
+        guids[i][2] = recvPacket.ReadBit();
+        guids[i][5] = recvPacket.ReadBit();
+        guids[i][3] = recvPacket.ReadBit();
+        guids[i][6] = recvPacket.ReadBit();
+        guids[i][1] = recvPacket.ReadBit();
+    }
 
+    uint32 item;
     for (uint32 c = 0; c < count; ++c)
     {
-        uint32 item;
-        WoWGuid guid;
-        for(uint8 i = 0; i < 8; i++)
-            if(masks[c] & 1<<i)
-                guid[i] = 1;
-
-        recvPacket.ReadByteSeq(guid[5]);
-        recvPacket.ReadByteSeq(guid[6]);
-        recvPacket.ReadByteSeq(guid[7]);
-        recvPacket.ReadByteSeq(guid[0]);
-        recvPacket.ReadByteSeq(guid[1]);
-        recvPacket.ReadByteSeq(guid[3]);
-        recvPacket.ReadByteSeq(guid[4]);
+        recvPacket.ReadByteSeq(guids[c][5]);
+        recvPacket.ReadByteSeq(guids[c][6]);
+        recvPacket.ReadByteSeq(guids[c][7]);
+        recvPacket.ReadByteSeq(guids[c][0]);
+        recvPacket.ReadByteSeq(guids[c][1]);
+        recvPacket.ReadByteSeq(guids[c][3]);
+        recvPacket.ReadByteSeq(guids[c][4]);
         recvPacket >> item;
-        recvPacket.ReadByteSeq(guid[2]);
+        recvPacket.ReadByteSeq(guids[c][2]);
 
+        ItemPrototype* proto = sItemMgr.LookupEntry(item);
         WorldPacket data2(SMSG_DB_REPLY, 700);
-        data2 << uint32(item);
+        data2 << int32(proto ? item : -int32(item));
         data2 << uint32(type); // Needed?
         data2 << uint32(sWorld.GetStartTime());
-        ItemPrototype* proto = sItemMgr.LookupEntry(item);
         if (!proto) // Item does not exist
         {
             data2 << uint32(4); // sizeof(uint32)
@@ -294,6 +296,7 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                 data << uint32(proto->Flags);
                 data << uint32(proto->FlagsExtra);
                 data << float(0.f) << float(0.f);
+                data << int32(proto->BuyCount);
                 data << int32(proto->BuyPrice);
                 data << uint32(proto->SellPrice);
                 data << uint32(proto->InventoryType);

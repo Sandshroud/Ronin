@@ -443,7 +443,7 @@ void AI_Movement::Update(uint32 p_time)
 
         // calculate a random distance and angle to move
         float wanderD = RandomFloat(2.0f) + 2.0f;
-        float wanderO = RandomFloat(6.283f);
+        float wanderO = RandomFloat(M_PI*2);
         float Fx = m_Unit->GetPositionX() + wanderD * cosf(wanderO);
         float Fy = m_Unit->GetPositionY() + wanderD * sinf(wanderO);
         float Fz;

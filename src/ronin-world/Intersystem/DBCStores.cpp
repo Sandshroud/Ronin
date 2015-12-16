@@ -219,7 +219,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCategoriesEntry, dbcSpellCategories);
 const char* spellcategoryFormat = "uuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellClassOptionsEntry, dbcSpellClassOptions);
-const char* spellclassoptionFormat = "uxuuuux";
+const char* spellclassoptionFormat = "uxuuuus";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCooldownsEntry, dbcSpellCooldowns);
 const char* spellcooldownFormat = "uuuu";

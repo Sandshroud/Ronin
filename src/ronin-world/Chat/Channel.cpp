@@ -71,16 +71,13 @@ Channel::~Channel()
 
 void Channel::UserListJoinNotify(Player* plr)
 {
-    WorldPacket data(SMSG_USERLIST_ADD, 8+1+1+4+m_name.size()+1);
-    if(!m_general)
-        data.SetOpcode(SMSG_USERLIST_UPDATE);
-
+    WorldPacket data(m_general ? SMSG_USERLIST_ADD : SMSG_USERLIST_UPDATE, 8+1+1+4+m_name.size()+1);
     data << plr->GetGUID();
     data << uint8(plr->GetChatTag());
     data << uint8(m_flags);
     data << uint32(GetNumMembers());
     data << m_name;
-    SendToAll(&data);
+    SendToAll(&data, m_general ? plr : NULL);
 }
 
 void Channel::UserListLeaveNotify(Player* plr)
@@ -90,7 +87,7 @@ void Channel::UserListLeaveNotify(Player* plr)
     data << uint8(m_flags);
     data << uint32(GetNumMembers());
     data << m_name;
-    SendToAll(&data);
+    SendToAll(&data, m_general ? plr : NULL);
 }
 
 void Channel::AttemptJoin(Player* plr, const char * password)

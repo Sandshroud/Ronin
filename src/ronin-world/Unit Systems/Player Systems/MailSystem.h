@@ -104,8 +104,8 @@ public:
         return &(iter->second);
     }
     std::string GetMessageBody(uint32 message_id);
-    WorldPacket * MailboxListingPacket();
-    WorldPacket * MailboxTimePacket();
+    void MailboxListingPacket(WorldPacket *packet);
+    void MailboxTimePacket(WorldPacket *packet);
     RONIN_INLINE size_t MessageCount() { return Messages.size(); }
     RONIN_INLINE uint64 GetOwner() { return owner; }
     void Load(QueryResult * result);

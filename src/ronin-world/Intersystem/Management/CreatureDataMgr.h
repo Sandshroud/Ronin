@@ -5,10 +5,10 @@
 struct CreatureData
 {
     uint32 entry;
-    char * maleName;
-    char * femaleName;
-    char * subName;
-    char * iconName;
+    std::string maleName;
+    std::string femaleName;
+    std::string subName;
+    std::string iconName;
     uint32 flags;
     uint32 flags2;
     uint32 type;
@@ -91,9 +91,9 @@ struct CreatureData
 
     const char *GetFullName()
     {
-        if(strlen(femaleName))
-            return format("%s|%s", maleName, femaleName).c_str();
-        return maleName;
+        if(femaleName.length())
+            return format("%s|%s", maleName.c_str(), femaleName.c_str()).c_str();
+        return maleName.c_str();
     }
 
     std::list<AI_Spell*> spells;

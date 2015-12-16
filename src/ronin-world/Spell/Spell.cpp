@@ -1379,7 +1379,7 @@ void Spell::SendSpellStart()
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
     data << int32(m_timer);
-    data << uint32(m_castTime);
+    data << uint32(getMSTime());
 
     m_targets.write( data );
 
@@ -1442,7 +1442,7 @@ void Spell::SendSpellGo()
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
     data << int32(m_timer);
-    data << uint32(m_castTime);
+    data << uint32(getMSTime());
 
     writeSpellGoTargets(&data);
 

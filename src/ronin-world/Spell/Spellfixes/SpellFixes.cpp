@@ -251,6 +251,7 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     sp->SpellGroupType[1] = 0;
     sp->SpellGroupType[2] = 0;
     sp->SpellFamilyName = 0;
+    sp->spellBookDescription = "";
     // SpellCooldownsEntry
     sp->CategoryRecoveryTime = 0;
     sp->RecoveryTime = 0;
@@ -434,6 +435,25 @@ void SetupSpellTargets()
     Spell::m_implicitTargetFlags.insert(std::make_pair(149, SPELL_TARGET_NOT_IMPLEMENTED));
 }
 
+bool validateSpellFamily(SpellEntry *sp, uint8 &outClass)
+{
+    switch(sp->SpellFamilyName)
+    {
+    case 3: outClass = MAGE; break;
+    case 4: outClass = WARRIOR; break;
+    case 5: outClass = WARLOCK; break;
+    case 6: outClass = PRIEST; break;
+    case 7: outClass = DRUID; break;
+    case 8: outClass = ROGUE; break;
+    case 9: outClass = HUNTER; break;
+    case 10: outClass = PALADIN; break;
+    case 11: outClass = SHAMAN; break;
+    case 15: outClass = DEATHKNIGHT; break;
+    default: return false;
+    }
+    return true;
+}
+
 void PoolSpellData()
 {
     for (uint32 i = 0; i < dbcSpellEffect.GetNumRows(); ++i)
@@ -477,8 +497,7 @@ void PoolSpellData()
             continue;
 
         //SpellAuraOptionsEntry
-        SpellAuraOptionsEntry* AuraOptions = dbcSpellAuraOptions.LookupEntry(spellInfo->SpellAuraOptionsId);
-        if(AuraOptions != NULL)
+        if(SpellAuraOptionsEntry* AuraOptions = dbcSpellAuraOptions.LookupEntry(spellInfo->SpellAuraOptionsId))
         {
             spellInfo->maxstack = AuraOptions->StackAmount;
             spellInfo->procChance = AuraOptions->procChance;
@@ -487,16 +506,14 @@ void PoolSpellData()
         }
 
         //SpellAuraRestrictionsEntry
-        SpellAuraRestrictionsEntry* AuraRestrict = dbcSpellAuraRestrictions.LookupEntry(spellInfo->SpellAuraRestrictionsId);
-        if(AuraRestrict != NULL)
+        if(SpellAuraRestrictionsEntry* AuraRestrict = dbcSpellAuraRestrictions.LookupEntry(spellInfo->SpellAuraRestrictionsId))
         {
             spellInfo->CasterAuraState = AuraRestrict->CasterAuraState;
             spellInfo->TargetAuraState = AuraRestrict->TargetAuraState;
         }
 
         //SpellCategoriesEntry
-        SpellCategoriesEntry* sCategory = dbcSpellCategories.LookupEntry(spellInfo->SpellCategoriesId);
-        if(sCategory != NULL)
+        if(SpellCategoriesEntry* sCategory = dbcSpellCategories.LookupEntry(spellInfo->SpellCategoriesId))
         {
             spellInfo->Category = sCategory->Category;
             spellInfo->Spell_Dmg_Type = sCategory->DmgClass;
@@ -507,8 +524,7 @@ void PoolSpellData()
         }
 
         //SpellCastingRequirementsEntry
-        SpellCastingRequirementsEntry* CastRequirements = dbcSpellCastingRequirements.LookupEntry(spellInfo->SpellCastingRequirementsId);
-        if(CastRequirements != NULL)
+        if(SpellCastingRequirementsEntry* CastRequirements = dbcSpellCastingRequirements.LookupEntry(spellInfo->SpellCastingRequirementsId))
         {
             spellInfo->FacingCasterFlags = CastRequirements->FacingCasterFlags;
             spellInfo->AreaGroupId = CastRequirements->AreaGroupId;
@@ -516,18 +532,17 @@ void PoolSpellData()
         }
 
         //SpellClassOptionsEntry
-        SpellClassOptionsEntry* ClassOptions = dbcSpellClassOptions.LookupEntry(spellInfo->SpellClassOptionsId);
-        if(ClassOptions != NULL)
+        if(SpellClassOptionsEntry* ClassOptions = dbcSpellClassOptions.LookupEntry(spellInfo->SpellClassOptionsId))
         {
-            for(int i = 0; i < 3; ++i)
+            for(uint8 i = 0; i < 3; ++i)
                 spellInfo->SpellGroupType[i] = ClassOptions->SpellFamilyFlags[i];
 
             spellInfo->SpellFamilyName = ClassOptions->SpellFamilyName;
+            spellInfo->spellBookDescription = ClassOptions->Description;
         }
 
         //SpellCooldownsEntry
-        SpellCooldownsEntry* sCooldowns = dbcSpellCooldowns.LookupEntry(spellInfo->SpellCooldownsId);
-        if(sCooldowns != NULL)
+        if(SpellCooldownsEntry* sCooldowns = dbcSpellCooldowns.LookupEntry(spellInfo->SpellCooldownsId))
         {
             spellInfo->CategoryRecoveryTime = sCooldowns->CategoryRecoveryTime;
             spellInfo->RecoveryTime = sCooldowns->RecoveryTime;
@@ -545,8 +560,7 @@ void PoolSpellData()
         //SpellEffectEntry
 
         //SpellEquippedItemsEntry
-        SpellEquippedItemsEntry* EquippedItems = dbcSpellEquippedItems.LookupEntry(spellInfo->SpellEquippedItemsId);
-        if(EquippedItems != NULL)
+        if(SpellEquippedItemsEntry* EquippedItems = dbcSpellEquippedItems.LookupEntry(spellInfo->SpellEquippedItemsId))
         {
             spellInfo->EquippedItemClass = EquippedItems->EquippedItemClass;
             spellInfo->EquippedItemInventoryTypeMask = EquippedItems->EquippedItemInventoryTypeMask;
@@ -554,8 +568,7 @@ void PoolSpellData()
         }
 
         //SpellInterruptsEntry
-        SpellInterruptsEntry* sInterrupts = dbcSpellInterrupts.LookupEntry(spellInfo->SpellInterruptsId);
-        if(sInterrupts != NULL)
+        if(SpellInterruptsEntry* sInterrupts = dbcSpellInterrupts.LookupEntry(spellInfo->SpellInterruptsId))
         {
             spellInfo->AuraInterruptFlags = sInterrupts->AuraInterruptFlags;
             spellInfo->ChannelInterruptFlags = sInterrupts->ChannelInterruptFlags;
@@ -563,8 +576,7 @@ void PoolSpellData()
         }
 
         //SpellLevelsEntry
-        SpellLevelsEntry* sLevel = dbcSpellLevels.LookupEntry(spellInfo->SpellLevelsId);
-        if(sLevel != NULL)
+        if(SpellLevelsEntry* sLevel = dbcSpellLevels.LookupEntry(spellInfo->SpellLevelsId))
         {
             spellInfo->baseLevel = sLevel->baseLevel;
             spellInfo->maxLevel = sLevel->maxLevel;
@@ -572,8 +584,7 @@ void PoolSpellData()
         }
 
         //SpellPowerEntry
-        SpellPowerEntry* sPower = dbcSpellPower.LookupEntry(spellInfo->SpellPowerId);
-        if(sPower != NULL)
+        if(SpellPowerEntry* sPower = dbcSpellPower.LookupEntry(spellInfo->SpellPowerId))
         {
             spellInfo->ManaCost = sPower->manaCost;
             spellInfo->ManaCostPerlevel = sPower->manaCostPerlevel;
@@ -582,10 +593,9 @@ void PoolSpellData()
         }
 
         //SpellReagentsEntry
-        SpellReagentsEntry* sReagent = dbcSpellReagents.LookupEntry(spellInfo->SpellReagentsId);
-        if(sReagent != NULL)
+        if(SpellReagentsEntry* sReagent = dbcSpellReagents.LookupEntry(spellInfo->SpellReagentsId))
         {
-            for(int8 i = 0; i < 8; ++i)
+            for(uint8 i = 0; i < 8; ++i)
             {
                 spellInfo->Reagent[i] = sReagent->Reagent[i];
                 spellInfo->ReagentCount[i] = sReagent->ReagentCount[i];
@@ -607,16 +617,14 @@ void PoolSpellData()
         }
 
         //SpellShapeshiftEntry
-        SpellShapeshiftEntry* shapeShift = dbcSpellShapeshift.LookupEntry(spellInfo->SpellShapeshiftId);
-        if(shapeShift != NULL)
+        if(SpellShapeshiftEntry* shapeShift = dbcSpellShapeshift.LookupEntry(spellInfo->SpellShapeshiftId))
         {
             spellInfo->RequiredShapeShift = shapeShift->Stances;
             spellInfo->ShapeshiftExclude = shapeShift->StancesNot;
         }
 
         //SpellTargetRestrictionsEntry
-        SpellTargetRestrictionsEntry* TargetRestrict = dbcSpellTargetRestrictions.LookupEntry(spellInfo->SpellTargetRestrictionsId);
-        if(TargetRestrict != NULL)
+        if(SpellTargetRestrictionsEntry* TargetRestrict = dbcSpellTargetRestrictions.LookupEntry(spellInfo->SpellTargetRestrictionsId))
         {
             spellInfo->MaxTargets = TargetRestrict->MaxAffectedTargets;
             spellInfo->MaxTargetLevel = TargetRestrict->MaxTargetLevel;
@@ -625,16 +633,15 @@ void PoolSpellData()
         }
 
         //SpellTotemsEntry
-        SpellTotemsEntry* Totems = dbcSpellTotems.LookupEntry(spellInfo->SpellTotemsId);
-        if(Totems != NULL)
+        if(SpellTotemsEntry* Totems = dbcSpellTotems.LookupEntry(spellInfo->SpellTotemsId))
         {
-            for(int i = 0; i < 2; ++i)
+            for(uint8 i = 0; i < 2; ++i)
                 spellInfo->Totem[i] = Totems->Totem[i];
         }
+
+        validateSpellFamily(spellInfo, spellInfo->Class);
     }
 }
-
-
 
 void DumpOpcodeLine(FILE * output, char *name, uint16 opcode)
 {

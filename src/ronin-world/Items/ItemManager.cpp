@@ -102,6 +102,7 @@ void ItemManager::InitializeItemPrototypes()
         proto->Quality = sparse->Quality;
         proto->Flags = sparse->Flags;
         proto->FlagsExtra = sparse->Flags2;
+        proto->BuyCount = sparse->BuyCount;
         proto->BuyPrice = sparse->BuyPrice;
         proto->SellPrice = sparse->SellPrice;
         proto->InventoryType = itemData->InventoryType;
@@ -182,7 +183,7 @@ void ItemManager::LoadItemOverrides()
     if(result != NULL)
     {
         uint32 fieldCount = result->GetFieldCount();
-        if(fieldCount != 111)
+        if(fieldCount != 112)
             sLog.outError("Incorrect field count in item override table %u\n", fieldCount);
         else
         {
@@ -204,6 +205,7 @@ void ItemManager::LoadItemOverrides()
                     proto->Quality = 0;
                     proto->Flags = 0;
                     proto->FlagsExtra = 0;
+                    proto->BuyCount = 0;
                     proto->BuyPrice = 0;
                     proto->SellPrice = 0;
                     proto->InventoryType = 0;
@@ -291,6 +293,7 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, Quality, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, Flags, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, FlagsExtra, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, BuyCount, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, BuyPrice, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, SellPrice, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, InventoryType, GetUInt32, field_Count, 0x01);

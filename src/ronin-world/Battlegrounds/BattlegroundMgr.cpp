@@ -203,12 +203,12 @@ void CBattlegroundManager::HandleBattlegroundListPacket(WorldSession * m_session
     }
     data.WriteBits(count, 24);
     data.WriteGuidBitString(4, requestguid, 6, 4, 2, 3);
-    data.WriteBit(true);                   // unk
-    data.WriteByteSeq(requestguid[5]);
+    data.WriteBit(false);                  // unk
+    data.WriteBit(requestguid[5]);
     data.WriteBit(true);                   // signals EVENT_PVPQUEUE_ANYWHERE_SHOW if set
+    data.FlushBits();
 
     data.WriteSeqByteString(4, requestguid, 6, 1, 7, 5);
-    data.FlushBits();
     if (count)
         data.append(buff.contents(), buff.size());
     data.WriteSeqByteString(4, requestguid, 0, 2, 4, 3);

@@ -6,13 +6,7 @@ initialiseSingleton( CreatureDataManager );
 CreatureDataManager::~CreatureDataManager()
 {
     for(std::map<uint32, CreatureData*>::iterator itr = m_creatureData.begin(); itr != m_creatureData.end(); itr++)
-    {
-        free(itr->second->maleName);
-        free(itr->second->femaleName);
-        free(itr->second->subName);
-        free(itr->second->iconName);
         delete itr->second;
-    }
     m_creatureData.clear();
 }
 
@@ -21,6 +15,7 @@ static const char * tableColumns = "maleName, femaleName, subname, iconName, fla
     "class, minlevel, maxlevel, faction, powertype, scale, lootType, npcflags, attacktime, attacktype, mindamage, maxdamage, "
     "rangedattacktime, rangedmindamage, rangedmaxdamage, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
     "combatReach, boundingRadius, money, invisibilityType, walkSpeed, runSpeed, flySpeed, auraimmune_flag, vehicle_entry, spellclickid, canmove, battlemastertype, auras";
+
 void CreatureDataManager::LoadFromDB()
 {
     QueryResult *result = WorldDatabase.Query("SELECT creature_names.entry, %s FROM creature_names INNER JOIN creature_proto ON creature_names.entry = creature_proto.entry", tableColumns);
@@ -34,10 +29,10 @@ void CreatureDataManager::LoadFromDB()
 
         CreatureData *ctrData = new CreatureData();
         ctrData->entry = feilds[field_count++].GetUInt32();
-        ctrData->maleName = strdup(feilds[field_count++].GetString());
-        ctrData->femaleName = strdup(feilds[field_count++].GetString());
-        ctrData->subName = strdup(feilds[field_count++].GetString());
-        ctrData->iconName = strdup(feilds[field_count++].GetString());
+        ctrData->maleName = feilds[field_count++].GetString();
+        ctrData->femaleName = feilds[field_count++].GetString();
+        ctrData->subName = feilds[field_count++].GetString();
+        ctrData->iconName = feilds[field_count++].GetString();
         ctrData->flags = feilds[field_count++].GetUInt32();
         ctrData->flags2 = feilds[field_count++].GetUInt32();
         ctrData->type = feilds[field_count++].GetUInt32();
