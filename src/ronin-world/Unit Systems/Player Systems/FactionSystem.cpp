@@ -168,8 +168,6 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     // Creatures cannot attack a GM with tag on.
     if(!player_objA && player_objB && player_objB->bGMTagOn)
         return FI_STATUS_NONE;
-    if(objA->IsCreature() && isTargetDummy(objA->GetEntry()))
-        return FI_STATUS_FRIENDLY; // Bwahahaha
 
     if( player_objA && player_objB )
     {
@@ -419,9 +417,6 @@ bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B co
         return false;
 
     if(!objA->PhasedCanInteract(objB))
-        return false;
-
-    if(objB->IsCreature() && isTargetDummy(objB->GetEntry()))
         return false;
 
     bool combatSupport = false;

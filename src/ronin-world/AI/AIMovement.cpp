@@ -14,18 +14,15 @@ void AI_Movement::Nullify()
     m_canMove = true;
     m_moveRun = m_moveFly = false;
     m_moveJump = m_moveSprint = m_moveBackward = false;
-    m_WayPointsShowing = m_WayPointsShowBackwards = false;
 
     m_pathfinding = m_ignorePathMap = false;
 
     m_Unit = NULL;
     PathMap = NULL;
     UnitToFear = NULL;
-    m_waypoints = NULL;
     m_FormationLinkTarget = NULL;
     UnitToFollow = UnitToFollow_backup = NULL;
 
-    m_CurrentWayPoint = 0;
     m_FormationLinkSqlId = 0;
     m_FearTimer = m_WanderTimer = 0;
     m_timeToMove = m_timeMoved = m_moveTimer = m_totalMoveTime = 0;
@@ -184,58 +181,6 @@ void AI_Movement::Update(uint32 p_time)
                     m_moveType = MOVEMENTTYPE_DONTMOVEWP;
 
                 float wayO = m_nextPosO;
-                if((GetWayPointsCount() != 0) && (getAIState() == STATE_IDLE)) //if we attacking don't use wps
-                {
-                    WayPoint* wp = getWayPoint(getCurrentWaypoint());
-                    if(wp)
-                    {
-                        TRIGGER_AI_EVENT(m_Unit, OnReachWP)(wp->id, !m_moveBackward);
-                        if(castPtr<Creature>(m_Unit)->has_waypoint_text)
-                            objmgr.HandleMonsterSayEvent(castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
-
-                        //Lets face to correct orientation
-                        if(wp->flags & 128)
-                            m_moveType = MOVEMENTTYPE_CIRCLEWP;
-                        wayO = wp->orientation;
-                        m_moveTimer = wp->waittime; //wait before next move
-                        if(!m_moveBackward)
-                        {
-                            if(wp->forwardInfo)
-                            {
-                                if(wp->forwardInfo->EmoteOneShot)
-                                    m_Unit->Emote(EmoteType(wp->forwardInfo->EmoteID));
-                                else if(m_Unit->GetUInt32Value(UNIT_NPC_EMOTESTATE) != wp->forwardInfo->EmoteID)
-                                    m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, wp->forwardInfo->EmoteID);
-
-                                if(m_Unit->getStandState() != wp->forwardInfo->StandState )
-                                    m_Unit->SetStandState(wp->forwardInfo->StandState);
-                                if (wp->forwardInfo->SpellToCast)
-                                    m_Unit->CastSpell(m_Unit, wp->forwardInfo->SpellToCast, false);
-                                if (wp->forwardInfo->SayText != "")
-                                    m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, wp->forwardInfo->SayText.c_str() );
-                            }
-                        }
-                        else
-                        {
-                            if(wp->backwardInfo)
-                            {
-                                if(wp->backwardInfo->EmoteOneShot)
-                                    m_Unit->Emote(EmoteType(wp->backwardInfo->EmoteID));
-                                else if(m_Unit->GetUInt32Value(UNIT_NPC_EMOTESTATE) != wp->backwardInfo->EmoteID)
-                                    m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, wp->backwardInfo->EmoteID);
-
-                                if(m_Unit->getStandState() != wp->backwardInfo->StandState )
-                                    m_Unit->SetStandState(wp->backwardInfo->StandState);
-                                if (wp->backwardInfo->SpellToCast)
-                                    m_Unit->CastSpell(m_Unit, wp->backwardInfo->SpellToCast, false);
-                                if (wp->backwardInfo->SayText != "")
-                                    m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, wp->backwardInfo->SayText.c_str() );
-                            }
-                        }
-                    }
-                    else
-                        m_moveTimer = RandomUInt(m_moveRun ? 5000 : 10000); // wait before next move
-                }
 
                 setCreatureState(STOPPED);
                 m_moveSprint = false;
@@ -294,105 +239,7 @@ void AI_Movement::Update(uint32 p_time)
             }
         }
 
-        if(UnitToFollow == NULL)
-        {
-            // no formation, use waypoints
-            int destpoint = -1;
-
-            // If creature has no waypoints just wander aimlessly around spawnpoint
-            if(GetWayPointsCount() == 0) //no waypoints
-                return;
-            else //we do have waypoints
-            {
-                uint32 wpcount = uint32(GetWayPointsCount());
-                if(m_moveType == MOVEMENTTYPE_RANDOMWP) //is random move on if so move to a random waypoint
-                {
-                    if(wpcount > 1)
-                        destpoint = RandomUInt(wpcount-1)+1;
-                }
-                else if (m_moveType == MOVEMENTTYPE_CIRCLEWP) //random move is not on lets follow the path in circles
-                {
-                    // 1 -> 10 then 1 -> 10
-                    m_CurrentWayPoint++;
-                    if (m_CurrentWayPoint > wpcount)
-                        m_CurrentWayPoint = 1; //Happens when you delete last wp seems to continue ticking
-                    destpoint = m_CurrentWayPoint;
-                    m_moveBackward = false;
-                }
-                else if(m_moveType == MOVEMENTTYPE_WANTEDWP)//Move to wanted wp
-                {
-                    if(m_CurrentWayPoint)
-                    {
-                        if( wpcount > 0)
-                        {
-                            destpoint = m_CurrentWayPoint;
-                        }
-                        else
-                            destpoint = -1;
-                    }
-                }
-                else if(m_moveType == MOVEMENTTYPE_FORWARDTHANSTOP)// move to end, then stop
-                {
-                    ++m_CurrentWayPoint;
-                    if(m_CurrentWayPoint > wpcount)
-                    {
-                        //hmm maybe we should stop being path walker since we are waiting here anyway
-                        destpoint = -1;
-                    }
-                    else
-                        destpoint = m_CurrentWayPoint;
-                }
-                else if(m_moveType != MOVEMENTTYPE_QUEST && m_moveType != MOVEMENTTYPE_DONTMOVEWP)//4 Unused
-                {
-                    // 1 -> 10 then 10 -> 1
-                    if (m_CurrentWayPoint > wpcount)
-                        m_CurrentWayPoint = 1; //Happens when you delete last wp seems to continue ticking
-                    if (m_CurrentWayPoint == wpcount) // Are we on the last waypoint? if so walk back
-                        m_moveBackward = true;
-                    if (m_CurrentWayPoint == 1) // Are we on the first waypoint? if so lets goto the second waypoint
-                        m_moveBackward = false;
-                    if (!m_moveBackward) // going 1..n
-                        destpoint = ++m_CurrentWayPoint;
-                    else                // going n..1
-                        destpoint = --m_CurrentWayPoint;
-                }
-
-                if(destpoint != -1)
-                {
-                    WayPoint* wp = getWayPoint(destpoint);
-                    if(wp)
-                    {
-                        if(!m_moveBackward)
-                        {
-                            if(wp->forwardInfo)
-                            {
-                                if((wp->forwardInfo->SkinID != 0) && (m_Unit->GetUInt32Value(UNIT_FIELD_DISPLAYID) != wp->forwardInfo->SkinID))
-                                {
-                                    m_Unit->SetUInt32Value(UNIT_FIELD_DISPLAYID, wp->forwardInfo->SkinID);
-                                    m_Unit->EventModelChange();
-                                }
-                            }
-                        }
-                        else
-                        {
-                            if(wp->backwardInfo)
-                            {
-                                if((wp->backwardInfo->SkinID != 0) && (m_Unit->GetUInt32Value(UNIT_FIELD_DISPLAYID) != wp->backwardInfo->SkinID))
-                                {
-                                    m_Unit->SetUInt32Value(UNIT_FIELD_DISPLAYID, wp->backwardInfo->SkinID);
-                                    m_Unit->EventModelChange();
-                                }
-                            }
-                        }
-                        if(wp->flags & 128)
-                            m_moveType = MOVEMENTTYPE_CIRCLEWP;
-                        m_moveRun = (wp->flags & 256) ? 1 : 0;
-                        m_moveFly = (wp->flags & 512) ? true : false;
-                        MoveTo(wp->x, wp->y, wp->z, wp->orientation);
-                    }
-                }
-            }
-        }
+        // Waypoint handle here
     }
 
     // Fear Code

@@ -4,6 +4,10 @@
 
 #pragma once
 
+class Group;
+
+#pragma pack(PRAGMA_PACK)
+
 struct PlayerCreateInfo
 {
     uint8  race;
@@ -15,7 +19,7 @@ struct PlayerCreateInfo
     float  positionY;
     float  positionZ;
     float  Orientation;
-    uint16 displayId[2];
+    uint32 displayId[2];
     uint32 requiredExpansion;
 
     std::set<uint32> spell_list;
@@ -23,85 +27,12 @@ struct PlayerCreateInfo
     std::list<CreateInfo_ActionBarStruct> bars;
 };
 
-#pragma pack(PRAGMA_PACK)
-struct FishingZoneEntry
-{
-    uint32 ZoneID;
-    uint32 MinSkill;
-    uint32 MaxSkill;
-};
-
-struct ZoneGuardEntry
-{
-    uint32 ZoneID;
-    uint32 HordeEntry;
-    uint32 AllianceEntry;
-};
-
-struct AchievementReward
-{
-    uint32 AchievementID;
-    uint32 AllianceTitle;
-    uint32 HordeTitle;
-    uint32 ItemID;
-    bool MailMessage;
-    uint32 SenderEntry;
-    char* MessageHeader;
-    char* MessageBody;
-};
-
-struct ProfessionDiscovery
-{
-    uint32 SpellId;
-    uint32 SpellToDiscover;
-    uint32 SkillValue;
-    float Chance;
-};
-
-struct RandomItemCreation
-{
-    uint32 SpellId;
-    uint32 ItemToCreate;
-    uint32 Skill;
-    uint32 Chance;
-};
-
-struct RandomCardCreation
-{
-    uint32 SpellId;
-    uint32 ItemId[32];
-    uint32 itemcount;
-};
-
-struct ScrollCreation
-{
-    uint32 SpellId;
-    uint32 ItemId;
-};
-
 struct ItemPage
 {
     uint32 id;
-    char * text;
+    std::string text;
     uint32 next_page;
 };
-
-struct ItemQuestRelation
-{
-    uint32 item_id;
-    uint32 quest_id;
-    uint32 itemcount;
-};
-
-#pragma pack(PRAGMA_POP)
-
-struct SpellReplacement
-{
-    uint32 count;
-    uint32 *spells;
-};
-
-class Group;
 
 struct GossipMenuItem
 {
@@ -114,77 +45,7 @@ struct GossipMenuItem
     std::string BoxMessage;
 };
 
-struct SpellEntry;
-struct TrainerSpell
-{
-    SpellEntry * pCastSpell;
-    SpellEntry * pLearnSpell;
-    SpellEntry * pCastRealSpell;
-    uint32  DeleteSpell;
-    uint32  RequiredSpell;
-    uint32  RequiredSkillLine;
-    uint32  RequiredSkillLineValue;
-    bool    IsProfession;
-    uint32  Cost;
-    uint32  RequiredLevel;
-};
-
-struct Trainer
-{
-    uint32 SpellCount;
-    std::vector<TrainerSpell> Spells;
-    char*   UIMessage;
-    uint32 RequiredSkill;
-    uint32 RequiredSkillLine;
-    uint32 RequiredClass;
-    uint32 TrainerType;
-    uint32 Can_Train_Gossip_TextId;
-    uint32 Cannot_Train_GossipTextId;
-};
-
-struct ReputationMod
-{
-    uint32 faction[2];
-    int32 value;
-    uint32 replimit;
-};
-
-struct InstanceReputationMod
-{
-    uint32 mapid;
-    uint32 mob_rep_reward;
-    uint32 mob_rep_reward_heroic;
-    uint32 mob_rep_limit;
-    uint32 mob_rep_limit_heroic;
-    uint32 boss_rep_reward;
-    uint32 boss_rep_reward_heroic;
-    uint32 boss_rep_limit;
-    uint32 boss_rep_limit_heroic;
-    uint32 faction[2];
-};
-
-struct ReputationModifier
-{
-    uint32 entry;
-    std::vector<ReputationMod> mods;
-};
-
-struct InstanceReputationModifier
-{
-    uint32 mapid;
-    std::vector<InstanceReputationMod> mods;
-};
-
-struct NpcMonsterSay
-{
-    float Chance;
-    uint32 Language;
-    uint32 Type;
-    const char * MonsterName;
-
-    uint32 TextCount;
-    const char ** Texts;
-};
+#pragma pack(PRAGMA_POP)
 
 enum MONSTER_SAY_EVENTS
 {
@@ -261,10 +122,8 @@ protected:
     std::vector<GossipMenuItem> Menu;
 };
 
-typedef RONIN_MAP<uint32, std::list<SpellEntry*>* >                  OverrideIdMap;
+typedef RONIN_MAP<uint32, std::list<SpellEntry*>* > OverrideIdMap;
 typedef RONIN_UNORDERED_MAP<std::string, PlayerInfo*> PlayerNameStringIndexMap;
-typedef RONIN_MAP<uint32, uint32> PetLevelupSpellSet;
-typedef RONIN_MAP<uint32, PetLevelupSpellSet> PetLevelupSpellMap;
 
 struct RecallLocation
 {
@@ -279,40 +138,33 @@ class SERVER_DECL ObjectMgr : public Singleton < ObjectMgr >
 public:
     ObjectMgr();
     ~ObjectMgr();
-    void LoadCreatureWaypoints();
 
     // other objects
 
     // Set typedef's
-    typedef std::set<AchievementCriteriaEntry*>                                 AchievementCriteriaSet;
-    typedef std::set<RecallLocation*>                                           RecallSet;
+    typedef std::set<AchievementCriteriaEntry*>                             AchievementCriteriaSet;
+    typedef std::set<RecallLocation*>                                       RecallSet;
 
     // HashMap typedef's
-    typedef RONIN_UNORDERED_MAP<uint64, Item* >                              ItemMap;
-    typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                         CorpseCollectorMap;
-    typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                         PlayerNameMap;
-    typedef RONIN_UNORDERED_MAP<uint16, PlayerCreateInfo*>                   PlayerCreateInfoMap;
-    typedef RONIN_UNORDERED_MAP<uint32, SkillLineAbilityEntry*>              SLMap;
-    typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >    VendorMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                       TransportMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Trainer*>                            TrainerMap;
-    typedef RONIN_UNORDERED_MAP<uint32, std::vector<TrainerSpell*> >         TrainerSpellMap;
-    typedef RONIN_UNORDERED_MAP<uint32, ReputationModifier*>                 ReputationModMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Corpse* >                            CorpseMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Group*>                              GroupMap;
+    typedef RONIN_UNORDERED_MAP<uint64, Item* >                             ItemMap;
+    typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                        CorpseCollectorMap;
+    typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                        PlayerNameMap;
+    typedef RONIN_UNORDERED_MAP<uint16, PlayerCreateInfo*>                  PlayerCreateInfoMap;
+    typedef RONIN_UNORDERED_MAP<uint32, SkillLineAbilityEntry*>             SLMap;
+    typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >   VendorMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                      TransportMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Corpse* >                           CorpseMap;
+    typedef RONIN_UNORDERED_MAP<uint32, Group*>                             GroupMap;
 
     // Map typedef's
-    typedef std::map<uint32, std::list<ItemPrototype*>* >                       ItemSetContentMap;
-    typedef std::map<uint32, uint32>                                            NpcToGossipTextMap;
-    typedef std::map<uint32, uint32>                                            PetSpellCooldownMap;
-    typedef std::map<uint32, SpellEntry*>                                       TotemSpellMap;
-    typedef std::map<uint32, AchievementCriteriaSet*>                           AchievementCriteriaMap;
+    typedef std::map<uint32, std::list<ItemPrototype*>* >                   ItemSetContentMap;
+    typedef std::map<uint32, uint32>                                        NpcToGossipTextMap;
+    typedef std::map<uint32, AchievementCriteriaSet*>                       AchievementCriteriaMap;
 
     // WMO tables
     typedef std::map<std::pair<uint32, std::pair<uint32, uint32> >, WMOAreaTableEntry*> WMOAreaTableMap;
 
     // object holder
-    TotemSpellMap       m_totemSpells;
     OverrideIdMap       mOverrideIdMap;
 
     Player* GetPlayer(const char* name, bool caseSensitive = true);
@@ -400,16 +252,11 @@ public:
     void RemoveCorpse(uint32 corpseguid);
     Corpse* GetCorpse(uint32 corpseguid);
 
-    uint32 GetGossipTextForNpc(uint32 ID);
-
     SkillLineAbilityEntry* GetSpellSkill(uint32 id);
 
     //Vendors
     std::map<uint32, CreatureItem> *GetVendorList(uint32 entry);
     void SetVendorList(uint32 Entry, std::map<uint32, CreatureItem>* list_);
-
-    //Totem
-    SpellEntry* GetTotemSpell(uint32 spellId);
 
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
@@ -447,13 +294,6 @@ public:
     void LoadSpellSkills();
     void LoadVendors();
     void ReloadVendors();
-    void LoadTotemSpells();
-    void LoadAIThreatToSpellId();
-    void LoadSpellFixes();
-    void LoadReputationModifierTable(const char * tablename, ReputationModMap * dmap);
-    void LoadReputationModifiers();
-    void LoadRecallPoints();
-    ReputationModifier * GetReputationModifier(uint32 entry_id, uint32 faction_id);
 
     void SetHighestGuids();
     void ListGuidAmounts();
@@ -464,26 +304,14 @@ public:
     uint32 GenerateItemGuid();
 
     void LoadTransporters();
-    void ProcessGameobjectQuests();
     void AddTransport(Transporter* pTransporter);
 
-    void LoadTrainers();
-    Trainer* GetTrainer(uint32 Entry);
-
     void LoadExtraItemStuff();
-    void LoadProfessionDiscoveries();
-    void LoadRandomItemCreation();
-    void LoadRandomCardCreation();
-    void LoadScrollCreation();
     void CreateGossipMenuForPlayer(GossipMenu** Location, uint64 Guid, uint32 TextID, Player* Plr);
 
     QueryResult* SQLCheckExists(const char* tablename, const char* columnname, uint64 columnvalue);
     uint32 GetPetSpellCooldown(uint32 SpellId);
     void LoadPetSpellCooldowns();
-    WayPointMap * GetWayPointMap(uint32 spawnid);
-    void LoadSpellOverride();
-    void LoadPetLevelupSpellMap();
-    PetLevelupSpellSet const* GetPetLevelupSpellList(uint32 petFamily) const;
 
     uint32 GenerateCreatureSpawnID()
     {
@@ -517,35 +345,10 @@ public:
     void AddArenaTeam(ArenaTeam * team);
     Mutex m_arenaTeamLock;
 
-    typedef RONIN_UNORDERED_MAP<uint32, NpcMonsterSay*> MonsterSayMap;
-    MonsterSayMap mMonsterSays[NUM_MONSTER_SAY_EVENTS];
-
-    void HandleMonsterSayEvent(Creature* pCreature, MONSTER_SAY_EVENTS Event);
-    bool HasMonsterSay(uint32 Entry, MONSTER_SAY_EVENTS Event);
-    void LoadMonsterSay();
-
-    bool HandleInstanceReputationModifiers(Player* pPlayer, Unit* pVictim);
-    void LoadInstanceReputationModifiers();
-
-    RONIN_INLINE bool IsSpellDisabled(uint32 spellid)
-    {
-        if(m_disabled_spells.find(spellid) != m_disabled_spells.end())
-            return true;
-        return false;
-    }
-
-    void LoadDisabledSpells();
-    void ReloadDisabledSpells();
-    std::set<ProfessionDiscovery*> ProfessionDiscoveryTable;
     std::map<uint32, uint32> ItemsInSets;
 
     void HashWMOAreaTables();
     WMOAreaTableEntry* GetWMOAreaTable(int32 adtid, int32 rootid, int32 groupid);
-
-    RecallLocation *GetRecallLocByName(std::string name);
-    bool AddRecallLocation(std::string name, uint32 mapId, float x, float y, float z, float o);
-    bool FillRecallNames(std::string match, std::set<RecallLocation*> &output);
-    bool DeleteRecallLocation(std::string name);
 
 protected:
     WMOAreaTableMap WMOAreaTables;
@@ -557,17 +360,10 @@ protected:
     uint32 m_hiItemGuid;
     uint32 m_hiGroupId;
 
-    ReputationModMap m_reputation_faction;
-    ReputationModMap m_reputation_creature;
-    RONIN_UNORDERED_MAP<uint32, InstanceReputationModifier*> m_reputation_instance;
-
-    std::set<uint32> m_disabled_spells;
-
     uint64 TransportersCount;
     RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
 
-    RONIN_UNORDERED_MAP<uint32,WayPointMap*> m_waypoints;//stored by spawnid
     uint32 m_hiCreatureSpawnId;
 
     Mutex m_CreatureSpawnIdMutex;
@@ -588,9 +384,6 @@ protected:
     // Map of all vendor goods
     VendorMap mVendors;
 
-    // Maps for Gossip stuff
-    NpcToGossipTextMap  mNpcToGossipText;
-
     SLMap               mSpellSkills;
 
     //Corpse Collector
@@ -599,10 +392,6 @@ protected:
     TransportMap mTransports;
 
     ItemSetContentMap mItemSets;
-
-    TrainerMap mTrainers;
-    PetSpellCooldownMap mPetSpellCooldowns;
-    PetLevelupSpellMap  mPetLevelupSpellMap;
 };
 
 

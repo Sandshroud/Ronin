@@ -29,23 +29,6 @@ public:
     void SendCurrentMove(Player* plyr/*uint64 guid*/);
     void StopMovement(uint32 time, bool stopatcurrent = true);
 
-    void changeWayPointID(uint32 oldwpid, uint32 newwpid);
-
-    RONIN_INLINE void setWaypointToMove(uint32 id) { m_CurrentWayPoint = id; }
-    RONIN_INLINE uint32 getCurrentWaypoint() { return m_CurrentWayPoint; }
-
-    bool saveWayPoints();
-    bool addWayPoint(WayPoint* wp);
-    bool hideWayPoints(Player* pPlayer);
-    bool showWayPoints(Player* pPlayer, bool Backwards);
-
-    RONIN_INLINE void SetWaypointMap(WayPointMap * m) { m_waypoints = m; }
-
-    WayPoint* getWayPoint(uint32 wpid);
-
-    void deleteAllWaypoints();
-    void deleteWayPoint(uint32 wpid);
-
     void HandleEvade();
     void EventEnterCombat(uint32 misc1);
     void _CalcDestinationAndMove( Unit* target, float dist);
@@ -80,7 +63,6 @@ public:
     RONIN_INLINE Unit* getBackupUnitToFollow() { return UnitToFollow_backup; }
 
     RONIN_INLINE void AddStopTime(uint32 Time) { m_moveTimer += Time; }
-    RONIN_INLINE bool hasWaypoints() { return m_waypoints != NULL; }
 
     RONIN_INLINE void setMoveType(uint32 m) { m_moveType = m; }
     RONIN_INLINE uint32 getMoveType() { return m_moveType; }
@@ -102,11 +84,6 @@ public:
 
     RONIN_INLINE void setWanderTimer(uint32 time) { m_WanderTimer = time; }
     RONIN_INLINE uint32 getWanderTimer() { return m_WanderTimer; }
-
-    RONIN_INLINE bool WayPointsShowing() { return m_WayPointsShowing; };
-    RONIN_INLINE void SetWayPointsShowing(bool s) { m_WayPointsShowing = s; };
-    RONIN_INLINE bool WayPointsShowingBackwards() { return m_WayPointsShowBackwards; };
-    RONIN_INLINE void SetWayPointsShowingBackwards(bool bs) { m_WayPointsShowBackwards = bs; };
 
     RONIN_INLINE void ClearFollowInformation(Unit* m_un = NULL)
     {
@@ -201,21 +178,8 @@ private:
     bool m_moveJump;
     bool m_moveSprint;
     bool m_moveBackward;
-    bool m_WayPointsShowing;
-    bool m_WayPointsShowBackwards;
 
     float FollowDistance, FollowDistance_backup, m_FollowAngle;
-
-    // Waypoint
-    uint32 m_CurrentWayPoint;
-    WayPointMap *m_waypoints;
-    uint32 GetWayPointsCount()
-    {
-        if(m_waypoints)
-            return uint32(m_waypoints->size());
-        else
-            return 0;
-    }
 
     // Formation
     uint32 m_FormationLinkSqlId;

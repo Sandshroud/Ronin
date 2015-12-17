@@ -34,8 +34,6 @@ ChatCommand * CommandTableStorage::GetSubCommandTable(const char * name)
         return _modifyCommandTable;
     else if(!stricmp(name, "debug"))
         return _debugCommandTable;
-    else if(!stricmp(name, "waypoint"))
-        return _waypointCommandTable;
     else if(!stricmp(name, "ticket"))
         return _GMTicketCommandTable;
     else if(!stricmp(name, "gobject"))
@@ -58,8 +56,6 @@ ChatCommand * CommandTableStorage::GetSubCommandTable(const char * name)
         return _accountCommandTable;
     else if(!stricmp(name, "pet"))
         return _petCommandTable;
-    else if(!stricmp(name, "recall"))
-        return _recallCommandTable;
     else if(!stricmp(name, "honor"))
         return _honorCommandTable;
     else if(!stricmp(name, "guild"))
@@ -87,7 +83,6 @@ void CommandTableStorage::Dealloc()
 {
     free( _modifyCommandTable );
     free( _debugCommandTable );
-    free( _waypointCommandTable );
     free( _GMTicketCommandTable );
     free( _GameObjectCommandTable );
     free( _BattlegroundCommandTable );
@@ -99,7 +94,6 @@ void CommandTableStorage::Dealloc()
     free( _CheatCommandTable );
     free( _accountCommandTable );
     free( _petCommandTable );
-    free( _recallCommandTable );
     free( _honorCommandTable );
     free( _GuildCommandTable);
     free( _TitleCommandTable);
@@ -175,34 +169,6 @@ void CommandTableStorage::Init()
         { NULL,                         COMMAND_LEVEL_0, NULL,                                                      "",                                                                                                                     NULL, 0, 0, 0 }
     };
     dupe_command_table(debugCommandTable, _debugCommandTable);
-
-    static ChatCommand waypointCommandTable[] =
-    {
-        { "add",                    COMMAND_LEVEL_W, &ChatHandler::HandleWPAddCommand,                  "Add wp at current pos",                                NULL, 0, 0, 0 },
-        { "show",                   COMMAND_LEVEL_W, &ChatHandler::HandleWPShowCommand,                 "Show wp's for creature",                               NULL, 0, 0, 0 },
-        { "hide",                   COMMAND_LEVEL_W, &ChatHandler::HandleWPHideCommand,                 "Hide wp's for creature",                               NULL, 0, 0, 0 },
-        { "delete",                 COMMAND_LEVEL_W, &ChatHandler::HandleWPDeleteCommand,               "Delete selected wp",                                   NULL, 0, 0, 0 },
-        { "movehere",               COMMAND_LEVEL_W, &ChatHandler::HandleWPMoveHereCommand,             "Move to this wp",                                      NULL, 0, 0, 0 },
-        { "flags",                  COMMAND_LEVEL_W, &ChatHandler::HandleWPFlagsCommand,                "Wp flags",                                             NULL, 0, 0, 0 },
-        { "waittime",               COMMAND_LEVEL_W, &ChatHandler::HandleWPWaitCommand,                 "Wait time at this wp",                                 NULL, 0, 0, 0 },
-        { "standstate",             COMMAND_LEVEL_W, &ChatHandler::HandleWPStandStateCommand,           "StandState at this wp <direction><standstate0-8)",     NULL, 0, 0, 0 },
-        { "SpellToCast",            COMMAND_LEVEL_W, &ChatHandler::HandleWPSpellToCastCommand,          "Spell to cast at this wp <direction><spell_id>",       NULL, 0, 0, 0 },
-        { "emote",                  COMMAND_LEVEL_W, &ChatHandler::HandleWPEmoteCommand,                "Emote at this wp",                                     NULL, 0, 0, 0 },
-        { "skin",                   COMMAND_LEVEL_W, &ChatHandler::HandleWPSkinCommand,                 "Skin at this wp",                                      NULL, 0, 0, 0 },
-        { "change",                 COMMAND_LEVEL_W, &ChatHandler::HandleWPChangeNoCommand,             "Change at this wp",                                    NULL, 0, 0, 0 },
-        { "info",                   COMMAND_LEVEL_W, &ChatHandler::HandleWPInfoCommand,                 "Show info for wp",                                     NULL, 0, 0, 0 },
-        { "movetype",               COMMAND_LEVEL_W, &ChatHandler::HandleWPMoveTypeCommand,             "Movement type at wp",                                  NULL, 0, 0, 0 },
-        { "generate",               COMMAND_LEVEL_W, &ChatHandler::HandleGenerateWaypoints,             "Randomly generate wps",                                NULL, 0, 0, 0 },
-        { "saveall",                COMMAND_LEVEL_W, &ChatHandler::HandleSaveWaypoints,                 "Save all waypoints",                                   NULL, 0, 0, 0 },
-        { "deleteall",              COMMAND_LEVEL_W, &ChatHandler::HandleDeleteWaypoints,               "Delete all waypoints",                                 NULL, 0, 0, 0 },
-        { "addfly",                 COMMAND_LEVEL_W, &ChatHandler::HandleWaypointAddFlyCommand,         "Adds a flying waypoint",                               NULL, 0, 0, 0 },
-        { "gettext",                COMMAND_LEVEL_W, &ChatHandler::HandleWaypointGettextCommand,        "Shows saytext for current waypoint.",                  NULL, 0, 0, 0 },
-        { "backwardtext",           COMMAND_LEVEL_W, &ChatHandler::HandleWaypointBackwardTextCommand,   "Adds backward text to current waypoint <SayText>",     NULL, 0, 0, 0 },
-        { "forwardtext",            COMMAND_LEVEL_W, &ChatHandler::HandleWaypointForwardTextCommand,    "Adds forward text to current waypoint <SayText>",      NULL, 0, 0, 0 },
-        { "orient",                 COMMAND_LEVEL_W, &ChatHandler::HandleWaypointSetOrientationCommand, "Adds forward text to current waypoint <SayText>",      NULL, 0, 0, 0 },
-        { NULL,                     COMMAND_LEVEL_0, NULL,                                              "",                                                     NULL, 0, 0, 0 }
-    };
-    dupe_command_table(waypointCommandTable, _waypointCommandTable);
 
     static ChatCommand GMTicketCommandTable[] =
     {
@@ -284,8 +250,6 @@ void CommandTableStorage::Init()
         { "vendorsetremove",        COMMAND_LEVEL_Z, &ChatHandler::HandleItemSetRemoveCommand,      "Removes item set from vendor",                                                                                                                 NULL, 0, 0, 0 },
         { "vendoradditem",          COMMAND_LEVEL_Z, &ChatHandler::HandleItemCommand,               "Adds to vendor",                                                                                                                               NULL, 0, 0, 0 },
         { "vendorremoveitem",       COMMAND_LEVEL_Z, &ChatHandler::HandleItemRemoveCommand,         "Removes from vendor.",                                                                                                                         NULL, 0, 0, 0 },
-        { "traineraddlearn",        COMMAND_LEVEL_Z, &ChatHandler::HandleTrainerAddLearnSpell,      "Adds a spell that is learned to the player. req:<spellid> option:<spellcost><reqspell><reqskill><reqskillval><reqlvl><deletespell><isprof>",   NULL, 0, 0, 0 },
-        { "traineraddcast",         COMMAND_LEVEL_Z, &ChatHandler::HandleTrainerAddCastSpell,       "Adds a spell that is cast on the player. req:<spellid> option:<spellcost><reqspell><reqskill><reqskillval><reqlvl><deletespell><isprof>",      NULL, 0, 0, 0 },
         { "flags",                  COMMAND_LEVEL_N, &ChatHandler::HandleNPCFlagCommand,            "Changes NPC flags",                                                                                                                            NULL, 0, 0, 0 },
         { "emote",                  COMMAND_LEVEL_N, &ChatHandler::HandleEmoteCommand,              ".emote - Sets emote state",                                                                                                                    NULL, 0, 0, 0 },
         { "setstandstate",          COMMAND_LEVEL_N, &ChatHandler::HandleStandStateCommand,         ".setstandstate - Sets stand state",                                                                                                            NULL, 0, 0, 0 },
@@ -301,7 +265,6 @@ void CommandTableStorage::Init()
         { "spawnlink",              COMMAND_LEVEL_N, &ChatHandler::HandleNpcSpawnLinkCommand,       ".spawnlink sqlentry",                                                                                                                          NULL, 0, 0, 0 },
         { "possess",                COMMAND_LEVEL_N, &ChatHandler::HandleNpcPossessCommand,         ".npc possess - Possess an npc (mind control)",                                                                                                 NULL, 0, 0, 0 },
         { "unpossess",              COMMAND_LEVEL_N, &ChatHandler::HandleNpcUnPossessCommand,       ".npc unpossess - Unposses any currently possessed npc.",                                                                                       NULL, 0, 0, 0 },
-        { "select",                 COMMAND_LEVEL_N, &ChatHandler::HandleNpcSelectCommand,          ".npc select - selects npc closest",                                                                                                            NULL, 0, 0, 0 },
         { "cast",                   COMMAND_LEVEL_D, &ChatHandler::HandleMonsterCastCommand,        ".npc cast <spellId> - Makes selected mob cast the specified spell on you.",                                                                    NULL, 0, 0, 0 },
         { "equip",                  COMMAND_LEVEL_A, &ChatHandler::HandleNPCEquipCommand,           "Use: .npc equip <slot> <itemid> - use .npc equip <slot> 0 to remove the item",                                                                 NULL, 0, 0, 0 },
         { "setongameobject",        COMMAND_LEVEL_A, &ChatHandler::HandleNPCSetOnObjectCommand,     "Updates spawn information so that the creature does not fall through objects when spawning into world.",                                       NULL, 0, 0, 0 },
@@ -399,17 +362,6 @@ void CommandTableStorage::Init()
     };
     dupe_command_table(petCommandTable, _petCommandTable);
 
-    static ChatCommand recallCommandTable[] =
-    {
-        { "list",                   COMMAND_LEVEL_Q, &ChatHandler::HandleRecallListCommand,         "List recall locations [filter].",  NULL, 0, 0, 0 },
-        { "port",                   COMMAND_LEVEL_Q, &ChatHandler::HandleRecallGoCommand,           "Port to recalled location",        NULL, 0, 0, 0 },
-        { "add",                    COMMAND_LEVEL_Q, &ChatHandler::HandleRecallAddCommand,          "Add recall location",              NULL, 0, 0, 0 },
-        { "del",                    COMMAND_LEVEL_Q, &ChatHandler::HandleRecallDelCommand,          "Remove a recall location",         NULL, 0, 0, 0 },
-        { "portplayer",             COMMAND_LEVEL_M, &ChatHandler::HandleRecallPortPlayerCommand,   "recall ports player",              NULL, 0, 0, 0 },
-        { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                 NULL, 0, 0, 0 },
-    };
-    dupe_command_table(recallCommandTable, _recallCommandTable);
-
     static ChatCommand lookupCommandTable[] =
     {
         { "item",                   COMMAND_LEVEL_L, &ChatHandler::HandleLookupItemCommand,         "Looks up item string x.",                  NULL, 0, 0, 0 },
@@ -501,7 +453,6 @@ void CommandTableStorage::Init()
         { "playerinfo",             COMMAND_LEVEL_M, &ChatHandler::HandlePlayerInfo,                                ".playerinfo - Displays informations about the selected character (account...)", NULL, 0, 0, 0 },
 
         { "modify",                 COMMAND_LEVEL_M, NULL,                                                          "",                 modifyCommandTable, 0, 0, 0 },
-        { "waypoint",               COMMAND_LEVEL_W, NULL,                                                          "",                 waypointCommandTable, 0, 0, 0 },
         { "debug",                  COMMAND_LEVEL_D, NULL,                                                          "",                 debugCommandTable, 0, 0, 0 },
         { "gobject",                COMMAND_LEVEL_O, NULL,                                                          "",                 GameObjectCommandTable, 0, 0, 0 },
         { "battleground",           COMMAND_LEVEL_E, NULL,                                                          "",                 BattlegroundCommandTable, 0, 0, 0 },
@@ -515,20 +466,17 @@ void CommandTableStorage::Init()
         { "honor",                  COMMAND_LEVEL_M, NULL,                                                          "",                 honorCommandTable, 0, 0, 0 },
         { "quest",                  COMMAND_LEVEL_Q, NULL,                                                          "",                 questCommandTable, 0, 0, 0 },
         { "pet",                    COMMAND_LEVEL_M, NULL,                                                          "",                 petCommandTable, 0, 0, 0 },
-        { "recall",                 COMMAND_LEVEL_Q, NULL,                                                          "",                 recallCommandTable, 0, 0, 0 },
         { "guild",                  COMMAND_LEVEL_M, NULL,                                                          "",                 GuildCommandTable, 0, 0, 0 },
         { "title",                  COMMAND_LEVEL_M, NULL,                                                          "",                 TitleCommandTable, 0, 0, 0 },
         { "lookup",                 COMMAND_LEVEL_0, NULL,                                                          "",                 lookupCommandTable, 0, 0, 0 },
         { "faction",                COMMAND_LEVEL_0, NULL,                                                          "",                 FactionCommandTable, 0, 0, 0 },
 
-        { "teleport",               COMMAND_LEVEL_Q, &ChatHandler::HandleRecallGoCommand,                           "Port to recalled location",        NULL, 0, 0, 0 },
         { "getpos",                 COMMAND_LEVEL_D, &ChatHandler::HandleGetPosCommand,                             "",                 NULL, 0, 0, 0 },
         { "clearcooldowns",         COMMAND_LEVEL_M, &ChatHandler::HandleClearCooldownsCommand,                     "Clears all cooldowns for your class.", NULL, 0, 0, 0 },
         { "removeauras",            COMMAND_LEVEL_M, &ChatHandler::HandleRemoveAurasCommand,                        "Removes all auras from target",    NULL, 0, 0, 0 },
         { "paralyze",               COMMAND_LEVEL_B, &ChatHandler::HandleParalyzeCommand,                           "Roots/Paralyzes the target.",  NULL, 0, 0, 0 },
         { "unparalyze",             COMMAND_LEVEL_B, &ChatHandler::HandleUnParalyzeCommand,                         "Unroots/Unparalyzes the target.",NULL, 0, 0, 0 },
         { "setmotd",                COMMAND_LEVEL_M, &ChatHandler::HandleSetMotdCommand,                            "Sets MOTD",        NULL, 0, 0, 0 },
-        { "gotrig",                 COMMAND_LEVEL_V, &ChatHandler::HandleTriggerCommand,                            "Warps to areatrigger <id>",        NULL, 0, 0, 0 },
         { "reloadtable",            COMMAND_LEVEL_M, &ChatHandler::HandleDBReloadCommand,                           "Reloads some of the database tables", NULL, 0, 0, 0 },
         { "advanceallskills",       COMMAND_LEVEL_M, &ChatHandler::HandleAdvanceAllSkillsCommand,                   "Advances all skills <x> points.", NULL, 0, 0, 0 },
         { "killbyplayer",           COMMAND_LEVEL_F, &ChatHandler::HandleKillByPlayerCommand,                       "Disconnects the player with name <s>.", NULL, 0, 0, 0 },

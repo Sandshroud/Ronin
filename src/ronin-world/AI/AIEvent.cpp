@@ -25,14 +25,6 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     if( pUnit == NULL )
         return;
 
-    /* send the message */
-    if( m_Unit->IsCreature() )
-    {
-        Creature* cr = castPtr<Creature>(m_Unit);
-        if( cr->has_combat_text )
-            objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ENTER_COMBAT );
-    }
-
     // Stop the emote
     m_Unit->SetUInt32Value(UNIT_NPC_EMOTESTATE, GetWeaponEmoteType(false));
 
@@ -97,9 +89,6 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
         //cancel spells that we are casting. Should remove bug where creatures cast a spell after they died
         CancelSpellCast();
         cr->SetSheatheForAttackType(0); // sheathe your weapons!
-
-        if( cr->has_combat_text )
-            objmgr.HandleMonsterSayEvent( cr, MONSTER_SAY_EVENT_ON_COMBAT_STOP );
     }
 
     //reset ProcCount
@@ -165,9 +154,6 @@ void AIInterface::EventDamageTaken(Unit* pUnit, uint32 misc1)
 {
     if( pUnit == NULL )
         return;
-
-    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->has_combat_text )
-        objmgr.HandleMonsterSayEvent( castPtr<Creature>( m_Unit ), MONSTER_SAY_EVENT_ON_DAMAGE_TAKEN );
 
     pUnit->RemoveAura(24575);
 
@@ -270,9 +256,6 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
 {
     if( m_Unit->IsCreature() )
     {
-        if( castPtr<Creature>(m_Unit)->has_combat_text )
-            objmgr.HandleMonsterSayEvent( castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_ON_DIED );
-
         ClearFollowInformation();
     }
 
@@ -291,9 +274,6 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
     m_CastNext = NULL;
     m_Unit->Dismount();
     SetNextTarget(NULL);
-
-    //reset waypoint to 1
-    setWaypointToMove(1);
 
     // There isn't any need to do any attacker checks here, as
     // they should all be taken care of in DealDamage
@@ -316,12 +296,7 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
 
 void AIInterface::EventUnitRespawn(Unit* /*pUnit*/, uint32 misc1)
 {
-    /* send the message */
-    if( m_Unit->IsCreature() )
-    {
-        if( castPtr<Creature>(m_Unit)->has_combat_text )
-            objmgr.HandleMonsterSayEvent(castPtr<Creature>(m_Unit), MONSTER_SAY_EVENT_ON_SPAWN );
-    }
+
 }
 
 void AIInterface::EventHostileAction(Unit* /*pUnit*/, uint32 misc1)

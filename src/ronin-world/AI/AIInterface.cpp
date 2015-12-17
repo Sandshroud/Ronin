@@ -45,10 +45,8 @@ AIInterface::AIInterface()
     disable_targeting = false;
 
     waiting_for_cooldown = false;
-    m_isGuard = false;
     m_is_in_instance = false;
     skip_reset_hp = false;
-    m_guardCallTimer = 0;
 
     m_aiTargets.clear();
     m_spells.clear();
@@ -76,17 +74,8 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt)
     m_AIType = at;
     m_AIState = STATE_IDLE;
 
-    if(isTargetDummy(un->GetEntry()))
-    {
-        m_AIType = AITYPE_DUMMY;
-        disable_targeting = true;
-        un->GetMovementInterface()->setRooted(true);
-    }
-
     if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
         disable_targeting = true;
-
-    m_guardTimer = getMSTime();
 
     MovementHandler.Initialize(this, un, mt);
 }
@@ -100,13 +89,6 @@ void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
     m_AIType = at;
     m_PetOwner = owner;
     m_AIState = STATE_IDLE;
-
-    if(isTargetDummy(un->GetEntry()))
-    {
-        m_AIType = AITYPE_DUMMY;
-        disable_targeting = true;
-        un->GetMovementInterface()->setRooted(true);
-    }
 
     if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
         disable_targeting = true;
@@ -372,10 +354,6 @@ bool AIInterface::FindFriends(float dist)
         }
     }
 
-    // check if we're a civillan, in which case summon guards on a despawn timer
-    if(castPtr<Creature>(m_Unit)->isCivilian())
-        CallGuards();
-
     if(result)
     {
         ai_TargetLock.Acquire();
@@ -431,173 +409,6 @@ void AIInterface::ResetProcCounts(bool all)
             itr->second->procCounter = 0;
         }
     }
-}
-
-void AIInterface::CallGuards()
-{
-    ASSERT(m_Unit != NULL);
-    if(!m_Unit->IsCreature())
-        return;
-
-    Creature* m_Creature = castPtr<Creature>(m_Unit);
-    if( m_Creature->isDead() || !m_Creature->isAlive() || m_Creature->GetInRangePlayerCount() == 0 || m_Creature->GetMapMgr() == NULL || m_Creature->m_isGuard )
-        return;
-
-    if( getMSTime() > m_guardTimer && !IS_INSTANCE(m_Unit->GetMapId()) )
-    {
-        m_guardTimer = getMSTime() + 15000;
-        uint16 AreaId = m_Creature->GetAreaId();
-        AreaTableEntry * at = dbcAreaTable.LookupEntry(AreaId);
-        if(at == NULL)
-            return;
-
-        ZoneGuardEntry * zoneSpawn = ZoneGuardStorage.LookupEntry(at->ZoneId);
-        if(zoneSpawn == NULL)
-            return;
-
-        uint32 team = sFactionSystem.isAlliance(m_Unit) ? 0 : 1; // Set team
-        uint32 guardId = team ? (zoneSpawn->HordeEntry ? zoneSpawn->HordeEntry : 3296) : (zoneSpawn->AllianceEntry ? zoneSpawn->AllianceEntry : 68);
-        CreatureData * ctrData = sCreatureDataMgr.GetCreatureData( guardId );
-        if(ctrData == NULL || m_Unit->GetEntry() == guardId)
-            return; // Do not let guards spawn themselves.
-
-        float x = m_Unit->GetPositionX() + (float((rand() % 150) + 100) / 1000.0f );
-        float y = m_Unit->GetPositionY() + (float((rand() % 150) + 100) / 1000.0f );
-        float z = m_Unit->GetCHeightForPosition();
-
-        // "Guards!"
-        m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, team ? LANG_ORCISH : LANG_COMMON, "Guards!");
-
-        uint8 spawned = 0;
-        for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangePlayerSetBegin(); itr != m_Unit->GetInRangePlayerSetEnd(); ++itr)
-        {
-            Player *plr = m_Unit->GetInRangeObject<Player>(*itr);
-            if(!sFactionSystem.CanEitherUnitAttack(plr, m_Unit))
-                continue;
-
-            Creature* guard = m_Unit->GetMapMgr()->CreateCreature(guardId);
-            if(guard == NULL)
-                continue;
-
-            guard->Load(m_Unit->GetMapId(), x, y, z, 0.f, m_Unit->GetMapMgr()->iInstanceMode);
-            guard->SetInstanceID(m_Unit->GetInstanceID());
-            guard->SetZoneId(m_Unit->GetZoneId());
-            guard->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP); /* shitty DBs */
-            guard->m_noRespawn = guard->m_isGuard = true;
-            if(!guard->CanAddToWorld())
-            {
-                guard->SafeDelete();
-                return;
-            }
-
-            uint32 t = spawned ? 0 : RandomUInt(8)*1000;
-            if( t == 0 )
-                guard->PushToWorld(m_Unit->GetMapMgr());
-            else sInstanceMgr.PushToWorldQueue(guard); // Todo: delayed pushes
-
-            //despawn after 5 minutes.
-            sEventMgr.AddEvent(guard, &Creature::SafeDelete, EVENT_CREATURE_SAFE_DELETE, 60*5*1000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            //Start patrolling if nothing else to do.
-            sEventMgr.AddEvent(guard, &Creature::SetGuardWaypoints, EVENT_UNK, 10000, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-
-            if(++spawned == 3)
-                break;
-        }
-    }
-}
-
-bool isGuard(uint32 id)
-{
-    switch(id)
-    {
-        /* stormwind guards */
-    case 68:
-    case 1423:
-    case 1756:
-    case 15858:
-    case 15859:
-    case 16864:
-    case 20556:
-    case 18948:
-    case 18949:
-    case 1642:
-        /* ogrimmar guards */
-    case 3296:
-    case 15852:
-    case 15853:
-    case 15854:
-    case 18950:
-        /* undercity guards */
-    case 5624:
-    case 18971:
-    case 16432:
-        /* exodar */
-    case 16733:
-    case 18815:
-        /* thunder bluff */
-    case 3084:
-        /* silvermoon */
-    case 16221:
-    case 17029:
-    case 16222:
-        /* ironforge */
-    case 727:
-    case 5595:
-    case 12996:
-        /* darnassus? */
-        {
-            return true;
-        }break;
-    }
-    return false;
-}
-
-bool isTargetDummy(uint32 id)
-{
-    switch(id)
-    {
-    case 1921:
-    case 2673:
-    case 2674:
-    case 4952:
-    case 5202:
-    case 5652:
-    case 5723:
-    case 11875:
-    case 12385:
-    case 12426:
-    case 16211:
-    case 16897:
-    case 17059:
-    case 17060:
-    case 17578:
-    case 18215:
-    case 18504:
-    case 19139:
-    case 21157:
-    case 24792:
-    case 25225:
-    case 25297:
-    case 30527:
-    case 31143:
-    case 31144:
-    case 31146:
-    case 32541:
-    case 32542:
-    case 32543:
-    case 32545:
-    case 32546:
-    case 32547:
-    case 32666:
-    case 32667:
-    case 33272:
-    case 33243:
-    case 33229:
-        {
-            return true;
-        }break;
-    }
-    return false;
 }
 
 void AIInterface::WipeCurrentTarget()

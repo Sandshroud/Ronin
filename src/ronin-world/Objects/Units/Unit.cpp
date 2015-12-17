@@ -1439,7 +1439,7 @@ bool Unit::isCasting()
 
 bool Unit::IsInInstance()
 {
-    MapInfo *pUMapinfo = LimitedMapInfoStorage.LookupEntry(GetMapId());
+    MapInfo *pUMapinfo = WorldMapInfoStorage.LookupEntry(GetMapId());
     return (pUMapinfo == NULL ? false : (pUMapinfo->type != INSTANCE_NULL && pUMapinfo->type != INSTANCE_PVP));
 }
 
@@ -2948,22 +2948,6 @@ void Unit::EmoteExpire()
 {
     SetUInt32Value(UNIT_NPC_EMOTESTATE, m_oldEmote);
     sEventMgr.RemoveEvents(this, EVENT_UNIT_EMOTE);
-}
-
-void Unit::MoveToWaypoint(uint32 wp_id)
-{
-    AIInterface *ai = GetAIInterface();
-    WayPoint *wp = ai->getWayPoint(wp_id);
-    if(!wp)
-    {
-        sLog.outDebug("Database: Invalid WP %u specified for spawnid %u.", wp_id, castPtr<Creature>(this)->GetSQL_id());
-        return;
-    }
-
-    ai->setWaypointToMove(wp_id);
-    if(wp->flags!=0)
-        ai->setMoveRunFlag(true);
-    ai->MoveTo(wp->x, wp->y, wp->z, wp->orientation);
 }
 
 // grep: Remove any AA spells that aren't owned by this player.

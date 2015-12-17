@@ -656,9 +656,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 
     m_timer = m_castTime;
 
-    if(objmgr.IsSpellDisabled(GetSpellProto()->Id))//if it's disabled it will not be casted, even if it's triggered.
-        cancastresult = uint8(m_triggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_SPELL_UNAVAILABLE);
-    else if( m_triggeredSpell || ProcedOnSpell != NULL)
+    if( m_triggeredSpell || ProcedOnSpell != NULL)
         cancastresult = SPELL_CANCAST_OK;
     else cancastresult = CanCast(false);
     ccr = cancastresult;
@@ -803,9 +801,7 @@ void Spell::cast(bool check)
     // Set the base ms time to now
     m_MSTimeToAddToTravel = getMSTime();
 
-    if(objmgr.IsSpellDisabled(GetSpellProto()->Id))//if it's disabled it will not be casted, even if it's triggered.
-        cancastresult = uint8(m_triggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_SPELL_UNAVAILABLE);
-    else cancastresult = check ? CanCast(true) : SPELL_CANCAST_OK;
+    cancastresult = check ? CanCast(true) : SPELL_CANCAST_OK;
 
     if(cancastresult == SPELL_CANCAST_OK)
     {
@@ -1626,9 +1622,6 @@ bool Spell::IsBinary(SpellEntry * sp)
 
 uint8 Spell::CanCast(bool tolerate)
 {
-    if(objmgr.IsSpellDisabled(GetSpellProto()->Id))
-        return SPELL_FAILED_SPELL_UNAVAILABLE;
-
     if( castPtr<Unit>(m_caster) && castPtr<Unit>(m_caster)->GetCurrentSpell() != NULL && castPtr<Unit>(m_caster)->GetCurrentSpell() != this )
         return SPELL_FAILED_SPELL_IN_PROGRESS;
 
@@ -1645,24 +1638,8 @@ uint8 Spell::CanCast(bool tolerate)
 
     if(m_caster->IsInWorld())
     {
-        Unit *target = m_caster->GetMapMgr()->GetUnit( m_targets.m_unitTarget );
-        if( target )
+        if( Unit *target = m_caster->GetMapMgr()->GetUnit( m_targets.m_unitTarget ) )
         {
-            if(target->IsCreature())
-            {
-                Creature* cTarget = castPtr<Creature>(target);
-                if(isTargetDummy(cTarget->GetEntry()))
-                {
-                    switch(m_spellInfo->Id)
-                    {
-                    case 49576:
-                        {
-                            return SPELL_FAILED_BAD_TARGETS;
-                        }break;
-                    }
-                }
-            }
-
             if( GetSpellProto()->Id == 48788 && target->GetHealthPct() == 100)
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
 

@@ -447,28 +447,14 @@ void GameObject::UseFishingNode(Player* player)
         return;
     }
 
-    FishingZoneEntry *entry = FishingZoneStorage.LookupEntry( GetAreaId() );
-    if( entry == NULL ) // No fishing information found for area, log an error
-    {
-        entry = FishingZoneStorage.LookupEntry( GetZoneId() );
-        if( entry == NULL ) // No fishing information found for area, log an error
-        {
-            sLog.outDebug( "ERROR: Fishing zone information for zone %d not found!", GetZoneId() );
-            EndFishing( player, true );
-            return;
-        }
-    }
-
-    uint32 maxskill = entry->MaxSkill;
-    uint32 minskill = entry->MinSkill;
-
+    uint32 minskill = 0, maxskill = 500;
     if( player->_GetSkillLineCurrent( SKILL_FISHING, false ) < maxskill )
         player->_AdvanceSkillLine( SKILL_FISHING, float2int32( 1.0f * sWorld.getRate( RATE_SKILLRATE ) ) );
 
     // Open loot on success, otherwise FISH_ESCAPED.
     if( Rand(((player->_GetSkillLineCurrent( SKILL_FISHING, true ) - minskill) * 100) / maxskill) )
     {
-        lootmgr.FillFishingLoot( GetLoot(), entry->ZoneID );
+        lootmgr.FillFishingLoot( GetLoot(), GetZoneId() );
         player->SendLoot( GetGUID(), GetMapId(), LOOT_FISHING );
         EndFishing( player, false );
     }

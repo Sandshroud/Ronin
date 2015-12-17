@@ -36,7 +36,7 @@ void InstanceMgr::Load(TaskList * l)
         m_InstanceHigh = 1;
 
     // create maps for any we don't have yet.
-    StorageContainerIterator<MapInfo> * itr = LimitedMapInfoStorage.MakeIterator();
+    StorageContainerIterator<MapInfo> * itr = WorldMapInfoStorage.MakeIterator();
     while(!itr->AtEnd())
     {
         MapInfo* mapinfo = itr->Get();
@@ -132,7 +132,7 @@ void InstanceMgr::Shutdown()
 uint32 InstanceMgr::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
 {
     // preteleport is where all the magic happens :P instance creation, etc.
-    MapInfo * inf = LimitedMapInfoStorage.LookupEntry(mapid);
+    MapInfo * inf = WorldMapInfoStorage.LookupEntry(mapid);
     MapEntry* map = dbcMap.LookupEntry(mapid);
     InstanceMap * instancemap;
     Instance * in = NULL;
@@ -606,7 +606,7 @@ MapMgr* InstanceMgr::GetInstance(uint32 MapId, uint32 InstanceId)
 MapMgr* InstanceMgr::_CreateInstance(uint32 mapid, uint32 instanceid)
 {
     MapInfo* inf = WorldMapInfoStorage.LookupEntry(mapid);
-    ASSERT(inf != NULL && inf->type == INSTANCE_NULL && inf->load);
+    ASSERT(inf != NULL && inf->type == INSTANCE_NULL);
     ASSERT(mapid < NUM_MAPS && m_maps[mapid] != NULL);
 
     MapMgr* ret(new MapMgr(m_maps[mapid], mapid, instanceid));
@@ -715,7 +715,7 @@ uint32 InstanceMgr::GenerateInstanceID()
 void BuildStats(MapMgr* mgr, char * m_file, Instance * inst, MapInfo * inf)
 {
     MapEntry *me = dbcMap.LookupEntry(inf->mapid);
-    if (me == NULL || !inf->load) // Crow: dunno if we need the !load part
+    if (me == NULL)
         return;
 
     char tmp[200];
@@ -938,13 +938,13 @@ void InstanceMgr::ResetSavedInstances(Player* plr)
 
                     if(plr->GetGroup() != NULL && plr->GetGroup()->GetLeader() != plr->m_playerInfo)
                     {
-                        plr->GetSession()->SystemMessage("Can't reset instance %u (%s), you are not the group leader!", in->m_instanceId, in->m_mapMgr->GetMapInfo()->name);
+                        plr->GetSession()->SystemMessage("Can't reset instance %u (%s), you are not the group leader!", in->m_instanceId, in->m_mapMgr->GetMapInfo()->mapName);
                         continue;
                     }
 
                     if(in->m_mapMgr && in->m_mapMgr->HasPlayers())
                     {
-                        plr->GetSession()->SystemMessage("Can't reset instance %u (%s) when there are still players inside!", in->m_instanceId, in->m_mapMgr->GetMapInfo()->name);
+                        plr->GetSession()->SystemMessage("Can't reset instance %u (%s) when there are still players inside!", in->m_instanceId, in->m_mapMgr->GetMapInfo()->mapName);
                         continue;
                     }
 

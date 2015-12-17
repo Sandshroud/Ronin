@@ -168,7 +168,7 @@ struct PetSpellCooldown
 };
 
 class AuctionHouse;
-struct Trainer;
+
 #define TRIGGER_AI_EVENT(obj, func)
 
 ///////////////////
@@ -395,11 +395,9 @@ public:
     RONIN_INLINE CreatureSpawn *GetSpawn() { return m_spawn; }
     RONIN_INLINE CreatureData *GetCreatureData() { return _creatureData; }
     RONIN_INLINE CreatureInfoExtra *GetExtraInfo() { return _extraInfo; }
-    RONIN_INLINE Trainer* GetTrainer() { return mTrainer; }
 
     CreatureFamilyEntry * myFamily;
     void FormationLinkUp(uint32 SqlId);
-    static WayPoint * CreateWaypointStruct() { return new WayPoint(); }
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
     void Despawn(uint32 delay, uint32 respawntime);
 
@@ -407,13 +405,10 @@ public:
 
     void DeleteMe();
 
-    WayPointMap * m_custom_waypoint_map;
     Player* m_escorter;
-    void DestroyCustomWaypointMap();
     bool IsInLimboState() { return m_limbostate; }
     uint32 GetLineByFamily(CreatureFamilyEntry * family) { return family->skillLine[0] ? family->skillLine[0] : 0; };
     void RemoveLimboState(Unit* healer);
-    void SetGuardWaypoints();
     MapCell * m_respawnCell;
     uint32 GetCanMove() { return _creatureData->movementMask; }
 
@@ -431,7 +426,6 @@ protected:
     CreatureInfoExtra * _extraInfo;
 
     bool m_limbostate;
-    Trainer* mTrainer;
 
     void _LoadMovement();
 

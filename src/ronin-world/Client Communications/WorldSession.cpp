@@ -616,7 +616,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_SET_CONTACT_NOTES].handler                     = &WorldSession::HandleSetFriendNote;
 
     // Misc
-    WorldPacketHandlers[CMSG_AREATRIGGER].handler                           = &WorldSession::HandleAreaTriggerOpcode;
     WorldPacketHandlers[CMSG_SET_FACTION_ATWAR].handler                     = &WorldSession::HandleSetAtWarOpcode;
     WorldPacketHandlers[CMSG_SET_WATCHED_FACTION].handler                   = &WorldSession::HandleSetWatchedFactionIndexOpcode;
     WorldPacketHandlers[CMSG_TOGGLE_PVP].handler                            = &WorldSession::HandleTogglePVPOpcode;

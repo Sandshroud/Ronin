@@ -30,9 +30,8 @@ Map::Map(uint32 mapid, MapInfo * inf)
     // get our name
     me = dbcMap.LookupEntry(_mapId);
     if(_mapInfo)
-        name = _mapInfo->name;
-    else
-        name = "Unknown";
+        mapName = _mapInfo->mapName;
+    else mapName = "Unknown";
 }
 
 Map::~Map()

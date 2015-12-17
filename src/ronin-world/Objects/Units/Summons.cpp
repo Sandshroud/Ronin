@@ -180,7 +180,7 @@ void TotemSummon::SetupSpells()
     if(m_summon->GetSummonOwner() == NULL)
         return;
 
-    SpellEntry *TotemSpell = objmgr.GetTotemSpell(m_summon->GetCreatedBySpell());
+    SpellEntry *TotemSpell = NULL;//objmgr.GetTotemSpell(m_summon->GetCreatedBySpell());
     SpellEntry *creatorspell = dbcSpell.LookupEntry(m_summon->GetCreatedBySpell());
     if(TotemSpell == NULL)
     {

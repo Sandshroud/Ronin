@@ -21,7 +21,7 @@ bool ChatHandler::HandleWorldPortCommand(const char* args, WorldSession *m_sessi
     if(x >= _maxX || x <= _minX || y <= _minY || y >= _maxY)
         return false;
 
-    if(m_session->GetPlayer()->GetMapId() == mapid || !m_session->CheckTeleportPrerequisites(NULL, m_session, m_session->GetPlayer(), mapid))
+    if(m_session->GetPlayer()->GetMapId() == mapid || !m_session->CheckTeleportPrerequisites(m_session, m_session->GetPlayer(), mapid))
         m_session->GetPlayer()->SafeTeleport(mapid, 0, LocationVector(x, y, z, o));
     else
     {

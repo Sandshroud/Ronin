@@ -1673,9 +1673,6 @@ void QuestMgr::LoadExtraQuestStuff()
             delete pResult;
         }
     }
-
-    //Proccess the stuff
-    objmgr.ProcessGameobjectQuests();
 }
 
 void QuestMgr::LoadQuestPOI()

@@ -223,13 +223,6 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 }
             }
         }
-
-        // filter
-        if(g_chatFilter->Parse(message) == true)
-        {
-            SystemMessage("Your chat message was blocked by a server-side filter.");
-            return;
-        }
     }
 
     WorldPacket broadcast(type, 50);

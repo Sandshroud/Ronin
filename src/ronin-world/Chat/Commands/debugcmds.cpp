@@ -81,8 +81,7 @@ bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_sessio
     GreenSystemMessage(m_session, format("Creature State: %u; Run: %s;", creature->GetAIInterface()->m_creatureState,
         (creature->GetAIInterface()->getMoveRunFlag() ? "true" : "false")).c_str());
     GreenSystemMessage(m_session, format("AIState: %u; AIType: %u;", creature->GetAIInterface()->getAIState(), creature->GetAIInterface()->getAIType()).c_str());
-    GreenSystemMessage(m_session, format("Movetype: %u; Current Waypoint: %u", creature->GetAIInterface()->getMoveType(),
-        creature->GetAIInterface()->getCurrentWaypoint()).c_str());
+    GreenSystemMessage(m_session, format("Movetype: %u;", creature->GetAIInterface()->getMoveType()).c_str());
     return true;
 }
 

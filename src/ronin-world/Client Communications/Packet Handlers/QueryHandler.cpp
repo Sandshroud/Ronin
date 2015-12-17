@@ -185,19 +185,12 @@ void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
     WorldPacket data(SMSG_PAGE_TEXT_QUERY_RESPONSE, 300);
     while(pageid)
     {
+        ItemPage *page = ItemPageStorage.LookupEntry(pageid);
         data.clear();
-        ItemPage * page = ItemPageStorage.LookupEntry(pageid);
-        if(page == NULL)
-            return;
-
-        char* text = page->text;
-        if(text == NULL || *text == NULL)
-            return;
-
         data << pageid;
-        data << text;
-        data << page->next_page;
-        pageid = page->next_page;
+        data << (page ? page->text : "Item page missing.");
+        pageid = page ? page->next_page : 0;
+        data << uint32(pageid);
         SendPacket(&data);
     }
 }

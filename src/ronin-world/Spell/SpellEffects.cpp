@@ -2212,9 +2212,6 @@ void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amou
     if(unitTarget == NULL)
         return;
 
-    if(unitTarget->IsCreature() && isTargetDummy(unitTarget->GetEntry()))
-        return;
-
     float pullX = 0.f, pullY = 0.f, pullZ = 0.f;
     if(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
     {
@@ -2252,9 +2249,6 @@ void SpellEffectClass::SpellEffectKnockBack(uint32 i, WorldObject *target, int32
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL || !unitTarget->isAlive())
-        return;
-
-    if(unitTarget->IsCreature() && isTargetDummy(unitTarget->GetEntry()))
         return;
 
     unitTarget->knockback(GetSpellProto()->EffectBasePoints[i]+1, GetSpellProto()->EffectMiscValue[i]);
@@ -2680,8 +2674,6 @@ void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amou
 
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = castPtr<Unit>(m_caster);
     if(unitTarget == NULL && (unitTarget = u_caster) == NULL)
-        return;
-    if(unitTarget->IsCreature() && isTargetDummy(unitTarget->GetEntry()))
         return;
 
     float x = 0.0f;

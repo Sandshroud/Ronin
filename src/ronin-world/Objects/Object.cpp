@@ -1292,19 +1292,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
     bool isCritter = false;
     if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetCreatureData())
-    {
         if(castPtr<Creature>(pVictim)->GetCreatureData()->type == CRITTER)
             isCritter = true;
-        else if(isTargetDummy(castPtr<Creature>(pVictim)->GetCreatureData()->entry) && health <= damage)
-        {   //Dummy trainers can't die
-            uint32 newh = 5; // Just limit to 5HP (can't use 1HP here).
-            if(pVictim->GetMaxHealth() < 5)
-                newh = pVictim->GetMaxHealth();
-
-            pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, newh);
-            return health-5;
-        }
-    }
 
     /* -------------------------- HIT THAT CAUSES VICTIM TO DIE ---------------------------*/
     if ((isCritter || health <= damage) )
@@ -1376,7 +1365,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             castPtr<Player>( pVictim )->DeathDurabilityLoss(0.10);
 
         /* Zone Under Attack */
-        MapInfo * pZMapInfo = LimitedMapInfoStorage.LookupEntry(GetMapId());
+        MapInfo * pZMapInfo = WorldMapInfoStorage.LookupEntry(GetMapId());
         if( pZMapInfo != NULL && pZMapInfo->type == INSTANCE_NULL && !pVictim->IsPlayer() && !pVictim->IsPet() && ( IsPlayer() || IsPet() ) )
         {
             // Only NPCs that bear the PvP flag can be truly representing their faction.

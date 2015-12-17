@@ -181,16 +181,6 @@ void World::Destruct()
     sLog.Notice("InstanceMgr", "~InstanceMgr()");
     sInstanceMgr.Shutdown();
 
-    sLog.Notice("WordFilter", "~WordFilter()");
-    delete g_characterNameFilter;
-    g_characterNameFilter = NULL;
-    delete g_chatFilter;
-    g_chatFilter = NULL;
-
-    for( AreaTriggerMap::iterator i = m_AreaTrigger.begin( ); i != m_AreaTrigger.end( ); i++ )
-        delete i->second;
-    m_AreaTrigger.clear();
-
     Storage_Cleanup();
 }
 
@@ -417,29 +407,18 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(QuestMgr, LoadQuestPOI);
-    MAKE_TASK(ObjectMgr, LoadRecallPoints);
     MAKE_TASK(ObjectMgr, LoadAchievements);
-    MAKE_TASK(ObjectMgr, LoadCreatureWaypoints);
-    MAKE_TASK(ObjectMgr, LoadTrainers);
-    MAKE_TASK(ObjectMgr, LoadTotemSpells);
-    MAKE_TASK(ObjectMgr, LoadSpellOverride);
     MAKE_TASK(ObjectMgr, LoadVendors);
-    MAKE_TASK(ObjectMgr, LoadAIThreatToSpellId);
-    MAKE_TASK(ObjectMgr, LoadSpellFixes);
     MAKE_TASK(TicketMgr, Load);
-    MAKE_TASK(ObjectMgr, LoadPetLevelupSpellMap);
     MAKE_TASK(AddonMgr,  LoadFromDB);
     MAKE_TASK(ObjectMgr, SetHighestGuids);
     MAKE_TASK(ObjectMgr, ListGuidAmounts);
     MAKE_TASK(ObjectMgr, HashWMOAreaTables);
-    MAKE_TASK(ObjectMgr, LoadReputationModifiers);
-    MAKE_TASK(ObjectMgr, LoadMonsterSay);
     MAKE_TASK(WeatherMgr,LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadGroups);
     MAKE_TASK(Tracker,   LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadExtraItemStuff);
     MAKE_TASK(ObjectMgr, LoadArenaTeams);
-    MAKE_TASK(ObjectMgr, LoadProfessionDiscoveries);
 
 #undef MAKE_TASK
 
@@ -453,8 +432,6 @@ bool World::SetInitialWorldSettings()
     sLog.Notice("World", "Starting Auction System...");
     new AuctionMgr;
     sAuctionMgr.LoadAuctionHouses();
-
-    sComTableStore.Load();
 
     sLog.Success("World", "Database loaded in %ums.", getMSTime() - start_time);
 
@@ -997,9 +974,7 @@ WorldSession* World::FindSessionByName(const char * Name)//case insensetive
 
 void World::GetStats(uint32 * GMCount, float * AverageLatency)
 {
-    int gm = 0;
-    int count = 0;
-    int avg = 0;
+    uint32 gm = 0, count = 0, total = 0;
     ObjectMgr::PlayerStorageMap::const_iterator itr;
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
@@ -1007,14 +982,14 @@ void World::GetStats(uint32 * GMCount, float * AverageLatency)
         if(itr->second->GetSession())
         {
             count++;
-            avg += itr->second->GetSession()->GetLatency();
+            total += itr->second->GetSession()->GetLatency();
             if(itr->second->GetSession()->GetPermissionCount())
                 gm++;
         }
     }
     objmgr._playerslock.ReleaseReadLock();
 
-    *AverageLatency = count ? (float)((float)avg / (float)count) : 0;
+    *AverageLatency = count ? (float)((float)total / (float)count) : 0;
     *GMCount = gm;
 }
 

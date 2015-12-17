@@ -105,9 +105,7 @@ void Player::Init()
     m_isResting                     = 0;
     m_restState                     = 0;
     m_restAmount                    = 0;
-    LastAreaTrigger                 = NULL;
     m_afk_reason                    = "";
-    m_AllowAreaTriggerPort  = true;
     m_bgEntryPointMap               = 0;
     m_bgEntryPointX                 = 0;
     m_bgEntryPointY                 = 0;
@@ -3500,8 +3498,7 @@ Corpse* Player::RepopRequestedPlayer()
     if( myCorpse != NULL )
         myCorpse->ResetDeathClock();
 
-    MapInfo * pPMapinfo = NULL;
-    pPMapinfo = LimitedMapInfoStorage.LookupEntry( GetMapId() );
+    MapInfo * pPMapinfo = WorldMapInfoStorage.LookupEntry( GetMapId() );
     if( pPMapinfo != NULL )
     {
         if( pPMapinfo->type == INSTANCE_NULL || pPMapinfo->type == INSTANCE_PVP )
@@ -3893,7 +3890,7 @@ void Player::HandleRestedCalculations(bool rest_on)
     }
     else if(GetMapMgr()->CanUseCollision(this))
     {
-        if(LastAreaTrigger != NULL && LastAreaTrigger->Type == ATTYPE_INN)
+        if(false)
         {
             if(m_isResting)
             {
@@ -3902,7 +3899,7 @@ void Player::HandleRestedCalculations(bool rest_on)
             }
             else if(sVMapInterface.IsIndoor(GetMapId(), loc.x, loc.y, loc.z + 2.0f))
             {
-                if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(LastAreaTrigger->AreaTriggerID))
+                /*if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(LastAreaTrigger->AreaTriggerID))
                 {
                     float delta = 3.2f;
                     if(ATE->radius) // If there is a radius, check our distance with the middle.
@@ -3920,13 +3917,12 @@ void Player::HandleRestedCalculations(bool rest_on)
                 {   // Clear our trigger, since it's wrong anyway.
                     LastAreaTrigger = NULL;
                     ApplyPlayerRestState(false);
-                }
+                }*/
+                ApplyPlayerRestState(false);
             }
-        }
-        else if(m_isResting)
+        } else if(m_isResting)
             ApplyPlayerRestState(false);
-    }
-    else ApplyPlayerRestState(false);
+    } else ApplyPlayerRestState(false);
 }
 
 uint32 Player::SubtractRestXP(uint32 &amount)
@@ -4565,15 +4561,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
 
 void Player::SendXPToggleConfirm()
 {
-    if(m_XPoff)
-        m_XPoff = false;
-    else
-        m_XPoff = true;
-}
-
-void Player::EventAllowTiggerPort(bool enable)
-{
-    m_AllowAreaTriggerPort = enable;
+    m_XPoff = !m_XPoff;
 }
 
 uint32 Player::CalcTalentResetCost(uint32 resetnum)
@@ -5349,32 +5337,10 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
 
         if(status == INSTANCE_OK_RESET_POS)
         {
-            MapInfo* info = WorldMapInfoStorage.LookupEntry(mapid);
-            if(LastAreaTrigger != NULL && LastAreaTrigger->Type == ATTYPE_INSTANCE && LastAreaTrigger->Mapid == mapid)
-            {
-                destination.x = LastAreaTrigger->x;
-                destination.y = LastAreaTrigger->y;
-                destination.z = LastAreaTrigger->z;
-                destination.o = LastAreaTrigger->o;
-            }
-            else if(info != NULL)
-            {
-                AreaTrigger* trigger = AreaTriggerStorage.LookupEntry(info->LinkedAreaTrigger);
-                if(trigger != NULL && trigger->Type == ATTYPE_INSTANCE)
-                {
-                    destination.x = trigger->x;
-                    destination.y = trigger->y;
-                    destination.z = trigger->z;
-                    destination.o = trigger->o;
-                }
-            }
-            else
-            {
-                data.Initialize(SMSG_TRANSFER_ABORTED);
-                data << mapid << status;
-                GetSession()->SendPacket(&data);
-                return;
-            }
+            data.Initialize(SMSG_TRANSFER_ABORTED);
+            data << mapid << status;
+            GetSession()->SendPacket(&data);
+            return;
         }
 
         //remove us from this map
@@ -5726,7 +5692,7 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
     if(areaTable)
         sprintf(areaName, "%s", areaTable->name);
     else if(IsInWorld() && GetMapMgr()->GetMapInfo())
-        sprintf(areaName, "%s", GetMapMgr()->GetMapInfo()->name);
+        sprintf(areaName, "%s", GetMapMgr()->GetMapInfo()->mapName);
     else sprintf(areaName, "City_%03u", GetMapId());
 
     if(dbcID == 0xFFFFFFFF)
@@ -6198,7 +6164,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     bool force_new_world = false;
 
     // Lookup map info
-    MapInfo * mapInfo = LimitedMapInfoStorage.LookupEntry(MapID);
+    MapInfo * mapInfo = WorldMapInfoStorage.LookupEntry(MapID);
     if(mapInfo == NULL)
         return false;
 
@@ -6560,8 +6526,7 @@ void Player::CompleteLoading()
 void Player::OnWorldPortAck()
 {
     //only resurrect if player is porting to a instance portal
-    MapInfo *pPMapinfo = NULL;
-    pPMapinfo = LimitedMapInfoStorage.LookupEntry(GetMapId());
+    MapInfo *pPMapinfo = WorldMapInfoStorage.LookupEntry(GetMapId());
     MapEntry* map = dbcMap.LookupEntry(GetMapId());
 
     if(pPMapinfo != NULL)
@@ -6573,7 +6538,7 @@ void Player::OnWorldPortAck()
         {
             std::string welcome_msg;
             welcome_msg = "Welcome to ";
-            welcome_msg += pPMapinfo->name;
+            welcome_msg += pPMapinfo->mapName;
             if(map->IsRaid())
             {
                 switch(iRaidType)

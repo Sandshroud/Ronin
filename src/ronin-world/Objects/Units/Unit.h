@@ -752,7 +752,6 @@ public:
     uint64 m_detectRangeGUID[5];
     int32 m_detectRangeMOD[5];
 
-    void MoveToWaypoint(uint32 wp_id);
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
 
     void RemoveStealth();

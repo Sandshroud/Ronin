@@ -1228,13 +1228,13 @@ void WorldSession::HandleSummonResponseOpcode(WorldPacket & recv_data)
     if( _player->m_summonInstanceId != _player->GetInstanceID() )
     {
         // if not, are we allowed on the summoners map?
-        uint8 pReason = CheckTeleportPrerequisites(NULL, this, _player, inf->mapid);
-        if( pReason )
+        if( uint8 pReason = CheckTeleportPrerequisites(this, _player, inf->mapid) )
         {
             SendNotification(NOTIFICATION_MESSAGE_NO_PERMISSION);
             return;
         }
     }
+
     if(agree)
     {
         if(!_player->SafeTeleport(_player->m_summonMapId, _player->m_summonInstanceId, _player->m_summonPos))
@@ -1542,9 +1542,9 @@ void WorldSession::HandleHearthandResurrect(WorldPacket &recv_data)
     _player->SafeTeleport(_player->GetBindMapId(),0,_player->GetBindPositionX(),_player->GetBindPositionY(),_player->GetBindPositionZ(),_player->GetOrientation());
 }
 
-uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, WorldSession * pSession, Player* pPlayer, uint32 mapid)
+uint8 WorldSession::CheckTeleportPrerequisites(WorldSession * pSession, Player* pPlayer, uint32 mapid)
 {
-    MapInfo* pMapInfo = LimitedMapInfoStorage.LookupEntry(mapid);
+    MapInfo* pMapInfo = WorldMapInfoStorage.LookupEntry(mapid);
     MapEntry* map = dbcMap.LookupEntry(mapid);
 
     //is this map enabled?
@@ -1567,10 +1567,6 @@ uint8 WorldSession::CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, World
     // These can be overridden by cheats/GM
     if(!pPlayer->triggerpass_cheat)
     {
-        //Do we meet the areatrigger level requirements?
-        if( pAreaTrigger != NULL && pAreaTrigger->required_level && pPlayer->getLevel() < pAreaTrigger->required_level)
-            return AREA_TRIGGER_FAILURE_LEVEL;
-
         //Do we meet the map level requirements?
         if( pPlayer->getLevel() < pMapInfo->minlevel )
             return AREA_TRIGGER_FAILURE_LEVEL;

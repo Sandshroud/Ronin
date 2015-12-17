@@ -192,7 +192,6 @@ public:
     void LoadSpells();
     void AddSpell(SpellEntry * sp, bool learning, bool sendspells = true);
     void LearnSpell(uint32 spellid);
-    void LearnLevelupSpells();
     void RemoveSpell(SpellEntry * sp);
     void WipeSpells();
     uint32 GetUntrainCost();

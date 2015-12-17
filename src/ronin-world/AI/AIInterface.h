@@ -152,11 +152,6 @@ public:
     }
 
     void ResetProcCounts(bool all = false);
-
-    bool m_isGuard;
-    void CallGuards();
-    void setGuardTimer(uint32 timer) { m_guardTimer = timer; }
-    uint32 m_guardCallTimer;
     void CheckNextTargetFlyingStatus();
 
 protected:
@@ -196,7 +191,6 @@ protected:
     Unit* soullinkedWith; //This mob can be hitten only by soullinked unit
     bool isSoulLinked;
 
-    uint32 m_guardTimer;
     int32 m_currentHighestThreat;
 
 public:
@@ -298,28 +292,4 @@ public:
 
     RONIN_INLINE uint32 GetFormationFollowDistance() { return MovementHandler.GetFormationFollowDistance(); };
     RONIN_INLINE void SetFormationFollowDistance(float Dist) { MovementHandler.SetFormationFollowDistance(Dist); }
-
-    RONIN_INLINE uint32 getCurrentWaypoint() { return MovementHandler.getCurrentWaypoint(); }
-    RONIN_INLINE void setWaypointToMove(uint32 id) { return MovementHandler.setWaypointToMove(id); }
-
-    RONIN_INLINE uint32 GetWayPointsCount() { return MovementHandler.GetWayPointsCount(); };
-    RONIN_INLINE void SetWaypointMap(WayPointMap * m) { MovementHandler.SetWaypointMap(m); };
-
-    RONIN_INLINE bool addWayPoint(WayPoint* wp) { return MovementHandler.addWayPoint(wp); };
-    RONIN_INLINE WayPoint* getWayPoint(uint32 wpid) { return MovementHandler.getWayPoint(wpid); };
-
-    RONIN_INLINE void deleteAllWaypoints() { MovementHandler.deleteAllWaypoints(); };
-    RONIN_INLINE void deleteWayPoint(uint32 id) { MovementHandler.deleteWayPoint(id); };
-
-    RONIN_INLINE void changeWayPointID(uint32 oldwpid, uint32 newwpid) { MovementHandler.changeWayPointID(oldwpid, newwpid); };
-
-    RONIN_INLINE bool WayPointsShowing() { return MovementHandler.WayPointsShowing(); };
-    RONIN_INLINE void SetWayPointsShowing(bool s) { MovementHandler.SetWayPointsShowing(s); };
-    RONIN_INLINE bool WayPointsShowingBackwards() { return MovementHandler.WayPointsShowingBackwards(); };
-    RONIN_INLINE void SetWayPointsShowingBackwards(bool bs) { MovementHandler.SetWayPointsShowingBackwards(bs); };
-
-    RONIN_INLINE bool hasWaypoints() { return MovementHandler.hasWaypoints(); };
-    RONIN_INLINE bool saveWayPoints() { return MovementHandler.saveWayPoints(); };
-    RONIN_INLINE bool hideWayPoints(Player* pPlayer) { return MovementHandler.hideWayPoints(pPlayer); };
-    RONIN_INLINE bool showWayPoints(Player* pPlayer, bool Backwards) { return MovementHandler.showWayPoints(pPlayer, Backwards); };
 };

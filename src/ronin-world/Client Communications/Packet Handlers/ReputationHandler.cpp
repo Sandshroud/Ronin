@@ -285,41 +285,6 @@ void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
         m_Group->getLock().Release();
         return;
     }
-
-    uint32 team = GetTeam();
-    ReputationModifier * modifier = objmgr.GetReputationModifier( pUnit->GetEntry(), pUnit->GetFactionID() );
-    if( modifier != 0 )
-    {
-        // Apply this data.
-        for( std::vector<ReputationMod>::iterator itr = modifier->mods.begin(); itr != modifier->mods.end(); itr++ )
-        {
-            if ( !(*itr).faction[team] )
-                continue;
-
-            /* rep limit? */
-            if ( !IS_INSTANCE( GetMapId() ) || ( IS_INSTANCE( GetMapId() ) && iInstanceType != MODE_5PLAYER_HEROIC) )
-            {
-                if ( (*itr).replimit )
-                {
-                    if ( GetStanding( (*itr).faction[team] ) >= (int32)(*itr).replimit )
-                        continue;
-                }
-            }
-            ModStanding( itr->faction[team], float2int32( itr->value * sWorld.getRate( RATE_KILLREPUTATION ) ) );
-        }
-    }
-    else
-    {
-        if ( IS_INSTANCE( GetMapId() ) && objmgr.HandleInstanceReputationModifiers( this, pUnit ) )
-            return;
-
-        FactionEntry *faction = pUnit->GetFaction();
-        if ( faction == NULL || faction->RepListId < 0 )
-            return;
-
-        int32 change = int32( -5.0f * sWorld.getRate( RATE_KILLREPUTATION ) );
-        ModStanding( faction->ID, change );
-    }
 }
 
 void Player::Reputation_OnTalk(FactionEntry *faction)

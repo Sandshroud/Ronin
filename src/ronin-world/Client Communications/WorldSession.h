@@ -226,7 +226,6 @@ public:
     bool bDeleted;
     RONIN_INLINE uint32 GetInstance() { return instanceId; }
     Mutex deleteMutex;
-    void _HandleAreaTriggerOpcode(uint32 id);//real handle
     int32 m_moveDelayTime;
     int32 m_clientTimeDelay;
 
@@ -291,7 +290,6 @@ protected:
     void HandleAddIgnoreOpcode(WorldPacket& recvPacket);
     void HandleDelIgnoreOpcode(WorldPacket& recvPacket);
     void HandleBugOpcode(WorldPacket& recvPacket);
-    void HandleAreaTriggerOpcode(WorldPacket& recvPacket);
     void HandleUpdateAccountData(WorldPacket& recvPacket);
     void HandleRequestAccountData(WorldPacket& recvPacket);
     void HandleSetActionButtonOpcode(WorldPacket& recvPacket);
@@ -605,7 +603,6 @@ protected:
     void HandleDungeonDifficultyOpcode(WorldPacket& recv_data);
     void HandleRaidDifficultyOpcode(WorldPacket& recv_data);
 
-    uint8 TrainerGetSpellStatus(TrainerSpell* pSpell);
     void SendMailError(uint32 error, uint32 extra=0);
 
     void HandleCharRenameOpcode(WorldPacket & recv_data);
@@ -739,7 +736,7 @@ public:
     };
 
     bool ValidateText2(std::string text);
-    uint8 CheckTeleportPrerequisites(AreaTrigger * pAreaTrigger, WorldSession * pSession, Player* pPlayer, uint32 mapid);
+    uint8 CheckTeleportPrerequisites(WorldSession * pSession, Player* pPlayer, uint32 mapid);
     static void InitPacketHandlerTable();
     uint32 floodLines;
     time_t floodTime;

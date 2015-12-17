@@ -7,17 +7,9 @@
 // Storage max based off guid entry max
 static unsigned long STORAGE_ARRAY_MAX = 0x00FFFFFF;
 
-// Previously we used a hash/unordered map, but we'll test standard mapping
-#if 1 == 1
-#define STORAGE_MAP RONIN_MAP
-#else
-#define STORAGE_MAP RONIN_UNORDERED_MAP
-#endif
-
 /** Base iterator class, returned by MakeIterator() functions.
  */
-template<class T>
-class SERVER_DECL StorageContainerIterator
+template<class T> class SERVER_DECL StorageContainerIterator
 {
 protected:
     /** Currently referenced object
@@ -47,136 +39,10 @@ public:
     virtual void Destruct() = 0;
 };
 
-template<class T>
-class SERVER_DECL ArrayStorageContainer
-{
-public:
-    /** This is where the magic happens :P
-     */
-    T ** _array;
-
-    /** Maximum possible entry
-     */
-    uint32 _max;
-
-    /** Returns an iterator currently referencing the start of the container
-     */
-    StorageContainerIterator<T> * MakeIterator();
-
-    /** Do we need to get the max?
-    */
-    bool NeedsMax()
-    {
-        return true;
-    }
-
-    /** Creates the array with specified maximum
-     */
-    void Setup(uint32 Max)
-    {
-        _array = new T*[Max];
-        _max = Max;
-        memset(_array, 0, sizeof(T*) * Max);
-    }
-
-    /** Sets up the array with a different maximum
-     */
-    void Resetup(uint32 Max)
-    {
-        if(Max < _max)
-            return;     // no need to realloc
-
-        T ** a = new T*[Max];
-        memset(a,0,sizeof(T*)*Max);
-        memcpy(a, _array, sizeof(T*) * _max);
-        delete [] _array;
-        _array = a;
-        _max = Max;
-    }
-
-    /** Frees the container array and all elements inside it
-     */
-    ~ArrayStorageContainer()
-    {
-        for(uint32 i = 0; i < _max; ++i)
-            if(_array[i] != NULL)
-                delete _array[i];
-        delete [] _array;
-    }
-
-    /** Allocates entry Entry in the array and sets the pointer, and returns
-     * the allocated memory.
-     */
-    T * AllocateEntry(uint32 Entry)
-    {
-        if(Entry >= _max || _array[Entry] != 0)
-            return reinterpret_cast<T*>(0);
-
-        _array[Entry] = new T();
-        return _array[Entry];
-    }
-
-    /** Deallocates the entry Entry in the array and sets the pointer to null.
-     */
-    bool DeallocateEntry(uint32 Entry)
-    {
-        if(Entry >= _max || _array[Entry] == NULL)
-            return false;
-
-        delete _array[Entry];
-        _array[Entry] = NULL;
-        return true;
-    }
-
-    /** Looks up entry Entry and returns the pointer if it is existant, otherwise null.
-     */
-    T * LookupEntry(uint32 Entry)
-    {
-        if(Entry >= _max)
-            return reinterpret_cast<T*>(NULL);
-        else
-            return _array[Entry];
-    }
-
-    /** Sets the pointer to entry Entry to Pointer, and if it already exists frees the existing
-     * element.
-     */
-    bool SetEntry(uint32 Entry, T * Pointer)
-    {
-        if(Entry > _max)
-            return false;
-        if(_array[Entry] != NULL)
-            delete _array[Entry];
-        _array[Entry] = Pointer;
-        return true;
-    }
-
-    /** Returns the current pointer if it exists, otherwise allocates it.
-     */
-    T * LookupEntryAllocate(uint32 Entry)
-    {
-        if(T * ret = LookupEntry(Entry))
-            return ret;
-        return AllocateEntry(Entry);
-    }
-
-    /** Deletes all entries in the container.
-     */
-    void Clear()
-    {
-        for(uint32 i = 0; i < _max; ++i)
-        {
-            if(_array[i] != 0)
-                delete _array[i];
-            _array[i] = 0;
-        }
-    }
-};
-
 template<class T> class SERVER_DECL HashMapStorageContainer
 {
 public:
-    typename STORAGE_MAP<uint32, T*> _map;
+    typename RONIN_MAP<uint32, T*> _map;
 
     /** Returns an iterator currently referencing the start of the container
      */
@@ -186,7 +52,7 @@ public:
      */
     ~HashMapStorageContainer()
     {
-        for(typename STORAGE_MAP<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
+        for(typename RONIN_MAP<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
             delete itr->second;
     }
 
@@ -226,7 +92,7 @@ public:
      */
     bool DeallocateEntry(uint32 Entry)
     {
-        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return false;
 
@@ -238,7 +104,7 @@ public:
 
     T * LookupEntry(uint32 Entry)
     {
-        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return reinterpret_cast<T*>(0);
         return itr->second;
@@ -249,7 +115,7 @@ public:
      */
     bool SetEntry(uint32 Entry, T * Pointer)
     {
-        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
         {
             _map.insert( std::make_pair( Entry, Pointer ) );
@@ -274,7 +140,7 @@ public:
      */
     void Clear()
     {
-        typename STORAGE_MAP<uint32, T*>::iterator itr = _map.begin();
+        typename RONIN_MAP<uint32, T*>::iterator itr = _map.begin();
         for(; itr != _map.end(); ++itr)
             delete itr->second;
         _map.clear();
@@ -282,60 +148,10 @@ public:
 };
 
 template<class T>
-class SERVER_DECL ArrayStorageIterator : public StorageContainerIterator<T>
-{
-    ArrayStorageContainer<T> * Source;
-    uint32 MyIndex;
-public:
-
-    /** Increments the iterator
-    */
-    bool Inc()
-    {
-        GetNextElement();
-        if(StorageContainerIterator<T>::Pointer != 0)
-            return true;
-        return false;
-    }
-
-    /** Frees the memory occupied by this iterator
-    */
-    void Destruct()
-    {
-        delete this;
-    }
-
-    /** Constructor
-    */
-    ArrayStorageIterator(ArrayStorageContainer<T> * S) : StorageContainerIterator<T>(), Source(S), MyIndex(0)
-    {
-        GetNextElement();
-    }
-
-    /** Sets the next element pointer, or to 0 if we reached the end
-    */
-    void GetNextElement()
-    {
-        while(MyIndex < Source->_max)
-        {
-            if(Source->_array[MyIndex] != 0)
-            {
-                StorageContainerIterator<T>::Set(Source->_array[MyIndex]);
-                ++MyIndex;
-                return;
-            }
-            ++MyIndex;
-        }
-        // reached the end of the array
-        StorageContainerIterator<T>::Set(reinterpret_cast<T*>(0));
-    }
-};
-
-template<class T>
 class SERVER_DECL HashMapStorageIterator : public StorageContainerIterator<T>
 {
     HashMapStorageContainer<T> * Source;
-    typename STORAGE_MAP<uint32, T*>::iterator itr;
+    typename RONIN_MAP<uint32, T*>::iterator itr;
 public:
 
     /** Constructor
@@ -377,30 +193,20 @@ public:
 };
 
 #ifndef SCRIPTLIB
-template<class T>
-StorageContainerIterator<T> * ArrayStorageContainer<T>::MakeIterator()
-{
-    return new ArrayStorageIterator<T>(this);
-}
-
-template<class T>
-StorageContainerIterator<T> * HashMapStorageContainer<T>::MakeIterator()
-{
-    return new HashMapStorageIterator<T>(this);
-}
+template<class T> StorageContainerIterator<T> * HashMapStorageContainer<T>::MakeIterator() { return new HashMapStorageIterator<T>(this); }
 #endif
 
-template<class T, class StorageType>
-class SERVER_DECL Storage
+template<class T, class StorageType> class SERVER_DECL Storage
 {
 protected:
     StorageType _storage;
-    char * _indexName;
-    char * _formatString;
+    std::string _indexName;
+    std::string _formatString;
+    RONIN_SET<char*> _stringData;
 public:
 
-    RONIN_INLINE char * GetIndexName() { return _indexName; }
-    RONIN_INLINE char * GetFormatString() { return _formatString; }
+    RONIN_INLINE const char * GetIndexName() { return _indexName.c_str(); }
+    RONIN_INLINE const char * GetFormatString() { return _formatString.c_str(); }
 
     /** False constructor to fool compiler
      */
@@ -409,17 +215,11 @@ public:
 
     /** Makes an iterator, w00t!
      */
-    StorageContainerIterator<T> * MakeIterator()
-    {
-        return _storage.MakeIterator();
-    }
+    StorageContainerIterator<T> * MakeIterator() { return _storage.MakeIterator(); }
 
     /** Calls the storage container lookup function.
      */
-    T * LookupEntry(uint32 Entry)
-    {
-        return _storage.LookupEntry(Entry);
-    }
+    T * LookupEntry(uint32 Entry) { return _storage.LookupEntry(Entry); }
 
     /** Reloads the content in this container.
      */
@@ -429,57 +229,24 @@ public:
      */
     virtual void Load(const char * IndexName, const char * FormatString)
     {
-        _indexName = strdup(IndexName);
-        _formatString = strdup(FormatString);
+        _indexName = IndexName;
+        _formatString = FormatString;
     }
 
     /** Frees the duplicated strings and all entries inside the storage container
      */
     virtual void Cleanup()
     {
-        StorageContainerIterator<T> * itr = _storage.MakeIterator();
-        while(!itr->AtEnd())
-        {
-            FreeBlock(itr->Get());
-            if(!itr->Inc())
-                break;
-        }
-        itr->Destruct();
-
         _storage.Clear();
-        free(_indexName);
-        free(_formatString);
-    }
-
-    /** Frees any string elements inside blocks.
-     */
-    void FreeBlock(T * Allocated)
-    {
-        char * p = _formatString;
-        char * structpointer = (char*)Allocated;
-        for(; *p != 0; ++p)
+        _indexName.clear();
+        _formatString.clear();
+        while(!_stringData.empty())
         {
-            switch(*p)
-            {
-            case 's':       // string is the only one we have to actually do anything for here
-                free((*(char**)structpointer));
-                structpointer += sizeof(char*);
-                break;
-            case 'u':
-            case 'i':
-            case 'f':
-                structpointer += sizeof(uint32);
-                break;
-
-            case 'h':
-                structpointer += sizeof(uint16);
-                break;
-
-            case 'c':
-                structpointer += sizeof(uint8);
-                break;
-            }
+            char *strData = *_stringData.begin();
+            _stringData.erase(_stringData.begin());
+            free(strData);
         }
+        _stringData.clear();
     }
 };
 
@@ -506,12 +273,22 @@ public:
 
     /** Loads the block using the format string.
      */
-    RONIN_INLINE void LoadBlock(Field * fields, T * Allocated, bool reload = false )
+    RONIN_INLINE bool LoadBlock(Field * fields, T * Allocated, bool reload, bool hasIndicator )
     {
-        char * p = Storage<T, StorageType>::_formatString;
-        char * structpointer = (char*)Allocated;
+        Field *f = fields;
+        const char *p = GetFormatString();
+        if(hasIndicator)
+        {
+            for(; *p != 0; ++p, ++f)
+                if(*p == 'X' && f->GetBool() == false)
+                    return false;
+        }
+
+        f = fields;
         uint32 offset = 0;
-        Field * f = fields;
+        p = GetFormatString();
+        static const char *null_str = "";
+        char *structpointer = (char*)Allocated;
         for(; *p != 0; ++p, ++f)
         {
             switch(*p)
@@ -552,16 +329,29 @@ public:
                     offset += sizeof(float);
                 }break;
 
+            case 'S':
+                {
+                    std::string ptr = "";
+                    if(const char *str = f->GetString())
+                        ptr.append(str);
+                    *(std::string*)&structpointer[offset] = ptr;
+                    offset += sizeof(std::string);
+                }break;
+
             case 's':   // Null-terminated string
                 {
-                    const char* str = f->GetString();
-                    if(str == NULL)
-                        *(char**)&structpointer[offset] = "";
-                    else
-                        *(char**)&structpointer[offset] = strdup(str);
+                    char *ptr = (char*)null_str;
+                    if(const char *str = f->GetString())
+                    {
+                        char *strData = strdup(str);
+                        _stringData.insert(strData);
+                        ptr = strData;
+                    }
+                    *(char**)&structpointer[offset] = ptr;
                     offset += sizeof(char*);
                 }break;
 
+            case 'X':   // Indicator
             case 'x':   // Skip
                 break;
 
@@ -570,246 +360,99 @@ public:
                 break;
             }
         }
-    }
-
-    void Load(std::string IndexName, const char * FormatString)
-    {
-        Load(IndexName.c_str(), FormatString);
+        return true;
     }
 
     /** Loads from the table.
      */
-    void Load(const char * IndexName, const char * FormatString)
+    void Load(std::string IndexName, std::string FormatString)
     {
-        Storage<T, StorageType>::Load(IndexName, FormatString);
+        Storage<T, StorageType>::Load(IndexName.c_str(), FormatString.c_str());
         QueryResult * result;
-        if(Storage<T, StorageType>::_storage.NeedsMax())
+        if(_storage.NeedsMax())
         {
-            result = WorldDatabase.Query("SELECT MAX(entry) FROM %s ORDER BY `entry`", IndexName);
             uint32 Max = STORAGE_ARRAY_MAX;
-            if(result)
+            if(result = WorldDatabase.Query("SELECT MAX(entry) FROM %s ORDER BY `entry`", IndexName.c_str()))
             {
                 Max = result->Fetch()[0].GetUInt32() + 1;
                 if(Max > STORAGE_ARRAY_MAX)
                 {
-                    sLog.Warning("Storage", "The table, '%s', has been limited to maximum of %u entries.\
-                        Any entry higher than %u will be discarded.",
-                        IndexName, STORAGE_ARRAY_MAX, Max );
-
+                    sLog.Warning("Storage", "The table, '%s', has been limited to maximum of %u entries. Any entry higher than %u will be discarded.", IndexName.c_str(), STORAGE_ARRAY_MAX, Max );
                     Max = STORAGE_ARRAY_MAX;
                 }
                 delete result;
             }
 
-            Storage<T, StorageType>::_storage.Setup(Max);
+            _storage.Setup(Max);
         }
 
-        size_t cols = strlen(FormatString);
-        result = WorldDatabase.Query("SELECT * FROM %s", IndexName);
-        if (!result)
-            return;
-        Field * fields = result->Fetch();
-
-        if(result->GetFieldCount() != cols)
+        if(result = WorldDatabase.Query("SELECT * FROM %s", IndexName.c_str()))
         {
-            if(result->GetFieldCount() > cols)
+            size_t cols = FormatString.length();
+            if(result->GetFieldCount() != cols)
             {
-                sLog.Warning("Storage", "Invalid format in %s (%u/%u), loading anyway because we have enough data\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
-            }
-            else
-            {
-                sLog.Error("Storage", "Invalid format in %s (%u/%u), not enough data to proceed.\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
+                sLog.Error("Storage", "Invalid format in %s (%u/%u), not enough data to proceed.\n", IndexName.c_str(), (unsigned int)result->GetFieldCount(), (unsigned int)cols);
                 delete result;
                 return;
             }
+
+            bool hasIndicator = FormatString.find("X") != std::string::npos;
+            do
+            {
+                Field * fields = result->Fetch();
+                uint32 Entry = fields[0].GetUInt32();
+                if(T *Allocated = _storage.AllocateEntry(Entry))
+                    if(!LoadBlock(fields, Allocated, false, hasIndicator))
+                        _storage.DeallocateEntry(Entry);
+            } while(result->NextRow());
+            sLog.Notice("Storage", "%u entries loaded from table %s.", result->GetRowCount(), IndexName.c_str());
+            delete result;
+
+            //sLog.Success("Storage", "Loaded database cache from `%s`.", IndexName);
         }
-
-        uint32 Entry;
-        T * Allocated;
-        do
-        {
-            Entry = fields[0].GetUInt32();
-            Allocated = Storage<T, StorageType>::_storage.AllocateEntry(Entry);
-            if(!Allocated)
-                continue;
-
-            LoadBlock(fields, Allocated);
-        } while(result->NextRow());
-        sLog.Notice("Storage", "%u entries loaded from table %s.", result->GetRowCount(), IndexName);
-        delete result;
-
-        //sLog.Success("Storage", "Loaded database cache from `%s`.", IndexName);
-    }
-
-    /** Loads from the worldmapinfo table.
-    Crow: Instead of deleting data, we can just skip it.
-    Usable for other tables, with a few changes to their structure. */
-    void LoadWithLoadColumn(const char * IndexName, const char * FormatString)
-    {
-        Storage<T, StorageType>::Load(IndexName, FormatString);
-        QueryResult * result;
-        if(Storage<T, StorageType>::_storage.NeedsMax())
-        {
-            result = WorldDatabase.Query("SELECT MAX(entry) FROM %s ORDER BY `entry`", IndexName);
-            uint32 Max = STORAGE_ARRAY_MAX;
-            if(result)
-            {
-                Max = result->Fetch()[0].GetUInt32() + 1;
-                if(Max > STORAGE_ARRAY_MAX)
-                {
-                    sLog.Warning("Storage", "The table, '%s', has been limited to maximum of %u entries.\
-                        Any entry higher than %u will be discarded.",
-                        IndexName, STORAGE_ARRAY_MAX, Max );
-
-                    Max = STORAGE_ARRAY_MAX;
-                }
-                delete result;
-            }
-
-            Storage<T, StorageType>::_storage.Setup(Max);
-        }
-
-        size_t cols = strlen(FormatString);
-        result = WorldDatabase.Query("SELECT * FROM %s WHERE `load` = '1'", IndexName);
-        if (!result)
-            return;
-
-        Field * fields = result->Fetch();
-        if(result->GetFieldCount() != cols)
-        {
-            if(result->GetFieldCount() > cols)
-            {
-                sLog.Warning("Storage", "Invalid format in %s (%u/%u), loading anyway because we have enough data\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
-            }
-            else
-            {
-                sLog.Error("Storage", "Invalid format in %s (%u/%u), not enough data to proceed.\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
-                delete result;
-                return;
-            }
-        }
-
-        uint32 Entry;
-        T * Allocated;
-        do
-        {
-            Entry = fields[0].GetUInt32();
-            Allocated = Storage<T, StorageType>::_storage.AllocateEntry(Entry);
-            if(!Allocated)
-                continue;
-
-            LoadBlock(fields, Allocated);
-        } while(result->NextRow());
-        sLog.Notice("Storage", "%u entries loaded from table %s.", result->GetRowCount(), IndexName);
-        delete result;
-    }
-
-    void LoadAdditionalData(const char * IndexName, const char * FormatString)
-    {
-        Storage<T, StorageType>::Load(IndexName, FormatString);
-        QueryResult * result;
-        if(Storage<T, StorageType>::_storage.NeedsMax())
-        {
-            result = WorldDatabase.Query("SELECT MAX(entry) FROM %s", IndexName);
-            uint32 Max = STORAGE_ARRAY_MAX;
-            if(result)
-            {
-                Max = result->Fetch()[0].GetUInt32() + 1;
-                if(Max > STORAGE_ARRAY_MAX)
-                {
-                    sLog.Error("Storage", "The table, '%s', has been limited to maximum of %u entries. Any entry higher than %u will be discarted.",
-                        IndexName, STORAGE_ARRAY_MAX, Max );
-
-                    Max = STORAGE_ARRAY_MAX;
-                }
-                delete result;
-            }
-
-            Storage<T, StorageType>::_storage.Resetup(Max);
-        }
-
-        size_t cols = strlen(FormatString);
-        result = WorldDatabase.Query("SELECT * FROM %s", IndexName);
-        if (!result)
-            return;
-        Field * fields = result->Fetch();
-
-        if(result->GetFieldCount() != cols)
-        {
-            if(result->GetFieldCount() > cols)
-            {
-                sLog.Error("Storage", "Invalid format in %s (%u/%u), loading anyway because we have enough data\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
-            }
-            else
-            {
-                sLog.Error("Storage", "Invalid format in %s (%u/%u), not enough data to proceed.\n", IndexName, (unsigned int)result->GetFieldCount(), (unsigned int)cols);
-                delete result;
-                return;
-            }
-        }
-
-        uint32 Entry;
-        T * Allocated;
-        do
-        {
-            Entry = fields[0].GetUInt32();
-            Allocated = Storage<T, StorageType>::_storage.LookupEntryAllocate(Entry);
-            if(!Allocated)
-                continue;
-
-            LoadBlock(fields, Allocated);
-        } while(result->NextRow());
-        sLog.Notice("Storage", "%u entries loaded from table %s.", result->GetRowCount(), IndexName);
-        delete result;
     }
 
     /** Reloads the storage container
      */
     void Reload()
     {
-        sLog.Notice("Storage", "Reloading database cache from `%s`...\n", Storage<T, StorageType>::_indexName);
-        QueryResult * result = WorldDatabase.Query("SELECT MAX(entry) FROM %s", Storage<T, StorageType>::_indexName);
+        sLog.Notice("Storage", "Reloading database cache from `%s`...\n", GetIndexName());
+        QueryResult * result = WorldDatabase.Query("SELECT MAX(entry) FROM %s", GetIndexName());
         if(result == 0)
             return;
 
         uint32 Max = result->Fetch()[0].GetUInt32();
         delete result;
-        if(!Max)
+        if(Max == 0)
             return;
 
-        if(Storage<T, StorageType>::_storage.NeedsMax())
+        if(_storage.NeedsMax())
         {
-            if(Max > STORAGE_ARRAY_MAX)
-                Max = STORAGE_ARRAY_MAX;
-
-            Storage<T, StorageType>::_storage.Resetup(Max+1);
+            if(Max > STORAGE_ARRAY_MAX-1)
+                Max = STORAGE_ARRAY_MAX-1;
+            _storage.Resetup(Max+1);
         }
 
-        size_t cols = strlen(Storage<T, StorageType>::_formatString);
-        result = WorldDatabase.Query("SELECT * FROM %s", Storage<T, StorageType>::_indexName);
-        if (!result)
-            return;
-        Field * fields = result->Fetch();
-
-        if(result->GetFieldCount() != cols)
+        if(result = WorldDatabase.Query("SELECT * FROM %s", GetIndexName()))
         {
-            sLog.Error("Storage", "Invalid format in %s (%u/%u).", Storage<T, StorageType>::_indexName, (unsigned int)cols, (unsigned int)result->GetFieldCount());
+            size_t cols = _formatString.length();
+            if(result->GetFieldCount() != cols)
+            {
+                sLog.Error("Storage", "Invalid format in %s (%u/%u).", GetIndexName(), (unsigned int)cols, (unsigned int)result->GetFieldCount());
+                delete result;
+                return;
+            }
+
+            bool hasIndicator = _formatString.find("X") != std::string::npos;
+            do
+            {
+                Field * fields = result->Fetch();
+                uint32 Entry = fields[0].GetUInt32();
+                if(T *Allocated = _storage.LookupEntryAllocate(Entry))
+                    if(!LoadBlock(fields, Allocated, true, hasIndicator))
+                        _storage.DeallocateEntry(Entry);
+            } while(result->NextRow());
             delete result;
-            return;
         }
-
-        uint32 Entry;
-        T * Allocated;
-        do
-        {
-            Entry = fields[0].GetUInt32();
-            Allocated = Storage<T, StorageType>::_storage.LookupEntryAllocate(Entry);
-            if(Allocated)
-                LoadBlock(fields, Allocated, true);
-
-        } while(result->NextRow());
-        delete result;
     }
 };
-
-#undef STORAGE_MAP

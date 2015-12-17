@@ -232,13 +232,6 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if(g_characterNameFilter->Parse(name, false))
-    {
-        data << uint8(CHAR_CREATE_NAME_IN_USE);
-        SendPacket(&data);
-        return;
-    }
-
     //reserved for console whisper
     if(name == "Console" ||  name == "console")
     {

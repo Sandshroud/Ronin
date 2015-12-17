@@ -156,7 +156,6 @@ class SERVER_DECL CommandTableStorage : public Singleton<CommandTableStorage>
 {
     ChatCommand * _modifyCommandTable;
     ChatCommand * _debugCommandTable;
-    ChatCommand * _waypointCommandTable;
     ChatCommand * _GMTicketCommandTable;
     ChatCommand * _GameObjectCommandTable;
     ChatCommand * _BattlegroundCommandTable;
@@ -171,7 +170,6 @@ class SERVER_DECL CommandTableStorage : public Singleton<CommandTableStorage>
     ChatCommand * _questCommandTable;
     ChatCommand * _lookupCommandTable;
     ChatCommand * _petCommandTable;
-    ChatCommand * _recallCommandTable;
     ChatCommand * _commandTable;
     ChatCommand * _GuildCommandTable;
     ChatCommand * _TitleCommandTable;
@@ -268,29 +266,6 @@ protected:
     bool HandleKnockBackCommand(const char* args, WorldSession *m_session);
     bool HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_session);
     bool HandleRangeCheckCommand( const char * args , WorldSession * m_session );
-
-    // WayPoint Commands
-    bool HandleWPAddCommand(const char* args, WorldSession *m_session);
-    bool HandleWPShowCommand(const char* args, WorldSession *m_session);
-    bool HandleWPHideCommand(const char* args, WorldSession *m_session);
-    bool HandleWPDeleteCommand(const char* args, WorldSession *m_session);
-    bool HandleWPFlagsCommand(const char* args, WorldSession *m_session);
-    bool HandleWPMoveHereCommand(const char* args, WorldSession *m_session);
-    bool HandleWPWaitCommand(const char* args, WorldSession *m_session);
-    bool HandleWPEmoteCommand(const char* args, WorldSession *m_session);
-    bool HandleWPStandStateCommand(const char* args, WorldSession *m_session);
-    bool HandleWPSpellToCastCommand(const char* args, WorldSession *m_session);
-    bool HandleWPSkinCommand(const char* args, WorldSession *m_session);
-    bool HandleWPChangeNoCommand(const char* args, WorldSession *m_session);
-    bool HandleWPInfoCommand(const char* args, WorldSession *m_session);
-    bool HandleWPMoveTypeCommand(const char* args, WorldSession *m_session);
-    bool HandleSaveWaypoints(const char* args, WorldSession * m_session);
-    bool HandleGenerateWaypoints(const char* args, WorldSession * m_session);
-    bool HandleDeleteWaypoints(const char* args, WorldSession * m_session);
-    bool HandleWaypointGettextCommand(const char* args, WorldSession *m_session);
-    bool HandleWaypointBackwardTextCommand(const char* args, WorldSession *m_session);
-    bool HandleWaypointForwardTextCommand(const char* args, WorldSession *m_session);
-    bool HandleWaypointSetOrientationCommand(const char* args, WorldSession *m_session);
 
     // Guild commands
     bool CreateGuildCommand(const char* args, WorldSession *m_session);
@@ -409,7 +384,6 @@ protected:
     bool HandleUnParalyzeCommand(const char* args, WorldSession *m_session);
     bool HandleSetMotdCommand(const char* args, WorldSession* m_session);
     bool HandleAddItemSetCommand(const char* args, WorldSession* m_session);
-    bool HandleTriggerCommand(const char* args, WorldSession* m_session);
     bool HandleModifyValueCommand(const char* args, WorldSession* m_session);
     bool HandleModifyBitCommand(const char* args, WorldSession* m_session);
     bool HandleBattlegroundExitCommand(const char* args, WorldSession* m_session);
@@ -428,8 +402,6 @@ protected:
     bool HandleItemSetCommand(const char* args, WorldSession* m_session);
     bool HandleVendorClearCommand(const char* args, WorldSession* m_session);
     bool HandleItemSetRemoveCommand(const char* args, WorldSession* m_session);
-    bool HandleTrainerAddLearnSpell(const char* args, WorldSession* m_session);
-    bool HandleTrainerAddCastSpell(const char* args, WorldSession* m_session);
 
     // honor
     bool HandleAddHonorCommand(const char* args, WorldSession* m_session);
@@ -470,14 +442,8 @@ protected:
     // Castall
     bool HandleCastAllCommand(const char* args, WorldSession* m_session);
 
-    // Recall
-    bool HandleRecallListCommand(const char* args, WorldSession *m_session);
-    bool HandleRecallGoCommand(const char* args, WorldSession *m_session);
-    bool HandleRecallAddCommand(const char* args, WorldSession *m_session);
-    bool HandleRecallDelCommand(const char* args, WorldSession *m_session);
     bool HandleModPeriodCommand(const char* args, WorldSession * m_session);
     bool HandleGlobalPlaySoundCommand(const char* args, WorldSession * m_session);
-    bool HandleRecallPortPlayerCommand(const char* args, WorldSession * m_session);
 
     // Bans
     bool HandleIPBanCommand(const char * args, WorldSession * m_session);
@@ -533,8 +499,6 @@ protected:
     bool HandleQuestStatusCommand(const char * args, WorldSession * m_session);
 
     bool HandleCreateArenaTeamCommands(const char * args, WorldSession * m_session);
-    bool HandleNpcSelectCommand(const char * args, WorldSession * m_session);
-    bool HandleWaypointAddFlyCommand(const char * args, WorldSession * m_session);
     bool HandleWhisperBlockCommand(const char * args, WorldSession * m_session);
     bool HandleShowItems(const char * args, WorldSession * m_session);
     bool HandleCollisionTestIndoor(const char * args, WorldSession * m_session);

@@ -18,7 +18,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_quests = NULL;
     IP_shield = NULL;
     m_SellItems = NULL;
-    mTrainer = NULL;
     auctionHouse = NULL;
     m_escorter = NULL;
     m_respawnCell = NULL;
@@ -33,7 +32,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
 
     m_TaxiNode = 0;
 
-    m_custom_waypoint_map = 0;
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
@@ -69,12 +67,6 @@ void Creature::Destruct()
     if(m_escorter)
         m_escorter = NULL;
 
-    if(m_custom_waypoint_map != 0)
-    {
-        for(WayPointMap::iterator itr = m_custom_waypoint_map->begin(); itr != m_custom_waypoint_map->end(); itr++)
-            delete (*itr);
-        delete m_custom_waypoint_map;
-    }
     if(m_respawnCell != NULL)
         m_respawnCell->_respawnObjects.erase(this);
     Unit::Destruct();
@@ -448,7 +440,6 @@ void Creature::OnRemoveInRangeObject(WorldObject* pObj)
     {
         // we lost our escorter, return to the spawn.
         m_aiInterface.StopMovement(10000);
-        DestroyCustomWaypointMap();
         Despawn(1000, 1000);
     }
 
@@ -654,10 +645,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Max out health
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
 
-    // set position
-    if(WayPointMap *WPMap = (m_spawn ? objmgr.GetWayPointMap(m_spawn->id) : NULL))
-        m_aiInterface.SetWaypointMap(WPMap);
-
     //use proto faction if spawn faction is unspecified
     if(m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE)))
     {
@@ -679,9 +666,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR) )
         m_TaxiNode = sTaxiMgr.GetNearestTaxiNode( m_position.x, m_position.y, m_position.z, GetMapId() );
 
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER) || HasFlag(UNIT_NPC_FLAGS,UNIT_NPC_FLAG_TRAINER_PROF))
-        mTrainer = objmgr.GetTrainer(GetEntry());
-
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
@@ -696,10 +680,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->family);
-
-    has_combat_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_ENTER_COMBAT);
-    has_waypoint_text = objmgr.HasMonsterSay(GetEntry(), MONSTER_SAY_EVENT_RANDOM_WAYPOINT);
-    m_aiInterface.m_isGuard = isGuard(GetEntry());
 
     //CanMove (overrules AI)
     if(!GetCanMove())
@@ -759,18 +739,6 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
     } else Unit::RemoveFromWorld(true);
 }
 
-void Creature::DestroyCustomWaypointMap()
-{
-    if(m_custom_waypoint_map)
-    {
-        m_aiInterface.SetWaypointMap(0);
-        for(WayPointMap::iterator itr = m_custom_waypoint_map->begin(); itr != m_custom_waypoint_map->end(); itr++)
-            delete (*itr);
-        delete m_custom_waypoint_map;
-        m_custom_waypoint_map = NULL;
-    }
-}
-
 void Creature::RemoveLimboState(Unit* healer)
 {
     if(!m_limbostate)
@@ -779,41 +747,4 @@ void Creature::RemoveLimboState(Unit* healer)
     m_limbostate = false;
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     bInvincible = false;
-}
-
-// Generates 3 random waypoints around the NPC
-void Creature::SetGuardWaypoints()
-{
-    if(!GetMapMgr())
-        return;
-
-    if(!GetCreatureData())
-        return;
-
-    GetAIInterface()->setMoveType(1);
-    for(int i = 1; i <= 4; i++)
-    {
-        float ang = rand()/100.0f;
-        float ran = (rand()%(100))/10.0f;
-        while(ran < 1)
-            ran = (rand()%(100))/10.0f;
-
-        WayPoint * wp = NULL;
-        wp = new WayPoint;
-        wp->id = i;
-        wp->flags = 0;
-        wp->waittime = 800;  /* these guards are antsy :P */
-        wp->x = GetSpawnX()+ran*sin(ang);
-        wp->y = GetSpawnY()+ran*cos(ang);
-
-        if(canFly())
-            wp->z = GetSpawnZ();
-        else
-            wp->z = GetCHeightForPosition(canSwim() ? false : true); // Check water heights
-
-        wp->orientation = GetSpawnO();
-        wp->forwardInfo = NULL;
-        wp->backwardInfo = NULL;
-        GetAIInterface()->addWayPoint(wp);
-    }
 }

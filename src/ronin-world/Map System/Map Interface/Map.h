@@ -53,8 +53,8 @@ public:
     Map(uint32 mapid, MapInfo * inf);
     ~Map();
 
-    RONIN_INLINE std::string GetNameString() { return name; }
-    RONIN_INLINE const char* GetName() { return name.c_str(); }
+    RONIN_INLINE std::string GetNameString() { return mapName; }
+    RONIN_INLINE const char* GetName() { return mapName.c_str(); }
     RONIN_INLINE MapEntry* GetDBCEntry() { return me; }
 
     RONIN_INLINE CellSpawns *GetSpawnsList(uint32 cellx,uint32 celly)
@@ -115,8 +115,8 @@ private:
     TerrainMgr *_terrain;
     MapInfo *_mapInfo;
     uint32 _mapId;
-    std::string name;
     MapEntry *me;
+    std::string mapName;
 
     SpawnsMap m_spawns;
 };

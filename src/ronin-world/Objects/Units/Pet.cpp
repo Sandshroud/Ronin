@@ -904,18 +904,6 @@ void Pet::LearnSpell(uint32 spellid)
     }
 }
 
-void Pet::LearnLevelupSpells()
-{
-    uint32 family_id = (Summon ? GetEntry() : (myFamily ? myFamily->ID : 0));
-    if(PetLevelupSpellSet const *levelupSpells = objmgr.GetPetLevelupSpellList(family_id))
-    {
-        uint32 petlevel = getLevel();
-        std::map<uint32, uint32>::const_iterator itr = levelupSpells->find(petlevel);
-        if(itr != levelupSpells->end())
-            LearnSpell(itr->second);
-    }
-}
-
 void Pet::RemoveSpell(SpellEntry * sp)
 {
     mSpells.erase(sp);
@@ -1163,16 +1151,6 @@ void Pet::ApplyPetLevelAbilities()
 
     // Calculate damage.
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, float2int32(pet_attack_power));
-
-    /* These are just for visuals, no other actual purpose.
-    BaseStats[STAT_STRENGTH] = uint32(20+getLevel()*1.55);
-    BaseStats[STAT_AGILITY] = uint32(20+getLevel()*0.64);
-    // Reverse the health value to calculate stamina
-    BaseStats[STAT_STAMINA] = float2int32(pet_hp / 10);
-    BaseStats[STAT_INTELLECT] = uint32(20+getLevel()*0.18);
-    BaseStats[STAT_SPIRIT] = uint32(20+getLevel()*0.36);*/
-
-    LearnLevelupSpells();
 }
 
 void Pet::ApplyStatsForLevel()

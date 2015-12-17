@@ -1317,7 +1317,6 @@ public:
     uint32 SubtractRestXP(uint32 &amount);
     void AddCalculatedRestXP(uint32 seconds);
     void ApplyPlayerRestState(bool apply);
-    void SetLastAreaTrigger(AreaTrigger*trigger) { LastAreaTrigger = trigger; };
     void UpdateRestState();
     float z_axisposition;
     int32 m_safeFall;
@@ -1372,8 +1371,6 @@ public:
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
     void EventHandleSobering();
-    bool m_AllowAreaTriggerPort;
-    void EventAllowTiggerPort(bool enable);
     float m_meleeattackspeedmod;
     float m_rangedattackspeedmod;
 
@@ -1755,7 +1752,6 @@ protected:
     bool m_isResting;
     uint8 m_restState;
     uint32 m_restAmount;
-    AreaTrigger* LastAreaTrigger;
 
     uint32 m_armorProficiency, m_weaponProficiency;
     // STATUS

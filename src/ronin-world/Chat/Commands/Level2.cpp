@@ -298,8 +298,6 @@ bool ChatHandler::HandleKillCommand(const char *args, WorldSession *m_session)
         castPtr<Player>(unit)->KillPlayer();
         GreenSystemMessage(m_session, "Killed player %s.", unit->GetName());
     }
-    else if(isTargetDummy(unit->GetEntry()))
-        RedSystemMessage(m_session, "Target cannot be killed.");
     else
     {
         m_session->GetPlayer()->DealDamage(unit, 0xFFFFFFFF, 0, 0, 0);
@@ -1087,110 +1085,5 @@ bool ChatHandler::HandleItemSetRemoveCommand(const char* args, WorldSession *m_s
     else
         RedSystemMessage(m_session, "No items found");
 
-    return true;
-}
-
-bool ChatHandler::HandleTrainerAddLearnSpell(const char* args, WorldSession *m_session)
-{
-    WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    if(guid.empty())
-    {
-        SystemMessage(m_session, "No selection.");
-        return true;
-    }
-
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
-    if(!pCreature)
-    {
-        SystemMessage(m_session, "You should select a creature.");
-        return true;
-    }
-
-    Trainer* trainer = pCreature->GetTrainer();
-    if(!trainer)
-    {
-        SystemMessage(m_session, "You should select a trainer.");
-        return true;
-    }
-
-    uint32 spellid = 0, spellcost = 0, requiredspell = 0, requiredskill = 0, requiredskillvalue = 0, requiredlevel = 0, deletespell = 0, isprofession = 0;
-    if(sscanf(args, "%u %u %u %u %u %u %u %u", &spellid, &spellcost, &requiredspell, &requiredskill, &requiredskillvalue, &requiredlevel, &deletespell, &isprofession) == 0)
-        return false;
-
-    SpellEntry* spellinfo = dbcSpell.LookupEntry(spellid);
-    if(spellinfo == NULL)
-        return false;
-
-    TrainerSpell ts;
-    ts.pCastSpell = NULL;
-    ts.pCastRealSpell = NULL;
-    ts.pLearnSpell = spellinfo;
-    ts.Cost = spellcost;
-    ts.RequiredSpell = requiredspell;
-    ts.RequiredSkillLine = requiredskill;
-    ts.RequiredSkillLineValue = requiredskillvalue;
-    ts.RequiredLevel = requiredlevel;
-    ts.DeleteSpell = deletespell;
-    ts.IsProfession = (isprofession > 0);
-    trainer->Spells.push_back(ts);
-    WorldDatabase.Execute("INSERT INTO trainer_spells VALUES('%u', '0', '%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u')", pCreature->GetEntry(), spellid, spellcost, requiredspell, requiredskill, requiredskillvalue, requiredlevel, deletespell, isprofession);
-    SystemMessage(m_session, "Learn spell added successfully.");
-    return true;
-}
-
-bool ChatHandler::HandleTrainerAddCastSpell(const char* args, WorldSession *m_session)
-{
-    WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    if(guid.empty())
-    {
-        SystemMessage(m_session, "No selection.");
-        return true;
-    }
-
-    Creature* pCreature = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
-    if(!pCreature)
-    {
-        SystemMessage(m_session, "You should select a creature.");
-        return true;
-    }
-
-    Trainer* trainer = pCreature->GetTrainer();
-    if(!trainer)
-    {
-        SystemMessage(m_session, "You should select a trainer.");
-        return true;
-    }
-
-    uint32 spellid = 0, spellcost = 0, requiredspell = 0, requiredskill = 0, requiredskillvalue = 0, requiredlevel = 0, deletespell = 0, isprofession = 0;
-    if(sscanf(args, "%u %u %u %u %u %u %u %u", &spellid, &spellcost, &requiredspell, &requiredskill, &requiredskillvalue, &requiredlevel, &deletespell, &isprofession) == 0)
-        return false;
-
-    SpellEntry* spellinfo = dbcSpell.LookupEntry(spellid);
-    if(spellinfo == NULL)
-        return false;
-
-    TrainerSpell ts;
-    ts.pCastRealSpell = NULL;
-    ts.pCastSpell = spellinfo;
-    for( int k = 0; k < 3; ++k )
-    {
-        if( spellinfo->Effect[k] == SPELL_EFFECT_LEARN_SPELL )
-        {
-            ts.pCastRealSpell = dbcSpell.LookupEntry(spellinfo->EffectTriggerSpell[k]);
-            break;
-        }
-    }
-
-    ts.pLearnSpell = NULL;
-    ts.Cost = spellcost;
-    ts.RequiredSpell = requiredspell;
-    ts.RequiredSkillLine = requiredskill;
-    ts.RequiredSkillLineValue = requiredskillvalue;
-    ts.RequiredLevel = requiredlevel;
-    ts.DeleteSpell = deletespell;
-    ts.IsProfession = (isprofession > 0);
-    trainer->Spells.push_back(ts);
-    WorldDatabase.Execute("INSERT INTO trainer_spells VALUES('%u', '%u', '0', '%u', '%u', '%u', '%u', '%u', '%u', '%u')", pCreature->GetEntry(), spellid, spellcost, requiredspell, requiredskill, requiredskillvalue, requiredlevel, deletespell, isprofession);
-    SystemMessage(m_session, "Cast spell added successfully.");
     return true;
 }

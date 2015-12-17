@@ -4,38 +4,6 @@
 
 #include "StdAfx.h"
 
-trainertype trainer_types[TRAINER_TYPE_MAX] =
-{
-{   "Warrior",             0 },
-{   "Paladin",             0 },
-{   "Rogue"  ,             0 },
-{   "Warlock",             0 },
-{   "Mage",                0 },
-{   "Shaman",              0 },
-{   "Priest",              0 },
-{   "Hunter",              0 },
-{   "Druid",               0 },
-{   "Leatherwork",         2 },
-{   "Skinning",            2 },
-{   "Fishing",             2 },
-{   "First Aid",           2 },
-{   "Physician",           2 },
-{   "Engineer",            2 },
-{   "Weapon Master",       0 },
-};
-
-bool CanTrainAt(Player* plr, Trainer * trn)
-{
-    if ( (trn->RequiredClass && plr->getClass() != trn->RequiredClass) ||
-         (trn->RequiredSkill && !plr->_HasSkillLine(trn->RequiredSkill)) ||
-         (trn->RequiredSkillLine && plr->_GetSkillLineCurrent(trn->RequiredSkill) < trn->RequiredSkillLine) )
-    {
-        return false;
-    }
-
-    return true;
-}
-
 //////////////////////////////////////////////////////////////
 /// This function handles MSG_TABARDVENDOR_ACTIVATE:
 //////////////////////////////////////////////////////////////
@@ -58,7 +26,6 @@ void WorldSession::SendTabardHelp(Creature* pCreature)
     data << pCreature->GetGUID();
     SendPacket( &data );
 }
-
 
 //////////////////////////////////////////////////////////////
 /// This function handles CMSG_BANKER_ACTIVATE:
@@ -106,230 +73,17 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
 
 void WorldSession::SendTrainerList(Creature* pCreature)
 {
-    Trainer * pTrainer = pCreature->GetTrainer();
-    if(pTrainer == 0)
-        return;
-
-    if(!CanTrainAt(_player,pTrainer))
-    {
-        GossipMenu * pMenu;
-        objmgr.CreateGossipMenuForPlayer(&pMenu,pCreature->GetGUID(), pTrainer->Cannot_Train_GossipTextId, _player);
-        pMenu->SendTo(_player);
-        return;
-    }
-
-    TrainerSpell* pSpell;
-    uint32 Spacer = 0;
-    uint32 Count=0;
-    uint8 Status;
-    std::string Text;
-
     WorldPacket data(SMSG_TRAINER_LIST, 5000);
     data << pCreature->GetGUID();
-    data << pTrainer->TrainerType;
     data << uint32(0);
-    for(std::vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
-    {
-        pSpell = &(*itr);
-        Status = TrainerGetSpellStatus(pSpell);
-        if(Status == TRAINER_STATUS_NOT_AVAILABLE)
-            continue; // Don't bother sending shit.
-        else if( pSpell->pCastRealSpell )
-            data << pSpell->pCastRealSpell->Id;
-        else if( pSpell->pLearnSpell )
-            data << pSpell->pLearnSpell->Id;
-        else continue;
-
-        data << Status;
-        data << pSpell->Cost;
-        data << uint32((pSpell->IsProfession && Status == TRAINER_STATUS_LEARNABLE) ? 1 : 0);
-        data << uint32(pSpell->IsProfession);
-        data << uint8(pSpell->RequiredLevel);
-        data << pSpell->RequiredSkillLine;
-        data << pSpell->RequiredSkillLineValue;
-        data << pSpell->RequiredSpell;
-        data << Spacer; //this is like a spell override or something, ex : (id=34568 or id=34547) or (id=36270 or id=34546) or (id=36271 or id=34548)
-        data << Spacer;
-        ++Count;
-    }
-
-    *(uint32*)&data.contents()[12] = Count;
-    data << pTrainer->UIMessage;
-
+    data << uint32(0);
     SendPacket(&data);
 }
 
 void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
-    uint64 Guid;
-    uint32 TeachingSpellID;
 
-    recvPacket >> Guid >> TeachingSpellID;
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(Guid);
-    if(pCreature == NULL)
-        return;
-
-    Trainer *pTrainer = pCreature->GetTrainer();
-    if(pTrainer == NULL || !CanTrainAt(_player, pTrainer))
-        return;
-
-    TrainerSpell* pSpell = NULL;
-    for(std::vector<TrainerSpell>::iterator itr = pTrainer->Spells.begin(); itr != pTrainer->Spells.end(); itr++)
-    {
-        if( ( itr->pCastRealSpell && itr->pCastRealSpell->Id == TeachingSpellID ) ||
-            ( itr->pLearnSpell && itr->pLearnSpell->Id == TeachingSpellID ) )
-        {
-            pSpell = &(*itr);
-        }
-    }
-
-    if(pSpell == NULL)
-        return;
-
-    if(TrainerGetSpellStatus(pSpell) > 0)
-        return;
-
-    _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -(int32)pSpell->Cost);
-
-    if( pSpell->pLearnSpell )
-    {
-        WoWGuid guid = pCreature->GetGUID();
-        WorldPacket data(SMSG_PLAY_SPELL_VISUAL_KIT, 12);
-        data << uint32(0) << uint32(179) << uint32(0);
-        data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
-        data.WriteSeqByteString(8, guid, 0, 4, 1, 6, 7, 2, 3, 5);
-        pCreature->SendMessageToSet(&data, false);
-
-        guid = _player->GetGUID();
-        data.clear();
-        data << uint32(0) << uint32(362) << uint32(0);
-        data.WriteBitString(8, guid[4], guid[7], guid[5], guid[3], guid[1], guid[2], guid[0], guid[6]);
-        data.WriteSeqByteString(8, guid, 0, 4, 1, 6, 7, 2, 3, 5);
-        _player->SendMessageToSet(&data, true);
-
-        _player->forget = pSpell->DeleteSpell;
-        for( uint8 i = 0; i < 3; i++)
-        {
-            if(pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_PROFICIENCY || pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_LEARN_SPELL ||
-                pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_WEAPON)
-            {
-                _player->CastSpell(_player, pSpell->pLearnSpell, true);
-            }
-        }
-
-        _player->addSpell( pSpell->pLearnSpell->Id );
-        _player->forget = 0;
-
-        for( uint8 i = 0; i < 3; i++)
-        {
-            if( pSpell->pLearnSpell->Effect[i] == SPELL_EFFECT_SKILL )
-            {
-                uint32 skill = pSpell->pLearnSpell->EffectMiscValue[i];
-                uint32 val = (pSpell->pLearnSpell->EffectBasePoints[i]+1) * 75;
-                if( val > sWorld.GetMaxLevel(_player)*5 )
-                    val = sWorld.GetMaxLevel(_player)*5;
-
-                if( _player->_GetSkillLineMax(skill) >= val )
-                    return;
-
-                if( skill == SKILL_RIDING )
-                    _player->_AddSkillLine( skill, val, val );
-                else
-                {
-                    SkillLineEntry* sle = dbcSkillLine.LookupEntry(pSpell->RequiredSkillLine);
-                    if( _player->_HasSkillLine(skill) )
-                        _player->_ModifySkillMaximum(skill, val);
-                    else if(sWorld.StartLevel > 1 && (sle == NULL || (sle->categoryId != SKILL_TYPE_PROFESSION && sle->categoryId != SKILL_TYPE_SECONDARY)))
-                        _player->_AddSkillLine( skill, 5*sWorld.StartLevel, val);
-                    else _player->_AddSkillLine( skill, 1, val);
-                }
-            }
-        }
-    }
-    else if( pSpell->pCastSpell)
-    {
-        // Cast teaching spell on player
-        pCreature->CastSpell(_player, pSpell->pCastSpell, true);
-    }
-
-    if(pSpell->DeleteSpell)
-        _player->removeSpell(pSpell->DeleteSpell);
-}
-
-uint8 WorldSession::TrainerGetSpellStatus(TrainerSpell* pSpell)
-{
-    if(!pSpell->pCastRealSpell && !pSpell->pLearnSpell)
-        return TRAINER_STATUS_NOT_AVAILABLE;
-
-    if((pSpell->pCastRealSpell && objmgr.IsSpellDisabled(pSpell->pCastRealSpell->Id))
-        || (pSpell->pLearnSpell && objmgr.IsSpellDisabled(pSpell->pLearnSpell->Id)))
-        return TRAINER_STATUS_NOT_AVAILABLE;
-
-    // Spells with the same names
-    SpellEntry* namehashSP = NULL;
-    if( pSpell->pCastRealSpell )
-    {
-        if( _player->HasSpell(pSpell->pCastRealSpell->Id)
-            || ((namehashSP = _player->GetSpellWithNamehash(pSpell->pCastRealSpell->NameHash))
-            && (namehashSP->RankNumber ? namehashSP->RankNumber > pSpell->pCastRealSpell->RankNumber : false)) )
-            return TRAINER_STATUS_ALREADY_HAVE;
-    }
-
-    namehashSP = NULL;
-    if( pSpell->pLearnSpell)
-    {
-        if( _player->HasSpell(pSpell->pLearnSpell->Id)
-            || ((namehashSP = _player->GetSpellWithNamehash(pSpell->pLearnSpell->NameHash))
-            && (namehashSP->RankNumber ? namehashSP->RankNumber > pSpell->pLearnSpell->RankNumber : false)) )
-            return TRAINER_STATUS_ALREADY_HAVE;
-    }
-
-    // Spells with different names
-    if((pSpell->pLearnSpell && _player->HasHigherSpellForSkillLine(pSpell->pLearnSpell))
-        || (pSpell->pCastRealSpell && _player->HasHigherSpellForSkillLine(pSpell->pCastRealSpell)))
-        return TRAINER_STATUS_ALREADY_HAVE;
-
-    uint8 ssform = (pSpell->pLearnSpell ? pSpell->pLearnSpell->RequiredShapeShift : 0);
-    uint32 ssspell = 0;
-    if(ssform && ssform != FORM_MOONKIN) // We don't accept checks for this.
-        ssspell = _player->GetSpellForShapeshiftForm(ssform, true);
-
-    // Skill Checks
-    bool hasskill = true;
-    if(pSpell->RequiredSkillLine)
-    {
-        SkillLineEntry* sle = dbcSkillLine.LookupEntry(pSpell->RequiredSkillLine);
-        if(sle != NULL) // It is a skill.
-        {
-            if(_player->_GetSkillLineCurrent(pSpell->RequiredSkillLine,true) < pSpell->RequiredSkillLineValue)
-                hasskill = false;
-        }
-        else
-        {
-            SpellEntry* sp = dbcSpell.LookupEntry(pSpell->RequiredSkillLine);
-            if(sp != NULL) // We accidentally put a spell here... -_-
-            {
-                // We purposely put a spell here, but we're still wrong... -_-
-                if(SkillLineAbilityEntry* sla = dbcSkillLineSpell.LookupEntry(sp->Id))
-                {
-                    if(_player->_GetSkillLineCurrent(sla->skilline, true) < pSpell->RequiredSkillLineValue)
-                        hasskill = false;
-                }
-            }
-        }
-    }
-
-    if( (pSpell->RequiredLevel && _player->getLevel() < pSpell->RequiredLevel)
-        || (pSpell->RequiredSpell && !_player->HasSpell(pSpell->RequiredSpell))
-        || (pSpell->Cost && _player->GetUInt32Value(PLAYER_FIELD_COINAGE) < pSpell->Cost) || (!hasskill)
-        || (pSpell->IsProfession && pSpell->RequiredSkillLine == 0 && _player->GetUInt32Value(PLAYER_CHARACTER_POINTS) == 0)//check level 1 professions if we can learn a new proffesion
-        || (ssspell && !_player->HasSpell(ssspell)))
-    {
-        return TRAINER_STATUS_NOT_LEARNABLE;
-    }
-
-    return TRAINER_STATUS_LEARNABLE;
 }
 
 //////////////////////////////////////////////////////////////

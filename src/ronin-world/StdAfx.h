@@ -116,7 +116,6 @@ extern "C" {
 
 #include "CreatureDataMgr.h"
 #include "AddonMgr.h"
-#include "AreaTrigger.h"
 #include "BattlegroundMgr.h"
 #include "AlteracValley.h"
 #include "ArathiBasin.h"

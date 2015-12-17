@@ -26,37 +26,6 @@ class Player;
 class WorldSession;
 class SpellCastTargets;
 
-struct WayPoint
-{
-    uint32 id;
-    float x, y, z;
-    float orientation;
-    uint32 waittime; //ms
-    uint32 flags;
-
-    struct ConditionalData
-    {
-        ConditionalData(bool _EmoteOneShot = false, uint32 _EmoteID = 0, uint32 _SkinID = 0, uint32 _StandState = 0, uint32 _SpellToCast = 0, const char* _SayText = "")
-        {
-            EmoteOneShot = _EmoteOneShot;
-            EmoteID = _EmoteID;
-            SkinID = _SkinID;
-            StandState = _StandState;
-            SpellToCast = _SpellToCast;
-            SayText = _SayText;
-        }
-
-        bool EmoteOneShot;
-        uint32 EmoteID;
-        uint32 SkinID;
-        uint32 StandState;
-        uint32 SpellToCast;
-        std::string SayText;
-    } *forwardInfo, *backwardInfo;
-};
-
-typedef std::vector<WayPoint*> WayPointMap;
-
 enum AIType
 {
     AITYPE_LONER,
@@ -300,10 +269,6 @@ struct AI_Spell
 
     Unit* mPredefinedTarget;        // SD | Our set target
 };
-
-bool isGuard(uint32 id);
-uint32 getGuardId(uint32 id);
-bool isTargetDummy(uint32 id);
 
 typedef std::map<uint32, AI_Spell*> SpellMap;
 typedef std::map<uint32, LocationVector> LocationVectorMap;

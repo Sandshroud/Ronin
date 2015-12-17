@@ -166,8 +166,6 @@ void AIInterface::_UpdateCombat(uint32 p_time)
             {
                 FindFriends( 50.0f /*7.0f*/ );
                 m_hasCalledForHelp = true; // We only want to call for Help once in a Fight.
-                if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                    objmgr.HandleMonsterSayEvent( castPtr<Creature>( m_Unit ), MONSTER_SAY_EVENT_CALL_HELP );
                 TRIGGER_AI_EVENT( m_Unit, OnCallForHelp );
                 return;
             }
@@ -175,8 +173,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
             {
                 if(m_CastNext != NULL)
                     LastBehavior = Behavior_Spell;
-                else
-                    LastBehavior = Behavior_Melee;
+                else LastBehavior = Behavior_Melee;
             }
         }
 
@@ -450,8 +447,6 @@ Unit* AIInterface::FindTarget()
             continue;
         // Check the z height difference
         crange = _CalcCombatRange(pUnit, false);
-        if(m_isGuard)
-            crange *= 4;
         z_diff = fabs(m_Unit->GetPositionZ() - pUnit->GetPositionZ());
         if(z_diff > crange)
             continue;

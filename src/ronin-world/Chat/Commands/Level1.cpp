@@ -638,28 +638,6 @@ bool ChatHandler::HandleModifyGoldCommand(const char* args, WorldSession *m_sess
     return true;
 }
 
-bool ChatHandler::HandleTriggerCommand(const char* args, WorldSession* m_session)
-{
-    int32 instance_id;
-    uint32 trigger_id;
-    int valcount = sscanf(args, "%u %i", (unsigned int*)&trigger_id, (int*)&instance_id);
-    if(!valcount)
-        return false;
-    if(valcount == 1)
-        instance_id = 0;
-
-    AreaTrigger *pTrigger = AreaTriggerStorage.LookupEntry(trigger_id);
-    if(trigger_id == 0 || pTrigger == NULL)
-    {
-        RedSystemMessage(m_session, "Could not find trigger %s", (args == NULL ? "NULL" : args));
-        return true;
-    }
-
-    m_session->GetPlayer()->SafeTeleport(pTrigger->Mapid, instance_id, LocationVector(pTrigger->x, pTrigger->y, pTrigger->z, pTrigger->o));
-    BlueSystemMessage(m_session, "Teleported to trigger %u on [%u][%.2f][%.2f][%.2f]", pTrigger->AreaTriggerID, pTrigger->Mapid, pTrigger->x, pTrigger->y, pTrigger->z);
-    return true;
-}
-
 bool ChatHandler::HandleUnlearnCommand(const char* args, WorldSession * m_session)
 {
     Player* plr = getSelectedChar(m_session, true);

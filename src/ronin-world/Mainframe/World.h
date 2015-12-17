@@ -208,8 +208,7 @@ enum HolidayMasks
 struct MapInfo
 {
     uint32 mapid;
-    char * name;
-    bool load;
+    char *mapName;
     uint32 type;
     uint32 playerlimit;
     uint32 minlevel;
@@ -645,9 +644,6 @@ private:
     typedef RONIN_UNORDERED_MAP<uint32, WorldSession*> SessionMap;
     SessionMap m_sessions;
     RWLock m_sessionlock;
-
-    typedef RONIN_UNORDERED_MAP<uint32, AreaTrigger*> AreaTriggerMap;
-    AreaTriggerMap m_AreaTrigger;
 
 protected:
     Mutex SessionsMutex;//FOR GLOBAL !
