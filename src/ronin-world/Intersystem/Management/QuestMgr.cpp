@@ -75,40 +75,32 @@ QuestMgr::~QuestMgr()
         delete MapQuestIterator->second->qst_incompletetext;
         for(uint8 i = 0; i < 4; i++)
             delete MapQuestIterator->second->qst_objectivetexts[i];
+        for (std::vector<QuestPOI*>::const_iterator itr = MapQuestIterator->second->quest_poi.begin(); itr != MapQuestIterator->second->quest_poi.end(); ++itr)
+        {
+            (*itr)->points.clear();
+            delete *itr;
+        }
+        MapQuestIterator->second->quest_poi.clear();
         delete MapQuestIterator->second;
     }
     QuestStorage.clear();
-
-    for(QuestPOIStorageMap::iterator itr = mQuestPOIMap.begin(); itr != mQuestPOIMap.end(); itr++)
-    {
-        while(!itr->second.empty())
-        {
-            QuestPOI *poi = itr->second.back();
-            itr->second.pop_back();
-            poi->points.clear();
-            delete poi;
-        }
-    }
 }
 
 void QuestMgr::LoadQuests()
 {
     LoadLocks.Acquire();
-    QueryResult* mainResult = WorldDatabase.Query("SELECT * FROM quests");
+    QueryResult* mainResult = WorldDatabase.Query("SELECT * FROM quest_data");
     if(mainResult == NULL)
     {
         sLog.Notice("QuestMgr", "No quests found in the quests table!");
         return;
     }
 
-    Field *fields = NULL;
-    uint32 f = 0, QuestId = 0;
-    QueryResult* result = NULL;
     do
     {
-        f = 0;
-        fields = mainResult->Fetch();
-        QuestId = fields[f++].GetUInt32();
+        uint8 f = 0;
+        Field *fields = mainResult->Fetch();
+        uint32 QuestId = fields[f++].GetUInt32();
         if(QuestStorage.find(QuestId) != QuestStorage.end())
         {
             sLog.Error("QuestMgr", "Duplicate quest data found in DB for quest %u, skipping\n", QuestId);
@@ -142,51 +134,113 @@ void QuestMgr::LoadQuests()
         QuestStorage.insert(std::make_pair(QuestId, newQuest));
     }while(mainResult->NextRow());
     delete mainResult;
-    mainResult = NULL;
+
     sLog.Notice("QuestMgr", "Loaded %u Quests from the Database! Starting data pooling...", QuestStorage.size());
 
-    result = WorldDatabase.Query("SELECT * FROM quests_rewards");
-    if(result != NULL)
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_objectives"))
     {
-        if(result->GetFieldCount() != 55)
-            sLog.Error("QuestMgr", "Incorrect column count in quests_rewards(%u/55)", result->GetFieldCount());
+        if(result->GetFieldCount() != 40)
+            sLog.Error("QuestMgr", "Incorrect column count in quest_rewards(%u/40)", result->GetFieldCount());
         else do
         {
-            f = 0;
-            fields = result->Fetch();
-            QuestId = fields[f++].GetUInt32();
+            uint8 f = 0;
+            Field *fields = result->Fetch();
+            uint32 QuestId = fields[f++].GetUInt32();
             if(QuestStorage.find(QuestId) == QuestStorage.end())
-            {
                 continue;
-            }
+
+            Quest *quest = QuestStorage.at(QuestId);
+            for(uint8 i = 0; i < 6; i++)
+                if(quest->required_item[i] = fields[f++].GetUInt32())
+                    quest->count_required_item++;
+
+            for(uint8 i = 0; i < 6; i++)
+                quest->required_itemcount[i] = fields[f++].GetUInt16();
+
+            for(uint8 i = 0; i < 4; i++)
+                if(quest->required_mob[i] = fields[f++].GetUInt32())
+                    quest->count_required_mob++;
+
+            for(uint8 i = 0; i < 4; i++)
+                quest->required_mobtype[i] = fields[f++].GetUInt8();
+            for(uint8 i = 0; i < 4; i++)
+                quest->required_mobcount[i] = fields[f++].GetUInt16();
+            for(uint8 i = 0; i < 4; i++)
+                quest->required_spell[i] = fields[f++].GetUInt32();
+
+            for(uint8 i = 0; i < 4; i++)
+                if(quest->required_areatriggers[i] = fields[f++].GetUInt32())
+                    quest->count_requiredareatriggers++;
+
+            quest->required_player_kills = fields[f++].GetUInt32();
+            quest->required_timelimit = fields[f++].GetUInt32();
+            quest->required_money = fields[f++].GetUInt32();
+            quest->required_point_mapid = fields[f++].GetUInt32();
+            quest->required_point_x = fields[f++].GetFloat();
+            quest->required_point_y = fields[f++].GetFloat();
+            quest->required_point_radius = fields[f++].GetUInt32();
+        }while(result->NextRow());
+        delete result;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_requirements"))
+    {
+        if(result->GetFieldCount() != 13)
+            sLog.Error("QuestMgr", "Incorrect column count in quests_rewards(%u/13)", result->GetFieldCount());
+        else do
+        {
+            uint8 f = 0;
+            Field *fields = result->Fetch();
+            uint32 QuestId = fields[f++].GetUInt32();
+            if(QuestStorage.find(QuestId) == QuestStorage.end())
+                continue;
+
+            Quest *quest = QuestStorage.at(QuestId);
+            quest->required_team = fields[f++].GetInt8();
+            quest->required_races = fields[f++].GetUInt16();
+            quest->required_class = fields[f++].GetUInt16();
+            quest->required_tradeskill = fields[f++].GetUInt16();
+            quest->required_tradeskill_value = fields[f++].GetUInt16();
+            quest->required_rep_faction = fields[f++].GetUInt16();
+            quest->required_rep_value = fields[f++].GetUInt16();
+            for(uint8 i = 0; i < 4; i++)
+                if(quest->required_quests[i] = fields[f++].GetUInt32())
+                    quest->count_requiredquests = i+1;
+            quest->required_quest_one_or_all = fields[f++].GetBool();
+        }while(result->NextRow());
+        delete result;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_rewards"))
+    {
+        if(result->GetFieldCount() != 55)
+            sLog.Error("QuestMgr", "Incorrect column count in quest_rewards(%u/55)", result->GetFieldCount());
+        else do
+        {
+            uint8 f = 0;
+            Field *fields = result->Fetch();
+            uint32 QuestId = fields[f++].GetUInt32();
+            if(QuestStorage.find(QuestId) == QuestStorage.end())
+                continue;
 
             Quest *quest = QuestStorage.at(QuestId);
             quest->srcitem = fields[f++].GetUInt32();
             quest->srcitemcount = fields[f++].GetUInt16();
             for(uint8 i = 0; i < 6; i++)
-            {
-                quest->reward_choiceitem[i] = fields[f++].GetUInt32();
-                if(quest->reward_choiceitem[i])
+                if(quest->reward_choiceitem[i] = fields[f++].GetUInt32())
                     quest->count_reward_choiceitem++;
-            }
             for(uint8 i = 0; i < 6; i++)
                 quest->reward_choiceitemcount[i] = fields[f++].GetUInt16();
 
             for(uint8 i = 0; i < 4; i++)
-            {
-                quest->reward_item[i] = fields[f++].GetUInt32();
-                if(quest->reward_item[i])
+                if(quest->reward_item[i] = fields[f++].GetUInt32())
                     quest->count_reward_item++;
-            }
             for(uint8 i = 0; i < 4; i++)
                 quest->reward_itemcount[i] = fields[f++].GetUInt16();
 
             for(uint8 i = 0; i < 4; i++)
-            {
-                quest->receive_items[i] = fields[f++].GetUInt32();
-                if(quest->receive_items[i])
+                if(quest->receive_items[i] = fields[f++].GetUInt32())
                     quest->count_receiveitems++;
-            }
             for(uint8 i = 0; i < 4; i++)
                 quest->receive_itemcount[i] = fields[f++].GetUInt16();
 
@@ -208,104 +262,90 @@ void QuestMgr::LoadQuests()
             quest->reward_xp_index = fields[f++].GetUInt32();
         }while(result->NextRow());
         delete result;
-        result = NULL;
     }
 
-    result = WorldDatabase.Query("SELECT * FROM quests_objectives");
-    if(result != NULL)
+    if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM quest_starter_creature"))
     {
-        if(result->GetFieldCount() != 40)
-            sLog.Error("QuestMgr", "Incorrect column count in quests_rewards(%u/40)", result->GetFieldCount());
-        else do
+        do
         {
-            f = 0;
-            fields = result->Fetch();
-            QuestId = fields[f++].GetUInt32();
+            Field *data = pResult->Fetch();
+            if(Quest *qst = GetQuestPointer(data[1].GetUInt32()))
+                _AddQuest<Creature>(data[0].GetUInt32(), qst, QUESTGIVER_QUEST_START);
+        } while(pResult->NextRow());
+        delete pResult;
+    }
+
+    if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM quest_starter_gameobject"))
+    {
+        do
+        {
+            Field *data = pResult->Fetch();
+            if(Quest *qst = GetQuestPointer(data[1].GetUInt32()))
+                _AddQuest<GameObject>(data[0].GetUInt32(), qst, QUESTGIVER_QUEST_START);
+        } while(pResult->NextRow());
+        delete pResult;
+    }
+
+    if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM quest_finisher_creature"))
+    {
+        do
+        {
+            Field *data = pResult->Fetch();
+            if(Quest *qst = GetQuestPointer(data[1].GetUInt32()))
+                _AddQuest<Creature>(data[0].GetUInt32(), qst, QUESTGIVER_QUEST_END);
+        } while(pResult->NextRow());
+        delete pResult;
+    }
+
+    if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM quest_finisher_gameobject"))
+    {
+        do
+        {
+            Field *data = pResult->Fetch();
+            if(Quest *qst = GetQuestPointer(data[1].GetUInt32()))
+                _AddQuest<GameObject>(data[0].GetUInt32(), qst, QUESTGIVER_QUEST_END);
+        } while(pResult->NextRow());
+        delete pResult;
+    }
+
+    std::map<std::pair<uint32, uint32>, QuestPOI*> m_orderedQuestPOI;
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi ORDER BY questId, id ASC"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 QuestId = fields[0].GetUInt32();
             if(QuestStorage.find(QuestId) == QuestStorage.end())
-            {
                 continue;
-            }
 
             Quest *quest = QuestStorage.at(QuestId);
-            for(uint8 i = 0; i < 6; i++)
-            {
-                quest->required_item[i] = fields[f++].GetUInt32();
-                if(quest->required_item[i])
-                    quest->count_required_item++;
-            }
-
-            for(uint8 i = 0; i < 6; i++)
-                quest->required_itemcount[i] = fields[f++].GetUInt16();
-
-            for(uint8 i = 0; i < 4; i++)
-            {
-                quest->required_mob[i] = fields[f++].GetUInt32();
-                if(quest->required_mob[i])
-                    quest->count_required_mob++;
-            }
-
-            for(uint8 i = 0; i < 4; i++)
-                quest->required_mobtype[i] = fields[f++].GetUInt8();
-            for(uint8 i = 0; i < 4; i++)
-                quest->required_mobcount[i] = fields[f++].GetUInt16();
-
-            quest->required_spell = fields[f++].GetUInt32();
-            f++; f++; f++;
-            for(uint8 i = 0; i < 4; i++)
-            {
-                quest->required_areatriggers[i] = fields[f++].GetUInt32();
-                if(quest->required_areatriggers[i])
-                    quest->count_requiredareatriggers++;
-            }
-
-            quest->required_player_kills = fields[f++].GetUInt32();
-            quest->required_timelimit = fields[f++].GetUInt32();
-            quest->required_money = fields[f++].GetUInt32();
-            quest->required_point_mapid = fields[f++].GetUInt32();
-            quest->required_point_x = fields[f++].GetFloat();
-            quest->required_point_y = fields[f++].GetFloat();
-            quest->required_point_radius = fields[f++].GetUInt32();
-        }while(result->NextRow());
-        delete result;
-        result = NULL;
+            QuestPOI *PoI = new QuestPOI();
+            PoI->questId = QuestId;
+            PoI->PoIID = fields[1].GetUInt32();
+            PoI->questObjectIndex = fields[2].GetInt32();
+            PoI->mapId = fields[3].GetUInt32();
+            PoI->areaId = fields[4].GetUInt32();
+            PoI->MapFloorId = fields[5].GetUInt32();
+            quest->quest_poi.push_back(PoI);
+            m_orderedQuestPOI[std::make_pair(PoI->questId, PoI->PoIID)] = PoI;
+        } while (result->NextRow());
+        delete result;    
     }
 
-    result = WorldDatabase.Query("SELECT * FROM quests_requirements");
-    if(result != NULL)
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi_points ORDER BY questId, poiId, internalIndex ASC"))
     {
-        if(result->GetFieldCount() != 13)
-            sLog.Error("QuestMgr", "Incorrect column count in quests_rewards(%u/13)", result->GetFieldCount());
-        else do
+        do
         {
-            f = 0;
-            fields = result->Fetch();
-            QuestId = fields[f++].GetUInt32();
-            if(QuestStorage.find(QuestId) == QuestStorage.end())
-            {
-                continue;
-            }
-
-            Quest *quest = QuestStorage.at(QuestId);
-            quest->required_team = fields[f++].GetInt8();
-            quest->required_races = fields[f++].GetUInt16();
-            quest->required_class = fields[f++].GetUInt16();
-            quest->required_tradeskill = fields[f++].GetUInt16();
-            quest->required_tradeskill_value = fields[f++].GetUInt16();
-            quest->required_rep_faction = fields[f++].GetUInt16();
-            quest->required_rep_value = fields[f++].GetUInt16();
-            for(uint8 i = 0; i < 4; i++)
-            {
-                quest->required_quests[i] = fields[f++].GetUInt32();
-                if(quest->required_quests[i])
-                    quest->count_requiredquests = i+1;
-            }
-            quest->required_quest_one_or_all = fields[f++].GetBool();
-        }while(result->NextRow());
+            Field *pointFields = result->Fetch();
+            std::pair<uint32, uint32> questPOID = std::make_pair(pointFields[0].GetUInt32(), pointFields[1].GetUInt32());
+            if(m_orderedQuestPOI.find(questPOID) != m_orderedQuestPOI.end())
+                m_orderedQuestPOI.at(questPOID)->points.push_back(std::make_pair(pointFields[3].GetInt32(), pointFields[4].GetInt32()));
+        }while (result->NextRow());
         delete result;
-        result = NULL;
     }
 
-    LoadExtraQuestStuff();
+    sLog.Notice("QuestMgr", "%u quest POI definitions", m_orderedQuestPOI.size());
+    m_orderedQuestPOI.clear();
     LoadLocks.Release();
 }
 
@@ -1639,88 +1679,6 @@ bool QuestMgr::CanStoreReward(Player* plyr, Quest *qst, uint32 reward_slot)
     return true;
 }
 
-void QuestMgr::LoadExtraQuestStuff()
-{
-    bool cleanDB = mainIni->ReadBoolean("Server", "CleanDatabase", false);
-    sLog.Debug("QuestMgr","Creating gameobject involved quest map...");
-
-    const char *table_names[4] = { "creature_quest_starter", "creature_quest_finisher", "gameobject_quest_starter", "gameobject_quest_finisher" };
-    for(uint8 i = 0; i < 4; i++)
-    {
-        if(QueryResult *pResult = WorldDatabase.Query("SELECT * FROM %s", table_names[i]))
-        {
-            sLog.Notice("QuestMgr", "Parsing %u entries from %s", pResult->GetRowCount(), table_names[i]);
-
-            uint32 objEntry, quest;
-            do
-            {
-                Field *data = pResult->Fetch();
-                objEntry = data[0].GetUInt32();
-                quest = data[1].GetUInt32();
-
-                if(Quest *qst = GetQuestPointer(quest))
-                {
-                    if(i < 2)
-                        _AddQuest<Creature>(objEntry, qst, 1);  // 1 = starter
-                    else _AddQuest<GameObject>(objEntry, qst, 1);  // 1 = starter
-                }
-                else
-                {
-                    sLog.Warning("QuestMgr", "Non-existent quest %u for entry %u in table %s", quest, objEntry, table_names[i]);
-                    if(cleanDB) WorldDatabase.Execute("DELETE FROM %s where quest = '%u'", table_names[i], quest);
-                }
-            } while(pResult->NextRow());
-            delete pResult;
-        }
-    }
-}
-
-void QuestMgr::LoadQuestPOI()
-{
-    QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi ORDER BY questId, id ASC"), *points = WorldDatabase.Query("SELECT * FROM quest_poi_points ORDER BY questId, id, internalIndex ASC");
-    if(result == NULL || points == NULL)
-    {
-        sLog.Error("QuestMgr", "Failed to load Quest POI, %s", result ? "no points exist in DB" : "no Quest objectives exist in DB");
-        if(result) delete result;
-        if(points) delete points;
-        return;
-    }
-
-    uint32 count = 0;
-    uint32 pointcount = 0;
-    std::map<std::pair<uint32, uint32>, QuestPOI*> m_orderedQuestPOI;
-    do
-    {
-        Field *fields = result->Fetch();
-        QuestPOI *PoI = new QuestPOI();
-        PoI->questId = fields[0].GetUInt32();
-        PoI->PoIID = fields[1].GetUInt32();
-        PoI->questObjectIndex = fields[2].GetInt32();
-        PoI->mapId = fields[3].GetUInt32();
-        PoI->areaId = fields[4].GetUInt32();
-        PoI->MapFloorId = fields[5].GetUInt32();
-        mQuestPOIMap[PoI->questId].push_back(PoI);
-        m_orderedQuestPOI[std::make_pair(PoI->questId, PoI->PoIID)] = PoI;
-        count++;
-    } while (result->NextRow());
-    delete result;
-
-    do
-    {
-        Field *pointFields = points->Fetch();
-        std::pair<uint32, uint32> questPOID = std::make_pair(pointFields[0].GetUInt32(), pointFields[1].GetUInt32());
-        if(m_orderedQuestPOI.find(questPOID) != m_orderedQuestPOI.end())
-        {
-            m_orderedQuestPOI.at(questPOID)->points.push_back(std::make_pair(pointFields[3].GetInt32(), pointFields[4].GetInt32()));
-            pointcount++;
-        }
-    }while (points->NextRow());
-    delete points;
-    m_orderedQuestPOI.clear();
-
-    sLog.Notice("QuestMgr", "%u quest POI definitions, %u POI points", count, pointcount);
-}
-
 bool QuestMgr::SkippedKills( uint32 QuestID )
 {
     switch(QuestID)
@@ -1744,10 +1702,6 @@ bool QuestMgr::SkippedKills( uint32 QuestID )
     case 9592:
     case 9593:
         return true;
-        break;
-
-    default:
-        return false;
-        break;
     }
+    return false;
 }

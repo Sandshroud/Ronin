@@ -55,7 +55,7 @@ void StatSystem::LoadClassPowers()
 
 bool StatSystem::LoadUnitStats()
 {
-    QueryResult *result = WorldDatabase.Query("SELECT * FROM unit_base_stats");
+    QueryResult *result = WorldDatabase.Query("SELECT * FROM unit_basestats");
     if(result == NULL)
     {
         sLog.Error("StatMgr", "No unit stats loaded, server will not function without proper unit stat data!");

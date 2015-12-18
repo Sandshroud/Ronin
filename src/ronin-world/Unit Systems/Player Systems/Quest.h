@@ -64,7 +64,20 @@ enum QUEST_SHARE
     QUEST_SHARE_MSG_QUEST_TIMER_FINISHED    = 9,
     QUEST_SHARE_MSG_NOT_IN_PARTY            = 10,
 };
+
 #pragma pack(PRAGMA_PACK)
+
+struct QuestPOI
+{
+    QuestPOI() : questId(0), PoIID(0), questObjectIndex(0), mapId(0), areaId(0), MapFloorId(0) {}
+
+    uint32 questId, PoIID;
+    int32 questObjectIndex;
+    uint32 mapId;
+    uint32 areaId;
+    uint32 MapFloorId;
+    std::vector<std::pair<int32, int32>> points;
+};
 
 struct Quest
 {
@@ -130,7 +143,7 @@ struct Quest
     uint16 required_mobcount[4];
     uint32 required_areatriggers[4];
 
-    uint32 required_spell;
+    uint32 required_spell[4];
     uint32 required_player_kills;
 
     uint32 required_timelimit;
@@ -162,6 +175,8 @@ struct Quest
     uint8 count_required_mob;
     uint8 count_requiredareatriggers;
     uint8 count_requiredquests;
+
+    std::vector<QuestPOI*> quest_poi;
 };
 
 #pragma pack(PRAGMA_POP)

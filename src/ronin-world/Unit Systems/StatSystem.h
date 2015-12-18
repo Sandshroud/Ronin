@@ -4,6 +4,9 @@
 
 #pragma once
 
+#define MAXIMUM_CEXPANSION_LEVEL 85 // Current expansion's max level
+#define MAXIMUM_ATTAINABLE_LEVEL 100 // Crow: Lets use 100, since its the highest the DBCs will support
+
 enum Stats : uint8
 {
     STAT_STRENGTH=0,
@@ -37,6 +40,20 @@ struct UnitBaseStats
     uint32 baseStat[5];
 };
 
+static uint32 xpPerLevel[MAXIMUM_ATTAINABLE_LEVEL] =
+{
+    0, 400, 900, 1400, 1200, 2800, 3600, 4500, 5400, 6500,
+    7600, 8700, 9800, 11000, 12300, 13600, 15000, 16500, 17800, 19300,
+    20800, 22400, 24000, 25500, 27200, 28900, 30500, 32200, 33900, 36300,
+    38800, 41600, 44600, 48000, 51400, 55000, 58700, 62400, 66200, 70200,
+    74300, 78500, 82800, 87100, 91600, 96300, 101000, 105800, 110700, 115700,
+    120900, 126100, 131500, 137000, 142500, 148200, 154000, 159900, 165800, 172000,
+    290000, 317000, 349000, 386000, 428000, 475000, 527000, 585000, 648000, 717000,
+    1523800, 1539600, 1555700, 1571800, 1587900, 1604200, 1620700, 1637400, 1653900, 1670800,
+    1686300, 2121500, 4004000, 5203400, 9165100, 13000000, 15080000, 18980000, 22880000, 27560000,
+    35430000, 39880000, 41150000, 46800000, 52250000, 58150000, 65500000, 71250000, 79800000, 88050000
+};
+
 class Unit;
 class Player;
 class Creature;
@@ -48,6 +65,8 @@ public:
     ~StatSystem();
 
     bool Load();
+    uint32 GetXPToNextLevel(uint32 level) { return xpPerLevel[std::min<uint32>(level, MAXIMUM_ATTAINABLE_LEVEL)]; }
+
     UnitBaseStats *GetUnitBaseStats(uint8 race, uint8 _class, uint16 level);
     EUnitFields GetPowerFieldForClassAndType(uint8 _class, uint8 powerType);
 

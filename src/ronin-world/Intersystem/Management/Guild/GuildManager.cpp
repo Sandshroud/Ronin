@@ -140,7 +140,7 @@ void GuildMgr::LoadAllGuilds()
             m_Guilds.insert(std::make_pair(gInfo->m_guildId, gInfo));
             m_GuildNames.insert(std::make_pair(gInfo->m_guildName, gInfo));
             if( !((++c) % period) )
-                sLog.Notice("GuildMgr", "Done %u/%u, %u%% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
+                sLog.Notice("GuildMgr", "%u/%u guilds loaded", c, result->GetRowCount());
         } while(result->NextRow());
         delete result;
         result = NULL;

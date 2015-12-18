@@ -279,7 +279,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(SummonPropertiesEntry, dbcSummonProperties);
 static const char *summonpropertiesFormat = "uuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentEntry, dbcTalent);
-static const char *talentFormat = "uuuuuuuuuuxxuxxuxxx";
+static const char *talentFormat = "uuuuuuuuuuxxuxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentTabEntry, dbcTalentTab);
 static const char *talenttabFormat = "uxxuxuxxxxx";
@@ -494,7 +494,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/SpellTargetRestrictions.dbc", datapath), spelltargetrestrictionFormat, dbcSpellTargetRestrictions);
     ADD_LOAD_DB(format("%s/SpellTotems.dbc", datapath), spelltotemFormat, dbcSpellTotems);
     ADD_LOAD_DB(format("%s/SummonProperties.dbc", datapath), summonpropertiesFormat, dbcSummonProperties);
-    //ADD_LOAD_DB(format("%s/Talent.dbc", datapath), talentFormat, dbcTalent);
+    ADD_LOAD_DB(format("%s/Talent.dbc", datapath), talentFormat, dbcTalent);
     ADD_LOAD_DB(format("%s/TalentTab.dbc", datapath), talenttabFormat, dbcTalentTab);
     ADD_LOAD_DB(format("%s/TalentTreePrimarySpells.dbc", datapath), talenttreeFormat, dbcTreePrimarySpells);
     ADD_LOAD_DB(format("%s/TaxiNodes.dbc", datapath), dbctaxinodeFormat, dbcTaxiNode);

@@ -203,18 +203,14 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 
 void ObjectMgr::LoadPlayersInfo()
 {
-    PlayerInfo * pn;
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,acct,name,race,class,gender,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data");
-    uint32 period, c;
-    if(result)
+    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,acct,name,race,class,gender,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data"))
     {
-        period = (result->GetRowCount() / 20) + 1;
-        c = 0;
+        uint32 period = (result->GetRowCount() / 20) + 1, c = 0;
 
         do
         {
             Field *fields = result->Fetch();
-            pn = new PlayerInfo(fields[0].GetUInt64());
+            PlayerInfo *pn = new PlayerInfo(fields[0].GetUInt64());
             pn->accountId = fields[1].GetUInt32();
             pn->charName = strdup(fields[2].GetString());
             pn->charRace = fields[3].GetUInt8();
@@ -231,14 +227,13 @@ void ObjectMgr::LoadPlayersInfo()
             if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
                 pn->charTeam = race->TeamId;
 
-            std::string lpn = RONIN_UTIL::TOLOWER_RETURN(pn->charName);
-            if( GetPlayerInfoByName(lpn.c_str()) != NULL )
+            if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
             {
                 // gotta rename him
                 char temp[300];
                 snprintf(temp, 300, "%s__%X__", pn->charName.c_str(), pn->charGuid.getLow());
                 sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->charName.c_str(), temp, pn->charGuid.getLow());
-                CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u", CharacterDatabase.EscapeString(std::string(temp)).c_str(), pn->charGuid.getLow());
+                CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u", CharacterDatabase.EscapeString(temp).c_str(), pn->charGuid.getLow());
                 pn->charName = temp;
             }
 
@@ -248,6 +243,7 @@ void ObjectMgr::LoadPlayersInfo()
                 pn->GuildRank = member->pRank->iId;
             }
 
+            std::string lpn = RONIN_UTIL::TOLOWER_RETURN(pn->charName);
             // Store playerinfo by name
             m_playersInfoByName[lpn] = pn;
 
@@ -255,7 +251,7 @@ void ObjectMgr::LoadPlayersInfo()
             m_playersinfo[pn->charGuid] = pn;
 
             if( !((++c) % period) )
-                sLog.Notice("PlayerInfo", "Done %u/%u, %u% complete.", c, result->GetRowCount(), float2int32( (float(c) / float(result->GetRowCount()))*100.0f ));
+                sLog.Notice("PlayerInfo", "%u/%u characters loaded", c, result->GetRowCount());
         } while( result->NextRow() );
 
         delete result;

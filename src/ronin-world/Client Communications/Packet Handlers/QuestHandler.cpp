@@ -754,13 +754,12 @@ void WorldSession::HandleQuestPOI(WorldPacket& recvPacket)
 
         if (questOk)
         {
-            std::vector<QuestPOI*> const *POI = sQuestMgr.GetQuestPOIVector(questId);
-            if (POI)
+            if (Quest *quest = sQuestMgr.GetQuestPointer(questId))
             {
                 data << uint32(questId);
-                data << uint32(POI->size());
+                data << uint32(quest->quest_poi.size());
 
-                for (std::vector<QuestPOI*>::const_iterator itr = POI->begin(); itr != POI->end(); ++itr)
+                for (std::vector<QuestPOI*>::const_iterator itr = quest->quest_poi.begin(); itr != quest->quest_poi.end(); ++itr)
                 {
                     data << uint32((*itr)->PoIID);
                     data << int32((*itr)->questObjectIndex);

@@ -1452,9 +1452,9 @@ struct TalentEntry
     uint32  Col;
     uint32  RankID[5];
     uint32  DependsOn;
-    //uint32 unk;
+    //uint64 unk;
     uint32  DependsOnRank;
-    //uint32 unk2;
+    //uint64 unk2;
     //uint32 unkFlag;
     //uint32 unkSpellId;
     //uint64 unkPetFlag;

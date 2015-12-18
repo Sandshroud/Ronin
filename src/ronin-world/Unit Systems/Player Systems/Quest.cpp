@@ -346,11 +346,11 @@ void QuestLogEntry::SendUpdateAddKill(uint8 i)
 
 uint32 QuestLogEntry::GetRequiredSpell()
 {
-    if(m_quest->required_spell)
+    if(m_quest->required_spell[0])
     {
-        if(!m_Player->HasSpell(m_quest->required_spell))
+        if(!m_Player->HasSpell(m_quest->required_spell[0]))
         {
-            SpellEntry* reqspell = dbcSpell.LookupEntry(m_quest->required_spell);
+            SpellEntry* reqspell = dbcSpell.LookupEntry(m_quest->required_spell[0]);
              // Spell has a power type, so we check if player has spells with the same namehash, and replace it with that.
             if(reqspell && (reqspell->powerType != m_Player->getPowerType()))
             {
@@ -359,7 +359,7 @@ uint32 QuestLogEntry::GetRequiredSpell()
             }
         }
 
-        return m_quest->required_spell;
+        return m_quest->required_spell[0];
     }
     return 0;
 }

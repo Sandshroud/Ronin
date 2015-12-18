@@ -407,7 +407,6 @@ bool World::SetInitialWorldSettings()
     ApplyNormalFixes();
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
-    MAKE_TASK(QuestMgr, LoadQuestPOI);
     MAKE_TASK(ObjectMgr, LoadAchievements);
     MAKE_TASK(ObjectMgr, LoadVendors);
     MAKE_TASK(TicketMgr, Load);

@@ -1100,7 +1100,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     uint32 maxlevel = sWorld.GetMaxLevel(this), level = std::min<uint32>(maxlevel, fields[PLAYERLOAD_FIELD_LEVEL].GetUInt32());
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
 
-    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sWorld.GetXPToNextLevel(level));
+    SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sStatSystem.GetXPToNextLevel(level));
     // Set correct maximum level
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, maxlevel);
 
@@ -2491,7 +2491,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
 
     int32 newxp = GetUInt32Value(PLAYER_XP) + xp;
     uint32 level = GetUInt32Value(UNIT_FIELD_LEVEL);
-    int32 nextlevelxp = sWorld.GetXPToNextLevel(level);
+    int32 nextlevelxp = sStatSystem.GetXPToNextLevel(level);
     uint32 hpGain = 0, manaGain = 0, statGain[5] = {0, 0, 0, 0, 0};
     UnitBaseStats *stats = baseStats;
     bool levelup = false;
@@ -2500,7 +2500,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
     {
         ++level;
         newxp -= nextlevelxp;
-        nextlevelxp = sWorld.GetXPToNextLevel(level);
+        nextlevelxp = sStatSystem.GetXPToNextLevel(level);
         if(UnitBaseStats *new_stats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level))
         {
             hpGain += new_stats->baseHP-stats->baseHP;
@@ -3949,7 +3949,7 @@ void Player::AddCalculatedRestXP(uint32 seconds)
 
 
     // Define xp for a full bar ( = 20 bubbles)
-    uint32 xp_to_lvl = sWorld.GetXPToNextLevel(getLevel());
+    uint32 xp_to_lvl = sStatSystem.GetXPToNextLevel(getLevel());
 
     // get RestXP multiplier from config.
     float bubblerate = sWorld.getRate(RATE_RESTXP);
