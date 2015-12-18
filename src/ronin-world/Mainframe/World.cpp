@@ -358,6 +358,7 @@ bool World::SetInitialWorldSettings()
 
     // Unload the DBC loader
     delete DBCLoader::getSingletonPtr();
+    Sleep(500);
 
     new StatSystem();
     if(!sStatSystem.Load())

@@ -363,13 +363,11 @@ AI_Spell*Pet::CreateAISpell(SpellEntry * info)
     AI_Spell *sp = new AI_Spell();
     sp->info = info;
     sp->TargetType = TargetGen_Current;
-
-    sp->casttime = GetDBCCastTime(dbcSpellCastTime.LookupEntry( info->CastingTimeIndex ));
-
-    sp->maxdist2cast = GetDBCMaxRange( dbcSpellRange.LookupEntry( info->rangeIndex ) );
-    sp->mindist2cast = GetDBCMinRange( dbcSpellRange.LookupEntry( info->rangeIndex ) );
-
+    sp->casttime = info->castTimeMin;
+    sp->mindist2cast = info->minRange[0];
+    sp->maxdist2cast = info->maxRange[0];
     sp->cooldown = objmgr.GetPetSpellCooldown(info->Id);
+
     if(sp->cooldown == 0) sp->cooldown = info->StartRecoveryTime; //avoid spell spamming
     if(sp->cooldown == 0) sp->cooldown = info->StartRecoveryCategory; //still 0 ?
     if(sp->cooldown == 0) sp->cooldown = 2000; // avoid spell spam
@@ -1479,29 +1477,22 @@ uint8 Pet::GetPetTalentPointsAtLevel()
 
 void Pet::InitializeTalents()
 {
-    uint32 talentid = 0;
-    uint32 rank = 0;
-    uint32 spellId = 0;
     for(PetTalentMap::iterator itr = m_talents.begin(); itr != m_talents.end(); itr++)
     {
-        talentid = itr->first;
-        rank = itr->second;
+        uint32 talentid = itr->first, rank = itr->second;
         sLog.outString("Pet Talent: Attempting to load talent %u", talentid);
 
         // find our talent
         TalentEntry * talentEntry = dbcTalent.LookupEntry(talentid);
         if(!talentEntry)
         {
-            spellId = 0;
             sLog.Warning("Pet Talent", "Tried to load non-existent talent %u", talentid);
             continue;
         }
 
         // get the spell id for the talent rank we need to add
-        spellId = talentEntry->RankID[rank];
-
         // add the talent spell to our pet
-        LearnSpell( spellId );
+        LearnSpell( talentEntry->RankID[rank] );
     }
 }
 

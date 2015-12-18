@@ -7,7 +7,7 @@
 
 #include "DBCAchievementStores.h"
 
-#pragma pack(push,1)
+#pragma pack(PRAGMA_PACK)
 
 struct AreaGroupEntry
 {
@@ -914,7 +914,8 @@ struct SpellEntry
     uint32 Duration[3];
 
     // SpellRangeEntry
-    float Range[4]; // minEnemy, minFriend, maxEnemy, maxFriend
+    float minRange[2]; // minEnemy, minFriend
+    float maxRange[2]; // maxEnemy, maxFriend
 
     // SpellRadiusEntry
     float radiusHostile[3];
@@ -1654,43 +1655,55 @@ struct gtFloat
     float val;
 };
 
-#pragma pack(pop)
+#pragma pack(PRAGMA_POP)
 
 template<class T, class T2> class SERVER_DECL DBStorage
 {
     T2 *m_file;
+    std::string _fileName;
+    std::string _fileFormat;
 
     std::map<uint32, T*> subEntries;
 public:
-    DBStorage() { m_file = new T2(); }
-    ~DBStorage()
+    DBStorage() { m_file = NULL; }
+    ~DBStorage() { Unload(); _fileName.clear(); _fileFormat.clear(); }
+
+    // Initialize with the correct name and format
+    void Init(const char *filename, const char *format) { _fileName = filename; _fileFormat = format; }
+
+    // for load and unload
+    bool Load() { return m_file ? true : (m_file = new T2())->Load(_fileName.c_str(), _fileFormat.c_str()); }
+    void Unload()
     {
-        delete m_file;
-        for(auto itr = subEntries.begin(); itr != subEntries.end(); itr++)
-            delete itr->second;
-        subEntries.clear();
+        if(m_file)
+            delete m_file;
+        m_file = NULL;
+        if(!subEntries.empty())
+        {
+            for(auto itr = subEntries.begin(); itr != subEntries.end(); itr++)
+                delete itr->second;
+            subEntries.clear();
+        }
     }
 
-    bool Load(const char * filename, const char * format) { return m_file->Load(filename, format); }
-
-    uint32 GetNumRows() { return m_file->GetNumRows(); }
-    uint32 GetMaxEntry() { return m_file->GetMaxEntry(); }
+    uint32 GetNumRows() { return m_file ? m_file->GetNumRows() : 0; }
+    uint32 GetMaxEntry() { return m_file ? m_file->GetMaxEntry() : 0; }
 
     T * LookupEntryTest(uint32 i)
     {
         if(subEntries.find(i) != subEntries.end())
             return subEntries.at(i);
-        return m_file->LookupEntryTest(i);
+        return m_file ? m_file->LookupEntryTest(i) : NULL;
     }
 
     T * LookupEntry(uint32 i)
     {
         if(subEntries.find(i) != subEntries.end())
             return subEntries.at(i);
-        return m_file->LookupEntry(i);
+        return m_file ? m_file->LookupEntry(i) : NULL;
     }
 
-    T * LookupRow(uint32 i) { return m_file->LookupRow(i); }
+    T * LookupRow(uint32 i) { return m_file ? m_file->LookupRow(i) : NULL; }
 
     bool SetEntry(uint32 entry, T* block)
     {
@@ -1706,92 +1719,6 @@ RONIN_INLINE float GetDBCScale(CreatureDisplayInfoEntry *Scale)
     if(Scale && Scale->Scale)
         return Scale->Scale;
     return 1.0f;
-}
-
-RONIN_INLINE float GetDBCRadius(SpellRadiusEntry *radius)
-{
-    if(radius)
-    {
-        if(radius->radiusHostile)
-            return radius->radiusHostile;
-        else
-            return radius->radiusFriend;
-    }
-
-    return 0.0f;
-}
-
-RONIN_INLINE uint32 GetDBCCastTime(SpellCastTimeEntry *time)
-{
-    if(time && time->CastTime)
-        return time->CastTime;
-    return 0;
-}
-
-RONIN_INLINE float GetDBCMaxRange(SpellRangeEntry *range)
-{
-    if(range)
-    {
-        if(range->maxRangeHostile)
-            return range->maxRangeHostile;
-        else
-            return range->maxRangeFriend;
-    }
-
-    return 0.0f;
-}
-
-RONIN_INLINE float GetDBCMinRange(SpellRangeEntry *range)
-{
-    if(range)
-    {
-        if(range->minRangeHostile)
-            return range->minRangeHostile;
-        else
-            return range->minRangeFriend;
-    }
-
-    return 0.0f;
-}
-
-RONIN_INLINE int32 GetDBCDuration(SpellDurationEntry *dur)
-{
-    if(dur && dur->Duration1)
-        return dur->Duration1;
-    return -1;
-}
-
-RONIN_INLINE float GetDBCFriendlyRadius(SpellRadiusEntry *radius)
-{
-    if(radius == NULL)
-        return 0.0f;
-
-    if(radius->radiusFriend)
-        return radius->radiusFriend;
-
-    return GetDBCRadius(radius);
-}
-
-RONIN_INLINE float GetDBCFriendlyMaxRange(SpellRangeEntry *range)
-{
-    if(range == NULL)
-        return 0.0f;
-
-    if(range->maxRangeFriend)
-        return range->maxRangeFriend;
-
-    return GetDBCMaxRange(range);
-}
-
-RONIN_INLINE float GetDBCFriendlyMinRange(SpellRangeEntry *range)
-{
-    if(range == NULL)
-        return 0.0f;
-
-    if(range->minRangeFriend)
-        return range->minRangeFriend;
-
-    return GetDBCMinRange(range);
 }
 
 #define DBC_STORAGE_EXTERN_DBC_MACRO(EntryClass, DeclaredClass) extern SERVER_DECL DBStorage<EntryClass, DBC<EntryClass>> DeclaredClass
@@ -1917,16 +1844,21 @@ DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 
 class TaskList;
 
+class DBCUnloader : public ThreadContext { public: bool run(); };
 class DBCLoader : public Singleton<DBCLoader>
 {
+    friend class DBCUnloader;
 public:
     DBCLoader() {};
     ~DBCLoader() {};
 
     void FillDBCLoadList(TaskList &tl, const char* datapath, bool *result);
+    static void StartCleanup() { ThreadPool.ExecuteTask("DBCCleanup", new DBCUnloader()); }
 
 private:
     template<class T> void LoadDBC(bool *result, std::string filename, const char * format, T *l);
+
+    static void UnloadAllDBCFiles();
 };
 
 #define sDBCLoader DBCLoader::getSingleton()

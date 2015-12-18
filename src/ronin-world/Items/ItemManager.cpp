@@ -76,6 +76,10 @@ void ItemManager::InitializeItemPrototypes()
     if(!m_itemPrototypeContainer.empty())
         return;
 
+    // Ensure that our db2 tables are loaded
+    db2Item.Load();
+    db2ItemSparse.Load();
+
     sLog.Notice("ItemPrototypeSystem", "Loading %u items!", db2Item.GetNumRows());
     ItemDataEntry *itemData = NULL;
     ItemSparseEntry *sparse = NULL;
@@ -170,6 +174,11 @@ void ItemManager::InitializeItemPrototypes()
             proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
         m_itemPrototypeContainer.insert(std::make_pair(itemData->ID, proto));
     }
+    // Unload our db2 files since we won't need them
+    db2Item.Unload();
+    db2ItemSparse.Unload();
+
+    // Load our database overrides as well as precalculated item data
     LoadItemOverrides();
 }
 
@@ -179,8 +188,7 @@ void ItemManager::LoadItemOverrides()
 
     ItemPrototype* proto = NULL;
     sLog.Notice("ItemPrototypeSystem", "Loading item overrides...");
-    QueryResult* result = WorldDatabase.Query("SELECT * FROM item_overrides");
-    if(result != NULL)
+    if(QueryResult* result = WorldDatabase.Query("SELECT * FROM item_overrides"))
     {
         uint32 fieldCount = result->GetFieldCount();
         if(fieldCount != 112)
@@ -372,6 +380,19 @@ void ItemManager::LoadItemOverrides()
 #undef CHECK_OVERRIDE_VALUE
 
     sLog.Notice("ItemPrototypeSystem", "Setting static dbc data...");
+    dbcArmorLocation.Load();
+    dbcArmorQuality.Load();
+    dbcArmorShield.Load();
+    dbcArmorTotal.Load();
+    dbcDamageAmmo.Load();
+    dbcDamageOneHand.Load();
+    dbcDamageOneHandCaster.Load();
+    dbcDamageRanged.Load();
+    dbcDamageThrown.Load();
+    dbcDamageTwoHand.Load();
+    dbcDamageTwoHandCaster.Load();
+    dbcDamageDamageWand.Load();
+
     uint8 i = 0;
     ItemArmorQuality *ArmorQ = NULL; ItemArmorShield *ArmorS = NULL;
     ItemArmorTotal *ArmorT = NULL; ArmorLocationEntry *ArmorE = NULL;
@@ -462,6 +483,20 @@ void ItemManager::LoadItemOverrides()
         else if(ArmorQ && ArmorT && ArmorE)
             proto->Armor = uint32(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f);
     }
+
+    // Unload all DBC files
+    dbcArmorLocation.Unload();
+    dbcArmorQuality.Unload();
+    dbcArmorShield.Unload();
+    dbcArmorTotal.Unload();
+    dbcDamageAmmo.Unload();
+    dbcDamageOneHand.Unload();
+    dbcDamageOneHandCaster.Unload();
+    dbcDamageRanged.Unload();
+    dbcDamageThrown.Unload();
+    dbcDamageTwoHand.Unload();
+    dbcDamageTwoHandCaster.Unload();
+    dbcDamageDamageWand.Unload();
 }
 
 static float const qualityDurabilityMultipliers[ITEM_QUALITY_DBC_MAX] = { 1.0f, 1.0f, 1.0f, 1.17f, 1.37f, 1.68f, 0.0f };

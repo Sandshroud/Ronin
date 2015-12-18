@@ -50,9 +50,9 @@ void AIInterface::addSpellToList(AI_Spell *sp)
         return;
 
     AI_Spell* nSP = new AI_Spell(sp, sp->cooldown, sp->procCounter);
-    if(nSP->casttime == 0) nSP->casttime = GetDBCCastTime(dbcSpellCastTime.LookupEntry( nSP->info->CastingTimeIndex ));
-    if(nSP->maxdist2cast == 0.0f) nSP->maxdist2cast = GetDBCMaxRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
-    if(nSP->mindist2cast == 0.0f) nSP->mindist2cast = GetDBCMinRange( dbcSpellRange.LookupEntry( nSP->info->rangeIndex ) );
+    if(nSP->casttime == 0) nSP->casttime = nSP->info->castTimeMin;
+    if(nSP->mindist2cast == 0.0f) nSP->mindist2cast = nSP->info->minRange[0];
+    if(nSP->maxdist2cast == 0.0f) nSP->maxdist2cast = nSP->info->maxRange[0];
     if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryTime; //avoid spell spamming
     if(nSP->cooldown == 0) nSP->cooldown = nSP->info->StartRecoveryCategory; //still 0 ?
     if(nSP->cooldown == 0) nSP->cooldown = 4000; //omg, avoid spamming at least

@@ -342,14 +342,14 @@ void GameObject::InitAI()
     {
         if(spell->Effect[i])
         {
-            float t = GetDBCRadius(dbcSpellRadius.LookupEntry(spell->EffectRadiusIndex[i]));
+            float t = spell->radiusHostile[i];
             if(t > r)
                 r = t;
         }
     }
 
     if(r < 0.1)//no range
-        r = GetDBCMaxRange(dbcSpellRange.LookupEntry(spell->rangeIndex));
+        r = spell->maxRange[0];
 
     range = r*r;//square to make code faster
     checkrate = 20;//once in 2 seconds

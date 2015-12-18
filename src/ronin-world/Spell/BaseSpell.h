@@ -91,8 +91,7 @@ public:
     RONIN_INLINE void SetInternalRadius(uint32 i)
     {
         b_radSet[i] = true;
-        m_radius[0][i] = ::GetDBCRadius(dbcSpellRadius.LookupEntry(m_spellInfo->EffectRadiusIndex[i]));
-        m_radius[1][i] = ::GetDBCFriendlyRadius(dbcSpellRadius.LookupEntry(m_spellInfo->EffectRadiusIndex[i]));
+        m_radius[0][i] = m_spellInfo->radiusHostile[i], m_radius[1][i] = m_spellInfo->radiusFriend[i];
         if (m_spellInfo->SpellGroupType && m_caster && m_caster->IsUnit())
         {
             castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);

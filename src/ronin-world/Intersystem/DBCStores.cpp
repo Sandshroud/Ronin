@@ -11,115 +11,115 @@ initialiseSingleton(DBCLoader);
 #define DECLARE_CLASS_INTERNAL_DB2_MACRO(EntryClass, DeclaredClass) SERVER_DECL DBStorage<EntryClass, DB2<EntryClass>> DeclaredClass
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementEntry, dbcAchievement);
-const char* achievementFormat = "nuuussuuxuxxuu";
+static const char *achievementFormat = "nuuussuuxuxxuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementCriteriaEntry, dbcAchievementCriteria);
-const char* achievementcriteriaFormat = "niiiiiiiisiiiiixxiiiiii";
+static const char *achievementcriteriaFormat = "niiiiiiiisiiiiixxiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaGroupEntry, dbcAreaGroup);
-const char* areagroupFormat = "niiiiiii";
+static const char *areagroupFormat = "niiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaTableEntry, dbcAreaTable);
-const char* areatableFormat = "uuuuuxxxxxusuuuuuxxxxxxxxx";
+static const char *areatableFormat = "uuuuuxxxxxusuuuuuxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaTriggerEntry, dbcAreaTrigger);
-const char* areatriggerFormat = "uufffuuxfffff";
+static const char *areatriggerFormat = "uufffuuxfffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AuctionHouseEntry, dbcAuctionHouse);
-const char* auctionhousedbcFormat = "uuuux";
+static const char *auctionhousedbcFormat = "uuuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(BankSlotPriceEntry, dbcBankSlotPrices);
-const char* bankslotpriceformat = "uu";
+static const char *bankslotpriceformat = "uu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(BarberShopStyleEntry, dbcBarberShopStyle);
-const char* barbershopstyleFormat = "nusxxuuu";
+static const char *barbershopstyleFormat = "nusxxuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(BattleMasterListEntry, dbcBattleMasterList);
-const char* battlemasterlistFormat = "uiiiiiiiiuxsuuuuuuuu";
+static const char *battlemasterlistFormat = "uiiiiiiiiuxsuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharClassEntry, dbcCharClass);
-const char* charclassFormat = "uuxsxxxuxuuuuu";
+static const char *charclassFormat = "uuxsxxxuxuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharPowerTypeEntry, dbcCharPowerType);
-const char* charpowertypeFormat = "uuu";
+static const char *charpowertypeFormat = "uuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharRaceEntry, dbcCharRace);
-const char* charraceFormat = "uxuxuuxxxxxxuusxxxxxuxxx";
+static const char *charraceFormat = "uxuxuuxxxxxxuusxxxxxuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharStartOutfitEntry, dbcCharStartOutfit);
-const char* charstartoutfitFormat = "ubbbbuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+static const char *charstartoutfitFormat = "ubbbbuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CharTitleEntry, dbcCharTitle);
-const char* chartitlesFormat = "uxsxux";
+static const char *chartitlesFormat = "uxsxux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ChatChannelEntry, dbcChatChannels);
-const char* chatchannelformat = "uuxsx";
+static const char *chatchannelformat = "uuxsx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureBoundDataEntry, dbcCreatureBoundData);
-const char* creatureboundFormat = "ufffffff";
+static const char *creatureboundFormat = "ufffffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureDisplayInfoEntry, dbcCreatureDisplayInfo);
-const char* creaturedisplayinfoFormat = "uxxxfxxxxxxxxxxxx";
+static const char *creaturedisplayinfoFormat = "uxxxfxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureDisplayInfoExtraEntry, dbcCreatureDisplayInfoExtra);
-const char* creaturedisplayinfoextraFormat = "uuxxxxxxxxxxxxxxxxxxx";
+static const char *creaturedisplayinfoextraFormat = "uuxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureFamilyEntry, dbcCreatureFamily);
-const char* creaturefamilyFormat = "ufufuuuuuxsx";
+static const char *creaturefamilyFormat = "ufufuuuuuxsx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
-const char* creaturespelldataFormat = "uuuuuxxxx";
+static const char *creaturespelldataFormat = "uuuuuxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DestructibleModelDataEntry, dbcDestructibleModelData);
-const char* destructiblemodeldataFormat = "uuxxxuxxxxuxxxxuxxxxuxxx";
+static const char *destructiblemodeldataFormat = "uuxxxuxxxxuxxxxuxxxxuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DungeonEncounterEntry, dbcDungeonEncounter);
-const char* dungeonencounterFormat = "uuuuusxx";
+static const char *dungeonencounterFormat = "uuuuusxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DurabilityCostsEntry, dbcDurabilityCosts);
-const char * durabilitycostsFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuu";
+static const char *durabilitycostsFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DurabilityQualityEntry, dbcDurabilityQuality);
-const char * durabilityqualityFormat = "uf";
+static const char *durabilityqualityFormat = "uf";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(EmoteEntry, dbcEmote);
-const char* emoteFormat = "uxxuuuux";
+static const char *emoteFormat = "uxxuuuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(EmoteTextEntry, dbcEmoteText);
-const char* emotetextFormat = "uxuxxxxxxxxxxxxxxxx";
+static const char *emotetextFormat = "uxuxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(FactionEntry, dbcFaction);
-const char* factionFormat = "uiuuuuuuuuiiiiuuuuuxxxxsxx";
+static const char *factionFormat = "uiuuuuuuuuiiiiuuuuuxxxxsxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(FactionTemplateEntry, dbcFactionTemplate);
-const char* factiontemplateFormat = "uuuuuuuuuuuuuu";
+static const char *factiontemplateFormat = "uuuuuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(GameObjectDisplayInfoEntry, dbcGameObjectDisplayInfo);
-const char* gameobjectdisplayinfoFormat = "usxxxxxxxxxxffffffxxx";
+static const char *gameobjectdisplayinfoFormat = "usxxxxxxxxxxffffffxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(GemPropertyEntry, dbcGemProperty);
-const char* gempropertyFormat = "uuxxux";
+static const char *gempropertyFormat = "uuxxux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(GlyphProperties, dbcGlyphProperties);
-const char* glypepropertiesFormat = "uuuu";
+static const char *glypepropertiesFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemDataEntry, db2Item);
-const char* itemFormat = "uuuiiuuu";
+static const char *itemFormat = "uuuiiuuu";
 
 DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemSparseEntry, db2ItemSparse);
-const char* itemsparseFormat = "uuuuxxuuuuiiuiuuuuuuuuuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
+static const char *itemsparseFormat = "uuuuxxuuuuiiuiuuuuuuuuuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ArmorLocationEntry, dbcArmorLocation);
-const char* armorlocationFormat = "ufffff";
+static const char *armorlocationFormat = "ufffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorQuality, dbcArmorQuality);
-const char* armorqualityFormat = "ufffffffu";
+static const char *armorqualityFormat = "ufffffffu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorShield, dbcArmorShield);
-const char* armorshieldFormat = "uuuuuuuuu";
+static const char *armorshieldFormat = "uuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorTotal, dbcArmorTotal);
-const char* armortotalFormat = "uuffff";
+static const char *armortotalFormat = "uuffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageAmmo);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageOneHand);
@@ -129,187 +129,187 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageThrown);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageTwoHand);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageTwoHandCaster);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemDamageEntry, dbcDamageDamageWand);
-const char* itemdamageFormat = "ufffffffu";
+static const char *itemdamageFormat = "ufffffffu";
 
 DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemExtendedCostEntry, dbcItemExtendedCost);
-const char* itemextendedcostFormat = "uxxuuuuuuuuuuuuxuuuuuuuuuuxxuxx";
+static const char *itemextendedcostFormat = "uxxuuuuuuuuuuuuxuuuuuuuuuuxxuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemLimitCategoryEntry, dbcItemLimitCategory);
-const char* itemlimitcategoryFormat = "nxuu";
+static const char *itemlimitcategoryFormat = "nxuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemRandomPropertiesEntry, dbcItemRandomProperties);
-const char* itemrandompropertiesFormat = "uxuuuuus";
+static const char *itemrandompropertiesFormat = "uxuuuuus";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemRandomSuffixEntry, dbcItemRandomSuffix);
-const char* itemrandomsuffixFormat = "usxuuuuuuuuuu";
+static const char *itemrandomsuffixFormat = "usxuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemReforgeEntry, dbcItemReforge);
-const char* itemreforgeFormat = "uufuf";
+static const char *itemreforgeFormat = "uufuf";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemSetEntry, dbcItemSet);
-const char* itemsetFormat = "usuuuuuuuuuxxxxxxxxuuuuuuuuuuuuuuuuuu";
+static const char *itemsetFormat = "usuuuuuuuuuxxxxxxxxuuuuuuuuuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
-const char* lfgdungeonsFormat = "usuuuuuiuuuuxuxuxuxxx";
+static const char *lfgdungeonsFormat = "usuuuuuiuuuuxuxuxuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(LockEntry, dbcLock);
-const char* lockFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxx";
+static const char *lockFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MapEntry, dbcMap);
-const char* mapentryFormat = "usuuxusussuxiffxuxxi";
+static const char *mapentryFormat = "usuuxusussuxiffxuxxi";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MapDifficultyEntry, dbcMapDifficulty);
-const char* mapdifficultyFormat = "uuuxuux";
+static const char *mapdifficultyFormat = "uuuxuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MountCapabilityEntry, dbcMountCapability);
-const char* mountcapabilityFormat = "uuuuuuui";
+static const char *mountcapabilityFormat = "uuuuuuui";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MountTypeEntry, dbcMountType);
-const char* mounttypeFormat = "uuuuuuuuuuuuuuuuuuuuuuuuu";
+static const char *mounttypeFormat = "uuuuuuuuuuuuuuuuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(NumTalentsAtLevelEntry, dbcNumTalents);
-const char* numtalentsFormat="uf";
+static const char *numtalentsFormat="uf";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(OverrideSpellDataEntry, dbcOverrideSpellData);
-const char* overridespelldataFormat="uuuuuuuuuuuxx";
+static const char *overridespelldataFormat="uuuuuuuuuuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(PhaseEntry, dbcPhase);
-const char* phaseFormat="uuu";
+static const char *phaseFormat="uuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(PvPDifficultyEntry, dbcPvPDifficulty);
-const char* pvpdifficultyFormat="xuuuuu";
+static const char *pvpdifficultyFormat="xuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(QuestFactionRewardEntry, dbcQuestFactionReward);
-const char* questfactionrewardFormat="uiiiiiiiiii";
+static const char *questfactionrewardFormat="uiiiiiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(QuestXPLevelEntry, dbcQuestXP);
-const char* questxpFormat="uiiiiiiiiii";
+static const char *questxpFormat="uiiiiiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ScalingStatDistributionEntry, dbcScalingStatDistribution);
-const char* scalingstatdistributionFormat = "uiiiiiiiiiiuuuuuuuuuuxu";
+static const char *scalingstatdistributionFormat = "uiiiiiiiiiiuuuuuuuuuuxu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ScalingStatValuesEntry, dbcScalingStatValues);
-const char* scalingstatvaluesFormat = "xuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxx";
+static const char *scalingstatvaluesFormat = "xuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillRaceClassInfoEntry, dbcSkillRaceClassInfo);
-const char* skillraceclassinfoFormat = "xuuuuuxxx";
+static const char *skillraceclassinfoFormat = "xuuuuuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineEntry, dbcSkillLine);
-const char* skilllineFormat = "uusxuxx";
+static const char *skilllineFormat = "uusxuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineAbilityEntry, dbcSkillLineSpell);
-const char* skilllinespellFormat = "uuuuuxxuuuuuxx";
+static const char *skilllinespellFormat = "uuuuuxxuuuuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellEntry, dbcSpell);
-const char* spellentryFormat = "uuuuuuuuuuuuuuuufuuuussssuuxxuxuuuuuuuxuuuuuuuux";
+static const char *spellentryFormat = "uuuuuuuuuuuuuuuufuuuussssuuxxuxuuuuuuuxuuuuuuuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellAuraOptionsEntry, dbcSpellAuraOptions);
-const char* spellauraoptionFormat = "uuuuu";
+static const char *spellauraoptionFormat = "uuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellAuraRestrictionsEntry, dbcSpellAuraRestrictions);
-const char* spellaurarestrictionFormat = "uuuuuuuuu";
+static const char *spellaurarestrictionFormat = "uuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCastingRequirementsEntry, dbcSpellCastingRequirements);
-const char* spellcastingrequirementFormat = "uuxxixu";
+static const char *spellcastingrequirementFormat = "uuxxixu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCastTimeEntry, dbcSpellCastTime);
-const char* spellcasttimeFormat = "uuxx";
+static const char *spellcasttimeFormat = "uuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCategoriesEntry, dbcSpellCategories);
-const char* spellcategoryFormat = "uuuuuuu";
+static const char *spellcategoryFormat = "uuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellClassOptionsEntry, dbcSpellClassOptions);
-const char* spellclassoptionFormat = "uxuuuus";
+static const char *spellclassoptionFormat = "uxuuuus";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellCooldownsEntry, dbcSpellCooldowns);
-const char* spellcooldownFormat = "uuuu";
+static const char *spellcooldownFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellDifficultyEntry, dbcSpellDifficulty);
-const char* spelldifficultyFormat = "uuuuu";
+static const char *spelldifficultyFormat = "uuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellDurationEntry, dbcSpellDuration);
-const char* spelldurationFormat = "uuuu";
+static const char *spelldurationFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellEffectEntry, dbcSpellEffect);
-const char* spelleffectFormat = "uufuuiffuiuuiifuufuuuuuuuux";
+static const char *spelleffectFormat = "uufuuiffuiuuiifuufuuuuuuuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellEquippedItemsEntry, dbcSpellEquippedItems);
-const char* spellequippeditemFormat = "uiii";
+static const char *spellequippeditemFormat = "uiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellInterruptsEntry, dbcSpellInterrupts);
-const char* spellinterruptFormat = "uuxuxu";
+static const char *spellinterruptFormat = "uuxuxu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellItemEnchantEntry, dbcSpellItemEnchant);
-const char* spellitemenchantFormat = "uxuuuuuuuuuuuusxuuuxxxx";
+static const char *spellitemenchantFormat = "uxuuuuuuuuuuuusxuuuxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellLevelsEntry, dbcSpellLevels);
-const char* spelllevelFormat = "uuuu";
+static const char *spelllevelFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellPowerEntry, dbcSpellPower);
-const char* spellpowerFormat = "uuuuuxxx";
+static const char *spellpowerFormat = "uuuuuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRadiusEntry, dbcSpellRadius);
-const char* spellradiusFormat = "ufxf";
+static const char *spellradiusFormat = "ufxf";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRangeEntry, dbcSpellRange);
-const char* spellrangeFormat = "uffffxxx";
+static const char *spellrangeFormat = "uffffxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellReagentsEntry, dbcSpellReagents);
-const char* spellreagentFormat = "uiiiiiiiiuuuuuuuu";
+static const char *spellreagentFormat = "uiiiiiiiiuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellRuneCostEntry, dbcSpellRuneCost);
-const char* spellrunecostFormat = "uuuuu";
+static const char *spellrunecostFormat = "uuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellScalingEntry, dbcSpellScaling);
-const char* spellscalingFormat = "uiiuiffffffffffu";
+static const char *spellscalingFormat = "uiiuiffffffffffu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellShapeshiftEntry, dbcSpellShapeshift);
-const char* spellshapeshiftFormat = "uuxuxx";
+static const char *spellshapeshiftFormat = "uuxuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellShapeshiftFormEntry, dbcSpellShapeshiftForm);
-const char* spellshapeshiftformFormat = "uxxuixuuuxxuuuuuuuuxx";
+static const char *spellshapeshiftformFormat = "uxxuixuuuxxuuuuuuuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellTargetRestrictionsEntry, dbcSpellTargetRestrictions);
-const char* spelltargetrestrictionFormat = "uuuuuu";
+static const char *spelltargetrestrictionFormat = "uuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellTotemsEntry, dbcSpellTotems);
-const char* spelltotemFormat = "uuuuu";
+static const char *spelltotemFormat = "uuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SummonPropertiesEntry, dbcSummonProperties);
-const char* summonpropertiesFormat = "uuuuuu";
+static const char *summonpropertiesFormat = "uuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentEntry, dbcTalent);
-const char* talentFormat = "uuuuuuuuuuxxuxxuxxx";
+static const char *talentFormat = "uuuuuuuuuuxxuxxuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentTabEntry, dbcTalentTab);
-const char* talenttabFormat = "uxxuxuxxxxx";
+static const char *talenttabFormat = "uxxuxuxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentTreePrimarySpellsEntry, dbcTreePrimarySpells);
-const char* talenttreeFormat = "uuux";
+static const char *talenttreeFormat = "uuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiNodeEntry, dbcTaxiNode);
-const char* dbctaxinodeFormat = "uufffxuuxxx";
+static const char *dbctaxinodeFormat = "uufffxuuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiPathEntry, dbcTaxiPath);
-const char* dbctaxipathFormat = "uuuu";
+static const char *dbctaxipathFormat = "uuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TaxiPathNodeEntry, dbcTaxiPathNode);
-const char* dbctaxipathnodeFormat = "uuuufffuuxx";
+static const char *dbctaxipathnodeFormat = "uuuufffuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(VehicleEntry, dbcVehicle);
-const char* vehicleFormat = "uuffffuuuuuuuufffffffffffffffssssfifiixx";
+static const char *vehicleFormat = "uuffffuuuuuuuufffffffffffffffssssfifiixx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(VehicleSeatEntry, dbcVehicleSeat);
-const char* vehicleseatFormat = "uuiffffffffffiiiiiifffffffiiifffiiiiiiiffuuuiuxxxxxxxxxxxxxxxxxxxx";
+static const char *vehicleseatFormat = "uuiffffffffffiiiiiifffffffiiifffiiiiiiiffuuuiuxxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WMOAreaTableEntry, dbcWMOAreaTable);
-const char* wmoareatableFormat="niiixxxxxiixxxx";
+static const char *wmoareatableFormat="niiixxxxxiixxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldMapOverlayEntry, dbcWorldMapOverlay);
-const char* worldmapoverlayFormat="uxuuuuxxxxxxxxx";
+static const char *worldmapoverlayFormat="uxuuuuxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
-const char* worldsafeLocationsFormat="nifffx";
+static const char *worldsafeLocationsFormat="nifffx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRating);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcBarberShopPrices);
@@ -322,12 +322,74 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegenBase);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellScalar);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPPerStam);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
-const char* gtFloatFormat = "uf";
+static const char *gtFloatFormat = "uf";
+
+int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
+{
+    int32 basePoints = 0;
+    float comboDamage = 0.0f;
+    gtFloat *gtScalingEntry = NULL;
+    if (coeff[0][effIndex] > 0.f)
+    {
+        uint32 gtSpellScalingId = level - 1;
+        if (playerClass == -1)
+            gtSpellScalingId += 1100;
+        else gtSpellScalingId += (playerClass - 1) * 100;
+        gtScalingEntry = dbcSpellScalar.LookupEntry(gtSpellScalingId);
+    }
+
+    if (gtScalingEntry)
+    {
+        float scale = gtScalingEntry->val;
+        if (castTimeMax > 0 && castScalingMaxLevel > level)
+            scale *= float(castTimeMin + float(level - 1) * (castTimeMax - castTimeMin) / (castScalingMaxLevel - 1)) / float(castTimeMax);
+        if (coefLevelBase > level) scale *= (1.0f - coefBase) * (level - 1) / (coefLevelBase - 1) + coefBase;
+
+        basePoints = int32(coeff[0][effIndex] * scale);
+        int32 randomPoints = int32(coeff[0][effIndex] * scale * coeff[1][effIndex]);
+        basePoints += ((RandomFloat(2.f)-1.f)*randomPoints) / 2;
+        comboDamage = uint32(coeff[2][effIndex] * scale);
+    }
+    else
+    {
+        if (maxLevel)
+            level = std::min<int32>(level, maxLevel);
+        level = std::max<int32>(level, baseLevel);
+        level = std::max<int32>(level, spellLevel) - spellLevel;
+
+        float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
+        basePoints = EffectBasePoints[effIndex];
+        basePoints += int32(level * basePointsPerLevel);
+        int32 randomPoints = int32(EffectDieSides[basePoints]);
+        comboDamage = EffectPointsPerComboPoint[basePoints];
+
+        switch (randomPoints)
+        {
+            case 0:                                             // not used
+            case 1: basePoints += 1; break;                     // range 1..1
+            default:
+            {
+                // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
+                int32 randvalue = (randomPoints >= 1) ? (rand() % randomPoints) : -(rand() % -randomPoints);
+                basePoints += randvalue;
+                break;
+            }
+        }
+    }
+
+    basePoints += int32(comboDamage * comboPoints);
+
+    if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
+        && (Effect[effIndex] != SPELL_EFFECT_APPLY_AURA || EffectApplyAuraName[effIndex] != SPELL_AURA_MOD_DECREASE_SPEED))
+        basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevel) / 1000.0f));
+    return basePoints;
+}
 
 template<class T> void DBCLoader::LoadDBC(bool *result, std::string filename, const char * format, T *l)
 {
-    if(!l->Load(filename.c_str(), format))
-        *result = false;
+    l->Init(filename.c_str(), format);
+    // Result must only be set to false
+    if(!l->Load()) *result = false;
 }
 
 //#define DISABLE_DBC_MULTILOADING
@@ -432,7 +494,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/SpellTargetRestrictions.dbc", datapath), spelltargetrestrictionFormat, dbcSpellTargetRestrictions);
     ADD_LOAD_DB(format("%s/SpellTotems.dbc", datapath), spelltotemFormat, dbcSpellTotems);
     ADD_LOAD_DB(format("%s/SummonProperties.dbc", datapath), summonpropertiesFormat, dbcSummonProperties);
-    ADD_LOAD_DB(format("%s/Talent.dbc", datapath), talentFormat, dbcTalent);
+    //ADD_LOAD_DB(format("%s/Talent.dbc", datapath), talentFormat, dbcTalent);
     ADD_LOAD_DB(format("%s/TalentTab.dbc", datapath), talenttabFormat, dbcTalentTab);
     ADD_LOAD_DB(format("%s/TalentTreePrimarySpells.dbc", datapath), talenttreeFormat, dbcTreePrimarySpells);
     ADD_LOAD_DB(format("%s/TaxiNodes.dbc", datapath), dbctaxinodeFormat, dbcTaxiNode);
@@ -457,63 +519,125 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/gtOCTClassCombatRatingScalar.dbc", datapath), gtFloatFormat, dbcCombatRatingScaling);
 }
 
-int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints)
+void DBCLoader::UnloadAllDBCFiles()
 {
-    int32 basePoints = 0;
-    float comboDamage = 0.0f;
-    gtFloat *gtScalingEntry = NULL;
-    if (coeff[0][effIndex] > 0.f)
-    {
-        uint32 gtSpellScalingId = level - 1;
-        if (playerClass == -1)
-            gtSpellScalingId += 1100;
-        else gtSpellScalingId += (playerClass - 1) * 100;
-        gtScalingEntry = dbcSpellScalar.LookupEntry(gtSpellScalingId);
-    }
+    dbcAchievement.Unload();
+    dbcAchievementCriteria.Unload();
+    dbcAreaGroup.Unload();
+    dbcAreaTable.Unload();
+    dbcAreaTrigger.Unload();
+    dbcAuctionHouse.Unload();
+    dbcBankSlotPrices.Unload();
+    dbcBarberShopStyle.Unload();
+    dbcBattleMasterList.Unload();
+    dbcChatChannels.Unload();
+    dbcCharStartOutfit.Unload();
+    dbcCharTitle.Unload();
+    dbcCharClass.Unload();
+    dbcCharPowerType.Unload();
+    dbcCharRace.Unload();
+    dbcCreatureBoundData.Unload();
+    dbcCreatureDisplayInfo.Unload();
+    dbcCreatureDisplayInfoExtra.Unload();
+    dbcCreatureFamily.Unload();
+    dbcCreatureSpellData.Unload();
+    dbcDestructibleModelData.Unload();
+    dbcDungeonEncounter.Unload();
+    dbcDurabilityCosts.Unload();
+    dbcDurabilityQuality.Unload();
+    dbcEmote.Unload();
+    dbcEmoteText.Unload();
+    dbcFaction.Unload();
+    dbcFactionTemplate.Unload();
+    dbcGameObjectDisplayInfo.Unload();
+    dbcGemProperty.Unload();
+    dbcGlyphProperties.Unload();
+    db2Item.Unload();
+    db2ItemSparse.Unload();
+    dbcArmorLocation.Unload();
+    dbcArmorQuality.Unload();
+    dbcArmorShield.Unload();
+    dbcArmorTotal.Unload();
+    dbcDamageAmmo.Unload();
+    dbcDamageOneHand.Unload();
+    dbcDamageOneHandCaster.Unload();
+    dbcDamageRanged.Unload();
+    dbcDamageThrown.Unload();
+    dbcDamageTwoHand.Unload();
+    dbcDamageTwoHandCaster.Unload();
+    dbcDamageDamageWand.Unload();
+    dbcItemExtendedCost.Unload();
+    dbcItemLimitCategory.Unload();
+    dbcItemRandomProperties.Unload();
+    dbcItemRandomSuffix.Unload();
+    dbcItemSet.Unload();
+    dbcLock.Unload();
+    dbcMap.Unload();
+    dbcMapDifficulty.Unload();
+    dbcMountCapability.Unload();
+    dbcMountType.Unload();
+    dbcNumTalents.Unload();
+    dbcOverrideSpellData.Unload();
+    dbcPhase.Unload();
+    dbcPvPDifficulty.Unload();
+    dbcQuestFactionReward.Unload();
+    dbcQuestXP.Unload();
+    dbcScalingStatDistribution.Unload();
+    dbcScalingStatValues.Unload();
+    dbcSkillRaceClassInfo.Unload();
+    dbcSkillLine.Unload();
+    dbcSkillLineSpell.Unload();
+    dbcSpell.Unload();
+    dbcSpellAuraOptions.Unload();
+    dbcSpellAuraRestrictions.Unload();
+    dbcSpellCastingRequirements.Unload();
+    dbcSpellCastTime.Unload();
+    dbcSpellCategories.Unload();
+    dbcSpellClassOptions.Unload();
+    dbcSpellCooldowns.Unload();
+    dbcSpellDifficulty.Unload();
+    dbcSpellDuration.Unload();
+    dbcSpellEffect.Unload();
+    dbcSpellEquippedItems.Unload();
+    dbcSpellInterrupts.Unload();
+    dbcSpellItemEnchant.Unload();
+    dbcSpellLevels.Unload();
+    dbcSpellPower.Unload();
+    dbcSpellRadius.Unload();
+    dbcSpellReagents.Unload();
+    dbcSpellRuneCost.Unload();
+    dbcSpellScaling.Unload();
+    dbcSpellShapeshift.Unload();
+    dbcSpellShapeshiftForm.Unload();
+    dbcSpellTargetRestrictions.Unload();
+    dbcSpellTotems.Unload();
+    dbcSummonProperties.Unload();
+    dbcTalent.Unload();
+    dbcTalentTab.Unload();
+    dbcTreePrimarySpells.Unload();
+    dbcTaxiNode.Unload();
+    dbcTaxiPath.Unload();
+    dbcTaxiPathNode.Unload();
+    dbcVehicle.Unload();
+    dbcVehicleSeat.Unload();
+    dbcWMOAreaTable.Unload();
+    dbcWorldMapOverlay.Unload();
+    dbcWorldSafeLocs.Unload();
+    dbcBarberShopPrices.Unload();
+    dbcMeleeCrit.Unload();
+    dbcMeleeCritBase.Unload();
+    dbcSpellCrit.Unload();
+    dbcSpellCritBase.Unload();
+    dbcCombatRating.Unload();
+    dbcHPPerStam.Unload();
+    dbcManaRegen.Unload();
+    dbcManaRegenBase.Unload();
+    dbcSpellScalar.Unload();
+    dbcCombatRatingScaling.Unload();
+}
 
-    if (gtScalingEntry)
-    {
-        float scale = gtScalingEntry->val;
-        if (castTimeMax > 0 && castScalingMaxLevel > level)
-            scale *= float(castTimeMin + float(level - 1) * (castTimeMax - castTimeMin) / (castScalingMaxLevel - 1)) / float(castTimeMax);
-        if (coefLevelBase > level) scale *= (1.0f - coefBase) * (level - 1) / (coefLevelBase - 1) + coefBase;
-
-        basePoints = int32(coeff[0][effIndex] * scale);
-        int32 randomPoints = int32(coeff[0][effIndex] * scale * coeff[1][effIndex]);
-        basePoints += ((RandomFloat(2.f)-1.f)*randomPoints) / 2;
-        comboDamage = uint32(coeff[2][effIndex] * scale);
-    }
-    else
-    {
-        if (maxLevel)
-            level = std::min<int32>(level, maxLevel);
-        level = std::max<int32>(level, baseLevel);
-        level = std::max<int32>(level, spellLevel) - spellLevel;
-
-        float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
-        basePoints = EffectBasePoints[effIndex];
-        basePoints += int32(level * basePointsPerLevel);
-        int32 randomPoints = int32(EffectDieSides[basePoints]);
-        comboDamage = EffectPointsPerComboPoint[basePoints];
-
-        switch (randomPoints)
-        {
-            case 0:                                             // not used
-            case 1: basePoints += 1; break;                     // range 1..1
-            default:
-            {
-                // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
-                int32 randvalue = (randomPoints >= 1) ? (rand() % randomPoints) : -(rand() % -randomPoints);
-                basePoints += randvalue;
-                break;
-            }
-        }
-    }
-
-    basePoints += int32(comboDamage * comboPoints);
-
-    if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
-        && (Effect[effIndex] != SPELL_EFFECT_APPLY_AURA || EffectApplyAuraName[effIndex] != SPELL_AURA_MOD_DECREASE_SPEED))
-        basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevel) / 1000.0f));
-    return basePoints;
+bool DBCUnloader::run()
+{
+    DBCLoader::UnloadAllDBCFiles();
+    return true;
 }

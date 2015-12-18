@@ -305,6 +305,8 @@ bool Master::Run(int argc, char ** argv)
 
     sDBEngine.EndThreads();
 
+    DBCLoader::StartCleanup();
+
     sLog.Notice( "Database", "Clearing all pending queries..." );
 
     // kill the database thread first so we don't lose any queries/data
@@ -343,8 +345,6 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice("Thread", "Terminating thread pool...");
     ThreadPool.Shutdown();
-
-    ls = NULL;
 
     sLog.Notice( "Network", "Deleting Network Subsystem..." );
     {

@@ -285,10 +285,10 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 
 uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
 {
-    float rMin = GetSpellProto()->Range[0], rMax = prange;
+    float rMin = GetSpellProto()->minRange[0], rMax = prange;
     if(rMax == 0.f)
     {
-        rMax = GetSpellProto()->Range[2];
+        rMax = GetSpellProto()->maxRange[0];
         if( GetSpellProto()->SpellGroupType && m_caster->IsUnit())
         {
             castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS,&rMax,GetSpellProto()->SpellGroupType);
@@ -317,10 +317,10 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
 
 uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
 {
-    float rMin = GetSpellProto()->Range[1], rMax = prange;
+    float rMin = GetSpellProto()->minRange[1], rMax = prange;
     if(rMax == 0.f)
     {
-        rMax = GetSpellProto()->Range[3];
+        rMax = GetSpellProto()->maxRange[1];
         if( GetSpellProto()->SpellGroupType && m_caster->IsUnit())
         {
             castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS,&rMax,GetSpellProto()->SpellGroupType);
@@ -639,7 +639,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
         m_castTime = 0;
     else
     {
-        m_castTime = m_ForcedCastTime ? m_ForcedCastTime : GetDBCCastTime( dbcSpellCastTime.LookupEntry( GetSpellProto()->CastingTimeIndex ) );
+        m_castTime = m_ForcedCastTime ? m_ForcedCastTime : m_spellInfo->castTimeMin;
         if( m_castTime && GetSpellProto()->SpellGroupType && m_caster->IsUnit() != NULL )
         {
             castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
@@ -1961,10 +1961,10 @@ uint8 Spell::CanCast(bool tolerate)
     }
 
     // set up our max Range
-    float maxRange = GetSpellProto()->Range[2];
+    float maxRange = GetSpellProto()->maxRange[0];
     if(m_targets.m_unitTarget && m_caster && m_caster->IsInWorld())
         if(sFactionSystem.isCombatSupport(castPtr<Unit>(m_caster), m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget)))
-            maxRange = GetSpellProto()->Range[3];
+            maxRange = GetSpellProto()->maxRange[1];
 
     if( GetSpellProto()->SpellGroupType && m_caster->IsUnit() )
     {

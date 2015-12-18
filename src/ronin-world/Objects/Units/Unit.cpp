@@ -1244,18 +1244,15 @@ bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32
         maxRange -= (attackType == RANGED_AUTOSHOT ? 0.f : selfreach);
         if(SpellEntry *sp = dbcSpell.LookupEntry(spellId))
         {
-            if(SpellRangeEntry* range = dbcSpellRange.LookupEntry(sp->rangeIndex))
+            minRange = sp->minRange[0];
+            minRange *= minRange;
+            float spellRange = sp->maxRange[0];
+            if( sp->SpellGroupType )
             {
-                minRange = GetDBCMinRange( range );
-                minRange *= minRange;
-                float spellRange = GetDBCMaxRange( range );
-                if( sp->SpellGroupType )
-                {
-                    SM_FFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
-                    SM_PFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
-                }
-                maxRange += spellRange;
-            } else return false;
+                SM_FFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+                SM_PFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+            }
+            maxRange += spellRange;
         } else return false;
     }
 

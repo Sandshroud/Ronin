@@ -74,6 +74,30 @@ void ApplyNormalFixes()
         SetProcFlags(sp);
     }
 
+    dbcSpellAuraOptions.Unload();
+    dbcSpellAuraRestrictions.Unload();
+    dbcSpellCastingRequirements.Unload();
+    dbcSpellCastTime.Unload();
+    dbcSpellCategories.Unload();
+    dbcSpellClassOptions.Unload();
+    dbcSpellCooldowns.Unload();
+    dbcSpellDifficulty.Unload();
+    dbcSpellDuration.Unload();
+    dbcSpellEffect.Unload();
+    dbcSpellEquippedItems.Unload();
+    dbcSpellInterrupts.Unload();
+    dbcSpellItemEnchant.Unload();
+    dbcSpellLevels.Unload();
+    dbcSpellPower.Unload();
+    dbcSpellRadius.Unload();
+    dbcSpellReagents.Unload();
+    dbcSpellRuneCost.Unload();
+    dbcSpellScaling.Unload();
+    dbcSpellShapeshift.Unload();
+    dbcSpellShapeshiftForm.Unload();
+    dbcSpellTargetRestrictions.Unload();
+    dbcSpellTotems.Unload();
+
     SpellEntry* sp2 = new SpellEntry(*(sp = dbcSpell.LookupEntry(26659)));
     sp2->Id = 62388;
     sp2->Name = ((char*)"Dummy Shit");
@@ -328,10 +352,10 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     sp->Totem[1] = 0;
     sp->RequiredShapeShift = 0;
     // SpellRangeEntry
-    sp->Range[0] = 0.0f;
-    sp->Range[1] = 0.0f;
-    sp->Range[2] = 0.0f;
-    sp->Range[3] = 0.0f;
+    sp->minRange[0] = 0.0f;
+    sp->minRange[1] = 0.0f;
+    sp->maxRange[0] = 0.0f;
+    sp->maxRange[1] = 0.0f;
     /// Spell Pointers
     sp->Duration[0] = 0;
     sp->Duration[1] = 0;
@@ -590,6 +614,15 @@ void PoolSpellData()
             spellInfo->ManaCostPerlevel = sPower->manaCostPerlevel;
             spellInfo->ManaCostPercentage = sPower->manaCostPercentage;
             spellInfo->ManaPerSecond = sPower->manaPerSecond;
+        }
+
+        //SpellRangeEntry
+        if(SpellRangeEntry *sRange = dbcSpellRange.LookupEntry(spellInfo->rangeIndex))
+        {
+            spellInfo->minRange[0] = sRange->minRangeHostile;
+            spellInfo->minRange[1] = sRange->minRangeFriend;
+            spellInfo->maxRange[0] = sRange->maxRangeHostile;
+            spellInfo->maxRange[1] = sRange->maxRangeFriend;
         }
 
         //SpellReagentsEntry

@@ -109,21 +109,18 @@ bool CheckResultLengthGameObject(QueryResult * res)
 
 void Map::LoadSpawns(bool reload /* = false */)
 {
-    CreatureSpawnCount = 0;
-    QueryResult* result;
-    std::set<std::string>::iterator tableiterator;
-    if(reload)//perform cleanup
+    for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
-        CellSpawns *sp = NULL;
-        CreatureSpawn *cs = NULL;
-        for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
+        CellSpawnsMap *spm = itr->second;
+        itr->second = NULL;
+        if(spm)
         {
-            if(itr->second != NULL)
+            for(CellSpawnsMap::iterator itr2 = spm->begin(); itr2 != spm->end(); itr2++)
             {
-                for(CellSpawnsMap::iterator itr2 = itr->second->begin(); itr2 != itr->second->end(); itr2++)
+                CellSpawns *sp = itr2->second;
+                itr2->second = NULL;
+                if(sp)
                 {
-                    sp = itr2->second;
-                    itr2->second = NULL;
                     for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(); i != sp->CreatureSpawns.end(); i++)
                         delete (*i);
 
@@ -132,72 +129,56 @@ void Map::LoadSpawns(bool reload /* = false */)
 
                     delete sp;
                 }
-
-                itr->second->clear();
-                delete itr->second;
-                itr->second = NULL;
-            }
-        }
-        m_spawns.clear();
-    }
-
-    for(tableiterator = ExtraMapCreatureTables.begin(); tableiterator != ExtraMapCreatureTables.end(); ++tableiterator)
-    {
-        if(result = WorldDatabase.Query("SELECT * FROM %s WHERE Map = %u", (*tableiterator).c_str(), _mapId))
-        {
-            if(CheckResultLengthCreatures( result) )
-            {
-                do
-                {
-                    Field * fields = result->Fetch();
-                    CreatureSpawn *cspawn = new CreatureSpawn();
-                    cspawn->id = fields[0].GetUInt32();
-                    cspawn->entry = fields[1].GetUInt32();
-                    cspawn->x = fields[3].GetFloat();
-                    cspawn->y = fields[4].GetFloat();
-                    cspawn->z = fields[5].GetFloat();
-                    cspawn->o = NormAngle(fields[6].GetFloat());
-                    cspawn->modelId = fields[7].GetUInt32();
-                    cspawn->vendormask = fields[8].GetUInt32();
-
-                    uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x), celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
-                    GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
-                    ++CreatureSpawnCount;
-                }while(result->NextRow());
             }
 
-            delete result;
+            spm->clear();
+            delete spm;
         }
     }
+    m_spawns.clear();
 
-    for(tableiterator = ExtraMapGameObjectTables.begin(); tableiterator != ExtraMapGameObjectTables.end(); ++tableiterator)
+    if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, orientation, modelId, vendorMask FROM creature_spawns WHERE Map = %u", _mapId))
     {
-        result = WorldDatabase.Query("SELECT * FROM %s WHERE map = %u", (*tableiterator).c_str(), _mapId);
-        if(result)
+        do
         {
-            if( CheckResultLengthGameObject(result) )
-            {
-                do
-                {
-                    Field * fields = result->Fetch();
-                    GOSpawn *gspawn = new GOSpawn();
-                    gspawn->id = fields[0].GetUInt32();
-                    gspawn->entry = fields[1].GetUInt32();
-                    gspawn->x = fields[3].GetFloat();
-                    gspawn->y = fields[4].GetFloat();
-                    gspawn->z = fields[5].GetFloat();
-                    gspawn->o = NormAngle(fields[6].GetFloat());
-                    gspawn->state = fields[7].GetUInt32();
-                    gspawn->flags = fields[8].GetUInt32();
-                    gspawn->faction = fields[9].GetUInt32();
-                    gspawn->scale = std::min<float>(255.f, fields[10].GetFloat());
+            Field * fields = result->Fetch();
+            CreatureSpawn *cspawn = new CreatureSpawn();
+            cspawn->id = fields[0].GetUInt32();
+            cspawn->entry = fields[1].GetUInt32();
+            cspawn->x = fields[2].GetFloat();
+            cspawn->y = fields[3].GetFloat();
+            cspawn->z = fields[4].GetFloat();
+            cspawn->o = NormAngle(fields[5].GetFloat());
+            cspawn->modelId = fields[6].GetUInt32();
+            cspawn->vendormask = fields[7].GetUInt32();
 
-                    uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x), celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
-                    GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);
-                }while(result->NextRow());
-            }
-            delete result;
-        }
+            uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x), celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
+            GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
+        }while(result->NextRow());
+        delete result;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, orientation, state, flags, faction, scale FROM gameobject_spawns WHERE map = %u", _mapId))
+    {
+        do
+        {
+            Field * fields = result->Fetch();
+            GOSpawn *gspawn = new GOSpawn();
+            gspawn->id = fields[0].GetUInt32();
+            gspawn->entry = fields[1].GetUInt32();
+            gspawn->x = fields[2].GetFloat();
+            gspawn->y = fields[3].GetFloat();
+            gspawn->z = fields[4].GetFloat();
+            gspawn->o = NormAngle(fields[5].GetFloat());
+            gspawn->state = fields[6].GetUInt32();
+            gspawn->flags = fields[7].GetUInt32();
+            gspawn->faction = fields[8].GetUInt32();
+            gspawn->scale = std::min<float>(255.f, fields[9].GetFloat());
+
+            uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x), celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
+            GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);
+        }while(result->NextRow());
+        delete result;
     }
 }
 

@@ -54,13 +54,10 @@ public:
         if(name) delete name;
         if(CFormat) delete CFormat;
         if(m_stringData) delete m_stringData;
+        name = CFormat = m_stringData = NULL;
         m_entries.clear();
-        while(m_blocks.size())
-        {
-            T *block = m_blocks.begin()->second;
-            m_blocks.erase(m_blocks.begin());
-            delete block;
-        }
+        for(std::map<uint32, T*>::iterator itr = m_blocks.begin(); itr != m_blocks.end(); itr++)
+            delete itr->second;
         m_blocks.clear();
     }
 
@@ -148,6 +145,8 @@ public:
         for(uint32 i = 0; i < header.rows; ++i)
         {
             T *block = new T();
+            memset(block, 0, sizeof(T));
+
             uint32 c = 0, stringCount = 0;
             uint8 *dest_ptr = (uint8*)block;
             const char * t = CFormat;
@@ -156,8 +155,8 @@ public:
             {
                 if((++c) > header.cols)
                 {
-                    delete block;
                     printf("!!! Read buffer overflow in DBC reading of file %s\n", name);
+                    delete block;
                     return false;
                 }
 

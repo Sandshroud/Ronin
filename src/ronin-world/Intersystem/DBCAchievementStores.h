@@ -5,7 +5,7 @@
 
 #pragma once
 
-#pragma pack(push,1)
+#pragma pack(PRAGMA_PACK)
 
 struct AchievementEntry
 {
@@ -433,4 +433,4 @@ struct AchievementCriteriaEntry
     uint32 moreRequirementValue[3];
 };
 
-#pragma pack(pop)
+#pragma pack(PRAGMA_POP)

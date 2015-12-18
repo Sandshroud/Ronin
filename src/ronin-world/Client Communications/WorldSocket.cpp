@@ -11,7 +11,7 @@
 
 extern bool bServerShutdown;
 
-#pragma pack(push, 1)
+#pragma pack(PRAGMA_PACK)
 
 struct ClientPktHeader
 {

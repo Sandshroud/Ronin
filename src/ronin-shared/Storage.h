@@ -342,11 +342,7 @@ public:
                 {
                     char *ptr = (char*)null_str;
                     if(const char *str = f->GetString())
-                    {
-                        char *strData = strdup(str);
-                        _stringData.insert(strData);
-                        ptr = strData;
-                    }
+                        _stringData.insert((ptr = strdup(str)));
                     *(char**)&structpointer[offset] = ptr;
                     offset += sizeof(char*);
                 }break;

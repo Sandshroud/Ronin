@@ -4592,61 +4592,40 @@ void Player::SendPetUntrainConfirm()
 
 int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot )
 {
-    uint8 fail = 0;
-
-    SpellEntry* spellinfo = NULL;
-    if( autoshot )
-        spellinfo = dbcSpell.LookupEntry( 75 );
-    else
-        spellinfo = dbcSpell.LookupEntry( spellid );
-
+    SpellEntry* spellinfo = dbcSpell.LookupEntry( autoshot ? 75 : spellid );
     if( spellinfo == NULL )
         return -1;
-
-    // Player has clicked off target. Fail spell.
-    if( m_curSelection != m_AutoShotTarget )
-        fail = SPELL_FAILED_INTERRUPTED;
-
-    if( target->isDead() )
-        fail = SPELL_FAILED_TARGETS_DEAD;
-
     if( GetCurrentSpell() )
         return -1;
 
-    // Supalosa - The hunter ability Auto Shot is using Shoot range, which is 5 yards shorter.
-    // So we'll use 114, which is the correct 35 yard range used by the other Hunter abilities (arcane shot, concussive shot...)
-    uint32 rIndex = spellinfo->rangeIndex;
-    SpellRangeEntry* range = dbcSpellRange.LookupEntry( rIndex );
-    float minrange = GetDBCMinRange( range );
-    float dist = GetDistance2dSq( target ) - target->GetSize() - GetSize();
-    float maxr = GetDBCMaxRange( range );
-
-    if( spellinfo->SpellGroupType )
+    uint8 fail = 0;
+    // Player has clicked off target. Fail spell.
+    if( m_curSelection != m_AutoShotTarget )
+        fail = SPELL_FAILED_INTERRUPTED;
+    else if( target->isDead() )
+        fail = SPELL_FAILED_TARGETS_DEAD;
+    else
     {
-        SM_FFValue(SMT_RANGE, &maxr, spellinfo->SpellGroupType );
-        SM_PFValue(SMT_RANGE, &maxr, spellinfo->SpellGroupType );
-    }
-
-    maxr += 4.0f; // Matches client range
-    maxr *= maxr; // square me!
-    minrange *= minrange;
-
-    if( spellid != SPELL_RANGED_WAND )//no min limit for wands
-        if( minrange > dist )
-            fail = SPELL_FAILED_TOO_CLOSE;
-
-    if( dist > maxr )
-    {
-        //  sLog.outString( "Auto shot failed: out of range (Maxr: %f, Dist: %f)" , maxr , dist );
-        fail = SPELL_FAILED_OUT_OF_RANGE;
-    }
-
-    if (GetMapMgr() && GetMapMgr()->CanUseCollision(this))
-    {
-        if( !IsInLineOfSight(target) )
+        // Supalosa - The hunter ability Auto Shot is using Shoot range, which is 5 yards shorter.
+        // So we'll use 114, which is the correct 35 yard range used by the other Hunter abilities (arcane shot, concussive shot...)
+        float minrange = spellinfo->minRange[0], maxrange = spellinfo->maxRange[0];
+        float dist = GetDistance2dSq( target ) - target->GetSize() - GetSize();
+        if( spellinfo->SpellGroupType )
         {
-            fail = SPELL_FAILED_LINE_OF_SIGHT;
+            SM_FFValue(SMT_RANGE, &maxrange, spellinfo->SpellGroupType );
+            SM_PFValue(SMT_RANGE, &maxrange, spellinfo->SpellGroupType );
         }
+
+        maxrange += 4.0f; // Matches client range
+        maxrange *= maxrange; // square me!
+        minrange *= minrange;
+
+        if( dist > maxrange )
+            fail = SPELL_FAILED_OUT_OF_RANGE;
+        else if( minrange > dist && spellid != SPELL_RANGED_WAND )//no min limit for wands
+            fail = SPELL_FAILED_TOO_CLOSE;
+        else if (IsInWorld() && GetMapMgr()->CanUseCollision(this) && !IsInLineOfSight(target))
+            fail = SPELL_FAILED_LINE_OF_SIGHT;
     }
 
     if( fail > 0 )

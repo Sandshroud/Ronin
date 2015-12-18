@@ -290,7 +290,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
         firstTarget = castPtr<Unit>(m_caster);
 
     bool RaidOnly = false;
-    float range = GetDBCMaxRange(dbcSpellRange.LookupEntry(m_spellInfo->rangeIndex));//this is probably wrong,
+    float range = m_spellInfo->maxRange[0];
     //this is cast distance, not searching distance
     range *= range;
 
