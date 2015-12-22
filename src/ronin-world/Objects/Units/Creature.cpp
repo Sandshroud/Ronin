@@ -23,14 +23,12 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_respawnCell = NULL;
     myFamily = NULL;
 
-    mTaxiNode = 0;
+    m_taxiNode[0] = m_taxiNode[1] = 0;
     m_H_regenTimer = 0;
     m_P_regenTimer = 0;
     m_p_DelayTimer = 0;
     m_enslaveCount = 0;
     m_enslaveSpell = 0;
-
-    m_TaxiNode = 0;
 
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
@@ -660,11 +658,11 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
         m_SellItems = objmgr.GetVendorList(GetEntry());
 
+    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR ) )
+        sTaxiMgr.GetNearestTaxiNodes(mapId, x, y, z, m_taxiNode);
+
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ) )
         _LoadQuests();
-
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR) )
-        m_TaxiNode = sTaxiMgr.GetNearestTaxiNode( m_position.x, m_position.y, m_position.z, GetMapId() );
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());

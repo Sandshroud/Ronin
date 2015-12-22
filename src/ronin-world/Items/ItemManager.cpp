@@ -397,9 +397,9 @@ void ItemManager::LoadItemOverrides()
     ItemArmorQuality *ArmorQ = NULL; ItemArmorShield *ArmorS = NULL;
     ItemArmorTotal *ArmorT = NULL; ArmorLocationEntry *ArmorE = NULL;
     ItemDamageEntry *Damage = NULL;
-    for(iterator itr = itemPrototypeBegin(); itr != itemPrototypeEnd(); ++itr)
+    for(auto itr = m_itemPrototypeContainer.begin(); itr != m_itemPrototypeContainer.end(); ++itr)
     {
-        proto = (*itr)->second;
+        proto = itr->second;
         uint32 Quality = proto->Quality;
         if(Quality >= ITEM_QUALITY_DBC_MAX)
             continue;

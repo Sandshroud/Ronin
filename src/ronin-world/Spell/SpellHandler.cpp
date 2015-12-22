@@ -156,9 +156,10 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
-    uint8 cn;
-    uint32 spellId;
+    uint8 cn; uint32 spellId;
     recvPacket >> cn >> spellId;
+    SpellCastTargets targets(recvPacket, _player->GetGUID());
+
     if(spellId == 0)
     {
         sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
@@ -170,29 +171,17 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     if((spellInfo = dbcSpell.LookupEntry(spellId)) == NULL)
     {
         sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
-        SKIP_READ_PACKET(recvPacket);
         return;
     }
 
-    if(!_player->isAlive() && !spellInfo->isCastableWhileDead())
-    {
-        SKIP_READ_PACKET(recvPacket);
+    if((!_player->isAlive() && !spellInfo->isCastableWhileDead()) || _player->m_CurrentCharm)
         return;
-    }
 
     if(_player->GetUInt32Value(UNIT_FIELD_CHARMEDBY))
     {
         _player->SendCastResult(spellInfo->Id, SPELL_FAILED_CHARMED, cn, 0);
-        SKIP_READ_PACKET(recvPacket);
         return;
     }
-    if(_player->m_CurrentCharm)
-    {
-        SKIP_READ_PACKET(recvPacket);
-        return;
-    }
-
-    sLog.Debug("WORLD","Received cast_spell packet, spellId - %i (%s), data length = %i", spellId, spellInfo->Name, recvPacket.size());
 
     // Cheat Detection only if player and not from an item
     // this could fuck up things but meh it's needed ALOT of the newbs are using WPE now
@@ -248,17 +237,14 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             if(!_player->m_onAutoShot)
             {
                 _player->m_AutoShotTarget = _player->GetSelection();
-                uint32 duration = _player->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
-                SpellCastTargets targets(recvPacket, GetPlayer()->GetGUID());
                 if(!targets.m_unitTarget)
                 {
                     sLog.outString( "Cancelling auto-shot cast because targets.m_unitTarget is null!" );
                     return;
                 }
-                SpellEntry *sp = dbcSpell.LookupEntry(spellid);
 
-                _player->m_AutoShotSpell = sp;
-                _player->m_AutoShotDuration = duration;
+                _player->m_AutoShotSpell = dbcSpell.LookupEntry(spellid);
+                _player->m_AutoShotDuration = _player->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
                 //This will fix fast clicks
                 if(_player->m_AutoShotAttackTimer < 500)
                     _player->m_AutoShotAttackTimer = 500;
@@ -267,8 +253,6 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 
             return;
         }
-
-        SpellCastTargets targets(recvPacket, GetPlayer()->GetGUID());
 
         if(_player->m_currentSpell)
         {

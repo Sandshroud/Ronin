@@ -696,25 +696,25 @@ enum SPELL_LOG
 
 enum SpellCastTargetFlags
 {
-    TARGET_FLAG_SELF                = 0x0000,   // they are checked in following order
-    TARGET_FLAG_UNK1                = 0x0001,
-    TARGET_FLAG_UNIT                = 0x0002,
-    TARGET_FLAG_UNK2                = 0x0004,
-    TARGET_FLAG_UNK3                = 0x0008,
-    TARGET_FLAG_ITEM                = 0x0010,
-    TARGET_FLAG_SOURCE_LOCATION     = 0x0020,
-    TARGET_FLAG_DEST_LOCATION       = 0x0040,
-    TARGET_FLAG_OBJECT_CASTER       = 0x0080,
-    TARGET_FLAG_CASTER              = 0x0100,
-    TARGET_FLAG_PLR_CORPSE          = 0x0200,
-    TARGET_FLAG_CORPSE              = 0x0400,
-    TARGET_FLAG_OBJECT              = 0x0800,
-    TARGET_FLAG_TRADE_ITEM          = 0x1000,
-    TARGET_FLAG_STRING              = 0x2000,
-    TARGET_FLAG_ITEM2               = 0x4000,
-    TARGET_FLAG_CORPSE2             = 0x8000,
-    TARGET_FLAG_UNK5                = 0x10000,
-    TARGET_FLAG_GLYPH               = 0x20000,
+    TARGET_FLAG_SELF                = 0x00000000,   // they are checked in following order
+    TARGET_FLAG_UNIT                = 0x00000002,
+    TARGET_FLAG_UNIT_RAID           = 0x00000004,
+    TARGET_FLAG_UNIT_PARTY          = 0x00000008,
+    TARGET_FLAG_ITEM                = 0x00000010,
+    TARGET_FLAG_SOURCE_LOCATION     = 0x00000020,
+    TARGET_FLAG_DEST_LOCATION       = 0x00000040,
+    TARGET_FLAG_OBJECT_CASTER       = 0x00000080,
+    TARGET_FLAG_CASTER              = 0x00000100,
+    TARGET_FLAG_PLR_CORPSE          = 0x00000200,
+    TARGET_FLAG_CORPSE              = 0x00000400,
+    TARGET_FLAG_OBJECT              = 0x00000800,
+    TARGET_FLAG_TRADE_ITEM          = 0x00001000,
+    TARGET_FLAG_STRING              = 0x00002000,
+    TARGET_FLAG_ITEM2               = 0x00004000,
+    TARGET_FLAG_CORPSE2             = 0x00008000,
+    TARGET_FLAG_GLYPH               = 0x00020000,
+    TARGET_FLAG_TARGET_DEST         = 0x00040000,
+    TARGET_FLAG_EXTRA_TARGETS       = 0x00080000,
 };
 
 enum CastInterruptFlags
@@ -730,17 +730,19 @@ enum CastInterruptFlags
 /************************************************************************/
 /* General Spell Go Flags, for documentation reasons                    */
 /************************************************************************/
-enum SpellGoFlags
+enum SpellCastFlag
 {
-    SPELL_CAST_FLAGS_NONE                   = 0x00000000,
-    SPELL_CAST_FLAGS_NO_VISUAL              = 0x00000001,
-    SPELL_CAST_FLAGS_CAST_DEFAULT           = 0x00000002,
-    SPELL_CAST_FLAGS_GO_DEFAULT             = 0x00000100,
-    SPELL_CAST_FLAGS_EXTRA_MESSAGE          = 0x00000400, //TARGET MISSES AND OTHER MESSAGES LIKE "Resist"
-    SPELL_CAST_FLAGS_POWER_UPDATE           = 0x00000800,
-    SPELL_CAST_FLAGS_PROJECTILE             = 0x00020000,
-    SPELL_CAST_FLAGS_RUNIC_UPDATE           = 0x00040000,
-    SPELL_CAST_FLAGS_RUNE_UPDATE            = 0x00200000,
+    SPELL_CASTFLAG_NONE                 = 0x00000000,
+    SPELL_CASTFLAG_NO_VISUAL            = 0x00000001,
+    SPELL_CASTFLAG_HAS_TRAJECTORY       = 0x00000002,
+    SPELL_CASTFLAG_PROJECTILE           = 0x00000020,
+    SPELL_CASTFLAG_POWER_UPDATE         = 0x00000800,
+    SPELL_CASTFLAG_MISSILE_INFO         = 0x00020000,
+    SPELL_CASTFLAG_NO_GCD               = 0x00040000,
+    SPELL_CASTFLAG_VISUAL_CHAIN         = 0x00080000,
+    SPELL_CASTFLAG_RUNE_UPDATE          = 0x00200000,
+    SPELL_CASTFLAG_EXTRA_MESSAGE        = 0x04000000,
+    SPELL_CASTFLAG_HEAL_UPDATE          = 0x40000000,
 };
 
 enum AuraInterruptFlags

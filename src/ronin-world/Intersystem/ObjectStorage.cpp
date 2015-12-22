@@ -173,7 +173,7 @@ void Storage_FillTaskList(TaskList & tl)
     make_task(CreatureInfoExtraStorage, CreatureInfoExtra, HashMapStorageContainer, "creature_info", gCreatureInfoExtra);
     make_task(GameObjectNameStorage, GameObjectInfo, HashMapStorageContainer, "gameobject_names", gGameObjectNameFormat);
     make_task(CreatureVehicleDataStorage, CreatureVehicleData, HashMapStorageContainer, "creature_proto_vehicle", gCreatureVehicleData);
-    make_task(ItemPageStorage, ItemPage, HashMapStorageContainer, "itempages", gItemPageFormat);
+    make_task(ItemPageStorage, ItemPage, HashMapStorageContainer, "item_pages", gItemPageFormat);
     make_task(GraveyardStorage, GraveyardTeleport, HashMapStorageContainer, "graveyards", gGraveyardFormat);
     make_task(TeleportCoordStorage, TeleportCoords, HashMapStorageContainer, "teleport_coords", gTeleportCoordFormat);
     make_task(NpcTextStorage, GossipText, HashMapStorageContainer, "npc_text", gNpcTextFormat);
@@ -206,7 +206,7 @@ bool Storage_ReloadTable(const char * TableName)
         CreatureVehicleDataStorage.Reload();
     else if(!stricmp(TableName, "gameobject_names"))    // GO Names
         GameObjectNameStorage.Reload();
-    else if(!stricmp(TableName, "itempages"))           // Item Pages
+    else if(!stricmp(TableName, "item_pages"))           // Item Pages
         ItemPageStorage.Reload();
     else if(!stricmp(TableName, "quests"))              // Quests
         sQuestMgr.LoadQuests();

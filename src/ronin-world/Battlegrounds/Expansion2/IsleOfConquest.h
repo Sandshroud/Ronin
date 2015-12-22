@@ -111,8 +111,8 @@ public:
     void HookFlagStand(Player* plr, GameObject* obj);
     void HookOnMount(Player* plr);
     void SpawnControlPoint(uint32 Id, uint32 Type);
-    void CaptureControlPoint(uint32 Id, uint32 Team);
-    void Updateworkshop(uint32 Team);
+    void CaptureControlPoint(uint32 Id, uint8 Team);
+    void Updateworkshop(uint8 Team);
     void AssaultControlPoint(Player* pPlayer, uint32 Id);
     void HookOnAreaTrigger(Player* plr, uint32 id);
     bool HookHandleRepop(Player* plr);
@@ -124,9 +124,9 @@ public:
     void HookOnHK(Player* plr);
     void HookOnShadowSight();
     void Respawn();
-    void AddReinforcements(uint32 teamId, uint32 amt);
-    void RemoveReinforcements(uint32 teamId, uint32 amt);
-    LocationVector GetStartingCoords(uint32 Team);
+    void AddReinforcements(uint8 teamId, uint32 amt);
+    void RemoveReinforcements(uint8 teamId, uint32 amt);
+    LocationVector GetStartingCoords(uint8 Team);
 
     static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return new IsleOfConquest(m, i, l, t); }
 
@@ -142,7 +142,7 @@ public:
     void SetIsWeekend(bool isweekend);
     void HookOnUnitKill(Player* plr, Unit* pVictim);
     void Herald(const char *format, ...);
-    void Finish(uint32 losingTeam);
+    void Finish(uint8 losingTeam);
 
 private:
 

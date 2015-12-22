@@ -3106,7 +3106,6 @@ void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forced
     Spell* newSpell = new Spell(this, Sp);
     SpellCastTargets targets(Target ? Target->GetGUID() : 0);
     if(Target == NULL) newSpell->GenerateTargets(&targets);
-    if(forcedCastTime) newSpell->m_ForcedCastTime = forcedCastTime;
     newSpell->prepare(&targets, triggered);
 }
 
@@ -3125,11 +3124,8 @@ void Unit::CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered, uint32 f
         return;
 
     SpellCastTargets targets(targetGuid);
-    Spell* newSpell = new Spell(this, Sp);
-    if(forcedCastTime)
-        newSpell->m_ForcedCastTime = forcedCastTime;
-
-    newSpell->prepare(&targets, triggered);
+    if(Spell* newSpell = new Spell(this, Sp))
+        newSpell->prepare(&targets, triggered);
 }
 
 void Unit::CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered, uint32 forcedCastTime)
@@ -3154,9 +3150,6 @@ uint8 Unit::CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered,
     targets.m_dest.ChangeCoords(x, y, z);
     targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
     Spell* newSpell = new Spell(this, Sp);
-    if(forcedCastTime)
-        newSpell->m_ForcedCastTime = forcedCastTime;
-
     return newSpell->prepare(&targets, triggered);
 }
 

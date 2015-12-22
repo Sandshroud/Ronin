@@ -77,7 +77,7 @@ public:
     void HookOnHK(Player* plr);
     void HookOnShadowSight();
     void SpawnBuff(uint32 x);
-    LocationVector GetStartingCoords(uint32 Team);
+    LocationVector GetStartingCoords(uint8 Team);
     void DropFlag(Player* plr);
 
     static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new ArathiBasin(m, i, l, t); }
@@ -90,7 +90,7 @@ public:
 
     /* AB Game Mechanics */
     void SpawnControlPoint(uint32 Id, uint32 Type);
-    void CaptureControlPoint(uint32 Id, uint32 Team);
+    void CaptureControlPoint(uint32 Id, uint8 Team);
     void AssaultControlPoint(Player* pPlayer, uint32 Id);
 
     /* looooooot */

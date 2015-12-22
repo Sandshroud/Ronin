@@ -141,7 +141,7 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
         }
     }
 
-    _player->SendLoot(guid, _player->GetMapId(), LOOT_CORPSE);
+    _player->SendLoot(guid, _player->GetMapId(), LOOTTYPE_CORPSE);
 }
 
 

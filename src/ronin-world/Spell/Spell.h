@@ -16,17 +16,6 @@ enum SpellEffectTargetFlags
 
 #define SPELL_SPELL_CHANNEL_UPDATE_INTERVAL 1000
 
-struct SpellTarget
-{
-    uint64 Guid;
-    uint8 HitResult;
-    uint8 EffectMask;
-    uint8 ReflectResult;
-    uint32 DestinationTime;
-};
-
-typedef std::map<uint64, SpellTarget> SpellTargetMap;
-
 // Spell instance
 class SERVER_DECL Spell : public SpellEffectClass
 {
@@ -42,9 +31,6 @@ public:
             return;
         dest = m_targets.m_dest;
     }
-
-    float m_missilePitch;
-    uint32 m_missileTravelTime, m_MSTimeToAddToTravel;
 
     // Fills specified targets at the area of effect
     void FillSpecifiedTargetsInArea(float srcx,float srcy,float srcz,uint32 ind, uint32 specification);
@@ -105,17 +91,6 @@ public:
 
     RONIN_INLINE uint32 getState() { return m_spellState; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
-
-    // Send Packet functions
-    bool IsNeedSendToClient();
-    void SendSpellStart();
-    void SendSpellGo();
-    void SendProjectileUpdate();
-
-    void writeSpellGoTargets( WorldPacket * data );
-
-    uint32 m_triggeredSpellId;
-    SpellEntry *ProcedOnSpell;  //some spells need to know the origins of the proc too
 
     void CreateItem(uint32 itemId);
 
@@ -203,7 +178,6 @@ public:
     }
 
     Spell* m_reflectedParent;
-    uint32 m_ForcedCastTime;
 
     // Returns true iff spellEffect's effectNum effect affects testSpell based on EffectSpellClassMask
     RONIN_INLINE static bool EffectAffectsSpell(SpellEntry* spellEffect, uint32 effectNum, SpellEntry* testSpell)
@@ -228,8 +202,6 @@ protected:
     /// Spell state's
     bool    m_usesMana;
     bool    m_Delayed;
-    int32   m_castTime;
-    int32   m_timer;
     bool    m_ForceConsumption;
 
     // Current Targets to be used in effect handler
@@ -251,15 +223,12 @@ protected:
     }
 
 private:
-    SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
 
     // adds a target to the list, performing DidHit checks on units
     void _AddTarget(WorldObject* target, const uint32 effIndex);
 
     // didhit checker
     uint8 _DidHit(uint32 index, Unit* target, uint8 *reflectout = NULL);
-
-    uint32 m_hitTargetCount, m_missTargetCount;
 
 public:
     static std::map<uint8, uint32> m_implicitTargetFlags;

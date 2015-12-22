@@ -940,7 +940,7 @@ void EyeOfTheStorm::SpawnBuff(uint32 x)
 }
 
 
-LocationVector EyeOfTheStorm::GetStartingCoords(uint32 Team)
+LocationVector EyeOfTheStorm::GetStartingCoords(uint8 Team)
 {
     return LocationVector( EOTSStartLocations[Team][0],
         EOTSStartLocations[Team][1],

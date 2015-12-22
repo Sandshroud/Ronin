@@ -89,18 +89,18 @@ void LootMgr::LoadLoot()
     is_loading = true;
     LoadLootProp();
     sLog.Debug("LootMgr","Loading loot...");
-    LoadLootTables(FISHING_LOOT, &FishingLoot, false);
+    LoadLootTables(LOOT_FISHING, &FishingLoot, false);
     is_loading = false;
 }
 
 void LootMgr::LoadDelayedLoot()
 {
     is_loading = true;
-    LoadLootTables(ITEM_LOOT, &ItemLoot, false);
-    LoadLootTables(OBJECT_LOOT, &GOLoot, true);
-    LoadLootTables(CREATURE_LOOT, &CreatureLoot, true);
-    LoadLootTables(PICKPOCKETING_LOOT, &PickpocketingLoot, false);
-    LoadLootTables(CREATURE_LOOT_GATHERING, &GatheringLoot, true);
+    LoadLootTables(LOOT_CREATURE, &CreatureLoot, true);
+    LoadLootTables(LOOT_GAMEOBJECT, &GOLoot, true);
+    LoadLootTables(LOOT_GATHERING, &GatheringLoot, true);
+    LoadLootTables(LOOT_ITEMS, &ItemLoot, false);
+    LoadLootTables(LOOT_PICKPOCKETING, &PickpocketingLoot, false);
     is_loading = false;
 }
 
@@ -255,19 +255,19 @@ void LootMgr::LoadLootTables(const char * szTableName, LootStore * LootTable, bo
             for(int8 i = 0; i < 4; i++)
             {
                 if((lootItem->chance[i] = fields[2+i].GetFloat()) == -1.f)
-                    lootItem->chance[i] = RandomFloat(100);
+                    lootItem->chance[i] = RandomFloat(100.f);
             }
 
             lootItem->minCount = fields[6].GetUInt32();
             lootItem->maxCount = fields[7].GetUInt32();
             for(uint i = 0; i < 4; i++)
                 if(lootItem->chance[i] == -1.0f)
-                    lootItem->chance[i] = RandomFloat(100);
+                    lootItem->chance[i] = RandomFloat(100.f);
         }
         else // We have one chance, regardless of difficulty.
         {
             if(((lootItem->chance = new float[1])[0] = fields[2].GetFloat()) == -1.f)
-                lootItem->chance[0] = RandomFloat(100);
+                lootItem->chance[0] = RandomFloat(100.f);
             lootItem->minCount = fields[3].GetUInt32();
             lootItem->maxCount = fields[4].GetUInt32();
         }

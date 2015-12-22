@@ -424,9 +424,9 @@ void StrandOfTheAncients::HookOnHK(Player* plr)
     UpdatePvPData();
 }
 
-LocationVector StrandOfTheAncients::GetStartingCoords(uint32 Team)
+LocationVector StrandOfTheAncients::GetStartingCoords(uint8 Team)
 {
-    uint32 sTeam = ( Team == Attackers ? 1 : 0 );
+    uint8 sTeam = ( Team == Attackers ? 1 : 0 );
     return LocationVector( SOTAStartLocations[sTeam][0],
         SOTAStartLocations[sTeam][1],
         SOTAStartLocations[sTeam][2] );

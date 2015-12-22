@@ -1811,7 +1811,7 @@ void SpellEffectClass::SpellEffectPickpocket(uint32 i, WorldObject *target, int3
     uint32 _rank = cTarget->GetCreatureData() ? cTarget->GetCreatureData()->rank : 0;
     unitTarget->GetLoot()->gold = float2int32((_rank+1) * cTarget->getLevel() * (RandomUInt(5) + 1) * sWorld.getRate(RATE_MONEY));
 
-    castPtr<Player>(m_caster)->SendLoot(cTarget->GetGUID(), cTarget->GetMapId(), LOOT_PICKPOCKETING);
+    castPtr<Player>(m_caster)->SendLoot(cTarget->GetGUID(), cTarget->GetMapId(), LOOTTYPE_PICKPOCKETING);
     cTarget->SetPickPocketed(true);
 }
 
@@ -2068,7 +2068,7 @@ void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 
     {
         //Fill loot for Skinning
         lootmgr.FillGatheringLoot(cr->GetLoot(), cr->GetEntry());
-        castPtr<Player>( m_caster )->SendLoot( cr->GetGUID(), cr->GetMapId(), LOOT_SKINNING );
+        castPtr<Player>( m_caster )->SendLoot( cr->GetGUID(), cr->GetMapId(), LOOTTYPE_SKINNING );
 
         //Not skinable again
         cr->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
@@ -2169,18 +2169,15 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
     if( !taxipath )
         return;
 
-    TaxiNode* taxinode = sTaxiMgr.GetTaxiNode( taxipath->GetSourceNode() );
+    TaxiNodeEntry* taxinode = dbcTaxiNode.LookupEntry(taxipath->GetSourceNode());
     if( !taxinode )
         return;
 
-    uint32 mount_entry = 0;
-    uint32 modelid = 0;
-
+    uint32 mount_entry = 0, modelid = 0;
     if( playerTarget->GetTeam() )       // HORDE
     {
-        mount_entry = taxinode->horde_mount;
-        if( !mount_entry )
-            mount_entry = taxinode->alliance_mount;
+        if((mount_entry = taxinode->mountIdHorde) == 0)
+            mount_entry = taxinode->mountIdAlliance;
 
         CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( mount_entry );
         if( ctrData == NULL )
@@ -2190,9 +2187,8 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
     }
     else                                // ALLIANCE
     {
-        mount_entry = taxinode->alliance_mount;
-        if( !mount_entry )
-            mount_entry = taxinode->horde_mount;
+        if((mount_entry = taxinode->mountIdAlliance) == 0)
+            mount_entry = taxinode->mountIdHorde;
 
         CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( mount_entry );
         if( ctrData == NULL )

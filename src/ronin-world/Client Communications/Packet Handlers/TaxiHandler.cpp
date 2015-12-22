@@ -7,92 +7,56 @@
 void WorldSession::HandleTaxiNodeStatusQueryOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    sLog.Debug( "WORLD"," Received CMSG_TAXINODE_STATUS_QUERY" );
 
-    uint64 guid;
-    uint32 curloc;
-    uint8 field;
-    uint32 submask;
-
+    WoWGuid guid;
     recv_data >> guid;
 
-    curloc = sTaxiMgr.GetNearestTaxiNode( GetPlayer( )->GetPositionX( ), GetPlayer( )->GetPositionY( ), GetPlayer( )->GetPositionZ( ), GetPlayer( )->GetMapId( ) );
-
-    field = (uint8)((curloc - 1) / 32);
-    submask = 1<<((curloc-1)%32);
+    uint8 res = 0;
+    uint32 curloc = 0;
+    Creature *pCreature = NULL;
+    if(guid.getHigh() == HIGHGUID_TYPE_UNIT && (pCreature = _player->GetInRangeObject<Creature>(guid)))
+        if((curloc = pCreature->GetTaxiNode(_player->GetTeam())) && _player->HasTaxiNode(curloc))
+            res = 1;
 
     WorldPacket data(SMSG_TAXINODE_STATUS, 9);
-    data << guid;
-
-    // Check for known nodes
-    if ( (GetPlayer( )->GetTaximask(field) & submask) != submask )
-        data << uint8( 0 );
-    else
-        data << uint8( 1 );
-
+    data << guid << res;
     SendPacket( &data );
-    sLog.Debug( "WORLD"," Sent SMSG_TAXINODE_STATUS" );
 }
-
 
 void WorldSession::HandleTaxiQueryAvaibleNodesOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    sLog.Debug( "WORLD"," Received CMSG_TAXIQUERYAVAILABLENODES" );
-    uint64 guid;
+
+    WoWGuid guid;
     recv_data >> guid;
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
-    if(!pCreature) return;
-
-    SendTaxiList(pCreature);
-}
-
-void WorldSession::SendTaxiList(Creature* pCreature)
-{
-    uint32 curloc;
-    uint8 field;
-    uint32 TaxiMask[MAX_TAXI];
-    uint32 submask;
-    uint64 guid = pCreature->GetGUID();
-
-    curloc = pCreature->m_TaxiNode;
-    if (!curloc)
-        return;
-
-    field = (uint8)((curloc - 1) / 32);
-    submask = 1<<((curloc-1)%32);
-
-    // Check for known nodes
-    if(!(GetPlayer()->GetTaximask(field) & submask))
+    Creature *pCreature = NULL;
+    if(guid.getHigh() == HIGHGUID_TYPE_UNIT && (pCreature = _player->GetInRangeObject<Creature>(guid)))
     {
-        GetPlayer()->SetTaximask(field, (submask | GetPlayer( )->GetTaximask(field)) );
+        WorldPacket data(SMSG_SHOWTAXINODES, 48);
+        if(uint32 curloc = pCreature->GetTaxiNode(_player->GetTeam()))
+        {
+            if(!_player->HasTaxiNode(curloc)) // Check for known nodes
+            {
+                GetPlayer()->AddTaxiMask(curloc);
 
-        OutPacket(SMSG_NEW_TAXI_PATH);
+                OutPacket(SMSG_NEW_TAXI_PATH);
 
-        //Send packet
-        WorldPacket update(SMSG_TAXINODE_STATUS, 9);
-        update << guid << uint8( 1 );
-        SendPacket( &update );
-        return;
+                //Send packet
+                data.Initialize(SMSG_TAXINODE_STATUS, 9);
+                data << guid << uint8(1);
+            }
+            else
+            {
+                data << uint32(1) << guid << uint32(curloc);
+                if(UpdateMask *taxiMask = _player->GetTaximask())
+                {   //Set Mask
+                    data << uint32(taxiMask->GetLength());
+                    data.append(taxiMask->GetMask(), taxiMask->GetLength());
+                } else data << uint32(0);
+            }
+        } else data << uint32(1) << guid << uint64(0);
+        SendPacket( &data );
     }
-
-    //Set Mask
-    memset(TaxiMask, 0, sizeof(uint32)*MAX_TAXI);
-    sTaxiMgr.GetGlobalTaxiNodeMask(curloc, TaxiMask);
-    TaxiMask[field] |= 1 << ((curloc-1)%32);
-
-    //Remove nodes unknown to player
-    for(int8 i = 0; i < MAX_TAXI; i++)
-        TaxiMask[i] &= GetPlayer( )->GetTaximask(i);
-
-    WorldPacket data(SMSG_SHOWTAXINODES, 56);
-    data << uint32( 1 ) << guid;
-    data << uint32( curloc );
-    for(int8 i = 0; i < MAX_TAXI; i++)
-        data << TaxiMask[i];
-    SendPacket( &data );
-
-    sLog.Debug( "WORLD"," Sent SMSG_SHOWTAXINODES" );
 }
 
 void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
@@ -102,29 +66,22 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
 
     uint64 guid;
     uint32 sourcenode, destinationnode;
-    int32 newmoney;
-    uint32 curloc;
-    uint8 field;
-    uint32 submask;
-    WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
-
     recv_data >> guid >> sourcenode >> destinationnode;
 
     if(GetPlayer()->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER))
         return;
 
     TaxiPath* taxipath = sTaxiMgr.GetTaxiPath(sourcenode, destinationnode);
-    TaxiNode* taxinode = sTaxiMgr.GetTaxiNode(sourcenode);
+    TaxiNodeEntry* taxinode = dbcTaxiNode.LookupEntry(sourcenode);
 
     if( !taxinode || !taxipath )
         return;
 
-    curloc = taxinode->id;
-    field = (uint8)((curloc - 1) / 32);
-    submask = 1<<((curloc-1)%32);
+    uint32 curloc = taxinode->id;
+    WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
 
     // Check for known nodes
-    if ( (GetPlayer( )->GetTaximask(field) & submask) != submask )
+    if (_player->HasTaxiNode(curloc))
     {
         data << uint32( 1 );
         SendPacket( &data );
@@ -154,7 +111,7 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     }
 
     // Check for gold
-    newmoney = ((GetPlayer()->GetUInt32Value(PLAYER_FIELD_COINAGE)) - taxipath->GetPrice());
+    int32 newmoney = ((GetPlayer()->GetUInt32Value(PLAYER_FIELD_COINAGE)) - taxipath->GetPrice());
     if(newmoney < 0 )
     {
         data << uint32( 3 );
@@ -168,16 +125,16 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     // wyvern: 295
     // hippogryph: 479
     uint32 modelid = 0;
-    CreatureData* ctrData = sCreatureDataMgr.GetCreatureData( (_player->GetTeam() ? taxinode->horde_mount : taxinode->alliance_mount) );
+    CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(_player->GetTeam() ? taxinode->mountIdHorde : taxinode->mountIdAlliance);
     if(ctrData == NULL || ((modelid = ctrData->displayInfo[0]) == 0))
     {
         if(_player->GetTeam())
         {
-            if( taxinode->horde_mount == 2224 )
+            if( taxinode->mountIdHorde == 2224 )
                 modelid = 295; // In case it's a wyvern
             else modelid = 1566; // In case it's a bat or a bad id
         }
-        else if( taxinode->alliance_mount == 3837 )
+        else if( taxinode->mountIdAlliance == 3837 )
             modelid = 479; // In case it's an hippogryph
         else modelid = 1147; // In case it's a gryphon or a bad id
     }
@@ -211,13 +168,6 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
 
     uint64 guid;
     uint32 nodecount;
-    std::vector<uint32> pathes;
-    int32 newmoney;
-    uint32 curloc;
-    uint8 field;
-    uint32 submask;
-    WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
-
     recvPacket >> guid >> nodecount;
     if(nodecount < 2)
         return;
@@ -229,6 +179,7 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
         return;
     }
 
+    std::vector<uint32> pathes;
     for(uint32 i = 0; i < nodecount; i++)
         pathes.push_back( recvPacket.read<uint32>() );
 
@@ -237,14 +188,13 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
 
     // get first trip
     TaxiPath* taxipath = sTaxiMgr.GetTaxiPath(pathes[0], pathes[1]);
-    TaxiNode* taxinode = sTaxiMgr.GetTaxiNode(pathes[0]);
+    TaxiNodeEntry* taxinode = dbcTaxiNode.LookupEntry(pathes[0]);
 
-    curloc = taxinode->id;
-    field = (uint8)((curloc - 1) / 32);
-    submask = 1<<((curloc-1)%32);
+    uint32 curloc = taxinode->id;
 
     // Check for known nodes
-    if ( (GetPlayer( )->GetTaximask(field) & submask) != submask )
+    WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
+    if (_player->HasTaxiNode(curloc))
     {
         data << uint32( 1 );
         SendPacket( &data );
@@ -282,7 +232,7 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
     }
 
     // Check for gold
-    newmoney = ((GetPlayer()->GetUInt32Value(PLAYER_FIELD_COINAGE)) - totalcost);
+    int32 newmoney = ((GetPlayer()->GetUInt32Value(PLAYER_FIELD_COINAGE)) - totalcost);
     if(newmoney < 0 )
     {
         data << uint32( 3 );
@@ -299,18 +249,13 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
     uint32 modelid =0;
     if( _player->GetTeam() )
     {
-        if( taxinode->horde_mount == 2224 )
+        if( taxinode->mountIdHorde == 2224 )
             modelid =295; // In case it's a wyvern
-        else
-            modelid =1566; // In case it's a bat or a bad id
+        else modelid =1566; // In case it's a bat or a bad id
     }
-    else
-    {
-        if( taxinode->alliance_mount == 3837 )
-            modelid =479; // In case it's an hippogryph
-        else
-            modelid =1147; // In case it's a gryphon or a bad id
-    }
+    else if( taxinode->mountIdAlliance == 3837 )
+        modelid =479; // In case it's an hippogryph
+    else modelid =1147; // In case it's a gryphon or a bad id
 
     //GetPlayer( )->setDismountCost( newmoney );
 
@@ -332,8 +277,7 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
     {
         if(_player->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
             _player->GetSummon()->Dismiss(false);                          // warlock summon -> dismiss
-        else
-            _player->GetSummon()->Remove(false, true, true);                      // hunter pet -> just remove for later re-call
+        else _player->GetSummon()->Remove(false, true, true);                      // hunter pet -> just remove for later re-call
     }
 
     _player->taxi_model_id = modelid;

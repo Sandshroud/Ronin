@@ -455,7 +455,7 @@ void GameObject::UseFishingNode(Player* player)
     if( Rand(((player->_GetSkillLineCurrent( SKILL_FISHING, true ) - minskill) * 100) / maxskill) )
     {
         lootmgr.FillFishingLoot( GetLoot(), GetZoneId() );
-        player->SendLoot( GetGUID(), GetMapId(), LOOT_FISHING );
+        player->SendLoot( GetGUID(), GetMapId(), LOOTTYPE_FISHING );
         EndFishing( player, false );
     }
     else // Failed

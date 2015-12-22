@@ -45,7 +45,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 
     if( pPlayer->m_bg )
     {
-        if( castPtr<Player>( pVictim )->m_bgTeam == pPlayer->m_bgTeam )
+        if( castPtr<Player>( pVictim )->GetBGTeam() == pPlayer->GetBGTeam() )
             return;
 
         // patch 2.4, players killed >50 times in battlegrounds won't be worth honor for the rest of that bg
@@ -69,7 +69,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
         {
             // hackfix for battlegrounds (since the groups there are disabled, we need to do this manually)
             std::vector<Player*  > toadd;
-            uint32 t = pPlayer->m_bgTeam;
+            uint8 t = pPlayer->GetBGTeam();
             toadd.reserve(15);      // shouldnt have more than this
             pPlayer->m_bg->Lock();
             std::set<Player*  > * s = &pPlayer->m_bg->m_players[t];

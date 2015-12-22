@@ -34,7 +34,7 @@ public:
     void HookOnHK(Player* plr);
     void HookOnShadowSight();
     void UpdatePlayerCounts();
-    LocationVector GetStartingCoords(uint32 Team);
+    LocationVector GetStartingCoords(uint8 Team);
     virtual const char * GetName() { return "Arena"; }
     void OnStart();
     bool CanPlayerJoin(Player* plr)

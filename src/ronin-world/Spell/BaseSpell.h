@@ -54,6 +54,16 @@ public:
     std::string m_strTarget;
 };
 
+struct SpellTarget
+{
+    WoWGuid Guid;
+    uint8 HitResult;
+    uint8 EffectMask;
+    uint8 ReflectResult;
+    uint32 DestinationTime;
+};
+typedef std::map<WoWGuid, SpellTarget> SpellTargetMap;
+
 // Spell instance
 class BaseSpell
 {
@@ -65,6 +75,16 @@ public:
     RONIN_INLINE WorldObject *GetCaster() { return m_caster; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
     RONIN_INLINE uint8 GetCastNumber() { return m_castNumber; }
+
+    // Packet writing functions
+    void writeSpellGoTargets( WorldPacket * data );
+    void writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags);
+
+    // Send Packet functions
+    bool IsNeedSendToClient();
+    void SendSpellStart();
+    void SendSpellGo();
+    void SendProjectileUpdate();
 
     void SendCastResult(uint8 result);
     void SendInterrupted(uint8 result);
@@ -125,7 +145,19 @@ protected:
     bool   b_radSet[3], b_durSet;
     bool   m_AreaAura;
 
-    uint32  m_spellState;
+    uint32 m_castTime, m_timer;
+    uint32 m_spellState;
+
+    float m_missilePitch;
+    uint32 m_missileTravelTime, m_MSTimeToAddToTravel;
+
+    Aura* m_triggeredByAura;
+    bool m_triggeredSpell;
+
+protected: // Spell targetting
+    SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
+
+    uint32 m_hitTargetCount, m_missTargetCount;
 
     SpellCastTargets m_targets;
 };

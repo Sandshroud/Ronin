@@ -26,6 +26,9 @@ public:
     RONIN_INLINE uint32 GetCount() const { return mCount; }
     RONIN_INLINE uint8* GetMask() { return mUpdateMask; }
 
+    RONIN_INLINE uint8 GetBlock(uint32 index) { return mUpdateMask[index]; }
+    RONIN_INLINE void SetBlock(uint32 index, uint8 value) { mUpdateMask[index] = value; }
+
     RONIN_INLINE void SetCount(uint32 valuesCount)
     {
         if(mUpdateMask)

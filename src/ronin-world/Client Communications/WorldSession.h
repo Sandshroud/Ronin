@@ -674,7 +674,6 @@ public:
     void SendInventoryList(Creature* pCreature);
     void SendTrainerList(Creature* pCreature);
     void SendCharterRequest(Creature* pCreature);
-    void SendTaxiList(Creature* pCreature);
     void SendInnkeeperBind(Creature* pCreature);
     void SendBattlegroundList(Creature* pCreature, uint32 type);
     void SendBankerList(Creature* pCreature);

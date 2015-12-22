@@ -386,7 +386,6 @@ public:
     RONIN_INLINE bool IsPickPocketed() { return m_PickPocketed; }
     RONIN_INLINE void SetPickPocketed(bool val = true) { m_PickPocketed = val; }
 
-    uint32 m_TaxiNode;
     const char* GetName() { return m_gender && !_creatureData->femaleName.empty() ? _creatureData->femaleName.c_str() : _creatureData->maleName.c_str();  }
 
     bool isBoss();
@@ -419,6 +418,8 @@ public:
         return false;
     }
 
+    uint32 GetTaxiNode(uint8 team) { ASSERT(team < 2); return m_taxiNode[team]; }
+
 protected:
     bool m_gender;
     CreatureSpawn * m_spawn;
@@ -433,7 +434,7 @@ protected:
     std::map<uint32, CreatureItem>* m_SellItems;
 
     /// Taxi data
-    uint32 mTaxiNode;
+    uint32 m_taxiNode[2];
 
     /// Quest data
     std::list<QuestRelation *>* m_quests;

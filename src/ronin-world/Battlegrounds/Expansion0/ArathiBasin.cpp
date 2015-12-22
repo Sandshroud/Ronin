@@ -529,12 +529,11 @@ void ArathiBasin::HookFlagStand(Player* plr, GameObject* obj)
     // nothing?
 }
 
-LocationVector ArathiBasin::GetStartingCoords(uint32 Team)
+LocationVector ArathiBasin::GetStartingCoords(uint8 Team)
 {
     if(Team)
         return LocationVector(684.75629f, 681.945007f, -12.915456f, 0.881211f);
-    else
-        return LocationVector(1314.932495f, 1311.246948f, -9.00952f,3.802896f);
+    return LocationVector(1314.932495f, 1311.246948f, -9.00952f,3.802896f);
 }
 
 void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
@@ -602,13 +601,13 @@ void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
 bool ArathiBasin::HookHandleRepop(Player* plr)
 {
     /* our uber leet ab graveyard handler */
-    LocationVector dest( NoBaseGYLocations[plr->m_bgTeam][0], NoBaseGYLocations[plr->m_bgTeam][1], NoBaseGYLocations[plr->m_bgTeam][2], 0.0f );
+    LocationVector dest( NoBaseGYLocations[plr->GetBGTeam()][0], NoBaseGYLocations[plr->GetBGTeam()][1], NoBaseGYLocations[plr->GetBGTeam()][2], 0.0f );
     float current_distance = 999999.0f;
     float dist;
 
     for(uint32 i = 0; i < AB_NUM_CONTROL_POINTS; i++)
     {
-        if(m_basesOwnedBy[i] == (int32)plr->m_bgTeam)
+        if(m_basesOwnedBy[i] == (int32)plr->GetBGTeam())
         {
             dist = plr->GetPositionV()->Distance2DSq(GraveyardLocations[i][0], GraveyardLocations[i][1]);
             if(dist < current_distance)
@@ -624,7 +623,7 @@ bool ArathiBasin::HookHandleRepop(Player* plr)
     return true;
 }
 
-void ArathiBasin::CaptureControlPoint(uint32 Id, uint32 Team)
+void ArathiBasin::CaptureControlPoint(uint32 Id, uint8 Team)
 {
     if(m_basesOwnedBy[Id] != -1)
     {
@@ -695,10 +694,8 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
     }
 
     bool isVirgin = false;
-
-    uint32 Team = pPlayer->m_bgTeam;
-    uint32 Owner;
-
+    uint32 Owner = 0;
+    uint8 Team = pPlayer->GetBGTeam();
     if(m_basesOwnedBy[Id]==-1 && m_basesAssaultedBy[Id]==-1)
     {
         isVirgin = true;

@@ -8,51 +8,26 @@
 
 class Player;
 
-struct TaxiNode {
-    uint32 id;
-    float x,y,z;
-    uint32 mapid;
-    uint32 horde_mount;
-    uint32 alliance_mount;
-};
-
-struct TaxiPathNode
+class SERVER_DECL TaxiPath
 {
-    float x,y,z;
-    uint32 mapid;
-};
-
-class SERVER_DECL TaxiPath {
     friend class TaxiMgr;
-
 public:
-    TaxiPath()
-    {
-    }
-
-    ~TaxiPath()
-    {
-        while(m_pathNodes.size())
-        {
-            TaxiPathNode *pn = m_pathNodes.begin()->second;
-            m_pathNodes.erase(m_pathNodes.begin());
-            delete pn;
-        }
-    }
+    TaxiPath() {}
+    ~TaxiPath() { m_pathNodes.clear(); }
 
     void ComputeLen();
     void SetPosForTime(float &x, float &y, float &z, uint32 time, uint32* lastnode, uint32 mapid);
     RONIN_INLINE uint32 GetID() { return id; }
     void SendMoveForTime(Player* riding, Player* to, uint32 time);
-    void AddPathNode(uint32 index, TaxiPathNode* pn) { m_pathNodes[index] = pn; }
+    void AddPathNode(uint32 index, TaxiPathNodeEntry* pn) { m_pathNodes[index] = pn; }
     RONIN_INLINE size_t GetNodeCount() { return m_pathNodes.size(); }
-    TaxiPathNode* GetPathNode(uint32 i);
+    TaxiPathNodeEntry* GetPathNode(uint32 i);
     RONIN_INLINE uint32 GetPrice() { return price; }
     RONIN_INLINE uint32 GetSourceNode() { return from; }
 
 protected:
 
-    std::map<uint32, TaxiPathNode*> m_pathNodes;
+    std::map<uint32, TaxiPathNodeEntry*> m_pathNodes;
 
     float m_length1;
     uint32 m_map1;
@@ -74,29 +49,21 @@ public:
             m_taxiPaths.erase(m_taxiPaths.begin());
             delete p;
         }
-        while(m_taxiNodes.size())
-        {
-            TaxiNode *n = m_taxiNodes.begin()->second;
-            m_taxiNodes.erase(m_taxiNodes.begin());
-            delete n;
-        }
     }
 
     void Initialize();
     TaxiPath *GetTaxiPath(uint32 path);
     TaxiPath *GetTaxiPath(uint32 from, uint32 to);
-    TaxiNode *GetTaxiNode(uint32 node);
 
-    uint32 GetNearestTaxiNode( float x, float y, float z, uint32 mapid );
-    bool GetGlobalTaxiNodeMask( uint32 curloc, uint32 *Mask );
+    void GetNearestTaxiNodes( uint32 mapid, float x, float y, float z, uint32 *taxiNodeOut );
 
-
+    UpdateMask *GetAllTaxiMasks() { return &m_taxiMasks; }
+    UpdateMask *GetHordeTaxiMasks() { return &m_hordeTaxiMasks; }
+    UpdateMask *GetAllianceTaxiMasks() { return &m_allianceTaxiMasks; }
+    UpdateMask *GetDeathKnightTaxiMasks() { return &m_DKTaxiMasks; }
 private:
-    void _LoadTaxiNodes();
-    void _LoadTaxiPaths();
-
-    RONIN_UNORDERED_MAP<uint32, TaxiNode*> m_taxiNodes;
     RONIN_UNORDERED_MAP<uint32, TaxiPath*> m_taxiPaths;
+    UpdateMask m_taxiMasks, m_hordeTaxiMasks, m_allianceTaxiMasks, m_DKTaxiMasks;
 };
 
 #define sTaxiMgr TaxiMgr::getSingleton()

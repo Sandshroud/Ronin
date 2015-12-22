@@ -475,7 +475,7 @@ void CBattlegroundManager::AddPlayerToBgTeam(CBattleground* bg, std::deque<Playe
     {
         Player* plr = *playerVec->begin();
         playerVec->pop_front();
-        plr->m_bgTeam = Team;
+        plr->SetBGTeam(Team);
         bg->AddPlayer(plr, Team);
         ErasePlayerFromList(plr->GetGUID(), &m_queuedPlayers[i][j]);
     }
@@ -578,7 +578,7 @@ void CBattlegroundManager::EventQueueUpdate(bool forceStart)
                     {
                         plr = *tempPlayerVec[0].begin();
                         tempPlayerVec[0].pop_front();
-                        plr->m_bgTeam=team;
+                        plr->SetBGTeam(team);
                         arena->AddPlayer(plr, team);
                         ErasePlayerFromList(plr->GetGUID(), &m_queuedPlayers[i][j]);
                         team = arena->GetFreeTeam();
@@ -623,7 +623,7 @@ void CBattlegroundManager::EventQueueUpdate(bool forceStart)
                             plr = *tempPlayerVec[0].begin();
                             tempPlayerVec[0].pop_front();
 
-                            plr->m_bgTeam=team;
+                            plr->SetBGTeam(team);
                             arena->AddPlayer(plr, team);
                             team = arena->GetFreeTeam();
 
@@ -800,7 +800,7 @@ void CBattlegroundManager::RemovePlayerFromQueues(Player* plr)
             itr = itr2;
         }
         plr->m_bgIsQueued[i] = false;
-        plr->m_bgTeam=plr->GetTeam();
+        plr->SetBGTeam(plr->GetTeam());
         plr->m_pendingBattleground[i]=NULL;
         plr->m_bgQueueType[i] = 0;
         plr->m_bgQueueInstanceId[i] = 0;
@@ -1020,7 +1020,7 @@ void CBattleground::BuildPvPUpdateDataPacket(WorldPacket * data)
             *data << (*itr)->GetGUID();
             *data << bs->KillingBlows;
             if(IsArena())
-                *data << uint8((*itr)->m_bgTeam);
+                *data << uint8((*itr)->GetBGTeam());
             else
             {
                 *data << bs->HonorableKills;
@@ -1092,7 +1092,7 @@ void CBattleground::RemovePendingPlayer(Player* plr)
             break;
         }
     }
-    plr->m_bgTeam=plr->GetTeam();
+    plr->SetBGTeam(plr->GetTeam());
 
     m_mainLock.Release();
 }
@@ -1105,7 +1105,7 @@ void CBattleground::OnPlayerPushed(Player* plr)
     plr->PopPendingUpdates();
 
     if( plr->GetGroup() == NULL && !plr->m_isGmInvisible )
-        m_groups[plr->m_bgTeam]->AddMember( plr->m_playerInfo );
+        m_groups[plr->GetBGTeam()]->AddMember( plr->m_playerInfo );
 }
 
 void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
@@ -1130,7 +1130,7 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
 
     m_pendPlayers[0].erase(plr->GetGUID());
     m_pendPlayers[1].erase(plr->GetGUID());
-    if(m_players[plr->m_bgTeam].find(plr) != m_players[plr->m_bgTeam].end())
+    if(m_players[plr->GetBGTeam()].find(plr) != m_players[plr->GetBGTeam()].end())
     {
         m_mainLock.Release();
         return;
@@ -1143,15 +1143,15 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     }
 
     plr->FullHPMP();
-    plr->SetTeam(plr->m_bgTeam);
+    plr->SetTeam(plr->GetBGTeam());
     if( !plr->m_isGmInvisible )
     {
         WorldPacket data(SMSG_BATTLEGROUND_PLAYER_JOINED, 8);
         data << plr->GetGUID();
-        DistributePacketToTeam(&data, plr->m_bgTeam);
+        DistributePacketToTeam(&data, plr->GetBGTeam());
     }
 
-    m_players[plr->m_bgTeam].insert(plr);
+    m_players[plr->GetBGTeam()].insert(plr);
 
     if( !skip_teleport )
     {
@@ -1204,7 +1204,7 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     if(!skip_teleport)
     {
         /* This is where we actually teleport the player to the battleground. */
-        plr->SafeTeleport(m_mapMgr, GetStartingCoords(plr->m_bgTeam));
+        plr->SafeTeleport(m_mapMgr, GetStartingCoords(plr->GetBGTeam()));
     }
 
     m_mainLock.Release();
@@ -1474,7 +1474,7 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
     plr->FullHPMP();
 
     /* are we in the group? */
-    if(plr->GetGroup() == m_groups[plr->m_bgTeam])
+    if(plr->GetGroup() == m_groups[plr->GetBGTeam()])
         plr->GetGroup()->RemovePlayer( plr->m_playerInfo );
 
     // reset team
@@ -1528,7 +1528,7 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
         sEventMgr.AddEvent(this, &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     }
 
-    plr->m_bgTeam=plr->GetTeam();
+    plr->SetBGTeam(plr->GetTeam());
     m_mainLock.Release();
 }
 
@@ -1924,7 +1924,7 @@ void CBattlegroundManager::HandleArenaJoin(WorldSession * m_session, uint32 Batt
 
 bool CBattleground::CanPlayerJoin(Player* plr)
 {
-    return ( plr->bGMTagOn || HasFreeSlots(plr->m_bgTeam)&&(GetLevelGrouping(plr->getLevel())==GetLevelGroup())&&(!plr->HasAura(BG_DESERTER)));
+    return ( plr->bGMTagOn || HasFreeSlots(plr->GetBGTeam())&&(GetLevelGrouping(plr->getLevel())==GetLevelGroup())&&(!plr->HasAura(BG_DESERTER)));
 }
 
 void CBattleground::QueueAtNearestSpiritGuide(Player* plr, Creature* old)

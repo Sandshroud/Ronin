@@ -55,12 +55,9 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
             switch (data.read<uint8>()) // Type
             {
             case 1:                         // Fragments
-                data.read_skip<uint32>();   // Currency entry
-                data.read_skip<uint32>();   // Currency count
-                break;
             case 2:                         // Keystones
-                data.read_skip<uint32>();   // Item entry
-                data.read_skip<uint32>();   // Item count
+                data.read_skip<uint32>();   // entry
+                data.read_skip<uint32>();   // count
                 break;
             }
         }
@@ -92,8 +89,28 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber) : 
     m_duration = -1;
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
     m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
-    m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
+    m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
+    m_hitTargetCount = m_missTargetCount = 0;
+    m_triggeredByAura = NULL;
+    m_missilePitch = 0.f;
+    m_missileTravelTime = m_MSTimeToAddToTravel = 0;
+
+    if( !m_triggeredSpell && m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat )
+        m_timer = m_castTime = 0;
+    else
+    {
+        m_castTime = m_spellInfo->castTimeMin;
+        if(GetSpellProto()->SpellGroupType && m_castTime && m_caster->IsUnit())
+        {
+            castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
+            castPtr<Unit>(m_caster)->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
+        }
+
+        //let us make sure cast_time is within decent range
+        //this is a hax but there is no spell that has more then 10 minutes cast time
+        m_timer = m_castTime = std::min<uint32>(10*60*1000, std::max<int32>(0, m_castTime));
+    }
 }
 
 BaseSpell::~BaseSpell()
@@ -105,6 +122,173 @@ void BaseSpell::Destruct()
     m_caster = NULL;
     m_spellInfo = NULL;
     delete this;
+}
+
+void BaseSpell::writeSpellGoTargets( WorldPacket * data )
+{
+    SpellTargetMap::iterator itr;
+    uint32 counter;
+
+    // Make sure we don't hit over 100 targets.
+    // It's fine internally, but sending it to the client will REALLY cause it to freak.
+
+    *data << uint8(std::min<uint32>(100, m_hitTargetCount));
+    if( m_hitTargetCount > 0 )
+    {
+        counter = 0;
+        for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
+        {
+            if( itr->second.HitResult == SPELL_DID_HIT_SUCCESS )
+            {
+                *data << itr->first;
+                ++counter;
+            }
+        }
+    }
+
+    *data << uint8(std::min<uint32>(100, m_missTargetCount));
+    if( m_missTargetCount > 0 )
+    {
+        counter = 0;
+        for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
+        {
+            if( itr->second.HitResult != SPELL_DID_HIT_SUCCESS )
+            {
+                *data << itr->first;
+                *data << uint8(itr->second.HitResult);
+                if (itr->second.HitResult == SPELL_DID_HIT_REFLECT)
+                    *data << uint8(itr->second.ReflectResult);
+                ++counter;
+            }
+        }
+    }
+}
+
+void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
+{
+    if (cast_flags & SPELL_CASTFLAG_POWER_UPDATE) //send new power
+        *data << uint32(castPtr<Unit>(m_caster)->GetPower(GetSpellProto()->powerType));
+
+    if( cast_flags & SPELL_CASTFLAG_RUNE_UPDATE ) //send new runes
+    {
+        uint8 runeMask = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->GetRuneMask() : 0x3F, theoretical = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->TheoreticalUseRunes(m_spellInfo->runeCost) : 0;
+        *data << runeMask << theoretical;
+        for (uint8 i = 0; i < 6; i++)
+        {
+            uint8 mask = (1 << i);
+            if (mask & runeMask && !(mask & theoretical))
+                *data << uint8(0);
+        }
+    }
+
+    if (cast_flags & SPELL_CASTFLAG_MISSILE_INFO)
+        *data << m_missilePitch << m_missileTravelTime;
+
+    if(cast_flags & SPELL_CASTFLAG_VISUAL_CHAIN)
+        *data << uint32(0) << uint32(0);
+
+    if(cast_flags & SPELL_CASTFLAG_PROJECTILE)
+        *data << uint32(0) << uint32(0);
+
+    if(cast_flags & SPELL_CASTFLAG_EXTRA_MESSAGE)
+        *data << uint32(0) << uint32(0);
+    
+    if(cast_flags & SPELL_CASTFLAG_HEAL_UPDATE)
+        *data << uint32(0) << uint8(0);
+
+    if( m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION )
+        *data << uint8(0);
+
+    if( m_targets.m_targetMask & TARGET_FLAG_EXTRA_TARGETS )
+        *data << uint32(0);
+}
+
+void BaseSpell::SendSpellStart()
+{
+    if(!IsNeedSendToClient())
+        return;
+
+    uint32 cast_flags = SPELL_CASTFLAG_HAS_TRAJECTORY;
+    if((m_triggeredSpell || m_triggeredByAura) && !m_spellInfo->isAutoRepeatSpell())
+        cast_flags |= SPELL_CASTFLAG_NO_VISUAL;
+    if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
+        cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
+    if (m_spellInfo->RuneCostID && m_spellInfo->powerType == POWER_TYPE_RUNE)
+        cast_flags |= SPELL_CASTFLAG_NO_GCD;
+
+    WorldPacket data(SMSG_SPELL_START, 150);
+    data << m_caster->GetGUID().asPacked();
+    data << m_caster->GetGUID().asPacked();
+    data << uint8(m_castNumber);
+    data << uint32(GetSpellProto()->Id);
+    data << uint32(cast_flags);
+    data << uint32(m_timer);
+    data << uint32(m_castTime);
+
+    m_targets.write( data );
+
+    writeSpellCastFlagData(&data, cast_flags);
+
+    m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
+}
+
+void BaseSpell::SendSpellGo()
+{
+    if(!IsNeedSendToClient())
+        return;
+
+    uint32 cast_flags = SPELL_CASTFLAG_NONE;
+    if((m_triggeredSpell || m_triggeredByAura) && !m_spellInfo->isAutoRepeatSpell())
+        cast_flags |= SPELL_CASTFLAG_NO_VISUAL;
+    if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
+        cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
+    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT && (GetSpellProto()->RuneCostID || m_spellInfo->HasEffect(SPELL_EFFECT_ACTIVATE_RUNE)))
+        cast_flags |= (SPELL_CASTFLAG_NO_GCD | SPELL_CASTFLAG_RUNE_UPDATE);
+    else if(m_spellInfo->StartRecoveryTime == 0)
+        cast_flags |= SPELL_CASTFLAG_NO_GCD;
+    if(m_targets.missilespeed)
+        cast_flags |= SPELL_CASTFLAG_MISSILE_INFO;
+
+    WorldPacket data(SMSG_SPELL_GO, 200);
+    data << m_caster->GetGUID().asPacked();
+    data << m_caster->GetGUID().asPacked();
+    data << uint8(m_castNumber);
+    data << uint32(m_spellInfo->Id);
+    data << uint32(cast_flags);
+    data << uint32(m_timer);
+    data << uint32(getMSTime());
+
+    writeSpellGoTargets(&data);
+
+    m_targets.write( data ); // this write is included the target flag
+
+    writeSpellCastFlagData(&data, cast_flags);
+
+    m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
+}
+
+bool BaseSpell::IsNeedSendToClient()
+{
+    if(!m_caster->IsUnit() || !m_caster->IsInWorld() || m_spellInfo->isPassiveSpell())
+        return false;
+    if(m_spellInfo->SpellVisual[0] || m_spellInfo->SpellVisual[1])
+        return true;
+    if(m_spellInfo->isChanneledSpell() || m_spellInfo->isChanneledSpell2())
+        return true;
+    if(m_spellInfo->speed > 0.0f)
+        return true;
+    if(!m_triggeredSpell)
+        return true;
+    return false;
+}
+
+void BaseSpell::SendProjectileUpdate()
+{
+    WorldPacket data(SMSG_SET_PROJECTILE_POSITION, 40);
+    data << m_caster->GetGUID();
+    data << m_castNumber;
+    data << float(0.0f) << float(0.0f) << float(0.0f);
+    m_caster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendCastResult(uint8 result)

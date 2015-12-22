@@ -119,12 +119,9 @@ uint32 Player::GetInitialFactionId()
 
 void Player::_InitialReputation()
 {
-    FactionEntry * f;
     for ( uint32 i = 0; i < dbcFaction.GetNumRows(); i++ )
-    {
-        f = dbcFaction.LookupRow( i );
-        AddNewFaction( f, 0, true );
-    }
+        if(FactionEntry * f = dbcFaction.LookupRow( i ))
+            AddNewFaction( f, 0, true );
 }
 
 int32 Player::GetStanding(uint32 Faction)

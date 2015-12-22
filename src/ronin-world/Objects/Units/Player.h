@@ -27,8 +27,6 @@ struct PlayerCreateInfo;
 // gold cap
 #define PLAYER_MAX_GOLD 0x7FFFFFFF
 
-#define MAX_TAXI 12
-
 //====================================================================
 //  Inventory
 //  Holds the display id and item type id for objects in
@@ -217,14 +215,14 @@ enum CooldownTypes
 
 enum LootType
 {
-    LOOT_CORPSE                 = 1,
-    LOOT_PICKPOCKETING          = 2,
-    LOOT_FISHING                = 3,
-    LOOT_DISENCHANTING          = 4,
+    LOOTTYPE_CORPSE                 = 1,
+    LOOTTYPE_PICKPOCKETING          = 2,
+    LOOTTYPE_FISHING                = 3,
+    LOOTTYPE_DISENCHANTING          = 4,
 
-    LOOT_SKINNING               = 6,
-    LOOT_PROSPECTING            = 7,
-    LOOT_MILLING                = 8,
+    LOOTTYPE_SKINNING               = 6,
+    LOOTTYPE_PROSPECTING            = 7,
+    LOOTTYPE_MILLING                = 8,
 };
 
 enum DrunkenState
@@ -399,7 +397,6 @@ class Container;
 class WorldSession;
 class PlayerInventory;
 class GossipMenu;
-struct TaxiPathNode;
 
 #define RESTSTATE_RESTED             1
 #define RESTSTATE_NORMAL             2
@@ -868,15 +865,17 @@ public:
     /************************************************************************/
     RONIN_INLINE TaxiPath*    GetTaxiPath() { return m_CurrentTaxiPath; }
     RONIN_INLINE bool         GetTaxiState() { return m_onTaxi; }
-    const uint32&       GetTaximask( uint8 index ) const { ASSERT(index < MAX_TAXI); return m_taximask[index]; }
-    void                LoadTaxiMask(const char* data);
+    UpdateMask*         GetTaximask() { return &m_taxiMask; }
     void                TaxiStart(TaxiPath* path, uint32 modelid, uint32 start_node);
     void                JumpToEndTaxiNode(TaxiPath * path);
     void                EventDismount(uint32 money, float x, float y, float z);
     void                EventTaxiInterpolate();
+    void                InitTaxiNodes();
 
     RONIN_INLINE void         SetTaxiState    (bool state) { m_onTaxi = state; }
-    RONIN_INLINE void         SetTaximask     (uint8 index, uint32 value ) { ASSERT(index < MAX_TAXI); m_taximask[index] = value; }
+    RONIN_INLINE bool         HasTaxiNode(uint32 node) { return m_taxiMask.GetBit(node); }
+    RONIN_INLINE void         AddTaxiMask     (uint32 index) { m_taxiMask.SetBit(index); }
+    RONIN_INLINE void         RemoveTaxiMask  (uint32 index) { m_taxiMask.UnsetBit(index); }
     RONIN_INLINE void         SetTaxiPath     (TaxiPath *path) { m_CurrentTaxiPath = path; }
     RONIN_INLINE void         SetTaxiPos()    {m_taxi_pos_x = m_position.x; m_taxi_pos_y = m_position.y; m_taxi_pos_z = m_position.z;}
     RONIN_INLINE void         UnSetTaxiPos()  {m_taxi_pos_x = 0; m_taxi_pos_y = 0; m_taxi_pos_z = 0; }
@@ -887,7 +886,7 @@ public:
     uint32              taxi_model_id;
     uint32              lastNode;
     uint32              m_taxi_ride_time;
-    uint32              m_taximask[MAX_TAXI];
+    UpdateMask          m_taxiMask;
     float               m_taxi_pos_x;
     float               m_taxi_pos_y;
     float               m_taxi_pos_z;
@@ -949,9 +948,11 @@ public:
     std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
 
     void EventPortToGM(uint32 guid);
-    RONIN_INLINE uint32 GetTeam() { return m_team; }
-    RONIN_INLINE void SetTeam(uint32 t) { m_team = t; m_bgTeam=t; }
+    RONIN_INLINE uint8 GetTeam() { return m_team; }
+    RONIN_INLINE void SetTeam(uint8 t) { m_team = t; m_bgTeam=t; }
     RONIN_INLINE void ResetTeam() { m_team = myRace->TeamId; m_bgTeam=m_team; }
+    RONIN_INLINE uint8 GetBGTeam() { return m_bgTeam; }
+    RONIN_INLINE void SetBGTeam(uint8 t) { m_bgTeam = t; }
 
     uint32 GetMainMeleeDamage(uint32 AP_owerride); //i need this for windfury
 
@@ -1514,7 +1515,6 @@ public:
     bool m_AutoAddMem;
     void StopMirrorTimer(uint32 Type);
     BGScore m_bgScore;
-    uint32 m_bgTeam;
 
     void EventTeleport(uint32 mapid, float x, float y, float z, float o = 0.f);
     void BroadcastMessage(const char* Format, ...);
@@ -1782,7 +1782,7 @@ protected:
     uint32 trigger_on_stun;         //bah, warrior talent but this will not get triggered on triggered spells if used on proc so i'm forced to used a special variable
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
 
-    uint32 m_team;
+    uint8 m_team, m_bgTeam;
 
     uint32 m_mountCheckTimer;
     void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
@@ -1830,12 +1830,6 @@ public:
     RONIN_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
     void SetKnownTitle( int32 title, bool set );
 
-private:
-    void SetTaximaskNode(uint32 nodeidx, bool UnSet = false);
-public:
-    void AddTaximaskNode(uint32 nodeidx){SetTaximaskNode(nodeidx, false);}
-    void RemoveTaximaskNode(uint32 nodeidx){SetTaximaskNode(nodeidx, true);}
-
     uint8 GetChatTag() const;
     uint8 GetGuildMemberFlags();
     void AddArenaPoints( uint32 arenapoints );
@@ -1864,7 +1858,7 @@ public:
 
     bool CanUseRunes(uint8 blood, uint8 frost, uint8 unholy);
     void UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry * pSpell = NULL);
-    uint8 TheoreticalUseRunes(uint8 blood, uint8 frost, uint8 unholy);
+    uint8 TheoreticalUseRunes(uint32 *runeCost);
 
     uint8 GetRuneMask() { return m_runemask; }
     uint8 GetRune(uint32 index) { ASSERT(index < 6); return m_runes[index]; }

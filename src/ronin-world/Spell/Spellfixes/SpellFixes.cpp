@@ -214,13 +214,13 @@ void GenerateNameHashesFile()
         strncpy(name, sp->Name, fieldSize-prefixLen-4); // Cut it to fit in field size
         name[fieldSize-prefixLen-2] = 0; // in case nametext is too long and strncpy didn't copy the null
         nameLen = (unsigned int)strlen(name);
-        for(uint32 i = 0;i<nameLen;++i)
+        for(uint32 n = 0;n<nameLen;++n)
         {
-            if(name[i] >= 'a' && name[i] <= 'z')
-                name[i] = toupper(name[i]);
-            else if(!(name[i] >= '0' && name[i] <= '9') &&
-                !(name[i] >= 'A' && name[i] <= 'Z'))
-                name[i] = '_';
+            if(name[n] >= 'a' && name[n] <= 'z')
+                name[n] = toupper(name[n]);
+            else if(!(name[n] >= '0' && name[n] <= '9') &&
+                !(name[n] >= 'A' && name[n] <= 'Z'))
+                name[n] = '_';
         }
 
         if(namehashes.find(sp->NameHash) != namehashes.end())
@@ -558,8 +558,8 @@ void PoolSpellData()
         //SpellClassOptionsEntry
         if(SpellClassOptionsEntry* ClassOptions = dbcSpellClassOptions.LookupEntry(spellInfo->SpellClassOptionsId))
         {
-            for(uint8 i = 0; i < 3; ++i)
-                spellInfo->SpellGroupType[i] = ClassOptions->SpellFamilyFlags[i];
+            for(uint8 c = 0; c < 3; ++c)
+                spellInfo->SpellGroupType[c] = ClassOptions->SpellFamilyFlags[c];
 
             spellInfo->SpellFamilyName = ClassOptions->SpellFamilyName;
             spellInfo->spellBookDescription = ClassOptions->Description;
@@ -628,10 +628,10 @@ void PoolSpellData()
         //SpellReagentsEntry
         if(SpellReagentsEntry* sReagent = dbcSpellReagents.LookupEntry(spellInfo->SpellReagentsId))
         {
-            for(uint8 i = 0; i < 8; ++i)
+            for(uint8 c = 0; c < 8; ++c)
             {
-                spellInfo->Reagent[i] = sReagent->Reagent[i];
-                spellInfo->ReagentCount[i] = sReagent->ReagentCount[i];
+                spellInfo->Reagent[c] = sReagent->Reagent[c];
+                spellInfo->ReagentCount[c] = sReagent->ReagentCount[c];
             }
         }
 
@@ -642,9 +642,9 @@ void PoolSpellData()
             spellInfo->castTimeMax = scalingEntry->castTimeMax;
             spellInfo->castScalingMaxLevel = scalingEntry->castScalingMaxLevel;
             spellInfo->playerClass = scalingEntry->playerClass;
-            for(uint8 i = 0; i < 3; i++)
+            for(uint8 c = 0; c < 3; c++)
                 for(uint8 s = 0; s < 3; s++)
-                    spellInfo->coeff[i][s] = scalingEntry->coeff[i][s];
+                    spellInfo->coeff[c][s] = scalingEntry->coeff[c][s];
             spellInfo->coefBase = scalingEntry->CoefBase;
             spellInfo->coefLevelBase = scalingEntry->CoefLevelBase;
         }
@@ -668,8 +668,8 @@ void PoolSpellData()
         //SpellTotemsEntry
         if(SpellTotemsEntry* Totems = dbcSpellTotems.LookupEntry(spellInfo->SpellTotemsId))
         {
-            for(uint8 i = 0; i < 2; ++i)
-                spellInfo->Totem[i] = Totems->Totem[i];
+            for(uint8 c = 0; c < 2; ++c)
+                spellInfo->Totem[c] = Totems->Totem[c];
         }
 
         validateSpellFamily(spellInfo, spellInfo->Class);

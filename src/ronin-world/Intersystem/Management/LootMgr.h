@@ -4,12 +4,12 @@
 
 #pragma once
 
-#define OBJECT_LOOT "objectloot"
-#define CREATURE_LOOT "creatureloot"
-#define CREATURE_LOOT_GATHERING "creatureloot_gathering"
-#define FISHING_LOOT "fishingloot"
-#define ITEM_LOOT "itemloot"
-#define PICKPOCKETING_LOOT "pickpocketingloot"
+#define LOOT_CREATURE       "loot_creature"
+#define LOOT_FISHING        "loot_fishing"
+#define LOOT_GAMEOBJECT     "loot_gameobject"
+#define LOOT_GATHERING      "loot_gathering"
+#define LOOT_ITEMS          "loot_items"
+#define LOOT_PICKPOCKETING  "loot_pickpocketing"
 
 struct ItemPrototype;
 class MapMgr;

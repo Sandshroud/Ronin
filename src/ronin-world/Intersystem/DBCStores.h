@@ -883,6 +883,10 @@ struct SpellEntry
     int32 Reagent[8];
     uint32 ReagentCount[8];
 
+    // SpellRuneCostEntry
+    uint32 runeCost[3];
+    uint32 runeGain;
+
     // SpellScalingEntry
     uint32 castTimeMin;
     uint32 castTimeMax;
@@ -1486,12 +1490,10 @@ struct TaxiNodeEntry
 {
     uint32 id;
     uint32 mapid;
-    float x;
-    float y;
-    float z;
+    float x, y, z;
     //char *name;
-    uint32 horde_mount;
-    uint32 alliance_mount;
+    uint32 mountIdHorde;
+    uint32 mountIdAlliance;
     //uint32 unk;
     //float f_unk[2];
 };

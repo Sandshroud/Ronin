@@ -15,6 +15,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_massSummonEnabled = false;
     m_deathRuneMasteryChance = 0;
     itemBonusMask.SetCount(ITEM_STAT_MAXIMUM);
+    m_taxiMask.SetCount(8*114);
 }
 
 Player::~Player ( )
@@ -1104,11 +1105,10 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     // Set correct maximum level
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, maxlevel);
 
+    InitTaxiNodes();
+
     m_talentInterface.InitGlyphSlots();
     m_talentInterface.InitGlyphsForLevel(level);
-
-    // level dependant taxi node
-    SetTaximaskNode( 213, level >= 68 ? false : true );  //Add 213 (Shattered Sun Staging Area) if lvl >=68
 
     // Set our base stats
     baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level);
@@ -1813,7 +1813,7 @@ void Player::_LoadTaxiMasks(QueryResult *result)
     do
     {
         Field *fields = result->Fetch();
-        SetTaximask(fields[1].GetUInt8(), fields[2].GetUInt32());
+        m_taxiMask.SetBlock(fields[1].GetUInt8(), fields[2].GetUInt8());
     }while(result->NextRow());
 }
 
@@ -1823,13 +1823,13 @@ void Player::_SaveTaxiMasks(QueryBuffer * buf)
     else CharacterDatabase.Execute("DELETE FROM character_taximasks WHERE guid = '%u';", GetLowGUID());
 
     std::stringstream ss;
-    for(uint8 i = 0; i < MAX_TAXI; i++)
+    for(uint8 i = 0; i < 114; i++)
     {
-        if(uint32 taxiMask = GetTaximask(i))
+        if(uint8 taxiMask = m_taxiMask.GetBlock(i))
         {
             if(ss.str().length())
                 ss << ", ";
-            ss << "(" << GetLowGUID() << ", " << uint32(i) << ", " << taxiMask << ")";
+            ss << "(" << GetLowGUID() << ", " << uint32(i) << ", " << uint32(taxiMask) << ")";
         }
     }
 
@@ -1945,8 +1945,6 @@ bool Player::Create(WorldPacket& data )
     m_restAmount = 0;
     m_restState = 0;
 
-    memset(m_taximask, 0, sizeof(uint32)*MAX_TAXI);
-
     // set race dbc
     myRace = dbcCharRace.LookupEntry(race);
     myClass = dbcCharClass.LookupEntry(class_);
@@ -1962,40 +1960,13 @@ bool Player::Create(WorldPacket& data )
     m_team = myRace->TeamId;
     uint8 powertype = uint8(myClass->powerType);
 
-    // Automatically add the race's taxi hub to the character's taximask at creation time ( 1 << (taxi_node_id-1) )
-    memset(m_taximask,0,sizeof(m_taximask));
-    if(sWorld.Start_With_All_Taximasks)
-    {
-        for(uint8 i = 0; i < MAX_TAXI; i++)
-            m_taximask[i] = 0xFFFFFFFF;
-    }
-    else if(class_ == DEATHKNIGHT)
-    {
-        for(uint8 i = 0; i < MAX_TAXI; i++)
-            m_taximask[i] |= DKNodesMask[i];
-    }
-
-    switch(race)
-    {
-    case RACE_TAUREN:   AddTaximaskNode(22);                        break;
-    case RACE_HUMAN:    AddTaximaskNode(2);                         break;
-    case RACE_DWARF:    AddTaximaskNode(6);                         break;
-    case RACE_GNOME:    AddTaximaskNode(6);                         break;
-    case RACE_ORC:      AddTaximaskNode(23);                        break;
-    case RACE_TROLL:    AddTaximaskNode(23);                        break;
-    case RACE_UNDEAD:   AddTaximaskNode(11);                        break;
-    case RACE_NIGHTELF: AddTaximaskNode(26); AddTaximaskNode(27);   break;
-    case RACE_BLOODELF: AddTaximaskNode(82);                        break;
-    case RACE_DRAENEI:  AddTaximaskNode(94);                        break;
-    }
-    // team dependant taxi node
-    AddTaximaskNode(100-m_team);
-
     setLevel(std::max<uint32>(class_ == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel));
 
     SetUInt32Value(PLAYER_FIELD_COINAGE, sWorld.StartGold);
 
     SetFaction( info->factiontemplate );
+
+    InitTaxiNodes();
 
     SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
     if(class_ == WARRIOR)
@@ -4289,20 +4260,6 @@ void Player::EventHandleSobering()
     SetDrunk((m_drunk <= 256) ? 0 : (m_drunk - 256));
 }
 
-void Player::LoadTaxiMask(const char* data)
-{
-    std::vector<std::string> tokens = RONIN_UTIL::StrSplit(data, " ");
-
-    int index;
-    std::vector<std::string>::iterator iter;
-
-    for (iter = tokens.begin(), index = 0;
-        (index < MAX_TAXI) && (iter != tokens.end()); iter++, ++index)
-    {
-        m_taximask[index] = atol((*iter).c_str());
-    }
-}
-
 bool Player::HasQuestForItem(uint32 itemid)
 {
     Quest *qst;
@@ -4918,6 +4875,39 @@ void Player::UpdateNearbyQuestGivers()
     }
 }
 
+void Player::InitTaxiNodes()
+{
+    // Automatically add the race's taxi hub to the character's taximask at creation time ( 1 << (taxi_node_id-1) )
+    if(sWorld.Start_With_All_Taximasks)
+    {
+        m_taxiMask = *sTaxiMgr.GetAllTaxiMasks();
+        return;
+    }
+
+    if(getClass() == DEATHKNIGHT)
+        m_taxiMask = *sTaxiMgr.GetDeathKnightTaxiMasks();
+
+    switch(getRace())
+    {
+    case RACE_TAUREN:   AddTaxiMask(22);                    break;
+    case RACE_HUMAN:    AddTaxiMask(2);                     break;
+    case RACE_DWARF:    AddTaxiMask(6);                     break;
+    case RACE_GNOME:    AddTaxiMask(6);                     break;
+    case RACE_ORC:      AddTaxiMask(23);                    break;
+    case RACE_TROLL:    AddTaxiMask(23);                    break;
+    case RACE_UNDEAD:   AddTaxiMask(11);                    break;
+    case RACE_NIGHTELF: AddTaxiMask(26); AddTaxiMask(27);   break;
+    case RACE_BLOODELF: AddTaxiMask(82);                    break;
+    case RACE_DRAENEI:  AddTaxiMask(94);                    break;
+    }
+    // team dependant taxi node
+    AddTaxiMask(100-m_team);
+
+    if(getLevel() < 68)
+        return;
+    AddTaxiMask(213);
+}
+
 void Player::EventTaxiInterpolate()
 {
     if(!m_CurrentTaxiPath || m_mapMgr==NULL) return;
@@ -4985,15 +4975,15 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     }
 
     float lastx = 0, lasty = 0, lastz = 0;
-    TaxiPathNode *firstNode = path->GetPathNode(start_node);
+    TaxiPathNodeEntry *firstNode = path->GetPathNode(start_node);
     uint32 add_time = 0;
     if(start_node)
     {
-        TaxiPathNode *pn = path->GetPathNode(0);
+        TaxiPathNodeEntry *pn = path->GetPathNode(0);
         float dist = 0;
-        lastx = pn->x;
-        lasty = pn->y;
-        lastz = pn->z;
+        lastx = pn->LocX;
+        lasty = pn->LocY;
+        lastz = pn->LocZ;
         for(uint32 i = 1; i <= start_node; i++)
         {
             pn = path->GetPathNode(i);
@@ -5003,10 +4993,10 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
                 return;
             }
 
-            dist += CalcDistance(lastx, lasty, lastz, pn->x, pn->y, pn->z);
-            lastx = pn->x;
-            lasty = pn->y;
-            lastz = pn->z;
+            dist += CalcDistance(lastx, lasty, lastz, pn->LocX, pn->LocY, pn->LocZ);
+            lastx = pn->LocX;
+            lasty = pn->LocY;
+            lastz = pn->LocZ;
         }
         add_time = uint32( dist * TAXI_TRAVEL_SPEED );
         lastx = lasty = lastz = 0;
@@ -5017,39 +5007,37 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
 
     for(uint32 i = start_node; i < endn; i++)
     {
-        TaxiPathNode *pn = path->GetPathNode(i);
+        TaxiPathNodeEntry *pn = path->GetPathNode(i);
         if(!pn)
         {
             JumpToEndTaxiNode(path);
             return;
         }
 
-        if( pn->mapid != m_mapId )
+        if( pn->ContinentID != m_mapId )
         {
             endn = (i - 1);
             m_taxiMapChangeNode = i;
 
-            mapchangeid = (int32)pn->mapid;
-            mapchangex = pn->x;
-            mapchangey = pn->y;
-            mapchangez = pn->z;
+            mapchangeid = (int32)pn->ContinentID;
+            mapchangex = pn->LocX;
+            mapchangey = pn->LocY;
+            mapchangez = pn->LocZ;
             break;
         }
 
         if(!lastx || !lasty || !lastz)
         {
-            lastx = pn->x;
-            lasty = pn->y;
-            lastz = pn->z;
+            lastx = pn->LocX;
+            lasty = pn->LocY;
+            lastz = pn->LocZ;
         }
         else
         {
-            float dist = CalcDistance(lastx,lasty,lastz,
-                pn->x,pn->y,pn->z);
-            traveldist += dist;
-            lastx = pn->x;
-            lasty = pn->y;
-            lastz = pn->z;
+            traveldist += CalcDistance(lastx,lasty,lastz,pn->LocX,pn->LocY,pn->LocZ);
+            lastx = pn->LocX;
+            lasty = pn->LocY;
+            lastz = pn->LocZ;
         }
     }
 
@@ -5061,7 +5049,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( (endn - start_node) * 12 ) );
     data << GetGUID();
     data << uint8(0);
-    data << firstNode->x << firstNode->y << firstNode->z;
+    data << firstNode->LocX << firstNode->LocY << firstNode->LocZ;
     data << m_taxi_ride_time;
     data << uint8( 0 );
     data << uint32( MONSTER_MOVE_FLAG_FLY );
@@ -5076,14 +5064,14 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
 
     for(uint32 i = start_node; i < endn; i++)
     {
-        TaxiPathNode *pn = path->GetPathNode(i);
-        if(!pn)
+        TaxiPathNodeEntry *pn = path->GetPathNode(i);
+        if(pn == NULL)
         {
             JumpToEndTaxiNode(path);
             return;
         }
 
-        data << pn->x << pn->y << pn->z;
+        data << pn->LocX << pn->LocY << pn->LocZ;
     }
 
     SendMessageToSet(&data, true);
@@ -5091,16 +5079,17 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     sEventMgr.AddEvent(castPtr<Player>(this), &Player::EventTaxiInterpolate, EVENT_PLAYER_TAXI_INTERPOLATE, 900, 0, 0);
     if( mapchangeid < 0 )
     {
-        TaxiPathNode *pn = path->GetPathNode((uint32)path->GetNodeCount() - 1);
-        sEventMgr.AddEvent(this, &Player::EventDismount, path->GetPrice(), pn->x, pn->y, pn->z, EVENT_PLAYER_TAXI_DISMOUNT, traveltime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        TaxiPathNodeEntry *pn = path->GetPathNode((uint32)path->GetNodeCount() - 1);
+        sEventMgr.AddEvent(this, &Player::EventDismount, path->GetPrice(), pn->LocX, pn->LocY, pn->LocZ, EVENT_PLAYER_TAXI_DISMOUNT, traveltime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
     } else sEventMgr.AddEvent(this, &Player::EventTeleport, (uint32)mapchangeid, mapchangex, mapchangey, mapchangez, orientation, EVENT_PLAYER_TELEPORT, traveltime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void Player::JumpToEndTaxiNode(TaxiPath * path)
 {
     // this should *always* be safe in case it cant build your position on the path!
-    TaxiPathNode * pathnode = path->GetPathNode((uint32)path->GetNodeCount()-1);
-    if(!pathnode) return;
+    TaxiPathNodeEntry * pathnode = path->GetPathNode((uint32)path->GetNodeCount()-1);
+    if(pathnode == NULL)
+        return;
 
     SetTaxiState(false);
     SetTaxiPath(NULL);
@@ -5113,7 +5102,7 @@ void Player::JumpToEndTaxiNode(TaxiPath * path)
 
     m_movementInterface.OnTaxiEnd();
 
-    SafeTeleport(pathnode->mapid, 0, LocationVector(pathnode->x, pathnode->y, pathnode->z));
+    SafeTeleport(pathnode->ContinentID, 0, LocationVector(pathnode->LocX, pathnode->LocY, pathnode->LocZ));
 }
 
 void Player::RemoveSpellsFromLine(uint16 skill_line)
@@ -8006,14 +7995,14 @@ bool Player::CanUseRunes(uint8 blood, uint8 frost, uint8 unholy)
     uint8 death = 0;
     for(uint8 i = 0; i < 6; i++)
     {
-        if( m_runes[ i ] == RUNE_TYPE_BLOOD && blood )
+        if( m_runes[i] == RUNE_TYPE_BLOOD && blood )
             blood--;
-        if( m_runes[ i ] == RUNE_TYPE_FROST && frost )
+        if( m_runes[i] == RUNE_TYPE_FROST && frost )
             frost--;
-        if( m_runes[ i ] == RUNE_TYPE_UNHOLY && unholy )
+        if( m_runes[i] == RUNE_TYPE_UNHOLY && unholy )
             unholy--;
 
-        if( m_runes[ i ] == RUNE_TYPE_DEATH )
+        if( m_runes[i] == RUNE_TYPE_DEATH )
             death++;
     }
 
@@ -8038,19 +8027,19 @@ void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell
     uint8 death = 0;
     for(uint8 i = 0; i < 6; i++)
     {
-        if( m_runes[ i ] == RUNE_TYPE_BLOOD && blood )
+        if( m_runes[i] == RUNE_TYPE_BLOOD && blood )
         {
             blood--;
             m_runemask &= ~(1 << i);
-            m_runes[ i ] = RUNE_TYPE_RECHARGING;
+            m_runes[i] = RUNE_TYPE_RECHARGING;
             ScheduleRuneRefresh(i);
             continue;
         }
-        if( m_runes[ i ] == RUNE_TYPE_FROST && frost )
+        if( m_runes[i] == RUNE_TYPE_FROST && frost )
         {
             frost--;
             m_runemask &= ~(1 << i);
-            m_runes[ i ] = RUNE_TYPE_RECHARGING;
+            m_runes[i] = RUNE_TYPE_RECHARGING;
 
             if( pSpell && pSpell->NameHash == SPELL_HASH_DEATH_STRIKE || pSpell->NameHash == SPELL_HASH_OBLITERATE && Rand(pSpell->procChance) )
                 ScheduleRuneRefresh(i, true);
@@ -8058,11 +8047,11 @@ void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell
                 ScheduleRuneRefresh(i);
             continue;
         }
-        if( m_runes[ i ] == RUNE_TYPE_UNHOLY && unholy )
+        if( m_runes[i] == RUNE_TYPE_UNHOLY && unholy )
         {
             unholy--;
             m_runemask &= ~(1 << i);
-            m_runes[ i ] = RUNE_TYPE_RECHARGING;
+            m_runes[i] = RUNE_TYPE_RECHARGING;
 
             if( pSpell && pSpell->NameHash == SPELL_HASH_DEATH_STRIKE || pSpell->NameHash == SPELL_HASH_OBLITERATE && Rand(pSpell->procChance) )
                 ScheduleRuneRefresh(i, true);
@@ -8071,7 +8060,7 @@ void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell
             continue;
         }
 
-        if( m_runes[ i ] == RUNE_TYPE_DEATH )
+        if( m_runes[i] == RUNE_TYPE_DEATH )
             death++;
     }
 
@@ -8082,69 +8071,62 @@ void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell
 
     for(uint8 i = 0; i < 6; i++)
     {
-        if( m_runes[ i ] == RUNE_TYPE_DEATH && res )
+        if( m_runes[i] == RUNE_TYPE_DEATH && res )
         {
             res--;
             m_runemask &= ~(1 << i);
-            m_runes[ i ] = RUNE_TYPE_RECHARGING;
+            m_runes[i] = RUNE_TYPE_RECHARGING;
             ScheduleRuneRefresh(i);
         }
     }
 }
 
-uint8 Player::TheoreticalUseRunes(uint8 blood, uint8 frost, uint8 unholy)
+uint8 Player::TheoreticalUseRunes(uint32 *runes)
 {
-    uint8 death = 0;
-    uint8 runemask = m_runemask;
+    uint8 runemask = m_runemask, blood = runes[0] & 0xFF, frost = runes[1] & 0xFF, unholy = runes[2] & 0xFF, death = 0;
     for(uint8 i = 0; i < 6; i++)
     {
-        if( m_runes[ i ] == RUNE_TYPE_DEATH && blood)
+        if(blood == 0 && frost == 0 && unholy == 0)
+            break;
+
+        bool usedRunes = false;
+        switch(m_runes[i])
         {
+        case RUNE_TYPE_DEATH:
+        {
+            usedRunes = true;
+            if(blood)
+                blood--;
+            else if(frost)
+                frost--;
+            else if(unholy)
+                unholy--;
+            else usedRunes = false;
+        }break;
+        case RUNE_TYPE_BLOOD:
+            if(blood == 0)
+                continue;
+            usedRunes = true;
             blood--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
-        }
-
-        if( m_runes[ i ] == RUNE_TYPE_DEATH && frost)
-        {
+            break;
+        case RUNE_TYPE_FROST:
+            if(frost == 0)
+                continue;
+            usedRunes = true;
             frost--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
-        }
-
-        if( m_runes[ i ] == RUNE_TYPE_DEATH && unholy)
-        {
+            break;
+        case RUNE_TYPE_UNHOLY:
+            if(unholy == 0)
+                continue;
+            usedRunes = true;
             unholy--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
+            break;
         }
+        if(!usedRunes)
+            continue;
 
-        if( m_runes[ i ] == RUNE_TYPE_BLOOD && blood )
-        {
-            blood--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
-        }
-
-        if( m_runes[ i ] == RUNE_TYPE_FROST && frost )
-        {
-            frost--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
-        }
-
-        if( m_runes[ i ] == RUNE_TYPE_UNHOLY && unholy )
-        {
-            unholy--;
-            runemask &= ~(1 << i);
-            SetRuneCooldown(i, 10000);
-            continue;
-        }
+        runemask &= ~(1 << i);
+        SetRuneCooldown(i, 10000);
     }
 
     return runemask;
@@ -8180,24 +8162,6 @@ void Player::GroupUninvite(Player* targetPlayer, PlayerInfo *targetInfo)
 
     if(group)
         group->RemovePlayer(targetInfo);
-}
-
-void Player::SetTaximaskNode(uint32 nodeidx, bool Unset)
-{
-    uint8  field   = uint8((nodeidx - 1) / 32);
-    uint32 submask = 1<<((nodeidx-1)%32);
-    if(Unset)
-    {
-        //We have this node allready? Remove it
-        if ((GetTaximask(field)& submask) == submask)
-            SetTaximask(field,(GetTaximask(field)& ~submask));
-    }
-    else
-    {
-        //We don't have this node allready? Add it.
-        if ((GetTaximask(field)& submask) != submask)
-            SetTaximask(field,(GetTaximask(field)|submask));
-    }
 }
 
 uint16 Player::FindQuestSlot( uint32 questid )

@@ -370,7 +370,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
     }
 }
 
-void IsleOfConquest::CaptureControlPoint(uint32 Id, uint32 Team)
+void IsleOfConquest::CaptureControlPoint(uint32 Id, uint8 Team)
 {
     if(m_basesOwnedBy[Id] != -1)
     {
@@ -421,7 +421,7 @@ void IsleOfConquest::CaptureControlPoint(uint32 Id, uint32 Team)
         Updateworkshop(Team);
 }
 
-void IsleOfConquest::Updateworkshop(uint32 Team)
+void IsleOfConquest::Updateworkshop(uint8 Team)
 {
     if(m_salesman != NULL)
         m_salesman->Despawn(0,0);
@@ -440,10 +440,9 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         return;
     }
 
+    uint32 Owner = 0;
     bool isVirgin = false;
-
-    uint32 Team = pPlayer->m_bgTeam;
-    uint32 Owner;
+    uint8 Team = pPlayer->GetBGTeam();
 
     if(m_basesOwnedBy[Id]==-1 && m_basesAssaultedBy[Id]==-1)
     {
@@ -731,7 +730,7 @@ void IsleOfConquest::HookOnHK(Player* plr)
     UpdatePvPData();
 }
 
-void IsleOfConquest::AddReinforcements(uint32 teamId, uint32 amt)
+void IsleOfConquest::AddReinforcements(uint8 teamId, uint32 amt)
 {
     WorldStateManager &sm = m_mapMgr->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] + amt )) > IOC_NUM_REINFORCEMENTS )
@@ -742,7 +741,7 @@ void IsleOfConquest::AddReinforcements(uint32 teamId, uint32 amt)
     sm.UpdateWorldState(WORLDSTATE_IOC_ALLIANCE_SCORE + teamId, m_reinforcements[teamId]);
 }
 
-void IsleOfConquest::RemoveReinforcements(uint32 teamId, uint32 amt)
+void IsleOfConquest::RemoveReinforcements(uint8 teamId, uint32 amt)
 {
     WorldStateManager &sm = m_mapMgr->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] - amt )) < 0 )
@@ -759,12 +758,12 @@ void IsleOfConquest::RemoveReinforcements(uint32 teamId, uint32 amt)
     }
 }
 
-LocationVector IsleOfConquest::GetStartingCoords(uint32 Team)
+LocationVector IsleOfConquest::GetStartingCoords(uint8 Team)
 {
     if(Team)        // Horde
         return LocationVector(1264.06f, -736.73f, 48.91f, 3.07f);
-    else            // Alliance
-        return LocationVector(303.22f, -857.02f, 48.91f, 5.99f);
+    // Alliance
+    return LocationVector(303.22f, -857.02f, 48.91f, 5.99f);
 }
 
 void IsleOfConquest::OnStart()
@@ -845,7 +844,7 @@ void IsleOfConquest::Herald(const char *format, ...)
     m_mapMgr->SendPacketToPlayers(ZONE_MASK_ALL, FACTION_MASK_ALL, &data);
 }
 
-void IsleOfConquest::Finish(uint32 losingTeam)
+void IsleOfConquest::Finish(uint8 losingTeam)
 {
     if(m_ended) return;
 

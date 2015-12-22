@@ -30,7 +30,7 @@ public:
     void HookOnShadowSight();
     void OnPlatformTeleport(Player* plr);
     void Respawn();
-    LocationVector GetStartingCoords(uint32 Team);
+    LocationVector GetStartingCoords(uint8 Team);
 
     static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return (new StrandOfTheAncients(m, i, l, t)); }
 

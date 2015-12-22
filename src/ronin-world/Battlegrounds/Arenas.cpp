@@ -98,7 +98,7 @@ void Arena::OnAddPlayer(Player* plr)
     UpdatePlayerCounts();
 
     /* Add the green/gold team flag */
-    Aura* aura = new Aura(dbcSpell.LookupEntry(32724+plr->m_bgTeam), plr, plr);
+    Aura* aura = new Aura(dbcSpell.LookupEntry(32724+plr->GetBGTeam()), plr, plr);
     plr->AddAura(aura);
 
     /* Set FFA PvP Flag */
@@ -129,7 +129,7 @@ void Arena::OnRemovePlayer(Player* plr)
     /* plr left arena, call HookOnPlayerDeath as if he died */
     HookOnPlayerDeath(plr);
 
-    plr->RemoveAura(32724+plr->m_bgTeam);
+    plr->RemoveAura(32724+plr->GetBGTeam());
     plr->RemoveFFAPvPFlag();
     plr->m_bgRatedQueue = false;
 }
@@ -501,7 +501,7 @@ void Arena::Finish()
     }
 }
 
-LocationVector Arena::GetStartingCoords(uint32 Team)
+LocationVector Arena::GetStartingCoords(uint8 Team)
 {
     // 559, 562, 572
     /*

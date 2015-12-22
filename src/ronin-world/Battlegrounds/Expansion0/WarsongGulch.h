@@ -37,9 +37,9 @@ public:
     void HookOnHK(Player* plr);
     void HookOnShadowSight();
     void SpawnBuff(uint32 x);
-    LocationVector GetStartingCoords(uint32 Team);
+    LocationVector GetStartingCoords(uint8 Team);
     void DropFlag(Player* plr);
-    void ReturnFlag(uint32 team);
+    void ReturnFlag(uint8 team);
 
     static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return new WarsongGulch(m, i, l, t); }
 

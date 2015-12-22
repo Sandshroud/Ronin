@@ -209,11 +209,6 @@ void WarsongGulch::DropFlag(Player* plr)
 
     plr->CastSpell(plr, BG_RECENTLY_DROPPED_FLAG, true);
 
-    // I need confirmation on additional time when in bases.
-//  if(plr->GetAreaID() == (3321-plr->GetTeam())) // Opposite bases
-//      sEventMgr.AddEvent( TO_WARSONGGULCH(this), &WarsongGulch::ReturnFlag, plr->GetTeam(), EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam(), 25000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
-//  else
-//      sEventMgr.AddEvent( TO_WARSONGGULCH(this), &WarsongGulch::ReturnFlag, plr->GetTeam(), EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam(), 10000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
     sEventMgr.AddEvent( castPtr<WarsongGulch>(this), &WarsongGulch::ReturnFlag, plr->GetTeam(), EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam(), 10000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 
     if( plr->GetTeam() == 1 )
@@ -278,7 +273,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
     m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
 }
 
-void WarsongGulch::ReturnFlag(uint32 team)
+void WarsongGulch::ReturnFlag(uint8 team)
 {
     if(m_flagAtBase[team])
         return;
@@ -368,7 +363,7 @@ void WarsongGulch::OnRemovePlayer(Player* plr)
     plr->RemoveAura(BG_PREPARATION);
 }
 
-LocationVector WarsongGulch::GetStartingCoords(uint32 Team)
+LocationVector WarsongGulch::GetStartingCoords(uint8 Team)
 {
     return Team ? LocationVector(933.989685f, 1430.735840f, 345.537140f, 3.141593f) : LocationVector(1519.530273f, 1481.868408f, 352.023743f, 3.141593f);
 }

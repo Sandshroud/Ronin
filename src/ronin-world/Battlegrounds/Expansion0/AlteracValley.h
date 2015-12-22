@@ -254,7 +254,7 @@ public:
     void HookOnUnitKill(Player* plr, Unit* pVictim);
     void HookOnHK(Player* plr);
     void HookOnShadowSight();
-    LocationVector GetStartingCoords(uint32 Team);
+    LocationVector GetStartingCoords(uint8 Team);
     void DropFlag(Player* plr);
 
     static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new AlteracValley(m, i, l, t); }

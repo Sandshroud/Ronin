@@ -19,21 +19,16 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
 
     chaindamage = 0;
     m_pushbackCount = 0;
-    m_missilePitch = 0;
-    m_missileTravelTime = 0;
-    m_MSTimeToAddToTravel = 0;
 
     if(!(duelSpell = (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() == DUEL_STATE_STARTED)))
         if(!(duelSpell = (m_caster->IsItem() && castPtr<Item>(m_caster)->GetOwner() && castPtr<Item>(m_caster)->GetOwner()->GetDuelState() == DUEL_STATE_STARTED)))
             duelSpell = ((m_caster->IsPet() && castPtr<Pet>(m_caster)->GetPetOwner() != NULL && castPtr<Pet>(m_caster)->GetPetOwner()->GetDuelState() == DUEL_STATE_STARTED));
 
     m_castPositionX = m_castPositionY = m_castPositionZ = 0;
-    m_triggeredSpell = false;
     m_AreaAura = false;
 
     m_triggeredByAura = aur;
 
-    m_ForcedCastTime = 0;
     damageToHit = 0;
     castedItemId = 0;
 
@@ -43,13 +38,9 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
     damage = 0;
     m_Delayed = false;
     m_ForceConsumption = false;
-    m_triggeredSpellId = 0;
     m_cancelled = false;
-    ProcedOnSpell = NULL;
     m_reflectedParent = NULL;
     m_isCasting = false;
-    m_hitTargetCount = 0;
-    m_missTargetCount = 0;
     m_magnetTarget = 0;
     m_projectileWait = false;
 }
@@ -635,28 +626,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     if(m_missileTravelTime || m_spellInfo->speed > 0.0f && !m_spellInfo->IsSpellChannelSpell() || m_spellInfo->Id == 14157)
         m_projectileWait = true;
 
-    if( !m_triggeredSpell && m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat )
-        m_castTime = 0;
-    else
-    {
-        m_castTime = m_ForcedCastTime ? m_ForcedCastTime : m_spellInfo->castTimeMin;
-        if( m_castTime && GetSpellProto()->SpellGroupType && m_caster->IsUnit() != NULL )
-        {
-            castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
-            castPtr<Unit>(m_caster)->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
-        }
-    }
-
-    //let us make sure cast_time is within decent range
-    //this is a hax but there is no spell that has more then 10 minutes cast time
-    if( m_castTime < 0 )
-        m_castTime = 0;
-    else if( m_castTime > 60 * 10 * 1000)
-        m_castTime = 60 * 10 * 1000; //we should limit cast time to 10 minutes right ?
-
-    m_timer = m_castTime;
-
-    if( m_triggeredSpell || ProcedOnSpell != NULL)
+    if( m_triggeredSpell )
         cancastresult = SPELL_CANCAST_OK;
     else cancastresult = CanCast(false);
     ccr = cancastresult;
@@ -952,7 +922,8 @@ void Spell::cast(bool check)
             }
         }
 
-        if(!m_spellInfo->isNextMeleeAttack1() || m_triggeredSpell)  //on next attack
+        bool isNextMeleeAttack1 = m_spellInfo->isNextMeleeAttack1();
+        if(!isNextMeleeAttack1 || m_triggeredSpell)  //on next attack
         {
             SendSpellGo();
 
@@ -1323,200 +1294,6 @@ void Spell::finish()
         Destruct();
 }
 
-bool Spell::IsNeedSendToClient()
-{
-    if(!m_caster->IsUnit() || !m_caster->IsInWorld() || m_spellInfo->isPassiveSpell())
-        return false;
-    if(m_spellInfo->SpellVisual[0] || m_spellInfo->SpellVisual[1])
-        return true;
-    if(m_spellInfo->isChanneledSpell() || m_spellInfo->isChanneledSpell2())
-        return true;
-    if(m_spellInfo->speed > 0.0f)
-        return true;
-    if(!m_triggeredSpell)
-        return true;
-    return false;
-}
-
-void Spell::SendSpellStart()
-{
-    if(!IsNeedSendToClient())
-        return;
-
-    uint32 cast_flags = SPELL_CAST_FLAGS_CAST_DEFAULT;
-    if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
-        cast_flags |= SPELL_CAST_FLAGS_POWER_UPDATE;
-    if((m_triggeredSpell || m_triggeredByAura) && !m_spellInfo->isAutoRepeatSpell())
-        cast_flags |= SPELL_CAST_FLAGS_NO_VISUAL;
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT)
-    {
-        if(GetSpellProto()->RuneCostID)
-        {
-            cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-            cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
-        }
-        else
-        {
-            for(uint8 i = 0; i < 3; i++)
-            {
-                if( GetSpellProto()->Effect[i] == SPELL_EFFECT_ACTIVATE_RUNE)
-                {
-                    cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-                    cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
-                }
-            }
-        }
-    }
-
-    WorldPacket data(SMSG_SPELL_START, 150);
-    data << m_caster->GetGUID().asPacked();
-    data << m_caster->GetGUID().asPacked();
-    data << uint8(m_castNumber);
-    data << uint32(GetSpellProto()->Id);
-    data << uint32(cast_flags);
-    data << int32(m_timer);
-    data << uint32(getMSTime());
-
-    m_targets.write( data );
-
-    if (cast_flags & SPELL_CAST_FLAGS_POWER_UPDATE)
-        data << uint32(castPtr<Unit>(m_caster)->GetPower(GetSpellProto()->powerType));
-
-    if( cast_flags & SPELL_CAST_FLAGS_RUNE_UPDATE ) //send new runes
-    {
-        SpellRuneCostEntry * runecost = dbcSpellRuneCost.LookupEntry(GetSpellProto()->RuneCostID);
-        uint8 runeMask = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->GetRuneMask() : 0x3F, theoretical = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->TheoreticalUseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost) : 0;
-        data << runeMask << theoretical;
-        for (uint8 i = 0; i < 6; i++)
-        {
-            uint8 mask = (1 << i);
-            if (mask & runeMask && !(mask & theoretical))
-                data << uint8(0);
-        }
-    }
-
-    m_caster->SendMessageToSet( &data, true );
-}
-
-void Spell::SendSpellGo()
-{
-    if(!IsNeedSendToClient())
-        return;
-
-    ItemPrototype* ip = NULL;
-    uint32 cast_flags = SPELL_CAST_FLAGS_CAST_DEFAULT;
-    if((m_triggeredSpell || m_triggeredByAura) && !m_spellInfo->isAutoRepeatSpell())
-        cast_flags |= SPELL_CAST_FLAGS_NO_VISUAL;
-    if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
-        cast_flags |= SPELL_CAST_FLAGS_POWER_UPDATE;
-    if(m_missTargetCount)
-        cast_flags |= SPELL_CAST_FLAGS_EXTRA_MESSAGE;
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT)
-    {
-        if(GetSpellProto()->RuneCostID)
-        {
-            cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-            cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
-        }
-        else
-        {
-            for(uint8 i = 0; i < 3; i++)
-            {
-                if( GetSpellProto()->Effect[i] == SPELL_EFFECT_ACTIVATE_RUNE)
-                {
-                    cast_flags |= SPELL_CAST_FLAGS_RUNE_UPDATE;
-                    cast_flags |= SPELL_CAST_FLAGS_RUNIC_UPDATE;
-                }
-            }
-        }
-    }
-
-    WorldPacket data(SMSG_SPELL_GO, 200);
-    data << m_caster->GetGUID().asPacked();
-    data << m_caster->GetGUID().asPacked();
-    data << uint8(m_castNumber);
-    data << uint32(GetSpellProto()->Id);
-    data << uint32(cast_flags);
-    data << int32(m_timer);
-    data << uint32(getMSTime());
-
-    writeSpellGoTargets(&data);
-
-    m_targets.write( data ); // this write is included the target flag
-
-    if (cast_flags & SPELL_CAST_FLAGS_POWER_UPDATE) //send new power
-        data << uint32(castPtr<Unit>(m_caster)->GetPower(GetSpellProto()->powerType));
-    if( cast_flags & SPELL_CAST_FLAGS_RUNE_UPDATE ) //send new runes
-    {
-        SpellRuneCostEntry * runecost = dbcSpellRuneCost.LookupEntry(GetSpellProto()->RuneCostID);
-        uint8 runeMask = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->GetRuneMask() : 0x3F, theoretical = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->TheoreticalUseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost) : 0;
-        data << runeMask << theoretical;
-        for (uint8 i = 0; i < 6; i++)
-        {
-            uint8 mask = (1 << i);
-            if (mask & runeMask && !(mask & theoretical))
-                data << uint8(0);
-        }
-    }
-
-    if (cast_flags & SPELL_CAST_FLAGS_PROJECTILE)
-        data << m_missilePitch << m_missileTravelTime;
-
-    if( m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION )
-        data << uint8( 0 );
-
-    m_caster->SendMessageToSet( &data, castPtr<Unit>(m_caster)->IsPlayer() );
-}
-
-void Spell::SendProjectileUpdate()
-{
-    WorldPacket data(SMSG_SET_PROJECTILE_POSITION, 40);
-    data << m_caster->GetGUID();
-    data << m_castNumber;
-    data << float(0.0f) << float(0.0f) << float(0.0f);
-    m_caster->SendMessageToSet(&data, true);
-}
-
-void Spell::writeSpellGoTargets( WorldPacket * data )
-{
-    SpellTargetMap::iterator itr;
-    uint32 counter;
-
-    // Make sure we don't hit over 100 targets.
-    // It's fine internally, but sending it to the client will REALLY cause it to freak.
-
-    *data << uint8(m_hitTargetCount > 100 ? 100 : m_hitTargetCount);
-    if( m_hitTargetCount > 0 )
-    {
-        counter = 0;
-        for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
-        {
-            if( itr->second.HitResult == SPELL_DID_HIT_SUCCESS )
-            {
-                *data << itr->first;
-                ++counter;
-            }
-        }
-    }
-
-    *data << uint8(m_missTargetCount > 100 ? 100 : m_missTargetCount);
-    if( m_missTargetCount > 0 )
-    {
-        counter = 0;
-        for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
-        {
-            if( itr->second.HitResult != SPELL_DID_HIT_SUCCESS )
-            {
-                *data << itr->first;
-                *data << uint8(itr->second.HitResult);
-                if (itr->second.HitResult == SPELL_DID_HIT_REFLECT)
-                    *data << uint8(itr->second.ReflectResult);
-                ++counter;
-            }
-        }
-    }
-}
-
 bool Spell::HasPower()
 {
     int32 powerField = 0, cost = CalculateCost(powerField);
@@ -1533,6 +1310,9 @@ bool Spell::HasPower()
 
 bool Spell::TakePower()
 {
+    if(!m_caster->IsUnit())
+        return true;
+
     int32 powerField = 0, cost = CalculateCost(powerField);
     if(powerField == -1)
         return false;
@@ -1542,12 +1322,13 @@ bool Spell::TakePower()
         return true;
     }
 
+    Unit *u_caster = castPtr<Unit>(m_caster);
     if(GetSpellProto()->powerType == POWER_TYPE_RUNIC)
     {
-        SpellRuneCostEntry *runecost = dbcSpellRuneCost.LookupEntry(cost);
-        castPtr<Player>(m_caster)->UseRunes(runecost->bloodRuneCost, runecost->frostRuneCost, runecost->unholyRuneCost, m_spellInfo);
-        if(runecost->runePowerGain)
-            castPtr<Unit>(m_caster)->SetPower(POWER_TYPE_RUNIC, runecost->runePowerGain + castPtr<Unit>(m_caster)->GetPower(POWER_TYPE_RUNIC));
+        if(u_caster->IsPlayer())
+            castPtr<Player>(u_caster)->UseRunes(m_spellInfo->runeCost[0], m_spellInfo->runeCost[1], m_spellInfo->runeCost[2]);
+        if(uint32 runePowerGain = m_spellInfo->runeGain)
+            u_caster->SetPower(POWER_TYPE_RUNIC, u_caster->GetPower(POWER_TYPE_RUNIC) + runePowerGain);
     }
     else
     {
@@ -1556,7 +1337,7 @@ bool Spell::TakePower()
         {
             if(cost <= currentPower) // Unit has enough power (needed for creatures)
             {
-                m_caster->DealDamage(castPtr<Unit>(m_caster), cost, 0, 0, 0,true);
+                m_caster->DealDamage(u_caster, cost, 0, 0, 0,true);
                 return true;
             }
         }
@@ -1564,14 +1345,14 @@ bool Spell::TakePower()
         {
             if(cost <= currentPower) // Unit has enough power (needed for creatures)
             {
-                if( castPtr<Unit>(m_caster) && GetSpellProto()->powerType == POWER_TYPE_MANA )
+                if( GetSpellProto()->powerType == POWER_TYPE_MANA )
                 {
-                    castPtr<Unit>(m_caster)->m_LastSpellManaCost = cost;
+                    u_caster->m_LastSpellManaCost = cost;
                     if(m_spellInfo->IsSpellChannelSpell()) // Client only accepts channels
-                        castPtr<Unit>(m_caster)->DelayPowerRegeneration(GetDuration());
+                        u_caster->DelayPowerRegeneration(GetDuration());
                 }
 
-                castPtr<Unit>(m_caster)->SetPower(GetSpellProto()->powerType, currentPower - cost);
+                u_caster->SetPower(GetSpellProto()->powerType, currentPower - cost);
                 return true;
             }
         }

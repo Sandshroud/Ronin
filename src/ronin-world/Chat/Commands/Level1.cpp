@@ -376,13 +376,11 @@ bool ChatHandler::HandleTaxiCheatCommand(const char* args, WorldSession *m_sessi
     {
         GreenSystemMessage(m_session, "Unlocking all taxi nodes for %s.", chr->GetName());
         GreenSystemMessageToPlr(chr, "%s Unlocked all taxi nodes for you.", m_session->GetPlayer()->GetName());
-    }
-    else
-        GreenSystemMessage(m_session, "Unlocking all taxi nodes.");
+    } else GreenSystemMessage(m_session, "Unlocking all taxi nodes.");
 
-    uint32 taximask = flag ? 0xFFFFFFFF : 0;
-    for (uint8 i = 0; i < MAX_TAXI; i++)
-        chr->SetTaximask(i, taximask);
+    UpdateMask mask;
+    if(flag) mask = *sTaxiMgr.GetAllTaxiMasks();
+    chr->m_taxiMask = mask;
     return true;
 }
 
