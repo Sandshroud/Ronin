@@ -7508,8 +7508,8 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
         return;
 
+    int32 atime = 0;
     uint32 mstime = getMSTime();
-    int32 atime;
     if( GetFloatValue(UNIT_MOD_CAST_SPEED) >= 1.0f )
         atime = pSpell->StartRecoveryTime;
     else
@@ -7524,7 +7524,7 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( atime <= 0 )
         return;
 
-    if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )     // if we have a different cool category to the actual spell category - only used by few spells
+    if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
         _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, mstime + atime, pSpell->Id, 0 );
     else                                    // no category, so it's a gcd
     {
@@ -7535,18 +7535,17 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
 
 void Player::Cooldown_OnCancel(SpellEntry *pSpell)
 {
+    uint32 mstime = getMSTime();
     if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
         return;
 
-    uint32 mstime = getMSTime();
     int32 atime = float2int32( float(pSpell->StartRecoveryTime) * GetFloatValue(UNIT_MOD_CAST_SPEED) );
     if( atime <= 0 )
         return;
 
-    if( pSpell->StartRecoveryCategory )     // if we have a different cool category to the actual spell category - only used by few spells
+    if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
         m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase(pSpell->StartRecoveryCategory);
-    else                                    // no category, so it's a gcd
-        m_globalCooldown = mstime;
+    else m_globalCooldown = mstime;
 }
 
 bool Player::Cooldown_CanCast(SpellEntry * pSpell)
@@ -7566,8 +7565,7 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
         {
             if( mstime < itr->second.ExpireTime )
                 return false;
-            else
-                m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
+            m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
         }
     }
 
@@ -7576,16 +7574,14 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
     {
         if( mstime < itr->second.ExpireTime )
             return false;
-        else
-            m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
+        m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
     }
 
     if( pSpell->StartRecoveryTime && m_globalCooldown )         /* gcd doesn't affect spells without a cooldown it seems */
     {
         if( mstime < m_globalCooldown )
             return false;
-        else
-            m_globalCooldown = 0;
+        m_globalCooldown = 0;
     }
 
     return true;
