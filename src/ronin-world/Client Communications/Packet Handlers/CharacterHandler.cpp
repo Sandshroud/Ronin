@@ -127,7 +127,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 delete res;
             }
 
-            if(res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot > 0 AND slot < 19", charGuid.getLow()))
+            if(res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", charGuid.getLow()))
             {
                 do
                 {

@@ -1132,7 +1132,6 @@ void Aura::SpellAuraModShapeshift(bool apply)
     {
         if( modelId != 0 )
         {
-            printf("ModelID %u\n", modelId);
             m_target->SetUInt32Value( UNIT_FIELD_DISPLAYID, modelId );
             m_target->EventModelChange();
         }

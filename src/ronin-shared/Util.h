@@ -274,4 +274,11 @@ namespace RONIN_UTIL
                     return i;
         } return static_cast<T>(NULL);
     }
+
+    RONIN_INLINE float PercentFloatVar(float val)
+    {
+        if (val <= -100.f) val = -99.99f;
+        if(val >= 100.f) val = 99.99f;
+        return 100.f-val;
+    }
 };

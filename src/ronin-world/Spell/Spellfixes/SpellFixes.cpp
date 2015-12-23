@@ -94,7 +94,6 @@ void ApplyNormalFixes()
     dbcSpellRuneCost.Unload();
     dbcSpellScaling.Unload();
     dbcSpellShapeshift.Unload();
-    dbcSpellShapeshiftForm.Unload();
     dbcSpellTargetRestrictions.Unload();
     dbcSpellTotems.Unload();
 

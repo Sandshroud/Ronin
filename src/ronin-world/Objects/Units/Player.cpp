@@ -6,7 +6,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_talentInterface(this), m_inventory(this), m_currency(this)
+Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(guid))
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
 
@@ -16,21 +16,11 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_deathRuneMasteryChance = 0;
     itemBonusMask.SetCount(ITEM_STAT_MAXIMUM);
     m_taxiMask.SetCount(8*114);
-}
 
-Player::~Player ( )
-{
-
-}
-
-void Player::Init()
-{
-    Unit::Init();
     m_hasSentMoTD                   = false;
     m_lastAreaUpdateMap             = -1;
     m_oldZone                       = 0;
     m_oldArea                       = 0;
-    m_mailBox                       = new Mailbox( GetUInt32Value(OBJECT_FIELD_GUID) );
     m_bgSlot                        = 0;
     m_feralAP                       = 0;
     m_finishingmovesdodge           = false;
@@ -241,6 +231,19 @@ void Player::Init()
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
     mSpells.clear();
+}
+
+Player::~Player ( )
+{
+
+}
+
+void Player::Init()
+{
+    Unit::Init();
+
+    SetFloatValue(PLAYER_FIELD_MOD_HASTE, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, 1.f);
 
     // We're players!
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
@@ -600,25 +603,50 @@ bool Player::CombatRatingUpdateRequired(uint32 combatRating)
     return res;
 }
 
-float Player::GetRatioForCombatRating(uint32 combatRating)
+void Player::UpdateCombatRating(uint8 combatRating, float value)
 {
-    ASSERT(combatRating<26);
-    float value = 0.f;
-    uint32 reallevel = getLevel();
-    uint32 level = reallevel > MAXIMUM_ATTAINABLE_LEVEL ? MAXIMUM_ATTAINABLE_LEVEL : reallevel;
-    if(gtFloat * pDBCEntry = dbcCombatRating.LookupEntry( combatRating * 100 + level - 1 ))
-        value = pDBCEntry->val;
-    if(value == 0.f) value=1.f;
-    return value;
+    switch(combatRating)
+    {
+    case 8:
+        SetFloatValue(PLAYER_CRIT_PERCENTAGE, value);
+        SetFloatValue(PLAYER_OFFHAND_CRIT_PERCENTAGE, value);
+        break;
+    case 9:
+        SetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE, value);
+        break;
+    case 10:
+        for(uint8 i = 0; i < 7; i++)
+            SetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+i, value);
+        break;
+    case 17:
+        SetFloatValue(PLAYER_FIELD_MOD_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        break;
+    case 18:
+        SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        break;
+    case 19:
+        SetFloatValue(UNIT_MOD_CAST_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        break;
+    }
+}
+
+float Player::GetRatioForCombatRating(uint8 cr)
+{
+    ASSERT(cr<26);
+    uint32 level = std::min<uint32>(getLevel(), MAXIMUM_ATTAINABLE_LEVEL);
+    gtFloat *combatRating = dbcCombatRating.LookupEntry( cr * 100 + level - 1 ), *scalingCombatRating = dbcCombatRatingScaling.LookupEntry((getClass()-1)*32+cr+1);
+    if(combatRating && scalingCombatRating && combatRating->val > 0.f)
+        return scalingCombatRating->val / combatRating->val;
+    return 1.f;
 }
 
 void Player::UpdatePlayerRatings()
 {
-    for(uint32 cr = 1, index = PLAYER_RATING_MODIFIER_DEFENCE; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
+    for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
     {
         if(!CombatRatingUpdateRequired(cr))
             continue;
-        uint32 val = CalculatePlayerCombatRating(cr);
+        int32 val = CalculatePlayerCombatRating(cr);
         AuraInterface::modifierMap ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING);
         for(AuraInterface::modifierMap::iterator itr = ratingMod.begin(); itr != ratingMod.end(); itr++)
         {
@@ -634,9 +662,9 @@ void Player::UpdatePlayerRatings()
                 val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
 
         // Now that we have the calculated value, set it for player
-        SetUInt32Value(index, val);
+        SetUInt32Value(index, std::max<int32>(0, val));
         // Multiply the overall rating with the set ratio
-        float rating = float(float(val)/GetRatioForCombatRating(cr));
+        UpdateCombatRating(cr, float(val)*GetRatioForCombatRating(cr));
     }
 }
 
@@ -735,19 +763,17 @@ int32 Player::GetBonusResistance(uint8 school)
 
 int32 Player::GetBaseAttackTime(uint8 weaponType)
 {
+    SpellShapeshiftFormEntry *shapeShiftFormEntry;
+    if(weaponType != 2 && (shapeShiftFormEntry = dbcSpellShapeshiftForm.LookupEntry(GetShapeShift())))
+        if(uint32 attackSpeed = shapeShiftFormEntry->attackSpeed)
+            return attackSpeed;
+
+    Item *item;
     int32 speed = 2000;
-    if( GetShapeShift() == FORM_CAT && weaponType != 2 )
-        speed = 1500;
-    else if( weaponType == 0 && GetShapeShift() == FORM_BEAR || GetShapeShift() == FORM_DIREBEAR )
-        speed = 2500;
-    else
-    {
-        Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType);
-        if(item == NULL)
-            speed = 0;
-        else if(!disarmed)
-            speed = item->GetProto()->Delay;
-    }
+    if(!disarmed && (item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+weaponType)))
+        speed = item->GetProto()->Delay;
+    else if(weaponType != 0 && item == NULL)
+        speed = 0;
     return speed;
 }
 
@@ -6595,6 +6621,7 @@ void Player::SetShapeShift(uint8 ss)
 {
     uint8 old_ss = GetByte( UNIT_FIELD_BYTES_2, 3 );
     SetByte( UNIT_FIELD_BYTES_2, 3, ss );
+    m_needRecalculateAllFields = true;
 
     //remove auras that we should not have
     m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);
@@ -7508,12 +7535,10 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
         return;
 
-    int32 atime = 0;
     uint32 mstime = getMSTime();
-    if( GetFloatValue(UNIT_MOD_CAST_SPEED) >= 1.0f )
-        atime = pSpell->StartRecoveryTime;
-    else
-        atime = float2int32( float(pSpell->StartRecoveryTime) * GetFloatValue(UNIT_MOD_CAST_SPEED) );
+    int32 atime = pSpell->StartRecoveryTime;
+    if( GetFloatValue(UNIT_MOD_CAST_SPEED) < 1.0f )
+        atime *= GetFloatValue(UNIT_MOD_CAST_SPEED);
 
     if( pSpell->SpellGroupType )
     {
@@ -7526,23 +7551,21 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
 
     if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
         _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, mstime + atime, pSpell->Id, 0 );
-    else                                    // no category, so it's a gcd
-    {
-        //sLog.outDebug("Global cooldown adding: %u ms", atime );
-        m_globalCooldown = mstime + atime;
-    }
+    else m_globalCooldown = mstime + atime;
 }
 
 void Player::Cooldown_OnCancel(SpellEntry *pSpell)
 {
-    uint32 mstime = getMSTime();
     if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
         return;
 
-    int32 atime = float2int32( float(pSpell->StartRecoveryTime) * GetFloatValue(UNIT_MOD_CAST_SPEED) );
+    int32 atime = pSpell->StartRecoveryTime;
+    if( GetFloatValue(UNIT_MOD_CAST_SPEED) < 1.0f )
+        atime *= GetFloatValue(UNIT_MOD_CAST_SPEED);
     if( atime <= 0 )
         return;
 
+    uint32 mstime = getMSTime();
     if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
         m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase(pSpell->StartRecoveryCategory);
     else m_globalCooldown = mstime;

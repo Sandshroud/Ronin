@@ -472,16 +472,15 @@ void ItemManager::LoadItemOverrides()
 
         if(Damage)
         {
-            float dps = Damage->mod_DPS[Quality];
-            float avgDamage = dps * proto->Delay * 0.001f;
+            float avgDamage = (proto->ArmorDamageModifier*Damage->mod_DPS[Quality]) * proto->Delay * 0.001f;
             proto->minDamage = (proto->StatScalingFactor * -0.5f + 1.0f) * avgDamage;
             proto->maxDamage = floor(float(avgDamage * (proto->StatScalingFactor * 0.5f + 1.0f) + 0.5f));
         }
 
         if(ArmorS)
-            proto->Armor = ArmorS->mod_Resist[Quality];
+            proto->Armor = float2int32(proto->ArmorDamageModifier*float(ArmorS->mod_Resist[Quality]));
         else if(ArmorQ && ArmorT && ArmorE)
-            proto->Armor = uint32(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f);
+            proto->Armor = float2int32(proto->ArmorDamageModifier*(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f));
     }
 
     // Unload all DBC files

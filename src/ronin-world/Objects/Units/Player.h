@@ -706,7 +706,8 @@ public:
     int32 GetBonusRangedAttackPower();
     int32 GetBonusResistance(uint8 school);
 
-    float GetRatioForCombatRating(uint32 combatRating);
+    void UpdateCombatRating(uint8 combatRating, float value);
+    float GetRatioForCombatRating(uint8 combatRating);
     int32 CalculatePlayerCombatRating(uint8 combatRating);
 
 private:
