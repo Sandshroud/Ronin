@@ -9,6 +9,10 @@ Container::Container(ItemPrototype *proto, uint32 counter) : Item(proto, counter
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
 
     SetSlotCount(proto->ContainerSlots);
+    uint8 TotalSlots = GetSlotCount();
+    m_itemSlots = new Item*[TotalSlots];
+    for (uint8 i = 0; i < TotalSlots; i++)
+        m_itemSlots[i] = NULL;
 }
 
 Container::~Container( )
@@ -54,10 +58,10 @@ bool Container::AddItem(uint8 slot, Item* item)
 {
     if (m_owner == NULL || slot >= GetSlotCount())
         return false;
-    if(m_itemSlots.find(slot) != m_itemSlots.end())
+    if(m_itemSlots[slot] != NULL)
         return false;
 
-    m_itemSlots.insert(std::make_pair(slot, item));
+    m_itemSlots[slot] = item;
     item->m_isDirty = true;
 
     item->SetUInt64Value(ITEM_FIELD_CONTAINED, GetGUID());
@@ -161,8 +165,8 @@ bool Container::SafeFullRemoveItemFromSlot(uint8 slot)
 
     if(pItem == NULL || pItem == this)
         return false;
-    m_itemSlots[slot] = NULL;
 
+    m_itemSlots[slot] = NULL;
     SetUInt64Value(CONTAINER_FIELD_SLOT_1 + slot*2, 0 );
     pItem->SetUInt64Value(ITEM_FIELD_CONTAINED, 0);
 
@@ -209,6 +213,6 @@ void Container::SaveBagToDB(uint8 slot, bool first, QueryBuffer * buf)
     SaveToDB(INVENTORY_SLOT_NOT_SET, slot, first, buf);
     uint8 slotCount = GetSlotCount();
     for(uint8 i = 0; i < slotCount; i++)
-        if (m_itemSlots[i] && !((m_itemSlots[i]->GetProto()->Flags)& 2) )
+        if (m_itemSlots[i] && !(m_itemSlots[i]->GetProto()->Flags & DBC_ITEMFLAG_CONJURED) )
             m_itemSlots[i]->SaveToDB(slot, i, first, buf);
 }

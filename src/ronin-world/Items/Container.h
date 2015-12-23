@@ -22,12 +22,7 @@ public:
     bool AddItem(uint8 slot, Item* item);
     bool AddItemToFreeSlot(Item* pItem, uint8 *r_slot);
 
-    Item* GetItem(uint8 slot)
-    {
-        if(m_itemSlots.find(slot) != m_itemSlots.end())
-            return m_itemSlots.at(slot);
-        return NULL;
-    }
+    Item* GetItem(uint8 slot) { ASSERT(slot < GetSlotCount()); return m_itemSlots[slot]; }
 
     uint8 FindFreeSlot();
     bool HasItems();
@@ -42,6 +37,6 @@ public:
     void SetSlotCount(uint32 count) { SetUInt32Value(CONTAINER_FIELD_NUM_SLOTS, std::min<uint32>(MAX_CONTAINER_SLOTS, count)); }
 
 protected:
-    std::map<uint8, Item*> m_itemSlots;
+    Item **m_itemSlots;
 
 };
