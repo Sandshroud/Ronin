@@ -17,17 +17,10 @@ Container::Container(ItemPrototype *proto, uint32 counter) : Item(proto, counter
 
 Container::~Container( )
 {
-
-}
-
-void Container::Init()
-{
-    Item::Init();
-}
-
-void Container::Destruct()
-{
-    Item::Destruct();
+    uint8 TotalSlots = GetSlotCount();
+    for (uint8 i = 0; i < TotalSlots; i++)
+        m_itemSlots[i] = NULL;
+    delete [] m_itemSlots;
 }
 
 void Container::LoadFromDB( Field *fields )

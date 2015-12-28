@@ -346,9 +346,8 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
 
     sLog.outDebug("ITEM: autoequip, Inventory slot: %i Source Slot: %i", SrcInvSlot, SrcSlot);
 
-    Item* eitem=_player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot);
-
-    if(!eitem)
+    Item *eitem=_player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot), *oitem = NULL;
+    if(eitem == NULL)
     {
         _player->GetInventory()->BuildInventoryChangeError(eitem, NULL, INV_ERR_ITEM_NOT_FOUND);
         return;
@@ -459,17 +458,13 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
         }
     }
 
-    Item* oitem = NULL;
-
     if( SrcInvSlot == INVENTORY_SLOT_NOT_SET )
     {
         _player->GetInventory()->SwapItemSlots( SrcSlot, Slot );
     }
-    else
+    else if(eitem = _player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(SrcInvSlot,SrcSlot, false))
     {
-        eitem=_player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(SrcInvSlot,SrcSlot, false);
-        oitem=_player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, Slot, false);
-        if(oitem)
+        if(oitem = _player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, Slot, false))
         {
             result = _player->GetInventory()->SafeAddItem(oitem,SrcInvSlot,SrcSlot);
             if(!result)
@@ -479,6 +474,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
                 oitem = NULL;
             }
         }
+
         result = _player->GetInventory()->SafeAddItem(eitem, INVENTORY_SLOT_NOT_SET, Slot);
         if(!result)
         {

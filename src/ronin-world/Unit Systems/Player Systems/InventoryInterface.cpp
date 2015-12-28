@@ -2439,31 +2439,21 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
 //-------------------------------------------------------------------//
 void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
 {
-    int8 containerslot, slot;
-    Item* item;
-    ItemPrototype* proto;
-
     if( result )
     {
         do
         {
             Field* fields = result->Fetch();
-            containerslot = fields[15].GetInt8(), slot = fields[16].GetUInt8();
-            if( proto = sItemMgr.LookupEntry(fields[2].GetUInt32()) )
+            int8 containerslot = fields[15].GetInt8();
+            uint8 slot = fields[16].GetUInt8();
+            if(ItemPrototype *proto = sItemMgr.LookupEntry(fields[2].GetUInt32()))
             {
-                if( proto->InventoryType == INVTYPE_BAG )
-                    item = new Container( proto, fields[1].GetUInt32() );
-                else item = new Item( proto, fields[1].GetUInt32() );
-
+                Item* item = (proto->InventoryType == INVTYPE_BAG ? new Container(proto, fields[1].GetUInt32()) : new Item(proto, fields[1].GetUInt32()));
                 item->Init();
                 item->LoadFromDB( fields );
                 if( SafeAddItem( item, containerslot, slot ) )
                     item->m_isDirty = false;
-                else
-                {
-                    item->Destruct();
-                    item = NULL;
-                }
+                else item->Destruct();
             }
         } while( result->NextRow() );
     }
@@ -2474,9 +2464,7 @@ void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
 //-------------------------------------------------------------------//
 void PlayerInventory::mSaveItemsToDatabase(bool first, QueryBuffer * buf)
 {
-    uint32 x;
-
-    for( x = EQUIPMENT_SLOT_START; x < MAX_INVENTORY_SLOT; ++x )
+    for( uint32 x = EQUIPMENT_SLOT_START; x < MAX_INVENTORY_SLOT; ++x )
     {
         if( GetInventoryItem( x ) != NULL )
         {
