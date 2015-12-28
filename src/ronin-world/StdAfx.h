@@ -174,7 +174,7 @@ extern "C" {
 #include "ObjectMgr.h"
 #include "GuildDefines.h"
 #include "GuildManager.h"
-#include "WorldCreator.h"
+#include "WorldManager.h"
 #include "Channel.h"
 #include "ChannelMgr.h"
 #include "ArenaTeam.h"

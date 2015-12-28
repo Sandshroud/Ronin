@@ -810,7 +810,7 @@ bool ChatHandler::HandleGOScale(const char* args, WorldSession* m_session)
     go->WorldObject::RemoveFromWorld(false);
     go->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
     go->SaveToDB();
-    sInstanceMgr.PushToWorldQueue(go);
+    sWorldMgr.PushToWorldQueue(go);
     sEventMgr.AddEvent(mgr, &MapMgr::EventPushObjectToSelf, ((WorldObject*)go), EVENT_MAPMGR_PUSH_TO_SELF, 3000, 1, EVENT_FLAG_NONE);
     sWorld.LogGM(m_session, "Scaled gameobject spawn id %u to %f", go->m_spawn ? go->m_spawn->id : 0, scale);
     return true;

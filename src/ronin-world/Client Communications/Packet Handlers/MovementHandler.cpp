@@ -3183,7 +3183,7 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             plr->SetInstanceID(trans->GetInstanceID());
             plr->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
             if(trans->IsInWorld())
-                sInstanceMgr.PushToWorldQueue(plr);
+                sWorldMgr.PushToWorldQueue(plr);
         }
         else
         {
@@ -3196,7 +3196,7 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             plr->SetInstanceID(m_destInstanceId);
             plr->SetPosition(m_teleportLocation);
             m_clientLocation.ChangeCoords(m_teleportLocation.x, m_teleportLocation.y, m_teleportLocation.z, m_teleportLocation.o);
-            sInstanceMgr.PushToWorldQueue(plr);
+            sWorldMgr.PushToWorldQueue(plr);
         }
     }
 }

@@ -1086,7 +1086,7 @@ void WorldSession::HandleCompleteCinematic(WorldPacket& recv_data)
 
 void WorldSession::HandleResetInstanceOpcode(WorldPacket& recv_data)
 {
-    sInstanceMgr.ResetSavedInstances(_player);
+    sWorldMgr.ResetSavedInstances(_player);
 }
 
 void WorldSession::HandleToggleCloakOpcode(WorldPacket& recv_data)
@@ -1133,7 +1133,7 @@ void WorldSession::HandleDungeonDifficultyOpcode(WorldPacket& recv_data)
         pData << data;
 
         _player->iInstanceType = data;
-        sInstanceMgr.ResetSavedInstances(_player);
+        sWorldMgr.ResetSavedInstances(_player);
 
         Group * m_Group = _player->GetGroup();
 
@@ -1155,7 +1155,7 @@ void WorldSession::HandleDungeonDifficultyOpcode(WorldPacket& recv_data)
     else if(!_player->GetGroup())
     {
         _player->iInstanceType = data;
-        sInstanceMgr.ResetSavedInstances(_player);
+        sWorldMgr.ResetSavedInstances(_player);
     }
 }
 

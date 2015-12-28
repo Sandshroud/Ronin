@@ -387,7 +387,7 @@ void SubGroup::Disband()
                     //are we in an instance?
                     if( plr->GetGroup() && plr->GetInstanceID())
                     {
-                        sInstanceMgr.PlayerLeftGroup(plr->GetGroup(),plr);
+                        sWorldMgr.PlayerLeftGroup(plr->GetGroup(),plr);
                     }
                     //clear the raid screen
                     GetParent()->SendNullUpdate(plr);
@@ -441,7 +441,7 @@ void Group::RemovePlayer(PlayerInfo * info)
     Player* pPlayer = info->m_loggedInPlayer;
 
     if( pPlayer != NULL && (pPlayer->m_bg != NULL && !pPlayer->m_bg->HasEnded()))
-        sInstanceMgr.PlayerLeftGroup( this, pPlayer );
+        sWorldMgr.PlayerLeftGroup( this, pPlayer );
 
     if(m_isqueued)
     {

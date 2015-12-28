@@ -123,19 +123,18 @@ public:
 
 typedef RONIN_UNORDERED_MAP<uint32, Instance*> InstanceMap;
 
-class SERVER_DECL InstanceMgr
+class SERVER_DECL WorldManager
 {
     friend class MapMgr;
 public:
-    InstanceMgr();
-    ~InstanceMgr();
+    WorldManager();
+    ~WorldManager();
 
     RONIN_INLINE Map* GetMap(uint32 mapid)
     {
         if(mapid > NUM_MAPS)
             return NULL;
-        else
-            return m_maps[mapid];
+        return m_maps[mapid];
     }
 
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
@@ -143,7 +142,6 @@ public:
     bool PushToWorldQueue(WorldObject *obj);
     MapMgr* GetInstance(WorldObject* obj);
     MapMgr* GetInstance(uint32 MapId, uint32 InstanceId);
-    MapMgr* ClusterCreateInstance(uint32 mapid, uint32 instanceid);
 
     uint32 GenerateInstanceID();
     void BuildXMLStats(char * m_file);
@@ -316,8 +314,9 @@ private:
 
     Mutex m_mapLock;
     Map* m_maps[NUM_MAPS];
+
     InstanceMap* m_instances[NUM_MAPS];
     MapMgr* m_singleMaps[NUM_MAPS];
 };
 
-extern SERVER_DECL InstanceMgr sInstanceMgr;
+extern SERVER_DECL WorldManager sWorldMgr;

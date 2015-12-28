@@ -3661,7 +3661,7 @@ Corpse* Player::CreateCorpse()
 
     // spawn
     if( m_mapMgr == NULL )
-        sInstanceMgr.PushToWorldQueue(pCorpse);
+        sWorldMgr.PushToWorldQueue(pCorpse);
     else pCorpse->PushToWorld(m_mapMgr);
 
     // add deletion event if bone corpse
@@ -5320,7 +5320,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
     if(m_mapId != mapid || force_new_world)
     {
         //Preteleport will try to find an instance (saved or active), or create a new one if none found.
-        uint32 status = sInstanceMgr.PreTeleport(mapid, this, instance_id);
+        uint32 status = sWorldMgr.PreTeleport(mapid, this, instance_id);
         if(status != INSTANCE_OK && status != INSTANCE_OK_RESET_POS)
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
@@ -6514,7 +6514,7 @@ void Player::CompleteLoading()
         raidgrouponlysent=false;
     }
 
-    sInstanceMgr.BuildSavedInstancesForPlayer(this);
+    sWorldMgr.BuildSavedInstancesForPlayer(this);
 }
 
 void Player::OnWorldPortAck()

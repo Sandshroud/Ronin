@@ -1287,7 +1287,7 @@ bool MapMgr::Do()
     if(m_battleground)
     {
         BattlegroundManager.DeleteBattleground(m_battleground);
-        sInstanceMgr.DeleteBattlegroundInstance( GetMapId(), GetInstanceID() );
+        sWorldMgr.DeleteBattlegroundInstance( GetMapId(), GetInstanceID() );
     }
 
     if(pInstance)
@@ -1295,9 +1295,9 @@ bool MapMgr::Do()
         pInstance->m_mapMgr = NULL;
         // check for a non-raid instance, these expire after 10 minutes.
         if(GetMapInfo()->type == INSTANCE_NONRAID || pInstance->m_isBattleground)
-            sInstanceMgr._DeleteInstance(pInstance, true);
+            sWorldMgr._DeleteInstance(pInstance, true);
     } else if(GetMapInfo()->type == INSTANCE_NULL)
-        sInstanceMgr.m_singleMaps[GetMapId()] = NULL;
+        sWorldMgr.m_singleMaps[GetMapId()] = NULL;
 
     // Teleport any left-over players out.
     TeleportPlayers();

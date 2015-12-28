@@ -107,5 +107,5 @@ void DayWatcherThread::update_daily()
 void DayWatcherThread::Reset_Heroic_Instances()
 {
     sLog.Notice("DayWatcherThread", "Reseting heroic instances...");
-    sInstanceMgr.ResetHeroicInstances();
+    sWorldMgr.ResetHeroicInstances();
 }

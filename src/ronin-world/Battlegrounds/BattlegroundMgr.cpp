@@ -1229,7 +1229,7 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
     {
         /* arenas follow a different procedure. */
         uint32 mapid = arena_map_ids[RandomUInt(4)];
-        mgr = sInstanceMgr.CreateBattlegroundInstance(mapid);
+        mgr = sWorldMgr.CreateBattlegroundInstance(mapid);
         if(mgr == NULL)
         {
             sLog.Error("BattlegroundManager", "Arena CreateInstance() call failed for map %u, type %u, level group %u", mapid, Type, LevelGroup);
@@ -1274,7 +1274,7 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
     }
 
     /* Create Map Manager */
-    mgr = sInstanceMgr.CreateBattlegroundInstance(GetBGMapID(Type));
+    mgr = sWorldMgr.CreateBattlegroundInstance(GetBGMapID(Type));
     if(mgr == NULL)
     {
         sLog.Error("BattlegroundManager", "CreateInstance() call failed for map %u, type %u, level group %u", GetBGMapID(Type), Type, LevelGroup);

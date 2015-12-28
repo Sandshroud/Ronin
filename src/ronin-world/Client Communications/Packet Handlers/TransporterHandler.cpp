@@ -24,7 +24,7 @@ bool Transporter::CreateAsTransporter(uint32 EntryID, const char* Name)
     SetUInt32Value(GAMEOBJECT_LEVEL, m_period); // ITS OVER 9000!!!!! No, really, it is.
 
     // Add to world
-    sInstanceMgr.PushToWorldQueue(this);
+    sWorldMgr.PushToWorldQueue(this);
 
     return true;
 }
@@ -368,7 +368,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
     RemoveFromWorld(false);
     SetMapId(mapid);
     SetPosition(x,y,z,m_position.o);
-    sInstanceMgr.PushToWorldQueue(this);
+    sWorldMgr.PushToWorldQueue(this);
 }
 
 Transporter::Transporter(uint64 guid) : GameObject(guid)

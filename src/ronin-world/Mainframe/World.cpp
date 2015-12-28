@@ -179,7 +179,7 @@ void World::Destruct()
     delete DayWatcherThread::getSingletonPtr();
 
     sLog.Notice("InstanceMgr", "~InstanceMgr()");
-    sInstanceMgr.Shutdown();
+    sWorldMgr.Shutdown();
 
     Storage_Cleanup();
 }
@@ -443,7 +443,7 @@ bool World::SetInitialWorldSettings()
     }
 
     // calling this puts all maps into our task list.
-    sInstanceMgr.Load(&tl);
+    sWorldMgr.Load(&tl);
 
     // wait for the events to complete.
     tl.wait();
@@ -1343,7 +1343,7 @@ void World::CharacterEnumProc(QueryResultVector& results, uint32 AccountId)
 
 void World::CheckForExpiredInstances()
 {
-    sInstanceMgr.CheckForExpiredInstances();
+    sWorldMgr.CheckForExpiredInstances();
 }
 
 void World::DisconnectUsersWithAccount(const char * account, WorldSession * m_session)
