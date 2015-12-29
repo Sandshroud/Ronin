@@ -1019,20 +1019,7 @@ void Aura::EventPeriodicEnergize(uint32 amount,uint32 type)
 
 void Aura::SpellAuraModPacify(bool apply)
 {
-    // Can't Attack
-    if( apply )
-    {
-        m_target->m_pacified++;
-        m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
-    }
-    else
-    {
-        m_target->m_pacified--;
-        if(m_target->m_pacified == 0)
-        {
-            m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
-        }
-    }
+
 }
 
 void Aura::SpellAuraModRoot(bool apply)
@@ -1519,30 +1506,7 @@ void Aura::SpellAuraModCratureDmgDone(bool apply)
 
 void Aura::SpellAuraPacifySilence(bool apply)
 {
-    // Can't Attack or Cast Spells
-    if(apply)
-    {
-        m_target->m_pacified++;
-        m_target->m_silenced++;
-        m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED | UNIT_FLAG_SILENCED);
 
-        if(m_target->GetCurrentSpell() && m_target->GetGUID() != m_casterGuid &&
-            m_target->GetCurrentSpell()->getState() == SPELL_STATE_CASTING )
-            {
-                m_target->GetCurrentSpell()->cancel();
-                m_target->SetCurrentSpell(NULL);
-            }
-    }
-    else
-    {
-        m_target->m_pacified--;
-        if(m_target->m_pacified == 0)
-            m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
-
-        m_target->m_silenced--;
-        if(m_target->m_silenced == 0)
-            m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED);
-    }
 }
 
 void Aura::SpellAuraModScale(bool apply)
@@ -1718,16 +1682,7 @@ void Aura::SpellAuraModDisarm(bool apply)
 
 void Aura::SpellAuraModStalked(bool apply)
 {
-    if(apply)
-    {
-        m_target->stalkedby = m_casterGuid;
-        m_target->SetFlag(UNIT_DYNAMIC_FLAGS, 0x0002);
-    }
-    else
-    {
-        m_target->stalkedby = 0;
-        m_target->RemoveFlag(UNIT_DYNAMIC_FLAGS, 0x0002);
-    }
+
 }
 
 void Aura::SpellAuraSchoolAbsorb(bool apply)
@@ -2035,12 +1990,7 @@ void Aura::SpellAuraModResistChance(bool apply)
 
 void Aura::SpellAuraModDetectRange(bool apply)
 {
-    Unit * m_caster = GetUnitCaster();
-    if(m_caster == NULL)
-        return;
-    if(apply)
-        m_caster->setDetectRangeMod(m_target->GetGUID(), mod->m_amount);
-    else m_caster->unsetDetectRangeMod(m_target->GetGUID());
+
 }
 
 void Aura::SpellAuraPreventsFleeing(bool apply)
@@ -2878,18 +2828,7 @@ void Aura::AttemptDispel(Unit* pCaster, bool canResist)
 
 void Aura::SpellAuraModIgnoreArmorPct(bool apply)
 {
-    if( m_spellProto->NameHash == SPELL_HASH_MACE_SPECIALIZATION )
-    {
-        if(apply)
-            m_target->m_ignoreArmorPctMaceSpec += (mod->m_amount / 100.0f);
-        else
-            m_target->m_ignoreArmorPctMaceSpec -= (mod->m_amount / 100.0f);
-        return;
-    }
 
-    if(apply)
-        m_target->m_ignoreArmorPct += (mod->m_amount / 100.0f);
-    else m_target->m_ignoreArmorPct -= (mod->m_amount / 100.0f);
 }
 
 void Aura::SpellAuraSetPhase(bool apply)

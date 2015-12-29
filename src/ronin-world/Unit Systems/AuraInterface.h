@@ -35,11 +35,8 @@ enum AuraStatus : uint16
 class SERVER_DECL AuraInterface
 {
 public:
-    AuraInterface();
+    AuraInterface(Unit *unit);
     ~AuraInterface();
-
-    void Init(Unit* unit);
-    void DeInit();
 
     void Update(uint32 diff);
 

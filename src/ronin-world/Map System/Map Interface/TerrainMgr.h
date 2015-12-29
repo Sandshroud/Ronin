@@ -101,9 +101,6 @@ public:
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
     void GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY);
 
-    //
-    size_t GetSize();
-
 private:
     /// MapPath contains the location of all mapfiles.
     std::string mapPath;
@@ -121,9 +118,8 @@ private:
     FILE * FileDescriptor;
 
     /// Our memory saving system for small allocations
-    uint32 TileCountX, TileCountY;
-    uint32 TileStartX, TileEndX;
-    uint32 TileStartY, TileEndY;
+    uint8 TileStartX, TileEndX;
+    uint8 TileStartY, TileEndY;
 
     /// This holds the offsets of the tile information for each tile.
     uint32 TileOffsets[64][64];
@@ -132,7 +128,7 @@ private:
     uint32 LoadCounter[64][64];
 
     /// Our storage array. This contains pointers to all allocated TileInfo's.
-    TileTerrainInformation *** TileInformation;
+    std::map<std::pair<uint32, uint32>, TileTerrainInformation> tileInformation;
 
 public:
     /* Initializes the file descriptor and readys it for data retreival.
@@ -181,7 +177,10 @@ protected:
       */
     RONIN_INLINE TileTerrainInformation* GetTileInformation(uint32 x, uint32 y)
     {
-        return TileInformation[x][y];
+        std::pair<uint32, uint32> tilePair = std::make_pair(x, y);
+        if(tileInformation.find(tilePair) == tileInformation.end())
+            return NULL;
+        return &tileInformation.at(tilePair);
     }
 
     /* Converts a global x co-ordinate into a tile x co-ordinate.
@@ -206,11 +205,12 @@ protected:
       */
     RONIN_INLINE bool TileInformationLoaded(uint32 x, uint32 y)
     {
-        if(TileInformation == NULL)
+        if(tileInformation.empty())
             return false;
-        if(TileInformation[x][y] != 0)
-            return true;
-        return false;
+        std::pair<uint32, uint32> tilePair = std::make_pair(x, y);
+        if(tileInformation.find(tilePair) == tileInformation.end())
+            return false;
+        return true;
     }
 
     /* Checks that the co-ordinates are within range.

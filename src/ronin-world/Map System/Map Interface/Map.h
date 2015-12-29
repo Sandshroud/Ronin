@@ -12,7 +12,6 @@ class MapMgr;
 struct MapInfo;
 class TerrainMgr;
 class TemplateMgr;
-
 struct Formation;
 
 typedef struct
@@ -23,8 +22,9 @@ typedef struct
     uint32 modelId;
     int32 vendormask;
 }CreatureSpawn;
+typedef std::vector<CreatureSpawn*> CreatureSpawnList;
 
-typedef struct GOSpawn
+typedef struct
 {
     uint32  id;//spawn ID
     uint32  entry;
@@ -34,8 +34,6 @@ typedef struct GOSpawn
     uint32  faction;
     float   scale;
 } GOSpawn;
-
-typedef std::vector<CreatureSpawn*> CreatureSpawnList;
 typedef std::vector<GOSpawn*> GOSpawnList;
 
 typedef struct
@@ -44,8 +42,7 @@ typedef struct
     GOSpawnList GOSpawns;
 }CellSpawns;
 
-typedef std::map<uint32, CellSpawns*> CellSpawnsMap;
-typedef std::map<uint32, CellSpawnsMap* > SpawnsMap;
+typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;
 
 class SERVER_DECL Map
 {
@@ -57,46 +54,27 @@ public:
     RONIN_INLINE const char* GetName() { return mapName.c_str(); }
     RONIN_INLINE MapEntry* GetDBCEntry() { return me; }
 
-    RONIN_INLINE CellSpawns *GetSpawnsList(uint32 cellx,uint32 celly)
-    {
-        ASSERT(cellx < _sizeX);
-        ASSERT(celly < _sizeY);
-
-        SpawnsMap::iterator itr = m_spawns.find(cellx);
-        if(itr == m_spawns.end())
-            return NULL;
-        if(itr->second == NULL)
-            return NULL;
-        if(itr->second->find(celly) == itr->second->end())
-            return NULL;
-        return itr->second->at(celly);
-    }
-
     RONIN_INLINE CellSpawns *GetSpawnsListAndCreate(uint32 cellx, uint32 celly)
     {
-        ASSERT(cellx < _sizeX);
-        ASSERT(celly < _sizeY);
-        SpawnsMap::iterator itr = m_spawns.find(cellx);
-        if(itr == m_spawns.end())
-        {
-            m_spawns.insert(std::make_pair(cellx, new CellSpawnsMap()));
-            itr = m_spawns.find(cellx);
-        }
-        if(itr->second == NULL)
-            itr->second = new CellSpawnsMap();
-        if(itr->second->find(celly) == itr->second->end())
-            itr->second->insert(std::make_pair(celly, new CellSpawns()));
-        return itr->second->at(celly);
+        ASSERT(cellx < _sizeX && celly < _sizeY);
+        return &m_spawns[std::make_pair(cellx, celly)];
+    }
+
+    RONIN_INLINE CellSpawns *GetSpawnsList(uint32 cellx,uint32 celly)
+    {
+        ASSERT(cellx < _sizeX && celly < _sizeY);
+        std::pair<uint32, uint32> cellPair = std::make_pair(cellx, celly);
+        if(m_spawns.find(cellPair) == m_spawns.end())
+            return NULL;
+        return &m_spawns.at(cellPair);
     }
 
     void LoadSpawns(bool reload = false);//set to true to make clean up
-    uint32 CreatureSpawnCount;
     TerrainMgr* GetMapTerrain() { return _terrain; };
 
     RONIN_INLINE void LoadAllTerrain() { _terrain->LoadAllTerrain(); }
     RONIN_INLINE void UnloadAllTerrain() { _terrain->UnloadAllTerrain(); }
 
-    RONIN_INLINE size_t GetTerrainSize() { return _terrain->GetSize(); }
     RONIN_INLINE float GetLandHeight(float x, float y) { return _terrain->GetLandHeight(x, y); }
     RONIN_INLINE float GetWaterHeight(float x, float y, float z) { return _terrain->GetWaterHeight(x, y, z); }
     RONIN_INLINE uint8 GetWaterType(float x, float y) { return _terrain->GetWaterType(x, y); }

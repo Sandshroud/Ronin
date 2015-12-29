@@ -628,7 +628,7 @@ float AIInterface::_CalcAggroRange(Unit* target)
         AggroRange = 40.0f;
 
     // SPELL_AURA_MOD_DETECT_RANGE
-    int32 modDetectRange = target->getDetectRangeMod(m_Unit->GetGUID());
+    int32 modDetectRange = 0;
     AggroRange += modDetectRange;
     if(AggroRange < 5.0f)
         AggroRange = 5.0f;

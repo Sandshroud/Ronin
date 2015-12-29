@@ -39,30 +39,14 @@ Map::~Map()
     sLog.Notice("Map", "~Map %u", _mapId);
     delete _terrain;
 
-    CellSpawns *sp = NULL;
-    CreatureSpawn *cs = NULL;
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
-        if(itr->second != NULL)
-        {
-            for(CellSpawnsMap::iterator itr2 = itr->second->begin(); itr2 != itr->second->end(); itr2++)
-            {
-                sp = itr2->second;
-                itr2->second = NULL;
-                for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(), i2; i != sp->CreatureSpawns.end(); i++)
-                    delete (*i);
-
-                for(GOSpawnList::iterator it = sp->GOSpawns.begin(); it!=sp->GOSpawns.end(); it++)
-                    delete (*it);
-
-                delete sp;
-                sp = NULL;
-            }
-
-            itr->second->clear();
-            delete itr->second;
-            itr->second = NULL;
-        }
+        for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(), i2; i != itr->second.CreatureSpawns.end(); i++)
+            delete (*i);
+        itr->second.CreatureSpawns.clear();
+        for(GOSpawnList::iterator i = itr->second.GOSpawns.begin(); i != itr->second.GOSpawns.end(); i++)
+            delete (*i);
+        itr->second.GOSpawns.clear();
     }
     m_spawns.clear();
 
@@ -71,17 +55,16 @@ Map::~Map()
         sVMapInterface.DeactivateMap(_mapId);
 }
 
-static bool first_table_warning = true;
+static bool ctr_first_table_warning = true;
 bool CheckResultLengthCreatures(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
     if( fieldcount != 9 )
     {
-        if( first_table_warning )
+        if( ctr_first_table_warning )
         {
-            first_table_warning = false;
-            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your creature_spawns table has the wrong column count(%u,%u).", fieldcount, 22).c_str(),
-                "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
+            ctr_first_table_warning = false;
+            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your creature_spawns table has the wrong column count(%u,%u).", fieldcount, 22).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
         }
 
         return false;
@@ -89,17 +72,16 @@ bool CheckResultLengthCreatures(QueryResult * res)
     return true;
 }
 
-static bool first_table_warningg = true;
+static bool go_first_table_warning = true;
 bool CheckResultLengthGameObject(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
     if( fieldcount != 11 )
     {
-        if( first_table_warningg )
+        if( go_first_table_warning )
         {
-            first_table_warningg = false;
-            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 11).c_str(),
-                "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
+            go_first_table_warning = false;
+            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 11).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
         }
 
         return false;
@@ -111,29 +93,12 @@ void Map::LoadSpawns(bool reload /* = false */)
 {
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
-        CellSpawnsMap *spm = itr->second;
-        itr->second = NULL;
-        if(spm)
-        {
-            for(CellSpawnsMap::iterator itr2 = spm->begin(); itr2 != spm->end(); itr2++)
-            {
-                CellSpawns *sp = itr2->second;
-                itr2->second = NULL;
-                if(sp)
-                {
-                    for(CreatureSpawnList::iterator i = sp->CreatureSpawns.begin(); i != sp->CreatureSpawns.end(); i++)
-                        delete (*i);
-
-                    for(GOSpawnList::iterator it = sp->GOSpawns.begin(); it!=sp->GOSpawns.end(); it++)
-                        delete (*it);
-
-                    delete sp;
-                }
-            }
-
-            spm->clear();
-            delete spm;
-        }
+        for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(), i2; i != itr->second.CreatureSpawns.end(); i++)
+            delete (*i);
+        itr->second.CreatureSpawns.clear();
+        for(GOSpawnList::iterator i = itr->second.GOSpawns.begin(); i != itr->second.GOSpawns.end(); i++)
+            delete (*i);
+        itr->second.GOSpawns.clear();
     }
     m_spawns.clear();
 

@@ -158,7 +158,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
 
     _loaded = true;
     uint32 mapId = _mapmgr->GetMapId();
-    Instance * pInstance = _mapmgr->pInstance;
+    InstanceMgr * pInstance = _mapmgr->IsInstance() ? castPtr<InstanceMgr>(_mapmgr) : NULL;
     if(sp->CreatureSpawns.size())//got creatures
     {
         Creature* c = NULL;

@@ -2112,7 +2112,7 @@ bool Spell::Reflect(Unit* refunit)
 
 void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * spell)
 {
-    uint32 status = GetDiminishingGroup(spell->NameHash);
+    /*uint32 status = GetDiminishingGroup(spell->NameHash);
     uint32 Grp = status & 0xFFFF;   // other bytes are if apply to pvp
     uint32 PvE = (status >> 16) & 0xFFFF;
 
@@ -2127,7 +2127,6 @@ void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * sp
 
     // TODO: check for spells that should do this
     float Qduration = float(*Duration);
-
     switch(Target->m_diminishCount[Grp])
     {
     case 0: // Full effect
@@ -2166,12 +2165,12 @@ void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * sp
     // Reset the diminishing return counter, and add to the aura count (we don't decrease the timer till we
     // have no auras of this type left.
     ++Target->m_diminishAuraCount[Grp];
-    ++Target->m_diminishCount[Grp];
+    ++Target->m_diminishCount[Grp];*/
 }
 
 void UnapplyDiminishingReturnTimer(Unit* Target, SpellEntry * spell)
 {
-    uint32 status = GetDiminishingGroup(spell->NameHash);
+    /*uint32 status = GetDiminishingGroup(spell->NameHash);
     uint32 Grp = status & 0xFFFF;   // other bytes are if apply to pvp
     uint32 PvE = (status >> 16) & 0xFFFF;
 
@@ -2188,9 +2187,7 @@ void UnapplyDiminishingReturnTimer(Unit* Target, SpellEntry * spell)
 
     // start timer decrease
     if(!Target->m_diminishAuraCount[Grp])
-    {
-        Target->SetDiminishTimer(Grp);
-    }
+        Target->SetDiminishTimer(Grp);*/
 }
 
 /// Calculate the Diminishing Group. This is based on a name hash.
@@ -2198,107 +2195,7 @@ void UnapplyDiminishingReturnTimer(Unit* Target, SpellEntry * spell)
 /// I leave it here.
 uint32 GetDiminishingGroup(uint32 NameHash)
 {
-    int32 grp = -1;
-    bool pve = false;
-
-    switch(NameHash)
-    {
-    case SPELL_HASH_CYCLONE:
-    case SPELL_HASH_BLIND:
-        grp = 0;
-        pve = true;
-        break;
-    case SPELL_HASH_MIND_CONTROL:
-        grp = 1;
-        break;
-    case SPELL_HASH_FEAR:
-    case SPELL_HASH_PSYCHIC_SCREAM:
-    case SPELL_HASH_HOWL_OF_TERROR:
-    case SPELL_HASH_SEDUCTION:
-        grp = 2;
-        break;
-    case SPELL_HASH_SAP:
-    case SPELL_HASH_GOUGE:
-    case SPELL_HASH_REPENTANCE:
-    case SPELL_HASH_POLYMORPH:              // Polymorph
-    case SPELL_HASH_POLYMORPH__CHICKEN:     // Chicken
-    case SPELL_HASH_POLYMORPH__SHEEP:       // Good ol' sheep
-        grp = 3;
-        break;
-    case SPELL_HASH_DEATH_COIL:
-        grp = 4;
-        break;
-    case SPELL_HASH_KIDNEY_SHOT:
-        grp = 5;
-        pve = true;
-        break;
-    case SPELL_HASH_ENTRAPMENT:
-        grp = 6;
-        break;
-    case SPELL_HASH_ENTANGLING_ROOTS:
-    case SPELL_HASH_FROST_NOVA:
-        grp = 7;
-        break;
-    case SPELL_HASH_FROSTBITE:
-        grp = 8;
-        break;
-    case SPELL_HASH_HIBERNATE:
-    case SPELL_HASH_WYVERN_STING:
-    case SPELL_HASH_SLEEP:
-    case SPELL_HASH_FROST_TRAP_AURA:
-    case SPELL_HASH_FREEZING_TRAP_EFFECT:
-        grp = 9;
-        break;
-    case SPELL_HASH_BASH:
-    case SPELL_HASH_IMPACT:
-    case SPELL_HASH_HAMMER_OF_JUSTICE:
-    case SPELL_HASH_CHEAP_SHOT:
-    case SPELL_HASH_SHADOWFURY:
-    case SPELL_HASH_CHARGE_STUN:
-    case SPELL_HASH_INTERCEPT:
-    case SPELL_HASH_CONCUSSION_BLOW:
-        grp = 10;
-        pve = true;
-        break;
-    case SPELL_HASH_STONECLAW_STUN:
-    case SPELL_HASH_STUN:
-    case SPELL_HASH_BLACKOUT:
-        grp = 11;
-        pve = true;
-        break;
-    case SPELL_HASH_HEX:
-        grp = 12;
-        break;
-
-
-        /*case SPELL_HASH_BANISH:               // Banish
-        grp = 19;
-        break;
-
-        case SPELL_HASH_FREEZING_TRAP_EFFECT:   // Freezing Trap Effect
-        grp = 20;
-        break;
-
-        case SPELL_HASH_SCARE_BEAST:            // Scare Beast
-        grp = 21;
-        break;
-
-        case SPELL_HASH_ENSLAVE_DEMON:          // Enslave Demon
-        grp = 22;
-        break;
-        case SPELL_HASH_SLEEP:                  // Sleep
-        grp = 23;
-        break;
-        case SPELL_HASH_RIPOSTE:
-        grp = 24;
-        break;*/
-    }
-    uint32 ret;
-    if( pve )
-        ret = grp | (1 << 16);
-    else
-        ret = grp;
-
+    uint32 ret = 0;
     return ret;
 }
 

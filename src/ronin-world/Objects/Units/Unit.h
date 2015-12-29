@@ -617,7 +617,6 @@ public:
 
     std::map< uint32, std::set<Creature*> > m_Summons;
 
-    uint32 m_addDmgOnce;
     void SummonExpireSlot(uint8 slot); // Empties just slot x.
     void SummonExpireAll(bool clearowner); //Empties all slots (NPC's + GameObjects
     RONIN_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].insert(toAdd); };
@@ -662,20 +661,16 @@ public:
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
     // DK:Affect
-    RONIN_INLINE uint32 IsPacified() { return m_pacified; }
-    RONIN_INLINE uint32 IsStunned() { return m_stunned; }
-    RONIN_INLINE uint32 IsFeared() { return m_fearmodifiers; }
-    RONIN_INLINE uint16 HasNoInterrupt() { return m_noInterrupt; }
+    RONIN_INLINE bool IsPacified() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_PACIFY); }
+    RONIN_INLINE bool IsStunned() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_STUN); }
+    RONIN_INLINE bool IsRooted() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_ROOT); }
+    RONIN_INLINE bool IsFeared() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_FEAR); }
+    RONIN_INLINE bool HasNoInterrupt() { return m_noInterrupt; }
 
-    bool setDetectRangeMod(uint64 guid, int32 amount);
-    void unsetDetectRangeMod(uint64 guid);
-    int32 getDetectRangeMod(uint64 guid);
     uint32 Heal(Unit* target,uint32 SpellId, uint32 amount, bool silent = false);
     void Energize(Unit* target,uint32 SpellId, uint32 amount, uint32 type);
 
     uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value
-
-    WoWGuid stalkedby;
 
     //SM
     void SM_FIValue( uint32 modifier, int32* v, uint32* group ) { m_AuraInterface.SM_FIValue(modifier, v, group); }
@@ -738,19 +733,11 @@ public:
     float m_modelhalfsize; // used to calculate if something is in range of this unit
 
     // Auras Modifiers
-    int32 m_pacified;
     int32 m_interruptRegen;
     int32 m_powerRegenPCT;
-    int32 m_stunned;
-
-    int32 m_fearmodifiers;
-
-    int32 m_noInterrupt;
-    int32 m_rooted;
+    bool m_noInterrupt;
     bool disarmed;
     bool disarmedShield;
-    uint64 m_detectRangeGUID[5];
-    int32 m_detectRangeMOD[5];
 
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
 
@@ -812,11 +799,6 @@ public:
     void SetFacing(float newo);//only working if creature is idle
 
     bool IsPoisoned();
-
-    uint16 m_diminishCount[DIMINISH_GROUPS];
-    uint8  m_diminishAuraCount[DIMINISH_GROUPS];
-    std::map<uint8, uint16> m_diminishTimer;
-    bool   m_diminishActive;
 
     void SetDiminishTimer(uint32 index);
 
@@ -924,9 +906,6 @@ public:
 
     EUnitFields GetPowerFieldForType(uint8 type);
     EUnitFields GetMaxPowerFieldForType(uint8 type);
-
-    float m_ignoreArmorPctMaceSpec;
-    float m_ignoreArmorPct;
 
     int32 m_LastSpellManaCost;
 

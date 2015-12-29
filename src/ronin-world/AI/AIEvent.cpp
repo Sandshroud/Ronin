@@ -284,10 +284,10 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
         {
             if(MapMgr* GMap = m_Unit->GetMapMgr())
             {
-                if( GMap->pInstance && GMap->GetMapInfo()->type != INSTANCE_PVP )
+                if( GMap->IsInstance() && GMap->GetMapInfo()->type != INSTANCE_PVP )
                 {
-                    GMap->pInstance->m_killedNpcs.insert( castPtr<Creature>(m_Unit)->GetSQL_id() );
-                    GMap->pInstance->SaveToDB();
+                    castPtr<InstanceMgr>(GMap)->m_killedNpcs.insert( castPtr<Creature>(m_Unit)->GetSQL_id() );
+                    castPtr<InstanceMgr>(GMap)->SaveToDB();
                 }
             }
         }

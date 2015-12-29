@@ -97,31 +97,30 @@ public:
 
 #define sFormationMgr FormationMgr::getSingleton()
 
-class Instance
+class InstanceMgr : public MapMgr
 {
 public:
-    uint32 m_instanceId;
-    uint32 m_mapId;
-    MapMgr* m_mapMgr;
-    WoWGuid m_creatorGuid;
-    uint32 m_creatorGroup;
-    uint32 m_difficulty;
-    std::unordered_set<uint32> m_killedNpcs;
-    std::unordered_set<uint32> m_SavedPlayers;
-    std::unordered_set<uint32> m_EnteredPlayers;
-    Mutex m_SavedLock;
-    time_t m_creation;
-    time_t m_expiration;
-    MapInfo * m_mapInfo;
-    MapEntry * m_dbcMap;
-    bool m_isBattleground;
+    InstanceMgr(Map *map, uint32 mapid, uint32 instanceid) : MapMgr(map, mapid, instanceid) {}
 
     void LoadFromDB(Field * fields);
     void SaveToDB();
     void DeleteFromDB();
+
+    RONIN_INLINE virtual bool IsInstance() { return true; }
+
+    WoWGuid m_creatorGuid;
+    uint32 m_creatorGroup;
+    time_t m_creation;
+    time_t m_expiration;
+    bool m_isBattleground;
+
+    Mutex m_SavedLock;
+    std::unordered_set<uint32> m_killedNpcs;
+    std::unordered_set<uint32> m_SavedPlayers;
+    std::unordered_set<uint32> m_EnteredPlayers;
 };
 
-typedef RONIN_UNORDERED_MAP<uint32, Instance*> InstanceMap;
+typedef RONIN_UNORDERED_MAP<uint32, InstanceMgr*> InstanceMap;
 
 class SERVER_DECL WorldManager
 {
@@ -155,36 +154,32 @@ public:
     void PlayerLeftGroup(Group * pGroup, Player* pPlayer);
 
     // Has instance expired? Can player join?
-    RONIN_INLINE uint8 PlayerOwnsInstance(Instance * pInstance, Player* pPlayer)
+    RONIN_INLINE uint8 PlayerOwnsInstance(InstanceMgr * pInstance, Player* pPlayer)
     {
         // expired?
         if( HasInstanceExpired( pInstance) )
         {
-            _DeleteInstance(pInstance, false);
+            _DeleteInstance(pInstance, false, false);
             return OWNER_CHECK_EXPIRED;
         }
 
-        // Valid map?
-        if( !pInstance->m_mapInfo || !pInstance->m_dbcMap) // ITS A TARP!
-            return OWNER_CHECK_NOT_EXIST;
-
         //Reached player limit?
-        if( pInstance->m_mapMgr && pInstance->m_mapInfo->playerlimit < uint32(pInstance->m_mapMgr->GetPlayerCount()))
+        if( pInstance->GetMapInfo()->playerlimit < uint32(pInstance->GetPlayerCount()))
             return OWNER_CHECK_MAX_LIMIT;
 
         if(!pInstance->m_isBattleground)
         {
             // Matching the requested mode?
-            if( pInstance->m_difficulty != (pInstance->m_dbcMap->IsRaid() ? pPlayer->iRaidType : pPlayer->iInstanceType) )
+            if( pInstance->iInstanceMode != (pInstance->GetdbcMap()->IsRaid() ? pPlayer->iRaidType : pPlayer->iInstanceType) )
                 return OWNER_CHECK_DIFFICULT;
         }
 
         //Meet level requirements?
-        if( pInstance->m_mapInfo && pPlayer->getLevel() < pInstance->m_mapInfo->minlevel && !pPlayer->triggerpass_cheat )
+        if(pPlayer->getLevel() < pInstance->GetMapInfo()->minlevel && !pPlayer->triggerpass_cheat )
             return OWNER_CHECK_MIN_LEVEL;
 
         //Need to be in group?
-        if(!pPlayer->GetGroup() && pInstance->m_dbcMap->IsRaid() && !pPlayer->triggerpass_cheat)
+        if(!pPlayer->GetGroup() && pInstance->GetdbcMap()->IsRaid() && !pPlayer->triggerpass_cheat)
             return OWNER_CHECK_NO_GROUP;
 
         // Are we on the saved list?
@@ -204,7 +199,7 @@ public:
         if(!pInstance->m_isBattleground)
         {
             // Active raid?
-            if( pInstance->m_mapMgr && pInstance->m_mapMgr->HasPlayers() )
+            if( pInstance->HasPlayers() )
             {
                 //we have ensured the groupid is valid when it was created.
                 if( pPlayer->GetGroup() )
@@ -248,14 +243,14 @@ public:
     }
 
     // has an instance expired?
-    RONIN_INLINE bool HasInstanceExpired(Instance * pInstance)
+    RONIN_INLINE bool HasInstanceExpired(InstanceMgr * pInstance)
     {
-        MapEntry* map = dbcMap.LookupEntry(pInstance->m_mapId);
+        MapEntry* map = dbcMap.LookupEntry(pInstance->GetMapId());
         if(map && map->IsRaid())
             return false;
 
         // expired? (heroic instances never expire, they are reset every day at 05:00).
-        if( pInstance->m_difficulty == 0 && pInstance->m_expiration && (UNIXTIME+20) >= pInstance->m_expiration)
+        if( pInstance->iInstanceMode == 0 && pInstance->m_expiration && (UNIXTIME+20) >= pInstance->m_expiration)
             return true;
 
         return false;
@@ -279,15 +274,15 @@ public:
     MapMgr* GetMapMgr(uint32 mapId);
 
     //Find saved instance for player at given mapid
-    Instance* GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty);
+    InstanceMgr* GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty);
     InstanceMap * GetInstancesForMap(uint32 map_id) { return m_instances[map_id]; }
-    Instance* GetInstanceByIds(uint32 mapid, uint32 instanceId)
+    InstanceMgr* GetInstanceByIds(uint32 mapid, uint32 instanceId)
     {
         if(mapid > NUM_MAPS)
             return NULL;
         if(mapid == NUM_MAPS)
         {
-            Instance *in;
+            InstanceMgr *in;
             for(uint32 i=0; i<NUM_MAPS; ++i)
             {
                 in = GetInstanceByIds(i, instanceId);
@@ -305,9 +300,8 @@ public:
 
     void _LoadInstances();
     void _CreateMap(uint32 mapid);
-    MapMgr* _CreateInstance(Instance* in);
-    MapMgr* _CreateInstance(uint32 mapid, uint32 instanceid);       // only used on main maps!
-    bool _DeleteInstance(Instance* in, bool ForcePlayersOut);
+    bool _DeleteInstance(InstanceMgr* in, bool ForcePlayersOut, bool atSelfEnd);
+    MapMgr *_CreateMapMgr(uint32 mapId, uint32 instanceId, bool instance = false);
 
 private:
     uint32 m_InstanceHigh;

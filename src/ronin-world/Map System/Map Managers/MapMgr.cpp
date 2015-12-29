@@ -32,7 +32,6 @@ MapMgr::MapMgr(Map *map, uint32 mapId, uint32 instanceid) : ThreadContext(), Cel
     forced_expire = false;
     InactiveMoveTime = 0;
     mLoopCounter = 0;
-    pInstance = NULL;
     thread_kill_only = false;
     thread_running = false;
 
@@ -1290,12 +1289,12 @@ bool MapMgr::Do()
         sWorldMgr.DeleteBattlegroundInstance( GetMapId(), GetInstanceID() );
     }
 
-    if(pInstance)
+    if(IsInstance())
     {
-        pInstance->m_mapMgr = NULL;
+        InstanceMgr *mgr = castPtr<InstanceMgr>(this);
         // check for a non-raid instance, these expire after 10 minutes.
-        if(GetMapInfo()->type == INSTANCE_NONRAID || pInstance->m_isBattleground)
-            sWorldMgr._DeleteInstance(pInstance, true);
+        if(GetMapInfo()->type == INSTANCE_NONRAID || m_battleground)
+            sWorldMgr._DeleteInstance(mgr, true, true);
     } else if(GetMapInfo()->type == INSTANCE_NULL)
         sWorldMgr.m_singleMaps[GetMapId()] = NULL;
 

@@ -4095,9 +4095,6 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                             && DuelingWith != pObj)
                         return true;
 
-                    if(GetGUID() == pObj->stalkedby) // Hunter's Mark / MindVision is visible to the caster
-                        return true;
-
                     if(m_invisDetect[INVIS_FLAG_NORMAL] < 1 // can't see invisible without proper detection
                             || pObj->m_isGmInvisible) // can't see invisible GM
                         return bGMTagOn; // GM can see invisible players
@@ -6568,12 +6565,12 @@ void Player::OnWorldPortAck()
                 }
             }
             welcome_msg += ". ";
-            if(pPMapinfo->type != INSTANCE_NONRAID && m_mapMgr->pInstance)
+            if(pPMapinfo->type != INSTANCE_NONRAID && m_mapMgr->IsInstance())
             {
                 /*welcome_msg += "This instance is scheduled to reset on ";
                 welcome_msg += asctime(localtime(&m_mapMgr->pInstance->m_expiration));*/
                 welcome_msg += "Instance Locks are scheduled to expire in ";
-                welcome_msg += RONIN_UTIL::ConvertTimeStampToString((uint32)m_mapMgr->pInstance->m_expiration - UNIXTIME);
+                welcome_msg += RONIN_UTIL::ConvertTimeStampToString((uint32)castPtr<InstanceMgr>(m_mapMgr)->m_expiration - UNIXTIME);
             }
             sChatHandler.SystemMessage(m_session, welcome_msg.c_str());
         }
@@ -6852,7 +6849,7 @@ void Player::Possess(Unit* pTarget)
         pTarget->GetAIInterface()->StopMovement(0);
     }
 
-    m_noInterrupt++;
+    m_noInterrupt = true;
     SetUInt64Value(UNIT_FIELD_CHARM, pTarget->GetGUID());
     SetUInt64Value(PLAYER_FARSIGHT, pTarget->GetGUID());
     pTarget->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, true);
@@ -6925,7 +6922,7 @@ void Player::UnPossess()
     Unit* pTarget = m_CurrentCharm;
     m_CurrentCharm = NULL;
 
-    m_noInterrupt--;
+    m_noInterrupt = false;
     SetUInt64Value(PLAYER_FARSIGHT, 0);
     pTarget->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, false);
     SetUInt64Value(UNIT_FIELD_CHARM, 0);

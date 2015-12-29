@@ -2087,7 +2087,7 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
     if( unitTarget == NULL || u_caster == NULL || !unitTarget->isAlive())
         return;
 
-    if (u_caster->IsStunned() || u_caster->m_rooted || u_caster->IsPacified() || u_caster->IsFeared())
+    if (u_caster->IsStunned() || u_caster->IsRooted() || u_caster->IsPacified() || u_caster->IsFeared())
         return;
 
     float dx,dy;

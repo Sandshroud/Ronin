@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-AuraInterface::AuraInterface()
+AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit)
 {
     m_modifierMask.SetCount(SPELL_AURA_TOTAL);
     for(uint8 i = 0; i < TOTAL_AURAS; i++)
@@ -12,16 +12,6 @@ AuraInterface::AuraInterface()
 }
 
 AuraInterface::~AuraInterface()
-{
-
-}
-
-void AuraInterface::Init(Unit* unit)
-{
-    m_Unit = unit;
-}
-
-void AuraInterface::DeInit()
 {
     m_Unit = NULL;
     for(uint8 i = 0; i < TOTAL_AURAS; i++)

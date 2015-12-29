@@ -209,6 +209,7 @@ public:
     RONIN_INLINE bool HasPlayers() { return (m_PlayerStorage.size() > 0); }
     void TeleportPlayers();
 
+    RONIN_INLINE virtual bool IsInstance() { return false; }
     RONIN_INLINE uint32 GetInstanceID() { return m_instanceID; }
     RONIN_INLINE MapInfo *GetMapInfo() { return pMapInfo; }
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
@@ -232,7 +233,6 @@ public:
     RONIN_INLINE void AddSpawn(uint32 x, uint32 y, CreatureSpawn * sp)
     {
         GetBaseMap()->GetSpawnsListAndCreate(x, y)->CreatureSpawns.push_back(sp);
-        GetBaseMap()->CreatureSpawnCount++;
     }
 
     RONIN_INLINE void AddGoSpawn(uint32 x, uint32 y, GOSpawn * gs)
@@ -245,22 +245,12 @@ public:
     void EventRespawnGameObject(GameObject* o, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
     void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
-
-    Instance * pInstance;
     void BeginInstanceExpireCountdown();
     void HookOnAreaTrigger(Player* plr, uint32 id);
-
-    // better hope to clear any references to us when calling this :P
-    void InstanceShutdown()
-    {
-        pInstance = NULL;
-        OnShutdown();
-    }
 
     // kill the worker thread only
     void KillThread()
     {
-        pInstance = NULL;
         thread_kill_only = true;
         OnShutdown();
         while(thread_running)
@@ -271,9 +261,7 @@ protected:
     //! Collect and send updates to clients
     void _UpdateObjects();
 
-private:
     //! Objects that exist on map
-
     uint32 _mapId;
 
     // In this zone, we always show these objects
@@ -293,7 +281,7 @@ public:
     // Distance a Player can "see" other objects and receive updates from them (!! ALREADY dist*dist !!)
     float m_UpdateDistance;
 
-private:
+protected:
     /* Map Information */
     MapInfo *pMapInfo;
     MapEntry* pdbcMap;

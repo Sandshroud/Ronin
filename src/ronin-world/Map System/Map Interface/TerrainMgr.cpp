@@ -6,11 +6,9 @@
 
 TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId, bool Instanced, bool collisionMap) : mapPath(MapPath), mapId(MapId), Instance(Instanced), m_CollisionMap(collisionMap)
 {
-    TileCountX = TileCountY = 0;
     TileStartX = TileEndX = 0;
     TileStartY = TileEndY = 0;
     FileDescriptor = NULL;
-    TileInformation = NULL;
     for(uint8 x = 0; x < 64; x++)
         for(uint8 y = 0; y < 64; y++)
             LoadCounter[x][y] = 0;
@@ -27,23 +25,7 @@ TerrainMgr::~TerrainMgr()
         FileDescriptor = NULL;
     }
 
-    // Big memory cleanup, whee.
-    if(TileInformation)
-    {
-        for(uint32 x = 0; x < TileCountX; ++x)
-        {
-            for(uint32 y = 0; y < TileCountY; ++y)
-            {
-                if(TileInformation[x][y] != 0)
-                    delete TileInformation[x][y];
-                TileInformation[x][y] = 0;
-            }
-            delete [] TileInformation[x];
-            TileInformation[x] = 0;
-        }
-        delete [] TileInformation;
-        TileInformation = NULL;
-    }
+    tileInformation.clear();
 }
 
 template<typename T, typename T2> void getRawHeight(float x, float y, int tx, int ty, T &a, T &b, T &c, T2 *V8, T2 *V9)
@@ -223,9 +205,9 @@ bool TerrainMgr::LoadTerrainHeader()
         return false;
     }
 
-    for(uint32 x = 0; x < 64; ++x)
+    for(uint8 x = 0; x < 64; ++x)
     {
-        for(uint32 y = 0; y < 64; ++y)
+        for(uint8 y = 0; y < 64; ++y)
         {
             if(TileOffsets[x][y])
             {
@@ -240,20 +222,7 @@ bool TerrainMgr::LoadTerrainHeader()
             }
         }
     }
-    TileCountX = (TileEndX-TileStartX)+1;
-    TileCountY = (TileEndY-TileStartY)+1;
 
-    // Allocate both storage arrays.
-    TileInformation = new TileTerrainInformation**[TileCountX];
-    for(uint32 x = 0; x < TileCountX; ++x)
-    {
-        TileInformation[x] = new TileTerrainInformation*[TileCountY];
-        for(uint32 y = 0; y < TileCountY; ++y)
-        {
-            // Clear the pointer.
-            TileInformation[x][y] = 0;
-        }
-    }
     return true;
 }
 
@@ -278,7 +247,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     mutex.Acquire();
 
     // Check that we haven't been loaded by another thread.
-    if(TileInformation[offsX][offsY] != 0)
+    if(TileInformationLoaded(offsX, offsY))
     {
         mutex.Release();
         return true;
@@ -288,7 +257,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     if(fseek(FileDescriptor, Offset, SEEK_SET) == 0)
     {
         // Allocate the tile information.
-        TileTerrainInformation* tile = TileInformation[offsX][offsY] = new TileTerrainInformation();
+        TileTerrainInformation* tile = &tileInformation[std::make_pair(offsX, offsY)];
         memset(tile, 0, sizeof(TileTerrainInformation));
 
         uint8 flags[3];
@@ -359,9 +328,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     mutex.Release();
 
     // If we don't equal 0, it means the load was successful.
-    if(TileInformation[offsX][offsY] != 0)
-        return true;
-    return false;
+    return TileInformationLoaded(offsX, offsY);
 }
 
 void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
@@ -369,16 +336,9 @@ void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
     mutex.Acquire();
 
     uint32 offsX = x-TileStartX, offsY = y-TileStartY;
-    // Find our information pointer.
-    TileTerrainInformation *ptr = TileInformation[offsX][offsY];
-    if(ptr == NULL)
-        return;
-
-    // Set the spot to unloaded (null).
-    TileInformation[offsX][offsY] = 0;
-
-    // Free the memory.
-    delete ptr;
+    std::pair<uint32, uint32> tilePair = std::make_pair(offsX, offsY);
+    if(tileInformation.find(tilePair) != tileInformation.end())
+        tileInformation.erase(tilePair);
     mutex.Release();
 
     sLog.Debug("TerrainMgr","Unloaded tile information for tile [%u][%u]", x, y);
@@ -493,22 +453,6 @@ void TerrainMgr::GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uin
     StartY = TileStartY*8;
     EndX = TileEndX*8;
     EndY = TileEndY*8;
-}
-
-size_t TerrainMgr::GetSize()
-{
-    size_t size = 0;
-    for(uint32 x = TileStartX; x < TileEndX; x++)
-    {
-        for(uint32 y = TileStartY; y < TileEndY; y++)
-        {
-            if(LoadCounter[x][y])
-            {
-                size += sizeof(TileInformation[x][y]);
-            }
-        }
-    }
-    return size;
 }
 
 bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)

@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(), m_movementInterface(this)
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
     m_updateFlags |= UPDATEFLAG_LIVING;
@@ -19,15 +19,11 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_needStatRecalculation = true;
     m_needRecalculateAllFields = true;
 
-    m_ignoreArmorPct = 0.0f;
-    m_ignoreArmorPctMaceSpec = 0.0f;
-    m_fearmodifiers = 0;
     m_state = 0;
     m_deathState = ALIVE;
     m_currentSpell = NULL;
     m_meleespell = 0;
     m_meleespell_cn = 0;
-    m_addDmgOnce = 0;
 
     m_silenced = 0;
     disarmed = false;
@@ -40,13 +36,9 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     for( uint32 x = 0; x < 4; x++ )
         m_ObjectSlots[x] = 0;
 
-    m_pacified = 0;
     m_interruptRegen = 0;
     m_powerRegenPCT = 0;
-    stalkedby=0;
 
-    m_stunned = 0;
-    m_rooted = 0;
     m_triggerSpell = 0;
     m_triggerDamage = 0;
     m_canMove = 0;
@@ -69,19 +61,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 
     m_CombatUpdateTimer = 0;
 
-    for(int i = 0; i < 5; i++)
-    {
-        m_detectRangeGUID[i] = 0;
-        m_detectRangeMOD[i] = 0;
-    }
-
-    m_AuraInterface.DeInit();
-
-    // diminishing return stuff
-    memset(m_diminishAuraCount, 0, DIMINISH_GROUPS);
-    memset(m_diminishCount, 0, DIMINISH_GROUPS*sizeof(uint16));
-
-    m_diminishActive = false;
     pLastSpell = 0;
     bInvincible = false;
     bProcInUse = false;
@@ -114,8 +93,6 @@ Unit::~Unit()
 void Unit::Init()
 {
     WorldObject::Init();
-
-    m_AuraInterface.Init(this);
 
     m_aiInterface.Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
 
@@ -284,27 +261,6 @@ void Unit::Update( uint32 p_time )
         }
 
         m_aiInterface.Update(p_time);
-    }
-
-    for(std::map<uint8, uint16>::iterator itr = m_diminishTimer.begin(); itr != m_diminishTimer.end();)
-    {
-        if(itr->second && !m_diminishAuraCount[itr->first])
-        {
-            // diminishing return stuff
-            if(p_time >= itr->second)
-            {
-                // resetting after 15 sec
-                m_diminishCount[itr->first] = 0;
-                itr = m_diminishTimer.erase(itr);
-                continue;
-            }
-            else
-            {
-                // reducing, still.
-                itr->second -= p_time;
-            }
-        }
-        itr++;
     }
 }
 
@@ -1324,8 +1280,6 @@ void Unit::SetDiminishTimer(uint32 index)
 {
     assert(index < DIMINISH_GROUPS);
 
-    m_diminishActive = true;
-    m_diminishTimer[index] = 15000;
 }
 
 void Unit::setLevel(uint32 level)
@@ -1601,15 +1555,11 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
                 if( !pVictim->disarmedShield )
                     block = pVictim->GetFloatValue(PLAYER_BLOCK_PERCENTAGE); //shield check already done in Update chances
 //--------------------------------dodge chance----------------------------------------------
-                if(pVictim->m_stunned<=0)
-                {
+                if(!pVictim->IsStunned())
                     dodge = pVictim->GetFloatValue( PLAYER_DODGE_PERCENTAGE );
-                }
 //--------------------------------parry chance----------------------------------------------
                 if(true && !disarmed)
-                {
                     parry = pVictim->GetFloatValue( PLAYER_PARRY_PERCENTAGE );
-                }
             }
         }
         victim_skill = float2int32( vskill + castPtr<Player>( pVictim )->CalcRating( PLAYER_RATING_MODIFIER_DEFENCE ) );
@@ -1619,7 +1569,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     {
         Creature* c = castPtr<Creature>(pVictim);
 
-        if( weapon_damage_type != RANGED && pVictim->m_stunned <= 0)
+        if( weapon_damage_type != RANGED && !pVictim->IsStunned())
             dodge = pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f; // what is this value?
 
         victim_skill = pVictim->getLevel() * 5;
@@ -1901,7 +1851,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     Item* it = NULL;
 
-    float armorreducepct =  m_ignoreArmorPct;
+    float armorreducepct    = 0.f;
 
     float hitchance         = 0.0f;
     float dodge             = 0.0f;
@@ -1948,15 +1898,11 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 if( !pVictim->disarmedShield )
                     block = pVictim->GetFloatValue(PLAYER_BLOCK_PERCENTAGE); //shield check already done in Update chances
 //--------------------------------dodge chance----------------------------------------------
-                if(pVictim->m_stunned<=0)
-                {
+                if(!pVictim->IsStunned())
                     dodge = pVictim->GetFloatValue( PLAYER_DODGE_PERCENTAGE );
-                }
 //--------------------------------parry chance----------------------------------------------
                 if(true && !disarmed)
-                {
                     parry = pVictim->GetFloatValue( PLAYER_PARRY_PERCENTAGE );
-                }
             }
         }
         victim_skill = float2int32( vskill + castPtr<Player>( pVictim )->CalcRating( 1 ) );
@@ -1992,22 +1938,14 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             if (it && it->GetProto())
-            {
                 dmg.school_type = it->GetProto()->DamageType;
-                if( it->GetProto()->SubClass == ITEM_SUBCLASS_WEAPON_MACE )
-                    armorreducepct += m_ignoreArmorPctMaceSpec;
-            }
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             hit_status |= HITSTATUS_DUALWIELD;//animation
             if (it && it->GetProto())
-            {
                 dmg.school_type = it->GetProto()->DamageType;
-                if( it->GetProto()->SubClass == ITEM_SUBCLASS_WEAPON_MACE )
-                    armorreducepct += m_ignoreArmorPctMaceSpec;
-            }
             break;
         case RANGED:  // ranged weapon
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
@@ -3012,54 +2950,6 @@ uint32 Unit::AbsorbDamage( WorldObject* Attacker, uint32 School, int32 dmg, Spel
     }
 
     return abs;
-}
-
-bool Unit::setDetectRangeMod(uint64 guid, int32 amount)
-{
-    int next_free_slot = -1;
-    for(int i = 0; i < 5; i++)
-    {
-        if(m_detectRangeGUID[i] == 0 && next_free_slot == -1)
-        {
-            next_free_slot = i;
-        }
-        if(m_detectRangeGUID[i] == guid)
-        {
-            m_detectRangeMOD[i] = amount;
-            return true;
-        }
-    }
-    if(next_free_slot != -1)
-    {
-        m_detectRangeGUID[next_free_slot] = guid;
-        m_detectRangeMOD[next_free_slot] = amount;
-        return true;
-    }
-    return false;
-}
-
-void Unit::unsetDetectRangeMod(uint64 guid)
-{
-    for(int i = 0; i < 5; i++)
-    {
-        if(m_detectRangeGUID[i] == guid)
-        {
-            m_detectRangeGUID[i] = 0;
-            m_detectRangeMOD[i] = 0;
-        }
-    }
-}
-
-int32 Unit::getDetectRangeMod(uint64 guid)
-{
-    for(int i = 0; i < 5; i++)
-    {
-        if(m_detectRangeGUID[i] == guid)
-        {
-            return m_detectRangeMOD[i];
-        }
-    }
-    return 0;
 }
 
 void Unit::SetStandState(uint8 standstate)
