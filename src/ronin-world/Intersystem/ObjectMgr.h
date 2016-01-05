@@ -288,7 +288,7 @@ public:
     void LoadPlayersInfo();
     void LoadPlayerCreateInfo();
     Corpse* LoadCorpse(uint32 guid);
-    void LoadCorpses(MapMgr* mgr);
+    void LoadCorpses(MapInstance* instance);
     void LoadAuctions();
     void LoadAuctionItems();
     void LoadSpellSkills();

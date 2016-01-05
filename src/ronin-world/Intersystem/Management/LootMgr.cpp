@@ -533,9 +533,9 @@ LootRoll::LootRoll() : EventableObject()
 {
 }
 
-void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randProp, uint32 randSeed, MapMgr* mgr)
+void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randProp, uint32 randSeed, MapInstance* instance)
 {
-    _mgr = mgr;
+    _instance = instance;
     sEventMgr.AddEvent(this, &LootRoll::Finalize, EVENT_LOOT_ROLL_FINALIZE, 60000, 1,0);
     _groupcount = groupcount;
     _guid = guid;
@@ -609,12 +609,12 @@ void LootRoll::Finalize()
     uint32 guidtype = GUID_HIPART(_guid);
     if( guidtype == HIGHGUID_TYPE_UNIT )
     {
-        if(Creature* pc = _mgr->GetCreature(_guid))
+        if(Creature* pc = _instance->GetCreature(_guid))
             pLoot = pc->GetLoot();
     }
     else if( guidtype == HIGHGUID_TYPE_GAMEOBJECT )
     {
-        if(GameObject* go = _mgr->GetGameObject(_guid))
+        if(GameObject* go = _instance->GetGameObject(_guid))
             pLoot = go->GetLoot();
     }
 
@@ -640,7 +640,7 @@ void LootRoll::Finalize()
         return;
     }
 
-    Player* _player = (player) ? _mgr->GetPlayer((uint32)player) : NULL;
+    Player* _player = (player) ? _instance->GetPlayer((uint32)player) : NULL;
     if(!player || !_player)
     {
         /* all passed */
@@ -649,7 +649,7 @@ void LootRoll::Finalize()
         std::set<WoWGuid>::iterator pitr = m_passRolls.begin();
         while(_player == NULL && pitr != m_passRolls.end())
         {
-            _player = _mgr->GetPlayer( (*(pitr)) );
+            _player = _instance->GetPlayer( (*(pitr)) );
             ++pitr;
         }
 
@@ -686,7 +686,7 @@ void LootRoll::Finalize()
         data.Initialize(SMSG_LOOT_REMOVED);
         data << uint8(_slotid);
         for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-            if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
+            if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
                 plr->GetSession()->SendPacket(&data);
         delete this;    //end here and skip the rest
         return;
@@ -701,7 +701,7 @@ void LootRoll::Finalize()
     data.Initialize(SMSG_LOOT_REMOVED);
     data << uint8(_slotid);
     for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-        if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
+        if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
             plr->GetSession()->SendPacket(&data);
     delete this;
 }
@@ -798,7 +798,7 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
 
 int32 LootRoll::event_GetInstanceID()
 {
-    return _mgr->GetInstanceID();
+    return _instance->GetInstanceID();
 }
 
 void LootMgr::FillObjectLootMap(std::map<uint32, std::vector<uint32> > *dest)

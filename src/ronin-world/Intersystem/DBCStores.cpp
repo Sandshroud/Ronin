@@ -156,7 +156,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(LockEntry, dbcLock);
 static const char *lockFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MapEntry, dbcMap);
-static const char *mapentryFormat = "usuuxusussuxiffxuxxi";
+static const char *mapentryFormat = "usuuxxsussxxiffxuxui";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(MapDifficultyEntry, dbcMapDifficulty);
 static const char *mapdifficultyFormat = "uuuxuux";

@@ -15,7 +15,7 @@ class Map;
 
 class SERVER_DECL MapCell
 {
-    friend class MapMgr;
+    friend class MapInstance;
 public:
     MapCell();
     ~MapCell();
@@ -23,7 +23,7 @@ public:
     typedef RONIN_UNORDERED_SET<WorldObject*> CellObjectSet;
 
     //Init
-    void Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr);
+    void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* mapmgr);
 
     //WorldObject Managing
     void AddObject(WorldObject* obj);
@@ -72,5 +72,5 @@ private:
     bool _unloadpending;
 
     uint16 _playerCount;
-    MapMgr* _mapmgr;
+    MapInstance* _mapmgr;
 };

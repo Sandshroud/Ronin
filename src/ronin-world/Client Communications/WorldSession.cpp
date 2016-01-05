@@ -13,7 +13,7 @@ extern bool bServerShutdown;
 OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
-_logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), instanceId(0), _recentlogout(false), _zlibStream(NULL)
+_logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
 {
     _player = NULL;
     m_hasDeathKnight = false;
@@ -98,7 +98,7 @@ bool WorldSession::InitializeZLibCompression()
     return CanUseCommand('z');
 }
 
-int WorldSession::Update(uint32 InstanceID)
+int WorldSession::Update(int32 instanceId)
 {
     m_currMsTime = getMSTime();
 
@@ -107,7 +107,7 @@ int WorldSession::Update(uint32 InstanceID)
         return 1;
 
     // We're being updated by the wrong thread, remove us
-    if(InstanceID != instanceId)
+    if(instanceId != m_eventInstanceId)
         return 2;
 
     // Update our queued packets
@@ -115,7 +115,7 @@ int WorldSession::Update(uint32 InstanceID)
         _socket->UpdateQueuedPackets();
 
     // Socket disconnection.
-    if(!_socket)
+    if(_socket == NULL || !_socket->IsConnected())
     {
         // Check if the player is in the process of being moved. We can't delete him
         // if we are.
@@ -139,7 +139,7 @@ int WorldSession::Update(uint32 InstanceID)
     {
         WorldPacket *packet;
         OpcodeHandler * Handler;
-        while (!bDeleted && InstanceID == instanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
+        while (!bDeleted && instanceId == m_eventInstanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
 
@@ -178,12 +178,12 @@ int WorldSession::Update(uint32 InstanceID)
         }
     }
 
-    if(InstanceID != instanceId)
+    if(instanceId != m_eventInstanceId)
         return 2; // If we hit this it means that an opcode has changed our map.
     if( bDeleted )
         return 1;
 
-    if( _logoutTime && (m_currMsTime >= _logoutTime) && instanceId == InstanceID)
+    if( _logoutTime && (m_currMsTime >= _logoutTime) && instanceId == m_eventInstanceId)
     {
         // Check if the player is in the process of being moved. We can't delete him
         // if we are.
@@ -254,6 +254,7 @@ void WorldSession::LogoutPlayer()
     if( _loggingOut )
         return;
 
+    uint32 msTime = getMSTime();
     _loggingOut = true;
     _recentlogout = true;
 
@@ -269,24 +270,9 @@ void WorldSession::LogoutPlayer()
 
         if( plr->m_currentLoot && plr->IsInWorld() )
         {
-            if( WorldObject* obj = plr->GetMapMgr()->_GetObject( plr->m_currentLoot ) )
+            if( WorldObject* obj = plr->GetMapInstance()->_GetObject( plr->m_currentLoot ) )
                 obj->GetLoot()->looters.erase(plr->GetLowGUID());
         }
-
-#ifndef GM_TICKET_MY_MASTER_COMPATIBLE
-        if(GM_Ticket * ticket = sTicketMgr.GetGMTicketByPlayer(plr->GetGUID()))
-        {
-            //Send status change to gm_sync_channel
-            if(Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), plr))
-            {
-                std::stringstream ss;
-                ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_ONLINESTATE;
-                ss << ":" << ticket->guid.getLow();
-                ss << ":0";
-                chn->Say(plr, ss.str().c_str(), NULL, true);
-            }
-        }
-#endif
 
         // part channels
         plr->CleanupChannels();
@@ -321,6 +307,7 @@ void WorldSession::LogoutPlayer()
 
         sLfgMgr.RemovePlayerFromLfgQueues( plr );
 
+        msTime = getMSTime();
         // Save HP/Mana
         plr->load_health = plr->GetUInt32Value( UNIT_FIELD_HEALTH );
 
@@ -336,6 +323,7 @@ void WorldSession::LogoutPlayer()
             plr->RemoveFromWorld();
         }
 
+        msTime = getMSTime(); // save 4
         // send to gms
         if( HasGMPermissions() && !bServerShutdown )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
@@ -355,6 +343,7 @@ void WorldSession::LogoutPlayer()
             }
         }
 
+        msTime = getMSTime(); // save 4
         // Remove the "player locked" flag, to allow movement on next login
         plr->RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
 
@@ -366,6 +355,7 @@ void WorldSession::LogoutPlayer()
 
         // Save our account data, if we have any
         SaveAccountData();
+        msTime = getMSTime(); // save 4
 
         plr->Destruct();
 
@@ -375,6 +365,8 @@ void WorldSession::LogoutPlayer()
     _loggingOut = false;
 
     SetLogoutTimer(0);
+    if(uint32 diff = getMSTime()-msTime)
+        printf("Logout time %u\n", diff);
 }
 
 void WorldSession::SendBuyFailed(uint64 guid, uint32 itemid, uint8 error)
@@ -1108,9 +1100,9 @@ void WorldSession::SaveAccountData()
         datastring << "'" << _accountId << "'";
         for(uint32 ui = 0; ui < 8; ++ui)
         {
-            if(m_accountData[ui] == NULL || m_accountData[ui]->data == NULL
-                || m_accountData[ui]->sz == 0)
+            if(m_accountData[ui] == NULL || m_accountData[ui]->data == NULL || m_accountData[ui]->sz == 0)
                 continue;
+
             fieldName << format(",uiconfig%u", ui);
             datastring << ", \"";
             CharacterDatabase.EscapeLongString(m_accountData[ui]->data, m_accountData[ui]->sz, datastring);

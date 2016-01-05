@@ -5,7 +5,7 @@
 #include "StdAfx.h"
 
 initialiseSingleton(CBattlegroundManager);
-typedef CBattleground*(*CreateBattlegroundFunc)( MapMgr* mgr,uint32 iid,uint32 group, uint32 type);
+typedef CBattleground*(*CreateBattlegroundFunc)( MapInstance* instance,uint32 iid,uint32 group, uint32 type);
 
 const uint32 GetBGMapID(uint32 type)
 {
@@ -240,16 +240,6 @@ void CBattlegroundManager::HandleBattlegroundJoin(WorldSession * m_session, Worl
     if ( m_session->GetPlayer()->m_AuraInterface.HasActiveAura(BG_DESERTER) && !m_session->HasGMPermissions() )
     {
         m_session->SendNotification("You have been marked as a Deserter.");
-        return;
-    }
-
-    MapInfo * inf = WorldMapInfoStorage.LookupEntry(GetBGMapID(bgtype));
-    if(inf == NULL)
-        return;
-
-    if(inf->minlevel > m_session->GetPlayer()->getLevel())
-    {
-        m_session->SendNotification("You have to reach level %u before you can join this instance.",inf->minlevel);
         return;
     }
 
@@ -886,7 +876,7 @@ bool CBattlegroundManager::CanCreateInstance(uint32 Type, uint32 LevelGroup)
     return true;
 }
 
-CBattleground::CBattleground( MapMgr* mgr, uint32 id, uint32 levelgroup, uint32 type) : m_mapMgr(mgr), m_id(id), m_type(type), m_levelGroup(levelgroup)
+CBattleground::CBattleground( MapInstance* instance, uint32 id, uint32 levelgroup, uint32 type) : m_mapInstance(instance), m_id(id), m_type(type), m_levelGroup(levelgroup)
 {
     m_nextPvPUpdateTime = 0;
     m_countdownStage = 0;
@@ -1014,9 +1004,6 @@ void CBattleground::BuildPvPUpdateDataPacket(WorldPacket * data)
         for(std::set<Player*>::iterator itr = m_players[i].begin(); itr != m_players[i].end(); itr++)
         {
             bs = &(*itr)->m_bgScore;
-            if( (*itr)->m_isGmInvisible && bs->DamageDone < (500*(*itr)->getLevel()))
-                continue; // We have about about 20k 
-
             *data << (*itr)->GetGUID();
             *data << bs->KillingBlows;
             if(IsArena())
@@ -1104,7 +1091,7 @@ void CBattleground::OnPlayerPushed(Player* plr)
 
     plr->PopPendingUpdates();
 
-    if( plr->GetGroup() == NULL && !plr->m_isGmInvisible )
+    if( plr->GetGroup() == NULL )
         m_groups[plr->GetBGTeam()]->AddMember( plr->m_playerInfo );
 }
 
@@ -1144,12 +1131,10 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
 
     plr->FullHPMP();
     plr->SetTeam(plr->GetBGTeam());
-    if( !plr->m_isGmInvisible )
-    {
-        WorldPacket data(SMSG_BATTLEGROUND_PLAYER_JOINED, 8);
-        data << plr->GetGUID();
-        DistributePacketToTeam(&data, plr->GetBGTeam());
-    }
+
+    WorldPacket data(SMSG_BATTLEGROUND_PLAYER_JOINED, 8);
+    data << plr->GetGUID();
+    DistributePacketToTeam(&data, plr->GetBGTeam());
 
     m_players[plr->GetBGTeam()].insert(plr);
 
@@ -1204,7 +1189,7 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     if(!skip_teleport)
     {
         /* This is where we actually teleport the player to the battleground. */
-        plr->SafeTeleport(m_mapMgr, GetStartingCoords(plr->GetBGTeam()));
+        plr->SafeTeleport(m_mapInstance, GetStartingCoords(plr->GetBGTeam()));
     }
 
     m_mainLock.Release();
@@ -1217,7 +1202,7 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
         return NULL;
 
     CreateBattlegroundFunc cfunc = GetBGCFunc(Type);
-    MapMgr* mgr = NULL;
+    MapInstance* mgr = NULL;
     CBattleground* bg = NULL;
     bool isWeekend = false;
     struct tm tm;
@@ -1362,14 +1347,14 @@ void CBattlegroundManager::DeleteBattleground(CBattleground* bg)
 
 GameObject* CBattleground::SpawnGameObject(uint32 entry,float x, float y, float z, float o, uint32 flags, uint32 faction, float scale)
 {
-    GameObject* go = m_mapMgr->CreateGameObject(entry);
-    if(go == NULL || !go->CreateFromProto(entry, m_mapMgr->GetMapId(), x, y, z, o))
+    GameObject* go = m_mapInstance->CreateGameObject(entry);
+    if(go == NULL || !go->CreateFromProto(entry, m_mapInstance->GetMapId(), x, y, z, o))
         return NULL;
 
     go->SetUInt32Value(GAMEOBJECT_FACTION,faction);
     go->SetFloatValue(OBJECT_FIELD_SCALE_X,scale);
     go->SetUInt32Value(GAMEOBJECT_FLAGS, flags);
-    go->SetInstanceID(m_mapMgr->GetInstanceID());
+    go->SetInstanceID(m_mapInstance->GetInstanceID());
     go->m_battleground = this;
 
     return go;
@@ -1377,10 +1362,10 @@ GameObject* CBattleground::SpawnGameObject(uint32 entry,float x, float y, float 
 
 Creature* CBattleground::SpawnCreature(uint32 entry,float x, float y, float z, float o)
 {
-    if (Creature *c = m_mapMgr->CreateCreature(entry))
+    if (Creature *c = m_mapInstance->CreateCreature(entry))
     {
-        c->Load(m_mapMgr->GetMapId(), x, y, z, o, m_mapMgr->iInstanceMode);
-        c->PushToWorld(m_mapMgr);
+        c->Load(m_mapInstance->GetMapId(), x, y, z, o, m_mapInstance->iInstanceMode);
+        c->PushToWorld(m_mapInstance);
 		return c;
     }
     return NULL;
@@ -1461,11 +1446,8 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
     m_mainLock.Acquire();
     m_players[0].erase(plr);
     m_players[1].erase(plr);
-    if ( plr->m_isGmInvisible == false )
-    {
-        //Dont show invisble gm's leaving the game.
-        DistributePacketToAll(&data);
-    }
+
+    DistributePacketToAll(&data);
 
     memset(&plr->m_bgScore, 0, sizeof(BGScore));
     OnRemovePlayer(plr);
@@ -1555,7 +1537,7 @@ void CBattleground::EventCreate()
 
 int32 CBattleground::event_GetInstanceID()
 {
-    return m_mapMgr->GetInstanceID();
+    return m_mapInstance->GetInstanceID();
 }
 
 void CBattleground::EventCountdown()
@@ -1618,20 +1600,17 @@ void CBattleground::Close()
     /* call the virtual onclose for cleanup etc */
     OnClose();
 
-    /* shut down the map thread. this will delete the battleground from the corrent context. */
-    m_mapMgr->OnShutdown();
-
     m_mainLock.Release();
 }
 
 Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bool horde)
 {
-    Creature* pCreature = m_mapMgr->CreateCreature(13116 + horde);
+    Creature* pCreature = m_mapInstance->CreateCreature(13116 + horde);
     if (pCreature == NULL)
         return NULL;
 
-    pCreature->Load(m_mapMgr->GetMapId(), x, y, z, o, 0);
-    pCreature->SetInstanceID(m_mapMgr->GetInstanceID());
+    pCreature->Load(m_mapInstance->GetMapId(), x, y, z, o, 0);
+    pCreature->SetInstanceID(m_mapInstance->GetInstanceID());
     pCreature->SetUInt32Value(OBJECT_FIELD_ENTRY, 13116 + horde);
     pCreature->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
 
@@ -1663,7 +1642,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
 
     pCreature->SetPvPFlag();
 
-    pCreature->PushToWorld(m_mapMgr);
+    pCreature->PushToWorld(m_mapInstance);
     return pCreature;
 }
 
@@ -1722,7 +1701,7 @@ void CBattleground::EventResurrectPlayers()
     {
         for(itr = i->second.begin(); itr != i->second.end(); itr++)
         {
-            plr = m_mapMgr->GetPlayer(*itr);
+            plr = m_mapInstance->GetPlayer(*itr);
             if(plr && plr->isDead())
             {
                 data.Initialize(SMSG_SPELL_GO);

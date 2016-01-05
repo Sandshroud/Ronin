@@ -563,7 +563,7 @@ void WorldSession::HandleCharterOffer( WorldPacket & recv_data )
     recv_data >> shit >> item_guid >> target_guid;
 
     CHECK_INWORLD_RETURN();
-    Player* pTarget = _player->GetMapMgr()->GetPlayer((uint32)target_guid);
+    Player* pTarget = _player->GetMapInstance()->GetPlayer((uint32)target_guid);
     pCharter = guildmgr.GetCharterByItemGuid(item_guid);
 
     if( pCharter == NULL )
@@ -621,7 +621,7 @@ void WorldSession::HandleCharterSign( WorldPacket & recv_data )
     _player->m_playerInfo->charterId[c->CharterType] = c->GetID();
     _player->SaveToDB(false);
 
-    Player * l = _player->GetMapMgr()->GetPlayer(c->GetLeader());
+    Player * l = _player->GetMapInstance()->GetPlayer(c->GetLeader());
     if(l == 0)
         return;
 

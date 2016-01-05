@@ -160,7 +160,7 @@ void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
     bool skip_combat = false;
     if( srcslot < EQUIPMENT_SLOT_END || dstslot < EQUIPMENT_SLOT_END )    // We're doing an equip swap.
     {
-        if( _player->CombatStatus.IsInCombat() )
+        if( _player->IsInCombat() )
         {
             if( srcslot < EQUIPMENT_SLOT_MAINHAND || dstslot < EQUIPMENT_SLOT_MAINHAND )    // These can't be swapped
             {
@@ -603,7 +603,7 @@ void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
         return;
     }
 
-    Creature* unit = _player->GetMapMgr()->GetCreature(vendorguid);
+    Creature* unit = _player->GetMapInstance()->GetCreature(vendorguid);
     // Check if Vendor exists
     if (unit == NULL)
     {
@@ -884,7 +884,7 @@ void WorldSession::HandleRepairItemOpcode(WorldPacket &recvPacket)
     int32 j, i;
 
     recvPacket >> npcguid >> itemguid >> guildmoney;
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(npcguid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(npcguid);
     if( pCreature == NULL )
         return;
 

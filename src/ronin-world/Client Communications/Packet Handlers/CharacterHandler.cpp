@@ -490,7 +490,7 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     //already active?
     if(m_characterMapIds.find(guid) == m_characterMapIds.end())
         response = CHAR_LOGIN_NO_CHARACTER;
-    else if(WorldMapInfoStorage.LookupEntry(m_characterMapIds.at(guid)) == NULL)
+    else if(sWorldMgr.GetMapManager(m_characterMapIds.at(guid)) == NULL)
         response = CHAR_LOGIN_NO_WORLD;
     else if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
@@ -552,9 +552,6 @@ void WorldSession::FullLogin(Player* plr)
     if(HasGMPermissions())
     {
         plr->bGMTagOn = true;
-        plr->m_isGmInvisible = true;
-        plr->m_invisible = true;
-        plr->bInvincible = true;
         if(CanUseCommand('z'))
         {
             plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);

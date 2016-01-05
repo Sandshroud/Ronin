@@ -249,85 +249,6 @@ class SERVER_DECL ThreatRedirectHandler
 
 };
 
-/************************************************************************/
-/* "In-Combat" Handler                                                  */
-/************************************************************************/
-
-class Unit;
-class SERVER_DECL CombatStatusHandler
-{
-    typedef std::set<WoWGuid> UnitGuidMap;
-    typedef std::map<WoWGuid, uint32> StorageMap;
-protected:
-
-    Unit* m_Unit;
-    Mutex m_mapLocks;
-    bool m_lastStatus;
-    StorageMap m_damageMap, m_attackTimerMap;
-    UnitGuidMap m_attackers, m_healers, m_healed;
-
-public:
-    CombatStatusHandler() : m_lastStatus(false)
-    {
-        m_damageMap.clear();
-        m_attackTimerMap.clear();
-        m_attackers.clear();
-        m_healers.clear();
-        m_healed.clear();
-    }
-
-    Unit* GetKiller();                                                  // Gets this unit's current killer.
-
-    void OnDamageDealt(Unit* pTarget, uint32 damage);                   // this is what puts the other person in combat.
-    void WeHealed(Unit* pHealTarget);                                   // called when a player heals another player, regardless of combat state.
-    void RemoveAttackTarget(Unit* pTarget);                             // means our DoT expired.
-    void ForceRemoveAttacker(const uint64& guid);                       // when target is invalid pointer
-    void RemoveExistence(Unit *pUnit);
-    void UpdateFlag();                                                  // detects if we have changed combat state (in/out), and applies the flag.
-
-    RONIN_INLINE bool IsInCombat() { return m_lastStatus; }       // checks if we are in combat or not.
-
-    void OnRemoveFromWorld();                                           // called when we are removed from world, kills all references to us.
-
-    void Vanish(WoWGuid guid);
-
-    RONIN_INLINE void Vanished()
-    {
-        ClearAttackers();
-        ClearHealers();
-        m_damageMap.clear();
-    }
-
-    bool DidHeal(WoWGuid guid) { return (m_healed.find(guid) != m_healed.end()); }
-    bool HealedBy(WoWGuid guid) { return (m_healers.find(guid) != m_healers.end()); }
-    bool DidDamageTo(WoWGuid guid) { return (m_damageMap.find(guid) != m_damageMap.end()); }
-
-    void AddDamage(WoWGuid guid, uint32 damage)
-    {
-        StorageMap::iterator ditr = m_damageMap.find(guid);
-        if(ditr == m_damageMap.end())
-            m_damageMap.insert( std::make_pair( guid, damage ));
-        else ditr->second += damage;
-    }
-
-    void EraseAttacker(WoWGuid guid)
-    {
-        m_attackTimerMap.erase(guid);
-        m_attackers.erase(guid);
-    }
-
-    RONIN_INLINE void SetUnit(Unit* p) { m_Unit = p; }
-    void UpdateTargets();
-
-protected:
-    bool InternalIsInCombat();                                          // called by UpdateFlag, do not call from anything else!
-    bool IsAttacking(Unit* pTarget);                                    // internal function used to determine if we are still attacking target x.
-    void RemoveHealed(Unit* pHealTarget);                               // usually called only by updateflag
-    void ClearHealers();                                                // this is called on instance change.
-    void ClearAttackers();                                              // means we vanished, or died.
-    void ClearMyHealers();
-};
-
 //====================================================================
 //  Unit
 //  Base object for Players and Creatures
@@ -337,15 +258,15 @@ class SERVER_DECL Unit : public WorldObject
 {
     friend class AIInterface;
 public:
-    void CombatStatusHandler_UpdateTargets();
 
     Unit(uint64 guid, uint32 fieldCount = UNIT_END);
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();
 
+    virtual const char* GetName() = 0;
+
     virtual void Update( uint32 time );
-    virtual void OnFieldUpdated(uint32 index);
     virtual void UpdateFieldValues();
     virtual void ClearFieldUpdateValues();
 
@@ -430,8 +351,6 @@ public:
     RONIN_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
     RONIN_INLINE void setClass(uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
     RONIN_INLINE void setGender(uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
-
-    UnitBaseStats *baseStats;
 
     RONIN_INLINE uint32 getLevel() { return GetUInt32Value(UNIT_FIELD_LEVEL); };
     RONIN_INLINE uint8 getRace() { return GetByte(UNIT_FIELD_BYTES_0,0); }
@@ -521,10 +440,10 @@ public:
     bool IsInInstance();
     double GetResistanceReducion(Unit* pVictim, uint32 type, float armorReducePct);
     void CalculateResistanceReduction(Unit* pVictim,dealdamage *dmg,SpellEntry* ability, float armorreducepct) ;
-    void RegenerateHealth();
+    virtual void RegenerateHealth(bool inCombat) = 0;
+    virtual void RegeneratePower(bool isinterrupted) {};
     void RegenerateEnergy();
     void RegenerateFocus();
-    void RegeneratePower(bool isinterrupted);
     void SendPowerUpdate(EUnitFields powerField = UNIT_END);
 
     void EventModelChange();
@@ -549,22 +468,12 @@ public:
     bool IsDazed();
     float CalculateDazeCastChance(Unit* target);
 
-    float detectRange;
-
     // Invisibility
-    RONIN_INLINE void SetInvisibility(uint32 id) { m_invisibility = id; }
-    RONIN_INLINE bool IsInvisible() { return (m_invisible != 0 ? true : false); }
-    uint32 m_invisibility;
-    bool m_isGmInvisible, m_invisible;
-    uint8 m_invisFlag;
-    int32 m_invisDetect[INVIS_FLAG_TOTAL];
+    RONIN_INLINE bool IsInvisible() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_INVISIBILITY); }
 
     /************************************************************************/
     /* Stun Immobilize                                                      */
     /************************************************************************/
-    uint32 trigger_on_stun;             // second wind warrior talent
-    uint32 trigger_on_stun_chance;
-
     void SetTriggerStunOrImmobilize(uint32 newtrigger,uint32 new_chance);
     void EventStunOrImmobilize();
 
@@ -585,7 +494,6 @@ public:
     /*******************
     *** Aura start
     ********/
-    AuraInterface m_AuraInterface;
 
     // Quick calls
     RONIN_INLINE void AddAura(Aura* aur, uint8 slot = 0xFF) { m_AuraInterface.AddAura(aur, slot); };
@@ -615,25 +523,14 @@ public:
 
     void RemoveSummon(Creature* summon);
 
-    std::map< uint32, std::set<Creature*> > m_Summons;
-
     void SummonExpireSlot(uint8 slot); // Empties just slot x.
     void SummonExpireAll(bool clearowner); //Empties all slots (NPC's + GameObjects
     RONIN_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].insert(toAdd); };
     void FillSummonList(std::vector<Creature*> &summonList, uint8 summonType);
 
-    WoWGuid m_ObjectSlots[4];
-    uint32 m_triggerSpell;
-    uint32 m_triggerDamage;
-    uint32 m_canMove;
-
-    // Spell Effect Variables
-    int32 m_silenced;
-
-    RONIN_INLINE void SetOnMeleeSpell(uint32 spell, uint8 cast_number ) { m_meleespell = spell; m_meleespell_cn = cast_number; }
-    RONIN_INLINE uint32 GetOnMeleeSpell() { return m_meleespell; }
-    uint8 GetOnMeleeSpellEcn() { return m_meleespell_cn; }
-    void CastOnMeleeSpell(Unit *target);
+    virtual uint32 GetOnMeleeSpell() { return 0; }
+    virtual uint8 GetOnMeleeSpellCN() { return 0; }
+    virtual void ClearNextMeleeSpell() {};
 
     uint32 GetVehicleKitId() const { return m_vehicleKitId; }
     void InitVehicleKit(uint32 vehicleKitId);
@@ -643,9 +540,6 @@ public:
     void SetMovementAnimKitId(uint16 animKitId);
     uint16 GetMeleeAnimKitId() const { return m_meleeAnimKitId; }
     void SetMeleeAnimKitId(uint16 animKitId);
-
-    // On Aura Remove Procs
-    RONIN_MAP<uint32, onAuraRemove* > m_onAuraRemoveSpells;
 
     void AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf);
     void RemoveOnAuraRemoveSpell(uint32 NameHash);
@@ -720,7 +614,8 @@ public:
     RONIN_INLINE void SetHealthPct(uint32 val) { if (val>0) SetUInt32Value(UNIT_FIELD_HEALTH,float2int32(val*0.01f*GetUInt32Value(UNIT_FIELD_MAXHEALTH))); }
     RONIN_INLINE float GetStat(uint32 stat) const { return float(GetUInt32Value(UNIT_FIELD_STATS+stat)); }
 
-    uint32 m_uAckCounter;
+    // Full HP/MP checks
+    RONIN_INLINE bool isFullHealth() { return m_uint32Values[UNIT_FIELD_HEALTH] == m_uint32Values[UNIT_FIELD_MAXHEALTH]; }
 
     //In-Range
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
@@ -728,29 +623,7 @@ public:
     RONIN_INLINE Spell* GetCurrentSpell() { return m_currentSpell; }
     RONIN_INLINE void SetCurrentSpell(Spell* cSpell) { m_currentSpell = cSpell; }
 
-    uint32 m_CombatUpdateTimer;
-
-    float m_modelhalfsize; // used to calculate if something is in range of this unit
-
-    // Auras Modifiers
-    int32 m_interruptRegen;
-    int32 m_powerRegenPCT;
-    bool m_noInterrupt;
-    bool disarmed;
-    bool disarmedShield;
-
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
-
-    void RemoveStealth();
-    void RemoveInvisibility();
-
-    RONIN_INLINE void ChangePetTalentPointModifier(bool Increment) { Increment ? m_PetTalentPointModifier++ : m_PetTalentPointModifier-- ; };
-
-    bool m_can_stealth;
-
-    RONIN_INLINE uint32 GetCharmTempVal() { return m_charmtemp; }
-    RONIN_INLINE void SetCharmTempVal(uint32 val) { m_charmtemp = val; }
-    std::set<uint32> m_SpellList;
 
     RONIN_INLINE bool IsSpiritHealer()
     {
@@ -768,17 +641,13 @@ public:
         {
             if( classmask[0] & testSpell->SpellGroupType[0] )
                 cl1 = true;
-        }
-        else
-            cl1 = true;
+        } else cl1 = true;
 
         if( testSpell->SpellGroupType[1] )
         {
             if( classmask[1] & testSpell->SpellGroupType[1] )
                 cl2 = true;
-        }
-        else
-            cl2 = true;
+        } else cl2 = true;
 
         if( testSpell->SpellGroupType[2] )
         {
@@ -786,12 +655,8 @@ public:
             {
                 if( classmask[2] & testSpell->SpellGroupType[2] )
                     cl3 = true;
-            }
-            else
-                cl3 = true;
-        }
-        else
-            cl3 = true;
+            } else cl3 = true;
+        } else cl3 = true;
 
         return cl1 && cl2 && cl3;
     }
@@ -802,9 +667,6 @@ public:
 
     void SetDiminishTimer(uint32 index);
 
-    SpellEntry * pLastSpell;
-    bool bProcInUse;
-    bool bInvincible;
     void UpdateVisibility();
 
     //! Is PVP flagged?
@@ -813,14 +675,8 @@ public:
     //! Removal
     void RemovePvPFlag();
 
-//  uint32 fearSpell;
-    CombatStatusHandler CombatStatus;
-    bool m_temp_summon;
-
-    // Redirect Threat shit
-    Unit *GetInRangeRedirectThreat() { return NULL; }
-    WoWGuid m_threadRTarget;
-    float m_threatRAmount;
+    void SetInCombat(Unit *unit, uint32 timerOverride = 5000);
+    bool IsInCombat() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT); }
 
     void EventCancelSpell(Spell* ptr);
 
@@ -907,14 +763,16 @@ public:
     EUnitFields GetPowerFieldForType(uint8 type);
     EUnitFields GetMaxPowerFieldForType(uint8 type);
 
-    int32 m_LastSpellManaCost;
-
     void Dismount();
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 
-protected:
-    LocationVector m_lastAreaPosition;
-    uint32 m_AreaUpdateTimer;
+public:
+    void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );
+    void Teleport(float x, float y, float z, float o);
+    void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
+    void EventResetRedirectThreat();
+    uint32 GetCreatureType();
+    bool IsSitting();
 
 public:
     MovementInterface *GetMovementInterface() { return &m_movementInterface; }
@@ -923,30 +781,66 @@ public:
 
     WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }
 
+public:
+    AuraInterface m_AuraInterface;
+    UnitBaseStats *baseStats;
+
+    float detectRange;
+
+    uint8 m_invisFlag;
+    int32 m_invisDetect[INVIS_FLAG_TOTAL];
+
+    std::map< uint32, std::set<Creature*> > m_Summons;
+
+    WoWGuid m_ObjectSlots[4];
+    uint32 m_triggerSpell;
+    uint32 m_triggerDamage;
+    uint32 m_canMove;
+
+    // Spell Effect Variables
+    int32 m_silenced;
+
+    // On Aura Remove Procs
+    RONIN_MAP<uint32, onAuraRemove* > m_onAuraRemoveSpells;
+
+    uint32 m_uAckCounter;
+
+    float m_modelhalfsize; // used to calculate if something is in range of this unit
+
+    // Auras Modifiers
+    int32 m_interruptRegen;
+    int32 m_powerRegenPCT;
+    bool m_noInterrupt;
+    bool disarmed, disarmedShield;
+
+    std::set<uint32> m_SpellList;
+    SpellEntry * pLastSpell;
+
+    WoWGuid m_killer;
+    bool m_instanceInCombat;
+    uint32 m_combatStopTimer;
+
+protected:
+    LocationVector m_lastAreaPosition;
+    uint32 m_AreaUpdateTimer;
+
 protected:
     MovementInterface m_movementInterface;
 
 public:
-    uint32 m_meleespell;
-    uint8 m_meleespell_cn;
     void _UpdateSpells(uint32 time);
 
-    float m_Total_Regen;
     uint32 m_H_regenTimer, m_P_regenTimer, m_p_DelayTimer;
     uint32 m_state;      // flags for keeping track of some states
 
     WoWGuid m_attackTarget;
     bool m_dualWield, m_autoShot;
+    uint32 m_attackUpdateTimer;
     uint16 m_attackInterrupt, m_attackTimer[3], m_attackDelay[3];
     SpellEntry *m_autoShotSpell;
 
     /// Combat
     DeathState m_deathState;
-
-    // DK:pet
-    //uint32 m_pet_state;
-    //uint32 m_pet_action;
-    uint8 m_PetTalentPointModifier;
 
     // Spell currently casting
     Spell* m_currentSpell;
@@ -958,21 +852,10 @@ public:
     uint8 m_emoteState;
     uint32 m_oldEmote;
 
-    uint32 m_charmtemp;
-
     std::map<uint32, SpellEntry*> m_DummyAuras;
 
     uint32 m_vehicleKitId;
     uint16 m_aiAnimKitId;
     uint16 m_movementAnimKitId;
     uint16 m_meleeAnimKitId;
-
-public:
-    virtual const char* GetName() = 0;
-    void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );
-    void Teleport(float x, float y, float z, float o);
-    void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
-    void EventResetRedirectThreat();
-    uint32 GetCreatureType();
-    bool IsSitting();
 };

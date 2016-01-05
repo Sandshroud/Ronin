@@ -8,30 +8,13 @@
 
 #include "StdAfx.h"
 
-Map::Map(uint32 mapid, MapInfo * inf)
+Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(new TerrainMgr(sWorld.MapPath, _mapId))
 {
-    _mapInfo = inf;
-    _mapId = mapid;
-    // Collision = inf->Collision;
-    Collision = sWorld.Collision;
-
     //new stuff Load Spawns
     LoadSpawns();
 
-    bool mapCollision = false;
-    // collision
-    if (Collision)
-        mapCollision = sVMapInterface.ActivateMap(_mapId);
-
     // Setup terrain
-    _terrain = new TerrainMgr(sWorld.MapPath, _mapId, !(inf->type == INSTANCE_NULL), mapCollision);
     _terrain->LoadTerrainHeader();
-
-    // get our name
-    me = dbcMap.LookupEntry(_mapId);
-    if(_mapInfo)
-        mapName = _mapInfo->mapName;
-    else mapName = "Unknown";
 }
 
 Map::~Map()
@@ -49,10 +32,6 @@ Map::~Map()
         itr->second.GOSpawns.clear();
     }
     m_spawns.clear();
-
-    // collision
-    if (Collision)
-        sVMapInterface.DeactivateMap(_mapId);
 }
 
 static bool ctr_first_table_warning = true;
@@ -117,7 +96,7 @@ void Map::LoadSpawns(bool reload /* = false */)
             cspawn->modelId = fields[6].GetUInt32();
             cspawn->vendormask = fields[7].GetUInt32();
 
-            uint32 cellx = CellHandler<MapMgr>::GetPosX(cspawn->x), celly = CellHandler<MapMgr>::GetPosY(cspawn->y);
+            uint32 cellx = CellHandler<MapInstance>::GetPosX(cspawn->x), celly = CellHandler<MapInstance>::GetPosY(cspawn->y);
             GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
         }while(result->NextRow());
         delete result;
@@ -140,7 +119,7 @@ void Map::LoadSpawns(bool reload /* = false */)
             gspawn->faction = fields[8].GetUInt32();
             gspawn->scale = std::min<float>(255.f, fields[9].GetFloat());
 
-            uint32 cellx = CellHandler<MapMgr>::GetPosX(gspawn->x), celly = CellHandler<MapMgr>::GetPosY(gspawn->y);
+            uint32 cellx = CellHandler<MapInstance>::GetPosX(gspawn->x), celly = CellHandler<MapInstance>::GetPosY(gspawn->y);
             GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);
         }while(result->NextRow());
         delete result;

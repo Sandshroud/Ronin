@@ -433,7 +433,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 } break;
             case CHAT_MSG_YELL:
                 {
-                    _player->GetMapMgr()->SendChatMessageToCellPlayers(_player, &broadcast, 2, 1, pos, lang, this);
+                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 2, 1, pos, lang, this);
                     if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[Yell] %s: %s", _player->GetName(), message.c_str());
                 } break;
             default:
@@ -511,7 +511,7 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         WorldPacket data;
         Unit* pUnit = NULL;
         std::string unitName;
-        if(pUnit = _player->GetMapMgr()->GetUnit(guid))
+        if(pUnit = _player->GetMapInstance()->GetUnit(guid))
             unitName = pUnit->GetName();
 
         printf("Emote: %u, %u\n", emText->Id, emText->textId);

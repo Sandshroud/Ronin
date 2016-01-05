@@ -10,7 +10,7 @@
 class EyeOfTheStorm : public CBattleground
 {
 public:
-    EyeOfTheStorm( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    EyeOfTheStorm( MapInstance* m, uint32 id, uint32 lgroup, uint32 t);
     ~EyeOfTheStorm();
     virtual void Init();
 
@@ -28,7 +28,7 @@ public:
     void HookOnShadowSight();
     void SpawnBuff(uint32 x);
     LocationVector GetStartingCoords(uint8 Team);
-    static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new EyeOfTheStorm(m, i, l, t); }
+    static CBattleground* Create( MapInstance* m, uint32 i, uint32 l, uint32 t) { return new EyeOfTheStorm(m, i, l, t); }
     WoWGuid GetFlagHolderGUID() { return m_flagHolder; }
 
     const char * GetName() { return "Eye of the Storm"; }

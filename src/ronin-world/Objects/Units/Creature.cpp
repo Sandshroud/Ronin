@@ -16,11 +16,11 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
 
     m_spawn = NULL;
     m_quests = NULL;
-    IP_shield = NULL;
     m_SellItems = NULL;
     auctionHouse = NULL;
     m_escorter = NULL;
     m_respawnCell = NULL;
+    m_shieldProto = NULL;
     myFamily = NULL;
 
     m_taxiNode[0] = m_taxiNode[1] = 0;
@@ -33,15 +33,15 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
-    Skinned = false; // 0x02
+    m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
     m_noDeleteAfterDespawn = false; // 0x08
     m_noRespawn = false; // 0x10
     m_isGuard = false; // 0x20
     m_canRegenerateHP = true; // 0x40
     m_limbostate = false; // 0x80
-    m_corpseEvent=false; // 0x100
-    m_PickPocketed = false; // 0x200
+    m_corpseEvent = false; // 0x100
+    m_pickPocketed = false; // 0x200
     haslinkupevent = false; // 0x400
     has_waypoint_text = has_combat_text = false; // 0x800  // 0x1000
 }
@@ -120,12 +120,12 @@ void Creature::DeleteMe()
 void Creature::OnRemoveCorpse()
 {
     // time to respawn!
-    if (IsInWorld() && (int32)m_mapMgr->GetInstanceID() == m_instanceId)
+    if (IsInWorld() && (int32)m_mapInstance->GetInstanceID() == m_instanceId)
     {
 
         sLog.Debug("Creature","OnRemoveCorpse Removing corpse of "I64FMT"...", GetGUID());
 
-        if(((_extraInfo && _extraInfo->isBoss) && GetMapMgr()->GetMapInfo() && GetMapMgr()->GetdbcMap()->IsRaid()) || m_noRespawn)
+        if(((_extraInfo && _extraInfo->isBoss) && GetMapInstance()->IsRaid()) || m_noRespawn)
             RemoveFromWorld(false, true);
         else if(_creatureData->respawnTime)
             RemoveFromWorld(true, false);
@@ -136,20 +136,20 @@ void Creature::OnRemoveCorpse()
     }
 }
 
-void Creature::OnRespawn( MapMgr* m)
+void Creature::OnRespawn( MapInstance* m)
 {
     sLog.outDebug("Respawning "I64FMT"...", GetGUID());
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
 
-    Skinned = false;
+    m_skinned = false;
     m_taggingGroup = m_taggingPlayer = 0;
     m_lootMethod = -1;
 
     SetDeathState(ALIVE);
     GetAIInterface()->StopMovement(0); // after respawn monster can move
-    m_PickPocketed = false;
+    m_pickPocketed = false;
     PushToWorld(m);
 }
 
@@ -175,9 +175,10 @@ void Creature::GenerateLoot()
     }
 
     uint8 team = 0;
-    uint8 difficulty = (m_mapMgr ? (m_mapMgr->iInstanceMode) : 0);
-    if(CombatStatus.GetKiller() && CombatStatus.GetKiller()->IsPlayer())
-        team = castPtr<Player>(CombatStatus.GetKiller())->GetTeam();
+    uint8 difficulty = (m_mapInstance ? (m_mapInstance->iInstanceMode) : 0);
+    if(!m_killer.empty() && m_killer.getHigh() == HIGHGUID_TYPE_PLAYER)
+        if(Player *plr = GetInRangeObject<Player>(m_killer))
+            team = plr->GetTeam();
 
     lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), difficulty, team);
 
@@ -234,7 +235,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
 
     WorldDatabase.Execute(ss.str().c_str());
     if(newSpawn && IsInWorld())
-        GetMapMgr()->AddSpawn(GetMapMgr()->GetPosX(m_spawn->x), GetMapMgr()->GetPosY(m_spawn->y), m_spawn);
+        GetMapInstance()->AddSpawn(GetMapInstance()->GetPosX(m_spawn->x), GetMapInstance()->GetPosY(m_spawn->y), m_spawn);
 }
 
 void Creature::DeleteFromDB()
@@ -362,7 +363,7 @@ void Creature::OnPushToWorld()
         }
     }
 
-    m_aiInterface.m_is_in_instance = (m_mapMgr->GetMapInfo()->type!=INSTANCE_NULL) ? true : false;
+    m_aiInterface.m_is_in_instance = !m_mapInstance->GetdbcMap()->IsContinent();
     if (HasItems())
     {
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
@@ -577,10 +578,10 @@ bool Creature::isCivilian()
 
 void Creature::FormationLinkUp(uint32 SqlId)
 {
-    if(!m_mapMgr)       // shouldnt happen
+    if(!m_mapInstance)       // shouldnt happen
         return;
 
-    if( Creature *creature = m_mapMgr->GetSqlIdCreature(SqlId) )
+    if( Creature *creature = m_mapInstance->GetSqlIdCreature(SqlId) )
     {
         m_aiInterface.SetFormationLinkTarget(creature);
         haslinkupevent = false;
@@ -598,7 +599,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 
-    uint32 model = 0, gender=0;
+    uint32 model = m_spawn ? m_spawn->modelId : 0, gender=0;
     _creatureData->VerifyModelInfo(model, gender);
 
     uint32 level = _creatureData->minLevel;
@@ -671,7 +672,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     m_aiInterface.InitalizeExtraInfo(_creatureData, _extraInfo, mode);
 
     // load formation data
-    Formation* form = m_spawn ? sFormationMgr.GetFormation(m_spawn->id) : NULL;
+    Formation* form = NULL;//m_spawn ? sObjMgr.GetFormation(m_spawn->id) : NULL;
     m_aiInterface.SetFormationSQLId(form ? form->fol : 0);
     m_aiInterface.SetFormationFollowDistance(form ? form->dist : 0.f);
     m_aiInterface.SetFormationFollowAngle(form ? form->ang : 0.f);
@@ -690,7 +691,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
             if(DBCItem->InventoryType == INVTYPE_SHIELD)
-                b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
+                b_has_shield = (m_shieldProto = sItemMgr.LookupEntry(tmpitemid)) != NULL;
         }
     }
 
@@ -699,7 +700,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         if(ItemDataEntry* DBCItem = db2Item.LookupEntry(tmpitemid))
         {
             if(!b_has_shield && DBCItem->InventoryType == INVTYPE_SHIELD)
-                b_has_shield = (IP_shield = sItemMgr.LookupEntry(tmpitemid)) != NULL;
+                b_has_shield = (m_shieldProto = sItemMgr.LookupEntry(tmpitemid)) != NULL;
         }
     }
 }
@@ -723,14 +724,14 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
     if(respawntime)
     {
         /* get the cell with our SPAWN location. if we've moved cell this might break :P */
-        MapCell * pCell = m_mapMgr->GetCellByCoords(m_spawnLocation.x, m_spawnLocation.y);
+        MapCell * pCell = m_mapInstance->GetCellByCoords(m_spawnLocation.x, m_spawnLocation.y);
         if(!pCell)
             pCell = m_mapCell;
 
         ASSERT(pCell);
         pCell->_respawnObjects.insert(this);
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnCreature, castPtr<Creature>(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
+        sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnCreature, castPtr<Creature>(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
         Unit::RemoveFromWorld(false);
         SetPosition( m_spawnLocation);
         m_respawnCell = pCell;
@@ -744,5 +745,4 @@ void Creature::RemoveLimboState(Unit* healer)
 
     m_limbostate = false;
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-    bInvincible = false;
 }

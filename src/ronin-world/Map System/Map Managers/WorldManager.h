@@ -41,6 +41,7 @@ enum RAID_MODE
 
 enum INSTANCE_ABORT_ERROR
 {
+    INSTANCE_ABORT_CREATE_NEW_INSTANCE          = 0,
     INSTANCE_ABORT_ERROR_ERROR                  = 1,
     INSTANCE_ABORT_FULL                         = 2,
     INSTANCE_ABORT_NOT_FOUND                    = 3,
@@ -72,7 +73,7 @@ enum OWNER_CHECK
 extern const char * InstanceAbortMessages[];
 
 class Map;
-class MapMgr;
+class MapInstance;
 
 class WorldObject;
 class Group;
@@ -80,51 +81,60 @@ class Player;
 class MapUpdaterThread;
 class Battleground;
 
-class SERVER_DECL FormationMgr : public Singleton < FormationMgr >
-{
-    std::map<uint32, Formation*> m_formations;
-public:
-    typedef std::map<uint32, Formation*> FormationMap;
-    FormationMgr();
-    ~FormationMgr();
-
-    Formation * GetFormation(uint32 sqlid)
-    {
-        FormationMap::iterator itr = m_formations.find(sqlid);
-        return (itr == m_formations.end()) ? 0 : itr->second;
-    }
-};
-
-#define sFormationMgr FormationMgr::getSingleton()
-
-class InstanceMgr : public MapMgr
+class InstanceData
 {
 public:
-    InstanceMgr(Map *map, uint32 mapid, uint32 instanceid) : MapMgr(map, mapid, instanceid) {}
-
     void LoadFromDB(Field * fields);
     void SaveToDB();
     void DeleteFromDB();
 
-    RONIN_INLINE virtual bool IsInstance() { return true; }
+    WoWGuid getCreatorGuid() { return m_creatorGuid; }
+    uint32 getCreatorGroupID() { return m_creatorGroup; }
+
+    time_t getCreationTime() { return m_creation; }
+
+    uint32 getDifficulty() { return m_difficulty; }
+
+    time_t getExpirationTime() { return m_expiration; }
+
+    bool isBattleground() { return m_isBattleground; }
+
+    void AcquireSaveLock() { m_savedLock.Acquire(); }
+    void ReleaseSaveLock() { m_savedLock.Release(); }
+    
+    void AddKilledNPC(uint32 counter) { m_killedNpcs.insert(counter); }
+    void AddSavedPlayer(uint32 counter) { m_SavedPlayers.insert(counter); }
+    void AddEnteredPlayer(uint32 counter) { m_EnteredPlayers.insert(counter); }
+
+    bool HasKilledNPC(uint32 counter) { return m_killedNpcs.find(counter) != m_killedNpcs.end(); }
+    bool HasSavedPlayer(uint32 counter) { return m_SavedPlayers.find(counter) != m_SavedPlayers.end(); }
+    bool HasEnteredPlayer(uint32 counter) { return m_EnteredPlayers.find(counter) != m_EnteredPlayers.end(); }
+
+private:
 
     WoWGuid m_creatorGuid;
     uint32 m_creatorGroup;
     time_t m_creation;
+
+    uint32 m_difficulty;
+
     time_t m_expiration;
     bool m_isBattleground;
 
-    Mutex m_SavedLock;
+    Mutex m_savedLock;
     std::unordered_set<uint32> m_killedNpcs;
     std::unordered_set<uint32> m_SavedPlayers;
     std::unordered_set<uint32> m_EnteredPlayers;
 };
 
-typedef RONIN_UNORDERED_MAP<uint32, InstanceMgr*> InstanceMap;
+// Each instance has it's own instance data linked to unique IDs
+typedef RONIN_UNORDERED_MAP<uint32, InstanceData*> InstanceDataMap;
+
+class MapManager;
 
 class SERVER_DECL WorldManager
 {
-    friend class MapMgr;
+    friend class MapInstance;
 public:
     WorldManager();
     ~WorldManager();
@@ -139,13 +149,12 @@ public:
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
 
     bool PushToWorldQueue(WorldObject *obj);
-    MapMgr* GetInstance(WorldObject* obj);
-    MapMgr* GetInstance(uint32 MapId, uint32 InstanceId);
+    MapInstance *GetInstance(WorldObject* obj);
+    MapInstance *GetInstance(uint32 MapId, uint32 InstanceId);
 
     uint32 GenerateInstanceID();
     void BuildXMLStats(char * m_file);
     void Load(TaskList * l);
-    void Load(uint32 mapid);
 
     // deletes all instances owned by this player.
     void ResetSavedInstances(Player* plr);
@@ -154,7 +163,7 @@ public:
     void PlayerLeftGroup(Group * pGroup, Player* pPlayer);
 
     // Has instance expired? Can player join?
-    RONIN_INLINE uint8 PlayerOwnsInstance(InstanceMgr * pInstance, Player* pPlayer)
+    RONIN_INLINE uint8 PlayerOwnsInstance(MapInstance * pInstance, Player* pPlayer)
     {
         // expired?
         if( HasInstanceExpired( pInstance) )
@@ -163,7 +172,7 @@ public:
             return OWNER_CHECK_EXPIRED;
         }
 
-        //Reached player limit?
+        /* //Reached player limit?
         if( pInstance->GetMapInfo()->playerlimit < uint32(pInstance->GetPlayerCount()))
             return OWNER_CHECK_MAX_LIMIT;
 
@@ -238,20 +247,20 @@ public:
         {
             pInstance->m_EnteredPlayers.insert(pPlayer->GetLowGUID());
             return OWNER_CHECK_RESET_LOC;
-        }
+        }*/
         return OWNER_CHECK_OK;
     }
 
     // has an instance expired?
-    RONIN_INLINE bool HasInstanceExpired(InstanceMgr * pInstance)
+    RONIN_INLINE bool HasInstanceExpired(MapInstance * pInstance)
     {
         MapEntry* map = dbcMap.LookupEntry(pInstance->GetMapId());
         if(map && map->IsRaid())
             return false;
 
         // expired? (heroic instances never expire, they are reset every day at 05:00).
-        if( pInstance->iInstanceMode == 0 && pInstance->m_expiration && (UNIXTIME+20) >= pInstance->m_expiration)
-            return true;
+        /*if( pInstance->iInstanceMode == 0 && pInstance->m_expiration && (UNIXTIME+20) >= pInstance->m_expiration)
+            return true;*/
 
         return false;
     }
@@ -267,50 +276,37 @@ public:
     // packets, w000t! we all love packets!
     void BuildSavedRaidInstancesForPlayer(Player* plr);
     void BuildSavedInstancesForPlayer(Player* plr);
-    MapMgr* CreateBattlegroundInstance(uint32 mapid);
+    MapInstance *CreateBattlegroundInstance(uint32 mapid);
 
     // this only frees the instance pointer, not the mapmgr itself
     void DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid);
-    MapMgr* GetMapMgr(uint32 mapId);
 
-    //Find saved instance for player at given mapid
-    InstanceMgr* GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty);
-    InstanceMap * GetInstancesForMap(uint32 map_id) { return m_instances[map_id]; }
-    InstanceMgr* GetInstanceByIds(uint32 mapid, uint32 instanceId)
+    bool MapManagerExists(uint32 mapId) { return m_mapManagement.find(mapId) != m_mapManagement.end(); }
+    MapManager *GetMapManager(uint32 mapId)
     {
-        if(mapid > NUM_MAPS)
-            return NULL;
-        if(mapid == NUM_MAPS)
-        {
-            InstanceMgr *in;
-            for(uint32 i=0; i<NUM_MAPS; ++i)
-            {
-                in = GetInstanceByIds(i, instanceId);
-                if(in != NULL)
-                    return in;
-            }
-            return NULL;
-        }
-        InstanceMap *map = m_instances[mapid];
-        if(map == NULL)
-            return NULL;
-        InstanceMap::iterator instance = map->find(instanceId);
-        return instance == map->end() ? NULL : instance->second;
+        if(MapManagerExists(mapId))
+            return m_mapManagement.at(mapId);
+        return NULL;
     }
 
+    //Find saved instance for player at given mapid
+    MapInstance *GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty);
+    MapInstance *GetInstanceByIds(uint32 mapid, uint32 instanceId);
+
     void _LoadInstances();
-    void _CreateMap(uint32 mapid);
-    bool _DeleteInstance(InstanceMgr* in, bool ForcePlayersOut, bool atSelfEnd);
-    MapMgr *_CreateMapMgr(uint32 mapId, uint32 instanceId, bool instance = false);
+    void _CreateMap(MapEntry *map);
+    bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
 private:
-    uint32 m_InstanceHigh;
+    void _InitMapManager(MapEntry *mapEntry, Map *map);
 
     Mutex m_mapLock;
-    Map* m_maps[NUM_MAPS];
+    std::map<uint32, Map*> m_maps;
 
-    InstanceMap* m_instances[NUM_MAPS];
-    MapMgr* m_singleMaps[NUM_MAPS];
+    uint32 m_instanceCounter;
+    InstanceDataMap m_instances;
+
+    std::map<uint32, MapManager*> m_mapManagement;
 };
 
 extern SERVER_DECL WorldManager sWorldMgr;

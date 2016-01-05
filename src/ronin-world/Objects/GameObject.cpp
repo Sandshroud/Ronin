@@ -88,7 +88,7 @@ void GameObject::Destruct()
 
 void GameObject::Update(uint32 p_time)
 {
-    if(m_event_Instanceid != m_instanceId)
+    if(m_event_MapId != m_mapId)
     {
         event_Relocate();
         return;
@@ -183,7 +183,7 @@ void GameObject::TrapSearchTarget()
     Update(200);
 }
 
-void GameObject::Spawn( MapMgr* m)
+void GameObject::Spawn( MapInstance* m)
 {
     PushToWorld(m);
     TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnSpawn);
@@ -219,7 +219,7 @@ void GameObject::Despawn( uint32 delay, uint32 respawntime)
         ASSERT(pCell);
         pCell->_respawnObjects.insert( this );
         sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapMgr, &MapMgr::EventRespawnGameObject, castPtr<GameObject>(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
+        sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnGameObject, castPtr<GameObject>(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
         WorldObject::RemoveFromWorld(false);
         m_respawnCell = pCell;
     }
@@ -571,7 +571,7 @@ void GameObject::_LoadQuests()
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
 Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot)
 {
-    Creature* p = GetMapMgr()->CreateCreature(guardian_entry);
+    Creature* p = GetMapInstance()->CreateCreature(guardian_entry);
     if(p == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);
@@ -582,8 +582,8 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     float m_followAngle = angle + v.o;
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
-    p->Load(GetMapId(), x, y, v.z, angle, GetMapMgr()->iInstanceMode);
-    p->SetInstanceID(GetMapMgr()->GetInstanceID());
+    p->Load(GetMapId(), x, y, v.z, angle, GetMapInstance()->iInstanceMode);
+    p->SetInstanceID(GetMapInstance()->GetInstanceID());
     p->setLevel(u_caster->getLevel());
 
     p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
@@ -596,7 +596,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->GetAIInterface()->SetUnitToFollowAngle(angle);
     p->GetAIInterface()->SetFollowDistance(3.0f);
 
-    p->PushToWorld(GetMapMgr());
+    p->PushToWorld(GetMapInstance());
 
     if(duration)
         sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::SummonExpireSlot,Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
@@ -743,7 +743,7 @@ void GameObject::SetStatusRebuilt()
 
 void GameObject::AuraGenSearchTarget()
 {
-    if(m_event_Instanceid != m_instanceId)
+    if(m_event_MapId != m_mapId)
     {
         event_Relocate();
         return;
@@ -796,7 +796,7 @@ void GameObject::Use(Player *p)
 
     uint32 type = GetType();
     TRIGGER_GO_EVENT(this, OnActivate);
-    TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnGameObjectActivate )( this, p );
+    TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnGameObjectActivate )( this, p );
 
     switch (type)
     {
@@ -905,7 +905,7 @@ void GameObject::Use(Player *p)
 
                 if(!p->m_bgFlagIneligible)
                     p->m_bg->HookFlagStand(p, this);
-                TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagStand )( p, this );
+                TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnPlayerFlagStand )( p, this );
             }
             else
                 sLog.outError("Gameobject Type FlagStand activated while the player is not in a battleground, entry %u", goinfo->ID);
@@ -922,7 +922,7 @@ void GameObject::Use(Player *p)
                     p->RemoveAura( p->m_MountSpellId );
 
                 p->m_bg->HookFlagDrop(p, this);
-                TRIGGER_INSTANCE_EVENT( p->GetMapMgr(), OnPlayerFlagDrop )( p, this );
+                TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnPlayerFlagDrop )( p, this );
             }
             else
                 sLog.outError("Gameobject Type Flag Drop activated while the player is not in a battleground, entry %u", goinfo->ID);
@@ -982,7 +982,7 @@ void GameObject::Use(Player *p)
                 Player* plr;
                 for(i = 0; i < reqParticipants; i++)
                 {
-                    plr = p->GetMapMgr()->GetPlayer(m_ritualmembers[i]);
+                    plr = p->GetMapInstance()->GetPlayer(m_ritualmembers[i]);
                     if(plr != NULL)
                     {
                         plr->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, 0);
@@ -1000,7 +1000,7 @@ void GameObject::Use(Player *p)
 
                         if((info = dbcSpell.LookupEntry(goinfo->GetSpellID())) == NULL)
                             break;
-                        Player* target = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_TARGET));
+                        Player* target = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_TARGET));
                         if(target == NULL)
                             return;
 
@@ -1011,8 +1011,8 @@ void GameObject::Use(Player *p)
                 case 177193:// doom portal
                     {
                         // kill the sacrifice player
-                        Player* psacrifice = p->GetMapMgr()->GetPlayer(m_ritualmembers[(int)(RandomUInt(reqParticipants-1))]);
-                        Player* pCaster = GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
+                        Player* psacrifice = p->GetMapInstance()->GetPlayer(m_ritualmembers[(int)(RandomUInt(reqParticipants-1))]);
+                        Player* pCaster = GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!psacrifice || !pCaster)
                             return;
                         if((info = dbcSpell.LookupEntry(goinfo->data.ritual.casterTargetSpell)) == NULL)
@@ -1030,11 +1030,11 @@ void GameObject::Use(Player *p)
                     }break;
                 case 179944:// Summoning portal for meeting stones
                     {
-                        Player* plr = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_TARGET));
+                        Player* plr = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_TARGET));
                         if(!plr)
                             return;
 
-                        Player* pleader = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
+                        Player* pleader = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!pleader)
                             return;
 
@@ -1048,7 +1048,7 @@ void GameObject::Use(Player *p)
                     }break;
                 case 194108:// Ritual of Summoning portal for warlocks
                     {
-                        Player* pleader = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
+                        Player* pleader = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!pleader)
                             return;
 
@@ -1063,7 +1063,7 @@ void GameObject::Use(Player *p)
                 case 186811://Ritual of Refreshment
                 case 193062:
                     {
-                        Player* pleader = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
+                        Player* pleader = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!pleader)
                             return;
 
@@ -1078,7 +1078,7 @@ void GameObject::Use(Player *p)
                 case 181622://Ritual of Souls
                 case 193168:
                     {
-                        Player* pleader = p->GetMapMgr()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
+                        Player* pleader = p->GetMapInstance()->GetPlayer(GetGOui32Value(GO_UINT32_M_RIT_CASTER));
                         if(!pleader)
                             return;
 
@@ -1124,19 +1124,19 @@ void GameObject::Use(Player *p)
                 return;
 
             /* Create the summoning portal */
-            GameObject* pGo = p->GetMapMgr()->CreateGameObject(179944);
+            GameObject* pGo = p->GetMapInstance()->CreateGameObject(179944);
             if( pGo == NULL || !pGo->CreateFromProto(179944, p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 0.0f))
                 return;
 
             // dont allow to spam them
-            GameObject* gobj = castPtr<GameObject>(p->GetMapMgr()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
+            GameObject* gobj = castPtr<GameObject>(p->GetMapInstance()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
             if( gobj )
                 ExpireAndDelete();
 
             pGo->SetGOui32Value(GO_UINT32_M_RIT_CASTER, p->GetLowGUID());
             pGo->SetGOui32Value(GO_UINT32_M_RIT_TARGET, pPlayer->GetLowGUID());
             pGo->SetGOui32Value(GO_UINT32_RIT_SPELL, 61994);
-            pGo->PushToWorld(p->GetMapMgr());
+            pGo->PushToWorld(p->GetMapInstance());
 
             /* member one: the (w00t) caster */
             pGo->m_ritualmembers[0] = p->GetLowGUID();

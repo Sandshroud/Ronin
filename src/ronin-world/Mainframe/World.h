@@ -15,7 +15,7 @@ class Creature;
 class GameObject;
 class DynamicObject;
 class Player;
-class MapMgr;
+class MapInstance;
 class Battleground;
 
 enum Rates
@@ -203,35 +203,6 @@ enum HolidayMasks
     HOLIDAY_HARVEST_FEST | HOLIDAY_LUNAR_FEST | HOLIDAY_DAY_OF_DEAD |
     HOLIDAY_PILGRIM_BOUNTY
 };
-
-#pragma pack(PRAGMA_PACK)
-struct MapInfo
-{
-    uint32 mapid;
-    char *mapName;
-    uint32 type;
-    uint32 playerlimit;
-    uint32 minlevel;
-    uint32 LinkedAreaTrigger;
-    float repopx;
-    float repopy;
-    float repopz;
-    int32 repopmapid;
-    uint32 flags;
-    uint32 cooldown;
-    uint32 required_quest;
-    uint32 required_item;
-    uint32 heroic_key[2];
-    uint32 phasehorde;
-    uint32 phasealliance;
-
-    bool HasFlag(uint32 flag)
-    {
-        return (flags & flag) != 0;
-    }
-};
-
-#pragma pack(PRAGMA_POP)
 
 struct insert_playeritem
 {

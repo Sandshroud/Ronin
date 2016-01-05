@@ -1457,7 +1457,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
 
     if((slot < INVENTORY_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET) || (slot >= BANK_SLOT_BAG_START && slot < BANK_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET))
     {
-        if (!ignore_combat && m_pOwner->CombatStatus.IsInCombat() && (slot < EQUIPMENT_SLOT_MAINHAND || slot > EQUIPMENT_SLOT_RANGED))
+        if (!ignore_combat && m_pOwner->IsInCombat() && (slot < EQUIPMENT_SLOT_MAINHAND || slot > EQUIPMENT_SLOT_RANGED))
             return INV_ERR_NOT_IN_COMBAT;
     
         if( proto->ItemLimitCategory )

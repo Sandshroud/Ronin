@@ -21,7 +21,7 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     if(GetPlayer()->IsPacified() || GetPlayer()->IsStunned() || GetPlayer()->IsFeared())
         return;
 
-    Unit* pEnemy = _player->GetMapMgr()->GetUnit(guid);
+    Unit* pEnemy = _player->GetMapInstance()->GetUnit(guid);
     if(!pEnemy)
     {
         sLog.outDebug("WORLD: "I64FMT" does not exist.", guid);

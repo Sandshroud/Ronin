@@ -60,7 +60,7 @@ protected:
     uint32 m_lgroup;
 
 public:
-    ArathiBasin( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    ArathiBasin( MapInstance* m, uint32 id, uint32 lgroup, uint32 t);
     ~ArathiBasin();
     virtual void Init();
 
@@ -80,7 +80,7 @@ public:
     LocationVector GetStartingCoords(uint8 Team);
     void DropFlag(Player* plr);
 
-    static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new ArathiBasin(m, i, l, t); }
+    static CBattleground* Create( MapInstance* m, uint32 i, uint32 l, uint32 t) { return new ArathiBasin(m, i, l, t); }
 
     const char * GetName() { return "Arathi Basin"; }
     void OnStart();

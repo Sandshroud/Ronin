@@ -357,7 +357,7 @@ bool ChatHandler::HandleRangeCheckCommand( const char *args , WorldSession *m_se
         return true;
     }
 
-    Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit( guid );
+    Unit* unit = m_session->GetPlayer()->GetMapInstance()->GetUnit( guid );
     if(!unit)
     {
         m_session->SystemMessage("Invalid selection");

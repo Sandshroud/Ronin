@@ -17,14 +17,14 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
 
     if(GUID_HIPART(petGuid) == HIGHGUID_TYPE_UNIT)
     {
-        Creature* pCharm = GetPlayer()->GetMapMgr()->GetCreature(petGuid);
+        Creature* pCharm = GetPlayer()->GetMapInstance()->GetCreature(petGuid);
         if(!pCharm)
             return;
 
         return;
     }
 
-    Pet* pPet = _player->GetMapMgr()->GetPet(petGuid);
+    Pet* pPet = _player->GetMapInstance()->GetPet(petGuid);
     if(pPet == NULL)
         return;
     if(!pPet->isAlive())
@@ -37,7 +37,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
     if(action == PET_ACTION_SPELL || action == PET_ACTION_SPELL_1 || action == PET_ACTION_SPELL_2 || (action == PET_ACTION_ACTION && misc == PET_ACTION_ATTACK )) // >> target
     {
         recv_data >> targetguid;
-        pTarget = _player->GetMapMgr()->GetUnit(targetguid);
+        pTarget = _player->GetMapInstance()->GetUnit(targetguid);
         if(!pTarget) 
             pTarget = pPet; // target self
     }
@@ -186,7 +186,7 @@ void WorldSession::HandlePetNameQuery(WorldPacket & recv_data)
     uint64 petGuid = 0;
 
     recv_data >> reqNumber >> petGuid;
-    Pet* pPet = _player->GetMapMgr()->GetPet(petGuid);
+    Pet* pPet = _player->GetMapInstance()->GetPet(petGuid);
     if(!pPet)
         return;
 
@@ -563,7 +563,7 @@ void WorldSession::HandleCancelPetAura(WorldPacket& recvPacket)
 
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_PET)
     {
-        Pet* p = _player->GetMapMgr()->GetPet((uint32)guid);
+        Pet* p = _player->GetMapInstance()->GetPet((uint32)guid);
         if (!p)
         {
             sLog.outError("Pet %u not exist.", uint32(GUID_LOPART(guid)));

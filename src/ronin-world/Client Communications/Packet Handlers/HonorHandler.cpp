@@ -85,7 +85,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
                 {
                     AddHonorPointsToPlayer(*vtr, pts);
                     pPlayer->m_bg->HookOnHK(*vtr);
-                    TRIGGER_INSTANCE_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
+                    TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerHonorKill )( pPlayer );
                     if(pVictim)
                     {
                         // Send PVP credit
@@ -117,7 +117,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
                         if(gPlayer->m_bg)
                             gPlayer->m_bg->HookOnHK(gPlayer);
 
-                        TRIGGER_INSTANCE_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
+                        TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerHonorKill )( pPlayer );
                         AddHonorPointsToPlayer(gPlayer, GroupPoints);
                         if(pVictim)
                         {
@@ -153,7 +153,7 @@ void HonorHandler::OnPlayerKilled( Player* pPlayer, Player* pVictim )
 
             if(pPlayer->m_bg)
                 pPlayer->m_bg->HookOnHK(pPlayer);
-            TRIGGER_INSTANCE_EVENT( pPlayer->GetMapMgr(), OnPlayerHonorKill )( pPlayer );
+            TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerHonorKill )( pPlayer );
             if(pVictim)
             {
                 // Send PVP credit

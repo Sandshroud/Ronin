@@ -12,7 +12,7 @@ static const float SOTAStartLocations[2][3] = {
 class StrandOfTheAncients : public CBattleground
 {
 public:
-    StrandOfTheAncients(MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    StrandOfTheAncients(MapInstance* instance, uint32 id, uint32 lgroup, uint32 t);
     ~StrandOfTheAncients();
     virtual void Init();
 
@@ -32,7 +32,7 @@ public:
     void Respawn();
     LocationVector GetStartingCoords(uint8 Team);
 
-    static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return (new StrandOfTheAncients(m, i, l, t)); }
+    static CBattleground* Create(MapInstance *m, uint32 i, uint32 l, uint32 t) { return (new StrandOfTheAncients(m, i, l, t)); }
 
     const char * GetName() { return "Strand of the Ancients"; }
     void OnStart();

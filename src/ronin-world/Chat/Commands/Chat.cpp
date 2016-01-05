@@ -436,8 +436,6 @@ void CommandTableStorage::Init()
         { "additem",                COMMAND_LEVEL_M, &ChatHandler::HandleAddInvItemCommand,                         "",                             NULL, 0, 0, 0 },
         { "additemset",             COMMAND_LEVEL_M, &ChatHandler::HandleAddItemSetCommand,                         "Adds item set to inv.",            NULL, 0, 0, 0 },
         { "removeitem",             COMMAND_LEVEL_M, &ChatHandler::HandleRemoveItemCommand,                         "Removes item %u count %u.", NULL, 0, 0, 0 },
-        { "invincible",             COMMAND_LEVEL_I, &ChatHandler::HandleInvincibleCommand,                         ".invincible - Toggles INVINCIBILITY (mobs won't attack you)", NULL, 0, 0, 0 },
-        { "invisible",              COMMAND_LEVEL_I, &ChatHandler::HandleInvisibleCommand,                          ".invisible - Toggles INVINCIBILITY and INVISIBILITY (mobs won't attack you and nobody can see you, but they can see your chat messages)", NULL, 0, 0, 0 },
         { "resetreputation",        COMMAND_LEVEL_N, &ChatHandler::HandleResetReputationCommand,                    ".resetreputation - Resets reputation to start levels. (use on characters that were made before reputation fixes.)", NULL, 0, 0, 0 },
         { "resetspells",            COMMAND_LEVEL_N, &ChatHandler::HandleResetSpellsCommand,                        ".resetspells - Resets all spells to starting spells of targeted player. DANGEROUS.", NULL, 0, 0, 0 },
         { "resettalents",           COMMAND_LEVEL_N, &ChatHandler::HandleResetTalentsCommand,                       ".resettalents - Resets all talents of targeted player to that of their current level. DANGEROUS.", NULL, 0, 0, 0 },
@@ -906,7 +904,7 @@ Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
         if(showerror)
             GreenSystemMessage(m_session, "Auto-targeting self.");
         chr = m_session->GetPlayer(); // autoselect
-    } else chr = m_session->GetPlayer()->GetMapMgr()->GetPlayer(guid);
+    } else chr = m_session->GetPlayer()->GetMapInstance()->GetPlayer(guid);
 
     if(chr == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a player.");
@@ -919,7 +917,7 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
         return NULL;
 
     WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    Unit *unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(guid);
+    Unit *unit = m_session->GetPlayer()->GetMapInstance()->GetUnit(guid);
     if(unit && unit->IsPlayer()) unit = NULL; // GetUnit also returns players
     if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a creature.");
@@ -931,7 +929,7 @@ Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
     if(!m_session->GetPlayer()->IsInWorld())
         return NULL;
 
-    Unit* unit = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
+    Unit* unit = m_session->GetPlayer()->GetMapInstance()->GetUnit(m_session->GetPlayer()->GetSelection());
     if(unit == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a unit.");
     return unit;

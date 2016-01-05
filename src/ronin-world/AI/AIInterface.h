@@ -98,41 +98,12 @@ public:
     void SetBehaviorType(BehaviorType pBehavior) { unitBehavior = pBehavior; };
     BehaviorType GetBehaviorType() { return unitBehavior; };
 
-    CreatureState m_creatureState;
-
     uint32 GetWeaponEmoteType(bool ranged);
-    bool m_canCallForHelp;
-    float m_CallForHelpHealth;
-    bool m_canRangedAttack;
-    bool m_canFlee;
-    float m_FleeHealth;
-    uint32 m_FleeDuration;
-    int sendflee_message;
-    std::string flee_message;
-
-    uint32 m_totemSpellTimer, m_totemSpellTime;
-    SpellEntry * m_totemSpell;
-
     RONIN_INLINE Unit* GetNextTarget() { return m_nextTarget; }
     RONIN_INLINE bool SetNextTarget(Unit* nextTarget);
 
     void WipeReferences();
     RONIN_INLINE void SetPetOwner(Unit* owner) { m_PetOwner = owner; }
-
-    std::map<uint32, AI_Spell*> m_spells;
-
-    bool disable_combat;
-
-    bool disable_melee;
-    bool disable_ranged;
-    bool disable_spell;
-    bool disable_targeting;
-
-    bool waiting_for_cooldown;
-
-    uint32 m_CastTimer;
-
-    AI_Spell* m_CastNext;
 
     Unit *GetTargetForSpell(AI_Spell* pSpell);
     Unit *GetNearestTargetInSet(std::set<Unit*> pTargetSet);
@@ -155,20 +126,49 @@ public:
     void CheckNextTargetFlyingStatus();
 
 protected:
-    bool m_AllowedToEnterCombat;
 
     // Update
     void _UpdateTotem(uint32 p_time);
     void _UpdateTargets(uint32 p_time);
     void _UpdateCombat(uint32 p_time);
 
-    uint32 m_updateListTimer;
-    uint32 m_updateTargetsTimer;
-
     // Misc
-    bool firstLeaveCombat;
     Unit* FindTarget();
     bool FindFriends(float dist);
+
+public:
+    bool m_AllowedToEnterCombat;
+    CreatureState m_creatureState;
+    bool m_canCallForHelp;
+    float m_CallForHelpHealth;
+    bool m_canRangedAttack;
+    bool m_canFlee;
+    float m_FleeHealth;
+    uint32 m_FleeDuration;
+    int sendflee_message;
+    std::string flee_message;
+
+    uint32 m_totemSpellTimer, m_totemSpellTime;
+    SpellEntry * m_totemSpell;
+
+    std::map<uint32, AI_Spell*> m_spells;
+
+    bool disable_combat;
+
+    bool disable_melee;
+    bool disable_ranged;
+    bool disable_spell;
+    bool disable_targeting;
+
+    bool waiting_for_cooldown;
+
+    uint32 m_CastTimer;
+
+    AI_Spell* m_CastNext;
+
+    bool firstLeaveCombat;
+    uint32 m_updateListTimer;
+    uint32 m_updateTargetsTimer;
 
     Unit* m_nextTarget;
     uint32 m_fleeTimer;

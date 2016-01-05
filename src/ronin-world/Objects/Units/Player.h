@@ -1346,7 +1346,7 @@ public:
     RONIN_INLINE bool IsVisible(WorldObject* pObj) { return !(m_visibleObjects.find(pObj) == m_visibleObjects.end()); }
     void AddInRangeObject(WorldObject* pObj);
     void OnRemoveInRangeObject(WorldObject* pObj);
-    void ClearInRangeSet();
+    virtual void ClearInRangeSet();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
     RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjectSet::iterator itr) { m_visibleObjects.erase(itr); }
@@ -1427,7 +1427,7 @@ public:
 
     uint32 m_regenTimerCount;
     float m_powerFraction[6];
-    void PlayerRegeneratePower(bool isinterrupted);
+    void RegeneratePower(bool isinterrupted);
     void RegenerateHealth(bool inCombat);
 
     void BattlegroundKick() { if(m_bg) m_bg->RemovePlayer(this, false); };
@@ -1540,7 +1540,7 @@ public:
     Unit* linkTarget;
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec);
-    void SafeTeleport(MapMgr* mgr, LocationVector vec);
+    void SafeTeleport(MapInstance* instance, LocationVector vec);
     void EjectFromInstance();
     bool raidgrouponlysent;
 
@@ -1617,7 +1617,7 @@ public:
     {
         if(!IsInWorld() || m_tradeData == NULL)
             return NULL;
-        return m_mapMgr->GetPlayer(m_tradeData->targetGuid);
+        return m_mapInstance->GetPlayer(m_tradeData->targetGuid);
     }
 
     Item* getTradeItem(uint8 slot)

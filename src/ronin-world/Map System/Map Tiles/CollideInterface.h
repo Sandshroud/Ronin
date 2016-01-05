@@ -26,7 +26,7 @@ public:
     void Init();
     void DeInit();
     void UpdateAllMaps(uint32 p_time);
-    void UpdateSingleMap(uint32 mapId, uint32 instanceId, uint32 p_time);
+    void UpdateSingleMap(uint32 mapId, uint32 p_time);
 
     bool ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY);
     void DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY);

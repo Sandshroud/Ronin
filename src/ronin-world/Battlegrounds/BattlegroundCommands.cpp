@@ -40,8 +40,8 @@ bool ChatHandler::HandleSetWorldStateCommand(const char* args, WorldSession *m_s
 
     //if(m_session->GetPlayer()->m_bg)
     //{
-        m_session->GetPlayer()->GetMapMgr()->GetStateManager().CreateWorldState(id, val);
-        m_session->GetPlayer()->GetMapMgr()->GetStateManager().UpdateWorldState(id, val);
+        m_session->GetPlayer()->GetMapInstance()->GetStateManager().CreateWorldState(id, val);
+        m_session->GetPlayer()->GetMapInstance()->GetStateManager().UpdateWorldState(id, val);
     //}
 
     return true;

@@ -20,7 +20,7 @@ class WarsongGulch : public CBattleground
     uint32 m_WinHonor;
     uint32 m_CompleteHonor;
 public:
-    WarsongGulch(MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    WarsongGulch(MapInstance* m, uint32 id, uint32 lgroup, uint32 t);
     ~WarsongGulch();
     virtual void Init();
 
@@ -41,7 +41,7 @@ public:
     void DropFlag(Player* plr);
     void ReturnFlag(uint8 team);
 
-    static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return new WarsongGulch(m, i, l, t); }
+    static CBattleground* Create(MapInstance *m, uint32 i, uint32 l, uint32 t) { return new WarsongGulch(m, i, l, t); }
 
     WoWGuid GetAllianceFlagHolderGUID() { return m_flagHolders[0]; }
     WoWGuid GetHordeFlagHolderGUID() { return m_flagHolders[1]; }

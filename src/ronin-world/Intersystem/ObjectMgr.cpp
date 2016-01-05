@@ -728,7 +728,7 @@ Item* ObjectMgr::LoadItem(uint64 guid)
     return pReturn;
 }
 
-void ObjectMgr::LoadCorpses(MapMgr* mgr)
+void ObjectMgr::LoadCorpses(MapInstance* mgr)
 {
     QueryResult *result = CharacterDatabase.Query("SELECT * FROM corpses WHERE mapId = %u", mgr->GetMapId());
     if(result)
@@ -738,9 +738,8 @@ void ObjectMgr::LoadCorpses(MapMgr* mgr)
         {
             Field *fields = result->Fetch();
             uint32 instanceid = fields[10].GetUInt32();
-            if(instanceid && mgr->GetMapInfo()->type != 0)
-                if(instanceid != mgr->GetInstanceID())
-                    continue;
+            if(instanceid && instanceid != mgr->GetInstanceID())
+                continue;
             pCorpse = new Corpse(HIGHGUID_TYPE_CORPSE, fields[0].GetUInt32());
             pCorpse->Init();
             pCorpse->SetInstanceID(instanceid);
@@ -776,7 +775,7 @@ void ObjectMgr::CorpseAddEventDespawn(Corpse* pCorpse)
         pCorpse->Destruct();
         return;
     }
-    sEventMgr.AddEvent(pCorpse->GetMapMgr(), &MapMgr::EventCorpseDespawn, (uint64)pCorpse->GetGUID(), EVENT_CORPSE_DESPAWN, 600000, 1,0);
+    sEventMgr.AddEvent(pCorpse->GetMapInstance(), &MapInstance::EventCorpseDespawn, (uint64)pCorpse->GetGUID(), EVENT_CORPSE_DESPAWN, 600000, 1,0);
 }
 
 void ObjectMgr::DespawnCorpse(uint64 Guid)

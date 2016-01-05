@@ -1001,7 +1001,7 @@ void GuildMgr::Packet_PromoteGuildMember(WorldSession* m_session, PlayerInfo *pr
 void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::string name, uint32 petitionCount, uint32 ArenaIndex)
 {
     uint8 error = 0;
-    Creature* crt = m_session->GetPlayer()->GetMapMgr()->GetCreature(SellerGuid);
+    Creature* crt = m_session->GetPlayer()->GetMapInstance()->GetCreature(SellerGuid);
     if(!crt)
     {
         m_session->Disconnect();

@@ -44,8 +44,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_hasInRangeGuards              = 0;
     m_PetNumberMax                  = 0;
     m_lastShotTime                  = 0;
-    m_H_regenTimer                  = 0;
-    m_P_regenTimer                  = 0;
     m_onTaxi                        = false;
     m_taxi_pos_x                    = 0;
     m_taxi_pos_y                    = 0;
@@ -371,21 +369,6 @@ void Player::Update( uint32 p_time )
         return;
 
     Unit::Update( p_time );
-    if (isAlive())
-    {
-        m_P_regenTimer += p_time;
-        if(p_time < m_p_DelayTimer)
-        {
-            m_p_DelayTimer -= p_time;
-            PlayerRegeneratePower(true);
-        }
-        else
-        {
-            m_p_DelayTimer = 0;
-            PlayerRegeneratePower(false);
-        }
-        m_P_regenTimer = 0;
-    }
 
     // Handle our water stuff
     HandleBreathing(p_time);
@@ -433,7 +416,7 @@ void Player::ProcessPendingItemUpdates()
     if(m_pendingUpdates.empty() || !IsInWorld())
         return;
 
-    ByteBuffer &buff = GetMapMgr()->m_updateBuffer;
+    ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
     while(m_pendingUpdates.size())
     {
         Item *item = *m_pendingUpdates.begin();
@@ -445,7 +428,7 @@ void Player::ProcessPendingItemUpdates()
 
     if(IsInWorld())
     {
-        m_mapMgr->ObjectUpdated(this);
+        m_mapInstance->ObjectUpdated(this);
         m_objectUpdated = true;
     }
 }
@@ -2121,7 +2104,7 @@ void Player::HandleBreathing(uint32 time_diff)
         return;
 
     // In water
-    if (underwaterState & UNDERWATERSTATE_UNDERWATER && !bInvincible && isAlive())
+    if (underwaterState & UNDERWATERSTATE_UNDERWATER && isAlive())
     {
         // Breath timer not activated - activate it
         if (m_MirrorTimer[BREATH_TIMER] == -1)
@@ -2161,7 +2144,7 @@ void Player::HandleBreathing(uint32 time_diff)
     // In dark water
     if(sWorld.EnableFatigue)
     {
-        if (!bInvincible && underwaterState & UNDERWATERSTATE_FATIGUE)
+        if (underwaterState & UNDERWATERSTATE_FATIGUE)
         {
             // Fatigue timer not activated - activate it
             if (m_MirrorTimer[FATIGUE_TIMER] == -1)
@@ -2198,7 +2181,7 @@ void Player::HandleBreathing(uint32 time_diff)
         }
     }
 
-    if (!bInvincible && underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
+    if (underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
     {
         // Breath timer not activated - activate it
         if (m_MirrorTimer[FIRE_TIMER] == -1)
@@ -2307,7 +2290,7 @@ void Player::_EventExploration()
         return;
     if(m_position.x > _maxX || m_position.x < _minX || m_position.y > _maxY || m_position.y < _minY)
         return;
-    if(GetMapMgr()->GetCellByCoords(GetPositionX(),GetPositionY()) == NULL)
+    if(GetMapInstance()->GetCellByCoords(GetPositionX(),GetPositionY()) == NULL)
         return;
     if(m_lastAreaUpdateMap == GetMapId() && m_lastAreaPosition.Distance(GetPosition()) < sWorld.AreaUpdateDistance)
         return;
@@ -2328,7 +2311,7 @@ void Player::_EventExploration()
     {
         // Clear our worldstates when we have no data.
         if(m_oldZone != 0xFFFF)
-            GetMapMgr()->GetStateManager().ClearWorldStates(this);
+            GetMapInstance()->GetStateManager().ClearWorldStates(this);
         // This must be called every update, to keep data fresh.
         EventDBCChatUpdate(0xFFFFFFFF);
     }
@@ -2340,11 +2323,11 @@ void Player::_EventExploration()
 
         m_playerInfo->lastZone = m_zoneId;
 
-        TRIGGER_INSTANCE_EVENT( GetMapMgr(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
+        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
 
         EventDBCChatUpdate(0xFFFFFFFF);
 
-        GetMapMgr()->GetStateManager().SendWorldStates(this);
+        GetMapInstance()->GetStateManager().SendWorldStates(this);
     }
 
     if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
@@ -2395,7 +2378,7 @@ void Player::_EventExploration()
 
     if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
     {
-        Unit* pUnit = GetSelection() ? m_mapMgr->GetUnit(GetSelection()) : NULL;
+        Unit* pUnit = GetSelection() ? m_mapInstance->GetUnit(GetSelection()) : NULL;
         if(pUnit && !sFactionSystem.isAttackable(this, pUnit))
         {
             EventAttackStop();
@@ -2406,7 +2389,7 @@ void Player::_EventExploration()
             DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
     }
 
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
 
     // bur: we dont want to explore new areas when on taxi
     if(!GetTaxiState() && !GetTransportGuid())
@@ -3181,11 +3164,11 @@ void Player::OnPushToWorld()
     SendPacket(&data);
 
     // send world states
-    if( m_mapMgr != NULL )
-        m_mapMgr->GetStateManager().SendWorldStates(this);
+    if( m_mapInstance != NULL )
+        m_mapInstance->GetStateManager().SendWorldStates(this);
 
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnZoneChange )(this, m_zoneId, 0);
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerEnter )(this);
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnZoneChange )(this, m_zoneId, 0);
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerEnter )(this);
 
     m_TeleportState = 0;
 
@@ -3223,13 +3206,13 @@ void Player::OnPushToWorld()
         else SetUInt32Value(UNIT_FIELD_POWERS+i, load_power[i]);
     }
 
-    if( m_mapMgr != NULL && m_mapMgr->m_battleground != NULL && m_bg != m_mapMgr->m_battleground )
+    if( m_mapInstance != NULL && m_mapInstance->m_battleground != NULL && m_bg != m_mapInstance->m_battleground )
     {
-        m_bg = m_mapMgr->m_battleground;
+        m_bg = m_mapInstance->m_battleground;
         m_bg->PortPlayer( this, true );
     }
 
-    if( m_bg != NULL && m_mapMgr != NULL )
+    if( m_bg != NULL && m_mapInstance != NULL )
         m_bg->OnPlayerPushed(this);
 
     m_changingMaps = false;
@@ -3252,7 +3235,7 @@ void Player::SendObjectUpdate(WoWGuid guid)
     }
     else if(IsInWorld())
     {
-        WorldObject* obj = GetMapMgr()->_GetObject(guid);
+        WorldObject* obj = GetMapInstance()->_GetObject(guid);
         if(obj != NULL)
         {
             count += obj->BuildCreateUpdateBlockForPlayer(&data, this);
@@ -3278,7 +3261,7 @@ void Player::RemoveFromWorld()
 
     if( GetUInt64Value(UNIT_FIELD_CHARMEDBY) != 0 && IsInWorld() )
     {
-        if(Player* charmer = m_mapMgr->GetPlayer(GetUInt64Value(UNIT_FIELD_CHARMEDBY)))
+        if(Player* charmer = m_mapInstance->GetPlayer(GetUInt64Value(UNIT_FIELD_CHARMEDBY)))
             charmer->UnPossess();
     }
 
@@ -3302,9 +3285,9 @@ void Player::RemoveFromWorld()
     for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
         load_power[i] = GetPower(i);
 
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnChangeArea )( this, 0, 0, GetAreaId() );
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, 0, 0, GetAreaId() );
 
-    m_mapMgr->GetStateManager().ClearWorldStates(this);
+    m_mapInstance->GetStateManager().ClearWorldStates(this);
 
     if(m_bg)
     {
@@ -3495,23 +3478,7 @@ Corpse* Player::RepopRequestedPlayer()
     if( myCorpse != NULL )
         myCorpse->ResetDeathClock();
 
-    MapInfo * pPMapinfo = WorldMapInfoStorage.LookupEntry( GetMapId() );
-    if( pPMapinfo != NULL )
-    {
-        if( pPMapinfo->type == INSTANCE_NULL || pPMapinfo->type == INSTANCE_PVP )
-        {
-            RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
-        }
-        else
-        {
-            RepopAtGraveyard( pPMapinfo->repopx, pPMapinfo->repopy, pPMapinfo->repopz, pPMapinfo->repopmapid );
-        }
-    }
-    else
-    {
-        RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
-    }
-
+    RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
     return ret;
 }
 
@@ -3647,7 +3614,7 @@ Corpse* Player::CreateCorpse()
     else
     {
         //save corpse in db for future use
-        if(m_mapMgr && m_mapMgr->GetMapInfo()->type == INSTANCE_NULL)
+        if(m_mapInstance && m_mapInstance->IsContinent())
             pCorpse->SaveToDB();
 
         myCorpse = pCorpse;
@@ -3660,9 +3627,9 @@ Corpse* Player::CreateCorpse()
     }
 
     // spawn
-    if( m_mapMgr == NULL )
+    if( m_mapInstance == NULL )
         sWorldMgr.PushToWorldQueue(pCorpse);
-    else pCorpse->PushToWorld(m_mapMgr);
+    else pCorpse->PushToWorld(m_mapInstance);
 
     // add deletion event if bone corpse
     if( pCorpse->GetUInt64Value(CORPSE_FIELD_OWNER) == 0 )
@@ -3885,7 +3852,7 @@ void Player::HandleRestedCalculations(bool rest_on)
         if(!m_isResting)
             ApplyPlayerRestState(true);
     }
-    else if(GetMapMgr()->CanUseCollision(this))
+    else if(GetMapInstance()->CanUseCollision(this))
     {
         if(false)
         {
@@ -4014,9 +3981,6 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
     if( !PhasedCanInteract(obj) )
         return false;
 
-    if(!bGMTagOn && obj->IsPlayer() && castPtr<Player>(obj)->m_isGmInvisible)
-        return false;
-
     uint32 object_type = obj->GetTypeId();
     if(getDeathState() == CORPSE) // we are dead and we have released our spirit
     {
@@ -4026,13 +3990,13 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 
             if(myCorpse && myCorpse->GetDistanceSq(obj) > CORPSE_VIEW_DISTANCE)
                 if(pObj->IsPlayer() && pObj->getDeathState() == CORPSE)
-                    return !pObj->m_isGmInvisible; // we can see all players within range of our corpse except invisible GMs
+                    return true; // we can see all players within range of our corpse except invisible GMs
 
             if(myCorpse && myCorpse->GetDistanceSq(obj) <= CORPSE_VIEW_DISTANCE)
-                return !pObj->m_isGmInvisible; // we can see all players within range of our corpse except invisible GMs
+                return true; // we can see all players within range of our corpse except invisible GMs
 
             if(m_deathVision) // if we have arena death-vision we can see all players except invisible GMs
-                return !pObj->m_isGmInvisible;
+                return true;
 
             return (pObj->getDeathState() == CORPSE); // we can only see players that are spirits
         }
@@ -4086,7 +4050,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                 if( pObj->m_mageInvisibility )
                     return false;
 
-                if(pObj->m_invisible) // Invisibility - Detection of Players
+                if(pObj->IsInvisible()) // Invisibility - Detection of Players
                 {
                     if(pObj->getDeathState() == CORPSE)
                         return bGMTagOn; // only GM can see players that are spirits
@@ -4095,8 +4059,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                             && DuelingWith != pObj)
                         return true;
 
-                    if(m_invisDetect[INVIS_FLAG_NORMAL] < 1 // can't see invisible without proper detection
-                            || pObj->m_isGmInvisible) // can't see invisible GM
+                    if(m_invisDetect[INVIS_FLAG_NORMAL] < 1) // can't see invisible without proper detection
                         return bGMTagOn; // GM can see invisible players
                 }
 
@@ -4107,14 +4070,12 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
         case TYPEID_UNIT:
             {
                 Unit* uObj = castPtr<Unit>(obj);
-
                 if(uObj->IsSpiritHealer()) // can't see spirit-healers when alive
                     return false;
 
-                if(uObj->m_invisible // Invisibility - Detection of Units
-                        && m_invisDetect[uObj->m_invisFlag] < 1) // can't see invisible without proper detection
+                // Invisibility - Detection of Units
+                if(uObj->IsInvisible() && m_invisDetect[uObj->m_invisFlag] < 1) // can't see invisible without proper detection
                     return bGMTagOn; // GM can see invisible units
-
                 return true;
             }
         //------------------------------------------------------------------
@@ -4133,7 +4094,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                     if(GetGroup())
                     {
                         Player * gplr = NULL;
-                        gplr = GetMapMgr()->GetPlayer((uint32)owner);
+                        gplr = GetMapInstance()->GetPlayer((uint32)owner);
                         if(gplr != NULL && GetGroup()->HasMember(gplr))
                             return true;
                     }
@@ -4223,9 +4184,6 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
         if(m_currentSpell)
             m_currentSpell->cancel();      // cancel the spell
         m_CurrentCharm=NULL;
-
-        if( p->m_temp_summon&&p->GetTypeId() == TYPEID_UNIT )
-            castPtr<Creature>( p )->SafeDelete();
     }
 
     if(pObj == m_Summon)
@@ -4337,7 +4295,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     // handle items
     if(GUID_HIPART(guid) == HIGHGUID_TYPE_ITEM)
         lootEnt = m_inventory.GetItemByGUID(guid);
-    else lootEnt = m_mapMgr->_GetObject(guid);
+    else lootEnt = m_mapInstance->_GetObject(guid);
     if( lootEnt == NULL )
         return;
 
@@ -4473,7 +4431,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
             if(iter->roll == NULL && !iter->all_passed)
             {
                 iter->roll = new LootRoll();
-                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, itemProto->ItemId, iter->randProp, iter->randSeed, GetMapMgr());
+                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, itemProto->ItemId, iter->randProp, iter->randSeed, GetMapInstance());
 
                 data2.Initialize(SMSG_LOOT_START_ROLL);
                 data2 << uint64(guid);
@@ -4604,7 +4562,7 @@ int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot 
             fail = SPELL_FAILED_OUT_OF_RANGE;
         else if( minrange > dist && spellid != SPELL_RANGED_WAND )//no min limit for wands
             fail = SPELL_FAILED_TOO_CLOSE;
-        else if (IsInWorld() && GetMapMgr()->CanUseCollision(this) && !IsInLineOfSight(target))
+        else if (IsInWorld() && GetMapInstance()->CanUseCollision(this) && !IsInLineOfSight(target))
             fail = SPELL_FAILED_LINE_OF_SIGHT;
     }
 
@@ -4633,7 +4591,7 @@ void Player::EventRepeatSpell()
     if(m_AuraInterface.GetAuraStatus() & AURA_STATUS_SPELL_IMPARING_MASK)
         return;
 
-    Unit* target = GetMapMgr()->GetUnit( m_curSelection );
+    Unit* target = GetMapInstance()->GetUnit( m_curSelection );
     if( target == NULL || !sFactionSystem.isAttackable(this, target))
     {
         m_AutoShotAttackTimer = 0; //avoid flooding client with error messages
@@ -4933,7 +4891,7 @@ void Player::InitTaxiNodes()
 
 void Player::EventTaxiInterpolate()
 {
-    if(!m_CurrentTaxiPath || m_mapMgr==NULL) return;
+    if(!m_CurrentTaxiPath || m_mapInstance==NULL) return;
 
     float x = 0.0f;
     float y = 0.0f;
@@ -5144,7 +5102,7 @@ void Player::RemoveSpellsFromLine(uint16 skill_line)
     }
 }
 
-void Player::PlayerRegeneratePower(bool is_interrupted)
+void Player::RegeneratePower(bool is_interrupted)
 {
     uint32 m_regenTimer = m_P_regenTimer; //set next regen time
     m_regenTimerCount += m_regenTimer;
@@ -5170,7 +5128,7 @@ void Player::PlayerRegeneratePower(bool is_interrupted)
                 if(!curValue)
                     continue;
 
-                if (!CombatStatus.IsInCombat() && !is_interrupted)
+                if (!IsInCombat() && !is_interrupted)
                 {
                     addvalue += -20/0.05f;  // 2 rage by tick (= 2 seconds => 1 rage/sec)
                     if(m_regenTimer)
@@ -5188,7 +5146,7 @@ void Player::PlayerRegeneratePower(bool is_interrupted)
                 if(!curValue)
                     continue;
 
-                if (!CombatStatus.IsInCombat() && !is_interrupted)
+                if (!IsInCombat() && !is_interrupted)
                 {
                     addvalue += -30/0.3f;
                     if(m_regenTimer)
@@ -5534,10 +5492,10 @@ void Player::PushOutOfRange(WoWGuid guid)
     m_OutOfRangeIds << guid.asPacked();
 
     // add to process queue
-    if(m_mapMgr && !bProcessPending)
+    if(m_mapInstance && !bProcessPending)
     {
         bProcessPending = true;
-        m_mapMgr->PushToProcessed(castPtr<Player>(this));
+        m_mapInstance->PushToProcessed(castPtr<Player>(this));
     }
     _bufferS.Release();
 }
@@ -5559,10 +5517,10 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
     m_updateDataBuff.append(data->contents(), data->size());
 
     // add to process queue
-    if(m_mapMgr && !bProcessPending)
+    if(m_mapInstance && !bProcessPending)
     {
         bProcessPending = true;
-        m_mapMgr->PushToProcessed(castPtr<Player>(this));
+        m_mapInstance->PushToProcessed(castPtr<Player>(this));
     }
 
     _bufferS.Release();
@@ -5680,10 +5638,13 @@ void Player::EventDBCChatUpdate(uint32 dbcID)
     AreaTableEntry *areaTable = dbcAreaTable.LookupEntry(m_zoneId);
     if(areaTable == NULL)
         areaTable = dbcAreaTable.LookupEntry(m_areaId);
+    if(areaTable == NULL && IsInWorld())
+        areaTable = dbcAreaTable.LookupEntry(GetMapInstance()->GetdbcMap()->linked_zone);
+
     if(areaTable)
         sprintf(areaName, "%s", areaTable->name);
-    else if(IsInWorld() && GetMapMgr()->GetMapInfo())
-        sprintf(areaName, "%s", GetMapMgr()->GetMapInfo()->mapName);
+    else if(IsInWorld() && GetMapInstance()->GetdbcMap())
+        sprintf(areaName, "%s", GetMapInstance()->GetdbcMap()->name);
     else sprintf(areaName, "City_%03u", GetMapId());
 
     if(dbcID == 0xFFFFFFFF)
@@ -5914,7 +5875,7 @@ void Player::RequestDuel(Player* pTarget)
     float z = (GetPositionZ() + pTarget->GetPositionZ()*dist)/(1+dist);
 
     //Create flag/arbiter
-    GameObject* pGameObj = GetMapMgr()->CreateGameObject(21680);
+    GameObject* pGameObj = GetMapInstance()->CreateGameObject(21680);
     if( pGameObj == NULL || !pGameObj->CreateFromProto(21680,GetMapId(), x, y, z, GetOrientation()))
         return;
     pGameObj->SetInstanceID(GetInstanceID());
@@ -5933,7 +5894,7 @@ void Player::RequestDuel(Player* pTarget)
     data << GetGUID();
     pTarget->GetSession()->SendPacket(&data);
 
-    pGameObj->PushToWorld(m_mapMgr);
+    pGameObj->PushToWorld(m_mapInstance);
 }
 
 void Player::DuelCountdown()
@@ -5970,7 +5931,7 @@ void Player::DuelBoundaryTest()
     if(!IsInWorld())
         return;
 
-    GameObject* pGameObject = GetMapMgr()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER));
+    GameObject* pGameObject = GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER));
     if(!pGameObject)
     {
         EndDuel(DUEL_WINNER_RETREAT);
@@ -6051,7 +6012,7 @@ void Player::EndDuel(uint8 WinCondition)
     DuelingWith->SendPacket(&data);
 
     //Clear Duel Related Stuff
-    if( GameObject* arbiter = m_mapMgr ? GetMapMgr()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
+    if( GameObject* arbiter = m_mapInstance ? GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
     {
         arbiter->RemoveFromWorld( true );
         arbiter->Destruct();
@@ -6070,7 +6031,6 @@ void Player::EndDuel(uint8 WinCondition)
     // Call off pet
     if( GetSummon() != NULL )
     {
-        GetSummon()->CombatStatus.Vanished();
         GetSummon()->GetAIInterface()->SetUnitToFollow( castPtr<Player>(this) );
         GetSummon()->GetAIInterface()->HandleEvent( EVENT_FOLLOWOWNER, GetSummon(), 0 );
         GetSummon()->GetAIInterface()->WipeTargetList();
@@ -6155,8 +6115,8 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     bool force_new_world = false;
 
     // Lookup map info
-    MapInfo * mapInfo = WorldMapInfoStorage.LookupEntry(MapID);
-    if(mapInfo == NULL)
+    MapEntry * mapEntry = dbcMap.LookupEntry(MapID);
+    if(mapEntry == NULL)
         return false;
 
     //are we changing instance or map?
@@ -6174,7 +6134,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     if( force_new_world )
     {
         //Do we need TBC expansion?
-        if(mapInfo->flags & WMI_INSTANCE_XPACK_01 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01) && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
+        if(mapEntry->addon == 1 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_01) && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have The Burning Crusade Expansion to access this content.");
@@ -6183,7 +6143,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         }
 
         //Do we need WOTLK expansion?
-        if(mapInfo->flags & WMI_INSTANCE_XPACK_02 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
+        if(mapEntry->addon == 2 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_02))
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have the Wrath of the Lich King Expansion to access this content.");
@@ -6192,7 +6152,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         }
 
         // Xpack gonna give it to ya
-        if(mapInfo->flags & WMI_INSTANCE_XPACK_03 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_03))
+        if(mapEntry->addon == 3 && !m_session->HasFlag(ACCOUNT_FLAG_XPACK_03))
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have the Cataclysm Expansion to access this content.");
@@ -6212,7 +6172,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
     return true;
 }
 
-void Player::SafeTeleport(MapMgr* mgr, LocationVector vec)
+void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 {
     if(IsInWorld())
         RemoveFromWorld();
@@ -6339,8 +6299,8 @@ void Player::LoginPvPSetup()
         CastSpell(castPtr<Unit>(this), PLAYER_HONORLESS_TARGET_SPELL, true);
 
         //initialise BG
-        if(GetMapMgr() && GetMapMgr()->m_battleground != NULL && !GetMapMgr()->m_battleground->HasStarted())
-            GetMapMgr()->m_battleground->OnAddPlayer(this);
+        if(GetMapInstance() && GetMapInstance()->m_battleground != NULL && !GetMapInstance()->m_battleground->HasStarted())
+            GetMapInstance()->m_battleground->OnAddPlayer(this);
     }
 }
 
@@ -6517,19 +6477,16 @@ void Player::CompleteLoading()
 void Player::OnWorldPortAck()
 {
     //only resurrect if player is porting to a instance portal
-    MapInfo *pPMapinfo = WorldMapInfoStorage.LookupEntry(GetMapId());
-    MapEntry* map = dbcMap.LookupEntry(GetMapId());
-
-    if(pPMapinfo != NULL)
+    if(MapEntry* map = dbcMap.LookupEntry(GetMapId()))
     {
-        if(isDead() && pPMapinfo->type != INSTANCE_NULL && pPMapinfo->type != INSTANCE_PVP)
+        if(isDead() && (map->IsDungeon() || map->IsRaid()))
             ResurrectPlayer();
 
-        if(pPMapinfo->HasFlag(WMI_INSTANCE_WELCOME) && GetMapMgr())
+        if(map->IsMultiDifficulty() && GetMapInstance())
         {
             std::string welcome_msg;
             welcome_msg = "Welcome to ";
-            welcome_msg += pPMapinfo->mapName;
+            welcome_msg += map->name;
             if(map->IsRaid())
             {
                 switch(iRaidType)
@@ -6565,12 +6522,12 @@ void Player::OnWorldPortAck()
                 }
             }
             welcome_msg += ". ";
-            if(pPMapinfo->type != INSTANCE_NONRAID && m_mapMgr->IsInstance())
+            if(map->IsRaid() && m_mapInstance->IsInstance())
             {
                 /*welcome_msg += "This instance is scheduled to reset on ";
-                welcome_msg += asctime(localtime(&m_mapMgr->pInstance->m_expiration));*/
+                welcome_msg += asctime(localtime(&m_mapInstance->pInstance->m_expiration));*/
                 welcome_msg += "Instance Locks are scheduled to expire in ";
-                welcome_msg += RONIN_UTIL::ConvertTimeStampToString((uint32)castPtr<InstanceMgr>(m_mapMgr)->m_expiration - UNIXTIME);
+                //welcome_msg += RONIN_UTIL::ConvertTimeStampToString((uint32)castPtr<InstanceMgr>(m_mapInstance)->m_expiration - UNIXTIME);
             }
             sChatHandler.SystemMessage(m_session, welcome_msg.c_str());
         }
@@ -6852,10 +6809,9 @@ void Player::Possess(Unit* pTarget)
     m_noInterrupt = true;
     SetUInt64Value(UNIT_FIELD_CHARM, pTarget->GetGUID());
     SetUInt64Value(PLAYER_FARSIGHT, pTarget->GetGUID());
-    pTarget->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, true);
+    pTarget->GetMapInstance()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, true);
 
     pTarget->SetUInt64Value(UNIT_FIELD_CHARMEDBY, GetGUID());
-    pTarget->SetCharmTempVal(pTarget->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     pTarget->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     pTarget->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE);
 
@@ -6865,10 +6821,6 @@ void Player::Possess(Unit* pTarget)
     WorldPacket data1(SMSG_CLIENT_CONTROL_UPDATE, 10);      /* burlex: this should be renamed SMSG_SWITCH_ACTIVE_MOVER :P */
     data1 << pTarget->GetGUID() << uint8(1);
     m_session->SendPacket(&data1);
-
-    /* build + send pet_spells packet */
-    if(pTarget->m_temp_summon)
-        return;
 
     std::list<uint32> avail_spells;
     for(std::map<uint32, AI_Spell*>::iterator itr = pTarget->GetAIInterface()->m_spells.begin(); itr != pTarget->GetAIInterface()->m_spells.end(); ++itr)
@@ -6924,21 +6876,17 @@ void Player::UnPossess()
 
     m_noInterrupt = false;
     SetUInt64Value(PLAYER_FARSIGHT, 0);
-    pTarget->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, false);
+    pTarget->GetMapInstance()->ChangeFarsightLocation(castPtr<Player>(this), pTarget, false);
     SetUInt64Value(UNIT_FIELD_CHARM, 0);
     pTarget->SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
 
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
     pTarget->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE);
-    pTarget->SetFactionTemplate(pTarget->GetCharmTempVal());
 
     /* send "switch mover" packet */
     WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, 10);
     data << GetGUID() << uint8(1);
     m_session->SendPacket(&data);
-
-    if(pTarget->m_temp_summon)
-        return;
 
     data.Initialize(SMSG_PET_SPELLS);
     data << uint64(0);
@@ -7332,14 +7280,6 @@ void Player::EjectFromInstance()
     if(m_bgEntryPointX && m_bgEntryPointY && m_bgEntryPointZ && !IS_INSTANCE(m_bgEntryPointMap))
         if(SafeTeleport(m_bgEntryPointMap, m_bgEntryPointInstance, m_bgEntryPointX, m_bgEntryPointY, m_bgEntryPointZ, m_bgEntryPointO))
             return;
-
-    MapInfo* map = WorldMapInfoStorage.LookupEntry(GetMapId());
-    if(map && (map->repopmapid >= 0 && !IS_INSTANCE(map->repopmapid)))
-    {
-        if(map->repopx && map->repopy && map->repopz)
-            if(SafeTeleport(map->repopmapid, 0, map->repopx, map->repopy, map->repopz, 0)) // Should be nearest graveyard.
-                return;
-    }
 
     SafeTeleport(m_bind_mapid, 0, m_bind_pos_x, m_bind_pos_y, m_bind_pos_z, 0);
 }
@@ -7888,7 +7828,7 @@ void Player::GenerateLoot(Corpse* pCorpse)
 
     if( m_bg != NULL )
         m_bg->HookGenerateLoot(castPtr<Player>(this), pCorpse);
-    TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerLootGen )( this, pCorpse );
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerLootGen )( this, pCorpse );
 }
 
 uint32 Player::GetMaxPersonalRating(bool Ignore2v2)

@@ -22,20 +22,17 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_state = 0;
     m_deathState = ALIVE;
     m_currentSpell = NULL;
-    m_meleespell = 0;
-    m_meleespell_cn = 0;
 
     m_silenced = 0;
     disarmed = false;
     disarmedShield = false;
 
-    // Pet Talents...WOOT!
-    m_PetTalentPointModifier = 0;
-
     //DK:modifiers
     for( uint32 x = 0; x < 4; x++ )
         m_ObjectSlots[x] = 0;
 
+    m_P_regenTimer = 0;
+    m_H_regenTimer = 1000;
     m_interruptRegen = 0;
     m_powerRegenPCT = 0;
 
@@ -45,39 +42,27 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_noInterrupt = 0;
     m_modelhalfsize = 1.0f; //worst case unit size. (Should be overwritten)
 
-    m_invisible = false;
     m_invisFlag = INVIS_FLAG_NORMAL;
 
     for(int i = 0; i < INVIS_FLAG_TOTAL; i++)
         m_invisDetect[i] = 0;
 
-    m_can_stealth = true;
-
+    m_instanceInCombat = false;
+    m_combatStopTimer = 0;
+    m_attackUpdateTimer = 0;
     m_AreaUpdateTimer = 0;
     m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
     m_emoteState = 0;
     m_oldEmote = 0;
-    m_charmtemp = 0;
-
-    m_CombatUpdateTimer = 0;
 
     pLastSpell = 0;
-    bInvincible = false;
-    bProcInUse = false;
 
-    m_temp_summon=false;
     m_p_DelayTimer = 0;
-
-    m_threadRTarget = 0;
-    m_threatRAmount = 0;
-
-    trigger_on_stun = 0;
-    trigger_on_stun_chance = 100;
 
     m_onAuraRemoveSpells.clear();
 
     m_DummyAuras.clear();
-    m_LastSpellManaCost = 0;
+    m_autoShotSpell = NULL;
 
     m_vehicleKitId = 0;
     m_aiAnimKitId = 0;
@@ -95,8 +80,6 @@ void Unit::Init()
     WorldObject::Init();
 
     m_aiInterface.Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
-
-    CombatStatus.SetUnit(castPtr<Unit>(this));
 
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
@@ -127,45 +110,51 @@ void Unit::Destruct()
         delete itr->second;
     m_onAuraRemoveSpells.clear();
 
-    if(GetMapMgr())
-    {
-        CombatStatus.Vanished();
-        CombatStatus.SetUnit( NULL );
-    }
-
     WorldObject::Destruct();
 }
 
 void Unit::Update( uint32 p_time )
 {
     WorldObject::Update(p_time);
+    UpdateFieldValues();
 
     _UpdateSpells( p_time );
-    UpdateFieldValues();
     m_AuraInterface.Update(p_time);
-    m_movementInterface.Update(p_time);
 
-    if(!isDead())
+    if(isDead())
+        return;
+
+    if(!IsPlayer())
     {
-        if(!IsPlayer())
+        m_AreaUpdateTimer += p_time;
+        if(m_AreaUpdateTimer >= 2000)
         {
-            m_AreaUpdateTimer += p_time;
-            if(m_AreaUpdateTimer >= 2000)
+            if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
             {
-                if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
-                {
-                    // Update our area id and position
-                    UpdateAreaInfo();
-                    m_lastAreaPosition = GetPosition();
-                }
-                m_AreaUpdateTimer = 0;
+                // Update our area id and position
+                UpdateAreaInfo();
+                m_lastAreaPosition = GetPosition();
             }
+            m_AreaUpdateTimer = 0;
         }
+    }
 
-        CombatStatus.UpdateTargets();
-
-        if(!isCasting())
+    if(!m_instanceInCombat && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
+    {
+        if(m_combatStopTimer <= p_time)
         {
+            m_combatStopTimer = 0;
+            RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+        } else m_combatStopTimer -= p_time;
+    }
+
+    if(!isCasting())
+    {
+        m_attackUpdateTimer += p_time;
+        if(m_attackUpdateTimer >= 200)
+        {
+            m_attackUpdateTimer = 0;
+
             if(m_attackInterrupt)
             {
                 if(m_attackInterrupt > p_time)
@@ -202,7 +191,7 @@ void Unit::Update( uint32 p_time )
                                 {
                                     EventAttack(target, MELEE);
                                     m_attackTimer[0] = 0;
-                                    if(m_dualWield && m_attackTimer[1] > 300)
+                                    if(m_dualWield && m_attackTimer[1] > 800)
                                         m_attackTimer[1] -= 800;
                                     else m_attackTimer[1] = 0;
                                 }
@@ -223,7 +212,7 @@ void Unit::Update( uint32 p_time )
                             }
                         }
 
-                        if(m_attackDelay[2])
+                        if(m_autoShotSpell && m_attackDelay[2])
                         {
                             if(m_attackTimer[2] <= p_time)
                                 m_attackTimer[2] = 0;
@@ -242,31 +231,31 @@ void Unit::Update( uint32 p_time )
                 }
             }
         }
-
-        /*-----------------------POWER & HP REGENERATION-----------------*/
-        if( p_time >= m_H_regenTimer )
-            RegenerateHealth();
-        else
-            m_H_regenTimer -= p_time;
-
-        if(!IsPlayer())
-        {
-            if(m_p_DelayTimer > p_time)
-                m_p_DelayTimer -= p_time;
-            else m_p_DelayTimer = 0;
-
-            if( p_time < m_P_regenTimer )
-                RegeneratePower( m_p_DelayTimer > 0 );
-            else m_P_regenTimer -= p_time;
-        }
-
-        m_aiInterface.Update(p_time);
     }
-}
 
-void Unit::OnFieldUpdated(uint32 index)
-{
-    WorldObject::OnFieldUpdated(index);
+    /*-----------------------POWER & HP REGENERATION-----------------*/
+    if(!isFullHealth())
+    {
+        if( m_H_regenTimer <= p_time )
+        {
+            m_H_regenTimer = 1000;//set next regen time
+            RegenerateHealth(IsInCombat());
+        } else m_H_regenTimer -= p_time;
+    }
+
+    m_P_regenTimer += p_time;
+    if(m_P_regenTimer >= 1000)
+    {
+        if(m_p_DelayTimer > m_P_regenTimer)
+            m_p_DelayTimer -= m_P_regenTimer;
+        else m_p_DelayTimer = 0;
+
+        RegeneratePower( m_p_DelayTimer > 0 );
+        m_P_regenTimer = 0;
+    }
+
+    m_aiInterface.Update(p_time);
+    m_movementInterface.Update(p_time);
 }
 
 void Unit::UpdateFieldValues()
@@ -294,6 +283,7 @@ void Unit::ClearFieldUpdateValues()
 
 bool Unit::StatUpdateRequired()
 {
+    return m_needRecalculateAllFields|m_needStatRecalculation;
     bool res = m_needRecalculateAllFields|m_needStatRecalculation;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_STAT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_PERCENT_STAT);
@@ -303,6 +293,7 @@ bool Unit::StatUpdateRequired()
 
 bool Unit::HealthUpdateRequired()
 {
+    return m_needRecalculateAllFields|m_statValuesChanged;
     bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_HEALTH_PCT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH);
@@ -314,6 +305,7 @@ bool Unit::HealthUpdateRequired()
 
 bool Unit::PowerUpdateRequired()
 {
+    return m_needRecalculateAllFields|m_statValuesChanged;
     bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
@@ -322,7 +314,8 @@ bool Unit::PowerUpdateRequired()
 
 bool Unit::RegenUpdateRequired()
 {
-    bool res = m_statValuesChanged;
+    return m_needRecalculateAllFields|m_statValuesChanged;
+    bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_REGEN);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_REGEN_PERCENT);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT);
@@ -331,6 +324,7 @@ bool Unit::RegenUpdateRequired()
 
 bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
 {
+    return m_needRecalculateAllFields;
     bool res = m_needRecalculateAllFields;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACKSPEED);
     return res;
@@ -338,6 +332,7 @@ bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
 
 bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
 {
+    return m_needRecalculateAllFields|m_statValuesChanged;
     bool res = m_needRecalculateAllFields|m_statValuesChanged|AttackTimeUpdateRequired(weaponType);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_DONE);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
@@ -347,6 +342,7 @@ bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
 
 bool Unit::APUpdateRequired()
 {
+    return m_needRecalculateAllFields|m_statValuesChanged;
     bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT);
     return res;
@@ -354,6 +350,7 @@ bool Unit::APUpdateRequired()
 
 bool Unit::RAPUpdateRequired()
 {
+    return m_needRecalculateAllFields|m_statValuesChanged;
     bool res = m_needRecalculateAllFields|m_statValuesChanged;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
     return res;
@@ -361,6 +358,7 @@ bool Unit::RAPUpdateRequired()
 
 bool Unit::ResUpdateRequired()
 {
+    return m_needRecalculateAllFields;
     bool res = m_needRecalculateAllFields;
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE);
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE_PCT);
@@ -568,7 +566,7 @@ void Unit::UpdateRegenValues()
 
 void Unit::UpdateAttackTimeValues()
 {
-    uint8 updateMask =0x00;
+    uint8 updateMask = 0x00;
     for(uint8 i = 0; i < 3; i++)
     {
         if(!AttackTimeUpdateRequired(i))
@@ -1321,7 +1319,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         {
             pGroupGuy = (*itr)->m_loggedInPlayer;
             if( pGroupGuy && pGroupGuy->isAlive()
-                && pVictim->GetMapMgr() == pGroupGuy->GetMapMgr()
+                && pVictim->GetMapInstance() == pGroupGuy->GetMapInstance()
                 && pGroupGuy->GetDistanceSq(pVictim)<100*100 )
             {
                 active_player_list[active_player_count] = pGroupGuy;
@@ -1390,25 +1388,7 @@ bool Unit::isCasting()
 
 bool Unit::IsInInstance()
 {
-    MapInfo *pUMapinfo = WorldMapInfoStorage.LookupEntry(GetMapId());
-    return (pUMapinfo == NULL ? false : (pUMapinfo->type != INSTANCE_NULL && pUMapinfo->type != INSTANCE_PVP));
-}
-
-void Unit::RegenerateHealth()
-{
-    m_H_regenTimer = 2000;//set next regen time
-
-    if(!isAlive())
-        return;
-
-    // player regen
-    if(IsPlayer())
-    {
-        m_H_regenTimer = 1000;//set next regen time to 1 for players.
-        castPtr<Player>(this)->RegenerateHealth(CombatStatus.IsInCombat());
-    }
-    else
-        castPtr<Creature>(this)->RegenerateHealth(CombatStatus.IsInCombat());
+    return false;
 }
 
 void Unit::RegenerateEnergy()
@@ -1435,20 +1415,6 @@ void Unit::RegenerateFocus()
 
     cur += float2int32(floor(float(1.0f)));
     SetPower(POWER_TYPE_FOCUS, (cur >= mp)? mp : cur);
-}
-
-void Unit::RegeneratePower(bool isinterrupted)
-{
-    if(!isAlive())
-        return;
-
-    // player regen
-    if(IsPlayer())
-        castPtr<Player>(this)->PlayerRegeneratePower(isinterrupted);
-    else
-    {
-
-    }
 }
 
 double Unit::GetResistanceReducion(Unit* pVictim, uint32 school, float armorReducePct)
@@ -2445,12 +2411,12 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //==========================================================================================
 //--------------------------special states processing---------------------------------------
 
-    if(pVictim->bInvincible == true) //godmode
+    /*if(pVictim->bInvincible == true) //godmode
     {
         abs = dmg.resisted_damage = dmg.full_damage;
         dmg.full_damage = realdamage = 0;
         hit_status |= HITSTATUS_ABSORBED;
-    }
+    }*/
 
 //--------------------------split damage-----------------------------------------------
 
@@ -2594,7 +2560,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     }
 
     // I am receiving damage!
-    if( dmg.full_damage && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->CombatStatus.IsInCombat() )
+    if( dmg.full_damage && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->IsInCombat() )
     {
         float val;
         float level = (float)getLevel();
@@ -2617,7 +2583,13 @@ void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
     if (!GetOnMeleeSpell() || attackType == OFFHAND)
         Strike( target, attackType, NULL, 0, 0, 0, false, false, true);
-    else CastOnMeleeSpell(target);
+    else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
+    {
+        SpellCastTargets targets(target->GetGUID());
+        if(Spell *spell = new Spell(this, spellInfo, GetOnMeleeSpellCN() ))
+            spell->prepare( &targets, true);
+    }
+    ClearNextMeleeSpell();
 }
 
 void Unit::EventAttackStart(WoWGuid guid)
@@ -2690,8 +2662,8 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
         caster = castPtr<Unit>(castPtr<Pet>(caster)->GetPetOwner());
     else if( caster->IsSummon() && castPtr<Summon>(caster)->GetSummonOwner() )
         caster = castPtr<Summon>(caster)->GetSummonOwner()->IsUnit() ? castPtr<Unit>(castPtr<Summon>(caster)->GetSummonOwner()) : NULL;
-    else if( caster->GetTypeId() == TYPEID_GAMEOBJECT && caster->GetMapMgr() && caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) )
-        caster = castPtr<Unit>(caster->GetMapMgr()->GetUnit(caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY)));
+    else if( caster->GetTypeId() == TYPEID_GAMEOBJECT && caster->GetMapInstance() && caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) )
+        caster = castPtr<Unit>(caster->GetMapInstance()->GetUnit(caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY)));
     if( caster == NULL || pVictim == NULL)
         return bonus_damage;
 
@@ -2860,7 +2832,6 @@ void Unit::OnRemoveInRangeObject(WorldObject* pObj)
 
         if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
             if(m_currentSpell) m_currentSpell->cancel();
-        CombatStatus.RemoveExistence(pUnit);
     }
     WorldObject::OnRemoveInRangeObject(pObj);
 }
@@ -3084,7 +3055,6 @@ void Unit::RemoveFromWorld(bool free_guid)
         m_currentSpell = NULL;
     }
 
-    CombatStatus.OnRemoveFromWorld();
     WorldObject::RemoveFromWorld(free_guid);
     m_aiInterface.WipeReferences();
 }
@@ -3178,17 +3148,6 @@ void Unit::UpdateVisibility()
             }
         }
     }
-}
-
-void Unit::CastOnMeleeSpell(Unit *target)
-{
-    if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
-    {
-        SpellCastTargets targets(target->GetGUID());
-        if(Spell *spell = new Spell(this, spellInfo, GetOnMeleeSpellEcn() ))
-            spell->prepare( &targets, true);
-    }
-    SetOnMeleeSpell(0, 0);
 }
 
 void Unit::InitVehicleKit(uint32 vehicleKitId)
@@ -3326,10 +3285,10 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
 
-    if(Creature* p = GetMapMgr()->CreateCreature(guardian_entry))
+    if(Creature* p = GetMapInstance()->CreateCreature(guardian_entry))
     {
-        p->Load(GetMapId(), x, y, v.z, angle, GetMapMgr()->iInstanceMode);
-        p->SetInstanceID(GetMapMgr()->GetInstanceID());
+        p->Load(GetMapId(), x, y, v.z, angle, GetMapInstance()->iInstanceMode);
+        p->SetInstanceID(GetMapInstance()->GetInstanceID());
 
         if (lvl != 0)
         {
@@ -3356,7 +3315,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
         p->GetAIInterface()->SetUnitToFollowAngle(angle);
         p->GetAIInterface()->SetFollowDistance(3.0f);
-        p->PushToWorld(GetMapMgr());
+        p->PushToWorld(GetMapInstance());
 
         if(duration)
             sEventMgr.AddEvent(this, &Unit::SummonExpireSlot, Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
@@ -3387,14 +3346,10 @@ void Unit::SummonExpireAll(bool clearowner)
     //remove summoned go's (4 slots)
     for(uint32 x = 0; x < 4; ++x)
     {
-        if(m_mapMgr != NULL && m_ObjectSlots[x])
-        {
-            GameObject* obj = NULL;
-            obj = m_mapMgr->GetGameObject(m_ObjectSlots[x]);
-            if(obj != NULL)
+        if(IsInWorld() && !m_ObjectSlots[x].empty())
+            if(GameObject* obj = m_mapInstance->GetGameObject(m_ObjectSlots[x]))
                 obj->ExpireAndDelete();
-            m_ObjectSlots[x] = 0;
-        }
+        m_ObjectSlots[x] = 0;
     }
 }
 
@@ -3483,300 +3438,6 @@ float Unit::CalculateDazeCastChance(Unit* target)
         return chance_to_daze;
 }
 
-#define COMBAT_TIMEOUT_IN_SECONDS 5
-#define COMBAT_TIMEOUT_RANGE 10000      // 100
-
-void CombatStatusHandler::ClearMyHealers()
-{
-    // this is where we check all our healers
-    UnitGuidMap::iterator i;
-    Player* pt;
-    for(i = m_healers.begin(); i != m_healers.end(); i++)
-    {
-        pt = m_Unit->GetMapMgr()->GetPlayer(*i);
-        if(pt != NULL)
-            pt->CombatStatus.RemoveHealed(m_Unit);
-    }
-
-    m_healers.clear();
-}
-
-void CombatStatusHandler::WeHealed(Unit* pHealTarget)
-{
-    if(pHealTarget->GetTypeId() != TYPEID_PLAYER || m_Unit->GetTypeId() != TYPEID_PLAYER || pHealTarget == m_Unit)
-        return;
-
-    if(pHealTarget->CombatStatus.IsInCombat())
-    {
-        m_healed.insert(pHealTarget->GetLowGUID());
-        pHealTarget->CombatStatus.m_healers.insert(m_Unit->GetLowGUID());
-    }
-
-    UpdateFlag();
-}
-
-void CombatStatusHandler::RemoveHealed(Unit* pHealTarget)
-{
-    m_healed.erase(pHealTarget->GetLowGUID());
-    UpdateFlag();
-}
-
-void CombatStatusHandler::UpdateFlag()
-{
-    bool n_status = InternalIsInCombat();
-    if(n_status != m_lastStatus)
-    {
-        m_lastStatus = n_status;
-        if(n_status)
-        {
-            m_Unit->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-            if(!m_Unit->hasStateFlag(UF_ATTACKING)) m_Unit->addStateFlag(UF_ATTACKING);
-        }
-        else
-        {
-            m_Unit->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-            if(m_Unit->hasStateFlag(UF_ATTACKING)) m_Unit->clearStateFlag(UF_ATTACKING);
-
-            // remove any of our healers from combat too, if they are able to be.
-            ClearMyHealers();
-        }
-    }
-}
-
-bool CombatStatusHandler::InternalIsInCombat()
-{
-    if(m_healed.size() > 0)
-        return true;
-
-    if(m_attackTimerMap.size() > 0)
-        return true;
-
-    if(m_attackers.size() > 0)
-        return true;
-
-    return false;
-}
-
-bool CombatStatusHandler::IsAttacking(Unit* pTarget)
-{
-    // dead targets - no combat
-    if( pTarget == NULL || m_Unit->isDead() || pTarget->isDead() )
-        return false;
-
-    // check the target for any of our DoT's.
-    if(pTarget->m_AuraInterface.HasCombatStatusAffectingAuras(m_Unit->GetGUID()))
-        return true;
-
-    // place any additional checks here
-    return false;
-}
-
-void CombatStatusHandler::ForceRemoveAttacker(const uint64& guid)
-{
-    // called on aura remove, etc.
-    UnitGuidMap::iterator itr = m_attackers.find(guid);
-    if(itr == m_attackers.end())
-        return;
-
-    m_attackers.erase(itr);
-    UpdateFlag();
-}
-
-void CombatStatusHandler::RemoveAttackTarget(Unit* pTarget)
-{
-    // called on aura remove, etc.
-    StorageMap::iterator itr = m_attackTimerMap.find(pTarget->GetGUID());
-    if(itr == m_attackTimerMap.end())
-        return;
-
-    if(!IsAttacking(pTarget))
-    {
-        if( pTarget->isDead() )
-        {
-            // remove naow.
-            m_attackTimerMap.erase(itr);
-            pTarget->CombatStatus.m_attackers.erase(m_Unit->GetGUID());
-            UpdateFlag();
-        }
-        else
-        {
-            uint32 new_t = (uint32)UNIXTIME + COMBAT_TIMEOUT_IN_SECONDS;
-            if( itr->second < new_t )
-                itr->second = new_t;
-        }
-    }
-}
-
-void CombatStatusHandler::RemoveExistence(Unit *pUnit)
-{
-    m_attackers.erase(pUnit->GetGUID());
-    m_healers.erase(pUnit->GetGUID());
-    m_healed.erase(pUnit->GetGUID());
-    m_damageMap.erase(pUnit->GetGUID());
-    m_attackTimerMap.erase(pUnit->GetGUID());
-}
-
-void CombatStatusHandler::OnDamageDealt(Unit* pTarget, uint32 damage)
-{
-    // we added an aura, or dealt some damage to a target. they need to have us as an attacker, and they need to be our attack target if not.
-    if(pTarget == m_Unit)
-        return;
-
-    if(!pTarget->isAlive())
-        return;
-
-    if( pTarget->GetDistanceSq(m_Unit) > COMBAT_TIMEOUT_RANGE )
-        return;     // don't reset the combat timer when out of range.
-
-    StorageMap::iterator itr = m_attackTimerMap.find(pTarget->GetGUID());
-    uint32 new_t = (uint32)UNIXTIME + COMBAT_TIMEOUT_IN_SECONDS;
-    if(itr != m_attackTimerMap.end())
-    {
-        if( itr->second < new_t )
-            itr->second = new_t;
-    }
-    else
-    {
-        m_attackTimerMap.insert(std::make_pair( pTarget->GetGUID(), new_t ));
-        pTarget->CombatStatus.m_attackers.insert(m_Unit->GetGUID());
-
-        UpdateFlag();
-        pTarget->CombatStatus.UpdateFlag();
-    }
-
-    pTarget->CombatStatus.AddDamage(m_Unit->GetGUID(), damage);
-}
-
-void CombatStatusHandler::UpdateTargets()
-{
-    time_t mytm = UNIXTIME;
-    std::set<Unit*> m_updateTargets;
-    for(StorageMap::iterator itr = m_attackTimerMap.begin(); itr != m_attackTimerMap.end(); itr++)
-    {
-        if( itr->second > mytm )
-            continue;
-
-        if(WorldObject *pWObj = m_Unit->GetInRangeObject(itr->first))
-        {
-            ASSERT(pWObj->IsUnit());
-            Unit *pUnit = castPtr<Unit>(pWObj);
-            if( pUnit->isDead() || pUnit->GetDistance2dSq(m_Unit) > 15555.f || !IsAttacking(pUnit) )
-            {
-                pUnit->CombatStatus.m_attackers.erase( m_Unit->GetGUID() );
-                if(m_updateTargets.find(pUnit) == m_updateTargets.end())
-                    m_updateTargets.insert(pUnit);
-                itr = m_attackTimerMap.erase(itr);
-            }
-        }
-    }
-
-    for(std::set<Unit*>::iterator itr = m_updateTargets.begin(); itr != m_updateTargets.end(); itr++)
-        (*itr)->CombatStatus.UpdateFlag();
-    m_updateTargets.clear();
-    UpdateFlag();
-}
-
-Unit* CombatStatusHandler::GetKiller()
-{
-    // No killer
-    if(m_damageMap.size() == 0)
-        return NULL;
-
-    StorageMap::iterator itr = m_damageMap.begin();
-    WoWGuid killer_guid;
-    uint32 mDamage = 0;
-    for(; itr != m_damageMap.end(); itr++)
-    {
-        if(itr->second > mDamage)
-        {
-            killer_guid = itr->first;
-            mDamage = itr->second;
-        }
-    }
-
-    if( killer_guid.empty() )
-        return NULL;
-
-    return (m_Unit->IsInWorld()) ? m_Unit->GetMapMgr()->GetUnit(killer_guid) : NULL;
-}
-
-void CombatStatusHandler::Vanish(WoWGuid guid)
-{
-    if(Unit* pt = m_Unit->GetMapMgr()->GetUnit(guid))
-    {
-        pt->CombatStatus.EraseAttacker(guid);
-        pt->CombatStatus.UpdateFlag();
-    }
-    m_damageMap.erase(guid);
-}
-
-void CombatStatusHandler::ClearAttackers()
-{
-    // this is a FORCED function, only use when the reference will be destroyed.
-    StorageMap::iterator itr = m_attackTimerMap.begin();
-    Unit* pt;
-    for(; itr != m_attackTimerMap.end(); itr++)
-    {
-        pt = m_Unit->GetMapMgr()->GetUnit(itr->first);
-        if(pt)
-        {
-            pt->CombatStatus.m_attackers.erase(m_Unit->GetGUID());
-            pt->CombatStatus.UpdateFlag();
-        }
-    }
-
-    UnitGuidMap::iterator it2;
-    for(it2 = m_attackers.begin(); it2 != m_attackers.end(); it2++)
-    {
-        pt = m_Unit->GetMapMgr()->GetUnit(*it2);
-        if(pt)
-        {
-            pt->CombatStatus.m_attackTimerMap.erase(m_Unit->GetGUID());
-            pt->CombatStatus.UpdateFlag();
-        }
-    }
-
-    m_attackers.clear();
-    m_attackTimerMap.clear();
-    UpdateFlag();
-}
-
-void CombatStatusHandler::ClearHealers()
-{
-    UnitGuidMap::iterator itr = m_healed.begin();
-    Player* pt;
-    for(; itr != m_healed.end(); itr++)
-    {
-        pt = m_Unit->GetMapMgr()->GetPlayer(*itr);
-        if(pt)
-        {
-            pt->CombatStatus.m_healers.erase(m_Unit->GetLowGUID());
-            pt->CombatStatus.UpdateFlag();
-        }
-    }
-
-    for(itr = m_healers.begin(); itr != m_healers.end(); itr++)
-    {
-        pt = m_Unit->GetMapMgr()->GetPlayer(*itr);
-        if(pt)
-        {
-            pt->CombatStatus.m_healed.erase(m_Unit->GetLowGUID());
-            pt->CombatStatus.UpdateFlag();
-        }
-    }
-
-    m_healed.clear();
-    m_healers.clear();
-    UpdateFlag();
-}
-
-void CombatStatusHandler::OnRemoveFromWorld()
-{
-    ClearAttackers();
-    ClearHealers();
-    m_damageMap.clear();
-}
-
 uint32 Unit::Heal(Unit* target, uint32 SpellId, uint32 amount, bool silent)
 {//Static heal
     if(!target || !SpellId || !amount || !target->isAlive() )
@@ -3804,6 +3465,18 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     target->ModPower(type, amount);
     Spell::SendHealManaSpellOnPlayer(this,target, amount, type, SpellId);
     target->SendPowerUpdate();
+}
+
+void Unit::SetInCombat(Unit *unit, uint32 timerOverride)
+{
+    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+    m_combatStopTimer = timerOverride;
+
+    // Trigger back combat status
+    if(unit == NULL)
+        return;
+    // Only trigger combat calldown once
+    unit->SetInCombat(NULL, timerOverride);
 }
 
 void Unit::EventCancelSpell(Spell* ptr)
@@ -3862,40 +3535,15 @@ void Creature::Tag(Player* plr)
     UpdateLootAnimation(plr);
 }
 
-void Unit::RemoveStealth()
-{
-    /*if( m_stealth != 0 )
-    {
-        RemoveAura( m_stealth );
-        m_stealth = 0;
-    }*/
-}
-
-void Unit::RemoveInvisibility()
-{
-    if( m_invisibility != 0 )
-    {
-        RemoveAura( m_invisibility );
-        m_invisibility = 0;
-    }
-}
-
 //what is an Immobilize spell ? Have to add it later to spell effect handler
 void Unit::EventStunOrImmobilize()
 {
-    if( trigger_on_stun )
-    {
-        if( trigger_on_stun_chance < 100 && !Rand( trigger_on_stun_chance ) )
-            return;
 
-        CastSpell(castPtr<Unit>(this), trigger_on_stun, true);
-    }
 }
 
 void Unit::SetTriggerStunOrImmobilize(uint32 newtrigger,uint32 new_chance)
 {
-    trigger_on_stun = newtrigger;
-    trigger_on_stun_chance = new_chance;
+
 }
 
 void Unit::SendPowerUpdate(EUnitFields powerField)

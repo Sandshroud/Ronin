@@ -40,7 +40,7 @@ void Spell::FillTargetMap(uint32 i)
 
     //always add this guy :P
     if(!(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
-        if(WorldObject* target = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget))
+        if(WorldObject* target = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget))
             AddTarget(i, TargetType, target);
 
     if(TargetType & SPELL_TARGET_OBJECT_SELF)
@@ -63,7 +63,7 @@ void Spell::FillTargetMap(uint32 i)
     {
         if(m_targets.m_unitTarget.getHigh() == HIGHGUID_TYPE_PET)
         {
-            if(Pet* p = m_caster->GetMapMgr()->GetPet(m_targets.m_unitTarget))
+            if(Pet* p = m_caster->GetMapInstance()->GetPet(m_targets.m_unitTarget))
                 AddTarget(i, TargetType, p->GetPetOwner());
         }
     }
@@ -141,7 +141,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         return false;
     if(TargetType & SPELL_TARGET_OBJECT_TARCLASS)
     {
-        WorldObject* originaltarget = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
+        WorldObject* originaltarget = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
 
         if(originaltarget == NULL || (originaltarget->IsPlayer() && obj->IsPlayer() && castPtr<Player>(originaltarget)->getClass() != castPtr<Player>(obj)->getClass()) || (originaltarget->IsPlayer() && !obj->IsPlayer()) || (!originaltarget->IsPlayer() && obj->IsPlayer()))
             return false;
@@ -185,7 +185,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     if(TargetType & (SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID) && !(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem())))
         return;
 
-    WorldObject* tarobj = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
+    WorldObject* tarobj = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
 
     if(TargetType & SPELL_TARGET_AREA_SELF)
         source = m_caster->GetPosition();
@@ -244,7 +244,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
 
 void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets, bool partylimit)
 {
-    WorldObject* u = m_caster->GetMapMgr()->_GetObject(m_targets.m_unitTarget);
+    WorldObject* u = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
     if(u == NULL && (u = m_caster) == NULL)
         return;
     if(!u->IsPlayer())

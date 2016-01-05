@@ -10,7 +10,7 @@ static int winHonorTable[9]             = {  0,  2,  4,  7, 11, 19, 20, 20, 25 }
 static int extraCompleteHonorTable[9]   = {  0,  7, 12, 20, 34, 57, 59, 59, 65 }; // extras only for weekends
 static int extraWinHonorTable[9]        = {  0,  5,  8, 14, 23, 38, 40, 40, 45 };
 
-WarsongGulch::WarsongGulch(MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBattleground(mgr, id, lgroup, t)
+WarsongGulch::WarsongGulch(MapInstance* m, uint32 id, uint32 lgroup, uint32 t) : CBattleground(m, id, lgroup, t)
 {
     int i;
 
@@ -57,11 +57,11 @@ void WarsongGulch::Init()
     m_homeFlags[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
 
     // dropped flags
-    m_dropFlags[1] = m_mapMgr->CreateGameObject(179786);
+    m_dropFlags[1] = m_mapInstance->CreateGameObject(179786);
     if( m_dropFlags[1] == NULL || !m_dropFlags[1]->CreateFromProto(179785, 489, 0.0f, 0.0f, 0.0f, 0.0f))
         sLog.Warning("WarsongGulch", "Could not create dropped flag 1");
 
-    m_dropFlags[0] = m_mapMgr->CreateGameObject(179786);
+    m_dropFlags[0] = m_mapInstance->CreateGameObject(179786);
     if(m_dropFlags[0] == NULL || !m_dropFlags[0]->CreateFromProto(179786, 489, 0.0f, 0.0f, 0.0f, 0.0f))
         sLog.Warning("WarsongGulch", "Could not create dropped flag 0");
 
@@ -158,11 +158,11 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
         else
             SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE, plr->GetGUID(), "%s captured the Horde flag!", plr->GetName() );
 
-        m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1 );
+        m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1 );
 
         /* respawn the home flag */
         if( !m_homeFlags[plr->GetTeam()]->IsInWorld() )
-            m_homeFlags[plr->GetTeam()]->PushToWorld(m_mapMgr);
+            m_homeFlags[plr->GetTeam()]->PushToWorld(m_mapInstance);
 
         /* give each player on that team a bonus according to flagHonorTable */
         for(std::set<Player*>::iterator itr = m_players[plr->GetTeam()].begin(); itr != m_players[plr->GetTeam()].end(); itr++)
@@ -185,7 +185,7 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
         }
 
         /* increment the score world state */
-        m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_HORDE_SCORE : WORLDSTATE_WSG_ALLIANCE_SCORE, m_scores[plr->GetTeam()]);
+        m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_HORDE_SCORE : WORLDSTATE_WSG_ALLIANCE_SCORE, m_scores[plr->GetTeam()]);
 
         UpdatePvPData();
     }
@@ -203,9 +203,9 @@ void WarsongGulch::DropFlag(Player* plr)
 
     /* drop the flag! */
     m_dropFlags[plr->GetTeam()]->SetPosition(plr->GetPosition());
-    m_dropFlags[plr->GetTeam()]->PushToWorld(m_mapMgr);
+    m_dropFlags[plr->GetTeam()]->PushToWorld(m_mapInstance);
     m_flagHolders[plr->GetTeam()] = 0;
-    m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1);
+    m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1);
 
     plr->CastSpell(plr, BG_RECENTLY_DROPPED_FLAG, true);
 
@@ -233,7 +233,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
                 m_dropFlags[x]->RemoveFromWorld(false);
 
             if(m_homeFlags[x]->IsInWorld() == false)
-                m_homeFlags[x]->PushToWorld(m_mapMgr);
+                m_homeFlags[x]->PushToWorld(m_mapInstance);
 
             plr->m_bgScore.MiscData[BG_SCORE_WSG_FLAG_RETURNS]++;
             UpdatePvPData();
@@ -243,7 +243,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
             else
                 SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE, plr->GetGUID(), "The Alliance flag was returned to its base by %s!", plr->GetName() );
 
-            m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1);
+            m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 1);
             PlaySoundToAll(plr->GetTeam() ? SOUND_HORDE_RETURNED : SOUND_ALLIANCE_RETURNED);
         }
         return;
@@ -270,7 +270,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
     SpellCastTargets targets(plr->GetGUID());
     if(Spell* sp = new Spell(plr, pSp))
         sp->prepare(&targets, true);
-    m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
+    m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
 }
 
 void WarsongGulch::ReturnFlag(uint8 team)
@@ -282,7 +282,7 @@ void WarsongGulch::ReturnFlag(uint8 team)
         m_dropFlags[team]->RemoveFromWorld(false);
 
     if( !m_homeFlags[team]->IsInWorld() )
-        m_homeFlags[team]->PushToWorld(m_mapMgr);
+        m_homeFlags[team]->PushToWorld(m_mapInstance);
 
     if( team )
         SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE, 0, "The Alliance flag was returned to its base!" );
@@ -330,7 +330,7 @@ void WarsongGulch::HookFlagStand(Player* plr, GameObject* obj)
         SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE, plr->GetGUID(), "The Horde flag was picked up by %s!", plr->GetName() );
 
     PlaySoundToAll(plr->GetTeam() ? SOUND_HORDE_CAPTURE : SOUND_ALLIANCE_CAPTURE);
-    m_mapMgr->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
+    m_mapInstance->GetStateManager().UpdateWorldState(plr->GetTeam() ? WORLDSTATE_WSG_ALLIANCE_FLAG_DISPLAY : WORLDSTATE_WSG_HORDE_FLAG_DISPLAY, 2);
 }
 
 void WarsongGulch::HookOnPlayerKill(Player* plr, Unit* pVictim)
@@ -446,42 +446,42 @@ void WarsongGulch::OnCreate()
     for(int i = 0; i < 6; i++)
     {
         if(!m_buffs[i]->IsInWorld())
-            m_buffs[i]->PushToWorld(m_mapMgr);
+            m_buffs[i]->PushToWorld(m_mapInstance);
     }
     // Alliance Gates
     GameObject *gate = SpawnGameObject(179921, 1471.56f, 1458.78f, 362.633f, 3.11541f, 33, 114, 2.33271f);
     gate->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     gate = SpawnGameObject(179920, 1468.5f, 1494.36f, 351.862f, 3.11541f, 33, 114, 3.12f);
     gate->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     gate = SpawnGameObject(179919, 1492.48f, 1457.91f, 342.969f, 3.11541f, 33, 114, 2.68149f);
     gate->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     gate = SpawnGameObject(179918, 1503.33f, 1493.47f, 352.189f, 3.11541f, 33, 114, 2.26f);
     gate->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     // Horde Gates
     gate = SpawnGameObject(179916, 949.166f, 1423.77f, 345.624f, -0.575681f, 32, 114, 0.900901f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     gate = SpawnGameObject(179917, 953.051f, 1459.84f, 340.653f, -1.99662f, 32, 114, 0.854701f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     // create world state templates
-    WorldStateManager& sm = m_mapMgr->GetStateManager();
+    WorldStateManager& sm = m_mapInstance->GetStateManager();
 
     sm.CreateWorldState(0x8D8, 0);
     sm.CreateWorldState(0x8D7, 0);
@@ -526,7 +526,7 @@ void WarsongGulch::OnStart()
     for(int i = 0; i < 2; i++)
     {
         if( !m_homeFlags[i]->IsInWorld() )
-            m_homeFlags[i]->PushToWorld(m_mapMgr);
+            m_homeFlags[i]->PushToWorld(m_mapInstance);
     }
 
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "The flags are now placed at their bases." );

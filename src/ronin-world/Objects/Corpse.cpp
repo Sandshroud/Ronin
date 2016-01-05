@@ -70,7 +70,7 @@ void Corpse::SaveToDB()
         << GetOrientation() << ", "
         << GetZoneId() << ", "
         << GetMapId() << ", "
-        << uint32(IsInWorld() ? GetMapMgr()->GetInstanceID() : GetInstanceID()) << ", '";
+        << uint32(IsInWorld() ? GetMapInstance()->GetInstanceID() : GetInstanceID()) << ", '";
     for(uint16 i = 0; i < m_valuesCount; i++ )
         ss << GetUInt32Value(i) << " ";
     ss << "')";

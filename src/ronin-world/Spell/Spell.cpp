@@ -695,16 +695,16 @@ void Spell::cancel()
         {
             if(m_caster->IsPlayer())
             {
-                Unit* pTarget = castPtr<Player>(m_caster)->GetMapMgr()->GetUnit(m_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
+                Unit* pTarget = castPtr<Player>(m_caster)->GetMapInstance()->GetUnit(m_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT));
                 if(!pTarget)
-                    pTarget = castPtr<Player>(m_caster)->GetMapMgr()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
+                    pTarget = castPtr<Player>(m_caster)->GetMapInstance()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
 
                 if(pTarget)
                     pTarget->RemoveAura(GetSpellProto()->Id, m_caster->GetGUID());
 
                 if(m_AreaAura)//remove of blizz and shit like this
                 {
-                    DynamicObject* dynObj = m_caster->GetMapMgr()->GetDynamicObject(m_caster->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
+                    DynamicObject* dynObj = m_caster->GetMapInstance()->GetDynamicObject(m_caster->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
                     if(dynObj)
                     {
                         dynObj->RemoveFromWorld(true);
@@ -866,20 +866,12 @@ void Spell::cast(bool check)
                 // also includes check for trying to cast stealth/etc while you have the flag
                 switch(m_spellInfo->Id)
                 {
-                case 21651:
-                    // Arathi Basin opening spell, remove stealth, invisibility, etc.
-                    castPtr<Player>(m_caster)->RemoveStealth();
-                    castPtr<Player>(m_caster)->RemoveInvisibility();
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_PROTECTION, false);
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
-                    break;
-                case 23333:
+                case 21651: // Arathi Basin opening spell, remove stealth, invisibility, etc.
+                case 23333: // if we're picking up the flag remove the buffs
                 case 23335:
                 case 34976:
-                    // if we're picking up the flag remove the buffs
-                    castPtr<Player>(m_caster)->RemoveStealth();
-                    castPtr<Player>(m_caster)->RemoveInvisibility();
+                    /*castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasWithModType(SPELL_AURA_MOD_STEALTH);
+                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasWithModType(SPELL_AURA_MOD_INVISIBILITY);*/
                     castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
                     castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_PROTECTION, false);
                     castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
@@ -1105,9 +1097,8 @@ void Spell::cast(bool check)
 
             m_isCasting = false;
             SendCastResult(cancastresult);
-            if(m_caster->IsUnit())
-                castPtr<Unit>(m_caster)->SetOnMeleeSpell(GetSpellProto()->Id, m_castNumber);
-
+            /*if(m_caster->IsPlayer())
+                castPtr<Player>(m_caster)->SetOnMeleeSpell(GetSpellProto()->Id, m_castNumber);*/
             finish();
             return;
         }
@@ -1262,8 +1253,8 @@ void Spell::finish()
         if(m_Delayed && castPtr<Player>(m_caster)->IsInWorld())
         {
             Unit* pTarget = NULL;
-            if((pTarget = castPtr<Player>(m_caster)->GetMapMgr()->GetUnit(m_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))) == NULL)
-                pTarget = castPtr<Player>(m_caster)->GetMapMgr()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
+            if((pTarget = castPtr<Player>(m_caster)->GetMapInstance()->GetUnit(m_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))) == NULL)
+                pTarget = castPtr<Player>(m_caster)->GetMapInstance()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
             if(pTarget) pTarget->RemoveAura(GetSpellProto()->Id, m_caster->GetGUID());
         }
     }
@@ -1346,11 +1337,8 @@ bool Spell::TakePower()
             if(cost <= currentPower) // Unit has enough power (needed for creatures)
             {
                 if( GetSpellProto()->powerType == POWER_TYPE_MANA )
-                {
-                    u_caster->m_LastSpellManaCost = cost;
                     if(m_spellInfo->IsSpellChannelSpell()) // Client only accepts channels
                         u_caster->DelayPowerRegeneration(GetDuration());
-                }
 
                 u_caster->SetPower(GetSpellProto()->powerType, currentPower - cost);
                 return true;
@@ -1419,7 +1407,7 @@ uint8 Spell::CanCast(bool tolerate)
 
     if(m_caster->IsInWorld())
     {
-        if( Unit *target = m_caster->GetMapMgr()->GetUnit( m_targets.m_unitTarget ) )
+        if( Unit *target = m_caster->GetMapInstance()->GetUnit( m_targets.m_unitTarget ) )
         {
             if( GetSpellProto()->Id == 48788 && target->GetHealthPct() == 100)
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
@@ -1486,7 +1474,7 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_NOT_WHILE_GHOST;
         }
 
-        if (p_caster->GetMapMgr() && p_caster->GetMapMgr()->CanUseCollision(p_caster))
+        if (p_caster->GetMapInstance() && p_caster->GetMapInstance()->CanUseCollision(p_caster))
         {
             if (GetSpellProto()->MechanicsType == MECHANIC_MOUNTED)
             {
@@ -1530,13 +1518,13 @@ uint8 Spell::CanCast(bool tolerate)
             }
         }
 
-        if(!castPtr<Unit>(m_caster)->CombatStatus.IsInCombat() && GetSpellProto()->NameHash == SPELL_HASH_DISENGAGE)
+        if(!castPtr<Unit>(m_caster)->IsInCombat() && GetSpellProto()->NameHash == SPELL_HASH_DISENGAGE)
             return SPELL_FAILED_SPELL_UNAVAILABLE;;
 
         // Disarm
         if( castPtr<Unit>(m_caster)!= NULL )
         {
-            if (GetSpellProto()->isUnavailableInCombat() && castPtr<Unit>(m_caster)->CombatStatus.IsInCombat())
+            if (GetSpellProto()->isUnavailableInCombat() && castPtr<Unit>(m_caster)->IsInCombat())
             {
                 // Charge In Combat, it's broke since 3.3.5, ??? maybe an aura state that needs to be set now
                 //if ((GetSpellProto()->Id !=  100 && GetSpellProto()->Id != 6178 && GetSpellProto()->Id != 11578 ) )
@@ -1570,7 +1558,7 @@ uint8 Spell::CanCast(bool tolerate)
         // check for duel areas
         if( GetSpellProto()->Id == 7266 )
         {
-            if(p_caster->GetMapMgr()->CanUseCollision(p_caster))
+            if(p_caster->GetMapInstance()->CanUseCollision(p_caster))
             {
                 if(sVMapInterface.IsIncity(p_caster->GetMapId(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ()))
                     return SPELL_FAILED_NO_DUELING;
@@ -1616,7 +1604,7 @@ uint8 Spell::CanCast(bool tolerate)
                 if( p_caster->m_MountSpellId )
                     p_caster->RemoveAura( p_caster->m_MountSpellId );
 
-                p_caster->RemoveStealth();
+                //p_caster->RemoveStealth();
                 break;
             }
         }
@@ -1647,11 +1635,8 @@ uint8 Spell::CanCast(bool tolerate)
         }
 
         // stealth check
-        if( GetSpellProto()->NameHash == SPELL_HASH_STEALTH || GetSpellProto()->NameHash == SPELL_HASH_PROWL )
-        {
-            if( p_caster->CombatStatus.IsInCombat() )
-                return SPELL_FAILED_TARGET_IN_COMBAT;
-        }
+        if( (GetSpellProto()->NameHash == SPELL_HASH_STEALTH || GetSpellProto()->NameHash == SPELL_HASH_PROWL) && p_caster->IsInCombat() )
+            return SPELL_FAILED_TARGET_IN_COMBAT;
 
         if( ( GetSpellProto()->NameHash == SPELL_HASH_CANNIBALIZE || GetSpellProto()->Id == 46584 ))
         {
@@ -1744,7 +1729,7 @@ uint8 Spell::CanCast(bool tolerate)
     // set up our max Range
     float maxRange = GetSpellProto()->maxRange[0];
     if(m_targets.m_unitTarget && m_caster && m_caster->IsInWorld())
-        if(sFactionSystem.isCombatSupport(castPtr<Unit>(m_caster), m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget)))
+        if(sFactionSystem.isCombatSupport(castPtr<Unit>(m_caster), m_caster->GetMapInstance()->GetUnit(m_targets.m_unitTarget)))
             maxRange = GetSpellProto()->maxRange[1];
 
     if( GetSpellProto()->SpellGroupType && m_caster->IsUnit() )
@@ -1774,7 +1759,7 @@ uint8 Spell::CanCast(bool tolerate)
         if( m_targets.m_unitTarget == m_caster->GetGUID() && m_caster->IsUnit() )
             target = castPtr<Unit>(m_caster);
         else
-            target = (m_caster->IsInWorld()) ? m_caster->GetMapMgr()->GetUnit(m_targets.m_unitTarget) : NULL;
+            target = (m_caster->IsInWorld()) ? m_caster->GetMapInstance()->GetUnit(m_targets.m_unitTarget) : NULL;
 
         if(target != NULL)
         {
@@ -1903,7 +1888,7 @@ uint8 Spell::CanCast(bool tolerate)
 
             // if target is already skinned, don't let it be skinned again
             if( GetSpellProto()->Effect[0] == SPELL_EFFECT_SKINNING) // skinning
-                if(target->IsUnit() && (castPtr<Creature>(target)->Skinned) )
+                if(target->IsUnit() && (castPtr<Creature>(target)->m_skinned) )
                     return SPELL_FAILED_TARGET_UNSKINNABLE;
 
             // target 39 is fishing, all fishing spells are handled
@@ -1918,7 +1903,7 @@ uint8 Spell::CanCast(bool tolerate)
                     float posx = 0,posy = 0,posz = 0;
                     float co = cos(orient);
                     float si = sin(orient);
-                    MapMgr* map = m_caster->GetMapMgr();
+                    MapInstance* map = m_caster->GetMapInstance();
 
                     float r;
                     for(r=20; r>10; r--)

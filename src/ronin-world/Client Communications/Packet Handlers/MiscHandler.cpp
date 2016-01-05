@@ -31,7 +31,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     Object* pLootEnt = NULL;
     if( GUID_HIPART(_player->GetLootGUID()) == HIGHGUID_TYPE_ITEM )
         pLootEnt = _player->GetInventory()->GetItemByGUID(_player->GetLootGUID());
-    else pLootEnt = _player->GetMapMgr()->_GetObject(_player->GetLootGUID());
+    else pLootEnt = _player->GetMapInstance()->_GetObject(_player->GetLootGUID());
     if( pLootEnt == NULL )
         return;
 
@@ -43,7 +43,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     uint32 money = pLootEnt->GetLoot()->gold;
     for(LooterSet::iterator itr = pLootEnt->GetLoot()->looters.begin(); itr != pLootEnt->GetLoot()->looters.end(); itr++)
     {
-        if((plr = _player->GetMapMgr()->GetPlayer(*itr)))
+        if((plr = _player->GetMapInstance()->GetPlayer(*itr)))
             plr->GetSession()->OutPacket(SMSG_LOOT_CLEAR_MONEY);
     }
 
@@ -103,7 +103,7 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
     WoWGuid guid;
     recv_data >> guid;
 
-    if(_player->GetMapMgr()->GetCreature(guid) && _player->GetMapMgr()->GetCreature(guid)->IsVehicle())
+    if(_player->GetMapInstance()->GetCreature(guid) && _player->GetMapInstance()->GetCreature(guid)->IsVehicle())
         return;
 
     if(_player->isCasting())
@@ -163,7 +163,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
     {
     case HIGHGUID_TYPE_GAMEOBJECT:
         {
-            if(GameObject* pGO = _player->GetMapMgr()->GetGameObject(guid))
+            if(GameObject* pGO = _player->GetMapInstance()->GetGameObject(guid))
             {
                 pGO->GetLoot()->looters.erase(_player->GetGUID());
                 switch( pGO->GetType())
@@ -239,7 +239,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
         }break;
     case HIGHGUID_TYPE_UNIT:
         {
-            if( Unit* pLootTarget = _player->GetMapMgr()->GetUnit(guid) )
+            if( Unit* pLootTarget = _player->GetMapInstance()->GetUnit(guid) )
             {
                 pLootTarget->GetLoot()->looters.erase(_player->GetLowGUID());
                 if( !pLootTarget->GetLoot()->HasLoot(_player) )
@@ -248,7 +248,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
 
                     // skinning
                     if(!pLootTarget->IsPet() && !castPtr<Creature>(pLootTarget)->IsSummon()
-                        && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->Skinned)
+                        && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->m_skinned)
                     {
 
                     }
@@ -465,7 +465,7 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
             return;
         }
 
-        if(pPlayer->DuelingWith != NULL || pPlayer->CombatStatus.IsInCombat())
+        if(pPlayer->DuelingWith != NULL || pPlayer->IsInCombat())
         {
             //can't quit still dueling or attacking
             data << uint8(0x1); //Logout accepted
@@ -638,7 +638,7 @@ void WorldSession::HandleResurrectResponseOpcode(WorldPacket & recv_data)
     }
 
     // need to check guid
-    Unit* pl = _player->GetMapMgr()->GetUnit(guid);
+    Unit* pl = _player->GetMapInstance()->GetUnit(guid);
     if(!pl || status != 1)
     {
         _player->m_resurrectHealth = 0;
@@ -812,7 +812,7 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
     recv_data >> guid;
     sLog.outDebug("WORLD: CMSG_GAMEOBJ_USE: [GUID %d]", guid);
 
-    GameObject* obj = _player->GetMapMgr()->GetGameObject(guid);
+    GameObject* obj = _player->GetMapInstance()->GetGameObject(guid);
     if (!obj)
         return;
     obj->Use(_player);
@@ -866,7 +866,7 @@ void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Player* player = _player->GetMapMgr()->GetPlayer( (uint32)guid );
+    Player* player = _player->GetMapInstance()->GetPlayer( (uint32)guid );
     if( player == NULL )
         return;
 
@@ -1001,7 +1001,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     if(_player->GetGroup() == NULL || _player->GetGroup()->GetLooter() != _player->m_playerInfo)
         return;
 
-    Player* player = _player->GetMapMgr()->GetPlayer((uint32)target_playerguid);
+    Player* player = _player->GetMapInstance()->GetPlayer((uint32)target_playerguid);
     if(!player)
         return;
 
@@ -1012,7 +1012,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     //now its time to give the loot to the target player
     if(GUID_HIPART(GetPlayer()->GetLootGUID()) == HIGHGUID_TYPE_UNIT)
     {
-        if ((pCreature = _player->GetMapMgr()->GetCreature(creatureguid)) == NULL)
+        if ((pCreature = _player->GetMapInstance()->GetCreature(creatureguid)) == NULL)
             return;
         pLoot = pCreature->GetLoot();
     }
@@ -1038,7 +1038,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     WorldPacket data(SMSG_LOOT_REMOVED, 1);
     data << slotid;
     for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
-        if(Player *plr = _player->GetMapMgr()->GetPlayer(*itr))
+        if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
             plr->GetSession()->SendPacket(&data);
 }
 
@@ -1052,7 +1052,7 @@ void WorldSession::HandleLootRollOpcode(WorldPacket& recv_data)
     recv_data >> creatureguid >> slotid >> choice;
 
     ObjectLoot *loot = NULL;
-    if(WorldObject * wObj = _player->GetMapMgr()->_GetObject(creatureguid))
+    if(WorldObject * wObj = _player->GetMapInstance()->_GetObject(creatureguid))
         if(!wObj->IsGameObject() || castPtr<GameObject>(wObj)->GetInfo()->Type == GAMEOBJECT_TYPE_CHEST)
             loot = wObj->GetLoot();
     if(loot == NULL)
@@ -1216,19 +1216,14 @@ void WorldSession::HandleSummonResponseOpcode(WorldPacket & recv_data)
     }
 
     //not during combat
-    if(_player->CombatStatus.IsInCombat())
-        return;
-
-    //Map checks.
-    MapInfo * inf = WorldMapInfoStorage.LookupEntry(_player->m_summonMapId);
-    if(!inf)
+    if(_player->IsInCombat())
         return;
 
     //are we summoning from witin the same instance?
     if( _player->m_summonInstanceId != _player->GetInstanceID() )
     {
         // if not, are we allowed on the summoners map?
-        if( uint8 pReason = CheckTeleportPrerequisites(this, _player, inf->mapid) )
+        if( uint8 pReason = CheckTeleportPrerequisites(this, _player, _player->m_summonMapId) )
         {
             SendNotification(NOTIFICATION_MESSAGE_NO_PERMISSION);
             return;
@@ -1315,7 +1310,7 @@ void WorldSession::HandleGameobjReportUseOpCode( WorldPacket& recv_data )
 
     uint64 guid;
     recv_data >> guid;
-    GameObject* gameobj = _player->GetMapMgr()->GetGameObject(guid);
+    GameObject* gameobj = _player->GetMapInstance()->GetGameObject(guid);
     if(gameobj != NULL && gameobj->GetInfo() && gameobj->CanActivate())
         sQuestMgr.OnGameObjectActivate(_player, gameobj);
 }
@@ -1544,13 +1539,13 @@ void WorldSession::HandleHearthandResurrect(WorldPacket &recv_data)
 
 uint8 WorldSession::CheckTeleportPrerequisites(WorldSession * pSession, Player* pPlayer, uint32 mapid)
 {
-    MapInfo* pMapInfo = WorldMapInfoStorage.LookupEntry(mapid);
     MapEntry* map = dbcMap.LookupEntry(mapid);
+    MapManager *mgr = sWorldMgr.GetMapManager(mapid);
 
     //is this map enabled?
-    if( pMapInfo == NULL || !pMapInfo->HasFlag(WMI_INSTANCE_ENABLED))
+    if( mgr == NULL )
         return AREA_TRIGGER_FAILURE_UNAVAILABLE;
-
+/*
     //Do we need TBC expansion?
     if(!pSession->HasFlag(ACCOUNT_FLAG_XPACK_01) && pMapInfo->HasFlag(WMI_INSTANCE_XPACK_01))
         return AREA_TRIGGER_FAILURE_NO_BC;
@@ -1612,7 +1607,7 @@ uint8 WorldSession::CheckTeleportPrerequisites(WorldSession * pSession, Player* 
                     return AREA_TRIGGER_FAILURE_NO_KEY;
             }
         }
-    }
+    }*/
 
     // Nothing more to check, should be ok
     return AREA_TRIGGER_FAILURE_OK;

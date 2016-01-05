@@ -12,7 +12,7 @@
 #define LOOT_PICKPOCKETING  "loot_pickpocketing"
 
 struct ItemPrototype;
-class MapMgr;
+class MapInstance;
 class Player;
 struct PlayerInfo;
 
@@ -21,7 +21,7 @@ class LootRoll : public EventableObject
 public:
     LootRoll();
     ~LootRoll();
-    void Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randomsuffixid, uint32 randompropertyid, MapMgr* mgr);
+    void Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randomsuffixid, uint32 randompropertyid, MapInstance* instance);
     void PlayerRolled(PlayerInfo* pInfo, uint8 choice);
     void Finalize();
 
@@ -38,7 +38,7 @@ private:
     uint32 _randomSeed;
     uint32 _remaining;
     uint64 _guid;
-    MapMgr* _mgr;
+    MapInstance* _instance;
 };
 
 typedef std::vector<std::pair<ItemRandomPropertiesEntry*, float> > RandomPropertyVector;

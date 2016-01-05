@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 7.f, 4.5f, 3.141593f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -348,16 +348,21 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
 
 void MovementInterface::Update(uint32 diff)
 {
+    m_updateTimer += diff;
+    // Update movement timers 500ms
+    if(m_updateTimer < 500)
+        return;
+
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
         if(m_speedTimers[i])
         {
-            if(m_speedTimers[i] <= diff)
+            if(m_speedTimers[i] <= m_updateTimer)
             {
                 m_speedTimers[i] = 0; // Timer not needed anymore
                 m_currSpeeds[i] = m_pendingSpeeds[i];
                 m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
-            } else m_speedTimers[i] -= diff;
+            } else m_speedTimers[i] -= m_updateTimer;
         }
     }
 
@@ -596,7 +601,7 @@ void MovementInterface::HandleBreathing()
 {
     uint16 WaterType = 0;
     float WaterHeight = NO_WATER_HEIGHT;
-    m_Unit->GetMapMgr()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, WaterHeight, WaterType);
+    m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, WaterHeight, WaterType);
     if (WaterHeight == NO_WATER_HEIGHT)
     {
         m_underwaterState &= ~0xD0;

@@ -697,13 +697,13 @@ void World::UpdateSessions(uint32 diff)
         ++itr;
 
         //We have been moved to mapmgr, remove us here.
-        if( GlobalSession->GetInstance() != 0 )
+        if( GlobalSession->GetEventInstanceId() != -1 )
         {
             RemoveGlobalSession(GlobalSession);
             continue;
         }
 
-        result = GlobalSession->Update(0);
+        result = GlobalSession->Update(-1);
         if(result)
         {
             if(result == 1)//socket don't exist anymore, delete from worldsessions.

@@ -17,7 +17,7 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
     recv_data >> guid;
 
     PlayerTradeStatus tradeStatus = TRADE_STATUS_BEGIN_TRADE;
-    Player* pTarget = _player->GetMapMgr()->GetPlayer((uint32)guid);
+    Player* pTarget = _player->GetMapInstance()->GetPlayer((uint32)guid);
     if(pTarget == NULL || !pTarget->IsInWorld())
         tradeStatus = TRADE_STATUS_NO_TARGET;
     else if(_player->isDead())

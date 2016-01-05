@@ -111,7 +111,7 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
         if(m_AIType == AITYPE_DUMMY)
         {
             if(eevent == EVENT_ENTERCOMBAT || eevent == EVENT_DAMAGETAKEN)
-                m_Unit->CombatStatus.OnDamageDealt(pUnit, 1); // Fill our attackers combat system with info(Lol)
+                m_Unit->SetInCombat(pUnit);
             return;
         }
 
@@ -359,7 +359,7 @@ bool AIInterface::FindFriends(float dist)
         ai_TargetLock.Acquire();
         TargetMap::iterator it, it2;
         for(TargetMap::iterator it = m_aiTargets.begin(), it2; it != m_aiTargets.end();)
-            if(Unit *unit = m_Unit->GetMapMgr()->GetUnit((it2 = it++)->first))
+            if(Unit *unit = m_Unit->GetMapInstance()->GetUnit((it2 = it++)->first))
                 result->GetAIInterface()->AttackReaction( unit, 1, 0 );
         ai_TargetLock.Release();
         return true;
@@ -429,7 +429,7 @@ void AIInterface::CheckHeight()
 {
     ASSERT(m_Unit != NULL);
 
-    if(m_Unit->GetMapMgr())
+    if(m_Unit->GetMapInstance())
     {
         if(m_Unit->IsCreature())
         {

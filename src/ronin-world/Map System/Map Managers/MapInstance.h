@@ -3,7 +3,7 @@
  */
 
 //
-// mapMgr->h
+// MapInstance->h
 //
 
 #pragma once
@@ -19,10 +19,9 @@ class Pet;
 class Transporter;
 class Corpse;
 class CBattleground;
-class Instance;
 class Transporter;
 
-enum MapMgrTimers
+enum MapInstanceTimers
 {
     MMUPDATE_OBJECTS = 0,
     MMUPDATE_SESSIONS = 1,
@@ -45,7 +44,7 @@ enum ObjectActiveState
 
 #define TRIGGER_INSTANCE_EVENT( Mgr, Func )
 
-class SERVER_DECL MapMgr : public CellHandler <MapCell>, public EventableObject, public ThreadContext
+class SERVER_DECL MapInstance : public CellHandler <MapCell>, public EventableObject
 {
     friend class UpdateObjectThread;
     friend class ObjectUpdaterThread;
@@ -68,9 +67,9 @@ public:
     WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 
 ////////////////////////////////////////////////////////
-// Local (mapmgr) storage/generation of GameObjects
+// Local (MapInstance) storage/generation of GameObjects
 /////////////////////////////////////////////
-    typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectMap;
+    typedef RONIN_UNORDERED_MAP<WoWGuid, GameObject* > GameObjectMap;
     GameObjectMap m_gameObjectStorage;
     uint32 m_GOHighGuid;
     GameObject* CreateGameObject(uint32 entry);
@@ -89,7 +88,7 @@ public:
     }
 
 /////////////////////////////////////////////////////////
-// Local (mapmgr) storage/generation of Creatures
+// Local (MapInstance) storage/generation of Creatures
 /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
     RONIN_UNORDERED_MAP<WoWGuid, Creature*> m_CreatureStorage;
@@ -105,7 +104,7 @@ public:
     // Use a creature guid to create our summon.
     Summon* CreateSummon(uint32 entry);
 //////////////////////////////////////////////////////////
-// Local (mapmgr) storage/generation of DynamicObjects
+// Local (MapInstance) storage/generation of DynamicObjects
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
     typedef RONIN_UNORDERED_MAP<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
@@ -119,7 +118,7 @@ public:
     }
 
 //////////////////////////////////////////////////////////
-// Local (mapmgr) storage of pets
+// Local (MapInstance) storage of pets
 ///////////////////////////////////////////
     typedef RONIN_UNORDERED_MAP<WoWGuid, Pet*> PetStorageMap;
     PetStorageMap m_PetStorage;
@@ -130,7 +129,7 @@ public:
     }
 
 //////////////////////////////////////////////////////////
-// Local (mapmgr) storage of players for faster lookup
+// Local (MapInstance) storage of players for faster lookup
 ////////////////////////////////
     typedef RONIN_UNORDERED_MAP<WoWGuid, Player*> PlayerStorageMap;
     PlayerStorageMap m_PlayerStorage;
@@ -142,7 +141,7 @@ public:
     }
 
 //////////////////////////////////////////////////////////
-// Local (mapmgr) storage of combats in progress
+// Local (MapInstance) storage of combats in progress
 ////////////////////////////////
     CombatProgressMap _combatProgress;
     void AddCombatInProgress(uint64 guid)
@@ -167,12 +166,9 @@ public:
     Unit* GetUnit(WoWGuid guid);
     WorldObject* _GetObject(WoWGuid guid);
 
-    bool run();
-    bool Do();
+    MapInstance(Map *map, uint32 mapid, uint32 instanceid);
+    ~MapInstance();
 
-    MapMgr(Map *map, uint32 mapid, uint32 instanceid);
-    ~MapMgr();
-    void Init(bool Instance);
     void Destruct();
 
     void EventPushObjectToSelf(WorldObject *obj);
@@ -211,18 +207,22 @@ public:
 
     RONIN_INLINE virtual bool IsInstance() { return false; }
     RONIN_INLINE uint32 GetInstanceID() { return m_instanceID; }
-    RONIN_INLINE MapInfo *GetMapInfo() { return pMapInfo; }
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
     bool CanUseCollision(WorldObject* obj);
 
-    virtual int32 event_GetInstanceID() { return m_instanceID; }
+    virtual int32 event_GetMapID() { return _mapId; }
 
     void UpdateAllCells(bool apply, uint32 areamask = 0);
     RONIN_INLINE size_t GetPlayerCount() { return m_PlayerStorage.size(); }
 
-    void _PerformObjectDuties();
+    void _ProcessInputQueue();
+    void _PerformPlayerUpdates(uint32 diff);
+    void _PerformCreatureUpdates(uint32 msTime);
+    void _PerformObjectUpdates(uint32 msTime);
+    void _PerformSessionUpdates();
+    void _PerformPendingUpdates();
+
     uint32 mLoopCounter;
-    uint32 lastDutyUpdate;
     uint32 lastGameobjectUpdate;
     uint32 lastUnitUpdate;
     void EventCorpseDespawn(uint64 guid);
@@ -248,15 +248,6 @@ public:
     void BeginInstanceExpireCountdown();
     void HookOnAreaTrigger(Player* plr, uint32 id);
 
-    // kill the worker thread only
-    void KillThread()
-    {
-        thread_kill_only = true;
-        OnShutdown();
-        while(thread_running)
-            Sleep(100);
-    }
-
 protected:
     //! Collect and send updates to clients
     void _UpdateObjects();
@@ -281,9 +272,10 @@ public:
     // Distance a Player can "see" other objects and receive updates from them (!! ALREADY dist*dist !!)
     float m_UpdateDistance;
 
+    bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
+    bool IsContinent() { return pdbcMap ? pdbcMap->IsContinent() : true; }
 protected:
     /* Map Information */
-    MapInfo *pMapInfo;
     MapEntry* pdbcMap;
     uint32 m_instanceID;
 
@@ -296,15 +288,10 @@ protected:
     SessionSet MapSessions;
 
 public:
-#ifdef WIN32
-    DWORD threadid;
-#endif
-
-    Mutex ActiveLock;
+    Mutex m_activeLock;
     GameObjectSet activeGameObjects;
     CreatureSet activeCreatures;
 
-    EventableObjectHolder eventHolder;
     CBattleground* m_battleground;
     std::unordered_set<Corpse* > m_corpses;
     CreatureSqlIdMap _sqlids_creatures;
@@ -313,10 +300,6 @@ public:
     Creature* GetSqlIdCreature(uint32 sqlid);
     GameObject* GetSqlIdGameObject(uint32 sqlid);
     std::deque<uint32> _reusable_guids_creature;
-
-    bool forced_expire;
-    bool thread_kill_only;
-    bool thread_running;
 
     // world state manager stuff
     WorldStateManager* m_stateManager;

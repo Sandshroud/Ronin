@@ -513,7 +513,7 @@ bool ChatHandler::HandleQuestListStarterCommand(const char * args, WorldSession 
             return true;
         }
 
-        Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+        Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
         if(unit!=NULL)
         {
             if (!unit->isQuestGiver())
@@ -602,7 +602,7 @@ bool ChatHandler::HandleQuestListFinisherCommand(const char * args, WorldSession
             return true;
         }
 
-        if(Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid))
+        if(Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid))
         {
             if (!unit->isQuestGiver())
             {
@@ -687,7 +687,7 @@ bool ChatHandler::HandleQuestAddStartCommand(const char * args, WorldSession * m
         return false;
     }
 
-    Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(!unit)
     {
         SystemMessage(m_session, "You must target an npc.");
@@ -775,7 +775,7 @@ bool ChatHandler::HandleQuestAddFinishCommand(const char * args, WorldSession * 
         return false;
     }
 
-    Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(!unit)
     {
         SystemMessage(m_session, "You must target an npc.");
@@ -875,7 +875,7 @@ bool ChatHandler::HandleQuestDelStartCommand(const char * args, WorldSession * m
         return false;
     }
 
-    Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(!unit)
     {
         SystemMessage(m_session, "You must target an npc.");
@@ -958,7 +958,7 @@ bool ChatHandler::HandleQuestDelFinishCommand(const char * args, WorldSession * 
         return false;
     }
 
-    Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(!unit)
     {
         SystemMessage(m_session, "You must target an npc.");
@@ -1239,7 +1239,7 @@ bool ChatHandler::HandleQuestLoadCommand(const char * args, WorldSession * m_ses
     if (guid.empty())
         return true;
 
-    Creature* unit = m_session->GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* unit = m_session->GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(!unit)
         return true;
 

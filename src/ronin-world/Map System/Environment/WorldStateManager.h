@@ -10,7 +10,7 @@
  */
 
 // forward declaration for mapmgr
-class MapMgr;
+class MapInstance;
 
 // some defines
 #define FACTION_MASK_ALL -1
@@ -32,7 +32,7 @@ class SERVER_DECL WorldStateManager
     WorldStateMap m_states;
 
     // mapmgr we are working with.
-    MapMgr* m_mapMgr;
+    MapInstance *m_mapInstance;
 
     // synchronization object
     // shouldn't REALLY be needed, but we're paranoid..
@@ -42,10 +42,7 @@ class SERVER_DECL WorldStateManager
 public:
 
     // constructor, not much to do though, except set mapmgr reference
-    WorldStateManager(MapMgr* mgr)
-    {
-        m_mapMgr = mgr;
-    }
+    WorldStateManager(MapInstance* instance) : m_mapInstance(instance) { }
 
     // bhoom! all cleaned up by C++ automatically
     ~WorldStateManager() {}
@@ -90,7 +87,7 @@ public:
     void LoadFromDB(int32 mapid = -1);
 
     // applys a map template to a new instance
-    void ApplyMapTemplate(MapMgr* pmgr);
+    void ApplyMapTemplate(MapInstance* instance);
 };
 
 #define sWorldStateTemplateManager WorldStateTemplateManager::getSingleton()

@@ -1105,7 +1105,7 @@ void QuestMgr::OnPlayerCast(Player* plr, uint32 spellid, WoWGuid& victimguid)
     if(!plr || !plr->HasQuestSpell(spellid))
         return;
 
-    Unit* victim = plr->GetMapMgr() ? plr->GetMapMgr()->GetUnit(victimguid) : NULL;
+    Unit* victim = plr->GetMapInstance() ? plr->GetMapInstance()->GetUnit(victimguid) : NULL;
     if(victim == NULL)
         return;
 

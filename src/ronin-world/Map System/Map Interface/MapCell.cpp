@@ -16,9 +16,9 @@ MapCell::~MapCell()
     RemoveObjects();
 }
 
-void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapMgr* mapmgr)
+void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 {
-    _mapmgr = mapmgr;
+    _mapmgr = instance;
     _active = false;
     _loaded = false;
     _playerCount = 0;
@@ -158,24 +158,22 @@ void MapCell::LoadObjects(CellSpawns * sp)
 
     _loaded = true;
     uint32 mapId = _mapmgr->GetMapId();
-    InstanceMgr * pInstance = _mapmgr->IsInstance() ? castPtr<InstanceMgr>(_mapmgr) : NULL;
+    //MapInstance *pInstance = NULL;//_mapmgr->IsInstance() ? castPtr<InstanceMgr>(_mapmgr) : NULL;
     if(sp->CreatureSpawns.size())//got creatures
     {
-        Creature* c = NULL;
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
-            if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
-                continue;
+            /*if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
+                continue;*/
 
-            if(c = _mapmgr->CreateCreature(spawn->entry))
+            if(Creature *c = _mapmgr->CreateCreature(spawn->entry))
             {
                 c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _mapmgr->iInstanceMode, spawn);
                 c->SetInstanceID(_mapmgr->GetInstanceID());
                 if(!c->CanAddToWorld())
                 {
                     c->Destruct();
-                    c = NULL;
                     continue;
                 }
 
@@ -186,22 +184,17 @@ void MapCell::LoadObjects(CellSpawns * sp)
 
     if(sp->GOSpawns.size())//got GOs
     {
-        GameObject* go;
         for(GOSpawnList::iterator i = sp->GOSpawns.begin(); i != sp->GOSpawns.end(); i++)
         {
-            go = _mapmgr->CreateGameObject((*i)->entry);
-            if(go == NULL)
-                continue;
-
-            if(go->Load(mapId, *i))
+            if(GameObject *go = _mapmgr->CreateGameObject((*i)->entry))
             {
+                if(!go->Load(mapId, *i))
+                {
+                    go->Destruct();
+                    continue;
+                }
                 go->PushToWorld(_mapmgr);
                 TRIGGER_GO_EVENT(go, OnSpawn);
-            }
-            else
-            {
-                go->Destruct();
-                go = NULL;
             }
         }
     }
@@ -214,7 +207,7 @@ void MapCell::QueueUnloadPending()
 
     _unloadpending = true;
     sLog.Debug("MapCell", "Queueing pending unload of cell %u %u", _x, _y);
-    sEventMgr.AddEvent(_mapmgr, &MapMgr::UnloadCell, (uint32)_x, (uint32)_y, MAKE_CELL_EVENT(_x,_y), 60000, 1, 0);
+    sEventMgr.AddEvent(_mapmgr, &MapInstance::UnloadCell, (uint32)_x, (uint32)_y, MAKE_CELL_EVENT(_x,_y), 60000, 1, 0);
 }
 
 void MapCell::CancelPendingUnload()

@@ -102,7 +102,7 @@ protected:
     bool m_flagIsVirgin[IOC_NUM_CONTROL_POINTS];
 
 public:
-    IsleOfConquest(MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    IsleOfConquest(MapInstance* instance, uint32 id, uint32 lgroup, uint32 t);
     ~IsleOfConquest();
     virtual void Init();
 
@@ -128,7 +128,7 @@ public:
     void RemoveReinforcements(uint8 teamId, uint32 amt);
     LocationVector GetStartingCoords(uint8 Team);
 
-    static CBattleground* Create(MapMgr* m, uint32 i, uint32 l, uint32 t) { return new IsleOfConquest(m, i, l, t); }
+    static CBattleground* Create(MapInstance* m, uint32 i, uint32 l, uint32 t) { return new IsleOfConquest(m, i, l, t); }
 
     const char * GetName() { return "Isle of Conquest"; }
 

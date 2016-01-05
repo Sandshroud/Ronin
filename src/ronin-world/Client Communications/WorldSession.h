@@ -13,7 +13,7 @@ class Player;
 class WorldPacket;
 class WorldSocket;
 class WorldSession;
-class MapMgr;
+class MapInstance;
 class Creature;
 struct TrainerSpell;
 
@@ -209,14 +209,15 @@ public:
         _socket = NULL;
     }
 
-    int __fastcall Update(uint32 InstanceID);
+    int __fastcall Update(int32 InstanceID);
+    RONIN_INLINE int32 GetEventInstanceId() { return m_eventInstanceId; }
+    RONIN_INLINE void SetEventInstanceId(int32 instanceId) { m_eventInstanceId = instanceId; }
 
     bool IsHighPriority();
     void SendBuyFailed(uint64 guid, uint32 itemid, uint8 error);
     void SendSellItem(uint64 vendorguid, uint64 itemid, uint8 error);
     void SendNotification(const char *message, ...);
 
-    RONIN_INLINE void SetInstance(uint32 Instance) { instanceId = Instance; }
     RONIN_INLINE uint32 GetLatency() { return _latency; }
     RONIN_INLINE std::string GetAccountName() { return _accountName; }
     RONIN_INLINE const char * GetAccountNameS() { return _accountName.c_str(); }
@@ -224,7 +225,6 @@ public:
     RONIN_INLINE uint32 GetClientBuild() { return client_build; }
     RONIN_INLINE void SetClientBuild(uint32 build) { client_build = build; }
     bool bDeleted;
-    RONIN_INLINE uint32 GetInstance() { return instanceId; }
     Mutex deleteMutex;
     int32 m_moveDelayTime;
     int32 m_clientTimeDelay;
@@ -711,8 +711,9 @@ private:
     bool _recentlogout;
     uint32 _latency;
     uint32 client_build;
-    uint32 instanceId;
     uint8 _updatecount;
+
+    int32 m_eventInstanceId;
 
     // Data
     void SendAccountDataTimes(uint8 mask);

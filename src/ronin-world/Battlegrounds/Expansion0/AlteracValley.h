@@ -235,7 +235,7 @@ protected:
     int m_bonusHonor;
 
 public:
-    AlteracValley( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t);
+    AlteracValley( MapInstance* instance, uint32 id, uint32 lgroup, uint32 t);
     ~AlteracValley();
     virtual void Init();
 
@@ -257,7 +257,7 @@ public:
     LocationVector GetStartingCoords(uint8 Team);
     void DropFlag(Player* plr);
 
-    static CBattleground* Create( MapMgr* m, uint32 i, uint32 l, uint32 t) { return new AlteracValley(m, i, l, t); }
+    static CBattleground* Create( MapInstance* m, uint32 i, uint32 l, uint32 t) { return new AlteracValley(m, i, l, t); }
 
     const char * GetName() { return "Alterac Valley"; }
     void OnStart();

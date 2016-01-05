@@ -7,7 +7,7 @@
 EventableObject::EventableObject()
 {
     m_holder = 0;
-    m_event_Instanceid = -1;
+    m_event_MapId = -1;
     m_events.clear();
 }
 
@@ -40,12 +40,12 @@ void EventableObject::event_AddEvent(TimedEvent * ptr)
 
     if(!m_holder)
     {
-        m_event_Instanceid = event_GetInstanceID();
-        m_holder = sEventMgr.GetEventHolder(m_event_Instanceid);
+        m_event_MapId = event_GetMapID();
+        m_holder = sEventMgr.GetEventHolder(m_event_MapId);
     }
 
     ptr->IncRef();
-    ptr->instanceId = m_event_Instanceid;
+    ptr->mapId = m_event_MapId;
     std::pair<uint32,TimedEvent*> p(ptr->eventType, ptr);
     m_events.insert( p );
     m_lock.Release();
@@ -54,8 +54,8 @@ void EventableObject::event_AddEvent(TimedEvent * ptr)
     if(!m_holder || ptr->eventFlag & EVENT_FLAG_MOVE_TO_WORLD_CONTEXT)
     {
         /* relocate to -1 eventholder :/ */
-        m_event_Instanceid = -1;
-        m_holder = sEventMgr.GetEventHolder(m_event_Instanceid);
+        m_event_MapId = -1;
+        m_holder = sEventMgr.GetEventHolder(m_event_MapId);
         ASSERT(m_holder);
     }
 
@@ -305,9 +305,9 @@ bool EventableObject::event_HasEvent(uint32 EventType)
     return ret;
 }
 
-EventableObjectHolder::EventableObjectHolder(int32 instance_id) : mInstanceId(instance_id)
+EventableObjectHolder::EventableObjectHolder(int32 map_id) : mMapId(map_id)
 {
-    sEventMgr.AddEventHolder(this, instance_id);
+    sEventMgr.AddEventHolder(this, map_id);
 }
 
 EventableObjectHolder::~EventableObjectHolder()
@@ -333,7 +333,7 @@ void EventableObjectHolder::Update(uint32 time_difference)
     while(iq2 != m_insertPool.end())
     {
         iqi = iq2++;
-        if((*iqi)->deleted || (*iqi)->instanceId != mInstanceId)
+        if((*iqi)->deleted || (*iqi)->mapId != mMapId)
             (*iqi)->DecRef();
         else
             m_events.push_back( (*iqi) );
@@ -350,8 +350,7 @@ void EventableObjectHolder::Update(uint32 time_difference)
     while(itr != m_events.end())
     {
         it2 = itr++;
-        if((*it2)->instanceId != mInstanceId || (*it2)->deleted ||
-            ( mInstanceId == WORLD_INSTANCE && (*it2)->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT))
+        if((*it2)->mapId != mMapId || (*it2)->deleted || ( mMapId == WORLD_INSTANCE && (*it2)->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT))
         {
             // remove from this list.
             (*it2)->DecRef();
@@ -414,7 +413,7 @@ void EventableObject::event_Relocate()
     /* prevent any new stuff from getting added */
     m_lock.Acquire();
 
-    EventableObjectHolder * nh = sEventMgr.GetEventHolder(event_GetInstanceID());
+    EventableObjectHolder * nh = sEventMgr.GetEventHolder(event_GetMapID());
     if(nh != m_holder)
     {
         // whee, we changed event holder :>
@@ -427,7 +426,7 @@ void EventableObject::event_Relocate()
         nh->AddObject(this);
 
         // reset our m_holder pointer and instance id
-        m_event_Instanceid = nh->GetInstanceID();
+        m_event_MapId = nh->GetMapID();
         m_holder = nh;
     }
 
@@ -478,15 +477,13 @@ void EventableObjectHolder::AddObject(EventableObject* obj)
         {
             // ignore deleted events (shouldn't be any in here, actually)
             if(itr->second->deleted)
-            {
                 continue;
-            }
 
-            if(mInstanceId == WORLD_INSTANCE && itr->second->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT)
+            if(mMapId == WORLD_INSTANCE && itr->second->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT)
                 continue;
 
             itr->second->IncRef();
-            itr->second->instanceId = mInstanceId;
+            itr->second->mapId = mMapId;
             m_insertPool.push_back(itr->second);
         }
 
@@ -503,11 +500,11 @@ void EventableObjectHolder::AddObject(EventableObject* obj)
         if(itr->second->deleted)
             continue;
 
-        if(mInstanceId == WORLD_INSTANCE && itr->second->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT)
+        if(mMapId == WORLD_INSTANCE && itr->second->eventFlag & EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT)
             continue;
 
         itr->second->IncRef();
-        itr->second->instanceId = mInstanceId;
+        itr->second->mapId = mMapId;
         m_events.push_back( itr->second );
     }
 

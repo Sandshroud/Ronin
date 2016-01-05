@@ -5,7 +5,7 @@
 #pragma once
 
 class CBattleground;
-class MapMgr;
+class MapInstance;
 class Player;
 class Map;
 class Group;
@@ -212,7 +212,7 @@ protected:
     Group * m_groups[2];
 
     time_t m_nextPvPUpdateTime;
-    MapMgr* m_mapMgr;
+    MapInstance* m_mapInstance;
     uint32 m_id;
     uint32 m_type;
     uint32 m_levelGroup;
@@ -295,10 +295,10 @@ public:
     /* Retreival Functions */
     RONIN_INLINE uint32 GetId() { return m_id; }
     RONIN_INLINE uint32 GetLevelGroup() { return m_levelGroup; }
-    RONIN_INLINE MapMgr* GetMapMgr() { return m_mapMgr; }
+    RONIN_INLINE MapInstance* GetMapInstance() { return m_mapInstance; }
 
     /* Creating a battleground requires a pre-existing map manager */
-    CBattleground( MapMgr* mgr, uint32 id, uint32 levelgroup, uint32 type);
+    CBattleground( MapInstance* mgr, uint32 id, uint32 levelgroup, uint32 type);
     virtual ~CBattleground();
     virtual void Init();
 

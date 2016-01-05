@@ -327,10 +327,10 @@ AVNode::AVNode( AlteracValley* parent, AVNodeTemplate *tmpl, uint32 nodeid) : m_
 
         while(spi->x != 0.0f)
         {
-            if(Creature *sp = m_bg->GetMapMgr()->CreateCreature(ctrData->entry))
+            if(Creature *sp = m_bg->GetMapInstance()->CreateCreature(ctrData->entry))
             {
                 sp->Load(m_bg->GetId(), spi->x, spi->y, spi->z, spi->o, MODE_5PLAYER_NORMAL);
-                sp->PushToWorld(m_bg->GetMapMgr());
+                sp->PushToWorld(m_bg->GetMapInstance());
             }
             ++spi;
         }
@@ -441,7 +441,7 @@ void AVNode::Spawn()
             m_flag = NULL;
         }
         else if(m_flag && !m_flag->IsInWorld())
-            m_flag->PushToWorld(m_bg->GetMapMgr());
+            m_flag->PushToWorld(m_bg->GetMapInstance());
 
         if( m_flag == NULL )
         {
@@ -451,7 +451,7 @@ void AVNode::Spawn()
             m_flag->SetUInt32Value(GAMEOBJECT_FACTION, g_gameObjectFactions[m_state]);
             m_flag->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
             m_flag->SetUInt32Value(GAMEOBJECT_DYNAMIC, 1);
-            m_flag->PushToWorld(m_bg->GetMapMgr());
+            m_flag->PushToWorld(m_bg->GetMapInstance());
         }
     }
 
@@ -482,7 +482,7 @@ void AVNode::Spawn()
                 m_aura = NULL;
             }
             else if(!m_aura->IsInWorld())
-                m_aura->PushToWorld(m_bg->GetMapMgr());
+                m_aura->PushToWorld(m_bg->GetMapInstance());
         }
 
         if( m_aura == NULL )
@@ -493,7 +493,7 @@ void AVNode::Spawn()
             m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
             m_aura->SetUInt32Value(GAMEOBJECT_FLAGS, GO_FLAG_IN_USE);
             m_aura->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
-            m_aura->PushToWorld(m_bg->GetMapMgr());
+            m_aura->PushToWorld(m_bg->GetMapInstance());
         }
     }
 
@@ -533,7 +533,7 @@ void AVNode::Spawn()
                 m_glow->SetFloatValue(OBJECT_FIELD_SCALE_X, 10.0f);
             else
                 m_glow->SetFloatValue(OBJECT_FIELD_SCALE_X, 2.0f);
-            m_glow->PushToWorld(m_bg->GetMapMgr());
+            m_glow->PushToWorld(m_bg->GetMapInstance());
         }
     }
 
@@ -541,11 +541,11 @@ void AVNode::Spawn()
     for(uint32 i = 0; i < AV_NUM_SPAWN_TYPES; i++)
     {
         if( m_template->m_worldStateFields[i] )
-            m_bg->GetMapMgr()->GetStateManager().UpdateWorldState( m_template->m_worldStateFields[i], 0 );
+            m_bg->GetMapInstance()->GetStateManager().UpdateWorldState( m_template->m_worldStateFields[i], 0 );
     }
 
     if( m_template->m_worldStateFields[m_state] != 0 )
-        m_bg->GetMapMgr()->GetStateManager().UpdateWorldState(m_template->m_worldStateFields[m_state], 1);
+        m_bg->GetMapInstance()->GetStateManager().UpdateWorldState(m_template->m_worldStateFields[m_state], 1);
 
     // despawn/spawn guards
     if( m_state == AV_NODE_STATE_ALLIANCE_CONTROLLED || m_state == AV_NODE_STATE_HORDE_CONTROLLED )
@@ -565,7 +565,7 @@ void AVNode::Spawn()
             {
                 float x = RandomUInt(10) * cos(RandomFloat(6.28f)) + m_template->m_flagLocation.x;
                 float y = RandomUInt(10) * cos(RandomFloat(6.28f)) + m_template->m_flagLocation.y;
-                float z = m_bg->GetMapMgr()->GetLandHeight(x, y);
+                float z = m_bg->GetMapInstance()->GetLandHeight(x, y);
                 if(z == NO_LAND_HEIGHT)
                     z = m_template->m_flagLocation.z;
 
@@ -592,7 +592,7 @@ void AVNode::Spawn()
                 for(std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++)
                 {
                     // repop him at a new GY
-                    Player* plr_tmp = m_bg->GetMapMgr()->GetPlayer(*it2);
+                    Player* plr_tmp = m_bg->GetMapInstance()->GetPlayer(*it2);
                     if( plr_tmp != NULL )
                     {
                         m_bg->HookHandleRepop(plr_tmp);
@@ -674,7 +674,7 @@ void AVNode::Capture()
             while(spi->x != 0.0f)
             {
                 go = m_bg->SpawnGameObject(AV_GAMEOBJECT_FIRE, spi->x, spi->y, spi->z, spi->o, 0, 35, 1.0f);
-                go->PushToWorld(m_bg->GetMapMgr());
+                go->PushToWorld(m_bg->GetMapInstance());
                 ++spi;
             }
 
@@ -740,7 +740,7 @@ void AVNode::Capture()
     }
 }
 
-AlteracValley::AlteracValley( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBattleground(mgr,id,lgroup,t)
+AlteracValley::AlteracValley( MapInstance* inst, uint32 id, uint32 lgroup, uint32 t) : CBattleground(inst,id,lgroup,t)
 {
     m_playerCountPerTeam = 40;
     m_reinforcements[0] = AV_NUM_REINFORCEMENTS;
@@ -849,7 +849,7 @@ void AlteracValley::DropFlag(Player* plr)
 
 void AlteracValley::OnCreate()
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
     sm.CreateWorldState(WORLDSTATE_AV_ALLIANCE_SCORE_DISPLAY, 1);
     sm.CreateWorldState(WORLDSTATE_AV_HORDE_SCORE_DISPLAY, 1);
 
@@ -859,13 +859,13 @@ void AlteracValley::OnCreate()
     // Alliance Gate
     GameObject* gate = SpawnGameObject(AV_GAMEOBJECT_GATE, 780.487f, -493.024f, 99.9553f, 3.0976f, 32, 114, 3.000000f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     // Horde gate
     gate = SpawnGameObject(AV_GAMEOBJECT_GATE, -1375.73f, -538.966f, 55.3006f, 0.791198f, 32, 114, 3.000000f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     for(uint32 i = 0; i < AV_NUM_CONTROL_POINTS; i++)
@@ -954,7 +954,7 @@ void AlteracValley::HookOnPlayerDeath(Player* plr)
 
 void AlteracValley::AddReinforcements(uint32 teamId, uint32 amt)
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] + amt )) > AV_NUM_REINFORCEMENTS )
         m_reinforcements[teamId] = AV_NUM_REINFORCEMENTS;
     else
@@ -965,7 +965,7 @@ void AlteracValley::AddReinforcements(uint32 teamId, uint32 amt)
 
 void AlteracValley::RemoveReinforcements(uint32 teamId, uint32 amt)
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] - amt )) < 0 )
         m_reinforcements[teamId] = 0;
     else
@@ -1130,7 +1130,7 @@ void AlteracValley::Herald(const char *format, ...)
     data << uint32(msglen+1);
     data << msgbuf;
     data << uint8(0x00);
-    m_mapMgr->SendPacketToPlayers(ZONE_MASK_ALL, FACTION_MASK_ALL, &data);
+    m_mapInstance->SendPacketToPlayers(ZONE_MASK_ALL, FACTION_MASK_ALL, &data);
 }
 
 void AlteracValley::HookOnShadowSight()

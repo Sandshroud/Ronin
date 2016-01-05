@@ -49,7 +49,7 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
     m_aliveDuration = duration;
     m_factionTemplate = caster->GetFactionTemplate();
 
-    PushToWorld(caster->GetMapMgr());
+    PushToWorld(caster->GetMapInstance());
 
     if(caster->IsUnit() && m_spellProto->isChanneledSpell())
     {
@@ -77,7 +77,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
     Unit* u_caster = NULL;
     if(GUID_HIPART(casterGuid) == HIGHGUID_TYPE_GAMEOBJECT)
     {
-        GameObject* goCaster = GetMapMgr()->GetGameObject(casterGuid);
+        GameObject* goCaster = GetMapInstance()->GetGameObject(casterGuid);
         if(goCaster == NULL || !goCaster->IsInWorld())
             m_aliveDuration = 0; // Set alive duration to 0
         else if(goCaster->m_summoner)
@@ -85,7 +85,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
     }
     else
     {
-        u_caster = GetMapMgr()->GetUnit(casterGuid);
+        u_caster = GetMapInstance()->GetUnit(casterGuid);
         if(u_caster == NULL || !u_caster->IsInWorld())
             m_aliveDuration = 0; // Set alive duration to 0
     }
@@ -151,7 +151,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
             jtr2 = jtr;
             ++jtr;
 
-            target = GetMapMgr() ? GetMapMgr()->GetUnit(*jtr2) : NULL;
+            target = GetMapInstance() ? GetMapInstance()->GetUnit(*jtr2) : NULL;
             if(target == NULL || GetDistanceSq(target) > radius)
             {
                 if(target)
@@ -172,17 +172,9 @@ void DynamicObject::Remove()
     if(IsInWorld())
     {
         // remove aura from all targets
-        Unit* target;
         for(std::set< uint64 >::iterator itr = targets.begin(); itr != targets.end(); ++itr)
-        {
-
-            uint64 TargetGUID = *itr;
-
-            target = m_mapMgr->GetUnit(TargetGUID);
-
-            if(target != NULL)
+            if(Unit *target = m_mapInstance->GetUnit(*itr))
                 target->RemoveAura(m_spellProto->Id);
-        }
 
         WorldPacket data(SMSG_DESTROY_OBJECT, 8);
         data << GetGUID() << uint8(1);
@@ -190,7 +182,7 @@ void DynamicObject::Remove()
 
         if(m_spellProto->IsSpellChannelSpell() && GUID_HIPART(casterGuid) != HIGHGUID_TYPE_GAMEOBJECT)
         {
-            if(Unit* u_caster = GetMapMgr()->GetUnit(casterGuid))
+            if(Unit* u_caster = GetMapInstance()->GetUnit(casterGuid))
             {
                 if(GetGUID() == u_caster->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT))
                 {

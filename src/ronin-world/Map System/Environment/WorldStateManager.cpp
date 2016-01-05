@@ -58,14 +58,14 @@ void WorldStateManager::UpdateWorldState(uint32 uWorldStateId, uint32 uValue)
     if( itr == m_states.end() )
     {
         // otherwise try to create it
-        sLog.Debug("WorldState","Creating new world state %u with value %u for map %u.", uWorldStateId, uValue, m_mapMgr->GetMapId());
+        sLog.Debug("WorldState","Creating new world state %u with value %u for map %u.", uWorldStateId, uValue, m_mapInstance->GetMapId());
         CreateWorldState(uWorldStateId, uValue);
         itr = m_states.find(uWorldStateId);
         if( itr == m_states.end() )
         {
             //Creation of worldstate failed, abort !
             //m_lock.Release();
-            sLog.Error("WorldState","Creation of world state %u with value %u for map %u failed!", uWorldStateId, uValue, m_mapMgr->GetMapId());
+            sLog.Error("WorldState","Creation of world state %u with value %u for map %u failed!", uWorldStateId, uValue, m_mapInstance->GetMapId());
             return;
         }
         //m_lock.Release();
@@ -78,7 +78,7 @@ void WorldStateManager::UpdateWorldState(uint32 uWorldStateId, uint32 uValue)
     data << uWorldStateId << uValue;
 
     // send to the appropriate players
-    m_mapMgr->SendPacketToPlayers(itr->second.ZoneMask, itr->second.FactionMask, &data);
+    m_mapInstance->SendPacketToPlayers(itr->second.ZoneMask, itr->second.FactionMask, &data);
 
     // release the lock
     //m_lock.Release();
@@ -96,7 +96,7 @@ void WorldStateManager::SendWorldStates(Player* pPlayer)
     uint32 state_count = 0;
 
     // header
-    data << m_mapMgr->GetMapId();
+    data << m_mapInstance->GetMapId();
     data << pPlayer->GetZoneId();
     data << pPlayer->GetAreaId();
 
@@ -136,7 +136,7 @@ void WorldStateManager::ClearWorldStates(Player* pPlayer)
     // data1=0
     // data2=0
     // valcount=0
-    data << uint32(m_mapMgr ? m_mapMgr->GetMapId() : 0) << uint32(0) << uint32(0) << uint16(0);
+    data << uint32(m_mapInstance ? m_mapInstance->GetMapId() : 0) << uint32(0) << uint32(0) << uint16(0);
 
     // send
     pPlayer->GetSession()->SendPacket(&data);
@@ -204,7 +204,7 @@ void WorldStateTemplateManager::LoadFromDB(int32 mapid)
     delete pResult;
 }
 
-void WorldStateTemplateManager::ApplyMapTemplate(MapMgr* pmgr)
+void WorldStateTemplateManager::ApplyMapTemplate(MapInstance* pmgr)
 {
     WorldStateTemplateList::iterator itr = m_templatesForMaps[pmgr->GetMapId()].begin();
     WorldStateTemplateList::iterator itrend = m_templatesForMaps[pmgr->GetMapId()].end();

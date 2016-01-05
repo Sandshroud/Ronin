@@ -211,7 +211,7 @@ void WorldSession::HandleAuctionListBidderItems( WorldPacket & recv_data )
     uint32 unk1, unk2;
     recv_data >> guid >> unk1 >> unk2;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature || !pCreature->auctionHouse)
         return;
 
@@ -335,7 +335,7 @@ void WorldSession::HandleAuctionPlaceBid( WorldPacket & recv_data )
     uint32 auction_id, price;
     recv_data >> auction_id >> price;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature || !pCreature->auctionHouse || price == 0)
         return;
 
@@ -398,7 +398,7 @@ void WorldSession::HandleCancelAuction( WorldPacket & recv_data)
     uint32 auction_id;
     recv_data >> auction_id;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature || !pCreature->auctionHouse)
         return;
 
@@ -427,7 +427,7 @@ void WorldSession::HandleAuctionSellItem( WorldPacket & recv_data )
     recv_data >> guid >> unk >> item >> count;
     recv_data >> bid >> buyout >> etime;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(  !pCreature || !pCreature->auctionHouse )
         return;     // NPC doesnt exist or isnt an auctioneer
 
@@ -507,7 +507,7 @@ void WorldSession::HandleAuctionListOwnerItems( WorldPacket & recv_data )
     uint32 unk;
     recv_data >> guid >> unk;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature || !pCreature->auctionHouse)
         return;
 
@@ -619,7 +619,7 @@ void WorldSession::HandleAuctionListItems( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature || !pCreature->auctionHouse)
         return;
 

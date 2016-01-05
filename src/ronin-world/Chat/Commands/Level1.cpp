@@ -272,16 +272,13 @@ bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)
         snprintf((char*)buf,256, "You are summoning %s.", chr->GetName());
         SystemMessage(m_session, buf);
 
-        if(!m_session->GetPlayer()->m_isGmInvisible)
-        {
-            // send message to player
-            snprintf((char*)buf0,256, "You are being summoned by %s.", m_session->GetPlayer()->GetName());
-            SystemMessageToPlr(chr, buf0);
-        }
+        // send message to player
+        snprintf((char*)buf0,256, "You are being summoned by %s.", m_session->GetPlayer()->GetName());
+        SystemMessageToPlr(chr, buf0);
 
         Player* plr = m_session->GetPlayer();
 
-        if(plr->GetMapMgr() == chr->GetMapMgr())
+        if(plr->GetMapInstance() == chr->GetMapInstance())
             chr->_Relocate(plr->GetMapId(),plr->GetPosition(),false,false,plr->GetInstanceID());
         else
             sEventMgr.AddEvent(chr,&Player::EventPortToGM,plr->GetLowGUID(),0,1,1,0);
@@ -322,14 +319,11 @@ bool ChatHandler::HandleAppearCommand(const char* args, WorldSession *m_session)
     {
         SystemMessage(m_session, "Appearing at %s's location.", chr->GetName());
 
-        if(!m_session->GetPlayer()->m_isGmInvisible)
-            SystemMessageToPlr(chr, "%s appeared to your location.", m_session->GetPlayer()->GetName());
-
         //If the GM is on the same map as the player, use the normal safeteleport method
         if ( m_session->GetPlayer()->GetMapId() == chr->GetMapId() && m_session->GetPlayer()->GetInstanceID() == chr->GetInstanceID() )
             m_session->GetPlayer()->SafeTeleport(chr->GetMapId(),chr->GetInstanceID(),chr->GetPosition());
         else
-            m_session->GetPlayer()->SafeTeleport(chr->GetMapMgr(), chr->GetPosition());
+            m_session->GetPlayer()->SafeTeleport(chr->GetMapInstance(), chr->GetPosition());
         //The player and GM are not on the same map. We use this method so we can port to BG's (Above method doesn't support them)
         sWorld.LogGM(m_session, "Appeared to %s", chr->GetName());
     }
@@ -667,7 +661,7 @@ bool ChatHandler::HandleNpcSpawnLinkCommand(const char* args, WorldSession *m_se
 {
     uint32 id;
     char sql[512];
-    Creature* target = m_session->GetPlayer()->GetMapMgr()->GetCreature(m_session->GetPlayer()->GetSelection());
+    Creature* target = m_session->GetPlayer()->GetMapInstance()->GetCreature(m_session->GetPlayer()->GetSelection());
     if (!target)
         return false;
 

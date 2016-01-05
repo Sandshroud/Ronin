@@ -78,8 +78,7 @@ bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_sessio
     GreenSystemMessage(m_session, format("Mob Facing Player: %s; Player Facing Mob %s;", (creature->isTargetInFront(plr) ? "true" : "false"),
         (plr->isTargetInFront(creature) ? "true" : "false")).c_str());
     GreenSystemMessage(m_session, format("Attackers Count: %u;", uint32(creature->GetAIInterface()->getAITargetsCount())).c_str());
-    GreenSystemMessage(m_session, format("Creature State: %u; Run: %s;", creature->GetAIInterface()->m_creatureState,
-        (creature->GetAIInterface()->getMoveRunFlag() ? "true" : "false")).c_str());
+    GreenSystemMessage(m_session, format("Creature Run: %s;", (creature->GetAIInterface()->getMoveRunFlag() ? "true" : "false")).c_str());
     GreenSystemMessage(m_session, format("AIState: %u; AIType: %u;", creature->GetAIInterface()->getAIState(), creature->GetAIInterface()->getAIType()).c_str());
     GreenSystemMessage(m_session, format("Movetype: %u;", creature->GetAIInterface()->getMoveType()).c_str());
     return true;
@@ -221,7 +220,7 @@ bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_sessi
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if (guid != 0)
     {
-        if(!(obj = m_session->GetPlayer()->GetMapMgr()->GetUnit(guid)))
+        if(!(obj = m_session->GetPlayer()->GetMapInstance()->GetUnit(guid)))
         {
             SystemMessage(m_session, "You should select a character or a creature.");
             return true;
@@ -279,7 +278,7 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
     uint64 guid = m_session->GetPlayer()->GetSelection();
     if (guid != 0)
     {
-        if(!(obj = m_session->GetPlayer())->GetMapMgr()->GetUnit(guid))
+        if(!(obj = m_session->GetPlayer())->GetMapInstance()->GetUnit(guid))
         {
             SystemMessage(m_session, "You should select a character or a creature.");
             return true;

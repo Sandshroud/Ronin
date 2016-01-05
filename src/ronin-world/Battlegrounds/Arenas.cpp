@@ -8,7 +8,7 @@
 #define GREEN_TEAM 0
 #define GOLD_TEAM 1
 
-Arena::Arena( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t, uint32 players_per_side) : CBattleground(mgr, id, lgroup, t)
+Arena::Arena( MapInstance* instance, uint32 id, uint32 lgroup, uint32 t, uint32 players_per_side) : CBattleground(instance, id, lgroup, t)
 {
     int i;
 
@@ -83,9 +83,6 @@ void Arena::OnAddPlayer(Player* plr)
 {
     plr->m_deathVision = true;
 
-    if( plr->m_isGmInvisible )
-        return;
-
     // remove all buffs (exclude talents, include flasks)
     plr->m_AuraInterface.RemoveAllExpiringAuras();
     plr->GetInventory()->RemoveAllConjured();
@@ -120,9 +117,6 @@ void Arena::OnRemovePlayer(Player* plr)
 {
     /* remove arena readyness buff */
     plr->m_deathVision = false;
-
-    if( plr->m_isGmInvisible )
-        return;
 
     plr->RemoveAura(ARENA_PREPARATION);
 
@@ -163,9 +157,9 @@ void Arena::HookOnPlayerDeath(Player* plr)
 void Arena::OnCreate()
 {
     GameObject* obj;
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
 
-    switch(m_mapMgr->GetMapId())
+    switch(m_mapInstance->GetMapId())
     {
         /* loraedeon */
     case 572:
@@ -191,7 +185,7 @@ void Arena::OnCreate()
             obj = SpawnGameObject(183972, 6177.707520f, 227.348145f, 3.604374f, -2.260201f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-            obj->PushToWorld(m_mapMgr);
+            obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(183973, 6189.546387f, 241.709854f, 3.101481f, 0.881392f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
@@ -201,7 +195,7 @@ void Arena::OnCreate()
             obj = SpawnGameObject(183970, 6299.115723f, 296.549438f, 3.308032f, 0.881392f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-            obj->PushToWorld(m_mapMgr);
+            obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(183971, 6287.276855f, 282.187714f, 3.810925f, -2.260201f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
@@ -219,7 +213,7 @@ void Arena::OnCreate()
             obj = SpawnGameObject(183979, 4090.064453f, 2858.437744f, 10.236313f, 0.492805f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-            obj->PushToWorld(m_mapMgr);
+            obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(183980, 4081.178955f, 2874.970459f, 12.391714f, 0.492805f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
@@ -229,7 +223,7 @@ void Arena::OnCreate()
             obj = SpawnGameObject(183977, 4023.709473f, 2981.776611f, 10.701169f, -2.648788f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-            obj->PushToWorld(m_mapMgr);
+            obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(183978, 4031.854248f, 2966.833496f, 12.646200f, -2.648788f, 32, 1375, 1.0f);
             obj->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
@@ -262,7 +256,7 @@ void Arena::OnCreate()
             // not rly blizzlike, should be spawn later, not on create, but who cares, will fix it later
             obj = SpawnGameObject(191877, 1291.974487f, 791.844666f, 9.339742f, 3.116816f, 32, 1375, 1.0f);
             if(obj)
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
 
             m_pcWorldStates[GREEN_TEAM] = WORLDSTATE_ARENA_WOTLK_GREEN_PLAYER_COUNT;
             m_pcWorldStates[GOLD_TEAM] = WORLDSTATE_ARENA_WOTLK_GOLD_PLAYER_COUNT;
@@ -282,32 +276,32 @@ void Arena::OnCreate()
             if(obj)
             {
                 obj->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID, 5);
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
             }
 
             obj = SpawnGameObject(194031, 763.93f, -274.0f, 26.0f/*0.0f*/, 0.0f, 40, 1375, 1.0f);
             if(obj)
             {
                 obj->SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID, 5);
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
             }
 
             //moving 'things'
             obj = SpawnGameObject(193458, 763.630f, -261.783f, 26.0f, 0.0f, 40, 1375, 1.0f);
             if(obj)
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(193459, 763.761f, -306.230f, 26.0f, 0.0f, 40, 1375, 1.0f);
             if(obj)
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(193460, 802.313f, -284.349f, 24.6f, 0.0f, 40, 1375, 1.0f);
             if(obj)
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
 
             obj = SpawnGameObject(193461, 723.522f, -284.428f, 24.6f, 0.0f, 40, 1375, 1.0f);
             if(obj)
-                obj->PushToWorld(m_mapMgr);
+                obj->PushToWorld(m_mapInstance);
 
             //gates
             obj = SpawnGameObject(192392, 763.93f, -295.0f, 27.0f, 0.0f, 32, 1375, 1.0f);
@@ -334,7 +328,7 @@ void Arena::OnCreate()
 
     /* push gates into world */
     for(std::set< GameObject* >::iterator itr = m_gates.begin(); itr != m_gates.end(); itr++)
-        (*itr)->PushToWorld(m_mapMgr);
+        (*itr)->PushToWorld(m_mapInstance);
 
 
     // known world states
@@ -380,8 +374,8 @@ void Arena::UpdatePlayerCounts()
     if(m_ended)
         return;
 
-    m_mapMgr->GetStateManager().UpdateWorldState(m_pcWorldStates[GOLD_TEAM], m_playersCount[GOLD_TEAM]);
-    m_mapMgr->GetStateManager().UpdateWorldState(m_pcWorldStates[GREEN_TEAM], m_playersCount[GREEN_TEAM]);
+    m_mapInstance->GetStateManager().UpdateWorldState(m_pcWorldStates[GOLD_TEAM], m_playersCount[GOLD_TEAM]);
+    m_mapInstance->GetStateManager().UpdateWorldState(m_pcWorldStates[GREEN_TEAM], m_playersCount[GREEN_TEAM]);
 
     if(!m_started)
         return;
@@ -520,7 +514,7 @@ LocationVector Arena::GetStartingCoords(uint8 Team)
     559 4027.004883 2976.964844 11.600499
     559 4057.042725 2918.686523 13.051933
     */
-    switch(m_mapMgr->GetMapId())
+    switch(m_mapInstance->GetMapId())
     {
         /* loraedeon */
     case 572:
@@ -590,7 +584,7 @@ bool Arena::HookHandleRepop(Player* plr)
     559 4057.042725 2918.686523 13.051933
     */
     LocationVector dest(0,0,0,0);
-    switch(m_mapMgr->GetMapId())
+    switch(m_mapInstance->GetMapId())
     {
         /* loraedeon */
     case 572: {
@@ -616,7 +610,7 @@ bool Arena::HookHandleRepop(Player* plr)
         }break;
     }
 
-    plr->SafeTeleport(m_mapMgr->GetMapId(), m_mapMgr->GetInstanceID(), dest);
+    plr->SafeTeleport(m_mapInstance->GetMapId(), m_mapInstance->GetInstanceID(), dest);
     return true;
 }
 
@@ -666,7 +660,7 @@ void Arena::HookOnAreaTrigger(Player* plr, uint32 id)
 
 void Arena::HookOnShadowSight()
 {
-    switch(m_mapMgr->GetMapId())
+    switch(m_mapInstance->GetMapId())
     {
         /* ruins of lordaeron */
     case 572:
@@ -674,13 +668,13 @@ void Arena::HookOnShadowSight()
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[0]->PushToWorld(m_mapMgr);
+        m_buffs[0]->PushToWorld(m_mapInstance);
 
         m_buffs[1] = SpawnGameObject(184664, 1243.306763f, 1699.334351f, 34.837566f, 5.713773f, 32, 1375, 1.0f);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[1]->PushToWorld(m_mapMgr);
+        m_buffs[1]->PushToWorld(m_mapInstance);
         break;
 
         /* blades edge arena */
@@ -689,13 +683,13 @@ void Arena::HookOnShadowSight()
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[0]->PushToWorld(m_mapMgr);
+        m_buffs[0]->PushToWorld(m_mapInstance);
 
         m_buffs[1] = SpawnGameObject(184664, 6228.546387f, 249.709854f, 11.201481f, 0.881392f, 32, 1375, 1.0f);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[1]->PushToWorld(m_mapMgr);
+        m_buffs[1]->PushToWorld(m_mapInstance);
         break;
 
         /* nagrand arena */
@@ -704,13 +698,13 @@ void Arena::HookOnShadowSight()
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[0]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[0]->PushToWorld(m_mapMgr);
+        m_buffs[0]->PushToWorld(m_mapInstance);
 
         m_buffs[1] = SpawnGameObject(184664, 4102.111426f, 2945.843262f, 12.662578f, 3.628544f, 32, 1375, 1.0f);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_buffs[1]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-        m_buffs[1]->PushToWorld(m_mapMgr);
+        m_buffs[1]->PushToWorld(m_mapInstance);
         break;
     }
 }

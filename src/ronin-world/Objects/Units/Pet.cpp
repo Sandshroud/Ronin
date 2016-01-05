@@ -243,12 +243,11 @@ void Pet::Update(uint32 time)
             int32 val = GetHappiness();
             //amount of burned happiness is loyalty_lvl depended
             int32 burn = 1042;
-            if( CombatStatus.IsInCombat() )
+            if( IsInCombat() )
                 burn = burn >> 1; //in combat reduce burn by half (guessed)
             if((val - burn)<0)
                 val = 0;
-            else
-                val -= burn;
+            else val -= burn;
             SetHappiness(val);// Set the value
             m_HappinessTimer = PET_HAPPINESS_UPDATE_TIMER;// reset timer
         }
@@ -510,7 +509,7 @@ void Pet::InitializeMe()
     }
 
     InitializeSpells();
-    PushToWorld(m_Owner->GetMapMgr());
+    PushToWorld(m_Owner->GetMapInstance());
 
     // Set up default actionbar
     SetDefaultActionbar();
@@ -638,8 +637,8 @@ void Pet::PetSafeDelete()
 
 void Pet::DelayedRemove(bool bTime, bool bDeath)
 {
-    if(GetMapMgr()!= NULL)
-        m_Owner = GetMapMgr()->GetPlayer((uint32)m_OwnerGuid);
+    if(GetMapInstance()!= NULL)
+        m_Owner = GetMapInstance()->GetPlayer((uint32)m_OwnerGuid);
 
     if(bTime)
     {
@@ -1465,11 +1464,6 @@ uint8 Pet::GetPetTalentPointsAtLevel()
         return 0;
 
     uint8 points = ((level-19)/4);
-
-    // take into account any points we have gained
-    // from SPELL_AURA_MOD_PET_TALENT_POINTS
-    if(m_Owner)
-        points += m_Owner->m_PetTalentPointModifier;
 
     // calculations are done return total points
     return points;

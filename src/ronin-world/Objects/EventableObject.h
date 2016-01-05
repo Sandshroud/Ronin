@@ -33,7 +33,7 @@ protected:
     void event_ModifyAuraTimeLeft(uint32 Time, uint32 Auraid);
     bool event_HasEvent(uint32 EventType);
     void event_RemoveByPointer(TimedEvent * ev);
-    RONIN_INLINE int32 event_GetCurrentInstanceId() { return m_event_Instanceid; }
+    RONIN_INLINE int32 event_GetCurrentMapId() { return m_event_MapId; }
     bool event_GetTimeLeft(uint32 EventType, uint32 * Time);
 
 public:
@@ -47,24 +47,23 @@ public:
     void event_AddEvent(TimedEvent * ptr);
     void event_Relocate();
 
-    // this func needs to be implemented by all eventable classes. use it to retreive the instance
+    // this func needs to be implemented by all eventable classes. use it to retreive the map
     // id that it needs to attach itself to.
 
-    virtual int32 event_GetInstanceID() { return -1; }
+    virtual int32 event_GetMapID() { return -1; }
 
 protected:
 
-    int32 m_event_Instanceid;
+    int32 m_event_MapId;
     SmartMutex m_lock; // Smart mutex, in case some function calls internal event
     EventMap m_events;
     EventableObjectHolder * m_holder;
-
 };
 
 /**
   * @class EventableObjectHolder
   * EventableObjectHolder will store eventable objects, and remove/add them when they change
-  * from one holder to another (changing maps / instances).
+  * from one holder to another (changing maps).
   *
   * EventableObjectHolder also updates all the timed events in all of its objects when its
   * update function is called.
@@ -74,7 +73,7 @@ protected:
 class EventableObjectHolder
 {
 public:
-    EventableObjectHolder(int32 instance_id);
+    EventableObjectHolder(int32 mapId);
     ~EventableObjectHolder();
 
     void Update(uint32 time_difference);
@@ -82,10 +81,10 @@ public:
     void AddEvent(TimedEvent * ev);
     void AddObject(EventableObject * obj);
 
-    RONIN_INLINE uint32 GetInstanceID() { return mInstanceId; }
+    RONIN_INLINE uint32 GetMapID() { return mMapId; }
 
 protected:
-    int32 mInstanceId;
+    int32 mMapId;
     Mutex m_lock;
     EventList m_events;
 

@@ -104,7 +104,6 @@ void CompanionSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
     m_summon->GetAIInterface()->SetUnitToFollowAngle(-M_PI / 2);
     m_summon->GetAIInterface()->SetFollowDistance(3.0f);
     m_summon->GetAIInterface()->disable_melee = true;
-    m_summon->bInvincible = true;
 
     m_summon->RemovePvPFlag();
     m_summon->RemoveFFAPvPFlag();
@@ -346,7 +345,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         SpawnLocation.y += (GetRadius(i) * (sinf(followangle + v.o)));
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI) / 180.0f);
 
-        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
+        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
         if(s == NULL)
             return;
 
@@ -354,7 +353,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         s->CreateAs(new WildSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
         s->GetAIInterface()->SetUnitToFollowAngle(followangle);
-        s->PushToWorld(u_caster->GetMapMgr());
+        s->PushToWorld(u_caster->GetMapInstance());
 
         if(Properties)
         {
@@ -393,7 +392,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     if(fabs(landdiff) <= 15)
         v.z = landh;
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -402,7 +401,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetMaxHealth(amount);
     s->SetHealth(amount);
-    s->PushToWorld(u_caster->GetMapMgr());
+    s->PushToWorld(u_caster->GetMapInstance());
 
     int32 duration = GetDuration();
     if(u_caster->IsPlayer())
@@ -443,7 +442,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         SpawnLocation.y += (GetRadius(i) * (sinf(followangle)));
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI / ((180 / count) * (j + 1))));
 
-        Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
+        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
         if(s == NULL)
             return;
 
@@ -451,7 +450,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         s->CreateAs(new GuardianSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
         s->GetAIInterface()->SetUnitToFollowAngle(followangle);
-        s->PushToWorld(u_caster->GetMapMgr());
+        s->PushToWorld(u_caster->GetMapInstance());
 
         if(u_caster->IsPlayer() && (slot != 0))
         {
@@ -528,7 +527,7 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
         else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
     }
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -540,7 +539,7 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
     s->CreateAs(new PossessedSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
-    s->PushToWorld(u_caster->GetMapMgr());
+    s->PushToWorld(u_caster->GetMapInstance());
 
     if(u_caster->IsPlayer())
         castPtr<Player>(u_caster)->Possess(s);
@@ -554,7 +553,7 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
 {
     if(u_caster->GetSummonedCritterGUID() != 0)
     {
-        Creature* critter = u_caster->GetMapMgr()->GetCreature(u_caster->GetSummonedCritterGUID());
+        Creature* critter = u_caster->GetMapInstance()->GetCreature(u_caster->GetSummonedCritterGUID());
         uint32 currententry = critter->GetEntry();
         critter->RemoveFromWorld(false, true);
         u_caster->SetSummonedCritterGUID(0);
@@ -565,7 +564,7 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
             return;
     }
 
-    Summon* s = u_caster->GetMapMgr()->CreateSummon(data->entry);
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)
         return;
 
@@ -575,7 +574,7 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
     s->GetAIInterface()->SetFollowDistance(GetRadius(i));
-    s->PushToWorld(u_caster->GetMapMgr());
+    s->PushToWorld(u_caster->GetMapInstance());
     u_caster->SetSummonedCritterGUID(s->GetGUID());
 
     if(duration > 0)

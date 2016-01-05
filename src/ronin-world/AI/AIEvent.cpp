@@ -46,15 +46,13 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
     TRIGGER_AI_EVENT(m_Unit, OnCombatStart)(pUnit);
 
     //Mark raid as combat in progress if it concerns a boss
-    if(m_Unit->IsCreature())
-        if(m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->GetMapInfo() && m_Unit->GetMapMgr()->GetdbcMap()->IsRaid())
-            if(Creature* cr = castPtr<Creature>(m_Unit))
-                if(cr->GetCreatureData() && (cr->GetCreatureData()->rank == ELITE_WORLDBOSS || cr->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
-                    m_Unit->GetMapMgr()->AddCombatInProgress(m_Unit->GetGUID());
+    Creature *ctr;
+    if(m_Unit->IsCreature() && (ctr = castPtr<Creature>(m_Unit)) && m_Unit->IsInWorld() && m_Unit->GetMapInstance()->IsRaid())
+        if((ctr->GetCreatureData()->rank == ELITE_WORLDBOSS || ctr->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
+            m_Unit->GetMapInstance()->AddCombatInProgress(m_Unit->GetGUID());
 
     if(pUnit->IsPlayer() && castPtr<Player>(pUnit)->InGroup())
     {
-        modThreat(pUnit->GetGUID(), 1, pUnit->GetInRangeRedirectThreat());
         Group* pGroup = castPtr<Player>(pUnit)->GetGroup();
 
         Player* pGroupGuy;
@@ -65,7 +63,7 @@ void AIInterface::EventEnterCombat(Unit* pUnit, uint32 misc1)
             for(itr = pGroup->GetSubGroup(i)->GetGroupMembersBegin(); itr != pGroup->GetSubGroup(i)->GetGroupMembersEnd(); ++itr)
             {
                 pGroupGuy = (*itr)->m_loggedInPlayer;
-                if(pGroupGuy && pGroupGuy->isAlive() && m_Unit->GetMapMgr() == pGroupGuy->GetMapMgr() && pGroupGuy->GetDistanceSq(pUnit) <= 40 * 40) //50 yards for now. lets see if it works
+                if(pGroupGuy && pGroupGuy->isAlive() && m_Unit->GetMapInstance() == pGroupGuy->GetMapInstance() && pGroupGuy->GetDistanceSq(pUnit) <= 40 * 40) //50 yards for now. lets see if it works
                 {
                     AttackReaction(pGroupGuy, 1, 0);
                 }
@@ -102,7 +100,6 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
     m_hasCalledForHelp = false;
     m_CastNext = NULL;
     SetNextTarget(NULL);
-    m_Unit->CombatStatus.Vanished();
 
     if(m_AIType == AITYPE_PET)
     {
@@ -146,8 +143,8 @@ void AIInterface::EventLeaveCombat(Unit* /*pUnit*/, uint32 misc1)
         }
     }
 
-    if( m_Unit->IsCreature() && m_Unit->GetMapMgr() )
-        m_Unit->GetMapMgr()->RemoveCombatInProgress(m_Unit->GetGUID());
+    if( m_Unit->IsCreature() && m_Unit->GetMapInstance() )
+        m_Unit->GetMapInstance()->RemoveCombatInProgress(m_Unit->GetGUID());
 }
 
 void AIInterface::EventDamageTaken(Unit* pUnit, uint32 misc1)
@@ -158,8 +155,7 @@ void AIInterface::EventDamageTaken(Unit* pUnit, uint32 misc1)
     pUnit->RemoveAura(24575);
 
     TRIGGER_AI_EVENT(m_Unit, OnDamageTaken)(pUnit, float(misc1));
-    modThreat(pUnit->GetGUID(), misc1, pUnit->GetInRangeRedirectThreat());
-    pUnit->CombatStatus.OnDamageDealt(m_Unit, 1);
+    m_Unit->SetInCombat(pUnit);
 }
 
 void AIInterface::EventFollowOwner(Unit* /*pUnit*/, uint32 misc1)
@@ -282,12 +278,12 @@ void AIInterface::EventUnitDied(Unit* pUnit, uint32 misc1)
         //only save creature which exist in db (don't want to save 0 values in db)
         if( castPtr<Creature>(m_Unit)->IsSpawn() )
         {
-            if(MapMgr* GMap = m_Unit->GetMapMgr())
+            if(MapInstance* GMap = m_Unit->GetMapInstance())
             {
-                if( GMap->IsInstance() && GMap->GetMapInfo()->type != INSTANCE_PVP )
+                if( GMap->IsInstance() || GMap->IsRaid() )
                 {
-                    castPtr<InstanceMgr>(GMap)->m_killedNpcs.insert( castPtr<Creature>(m_Unit)->GetSQL_id() );
-                    castPtr<InstanceMgr>(GMap)->SaveToDB();
+                    /*GMap->m_killedNpcs.insert( castPtr<Creature>(m_Unit)->GetSQL_id() );
+                    GMap->SaveToDB();*/
                 }
             }
         }

@@ -8,8 +8,7 @@
 
 #pragma once
 
-class MapMgr;
-struct MapInfo;
+class MapInstance;
 class TerrainMgr;
 class TemplateMgr;
 struct Formation;
@@ -47,12 +46,11 @@ typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;
 class SERVER_DECL Map
 {
 public:
-    Map(uint32 mapid, MapInfo * inf);
+    Map(uint32 mapid, char *name);
     ~Map();
 
     RONIN_INLINE std::string GetNameString() { return mapName; }
     RONIN_INLINE const char* GetName() { return mapName.c_str(); }
-    RONIN_INLINE MapEntry* GetDBCEntry() { return me; }
 
     RONIN_INLINE CellSpawns *GetSpawnsListAndCreate(uint32 cellx, uint32 celly)
     {
@@ -84,17 +82,14 @@ public:
     RONIN_INLINE void GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY) { _terrain->GetCellLimits(StartX, EndX, StartY, EndY); }
     RONIN_INLINE bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID) { return _terrain->CellHasAreaID(x, y, AreaID); }
 
-    RONIN_INLINE bool IsCollisionEnabled() { return Collision; }
+    RONIN_INLINE bool IsCollisionEnabled() { return false; }
     RONIN_INLINE void CellGoneActive(uint32 x, uint32 y) { _terrain->CellGoneActive(x,y); }
     RONIN_INLINE void CellGoneIdle(uint32 x,uint32 y) { _terrain->CellGoneIdle(x,y); }
 
 private:
-    bool Collision;
-    TerrainMgr *_terrain;
-    MapInfo *_mapInfo;
     uint32 _mapId;
-    MapEntry *me;
     std::string mapName;
 
+    TerrainMgr *_terrain;
     SpawnsMap m_spawns;
 };

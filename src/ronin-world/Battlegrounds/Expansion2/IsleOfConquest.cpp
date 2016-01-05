@@ -174,7 +174,7 @@ float CalcDistance(float x1, float y1, float z1, float x2, float y2, float z2)
     return sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-IsleOfConquest::IsleOfConquest(MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBattleground(mgr,id,lgroup,t)
+IsleOfConquest::IsleOfConquest(MapInstance* instance, uint32 id, uint32 lgroup, uint32 t) : CBattleground(instance,id,lgroup,t)
 {
     for(uint32 i = 0; i < IOC_NUM_CONTROL_POINTS; i++)
     {
@@ -335,7 +335,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
         }
 
         m_ioccontrolPoints[Id]->bannerslot = Id;
-        m_ioccontrolPoints[Id]->PushToWorld(m_mapMgr);
+        m_ioccontrolPoints[Id]->PushToWorld(m_mapInstance);
     }
 
     if(gi_aura == NULL)
@@ -366,7 +366,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
         m_ioccontrolPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
         m_ioccontrolPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
         m_ioccontrolPointAuras[Id]->bannerauraslot = Id;
-        m_ioccontrolPointAuras[Id]->PushToWorld(m_mapMgr);
+        m_ioccontrolPointAuras[Id]->PushToWorld(m_mapInstance);
     }
 }
 
@@ -408,14 +408,14 @@ void IsleOfConquest::CaptureControlPoint(uint32 Id, uint8 Team)
 
     // update the overhead display on the clients (world states)
     m_capturedBases[Team]++;
-    m_mapMgr->GetStateManager().UpdateWorldState(Team ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Team]);
+    m_mapInstance->GetStateManager().UpdateWorldState(Team ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Team]);
 
     // respawn the control point with the correct aura
     SpawnControlPoint(Id, Team ? IOC_SPAWN_TYPE_HORDE_CONTROLLED : IOC_SPAWN_TYPE_ALLIANCE_CONTROLLED);
 
     // update the map
-    m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 0);
-    m_mapMgr->GetStateManager().UpdateWorldState(OwnedFields[Id][Team], 1);
+    m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 0);
+    m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Team], 1);
 
     if(Id == 5)
         Updateworkshop(Team);
@@ -428,7 +428,7 @@ void IsleOfConquest::Updateworkshop(uint8 Team)
 
     m_salesman = SpawnCreature(demolisherSalesmen[Team][0], demolisherSalesmen[Team][1], demolisherSalesmen[Team][2], demolisherSalesmen[Team][3], demolisherSalesmen[Team][4]);
 
-    m_salesman->PushToWorld(m_mapMgr);
+    m_salesman->PushToWorld(m_mapInstance);
 }
 
 void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
@@ -448,7 +448,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
     {
         isVirgin = true;
         // omgwtfbbq our flag is a virgin?
-        m_mapMgr->GetStateManager().UpdateWorldState(NeutralFields[Id], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(NeutralFields[Id], 0);
     }
 
     if(m_basesOwnedBy[Id] != -1)
@@ -466,7 +466,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
             {
                 for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
                 {
-                    Player* r_plr = m_mapMgr->GetPlayer( *it2 );
+                    Player* r_plr = m_mapInstance->GetPlayer( *it2 );
                     if( r_plr != NULL && r_plr->isDead() )
                     {
                         HookHandleRepop( r_plr );
@@ -480,7 +480,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         }
 
         // reset the world states
-        m_mapMgr->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
 
         // modify the resource update time period
         if(m_capturedBases[Owner]==0)
@@ -492,7 +492,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
     // Contested Flag, not ours, and is not virgin
     if( !isVirgin && m_basesLastOwnedBy[Id] == int32(Team) && m_basesOwnedBy[Id] == -1 )
     {
-        m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
         event_RemoveEvents(EVENT_IOC_CAPTURE_CP_1 + Id);
         SendChatMessage(Team ? CHAT_MSG_BG_SYSTEM_HORDE : CHAT_MSG_BG_SYSTEM_ALLIANCE, pPlayer->GetGUID(), "$N has defended the %s!", ControlPointNames[Id]);
         m_basesAssaultedBy[Id] = Team;
@@ -507,7 +507,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
 
         // woah! vehicle hijack!
         m_basesAssaultedBy[Id] = Team;
-        m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
 
         // make sure the event does not trigger
         sEventMgr.RemoveEvents(this, EVENT_IOC_CAPTURE_CP_1 + Id);
@@ -528,7 +528,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
     PlaySoundToAll(Team ? SOUND_ALLIANCE_CAPTURE : SOUND_HORDE_CAPTURE);
 
     // update the client's map with the new assaulting field
-    m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
+    m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
 
     // create the 60 second event.
     sEventMgr.AddEvent(this, &IsleOfConquest::CaptureControlPoint, Id, Team, EVENT_IOC_CAPTURE_CP_1 + Id, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
@@ -596,7 +596,7 @@ void IsleOfConquest::OnRemovePlayer(Player* plr)
 
 void IsleOfConquest::OnCreate()
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
 
     sm.CreateWorldState(WORLDSTATE_IOC_ALLIANCE_SCORE, 1);
     sm.CreateWorldState(WORLDSTATE_IOC_HORDE_SCORE, 1);
@@ -662,48 +662,48 @@ void IsleOfConquest::OnCreate()
     for(uint32 i = 0; i < 6; i++)   // Alliance
     {
         m_teleporters[i] = SpawnGameObject(IOC_TRANSPORTER, iocTransporterLocation[i][0], iocTransporterLocation[i][1], iocTransporterLocation[i][2], iocTransporterLocation[i][3], 0, 1, 1.0f);
-        m_teleporters[i]->PushToWorld(m_mapMgr);
+        m_teleporters[i]->PushToWorld(m_mapInstance);
         m_teleeffect[i] = SpawnGameObject(TELEPORTER_EFFECT_A, iocTransporterLocation[i][0], iocTransporterLocation[i][1], iocTransporterLocation[i][2], iocTransporterLocation[i][3], 0, 1, 1.0f);
-        m_teleeffect[i]->PushToWorld(m_mapMgr);
+        m_teleeffect[i]->PushToWorld(m_mapInstance);
     }
     for(uint32 i = 6; i < 12; i++)  // Horde
     {
         m_teleporters[i] = SpawnGameObject(IOC_TRANSPORTER, iocTransporterLocation[i][0], iocTransporterLocation[i][1], iocTransporterLocation[i][2], iocTransporterLocation[i][3], 0, 2, 1.0f);
-        m_teleporters[i]->PushToWorld(m_mapMgr);
+        m_teleporters[i]->PushToWorld(m_mapInstance);
         m_teleeffect[i] = SpawnGameObject(TELEPORTER_EFFECT_H, iocTransporterLocation[i][0], iocTransporterLocation[i][1], iocTransporterLocation[i][2], iocTransporterLocation[i][3], 0, 1, 1.0f);
-        m_teleeffect[i]->PushToWorld(m_mapMgr);
+        m_teleeffect[i]->PushToWorld(m_mapInstance);
     }
 
     // Spawn Gates
     for(uint32 x = 0; x < 3; x++)
     {
         m_desgates[x] = SpawnGameObject(gatesIds[x], iocGatesLocation[x][0],  iocGatesLocation[x][1], iocGatesLocation[x][2], iocGatesLocation[x][3], 0, 1, 1.0f);
-        m_desgates[x]->PushToWorld(m_mapMgr);
+        m_desgates[x]->PushToWorld(m_mapInstance);
         m_ogates[x] = SpawnGameObject(IOC_DYNAMIC_DOOR_A, iocGatesLocation[x][0],  iocGatesLocation[x][1], iocGatesLocation[x][2], iocGatesLocation[x][3], 0, 1, 1.0f);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_FLAGS, 32);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_DYNAMIC, 4294901760);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_FACTION, 1375);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_BYTES_1, 4278190081);
-        m_ogates[x]->PushToWorld(m_mapMgr);
+        m_ogates[x]->PushToWorld(m_mapInstance);
     }
 
     for(uint32 x = 3; x < 6; x++)
     {
         m_desgates[x] = SpawnGameObject(gatesIds[x], iocGatesLocation[x][0],  iocGatesLocation[x][1], iocGatesLocation[x][2], iocGatesLocation[x][3], 0, 2, 1.0f);
-        m_desgates[x]->PushToWorld(m_mapMgr);
+        m_desgates[x]->PushToWorld(m_mapInstance);
         m_ogates[x] = SpawnGameObject(IOC_DYNAMIC_DOOR_H, iocGatesLocation[x][0],  iocGatesLocation[x][1], iocGatesLocation[x][2], iocGatesLocation[x][3], 0, 2, 1.0f);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_FLAGS, 32);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_DYNAMIC, 4294901760);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_FACTION, 1375);
         m_ogates[x]->SetUInt32Value(GAMEOBJECT_BYTES_1, 4278190081);
-        m_ogates[x]->PushToWorld(m_mapMgr);
+        m_ogates[x]->PushToWorld(m_mapInstance);
     }
 
     // Flagpole
     for(uint32 i = 0; i < IOC_NUM_CONTROL_POINTS; i++)
     {
         m_flagpole[i] = SpawnGameObject(IOC_FLAGPOLE, ControlPointCoordinates[i][0], ControlPointCoordinates[i][1], ControlPointCoordinates[i][2], ControlPointCoordinates[i][3], 0, 35, 1.0f);
-        m_flagpole[i]->PushToWorld(m_mapMgr);
+        m_flagpole[i]->PushToWorld(m_mapInstance);
     }
 
     SpawnControlPoint(IOC_CONTROL_POINT_OILDERRICK,     IOC_SPAWN_TYPE_NEUTRAL);
@@ -732,7 +732,7 @@ void IsleOfConquest::HookOnHK(Player* plr)
 
 void IsleOfConquest::AddReinforcements(uint8 teamId, uint32 amt)
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] + amt )) > IOC_NUM_REINFORCEMENTS )
         m_reinforcements[teamId] = IOC_NUM_REINFORCEMENTS;
     else
@@ -743,7 +743,7 @@ void IsleOfConquest::AddReinforcements(uint8 teamId, uint32 amt)
 
 void IsleOfConquest::RemoveReinforcements(uint8 teamId, uint32 amt)
 {
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
     if( ((int32)( m_reinforcements[teamId] - amt )) < 0 )
         m_reinforcements[teamId] = 0;
     else
@@ -841,7 +841,7 @@ void IsleOfConquest::Herald(const char *format, ...)
     data << uint32(msglen+1);
     data << msgbuf;
     data << uint8(0x00);
-    m_mapMgr->SendPacketToPlayers(ZONE_MASK_ALL, FACTION_MASK_ALL, &data);
+    m_mapInstance->SendPacketToPlayers(ZONE_MASK_ALL, FACTION_MASK_ALL, &data);
 }
 
 void IsleOfConquest::Finish(uint8 losingTeam)

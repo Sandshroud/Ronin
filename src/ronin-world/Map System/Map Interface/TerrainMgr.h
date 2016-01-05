@@ -55,7 +55,7 @@ public:
                     in use.
        No return value.
       */
-    TerrainMgr(std::string MapPath, uint32 MapId, bool Instanced, bool collisionMap);
+    TerrainMgr(std::string MapPath, uint32 MapId);
 
     /* Cleans up all arrays, and unloads any pending tile information.
        No parameters.
@@ -107,9 +107,6 @@ private:
 
     /// Map ID
     uint32 mapId;
-
-    /// Are we an instance?
-    bool Instance, m_CollisionMap;
 
     /// We don't want to be reading from a file from more than one thread at once
     Mutex mutex;

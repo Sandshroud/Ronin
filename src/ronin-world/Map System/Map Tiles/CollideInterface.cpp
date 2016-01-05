@@ -37,12 +37,12 @@ void VMapInterface::UpdateAllMaps(uint32 p_time)
     vMapMgr->updateDynamicMapTree(p_time);
 }
 
-void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 instanceId, uint32 p_time)
+void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
 {
     if( vMapMgr == NULL )
         return;
 
-    vMapMgr->updateDynamicMapTree(p_time, mapId, instanceId);
+    vMapMgr->updateDynamicMapTree(p_time, mapId);
 }
 
 bool VMapInterface::ActivateMap(uint32 mapId)

@@ -372,15 +372,9 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         for(TargetMap::iterator itr = m_aiTargets.begin(), it2; itr != m_aiTargets.end();)
         {
             it2 = itr++;
-            if(Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first))
-            {
-                if(unit->event_GetCurrentInstanceId() == m_Unit->event_GetInstanceID()
-                    && m_Unit->GetDistanceSq(unit) < 6400.0f)
-                {
-                    if(sFactionSystem.CanEitherUnitAttack(m_Unit, unit))
-                        continue;
-                }
-            }
+            if(Unit *unit = m_Unit->GetMapInstance()->GetUnit(itr->first))
+                if(m_Unit->GetDistanceSq(unit) < 6400.0f && sFactionSystem.CanEitherUnitAttack(m_Unit, unit))
+                    continue;
 
             m_aiTargets.erase( it2 );
         }
@@ -436,7 +430,7 @@ Unit* AIInterface::FindTarget()
     for( WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
         pUnit = m_Unit->GetInRangeObject<Unit>(*itr);
-        if( pUnit->isDead() || pUnit->m_invisible ) // skip invisible units
+        if( pUnit->isDead() || pUnit->IsInvisible() ) // skip invisible units
             continue;
         // Check the aggro range
         dist = m_Unit->GetDistanceSq(pUnit);
@@ -515,8 +509,8 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
     {
         itr = it2;
         ++it2;
-        Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first); /* check the target is valid */
-        if(unit == NULL || (unit->event_GetCurrentInstanceId() != m_Unit->event_GetCurrentInstanceId() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
+        Unit *unit = m_Unit->GetMapInstance()->GetUnit(itr->first); /* check the target is valid */
+        if(unit == NULL || (unit->event_GetCurrentMapId() != m_Unit->event_GetCurrentMapId() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
         {
             m_aiTargets.erase(itr);
             continue;
@@ -556,7 +550,7 @@ Unit* AIInterface::GetSecondHated(AI_Spell* sp)
         itr = it2;
         ++it2;
 
-        Unit *unit = m_Unit->GetMapMgr()->GetUnit(itr->first); /* check the target is valid */
+        Unit *unit = m_Unit->GetMapInstance()->GetUnit(itr->first); /* check the target is valid */
         if(unit == NULL || (unit->GetInstanceID() != m_Unit->GetInstanceID() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
         {
             m_aiTargets.erase(itr);
@@ -706,7 +700,7 @@ bool AIInterface::modThreat(WoWGuid guid, int32 mod, Unit *redirect, float redir
     int32 threatVal = it->second;
     ai_TargetLock.Release();
 
-    if(Unit *unit = m_Unit->GetMapMgr()->GetUnit(guid))
+    if(Unit *unit = m_Unit->GetMapInstance()->GetUnit(guid))
     {
         if(threatVal < 1) threatVal = 1;
         if(threatVal > m_currentHighestThreat)
@@ -780,7 +774,6 @@ void AIInterface::WipeTargetList()
     ai_TargetLock.Acquire();
     m_aiTargets.clear();
     ai_TargetLock.Release();
-    m_Unit->CombatStatus.Vanished();
 }
 
 bool AIInterface::taunt(Unit* caster, bool apply)

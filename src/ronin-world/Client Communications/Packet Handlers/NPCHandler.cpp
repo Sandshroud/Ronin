@@ -12,7 +12,7 @@ void WorldSession::HandleTabardVendorActivateOpcode( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
     uint64 guid;
     recv_data >> guid;
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature) return;
 
     SendTabardHelp(pCreature);
@@ -36,7 +36,7 @@ void WorldSession::HandleBankerActivateOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature) return;
 
     SendBankerList(pCreature);
@@ -62,7 +62,7 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
     // Inits, grab creature, check.
     uint64 guid;
     recv_data >> guid;
-    Creature* train = GetPlayer()->GetMapMgr()->GetCreature(guid);
+    Creature* train = GetPlayer()->GetMapInstance()->GetCreature(guid);
     if(train == NULL)
         return;
 
@@ -95,7 +95,7 @@ void WorldSession::HandleCharterShowListOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if(!pCreature) return;
 
     SendCharterRequest(pCreature);
@@ -144,7 +144,7 @@ void WorldSession::HandleAuctionHelloOpcode( WorldPacket & recv_data )
     CHECK_INWORLD_RETURN();
     uint64 guid;
     recv_data >> guid;
-    Creature* auctioneer = _player->GetMapMgr()->GetCreature(guid);
+    Creature* auctioneer = _player->GetMapInstance()->GetCreature(guid);
     if(!auctioneer)
         return;
 
@@ -181,10 +181,10 @@ void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
     switch(GUID_HIPART(guid)) // Crow: Could possibly do GetObject because I don't think we need items...
     {
     case HIGHGUID_TYPE_UNIT:
-        ent = _player->GetMapMgr()->GetCreature(guid);
+        ent = _player->GetMapInstance()->GetCreature(guid);
         break;
     case HIGHGUID_TYPE_GAMEOBJECT:
-        ent = _player->GetMapMgr()->GetGameObject(guid);
+        ent = _player->GetMapInstance()->GetGameObject(guid);
         break;
     case HIGHGUID_TYPE_ITEM:
         ent = _player->GetInventory()->GetInventoryItem(guid);
@@ -326,7 +326,7 @@ void WorldSession::HandleBinderActivateOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* pC = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pC = _player->GetMapInstance()->GetCreature(guid);
     if(!pC)
         return;
 
@@ -379,7 +379,7 @@ void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* unit = _player->GetMapMgr()->GetCreature(guid);
+    Creature* unit = _player->GetMapInstance()->GetCreature(guid);
     if (unit == NULL)
         return;
 

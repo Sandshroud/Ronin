@@ -148,7 +148,7 @@ void ArathiBasin::SpawnBuff(uint32 x)
     m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 1);
     m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
     m_buffs[x]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    m_buffs[x]->PushToWorld(m_mapMgr);
+    m_buffs[x]->PushToWorld(m_mapInstance);
 }
 
 void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
@@ -195,7 +195,7 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
         }
 
         m_controlPoints[Id]->bannerslot = Id;
-        m_controlPoints[Id]->PushToWorld(m_mapMgr);
+        m_controlPoints[Id]->PushToWorld(m_mapInstance);
     }
 
     if(gi_aura == NULL)
@@ -221,7 +221,7 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
     m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_TYPE_ID, 6);
     m_controlPointAuras[Id]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
     m_controlPointAuras[Id]->bannerauraslot = Id;
-    m_controlPointAuras[Id]->PushToWorld(m_mapMgr);
+    m_controlPointAuras[Id]->PushToWorld(m_mapInstance);
 }
 
 void ArathiBasin::OnCreate()
@@ -229,13 +229,13 @@ void ArathiBasin::OnCreate()
     // Alliance Gate
     GameObject* gate = SpawnGameObject(180255, 1284.597290f, 1281.166626f, -15.977916f, 0.76f, 32, 114, 1.5799990f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     // horde gate
     gate = SpawnGameObject(180256, 708.0902710f, 708.4479370f, -17.3898964f, 3.92f, 32, 114, 1.5699990f);
     gate->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
-    gate->PushToWorld(m_mapMgr);
+    gate->PushToWorld(m_mapInstance);
     m_gates.push_back(gate);
 
     // spawn (default) control points
@@ -257,7 +257,7 @@ void ArathiBasin::OnCreate()
     AddSpiritGuide(SpawnSpiritGuide(NoBaseGYLocations[1][0],NoBaseGYLocations[1][1],NoBaseGYLocations[1][2], 0.0f, true));
 
     // w00t
-    WorldStateManager &sm = m_mapMgr->GetStateManager();
+    WorldStateManager &sm = m_mapInstance->GetStateManager();
 
     // urrrgh worldstates
     sm.CreateWorldState(0x8D8, 0x00);
@@ -339,7 +339,7 @@ void ArathiBasin::OnStart()
     m_started = true;
 }
 
-ArathiBasin::ArathiBasin( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBattleground(mgr,id,lgroup,t)
+ArathiBasin::ArathiBasin( MapInstance* inst, uint32 id, uint32 lgroup, uint32 t) : CBattleground(inst,id,lgroup,t)
 {
     uint32 i;
 
@@ -455,7 +455,7 @@ void ArathiBasin::EventUpdateResources(uint32 Team)
     }
 
     // update the world states
-    m_mapMgr->GetStateManager().UpdateWorldState(resource_fields[Team], current_resources);
+    m_mapInstance->GetStateManager().UpdateWorldState(resource_fields[Team], current_resources);
 
     if(current_resources >= RESOURCES_WARNING_THRESHOLD && !m_nearingVictory[Team])
     {
@@ -661,14 +661,14 @@ void ArathiBasin::CaptureControlPoint(uint32 Id, uint8 Team)
 
     // update the overhead display on the clients (world states)
     m_capturedBases[Team]++;
-    m_mapMgr->GetStateManager().UpdateWorldState(Team ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Team]);
+    m_mapInstance->GetStateManager().UpdateWorldState(Team ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Team]);
 
     // respawn the control point with the correct aura
     SpawnControlPoint(Id, Team ? AB_SPAWN_TYPE_HORDE_CONTROLLED : AB_SPAWN_TYPE_ALLIANCE_CONTROLLED);
 
     // update the map
-    m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 0);
-    m_mapMgr->GetStateManager().UpdateWorldState(OwnedFields[Id][Team], 1);
+    m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 0);
+    m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Team], 1);
 
     // resource update event. :)
     if(m_capturedBases[Team]==1)
@@ -700,7 +700,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
     {
         isVirgin = true;
         // omgwtfbbq our flag is a virgin?
-        m_mapMgr->GetStateManager().UpdateWorldState(NeutralFields[Id], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(NeutralFields[Id], 0);
     }
 
     if(m_basesOwnedBy[Id] != -1)
@@ -718,7 +718,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
             {
                 for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
                 {
-                    Player* r_plr = m_mapMgr->GetPlayer( *it2 );
+                    Player* r_plr = m_mapInstance->GetPlayer( *it2 );
                     if( r_plr != NULL && r_plr->isDead() )
                     {
                         HookHandleRepop( r_plr );
@@ -733,10 +733,10 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
 
         // detract one from the teams controlled points
         m_capturedBases[Owner] -= 1;
-        m_mapMgr->GetStateManager().UpdateWorldState(Owner ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Owner]);
+        m_mapInstance->GetStateManager().UpdateWorldState(Owner ? WORLDSTATE_AB_HORDE_CAPTUREBASE : WORLDSTATE_AB_ALLIANCE_CAPTUREBASE, m_capturedBases[Owner]);
 
         // reset the world states
-        m_mapMgr->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
 
         // modify the resource update time period
         if(m_capturedBases[Owner]==0)
@@ -748,7 +748,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
     // Contested Flag, not ours, and is not virgin
     if( !isVirgin && m_basesLastOwnedBy[Id] == int32(Team) && m_basesOwnedBy[Id] == -1 )
     {
-        m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
         event_RemoveEvents(EVENT_AB_CAPTURE_CP_1 + Id);
         SendChatMessage(Team ? CHAT_MSG_BG_SYSTEM_HORDE : CHAT_MSG_BG_SYSTEM_ALLIANCE, pPlayer->GetGUID(), "$N has defended the %s!", ControlPointNames[Id]);
         m_basesAssaultedBy[Id] = Team;
@@ -763,7 +763,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
 
         // woah! vehicle hijack!
         m_basesAssaultedBy[Id] = Team;
-        m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
+        m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
 
         // make sure the event does not trigger
         sEventMgr.RemoveEvents(this, EVENT_AB_CAPTURE_CP_1 + Id);
@@ -784,7 +784,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
     PlaySoundToAll(Team ? SOUND_ALLIANCE_CAPTURE : SOUND_HORDE_CAPTURE);
 
     // update the client's map with the new assaulting field
-    m_mapMgr->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
+    m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
 
     // create the 60 second event.
     sEventMgr.AddEvent(castPtr<ArathiBasin>(this), &ArathiBasin::CaptureControlPoint, Id, Team, EVENT_AB_CAPTURE_CP_1 + Id, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);

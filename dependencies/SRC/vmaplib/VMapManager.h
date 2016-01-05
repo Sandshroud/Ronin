@@ -73,8 +73,9 @@ namespace VMAP
 
     typedef std::map<G3D::uint32, GOMapGuides* > GOModelInstanceByGUID;
     typedef std::map<G3D::uint32, GameobjectModelSpawn> GOModelSpawnList;
-    typedef std::map<std::pair<G3D::uint32, G3D::uint32>, DynamicMapTree*> DynamicTreeMap;
     typedef std::map<G3D::uint32, StaticMapTree*> InstanceTreeMap;
+    typedef std::map<G3D::uint32, DynamicMapTree*> SubDynamicTreeMap;
+    typedef std::map<G3D::uint32, SubDynamicTreeMap> DynamicTreeMap;
     typedef std::map<std::string, ManagedModel> ModelFileMap;
 
     class VMapManager
@@ -104,7 +105,7 @@ namespace VMAP
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }
 
-            void updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid = -1, G3D::uint32 instanceId = 0);
+            void updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid = -1);
             void LoadGameObjectModelList();
 
             // Static collision

@@ -127,7 +127,7 @@ class WorldPacket;
 class ByteBuffer;
 class WorldSession;
 class MapCell;
-class MapMgr;
+class MapInstance;
 
 //===============================================
 //  Object
@@ -299,10 +299,10 @@ public:
     int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
 
     //! True if object exists in world
-    virtual bool IsInWorld() { return m_mapMgr != NULL; }
+    virtual bool IsInWorld() { return m_mapInstance != NULL; }
     virtual void RemoveFromWorld(bool free_guid);
 
-    void PushToWorld(MapMgr* );
+    void PushToWorld(MapInstance* );
     virtual void OnPushToWorld() { }
     virtual void OnPrePushToWorld() { }
 
@@ -347,18 +347,15 @@ public:
     float CalcDistance(WorldObject* Oa, float ObX, float ObY, float ObZ);
     float CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ);
 
-    //! Only for MapMgr use
     RONIN_INLINE MapCell* GetMapCell() const { return m_mapCell; }
-    //! Only for MapMgr use
     RONIN_INLINE void SetMapCell(MapCell* cell) { m_mapCell = cell; }
-    //! Only for MapMgr use
-    RONIN_INLINE MapMgr* GetMapMgr() const { return m_mapMgr; }
+    RONIN_INLINE MapInstance* GetMapInstance() const { return m_mapInstance; }
 
     RONIN_INLINE void SetMapId(uint32 newMap) { m_mapId = newMap; }
     RONIN_INLINE const uint32 GetMapId( ) const { return m_mapId; }
 
     void SetZoneId(uint32 newZone);
-    void UpdateAreaInfo(MapMgr *mgr = NULL);
+    void UpdateAreaInfo(MapInstance *instance = NULL);
     RONIN_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     RONIN_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
     RONIN_INLINE void SetLastMovementZone(uint32 zone) { m_lastMovementZone = zone; }
@@ -542,9 +539,9 @@ public:
 
     bool Active;
     bool CanActivate();
-    void Activate(MapMgr* mgr);
-    void Deactivate(MapMgr* mgr);
-    RONIN_INLINE void SetMapMgr(MapMgr* mgr) { m_mapMgr = mgr; }
+    void Activate(MapInstance* instance);
+    void Deactivate(MapInstance* instance);
+    RONIN_INLINE void SetMapMgr(MapInstance* instance) { m_mapInstance = instance; }
 
     void PlaySoundToPlayer( Player* plr, uint32 sound_entry );
     void PlaySoundToSet(uint32 sound_entry);
@@ -579,7 +576,7 @@ protected:
     uint32 m_lastMovementZone;
 
     //! Map manager
-    MapMgr* m_mapMgr;
+    MapInstance* m_mapInstance;
     //! Current map cell
     MapCell *m_mapCell;
     //! Current object faction

@@ -69,7 +69,7 @@ void WorldSession::HandleBattleMasterHelloOpcode(WorldPacket &recv_data)
     recv_data >> guid;
 
     CHECK_INWORLD_RETURN();
-    Creature* pCreature = _player->GetMapMgr()->GetCreature(guid);
+    Creature* pCreature = _player->GetMapInstance()->GetCreature(guid);
     if( pCreature == NULL )
         return;
 
@@ -91,7 +91,7 @@ void WorldSession::HandleAreaSpiritHealerQueryOpcode(WorldPacket &recv_data)
     WoWGuid guid;
     recv_data >> guid;
 
-    Creature* psg = _player->GetMapMgr()->GetCreature(guid);
+    Creature* psg = _player->GetMapInstance()->GetCreature(guid);
     if(psg == NULL)
         return;
 
@@ -112,7 +112,7 @@ void WorldSession::HandleAreaSpiritHealerQueueOpcode(WorldPacket &recv_data)
 
     WoWGuid guid;
     recv_data >> guid;
-    Creature* psg = _player->GetMapMgr()->GetCreature(guid);
+    Creature* psg = _player->GetMapInstance()->GetCreature(guid);
     if(psg == NULL)
         return;
 
@@ -241,7 +241,7 @@ void WorldSession::HandleInspectHonorStatsOpcode( WorldPacket &recv_data )
     WoWGuid guid;
     recv_data >> guid;
 
-    Player* player =  _player->GetMapMgr()->GetPlayer(guid);
+    Player* player =  _player->GetMapInstance()->GetPlayer(guid);
     if( player == NULL )
         return;
 
@@ -260,7 +260,7 @@ void WorldSession::HandleInspectArenaStatsOpcode( WorldPacket & recv_data )
     WoWGuid guid;
     recv_data >> guid;
 
-    Player* player =  _player->GetMapMgr()->GetPlayer(guid);
+    Player* player =  _player->GetMapInstance()->GetPlayer(guid);
     if( player == NULL )
         return;
 

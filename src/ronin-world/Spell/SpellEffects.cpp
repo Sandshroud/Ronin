@@ -271,9 +271,6 @@ void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
                     castPtr<Unit>(*itr)->GetAIInterface()->HealReaction( castPtr<Unit>(m_caster), target, threat, m_spellInfo );
             }
         }
-
-        if(target->IsInWorld() && castPtr<Unit>(m_caster)->IsInWorld())
-            castPtr<Unit>(m_caster)->CombatStatus.WeHealed(target);
     }
 }
 
@@ -640,7 +637,7 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
         if( pTarget == m_caster )
         {
             // try to get a selection
-            pTarget = m_caster->GetMapMgr()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
+            pTarget = m_caster->GetMapInstance()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
             if( (pTarget == NULL ) || !sFactionSystem.isAttackable(m_caster, pTarget, !GetSpellProto()->isSpellStealthTargetCapable() ) || (pTarget->CalcDistance(m_caster) > 30.0f))
                 return;
         }
@@ -950,7 +947,7 @@ void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, in
     int32 dur = GetDuration();
     float r = GetRadius(i);
 
-    DynamicObject* dynObj = m_caster->GetMapMgr()->CreateDynamicObject();
+    DynamicObject* dynObj = m_caster->GetMapInstance()->CreateDynamicObject();
     if(m_caster->IsGameObject() && castPtr<GameObject>(m_caster)->m_summoner && !unitTarget)
     {
         dynObj->Create(castPtr<GameObject>(m_caster)->m_summoner, this, m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), dur, r);
@@ -1019,7 +1016,7 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
     p_caster->m_AuraInterface.RemoveAllAurasWithAuraName(SPELL_AURA_MOD_STUN);
     p_caster->m_AuraInterface.RemoveAllAurasWithAuraName(SPELL_AURA_MOD_ROOT);
 
-    if(p_caster->GetMapMgr() && !IS_INSTANCE(p_caster->GetMapId()) && p_caster->GetMapMgr()->CanUseCollision(p_caster))
+    if(p_caster->GetMapInstance() && !IS_INSTANCE(p_caster->GetMapId()) && p_caster->GetMapInstance()->CanUseCollision(p_caster))
     {
         float ori = m_caster->GetOrientation();
         float posX = m_caster->GetPositionX()+(radius*(cosf(ori)));
@@ -1821,17 +1818,17 @@ void SpellEffectClass::SpellEffectAddFarsight(uint32 i, WorldObject *target, int
     if( p_caster == NULL )
         return;
 
-    DynamicObject* dyn = p_caster->GetMapMgr()->CreateDynamicObject();
+    DynamicObject* dyn = p_caster->GetMapInstance()->CreateDynamicObject();
     if(dyn == NULL)
         return;
 
     dyn->Create(p_caster, this, m_targets.m_dest.x, m_targets.m_dest.y, m_targets.m_dest.z, GetDuration(), GetRadius(i));
     dyn->SetUInt32Value(OBJECT_FIELD_TYPE, 65);
     dyn->SetUInt32Value(DYNAMICOBJECT_BYTES, 0x80000002);
-    dyn->PushToWorld(p_caster->GetMapMgr());
+    dyn->PushToWorld(p_caster->GetMapInstance());
     p_caster->SetUInt64Value(PLAYER_FARSIGHT, dyn->GetGUID());
     p_caster->SetUInt32Value(PLAYER_FARSIGHT, dyn->GetLowGUID());
-    p_caster->GetMapMgr()->ChangeFarsightLocation(p_caster, m_targets.m_dest.x, m_targets.m_dest.y, true);
+    p_caster->GetMapInstance()->ChangeFarsightLocation(p_caster, m_targets.m_dest.x, m_targets.m_dest.y, true);
 }
 
 void SpellEffectClass::SpellEffectResetTalents(uint32 i, WorldObject *target, int32 amount) // Used by Trainers.
@@ -1870,14 +1867,14 @@ void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target
         return;
 
     // spawn a new one
-    GameObject* GoSummon = u_caster->GetMapMgr()->CreateGameObject(GetSpellProto()->EffectMiscValue[i]);
+    GameObject* GoSummon = u_caster->GetMapInstance()->CreateGameObject(GetSpellProto()->EffectMiscValue[i]);
     if( GoSummon == NULL || !GoSummon->CreateFromProto(GetSpellProto()->EffectMiscValue[i], m_caster->GetMapId(), m_caster->GetPosition()))
         return;
 
     GoSummon->SetUInt32Value(GAMEOBJECT_LEVEL, u_caster->getLevel());
     GoSummon->SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, m_caster->GetGUID());
     GoSummon->SetState(0);
-    GoSummon->PushToWorld(u_caster->GetMapMgr());
+    GoSummon->PushToWorld(u_caster->GetMapInstance());
     GoSummon->SetSummoned(u_caster);
     GoSummon->ExpireAndDelete(GetDuration());
 }
@@ -1981,7 +1978,7 @@ void SpellEffectClass::SpellEffectSummonPlayer(uint32 i, WorldObject *target, in
     if( playerTarget == NULL)
         return;
 
-    if(m_caster->GetMapMgr()->GetMapInfo() && m_caster->GetMapMgr()->GetMapInfo()->type != INSTANCE_NULL)
+    if(!m_caster->GetMapInstance()->GetdbcMap()->IsContinent())
         return;
 
     playerTarget->SummonRequest(m_caster, m_caster->GetZoneId(), m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPosition());
@@ -2072,7 +2069,7 @@ void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 
 
         //Not skinable again
         cr->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
-        cr->Skinned = true;
+        cr->m_skinned = true;
         //double chance from elite
         if(cr->GetCreatureData()->rank > 0)
             DetermineSkillUp(p_caster, skill ,sk < lvl * 5 ? sk/5 : lvl, 2);

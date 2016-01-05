@@ -546,7 +546,7 @@ public:
     bool Load(uint32 mapId, GOSpawn *spawn);
     void UpdateRotation();
 
-    void Spawn( MapMgr* m);
+    void Spawn( MapInstance* m);
     void Despawn( uint32 delay, uint32 respawntime);
     void UpdateTrapState();
 

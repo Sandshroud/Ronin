@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId, bool Instanced, bool collisionMap) : mapPath(MapPath), mapId(MapId), Instance(Instanced), m_CollisionMap(collisionMap)
+TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : mapPath(MapPath), mapId(MapId)
 {
     TileStartX = TileEndX = 0;
     TileStartY = TileEndY = 0;
@@ -535,10 +535,6 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
     mutex.Acquire();
 
     LoadCounter[tileX][tileY]++;
-    if(m_CollisionMap)
-        sVMapInterface.ActivateTile(mapId, tileX, tileY);
-    if(sWorld.PathFinding)
-        NavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
     if(!AreTilesValid(tileX, tileY))
     {
         mutex.Release();
@@ -564,10 +560,6 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
     uint32 tileX = x/8, tileY = y/8;
     mutex.Acquire();
     LoadCounter[tileX][tileY]--;
-    if(m_CollisionMap)
-        sVMapInterface.DeactivateTile(mapId, tileX, tileY);
-    if(sWorld.PathFinding)
-        NavMeshInterface.UnloadNavMesh(mapId, tileX, tileY);
     if(!AreTilesValid(tileX, tileY))
     {
         mutex.Release();
@@ -576,14 +568,13 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
 
     uint32 OffsetTileX = tileX-TileStartX;
     uint32 OffsetTileY = tileY-TileStartY;
-    if(Instance || !TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
     {
         mutex.Release();
         return;
     }
     mutex.Release();
 
-    // If we're not an instance, unload our Tile info.
     if(LoadCounter[tileX][tileY] == 0)
         UnloadTileInformation(tileX, tileY);
 }

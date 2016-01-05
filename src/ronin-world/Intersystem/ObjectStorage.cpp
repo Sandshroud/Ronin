@@ -33,7 +33,6 @@ SERVER_DECL SQLStorage<GraveyardTeleport, HashMapStorageContainer<GraveyardTelep
 SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                            ItemPageStorage;
 SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                        NpcTextStorage;
 SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >                TeleportCoordStorage;
-SERVER_DECL SQLStorage<MapInfo, HashMapStorageContainer<MapInfo> >                              WorldMapInfoStorage;
 
 SERVER_DECL std::set<std::string> ExtraMapCreatureTables;
 SERVER_DECL std::set<std::string> ExtraMapGameObjectTables;
@@ -177,7 +176,6 @@ void Storage_FillTaskList(TaskList & tl)
     make_task(GraveyardStorage, GraveyardTeleport, HashMapStorageContainer, "graveyards", gGraveyardFormat);
     make_task(TeleportCoordStorage, TeleportCoords, HashMapStorageContainer, "teleport_coords", gTeleportCoordFormat);
     make_task(NpcTextStorage, GossipText, HashMapStorageContainer, "npc_text", gNpcTextFormat);
-    make_task(WorldMapInfoStorage, MapInfo, HashMapStorageContainer, "worldmap_info", gWorldMapInfoFormat);
 }
 
 void Storage_Cleanup()
@@ -189,7 +187,6 @@ void Storage_Cleanup()
     GraveyardStorage.Cleanup();
     TeleportCoordStorage.Cleanup();
     NpcTextStorage.Cleanup();
-    WorldMapInfoStorage.Cleanup();
 }
 
 std::vector<std::pair<std::string,std::string> > additionalTables;
@@ -216,8 +213,6 @@ bool Storage_ReloadTable(const char * TableName)
         TeleportCoordStorage.Reload();
     else if(!stricmp(TableName, "graveyards"))          // Graveyards
         GraveyardStorage.Reload();
-    else if(!stricmp(TableName, "worldmap_info"))       // WorldMapInfo
-        WorldMapInfoStorage.Reload();
     else if(!stricmp(TableName, "vendors"))
         objmgr.ReloadVendors();
     else if(!stricmp(TableName, "command_overrides"))   // Command Overrides

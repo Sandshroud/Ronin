@@ -607,6 +607,8 @@ protected: // Speed and Status information
 private:
     Unit *m_Unit;
 
+    uint32 m_updateTimer;
+
 public:
     void UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply);
 

@@ -618,7 +618,7 @@ bool ChatHandler::HandleParalyzeCommand(const char* args, WorldSession *m_sessio
 {
     //Player* plr = getSelectedChar(m_session, true);
     //if(!plr) return false;
-    Unit* plr = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
+    Unit* plr = m_session->GetPlayer()->GetMapInstance()->GetUnit(m_session->GetPlayer()->GetSelection());
     if(!plr || plr->GetTypeId() != TYPEID_PLAYER)
     {
         RedSystemMessage(m_session, "Invalid target.");
@@ -638,7 +638,7 @@ bool ChatHandler::HandleUnParalyzeCommand(const char* args, WorldSession *m_sess
 {
     //Player* plr = getSelectedChar(m_session, true);
     //if(!plr) return false;
-    Unit* plr = m_session->GetPlayer()->GetMapMgr()->GetUnit(m_session->GetPlayer()->GetSelection());
+    Unit* plr = m_session->GetPlayer()->GetMapInstance()->GetUnit(m_session->GetPlayer()->GetSelection());
     if(!plr || plr->GetTypeId() != TYPEID_PLAYER)
     {
         RedSystemMessage(m_session, "Invalid target.");
@@ -788,11 +788,6 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
     print_cheat_status("Power", plyr->PowerCheat);
     print_cheat_status("AuraStack", plyr->stack_cheat);
     print_cheat_status("TriggerPass", plyr->triggerpass_cheat);
-    if( plyr->GetSession() && plyr->GetSession()->CanUseCommand('a') )
-    {
-        print_cheat_status("GM Invisibility", plyr->m_isGmInvisible);
-        print_cheat_status("GM Invincibility", plyr->bInvincible);
-    }
     SystemMessage(m_session, "%u cheats active, %u inactive.", active, inactive);
 
 #undef print_cheat_status
@@ -1224,7 +1219,7 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
         plr = itr->second;
         if(plr->GetSession() && plr->IsInWorld())
         {
-            if(plr->GetMapMgr() != m_session->GetPlayer()->GetMapMgr())
+            if(plr->GetMapInstance() != m_session->GetPlayer()->GetMapInstance())
             {
                 sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventCastSpell, castPtr<Unit>(plr), info, EVENT_PLAYER_CHECKFORCHEATS, 100, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
             }
@@ -1513,7 +1508,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         save = (uint32)m_session->CanUseCommand('z');
     }
 
-    MapMgr *mgr = plr->GetMapMgr();
+    MapInstance *mgr = plr->GetMapInstance();
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
     {
@@ -1528,7 +1523,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    Creature* p = plr->GetMapMgr()->CreateCreature(entry);
+    Creature* p = plr->GetMapInstance()->CreateCreature(entry);
     if(p == NULL)
     {
         RedSystemMessage(m_session, "Could not create spawn.");
@@ -1591,8 +1586,8 @@ bool ChatHandler::HandleCreatureRespawnCommand(const char *args, WorldSession *m
     if(cCorpse->GetSQL_id() != 0)
     {
         sEventMgr.RemoveEvents( cCorpse, EVENT_CREATURE_RESPAWN );
-        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
-        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapMgr()->GetMapId(), cCorpse->GetSQL_id() );
+        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
+        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
         cCorpse->Despawn(0, 1);
         return true;
     }
@@ -2013,7 +2008,7 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
     float radius = atof(args)+go->GetOrientation();
     go->SetOrientation(radius);
     go->RemoveFromWorld(true);
-    go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
+    go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
     go->SaveToDB();
     return true;
 }
@@ -2031,7 +2026,7 @@ bool ChatHandler::HandleGOMove(const char * args, WorldSession * m_session)
     go->RemoveFromWorld(true);
     go->SetPosition(m_session->GetPlayer()->GetPosition());
     go->SaveToDB();
-    go->PushToWorld(m_session->GetPlayer()->GetMapMgr());
+    go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
     return true;
 }
 
@@ -2205,7 +2200,7 @@ bool ChatHandler::HandleCollisionTestIndoor(const char * args, WorldSession * m_
     {
         if(sWorld.Collision)
         {
-            if (plr->GetMapMgr()->CanUseCollision(plr))
+            if (plr->GetMapInstance()->CanUseCollision(plr))
             {
                 const LocationVector & loc = plr->GetPosition();
                 bool res = sVMapInterface.IsIndoor(plr->GetMapId(), loc.x, loc.y, loc.z + 2.0f);
@@ -2234,7 +2229,7 @@ bool ChatHandler::HandleCollisionTestLOS(const char * args, WorldSession * m_ses
             return true;
         }
 
-        if(pObj->GetMapMgr()->CanUseCollision(pObj))
+        if(pObj->GetMapInstance()->CanUseCollision(pObj))
         {
             const LocationVector & loc2 = pObj->GetPosition();
             const LocationVector & loc1 = m_session->GetPlayer()->GetPosition();
@@ -2270,8 +2265,8 @@ bool ChatHandler::HandleCollisionGetHeight(const char * args, WorldSession * m_s
         SystemMessage(m_session, "CHeightChecks: CHeight: %f; Water: %f; Navmesh: %f;", plr->GetCHeightForPosition(), plr->GetCHeightForPosition(true),
             NavMeshInterface.GetWalkingHeight(plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetPositionZ()-10.0f));
     }
-    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetMapMgr()->GetLandHeight(plr->GetPositionX(), plr->GetPositionY()),
-        plr->GetMapMgr()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
+    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetMapInstance()->GetLandHeight(plr->GetPositionX(), plr->GetPositionY()),
+        plr->GetMapInstance()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
     SystemMessage(m_session, "CResults: Curr pos: %f; Water: %f; Collide: %f", plr->GetCHeightForPosition(true), plr->GetCHeightForPosition(false),
         sVMapInterface.GetHeight(plr->GetMapId(), plr->GetInstanceID(), plr->GetPhaseMask(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
     return true;

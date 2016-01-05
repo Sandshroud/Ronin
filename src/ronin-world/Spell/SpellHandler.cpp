@@ -70,7 +70,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
     if (spellInfo->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
     {
-        if (_player->CombatStatus.IsInCombat() || _player->IsMounted())
+        if (_player->IsInCombat() || _player->IsMounted())
         {
             _player->GetInventory()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_NOT_IN_COMBAT);
             return;
@@ -280,10 +280,10 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             }
         }
 
-        if( targets.m_unitTarget && GetPlayer()->GetMapMgr() && spellInfo->isSpellDamagingEffect() )
+        if( targets.m_unitTarget && GetPlayer()->GetMapInstance() && spellInfo->isSpellDamagingEffect() )
         {
-            Unit* pUnit = GetPlayer()->GetMapMgr()->GetUnit( targets.m_unitTarget );
-            if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ) && !pUnit->CombatStatus.DidDamageTo(GetPlayer()->GetGUID()))
+            Unit* pUnit = GetPlayer()->GetMapInstance()->GetUnit( targets.m_unitTarget );
+            if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ))
             {
                 //GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
                 //GetPlayer()->Kick(5000);

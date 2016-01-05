@@ -6,9 +6,9 @@
 
 void AIInterface::InitalizeExtraInfo(CreatureData *data, CreatureInfoExtra *info, uint32 mode)
 {
-    for(std::list<AI_Spell*>::iterator itr = data->spells.begin(); itr != data->spells.end(); itr++)
+    /*for(std::list<AI_Spell*>::iterator itr = data->spells.begin(); itr != data->spells.end(); itr++)
         if((*itr)->difficulty_mask == -1 || (*itr)->difficulty_mask & (1 << mode))
-            addSpellToList(*itr);
+            addSpellToList(*itr);*/
 
     m_canRangedAttack = info ? info->m_canRangedAttack : false;
     m_canCallForHelp = info ? info->m_canCallForHelp : false;
@@ -185,8 +185,6 @@ bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uin
     else if ( !UnitTarget->isAlive() )
         return false;
 
-    if ( UnitTarget->IsPlayer() && castPtr<Player>( UnitTarget )->m_isGmInvisible )
-        return false;
     if ( UnitTarget->HasFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_FEIGN_DEATH ) )
         return false;
     // If it's a damaging spell, we can cast again, otherwise, do not double cast
@@ -228,7 +226,7 @@ bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uin
         //Handle hostile/friendly
         if ( ( ~pFilter & TargetFilter_Corpse ) && ( pFilter & TargetFilter_Friendly ) ) 
         {
-            if ( !UnitTarget->CombatStatus.IsInCombat() )
+            if ( !UnitTarget->IsInCombat() )
                 return false; //Skip not-in-combat targets if friendly
             if ( sFactionSystem.CanEitherUnitAttack( m_Unit, UnitTarget ) || getThreat( UnitTarget->GetGUID() ) > 0 )
                 return false;

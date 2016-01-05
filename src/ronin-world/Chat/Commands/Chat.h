@@ -286,8 +286,6 @@ protected:
     bool HandlePauseBGCommand(const char* args, WorldSession *m_session);
     bool HandleResetScoreCommand(const char* args, WorldSession *m_session);
     bool HandleBGInfoCommnad(const char *args, WorldSession *m_session);
-    bool HandleInvincibleCommand(const char *args, WorldSession *m_session);
-    bool HandleInvisibleCommand(const char *args, WorldSession *m_session);
     bool HandleKillCommand(const char *args, WorldSession *m_session);
     bool HandleKillByPlrCommand( const char *args , WorldSession *m_session );
     bool HandleCreatureSpawnCommand(const char *args, WorldSession *m_session);

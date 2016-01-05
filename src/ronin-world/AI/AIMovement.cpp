@@ -156,7 +156,7 @@ void AI_Movement::Update(uint32 p_time)
                     for(plritr = CurrentMoveRequired.begin();  plritr != CurrentMoveRequired.end();)
                     {
                         plritr2 = plritr++;
-                        update = m_Unit->GetMapMgr()->GetPlayer(plritr2->first);
+                        update = m_Unit->GetMapInstance()->GetPlayer(plritr2->first);
                         if(update != NULL)
                         {
                             SendMoveToPacket(update);
@@ -269,7 +269,7 @@ void AI_Movement::Update(uint32 p_time)
             Fz = m_Unit->GetCHeightForPosition(false); // We COULD check water height, but nah.
 
             // Check if this point is in water.
-            float wl = m_Unit->GetMapMgr()->GetWaterHeight(Fx, Fy, Fz);
+            float wl = m_Unit->GetMapInstance()->GetWaterHeight(Fx, Fy, Fz);
             if( fabs( m_Unit->GetPositionZ() - Fz ) > 3.5f || ( wl != NO_WATER_HEIGHT && Fz < wl ) ) // in water
             {
                 m_FearTimer = p_time + 500;
@@ -295,7 +295,7 @@ void AI_Movement::Update(uint32 p_time)
         float Fy = m_Unit->GetPositionY() + wanderD * sinf(wanderO);
         float Fz;
 
-        if (m_Unit->GetMapMgr() && m_Unit->GetMapMgr()->CanUseCollision(m_Unit))
+        if (m_Unit->GetMapInstance() && m_Unit->GetMapInstance()->CanUseCollision(m_Unit))
         {
             if( !sVMapInterface.GetFirstPoint( m_Unit->GetMapId(), m_Unit->GetInstanceID(), 1, m_Unit->GetPositionX(), m_Unit->GetPositionY(), m_Unit->GetPositionZ(),
                 Fx, Fy, m_Unit->GetPositionZ() + 1.5f, Fx, Fy, Fz, -3.5f ) )
@@ -303,7 +303,7 @@ void AI_Movement::Update(uint32 p_time)
                 // clear path?
                 Fz = sVMapInterface.GetHeight( m_Unit->GetMapId(), m_Unit->GetInstanceID(), 1, Fx, Fy, m_Unit->GetPositionZ() );
                 if( Fz == NO_WMO_HEIGHT )
-                    Fz = m_Unit->GetMapMgr()->GetLandHeight(Fx, Fy);
+                    Fz = m_Unit->GetMapInstance()->GetLandHeight(Fx, Fy);
             }
             else
             {
@@ -327,12 +327,12 @@ void AI_Movement::Update(uint32 p_time)
         }
         else
         {
-            Fz = m_Unit->GetMapMgr()->GetLandHeight(Fx, Fy);
+            Fz = m_Unit->GetMapInstance()->GetLandHeight(Fx, Fy);
 
             // without these next checks we could fall through the "ground" (WMO) and get stuck
             // wander won't work correctly in cities until we get some way to fix this and remove these checks
             float currentZ = m_Unit->GetPositionZ();
-            float landZ = m_Unit->GetMapMgr()->GetLandHeight(m_Unit->GetPositionX(), m_Unit->GetPositionY());
+            float landZ = m_Unit->GetMapInstance()->GetLandHeight(m_Unit->GetPositionX(), m_Unit->GetPositionY());
 
             if( currentZ > landZ + 1.0f // are we more than 1yd above ground? (possible WMO)
              || Fz < currentZ - 5.0f // is our destination land height too low? (possible WMO)

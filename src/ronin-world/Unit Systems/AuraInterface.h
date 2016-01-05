@@ -176,16 +176,16 @@ public:
     bool HasAurasWithModType(uint32 modType) { return m_modifiersByModType[modType].size(); }
 
     // Update Mask
-    UpdateMask &getModMask() { return m_modifierMask; }
-    bool GetModMaskBit(uint32 type) { return m_modifierMask.GetBit(type); }
-    void SetModMaskBit(uint32 type) { m_modifierMask.SetBit(type); };
-    void UnsetModMaskBit(uint32 type) { m_modifierMask.UnsetBit(type); };
-    void ClearModMaskBits() { m_modifierMask.Clear(); };
+    std::bitset<SPELL_AURA_TOTAL> &getModMask() { return m_modifierMask; }
+    bool GetModMaskBit(uint32 type) { return m_modifierMask.test(type); }
+    void SetModMaskBit(uint32 type) { m_modifierMask.set(type, true); };
+    void UnsetModMaskBit(uint32 type) { m_modifierMask.set(type, false); };
+    void ClearModMaskBits() { m_modifierMask.reset(); };
     bool GetAndUnsetModMaskBit(uint32 type)
     {
         bool res = false;
-        if(res = m_modifierMask.GetBit(type))
-            m_modifierMask.UnsetBit(type);
+        if(res = m_modifierMask.at(type))
+            m_modifierMask.set(type, false);
         return res;
     }
 
@@ -196,13 +196,13 @@ public:
 
 private:
     // Ordered by aura slot
-    UpdateMask m_modifierMask;
+    std::bitset<SPELL_AURA_TOTAL> m_modifierMask;
     std::map<uint32, ModifierHolder*> m_modifierHolders;
     // Storage is <ModType, <Index, Modifier> >
     modifierTypeMap m_modifiersByModType;
     // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
     std::map<std::pair<uint8, uint8>, std::map<uint8, int32>> m_spellGroupModifiers;
 
-    uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
+    static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };

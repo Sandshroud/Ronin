@@ -11,7 +11,6 @@ extern SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >     
 extern SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                     NpcTextStorage;
 extern SERVER_DECL SQLStorage<GraveyardTeleport, HashMapStorageContainer<GraveyardTeleport> >       GraveyardStorage;
 extern SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >             TeleportCoordStorage;
-extern SERVER_DECL SQLStorage<MapInfo, HashMapStorageContainer<MapInfo> >                           WorldMapInfoStorage;
 
 void Storage_FillTaskList(TaskList & tl);
 void Storage_Cleanup();

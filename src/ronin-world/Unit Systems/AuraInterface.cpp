@@ -6,7 +6,7 @@
 
 AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit)
 {
-    m_modifierMask.SetCount(SPELL_AURA_TOTAL);
+    m_modifierMask.reset();
     for(uint8 i = 0; i < TOTAL_AURAS; i++)
         m_auras[i] = NULL;
 }
@@ -713,8 +713,8 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
         pCaster = aur->GetUnitCaster();
     else if( m_Unit->GetGUID() == aur->GetCasterGUID() )
         pCaster = m_Unit;
-    else if( m_Unit->GetMapMgr() && aur->GetCasterGUID())
-        pCaster = m_Unit->GetMapMgr()->GetUnit( aur->GetCasterGUID());
+    else if( m_Unit->GetMapInstance() && aur->GetCasterGUID())
+        pCaster = m_Unit->GetMapInstance()->GetUnit( aur->GetCasterGUID());
     if(pCaster == NULL)
         return;
 
@@ -787,7 +787,7 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
     {
         if(pCaster != NULL && m_Unit->isAlive())
         {
-            pCaster->CombatStatus.OnDamageDealt(castPtr<Unit>(this), 1);
+            m_Unit->SetInCombat(pCaster);
 
             if(m_Unit->IsCreature())
                 m_Unit->GetAIInterface()->AttackReaction(pCaster, 1, aur->GetSpellId());
@@ -798,8 +798,8 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
     {
         if( pCaster != NULL )
         {
-            pCaster->RemoveStealth();
-            pCaster->RemoveInvisibility();
+            /*pCaster->RemoveStealth();
+            pCaster->RemoveInvisibility();*/
             pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_ICE_BLOCK, false);
             pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
             pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
@@ -1377,7 +1377,7 @@ void AuraInterface::EventDeathAuraRemoval()
 
 void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
-    m_modifierMask.SetBit(mod->m_type);
+    SetModMaskBit(mod->m_type);
 
     std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
     if(apply)

@@ -144,16 +144,7 @@ void BuildCorpseInfo(WorldPacket* data, Corpse* corpse)
         float x, y, z;
         uint32 mapId = corpse->GetMapId(), mapId2 = mapId;
         corpse->GetPosition(x, y, z);
-        if(MapInfo *pMapinfo = WorldMapInfoStorage.LookupEntry(corpse->GetMapId()))
-        {
-            if(pMapinfo->type != INSTANCE_NULL && pMapinfo->type != INSTANCE_PVP)
-            {
-                mapId = pMapinfo->repopmapid;
-                x = pMapinfo->repopx;
-                y = pMapinfo->repopy;
-                z = pMapinfo->repopz;
-            }
-        }
+
         *data << mapId;
         *data << x;
         *data << y;

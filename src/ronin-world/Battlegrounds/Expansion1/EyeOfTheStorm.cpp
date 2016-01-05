@@ -122,7 +122,7 @@ const uint32 EOTSTowerIds[EOTS_TOWER_COUNT] = { EOTS_GO_BE_TOWER, EOTS_GO_FELREA
 #define EOTS_NETHERWING_FLAG_SPELL 34976
 //#define EOTS_CAPTURE_RATE 20
 
-EyeOfTheStorm::EyeOfTheStorm( MapMgr* mgr, uint32 id, uint32 lgroup, uint32 t) : CBattleground(mgr,id,lgroup,t)
+EyeOfTheStorm::EyeOfTheStorm( MapInstance* instance, uint32 id, uint32 lgroup, uint32 t) : CBattleground(instance,id,lgroup,t)
 {
     uint32 i;
 
@@ -179,7 +179,7 @@ void EyeOfTheStorm::RepopPlayersOfTeam(int32 team, Creature* sh)
     {
         for( std::set<WoWGuid>::iterator it2 = itr->second.begin(); it2 != itr->second.end(); it2++ )
         {
-            Player* r_plr = m_mapMgr->GetPlayer( *it2 );
+            Player* r_plr = m_mapInstance->GetPlayer( *it2 );
             if( r_plr != NULL && (team < 0 || (int32)r_plr->GetTeam() == team) && r_plr->isDead() )
             {
                 HookHandleRepop( r_plr );
@@ -321,9 +321,9 @@ void EyeOfTheStorm::HookOnAreaTrigger(Player* plr, uint32 id)
     {
         PlaySoundToAll( plr->GetTeam() ? SOUND_HORDE_SCORES : SOUND_ALLIANCE_SCORES );
         UpdatePvPData();
-        m_standFlag->PushToWorld( m_mapMgr );
+        m_standFlag->PushToWorld( m_mapInstance );
         m_flagHolder = 0;
-        m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 1 );
+        m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 1 );
     }
     // else bg ended
 
@@ -351,7 +351,7 @@ void EyeOfTheStorm::HookFlagDrop(Player* plr, GameObject* obj)
 
     plr->CastSpell( plr->GetGUID(), EOTS_NETHERWING_FLAG_SPELL, true );
 
-    m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 0 );
+    m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 0 );
     PlaySoundToAll( 8212 );
     SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE + plr->GetTeam(), plr->GetGUID(), "$n has taken the flag!" );
     m_flagHolder = plr->GetLowGUID();
@@ -374,7 +374,7 @@ bool EyeOfTheStorm::HookSlowLockOpen( GameObject* pGo, Player* pPlayer, Spell* p
     pPlayer->CastSpell( pPlayer->GetGUID(), EOTS_NETHERWING_FLAG_SPELL, true );
     pPlayer->m_bgHasFlag = true;
 
-    m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 0 );
+    m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 0 );
     PlaySoundToAll( pPlayer->GetTeam() ? SOUND_HORDE_CAPTURE : SOUND_ALLIANCE_CAPTURE );
     SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE + pPlayer->GetTeam(), pPlayer->GetGUID(), "$n has taken the flag!" );
     m_flagHolder = pPlayer->GetLowGUID();
@@ -425,9 +425,9 @@ void EyeOfTheStorm::DropFlag(Player* plr)
 
 void EyeOfTheStorm::EventResetFlag()
 {
-    m_standFlag->PushToWorld(m_mapMgr);
+    m_standFlag->PushToWorld(m_mapInstance);
 
-    m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 1 );
+    m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_FLAG_NEUTRAL_DISPLAY, 1 );
     PlaySoundToAll( 8192 );
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "The flag has been reset." );
     m_flagHolder = 0;
@@ -437,7 +437,7 @@ void EyeOfTheStorm::OnCreate()
 {
     uint32 i;
 
-    WorldStateManager& sm = m_mapMgr->GetStateManager();
+    WorldStateManager& sm = m_mapInstance->GetStateManager();
 
     // create world state templates
     sm.CreateWorldState(2565, 142);
@@ -516,51 +516,51 @@ void EyeOfTheStorm::OnCreate()
     /* create gameobjects */
     for(i = 0; i < EOTS_TOWER_COUNT; i++)
     {
-        m_CPStatusGO[i] = m_mapMgr->CreateGameObject(EOTSTowerIds[i]);
-        if(m_CPStatusGO[i] == NULL || !m_CPStatusGO[i]->CreateFromProto( EOTSTowerIds[i], m_mapMgr->GetMapId(), EOTSCPLocations[i][0], EOTSCPLocations[i][1], EOTSCPLocations[i][2], 0.0f))
+        m_CPStatusGO[i] = m_mapInstance->CreateGameObject(EOTSTowerIds[i]);
+        if(m_CPStatusGO[i] == NULL || !m_CPStatusGO[i]->CreateFromProto( EOTSTowerIds[i], m_mapInstance->GetMapId(), EOTSCPLocations[i][0], EOTSCPLocations[i][1], EOTSCPLocations[i][2], 0.0f))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobject %u.", EOTSTowerIds[i]);
             abort();
             return;
         }
-        m_CPStatusGO[i]->PushToWorld( m_mapMgr );
+        m_CPStatusGO[i]->PushToWorld( m_mapInstance );
 
         //Flags set 1
-        m_CPBanner[i] = m_mapMgr->CreateGameObject(EOTS_BANNER_NEUTRAL);
-        if( m_CPBanner[i] == NULL || !m_CPBanner[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapMgr->GetMapId(), EOTSCTLocations[i][0], EOTSCTLocations[i][1], EOTSCTLocations[i][2], 0.0f))
+        m_CPBanner[i] = m_mapInstance->CreateGameObject(EOTS_BANNER_NEUTRAL);
+        if( m_CPBanner[i] == NULL || !m_CPBanner[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapInstance->GetMapId(), EOTSCTLocations[i][0], EOTSCTLocations[i][1], EOTSCTLocations[i][2], 0.0f))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobjects %u",EOTS_BANNER_NEUTRAL);
             abort();
             return;
         }
-        m_CPBanner[i]->PushToWorld( m_mapMgr );
+        m_CPBanner[i]->PushToWorld( m_mapInstance );
 
         //Flags set 2
-        m_CPBanner2[i] = m_mapMgr->CreateGameObject(EOTS_BANNER_NEUTRAL);
-        if( m_CPBanner2[i] == NULL || !m_CPBanner2[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapMgr->GetMapId(), EOTSCTLocations2[i][0], EOTSCTLocations2[i][1], EOTSCTLocations2[i][2], 0.0f))
+        m_CPBanner2[i] = m_mapInstance->CreateGameObject(EOTS_BANNER_NEUTRAL);
+        if( m_CPBanner2[i] == NULL || !m_CPBanner2[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapInstance->GetMapId(), EOTSCTLocations2[i][0], EOTSCTLocations2[i][1], EOTSCTLocations2[i][2], 0.0f))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobjects %u",EOTS_BANNER_NEUTRAL);
             abort();
             return;
         }
-        m_CPBanner2[i]->PushToWorld( m_mapMgr );
+        m_CPBanner2[i]->PushToWorld( m_mapInstance );
 
         //Flag set 3
-        m_CPBanner3[i] = m_mapMgr->CreateGameObject(EOTS_BANNER_NEUTRAL);
-        if( m_CPBanner3[i] == NULL || !m_CPBanner3[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapMgr->GetMapId(), EOTSCTLocations3[i][0], EOTSCTLocations3[i][1], EOTSCTLocations3[i][2], 0.0f))
+        m_CPBanner3[i] = m_mapInstance->CreateGameObject(EOTS_BANNER_NEUTRAL);
+        if( m_CPBanner3[i] == NULL || !m_CPBanner3[i]->CreateFromProto( EOTS_BANNER_NEUTRAL, m_mapInstance->GetMapId(), EOTSCTLocations3[i][0], EOTSCTLocations3[i][1], EOTSCTLocations3[i][2], 0.0f))
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobjects %u",EOTS_BANNER_NEUTRAL);
             abort();
             return;
         }
-        m_CPBanner3[i]->PushToWorld( m_mapMgr );
+        m_CPBanner3[i]->PushToWorld( m_mapInstance );
     }
 
     /* BUBBLES! */
     for( i = 0; i < 2; i++ )
     {
-        m_bubbles[i] = m_mapMgr->CreateGameObject((uint32)EOTSBubbleLocations[i][0]);
-        if( m_bubbles[i] == NULL || !m_bubbles[i]->CreateFromProto( (uint32)EOTSBubbleLocations[i][0], m_mapMgr->GetMapId(), EOTSBubbleLocations[i][1], EOTSBubbleLocations[i][2], EOTSBubbleLocations[i][3], EOTSBubbleLocations[i][4] ) )
+        m_bubbles[i] = m_mapInstance->CreateGameObject((uint32)EOTSBubbleLocations[i][0]);
+        if( m_bubbles[i] == NULL || !m_bubbles[i]->CreateFromProto( (uint32)EOTSBubbleLocations[i][0], m_mapInstance->GetMapId(), EOTSBubbleLocations[i][1], EOTSBubbleLocations[i][2], EOTSBubbleLocations[i][3], EOTSBubbleLocations[i][4] ) )
         {
             sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobjects. Terminating.");
             abort();
@@ -573,7 +573,7 @@ void EyeOfTheStorm::OnCreate()
         m_bubbles[i]->SetUInt32Value(GAMEOBJECT_FACTION, 1375);
         m_bubbles[i]->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
 
-        m_bubbles[i]->PushToWorld( m_mapMgr );
+        m_bubbles[i]->PushToWorld( m_mapInstance );
     }
 
     /* Buffs */
@@ -583,15 +583,15 @@ void EyeOfTheStorm::OnCreate()
     SpawnBuff(EOTS_TOWER_BE);
 
     /* Flag */
-    m_standFlag = m_mapMgr->CreateGameObject(EOTS_STANDFLAG);
-    if( m_standFlag == NULL ||! m_standFlag->CreateFromProto( EOTS_STANDFLAG, m_mapMgr->GetMapId(), 2174.782227f, 1569.054688f, 1160.361938f, -1.448624f ))
+    m_standFlag = m_mapInstance->CreateGameObject(EOTS_STANDFLAG);
+    if( m_standFlag == NULL ||! m_standFlag->CreateFromProto( EOTS_STANDFLAG, m_mapInstance->GetMapId(), 2174.782227f, 1569.054688f, 1160.361938f, -1.448624f ))
     {
         sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "EOTS is being created and you are missing gameobject %u",EOTS_STANDFLAG);
         abort();
         return;
     }
     m_standFlag->SetFloatValue( OBJECT_FIELD_SCALE_X, 2.5f );
-    m_standFlag->PushToWorld( m_mapMgr );
+    m_standFlag->PushToWorld( m_mapInstance );
 }
 
 void EyeOfTheStorm::RespawnCPFlag(uint32 i, uint32 id)
@@ -624,7 +624,7 @@ void EyeOfTheStorm::UpdateCPs()
             if(plr == NULL)
                 continue;
 
-            if( !plr->IsPvPFlagged() || /*plr->InStealth() ||*/ plr->m_invisible || plr->m_bgFlagIneligible )
+            if( !plr->IsPvPFlagged() || /*plr->InStealth() ||*/ plr->IsInvisible() || plr->m_bgFlagIneligible )
                 is_valid = false;
             else is_valid = true;
 
@@ -684,11 +684,11 @@ void EyeOfTheStorm::UpdateCPs()
                 SendChatMessage(CHAT_MSG_BG_SYSTEM_HORDE, 0, "The Horde have captured the %s.", EOTSCPNames[i]);
 
                 // set some world states
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 0);
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 1);
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 0);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 0);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 1);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 0);
                 m_towerCount[1]++;
-                m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_HORDE_BASES, m_towerCount[1] );
+                m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_HORDE_BASES, m_towerCount[1] );
             }
         }
         else if( m_CPStatus[i] > 50 )
@@ -711,11 +711,11 @@ void EyeOfTheStorm::UpdateCPs()
                 SendChatMessage(CHAT_MSG_BG_SYSTEM_ALLIANCE, 0, "The Alliance have captured the %s.", EOTSCPNames[i]);
 
                 // set some world states
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 0);
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 0);
-                m_mapMgr->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 1);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 0);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 0);
+                m_mapInstance->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 1);
                 m_towerCount[0]++;
-                m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_BASES, m_towerCount[0] );
+                m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_BASES, m_towerCount[0] );
             }
         }
         else
@@ -739,7 +739,7 @@ void EyeOfTheStorm::UpdateCPs()
                         if( m_towerCount[0] < 0 )
                             m_towerCount[0] = 0;
 
-                        m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_BASES, m_towerCount[0] );
+                        m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_BASES, m_towerCount[0] );
                     }
                     else
                     {
@@ -749,7 +749,7 @@ void EyeOfTheStorm::UpdateCPs()
                             m_towerCount[1] = 0;
 
 
-                        m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_HORDE_BASES, m_towerCount[1] );
+                        m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_HORDE_BASES, m_towerCount[1] );
                     }
 
                     RespawnCPFlag(i, EOTS_BANNER_NEUTRAL);
@@ -762,9 +762,9 @@ void EyeOfTheStorm::UpdateCPs()
                     }
 
                     // set some world states
-                    m_mapMgr->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 1);
-                    m_mapMgr->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 0);
-                    m_mapMgr->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 0);
+                    m_mapInstance->GetStateManager().UpdateWorldState(EOTSNeturalDisplayFields[i], 1);
+                    m_mapInstance->GetStateManager().UpdateWorldState(EOTSHordeDisplayFields[i], 0);
+                    m_mapInstance->GetStateManager().UpdateWorldState(EOTSAllianceDisplayFields[i], 0);
                 }
             }
         }
@@ -777,7 +777,7 @@ void EyeOfTheStorm::UpdateCPs()
 
             if( it3->second != timeptr )
             {
-                plr = m_mapMgr->GetPlayer(it3->first);
+                plr = m_mapInstance->GetPlayer(it3->first);
 
                 // they WILL be out of range at this point. this is guaranteed. means they left the set rly quickly.
                 if( plr != NULL )
@@ -883,7 +883,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
     if( m_points[team] >= 1600 )
     {
         m_points[team] = 1600;
-        m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_VICTORYPOINTS + team, m_points[team] );
+        m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_VICTORYPOINTS + team, m_points[team] );
 
         m_ended = true;
         m_losingteam = (team) ? 0 : 1;
@@ -896,7 +896,7 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
         return true;
     }
 
-    m_mapMgr->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_VICTORYPOINTS + team, m_points[team] );
+    m_mapInstance->GetStateManager().UpdateWorldState( WORLDSTATE_EOTS_ALLIANCE_VICTORYPOINTS + team, m_points[team] );
     return false;
 }
 
@@ -929,13 +929,13 @@ void EyeOfTheStorm::SpawnBuff(uint32 x)
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 0, 1);      //STATE
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 1, 6);      //GAMEOBJECT_TYPEID
         m_EOTSbuffs[x]->SetByte(GAMEOBJECT_BYTES_1, 3, 100);    //ANIM_PROGRESS
-        m_EOTSbuffs[x]->PushToWorld(m_mapMgr);
+        m_EOTSbuffs[x]->PushToWorld(m_mapInstance);
     }
     else
     {
         if(m_EOTSbuffs[x]->IsInWorld())
             m_EOTSbuffs[x]->RemoveFromWorld(false);
-        m_EOTSbuffs[x]->PushToWorld(m_mapMgr);
+        m_EOTSbuffs[x]->PushToWorld(m_mapInstance);
     }
 }
 

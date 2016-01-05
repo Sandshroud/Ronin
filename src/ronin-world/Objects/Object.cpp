@@ -555,7 +555,7 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
     m_areaFlags = 0;
     m_lastMovementZone = 0;
 
-    m_mapMgr = NULL;
+    m_mapInstance = NULL;
     m_mapCell = 0;
 
     m_factionTemplate = NULL;
@@ -607,7 +607,7 @@ float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, floa
     if(!IsInWorld())
         return 0.0f;
 
-    MapMgr* mgr = GetMapMgr();
+    MapInstance* mgr = GetMapInstance();
     float offset = 0.12156f;
     if(x == 0.0f && y == 0.0f)
     {
@@ -794,7 +794,7 @@ void WorldObject::OnFieldUpdated(uint32 index)
 {
     if(IsInWorld() && !m_objectUpdated)
     {
-        m_mapMgr->ObjectUpdated(this);
+        m_mapInstance->ObjectUpdated(this);
         m_objectUpdated = true;
     }
 
@@ -811,7 +811,7 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     if (IsInWorld() && updateMap)
     {
         m_lastMapUpdatePosition = m_position;
-        m_mapMgr->ChangeObjectLocation(this);
+        m_mapInstance->ChangeObjectLocation(this);
 
         if( IsPlayer() && castPtr<Player>(this)->GetGroup() && castPtr<Player>(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
             castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, castPtr<Player>(this) );
@@ -834,14 +834,11 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    bool gm = GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false;
     for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
             if(plr->GetSession() == NULL)
-                continue;
-            if(gm && plr->GetSession()->GetPermissionCount() == 0)
                 continue;
             plr->GetSession()->OutPacket(Opcode, Len, Data);
         }
@@ -860,7 +857,6 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
         myTeam = castPtr<Player>(this)->GetTeam();
     }
 
-    bool gm = data->GetOpcode() == SMSG_MESSAGECHAT ? false : ( GetTypeId() == TYPEID_PLAYER ? castPtr<Player>(this)->m_isGmInvisible : false );
     for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
@@ -869,8 +865,6 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
                 continue;
             if(myteam_only && plr->GetTeam() != myTeam)
                 continue;
-            if(gm && plr->GetSession()->GetPermissionCount() == 0)
-                continue;
             plr->GetSession()->SendPacket(data);
         }
     }
@@ -878,7 +872,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
 
 //Unlike addtoworld it pushes it directly ignoring add pool
 //this can only be called from the thread of mapmgr!!!
-void WorldObject::PushToWorld(MapMgr* mgr)
+void WorldObject::PushToWorld(MapInstance* mgr)
 {
     ASSERT(mgr != NULL);
     if(mgr == NULL)
@@ -899,7 +893,7 @@ void WorldObject::PushToWorld(MapMgr* mgr)
     OnPrePushToWorld();
 
     // Set our map manager
-    m_mapMgr = mgr;
+    m_mapInstance = mgr;
 
     mgr->PushObject(this);
 
@@ -918,9 +912,9 @@ void WorldObject::RemoveFromWorld(bool free_guid)
     // clear loot
     ClearLoot();
 
-    ASSERT(m_mapMgr);
-    MapMgr* m = m_mapMgr;
-    m_mapMgr = NULL;
+    ASSERT(m_mapInstance);
+    MapInstance* m = m_mapInstance;
+    m_mapInstance = NULL;
 
     m->RemoveObject(this, free_guid);
 
@@ -1136,8 +1130,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         return 0;
     if( !pVictim || !pVictim->isAlive() || !pVictim->IsInWorld())
         return 0;
-    if( pVictim->bInvincible == true )
-        return 0;
     if( pVictim->IsSpiritHealer() )
         return 0;
 
@@ -1207,9 +1199,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if(plr != NULL && pVictim->IsCreature())
             castPtr<Creature>(pVictim)->Tag(plr);
 
-        // Pepsi1x1: is this correct this
         if( pVictim != castPtr<Unit>(this))
-            castPtr<Unit>(this)->CombatStatus.OnDamageDealt( pVictim, damage );
+            pVictim->SetInCombat(castPtr<Unit>(this));
     }
 
     ///Rage
@@ -1256,10 +1247,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
                 // Remove Negative Auras from duelist.
                 castPtr<Player>(pVictim)->m_AuraInterface.RemoveAllNegAurasFromGUID(GetGUID());
-
-                // Player in Duel and Player Victim has lost
-                castPtr<Player>(pVictim)->CombatStatus.Vanish(GetLowGUID());
-                castPtr<Player>(this)->CombatStatus.Vanish(pVictim->GetLowGUID());
 
                 damage = health-5;
             } else if(castPtr<Player>(pVictim)->DuelingWith != NULL)
@@ -1308,8 +1295,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         //warlock - seed of corruption
         if( IsUnit() )
         {
-            if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapMgr->m_battleground && m_mapMgr->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
-                castPtr<AlteracValley>(m_mapMgr->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
+            if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapInstance->m_battleground && m_mapInstance->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
+                castPtr<AlteracValley>(m_mapInstance->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
         }
 
         // check if pets owner is combat participant
@@ -1322,7 +1309,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         }
 
         /* victim died! */
-        Unit* pKiller = pVictim->CombatStatus.GetKiller();
+        Unit* pKiller = pVictim->m_killer.empty() ? NULL : GetInRangeObject<Unit>(pVictim->m_killer);
         if( pVictim->IsPlayer() )
         {
             // let's see if we have shadow of death
@@ -1346,7 +1333,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
-            TRIGGER_INSTANCE_EVENT( m_mapMgr, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
+            TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerDeath )( castPtr<Player>(pVictim), pKiller );
         }
         else
         {
@@ -1356,7 +1343,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             /* Set victim health to 0 */
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 0);
 
-            TRIGGER_INSTANCE_EVENT( m_mapMgr, OnCreatureDeath )( castPtr<Creature>(pVictim), pKiller );
+            TRIGGER_INSTANCE_EVENT( m_mapInstance, OnCreatureDeath )( castPtr<Creature>(pVictim), pKiller );
         }
 
         pVictim->SummonExpireAll(false);
@@ -1364,7 +1351,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if( pVictim->IsPlayer() && (!IsPlayer() || pVictim == castPtr<Unit>(this) ) )
             castPtr<Player>( pVictim )->DeathDurabilityLoss(0.10);
 
-        /* Zone Under Attack */
+        /* Zone Under Attack * /
         MapInfo * pZMapInfo = WorldMapInfoStorage.LookupEntry(GetMapId());
         if( pZMapInfo != NULL && pZMapInfo->type == INSTANCE_NULL && !pVictim->IsPlayer() && !pVictim->IsPet() && ( IsPlayer() || IsPet() ) )
         {
@@ -1393,7 +1380,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     }
                 }
             }
-        }
+        }*/
 
         if(pVictim->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT) > 0)
         {
@@ -1404,7 +1391,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 {
                     if(spl->GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
                     {
-                        DynamicObject* dObj = GetMapMgr()->GetDynamicObject(pVictim->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
+                        DynamicObject* dObj = GetMapInstance()->GetDynamicObject(pVictim->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
                         if(dObj != NULL)
                         {
                             WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
@@ -1446,9 +1433,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             pVictim->Dismount();
         }
 
-        // Wipe our attacker set on death
-        pVictim->CombatStatus.Vanished();
-
         /* Stop Units from attacking */
         if( pAttacker && pAttacker->IsInWorld() )
             pAttacker->EventAttackStop();
@@ -1480,7 +1464,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             if( plr->m_bg != NULL )
                 plr->m_bg->HookOnPlayerKill( plr, pVictim );
-            TRIGGER_INSTANCE_EVENT( plr->GetMapMgr(), OnPlayerKillPlayer )( plr, pVictim );
+            TRIGGER_INSTANCE_EVENT( plr->GetMapInstance(), OnPlayerKillPlayer )( plr, pVictim );
 
             if( pVictim->IsPlayer() )
                 HonorHandler::OnPlayerKilled( plr, castPtr<Player>( pVictim ) );
@@ -1528,7 +1512,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             //--------------------------------- POSSESSED CREATURES -----------------------------------------
             if( pVictim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE) )
             {   //remove possess aura from controller
-                Player* vController = GetMapMgr()->GetPlayer( (uint32)pVictim->GetUInt64Value(UNIT_FIELD_CHARMEDBY) );
+                Player* vController = GetMapInstance()->GetPlayer( (uint32)pVictim->GetUInt64Value(UNIT_FIELD_CHARMEDBY) );
                 if( vController )
                 {
                     if( vController->GetUInt64Value( UNIT_FIELD_CHARM ) == victimGuid )//make sure he is target controller
@@ -1649,7 +1633,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 else if( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) )
                 {
                     //remove owner warlock soul link from caster
-                    Unit* owner=pVictim->GetMapMgr()->GetUnit( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) );
+                    Unit* owner=pVictim->GetMapInstance()->GetUnit( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) );
                     if( owner != NULL && owner->IsPlayer())
                         castPtr<Player>( owner )->EventDismissPet();
                 }
@@ -1807,11 +1791,11 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
         else res = float(dmg.full_damage - dmg.resisted_damage);
     }
     //------------------------------special states----------------------------------------------
-    if(pVictim->bInvincible == true)
+    /*if(pVictim->bInvincible == true)
     {
         res = 0;
         dmg.resisted_damage = dmg.full_damage;
-    }
+    }*/
 
 //==========================================================================================
 //==============================Data Sending ProcHandling===================================
@@ -1824,12 +1808,8 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
 
     if( ires > 0 ) // only deal damage if its >0
         DealDamage( pVictim, float2int32( res ), 2, 0, spellID );
-    else
-    {
-        // we still have to tell the combat status handler we did damage so we're put in combat
-        if( IsUnit() )
-            castPtr<Unit>(this)->CombatStatus.OnDamageDealt(pVictim, 1);
-    }
+    else if(IsUnit()) // we still have to tell the combat status handler we did damage so we're put in combat
+        castPtr<Unit>(this)->SetInCombat(pVictim);
 
     if( (dmg.full_damage == 0 && abs_dmg) == 0 )
     {
@@ -1915,7 +1895,7 @@ bool WorldObject::CanActivate()
     return false;
 }
 
-void WorldObject::Activate(MapMgr* mgr)
+void WorldObject::Activate(MapInstance* mgr)
 {
     switch(GetTypeId())
     {
@@ -1931,9 +1911,9 @@ void WorldObject::Activate(MapMgr* mgr)
     Active = true;
 }
 
-void WorldObject::Deactivate(MapMgr* mgr)
+void WorldObject::Deactivate(MapInstance* mgr)
 {
-    mgr->ActiveLock.Acquire();
+    mgr->m_activeLock.Acquire();
     switch(GetTypeId())
     {
     case TYPEID_UNIT:
@@ -1955,7 +1935,7 @@ void WorldObject::Deactivate(MapMgr* mgr)
         }break;
     }
     Active = false;
-    mgr->ActiveLock.Release();
+    mgr->m_activeLock.Release();
 }
 
 void WorldObject::SetZoneId(uint32 newZone)
@@ -1986,7 +1966,7 @@ uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
     return 0;
 }
 
-void WorldObject::UpdateAreaInfo(MapMgr *mgr)
+void WorldObject::UpdateAreaInfo(MapInstance *mgr)
 {
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && !IsInWorld())
@@ -1994,7 +1974,7 @@ void WorldObject::UpdateAreaInfo(MapMgr *mgr)
         m_zoneId = m_areaId = 0;
         return;
     } else if(mgr == NULL)
-        mgr = GetMapMgr();
+        mgr = GetMapInstance();
 
     m_zoneId = m_areaId = mgr->GetAreaID(GetPositionX(), GetPositionY(), GetPositionZ());
     if(uint32 forcedZone = GetZoneForMap(mgr->GetMapId(), m_areaId))
@@ -2098,7 +2078,7 @@ void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32
 
 bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 {
-    if(!IsInWorld() || !GetMapMgr()->CanUseCollision(this) || !GetMapMgr()->CanUseCollision(pObj))
+    if(!IsInWorld() || !GetMapInstance()->CanUseCollision(this) || !GetMapInstance()->CanUseCollision(pObj))
         return true;
     float Onoselevel = IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f, Tnoselevel = pObj->IsPlayer() ? castPtr<Player>(pObj)->m_noseLevel : 2.f;
     return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel, pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel) );
@@ -2106,7 +2086,7 @@ bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 
 bool WorldObject::IsInLineOfSight(float x, float y, float z)
 {
-    if(!IsInWorld() || !GetMapMgr()->CanUseCollision(this))
+    if(!IsInWorld() || !GetMapInstance()->CanUseCollision(this))
         return true;
     return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f), x, y, z) );
 }

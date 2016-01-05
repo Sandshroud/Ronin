@@ -250,7 +250,7 @@ struct SERVER_DECL TimedEvent
     time_t currTime;
     uint16 repeats;
     bool deleted;
-    int instanceId;
+    int mapId;
     volatile long ref;
     uint32 eventAuraid;
 

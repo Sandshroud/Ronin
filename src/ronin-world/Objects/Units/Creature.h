@@ -182,6 +182,13 @@ public:
     virtual void Init();
     virtual void Destruct();
 
+    const char* GetName()
+    {
+        if(getGender() && !_creatureData->femaleName.empty())
+            return _creatureData->femaleName.c_str();
+        return _creatureData->maleName.c_str();
+    }
+
     /// Updates
     virtual void Update( uint32 time );
 
@@ -322,7 +329,7 @@ public:
         if(!obj)
             return false;
 
-        if(obj->m_invisible) // Invisibility - Detection of Players and Units
+        if(obj->IsInvisible()) // Invisibility - Detection of Players and Units
         {
             if(obj->getDeathState() == CORPSE) // can't see dead players' spirits
                 return false;
@@ -347,14 +354,7 @@ public:
     //Make this unit face another unit
     bool setInFront(Unit* target);
 
-    bool Skinned;
-
-    /// Misc
-    RONIN_INLINE void setEmoteState(uint8 emote) { m_emoteState = emote; };
-
     virtual void SetDeathState(DeathState s);
-
-    uint32 GetOldEmote() { return m_oldEmote; }
 
     // Serialization
     void SaveToDB(bool saveposition = false);
@@ -364,7 +364,7 @@ public:
 
     void OnJustDied();
     void OnRemoveCorpse();
-    void OnRespawn(MapMgr* m);
+    void OnRespawn(MapInstance* m);
     void SafeDelete();
 
     // In Range
@@ -383,10 +383,8 @@ public:
     void SetEnslaveSpell(uint32 spellId) { m_enslaveSpell = spellId; }
     bool RemoveEnslave();
 
-    RONIN_INLINE bool IsPickPocketed() { return m_PickPocketed; }
-    RONIN_INLINE void SetPickPocketed(bool val = true) { m_PickPocketed = val; }
-
-    const char* GetName() { return m_gender && !_creatureData->femaleName.empty() ? _creatureData->femaleName.c_str() : _creatureData->maleName.c_str();  }
+    RONIN_INLINE bool IsPickPocketed() { return m_pickPocketed; }
+    RONIN_INLINE void SetPickPocketed(bool val = true) { m_pickPocketed = val; }
 
     bool isBoss();
     bool isCivilian();
@@ -395,20 +393,14 @@ public:
     RONIN_INLINE CreatureData *GetCreatureData() { return _creatureData; }
     RONIN_INLINE CreatureInfoExtra *GetExtraInfo() { return _extraInfo; }
 
-    CreatureFamilyEntry * myFamily;
     void FormationLinkUp(uint32 SqlId);
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
     void Despawn(uint32 delay, uint32 respawntime);
 
-    AuctionHouse * auctionHouse;
-
     void DeleteMe();
-
-    Player* m_escorter;
     bool IsInLimboState() { return m_limbostate; }
     uint32 GetLineByFamily(CreatureFamilyEntry * family) { return family->skillLine[0] ? family->skillLine[0] : 0; };
     void RemoveLimboState(Unit* healer);
-    MapCell * m_respawnCell;
     uint32 GetCanMove() { return _creatureData->movementMask; }
 
     bool HasNpcFlag(uint32 Flag)
@@ -420,30 +412,6 @@ public:
 
     uint32 GetTaxiNode(uint8 team) { ASSERT(team < 2); return m_taxiNode[team]; }
 
-protected:
-    bool m_gender;
-    CreatureSpawn * m_spawn;
-    CreatureData *_creatureData;
-    CreatureInfoExtra * _extraInfo;
-
-    bool m_limbostate;
-
-    void _LoadMovement();
-
-    /// Vendor data
-    std::map<uint32, CreatureItem>* m_SellItems;
-
-    /// Taxi data
-    uint32 m_taxiNode[2];
-
-    /// Quest data
-    std::list<QuestRelation *>* m_quests;
-
-    /// Pet
-    uint32 m_enslaveCount;
-    uint32 m_enslaveSpell;
-
-    bool m_PickPocketed;
 public:
     RONIN_INLINE uint32 GetProtoItemDisplayId(uint8 i) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i); }
 
@@ -461,9 +429,9 @@ public:
     void Tag(Player* plr);
 
     // used by bgs
-    bool IsLightwell(uint32 entry) { if(GetEntry() == 31883 || GetEntry() == 31893 || GetEntry() == 31894 || GetEntry() == 31895 || GetEntry() == 31896 || GetEntry() == 31897) return true; return false; }
+    bool IsLightwell(uint32 entry) { return (GetEntry() == 31883 || GetEntry() == 31893 || GetEntry() == 31894 || GetEntry() == 31895 || GetEntry() == 31896 || GetEntry() == 31897); }
 
-    ItemPrototype* IP_shield;
+    ItemPrototype *GetShieldProto() { return m_shieldProto; }
 
 public: // values
     bool m_isGuard;
@@ -475,7 +443,40 @@ public: // values
     bool haslinkupevent;
     bool m_canRegenerateHP;
     bool m_noDeleteAfterDespawn;
-    uint32 m_taggingGroup;
-    uint32 m_taggingPlayer;
+    bool m_limbostate;
+    bool m_pickPocketed;
+
+    bool m_skinned;
     int8 m_lootMethod;
+    uint32 m_taggingGroup, m_taggingPlayer;
+
+    ItemPrototype* m_shieldProto;
+
+public:
+
+    CreatureSpawn * m_spawn;
+    CreatureData *_creatureData;
+    CreatureInfoExtra * _extraInfo;
+
+    CreatureFamilyEntry *myFamily;
+    AuctionHouse *auctionHouse;
+
+    Player *m_escorter;
+    MapCell *m_respawnCell;
+
+    void _LoadMovement();
+
+    /// Vendor data
+    std::map<uint32, CreatureItem> *m_SellItems;
+
+    /// Taxi data
+    uint32 m_taxiNode[2];
+
+    /// Quest data
+    std::list<QuestRelation *>* m_quests;
+
+    /// Pet
+    uint32 m_enslaveCount;
+    uint32 m_enslaveSpell;
+
 };

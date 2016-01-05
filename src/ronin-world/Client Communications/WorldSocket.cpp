@@ -341,7 +341,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
         if(session->GetPlayer()) // clear the logout timer so he times out straight away
             session->LogoutPlayer();
 
-        sWorld.DeleteGlobalSession(session, (session->GetInstance() == 0));
+        sWorld.DeleteGlobalSession(session, (session->GetEventInstanceId() == -1));
     }
 
     Sha1Hash sha;

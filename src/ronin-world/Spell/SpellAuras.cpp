@@ -337,8 +337,8 @@ Unit* Aura::GetUnitCaster()
 
     if( m_casterGuid && m_casterGuid == m_target->GetGUID() )
         return m_target;
-    if( m_target->GetMapMgr() != NULL )
-        return m_target->GetMapMgr()->GetUnit( m_casterGuid );
+    if( m_target->GetMapInstance() != NULL )
+        return m_target->GetMapInstance()->GetUnit( m_casterGuid );
     return NULL;
 }
 
@@ -478,18 +478,6 @@ void Aura::Remove()
         m_caster->SM_FIValue(SMT_CHARGES,&proccharges, m_spellProto->SpellGroupType);
         m_caster->SM_PIValue(SMT_CHARGES,&proccharges, m_spellProto->SpellGroupType);
     }
-
-    // remove attacker
-    if( m_caster != NULL)
-    {
-        if( m_caster != m_target )
-        {
-            // try to remove
-            m_caster->CombatStatus.RemoveAttackTarget(m_target);
-            if( m_caster->isDead() )
-                m_target->CombatStatus.ForceRemoveAttacker( m_caster->GetGUID() );
-        }
-    } else m_target->CombatStatus.ForceRemoveAttacker( m_casterGuid );
 
     if( m_spellProto->MechanicsType == MECHANIC_ENRAGED )
         m_target->RemoveFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE );
@@ -690,7 +678,7 @@ void Aura::EventRelocateRandomTarget()
         if( castPtr<Unit>(itr->second)->isDead() || m_caster->GetDistance2dSq( itr->second ) > 100 || !castPtr<Player>(m_caster)->CanSee(itr->second) )
             continue;
 
-        if (m_caster->GetMapMgr() && m_caster->GetMapMgr()->CanUseCollision(m_caster))
+        if (m_caster->GetMapInstance() && m_caster->GetMapInstance()->CanUseCollision(m_caster))
         {
             if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, itr->second->GetPositionX(), itr->second->GetPositionY(), itr->second->GetPositionZ() + 2.0f) )
                 continue;
@@ -803,9 +791,6 @@ void Aura::EventPeriodicHeal( uint32 amount )
     if(m_caster == NULL || !m_caster->IsInWorld())
         return;
 
-    if(m_target && m_target->IsInWorld() && m_caster != NULL && m_caster->IsInWorld())
-        m_caster->CombatStatus.WeHealed(m_target);
-
     uint32 base_threat = add;
     int count = 0;
     Unit* unit = NULL;
@@ -898,33 +883,6 @@ void Aura::SpellAuraModDetect(bool apply)
 
 void Aura::SpellAuraModInvisibility(bool apply)
 {
-    if(m_target->IsPlayer())
-    {
-        if(apply)
-            castPtr<Player>(m_target)->m_bgFlagIneligible++;
-        else
-            castPtr<Player>(m_target)->m_bgFlagIneligible--;
-
-        if(castPtr<Player>(m_target)->m_bg != NULL && castPtr<Player>(m_target)->m_bgHasFlag)
-            castPtr<Player>(m_target)->m_bg->HookOnMount(castPtr<Player>(m_target));
-        TRIGGER_INSTANCE_EVENT( m_target->GetMapMgr(), OnPlayerMount )( castPtr<Player>(m_target) );
-    }
-
-    if(m_spellProto->Effect[mod->i] == 128)
-        return;
-
-    if(apply) 
-    {
-        m_target->SetInvisibility(GetSpellId());
-        m_target->m_invisFlag = mod->m_miscValue[0];
-    }
-    else 
-    {
-        m_target->SetInvisibility(0);
-        m_target->m_invisFlag = INVIS_FLAG_NORMAL;
-    }
-
-    m_target->m_invisible = apply;
     m_target->UpdateVisibility();
 }
 
@@ -1727,13 +1685,13 @@ void Aura::SpellAuraAddFarSight(bool apply)
         float sightX = m_caster->GetPositionX() + 100.0f;
         float sightY = m_caster->GetPositionY() + 100.0f;
         m_caster->SetUInt64Value(PLAYER_FARSIGHT, mod->m_miscValue[0]);
-        m_caster->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(m_caster), sightX, sightY, true);
+        m_caster->GetMapInstance()->ChangeFarsightLocation(castPtr<Player>(m_caster), sightX, sightY, true);
 
     }
     else
     {
         m_caster->SetUInt64Value(PLAYER_FARSIGHT, 0);
-        m_caster->GetMapMgr()->ChangeFarsightLocation(castPtr<Player>(m_caster), 0, 0, false);
+        m_caster->GetMapInstance()->ChangeFarsightLocation(castPtr<Player>(m_caster), 0, 0, false);
     }
 }
 
@@ -1816,7 +1774,7 @@ void Aura::SpellAuraMounted(bool apply)
 
         if(pPlayer->m_bg)
             pPlayer->m_bg->HookOnMount(pPlayer);
-        TRIGGER_INSTANCE_EVENT( pPlayer->GetMapMgr(), OnPlayerMount )( pPlayer );
+        TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerMount )( pPlayer );
 
         m_target->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
 
@@ -2024,7 +1982,6 @@ void Aura::SpellAuraGhost(bool apply)
     if(m_target->IsPlayer())
     {
         SpellAuraWaterWalk( apply );
-        m_target->m_invisible = apply;
     }
     //m_target->SendPowerUpdate();
 }
@@ -3130,13 +3087,9 @@ void Aura::SpellAuraModPetTalentPoints(bool apply)
     if( !m_target->IsPlayer() )
         return;
 
-    Unit* unit = castPtr<Unit>(m_target);
-    if( unit )
-        unit->ChangePetTalentPointModifier(apply);
     Player * player = castPtr<Player>(m_target);
     if(player && player->GetSummon()!= NULL)
         player->GetSummon()->InitTalentsForLevel();
-
 }
 
 void Aura::SpellAuraPeriodicTriggerSpellWithValue(bool apply)
