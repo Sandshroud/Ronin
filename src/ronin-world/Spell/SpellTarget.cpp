@@ -201,13 +201,16 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     if(m_caster->CalcDistance(source) <= r)
         AddTarget(i, TargetType, m_caster);
 
-    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); ++itr)
+    WorldObject *wObj = NULL;
+    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
+        if((wObj = itr->second) == NULL)
+            continue;
         if(maxtargets != 0 && m_effectTargetMaps[i].size() >= maxtargets)
             break;
-        if(itr->second->CalcDistance(source) > r)
+        if(wObj->CalcDistance(source) > r)
             continue;
-        AddTarget(i, TargetType, itr->second);
+        AddTarget(i, TargetType, wObj);
     }
 }
 
@@ -226,7 +229,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
-        if(!target->isAlive())
+        if(target == NULL || !target->isAlive())
             continue;
         if(!p->IsGroupMember(target))
             continue;
@@ -254,10 +257,10 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
     AddTarget(i, TargetType, p);
 
     WorldObject::InRangeSet::iterator itr;
-    for(itr = u->GetInRangeUnitSetBegin(); itr != u->GetInRangeUnitSetEnd(); itr++)
+    for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
-        if(!target->isAlive())
+        if(target == NULL || !target->isAlive())
             continue;
         if(!p->IsGroupMember(target))
             continue;
@@ -374,16 +377,18 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
 
 void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr)
+    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
-        GameObject* go = m_caster->GetInRangeObject<GameObject>(*itr);
-        if(go->GetInfo()->data.spellFocus.focusId == m_spellInfo->RequiresSpellFocus)
+        if(GameObject* go = m_caster->GetInRangeObject<GameObject>(*itr))
         {
-            if(!m_caster->isInRange(go, r))
-                continue;
+            if(go->GetInfo()->data.spellFocus.focusId == m_spellInfo->RequiresSpellFocus)
+            {
+                if(!m_caster->isInRange(go, r))
+                    continue;
 
-            if(AddTarget(i, TargetType, go))
-                return;
+                if(AddTarget(i, TargetType, go))
+                    return;
+            }
         }
     }
 }

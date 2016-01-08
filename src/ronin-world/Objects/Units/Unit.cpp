@@ -7,6 +7,8 @@
 Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
+    m_objType = TYPEID_UNIT;
+
     m_updateFlags |= UPDATEFLAG_LIVING;
 
     m_attackInterrupt = 0;
@@ -15,9 +17,7 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_dualWield = m_autoShot = false;
 
     baseStats = NULL;
-    m_statValuesChanged = false;
-    m_needStatRecalculation = true;
-    m_needRecalculateAllFields = true;
+    m_modQueuedModUpdates[1].empty();
 
     m_state = 0;
     m_deathState = ALIVE;
@@ -120,7 +120,6 @@ void Unit::Update( uint32 p_time )
 
     _UpdateSpells( p_time );
     m_AuraInterface.Update(p_time);
-
     if(isDead())
         return;
 
@@ -241,7 +240,7 @@ void Unit::Update( uint32 p_time )
             m_H_regenTimer = 1000;//set next regen time
             RegenerateHealth(IsInCombat());
         } else m_H_regenTimer -= p_time;
-    }
+    } else m_H_regenTimer = 1000;
 
     m_P_regenTimer += p_time;
     if(m_P_regenTimer >= 1000)
@@ -258,121 +257,101 @@ void Unit::Update( uint32 p_time )
     m_movementInterface.Update(p_time);
 }
 
+void Unit::OnAuraModChanged(uint32 modType)
+{
+    uint8 index = 0;
+    switch(modType)
+    {
+    case SPELL_AURA_MOD_STAT:
+    case SPELL_AURA_MOD_PERCENT_STAT:
+    case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
+        index = 1;
+        break;
+    case SPELL_AURA_MOD_BASE_HEALTH_PCT:
+    case SPELL_AURA_MOD_INCREASE_HEALTH:
+    case SPELL_AURA_MOD_INCREASE_MAX_HEALTH:
+    case SPELL_AURA_MOD_INCREASE_HEALTH_2:
+    case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
+        index = 2;
+        break;
+    case SPELL_AURA_MOD_INCREASE_ENERGY:
+    case SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT:
+        index = 3;
+        break;
+    case SPELL_AURA_MOD_POWER_REGEN:
+    case SPELL_AURA_MOD_POWER_REGEN_PERCENT:
+    case SPELL_AURA_MOD_MANA_REGEN_INTERRUPT:
+        index = 4;
+        break;
+    case SPELL_AURA_MOD_ATTACKSPEED:
+        index = 5;
+        break;
+    case SPELL_AURA_MOD_RESISTANCE:
+    case SPELL_AURA_MOD_RESISTANCE_PCT:
+    case SPELL_AURA_MOD_BASE_RESISTANCE:
+    case SPELL_AURA_MOD_BASE_RESISTANCE_PCT:
+    case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
+        index = 6;
+        break;
+    case SPELL_AURA_MOD_ATTACK_POWER_PCT:
+        index = 7;
+        break;
+    case SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT:
+        index = 8;
+        break;
+    case SPELL_AURA_MOD_DAMAGE_DONE:
+    case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
+        index = 9;
+        break;
+    case SPELL_AURA_MOD_POWER_COST_SCHOOL:
+    case SPELL_AURA_MOD_POWER_COST:
+        index = 10;
+        break;
+    case SPELL_AURA_HOVER:
+        index = 11;
+        break;
+    case SPELL_AURA_MOD_RATING:
+    case SPELL_AURA_MOD_RATING_FROM_STAT:
+        index = IsPlayer() ? 12 : 0;
+        break;
+    }
+    if(index == 0)
+        return;
+
+    m_modQueuedModUpdates[index].insert(modType);
+}
+
 void Unit::UpdateFieldValues()
 {
-    // Update base stats first
-    UpdateStatValues();
-    UpdateHealthValues();
-    UpdatePowerValues();
-    UpdateRegenValues();
-    UpdateAttackTimeValues();
-    UpdateResistanceValues();
-    UpdateAttackPowerValues();
-    UpdateRangedAttackPowerValues();
-    UpdateAttackDamageValues();
-    UpdatePowerCostValues();
-    UpdateHoverValues();
-    ClearFieldUpdateValues();
+    if(m_modQueuedModUpdates.empty())
+        return;
+
+    for(auto itr = m_modQueuedModUpdates.begin(); itr != m_modQueuedModUpdates.end(); itr++)
+        ProcessModUpdate(itr->first, itr->second);
+    m_modQueuedModUpdates.clear();
 }
 
-void Unit::ClearFieldUpdateValues()
+void Unit::ProcessModUpdate(uint8 modUpdateType, std::set<uint32> modMap)
 {
-    m_needRecalculateAllFields = m_needStatRecalculation = m_statValuesChanged = false;
-    m_AuraInterface.ClearModMaskBits();
-}
-
-bool Unit::StatUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_needStatRecalculation;
-    bool res = m_needRecalculateAllFields|m_needStatRecalculation;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_STAT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_PERCENT_STAT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
-    return res;
-}
-
-bool Unit::HealthUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_HEALTH_PCT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_MAX_HEALTH);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH_2);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT);
-    return res;
-}
-
-bool Unit::PowerUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT);
-    return res;
-}
-
-bool Unit::RegenUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_REGEN);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_REGEN_PERCENT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT);
-    return res;
-}
-
-bool Unit::AttackTimeUpdateRequired(uint8 weaponType)
-{
-    return m_needRecalculateAllFields;
-    bool res = m_needRecalculateAllFields;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACKSPEED);
-    return res;
-}
-
-bool Unit::AttackDamageUpdateRequired(uint8 weaponType)
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged|AttackTimeUpdateRequired(weaponType);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_DONE);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
-
-    return res;
-}
-
-bool Unit::APUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT);
-    return res;
-}
-
-bool Unit::RAPUpdateRequired()
-{
-    return m_needRecalculateAllFields|m_statValuesChanged;
-    bool res = m_needRecalculateAllFields|m_statValuesChanged;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
-    return res;
-}
-
-bool Unit::ResUpdateRequired()
-{
-    return m_needRecalculateAllFields;
-    bool res = m_needRecalculateAllFields;
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE_PCT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_RESISTANCE);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_BASE_RESISTANCE_PCT);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
-    return res;
+    switch(modUpdateType)
+    {
+    case 1: UpdateStatValues(); break;
+    case 2: UpdateHealthValues(); break;
+    case 3: UpdatePowerValues(); break;
+    case 4: UpdateRegenValues(); break;
+    case 5: UpdateAttackTimeValues(); break;
+    case 6: UpdateResistanceValues(); break;
+    case 7: UpdateAttackPowerValues(modMap); break;
+    case 8: UpdateRangedAttackPowerValues(modMap); break;
+    case 9: UpdateAttackDamageValues(); break;
+    case 10: UpdatePowerCostValues(modMap); break;
+    case 11: UpdateHoverValues(); break;
+    case 12: castPtr<Player>(this)->UpdatePlayerRatings(); break;
+    }
 }
 
 void Unit::UpdateStatValues()
 {
-    if(!StatUpdateRequired())
-        return;
-
     int32 basepos,pos,neg;
     AuraInterface::modifierMap statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
         statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
@@ -421,14 +400,16 @@ void Unit::UpdateStatValues()
         SetUInt32Value(UNIT_FIELD_NEGSTATS+s, neg);
     }
     // Set stat values as updated to update affected auras
-    m_statValuesChanged = true;
+    m_modQueuedModUpdates[2].empty();
+    m_modQueuedModUpdates[3].empty();
+    m_modQueuedModUpdates[4].empty();
+    m_modQueuedModUpdates[7].empty();
+    m_modQueuedModUpdates[8].empty();
+    m_modQueuedModUpdates[9].empty();
 }
 
 void Unit::UpdateHealthValues()
 {
-    if(!HealthUpdateRequired())
-        return;
-
     uint32 HP = baseStats ? baseStats->baseHP : 20;
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, HP);
     AuraInterface::modifierMap increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_HEALTH_PCT);
@@ -462,9 +443,6 @@ void Unit::UpdateHealthValues()
 static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
-    if(!PowerUpdateRequired())
-        return;
-
     uint32 power = baseStats ? baseStats->basePower : 0;
     if(power)
     {
@@ -508,9 +486,6 @@ void Unit::UpdatePowerValues()
 static uint32 baseRegenValues[POWER_TYPE_MAX] = { 0, 10, 5, 5, 250, 10, 0, 0, 0, 0 };
 void Unit::UpdateRegenValues()
 {
-    if(!RegenUpdateRequired())
-        return;
-
     float base_regen = GetUInt32Value(UNIT_FIELD_BASE_MANA) * 0.01f;
     if(base_regen)
     {
@@ -569,9 +544,6 @@ void Unit::UpdateAttackTimeValues()
     uint8 updateMask = 0x00;
     for(uint8 i = 0; i < 3; i++)
     {
-        if(!AttackTimeUpdateRequired(i))
-            continue;
-
         uint32 baseAttack = GetBaseAttackTime(i);
         if(baseAttack || i == 0) // Force an attack time for mainhand
         {
@@ -599,7 +571,10 @@ void Unit::UpdateAttackTimeValues()
     }
 
     if(updateMask > 0)
+    {
         resetAttackDelay(updateMask);
+        m_modQueuedModUpdates[9].empty();
+    }
 }
 
 static uint32 minAttackPowers[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
@@ -608,9 +583,6 @@ void Unit::UpdateAttackDamageValues()
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
     for(uint8 i = 0; i < 3; i++)
     {
-        if(!AttackDamageUpdateRequired(i))
-            continue;
-
         if(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i) == 0)
         {
             SetFloatValue(minAttackPowers[i], 0);
@@ -662,9 +634,6 @@ void Unit::UpdateAttackDamageValues()
 
 void Unit::UpdateResistanceValues()
 {
-    if(!ResUpdateRequired())
-        return;
-
     int32 basepos,baseneg,pos,neg;
     AuraInterface::modifierMap resistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE),
         ResistPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_PCT),
@@ -738,12 +707,9 @@ void Unit::UpdateResistanceValues()
     }
 }
 
-void Unit::UpdateAttackPowerValues()
+void Unit::UpdateAttackPowerValues(std::set<uint32> modMap)
 {
-    if(!APUpdateRequired())
-        return;
-
-    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_ATTACK_POWER_PCT))
+    if(modMap.count(SPELL_AURA_MOD_ATTACK_POWER_PCT))
     {
         float val = 100.0f;
         AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT);
@@ -766,12 +732,9 @@ void Unit::UpdateAttackPowerValues()
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
 }
 
-void Unit::UpdateRangedAttackPowerValues()
+void Unit::UpdateRangedAttackPowerValues(std::set<uint32> modMap)
 {
-    if(!RAPUpdateRequired())
-        return;
-
-    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
+    if(modMap.count(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
     {
         float val = 100.0f;
         AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
@@ -793,9 +756,9 @@ void Unit::UpdateRangedAttackPowerValues()
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
 }
 
-void Unit::UpdatePowerCostValues()
+void Unit::UpdatePowerCostValues(std::set<uint32> modMap)
 {
-    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_COST_SCHOOL))
+    if(modMap.count(SPELL_AURA_MOD_POWER_COST_SCHOOL))
     {
         AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST_SCHOOL);
         for(uint8 s = 0; s < MAX_RESISTANCE; s++)
@@ -810,7 +773,7 @@ void Unit::UpdatePowerCostValues()
         }
     }
 
-    if(m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_POWER_COST))
+    if(modMap.count(SPELL_AURA_MOD_POWER_COST))
     {
         AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST);
         for(uint8 s = 0; s < MAX_RESISTANCE; s++)
@@ -828,9 +791,6 @@ void Unit::UpdatePowerCostValues()
 
 void Unit::UpdateHoverValues()
 {
-    if(!m_AuraInterface.GetModMaskBit(SPELL_AURA_HOVER))
-        return;
-
     float val = 0.001f;
     AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_HOVER);
     for(AuraInterface::modifierMap::iterator itr = hoverMod.begin(); itr != hoverMod.end(); itr++)
@@ -1282,7 +1242,7 @@ void Unit::SetDiminishTimer(uint32 index)
 
 void Unit::setLevel(uint32 level)
 {
-    m_needStatRecalculation = true;
+    m_modQueuedModUpdates[1].empty();
     m_AuraInterface.OnChangeLevel(level);
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
     baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level);
@@ -3030,11 +2990,10 @@ void Unit::RemoveFromWorld(bool free_guid)
 {
     SummonExpireAll(false);
 
-    if(GetInRangePlayerCount())
+    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
-        for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+        if(Player *plr = GetInRangeObject<Player>(*itr))
         {
-            Player *plr = GetInRangeObject<Player>(*itr);
             if(plr->GetSelection() == GetGUID())
             {
                 plr->smsg_AttackStop(this);
@@ -3079,7 +3038,7 @@ void Unit::UpdateVisibility()
     uint32 count;
     ByteBuffer buffer(2500);
     bool can_see, is_visible;
-    WorldObject::InRangeWorldObjectSet::iterator itr, it3;
+    WorldObject::InRangeWorldObjSet::iterator itr, it3;
     if( GetTypeId() == TYPEID_PLAYER )
     {
         WorldObject* pObj;
@@ -3088,6 +3047,8 @@ void Unit::UpdateVisibility()
         {
             pObj = itr->second;
             ++itr;
+            if(pObj == NULL)
+                continue;
 
             can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
             if(can_see && !is_visible)
@@ -3128,22 +3089,24 @@ void Unit::UpdateVisibility()
     }
     else            // For units we can save a lot of work
     {
-        for(WorldObject::InRangeSet::iterator it2 = GetInRangePlayerSetBegin(); it2 != GetInRangePlayerSetEnd(); it2++)
+        for(WorldObject::InRangeSet::iterator it2 = GetInRangeUnitSetBegin(); it2 != GetInRangeUnitSetEnd(); it2++)
         {
-            Player *plr = GetInRangeObject<Player>(*it2);
-            can_see = plr->CanSee(this), is_visible = plr->GetVisibility(this, &itr);
-            if(!can_see && is_visible)
+            if(Player *plr = GetInRangeObject<Player>(*it2))
             {
-                DestroyForPlayer(plr);
-                plr->RemoveVisibleObject(itr);
-            }
-            else if(can_see && !is_visible)
-            {
-                plr->AddVisibleObject(this);
-                if(count = BuildCreateUpdateBlockForPlayer(&buffer, plr))
+                can_see = plr->CanSee(this), is_visible = plr->GetVisibility(this, &itr);
+                if(!can_see && is_visible)
                 {
-                    plr->PushUpdateBlock(&buffer, count);
-                    buffer.clear();
+                    DestroyForPlayer(plr);
+                    plr->RemoveVisibleObject(itr);
+                }
+                else if(can_see && !is_visible)
+                {
+                    plr->AddVisibleObject(this);
+                    if(count = BuildCreateUpdateBlockForPlayer(&buffer, plr))
+                    {
+                        plr->PushUpdateBlock(&buffer, count);
+                        buffer.clear();
+                    }
                 }
             }
         }

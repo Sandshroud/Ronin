@@ -151,13 +151,13 @@ void MapCell::RemoveObjects()
     _playerCount = 0;
 }
 
-void MapCell::LoadObjects(CellSpawns * sp)
+uint32 MapCell::LoadObjects(CellSpawns * sp)
 {
     if(_loaded == true)
-        return;
+        return 0;
 
     _loaded = true;
-    uint32 mapId = _mapmgr->GetMapId();
+    uint32 loadCount = 0, mapId = _mapmgr->GetMapId();
     //MapInstance *pInstance = NULL;//_mapmgr->IsInstance() ? castPtr<InstanceMgr>(_mapmgr) : NULL;
     if(sp->CreatureSpawns.size())//got creatures
     {
@@ -178,6 +178,7 @@ void MapCell::LoadObjects(CellSpawns * sp)
                 }
 
                 c->PushToWorld(_mapmgr);
+                loadCount++;
             }
         }
     }
@@ -194,10 +195,12 @@ void MapCell::LoadObjects(CellSpawns * sp)
                     continue;
                 }
                 go->PushToWorld(_mapmgr);
+                loadCount++;
                 TRIGGER_GO_EVENT(go, OnSpawn);
             }
         }
     }
+    return loadCount;
 }
 
 void MapCell::QueueUnloadPending()

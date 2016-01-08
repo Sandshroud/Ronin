@@ -678,21 +678,7 @@ public:
     void ItemDestructed(Item *item);
 
     void OnFieldUpdated(uint32 index);
-    /************************************************************************/
-    /* Update fields System                                                 */
-    /************************************************************************/
-    void UpdateFieldValues();
     void UpdatePlayerRatings();
-    void ClearFieldUpdateValues() {}; // Players clear field update values manually
-
-    bool StatUpdateRequired();
-    bool HealthUpdateRequired();
-    bool PowerUpdateRequired();
-    bool AttackTimeUpdateRequired(uint8 weaponType);
-    bool APUpdateRequired();
-    bool RAPUpdateRequired();
-    bool ResUpdateRequired();
-    bool CombatRatingUpdateRequired(uint32 combatRating);
 
     float GetPowerMod() { return 1.f; }
     float GetHealthMod() { return 1.f; }
@@ -842,7 +828,7 @@ public:
 
     bool ok_to_remove;
 
-    void RemoveFromWorld();
+    void RemoveFromWorld(bool free_guid);
     bool Create ( WorldPacket &data );
 
     void BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag);
@@ -1349,11 +1335,11 @@ public:
     virtual void ClearInRangeSet();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
-    RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjectSet::iterator itr) { m_visibleObjects.erase(itr); }
-    RONIN_INLINE InRangeWorldObjectSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
+    RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjSet::iterator itr) { m_visibleObjects.erase(itr); }
+    RONIN_INLINE InRangeWorldObjSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
     RONIN_INLINE void RemoveIfVisible(WorldObject* obj)
     {
-        InRangeWorldObjectSet::iterator itr = m_visibleObjects.find(obj);
+        InRangeWorldObjSet::iterator itr = m_visibleObjects.find(obj);
         if(itr == m_visibleObjects.end())
             return;
 
@@ -1361,14 +1347,14 @@ public:
         PushOutOfRange(obj->GetGUID());
     }
 
-    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeWorldObjectSet::iterator *itr)
+    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeWorldObjSet::iterator *itr)
     {
         *itr = m_visibleObjects.find(obj);
         return ((*itr) != m_visibleObjects.end());
     }
 
-    RONIN_INLINE InRangeWorldObjectSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
-    RONIN_INLINE InRangeWorldObjectSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
+    RONIN_INLINE InRangeWorldObjSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
+    RONIN_INLINE InRangeWorldObjSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
 
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
@@ -1769,7 +1755,7 @@ protected:
     std::set<uint32> m_channels;
     std::map<uint32, Channel*> m_channelsbyDBCID;
     // Visible objects
-    InRangeWorldObjectSet m_visibleObjects;
+    InRangeWorldObjSet m_visibleObjects;
     // Groups/Raids
     WoWGuid m_GroupInviter;
 

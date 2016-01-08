@@ -181,7 +181,6 @@ extern "C" {
 #include "ArenaTeam.h"
 #include "LogonCommClient.h"
 #include "LogonCommHandler.h"
-#include "WorldRunnable.h"
 #include "ObjectStorage.h"
 #include "VoiceChatClientSocket.h"
 #include "VoiceChatHandler.h"

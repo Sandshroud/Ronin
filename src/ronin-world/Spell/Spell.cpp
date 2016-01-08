@@ -121,33 +121,37 @@ void Spell::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint
 void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification)
 {
     float r = range * range;
+    WorldObject *wObj = NULL;
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
     for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
-        if(itr->second->IsUnit())
+        if((wObj = itr->second) == NULL)
+            continue;
+
+        if(wObj->IsUnit())
         {
-            if(!castPtr<Unit>(itr->second)->isAlive())
+            if(!castPtr<Unit>(wObj)->isAlive())
                 continue;
             if(GetSpellProto()->TargetCreatureType)
             {
-                Unit* Target = castPtr<Unit>(itr->second);
+                Unit* Target = castPtr<Unit>(wObj);
                 if(uint32 creatureType = Target->GetCreatureType())
                 {
                     if(((1<<(creatureType-1)) & GetSpellProto()->TargetCreatureType) == 0)
                         continue;
                 } else continue;
             }
-        } else if(itr->second->IsGameObject() && !CanEffectTargetGameObjects(i))
+        } else if(wObj->IsGameObject() && !CanEffectTargetGameObjects(i))
             continue;
 
-        if(!IsInrange(srcx, srcy, srcz, itr->second, r))
+        if(!IsInrange(srcx, srcy, srcz, wObj, r))
             continue;
 
-        if(castPtr<Unit>(m_caster) && itr->second->IsUnit() )
+        if(castPtr<Unit>(m_caster) && wObj->IsUnit() )
         {
-            if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(itr->second), !GetSpellProto()->isSpellStealthTargetCapable()) )
-                _AddTarget(castPtr<Unit>(itr->second), i);
-        } else _AddTarget(itr->second, i);
+            if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(wObj), !GetSpellProto()->isSpellStealthTargetCapable()) )
+                _AddTarget(castPtr<Unit>(wObj), i);
+        } else _AddTarget(wObj, i);
 
         if(GetSpellProto()->MaxTargets && m_hitTargetCount >= GetSpellProto()->MaxTargets)
             break;
@@ -169,32 +173,36 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 {
     float r = range*range;
     uint32 placeholder = 0;
+    WorldObject *wObj = NULL;
     std::vector<WorldObject*> ChainTargetContainer;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
     for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
-        if(itr->second->IsUnit())
+        if((wObj = itr->second) == NULL)
+            continue;
+
+        if(wObj->IsUnit())
         {
-            Unit *uTarget = castPtr<Unit>(itr->second);
+            Unit *uTarget = castPtr<Unit>(wObj);
             if(!uTarget->isAlive())
                 continue;
             if( GetSpellProto()->TargetCreatureType && !(GetSpellProto()->TargetCreatureType & (1<<(uTarget->GetCreatureType()-1))))
                 continue;
-        } else if(itr->second->IsGameObject() && !canAffectGameObjects)
+        } else if(wObj->IsGameObject() && !canAffectGameObjects)
             continue;
 
-        if(!IsInrange(srcx, srcy, srcz, itr->second, r))
+        if(!IsInrange(srcx, srcy, srcz, wObj, r))
             continue;
 
-        if(castPtr<Unit>(m_caster) && itr->second->IsUnit() )
+        if(castPtr<Unit>(m_caster) && wObj->IsUnit() )
         {
-            if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(itr->second), !GetSpellProto()->isSpellStealthTargetCapable()) )
+            if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(wObj), !GetSpellProto()->isSpellStealthTargetCapable()) )
             {
-                ChainTargetContainer.push_back(itr->second);
+                ChainTargetContainer.push_back(wObj);
                 placeholder++;
             }
-        } else ChainTargetContainer.push_back(itr->second);
+        } else ChainTargetContainer.push_back(wObj);
     }
 
     if(GetSpellProto()->MaxTargets)
@@ -231,28 +239,32 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float range )
 {
     float r = range*range;
+    WorldObject *wObj = NULL;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for( WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
-        if(itr->second->IsUnit())
+        if((wObj = itr->second) == NULL)
+            continue;
+
+        if(wObj->IsUnit())
         {
-            Unit *uTarget = castPtr<Unit>(itr->second);
+            Unit *uTarget = castPtr<Unit>(wObj);
             if( !uTarget->isAlive() || (uTarget->IsCreature() && castPtr<Creature>(uTarget)->IsTotem()))
                 continue;
             if( GetSpellProto()->TargetCreatureType && !(GetSpellProto()->TargetCreatureType & (1<<(uTarget->GetCreatureType()-1))))
                 continue;
-        } else if(itr->second->IsGameObject() && !canAffectGameObjects)
+        } else if(wObj->IsGameObject() && !canAffectGameObjects)
             continue;
 
-        if( IsInrange( srcx, srcy, srcz, itr->second, r ))
+        if( IsInrange( srcx, srcy, srcz, wObj, r ))
         {
-            if(castPtr<Unit>(m_caster) && itr->second->IsUnit() )
+            if(castPtr<Unit>(m_caster) && wObj->IsUnit() )
             {
-                if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(itr->second), !GetSpellProto()->isSpellStealthTargetCapable()) )
-                    _AddTarget(castPtr<Unit>(itr->second), i);
+                if( sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(wObj), !GetSpellProto()->isSpellStealthTargetCapable()) )
+                    _AddTarget(castPtr<Unit>(wObj), i);
             }
-            else _AddTarget(itr->second, i);
+            else _AddTarget(wObj, i);
 
             if( GetSpellProto()->MaxTargets && m_hitTargetCount >= GetSpellProto()->MaxTargets )
                 break;
@@ -267,10 +279,12 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 
     for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
-        GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr);
-        if(!IsInrange( srcx, srcy, srcz, gObj, r ))
-            continue;
-        _AddTarget(gObj, i);
+        if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
+        {
+            if(!IsInrange( srcx, srcy, srcz, gObj, r ))
+                continue;
+            _AddTarget(gObj, i);
+        }
     }
 }
 
@@ -1658,13 +1672,10 @@ uint8 Spell::CanCast(bool tolerate)
         {
             float focusRange;
             bool found = false;
-            for( WorldObject::InRangeSet::iterator itr = p_caster->GetInRangeGameObjectSetBegin(); itr != p_caster->GetInRangeGameObjectSetEnd(); itr++ )
+            for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
             {
-                if(found == true)
-                    break;
-
                 GameObject *target = p_caster->GetInRangeObject<GameObject>(*itr);
-                if(target->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
+                if(target == NULL || target->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
                     continue;
 
                 GameObjectInfo *info = target->GetInfo();
@@ -2232,12 +2243,14 @@ void Spell::DamageGosAround(uint32 i)
     float r = GetRadius(i);
     r *= r;
     LocationVector target = ((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) ? m_targets.m_dest : ((m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION) ? m_targets.m_src : m_caster->GetPosition()));
-    for (WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr)
+    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr )
     {
-        GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr);
-        if(gObj->GetDistance2dSq(target.x, target.y) > r)
-            continue;
-        gObj->TakeDamage(damage,m_caster,m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL,spell_id);
+        if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
+        {
+            if(gObj->GetDistance2dSq(target.x, target.y) > r)
+                continue;
+            gObj->TakeDamage(damage,m_caster,m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL,spell_id);
+        }
     }
 }
 

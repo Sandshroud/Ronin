@@ -1890,7 +1890,7 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
     if( unitTarget == NULL )
         return;
 
-    for(WorldObject::InRangeSet::iterator itr = unitTarget->GetInRangePlayerSetBegin(); itr != unitTarget->GetInRangePlayerSetEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = unitTarget->GetInRangeUnitSetBegin(); itr != unitTarget->GetInRangeUnitSetEnd(); itr++)
         if(Player *player = unitTarget->GetInRangeObject<Player>(*itr))
             player->GetAIInterface()->RemoveThreat(unitTarget->GetGUID());
 

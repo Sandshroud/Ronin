@@ -42,7 +42,7 @@ public:
     RONIN_INLINE bool IsLoaded() { return _loaded; }
 
     //WorldObject Loading Managing
-    void LoadObjects(CellSpawns * sp);
+    uint32 LoadObjects(CellSpawns * sp);
     RONIN_INLINE uint32 GetPlayerCount() { return _playerCount; }
 
     //ING Events

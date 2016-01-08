@@ -357,11 +357,13 @@ class WorldSocket;
 typedef std::list<WorldSocket*> QueueSet;
 typedef std::set<WorldSession*> SessionSet;
 
-class SERVER_DECL World : public Singleton<World>, public EventableObject
+class SERVER_DECL World : public ThreadContext, public Singleton<World>, public EventableObject
 {
 public:
     World();
     ~World();
+
+    bool run();
 
     void Destruct();
     void ParseFactionTemplate();
@@ -420,7 +422,7 @@ public:
     std::string GetUptimeString();
 
     // update the world server every frame
-    void Update(time_t diff);
+    void Update(uint32 diff);
     void CheckForExpiredInstances();
 
     void UpdateSessions(uint32 diff);
@@ -596,12 +598,10 @@ protected:
         // Update Server time
         time_t thisTime = UNIXTIME;
         m_gameTime += thisTime - m_lastTick; //in seconds
-
         if(m_gameTime >= 86400)         // One day has passed
             m_gameTime -= 86400;
 
         m_lastTick = thisTime;
-
         return m_gameTime;
     }
     void FillSpellReplacementsTable();
@@ -625,6 +625,8 @@ protected:
     uint32 m_StartTime, m_queueUpdateTimer;
 
     QueueSet mQueuedSessions;
+
+    EventableObjectHolder* eventHolder;
 
 public:
     bool GuildsLoading;

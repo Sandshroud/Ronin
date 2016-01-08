@@ -7,6 +7,7 @@
 Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(counter, proto->ItemId, HIGHGUID_TYPE_ITEM), fieldcount), m_owner(0), m_proto(proto), m_textId(0)
 {
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
+    m_objType = TYPEID_ITEM;
 
     SetUInt32Value(OBJECT_FIELD_ENTRY, proto->ItemId);
 }

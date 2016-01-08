@@ -7,6 +7,8 @@
 DynamicObject::DynamicObject(uint32 high, uint32 low, uint32 fieldCount) : WorldObject(MAKE_NEW_GUID(low, 0, high), fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_DYNAMICOBJECT);
+    m_objType = TYPEID_DYNAMICOBJECT;
+
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
 
     m_aliveDuration = 0;
@@ -57,11 +59,6 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
         castPtr<Unit>(caster)->SetUInt32Value(UNIT_CHANNEL_SPELL, m_spellProto->Id);
     }
     UpdateTargets(0);
-}
-
-void DynamicObject::AddInRangeObject( WorldObject* pObj )
-{
-    WorldObject::AddInRangeObject(pObj);
 }
 
 void DynamicObject::OnRemoveInRangeObject( WorldObject* pObj )

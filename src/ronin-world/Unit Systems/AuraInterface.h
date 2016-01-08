@@ -142,6 +142,7 @@ public:
 private:
     Unit* m_Unit;
     Aura *m_auras[TOTAL_AURAS];
+    uint8 m_maxPosAuraSlot, m_maxNegAuraSlot;
 
     /*******************
     **** Modifiers
@@ -175,20 +176,6 @@ public:
     modifierMap GetModMapByModType(uint32 modType) { return m_modifiersByModType[modType]; }
     bool HasAurasWithModType(uint32 modType) { return m_modifiersByModType[modType].size(); }
 
-    // Update Mask
-    std::bitset<SPELL_AURA_TOTAL> &getModMask() { return m_modifierMask; }
-    bool GetModMaskBit(uint32 type) { return m_modifierMask.test(type); }
-    void SetModMaskBit(uint32 type) { m_modifierMask.set(type, true); };
-    void UnsetModMaskBit(uint32 type) { m_modifierMask.set(type, false); };
-    void ClearModMaskBits() { m_modifierMask.reset(); };
-    bool GetAndUnsetModMaskBit(uint32 type)
-    {
-        bool res = false;
-        if(res = m_modifierMask.at(type))
-            m_modifierMask.set(type, false);
-        return res;
-    }
-
     void SM_FIValue( uint32 modifier, int32* v, uint32* group );
     void SM_FFValue( uint32 modifier, float* v, uint32* group );
     void SM_PIValue( uint32 modifier, int32* v, uint32* group );
@@ -196,7 +183,6 @@ public:
 
 private:
     // Ordered by aura slot
-    std::bitset<SPELL_AURA_TOTAL> m_modifierMask;
     std::map<uint32, ModifierHolder*> m_modifierHolders;
     // Storage is <ModType, <Index, Modifier> >
     modifierTypeMap m_modifiersByModType;

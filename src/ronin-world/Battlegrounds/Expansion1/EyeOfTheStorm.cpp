@@ -618,7 +618,7 @@ void EyeOfTheStorm::UpdateCPs()
     {
         plrcounts[0] = plrcounts[1] = 0;
 
-        for(WorldObject::InRangeSet::iterator itr = m_CPStatusGO[i]->GetInRangePlayerSetBegin(); itr != m_CPStatusGO[i]->GetInRangePlayerSetEnd(); itr++)
+        for(WorldObject::InRangeSet::iterator itr = m_CPStatusGO[i]->GetInRangeUnitSetBegin(); itr != m_CPStatusGO[i]->GetInRangeUnitSetEnd(); itr++)
         {
             Player *plr = m_CPStatusGO[i]->GetInRangeObject<Player>(*itr);
             if(plr == NULL)

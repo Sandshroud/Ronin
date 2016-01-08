@@ -256,8 +256,7 @@ public:
 
     //Vendors
     std::map<uint32, CreatureItem> *GetVendorList(uint32 entry);
-    void SetVendorList(uint32 Entry, std::map<uint32, CreatureItem>* list_);
-
+    std::map<uint32, CreatureItem> *AllocateVendorList(uint32 entry);
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
     Pet* CreatePet(CreatureData *ctrData);

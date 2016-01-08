@@ -261,16 +261,16 @@ protected:
 
     bool _CellActive(uint32 x, uint32 y);
     void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
-    void UpdateInRangeSet(uint64 guid, MapCell* cell);
 
     void ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
 public:
-    void UpdateInrangeSetOnCells(uint64 guid, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
+    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
     // Distance a Player can "see" other objects and receive updates from them (!! ALREADY dist*dist !!)
     float m_UpdateDistance;
+    bool m_mapPreloading;
 
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
     bool IsContinent() { return pdbcMap ? pdbcMap->IsContinent() : true; }

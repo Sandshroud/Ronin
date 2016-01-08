@@ -4,9 +4,8 @@
 
 #include "StdAfx.h"
 
-AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit)
+AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit), m_maxPosAuraSlot(0), m_maxNegAuraSlot(MAX_POSITIVE_AURAS)
 {
-    m_modifierMask.reset();
     for(uint8 i = 0; i < TOTAL_AURAS; i++)
         m_auras[i] = NULL;
 }
@@ -20,14 +19,14 @@ AuraInterface::~AuraInterface()
 
 void AuraInterface::Update(uint32 diff)
 {
+    // Passive auras don't expire so only update non passive auras
     // Do not use iterators because update can invalidate them when they're removed
-    for(uint8 x = 0; x < TOTAL_AURAS; ++x)
-    {
-        Aura *aur = m_auras[x];
-        if(aur == NULL)
-            continue;
-        aur->Update(diff);
-    }
+    for(uint8 x = 0; x < m_maxPosAuraSlot; ++x)
+        if(Aura *aur = m_auras[x])
+            aur->Update(diff);
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if(Aura *aur = m_auras[x])
+            aur->Update(diff);
 }
 
 void AuraInterface::OnChangeLevel(uint32 newLevel)
@@ -46,6 +45,7 @@ void AuraInterface::OnChangeLevel(uint32 newLevel)
         aur->OnTargetChangeLevel(newLevel, m_Unit->GetGUID());
     }
 
+    // Update our passive auras
     for(uint8 i = MAX_AURAS; i < TOTAL_AURAS; i++)
     {
         Aura *aur = m_auras[i];
@@ -776,9 +776,14 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
             RemoveAura(aur);
             return;
         }
+
     } else aur->BuildAuraUpdate();
 
     m_auras[aur->GetAuraSlot()] = aur;
+    if(aur->GetAuraSlot() < MAX_POSITIVE_AURAS)
+        m_maxPosAuraSlot = std::max<uint8>(m_maxPosAuraSlot, aur->GetAuraSlot());
+    else if(aur->GetAuraSlot() < MAX_AURAS)
+        m_maxNegAuraSlot = std::max<uint8>(m_maxNegAuraSlot, aur->GetAuraSlot());
 
     aur->ApplyModifiers(true);
 
@@ -1377,7 +1382,7 @@ void AuraInterface::EventDeathAuraRemoval()
 
 void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
-    SetModMaskBit(mod->m_type);
+    m_Unit->OnAuraModChanged(mod->m_type);
 
     std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
     if(apply)

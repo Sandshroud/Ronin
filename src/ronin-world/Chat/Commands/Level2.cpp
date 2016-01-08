@@ -111,7 +111,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
             }
         }
     }
-    unit->RemoveFromWorld(false, true);
+    unit->RemoveFromWorld(true);
     unit->Destruct();
 
     m_session->GetPlayer()->SetSelection(NULL);
@@ -495,7 +495,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 
     GameObject* GObj = NULL;
     float cDist = 9999.f, nDist = 0.f;
-    for(WorldObject::InRangeSet::iterator itr = plr->GetInRangeGameObjectSetBegin(); itr != plr->GetInRangeGameObjectSetEnd(); ++itr )
+    for(WorldObject::InRangeSet::iterator itr = plr->GetInRangeGameObjectSetBegin(); itr != plr->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject *gob = plr->GetInRangeObject<GameObject>(*itr))
         {

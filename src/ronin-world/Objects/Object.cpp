@@ -12,6 +12,7 @@ Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_up
     SetUInt64Value(OBJECT_FIELD_GUID, guid);
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
     SetTypeFlags(TYPEMASK_TYPE_OBJECT);
+    m_objType = TYPEID_OBJECT;
 
     m_loot.gold = 0;
     m_looted = false;
@@ -32,25 +33,25 @@ void Object::Destruct()
     delete this;
 }
 
-void Object::SetByte(uint32 index, uint32 index1,uint8 value)
+void Object::SetByte(uint16 index, uint8 flag, uint8 value)
 {
     ASSERT( index < m_valuesCount );
 
-    if(index1 >= 4)
+    if(flag >= 4)
     {
-        sLog.outError("Object::SetByteValue: wrong offset %u", index1);
+        sLog.outError("Object::SetByteValue: wrong offset %u", flag);
         return;
     }
 
-    if(uint8(m_uint32Values[ index ] >> (index1 * 8)) == value)
+    if(uint8(m_uint32Values[ index ] >> (flag * 8)) == value)
         return;
 
-    m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (index1 * 8));
-    m_uint32Values[ index ] |= uint32(uint32(value) << (index1 * 8));
+    m_uint32Values[ index ] &= ~uint32(uint32(0xFF) << (flag * 8));
+    m_uint32Values[ index ] |= uint32(uint32(value) << (flag * 8));
     SetUpdateField(index);
 }
 
-void Object::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
+void Object::SetByteFlag(const uint16 index, const uint8 flag, uint8 newFlag)
 {
     if( HasByteFlag(index,flag,newFlag))
         return;
@@ -59,7 +60,7 @@ void Object::SetByteFlag(const uint32 index, const uint32 flag, uint8 newFlag)
     SetUpdateField(index);
 }
 
-void Object::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+void Object::RemoveByteFlag(const uint16 index, const uint8 flag, uint8 checkFlag)
 {
     if( !HasByteFlag(index,flag,checkFlag))
         return;
@@ -68,7 +69,7 @@ void Object::RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFl
     SetUpdateField(index);
 }
 
-bool Object::HasByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag)
+bool Object::HasByteFlag(const uint16 index, const uint8 flag, uint8 checkFlag)
 {
     if( GetByte(index,flag) & checkFlag )
         return true;
@@ -86,7 +87,7 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
     SetUpdateField(index);
 }
 
-void Object::SetUInt32Value( const uint32 index, const uint32 value )
+void Object::SetUInt32Value( const uint16 index, const uint32 value )
 {
     ASSERT( index < m_valuesCount );
     if(m_uint32Values[index] == value)
@@ -96,7 +97,7 @@ void Object::SetUInt32Value( const uint32 index, const uint32 value )
     SetUpdateField(index);
 }
 
-void Object::SetUInt64Value( const uint32 index, const uint64 value )
+void Object::SetUInt64Value( const uint16 index, const uint64 value )
 {
     assert( index + 1 < m_valuesCount );
     if(m_uint32Values[index] == ((uint32*)&value)[0] && m_uint32Values[index+1] == ((uint32*)&value)[1])
@@ -109,7 +110,7 @@ void Object::SetUInt64Value( const uint32 index, const uint64 value )
     SetUpdateField(index+1);
 }
 
-void Object::SetFlag( const uint32 index, uint32 newFlag )
+void Object::SetFlag( const uint16 index, uint32 newFlag )
 {
     ASSERT( index < m_valuesCount );
 
@@ -120,7 +121,7 @@ void Object::SetFlag( const uint32 index, uint32 newFlag )
         SetUpdateField(index);
 }
 
-void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
+void Object::RemoveFlag( const uint16 index, uint32 oldFlag )
 {
     ASSERT( index < m_valuesCount );
     if((m_uint32Values[ index ] & oldFlag) == 0)
@@ -130,7 +131,7 @@ void Object::RemoveFlag( const uint32 index, uint32 oldFlag )
     SetUpdateField(index);
 }
 
-void Object::SetFloatValue( const uint32 index, const float value )
+void Object::SetFloatValue( const uint16 index, const float value )
 {
     ASSERT( index < m_valuesCount );
     if(m_floatValues[index] == value)
@@ -140,14 +141,14 @@ void Object::SetFloatValue( const uint32 index, const float value )
     SetUpdateField(index);
 }
 
-void Object::ModFloatValue(const uint32 index, const float value )
+void Object::ModFloatValue(const uint16 index, const float value )
 {
     ASSERT( index < m_valuesCount );
     m_floatValues[ index ] += value;
     SetUpdateField(index);
 }
 
-void Object::ModSignedInt32Value(uint32 index, int32 value )
+void Object::ModSignedInt32Value(uint16 index, int32 value )
 {
     ASSERT( index < m_valuesCount );
     if(value == 0)
@@ -157,7 +158,7 @@ void Object::ModSignedInt32Value(uint32 index, int32 value )
     SetUpdateField(index);
 }
 
-void Object::ModUnsigned32Value(uint32 index, int32 mod)
+void Object::ModUnsigned32Value(uint16 index, int32 mod)
 {
     ASSERT( index < m_valuesCount );
     if(mod == 0)
@@ -169,14 +170,14 @@ void Object::ModUnsigned32Value(uint32 index, int32 mod)
     SetUpdateField(index);
 }
 
-uint32 Object::GetModPUInt32Value(const uint32 index, const int32 value)
+uint32 Object::GetModPUInt32Value(const uint16 index, const int32 value)
 {
     ASSERT( index < m_valuesCount );
     int32 basevalue = (int32)m_uint32Values[ index ];
     return ((basevalue*value)/100);
 }
 
-void Object::SetUpdateField(uint32 index)
+void Object::SetUpdateField(uint16 index)
 {
     m_updateMask.SetBit( index );
     OnFieldUpdated(index);
@@ -368,7 +369,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
     *data << uint8(updateMask->GetBlockCount());
     data->append( updateMask->GetMask(), updateMask->GetLength() );
-    for( uint32 index = 0; index < updateMask->GetCount(); index++ )
+    for( uint16 index = 0; index < updateMask->GetCount(); index++ )
         if( updateMask->GetBit( index ) )
             *data << m_uint32Values[index];
 }
@@ -790,7 +791,7 @@ WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
     return data;
 }
 
-void WorldObject::OnFieldUpdated(uint32 index)
+void WorldObject::OnFieldUpdated(uint16 index)
 {
     if(IsInWorld() && !m_objectUpdated)
     {
@@ -834,7 +835,7 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+    for(InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -857,7 +858,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
         myTeam = castPtr<Player>(this)->GetTeam();
     }
 
-    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+    for(InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -872,10 +873,10 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
 
 //Unlike addtoworld it pushes it directly ignoring add pool
 //this can only be called from the thread of mapmgr!!!
-void WorldObject::PushToWorld(MapInstance* mgr)
+void WorldObject::PushToWorld(MapInstance* instance)
 {
-    ASSERT(mgr != NULL);
-    if(mgr == NULL)
+    ASSERT(instance != NULL);
+    if(instance == NULL)
     {
         // Reset these so session will get updated properly.
         if(IsPlayer())
@@ -886,16 +887,16 @@ void WorldObject::PushToWorld(MapInstance* mgr)
         return; //instance add failed
     }
 
-    m_mapId = mgr->GetMapId();
-    m_instanceId = mgr->GetInstanceID();
-    UpdateAreaInfo(mgr);
+    m_mapId = instance->GetMapId();
+    m_instanceId = instance->GetInstanceID();
+    UpdateAreaInfo(instance);
 
     OnPrePushToWorld();
 
     // Set our map manager
-    m_mapInstance = mgr;
+    m_mapInstance = instance;
 
-    mgr->PushObject(this);
+    instance->PushObject(this);
 
     // correct incorrect instance id's
     event_Relocate();

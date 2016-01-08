@@ -18,7 +18,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_quests = NULL;
     m_SellItems = NULL;
     auctionHouse = NULL;
-    m_escorter = NULL;
     m_respawnCell = NULL;
     m_shieldProto = NULL;
     myFamily = NULL;
@@ -62,9 +61,6 @@ void Creature::Destruct()
 {
     sEventMgr.RemoveEvents(this);
 
-    if(m_escorter)
-        m_escorter = NULL;
-
     if(m_respawnCell != NULL)
         m_respawnCell->_respawnObjects.erase(this);
     Unit::Destruct();
@@ -75,7 +71,7 @@ void Creature::Update( uint32 p_time )
     Unit::Update( p_time );
     if(IsTotem() && isDead())
     {
-        RemoveFromWorld(false, true);
+        Respawn(false, true);
         return;
     }
 
@@ -112,7 +108,7 @@ void Creature::SafeDelete()
 void Creature::DeleteMe()
 {
     if(IsInWorld())
-        RemoveFromWorld(false, true);
+        RemoveFromWorld(true);
 
     Destruct();
 }
@@ -126,10 +122,10 @@ void Creature::OnRemoveCorpse()
         sLog.Debug("Creature","OnRemoveCorpse Removing corpse of "I64FMT"...", GetGUID());
 
         if(((_extraInfo && _extraInfo->isBoss) && GetMapInstance()->IsRaid()) || m_noRespawn)
-            RemoveFromWorld(false, true);
+            Respawn(false, true);
         else if(_creatureData->respawnTime)
-            RemoveFromWorld(true, false);
-        else RemoveFromWorld(false, true);
+            Respawn(true, false);
+        else Respawn(false, true);
 
         SetDeathState(DEAD);
         SetPosition(GetSpawnX(), GetSpawnY(), GetSpawnZ(), GetSpawnO());
@@ -379,7 +375,7 @@ void Creature::OnPushToWorld()
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_2);
 }
 
-void Creature::RemoveFromWorld(bool addrespawnevent, bool free_guid)
+void Creature::Respawn(bool addrespawnevent, bool free_guid)
 {
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = 1;
@@ -389,7 +385,7 @@ void Creature::RemoveFromWorld(bool addrespawnevent, bool free_guid)
     if(IsPet())
     {
         if(IsInWorld())
-            Unit::RemoveFromWorld(true);
+            RemoveFromWorld(true);
 
         SafeDelete();
     }
@@ -426,28 +422,6 @@ void Creature::EnslaveExpire()
 bool Creature::RemoveEnslave()
 {
     return RemoveAura(m_enslaveSpell);
-}
-
-void Creature::AddInRangeObject(WorldObject* pObj)
-{
-    Unit::AddInRangeObject(pObj);
-}
-
-void Creature::OnRemoveInRangeObject(WorldObject* pObj)
-{
-    if(m_escorter == pObj)
-    {
-        // we lost our escorter, return to the spawn.
-        m_aiInterface.StopMovement(10000);
-        Despawn(1000, 1000);
-    }
-
-    Unit::OnRemoveInRangeObject(pObj);
-}
-
-void Creature::ClearInRangeSet()
-{
-    Unit::ClearInRangeSet();
 }
 
 void Creature::RegenerateHealth(bool isinterrupted)
@@ -509,15 +483,10 @@ void Creature::AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, ui
     ci.itemid = itemid;
     ci.IsDependent = true;
     ci.vendormask = vendormask;
-    ci.extended_cost = NULL;
-    if(ec)
-        ci.extended_cost = dbcItemExtendedCost.LookupEntry(ec);
+    ci.extended_cost = ec ? dbcItemExtendedCost.LookupEntry(ec) : NULL;
 
-    if(!m_SellItems)
-    {
-        m_SellItems = new std::map<uint32, CreatureItem>;
-        objmgr.SetVendorList(GetEntry(), m_SellItems);
-    }
+    if(m_SellItems == NULL)
+        m_SellItems = objmgr.AllocateVendorList(GetEntry());
 
     uint32 slot = 1;
     if(m_SellItems->size())

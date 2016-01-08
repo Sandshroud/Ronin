@@ -361,13 +361,13 @@ void AIInterface::_UpdateTargets(uint32 p_time)
             FindFriends(16.0f/*4.0f*/);
     }
 
-    CheckNextTargetFlyingStatus();
-
     if(m_updateTargetsTimer > p_time)
         m_updateTargetsTimer -= p_time;
     else
     {
         m_updateTargetsTimer = (TARGET_UPDATE_INTERVAL * 2) - (p_time-m_updateTargetsTimer);
+
+        CheckNextTargetFlyingStatus();
         ai_TargetLock.Acquire();
         for(TargetMap::iterator itr = m_aiTargets.begin(), it2; itr != m_aiTargets.end();)
         {
@@ -380,6 +380,7 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         }
         ai_TargetLock.Release();
 
+        Unit* target = FindTarget();
         if(m_aiTargets.size() == 0
             && m_AIState != STATE_IDLE && m_AIState != STATE_FOLLOWING
             && m_AIState != STATE_EVADE && m_AIState != STATE_FEAR
@@ -387,26 +388,16 @@ void AIInterface::_UpdateTargets(uint32 p_time)
         {
             if(firstLeaveCombat)
             {
-                Unit* target = FindTarget();
-                if(target)
-                    AttackReaction(target, 1, 0);
-                else firstLeaveCombat = false;
+                if(target == NULL)
+                    firstLeaveCombat = false;
+                else AttackReaction(target, 1, 0);
             }
-        }
-        else if( m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && castPtr<Pet>(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
-        {
-            Unit* target = FindTarget();
-            if( target )
-                AttackReaction(target, 1, 0);
-        }
+        } else if( target && m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && castPtr<Pet>(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
+            AttackReaction(target, 1, 0);
 
         // Find new Targets when we are ooc
-        if(m_AIState == STATE_IDLE)
-        {
-            Unit* target = FindTarget();
-            if(target)
-                AttackReaction(target, 1, 0);
-        }
+        if(m_AIState == STATE_IDLE && (target = FindTarget()))
+            AttackReaction(target, 1, 0);
     }
 }
 

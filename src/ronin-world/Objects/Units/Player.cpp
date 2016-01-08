@@ -9,6 +9,7 @@ static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004
 Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(guid))
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
+    m_objType = TYPEID_PLAYER;
 
     m_runemask = 0x3F;
     m_bgRatedQueue = false;
@@ -456,18 +457,6 @@ void Player::OnFieldUpdated(uint32 index)
     Unit::OnFieldUpdated(index);
 }
 
-void Player::UpdateFieldValues()
-{
-    UpdateStatValues();
-    UpdatePlayerRatings();
-
-    Unit::UpdateFieldValues();
-
-    m_needRecalculateAllFields = m_needStatRecalculation = m_statValuesChanged = false;
-    m_AuraInterface.ClearModMaskBits();
-    itemBonusMask.Clear();
-}
-
 static uint32 ratingsToModBonus[26] = 
 {
     0,
@@ -551,7 +540,7 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
     return val;
 }
 
-bool Player::CombatRatingUpdateRequired(uint32 combatRating)
+/*bool Player::CombatRatingUpdateRequired(uint32 combatRating)
 {
     bool res = m_needRecalculateAllFields|(m_statValuesChanged && m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT).size());
     res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RATING);
@@ -584,7 +573,7 @@ bool Player::CombatRatingUpdateRequired(uint32 combatRating)
     }
 
     return res;
-}
+}*/
 
 void Player::UpdateCombatRating(uint8 combatRating, float value)
 {
@@ -627,8 +616,6 @@ void Player::UpdatePlayerRatings()
 {
     for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
     {
-        if(!CombatRatingUpdateRequired(cr))
-            continue;
         int32 val = CalculatePlayerCombatRating(cr);
         AuraInterface::modifierMap ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING);
         for(AuraInterface::modifierMap::iterator itr = ratingMod.begin(); itr != ratingMod.end(); itr++)
@@ -660,7 +647,7 @@ static uint32 statToModBonus[MAX_STAT] =
     ITEM_STAT_SPIRIT
 };
 
-bool Player::StatUpdateRequired()
+/*bool Player::StatUpdateRequired()
 {
     bool res = false;
     for(uint8 i = 0; i < MAX_STAT; i++)
@@ -703,7 +690,7 @@ bool Player::RAPUpdateRequired()
     res |= itemBonusMask.GetBit(ITEM_STAT_RANGED_ATTACK_POWER);
     res |= itemBonusMask.GetBit(ITEM_STAT_ATTACK_POWER);
     return res || Unit::RAPUpdateRequired();
-}
+}*/
 
 static uint32 schooltoResModBonus[MAX_RESISTANCE] =
 {
@@ -716,13 +703,13 @@ static uint32 schooltoResModBonus[MAX_RESISTANCE] =
     ITEM_STAT_ARCANE_RESISTANCE
 };
 
-bool Player::ResUpdateRequired()
+/*bool Player::ResUpdateRequired()
 {
     bool res = false;
     for(uint8 i = 0; i < MAX_RESISTANCE; i++)
         res |= itemBonusMask.GetBit(schooltoResModBonus[i]);
     return res || Unit::ResUpdateRequired();
-}
+}*/
 
 int32 Player::GetBonusMana()
 {
@@ -3252,7 +3239,7 @@ void Player::SendObjectUpdate(WoWGuid guid)
     m_session->SendPacket(&data);
 }
 
-void Player::RemoveFromWorld()
+void Player::RemoveFromWorld(bool free_guid)
 {
     EndDuel( 0 );
 
@@ -4161,7 +4148,7 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
 
     if(m_tempSummon == pObj)
     {
-        m_tempSummon->RemoveFromWorld(false, true);
+        m_tempSummon->RemoveFromWorld(true);
         if(m_tempSummon)
             m_tempSummon->SafeDelete();
 
@@ -4205,12 +4192,7 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
 
 void Player::ClearInRangeSet()
 {
-    WorldObject* pObj = NULL;
-    while(!m_inRangeObjects.empty())
-    {
-        pObj = m_inRangeObjects.begin()->second;
-        RemoveInRangeObject(pObj);
-    }
+    WorldObject::ClearInRangeSet();
 }
 
 void Player::SetDrunk(uint16 value, uint32 itemId)
@@ -4457,7 +4439,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                             plr = (*itr)->m_loggedInPlayer;
                             //if(plr && plr->GetInventory()->CanReceiveItem(itemProto, iter->StackSize, NULL) == 0)
                             {   // If we have pass on, or if we're not in range, we have to pass.
-                                if( plr->m_passOnLoot || ( !lootObj->IsInRangeMap(plr) ) )
+                                if( plr->m_passOnLoot || ( !lootObj->IsInRangeSet(plr) ) )
                                     iter->roll->PlayerRolled( (*itr), PASS );       // passed
                                 else
                                 {
@@ -4732,7 +4714,7 @@ void Player::SendInitialLogonPackets()
     //    data << uint32(100000);                                   // RestrictedMoney (starter accounts)
     //if (HasRestrictedLevel)
     //    data << uint32(20);                                       // RestrictedLevel (starter accounts)
-    data << uint32(sWorld.GetGameTime()-84600);   // LastWeeklyReset (not instance reset)
+    data << uint32(34600);   // LastWeeklyReset (not instance reset)
     data << uint32(0);
     GetSession()->SendPacket(&data); 
 
@@ -4806,49 +4788,54 @@ void Player::Reset_ToLevel1()
     m_AuraInterface.RemoveAllAuras();
 
     setLevel(1);
-    UpdateFieldValues();
 }
 
 void Player::UpdateNearbyGameObjects()
 {
-    GameObject* Gobj = NULL;
-    for (WorldObject::InRangeSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); itr++)
+    ByteBuffer buff(500);
+    for(WorldObject::InRangeSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
-        Gobj = GetInRangeObject<GameObject>(*itr);
-        ByteBuffer buff(500);
-        Gobj->SetUpdateField(OBJECT_FIELD_GUID);
-        Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
-        Gobj->BuildValuesUpdateBlockForPlayer(&buff, UF_FLAGMASK_PUBLIC);
-        PushUpdateBlock(&buff, 1);
+        if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
+        {
+            Gobj->SetUpdateField(OBJECT_FIELD_GUID);
+            Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
+            if(int count = Gobj->BuildValuesUpdateBlockForPlayer(&buff, UF_FLAGMASK_PUBLIC))
+                PushUpdateBlock(&buff, count);
+            buff.clear();
+        }
     }
 }
 
 void Player::UpdateNearbyQuestGivers()
 {
-    for (WorldObject::InRangeMap::iterator itr = GetInRangeMapBegin(); itr != GetInRangeMapEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
-        if(itr->second->IsGameObject())
+        if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
         {
-            if(castPtr<GameObject>(itr->second)->isQuestGiver())
+            if(Gobj->isQuestGiver())
             {
-                uint32 status = sQuestMgr.CalcStatus(itr->second, this);
+                uint32 status = sQuestMgr.CalcStatus(Gobj, this);
                 if(status != QMGR_QUEST_NOT_AVAILABLE)
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << itr->first << status;
+                    data << Gobj->GetGUID() << status;
                     SendPacket( &data );
                 }
             }
         }
-        else if(itr->second->IsCreature())
+    }
+
+    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr )
+    {
+        if(Creature *cObj = GetInRangeObject<Creature>(*itr))
         {
-            if(castPtr<Creature>(itr->second)->isQuestGiver())
+            if(cObj->isQuestGiver())
             {
-                uint32 status = sQuestMgr.CalcStatus(itr->second, this);
+                uint32 status = sQuestMgr.CalcStatus(cObj, this);
                 if(status != QMGR_QUEST_NOT_AVAILABLE)
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << itr->first << status;
+                    data << cObj->GetGUID() << status;
                     SendPacket( &data );
                 }
             }
@@ -5293,7 +5280,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
         }
 
         //remove us from this map
-        if(IsInWorld()) RemoveFromWorld();
+        if(IsInWorld()) RemoveFromWorld(false);
 
         //send new world
         m_movementInterface.TeleportToPosition(mapid, instance_id, destination);
@@ -6175,7 +6162,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 {
     if(IsInWorld())
-        RemoveFromWorld();
+        RemoveFromWorld(false);
 
     m_mapId = mgr->GetMapId();
     m_instanceId = mgr->GetInstanceID();
@@ -6558,6 +6545,25 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         itemBonusMap.erase(guid_slot);
         itemBonusMapByType[type].erase(guid_slot);
     }
+
+    switch(type)
+    {
+    case ITEM_STAT_AGILITY:
+    case ITEM_STAT_STRENGTH:
+    case ITEM_STAT_INTELLECT:
+    case ITEM_STAT_SPIRIT:
+    case ITEM_STAT_STAMINA:
+        m_modQueuedModUpdates[1].empty();
+        break;
+    case ITEM_STAT_HIT_RATING:
+    case ITEM_STAT_CRITICAL_STRIKE_RATING:
+    case ITEM_STAT_HIT_REDUCTION_RATING:
+    case ITEM_STAT_RESILIENCE_RATING:
+    case ITEM_STAT_CRITICAL_REDUCTION_RATING:
+    case ITEM_STAT_HASTE_RATING:
+        m_modQueuedModUpdates[12].empty();
+        break;
+    }
 }
 
 bool Player::CanSignCharter(Charter * charter, Player* requester)
@@ -6575,7 +6581,7 @@ void Player::SetShapeShift(uint8 ss)
 {
     uint8 old_ss = GetByte( UNIT_FIELD_BYTES_2, 3 );
     SetByte( UNIT_FIELD_BYTES_2, 3, ss );
-    m_needRecalculateAllFields = true;
+    m_modQueuedModUpdates[1].empty();
 
     //remove auras that we should not have
     m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);

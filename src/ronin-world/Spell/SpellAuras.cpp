@@ -405,7 +405,6 @@ Aura::~Aura()
 
 void Aura::Update(uint32 diff)
 {
-
     if(m_expirationTime == 0)
         return;
 
@@ -664,27 +663,27 @@ void Aura::EventRelocateRandomTarget()
 
     // Ok, let's do it. :D
     std::set<Unit* > enemies;
-    
-    WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin();
-    for(; itr != m_caster->GetInRangeMapEnd(); itr++)
+
+    Unit *uObj = NULL;
+    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
-        if( !itr->second->IsUnit() )
+        if((uObj = m_caster->GetInRangeObject<Unit>(*itr)) == NULL)
             continue;
 
-        if( !sFactionSystem.isHostile( m_caster, itr->second ) )
+        if( !sFactionSystem.isHostile( m_caster, uObj ) )
             continue;
 
         // Too far away or dead, or I can't see him!
-        if( castPtr<Unit>(itr->second)->isDead() || m_caster->GetDistance2dSq( itr->second ) > 100 || !castPtr<Player>(m_caster)->CanSee(itr->second) )
+        if( uObj->isDead() || m_caster->GetDistance2dSq( uObj ) > 100 || !castPtr<Player>(m_caster)->CanSee(uObj) )
             continue;
 
         if (m_caster->GetMapInstance() && m_caster->GetMapInstance()->CanUseCollision(m_caster))
         {
-            if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, itr->second->GetPositionX(), itr->second->GetPositionY(), itr->second->GetPositionZ() + 2.0f) )
+            if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, uObj->GetPositionX(), uObj->GetPositionY(), uObj->GetPositionZ() + 2.0f) )
                 continue;
         }
 
-        enemies.insert( castPtr<Unit>(itr->second) );
+        enemies.insert(uObj);
     }
 
     // Can't do anything w/o a target
@@ -2908,7 +2907,7 @@ void Aura::UpdateModAmounts()
             m_modList[i].m_amount = m_modList[i].m_baseAmount+m_modList[i].m_bonusAmount;
         else m_modList[i].m_amount = m_modList[i].m_baseAmount-m_modList[i].m_bonusAmount;
         if(m_stackSizeorProcCharges >= 0) m_modList[i].m_amount *= m_stackSizeorProcCharges;
-        if(m_target) m_target->m_AuraInterface.SetModMaskBit(m_modList[i].m_type);
+        if(m_target) m_target->OnAuraModChanged(m_modList[i].m_type);//m_AuraInterface.SetModMaskBit(m_modList[i].m_type);
     }
 }
 

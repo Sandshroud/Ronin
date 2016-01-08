@@ -7,6 +7,8 @@
 Corpse::Corpse(uint32 high, uint32 low, uint32 fieldCount) : WorldObject(MAKE_NEW_GUID(low, 0, high), fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_CORPSE);
+    m_objType = TYPEID_CORPSE;
+
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
 
     m_state = CORPSE_STATE_BODY;

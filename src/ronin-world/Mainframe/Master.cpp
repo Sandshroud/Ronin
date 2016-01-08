@@ -172,10 +172,8 @@ bool Master::Run(int argc, char ** argv)
     sLog.outString("");
 
     new EventMgr();
-    EventableObjectHolder* m_Holder = new EventableObjectHolder(-1);
-
-    new World();
     new OpcodeManager();
+    new World();
 
     /* load the config file */
     sWorld.Rehash(true);
@@ -205,19 +203,18 @@ bool Master::Run(int argc, char ** argv)
 
     sWorld.SetStartTime(uint32(UNIXTIME));
 
-    WorldRunnable * wr = new WorldRunnable(m_Holder);
-    ThreadPool.ExecuteTask("WorldRunnable", wr);
+    // Initialize the new worldRunnable
+    ThreadPool.ExecuteTask("WorldThread", World::getSingletonPtr());
 
     _HookSignals();
 
     ConsoleThread* console = new ConsoleThread();
     ThreadPool.ExecuteTask("ConsoleThread", console);
 
-    uint32 realCurrTime, realPrevTime;
-    realCurrTime = realPrevTime = getMSTime();
+    uint32 realCurrTime = getMSTime(), realPrevTime = realCurrTime;
 
     // Socket loop!
-    uint32 start = 0, last_time = getMSTime(), etime = 0;
+    uint32 start = 0, last_time = realCurrTime, etime = 0;
 
     // Start Network Subsystem
     sLog.Debug("Server","Starting network subsystem..." );
@@ -305,8 +302,6 @@ bool Master::Run(int argc, char ** argv)
 
     sDBEngine.EndThreads();
 
-    DBCLoader::StartCleanup();
-
     sLog.Notice( "Database", "Clearing all pending queries..." );
 
     // kill the database thread first so we don't lose any queries/data
@@ -366,6 +361,8 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice( "EventMgr", "~EventMgr()" );
     delete EventMgr::getSingletonPtr();
+
+    DBCLoader::StartCleanup();
 
     sLog.Notice( "Database", "Closing Connections..." );
     _StopDB();

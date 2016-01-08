@@ -20,7 +20,6 @@ public:
     void Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius);
     void UpdateTargets(uint32 p_time);
 
-    void AddInRangeObject(WorldObject* pObj);
     void OnRemoveInRangeObject(WorldObject* pObj);
     void Remove();
 

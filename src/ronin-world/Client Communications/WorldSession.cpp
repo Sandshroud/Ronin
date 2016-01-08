@@ -254,7 +254,6 @@ void WorldSession::LogoutPlayer()
     if( _loggingOut )
         return;
 
-    uint32 msTime = getMSTime();
     _loggingOut = true;
     _recentlogout = true;
 
@@ -307,7 +306,6 @@ void WorldSession::LogoutPlayer()
 
         sLfgMgr.RemovePlayerFromLfgQueues( plr );
 
-        msTime = getMSTime();
         // Save HP/Mana
         plr->load_health = plr->GetUInt32Value( UNIT_FIELD_HEALTH );
 
@@ -320,10 +318,9 @@ void WorldSession::LogoutPlayer()
         if(plr->IsInWorld())
         {
             plr->SaveToDB(false);
-            plr->RemoveFromWorld();
+            plr->RemoveFromWorld(false);
         }
 
-        msTime = getMSTime(); // save 4
         // send to gms
         if( HasGMPermissions() && !bServerShutdown )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
@@ -343,7 +340,6 @@ void WorldSession::LogoutPlayer()
             }
         }
 
-        msTime = getMSTime(); // save 4
         // Remove the "player locked" flag, to allow movement on next login
         plr->RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
 
@@ -355,7 +351,6 @@ void WorldSession::LogoutPlayer()
 
         // Save our account data, if we have any
         SaveAccountData();
-        msTime = getMSTime(); // save 4
 
         plr->Destruct();
 
@@ -365,8 +360,6 @@ void WorldSession::LogoutPlayer()
     _loggingOut = false;
 
     SetLogoutTimer(0);
-    if(uint32 diff = getMSTime()-msTime)
-        printf("Logout time %u\n", diff);
 }
 
 void WorldSession::SendBuyFailed(uint64 guid, uint32 itemid, uint8 error)

@@ -7,6 +7,8 @@
 GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
 {
     SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
+    m_objType = TYPEID_GAMEOBJECT;
+
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
 
     counter = 0;
@@ -656,6 +658,8 @@ void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
 
 void GameObject::RemoveFromWorld(bool free_guid)
 {
+    WorldObject::RemoveFromWorld(free_guid);
+    return;
     sEventMgr.RemoveEvents(this, EVENT_GAMEOBJECT_TRAP_SEARCH_TARGET);
     Despawn(0, 0);
 }

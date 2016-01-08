@@ -208,7 +208,7 @@ public:
 
     bool CanAddToWorld();
     void OnPushToWorld();
-    void RemoveFromWorld(bool addrespawnevent, bool free_guid);
+    void Respawn(bool addrespawnevent, bool free_guid);
 
     /// Arena organizers
     RONIN_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
@@ -367,11 +367,6 @@ public:
     void OnRespawn(MapInstance* m);
     void SafeDelete();
 
-    // In Range
-    void AddInRangeObject(WorldObject* pObj);
-    void OnRemoveInRangeObject(WorldObject* pObj);
-    void ClearInRangeSet();
-
     // Demon
     void EnslaveExpire();
 
@@ -461,7 +456,6 @@ public:
     CreatureFamilyEntry *myFamily;
     AuctionHouse *auctionHouse;
 
-    Player *m_escorter;
     MapCell *m_respawnCell;
 
     void _LoadMovement();

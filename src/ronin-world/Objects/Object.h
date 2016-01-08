@@ -49,14 +49,6 @@ enum TypeMask
     TYPEMASK_FLAG_IN_GUILD      = 0x00010000
 };
 
-RONIN_INLINE uint8 HighestMaskType16(uint32 type)
-{
-    uint8 high=0;
-    for(uint8 i = 0; i < 16; i++)
-        if(type & 1<<i) high = i;
-    return high;
-}
-
 enum TYPEID
 {
     TYPEID_OBJECT           = 0,
@@ -129,6 +121,8 @@ class WorldSession;
 class MapCell;
 class MapInstance;
 
+#pragma pack(PRAGMA_PACK)
+
 //===============================================
 //  Object
 //  Base class for every object
@@ -146,35 +140,35 @@ public:
     virtual void Update ( uint32 time ) { }
 
     // Value fields
-    void __fastcall SetByte(uint32 index, uint32 index1, uint8 value);
-    void __fastcall SetByteFlag( const uint32 index, const uint32 flag, uint8 newFlag);
-    bool __fastcall HasByteFlag( const uint32 index, const uint32 flag, uint8 checkFlag);
-    void __fastcall RemoveByteFlag(const uint32 index, const uint32 flag, uint8 checkFlag);
+    void __fastcall SetByte(uint16 index, uint8 flag, uint8 value);
+    void __fastcall SetByteFlag( const uint16 index, const uint8 flag, uint8 newFlag);
+    bool __fastcall HasByteFlag( const uint16 index, const uint8 flag, uint8 checkFlag);
+    void __fastcall RemoveByteFlag(const uint16 index, const uint8 flag, uint8 checkFlag);
 
     void __fastcall SetUInt16Value(uint16 index, uint8 offset, uint16 value);
-    void __fastcall SetUInt32Value( const uint32 index, const uint32 value );
-    void __fastcall SetUInt64Value( const uint32 index, const uint64 value );
-    void __fastcall SetFlag( const uint32 index, uint32 newFlag );
-    void __fastcall RemoveFlag( const uint32 index, uint32 oldFlag );
-    void __fastcall SetFloatValue( const uint32 index, const float value );
-    bool __fastcall HasFlag( const uint32 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
+    void __fastcall SetUInt32Value( const uint16 index, const uint32 value );
+    void __fastcall SetUInt64Value( const uint16 index, const uint64 value );
+    void __fastcall SetFlag( const uint16 index, uint32 newFlag );
+    void __fastcall RemoveFlag( const uint16 index, uint32 oldFlag );
+    void __fastcall SetFloatValue( const uint16 index, const float value );
+    bool __fastcall HasFlag( const uint16 index, uint32 flag ) const { return (m_uint32Values[ index ] & flag) != 0;    }
 
-    void __fastcall ModFloatValue(const uint32 index, const float value );
-    void __fastcall ModSignedInt32Value(uint32 index, int32 value);
-    void __fastcall ModUnsigned32Value(uint32 index, int32 mod);
-    uint32 __fastcall GetModPUInt32Value(const uint32 index, const int32 value);
+    void __fastcall ModFloatValue(const uint16 index, const float value );
+    void __fastcall ModSignedInt32Value(uint16 index, int32 value);
+    void __fastcall ModUnsigned32Value(uint16 index, int32 mod);
+    uint32 __fastcall GetModPUInt32Value(const uint16 index, const int32 value);
 
-    RONIN_INLINE uint8 GetByte(uint32 index, uint32 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
-    RONIN_INLINE const uint16& GetUInt16Value(uint32 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
-    RONIN_INLINE const uint32& GetUInt32Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
-    RONIN_INLINE const uint64& GetUInt64Value( uint32 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
-    RONIN_INLINE const float& GetFloatValue( uint32 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
-    RONIN_INLINE const float GetUInt32FloatValue(uint32 index) const { ASSERT( index < m_valuesCount ); return (float)m_uint32Values[index]; }
+    RONIN_INLINE uint8 GetByte(uint16 index, uint8 byteIndex) { return ((uint8*)m_uint32Values)[index*4+byteIndex]; }
+    RONIN_INLINE const uint16& GetUInt16Value(uint16 index, uint8 offset) const { ASSERT( index < m_valuesCount ); ASSERT( offset < 2 ); return *(((uint16*)&m_uint32Values[index])+offset); }
+    RONIN_INLINE const uint32& GetUInt32Value( uint16 index ) const { ASSERT( index < m_valuesCount ); return m_uint32Values[ index ]; }
+    RONIN_INLINE const uint64& GetUInt64Value( uint16 index ) const { ASSERT( index < m_valuesCount ); return *((uint64*)&(m_uint32Values[ index ])); }
+    RONIN_INLINE const float& GetFloatValue( uint16 index ) const { ASSERT( index < m_valuesCount ); return m_floatValues[ index ]; }
+    RONIN_INLINE const float GetUInt32FloatValue(uint16 index) const { ASSERT( index < m_valuesCount ); return (float)m_uint32Values[index]; }
 
     // Update masks
-    void SetUpdateField(uint32 index);
-    bool HasUpdateField(uint32 index) { return m_updateMask.GetBit(index); }
-    virtual void OnFieldUpdated(uint32 index) {}
+    void SetUpdateField(uint16 index);
+    bool HasUpdateField(uint16 index) { return m_updateMask.GetBit(index); }
+    virtual void OnFieldUpdated(uint16 index) {}
 
     //! Mark values that need updating for specified player.
     bool _SetUpdateBits(UpdateMask *updateMask, uint32 updateFlags);
@@ -220,8 +214,8 @@ public:
     RONIN_INLINE uint32 GetLowGUID() { return m_objGuid.getLow(); }
 
     // type
-    RONIN_INLINE uint8 GetTypeId() { return HighestMaskType16(GetTypeFlags()); }
-    RONIN_INLINE bool IsUnit() { return (GetTypeFlags() & TYPEMASK_TYPE_UNIT); }
+    RONIN_INLINE uint8 GetTypeId() { return m_objType; }
+    RONIN_INLINE bool IsUnit() { return IsCreature() || IsPlayer(); }
     RONIN_INLINE bool IsItem() { return (GetTypeFlags() & TYPEMASK_TYPE_ITEM); }
     RONIN_INLINE bool IsCreature() { return GetTypeId() == TYPEID_UNIT; }
     RONIN_INLINE bool IsPlayer() { return GetTypeId() == TYPEID_PLAYER; }
@@ -236,6 +230,12 @@ public:
     virtual bool IsVehicle() { return false; }
     virtual bool IsTransport() { return false; }
 
+    template<typename T> RONIN_INLINE bool IsType() { return false; }
+    template<> RONIN_INLINE bool IsType<Unit>() { return IsUnit(); }
+    template<> RONIN_INLINE bool IsType<Player>() { return IsPlayer(); }
+    template<> RONIN_INLINE bool IsType<Creature>() { return IsCreature(); }
+    template<> RONIN_INLINE bool IsType<GameObject>() { return IsGameObject(); }
+
     // In world bools
     virtual bool IsInWorld() { return m_inWorld; }
     void SetInWorld(bool res) { m_inWorld = res; }
@@ -249,10 +249,12 @@ protected:
 
     //! Object's guid
     WoWGuid m_objGuid;
+    //! Object's type
+    uint8 m_objType;
     //! Flags for building update data
     uint32 m_updateFlags;
     //! Number of properties
-    uint32 m_valuesCount;
+    uint16 m_valuesCount;
     //! Notification flags for updates
     uint16 m_notifyFlags;
     //! List of object properties that need updating.
@@ -282,9 +284,9 @@ private:
 class SERVER_DECL WorldObject : public Object, public EventableObject
 {
 public:
-    typedef std::unordered_set<WoWGuid> InRangeSet;
-    typedef std::unordered_map<WoWGuid, WorldObject*> InRangeMap;
-    typedef std::unordered_set<WorldObject*> InRangeWorldObjectSet;
+    typedef std::vector<WoWGuid> InRangeSet;
+    typedef Loki::AssocVector<WoWGuid, WorldObject*> InRangeMap;
+    typedef std::unordered_set<WorldObject*> InRangeWorldObjSet;
 
 public:
     WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
@@ -302,11 +304,11 @@ public:
     virtual bool IsInWorld() { return m_mapInstance != NULL; }
     virtual void RemoveFromWorld(bool free_guid);
 
-    void PushToWorld(MapInstance* );
+    void PushToWorld(MapInstance* instance);
     virtual void OnPushToWorld() { }
     virtual void OnPrePushToWorld() { }
 
-    virtual void OnFieldUpdated(uint32 index);
+    virtual void OnFieldUpdated(uint16 index);
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
@@ -408,101 +410,87 @@ public:
     }
 
     // In-range object management, not sure if we need it
-    RONIN_INLINE bool IsInRangeMap( WorldObject* pObj )
+    RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeObjects.find(pObj->GetGUID()) != m_inRangeObjects.end(); }
+    RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
-        return m_objectsInRange.find(pObj->GetGUID()) != m_objectsInRange.end();
-    }
-
-    RONIN_INLINE void AddInRangeObject(WorldObject* pObj)
-    {
-        if( pObj == NULL )
+        if( obj == NULL )
             return;
 
-        m_objectsInRange.insert(pObj->GetGUID());
-        m_inRangeObjects.insert( std::make_pair(pObj->GetGUID(), pObj) );
-        OnAddInRangeObject(pObj);
+        m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
+        OnAddInRangeObject(obj);
     }
 
     RONIN_INLINE bool RemoveInRangeObject( WorldObject* obj )
     {
         ASSERT(obj);
-        InRangeMap::iterator itr = m_inRangeObjects.find(obj->GetGUID());
-        if( itr == m_inRangeObjects.end() )
-            return false;
-
-        m_objectsInRange.erase(itr->first);
-        OnRemoveInRangeObject(itr->second);
-        itr = m_inRangeObjects.erase(itr);
+        m_inRangeObjects.erase(obj->GetGUID());
+        OnRemoveInRangeObject(obj);
         return true;
     }
 
     RONIN_INLINE WorldObject *GetInRangeObject(WoWGuid guid)
     {
-        if(GetGUID() == guid)
+        if(m_objGuid == guid)
             return this;
-
-        InRangeMap::iterator itr = m_inRangeObjects.find(guid);
-        if(itr != m_inRangeObjects.end())
+        InRangeMap::iterator itr;
+        if((itr = m_inRangeObjects.find(guid)) != m_inRangeObjects.end())
             return itr->second;
         return NULL;
     }
 
     template<typename T> RONIN_INLINE T *GetInRangeObject(WoWGuid guid)
     {
-        if(GetGUID() == guid)
-            return castPtr<T>(this);
-
-        InRangeMap::iterator itr;
-        if((itr = m_inRangeObjects.find(guid)) != m_inRangeObjects.end())
-            return castPtr<T>(itr->second);
+        WorldObject *obj = NULL;
+        if((obj = GetInRangeObject(guid)) && obj->IsType<T>())
+            return castPtr<T>(obj);
         return NULL;
     }
 
-    RONIN_INLINE bool HasInRangeObjects() { return !m_objectsInRange.empty(); }
+    RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
 
     RONIN_INLINE virtual void OnAddInRangeObject( WorldObject* pObj )
     {
         if(pObj->IsGameObject())
-            m_inRangeGameObjects.insert(pObj->GetGUID());
+            m_inRangeGameObjects.push_back(pObj->GetGUID());
         else if(pObj->IsUnit())
         {
-            m_inRangeUnits.insert(pObj->GetGUID());
+            m_inRangeUnits.push_back(pObj->GetGUID());
             if(pObj->IsPlayer())
-                m_inRangePlayers.insert(pObj->GetGUID());
-            else m_inRangeCreatures.insert(pObj->GetGUID());
+                m_inRangePlayers.push_back(pObj->GetGUID());
         }
     }
 
     RONIN_INLINE virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
-        m_inRangeUnits.erase(pObj->GetGUID());
-        m_inRangePlayers.erase(pObj->GetGUID());
-        m_inRangeCreatures.erase(pObj->GetGUID());
-        m_inRangeGameObjects.erase(pObj->GetGUID());
+        InRangeSet::iterator itr;
+        if(pObj->IsGameObject() && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), pObj->GetGUID())) != m_inRangeGameObjects.end()))
+            m_inRangeGameObjects.erase(itr);
+        else if(IsUnit())
+        {
+            if((itr = std::find(m_inRangeUnits.begin(), m_inRangeUnits.end(), pObj->GetGUID())) != m_inRangeUnits.end())
+                m_inRangeUnits.erase(itr);
+            if(pObj->IsPlayer() && ((itr = std::find(m_inRangePlayers.begin(), m_inRangePlayers.end(), pObj->GetGUID())) != m_inRangePlayers.end()))
+                m_inRangePlayers.erase(itr);
+        }
     }
 
     RONIN_INLINE virtual void ClearInRangeSet()
     {
-        m_objectsInRange.clear();
         m_inRangeObjects.clear();
-        m_inRangeUnits.clear();
-        m_inRangePlayers.clear();
-        m_inRangeCreatures.clear();
         m_inRangeGameObjects.clear();
+        m_inRangePlayers.clear();
+        m_inRangeUnits.clear();
     }
 
-    RONIN_INLINE size_t GetInRangeCount() { return m_objectsInRange.size(); }
+    RONIN_INLINE size_t GetInRangeCount() { return m_inRangeObjects.size(); }
     RONIN_INLINE size_t GetInRangeUnitCount() { return m_inRangeUnits.size(); }
     RONIN_INLINE size_t GetInRangePlayerCount() { return m_inRangePlayers.size(); }
-    RONIN_INLINE size_t GetInRangeCreatureCount() { return m_inRangeCreatures.size(); }
     RONIN_INLINE size_t GetInRangeGameObjectCount() { return m_inRangeGameObjects.size(); }
 
     RONIN_INLINE InRangeSet::iterator GetInRangeUnitSetBegin() { return m_inRangeUnits.begin(); }
     RONIN_INLINE InRangeSet::iterator GetInRangeUnitSetEnd() { return m_inRangeUnits.end(); }
     RONIN_INLINE InRangeSet::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
     RONIN_INLINE InRangeSet::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeCreatureSetBegin() { return m_inRangeCreatures.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeCreatureSetEnd() { return m_inRangeCreatures.end(); }
     RONIN_INLINE InRangeSet::iterator GetInRangeGameObjectSetBegin() { return m_inRangeGameObjects.begin(); }
     RONIN_INLINE InRangeSet::iterator GetInRangeGameObjectSetEnd() { return m_inRangeGameObjects.end(); }
 
@@ -541,7 +529,7 @@ public:
     bool CanActivate();
     void Activate(MapInstance* instance);
     void Deactivate(MapInstance* instance);
-    RONIN_INLINE void SetMapMgr(MapInstance* instance) { m_mapInstance = instance; }
+    RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 
     void PlaySoundToPlayer( Player* plr, uint32 sound_entry );
     void PlaySoundToSet(uint32 sound_entry);
@@ -585,11 +573,13 @@ protected:
     LocationVector m_position, m_spawnLocation, m_lastMapUpdatePosition;
 
     //! Set of Objects in range.
-    InRangeSet m_objectsInRange, m_inRangeUnits, m_inRangePlayers, m_inRangeCreatures, m_inRangeGameObjects;
     InRangeMap m_inRangeObjects;
+    InRangeSet m_inRangeUnits, m_inRangePlayers, m_inRangeGameObjects;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);
     bool IsInLineOfSight(float x, float y, float z);
     int32 GetSpellBaseCost(SpellEntry *sp);
 };
+
+#pragma pack(PRAGMA_POP)

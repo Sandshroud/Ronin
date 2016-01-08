@@ -268,17 +268,6 @@ public:
 
     virtual void Update( uint32 time );
     virtual void UpdateFieldValues();
-    virtual void ClearFieldUpdateValues();
-
-    virtual bool StatUpdateRequired();
-    virtual bool HealthUpdateRequired();
-    virtual bool PowerUpdateRequired();
-    virtual bool RegenUpdateRequired();
-    virtual bool AttackTimeUpdateRequired(uint8 weaponType);
-    virtual bool AttackDamageUpdateRequired(uint8 weaponType);
-    virtual bool ResUpdateRequired();
-    virtual bool APUpdateRequired();
-    virtual bool RAPUpdateRequired();
 
     void UpdateStatValues();
     void UpdateHealthValues();
@@ -287,14 +276,11 @@ public:
     void UpdateAttackTimeValues();
     void UpdateAttackDamageValues();
     void UpdateResistanceValues();
-    void UpdateAttackPowerValues();
-    void UpdateRangedAttackPowerValues();
-    void UpdatePowerCostValues();
+    void UpdateAttackPowerValues(std::set<uint32> modMap);
+    void UpdateRangedAttackPowerValues(std::set<uint32> modMap);
+    void UpdatePowerCostValues(std::set<uint32> modMap);
     void UpdateHoverValues();
 
-    bool m_needRecalculateAllFields;
-    bool m_needStatRecalculation;
-    bool m_statValuesChanged;
     virtual float GetPowerMod() = 0;
     virtual float GetHealthMod() = 0;
     virtual int32 GetBonusMana() = 0;
@@ -782,6 +768,11 @@ public:
     WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }
 
 public:
+    void OnAuraModChanged(uint32 modType);
+    void ProcessModUpdate(uint8 modUpdateType, std::set<uint32> modMap);
+
+    std::map<uint8, std::set<uint32> > m_modQueuedModUpdates;
+
     AuraInterface m_AuraInterface;
     UnitBaseStats *baseStats;
 

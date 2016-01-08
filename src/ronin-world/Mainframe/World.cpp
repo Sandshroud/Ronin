@@ -4,9 +4,11 @@
 
 #include "StdAfx.h"
 
+#define WORLD_UPDATE_DELAY 50
+
 initialiseSingleton( World );
 
-World::World()
+World::World() : eventHolder(new EventableObjectHolder(-1))
 {
     SendServerData = 1;
     m_hashInfo = format("%s-%s-%s", RONIN_UTIL::TOUPPER_RETURN(BUILD_HASH_STR).c_str(), ARCH, CONFIG);
@@ -36,6 +38,35 @@ World::World()
     number_of_cpus = si.dwNumberOfProcessors;
     m_current_holiday_mask = 0;
 #endif // WIN32
+}
+
+bool World::run()
+{
+    uint32 counter = 0, mstime = getMSTime(), lastUpdate = mstime; // Get our ms time
+    while(GetThreadState() != THREADSTATE_TERMINATE)
+    {
+        // Provision for pausing this thread.
+        if(GetThreadState() == THREADSTATE_PAUSED)
+            while(GetThreadState() == THREADSTATE_PAUSED)
+                Delay(200);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
+
+        mstime = getMSTime();
+        uint32 diff = std::min<uint32>(500, mstime - lastUpdate);
+        lastUpdate = mstime;
+
+        Update( diff );
+        if(!SetThreadState(THREADSTATE_SLEEPING))
+            break;
+
+        diff = getMSTime()-lastUpdate;
+        if(diff<WORLD_UPDATE_DELAY)
+            Delay(WORLD_UPDATE_DELAY-diff);
+        else sLog.outDebug("World thread running outside of update period");
+    }
+
+    return false;
 }
 
 uint32 World::GetMaxLevel(Player* plr)
@@ -519,22 +550,26 @@ bool World::SetInitialWorldSettings()
     return true;
 }
 
-void World::Update(time_t diff)
+void World::Update(uint32 diff)
 {
-    uint32 pDiff = uint32(diff);
-
     _UpdateGameTime();
 
-    UpdateQueuedSessions(pDiff);
+    UpdateQueuedSessions(diff);
 
     if(AuctionMgr::getSingletonPtr() != NULL)
         sAuctionMgr.Update();
 
     if(MailSystem::getSingletonPtr() != NULL)
-        sMailSystem.UpdateMessages(pDiff);
+        sMailSystem.UpdateMessages(diff);
 
     if(GuildMgr::getSingletonPtr() != NULL)
-        guildmgr.Update(pDiff);
+        guildmgr.Update(diff);
+
+    // Update event holder
+    eventHolder->Update(diff);
+
+    // Update sessions
+    UpdateSessions(diff);
 }
 
 void World::SendMessageToGMs(WorldSession *self, const char * text, ...)

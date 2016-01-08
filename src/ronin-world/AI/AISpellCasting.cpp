@@ -305,15 +305,16 @@ Unit *AIInterface::ChooseBestTargetInSet( std::set<Unit*> pTargetSet, uint32 pTa
 
 Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange)
 {
+    Unit *unit;
     //Build potential target list
     std::set<Unit*> TargetSet;
-    for ( WorldObject::InRangeMap::iterator ObjectIter = m_Unit->GetInRangeMapBegin(); ObjectIter != m_Unit->GetInRangeMapEnd(); ++ObjectIter )
+    for ( WorldObject::InRangeSet::iterator ObjectIter = m_Unit->GetInRangeUnitSetBegin(); ObjectIter != m_Unit->GetInRangeUnitSetEnd(); ++ObjectIter )
     {
-        if( IsValidUnitTarget(ObjectIter->second, info, pTargetFilter, pMinRange, pMaxRange) )
+        if( (unit = m_Unit->GetInRangeObject<Unit>(*ObjectIter)) && IsValidUnitTarget(unit, info, pTargetFilter, pMinRange, pMaxRange) )
         {
-            if(pTargetFilter & TargetFilter_ManaClass && castPtr<Unit>(ObjectIter->second)->getPowerType() != POWER_TYPE_MANA)
+            if(pTargetFilter & TargetFilter_ManaClass && unit->getPowerType() != POWER_TYPE_MANA)
                 continue;
-            TargetSet.insert( castPtr<Unit>( ObjectIter->second ) );
+            TargetSet.insert(unit);
         }
     }
 
@@ -324,14 +325,12 @@ Unit *AIInterface::GetBestUnitTarget( SpellEntry *info, uint32 pTargetFilter, fl
 
 Unit *AIInterface::GetBestPlayerTarget( SpellEntry *info, uint32 pTargetFilter, float pMinRange, float pMaxRange)
 {
+    Player *plr;
     //Build potential target list
     std::set<Unit*> TargetSet;
-    for ( WorldObject::InRangeSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ ) 
-    {
-        Player *plr = m_Unit->GetInRangeObject<Player>(*PlayerIter);
-        if ( IsValidUnitTarget( plr, info, pTargetFilter, pMinRange, pMaxRange ) )
+    for ( WorldObject::InRangeSet::iterator PlayerIter = m_Unit->GetInRangePlayerSetBegin(); PlayerIter != m_Unit->GetInRangePlayerSetEnd(); PlayerIter++ )
+        if((plr = m_Unit->GetInRangeObject<Player>(*PlayerIter)) && IsValidUnitTarget(plr, info, pTargetFilter, pMinRange, pMaxRange))
             TargetSet.insert(plr);
-    }
 
     return ChooseBestTargetInSet( TargetSet, pTargetFilter );
 }

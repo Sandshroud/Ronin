@@ -12,7 +12,7 @@
 
 MapManager::MapManager(MapEntry *mapEntry, Map *map) : ThreadContext(), m_mapEntry(mapEntry), m_mapId(mapEntry->MapID), m_mapData(map), eventHolder(m_mapId), m_continent(NULL)
 {
-
+    SetThreadState(THREADSTATE_PAUSED);
 }
 
 MapManager::~MapManager()
@@ -26,7 +26,7 @@ bool MapManager::Initialize()
     {
         sLog.Notice("MapManager", "Creating continent %u(%s).", m_mapId, m_mapEntry->name);
         m_continent = new MapInstance(m_mapData, m_mapId, m_mapId);
-        if(m_mapId == 571 && sWorld.ServerPreloading == 2)
+        if(sWorld.ServerPreloading >= 2)
             m_continent->UpdateAllCells(true);
     }
 
@@ -35,6 +35,9 @@ bool MapManager::Initialize()
 
 bool MapManager::run()
 {
+    while(GetThreadState() == THREADSTATE_PAUSED)
+        Delay(50);
+
     uint32 counter = 0, mstime = getMSTime(), lastUpdate = mstime; // Get our ms time
     do
     {
@@ -114,9 +117,8 @@ bool MapManager::run()
             if(!SetThreadState(THREADSTATE_SLEEPING))
                 break;
 
-            // Recalculate our diff to 
-            if((diff = mstime-lastUpdate) > 5)
-                printf("%u | UpdateDiff 0:%u 1:%u 2:%u 3:%u 4:%u 5:%u 6:%u\n", counter, diff, diff1, diff2, diff3, diff4, diff5, diff6);
+            diff = mstime-lastUpdate;
+            //if(diff > 5) printf("Map %u Update: %u | %u %u %u %u %u %u %u\n", m_mapId, counter, diff, diff1, diff2, diff3, diff4, diff5, diff6);
             if(diff<MAP_MGR_UPDATE_PERIOD)
                 Delay(MAP_MGR_UPDATE_PERIOD-diff);
             else sLog.outDebug("Map %u running outside of update period", m_mapId);
@@ -124,6 +126,13 @@ bool MapManager::run()
         counter++;
     }while(true);
 
+    if(m_continent)
+        m_continent->Destruct();
+    m_continent = NULL;
+    // Push all our instances to the processing map
+    for(std::map<uint32, MapInstance*>::iterator itr = m_mapInstances.begin(); itr != m_mapInstances.end(); itr++)
+        itr->second->Destruct();
+    m_mapInstances.clear();
     return true;
 }
 

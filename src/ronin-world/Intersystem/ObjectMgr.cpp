@@ -690,7 +690,16 @@ void ObjectMgr::ReloadVendors()
 
 std::map<uint32, CreatureItem>* ObjectMgr::GetVendorList(uint32 entry)
 {
-    return mVendors[entry];
+    if(mVendors.find(entry) != mVendors.end())
+        return mVendors.at(entry);
+    return NULL;
+}
+
+std::map<uint32, CreatureItem>* ObjectMgr::AllocateVendorList(uint32 entry)
+{
+    if(mVendors.find(entry) != mVendors.end())
+        return mVendors.at(entry);
+    return (mVendors[entry] = new std::map<uint32, CreatureItem>);
 }
 
 Item* ObjectMgr::CreateItem(uint32 entry,Player* owner, uint32 count)
@@ -909,11 +918,6 @@ uint32 ObjectMgr::GetPetSpellCooldown(uint32 SpellId)
     }
     sLog.Error("ObjectMgr","GetPetSpellCooldown tried to add a non existing spell %d",SpellId);
     return 600000;//
-}
-
-void ObjectMgr::SetVendorList(uint32 Entry, std::map<uint32, CreatureItem>* list_)
-{
-    mVendors[Entry] = list_;
 }
 
 Pet* ObjectMgr::CreatePet(CreatureData *ctrData)

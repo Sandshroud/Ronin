@@ -7,6 +7,7 @@
 Container::Container(ItemPrototype *proto, uint32 counter) : Item(proto, counter, CONTAINER_END)
 {
     SetTypeFlags(TYPEMASK_TYPE_CONTAINER);
+    m_objType = TYPEID_CONTAINER;
 
     SetSlotCount(proto->ContainerSlots);
     uint8 TotalSlots = GetSlotCount();

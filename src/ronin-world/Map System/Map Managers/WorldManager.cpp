@@ -45,6 +45,8 @@ void WorldManager::Load(TaskList * l)
         count++;
     }
     l->wait();
+    for(auto itr = m_mapManagement.begin(); itr != m_mapManagement.end(); itr++)
+        itr->second->SetThreadState(THREADSTATE_AWAITING);
 
     // load saved instances
     _LoadInstances();
@@ -57,10 +59,8 @@ WorldManager::~WorldManager()
 
 void WorldManager::Shutdown()
 {
-    for(std::map<uint32, MapManager*>::iterator itr = m_mapManagement.begin(); itr != m_mapManagement.end(); itr++)
-    {
-    
-    }
+    // Map manager threads are self cleanup
+    m_mapManagement.clear();
 }
 
 uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
