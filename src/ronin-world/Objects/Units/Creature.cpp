@@ -62,7 +62,7 @@ void Creature::Destruct()
     sEventMgr.RemoveEvents(this);
 
     if(m_respawnCell != NULL)
-        m_respawnCell->_respawnObjects.erase(this);
+        m_respawnCell->RemoveRespawn(this);
     Unit::Destruct();
 }
 
@@ -108,7 +108,7 @@ void Creature::SafeDelete()
 void Creature::DeleteMe()
 {
     if(IsInWorld())
-        RemoveFromWorld(true);
+        RemoveFromWorld();
 
     Destruct();
 }
@@ -385,7 +385,7 @@ void Creature::Respawn(bool addrespawnevent, bool free_guid)
     if(IsPet())
     {
         if(IsInWorld())
-            RemoveFromWorld(true);
+            RemoveFromWorld();
 
         SafeDelete();
     }
@@ -698,13 +698,13 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
             pCell = m_mapCell;
 
         ASSERT(pCell);
-        pCell->_respawnObjects.insert(this);
+        pCell->AddRespawn(this);
         sEventMgr.RemoveEvents(this);
         sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnCreature, castPtr<Creature>(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
-        Unit::RemoveFromWorld(false);
+        Unit::RemoveFromWorld();
         SetPosition( m_spawnLocation);
         m_respawnCell = pCell;
-    } else Unit::RemoveFromWorld(true);
+    } else Unit::RemoveFromWorld();
 }
 
 void Creature::RemoveLimboState(Unit* healer)

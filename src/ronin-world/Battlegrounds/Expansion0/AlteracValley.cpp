@@ -436,7 +436,7 @@ void AVNode::Spawn()
         if(m_flag && m_flag->GetEntry() != g->id[m_state])
         {
             if(m_flag->IsInWorld())
-                m_flag->RemoveFromWorld(true);
+                m_flag->RemoveFromWorld();
             else m_flag->Destruct();
             m_flag = NULL;
         }
@@ -477,7 +477,7 @@ void AVNode::Spawn()
             if( m_aura->GetEntry() != g->id[m_state] )
             {
                 if(m_aura->IsInWorld())
-                    m_aura->RemoveFromWorld(true);
+                    m_aura->RemoveFromWorld();
                 else m_aura->Destruct();
                 m_aura = NULL;
             }
@@ -516,7 +516,7 @@ void AVNode::Spawn()
         if(m_glow && (m_glow->GetEntry() != g->id[m_state] || !sWorldMgr.PushToWorldQueue(m_glow)))
         {
             if(m_glow->IsInWorld())
-                m_glow->RemoveFromWorld(true);
+                m_glow->RemoveFromWorld();
             else m_glow->Destruct();
             m_glow = NULL;
         }

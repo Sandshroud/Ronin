@@ -62,7 +62,7 @@ public:
     UpdateMask *GetAllianceTaxiMasks() { return &m_allianceTaxiMasks; }
     UpdateMask *GetDeathKnightTaxiMasks() { return &m_DKTaxiMasks; }
 private:
-    RONIN_UNORDERED_MAP<uint32, TaxiPath*> m_taxiPaths;
+    std::map<uint32, TaxiPath*> m_taxiPaths;
     UpdateMask m_taxiMasks, m_hordeTaxiMasks, m_allianceTaxiMasks, m_DKTaxiMasks;
 };
 

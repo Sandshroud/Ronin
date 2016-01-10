@@ -62,7 +62,7 @@ void GameObject::Destruct()
     }
 
     if(m_respawnCell!=NULL)
-        m_respawnCell->_respawnObjects.erase(this);
+        m_respawnCell->RemoveRespawn(this);
 
     if (m_summonedGo && m_summoner)
     {
@@ -219,15 +219,15 @@ void GameObject::Despawn( uint32 delay, uint32 respawntime)
         /* Get our originiating mapcell */
         MapCell * pCell = m_mapCell;
         ASSERT(pCell);
-        pCell->_respawnObjects.insert( this );
+        pCell->AddRespawn( this );
         sEventMgr.RemoveEvents(this);
         sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnGameObject, castPtr<GameObject>(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
-        WorldObject::RemoveFromWorld(false);
+        WorldObject::RemoveFromWorld();
         m_respawnCell = pCell;
     }
     else
     {
-        WorldObject::RemoveFromWorld(true);
+        WorldObject::RemoveFromWorld();
         ExpireAndDelete();
     }
 }
@@ -610,7 +610,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
 void GameObject::_Expire()
 {
     if(IsInWorld())
-        WorldObject::RemoveFromWorld(true);
+        WorldObject::RemoveFromWorld();
 
     Destruct();
 }
@@ -656,9 +656,9 @@ void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
     }
 }
 
-void GameObject::RemoveFromWorld(bool free_guid)
+void GameObject::RemoveFromWorld()
 {
-    WorldObject::RemoveFromWorld(free_guid);
+    WorldObject::RemoveFromWorld();
     return;
     sEventMgr.RemoveEvents(this, EVENT_GAMEOBJECT_TRAP_SEARCH_TARGET);
     Despawn(0, 0);

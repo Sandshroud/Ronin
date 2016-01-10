@@ -653,7 +653,7 @@ typedef std::map<uint32, FactionReputation*>        ReputationMap;
 typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
-typedef std::unordered_map<uint32, PlayerSkill>     SkillMap;
+typedef std::map<uint32, PlayerSkill>     SkillMap;
 typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
 typedef std::set<Player* *>                         ReferenceSet;
 typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
@@ -828,7 +828,7 @@ public:
 
     bool ok_to_remove;
 
-    void RemoveFromWorld(bool free_guid);
+    void RemoveFromWorld();
     bool Create ( WorldPacket &data );
 
     void BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag);

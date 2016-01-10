@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit), m_maxPosAuraSlot(0), m_maxNegAuraSlot(MAX_POSITIVE_AURAS)
+AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit), m_maxPosAuraSlot(0), m_maxNegAuraSlot(MAX_POSITIVE_AURAS), m_maxPassiveAuraSlot(MAX_AURAS)
 {
     for(uint8 i = 0; i < TOTAL_AURAS; i++)
         m_auras[i] = NULL;
@@ -12,9 +12,21 @@ AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit), m_maxPosAuraSlot(0), m_
 
 AuraInterface::~AuraInterface()
 {
+
+}
+
+void AuraInterface::Destruct()
+{
     m_Unit = NULL;
-    for(uint8 i = 0; i < TOTAL_AURAS; i++)
-        m_auras[i] = NULL;
+    for(uint8 x = 0; x < m_maxPosAuraSlot; ++x)
+        if(Aura *aur = m_auras[x])
+            delete aur;
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if(Aura *aur = m_auras[x])
+            delete aur;
+    for(uint8 x = MAX_AURAS; x < m_maxPassiveAuraSlot; ++x)
+        if(Aura *aur = m_auras[x])
+            delete aur;
 }
 
 void AuraInterface::Update(uint32 diff)
@@ -32,7 +44,7 @@ void AuraInterface::Update(uint32 diff)
 void AuraInterface::OnChangeLevel(uint32 newLevel)
 {
     // On target level change recalculate modifiers where caster is unit
-    for(uint8 i = 0; i < MAX_POSITIVE_AURAS; i++)
+    for(uint8 i = 0; i < m_maxPosAuraSlot; i++)
     {
         Aura *aur = m_auras[i];
         if(aur == NULL)
@@ -46,7 +58,7 @@ void AuraInterface::OnChangeLevel(uint32 newLevel)
     }
 
     // Update our passive auras
-    for(uint8 i = MAX_AURAS; i < TOTAL_AURAS; i++)
+    for(uint8 i = MAX_AURAS; i < m_maxPassiveAuraSlot; i++)
     {
         Aura *aur = m_auras[i];
         if(aur == NULL)
@@ -77,14 +89,12 @@ uint8 AuraInterface::GetFreeSlot(bool ispositive)
 
 void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
 {
-    std::map<uint8, Aura*>::iterator itr;
     if(aura_slot > TOTAL_AURAS)
     {
         for(uint8 x = 0; x < TOTAL_AURAS; ++x)
             if(m_auras[x] == aura)
                 m_auras[x] = NULL;
-    }
-    else if(m_auras[aura_slot] == aura)
+    } else if(m_auras[aura_slot] == aura)
         m_auras[aura_slot] = NULL;
 }
 
@@ -275,7 +285,7 @@ void AuraInterface::AttemptDispel(Unit* caster, int32 Mechanic, bool hostile)
 
 void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispelling, uint32 MaxDispel, uint8 start, uint8 end)
 {
-    ASSERT(start < TOTAL_AURAS && end < TOTAL_AURAS);
+    ASSERT(start < MAX_AURAS && end < MAX_AURAS);
     WorldPacket data(SMSG_SPELLDISPELLOG, 16);
 
     for(uint8 x = start; x < end; x++)
@@ -459,7 +469,7 @@ bool AuraInterface::HasAura(uint32 spellid)
 
 bool AuraInterface::HasAuraVisual(uint32 visualid)
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; ++x)
+    for(uint8 x = 0; x < MAX_AURAS; ++x)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -781,9 +791,11 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
 
     m_auras[aur->GetAuraSlot()] = aur;
     if(aur->GetAuraSlot() < MAX_POSITIVE_AURAS)
-        m_maxPosAuraSlot = std::max<uint8>(m_maxPosAuraSlot, aur->GetAuraSlot());
+        m_maxPosAuraSlot = std::max<uint8>(m_maxPosAuraSlot, 1+aur->GetAuraSlot());
     else if(aur->GetAuraSlot() < MAX_AURAS)
-        m_maxNegAuraSlot = std::max<uint8>(m_maxNegAuraSlot, aur->GetAuraSlot());
+        m_maxNegAuraSlot = std::max<uint8>(m_maxNegAuraSlot, 1+aur->GetAuraSlot());
+    else if(aur->GetAuraSlot() < TOTAL_AURAS)
+        m_maxPassiveAuraSlot = std::max<uint8>(m_maxPassiveAuraSlot, 1+aur->GetAuraSlot());
 
     aur->ApplyModifiers(true);
 
@@ -972,7 +984,7 @@ bool AuraInterface::RemoveAura(uint32 spellId, WoWGuid guid )
 
 void AuraInterface::RemoveAllAuras()
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < MAX_AURAS; x++)
     {
         if(Aura *aur = m_auras[x])
             RemoveAuraBySlot(x);
@@ -981,7 +993,7 @@ void AuraInterface::RemoveAllAuras()
 
 void AuraInterface::RemoveAllExpiringAuras()
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < MAX_AURAS; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1368,7 +1380,7 @@ Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid)
 
 void AuraInterface::EventDeathAuraRemoval()
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < MAX_AURAS; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1380,16 +1392,17 @@ void AuraInterface::EventDeathAuraRemoval()
     }
 }
 
-void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
+void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
     m_Unit->OnAuraModChanged(mod->m_type);
 
-    std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
+    uint16 mod_index = createModifierIndex(auraSlot, index);
+    Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
     if(apply)
     {
         ModifierHolder *modHolder = NULL;
-        if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
-            modHolder = m_modifierHolders.at(auraSlot);
+        if((itr = m_modifierHolders.find(auraSlot)) != m_modifierHolders.end())
+            modHolder = itr->second;
         else if(Aura *aur = m_auras[auraSlot])
         {
             modHolder = new ModifierHolder(auraSlot, aur->GetSpellProto());
@@ -1401,11 +1414,11 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
         m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
         modHolder->mod[index] = mod;
     }
-    else if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
+    else if((itr = m_modifierHolders.find(auraSlot)) != m_modifierHolders.end())
     {
         m_modifiersByModType[mod->m_type].erase(mod_index);
 
-        ModifierHolder *modHolder = m_modifierHolders.at(auraSlot);
+        ModifierHolder *modHolder = itr->second;
         modHolder->mod[index] = NULL;
         for(uint8 i=0;i<3;i++)
             if(modHolder->mod[i])
@@ -1421,15 +1434,16 @@ void AuraInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, 
 void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
 {
     assert(mod->m_miscValue[0] < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue[0] & 0x7F), uint8(mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0));
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    uint8 index1 = mod->m_miscValue[0] & 0x7F, index2 = mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0;
+    uint16 index = createModifierIndex(index1, index2);
+    Loki::AssocVector<uint8, int32> groupModMap = m_spellGroupModifiers[index];
 
     uint32 count = 0;
     WorldPacket *data = NULL;
     if(m_Unit->IsPlayer())
     {
-        data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index.second, 20);
-        *data << uint32(1) << count << uint8(index.first);
+        data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index2, 20);
+        *data << uint32(1) << count << uint8(index1);
     }
     for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
     {
@@ -1460,14 +1474,14 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
 {
     assert(modifier < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(modifier, 0);
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    uint16 index = createModifierIndex(modifier, 0);
+    Loki::AssocVector<uint8, int32> groupModMap = m_spellGroupModifiers[index];
     if(groupModMap.size() == 0)
         return;
 
     uint32 flag;
     uint8 groupOffset;
-    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
@@ -1477,14 +1491,14 @@ void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
 void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
 {
     assert(modifier < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(modifier, 0);
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    uint16 index = createModifierIndex(modifier, 0);
+    Loki::AssocVector<uint8, int32> groupModMap = m_spellGroupModifiers[index];
     if(groupModMap.size() == 0)
         return;
 
     uint32 flag;
     uint8 groupOffset;
-    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
@@ -1494,14 +1508,14 @@ void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
 void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
 {
     assert(modifier < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(modifier, 1);
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    uint16 index = createModifierIndex(modifier, 1);
+    Loki::AssocVector<uint8, int32> groupModMap = m_spellGroupModifiers[index];
     if(groupModMap.size() == 0)
         return;
 
     uint32 flag;
     uint8 groupOffset;
-    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += float2int32(floor((float(*v)*float(itr->second))/100.f));
@@ -1511,14 +1525,14 @@ void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
 void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
 {
     assert(modifier < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(modifier, 1);
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
+    uint16 index = createModifierIndex(modifier, 1);
+    Loki::AssocVector<uint8, int32> groupModMap = m_spellGroupModifiers[index];
     if(groupModMap.size() == 0)
         return;
 
     uint32 flag;
     uint8 groupOffset;
-    for(std::map<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
+    for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += ((*v)*float(itr->second))/100.f;

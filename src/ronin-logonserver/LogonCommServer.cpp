@@ -393,7 +393,7 @@ void LogonCommServerSocket::HandleMappingReply(WorldPacket & recvData)
 
     sInfoCore.getRealmLock().Acquire();
 
-    RONIN_UNORDERED_MAP<uint32, uint8>::iterator itr;
+    std::map<uint32, uint8>::iterator itr;
     buf >> count;
     sLog.Notice("LogonCommServer","Got mapping packet for realm %u, total of %u entries.\n", (unsigned int)realm_id, (unsigned int)count);
     for(uint32 i = 0; i < count; ++i)
@@ -423,7 +423,7 @@ void LogonCommServerSocket::HandleUpdateMapping(WorldPacket & recvData)
     sInfoCore.getRealmLock().Acquire();
     recvData >> account_id >> toadd;
 
-    RONIN_UNORDERED_MAP<uint32, uint8>::iterator itr = realm->CharacterMap.find(account_id);
+    std::map<uint32, uint8>::iterator itr = realm->CharacterMap.find(account_id);
     if(itr != realm->CharacterMap.end())
     {
         if(itr->second > 0 || toadd > 0)

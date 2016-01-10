@@ -122,13 +122,13 @@ private:
     bool m_isBattleground;
 
     Mutex m_savedLock;
-    std::unordered_set<uint32> m_killedNpcs;
-    std::unordered_set<uint32> m_SavedPlayers;
-    std::unordered_set<uint32> m_EnteredPlayers;
+    std::set<uint32> m_killedNpcs;
+    std::set<uint32> m_SavedPlayers;
+    std::set<uint32> m_EnteredPlayers;
 };
 
 // Each instance has it's own instance data linked to unique IDs
-typedef RONIN_UNORDERED_MAP<uint32, InstanceData*> InstanceDataMap;
+typedef std::map<uint32, InstanceData*> InstanceDataMap;
 
 class MapManager;
 

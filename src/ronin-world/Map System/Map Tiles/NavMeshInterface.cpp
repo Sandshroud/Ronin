@@ -74,12 +74,8 @@ float CNavMeshInterface::GetWalkingHeight(uint32 mapid, float x, float y, float 
     return height;
 }
 
-MMapManager::MMapManager(uint32 mapid)
+MMapManager::MMapManager(uint32 mapid) : ManagerMapId(mapid), m_navMesh(NULL), m_navMeshQuery(NULL), lastTileRef(0)
 {
-    lastTileRef = 0;
-    m_navMesh = NULL;
-    ManagerMapId = mapid;
-
     // load and init dtNavMesh - read parameters from file
     uint32 pathLen = uint32(sWorld.MMapPath.length() + strlen("/000.mmap")+1);
     char *fileName = new char[pathLen];

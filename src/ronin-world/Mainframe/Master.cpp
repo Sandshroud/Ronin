@@ -340,6 +340,7 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice("Thread", "Terminating thread pool...");
     ThreadPool.Shutdown();
+    DBCLoader::StartCleanup();
 
     sLog.Notice( "Network", "Deleting Network Subsystem..." );
     {
@@ -362,7 +363,8 @@ bool Master::Run(int argc, char ** argv)
     sLog.Notice( "EventMgr", "~EventMgr()" );
     delete EventMgr::getSingletonPtr();
 
-    DBCLoader::StartCleanup();
+    // Wait for cleanup thread to exit
+    ThreadPool.Shutdown();
 
     sLog.Notice( "Database", "Closing Connections..." );
     _StopDB();

@@ -189,7 +189,7 @@ void DynamicObject::Remove()
             }
         }
 
-        RemoveFromWorld(true);
+        RemoveFromWorld();
     }
     Destruct();
 }

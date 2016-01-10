@@ -13,7 +13,7 @@ MapCell::MapCell()
 
 MapCell::~MapCell()
 {
-    RemoveObjects();
+    RemoveObjects(true);
 }
 
 void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
@@ -33,7 +33,7 @@ void MapCell::AddObject(WorldObject* obj)
     if(obj->IsPlayer())
         ++_playerCount;
 
-    _objects.insert(obj);
+    _objects.push_back(obj);
 }
 
 void MapCell::RemoveObject(WorldObject* obj)
@@ -41,7 +41,9 @@ void MapCell::RemoveObject(WorldObject* obj)
     if(obj->IsPlayer())
         --_playerCount;
 
-    _objects.erase(obj);
+    CellObjectSet::iterator itr;
+    if((itr = std::find(_objects.begin(), _objects.end(), obj)) != _objects.end())
+        _objects.erase(itr);
 }
 
 void MapCell::SetActivity(bool state)
@@ -75,7 +77,7 @@ void MapCell::SetActivity(bool state)
     _active = state;
 }
 
-void MapCell::RemoveObjects()
+void MapCell::RemoveObjects(bool preDestruction)
 {
     if(_loaded == false)
         return;
@@ -84,34 +86,27 @@ void MapCell::RemoveObjects()
     if(_respawnObjects.size())
     {
         /* delete objects in pending respawn state */
-        WorldObject* pObject;
-        for(CellObjectSet::iterator itr = _respawnObjects.begin(); itr != _respawnObjects.end(); itr++)
+        CellObjectSet set(_respawnObjects);
+        for(CellObjectSet::iterator itr = set.begin(); itr != set.end(); itr++)
         {
-            pObject = *itr;
-            if(!pObject)
+            WorldObject* pObject = *itr;
+            if(pObject == NULL || pObject->IsPet())
                 continue;
 
             switch(pObject->GetTypeId())
             {
             case TYPEID_UNIT:
                 {
-                    if( !pObject->IsPet() )
-                    {
-                        _mapmgr->_reusable_guids_creature.push_back( pObject->GetLowGUID() );
-                        castPtr<Creature>(pObject)->m_respawnCell = NULL;
-                        castPtr<Creature>(pObject)->Destruct();
-                        pObject = NULL;
-                    }
+                    castPtr<Creature>(pObject)->m_respawnCell = NULL;
+                    castPtr<Creature>(pObject)->Destruct();
                 }break;
             case TYPEID_GAMEOBJECT:
                 {
                     castPtr<GameObject>(pObject)->m_respawnCell = NULL;
                     castPtr<GameObject>(pObject)->Destruct();
-                    pObject = NULL;
                 }break;
             default:
                 pObject->Destruct();
-                pObject = NULL;
                 break;
             }
         }
@@ -121,16 +116,14 @@ void MapCell::RemoveObjects()
     if(_objects.size())
     {
         //This time it's simpler! We just remove everything :)
-        WorldObject* obj; //do this outside the loop!
-        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end();)
+        CellObjectSet set(_objects);
+        for(CellObjectSet::iterator itr = set.begin(); itr != set.end(); itr++)
         {
-            obj = (*itr);
-            ++itr;
-
-            if(!obj)
+            WorldObject *obj = (*itr);
+            if(obj == NULL)
                 continue;
 
-            if( _unloadpending )
+            if( !preDestruction && _unloadpending )
             {
                 if(obj->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
                     continue;
@@ -140,15 +133,37 @@ void MapCell::RemoveObjects()
             }
 
             if( obj->IsInWorld())
-                obj->RemoveFromWorld( true );
+                obj->RemoveFromWorld();
 
             obj->Destruct();
-            obj = NULL;
         }
         _objects.clear();
     }
 
     _playerCount = 0;
+}
+
+void MapCell::AddRespawn(WorldObject* obj)
+{
+    _respawnObjects.push_back(obj);
+}
+
+void MapCell::RemoveRespawn(WorldObject* obj)
+{
+    CellObjectSet::iterator itr;
+    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
+        _respawnObjects.erase(itr);
+}
+
+bool MapCell::EventRespawn(WorldObject *obj)
+{
+    CellObjectSet::iterator itr;
+    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
+    {
+        _respawnObjects.erase(itr);
+        return true;
+    }
+    return false;
 }
 
 uint32 MapCell::LoadObjects(CellSpawns * sp)
@@ -229,6 +244,6 @@ void MapCell::Unload()
     if(_active)
         return;
 
-    RemoveObjects();
+    RemoveObjects(false);
     _unloadpending = false;
 }

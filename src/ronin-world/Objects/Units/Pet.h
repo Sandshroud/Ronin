@@ -160,7 +160,7 @@ public:
 
     RONIN_INLINE AI_Spell* GetAISpellForSpellId(uint32 spellid)
     {
-        std::map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.find(spellid);
+        AIInterface::AISpellMap::iterator itr = m_AISpellStore.find(spellid);
         if(itr != m_AISpellStore.end())
             return itr->second;
         return NULL;
@@ -259,7 +259,7 @@ protected:
     uint32 ActionBar[10];   // 10 slots
 
 
-    std::map<uint32, AI_Spell*> m_AISpellStore;
+    AIInterface::AISpellMap m_AISpellStore;
 
     uint32 m_AutoCombatSpell;
 

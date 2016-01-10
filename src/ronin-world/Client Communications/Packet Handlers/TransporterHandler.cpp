@@ -365,7 +365,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
     }
 
     // Set our position
-    RemoveFromWorld(false);
+    RemoveFromWorld();
     SetMapId(mapid);
     SetPosition(x,y,z,m_position.o);
     sWorldMgr.PushToWorldQueue(this);

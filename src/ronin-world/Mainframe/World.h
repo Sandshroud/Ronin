@@ -608,7 +608,7 @@ protected:
 
 private:
     //! Timers
-    typedef RONIN_UNORDERED_MAP<uint32, WorldSession*> SessionMap;
+    typedef std::map<uint32, WorldSession*> SessionMap;
     SessionMap m_sessions;
     RWLock m_sessionlock;
 

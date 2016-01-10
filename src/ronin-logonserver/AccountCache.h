@@ -111,7 +111,7 @@ class AccountMgr : public Singleton < AccountMgr >
 public:
     ~AccountMgr()
     {
-        for(RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.begin(); itr != AccountDatabase.end(); ++itr)
+        for(std::map<std::string, Account*>::iterator itr = AccountDatabase.begin(); itr != AccountDatabase.end(); ++itr)
             delete itr->second;
     }
 
@@ -135,13 +135,13 @@ public:
 private:
     Account* __GetAccount(std::string Name)
     {
-        RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.find(Name);
+        std::map<std::string, Account*>::iterator itr = AccountDatabase.find(Name);
         if(itr == AccountDatabase.end())
             return NULL;
         return itr->second;
     }
 
-    RONIN_UNORDERED_MAP<std::string, Account*> AccountDatabase;
+    std::map<std::string, Account*> AccountDatabase;
 
 protected:
     Mutex setBusy;
@@ -162,7 +162,7 @@ typedef struct Realm
     uint16 RequiredBuild;
 
     Mutex m_charMapLock;
-    RONIN_UNORDERED_MAP<uint32, uint8> CharacterMap;
+    std::map<uint32, uint8> CharacterMap;
     LogonCommServerSocket *ServerSocket;
 }Realm;
 

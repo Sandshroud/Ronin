@@ -54,7 +54,7 @@ void AccountMgr::ReloadAccounts(bool silent)
     }
 
     // check for any purged/deleted accounts
-    RONIN_UNORDERED_MAP<std::string, Account*>::iterator itr = AccountDatabase.begin(), it2;
+    std::map<std::string, Account*>::iterator itr = AccountDatabase.begin(), it2;
     for(; itr != AccountDatabase.end();)
     {
         it2 = itr;
@@ -486,7 +486,7 @@ void InformationCore::SendRealms(AuthSocket * Socket)
 {
     Realm* realm = NULL;
     realmLock.Acquire();
-    RONIN_UNORDERED_MAP<uint32, uint8>::iterator it;
+    std::map<uint32, uint8>::iterator it;
     std::map<uint32, Realm*>::iterator itr = m_realms.begin();
     if(Socket->GetBuild() <= 6005) // PreBC
     {

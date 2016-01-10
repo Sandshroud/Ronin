@@ -236,13 +236,13 @@ bool WorldSession::IsHighPriority()
     bool res = false;
     if(m_loggingInPlayer)
         res = true;
-    else if(_player)
+    else if(Player *plr = _player)
     {
-        if(_player->m_beingPushed)
+        if(plr->m_beingPushed)
             res = true;
-        else if(_player->m_changingMaps)
+        else if(plr->m_changingMaps)
             res = true;
-        else if(!_player->IsInWorld())
+        else if(!plr->IsInWorld())
             res = true;
     }
     return res;
@@ -318,7 +318,7 @@ void WorldSession::LogoutPlayer()
         if(plr->IsInWorld())
         {
             plr->SaveToDB(false);
-            plr->RemoveFromWorld(false);
+            plr->RemoveFromWorld();
         }
 
         // send to gms

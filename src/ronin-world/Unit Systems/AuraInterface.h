@@ -4,9 +4,10 @@
 
 #pragma once
 
-#define MAX_POSITIVE_AURAS 48 // ?
-#define MAX_AURAS 80 // 48 buff slots, 32 debuff slots.
-#define MAX_PASSIVE_AURAS 165
+#define MAX_POSITIVE_AURAS 48
+#define MAX_NEGATIVE_AURAS 32
+#define MAX_PASSIVE_AURAS 80
+#define MAX_AURAS MAX_POSITIVE_AURAS+MAX_NEGATIVE_AURAS
 #define TOTAL_AURAS MAX_AURAS+MAX_PASSIVE_AURAS
 
 class Unit;
@@ -37,6 +38,8 @@ class SERVER_DECL AuraInterface
 public:
     AuraInterface(Unit *unit);
     ~AuraInterface();
+
+    void Destruct();
 
     void Update(uint32 diff);
 
@@ -134,21 +137,19 @@ public:
     void EventDeathAuraRemoval();
 //  bool HasVisibleAura(uint32 spellid);
 
-    uint32 GetAuraStatus()
-    {
-        return AURA_STATUS_NONE;
-    }
+    uint32 GetAuraStatus() { return AURA_STATUS_NONE; }
 
 private:
     Unit* m_Unit;
     Aura *m_auras[TOTAL_AURAS];
-    uint8 m_maxPosAuraSlot, m_maxNegAuraSlot;
+    uint8 m_maxPosAuraSlot, m_maxNegAuraSlot, m_maxPassiveAuraSlot;
 
     /*******************
     **** Modifiers
     ********/
 public:
-    void UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply);
+    void UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply);
+    static uint16 createModifierIndex(uint8 index1, uint8 index2) { return ((uint16(index2)<<8) | uint16(index1)); }
 
     class ModifierHolder
     {
@@ -170,8 +171,8 @@ public:
         uint32 auraType, auraSlot, auraIndex;
     };
 
-    typedef std::map<std::pair<uint32, uint32>, Modifier*> modifierMap;
-    typedef std::map<uint32, modifierMap > modifierTypeMap;
+    typedef Loki::AssocVector<uint16, Modifier*> modifierMap;
+    typedef Loki::AssocVector<uint32, modifierMap > modifierTypeMap;
 
     modifierMap GetModMapByModType(uint32 modType) { return m_modifiersByModType[modType]; }
     bool HasAurasWithModType(uint32 modType) { return m_modifiersByModType[modType].size(); }
@@ -183,11 +184,11 @@ public:
 
 private:
     // Ordered by aura slot
-    std::map<uint32, ModifierHolder*> m_modifierHolders;
+    Loki::AssocVector<uint8, ModifierHolder*> m_modifierHolders;
     // Storage is <ModType, <Index, Modifier> >
     modifierTypeMap m_modifiersByModType;
     // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
-    std::map<std::pair<uint8, uint8>, std::map<uint8, int32>> m_spellGroupModifiers;
+    Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>> m_spellGroupModifiers;
 
     static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod);

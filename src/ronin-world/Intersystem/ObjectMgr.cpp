@@ -57,14 +57,14 @@ ObjectMgr::~ObjectMgr()
     }
 
     sLog.Notice("ObjectMgr", "Deleting Player Information...");
-    for(RONIN_UNORDERED_MAP<WoWGuid, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
+    for(std::map<WoWGuid, PlayerInfo*>::iterator itr = m_playersinfo.begin(); itr != m_playersinfo.end(); itr++)
     {
         itr->second->m_Group = NULL;
         delete itr->second;
     }
 
     sLog.Notice("ObjectMgr", "Deleting Arena Teams...");
-    for(RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
+    for(std::map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
         delete itr->second;
 
     sLog.Notice("ObjectMgr", "Deleting Achievement Cache...");
@@ -119,7 +119,7 @@ Group * ObjectMgr::GetGroupById(uint32 id)
 void ObjectMgr::DeletePlayerInfo( uint32 guid )
 {
     PlayerInfo * pl;
-    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*>::iterator i;
+    std::map<WoWGuid,PlayerInfo*>::iterator i;
     PlayerNameStringIndexMap::iterator i2;
     playernamelock.AcquireWriteLock();
     i=m_playersinfo.find(guid);
@@ -149,7 +149,7 @@ void ObjectMgr::DeletePlayerInfo( uint32 guid )
 
 PlayerInfo *ObjectMgr::GetPlayerInfo( WoWGuid guid )
 {
-    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*>::iterator i;
+    std::map<WoWGuid,PlayerInfo*>::iterator i;
     PlayerInfo * rv;
     playernamelock.AcquireReadLock();
     i=m_playersinfo.find(guid);
@@ -625,7 +625,7 @@ PlayerCreateInfo* ObjectMgr::GetPlayerCreateInfo(uint8 race, uint8 class_) const
 
 void ObjectMgr::LoadVendors()
 {
-    RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
+    std::map<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
     std::map<uint32, CreatureItem> *items;
     CreatureItem itm;
 
@@ -820,7 +820,7 @@ void ObjectMgr::CorpseCollectorUnload(bool saveOnly)
         if(c != NULL)
         {
             if(c->IsInWorld())
-                c->RemoveFromWorld(false);
+                c->RemoveFromWorld();
             c->Destruct();
             c = NULL;
         }
@@ -1006,7 +1006,7 @@ Transporter* ObjectMgr::GetTransporter(uint32 guid)
 {
     Transporter* rv;
     _TransportLock.Acquire();
-    RONIN_UNORDERED_MAP<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
+    std::map<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
     rv = (itr != mTransports.end()) ? itr->second : NULL;
     _TransportLock.Release();
     return rv;
@@ -1023,7 +1023,7 @@ Transporter* ObjectMgr::GetTransporterByEntry(uint32 entry)
 {
     Transporter* rv = NULL;
     _TransportLock.Acquire();
-    RONIN_UNORDERED_MAP<uint32, Transporter* >::iterator itr = mTransports.begin();
+    std::map<uint32, Transporter* >::iterator itr = mTransports.begin();
     for(; itr != mTransports.end(); itr++)
     {
         if(itr->second->GetEntry() == entry)
@@ -1092,7 +1092,7 @@ void ObjectMgr::LoadArenaTeams()
 
 ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
 {
-    RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr;
+    std::map<uint32, ArenaTeam*>::iterator itr;
     m_arenaTeamLock.Acquire();
     itr = m_arenaTeams.find(id);
     m_arenaTeamLock.Release();
@@ -1102,7 +1102,7 @@ ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
 ArenaTeam * ObjectMgr::GetArenaTeamByName(std::string & name, uint32 Type)
 {
     m_arenaTeamLock.Acquire();
-    for(RONIN_UNORDERED_MAP<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
+    for(std::map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
     {
         if(!strnicmp(itr->second->m_name.c_str(), name.c_str(), name.size()))
         {
@@ -1150,7 +1150,7 @@ void ObjectMgr::UpdateArenaTeamRankings()
     {
         std::vector<ArenaTeam*> ranking;
 
-        for(RONIN_UNORDERED_MAP<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
+        for(std::map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
             ranking.push_back(itr->second);
 
         std::sort(ranking.begin(), ranking.end(), ArenaSorter());
@@ -1173,7 +1173,7 @@ void ObjectMgr::UpdateArenaTeamWeekly()
     m_arenaTeamLock.Acquire();
     for(uint32 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
     {
-        for(RONIN_UNORDERED_MAP<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
+        for(std::map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
         {
             ArenaTeam *team = itr->second;
             if(team)

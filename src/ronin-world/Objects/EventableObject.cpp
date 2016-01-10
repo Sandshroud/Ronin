@@ -16,7 +16,7 @@ EventableObject::~EventableObject()
 
 }
 
-void EventableObject::Destruct()
+void EventableObject::Destruct(bool destroy)
 {
     /* decrement event count on all events */
     EventMap::iterator itr = m_events.begin();
@@ -31,6 +31,9 @@ void EventableObject::Destruct()
     }
 
     m_events.clear();
+
+    if(destroy == false)
+        return;
     delete this;
 }
 

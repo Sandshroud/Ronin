@@ -55,14 +55,16 @@ AIInterface::AIInterface()
 AIInterface::~AIInterface()
 {
     MovementHandler.DeInitialize();
-    for(std::map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
-        delete itr->second;
+    if(!m_spells.empty())
+    {
+        for(AISpellMap::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
+            delete itr->second;
+        m_spells.clear();
+    }
 
-    m_spells.clear();
-
-    m_Unit = NULL;
-    m_PetOwner = NULL;
-    soullinkedWith = NULL;
+    if(m_aiTargets.empty())
+        return;
+    m_aiTargets.clear();
 }
 
 void AIInterface::Init(Unit* un, AIType at, MovementType mt)
@@ -398,7 +400,7 @@ void AIInterface::ResetProcCounts(bool all)
     uint32 time = getMSTime();
     if(m_spells.size())
     {
-        for(std::map<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
+        for(Loki::AssocVector<uint32, AI_Spell*>::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
         {
             if(!itr->second->ProcLimit)
                 continue;

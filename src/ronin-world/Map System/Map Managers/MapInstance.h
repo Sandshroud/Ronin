@@ -51,14 +51,13 @@ class SERVER_DECL MapInstance : public CellHandler <MapCell>, public EventableOb
     friend class MapCell;
 public:
 
-    typedef RONIN_UNORDERED_SET<WorldObject*> ObjectSet;
-    typedef RONIN_UNORDERED_SET<Player*> PlayerSet;
-    typedef RONIN_UNORDERED_SET<Creature*> CreatureSet;
-    typedef RONIN_UNORDERED_SET<GameObject*> GameObjectSet;
-    typedef RONIN_UNORDERED_SET<uint64> CombatProgressMap;
-    typedef RONIN_UNORDERED_MAP<uint32, WorldObject* > StorageMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Creature*> CreatureSqlIdMap;
-    typedef RONIN_UNORDERED_MAP<uint32, GameObject* > GameObjectSqlIdMap;
+    typedef std::set<WorldObject*> ObjectSet;
+    typedef std::set<Player*> PlayerSet;
+    typedef std::set<Creature*> CreatureSet;
+    typedef std::set<GameObject*> GameObjectSet;
+    typedef std::set<uint64> CombatProgressMap;
+    typedef Loki::AssocVector<uint32, Creature*> CreatureSqlIdMap;
+    typedef Loki::AssocVector<uint32, GameObject* > GameObjectSqlIdMap;
 
     //This will be done in regular way soon
     Mutex m_objectinsertlock;
@@ -69,7 +68,7 @@ public:
 ////////////////////////////////////////////////////////
 // Local (MapInstance) storage/generation of GameObjects
 /////////////////////////////////////////////
-    typedef RONIN_UNORDERED_MAP<WoWGuid, GameObject* > GameObjectMap;
+    typedef Loki::AssocVector<WoWGuid, GameObject* > GameObjectMap;
     GameObjectMap m_gameObjectStorage;
     uint32 m_GOHighGuid;
     GameObject* CreateGameObject(uint32 entry);
@@ -83,7 +82,7 @@ public:
     RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
     {
         ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
-        GameObjectMap::iterator itr = m_gameObjectStorage.find(guid.getLow());
+        GameObjectMap::iterator itr = m_gameObjectStorage.find(guid);
         return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
     }
 
@@ -91,13 +90,14 @@ public:
 // Local (MapInstance) storage/generation of Creatures
 /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
-    RONIN_UNORDERED_MAP<WoWGuid, Creature*> m_CreatureStorage;
+    typedef Loki::AssocVector<WoWGuid, Creature*> CreatureStorageMap;
+    CreatureStorageMap m_CreatureStorage;
     Creature* CreateCreature(uint32 entry);
 
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
         ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT || guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
-        RONIN_UNORDERED_MAP<WoWGuid, Creature*>::iterator itr = m_CreatureStorage.find(guid);
+        CreatureStorageMap::iterator itr = m_CreatureStorage.find(guid);
         return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
     }
 
@@ -107,7 +107,7 @@ public:
 // Local (MapInstance) storage/generation of DynamicObjects
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
-    typedef RONIN_UNORDERED_MAP<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
+    typedef Loki::AssocVector<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
     DynamicObjectStorageMap m_DynamicObjectStorage;
     DynamicObject* CreateDynamicObject();
 
@@ -120,7 +120,7 @@ public:
 //////////////////////////////////////////////////////////
 // Local (MapInstance) storage of pets
 ///////////////////////////////////////////
-    typedef RONIN_UNORDERED_MAP<WoWGuid, Pet*> PetStorageMap;
+    typedef Loki::AssocVector<WoWGuid, Pet*> PetStorageMap;
     PetStorageMap m_PetStorage;
     RONIN_INLINE Pet* GetPet(WoWGuid guid)
     {
@@ -131,7 +131,7 @@ public:
 //////////////////////////////////////////////////////////
 // Local (MapInstance) storage of players for faster lookup
 ////////////////////////////////
-    typedef RONIN_UNORDERED_MAP<WoWGuid, Player*> PlayerStorageMap;
+    typedef Loki::AssocVector<WoWGuid, Player*> PlayerStorageMap;
     PlayerStorageMap m_PlayerStorage;
     RONIN_INLINE Player* GetPlayer(WoWGuid guid)
     {
@@ -173,7 +173,7 @@ public:
 
     void EventPushObjectToSelf(WorldObject *obj);
     void PushObject(WorldObject* obj);
-    void RemoveObject(WorldObject* obj, bool free_guid);
+    void RemoveObject(WorldObject* obj);
     void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
@@ -241,8 +241,8 @@ public:
     }
 
     void UnloadCell(uint32 x,uint32 y);
-    void EventRespawnCreature(Creature* c, MapCell * p);
-    void EventRespawnGameObject(GameObject* o, MapCell * c);
+    void EventRespawnCreature(Creature* ctr, MapCell * c);
+    void EventRespawnGameObject(GameObject* obj, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
     void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
     void BeginInstanceExpireCountdown();
@@ -256,8 +256,8 @@ protected:
     uint32 _mapId;
 
     // In this zone, we always show these objects
-    std::map<WorldObject*, uint32> m_rangelessObjects;
-    std::map<uint32, std::set<WorldObject*>> m_zoneRangelessObjects;
+    Loki::AssocVector<WorldObject*, uint32> m_rangelessObjects;
+    Loki::AssocVector<uint32, std::vector<WorldObject*>> m_zoneRangelessObjects;
 
     bool _CellActive(uint32 x, uint32 y);
     void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
@@ -293,13 +293,12 @@ public:
     CreatureSet activeCreatures;
 
     CBattleground* m_battleground;
-    std::unordered_set<Corpse* > m_corpses;
+    std::vector<Corpse* > m_corpses;
     CreatureSqlIdMap _sqlids_creatures;
     GameObjectSqlIdMap _sqlids_gameobjects;
 
     Creature* GetSqlIdCreature(uint32 sqlid);
     GameObject* GetSqlIdGameObject(uint32 sqlid);
-    std::deque<uint32> _reusable_guids_creature;
 
     // world state manager stuff
     WorldStateManager* m_stateManager;
@@ -308,7 +307,7 @@ public:
     ByteBuffer m_createBuffer, m_updateBuffer;
 
 public:
-    void ClearCorpse(Corpse* remove) { std::unordered_set<Corpse* >::iterator itr; if((itr = m_corpses.find(remove)) != m_corpses.end()) m_corpses.erase(itr); };
+    void ClearCorpse(Corpse* remove) { std::vector<Corpse* >::iterator itr; if((itr = std::find(m_corpses.begin(), m_corpses.end(), remove)) != m_corpses.end()) m_corpses.erase(itr); };
 
     // get!
     RONIN_INLINE WorldStateManager& GetStateManager() { return *m_stateManager; }

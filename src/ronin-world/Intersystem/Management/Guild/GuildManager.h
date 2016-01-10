@@ -217,7 +217,7 @@ struct GuildMember
     uint64 guildWeekXP;
 };
 
-typedef std::unordered_map<WoWGuid, GuildMember*> GuildMemberMap;
+typedef std::map<WoWGuid, GuildMember*> GuildMemberMap;
 
 struct GuildMemberMapStorage
 {
@@ -231,12 +231,12 @@ struct GuildMemberMapStorage
 #pragma pack(PRAGMA_POP)
 
 typedef std::vector<GuildLogEvent*> GuildLogList;
-typedef std::unordered_map<uint32, GuildInfo*> GuildInfoMap;
-typedef std::unordered_map<uint32, GuildLogStorage*> GuildLogMap;
-typedef std::unordered_map<uint32, GuildRankStorage*> GuildRankMap;
-typedef std::unordered_map<std::string, GuildInfo*> GuildInfoNameMap;
-typedef std::unordered_map<uint32, GuildBankTabStorage*> GuildBankTabMap;
-typedef std::unordered_map<uint32, GuildMemberMapStorage* > GuildMemberMaps;
+typedef std::map<uint32, GuildInfo*> GuildInfoMap;
+typedef std::map<uint32, GuildLogStorage*> GuildLogMap;
+typedef std::map<uint32, GuildRankStorage*> GuildRankMap;
+typedef std::map<std::string, GuildInfo*> GuildInfoNameMap;
+typedef std::map<uint32, GuildBankTabStorage*> GuildBankTabMap;
+typedef std::map<uint32, GuildMemberMapStorage* > GuildMemberMaps;
 
 class SERVER_DECL GuildMgr : public Singleton < GuildMgr >
 {

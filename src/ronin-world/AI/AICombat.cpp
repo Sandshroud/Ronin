@@ -62,7 +62,7 @@ void AIInterface::_UpdateCombat(uint32 p_time)
                 //Try our chance at casting a spell (Will actually be cast on next ai update, so we just
                 //schedule it. This is needed to avoid next dealt melee damage while we cast the spell.)
                 AI_Spell* Spell = NULL;
-                for( std::map<uint32, AI_Spell*>::iterator SpellIter = m_spells.begin(); SpellIter != m_spells.end(); ++SpellIter )
+                for( AISpellMap::iterator SpellIter = m_spells.begin(); SpellIter != m_spells.end(); ++SpellIter )
                 {
                     Spell = SpellIter->second;
                     if( Spell->m_AI_Spell_disabled )
@@ -421,7 +421,7 @@ Unit* AIInterface::FindTarget()
     for( WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
         pUnit = m_Unit->GetInRangeObject<Unit>(*itr);
-        if( pUnit->isDead() || pUnit->IsInvisible() ) // skip invisible units
+        if( pUnit == NULL || pUnit->isDead() || pUnit->IsInvisible() ) // skip invisible units
             continue;
         // Check the aggro range
         dist = m_Unit->GetDistanceSq(pUnit);

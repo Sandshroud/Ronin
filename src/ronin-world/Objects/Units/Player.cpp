@@ -288,7 +288,7 @@ void Player::Destruct()
         if(m_SummonedObject->GetInstanceID() == GetInstanceID())
         {
             if(m_SummonedObject->IsInWorld())
-                m_SummonedObject->RemoveFromWorld(true);
+                m_SummonedObject->RemoveFromWorld();
             m_SummonedObject->Destruct();
         } else sEventMgr.AddEvent(m_SummonedObject, &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
         m_SummonedObject = NULL;
@@ -1306,7 +1306,7 @@ void Player::_SavePlayerAuras(QueryBuffer * buf)
     else CharacterDatabase.Execute("DELETE FROM character_auras WHERE guid = '%u';", GetLowGUID());
 
     std::stringstream ss;
-    for(uint8 i = 0; i < MAX_AURAS; i++)
+    for(uint8 i = 0; i < TOTAL_AURAS; i++)
     {
         Aura *aur = m_AuraInterface.FindAuraBySlot(i);
         if(aur == NULL)
@@ -3239,7 +3239,7 @@ void Player::SendObjectUpdate(WoWGuid guid)
     m_session->SendPacket(&data);
 }
 
-void Player::RemoveFromWorld(bool free_guid)
+void Player::RemoveFromWorld()
 {
     EndDuel( 0 );
 
@@ -3307,13 +3307,13 @@ void Player::RemoveFromWorld(bool free_guid)
         if(m_SummonedObject->GetInstanceID() == GetInstanceID())
         {
             if(m_SummonedObject->IsInWorld())
-                m_SummonedObject->RemoveFromWorld(true);
+                m_SummonedObject->RemoveFromWorld();
             m_SummonedObject->Destruct();
         } else sEventMgr.AddEvent(m_SummonedObject, &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
         m_SummonedObject = NULL;
     }
 
-    Unit::RemoveFromWorld(false);
+    Unit::RemoveFromWorld();
 
     sWorld.mInWorldPlayerCount--;
 
@@ -4132,7 +4132,7 @@ void Player::AddInRangeObject(WorldObject* pObj)
 
         if (GetSession() != NULL)
         {
-            WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * MAX_AURAS);
+            WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
             *data << pUnit->GetGUID().asPacked();
             if(pUnit->m_AuraInterface.BuildAuraUpdateAllPacket(data))
                 SendPacket(data);
@@ -4148,7 +4148,7 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
 
     if(m_tempSummon == pObj)
     {
-        m_tempSummon->RemoveFromWorld(true);
+        m_tempSummon->RemoveFromWorld();
         if(m_tempSummon)
             m_tempSummon->SafeDelete();
 
@@ -5280,7 +5280,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
         }
 
         //remove us from this map
-        if(IsInWorld()) RemoveFromWorld(false);
+        if(IsInWorld()) RemoveFromWorld();
 
         //send new world
         m_movementInterface.TeleportToPosition(mapid, instance_id, destination);
@@ -6001,7 +6001,7 @@ void Player::EndDuel(uint8 WinCondition)
     //Clear Duel Related Stuff
     if( GameObject* arbiter = m_mapInstance ? GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
     {
-        arbiter->RemoveFromWorld( true );
+        arbiter->RemoveFromWorld();
         arbiter->Destruct();
         arbiter = NULL;
     }
@@ -6162,7 +6162,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 {
     if(IsInWorld())
-        RemoveFromWorld(false);
+        RemoveFromWorld();
 
     m_mapId = mgr->GetMapId();
     m_instanceId = mgr->GetInstanceID();
@@ -6829,7 +6829,7 @@ void Player::Possess(Unit* pTarget)
     m_session->SendPacket(&data1);
 
     std::list<uint32> avail_spells;
-    for(std::map<uint32, AI_Spell*>::iterator itr = pTarget->GetAIInterface()->m_spells.begin(); itr != pTarget->GetAIInterface()->m_spells.end(); ++itr)
+    for(AIInterface::AISpellMap::iterator itr = pTarget->GetAIInterface()->m_spells.begin(); itr != pTarget->GetAIInterface()->m_spells.end(); ++itr)
         avail_spells.push_back(itr->second->info->Id);
     std::list<uint32>::iterator itr = avail_spells.begin();
 

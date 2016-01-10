@@ -80,10 +80,10 @@ public:
 
 private:
     RWLock itemLock;
-    RONIN_UNORDERED_MAP<WoWGuid, Item* > auctionedItems;
+    std::map<WoWGuid, Item* > auctionedItems;
 
     RWLock auctionLock;
-    RONIN_UNORDERED_MAP<uint32, Auction*> auctions;
+    std::map<uint32, Auction*> auctions;
 
     Mutex removalLock;
     std::list<Auction*> removalList;

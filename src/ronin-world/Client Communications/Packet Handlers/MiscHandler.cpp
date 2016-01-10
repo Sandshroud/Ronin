@@ -171,7 +171,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                 case GAMEOBJECT_TYPE_FISHINGNODE:
                     {
                         if(pGO->IsInWorld())
-                            pGO->RemoveFromWorld(true);
+                            pGO->RemoveFromWorld();
                         pGO->Destruct();
                     }break;
                 case GAMEOBJECT_TYPE_CHEST:

@@ -127,12 +127,17 @@ bool MapManager::run()
     }while(true);
 
     if(m_continent)
+    {
+        sLog.Notice("MapManager", "Cleaning up continent %u (%s)", m_mapId, m_mapData->GetName());
         m_continent->Destruct();
-    m_continent = NULL;
+        m_continent = NULL;
+    }
     // Push all our instances to the processing map
     for(std::map<uint32, MapInstance*>::iterator itr = m_mapInstances.begin(); itr != m_mapInstances.end(); itr++)
         itr->second->Destruct();
     m_mapInstances.clear();
+
+    sLog.Debug("MapInstance", "Map %u shut down. (%s)", m_mapId, m_mapData->GetName());
     return true;
 }
 

@@ -286,7 +286,7 @@ class SERVER_DECL WorldObject : public Object, public EventableObject
 public:
     typedef std::vector<WoWGuid> InRangeSet;
     typedef Loki::AssocVector<WoWGuid, WorldObject*> InRangeMap;
-    typedef std::unordered_set<WorldObject*> InRangeWorldObjSet;
+    typedef std::set<WorldObject*> InRangeWorldObjSet;
 
 public:
     WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
@@ -302,7 +302,7 @@ public:
 
     //! True if object exists in world
     virtual bool IsInWorld() { return m_mapInstance != NULL; }
-    virtual void RemoveFromWorld(bool free_guid);
+    virtual void RemoveFromWorld();
 
     void PushToWorld(MapInstance* instance);
     virtual void OnPushToWorld() { }
@@ -413,7 +413,7 @@ public:
     RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeObjects.find(pObj->GetGUID()) != m_inRangeObjects.end(); }
     RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
-        if( obj == NULL )
+        //if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
             return;
 
         m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
@@ -446,11 +446,31 @@ public:
         return NULL;
     }
 
+    // Inrange cutdowns
+    RONIN_INLINE bool needStoreInRangeObject(uint8 objectType)
+    {
+        switch(objectType)
+        {
+        case TYPEID_OBJECT:
+        case TYPEID_ITEM:
+        case TYPEID_CONTAINER:
+            return false;
+        case TYPEID_GAMEOBJECT:
+        case TYPEID_DYNAMICOBJECT:
+            return IsUnit();
+        case TYPEID_CORPSE:
+            return IsPlayer();
+        case TYPEID_AREATRIGGER:
+            return false;
+        }
+        return true;
+    }
+
     RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
 
     RONIN_INLINE virtual void OnAddInRangeObject( WorldObject* pObj )
     {
-        if(pObj->IsGameObject())
+        if(pObj->IsGameObject() || pObj->IsDynamicObj())
             m_inRangeGameObjects.push_back(pObj->GetGUID());
         else if(pObj->IsUnit())
         {
@@ -463,7 +483,7 @@ public:
     RONIN_INLINE virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
         InRangeSet::iterator itr;
-        if(pObj->IsGameObject() && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), pObj->GetGUID())) != m_inRangeGameObjects.end()))
+        if((pObj->IsGameObject() || pObj->IsDynamicObj()) && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), pObj->GetGUID())) != m_inRangeGameObjects.end()))
             m_inRangeGameObjects.erase(itr);
         else if(IsUnit())
         {

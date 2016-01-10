@@ -42,7 +42,7 @@ public:
 template<class T> class SERVER_DECL HashMapStorageContainer
 {
 public:
-    typename RONIN_MAP<uint32, T*> _map;
+    typename std::map<uint32, T*> _map;
 
     /** Returns an iterator currently referencing the start of the container
      */
@@ -52,7 +52,7 @@ public:
      */
     ~HashMapStorageContainer()
     {
-        for(typename RONIN_MAP<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
+        for(typename std::map<uint32, T*>::iterator itr = _map.begin(); itr != _map.end(); ++itr)
             delete itr->second;
     }
 
@@ -92,7 +92,7 @@ public:
      */
     bool DeallocateEntry(uint32 Entry)
     {
-        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename std::map<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return false;
 
@@ -104,7 +104,7 @@ public:
 
     T * LookupEntry(uint32 Entry)
     {
-        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename std::map<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
             return reinterpret_cast<T*>(0);
         return itr->second;
@@ -115,7 +115,7 @@ public:
      */
     bool SetEntry(uint32 Entry, T * Pointer)
     {
-        typename RONIN_MAP<uint32, T*>::iterator itr = _map.find(Entry);
+        typename std::map<uint32, T*>::iterator itr = _map.find(Entry);
         if(itr == _map.end())
         {
             _map.insert( std::make_pair( Entry, Pointer ) );
@@ -140,7 +140,7 @@ public:
      */
     void Clear()
     {
-        typename RONIN_MAP<uint32, T*>::iterator itr = _map.begin();
+        typename std::map<uint32, T*>::iterator itr = _map.begin();
         for(; itr != _map.end(); ++itr)
             delete itr->second;
         _map.clear();
@@ -151,7 +151,7 @@ template<class T>
 class SERVER_DECL HashMapStorageIterator : public StorageContainerIterator<T>
 {
     HashMapStorageContainer<T> * Source;
-    typename RONIN_MAP<uint32, T*>::iterator itr;
+    typename std::map<uint32, T*>::iterator itr;
 public:
 
     /** Constructor
@@ -202,7 +202,7 @@ protected:
     StorageType _storage;
     std::string _indexName;
     std::string _formatString;
-    RONIN_SET<char*> _stringData;
+    std::set<char*> _stringData;
 public:
 
     RONIN_INLINE const char * GetIndexName() { return _indexName.c_str(); }

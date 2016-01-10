@@ -25,7 +25,7 @@ private:
     typedef std::map<std::string,Channel *> ChannelList;
     typedef std::multimap<uint32, std::pair<std::string, Channel*> > DBCChannelMap;
     typedef std::pair<DBCChannelMap::iterator, DBCChannelMap::iterator> DBCChannelBounds;
-    typedef RONIN_UNORDERED_MAP<uint32, Channel*> ChannelMap;
+    typedef std::map<uint32, Channel*> ChannelMap;
     ChannelMap m_idToChannel;
     uint32 m_idHigh, m_dbcidHigh;
     ChannelList Channels[2];

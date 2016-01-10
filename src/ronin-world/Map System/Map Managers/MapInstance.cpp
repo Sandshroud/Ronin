@@ -47,7 +47,9 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     m_corpses.clear();
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
-    _reusable_guids_creature.clear();
+
+    __gameobject_iterator = activeGameObjects.end();
+    __creature_iterator = activeCreatures.end();
 }
 
 void MapInstance::Destruct()
@@ -61,36 +63,39 @@ void MapInstance::Destruct()
         m_stateManager = NULL;
     }
 
-    // Remove objects
-    MapCell* cell = NULL;
-    if(_cells)
+    while(m_CreatureStorage.size())
     {
-        for (uint32 i = 0; i < _sizeX; i++)
-        {
-            if(_cells[i] != NULL)
-            {
-                for (uint32 j = 0; j < _sizeY; j++)
-                {
-                    if(cell = _cells[i][j])
-                    {
-                        cell->_unloadpending = false;
-                        cell->RemoveObjects();
-                    }
-                }
-            }
-        }
+        Creature *ctr = m_CreatureStorage.begin()->second;
+        RemoveObject(ctr);
+        delete ctr;
     }
+
+    while(m_gameObjectStorage.size())
+    {
+        GameObject *gObj = m_gameObjectStorage.begin()->second;
+        RemoveObject(gObj);
+        delete gObj;
+    }
+
+    while(m_DynamicObjectStorage.size())
+    {
+        DynamicObject *dynObj = m_DynamicObjectStorage.begin()->second;
+        RemoveObject(dynObj);
+        delete dynObj;
+    }
+
+    UnloadCells();
 
     Corpse* pCorpse;
     if(m_corpses.size())
     {
-        for(std::unordered_set<Corpse* >::iterator itr = m_corpses.begin(); itr != m_corpses.end();)
+        for(std::vector<Corpse* >::iterator itr = m_corpses.begin(); itr != m_corpses.end();)
         {
             pCorpse = *itr;
             ++itr;
 
             if(pCorpse->IsInWorld())
-                pCorpse->RemoveFromWorld(false);
+                pCorpse->RemoveFromWorld();
 
             pCorpse->Destruct();
             pCorpse = NULL;
@@ -118,11 +123,7 @@ void MapInstance::Destruct()
 
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
-    _reusable_guids_creature.clear();
-
     m_battleground = NULL;
-
-    sLog.Notice("MapInstance", "Instance %u shut down. (%s)" , m_instanceID, GetBaseMap()->GetName());
 }
 
 MapInstance::~MapInstance()
@@ -172,9 +173,7 @@ void MapInstance::PushObject(WorldObject* obj)
     ///////////////////////
 
     ASSERT(obj->GetMapId() == _mapId);
-
     ASSERT(obj->GetPositionZ() < _maxY && obj->GetPositionZ() > _minY);
-    ASSERT(_cells);
 
     float mx = obj->GetPositionX();
     float my = obj->GetPositionY();
@@ -244,7 +243,7 @@ void MapInstance::PushObject(WorldObject* obj)
             break;
 
         case HIGHGUID_TYPE_CORPSE:
-            m_corpses.insert( castPtr<Corpse>(obj) );
+            m_corpses.push_back( castPtr<Corpse>(obj) );
             break;
 
         case HIGHGUID_TYPE_VEHICLE:
@@ -290,7 +289,7 @@ void MapInstance::PushObject(WorldObject* obj)
         /* Add the zone wide objects */
         if(m_zoneRangelessObjects[plObj->GetZoneId()].size())
         {
-            for(std::set<WorldObject* >::iterator itr = m_zoneRangelessObjects[plObj->GetZoneId()].begin(); itr != m_zoneRangelessObjects[plObj->GetZoneId()].end(); itr++)
+            for(std::vector<WorldObject* >::iterator itr = m_zoneRangelessObjects[plObj->GetZoneId()].begin(); itr != m_zoneRangelessObjects[plObj->GetZoneId()].end(); itr++)
             {
                 if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
                     plObj->PushUpdateBlock(&m_createBuffer, count);
@@ -309,7 +308,7 @@ void MapInstance::PushObject(WorldObject* obj)
     UpdateInrangeSetOnCells(obj, startX, endX, startY, endY);
 }
 
-void MapInstance::RemoveObject(WorldObject* obj, bool free_guid)
+void MapInstance::RemoveObject(WorldObject* obj)
 {
     /////////////
     // Assertions
@@ -317,7 +316,6 @@ void MapInstance::RemoveObject(WorldObject* obj, bool free_guid)
 
     ASSERT(obj);
     ASSERT(obj->GetMapId() == _mapId);
-    ASSERT(_cells);
 
     if(obj->Active)
         obj->Deactivate(this);
@@ -339,7 +337,6 @@ void MapInstance::RemoveObject(WorldObject* obj, bool free_guid)
         {
             ASSERT(obj->GetLowGUID() <= m_CreatureHighGuid);
             if(castPtr<Creature>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Creature>(obj)->GetSQL_id());
-            if(free_guid) _reusable_guids_creature.push_back(obj->GetLowGUID());
             m_CreatureStorage.erase(obj->GetGUID());
             TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
         }break;
@@ -353,7 +350,7 @@ void MapInstance::RemoveObject(WorldObject* obj, bool free_guid)
         }break;
 
     case HIGHGUID_TYPE_CORPSE:
-        m_corpses.erase( castPtr<Corpse>(obj) );
+        ClearCorpse(castPtr<Corpse>(obj));
         break;
 
     case HIGHGUID_TYPE_DYNAMICOBJECT:
@@ -461,14 +458,14 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     {
         if(m_zoneRangelessObjects[lastZone].size())
         {
-            for(std::set<WorldObject*>::iterator itr = m_zoneRangelessObjects[lastZone].begin(); itr != m_zoneRangelessObjects[lastZone].end(); itr++)
+            for(std::vector<WorldObject*>::iterator itr = m_zoneRangelessObjects[lastZone].begin(); itr != m_zoneRangelessObjects[lastZone].end(); itr++)
                 if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (*itr)->GetGUID()))
                     obj->RemoveInRangeObject(*itr);
         }
 
         if(m_zoneRangelessObjects[currZone].size())
         {
-            for(std::set<WorldObject*>::iterator itr = m_zoneRangelessObjects[currZone].begin(); itr != m_zoneRangelessObjects[currZone].end(); itr++)
+            for(std::vector<WorldObject*>::iterator itr = m_zoneRangelessObjects[currZone].begin(); itr != m_zoneRangelessObjects[currZone].end(); itr++)
                 obj->AddInRangeObject(*itr);
         }
     }
@@ -571,8 +568,8 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 {
                     if (cell = GetCell(posX, posY))
                     {
-                        ObjectSet::iterator iter = cell->Begin();
-                        for(ObjectSet::iterator iter = cell->Begin(); iter != cell->End(); iter++)
+                        MapCell::CellObjectSet::iterator iter = cell->Begin();
+                        for(MapCell::CellObjectSet::iterator iter = cell->Begin(); iter != cell->End(); iter++)
                         {
                             curObj = *iter;
                             if( curObj == NULL || curObj == obj )
@@ -725,7 +722,8 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
     uint32 count;
     bool cansee, isvisible;
 
-    ObjectSet::iterator iter = cell->Begin(), itr;
+    ObjectSet::iterator itr;
+    MapCell::CellObjectSet::iterator iter = cell->Begin();
     while( iter != cell->End() )
     {
         curObj = *iter;
@@ -1102,7 +1100,7 @@ WorldObject* MapInstance::GetObjectClosestToCoords(uint32 entry, float x, float 
 
     WorldObject* ClosestObject = NULL;
     float CurrentDist = 0;
-    ObjectSet::const_iterator iter;
+    MapCell::CellObjectSet::const_iterator iter;
     for(iter = pCell->Begin(); iter != pCell->End(); iter++)
     {
         CurrentDist = (*iter)->CalcDistance(x, y, (z != 0.0f ? z : (*iter)->GetPositionZ()));
@@ -1387,27 +1385,23 @@ void MapInstance::UnloadCell(uint32 x, uint32 y)
     c->Unload();
 }
 
-void MapInstance::EventRespawnCreature(Creature* c, MapCell * p)
+void MapInstance::EventRespawnCreature(Creature* ctr, MapCell * c)
 {
-    ObjectSet::iterator itr = p->_respawnObjects.find( c );
-    if(itr != p->_respawnObjects.end())
+    if(c->EventRespawn(ctr))
     {
-        c->m_respawnCell=NULL;
-        p->_respawnObjects.erase(itr);
-        c->OnRespawn(this);
-        if(c->GetAIInterface())
-            c->GetAIInterface()->OnRespawn(c);
+        ctr->m_respawnCell=NULL;
+        ctr->OnRespawn(this);
+        if(ctr->GetAIInterface())
+            ctr->GetAIInterface()->OnRespawn(ctr);
     }
 }
 
-void MapInstance::EventRespawnGameObject(GameObject* o, MapCell * c)
+void MapInstance::EventRespawnGameObject(GameObject* obj, MapCell * c)
 {
-    ObjectSet::iterator itr = c->_respawnObjects.find( o);
-    if(itr != c->_respawnObjects.end())
+    if(c->EventRespawn(obj))
     {
-        o->m_respawnCell=NULL;
-        c->_respawnObjects.erase(itr);
-        o->Spawn(this);
+        obj->m_respawnCell=NULL;
+        obj->Spawn(this);
     }
 }
 
@@ -1520,15 +1514,8 @@ Creature* MapInstance::CreateCreature(uint32 entry)
         return NULL;
     }
 
-    uint32 low_guid = 0;
-    if(_reusable_guids_creature.size())
-    {
-        low_guid = _reusable_guids_creature.front();
-        _reusable_guids_creature.pop_front();
-    } else low_guid = ++m_CreatureHighGuid;
-
     uint16 highGuid = (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT);
-    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(low_guid, entry, highGuid));
+    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid));
     cr->Init();
     ASSERT( cr->GetHighGUID() == highGuid );
     return cr;
@@ -1543,14 +1530,7 @@ Summon* MapInstance::CreateSummon(uint32 entry)
         return NULL;
     }
 
-    uint32 low_guid = 0;
-    if(_reusable_guids_creature.size())
-    {
-        low_guid = _reusable_guids_creature.front();
-        _reusable_guids_creature.pop_front();
-    } else low_guid = ++m_CreatureHighGuid;
-
-    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(low_guid, entry, HIGHGUID_TYPE_UNIT));
+    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, HIGHGUID_TYPE_UNIT));
     sum->Init();
     ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_UNIT );
     return sum;

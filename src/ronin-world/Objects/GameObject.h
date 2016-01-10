@@ -614,7 +614,7 @@ public:
     GOSpawn * m_spawn;
     void OnPushToWorld();
     void OnRemoveInRangeObject(WorldObject* pObj);
-    void RemoveFromWorld(bool free_guid);
+    void RemoveFromWorld();
 
     RONIN_INLINE bool CanMine(){return (m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] > 0);}
     RONIN_INLINE void UseMine(){ if(m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]) m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]--;}

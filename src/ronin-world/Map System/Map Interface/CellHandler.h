@@ -32,6 +32,8 @@ public:
     CellHandler(Map *map);
     ~CellHandler();
 
+    void UnloadCells();
+
     Class *GetCell(uint32 x, uint32 y);
     Class *GetCellByCoords(float x, float y);
     Class *Create(uint32 x, uint32 y);
@@ -42,7 +44,7 @@ public:
     { 
         if( x >= _sizeX ||  y >= _sizeY )
             return false;
-        return _cells[x][y] != NULL;
+        return _cells.find(std::make_pair(x, y)) != _cells.end();
     }
 
     static uint32 GetPosX(float x);
@@ -53,8 +55,7 @@ public:
 protected:
     void _Init();
 
-
-    Class ***_cells;
+    std::map<std::pair<uint32, uint32>, Class*> _cells;
 
     Map* _map;
 };
@@ -73,45 +74,26 @@ CellHandler<Class>::CellHandler(Map* map)
 template <class Class>
 void CellHandler<Class>::_Init()
 {
-
-    _cells = new Class**[_sizeX];
-
-    ASSERT(_cells);
-    for (uint32 i = 0; i < _sizeX; i++)
-    {
-        //_cells[i] = new Class*[_sizeY];
-        _cells[i]=NULL;
-        //ASSERT(_cells[i]);
-    }
-
-    /*for (uint32 posX = 0; posX < _sizeX; posX++ )
-    {
-        for (uint32 posY = 0; posY < _sizeY; posY++ )
-        {
-            _cells[posX][posY] = NULL;
-        }
-    }*/
+    _cells.clear();
 }
 
 template <class Class>
 CellHandler<Class>::~CellHandler()
 {
-    if(_cells)
-    {
-        for (uint32 i = 0; i < _sizeX; i++)
-        {
-            if(!_cells[i])
-                continue;
+    UnloadCells();
+}
 
-            for (uint32 j = 0; j < _sizeY; j++)
-            {
-                if(_cells[i][j])
-                    delete _cells[i][j];
-            }
-            delete [] _cells[i];
-        }
-        delete [] _cells;
+template <class Class>
+void CellHandler<Class>::UnloadCells()
+{
+    while(_cells.size())
+    {
+        Class * _class = _cells.begin()->second;
+        _cells.erase(_cells.begin());
+        _class->RemoveObjects(true);
+        delete _class;
     }
+    _cells.clear();
 }
 
 template <class Class>
@@ -120,18 +102,10 @@ Class* CellHandler<Class>::Create(uint32 x, uint32 y)
     if( x >= _sizeX ||  y >= _sizeY )
         return NULL;
 
-    if(!_cells[x])
-    {
-        _cells[x] = new Class*[_sizeY];
-        memset(_cells[x], 0, sizeof(Class*)*_sizeY);
-    }
-
-    if(_cells[x][y] != NULL)
-        return _cells[x][y];
-
-    Class *cls = new Class();
-    _cells[x][y] = cls;
-    return cls;
+    std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
+    if(_cells.find(cellPair) == _cells.end())
+        _cells.insert(std::make_pair(cellPair, new Class()));
+    return _cells.at(cellPair);
 }
 
 template <class Class>
@@ -146,14 +120,12 @@ void CellHandler<Class>::Remove(uint32 x, uint32 y)
     if( x >= _sizeX ||  y >= _sizeY )
         return;
 
-    if(!_cells[x])
+    std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
+    if(_cells.find(cellPair) == _cells.end())
         return;
-    ASSERT(_cells[x][y] != NULL);
 
-    Class *cls = _cells[x][y];
-    _cells[x][y] = NULL;
-
-    delete cls;
+    delete _cells.at(cellPair);
+    _cells.erase(cellPair);
 }
 
 template <class Class>
@@ -161,9 +133,10 @@ Class* CellHandler<Class>::GetCell(uint32 x, uint32 y)
 {
     if( x >= _sizeX ||  y >= _sizeY )
         return NULL;
-    if(!_cells[x])
+    std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
+    if(_cells.find(cellPair) == _cells.end())
         return NULL;
-    return _cells[x][y];
+    return _cells.at(cellPair);
 }
 
 template <class Class>

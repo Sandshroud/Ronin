@@ -15,12 +15,12 @@ class Map;
 
 class SERVER_DECL MapCell
 {
-    friend class MapInstance;
+    friend class CellHandler<MapCell>;
 public:
     MapCell();
     ~MapCell();
 
-    typedef RONIN_UNORDERED_SET<WorldObject*> CellObjectSet;
+    typedef std::vector<WorldObject*> CellObjectSet;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* mapmgr);
@@ -28,12 +28,16 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
-    bool HasObject(WorldObject* obj) { return (_objects.find(obj) != _objects.end()); }
+    void RemoveObjects(bool preDestruction = false);
+    bool HasObject(WorldObject* obj) { return std::find(_objects.begin(), _objects.end(), obj) != _objects.end(); }
     bool HasPlayers() { return ((_playerCount > 0) ? true : false); }
     RONIN_INLINE size_t GetObjectCount() { return _objects.size(); }
-    void RemoveObjects();
     RONIN_INLINE CellObjectSet::iterator Begin() { return _objects.begin(); }
     RONIN_INLINE CellObjectSet::iterator End() { return _objects.end(); }
+
+    void AddRespawn(WorldObject* obj);
+    void RemoveRespawn(WorldObject* obj);
+    bool EventRespawn(WorldObject *obj);
 
     //State Related
     void SetActivity(bool state);
@@ -62,12 +66,10 @@ public:
     uint16 GetPositionX() { return _x; }
     uint16 GetPositionY() { return _y; }
 
-    CellObjectSet _respawnObjects;
-
 private:
     bool _forcedActive;
     uint16 _x,_y;
-    CellObjectSet _objects;
+    CellObjectSet _objects, _respawnObjects;
     bool _active, _loaded;
     bool _unloadpending;
 

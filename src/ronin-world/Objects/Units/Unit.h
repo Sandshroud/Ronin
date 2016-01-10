@@ -276,9 +276,9 @@ public:
     void UpdateAttackTimeValues();
     void UpdateAttackDamageValues();
     void UpdateResistanceValues();
-    void UpdateAttackPowerValues(std::set<uint32> modMap);
-    void UpdateRangedAttackPowerValues(std::set<uint32> modMap);
-    void UpdatePowerCostValues(std::set<uint32> modMap);
+    void UpdateAttackPowerValues(std::vector<uint32> modMap);
+    void UpdateRangedAttackPowerValues(std::vector<uint32> modMap);
+    void UpdatePowerCostValues(std::vector<uint32> modMap);
     void UpdateHoverValues();
 
     virtual float GetPowerMod() = 0;
@@ -294,7 +294,7 @@ public:
     virtual int32 GetBonusResistance(uint8 school) = 0;
 
     virtual void OnPushToWorld();
-    virtual void RemoveFromWorld(bool free_guid);
+    virtual void RemoveFromWorld();
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
@@ -511,7 +511,7 @@ public:
 
     void SummonExpireSlot(uint8 slot); // Empties just slot x.
     void SummonExpireAll(bool clearowner); //Empties all slots (NPC's + GameObjects
-    RONIN_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].insert(toAdd); };
+    RONIN_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].push_back(toAdd); };
     void FillSummonList(std::vector<Creature*> &summonList, uint8 summonType);
 
     virtual uint32 GetOnMeleeSpell() { return 0; }
@@ -533,9 +533,9 @@ public:
 
     //dummy auras, spell stuff
     RONIN_INLINE void AddDummyAura( SpellEntry* sp ) { m_DummyAuras[sp->NameHash] = sp; }
-    RONIN_INLINE bool HasDummyAura( uint32 namehash ) { return m_DummyAuras[namehash] != NULL; }
-    RONIN_INLINE SpellEntry* GetDummyAura( uint32 namehash ) { return m_DummyAuras[namehash]; }
-    RONIN_INLINE void RemoveDummyAura( uint32 namehash ) { m_DummyAuras[namehash] = NULL; }
+    RONIN_INLINE bool HasDummyAura( uint32 namehash ) { return (m_DummyAuras.find(namehash) != m_DummyAuras.end() && m_DummyAuras[namehash] != NULL); }
+    RONIN_INLINE SpellEntry* GetDummyAura( uint32 namehash ) { if(m_DummyAuras.find(namehash) == m_DummyAuras.end()) return NULL; return m_DummyAuras[namehash]; }
+    RONIN_INLINE void RemoveDummyAura( uint32 namehash ) { m_DummyAuras[namehash] = NULL; m_DummyAuras.erase(namehash); }
 
     // AIInterface
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
@@ -769,9 +769,9 @@ public:
 
 public:
     void OnAuraModChanged(uint32 modType);
-    void ProcessModUpdate(uint8 modUpdateType, std::set<uint32> modMap);
+    void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
-    std::map<uint8, std::set<uint32> > m_modQueuedModUpdates;
+    Loki::AssocVector<uint8, std::vector<uint32> > m_modQueuedModUpdates;
 
     AuraInterface m_AuraInterface;
     UnitBaseStats *baseStats;
@@ -781,7 +781,7 @@ public:
     uint8 m_invisFlag;
     int32 m_invisDetect[INVIS_FLAG_TOTAL];
 
-    std::map< uint32, std::set<Creature*> > m_Summons;
+    Loki::AssocVector< uint32, std::vector<Creature*> > m_Summons;
 
     WoWGuid m_ObjectSlots[4];
     uint32 m_triggerSpell;
@@ -792,7 +792,7 @@ public:
     int32 m_silenced;
 
     // On Aura Remove Procs
-    RONIN_MAP<uint32, onAuraRemove* > m_onAuraRemoveSpells;
+    Loki::AssocVector<uint32, onAuraRemove* > m_onAuraRemoveSpells;
 
     uint32 m_uAckCounter;
 
@@ -804,7 +804,6 @@ public:
     bool m_noInterrupt;
     bool disarmed, disarmedShield;
 
-    std::set<uint32> m_SpellList;
     SpellEntry * pLastSpell;
 
     WoWGuid m_killer;
@@ -843,7 +842,7 @@ public:
     uint8 m_emoteState;
     uint32 m_oldEmote;
 
-    std::map<uint32, SpellEntry*> m_DummyAuras;
+    Loki::AssocVector<uint32, SpellEntry*> m_DummyAuras;
 
     uint32 m_vehicleKitId;
     uint16 m_aiAnimKitId;

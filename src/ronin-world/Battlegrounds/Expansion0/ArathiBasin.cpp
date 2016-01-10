@@ -140,7 +140,7 @@ void ArathiBasin::SpawnBuff(uint32 x)
             return;
 
         if(m_buffs[x]->IsInWorld())
-            m_buffs[x]->RemoveFromWorld(true);
+            m_buffs[x]->RemoveFromWorld();
         m_buffs[x] = NULL;
     }
 
@@ -161,7 +161,7 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
     if(m_controlPoints[Id])
     {
         if(m_controlPoints[Id]->IsInWorld())
-            m_controlPoints[Id]->RemoveFromWorld(false);
+            m_controlPoints[Id]->RemoveFromWorld();
         else m_controlPoints[Id]->Destruct();
         m_controlPoints[Id] = NULL;
     }
@@ -202,7 +202,7 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
     {
         // remove it if it exists
         if(m_controlPointAuras[Id] != NULL && m_controlPointAuras[Id]->IsInWorld())
-            m_controlPointAuras[Id]->RemoveFromWorld(false);
+            m_controlPointAuras[Id]->RemoveFromWorld();
         else m_controlPointAuras[Id]->Destruct();
         m_controlPointAuras[Id] = NULL;
         return;
@@ -211,7 +211,7 @@ void ArathiBasin::SpawnControlPoint(uint32 Id, uint32 Type)
     if(m_controlPointAuras[Id])
     {
         if(m_controlPointAuras[Id]->IsInWorld())
-            m_controlPointAuras[Id]->RemoveFromWorld(false);
+            m_controlPointAuras[Id]->RemoveFromWorld();
         else m_controlPointAuras[Id]->Destruct();
         m_controlPointAuras[Id] = NULL;
     }
@@ -583,7 +583,7 @@ void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
     {
         // apply the spell
         spellid = m_buffs[x]->GetInfo()->GetSpellID();
-        m_buffs[x]->RemoveFromWorld(false);
+        m_buffs[x]->RemoveFromWorld();
 
         // respawn it in buffrespawntime
         sEventMgr.AddEvent(castPtr<ArathiBasin>(this),&ArathiBasin::SpawnBuff,x,EVENT_AB_RESPAWN_BUFF,AB_BUFF_RESPAWN_TIME,1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);

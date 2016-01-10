@@ -230,7 +230,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
             sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam());
 
             if( m_dropFlags[x]->IsInWorld() )
-                m_dropFlags[x]->RemoveFromWorld(false);
+                m_dropFlags[x]->RemoveFromWorld();
 
             if(m_homeFlags[x]->IsInWorld() == false)
                 m_homeFlags[x]->PushToWorld(m_mapInstance);
@@ -261,7 +261,7 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
         sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + 1);
 
     if( m_dropFlags[plr->GetTeam()]->IsInWorld() )
-        m_dropFlags[plr->GetTeam()]->RemoveFromWorld(false);
+        m_dropFlags[plr->GetTeam()]->RemoveFromWorld();
 
     m_flagHolders[plr->GetTeam()] = plr->GetLowGUID();
     plr->m_bgHasFlag = true;
@@ -279,7 +279,7 @@ void WarsongGulch::ReturnFlag(uint8 team)
         return;
 
     if (m_dropFlags[team]->IsInWorld())
-        m_dropFlags[team]->RemoveFromWorld(false);
+        m_dropFlags[team]->RemoveFromWorld();
 
     if( !m_homeFlags[team]->IsInWorld() )
         m_homeFlags[team]->PushToWorld(m_mapInstance);
@@ -319,7 +319,7 @@ void WarsongGulch::HookFlagStand(Player* plr, GameObject* obj)
     /* set the flag holder */
     m_flagHolders[plr->GetTeam()] = plr->GetLowGUID();
     if(m_homeFlags[plr->GetTeam()]->IsInWorld())
-        m_homeFlags[plr->GetTeam()]->RemoveFromWorld(false);
+        m_homeFlags[plr->GetTeam()]->RemoveFromWorld();
 
     plr->m_bgHasFlag = true;
     m_flagAtBase[plr->GetTeam()] = false;

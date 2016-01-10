@@ -330,7 +330,7 @@ void TaxiMgr::Initialize()
 
 TaxiPath* TaxiMgr::GetTaxiPath(uint32 path)
 {
-    RONIN_UNORDERED_MAP<uint32, TaxiPath*>::iterator itr;
+    std::map<uint32, TaxiPath*>::iterator itr;
     if ((itr = m_taxiPaths.find(path)) != m_taxiPaths.end())
         return itr->second;
     return NULL;
@@ -338,7 +338,7 @@ TaxiPath* TaxiMgr::GetTaxiPath(uint32 path)
 
 TaxiPath* TaxiMgr::GetTaxiPath(uint32 from, uint32 to)
 {
-    RONIN_UNORDERED_MAP<uint32, TaxiPath*>::iterator itr;
+    std::map<uint32, TaxiPath*>::iterator itr;
     for (itr = m_taxiPaths.begin(); itr != m_taxiPaths.end(); itr++)
         if ((itr->second->to == to) && (itr->second->from == from))
             return itr->second;

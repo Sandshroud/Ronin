@@ -42,7 +42,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer
 
 MovementInterface::~MovementInterface()
 {
-
+    m_serverLocation = NULL;
 }
 
 static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
@@ -1027,68 +1027,4 @@ void MovementInterface::ClearOptionalMovementData()
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
     m_extra.clear();
-}
-
-void MovementInterface::UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply)
-{
-    m_modifierMask.SetBit(mod->m_type);
-
-    std::pair<uint32, uint32> mod_index = std::make_pair(auraSlot, index);
-    if(apply)
-    {
-        ModifierHolder *modHolder = NULL;
-        if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
-            modHolder = m_modifierHolders.at(auraSlot);
-        else
-        {
-            modHolder = new ModifierHolder(auraSlot, mod->m_spellInfo);
-            m_modifierHolders.insert(std::make_pair(auraSlot, modHolder));
-        }
-        if(modHolder == NULL || modHolder->mod[index] == mod)
-            return;
-
-        m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
-        modHolder->mod[index] = mod;
-    }
-    else if(m_modifierHolders.find(auraSlot) != m_modifierHolders.end())
-    {
-        m_modifiersByModType[mod->m_type].erase(mod_index);
-
-        ModifierHolder *modHolder = m_modifierHolders.at(auraSlot);
-        modHolder->mod[index] = NULL;
-        for(uint8 i=0;i<3;i++)
-            if(modHolder->mod[i])
-                return;
-        m_modifierHolders.erase(auraSlot);
-        delete modHolder;
-    }
-
-    if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER)
-        UpdateSpellGroupModifiers(apply, mod);
-}
-
-void MovementInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
-{
-    assert(mod->m_miscValue[0] < SPELL_MODIFIERS);
-    std::pair<uint8, uint8> index = std::make_pair(uint8(mod->m_miscValue[0] & 0x7F), uint8(mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0));
-    std::map<uint8, int32> groupModMap = m_spellGroupModifiers[index];
-
-    uint32 count = 0;
-    WorldPacket data(SMSG_SET_FLAT_SPELL_MODIFIER+index.second, 20);
-    data << uint32(1) << count << uint8(index.first);
-    for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit, ++intbit)
-    {
-        if(bit && (bit%32 == 0)) ++intbit;
-        if( ( 1 << bit%32 ) & mod->m_spellInfo->EffectSpellClassMask[mod->i][intbit] )
-        {
-            if(apply) groupModMap[bit] += mod->m_amount;
-            else groupModMap[bit] -= mod->m_amount;
-            data << uint8(bit);
-            data << groupModMap[bit];
-            count++;
-        }
-    }
-    data.put<uint32>(4, count);
-    if(m_Unit->IsPlayer())
-        castPtr<Player>(m_Unit)->SendPacket(&data);
 }

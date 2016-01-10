@@ -1306,7 +1306,7 @@ void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 am
 
     uint32 start = 0, end = MAX_POSITIVE_AURAS;
     if(!sFactionSystem.isAttackable(u_caster,unitTarget))
-        start = MAX_POSITIVE_AURAS, end = MAX_AURAS;
+        start = MAX_POSITIVE_AURAS, end = TOTAL_AURAS;
 
     unitTarget->m_AuraInterface.MassDispel(u_caster, i, GetSpellProto(), amount, start, end);
 }
@@ -2333,7 +2333,7 @@ void SpellEffectClass::SpellEffectDestroyAllTotems(uint32 i, WorldObject *target
         // atm totems are considert creature's
         if(p_caster->m_Summons[spe->slot].size())
         {
-            for(std::set<Creature*>::iterator itr = p_caster->m_Summons[spe->slot].begin(); itr != p_caster->m_Summons[spe->slot].end(); itr++)
+            for(std::vector<Creature*>::iterator itr = p_caster->m_Summons[spe->slot].begin(); itr != p_caster->m_Summons[spe->slot].end(); itr++)
             {
                 SpellEntry * sp = dbcSpell.LookupEntry((*itr)->GetUInt32Value(UNIT_CREATED_BY_SPELL));
                 if (sp != NULL)

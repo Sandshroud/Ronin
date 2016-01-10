@@ -111,7 +111,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
             }
         }
     }
-    unit->RemoveFromWorld(true);
+    unit->RemoveFromWorld();
     unit->Destruct();
 
     m_session->GetPlayer()->SetSelection(NULL);
@@ -781,7 +781,7 @@ bool ChatHandler::HandleGOScale(const char* args, WorldSession* m_session)
         scale = 255.f;
     BlueSystemMessage(m_session, "Set scale to %.3f", scale);
 
-    go->WorldObject::RemoveFromWorld(false);
+    go->WorldObject::RemoveFromWorld();
     go->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
     go->SaveToDB();
     sWorldMgr.PushToWorldQueue(go);

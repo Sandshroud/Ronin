@@ -608,48 +608,4 @@ private:
     Unit *m_Unit;
 
     uint32 m_updateTimer;
-
-public:
-    void UpdateModifier(uint32 auraSlot, uint8 index, Modifier *mod, bool apply);
-
-    class ModifierHolder
-    {
-    public:
-        ModifierHolder(uint32 slot,SpellEntry* info) : auraSlot(slot),spellInfo(info) {for(uint8 i=0;i<3;i++)mod[i]=NULL;};
-
-        uint32 auraSlot;
-        SpellEntry *spellInfo;
-        Modifier *mod[3];
-    };
-
-    typedef std::map<std::pair<uint32, uint32>, Modifier*> modifierMap;
-    typedef std::map<uint32, modifierMap > modifierTypeMap;
-
-    modifierMap GetModMapByModType(uint32 modType) { return m_modifiersByModType[modType]; }
-    bool HasAurasWithModType(uint32 modType) { return m_modifiersByModType[modType].size(); }
-
-    // Update Mask
-    UpdateMask &getModMask() { return m_modifierMask; }
-    bool GetModMaskBit(uint32 type) { return m_modifierMask.GetBit(type); }
-    void SetModMaskBit(uint32 type) { m_modifierMask.SetBit(type); };
-    void UnsetModMaskBit(uint32 type) { m_modifierMask.UnsetBit(type); };
-    void ClearModMaskBits() { m_modifierMask.Clear(); };
-    bool GetAndUnsetModMaskBit(uint32 type)
-    {
-        bool res = false;
-        if(res = m_modifierMask.GetBit(type))
-            m_modifierMask.UnsetBit(type);
-        return res;
-    }
-
-private:
-    // Ordered by aura slot
-    UpdateMask m_modifierMask;
-    std::map<uint32, ModifierHolder*> m_modifierHolders;
-    // Storage is <ModType, <Index, Modifier> >
-    modifierTypeMap m_modifiersByModType;
-    // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
-    std::map<std::pair<uint8, uint8>, std::map<uint8, int32>> m_spellGroupModifiers;
-
-    void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
 };

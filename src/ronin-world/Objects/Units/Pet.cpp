@@ -126,7 +126,7 @@ void Pet::Destruct()
 {
     mSpells.clear();
 
-    for(std::map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.begin(); itr != m_AISpellStore.end(); itr++)
+    for(AIInterface::AISpellMap::iterator itr = m_AISpellStore.begin(); itr != m_AISpellStore.end(); itr++)
         delete itr->second;
     m_AISpellStore.clear();
 
@@ -355,7 +355,7 @@ void Pet::InitializeSpells()
 AI_Spell*Pet::CreateAISpell(SpellEntry * info)
 {
     // Create an AI_Spell
-    std::map<uint32,AI_Spell*>::iterator itr = m_AISpellStore.find( info->Id );
+    AIInterface::AISpellMap::iterator itr = m_AISpellStore.find( info->Id );
     if( itr != m_AISpellStore.end() )
         return itr->second;
 
@@ -628,7 +628,7 @@ void Pet::PetSafeDelete()
     if(IsInWorld())
     {
         // remove from world, and delete
-        RemoveFromWorld(true);
+        RemoveFromWorld();
     }
 
     //sEventMgr.AddEvent(World::getSingletonPtr(), &World::DeleteObject, this, EVENT_CREATURE_SAFE_DELETE, 1000, 1);
@@ -904,7 +904,7 @@ void Pet::LearnSpell(uint32 spellid)
 void Pet::RemoveSpell(SpellEntry * sp)
 {
     mSpells.erase(sp);
-    std::map<uint32, AI_Spell*>::iterator itr = m_AISpellStore.find(sp->Id);
+    AIInterface::AISpellMap::iterator itr = m_AISpellStore.find(sp->Id);
     if(itr != m_AISpellStore.end())
     {
         if( itr->second->autocast_type != AUTOCAST_EVENT_NONE )
@@ -920,7 +920,7 @@ void Pet::RemoveSpell(SpellEntry * sp)
             }
         }
 
-        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
+        for(AIInterface::AISpellMap::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
         {
             if(it->second == itr->second)
             {
@@ -934,7 +934,7 @@ void Pet::RemoveSpell(SpellEntry * sp)
     }
     else
     {
-        for(std::map<uint32, AI_Spell*>::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
+        for(AIInterface::AISpellMap::iterator it = m_aiInterface.m_spells.begin(); it != m_aiInterface.m_spells.end(); ++it)
         {
             if(it->second->info == sp)
             {

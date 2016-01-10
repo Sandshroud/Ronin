@@ -51,10 +51,9 @@ void WorldSession::HandleDuelCancelled(WorldPacket & recv_data)
     SendPacket( &data );
     _player->DuelingWith->m_session->SendPacket( &data );
 
-    GameObject* arbiter = _player->GetMapInstance() ? _player->GetMapInstance()->GetGameObject( _player->GetUInt64Value( PLAYER_DUEL_ARBITER ) ) : NULL;
-    if( arbiter != NULL )
+    if( GameObject* arbiter = _player->GetMapInstance() ? _player->GetMapInstance()->GetGameObject( _player->GetUInt64Value( PLAYER_DUEL_ARBITER ) ) : NULL )
     {
-        arbiter->RemoveFromWorld( true );
+        arbiter->RemoveFromWorld();
         arbiter->Destruct();
         arbiter = NULL;
     }

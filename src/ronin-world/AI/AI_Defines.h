@@ -270,9 +270,9 @@ struct AI_Spell
     Unit* mPredefinedTarget;        // SD | Our set target
 };
 
-typedef std::map<uint32, AI_Spell*> SpellMap;
-typedef std::map<uint32, LocationVector> LocationVectorMap;
-typedef std::map<WoWGuid, int32> TargetMap;
+typedef Loki::AssocVector<uint32, AI_Spell*> SpellMap;
+typedef Loki::AssocVector<uint32, LocationVector> LocationVectorMap;
+typedef Loki::AssocVector<WoWGuid, int32> TargetMap;
 
 struct LocationVectorMapContainer
 {

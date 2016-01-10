@@ -122,8 +122,8 @@ protected:
     std::vector<GossipMenuItem> Menu;
 };
 
-typedef RONIN_MAP<uint32, std::list<SpellEntry*>* > OverrideIdMap;
-typedef RONIN_UNORDERED_MAP<std::string, PlayerInfo*> PlayerNameStringIndexMap;
+typedef std::map<uint32, std::list<SpellEntry*>* > OverrideIdMap;
+typedef std::map<std::string, PlayerInfo*> PlayerNameStringIndexMap;
 
 struct RecallLocation
 {
@@ -146,15 +146,15 @@ public:
     typedef std::set<RecallLocation*>                                       RecallSet;
 
     // HashMap typedef's
-    typedef RONIN_UNORDERED_MAP<uint64, Item* >                             ItemMap;
-    typedef RONIN_UNORDERED_MAP<uint32, CorpseData*>                        CorpseCollectorMap;
-    typedef RONIN_UNORDERED_MAP<uint32, PlayerInfo*>                        PlayerNameMap;
-    typedef RONIN_UNORDERED_MAP<uint16, PlayerCreateInfo*>                  PlayerCreateInfoMap;
-    typedef RONIN_UNORDERED_MAP<uint32, SkillLineAbilityEntry*>             SLMap;
-    typedef RONIN_UNORDERED_MAP<uint32, std::map<uint32, CreatureItem>* >   VendorMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Transporter* >                      TransportMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Corpse* >                           CorpseMap;
-    typedef RONIN_UNORDERED_MAP<uint32, Group*>                             GroupMap;
+    typedef std::map<uint64, Item* >                             ItemMap;
+    typedef std::map<uint32, CorpseData*>                        CorpseCollectorMap;
+    typedef std::map<uint32, PlayerInfo*>                        PlayerNameMap;
+    typedef std::map<uint16, PlayerCreateInfo*>                  PlayerCreateInfoMap;
+    typedef std::map<uint32, SkillLineAbilityEntry*>             SLMap;
+    typedef std::map<uint32, std::map<uint32, CreatureItem>* >   VendorMap;
+    typedef std::map<uint32, Transporter* >                      TransportMap;
+    typedef std::map<uint32, Corpse* >                           CorpseMap;
+    typedef std::map<uint32, Group*>                             GroupMap;
 
     // Map typedef's
     typedef std::map<uint32, std::list<ItemPrototype*>* >                   ItemSetContentMap;
@@ -275,7 +275,7 @@ public:
 
     Player* CreatePlayer();
     Mutex m_playerguidlock;
-    typedef RONIN_UNORDERED_MAP<uint64, Player*> PlayerStorageMap;
+    typedef std::map<uint64, Player*> PlayerStorageMap;
     PlayerStorageMap _players;
     RWLock _playerslock;
     uint32 m_hiPlayerGuid;
@@ -337,9 +337,9 @@ public:
     void UpdateArenaTeamWeekly();
     void ResetDailies();
     void LoadArenaTeams();
-    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeamMap[3];
-    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeamPlayerMap[3];
-    RONIN_UNORDERED_MAP<uint32, ArenaTeam*> m_arenaTeams;
+    std::map<uint32, ArenaTeam*> m_arenaTeamMap[3];
+    std::map<uint32, ArenaTeam*> m_arenaTeamPlayerMap[3];
+    std::map<uint32, ArenaTeam*> m_arenaTeams;
     void RemoveArenaTeam(ArenaTeam * team);
     void AddArenaTeam(ArenaTeam * team);
     Mutex m_arenaTeamLock;
@@ -360,7 +360,7 @@ protected:
     uint32 m_hiGroupId;
 
     uint64 TransportersCount;
-    RONIN_UNORDERED_MAP<WoWGuid,PlayerInfo*> m_playersinfo;
+    std::map<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
 
     uint32 m_hiCreatureSpawnId;

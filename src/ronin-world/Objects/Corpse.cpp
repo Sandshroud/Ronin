@@ -102,7 +102,7 @@ void CorpseData::DeleteFromDB()
 void Corpse::Despawn()
 {
     if(IsInWorld())
-        RemoveFromWorld(false);
+        RemoveFromWorld();
 }
 
 void Corpse::SpawnBones()

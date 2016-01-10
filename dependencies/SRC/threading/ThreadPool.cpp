@@ -66,33 +66,17 @@ void CThreadPool::Shutdown()
         itr2 = itr++;
         if((*itr2)->ExecutionTarget)
             (*itr2)->ExecutionTarget->OnShutdown();
-        else
-            m_activeThreads.erase(itr2);
+        else m_activeThreads.erase(itr2);
     }
     _mutex.Release();
 
-    uint32 listcount = 0, totallistcount = 0;
     for(;;)
     {
         _mutex.Acquire();
-        if(listcount > 24)
-        {
-            listcount = 0;
-            totallistcount++;
-            sLog.Debug("ThreadPool", "Listing threads" );
-            if(m_activeThreads.size())
-                for(ThreadSet::iterator itr = m_activeThreads.begin(); itr != m_activeThreads.end(); ++itr)
-                    sLog.Debug("ActiveThreadPool", "%u(%s) thread...", (*itr)->ThreadId, (*itr)->name );
-
-            if(totallistcount > 2)
-                Suicide();
-        }
-
         if(m_activeThreads.size())
         {
             sLog.Debug("ThreadPool", "%u active threads remaining...", m_activeThreads.size() );
             _mutex.Release();
-            listcount++;
             Sleep(1000);
             continue;
         }
@@ -134,8 +118,7 @@ static unsigned long WINAPI thread_proc(void* param)
     ThreadPool.ThreadExit(t);
     if(strlen(tName))
         sLog.Debug("ThreadPool", "Thread %s(%u) exiting.", tName, tid);
-    else
-        sLog.Debug("ThreadPool", "Thread %u exiting.", tid);
+    else sLog.Debug("ThreadPool", "Thread %u exiting.", tid);
 
     // at this point the t pointer has already been freed, so we can just cleanly exit.
     ExitThread(0);

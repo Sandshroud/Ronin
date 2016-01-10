@@ -37,7 +37,7 @@ class SocketLoadBalancer;
 
 class LogonCommHandler : public Singleton<LogonCommHandler>
 {
-    typedef RONIN_UNORDERED_MAP<std::string, std::string> ForcedPermissionMap;
+    typedef std::map<std::string, std::string> ForcedPermissionMap;
 
     ForcedPermissionMap forced_permissions;
     std::map<uint32, WorldSocket*> pending_logons;

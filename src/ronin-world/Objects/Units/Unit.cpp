@@ -18,6 +18,7 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 
     baseStats = NULL;
     m_modQueuedModUpdates[1].empty();
+    m_modQueuedModUpdates[5].empty();
 
     m_state = 0;
     m_deathState = ALIVE;
@@ -95,17 +96,17 @@ void Unit::Destruct()
 {
     sEventMgr.RemoveEvents(this);
 
-    m_AuraInterface.RemoveAllAuras();
+    m_AuraInterface.Destruct();
 
     if (IsInWorld())
-        RemoveFromWorld(true);
+        RemoveFromWorld();
 
     if(m_currentSpell)
         m_currentSpell->cancel();
 
     m_DummyAuras.clear();
 
-    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
     for ( itr = m_onAuraRemoveSpells.begin() ; itr != m_onAuraRemoveSpells.end() ; itr++)
         delete itr->second;
     m_onAuraRemoveSpells.clear();
@@ -318,7 +319,7 @@ void Unit::OnAuraModChanged(uint32 modType)
     if(index == 0)
         return;
 
-    m_modQueuedModUpdates[index].insert(modType);
+    m_modQueuedModUpdates[index].push_back(modType);
 }
 
 void Unit::UpdateFieldValues()
@@ -326,12 +327,17 @@ void Unit::UpdateFieldValues()
     if(m_modQueuedModUpdates.empty())
         return;
 
-    for(auto itr = m_modQueuedModUpdates.begin(); itr != m_modQueuedModUpdates.end(); itr++)
-        ProcessModUpdate(itr->first, itr->second);
+    while(m_modQueuedModUpdates.size())
+    {
+        uint32 modType = m_modQueuedModUpdates.begin()->first;
+        std::vector<uint32> vect = m_modQueuedModUpdates.begin()->second;
+        ProcessModUpdate(modType, vect);
+        m_modQueuedModUpdates.erase(m_modQueuedModUpdates.begin());
+    }
     m_modQueuedModUpdates.clear();
 }
 
-void Unit::ProcessModUpdate(uint8 modUpdateType, std::set<uint32> modMap)
+void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
 {
     switch(modUpdateType)
     {
@@ -566,8 +572,11 @@ void Unit::UpdateAttackTimeValues()
             else if(baseAttack > 12000)
                 baseAttack = 12000;
         }
-        updateMask |= 1<<i;
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
+        if(baseAttack == 0)
+            continue;
+
+        updateMask |= 1<<i;
     }
 
     if(updateMask > 0)
@@ -707,9 +716,9 @@ void Unit::UpdateResistanceValues()
     }
 }
 
-void Unit::UpdateAttackPowerValues(std::set<uint32> modMap)
+void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
 {
-    if(modMap.count(SPELL_AURA_MOD_ATTACK_POWER_PCT))
+    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_ATTACK_POWER_PCT) != modMap.end())
     {
         float val = 100.0f;
         AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT);
@@ -732,9 +741,9 @@ void Unit::UpdateAttackPowerValues(std::set<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
 }
 
-void Unit::UpdateRangedAttackPowerValues(std::set<uint32> modMap)
+void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
 {
-    if(modMap.count(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
+    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT) != modMap.end())
     {
         float val = 100.0f;
         AuraInterface::modifierMap hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT);
@@ -756,9 +765,9 @@ void Unit::UpdateRangedAttackPowerValues(std::set<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
 }
 
-void Unit::UpdatePowerCostValues(std::set<uint32> modMap)
+void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
 {
-    if(modMap.count(SPELL_AURA_MOD_POWER_COST_SCHOOL))
+    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_POWER_COST_SCHOOL) != modMap.end())
     {
         AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST_SCHOOL);
         for(uint8 s = 0; s < MAX_RESISTANCE; s++)
@@ -773,7 +782,7 @@ void Unit::UpdatePowerCostValues(std::set<uint32> modMap)
         }
     }
 
-    if(modMap.count(SPELL_AURA_MOD_POWER_COST))
+    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_POWER_COST) != modMap.end())
     {
         AuraInterface::modifierMap powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST);
         for(uint8 s = 0; s < MAX_RESISTANCE; s++)
@@ -2911,7 +2920,7 @@ void Unit::EventSummonPetExpire()
         }
         else
         {
-            summonPet->RemoveFromWorld(false, true);
+            summonPet->RemoveFromWorld(, true);
             summonPet->Destruct();
             summonPet = NULL;
         }
@@ -2986,11 +2995,11 @@ void Unit::OnPushToWorld()
     m_AuraInterface.BuildAllAuraUpdates();
 }
 
-void Unit::RemoveFromWorld(bool free_guid)
+void Unit::RemoveFromWorld()
 {
     SummonExpireAll(false);
 
-    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -3014,7 +3023,7 @@ void Unit::RemoveFromWorld(bool free_guid)
         m_currentSpell = NULL;
     }
 
-    WorldObject::RemoveFromWorld(free_guid);
+    WorldObject::RemoveFromWorld();
     m_aiInterface.WipeReferences();
 }
 
@@ -3318,11 +3327,11 @@ void Unit::SummonExpireAll(bool clearowner)
 
 void Unit::FillSummonList(std::vector<Creature*> &summonList, uint8 summonType)
 {
-    for(std::map< uint32, std::set<Creature*> >::iterator itr = m_Summons.begin(); itr != m_Summons.end(); itr++)
+    for(Loki::AssocVector< uint32, std::vector<Creature*> >::iterator itr = m_Summons.begin(); itr != m_Summons.end(); itr++)
     {
         if(!itr->second.size())
             continue;
-        for(std::set<Creature*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
+        for(std::vector<Creature*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
         {
             // Should never happen
             if(!(*itr2)->IsSummon())
@@ -3336,11 +3345,11 @@ void Unit::FillSummonList(std::vector<Creature*> &summonList, uint8 summonType)
 
 void Unit::RemoveSummon(Creature* summon)
 {
-    for(std::map< uint32, std::set<Creature*> >::iterator itrMain = m_Summons.begin(); itrMain != m_Summons.end(); itrMain++)
+    for(Loki::AssocVector< uint32, std::vector<Creature*> >::iterator itrMain = m_Summons.begin(); itrMain != m_Summons.end(); itrMain++)
     {
         if(itrMain->second.size())
         {
-            for(std::set<Creature*>::iterator itr = itrMain->second.begin(); itr != itrMain->second.end(); itr++)
+            for(std::vector<Creature*>::iterator itr = itrMain->second.begin(); itr != itrMain->second.end(); itr++)
             {
                 if(summon->GetGUID() == summon->GetGUID())
                 {
@@ -3354,32 +3363,36 @@ void Unit::RemoveSummon(Creature* summon)
 
 void Unit::SummonExpireSlot(uint8 Slot)
 {
-    if(Slot > 7)
-        Slot = 0;
-
-    //remove summons
-    if(m_Summons[Slot].size())
+    if(!m_Summons.empty())
     {
-        Creature* mSum = NULL;
-        for(std::set<Creature*>::iterator itr = m_Summons[Slot].begin(); itr != m_Summons[Slot].end(); itr++)
+        if(Slot > 7)
+            Slot = 0;
+
+        //remove summons
+        if(m_Summons.find(Slot) != m_Summons.end() && m_Summons[Slot].size())
         {
-            mSum = *itr;
-            if(mSum->IsPet())
+            Creature* mSum = NULL;
+            for(std::vector<Creature*>::iterator itr = m_Summons[Slot].begin(); itr != m_Summons[Slot].end(); itr++)
             {
-                if(castPtr<Pet>(mSum)->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-                    castPtr<Pet>(mSum)->Dismiss(false);               // warlock summon -> dismiss
+                mSum = *itr;
+                if(mSum->IsPet())
+                {
+                    if(castPtr<Pet>(mSum)->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
+                        castPtr<Pet>(mSum)->Dismiss(false);               // warlock summon -> dismiss
+                    else
+                        castPtr<Pet>(mSum)->Remove(false, true, true);    // hunter pet -> just remove for later re-call
+                }
                 else
-                    castPtr<Pet>(mSum)->Remove(false, true, true);    // hunter pet -> just remove for later re-call
+                {
+                    mSum->m_AuraInterface.RemoveAllAuras();
+                    if(mSum->IsInWorld())
+                        mSum->Unit::RemoveFromWorld();
+                    mSum->DeleteMe();
+                }
             }
-            else
-            {
-                mSum->m_AuraInterface.RemoveAllAuras();
-                if(mSum->IsInWorld())
-                    mSum->Unit::RemoveFromWorld(true);
-                mSum->DeleteMe();
-            }
+            m_Summons[Slot].clear();
+            m_Summons.erase(Slot);
         }
-        m_Summons[Slot].clear();
     }
     sEventMgr.RemoveEvents(this, EVENT_SUMMON_EXPIRE_0+Slot);
 }
@@ -3544,7 +3557,7 @@ void Unit::SendPowerUpdate(EUnitFields powerField)
 
 void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf)
 {
-    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
     if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
     {
         itr->second->spell = procSpell;
@@ -3567,7 +3580,7 @@ void Unit::AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procCh
 
 void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
 {
-    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
     if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
         itr->second->deleted = true;
 }
@@ -3575,7 +3588,7 @@ void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
 // Aura by NameHash has been removed
 void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
 {
-    RONIN_MAP<uint32, onAuraRemove*>::iterator itr;
+    Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
     if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
     {
         bool apply = true;

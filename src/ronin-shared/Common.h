@@ -170,10 +170,6 @@ enum MsTimeVariables
 #include <algorithm>
 #include <memory>
 
-#define RONIN_SET std::set
-#define RONIN_MAP std::map
-#define RONIN_MULTIMAP std::multimap
-
 #if PLATFORM == PLATFORM_WIN
 # pragma warning(disable:4996)
 # undef _CRT_SECURE_NO_DEPRECATE
@@ -202,78 +198,6 @@ enum MsTimeVariables
 # else
 #  define __fastcall __attribute__((__fastcall__))
 # endif
-#endif
-
-#if COMPILER == COMPILER_INTEL
-
-#include <ext/hash_set>
-#include <ext/hash_map>
-
-#define RONIN_UNORDERED_SET std::hash_set
-#define RONIN_UNORDERED_MAP std::hash_map
-
-#elif COMPILER == COMPILER_GNU
-
-#if __GNUC__ >= 4
-
-#include <tr1/unordered_set>
-#include <tr1/unordered_map>
-
-#define RONIN_UNORDERED_SET std::tr1::unordered_set
-#define RONIN_UNORDERED_MAP std::tr1::unordered_map
-
-#else
-
-#include <ext/hash_set>
-#include <ext/hash_map>
-
-#define RONIN_UNORDERED_SET __gnu_cxx::hash_set
-#define RONIN_UNORDERED_MAP __gnu_cxx::hash_map
-
-// gcc has no default hash for string type, so we have to make an explicit hash template here
-namespace __gnu_cxx
-{
-    template<> struct hash<std::string>
-    {
-        size_t operator()(std::string& tbh) const
-        {
-            // simple crc32 hash for now, we may need to change this later however
-            return size_t( crc32( (const unsigned char*)tbh.c_str(), tbh.length() ) );
-        }
-    }
-}
-
-#endif
-
-#elif COMPILER == COMPILER_MICROSOFT
-
-#if _MSC_VER >= 1700
-
-#include <unordered_set>
-#include <unordered_map>
-
-#define RONIN_UNORDERED_SET std::unordered_set
-#define RONIN_UNORDERED_MAP std::unordered_map
-
-#elif _HAS_TR1
-
-#define RONIN_UNORDERED_SET std::tr1::unordered_set
-#define RONIN_UNORDERED_MAP std::tr1::unordered_map
-
-#else
-
-#include <hash_set>
-#include <hash_map>
-
-#define RONIN_UNORDERED_SET std::hash_set
-#define RONIN_UNORDERED_MAP std::hash_map
-
-// hacky stuff for vc++
-#define snprintf _snprintf
-#define vsnprintf _vsnprintf
-
-#endif
-
 #endif
 
 /* Use correct types for x64 platforms, too */

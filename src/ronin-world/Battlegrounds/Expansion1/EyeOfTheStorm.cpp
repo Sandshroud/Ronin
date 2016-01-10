@@ -370,7 +370,7 @@ bool EyeOfTheStorm::HookSlowLockOpen( GameObject* pGo, Player* pPlayer, Spell* p
         return false;
 
     if(m_standFlag->IsInWorld())
-        m_standFlag->RemoveFromWorld(false);
+        m_standFlag->RemoveFromWorld();
     pPlayer->CastSpell( pPlayer->GetGUID(), EOTS_NETHERWING_FLAG_SPELL, true );
     pPlayer->m_bgHasFlag = true;
 
@@ -934,7 +934,7 @@ void EyeOfTheStorm::SpawnBuff(uint32 x)
     else
     {
         if(m_EOTSbuffs[x]->IsInWorld())
-            m_EOTSbuffs[x]->RemoveFromWorld(false);
+            m_EOTSbuffs[x]->RemoveFromWorld();
         m_EOTSbuffs[x]->PushToWorld(m_mapInstance);
     }
 }
@@ -970,7 +970,7 @@ void EyeOfTheStorm::OnStart()
     /* remove the bubbles */
     for( i = 0; i < 2; i++ )
     {
-        m_bubbles[i]->RemoveFromWorld(false);
+        m_bubbles[i]->RemoveFromWorld();
         m_bubbles[i]->Destruct();
         m_bubbles[i] = NULL;
     }

@@ -30,8 +30,8 @@ typedef std::map<uint32, Quest*> QuestStorageMap;
 typedef std::list<QuestRelation *> QuestRelationList;
 typedef std::list<QuestAssociation *> QuestAssociationList;
 typedef std::map<uint32, std::vector<QuestPOI*> > QuestPOIStorageMap;
-typedef RONIN_UNORDERED_MAP<uint32, QuestRelationList* > QuestRelationListMap;
-typedef RONIN_UNORDERED_MAP<uint32, QuestAssociationList* > QuestAssociationListMap;
+typedef std::map<uint32, QuestRelationList* > QuestRelationListMap;
+typedef std::map<uint32, QuestAssociationList* > QuestAssociationListMap;
 
 class SERVER_DECL QuestMgr :  public Singleton < QuestMgr >
 {
@@ -136,7 +136,7 @@ private:
     QuestRelationListMap m_obj_quests;
     QuestRelationListMap m_itm_quests;
 
-    RONIN_UNORDERED_MAP<uint32, uint32> m_ObjectLootQuestList;
+    std::map<uint32, uint32> m_ObjectLootQuestList;
 
     template <class T> void _AddQuest(uint32 entryid, Quest *qst, uint8 type);
 

@@ -74,8 +74,8 @@ struct StoreLootItem
     uint32 minCount, maxCount;
 };
 
-typedef RONIN_UNORDERED_SET<StoreLootItem*> StoreLootList;
-typedef RONIN_UNORDERED_MAP<uint32, StoreLootList > LootStore;
+typedef std::set<StoreLootItem*> StoreLootList;
+typedef std::map<uint32, StoreLootList > LootStore;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

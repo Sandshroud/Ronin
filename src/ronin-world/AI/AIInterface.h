@@ -9,7 +9,10 @@ class CreatureInfoExtra;
 
 class SERVER_DECL AIInterface
 {
+public:
     friend class AI_Movement;
+    typedef Loki::AssocVector<uint32, AI_Spell*> AISpellMap;
+
 public:
     AIInterface();
     ~AIInterface();
@@ -151,7 +154,7 @@ public:
     uint32 m_totemSpellTimer, m_totemSpellTime;
     SpellEntry * m_totemSpell;
 
-    std::map<uint32, AI_Spell*> m_spells;
+    AISpellMap m_spells;
 
     bool disable_combat;
 

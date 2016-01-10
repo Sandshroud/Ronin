@@ -303,7 +303,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
     if(m_ioccontrolPoints[Id])
     {
         if(m_ioccontrolPoints[Id]->IsInWorld())
-            m_ioccontrolPoints[Id]->RemoveFromWorld(false);
+            m_ioccontrolPoints[Id]->RemoveFromWorld();
         else m_ioccontrolPoints[Id]->Destruct();
         m_ioccontrolPoints[Id] = NULL;
     }
@@ -344,7 +344,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
         if(m_ioccontrolPointAuras[Id])
         {
             if(m_ioccontrolPointAuras[Id]->IsInWorld())
-                m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
+                m_ioccontrolPointAuras[Id]->RemoveFromWorld();
             else m_ioccontrolPointAuras[Id]->Destruct();
             m_ioccontrolPointAuras[Id] = NULL;
         }
@@ -354,7 +354,7 @@ void IsleOfConquest::SpawnControlPoint(uint32 Id, uint32 Type)
     if(m_ioccontrolPointAuras[Id])
     {
         if(m_ioccontrolPointAuras[Id]->IsInWorld())
-            m_ioccontrolPointAuras[Id]->RemoveFromWorld(false);
+            m_ioccontrolPointAuras[Id]->RemoveFromWorld();
         else m_ioccontrolPointAuras[Id]->Destruct();
         m_ioccontrolPointAuras[Id] = NULL;
     }

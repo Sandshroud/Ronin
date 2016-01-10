@@ -1139,7 +1139,7 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     m_players[plr->GetBGTeam()].insert(plr);
 
     if( !skip_teleport && plr->IsInWorld() )
-        plr->RemoveFromWorld(false);
+        plr->RemoveFromWorld();
 
     for(uint32 i = 0; i < 2; i++)
     {

@@ -2007,7 +2007,7 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
 
     float radius = atof(args)+go->GetOrientation();
     go->SetOrientation(radius);
-    go->RemoveFromWorld(true);
+    go->RemoveFromWorld();
     go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
     go->SaveToDB();
     return true;
@@ -2023,7 +2023,7 @@ bool ChatHandler::HandleGOMove(const char * args, WorldSession * m_session)
         return true;
     }
 
-    go->RemoveFromWorld(true);
+    go->RemoveFromWorld();
     go->SetPosition(m_session->GetPlayer()->GetPosition());
     go->SaveToDB();
     go->PushToWorld(m_session->GetPlayer()->GetMapInstance());

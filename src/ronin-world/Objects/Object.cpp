@@ -551,8 +551,7 @@ void Object::ClearLoot()
 WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
 {
     m_mapId = -1;
-    m_areaId = 0;
-    m_zoneId = 0;
+    m_areaId = m_zoneId = 0;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
 
@@ -578,7 +577,7 @@ void WorldObject::Init()
 void WorldObject::Destruct()
 {
     if(IsInWorld())
-        RemoveFromWorld(false);
+        RemoveFromWorld();
 
     if(GetMapCell())
     {
@@ -591,9 +590,16 @@ void WorldObject::Destruct()
 
     ClearInRangeSet();
 
-    // for linux
+    m_factionTemplate = NULL;
+
+    m_mapId = -1;
+    m_areaId = m_zoneId = 0;
+    m_areaFlags = 0;
+    m_lastMovementZone = 0;
     m_instanceId = -1;
+
     sEventMgr.RemoveEvents(this);
+    EventableObject::Destruct(false);
     Object::Destruct();
 }
 
@@ -908,7 +914,7 @@ void WorldObject::PushToWorld(MapInstance* instance)
     Object::SetInWorld(true);
 }
 
-void WorldObject::RemoveFromWorld(bool free_guid)
+void WorldObject::RemoveFromWorld()
 {
     // clear loot
     ClearLoot();
@@ -917,7 +923,7 @@ void WorldObject::RemoveFromWorld(bool free_guid)
     MapInstance* m = m_mapInstance;
     m_mapInstance = NULL;
 
-    m->RemoveObject(this, free_guid);
+    m->RemoveObject(this);
 
     // remove any spells / free memory
     sEventMgr.RemoveEvents(this, EVENT_UNIT_SPELL_HIT);
@@ -1398,7 +1404,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                             WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
                             data << dObj->GetGUID();
                             dObj->SendMessageToSet(&data, false);
-                            dObj->RemoveFromWorld(true);
+                            dObj->RemoveFromWorld();
                             dObj->Destruct();
                             dObj = NULL;
                         }
@@ -1919,20 +1925,26 @@ void WorldObject::Deactivate(MapInstance* mgr)
     {
     case TYPEID_UNIT:
         {
-            // check iterator
-            if( mgr->__creature_iterator != mgr->activeCreatures.end() && (*mgr->__creature_iterator) == castPtr<Creature>(this) )
-                ++mgr->__creature_iterator;
-
-            mgr->activeCreatures.erase(castPtr<Creature>(this));
+            MapInstance::CreatureSet::iterator itr;
+            if((itr = mgr->activeCreatures.find(castPtr<Creature>(this))) != mgr->activeCreatures.end())
+            {
+                // check iterator
+                if( mgr->__creature_iterator == itr )
+                    mgr->__creature_iterator = mgr->activeCreatures.erase(itr);
+                else mgr->activeCreatures.erase(itr);
+            }
         }break;
 
     case TYPEID_GAMEOBJECT:
         {
-            // check iterator
-            if( mgr->__gameobject_iterator != mgr->activeGameObjects.end() && (*mgr->__gameobject_iterator) == castPtr<GameObject>(this) )
-                ++mgr->__gameobject_iterator;
-
-            mgr->activeGameObjects.erase(castPtr<GameObject>(this));
+            MapInstance::GameObjectSet::iterator itr;
+            if((itr = mgr->activeGameObjects.find(castPtr<GameObject>(this))) != mgr->activeGameObjects.end())
+            {
+                // check iterator
+                if( mgr->__gameobject_iterator == itr )
+                    mgr->__gameobject_iterator = mgr->activeGameObjects.erase(itr);
+                else mgr->activeGameObjects.erase(itr);
+            }
         }break;
     }
     Active = false;
