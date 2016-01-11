@@ -63,6 +63,7 @@ public:
 
     void mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB);
 
+    Item* GetInventoryItem(WoWGuid guid);
     Item* GetInventoryItem(int16 slot);
     Item* GetInventoryItem(int16 ContainerSlot, int16 slot);
     int16 GetInventorySlotById(uint32 ID);

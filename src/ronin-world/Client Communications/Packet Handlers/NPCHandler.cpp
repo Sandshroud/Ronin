@@ -174,25 +174,19 @@ void WorldSession::SendAuctionList(Creature* auctioneer)
 void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    Object* ent = NULL;
-    switch(GUID_HIPART(guid)) // Crow: Could possibly do GetObject because I don't think we need items...
-    {
-    case HIGHGUID_TYPE_UNIT:
-        ent = _player->GetMapInstance()->GetCreature(guid);
-        break;
-    case HIGHGUID_TYPE_GAMEOBJECT:
-        ent = _player->GetMapInstance()->GetGameObject(guid);
-        break;
-    case HIGHGUID_TYPE_ITEM:
-        ent = _player->GetInventory()->GetInventoryItem(guid);
-        break;
-    }
-    if(ent == NULL)
+    Object* obj = NULL;
+    if(guid.getHigh() == HIGHGUID_TYPE_ITEM) // Crow: Could possibly do GetObject because I don't think we need items...
+        obj = _player->GetInventory()->GetInventoryItem(guid);
+    else obj = _player->GetInRangeObject(guid);
+    if(obj == NULL)
         return;
-    SendGossipForObject(ent);
+
+    WorldPacket data(SMSG_GOSSIP_MESSAGE, 500);
+    sGossipMgr.BuildGossipMessage(&data, _player, obj);
+    SendPacket(&data);
 }
 
 //////////////////////////////////////////////////////////////
@@ -201,15 +195,22 @@ void WorldSession::HandleGossipHelloOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGossipSelectOptionOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-    //WorldPacket data;
-    uint32 option;
-    uint32 unk24;
-    uint64 guid;
-    bool Coded = false;
-    std::string BoxMessage;
+    WoWGuid guid;
+    recv_data >> guid;
 
-    recv_data >> guid >> unk24 >> option;
+    Object* obj = NULL;
+    if(guid.getHigh() == HIGHGUID_TYPE_ITEM) // Crow: Could possibly do GetObject because I don't think we need items...
+        obj = _player->GetInventory()->GetInventoryItem(guid);
+    else obj = _player->GetInRangeObject(guid);
+    if(obj == NULL)
+        return;
+    uint32 menuId, gossipOption;
+    recv_data >> menuId >> gossipOption;
+    std::string coded;
+    if(recv_data.rpos() != recv_data.size())
+        recv_data >> coded;
 
+    sGossipMgr.HandleGossipOptionSelect(menuId, gossipOption, _player, obj, coded.c_str());
 }
 
 //////////////////////////////////////////////////////////////
@@ -388,110 +389,5 @@ void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
 
     if(FactionEntry *faction = unit->GetFaction())
         _player->Reputation_OnTalk(faction);
-    SendInventoryList(unit);
-}
-
-void WorldSession::SendInventoryList(Creature* unit)
-{
-    if(!_player || !_player->IsInWorld())
-        return;
-
-    WoWGuid guid = unit->GetGUID();
-    {
-        WorldPacket data(SMSG_LIST_INVENTORY, 10);
-        data.WriteBit(guid[1]);
-        data.WriteBit(guid[0]);
-
-        data.WriteBits(0, 21); // item count
-
-        data.WriteBit(guid[3]);
-        data.WriteBit(guid[6]);
-        data.WriteBit(guid[5]);
-        data.WriteBit(guid[2]);
-        data.WriteBit(guid[7]);
-        data.WriteBit(guid[4]);
-
-        data.FlushBits();
-        data.WriteByteSeq(guid[5]);
-        data.WriteByteSeq(guid[4]);
-        data.WriteByteSeq(guid[1]);
-        data.WriteByteSeq(guid[0]);
-        data.WriteByteSeq(guid[6]);
-        data << uint8(1);
-        data.WriteByteSeq(guid[2]);
-        data.WriteByteSeq(guid[3]);
-        data.WriteByteSeq(guid[7]);
-        SendPacket(&data);
-        return;
-    }
-
-    uint32 counter = 0;
-    if(!unit->HasItems())
-    {
-        WorldPacket data(SMSG_LIST_INVENTORY, 10);
-        data << uint64(guid);
-        data << uint8(0) << uint8(0);
-        SendPacket(&data);
-        return;
-    }
-
-    ItemPrototype * curItem;
-    WorldPacket data(SMSG_LIST_INVENTORY, ((unit->GetSellItemCount() * 28) + 9));      // allocate
-    data << guid.asPacked();
-    data << uint8( 0 ); // placeholder for item count
-    for(std::map<uint32, CreatureItem>::iterator itr = unit->GetSellItemBegin(); itr != unit->GetSellItemEnd(); itr++)
-    {
-        if(counter >= 150)
-        {
-            sLog.Error("VendorListing", "Creature %u contains too many items, Displaying (150/%u) items.",
-                unit->GetEntry(), uint32(unit->GetSellItemCount()));
-            break;
-        }
-
-        if(itr->second.itemid && (itr->second.max_amount == 0 || (itr->second.max_amount > 0 && itr->second.available_amount > 0)))
-        {
-            if((curItem = sItemMgr.LookupEntry(itr->second.itemid)))
-            {
-                if(!(itr->second.vendormask & unit->GetVendorMask()))
-                    continue;
-
-                if(!_player->ignoreitemreq_cheat)
-                {
-                    if(itr->second.IsDependent)
-                    {
-                        if(curItem->AllowableClass && !(_player->getClassMask() & curItem->AllowableClass))
-                            continue;
-                        if(curItem->AllowableRace && !(_player->getRaceMask() & curItem->AllowableRace))
-                            continue;
-
-                        if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
-                            if(!(_player->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
-                                continue; // Do not show relics to classes that can't use them.
-                    }
-
-                    if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
-                        continue;
-                }
-
-                uint32 extendedCostId = itr->second.extended_cost != NULL ? itr->second.extended_cost->Id : 0;
-                int32 av_am = (itr->second.max_amount > 0) ? itr->second.available_amount : -1;
-                data << (++counter);
-                data << uint32(1);
-                data << curItem->ItemId;
-                data << curItem->DisplayInfoID;
-                data << av_am;
-                data << sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, _player, unit);
-                data << curItem->Durability;
-                data << itr->second.amount;
-                data << extendedCostId;
-                data << uint8(0);
-            }
-        }
-    }
-
-    if(counter == 0) data << uint8(0);
-    else data.put<uint8>(8, counter); // set count
-
-    SendPacket( &data );
-    sLog.Debug( "WORLD"," Sent SMSG_LIST_INVENTORY" );
+    unit->SendInventoryList(_player);
 }

@@ -629,47 +629,37 @@ void ObjectMgr::LoadVendors()
     std::map<uint32, CreatureItem> *items;
     CreatureItem itm;
 
-    QueryResult *result = WorldDatabase.Query("SELECT * FROM vendors ORDER BY listindex");
+    QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_vendor ");
     if( result != NULL )
     {
-        if( result->GetFieldCount() < 9 )
+        if( result->GetFieldCount() < 7 )
         {
-            sLog.Notice("ObjectMgr", "Invalid format in vendors (%u/7) columns, not enough data to proceed.\n", result->GetFieldCount() );
+            sLog.Notice("ObjectMgr", "Invalid format in creature_vendor (%u/7) columns, not enough data to proceed.\n", result->GetFieldCount() );
             delete result;
             return;
         }
-        else if( result->GetFieldCount() > 9 )
-            sLog.Notice("ObjectMgr", "Invalid format in vendors (%u/7) columns, loading anyway because we have enough data\n", result->GetFieldCount() );
+        else if( result->GetFieldCount() > 7)
+            sLog.Notice("ObjectMgr", "Invalid format in creature_vendor (%u/7) columns, loading anyway because we have enough data\n", result->GetFieldCount() );
 
         do
         {
             Field* fields = result->Fetch();
+            uint32 entry = fields[0].GetUInt32();
+            if((itr = mVendors.find(entry)) == mVendors.end())
+                mVendors[entry] = (items = new std::map<uint32, CreatureItem>);
+            else items = itr->second;
 
-            itr = mVendors.find(fields[0].GetUInt32());
-            if( itr == mVendors.end() )
+            itm.itemid              = fields[1].GetUInt32();
+            itm.available_amount    = fields[2].GetUInt32();
+            itm.max_amount          = fields[2].GetUInt32();
+            itm.incrtime            = fields[3].GetUInt32();
+            uint32 extendedCost     = fields[4].GetUInt32();
+            itm.vendormask          = fields[5].GetUInt32();
+            itm.IsDependent         = fields[6].GetBool();
+            if( (itm.extended_cost = dbcItemExtendedCost.LookupEntry(extendedCost)) == NULL && extendedCost > 0)
             {
-                items = new std::map<uint32, CreatureItem>;
-                mVendors[fields[0].GetUInt32()] = items;
-            } else items = itr->second;
-
-            itm.itemid              = fields[2].GetUInt32();
-            itm.amount              = fields[3].GetUInt32();
-            itm.available_amount    = fields[4].GetUInt32();
-            itm.max_amount          = fields[4].GetUInt32();
-            itm.incrtime            = fields[5].GetUInt32();
-            itm.extended_cost       = NULL;
-            itm.IsDependent         = fields[7].GetBool();
-            itm.vendormask          = fields[8].GetUInt32();
-
-            if( uint32 ec = fields[6].GetUInt32() )
-            {
-                if( (itm.extended_cost = dbcItemExtendedCost.LookupEntry(ec)) == NULL )
-                {
-                    if(mainIni->ReadBoolean("Server", "CleanDatabase", false))
-                        WorldDatabase.Execute("UPDATE vendors set extendedcost = '0' where item = '%u' AND entry = '%u'", itm.itemid, fields[0].GetUInt32());
-                    sLog.Warning("ObjectMgr","Item %u at vendor %u has extended cost %u which is invalid. Skipping.", itm.itemid, fields[0].GetUInt32(), ec);
-                    continue;
-                }
+                sLog.Warning("ObjectMgr","Item %u at vendor %u has extended cost %u which is invalid. Skipping.", itm.itemid, entry, extendedCost);
+                continue;
             }
 
             uint32 slot = 1;

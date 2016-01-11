@@ -139,9 +139,8 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    int amount = 1;
     uint32 item = 0, extendedcost = 0, vendormask = 0;
-    if(sscanf(args, "%u %u %u %u", &item, &amount, &extendedcost, &vendormask) < 1)
+    if(sscanf(args, "%u %u %u %u", &item, &extendedcost, &vendormask) < 1)
     {
         // check for item link
         GetItemIDFromLink(args, &item);
@@ -159,10 +158,10 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
     if(tmpItem)
     {
         std::stringstream ss;
-        ss << "INSERT INTO vendors(entry, item, amount, extendedcost, vendormask) VALUES ('" << pCreature->GetEntry() << "', '" << item << "', '" << amount << "', " << extendedcost << ", " << vendormask << " );";
+        ss << "INSERT INTO vendors(entry, item, extendedcost, vendormask) VALUES ('" << pCreature->GetEntry() << "', '" << item << "', " << extendedcost << ", " << vendormask << " );";
         WorldDatabase.Execute( ss.str().c_str() );
 
-        pCreature->AddVendorItem(item, amount, vendormask, extendedcost);
+        pCreature->AddVendorItem(item, vendormask, extendedcost);
 
         sstext << "Item '" << item << "' '" << tmpItem->Name1 << "' Added to list" << '\0';
     } else sstext << "Item '" << item << "' Not Found in Database." << '\0';
@@ -964,8 +963,8 @@ bool ChatHandler::HandleItemSetCommand(const char* args, WorldSession *m_session
     }
 
     int32 vendormask = 0, extendedcost = 0;
-    uint32 setid, rank = 1, amount = 1, count = 0;
-    if(sscanf(args, "%u %u %u %i %i", &setid, &rank, &amount, &extendedcost, &vendormask) < 1)
+    uint32 setid, rank = 1, count = 0;
+    if(sscanf(args, "%u %u %i %i", &setid, &rank, &extendedcost, &vendormask) < 1)
     {
         RedSystemMessage(m_session, "You must specify a setid.");
         return true;
@@ -988,9 +987,9 @@ bool ChatHandler::HandleItemSetCommand(const char* args, WorldSession *m_session
             continue;
 
         std::stringstream ss;
-        ss << "INSERT INTO vendors(entry, item, amount, extendedcost, vendormask) VALUES ('" << pCreature->GetEntry() << "', '" << (*itr)->ItemId << "', '" << amount << "', " << extendedcost << ", " << vendormask << " );";
+        ss << "INSERT INTO vendors(entry, item, amount, extendedcost, vendormask) VALUES ('" << pCreature->GetEntry() << "', '" << (*itr)->ItemId << "', " << extendedcost << ", " << vendormask << " );";
         WorldDatabase.Execute( ss.str().c_str() );
-        pCreature->AddVendorItem((*itr)->ItemId, amount, vendormask, extendedcost);
+        pCreature->AddVendorItem((*itr)->ItemId, vendormask, extendedcost);
         count++;
     }
 

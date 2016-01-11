@@ -475,11 +475,93 @@ void Creature::RegenerateMana(bool isinterrupted)
     SetPower(POWER_TYPE_MANA, cur);
 }
 
-void Creature::AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, uint32 ec)
+void Creature::SendInventoryList(Player *plr)
+{
+    uint32 counter = 0;
+    ByteBuffer dataBuff;
+    std::vector<bool> bitFlags;
+    WorldPacket data(SMSG_LIST_INVENTORY, 10);
+    if(HasItems())
+    {
+        for(std::map<uint32, CreatureItem>::iterator itr = GetSellItemBegin(); itr != GetSellItemEnd(); itr++)
+        {
+            if(counter >= 255)
+            {
+                sLog.Error("VendorListing", "Creature %u contains too many items, Displaying (150/%u) items.", GetEntry(), uint32(GetSellItemCount()));
+                break;
+            }
+
+            if(itr->second.itemid && (itr->second.max_amount == 0 || (itr->second.max_amount > 0 && itr->second.available_amount > 0)))
+            {
+                if(ItemPrototype *curItem = sItemMgr.LookupEntry(itr->second.itemid))
+                {
+                    if(!(itr->second.vendormask & GetVendorMask()))
+                        continue;
+
+                    if(!plr->ignoreitemreq_cheat)
+                    {
+                        if(itr->second.IsDependent)
+                        {
+                            if(curItem->AllowableClass && !(plr->getClassMask() & curItem->AllowableClass))
+                                continue;
+                            if(curItem->AllowableRace && !(plr->getRaceMask() & curItem->AllowableRace))
+                                continue;
+
+                            if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
+                                if(!(plr->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
+                                    continue; // Do not show relics to classes that can't use them.
+                        }
+
+                        if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
+                            continue;
+                    }
+
+                    dataBuff << (++counter);
+                    dataBuff << curItem->Durability;
+                    if(itr->second.extended_cost)
+                    {
+                        dataBuff << uint32(itr->second.extended_cost->Id);
+                        bitFlags.push_back(false);
+                    } else bitFlags.push_back(true);
+                    bitFlags.push_back(true);
+
+                    dataBuff << curItem->ItemId;
+                    dataBuff << uint32(1);
+                    dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this));
+                    dataBuff << uint32(curItem->DisplayInfoID);
+                    dataBuff << int32((itr->second.max_amount > 0) ? itr->second.available_amount : -1);
+                    dataBuff << uint32(curItem->BuyCount);
+                }
+            }
+        }
+    }
+
+    data.WriteGuidBitString(2, m_objGuid, 1, 0);
+    data.WriteBits(counter, 21); // item count
+    data.WriteGuidBitString(5, m_objGuid, 3, 6, 5, 2, 7);
+    for (uint32 i = 0; i < bitFlags.size(); ++i)
+        data.WriteBit(bitFlags[i]);
+    data.WriteBit(m_objGuid[4]);
+    data.FlushBits();
+    data.append(dataBuff.contents(), dataBuff.size());
+
+    data.WriteByteSeq(m_objGuid[5]);
+    data.WriteByteSeq(m_objGuid[4]);
+    data.WriteByteSeq(m_objGuid[1]);
+    data.WriteByteSeq(m_objGuid[0]);
+    data.WriteByteSeq(m_objGuid[6]);
+    data << uint8(counter == 0);
+    data.WriteByteSeq(m_objGuid[2]);
+    data.WriteByteSeq(m_objGuid[3]);
+    data.WriteByteSeq(m_objGuid[7]);
+    plr->SendPacket( &data );
+    sLog.Debug( "WORLD"," Sent SMSG_LIST_INVENTORY" );
+}
+
+void Creature::AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec)
 {
     CreatureItem ci;
     memset(&ci, 0, sizeof(CreatureItem));
-    ci.amount = amount;
     ci.itemid = itemid;
     ci.IsDependent = true;
     ci.vendormask = vendormask;
@@ -715,4 +797,32 @@ void Creature::RemoveLimboState(Unit* healer)
 
     m_limbostate = false;
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
+}
+
+void Creature::SendTaxiList(Player *plr)
+{
+    WorldPacket data(SMSG_SHOWTAXINODES, 48);
+    if(uint32 curloc = GetTaxiNode(plr->GetTeam()))
+    {
+        if(!plr->HasTaxiNode(curloc)) // Check for known nodes
+        {
+            plr->AddTaxiMask(curloc);
+
+            plr->GetSession()->OutPacket(SMSG_NEW_TAXI_PATH);
+
+            //Send packet
+            data.Initialize(SMSG_TAXINODE_STATUS, 9);
+            data << GetGUID() << uint8(1);
+        }
+        else
+        {
+            data << uint32(1) << GetGUID() << uint32(curloc);
+            if(UpdateMask *taxiMask = plr->GetTaximask())
+            {   //Set Mask
+                data << uint32(taxiMask->GetLength());
+                data.append(taxiMask->GetMask(), taxiMask->GetLength());
+            } else data << uint32(0);
+        }
+    } else data << uint32(1) << GetGUID() << uint64(0);
+    plr->SendPacket( &data );
 }

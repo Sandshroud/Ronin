@@ -1612,8 +1612,3 @@ uint8 WorldSession::CheckTeleportPrerequisites(WorldSession * pSession, Player* 
     // Nothing more to check, should be ok
     return AREA_TRIGGER_FAILURE_OK;
 }
-
-void WorldSession::SendGossipForObject(Object *pEntity)
-{
-
-}

@@ -14,9 +14,7 @@ class CreatureTemplate;
 struct CreatureItem
 {
     uint32 itemid;
-    uint32 amount; //!!!!! stack amount.
-    uint32 available_amount;
-    uint32 max_amount;
+    uint32 available_amount, max_amount;
     uint32 incrtime;
     uint32 vendormask;
     ItemExtendedCostEntry *extended_cost;
@@ -217,8 +215,6 @@ public:
 
     /// Creature inventory
     RONIN_INLINE uint32 GetItemIdBySlot(uint32 slot) { return m_SellItems->at(slot).itemid; }
-    RONIN_INLINE uint32 GetItemAmountBySlot(uint32 slot) { return m_SellItems->at(slot).amount; }
-
     RONIN_INLINE bool HasItems() { return ((m_SellItems != NULL) ? true : false); }
     RONIN_INLINE int32 GetVendorMask() { return (m_spawn ? m_spawn->vendormask : 0x01); }
 
@@ -243,38 +239,16 @@ public:
         return -1;
     }
 
-    uint32 GetItemAmountByItemId(uint32 itemid)
+    RONIN_INLINE CreatureItem *GetSellItemBySlot(uint32 slot) { return &m_SellItems->at(slot); }
+    RONIN_INLINE CreatureItem *GetSellItemByItemId(uint32 itemid)
     {
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
             if(itr->second.itemid == itemid)
-                return ((itr->second.amount < 1) ? 1 : itr->second.amount);
-        }
-        return 0;
+                return &itr->second;
+        return NULL;
     }
 
-    RONIN_INLINE void GetSellItemBySlot(uint32 slot, CreatureItem &ci)
-    {
-        ci = m_SellItems->at(slot);
-    }
-
-    void GetSellItemByItemId(uint32 itemid, CreatureItem &ci)
-    {
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if(itr->second.itemid == itemid)
-            {
-                ci = itr->second;
-                return;
-            }
-        }
-        ci.amount = 0;
-        ci.max_amount = 0;
-        ci.available_amount = 0;
-        ci.incrtime = 0;
-        ci.itemid = 0;
-    }
-
+    void SendInventoryList(Player *plr);
     RONIN_INLINE std::map<uint32, CreatureItem>::iterator GetSellItemBegin() { return m_SellItems->begin(); }
     RONIN_INLINE std::map<uint32, CreatureItem>::iterator GetSellItemEnd()   { return m_SellItems->end(); }
     RONIN_INLINE void RemoveSellItem(std::map<uint32, CreatureItem>::iterator itr) { m_SellItems->erase(itr); }
@@ -291,7 +265,7 @@ public:
         }
     }
 
-    void AddVendorItem(uint32 itemid, uint32 amount, uint32 vendormask, uint32 ec = 0);
+    void AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec = 0);
     void ModAvItemAmount(uint32 itemid, uint32 value);
     void UpdateItemAmount(uint32 itemid);
 
@@ -406,6 +380,7 @@ public:
     }
 
     uint32 GetTaxiNode(uint8 team) { ASSERT(team < 2); return m_taxiNode[team]; }
+    void SendTaxiList(Player *plr);
 
 public:
     RONIN_INLINE uint32 GetProtoItemDisplayId(uint8 i) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i); }

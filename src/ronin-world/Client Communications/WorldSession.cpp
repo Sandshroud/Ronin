@@ -94,7 +94,6 @@ bool WorldSession::InitializeZLibCompression()
         return true;
     }
     delete stream;
-    printf("FAILED ZLIB_INIT\n");
     return CanUseCommand('z');
 }
 

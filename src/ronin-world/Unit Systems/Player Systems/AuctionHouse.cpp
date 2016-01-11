@@ -284,6 +284,13 @@ void AuctionHouse::UpdateItemOwnerships(WoWGuid oldGuid, WoWGuid newGuid)
     auctionLock.ReleaseWriteLock();
 }
 
+void AuctionHouse::SendAuctionHello(WoWGuid guid, Player *plr)
+{
+    WorldPacket data(MSG_AUCTION_HELLO, 12);
+    data << guid << uint32(GetID()) << uint8(1);
+    plr->SendPacket(&data);
+}
+
 void AuctionHouse::SendOwnerListPacket(Player* plr, WorldPacket * packet)
 {
     uint32 count = 0;

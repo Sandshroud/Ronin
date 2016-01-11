@@ -401,6 +401,7 @@ bool World::SetInitialWorldSettings()
     }
 
     new ObjectMgr();
+    new GossipManager();
     new TicketMgr();
     new QuestMgr();
     new LootMgr();
@@ -452,6 +453,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(Tracker,   LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadExtraItemStuff);
     MAKE_TASK(ObjectMgr, LoadArenaTeams);
+    MAKE_TASK(GossipManager, LoadGossipData);
 
 #undef MAKE_TASK
 

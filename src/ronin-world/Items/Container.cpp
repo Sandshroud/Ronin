@@ -202,6 +202,15 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint8 *r_slot)
     return false;
 }
 
+Item *Container::GetItem(WoWGuid guid)
+{
+    uint8 slotCount = GetSlotCount();
+    for(uint8 i = 0; i < slotCount; i++)
+        if(m_itemSlots[i] && m_itemSlots[i]->GetGUID() == guid)
+            return m_itemSlots[i];
+    return NULL;
+}
+
 void Container::SaveBagToDB(uint8 slot, bool first, QueryBuffer * buf)
 {
     SaveToDB(INVENTORY_SLOT_NOT_SET, slot, first, buf);

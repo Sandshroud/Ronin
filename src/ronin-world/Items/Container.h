@@ -20,6 +20,7 @@ public:
     bool AddItem(uint8 slot, Item* item);
     bool AddItemToFreeSlot(Item* pItem, uint8 *r_slot);
 
+    Item* GetItem(WoWGuid guid);
     Item* GetItem(uint8 slot) { ASSERT(slot < GetSlotCount()); return m_itemSlots[slot]; }
 
     uint8 FindFreeSlot();

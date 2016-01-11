@@ -648,6 +648,20 @@ bool PlayerInventory::SafeFullRemoveItemByGuid(uint64 guid)
     return false;
 }
 
+Item* PlayerInventory::GetInventoryItem(WoWGuid guid)
+{
+    for(uint32 i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; i++)
+        if( Item *item = m_pItems[i] )
+            if(item->GetGUID() == guid)
+                return item;
+
+    for(uint8 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++)
+        if(Container *container = castPtr<Container>(m_pItems[i]))
+            if(Item *item = container->GetItem(guid))
+                return item;
+    return NULL; //was changed from 0 cuz 0 is the slot for head
+}
+
 //-------------------------------------------------------------------//
 //Description: Gets a item from Inventory
 //-------------------------------------------------------------------//

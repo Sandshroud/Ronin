@@ -42,7 +42,7 @@ bool ChatHandler::HandleClearCooldownsCommand(const char *args, WorldSession *m_
         return false;
 
     plr->ResetAllCooldowns();
-    BlueSystemMessage(m_session, "Cleared all %s cooldowns.", plr->GetClassNames().c_str());
+    BlueSystemMessage(m_session, "Cleared all %s cooldowns.", plr->getClassName().c_str());
     return true;
 }
 
@@ -1389,7 +1389,7 @@ bool ChatHandler::HandlePlayerInfo(const char* args, WorldSession * m_session)
     }
     WorldSession* sess = plr->GetSession();
 
-    GreenSystemMessage(m_session, "%s[%u] is a %s %u %s", plr->GetName(), plr->GetLowGUID(), (plr->getGender()?"Female":"Male"), plr->getRace(), plr->GetClassNames().c_str());
+    GreenSystemMessage(m_session, "%s[%u] is a %s %u %s", plr->GetName(), plr->GetLowGUID(), (plr->getGender()?"Female":"Male"), plr->getRace(), plr->getClassName().c_str());
     BlueSystemMessage(m_session, "%s is connecting from account '%s'[%u] with permissions '%s'", (plr->getGender()?"She":"He"), sess->GetAccountName().c_str(), sess->GetAccountId(), sess->GetPermissions());
 
     const char *client;

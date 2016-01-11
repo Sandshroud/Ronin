@@ -671,7 +671,6 @@ protected:
 
 public:
     void SendTradeStatus(uint32 TradeStatus);
-    void SendInventoryList(Creature* pCreature);
     void SendTrainerList(Creature* pCreature);
     void SendCharterRequest(Creature* pCreature);
     void SendInnkeeperBind(Creature* pCreature);
@@ -745,8 +744,6 @@ public:
     uint32 m_muted;
     uint32 m_lastWhoTime;
     bool m_asyncQuery;
-
-    void SendGossipForObject(Object* pEntity);
 
 protected:
     uint32 m_repeatTime;

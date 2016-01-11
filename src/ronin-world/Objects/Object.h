@@ -413,7 +413,7 @@ public:
     RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeObjects.find(pObj->GetGUID()) != m_inRangeObjects.end(); }
     RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
-        //if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
+        if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
             return;
 
         m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));

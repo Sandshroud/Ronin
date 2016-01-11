@@ -31,32 +31,7 @@ void WorldSession::HandleTaxiQueryAvaibleNodesOpcode( WorldPacket & recv_data )
     recv_data >> guid;
     Creature *pCreature = NULL;
     if(guid.getHigh() == HIGHGUID_TYPE_UNIT && (pCreature = _player->GetInRangeObject<Creature>(guid)))
-    {
-        WorldPacket data(SMSG_SHOWTAXINODES, 48);
-        if(uint32 curloc = pCreature->GetTaxiNode(_player->GetTeam()))
-        {
-            if(!_player->HasTaxiNode(curloc)) // Check for known nodes
-            {
-                GetPlayer()->AddTaxiMask(curloc);
-
-                OutPacket(SMSG_NEW_TAXI_PATH);
-
-                //Send packet
-                data.Initialize(SMSG_TAXINODE_STATUS, 9);
-                data << guid << uint8(1);
-            }
-            else
-            {
-                data << uint32(1) << guid << uint32(curloc);
-                if(UpdateMask *taxiMask = _player->GetTaximask())
-                {   //Set Mask
-                    data << uint32(taxiMask->GetLength());
-                    data.append(taxiMask->GetMask(), taxiMask->GetLength());
-                } else data << uint32(0);
-            }
-        } else data << uint32(1) << guid << uint64(0);
-        SendPacket( &data );
-    }
+        pCreature->SendTaxiList(_player);
 }
 
 void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )

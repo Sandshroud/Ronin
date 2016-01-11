@@ -348,13 +348,13 @@ public:
     RONIN_INLINE uint8 getStandState() { return ((uint8)GetUInt32Value(UNIT_FIELD_BYTES_1)); }
     RONIN_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
-    RONIN_INLINE std::string GetClassNames(bool FullCaps = false)
+    RONIN_INLINE std::string getClassName(bool FullCaps = false)
     {
         std::string _class = "UNKNOWN";
         switch(getClass()) {
         case 1: { _class = "Warrior"; }break; case 2: { _class = "Paladin"; }break;
         case 3: { _class = "Hunter"; }break; case 4: { _class = "Rogue"; }break;
-        case 5: { _class = "Priest"; }break; case 6: { _class = "Deathknight"; }break;
+        case 5: { _class = "Priest"; }break; case 6: { _class = "Death Knight"; }break;
         case 7: { _class = "Shaman"; }break; case 8: { _class = "Mage"; }break;
         case 9: { _class = "Warlock"; }break; case 11: { _class = "Druid"; }break; }
         if(FullCaps)

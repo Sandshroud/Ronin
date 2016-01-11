@@ -71,6 +71,7 @@ public:
     Auction * GetAuction(uint32 Id);
     void QueueDeletion(Auction * auct, uint32 Reason);
 
+    void SendAuctionHello(WoWGuid guid, Player *plr);
     void SendOwnerListPacket(Player* plr, WorldPacket * packet);
     void SendBidListPacket(Player* plr, WorldPacket * packet);
     void SendAuctionNotificationPacket(Player* plr, Auction * auct);

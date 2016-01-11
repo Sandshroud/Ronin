@@ -179,6 +179,7 @@ extern "C" {
 #include "WeatherMgr.h"
 #include "TicketMgr.h"
 #include "ObjectMgr.h"
+#include "GossipMgr.h"
 #include "GuildDefines.h"
 #include "GuildManager.h"
 #include "MapManager.h"
