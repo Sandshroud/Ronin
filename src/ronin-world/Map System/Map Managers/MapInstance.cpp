@@ -11,7 +11,7 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
+MapInstance::MapInstance(MapManager *mgr, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(mgr->GetMapData()), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
 {
     m_mapPreloading = false;
     m_UpdateDistance = MAX_VIEW_DISTANCE;
@@ -67,14 +67,14 @@ void MapInstance::Destruct()
     {
         Creature *ctr = m_CreatureStorage.begin()->second;
         RemoveObject(ctr);
-        delete ctr;
+        ctr->Destruct();
     }
 
     while(m_gameObjectStorage.size())
     {
         GameObject *gObj = m_gameObjectStorage.begin()->second;
         RemoveObject(gObj);
-        delete gObj;
+        gObj->Destruct();
     }
 
     while(m_DynamicObjectStorage.size())
@@ -811,11 +811,10 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
     if(m_mapPreloading = (areamask == 0))
         sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
 
-    uint32 loadCount = 0, StartX = 0, EndX = 0, StartY = 0, EndY = 0;
-    GetBaseMap()->GetCellLimits(StartX, EndX, StartY, EndY);
-    for( uint32 x = StartX ; x < EndX ; x ++ )
+    uint32 loadCount = 0;
+    for( uint32 x = 0; x < _sizeX; x++ )
     {
-        for( uint32 y = StartY ; y < EndY ; y ++ )
+        for( uint32 y = 0; y < _sizeY; y++ )
         {
             if(areamask)
             {

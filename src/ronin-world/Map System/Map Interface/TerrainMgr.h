@@ -86,7 +86,7 @@ public:
     /* Unloads all tile information
        No return value.
       */
-    void UnloadAllTerrain();
+    void UnloadAllTerrain(bool forced);
 
     /* Information retrieval functions
        These functions all take the same input values, an x and y global co-ordinate.
@@ -99,7 +99,6 @@ public:
     uint8  GetWalkableState(float x, float y);
     uint16 GetAreaID(float x, float y, float z);
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
-    void GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY);
 
 private:
     /// MapPath contains the location of all mapfiles.
@@ -114,18 +113,14 @@ private:
     /// Our main file descriptor for accessing the binary terrain file.
     FILE * FileDescriptor;
 
-    /// Our memory saving system for small allocations
-    uint8 TileStartX, TileEndX;
-    uint8 TileStartY, TileEndY;
-
     /// This holds the offsets of the tile information for each tile.
-    uint32 TileOffsets[64][64];
+    std::map<std::pair<uint8, uint8>, uint32> m_tileOffsets;
 
     /// Load counter
     uint32 LoadCounter[64][64];
 
     /// Our storage array. This contains pointers to all allocated TileInfo's.
-    std::map<std::pair<uint32, uint32>, TileTerrainInformation> tileInformation;
+    std::map<std::pair<uint8, uint8>, TileTerrainInformation> tileInformation;
 
 public:
     /* Initializes the file descriptor and readys it for data retreival.
@@ -174,7 +169,7 @@ protected:
       */
     RONIN_INLINE TileTerrainInformation* GetTileInformation(uint32 x, uint32 y)
     {
-        std::pair<uint32, uint32> tilePair = std::make_pair(x, y);
+        std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
         if(tileInformation.find(tilePair) == tileInformation.end())
             return NULL;
         return &tileInformation.at(tilePair);
@@ -204,19 +199,8 @@ protected:
     {
         if(tileInformation.empty())
             return false;
-        std::pair<uint32, uint32> tilePair = std::make_pair(x, y);
+        std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
         if(tileInformation.find(tilePair) == tileInformation.end())
-            return false;
-        return true;
-    }
-
-    /* Checks that the co-ordinates are within range.
-      */
-    RONIN_INLINE bool AreTilesValid(uint32 x, uint32 y)
-    {
-        if(x < TileStartX || x > TileEndX)
-            return false;
-        if(y < TileStartY || y > TileEndY)
             return false;
         return true;
     }

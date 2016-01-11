@@ -72,30 +72,26 @@ namespace VMAP
     {
         G3D::uint32 nodeCountX, nodeCountY;
     public:
-        DynTreeImpl() : rebalance_timer(CHECK_TREE_PERIOD), unbalanced_times(0)
-        {
-#ifdef USE_CELL_STRUCTURE
-            nodeCountX = nodeCountY = CELL_COUNT;
-#else
-            nodeCountX = nodeCountY = TILE_COUNT;
-#endif
-            memset(nodes, NULL, sizeof(nodes));
-        }
+        DynTreeImpl() : rebalance_timer(CHECK_TREE_PERIOD), unbalanced_times(0) { }
 
         ~DynTreeImpl()
         {
-            for (int x = 0; x < nodeCountX; ++x)
-                for (int y = 0; y < nodeCountY; ++y)
-                    if (ModelWrap* n = nodes[x][y])
-                        delete n;
+            for(std::map<std::pair<uint16, uint16>, ModelWrap*>::iterator itr = nodes.begin(); itr != nodes.end(); itr++)
+                delete itr->second;
+            nodes.clear();
         }
 
         ModelWrap& getNode(int x, int y)
         {
-            assert(x < nodeCountX && y < nodeCountY);
-            if (!nodes[x][y])
-                nodes[x][y] = new ModelWrap();
-            return *nodes[x][y];
+#ifdef USE_CELL_STRUCTURE
+            assert(x < CELL_COUNT && y < CELL_COUNT);
+#else
+            assert(x < TILE_COUNT && y < TILE_COUNT);
+#endif
+            std::pair<uint16, uint16> nodePair = std::make_pair(x, y);
+            if(nodes.find(nodePair) == nodes.end())
+                nodes.insert(std::make_pair(nodePair, new ModelWrap()));
+            return *nodes[std::make_pair(x, y)];
         }
 
         ModelWrap& getNodeFor(float fx, float fy)
@@ -149,10 +145,8 @@ namespace VMAP
 
         void balance()
         {
-            for (int x = 0; x < nodeCountX; ++x)
-                for (int y = 0; y < nodeCountY; ++y)
-                    if (ModelWrap* n = nodes[x][y])
-                        n->balance();
+            for(std::map<std::pair<uint16, uint16>, ModelWrap*>::iterator itr = nodes.begin(); itr != nodes.end(); itr++)
+                itr->second->balance();
             unbalanced_times = 0;
         }
 
@@ -181,10 +175,11 @@ namespace VMAP
             if (!id.isValid())
                 return;
 
+            std::pair<uint16, uint16> nodePair = std::make_pair(id.x, id.y);
             NodeID last_id = NodeID::ComputeNodeID(end.x, end.y);
             if (id == last_id)
             {
-                if (ModelWrap* node = nodes[id.x][id.y])
+                if (ModelWrap* node = nodes[nodePair])
                     node->intersectRay(ray, intersectCallback, max_dist, stopAtFirst);
                 return;
             }
@@ -225,7 +220,8 @@ namespace VMAP
             float tDeltaY = voxel * fabs(ky_inv);
             do
             {
-                if (ModelWrap* node = nodes[id.x][id.y])
+                nodePair.first = id.x, nodePair.second = id.y;
+                if (ModelWrap* node = nodes[nodePair])
                 {
                     //float enterdist = max_dist;
                     node->intersectRay(ray, intersectCallback, max_dist, stopAtFirst);
@@ -251,7 +247,8 @@ namespace VMAP
             NodeID id = NodeID::ComputeNodeID(point.x, point.y);
             if (!id.isValid())
                 return;
-            if (ModelWrap* node = nodes[id.x][id.y])
+            std::pair<uint16, uint16> nodePair = std::make_pair(id.x, id.y);
+            if (ModelWrap* node = nodes[nodePair])
                 node->intersectPoint(point, intersectCallback);
         }
 
@@ -261,7 +258,8 @@ namespace VMAP
             NodeID id = NodeID::ComputeNodeID(ray.origin().x, ray.origin().y);
             if (!id.isValid())
                 return;
-            if (ModelWrap* node = nodes[id.x][id.y])
+            std::pair<uint16, uint16> nodePair = std::make_pair(id.x, id.y);
+            if (ModelWrap* node = nodes[nodePair])
                 node->intersectRay(ray, intersectCallback, max_dist, stopAtFirst);
         }
 
@@ -272,11 +270,7 @@ namespace VMAP
         int size() const { return memberTable.size(); }
         MemberTable memberTable;
 
-#ifdef USE_CELL_STRUCTURE
-        ModelWrap* nodes[CELL_COUNT][CELL_COUNT];
-#else
-        ModelWrap* nodes[TILE_COUNT][TILE_COUNT];
-#endif
+        std::map<std::pair<uint16, uint16>, ModelWrap*> nodes;
     };
 
     DynamicMapTree::DynamicMapTree() : impl(new DynTreeImpl())
@@ -420,8 +414,7 @@ namespace VMAP
 
         if (callback.didHit())
             return v.z - maxSearchDist;
-        else
-            return G3D::inf();
+        return G3D::inf();
     }
 
 }

@@ -25,7 +25,7 @@ bool MapManager::Initialize()
     if(m_mapEntry->IsContinent())
     {
         sLog.Notice("MapManager", "Creating continent %u(%s).", m_mapId, m_mapEntry->name);
-        m_continent = new MapInstance(m_mapData, m_mapId, m_mapId);
+        m_continent = new MapInstance(this, m_mapId, m_mapId);
         if(sWorld.ServerPreloading >= 2)
             m_continent->UpdateAllCells(true);
     }
@@ -68,39 +68,32 @@ bool MapManager::run()
             (*itr)->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff1 = getMSTime()-mstime;
         // Perform all player updates in sequence
         for(std::vector<MapInstance*>::iterator itr = m_mapsToUpdate.begin(); itr != m_mapsToUpdate.end(); itr++)
             (*itr)->_PerformPlayerUpdates(diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff2 = getMSTime()-mstime;
         // Perform all creature updates in sequence
         for(std::vector<MapInstance*>::iterator itr = m_mapsToUpdate.begin(); itr != m_mapsToUpdate.end(); itr++)
             (*itr)->_PerformCreatureUpdates(mstime);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff3 = getMSTime()-mstime;
         // Perform all object updates in sequence
         for(std::vector<MapInstance*>::iterator itr = m_mapsToUpdate.begin(); itr != m_mapsToUpdate.end(); itr++)
             (*itr)->_PerformObjectUpdates(mstime);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff4 = getMSTime()-mstime;
         // Perform all session updates in sequence
         for(std::vector<MapInstance*>::iterator itr = m_mapsToUpdate.begin(); itr != m_mapsToUpdate.end(); itr++)
             (*itr)->_PerformSessionUpdates();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff5 = getMSTime()-mstime;
         // Perform all pending object updates in sequence
         for(std::vector<MapInstance*>::iterator itr = m_mapsToUpdate.begin(); itr != m_mapsToUpdate.end(); itr++)
             (*itr)->_PerformPendingUpdates();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
-        uint32 diff6 = getMSTime()-mstime;
 
-        mstime = getMSTime();
         // If we have no maps(only instances can have no maps) to update then we just idle till we do
         if(m_mapsToUpdate.empty())
         {
@@ -137,13 +130,18 @@ bool MapManager::run()
         itr->second->Destruct();
     m_mapInstances.clear();
 
+    // Unload all terrain
+    if(sWorld.ServerPreloading)
+        m_mapData->UnloadAllTerrain(true);
+    delete m_mapData;
+
     sLog.Debug("MapInstance", "Map %u shut down. (%s)", m_mapId, m_mapData->GetName());
     return true;
 }
 
 MapInstance *MapManager::CreateMapInstance(uint32 instanceId)
 {
-    MapInstance* ret = new MapInstance(m_mapData, m_mapId, instanceId);
+    MapInstance* ret = new MapInstance(this, m_mapId, instanceId);
     m_instanceLocks.Acquire();
     m_mapInstances.insert(std::make_pair(instanceId, ret));
     m_instanceLocks.Release();

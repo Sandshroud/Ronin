@@ -6,12 +6,9 @@
 
 TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : mapPath(MapPath), mapId(MapId)
 {
-    TileStartX = TileEndX = 0;
-    TileStartY = TileEndY = 0;
     FileDescriptor = NULL;
-    for(uint8 x = 0; x < 64; x++)
-        for(uint8 y = 0; y < 64; y++)
-            LoadCounter[x][y] = 0;
+    memset(LoadCounter, 0, sizeof(uint32)*64*64);
+    sVMapInterface.ActivateMap(mapId);
 }
 
 TerrainMgr::~TerrainMgr()
@@ -26,6 +23,7 @@ TerrainMgr::~TerrainMgr()
     }
 
     tileInformation.clear();
+    sVMapInterface.DeactivateMap(mapId);
 }
 
 template<typename T, typename T2> void getRawHeight(float x, float y, int tx, int ty, T &a, T &b, T &c, T2 *V8, T2 *V9)
@@ -194,6 +192,7 @@ bool TerrainMgr::LoadTerrainHeader()
         return false;
     }
 
+    uint32 TileOffsets[64][64];
     // Read in the header.
     fseek(FileDescriptor, 0, SEEK_SET);
     size_t dread = fread(TileOffsets, 1, TERRAIN_HEADER_SIZE, FileDescriptor);
@@ -209,17 +208,9 @@ bool TerrainMgr::LoadTerrainHeader()
     {
         for(uint8 y = 0; y < 64; ++y)
         {
-            if(TileOffsets[x][y])
-            {
-                if(!TileStartX || TileStartX > x)
-                    TileStartX = x;
-                if(!TileStartY || TileStartY > y)
-                    TileStartY = y;
-                if(x > TileEndX)
-                    TileEndX = x;
-                if(y > TileEndY)
-                    TileEndY = y;
-            }
+            if(TileOffsets[x][y] == 0)
+                continue;
+            m_tileOffsets.insert(std::make_pair(std::make_pair(x, y), TileOffsets[x][y]));
         }
     }
 
@@ -231,12 +222,12 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     if(!FileDescriptor)
         return false;
 
-    uint32 offsX = x-TileStartX, offsY = y-TileStartY;
-    // Make sure that we're not already loaded.
-    assert(TileInformation[offsX][offsY] == 0);
+    std::pair<uint8, uint8> offsetPair = std::make_pair(x, y);
+    if(m_tileOffsets.find(offsetPair) == m_tileOffsets.end())
+        return false;
 
     // Find our offset in our cached header.
-    uint32 Offset = TileOffsets[x][y];
+    uint32 Offset = m_tileOffsets.at(offsetPair);
 
     // If our offset = 0, it means we don't have tile information for
     // these coords.
@@ -247,7 +238,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     mutex.Acquire();
 
     // Check that we haven't been loaded by another thread.
-    if(TileInformationLoaded(offsX, offsY))
+    if(tileInformation.find(offsetPair) != tileInformation.end())
     {
         mutex.Release();
         return true;
@@ -257,7 +248,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     if(fseek(FileDescriptor, Offset, SEEK_SET) == 0)
     {
         // Allocate the tile information.
-        TileTerrainInformation* tile = &tileInformation[std::make_pair(offsX, offsY)];
+        TileTerrainInformation* tile = &tileInformation[offsetPair];
         memset(tile, 0, sizeof(TileTerrainInformation));
 
         uint8 flags[3];
@@ -328,15 +319,14 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
     mutex.Release();
 
     // If we don't equal 0, it means the load was successful.
-    return TileInformationLoaded(offsX, offsY);
+    return TileInformationLoaded(x, y);
 }
 
 void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
 {
     mutex.Acquire();
 
-    uint32 offsX = x-TileStartX, offsY = y-TileStartY;
-    std::pair<uint32, uint32> tilePair = std::make_pair(offsX, offsY);
+    std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
     if(tileInformation.find(tilePair) != tileInformation.end())
         tileInformation.erase(tilePair);
     mutex.Release();
@@ -354,21 +344,15 @@ uint8 TerrainMgr::GetWaterType(float x, float y)
     uint32 TileX = ConvertGlobalXCoordinate(x);
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
-    if(!AreTilesValid(TileX, TileY))
-        return 0;
-
-    uint32 OffsetTileX = TileX-TileStartX;
-    uint32 OffsetTileY = TileY-TileStartY;
-
     mutex.Acquire();
-    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(TileX, TileY))
     {
         mutex.Release();
         return 0;
     }
 
     // Find the offset.
-    uint8 Liquid = GetLiquidType(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
+    uint8 Liquid = GetLiquidType(x, y, GetTileInformation(TileX, TileY));
 
     // Return our cached information.
     mutex.Release();
@@ -384,25 +368,19 @@ float TerrainMgr::GetWaterHeight(float x, float y, float z)
     uint32 TileX = ConvertGlobalXCoordinate(x);
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
-    if(!AreTilesValid(TileX, TileY))
-        return false;
-
-    uint32 OffsetTileX = TileX-TileStartX;
-    uint32 OffsetTileY = TileY-TileStartY;
-
     mutex.Acquire();
-    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(TileX, TileY))
     {
         mutex.Release();
         return NO_WATER_HEIGHT;
     }
 
-    float WaterHeight = GetLiquidHeight(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
-    if(WaterHeight == 0.0f && !(GetLiquidType(x, y, GetTileInformation(OffsetTileX, OffsetTileY)) & 0x02))
+    float WaterHeight = GetLiquidHeight(x, y, GetTileInformation(TileX, TileY));
+    if(WaterHeight == 0.0f && !(GetLiquidType(x, y, GetTileInformation(TileX, TileY)) & 0x02))
         WaterHeight = NO_WATER_HEIGHT;
     else if(z != 0.0f && z != NO_WATER_HEIGHT)
     {
-        if(z < GetHeight(x, y, GetTileInformation(OffsetTileX, OffsetTileY)))
+        if(z < GetHeight(x, y, GetTileInformation(TileX, TileY)))
             WaterHeight = NO_WATER_HEIGHT;
     }
 
@@ -426,33 +404,19 @@ uint16 TerrainMgr::GetAreaID(float x, float y, float z)
     uint32 TileX = ConvertGlobalXCoordinate(x);
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
-    if(!AreTilesValid(TileX, TileY))
-        return 0xFFFF;
-
-    uint32 OffsetTileX = TileX-TileStartX;
-    uint32 OffsetTileY = TileY-TileStartY;
-
     mutex.Acquire();
-    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(TileX, TileY))
     {
         mutex.Release();
         return 0xFFFF;
     }
 
     // Find the offset in the 2d array.
-    uint16 AreaId = GetAreaEntry(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
+    uint16 AreaId = GetAreaEntry(x, y, GetTileInformation(TileX, TileY));
 
     // Return our cached information.
     mutex.Release();
     return AreaId;
-}
-
-void TerrainMgr::GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY)
-{
-    StartX = TileStartX*8;
-    StartY = TileStartY*8;
-    EndX = TileEndX*8;
-    EndY = TileEndY*8;
 }
 
 bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
@@ -460,16 +424,10 @@ bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
     uint32 TileX = CellX/8;
     uint32 TileY = CellY/8;
 
-    if(!AreTilesValid(TileX, TileY))
-        return false;
-
-    uint32 OffsetTileX = TileX-TileStartX;
-    uint32 OffsetTileY = TileY-TileStartY;
-
     mutex.Acquire();
     uint32 areaid = 0;
     bool Required, Result = false;
-    if((Required = !TileInformationLoaded(OffsetTileX, OffsetTileY)))
+    if((Required = !TileInformationLoaded(TileX, TileY)))
     {
         if(!LoadTileInformation(TileX, TileY))
         {
@@ -478,7 +436,7 @@ bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
         }
     }
 
-    TileTerrainInformation *tile = GetTileInformation(OffsetTileX, OffsetTileY);
+    TileTerrainInformation *tile = GetTileInformation(TileX, TileY);
     for(uint32 xc = (CellX%CellsPerTile)*16/CellsPerTile;xc<(CellX%CellsPerTile)*16/CellsPerTile+16/CellsPerTile;xc++)
     {
         for(uint32 yc = (CellY%CellsPerTile)*16/CellsPerTile;yc<(CellY%CellsPerTile)*16/CellsPerTile+16/CellsPerTile;yc++)
@@ -509,20 +467,14 @@ float TerrainMgr::GetLandHeight(float x, float y)
     uint32 TileX = ConvertGlobalXCoordinate(x);
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
-    if(!AreTilesValid(TileX, TileY))
-        return NO_LAND_HEIGHT;
-
-    uint32 OffsetTileX = TileX-TileStartX;
-    uint32 OffsetTileY = TileY-TileStartY;
-
     mutex.Acquire();
-    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(TileX, TileY))
     {
         mutex.Release();
         return NO_LAND_HEIGHT;
     }
 
-    float LandHeight = GetHeight(x, y, GetTileInformation(OffsetTileX, OffsetTileY));
+    float LandHeight = GetHeight(x, y, GetTileInformation(TileX, TileY));
 
     // Return our cached information.
     mutex.Release();
@@ -535,15 +487,7 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
     mutex.Acquire();
 
     LoadCounter[tileX][tileY]++;
-    if(!AreTilesValid(tileX, tileY))
-    {
-        mutex.Release();
-        return;
-    }
-
-    uint32 OffsetTileX = tileX-TileStartX;
-    uint32 OffsetTileY = tileY-TileStartY;
-    if(TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(TileInformationLoaded(tileX, tileY))
     {
         mutex.Release();
         return;
@@ -552,7 +496,10 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
 
     // Load Tile information if it's not already loaded.
     if(LoadCounter[tileX][tileY] == 1)
+    {
         LoadTileInformation(tileX, tileY);
+        sVMapInterface.ActivateTile(mapId, tileX, tileY);
+    }
 }
 
 void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
@@ -560,15 +507,7 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
     uint32 tileX = x/8, tileY = y/8;
     mutex.Acquire();
     LoadCounter[tileX][tileY]--;
-    if(!AreTilesValid(tileX, tileY))
-    {
-        mutex.Release();
-        return;
-    }
-
-    uint32 OffsetTileX = tileX-TileStartX;
-    uint32 OffsetTileY = tileY-TileStartY;
-    if(!TileInformationLoaded(OffsetTileX, OffsetTileY))
+    if(!TileInformationLoaded(tileX, tileY))
     {
         mutex.Release();
         return;
@@ -576,15 +515,18 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
     mutex.Release();
 
     if(LoadCounter[tileX][tileY] == 0)
+    {
         UnloadTileInformation(tileX, tileY);
+        sVMapInterface.DeactivateTile(mapId, tileX, tileY);
+    }
 }
 
 void TerrainMgr::LoadAllTerrain()
 {
     sLog.Debug("TerrainMgr", "[%u]: Loading all terrain", mapId);
-    for(uint32 x = TileStartX; x < TileEndX; x++)
+    for(uint8 x = 0; x < 64; x++)
     {
-        for(uint32 y = TileStartY; y < TileEndY; y++)
+        for(uint8 y = 0; y < 64; y++)
         {
             LoadCounter[x][y]++;
             LoadTileInformation(x, y);
@@ -593,13 +535,15 @@ void TerrainMgr::LoadAllTerrain()
     sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
 }
 
-void TerrainMgr::UnloadAllTerrain()
+void TerrainMgr::UnloadAllTerrain(bool forced)
 {
-    for(uint32 x = 0; x < 64; x++)
+    for(uint8 x = 0; x < 64; x++)
     {
-        for(uint32 y = 0; y < 64; y++)
+        for(uint8 y = 0; y < 64; y++)
         {
-            LoadCounter[x][y]--;
+            if(forced)
+                LoadCounter[x][y] = 0;
+            else LoadCounter[x][y]--;
             UnloadTileInformation(x, y);
         }
     }

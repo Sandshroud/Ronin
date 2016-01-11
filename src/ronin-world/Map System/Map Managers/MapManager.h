@@ -40,6 +40,8 @@ public:
         m_instanceLocks.Release();
     }
 
+    Map *GetMapData() { return m_mapData; }
+
 private:
     uint32 m_mapId;
     MapEntry *m_mapEntry;

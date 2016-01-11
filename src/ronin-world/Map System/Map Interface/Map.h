@@ -71,7 +71,7 @@ public:
     TerrainMgr* GetMapTerrain() { return _terrain; };
 
     RONIN_INLINE void LoadAllTerrain() { _terrain->LoadAllTerrain(); }
-    RONIN_INLINE void UnloadAllTerrain() { _terrain->UnloadAllTerrain(); }
+    RONIN_INLINE void UnloadAllTerrain(bool forced = false) { _terrain->UnloadAllTerrain(forced); }
 
     RONIN_INLINE float GetLandHeight(float x, float y) { return _terrain->GetLandHeight(x, y); }
     RONIN_INLINE float GetWaterHeight(float x, float y, float z) { return _terrain->GetWaterHeight(x, y, z); }
@@ -79,7 +79,6 @@ public:
     RONIN_INLINE uint8 GetWalkableState(float x, float y) { return _terrain->GetWalkableState(x, y); }
 
     RONIN_INLINE uint16 GetAreaID(float x, float y, float z) { return _terrain->GetAreaID(x, y, z); }
-    RONIN_INLINE void GetCellLimits(uint32 &StartX, uint32 &EndX, uint32 &StartY, uint32 &EndY) { _terrain->GetCellLimits(StartX, EndX, StartY, EndY); }
     RONIN_INLINE bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID) { return _terrain->CellHasAreaID(x, y, AreaID); }
 
     RONIN_INLINE bool IsCollisionEnabled() { return false; }

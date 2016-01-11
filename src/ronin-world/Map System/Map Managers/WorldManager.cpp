@@ -61,6 +61,7 @@ void WorldManager::Shutdown()
 {
     // Map manager threads are self cleanup
     m_mapManagement.clear();
+    m_maps.clear();
 }
 
 uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)

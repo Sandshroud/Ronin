@@ -41,6 +41,7 @@
 #include <signal.h>
 #include <bitset>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <sys/types.h>
 #include <stdexcept>
@@ -91,9 +92,15 @@ extern "C" {
 #include "../ronin-logonserver/LogonOpcodes.h"
 
 #define CRTDBG_MAP_ALLOC
-#include <iostream>
 #include <stdlib.h>
 #include <crtdbg.h>
+
+#ifdef _DEBUG
+   #ifndef DBG_NEW
+      #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+      #define new DBG_NEW
+   #endif
+#endif  // _DEBUG
 
 #include "DBCStores.h"
 #include "NameTables.h"

@@ -9,7 +9,7 @@
 #pragma once
 
 class MapCell;
-class Map;
+class MapManager;
 class WorldObject;
 class WorldSession;
 class GameObject;
@@ -166,7 +166,7 @@ public:
     Unit* GetUnit(WoWGuid guid);
     WorldObject* _GetObject(WoWGuid guid);
 
-    MapInstance(Map *map, uint32 mapid, uint32 instanceid);
+    MapInstance(MapManager *mgr, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
     void Destruct();

@@ -135,6 +135,7 @@ private:
     QuestRelationListMap m_npc_quests;
     QuestRelationListMap m_obj_quests;
     QuestRelationListMap m_itm_quests;
+    std::vector<QuestPOI*> m_questPOI;
 
     std::map<uint32, uint32> m_ObjectLootQuestList;
 

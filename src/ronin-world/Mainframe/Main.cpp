@@ -41,6 +41,8 @@ int win32_main( int argc, char ** argv )
         sMaster.Run( argc, argv );
     }
     THREAD_HANDLE_CRASH;
+
+    _CrtDumpMemoryLeaks();
     exit( 0 );
 }
 

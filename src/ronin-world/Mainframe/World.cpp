@@ -213,6 +213,8 @@ void World::Destruct()
     sWorldMgr.Shutdown();
 
     Storage_Cleanup();
+
+    delete this;
 }
 
 void World::ParseFactionTemplate()

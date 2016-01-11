@@ -606,7 +606,7 @@ struct MapEntry
     bool IsBattleGround() const { return map_type == 3; }
     bool IsBattleArena() const { return map_type == 4; }
     bool Instanceable() const { return map_type == 1 || map_type == 2 || map_type == 3 || map_type == 4; }
-    bool IsContinent() const { return MapID == 0 || MapID == 1 || MapID == 530 || MapID == 571 || MapID == 609; }
+    bool IsContinent() const { return MapID == 0 || MapID == 1 || MapID == 530 || MapID == 571 || MapID == 609 || MapID == 646; }
 };
 
 struct MapDifficultyEntry

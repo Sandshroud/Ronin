@@ -19,7 +19,6 @@ Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(new 
 
 Map::~Map()
 {
-    sLog.Notice("Map", "~Map %u", _mapId);
     delete _terrain;
 
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)

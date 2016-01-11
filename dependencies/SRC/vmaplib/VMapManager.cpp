@@ -114,14 +114,6 @@ namespace VMAP
         if (it == GOModelList.end())
             return false;
 
-        G3D::AABox mdl_box(it->second.BoundBase);
-        if (mdl_box == G3D::AABox::zero())
-        {
-            // ignore models with no bounds
-            OUT_DEBUG("GameObject model %s has zero bounds, loading skipped", it->second.name.c_str());
-            return false;
-        }
-
         WorldModel* model = acquireModelInstance(it->second.name);
         if(model == NULL)
             return false; // Shouldn't happen.
@@ -139,9 +131,7 @@ namespace VMAP
         {
             guides = new GOMapGuides();
             GOModelTracker.insert(GOModelInstanceByGUID::value_type(mapId, guides));
-        }
-        else
-            guides = GOModelTracker.at(mapId);
+        } else guides = GOModelTracker.at(mapId);
 
         guides->ModelsByGuid.insert(ModelGUIDEs::value_type(guid, Instance));
         tree->insert(*Instance);
@@ -442,9 +432,17 @@ namespace VMAP
                 break;
             }
 
+            G3D::AABox box = G3D::AABox(v1, v2);
+            if(box == G3D::AABox::zero())
+            {
+                // ignore models with no bounds
+                OUT_DEBUG("GameObject model %s has zero bounds, loading skipped", buff);
+                continue;
+            }
+
             GameobjectModelSpawn iModel;
             iModel.name = std::string(buff, name_length);
-            iModel.BoundBase = G3D::AABox(v1, v2);
+            iModel.BoundBase = box;
             GOModelList.insert(GOModelSpawnList::value_type(displayId, iModel));
         }
 

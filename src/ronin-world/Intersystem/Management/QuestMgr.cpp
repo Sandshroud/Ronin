@@ -67,23 +67,25 @@ QuestMgr::~QuestMgr()
 
     for(MapQuestIterator = QuestStorage.begin(); MapQuestIterator != QuestStorage.end(); MapQuestIterator++)
     {
-        delete MapQuestIterator->second->qst_title;
-        delete MapQuestIterator->second->qst_details;
-        delete MapQuestIterator->second->qst_objectivetext;
-        delete MapQuestIterator->second->qst_completiontext;
-        delete MapQuestIterator->second->qst_endtext;
-        delete MapQuestIterator->second->qst_incompletetext;
+        free(MapQuestIterator->second->qst_title);
+        free(MapQuestIterator->second->qst_details);
+        free(MapQuestIterator->second->qst_objectivetext);
+        free(MapQuestIterator->second->qst_completiontext);
+        free(MapQuestIterator->second->qst_endtext);
+        free(MapQuestIterator->second->qst_incompletetext);
         for(uint8 i = 0; i < 4; i++)
-            delete MapQuestIterator->second->qst_objectivetexts[i];
-        for (std::vector<QuestPOI*>::const_iterator itr = MapQuestIterator->second->quest_poi.begin(); itr != MapQuestIterator->second->quest_poi.end(); ++itr)
-        {
-            (*itr)->points.clear();
-            delete *itr;
-        }
+            free(MapQuestIterator->second->qst_objectivetexts[i]);
         MapQuestIterator->second->quest_poi.clear();
         delete MapQuestIterator->second;
     }
     QuestStorage.clear();
+
+    for (std::vector<QuestPOI*>::const_iterator itr = m_questPOI.begin(); itr != m_questPOI.end(); ++itr)
+    {
+        (*itr)->points.clear();
+        delete *itr;
+    }
+    m_questPOI.clear();
 }
 
 void QuestMgr::LoadQuests()
@@ -326,6 +328,7 @@ void QuestMgr::LoadQuests()
             PoI->mapId = fields[3].GetUInt32();
             PoI->areaId = fields[4].GetUInt32();
             PoI->MapFloorId = fields[5].GetUInt32();
+            m_questPOI.push_back(PoI);
             quest->quest_poi.push_back(PoI);
             m_orderedQuestPOI[std::make_pair(PoI->questId, PoI->PoIID)] = PoI;
         } while (result->NextRow());

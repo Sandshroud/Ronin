@@ -565,6 +565,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     // Set worldobject Create data
     _Create(mapId, x, y, z, o);
+
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 

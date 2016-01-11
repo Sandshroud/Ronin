@@ -374,8 +374,6 @@ bool Master::Run(int argc, char ** argv)
     // remove pid
     remove( "ronin-world.pid" );
 
-    _CrtDumpMemoryLeaks();
-
     sLog.Notice( "Shutdown", "Shutdown complete." );
     return true;
 }
