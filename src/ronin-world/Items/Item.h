@@ -49,7 +49,7 @@ public:
     virtual ~Item();
     virtual void Init();
     virtual void Destruct();
-    virtual void OnFieldUpdated(uint32 index);
+    virtual void OnFieldUpdated(uint16 index);
 
     //! DB Serialization
     void LoadFromDB( Field *fields );

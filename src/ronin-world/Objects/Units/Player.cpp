@@ -15,7 +15,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_bgRatedQueue = false;
     m_massSummonEnabled = false;
     m_deathRuneMasteryChance = 0;
-    itemBonusMask.SetCount(ITEM_STAT_MAXIMUM);
     m_taxiMask.SetCount(8*114);
 
     m_hasSentMoTD                   = false;
@@ -448,7 +447,7 @@ void Player::ItemDestructed(Item *item)
     m_pendingUpdates.erase(item);
 }
 
-void Player::OnFieldUpdated(uint32 index)
+void Player::OnFieldUpdated(uint16 index)
 {
     Group *group;
     if((group = GetGroup()) && IsInWorld())
@@ -3346,8 +3345,8 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
     {
         ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MINDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MIN, proto->minDamage);
         ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MAXDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MAX, proto->maxDamage);
-        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_WEAPONDELAY, ITEM_STAT_CUSTOM_WEAPON_DELAY, proto->Delay);
     }
+    if(proto->Delay) ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_WEAPONDELAY, ITEM_STAT_CUSTOM_WEAPON_DELAY, proto->Delay);
     if(proto->Armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, proto->Armor);
 
     // Stats
@@ -6531,7 +6530,6 @@ int32 Player::GetBonusesFromItems(uint32 statType)
 
 void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val)
 {
-    itemBonusMask.SetBit(type);
     std::pair<uint64, uint32> guid_slot = std::make_pair(guid, slot);
     if(apply)
     {
@@ -6546,22 +6544,54 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         itemBonusMapByType[type].erase(guid_slot);
     }
 
-    switch(type)
+    switch(slot)
     {
-    case ITEM_STAT_AGILITY:
-    case ITEM_STAT_STRENGTH:
-    case ITEM_STAT_INTELLECT:
-    case ITEM_STAT_SPIRIT:
-    case ITEM_STAT_STAMINA:
-        m_modQueuedModUpdates[1].empty();
+    case MOD_SLOT_ARMOR:
         break;
-    case ITEM_STAT_HIT_RATING:
-    case ITEM_STAT_CRITICAL_STRIKE_RATING:
-    case ITEM_STAT_HIT_REDUCTION_RATING:
-    case ITEM_STAT_RESILIENCE_RATING:
-    case ITEM_STAT_CRITICAL_REDUCTION_RATING:
-    case ITEM_STAT_HASTE_RATING:
-        m_modQueuedModUpdates[12].empty();
+    case MOD_SLOT_MINDAMAGE:
+    case MOD_SLOT_MAXDAMAGE:
+        m_modQueuedModUpdates[9].empty();
+    case MOD_SLOT_WEAPONDELAY:
+        m_modQueuedModUpdates[5].empty();
+        break;
+
+    case MOD_SLOT_STAT_1:
+    case MOD_SLOT_STAT_2:
+    case MOD_SLOT_STAT_3:
+    case MOD_SLOT_STAT_4:
+    case MOD_SLOT_STAT_5:
+    case MOD_SLOT_STAT_6:
+    case MOD_SLOT_STAT_7:
+    case MOD_SLOT_STAT_8:
+    case MOD_SLOT_STAT_9:
+    case MOD_SLOT_STAT_10:
+        switch(type)
+        {
+        case ITEM_STAT_AGILITY:
+        case ITEM_STAT_STRENGTH:
+        case ITEM_STAT_INTELLECT:
+        case ITEM_STAT_SPIRIT:
+        case ITEM_STAT_STAMINA:
+            m_modQueuedModUpdates[1].empty();
+            break;
+        case ITEM_STAT_HIT_RATING:
+        case ITEM_STAT_CRITICAL_STRIKE_RATING:
+        case ITEM_STAT_HIT_REDUCTION_RATING:
+        case ITEM_STAT_RESILIENCE_RATING:
+        case ITEM_STAT_CRITICAL_REDUCTION_RATING:
+        case ITEM_STAT_HASTE_RATING:
+            m_modQueuedModUpdates[12].empty();
+            break;
+        case ITEM_STAT_PHYSICAL_RESISTANCE:
+        case ITEM_STAT_FIRE_RESISTANCE:
+        case ITEM_STAT_FROST_RESISTANCE:
+        case ITEM_STAT_HOLY_RESISTANCE:
+        case ITEM_STAT_SHADOW_RESISTANCE:
+        case ITEM_STAT_NATURE_RESISTANCE:
+        case ITEM_STAT_ARCANE_RESISTANCE:
+            m_modQueuedModUpdates[6].empty();
+            break;
+        }
         break;
     }
 }

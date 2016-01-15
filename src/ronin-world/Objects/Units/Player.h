@@ -677,7 +677,7 @@ public:
     void ItemFieldUpdated(Item *item);
     void ItemDestructed(Item *item);
 
-    void OnFieldUpdated(uint32 index);
+    void OnFieldUpdated(uint16 index);
     void UpdatePlayerRatings();
 
     float GetPowerMod() { return 1.f; }
@@ -843,7 +843,6 @@ public:
 
     int32 GetBonusesFromItems(uint32 statType);
 
-    UpdateMask itemBonusMask;
     ItemBonusModMap itemBonusMap;
     ItemBonusModByType itemBonusMapByType;
 

@@ -207,9 +207,9 @@ enum MovementSpeedTypes : uint8
     MOVE_SPEED_RUN_BACK,
     MOVE_SPEED_SWIM,
     MOVE_SPEED_SWIM_BACK,
-    MOVE_SPEED_FLY,
-    MOVE_SPEED_FLY_BACK,
     MOVE_SPEED_TURNRATE,
+    MOVE_SPEED_FLIGHT,
+    MOVE_SPEED_FLIGHT_BACK,
     MOVE_SPEED_PITCHRATE,
     MOVE_SPEED_MAX
 };
@@ -276,12 +276,12 @@ public:
     bool isRooted() { return false; }
     bool isAsleep() { return false; }
     bool isStunned() { return false; }
-    bool canFly() { return false; }
+    bool canFly() { return hasFlag(MOVEMENTFLAG_CAN_FLY); }
 
     void setRooted(bool root) {}
     void setAsleep(bool sleep) {}
     void setStunned(bool stun) {}
-    void setCanFly(bool canfly) {}
+    void setCanFly(bool canfly);
 
     // Movement flags
     uint8 GetMovementMask() { return m_movementFlagMask; }
@@ -383,7 +383,7 @@ public:
     {
         walk = &m_currSpeeds[MOVE_SPEED_WALK];
         run = &m_currSpeeds[MOVE_SPEED_RUN];
-        fly = &m_currSpeeds[MOVE_SPEED_FLY];
+        fly = &m_currSpeeds[MOVE_SPEED_FLIGHT];
     }
 
     void SetMoveSpeed(MovementSpeedTypes speedType, float speed);

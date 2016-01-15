@@ -145,7 +145,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
 
     // we cannot attack sheathed units. Maybe checked in other places too ?
     // !! warning, this presumes that objA is attacking ObjB
-    if( CheckStealth && objB->IsUnit() /*&& castPtr<Unit>(objB)->InStealth()*/ )
+    if( CheckStealth && objB->IsUnit() && castPtr<Unit>(objB)->IsStealthed() )
         if(objA->CalcDistance(objB) > 5.0f)
             return FI_STATUS_FRIENDLY;
     // Get players (or owners of pets/totems)
@@ -153,9 +153,8 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     Player* player_objB = GetPlayerFromObject(objB);
 
     // Always kill critters
-    if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == CRITTER)
-        if(player_objA)
-            return FI_STATUS_HOSTILE;
+    if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == CRITTER && player_objA)
+        return FI_STATUS_HOSTILE;
     // Disable GM attacking.
     if(player_objA && player_objB && player_objA->bGMTagOn)
         return FI_STATUS_NONE;

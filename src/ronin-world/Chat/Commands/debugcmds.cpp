@@ -370,13 +370,36 @@ bool ChatHandler::HandleSetPlayerStartLocation(const char* args, WorldSession *m
 
 bool ChatHandler::HandleModifySpeedCommand(const char* args, WorldSession *m_session)
 {
-    float speed; uint32 speedType;
-    if(sscanf(args, "%u %f", &speedType, &speed) != 2)
-        return false;
-    if(speedType >= MOVE_SPEED_MAX)
-        return false;
-
     if(Unit* target = getSelectedChar(m_session, true))
-        target->GetMovementInterface()->SetMoveSpeed(MovementSpeedTypes(speedType), speed);
-    return true;
+    {
+        float speed = fabs(atof(args));
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_RUN, speed);
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_RUN_BACK, speed/3.f);
+        return true;
+    }
+    return false;
+}
+
+bool ChatHandler::HandleModifySwimSpeedCommand(const char* args, WorldSession *m_session)
+{
+    if(Unit* target = getSelectedChar(m_session, true))
+    {
+        float speed = fabs(atof(args));
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_SWIM, speed);
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_SWIM_BACK, speed/3.f);
+        return true;
+    }
+    return false;
+}
+
+bool ChatHandler::HandleModifyFlightSpeedCommand(const char* args, WorldSession *m_session)
+{
+    if(Unit* target = getSelectedChar(m_session, true))
+    {
+        float speed = fabs(atof(args));
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_FLIGHT, speed);
+        target->GetMovementInterface()->SetMoveSpeed(MOVE_SPEED_FLIGHT_BACK, speed/3.f);
+        return true;
+    }
+    return false;
 }

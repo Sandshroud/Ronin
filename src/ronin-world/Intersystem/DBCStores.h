@@ -177,7 +177,6 @@ struct CreatureBoundDataEntry
     uint32 Entry; // Display ID
     float Low[3];
     float High[3];
-    float BoundRadius;
 };
 
 struct CreatureDisplayInfoEntry

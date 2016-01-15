@@ -157,14 +157,15 @@ public:
     }
     RONIN_INLINE void SetPlayer(Player* plr) { _player = plr; }
 
-    RONIN_INLINE void SetAccountData(uint32 index, char* data, uint32 sz, uint32 time = UNIXTIME)
+    RONIN_INLINE void SetAccountData(uint32 index, const char* data, uint32 sz, uint32 time = UNIXTIME)
     {
         ASSERT(index < 8);
         if(data == NULL || sz == 0)
         {
             if(m_accountData[index])
             {
-                delete [] m_accountData[index]->data;
+                if(m_accountData[index]->data)
+                    free(m_accountData[index]->data);
                 m_accountData[index]->data = NULL;
                 delete m_accountData[index];
                 m_accountData[index] = NULL;
@@ -174,7 +175,7 @@ public:
         {
             if(m_accountData[index] == NULL)
                 m_accountData[index] = new AccountDataEntry();
-            m_accountData[index]->data = data;
+            m_accountData[index]->data = strdup(data);
             m_accountData[index]->sz = sz;
             m_accountData[index]->timeStamp = time;
         }

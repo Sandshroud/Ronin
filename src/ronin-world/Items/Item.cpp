@@ -35,7 +35,7 @@ void Item::Destruct()
     Object::Destruct();
 }
 
-void Item::OnFieldUpdated(uint32 field)
+void Item::OnFieldUpdated(uint16 field)
 {
     if(m_owner && IsInWorld())
         m_owner->ItemFieldUpdated(this);

@@ -353,6 +353,56 @@ bool ChatHandler::HandleAppearCommand(const char* args, WorldSession *m_session)
     return true;
 }
 
+bool ChatHandler::HandleTeleportCommand(const char* args, WorldSession *m_session)
+{
+    if( !*args || m_session->GetPlayer() == NULL)
+        return false;
+
+    Player *plr = m_session->GetPlayer();
+    if(QueryResult *result = WorldDatabase.Query("SELECT MapId, positionX, positionY, positionZ, name FROM recall WHERE `name` LIKE '%s%'", args))
+    {
+        const char *name = result->Fetch()[4].GetString();
+        uint32 mapId = result->Fetch()[0].GetUInt32(); LocationVector loc(result->Fetch()[1].GetFloat(), result->Fetch()[2].GetFloat(), result->Fetch()[3].GetFloat());
+        if(mapId == plr->GetMapId())
+            plr->Teleport(loc.x, loc.y, loc.z, 0.f);
+        else
+        {
+            MapManager *mgr = sWorldMgr.GetMapManager(mapId);
+            if(mgr->GetContinent() == NULL)
+                return false;
+
+            plr->_Relocate(mapId, loc, false, true, 0);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool ChatHandler::HandleTeleportXYZCommand(const char* args, WorldSession *m_session)
+{
+    if( !*args || m_session->GetPlayer() == NULL)
+        return false;
+
+    Player *plr = m_session->GetPlayer();
+    uint32 mapId = 0; LocationVector loc;
+    int result = sscanf(args, "%u %f %f %f", &mapId, &loc.x, &loc.y, &loc.z);
+    if(result < 3)
+        return false;
+    else if(result != 4)
+    {
+        sscanf(args, "%f %f %f", &loc.x, &loc.y, &loc.z);
+        plr->Teleport(loc.x, loc.y, loc.z, 0.f);
+        return true;
+    }
+    MapManager *mgr = sWorldMgr.GetMapManager(mapId);
+    if(mgr->GetContinent() == NULL)
+        return false;
+
+    plr->_Relocate(mapId, loc, false, true, 0);
+    return true;
+}
+
 bool ChatHandler::HandleTaxiCheatCommand(const char* args, WorldSession *m_session)
 {
     if (!*args)

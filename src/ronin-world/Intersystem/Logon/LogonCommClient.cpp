@@ -46,17 +46,19 @@ void LogonCommClientSocket::OnRecvData()
         if(GetReadBuffer()->GetSize() < remaining)
             return;
 
-        // create the buffer
-        WorldPacket buff(opcode, remaining);
-        if(remaining)
         {
-            buff.resize(remaining);
-            Read((uint8*)buff.contents(), remaining);
-            _recv.Process((unsigned char*)buff.contents(), (unsigned char*)buff.contents(), remaining);
-        }
+            // create the buffer
+            WorldPacket buff(opcode, remaining);
+            if(remaining)
+            {
+                buff.resize(remaining);
+                Read((uint8*)buff.contents(), remaining);
+                _recv.Process((unsigned char*)buff.contents(), (unsigned char*)buff.contents(), remaining);
+            }
 
-        // handle the packet
-        HandlePacket(buff);
+            // handle the packet
+            HandlePacket(buff);
+        }
 
         remaining = 0;
         opcode = 0;

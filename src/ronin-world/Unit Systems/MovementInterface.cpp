@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 7.f, 4.5f, 3.141593f, 3.141593f };
+static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
 MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
 {
@@ -308,8 +308,8 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
     case MOVEMENT_CODE_UPDATE_RUN_BACK_SPEED:   return MOVE_SPEED_RUN_BACK;
     case MOVEMENT_CODE_UPDATE_SWIM_SPEED:       return MOVE_SPEED_SWIM;
     case MOVEMENT_CODE_UPDATE_SWIM_BACK_SPEED:  return MOVE_SPEED_SWIM_BACK;
-    case MOVEMENT_CODE_UPDATE_FLIGHT_SPEED:     return MOVE_SPEED_FLY;
-    case MOVEMENT_CODE_UPDATE_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_UPDATE_FLIGHT_SPEED:     return MOVE_SPEED_FLIGHT;
+    case MOVEMENT_CODE_UPDATE_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLIGHT_BACK;
     case MOVEMENT_CODE_UPDATE_TURN_RATE:        return MOVE_SPEED_TURNRATE;
     case MOVEMENT_CODE_UPDATE_PITCH_RATE:       return MOVE_SPEED_PITCHRATE;
 
@@ -318,8 +318,8 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
     case MOVEMENT_CODE_SET_RUN_BACK_SPEED:      return MOVE_SPEED_RUN_BACK;
     case MOVEMENT_CODE_SET_SWIM_SPEED:          return MOVE_SPEED_SWIM;
     case MOVEMENT_CODE_SET_SWIM_BACK_SPEED:     return MOVE_SPEED_SWIM_BACK;
-    case MOVEMENT_CODE_SET_FLIGHT_SPEED:        return MOVE_SPEED_FLY;
-    case MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED:   return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_SET_FLIGHT_SPEED:        return MOVE_SPEED_FLIGHT;
+    case MOVEMENT_CODE_SET_FLIGHT_BACK_SPEED:   return MOVE_SPEED_FLIGHT_BACK;
     case MOVEMENT_CODE_SET_TURN_RATE:           return MOVE_SPEED_TURNRATE;
     case MOVEMENT_CODE_SET_PITCH_RATE:          return MOVE_SPEED_PITCHRATE;
 
@@ -328,8 +328,8 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
     case MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE: return MOVE_SPEED_RUN_BACK;
     case MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE:     return MOVE_SPEED_SWIM;
     case MOVEMENT_CODE_ACK_FORCE_SWIM_BACK_SPEED_CHANGE:return MOVE_SPEED_SWIM_BACK;
-    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE:   return MOVE_SPEED_FLY;
-    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE:   return MOVE_SPEED_FLIGHT;
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_BACK_SPEED_CHANGE:return MOVE_SPEED_FLIGHT_BACK;
     case MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE:      return MOVE_SPEED_TURNRATE;
     case MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE:     return MOVE_SPEED_PITCHRATE;
 
@@ -338,8 +338,8 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
     case MOVEMENT_CODE_SPLINE_SET_RUN_BACK_SPEED:   return MOVE_SPEED_RUN_BACK;
     case MOVEMENT_CODE_SPLINE_SET_SWIM_SPEED:       return MOVE_SPEED_SWIM;
     case MOVEMENT_CODE_SPLINE_SET_SWIM_BACK_SPEED:  return MOVE_SPEED_SWIM_BACK;
-    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED:     return MOVE_SPEED_FLY;
-    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLY_BACK;
+    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_SPEED:     return MOVE_SPEED_FLIGHT;
+    case MOVEMENT_CODE_SPLINE_SET_FLIGHT_BACK_SPEED:return MOVE_SPEED_FLIGHT_BACK;
     case MOVEMENT_CODE_SPLINE_SET_TURN_RATE:        return MOVE_SPEED_TURNRATE;
     case MOVEMENT_CODE_SPLINE_SET_PITCH_RATE:       return MOVE_SPEED_PITCHRATE;
     }
@@ -540,7 +540,7 @@ bool MovementInterface::UpdateAcknowledgementData(uint16 moveCode)
     case MOVEMENT_CODE_ACK_FORCE_RUN_SPEED_CHANGE: if(!UpdatePendingSpeed(MOVE_SPEED_RUN, m_extra.ex_float)) return false; break;
     case MOVEMENT_CODE_ACK_FORCE_RUN_BACK_SPEED_CHANGE: if(!UpdatePendingSpeed(MOVE_SPEED_RUN_BACK, m_extra.ex_float)) return false; break;
     case MOVEMENT_CODE_ACK_FORCE_SWIM_SPEED_CHANGE: if(!UpdatePendingSpeed(MOVE_SPEED_SWIM, m_extra.ex_float)) return false; break;
-    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE: if(!UpdatePendingSpeed(MOVE_SPEED_FLY, m_extra.ex_float)) return false; break;
+    case MOVEMENT_CODE_ACK_FORCE_FLIGHT_SPEED_CHANGE: if(!UpdatePendingSpeed(MOVE_SPEED_FLIGHT, m_extra.ex_float)) return false; break;
     }
     return true;
 }
@@ -787,6 +787,20 @@ void MovementInterface::OnRelocate(LocationVector destination)
 
 }
 
+void MovementInterface::setCanFly(bool canFly)
+{
+    if(!m_Unit->IsPlayer())
+    {
+        setServerFlag(MOVEMENTFLAG_CAN_FLY);
+        return;
+    }
+
+    m_pendingEnable[MOVEMENT_STATUS_CANFLY] = canFly;
+    WorldPacket data(canFly ? SMSG_MOVE_SET_CAN_FLY : SMSG_MOVE_UNSET_CAN_FLY, 200);
+    WriteFromServer(data.GetOpcode(), &data);
+    castPtr<Player>(m_Unit)->SendPacket(&data);
+}
+
 bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
 {
     m_movementLock.Acquire();
@@ -999,13 +1013,13 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY_BACK));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLY));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));
 }
 
 #undef DO_BIT

@@ -132,6 +132,8 @@ void CommandTableStorage::Init()
         { "playerflags",                COMMAND_LEVEL_M, &ChatHandler::HandleModifyPlayerFlagsCommand,  "modify a player's flags",  NULL, 0,                            0,                      0 },
         { "aurastate",                  COMMAND_LEVEL_M, &ChatHandler::HandleModifyAuraStateCommand,    "mods player's aurastate",  NULL, 0,                            0,                      0 },
         { "speed",                      COMMAND_LEVEL_M, &ChatHandler::HandleModifySpeedCommand,        "mods unit's speed",        NULL, 0,                            0,                      0 },
+        { "swim",                       COMMAND_LEVEL_M, &ChatHandler::HandleModifySwimSpeedCommand,    "mods unit's swim speed",   NULL, 0,                            0,                      0 },
+        { "flight",                     COMMAND_LEVEL_M, &ChatHandler::HandleModifyFlightSpeedCommand,  "mods unit's flight speed", NULL, 0,                            0,                      0 },
         { NULL,                         COMMAND_LEVEL_0, NULL,                                          "",                         NULL, 0,                            0,                      0 }
     };
     dupe_command_table(modifyCommandTable, _modifyCommandTable);
@@ -417,6 +419,8 @@ void CommandTableStorage::Init()
         { "wannounce",              COMMAND_LEVEL_U, &ChatHandler::HandleWAnnounceCommand,                          "Sends Widescreen Msg To All",  NULL, 0, 0, 0 },
         { "appear",                 COMMAND_LEVEL_V, &ChatHandler::HandleAppearCommand,                             "Teleports to x's position.",   NULL, 0, 0, 0 },
         { "summon",                 COMMAND_LEVEL_V, &ChatHandler::HandleSummonCommand,                             "Summons x to your position",   NULL, 0, 0, 0 },
+        { "teleport",               COMMAND_LEVEL_V, &ChatHandler::HandleTeleportCommand,                           "Teleports to location by name", NULL, 0, 0, 0 },
+        { "teleportxyz",            COMMAND_LEVEL_V, &ChatHandler::HandleTeleportXYZCommand,                        "Teleports to u|xyz location",   NULL, 0, 0, 0 },
         { "banchar",                COMMAND_LEVEL_B, &ChatHandler::HandleBanCharacterCommand,                       "Bans character x with or without reason",              NULL, 0, 0, 0 },
         { "unbanchar",              COMMAND_LEVEL_B, &ChatHandler::HandleUnBanCharacterCommand,                     "Unbans character x",           NULL, 0, 0, 0 },
         { "kick",                   COMMAND_LEVEL_B, &ChatHandler::HandleKickCommand,                               "Kicks player from server",     NULL, 0, 0, 0 },
@@ -524,121 +528,6 @@ void CommandTableStorage::Init()
         ++p;
     }
 }
-
-/*struct SpecStruct
-{
-    std::map<uint32, uint8> talents;    // map of <talentId, talentRank>
-    uint16 glyphs[GLYPHS_COUNT];
-};
-
-bool ChatHandler::xxx(const char* args, WorldSession *m_session)
-{
-    char * end;
-    char * start;
-    QueryResult* result = CharacterDatabase.Query("SELECT * FROM characters_extra");
-
-    do
-    {
-        std::set<uint32> m_spells;
-        SpecStruct m_spec[2];
-
-        Field *fields = result->Fetch();
-        uint32 i = 1;
-
-        // Load Spells from CSV data.
-        start = (char*)fields[i++].GetString();//buff;
-        SpellEntry * spProto;
-        while(true)
-        {
-            end = strchr(start,',');
-            if(!end)break;
-            *end = 0;
-            //mSpells.insert(atol(start));
-            spProto = dbcSpell.LookupEntry(atol(start));
-
-            if(spProto)
-                m_spells.insert(spProto->Id);
-
-            start = end +1;
-        }
-
-        for( uint8 s = 0; s < MAX_SPEC_COUNT; ++s )
-        {
-            start = (char*)fields[i++].GetString();
-            uint8 glyphid = 0;
-            while(glyphid < GLYPHS_COUNT)
-            {
-                end = strchr(start,',');
-                if(!end)break;
-                *end= 0;
-                m_spec[s].glyphs[glyphid] = (uint16)atol(start);
-                ++glyphid;
-                start = end + 1;
-            }
-
-            //Load talents for spec
-            start = (char*)fields[i++].GetString();
-            while(end != NULL)
-            {
-                end = strchr(start,',');
-                if(!end)
-                    break;
-                *end= 0;
-                uint32 talentid = atol(start);
-                start = end + 1;
-
-                end = strchr(start,',');
-                if(!end)
-                    break;
-                *end = 0;
-                uint8 rank = (uint8)atol(start);
-                start = end + 1;
-
-                m_spec[s].talents.insert(std::make_pair<uint32, uint8>(talentid, rank));
-            }
-        }
-
-        std::stringstream ss;
-        ss << "INSERT INTO playerspells (guid, spellid) VALUES ";
-        SpellSet::iterator spellItr = m_spells.begin();
-        bool first = true;
-        for(; spellItr != m_spells.end(); ++spellItr)
-        {
-            SpellEntry * sp = dbcSpell.LookupEntry( *spellItr );
-            if( !sp)
-                continue;
-
-            if(!first)
-                ss << ",";
-            else
-                first = false;
-
-            ss << "("<< fields[0].GetUInt32() << "," << uint32(*spellItr) << ")";
-        }
-        CharacterDatabase.Execute(ss.str().c_str());
-
-        for(uint8 s = 0; s < 2; s++)
-        {
-            std::map<uint32, uint8> *talents = &m_spec[s].talents;
-            std::map<uint32, uint8>::iterator itr;
-            for(itr = talents->begin(); itr != talents->end(); itr++)
-            {
-                std::stringstream ss;
-                ss << "INSERT INTO character_talents (guid, spec, tid, rank) VALUES "
-                    << "(" << fields[0].GetUInt32() << ","
-                    << uint32(s) << ","
-                    << itr->first << ","
-                    << uint32(itr->second) << ")";
-
-                CharacterDatabase.Execute(ss.str().c_str());
-            }
-        }
-
-    }while(result->NextRow());
-
-    RedSystemMessage(m_session, "No values specified.");
-    return true;
-}*/
 
 ChatHandler::ChatHandler()
 {

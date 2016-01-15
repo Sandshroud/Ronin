@@ -11,35 +11,7 @@
 
 extern bool bServerShutdown;
 
-#pragma pack(PRAGMA_PACK)
-
-struct ClientPktHeader
-{
-    uint16 size;
-    uint32 cmd;
-};
-
-struct ServerPktHeader
-{
-    ServerPktHeader(uint32 _size, uint16 _cmd) : size(_size), headerLength(0)
-    {
-        if (size > 0x7FFF)
-            header[headerLength++] = 0x80 | (0xFF & (_size >> 16));
-        header[headerLength++] = 0xFF & (_size >> 8);
-        header[headerLength++] = 0xFF & _size;
-        header[headerLength++] = 0xFF & _cmd;
-        header[headerLength++] = 0xFF & (_cmd >> 8);
-    }
-
-    uint8 getHeaderLength() { return headerLength; }
-    const uint32 size;
-    uint8 header[5];
-    uint8 headerLength;
-};
-
-#pragma pack(PRAGMA_POP)
-
-WorldSocket::WorldSocket(SOCKET fd, const sockaddr_in * peer) : TcpSocket(fd, WORLDSOCKET_RECVBUF_SIZE, WORLDSOCKET_SENDBUF_SIZE, false, peer)
+WorldSocket::WorldSocket(SOCKET fd, const sockaddr_in * peer) : TcpSocket(fd, WORLDSOCKET_RECVBUF_SIZE, WORLDSOCKET_SENDBUF_SIZE, false, peer), _recvHeader(), _sendHeader()
 {
     m_authed = false;
     mOpcode = mRemaining = mUnaltered = 0;
@@ -208,11 +180,11 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     //printf("Sending opcode %s%s (0x%.4X)\n", compressed ? "COMPRESSED_" : "", sOpcodeMgr.GetOpcodeName(opcode), opcode);
     // Encrypt the packet
     // First, create the header.
-    ServerPktHeader Header(len + 2, newOpcode);
-    _crypt.EncryptSend(((uint8*)Header.header), Header.getHeaderLength());
+    _sendHeader.SetData(len+2, newOpcode);
+    _crypt.EncryptSend(((uint8*)_sendHeader.header), _sendHeader.getHeaderLength());
 
     // Pass the header to our send buffer
-    rv = WriteButHold(((const uint8*)Header.header), Header.getHeaderLength());
+    rv = WriteButHold(((const uint8*)_sendHeader.header), _sendHeader.getHeaderLength());
 
     // Pass the rest of the packet to our send buffer (if there is any)
     if(len > 0 && rv)
@@ -530,13 +502,13 @@ void WorldSocket::OnRecvData()
             }
 
             // Copy from packet buffer into header local var
-            ClientPktHeader Header;
-            Read(&Header, 6);
+            memset(&_recvHeader, 0, sizeof(ClientPktHeader));
+            Read(&_recvHeader, 6);
 
             // Decrypt the header
-            _crypt.DecryptRecv((uint8*)&Header, sizeof (ClientPktHeader));
-            mRemaining = ntohs(Header.size) - 4;
-            mUnaltered = Header.cmd;
+            _crypt.DecryptRecv((uint8*)&_recvHeader, sizeof (ClientPktHeader));
+            mRemaining = ntohs(_recvHeader.size) - 4;
+            mUnaltered = _recvHeader.cmd;
             mOpcode = sOpcodeMgr.ConvertOpcodeForInput(mUnaltered);
         }
 

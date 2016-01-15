@@ -545,6 +545,7 @@ public:
     RONIN_INLINE bool IsStunned() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_STUN); }
     RONIN_INLINE bool IsRooted() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_ROOT); }
     RONIN_INLINE bool IsFeared() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_FEAR); }
+    RONIN_INLINE bool IsStealthed() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_STEALTH); }
     RONIN_INLINE bool HasNoInterrupt() { return m_noInterrupt; }
 
     uint32 Heal(Unit* target,uint32 SpellId, uint32 amount, bool silent = false);

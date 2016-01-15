@@ -51,3 +51,10 @@ protected:
 };
 
 #define sGossipMgr GossipManager::getSingleton()
+
+class SERVER_DECL GossipMenu
+{
+public:
+    bool BlocksBasicMenu() { return false; }
+
+};

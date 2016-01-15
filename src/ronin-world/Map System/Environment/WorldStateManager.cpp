@@ -139,7 +139,8 @@ void WorldStateManager::ClearWorldStates(Player* pPlayer)
     data << uint32(m_mapInstance ? m_mapInstance->GetMapId() : 0) << uint32(0) << uint32(0) << uint16(0);
 
     // send
-    pPlayer->GetSession()->SendPacket(&data);
+    if(WorldSession *session = pPlayer->GetSession())
+        session->SendPacket(&data);
 }
 
 int32 WorldStateManager::GetPersistantSetting(uint32 keyVal, int32 defaultReturn)

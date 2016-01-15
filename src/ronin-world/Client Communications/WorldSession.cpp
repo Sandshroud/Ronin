@@ -60,8 +60,17 @@ WorldSession::~WorldSession()
     while((packet = _recvQueue.Pop()))
         delete packet;
 
-    for(uint32 x= 0;x<8;x++)
-        if(m_accountData[x]) delete m_accountData[x];
+    for(uint32 x = 0;x < 8; x++)
+    {
+        if(m_accountData[x])
+        {
+            if(m_accountData[x]->data)
+                free(m_accountData[x]->data);
+            m_accountData[x]->data = NULL;
+            delete m_accountData[x];
+            m_accountData[x] = NULL;
+        }
+    }
 
     if(_socket)
         _socket->SetSession(0);
@@ -141,7 +150,6 @@ int WorldSession::Update(int32 instanceId)
         while (!bDeleted && instanceId == m_eventInstanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
-
             if(packet->GetOpcode() >= NUM_MSG_TYPES)
                 sLog.Error("WorldSession", "Received out of range packet with opcode 0x%.4X", packet->GetOpcode());
             else
@@ -1077,7 +1085,7 @@ void WorldSession::LoadAccountData()
             uint32 len = data ? strlen(data) : 0;
             if(len == 0)
                 continue;
-            SetAccountData(i, strdup(data), true, len);
+            SetAccountData(i, data, true, len);
         }
         delete pResult;
     }

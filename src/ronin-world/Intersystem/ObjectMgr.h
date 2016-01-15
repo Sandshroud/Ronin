@@ -34,17 +34,6 @@ struct ItemPage
     uint32 next_page;
 };
 
-struct GossipMenuItem
-{
-    uint32      Id;
-    uint32      IntId;
-    uint8       Icon;
-    bool        Coded;
-    uint32      BoxMoney;
-    std::string Text;
-    std::string BoxMessage;
-};
-
 #pragma pack(PRAGMA_POP)
 
 enum MONSTER_SAY_EVENTS
@@ -103,24 +92,6 @@ static const uint32 NextLevelXp[MAX_PREDEFINED_NEXTLEVELXP]=
     290000,     317000,     349000,     386000,     428000,     475000,     527000,     585000,     648000,     717000,
     1219040,    1231680,    1244560,    1257440,    1270320,    1283360,    1296560,    1309920,    1323120,    1336640,
     1686300,    2121500,    4004000,    5203400,    9165100};
-
-class SERVER_DECL GossipMenu
-{
-public:
-    GossipMenu(uint64 Creature_Guid, uint32 Text_Id);
-    void AddItem(GossipMenuItem* GossipItem);
-    void AddItem(uint8 Icon, const char* Text, int32 Id = -1, bool Coded = false, uint32 BoxMoney = 0, const char* BoxMessage = "");
-    void BuildPacket(WorldPacket& Packet);
-    void SendTo(Player* Plr);
-    GossipMenuItem GetItem(uint32 Id);
-    RONIN_INLINE void SetTextID(uint32 TID) { TextId = TID; }
-    uint32 GetMenuSize() { return uint32(Menu.size()); }
-
-protected:
-    uint32 TextId;
-    uint64 CreatureGuid;
-    std::vector<GossipMenuItem> Menu;
-};
 
 typedef std::map<uint32, std::list<SpellEntry*>* > OverrideIdMap;
 typedef std::map<std::string, PlayerInfo*> PlayerNameStringIndexMap;

@@ -86,7 +86,7 @@ void Unit::Init()
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, IsPlayer() ? 5.f : 1.5f );
+    SetFloatValue(UNIT_FIELD_COMBATREACH, !IsPlayer() ? 5.f : 1.5f );
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
@@ -153,12 +153,13 @@ void Unit::Update( uint32 p_time )
         m_attackUpdateTimer += p_time;
         if(m_attackUpdateTimer >= 200)
         {
+            uint32 diff = m_attackUpdateTimer;
             m_attackUpdateTimer = 0;
 
             if(m_attackInterrupt)
             {
-                if(m_attackInterrupt > p_time)
-                    m_attackInterrupt -= p_time;
+                if(m_attackInterrupt > diff)
+                    m_attackInterrupt -= diff;
                 else m_attackInterrupt = 0;
             }
 
@@ -167,12 +168,12 @@ void Unit::Update( uint32 p_time )
                 if(m_attackTarget.empty())
                 {
                     if(m_attackDelay[0])
-                        m_attackTimer[0] = std::min<uint32>(m_attackDelay[0], m_attackTimer[0]+p_time);
+                        m_attackTimer[0] = std::min<uint32>(m_attackDelay[0], m_attackTimer[0]+diff);
                     if(m_dualWield && m_attackDelay[1])
-                        m_attackTimer[1] = std::min<uint32>(m_attackDelay[1], m_attackTimer[1]+p_time);
-                    if(m_attackTimer[2] <= p_time)
+                        m_attackTimer[1] = std::min<uint32>(m_attackDelay[1], m_attackTimer[1]+diff);
+                    if(m_attackTimer[2] <= diff)
                         m_attackTimer[2] = 0;
-                    else m_attackTimer[2] -= p_time;
+                    else m_attackTimer[2] -= diff;
                 }
                 else
                 {
@@ -183,11 +184,11 @@ void Unit::Update( uint32 p_time )
                     {
                         if(m_attackDelay[0])
                         {
-                            m_attackTimer[0] += p_time;
+                            m_attackTimer[0] += diff;
                             if(m_attackTimer[0] >= m_attackDelay[0])
                             {
                                 m_attackTimer[0] = m_attackDelay[0];
-                                if(canReachWithAttack(MELEE, castPtr<Unit>(target)))
+                                if(canReachWithAttack(MELEE, target))
                                 {
                                     EventAttack(target, MELEE);
                                     m_attackTimer[0] = 0;
@@ -200,11 +201,11 @@ void Unit::Update( uint32 p_time )
 
                         if(m_dualWield && m_attackDelay[1])
                         {
-                            m_attackTimer[1] += p_time;
+                            m_attackTimer[1] += diff;
                             if(m_attackTimer[1] >= m_attackDelay[1])
                             {
                                 m_attackTimer[1] = m_attackDelay[1];
-                                if(canReachWithAttack(OFFHAND, castPtr<Unit>(target)))
+                                if(canReachWithAttack(OFFHAND, target))
                                 {
                                     EventAttack(target, OFFHAND);
                                     m_attackTimer[1] = 0;
@@ -214,13 +215,13 @@ void Unit::Update( uint32 p_time )
 
                         if(m_autoShotSpell && m_attackDelay[2])
                         {
-                            if(m_attackTimer[2] <= p_time)
+                            if(m_attackTimer[2] <= diff)
                                 m_attackTimer[2] = 0;
-                            else m_attackTimer[2] -= p_time;
+                            else m_attackTimer[2] -= diff;
 
                             if( m_autoShot && m_attackTimer[2] == 0 )
                             {
-                                if(canReachWithAttack(RANGED_AUTOSHOT, castPtr<Unit>(target), m_autoShotSpell->Id))
+                                if(canReachWithAttack(RANGED_AUTOSHOT, target, m_autoShotSpell->Id))
                                 {
                                     EventAttack(target, RANGED);
                                     m_attackTimer[2] = m_attackDelay[2];
@@ -572,6 +573,7 @@ void Unit::UpdateAttackTimeValues()
             else if(baseAttack > 12000)
                 baseAttack = 12000;
         }
+
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
         if(baseAttack == 0)
             continue;
@@ -1141,13 +1143,9 @@ bool Unit::canFly()
 
 bool Unit::validateAttackTarget(WorldObject *target)
 {
-    if(target == nullptr)
+    if(target == nullptr || !target->IsUnit())
         return false;
-    else if(target->IsGameObject())
-        return false;
-    else if(!target->IsUnit())
-        return false;
-    else if(!sFactionSystem.isAttackable(this, target, false))
+    else if(!sFactionSystem.CanEitherUnitAttack(this, castPtr<Unit>(target), false))
         return false;
 
     return true;
@@ -2550,6 +2548,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
 void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
+    m_combatStopTimer += 5000;
     if (!GetOnMeleeSpell() || attackType == OFFHAND)
         Strike( target, attackType, NULL, 0, 0, 0, false, false, true);
     else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
@@ -2566,6 +2565,10 @@ void Unit::EventAttackStart(WoWGuid guid)
     m_attackTarget = guid;
     smsg_AttackStart(m_attackTarget);
     Dismount();
+
+    if(IsPlayer())
+        return;
+    SetUInt64Value(UNIT_FIELD_TARGET, guid);
 }
 
 void Unit::EventAttackStop()

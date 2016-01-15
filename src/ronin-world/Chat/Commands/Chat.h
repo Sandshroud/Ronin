@@ -240,6 +240,8 @@ protected:
     bool CmdSetFloatField(WorldSession *m_session, uint32 field, uint32 fieldmax, const char *fieldname, const char* args);
     bool HandleSummonCommand(const char* args, WorldSession *m_session);
     bool HandleAppearCommand(const char* args, WorldSession *m_session);
+    bool HandleTeleportCommand(const char *args, WorldSession *m_session);
+    bool HandleTeleportXYZCommand(const char *args, WorldSession *m_session);
     bool HandleAnnounceCommand(const char* args, WorldSession *m_session);
     bool HandleAdminAnnounceCommand(const char* args, WorldSession *m_session);
     bool HandleGMAnnounceCommand(const char* args, WorldSession *m_session);
@@ -530,6 +532,8 @@ protected:
     bool HandleMirrorTimerCommand(const char *args, WorldSession *m_session);
     bool HandleSetPlayerStartLocation(const char *args, WorldSession *m_session);
     bool HandleModifySpeedCommand(const char *args, WorldSession *m_session);
+    bool HandleModifySwimSpeedCommand(const char *args, WorldSession *m_session);
+    bool HandleModifyFlightSpeedCommand(const char *args, WorldSession *m_session);
 
     bool HandleEnableAH(const char *args, WorldSession *m_session);
     bool HandleDisableAH(const char *args, WorldSession *m_session);

@@ -7,6 +7,39 @@
 
 #pragma once
 
+#pragma pack(PRAGMA_PACK)
+
+struct ClientPktHeader
+{
+    uint16 size;
+    uint32 cmd;
+};
+
+struct ServerPktHeader
+{
+    uint32 size;
+    uint8 header[5];
+    uint8 headerLength;
+
+    void SetData(uint32 _size, uint16 _cmd)
+    {
+        size = _size;
+        headerLength = 0;
+        memset(&header, 0, sizeof(uint8)*5);
+
+        if (size > 0x7FFF)
+            header[headerLength++] = 0x80 | (0xFF & (_size >> 16));
+        header[headerLength++] = 0xFF & (_size >> 8);
+        header[headerLength++] = 0xFF & _size;
+        header[headerLength++] = 0xFF & _cmd;
+        header[headerLength++] = 0xFF & (_cmd >> 8);
+    }
+
+    uint8 getHeaderLength() { return headerLength; }
+};
+
+#pragma pack(PRAGMA_POP)
+
 #define WORLDSOCKET_SENDBUF_SIZE 131078
 #define WORLDSOCKET_RECVBUF_SIZE 16384
 
@@ -76,4 +109,8 @@ private:
     uint32 _latency;
     bool m_authed, mQueued, m_nagleEanbled, isBattleNetAccount;
     std::string * m_fullAccountName;
+
+    // Packet recv and send headers
+    ClientPktHeader _recvHeader;
+    ServerPktHeader _sendHeader;
 };

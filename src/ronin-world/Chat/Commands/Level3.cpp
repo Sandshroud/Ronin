@@ -797,6 +797,11 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
 
 bool ChatHandler::HandleFlyCommand(const char* args, WorldSession* m_session)
 {
+    if(Player* plyr = getSelectedChar(m_session, true))
+    {
+        bool canFly = plyr->GetMovementInterface()->canFly();
+        plyr->GetMovementInterface()->setCanFly(!canFly);
+    }
     return false;
 }
 

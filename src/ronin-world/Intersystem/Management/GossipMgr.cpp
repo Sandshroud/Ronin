@@ -29,9 +29,10 @@ void GossipManager::BuildGossipMessage(WorldPacket *packet, Player *plr, Object 
     size_t sizePos = packet->wpos();
     *packet << uint32(textId); // Text ID
     *packet << uint32(count); // Gossip counter
-    count += _BuildBasicGossipMenu(packet, textId, plr, obj);
-    /*if(GossipMenu *menu = NULL)
-        count += menu->Append(packet, textId, plr);*/
+    GossipMenu *menu = NULL;//GetScriptedGossipMenu(obj);
+    if(menu == NULL || !menu->BlocksBasicMenu())
+        count += _BuildBasicGossipMenu(packet, textId, plr, obj);
+    //if(menu) count += menu->Append(packet, textId, plr);
     packet->put<uint32>(sizePos, textId);
     packet->put<uint32>(sizePos+4, count);
 
