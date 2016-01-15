@@ -279,7 +279,7 @@ bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)
         Player* plr = m_session->GetPlayer();
 
         if(plr->GetMapInstance() == chr->GetMapInstance())
-            chr->_Relocate(plr->GetMapId(),plr->GetPosition(),false,false,plr->GetInstanceID());
+            chr->_Relocate(plr->GetMapId(),plr->GetPosition(),false,plr->GetInstanceID());
         else
             sEventMgr.AddEvent(chr,&Player::EventPortToGM,plr->GetLowGUID(),0,1,1,0);
         sWorld.LogGM(m_session, "Summoned player %s", plr->GetName());
@@ -363,6 +363,8 @@ bool ChatHandler::HandleTeleportCommand(const char* args, WorldSession *m_sessio
     {
         const char *name = result->Fetch()[4].GetString();
         uint32 mapId = result->Fetch()[0].GetUInt32(); LocationVector loc(result->Fetch()[1].GetFloat(), result->Fetch()[2].GetFloat(), result->Fetch()[3].GetFloat());
+        delete result;
+
         if(mapId == plr->GetMapId())
             plr->Teleport(loc.x, loc.y, loc.z, 0.f);
         else
@@ -371,7 +373,7 @@ bool ChatHandler::HandleTeleportCommand(const char* args, WorldSession *m_sessio
             if(mgr->GetContinent() == NULL)
                 return false;
 
-            plr->_Relocate(mapId, loc, false, true, 0);
+            plr->_Relocate(mapId, loc, true, 0);
         }
         return true;
     }
@@ -399,7 +401,7 @@ bool ChatHandler::HandleTeleportXYZCommand(const char* args, WorldSession *m_ses
     if(mgr->GetContinent() == NULL)
         return false;
 
-    plr->_Relocate(mapId, loc, false, true, 0);
+    plr->_Relocate(mapId, loc, true, 0);
     return true;
 }
 

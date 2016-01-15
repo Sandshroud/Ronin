@@ -20,6 +20,7 @@ typedef struct
     float x, y, z, o;
     uint32 modelId;
     int32 vendormask;
+    uint32 eventId;
 }CreatureSpawn;
 typedef std::vector<CreatureSpawn*> CreatureSpawnList;
 
@@ -27,11 +28,13 @@ typedef struct
 {
     uint32  id;//spawn ID
     uint32  entry;
-    float  x, y, z, o;
+    float  x, y, z;
+    float  r0, r1, r2, r3;
     uint32  state;
     uint32  flags;
     uint32  faction;
     float   scale;
+    uint32  eventId;
 } GOSpawn;
 typedef std::vector<GOSpawn*> GOSpawnList;
 

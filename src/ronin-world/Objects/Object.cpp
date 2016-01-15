@@ -476,7 +476,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     }
 
     if(flags & UPDATEFLAG_ROTATION)
-        *data << uint64(castPtr<GameObject>(this)->m_rotation); //blizz 64bit rotation
+        *data << int64(GameObject::PackRotation(castPtr<GameObject>(this)->m_rotation)); //blizz 64bit rotation
 
     if (flags & UPDATEFLAG_TRANSPORT_ARR)
     {

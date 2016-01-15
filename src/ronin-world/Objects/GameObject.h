@@ -540,11 +540,12 @@ public:
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
-    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec);
+    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang);
     bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang);
 
     bool Load(uint32 mapId, GOSpawn *spawn);
-    void UpdateRotation();
+    static int64 PackRotation(G3D::Vector4 rotation);
+    static G3D::Vector4 CreateRotation(float orientation);
 
     void Spawn( MapInstance* m);
     void Despawn( uint32 delay, uint32 respawntime);
@@ -590,7 +591,7 @@ public:
     std::list<QuestRelation *>* m_quests;
 
     uint32 *m_ritualmembers;
-    uint64 m_rotation;
+    G3D::Vector4 m_rotation;
 
     void InitAI();
     SpellEntry* spell;

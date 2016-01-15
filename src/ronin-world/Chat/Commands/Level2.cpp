@@ -609,6 +609,7 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
 
     if(Save == true) // If we're saving, create template and add index
     {
+        G3D::Vector4 rotation = GameObject::CreateRotation(o);
         // Create spawn instance
         GOSpawn *gs = new GOSpawn;
         gs->entry = go->GetEntry();
@@ -619,7 +620,10 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         gs->x = x;
         gs->y = y;
         gs->z = z;
-        gs->o = o;
+        gs->r0 = rotation.x;
+        gs->r1 = rotation.y;
+        gs->r2 = rotation.z;
+        gs->r3 = rotation.w;
         gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
         go->Load(mapid, gs);
         go->SaveToDB();

@@ -20,7 +20,7 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_summoner = NULL;
     charges = -1;
     m_ritualmembers = NULL;
-    m_rotation = 0;
+    m_rotation.set(0.f, 0.f, 0.f, 0.f);
     m_quests = NULL;
     pInfo = NULL;
     m_spawn = NULL;
@@ -144,17 +144,16 @@ void GameObject::Update(uint32 p_time)
     }
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec)
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang)
 {
-    if(CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, vec.o))
+    if(CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, ang))
         return true;
     return false;
 }
 
 bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang)
 {
-    pInfo = GameObjectNameStorage.LookupEntry(entry);
-    if(!pInfo)
+    if((pInfo = GameObjectNameStorage.LookupEntry(entry)) == NULL)
         return false;
 
     if(m_created) // Already created, just push back.
@@ -174,9 +173,16 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     SetFlags(pInfo->DefaultFlags);
     SetType(pInfo->Type);
     SetState(0x01);
-    UpdateRotation();
     InitAI();
 
+    if(ang != 0.f)
+    {
+        m_rotation = GameObject::CreateRotation(ang);
+        SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, m_rotation.x);
+        SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, m_rotation.y);
+        SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, m_rotation.z);
+        SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, m_rotation.w);
+    }
     return true;
 }
 
@@ -245,7 +251,10 @@ void GameObject::SaveToDB()
         << GetPositionX() << ","
         << GetPositionY() << ","
         << GetPositionZ() << ","
-        << GetOrientation() << ","
+        << m_rotation.x << ", "
+        << m_rotation.y << ", "
+        << m_rotation.z << ", "
+        << m_rotation.w << ", "
         << uint32( GetByte(GAMEOBJECT_BYTES_1, 0)? 1 : 0 ) << ","
         << GetFlags() << ","
         << GetUInt32Value(GAMEOBJECT_FACTION) << ","
@@ -359,7 +368,7 @@ void GameObject::InitAI()
 
 bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
 {
-    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z,spawn->o))
+    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z, 0.f))
         return false;
 
     m_spawn = spawn;
@@ -368,6 +377,12 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
         SetUInt32Value(GAMEOBJECT_FACTION,spawn->faction);
         m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
     }
+
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = spawn->r0));
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = spawn->r1));
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = spawn->r2));
+    SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = spawn->r3));
+
     SetFlags(spawn->flags);
     SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
@@ -380,52 +395,20 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     return true;
 }
 
-using G3D::Quat;
-struct QuaternionCompressed
+int64 GameObject::PackRotation(G3D::Vector4 rotation)
 {
-    QuaternionCompressed() : m_raw(0) {}
-    QuaternionCompressed(int64 val) : m_raw(val) {}
-    QuaternionCompressed(const Quat& quat) { Set(quat); }
+    int8 w_sign = (rotation.w >= 0 ? 1 : -1);
+    int64 X = int32(rotation.x * (1 << 21)) * w_sign & ((1 << 22) - 1);
+    int64 Y = int32(rotation.y * (1 << 20)) * w_sign & ((1 << 21) - 1);
+    int64 Z = int32(rotation.z * (1 << 20)) * w_sign & ((1 << 21) - 1);
+    return uint64(Z | (Y << 21) | (X << 42));
+}
 
-    enum
-    {
-        PACK_COEFF_YZ = 1 << 20,
-        PACK_COEFF_X = 1 << 21,
-    };
-
-    void Set(const Quat& quat)
-    {
-        int8 w_sign = (quat.w >= 0 ? 1 : -1);
-        int64 X = int32(quat.x * PACK_COEFF_X) * w_sign & ((1 << 22) - 1);
-        int64 Y = int32(quat.y * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
-        int64 Z = int32(quat.z * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
-        m_raw = Z | (Y << 21) | (X << 42);
-    }
-
-    Quat Unpack() const
-    {
-        double x = (double)(m_raw >> 42) / (double)PACK_COEFF_X;
-        double y = (double)(m_raw << 22 >> 43) / (double)PACK_COEFF_YZ;
-        double z = (double)(m_raw << 43 >> 43) / (double)PACK_COEFF_YZ;
-        double w = 1 - (x * x + y * y + z * z);
-        ASSERT(w >= 0);
-        w = sqrt(w);
-
-        return Quat(x, y, z, w);
-    }
-
-    int64 m_raw;
-};
-
-void GameObject::UpdateRotation()
+G3D::Vector4 GameObject::CreateRotation(float orientation)
 {
-    Quat rotation = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
+    G3D::Quat rotation = G3D::Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), orientation);
     rotation.unitize();
-    m_rotation = QuaternionCompressed(rotation).m_raw;
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, rotation.x);
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, rotation.y);
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, rotation.z);
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, rotation.w);
+    return rotation.xyzw();
 }
 
 void GameObject::DeleteFromDB()

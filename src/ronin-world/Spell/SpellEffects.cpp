@@ -1868,7 +1868,7 @@ void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target
 
     // spawn a new one
     GameObject* GoSummon = u_caster->GetMapInstance()->CreateGameObject(GetSpellProto()->EffectMiscValue[i]);
-    if( GoSummon == NULL || !GoSummon->CreateFromProto(GetSpellProto()->EffectMiscValue[i], m_caster->GetMapId(), m_caster->GetPosition()))
+    if( GoSummon == NULL || !GoSummon->CreateFromProto(GetSpellProto()->EffectMiscValue[i], m_caster->GetMapId(), m_caster->GetPosition(), 0.f))
         return;
 
     GoSummon->SetUInt32Value(GAMEOBJECT_LEVEL, u_caster->getLevel());

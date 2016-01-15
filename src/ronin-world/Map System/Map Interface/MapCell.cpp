@@ -181,6 +181,8 @@ uint32 MapCell::LoadObjects(CellSpawns * sp)
             CreatureSpawn *spawn = *i;
             /*if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
                 continue;*/
+            if(spawn->eventId)
+                continue;
 
             if(Creature *c = _mapmgr->CreateCreature(spawn->entry))
             {
@@ -202,9 +204,13 @@ uint32 MapCell::LoadObjects(CellSpawns * sp)
     {
         for(GOSpawnList::iterator i = sp->GOSpawns.begin(); i != sp->GOSpawns.end(); i++)
         {
-            if(GameObject *go = _mapmgr->CreateGameObject((*i)->entry))
+            GOSpawn *spawn = *i;
+            if(spawn->eventId)
+                continue;
+
+            if(GameObject *go = _mapmgr->CreateGameObject(spawn->entry))
             {
-                if(!go->Load(mapId, *i))
+                if(!go->Load(mapId, spawn))
                 {
                     go->Destruct();
                     continue;

@@ -42,7 +42,7 @@ bool CheckResultLengthCreatures(QueryResult * res)
         if( ctr_first_table_warning )
         {
             ctr_first_table_warning = false;
-            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your creature_spawns table has the wrong column count(%u,%u).", fieldcount, 22).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
+            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your creature_spawns table has the wrong column count(%u,%u).", fieldcount, 9).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
         }
 
         return false;
@@ -54,12 +54,12 @@ static bool go_first_table_warning = true;
 bool CheckResultLengthGameObject(QueryResult * res)
 {
     uint32 fieldcount = res->GetFieldCount();
-    if( fieldcount != 11 )
+    if( fieldcount != 14 )
     {
         if( go_first_table_warning )
         {
             go_first_table_warning = false;
-            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 11).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
+            sLog.LargeErrorMessage(LARGERRORMESSAGE_WARNING, format("Your gameobject_spawns table has the wrong column count(%u,%u).", fieldcount, 14).c_str(), "This table has skipped loading in order to avoid crashing.", "Please correct this, if you do not no spawns will show.", NULL);
         }
 
         return false;
@@ -94,6 +94,7 @@ void Map::LoadSpawns(bool reload /* = false */)
             cspawn->o = NormAngle(fields[5].GetFloat());
             cspawn->modelId = fields[6].GetUInt32();
             cspawn->vendormask = fields[7].GetUInt32();
+            cspawn->eventId = 0;
 
             uint32 cellx = CellHandler<MapInstance>::GetPosX(cspawn->x), celly = CellHandler<MapInstance>::GetPosY(cspawn->y);
             GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back(cspawn);
@@ -101,7 +102,7 @@ void Map::LoadSpawns(bool reload /* = false */)
         delete result;
     }
 
-    if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, orientation, state, flags, faction, scale FROM gameobject_spawns WHERE map = %u", _mapId))
+    if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, rotation0, rotation1, rotation2, rotation3, state, flags, faction, scale, eventId FROM gameobject_spawns WHERE map = %u", _mapId))
     {
         do
         {
@@ -112,11 +113,15 @@ void Map::LoadSpawns(bool reload /* = false */)
             gspawn->x = fields[2].GetFloat();
             gspawn->y = fields[3].GetFloat();
             gspawn->z = fields[4].GetFloat();
-            gspawn->o = NormAngle(fields[5].GetFloat());
-            gspawn->state = fields[6].GetUInt32();
-            gspawn->flags = fields[7].GetUInt32();
-            gspawn->faction = fields[8].GetUInt32();
-            gspawn->scale = std::min<float>(255.f, fields[9].GetFloat());
+            gspawn->r0 = fields[5].GetFloat();
+            gspawn->r1 = fields[6].GetFloat();
+            gspawn->r2 = fields[7].GetFloat();
+            gspawn->r3 = fields[8].GetFloat();
+            gspawn->state = fields[9].GetUInt32();
+            gspawn->flags = fields[10].GetUInt32();
+            gspawn->faction = fields[11].GetUInt32();
+            gspawn->scale = std::min<float>(255.f, fields[12].GetFloat());
+            gspawn->eventId = fields[13].GetUInt32();
 
             uint32 cellx = CellHandler<MapInstance>::GetPosX(gspawn->x), celly = CellHandler<MapInstance>::GetPosY(gspawn->y);
             GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back(gspawn);

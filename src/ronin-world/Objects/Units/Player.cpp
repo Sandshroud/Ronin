@@ -5245,11 +5245,11 @@ void Player::RemovePlayerPet(uint32 pet_number)
     PetLocks.Release();
 }
 
-void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, bool force_new_world, uint32 instance_id)
+void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_world, uint32 instance_id)
 {
     //Send transfer pending only when switching between differnt mapids!
     WorldPacket data(SMSG_TRANSFER_PENDING, 41);
-    if(sendpending && mapid != m_mapId && force_new_world)
+    if(mapid != m_mapId && force_new_world)
     {
         data << mapid;
         GetSession()->SendPacket(&data);
@@ -5294,6 +5294,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool sendpending, 
         //reset transporter if we where on one.
         if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
         {
+            m_movementInterface.ClearTransportData();
             m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
             m_CurrentTransporter = NULL;
         }
@@ -6154,7 +6155,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         RemoveShapeShiftSpell(m_ShapeShifted);
 
     //all set...relocate
-    _Relocate(MapID, vec, true, force_new_world, InstanceID);
+    _Relocate(MapID, vec, force_new_world, InstanceID);
     return true;
 }
 

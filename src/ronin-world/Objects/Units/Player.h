@@ -1433,7 +1433,7 @@ public:
     // GameObject commands
     GameObject* m_GM_SelectedGO;
 
-    void _Relocate(uint32 mapid,const LocationVector & v, bool sendpending, bool force_new_world, uint32 instance_id);
+    void _Relocate(uint32 mapid,const LocationVector & v, bool force_new_world, uint32 instance_id);
     void UpdateKnownCurrencies(uint32 itemId, bool apply);
     uint32 GetTotalItemLevel();
     uint32 GetAverageItemLevel(bool skipmissing = false);
