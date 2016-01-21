@@ -53,6 +53,9 @@ Creature::~Creature()
 void Creature::Init()
 {
     Unit::Init();
+
+    m_aiInterface.Init(this, AITYPE_AGRO, MOVEMENTTYPE_NONE);
+
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
         InitVehicleKit(vehicleKitId);
 }
@@ -69,6 +72,9 @@ void Creature::Destruct()
 void Creature::Update( uint32 p_time )
 {
     Unit::Update( p_time );
+
+    m_aiInterface.Update(p_time);
+
     if(IsTotem() && isDead())
     {
         Respawn(false, true);

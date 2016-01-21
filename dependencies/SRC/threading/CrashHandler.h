@@ -8,7 +8,7 @@ std::string FormatOutputString(const char * Prefix, const char * Description, bo
 bool HookCrashReporter(bool logon);
 void OutputCrashLogLine(const char* format, ...);
 
-#if PLATFORM == PLATFORM_WIN && defined(NDEBUG)
+#if PLATFORM == PLATFORM_WIN && (defined(NDEBUG) || defined(_DEBUG))
 
 #define CRASHHANDLER_ENABLED
 

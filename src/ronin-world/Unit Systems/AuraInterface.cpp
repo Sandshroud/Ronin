@@ -807,7 +807,7 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
             m_Unit->SetInCombat(pCaster);
 
             if(m_Unit->IsCreature())
-                m_Unit->GetAIInterface()->AttackReaction(pCaster, 1, aur->GetSpellId());
+                castPtr<Creature>(m_Unit)->GetAIInterface()->AttackReaction(pCaster, 1, aur->GetSpellId());
         }
     }
 

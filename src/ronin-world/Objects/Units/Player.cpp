@@ -6837,11 +6837,8 @@ void Player::Possess(Unit* pTarget)
         return;
 
     m_CurrentCharm = pTarget;
-    if(pTarget->GetTypeId() == TYPEID_UNIT)
-    {
-        // unit-only stuff.
-        pTarget->GetAIInterface()->StopMovement(0);
-    }
+    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
+        castPtr<Creature>(this)->GetAIInterface()->StopMovement(0);
 
     m_noInterrupt = true;
     SetUInt64Value(UNIT_FIELD_CHARM, pTarget->GetGUID());
@@ -6859,7 +6856,8 @@ void Player::Possess(Unit* pTarget)
     data1 << pTarget->GetGUID() << uint8(1);
     m_session->SendPacket(&data1);
 
-    std::list<uint32> avail_spells;
+    return;
+    /*std::list<uint32> avail_spells;
     for(AIInterface::AISpellMap::iterator itr = pTarget->GetAIInterface()->m_spells.begin(); itr != pTarget->GetAIInterface()->m_spells.end(); ++itr)
         avail_spells.push_back(itr->second->info->Id);
     std::list<uint32>::iterator itr = avail_spells.begin();
@@ -6900,7 +6898,7 @@ void Player::Possess(Unit* pTarget)
         data << uint32(sp->CategoryRecoveryTime);
     }
 
-    m_session->SendPacket(&data);
+    m_session->SendPacket(&data);*/
 }
 
 void Player::UnPossess()

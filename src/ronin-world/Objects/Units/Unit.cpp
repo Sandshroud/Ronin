@@ -80,8 +80,6 @@ void Unit::Init()
 {
     WorldObject::Init();
 
-    m_aiInterface.Init(castPtr<Unit>(this), AITYPE_AGRO, MOVEMENTTYPE_NONE);
-
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
@@ -255,7 +253,6 @@ void Unit::Update( uint32 p_time )
         m_P_regenTimer = 0;
     }
 
-    m_aiInterface.Update(p_time);
     m_movementInterface.Update(p_time);
 }
 
@@ -2095,14 +2092,14 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     case 0:
         hit_status |= HITSTATUS_MISS;
         // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
+        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
+            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
         break;
 //--------------------------------dodge-----------------------------------------------------
     case 1:
         // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
+        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
+            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
         TRIGGER_AI_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
@@ -2154,8 +2151,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------------parry-----------------------------------------------------
     case 2:
         // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && pVictim->GetAIInterface()->GetNextTarget() == NULL)
-            pVictim->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
+        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
+            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
 
         TRIGGER_AI_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
@@ -2799,8 +2796,8 @@ void Unit::OnRemoveInRangeObject(WorldObject* pObj)
     if(pObj->IsUnit())
     {
         Unit* pUnit = castPtr<Unit>(pObj);
-        if(GetAIInterface())
-            GetAIInterface()->CheckTarget(pUnit);
+        if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
+            castPtr<Creature>(this)->GetAIInterface()->CheckTarget(pUnit);
 
         if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
             if(m_currentSpell) m_currentSpell->cancel();
@@ -2818,8 +2815,11 @@ void Unit::EventAddEmote(EmoteType emote, uint32 time)
 
 void Unit::EventAllowCombat(bool allow)
 {
-    m_aiInterface.SetAllowedToEnterCombat(allow);
-    m_aiInterface.setCanMove(allow);
+    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
+    {
+        castPtr<Creature>(this)->GetAIInterface()->SetAllowedToEnterCombat(allow);
+        castPtr<Creature>(this)->GetAIInterface()->setCanMove(allow);
+    }
 }
 
 void Unit::EmoteExpire()
@@ -3027,7 +3027,8 @@ void Unit::RemoveFromWorld()
     }
 
     WorldObject::RemoveFromWorld();
-    m_aiInterface.WipeReferences();
+    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
+        castPtr<Creature>(this)->GetAIInterface()->WipeReferences();
 }
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
@@ -3242,7 +3243,8 @@ void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
 void Unit::SetFacing(float newo)
 {
     SetOrientation(newo);
-    m_aiInterface.SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
+    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
+        castPtr<Creature>(this)->GetAIInterface()->SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
 }
 
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind

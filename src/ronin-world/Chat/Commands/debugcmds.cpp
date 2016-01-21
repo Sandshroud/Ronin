@@ -188,7 +188,7 @@ bool ChatHandler::HandleGetBytesCommand(const char* args, WorldSession *m_sessio
 bool ChatHandler::HandleAggroRangeCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = m_session->GetPlayer();
-    Unit* obj = getSelectedCreature(m_session, false);
+    Creature* obj = getSelectedCreature(m_session, false);
     if(obj == NULL)
     {
         SystemMessage(m_session, "You should select a creature.");

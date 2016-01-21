@@ -373,7 +373,7 @@ uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
     /************************************************************************/
     /* Check if the unit is evading                                      */
     /************************************************************************/
-    if(target->GetTypeId() == TYPEID_UNIT && ((Unit*)target)->GetAIInterface()->getAIState() == STATE_EVADE)
+    if(target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->GetAIInterface()->getAIState() == STATE_EVADE)
         return SPELL_DID_HIT_EVADE;
 
     /*************************************************************************/
@@ -412,7 +412,7 @@ uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
 
 bool Spell::GenerateTargets(SpellCastTargets *t)
 {
-    if(!m_caster->IsInWorld() || !m_caster->IsUnit() || castPtr<Unit>(m_caster)->GetAIInterface() == NULL)
+    if(!m_caster->IsInWorld() || !m_caster->IsUnit())
         return false;
 
     bool result = false;
@@ -558,12 +558,18 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
         }
         else if(TargetType & SPELL_TARGET_AREA)  //targetted aoe
         {
-            if(castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget() != NULL && TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE)
+            if(m_caster->IsCreature())
             {
-                t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
-                t->m_unitTarget = castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget()->GetGUID();
-                t->m_dest = castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget()->GetPosition();
-                result = true;
+                if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
+                {
+                    if(ai->GetNextTarget() != NULL && TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE)
+                    {
+                        t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
+                        t->m_unitTarget = ai->GetNextTarget()->GetGUID();
+                        t->m_dest = ai->GetNextTarget()->GetPosition();
+                        result = true;
+                    }
+                }
             }
 
             if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY)
@@ -594,11 +600,17 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
         {
             if(TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE)
             {
-                if(castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget() != NULL)
+                if(m_caster->IsCreature())
                 {
-                    t->m_targetMask |= TARGET_FLAG_UNIT;
-                    t->m_unitTarget = castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget()->GetGUID();
-                    result = true;
+                    if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
+                    {
+                        if(ai->GetNextTarget() != NULL)
+                        {
+                            t->m_targetMask |= TARGET_FLAG_UNIT;
+                            t->m_unitTarget = ai->GetNextTarget()->GetGUID();
+                            result = true;
+                        }
+                    }
                 }
             }
             else
@@ -612,11 +624,17 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
         //target cone
         if(TargetType & SPELL_TARGET_AREA_CONE)
         {
-            if(castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget() != NULL)
+            if(m_caster->IsCreature())
             {
-                t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-                t->m_dest = castPtr<Unit>(m_caster)->GetAIInterface()->GetNextTarget()->GetPosition();
-                result = true;
+                if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
+                {
+                    if(ai->GetNextTarget() != NULL)
+                    {
+                        t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
+                        t->m_dest = ai->GetNextTarget()->GetPosition();
+                        result = true;
+                    }
+                }
             }
         }
     }

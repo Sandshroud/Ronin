@@ -793,7 +793,7 @@ void Aura::EventPeriodicHeal( uint32 amount )
     uint32 base_threat = add;
     int count = 0;
     Unit* unit = NULL;
-    std::vector< Unit* > target_threat;
+    std::vector< Creature* > target_threat;
     if( base_threat > 0 )
     {
         target_threat.reserve(m_caster->GetInRangeCount()); // this helps speed
@@ -801,9 +801,9 @@ void Aura::EventPeriodicHeal( uint32 amount )
         for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
         {
             unit = m_caster->GetInRangeObject<Unit>(*itr);
-            if(unit->GetAIInterface()->GetNextTarget() == m_target)
+            if(unit->IsCreature() && castPtr<Creature>(unit)->GetAIInterface()->GetNextTarget() == m_target)
             {
-                target_threat.push_back(unit);
+                target_threat.push_back(castPtr<Creature>(unit));
                 ++count;
             }
         }
@@ -817,10 +817,10 @@ void Aura::EventPeriodicHeal( uint32 amount )
         */
         uint32 threat = base_threat / (count * 2);
 
-        for(std::vector<Unit* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
+        for(std::vector<Creature* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
         {
             // for now we'll just use heal amount as threat.. we'll prolly need a formula though
-            (castPtr<Unit>(*itr))->GetAIInterface()->HealReaction(m_caster, m_target, threat, m_spellProto);
+            (*itr)->GetAIInterface()->HealReaction(m_caster, m_target, threat, m_spellProto);
         }
     }
 }
@@ -838,16 +838,17 @@ void Aura::SpellAuraModThreatGenerated(bool apply)
 void Aura::SpellAuraModTaunt(bool apply)
 {
     Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL || !m_caster->isAlive() || m_target->IsPlayer())
+    if( m_caster == NULL || !m_caster->isAlive() || !m_target->IsCreature())
         return;
 
+    Creature *target = castPtr<Creature>(m_target);
     if(apply)
     {
-        m_target->GetAIInterface()->AttackReaction(m_caster, 1, 0);
-        m_target->GetAIInterface()->taunt(m_caster, true);
+        target->GetAIInterface()->AttackReaction(m_caster, 1, 0);
+        target->GetAIInterface()->taunt(m_caster, true);
     }
-    else if(m_target->GetAIInterface()->getTauntedBy() == m_caster)
-        m_target->GetAIInterface()->taunt(m_caster, false);
+    else if(target->GetAIInterface()->getTauntedBy() == m_caster)
+        target->GetAIInterface()->taunt(m_caster, false);
 }
 
 void Aura::SpellAuraModStun(bool apply)
@@ -1583,7 +1584,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
                 if(pObject->isAlive())
                 {
                     if(pObject->GetTypeId()==TYPEID_UNIT)
-                        pObject->GetAIInterface()->RemoveThreat(pTarget->GetGUID());
+                        castPtr<Creature>(pObject)->GetAIInterface()->RemoveThreat(pTarget->GetGUID());
 
                     //if this is player and targeting us then we interrupt cast
                     if(pObject->IsPlayer())
@@ -1857,7 +1858,7 @@ void Aura::SpellAuraIgnoreEnemy(bool apply)
         if (caster == NULL || !caster->isAlive() || !caster->IsCreature() || !caster->IsInWorld())
             return;
 
-        caster->GetAIInterface()->SetNextTarget(caster->GetAIInterface()->GetMostHated());
+        castPtr<Creature>(caster)->GetAIInterface()->SetNextTarget(castPtr<Creature>(caster)->GetAIInterface()->GetMostHated());
     }
 }
 

@@ -817,7 +817,7 @@ LocationVectorMapContainer* MMapManager::BuildFullPath(Unit* m_Unit, float start
     {
         LocationVector pos(pathPoints[i*3+2], pathPoints[i*3], pathPoints[i*3+1]);
         float distance = m_Unit->CalcDistance(x, y, z, pos.x, pos.y, pos.z);
-        map->TotalMoveTime += float2int32(m_Unit->GetAIInterface()->GetMovementTime(distance));
+        map->TotalMoveTime += float2int32(castPtr<Creature>(m_Unit)->GetAIInterface()->GetMovementTime(distance));
         map->InternalMap->insert(std::make_pair(map->TotalMoveTime, pos));
         x = pos.x, y = pos.y, z = pos.z;
     }

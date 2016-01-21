@@ -1308,10 +1308,10 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         // check if pets owner is combat participant
         bool owner_participe = false;
-        if( IsPet() )
+        if( IsPet() && pVictim->IsCreature() )
         {
             Player* owner = castPtr<Pet>(this)->GetPetOwner();
-            if( owner != NULL && pVictim->GetAIInterface()->getThreat( owner->GetGUID() ) > 0 )
+            if( owner != NULL && castPtr<Creature>(pVictim)->GetAIInterface()->getThreat( owner->GetGUID() ) > 0 )
                 owner_participe = true;
         }
 
@@ -1530,8 +1530,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             }
 
             //--------------------------------- PARTY LOG -----------------------------------------
-            if(pVictim->IsCreature() && pVictim->GetAIInterface())
-                pVictim->GetAIInterface()->OnDeath( this );
+            if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetAIInterface())
+                castPtr<Creature>(pVictim)->GetAIInterface()->OnDeath( this );
 
             if(IsPlayer())
             {

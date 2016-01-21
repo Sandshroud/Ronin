@@ -409,7 +409,8 @@ void MapInstance::RemoveObject(WorldObject* obj)
         }
 
         // Remove object from all objects 'seeing' him
-        for (WorldObject::InRangeMap::iterator iter = obj->GetInRangeMapBegin(); iter != obj->GetInRangeMapEnd(); iter++)
+        WorldObject::InRangeMap inrangeObjects(*obj->GetInRangeMap());
+        for (WorldObject::InRangeMap::iterator iter = inrangeObjects.begin(); iter != inrangeObjects.end(); iter++)
             if(WorldObject *wObj = iter->second)
                 wObj->RemoveInRangeObject(obj);
     }

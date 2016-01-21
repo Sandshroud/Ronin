@@ -16,7 +16,6 @@
 
 class Aura;
 class Spell;
-class AIInterface;
 class GameObject;
 class Creature;
 struct CreatureData;
@@ -256,7 +255,6 @@ class SERVER_DECL ThreatRedirectHandler
 
 class SERVER_DECL Unit : public WorldObject
 {
-    friend class AIInterface;
 public:
 
     Unit(uint64 guid, uint32 fieldCount = UNIT_END);
@@ -536,9 +534,6 @@ public:
     RONIN_INLINE bool HasDummyAura( uint32 namehash ) { return (m_DummyAuras.find(namehash) != m_DummyAuras.end() && m_DummyAuras[namehash] != NULL); }
     RONIN_INLINE SpellEntry* GetDummyAura( uint32 namehash ) { if(m_DummyAuras.find(namehash) == m_DummyAuras.end()) return NULL; return m_DummyAuras[namehash]; }
     RONIN_INLINE void RemoveDummyAura( uint32 namehash ) { m_DummyAuras[namehash] = NULL; m_DummyAuras.erase(namehash); }
-
-    // AIInterface
-    RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
     // DK:Affect
     RONIN_INLINE bool IsPacified() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_PACIFY); }
@@ -835,9 +830,6 @@ public:
 
     // Spell currently casting
     Spell* m_currentSpell;
-
-    // AI
-    AIInterface m_aiInterface;
 
     // Quest emote
     uint8 m_emoteState;

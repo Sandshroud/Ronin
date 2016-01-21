@@ -15,7 +15,6 @@ template<typename T> T cast(void *val) { return static_cast<T>(val); }
 template<typename T> T *castPtr(void *val) { return static_cast<T*>(val); }
 
 SERVER_DECL extern DirectDatabase* Database_Character;
-SERVER_DECL extern DirectDatabase* Database_Account;
 SERVER_DECL extern DirectDatabase* Database_World;
 SERVER_DECL extern DirectDatabase* Database_Log;
 

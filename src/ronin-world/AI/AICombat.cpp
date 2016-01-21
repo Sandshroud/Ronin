@@ -448,7 +448,7 @@ Unit* AIInterface::FindTarget()
         if( !m_Unit->IsInLineOfSight(pUnit) )
             continue;
         // If it's a critter, set the critter target.
-        if(pUnit->m_factionTemplate->Faction == 28)
+        if(pUnit->GetFactionTemplate()->Faction == 28)
         {
             if(critterTarget && m_Unit->GetDistanceSq(critterTarget) < m_Unit->GetDistanceSq(pUnit))
                 continue;
@@ -501,7 +501,7 @@ Unit* AIInterface::GetMostHated(AI_Spell* sp)
         itr = it2;
         ++it2;
         Unit *unit = m_Unit->GetMapInstance()->GetUnit(itr->first); /* check the target is valid */
-        if(unit == NULL || (unit->event_GetCurrentMapId() != m_Unit->event_GetCurrentMapId() || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit)))
+        if(unit == NULL || !unit->isAlive() || !sFactionSystem.CanEitherUnitAttack(m_Unit, unit))
         {
             m_aiTargets.erase(itr);
             continue;
@@ -862,21 +862,25 @@ void AIInterface::CheckTarget(Unit* target)
 
     if( target->GetTypeId() == TYPEID_UNIT )
     {
-        target->GetAIInterface()->ai_TargetLock.Acquire();
-        it2 = target->GetAIInterface()->m_aiTargets.find( m_Unit->GetGUID() );
-        if( it2 != target->GetAIInterface()->m_aiTargets.end() )
-            target->GetAIInterface()->m_aiTargets.erase( it2 );
-        target->GetAIInterface()->ai_TargetLock.Release();
-
-        if( target->GetAIInterface()->m_nextTarget == m_Unit )
+        Creature *cTarget = castPtr<Creature>(target);
+        if(AIInterface *ai = cTarget->GetAIInterface())
         {
-            target->GetAIInterface()->m_nextTarget = NULL;
-            target->GetAIInterface()->m_CastNext = NULL;
-            target->GetAIInterface()->GetMostHated();
-        }
+            ai->ai_TargetLock.Acquire();
+            it2 = ai->m_aiTargets.find( m_Unit->GetGUID() );
+            if( it2 != ai->m_aiTargets.end() )
+                ai->m_aiTargets.erase( it2 );
+            ai->ai_TargetLock.Release();
 
-        if(target->GetAIInterface()->getUnitToFollow() == m_Unit)
-            target->GetAIInterface()->ClearFollowInformation(m_Unit);
+            if( ai->m_nextTarget == m_Unit )
+            {
+                ai->m_nextTarget = NULL;
+                ai->m_CastNext = NULL;
+                ai->GetMostHated();
+            }
+
+            if(ai->getUnitToFollow() == m_Unit)
+                ai->ClearFollowInformation(m_Unit);
+        }
     }
 
     if(target == getUnitToFear())

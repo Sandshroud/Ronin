@@ -328,7 +328,7 @@ bool AIInterface::FindFriends(float dist)
         return false;
     ai_TargetLock.Release();
 
-    Unit *result = NULL;
+    Creature *result = NULL;
     for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *unit = m_Unit->GetInRangeObject<Unit>(*itr);

@@ -250,14 +250,14 @@ void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
     {
         if(uint32 base_threat = amount)
         {
-            std::vector<Unit* > target_threat;
+            std::vector<Creature* > target_threat;
             for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
             {
                 Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
                 if(unit->GetTypeId() != TYPEID_UNIT)
                     continue;
-                if(unit->GetAIInterface()->GetNextTarget() == target)
-                    target_threat.push_back(unit);
+                if(castPtr<Creature>(unit)->GetAIInterface()->GetNextTarget() == target)
+                    target_threat.push_back(castPtr<Creature>(unit));
             }
 
             if(!target_threat.empty())
@@ -267,8 +267,8 @@ void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
                 So if a tank holds 5 mobs and receives a heal, the threat on each mob will be less than Threat(heal)/5.
                 Current speculation is Threat(heal)/(num of mobs *2) */
                 uint32 threat = base_threat / (target_threat.size() * 2);
-                for(std::vector<Unit* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
-                    castPtr<Unit>(*itr)->GetAIInterface()->HealReaction( castPtr<Unit>(m_caster), target, threat, m_spellInfo );
+                for(std::vector<Creature* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
+                    castPtr<Creature>(*itr)->GetAIInterface()->HealReaction( castPtr<Unit>(m_caster), target, threat, m_spellInfo );
             }
         }
     }
@@ -1780,7 +1780,7 @@ void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 
         if(Stare_duration>30*60*1000)
             Stare_duration=10000;//if we try to stare for more then a half an hour then better not stare at all :P (bug)
         float newo=unitTarget->calcRadAngle(unitTarget->GetPositionX(),unitTarget->GetPositionY(),m_targets.m_dest.x,m_targets.m_dest.y);
-        unitTarget->GetAIInterface()->StopMovement(Stare_duration);
+        castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(Stare_duration);
         unitTarget->SetFacing(newo);
     }
 
@@ -1889,10 +1889,6 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL )
         return;
-
-    for(WorldObject::InRangeSet::iterator itr = unitTarget->GetInRangeUnitSetBegin(); itr != unitTarget->GetInRangeUnitSetEnd(); itr++)
-        if(Player *player = unitTarget->GetInRangeObject<Player>(*itr))
-            player->GetAIInterface()->RemoveThreat(unitTarget->GetGUID());
 
     // also cancel any spells we are casting
     if( unitTarget->GetCurrentSpell() != NULL && unitTarget->GetCurrentSpell() != this && unitTarget->GetCurrentSpell()->getState() == SPELL_STATE_PREPARING )
@@ -2111,11 +2107,11 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
         return;
 
     uint32 time = uint32( (m_caster->CalcDistance(x,y,z) / ((u_caster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
-    u_caster->GetAIInterface()->SendMoveToPacket(x, y, z, 0.0f, time, MONSTER_MOVE_FLAG_WALK);
+    castPtr<Creature>(unitTarget)->GetAIInterface()->SendMoveToPacket(x, y, z, 0.0f, time, MONSTER_MOVE_FLAG_WALK);
     u_caster->SetPosition(x,y,z,0.0f);
 
     if(unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
-        unitTarget->GetAIInterface()->StopMovement(time);
+        castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(time);
 
     u_caster->addStateFlag(UF_ATTACKING);
     if(WoWGuid guid = unitTarget->GetGUID())
@@ -2226,9 +2222,9 @@ void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amou
         arc = GetSpellProto()->EffectMiscValueB[i]/10.f;
 
     uint32 time = uint32((amount / arc) * 100);
-    unitTarget->GetAIInterface()->StopMovement(time);
+    castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(time);
     unitTarget->SetPosition(pullX, pullY, pullZ, 0.0f);
-    unitTarget->GetAIInterface()->SendJumpTo(pullX, pullY, pullZ, time, arc);
+    castPtr<Creature>(unitTarget)->GetAIInterface()->SendJumpTo(pullX, pullY, pullZ, time, arc);
     if(m_caster->IsUnit())
     {
         if( unitTarget->IsPvPFlagged() )
@@ -2404,7 +2400,7 @@ void SpellEffectClass::SpellEffectAttackMe(uint32 i, WorldObject *target, int32 
     if(!m_caster->IsUnit() || unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    unitTarget->GetAIInterface()->AttackReaction(castPtr<Unit>(m_caster), 1, 0);
+    castPtr<Creature>(unitTarget)->GetAIInterface()->AttackReaction(castPtr<Unit>(m_caster), 1, 0);
 }
 
 void SpellEffectClass::SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount)
@@ -2705,9 +2701,9 @@ void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amou
     else arc = 10.0f;
 
     uint32 time = uint32((amount / arc) * 100);
-    u_caster->GetAIInterface()->StopMovement(time);
+    castPtr<Creature>(u_caster)->GetAIInterface()->StopMovement(time);
     u_caster->SetPosition(x, y, z, ang);
-    u_caster->GetAIInterface()->SendJumpTo(x, y, z, time, arc);
+    castPtr<Creature>(u_caster)->GetAIInterface()->SendJumpTo(x, y, z, time, arc);
 }
 
 void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target, int32 amount)

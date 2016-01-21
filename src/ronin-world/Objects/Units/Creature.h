@@ -4,6 +4,7 @@
 
 #pragma once
 
+class AIInterface;
 class CreatureTemplate;
 
 #define MAX_CREATURE_ITEMS 128
@@ -174,6 +175,7 @@ class AuctionHouse;
 
 class SERVER_DECL Creature : public Unit
 {
+    friend class AIInterface;
 public:
     Creature(CreatureData *data, uint64 guid);
     virtual ~Creature();
@@ -207,6 +209,9 @@ public:
     bool CanAddToWorld();
     void OnPushToWorld();
     void Respawn(bool addrespawnevent, bool free_guid);
+
+    // AIInterface
+    RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
     /// Arena organizers
     RONIN_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
@@ -421,6 +426,9 @@ public: // values
     uint32 m_taggingGroup, m_taggingPlayer;
 
     ItemPrototype* m_shieldProto;
+
+    // AI
+    AIInterface m_aiInterface;
 
 public:
 

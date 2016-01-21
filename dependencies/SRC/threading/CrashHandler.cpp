@@ -39,7 +39,7 @@ void OutputCrashLogLine(const char * format, ...)
         va_end(ap);
 }
 
-#if PLATFORM == PLATFORM_WIN && defined(NDEBUG)
+#if PLATFORM == PLATFORM_WIN && (defined(NDEBUG) || defined(_DEBUG))
 
 Mutex m_crashLock;
 
@@ -297,9 +297,6 @@ int __cdecl HandleCrash(PEXCEPTION_POINTERS pExceptPtrs)
 
     died = true;
 
-#ifndef NDEBUG
-    if(false)
-#endif
     {
         // Create the date/time string
         time_t curtime = time(NULL);

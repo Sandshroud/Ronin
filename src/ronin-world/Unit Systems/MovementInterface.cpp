@@ -1013,9 +1013,9 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
     DO_BYTES(bytes, uint32, getMSTime());
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
-    DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
+    DO_SEQ_BYTE(bytes, m_moverGuid[6]);
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);

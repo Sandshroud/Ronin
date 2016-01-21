@@ -228,7 +228,7 @@ MapInstance * WorldManager::GetSavedInstance(uint32 map_id, uint32 guid, uint32 
 
 void WorldManager::_CreateMap(MapEntry *mapEntry)
 {
-    if(m_maps.count(mapEntry->MapID))
+    if(m_maps.find(mapEntry->MapID) != m_maps.end())
         return;
 
     Map *map = new Map(mapEntry->MapID, mapEntry->name);
