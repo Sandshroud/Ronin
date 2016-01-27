@@ -20,7 +20,7 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_summoner = NULL;
     charges = -1;
     m_ritualmembers = NULL;
-    m_rotation.set(0.f, 0.f, 0.f, 0.f);
+    m_rotation.x = m_rotation.y = m_rotation.z = m_rotation.w = 0.f;
     m_quests = NULL;
     pInfo = NULL;
     m_spawn = NULL;
@@ -144,44 +144,30 @@ void GameObject::Update(uint32 p_time)
     }
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang)
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang, float r0, float r1, float r2, float r3)
 {
-    if(CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, ang))
-        return true;
-    return false;
+    return CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, ang, r0, r1, r2, r3);
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang)
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang, float r0, float r1, float r2, float r3)
 {
     if((pInfo = GameObjectNameStorage.LookupEntry(entry)) == NULL)
         return false;
 
-    if(m_created) // Already created, just push back.
+    if(m_created == false)
     {
-        if(!initiated)
-            InitAI();
-        return true;
-    }
+        m_created = true;
+        WorldObject::_Create( mapid, x, y, z, ang );
+        if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT || pInfo->Type == GAMEOBJECT_TYPE_MO_TRANSPORT)
+            m_updateFlags |= (UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT);
 
-    m_created = true;
-    WorldObject::_Create( mapid, x, y, z, ang );
-    if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT || pInfo->Type == GAMEOBJECT_TYPE_MO_TRANSPORT)
-        m_updateFlags |= (UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT);
-
-    SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-    SetDisplayId(pInfo->DisplayID);
-    SetFlags(pInfo->DefaultFlags);
-    SetType(pInfo->Type);
-    SetState(0x01);
-    InitAI();
-
-    if(ang != 0.f)
-    {
-        m_rotation = GameObject::CreateRotation(ang);
-        SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, m_rotation.x);
-        SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, m_rotation.y);
-        SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, m_rotation.z);
-        SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, m_rotation.w);
+        SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
+        UpdateRotations(r0, r1, r2, r3);
+        SetDisplayId(pInfo->DisplayID);
+        SetFlags(pInfo->DefaultFlags);
+        SetType(pInfo->Type);
+        SetState(0x01);
+        InitAI();
     }
     return true;
 }
@@ -366,9 +352,9 @@ void GameObject::InitAI()
     checkrate = 20;//once in 2 seconds
 }
 
-bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
+bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
 {
-    if(!CreateFromProto(spawn->entry,mapId,spawn->x,spawn->y,spawn->z, 0.f))
+    if(!CreateFromProto(spawn->entry, mapId, spawn->x, spawn->y, spawn->z, angle, spawn->r0, spawn->r1, spawn->r2, spawn->r3))
         return false;
 
     m_spawn = spawn;
@@ -377,11 +363,6 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
         SetUInt32Value(GAMEOBJECT_FACTION,spawn->faction);
         m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
     }
-
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = spawn->r0));
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = spawn->r1));
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = spawn->r2));
-    SetUInt64Value(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = spawn->r3));
 
     SetFlags(spawn->flags);
     SetState(spawn->state);
@@ -395,20 +376,29 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     return true;
 }
 
-int64 GameObject::PackRotation(G3D::Vector4 rotation)
+void GameObject::UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3)
 {
-    int8 w_sign = (rotation.w >= 0 ? 1 : -1);
-    int64 X = int32(rotation.x * (1 << 21)) * w_sign & ((1 << 22) - 1);
-    int64 Y = int32(rotation.y * (1 << 20)) * w_sign & ((1 << 21) - 1);
-    int64 Z = int32(rotation.z * (1 << 20)) * w_sign & ((1 << 21) - 1);
-    return uint64(Z | (Y << 21) | (X << 42));
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = rotation0));
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = rotation1));
+    if (rotation2 || rotation3)
+    {
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = rotation2));
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = rotation3));
+    }
+    else if(!RONIN_UTIL::fuzzyEq(GetOrientation(), 0.f))
+    {
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = std::sin(GetOrientation() / 2.f)));
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = std::cos(GetOrientation() / 2.f)));
+    }
 }
 
-G3D::Vector4 GameObject::CreateRotation(float orientation)
+int64 GameObject::PackRotation(ObjectRotation *rotation)
 {
-    G3D::Quat rotation = G3D::Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), orientation);
-    rotation.unitize();
-    return rotation.xyzw();
+    int8 w_sign = (rotation->w >= 0 ? 1 : -1);
+    int64 X = int32(rotation->x * (1 << 21)) * w_sign & ((1 << 22) - 1);
+    int64 Y = int32(rotation->y * (1 << 20)) * w_sign & ((1 << 21) - 1);
+    int64 Z = int32(rotation->z * (1 << 20)) * w_sign & ((1 << 21) - 1);
+    return uint64(Z | (Y << 21) | (X << 42));
 }
 
 void GameObject::DeleteFromDB()

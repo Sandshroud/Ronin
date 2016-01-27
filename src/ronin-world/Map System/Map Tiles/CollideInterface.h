@@ -11,7 +11,8 @@
 class SERVER_DECL VMapInterface : public Singleton<VMapInterface>
 {
 private:
-    VMAP::VMapManager* vMapMgr;
+    HMODULE hModule;
+    VMAP::VMapManagerExt* vMapMgr;
 
 protected:
     struct MapLoadData
@@ -19,13 +20,15 @@ protected:
         MapLoadData() : m_lock() { memset(&m_tileLoadCount, 0, sizeof(uint32)*64*64); }
         uint32 m_tileLoadCount[64][64];
         Mutex m_lock;
-    }*m_mapLocks[NUM_MAPS];
+    };
     Mutex m_mapDataLock;
+
+    std::map<uint32, MapLoadData*> m_mapLocks;
 
 public:
     void Init();
     void DeInit();
-    void UpdateAllMaps(uint32 p_time);
+
     void UpdateSingleMap(uint32 mapId, uint32 p_time);
 
     bool ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY);
@@ -47,6 +50,10 @@ public:
     void LoadGameobjectModel(uint64 Guid, uint32 mapId, uint32 displayID, float scale, float posX, float posY, float posZ, float orientation, uint32 instanceId, int32 phasemask);
     void UpdateObjectModel(uint64 Guid, uint32 mapId, uint32 instanceId, uint32 displayID);
     void UnLoadGameobjectModel(uint64 Guid, uint32 mapId, uint32 instanceId);
+
+    void LoadCallback(VMAP::VMapManagerExt *mgr) { vMapMgr = mgr; };
 };
+
+typedef VMAP::VMapManagerExt *(*vmap_manager_construction)(std::string vmapDir);
 
 #define sVMapInterface VMapInterface::getSingleton()

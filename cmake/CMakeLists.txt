@@ -190,21 +190,6 @@ SET(RONIN_SOURCE_DIRECTORIES
 "${ROOT_PATH}/src/ronin-world/Spell"
 "${ROOT_PATH}/src/ronin-world/Spell/Spellfixes")
 
-#Find our needed libs
-IF( NOT WIN32 )
-	find_package(ZLIB REQUIRED)
-	find_package(PCRE REQUIRED)
-	find_package(OpenSSL REQUIRED)
-	find_package(Threads REQUIRED)
-	find_package(MySQL REQUIRED)
-ENDIF()
-
-IF(WIN32)	#On windows, we have to specify the includes for libeay and mysql libs.
-	SET(GLOBAL_INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${DEPENDENCY_SOURCES}/openssl)
-	SET(MYSQL_INCLUDE_DIR ${DEPENDENCY_SOURCES}/mysql )
-ELSE()
-ENDIF()
-
 #On apple n linux, mysql.h should have been found.
 SET( GLOBAL_INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${MYSQL_INCLUDE_DIR} )
 
@@ -271,6 +256,7 @@ add_subdirectory(dependencies)
 
 if(ONLY_DEPENDENCIES EQUAL 0)
 
+add_subdirectory(modules)
 add_subdirectory(ronin-shared)
 add_subdirectory(ronin-logon)
 add_subdirectory(ronin-world)

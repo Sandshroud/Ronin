@@ -281,6 +281,19 @@ namespace RONIN_UTIL
         if(val >= 100.f) val = 99.99f;
         return 100.f-val;
     }
+
+    // Determines if either two values are equal, or the difference is less than one hundred thousandth units of value a
+    RONIN_INLINE bool fuzzyEq(double a, double b)
+    {
+        if(a != b)
+        {
+            const double diff = abs(a-b), aa = abs(a) + 1.0;
+            if (aa == std::numeric_limits<double>::infinity())
+                return diff < 0.00001f;
+            return diff < (0.00001f * aa);
+        }
+        return true;
+    }
 };
 
 

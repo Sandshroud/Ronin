@@ -102,7 +102,7 @@ void WorldSession::HandleMoveFallResetOpcode(WorldPacket & recv_data)
 #define BUILD_BOOL_LIST()  bool hasMovementFlags = read ? false : m_movementFlagMask & 0x0F,\
     hasMovementFlags2 = read ? false : m_movementFlagMask & 0xF0,\
     hasTimestamp = read ? false : true,\
-    hasOrientation = read ? false : !G3D::fuzzyEq(m_serverLocation->o, 0.0f),\
+    hasOrientation = read ? false : !RONIN_UTIL::fuzzyEq(m_serverLocation->o, 0.0f),\
     hasTransportData = read ? false : !m_transportGuid.empty(),\
     hasSpline = read ? false : isSplineMovingActive(),\
     hasTransportTime2 = read ? false : (hasTransportData && m_transportTime2 != 0),\

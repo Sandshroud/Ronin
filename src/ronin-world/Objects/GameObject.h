@@ -529,6 +529,8 @@ struct GameObjectInfo
 
 class SERVER_DECL GameObject : public WorldObject
 {
+    struct ObjectRotation { float x, y, z, w; };
+
 public:
     GameObject(uint64 guid, uint32 fieldCount = GAMEOBJECT_END);
     ~GameObject( );
@@ -540,12 +542,12 @@ public:
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
-    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang);
-    bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang);
+    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang, float r0 = 0.f, float r1 = 0.f, float r2 = 0.f, float r3 = 0.f);
+    bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang, float r0 = 0.f, float r1 = 0.f, float r2 = 0.f, float r3 = 0.f);
 
-    bool Load(uint32 mapId, GOSpawn *spawn);
-    static int64 PackRotation(G3D::Vector4 rotation);
-    static G3D::Vector4 CreateRotation(float orientation);
+    bool Load(uint32 mapId, GOSpawn *spawn, float angle = 0.f);
+    void UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3);
+    static int64 PackRotation(GameObject::ObjectRotation *rotation);
 
     void Spawn( MapInstance* m);
     void Despawn( uint32 delay, uint32 respawntime);
@@ -591,7 +593,7 @@ public:
     std::list<QuestRelation *>* m_quests;
 
     uint32 *m_ritualmembers;
-    G3D::Vector4 m_rotation;
+    ObjectRotation m_rotation;
 
     void InitAI();
     SpellEntry* spell;

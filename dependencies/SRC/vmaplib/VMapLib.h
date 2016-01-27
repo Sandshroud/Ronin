@@ -22,4 +22,6 @@
 
 #include "MapTree.h"
 
+#include "VMapManagerExt.h"
+
 #include "VMapManager.h"

@@ -59,8 +59,7 @@ extern "C" {
 #include <pcre/pcre.h>
 };
 
-#include <g3dlite/G3D.h>
-#include <vmaplib/VMapLib.h>
+#include <vmaplib/VMapManagerExt.h>
 #include <recast/Recast.h>
 #include <detour/Detour.h>
 

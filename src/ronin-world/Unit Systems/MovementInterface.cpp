@@ -1063,7 +1063,7 @@ void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer) { }
 void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 {
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
-    hasOrientation = !G3D::fuzzyEq(0.f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
+    hasOrientation = !RONIN_UTIL::fuzzyEq(0.f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);

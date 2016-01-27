@@ -157,13 +157,12 @@ private:
 
     MMapManager* GetMMap(uint32 mapid)
     {
-        MMapManager* mmapreturn = NULL;
-        if(mapid < NUM_MAPS)
-            mmapreturn = MMaps[mapid];
-        return mmapreturn;
+        if(m_maps.find(mapid) != m_maps.end())
+            return m_maps.at(mapid);
+        return NULL;
     };
 
-    MMapManager* MMaps[NUM_MAPS];
+    std::map<uint32, MMapManager*> m_maps;
 };
 
 extern SERVER_DECL CNavMeshInterface NavMeshInterface;

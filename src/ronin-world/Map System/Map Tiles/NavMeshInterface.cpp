@@ -8,69 +8,77 @@ SERVER_DECL CNavMeshInterface NavMeshInterface;
 
 void CNavMeshInterface::Init()
 {
-    sLog.Notice("NavMeshInterface", "Init");
-    memset( MMaps, 0, sizeof(MMapManager*)*NUM_MAPS );
+
 }
 
 void CNavMeshInterface::DeInit()
 {
-    for(uint32 i = 0; i < NUM_MAPS; i++)
-        delete MMaps[i];
+    for(auto it : m_maps)
+        delete it.second;
+    m_maps.clear();
 }
 
 MMapManager* CNavMeshInterface::GetOrCreateMMapManager(uint32 mapid)
 {
-    if(MMaps[mapid] != NULL)
-        return MMaps[mapid];
-
-    return (MMaps[mapid] = new MMapManager(mapid));
+    if(sWorld.PathFinding == false)
+        return NULL;
+    if(m_maps.find(mapid) == m_maps.end())
+        m_maps.insert(std::make_pair(mapid, new MMapManager(mapid)));
+    return m_maps.at(mapid);
 }
 
 bool CNavMeshInterface::IsNavmeshLoaded(uint32 mapid, uint32 x, uint32 y)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    return mmap->IsNavmeshLoaded(x, y);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        return mmap->IsNavmeshLoaded(x, y);
+    return false;
 }
 
 bool CNavMeshInterface::LoadNavMesh(uint32 mapid, uint32 x, uint32 y)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    return mmap->LoadNavMesh(x, y);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        return mmap->LoadNavMesh(x, y);
+    return false;
 }
 
 void CNavMeshInterface::UnloadNavMesh(uint32 mapid, uint32 x, uint32 y)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    mmap->UnloadNavMesh(x, y);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        mmap->UnloadNavMesh(x, y);
 }
 
 bool CNavMeshInterface::BuildPath(uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, LocationVector& out)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    return mmap->getNextPositionOnPathToLocation(startx, starty, startz, endx, endy, endz, out);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        return mmap->getNextPositionOnPathToLocation(startx, starty, startz, endx, endy, endz, out);
+    return false;
 }
 
 LocationVector CNavMeshInterface::BuildPath(uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool best)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    if(best)
-        return mmap->getBestPositionOnPathToLocation(startx, starty, startz, endx, endy, endz);
-    return mmap->getNextPositionOnPathToLocation(startx, starty, startz, endx, endy, endz);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+    {
+        if(best)
+            return mmap->getBestPositionOnPathToLocation(startx, starty, startz, endx, endy, endz);
+        return mmap->getNextPositionOnPathToLocation(startx, starty, startz, endx, endy, endz);
+    }
+    return LocationVector(endx, endy, endz);
 }
 
 LocationVectorMapContainer* CNavMeshInterface::BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool straight)
 {
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    return mmap->BuildFullPath(m_Unit, startx, starty, startz, endx, endy, endz, straight);
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        return mmap->BuildFullPath(m_Unit, startx, starty, startz, endx, endy, endz, straight);
+    return NULL;
 }
 
 float CNavMeshInterface::GetWalkingHeight(uint32 mapid, float x, float y, float z, float z2)
 {
     LocationVector Step;
     float height = MMAP_UNAVAILABLE;
-    MMapManager* mmap = GetOrCreateMMapManager(mapid);
-    if(mmap->GetWalkingHeightInternal(x, y, z, z2, Step))
-        height = Step.z;
+    if(MMapManager* mmap = GetOrCreateMMapManager(mapid))
+        if(mmap->GetWalkingHeightInternal(x, y, z, z2, Step))
+            height = Step.z;
     return height;
 }
 

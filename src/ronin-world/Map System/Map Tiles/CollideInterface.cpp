@@ -8,33 +8,34 @@ createFileSingleton(VMapInterface);
 
 void VMapInterface::Init()
 {
-    sLog.Notice("CollideInterface", "Init");
-    vMapMgr = new VMAP::VMapManager(sWorld.vMapPath);
-    memset(&m_mapLocks, NULL, sizeof(MapLoadData*)*NUM_MAPS);
-    vMapMgr->LoadGameObjectModelList();
+    vMapMgr = NULL;
+    if(sWorld.Collision == false)
+        return;
+
+    if( hModule = LoadLibrary("Collision.dll") )
+    {
+        // find version import
+        if(vmap_manager_construction rcall = (vmap_manager_construction)GetProcAddress(hModule, "vmap_manager_construction"))
+            vMapMgr = rcall(sWorld.vMapPath);
+        else FreeLibrary(hModule);
+    }
+
+    if(vMapMgr)
+    {
+        sLog.Success("VMapInterface", "Collision linked successfully\n");
+        vMapMgr->LoadGameObjectModelList();
+    }
 }
 
 void VMapInterface::DeInit()
 {
-    for(uint16 i = 0; i < NUM_MAPS; i++)
-    {
-        if(m_mapLocks[i])
-        {
-            vMapMgr->unloadMap(i);
-            delete m_mapLocks[i];
-            m_mapLocks[i] = NULL;
-        }
-    }
-    delete vMapMgr;
-    // bleh.
-}
+    if(vMapMgr)
+        delete vMapMgr;
+    vMapMgr = NULL;
+    FreeLibrary(hModule);
 
-void VMapInterface::UpdateAllMaps(uint32 p_time)
-{
-    if( vMapMgr == NULL )
-        return;
-
-    vMapMgr->updateDynamicMapTree(p_time);
+    for (auto it : m_mapLocks)
+        delete it.second;
 }
 
 void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
@@ -47,38 +48,32 @@ void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
 
 bool VMapInterface::ActivateMap(uint32 mapId)
 {
-    if( vMapMgr == NULL )
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
-    if(m_mapLocks[mapId] != NULL)
-        return true;
     bool result;
     m_mapDataLock.Acquire();
     if(result = vMapMgr->loadMap(mapId))
-        m_mapLocks[mapId] = new MapLoadData();
+        m_mapLocks.insert(std::make_pair(mapId, new MapLoadData()));
     m_mapDataLock.Release();
     return result;
 }
 
 void VMapInterface::DeactivateMap(uint32 mapId)
 {
-    if( vMapMgr == NULL )
-        return;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
 
     m_mapDataLock.Acquire();
     // no instances using this anymore
     delete m_mapLocks[mapId];
-    m_mapLocks[mapId] = NULL;
+    m_mapLocks.erase(mapId);
     vMapMgr->unloadMap(mapId);
     m_mapDataLock.Release();
 }
 
 bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
 {
-    if( vMapMgr == NULL )
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     // acquire write lock
@@ -105,9 +100,7 @@ bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
 
 void VMapInterface::DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
 {
-    if( vMapMgr == NULL )
-        return;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
 
     // get write lock
@@ -121,9 +114,7 @@ void VMapInterface::DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
 
 bool VMapInterface::IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY)
 {
-    if( vMapMgr == NULL )
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     bool isactive = false;
@@ -139,9 +130,7 @@ bool VMapInterface::IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY)
 
 bool VMapInterface::CheckLOS(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2)
 {
-    if( vMapMgr == NULL )
-        return true;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return true;
 
     // get read lock
@@ -159,9 +148,7 @@ bool VMapInterface::CheckLOS(uint32 mapId, uint32 instanceId, int32 m_phase, flo
 
 bool VMapInterface::GetFirstPoint(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float & outx, float & outy, float & outz, float distmod)
 {
-    if( vMapMgr == NULL )
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     // get read lock
@@ -179,9 +166,7 @@ bool VMapInterface::GetFirstPoint(uint32 mapId, uint32 instanceId, int32 m_phase
 
 float VMapInterface::GetHeight(uint32 mapId, uint32 instanceId, int32 m_phase, float x, float y, float z)
 {
-    if( vMapMgr == NULL )
-        return NO_WMO_HEIGHT;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return NO_WMO_HEIGHT;
 
     // get read lock
@@ -225,9 +210,7 @@ uint16 convertWaterIDToFlags(uint16 wmoType)
 
 float VMapInterface::GetWaterHeight(uint32 mapId, float x, float y, float z, uint16 &outType)
 {
-    if( vMapMgr == NULL )
-        return NO_WMO_HEIGHT;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return NO_WMO_HEIGHT;
 
     // get read lock
@@ -249,9 +232,7 @@ float VMapInterface::GetWaterHeight(uint32 mapId, float x, float y, float z, uin
 
 bool VMapInterface::IsIndoor(uint32 mapId, float x, float y, float z)
 {
-    if(vMapMgr == NULL)
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     // get read lock
@@ -280,9 +261,7 @@ bool VMapInterface::IsIndoor(uint32 mapId, float x, float y, float z)
 
 bool VMapInterface::IsIncity(uint32 mapId, float x, float y, float z)
 {
-    if(vMapMgr == NULL)
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     // get read lock
@@ -320,9 +299,7 @@ bool VMapInterface::IsIncity(uint32 mapId, float x, float y, float z)
 
 bool VMapInterface::GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 &areaId, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupid)
 {
-    if(vMapMgr == NULL)
-        return false;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
 
     bool res = false;
@@ -345,9 +322,7 @@ bool VMapInterface::GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 
 
 void VMapInterface::LoadGameobjectModel(uint64 Guid, uint32 mapId, uint32 displayID, float scale, float posX, float posY, float posZ, float orientation, uint32 instanceId, int32 phasemask)
 {
-    if( vMapMgr == NULL )
-        return;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
 
     // get read lock
@@ -361,9 +336,7 @@ void VMapInterface::LoadGameobjectModel(uint64 Guid, uint32 mapId, uint32 displa
 
 void VMapInterface::UpdateObjectModel(uint64 Guid, uint32 mapId, uint32 instanceId, uint32 displayID)
 {
-    if( vMapMgr == NULL )
-        return;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
 
     // get read lock
@@ -377,9 +350,7 @@ void VMapInterface::UpdateObjectModel(uint64 Guid, uint32 mapId, uint32 instance
 
 void VMapInterface::UnLoadGameobjectModel(uint64 Guid, uint32 instanceId, uint32 mapId)
 {
-    if( vMapMgr == NULL )
-        return;
-    if(m_mapLocks[mapId] == NULL)
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
 
     // get read lock

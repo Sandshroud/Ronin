@@ -466,12 +466,8 @@ bool World::SetInitialWorldSettings()
 
     sLog.Success("World", "Database loaded in %ums.", getMSTime() - start_time);
 
-    if(Collision)
-    {
-        sVMapInterface.Init();
-        if(PathFinding)
-            NavMeshInterface.Init();
-    }
+    sVMapInterface.Init();
+    NavMeshInterface.Init();
 
     // calling this puts all maps into our task list.
     sWorldMgr.Load(&tl);
