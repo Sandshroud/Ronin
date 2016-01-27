@@ -16,10 +16,6 @@ void AIInterface::InitalizeExtraInfo(CreatureData *data, CreatureInfoExtra *info
     m_canFlee = info ? info->m_canFlee : false;
     m_FleeHealth = info ? info->m_fleeHealth : 0.f;
     m_FleeDuration = info ? info->m_fleeDuration : 0;
-
-    //these fields are always 0 in db
-    setMoveType(0);
-    setMoveRunFlag(0);
 }
 
 SpellEntry *AIInterface::getSpellEntry(uint32 spellId)
@@ -130,7 +126,6 @@ void AIInterface::CastAISpell(Unit* Target, AI_Spell* toCast, uint32 currentTime
     } else m_CastTimer = 1000+toCast->casttime;
 
     toCast->lastcast = currentTime;
-    StopMovement(m_CastTimer);
     m_AIState = STATE_CASTING;
 
     toCast->mPredefinedTarget = NULL;
@@ -173,7 +168,7 @@ bool AIInterface::IsValidUnitTarget( WorldObject *pObject, SpellEntry *info, uin
     if(UnitTarget != m_Unit)
     {
         dist = m_Unit->CalcDistance( UnitTarget );
-        if ( m_outOfCombatRange && UnitTarget->GetDistanceSq( GetReturnPos() ) > m_outOfCombatRange )
+        if ( m_outOfCombatRange && UnitTarget->GetDistanceSq( m_Unit->GetCombatEnterLoc() ) > m_outOfCombatRange )
             return false;
     }
 

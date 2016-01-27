@@ -1540,10 +1540,9 @@ void WorldSession::HandleHearthandResurrect(WorldPacket &recv_data)
 uint8 WorldSession::CheckTeleportPrerequisites(WorldSession * pSession, Player* pPlayer, uint32 mapid)
 {
     MapEntry* map = dbcMap.LookupEntry(mapid);
-    MapManager *mgr = sWorldMgr.GetMapManager(mapid);
 
     //is this map enabled?
-    if( mgr == NULL )
+    if(map == NULL || !sWorldMgr.ValidateMapId(mapid))
         return AREA_TRIGGER_FAILURE_UNAVAILABLE;
 /*
     //Do we need TBC expansion?

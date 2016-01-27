@@ -443,9 +443,7 @@ void Pet::InitializeMe()
     } else m_Owner->SetSummon( castPtr<Pet>(this) );
 
     // set up ai and shit
-    GetAIInterface()->Init(castPtr<Unit>(this) ,AITYPE_PET,MOVEMENTTYPE_NONE,m_Owner);
-    GetAIInterface()->SetUnitToFollow(m_Owner);
-    GetAIInterface()->SetFollowDistance(3.0f);
+    GetAIInterface()->Init(castPtr<Unit>(this), AITYPE_PET, m_Owner);
 
     m_Owner->SetUInt64Value(UNIT_FIELD_SUMMON, GetGUID());
     SetUInt32Value(UNIT_FIELD_PETNUMBER, GetLowGUID());

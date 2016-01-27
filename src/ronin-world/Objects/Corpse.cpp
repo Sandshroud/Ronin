@@ -50,6 +50,13 @@ void Corpse::Create( Player* owner, uint32 mapid, float x, float y, float z, flo
     }
 }
 
+void Corpse::OnPushToWorld()
+{
+    // add deletion event if bone corpse
+    if( GetUInt64Value(CORPSE_FIELD_OWNER) == 0 )
+        objmgr.CorpseAddEventDespawn(this);
+}
+
 void Corpse::SaveToDB()
 {
     QueryBuffer* qb = new QueryBuffer();

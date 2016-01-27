@@ -1252,7 +1252,6 @@ bool ChatHandler::HandleNpcReturnCommand(const char* args, WorldSession* m_sessi
     creature->GetAIInterface()->SetAIState(STATE_IDLE);
     creature->GetAIInterface()->WipeHateList();
     creature->GetAIInterface()->WipeTargetList();
-    creature->GetAIInterface()->MoveTo(creature->GetSpawnX(), creature->GetSpawnY(), creature->GetSpawnZ(), creature->GetSpawnO());
     return true;
 }
 
@@ -1279,22 +1278,13 @@ bool ChatHandler::HandleModPeriodCommand(const char* args, WorldSession * m_sess
 
 bool ChatHandler::HandleNpcFollowCommand(const char* args, WorldSession * m_session)
 {
-    Creature* creature = getSelectedCreature(m_session, true);
-    if(!creature) return true;
 
-    creature->GetAIInterface()->SetUnitToFollow(m_session->GetPlayer());
     return true;
 }
 
 bool ChatHandler::HandleNullFollowCommand(const char* args, WorldSession * m_session)
 {
-    Creature* c = getSelectedCreature(m_session, true);
-    if(!c) 
-        return true;
 
-    // restart movement
-    c->GetAIInterface()->SetAIState(STATE_IDLE);
-    c->GetAIInterface()->SetUnitToFollow(NULL);
     return true;
 }
 
@@ -2067,9 +2057,6 @@ bool ChatHandler::HandleNpcUnPossessCommand(const char * args, WorldSession * m_
         creature->GetAIInterface()->SetAIState(STATE_IDLE);
         creature->GetAIInterface()->WipeHateList();
         creature->GetAIInterface()->WipeTargetList();
-
-        if(creature->IsSpawn()) // return to respawn coords
-            creature->GetAIInterface()->MoveTo(creature->GetSpawnX(), creature->GetSpawnY(), creature->GetSpawnZ(), creature->GetSpawnO());
     }
     GreenSystemMessage(m_session, "Removed any possessed targets.");
     return true;

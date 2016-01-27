@@ -130,7 +130,7 @@ private:
 // Each instance has it's own instance data linked to unique IDs
 typedef std::map<uint32, InstanceData*> InstanceDataMap;
 
-class MapManager;
+class ContinentManager;
 
 class SERVER_DECL WorldManager
 {
@@ -146,6 +146,7 @@ public:
         return m_maps[mapid];
     }
 
+    bool ValidateMapId(uint32 mapId);
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
 
     bool PushToWorldQueue(WorldObject *obj);
@@ -281,11 +282,11 @@ public:
     // this only frees the instance pointer, not the mapmgr itself
     void DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid);
 
-    bool MapManagerExists(uint32 mapId) { return m_mapManagement.find(mapId) != m_mapManagement.end(); }
-    MapManager *GetMapManager(uint32 mapId)
+    bool ContinentManagerExists(uint32 mapId) { return m_continentManagement.find(mapId) != m_continentManagement.end(); }
+    ContinentManager *GetContinentManager(uint32 mapId)
     {
-        if(MapManagerExists(mapId))
-            return m_mapManagement.at(mapId);
+        if(ContinentManagerExists(mapId))
+            return m_continentManagement.at(mapId);
         return NULL;
     }
 
@@ -298,7 +299,7 @@ public:
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
 private:
-    void _InitMapManager(MapEntry *mapEntry, Map *map);
+    void _InitializeContinent(MapEntry *mapEntry, Map *map);
 
     Mutex m_mapLock;
     std::map<uint32, Map*> m_maps;
@@ -306,7 +307,7 @@ private:
     uint32 m_instanceCounter;
     InstanceDataMap m_instances;
 
-    std::map<uint32, MapManager*> m_mapManagement;
+    std::map<uint32, ContinentManager*> m_continentManagement;
 };
 
 extern SERVER_DECL WorldManager sWorldMgr;

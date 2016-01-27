@@ -257,7 +257,7 @@ public:
     void UpdatePreWrite(uint16 opcode, uint16 moveCode);
     bool UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffer *source);
 
-    void HandleBreathing();
+    void HandleBreathing(uint32 diff);
     void HandleMovementFlags(bool read, ByteBuffer *buffer);
     void HandleMovementFlags2(bool read, ByteBuffer *buffer);
 
@@ -399,6 +399,8 @@ public:
             m_movementFlags[i] = 0;
         }
     }
+
+    void StopMirrorTimer(uint8 type) { m_MirrorTimer[type] = -1; }
 
 private:
     bool UpdateAcknowledgementData(uint16 moveCode);
@@ -563,7 +565,11 @@ protected:
     uint32 m_serverCounter, m_clientCounter;
     bool m_incrementMoveCounter;
 
+    int32 m_MirrorTimer[3];
+    uint32 m_LastUnderwaterState;
+    uint32 m_UnderwaterTime;
     uint8 m_underwaterState;
+
     float m_collisionHeight;
     bool m_isKnockBacked;
 

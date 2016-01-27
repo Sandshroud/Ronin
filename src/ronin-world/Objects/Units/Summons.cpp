@@ -58,7 +58,7 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     Creature::Load(m_owner->GetMapId(), position.x, position.y, position.z, position.o, 0);
 
-    GetAIInterface()->Init(this, AITYPE_PET, MOVEMENTTYPE_NONE, m_owner);
+    GetAIInterface()->Init(this, AITYPE_PET, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
     SetFaction(m_owner->GetFactionID());
     SetZoneId(m_owner->GetZoneId());
@@ -99,10 +99,7 @@ void CompanionSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
     SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->SetFaction(35);
     m_summon->setLevel(1);
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, MOVEMENTTYPE_NONE, owner);
-    m_summon->GetAIInterface()->SetUnitToFollow(owner);
-    m_summon->GetAIInterface()->SetUnitToFollowAngle(-M_PI / 2);
-    m_summon->GetAIInterface()->SetFollowDistance(3.0f);
+    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, owner);
     m_summon->GetAIInterface()->disable_melee = true;
 
     m_summon->RemovePvPFlag();
@@ -119,9 +116,7 @@ void GuardianSummon::Load(Unit* owner, LocationVector & position, uint32 spellid
     m_summon->SetMaxHealth(m_summon->GetMaxHealth() + 28 + 30 * m_summon->getLevel());
     m_summon->SetHealth(m_summon->GetMaxHealth());
 
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, MOVEMENTTYPE_NONE, owner);
-    m_summon->GetAIInterface()->SetUnitToFollow(owner);
-    m_summon->GetAIInterface()->SetFollowDistance(3.0f);
+    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, owner);
 
     m_summon->m_noRespawn = true;
 }
@@ -130,7 +125,6 @@ void PossessedSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
 {
     SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->setLevel(owner->getLevel());
-    m_summon->GetAIInterface()->StopMovement(0);
 }
 
 void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, int32 summonslot)
@@ -171,7 +165,7 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     m_summon->SetNativeDisplayId(m_summon->GetCreatureData()->displayInfo[0]);
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
 
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, MOVEMENTTYPE_NONE, owner);
+    m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, owner);
 }
 
 void TotemSummon::SetupSpells()
@@ -352,7 +346,6 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         u_caster->AddSummonToSlot(slot, s);
         s->CreateAs(new WildSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
-        s->GetAIInterface()->SetUnitToFollowAngle(followangle);
         s->PushToWorld(u_caster->GetMapInstance());
 
         if(Properties)
@@ -449,7 +442,6 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         u_caster->AddSummonToSlot(slot, s);
         s->CreateAs(new GuardianSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
-        s->GetAIInterface()->SetUnitToFollowAngle(followangle);
         s->PushToWorld(u_caster->GetMapInstance());
 
         if(u_caster->IsPlayer() && (slot != 0))
@@ -511,7 +503,6 @@ void SpellEffectClass::SummonTemporaryPet(Unit *u_caster, uint32 i, int32 amount
 
         u_caster->AddSummonToSlot(slot, pet);
         pet->CreateAsSummon(NULL, u_caster, &spawnLoc, m_spellInfo, 1, duration);
-        pet->GetAIInterface()->SetUnitToFollowAngle(followangle);
     }
 
     if(duration > 0)
@@ -573,7 +564,6 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
     s->CreateAs(new CompanionSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
-    s->GetAIInterface()->SetFollowDistance(GetRadius(i));
     s->PushToWorld(u_caster->GetMapInstance());
     u_caster->SetSummonedCritterGUID(s->GetGUID());
 

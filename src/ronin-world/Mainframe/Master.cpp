@@ -147,18 +147,17 @@ bool Master::Run(int argc, char ** argv)
         return false;
     }
 
+    int logLevel = 1;
     //use these log_level until we are fully started up.
     if(mainIni->ReadInteger("LogLevel", "Screen", 1) == -1)
     {
         sLog.Notice("Master", "Running silent mode...");
-        sLog.Init(-1);
+        logLevel = -1;
     }
-    else
 #ifdef _DEBUG
-        sLog.Init(3);
-#else
-        sLog.Init(1);
+    else logLevel = 3;
 #endif // _DEBUG
+    sLog.Init(logLevel);
 
     sDBEngine.Init(false);
 
@@ -218,13 +217,12 @@ bool Master::Run(int argc, char ** argv)
 
     // Start Network Subsystem
     sLog.Debug("Server","Starting network subsystem..." );
-    CreateSocketEngine(8);
+    CreateSocketEngine(std::min<int8>(16, mainIni->ReadInteger("ServerSettings", "NetworkThreads", 2)));
     sSocketEngine.SpawnThreads();
 
     if( StartConsoleListener() )
         sLog.Success("RemoteConsole", "Started and listening on port %i", mainIni->ReadInteger("RemoteConsole", "Port", 8092));
-    else
-        sLog.Debug("RemoteConsole", "Not enabled or failed listen.");
+    else sLog.Debug("RemoteConsole", "Not enabled or failed listen.");
 
     LoadingTime = getMSTime() - LoadingTime;
     sLog.Success("Server","Ready for connections. Startup time: %ums\n", LoadingTime );

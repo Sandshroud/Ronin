@@ -206,9 +206,6 @@ void World::Destruct()
     sLog.Notice("WorldStateTemplateManager", "~WorldStateTemplateManager()");
     delete WorldStateTemplateManager::getSingletonPtr();
 
-    sLog.Notice("DayWatcherThread", "~DayWatcherThread()");
-    delete DayWatcherThread::getSingletonPtr();
-
     sLog.Notice("InstanceMgr", "~InstanceMgr()");
     sWorldMgr.Shutdown();
 
@@ -391,7 +388,6 @@ bool World::SetInitialWorldSettings()
 
     // Unload the DBC loader
     delete DBCLoader::getSingletonPtr();
-    Sleep(500);
 
     new StatSystem();
     if(!sStatSystem.Load())
@@ -492,7 +488,7 @@ bool World::SetInitialWorldSettings()
     sLog.Notice("World","Starting Transport System...");
     objmgr.LoadTransporters();
 
-    ThreadPool.ExecuteTask("DayWatcherThread", new DayWatcherThread());
+    dayWatcher.load_settings();
 
     if(mainIni->ReadBoolean("Startup", "BackgroundLootLoading", true))
     {
@@ -557,6 +553,9 @@ bool World::SetInitialWorldSettings()
 void World::Update(uint32 diff)
 {
     _UpdateGameTime();
+
+    if((dayWatcherTimer += diff) > 12000)
+        dayWatcher.Update(dayWatcherTimer);
 
     UpdateQueuedSessions(diff);
 
@@ -1101,7 +1100,7 @@ void TaskList::spawn()
     running = true;
     thread_count = 0;
 
-    uint32 threadcount;
+    uint32 threadcount = 1;
     if(mainIni->ReadBoolean("Startup", "EnableMultithreadedLoading", true))
     {
         // get processor count
@@ -1127,8 +1126,6 @@ void TaskList::spawn()
             threadcount = 8;
 #endif
     }
-    else
-        threadcount = 1;
 
     sLog.Notice("World", "Beginning %s server startup with %u thread(s).", (threadcount == 1) ? "progressive" : "parallel", threadcount);
     for(uint32 x = 0; x < threadcount; ++x)
@@ -1180,16 +1177,13 @@ bool TaskExecutor::run()
     Task * t;
     while(starter->running)
     {
-        t = starter->GetTask();
-        if(t)
+        if(t = starter->GetTask())
         {
             t->execute();
             t->completed = true;
             starter->RemoveTask(t);
             delete t;
-        }
-        else
-            Delay(20);
+        } else Delay(20);
     }
     return true;
 }
@@ -1729,4 +1723,70 @@ void World::LogChat(WorldSession* session, std::string message, ...)
 
         LogDatabase.Execute(LogDatabase.EscapeString(execute).c_str());
     }
+}
+
+void DayWatcherThread::load_settings()
+{
+    bheroic_reset = false;
+
+    QueryResult *result = NULL;
+    if(result = CharacterDatabase.Query("SELECT setting_value FROM server_settings WHERE setting_id = \"last_dailies_reset_time\""))
+    {
+        last_daily_reset_time = result->Fetch()[0].GetUInt64();
+        local_last_daily_reset_time = *localtime(&last_daily_reset_time);
+        delete result;
+    }
+    else
+    {
+        tm *now_time = localtime(&UNIXTIME);
+        now_time->tm_hour = 0;
+        last_daily_reset_time = mktime(now_time);
+        local_last_daily_reset_time = *now_time;
+    }
+}
+
+bool DayWatcherThread::has_timeout_expired(tm *now_time, tm *last_time, uint32 timeoutval)
+{
+    switch(timeoutval)
+    {
+    case DW_MINUTELY: return ((now_time->tm_min != last_time->tm_min) || (now_time->tm_hour != last_time->tm_hour) || (now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
+    case DW_HOURLY: return ((now_time->tm_hour != last_time->tm_hour) || (now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
+    case DW_DAILY: return ((now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
+    case DW_WEEKLY: return ( (now_time->tm_mday / 7) != (last_time->tm_mday / 7) || (now_time->tm_mon != last_time->tm_mon) );
+    case DW_MONTHLY: return (now_time->tm_mon != last_time->tm_mon);
+    }
+    return false;
+}
+
+void DayWatcherThread::Update(uint32 diff)
+{
+    if(has_timeout_expired(&g_localTime, &local_last_daily_reset_time, DW_DAILY))
+        update_daily();
+
+    // reset will occur daily between 07:59:00 CET and 08:01:30 CET (players inside will get 60 sec countdown)
+    // 8AM = 25200s
+    uint32 umod = uint32(UNIXTIME + 3600) % 86400;
+    if(bheroic_reset == false && umod >= 25140 && umod <= 25140 + (diff/1000) + 30 )
+    {   // It's approx 8AM, let's reset (if not done so already)
+        Reset_Heroic_Instances();
+        bheroic_reset = true;
+    }
+
+    if(bheroic_reset && umod > 25140 + (diff/1000) + 30 )
+        bheroic_reset = false;
+}
+
+void DayWatcherThread::update_daily()
+{
+    sLog.Notice("DayWatcherThread", "Running Daily Quest Reset...");
+    objmgr.ResetDailies();
+    last_daily_reset_time = UNIXTIME;
+    local_last_daily_reset_time = g_localTime;
+    CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_dailies_reset_time\", %u)", last_daily_reset_time);
+}
+
+void DayWatcherThread::Reset_Heroic_Instances()
+{
+    sLog.Notice("DayWatcherThread", "Reseting heroic instances...");
+    sWorldMgr.ResetHeroicInstances();
 }

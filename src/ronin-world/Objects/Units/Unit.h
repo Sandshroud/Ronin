@@ -240,8 +240,6 @@ enum INVIS_FLAG
     INVIS_FLAG_TOTAL
 };
 
-typedef std::list<struct ProcTriggerSpellOnSpell> ProcTriggerSpellOnSpellList;
-
 // Threat Redirect Handler
 class SERVER_DECL ThreatRedirectHandler
 {
@@ -447,7 +445,7 @@ public:
 
     void smsg_AttackStart(WoWGuid victimGuid);
     void smsg_AttackStop(WoWGuid victimGuid);
-    void smsg_AttackStop(Unit* pVictim);
+    void smsg_AttackStop(Unit* pVictim) { smsg_AttackStop(pVictim ? pVictim->GetGUID() : 0); }
 
     bool IsDazed();
     float CalculateDazeCastChance(Unit* target);
@@ -747,6 +745,9 @@ public:
 
     void Dismount();
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
+
+    float GetDistanceToCombatEnter() { return 0.f; }
+    LocationVector GetCombatEnterLoc() { return m_position; };
 
 public:
     void knockback(int32 basepoint, uint32 miscvalue, bool disengage = false );

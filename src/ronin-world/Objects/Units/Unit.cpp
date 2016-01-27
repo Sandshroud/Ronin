@@ -2563,8 +2563,6 @@ void Unit::EventAttackStart(WoWGuid guid)
     smsg_AttackStart(m_attackTarget);
     Dismount();
 
-    if(IsPlayer())
-        return;
     SetUInt64Value(UNIT_FIELD_TARGET, guid);
 }
 
@@ -2587,18 +2585,6 @@ void Unit::smsg_AttackStop(WoWGuid victimGuid)
     WorldPacket data(SMSG_ATTACKSTOP, 20);
     data << GetGUID().asPacked();
     data << victimGuid.asPacked();
-    data << uint32(0);
-    SendMessageToSet(&data, IsPlayer());
-}
-
-void Unit::smsg_AttackStop(Unit* pVictim)
-{
-    if(pVictim == NULL)
-        return;
-
-    WorldPacket data(SMSG_ATTACKSTOP, 20);
-    data << GetGUID().asPacked();
-    data << pVictim->GetGUID().asPacked();
     data << uint32(0);
     SendMessageToSet(&data, IsPlayer());
 }
@@ -2815,11 +2801,7 @@ void Unit::EventAddEmote(EmoteType emote, uint32 time)
 
 void Unit::EventAllowCombat(bool allow)
 {
-    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
-    {
-        castPtr<Creature>(this)->GetAIInterface()->SetAllowedToEnterCombat(allow);
-        castPtr<Creature>(this)->GetAIInterface()->setCanMove(allow);
-    }
+
 }
 
 void Unit::EmoteExpire()
@@ -3054,48 +3036,45 @@ void Unit::UpdateVisibility()
     WorldObject::InRangeWorldObjSet::iterator itr, it3;
     if( GetTypeId() == TYPEID_PLAYER )
     {
-        WorldObject* pObj;
         Player *plr = castPtr<Player>(this), *pl = NULL;
-        for( WorldObject::InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end();)
+        for( WorldObject::InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); ++itr)
         {
-            pObj = itr->second;
-            ++itr;
-            if(pObj == NULL)
-                continue;
-
-            can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
-            if(can_see && !is_visible)
+            if(WorldObject *pObj = itr->second)
             {
-                plr->AddVisibleObject(pObj);
-                if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
+                can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
+                if(can_see && !is_visible)
                 {
-                    plr->PushUpdateBlock(&buffer, count);
-                    buffer.clear();
-                }
-            }
-            else if(!can_see && is_visible)
-            {
-                pObj->DestroyForPlayer(plr);
-                plr->RemoveVisibleObject(it3);
-            }
-
-            if( pObj->IsPlayer() )
-            {
-                pl = castPtr<Player>( pObj );
-                can_see = pl->CanSee( plr ), is_visible = pl->GetVisibility( plr, &it3 );
-                if( can_see && !is_visible )
-                {
-                    pl->AddVisibleObject(plr);
-                    if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
+                    plr->AddVisibleObject(pObj);
+                    if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
                     {
-                        pl->PushUpdateBlock(&buffer, count);
+                        plr->PushUpdateBlock(&buffer, count);
                         buffer.clear();
                     }
                 }
                 else if(!can_see && is_visible)
                 {
-                    plr->DestroyForPlayer(pl);
-                    pl->RemoveVisibleObject(it3);
+                    pObj->DestroyForPlayer(plr);
+                    plr->RemoveVisibleObject(it3);
+                }
+
+                if( pObj->IsPlayer() )
+                {
+                    pl = castPtr<Player>( pObj );
+                    can_see = pl->CanSee( plr ), is_visible = pl->GetVisibility( plr, &it3 );
+                    if( can_see && !is_visible )
+                    {
+                        pl->AddVisibleObject(plr);
+                        if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
+                        {
+                            pl->PushUpdateBlock(&buffer, count);
+                            buffer.clear();
+                        }
+                    }
+                    else if(!can_see && is_visible)
+                    {
+                        plr->DestroyForPlayer(pl);
+                        pl->RemoveVisibleObject(it3);
+                    }
                 }
             }
         }
@@ -3243,8 +3222,6 @@ void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
 void Unit::SetFacing(float newo)
 {
     SetOrientation(newo);
-    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
-        castPtr<Creature>(this)->GetAIInterface()->SendMoveToPacket(m_position.x,m_position.y,m_position.z,m_position.o,1,MONSTER_MOVE_FLAG_WALK);
 }
 
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
@@ -3288,10 +3265,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->SetZoneId(GetZoneId());
         p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
-        p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,castPtr<Unit>(this));
-        p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
-        p->GetAIInterface()->SetUnitToFollowAngle(angle);
-        p->GetAIInterface()->SetFollowDistance(3.0f);
+        p->GetAIInterface()->Init(p, AITYPE_PET, castPtr<Unit>(this));
         p->PushToWorld(GetMapInstance());
 
         if(duration)

@@ -52,6 +52,7 @@ WorldSocket::~WorldSocket()
 
 void WorldSocket::OnDisconnect()
 {
+    printf("Disconnected\n");
     if(mSession)
     {
         mSession->SetSocket(0);
@@ -297,11 +298,11 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
 
     //checking if player is already connected
     //disconnect current player and login this one(blizzlike)
-    WorldSession *session = sWorld.FindSession( AccountID );
-    if( session != NULL )
+    if( WorldSession *session = sWorld.FindSession( AccountID ) )
     {
         if(session->IsHighPriority())
         {
+            printf("High priority\n");
             // Fail authentification until the player is finally added to world
             SendAuthResponse(AUTH_ALREADY_LOGGING_IN, false);
             return;

@@ -44,6 +44,8 @@ public:
     void Create (Player* owner, uint32 mapid, float x, float y, float z, float ang );
     void Create (uint32 owner, uint32 mapid, float x, float y, float z, float ang );
 
+    void OnPushToWorld();
+
     void SaveToDB();
     void DeleteFromDB();
     RONIN_INLINE void SetCorpseState(uint32 state) { m_state = state; }

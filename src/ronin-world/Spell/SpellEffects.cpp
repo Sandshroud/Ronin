@@ -1779,9 +1779,8 @@ void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 
         int32 Stare_duration=GetDuration();
         if(Stare_duration>30*60*1000)
             Stare_duration=10000;//if we try to stare for more then a half an hour then better not stare at all :P (bug)
-        float newo=unitTarget->calcRadAngle(unitTarget->GetPositionX(),unitTarget->GetPositionY(),m_targets.m_dest.x,m_targets.m_dest.y);
-        castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(Stare_duration);
-        unitTarget->SetFacing(newo);
+
+        unitTarget->SetFacing(unitTarget->calcRadAngle(unitTarget->GetPositionX(),unitTarget->GetPositionY(),m_targets.m_dest.x,m_targets.m_dest.y));
     }
 
     //Smoke Emitter 164870
@@ -2107,11 +2106,7 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
         return;
 
     uint32 time = uint32( (m_caster->CalcDistance(x,y,z) / ((u_caster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
-    castPtr<Creature>(unitTarget)->GetAIInterface()->SendMoveToPacket(x, y, z, 0.0f, time, MONSTER_MOVE_FLAG_WALK);
     u_caster->SetPosition(x,y,z,0.0f);
-
-    if(unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
-        castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(time);
 
     u_caster->addStateFlag(UF_ATTACKING);
     if(WoWGuid guid = unitTarget->GetGUID())
@@ -2222,9 +2217,7 @@ void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amou
         arc = GetSpellProto()->EffectMiscValueB[i]/10.f;
 
     uint32 time = uint32((amount / arc) * 100);
-    castPtr<Creature>(unitTarget)->GetAIInterface()->StopMovement(time);
     unitTarget->SetPosition(pullX, pullY, pullZ, 0.0f);
-    castPtr<Creature>(unitTarget)->GetAIInterface()->SendJumpTo(pullX, pullY, pullZ, time, arc);
     if(m_caster->IsUnit())
     {
         if( unitTarget->IsPvPFlagged() )
@@ -2558,20 +2551,7 @@ void SpellEffectClass::SpellEffectAddHonor(uint32 i, WorldObject *target, int32 
 
 void SpellEffectClass::SpellEffectSpawn(uint32 i, WorldObject *target, int32 amount)
 {
-    // this effect is mostly for custom teleporting
-    switch(GetSpellProto()->Id)
-    {
-        case 10418: // Arugal spawn-in spell , teleports it to 3 locations randomly sneeking players (bastard ;P)
-        {
-            if(!m_caster->IsCreature())
-                return;
 
-            static float coord[3][3]= {{-108.9034f,2129.5678f,144.9210f},{-108.9034f,2155.5678f,155.678f},{-77.9034f,2155.5678f,155.678f}};
-
-            int i = (int)(rand()%3);
-            castPtr<Creature>(m_caster)->GetAIInterface()->SendMoveToPacket(coord[i][0], coord[i][1], coord[i][2], 0.0f, 0, castPtr<Creature>(m_caster)->GetAIInterface()->getMoveFlags());
-        }
-    }
 }
 
 void SpellEffectClass::SpellEffectRedirectThreat(uint32 i, WorldObject *target, int32 amount)
@@ -2700,10 +2680,6 @@ void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amou
         arc = GetSpellProto()->EffectMiscValueB[i]/10;
     else arc = 10.0f;
 
-    uint32 time = uint32((amount / arc) * 100);
-    castPtr<Creature>(u_caster)->GetAIInterface()->StopMovement(time);
-    u_caster->SetPosition(x, y, z, ang);
-    castPtr<Creature>(u_caster)->GetAIInterface()->SendJumpTo(x, y, z, time, arc);
 }
 
 void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target, int32 amount)

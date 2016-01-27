@@ -576,11 +576,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->SetZoneId(GetZoneId());
     p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
 
-    p->GetAIInterface()->Init(p,AITYPE_PET,MOVEMENTTYPE_NONE,u_caster);
-    p->GetAIInterface()->SetUnitToFollow(castPtr<Unit>(this));
-    p->GetAIInterface()->SetUnitToFollowAngle(angle);
-    p->GetAIInterface()->SetFollowDistance(3.0f);
-
+    p->GetAIInterface()->Init(p, AITYPE_PET, u_caster);
     p->PushToWorld(GetMapInstance());
 
     if(duration)

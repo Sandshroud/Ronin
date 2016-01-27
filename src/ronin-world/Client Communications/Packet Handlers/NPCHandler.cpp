@@ -384,9 +384,6 @@ void WorldSession::HandleListInventoryOpcode( WorldPacket & recv_data )
     if (unit == NULL)
         return;
 
-    if(unit->GetAIInterface())
-        unit->GetAIInterface()->StopMovement(180000);
-
     if(FactionEntry *faction = unit->GetFaction())
         _player->Reputation_OnTalk(faction);
     unit->SendInventoryList(_player);

@@ -490,7 +490,7 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     //already active?
     if(m_characterMapIds.find(guid) == m_characterMapIds.end())
         response = CHAR_LOGIN_NO_CHARACTER;
-    else if(sWorldMgr.GetMapManager(m_characterMapIds.at(guid)) == NULL)
+    else if(!sWorldMgr.ValidateMapId(m_characterMapIds.at(guid)))
         response = CHAR_LOGIN_NO_WORLD;
     else if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;

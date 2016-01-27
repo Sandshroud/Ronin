@@ -166,7 +166,7 @@ public:
     Unit* GetUnit(WoWGuid guid);
     WorldObject* _GetObject(WoWGuid guid);
 
-    MapInstance(MapManager *mgr, uint32 mapid, uint32 instanceid);
+    MapInstance(Map *map, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
     void Destruct();

@@ -877,7 +877,7 @@ Corpse* ObjectMgr::CreateCorpse()
     uint32 guid = ++m_hiCorpseGuid;
     m_corpseguidlock.Release();
 
-    Corpse* pCorpse = new Corpse(HIGHGUID_TYPE_CORPSE,guid);
+    Corpse* pCorpse = new Corpse(HIGHGUID_TYPE_CORPSE, guid);
     pCorpse->Init();
     return pCorpse;
 }

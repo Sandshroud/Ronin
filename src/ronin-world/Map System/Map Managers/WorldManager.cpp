@@ -17,6 +17,13 @@ WorldManager::WorldManager()
 
 }
 
+bool WorldManager::ValidateMapId(uint32 mapId)
+{
+    if(ContinentManagerExists(mapId))
+        return true;
+    return m_maps.find(mapId) != m_maps.end();
+}
+
 void WorldManager::Load(TaskList * l)
 {
     new WorldStateTemplateManager;
@@ -36,7 +43,7 @@ void WorldManager::Load(TaskList * l)
         MapEntry *map = dbcMap.LookupRow(i);
         if(map == NULL)
             continue;
-        if(m_mapManagement.count(map->MapID))
+        if(m_maps.find(map->MapID) != m_maps.end())
             continue;
         if(!map->IsContinent() && !map->Instanceable())
             continue;
@@ -45,7 +52,7 @@ void WorldManager::Load(TaskList * l)
         count++;
     }
     l->wait();
-    for(auto itr = m_mapManagement.begin(); itr != m_mapManagement.end(); itr++)
+    for(auto itr = m_continentManagement.begin(); itr != m_continentManagement.end(); itr++)
         itr->second->SetThreadState(THREADSTATE_AWAITING);
 
     // load saved instances
@@ -60,7 +67,7 @@ WorldManager::~WorldManager()
 void WorldManager::Shutdown()
 {
     // Map manager threads are self cleanup
-    m_mapManagement.clear();
+    m_continentManagement.clear();
     m_maps.clear();
 }
 
@@ -68,15 +75,17 @@ uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
 {
     // preteleport is where all the magic happens :P instance creation, etc.
     MapEntry* map = dbcMap.LookupEntry(mapid);
-    MapManager *mgr = GetMapManager(mapid);
-
-    //is the map vaild?
-    if(mgr == NULL || map == NULL)
+    if(map == NULL) //is the map vaild?
         return INSTANCE_ABORT_NOT_FOUND;
 
     // main continent check.
     if(map->IsContinent())
-        return (mgr->GetContinent() != NULL) ? INSTANCE_OK : INSTANCE_ABORT_NOT_FOUND; // we can check if the destination world server is online or not and then cancel them before they load.
+    {
+        // we can check if the destination world server is online or not and then cancel them before they load.
+        if(ContinentManagerExists(mapid))
+            return INSTANCE_OK;
+        return INSTANCE_ABORT_NOT_FOUND;
+    }
 
     // shouldn't happen
     if(map->IsBattleGround() || map->IsBattleArena())
@@ -91,7 +100,7 @@ uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
         return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
 
     //do we need addition raid/heroic checks?
-    Group * pGroup = plr->GetGroup() ;
+    Group * pGroup = plr->GetGroup();
     if( !plr->triggerpass_cheat )
     {
         // players without groups cannot enter raid instances (no soloing them:P)
@@ -193,30 +202,17 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
 
 MapInstance* WorldManager::GetInstance(WorldObject* obj)
 {
-    if(MapManager *mgr = GetMapManager(obj->GetMapId()))
-    {
-        if(MapInstance *instance = mgr->GetContinent())
-            return instance;
-        else if(MapInstance *instance = mgr->GetMapInstance(obj->GetInstanceID()))
-            return instance;
-        else if( obj->IsPlayer() )
-        {
-
-        }
-    }
+    if(ContinentManager *manager = GetContinentManager(obj->GetMapId()))
+        return manager->GetContinent();
 
     return NULL;
 }
 
 MapInstance* WorldManager::GetInstance(uint32 MapId, uint32 InstanceId)
 {
-    if(MapManager *mgr = GetMapManager(MapId))
-    {
-        // single-instance maps never go into the instance set.
-        if( MapInstance *continent = mgr->GetContinent() )
-            return continent;
-        return mgr->GetMapInstance(InstanceId);
-    }
+    if(ContinentManager *manager = GetContinentManager(MapId))
+        return manager->GetContinent();
+
     return NULL;
 }
 
@@ -228,14 +224,14 @@ MapInstance * WorldManager::GetSavedInstance(uint32 map_id, uint32 guid, uint32 
 
 void WorldManager::_CreateMap(MapEntry *mapEntry)
 {
-    if(m_maps.find(mapEntry->MapID) != m_maps.end())
-        return;
-
     Map *map = new Map(mapEntry->MapID, mapEntry->name);
     m_maps.insert(std::make_pair(mapEntry->MapID, map));
-    _InitMapManager(mapEntry, map);
-    if(sWorld.ServerPreloading)
-        map->LoadAllTerrain();
+    if(mapEntry->IsContinent())
+    {
+        _InitializeContinent(mapEntry, map);
+        if(sWorld.ServerPreloading)
+            map->LoadAllTerrain();
+    }
 }
 
 uint32 WorldManager::GenerateInstanceID()
@@ -248,7 +244,7 @@ uint32 WorldManager::GenerateInstanceID()
 
 void WorldManager::BuildXMLStats(char * m_file)
 {
-    for(std::map<uint32, MapManager*>::iterator itr = m_mapManagement.begin(); itr != m_mapManagement.end(); itr++)
+    for(auto itr = m_continentManagement.begin(); itr != m_continentManagement.end(); itr++)
         ;//itr->second->BuildStats(m_file);
 
     sLog.Debug("WorldManager", "Dumping XML stats...");
@@ -261,7 +257,6 @@ void WorldManager::_LoadInstances()
     CharacterDatabase.WaitExecute("DELETE FROM instances WHERE expiration <= %u", UNIXTIME);
 
     // load saved instances
-
     if(QueryResult *result = CharacterDatabase.Query("SELECT * FROM instances"))
     {
         uint32 count = 0;
@@ -333,26 +328,22 @@ MapInstance* WorldManager::CreateBattlegroundInstance(uint32 mapid)
 void WorldManager::DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid)
 {
     m_mapLock.Acquire();
-    if(MapManager *mgr = GetMapManager(mapid))
-        mgr->ReleaseInstance(instanceid);
-    else printf("Could not delete battleground instance!\n");
+    printf("Could not delete battleground instance!\n");
     m_mapLock.Release();
 }
 
-void WorldManager::_InitMapManager(MapEntry *mapEntry, Map *map)
+void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
 {
-    MapManager *mgr = new MapManager(mapEntry, map);
-
-    // Initialize the manager before starting the thread
-    if(!mgr->Initialize())
+    ContinentManager *mgr = new ContinentManager(mapEntry, map);
+    if(!mgr->Initialize()) // Initialize the manager before starting the thread
     {
         delete mgr;
         return;
     }
 
     // Store the manager in the worldManager thread
-    m_mapManagement.insert(std::make_pair(mapEntry->MapID, mgr));
+    m_continentManagement.insert(std::make_pair(mapEntry->MapID, mgr));
 
     // Set manager to start it's internal thread
-    ThreadPool.ExecuteTask(format("MapManager - M%u", mapEntry->MapID).c_str(), mgr);
+    ThreadPool.ExecuteTask(format("ContinentMgr - M%u", mapEntry->MapID).c_str(), mgr);
 }

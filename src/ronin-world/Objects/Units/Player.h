@@ -795,7 +795,7 @@ public:
     static bool IsValidRace(uint8 Race) { return ((1 << (Race - 1)) & RACEMASK_ALL_PLAYABLE) != 0; }
 
 public:
-    void EventDBCChatUpdate(uint32 dbcID);
+    void EventDBCChatUpdate(uint32 dbcID = 0xFFFFFFFF);
 protected:
     bool AllowChannelAtLocation(uint32 dbcID, AreaTableEntry *areaTable);
     bool UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, ChatChannelEntry* entry, Channel* channel);
@@ -1317,10 +1317,6 @@ public:
 
     void SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen);
     void StopMirrorTimer(MirrorTimerType Type);
-    void HandleBreathing(uint32 time_diff);
-    int32 m_MirrorTimer[3];
-    uint32 m_LastUnderwaterState;
-    uint32 m_UnderwaterTime;
 
     // Beast
     bool m_BeastMaster;

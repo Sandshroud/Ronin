@@ -9,325 +9,7 @@
 ///====================================================================
 void AIInterface::_UpdateCombat(uint32 p_time)
 {
-    ASSERT(m_Unit != NULL);
-    if(!m_Unit->isAlive())
-        return;
-    if( m_AIType != AITYPE_PET && disable_combat )
-        return;
 
-    if(m_nextTarget)
-    {
-        // Check if our target is attackable, if not, change to the most hated.
-        if(!sFactionSystem.CanEitherUnitAttack(m_Unit, m_nextTarget, false))
-        {
-            SetNextTarget(GetMostHated());
-
-            // Check if our new target is unattackable, or doesn't exist
-            if(!sFactionSystem.CanEitherUnitAttack(m_Unit, m_nextTarget, false))
-                SetNextTarget(FindTarget());
-        }
-
-        if( m_AIType != AITYPE_PET && (m_outOfCombatRange && m_Unit->GetDistanceSq(GetReturnPos()) > m_outOfCombatRange)
-            && m_AIState != STATE_EVADE && !m_fleeTimer && !m_is_in_instance)
-        {
-            HandleEvent( EVENT_LEAVECOMBAT, m_Unit, 0 );
-            return;
-        }
-        else if( m_nextTarget == NULL && m_AIState != STATE_FOLLOWING && !m_fleeTimer )
-        {
-            SetNextTarget(GetMostHated());
-            if( m_nextTarget == NULL )
-            {
-                HandleEvent( EVENT_LEAVECOMBAT, m_Unit, 0 );
-                return;
-            }
-        }
-    }
-
-    if(!disable_spell && m_spells.size() && m_AIState != STATE_EVADE && !m_Unit->isCasting())
-    {
-        if(m_CastTimer > p_time)
-            m_CastTimer -= p_time;
-        else
-        {
-            m_CastTimer = 0;
-            m_AIState = STATE_ATTACKING;
-            m_Unit->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT,0);
-            m_Unit->SetUInt32Value(UNIT_CHANNEL_SPELL,0);
-            uint32 currentTime = getMSTime();
-
-            // DO OUR BARREL SPELLS
-            if(m_CastNext == NULL)
-            {
-                //Try our chance at casting a spell (Will actually be cast on next ai update, so we just
-                //schedule it. This is needed to avoid next dealt melee damage while we cast the spell.)
-                AI_Spell* Spell = NULL;
-                for( AISpellMap::iterator SpellIter = m_spells.begin(); SpellIter != m_spells.end(); ++SpellIter )
-                {
-                    Spell = SpellIter->second;
-                    if( Spell->m_AI_Spell_disabled )
-                        continue;
-                    if( Spell->perctrigger == 0.0f )
-                        continue;
-                    if(!CanCastAISpell(Spell, currentTime))
-                        continue;
-                    // Check if spell won the roll
-                    Unit* pTarget = GetTargetForSpell(Spell);
-                    if(pTarget == NULL)
-                        continue;
-
-                    if(Spell->perctrigger != 100.0f)
-                    {
-                        float ChanceRoll = RandomFloat(100.0f);
-                        if(Spell->perctrigger < ChanceRoll)
-                            continue;
-                    }
-
-                    if(pTarget == m_Unit)
-                        CastAISpell(m_Unit, Spell, currentTime);
-                    else
-                    {
-                        unitBehavior = Behavior_Spell;
-                        if(pTarget != GetNextTarget())
-                            SetNextTarget(pTarget);
-                        m_CastNext = Spell;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    if(m_AIState == STATE_IDLE || m_AIState == STATE_FOLLOWING
-        || m_AIState == STATE_FEAR || m_AIState == STATE_WANDER)
-        return;
-    if(m_AIType == AITYPE_PET && m_Unit->IsPet())
-    {
-        Pet* pPet = castPtr<Pet>(m_Unit);
-        if(pPet->GetPetAction() != PET_ACTION_ATTACK || pPet->GetPetState() == PET_STATE_PASSIVE)
-            return;
-    }
-
-    BehaviorType LastBehavior = unitBehavior;
-    if( m_nextTarget != NULL && m_nextTarget->isAlive() && m_AIState != STATE_EVADE && !m_Unit->isCasting())
-    {
-        if( LastBehavior == Behavior_Default || ( m_AIType == AITYPE_PET && m_CastNext == NULL ) ) // allow pets autocast
-        {
-            if(m_Unit->IsPet() && !m_CastNext)
-            {
-                AI_Spell* PetSpell = castPtr<Pet>(m_Unit)->HandleAutoCastEvent();
-                if(PetSpell && CanCastAISpell(PetSpell, getMSTime()))
-                {
-                    if(IsValidUnitTarget(m_nextTarget, PetSpell))
-                    {
-                        unitBehavior = Behavior_Spell;
-                        m_CastNext = PetSpell;
-                    }
-                }
-            }
-
-            if(m_canFlee && !m_hasFled && ( float(m_Unit->GetHealthPct()) < (m_FleeHealth ? m_FleeHealth : 1)))
-            {
-                setMoveRunFlag(false);
-                if(m_fleeTimer == 0)
-                    m_fleeTimer = m_FleeDuration;
-
-                _CalcDestinationAndMove(m_nextTarget, 10.0f);
-                if(!m_hasFled)
-                    TRIGGER_AI_EVENT(m_Unit, OnFlee)(m_nextTarget);
-
-                SetAIState(STATE_FLEEING);
-                SetNextTarget(NULL);
-
-                switch(sendflee_message)
-                {
-                case 1:
-                    {
-                        if(flee_message.size())
-                            m_Unit->SendChatMessage(CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, flee_message.c_str());
-                    }break;
-                case 2:
-                    {
-                        if(flee_message.size())
-                            m_Unit->SendChatMessage(CHAT_MSG_MONSTER_YELL, LANG_UNIVERSAL, flee_message.c_str());
-                    }break;
-                default:
-                    {
-                        std::stringstream ss;
-                        ss << castPtr<Creature>( m_Unit )->GetName() << " attempts to run away in fear!";
-                        m_Unit->SendChatMessage(CHAT_MSG_MONSTER_EMOTE, LANG_UNIVERSAL, ss.str().c_str());
-                    }break;
-                }
-
-                m_hasFled = true;
-                return;
-            }
-            else if(m_canCallForHelp && !m_hasCalledForHelp )
-            {
-                FindFriends( 50.0f /*7.0f*/ );
-                m_hasCalledForHelp = true; // We only want to call for Help once in a Fight.
-                TRIGGER_AI_EVENT( m_Unit, OnCallForHelp );
-                return;
-            }
-            else
-            {
-                if(m_CastNext != NULL)
-                    LastBehavior = Behavior_Spell;
-                else LastBehavior = Behavior_Melee;
-            }
-        }
-
-        //check if we can do range attacks
-        if(LastBehavior == Behavior_Ranged || LastBehavior == Behavior_Melee)
-        {
-            if(m_canRangedAttack)
-            {
-                float dist = m_Unit->GetDistanceSq(m_nextTarget);
-                if(m_nextTarget->IsPlayer())
-                {
-                    if( castPtr<Player>( m_nextTarget )->GetMovementInterface()->isRooted() || dist >= 32.0f )
-                        LastBehavior = Behavior_Ranged;
-                    else LastBehavior = Behavior_Melee;
-                } else if( m_nextTarget->m_canMove == false || dist >= 32.0f )
-                    LastBehavior = Behavior_Ranged;
-                else LastBehavior = Behavior_Melee;
-            } else LastBehavior = Behavior_Melee;
-        }
-
-        if( disable_melee && LastBehavior == Behavior_Melee )
-            LastBehavior = Behavior_Default;
-        if( disable_ranged && LastBehavior == Behavior_Ranged )
-            LastBehavior = Behavior_Default;
-        if( disable_spell && LastBehavior == Behavior_Spell )
-            LastBehavior = Behavior_Default;
-
-        float distance = m_Unit->CalcDistance(m_nextTarget);
-        switch(LastBehavior)
-        {
-        case Behavior_Ranged:
-            {
-                if(distance <= 8.0f)
-                    LastBehavior = Behavior_Melee;
-            }break;
-
-        case Behavior_Spell:
-            {
-                bool los = m_Unit->IsInLineOfSight(m_nextTarget);
-                if(!los)
-                {
-                    m_CastNext = NULL;
-                    LastBehavior = Behavior_Melee;
-                    SetBehaviorType(Behavior_Default);
-                }
-                else if(m_CastNext != NULL)
-                {
-                    if(!IsValidUnitTarget(m_nextTarget, m_CastNext))
-                    {
-                        m_CastNext = NULL;
-                        LastBehavior = Behavior_Melee;
-                        SetBehaviorType(Behavior_Default);
-                    }
-                }
-                else
-                {
-                    LastBehavior = Behavior_Melee;
-                    SetBehaviorType(Behavior_Default);
-                }
-            }break;
-        }
-
-        switch(LastBehavior)
-        {
-        case Behavior_Melee:
-            {
-                if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                    castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 1 );
-                float combatReach = _CalcCombatRange(m_nextTarget, false); // Calculate Combat Reach
-                float distance = m_Unit->CalcDistance(m_nextTarget);
-
-                if(distance <= combatReach + DISTANCE_TO_SMALL_TO_WALK) // Target is (alomst) in Range -> Attack
-                {
-                    if(getUnitToFollow() != NULL)
-                        MovementHandler.ClearFollowInformation(getUnitToFollow());
-                }
-                else // Target out of Range -> Run to it
-                {
-                    //Make sure target can reach us.
-                    float dist = _CalcCombatRange(m_nextTarget, false);
-                    if(dist < m_Unit->GetModelHalfSize())
-                        dist = m_Unit->GetModelHalfSize(); //unbelievable how this could happen
-
-                    setMoveRunFlag(true);
-                    _CalcDestinationAndMove(m_nextTarget, dist);
-                }
-            }break;
-        case Behavior_Ranged:
-            {
-                if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                {
-                    castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 3 );
-                    castPtr<Creature>(m_Unit)->SetUInt32Value(UNIT_NPC_EMOTESTATE, GetWeaponEmoteType(true));
-                }
-
-                float combatReach[2]; // Used Shooting Ranges
-                float distance = m_Unit->CalcDistance(m_nextTarget);
-
-                combatReach[0] = 8.0f;
-                combatReach[1] = 30.0f;
-
-                if(distance >= combatReach[0] && distance <= combatReach[1]) // Target is in Range -> Shoot!!
-                {
-                    if(getUnitToFollow() != NULL)
-                        MovementHandler.ClearFollowInformation(getUnitToFollow());
-                }
-                else // Target out of Range -> Run to/from it, depending on current distance
-                {
-                    float dist;
-                    if(distance < combatReach[0])// Target is too near
-                        dist = 9.0f;
-                    else
-                        dist = 20.0f;
-
-                    setMoveRunFlag(true);
-                    _CalcDestinationAndMove(m_nextTarget, dist);
-                }
-            }break;
-        case Behavior_Spell:
-            {
-                if( m_CastNext != NULL && m_nextTarget != NULL )
-                {
-                    sLog.Debug("AiAgents","NextSpell %u by NPC %u", m_CastNext->info->Id, GetUnit()->GetGUID());
-
-                    if( m_Unit->GetTypeId() == TYPEID_UNIT )
-                        castPtr<Creature>(m_Unit)->SetSheatheForAttackType( 0 );
-
-                    uint32 currentTime = getMSTime();
-
-                    // DO OUR BARREL SPELLS
-                    if(IsValidUnitTarget(m_nextTarget, m_CastNext) && CanCastAISpell(m_CastNext, currentTime))
-                        CastAISpell(m_nextTarget, m_CastNext, currentTime);
-                }
-            }break;
-        }
-    }
-    else
-    {
-        if(m_nextTarget == NULL)
-        {
-            if(!m_Unit->isCasting())
-            {
-                // no more target
-                SetNextTarget(NULL);
-                HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
-            }
-        }
-        else if(m_nextTarget->GetInstanceID() != m_Unit->GetInstanceID() || !m_nextTarget->isAlive() || !m_nextTarget->IsInWorld())
-        {
-            // no more target
-            SetNextTarget(NULL);
-            HandleEvent(EVENT_LEAVECOMBAT, m_Unit, 0);
-        }
-    }
 }
 
 void AIInterface::CheckNextTargetFlyingStatus()
@@ -336,7 +18,7 @@ void AIInterface::CheckNextTargetFlyingStatus()
         return;
 
     bool LeaveCombat = false;
-    if(!IS_INSTANCE(m_Unit->GetMapId()) && !MovementHandler.m_moveFly)
+    if(!IS_INSTANCE(m_Unit->GetMapId()) && !m_Unit->canFly())
     {
         float target_land_z = m_nextTarget->GetCHeightForPosition();
         if(target_land_z+_CalcCombatRange(m_nextTarget, m_canRangedAttack) < m_nextTarget->GetPositionZ())
@@ -346,59 +28,7 @@ void AIInterface::CheckNextTargetFlyingStatus()
 
 void AIInterface::_UpdateTargets(uint32 p_time)
 {
-    if( m_Unit->IsPlayer() || disable_targeting )
-        return;
 
-    if(m_updateListTimer > p_time)
-        m_updateListTimer -= p_time;
-    else
-    {
-        m_updateListTimer = TARGET_UPDATE_INTERVAL - (m_updateListTimer - p_time);
-        // Find new Assist Targets and remove old ones
-        if(m_AIState == STATE_FLEEING)
-            FindFriends(100.0f/*11.0*/);
-        else if(m_AIState != STATE_IDLE)
-            FindFriends(16.0f/*4.0f*/);
-    }
-
-    if(m_updateTargetsTimer > p_time)
-        m_updateTargetsTimer -= p_time;
-    else
-    {
-        m_updateTargetsTimer = (TARGET_UPDATE_INTERVAL * 2) - (p_time-m_updateTargetsTimer);
-
-        CheckNextTargetFlyingStatus();
-        ai_TargetLock.Acquire();
-        for(TargetMap::iterator itr = m_aiTargets.begin(), it2; itr != m_aiTargets.end();)
-        {
-            it2 = itr++;
-            if(Unit *unit = m_Unit->GetMapInstance()->GetUnit(itr->first))
-                if(m_Unit->GetDistanceSq(unit) < 6400.0f && sFactionSystem.CanEitherUnitAttack(m_Unit, unit))
-                    continue;
-
-            m_aiTargets.erase( it2 );
-        }
-        ai_TargetLock.Release();
-
-        Unit* target = FindTarget();
-        if(m_aiTargets.size() == 0
-            && m_AIState != STATE_IDLE && m_AIState != STATE_FOLLOWING
-            && m_AIState != STATE_EVADE && m_AIState != STATE_FEAR
-            && m_AIState != STATE_WANDER)
-        {
-            if(firstLeaveCombat)
-            {
-                if(target == NULL)
-                    firstLeaveCombat = false;
-                else AttackReaction(target, 1, 0);
-            }
-        } else if( target && m_aiTargets.size() == 0 && (m_AIType == AITYPE_PET && (m_Unit->IsPet() && castPtr<Pet>(m_Unit)->GetPetState() == PET_STATE_AGGRESSIVE) || (!m_Unit->IsPet() && disable_melee == false ) ) )
-            AttackReaction(target, 1, 0);
-
-        // Find new Targets when we are ooc
-        if(m_AIState == STATE_IDLE && (target = FindTarget()))
-            AttackReaction(target, 1, 0);
-    }
 }
 
 Unit* AIInterface::FindTarget()
@@ -837,11 +467,6 @@ void AIInterface::CheckTarget(Unit* target)
     if( target == NULL )
         return;
 
-    if(target == getUnitToFollow())
-        ClearFollowInformation(target);
-    else if(target == getBackupUnitToFollow())
-        ClearFollowInformation(target);
-
     ai_TargetLock.Acquire();
     TargetMap::iterator it2 = m_aiTargets.find( target->GetGUID() );
     if( it2 != m_aiTargets.end() || target == m_nextTarget )
@@ -877,14 +502,8 @@ void AIInterface::CheckTarget(Unit* target)
                 ai->m_CastNext = NULL;
                 ai->GetMostHated();
             }
-
-            if(ai->getUnitToFollow() == m_Unit)
-                ai->ClearFollowInformation(m_Unit);
         }
     }
-
-    if(target == getUnitToFear())
-        SetUnitToFear(NULL);
 
     if(tauntedBy == target)
         tauntedBy = NULL;
@@ -923,7 +542,5 @@ void AIInterface::WipeReferences()
     m_aiTargets.clear();
     ai_TargetLock.Release();
     SetNextTarget(NULL);
-    SetUnitToFear(NULL);
-    ClearFollowInformation();
     tauntedBy = NULL;
 }

@@ -6,7 +6,7 @@
 
 #ifdef NETLIB_IOCP
 
-iocpEngine::iocpEngine(int TLimit)
+iocpEngine::iocpEngine(int count) : thread_count(count)
 {
     WSADATA wsadata;
     WSAStartup(0xFF02, &wsadata); // Request the highest available version of winSock2.X
@@ -14,7 +14,6 @@ iocpEngine::iocpEngine(int TLimit)
 
     m_completionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 
-    ThreadLimit = TLimit;
     new SocketDeleter();
 }
 
@@ -116,13 +115,6 @@ void iocpEngine::MessageLoop()
 
 void iocpEngine::SpawnThreads()
 {
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-
-    thread_count = si.dwNumberOfProcessors*2;
-    if(ThreadLimit > 0 && thread_count > ThreadLimit)
-        thread_count = ThreadLimit;
-
     for(int i = 1; i <= thread_count; i++)
     {
         char ThreadName[45];

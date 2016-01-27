@@ -32,7 +32,12 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer
     m_transportSeatId = 0, m_vehicleId = 0;
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
+
     m_underwaterState = 0;
+    m_LastUnderwaterState = 0;
+    m_MirrorTimer[0] = m_MirrorTimer[1] = m_MirrorTimer[2] = -1;
+    m_UnderwaterTime = 180000;
+
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
 
@@ -348,28 +353,26 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
 
 void MovementInterface::Update(uint32 diff)
 {
-    m_updateTimer += diff;
-    // Update movement timers 500ms
-    if(m_updateTimer < 500)
-        return;
-
-    for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
+    m_updateTimer += diff; // Update movement timers 500ms
+    if(m_updateTimer >= 200)
     {
-        if(m_speedTimers[i])
+        for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
         {
-            if(m_speedTimers[i] <= m_updateTimer)
+            if(m_speedTimers[i])
             {
-                m_speedTimers[i] = 0; // Timer not needed anymore
-                m_currSpeeds[i] = m_pendingSpeeds[i];
-                m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
-            } else m_speedTimers[i] -= m_updateTimer;
+                if(m_speedTimers[i] <= m_updateTimer)
+                {
+                    m_speedTimers[i] = 0; // Timer not needed anymore
+                    m_currSpeeds[i] = m_pendingSpeeds[i];
+                    m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
+                } else m_speedTimers[i] -= m_updateTimer;
+            }
         }
+
+        HandleBreathing(m_updateTimer);
+        m_updateTimer = 0;
     }
 
-    if(!m_Unit->IsPlayer())
-        return;
-
-    HandleBreathing();
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
@@ -597,40 +600,167 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode)
     return true;
 }
 
-void MovementInterface::HandleBreathing()
+void MovementInterface::HandleBreathing(uint32 diff)
 {
+    uint8 old_underwaterState = m_underwaterState;
     uint16 WaterType = 0;
     float WaterHeight = NO_WATER_HEIGHT;
     m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, WaterHeight, WaterType);
     if (WaterHeight == NO_WATER_HEIGHT)
-    {
         m_underwaterState &= ~0xD0;
-        return;
-    }
-    float HeightDelta = (WaterHeight-m_Unit->GetPositionZ())*10;
-
-    // All liquids type - check under water position
-    if(WaterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
-        m_underwaterState |= UNDERWATERSTATE_UNDERWATER;
-    else m_underwaterState &= ~UNDERWATERSTATE_UNDERWATER;
-
-    if(!m_Unit->IsPlayer() || !castPtr<Player>(m_Unit)->GetTaxiPath())
+    else
     {
-        // Allow travel in dark water on taxi or transport
-        if ((WaterType & 0x10) && m_transportGuid.empty())
-            m_underwaterState |= UNDERWATERSTATE_FATIGUE;
-        else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
-    } else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
+        float HeightDelta = (WaterHeight-m_Unit->GetPositionZ())*10;
 
-    // in lava check, anywhere in lava level
-    if (WaterType & 0x04 && HeightDelta > 0.f)
-        m_underwaterState |= UNDERWATERSTATE_LAVA;
-    else m_underwaterState &= ~UNDERWATERSTATE_LAVA;
+        // All liquids type - check under water position
+        if(WaterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
+            m_underwaterState |= UNDERWATERSTATE_UNDERWATER;
+        else m_underwaterState &= ~UNDERWATERSTATE_UNDERWATER;
 
-    // in slime check, anywhere in slime level
-    if (WaterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
-        m_underwaterState |= UNDERWATERSTATE_SLIME;
-    else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
+        if(!m_Unit->IsPlayer() || !castPtr<Player>(m_Unit)->GetTaxiPath())
+        {
+            // Allow travel in dark water on taxi or transport
+            if ((WaterType & 0x10) && m_transportGuid.empty())
+                m_underwaterState |= UNDERWATERSTATE_FATIGUE;
+            else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
+        } else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
+
+        // in lava check, anywhere in lava level
+        if (WaterType & 0x04 && HeightDelta > 0.f)
+            m_underwaterState |= UNDERWATERSTATE_LAVA;
+        else m_underwaterState &= ~UNDERWATERSTATE_LAVA;
+
+        // in slime check, anywhere in slime level
+        if (WaterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
+            m_underwaterState |= UNDERWATERSTATE_SLIME;
+        else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
+    }
+
+    if(!m_Unit->IsPlayer() || (old_underwaterState == 0 && m_underwaterState == 0))
+        return;
+
+    Player *plr = castPtr<Player>(m_Unit);
+    // In water
+    if (m_underwaterState & UNDERWATERSTATE_UNDERWATER && m_Unit->isAlive())
+    {
+        // Breath timer not activated - activate it
+        if (m_MirrorTimer[BREATH_TIMER] == -1)
+        {
+            m_MirrorTimer[BREATH_TIMER] = m_UnderwaterTime;
+            plr->SendMirrorTimer(BREATH_TIMER, m_MirrorTimer[BREATH_TIMER], m_MirrorTimer[BREATH_TIMER], -1);
+        }
+        else
+        {
+            m_MirrorTimer[BREATH_TIMER] -= diff;
+
+            // Timer limit - need deal damage
+            if (m_MirrorTimer[BREATH_TIMER] < 0)
+            {
+                m_MirrorTimer[BREATH_TIMER] += 1*1000;
+
+                // Calculate and deal damage
+                uint32 damage = plr->GetMaxHealth() / 5 + RandomUInt(plr->getLevel()-1);
+                plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_DROWNING, damage );
+                plr->DealDamage( plr, damage, 0, 0, 0 );
+            } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)) // Update time in client if need
+                plr->SendMirrorTimer(BREATH_TIMER, m_UnderwaterTime, m_MirrorTimer[BREATH_TIMER], -1);
+        }
+    }
+    else if (m_MirrorTimer[BREATH_TIMER] != -1)     // Regen timer
+    {
+        int32 UnderWaterTime = m_UnderwaterTime;
+
+        // Need breath regen
+        m_MirrorTimer[BREATH_TIMER] += 10*diff;
+        if (m_MirrorTimer[BREATH_TIMER] >= UnderWaterTime || !plr->isAlive())
+            plr->StopMirrorTimer(BREATH_TIMER);
+        else if (m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)
+            plr->SendMirrorTimer(BREATH_TIMER, UnderWaterTime, m_MirrorTimer[BREATH_TIMER], 10);
+    }
+
+    // In dark water
+    if(sWorld.EnableFatigue)
+    {
+        if (m_underwaterState & UNDERWATERSTATE_FATIGUE)
+        {
+            // Fatigue timer not activated - activate it
+            if (m_MirrorTimer[FATIGUE_TIMER] == -1)
+            {
+                m_MirrorTimer[FATIGUE_TIMER] = 60000;
+                plr->SendMirrorTimer(FATIGUE_TIMER, m_MirrorTimer[FATIGUE_TIMER], m_MirrorTimer[FATIGUE_TIMER], -1);
+            }
+            else
+            {
+                m_MirrorTimer[FATIGUE_TIMER] -= diff;
+                // Timer limit - need deal damage or teleport ghost to graveyard
+                if (m_MirrorTimer[FATIGUE_TIMER] < 0)
+                {
+                    m_MirrorTimer[FATIGUE_TIMER] += 1000;
+                    if (plr->isAlive())                                          // Calculate and deal damage
+                    {
+                        uint32 damage = plr->GetMaxHealth() / 5 + RandomUInt(plr->getLevel()-1);
+                        plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_DROWNING, damage );
+                        plr->DealDamage( plr, damage, 0, 0, 0 );
+                    } else if (plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
+                        plr->RepopAtGraveyard(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId());
+                } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
+                    plr->SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
+            }
+        }
+        else if (m_MirrorTimer[FATIGUE_TIMER] != -1)       // Regen timer
+        {
+            int32 DarkWaterTime = 60000;
+            m_MirrorTimer[FATIGUE_TIMER]+=10*diff;
+            if (m_MirrorTimer[FATIGUE_TIMER] >= DarkWaterTime || !plr->isAlive())
+                plr->StopMirrorTimer(FATIGUE_TIMER);
+            else if (m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE)
+                plr->SendMirrorTimer(FATIGUE_TIMER, DarkWaterTime, m_MirrorTimer[FATIGUE_TIMER], 10);
+        }
+    }
+
+    if (m_underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
+    {
+        // Breath timer not activated - activate it
+        if (m_MirrorTimer[FIRE_TIMER] == -1)
+            m_MirrorTimer[FIRE_TIMER] = 3000;
+        else
+        {
+            m_MirrorTimer[FIRE_TIMER] -= diff;
+            if (m_MirrorTimer[FIRE_TIMER] < 0)
+            {
+                m_MirrorTimer[FIRE_TIMER] += 3000;
+
+                // Calculate and deal damage
+                uint32 damage = 600+RandomUInt(100);
+                if (m_underwaterState & UNDERWATERSTATE_LAVA)
+                {
+                    plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_LAVA, damage );
+                    plr->DealDamage( plr, damage, 0, 0, 0 );
+                }
+                else if (plr->GetZoneId() != 1497)
+                {
+                    // need to skip Slime damage in Undercity,
+                    plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_LAVA, damage );
+                    plr->DealDamage( plr, damage, 0, 0, 0 );
+                }
+            }
+        }
+    } else m_MirrorTimer[FIRE_TIMER] = -1;
+
+    // Recheck timers flag
+    bool hasTimer = false;
+    for (uint8 i = 0; i< 3; ++i)
+    {
+        if (m_MirrorTimer[i] != -1)
+        {
+            hasTimer = true;
+            break;
+        }
+    }
+
+    if(hasTimer)
+        AddUnderwaterStateTimerPresent();
+    m_LastUnderwaterState = m_underwaterState;
 }
 
 void MovementInterface::HandleMovementFlags(bool read, ByteBuffer *buffer)

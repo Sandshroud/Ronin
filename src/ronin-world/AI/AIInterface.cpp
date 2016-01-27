@@ -54,7 +54,6 @@ AIInterface::AIInterface()
 
 AIInterface::~AIInterface()
 {
-    MovementHandler.DeInitialize();
     if(!m_spells.empty())
     {
         for(AISpellMap::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
@@ -67,35 +66,18 @@ AIInterface::~AIInterface()
     m_aiTargets.clear();
 }
 
-void AIInterface::Init(Unit* un, AIType at, MovementType mt)
+void AIInterface::Init(Unit* un, AIType at, Unit *owner)
 {
     ASSERT(un != NULL);
-    ASSERT(at != AITYPE_PET);
-
-    m_Unit = un;
-    m_AIType = at;
-    m_AIState = STATE_IDLE;
-
-    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
-        disable_targeting = true;
-
-    MovementHandler.Initialize(this, un, mt);
-}
-
-void AIInterface::Init(Unit* un, AIType at, MovementType mt, Unit* owner)
-{
-    ASSERT(un != NULL);
-    ASSERT(at == AITYPE_PET || at == AITYPE_TOTEM);
+    ASSERT(owner ? (at == AITYPE_PET || at == AITYPE_TOTEM) : at != AITYPE_PET);
 
     m_Unit = un;
     m_AIType = at;
     m_PetOwner = owner;
     m_AIState = STATE_IDLE;
 
-    if( castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
+    if( m_Unit->IsCreature() && castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER )
         disable_targeting = true;
-
-    MovementHandler.Initialize(this, un, mt);
 }
 
 void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
@@ -133,32 +115,6 @@ void AIInterface::Update(uint32 p_time)
         return;
     }
 
-    _UpdateTargets(p_time);
-
-    _UpdateCombat(p_time);
-
-    MovementHandler.Update(p_time);
-
-    if(m_fleeTimer)
-    {
-        if(m_fleeTimer > p_time)
-        {
-            m_fleeTimer -= p_time;
-            if(!m_nextTarget) //something happened to our target, lets find another one
-                SetNextTarget(FindTarget());
-            if(m_nextTarget)
-                _CalcDestinationAndMove(m_nextTarget, 5.0f);
-        }
-        else
-        {
-            m_fleeTimer = 0;
-            if(!m_nextTarget)
-                SetNextTarget(FindTarget());
-        }
-    }
-
-    if(!m_fleeTimer && m_AIState == STATE_EVADE)
-        MovementHandler.HandleEvade();
 }
 
 void AIInterface::_UpdateTotem(uint32 p_time)
@@ -171,7 +127,7 @@ void AIInterface::_UpdateTotem(uint32 p_time)
     if(m_totemSpellTimer <= p_time)
     {
         SpellCastTargets targets;
-        if(false)//m_totemSpell->IsAreaOfEffectSpell())
+        if(m_totemSpell->isSpellAreaOfEffect())
         {
             m_nextTarget = NULL;
             targets.m_targetMask = TARGET_FLAG_SELF|TARGET_FLAG_SOURCE_LOCATION|TARGET_FLAG_DEST_LOCATION;
@@ -376,7 +332,7 @@ float AIInterface::_CalcDistanceFromHome()
         return m_Unit->GetDistanceSq(m_PetOwner);
     else if(m_Unit->GetTypeId() == TYPEID_UNIT)
     {
-        LocationVector m_Ret = GetReturnPos();
+        LocationVector m_Ret = m_Unit->GetCombatEnterLoc();
         if(m_Ret.x != 0.0f && m_Ret.y != 0.0f)
             return m_Unit->GetDistanceSq(m_Ret.x, m_Ret.y, m_Ret.z);
     }
@@ -422,7 +378,6 @@ void AIInterface::WipeCurrentTarget()
     if( (itr = m_aiTargets.find(m_nextTarget->GetGUID())) != m_aiTargets.end() )
         m_aiTargets.erase( itr );
 
-    ClearFollowInformation(m_nextTarget);
     SetNextTarget(NULL);
 }
 

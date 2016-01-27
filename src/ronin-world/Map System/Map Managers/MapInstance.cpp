@@ -11,7 +11,7 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(MapManager *mgr, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(mgr->GetMapData()), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
 {
     m_mapPreloading = false;
     m_UpdateDistance = MAX_VIEW_DISTANCE;

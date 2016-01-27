@@ -120,11 +120,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     PowerCheat                      = false;
     m_weaponProficiency             = 0;
     m_armorProficiency              = 0;
-    m_LastUnderwaterState           = 0;
-    m_MirrorTimer[0]                = -1;
-    m_MirrorTimer[1]                = -1;
-    m_MirrorTimer[2]                = -1;
-    m_UnderwaterTime                = 180000;
     m_AutoShotTarget                = 0;
     m_onAutoShot                    = false;
     m_AutoShotDuration              = 0;
@@ -369,9 +364,6 @@ void Player::Update( uint32 p_time )
         return;
 
     Unit::Update( p_time );
-
-    // Handle our water stuff
-    HandleBreathing(p_time);
 
     // Autosave
     if(m_nextSave > p_time)
@@ -1615,7 +1607,7 @@ void Player::_LoadCompletedQuests(QueryResult *result)
         time_t timeStamp = fields[2].GetUInt64();
         if(qst->qst_is_repeatable == REPEATABLE_DAILY)
         {
-            if(timeStamp <= sDayWatcher.GetLastDailyResetTime())
+            if(timeStamp <= sWorld.GetLastDailyResetTime())
                 continue; // Don't load up dailies if they're from before the last reset
 
             m_completedDailyQuests.insert(std::make_pair(qst->id, timeStamp));
@@ -2083,134 +2075,6 @@ void Player::setLevel(uint32 level)
     sLog.outDebug("Player %s set parameters to level %u", GetName(), level);
 }
 
-void Player::HandleBreathing(uint32 time_diff)
-{
-    uint8 underwaterState = m_movementInterface.GetUnderwaterState();
-    if(underwaterState == 0)
-        return;
-
-    // In water
-    if (underwaterState & UNDERWATERSTATE_UNDERWATER && isAlive())
-    {
-        // Breath timer not activated - activate it
-        if (m_MirrorTimer[BREATH_TIMER] == -1)
-        {
-            m_MirrorTimer[BREATH_TIMER] = m_UnderwaterTime;
-            SendMirrorTimer(BREATH_TIMER, m_MirrorTimer[BREATH_TIMER], m_MirrorTimer[BREATH_TIMER], -1);
-        }
-        else
-        {
-            m_MirrorTimer[BREATH_TIMER] -= time_diff;
-
-            // Timer limit - need deal damage
-            if (m_MirrorTimer[BREATH_TIMER] < 0)
-            {
-                m_MirrorTimer[BREATH_TIMER] += 1*1000;
-
-                // Calculate and deal damage
-                uint32 damage = GetMaxHealth() / 5 + RandomUInt(getLevel()-1);
-                SendEnvironmentalDamageLog( GetGUID(), DAMAGE_DROWNING, damage );
-                DealDamage( this, damage, 0, 0, 0 );
-            } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)) // Update time in client if need
-                SendMirrorTimer(BREATH_TIMER, m_UnderwaterTime, m_MirrorTimer[BREATH_TIMER], -1);
-        }
-    }
-    else if (m_MirrorTimer[BREATH_TIMER] != -1)     // Regen timer
-    {
-        int32 UnderWaterTime = m_UnderwaterTime;
-
-        // Need breath regen
-        m_MirrorTimer[BREATH_TIMER] += 10*time_diff;
-        if (m_MirrorTimer[BREATH_TIMER] >= UnderWaterTime || !isAlive())
-            StopMirrorTimer(BREATH_TIMER);
-        else if (m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)
-            SendMirrorTimer(BREATH_TIMER, UnderWaterTime, m_MirrorTimer[BREATH_TIMER], 10);
-    }
-
-    // In dark water
-    if(sWorld.EnableFatigue)
-    {
-        if (underwaterState & UNDERWATERSTATE_FATIGUE)
-        {
-            // Fatigue timer not activated - activate it
-            if (m_MirrorTimer[FATIGUE_TIMER] == -1)
-            {
-                m_MirrorTimer[FATIGUE_TIMER] = 60000;
-                SendMirrorTimer(FATIGUE_TIMER, m_MirrorTimer[FATIGUE_TIMER], m_MirrorTimer[FATIGUE_TIMER], -1);
-            }
-            else
-            {
-                m_MirrorTimer[FATIGUE_TIMER] -= time_diff;
-                // Timer limit - need deal damage or teleport ghost to graveyard
-                if (m_MirrorTimer[FATIGUE_TIMER] < 0)
-                {
-                    m_MirrorTimer[FATIGUE_TIMER] += 1000;
-                    if (isAlive())                                          // Calculate and deal damage
-                    {
-                        uint32 damage = GetMaxHealth() / 5 + RandomUInt(getLevel()-1);
-                        SendEnvironmentalDamageLog( GetGUID(), DAMAGE_DROWNING, damage );
-                        DealDamage( this, damage, 0, 0, 0 );
-                    } else if (HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
-                        RepopAtGraveyard(GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId());
-                } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
-                    SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
-            }
-        }
-        else if (m_MirrorTimer[FATIGUE_TIMER] != -1)       // Regen timer
-        {
-            int32 DarkWaterTime = 60000;
-            m_MirrorTimer[FATIGUE_TIMER]+=10*time_diff;
-            if (m_MirrorTimer[FATIGUE_TIMER] >= DarkWaterTime || !isAlive())
-                StopMirrorTimer(FATIGUE_TIMER);
-            else if (m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE)
-                SendMirrorTimer(FATIGUE_TIMER, DarkWaterTime, m_MirrorTimer[FATIGUE_TIMER], 10);
-        }
-    }
-
-    if (underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))
-    {
-        // Breath timer not activated - activate it
-        if (m_MirrorTimer[FIRE_TIMER] == -1)
-            m_MirrorTimer[FIRE_TIMER] = 3000;
-        else
-        {
-            m_MirrorTimer[FIRE_TIMER] -= time_diff;
-            if (m_MirrorTimer[FIRE_TIMER] < 0)
-            {
-                m_MirrorTimer[FIRE_TIMER] += 3000;
-
-                // Calculate and deal damage
-                uint32 damage = 600+RandomUInt(100);
-                if (underwaterState & UNDERWATERSTATE_LAVA)
-                {
-                    SendEnvironmentalDamageLog( GetGUID(), DAMAGE_LAVA, damage );
-                    DealDamage( this, damage, 0, 0, 0 );
-                }
-                else if (GetZoneId() != 1497)
-                {
-                    // need to skip Slime damage in Undercity,
-                    SendEnvironmentalDamageLog( GetGUID(), DAMAGE_LAVA, damage );
-                    DealDamage( this, damage, 0, 0, 0 );
-                }
-            }
-        }
-    } else m_MirrorTimer[FIRE_TIMER] = -1;
-
-    // Recheck timers flag
-    bool hasTimer = false;
-    for (uint8 i = 0; i< 3; ++i)
-    {
-        if (m_MirrorTimer[i] != -1)
-        {
-            hasTimer = true;
-            break;
-        }
-    }
-
-    if(hasTimer) m_movementInterface.AddUnderwaterStateTimerPresent();
-    m_LastUnderwaterState = underwaterState;
-}
-
 void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen)
 {
     if (int(MaxValue) == -1)
@@ -2221,7 +2085,7 @@ void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 Curre
     }
 
     WorldPacket data(SMSG_START_MIRROR_TIMER, (21));
-    data << (uint32)Type;
+    data << uint32(Type);
     data << CurrentValue;
     data << MaxValue;
     data << Regen;
@@ -2232,9 +2096,9 @@ void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 Curre
 
 void Player::StopMirrorTimer(MirrorTimerType Type)
 {
-    m_MirrorTimer[Type] = -1;
+    m_movementInterface.StopMirrorTimer(Type);
     WorldPacket data(SMSG_STOP_MIRROR_TIMER, 4);
-    data << (uint32)Type;
+    data << uint32(Type);
     SendPacket(&data);
 }
 
@@ -2299,7 +2163,7 @@ void Player::_EventExploration()
         if(m_oldZone != 0xFFFF)
             GetMapInstance()->GetStateManager().ClearWorldStates(this);
         // This must be called every update, to keep data fresh.
-        EventDBCChatUpdate(0xFFFFFFFF);
+        EventDBCChatUpdate();
     }
     else if( m_oldZone != m_zoneId || newMap )
     {
@@ -2311,7 +2175,7 @@ void Player::_EventExploration()
 
         TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
 
-        EventDBCChatUpdate(0xFFFFFFFF);
+        EventDBCChatUpdate();
 
         GetMapInstance()->GetStateManager().SendWorldStates(this);
     }
@@ -3545,8 +3409,7 @@ Corpse* Player::CreateCorpse()
     objmgr.DelinkPlayerCorpses(castPtr<Player>(this));
     Corpse *pCorpse = objmgr.CreateCorpse();
     pCorpse->SetInstanceID(GetInstanceID());
-    pCorpse->Create(castPtr<Player>(this), GetMapId(), GetPositionX(),
-        GetPositionY(), GetPositionZ(), GetOrientation());
+    pCorpse->Create(castPtr<Player>(this), GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
 
     _uf = GetUInt32Value(UNIT_FIELD_BYTES_0);
     _pb = GetUInt32Value(PLAYER_BYTES);
@@ -3616,10 +3479,6 @@ Corpse* Player::CreateCorpse()
     if( m_mapInstance == NULL )
         sWorldMgr.PushToWorldQueue(pCorpse);
     else pCorpse->PushToWorld(m_mapInstance);
-
-    // add deletion event if bone corpse
-    if( pCorpse->GetUInt64Value(CORPSE_FIELD_OWNER) == 0 )
-        objmgr.CorpseAddEventDespawn(pCorpse);
 
     return pCorpse;
 }
@@ -4116,13 +3975,6 @@ void Player::AddInRangeObject(WorldObject* pObj)
 
     Unit::AddInRangeObject(pObj);
 
-    //if the object is a unit send a move packet if they have a destination
-    if(pObj->GetTypeId() == TYPEID_UNIT)
-    {
-        //add an event to send move update have to send guid as pointer was causing a crash :(
-        castPtr<Creature>( pObj )->GetAIInterface()->SendCurrentMove(this);
-    }
-
     //unit based objects, send aura data
     if (pObj->IsUnit())
     {
@@ -4176,21 +4028,19 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
     {
         if(m_Summon->IsSummonedPet())
             m_Summon->Dismiss(true);
-        else
-            m_Summon->Remove(true, true, false);
-        if(m_Summon)
-        {
-            m_Summon->ClearPetOwner();
-            m_Summon = NULL;
-        }
+        else m_Summon->Remove(true, true, false);
+        // Check if we still have summon left over, if so then clear us from it
+        if(m_Summon) m_Summon->ClearPetOwner();
+        m_Summon = NULL;
     }
 
     if( pObj == DuelingWith )
-        sEventMgr.AddEvent(castPtr<Player>(this), &Player::EndDuel, (uint8)DUEL_WINNER_RETREAT, EVENT_PLAYER_DUEL_COUNTDOWN, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        sEventMgr.AddEvent(this, &Player::EndDuel, (uint8)DUEL_WINNER_RETREAT, EVENT_PLAYER_DUEL_COUNTDOWN, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void Player::ClearInRangeSet()
 {
+    m_visibleObjects.clear();
     WorldObject::ClearInRangeSet();
 }
 
@@ -4199,7 +4049,7 @@ void Player::SetDrunk(uint16 value, uint32 itemId)
     uint32 oldDrunkenState = GetDrunkenstateByValue(m_drunk);
     m_invisDetect[INVIS_FLAG_DRUNK] = int32(value - m_drunk) / 256;
     m_drunk = value;
-    SetUInt32Value(PLAYER_BYTES_3,(GetUInt32Value(PLAYER_BYTES_3) & 0xFFFF0001) | (m_drunk & 0xFFFE));
+    SetUInt16Value(PLAYER_BYTES_3, 0, (m_drunk & 0xFFFE));
     uint32 newDrunkenState = GetDrunkenstateByValue(m_drunk);
     /*if(newDrunkenState == DRUNKEN_VOMIT)
     {
@@ -4209,6 +4059,7 @@ void Player::SetDrunk(uint16 value, uint32 itemId)
     UpdateVisibility();
     if (newDrunkenState == oldDrunkenState)
         return;
+
     WorldPacket data(SMSG_CROSSED_INEBRIATION_THRESHOLD, 16);
     data << GetGUID();
     data << newDrunkenState;
@@ -6018,7 +5869,6 @@ void Player::EndDuel(uint8 WinCondition)
     // Call off pet
     if( GetSummon() != NULL )
     {
-        GetSummon()->GetAIInterface()->SetUnitToFollow( castPtr<Player>(this) );
         GetSummon()->GetAIInterface()->HandleEvent( EVENT_FOLLOWOWNER, GetSummon(), 0 );
         GetSummon()->GetAIInterface()->WipeTargetList();
     }
@@ -6407,6 +6257,7 @@ void Player::SoftLoadPlayer()
     // Initialize our talent info
     m_talentInterface.InitActiveSpec();
 
+    return;
     if(isDead()) // only add aura's to the living (death aura set elsewhere)
     {
         while(!m_loadAuras.empty())
@@ -6837,8 +6688,6 @@ void Player::Possess(Unit* pTarget)
         return;
 
     m_CurrentCharm = pTarget;
-    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
-        castPtr<Creature>(this)->GetAIInterface()->StopMovement(0);
 
     m_noInterrupt = true;
     SetUInt64Value(UNIT_FIELD_CHARM, pTarget->GetGUID());
@@ -7521,7 +7370,7 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( atime <= 0 )
         return;
 
-    if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
+    if( pSpell->StartRecoveryCategory )
         _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, mstime + atime, pSpell->Id, 0 );
     else m_globalCooldown = mstime + atime;
 }
@@ -7538,7 +7387,7 @@ void Player::Cooldown_OnCancel(SpellEntry *pSpell)
         return;
 
     uint32 mstime = getMSTime();
-    if( pSpell->StartRecoveryCategory && pSpell->StartRecoveryCategory != 133 )
+    if( pSpell->StartRecoveryCategory )
         m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase(pSpell->StartRecoveryCategory);
     else m_globalCooldown = mstime;
 }

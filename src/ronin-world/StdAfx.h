@@ -91,17 +91,6 @@ extern "C" {
 #include "../ronin-shared/PerfCounters.h"
 #include "../ronin-logonserver/LogonOpcodes.h"
 
-#define CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-
-#ifdef _DEBUG
-   #ifndef DBG_NEW
-      #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-      #define new DBG_NEW
-   #endif
-#endif  // _DEBUG
-
 #include "DBCStores.h"
 #include "NameTables.h"
 #include "UpdateFields.h"
@@ -115,7 +104,8 @@ extern "C" {
 #include "EventableObject.h"
 #include "LootMgr.h"
 #include "Object.h"
-#include "AI_Headers.h"
+#include "AI_Defines.h"
+#include "AIInterface.h"
 #include "AuraInterface.h"
 #include "MovementInterface.h"
 #include "StatSystem.h"
@@ -164,7 +154,6 @@ extern "C" {
 #include "WorldSession.h"
 #include "WorldStateManager.h"
 #include "MapInstance.h"
-#include "DayWatcherThread.h"
 #include "InventoryInterface.h"
 #include "CurrencyInterface.h"
 #include "Player.h"
@@ -182,7 +171,9 @@ extern "C" {
 #include "GossipMgr.h"
 #include "GuildDefines.h"
 #include "GuildManager.h"
-#include "MapManager.h"
+#include "ContinentManager.h"
+#include "BattlegroundManager.h"
+#include "InstanceManager.h"
 #include "WorldManager.h"
 #include "Channel.h"
 #include "ChannelMgr.h"

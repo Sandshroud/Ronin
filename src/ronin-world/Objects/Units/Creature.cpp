@@ -54,7 +54,7 @@ void Creature::Init()
 {
     Unit::Init();
 
-    m_aiInterface.Init(this, AITYPE_AGRO, MOVEMENTTYPE_NONE);
+    m_aiInterface.Init(this, AITYPE_AGRO);
 
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
         InitVehicleKit(vehicleKitId);
@@ -73,25 +73,26 @@ void Creature::Update( uint32 p_time )
 {
     Unit::Update( p_time );
 
-    m_aiInterface.Update(p_time);
-
-    if(IsTotem() && isDead())
+    if(isDead())
     {
-        Respawn(false, true);
+        if(IsTotem())
+            Respawn(false, true);
+
+        if(m_corpseEvent)
+        {
+            sEventMgr.RemoveEvents(this);
+            if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            else if ( _creatureData->rank == ELITE_RAREELITE || _creatureData->rank == ELITE_RARE)
+                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            else sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+
+            m_corpseEvent = false;
+        }
         return;
     }
 
-    if(m_corpseEvent)
-    {
-        sEventMgr.RemoveEvents(this);
-        if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
-            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        else if ( _creatureData->rank == ELITE_RAREELITE || _creatureData->rank == ELITE_RARE)
-            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        else sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-
-        m_corpseEvent = false;
-    }
+    m_aiInterface.Update(p_time);
 }
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)
@@ -150,7 +151,6 @@ void Creature::OnRespawn( MapInstance* m)
     m_lootMethod = -1;
 
     SetDeathState(ALIVE);
-    GetAIInterface()->StopMovement(0); // after respawn monster can move
     m_pickPocketed = false;
     PushToWorld(m);
 }
@@ -317,8 +317,6 @@ void Creature::SetDeathState(DeathState s)
     Unit::SetDeathState(s);
     if(s == JUST_DIED)
     {
-        GetAIInterface()->SetUnitToFollow(NULL);
-
         //despawn all summons we created
         SummonExpireAll(true);
 
@@ -354,16 +352,6 @@ void Creature::OnPushToWorld()
             CastSpell(this, sp, true);
 
     Unit::OnPushToWorld();
-
-    if(m_spawn)
-    {
-        if(m_aiInterface.GetFormationSQLId())
-        {
-            // add event
-            sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::FormationLinkUp, m_aiInterface.GetFormationSQLId(), EVENT_CREATURE_FORMATION_LINKUP, 1000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            haslinkupevent = true;
-        }
-    }
 
     m_aiInterface.m_is_in_instance = !m_mapInstance->GetdbcMap()->IsContinent();
     if (HasItems())
@@ -422,7 +410,7 @@ void Creature::EnslaveExpire()
     SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
 
     SetFaction(_creatureData->faction, false);
-    GetAIInterface()->Init(this, AITYPE_AGRO, MOVEMENTTYPE_NONE);
+    GetAIInterface()->Init(this, AITYPE_AGRO);
 }
 
 bool Creature::RemoveEnslave()
@@ -640,7 +628,6 @@ void Creature::FormationLinkUp(uint32 SqlId)
 
     if( Creature *creature = m_mapInstance->GetSqlIdCreature(SqlId) )
     {
-        m_aiInterface.SetFormationLinkTarget(creature);
         haslinkupevent = false;
         event_RemoveEvents(EVENT_CREATURE_FORMATION_LINKUP);
     }
@@ -731,9 +718,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     // load formation data
     Formation* form = NULL;//m_spawn ? sObjMgr.GetFormation(m_spawn->id) : NULL;
-    m_aiInterface.SetFormationSQLId(form ? form->fol : 0);
-    m_aiInterface.SetFormationFollowDistance(form ? form->dist : 0.f);
-    m_aiInterface.SetFormationFollowAngle(form ? form->ang : 0.f);
 
     //////////////AI
     myFamily = dbcCreatureFamily.LookupEntry(_creatureData->family);

@@ -18,8 +18,7 @@ public:
     ~AIInterface();
 
     // Misc
-    void Init(Unit* un, AIType at, MovementType mt);
-    void Init(Unit* un, AIType at, MovementType mt, Unit* owner); // used for pets
+    void Init(Unit* un, AIType at, Unit *owner = NULL);
 
     Unit* GetUnit() { return m_Unit; }
     Unit* GetPetOwner() { return m_PetOwner; }
@@ -49,6 +48,7 @@ public:
     void RemoveThreat(WoWGuid guid);
     bool modThreat(WoWGuid guid, int32 mod, Unit* redirect = NULL, float redirectVal = 0.f);
 
+    void HandlePetAction(uint32 action) {}
     void WipeTargetList();
     RONIN_INLINE TargetMap *GetAITargets() { return &m_aiTargets; }
     RONIN_INLINE size_t getAITargetsCount() { return m_aiTargets.size(); }
@@ -65,19 +65,6 @@ public:
 
     // Event Handler
     void HandleEvent(uint32 event, Unit* pUnit, uint32 misc1);
-
-    void EventForceRedirected(Unit* pUnit, uint32 misc1);
-    void EventHostileAction(Unit* pUnit, uint32 misc1);
-    void EventUnitDied(Unit* pUnit, uint32 misc1);
-    void EventUnwander(Unit* pUnit, uint32 misc1);
-    void EventWander(Unit* pUnit, uint32 misc1);
-    void EventUnfear(Unit* pUnit, uint32 misc1);
-    void EventFear(Unit* pUnit, uint32 misc1);
-    void EventUnitRespawn(Unit* pUnit, uint32 misc1);
-    void EventFollowOwner(Unit* pUnit, uint32 misc1);
-    void EventDamageTaken(Unit* pUnit, uint32 misc1);
-    void EventLeaveCombat(Unit* pUnit, uint32 misc1);
-    void EventEnterCombat(Unit* pUnit, uint32 misc1);
 
     void OnDeath(WorldObject* pKiller);
     void OnRespawn(Unit* unit); // We don't really need the unit anymore.
@@ -204,95 +191,4 @@ public:
     bool CheckCurrentTarget();
     bool TargetUpdateCheck(Unit* ptr);
 
-    /****************************************************
-    ***** MOVEMENT HANDLING
-    ********************************/
-private: // Our internal handler
-    AI_Movement MovementHandler;
-
-public:
-    RONIN_INLINE void JumpToTargetLocation() { MovementHandler.m_moveJump = true; };
-    RONIN_INLINE void MoveTo(float x, float y, float z, float o = 0.0f, bool IgnorePathMap = false) { MovementHandler.MoveTo(x, y, z, o, IgnorePathMap); };
-    RONIN_INLINE void _CalcDestinationAndMove( Unit* target, float dist) { MovementHandler._CalcDestinationAndMove(target, dist); };
-
-    RONIN_INLINE void SendCurrentMove(Player* plyr)
-    { MovementHandler.SendCurrentMove(plyr); };
-    RONIN_INLINE void SendMoveToPacket(Player* playerTarget = NULL)
-    { MovementHandler.SendMoveToPacket(playerTarget); };
-    RONIN_INLINE void SendMoveToPacket(float toX, float toY, float toZ, float toO, uint32 time, uint32 MoveFlags, Player* playerTarget = NULL)
-    { MovementHandler.SendMoveToPacket(toX, toY, toZ, toO, time, MoveFlags, playerTarget); };
-    RONIN_INLINE void SendJumpTo(float toX, float toY, float toZ, uint32 moveTime, float arc, uint32 unk = 0)
-    { MovementHandler.SendJumpTo(toX, toY, toZ, moveTime, arc, unk); };
-
-    RONIN_INLINE float GetMovementTime(float distance) { return MovementHandler.GetMovementTime(distance); };
-
-    RONIN_INLINE bool HasDestination() { return MovementHandler.HasDestination(); }
-    RONIN_INLINE LocationVector GetDestPos() { return MovementHandler.GetDestPos(); }
-    RONIN_INLINE LocationVector GetNextPos() { return MovementHandler.GetNextPos(); }
-    RONIN_INLINE LocationVector GetReturnPos() { return MovementHandler.GetReturnPos(); }
-
-    RONIN_INLINE void SetSourcePos(float x, float y, float z) { MovementHandler.SetSourcePos(x, y, z); };
-    RONIN_INLINE void SetReturnPos(float x, float y, float z, float o = 0.0f) { MovementHandler.SetReturnPos(x, y, z, o); };
-    RONIN_INLINE void SetNextPos(float x, float y, float z, float o = 0.0f) { MovementHandler.SetNextPos(x, y, z, o); };
-    RONIN_INLINE void SetDestPos(float x, float y, float z, float o = 0.0f) { MovementHandler.SetDestPos(x, y, z, o); };
-
-    RONIN_INLINE void ResetLastFollowPos() { MovementHandler.ResetLastFollowPos(); }
-    RONIN_INLINE uint32 getMoveFlags(bool ignorejump = false) { return MovementHandler.getMoveFlags(ignorejump); };
-
-    RONIN_INLINE void AddStopTime(uint32 Time) { MovementHandler.AddStopTime(Time); };
-    RONIN_INLINE void StopMovement(uint32 time, bool stopatcurrent = true) { MovementHandler.StopMovement(time, stopatcurrent); };
-
-    RONIN_INLINE void setMoveRunFlag(bool f) { MovementHandler.setMoveRunFlag(f); }
-    RONIN_INLINE bool getMoveRunFlag() { return MovementHandler.getMoveRunFlag(); }
-
-    RONIN_INLINE void setMoveFlyFlag(bool f) { MovementHandler.setMoveFlyFlag(f); }
-    RONIN_INLINE bool getMoveFlyFlag() { return MovementHandler.getMoveFlyFlag(); }
-
-    RONIN_INLINE void setMoveSprintFlag(bool f) { MovementHandler.setMoveSprintFlag(f); }
-    RONIN_INLINE bool getMoveSprintFlag() { return MovementHandler.getMoveSprintFlag(); }
-
-    RONIN_INLINE void setMoveType(uint32 m) { MovementHandler.setMoveType(m); }
-    RONIN_INLINE uint32 getMoveType() { return MovementHandler.getMoveType(); }
-
-    RONIN_INLINE void setCanMove(bool c) { MovementHandler.setCanMove(c); }
-    RONIN_INLINE bool getCanMove() { return MovementHandler.getCanMove(); }
-
-    RONIN_INLINE void setFearTimer(uint32 time) { MovementHandler.setFearTimer(time); }
-    RONIN_INLINE uint32 getFearTimer() { return MovementHandler.getFearTimer(); }
-
-    RONIN_INLINE void setWanderTimer(uint32 time) { MovementHandler.setWanderTimer(time); }
-    RONIN_INLINE uint32 getWanderTimer() { return MovementHandler.getWanderTimer(); }
-
-    RONIN_INLINE void RestoreFollowInformation() { MovementHandler.RestoreFollowInformation(); }
-    RONIN_INLINE void BackupFollowInformation() { MovementHandler.BackupFollowInformation(); }
-
-    // Follow Code
-    RONIN_INLINE void ClearFollowInformation(Unit* u = NULL)  { MovementHandler.ClearFollowInformation(u); };
-
-    RONIN_INLINE Unit* getUnitToFear() { return MovementHandler.getUnitToFear(); };
-    RONIN_INLINE void SetUnitToFear(Unit* un)  { MovementHandler.SetUnitToFear(un); };
-
-    RONIN_INLINE Unit* getUnitToFollow() { return MovementHandler.getUnitToFollow(); };
-    RONIN_INLINE void SetUnitToFollow(Unit* un) { MovementHandler.SetUnitToFollow(un); };
-
-    RONIN_INLINE Unit* getBackupUnitToFollow() { return MovementHandler.getBackupUnitToFollow(); };
-    RONIN_INLINE void SetBackupUnitToFollow(Unit* un) { MovementHandler.SetBackupUnitToFollow(un); };
-
-    RONIN_INLINE float GetFollowDistance() { return MovementHandler.GetFollowDistance(); };
-    RONIN_INLINE void SetFollowDistance(float dist) { MovementHandler.SetFollowDistance(dist); };
-
-    RONIN_INLINE float GetUnitToFollowAngle() { return MovementHandler.GetUnitToFollowAngle(); }
-    RONIN_INLINE void SetUnitToFollowAngle(float angle) { MovementHandler.SetUnitToFollowAngle(angle); }
-
-    RONIN_INLINE void SetFormationLinkTarget(Creature* cr)  { MovementHandler.SetFormationLinkTarget(cr); };
-    RONIN_INLINE Creature* GetFormationLinkTarget() { return MovementHandler.GetFormationLinkTarget(); }
-
-    RONIN_INLINE uint32 GetFormationSQLId() { return MovementHandler.GetFormationSQLId(); };
-    RONIN_INLINE void SetFormationSQLId(uint32 Id) { MovementHandler.SetFormationSQLId(Id); }
-
-    RONIN_INLINE uint32 GetFormationFollowAngle() { return MovementHandler.GetFormationFollowAngle(); };
-    RONIN_INLINE void SetFormationFollowAngle(float Angle) { MovementHandler.SetFormationFollowAngle(Angle); }
-
-    RONIN_INLINE uint32 GetFormationFollowDistance() { return MovementHandler.GetFormationFollowDistance(); };
-    RONIN_INLINE void SetFormationFollowDistance(float Dist) { MovementHandler.SetFormationFollowDistance(Dist); }
 };

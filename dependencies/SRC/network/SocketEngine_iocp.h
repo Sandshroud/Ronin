@@ -59,9 +59,6 @@ public:
      * deletes itself and the socket deleter.
      */
     void Shutdown();
-
-private:
-    int ThreadLimit;
 };
 
 enum SocketEvents
@@ -72,6 +69,6 @@ enum SocketEvents
     IO_SHUTDOWN,
 };
 
-inline void CreateSocketEngine(int Tlimit) { new iocpEngine(Tlimit); }
+inline void CreateSocketEngine(int count) { new iocpEngine(count); }
 
 #endif      // NETLIB_IOCP

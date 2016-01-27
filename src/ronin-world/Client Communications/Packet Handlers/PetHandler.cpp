@@ -52,57 +52,7 @@ void WorldSession::HandlePetAction(WorldPacket & recv_data)
     case PET_ACTION_ACTION:
         {
             pPet->SetPetAction(misc);   // set current action
-            switch(misc)
-            {
-            case PET_ACTION_ATTACK:
-                {
-
-                    // make sure the target is attackable
-                    if(pTarget == pPet || !sFactionSystem.isAttackable(pPet, pTarget))
-                    {
-                        WorldPacket data(SMSG_SPELL_FAILURE, 20);
-                        data << _player->GetGUID().asPacked() << uint32(0) << uint32(0) << uint8(SPELL_FAILED_BAD_TARGETS);
-                        SendPacket(&data);
-                        return;
-                    }
-
-                    // Clear the threat
-                    pPet->GetAIInterface()->WipeTargetList();
-                    pPet->GetAIInterface()->WipeHateList();
-
-                    // Attack target with melee if the owner if we dont have spells - other wise cast. All done by AIInterface.
-                    if(pPet->GetAIInterface()->getUnitToFollow() == NULL)
-                        pPet->GetAIInterface()->SetUnitToFollow(_player);
-
-                    // EVENT_PET_ATTACK
-                    pPet->GetAIInterface()->SetAIState(STATE_ATTACKING);
-                    pPet->GetAIInterface()->AttackReaction(pTarget, 1, 0);
-                }break;
-            case PET_ACTION_FOLLOW:
-                {
-                    // Clear the threat
-                    pPet->GetAIInterface()->WipeTargetList();
-                    pPet->GetAIInterface()->WipeHateList();
-
-                    // Follow the owner... run to him...
-                    pPet->GetAIInterface()->SetUnitToFollow(_player);
-                    pPet->GetAIInterface()->HandleEvent(EVENT_FOLLOWOWNER, pPet, 0);
-                }break;
-            case PET_ACTION_STAY:
-                {
-                    // Clear the threat
-                    pPet->GetAIInterface()->WipeTargetList();
-                    pPet->GetAIInterface()->WipeHateList();
-
-                    // Stop following the owner, and sit.
-                    pPet->GetAIInterface()->SetUnitToFollow(NULL);
-                }break;
-            case PET_ACTION_DISMISS:
-                {
-                    // Bye byte...
-                    pPet->Dismiss();
-                }break;
-            }
+            pPet->GetAIInterface()->HandlePetAction(misc);
         }break;
 
     case PET_ACTION_SPELL_2:

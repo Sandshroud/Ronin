@@ -367,14 +367,7 @@ bool ChatHandler::HandleTeleportCommand(const char* args, WorldSession *m_sessio
 
         if(mapId == plr->GetMapId())
             plr->Teleport(loc.x, loc.y, loc.z, 0.f);
-        else
-        {
-            MapManager *mgr = sWorldMgr.GetMapManager(mapId);
-            if(mgr->GetContinent() == NULL)
-                return false;
-
-            plr->_Relocate(mapId, loc, true, 0);
-        }
+        else plr->_Relocate(mapId, loc, true, 0);
         return true;
     }
 
@@ -387,19 +380,15 @@ bool ChatHandler::HandleTeleportXYZCommand(const char* args, WorldSession *m_ses
         return false;
 
     Player *plr = m_session->GetPlayer();
-    uint32 mapId = 0; LocationVector loc;
-    int result = sscanf(args, "%u %f %f %f", &mapId, &loc.x, &loc.y, &loc.z);
-    if(result < 3)
+    int32 mapId = -1; LocationVector loc;
+    if(sscanf(args, "%f %f %f %u", &loc.x, &loc.y, &loc.z, &mapId) < 3)
         return false;
-    else if(result != 4)
+    else if(mapId == -1)
     {
         sscanf(args, "%f %f %f", &loc.x, &loc.y, &loc.z);
         plr->Teleport(loc.x, loc.y, loc.z, 0.f);
         return true;
     }
-    MapManager *mgr = sWorldMgr.GetMapManager(mapId);
-    if(mgr->GetContinent() == NULL)
-        return false;
 
     plr->_Relocate(mapId, loc, true, 0);
     return true;

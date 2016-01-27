@@ -351,6 +351,37 @@ public:
     bool run();
 };
 
+class DayWatcherThread
+{
+    enum DAYWATCHERSETTINGS
+    {
+        DW_MINUTELY    = 0,
+        DW_HOURLY      = 1,
+        DW_DAILY       = 2,
+        DW_WEEKLY      = 3,
+        DW_MONTHLY     = 4,
+    };
+
+public:
+    void load_settings();
+
+    void Update(uint32 diff);
+    time_t GetLastDailyResetTime() { return last_daily_reset_time; }
+
+protected:
+    void set_tm_pointers();
+
+    void update_daily();
+
+    void Reset_Heroic_Instances();
+    bool has_timeout_expired(tm *now_time, tm *last_time, uint32 timeoutval);
+
+private:
+    bool bheroic_reset;
+    time_t last_daily_reset_time;
+    tm local_last_daily_reset_time;
+};
+
 class WorldSocket;
 
 // Slow for remove in middle, oh well, wont get done much.
@@ -591,7 +622,12 @@ public:
     void LogPlayer(WorldSession* session, std::string message, ...);
     void LogChat(WorldSession* session, std::string message, ...);
 
+    time_t GetLastDailyResetTime() { return dayWatcher.GetLastDailyResetTime(); }
+
 protected:
+    uint32 dayWatcherTimer;
+    DayWatcherThread dayWatcher;
+
     // update Stuff, FIXME: use diff
     time_t _UpdateGameTime()
     {
@@ -681,4 +717,5 @@ private:
 };
 
 #define sIQL InsertQueueLoader::getSingleton()
+
 #define sWorld World::getSingleton()

@@ -216,22 +216,14 @@ int WorldSession::Update(int32 instanceId)
         }
     }
 
-    if(m_lastPing + WORLDSOCKET_TIMEOUT < (uint32)UNIXTIME)
+    if(m_lastPing + WORLDSOCKET_TIMEOUT < UNIXTIME)
     {
-        // Check if the player is in the process of being moved. We can't delete him
-        // if we are.
-        if(_player && _player->m_beingPushed)
-            return 0; // Abort
-
         // ping timeout!
         if( _socket != NULL )
-        {
             Disconnect();
-            _socket = NULL;
-        }
 
-        m_lastPing = (uint32)UNIXTIME;      // Prevent calling this code over and over.
-        if(!_logoutTime)
+        m_lastPing = UNIXTIME;      // Prevent calling this code over and over.
+        if(_logoutTime == 0)
             SetLogoutTimer(PLAYER_LOGOUT_DELAY);
     }
 
@@ -240,6 +232,11 @@ int WorldSession::Update(int32 instanceId)
 
 bool WorldSession::IsHighPriority()
 {
+    if(_socket == NULL || !_socket->IsConnected())
+        return false;
+    if((m_lastPing + WORLDSOCKET_TIMEOUT) < UNIXTIME)
+        return false;
+
     bool res = false;
     if(m_loggingInPlayer)
         res = true;
