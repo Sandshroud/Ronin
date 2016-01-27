@@ -17,7 +17,7 @@
 #include <sys/socket.h>
 #endif
 
-#include <mysql.h>
+#include <mysql/mysql.h>
 
 //! Our own includes.
 #include "Field.h"
