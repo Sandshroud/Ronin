@@ -60,8 +60,7 @@ extern "C" {
 };
 
 #include <vmaplib/VMapManagerExt.h>
-#include <recast/Recast.h>
-#include <detour/Detour.h>
+#include <mmaplib/MMapManagerExt.h>
 
 #include "../ronin-shared/git_version.h"
 #include "../ronin-shared/Common.h"

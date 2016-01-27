@@ -22,7 +22,7 @@ void VMapInterface::Init()
 
     if(vMapMgr)
     {
-        sLog.Success("VMapInterface", "Collision linked successfully\n");
+        sLog.Success("VMapInterface", "Collision linked successfully");
         vMapMgr->LoadGameObjectModelList();
     }
 }

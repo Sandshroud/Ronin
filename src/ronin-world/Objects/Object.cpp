@@ -715,7 +715,7 @@ float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, floa
             {
                 if(vmapheight < z)
                 {
-                    float mmapheight = NavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
+                    float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
                     if(mmapheight != MMAP_UNAVAILABLE)
                     {
                         if(checkwater && waterheight != NO_WATER_HEIGHT)
@@ -727,7 +727,7 @@ float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, floa
             }
             else
             {
-                float mmapheight = NavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, phz);
+                float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, phz);
                 if(mmapheight != MMAP_UNAVAILABLE)
                 {
                     if(checkwater && waterheight != NO_WATER_HEIGHT)
@@ -739,7 +739,7 @@ float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, floa
         }
         else
         {
-            float mmapheight = NavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
+            float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
             if(mmapheight != MMAP_UNAVAILABLE)
             {
                 if(checkwater && waterheight != NO_WATER_HEIGHT)

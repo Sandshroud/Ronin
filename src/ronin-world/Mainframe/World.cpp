@@ -154,12 +154,8 @@ World::~World()
 
 void World::Destruct()
 {
-    if(Collision)
-    {
-        sVMapInterface.DeInit();
-        if(PathFinding)
-            NavMeshInterface.DeInit();
-    }
+    sVMapInterface.DeInit();
+    sNavMeshInterface.DeInit();
 
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
@@ -467,7 +463,7 @@ bool World::SetInitialWorldSettings()
     sLog.Success("World", "Database loaded in %ums.", getMSTime() - start_time);
 
     sVMapInterface.Init();
-    NavMeshInterface.Init();
+    sNavMeshInterface.Init();
 
     // calling this puts all maps into our task list.
     sWorldMgr.Load(&tl);
