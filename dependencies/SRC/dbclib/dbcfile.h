@@ -19,7 +19,6 @@ public:
 
     // Open database. It must be openened before it can be used.
     bool open(const char*);
-    bool openFromMPQ(HANDLE);
 
     // Dump the 
     bool DumpBufferToFile(const char*fn);
@@ -145,9 +144,9 @@ public:
     int AddString(const char *new_string); //simply add an empty record to the end of the string section
     int GetRecordSize() { return recordSize; }
 ////////////////////////////////////////////////////////////////////////////////////////////
+    bool LoadFromMemory(char *_header, unsigned int _RecordCount, unsigned int _fieldCount, unsigned int _recordSize, unsigned int _stringSize, unsigned char *_data, unsigned char *_string);
 private:
     void CalcMaxId();
-    std::string filename;
     unsigned int recordSize;
     unsigned int recordCount;
     unsigned int fieldCount;

@@ -24,5 +24,5 @@ add_library( ${PROJECT_NAME} SHARED ${SRCS} )
 SET_PROPERTY(TARGET Collision PROPERTY FOLDER "Modules")
 
 #Link our libraries.
-add_dependencies( ${PROJECT_NAME} g3dlite vmaplib )
-target_link_libraries( ${PROJECT_NAME} g3dlite vmaplib ${EXTRA_LIBS} )
+add_dependencies( ${PROJECT_NAME} g3dlite zlib vmaplib )
+target_link_libraries( ${PROJECT_NAME} g3dlite zlib vmaplib ${EXTRA_LIBS} )

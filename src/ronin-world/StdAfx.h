@@ -55,9 +55,6 @@
 #include <network/Network.h>
 #include <dbclib/DBCLib.h>
 #include <zlib/zlib.h>
-extern "C" {
-#include <pcre/pcre.h>
-};
 
 #include <vmaplib/VMapManagerExt.h>
 #include <mmaplib/MMapManagerExt.h>

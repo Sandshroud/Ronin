@@ -137,13 +137,11 @@ ENDIF()
 add_definitions( ${GLOBAL_DEFINES} -DCONFDIR=\"${INIFILE_PATH}\")
 
 #These are set by find_package or the zlib and pcre subprojects.
-set(ZLIB_LIBRARIES "" CACHE INTERNAL "zlib libraries.")
-set(PCRE_LIBRARIES "" CACHE INTERNAL "pcre libraries.")
 set(RECAST_LIBRARIES "" CACHE INTERNAL "recast libraries.")
 set(DETOUR_LIBRARIES "" CACHE INTERNAL "detour libraries.")
 set(G3DLITE_LIBRARIES "" CACHE INTERNAL "g3dlite libraries.")
 #mark them as advanced so they don't show up on the gui.
-mark_as_advanced(ZLIB_LIBRARIES PCRE_LIBRARIES RECAST_LIBRARIES DETOUR_LIBRARIES G3DLITE_LIBRARIES)
+mark_as_advanced(RECAST_LIBRARIES DETOUR_LIBRARIES G3DLITE_LIBRARIES)
 
 set(GLOBAL_INCLUDE_DIRS 
 ${ROOT_PATH}/src/ronin-shared

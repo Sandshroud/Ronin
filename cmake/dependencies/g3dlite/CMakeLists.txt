@@ -27,9 +27,4 @@ SET( SRCS ${SRCS} ${sources} )
 include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
 
-add_dependencies( ${PROJECT_NAME} zlib )
-target_link_libraries( ${PROJECT_NAME} ${ZLIB_LIBRARIES} zlib )
-
-#Set it to the project name.
-set(G3DLITE_LIBRARIES ${PROJECT_NAME} CACHE INTERNAL "${PROJECT_NAME} Libraries")
 SET_PROPERTY(TARGET ${PROJECT_NAME} PROPERTY FOLDER "Dependencies")

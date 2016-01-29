@@ -57,49 +57,25 @@ bool DBCFile::open(const char*fn)
     return true;
 }
 
-bool DBCFile::openFromMPQ(HANDLE fileHandle)
+bool DBCFile::LoadFromMemory(char *_header, unsigned int _RecordCount, unsigned int _fieldCount, unsigned int _recordSize, unsigned int _stringSize, unsigned char *_data, unsigned char *_string)
 {
     maxId=0;
-    if(data)
-    {
-        delete [] data;
-        data = NULL;
-    }
-    if ( stringTable )
-    {
-        delete[] stringTable;
-        stringTable = NULL;
-    }
+    if(data) delete [] data;
+    if (stringTable) delete[] stringTable;
 
-    DWORD read = 0;
-    if(!SFileReadFile(fileHandle, header, 4, &read, NULL) || read != 4)
-        return false;
-    if (header[0] != 'W' || header[1] != 'D' || header[2] != 'B' || header[3] != 'C')
-        return false;
-    if(!SFileReadFile(fileHandle, &recordCount, 4, &read, NULL) || read != 4)
-        return false;
-    if(!SFileReadFile(fileHandle, &fieldCount, 4, &read, NULL) || read != 4)
-        return false;
-    if(!SFileReadFile(fileHandle, &recordSize, 4, &read, NULL) || read != 4)
-        return false;
-    if(!SFileReadFile(fileHandle, &stringSize, 4, &read, NULL) || read != 4)
-        return false;
-
-    data = new unsigned char[recordSize*recordCount];
-    stringTable = new unsigned char[stringSize];
-
-    if(!SFileReadFile(fileHandle, data, recordSize*recordCount, &read, NULL))
-        return false;
-    if(read != recordSize*recordCount)
-        return false;
-    if(!SFileReadFile(fileHandle, stringTable, stringSize, &read, NULL))
-        return false;
-    if(read != stringSize)
-        return false;
-
+    for(uint8 i = 0; i < 4; i++)
+        header[i] = _header[i];
+    assert(header[0]=='W' && header[1]=='D' && header[2]=='B' && header[3] == 'C');
+    recordCount = _RecordCount;
+    fieldCount = _fieldCount;
+    recordSize = _recordSize;
+    stringSize = _stringSize;
+    stringTable = _string;
+    data = _data;
     CalcMaxId();
     return true;
 }
+
 
 void DBCFile::CalcMaxId()
 {

@@ -12,8 +12,6 @@ include_directories( ${GLOBAL_INCLUDE_DIRS} ${prefix} )
 add_library(${PROJECT_NAME} STATIC ${SRCS} )
 
 add_dependencies( ${PROJECT_NAME} g3dlite recast detour )
-target_link_libraries( ${PROJECT_NAME} ${ZLIB_LIBRARIES} g3dlite recast detour )
+target_link_libraries( ${PROJECT_NAME} g3dlite recast detour )
 
-#Set it to the project name.
-set(THREADING_LIBRARIES ${PROJECT_NAME} CACHE INTERNAL "${PROJECT_NAME} Libraries")
 SET_PROPERTY(TARGET ${PROJECT_NAME} PROPERTY FOLDER "Dependencies")

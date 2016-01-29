@@ -427,6 +427,40 @@ uint32 ReadBuild(int locale)
     return build;
 }
 
+bool OpenDBC(DBCFile &file, HANDLE MPQ)
+{
+    char header[4];
+    DWORD read = 0, recordCount = 0, fieldCount = 0, recordSize = 0, stringSize = 0;
+    if(!SFileReadFile(MPQ, header, 4, &read, NULL) || read != 4)
+        return false;
+    if (header[0] != 'W' || header[1] != 'D' || header[2] != 'B' || header[3] != 'C')
+        return false;
+    if(!SFileReadFile(MPQ, &recordCount, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(MPQ, &fieldCount, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(MPQ, &recordSize, 4, &read, NULL) || read != 4)
+        return false;
+    if(!SFileReadFile(MPQ, &stringSize, 4, &read, NULL) || read != 4)
+        return false;
+
+    unsigned char *data = new unsigned char[recordSize*recordCount];
+    if(!SFileReadFile(MPQ, data, recordSize*recordCount, &read, NULL) || read != recordSize*recordCount)
+    {
+        delete [] data;
+        return false;
+    }
+
+    unsigned char *stringTable = new unsigned char[stringSize];
+    if(!SFileReadFile(MPQ, stringTable, stringSize, &read, NULL) || read != stringSize)
+    {
+        delete [] data;
+        delete [] stringTable;
+        return false;
+    }
+    return file.LoadFromMemory(header, recordCount, fieldCount, recordSize, stringSize, data, stringTable);
+}
+
 uint32 ReadMapDBC()
 {
     printf("Read Map.dbc file... ");
@@ -439,7 +473,7 @@ uint32 ReadMapDBC()
     }
 
     DBCFile dbc;
-    if (!dbc.openFromMPQ(dbcFile))
+    if(!OpenDBC(dbc, dbcFile))
     {
         PRINT_ERR("Fatal error: Invalid Map.dbc file format!\n");
         exit(1);
@@ -469,7 +503,7 @@ void ReadLiquidTypeTableDBC()
     }
 
     DBCFile dbc;
-    if(!dbc.openFromMPQ(dbcFile))
+    if(!OpenDBC(dbc, dbcFile))
     {
         PRINT_ERR("Fatal error: Invalid LiquidType.dbc file format!\n");
         exit(1);
@@ -1188,8 +1222,8 @@ void CreateCustomDBCFiles()
         return;
     DBCFile displayInfo, modelInfo;
     bool res = false;
-    if(res |= displayInfo.openFromMPQ(display))
-        res = modelInfo.openFromMPQ(model);
+    if(res |= OpenDBC(displayInfo, display))
+        res = OpenDBC(modelInfo, model);
     SFileCloseFile(display);
     SFileCloseFile(model);
     if(res == false)
@@ -1710,5 +1744,6 @@ int main(int argc, char * arg[])
         SFileCloseArchive(WorldMpq);
         SFileCloseArchive(LocaleMpq);
     }
+
     return 0;
 }
