@@ -159,6 +159,7 @@
 #include "SpellAuras.h"
 #include "ClassSpells.h"
 #include "TaxiMgr.h"
+#include "PathMgr.h"
 #include "TransporterHandler.h"
 #include "WeatherMgr.h"
 #include "TicketMgr.h"

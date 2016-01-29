@@ -788,12 +788,12 @@ Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
 {
     Player* chr = NULL;
     WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    if (guid.empty())
+    if (guid.empty() || guid.getHigh() != HIGHGUID_TYPE_PLAYER)
     {
         if(showerror)
             GreenSystemMessage(m_session, "Auto-targeting self.");
         chr = m_session->GetPlayer(); // autoselect
-    } else chr = m_session->GetPlayer()->GetMapInstance()->GetPlayer(guid);
+    } else chr = m_session->GetPlayer()->GetInRangeObject<Player>(guid);
 
     if(chr == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a player.");
@@ -806,11 +806,13 @@ Creature* ChatHandler::getSelectedCreature(WorldSession *m_session, bool showerr
         return NULL;
 
     WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    Unit *unit = m_session->GetPlayer()->GetMapInstance()->GetUnit(guid);
-    if(unit && unit->IsPlayer()) unit = NULL; // GetUnit also returns players
-    if(unit == NULL && showerror)
-        RedSystemMessage(m_session, "This command requires that you select a creature.");
-    return unit ? castPtr<Creature>(unit) : NULL;
+    if(guid.empty() || (guid.getHigh() != HIGHGUID_TYPE_UNIT && guid.getHigh() != HIGHGUID_TYPE_VEHICLE))
+    {
+        if(showerror) RedSystemMessage(m_session, "This command requires that you select a creature.");
+        return NULL;
+    }
+
+    return m_session->GetPlayer()->GetInRangeObject<Creature>(guid);
 }
 
 Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
@@ -818,10 +820,14 @@ Unit* ChatHandler::getSelectedUnit(WorldSession *m_session, bool showerror)
     if(!m_session->GetPlayer()->IsInWorld())
         return NULL;
 
-    Unit* unit = m_session->GetPlayer()->GetMapInstance()->GetUnit(m_session->GetPlayer()->GetSelection());
-    if(unit == NULL && showerror)
-        RedSystemMessage(m_session, "This command requires that you select a unit.");
-    return unit;
+    WoWGuid guid = m_session->GetPlayer()->GetSelection();
+    if(guid.empty() || (guid.getHigh() != HIGHGUID_TYPE_UNIT && guid.getHigh() != HIGHGUID_TYPE_VEHICLE && guid.getHigh() != HIGHGUID_TYPE_PLAYER))
+    {
+        if(showerror) RedSystemMessage(m_session, "This command requires that you select a unit.");
+        return NULL;
+    }
+
+    return m_session->GetPlayer()->GetInRangeObject<Unit>(guid);
 }
 
 void ChatHandler::SystemMessage(WorldSession *m_session, const char* message, ...)

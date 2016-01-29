@@ -53,6 +53,9 @@ bool ContinentManager::run()
         // Update any events.
         eventHolder.Update(diff);
 
+        // Update our path management map
+        sPathMgr.Update(m_mapId, diff);
+
         // Process all pending inputs in sequence
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))

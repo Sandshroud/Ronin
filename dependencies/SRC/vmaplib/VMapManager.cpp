@@ -28,7 +28,7 @@ namespace VMAP
                 delete it->second;
 
         for (ModelFileMap::iterator i = iLoadedModelFiles.begin(); i != iLoadedModelFiles.end(); ++i)
-            delete i->second.getModel();
+            delete i->second;
     }
 
     Vector3 VMapManager::convertPositionToInternalRep(float x, float y, float z)
@@ -337,27 +337,42 @@ namespace VMAP
     WorldModel* VMapManager::acquireModelInstance(const std::string& filename)
     {
         //! Critical section, thread safe access to iLoadedModelFiles
+        ManagedModel *retContainer = NULL;
         LoadedModelFilesLock.lock();
 
         ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
-        if (model == iLoadedModelFiles.end())
+        if(model != iLoadedModelFiles.end())
         {
-            WorldModel* worldmodel = new WorldModel();
-            if (!worldmodel->readFile(vmapDir + filename + ".vmo"))
+            (retContainer = model->second)->incRefCount();
+            if(retContainer->invalid() && retContainer->decRefCount() == 0)
             {
-                LoadedModelFilesLock.unlock();
-                OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vmapDir.c_str(), filename.c_str());
-                delete worldmodel;
-                return NULL;
+                delete retContainer;
+                iLoadedModelFiles.erase(model);
             }
-
-            OUT_DEBUG("VMapManager: loading file '%s%s'", vmapDir.c_str(), filename.c_str());
-            model = iLoadedModelFiles.insert(std::pair<std::string, ManagedModel>(filename, ManagedModel())).first;
-            model->second.setModel(worldmodel);
+            LoadedModelFilesLock.unlock();
         }
-        model->second.incRefCount();
-        LoadedModelFilesLock.unlock();
-        return model->second.getModel();
+        else
+        {
+            retContainer = new ManagedModel(new WorldModel());
+            retContainer->incRefCount();
+            retContainer->lock();
+            model = iLoadedModelFiles.insert(std::make_pair(filename, retContainer)).first;
+            LoadedModelFilesLock.unlock();
+
+            bool res = retContainer->getModel()->readFile(vmapDir + filename + ".vmo");
+            LoadedModelFilesLock.lock();
+            retContainer->unlock();
+            if(res == false)
+            {
+                OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vmapDir.c_str(), filename.c_str());
+                retContainer->invalidate();
+                if(retContainer->decRefCount() == 0)
+                    delete retContainer;
+                retContainer = NULL;
+            } else OUT_DEBUG("VMapManager: loading file '%s%s'", vmapDir.c_str(), filename.c_str());
+            LoadedModelFilesLock.unlock();
+        }
+        return retContainer ? retContainer->getModel() : NULL;
     }
 
     void VMapManager::releaseModelInstance(const std::string &filename)
@@ -373,11 +388,12 @@ namespace VMAP
             return;
         }
 
-        if (model->second.decRefCount() == 0)
+        if (model->second->decRefCount() == 0)
         {
             OUT_DEBUG("VMapManager: unloading file '%s'", filename.c_str());
-            delete model->second.getModel();
+            ManagedModel* mModel = model->second;
             iLoadedModelFiles.erase(model);
+            delete mModel;
         }
         LoadedModelFilesLock.unlock();
     }

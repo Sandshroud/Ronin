@@ -7,7 +7,9 @@
 TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : mapPath(MapPath), mapId(MapId)
 {
     FileDescriptor = NULL;
-    memset(LoadCounter, 0, sizeof(uint32)*64*64);
+    for(uint8 i = 0; i < 64; i++)
+        for(uint8 i2 = 0; i2 < 64; i2++)
+            LoadCounter[i][i2] = 0;
     sVMapInterface.ActivateMap(mapId);
 }
 
@@ -499,6 +501,7 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
     {
         LoadTileInformation(tileX, tileY);
         sVMapInterface.ActivateTile(mapId, tileX, tileY);
+        sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
     }
 }
 
@@ -518,6 +521,7 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
     {
         UnloadTileInformation(tileX, tileY);
         sVMapInterface.DeactivateTile(mapId, tileX, tileY);
+        sNavMeshInterface.UnloadNavMesh(mapId, tileX, tileY);
     }
 }
 
@@ -530,6 +534,8 @@ void TerrainMgr::LoadAllTerrain()
         {
             LoadCounter[x][y]++;
             LoadTileInformation(x, y);
+            sVMapInterface.ActivateTile(mapId, x, y);
+            sNavMeshInterface.LoadNavMesh(mapId, x, y);
         }
     }
     sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
@@ -545,6 +551,8 @@ void TerrainMgr::UnloadAllTerrain(bool forced)
                 LoadCounter[x][y] = 0;
             else LoadCounter[x][y]--;
             UnloadTileInformation(x, y);
+            sVMapInterface.DeactivateTile(mapId, x, y);
+            sNavMeshInterface.UnloadNavMesh(mapId, x, y);
         }
     }
 }

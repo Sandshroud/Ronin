@@ -395,7 +395,6 @@ bool World::SetInitialWorldSettings()
     new ObjectMgr();
     new GossipManager();
     new TicketMgr();
-    new QuestMgr();
     new LootMgr();
     new LfgMgr();
     new WeatherMgr();

@@ -2207,14 +2207,7 @@ bool ChatHandler::HandleCollisionTestLOS(const char * args, WorldSession * m_ses
 {
     if(sWorld.Collision)
     {
-        WorldObject* pObj = NULL;
-        Creature* pCreature = getSelectedCreature(m_session, false);
-        Player* pPlayer = getSelectedChar(m_session, false);
-        if(pCreature)
-            pObj = pCreature;
-        else if(pPlayer)
-            pObj = pPlayer;
-
+        WorldObject* pObj = getSelectedUnit(m_session, false);
         if(pObj == NULL)
         {
             SystemMessage(m_session, "Invalid target.");

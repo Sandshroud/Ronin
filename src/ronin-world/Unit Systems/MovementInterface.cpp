@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_creaturePath(NULL), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -353,26 +353,34 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
 
 void MovementInterface::Update(uint32 diff)
 {
-    m_updateTimer += diff; // Update movement timers 500ms
-    if(m_updateTimer >= 200)
-    {
-        for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
-        {
-            if(m_speedTimers[i])
-            {
-                if(m_speedTimers[i] <= m_updateTimer)
-                {
-                    m_speedTimers[i] = 0; // Timer not needed anymore
-                    m_currSpeeds[i] = m_pendingSpeeds[i];
-                    m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
-                } else m_speedTimers[i] -= m_updateTimer;
-            }
-        }
+    uint32 u_diff = (m_updateTimer += diff);
+    if(u_diff < 200)
+        return;
+    m_updateTimer = 0;
 
-        HandleBreathing(m_updateTimer);
-        m_updateTimer = 0;
+    for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
+    {
+        if(m_speedTimers[i])
+        {
+            if(m_speedTimers[i] <= u_diff)
+            {
+                m_speedTimers[i] = 0; // Timer not needed anymore
+                m_currSpeeds[i] = m_pendingSpeeds[i];
+                m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
+            } else m_speedTimers[i] -= u_diff;
+        }
     }
 
+    HandleBreathing(u_diff);
+
+    if(m_Unit->IsCreature())
+    {
+        Creature *ctr = castPtr<Creature>(m_Unit);
+
+        // Update our unit based on the set creature path
+        if(CreaturePath *path = m_creaturePath)
+            path->UpdateLoc(m_serverLocation);
+    }
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)

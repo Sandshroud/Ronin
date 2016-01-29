@@ -240,6 +240,7 @@ enum UnderwaterStates : uint8
     UNDERWATERSTATE_TIMERS_PRESENT  = 0x20
 };
 
+class CreaturePath;
 class MovementInterface;
 struct PacketHandler { void (MovementInterface::*function)(bool read, ByteBuffer &buffer); };
 
@@ -612,6 +613,8 @@ protected: // Speed and Status information
 
 private:
     Unit *m_Unit;
+    // Creature movement path
+    CreaturePath *m_creaturePath;
 
     uint32 m_updateTimer;
 };

@@ -31,13 +31,20 @@ namespace VMAP
     class ManagedModel
     {
         public:
-            ManagedModel() : iModel(0), iRefCount(0) {}
-            void setModel(WorldModel *model) { iModel = model; }
+            ManagedModel(WorldModel *model) : iModel(model), iRefCount(0), iInvalid(false), iLock() {}
+            ~ManagedModel() { delete iModel; }
+
             WorldModel *getModel() { return iModel; }
             void incRefCount() { ++iRefCount; }
             int decRefCount() { return --iRefCount; }
+            bool invalid() { return iInvalid; }
+            void invalidate() { iInvalid = true; }
+            void lock() { iLock.lock(); }
+            void unlock() { iLock.unlock(); }
         protected:
             WorldModel *iModel;
+            G3D::GMutex iLock;
+            bool iInvalid;
             int iRefCount;
     };
 
@@ -52,7 +59,7 @@ namespace VMAP
     typedef std::map<G3D::uint32, StaticMapTree*> InstanceTreeMap;
     typedef std::map<G3D::uint32, DynamicMapTree*> SubDynamicTreeMap;
     typedef std::map<G3D::uint32, SubDynamicTreeMap> DynamicTreeMap;
-    typedef std::map<std::string, ManagedModel> ModelFileMap;
+    typedef std::map<std::string, ManagedModel*> ModelFileMap;
 
     class VMapManager : public VMapManagerExt
     {

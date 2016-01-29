@@ -48,7 +48,7 @@ void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
 
 bool VMapInterface::ActivateMap(uint32 mapId)
 {
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) != m_mapLocks.end())
         return false;
     bool result;
     m_mapDataLock.Acquire();

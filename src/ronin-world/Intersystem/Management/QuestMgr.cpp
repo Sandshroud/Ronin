@@ -4,7 +4,9 @@
 
 #include "StdAfx.h"
 
-QuestMgr::QuestMgr()
+createFileSingleton(QuestMgr);
+
+QuestMgr::QuestMgr() : Singleton<QuestMgr>()
 {
 
 }
