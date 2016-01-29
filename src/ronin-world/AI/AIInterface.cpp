@@ -4,8 +4,6 @@
 
 #include "StdAfx.h"
 
-extern pAIEvent AIEventHandlers[NUM_AI_EVENTS];
-
 AIInterface::AIInterface()
 {
     m_CastNext = NULL;
@@ -102,9 +100,6 @@ void AIInterface::HandleEvent(uint32 eevent, Unit* pUnit, uint32 misc1)
         if(castPtr<Creature>(m_Unit)->GetCreatureData() && castPtr<Creature>(m_Unit)->GetCreatureData()->type == CRITTER)
             return;
     }
-
-    if(AIEventHandlers[eevent] != NULL)
-        (*this.*AIEventHandlers[eevent])(pUnit, misc1);
 }
 
 void AIInterface::Update(uint32 p_time)

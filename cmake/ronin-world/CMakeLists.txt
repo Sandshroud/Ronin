@@ -3,11 +3,11 @@ PROJECT(ronin-world)
 SET( prefix ${ROOT_PATH}/src/ronin-world )
 
 #Put our AI headers in a separate filter for easy access
-FILE(GLOB ai_headers "${prefix}/AI/*.h")
-FILE(GLOB ai_sources "${prefix}/AI/*.cpp")
+FILE(GLOB ai_sources
+"${prefix}/AI/*.h"
+"${prefix}/AI/*.cpp")
 source_group("AI" FILES ${ai_sources})
-source_group("AI\\Headers" FILES ${ai_headers})
-SET(group_sources ${group_sources} ${ai_sources} ${ai_headers} )
+SET(group_sources ${group_sources} ${ai_sources} )
 
 FILE(GLOB battleground_sources
 "${prefix}/Battlegrounds/*.h"
