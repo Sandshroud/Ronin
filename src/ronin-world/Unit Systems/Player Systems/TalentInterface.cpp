@@ -21,13 +21,13 @@ TalentInterface::~TalentInterface()
 void TalentInterface::SaveTalentData(QueryBuffer * buf)
 {
     ASSERT(m_specCount > 0);
-    m_specLock.Acquire();
 
     // delete old talents first
     if(buf == NULL)
         CharacterDatabase.Execute("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
     else buf->AddQuery("DELETE FROM character_talents WHERE guid = %u", m_Player->GetLowGUID() );
 
+    m_specLock.Acquire();
     std::stringstream ss;
     for(uint8 s = 0; s < m_specCount; s++)
     {
@@ -43,13 +43,13 @@ void TalentInterface::SaveTalentData(QueryBuffer * buf)
         }
     }
 
+    m_specLock.Release();
     if(ss.str().empty())
         return;
 
     if(buf == NULL)
         CharacterDatabase.Execute("INSERT INTO character_talents VALUES %s", ss.str().c_str());
     else buf->AddQuery("INSERT INTO character_talents VALUES %s", ss.str().c_str());
-    m_specLock.Release();
 }
 
 void TalentInterface::LoadTalentData(QueryResult *result)

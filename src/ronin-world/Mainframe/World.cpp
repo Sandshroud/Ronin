@@ -393,6 +393,7 @@ bool World::SetInitialWorldSettings()
     }
 
     new ObjectMgr();
+    new QuestMgr();
     new GossipManager();
     new TicketMgr();
     new LootMgr();

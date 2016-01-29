@@ -125,7 +125,7 @@ void Unit::Update( uint32 p_time )
     if(!IsPlayer())
     {
         m_AreaUpdateTimer += p_time;
-        if(m_AreaUpdateTimer >= 2000)
+        if(m_AreaUpdateTimer >= 5000)
         {
             if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
             {
