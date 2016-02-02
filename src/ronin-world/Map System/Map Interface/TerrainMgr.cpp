@@ -4,26 +4,18 @@
 
 #include "StdAfx.h"
 
-TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : mapPath(MapPath), mapId(MapId)
+TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : file_name(MapPath), dummyMap(false), mapId(MapId)
 {
-    FileDescriptor = NULL;
+    file_name.append('/'+format("Map_%03u.bin", mapId));
+
     for(uint8 i = 0; i < 64; i++)
         for(uint8 i2 = 0; i2 < 64; i2++)
             LoadCounter[i][i2] = 0;
-    sVMapInterface.ActivateMap(mapId);
+    sVMapInterface.ActivateMap(mapId, false);
 }
 
 TerrainMgr::~TerrainMgr()
 {
-    if(FileDescriptor)
-    {
-        // Free up our file pointer.
-        mutex.Acquire();
-        fclose(FileDescriptor);
-        mutex.Release();
-        FileDescriptor = NULL;
-    }
-
     tileInformation.clear();
     sVMapInterface.DeactivateMap(mapId);
 }
@@ -172,13 +164,12 @@ uint16 GetAreaEntry(float x, float y, TileTerrainInformation* Tile)
 
 bool TerrainMgr::LoadTerrainHeader()
 {
-    // Create the path
-    std::string file_name = mapPath+'/';
-    file_name.append(format("Map_%03u.bin", mapId));
-    FileDescriptor = fopen(file_name.c_str(), "rb");
+    // Create the 
+    FILE *FileDescriptor = fopen(file_name.c_str(), "rb");
     if(FileDescriptor == 0)
     {
         sLog.Error("TerrainMgr", "Map load failed for %s. Missing file?", file_name.c_str());
+        dummyMap = true;
         return false;
     }
 
@@ -190,7 +181,7 @@ bool TerrainMgr::LoadTerrainHeader()
 
         /* file with no data */
         fclose(FileDescriptor);
-        FileDescriptor = NULL;
+        dummyMap = true;
         return false;
     }
 
@@ -198,11 +189,12 @@ bool TerrainMgr::LoadTerrainHeader()
     // Read in the header.
     fseek(FileDescriptor, 0, SEEK_SET);
     size_t dread = fread(TileOffsets, 1, TERRAIN_HEADER_SIZE, FileDescriptor);
+    fclose(FileDescriptor);
+
     if(dread != TERRAIN_HEADER_SIZE)
     {
         sLog.Error("TerrainMgr", "Terrain header read failed for %s! %u/%u | %u", file_name.c_str(), dread, TERRAIN_HEADER_SIZE, sizeof(TileOffsets));
-        fclose(FileDescriptor);
-        FileDescriptor = NULL;
+        dummyMap = true;
         return false;
     }
 
@@ -219,109 +211,111 @@ bool TerrainMgr::LoadTerrainHeader()
     return true;
 }
 
-bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y)
+bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
 {
-    if(!FileDescriptor)
+    if(dummyMap == true)
         return false;
+
+    bool opened = false;
+    if(input == NULL)
+    {
+        fopen_s(&input, file_name.c_str(), "rb");
+        if(input == NULL)
+            return false;
+        opened = true;
+    }
 
     std::pair<uint8, uint8> offsetPair = std::make_pair(x, y);
     if(m_tileOffsets.find(offsetPair) == m_tileOffsets.end())
+    {
+        if(opened) fclose(input);
         return false;
+    }
 
     // Find our offset in our cached header.
-    uint32 Offset = m_tileOffsets.at(offsetPair);
-
-    // If our offset = 0, it means we don't have tile information for
-    // these coords.
-    if(Offset == 0)
-        return false;
-
-    // Lock the mutex to prevent double reading.
-    mutex.Acquire();
-
-    // Check that we haven't been loaded by another thread.
-    if(tileInformation.find(offsetPair) != tileInformation.end())
+    if(uint32 Offset = m_tileOffsets.at(offsetPair))
     {
-        mutex.Release();
-        return true;
-    }
-
-    // Seek to our specified offset.
-    if(fseek(FileDescriptor, Offset, SEEK_SET) == 0)
-    {
-        // Allocate the tile information.
-        TileTerrainInformation* tile = &tileInformation[offsetPair];
-        memset(tile, 0, sizeof(TileTerrainInformation));
-
-        uint8 flags[3];
-        fread(&flags, sizeof(uint8), 3, FileDescriptor);
-        if((flags[0] & 0x01) == 0)
+        // Check that we haven't been loaded by another thread.
+        if(tileInformation.find(offsetPair) == tileInformation.end())
         {
-            if(flags[0] & 0x02)
+            // Seek to our specified offset.
+            if(fseek(input, Offset, SEEK_SET) == 0)
             {
-                tile->masked_AI = new TileTerrainInformation::mAI;
-                fread(&tile->masked_AI->mask, sizeof(uint16), 16, FileDescriptor);
-                fread(&tile->areaInfo, sizeof(uint16), 1, FileDescriptor);
-            }
-            else
-            {
-                tile->short_AI = new TileTerrainInformation::sAI;
-                fread(&tile->short_AI->AI, sizeof(uint16), 16*16, FileDescriptor);
-            }
-        } else fread(&tile->areaInfo, sizeof(uint16), 1, FileDescriptor);
+                // Allocate the tile information.
+                TileTerrainInformation* tile = &tileInformation[offsetPair];
+                memset(tile, 0, sizeof(TileTerrainInformation));
 
-        fread(&tile->mapHeight, sizeof(float), 2, FileDescriptor);
-        if((flags[1] & 0x01) == 0)
-        {
-            if(flags[1] & 0x04)
-            {
-                tile->byte_V8 = new TileTerrainInformation::bV8;
-                tile->byte_V9 = new TileTerrainInformation::bV9;
-                fread(&tile->byte_V8->V8, sizeof(uint8), 128*128, FileDescriptor);
-                fread(&tile->byte_V9->V9, sizeof(uint8), 129*129, FileDescriptor);
-            }
-            else if(flags[1] & 0x02)
-            {
-                tile->short_V8 = new TileTerrainInformation::sV8;
-                tile->short_V9 = new TileTerrainInformation::sV9;
-                fread(&tile->short_V8->V8, sizeof(uint16), 128*128, FileDescriptor);
-                fread(&tile->short_V9->V9, sizeof(uint16), 129*129, FileDescriptor);
-            }
-            else
-            {
-                tile->float_V8 = new TileTerrainInformation::fV8;
-                tile->float_V9 = new TileTerrainInformation::fV9;
-                fread(&tile->float_V8->V8, sizeof(float), 128*128, FileDescriptor);
-                fread(&tile->float_V9->V9, sizeof(float), 129*129, FileDescriptor);
+                uint8 flags[3];
+                fread(&flags, sizeof(uint8), 3, input);
+                if((flags[0] & 0x01) == 0)
+                {
+                    if(flags[0] & 0x02)
+                    {
+                        tile->masked_AI = new TileTerrainInformation::mAI;
+                        fread(&tile->masked_AI->mask, sizeof(uint16), 16, input);
+                        fread(&tile->areaInfo, sizeof(uint16), 1, input);
+                    }
+                    else
+                    {
+                        tile->short_AI = new TileTerrainInformation::sAI;
+                        fread(&tile->short_AI->AI, sizeof(uint16), 16*16, input);
+                    }
+                } else fread(&tile->areaInfo, sizeof(uint16), 1, input);
+
+                fread(&tile->mapHeight, sizeof(float), 2, input);
+                if((flags[1] & 0x01) == 0)
+                {
+                    if(flags[1] & 0x04)
+                    {
+                        tile->byte_V8 = new TileTerrainInformation::bV8;
+                        tile->byte_V9 = new TileTerrainInformation::bV9;
+                        fread(&tile->byte_V8->V8, sizeof(uint8), 128*128, input);
+                        fread(&tile->byte_V9->V9, sizeof(uint8), 129*129, input);
+                    }
+                    else if(flags[1] & 0x02)
+                    {
+                        tile->short_V8 = new TileTerrainInformation::sV8;
+                        tile->short_V9 = new TileTerrainInformation::sV9;
+                        fread(&tile->short_V8->V8, sizeof(uint16), 128*128, input);
+                        fread(&tile->short_V9->V9, sizeof(uint16), 129*129, input);
+                    }
+                    else
+                    {
+                        tile->float_V8 = new TileTerrainInformation::fV8;
+                        tile->float_V9 = new TileTerrainInformation::fV9;
+                        fread(&tile->float_V8->V8, sizeof(float), 128*128, input);
+                        fread(&tile->float_V9->V9, sizeof(float), 129*129, input);
+                    }
+                }
+
+                if((flags[2] & 0x01) == 0)
+                {
+                    tile->short_LE = new TileTerrainInformation::sLE;
+                    tile->byte_LI = new TileTerrainInformation::bLI;
+                    fread(&tile->short_LE->LE, sizeof(uint16), 16*16, input);
+                    fread(&tile->byte_LI->LI, sizeof(uint8), 16*16, input);
+                } else fread(&tile->liquidData[4], sizeof(uint8), 1, input);
+
+                if((flags[2] & 0x02) == 0)
+                {
+                    fread(&tile->liquidData, sizeof(uint8), 4, input);
+                    tile->m_liquidHeight = new float [tile->liquidData[2] * tile->liquidData[3]];
+                    fread(tile->m_liquidHeight, sizeof(float), tile->liquidData[2] * tile->liquidData[3], input);
+                } else fread(&tile->mapHeight[2], sizeof(float), 1, input);
+
+                if(flags[0] & 0x02)
+                {
+                    tile->short_HI = new TileTerrainInformation::sHI;
+                    fread(&tile->short_HI->HI, sizeof(uint16), 16*16, input);
+                }
             }
         }
-
-        if((flags[2] & 0x01) == 0)
-        {
-            tile->short_LE = new TileTerrainInformation::sLE;
-            tile->byte_LI = new TileTerrainInformation::bLI;
-            fread(&tile->short_LE->LE, sizeof(uint16), 16*16, FileDescriptor);
-            fread(&tile->byte_LI->LI, sizeof(uint8), 16*16, FileDescriptor);
-        } else fread(&tile->liquidData[4], sizeof(uint8), 1, FileDescriptor);
-
-        if((flags[2] & 0x02) == 0)
-        {
-            fread(&tile->liquidData, sizeof(uint8), 4, FileDescriptor);
-            tile->m_liquidHeight = new float [tile->liquidData[2] * tile->liquidData[3]];
-            fread(tile->m_liquidHeight, sizeof(float), tile->liquidData[2] * tile->liquidData[3], FileDescriptor);
-        } else fread(&tile->mapHeight[2], sizeof(float), 1, FileDescriptor);
-
-        if(flags[0] & 0x02)
-        {
-            tile->short_HI = new TileTerrainInformation::sHI;
-            fread(&tile->short_HI->HI, sizeof(uint16), 16*16, FileDescriptor);
-        }
     }
-    // Release the mutex.
-    mutex.Release();
 
+    // Close any file opened from inside this function
+    if(opened) fclose(input);
     // If we don't equal 0, it means the load was successful.
-    return TileInformationLoaded(x, y);
+    return _TileInformationLoaded(x, y);
 }
 
 void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
@@ -347,16 +341,9 @@ uint8 TerrainMgr::GetWaterType(float x, float y)
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
     mutex.Acquire();
-    if(!TileInformationLoaded(TileX, TileY))
-    {
-        mutex.Release();
-        return 0;
-    }
-
-    // Find the offset.
-    uint8 Liquid = GetLiquidType(x, y, GetTileInformation(TileX, TileY));
-
-    // Return our cached information.
+    uint8 Liquid = 0;
+    if(_TileInformationLoaded(TileX, TileY))
+        Liquid = GetLiquidType(x, y, GetTileInformation(TileX, TileY));
     mutex.Release();
     return Liquid;
 }
@@ -371,22 +358,18 @@ float TerrainMgr::GetWaterHeight(float x, float y, float z)
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
     mutex.Acquire();
-    if(!TileInformationLoaded(TileX, TileY))
+    float WaterHeight = NO_WATER_HEIGHT;
+    if(_TileInformationLoaded(TileX, TileY))
     {
-        mutex.Release();
-        return NO_WATER_HEIGHT;
-    }
-
-    float WaterHeight = GetLiquidHeight(x, y, GetTileInformation(TileX, TileY));
-    if(WaterHeight == 0.0f && !(GetLiquidType(x, y, GetTileInformation(TileX, TileY)) & 0x02))
-        WaterHeight = NO_WATER_HEIGHT;
-    else if(z != 0.0f && z != NO_WATER_HEIGHT)
-    {
-        if(z < GetHeight(x, y, GetTileInformation(TileX, TileY)))
+        WaterHeight = GetLiquidHeight(x, y, GetTileInformation(TileX, TileY));
+        if(WaterHeight == 0.0f && !(GetLiquidType(x, y, GetTileInformation(TileX, TileY)) & 0x02))
             WaterHeight = NO_WATER_HEIGHT;
+        else if(z != 0.0f && z != NO_WATER_HEIGHT)
+        {
+            if(z < GetHeight(x, y, GetTileInformation(TileX, TileY)))
+                WaterHeight = NO_WATER_HEIGHT;
+        }
     }
-
-    // Return our cached information.
     mutex.Release();
     return WaterHeight;
 }
@@ -407,18 +390,11 @@ uint16 TerrainMgr::GetAreaID(float x, float y, float z)
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
     mutex.Acquire();
-    if(!TileInformationLoaded(TileX, TileY))
-    {
-        mutex.Release();
-        return 0xFFFF;
-    }
-
-    // Find the offset in the 2d array.
-    uint16 AreaId = GetAreaEntry(x, y, GetTileInformation(TileX, TileY));
-
-    // Return our cached information.
+    uint16 areaId = 0xFFFF;
+    if(_TileInformationLoaded(TileX, TileY)) // Find the offset in the 2d array.
+        areaId = GetAreaEntry(x, y, GetTileInformation(TileX, TileY));
     mutex.Release();
-    return AreaId;
+    return areaId;
 }
 
 bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
@@ -429,7 +405,7 @@ bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
     mutex.Acquire();
     uint32 areaid = 0;
     bool Required, Result = false;
-    if((Required = !TileInformationLoaded(TileX, TileY)))
+    if((Required = !_TileInformationLoaded(TileX, TileY)))
     {
         if(!LoadTileInformation(TileX, TileY))
         {
@@ -470,15 +446,9 @@ float TerrainMgr::GetLandHeight(float x, float y)
     uint32 TileY = ConvertGlobalYCoordinate(y);
 
     mutex.Acquire();
-    if(!TileInformationLoaded(TileX, TileY))
-    {
-        mutex.Release();
-        return NO_LAND_HEIGHT;
-    }
-
-    float LandHeight = GetHeight(x, y, GetTileInformation(TileX, TileY));
-
-    // Return our cached information.
+    float LandHeight = NO_LAND_HEIGHT;
+    if(_TileInformationLoaded(TileX, TileY))
+        LandHeight = GetHeight(x, y, GetTileInformation(TileX, TileY));
     mutex.Release();
     return LandHeight;
 }
@@ -487,62 +457,51 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
 {
     uint32 tileX = x/8, tileY = y/8;
     mutex.Acquire();
-
-    LoadCounter[tileX][tileY]++;
-    if(TileInformationLoaded(tileX, tileY))
-    {
-        mutex.Release();
-        return;
-    }
-    mutex.Release();
-
-    // Load Tile information if it's not already loaded.
-    if(LoadCounter[tileX][tileY] == 1)
-    {
+    if((++LoadCounter[tileX][tileY]) == 1)
         LoadTileInformation(tileX, tileY);
-        sVMapInterface.ActivateTile(mapId, tileX, tileY);
-        sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
-    }
+    sVMapInterface.ActivateTile(mapId, tileX, tileY);
+    sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
+    mutex.Release();
 }
 
 void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
 {
     uint32 tileX = x/8, tileY = y/8;
     mutex.Acquire();
-    LoadCounter[tileX][tileY]--;
-    if(!TileInformationLoaded(tileX, tileY))
-    {
-        mutex.Release();
-        return;
-    }
-    mutex.Release();
-
-    if(LoadCounter[tileX][tileY] == 0)
-    {
+    if((--LoadCounter[tileX][tileY]) == 0)
         UnloadTileInformation(tileX, tileY);
-        sVMapInterface.DeactivateTile(mapId, tileX, tileY);
-        sNavMeshInterface.UnloadNavMesh(mapId, tileX, tileY);
-    }
+    sVMapInterface.DeactivateTile(mapId, tileX, tileY);
+    sNavMeshInterface.UnloadNavMesh(mapId, tileX, tileY);
+    mutex.Release();
 }
 
 void TerrainMgr::LoadAllTerrain()
 {
     sLog.Debug("TerrainMgr", "[%u]: Loading all terrain", mapId);
+    mutex.Acquire();
+    FILE *input = NULL;
+    fopen_s(&input, file_name.c_str(), "rb");
     for(uint8 x = 0; x < 64; x++)
     {
         for(uint8 y = 0; y < 64; y++)
         {
-            LoadCounter[x][y]++;
-            LoadTileInformation(x, y);
             sVMapInterface.ActivateTile(mapId, x, y);
             sNavMeshInterface.LoadNavMesh(mapId, x, y);
+            if(input == NULL)
+                continue;
+
+            LoadTileInformation(x, y, input);
+            LoadCounter[x][y]++;
         }
     }
+    fclose(input);
+    mutex.Release();
     sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
 }
 
 void TerrainMgr::UnloadAllTerrain(bool forced)
 {
+    mutex.Acquire();
     for(uint8 x = 0; x < 64; x++)
     {
         for(uint8 y = 0; y < 64; y++)
@@ -555,4 +514,5 @@ void TerrainMgr::UnloadAllTerrain(bool forced)
             sNavMeshInterface.UnloadNavMesh(mapId, x, y);
         }
     }
+    mutex.Release();
 }

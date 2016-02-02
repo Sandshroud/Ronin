@@ -94,7 +94,7 @@ bool preciseVectorData = false;
 
 //static const char * szWorkDirMaps = ".\\Maps";
 const char* szWorkDirWmo = "./Buildings";
-const char* szRawVMAPMagic = "VMAP041";
+const char* szRawVMAPMagic = "VMAP050";
 
 bool LoadLocaleMPQFile(int locale)
 {

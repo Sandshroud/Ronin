@@ -966,6 +966,13 @@ struct SpellEntry
     bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
     bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); }
     bool AppliesAura(uint32 auraName) { return (EffectApplyAuraName[0] == auraName || EffectApplyAuraName[1] == auraName || EffectApplyAuraName[2] == auraName); }
+    int8 GetEffectIndex(uint32 spellEffect)
+    {
+        if(Effect[0] == spellEffect) return 0;
+        if(Effect[1] == spellEffect) return 1;
+        if(Effect[2] == spellEffect) return 2;
+        return -1;
+    }
 
     // Attribute parsing
     bool reqAmmoForSpell() { return HasAttribute(0, 0x02); }

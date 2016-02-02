@@ -6,7 +6,7 @@
 
 //===========================================================
 
-#define MAP_FILENAME_EXTENSION2 ".vmtree"
+#define MAP_FILENAME_EXTENSION2 ".vmtiletree"
 
 #define FILENAMEBUFFER_SIZE 500
 
@@ -64,10 +64,11 @@ namespace VMAP
     class VMapManager : public VMapManagerExt
     {
         protected:
-            std::string vmapDir;
+            std::string vMapTileDir, vMapObjDir;
             GOModelInstanceByGUID GOModelTracker;
 
             // Tree to check collision
+            std::set<G3D::uint32> iDummyMaps;
             ModelFileMap iLoadedModelFiles;
             DynamicTreeMap iDynamicMapTrees;
             InstanceTreeMap iInstanceMapTrees;
@@ -83,7 +84,7 @@ namespace VMAP
             static G3D::Vector3 convertPositionToInternalRep(float x, float y, float z);
             static std::string getMapFileName(unsigned int mapId);
 
-            VMapManager(std::string vMapDirectory);
+            VMapManager(std::string vMapTileDir, std::string vMapObjDir);
             ~VMapManager(void);
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }
@@ -92,7 +93,7 @@ namespace VMAP
             void LoadGameObjectModelList();
 
             // Static collision
-            bool loadMap(unsigned int mapId);
+            bool loadMap(unsigned int mapId, bool loadAll);
             void unloadMap(unsigned int mapId);
             bool loadMap(unsigned int mapId, int x, int y);
             void unloadMap(unsigned int mapId, int x, int y);
@@ -123,7 +124,6 @@ namespace VMAP
             {
                 return getMapFileName(mapId);
             }
-            virtual bool existsMap(const char* basePath, unsigned int mapId, int x, int y);
         public:
             void getInstanceMapTree(InstanceTreeMap &instanceMapTree);
     };

@@ -7,6 +7,9 @@
 // Include our basic definitions
 #include "../SharedDependencyDefines.h"
 
+// Console logging
+#include <threading/Threading.h>
+
 // Include our VMap headers
 #include "ModelInstance.h"
 

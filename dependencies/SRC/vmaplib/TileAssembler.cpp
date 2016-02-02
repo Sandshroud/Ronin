@@ -36,10 +36,9 @@ namespace VMAP
 
     //=================================================================
 
-    TileAssembler::TileAssembler(const std::string& pSrcDirName, const std::string& pDestDirName)
-        : iDestDir(pDestDirName), iSrcDir(pSrcDirName), iFilterMethod(NULL), iCurrentUniqueNameId(0)
+    TileAssembler::TileAssembler(const std::string& pSrcDirName, const std::string& pTileDestDirName, const std::string &pObjectDestDirName)
+        : iTileDestDir(pTileDestDirName), iObjDestDir(pObjectDestDirName), iSrcDir(pSrcDirName), iFilterMethod(NULL), iCurrentUniqueNameId(0)
     {
-        //mkdir(iDestDir);
         //init();
     }
 
@@ -54,7 +53,7 @@ namespace VMAP
         if (!success)
             return false;
 
-        // export Map data
+        char output_filename[1024]; // export Map data
         for (MapData::iterator map_iter = mapData.begin(); map_iter != mapData.end() && success; ++map_iter)
         {
             // build global map tree
@@ -88,83 +87,92 @@ namespace VMAP
             for (G3D::uint32 i=0; i<mapSpawns.size(); ++i)
                 modelNodeIdx.insert(pair<G3D::uint32, G3D::uint32>(mapSpawns[i]->ID, i));
 
-            // write map tree file
-            std::stringstream mapfilename;
-            mapfilename << iDestDir << '/' << std::setfill('0') << std::setw(3) << map_iter->first << ".vmtree";
-            FILE *mapfile = fopen(mapfilename.str().c_str(), "wb");
-            if (!mapfile)
+            FILE *mapfile = NULL; // write map tree file
+            sprintf(output_filename, "%s/%03u.vmtiletree", iTileDestDir.c_str(), map_iter->first);
+            fopen_s(&mapfile, output_filename, "wb");
+            if (mapfile == NULL)
             {
                 success = false;
-                OUT_DETAIL("Cannot open %s", mapfilename.str().c_str());
+                OUT_DETAIL("Cannot open %s", output_filename);
                 break;
             }
 
             //general info
             if (success && fwrite(VMAP_MAGIC, 10, 1, mapfile) != 1) success = false;
             G3D::uint32 globalTileID = StaticMapTree::packTileID(65, 65);
-            pair<TileMap::iterator, TileMap::iterator> globalRange = map_iter->second->TileEntries.equal_range(globalTileID);
-            char isTiled = globalRange.first == globalRange.second; // only maps without terrain (tiles) have global WMO
-            if (success && fwrite(&isTiled, sizeof(char), 1, mapfile) != 1) success = false;
+            G3D::uint32 spawnSize = map_iter->second->TileEntries[globalTileID].size(); // only maps without terrain (tiles) have global WMO
+            if (success && fwrite(&spawnSize, sizeof(uint32), 1, mapfile) != 1) success = false;
             // Nodes
             if (success && fwrite("NODE", 4, 1, mapfile) != 1) success = false;
             if (success) success = pTree.writeToFile(mapfile);
             // global map spawns (WDT), if any (most instances)
             if (success && fwrite("GOBJ", 4, 1, mapfile) != 1) success = false;
-            if(success && !bool(isTiled))
-                success = ModelSpawn::writeToFile(mapfile, map_iter->second->UniqueEntries[globalRange.first->second]);
-            fclose(mapfile);
+            for (std::set<G3D::uint32>::iterator glob = map_iter->second->TileEntries[globalTileID].begin(); glob != map_iter->second->TileEntries[globalTileID].end() && success; ++glob)
+                success = ModelSpawn::writeToFile(mapfile, map_iter->second->UniqueEntries[*glob]);
+            // <====
 
+            // Map tile offsets
+            uint32 offsets[64][64];
+            memset(&offsets, 0, sizeof(uint32)*64*64);
+            size_t offsetLoc = ftell(mapfile);
+            fwrite(offsets, sizeof(uint32)*64*64, 1, mapfile);
             // <====
 
             // write map tile files, similar to ADT files, only with extra BSP tree node info
-            TileMap &tileEntries = map_iter->second->TileEntries;
-            TileMap::iterator tile;
-            for (tile = tileEntries.begin(); tile != tileEntries.end(); ++tile)
+            for(uint8 x = 0; x < 64; x++)
             {
-                const ModelSpawn &spawn = map_iter->second->UniqueEntries[tile->second];
-                if (spawn.flags & MOD_WORLDSPAWN) // WDT spawn, saved as tile 65/65 currently...
-                    continue;
-                G3D::uint32 nSpawns = tileEntries.count(tile->first);
-                std::stringstream tilefilename;
-                tilefilename.fill('0');
-                tilefilename << iDestDir << '/' << std::setw(3) << map_iter->first << '_';
-                G3D::uint32 x, y;
-                StaticMapTree::unpackTileID(tile->first, x, y);
-                tilefilename << std::setw(2) << x << '_' << std::setw(2) << y << ".vmtile";
-                FILE *tilefile = fopen(tilefilename.str().c_str(), "wb");
-                // file header
-                if (success && fwrite(VMAP_MAGIC, 10, 1, tilefile) != 1) success = false;
-                // write number of tile spawns
-                if (success && fwrite(&nSpawns, sizeof(G3D::uint32), 1, tilefile) != 1) success = false;
-                // write tile spawns
-                for (G3D::uint32 s=0; s<nSpawns; ++s)
+                for(uint8 y = 0; y < 64; y++)
                 {
-                    if (s)
-                        ++tile;
-                    const ModelSpawn &spawn2 = map_iter->second->UniqueEntries[tile->second];
-                    success = success && ModelSpawn::writeToFile(tilefile, spawn2);
-                    // MapTree nodes to update when loading tile:
-                    std::map<G3D::uint32, G3D::uint32>::iterator nIdx = modelNodeIdx.find(spawn2.ID);
-                    if (success && fwrite(&nIdx->second, sizeof(G3D::uint32), 1, tilefile) != 1) success = false;
+                    G3D::uint32 globalTileID = StaticMapTree::packTileID(x, y);
+                    if(map_iter->second->TileEntries.find(globalTileID) == map_iter->second->TileEntries.end())
+                        continue;
+
+                    std::set<const ModelSpawn*> correctSpawns;
+                    std::set<uint32> &spawns = map_iter->second->TileEntries[globalTileID];
+                    for(std::set<uint32>::iterator itr = spawns.begin(); itr != spawns.end(); itr++)
+                    {
+                        const ModelSpawn &spawn = map_iter->second->UniqueEntries[*itr];
+                        if (spawn.flags & MOD_WORLDSPAWN) // WDT spawn, saved as tile 65/65 currently...
+                            continue;
+                        correctSpawns.insert(&spawn);
+                    }
+
+                    if(uint32 count = correctSpawns.size())
+                    {
+                        offsets[x][y] = ftell(mapfile);
+                        if (success && fwrite(&count, sizeof(G3D::uint32), 1, mapfile) != 1)
+                            success = false;
+                        for(std::set<const ModelSpawn*>::iterator itr = correctSpawns.begin(); itr != correctSpawns.end() && success; itr++)
+                        {
+                            const ModelSpawn *spawn = *itr;
+                            success = success && ModelSpawn::writeToFile(mapfile, *spawn);
+                            // MapTree nodes to update when loading tile:
+                            std::map<G3D::uint32, G3D::uint32>::iterator nIdx = modelNodeIdx.find(spawn->ID);
+                            if (success && fwrite(&nIdx->second, sizeof(G3D::uint32), 1, mapfile) != 1)
+                                success = false;
+                        }
+                    }
                 }
-                fclose(tilefile);
             }
-            // break; //test, extract only first map; TODO: remvoe this line
+            fseek(mapfile, offsetLoc, SEEK_SET);
+            fwrite(offsets, sizeof(uint32)*64*64, 1, mapfile);
+            fclose(mapfile);
+            //break; //test, extract only first map; TODO: remvoe this line
         }
 
         // add an object models, listed in temp_gameobject_models file
         exportGameobjectModels();
 
         // export objects
-        OUT_DETAIL("\nConverting Model Files");
+        OUT_DETAIL("\nConverting Model Files ");
         for (std::set<std::string>::iterator mfile = spawnedModelFiles.begin(); mfile != spawnedModelFiles.end(); ++mfile)
         {
             OUT_DETAIL("Converting %s", (*mfile).c_str());
             if (!convertRawFile(*mfile))
             {
-                OUT_DETAIL("error converting %s", (*mfile).c_str());
+                OUT_ERROR("error converting %s", (*mfile).c_str());
                 success = false;
-                break;
+                continue;
             }
         }
 
@@ -185,6 +193,7 @@ namespace VMAP
             OUT_DETAIL("Could not read dir_bin file!");
             return false;
         }
+
         OUT_DETAIL("Read coordinate mapping...");
         G3D::uint32 mapID, tileX, tileY, check=0;
         G3D::Vector3 v1, v2;
@@ -207,10 +216,9 @@ namespace VMAP
             {
                 OUT_DETAIL("spawning Map %d", mapID);
                 mapData[mapID] = current = new MapSpawns();
-            }
-            else current = (*map_iter).second;
-            current->UniqueEntries.insert(pair<G3D::uint32, ModelSpawn>(spawn.ID, spawn));
-            current->TileEntries.insert(pair<G3D::uint32, G3D::uint32>(StaticMapTree::packTileID(tileX, tileY), spawn.ID));
+            } else current = (*map_iter).second;
+            current->UniqueEntries.insert(std::make_pair(spawn.ID, spawn));
+            current->TileEntries[StaticMapTree::packTileID(tileX, tileY)].insert(spawn.ID);
         }
         bool success = (ferror(dirf) == 0);
         fclose(dirf);
@@ -305,7 +313,7 @@ namespace VMAP
             model.setGroupModels(groupsArray);
         }
 
-        success = model.writeFile(iDestDir + "/" + pModelFilename + ".vmo");
+        success = model.writeFile(iObjDestDir + "/" + pModelFilename + ".vmo");
         return success;
     }
 
@@ -315,7 +323,7 @@ namespace VMAP
         if (!model_list)
             return;
 
-        FILE* model_list_copy = fopen((iDestDir + "/" + GAMEOBJECT_MODELS).c_str(), "wb");
+        FILE* model_list_copy = fopen((iObjDestDir + "/" + GAMEOBJECT_MODELS).c_str(), "wb");
         if (!model_list_copy)
         {
             fclose(model_list);

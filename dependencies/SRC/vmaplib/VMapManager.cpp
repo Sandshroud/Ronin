@@ -12,10 +12,12 @@ using G3D::Vector3;
 
 namespace VMAP
 {
-    VMapManager::VMapManager(std::string vMapDir) : vmapDir(vMapDir)
+    VMapManager::VMapManager(std::string tileDir, std::string objDir) : vMapTileDir(tileDir), vMapObjDir(objDir)
     {
-        if(vmapDir.length() > 0 && vmapDir.at(vmapDir.length()-1) != '\\' && vmapDir.at(vmapDir.length()-1) != '/')
-            vmapDir.push_back('/');
+        if(vMapTileDir.length() > 0 && vMapTileDir.at(vMapTileDir.length()-1) != '\\' && vMapTileDir.at(vMapTileDir.length()-1) != '/')
+            vMapTileDir.push_back('/');
+        if(vMapObjDir.length() > 0 && vMapObjDir.at(vMapObjDir.length()-1) != '\\' && vMapObjDir.at(vMapObjDir.length()-1) != '/')
+            vMapObjDir.push_back('/');
     }
 
     VMapManager::~VMapManager(void)
@@ -48,14 +50,17 @@ namespace VMAP
         return fname.str();
     }
 
-    bool VMapManager::loadMap(unsigned int mapId)
+    bool VMapManager::loadMap(unsigned int mapId, bool loadAll)
     {
+        if(iDummyMaps.find(mapId) != iDummyMaps.end())
+            return false;
         InstanceTreeMap::iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree == iInstanceMapTrees.end())
         {
-            StaticMapTree* newTree = new StaticMapTree(mapId, vmapDir);
-            if (!newTree->InitMap(getMapFileName(mapId), this))
+            StaticMapTree* newTree = new StaticMapTree(mapId, vMapTileDir, getMapFileName(mapId));
+            if (!newTree->InitMap(this, loadAll))
             {
+                iDummyMaps.insert(mapId);
                 delete newTree;
                 return false;
             }
@@ -90,6 +95,9 @@ namespace VMAP
     // load one tile (internal use only)
     bool VMapManager::loadMap(unsigned int mapId, int x, int y)
     {
+        if(iDummyMaps.find(mapId) != iDummyMaps.end())
+            return false;
+
         InstanceTreeMap::iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree == iInstanceMapTrees.end())
             return false;
@@ -100,6 +108,9 @@ namespace VMAP
     // load one tile (internal use only)
     bool VMapManager::loadObject(G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::uint32 instanceId, G3D::int32 m_phase)
     {
+        if(iDummyMaps.find(mapId) != iDummyMaps.end())
+            return false;
+
         SubDynamicTreeMap SDTM = iDynamicMapTrees[mapId];
         if(SDTM.find(instanceId) == SDTM.end())
             SDTM.insert(std::make_pair(instanceId, new DynamicMapTree()));
@@ -359,17 +370,17 @@ namespace VMAP
             model = iLoadedModelFiles.insert(std::make_pair(filename, retContainer)).first;
             LoadedModelFilesLock.unlock();
 
-            bool res = retContainer->getModel()->readFile(vmapDir + filename + ".vmo");
+            bool res = retContainer->getModel()->readFile(vMapObjDir + filename + ".vmo");
             LoadedModelFilesLock.lock();
             retContainer->unlock();
             if(res == false)
             {
-                OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vmapDir.c_str(), filename.c_str());
+                OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vMapObjDir.c_str(), filename.c_str());
                 retContainer->invalidate();
                 if(retContainer->decRefCount() == 0)
                     delete retContainer;
                 retContainer = NULL;
-            } else OUT_DEBUG("VMapManager: loading file '%s%s'", vmapDir.c_str(), filename.c_str());
+            } else OUT_DEBUG("VMapManager: loading file '%s%s'", vMapObjDir.c_str(), filename.c_str());
             LoadedModelFilesLock.unlock();
         }
         return retContainer ? retContainer->getModel() : NULL;
@@ -398,11 +409,6 @@ namespace VMAP
         LoadedModelFilesLock.unlock();
     }
 
-    bool VMapManager::existsMap(const char* basePath, unsigned int mapId, int x, int y)
-    {
-        return StaticMapTree::CanLoadMap(std::string(basePath), mapId, x, y);
-    }
-
     void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid)
     {
         if(mapid == -1)
@@ -422,7 +428,7 @@ namespace VMAP
 
     void VMapManager::LoadGameObjectModelList()
     {
-        FILE* model_list_file = fopen((vmapDir + VMAP::GAMEOBJECT_MODELS).c_str(), "rb");
+        FILE* model_list_file = fopen((vMapObjDir + VMAP::GAMEOBJECT_MODELS).c_str(), "rb");
         if (!model_list_file)
         {
             OUT_DEBUG("Unable to open '%s' file.", VMAP::GAMEOBJECT_MODELS);

@@ -531,10 +531,10 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::InitializeVMap(G3D::uint32 mapID)
+    bool TerrainBuilder::InitializeVMap(G3D::uint32 mapID, bool loadAll)
     {
-        vmapManager = new VMapManager("vmaps");
-        if(!vmapManager->loadMap(mapID))
+        vmapManager = new VMapManager("vmaps", "vmaps/obj");
+        if(!vmapManager->loadMap(mapID, loadAll))
             return false;
         return true;
     }

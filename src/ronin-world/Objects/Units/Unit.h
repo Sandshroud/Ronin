@@ -541,7 +541,7 @@ public:
     RONIN_INLINE bool IsStealthed() { return m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_STEALTH); }
     RONIN_INLINE bool HasNoInterrupt() { return m_noInterrupt; }
 
-    uint32 Heal(Unit* target,uint32 SpellId, uint32 amount, bool silent = false);
+    uint32 Heal(Unit* target, uint32 amount ,uint32 SpellId, bool silent = false);
     void Energize(Unit* target,uint32 SpellId, uint32 amount, uint32 type);
 
     uint32 AbsorbDamage(WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell);//returns amt of absorbed dmg, decreases dmg by absorbed value

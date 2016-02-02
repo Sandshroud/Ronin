@@ -35,7 +35,7 @@ public:
     void DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY);
     bool IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY);
 
-    bool ActivateMap(uint32 mapId);
+    bool ActivateMap(uint32 mapId, bool loadAll);
     void DeactivateMap(uint32 mapId);
 
     bool GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 &areaId, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupid);

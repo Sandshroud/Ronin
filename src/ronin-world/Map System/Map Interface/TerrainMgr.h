@@ -101,8 +101,8 @@ public:
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
 
 private:
-    /// MapPath contains the location of all mapfiles.
-    std::string mapPath;
+    /// File name for opening the file on load
+    std::string file_name;
 
     /// Map ID
     uint32 mapId;
@@ -110,8 +110,8 @@ private:
     /// We don't want to be reading from a file from more than one thread at once
     Mutex mutex;
 
-    /// Our main file descriptor for accessing the binary terrain file.
-    FILE * FileDescriptor;
+    // Will ignore loading any terrain
+    bool dummyMap;
 
     /// This holds the offsets of the tile information for each tile.
     std::map<std::pair<uint8, uint8>, uint32> m_tileOffsets;
@@ -153,7 +153,7 @@ protected:
        Parameter 2: y co-ordinate of the tile information to load.
        Returns true if the tile information exists and was loaded, false if not.
       */
-    bool LoadTileInformation(uint32 x, uint32 y);
+    bool LoadTileInformation(uint32 x, uint32 y, FILE *input = NULL);
 
     /* Unloads the tile data at the specified co-ordinates and frees the memory.
        Parameter 1: x co-ordinate of the tile information to free.
@@ -195,13 +195,5 @@ protected:
 
     /* Checks whether a tile information is loaded or not.
       */
-    RONIN_INLINE bool TileInformationLoaded(uint32 x, uint32 y)
-    {
-        if(tileInformation.empty())
-            return false;
-        std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
-        if(tileInformation.find(tilePair) == tileInformation.end())
-            return false;
-        return true;
-    }
+    RONIN_INLINE bool _TileInformationLoaded(uint32 x, uint32 y) { return tileInformation.find(std::make_pair(x, y)) != tileInformation.end(); }
 };

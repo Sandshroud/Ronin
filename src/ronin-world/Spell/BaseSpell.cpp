@@ -194,7 +194,17 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
         *data << uint32(0) << uint32(0);
     
     if(cast_flags & SPELL_CASTFLAG_HEAL_UPDATE)
-        *data << uint32(0) << uint8(0);
+    {
+        uint32 amount = 0, type = 0;
+        if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL))
+            amount = m_spellInfo->CalculateSpellPoints(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL), m_caster->getLevel(), 0);
+        else if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL_PCT))
+            type = 1, amount = m_spellInfo->CalculateSpellPoints(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT), m_caster->getLevel(), 0);
+        //else if(m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)) {}// TODO
+
+        *data << uint32(amount) << uint8(type);
+        if(type == 2) *data << m_caster->GetGUID().asPacked();
+    }
 
     if( m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION )
         *data << uint8(0);
@@ -215,6 +225,8 @@ void BaseSpell::SendSpellStart()
         cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
     if (m_spellInfo->RuneCostID && m_spellInfo->powerType == POWER_TYPE_RUNE)
         cast_flags |= SPELL_CASTFLAG_NO_GCD;
+    if(m_castTime && (m_spellInfo->HasEffect(SPELL_EFFECT_HEAL) || m_spellInfo->HasEffect(SPELL_EFFECT_HEAL_PCT) || m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)))
+        cast_flags |= SPELL_CASTFLAG_HEAL_UPDATE;
 
     WorldPacket data(SMSG_SPELL_START, 150);
     data << m_caster->GetGUID().asPacked();

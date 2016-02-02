@@ -321,7 +321,7 @@ namespace MMAP
             return;
         }
 
-        m_terrainBuilder->InitializeVMap(mapID);
+        m_terrainBuilder->InitializeVMap(mapID, false);
         buildTile(mapID, tileX, tileY, navMesh);
         m_terrainBuilder->UnloadVMap(mapID);
         dtFreeNavMesh(navMesh);
@@ -331,7 +331,7 @@ namespace MMAP
     void MapBuilder::buildMap(G3D::uint32 mapID)
     {
         printf("Building map %03u:\n", mapID);
-        m_terrainBuilder->InitializeVMap(mapID);
+        m_terrainBuilder->InitializeVMap(mapID, false);
 
         std::set<G3D::uint32>* tiles = getTileList(mapID);
 

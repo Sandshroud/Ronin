@@ -2545,7 +2545,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
 void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
-    m_combatStopTimer += 5000;
+    m_combatStopTimer = std::max<uint32>(m_combatStopTimer, 5000);
     if (!GetOnMeleeSpell() || attackType == OFFHAND)
         Strike( target, attackType, NULL, 0, 0, 0, false, false, true);
     else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
@@ -3378,38 +3378,30 @@ void Unit::SummonExpireSlot(uint8 Slot)
 
 float Unit::CalculateDazeCastChance(Unit* target)
 {
-    float attack_skill = float( getLevel() ) * 5.0f;
-    float defense_skill;
+    float attack_skill = float( getLevel() ) * 5.0f, defense_skill = 1.f;
     if( target->IsPlayer() )
         defense_skill = float( castPtr<Player>( target )->_GetSkillLineCurrent( SKILL_DEFENSE, false ) );
     else defense_skill = float( target->getLevel() * 5 );
-    if( !defense_skill )
-        defense_skill = 1;
-    float chance_to_daze = attack_skill * 20 / defense_skill;//if level is equal then we get a 20% chance to daze
-    chance_to_daze = chance_to_daze * std::min(target->getLevel() / 30.0f, 1.0f );//for targets below level 30 the chance decreses
-    if( chance_to_daze > 40 )
-        return 40.0f;
-    else
-        return chance_to_daze;
+
+    float chance_to_daze = (attack_skill * 20 / std::max<float>(1.f, defense_skill)) //if level is equal then we get a 20% chance to daze
+        * std::min(target->getLevel() / 30.0f, 1.0f );//for targets below level 30 the chance decreses
+    return std::min<float>(40.f, chance_to_daze);
 }
 
-uint32 Unit::Heal(Unit* target, uint32 SpellId, uint32 amount, bool silent)
+uint32 Unit::Heal(Unit* target, uint32 amount, uint32 SpellId, bool silent)
 {//Static heal
-    if(!target || !SpellId || !amount || !target->isAlive() )
+    if(target == NULL || !target->isAlive() || amount == 0)
         return amount;
 
-    uint32 overheal = 0;
-    uint32 th = target->GetUInt32Value(UNIT_FIELD_HEALTH) + amount;
-    uint32 mh = target->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-    if(th > mh)
-    {
-        target->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
-        overheal = th - mh;
-    } else target->SetUInt32Value(UNIT_FIELD_HEALTH, th);
+    int32 healAmount;
+    if((healAmount = std::min<uint32>(amount, target->GetUInt32Value(UNIT_FIELD_MAXHEALTH)-target->GetUInt32Value(UNIT_FIELD_HEALTH))) > 0)
+        target->ModSignedInt32Value(UNIT_FIELD_HEALTH, healAmount);
+    else healAmount = 0;
 
-    if(!silent)
-        Spell::SendHealSpellOnPlayer(this, target, amount, false, overheal, SpellId);
-    return overheal;
+    uint32 overHeal = amount-healAmount;
+    if(silent == false && SpellId)
+        Spell::SendHealSpellOnPlayer(this, target, amount, false, overHeal, SpellId);
+    return overHeal;
 }
 
 void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)

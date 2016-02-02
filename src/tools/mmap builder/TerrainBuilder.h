@@ -83,7 +83,7 @@ namespace MMAP
             TerrainBuilder(bool skipLiquid);
             ~TerrainBuilder();
 
-            bool InitializeVMap(G3D::uint32 mapID);
+            bool InitializeVMap(G3D::uint32 mapID, bool loadAll);
             void loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
             bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
             void loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath);

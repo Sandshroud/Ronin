@@ -30,7 +30,7 @@ namespace VMAP
     };
 
     typedef std::map<G3D::uint32, ModelSpawn> UniqueEntryMap;
-    typedef std::multimap<G3D::uint32, G3D::uint32> TileMap;
+    typedef std::map<G3D::uint32, std::set<G3D::uint32>> TileMap;
 
     struct MapSpawns
     {
@@ -70,7 +70,8 @@ namespace VMAP
     class TileAssembler
     {
         private:
-            std::string iDestDir;
+            std::string iTileDestDir;
+            std::string iObjDestDir;
             std::string iSrcDir;
             bool (*iFilterMethod)(char *pName);
             G3D::Table<std::string, unsigned int > iUniqueNameIds;
@@ -79,7 +80,7 @@ namespace VMAP
             std::set<std::string> spawnedModelFiles;
 
         public:
-            TileAssembler(const std::string& pSrcDirName, const std::string& pDestDirName);
+            TileAssembler(const std::string& pSrcDirName, const std::string& pTileDestDirName, const std::string &pObjectDestDirName);
             virtual ~TileAssembler();
 
             bool convertWorld2();

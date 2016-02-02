@@ -37,7 +37,7 @@ namespace VMAP
         virtual void LoadGameObjectModelList() = 0;
 
         // Static collision
-        virtual bool loadMap(unsigned int mapId) = 0;
+        virtual bool loadMap(unsigned int mapId, bool loadAll) = 0;
         virtual void unloadMap(unsigned int mapId) = 0;
         virtual bool loadMap(unsigned int mapId, int x, int y) = 0;
         virtual void unloadMap(unsigned int mapId, int x, int y) = 0;

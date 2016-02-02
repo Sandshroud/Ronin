@@ -46,13 +46,13 @@ void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
     vMapMgr->updateDynamicMapTree(p_time, mapId);
 }
 
-bool VMapInterface::ActivateMap(uint32 mapId)
+bool VMapInterface::ActivateMap(uint32 mapId, bool loadAll)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) != m_mapLocks.end())
         return false;
     bool result;
     m_mapDataLock.Acquire();
-    if(result = vMapMgr->loadMap(mapId))
+    if(result = vMapMgr->loadMap(mapId, loadAll))
         m_mapLocks.insert(std::make_pair(mapId, new MapLoadData()));
     m_mapDataLock.Release();
     return result;

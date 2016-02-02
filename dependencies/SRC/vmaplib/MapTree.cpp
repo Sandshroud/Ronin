@@ -95,14 +95,8 @@ namespace VMAP
         return intersectionCallBack.result;
     }
 
-    StaticMapTree::StaticMapTree(G3D::uint32 mapID, const std::string &basePath)
-        : iMapID(mapID), iIsTiled(false), iTreeValues(0), iNTreeValues(0), iBasePath(basePath)
-    {
-        if (iBasePath.length() > 0 && iBasePath[iBasePath.length()-1] != '/' && iBasePath[iBasePath.length()-1] != '\\')
-        {
-            iBasePath.push_back('/');
-        }
-    }
+    StaticMapTree::StaticMapTree(G3D::uint32 mapID, const std::string &tilePath, const std::string fileName)
+        : iMapID(mapID), iTreeValues(0), iNTreeValues(0), iFileName(tilePath+fileName) { }
 
     //=========================================================
     //! Make sure to call unloadMap() to unregister acquired model references before destroying
@@ -214,61 +208,29 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::CanLoadMap(const std::string &vmapPath, G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
+    bool StaticMapTree::InitMap(VMapManager* vm, bool loadAll)
     {
-        std::string basePath = vmapPath;
-        if (basePath.length() > 0 && basePath[basePath.length()-1] != '/' && basePath[basePath.length()-1] != '\\')
-            basePath.push_back('/');
-        std::string fullname = basePath + VMapManager::getMapFileName(mapID);
+        OUT_DEBUG("StaticMapTree::InitMap() : initializing StaticMapTree '%s'", iFileName.c_str());
         bool success = true;
-        FILE* rf = fopen(fullname.c_str(), "rb");
-        if (!rf)
-            return false;
-        /// @todo check magic number when implemented...
-        char tiled;
-        char chunk[10];
-        if (!readChunk(rf, chunk, VMAP_MAGIC, 10) || fread(&tiled, sizeof(char), 1, rf) != 1)
-        {
-            fclose(rf);
-            return false;
-        }
-        if (tiled)
-        {
-            std::string tilefile = basePath + getTileFileName(mapID, tileX, tileY);
-            FILE* tf = fopen(tilefile.c_str(), "rb");
-            if (!tf)
-                success = false;
-            else
-            {
-                if (!readChunk(tf, chunk, VMAP_MAGIC, 10))
-                    success = false;
-                fclose(tf);
-            }
-        }
-        fclose(rf);
-        return success;
-    }
-
-    //=========================================================
-
-    bool StaticMapTree::InitMap(const std::string &fname, VMapManager* vm)
-    {
-        OUT_DEBUG("StaticMapTree::InitMap() : initializing StaticMapTree '%s'", fname.c_str());
-        bool success = true;
-        std::string fullname = iBasePath + fname;
-        FILE* rf = fopen(fullname.c_str(), "rb");
+        fileLock.Acquire();
+        FILE* rf = fopen(iFileName.c_str(), "rb");
         if (rf == NULL)
+        {
+            fileLock.Release();
             return false;
+        }
 
         char chunk[10];
         if(!readChunk(rf, chunk, VMAP_MAGIC, 10))
         {
             OUT_ERROR("VMap magic does not match!");
+            fclose(rf);
+            fileLock.Release();
             return false;
         }
 
-        char tiled = '\0';
-        if ((success = (fread(&tiled, sizeof(char), 1, rf) == 1))
+        G3D::uint32 spawnSize = 0;
+        if ((success = (fread(&spawnSize, sizeof(uint32), 1, rf) == 1))
             && (success = readChunk(rf, chunk, "NODE", 4))
             && (success = iTree.readFromFile(rf)))
         {
@@ -277,15 +239,14 @@ namespace VMAP
             success = readChunk(rf, chunk, "GOBJ", 4);
         }
 
-        iIsTiled = bool(tiled);
         if(!success)
             OUT_ERROR("StaticMapTree::InitMap() : failed reading data!");
         else
         {
+            OUT_DEBUG("StaticMapTree::InitMap() : global spawns: %u", spawnSize);
             // global model spawns
             // only non-tiled maps have them, and if so exactly one (so far at least...)
-            OUT_DEBUG("StaticMapTree::InitMap() : map isTiled: %u", static_cast<G3D::uint32>(iIsTiled));
-            if(!iIsTiled)
+            for(uint32 i = 0; i < spawnSize; i++)
             {
                 ModelSpawn spawn;
                 if (success = ModelSpawn::readFromFile(rf, spawn))
@@ -295,8 +256,8 @@ namespace VMAP
                     if (model)
                     {
                         // assume that global model always is the first and only tree value (could be improved...)
-                        iTreeValues[0] = ModelInstance(spawn, model);
-                        iLoadedSpawns[0] = 1;
+                        iTreeValues[i] = ModelInstance(spawn, model);
+                        iLoadedSpawns[i] = 1;
                     }
                     else
                     {
@@ -307,7 +268,23 @@ namespace VMAP
             }
         }
 
+        uint32 offsets[64][64];
+        fread(&offsets, sizeof(uint32)*64*64, 1, rf);
+        for(uint8 x = 0; x < 64; x++)
+        {
+            for(uint8 y = 0; y < 64; y++)
+            {
+                if(offsets[x][y] == 0)
+                    continue;
+                iFileOffsets.insert(std::make_pair(packTileID(x, y), offsets[x][y]));
+                if(loadAll == false)
+                    continue;
+                LoadMapTile(x, y, vm, rf);
+            }
+        }
+
         fclose(rf);
+        fileLock.Release();
         return success;
     }
 
@@ -327,52 +304,68 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm)
+    bool StaticMapTree::LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input)
     {
-        if (!iIsTiled)
-        {
-            // currently, core creates grids for all maps, whether it has terrain tiles or not
-            // so we need "fake" tile loads to know when we can unload map geometry
-            iLoadedTiles[packTileID(tileX, tileY)] = false;
-            return true;
-        }
+        uint32 packedTile = packTileID(tileX, tileY);
+        if(iFileOffsets.find(packedTile) == iFileOffsets.end())
+            return false;
         if (!iTreeValues)
         {
             OUT_DEBUG("StaticMapTree::LoadMapTile() : tree has not been initialized [%u, %u]", tileX, tileY);
             return false;
         }
-        bool result = true;
 
-        std::string tilefile = iBasePath + getTileFileName(iMapID, tileX, tileY);
-        FILE* tf = fopen(tilefile.c_str(), "rb");
-        if (tf)
+        fileLock.Acquire();
+        bool selfOpened = false;
+        if(input == NULL)
         {
-            char chunk[10];
-            if (!readChunk(tf, chunk, VMAP_MAGIC, 10))
-                result = false;
-            G3D::uint32 numSpawns = 0;
-            if (result && fread(&numSpawns, sizeof(G3D::uint32), 1, tf) != 1)
-                result = false;
-            for (G3D::uint32 i=0; i<numSpawns && result; ++i)
+            fopen_s(&input, iFileName.c_str(), "rb");
+            if( input == NULL )
             {
-                // read model spawns
-                ModelSpawn spawn;
-                result = ModelSpawn::readFromFile(tf, spawn);
-                if(result == false)
-                    OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel file [%u, %u]", tileX, tileY);
+                OUT_ERROR("StaticMapTree::LoadMapTile() : could not open input file %s", iFileName.c_str());
+                fileLock.Release();
+                return false;
+            }
+            selfOpened = true;
+        }
+
+        if(fseek(input, iFileOffsets.at(packedTile), SEEK_SET) != 0)
+        {
+            OUT_ERROR("StaticMapTree::LoadMapTile() : could not seek to tile offset [%u, %u]", tileX, tileY);
+            if(selfOpened) fclose(input);
+            fileLock.Release();
+            return false;
+        }
+
+        bool result = true;
+        G3D::uint32 numSpawns = 0;
+        if (fread(&numSpawns, sizeof(G3D::uint32), 1, input) != 1)
+            result = false;
+        for (G3D::uint32 i=0; i<numSpawns && result; ++i)
+        {
+            // read model spawns
+            ModelSpawn spawn;
+            result = ModelSpawn::readFromFile(input, spawn);
+            if(result == false)
+            {
+                OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel file [%u, %u]", tileX, tileY);
+                break;
+            }
+            else
+            {
+                // update tree
+                G3D::uint32 referencedVal;
+                if (fread(&referencedVal, sizeof(G3D::uint32), 1, input) != 1)
+                {
+                    result = false;
+                    break;
+                }
                 else
                 {
                     // acquire model instance
-                    WorldModel* model = vm->acquireModelInstance(spawn.name);
-                    if (!model)
-                        OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
-
-                    // update tree
-                    G3D::uint32 referencedVal;
-
-                    if (fread(&referencedVal, sizeof(G3D::uint32), 1, tf) == 1)
+                    if(WorldModel* model = vm->acquireModelInstance(spawn.name))
                     {
-                        if (!iLoadedSpawns.count(referencedVal))
+                        if (iLoadedSpawns.find(referencedVal) == iLoadedSpawns.end())
                         {
                             if (referencedVal > iNTreeValues)
                             {
@@ -391,22 +384,19 @@ namespace VMAP
                             else if (iTreeValues[referencedVal].name != spawn.name)
                                 OUT_DEBUG("StaticMapTree::LoadMapTile() : name collision on GUID=%u", spawn.ID);
                         }
-                    }
-                    else
-                        result = false;
+                    } else OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
                 }
             }
-            iLoadedTiles[packTileID(tileX, tileY)] = true;
-            fclose(tf);
         }
-        else
-            iLoadedTiles[packTileID(tileX, tileY)] = false;
+        if(result) iLoadedTiles[packedTile] = true;
+        if(selfOpened) fclose(input);
+        fileLock.Release();
         return result;
     }
 
     //=========================================================
 
-    void StaticMapTree::UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm)
+    void StaticMapTree::UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input)
     {
         G3D::uint32 tileID = packTileID(tileX, tileY);
         loadedTileMap::iterator tile = iLoadedTiles.find(tileID);
@@ -417,46 +407,55 @@ namespace VMAP
         }
         if (tile->second) // file associated with tile
         {
-            std::string tilefile = iBasePath + getTileFileName(iMapID, tileX, tileY);
-            FILE* tf = fopen(tilefile.c_str(), "rb");
-            if (tf)
+
+            fileLock.Acquire();
+            bool selfOpened = false;
+            if(input == NULL)
             {
-                bool result=true;
-                char chunk[10];
-                if (!readChunk(tf, chunk, VMAP_MAGIC, 10))
-                    result = false;
-                G3D::uint32 numSpawns;
-                if (fread(&numSpawns, sizeof(G3D::uint32), 1, tf) != 1)
-                    result = false;
-                for (G3D::uint32 i=0; i<numSpawns && result; ++i)
+                fopen_s(&input, iFileName.c_str(), "rb");
+                if( input == NULL )
                 {
-                    // read model spawns
-                    ModelSpawn spawn;
-                    result = ModelSpawn::readFromFile(tf, spawn);
-                    if (result)
+                    OUT_ERROR("StaticMapTree::LoadMapTile() : could not open input file %s", iFileName.c_str());
+                    fileLock.Release();
+                    return;
+                }
+                selfOpened = true;
+            }
+
+            bool result=true;
+            char chunk[10];
+            if (!readChunk(input, chunk, VMAP_MAGIC, 10))
+                result = false;
+            G3D::uint32 numSpawns;
+            if (fread(&numSpawns, sizeof(G3D::uint32), 1, input) != 1)
+                result = false;
+            for (G3D::uint32 i=0; i<numSpawns && result; ++i)
+            {
+                // read model spawns
+                ModelSpawn spawn;
+                if (result = ModelSpawn::readFromFile(input, spawn))
+                {
+                    // release model instance
+                    vm->releaseModelInstance(spawn.name);
+
+                    // update tree
+                    G3D::uint32 referencedNode;
+                    if (fread(&referencedNode, sizeof(G3D::uint32), 1, input) != 1)
+                        result = false;
+                    else
                     {
-                        // release model instance
-                        vm->releaseModelInstance(spawn.name);
-
-                        // update tree
-                        G3D::uint32 referencedNode;
-
-                        if (fread(&referencedNode, sizeof(G3D::uint32), 1, tf) != 1)
-                            result = false;
-                        else
+                        if (!iLoadedSpawns.count(referencedNode))
+                            OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s' (ID:%u)", spawn.name.c_str(), spawn.ID);
+                        else if (--iLoadedSpawns[referencedNode] == 0)
                         {
-                            if (!iLoadedSpawns.count(referencedNode))
-                                OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s' (ID:%u)", spawn.name.c_str(), spawn.ID);
-                            else if (--iLoadedSpawns[referencedNode] == 0)
-                            {
-                                iTreeValues[referencedNode].setUnloaded();
-                                iLoadedSpawns.erase(referencedNode);
-                            }
+                            iTreeValues[referencedNode].setUnloaded();
+                            iLoadedSpawns.erase(referencedNode);
                         }
                     }
                 }
-                fclose(tf);
             }
+            if(selfOpened) fclose(input);
+            fileLock.Release();
         }
         iLoadedTiles.erase(tile);
     }

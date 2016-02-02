@@ -29,19 +29,41 @@
 int main(int argc, char* argv[])
 {
     sLog.Init(7);
-    if(argc != 3)
+    std::string src, tiledest, objdest;
+    if(argc == 4)
     {
-        std::cout << "usage: " << argv[0] << " <raw data dir> <vmap dest dir>" << std::endl;
-        WaitForInput();
-        return 1;
+        src = argv[1];
+        tiledest = argv[2];
+        objdest = argv[3];
+    }
+    else
+    {
+        std::cout << "Incorrect arg count, requesting input" << std::endl;
+        std::cout << "Source folder" << std::endl;
+        std::cin >> src;
+        for(size_t len = 0; len < src.size(); len++)
+            src[len] = tolower(src[len]);
+        if(strcmp(src.c_str(), "exit") == 0)
+            return 1;
+
+        std::cout << "Tile output folder" << std::endl;
+        std::cin >> tiledest;
+        for(size_t len = 0; len < tiledest.size(); len++)
+            tiledest[len] = tolower(tiledest[len]);
+        if(strcmp(tiledest.c_str(), "exit") == 0)
+            return 1;
+
+        std::cout << "Object output folder" << std::endl;
+        std::cin >> objdest;
+        for(size_t len = 0; len < objdest.size(); len++)
+            objdest[len] = tolower(objdest[len]);
+        if(strcmp(objdest.c_str(), "exit") == 0)
+            return 1;
     }
 
-    std::string src = argv[1];
-    std::string dest = argv[2];
+    std::cout << "using " << src << " as source directory and writing tile output to " << tiledest << " with object output to " << objdest <<  std::endl;
 
-    std::cout << "using " << src << " as source directory and writing output to " << dest << std::endl;
-
-    VMAP::TileAssembler* ta = new VMAP::TileAssembler(src, dest);
+    VMAP::TileAssembler* ta = new VMAP::TileAssembler(src, tiledest, objdest);
 
     if(!ta->convertWorld2())
     {
