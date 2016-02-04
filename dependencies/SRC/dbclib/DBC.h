@@ -100,11 +100,12 @@ public:
 
     bool PackData(FILE *f)
     {
+        size_t blockSize = sizeof(T);
         /* read the data for each row */
         for(uint32 i = 0; i < header.rows; ++i)
         {
             T *block = new T();
-            memset(block, 0, sizeof(T));
+            memset(block, 0, blockSize);
 
             uint32 c = 0, stringCount = 0;
             uint8 *dest_ptr = (uint8*)block;

@@ -9,8 +9,8 @@ typedef struct
     uint16 areaInfo;
     float mapHeight[3]; float heightMultipier;
 
-    struct sAI { uint16 AI[16*16]; } *short_AI;
     struct mAI { uint16 mask[16]; } *masked_AI;
+    struct sAI { uint16 AI[16*16]; } *short_AI;
 
     struct bV8 { uint8 V8[128*128]; } *byte_V8;
     struct sV8 { uint16 V8[128*128]; } *short_V8;
@@ -27,6 +27,26 @@ typedef struct
     struct mLI { uint16 LI[16]; } *mask_LI;
     float *m_liquidHeight;
     uint8 liquidData[5];
+
+    void cleanup()
+    {
+        // Area info cleanup
+        if(masked_AI) delete masked_AI; masked_AI = NULL;
+        if(short_AI) delete short_AI; short_AI = NULL;
+        // Packed V8 and V9 cleanup
+        if(byte_V8) delete byte_V8; byte_V8 = NULL;
+        if(byte_V9) delete byte_V9; byte_V9 = NULL;
+        if(short_V8) delete short_V8; short_V8 = NULL;
+        if(short_V9) delete short_V9; short_V9 = NULL;
+        if(float_V8) delete float_V8; float_V8 = NULL;
+        if(float_V9) delete float_V9; float_V9 = NULL;
+        // Packed liquid info cleanup
+        if(short_LE) delete short_LE; short_LE = NULL;
+        if(byte_LI) delete byte_LI; byte_LI = NULL;
+        // Packed hole info cleanup
+        if(short_HI) delete short_HI; short_HI = NULL;
+        if(m_liquidHeight) delete [] m_liquidHeight; m_liquidHeight = NULL;
+    }
 }TileTerrainInformation;
 
 #define TERRAIN_HEADER_SIZE 16384    // size of [64][64] array.

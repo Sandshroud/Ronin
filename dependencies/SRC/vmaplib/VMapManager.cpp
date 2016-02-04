@@ -390,21 +390,16 @@ namespace VMAP
     {
         //! Critical section, thread safe access to iLoadedModelFiles
         LoadedModelFilesLock.lock();
-
-        ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
-        if (model == iLoadedModelFiles.end())
+        ModelFileMap::iterator model;
+        if ((model = iLoadedModelFiles.find(filename)) != iLoadedModelFiles.end())
         {
-            LoadedModelFilesLock.unlock();
-            OUT_DEBUG("VMapManager: trying to unload non-loaded file '%s'", filename.c_str());
-            return;
-        }
-
-        if (model->second->decRefCount() == 0)
-        {
-            OUT_DEBUG("VMapManager: unloading file '%s'", filename.c_str());
-            ManagedModel* mModel = model->second;
-            iLoadedModelFiles.erase(model);
-            delete mModel;
+            if (model->second->decRefCount() == 0)
+            {
+                OUT_DEBUG("VMapManager: unloading file '%s'", filename.c_str());
+                ManagedModel* mModel = model->second;
+                iLoadedModelFiles.erase(model);
+                delete mModel;
+            }
         }
         LoadedModelFilesLock.unlock();
     }

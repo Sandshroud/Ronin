@@ -16,6 +16,11 @@ TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : file_name(MapPath), 
 
 TerrainMgr::~TerrainMgr()
 {
+    while(!tileInformation.empty())
+    {
+        (*tileInformation.begin()).second.cleanup();
+        tileInformation.erase(tileInformation.begin());
+    }
     tileInformation.clear();
     sVMapInterface.DeactivateMap(mapId);
 }
@@ -324,7 +329,10 @@ void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
 
     std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
     if(tileInformation.find(tilePair) != tileInformation.end())
+    {
+        tileInformation.at(tilePair).cleanup();
         tileInformation.erase(tilePair);
+    }
     mutex.Release();
 
     sLog.Debug("TerrainMgr","Unloaded tile information for tile [%u][%u]", x, y);
