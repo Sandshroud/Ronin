@@ -435,15 +435,23 @@ void ParsMapFiles()
             {
                 for (uint8 y = 0; y < 64; ++y)
                 {
-                    if (ADTFile *ADT = WDT.GetMap(WorldMpq, x, y))
+                    if(ADTFile *ADT = WDT.GetADTMap(WorldMpq, x, y))
                     {
-                        if(ADT->init(map_ids[i].id, x, y, mapFile))
+                        // Parse our ADT file for chunk data
+                        if(ADT->parseCHNK(map_ids[i].id, x, y, mapFile))
                             offsets[x][y] = ftell(mapFile);
+                        delete ADT;
+                    }
+
+                    if (ADTFile *ADT = WDT.GetObjMap(WorldMpq, x, y))
+                    {
+                        // Parse our ADT object file for vwmo
+                        ADT->parseWMO(map_ids[i].id, x, y);
                         delete ADT;
                     }
                 }
 
-                if(x%3 == 0)
+                if(x%4 == 0)
                     printf("#");
             }
             printf("]\n");

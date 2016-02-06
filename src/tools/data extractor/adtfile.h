@@ -30,19 +30,8 @@
 
 class Liquid;
 
-typedef struct
-{
-    float x;
-    float y;
-    float z;
-}svec;
-
-struct vec
-{
-    double x;
-    double y;
-    double z;
-};
+struct vec { float x, y, z; };
+struct triangle { vec corners[3]; };
 
 typedef struct
 {
@@ -102,7 +91,8 @@ public:
     int nWMO, nMDX;
     std::map<uint32, std::string*> WMOInstanceNameMap, ModelInstanceNameMap;
 
-    bool init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output);
+    bool parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output);
+    void parseWMO(uint32 map_num, uint32 tileX, uint32 tileY);
 };
 
 char const* GetPlainName(char const* FileName);

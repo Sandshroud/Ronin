@@ -39,7 +39,8 @@ public:
     string* gWmoInstansName;
     int gnWMO;
 
-    ADTFile* GetMap(HANDLE mpqarchive, int x, int z);
+    ADTFile* GetObjMap(HANDLE mpqarchive, int x, int z);
+    ADTFile* GetADTMap(HANDLE mpqarchive, int x, int z);
 };
 
 #endif

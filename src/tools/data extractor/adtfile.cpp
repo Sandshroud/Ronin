@@ -83,7 +83,83 @@ ADTFile::ADTFile(HANDLE mpqarchive, char* filename) : ADT(mpqarchive, filename, 
     Adtfilename.append(filename);
 }
 
-bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
+/*
+for(uint8 x = 0; x < 8; x++)
+{
+    for(uint8 y = 0; y < 8; y++)
+    {
+        float centerX = header.zpos+(chunkStep*x)+halfStep, centerY = header.xpos+(chunkStep*y)+halfStep;
+        // Calculate triangle Top
+        triangle tTop;
+        // X Axis - Different X axis
+        tTop.corners[0].x = centerX - halfStep;
+        tTop.corners[1].x = centerX + halfStep;
+        tTop.corners[2].x = centerX;
+        // Y Axis - Same Y axis
+        tTop.corners[0].y = centerY - halfStep;
+        tTop.corners[1].y = centerY - halfStep;
+        tTop.corners[2].y = centerY;
+        // Height
+        tTop.corners[0].z = header.ypos+V9[x][y]; // Top left
+        tTop.corners[1].z = header.ypos+V9[x+1][y]; // Top right
+        tTop.corners[2].z = header.ypos+V8[x][y]; // Center
+        // Push our triangle to storage
+        triangles.push_back(tTop);
+
+        // Calculate triangle Left
+        triangle tLeft;
+        // X Axis - Same X Axis
+        tLeft.corners[0].x = centerX - halfStep;
+        tLeft.corners[1].x = centerX - halfStep;
+        tLeft.corners[2].x = centerX;
+        // Y Axis - Different Y Axis
+        tLeft.corners[0].y = centerY - halfStep;
+        tLeft.corners[1].y = centerY + halfStep;
+        tLeft.corners[2].y = centerY;
+        // Height
+        tLeft.corners[0].z = header.ypos+V9[x][y]; // Top left
+        tLeft.corners[1].z = header.ypos+V9[x][y+1]; // Bottom left
+        tLeft.corners[2].z = header.ypos+V8[x][y]; // Center
+        // Push our triangle to storage
+        triangles.push_back(tLeft);
+
+        // Calculate triangle Right
+        triangle tRight;
+        // X Axis - Same X Axis
+        tRight.corners[0].x = centerX + halfStep;
+        tRight.corners[1].x = centerX + halfStep;
+        tRight.corners[2].x = centerX;
+        // Y Axis - Differeny Y Axis
+        tRight.corners[0].y = centerY - halfStep;
+        tRight.corners[1].y = centerY + halfStep;
+        tRight.corners[2].y = centerY;
+        // Height
+        tRight.corners[0].z = header.ypos+V9[x+1][y]; // Top right
+        tRight.corners[1].z = header.ypos+V9[x+1][y+1]; // bottom right
+        tRight.corners[2].z = header.ypos+V8[x][y]; // Center
+        // Push our triangle to storage
+        triangles.push_back(tRight);
+
+        // Calculate triangle Bottom
+        triangle tBottom;
+        // X Axis - Different X Axis
+        tBottom.corners[0].x = centerX - halfStep;
+        tBottom.corners[1].x = centerX + halfStep;
+        tBottom.corners[2].x = centerX;
+        // Y Axis - Same Y Axis
+        tBottom.corners[0].y = centerY + halfStep;
+        tBottom.corners[1].y = centerY + halfStep;
+        tBottom.corners[2].y = centerY;
+        // Height
+        tBottom.corners[0].z = header.ypos+V9[x][y+1]; // Bottom left
+        tBottom.corners[1].z = header.ypos+V9[x+1][y+1]; // Bottom right
+        tBottom.corners[2].z = header.ypos+V8[x][y]; // Center
+        // Push our triangle to storage
+        triangles.push_back(tBottom);
+    }
+}
+*/
+bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
 {
     if(ADT.isEof ())
         return false;
@@ -97,10 +173,85 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
         return false;
     }
 
-    static size_t headerSize = sizeof(MapChunkHeader);
-    std::map<uint32, MapChunkHeader> chunkHeaders;
-    bool containsChunkData = false;
-    uint32 size, mcnkOffset = 0, mh2oBase = 0;
+    static float tileSize = 533.33333f, chunkSize = tileSize/16.f, chunkStep = chunkSize/9.f, halfStep = chunkStep/2.f;
+    std::vector<triangle> triangles;
+
+    bool res = false;
+    uint32 offsets[16][16], mh2oOffset = 0;
+    uint32 size = 0, adtVersion = 0, chunkCount = 0;
+    while (!ADT.isEof())
+    {
+        char fourcc[5];
+        ADT.read(&fourcc,4);
+        ADT.read(&size, 4);
+        flipcc(fourcc);
+        fourcc[4] = 0;
+
+        size_t currPos = ADT.getPos(), nextpos = currPos + size;
+        if(size)
+        {
+            if (!strcmp(fourcc,"MVER"))
+                ADT.read(&adtVersion, sizeof(uint32));
+            else if (!strcmp(fourcc,"MHDR"))
+            { }// MHDR is after version header, contaiins offset data for parsing the ADT file
+            else if (!strcmp(fourcc,"MCNK"))
+            {
+                MapChunkHeader header;
+                ADT.read(&header, sizeof(MapChunkHeader));
+                if(header.offsMCVT)
+                    offsets[header.ix][header.iy] = currPos+header.offsMCVT;
+                else offsets[header.ix][header.iy] = 0;
+            }
+            else if (!strcmp(fourcc,"MFBO"))
+            {   // Flight box
+                // These are height planes for the top of the world and the bottom of the world
+                unsigned short minimum[3][3], maximum[3][3];
+                ADT.read(&maximum, sizeof(short)*3*3);
+                ADT.read(&minimum, sizeof(short)*3*3);
+                // Camera doesn't go below the minimum
+                minimum, maximum;
+            }
+            else if (!strcmp(fourcc,"MH2O"))
+                mh2oOffset = currPos;
+        }
+
+        //======================
+        ADT.seek(nextpos);
+    }
+
+    for(uint8 x = 0; x < 16; x++)
+    {
+        for(uint8 y = 0; y < 16; y++)
+        {
+            if(offsets[x][y])
+            {
+                res = true;
+                ADT.seek(offsets[x][y]);
+
+            }
+        }
+    }
+
+    ADT.close();
+    fclose(dirfile);
+    return res;
+}
+
+void ADTFile::parseWMO(uint32 map_num, uint32 tileX, uint32 tileY)
+{
+    if(ADT.isEof ())
+        return;
+
+    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
+    FILE *dirfile;
+    fopen_s(&dirfile, dirname.c_str(), "ab");
+    if(!dirfile)
+    {
+        printf("Can't open dirfile!'%s'\n", dirname.c_str());
+        return;
+    }
+
+    uint32 size;
     while (!ADT.isEof())
     {
         char fourcc[5];
@@ -111,19 +262,9 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
 
         size_t nextpos = ADT.getPos() + size;
 
-        printf("ADT %s\n", fourcc);
-        if (!strcmp(fourcc,"MCNK"))
+        if(size)
         {
-            MapChunkHeader header;
-            memset(&header, 0, headerSize);
-            ADT.read(&header, headerSize);
-            chunkHeaders.insert(std::make_pair(mcnkOffset++, header));
-        }
-        else if (!strcmp(fourcc,"MH2O"))
-            mh2oBase = ADT.getPos();
-        else if (!strcmp(fourcc,"MMDX"))
-        {
-            if (size)
+            if (!strcmp(fourcc,"MMDX"))
             {
                 char* buf = new char[size];
                 ADT.read(buf, size);
@@ -143,10 +284,7 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
                 }
                 delete[] buf;
             }
-        }
-        else if (!strcmp(fourcc,"MWMO"))
-        {
-            if (size)
+            else if (!strcmp(fourcc,"MWMO"))
             {
                 char* buf = new char[size];
                 ADT.read(buf, size);
@@ -163,11 +301,8 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
                 }
                 delete[] buf;
             }
-        }
-        //======================
-        else if (!strcmp(fourcc,"MDDF"))
-        {
-            if (size)
+            //======================
+            else if (!strcmp(fourcc,"MDDF"))
             {
                 nMDX = (int)size / 36;
                 for (int i=0; i<nMDX; ++i)
@@ -180,10 +315,7 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
                     delete itr->second;
                 ModelInstanceNameMap.clear();
             }
-        }
-        else if (!strcmp(fourcc,"MODF"))
-        {
-            if (size)
+            else if (!strcmp(fourcc,"MODF"))
             {
                 nWMO = (int)size / 64;
                 for (int i=0; i<nWMO; ++i)
@@ -204,7 +336,6 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
 
     ADT.close();
     fclose(dirfile);
-    return containsChunkData;
 }
 
 ADTFile::~ADTFile()
