@@ -27,7 +27,7 @@ public:
     std::string     filename;
     
     /** For a binary file, the location of the parse error. -1 if unknown.*/
-    int64           byte;
+    G3D::int64           byte;
 
     /** For a text file, the line number is the line number of start of token which caused the exception.  1 is
         the first line of the file.  -1 means unknown.  Note that you can use 

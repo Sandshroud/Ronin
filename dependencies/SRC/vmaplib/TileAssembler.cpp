@@ -164,10 +164,10 @@ namespace VMAP
         exportGameobjectModels();
 
         // export objects
-        OUT_DETAIL("\nConverting Model Files ");
+        printf("\nConverting Model Files \n");
         for (std::set<std::string>::iterator mfile = spawnedModelFiles.begin(); mfile != spawnedModelFiles.end(); ++mfile)
         {
-            OUT_DETAIL("Converting %s", (*mfile).c_str());
+            printf("Converting % 50s\r", (*mfile).c_str());
             if (!convertRawFile(*mfile))
             {
                 OUT_ERROR("error converting %s", (*mfile).c_str());

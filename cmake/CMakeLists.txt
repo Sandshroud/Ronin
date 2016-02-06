@@ -248,7 +248,6 @@ FILE(COPY "${DEPENDENCY_DLLS}/${f_dllfile}" DESTINATION "${OUTPUT_DIRECTORY}")
 endforeach()
 
 SET(ONLY_DEPENDENCIES 0 CACHE STRING "Option to build only dependency projects, auto off" )
-SET(BUILD_TOOLS 0 CACHE STRING "Option to include tool cmakefiles, auto off" )
 
 add_subdirectory(dependencies)
 
@@ -258,10 +257,7 @@ add_subdirectory(modules)
 add_subdirectory(ronin-shared)
 add_subdirectory(ronin-logon)
 add_subdirectory(ronin-world)
-
-if(BUILD_TOOLS)
 add_subdirectory(tools)
-endif()
 
 endif()
 

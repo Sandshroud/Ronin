@@ -44,31 +44,14 @@ struct vec
     double z;
 };
 
-struct triangle
-{
-    vec v[3];
-};
-
 typedef struct
 {
-    float v9[16*8+1][16*8+1];
-    float v8[16*8][16*8];
-}Cell;
+    uint8 headerFlag[16][16];
+    uint16 areaMask[16][16];
 
-typedef struct
-{
-    double v9[9][9];
-    double v8[8][8];
-    uint16 area_id;
-    //Liquid *lq;
-    float waterlevel[9][9];
-    uint8 flag;
-}chunk;
-
-typedef struct
-{
-    chunk ch[16][16];
-}mcell;
+    float v8[128][128], v9[144][144];
+    float waterV9[144][144];
+}mTile;
 
 struct MapChunkHeader
 {
@@ -77,60 +60,49 @@ struct MapChunkHeader
     uint32 iy;
     uint32 nLayers;
     uint32 nDoodadRefs;
-    uint32 ofsHeight;
-    uint32 ofsNormal;
-    uint32 ofsLayer;
-    uint32 ofsRefs;
-    uint32 ofsAlpha;
-    uint32 sizeAlpha;
-    uint32 ofsShadow;
-    uint32 sizeShadow;
+    uint32 offsMCVT;        // height map
+    uint32 offsMCNR;        // Normal vectors for each vertex
+    uint32 offsMCLY;        // Texture layer definitions
+    uint32 offsMCRF;        // A list of indices into the parent file's MDDF chunk
+    uint32 offsMCAL;        // Alpha maps for additional texture layers
+    uint32 sizeMCAL;
+    uint32 offsMCSH;        // Shadow map for static shadows on the terrain
+    uint32 sizeMCSH;
     uint32 areaid;
     uint32 nMapObjRefs;
     uint32 holes;
-    uint16 s1;
-    uint16 s2;
-    uint32 d1;
-    uint32 d2;
-    uint32 d3;
+    uint16 s[2];
+    uint32 data1;
+    uint32 data2;
+    uint32 data3;
     uint32 predTex;
     uint32 nEffectDoodad;
-    uint32 ofsSndEmitters;
+    uint32 offsMCSE;
     uint32 nSndEmitters;
-    uint32 ofsLiquid;
-    uint32 sizeLiquid;
+    uint32 offsMCLQ;            // Liqid level (old)
+    uint32 sizeMCLQ;            //
     float  zpos;
     float  xpos;
     float  ypos;
-    uint32 textureId;
+    uint32 offsMCCV;            // offsColorValues in WotLK
     uint32 props;
     uint32 effectId;
 };
 
-
 class ADTFile
 {
 private:
-    //size_t mcnk_offsets[256], mcnk_sizes[256];
     MPQFile ADT;
-    //mcell Mcell;
     std::string Adtfilename;
+    mTile m_chunkData;
+
 public:
     ADTFile(HANDLE mpqarchive, char* filename);
     ~ADTFile();
     int nWMO, nMDX;
     std::map<uint32, std::string*> WMOInstanceNameMap, ModelInstanceNameMap;
 
-    bool init(uint32 map_num, uint32 tileX, uint32 tileY);
-    //void LoadMapChunks();
-
-    //uint32 wmo_count;
-/*
-    const mcell& Getmcell() const
-    {
-        return Mcell;
-    }
-*/
+    bool init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output);
 };
 
 char const* GetPlainName(char const* FileName);

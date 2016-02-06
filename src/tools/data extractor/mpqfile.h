@@ -1,43 +1,44 @@
+
+#pragma once
+
 #define _CRT_SECURE_NO_DEPRECATE
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#ifndef MPQ_H
-#define MPQ_H
+#define __INCLUDE_CRYPTOGRAPHY__
+#define __STORMLIB_SELF__
 
-#include <string.h>
-#include <ctype.h>
+#include <map>
 #include <vector>
+#include <list>
+#include <errno.h>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <cassert>
+#include <map>
+#include <fstream>
 #include <iostream>
-#include <deque>
-#include "stormlib.h"
 
-#ifdef _WIN32
-#include <Windows.h>    // mainly only HANDLE definition is required
-typedef __int64            int64;
-typedef __int32            int32;
-typedef __int16            int16;
-typedef __int8             int8;
-typedef unsigned __int64   uint64;
-typedef unsigned __int32   uint32;
-typedef unsigned __int16   uint16;
-typedef unsigned __int8    uint8;
+#include <SharedDependencyDefines.h>
+
+#include <StormLib/StormLib.h>
+#include <StormLib/StormCommon.h>
+
+#define _CRT_SECURE_NO_DEPRECATE
+#include <cstdio>
+#include <iostream>
+#include <string>
+
+#ifdef WIN32
+    #include <Windows.h>
+    #include <sys/stat.h>
+    #include <direct.h>
+    #define mkdir _mkdir
 #else
-#include <stdint.h>
-#ifndef uint64_t
-#ifdef __linux__
-#include <linux/types.h>
-#endif
-#endif
-typedef int64_t            int64;
-typedef int32_t            int32;
-typedef int16_t            int16;
-typedef int8_t             int8;
-typedef uint64_t           uint64;
-typedef uint32_t           uint32;
-typedef uint16_t           uint16;
-typedef uint8_t            uint8;
+    #include <sys/stat.h>
+    #define ERROR_PATH_NOT_FOUND ERROR_FILE_NOT_FOUND
 #endif
 
 using namespace std;
@@ -77,5 +78,3 @@ inline void flipcc(char *fcc)
     fcc[1]=fcc[2];
     fcc[2]=t;
 }
-
-#endif

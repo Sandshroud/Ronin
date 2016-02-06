@@ -65,7 +65,12 @@ struct ModelHeader
     uint32 ofsTransLookup;
     uint32 nTexAnimLookup;
     uint32 ofsTexAnimLookup;
-    float floats[14];
+    float vertexbox1[3];
+    float vertexbox2[3];
+    float vertexradius;
+    float boundingbox1[3];
+    float boundingbox2[3];
+    float boundingradius;
     uint32 nBoundingTriangles;
     uint32 ofsBoundingTriangles;
     uint32 nBoundingVertices;
@@ -88,6 +93,52 @@ struct ModelHeader
     uint32 ofsRibbonEmitters;
     uint32 nParticleEmitters;
     uint32 ofsParticleEmitters;
+};
+
+struct AnimationBlock
+{
+    uint16 interpolation;
+    uint16 globalsequenceid;
+    uint32 list1offset;
+    uint32 timestampdataoffset;
+    uint32 list2offset;
+    uint32 keysoffset;
+};
+
+struct M2Attachment
+{
+    uint32 id;
+    uint32 bone;
+    float pos[3];
+    AnimationBlock unk;
+};
+
+struct M2Bone
+{
+    int keyboneid;
+    uint32 flags;
+    short parentbone;
+    uint16 unk[3];
+    AnimationBlock translation;
+    AnimationBlock rotation;
+    AnimationBlock scaling;
+    float pivotpoint[3];
+};
+
+struct ModelCache
+{
+    ModelHeader* header;
+    M2Attachment* attachments;
+    M2Bone* bones;
+    uint16* bonelookups;
+};
+
+struct DisplayBounding
+{
+    uint32 Entry; // Display ID
+    float Low[3];
+    float High[3];
+    float BoundRadius;
 };
 
 #pragma pack(pop)

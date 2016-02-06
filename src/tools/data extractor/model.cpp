@@ -16,10 +16,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "vmapexport.h"
+#include "mpqfile.h"
+#include "system.h"
 #include "model.h"
 #include "wmo.h"
-#include "mpqfile.h"
 #include <cassert>
 #include <algorithm>
 #include <cstdio>

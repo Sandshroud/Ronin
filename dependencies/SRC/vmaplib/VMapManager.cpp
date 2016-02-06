@@ -337,11 +337,8 @@ namespace VMAP
         {
             LocationInfo info;
             Vector3 pos = convertPositionToInternalRep(x, y, z);
-            if (instanceTree->second->GetLocationInfo(pos, info))
-            {
-                if(info.hitInstance->GetLiquidLevel(pos, info, level))
-                    type = info.hitModel->GetLiquidType();
-            }
+            if (instanceTree->second->GetLocationInfo(pos, info) && info.hitInstance->GetLiquidLevel(pos, info, level))
+                type = info.hitModel->GetLiquidType();
         }
     }
 
@@ -406,14 +403,6 @@ namespace VMAP
 
     void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid)
     {
-        if(mapid == -1)
-        {
-            for(DynamicTreeMap::iterator itr = iDynamicMapTrees.begin(); itr != iDynamicMapTrees.end(); itr++)
-                for(std::map<uint32, DynamicMapTree*>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                    itr2->second->update(t_diff);
-            return;
-        }
-
         if(iDynamicMapTrees.find(mapid) == iDynamicMapTrees.end())
             return;
 

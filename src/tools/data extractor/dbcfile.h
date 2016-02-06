@@ -86,11 +86,6 @@ class DBCFile
 
                 friend class DBCFile;
                 friend class DBCFile::Iterator;
-
-                Record& operator=(Record const&);
-                Record(Record const& right) : file(right.file), offset(right.offset)
-                {
-                }
         };
         /** Iterator that iterates over records
         */

@@ -16,7 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "vmapexport.h"
+#include "mpqfile.h"
+#include "system.h"
 #include "adtfile.h"
 
 #include <algorithm>
@@ -82,7 +83,7 @@ ADTFile::ADTFile(HANDLE mpqarchive, char* filename) : ADT(mpqarchive, filename, 
     Adtfilename.append(filename);
 }
 
-bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY)
+bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
 {
     if(ADT.isEof ())
         return false;
@@ -96,7 +97,10 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY)
         return false;
     }
 
-    uint32 size;
+    static size_t headerSize = sizeof(MapChunkHeader);
+    std::map<uint32, MapChunkHeader> chunkHeaders;
+    bool containsChunkData = false;
+    uint32 size, mcnkOffset = 0, mh2oBase = 0;
     while (!ADT.isEof())
     {
         char fourcc[5];
@@ -107,12 +111,16 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY)
 
         size_t nextpos = ADT.getPos() + size;
 
-        if (!strcmp(fourcc,"MCIN"))
+        printf("ADT %s\n", fourcc);
+        if (!strcmp(fourcc,"MCNK"))
         {
+            MapChunkHeader header;
+            memset(&header, 0, headerSize);
+            ADT.read(&header, headerSize);
+            chunkHeaders.insert(std::make_pair(mcnkOffset++, header));
         }
-        else if (!strcmp(fourcc,"MTEX"))
-        {
-        }
+        else if (!strcmp(fourcc,"MH2O"))
+            mh2oBase = ADT.getPos();
         else if (!strcmp(fourcc,"MMDX"))
         {
             if (size)
@@ -196,7 +204,7 @@ bool ADTFile::init(uint32 map_num, uint32 tileX, uint32 tileY)
 
     ADT.close();
     fclose(dirfile);
-    return true;
+    return containsChunkData;
 }
 
 ADTFile::~ADTFile()

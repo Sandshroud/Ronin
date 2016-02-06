@@ -16,17 +16,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "vmapexport.h"
+#include "mpqfile.h"
+#include "system.h"
 #include "wmo.h"
 #include "vec3d.h"
-#include <cstdio>
-#include <cstdlib>
-#include <cassert>
-#include <map>
-#include <fstream>
-#undef min
-#undef max
-#include "mpqfile.h"
 
 using namespace std;
 extern uint16 *LiqType;

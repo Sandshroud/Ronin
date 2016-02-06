@@ -16,7 +16,8 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "vmapexport.h"
+#include "mpqfile.h"
+#include "system.h"
 #include "wdtfile.h"
 #include "adtfile.h"
 #include <cstdio>

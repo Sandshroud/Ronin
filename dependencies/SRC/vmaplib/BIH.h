@@ -90,14 +90,11 @@ class BIH
         }
         G3D::uint32 primCount() const { return objects.size(); }
 
-        template<typename RayCallback>
-        void intersectRay(const G3D::Ray &r, RayCallback& intersectCallback, float &maxDist, bool stopAtFirst=false) const
+        template<typename RayCallback> void intersectRay(const G3D::Ray &r, RayCallback& intersectCallback, float &maxDist, bool stopAtFirst=false) const
         {
             float intervalMin = -1.f;
             float intervalMax = -1.f;
-            G3D::Vector3 org = r.origin();
-            G3D::Vector3 dir = r.direction();
-            G3D::Vector3 invDir;
+            G3D::Vector3 org = r.origin(), dir = r.direction(), invDir;
             for (int i=0; i<3; ++i)
             {
                 invDir[i] = 1.f / dir[i];
@@ -123,10 +120,7 @@ class BIH
             intervalMin = std::max(intervalMin, 0.f);
             intervalMax = std::min(intervalMax, maxDist);
 
-            G3D::uint32 offsetFront[3];
-            G3D::uint32 offsetBack[3];
-            G3D::uint32 offsetFront3[3];
-            G3D::uint32 offsetBack3[3];
+            G3D::uint32 offsetFront[3], offsetBack[3], offsetFront3[3], offsetBack3[3];
             // compute custom offsets from direction sign bit
 
             for (int i=0; i<3; ++i)
@@ -145,7 +139,8 @@ class BIH
             int stackPos = 0;
             int node = 0;
 
-            while (true) {
+            while (true)
+            {
                 while (true)
                 {
                     G3D::uint32 tn = tree[node];

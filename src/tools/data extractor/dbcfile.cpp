@@ -19,6 +19,7 @@
 #define _CRT_SECURE_NO_DEPRECATE
 
 #include "dbcfile.h"
+#include <vector>
 
 DBCFile::DBCFile(HANDLE mpq, const char* filename) :
     _mpq(mpq), _filename(filename), _file(NULL), _data(NULL), _stringTable(NULL)
@@ -36,7 +37,10 @@ bool DBCFile::open()
     DWORD readBytes = 0;
     SFileReadFile(_file, header, 4, &readBytes, NULL);
     if (readBytes != 4)                                         // Number of records
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     if (header[0] != 'W' || header[1] != 'D' || header[2] != 'B' || header[3] != 'C')
         return false;
@@ -44,29 +48,44 @@ bool DBCFile::open()
     readBytes = 0;
     SFileReadFile(_file, &na, 4, &readBytes, NULL);
     if (readBytes != 4)                                         // Number of records
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     readBytes = 0;
     SFileReadFile(_file, &nb, 4, &readBytes, NULL);
     if (readBytes != 4)                                         // Number of fields
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     readBytes = 0;
     SFileReadFile(_file, &es, 4, &readBytes, NULL);
     if (readBytes != 4)                                         // Size of a record
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     readBytes = 0;
     SFileReadFile(_file, &ss, 4, &readBytes, NULL);
     if (readBytes != 4)                                         // String size
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     _recordSize = es;
     _recordCount = na;
     _fieldCount = nb;
     _stringSize = ss;
     if (_fieldCount * 4 != _recordSize)
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
     _data = new unsigned char[_recordSize * _recordCount + _stringSize];
     _stringTable = _data + _recordSize*_recordCount;
@@ -75,16 +94,18 @@ bool DBCFile::open()
     readBytes = 0;
     SFileReadFile(_file, _data, data_size, &readBytes, NULL);
     if (readBytes != data_size)
+    {
+        SFileCloseFile(_file);
         return false;
+    }
 
+    SFileCloseFile(_file);
     return true;
 }
 
 DBCFile::~DBCFile()
 {
     delete [] _data;
-    if (_file != NULL)
-        SFileCloseFile(_file);
 }
 
 DBCFile::Record DBCFile::getRecord(size_t id)
@@ -116,4 +137,3 @@ DBCFile::Iterator DBCFile::end()
     assert(_data);
     return Iterator(*this, _stringTable);
 }
-

@@ -16,52 +16,26 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef LOAD_LIB_H
-#define LOAD_LIB_H
+#pragma once
 
-#include "SharedDependencyDefines.h"
-
-#include <stormlib/StormLib.h>
-
-#define FILE_FORMAT_VERSION    18
-
-#pragma pack(push, 1)
-
-union u_map_fcc
+enum ModelFlags
 {
-    char   fcc_txt[4];
-    uint32 fcc;
+    MOD_M2 = 1,
+    MOD_WORLDSPAWN = 1<<1,
+    MOD_HAS_BOUND = 1<<2
 };
 
-//
-// File version chunk
-//
-struct file_MVER
-{
-    union{
-        uint32 fcc;
-        char   fcc_txt[4];
-    };
-    uint32 size;
-    uint32 ver;
-};
+extern const char * szWorkDirWmo;
+extern const char * szRawVMAPMagic;                         // vmap magic string for extracted raw vmap data
 
+extern HANDLE WorldMpq;
+extern HANDLE LocaleMpq;
 
-class FileLoader{
-    uint8  *data;
-    uint32  data_size;
-public:
-    virtual bool prepareLoadedData();
-    uint8 *GetData()     {return data;}
-    uint32 GetDataSize() {return data_size;}
+bool GetMPQHandle(const char* file, HANDLE &mpqhandle);
+bool FileExists(const char * file);
+void strToLower(char* str);
 
-    file_MVER *version;
-    FileLoader();
-    ~FileLoader();
-    bool loadFile(HANDLE mpq, char *filename, bool log = true);
-    virtual void free();
-};
+bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname);
+bool ExtractSingleModel(std::string& fname);
 
-#pragma pack(pop)
-
-#endif
+void ExtractGameobjectModels();

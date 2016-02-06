@@ -316,6 +316,12 @@ namespace VMAP
         }
 
         fileLock.Acquire();
+        if(iLoadedTiles.find(packedTile) != iLoadedTiles.end())
+        {
+            fileLock.Release();
+            return true;
+        }
+
         bool selfOpened = false;
         if(input == NULL)
         {
@@ -341,56 +347,55 @@ namespace VMAP
         G3D::uint32 numSpawns = 0;
         if (fread(&numSpawns, sizeof(G3D::uint32), 1, input) != 1)
             result = false;
+        std::vector<std::pair<uint32, ModelSpawn>> modelSpawns;
         for (G3D::uint32 i=0; i<numSpawns && result; ++i)
         {
             // read model spawns
             ModelSpawn spawn;
+            G3D::uint32 referencedVal;
             result = ModelSpawn::readFromFile(input, spawn);
             if(result == false)
             {
                 OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel file [%u, %u]", tileX, tileY);
                 break;
             }
-            else
+            else if (fread(&referencedVal, sizeof(G3D::uint32), 1, input) != 1)
             {
-                // update tree
-                G3D::uint32 referencedVal;
-                if (fread(&referencedVal, sizeof(G3D::uint32), 1, input) != 1)
-                {
-                    result = false;
-                    break;
-                }
-                else
-                {
-                    // acquire model instance
-                    if(WorldModel* model = vm->acquireModelInstance(spawn.name))
-                    {
-                        if (iLoadedSpawns.find(referencedVal) == iLoadedSpawns.end())
-                        {
-                            if (referencedVal > iNTreeValues)
-                            {
-                                OUT_DEBUG("StaticMapTree::LoadMapTile() : invalid tree element (%u/%u)", referencedVal, iNTreeValues);
-                                continue;
-                            }
-
-                            iTreeValues[referencedVal] = ModelInstance(spawn, model);
-                            iLoadedSpawns[referencedVal] = 1;
-                        }
-                        else
-                        {
-                            ++iLoadedSpawns[referencedVal];
-                            if (iTreeValues[referencedVal].ID != spawn.ID)
-                                OUT_DEBUG("StaticMapTree::LoadMapTile() : trying to load wrong spawn in node");
-                            else if (iTreeValues[referencedVal].name != spawn.name)
-                                OUT_DEBUG("StaticMapTree::LoadMapTile() : name collision on GUID=%u", spawn.ID);
-                        }
-                    } else OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
-                }
+                result = false;
+                break;
             }
+            modelSpawns.push_back(std::make_pair(referencedVal, spawn));
         }
         if(result) iLoadedTiles[packedTile] = true;
         if(selfOpened) fclose(input);
         fileLock.Release();
+
+        for (auto itr = modelSpawns.begin(); itr != modelSpawns.end(); itr++)
+        {   // acquire model instance
+            if(WorldModel* model = vm->acquireModelInstance((*itr).second.name))
+            {
+                if (iLoadedSpawns.find((*itr).first) == iLoadedSpawns.end())
+                {
+                    if ((*itr).first > iNTreeValues)
+                    {
+                        OUT_DEBUG("StaticMapTree::LoadMapTile() : invalid tree element (%u/%u)", (*itr).first, iNTreeValues);
+                        continue;
+                    }
+
+                    iTreeValues[(*itr).first] = ModelInstance((*itr).second, model);
+                    iLoadedSpawns[(*itr).first] = 1;
+                }
+                else
+                {
+                    ++iLoadedSpawns[(*itr).first];
+                    if (iTreeValues[(*itr).first].ID != (*itr).second.ID)
+                        OUT_DEBUG("StaticMapTree::LoadMapTile() : trying to load wrong spawn in node");
+                    else if (iTreeValues[(*itr).first].name != (*itr).second.name)
+                        OUT_DEBUG("StaticMapTree::LoadMapTile() : name collision on GUID=%u", (*itr).second.ID);
+                }
+            } else OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
+        }
+
         return result;
     }
 
