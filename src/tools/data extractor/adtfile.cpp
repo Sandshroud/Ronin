@@ -178,7 +178,8 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
 
     bool res = false;
     uint32 offsets[16][16], mh2oOffset = 0;
-    uint32 size = 0, adtVersion = 0, chunkCount = 0;
+    memset(offsets, 0, sizeof(uint32)*16*16);
+    uint32 size = 0, adtVersion = 0;
     while (!ADT.isEof())
     {
         char fourcc[5];
