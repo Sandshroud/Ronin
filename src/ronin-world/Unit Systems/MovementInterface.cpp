@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_creaturePath(NULL), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -351,9 +351,9 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
     return 0xFFFF;
 }
 
-void MovementInterface::Update(uint32 diff)
+void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
 {
-    uint32 u_diff = (m_updateTimer += diff);
+    uint32 u_diff = (m_updateTimer += uiDiff);
     if(u_diff < 200)
         return;
     m_updateTimer = 0;
@@ -373,14 +373,9 @@ void MovementInterface::Update(uint32 diff)
 
     HandleBreathing(u_diff);
 
-    if(m_Unit->IsCreature())
-    {
-        Creature *ctr = castPtr<Creature>(m_Unit);
-
-        // Update our unit based on the set creature path
-        if(CreaturePath *path = m_creaturePath)
-            path->UpdateLoc(m_serverLocation);
-    }
+    m_path.Update(msTime, u_diff);
+    if(!m_unitMoveTarget.empty())
+        _UpdateTargetLocation();
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
@@ -890,6 +885,11 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
     castPtr<Player>(m_Unit)->SendPacket( &data );
 }
 
+void MovementInterface::SetFacing(float orientation)
+{
+    m_serverLocation->o = orientation;
+}
+
 void MovementInterface::OnDeath()
 {
 
@@ -1179,4 +1179,38 @@ void MovementInterface::ClearOptionalMovementData()
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
     m_extra.clear();
+}
+
+void MovementInterface::_ResumeOrStopMoving()
+{
+
+}
+
+void MovementInterface::_UpdateTargetLocation()
+{
+    Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_unitMoveTarget);
+    if(unitTarget == NULL || unitTarget->isDead())
+    {
+        m_path.ResumeOrStopMoving();
+        return;
+    }
+
+    float followRange = 0.f, x, y, z, o;
+    if(m_Unit->validateAttackTarget(unitTarget))
+    {
+        SpellEntry *sp = NULL;
+        float minRange = 0.f; followRange = 5.f;
+        m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, followRange, sp);
+    } else followRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
+
+    unitTarget->GetPosition(x, y, z);
+    o = m_Unit->calcAngle(m_serverLocation->x, m_serverLocation->y, x, y) * M_PI / 180.f;
+    x -= followRange * cosf(o);
+    y -= followRange * sinf(o);
+    m_path.MoveToPoint(x,y,z,o);
+}
+
+bool MovementInterface::_CheckMovePriority(float x, float y, float z)
+{
+    return true;
 }

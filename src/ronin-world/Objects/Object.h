@@ -137,7 +137,7 @@ public:
     // Events are forced class so call virtual destruct through EventDestruct
     void EventDestruct() { Destruct(); }
 
-    virtual void Update ( uint32 time ) { }
+    virtual void Update ( uint32 msTime, uint32 diff ) { }
 
     // Value fields
     void __fastcall SetByte(uint16 index, uint8 flag, uint8 value);
@@ -296,8 +296,7 @@ public:
 
     virtual bool IsObject() { return true; }
 
-    float GetCHeightForPosition(bool checkwater = false, float x = 0.0f, float y = 0.0f, float z = 0.0f);
-
+    float GetMapHeight(float x, float y, float z, float maxDist = 10.f);
     int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
 
     //! True if object exists in world

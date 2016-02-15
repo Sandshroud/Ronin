@@ -603,165 +603,19 @@ void WorldObject::Destruct()
     Object::Destruct();
 }
 
-/* Crow:
-    This function is a really heavy height check that is used for getting all types of height checks!
-    Since it is in the object class, we can skip any actual variables and instead use our current position.
-    This function gets map height and also checks the position of WMO's so that the height is set to the WMO height
-    based on the Z position that is given. If no Z position is given, but x and y positions are given, we will instead
-    use basic map heights as our Z position. */
-float WorldObject::GetCHeightForPosition(bool checkwater, float x, float y, float z)
+float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
 {
-    if(!IsInWorld())
-        return 0.0f;
-
-    MapInstance* mgr = GetMapInstance();
-    float offset = 0.12156f;
-    if(x == 0.0f && y == 0.0f)
+    float retVal = z;
+    if(IsInWorld())
     {
-        x = GetPositionX();
-        y = GetPositionY();
-    }
-
-    if(z == 0.0f)
-        z = GetPositionZ();
-
-    if(!mgr->GetBaseMap() || !mgr->GetBaseMap()->GetMapTerrain())
-        return z;
-
-    float waterheight = mgr->GetWaterHeight(x, y, z);
-    float mapheight = mgr->GetLandHeight(x, y);
-    if(!mgr->CanUseCollision(this))
-    {
-        if(checkwater && waterheight != NO_WATER_HEIGHT)
-            if(waterheight > mapheight)
-                return waterheight+offset;
-        return mapheight+offset;
-    }
-
-    float vmapheight = sVMapInterface.GetHeight(GetMapId(), GetInstanceID(), 0, x, y, z);
-    if(IS_INSTANCE(mgr->GetMapId()) || !sWorld.CalculatedHeightChecks)
-    {
-        if(vmapheight != NO_WMO_HEIGHT)
+        float mapHeight = sVMapInterface.GetHeight(m_mapId, m_instanceId, 0, x, y, z);
+        if(mapHeight == NO_WMO_HEIGHT)
         {
-            if(checkwater && waterheight != NO_WATER_HEIGHT)
-                if(waterheight > vmapheight)
-                    return waterheight+offset;
-            return vmapheight+offset;
-        }
-
-        if(checkwater && waterheight != NO_WATER_HEIGHT)
-            if(waterheight > mapheight)
-                return waterheight+offset;
-        return mapheight+offset;
+            if((mapHeight = m_mapInstance->GetLandHeight(x, y)) != NO_LAND_HEIGHT && mapHeight+maxDist >= retVal)
+                retVal = mapHeight;
+        } else retVal = mapHeight;
     }
-
-    float phx = 0.0f;
-    float phy = 0.0f;
-    float phz = 0.0f;
-    float CMapHeight = NO_LAND_HEIGHT;
-    sVMapInterface.GetFirstPoint(GetMapId(), GetInstanceID(), GetPhaseMask(), x, y, z-10.0f, x, y, z+10.0f, phx, phy, CMapHeight, 0.0f);
-
-    // Mapheight first.
-    if(mapheight != NO_LAND_HEIGHT)
-    {
-        if(mapheight-2.0f < z)
-        {
-            if(mapheight+2.0f > z) // Accurate map height
-            {
-                if(checkwater && waterheight != NO_WATER_HEIGHT)
-                    if(waterheight > mapheight)
-                        return waterheight+offset;
-                return mapheight+offset;
-            }
-
-            if(!sVMapInterface.GetFirstPoint(GetMapId(), GetInstanceID(), GetPhaseMask(), x, y, mapheight, x, y, z, phx, phy, phz, 0.0f))
-            {
-                if(checkwater && waterheight != NO_WATER_HEIGHT)
-                    if(waterheight > mapheight)
-                        return waterheight+offset;
-                return mapheight+offset; // No breaks inbetween us, so its the right height, we're just a bunch of fuckers!
-            }
-
-            // TODO
-        }
-        else if(mapheight-10.0f > z)
-        {
-            // TODO
-        }
-    }
-
-    // Now Vmap Height
-    if(vmapheight != NO_WMO_HEIGHT)
-    {
-        if(vmapheight-2.0f < z)
-        {
-            if(vmapheight+2.0f > z) // Accurate map height
-            {
-                if(checkwater && waterheight != NO_WATER_HEIGHT)
-                    if(waterheight > vmapheight)
-                        return waterheight+offset;
-                return vmapheight+offset;
-            }
-
-            if(!sVMapInterface.GetFirstPoint(GetMapId(), GetInstanceID(), GetPhaseMask(), x, y, vmapheight, x, y, z, phx, phy, phz, 0.0f))
-            {
-                if(checkwater && waterheight != NO_WATER_HEIGHT)
-                    if(waterheight > vmapheight)
-                        return waterheight+offset;
-                return vmapheight+offset; // No breaks inbetween us, so its the right height, we're just a bunch of fuckers!
-            }
-
-            if(phz > z)
-            {
-                if(vmapheight < z)
-                {
-                    float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
-                    if(mmapheight != MMAP_UNAVAILABLE)
-                    {
-                        if(checkwater && waterheight != NO_WATER_HEIGHT)
-                            if(waterheight > mmapheight)
-                                return waterheight+offset;
-                        return mmapheight+offset;
-                    }
-                }
-            }
-            else
-            {
-                float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, phz);
-                if(mmapheight != MMAP_UNAVAILABLE)
-                {
-                    if(checkwater && waterheight != NO_WATER_HEIGHT)
-                        if(waterheight > mmapheight)
-                            return waterheight+offset;
-                    return mmapheight+offset;
-                }
-            }
-        }
-        else
-        {
-            float mmapheight = sNavMeshInterface.GetWalkingHeight(GetMapId(), x, y, z, vmapheight);
-            if(mmapheight != MMAP_UNAVAILABLE)
-            {
-                if(checkwater && waterheight != NO_WATER_HEIGHT)
-                    if(waterheight > mmapheight)
-                        return waterheight+offset;
-                return mmapheight+offset;
-            }
-        }
-    }
-
-    // I think it's safe to say, no one is ever perfect.
-    if((CMapHeight != z+10.0f) && (CMapHeight != z-10.0f))
-    {
-        if(checkwater && waterheight != NO_WATER_HEIGHT)
-            if(waterheight > CMapHeight)
-                return waterheight+offset;
-        return CMapHeight+offset;
-    }
-
-    if(checkwater && waterheight != NO_WATER_HEIGHT)
-        return waterheight;
-    return z;
+    return retVal;
 }
 
 void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
@@ -984,8 +838,7 @@ float WorldObject::CalcDistance(float OaX, float OaY, float OaZ, float ObX, floa
 
 float WorldObject::calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
 {
-    float dx = Position2X-Position1X;
-    float dy = Position2Y-Position1Y;
+    float dx = Position2X-Position1X, dy = Position2Y-Position1Y;
     double angle=0.0f;
 
     // Calculate angle
@@ -995,25 +848,19 @@ float WorldObject::calcAngle( float Position1X, float Position1Y, float Position
             angle = 0.0;
         else if (dy > 0.0)
             angle = M_PI * 0.5 /* / 2 */;
-        else
-            angle = M_PI * 3.0 * 0.5/* / 2 */;
+        else angle = M_PI * 3.0 * 0.5/* / 2 */;
     }
     else if (dy == 0.0)
     {
         if (dx > 0.0)
             angle = 0.0;
-        else
-            angle = M_PI;
+        else angle = M_PI;
     }
-    else
-    {
-        if (dx < 0.0)
-            angle = atanf(dy/dx) + M_PI;
-        else if (dy < 0.0)
-            angle = atanf(dy/dx) + (2*M_PI);
-        else
-            angle = atanf(dy/dx);
-    }
+    else if (dx < 0.0)
+        angle = atanf(dy/dx) + M_PI;
+    else if (dy < 0.0)
+        angle = atanf(dy/dx) + (2*M_PI);
+    else angle = atanf(dy/dx);
 
     // Convert to degrees
     angle = angle * float(180 / M_PI);

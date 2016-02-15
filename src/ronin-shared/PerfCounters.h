@@ -352,15 +352,12 @@ protected:
 #pragma pack(pop)
 
 #include <Psapi.h>
+#pragma comment(lib, "Psapi")
 
 #define SYSTEM_OBJECT_INDEX                 2       // 'System' object
 #define PROCESS_OBJECT_INDEX                230     // 'Process' object
 #define PROCESSOR_OBJECT_INDEX              238     // 'Processor' object
 #define TOTAL_PROCESSOR_TIME_COUNTER_INDEX  240     // '% Total processor time' counter (valid in WinNT under 'System' object)
 #define PROCESSOR_TIME_COUNTER_INDEX        6       // '% processor time' counter (for Win2K/XP)
-
-// Crow: Dunno if we need these.
-#pragma comment(lib, "advapi32")
-#pragma comment(lib, "Psapi")
 
 #endif // PLATFORM == PLATFORM_WIN

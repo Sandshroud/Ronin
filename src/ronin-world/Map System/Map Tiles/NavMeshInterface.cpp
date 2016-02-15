@@ -9,7 +9,7 @@ createFileSingleton(CNavMeshInterface);
 void CNavMeshInterface::Init()
 {
     allocator = NULL;
-    if( (hModule = LoadLibrary("Pathfinding.dll")) && ((allocator = (mmap_manager_construction)GetProcAddress(hModule, "mmap_manager_construction")) == NULL) )
+    if( (hModule = LoadLibrary("./Modules/Pathfinding.dll")) && ((allocator = (mmap_manager_construction)GetProcAddress(hModule, "mmap_manager_construction")) == NULL) )
         FreeLibrary(hModule);
     else if(allocator)
         sLog.Success("NavMeshInterface", "Pathfinding linked successfully");
@@ -78,7 +78,7 @@ Position CNavMeshInterface::BuildPath(uint32 mapid, float startx, float starty, 
 PositionMapContainer* CNavMeshInterface::BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool straight)
 {
     if(MMapManagerExt* mmap = GetOrCreateMMapManager(mapid))
-        return mmap->BuildFullPath(0x01, startx, starty, startz, endx, endy, endz, straight);
+        return mmap->BuildFullPath(m_Unit->canFly(), startx, starty, startz, endx, endy, endz, straight);
     return NULL;
 }
 

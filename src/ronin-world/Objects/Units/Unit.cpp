@@ -112,19 +112,19 @@ void Unit::Destruct()
     WorldObject::Destruct();
 }
 
-void Unit::Update( uint32 p_time )
+void Unit::Update(uint32 msTime, uint32 uiDiff)
 {
-    WorldObject::Update(p_time);
+    WorldObject::Update(msTime, uiDiff);
     UpdateFieldValues();
 
-    _UpdateSpells( p_time );
-    m_AuraInterface.Update(p_time);
+    _UpdateSpells( uiDiff );
+    m_AuraInterface.Update(uiDiff);
     if(isDead())
         return;
 
     if(!IsPlayer())
     {
-        m_AreaUpdateTimer += p_time;
+        m_AreaUpdateTimer += uiDiff;
         if(m_AreaUpdateTimer >= 5000)
         {
             if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
@@ -139,16 +139,16 @@ void Unit::Update( uint32 p_time )
 
     if(!m_instanceInCombat && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
     {
-        if(m_combatStopTimer <= p_time)
+        if(m_combatStopTimer <= uiDiff)
         {
             m_combatStopTimer = 0;
             RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-        } else m_combatStopTimer -= p_time;
+        } else m_combatStopTimer -= uiDiff;
     }
 
     if(!isCasting())
     {
-        m_attackUpdateTimer += p_time;
+        m_attackUpdateTimer += uiDiff;
         if(m_attackUpdateTimer >= 200)
         {
             uint32 diff = m_attackUpdateTimer;
@@ -235,14 +235,14 @@ void Unit::Update( uint32 p_time )
     /*-----------------------POWER & HP REGENERATION-----------------*/
     if(!isFullHealth())
     {
-        if( m_H_regenTimer <= p_time )
+        if( m_H_regenTimer <= uiDiff )
         {
             m_H_regenTimer = 1000;//set next regen time
             RegenerateHealth(IsInCombat());
-        } else m_H_regenTimer -= p_time;
+        } else m_H_regenTimer -= uiDiff;
     } else m_H_regenTimer = 1000;
 
-    m_P_regenTimer += p_time;
+    m_P_regenTimer += uiDiff;
     if(m_P_regenTimer >= 1000)
     {
         if(m_p_DelayTimer > m_P_regenTimer)
@@ -253,7 +253,7 @@ void Unit::Update( uint32 p_time )
         m_P_regenTimer = 0;
     }
 
-    m_movementInterface.Update(p_time);
+    m_movementInterface.Update(msTime, uiDiff);
 }
 
 void Unit::OnAuraModChanged(uint32 modType)
@@ -1138,6 +1138,17 @@ bool Unit::canFly()
     return false;
 }
 
+WeaponDamageType Unit::GetPreferredAttackType(SpellEntry **sp)
+{
+    if(false)
+    {
+        if(sp) *sp = NULL;
+        return RANGED;
+    }
+
+    return MELEE;
+}
+
 bool Unit::validateAttackTarget(WorldObject *target)
 {
     if(target == nullptr || !target->IsUnit())
@@ -1148,31 +1159,41 @@ bool Unit::validateAttackTarget(WorldObject *target)
     return true;
 }
 
+bool Unit::calculateAttackRange(WeaponDamageType type, float &minRange, float &maxRange, SpellEntry *sp)
+{
+    float selfReach = GetFloatValue(UNIT_FIELD_COMBATREACH);
+    minRange = 0.f, maxRange = selfReach + GetModelHalfSize();
+    if((type == RANGED || type == RANGED_AUTOSHOT) && sp) // Sanity check
+    {
+        // Min range for our ranged attack spell
+        minRange = sp->minRange[0];
+        minRange *= minRange;
+        // Calculate max range
+        maxRange -= (type == RANGED_AUTOSHOT ? 0.f : selfReach);
+        float spellRange = sp->maxRange[0];
+        if( sp->SpellGroupType )
+        {
+            SM_FFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+            SM_PFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
+        }
+        maxRange += spellRange;
+    }
+
+    return true;
+}
+
 bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId)
 {
     if(GetMapId() != pVictim->GetMapId())
         return false;
 
-    // minimum melee range, UNIT_FIELD_COMBATREACH is too small and used eg. in melee spells
-    float selfreach = GetFloatValue(UNIT_FIELD_COMBATREACH), selfradius = GetModelHalfSize();
-    float targetradius = pVictim->GetModelHalfSize(), distance = CalcDistance(pVictim);
-    float minRange = 0.f, maxRange = targetradius + selfreach + selfradius;
-    if(attackType == RANGED || attackType == RANGED_AUTOSHOT)
-    {
-        maxRange -= (attackType == RANGED_AUTOSHOT ? 0.f : selfreach);
-        if(SpellEntry *sp = dbcSpell.LookupEntry(spellId))
-        {
-            minRange = sp->minRange[0];
-            minRange *= minRange;
-            float spellRange = sp->maxRange[0];
-            if( sp->SpellGroupType )
-            {
-                SM_FFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
-                SM_PFValue(SMT_RANGE, &spellRange, sp->SpellGroupType );
-            }
-            maxRange += spellRange;
-        } else return false;
-    }
+    SpellEntry *sp = NULL;
+    if((spellId || attackType == RANGED || attackType == RANGED_AUTOSHOT) && (sp = dbcSpell.LookupEntry(spellId)) == NULL)
+        return false;
+
+    float minRange = 0.f, maxRange = pVictim->GetModelHalfSize(), distance = CalcDistance(pVictim);
+    if(!calculateAttackRange(attackType, minRange, maxRange, sp))
+        return false;
 
     //formula adjustment for player side.
     if(IsPlayer())
@@ -1431,18 +1452,13 @@ double Unit::GetResistanceReducion(Unit* pVictim, uint32 school, float armorRedu
 void Unit::CalculateResistanceReduction(Unit* pVictim,dealdamage * dmg, SpellEntry* ability, float armorReducePct)
 {
     if( (dmg->school_type && ability && Spell::IsBinary(ability)) || dmg->school_type == SCHOOL_HOLY )  // damage isn't reduced for binary spells
-    {
-        (*dmg).resisted_damage = 0;
         return;
-    }
-
     double reduction = GetResistanceReducion(pVictim, dmg->school_type, armorReducePct);
+    if(reduction <= 0)
+        return;
 
     // only for physical or non binary spells
-    if(reduction > 0)
-        (*dmg).resisted_damage = (uint32)(((*dmg).full_damage)*reduction);
-    else
-        (*dmg).resisted_damage = 0;
+    (*dmg).resisted_damage = (uint32)(((*dmg).full_damage)*reduction);
 }
 
 uint32 roll_results[5] =
@@ -1809,6 +1825,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     bool disable_dR         = false;
 
     dmg.school_type = SCHOOL_NORMAL;
+    dmg.resisted_damage = 0;
     if(ability)
         dmg.school_type = ability->School;
     else if (GetTypeId() == TYPEID_UNIT)
@@ -2346,11 +2363,9 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //==========================================================================================
 //--------------------------absorption------------------------------------------------------
             abs = pVictim->AbsorbDamage(this, dmg.school_type, dmg.full_damage, ability);
-            if(dmg.full_damage > (int32)blocked_damage && !disable_dR)
-            {
 //--------------------------armor reducing--------------------------------------------------
+            if(dmg.full_damage > (int32)blocked_damage && !disable_dR)
                 CalculateResistanceReduction(pVictim,&dmg, ability,armorreducepct);
-            }
 
             if (dmg.school_type == SCHOOL_NORMAL)
             {
@@ -3217,11 +3232,6 @@ void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
     SpellCastTargets targets(Target->GetGUID());
     if(Spell* pSpell = new Spell(this, Sp))
         pSpell->prepare(&targets, true);
-}
-
-void Unit::SetFacing(float newo)
-{
-    SetOrientation(newo);
 }
 
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind

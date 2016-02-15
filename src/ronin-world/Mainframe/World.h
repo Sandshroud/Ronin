@@ -484,7 +484,7 @@ public:
     std::string DBCPath, MapPath, vMapPath, MMapPath;
     float AreaUpdateDistance;
     bool AHEnabled, DisableBufferSaving;
-    bool Collision, PathFinding, CalculatedHeightChecks;
+    bool Collision, PathFinding;
     bool LogCheaters, LogCommands, LogPlayers, bLogChat;
     uint32 ServerPreloading, mInWorldPlayerCount, mAcceptedConnections;
     uint32 mQueueUpdateInterval, trade_world_chat, m_deathKnightReqLevel;

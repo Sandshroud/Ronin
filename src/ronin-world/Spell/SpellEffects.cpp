@@ -668,7 +668,7 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
         const static float shadowstep_distance = 1.6f * GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( target->GetUInt32Value(UNIT_FIELD_DISPLAYID)));
         float new_x = pTarget->GetPositionX() - (shadowstep_distance * cosf(ang));
         float new_y = pTarget->GetPositionY() - (shadowstep_distance * sinf(ang));
-        float new_z = pTarget->GetCHeightForPosition(true);
+        float new_z = pTarget->GetMapHeight(new_x, new_y, pTarget->GetPositionZ());
         // Send a movement packet to "charge" at this target. Similar to warrior charge.
         castPtr<Player>(m_caster)->z_axisposition = 0.0f;
         castPtr<Player>(m_caster)->SafeTeleport(m_caster->GetMapId(), m_caster->GetInstanceID(), LocationVector(new_x, new_y, new_z, pTarget->GetOrientation()));
@@ -1021,11 +1021,11 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
         float ori = m_caster->GetOrientation();
         float posX = m_caster->GetPositionX()+(radius*(cosf(ori)));
         float posY = m_caster->GetPositionY()+(radius*(sinf(ori)));
-        float posZ;
+        float posZ = m_caster->GetPositionZ();
 
         if( sVMapInterface.GetFirstPoint(p_caster->GetMapId(), p_caster->GetInstanceID(), p_caster->GetPhaseMask(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ() + p_caster->m_noseLevel, posX, posY, p_caster->GetPositionZ(), posX, posY, posZ, -1.5f) )
         {
-            posZ = p_caster->GetCHeightForPosition(true, posX, posY, posZ);
+            posZ = p_caster->GetMapHeight(posX, posY, posZ);
             float diff = fabs(fabs(posZ) - fabs(m_caster->GetPositionZ()));
             if( diff <= 10.0f)
             {
@@ -1037,7 +1037,7 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
         else
         {
             // either no objects in the way, or no wmo height
-            posZ = p_caster->GetCHeightForPosition(true, posX, posY);
+            posZ = p_caster->GetMapHeight(posX, posY, posZ);
             float diff = fabs(fabs(posZ) - fabs(m_caster->GetPositionZ()));
             if( diff <= 10.0f)
             {

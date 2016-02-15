@@ -49,6 +49,7 @@ namespace VMAP
 
     bool TileAssembler::convertWorld2()
     {
+        printf("\n");
         bool success = readMapSpawns();
         if (!success)
             return false;
@@ -59,7 +60,7 @@ namespace VMAP
             // build global map tree
             std::vector<ModelSpawn*> mapSpawns;
             UniqueEntryMap::iterator entry;
-            OUT_DETAIL("Calculating model bounds for map %u...", map_iter->first);
+            printf("Calculating model bounds for map %03u...                   \r", map_iter->first);
             for (entry = map_iter->second->UniqueEntries.begin(); entry != map_iter->second->UniqueEntries.end(); ++entry)
             {
                 // M2 models don't have a bound set in WDT/ADT placement data, i still think they're not used for LoS at all on retail
@@ -78,7 +79,7 @@ namespace VMAP
                 spawnedModelFiles.insert(entry->second.name);
             }
 
-            OUT_DETAIL("Creating map tree for map %u...", map_iter->first);
+            printf("Creating map tree for map %03u...                   \r", map_iter->first);
             BIH pTree;
             pTree.build(mapSpawns, BoundsTrait<ModelSpawn*>::getBounds);
 
@@ -93,7 +94,7 @@ namespace VMAP
             if (mapfile == NULL)
             {
                 success = false;
-                OUT_DETAIL("Cannot open %s", output_filename);
+                printf("Cannot open %s\n", output_filename);
                 break;
             }
 
@@ -159,15 +160,17 @@ namespace VMAP
             fclose(mapfile);
             //break; //test, extract only first map; TODO: remvoe this line
         }
+        printf("Map tree generation finished\r\n");
 
         // add an object models, listed in temp_gameobject_models file
         exportGameobjectModels();
 
         // export objects
         printf("\nConverting Model Files \n");
+        uint32 index = 0;
         for (std::set<std::string>::iterator mfile = spawnedModelFiles.begin(); mfile != spawnedModelFiles.end(); ++mfile)
         {
-            printf("Converting % 50s\r", (*mfile).c_str());
+            printf("Converting model %05u of %05u\r", index++, spawnedModelFiles.size());
             if (!convertRawFile(*mfile))
             {
                 OUT_ERROR("error converting %s", (*mfile).c_str());
@@ -175,12 +178,11 @@ namespace VMAP
                 continue;
             }
         }
+        printf("Finished converting model files\r\n");
 
         //cleanup:
         for (MapData::iterator map_iter = mapData.begin(); map_iter != mapData.end(); ++map_iter)
-        {
             delete map_iter->second;
-        }
         return success;
     }
 

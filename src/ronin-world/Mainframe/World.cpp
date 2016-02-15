@@ -1215,7 +1215,6 @@ void World::Rehash(bool load)
     // Performance configs
     Collision = mainIni->ReadBoolean("PerformanceSettings", "Collision", false);
     PathFinding = mainIni->ReadBoolean("PerformanceSettings", "Pathfinding", false);
-    CalculatedHeightChecks = mainIni->ReadBoolean("PerformanceSettings", "CHeightChecks", false);
     AreaUpdateDistance = mainIni->ReadFloat("PerformanceSettings", "AreaUpdateDistance", false);
 
     // Server Configs

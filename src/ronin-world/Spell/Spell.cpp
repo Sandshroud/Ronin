@@ -550,7 +550,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 float ang = RandomFloat(M_PI * 2);
                 t->m_dest.x = m_caster->GetPositionX() + (cosf(ang) * r);
                 t->m_dest.y = m_caster->GetPositionY() + (sinf(ang) * r);
-                t->m_dest.z = m_caster->GetCHeightForPosition(true, t->m_dest.x, t->m_dest.y, m_caster->GetPositionZ() + 2.0f);
+                t->m_dest.z = m_caster->GetMapHeight(t->m_dest.x, t->m_dest.y, m_caster->GetPositionZ() + 2.0f);
                 t->m_targetMask = TARGET_FLAG_DEST_LOCATION;
             }
             while(sWorld.Collision && !sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), t->m_dest.x, t->m_dest.y, t->m_dest.z));

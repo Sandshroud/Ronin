@@ -2245,14 +2245,8 @@ bool ChatHandler::HandleCollisionGetHeight(const char * args, WorldSession * m_s
     if(plr == NULL)
         return true;
 
-    if(sWorld.CalculatedHeightChecks)
-    {
-        SystemMessage(m_session, "CHeightChecks: CHeight: %f; Water: %f; Navmesh: %f;", plr->GetCHeightForPosition(), plr->GetCHeightForPosition(true),
-            sNavMeshInterface.GetWalkingHeight(plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetPositionZ()-10.0f));
-    }
-    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetMapInstance()->GetLandHeight(plr->GetPositionX(), plr->GetPositionY()),
-        plr->GetMapInstance()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
-    SystemMessage(m_session, "CResults: Curr pos: %f; Water: %f; Collide: %f", plr->GetCHeightForPosition(true), plr->GetCHeightForPosition(false),
+    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetMapInstance()->GetLandHeight(plr->GetPositionX(), plr->GetPositionY()), plr->GetMapInstance()->GetBaseMap()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY()));
+    SystemMessage(m_session, "CResults: Curr pos: %f; Water: %f; Collide: %f", plr->GetMapHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()), plr->GetMapInstance()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()),
         sVMapInterface.GetHeight(plr->GetMapId(), plr->GetInstanceID(), plr->GetPhaseMask(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
     return true;
 }

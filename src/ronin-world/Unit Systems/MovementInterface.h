@@ -240,7 +240,6 @@ enum UnderwaterStates : uint8
     UNDERWATERSTATE_TIMERS_PRESENT  = 0x20
 };
 
-class CreaturePath;
 class MovementInterface;
 struct PacketHandler { void (MovementInterface::*function)(bool read, ByteBuffer &buffer); };
 
@@ -254,7 +253,7 @@ public:
     static uint16 GetInternalMovementCode(uint16 opcode);
     static uint16 GetSpeedTypeForMoveCode(uint16 moveCode);
 
-    void Update(uint32 diff);
+    void Update(uint32 msTime, uint32 diff);
     void UpdatePreWrite(uint16 opcode, uint16 moveCode);
     bool UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffer *source);
 
@@ -264,6 +263,9 @@ public:
 
     void TeleportToPosition(LocationVector destination);
     void TeleportToPosition(uint32 mapId, uint32 instanceId, LocationVector destination);
+
+    void SetFacing(float orientation);
+    void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
 
     void OnDeath();
     void OnRepop();
@@ -613,8 +615,15 @@ protected: // Speed and Status information
 
 private:
     Unit *m_Unit;
-    // Creature movement path
-    CreaturePath *m_creaturePath;
 
     uint32 m_updateTimer;
+
+    void _ResumeOrStopMoving();
+    void _UpdateTargetLocation();
+    bool _CheckMovePriority(float x, float y, float z);
+
+    // Target destination
+    WoWGuid m_unitMoveTarget;
+
+    UnitPathSystem m_path;
 };

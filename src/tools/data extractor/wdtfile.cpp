@@ -31,7 +31,7 @@ char * wdtGetPlainName(char * FileName)
     return FileName;
 }
 
-WDTFile::WDTFile(HANDLE mpqarchive, char* file_name, char* file_name1) : WDT(mpqarchive, file_name)
+WDTFile::WDTFile(HANDLE mpqarchive, char* file_name, char* file_name1) : WDT(mpqarchive, file_name, false)
 {
     filename.append(file_name1,strlen(file_name1));
 }

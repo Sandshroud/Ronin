@@ -20,7 +20,8 @@ void AIInterface::CheckNextTargetFlyingStatus()
     bool LeaveCombat = false;
     if(!IS_INSTANCE(m_Unit->GetMapId()) && !m_Unit->canFly())
     {
-        float target_land_z = m_nextTarget->GetCHeightForPosition();
+        LocationVector loc = m_nextTarget->GetPosition();
+        float target_land_z = m_nextTarget->GetMapHeight(loc.x, loc.y, loc.z);
         if(target_land_z+_CalcCombatRange(m_nextTarget, m_canRangedAttack) < m_nextTarget->GetPositionZ())
             HandleEvent( EVENT_LEAVECOMBAT, m_Unit, 0);
     }

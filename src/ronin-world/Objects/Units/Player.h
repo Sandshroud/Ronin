@@ -670,7 +670,7 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    void Update( uint32 time );
+    void Update( uint32 msTime, uint32 diff );
 
     void ProcessPendingItemUpdates();
     std::set<Item*> m_pendingUpdates;

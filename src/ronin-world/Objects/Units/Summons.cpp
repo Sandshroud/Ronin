@@ -378,12 +378,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
 
     v.x += xSubtractX ? -1.5f : 1.5f;
     v.y += xSubtractY ? -1.5f : 1.5f;
-
-    float landh = u_caster->GetCHeightForPosition(false, v.x, v.y, v.z + 2);
-    float landdiff = landh - v.z;
-
-    if(fabs(landdiff) <= 15)
-        v.z = landh;
+    v.z = u_caster->GetMapHeight(v.x, v.y, v.z + 2);
 
     Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)

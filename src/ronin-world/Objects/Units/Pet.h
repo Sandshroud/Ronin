@@ -134,7 +134,7 @@ public:
     void LoadFromDB(Player* owner, PlayerPet * pi);
     void CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationVector* Position, SpellEntry *created_by_spell, uint32 type, uint32 expiretime);
 
-    virtual void Update(uint32 time);
+    virtual void Update(uint32 msTime, uint32 uiDiff);
 
     RONIN_INLINE uint32 GetXP(void) { return m_PetXP; }
 

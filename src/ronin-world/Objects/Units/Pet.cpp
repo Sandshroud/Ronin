@@ -228,13 +228,12 @@ void Pet::CreateAsSummon(Creature* created_from_creature, Unit* owner, LocationV
     InitializeMe();
 }
 
-void Pet::Update(uint32 time)
+void Pet::Update(uint32 msTime, uint32 uiDiff)
 {
     if(m_Owner == NULL)
         return;
 
-    Creature::Update(time); // passthrough
-
+    Creature::Update(msTime, uiDiff); // passthrough
     if(!bExpires)
     {
         //Happiness
@@ -253,10 +252,9 @@ void Pet::Update(uint32 time)
         }
         else
         {
-            if( time > m_HappinessTimer )
+            if( uiDiff > m_HappinessTimer )
                 m_HappinessTimer = 0;
-            else
-                m_HappinessTimer -= time;
+            else m_HappinessTimer -= uiDiff;
         }
     }
 
@@ -267,13 +265,12 @@ void Pet::Update(uint32 time)
             // remove
             Dismiss(false);
             return;
-        } else {
-            if(time > m_ExpireTime)
-            {
+        }
+        else
+        {
+            if(uiDiff > m_ExpireTime)
                 m_ExpireTime = 0;
-            } else {
-                m_ExpireTime -= time;
-            }
+            else m_ExpireTime -= uiDiff;
         }
     }
 }

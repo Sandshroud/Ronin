@@ -1143,7 +1143,7 @@ void MapInstance::_ProcessInputQueue()
     m_objectinsertlock.Release();
 }
 
-void MapInstance::_PerformPlayerUpdates(uint32 diff)
+void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 {
     ++mLoopCounter; // Inc loop counter
     Player* ptr; // Update players.
@@ -1151,7 +1151,7 @@ void MapInstance::_PerformPlayerUpdates(uint32 diff)
     {
         ptr = __player_iterator->second;
         ++__player_iterator;
-        ptr->Update( diff );
+        ptr->Update( msTime, uiDiff );
     }
 }
 
@@ -1171,7 +1171,7 @@ void MapInstance::_PerformCreatureUpdates(uint32 msTime)
             ptr = *__creature_iterator;
             ++__creature_iterator;
 
-            ptr->Update(diff);
+            ptr->Update(msTime, diff);
         }
     }
     m_activeLock.Release();

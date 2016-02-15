@@ -705,7 +705,7 @@ void Aura::EventRelocateRandomTarget()
     const static float killingspree_distance = 1.6f * GetDBCScale( dbcCreatureDisplayInfo.LookupEntry( pTarget->GetUInt32Value(UNIT_FIELD_DISPLAYID)));
     float new_x = pTarget->GetPositionX() - (killingspree_distance * cosf(ang));
     float new_y = pTarget->GetPositionY() - (killingspree_distance * sinf(ang));
-    float new_z = pTarget->GetCHeightForPosition(true, new_x, new_y);
+    float new_z = pTarget->GetMapHeight(new_x, new_y, pTarget->GetPositionZ());
     castPtr<Player>(m_caster)->SafeTeleport( pTarget->GetMapId(), pTarget->GetInstanceID(), new_x, new_y, new_z, pTarget->GetOrientation() );
     // void Unit::Strike( Unit pVictim, uint32 weapon_damage_type, SpellEntry* ability, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check )
     castPtr<Player>(m_caster)->Strike( pTarget, MELEE, NULL, 0, 0, 0, false, false, true );

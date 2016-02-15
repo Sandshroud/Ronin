@@ -262,7 +262,7 @@ public:
 
     virtual const char* GetName() = 0;
 
-    virtual void Update( uint32 time );
+    virtual void Update(uint32 msTime, uint32 uiDiff);
     virtual void UpdateFieldValues();
 
     void UpdateStatValues();
@@ -295,7 +295,9 @@ public:
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
 
+    WeaponDamageType GetPreferredAttackType(SpellEntry **sp = NULL);
     bool __fastcall validateAttackTarget(WorldObject *target);
+    bool __fastcall calculateAttackRange(WeaponDamageType type, float &minRange, float &maxRange, SpellEntry *sp = NULL);
     bool __fastcall canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId = 0);
     void resetAttackTimer(uint8 typeMask);
     void resetAttackDelay(uint8 typeMask);
@@ -312,10 +314,7 @@ public:
         else m_attackInterrupt = 0x7FFF;
     }
 
-    RONIN_INLINE void SetDualWield(bool enabled)
-    {
-        m_dualWield = enabled;
-    }
+    RONIN_INLINE void SetDualWield(bool enabled) { m_dualWield = enabled; }
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
     RONIN_INLINE void addStateFlag(uint32 f) { m_state |= f; };
@@ -323,11 +322,11 @@ public:
     RONIN_INLINE void clearStateFlag(uint32 f) { m_state &= ~f; };
 
     /// Stats
-    uint32 GetStrength() { return GetUInt32Value(UNIT_FIELD_STRENGTH); }
-    uint32 GetAgility() { return GetUInt32Value(UNIT_FIELD_AGILITY); }
-    uint32 GetStamina() { return GetUInt32Value(UNIT_FIELD_STAMINA); }
-    uint32 GetIntellect() { return GetUInt32Value(UNIT_FIELD_INTELLECT); }
-    uint32 GetSpirit() { return GetUInt32Value(UNIT_FIELD_SPIRIT); }
+    RONIN_INLINE uint32 GetStrength() { return GetUInt32Value(UNIT_FIELD_STRENGTH); }
+    RONIN_INLINE uint32 GetAgility() { return GetUInt32Value(UNIT_FIELD_AGILITY); }
+    RONIN_INLINE uint32 GetStamina() { return GetUInt32Value(UNIT_FIELD_STAMINA); }
+    RONIN_INLINE uint32 GetIntellect() { return GetUInt32Value(UNIT_FIELD_INTELLECT); }
+    RONIN_INLINE uint32 GetSpirit() { return GetUInt32Value(UNIT_FIELD_SPIRIT); }
 
     virtual void setLevel(uint32 level);
     RONIN_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
@@ -641,8 +640,6 @@ public:
         return cl1 && cl2 && cl3;
     }
 
-    void SetFacing(float newo);//only working if creature is idle
-
     bool IsPoisoned();
 
     void SetDiminishTimer(uint32 index);
@@ -755,11 +752,13 @@ public:
     void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
     uint32 GetCreatureType();
-    bool IsSitting();
 
 public:
     MovementInterface *GetMovementInterface() { return &m_movementInterface; }
 
+    bool IsSitting();
+    void SetFacing(float o) { m_movementInterface.SetFacing(o); }
+    void MoveTo(float x, float y, float z, float o) { m_movementInterface.MoveTo(x, y, z, o); }
     float GetMoveSpeed(MovementSpeedTypes type) { return m_movementInterface.GetMoveSpeed(type); }
 
     WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }

@@ -190,7 +190,7 @@ public:
     }
 
     /// Updates
-    virtual void Update( uint32 time );
+    virtual void Update(uint32 msTime, uint32 uiDiff);
 
     float GetPowerMod() { return _creatureData->powerMod; }
     float GetHealthMod() { return _creatureData->healthMod; }

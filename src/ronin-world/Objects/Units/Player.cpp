@@ -358,16 +358,16 @@ void Player::Destruct()
     Unit::Destruct();
 }
 
-void Player::Update( uint32 p_time )
+void Player::Update(uint32 msTime, uint32 diff)
 {
     if(!IsInWorld())
         return;
 
-    Unit::Update( p_time );
+    Unit::Update( msTime, diff );
 
     // Autosave
-    if(m_nextSave > p_time)
-        m_nextSave -= p_time;
+    if(m_nextSave > diff)
+        m_nextSave -= diff;
     else SaveToDB(false);
 
     if(!IsInWorld())
@@ -375,9 +375,10 @@ void Player::Update( uint32 p_time )
 
     if(m_pvpTimer)
     {
-        if(p_time >= m_pvpTimer)
-            m_pvpTimer -= p_time;
+        if(diff >= m_pvpTimer)
+            m_pvpTimer -= diff;
         else m_pvpTimer = 0;
+
         if(m_pvpTimer == 0 || !IsPvPFlagged())
         {
             StopPvPTimer();
@@ -386,7 +387,7 @@ void Player::Update( uint32 p_time )
     }
 
     // Exploration
-    m_explorationTimer += p_time;
+    m_explorationTimer += diff;
     if(m_explorationTimer >= 1500)
     {
         _EventExploration();
@@ -395,7 +396,7 @@ void Player::Update( uint32 p_time )
 
     if (m_drunk)
     {
-        m_drunkTimer += p_time;
+        m_drunkTimer += diff;
         if (m_drunkTimer > 10*1000)
             EventHandleSobering();
     }

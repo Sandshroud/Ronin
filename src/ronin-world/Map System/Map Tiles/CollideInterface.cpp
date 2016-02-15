@@ -12,7 +12,7 @@ void VMapInterface::Init()
     if(sWorld.Collision == false)
         return;
 
-    if( hModule = LoadLibrary("Collision.dll") )
+    if( hModule = LoadLibrary("./Modules/Collision.dll") )
     {
         // find version import
         if(vmap_manager_construction rcall = (vmap_manager_construction)GetProcAddress(hModule, "vmap_manager_construction"))

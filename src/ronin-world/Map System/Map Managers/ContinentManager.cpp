@@ -53,15 +53,12 @@ bool ContinentManager::run()
         // Update any events.
         eventHolder.Update(diff);
 
-        // Update our path management map
-        sPathMgr.Update(m_mapId, diff);
-
         // Process all pending inputs in sequence
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all player updates in sequence
-        m_continent->_PerformPlayerUpdates(diff);
+        m_continent->_PerformPlayerUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all creature updates in sequence

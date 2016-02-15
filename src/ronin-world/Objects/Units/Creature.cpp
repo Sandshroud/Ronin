@@ -69,9 +69,9 @@ void Creature::Destruct()
     Unit::Destruct();
 }
 
-void Creature::Update( uint32 p_time )
+void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
-    Unit::Update( p_time );
+    Unit::Update(msTime, uiDiff);
 
     if(isDead())
     {
@@ -92,7 +92,7 @@ void Creature::Update( uint32 p_time )
         return;
     }
 
-    m_aiInterface.Update(p_time);
+    m_aiInterface.Update(uiDiff);
 }
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)

@@ -93,6 +93,7 @@ const char* szWorkDirDbc = "./DBC";
 const char* szWorkDirTiles = "./Tiles";
 const char* szWorkDirObject = "./Tiles/obj";
 const char* szRawVMAPMagic = "VMAP050";
+const char* szWorkDirFailed = "./Failed";
 
 bool LoadLocaleMPQFile(int locale)
 {
@@ -286,7 +287,7 @@ bool ExtractDBCFiles()
 }
 
 // copied from contrib/extractor/System.cpp
-void ReadLiquidTypeTableDBC()
+bool ReadLiquidTypeTableDBC()
 {
     printf("Read LiquidType.dbc file...");
 
@@ -294,7 +295,7 @@ void ReadLiquidTypeTableDBC()
     if(!dbc.open())
     {
         printf("Fatal error: Invalid LiquidType.dbc file format!\n");
-        exit(1);
+        return false;
     }
 
     size_t LiqType_count = dbc.getRecordCount();
@@ -306,6 +307,7 @@ void ReadLiquidTypeTableDBC()
         LiqType[dbc.getRecord(x).getUInt(0)] = dbc.getRecord(x).getUInt(3);
 
     printf("Done! (%u LiqTypes loaded)\n\n", (unsigned int)LiqType_count);
+    return true;
 }
 
 bool ExtractWmo()
@@ -323,7 +325,7 @@ bool ExtractWmo()
         SFileFindClose(find);
         if(success)
         {
-            printf("Extract wmo complete (No (fatal) errors)\n\n");
+            printf("\nExtract wmo complete (No (fatal) errors)\n\n");
             return true;
         }
     }
@@ -430,16 +432,17 @@ void ParsMapFiles()
             memset(offsets, 0, sizeof(uint32)*64*64);
             fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
 
-            printf("Processing Map %u\n[", map_ids[i].id);
-            for (uint8 x = 0; x < 64; ++x)
+            std::string dots = "........";
+            for (uint8 x = 0, index = 0; x < 64; ++x)
             {
                 for (uint8 y = 0; y < 64; ++y)
                 {
                     if(ADTFile *ADT = WDT.GetADTMap(WorldMpq, x, y))
                     {
                         // Parse our ADT file for chunk data
+                        size_t position = ftell(mapFile);
                         if(ADT->parseCHNK(map_ids[i].id, x, y, mapFile))
-                            offsets[x][y] = ftell(mapFile);
+                            offsets[x][y] = position;
                         delete ADT;
                     }
 
@@ -449,13 +452,16 @@ void ParsMapFiles()
                         ADT->parseWMO(map_ids[i].id, x, y);
                         delete ADT;
                     }
+
+                    dots[index++] = '.';
+                    if(index == dots.length())
+                        index = 0;
+                    dots[index] = ' ';
+                    printf("Processing Map %03u/%03u - %s%s\r", i, map_count, map_ids[i].name, dots.c_str());
                 }
-
-                if(x%4 == 0)
-                    printf("#");
             }
-            printf("]\n");
 
+            printf("Map %03u/%03u - %s finished processing\n", i, map_count, map_ids[i].name);
             fseek(mapFile, 0, SEEK_SET);
             fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
             fclose(mapFile);
@@ -521,40 +527,38 @@ int main(int argc, char ** argv)
     }
 
     if(success && !hasDBCs)
-        success = ExtractDBCFiles();
-
-    if(success)
-        ReadLiquidTypeTableDBC();
+        if(!(success = ExtractDBCFiles()))
+            rename(szWorkDirDbc, szWorkDirFailed);
 
     // extract data
     if (success && !hasBuildings)
-        success = ExtractWmo();
+        if(!(success = ExtractWmo()))
+            rename(szWorkDirWmo, szWorkDirFailed);
 
-    //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    //map.dbc
-    if (success)
+    if(success)
     {
-        DBCFile * dbc = new DBCFile(LocaleMpq, "DBFilesClient\\Map.dbc");
-        if (!dbc->open())
+        if(success = ReadLiquidTypeTableDBC())
         {
-            delete dbc;
-            printf("FATAL ERROR: Map.dbc not found in data file.\n");
-            return 1;
-        }
-        map_count = dbc->getRecordCount();
-        map_ids = new map_id[map_count];
-        for (unsigned int x = 0; x < map_count; ++x)
-        {
-            map_ids[x].id = dbc->getRecord(x).getUInt(0);
-            strcpy(map_ids[x].name, dbc->getRecord(x).getString(1));
-            printf("Map - %s\n", map_ids[x].name);
-        }
+            //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            //map.dbc
+            DBCFile dbc(LocaleMpq, "DBFilesClient\\Map.dbc");
+            if (success = dbc.open())
+            {
+                map_count = dbc.getRecordCount();
+                map_ids = new map_id[map_count];
+                for (unsigned int x = 0; x < map_count; ++x)
+                {
+                    map_ids[x].id = dbc.getRecord(x).getUInt(0);
+                    strcpy(map_ids[x].name, dbc.getRecord(x).getString(1));
+                }
 
-        delete dbc;
-        ParsMapFiles();
-        delete [] map_ids;
-        // Extract models, listed in GameObjectDisplayInfo.dbc
-        ExtractGameobjectModels();
+                ParsMapFiles();
+                delete [] map_ids;
+                delete [] LiqType;
+                // Extract models, listed in GameObjectDisplayInfo.dbc
+                ExtractGameobjectModels();
+            } else printf("FAILED TO OPEN MAP DBC");
+        } else printf("FAILED TO PARSE LIQUID DBC");
     }
 
     SFileCloseArchive(WorldMpq);
@@ -567,7 +571,9 @@ int main(int argc, char ** argv)
         getchar();
         return 0;
     }
-    delete [] LiqType;
+
+    printf("Processing vmap tile generation\n");
+    BuildTiles();
 
     printf("Work complete. No errors.\n");
     getchar();
@@ -736,7 +742,7 @@ bool CreateCustomDBCFiles()
         newDBC = NULL;
     }
 
-    printf("Cleaning up bound data...\n");
+    printf("Cleaning up bound data...\r");
     DisplayBounding* buff = NULL;
     for(std::map<uint32, DisplayBounding*>::iterator itr = m_DisplayMap.begin(), itr2; itr != m_DisplayMap.end();)
     {
@@ -746,6 +752,6 @@ bool CreateCustomDBCFiles()
         delete buff;
         buff = NULL;
     }
-    printf("Done!\n\n");
+    printf("Bound data cleaned.             \n\n");
     return true;
 }

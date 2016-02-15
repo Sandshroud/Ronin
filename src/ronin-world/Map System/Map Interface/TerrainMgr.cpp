@@ -267,45 +267,50 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                     }
                 } else fread(&tile->areaInfo, sizeof(uint16), 1, input);
 
-                fread(&tile->mapHeight, sizeof(float), 2, input);
+                fread(&tile->mapHeight[0], sizeof(float), 1, input);
                 if((flags[1] & 0x01) == 0)
                 {
+                    fread(&tile->mapHeight[1], sizeof(float), 1, input);
                     if(flags[1] & 0x04)
                     {
                         tile->byte_V8 = new TileTerrainInformation::bV8;
                         tile->byte_V9 = new TileTerrainInformation::bV9;
-                        fread(&tile->byte_V8->V8, sizeof(uint8), 128*128, input);
-                        fread(&tile->byte_V9->V9, sizeof(uint8), 129*129, input);
+                        fread(&tile->byte_V8->V8, sizeof(uint8)*128*128, 1, input);
+                        fread(&tile->byte_V9->V9, sizeof(uint8)*129*129, 1, input);
+                        tile->heightMultipier = (tile->mapHeight[1] - tile->mapHeight[0]) / 255;
                     }
                     else if(flags[1] & 0x02)
                     {
                         tile->short_V8 = new TileTerrainInformation::sV8;
                         tile->short_V9 = new TileTerrainInformation::sV9;
-                        fread(&tile->short_V8->V8, sizeof(uint16), 128*128, input);
-                        fread(&tile->short_V9->V9, sizeof(uint16), 129*129, input);
+                        fread(&tile->short_V8->V8, sizeof(uint16)*128*128, 1, input);
+                        fread(&tile->short_V9->V9, sizeof(uint16)*129*129, 1, input);
+                        tile->heightMultipier = (tile->mapHeight[1] - tile->mapHeight[0]) / 65535;
                     }
                     else
                     {
                         tile->float_V8 = new TileTerrainInformation::fV8;
                         tile->float_V9 = new TileTerrainInformation::fV9;
-                        fread(&tile->float_V8->V8, sizeof(float), 128*128, input);
-                        fread(&tile->float_V9->V9, sizeof(float), 129*129, input);
+                        fread(&tile->float_V8->V8, sizeof(float)*128*128, 1, input);
+                        fread(&tile->float_V9->V9, sizeof(float)*129*129, 1, input);
                     }
-                }
+                } else tile->mapHeight[1] = tile->mapHeight[0];
 
+                tile->liquidData[4] = 0;
                 if((flags[2] & 0x01) == 0)
                 {
                     tile->short_LE = new TileTerrainInformation::sLE;
                     tile->byte_LI = new TileTerrainInformation::bLI;
-                    fread(&tile->short_LE->LE, sizeof(uint16), 16*16, input);
-                    fread(&tile->byte_LI->LI, sizeof(uint8), 16*16, input);
+                    fread(&tile->short_LE->LE, sizeof(uint16)*16*16, 1, input);
+                    fread(&tile->byte_LI->LI, sizeof(uint8)*16*16, 1, input);
                 } else fread(&tile->liquidData[4], sizeof(uint8), 1, input);
 
+                tile->mapHeight[2] = 0.f;
                 if((flags[2] & 0x02) == 0)
                 {
                     fread(&tile->liquidData, sizeof(uint8), 4, input);
                     tile->m_liquidHeight = new float [tile->liquidData[2] * tile->liquidData[3]];
-                    fread(tile->m_liquidHeight, sizeof(float), tile->liquidData[2] * tile->liquidData[3], input);
+                    fread(tile->m_liquidHeight, sizeof(float)*tile->liquidData[2] * tile->liquidData[3], 1, input);
                 } else fread(&tile->mapHeight[2], sizeof(float), 1, input);
 
                 if(flags[0] & 0x02)

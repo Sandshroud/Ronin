@@ -216,7 +216,7 @@ public:
     RONIN_INLINE size_t GetPlayerCount() { return m_PlayerStorage.size(); }
 
     void _ProcessInputQueue();
-    void _PerformPlayerUpdates(uint32 diff);
+    void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCreatureUpdates(uint32 msTime);
     void _PerformObjectUpdates(uint32 msTime);
     void _PerformSessionUpdates();

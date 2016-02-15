@@ -21,7 +21,13 @@ add_definitions(-DSCRIPTLIB)
 add_library( ${PROJECT_NAME} SHARED ${SRCS} )
 
 #Set the solution folder to modules
-SET_PROPERTY(TARGET Pathfinding PROPERTY FOLDER "Modules")
+SET_PROPERTY(TARGET ${PROJECT_NAME} PROPERTY FOLDER "Modules")
+#Set the output folder to modules subdirectory
+set_target_properties( ${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIRECTORY}/Modules")
+foreach(buildtype IN ITEMS ${CMAKE_CONFIGURATION_TYPES} )
+  string(TOUPPER "${buildtype}" BUILD_DATA)
+  set_target_properties( ${PROJECT_NAME} PROPERTIES "RUNTIME_OUTPUT_DIRECTORY_${BUILD_DATA}" "${OUTPUT_DIRECTORY}/Modules")
+endforeach()
 
 #Link our libraries.
 add_dependencies( ${PROJECT_NAME} g3dlite recast detour mmaplib )
