@@ -17,6 +17,8 @@ namespace VMAP
             OUT_DETAIL("Error reading ModelSpawn flags!");
             return false;
         }
+        check += fread(&spawn.mapId, sizeof(G3D::uint32), 1, rf);
+        check += fread(&spawn.packedTile, sizeof(G3D::uint32), 1, rf);
         check += fread(&spawn.adtId, sizeof(G3D::uint16), 1, rf);
         check += fread(&spawn.ID, sizeof(G3D::uint32), 1, rf);
         check += fread(&spawn.iPos, sizeof(float), 3, rf);
@@ -33,7 +35,7 @@ namespace VMAP
 
         G3D::uint32 nameLen;
         check += fread(&nameLen, sizeof(G3D::uint32), 1, rf);
-        if (check != G3D::uint32(has_bound ? 17 : 11))
+        if (check != G3D::uint32(has_bound ? 19 : 13))
         {
             OUT_DETAIL("Error reading ModelSpawn data!");
             return false;
@@ -73,7 +75,7 @@ namespace VMAP
         }
         G3D::uint32 nameLen = spawn.name.length();
         check += fwrite(&nameLen, sizeof(G3D::uint32), 1, wf);
-        if (check != G3D::uint32(has_bound ? 17 : 11)) return false;
+        if (check != G3D::uint32(has_bound ? 19 : 13)) return false;
         check = fwrite(spawn.name.c_str(), sizeof(char), nameLen, wf);
         if (check != nameLen) return false;
         return true;

@@ -49,9 +49,6 @@ namespace VMAP
 
     bool TileAssembler::convertWorld3(FILE *mapfile, uint32 mapId, ModelSpawnMap* spawnMap, TiledModelSpawnMap* tileSpawnMap)
     {
-        if(fseek(mapfile, 0, SEEK_END))
-            return false;
-
         // build global map tree
         std::vector<ModelSpawn*> mapSpawns;
         ModelSpawnMap::iterator entry;
@@ -83,85 +80,98 @@ namespace VMAP
         for (G3D::uint32 i=0; i<mapSpawns.size(); ++i)
             modelNodeIdx.insert(pair<G3D::uint32, G3D::uint32>(mapSpawns[i]->ID, i));
 
-        bool hasTileInfo = false; // Parse the spawn tile map
+        printf("Writing tile data for map %03u...                   \r", mapId);
+        std::vector<uint32> tileDataSet; // Parse the spawn tile map
         std::vector<const ModelSpawn*> correctSpawns[64][64];
         for(uint8 x = 0; x < 64; x++)
         {
             for(uint8 y = 0; y < 64; y++)
             {
-                G3D::uint32 globalTileID = packTileID(x, y);
-                if(tileSpawnMap->find(globalTileID) == tileSpawnMap->end())
+                G3D::uint32 packedTile = packTileID(x, y);
+                if(tileSpawnMap->find(packedTile) == tileSpawnMap->end())
                     continue;
 
-                std::set<uint32> &spawns = (*tileSpawnMap)[globalTileID];
-                for(std::set<uint32>::iterator itr = spawns.begin(); itr != spawns.end(); itr++)
+                std::set<uint32> &spawns = (*tileSpawnMap)[packedTile];
+                if(spawns.size())
                 {
-                    const ModelSpawn &spawn = (*spawnMap)[*itr];
-                    if (spawn.flags & MOD_WORLDSPAWN) // WDT spawn, saved as tile 65/65 currently...
-                        continue;
-                    correctSpawns[x][y].push_back(&spawn);
-                    hasTileInfo = true;
+                    tileDataSet.push_back(packedTile);
+                    for(std::set<uint32>::iterator itr = spawns.begin(); itr != spawns.end(); itr++)
+                    {
+                        const ModelSpawn &spawn = (*spawnMap)[*itr];
+                        if (spawn.flags & MOD_WORLDSPAWN) // WDT spawn, saved as tile 65/65 currently...
+                            continue;
+                        correctSpawns[x][y].push_back(&spawn);
+                    }
                 }
             }
         }
 
         bool success = true; //general info
+        uint32 tileSize = tileDataSet.size()*sizeof(uint32), tileOffset = 0;
         if (fwrite(VMAP_MAGIC, 10, 1, mapfile) != 1) success = false;
-        G3D::uint32 globalTileID = packTileID(65, 65);
-        G3D::uint32 spawnSize = (*tileSpawnMap)[globalTileID].size(); // only maps without terrain (tiles) have global WMO
-        if (success && fwrite(&spawnSize, sizeof(uint32), 1, mapfile) != 1) success = false;
-        // Nodes
-        if (success && fwrite("NODE", 4, 1, mapfile) != 1) success = false;
-        if (success) success = pTree.writeToFile(mapfile);
-        // global map spawns (WDT), if any (most instances)
-        if (success && fwrite("GOBJ", 4, 1, mapfile) != 1) success = false;
-        for (std::set<G3D::uint32>::iterator glob = (*tileSpawnMap)[globalTileID].begin(); glob != (*tileSpawnMap)[globalTileID].end() && success; ++glob)
-            success = ModelSpawn::writeToFile(mapfile, (*spawnMap)[*glob]);
         // <====
-        printf("Writing tile data for map %03u...                   \r", mapId);
-        if(success && fwrite(&hasTileInfo, sizeof(bool), 1, mapfile) != 1) success = false;
-        if(success && hasTileInfo)
+        printf("Writing offset data for map %03u...                 \r", mapId);
+        if(success && fwrite(&tileSize, sizeof(uint32), 1, mapfile) != 1)
+            success = false;
+        if(success && tileSize)
         {
-            // Offset pointer data
-            uint32 offsets[64][64];
-            memset(offsets, 0, 64*64*sizeof(uint32));
-            // Get the position for writing offsets
-            size_t offsetPos = ftell(mapfile);
-            if(success && fwrite(offsets, sizeof(uint32)*64*64, 1, mapfile) == 1)
-            {   // write map tile files, similar to ADT files, only with extra BSP tree node info
-                for(uint8 x = 0; x < 64; x++)
-                {
-                    if(success == false)
-                        break;
-                    for(uint8 y = 0; y < 64; y++)
-                    {
-                        if(success == false)
-                            break;
-                        if(uint32 count = correctSpawns[x][y].size())
-                        {
-                            offsets[x][y] = ftell(mapfile);
-                            if (success && fwrite(&count, sizeof(G3D::uint32), 1, mapfile) != 1)
-                                success = false;
-                            for(std::vector<const ModelSpawn*>::iterator itr = correctSpawns[x][y].begin(); itr != correctSpawns[x][y].end() && success; itr++)
-                            {
-                                const ModelSpawn *spawn = *itr;
-                                success = success && ModelSpawn::writeToFile(mapfile, *spawn);
-                                // MapTree nodes to update when loading tile:
-                                std::map<G3D::uint32, G3D::uint32>::iterator nIdx = modelNodeIdx.find(spawn->ID);
-                                if (success && fwrite(&nIdx->second, sizeof(G3D::uint32), 1, mapfile) != 1)
-                                    success = false;
-                            }
-                        }
-                    }
-                }
-            } else success = false;
-            if(fseek(mapfile, offsetPos, SEEK_SET))
+            if(fwrite(&tileDataSet[0], 1, tileSize, mapfile) != tileSize)
                 success = false;
-            if(success && fwrite(offsets, sizeof(uint32)*64*64, 1, mapfile) != 1)
+            tileOffset = ftell(mapfile);
+            if(success && fwrite(&tileDataSet[0], 1, tileSize, mapfile) != tileSize)
                 success = false;
         }
 
-        return true;
+        printf("Writing object data for map %03u...                 \r", mapId);
+        // global map spawns (WDT), if any (most instances)
+        if (success && fwrite("GOBJ", 4, 1, mapfile) != 1) success = false;
+        G3D::uint32 globalTileID = packTileID(65, 65);
+        G3D::uint32 spawnSize = (*tileSpawnMap)[globalTileID].size(); // only maps without terrain (tiles) have global WMO
+        if (success && fwrite(&spawnSize, sizeof(uint32), 1, mapfile) != 1) success = false;
+        for (std::set<G3D::uint32>::iterator glob = (*tileSpawnMap)[globalTileID].begin(); glob != (*tileSpawnMap)[globalTileID].end() && success; ++glob)
+            success = ModelSpawn::writeToFile(mapfile, (*spawnMap)[*glob]);
+        printf("Writing tree data for map %03u...                   \r", mapId);
+        // Nodes
+        if (success && fwrite("NODE", 4, 1, mapfile) != 1) success = false;
+        if (success && !pTree.writeToFile(mapfile)) success = false;
+        if(success && tileSize)
+        {
+            tileDataSet.clear();
+            printf("Writing tile data for map %03u...                   \r", mapId);
+            // write map tile files, similar to ADT files, only with extra BSP tree node info
+            for(uint8 x = 0; x < 64; x++)
+            {
+                if(success == false)
+                    break;
+                for(uint8 y = 0; y < 64; y++)
+                {
+                    if(success == false)
+                        break;
+                    if(uint32 count = correctSpawns[x][y].size())
+                    {
+                        tileDataSet.push_back(ftell(mapfile));
+                        if (success && fwrite(&count, sizeof(G3D::uint32), 1, mapfile) != 1)
+                            success = false;
+                        for(std::vector<const ModelSpawn*>::iterator itr = correctSpawns[x][y].begin(); itr != correctSpawns[x][y].end() && success; itr++)
+                        {
+                            const ModelSpawn *spawn = *itr;
+                            if(success && !ModelSpawn::writeToFile(mapfile, *spawn))
+                                success = false;
+                            // MapTree nodes to update when loading tile:
+                            std::map<G3D::uint32, G3D::uint32>::iterator nIdx = modelNodeIdx.find(spawn->ID);
+                            if (success && fwrite(&nIdx->second, sizeof(G3D::uint32), 1, mapfile) != 1)
+                                success = false;
+                        }
+                    }
+                }
+            }
+
+            if(success && fseek(mapfile, tileOffset, SEEK_SET))
+                success = false;
+            if(success && fwrite(&tileDataSet[0], 1, tileDataSet.size()*4, mapfile) != tileSize)
+                success = false;
+        }
+        return success;
     }
 
     bool TileAssembler::convertWorldObjects()

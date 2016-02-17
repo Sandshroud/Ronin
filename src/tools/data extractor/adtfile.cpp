@@ -713,9 +713,8 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
         }
     }
 
-    if (hasHoles)
-        map.holesSize = sizeof(holes);
-    else map.holesSize = 0;
+    // Set our hole size
+    map.holesSize = hasHoles ? sizeof(holes) : 0;
 
     uint8 cFlag = areaHeader.flags | (hasHoles ? 0x02 : 0x00);
     fwrite(&cFlag, 1, 1, output);

@@ -210,7 +210,6 @@ namespace VMAP
     bool StaticMapTree::InitMap(VMapManager* vm, FILE *rf)
     {
         OUT_DEBUG("StaticMapTree::InitMap() : initializing StaticMapTree '%03u'", iMapID);
-        bool success = true;
         char chunk[10];
         if(!readChunk(rf, chunk, VMAP_MAGIC, 10))
         {
@@ -218,64 +217,78 @@ namespace VMAP
             return false;
         }
 
-        G3D::uint32 spawnSize = 0;
-        if ((success = (fread(&spawnSize, sizeof(uint32), 1, rf) == 1))
-            && (success = readChunk(rf, chunk, "NODE", 4))
-            && (success = iTree.readFromFile(rf)))
+        uint32 tileSize = 0;
+        bool success = true;
+        if(fread(&tileSize, sizeof(uint32), 1, rf) != 1)
+            success = false;
+        if(success && tileSize)
         {
-            iNTreeValues = iTree.primCount();
-            iTreeValues = new ModelInstance[iNTreeValues];
-            success = readChunk(rf, chunk, "GOBJ", 4);
+            std::vector<uint32> availableTiles, tileOffsets;
+            availableTiles.resize(tileSize/4), tileOffsets.resize(availableTiles.size());
+            if(success && (fread(&availableTiles[0], 1, tileSize, rf) != tileSize))
+                success = false;
+            if(success && (fread(&tileOffsets[0], 1, tileSize, rf) != tileSize))
+                success = false;
+            for(uint32 i = 0; i < availableTiles.size(); i++)
+                iFileOffsets.insert(std::make_pair(availableTiles[i], tileOffsets[i]));
         }
 
-        if(!success)
-            OUT_ERROR("StaticMapTree::InitMap() : failed reading data!");
+        G3D::uint32 spawnSize = 0;
+        if(success && !readChunk(rf, chunk, "GOBJ", 4))
+            success = false;
+        if(success && fread(&spawnSize, sizeof(uint32), 1, rf) != 1)
+            success = false;
         else
         {
-            OUT_DEBUG("StaticMapTree::InitMap() : global spawns: %u", spawnSize);
-            // global model spawns
-            // only non-tiled maps have them, and if so exactly one (so far at least...)
-            for(uint32 i = 0; i < spawnSize; i++)
+            std::map<uint32, ModelSpawn> spawnMap;
+            if(success)
             {
-                ModelSpawn spawn;
-                if (success = ModelSpawn::readFromFile(rf, spawn))
+                OUT_DEBUG("StaticMapTree::InitMap() : global spawns: %u", spawnSize);
+                // global model spawns
+                // only non-tiled maps have them, and if so exactly one (so far at least...)
+                for(uint32 i = 0; i < spawnSize; i++)
                 {
-                    WorldModel* model = vm->acquireModelInstance(spawn.name);
-                    OUT_DEBUG("StaticMapTree::InitMap() : loading %s", spawn.name.c_str());
-                    if (model)
+                    ModelSpawn spawn;
+                    if(success && !ModelSpawn::readFromFile(rf, spawn))
+                    {
+                        success = false;
+                        break;
+                    } else spawnMap.insert(std::make_pair(i, spawn));
+                }
+            }
+
+            if(success && !readChunk(rf, chunk, "NODE", 4))
+                success = false;
+            if(success && !iTree.readFromFile(rf))
+                success = false;
+            else
+            {
+                iNTreeValues = iTree.primCount();
+                iTreeValues = new ModelInstance[iNTreeValues];
+                for(auto it = spawnMap.begin(); it != spawnMap.end(); it++)
+                {
+                    OUT_DEBUG("StaticMapTree::InitMap() : loading %s", it->second.name.c_str());
+                    if (WorldModel* model = vm->acquireModelInstance(it->second.name))
                     {
                         // assume that global model always is the first and only tree value (could be improved...)
-                        iTreeValues[i] = ModelInstance(spawn, model);
-                        iLoadedSpawns[i] = 1;
+                        iTreeValues[it->first] = ModelInstance(it->second, model);
+                        iLoadedSpawns[it->first] = 1;
                     }
                     else
                     {
                         success = false;
-                        OUT_ERROR("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", spawn.name.c_str());
+                        OUT_ERROR("StaticMapTree::InitMap() : could not acquire WorldModel pointer for '%s'", it->second.name.c_str());
                     }
                 }
             }
         }
 
-        bool hasTileData = false;
-        if(success && fread(&hasTileData, sizeof(bool), 1, rf) != 1)
-            success = false;
-        if(success && hasTileData)
+        if(success == false)
         {
-            uint32 offsets[64][64];
-            if(fread(&offsets, sizeof(uint32)*64*64, 1, rf) != 1)
-                success = false;
-            for(uint8 x = 0; x < 64; x++)
-            {
-                for(uint8 y = 0; y < 64; y++)
-                {
-                    if(offsets[x][y] == 0)
-                        continue;
-                    iFileOffsets.insert(std::make_pair(packTileID(x, y), uint32(offsets[x][y])));
-                }
-            }
+            OUT_ERROR("StaticMapTree::InitMap() : failed reading data!");
+            return false;
         }
-        return success;
+        return true;
     }
 
     //=========================================================

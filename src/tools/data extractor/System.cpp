@@ -416,7 +416,7 @@ void ParsMapFiles()
         if(WDT.init(id, map_ids[i].id))
         {
             FILE *mapFile = NULL;
-            fopen_s(&mapFile, fileName, "w+");
+            fopen_s(&mapFile, fileName, "w+b");
             if(mapFile)
             {
                 fwrite(szRawMAPMagic, 10, 1, mapFile);
@@ -466,7 +466,7 @@ void ParsMapFiles()
                 fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
                 fseek(mapFile, offs2, SEEK_SET);
                 fwrite(&vmapOffs, sizeof(uint32), 1, mapFile);
-                fseek(mapFile, 0, SEEK_END);
+                fseek(mapFile, vmapOffs, SEEK_SET);
                 writeVMapData(mapFile, map_ids[i].id, &modelSpawns, &tileModelSpawnSets);
                 fclose(mapFile);
 
