@@ -24,6 +24,9 @@
 using namespace std;
 extern uint16 *LiqType;
 
+extern VMAP::ModelSpawnMap modelSpawns;
+extern VMAP::TiledModelSpawnMap tileModelSpawnSets;
+
 WMORoot::WMORoot(std::string &filename)
     : filename(filename), col(0), nTextures(0), nGroups(0), nP(0), nLights(0),
     nModels(0), nDoodads(0), nDoodadSets(0), RootWMOID(0), liquidType(0)
@@ -476,24 +479,29 @@ WMOGroup::~WMOGroup()
     delete [] LiquBytes;
 }
 
-WMOInstance::WMOInstance(MPQFile& f, char const* WmoInstName, uint32 mapID, uint32 tileX, uint32 tileY, FILE* pDirfile)
-    : currx(0), curry(0), wmo(NULL), doodadset(0), pos(), indx(0), id(0), d2(0), d3(0)
+WMOInstance::WMOInstance(MPQFile& f, char const* WmoInstName, uint32 mapID, uint32 tileX, uint32 tileY)
+    : currx(0), curry(0), wmo(NULL), doodadset(0), indx(0), id(0), d2(0), d3(0)
 {
     float ff[3];
     f.read(&id, 4);
     f.read(ff,12);
-    pos = Vec3D(ff[0],ff[1],ff[2]);
+    G3D::Vector3 pos = G3D::Vector3(ff[2],ff[0],ff[1]);
     f.read(ff,12);
-    rot = Vec3D(ff[0],ff[1],ff[2]);
+    G3D::Vector3 rot = G3D::Vector3(ff[0],ff[1],ff[2]);
     f.read(ff,12);
-    pos2 = Vec3D(ff[0],ff[1],ff[2]);
+    G3D::Vector3 pos2 = G3D::Vector3(ff[2],ff[0],ff[1]);
     f.read(ff,12);
-    pos3 = Vec3D(ff[0],ff[1],ff[2]);
+    G3D::Vector3 pos3 = G3D::Vector3(ff[2],ff[0],ff[1]);
     f.read(&d2,4);
 
     uint16 trash,adtId;
     f.read(&adtId,2);
     f.read(&trash,2);
+    uint32 packedTile = VMAP::packTileID(tileX, tileY);
+    if(tileModelSpawnSets[packedTile].find(id) == tileModelSpawnSets[packedTile].end())
+        tileModelSpawnSets[packedTile].insert(id);
+    if(modelSpawns.find(id) != modelSpawns.end())
+        return;
 
     //-----------add_in _dir_file----------------
 
@@ -514,44 +522,22 @@ WMOInstance::WMOInstance(MPQFile& f, char const* WmoInstName, uint32 mapID, uint
     if (count != 1 || nVertices == 0)
         return;
 
-    float x = pos.x, z = pos.z;
-    if(x==0 && z == 0)
+    if(pos.x == 0 && pos.y == 0)
     {
         pos.x = 533.33333f*32;
-        pos.z = 533.33333f*32;
+        pos.y = 533.33333f*32;
     }
-    pos = fixCoords(pos);
-    pos2 = fixCoords(pos2);
-    pos3 = fixCoords(pos3);
 
-    float scale = 1.0f;
-    uint32 flags = MOD_HAS_BOUND;
-    if(tileX == 65 && tileY == 65) flags |= MOD_WORLDSPAWN;
-    //write mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
-    fwrite(&mapID, sizeof(uint32), 1, pDirfile);
-    fwrite(&tileX, sizeof(uint32), 1, pDirfile);
-    fwrite(&tileY, sizeof(uint32), 1, pDirfile);
-    fwrite(&flags, sizeof(uint32), 1, pDirfile);
-    fwrite(&adtId, sizeof(uint16), 1, pDirfile);
-    fwrite(&id, sizeof(uint32), 1, pDirfile);
-    fwrite(&pos, sizeof(float), 3, pDirfile);
-    fwrite(&rot, sizeof(float), 3, pDirfile);
-    fwrite(&scale, sizeof(float), 1, pDirfile);
-    fwrite(&pos2, sizeof(float), 3, pDirfile);
-    fwrite(&pos3, sizeof(float), 3, pDirfile);
-    uint32 nlen=strlen(WmoInstName);
-    fwrite(&nlen, sizeof(uint32), 1, pDirfile);
-    fwrite(WmoInstName, sizeof(char), nlen, pDirfile);
-
-    /* fprintf(pDirfile,"%s/%s %f,%f,%f_%f,%f,%f 1.0 %d %d %d,%d %d\n",
-        MapName,
-        WmoInstName,
-        (float) x, (float) pos.y, (float) z,
-        (float) rot.x, (float) rot.y, (float) rot.z,
-        nVertices,
-        realx1, realy1,
-        realx2, realy2
-        ); */
-
-    // fclose(dirfile);
+    VMAP::ModelSpawn spawn;
+    spawn.mapId = mapID;
+    spawn.packedTile = packedTile;
+    spawn.flags = MOD_HAS_BOUND | (tileX == 65 && tileY == 65 ? MOD_WORLDSPAWN : 0);
+    spawn.adtId = adtId;
+    spawn.ID = id;
+    spawn.iPos = pos;
+    spawn.iRot = rot;
+    spawn.iScale = 1.0f;
+    spawn.iBound = G3D::AABox(pos2, pos3);
+    spawn.name = WmoInstName;
+    modelSpawns.insert(std::make_pair(id, spawn));
 }

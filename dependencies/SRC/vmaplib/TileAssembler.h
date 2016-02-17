@@ -29,16 +29,6 @@ namespace VMAP
             void moveToBasePos(const G3D::Vector3& pBasePos) { iPos -= pBasePos; }
     };
 
-    typedef std::map<G3D::uint32, ModelSpawn> UniqueEntryMap;
-    typedef std::map<G3D::uint32, std::set<G3D::uint32>> TileMap;
-
-    struct MapSpawns
-    {
-        UniqueEntryMap UniqueEntries;
-        TileMap TileEntries;
-    };
-
-    typedef std::map<G3D::uint32, MapSpawns*> MapData;
     //===============================================
 
     struct GroupModel_Raw
@@ -73,18 +63,19 @@ namespace VMAP
             std::string iTileDestDir;
             std::string iObjDestDir;
             std::string iSrcDir;
+
             bool (*iFilterMethod)(char *pName);
             G3D::Table<std::string, unsigned int > iUniqueNameIds;
             unsigned int iCurrentUniqueNameId;
-            MapData mapData;
             std::set<std::string> spawnedModelFiles;
 
         public:
             TileAssembler(const std::string& pSrcDirName, const std::string& pTileDestDirName, const std::string &pObjectDestDirName);
             virtual ~TileAssembler();
 
-            bool convertWorld2();
-            bool readMapSpawns();
+            bool convertWorld3(FILE *mapFile, uint32 mapId, ModelSpawnMap* spawnMap, TiledModelSpawnMap* tileSpawnMap);
+            bool convertWorldObjects();
+
             bool calculateTransformedBound(ModelSpawn &spawn);
             void exportGameobjectModels();
 

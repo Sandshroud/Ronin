@@ -23,6 +23,9 @@
 
 #include <SharedDependencyDefines.h>
 
+#include <g3dlite/G3D.h>
+#include "vmaplib/ModelSpawn.h"
+
 #include <StormLib/StormLib.h>
 #include <StormLib/StormCommon.h>
 

@@ -123,7 +123,7 @@ namespace MMAP
             {
                 tileX = G3D::uint32(atoi(files[i].substr(7,2).c_str()));
                 tileY = G3D::uint32(atoi(files[i].substr(4,2).c_str()));
-                tileID = StaticMapTree::packTileID(tileY, tileX);
+                tileID = packTileID(tileY, tileX);
 
                 tiles->insert(tileID);
                 count++;
@@ -148,7 +148,7 @@ namespace MMAP
                     if(!offsets[tileX][tileY])
                         continue;
 
-                    tileID = StaticMapTree::packTileID(tileX, tileY);
+                    tileID = packTileID(tileX, tileY);
                     if (tiles->insert(tileID).second)
                         count++;
                 }
@@ -345,7 +345,7 @@ namespace MMAP
             // add all tiles within bounds to tile list.
             for (G3D::uint32 i = minX; i <= maxX; ++i)
                 for (G3D::uint32 j = minY; j <= maxY; ++j)
-                    tiles->insert(StaticMapTree::packTileID(i, j));
+                    tiles->insert(packTileID(i, j));
         }
 
         if (!tiles->empty())
@@ -364,7 +364,7 @@ namespace MMAP
                     G3D::uint32 tileX, tileY;
 
                     // unpack tile coords
-                    StaticMapTree::unpackTileID((*it), tileX, tileY);
+                    unpackTileID((*it), tileX, tileY);
                     if (shouldSkipTile(mapID, tileX, tileY))
                         continue;
 
@@ -439,7 +439,7 @@ namespace MMAP
         G3D::uint32 tileXMin = 64, tileYMin = 64, tileXMax = 0, tileYMax = 0, tileX, tileY;
         for (std::set<G3D::uint32>::iterator it = tiles->begin(); it != tiles->end(); ++it)
         {
-            StaticMapTree::unpackTileID(*it, tileX, tileY);
+            unpackTileID(*it, tileX, tileY);
 
             if (tileX > tileXMax)
                 tileXMax = tileX;

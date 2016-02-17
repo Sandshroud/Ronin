@@ -481,7 +481,7 @@ public:
     BigNumber authSeed1, authSeed2;
 
     Mutex queueMutex;
-    std::string DBCPath, MapPath, vMapPath, MMapPath;
+    std::string DBCPath, MapPath, VObjPath, MNavPath;
     float AreaUpdateDistance;
     bool AHEnabled, DisableBufferSaving;
     bool Collision, PathFinding;

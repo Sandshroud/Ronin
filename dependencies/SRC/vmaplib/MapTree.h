@@ -38,19 +38,13 @@ namespace VMAP
             // Sotred offsets for main map file
             fileOffsetMap iFileOffsets;
 
-            // 
-            Mutex fileLock;
-            std::string iFileName;
-
         private:
             bool getIntersectionTime(const G3D::Ray& pRay, float &pMaxDist, bool pStopAtFirstHit) const;
             //bool containsLoadedMapTile(unsigned int pTileIdent) const { return(iLoadedMapTiles.containsKey(pTileIdent)); }
         public:
             static std::string getTileFileName(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY);
-            static G3D::uint32 packTileID(G3D::uint32 tileX, G3D::uint32 tileY) { return tileX<<16 | tileY; }
-            static void unpackTileID(G3D::uint32 ID, G3D::uint32 &tileX, G3D::uint32 &tileY) { tileX = ID>>16; tileY = ID&0xFF; }
 
-            StaticMapTree(G3D::uint32 mapID, const std::string &tilePath, const std::string fileName);
+            StaticMapTree(G3D::uint32 mapID);
             ~StaticMapTree();
 
             bool isInLineOfSight(const G3D::Vector3& pos1, const G3D::Vector3& pos2) const;
@@ -60,10 +54,10 @@ namespace VMAP
             bool getAreaInfo(G3D::Vector3 &pos, G3D::uint32 &flags, G3D::int32 &adtId, G3D::int32 &rootId, G3D::int32 &groupId) const;
             bool GetLocationInfo(const G3D::Vector3 &pos, LocationInfo &info) const;
 
-            bool InitMap(VMapManager* vm, bool loadAll);
+            bool InitMap(VMapManager* vm, FILE *file);
             void UnloadMap(VMapManager* vm);
-            bool LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input = NULL);
-            void UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input = NULL);
+            bool LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, FILE *file, VMapManager* vm);
+            void UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm);
             G3D::uint32 numLoadedTiles() const { return iLoadedTiles.size(); }
             void getModelInstances(ModelInstance* &models, G3D::uint32 &count);
     };

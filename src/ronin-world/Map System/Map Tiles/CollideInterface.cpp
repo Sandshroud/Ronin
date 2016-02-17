@@ -16,7 +16,7 @@ void VMapInterface::Init()
     {
         // find version import
         if(vmap_manager_construction rcall = (vmap_manager_construction)GetProcAddress(hModule, "vmap_manager_construction"))
-            vMapMgr = rcall(sWorld.vMapPath);
+            vMapMgr = rcall(sWorld.VObjPath);
         else FreeLibrary(hModule);
     }
 
@@ -46,13 +46,13 @@ void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
     vMapMgr->updateDynamicMapTree(p_time, mapId);
 }
 
-bool VMapInterface::ActivateMap(uint32 mapId, bool loadAll)
+bool VMapInterface::ActivateMap(uint32 mapId, FILE *mapFile)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) != m_mapLocks.end())
         return false;
     bool result;
     m_mapDataLock.Acquire();
-    if(result = vMapMgr->loadMap(mapId, loadAll))
+    if(result = vMapMgr->loadMap(mapId, mapFile))
         m_mapLocks.insert(std::make_pair(mapId, new MapLoadData()));
     m_mapDataLock.Release();
     return result;
@@ -71,7 +71,7 @@ void VMapInterface::DeactivateMap(uint32 mapId)
     m_mapDataLock.Release();
 }
 
-bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
+bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
@@ -80,7 +80,7 @@ bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
     m_mapLocks[mapId]->m_lock.Acquire();
     if( m_mapLocks[mapId]->m_tileLoadCount[tileX][tileY] == 0 )
     {
-        if(vMapMgr->loadMap(mapId, tileX, tileY))
+        if(vMapMgr->loadMap(mapId, tileX, tileY, file))
             sLog.outDebug("Loading VMap [%u/%u] successful", tileX, tileY);
         else
         {
@@ -243,9 +243,9 @@ bool VMapInterface::IsIndoor(uint32 mapId, float x, float y, float z)
     int32 adtId = 0, rootId = 0, groupid = 0;
     if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
     {
-        if(flags & WMO_FLAG_INSIDE_WMO_BOUNDS
-            && !(flags & WMO_FLAG_OUTSIDE_WMO_BOUNDS)
-            && !(flags & WMO_FLAG_WMO_NO_INSIDE))
+        if(flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS
+            && !(flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS)
+            && !(flags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
         {
             WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid);
             if(WMOEntry == NULL || !(WMOEntry->Flags & 0x4))
@@ -272,11 +272,11 @@ bool VMapInterface::IsIncity(uint32 mapId, float x, float y, float z)
     int32 adtId = 0, rootId = 0, groupid = 0;
     if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
     {
-        if(flags & WMO_FLAG_INSIDE_CITY_WMO
-            //&& (flags & WMO_FLAG_INSIDE_WMO_BOUNDS)
-            && !(flags & WMO_FLAG_OUTSIDE_WMO_BOUNDS))
+        if(flags & VMAP::WMO_FLAG_INSIDE_CITY_WMO
+            //&& (flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS)
+            && !(flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS))
             res = true;
-        else if(flags & (WMO_FLAG_INSIDE_WMO_BOUNDS|WMO_FLAG_INSIDE_SUB_WMO))
+        else if(flags & (VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS|VMAP::WMO_FLAG_INSIDE_SUB_WMO))
         {
             WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid);
             if(WMOEntry != NULL)
@@ -307,7 +307,7 @@ bool VMapInterface::GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 
     m_mapLocks[mapId]->m_lock.Acquire();
     if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
     {
-        if(flags & WMO_FLAG_WMO_EXISTS)
+        if(flags & VMAP::WMO_FLAG_WMO_EXISTS)
         {
             res = true;
             if(WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid))

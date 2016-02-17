@@ -531,10 +531,10 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::InitializeVMap(G3D::uint32 mapID, bool loadAll)
+    bool TerrainBuilder::InitializeVMap(G3D::uint32 mapID, FILE *file)
     {
-        vmapManager = new VMapManager("vmaps", "vmaps/obj");
-        if(!vmapManager->loadMap(mapID, loadAll))
+        vmapManager = new VMapManager("Tiles/obj");
+        if(!vmapManager->loadMap(mapID, file))
             return false;
         return true;
     }
@@ -556,7 +556,7 @@ namespace MMAP
         if(vmapManager == NULL)
             return false;
 
-        bool result = vmapManager->loadMap(mapID, tileX, tileY), retval = false;
+        bool result = false/*vmapManager->loadMap(mapID, tileX, tileY)*/, retval = false;
         do
         {
             if (result == false)

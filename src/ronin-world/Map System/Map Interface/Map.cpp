@@ -12,9 +12,6 @@ Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(new 
 {
     //new stuff Load Spawns
     LoadSpawns();
-
-    // Setup terrain
-    _terrain->LoadTerrainHeader();
 }
 
 Map::~Map()

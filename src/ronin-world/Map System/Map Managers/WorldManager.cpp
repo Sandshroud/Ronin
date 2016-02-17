@@ -229,6 +229,7 @@ void WorldManager::_CreateMap(MapEntry *mapEntry)
     if(mapEntry->IsContinent())
     {
         _InitializeContinent(mapEntry, map);
+        return;
         if(sWorld.ServerPreloading)
             map->LoadAllTerrain();
     }
@@ -340,6 +341,8 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
         delete mgr;
         return;
     }
+
+    map->GetMapTerrain()->LoadTerrainHeader();
 
     // Store the manager in the worldManager thread
     m_continentManagement.insert(std::make_pair(mapEntry->MapID, mgr));

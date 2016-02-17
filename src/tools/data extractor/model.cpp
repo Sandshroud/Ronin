@@ -24,6 +24,9 @@
 #include <algorithm>
 #include <cstdio>
 
+extern VMAP::ModelSpawnMap modelSpawns;
+extern VMAP::TiledModelSpawnMap tileModelSpawnSets;
+
 Model::Model(std::string &filename) : filename(filename), vertices(0), indices(0)
 {
     memset(&header, 0, sizeof(header));
@@ -126,14 +129,14 @@ Vec3D fixCoordSystem2(Vec3D v)
     return Vec3D(v.x, v.z, v.y);
 }
 
-ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY, FILE *pDirfile)
+ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY)
 {
     float ff[3];
     f.read(&id, 4);
     f.read(ff, 12);
-    pos = fixCoords(Vec3D(ff[0], ff[1], ff[2]));
+    G3D::Vector3 pos = G3D::Vector3(ff[2],ff[0],ff[1]);
     f.read(ff, 12);
-    rot = Vec3D(ff[0], ff[1], ff[2]);
+    G3D::Vector3 rot = G3D::Vector3(ff[0],ff[1],ff[2]);
     f.read(&scale, 2);
     f.read(&flags, 2);
     // scale factor - divide by 1024. blizzard devs must be on crack, why not just use a float?
@@ -141,54 +144,29 @@ ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID
 
     char tempname[512];
     sprintf(tempname, "%s/%s", szWorkDirWmo, ModelInstName);
-    FILE* input = fopen(tempname, "r+b");
-
-    if (!input)
-    {
-        //printf("ModelInstance::ModelInstance couldn't open %s\n", tempname);
+    FILE* input = NULL;
+    fopen_s(&input, tempname, "r+b");
+    if (input == NULL)
         return;
-    }
 
     fseek(input, 8, SEEK_SET); // get the correct no of vertices
-    int nVertices;
-    int count = fread(&nVertices, sizeof (int), 1, input);
+    int nVertices = 0, count = fread(&nVertices, sizeof (int), 1, input);
     fclose(input);
-
     if (count != 1 || nVertices == 0)
         return;
 
-    uint16 adtId = 0;// not used for models
-    uint32 flags = MOD_M2;
-    if (tileX == 65 && tileY == 65)
-        flags |= MOD_WORLDSPAWN;
+    VMAP::ModelSpawn spawn;
+    spawn.mapId = mapID;
+    spawn.packedTile = VMAP::packTileID(tileX, tileY);
+    spawn.flags = MOD_M2 | (tileX == 65 && tileY == 65 ? MOD_WORLDSPAWN : 0);
+    spawn.adtId = 0;
+    spawn.ID = id;
+    spawn.iPos = pos;
+    spawn.iRot = rot;
+    spawn.iScale = 1.0f;
+    spawn.iBound = G3D::AABox::zero();
+    spawn.name = ModelInstName;
 
-    //write mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, name
-    fwrite(&mapID, sizeof(uint32), 1, pDirfile);
-    fwrite(&tileX, sizeof(uint32), 1, pDirfile);
-    fwrite(&tileY, sizeof(uint32), 1, pDirfile);
-    fwrite(&flags, sizeof(uint32), 1, pDirfile);
-    fwrite(&adtId, sizeof(uint16), 1, pDirfile);
-    fwrite(&id, sizeof(uint32), 1, pDirfile);
-    fwrite(&pos, sizeof(float), 3, pDirfile);
-    fwrite(&rot, sizeof(float), 3, pDirfile);
-    fwrite(&sc, sizeof(float), 1, pDirfile);
-    uint32 nlen=strlen(ModelInstName);
-    fwrite(&nlen, sizeof(uint32), 1, pDirfile);
-    fwrite(ModelInstName, sizeof(char), nlen, pDirfile);
-
-    /* int realx1 = (int) ((float) pos.x / 533.333333f);
-    int realy1 = (int) ((float) pos.z / 533.333333f);
-    int realx2 = (int) ((float) pos.x / 533.333333f);
-    int realy2 = (int) ((float) pos.z / 533.333333f);
-
-    fprintf(pDirfile,"%s/%s %f,%f,%f_%f,%f,%f %f %d %d %d,%d %d\n",
-        MapName,
-        ModelInstName,
-        (float) pos.x, (float) pos.y, (float) pos.z,
-        (float) rot.x, (float) rot.y, (float) rot.z,
-        sc,
-        nVertices,
-        realx1, realy1,
-        realx2, realy2
-        ); */
+    modelSpawns.insert(std::make_pair(id, spawn));
+    tileModelSpawnSets[spawn.packedTile].insert(id);
 }

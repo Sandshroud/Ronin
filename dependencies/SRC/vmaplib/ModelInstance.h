@@ -4,18 +4,13 @@
 
 #pragma once
 
+#include "ModelSpawn.h"
+
 namespace VMAP
 {
     class WorldModel;
     struct AreaInfo;
     struct LocationInfo;
-
-    enum ModelFlags
-    {
-        MOD_M2 = 1,
-        MOD_WORLDSPAWN = 1<<1,
-        MOD_HAS_BOUND = 1<<2
-    };
 
     class GameobjectModelSpawn
     {
@@ -29,27 +24,6 @@ namespace VMAP
     {
         locationCallback() {}
         virtual void operator()(float x, float y, float z) {};
-    };
-
-    class ModelSpawn
-    {
-        public:
-            //mapID, tileX, tileY, Flags, ID, Pos, Rot, Scale, Bound_lo, Bound_hi, name
-            G3D::uint32 flags;
-            G3D::uint16 adtId;
-            G3D::uint32 ID;
-            G3D::Vector3 iPos;
-            G3D::Vector3 iRot;
-            float iScale;
-            G3D::AABox iBound;
-            std::string name;
-            bool operator==(const ModelSpawn &other) const { return ID == other.ID; }
-            //G3D::uint32 hashCode() const { return ID; }
-            // temp?
-            const G3D::AABox& getBounds() const { return iBound; }
-
-            static bool readFromFile(FILE* rf, ModelSpawn &spawn);
-            static bool writeToFile(FILE* rw, const ModelSpawn &spawn);
     };
 
     class ModelInstance: public ModelSpawn

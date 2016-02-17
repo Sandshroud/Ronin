@@ -95,8 +95,7 @@ namespace VMAP
         return intersectionCallBack.result;
     }
 
-    StaticMapTree::StaticMapTree(G3D::uint32 mapID, const std::string &tilePath, const std::string fileName)
-        : iMapID(mapID), iTreeValues(0), iNTreeValues(0), iFileName(tilePath+fileName) { }
+    StaticMapTree::StaticMapTree(G3D::uint32 mapID) : iMapID(mapID), iTreeValues(0), iNTreeValues(0) { }
 
     //=========================================================
     //! Make sure to call unloadMap() to unregister acquired model references before destroying
@@ -208,24 +207,14 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::InitMap(VMapManager* vm, bool loadAll)
+    bool StaticMapTree::InitMap(VMapManager* vm, FILE *rf)
     {
-        OUT_DEBUG("StaticMapTree::InitMap() : initializing StaticMapTree '%s'", iFileName.c_str());
+        OUT_DEBUG("StaticMapTree::InitMap() : initializing StaticMapTree '%03u'", iMapID);
         bool success = true;
-        fileLock.Acquire();
-        FILE* rf = fopen(iFileName.c_str(), "rb");
-        if (rf == NULL)
-        {
-            fileLock.Release();
-            return false;
-        }
-
         char chunk[10];
         if(!readChunk(rf, chunk, VMAP_MAGIC, 10))
         {
             OUT_ERROR("VMap magic does not match!");
-            fclose(rf);
-            fileLock.Release();
             return false;
         }
 
@@ -268,23 +257,24 @@ namespace VMAP
             }
         }
 
-        uint32 offsets[64][64];
-        fread(&offsets, sizeof(uint32)*64*64, 1, rf);
-        for(uint8 x = 0; x < 64; x++)
+        bool hasTileData = false;
+        if(success && fread(&hasTileData, sizeof(bool), 1, rf) != 1)
+            success = false;
+        if(success && hasTileData)
         {
-            for(uint8 y = 0; y < 64; y++)
+            uint32 offsets[64][64];
+            if(fread(&offsets, sizeof(uint32)*64*64, 1, rf) != 1)
+                success = false;
+            for(uint8 x = 0; x < 64; x++)
             {
-                if(offsets[x][y] == 0)
-                    continue;
-                iFileOffsets.insert(std::make_pair(packTileID(x, y), offsets[x][y]));
-                if(loadAll == false)
-                    continue;
-                LoadMapTile(x, y, vm, rf);
+                for(uint8 y = 0; y < 64; y++)
+                {
+                    if(offsets[x][y] == 0)
+                        continue;
+                    iFileOffsets.insert(std::make_pair(packTileID(x, y), uint32(offsets[x][y])));
+                }
             }
         }
-
-        fclose(rf);
-        fileLock.Release();
         return success;
     }
 
@@ -304,9 +294,9 @@ namespace VMAP
 
     //=========================================================
 
-    bool StaticMapTree::LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input)
+    bool StaticMapTree::LoadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, FILE *input, VMapManager* vm)
     {
-        uint32 packedTile = packTileID(tileX, tileY);
+        G3D::uint32 packedTile = packTileID(tileX, tileY);
         if(iFileOffsets.find(packedTile) == iFileOffsets.end())
             return false;
         if (!iTreeValues)
@@ -315,31 +305,12 @@ namespace VMAP
             return false;
         }
 
-        fileLock.Acquire();
         if(iLoadedTiles.find(packedTile) != iLoadedTiles.end())
-        {
-            fileLock.Release();
             return true;
-        }
-
-        bool selfOpened = false;
-        if(input == NULL)
-        {
-            fopen_s(&input, iFileName.c_str(), "rb");
-            if( input == NULL )
-            {
-                OUT_ERROR("StaticMapTree::LoadMapTile() : could not open input file %s", iFileName.c_str());
-                fileLock.Release();
-                return false;
-            }
-            selfOpened = true;
-        }
 
         if(fseek(input, iFileOffsets.at(packedTile), SEEK_SET) != 0)
         {
             OUT_ERROR("StaticMapTree::LoadMapTile() : could not seek to tile offset [%u, %u]", tileX, tileY);
-            if(selfOpened) fclose(input);
-            fileLock.Release();
             return false;
         }
 
@@ -347,6 +318,7 @@ namespace VMAP
         G3D::uint32 numSpawns = 0;
         if (fread(&numSpawns, sizeof(G3D::uint32), 1, input) != 1)
             result = false;
+
         std::vector<std::pair<uint32, ModelSpawn>> modelSpawns;
         for (G3D::uint32 i=0; i<numSpawns && result; ++i)
         {
@@ -366,9 +338,8 @@ namespace VMAP
             }
             modelSpawns.push_back(std::make_pair(referencedVal, spawn));
         }
-        if(result) iLoadedTiles[packedTile] = true;
-        if(selfOpened) fclose(input);
-        fileLock.Release();
+        if(result)
+            iLoadedTiles[packedTile] = true;
 
         for (auto itr = modelSpawns.begin(); itr != modelSpawns.end(); itr++)
         {   // acquire model instance
@@ -401,67 +372,35 @@ namespace VMAP
 
     //=========================================================
 
-    void StaticMapTree::UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm, FILE *input)
+    void StaticMapTree::UnloadMapTile(G3D::uint32 tileX, G3D::uint32 tileY, VMapManager* vm)
     {
-        G3D::uint32 tileID = packTileID(tileX, tileY);
-        loadedTileMap::iterator tile = iLoadedTiles.find(tileID);
+        G3D::uint32 packedTile = packTileID(tileX, tileY);
+        loadedTileMap::iterator tile = iLoadedTiles.find(packedTile);
         if (tile == iLoadedTiles.end())
         {
             OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-loaded tile - Map:%u X:%u Y:%u", iMapID, tileX, tileY);
             return;
         }
-        if (tile->second) // file associated with tile
+
+        /*size_t count = modelSpawns.count(packedTile);
+        if(count == 0)
+            return; /// Empty tile
+
+        while(!modelSpawns[packedTile].empty())
         {
-
-            fileLock.Acquire();
-            bool selfOpened = false;
-            if(input == NULL)
+            uint32 ref = modelSpawns[packedTile].begin()->first;
+            ModelSpawn spawn = modelSpawns[packedTile].begin()->second;
+            // release model instance
+            vm->releaseModelInstance(spawn.name);
+            if (!iLoadedSpawns.count(ref))
+                OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s' (ID:%u)", spawn.name.c_str(), spawn.ID);
+            else if (--iLoadedSpawns[ref] == 0)
             {
-                fopen_s(&input, iFileName.c_str(), "rb");
-                if( input == NULL )
-                {
-                    OUT_ERROR("StaticMapTree::LoadMapTile() : could not open input file %s", iFileName.c_str());
-                    fileLock.Release();
-                    return;
-                }
-                selfOpened = true;
+                iTreeValues[ref].setUnloaded();
+                iLoadedSpawns.erase(ref);
             }
 
-            bool result=true;
-            char chunk[10];
-            if (!readChunk(input, chunk, VMAP_MAGIC, 10))
-                result = false;
-            G3D::uint32 numSpawns;
-            if (fread(&numSpawns, sizeof(G3D::uint32), 1, input) != 1)
-                result = false;
-            for (G3D::uint32 i=0; i<numSpawns && result; ++i)
-            {
-                // read model spawns
-                ModelSpawn spawn;
-                if (result = ModelSpawn::readFromFile(input, spawn))
-                {
-                    // release model instance
-                    vm->releaseModelInstance(spawn.name);
-
-                    // update tree
-                    G3D::uint32 referencedNode;
-                    if (fread(&referencedNode, sizeof(G3D::uint32), 1, input) != 1)
-                        result = false;
-                    else
-                    {
-                        if (!iLoadedSpawns.count(referencedNode))
-                            OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s' (ID:%u)", spawn.name.c_str(), spawn.ID);
-                        else if (--iLoadedSpawns[referencedNode] == 0)
-                        {
-                            iTreeValues[referencedNode].setUnloaded();
-                            iLoadedSpawns.erase(referencedNode);
-                        }
-                    }
-                }
-            }
-            if(selfOpened) fclose(input);
-            fileLock.Release();
-        }
-        iLoadedTiles.erase(tile);
+            modelSpawns[packedTile].erase(modelSpawns[packedTile].begin());
+        }*/
     }
 }

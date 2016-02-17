@@ -291,15 +291,6 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
     if(ADT.isEof ())
         return false;
 
-    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
-    FILE *dirfile;
-    fopen_s(&dirfile, dirname.c_str(), "ab");
-    if(!dirfile)
-    {
-        printf("Can't open dirfile!'%s'\n", dirname.c_str());
-        return false;
-    }
-
     // Temporary grid data store
     uint16 area_entry[16][16];
     float V8[128][128], V9[129][129];
@@ -777,7 +768,6 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
         fwrite(holes, map.holesSize, 1, output);
 
     ADT.close();
-    fclose(dirfile);
     return true;
 }
 
@@ -785,15 +775,6 @@ void ADTFile::parseWMO(uint32 map_num, uint32 tileX, uint32 tileY)
 {
     if(ADT.isEof ())
         return;
-
-    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
-    FILE *dirfile;
-    fopen_s(&dirfile, dirname.c_str(), "ab");
-    if(!dirfile)
-    {
-        printf("Can't open dirfile!'%s'\n", dirname.c_str());
-        return;
-    }
 
     uint32 size;
     while (!ADT.isEof())
@@ -853,7 +834,7 @@ void ADTFile::parseWMO(uint32 map_num, uint32 tileX, uint32 tileY)
                 {
                     uint32 id;
                     ADT.read(&id, 4);
-                    ModelInstance inst(ADT, ModelInstanceNameMap[id]->c_str(), map_num, tileX, tileY, dirfile);
+                    ModelInstance inst(ADT, ModelInstanceNameMap[id]->c_str(), map_num, tileX, tileY);
                 }
                 for(std::map<uint32, std::string*>::iterator itr = ModelInstanceNameMap.begin(); itr != ModelInstanceNameMap.end(); itr++)
                     delete itr->second;
@@ -866,7 +847,7 @@ void ADTFile::parseWMO(uint32 map_num, uint32 tileX, uint32 tileY)
                 {
                     uint32 id;
                     ADT.read(&id, 4);
-                    WMOInstance inst(ADT, WMOInstanceNameMap[id]->c_str(), map_num, tileX, tileY, dirfile);
+                    WMOInstance inst(ADT, WMOInstanceNameMap[id]->c_str(), map_num, tileX, tileY);
                 }
                 for(std::map<uint32, std::string*>::iterator itr = WMOInstanceNameMap.begin(); itr != WMOInstanceNameMap.end(); itr++)
                     delete itr->second;
@@ -879,7 +860,6 @@ void ADTFile::parseWMO(uint32 map_num, uint32 tileX, uint32 tileY)
     }
 
     ADT.close();
-    fclose(dirfile);
 }
 
 ADTFile::~ADTFile()

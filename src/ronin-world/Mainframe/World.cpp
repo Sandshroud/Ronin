@@ -1208,9 +1208,9 @@ void World::Rehash(bool load)
 
     // Data configs
     DBCPath = mainIni->ReadString("Data", "DBCPath", "dbc");
-    MapPath = mainIni->ReadString("Data", "MapPath", "maps");
-    vMapPath = mainIni->ReadString("Data", "vMapPath", "vmaps");
-    MMapPath = mainIni->ReadString("Data", "MMapPath", "mmaps");
+    MapPath = mainIni->ReadString("Data", "MapPath", "Tiles");
+    VObjPath = mainIni->ReadString("Data", "VObjPath", "Tiles/Obj");
+    MNavPath = mainIni->ReadString("Data", "MNavPath", "Tiles/Nav");
 
     // Performance configs
     Collision = mainIni->ReadBoolean("PerformanceSettings", "Collision", false);

@@ -16,6 +16,10 @@
 #include "g3dmath.h"
 #include <string>
 
+#ifdef byte
+#undef byte
+#endif
+
 namespace G3D {
 
 /** Thrown by TextInput, Any, and other parsers on unexpected input. */

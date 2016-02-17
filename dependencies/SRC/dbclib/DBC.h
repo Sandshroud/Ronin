@@ -55,6 +55,7 @@ public:
             return false;
         }
 
+        fseek(f, 0, SEEK_SET);
         if(fread(header.title, 4, 1, f) != 1)
         {
             fclose(f);

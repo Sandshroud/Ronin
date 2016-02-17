@@ -88,11 +88,12 @@ bool preciseVectorData = false;
 
 // Constants
 
+const char* szRawMAPMagic = "HMAP434_1";
+const char* szRawVMAPMagic = "VMAP050";
 const char* szWorkDirWmo = "./Buildings";
 const char* szWorkDirDbc = "./DBC";
 const char* szWorkDirTiles = "./Tiles";
 const char* szWorkDirObject = "./Tiles/obj";
-const char* szRawVMAPMagic = "VMAP050";
 const char* szWorkDirFailed = "./Failed";
 
 bool LoadLocaleMPQFile(int locale)
@@ -240,40 +241,19 @@ bool ExtractDBCFiles()
                     success = false;
                     break;
                 }
-                foundCount++;
 
-                // Write open DBC file
+                // Skip files reporting 0 file size
+                if(SFileGetFileSize(DBCFile, NULL) == 0)
+                    continue;
+                SFileCloseFile(DBCFile);
+
                 sprintf(buff, "%s\\%s", szWorkDirDbc, str2.c_str());
-                FILE *output = NULL;
-                fopen_s(&output, buff, "w+");
-                if(output == NULL)
+                if(!SFileExtractFile(LocaleMpq, str.c_str(), buff, SFILE_OPEN_FROM_MPQ))
                 {
-                    SFileCloseFile(DBCFile);
-                    printf("Error opening %s file output %s\n", fileType, str.c_str());
+                    printf("Error writing %s file %s\n", fileType, str.c_str());
                     success = false;
                     break;
-                }
-
-                DWORD readOutput;
-                size_t fileSize = SFileGetFileSize(DBCFile, NULL), fullSize = fileSize;
-                while(fileSize > 0)
-                {
-                    size_t sizeToRead = fileSize > 4000 ? 4000 : fileSize;
-                    fileSize -= sizeToRead;
-
-                    if(SFileReadFile(DBCFile, fileBuff, sizeToRead, &readOutput, NULL))
-                        fwrite(fileBuff, readOutput, 1, output);
-                    else
-                    {
-                        SFileCloseFile(DBCFile);
-                        printf("Error writing %s file %s(%u/%u)\n", fileType, str.c_str(), fileSize, fullSize);
-                        success = false;
-                        break;
-                    }
-                }
-
-                SFileCloseFile(DBCFile);
-                fclose(output);
+                } else foundCount++;
             } while (success && SFileFindNextFile(find, &data));
             SFileFindClose(find);
         }
@@ -411,60 +391,87 @@ bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname)
     return true;
 }
 
+void CleanupVMapData(bool &success);
+void writeVMapData(FILE *mapFile, uint32 mapId, VMAP::ModelSpawnMap*, VMAP::TiledModelSpawnMap*);
+
+VMAP::ModelSpawnMap modelSpawns;
+VMAP::TiledModelSpawnMap tileModelSpawnSets;
+
 void ParsMapFiles()
 {
-    char fn[512], id[10], fileName[100];
+    char fn[512], id[10], fileName[100], dirName[255];
     for (unsigned int i=0; i<map_count; ++i)
     {
-        sprintf(id,"%03u",map_ids[i].id);
-        sprintf(fn,"World\\Maps\\%s\\%s.wdt", map_ids[i].name, map_ids[i].name);
-        sprintf(fileName, "%s\\%s.tiletree", szWorkDirTiles, id);
+        sprintf_s(id, 10,"%03u",map_ids[i].id);
+        sprintf_s(fn, 512,"World\\Maps\\%s\\%s.wdt", map_ids[i].name, map_ids[i].name);
+        sprintf_s(dirName, 255, "%s/dir_bin_%s", szWorkDirWmo, id);
+        sprintf_s(fileName, 100, "%s\\%s.tiletree", szWorkDirTiles, id);
+        if(FileExists(fileName))
+            continue;
+
+        modelSpawns.clear();
+        tileModelSpawnSets.clear();
 
         WDTFile WDT(WorldMpq, fn, map_ids[i].name);
         if(WDT.init(id, map_ids[i].id))
         {
-            FILE *mapFile= NULL;
+            FILE *mapFile = NULL;
             fopen_s(&mapFile, fileName, "w+");
-            if(mapFile == NULL)
-                continue;
-
-            uint32 offsets[64][64];
-            memset(offsets, 0, sizeof(uint32)*64*64);
-            fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
-
-            std::string dots = "........";
-            for (uint8 x = 0, index = 0; x < 64; ++x)
+            if(mapFile)
             {
-                for (uint8 y = 0; y < 64; ++y)
+                fwrite(szRawMAPMagic, 10, 1, mapFile);
+
+                size_t offPos = ftell(mapFile), offs2 = 0;
+                uint32 offsets[64][64], vmapOffs = 0;
+                memset(offsets, 0, sizeof(uint32)*64*64);
+                fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
+                offs2 = ftell(mapFile);
+                fwrite(&vmapOffs, sizeof(uint32), 1, mapFile);
+
+                std::string dots = "........";
+                for (uint8 x = 0, index = 0; x < 64; ++x)
                 {
-                    if(ADTFile *ADT = WDT.GetADTMap(WorldMpq, x, y))
+                    for (uint8 y = 0; y < 64; ++y)
                     {
-                        // Parse our ADT file for chunk data
-                        size_t position = ftell(mapFile);
-                        if(ADT->parseCHNK(map_ids[i].id, x, y, mapFile))
-                            offsets[x][y] = position;
-                        delete ADT;
-                    }
+                        if(ADTFile *ADT = WDT.GetADTMap(WorldMpq, x, y))
+                        {
+                            // Parse our ADT file for chunk data
+                            size_t position = ftell(mapFile);
+                            if(ADT->parseCHNK(map_ids[i].id, x, y, mapFile))
+                                offsets[x][y] = position;
+                            delete ADT;
+                        }
 
-                    if (ADTFile *ADT = WDT.GetObjMap(WorldMpq, x, y))
-                    {
-                        // Parse our ADT object file for vwmo
-                        ADT->parseWMO(map_ids[i].id, x, y);
-                        delete ADT;
-                    }
+                        if (ADTFile *ADT = WDT.GetObjMap(WorldMpq, x, y))
+                        {
+                            // Parse our ADT object file for vwmo
+                            ADT->parseWMO(map_ids[i].id, x, y);
+                            delete ADT;
+                        }
 
-                    dots[index++] = '.';
-                    if(index == dots.length())
-                        index = 0;
-                    dots[index] = ' ';
-                    printf("Processing Map %03u/%03u - %s%s\r", i, map_count, map_ids[i].name, dots.c_str());
+                        // Cut down on updates
+                        if(y%16) continue;
+
+                        dots[index++] = '.';
+                        if(index == dots.length())
+                            index = 0;
+                        dots[index] = ' ';
+                        printf("Processing Map %03u/%03u - %s%s\r", i, map_count, map_ids[i].name, dots.c_str());
+                    }
                 }
-            }
 
-            printf("Map %03u/%03u - %s finished processing\n", i, map_count, map_ids[i].name);
-            fseek(mapFile, 0, SEEK_SET);
-            fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
-            fclose(mapFile);
+                // End of height map data
+                vmapOffs = ftell(mapFile);
+                fseek(mapFile, offPos, SEEK_SET);
+                fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
+                fseek(mapFile, offs2, SEEK_SET);
+                fwrite(&vmapOffs, sizeof(uint32), 1, mapFile);
+                fseek(mapFile, 0, SEEK_END);
+                writeVMapData(mapFile, map_ids[i].id, &modelSpawns, &tileModelSpawnSets);
+                fclose(mapFile);
+
+                printf("Map %03u/%03u - %s finished processing\n", i, map_count, map_ids[i].name);
+            }
         }
     }
 }
@@ -486,8 +493,6 @@ void getGamePath()
 // Arg1 - The source MPQ name (for testing reading and file find)
 // Arg2 - Listfile name
 //
-
-bool BuildTiles();
 
 int main(int argc, char ** argv)
 {
@@ -555,6 +560,7 @@ int main(int argc, char ** argv)
                 ParsMapFiles();
                 delete [] map_ids;
                 delete [] LiqType;
+
                 // Extract models, listed in GameObjectDisplayInfo.dbc
                 ExtractGameobjectModels();
             } else printf("FAILED TO OPEN MAP DBC");
@@ -563,6 +569,8 @@ int main(int argc, char ** argv)
 
     SFileCloseArchive(WorldMpq);
     SFileCloseArchive(LocaleMpq);
+    // Clean up vmap data
+    CleanupVMapData(success);
 
     printf("\n");
     if (!success)
@@ -571,9 +579,6 @@ int main(int argc, char ** argv)
         getchar();
         return 0;
     }
-
-    printf("Processing vmap tile generation\n");
-    BuildTiles();
 
     printf("Work complete. No errors.\n");
     getchar();

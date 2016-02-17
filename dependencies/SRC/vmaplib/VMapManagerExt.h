@@ -4,29 +4,7 @@
 
 #pragma once
 
-enum VMAP_gWMOFlags
-{
-    // WMO exists at this location
-    WMO_FLAG_WMO_EXISTS             = 0x0001,
-    // Inside, WMO minimap will be set
-    WMO_FLAG_INSIDE_WMO_BOUNDS      = 0x0004,
-    // Outside, WMO minimap is ignored
-    WMO_FLAG_OUTSIDE_WMO_BOUNDS     = 0x0008,
-    // Inside of a WMO flagged as a city
-    WMO_FLAG_INSIDE_CITY_WMO        = 0x0040,
-    // Inside of a WMO that is inside of another WMO
-    WMO_FLAG_INSIDE_SUB_WMO         = 0x0100,
-    // Seems constant when inside of WMO
-    WMO_FLAG_UNK800                 = 0x0800,
-    // Liquid exists for this WMO object
-    WMO_FLAG_HAS_WMO_LIQUID         = 0x1000,
-    // Seems constant when inside of WMO
-    WMO_FLAG_UNK2000                = 0x2000,
-    // No clue yet
-    WMO_FLAG_WMO_NO_INSIDE          = 0x8000,
-    // Seems to be Worldspawn WMO, client loads on map load, always in render etc
-    WMO_FLAG_HARDCODED_WORLDSPAWN   = 0x80000000,
-};
+#include "VMapDefinitions.h"
 
 namespace VMAP
 {
@@ -37,9 +15,9 @@ namespace VMAP
         virtual void LoadGameObjectModelList() = 0;
 
         // Static collision
-        virtual bool loadMap(unsigned int mapId, bool loadAll) = 0;
+        virtual bool loadMap(unsigned int mapId, FILE *file) = 0;
         virtual void unloadMap(unsigned int mapId) = 0;
-        virtual bool loadMap(unsigned int mapId, int x, int y) = 0;
+        virtual bool loadMap(unsigned int mapId, int x, int y, FILE *file) = 0;
         virtual void unloadMap(unsigned int mapId, int x, int y) = 0;
 
         // Dynamic collision

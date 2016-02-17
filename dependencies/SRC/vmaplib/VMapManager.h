@@ -64,7 +64,7 @@ namespace VMAP
     class VMapManager : public VMapManagerExt
     {
         protected:
-            std::string vMapTileDir, vMapObjDir;
+            std::string vMapObjDir;
             GOModelInstanceByGUID GOModelTracker;
 
             // Tree to check collision
@@ -82,9 +82,8 @@ namespace VMAP
         public:
             // public for debug
             static G3D::Vector3 convertPositionToInternalRep(float x, float y, float z);
-            static std::string getMapFileName(unsigned int mapId);
 
-            VMapManager(std::string vMapTileDir, std::string vMapObjDir);
+            VMapManager(std::string objDir);
             ~VMapManager(void);
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }
@@ -93,9 +92,9 @@ namespace VMAP
             void LoadGameObjectModelList();
 
             // Static collision
-            bool loadMap(unsigned int mapId, bool loadAll);
+            bool loadMap(unsigned int mapId, FILE *file);
             void unloadMap(unsigned int mapId);
-            bool loadMap(unsigned int mapId, int x, int y);
+            bool loadMap(unsigned int mapId, int x, int y, FILE *file);
             void unloadMap(unsigned int mapId, int x, int y);
 
             // Dynamic collision
@@ -119,11 +118,6 @@ namespace VMAP
             WorldModel* acquireModelInstance(const std::string& filename);
             void releaseModelInstance(const std::string& filename);
 
-            // what's the use of this? o.O
-            virtual std::string getDirFileName(unsigned int mapId, int /*x*/, int /*y*/) const
-            {
-                return getMapFileName(mapId);
-            }
         public:
             void getInstanceMapTree(InstanceTreeMap &instanceMapTree);
     };

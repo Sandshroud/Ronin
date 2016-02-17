@@ -49,7 +49,8 @@ typedef struct
     }
 }TileTerrainInformation;
 
-#define TERRAIN_HEADER_SIZE 16384    // size of [64][64] array.
+static const uint32 terrainHeaderSize = sizeof(uint32)*64*64; // size of [64][64] array.
+static const char *heightMapHeader = "HMAP434_1";
 #define NO_LAND_HEIGHT 999999.0f
 #define NO_WATER_HEIGHT -50000.0f
 
@@ -173,7 +174,7 @@ protected:
        Parameter 2: y co-ordinate of the tile information to load.
        Returns true if the tile information exists and was loaded, false if not.
       */
-    bool LoadTileInformation(uint32 x, uint32 y, FILE *input = NULL);
+    bool LoadTileInformation(uint32 x, uint32 y, FILE *input);
 
     /* Unloads the tile data at the specified co-ordinates and frees the memory.
        Parameter 1: x co-ordinate of the tile information to free.

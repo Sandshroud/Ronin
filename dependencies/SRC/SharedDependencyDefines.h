@@ -50,6 +50,10 @@
 #include <windows.h>
 #define RONIN_INLINE __forceinline
 
+#ifdef byte
+#undef byte
+#endif
+
 #ifndef SCRIPTLIB
 #define SERVER_DECL __declspec(dllexport)
 #define SCRIPT_DECL __declspec(dllimport)

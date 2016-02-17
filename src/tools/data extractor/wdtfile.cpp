@@ -47,15 +47,6 @@ bool WDTFile::init(char* /*map_id*/, unsigned int mapID)
     char fourcc[5];
     uint32 size;
 
-    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
-    FILE *dirfile = NULL;
-    fopen_s(&dirfile, dirname.c_str(), "ab");
-    if(!dirfile)
-    {
-        printf("Can't open dirfile!'%s'\n", dirname.c_str());
-        return false;
-    }
-
     while (!WDT.isEof())
     {
         WDT.read(fourcc,4);
@@ -100,7 +91,7 @@ bool WDTFile::init(char* /*map_id*/, unsigned int mapID)
                 {
                     int id;
                     WDT.read(&id, 4);
-                    WMOInstance inst(WDT,gWmoInstansName[id].c_str(), mapID, 65, 65, dirfile);
+                    WMOInstance inst(WDT,gWmoInstansName[id].c_str(), mapID, 65, 65);
                 }
 
                 delete[] gWmoInstansName;
@@ -110,7 +101,6 @@ bool WDTFile::init(char* /*map_id*/, unsigned int mapID)
     }
 
     WDT.close();
-    fclose(dirfile);
     return true;
 }
 
@@ -123,10 +113,10 @@ ADTFile* WDTFile::GetObjMap(HANDLE mpqarchive, int x, int z)
 {
     if(!(x>=0 && z >= 0 && x<64 && z<64))
         return NULL;
-
     char name[512];
-
     sprintf(name,"World\\Maps\\%s\\%s_%d_%d_obj0.adt", filename.c_str(), filename.c_str(), x, z);
+    if(!SFileHasFile(WorldMpq, name))
+        return NULL;
     return new ADTFile(mpqarchive, name);
 }
 
@@ -134,9 +124,9 @@ ADTFile* WDTFile::GetADTMap(HANDLE mpqarchive, int x, int z)
 {
     if(!(x>=0 && z >= 0 && x<64 && z<64))
         return NULL;
-
     char name[512];
-
     sprintf(name,"World\\Maps\\%s\\%s_%d_%d.adt", filename.c_str(), filename.c_str(), x, z);
+    if(!SFileHasFile(WorldMpq, name))
+        return NULL;
     return new ADTFile(mpqarchive, name);
 }

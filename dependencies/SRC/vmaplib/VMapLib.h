@@ -11,6 +11,8 @@
 #include <threading/Threading.h>
 
 // Include our VMap headers
+#include "ModelSpawn.h"
+
 #include "ModelInstance.h"
 
 #include "BIH.h"

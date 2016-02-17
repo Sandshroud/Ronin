@@ -12,10 +12,8 @@ using G3D::Vector3;
 
 namespace VMAP
 {
-    VMapManager::VMapManager(std::string tileDir, std::string objDir) : vMapTileDir(tileDir), vMapObjDir(objDir)
+    VMapManager::VMapManager(std::string objDir) : vMapObjDir(objDir)
     {
-        if(vMapTileDir.length() > 0 && vMapTileDir.at(vMapTileDir.length()-1) != '\\' && vMapTileDir.at(vMapTileDir.length()-1) != '/')
-            vMapTileDir.push_back('/');
         if(vMapObjDir.length() > 0 && vMapObjDir.at(vMapObjDir.length()-1) != '\\' && vMapObjDir.at(vMapObjDir.length()-1) != '/')
             vMapObjDir.push_back('/');
     }
@@ -40,25 +38,15 @@ namespace VMAP
         return pos;
     }
 
-    // move to MapTree too?
-    std::string VMapManager::getMapFileName(unsigned int mapId)
-    {
-        std::stringstream fname;
-        fname.width(3);
-        fname << std::setfill('0') << mapId << std::string(MAP_FILENAME_EXTENSION2);
-
-        return fname.str();
-    }
-
-    bool VMapManager::loadMap(unsigned int mapId, bool loadAll)
+    bool VMapManager::loadMap(unsigned int mapId, FILE *file)
     {
         if(iDummyMaps.find(mapId) != iDummyMaps.end())
             return false;
         InstanceTreeMap::iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree == iInstanceMapTrees.end())
         {
-            StaticMapTree* newTree = new StaticMapTree(mapId, vMapTileDir, getMapFileName(mapId));
-            if (!newTree->InitMap(this, loadAll))
+            StaticMapTree* newTree = new StaticMapTree(mapId);
+            if (!newTree->InitMap(this, file))
             {
                 iDummyMaps.insert(mapId);
                 delete newTree;
@@ -93,7 +81,7 @@ namespace VMAP
     }
 
     // load one tile (internal use only)
-    bool VMapManager::loadMap(unsigned int mapId, int x, int y)
+    bool VMapManager::loadMap(unsigned int mapId, int x, int y, FILE *file)
     {
         if(iDummyMaps.find(mapId) != iDummyMaps.end())
             return false;
@@ -102,7 +90,7 @@ namespace VMAP
         if (instanceTree == iInstanceMapTrees.end())
             return false;
 
-        return instanceTree->second->LoadMapTile(x, y, this);
+        return instanceTree->second->LoadMapTile(x, y, file, this);
     }
 
     // load one tile (internal use only)

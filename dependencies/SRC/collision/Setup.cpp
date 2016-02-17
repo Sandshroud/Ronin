@@ -6,7 +6,7 @@
 BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved ) { return TRUE; }
 #endif
 
-extern "C" __declspec(dllexport) VMAP::VMapManagerExt *vmap_manager_construction(std::string vmapDir)
+extern "C" __declspec(dllexport) VMAP::VMapManagerExt *vmap_manager_construction(std::string vmapObjDir)
 {
-    return new VMAP::VMapManager(vmapDir, vmapDir+"/obj");
+    return new VMAP::VMapManager(vmapObjDir);
 }
