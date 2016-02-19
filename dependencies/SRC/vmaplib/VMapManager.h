@@ -31,7 +31,7 @@ namespace VMAP
     class ManagedModel
     {
         public:
-            ManagedModel(WorldModel *model) : iModel(model), iRefCount(0), iInvalid(false), iLock() {}
+            ManagedModel(WorldModel *model) : iModel(model), iRefCount(0), iInvalid(false) {}
             ~ManagedModel() { delete iModel; }
 
             WorldModel *getModel() { return iModel; }
@@ -39,11 +39,8 @@ namespace VMAP
             int decRefCount() { return --iRefCount; }
             bool invalid() { return iInvalid; }
             void invalidate() { iInvalid = true; }
-            void lock() { iLock.lock(); }
-            void unlock() { iLock.unlock(); }
         protected:
             WorldModel *iModel;
-            G3D::GMutex iLock;
             bool iInvalid;
             int iRefCount;
     };
@@ -65,6 +62,7 @@ namespace VMAP
     {
         protected:
             std::string vMapObjDir;
+            std::set<std::string> DisabledModels;
             GOModelInstanceByGUID GOModelTracker;
 
             // Tree to check collision
@@ -75,7 +73,8 @@ namespace VMAP
             GOModelSpawnList GOModelList;
 
             // Mutex for iLoadedModelFiles
-            G3D::GMutex LoadedModelFilesLock;
+            G3D::GMutex LoadedModelFilesLock, filenameMutexlock;
+            std::map<std::string, std::pair<uint32, G3D::GMutex>> iModelNameLocks;
 
             bool _loadObject(DynamicMapTree* tree, G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::int32 m_phase);
 
@@ -115,8 +114,8 @@ namespace VMAP
             bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const;
             void GetLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &type, float &level) const;
 
-            WorldModel* acquireModelInstance(const std::string& filename);
-            void releaseModelInstance(const std::string& filename);
+            WorldModel* acquireModelInstance(std::string filename);
+            void releaseModelInstance(std::string filename);
 
         public:
             void getInstanceMapTree(InstanceTreeMap &instanceMapTree);

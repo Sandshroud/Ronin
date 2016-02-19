@@ -867,7 +867,14 @@ bool ChatHandler::HandleGOAnimProgress(const char * args, WorldSession * m_sessi
 
 bool ChatHandler::HandleNpcComeCommand(const char* args, WorldSession* m_session)
 {
+    Creature* unit = getSelectedCreature(m_session, false);
+    if(!unit)
+    {
+        SystemMessage(m_session, "You should select a creature.");
+        return true;
+    }
 
+    unit->MoveTo(m_session->GetPlayer()->GetPositionX(), m_session->GetPlayer()->GetPositionY(), m_session->GetPlayer()->GetPositionZ(), m_session->GetPlayer()->GetOrientation());
     return true;
 }
 

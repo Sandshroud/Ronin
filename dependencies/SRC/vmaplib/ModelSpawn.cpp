@@ -10,15 +10,14 @@ namespace VMAP
 {
     bool ModelSpawn::readFromFile(FILE* rf, ModelSpawn &spawn)
     {
-        G3D::uint32 check = fread(&spawn.flags, sizeof(G3D::uint32), 1, rf);
-        // EoF?
-        if (!check)
+        G3D::uint32 check = fread(&spawn.mapId, sizeof(G3D::uint32), 1, rf);
+        check += fread(&spawn.packedTile, sizeof(G3D::uint32), 1, rf);
+        if (check < 2) // EoF?
         {
             OUT_DETAIL("Error reading ModelSpawn flags!");
             return false;
         }
-        check += fread(&spawn.mapId, sizeof(G3D::uint32), 1, rf);
-        check += fread(&spawn.packedTile, sizeof(G3D::uint32), 1, rf);
+        check += fread(&spawn.flags, sizeof(G3D::uint32), 1, rf);
         check += fread(&spawn.adtId, sizeof(G3D::uint16), 1, rf);
         check += fread(&spawn.ID, sizeof(G3D::uint32), 1, rf);
         check += fread(&spawn.iPos, sizeof(float), 3, rf);

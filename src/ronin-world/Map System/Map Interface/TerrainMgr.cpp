@@ -216,7 +216,7 @@ bool TerrainMgr::LoadTerrainHeader()
         return false;
     }
 
-    if(mapId == 0 && vmapOffset && fileSize != vmapOffset)
+    if(vmapOffset && fileSize != vmapOffset)
     {
         fseek(FileDescriptor, vmapOffset, SEEK_SET);
         if(!sVMapInterface.ActivateMap(mapId, FileDescriptor))
@@ -276,6 +276,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                     }
                 } else fread(&tile->areaInfo, sizeof(uint16), 1, input);
 
+                tile->heightMultipier = 1.f;
                 fread(&tile->mapHeight[0], sizeof(float), 1, input);
                 if((flags[1] & 0x01) == 0)
                 {
@@ -305,7 +306,6 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                     }
                 } else tile->mapHeight[1] = tile->mapHeight[0];
 
-                tile->liquidData[4] = 0;
                 if((flags[2] & 0x01) == 0)
                 {
                     tile->short_LE = new TileTerrainInformation::sLE;
@@ -314,7 +314,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                     fread(&tile->byte_LI->LI, sizeof(uint8)*16*16, 1, input);
                 } else fread(&tile->liquidData[4], sizeof(uint8), 1, input);
 
-                tile->mapHeight[2] = 0.f;
+                tile->mapHeight[2] = NO_WATER_HEIGHT;
                 if((flags[2] & 0x02) == 0)
                 {
                     fread(&tile->liquidData, sizeof(uint8), 4, input);
@@ -384,11 +384,6 @@ float TerrainMgr::GetWaterHeight(float x, float y, float z)
         WaterHeight = GetLiquidHeight(x, y, GetTileInformation(TileX, TileY));
         if(WaterHeight == 0.0f && !(GetLiquidType(x, y, GetTileInformation(TileX, TileY)) & 0x02))
             WaterHeight = NO_WATER_HEIGHT;
-        else if(z != 0.0f && z != NO_WATER_HEIGHT)
-        {
-            if(z < GetHeight(x, y, GetTileInformation(TileX, TileY)))
-                WaterHeight = NO_WATER_HEIGHT;
-        }
     }
     mutex.Release();
     return WaterHeight;
@@ -471,14 +466,14 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
     mutex.Acquire();
     FILE *input = NULL;
     fopen_s(&input, file_name.c_str(), "rb");
-    if(input == NULL)
-        return;
-
-    if((++LoadCounter[tileX][tileY]) == 1)
-        LoadTileInformation(tileX, tileY, input);
-    sVMapInterface.ActivateTile(mapId, tileX, tileY, input);
-    sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
-    fclose(input);
+    if(input)
+    {
+        if((++LoadCounter[tileX][tileY]) == 1)
+            LoadTileInformation(tileX, tileY, input);
+        sVMapInterface.ActivateTile(mapId, tileX, tileY, input);
+        sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
+        fclose(input);
+    }
     mutex.Release();
 }
 
@@ -498,23 +493,23 @@ void TerrainMgr::LoadAllTerrain()
     mutex.Acquire();
     FILE *input = NULL;
     fopen_s(&input, file_name.c_str(), "rb");
-    if(input == NULL)
-        return;
-
-    sLog.Debug("TerrainMgr", "[%u]: Loading all terrain", mapId);
-    for(uint8 x = 0; x < 64; x++)
+    if(input)
     {
-        for(uint8 y = 0; y < 64; y++)
+        sLog.Debug("TerrainMgr", "[%u]: Loading all terrain", mapId);
+        for(uint8 x = 0; x < 64; x++)
         {
-            LoadCounter[x][y]++;
-            LoadTileInformation(x, y, input);
-            sVMapInterface.ActivateTile(mapId, x, y, input);
-            sNavMeshInterface.LoadNavMesh(mapId, x, y);
+            for(uint8 y = 0; y < 64; y++)
+            {
+                LoadCounter[x][y]++;
+                LoadTileInformation(x, y, input);
+                sVMapInterface.ActivateTile(mapId, x, y, input);
+                sNavMeshInterface.LoadNavMesh(mapId, x, y);
+            }
         }
+        fclose(input);
+        sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
     }
-    fclose(input);
     mutex.Release();
-    sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
 }
 
 void TerrainMgr::UnloadAllTerrain(bool forced)

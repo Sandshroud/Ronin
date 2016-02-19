@@ -21,7 +21,7 @@ public: // Navmesh settings
     bool LoadNavMesh(uint32 mapid, uint32 x, uint32 y);
     void UnloadNavMesh(uint32 mapid, uint32 x, uint32 y);
     bool IsNavmeshLoaded(uint32 mapid, uint32 x, uint32 y);
-    bool IsNavmeshLoadedAtPosition(uint32 mapid, float x, float y) { if(!AreCoordinatesValid(x, y)) return false; return IsNavmeshLoaded(mapid, (GetPosX(x)/8), (GetPosY(y)/8)); };
+    bool IsNavmeshLoadedAtPosition(uint32 mapid, float x, float y);
 
     float GetWalkingHeight(uint32 mapid, float positionx, float positiony, float positionz, float positionz2);
     bool BuildPath(uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, Position& out);

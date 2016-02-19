@@ -109,23 +109,23 @@ WDTFile::~WDTFile(void)
     WDT.close();
 }
 
-ADTFile* WDTFile::GetObjMap(HANDLE mpqarchive, int x, int z)
+ADTFile* WDTFile::GetObjMap(HANDLE mpqarchive, int x, int y)
 {
-    if(!(x>=0 && z >= 0 && x<64 && z<64))
+    if(!(x>=0 && y >= 0 && x<64 && y<64))
         return NULL;
     char name[512];
-    sprintf(name,"World\\Maps\\%s\\%s_%d_%d_obj0.adt", filename.c_str(), filename.c_str(), x, z);
+    sprintf(name,"World\\Maps\\%s\\%s_%d_%d_obj0.adt", filename.c_str(), filename.c_str(), x, y);
     if(!SFileHasFile(WorldMpq, name))
         return NULL;
     return new ADTFile(mpqarchive, name);
 }
 
-ADTFile* WDTFile::GetADTMap(HANDLE mpqarchive, int x, int z)
+ADTFile* WDTFile::GetADTMap(HANDLE mpqarchive, int x, int y)
 {
-    if(!(x>=0 && z >= 0 && x<64 && z<64))
+    if(!(x>=0 && y >= 0 && x<64 && y<64))
         return NULL;
     char name[512];
-    sprintf(name,"World\\Maps\\%s\\%s_%d_%d.adt", filename.c_str(), filename.c_str(), x, z);
+    sprintf(name,"World\\Maps\\%s\\%s_%d_%d.adt", filename.c_str(), filename.c_str(), y, x);
     if(!SFileHasFile(WorldMpq, name))
         return NULL;
     return new ADTFile(mpqarchive, name);

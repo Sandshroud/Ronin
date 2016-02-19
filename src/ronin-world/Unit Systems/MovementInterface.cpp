@@ -610,7 +610,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
     float WaterHeight = NO_WATER_HEIGHT;
     m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, WaterHeight, WaterType);
     if (WaterHeight == NO_WATER_HEIGHT)
-        m_underwaterState &= ~0xD0;
+        m_underwaterState &= ~0xFF;
     else
     {
         float HeightDelta = (WaterHeight-m_Unit->GetPositionZ())*10;
@@ -639,7 +639,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
         else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
     }
 
-    if(!m_Unit->IsPlayer() || (old_underwaterState == 0 && m_underwaterState == 0))
+    if(!m_Unit->IsPlayer())
         return;
 
     Player *plr = castPtr<Player>(m_Unit);

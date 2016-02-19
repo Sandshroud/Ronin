@@ -286,7 +286,7 @@ float selectUInt16StepStore(float maxDiff)
 
 extern uint16 *LiqType;
 
-bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output)
+bool ADTFile::parseCHNK(FILE *output)
 {
     if(ADT.isEof ())
         return false;
@@ -323,23 +323,23 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
             if (!strcmp(fourcc,"MVER"))
                 ADT.read(&adtVersion, sizeof(uint32));
             else if (!strcmp(fourcc,"MHDR"))
-            { }// MHDR is after version header, contaiins offset data for parsing the ADT file
+            { }// MHDR is after version header, contains offset data for parsing the ADT file
             else if (!strcmp(fourcc,"MCNK"))
             {
                 MapChunkHeader header;
                 ADT.read(&header, sizeof(MapChunkHeader));
-                area_entry[header.ix][header.iy] = header.areaid;
-                holes[header.ix][header.iy] = header.holes;
+                area_entry[header.iy][header.ix] = header.areaid;
+                holes[header.iy][header.ix] = header.holes;
                 if(header.offsMCVT)
                 {
                     ADT.seek(currPos+header.offsMCVT);
                     for(uint8 i = 0, idx = 0; i < 8+9; i++)
                     {
                         if(i%2 == 0)
-                            ADT.read(&V9[(header.ix*8)+idx][(header.iy*8)], sizeof(float)*9);
+                            ADT.read(&V9[(header.iy*8)+idx][(header.ix*8)], sizeof(float)*9);
                         else
                         {
-                            ADT.read(&V8[(header.ix*8)+idx][(header.iy*8)], sizeof(float)*8);
+                            ADT.read(&V8[(header.iy*8)+idx][(header.ix*8)], sizeof(float)*8);
                             idx++;
                         }
                     }
@@ -347,23 +347,23 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
                     {
                         for(uint8 y = 0; y < 9; y++)
                         {
-                            V9[(header.ix*8)+x][(header.iy*8)+y] += header.ypos;
+                            V9[(header.iy*8)+x][(header.ix*8)+y] += header.ypos;
                             if(x == 8 || y == 8)
                                 continue;
-                            V8[(header.ix*8)+x][(header.iy*8)+y] += header.ypos;
+                            V8[(header.iy*8)+x][(header.ix*8)+y] += header.ypos;
                         }
                     }
                 }
 
                 if(header.flags & 0x04)
-                    liquid_flags[header.ix][header.iy] |= MAP_LIQUID_TYPE_WATER;
+                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_WATER;
                 if(header.flags & 0x08)
-                    liquid_flags[header.ix][header.iy] |= MAP_LIQUID_TYPE_OCEAN;
+                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_OCEAN;
                 if(header.flags & 0x10)
-                    liquid_flags[header.ix][header.iy] |= MAP_LIQUID_TYPE_MAGMA;
+                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_MAGMA;
                 if(header.flags & 0x20)
-                    liquid_flags[header.ix][header.iy] |= MAP_LIQUID_TYPE_SLIME;
-                MCLQChunkOffsets[header.ix][header.iy] = (header.sizeMCLQ > 8 && header.offsMCLQ ? currPos+header.offsMCLQ : 0);
+                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_SLIME;
+                MCLQChunkOffsets[header.iy][header.ix] = (header.sizeMCLQ > 8 && header.offsMCLQ ? currPos+header.offsMCLQ : 0);
             }
             else if (!strcmp(fourcc,"MFBO"))
             {   // Flight box
@@ -398,8 +398,54 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
     {
         for(uint8 cy = 0; cy < 16; cy++)
         {
-            // Pre wotlk water chunks
-            if(MCLQChunkOffsets[cx][cy])
+            // MH2O chunks take priority over MCLQ so we handle them second in case of overrides
+            if(mh2oBase && MH2OChunkOffsets[cx][cy])
+            {
+                ADT.seek(mh2oBase+MH2OChunkOffsets[cx][cy]);
+                MH2O_liquid_header mh2oHeader;
+                ADT.read(&mh2oHeader, sizeof(MH2O_liquid_header));
+                uint64 mask = 0xFFFFFFFFFFFFFFFF;
+                if(mh2oHeader.offsData2a)
+                {
+                    ADT.seek(mh2oBase+mh2oHeader.offsData2a);
+                    ADT.read(&mask, sizeof(uint64));
+                }
+                bool readHeight = false;
+                if(readHeight = ((mh2oHeader.formatFlags&0x02) == 0 && mh2oHeader.offsData2b > 0))
+                    ADT.seek(mh2oBase+mh2oHeader.offsData2b);
+
+                for(uint8 y = 0; y <= mh2oHeader.height; y++)
+                {
+                    uint8 ci = (cy*8)+y+mh2oHeader.yOffset;
+                    for(uint8 x = 0; x <= mh2oHeader.width; x++)
+                    {
+                        uint8 cj = (cx*8)+x+mh2oHeader.xOffset;
+                        if(readHeight)
+                            ADT.read(&liquid_height[ci][cj], sizeof(float));
+                        else liquid_height[ci][cj] = mh2oHeader.heightLevel1;
+                        if(y == 8 || x == 8)
+                            continue;
+
+                        if(mask & 1)
+                            liquid_show[ci][cj] = true;
+                        mask>>=1;
+                    }
+                }
+
+                uint32 type = LiqType[mh2oHeader.liquidType];
+                switch(type)
+                {
+                case 0: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_WATER; break;
+                case 2: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_MAGMA; break;
+                case 3: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_SLIME; break;
+                case 1:
+                    liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_OCEAN;
+                    if((mh2oHeader.formatFlags & 0x01) || !mh2oHeader.offsData2b)
+                        liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_DARK_WATER;
+                    break;
+                }
+            }
+            else if(MCLQChunkOffsets[cx][cy]) // Pre wotlk water chunks
             {
                 ADT.seek(MCLQChunkOffsets[cx][cy]);
                 MCLQinformation mclqChunk;
@@ -419,53 +465,6 @@ bool ADTFile::parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output
                                 liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_DARK_WATER;
                         }
                     }
-                }
-            }
-
-            // MH2O chunks take priority over MCLQ so we handle them second in case of overrides
-            if(mh2oBase && MH2OChunkOffsets[cx][cy])
-            {
-                ADT.seek(mh2oBase+MH2OChunkOffsets[cx][cy]);
-                MH2O_liquid_header mh2oHeader;
-                ADT.read(&mh2oHeader, sizeof(MH2O_liquid_header));
-                uint64 mask = 0xFFFFFFFFFFFFFFFF;
-                if(mh2oHeader.offsData2a)
-                {
-                    ADT.seek(mh2oBase+mh2oHeader.offsData2a);
-                    ADT.read(&mask, sizeof(uint64));
-                }
-                bool readHeight = false;
-                if(readHeight = ((mh2oHeader.formatFlags&0x02) == 0 && mh2oHeader.offsData2b > 0))
-                    ADT.seek(mh2oBase+mh2oHeader.offsData2b);
-
-                for(uint8 x = 0; x <= mh2oHeader.height; x++)
-                {
-                    uint8 chunkX = (cx*8)+x+mh2oHeader.xOffset;
-                    for(uint8 y = 0; y <= mh2oHeader.width; y++)
-                    {
-                        uint8 chunkY = (cy*8)+y+mh2oHeader.yOffset;
-                        if(readHeight)
-                            ADT.read(&liquid_height[chunkX][chunkY], sizeof(float));
-                        else liquid_height[chunkX][chunkY] = mh2oHeader.heightLevel1;
-                        if(x == 8 || y == 8)
-                            continue;
-
-                        if(mask & (1<<((x*8)+y)))
-                            liquid_show[(cx*8)+x+mh2oHeader.xOffset][(cy*8)+y+mh2oHeader.yOffset] = true;
-                    }
-                }
-
-                uint32 type = LiqType[mh2oHeader.liquidType];
-                switch(type)
-                {
-                case 0: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_WATER; break;
-                case 2: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_MAGMA; break;
-                case 3: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_SLIME; break;
-                case 1:
-                    liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_OCEAN;
-                    if((mh2oHeader.formatFlags & 0x01) || !mh2oHeader.offsData2b)
-                        liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_DARK_WATER;
-                    break;
                 }
             }
         }

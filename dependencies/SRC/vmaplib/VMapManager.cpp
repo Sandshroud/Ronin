@@ -330,49 +330,66 @@ namespace VMAP
         }
     }
 
-    WorldModel* VMapManager::acquireModelInstance(const std::string& filename)
+    WorldModel* VMapManager::acquireModelInstance(std::string filename)
     {
         //! Critical section, thread safe access to iLoadedModelFiles
         ManagedModel *retContainer = NULL;
+        filenameMutexlock.lock();
+        if(iModelNameLocks.find(filename) == iModelNameLocks.end())
+            iModelNameLocks[filename].first = 0;
+        iModelNameLocks[filename].first++;
+        filenameMutexlock.unlock();
+        iModelNameLocks[filename].second.lock();
+
         LoadedModelFilesLock.lock();
-
-        ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
-        if(model != iLoadedModelFiles.end())
+        if(DisabledModels.find(filename) == DisabledModels.end())
         {
-            (retContainer = model->second)->incRefCount();
-            if(retContainer->invalid() && retContainer->decRefCount() == 0)
+            ModelFileMap::iterator model = iLoadedModelFiles.find(filename);
+            if(model == iLoadedModelFiles.end())
             {
-                delete retContainer;
-                iLoadedModelFiles.erase(model);
+                retContainer = new ManagedModel(new WorldModel());
+                LoadedModelFilesLock.unlock();
+
+                bool res = retContainer->getModel()->readFile(vMapObjDir + filename + ".vmo");
+                LoadedModelFilesLock.lock();
+                if(res == true)
+                {
+                    OUT_DEBUG("VMapManager: loading file '%s%s'", vMapObjDir.c_str(), filename.c_str());
+                    model = iLoadedModelFiles.insert(std::make_pair(filename, retContainer)).first;
+                }
+                else
+                {
+                    OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vMapObjDir.c_str(), filename.c_str());
+                    DisabledModels.insert(filename);
+                    retContainer->invalidate();
+                    if(retContainer->decRefCount() == 0)
+                        delete retContainer;
+                    retContainer = NULL;
+                }
             }
-            LoadedModelFilesLock.unlock();
-        }
-        else
-        {
-            retContainer = new ManagedModel(new WorldModel());
-            retContainer->incRefCount();
-            retContainer->lock();
-            model = iLoadedModelFiles.insert(std::make_pair(filename, retContainer)).first;
-            LoadedModelFilesLock.unlock();
 
-            bool res = retContainer->getModel()->readFile(vMapObjDir + filename + ".vmo");
-            LoadedModelFilesLock.lock();
-            retContainer->unlock();
-            if(res == false)
-            {
-                OUT_DEBUG("VMapManager: could not load '%s%s.vmo'!", vMapObjDir.c_str(), filename.c_str());
-                retContainer->invalidate();
-                if(retContainer->decRefCount() == 0)
-                    delete retContainer;
-                retContainer = NULL;
-            } else OUT_DEBUG("VMapManager: loading file '%s%s'", vMapObjDir.c_str(), filename.c_str());
-            LoadedModelFilesLock.unlock();
+            if(model != iLoadedModelFiles.end())
+                (retContainer = model->second)->incRefCount();
         }
+        LoadedModelFilesLock.unlock();
+
+        filenameMutexlock.lock();
+        iModelNameLocks[filename].second.unlock();
+        if((--iModelNameLocks[filename].first) == 0)
+            iModelNameLocks.erase(filename);
+        filenameMutexlock.unlock();
         return retContainer ? retContainer->getModel() : NULL;
     }
 
-    void VMapManager::releaseModelInstance(const std::string &filename)
+    void VMapManager::releaseModelInstance(std::string filename)
     {
+        filenameMutexlock.lock();
+        if(iModelNameLocks.find(filename) == iModelNameLocks.end())
+            iModelNameLocks[filename].first = 0;
+        iModelNameLocks[filename].first++;
+        filenameMutexlock.unlock();
+        iModelNameLocks[filename].second.lock();
+
         //! Critical section, thread safe access to iLoadedModelFiles
         LoadedModelFilesLock.lock();
         ModelFileMap::iterator model;
@@ -387,6 +404,12 @@ namespace VMAP
             }
         }
         LoadedModelFilesLock.unlock();
+
+        filenameMutexlock.lock();
+        iModelNameLocks[filename].second.unlock();
+        if((--iModelNameLocks[filename].first) == 0)
+            iModelNameLocks.erase(filename);
+        filenameMutexlock.unlock();
     }
 
     void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid)

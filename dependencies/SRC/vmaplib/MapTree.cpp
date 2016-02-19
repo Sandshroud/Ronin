@@ -265,7 +265,7 @@ namespace VMAP
             {
                 iNTreeValues = iTree.primCount();
                 iTreeValues = new ModelInstance[iNTreeValues];
-                for(auto it = spawnMap.begin(); it != spawnMap.end(); it++)
+                for(std::map<uint32, ModelSpawn>::iterator it = spawnMap.begin(); it != spawnMap.end(); it++)
                 {
                     OUT_DEBUG("StaticMapTree::InitMap() : loading %s", it->second.name.c_str());
                     if (WorldModel* model = vm->acquireModelInstance(it->second.name))

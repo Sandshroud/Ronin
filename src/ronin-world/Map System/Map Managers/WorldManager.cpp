@@ -229,7 +229,6 @@ void WorldManager::_CreateMap(MapEntry *mapEntry)
     if(mapEntry->IsContinent())
     {
         _InitializeContinent(mapEntry, map);
-        return;
         if(sWorld.ServerPreloading)
             map->LoadAllTerrain();
     }

@@ -26,7 +26,7 @@ void CNavMeshInterface::DeInit()
 
 MMapManagerExt* CNavMeshInterface::GetOrCreateMMapManager(uint32 mapid)
 {
-    if(sWorld.PathFinding == false)
+    if(sWorld.PathFinding == false || allocator == NULL)
         return NULL;
     if(m_maps.find(mapid) == m_maps.end())
     {
@@ -42,6 +42,13 @@ bool CNavMeshInterface::IsNavmeshLoaded(uint32 mapid, uint32 x, uint32 y)
     if(MMapManagerExt* mmap = GetOrCreateMMapManager(mapid))
         return mmap->IsNavmeshLoaded(x, y);
     return false;
+}
+
+bool CNavMeshInterface::IsNavmeshLoadedAtPosition(uint32 mapid, float x, float y)
+{
+    if(!AreCoordinatesValid(x, y))
+        return false;
+    return IsNavmeshLoaded(mapid, (GetPosX(x)/8), (GetPosY(y)/8));
 }
 
 bool CNavMeshInterface::LoadNavMesh(uint32 mapid, uint32 x, uint32 y)

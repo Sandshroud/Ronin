@@ -91,7 +91,7 @@ public:
     int nWMO, nMDX;
     std::map<uint32, std::string*> WMOInstanceNameMap, ModelInstanceNameMap;
 
-    bool parseCHNK(uint32 map_num, uint32 tileX, uint32 tileY, FILE *output);
+    bool parseCHNK(FILE *output);
     void parseWMO(uint32 map_num, uint32 tileX, uint32 tileY);
 };
 

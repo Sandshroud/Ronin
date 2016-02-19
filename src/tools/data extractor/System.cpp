@@ -436,9 +436,9 @@ void ParsMapFiles()
                         if(ADTFile *ADT = WDT.GetADTMap(WorldMpq, x, y))
                         {
                             // Parse our ADT file for chunk data
-                            size_t position = ftell(mapFile);
-                            if(ADT->parseCHNK(map_ids[i].id, x, y, mapFile))
-                                offsets[x][y] = position;
+                            size_t pos = ftell(mapFile);
+                            if(ADT->parseCHNK(mapFile))
+                                offsets[x][y] = pos;
                             delete ADT;
                         }
 
