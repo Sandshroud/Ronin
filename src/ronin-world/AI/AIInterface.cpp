@@ -168,17 +168,6 @@ void AIInterface::AttackReaction(Unit* pUnit, uint32 damage_dealt, uint32 spellI
     if( m_Unit == pUnit || m_Unit->IsVehicle() )
         return;
 
-    uint32 threat = _CalcThreat(damage_dealt, spellId ? dbcSpell.LookupEntry(spellId) : NULL, pUnit);
-    if( m_AIState == STATE_IDLE || m_AIState == STATE_FOLLOWING )
-    {
-        WipeTargetList();
-
-        HandleEvent(EVENT_ENTERCOMBAT, pUnit, 0);
-        if(!threat)
-            threat = 1;
-    }
-
-    HandleEvent(EVENT_DAMAGETAKEN, pUnit, threat);
 }
 
 bool AIInterface::HealReaction(Unit* caster, Unit* victim, uint32 amount, SpellEntry * sp)

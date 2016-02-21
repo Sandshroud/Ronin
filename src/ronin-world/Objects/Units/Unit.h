@@ -299,7 +299,7 @@ public:
     bool __fastcall validateAttackTarget(WorldObject *target);
     bool __fastcall calculateAttackRange(WeaponDamageType type, float &minRange, float &maxRange, SpellEntry *sp = NULL);
     bool __fastcall canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId = 0);
-    void resetAttackTimer(uint8 typeMask);
+    void resetAttackTimer(uint8 attackType);
     void resetAttackDelay(uint8 typeMask);
     void interruptAttackTimer(int16 delay)
     {
@@ -438,6 +438,7 @@ public:
 
     RONIN_INLINE bool IsAttacking() { return !m_attackTarget.empty(); }
 
+    bool UpdateAutoAttackState();
     void EventAttack(Unit *target, WeaponDamageType attackType);
     void EventAttackStart(WoWGuid guid);
     void EventAttackStop();
@@ -807,11 +808,8 @@ public:
     uint32 m_combatStopTimer;
 
 protected:
-    LocationVector m_lastAreaPosition;
-    uint32 m_AreaUpdateTimer;
-
-protected:
     MovementInterface m_movementInterface;
+    LocationVector m_lastAreaPosition;
 
 public:
     void _UpdateSpells(uint32 time);
@@ -822,7 +820,7 @@ public:
     WoWGuid m_attackTarget;
     bool m_dualWield, m_autoShot;
     uint32 m_attackUpdateTimer;
-    uint16 m_attackInterrupt, m_attackTimer[3], m_attackDelay[3];
+    uint16 m_attackInterrupt, m_attackTimer[2], m_attackDelay[2];
     SpellEntry *m_autoShotSpell;
 
     /// Combat

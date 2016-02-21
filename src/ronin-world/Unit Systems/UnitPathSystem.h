@@ -12,20 +12,26 @@ struct MovementPoint
     uint32 timeStamp;
 };
 
+
 class UnitPathSystem
 {
-public:
+public: // Class defines
+    static float fInfinite;
+
+public: // Class functions
     UnitPathSystem(Unit *unit);
     ~UnitPathSystem();
 
     void Update(uint32 msTime, uint32 uiDiff);
 
+    bool GetDestination(float &x, float &y, float *z = NULL);
+
 private:
     void _CleanupPath();
 
 public:
-    void MoveToPoint(float x, float y, float z, float o);
-    void ResumeOrStopMoving();
+    void MoveToPoint(float x, float y, float z, float o = fInfinite);
+    void StopMoving();
 
     void BroadcastMovementPacket();
     void SendMovementPacket(Player *plr);

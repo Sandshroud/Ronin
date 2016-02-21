@@ -2111,7 +2111,6 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
     u_caster->addStateFlag(UF_ATTACKING);
     if(WoWGuid guid = unitTarget->GetGUID())
         u_caster->EventAttackStart(guid);
-    u_caster->resetAttackTimer(0xFF);
 }
 
 void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target, int32 amount)

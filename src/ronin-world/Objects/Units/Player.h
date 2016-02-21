@@ -1400,6 +1400,9 @@ public:
     void UpdateNearbyQuestGivers();
     void EventMassSummonReset() { m_massSummonEnabled = false; }
 
+    uint8 GetLastSwingError() { return m_lastSwingError; }
+    void SetLastSwingError(uint8 error) { m_lastSwingError = error; }
+
     bool m_massSummonEnabled;
 
     RONIN_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, GetUInt32Value(index)); };
@@ -1424,6 +1427,7 @@ public:
     RONIN_INLINE void SetSoulStone(uint32 StoneID){SoulStone = StoneID;}
 
     bool bReincarnation;
+    uint8 m_lastSwingError;
 
     int32 rageFromDamageDealt;
     // GameObject commands

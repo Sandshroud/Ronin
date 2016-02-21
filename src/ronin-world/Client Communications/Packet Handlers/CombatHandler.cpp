@@ -44,6 +44,7 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     }
 
     _player->EventAttackStart(guid);
+    pEnemy->EventAttackStart(_player->GetGUID());
 }
 
 void WorldSession::HandleAttackStopOpcode( WorldPacket & recv_data )

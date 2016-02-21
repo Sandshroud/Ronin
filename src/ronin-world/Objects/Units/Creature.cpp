@@ -32,6 +32,9 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
+    m_AreaUpdateTimer = 0;
+    m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
+
     m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
     m_noDeleteAfterDespawn = false; // 0x08
@@ -71,7 +74,20 @@ void Creature::Destruct()
 
 void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
+    m_AreaUpdateTimer += uiDiff;
+    if(m_AreaUpdateTimer >= 5000)
+    {
+        if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
+        {
+            // Update our area id and position
+            UpdateAreaInfo();
+            m_lastAreaPosition = GetPosition();
+        }
+        m_AreaUpdateTimer = 0;
+    }
+
     Unit::Update(msTime, uiDiff);
+
 
     if(isDead())
     {

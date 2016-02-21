@@ -12,8 +12,8 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_updateFlags |= UPDATEFLAG_LIVING;
 
     m_attackInterrupt = 0;
-    memset(&m_attackTimer, 0, sizeof(uint16)*3);
-    memset(&m_attackDelay, 0, sizeof(uint16)*3);
+    memset(&m_attackTimer, 0, sizeof(uint16)*2);
+    memset(&m_attackDelay, 0, sizeof(uint16)*2);
     m_dualWield = m_autoShot = false;
 
     baseStats = NULL;
@@ -51,8 +51,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_instanceInCombat = false;
     m_combatStopTimer = 0;
     m_attackUpdateTimer = 0;
-    m_AreaUpdateTimer = 0;
-    m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
     m_emoteState = 0;
     m_oldEmote = 0;
 
@@ -84,7 +82,7 @@ void Unit::Init()
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
-    SetFloatValue(UNIT_FIELD_COMBATREACH, !IsPlayer() ? 5.f : 1.5f );
+    SetFloatValue(UNIT_FIELD_COMBATREACH, 5.f );
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
@@ -122,19 +120,14 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
     if(isDead())
         return;
 
-    if(!IsPlayer())
+    // Update attack timers
+    for(uint8 i = 0; i < 2; i++)
     {
-        m_AreaUpdateTimer += uiDiff;
-        if(m_AreaUpdateTimer >= 5000)
-        {
-            if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
-            {
-                // Update our area id and position
-                UpdateAreaInfo();
-                m_lastAreaPosition = GetPosition();
-            }
-            m_AreaUpdateTimer = 0;
-        }
+        if(m_attackDelay[i] == 0)
+            continue;
+        if(m_attackTimer[i] >= uiDiff)
+            m_attackTimer[i] -= uiDiff;
+        else m_attackTimer[i] = 0;
     }
 
     if(!m_instanceInCombat && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
@@ -144,92 +137,6 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
             m_combatStopTimer = 0;
             RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
         } else m_combatStopTimer -= uiDiff;
-    }
-
-    if(!isCasting())
-    {
-        m_attackUpdateTimer += uiDiff;
-        if(m_attackUpdateTimer >= 200)
-        {
-            uint32 diff = m_attackUpdateTimer;
-            m_attackUpdateTimer = 0;
-
-            if(m_attackInterrupt)
-            {
-                if(m_attackInterrupt > diff)
-                    m_attackInterrupt -= diff;
-                else m_attackInterrupt = 0;
-            }
-
-            if(m_attackInterrupt == 0)
-            {
-                if(m_attackTarget.empty())
-                {
-                    if(m_attackDelay[0])
-                        m_attackTimer[0] = std::min<uint32>(m_attackDelay[0], m_attackTimer[0]+diff);
-                    if(m_dualWield && m_attackDelay[1])
-                        m_attackTimer[1] = std::min<uint32>(m_attackDelay[1], m_attackTimer[1]+diff);
-                    if(m_attackTimer[2] <= diff)
-                        m_attackTimer[2] = 0;
-                    else m_attackTimer[2] -= diff;
-                }
-                else
-                {
-                    Unit *target = GetInRangeObject<Unit>(m_attackTarget);
-                    if(!validateAttackTarget(target))
-                        EventAttackStop();
-                    else
-                    {
-                        if(m_attackDelay[0])
-                        {
-                            m_attackTimer[0] += diff;
-                            if(m_attackTimer[0] >= m_attackDelay[0])
-                            {
-                                m_attackTimer[0] = m_attackDelay[0];
-                                if(canReachWithAttack(MELEE, target))
-                                {
-                                    EventAttack(target, MELEE);
-                                    m_attackTimer[0] = 0;
-                                    if(m_dualWield && m_attackTimer[1] > 800)
-                                        m_attackTimer[1] -= 800;
-                                    else m_attackTimer[1] = 0;
-                                }
-                            }
-                        }
-
-                        if(m_dualWield && m_attackDelay[1])
-                        {
-                            m_attackTimer[1] += diff;
-                            if(m_attackTimer[1] >= m_attackDelay[1])
-                            {
-                                m_attackTimer[1] = m_attackDelay[1];
-                                if(canReachWithAttack(OFFHAND, target))
-                                {
-                                    EventAttack(target, OFFHAND);
-                                    m_attackTimer[1] = 0;
-                                }
-                            }
-                        }
-
-                        if(m_autoShotSpell && m_attackDelay[2])
-                        {
-                            if(m_attackTimer[2] <= diff)
-                                m_attackTimer[2] = 0;
-                            else m_attackTimer[2] -= diff;
-
-                            if( m_autoShot && m_attackTimer[2] == 0 )
-                            {
-                                if(canReachWithAttack(RANGED_AUTOSHOT, target, m_autoShotSpell->Id))
-                                {
-                                    EventAttack(target, RANGED);
-                                    m_attackTimer[2] = m_attackDelay[2];
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /*-----------------------POWER & HP REGENERATION-----------------*/
@@ -1228,20 +1135,14 @@ bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32
     return (distance > minRange) && (distance <= maxRange);
 }
 
-void Unit::resetAttackTimer(uint8 typeMask)
+void Unit::resetAttackTimer(uint8 attackType)
 {
-    for(uint8 i = 0; i < 3; i++)
-    {
-        if((typeMask & 1<<i) == 0)
-            continue;
-
-        m_attackTimer[i] = 0;
-    }
+    m_attackTimer[attackType] = m_attackDelay[attackType];
 }
 
 void Unit::resetAttackDelay(uint8 typeMask)
 {
-    for(uint8 i = 0; i < 3; i++)
+    for(uint8 i = 0; i < 2; i++)
     {
         if((typeMask & 1<<i) == 0)
             continue;
@@ -2558,6 +2459,64 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------extra strikes processing----------------------------------------
 }
 
+bool Unit::UpdateAutoAttackState()
+{
+    if(m_attackTarget.empty())
+        return false;
+
+    Unit* victim = GetInRangeObject<Unit>(m_attackTarget);
+    if (!victim || isCasting())
+        return false;
+
+    if(m_attackTimer[MELEE] != 0 && !(m_dualWield && m_attackTimer[OFFHAND] == 0))
+        return false;
+
+    uint8 swingError = 0;
+    if (!canReachWithAttack(MELEE, victim))
+    {
+        m_attackTimer[MELEE] = m_attackTimer[OFFHAND] = 100;
+        swingError = 1;
+    } // 120 degrees of radiant range
+    else if (!isTargetInFront(victim))
+    {
+        m_attackTimer[MELEE] = m_attackTimer[OFFHAND] = 100;
+        swingError = 2;
+    }
+    else
+    {
+        if (m_attackTimer[0] == 0)
+        {
+            // prevent base and off attack in same time, delay attack at 0.2 sec
+            if (m_dualWield && m_attackTimer[OFFHAND] < 200)
+                m_attackTimer[OFFHAND] = 200;
+            EventAttack(victim, MELEE);
+            resetAttackTimer(MELEE);
+        }
+
+        if (m_dualWield && m_attackTimer[1] == 0)
+        {
+            // prevent base and off attack in same time, delay attack at 0.2 sec
+            if (m_attackTimer[MELEE] < 200) m_attackTimer[MELEE] = 200;
+            // do attack
+            EventAttack(victim, OFFHAND);
+            resetAttackTimer(OFFHAND);
+        }
+    }
+
+    Player *plr = NULL;
+    if(swingError && (plr = IsPlayer() ? castPtr<Player>(this) : NULL) != NULL && plr->GetLastSwingError() != swingError)
+    {
+        WorldPacket data;
+        if (swingError == 1)
+            plr->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
+        else if (swingError == 2)
+            plr->GetSession()->OutPacket(SMSG_ATTACKSWING_NOTINRANGE);
+        plr->SetLastSwingError(swingError);
+    }
+
+    return swingError == 0;
+}
+
 void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
     m_combatStopTimer = std::max<uint32>(m_combatStopTimer, 5000);
@@ -2575,16 +2534,26 @@ void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 void Unit::EventAttackStart(WoWGuid guid)
 {
     m_attackTarget = guid;
+    addStateFlag(UF_ATTACKING);
     smsg_AttackStart(m_attackTarget);
     Dismount();
 
     SetUInt64Value(UNIT_FIELD_TARGET, guid);
+    if(!IsCreature())
+        return;
+    m_movementInterface.FollowTarget(guid);
 }
 
 void Unit::EventAttackStop()
 {
+    clearStateFlag(UF_ATTACKING);
     smsg_AttackStop(m_attackTarget);
     m_attackTarget.Clean();
+    if(!IsCreature())
+        return;
+
+    SetUInt64Value(UNIT_FIELD_TARGET, 0);
+    m_movementInterface.FollowTarget(0);
 }
 
 void Unit::smsg_AttackStart(WoWGuid victimGuid)

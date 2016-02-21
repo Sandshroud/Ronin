@@ -430,6 +430,9 @@ public: // values
     // AI
     AIInterface m_aiInterface;
 
+protected:
+    uint32 m_AreaUpdateTimer;
+
 public:
 
     CreatureSpawn * m_spawn;

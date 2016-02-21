@@ -267,6 +267,8 @@ public:
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
 
+    void FollowTarget(WoWGuid guid);
+
     void OnDeath();
     void OnRepop();
     void OnRessurect();

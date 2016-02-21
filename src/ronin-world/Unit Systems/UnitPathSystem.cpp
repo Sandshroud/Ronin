@@ -1,7 +1,7 @@
 
 #include "StdAfx.h"
 
-static float fInfinite = std::numeric_limits<float>::infinity();
+float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
 UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), _srcX(0.f), _srcY(0.f), _srcZ(0.f), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f)
 {
@@ -46,8 +46,18 @@ void UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
 
     uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
     float x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
-    float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = m_Unit->GetMapHeight(px, py, std::max<float>(z, z2));
+    float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = z2-((z2-z)*p);
     m_Unit->SetPosition(px, py, pz, m_Unit->calcAngle(px, py, x2, y2));
+}
+
+bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
+{
+    if(_destX == fInfinite && _destY == fInfinite)
+        return false;
+    x = _destX;
+    y = _destY;
+    if(z) *z = _destZ;
+    return true;
 }
 
 void UnitPathSystem::_CleanupPath()
@@ -63,6 +73,9 @@ void UnitPathSystem::_CleanupPath()
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 {
+    if((_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
+        return;
+
     // Clean up any existing paths
     _CleanupPath();
 
@@ -87,7 +100,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         {
             timeToMove += 500;
 
-            float p = float(timeToMove)/float(m_pathLength), px = currPos.x-((currPos.x-_destX)*p), py = currPos.y-((currPos.y-_destY)*p), pz = m_Unit->GetMapHeight(px, py, std::max<float>(currPos.z, z));
+            float p = float(timeToMove)/float(m_pathLength), px = currPos.x-((currPos.x-_destX)*p), py = currPos.y-((currPos.y-_destY)*p), pz = std::max<float>(currPos.z, z);//m_Unit->GetMapHeight(px, py, std::max<float>(currPos.z, z));
             m_movementPoints.push_back(new MovementPoint(timeToMove, px, py, pz));
         }
 
@@ -97,7 +110,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     BroadcastMovementPacket();
 }
 
-void UnitPathSystem::ResumeOrStopMoving()
+void UnitPathSystem::StopMoving()
 {
 
 }
@@ -107,23 +120,30 @@ void UnitPathSystem::BroadcastMovementPacket()
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
-    data << m_Unit->GetPositionX();
-    data << m_Unit->GetPositionY();
-    data << m_Unit->GetPositionZ();
-    data << uint32(m_pathCounter);
-    if(m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY)
-        data << uint8(1);
+    data.appendvector(m_Unit->GetPosition(), false);
+    // If we are at our destination, or have no destination, broadcast a stop packet
+    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite))
+        data << uint32(0) << uint8(1);
     else
     {
-        data << uint8(4) << float( _destO );
+        data << uint32(m_pathCounter);
+        if(_destO == fInfinite) data << uint8(0);
+        else data << uint8(4) << float( _destO );
         data << uint32(0x00400000);
         data << uint32(m_pathLength);
-        data << uint32(m_movementPoints.size()-1);  // 1 waypoint
+
+        uint32 counter = 0;
+        size_t counterPos = data.wpos();
+        data << uint32(0); // movement point counter
         for(uint32 i = 1; i < m_movementPoints.size(); i++)
         {
-            MovementPoint *path = m_movementPoints[i];
-            data << path->pos.x << path->pos.y << path->pos.z;
+            if(MovementPoint *path = m_movementPoints[i])
+            {
+                data << path->pos.x << path->pos.y << path->pos.z;
+                counter++;
+            }
         }
+        data.put<uint32>(counterPos, counter);
     }
 
     m_Unit->SendMessageToSet( &data, false );

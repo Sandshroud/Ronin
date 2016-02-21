@@ -17,6 +17,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_deathRuneMasteryChance = 0;
     m_taxiMask.SetCount(8*114);
 
+    m_lastSwingError= 0;
     m_hasSentMoTD                   = false;
     m_lastAreaUpdateMap             = -1;
     m_oldZone                       = 0;
@@ -402,6 +403,9 @@ void Player::Update(uint32 msTime, uint32 diff)
     }
 
     ProcessPendingItemUpdates();
+
+    if(hasStateFlag(UF_ATTACKING))
+        UpdateAutoAttackState();
 }
 
 void Player::ProcessPendingItemUpdates()

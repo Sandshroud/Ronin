@@ -890,6 +890,11 @@ void MovementInterface::SetFacing(float orientation)
     m_serverLocation->o = orientation;
 }
 
+void MovementInterface::FollowTarget(WoWGuid guid)
+{
+    m_unitMoveTarget = guid;
+}
+
 void MovementInterface::OnDeath()
 {
 
@@ -1191,7 +1196,7 @@ void MovementInterface::_UpdateTargetLocation()
     Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_unitMoveTarget);
     if(unitTarget == NULL || unitTarget->isDead())
     {
-        m_path.ResumeOrStopMoving();
+        m_path.StopMoving();
         return;
     }
 
@@ -1200,8 +1205,14 @@ void MovementInterface::_UpdateTargetLocation()
     {
         SpellEntry *sp = NULL;
         float minRange = 0.f; followRange = 5.f;
-        m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, followRange, sp);
+        if(m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, followRange, sp))
+            followRange *= 0.8f;
     } else followRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
+
+    m_Unit->GetPosition(x, y, z);
+    m_path.GetDestination(x, y);
+    if(unitTarget->GetDistance2dSq(x, y) < followRange*followRange)
+        return;
 
     unitTarget->GetPosition(x, y, z);
     o = m_Unit->calcAngle(m_serverLocation->x, m_serverLocation->y, x, y) * M_PI / 180.f;
