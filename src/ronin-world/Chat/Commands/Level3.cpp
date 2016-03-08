@@ -2005,6 +2005,17 @@ bool ChatHandler::HandleGuildDisbandCommand(const char* args, WorldSession *m_se
     return true;
 }
 
+bool ChatHandler::HandleGuildModifyLevelCommand(const char *args, WorldSession *m_session)
+{
+    Player *plr = getSelectedChar(m_session);
+    if(plr == NULL || !plr->IsInGuild())
+        return false;
+
+    if(GuildInfo *gInfo = guildmgr.GetGuildInfo(plr->GetGuildId()))
+        guildmgr.ModifyGuildLevel(gInfo, atol(args));
+    return true;
+}
+
 bool ChatHandler::HandleCreateArenaTeamCommands(const char * args, WorldSession * m_session)
 {
     uint32 arena_team_type;

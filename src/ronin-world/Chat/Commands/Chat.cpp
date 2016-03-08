@@ -193,6 +193,7 @@ void CommandTableStorage::Init()
         { "create",                 COMMAND_LEVEL_M, &ChatHandler::CreateGuildCommand,              "Creates a guild.",                                         NULL, 0, 0, 0 },
         { "removeplayer",           COMMAND_LEVEL_M, &ChatHandler::HandleGuildRemovePlayerCommand,  "Removes the target from its guild.",                       NULL, 0, 0, 0 },
         { "disband",                COMMAND_LEVEL_M, &ChatHandler::HandleGuildDisbandCommand,       "Disbands the guild of your target.",                       NULL, 0, 0, 0 },
+        { "modlevel",               COMMAND_LEVEL_M, &ChatHandler::HandleGuildModifyLevelCommand,   "Modifies a guild's level.",                                NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                                         NULL, 0, 0, 0 }
     };
     dupe_command_table(GuildCommandTable, _GuildCommandTable);

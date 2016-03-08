@@ -273,6 +273,7 @@ protected:
     bool CreateGuildCommand(const char* args, WorldSession *m_session);
     bool HandleGuildRemovePlayerCommand(const char* args, WorldSession *m_session);
     bool HandleGuildDisbandCommand(const char* args, WorldSession *m_session);
+    bool HandleGuildModifyLevelCommand(const char *args, WorldSession *m_session);
 
     // Level 2 commands
     bool HandleNameCommand(const char* args, WorldSession *m_session);

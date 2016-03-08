@@ -1755,7 +1755,7 @@ void Player::_LoadSpells(QueryResult *result)
     {
         if(SpellEntry *sp = dbcSpell.LookupEntry(result->Fetch()[1].GetUInt32()))
         {
-            if(sp->isSpellGuildPerk())
+            if(guildmgr.IsGuildPerk(sp))
                 continue;
             mSpells.insert(sp->Id);
         }
@@ -1774,9 +1774,8 @@ void Player::_SaveSpells(QueryBuffer * buf)
     {
         if(SpellEntry *sp = dbcSpell.LookupEntry(*itr))
         {
-            if(sp->isSpellGuildPerk())
+            if(guildmgr.IsGuildPerk(sp))
                 continue;
-
             if(ss.str().length())
                 ss << ", ";
             ss << "(" << GetLowGUID() << ", " << uint32(*itr) << ")";

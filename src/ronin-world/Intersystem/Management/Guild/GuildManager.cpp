@@ -440,6 +440,75 @@ void GuildMgr::SetNote(PlayerInfo* pInfo, std::string Note, bool Officer)
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
 }
 
+bool GuildMgr::IsGuildPerk(SpellEntry *sp)
+{
+    if(sp->isSpellGuildPerk())
+        return true;
+    switch(sp->Id)
+    {
+    case 78631: case 78633: case 78634:
+    case 83940: case 78632: case 83942:
+    case 83944: case 83943: case 83945:
+    case 83958: case 78635: case 83959:
+    case 83949: case 83950: case 83941:
+    case 83951: case 83953: case 83960:
+    case 83963: case 83967: case 83961:
+    case 83966: case 83964: case 83968:
+        return true;
+    }
+    return false;
+}
+
+void GuildMgr::ModifyGuildLevel(GuildInfo *info, int32 mod)
+{
+    if(info == NULL || mod == 0)
+        return;
+
+    GuildMemberMapStorage* MemberMapStorage = GetGuildMemberMapStorage(info->m_guildId);
+    if(MemberMapStorage == NULL)
+        return;
+    bool negative = mod < 0;
+    if((negative == false && info->m_guildLevel == 25) || (negative == true && info->m_guildLevel == 1))
+        return;
+
+    std::set<uint32> perksToMod;
+    for(int32 i = 0, max = labs(mod); i < max; i++)
+    {
+        if(negative)
+        {
+            perksToMod.insert(GuildPerks[info->m_guildLevel-2]);
+            info->m_guildLevel--;
+            if(info->m_guildLevel == 1)
+                break;
+        }
+        else
+        {
+            info->m_guildLevel++;
+            perksToMod.insert(GuildPerks[info->m_guildLevel-2]);
+            if(info->m_guildLevel == 25)
+                break;
+        }
+    }
+
+    MemberMapStorage->MemberMapLock.Acquire();
+    for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
+    {
+        Player *plr = itr->second->pPlayer->m_loggedInPlayer;
+        if(plr == NULL)
+            continue;
+
+        plr->SetGuildLevel(info->m_guildLevel);
+        for(std::set<uint32>::iterator itr = perksToMod.begin(); itr != perksToMod.end(); itr++)
+        {
+            if(negative)
+                plr->removeSpell(*itr);
+            else plr->addSpell(*itr);
+        }
+    }
+    MemberMapStorage->MemberMapLock.Release();
+    info->m_GuildStatus = GUILD_STATUS_DIRTY;
+}
+
 void GuildMgr::AddGuildPerks(Player *plr, GuildInfo *gInfo)
 {
     if(plr == NULL || !plr->IsInGuild())
@@ -447,8 +516,9 @@ void GuildMgr::AddGuildPerks(Player *plr, GuildInfo *gInfo)
     if(gInfo == NULL)
         gInfo = GetGuildInfo(plr->GetGuildId());
     gInfo->guildXPLock.Acquire();
-    for(uint8 i = 1; i < gInfo->m_guildLevel; i++)
-        plr->addSpell(GuildPerks[i-1]);
+    for(uint8 i = 2; i <= gInfo->m_guildLevel; i++)
+        if(SpellEntry *sp = dbcSpell.LookupEntry(GuildPerks[i-2]))
+            plr->addSpell(sp->Id);
     gInfo->guildXPLock.Release();
 }
 
@@ -460,8 +530,8 @@ void GuildMgr::RemoveGuildPerks(Player *plr, GuildInfo *gInfo)
         gInfo = GetGuildInfo(plr->GetGuildId());
 
     gInfo->guildXPLock.Acquire();
-    for(uint8 i = 1; i < gInfo->m_guildLevel; i++)
-        plr->removeSpell(GuildPerks[i-1]);
+    for(uint8 i = 2; i <= gInfo->m_guildLevel; i++)
+        plr->removeSpell(GuildPerks[i-2]);
     gInfo->guildXPLock.Release();
 }
 
@@ -479,7 +549,7 @@ void GuildMgr::GuildGainXP(Player *plr, uint32 xpGain)
         if((gInfo->m_guildExperience += xpGain) >= xpCap)
         {
             gInfo->m_guildExperience -= xpCap;
-            gInfo->m_guildLevel++;
+            ModifyGuildLevel(gInfo, 1);
         }
     }
     gInfo->guildXPLock.Release();

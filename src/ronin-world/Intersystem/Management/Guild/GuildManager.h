@@ -277,6 +277,8 @@ public:
     void AddDestructionQueries(uint32 guildid);
     void SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo);
 
+    bool IsGuildPerk(SpellEntry *sp);
+    void ModifyGuildLevel(GuildInfo *gInfo, int32 mod);
     void AddGuildPerks(Player *plr, GuildInfo *info = NULL);
     void RemoveGuildPerks(Player *plr, GuildInfo *info = NULL);
     void GuildGainXP(Player *plr, uint32 xpGain);
