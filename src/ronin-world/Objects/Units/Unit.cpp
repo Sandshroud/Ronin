@@ -722,13 +722,11 @@ int32 Unit::GetDamageDoneMod(uint8 school)
         res -= GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school);
         return res;
     }
-    else if(IsSummon() || IsPet())
+    else if(IsSummon())
     {
-        WorldObject *summoner = NULL;
-        if(IsPet()) summoner = castPtr<Pet>(this)->GetOwner();
-        else summoner = castPtr<Summon>(this)->GetSummonOwner();
+        WorldObject *summoner = castPtr<Summon>(this)->GetSummonOwner();
         /// To avoid processing loops, do not count pets of pets or summons of summons
-        if(!(summoner->IsSummon() || summoner->IsPet()) && GetsDamageBonusFromOwner(school))
+        if(!summoner->IsSummon() && GetsDamageBonusFromOwner(school))
             res += castPtr<Unit>(summoner)->GetDamageDoneMod(school);
     }
 
@@ -1187,12 +1185,11 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
     if(!pGroup)
         return;
 
+    bool givesGuildXP = pVictim->IsCreature() ? pGroup->QualifiesForGuildXP(castPtr<Creature>(pVictim)) : NULL;
+
     //Get Highest Level Player, Calc Xp and give it to each group member
-    Player* pHighLvlPlayer = NULL;
-    Player* pGroupGuy = NULL;
-      int active_player_count=0;
-    Player* active_player_list[MAX_GROUP_SIZE_RAID];//since group is small we can afford to do this ratehr then recheck again the whole active player set
-    int total_level=0;
+    Player *pHighLvlPlayer = NULL, *pGroupGuy = NULL, *active_player_list[MAX_GROUP_SIZE_RAID];//since group is small we can afford to do this ratehr then recheck again the whole active player set
+    int active_player_count=0, total_level=0;
     float xp_mod = 1.0f;
 
     //change on 2007 04 22 by Zack
@@ -1215,9 +1212,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
                 {
                     if(pGroupGuy->getLevel() > pHighLvlPlayer->getLevel())
                         pHighLvlPlayer = pGroupGuy;
-                }
-                else
-                    pHighLvlPlayer = pGroupGuy;
+                } else pHighLvlPlayer = pGroupGuy;
             }
         }
     }
@@ -1234,7 +1229,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         }
 
         xp = CalculateXpToGive(pVictim, PlayerInGroup);
-        PlayerInGroup->GiveXP(xp, pVictim->GetGUID(), true);
+        PlayerInGroup->GiveXP(xp, pVictim->GetGUID(), true, givesGuildXP);
     }
     else
     {
@@ -1263,7 +1258,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         xp = CalculateXpToGive(pVictim, pHighLvlPlayer);
         //i'm not sure about this formula is correct or not. Maybe some brackets are wrong placed ?
         for(int i=0;i<active_player_count;++i)
-            active_player_list[i]->GiveXP( float2int32(((xp*active_player_list[i]->getLevel()) / total_level)*xp_mod), pVictim->GetGUID(), true );
+            active_player_list[i]->GiveXP( float2int32(((xp*active_player_list[i]->getLevel()) / total_level)*xp_mod), pVictim->GetGUID(), true, givesGuildXP );
     }
 }
 
@@ -2009,16 +2004,9 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------------miss------------------------------------------------------
     case 0:
         hit_status |= HITSTATUS_MISS;
-        // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
-            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
         break;
 //--------------------------------dodge-----------------------------------------------------
     case 1:
-        // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
-            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
-
         TRIGGER_AI_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
         targetEvent = 1;
@@ -2068,10 +2056,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         break;
 //--------------------------------parry-----------------------------------------------------
     case 2:
-        // dirty ai agro fix
-        if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetAIInterface()->GetNextTarget() == NULL)
-            castPtr<Creature>(pVictim)->GetAIInterface()->AttackReaction(castPtr<Unit>(this), 1, 0);
-
         TRIGGER_AI_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
         targetEvent = 3;
@@ -2123,10 +2107,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 dmg.full_damage += GetDamageDoneMod(SCHOOL_NORMAL);
                 dmg.full_damage *= pVictim->GetDamageTakenModPct(SCHOOL_NORMAL);
             }
-
-            //pet happiness state dmg modifier
-            if( IsPet() && !castPtr<Pet>(this)->IsSummonedPet() )
-                dmg.full_damage = ( dmg.full_damage <= 0 ) ? 0 : float2int32( dmg.full_damage * castPtr<Pet>(this)->GetHappinessDmgMod() );
 
             if( HasDummyAura(SPELL_HASH_REND_AND_TEAR) && ability &&
                 ( ability->NameHash == SPELL_HASH_MAUL || ability->NameHash == SPELL_HASH_SHRED) && pVictim->m_AuraInterface.HasNegAuraWithMechanic(MECHANIC_BLEEDING) )
@@ -2474,12 +2454,14 @@ bool Unit::UpdateAutoAttackState()
     uint8 swingError = 0;
     if (!canReachWithAttack(MELEE, victim))
     {
-        m_attackTimer[MELEE] = m_attackTimer[OFFHAND] = 100;
+		if (m_attackTimer[MELEE] < 100) m_attackTimer[MELEE] = 100;
+		if (m_attackTimer[OFFHAND] < 100) m_attackTimer[OFFHAND] = 100;
         swingError = 1;
     } // 120 degrees of radiant range
     else if (!isTargetInFront(victim))
-    {
-        m_attackTimer[MELEE] = m_attackTimer[OFFHAND] = 100;
+	{
+		if (m_attackTimer[MELEE] < 100) m_attackTimer[MELEE] = 100;
+		if (m_attackTimer[OFFHAND] < 100) m_attackTimer[OFFHAND] = 100;
         swingError = 2;
     }
     else
@@ -2539,9 +2521,6 @@ void Unit::EventAttackStart(WoWGuid guid)
     Dismount();
 
     SetUInt64Value(UNIT_FIELD_TARGET, guid);
-    if(!IsCreature())
-        return;
-    m_movementInterface.FollowTarget(guid);
 }
 
 void Unit::EventAttackStop()
@@ -2553,7 +2532,6 @@ void Unit::EventAttackStop()
         return;
 
     SetUInt64Value(UNIT_FIELD_TARGET, 0);
-    m_movementInterface.FollowTarget(0);
 }
 
 void Unit::smsg_AttackStart(WoWGuid victimGuid)
@@ -2597,9 +2575,7 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
     float summaryPCTmod = 0.0f;
     float levelPenalty = CalculateLevelPenalty(spellInfo);
 
-    if( caster->IsPet() )
-        caster = castPtr<Unit>(castPtr<Pet>(caster)->GetPetOwner());
-    else if( caster->IsSummon() && castPtr<Summon>(caster)->GetSummonOwner() )
+	if( caster->IsSummon() && castPtr<Summon>(caster)->GetSummonOwner() )
         caster = castPtr<Summon>(caster)->GetSummonOwner()->IsUnit() ? castPtr<Unit>(castPtr<Summon>(caster)->GetSummonOwner()) : NULL;
     else if( caster->GetTypeId() == TYPEID_GAMEOBJECT && caster->GetMapInstance() && caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY) )
         caster = castPtr<Unit>(caster->GetMapInstance()->GetUnit(caster->GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY)));
@@ -2766,9 +2742,6 @@ void Unit::OnRemoveInRangeObject(WorldObject* pObj)
     if(pObj->IsUnit())
     {
         Unit* pUnit = castPtr<Unit>(pObj);
-        if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
-            castPtr<Creature>(this)->GetAIInterface()->CheckTarget(pUnit);
-
         if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
             if(m_currentSpell) m_currentSpell->cancel();
     }
@@ -2993,8 +2966,6 @@ void Unit::RemoveFromWorld()
     }
 
     WorldObject::RemoveFromWorld();
-    if(IsCreature() && castPtr<Creature>(this)->GetAIInterface())
-        castPtr<Creature>(this)->GetAIInterface()->WipeReferences();
 }
 
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
@@ -3243,8 +3214,6 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
         p->SetZoneId(GetZoneId());
         p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-
-        p->GetAIInterface()->Init(p, AITYPE_PET, castPtr<Unit>(this));
         p->PushToWorld(GetMapInstance());
 
         if(duration)
@@ -3333,20 +3302,10 @@ void Unit::SummonExpireSlot(uint8 Slot)
             for(std::vector<Creature*>::iterator itr = m_Summons[Slot].begin(); itr != m_Summons[Slot].end(); itr++)
             {
                 mSum = *itr;
-                if(mSum->IsPet())
-                {
-                    if(castPtr<Pet>(mSum)->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-                        castPtr<Pet>(mSum)->Dismiss(false);               // warlock summon -> dismiss
-                    else
-                        castPtr<Pet>(mSum)->Remove(false, true, true);    // hunter pet -> just remove for later re-call
-                }
-                else
-                {
-                    mSum->m_AuraInterface.RemoveAllAuras();
-                    if(mSum->IsInWorld())
-                        mSum->Unit::RemoveFromWorld();
-                    mSum->DeleteMe();
-                }
+                mSum->m_AuraInterface.RemoveAllAuras();
+                if(mSum->IsInWorld())
+                    mSum->RemoveFromWorld();
+                mSum->DeleteMe();
             }
             m_Summons[Slot].clear();
             m_Summons.erase(Slot);
@@ -3447,7 +3406,7 @@ void Creature::Tag(Player* plr)
     if( m_taggingPlayer != 0 )
         return;
 
-    if(GetCreatureData() && GetCreatureData()->type == CRITTER || IsPet())
+    if(GetCreatureData() && GetCreatureData()->type == CRITTER)
         return;
 
     m_taggingPlayer = plr->GetLowGUID();
@@ -3693,16 +3652,14 @@ EUnitFields Unit::GetPowerFieldForType(uint8 type)
 {
     if(type == POWER_TYPE_HEALTH)
         return UNIT_FIELD_HEALTH;
-    uint32 _class = IsPet() ? HUNTER : getClass();
-    return sStatSystem.GetPowerFieldForClassAndType(_class, type);
+	return sStatSystem.GetPowerFieldForClassAndType(getClass(), type);
 }
 
 EUnitFields Unit::GetMaxPowerFieldForType(uint8 type)
 {
     if(type == POWER_TYPE_HEALTH)
         return UNIT_FIELD_MAXHEALTH;
-    uint32 _class = IsPet() ? HUNTER : getClass();
-    EUnitFields field = sStatSystem.GetPowerFieldForClassAndType(_class, type);
+	EUnitFields field = sStatSystem.GetPowerFieldForClassAndType(getClass(), type);
     if(field == UNIT_END)
         return UNIT_END;
     return EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));

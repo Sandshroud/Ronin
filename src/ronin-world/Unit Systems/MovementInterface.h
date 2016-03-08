@@ -267,8 +267,6 @@ public:
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
 
-    void FollowTarget(WoWGuid guid);
-
     void OnDeath();
     void OnRepop();
     void OnRessurect();
@@ -547,8 +545,7 @@ private:
 
     void ClearOptionalMovementData();
 
-    // Movement information
-protected:
+protected: // Movement information
     Mutex m_movementLock;
     // Vector linked to object position
     LocationVector *m_serverLocation;
@@ -618,14 +615,7 @@ protected: // Speed and Status information
 private:
     Unit *m_Unit;
 
-    uint32 m_updateTimer;
-
-    void _ResumeOrStopMoving();
-    void _UpdateTargetLocation();
-    bool _CheckMovePriority(float x, float y, float z);
-
-    // Target destination
-    WoWGuid m_unitMoveTarget;
+    uint32 m_movementState;
 
     UnitPathSystem m_path;
 };

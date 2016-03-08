@@ -90,7 +90,7 @@ void MapCell::RemoveObjects(bool preDestruction)
         for(CellObjectSet::iterator itr = set.begin(); itr != set.end(); itr++)
         {
             WorldObject* pObject = *itr;
-            if(pObject == NULL || pObject->IsPet())
+            if(pObject == NULL)
                 continue;
 
             switch(pObject->GetTypeId())

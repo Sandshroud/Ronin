@@ -14,6 +14,7 @@ static const uint32 GuildChallengeMaxLevelGoldReward[GUILD_CHALLENGES_TYPES] = {
 static const uint32 GuildChallengeXPReward[GUILD_CHALLENGES_TYPES]           = { 0, 300000, 3000000, 1500000 };
 static const uint32 GuildChallengesPerWeek[GUILD_CHALLENGES_TYPES]           = { 0, 7,      1,       3 };
 static const uint64 GuildXPPerLevel[24] = { 1658, 1824, 1990, 2155, 2322, 2488, 2653, 2819, 2985, 3151, 3317, 3482, 3649, 3814, 3980, 4145, 4312, 4478, 4643, 4809, 4975, 5141, 5306, 5473 };
+static const uint32 GuildPerks[24] = { 78631, 78633, 78634, 83940, 78632, 83942, 83944, 83943, 83945, 83958, 78635, 83959, 83949, 83950, 83941, 83951, 83953, 83960, 83963, 83967, 83961, 83966, 83964, 83968 };
 
 struct GuildInfo
 {
@@ -271,9 +272,14 @@ public:
 public:
     void LoadAllGuilds();
     void SaveAllGuilds();
+
     void DestroyGuild(GuildInfo* guildInfo);
     void AddDestructionQueries(uint32 guildid);
     void SaveGuild(QueryBuffer* qb, GuildInfo* guildInfo);
+
+    void AddGuildPerks(Player *plr, GuildInfo *info = NULL);
+    void RemoveGuildPerks(Player *plr, GuildInfo *info = NULL);
+    void GuildGainXP(Player *plr, uint32 xpGain);
     void SetNote(PlayerInfo* pInfo, std::string Note, bool Officer);
     void LogGuildBankAction(uint64 GuildId, uint8 iAction, uint32 uGuid, uint32 uEntry, uint8 iStack, uint32 tabId);
     void AddGuildLogEntry(uint32 GuildId, uint8 iEvent, uint32 arguement1, uint32 arguement2 = 0, uint32 arguement3 = 0);
@@ -287,7 +293,7 @@ public:
     GuildRankStorage* ConstructRankStorage(uint32 GuildId);
 
     uint32 GetWeeklyRepCap() { return m_weeklyRepCap; }
-    uint64 GetXPForNextGuildLevel(uint32 level) { ASSERT(level); return level >= 25 ? 0 : (GuildXPPerLevel[level-1]*1000); }
+    static uint64 GetXPForNextGuildLevel(uint32 level) { ASSERT(level); return level >= 25 ? 0 : (GuildXPPerLevel[level-1]*1000); }
 
     uint32 RemoveGuildRank(uint32 GuildId);
     bool HasGuildRights(Player* plr, uint32 Rights);

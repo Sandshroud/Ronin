@@ -247,8 +247,8 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                     castPtr<Creature>(pLootTarget)->UpdateLootAnimation(_player);
 
                     // skinning
-                    if(!pLootTarget->IsPet() && !castPtr<Creature>(pLootTarget)->IsSummon()
-                        && lootmgr.IsSkinnable( pLootTarget->GetEntry()) && !castPtr<Creature>(pLootTarget)->m_skinned)
+                    if(!castPtr<Creature>(pLootTarget)->IsSummon() && lootmgr.IsSkinnable(pLootTarget->GetEntry())
+                        && !castPtr<Creature>(pLootTarget)->m_skinned)
                     {
 
                     }

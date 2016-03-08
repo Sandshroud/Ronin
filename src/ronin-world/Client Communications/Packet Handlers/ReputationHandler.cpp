@@ -260,7 +260,7 @@ void WorldSession::HandleSetAtWarOpcode(WorldPacket& recv_data)
 void Player::Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop)
 {
     // add rep for on kill
-    if ( pUnit->GetTypeId() != TYPEID_UNIT || pUnit->IsPet() || pUnit->GetFaction() == NULL )
+    if ( pUnit->GetTypeId() != TYPEID_UNIT || pUnit->IsSummon() || pUnit->GetFaction() == NULL )
         return;
 
     Group * m_Group = GetGroup();

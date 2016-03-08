@@ -54,8 +54,6 @@ ChatCommand * CommandTableStorage::GetSubCommandTable(const char * name)
         return _CheatCommandTable;
     else if(!stricmp(name, "account"))
         return _accountCommandTable;
-    else if(!stricmp(name, "pet"))
-        return _petCommandTable;
     else if(!stricmp(name, "honor"))
         return _honorCommandTable;
     else if(!stricmp(name, "guild"))
@@ -93,7 +91,6 @@ void CommandTableStorage::Dealloc()
     free( _administratorCommandTable );
     free( _CheatCommandTable );
     free( _accountCommandTable );
-    free( _petCommandTable );
     free( _honorCommandTable );
     free( _GuildCommandTable);
     free( _TitleCommandTable);
@@ -354,16 +351,6 @@ void CommandTableStorage::Init()
     };
     dupe_command_table(honorCommandTable, _honorCommandTable);
 
-    static ChatCommand petCommandTable[] =
-    {
-        { "createpet",              COMMAND_LEVEL_M, &ChatHandler::HandleCreatePetCommand,      "Creates a pet with <entry>.",  NULL, 0, 0, 0 },
-        { "renamepet",              COMMAND_LEVEL_M, &ChatHandler::HandleRenamePetCommand,      "Renames a pet to <name>.",     NULL, 0, 0, 0 },
-        { "addspell",               COMMAND_LEVEL_M, &ChatHandler::HandleAddPetSpellCommand,    "Teaches pet <spell>.",         NULL, 0, 0, 0 },
-        { "removespell",            COMMAND_LEVEL_M, &ChatHandler::HandleRemovePetSpellCommand, "Removes pet spell <spell>.",   NULL, 0, 0, 0 },
-        { NULL,                     COMMAND_LEVEL_0, NULL,                                      "",                             NULL, 0, 0, 0 },
-    };
-    dupe_command_table(petCommandTable, _petCommandTable);
-
     static ChatCommand lookupCommandTable[] =
     {
         { "item",                   COMMAND_LEVEL_L, &ChatHandler::HandleLookupItemCommand,         "Looks up item string x.",                  NULL, 0, 0, 0 },
@@ -467,7 +454,6 @@ void CommandTableStorage::Init()
         { "account",                COMMAND_LEVEL_A, NULL,                                                          "",                 accountCommandTable, 0, 0, 0 },
         { "honor",                  COMMAND_LEVEL_M, NULL,                                                          "",                 honorCommandTable, 0, 0, 0 },
         { "quest",                  COMMAND_LEVEL_Q, NULL,                                                          "",                 questCommandTable, 0, 0, 0 },
-        { "pet",                    COMMAND_LEVEL_M, NULL,                                                          "",                 petCommandTable, 0, 0, 0 },
         { "guild",                  COMMAND_LEVEL_M, NULL,                                                          "",                 GuildCommandTable, 0, 0, 0 },
         { "title",                  COMMAND_LEVEL_M, NULL,                                                          "",                 TitleCommandTable, 0, 0, 0 },
         { "lookup",                 COMMAND_LEVEL_0, NULL,                                                          "",                 lookupCommandTable, 0, 0, 0 },

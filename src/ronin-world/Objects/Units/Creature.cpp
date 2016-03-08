@@ -10,7 +10,7 @@
 
 #define M_PI 3.14159265358979323846f
 
-Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data)
+Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data), m_aiInterface(this)
 {
     SetEntry(data->entry);
 
@@ -57,8 +57,6 @@ void Creature::Init()
 {
     Unit::Init();
 
-    m_aiInterface.Init(this, AITYPE_AGRO);
-
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
         InitVehicleKit(vehicleKitId);
 }
@@ -88,7 +86,6 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
 
     Unit::Update(msTime, uiDiff);
 
-
     if(isDead())
     {
         if(IsTotem())
@@ -109,6 +106,9 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
     }
 
     m_aiInterface.Update(uiDiff);
+
+    if(hasStateFlag(UF_ATTACKING))
+        UpdateAutoAttackState();
 }
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)
@@ -186,12 +186,6 @@ uint32 Creature::GetRequiredLootSkill()
 
 void Creature::GenerateLoot()
 {
-    if(IsPet())
-    {
-        GetLoot()->gold = 0;
-        return;
-    }
-
     uint8 team = 0;
     uint8 difficulty = (m_mapInstance ? (m_mapInstance->iInstanceMode) : 0);
     if(!m_killer.empty() && m_killer.getHigh() == HIGHGUID_TYPE_PLAYER)
@@ -222,7 +216,7 @@ void Creature::GenerateLoot()
 
 void Creature::SaveToDB(bool saveposition /*= false*/)
 {
-    if(IsPet() || IsSummon()) //Just in case.
+    if(IsSummon()) //Just in case.
         return;
 
     bool newSpawn = !IsSpawn();
@@ -392,20 +386,10 @@ void Creature::Respawn(bool addrespawnevent, bool free_guid)
 
     m_AuraInterface.RemoveAllAuras();
 
-    if(IsPet())
-    {
-        if(IsInWorld())
-            RemoveFromWorld();
-
-        SafeDelete();
-    }
-    else
-    {
-        uint32 delay = 0;
-        if(addrespawnevent && _creatureData->respawnTime > 0)
-            delay = _creatureData->respawnTime;
-        Despawn(0, delay);
-    }
+    uint32 delay = 0;
+    if(addrespawnevent && _creatureData->respawnTime > 0)
+        delay = _creatureData->respawnTime;
+    Despawn(0, delay);
 }
 
 void Creature::EnslaveExpire()
@@ -426,7 +410,6 @@ void Creature::EnslaveExpire()
     SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
 
     SetFaction(_creatureData->faction, false);
-    GetAIInterface()->Init(this, AITYPE_AGRO);
 }
 
 bool Creature::RemoveEnslave()
@@ -443,7 +426,8 @@ void Creature::RegenerateHealth(bool isinterrupted)
     uint32 mh = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
     if(cur >= mh)
         return;
-    if(GetAIInterface()->getAIState() == STATE_EVADE)
+
+	/*if(GetAIInterface()->getAIState() == STATE_EVADE)
     {
         //though creatures have their stats we use some wierd formula for amt
         float amt = getLevel()*2.0f;
@@ -453,7 +437,7 @@ void Creature::RegenerateHealth(bool isinterrupted)
 
         SetUInt32Value(UNIT_FIELD_HEALTH, (cur >= mh) ? mh : cur);
         return;
-    }
+    }*/
 
     cur += float2int32(ceil(float(mh)/3.f));
     if(cur >= mh || (mh-cur < mh/8)) cur = mh;
@@ -470,7 +454,7 @@ void Creature::RegenerateMana(bool isinterrupted)
     if(cur >= mm)
         return;
 
-    if(isinterrupted || GetAIInterface()->getAIState() == STATE_EVADE)
+/*  if(isinterrupted || GetAIInterface()->getAIState() == STATE_EVADE)
     {
         float amt = (getLevel()+10);
         if(amt <= 1.0)//this fixes regen like 0.98
@@ -478,7 +462,7 @@ void Creature::RegenerateMana(bool isinterrupted)
         else cur += (uint32)amt;
         SetPower(POWER_TYPE_MANA, (cur>=mm)?mm:cur);
         return;
-    }
+    }*/
 
     cur += float2int32(ceil(float(mm)/10.f));
     if(cur >= mm || (mm-cur < mm/16)) cur = mm;
@@ -728,9 +712,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
-
-    ////////////AI
-    m_aiInterface.InitalizeExtraInfo(_creatureData, _extraInfo, mode);
 
     // load formation data
     Formation* form = NULL;//m_spawn ? sObjMgr.GetFormation(m_spawn->id) : NULL;

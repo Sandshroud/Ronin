@@ -127,10 +127,6 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     // 0x001000 seems to make a mount visible
     // 0x002000 seems to make you sit on the mount, and the mount move with you
 
-    // check for a summon -> if we do, remove.
-    if(_player->GetSummon() != NULL)
-        _player->GetSummon()->Remove(false, true, true);                      // hunter pet -> just remove for later re-call
-
     _player->taxi_model_id = modelid;
     GetPlayer()->TaxiStart(taxipath, modelid, 0);
     //sLog.outString("TAXI: Starting taxi trip. Next update in %d msec.", first_node_time);
@@ -246,15 +242,6 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
     // 0x002000 seems to make you sit on the mount, and the mount move with you
     // 0x000004 locks you so you can't move, no msg_move updates are sent to the server
     // 0x000008 seems to enable detailed collision checking
-
-    // check for a summon -> if we do, remove.
-    if(_player->GetSummon() != NULL)
-    {
-        if(_player->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-            _player->GetSummon()->Dismiss(false);                          // warlock summon -> dismiss
-        else _player->GetSummon()->Remove(false, true, true);                      // hunter pet -> just remove for later re-call
-    }
-
     _player->taxi_model_id = modelid;
 
     // build the rest of the path list

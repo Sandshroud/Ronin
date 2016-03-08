@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_updateTimer(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -353,29 +353,33 @@ uint16 MovementInterface::GetSpeedTypeForMoveCode(uint16 moveCode)
 
 void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
 {
-    uint32 u_diff = (m_updateTimer += uiDiff);
-    if(u_diff < 200)
-        return;
-    m_updateTimer = 0;
-
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
         if(m_speedTimers[i])
         {
-            if(m_speedTimers[i] <= u_diff)
+            if(m_speedTimers[i] <= uiDiff)
             {
                 m_speedTimers[i] = 0; // Timer not needed anymore
                 m_currSpeeds[i] = m_pendingSpeeds[i];
                 m_pendingSpeeds[i] = 0.0f; // Pending speed can be cleared
-            } else m_speedTimers[i] -= u_diff;
+            } else m_speedTimers[i] -= uiDiff;
         }
     }
 
-    HandleBreathing(u_diff);
+    HandleBreathing(uiDiff);
 
-    m_path.Update(msTime, u_diff);
-    if(!m_unitMoveTarget.empty())
-        _UpdateTargetLocation();
+    // If path update returns true, it means we have no current path
+    if (m_path.Update(msTime, uiDiff) && m_movementState)
+    {   // We have a clean path and a unit state, generate next target location
+        if(int moveMask = RONIN_UTIL::getRBitOffset(m_movementState))
+        {
+            printf("Moving with mask %08X\n", 1<<moveMask);
+            switch(moveMask)
+            {
+
+            }
+        }
+    }
 }
 
 void MovementInterface::UpdatePreWrite(uint16 opcode, uint16 moveCode)
@@ -890,11 +894,6 @@ void MovementInterface::SetFacing(float orientation)
     m_serverLocation->o = orientation;
 }
 
-void MovementInterface::FollowTarget(WoWGuid guid)
-{
-    m_unitMoveTarget = guid;
-}
-
 void MovementInterface::OnDeath()
 {
 
@@ -1184,44 +1183,4 @@ void MovementInterface::ClearOptionalMovementData()
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
     m_extra.clear();
-}
-
-void MovementInterface::_ResumeOrStopMoving()
-{
-
-}
-
-void MovementInterface::_UpdateTargetLocation()
-{
-    Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_unitMoveTarget);
-    if(unitTarget == NULL || unitTarget->isDead())
-    {
-        m_path.StopMoving();
-        return;
-    }
-
-    float followRange = 0.f, x, y, z, o;
-    if(m_Unit->validateAttackTarget(unitTarget))
-    {
-        SpellEntry *sp = NULL;
-        float minRange = 0.f; followRange = 5.f;
-        if(m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, followRange, sp))
-            followRange *= 0.8f;
-    } else followRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
-
-    m_Unit->GetPosition(x, y, z);
-    m_path.GetDestination(x, y);
-    if(unitTarget->GetDistance2dSq(x, y) < followRange*followRange)
-        return;
-
-    unitTarget->GetPosition(x, y, z);
-    o = m_Unit->calcAngle(m_serverLocation->x, m_serverLocation->y, x, y) * M_PI / 180.f;
-    x -= followRange * cosf(o);
-    y -= followRange * sinf(o);
-    m_path.MoveToPoint(x,y,z,o);
-}
-
-bool MovementInterface::_CheckMovePriority(float x, float y, float z)
-{
-    return true;
 }

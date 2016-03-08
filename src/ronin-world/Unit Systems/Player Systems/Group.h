@@ -127,6 +127,8 @@ public:
 
     void SendNullUpdate(Player* pPlayer);
 
+    bool QualifiesForGuildXP(Creature *cVictim);
+
     // Group Combat
     void SendPartyKillLog(WorldObject* player, WorldObject* Unit);
 

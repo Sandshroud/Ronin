@@ -58,7 +58,6 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     Creature::Load(m_owner->GetMapId(), position.x, position.y, position.z, position.o, 0);
 
-    GetAIInterface()->Init(this, AITYPE_PET, m_owner);
     SetInstanceID(m_owner->GetInstanceID());
     SetFaction(m_owner->GetFactionID());
     SetZoneId(m_owner->GetZoneId());
@@ -99,9 +98,6 @@ void CompanionSummon::Load(Unit* owner, LocationVector & position, uint32 spelli
     SummonHandler::Load(owner, position, spellid, summonslot);
     m_summon->SetFaction(35);
     m_summon->setLevel(1);
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, owner);
-    m_summon->GetAIInterface()->disable_melee = true;
-
     m_summon->RemovePvPFlag();
     m_summon->RemoveFFAPvPFlag();
 }
@@ -115,8 +111,6 @@ void GuardianSummon::Load(Unit* owner, LocationVector & position, uint32 spellid
     m_summon->setLevel(owner->getLevel());
     m_summon->SetMaxHealth(m_summon->GetMaxHealth() + 28 + 30 * m_summon->getLevel());
     m_summon->SetHealth(m_summon->GetMaxHealth());
-
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_PET, owner);
 
     m_summon->m_noRespawn = true;
 }
@@ -164,8 +158,6 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     m_summon->SetDisplayId(displayID);
     m_summon->SetNativeDisplayId(m_summon->GetCreatureData()->displayInfo[0]);
     m_summon->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-
-    m_summon->GetAIInterface()->Init(m_summon, AITYPE_TOTEM, owner);
 }
 
 void TotemSummon::SetupSpells()
@@ -204,11 +196,6 @@ void TotemSummon::SetupSpells()
 
         if(Spell *spell = new Spell(m_summon, TotemSpell))
             spell->prepare(&targets, true);
-    }
-    else
-    {   // We're a casting totem. Switch AI on, and tell it to cast this spell.
-        m_summon->GetAIInterface()->m_totemSpell = TotemSpell;
-        m_summon->GetAIInterface()->m_totemSpellTime = 3 * MSTIME_SECOND;
     }
 }
 
@@ -466,53 +453,11 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
 
 void SpellEffectClass::SummonTemporaryPet(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(u_caster->IsPlayer() && castPtr<Player>(u_caster)->GetSummon())
-    {
-        if(castPtr<Player>(u_caster)->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-            castPtr<Player>(u_caster)->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
-        else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
-    }
 
-    int32 count = amount;
-    if(m_spellInfo->Id == 51533)
-        count = 2;
-    else if(Properties != NULL && Properties->Id == 711) // Only Inferno uses this SummonProperty ID, and somehow it has the wrong count
-        count = 1;
-
-    float angle_for_each_spawn = -M_PI * 2 / amount;
-
-    int32 duration = GetDuration();
-    LocationVector spawnLoc;
-    uint32 slot = Properties ? Properties->slot : 0;
-    for(int32 i = 0; i < count; i++)
-    {
-        Pet* pet = objmgr.CreatePet(data);
-        if(pet == NULL)
-            continue;
-
-        float followangle = angle_for_each_spawn * i;
-        spawnLoc.ChangeCoords(v.x, v.y, v.z);
-        spawnLoc.x += 3 * (cosf(followangle + u_caster->GetOrientation()));
-        spawnLoc.y += 3 * (sinf(followangle + u_caster->GetOrientation()));
-        followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), spawnLoc.x, spawnLoc.y) * M_PI/180.f);
-
-        u_caster->AddSummonToSlot(slot, pet);
-        pet->CreateAsSummon(NULL, u_caster, &spawnLoc, m_spellInfo, 1, duration);
-    }
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    if(u_caster->IsPlayer() && castPtr<Player>(u_caster)->GetSummon())
-    {
-        if(castPtr<Player>(u_caster)->GetSummon()->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0)
-            castPtr<Player>(u_caster)->GetSummon()->Dismiss(false);              // warlock summon -> dismiss
-        else castPtr<Player>(u_caster)->GetSummon()->Remove(false, true, true);   // hunter pet -> just remove for later re-call
-    }
-
     Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)
         return;

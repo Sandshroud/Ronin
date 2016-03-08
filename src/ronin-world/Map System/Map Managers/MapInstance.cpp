@@ -31,7 +31,6 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     m_updateBuffer.reserve(0x1FF);
 
     m_PlayerStorage.clear();
-    m_PetStorage.clear();
     m_DynamicObjectStorage.clear();
 
     _combatProgress.clear();
@@ -105,7 +104,6 @@ void MapInstance::Destruct()
 
     //Clear our remaining containers
     m_PlayerStorage.clear();
-    m_PetStorage.clear();
     m_DynamicObjectStorage.clear();
     m_CreatureStorage.clear();
     m_gameObjectStorage.clear();
@@ -238,10 +236,6 @@ void MapInstance::PushObject(WorldObject* obj)
     {
         switch(obj->GetHighGUID())
         {
-        case HIGHGUID_TYPE_PET:
-            m_PetStorage.insert(std::make_pair(obj->GetGUID(), castPtr<Pet>(obj)));
-            break;
-
         case HIGHGUID_TYPE_CORPSE:
             m_corpses.push_back( castPtr<Corpse>(obj) );
             break;
@@ -339,14 +333,6 @@ void MapInstance::RemoveObject(WorldObject* obj)
             if(castPtr<Creature>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Creature>(obj)->GetSQL_id());
             m_CreatureStorage.erase(obj->GetGUID());
             TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
-        }break;
-
-    case HIGHGUID_TYPE_PET:
-        {
-            // check iterator
-            if( __pet_iterator != m_PetStorage.end() && __pet_iterator->second == castPtr<Pet>(obj) )
-                ++__pet_iterator;
-            m_PetStorage.erase(obj->GetGUID());
         }break;
 
     case HIGHGUID_TYPE_CORPSE:
@@ -1071,7 +1057,6 @@ Unit* MapInstance::GetUnit(WoWGuid guid)
     switch(guid.getHigh())
     {
     case HIGHGUID_TYPE_PLAYER: return GetPlayer(guid);
-    case HIGHGUID_TYPE_PET: return GetPet(guid);
     case HIGHGUID_TYPE_VEHICLE:
     case HIGHGUID_TYPE_UNIT:
         return GetCreature(guid);
@@ -1391,8 +1376,6 @@ void MapInstance::EventRespawnCreature(Creature* ctr, MapCell * c)
     {
         ctr->m_respawnCell=NULL;
         ctr->OnRespawn(this);
-        if(ctr->GetAIInterface())
-            ctr->GetAIInterface()->OnRespawn(ctr);
     }
 }
 

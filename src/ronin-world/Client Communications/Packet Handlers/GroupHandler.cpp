@@ -11,16 +11,26 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
 
-    std::string membername;
-    uint32 serverid; // Sent as of 3.3 multiserver parties
-    recv_data >> membername >> serverid;
+    WoWGuid guid;
+    std::string realmName, memberName;
+    recv_data.read_skip<uint32>(); // cross-realm party related
+    recv_data.read_skip<uint32>(); // roles mask?
+    recv_data.ReadGuidBitString(2, guid, 2, 7);
+    size_t realmLength = recv_data.ReadBits(9);
+    recv_data.ReadGuidBitString(1, guid, 3);
+    size_t nameLength = recv_data.ReadBits(10);
+    recv_data.ReadGuidBitString(5, guid, 5, 4, 6, 0, 1);
+    recv_data.ReadGuidByteString(3, guid, 4, 7, 6);
+    realmName = recv_data.ReadString(realmLength);
+    memberName = recv_data.ReadString(nameLength);
+    recv_data.ReadGuidByteString(5, guid, 0, 1, 2, 3, 5);
     if(_player->HasBeenInvited())
         return;
 
-    Player *player = objmgr.GetPlayer(membername.c_str(), false);
+    Player *player = objmgr.GetPlayer(memberName.c_str(), false);
     if ( player == NULL)
     {
-        SendPartyCommandResult(_player, 0, membername, ERR_PARTY_CANNOT_FIND);
+        SendPartyCommandResult(_player, 0, memberName, ERR_PARTY_CANNOT_FIND);
         return;
     }
 
@@ -44,53 +54,73 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
         }
     }
 
-    WorldPacket data(100);
+    bool inviteAvailable = true;
     if ( player->InGroup() )
     {
-        SendPartyCommandResult(_player, player->GetGroup()->GetGroupType(), membername, ERR_PARTY_ALREADY_IN_GROUP);
-        data.SetOpcode(SMSG_GROUP_INVITE);
-        data << uint8(0);
-        data << GetPlayer()->GetName();
-        player->GetSession()->SendPacket(&data);
-        return;
+        inviteAvailable = false;
+        SendPartyCommandResult(_player, player->GetGroup()->GetGroupType(), memberName, ERR_PARTY_ALREADY_IN_GROUP);
     }
-
-    if(player->GetTeam()!=_player->GetTeam() && _player->GetSession()->GetPermissionCount() == 0 && !sWorld.cross_faction_world)
+    else
     {
-        SendPartyCommandResult(_player, 0, membername, ERR_PARTY_WRONG_FACTION);
-        return;
+        if(player->GetTeam()!=_player->GetTeam() && _player->GetSession()->GetPermissionCount() == 0 && !sWorld.cross_faction_world)
+        {
+            SendPartyCommandResult(_player, 0, memberName, ERR_PARTY_WRONG_FACTION);
+            return;
+        }
+
+        if ( player->HasBeenInvited() )
+        {
+            SendPartyCommandResult(_player, 0, memberName, ERR_PARTY_ALREADY_IN_GROUP);
+            return;
+        }
+
+        if( player->Social_IsIgnoring( _player->GetLowGUID() ) )
+        {
+            SendPartyCommandResult(_player, 0, memberName, ERR_PARTY_IS_IGNORING_YOU);
+            return;
+        }
+
+        if( player->bGMTagOn && !HasGMPermissions())
+        {
+            SendPartyCommandResult(_player, 0, memberName, ERR_PARTY_CANNOT_FIND);
+            return;
+        }
+
+        SendPartyCommandResult(GetPlayer(), 0, memberName, ERR_PARTY_NO_ERROR);
+        player->SetInviter(_player->GetGUID());
     }
 
-    if ( player->HasBeenInvited() )
-    {
-        SendPartyCommandResult(_player, 0, membername, ERR_PARTY_ALREADY_IN_GROUP);
-        return;
-    }
+    WorldPacket data(SMSG_GROUP_INVITE, 100);
+    data.WriteBit(0);
+    data.WriteGuidBitString(3, guid, 0, 3, 2);
+    data.WriteBit(inviteAvailable);   // Invite available
+    data.WriteGuidBitString(2, guid, 6, 5);
+    data.WriteBits(0, 9);   // realm name length
+    data.WriteBit(guid[4]);
+    data.WriteBits(strlen(player->GetName()), 7);
+    data.WriteBits(0, 24);  // count
+    data.WriteBit(0);
+    data.WriteSeqByteString(2, guid, 1, 7);
 
-    if( player->Social_IsIgnoring( _player->GetLowGUID() ) )
-    {
-        SendPartyCommandResult(_player, 0, membername, ERR_PARTY_IS_IGNORING_YOU);
-        return;
-    }
-
-    if( player->bGMTagOn && !HasGMPermissions())
-    {
-        SendPartyCommandResult(_player, 0, membername, ERR_PARTY_CANNOT_FIND);
-        return;
-    }
-
-    data.SetOpcode(SMSG_GROUP_INVITE);
-    data << uint8(1);
-    data << GetPlayer()->GetName();
-    data << uint32(0);
-    data << uint8(0);
+    data.WriteSeqByteString(2, guid, 1, 4);
+    data << uint32(getMSTime());
+    data << uint32(0) << uint32(0);
+    data.WriteSeqByteString(4, guid, 6, 0, 2, 3);
+    // for(int i = 0; i < count; ++i)
+    //    data << uint32(0);
+    data.WriteSeqByteString(2, guid, 5, 7);
+    data.append(player->GetName(), strlen(player->GetName()));
     data << uint32(0);
     player->GetSession()->SendPacket(&data);
+}
 
-    SendPartyCommandResult(GetPlayer(), 0, membername, ERR_PARTY_NO_ERROR);
-
-    // 16/08/06 - change to guid to prevent very unlikely event of a crash in deny, etc
-    player->SetInviter(_player->GetGUID());
+void WorldSession::HandleGroupInviteResponseOpcode(WorldPacket &recv_data)
+{
+    bool crossRealm = recv_data.ReadBit();
+    bool accepted = recv_data.ReadBit();
+    if (crossRealm) recv_data.read_skip<uint32>();
+    if(accepted) HandleGroupAcceptOpcode(recv_data);
+    else HandleGroupCancelOpcode(recv_data);
 }
 
 ///////////////////////////////////////////////////////////////
@@ -108,9 +138,6 @@ void WorldSession::HandleGroupCancelOpcode( WorldPacket & recv_data )
 void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
-
-    uint32 serverid; // Sent as of 3.3 multiserver parties
-    recv_data >> serverid;
     Player* player = objmgr.GetPlayer(_player->GetInviter());
     if(!player)
         return;
@@ -345,14 +372,14 @@ void WorldSession::SendPartyCommandResult(Player* pPlayer, uint32 p1, std::strin
     // if error message do not work, please sniff it and leave me a message
     if(pPlayer)
     {
-        WorldPacket data(SMSG_PARTY_COMMAND_RESULT, name.length()+4+4+4);
+        WorldPacket data(SMSG_PARTY_COMMAND_RESULT, name.length()+4+4+4+8);
         data << uint32(p1);
         if(!name.length())
             data << uint8(0);
-        else
-            data << name.c_str();
+        else data << name.c_str();
         data << uint32(err);
         data << uint32(0);
+        data << uint64(0);
         pPlayer->GetSession()->SendPacket(&data);
     }
 }

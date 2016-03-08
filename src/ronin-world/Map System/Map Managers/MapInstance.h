@@ -118,17 +118,6 @@ public:
     }
 
 //////////////////////////////////////////////////////////
-// Local (MapInstance) storage of pets
-///////////////////////////////////////////
-    typedef Loki::AssocVector<WoWGuid, Pet*> PetStorageMap;
-    PetStorageMap m_PetStorage;
-    RONIN_INLINE Pet* GetPet(WoWGuid guid)
-    {
-        PetStorageMap::iterator itr = m_PetStorage.find(guid);
-        return (itr != m_PetStorage.end()) ? m_PetStorage[guid] : NULL;
-    }
-
-//////////////////////////////////////////////////////////
 // Local (MapInstance) storage of players for faster lookup
 ////////////////////////////////
     typedef Loki::AssocVector<WoWGuid, Player*> PlayerStorageMap;
@@ -324,7 +313,6 @@ public:
 public:
 
     // stored iterators for safe checking
-    PetStorageMap::iterator __pet_iterator;
     PlayerStorageMap::iterator __player_iterator;
 
     CreatureSet::iterator __creature_iterator;

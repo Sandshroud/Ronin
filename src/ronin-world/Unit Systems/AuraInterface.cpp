@@ -800,16 +800,9 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
     aur->ApplyModifiers(true);
 
     // Reaction from enemy AI
-    if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
-    {
-        if(pCaster != NULL && m_Unit->isAlive())
-        {
-            m_Unit->SetInCombat(pCaster);
-
-            if(m_Unit->IsCreature())
-                castPtr<Creature>(m_Unit)->GetAIInterface()->AttackReaction(pCaster, 1, aur->GetSpellId());
-        }
-    }
+	if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
+		if(pCaster != NULL && m_Unit->isAlive())
+			m_Unit->SetInCombat(pCaster);
 
     if (aur->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_ON_INVINCIBLE)
     {

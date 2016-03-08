@@ -565,8 +565,6 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
     p->SetZoneId(GetZoneId());
     p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-
-    p->GetAIInterface()->Init(p, AITYPE_PET, u_caster);
     p->PushToWorld(GetMapInstance());
 
     if(duration)

@@ -194,13 +194,12 @@ void Group::Update()
     Player* pNewLeader = NULL;
     PlayerInfo *plrinf;
 
-    WorldPacket data( 50 + ( m_MemberCount * 20 ) );
+    WorldPacket data( SMSG_GROUP_LIST, 50 + ( m_MemberCount * 20 ) );
     GroupMembersSet::iterator itr1, itr2;
 
     uint32 i = 0, j = 0;
     uint8 flags;
-    SubGroup *sg1 = NULL;
-    SubGroup *sg2 = NULL;
+    SubGroup *sg1 = NULL, *sg2 = NULL;
     m_groupLock.Acquire();
 
     m_updateblock = true;
@@ -268,17 +267,20 @@ void Group::Update()
                 data.Initialize(SMSG_GROUP_LIST);
                 data << uint8(m_GroupType); //0=party,1=raid
                 data << uint8(sg1->GetID());
-                data << uint8(0);   // unk2
-                if(m_GroupType & GROUP_TYPE_LFD)
-                {
-                    data << uint8(0);
-                    data << uint32(0);
-                }
-                data << uint8(0);   // unk
-                data << uint64(0x500000000004BC0CULL);
-                data << uint32(0);
-                data << uint32(m_MemberCount-1);    // we don't include self
 
+                flags = 0; // Player flags
+                if( (*itr1) == m_assistantLeader ) flags |= 1;
+                if( (*itr1) == m_mainTank ) flags |= 2;
+                if( (*itr1) == m_mainAssist ) flags |= 4;
+                data << flags;
+
+                data << uint8(0);   // BG Group
+                if(m_GroupType & GROUP_TYPE_LFD)
+                    data << uint8(0) << uint32(0) << uint8(0);
+                // Group guid
+                data << uint64(0x500000000004BC0CULL);
+                data << uint32(0); // Update counter
+                data << uint32(m_MemberCount-1);    // we don't include self
                 for( j = 0; j < m_SubGroupCount; j++ )
                 {
                     sg2 = m_SubGroups[j];
@@ -294,17 +296,11 @@ void Group::Update()
                             if( (*itr2) == NULL )
                                 continue;
 
-                            data << (*itr2)->charName << (*itr2)->charGuid << uint32(0);    // highguid
-
-                            if( (*itr2)->m_loggedInPlayer != NULL )
-                                data << uint8( 1 );
-                            else
-                                data << uint8( 0 );
-
+                            data << (*itr2)->charName << (*itr2)->charGuid;
+                            data << uint8( (*itr2)->m_loggedInPlayer ? 1 : 0);
                             data << uint8( sg2->GetID() );
 
                             flags = 0;
-
                             if( (*itr2) == m_assistantLeader )
                                 flags |= 1;
                             if( (*itr2) == m_mainTank )
@@ -324,12 +320,11 @@ void Group::Update()
                 data << uint8( m_LootThreshold );
                 data << uint8( m_difficulty );      // 5 Normal/Heroic.
                 data << uint8( m_raiddifficulty );  // 10/25 man.
-                data << uint8(0);
+                data << uint8(0); // Flex diff
 
                 if( !(*itr1)->m_loggedInPlayer->IsInWorld() )
                     (*itr1)->m_loggedInPlayer->CopyAndSendDelayedPacket( &data );
-                else
-                    (*itr1)->m_loggedInPlayer->GetSession()->SendPacket( &data );
+                else (*itr1)->m_loggedInPlayer->GetSession()->SendPacket( &data );
             }
         }
     }
@@ -729,6 +724,15 @@ void Group::SendNullUpdate( Player* pPlayer )
     pPlayer->GetSession()->OutPacket( SMSG_GROUP_LIST, 28, buffer );
 }
 
+bool Group::QualifiesForGuildXP(Creature *cVictim)
+{
+    // Only boss kills allow guild XP gain
+    if(!cVictim->isBoss())
+        return false;
+
+    return false;
+}
+
 // player is object class becouse its called from unit class
 void Group::SendPartyKillLog( WorldObject* player, WorldObject* Unit )
 {
@@ -915,61 +919,28 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
     }
 
     if (Flags & GROUP_UPDATE_FLAG_PET_GUID)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << pPlayer->GetSummon()->GetGUID();
-        else *data << uint64(0);
-    }
+		*data << uint64(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_NAME)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << pPlayer->GetSummon()->GetName();
-        else *data << uint8(0);
-    }
+		*data << uint8(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_DISPLAYID)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << uint16(pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_DISPLAYID));
-        else
-            *data << uint16(0);
-    }
+		*data << uint16(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_HEALTH)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_HEALTH);
-        else *data << uint32(0);
-    }
+		*data << uint32(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_MAXHEALTH)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << pPlayer->GetSummon()->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-        else *data << uint32(0);
-    }
+		*data << uint32(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_POWER_TYPE)
-    {
-        if (pPlayer->GetSummon() != NULL)
-            *data << uint8(pPlayer->GetSummon()->getPowerType());
-        else *data << uint8(0);
-    }
+		*data << uint8(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_POWER)
-    {
-        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->getPowerType() < POWER_TYPE_MAX)
-            *data << uint16(pPlayer->GetSummon()->GetPower(pPlayer->GetSummon()->getPowerType()));
-        else *data << uint16(0);
-    }
+		*data << uint16(0);
 
     if (Flags & GROUP_UPDATE_FLAG_PET_MAXPOWER)
-    {
-        if (pPlayer->GetSummon() != NULL && pPlayer->GetSummon()->getPowerType() < POWER_TYPE_MAX)
-            *data << uint16(pPlayer->GetSummon()->GetMaxPower(pPlayer->GetSummon()->getPowerType()));
-        else *data << uint16(0);
-    }
+		*data << uint16(0);
 
     if(Distribute && pPlayer->IsInWorld())
     {

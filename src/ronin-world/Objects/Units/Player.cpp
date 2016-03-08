@@ -25,7 +25,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_bgSlot                        = 0;
     m_feralAP                       = 0;
     m_finishingmovesdodge           = false;
-    iActivePet                      = 0;
     resurrector                     = 0;
     SpellCrtiticalStrikeRatingBonus = 0;
     SpellHasteRatingBonus           = 0;
@@ -40,10 +39,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_ShapeShifted                  = 0;
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
-    m_Summon                        = NULL;
-    hasqueuedpet                    = false;
     m_hasInRangeGuards              = 0;
-    m_PetNumberMax                  = 0;
     m_lastShotTime                  = 0;
     m_onTaxi                        = false;
     m_taxi_pos_x                    = 0;
@@ -220,7 +216,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     quest_spells.clear();
     quest_mobs.clear();
     OnMeleeAuras.clear();
-    m_Pets.clear();
     m_channels.clear();
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
@@ -267,12 +262,6 @@ void Player::Destruct()
         }
         delete m_tradeData;
         m_tradeData = NULL;
-    }
-
-    if(m_Summon)
-    {
-        m_Summon->Dismiss(true);
-        m_Summon->ClearPetOwner();
     }
 
     if (m_GM_SelectedGO)
@@ -343,8 +332,6 @@ void Player::Destruct()
     quest_mobs.clear();
     OnMeleeAuras.clear();
 
-    for(std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin(); itr != m_Pets.end(); itr++)
-        delete itr->second;
     while(!m_loadAuras.empty())
     {
         Aura *aur = m_loadAuras.front().second;
@@ -352,7 +339,6 @@ void Player::Destruct()
         delete aur;
     }
 
-    m_Pets.clear();
     m_channels.clear();
     m_channelsbyDBCID.clear();
     mSpells.clear();
@@ -845,7 +831,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << uint32(m_restState) << ", "
     << uint32(m_restAmount) << ", "
     << uint32(m_deathState) << ", "
-    << uint32(m_StableSlotCount) << ", ";
+    << uint32(0) << ", ";
 
     // instances
     ss << m_bgEntryPointMap << ", "
@@ -942,10 +928,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     // GM Ticket
     if(GM_Ticket* ticket = sTicketMgr.GetGMTicketByPlayer(GetGUID()))
         sTicketMgr.SaveGMTicket(ticket, buf);
-
-    // Pets
-    if(getClass() == HUNTER || getClass() == WARLOCK)
-        _SavePet(buf);
 
     ForceSaved = false;
     m_nextSave = 120000;
@@ -1163,7 +1145,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     SetUInt32Value(UNIT_FIELD_HEALTH, load_health);
-    m_StableSlotCount = fields[PLAYERLOAD_FIELD_TOTALSTABLESLOTS].GetUInt32();
     m_bgEntryPointMap = fields[PLAYERLOAD_FIELD_ENTRYPOINT_MAP].GetUInt32();
     m_bgEntryPointX = fields[PLAYERLOAD_FIELD_ENTRYPOINT_X].GetFloat();
     m_bgEntryPointY = fields[PLAYERLOAD_FIELD_ENTRYPOINT_Y].GetFloat();
@@ -1773,8 +1754,14 @@ void Player::_LoadSpells(QueryResult *result)
     do
     {
         if(SpellEntry *sp = dbcSpell.LookupEntry(result->Fetch()[1].GetUInt32()))
+        {
+            if(sp->isSpellGuildPerk())
+                continue;
             mSpells.insert(sp->Id);
+        }
     }while(result->NextRow());
+
+    guildmgr.AddGuildPerks(this);
 }
 
 void Player::_SaveSpells(QueryBuffer * buf)
@@ -1785,9 +1772,15 @@ void Player::_SaveSpells(QueryBuffer * buf)
     std::stringstream ss;
     for(auto itr = mSpells.begin(); itr != mSpells.end(); itr++)
     {
-        if(ss.str().length())
-            ss << ", ";
-        ss << "(" << GetLowGUID() << ", " << uint32(*itr) << ")";
+        if(SpellEntry *sp = dbcSpell.LookupEntry(*itr))
+        {
+            if(sp->isSpellGuildPerk())
+                continue;
+
+            if(ss.str().length())
+                ss << ", ";
+            ss << "(" << GetLowGUID() << ", " << uint32(*itr) << ")";
+        }
     }
 
     if(ss.str().length())
@@ -1977,8 +1970,6 @@ bool Player::Create(WorldPacket& data )
 
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(this));
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
-
-    m_StableSlotCount = 0;
 
     for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
         mSpells.insert(*sp);
@@ -2264,7 +2255,7 @@ void Player::_EventExploration()
                 WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
                 data << at->AreaId << explore_xp;
                 m_session->SendPacket(&data);
-                GiveXP(explore_xp, 0, false);
+                GiveXP(explore_xp, 0, false, false);
             }
         }
 
@@ -2307,15 +2298,21 @@ void Player::EventDeath()
 
 ///  This function sends the message displaying the purple XP gain for the char
 ///  It assumes you will send out an UpdateObject packet at a later time.
-void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
+void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGuildXP)
 {
-    if ( xp < 1 || m_XPoff)
-        return;
-    if(getLevel() >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
+    if ( xp < 1 || m_XPoff )
         return;
 
+    bool maxLevel = getLevel() >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL);
+    if(maxLevel)
+    {
+        if(allowGuildXP) // Even at max level, Increase guild XP if we can
+            guildmgr.GuildGainXP(this, xp);
+        return;
+    }
+
     uint32 restxp = 0; //add reststate bonus
-    if(m_restState == RESTSTATE_RESTED && allowbonus)
+    if(!m_restState == RESTSTATE_RESTED && allowbonus)
     {
         restxp = SubtractRestXP(xp);
         xp += restxp;
@@ -2361,6 +2358,9 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus)
 
     // Set the update bit
     SetUInt32Value(PLAYER_XP, newxp);
+
+    if(allowGuildXP) // Increase guild XP if we can
+        guildmgr.GuildGainXP(this, xp);
 }
 
 void Player::smsg_InitialSpells()
@@ -2420,224 +2420,6 @@ void Player::smsg_InitialSpells()
 
     data.put<uint16>(pos, itemCount);
     GetSession()->SendPacket(&data);
-}
-
-void Player::_SavePet(QueryBuffer * buf)
-{
-    // Remove any existing info
-    if(buf == NULL)
-    {
-        CharacterDatabase.Execute("DELETE FROM pet_data WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
-        CharacterDatabase.Execute("DELETE FROM pet_talents WHERE ownerguid=%u", GetLowGUID());
-        CharacterDatabase.Execute("DELETE FROM pet_actionbar WHERE ownerguid=%u", GetLowGUID());
-        CharacterDatabase.Execute("DELETE FROM pet_spells WHERE ownerguid=%u", GetLowGUID());
-    }
-    else
-    {
-        buf->AddQuery("DELETE FROM pet_data WHERE ownerguid = %u", GetUInt32Value(OBJECT_FIELD_GUID));
-        buf->AddQuery("DELETE FROM pet_actionbar WHERE ownerguid=%u", GetLowGUID());
-        buf->AddQuery("DELETE FROM pet_spells WHERE ownerguid=%u", GetLowGUID());
-        buf->AddQuery("DELETE FROM pet_talents WHERE ownerguid=%u", GetLowGUID());
-    }
-
-    std::stringstream ss;
-    if(m_Summon && m_Summon->IsInWorld() && m_Summon->GetPetOwner() == castPtr<Player>(this)) // update PlayerPets array with current pet's info
-    {
-        PlayerPet*pPet = GetPlayerPet(m_Summon->m_PetNumber);
-        if(!pPet || pPet->active == false)
-            m_Summon->UpdatePetInfo(true);
-        else
-            m_Summon->UpdatePetInfo(false);
-
-        if(!m_Summon->Summon)      // is a pet
-        {
-            // save pet spellz
-            PetSpellMap::iterator itr = m_Summon->mSpells.begin();
-            uint32 pn = m_Summon->m_PetNumber;
-
-            // Start inserting spells into a bulk SQL
-            ss.rdbuf()->str("");
-            bool first = true;
-            if(m_Summon->mSpells.size())
-            {
-                ss << "INSERT INTO pet_spells VALUES ";
-                for(; itr != m_Summon->mSpells.end(); itr++)
-                {
-                    if(first)
-                        first = false;
-                    else
-                        ss << ",";
-
-                    ss << "(" << uint32(GetLowGUID()) << ", " << uint32(pn) << ", " << uint32(itr->first->Id) << ", " <<  uint32(itr->second) << ")";
-                }
-                ss << ";";
-
-                if(buf == NULL)
-                    CharacterDatabase.Execute(ss.str().c_str());
-                else // Execute or add our bulk inserts
-                    buf->AddQuery(ss.str().c_str());
-            }
-
-            // Start inserting talents into a bulk SQL
-            ss.rdbuf()->str("");
-            if(m_Summon->m_talents.size())
-            {
-                PetTalentMap::iterator itr2 = m_Summon->m_talents.begin();
-                ss << "INSERT INTO pet_talents VALUES ";
-                first = true;
-                for(; itr2 != m_Summon->m_talents.end(); itr2++)
-                {
-                    if(first)
-                        first = false;
-                    else
-                        ss << ",";
-
-                    ss << "(" << uint32(GetLowGUID()) << ", " << uint32(pn) << ", " << uint32(itr2->first) << ", " <<  uint32(itr2->second) << ")";
-                }
-                ss << ";";
-
-                if(buf == NULL)
-                    CharacterDatabase.Execute(ss.str().c_str());
-                else // Execute or add our bulk inserts
-                    buf->AddQuery(ss.str().c_str());
-            }
-        }
-    }
-
-    PetLocks.Acquire();
-    for(std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin(); itr != m_Pets.end(); itr++)
-    {
-        ss.rdbuf()->str("");
-        ss << "REPLACE INTO pet_data VALUES('"
-            << GetLowGUID() << "','"
-            << itr->second->number << "','"
-            << CharacterDatabase.EscapeString(itr->second->name).c_str() << "','"
-            << itr->second->entry << "','"
-            << itr->second->fields.c_str() << "','"
-            << itr->second->xp << "','"
-            << uint32((itr->second->active ?  1 : 0) + itr->second->stablestate * 10) << "','"
-            << itr->second->level << "','"
-            << itr->second->happiness << "','" //happiness/loyalty xp
-            << itr->second->happinessupdate << "','"
-            << uint32(itr->second->summon ?  1 : 0) << "')";
-
-        if(buf == NULL)
-            CharacterDatabase.ExecuteNA(ss.str().c_str());
-        else
-            buf->AddQueryStr(ss.str());
-
-        ss.rdbuf()->str("");
-        ss << "REPLACE INTO pet_actionbar VALUES('";
-        // save action bar
-        ss << GetLowGUID() << "','"
-        << itr->second->number << "'";
-        for(uint8 i = 0; i < 4; i++)
-            ss << ", '" << itr->second->actionbarspell[i] << "'";
-
-        for(uint8 i = 0; i < 4; i++)
-            ss << ", '" << itr->second->actionbarspellstate[i] << "'";
-
-        ss << ")";
-
-        if(buf == NULL)
-            CharacterDatabase.ExecuteNA(ss.str().c_str());
-        else
-            buf->AddQueryStr(ss.str());
-    }
-    PetLocks.Release();
-}
-
-void Player::_LoadPet(QueryResult * result)
-{
-    m_PetNumberMax= 0;
-    if(!result)
-        return;
-
-    do
-    {
-        Field *fields = result->Fetch();
-        PlayerPet* pet = NULL;
-        pet = new PlayerPet;
-        pet->number  = fields[1].GetUInt32();
-        pet->name   = fields[2].GetString();
-        pet->entry   = fields[3].GetUInt32();
-        pet->fields  = fields[4].GetString();
-        pet->xp   = fields[5].GetUInt32();
-        pet->active  = fields[6].GetInt8()%10 > 0 ? true : false;
-        pet->stablestate = fields[6].GetInt8() / 10;
-        pet->level   = fields[7].GetUInt32();
-        pet->happiness = fields[8].GetUInt32();
-        pet->happinessupdate = fields[9].GetUInt32();
-        pet->summon = (fields[10].GetUInt32()>0 ? true : false);
-
-        m_Pets[pet->number] = pet;
-        if(pet->active)
-        {
-            if(iActivePet)  // how the hell can this happen
-            {
-                //printf("pet warning - >1 active pet.. weird..");
-            } else iActivePet = pet->number;
-        }
-
-        if(pet->number > m_PetNumberMax)
-            m_PetNumberMax =  pet->number;
-    }while(result->NextRow());
-}
-
-void Player::_LoadPetActionBar(QueryResult * result)
-{
-    if(!result)
-        return;
-
-    if(!m_Pets.size())
-        return;
-
-    do
-    {
-        Field *fields = result->Fetch();
-        PlayerPet* pet = NULL;
-        uint32 number  = fields[1].GetUInt32();
-        pet = m_Pets[number];
-        if(!pet)
-            continue;
-
-        for(uint8 i = 0; i < 4; i++)
-        {
-            pet->actionbarspell[i] = fields[2+i].GetUInt32();
-            pet->actionbarspellstate[i] = fields[6+i].GetUInt32();
-        }
-    }while(result->NextRow());
-}
-
-void Player::SpawnPet(uint32 pet_number)
-{
-    PetLocks.Acquire();
-    std::map<uint32, PlayerPet*>::iterator itr = m_Pets.find(pet_number);
-    if(itr == m_Pets.end())
-    {
-        PetLocks.Release();
-        sLog.outDebug("PET SYSTEM: "I64FMT" Tried to load invalid pet %d", GetGUID(), pet_number);
-        return;
-    }
-
-    if( m_Summon != NULL )
-    {
-        m_Summon->Remove(true, true, true);
-        m_Summon = NULL;
-    }
-
-    if(CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(itr->second->entry))
-    {
-        // Crow: Should be that it recasts summon spell, but without cost.
-        if(Pet* pPet = objmgr.CreatePet(ctrData))
-        {
-            pPet->SetInstanceID(GetInstanceID());
-            pPet->LoadFromDB(castPtr<Player>(this), itr->second);
-            if( IsPvPFlagged() )
-                pPet->SetPvPFlag();
-        }
-    }
-    PetLocks.Release();
 }
 
 SpellEntry* Player::FindLowerRankSpell(SpellEntry* sp, int32 rankdiff)
@@ -3157,17 +2939,6 @@ void Player::RemoveFromWorld()
             pTarget->ResetTradeVariables();
 
         ResetTradeVariables();
-    }
-
-    if(m_Summon)
-    {
-        m_Summon->GetAIInterface()->SetPetOwner(0);
-        m_Summon->Remove(true, true, false);
-        if(m_Summon)
-        {
-            m_Summon->ClearPetOwner();
-            m_Summon=NULL;
-        }
     }
 
     if(m_SummonedObject)
@@ -4029,16 +3800,6 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
         m_CurrentCharm=NULL;
     }
 
-    if(pObj == m_Summon)
-    {
-        if(m_Summon->IsSummonedPet())
-            m_Summon->Dismiss(true);
-        else m_Summon->Remove(true, true, false);
-        // Check if we still have summon left over, if so then clear us from it
-        if(m_Summon) m_Summon->ClearPetOwner();
-        m_Summon = NULL;
-    }
-
     if( pObj == DuelingWith )
         sEventMgr.AddEvent(this, &Player::EndDuel, (uint8)DUEL_WINNER_RETREAT, EVENT_PLAYER_DUEL_COUNTDOWN, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
@@ -4356,15 +4117,6 @@ void Player::SendTalentResetConfirm()
     GetSession()->SendPacket(&data);
 }
 
-void Player::SendPetUntrainConfirm()
-{
-    Pet* pPet = GetSummon();
-    if( pPet == NULL )
-        return;
-
-
-}
-
 int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot )
 {
     SpellEntry* spellinfo = dbcSpell.LookupEntry( autoshot ? 75 : spellid );
@@ -4491,9 +4243,7 @@ bool Player::removeSpell(uint32 SpellID)
     {
         mSpells.erase(iter);
         RemoveAura(SpellID,GetGUID());
-    }
-    else
-        return false;
+    } else return false;
 
     if(!IsInWorld())
         return true;
@@ -4875,7 +4625,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     data << firstNode->LocX << firstNode->LocY << firstNode->LocZ;
     data << m_taxi_ride_time;
     data << uint8( 0 );
-    data << uint32( MONSTER_MOVE_FLAG_FLY );
+    data << uint32( 0 );
     data << uint32( traveltime );
 
     if(!cn)
@@ -5076,29 +4826,6 @@ void Player::RegenerateHealth( bool inCombat )
             cur += float2int32(floor(amt)); // Crow: client always rounds down
         SetUInt32Value(UNIT_FIELD_HEALTH,(cur>=mh) ? mh : cur);
     }
-}
-
-uint32 Player::GeneratePetNumber()
-{
-    uint32 val = m_PetNumberMax + 1;
-    for (uint32 i = 1; i < m_PetNumberMax; i++)
-        if(m_Pets.find(i) == m_Pets.end())
-            return i;                      // found a free one
-
-    return val;
-}
-
-void Player::RemovePlayerPet(uint32 pet_number)
-{
-    PetLocks.Acquire();
-    std::map<uint32, PlayerPet*>::iterator itr = m_Pets.find( pet_number );
-    if( itr != m_Pets.end() )
-    {
-        delete itr->second;
-        m_Pets.erase(itr);
-        EventDismissPet();
-    }
-    PetLocks.Release();
 }
 
 void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_world, uint32 instance_id)
@@ -5871,13 +5598,6 @@ void Player::EndDuel(uint8 WinCondition)
     EventAttackStop();
     DuelingWith->EventAttackStop();
 
-    // Call off pet
-    if( GetSummon() != NULL )
-    {
-        GetSummon()->GetAIInterface()->HandleEvent( EVENT_FOLLOWOWNER, GetSummon(), 0 );
-        GetSummon()->GetAIInterface()->WipeTargetList();
-    }
-
     // removing auras that kills players after if low HP
     m_AuraInterface.RemoveAllNegativeAuras(); // NOT NEEDED. External targets can always gank both duelers with DoTs. :D
     DuelingWith->m_AuraInterface.RemoveAllNegativeAuras();
@@ -6290,9 +6010,6 @@ void Player::SoftLoadPlayer()
 
 void Player::CompleteLoading()
 {
-    if(iActivePet)
-        SpawnPet(iActivePet);      // only spawn if >0
-
     // Banned
     if(IsBanned())
     {
@@ -7234,48 +6951,6 @@ void Player::CopyAndSendDelayedPacket(WorldPacket * data)
 {
     WorldPacket * data2 = new WorldPacket(*data);
     delayedPackets.add(data2);
-}
-
-//if we charmed or simply summoned a pet, castPtr<Player>(this) function should get called
-void Player::EventSummonPet( Pet* new_pet )
-{
-    if ( !new_pet )
-        return ; //another wtf error
-
-    SpellSet::iterator it,iter;
-    for(iter= mSpells.begin();iter != mSpells.end();)
-    {
-        it = iter++;
-        uint32 SpellID = *it;
-        SpellEntry *spellInfo = dbcSpell.LookupEntry(SpellID);
-        if( spellInfo->isSpellCastOnPetOwnerOnSummon() )
-        {
-            m_AuraInterface.RemoveAllAuras( SpellID, GetGUID() ); //this is required since unit::addaura does not check for talent stacking
-            SpellCastTargets targets(GetGUID());
-            if (Spell* spell = new Spell(this, spellInfo))    //we cast it as a proc spell, maybe we should not !
-                spell->prepare(&targets, true);
-        }
-        else if( spellInfo->isSpellCastOnPetOnSummon() )
-        {
-            m_AuraInterface.RemoveAllAuras( SpellID, GetGUID() ); //this is required since unit::addaura does not check for talent stacking
-            SpellCastTargets targets( new_pet->GetGUID() );
-            if(Spell* spell = new Spell(this, spellInfo))    //we cast it as a proc spell, maybe we should not !
-                spell->prepare(&targets, true);
-        }
-    }
-
-    //there are talents that stop working after you gain pet
-    m_AuraInterface.RemoveAllAurasExpiringWithPet();
-
-    //pet should inherit some of the talents from caster
-    //new_pet->InheritSMMods(); //not required yet. We cast full spell to have visual effect too
-}
-
-//if pet/charm died or whatever happened we should call this function
-//!! note function might get called multiple times :P
-void Player::EventDismissPet()
-{
-    m_AuraInterface.RemoveAllAurasExpiringWithPet();
 }
 
 void Player::AddShapeShiftSpell(uint32 id)

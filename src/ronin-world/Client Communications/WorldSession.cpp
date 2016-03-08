@@ -316,9 +316,6 @@ void WorldSession::LogoutPlayer()
         objmgr.RemovePlayer( plr );
         plr->ok_to_remove = true;
 
-        if( plr->GetSummon() != NULL )
-            plr->GetSummon()->Remove( false, true, false );
-
         if(plr->IsInWorld())
         {
             plr->SaveToDB(false);
@@ -654,6 +651,7 @@ void WorldSession::InitPacketHandlerTable()
 
     // Groups / Raids
     WorldPacketHandlers[CMSG_GROUP_INVITE].handler                          = &WorldSession::HandleGroupInviteOpcode;
+    WorldPacketHandlers[CMSG_GROUP_INVITE_RESPONSE].handler                 = &WorldSession::HandleGroupInviteResponseOpcode;
     WorldPacketHandlers[CMSG_GROUP_UNINVITE_GUID].handler                   = &WorldSession::HandleGroupUninviteGUIDOpcode;
     WorldPacketHandlers[CMSG_GROUP_SET_LEADER].handler                      = &WorldSession::HandleGroupSetLeaderOpcode;
     WorldPacketHandlers[CMSG_GROUP_DISBAND].handler                         = &WorldSession::HandleGroupDisbandOpcode;

@@ -74,8 +74,6 @@ bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_sessio
     GreenSystemMessage(m_session, format("Distance is: %f;", plr->CalcDistance(creature)).c_str());
     GreenSystemMessage(m_session, format("Mob Facing Player: %s; Player Facing Mob %s;", (creature->isTargetInFront(plr) ? "true" : "false"),
         (plr->isTargetInFront(creature) ? "true" : "false")).c_str());
-    GreenSystemMessage(m_session, format("Attackers Count: %u;", uint32(creature->GetAIInterface()->getAITargetsCount())).c_str());
-    GreenSystemMessage(m_session, format("AIState: %u; AIType: %u;", creature->GetAIInterface()->getAIState(), creature->GetAIInterface()->getAIType()).c_str());
     return true;
 }
 
@@ -190,8 +188,6 @@ bool ChatHandler::HandleAggroRangeCommand(const char* args, WorldSession *m_sess
         return true;
     }
 
-    float aggroRange = obj->GetAIInterface()->_CalcAggroRange(plr);
-    SystemMessage(m_session, "Aggrorange is %f", sqrtf(aggroRange));
     return true;
 }
 

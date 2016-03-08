@@ -224,7 +224,6 @@ public:
     RONIN_INLINE bool IsCorpse() { return GetTypeId() == TYPEID_CORPSE; }
     virtual bool IsContainer() { return false; }
     virtual bool IsObject() { return false; }
-    virtual bool IsPet() { return false; }
     virtual bool IsTotem() { return false; }
     virtual bool IsSummon() { return false; }
     virtual bool IsVehicle() { return false; }

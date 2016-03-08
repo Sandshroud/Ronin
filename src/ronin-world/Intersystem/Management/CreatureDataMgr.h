@@ -95,8 +95,6 @@ struct CreatureData
             return format("%s|%s", maleName.c_str(), femaleName.c_str()).c_str();
         return maleName.c_str();
     }
-
-    std::list<AI_Spell*> spells;
 };
 #pragma pack(PRAGMA_POP)
 

@@ -56,29 +56,17 @@ void Spell::FillTargetMap(uint32 i)
             AddTarget(i, TargetType, *itr);
     }
 
-    if(TargetType & SPELL_TARGET_OBJECT_CURPET && m_caster->IsPlayer())
-        AddTarget(i, TargetType, castPtr<Player>(m_caster)->GetSummon());
-
-    if(TargetType & SPELL_TARGET_OBJECT_PETOWNER)
-    {
-        if(m_targets.m_unitTarget.getHigh() == HIGHGUID_TYPE_PET)
-        {
-            if(Pet* p = m_caster->GetMapInstance()->GetPet(m_targets.m_unitTarget))
-                AddTarget(i, TargetType, p->GetPetOwner());
-        }
-    }
-
     //targets party, not raid
     if((TargetType & SPELL_TARGET_AREA_PARTY) && !(TargetType & SPELL_TARGET_AREA_RAID))
     {
-        if(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
+        if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
             AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
         else AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
     }
 
     if(TargetType & SPELL_TARGET_AREA_RAID)
     {
-        if(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem()))
+        if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
             AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
         else AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
     }
@@ -129,7 +117,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
     if(obj->IsItem() && !(TargetType & SPELL_TARGET_REQUIRE_ITEM) && !m_triggeredSpell)
         return false;
 
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) && ((obj->IsPlayer() || obj->IsPet()) || (m_caster->IsPlayer() || m_caster->IsPet())))
+    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) && (obj->IsPlayer() || m_caster->IsPlayer()))
         return false;
 
     if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY && !sFactionSystem.isFriendly(m_caster, obj))
@@ -143,8 +131,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         if(originaltarget == NULL || (originaltarget->IsPlayer() && obj->IsPlayer() && castPtr<Player>(originaltarget)->getClass() != castPtr<Player>(obj)->getClass()) || (originaltarget->IsPlayer() && !obj->IsPlayer()) || (!originaltarget->IsPlayer() && obj->IsPlayer()))
             return false;
     }
-    if(TargetType & SPELL_TARGET_OBJECT_CURPET && !obj->IsPet())
-        return false;
+
     if(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID) && ((obj->IsUnit() && !castPtr<Unit>(obj)->isAlive()) || (obj->IsCreature() && obj->IsTotem())))
         return false;
 
@@ -179,7 +166,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     LocationVector source;
 
     //cant do raid/party stuff here, seperate functions for it
-    if(TargetType & (SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID) && !(!m_caster->IsPlayer() && !m_caster->IsPet() && (!m_caster->IsCreature() || !m_caster->IsTotem())))
+    if(TargetType & (SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID) && !(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem())))
         return;
 
     WorldObject* tarobj = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
@@ -230,11 +217,6 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
             continue;
         if(!p->IsGroupMember(target))
             continue;
-        if(Pet *pet = target->GetSummon())
-        {
-            if(u->CalcDistance(pet) <= radius)
-                AddTarget(i, TargetType, pet);
-        }
         if(u->CalcDistance(target) > radius)
             continue;
 
@@ -261,11 +243,6 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
             continue;
         if(!p->IsGroupMember(target))
             continue;
-        if(Pet *pet = target->GetSummon())
-        {
-            if(u->CalcDistance(pet) <= radius)
-                AddTarget(i, TargetType, pet);
-        }
         if(u->CalcDistance(target) > radius)
             continue;
 

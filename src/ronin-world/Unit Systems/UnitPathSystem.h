@@ -22,7 +22,7 @@ public: // Class functions
     UnitPathSystem(Unit *unit);
     ~UnitPathSystem();
 
-    void Update(uint32 msTime, uint32 uiDiff);
+    bool Update(uint32 msTime, uint32 uiDiff);
 
     bool GetDestination(float &x, float &y, float *z = NULL);
 

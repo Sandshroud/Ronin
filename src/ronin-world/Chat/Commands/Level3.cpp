@@ -941,111 +941,6 @@ bool ChatHandler::HandleSetChosenTitleCommand(const char* args, WorldSession* m_
     return true;
 }
 
-bool ChatHandler::HandleCreatePetCommand(const char* args, WorldSession* m_session)
-{
-    if(!args || strlen(args) < 2)
-        return false;
-
-    uint32 Entry = atol(args);
-    if(!Entry)
-        return false;
-
-    Player * player = m_session->GetPlayer();
-    if(player == NULL)
-        return false;
-
-    CreatureData * ctrData = sCreatureDataMgr.GetCreatureData(Entry);
-    if(ctrData == NULL || !ctrData->family)
-    {
-        RedSystemMessage(m_session, "Invalid creature for pet: %u", Entry);
-        return true;
-    }
-
-    if(player->GeneratePetNumber() == 0)
-        return false;
-    else if(player->GetSummon() || player->GetUnstabledPetNumber())
-        return false;
-
-    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(ctrData->family);
-    if(cf && !cf->skillLine[1])
-        return false;
-
-    Pet* pPet = objmgr.CreatePet(ctrData);
-    pPet->SetInstanceID(player->GetInstanceID());
-    pPet->CreateAsSummon(NULL, player, NULL, NULL, 2, 0);
-    sWorld.LogGM(m_session, "used create pet entry %u", Entry);
-    return true;
-}
-
-bool ChatHandler::HandleAddPetSpellCommand(const char* args, WorldSession* m_session)
-{
-    Player* plr = m_session->GetPlayer();
-    Pet* pPet = plr->GetSummon();
-    if(pPet == 0)
-    {
-        RedSystemMessage(m_session, "You have no pet.");
-        return true;
-    }
-
-    uint32 SpellId = atol(args);
-    SpellEntry * spell = dbcSpell.LookupEntry(SpellId);
-    if(!SpellId || !spell)
-    {
-        RedSystemMessage(m_session, "Invalid spell id requested.");
-        return true;
-    }
-
-    pPet->AddSpell(spell, true);
-    GreenSystemMessage(m_session, "Added spell %u to your pet.", SpellId);
-    return true;
-}
-
-bool ChatHandler::HandleRemovePetSpellCommand(const char* args, WorldSession* m_session)
-{
-    Player* plr = m_session->GetPlayer();
-    Pet* pPet = plr->GetSummon();
-    if(pPet == 0)
-    {
-        RedSystemMessage(m_session, "You have no pet.");
-        return true;
-    }
-
-    uint32 SpellId = atol(args);
-    if(SpellId == 0)
-        SpellId = GetSpellIDFromLink( args );
-    SpellEntry * spell = dbcSpell.LookupEntry(SpellId);
-    if(!SpellId || !spell)
-    {
-        RedSystemMessage(m_session, "Invalid spell id requested.");
-        return true;
-    }
-
-    pPet->RemoveSpell(SpellId);
-    GreenSystemMessage(m_session, "Added spell %u to your pet.", SpellId);
-    return true;
-}
-
-bool ChatHandler::HandleRenamePetCommand(const char* args, WorldSession* m_session)
-{
-    Player* plr = m_session->GetPlayer();
-    Pet* pPet = plr->GetSummon();
-    if(pPet == 0)
-    {
-        RedSystemMessage(m_session, "You have no pet.");
-        return true;
-    }
-
-    if(strlen(args) < 1)
-    {
-        RedSystemMessage(m_session, "You must specify a name.");
-        return true;
-    }
-
-    GreenSystemMessage(m_session, "Renamed your pet to %s.", args);
-    pPet->Rename(args);
-    return true;
-}
-
 bool ChatHandler::HandleShutdownCommand(const char* args, WorldSession* m_session)
 {
     uint32 shutdowntime = atol(args);
@@ -1248,10 +1143,6 @@ bool ChatHandler::HandleNpcReturnCommand(const char* args, WorldSession* m_sessi
     if(!creature || !creature->IsSpawn()) 
         return true;
 
-    // restart movement
-    creature->GetAIInterface()->SetAIState(STATE_IDLE);
-    creature->GetAIInterface()->WipeHateList();
-    creature->GetAIInterface()->WipeTargetList();
     return true;
 }
 
@@ -2031,7 +1922,7 @@ bool ChatHandler::HandleNpcPossessCommand(const char * args, WorldSession * m_se
     if(!pTarget)
     {
         pTarget = getSelectedCreature(m_session, false);
-        if(pTarget && (pTarget->IsPet() || pTarget->GetUInt32Value(UNIT_FIELD_CREATEDBY) != 0))
+        if(pTarget && pTarget->GetUInt32Value(UNIT_FIELD_CREATEDBY))
             return false;
     }
 
@@ -2051,13 +1942,6 @@ bool ChatHandler::HandleNpcUnPossessCommand(const char * args, WorldSession * m_
     Creature* creature = getSelectedCreature(m_session);
     m_session->GetPlayer()->UnPossess();
 
-    if( creature != NULL )
-    {
-        // restart movement
-        creature->GetAIInterface()->SetAIState(STATE_IDLE);
-        creature->GetAIInterface()->WipeHateList();
-        creature->GetAIInterface()->WipeTargetList();
-    }
     GreenSystemMessage(m_session, "Removed any possessed targets.");
     return true;
 }

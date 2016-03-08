@@ -294,6 +294,17 @@ namespace RONIN_UTIL
         }
         return true;
     }
+
+    RONIN_INLINE unsigned int getRBitOffset(uint32 value)
+    {
+        unsigned int ret = 0;
+#ifdef WIN32
+        _BitScanReverse((LPDWORD)&ret, value);
+#else
+        ret = __builtin_clz(value);
+#endif
+        return ret;
+    }
 };
 
 

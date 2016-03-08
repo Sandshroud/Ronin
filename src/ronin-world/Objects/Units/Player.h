@@ -13,12 +13,10 @@ class GameObject;
 class Transporter;
 class Corpse;
 struct GuildRank;
-class Pet;
 class Charter;
 class LFGMatch;
 struct PlayerCreateInfo;
 
-#define MAX_PET_NO 3
 #define PLAYER_HONORLESS_TARGET_SPELL 2479
 
 #define ALLIANCE 0
@@ -342,23 +340,6 @@ struct PlayerInfo
     uint32 charterId[NUM_CHARTER_TYPES];
 };
 
-struct PlayerPet
-{
-    std::string name;
-    uint32 entry;
-    std::string fields;
-    uint32 xp;
-    bool active;
-    uint8 stablestate;
-    uint32 number;
-    uint32 level;
-    uint32 happiness;
-    uint32 happinessupdate;
-    uint32 actionbarspell[4];
-    uint32 actionbarspellstate[4];
-    bool summon;
-};
-
 enum MeetingStoneQueueStatus
 {
     MEETINGSTONE_STATUS_NONE                                = 0,
@@ -661,7 +642,6 @@ typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
 class SERVER_DECL Player : public Unit
 {
     friend class WorldSession;
-    friend class Pet;
     friend class SkillIterator;
 
 public:
@@ -838,7 +818,7 @@ public:
     RONIN_INLINE std::string* GetNameString() { return &m_name; }
 
     //void KilledMonster(uint32 entry, const uint64 &guid);
-    void GiveXP(uint32 xp, const uint64 &guid, bool allowbonus);   // to stop rest xp being given
+    void GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGuildXP);   // to stop rest xp being given
     void ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val);
 
     int32 GetBonusesFromItems(uint32 statType);
@@ -1134,58 +1114,6 @@ public:
         m_tradeData->tradeStep = TRADE_STATUS_BEGIN_TRADE;
     }
 
-    /************************************************************************/
-    /* Pets                                                                 */
-    /************************************************************************/
-    RONIN_INLINE void SetSummon(Pet* pet) { m_Summon = pet; }
-    RONIN_INLINE Pet* GetSummon(void) { return m_Summon; }
-    uint32 GeneratePetNumber(void);
-    void RemovePlayerPet(uint32 pet_number);
-    RONIN_INLINE void AddPlayerPet(PlayerPet* pet, uint32 index) { m_Pets[index] = pet; }
-    RONIN_INLINE PlayerPet* GetPlayerPet(uint8 idx)
-    {
-        PlayerPet* petReturn = NULL;
-        PetLocks.Acquire();
-        std::map<uint32, PlayerPet*>::iterator itr = m_Pets.find(idx);
-        if(itr != m_Pets.end())
-            petReturn = itr->second;
-        PetLocks.Release();
-        return petReturn;
-    }
-
-    void SpawnPet(uint32 pet_number);
-    void DespawnPet();
-    uint32 GetFirstPetNumber(void)
-    {
-        if(m_Pets.size() == 0)
-            return 0;
-
-        PetLocks.Acquire();
-        std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin();
-        uint32 petNum = itr->first;
-        PetLocks.Release();
-        return petNum;
-    }
-    RONIN_INLINE PlayerPet* GetFirstPet(void) { return GetPlayerPet(GetFirstPetNumber()); }
-    RONIN_INLINE void SetStableSlotCount(uint8 count) { m_StableSlotCount = count; }
-    RONIN_INLINE uint8 GetStableSlotCount(void) { return m_StableSlotCount; }
-    uint8 GetUnstabledPetNumber(void)
-    {
-        if(m_Pets.size() == 0)
-            return 0;
-
-        uint8 UnstabledPetNum = 0;
-        PetLocks.Acquire();
-        std::map<uint32, PlayerPet*>::iterator itr = m_Pets.begin();
-        for(;itr != m_Pets.end();itr++)
-            if(itr->second->stablestate == STABLE_STATE_ACTIVE)
-                UnstabledPetNum = itr->first;
-        PetLocks.Release();
-        return UnstabledPetNum;
-    }
-    void EventSummonPet(Pet* new_pet); //if we charmed or simply summoned a pet, this function should get called
-    void EventDismissPet(); //if pet/charm died or whatever happned we should call this function
-
 public:
     /************************************************************************/
     /* Player Items                                                         */
@@ -1275,7 +1203,6 @@ public:
     float SpellHasteRatingBonus;
 
     bool canCast(SpellEntry *m_spellInfo);
-    void SendPetUntrainConfirm();
     void SendXPToggleConfirm();
     void SetPlayerStatus(uint8 pStatus) { m_status = pStatus; }
     void CheckPlayerStatus(uint8 pStatus) { if(m_status == pStatus) m_status = NONE; }
@@ -1665,11 +1592,7 @@ public:
 
     //Current value of Feral Attack Power from items
     int32 m_feralAP;
-    bool    hasqueuedpet;
     uint32 JudgementSpell;
-    Mutex PetLocks;
-    std::map<uint32, PlayerPet*> m_Pets;
-    uint8 m_StableSlotCount;
 
 protected:
     uint32 m_timeLogoff;
@@ -1678,20 +1601,12 @@ protected:
     uint32 m_summonMapId;
     WorldObject* m_summoner;
 
-    uint32 iActivePet;
-
     /* Update system components */
     Mutex _bufferS;
     bool bProcessPending;
     uint32 m_updateDataCount, m_OutOfRangeIdCount;
     ByteBuffer m_updateDataBuff, m_OutOfRangeIds;
     /* End update system */
-
-    void _LoadPet(QueryResult * result);
-    void _LoadPetActionBar(QueryResult * result);
-    void _LoadPetNo();
-    void _LoadPetSpells(QueryResult * result);
-    void _SavePet(QueryBuffer * buf);
 
     void _EventExploration();
 
@@ -1720,8 +1635,6 @@ protected:
     // Character Ban
     uint32      m_banned;
     std::string m_banreason;
-    Pet*        m_Summon;
-    uint32      m_PetNumberMax;
     uint32      m_invitersGuid; // It is guild inviters guid, 0 when its not used
 
     // bind

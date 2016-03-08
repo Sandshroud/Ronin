@@ -785,44 +785,6 @@ void Aura::EventPeriodicHeal( uint32 amount )
 
     if( m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
         m_target->Emote( EMOTE_ONESHOT_EAT );
-
-    Unit * m_caster = GetUnitCaster();
-    if(m_caster == NULL || !m_caster->IsInWorld())
-        return;
-
-    uint32 base_threat = add;
-    int count = 0;
-    Unit* unit = NULL;
-    std::vector< Creature* > target_threat;
-    if( base_threat > 0 )
-    {
-        target_threat.reserve(m_caster->GetInRangeCount()); // this helps speed
-
-        for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
-        {
-            unit = m_caster->GetInRangeObject<Unit>(*itr);
-            if(unit->IsCreature() && castPtr<Creature>(unit)->GetAIInterface()->GetNextTarget() == m_target)
-            {
-                target_threat.push_back(castPtr<Creature>(unit));
-                ++count;
-            }
-        }
-        if(count == 0)
-            count = 1;  // division against 0 protection
-        /*
-        When a tank hold multiple mobs, the threat of a heal on the tank will be split between all the mobs.
-        The exact formula is not yet known, but it is more than the Threat/number of mobs.
-        So if a tank holds 5 mobs and receives a heal, the threat on each mob will be less than Threat(heal)/5.
-        Current speculation is Threat(heal)/(num of mobs *2)
-        */
-        uint32 threat = base_threat / (count * 2);
-
-        for(std::vector<Creature* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
-        {
-            // for now we'll just use heal amount as threat.. we'll prolly need a formula though
-            (*itr)->GetAIInterface()->HealReaction(m_caster, m_target, threat, m_spellProto);
-        }
-    }
 }
 
 void Aura::SpellAuraModAttackSpeed(bool apply)
@@ -837,18 +799,7 @@ void Aura::SpellAuraModThreatGenerated(bool apply)
 
 void Aura::SpellAuraModTaunt(bool apply)
 {
-    Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL || !m_caster->isAlive() || !m_target->IsCreature())
-        return;
 
-    Creature *target = castPtr<Creature>(m_target);
-    if(apply)
-    {
-        target->GetAIInterface()->AttackReaction(m_caster, 1, 0);
-        target->GetAIInterface()->taunt(m_caster, true);
-    }
-    else if(target->GetAIInterface()->getTauntedBy() == m_caster)
-        target->GetAIInterface()->taunt(m_caster, false);
 }
 
 void Aura::SpellAuraModStun(bool apply)
@@ -1583,9 +1534,6 @@ void Aura::SpellAuraFeignDeath(bool apply)
                 Unit* pObject = pTarget->GetInRangeObject<Unit>(*itr2);
                 if(pObject->isAlive())
                 {
-                    if(pObject->GetTypeId()==TYPEID_UNIT)
-                        castPtr<Creature>(pObject)->GetAIInterface()->RemoveThreat(pTarget->GetGUID());
-
                     //if this is player and targeting us then we interrupt cast
                     if(pObject->IsPlayer())
                     {   //if player has selection on us
@@ -1751,26 +1699,9 @@ void Aura::SpellAuraMounted(bool apply)
     if(pPlayer->IsMounted())
         pPlayer->Dismount();
 
-    bool warlockpet = false;
-    if(pPlayer->GetSummon() && pPlayer->GetSummon()->IsWarlockPet() == true)
-        warlockpet = true;
-
     if(apply)
     {
         pPlayer->m_bgFlagIneligible++;
-
-        //Dismiss any pets
-        if(pPlayer->GetSummon())
-        {
-            Pet* pPet = pPlayer->GetSummon();
-            if((pPet->GetUInt32Value(UNIT_CREATED_BY_SPELL) > 0) && (warlockpet == false))
-                pPet->Dismiss(false);               // Spell pet -> Dismiss
-            else
-            {
-                pPet->Remove(false, true, true);    // hunter pet -> just remove for later re-call
-                pPlayer->hasqueuedpet = true;
-            }
-        }
 
         if(pPlayer->m_bg)
             pPlayer->m_bg->HookOnMount(pPlayer);
@@ -1796,24 +1727,6 @@ void Aura::SpellAuraMounted(bool apply)
         pPlayer->m_MountSpellId = 0;
         pPlayer->m_FlyingAura = 0;
         m_target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
-
-        uint8 petnum = pPlayer->GetUnstabledPetNumber();
-        if(warlockpet && !petnum)
-            petnum = pPlayer->GetFirstPetNumber();
-
-        if( petnum && pPlayer->hasqueuedpet )
-        {
-            //unstable selected pet
-            PlayerPet * pPet = NULL;
-            pPet = pPlayer->GetPlayerPet(petnum);
-            if( pPlayer != NULL && pPet != NULL )
-            {
-                pPlayer->SpawnPet(petnum);
-                if(!warlockpet)
-                    pPet->stablestate = STABLE_STATE_ACTIVE;
-            }
-            pPlayer->hasqueuedpet = false;
-        }
         pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip( AURA_INTERRUPT_ON_DISMOUNT, GetSpellId() );
     }
 }
@@ -1851,15 +1764,7 @@ void Aura::SpellAuraModRegen(bool apply)
 
 void Aura::SpellAuraIgnoreEnemy(bool apply)
 {
-    if (!apply)
-    {
-        //when unapplied, target will switches to highest threat
-        Unit* caster=GetUnitCaster();
-        if (caster == NULL || !caster->isAlive() || !caster->IsCreature() || !caster->IsInWorld())
-            return;
 
-        castPtr<Creature>(caster)->GetAIInterface()->SetNextTarget(castPtr<Creature>(caster)->GetAIInterface()->GetMostHated());
-    }
 }
 
 void Aura::SpellAuraDrinkNew(bool apply)
@@ -2110,23 +2015,7 @@ void Aura::SpellAuraRAPAttackerBonus(bool apply)
 
 void Aura::SpellAuraModPossessPet(bool apply)
 {
-    Unit * m_caster = GetUnitCaster();
-    if(m_caster == NULL || !m_caster->IsPlayer())
-        return;
 
-    if(castPtr<Player>(m_caster)->GetSummon() != m_target)
-        return;
-
-    if(apply)
-    {
-        m_caster->SetUInt64Value(PLAYER_FARSIGHT, m_target->GetGUID());
-        m_target->SetFlag(UNIT_FIELD_FLAGS, 0x01000000);
-    }
-    else
-    {
-        m_caster->SetUInt64Value(PLAYER_FARSIGHT, 0);
-        m_target->RemoveFlag(UNIT_FIELD_FLAGS, 0x01000000);
-    }
 }
 
 void Aura::SpellAuraModIncreaseSpeedAlways(bool apply)
@@ -3015,24 +2904,7 @@ void Aura::SpellAuraAddCreatureImmunity(bool apply)
 
 void Aura::SpellAuraRedirectThreat(bool apply)
 {
-    Unit * m_caster = GetUnitCaster();
-    if( m_target == NULL || m_caster == NULL )
-        return;
 
-
-    if( !m_caster->IsPlayer() || m_caster->isDead() ||
-        !(m_target->IsPlayer() || m_target->IsPet()) ||
-        m_target->isDead() )
-        return;
-
-    //Unapply is handled via function
-    if( apply )
-    {
-        if( m_spellProto->Id == 50720 )
-            m_target->SetRedirectThreat(m_caster,0.1f, GetDuration());
-        else
-            m_target->SetRedirectThreat(m_caster,1.0f, GetDuration());
-    }
 }
 
 void Aura::SpellAuraReduceAOEDamageTaken(bool apply)
@@ -3087,9 +2959,6 @@ void Aura::SpellAuraModPetTalentPoints(bool apply)
     if( !m_target->IsPlayer() )
         return;
 
-    Player * player = castPtr<Player>(m_target);
-    if(player && player->GetSummon()!= NULL)
-        player->GetSummon()->InitTalentsForLevel();
 }
 
 void Aura::SpellAuraPeriodicTriggerSpellWithValue(bool apply)
@@ -3107,35 +2976,6 @@ void Aura::SpellAuraOpenStable(bool apply)
     if( !m_target || !m_target->IsPlayer() )
         return;
 
-    Player* _player = castPtr<Player>(m_target);
-
-    if(apply)
-    {
-        if( _player->getClass() == HUNTER)
-        {
-            WorldPacket data(10 + (_player->m_Pets.size() * 25));
-            data.SetOpcode(MSG_LIST_STABLED_PETS);
-            data << uint64(0);
-            data << uint8(_player->m_Pets.size());
-            data << uint8(_player->m_StableSlotCount);
-            _player->PetLocks.Acquire();
-            for(std::map<uint32, PlayerPet*>::iterator itr = _player->m_Pets.begin(); itr != _player->m_Pets.end(); ++itr)
-            {
-                data << uint32( itr->first );           // pet no
-                data << uint32( itr->second->entry );   // entryid
-                data << uint32( itr->second->level );   // level
-                data << itr->second->name;          // name
-                if( itr->second->stablestate == STABLE_STATE_ACTIVE )
-                    data << uint8(STABLE_STATE_ACTIVE);
-                else
-                {
-                    data << uint8(STABLE_STATE_PASSIVE + 1);
-                }
-            }
-            _player->PetLocks.Release();
-            _player->GetSession()->SendPacket(&data);
-        }
-    }
 }
 
 void Aura::SpellAuraFakeInebriation(bool apply)

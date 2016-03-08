@@ -20,9 +20,8 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
     chaindamage = 0;
     m_pushbackCount = 0;
 
-    if(!(duelSpell = (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() == DUEL_STATE_STARTED)))
-        if(!(duelSpell = (m_caster->IsItem() && castPtr<Item>(m_caster)->GetOwner() && castPtr<Item>(m_caster)->GetOwner()->GetDuelState() == DUEL_STATE_STARTED)))
-            duelSpell = ((m_caster->IsPet() && castPtr<Pet>(m_caster)->GetPetOwner() != NULL && castPtr<Pet>(m_caster)->GetPetOwner()->GetDuelState() == DUEL_STATE_STARTED));
+	if (!(duelSpell = (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() == DUEL_STATE_STARTED)))
+		duelSpell = (m_caster->IsItem() && castPtr<Item>(m_caster)->GetOwner() && castPtr<Item>(m_caster)->GetOwner()->GetDuelState() == DUEL_STATE_STARTED);
 
     m_castPositionX = m_castPositionY = m_castPositionZ = 0;
     m_AreaAura = false;
@@ -373,8 +372,8 @@ uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
     /************************************************************************/
     /* Check if the unit is evading                                      */
     /************************************************************************/
-    if(target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->GetAIInterface()->getAIState() == STATE_EVADE)
-        return SPELL_DID_HIT_EVADE;
+    /*if(target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->GetAIInterface()->getAIState() == STATE_EVADE)
+        return SPELL_DID_HIT_EVADE;*/
 
     /*************************************************************************/
     /* Check if the target is immune to this mechanic                       */
@@ -558,20 +557,6 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
         }
         else if(TargetType & SPELL_TARGET_AREA)  //targetted aoe
         {
-            if(m_caster->IsCreature())
-            {
-                if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
-                {
-                    if(ai->GetNextTarget() != NULL && TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE)
-                    {
-                        t->m_targetMask |= TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT;
-                        t->m_unitTarget = ai->GetNextTarget()->GetGUID();
-                        t->m_dest = ai->GetNextTarget()->GetPosition();
-                        result = true;
-                    }
-                }
-            }
-
             if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY)
             {
                 t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
@@ -598,43 +583,11 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
 
         if(TargetType & SPELL_TARGET_AREA_CHAIN)
         {
-            if(TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE)
-            {
-                if(m_caster->IsCreature())
-                {
-                    if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
-                    {
-                        if(ai->GetNextTarget() != NULL)
-                        {
-                            t->m_targetMask |= TARGET_FLAG_UNIT;
-                            t->m_unitTarget = ai->GetNextTarget()->GetGUID();
-                            result = true;
-                        }
-                    }
-                }
-            }
-            else
+            if(!(TargetType & SPELL_TARGET_REQUIRE_ATTACKABLE))
             {
                 t->m_targetMask |= TARGET_FLAG_UNIT;
                 t->m_unitTarget = m_caster->GetGUID();
                 result = true;
-            }
-        }
-
-        //target cone
-        if(TargetType & SPELL_TARGET_AREA_CONE)
-        {
-            if(m_caster->IsCreature())
-            {
-                if(AIInterface *ai = castPtr<Creature>(m_caster)->GetAIInterface())
-                {
-                    if(ai->GetNextTarget() != NULL)
-                    {
-                        t->m_targetMask |= TARGET_FLAG_DEST_LOCATION;
-                        t->m_dest = ai->GetNextTarget()->GetPosition();
-                        result = true;
-                    }
-                }
             }
         }
     }
@@ -788,9 +741,7 @@ void Spell::AddStartCooldown()
 
 void Spell::cast(bool check)
 {
-    if( duelSpell && (
-        ( m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() != DUEL_STATE_STARTED ) ||
-        ( m_caster->IsUnit() && castPtr<Unit>(m_caster)->IsPet() && castPtr<Pet>( m_caster )->GetPetOwner() && castPtr<Pet>( m_caster )->GetPetOwner()->GetDuelState() != DUEL_STATE_STARTED ) ) )
+    if( duelSpell && ( m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() != DUEL_STATE_STARTED ) )
     {
         // Can't cast that!
         SendInterrupted( SPELL_FAILED_TARGET_FRIENDLY );
@@ -981,9 +932,7 @@ void Spell::cast(bool check)
                         castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
                     else if(castPtr<Player>(m_caster)->GetSelection() == m_caster->GetGUID())
                     {
-                        if(castPtr<Player>(m_caster)->GetSummon())
-                            castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSummon()->GetGUID());
-                        else if(m_targets.m_unitTarget)
+                        if(m_targets.m_unitTarget)
                             castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(m_targets.m_unitTarget);
                         else castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
                     }
@@ -991,8 +940,6 @@ void Spell::cast(bool check)
                     {
                         if(castPtr<Player>(m_caster)->GetSelection())
                             castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
-                        else if(castPtr<Player>(m_caster)->GetSummon())
-                            castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSummon()->GetGUID());
                         else if(m_targets.m_unitTarget)
                             castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(m_targets.m_unitTarget);
                         else
@@ -1884,17 +1831,10 @@ uint8 Spell::CanCast(bool tolerate)
                     if(castPtr<Unit>(m_caster)->IsPlayer())
                         return SPELL_FAILED_BAD_TARGETS;
                 }break;
-
-            case 982: //Revive Pet
-                {
-                    Pet* pPet = castPtr<Player>(m_caster)->GetSummon();
-                    if(pPet && !pPet->isDead())
-                        return SPELL_FAILED_TARGET_NOT_DEAD;
-                }break;
             }
 
             // if the target is not the unit caster and not the masters pet
-            if(target != castPtr<Unit>(m_caster) && !m_caster->IsPet())
+            if(target != castPtr<Unit>(m_caster))
             {
 
                 /***********************************************************

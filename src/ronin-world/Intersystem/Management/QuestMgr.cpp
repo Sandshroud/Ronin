@@ -775,7 +775,7 @@ void QuestMgr::BuildQuestComplete(Player* plr, Quest* qst)
     if(plr->getLevel() < plr->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
     {
         xp = float2int32(GenerateQuestXP(plr,qst) * sWorld.getRate(RATE_QUESTXP));
-        plr->GiveXP(xp, 0, false);
+        plr->GiveXP(xp, 0, false, true);
     }
 
     WorldPacket data(SMSG_QUESTGIVER_QUEST_COMPLETE, 20);

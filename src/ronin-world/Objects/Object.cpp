@@ -267,7 +267,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
     // Players or player linked units
-    if(IsPlayer() || IsPet() || IsCorpse() || IsDynamicObj() || IsTotem() || IsSummon())
+    if(IsPlayer() || IsCorpse() || IsDynamicObj() || IsTotem() || IsSummon())
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
 
     uint16 updateFlags = m_updateFlags;
@@ -990,11 +990,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     if( pVictim->GetStandState() )//not standing-> standup
         pVictim->SetStandState( STANDSTATE_STAND );//probably mobs also must standup
 
-    Player* plr = NULL;
-    if(IsPet())
-        plr = castPtr<Pet>(this)->GetPetOwner();
-    else if(IsPlayer())
-        plr = castPtr<Player>(this);
+	Player* plr = IsPlayer() ? castPtr<Player>(this) : NULL;
 
     // Player we are attacking, or the owner of totem/pet/etc
     Player *pOwner = pVictim->IsPlayer() ? castPtr<Player>(pVictim) : NULL;
@@ -1018,15 +1014,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             pAttacker->PvPToggle();
         }
-    }
-
-    //If our pet attacks  - flag us.
-    if( pVictim->IsPlayer() && IsPet() )
-    {
-        Player* owner = castPtr<Player>( castPtr<Pet>(this)->GetPetOwner() );
-        if( owner != NULL )
-            if( owner->isAlive() && castPtr<Player>( pVictim )->DuelingWith != owner )
-                owner->SetPvPFlag();
     }
 
     if(!no_remove_auras)
@@ -1108,27 +1095,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         }
     }
 
-    if((pVictim->IsPlayer()) && (IsPet()))
-    {
-        if((health <= damage) && castPtr<Player>(pVictim)->DuelingWith == castPtr<Pet>(this)->GetPetOwner())
-        {
-            Player* petOwner = castPtr<Pet>(this)->GetPetOwner();
-            if(petOwner)
-            {
-                //Player in Duel and Player Victim has lost
-                uint32 NewHP = pVictim->GetUInt32Value(UNIT_FIELD_MAXHEALTH)/100;
-                if(NewHP < 5)
-                    NewHP = 5;
-
-                //Set there health to 1% or 5 if 1% is lower then 5
-                pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, NewHP);
-                //End Duel
-                petOwner->EndDuel(DUEL_WINNER_KNOCKOUT);
-                return health-5;
-            }
-        }
-    }
-
     /*------------------------------------ DUEL HANDLERS END--------------------------*/
 
     bool isCritter = false;
@@ -1151,15 +1117,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapInstance->m_battleground && m_mapInstance->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
                 castPtr<AlteracValley>(m_mapInstance->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
-        }
-
-        // check if pets owner is combat participant
-        bool owner_participe = false;
-        if( IsPet() && pVictim->IsCreature() )
-        {
-            Player* owner = castPtr<Pet>(this)->GetPetOwner();
-            if( owner != NULL && castPtr<Creature>(pVictim)->GetAIInterface()->getThreat( owner->GetGUID() ) > 0 )
-                owner_participe = true;
         }
 
         /* victim died! */
@@ -1376,10 +1333,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 }
             }
 
-            //--------------------------------- PARTY LOG -----------------------------------------
-            if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetAIInterface())
-                castPtr<Creature>(pVictim)->GetAIInterface()->OnDeath( this );
-
             if(IsPlayer())
             {
                 WorldPacket data(SMSG_PARTYKILLLOG, 16);
@@ -1391,8 +1344,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             //bool isCritter = (pVictim->GetCreatureName() != NULL)? pVictim->GetCreatureName()->Type : 0;
 
             //---------------------------------looot-----------------------------------------
-            if( IsPlayer() && !pVictim->IsPet() &&
-                pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
+            if( IsPlayer() && pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
                 pVictim->GetUInt64Value( UNIT_FIELD_SUMMONEDBY ) == 0 )
             {
                 // TODO: lots of casts are bad make a temp member pointer to use for batches like this
@@ -1400,10 +1352,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
                 //Not all NPC's give XP, check for it in proto no_XP
                 bool can_give_xp = true;
-                if(pVictim->IsCreature())
-                    if(castPtr<Creature>(pVictim)->GetExtraInfo())
-                        can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
-
+                if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetExtraInfo())
+                    can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
                 if(can_give_xp)
                 {
                     // Is this player part of a group
@@ -1421,13 +1371,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                             if(castPtr<Player>(this)->MobXPGainRate)
                                 xp += (xp*(castPtr<Player>(this)->MobXPGainRate/100));
 
-                            castPtr<Player>(this)->GiveXP( xp, victimGuid, true );
-                            if( castPtr<Player>(this)->GetSummon() && castPtr<Player>(this)->GetSummon()->GetUInt32Value( UNIT_CREATED_BY_SPELL ) == 0 )
-                            {
-                                xp = CalculateXpToGive( pVictim, castPtr<Player>(this)->GetSummon() );
-                                if( xp > 0 )
-                                    castPtr<Player>(this)->GetSummon()->GiveXP( xp );
-                            }
+                            castPtr<Player>(this)->GiveXP( xp, victimGuid, true, false);
                         }
                     }
                 }
@@ -1437,92 +1381,17 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             }
             else /* is Creature or GameObject* */
             {
-                /* ----------------------------- PET XP HANDLING -------------- */
-                if( owner_participe && IsPet() && !pVictim->IsPet() )
-                {
-                    Player* petOwner = castPtr<Pet>(this)->GetPetOwner();
-                    if( petOwner != NULL && petOwner->IsPlayer() )
-                    {
-                        if( petOwner->InGroup() )
-                        {
-                            //Calc Group XP
-                            castPtr<Unit>(this)->GiveGroupXP( pVictim, petOwner );
-                            //TODO: pet xp if player in group
-                        }
-                        else if( uint32 xp = CalculateXpToGive( pVictim, petOwner ) )
-                        {
-                            petOwner->GiveXP( xp, victimGuid, true );
-                            if( !castPtr<Pet>(this)->IsSummonedPet() )
-                            {
-                                if( xp = CalculateXpToGive( pVictim, castPtr<Pet>(this) ) )
-                                    castPtr<Pet>(this)->GiveXP( xp );
-                            }
-                        }
-                    }
 
-                    if( petOwner != NULL && pVictim->GetTypeId() != TYPEID_PLAYER && pVictim->GetTypeId() == TYPEID_UNIT )
-                        sQuestMgr.OnPlayerKill( petOwner, castPtr<Creature>( pVictim ) );
-                }
-                /* ----------------------------- PET XP HANDLING END-------------- */
-
-                /* ----------------------------- PET DEATH HANDLING -------------- */
-                if( pVictim->IsPet() )
-                {
-                    // dying pet looses 1 happiness level
-                    if( !castPtr<Pet>( pVictim )->IsSummonedPet() )
-                    {
-                        uint32 hap = castPtr<Pet>( pVictim )->GetHappiness();
-                        hap = hap - PET_HAPPINESS_UPDATE_VALUE > 0 ? hap - PET_HAPPINESS_UPDATE_VALUE : 0;
-                        castPtr<Pet>( pVictim )->SetHappiness(hap);
-                    }
-
-                    castPtr<Pet>( pVictim )->DelayedRemove( false, true );
-
-                    //remove owner warlock soul link from caster
-                    Player* owner = castPtr<Pet>( pVictim )->GetPetOwner();
-                    if( owner != NULL )
-                        owner->EventDismissPet();
-                }
-                /* ----------------------------- PET DEATH HANDLING END -------------- */
-                else if( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) )
-                {
-                    //remove owner warlock soul link from caster
-                    Unit* owner=pVictim->GetMapInstance()->GetUnit( pVictim->GetUInt64Value( UNIT_FIELD_CHARMEDBY ) );
-                    if( owner != NULL && owner->IsPlayer())
-                        castPtr<Player>( owner )->EventDismissPet();
-                }
             }
         }
         else if( pVictim->IsPlayer() )
         {
-            /* -------------------- REMOVE PET WHEN PLAYER DIES ---------------*/
-            if( castPtr<Player>( pVictim )->GetSummon() != NULL )
-            {
-                if( pVictim->GetUInt32Value( UNIT_CREATED_BY_SPELL ) > 0 )
-                    castPtr<Player>( pVictim )->GetSummon()->Dismiss( true );
-                else
-                    castPtr<Player>( pVictim )->GetSummon()->Remove( true, true, true );
-            }
-            /* -------------------- REMOVE PET WHEN PLAYER DIES END---------------*/
+
         } else sLog.outDebug("DealDamage for unknown obj.");
 
         return health;
-    }
-    else /* ---------- NOT DEAD YET --------- */
-    {
-        if(pVictim != castPtr<Unit>(this) /* && updateskill */)
-        {
-            // Send AI Reaction UNIT vs UNIT
-            if( IsCreature() )
-                castPtr<Creature>(this)->GetAIInterface()->AttackReaction( pVictim, damage, spellId );
-
-            // Send AI Victim Reaction
-            if( IsUnit() && pVictim->IsCreature() )
-                castPtr<Creature>( pVictim )->GetAIInterface()->AttackReaction( castPtr<Unit>(this), damage, spellId );
-        }
-
-        pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
-    }
+	}   /* ---------- NOT DEAD YET --------- */
+	else pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
     return damage;
 }
 
@@ -1741,7 +1610,7 @@ void WorldObject::EventSpellHit(Spell* pSpell)
 
 bool WorldObject::CanActivate()
 {
-    if(IsUnit() && !IsPet())
+    if(IsUnit())
         return true;
     else if(IsGameObject() && castPtr<GameObject>(this)->HasAI())
         if(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)

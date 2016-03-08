@@ -29,6 +29,8 @@
 #define num_isnan(x) std::isnan(x)
 #endif
 
+#define M_PI 3.14159265358979323846f
+
 #include <list>
 #include <vector>
 #include <map>
@@ -61,6 +63,7 @@
 
 #include "../ronin-shared/git_version.h"
 #include "../ronin-shared/Common.h"
+#include "../ronin-shared/Util.h"
 #include "../ronin-shared/MersenneTwister.h"
 #include "../ronin-shared/WorldPacket.h"
 #include "../ronin-shared/ByteBuffer.h"
@@ -99,7 +102,6 @@
 #include "EventableObject.h"
 #include "LootMgr.h"
 #include "Object.h"
-#include "AI_Defines.h"
 #include "AIInterface.h"
 #include "AuraInterface.h"
 #include "UnitPathSystem.h"
@@ -143,7 +145,6 @@
 #include "MapCell.h"
 #include "MiscHandler.h"
 #include "NPCHandler.h"
-#include "Pet.h"
 #include "Summons.h"
 #include "WorldSocket.h"
 #include "World.h"

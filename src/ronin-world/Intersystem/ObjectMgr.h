@@ -230,8 +230,6 @@ public:
     std::map<uint32, CreatureItem> *AllocateVendorList(uint32 entry);
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
-    Pet* CreatePet(CreatureData *ctrData);
-    uint32 m_hiPetGuid;
     uint32 m_hiArenaTeamId;
     uint32 GenerateArenaTeamId()
     {
@@ -280,8 +278,6 @@ public:
     void CreateGossipMenuForPlayer(GossipMenu** Location, uint64 Guid, uint32 TextID, Player* Plr);
 
     QueryResult* SQLCheckExists(const char* tablename, const char* columnname, uint64 columnvalue);
-    uint32 GetPetSpellCooldown(uint32 SpellId);
-    void LoadPetSpellCooldowns();
 
     uint32 GenerateCreatureSpawnID()
     {

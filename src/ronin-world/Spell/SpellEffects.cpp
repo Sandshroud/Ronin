@@ -245,33 +245,6 @@ void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
             castPtr<Player>(m_caster)->m_bg->UpdatePvPData();
     }
 
-    // add threat
-    if( m_caster->IsUnit() )
-    {
-        if(uint32 base_threat = amount)
-        {
-            std::vector<Creature* > target_threat;
-            for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
-            {
-                Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
-                if(unit->GetTypeId() != TYPEID_UNIT)
-                    continue;
-                if(castPtr<Creature>(unit)->GetAIInterface()->GetNextTarget() == target)
-                    target_threat.push_back(castPtr<Creature>(unit));
-            }
-
-            if(!target_threat.empty())
-            {
-                /*  When a tank hold multiple mobs, the threat of a heal on the tank will be split between all the mobs.
-                The exact formula is not yet known, but it is more than the Threat/number of mobs.
-                So if a tank holds 5 mobs and receives a heal, the threat on each mob will be less than Threat(heal)/5.
-                Current speculation is Threat(heal)/(num of mobs *2) */
-                uint32 threat = base_threat / (target_threat.size() * 2);
-                for(std::vector<Creature* >::iterator itr = target_threat.begin(); itr != target_threat.end(); itr++)
-                    castPtr<Creature>(*itr)->GetAIInterface()->HealReaction( castPtr<Unit>(m_caster), target, threat, m_spellInfo );
-            }
-        }
-    }
 }
 
 void SpellEffectClass::DetermineSkillUp(Player *target, uint32 skillid,uint32 targetlevel, uint32 multiplicator)
@@ -543,35 +516,14 @@ void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int
         }break;
     case 48743:
         {
-            if(!m_caster->IsPlayer() || castPtr<Player>(m_caster)->GetSummon() == NULL)
-                return;
-            Pet *summon = castPtr<Player>(m_caster)->GetSummon();
-            m_caster->DealDamage(summon, summon->GetUInt32Value(UNIT_FIELD_HEALTH), 0, 0, 0);
-
-            WorldPacket data(SMSG_SPELLINSTAKILLLOG, 200);
-            data << m_caster->GetGUID() << summon->GetGUID() << spellId;
-            m_caster->SendMessageToSet(&data, true);
             return; //We do not want the generated targets!!!!!!!!!!
         }break;
 
     }
 
-    switch( GetSpellProto()->NameHash )
-    {
-    case SPELL_HASH_SACRIFICE:
-        {
-            if( !m_caster->IsPet() )
-                return;
+    if(m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetSession()->GetPermissionCount() == 0)
+        return;
 
-            castPtr<Pet>(m_caster)->Dismiss( true );
-            return;
-        }break;
-    default:
-        {
-            if( (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetSession()->GetPermissionCount() == 0) || m_caster->IsPet())
-                return;
-        }break;
-    }
     m_caster->DealDamage(unitTarget, unitTarget->GetUInt32Value(UNIT_FIELD_HEALTH), 0, 0, 0);
     WorldPacket data(SMSG_SPELLINSTAKILLLOG, 200);
     data << m_caster->GetGUID() << unitTarget->GetGUID() << spellId;
@@ -1158,11 +1110,6 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
-    if(playerTarget == 0 && unitTarget != NULL && unitTarget->IsPet())
-    {
-        SpellEffectLearnPetSpell(i, target, amount);
-        return;
-    }
 
     /*if( GetSpellProto()->Id == 483 || GetSpellProto()->Id == 55884 )        // "Learning"
     {
@@ -1284,17 +1231,7 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
 
 void SpellEffectClass::SpellEffectLearnPetSpell(uint32 i, WorldObject *target, int32 amount)
 {
-    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if(unitTarget && unitTarget->IsPet() && m_caster->IsPlayer())
-    {
-        if (GetSpellProto()->EffectTriggerSpell[i])
-        {
-            Pet* pPet = castPtr<Pet>( unitTarget );
-            //if(pPet->IsSummonedPet()) castPtr<Player>(m_caster)->AddSummonSpell(unitTarget->GetEntry(), GetSpellProto()->EffectTriggerSpell[i]);
 
-            pPet->AddSpell( dbcSpell.LookupEntry( GetSpellProto()->EffectTriggerSpell[i] ), true );
-        }
-    }
 }
 
 void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 amount) // Dispel
@@ -1550,100 +1487,12 @@ bool isExotic(uint32 family)
 
 void SpellEffectClass::SpellEffectTameCreature(uint32 i, WorldObject *target, int32 amount)
 {
-    if(!m_caster->IsPlayer() || !target->IsCreature())
-        return;
 
-    Player *plr = castPtr<Player>(m_caster);
-    Creature* tame = castPtr<Creature>(target);
-    CreatureFamilyEntry *cf = dbcCreatureFamily.LookupEntry(tame->GetCreatureData()->family);
-    uint8 result = SPELL_CANCAST_OK;
-    if(!tame || plr->isAlive() || !tame->isAlive() || plr->getClass() != HUNTER )
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(!tame->GetCreatureData())
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(tame->GetCreatureData()->type != BEAST)
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(tame->getLevel() > plr->getLevel())
-        result = SPELL_FAILED_HIGHLEVEL;
-    else if(plr->GeneratePetNumber() == 0)
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(cf == NULL || (cf && !cf->skillLine[1]))
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(isExotic(cf->ID) && !plr->m_BeastMaster)
-        result = SPELL_FAILED_BAD_TARGETS;
-    else if(plr->GetSummon() || plr->GetUnstabledPetNumber())
-        result = SPELL_FAILED_ALREADY_HAVE_SUMMON;
-
-    if(result != SPELL_CANCAST_OK)
-    {
-        SendCastResult(result);
-        return;
-    }
-
-    // Remove target
-    tame->GetAIInterface()->HandleEvent(EVENT_LEAVECOMBAT, plr, 0);
-
-    Pet* pPet = objmgr.CreatePet(tame->GetCreatureData());
-    pPet->SetInstanceID(plr->GetInstanceID());
-    pPet->SetPosition(plr->GetPosition());
-    pPet->CreateAsSummon(tame, plr, NULL, NULL, 2, 0);
-
-    // Add removal event.
-    sEventMgr.AddEvent(tame, &Creature::Despawn, uint32(1), tame->GetRespawnTime(), EVENT_CORPSE_DESPAWN, 5, 0, 0);
 }
 
 void SpellEffectClass::SpellEffectSummonPet(uint32 i, WorldObject *target, int32 amount) //summon - pet
 {
-    Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
-    if( p_caster == NULL )
-        return;
 
-    if(GetSpellProto()->Id == 883) // "Call Pet" spell
-    {
-        if(p_caster->GetSummon() != 0)
-        {
-            p_caster->GetSession()->SendNotification("You already have a pet summoned.");
-            return;
-        }
-
-        if(uint8 petno = p_caster->GetUnstabledPetNumber())
-            p_caster->SpawnPet(petno);
-        else
-        {
-            WorldPacket data(SMSG_AREA_TRIGGER_MESSAGE, 50);
-            data << uint32(0) << "You do not have any pets to call." << uint8(0);
-            p_caster->GetSession()->SendPacket(&data);
-        }
-        return;
-    }
-
-    //uint32 entryId = GetSpellProto()->EffectMiscValue[i];
-
-    //VoidWalker:torment, sacrifice, suffering, consume shadows
-    //Succubus:lash of pain, soothing kiss, seduce , lesser invisibility
-    //felhunter:     Devour Magic,Paranoia,Spell Lock,  Tainted Blood
-    if( p_caster->getClass() != WARLOCK)
-        return;
-
-    // remove old pet
-    if(Pet* old = castPtr<Player>(m_caster)->GetSummon())
-        old->Dismiss(false);
-
-    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(GetSpellProto()->EffectMiscValue[i]);
-    if(ctrData == NULL)
-        return;
-
-    //if demonic sacrifice auras are still active, remove them
-    uint32 spids[5] = { 18789, 18790, 18791, 18792, 35701 };
-    for(uint8 i = 0; i < 5; i++)
-        p_caster->RemoveAura(spids[i]);
-
-    Pet* summon = objmgr.CreatePet(ctrData);
-    summon->SetInstanceID(m_caster->GetInstanceID());
-    summon->SetPosition(m_caster->GetPosition());
-    summon->CreateAsSummon(NULL, p_caster, NULL, GetSpellProto(), 1, 0);
-    if( p_caster->IsPvPFlagged() )
-        summon->SetPvPFlag();
 }
 
 void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, int32 amount) // Weapon damage +
@@ -2292,15 +2141,6 @@ void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, i
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if(p_caster == NULL )
         return;
-
-    if(Pet* pPet = p_caster->GetSummon())
-    {
-        pPet->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-        pPet->SetUInt32Value(UNIT_FIELD_HEALTH, (uint32)((pPet->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * amount) / 100));
-        pPet->SetDeathState(ALIVE);
-        pPet->GetAIInterface()->HandleEvent(EVENT_FOLLOWOWNER, pPet, 0);
-        sEventMgr.RemoveEvents(pPet, EVENT_PET_DELAYED_REMOVE);
-    }
 }
 
 uint32 TotemSpells[4] = { 63, 81, 82, 83 };
@@ -2349,26 +2189,9 @@ void SpellEffectClass::SpellEffectSummonDemonOld(uint32 i, WorldObject *target, 
     if(p_caster == NULL ) //p_caster->getClass() != WARLOCK ) //summoning a demon shouldn't be warlock only, see spells 25005, 24934, 24810 etc etc
         return;
 
-    Pet* pPet;
-    if(pPet = p_caster->GetSummon())
-        pPet->Dismiss(false);
-
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(GetSpellProto()->EffectMiscValue[i]);
     if(ctrData == NULL)
         return;
-
-    pPet = objmgr.CreatePet(ctrData);
-    pPet->SetInstanceID(p_caster->GetInstanceID());
-    pPet->CreateAsSummon(NULL, p_caster, NULL, GetSpellProto(), 1, 300000);
-
-    SpellEntry *spellInfo = dbcSpell.LookupEntry(11726);
-    //Create Enslave Aura if its inferno spell
-    if(spellInfo && GetSpellProto()->Id == 1122)
-    {
-        SpellCastTargets tgt(pPet->GetGUID());
-        if(Spell* sp = new Spell(pPet, spellInfo))
-            sp->prepare(&tgt, true);
-    }
 }
 
 void SpellEffectClass::SpellEffectResurrect(uint32 i, WorldObject *target, int32 amount) // Resurrect (Flat)
@@ -2392,7 +2215,7 @@ void SpellEffectClass::SpellEffectAttackMe(uint32 i, WorldObject *target, int32 
     if(!m_caster->IsUnit() || unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    castPtr<Creature>(unitTarget)->GetAIInterface()->AttackReaction(castPtr<Unit>(m_caster), 1, 0);
+    //castPtr<Creature>(unitTarget)->GetAIInterface()->AttackReaction(castPtr<Unit>(m_caster), 1, 0);
 }
 
 void SpellEffectClass::SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount)
@@ -2531,8 +2354,6 @@ void SpellEffectClass::SpellEffectDismissPet(uint32 i, WorldObject *target, int3
     if( m_caster->IsPlayer() )
         return;
 
-    if(Pet* pPet = castPtr<Player>(m_caster)->GetSummon())
-        pPet->Remove(true, true, true);
 }
 
 void SpellEffectClass::SpellEffectEnchantHeldItem(uint32 i, WorldObject *target, int32 amount)
@@ -2699,11 +2520,7 @@ void SpellEffectClass::SpellEffectMilling(uint32 i, WorldObject *target, int32 a
 
 void SpellEffectClass::SpellEffectAllowPetRename(uint32 i, WorldObject *target, int32 amount)
 {
-    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( !unitTarget || !unitTarget->IsPet() )
-        return;
 
-    unitTarget->SetByte( UNIT_FIELD_BYTES_2, 2, 0x03);
 }
 
 void SpellEffectClass::SpellEffectStartQuest(uint32 i, WorldObject *target, int32 amount)
@@ -2724,19 +2541,9 @@ void SpellEffectClass::SpellEffectCreatePet(uint32 i, WorldObject *target, int32
     if( playerTarget->getClass() != HUNTER )
         return;
 
-    if( playerTarget->GetSummon() )
-        playerTarget->GetSummon()->Remove( true, true, true );
-
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData( GetSpellProto()->EffectMiscValue[i] );
-    if( ctrData != NULL )
-    {
-        if(Pet *pPet = objmgr.CreatePet(ctrData))
-        {
-            pPet->CreateAsSummon( NULL, playerTarget, NULL, GetSpellProto(), 2, 0 );
-            if(!pPet->IsInWorld())
-                pPet->Destruct();
-        }
-    }
+	if (ctrData == NULL)
+		return;
 }
 
 void SpellEffectClass::SpellEffectTitanGrip(uint32 i, WorldObject *target, int32 amount)

@@ -1090,6 +1090,7 @@ struct SpellEntry
     bool isEffectAmountSentFromAura() { return HasAttribute(8, 0x1000); }
     bool isMountAuraUsableInWater() { return HasAttribute(8, 0x8000); }
     bool isSpellHealingSpell() { return HasAttribute(8, 0x1000000); }
+    bool isSpellGuildPerk() { return HasAttribute(8, 0x10000000); }
     bool isSpellMasterySpecializationBased() { return HasAttribute(8, 0x20000000); }
     //Custom
     bool isSpellStealthTargetCapable() { return HasCustomAttribute(0, 0x01); }

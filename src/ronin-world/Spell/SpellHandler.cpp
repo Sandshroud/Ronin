@@ -137,11 +137,8 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         }
         else
         {
-            if( !_player->GetSummon() || _player->GetSummon()->GetEntry() != (uint32)itemProto->ForcedPetId )
-            {
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
-                return;
-            }
+            _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
+            return;
         }
     }
 
@@ -342,8 +339,6 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
     WorldObject* caster = NULL;
     if (_player->m_CurrentCharm != NULL)
         caster = _player->m_CurrentCharm;
-    else if (_player->m_Summon != NULL)
-        caster = _player->m_Summon;
     if (caster == NULL)
         return;
 
@@ -357,7 +352,7 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
     SpellCastTargets targets(recvPacket, caster->GetGUID());
 
     // Summoned Elemental's Freeze
-    if (spellid == 33395 && !_player->m_Summon)
+    if (spellid == 33395)
         return;
     else if (!_player->m_CurrentCharm || guid != _player->m_CurrentCharm->GetGUID())
         return;

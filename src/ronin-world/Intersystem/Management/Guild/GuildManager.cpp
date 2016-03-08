@@ -440,6 +440,51 @@ void GuildMgr::SetNote(PlayerInfo* pInfo, std::string Note, bool Officer)
     gInfo->m_GuildStatus = GUILD_STATUS_DIRTY;
 }
 
+void GuildMgr::AddGuildPerks(Player *plr, GuildInfo *gInfo)
+{
+    if(plr == NULL || !plr->IsInGuild())
+        return;
+    if(gInfo == NULL)
+        gInfo = GetGuildInfo(plr->GetGuildId());
+    gInfo->guildXPLock.Acquire();
+    for(uint8 i = 1; i < gInfo->m_guildLevel; i++)
+        plr->addSpell(GuildPerks[i-1]);
+    gInfo->guildXPLock.Release();
+}
+
+void GuildMgr::RemoveGuildPerks(Player *plr, GuildInfo *gInfo)
+{
+    if(plr == NULL || !plr->IsInGuild())
+        return;
+    if(gInfo == NULL)
+        gInfo = GetGuildInfo(plr->GetGuildId());
+
+    gInfo->guildXPLock.Acquire();
+    for(uint8 i = 1; i < gInfo->m_guildLevel; i++)
+        plr->removeSpell(GuildPerks[i-1]);
+    gInfo->guildXPLock.Release();
+}
+
+void GuildMgr::GuildGainXP(Player *plr, uint32 xpGain)
+{
+    if(plr == NULL || !plr->IsInGuild())
+        return;
+
+    GuildInfo* gInfo = GetGuildInfo(plr->GetGuildId());
+    gInfo->guildXPLock.Acquire();
+    // Ignore XP when guilds are at max level
+    if(gInfo && gInfo->m_guildLevel < 25)
+    {
+        uint32 xpCap = GetXPForNextGuildLevel(gInfo->m_guildLevel);
+        if((gInfo->m_guildExperience += xpGain) >= xpCap)
+        {
+            gInfo->m_guildExperience -= xpCap;
+            gInfo->m_guildLevel++;
+        }
+    }
+    gInfo->guildXPLock.Release();
+}
+
 void GuildMgr::AddGuildLogEntry(uint32 GuildId, uint8 iEvent, uint32 arguement1, uint32 arguement2, uint32 arguement3)
 {
     GuildInfo* gInfo = GetGuildInfo(GuildId);
@@ -1423,6 +1468,8 @@ void GuildMgr::RemoveMember(Player* remover, PlayerInfo* removee)
     removee->GuildRank = 0;
     if(removee->m_loggedInPlayer)
     {
+        RemoveGuildPerks(removee->m_loggedInPlayer, gInfo);
+        removee->m_loggedInPlayer->SetGuildLevel(0);
         removee->m_loggedInPlayer->SetGuildRank(0);
         removee->m_loggedInPlayer->SetGuildId(0);
     }
@@ -1483,6 +1530,8 @@ void GuildMgr::ForceRemoveMember(Player* remover, PlayerInfo* removee)
     removee->GuildRank = 0;
     if(removee->m_loggedInPlayer)
     {
+        RemoveGuildPerks(removee->m_loggedInPlayer, gInfo);
+        removee->m_loggedInPlayer->SetGuildLevel(0);
         removee->m_loggedInPlayer->SetGuildRank(0);
         removee->m_loggedInPlayer->SetGuildId(0);
     }
@@ -1536,6 +1585,7 @@ void GuildMgr::AddGuildMember(GuildInfo* gInfo, PlayerInfo* newmember, WorldSess
         newmember->m_loggedInPlayer->SetGuildId(gInfo->m_guildId);
         newmember->m_loggedInPlayer->SetGuildRank(r->iId);
         newmember->m_loggedInPlayer->SetGuildLevel(gInfo->m_guildLevel);
+        AddGuildPerks(newmember->m_loggedInPlayer, gInfo);
         SendMotd(newmember);
     }
 

@@ -418,12 +418,6 @@ protected:
     bool HandleUnlearnCommand(const char* args, WorldSession * m_session);
     bool HandleModifyLevelCommand(const char* args, WorldSession* m_session);
 
-    // Pet
-    bool HandleCreatePetCommand(const char* args, WorldSession* m_session);
-    bool HandleAddPetSpellCommand(const char* args, WorldSession* m_session);
-    bool HandleRemovePetSpellCommand(const char* args, WorldSession* m_session);
-    bool HandleRenamePetCommand(const char* args, WorldSession* m_session);
-
     // Shutdown
     bool HandleShutdownCommand(const char* args, WorldSession* m_session);
     bool HandleRestartCommand(const char* args, WorldSession* m_session);

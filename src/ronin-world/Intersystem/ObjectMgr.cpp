@@ -8,7 +8,6 @@ initialiseSingleton( ObjectMgr );
 
 ObjectMgr::ObjectMgr()
 {
-    m_hiPetGuid = 0;
     m_hiItemGuid = 0;
     m_hiGroupId = 1;
     m_mailid = 0;
@@ -817,33 +816,6 @@ void ObjectMgr::CorpseCollectorUnload(bool saveOnly)
     }
     m_corpses.clear();
     _corpseslock.Release();
-}
-
-uint32 ObjectMgr::GetPetSpellCooldown(uint32 SpellId)
-{
-    SpellEntry* sp = dbcSpell.LookupEntry( SpellId );
-    if(sp)
-    {
-        uint32 pscd = ( sp->CategoryRecoveryTime == 0 ? sp->RecoveryTime : sp->CategoryRecoveryTime) +  (sp->StartRecoveryCategory == 0 ? sp->StartRecoveryTime : sp->StartRecoveryCategory);
-        return pscd > PET_SPELL_SPAM_COOLDOWN ? pscd : PET_SPELL_SPAM_COOLDOWN;
-    }
-    sLog.Error("ObjectMgr","GetPetSpellCooldown tried to add a non existing spell %d",SpellId);
-    return 600000;//
-}
-
-Pet* ObjectMgr::CreatePet(CreatureData *ctrData)
-{
-    if(ctrData == NULL)
-        return NULL;
-
-    uint32 guid;
-    m_petlock.Acquire();
-    guid = ++m_hiPetGuid;
-    m_petlock.Release();
-
-    Pet* pet = new Pet(ctrData, MAKE_NEW_GUID(guid, guid, HIGHGUID_TYPE_PET));
-    pet->Init();
-    return pet;
 }
 
 Player* ObjectMgr::CreatePlayer()

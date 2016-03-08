@@ -90,9 +90,9 @@ FactionInteractionStatus FactionSystem::GetUnitAreaInteractionStatus(Unit *unitA
         bool allowedCombat = true;
         if(unitA->IsPlayer() && unitB->IsPlayer())
             allowedCombat = false;
-        else if((unitA->IsPet() || unitA->IsSummon()) && unitB->IsPlayer())
+        else if(unitA->IsSummon() && unitB->IsPlayer())
             allowedCombat = false;
-        else if((unitB->IsPet() || unitB->IsSummon()) && unitA->IsPlayer())
+        else if(unitB->IsSummon() && unitA->IsPlayer())
             allowedCombat = false;
         if(!allowedCombat)
             return FI_STATUS_FRIENDLY;
@@ -173,32 +173,22 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
         if(player_objA->DuelingWith == player_objB && player_objA->GetDuelState() == DUEL_STATE_STARTED )
             return FI_STATUS_HOSTILE;
     }
-    else if(player_objA)
+    else if(player_objA && objB->IsSummon())
     {
-        if(objB->IsPet() && castPtr<Pet>(objB)->GetOwner()->DuelingWith == player_objA)
-            return FI_STATUS_HOSTILE;
-        if(objB->IsSummon())
+        WorldObject* summoner = castPtr<Summon>(objB)->GetSummonOwner();
+        if(summoner && summoner->IsPlayer())
         {
-            WorldObject* summoner = castPtr<Summon>(objB)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer())
-            {
-                if(castPtr<Player>(summoner)->DuelingWith == player_objA)
-                    return FI_STATUS_HOSTILE;
-            }
+            if(castPtr<Player>(summoner)->DuelingWith == player_objA)
+                return FI_STATUS_HOSTILE;
         }
     }
-    else if(player_objB)
+    else if(player_objB && objA->IsSummon())
     {
-        if(objA->IsPet() && castPtr<Pet>(objA)->GetOwner()->DuelingWith == player_objB)
-            return FI_STATUS_HOSTILE;
-        if(objA->IsSummon())
+        WorldObject* summoner = castPtr<Summon>(objA)->GetSummonOwner();
+        if(summoner && summoner->IsPlayer())
         {
-            WorldObject* summoner = castPtr<Summon>(objA)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer())
-            {
-                if(castPtr<Player>(summoner)->DuelingWith == player_objB)
-                    return FI_STATUS_HOSTILE;
-            }
+            if(castPtr<Player>(summoner)->DuelingWith == player_objB)
+                return FI_STATUS_HOSTILE;
         }
     }
 
@@ -207,8 +197,6 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     {
         bool allowedCombat = true;
         if(objA->IsPlayer() && objB->IsPlayer())
-            allowedCombat = false;
-        else if(objA->IsPet() || objB->IsPet())
             allowedCombat = false;
         else if(objA->IsSummon() || objB->IsSummon())
             allowedCombat = false;
@@ -220,38 +208,20 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
             return FI_STATUS_FRIENDLY;
     }
 
-    if(objA->IsCreature())
+    if(objA->IsCreature() && objA->IsSummon())
     {
-        if(objA->IsPet())
-        {
-            if(player_objB && !player_objB->IsPvPFlagged())
-                return FI_STATUS_FRIENDLY;
+        if(player_objB && !player_objB->IsPvPFlagged())
+            return FI_STATUS_FRIENDLY;
 
-            if(player_objB)
-            {
-                if(castPtr<Pet>(objA)->GetOwner())
-                {
-                    if(!castPtr<Pet>(objA)->GetOwner()->IsPvPFlagged())
-                        return FI_STATUS_FRIENDLY;
-                    // the target is PvP, its okay.
-                } else return FI_STATUS_FRIENDLY;
-            }
-        }
-        else if(objA->IsSummon())
+        if(player_objB)
         {
-            if(player_objB && !player_objB->IsPvPFlagged())
-                return FI_STATUS_FRIENDLY;
-
-            if(player_objB)
+            WorldObject* summonownerA = castPtr<Summon>(objA)->GetSummonOwner();
+            if(summonownerA && summonownerA->IsPlayer())
             {
-                WorldObject* summonownerA = castPtr<Summon>(objA)->GetSummonOwner();
-                if(summonownerA && summonownerA->IsPlayer())
-                {
-                    if(!castPtr<Unit>(summonownerA)->IsPvPFlagged())
-                        return FI_STATUS_FRIENDLY;
-                    // the target is PvP, its okay.
-                } else return FI_STATUS_FRIENDLY;
-            }
+                if(!castPtr<Unit>(summonownerA)->IsPvPFlagged())
+                    return FI_STATUS_FRIENDLY;
+                // the target is PvP, its okay.
+            } else return FI_STATUS_FRIENDLY;
         }
     }
 
@@ -340,29 +310,17 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
         if(GetPlayerAttackStatus(castPtr<Player>(unitA), castPtr<Player>(unitB)) >= FI_STATUS_NEUTRAL)
             return true;
     }
-    else if(unitA->IsPlayer())
+    else if(unitA->IsPlayer() && unitB->IsSummon())
     {
-        Player *plrA = castPtr<Player>(unitA);
-        if(unitB->IsPet() && castPtr<Pet>(unitB)->GetOwner()->DuelingWith == plrA)
+        WorldObject *summoner = castPtr<Summon>(unitB)->GetSummonOwner();
+		if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == unitA)
             return true;
-        else if(unitB->IsSummon())
-        {
-            WorldObject *summoner = castPtr<Summon>(unitB)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == plrA)
-                return true;
-        }
     }
-    else if(unitB->IsPlayer())
+    else if(unitB->IsPlayer() && unitA->IsSummon())
     {
-        Player *plrB = castPtr<Player>(unitB);
-        if(unitA->IsPet() && castPtr<Pet>(unitA)->GetOwner()->DuelingWith == plrB)
+        WorldObject *summoner = castPtr<Summon>(unitA)->GetSummonOwner();
+		if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == unitB)
             return true;
-        else if(unitA->IsSummon())
-        {
-            WorldObject *summoner = castPtr<Summon>(unitA)->GetSummonOwner();
-            if(summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == plrB)
-                return true;
-        }
     }
     else /// Creature hate crimes
     { } // Factions can handle this
@@ -388,17 +346,8 @@ Player* FactionSystem::GetPlayerFromObject(WorldObject* obj)
     {
         player_obj =  castPtr<Player>( obj );
     }
-    else if( obj->IsPet() )
-    {
-        Pet* pet_obj = castPtr<Pet>(obj);
-        if( pet_obj )
-            player_obj =  pet_obj->GetPetOwner();
-    }
-    else if( obj->IsUnit() )
-    {   // If it's not a player nor a pet, it can still be a totem.
-        if(obj->IsSummon())
-            player_obj =  castPtr<Player>(castPtr<Summon>(obj)->GetSummonOwner());
-    }
+	else if (obj->IsUnit() && obj->IsSummon() )// If it's not a player nor a pet, it can still be a totem.
+		player_obj =  castPtr<Player>(castPtr<Summon>(obj)->GetSummonOwner());
     return player_obj;
 }
 

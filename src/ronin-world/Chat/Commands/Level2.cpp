@@ -71,7 +71,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         SystemMessage(m_session, "You should select a creature.");
         return true;
     }
-    else if(unit->IsPet() || unit->IsSummon())
+    else if(unit->IsSummon())
     {
         SystemMessage(m_session, "You can't delete playerpets.");
         return true;
