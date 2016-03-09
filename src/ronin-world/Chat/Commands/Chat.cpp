@@ -193,7 +193,8 @@ void CommandTableStorage::Init()
         { "create",                 COMMAND_LEVEL_M, &ChatHandler::CreateGuildCommand,              "Creates a guild.",                                         NULL, 0, 0, 0 },
         { "removeplayer",           COMMAND_LEVEL_M, &ChatHandler::HandleGuildRemovePlayerCommand,  "Removes the target from its guild.",                       NULL, 0, 0, 0 },
         { "disband",                COMMAND_LEVEL_M, &ChatHandler::HandleGuildDisbandCommand,       "Disbands the guild of your target.",                       NULL, 0, 0, 0 },
-        { "modlevel",               COMMAND_LEVEL_M, &ChatHandler::HandleGuildModifyLevelCommand,   "Modifies a guild's level.",                                NULL, 0, 0, 0 },
+        { "modlevel",               COMMAND_LEVEL_M, &ChatHandler::HandleGuildModifyLevelCommand,   "Modifies target player's guild's level.",                  NULL, 0, 0, 0 },
+        { "gainxp",                 COMMAND_LEVEL_M, &ChatHandler::HandleGuildGainXPCommand,        "Adds XP to target player's guild.",                        NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                                         NULL, 0, 0, 0 }
     };
     dupe_command_table(GuildCommandTable, _GuildCommandTable);
@@ -440,6 +441,7 @@ void CommandTableStorage::Init()
         { "advanceskill",           COMMAND_LEVEL_M, &ChatHandler::HandleModifySkillCommand,                        "advanceskill <skillid> <amount, optional, default = 1> - Advances skill line x times..", NULL, 0, 0, 0 },
         { "removeskill",            COMMAND_LEVEL_M, &ChatHandler::HandleRemoveSkillCommand,                        ".removeskill <skillid> - Removes skill",       NULL, 0, 0, 0 },
         { "increaseweaponskill",    COMMAND_LEVEL_M, &ChatHandler::HandleIncreaseWeaponSkill,                       ".increaseweaponskill <count> - Increase eqipped weapon skill x times (defaults to 1).", NULL, 0, 0, 0 },
+        { "earnachievement",        COMMAND_LEVEL_M, &ChatHandler::HandleEarnAchievement,                           "Earns achievement for the target player", NULL, 0, 0, 0 },
         { "playerinfo",             COMMAND_LEVEL_M, &ChatHandler::HandlePlayerInfo,                                ".playerinfo - Displays informations about the selected character (account...)", NULL, 0, 0, 0 },
 
         { "modify",                 COMMAND_LEVEL_M, NULL,                                                          "",                 modifyCommandTable, 0, 0, 0 },

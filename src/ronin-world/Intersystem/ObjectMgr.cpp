@@ -71,12 +71,6 @@ ObjectMgr::~ObjectMgr()
         delete (itr->second);
 }
 
-void ObjectMgr::LoadAchievements()
-{
-
-    sLog.Notice("AchievementMgr", "Loaded %u achievements", dbcAchievementCriteria.GetNumRows());
-}
-
 //
 // Groups
 //

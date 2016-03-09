@@ -194,8 +194,6 @@ public:
     void DeletePlayerInfo(uint32 guid);
     PlayerCreateInfo* GetPlayerCreateInfo(uint8 race, uint8 class_) const;
 
-    void LoadAchievements();
-
     // Gameobject Stuff
     std::map<uint32, std::set<uint32> > GameObjectInvolvedQuestIds;
     void AddInvolvedQuestIds(uint32 entry, std::set<uint32> set) { GameObjectInvolvedQuestIds.insert(std::make_pair(entry, set)); };

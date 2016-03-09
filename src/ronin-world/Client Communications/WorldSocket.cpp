@@ -52,7 +52,6 @@ WorldSocket::~WorldSocket()
 
 void WorldSocket::OnDisconnect()
 {
-    printf("Disconnected\n");
     if(mSession)
     {
         mSession->SetSocket(0);
@@ -569,10 +568,6 @@ void WorldSocket::OnRecvData()
                     }
                 }
             }break;
-        case CMSG_LOG_DISCONNECT:
-            {
-                printf("Disconnect reason %u\n", Packet->read<uint32>());
-            }break;
         default:
             {
                 //printf("Queuing packet %s(0x%.4X)\n", sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
@@ -582,6 +577,8 @@ void WorldSocket::OnRecvData()
                     continue;
                 }
             }break;
+        case CMSG_LOG_DISCONNECT:
+            break;
         }
         delete Packet;
     }

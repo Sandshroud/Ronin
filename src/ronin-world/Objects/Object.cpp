@@ -706,7 +706,7 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     }
 }
 
-void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only)
+void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only, float maxRange)
 {
     if(!IsInWorld())
         return;
@@ -718,6 +718,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
         myTeam = castPtr<Player>(this)->GetTeam();
     }
 
+    float range = maxRange*maxRange;
     for(InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
@@ -725,6 +726,8 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
             if(plr->GetSession() == NULL)
                 continue;
             if(myteam_only && plr->GetTeam() != myTeam)
+                continue;
+            if(maxRange > 1.f && plr->GetDistanceSq(this) > range)
                 continue;
             plr->GetSession()->SendPacket(data);
         }

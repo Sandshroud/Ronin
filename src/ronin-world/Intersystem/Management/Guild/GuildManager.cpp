@@ -103,6 +103,13 @@ void GuildMgr::Update(uint32 p_time)
         m_updateTimer -= 10000;
         SaveAllGuilds();
     }
+
+    m_xpUpdateTimer += p_time;
+    if(m_xpUpdateTimer > 1000)
+    {
+        m_xpUpdateTimer -= 1000;
+        UpdateGuildXP();
+    }
 }
 
 void GuildMgr::LoadAllGuilds()
@@ -490,6 +497,16 @@ void GuildMgr::ModifyGuildLevel(GuildInfo *info, int32 mod)
         }
     }
 
+    uint64 xpTillNextLevel = GetXPForNextGuildLevel(info->m_guildLevel), guildXP = xpTillNextLevel ? info->m_guildExperience : 0;
+    if(xpTillNextLevel && guildXP)
+        xpTillNextLevel -= guildXP;
+
+    WorldPacket data(SMSG_GUILD_XP, 40);
+    data << uint64(info->m_xpGainedToday);
+    data << uint64(xpTillNextLevel);
+    data << uint64(0); // XP gained today
+    data << uint64(0); // Member xp given this week
+    data << uint64(guildXP);
     MemberMapStorage->MemberMapLock.Acquire();
     for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
     {
@@ -497,6 +514,9 @@ void GuildMgr::ModifyGuildLevel(GuildInfo *info, int32 mod)
         if(plr == NULL)
             continue;
 
+        // Update packet data
+        data.put<uint64>(16, itr->second->guildXPToday);
+        data.put<uint64>(24, itr->second->guildWeekXP);
         plr->SetGuildLevel(info->m_guildLevel);
         for(std::set<uint32>::iterator itr = perksToMod.begin(); itr != perksToMod.end(); itr++)
         {
@@ -504,6 +524,8 @@ void GuildMgr::ModifyGuildLevel(GuildInfo *info, int32 mod)
                 plr->removeSpell(*itr);
             else plr->addSpell(*itr);
         }
+        // Packet should be sent to arrive after the next block update
+        plr->CopyAndSendDelayedPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
     info->m_GuildStatus = GUILD_STATUS_DIRTY;
@@ -545,12 +567,26 @@ void GuildMgr::GuildGainXP(Player *plr, uint32 xpGain)
     // Ignore XP when guilds are at max level
     if(gInfo && gInfo->m_guildLevel < 25)
     {
-        uint32 xpCap = GetXPForNextGuildLevel(gInfo->m_guildLevel);
-        if((gInfo->m_guildExperience += xpGain) >= xpCap)
+        // Don't see a chance that a guild will gain extensive XP, but just in case
+        gInfo->m_guildExperience += xpGain;
+        uint32 levelGain = 0, xpCap = GetXPForNextGuildLevel(gInfo->m_guildLevel);
+        while(gInfo->m_guildExperience >= xpCap)
         {
             gInfo->m_guildExperience -= xpCap;
-            ModifyGuildLevel(gInfo, 1);
+            levelGain++;
+            xpCap = GetXPForNextGuildLevel(gInfo->m_guildLevel+levelGain);
+            if(gInfo->m_guildLevel+levelGain == 25)
+            {
+                gInfo->m_guildExperience = 0;
+                break;
+            }
         }
+
+        if(levelGain) // Either we increment level and resend guild XP
+        {
+            gInfo->m_guildXPDirty = false;
+            ModifyGuildLevel(gInfo, levelGain);
+        } else gInfo->m_guildXPDirty = true; // Or we update guild xp next manager update
     }
     gInfo->guildXPLock.Release();
 }
@@ -1235,6 +1271,43 @@ GuildRank* GuildMgr::FindHighestRank(GuildRankStorage* Ranks)
 
     Ranks->RankLock.Release();
     return NULL;
+}
+
+void GuildMgr::UpdateGuildXP()
+{
+    WorldPacket data(SMSG_GUILD_XP, 40);
+    data << uint64(0) << uint64(0) << uint64(0) << uint64(0) << uint64(0);
+    for(GuildInfoMap::iterator itr = m_Guilds.begin(), itr2; itr != m_Guilds.end();)
+    {
+        itr2 = itr++;
+        GuildInfo *gInfo = itr2->second;
+        if(gInfo == NULL || !gInfo->m_guildXPDirty)
+            continue;
+
+        gInfo->guildXPLock.Acquire();
+        uint64 xpTillNextLevel = GetXPForNextGuildLevel(gInfo->m_guildLevel), guildXP = xpTillNextLevel ? gInfo->m_guildExperience : 0;
+        if(xpTillNextLevel && guildXP)
+            xpTillNextLevel -= guildXP;
+        data.put<uint64>(0, gInfo->m_xpGainedToday);
+        data.put<uint64>(8, xpTillNextLevel);
+        data.put<uint64>(32, guildXP);
+
+        GuildMemberMapStorage* MemberMapStorage = m_GuildMemberMaps[gInfo->m_guildId];
+        MemberMapStorage->MemberMapLock.Acquire();
+        for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
+        {
+            if(Player *plr = itr->second->pPlayer->m_loggedInPlayer)
+            {
+                // Update packet data
+                data.put<uint64>(16, itr->second->guildXPToday);
+                data.put<uint64>(24, itr->second->guildWeekXP);
+                plr->SendPacket(&data);
+            }
+        }
+        MemberMapStorage->MemberMapLock.Release();
+        gInfo->m_guildXPDirty = false;
+        gInfo->guildXPLock.Release();
+    }
 }
 
 GuildRank* GuildMgr::FindLowestRank(GuildRankStorage* Ranks)

@@ -517,7 +517,7 @@ public:
     RONIN_INLINE InRangeMap::iterator GetInRangeMapEnd() { return m_inRangeObjects.end(); }
     RONIN_INLINE InRangeMap::iterator FindInRangeSet(WorldObject * obj) { ASSERT(obj); return m_inRangeObjects.find(obj->GetGUID()); }
 
-    void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false);
+    void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false,float maxRange=-1.f);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
 
     void SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool no_remove_auras = false);

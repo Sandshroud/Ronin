@@ -398,11 +398,7 @@ bool ChatHandler::HandleIncreaseWeaponSkill(const char *args, WorldSession *m_se
             SubClassSkill = SKILL_FISHING;
             break;
         }
-    }
-    else
-    {
-        SubClassSkill = 162;
-    }
+    } else SubClassSkill = 162;
 
     if(!SubClassSkill)
     {
@@ -419,14 +415,16 @@ bool ChatHandler::HandleIncreaseWeaponSkill(const char *args, WorldSession *m_se
     {
         SystemMessage(m_session, "Does not have skill line, adding.");
         pr->_AddSkillLine(skill, 1, 300);
-    }
-    else
-    {
-        pr->_AdvanceSkillLine(skill,cnt);
-    }
+    } else pr->_AdvanceSkillLine(skill,cnt);
     return true;
 }
 
+bool ChatHandler::HandleEarnAchievement(const char* args, WorldSession *m_session)
+{
+    if(Player* plr = getSelectedChar(m_session, false))
+        AchieveMgr.EarnAchievement(plr, atol(args));
+    return true;
+}
 
 bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_session)
 {
@@ -2013,6 +2011,16 @@ bool ChatHandler::HandleGuildModifyLevelCommand(const char *args, WorldSession *
 
     if(GuildInfo *gInfo = guildmgr.GetGuildInfo(plr->GetGuildId()))
         guildmgr.ModifyGuildLevel(gInfo, atol(args));
+    return true;
+}
+
+bool ChatHandler::HandleGuildGainXPCommand(const char *args, WorldSession *m_session)
+{
+    Player *plr = getSelectedChar(m_session);
+    if(plr == NULL || !plr->IsInGuild())
+        return false;
+
+    guildmgr.GuildGainXP(plr, labs(atol(args)));
     return true;
 }
 

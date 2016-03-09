@@ -231,6 +231,8 @@ void Player::Init()
 {
     Unit::Init();
 
+    AchieveMgr.AllocatePlayerData(GetGUID());
+
     SetFloatValue(PLAYER_FIELD_MOD_HASTE, 1.f);
     SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, 1.f);
 
@@ -242,11 +244,10 @@ void Player::Destruct()
 {
     sEventMgr.RemoveEvents(castPtr<Player>(this));
     objmgr.RemovePlayer(this);
+    AchieveMgr.CleanupPlayerData(GetGUID());
 
     if(m_session)
-    {
         m_session->SetPlayer(NULL);
-    }
 
     Player* pTarget = objmgr.GetPlayer(GetInviter());
     if(pTarget)
@@ -859,11 +860,17 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << int32(m_talentInterface.GetBonusTalentPoints()) << ", ";
     uint32 talentStack = 0x00000000;
     m_talentInterface.GetActiveTalentTabStack(talentStack);
-    ss << uint32(talentStack) << ", " << "0, 0)";  // Reset for position and talents
+    ss << uint32(talentStack) << ", 0, 0);";  // Reset for position and talents
 
     if(buf)
         buf->AddQueryStr(ss.str());
     else CharacterDatabase.WaitExecuteNA(ss.str().c_str());
+
+    // Achievements
+    AchieveMgr.SaveAchievementData(GetGUID(), buf);
+
+    // Criteria
+    AchieveMgr.SaveCriteriaData(GetGUID(), buf);
 
     // Glyphs
     m_talentInterface.SaveActionButtonData(buf);
@@ -979,6 +986,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_auras WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_bans WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_cooldowns WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_achievements WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_criteria_data WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_equipmentsets WHERE ownerguid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
@@ -1173,12 +1181,29 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         talentResetCounter = fields[PLAYERLOAD_FIELD_TALENT_RESET_COUNTER].GetUInt32(),
         talentbonusPoints = fields[PLAYERLOAD_FIELD_BONUS_TALENT_POINTS].GetInt32(),
         activeTalentSpecStack = fields[PLAYERLOAD_FIELD_ACTIVE_TALENT_SPECSTACK].GetUInt32();
-    m_talentInterface.SetTalentData(talentActiveSpec, talentSpecCount, talentResetCounter, talentbonusPoints, activeTalentSpecStack);
 
+    // Make sure our name exists (for premade system)
+    if((m_playerInfo = objmgr.GetPlayerInfo(m_objGuid)) == NULL)
+    {
+        m_playerInfo = new PlayerInfo(m_objGuid);
+        m_playerInfo->charClass = getClass();
+        m_playerInfo->charRace = getRace();
+        m_playerInfo->charGender = getGender();
+        m_playerInfo->charName = GetName();
+        m_playerInfo->charTeam = GetTeam();
+        m_playerInfo->lastLevel = getLevel();
+        m_playerInfo->lastZone = GetZoneId();
+        m_playerInfo->lastOnline = UNIXTIME;
+        objmgr.AddPlayerInfo(m_playerInfo);
+    }
+
+    // After player info creation, load all extra data
+    m_talentInterface.SetTalentData(talentActiveSpec, talentSpecCount, talentResetCounter, talentbonusPoints, activeTalentSpecStack);
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
     _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
     _LoadPlayerCooldowns(results[PLAYER_LO_COOLDOWNS].result);
-    //m_achievmentInterface.LoadCriteriaData(results[PLAYER_LO_CRITERIA_DATA].result);
+    AchieveMgr.LoadAchievementData(GetGUID(), m_playerInfo, results[PLAYER_LO_ACHIEVEMENT_DATA].result);
+    AchieveMgr.LoadCriteriaData(GetGUID(), results[PLAYER_LO_CRITERIA_DATA].result);
     _LoadEquipmentSets(results[PLAYER_LO_EQUIPMENTSETS].result);
     _LoadExplorationData(results[PLAYER_LO_EXPLORATION].result);
     //m_factionInterface.LoadFactionData(results[PLAYER_LO_FACTIONS].result);
@@ -1204,21 +1229,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         EjectFromInstance();
     if( fields[PLAYERLOAD_FIELD_NEEDS_TALENT_RESET].GetBool() )
         m_talentInterface.ResetAllSpecs();
-
-    // Make sure our name exists (for premade system)
-    if((m_playerInfo = objmgr.GetPlayerInfo(m_objGuid)) == NULL)
-    {
-        m_playerInfo = new PlayerInfo(m_objGuid);
-        m_playerInfo->charClass = getClass();
-        m_playerInfo->charRace = getRace();
-        m_playerInfo->charGender = getGender();
-        m_playerInfo->charName = GetName();
-        m_playerInfo->charTeam = GetTeam();
-        m_playerInfo->lastLevel = getLevel();
-        m_playerInfo->lastZone = GetZoneId();
-        m_playerInfo->lastOnline = UNIXTIME;
-        objmgr.AddPlayerInfo(m_playerInfo);
-    }
 
     m_playerInfo->m_loggedInPlayer = this;
 
@@ -2060,6 +2070,14 @@ void Player::setLevel(uint32 level)
             if(level <= 9)
                 m_talentInterface.ResetAllSpecs();
             else m_talentInterface.RecalculateAvailableTalentPoints();
+
+            // If we're previously or currently above 9 and previously or currently below 9, resend achievement data
+            if(currLevel <= 9 || level <= 9)
+            {
+                WorldPacket data(SMSG_ALL_ACHIEVEMENT_DATA, 20);
+                AchieveMgr.BuildAchievementData(GetGUID(), &data);
+                SendPacket(&data);
+            }
         }
 
         UpdateNearbyQuestGivers(); // For quests that require levels
@@ -4334,6 +4352,10 @@ void Player::SendInitialLogonPackets()
 
     //Factions
     smsg_InitialFactions();
+
+    data.Initialize(SMSG_ALL_ACHIEVEMENT_DATA);
+    AchieveMgr.BuildAchievementData(GetGUID(), &data);
+    if(getLevel() > 9) GetSession()->SendPacket(&data);
 
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);
@@ -6927,6 +6949,11 @@ PlayerInfo::PlayerInfo(WoWGuid _guid)
     m_loggedInPlayer = NULL;
     arenaTeam[0] = arenaTeam[1] = arenaTeam[2] = NULL;
     charterId[0] = charterId[1] = charterId[2] = charterId[3] = 0;
+
+    achievementPoints = 0;
+    professionId[0] = professionId[1] = 0;
+    professionSkill[0] = professionSkill[1] = 0;
+    professionRank[0] = professionRank[1] = 0;
 }
 
 PlayerInfo::~PlayerInfo()

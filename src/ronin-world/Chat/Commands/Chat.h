@@ -274,6 +274,7 @@ protected:
     bool HandleGuildRemovePlayerCommand(const char* args, WorldSession *m_session);
     bool HandleGuildDisbandCommand(const char* args, WorldSession *m_session);
     bool HandleGuildModifyLevelCommand(const char *args, WorldSession *m_session);
+    bool HandleGuildGainXPCommand(const char *args, WorldSession *m_session);
 
     // Level 2 commands
     bool HandleNameCommand(const char* args, WorldSession *m_session);
@@ -348,6 +349,7 @@ protected:
     bool HandleResetSkillsCommand(const char* args, WorldSession * m_session);
     bool HandleGetSkillLevelCommand(const char* args, WorldSession * m_session);
     bool HandleGetSkillsInfoCommand(const char *args, WorldSession *m_session);
+    bool HandleEarnAchievement(const char* args, WorldSession * m_session);
     bool HandlePlayerInfo(const char* args, WorldSession * m_session);
 
     // Tickets

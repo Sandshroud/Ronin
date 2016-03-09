@@ -474,7 +474,7 @@ public:
             v.o = read<float>();
     }
 
-    const uint8 *contents(size_t pos = 0) const { return &_storage[pos]; };
+    const uint8 *contents(size_t pos = 0) const { if(size() <= pos) return NULL; return &_storage[pos]; };
 
     RONIN_INLINE size_t size() const { return _storage.size(); };
 
@@ -499,7 +499,7 @@ public:
     template<class T> void append(const T *src, size_t cnt) { return append((const uint8 *)src, cnt * sizeof(T)); }
     void append(const uint8 *src, size_t cnt)
     {
-        if(cnt == 0)
+        if(cnt == 0 || src == 0)
             return;
 
         ASSERT(size() < 1000000);

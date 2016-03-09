@@ -41,6 +41,7 @@ struct GuildInfo
     std::string m_motd;
 
     Mutex guildXPLock;
+    bool m_guildXPDirty;
     uint64 m_xpGainedToday;
     uint64 m_guildExperience;
 };
@@ -262,7 +263,7 @@ private:
     // By player guid.
     GuildMemberMap m_GuildMembers;
 
-    uint32 m_updateTimer;
+    uint32 m_updateTimer, m_xpUpdateTimer;
 public:
     GuildMgr();
     ~GuildMgr();
@@ -272,6 +273,7 @@ public:
 public:
     void LoadAllGuilds();
     void SaveAllGuilds();
+    void UpdateGuildXP();
 
     void DestroyGuild(GuildInfo* guildInfo);
     void AddDestructionQueries(uint32 guildid);

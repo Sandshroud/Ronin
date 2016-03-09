@@ -392,6 +392,7 @@ bool World::SetInitialWorldSettings()
         return false;
     }
 
+    new AchievementMgr();
     new ObjectMgr();
     new QuestMgr();
     new GossipManager();
@@ -433,7 +434,7 @@ bool World::SetInitialWorldSettings()
     ApplyNormalFixes();
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
-    MAKE_TASK(ObjectMgr, LoadAchievements);
+    MAKE_TASK(AchievementMgr, ParseAchievements);
     MAKE_TASK(ObjectMgr, LoadVendors);
     MAKE_TASK(TicketMgr, Load);
     MAKE_TASK(AddonMgr,  LoadFromDB);

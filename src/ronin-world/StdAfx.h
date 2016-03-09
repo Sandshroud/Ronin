@@ -168,6 +168,7 @@
 #include "GossipMgr.h"
 #include "GuildDefines.h"
 #include "GuildManager.h"
+#include "AchievementMgr.h"
 #include "ContinentManager.h"
 #include "BattlegroundManager.h"
 #include "InstanceManager.h"
