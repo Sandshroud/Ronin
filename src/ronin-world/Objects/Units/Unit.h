@@ -366,6 +366,21 @@ public:
         return _class;
     };
 
+    RONIN_INLINE std::string getRaceName(bool FullCaps = false)
+    {
+        std::string _race = "UNKNOWN";
+        switch(getRace()) {
+        case 1: { _race = "Human"; }break; case 2: { _race = "Orc"; }break;
+        case 3: { _race = "Dwarf"; }break; case 4: { _race = "Night Elf"; }break;
+        case 5: { _race = "Forsaken"; }break; case 6: { _race = "Tauren"; }break;
+        case 7: { _race = "Gnome"; }break; case 8: { _race = "Troll"; }break;
+        case 9: { _race = "Goblin"; }break; case 10: { _race = "Blood Elf"; }break;
+        case 11: { _race = "Draenei"; }break; case 22: { _race = "Worgen"; }break; }
+        if(FullCaps)
+            RONIN_UTIL::TOUPPER(_race);
+        return _race;
+    };
+
     RONIN_INLINE bool IsInFeralForm()
     {
         uint8 s = GetShapeShift();

@@ -35,6 +35,9 @@ void AchievementMgr::ParseAchievements()
         if(achievement == NULL)
             continue;
 
+        // Set default values for custom fields
+        achievement->reqClassMask = achievement->reqRaceMask = 0;
+
         // Process achievement reference lists
         if(achievement->refAchievement == 0)
         {
@@ -47,6 +50,60 @@ void AchievementMgr::ParseAchievements()
             } else m_achievementsByReferrence.insert(std::make_pair(achievement->ID, achievement));
         } else if(AchievementEntry *ref = dbcAchievement.LookupEntry(achievement->refAchievement))
             m_achievementsByReferrence.insert(std::make_pair(ref->ID, achievement));
+
+        std::string achievementName = achievement->name;
+        if(achievementName.find("Realm First! Level ") != std::string::npos)
+        {
+            if(achievementName.length() > 22)
+            {
+                std::string subst = achievementName.substr(22, achievementName.length());
+                if(strcmp(subst.c_str(), "Warrior") == 0)
+                    achievement->reqClassMask = CLASSMASK_WARRIOR;
+                else if(strcmp(subst.c_str(), "Paladin") == 0)
+                    achievement->reqClassMask = CLASSMASK_PALADIN;
+                else if(strcmp(subst.c_str(), "Hunter") == 0)
+                    achievement->reqClassMask = CLASSMASK_HUNTER;
+                else if(strcmp(subst.c_str(), "Rogue") == 0)
+                    achievement->reqClassMask = CLASSMASK_ROGUE;
+                else if(strcmp(subst.c_str(), "Priest") == 0)
+                    achievement->reqClassMask = CLASSMASK_PRIEST;
+                else if(strcmp(subst.c_str(), "Death Knight") == 0)
+                    achievement->reqClassMask = CLASSMASK_DEATHKNIGHT;
+                else if(strcmp(subst.c_str(), "Shaman") == 0)
+                    achievement->reqClassMask = CLASSMASK_SHAMAN;
+                else if(strcmp(subst.c_str(), "Mage") == 0)
+                    achievement->reqClassMask = CLASSMASK_MAGE;
+                else if(strcmp(subst.c_str(), "Warlock") == 0)
+                    achievement->reqClassMask = CLASSMASK_WARLOCK;
+                else if(strcmp(subst.c_str(), "Druid") == 0)
+                    achievement->reqClassMask = CLASSMASK_DRUID;
+
+                else if(strcmp(subst.c_str(), "Human") == 0)
+                    achievement->reqRaceMask = RACEMASK_HUMAN;
+                else if(strcmp(subst.c_str(), "Orc") == 0)
+                    achievement->reqRaceMask = RACEMASK_ORC;
+                else if(strcmp(subst.c_str(), "Dwarf") == 0)
+                    achievement->reqRaceMask = RACEMASK_DWARF;
+                else if(strcmp(subst.c_str(), "Night Elf") == 0)
+                    achievement->reqRaceMask = RACEMASK_NIGHTELF;
+                else if(strcmp(subst.c_str(), "Forsaken") == 0)
+                    achievement->reqRaceMask = RACEMASK_UNDEAD;
+                else if(strcmp(subst.c_str(), "Tauren") == 0)
+                    achievement->reqRaceMask = RACEMASK_TAUREN;
+                else if(strcmp(subst.c_str(), "Gnome") == 0)
+                    achievement->reqRaceMask = RACEMASK_GNOME;
+                else if(strcmp(subst.c_str(), "Troll") == 0)
+                    achievement->reqRaceMask = RACEMASK_TROLL;
+                else if(strcmp(subst.c_str(), "Goblin") == 0)
+                    achievement->reqRaceMask = RACEMASK_GOBLIN;
+                else if(strcmp(subst.c_str(), "Blood Elf") == 0)
+                    achievement->reqRaceMask = RACEMASK_BLOODELF;
+                else if(strcmp(subst.c_str(), "Draenei") == 0)
+                    achievement->reqRaceMask = RACEMASK_DRAENEI;
+                else if(strcmp(subst.c_str(), "Worgen") == 0)
+                    achievement->reqRaceMask = RACEMASK_WORGEN;
+            }
+        }
     }
 }
 
@@ -247,31 +304,10 @@ bool AchievementMgr::IsValidAchievement(Player *plr, AchievementEntry *entry)
             return false;
     }
 
-    switch(entry->ID)
-    {
-        // Class world firsts
-    case 458: if(plr->getClass() != ROGUE) return false; break;
-    case 459: if(plr->getClass() != WARRIOR) return false; break;
-    case 460: if(plr->getClass() != MAGE) return false; break;
-    case 461: if(plr->getClass() != DEATHKNIGHT) return false; break;
-    case 462: if(plr->getClass() != HUNTER) return false; break;
-    case 463: if(plr->getClass() != WARLOCK) return false; break;
-    case 464: if(plr->getClass() != PRIEST) return false; break;
-    case 465: if(plr->getClass() != PALADIN) return false; break;
-    case 466: if(plr->getClass() != DRUID) return false; break;
-    case 467: if(plr->getClass() != SHAMAN) return false; break;
-        // Race world firsts
-    case 1404: if(plr->getRace() != RACE_GNOME) return false; break;
-    case 1405: if(plr->getRace() != RACE_BLOODELF) return false; break;
-    case 1406: if(plr->getRace() != RACE_DRAENEI) return false; break;
-    case 1407: if(plr->getRace() != RACE_DWARF) return false; break;
-    case 1408: if(plr->getRace() != RACE_HUMAN) return false; break;
-    case 1410: if(plr->getRace() != RACE_ORC) return false; break;
-    case 1409: if(plr->getRace() != RACE_NIGHTELF) return false; break;
-    case 1411: if(plr->getRace() != RACE_TAUREN) return false; break;
-    case 1412: if(plr->getRace() != RACE_TROLL) return false; break;
-    case 1413: if(plr->getRace() != RACE_UNDEAD) return false; break;
-    }
+    if(entry->reqClassMask && (plr->getClassMask() & entry->reqClassMask) == 0)
+        return false;
+    if(entry->reqRaceMask && (plr->getRaceMask() & entry->reqRaceMask) == 0)
+        return false;
 
     return true;
 }
@@ -363,6 +399,9 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
     data << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
     data << uint32(0);
     plr->SendMessageToSet(&data, true, true, 50.f);
+
+    if (entry->flags & ACHIEVEMENT_FLAG_REALM_FIRST_REACH)
+        m_realmFirstCompleted.insert(achievementId);
 }
 
 void AchievementMgr::RemoveAchievement(Player *plr, uint32 achievementId)

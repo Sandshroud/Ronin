@@ -26,6 +26,9 @@ struct AchievementEntry
 //  Example: http://www.wowhead.com/achievement=1872
     uint32 count;                   // 12
     uint32 refAchievement;          // 13
+
+    // Custom fields set when parsing
+    uint32 reqRaceMask, reqClassMask;
 };
 
 enum AchievementFactionFlags : int8
