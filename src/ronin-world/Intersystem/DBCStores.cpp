@@ -14,7 +14,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementEntry, dbcAchievement);
 static const char *achievementFormat = "nuuussuuxuxxuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementCriteriaEntry, dbcAchievementCriteria);
-static const char *achievementcriteriaFormat = "niiiiiiiisiiiiixxiiiiii";
+static const char *achievementcriteriaFormat = "niiiliisiiiiixxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaGroupEntry, dbcAreaGroup);
 static const char *areagroupFormat = "niiiiiii";

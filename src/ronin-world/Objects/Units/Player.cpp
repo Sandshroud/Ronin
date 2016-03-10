@@ -1246,7 +1246,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
             SendDelayedPacket(data);
         }
     }
+
     m_movementInterface.OnRelocate(m_position);
+    AchieveMgr.PlayerFinishedLoading(GetGUID());
 }
 
 void Player::_LoadPlayerAuras(QueryResult *result)
@@ -2085,6 +2087,7 @@ void Player::setLevel(uint32 level)
         SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));
     }
 
+    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, level, currLevel);
     sLog.outDebug("Player %s set parameters to level %u", GetName(), level);
 }
 
@@ -2870,6 +2873,8 @@ void Player::OnPushToWorld()
         m_bg->OnPlayerPushed(this);
 
     m_changingMaps = false;
+
+    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, getLevel());
 }
 
 void Player::OnWorldLogin()

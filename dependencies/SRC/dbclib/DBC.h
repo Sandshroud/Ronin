@@ -87,6 +87,26 @@ public:
         }
         uint32 pos = ftell(f);
 
+        if(header.fieldcount != header.cols*4)
+        {
+            size_t len = strlen(CFormat), forSize = 0;
+            for(size_t i = 0; i < len; i++)
+            {
+                if(CFormat[i] == 'p' || CFormat[i] == 'b')
+                    forSize += 1;
+                else if(CFormat[i] == 'l')
+                    forSize += 8;
+                else forSize += 4;
+            }
+
+            if(header.fieldcount != forSize)
+            {
+                fclose(f);
+                sLog.Error("DBC", "DBC %s has an incorrect extended format!(%u/%u)\n", filename, forSize, header.fieldcount);
+                return false;
+            }
+        }
+
         uint32 valueMax = header.cols*header.rows;
         if(header.stringsize)
         {
@@ -137,6 +157,16 @@ public:
                         fread(&val, 1, 1, f);
                         *dest_ptr = val;
                         dest_ptr++;
+                    }break;
+                case 'l': // long long
+                    {
+                        uint32 val;
+                        fread(&val, 4, 1, f);
+                        *((uint32*)dest_ptr) = val;
+                        dest_ptr += 4;
+                        fread(&val, 4, 1, f);
+                        *((uint32*)dest_ptr) = val;
+                        dest_ptr += 4;
                     }break;
                 default:
                     {
