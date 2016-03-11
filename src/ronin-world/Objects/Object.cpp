@@ -811,34 +811,6 @@ bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLe
 
 ////////////////////////////////////////////////////////////
 
-float WorldObject::CalcDistance(WorldObject* Ob)
-{
-    return CalcDistance(GetPositionX(), GetPositionY(), GetPositionZ(), Ob->GetPositionX(), Ob->GetPositionY(), Ob->GetPositionZ());
-}
-
-float WorldObject::CalcDistance(float ObX, float ObY, float ObZ)
-{
-    return CalcDistance(GetPositionX(), GetPositionY(), GetPositionZ(), ObX, ObY, ObZ);
-}
-
-float WorldObject::CalcDistance(WorldObject* Oa, WorldObject* Ob)
-{
-    return CalcDistance(Oa->GetPositionX(), Oa->GetPositionY(), Oa->GetPositionZ(), Ob->GetPositionX(), Ob->GetPositionY(), Ob->GetPositionZ());
-}
-
-float WorldObject::CalcDistance(WorldObject* Oa, float ObX, float ObY, float ObZ)
-{
-    return CalcDistance(Oa->GetPositionX(), Oa->GetPositionY(), Oa->GetPositionZ(), ObX, ObY, ObZ);
-}
-
-float WorldObject::CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ)
-{
-    float xdest = fabs(ObX - OaX);
-    float ydest = fabs(ObY - OaY);
-    float zdest = fabs(ObZ - OaZ);
-    return sqrtf((zdest*zdest) + (ydest*ydest) + (xdest*xdest));
-}
-
 float WorldObject::calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y )
 {
     float dx = Position2X-Position1X, dy = Position2Y-Position1Y;
@@ -920,6 +892,14 @@ float WorldObject::getEasyAngle( float angle )
     return angle;
 }
 
+float WorldObject::CalcDistanceSq(float x1, float y1, float z1, float x2, float y2, float z2)
+{
+    float delta_x = fabs(x1 - x2);
+    float delta_y = fabs(y1 - y2);
+    float delta_z = fabs(z1 - z2);
+    return (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+}
+
 bool WorldObject::inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y )
 {
     float angle = calcAngle( Position1X, Position1Y, Position2X, Position2Y );
@@ -932,14 +912,16 @@ bool WorldObject::inArc(float Position1X, float Position1Y, float FOV, float Ori
 }
 
 // Return angle in range 0..2*pi
-float GetAngle(float x, float y, float Targetx, float Targety)
+float WorldObject::GetAngle(float x, float y, float tX, float tY)
 {
-    float dx = Targetx - x;
-    float dy = Targety - y;
+    float dx = tX - x;
+    float dy = tY - y;
+    return NormAngle(atan2(dy, dx));
+}
 
-    float ang = atan2(dy, dx);
-    ang = (ang >= 0) ? ang : 2 * M_PI + ang;
-    return ang;
+float WorldObject::GetAngle(WorldObject *obj)
+{
+    return GetAngle(GetPositionX(), GetPositionY(), obj->GetPositionX(), obj->GetPositionY());
 }
 
 bool WorldObject::isTargetInFront(WorldObject* target)
@@ -971,8 +953,7 @@ bool WorldObject::isInArc(WorldObject* target , float angle) // angle in degrees
 
 bool WorldObject::isInRange(WorldObject* target, float range)
 {
-    float dist = CalcDistance( target );
-    return( dist <= range );
+    return GetDistanceSq(target) <= range*range;
 }
 
 void WorldObject::SetFactionTemplate(uint32 templateId)

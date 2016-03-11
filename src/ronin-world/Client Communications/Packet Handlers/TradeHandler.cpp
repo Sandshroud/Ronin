@@ -34,7 +34,7 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
         tradeStatus = TRADE_STATUS_TARGET_WRONG_FACTION;
     else if(pTarget->m_ignores.find(_player->GetGUID()) != pTarget->m_ignores.end())
         tradeStatus = TRADE_STATUS_TARGET_IGNORING_YOU;
-    else if(_player->CalcDistance(pTarget) > 10.0f)     // This needs to be checked
+    else if(_player->GetDistanceSq(pTarget) > 100.0f)     // This needs to be checked
         tradeStatus = TRADE_STATUS_TARGET_TOO_FAR;
     else if(pTarget->m_session == NULL || pTarget->m_session->GetSocket() == NULL)
         tradeStatus = TRADE_STATUS_TARGET_LOGGING_OUT;

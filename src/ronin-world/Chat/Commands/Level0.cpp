@@ -366,7 +366,7 @@ bool ChatHandler::HandleRangeCheckCommand( const char *args , WorldSession *m_se
     float DistSq = unit->GetDistanceSq( m_session->GetPlayer() );
     m_session->SystemMessage( "GetDistanceSq  :   %u" , float2int32( DistSq ) );
     LocationVector locvec( m_session->GetPlayer()->GetPositionX() , m_session->GetPlayer()->GetPositionY() , m_session->GetPlayer()->GetPositionZ() );
-    float DistReal = unit->CalcDistance( locvec );
+    float DistReal = sqrtf(unit->GetDistanceSq( locvec ));
     m_session->SystemMessage( "CalcDistance   :   %u" , float2int32( DistReal ) );
     float Dist2DSq = unit->GetDistance2dSq( m_session->GetPlayer() );
     m_session->SystemMessage( "GetDistance2dSq:   %u" , float2int32( Dist2DSq ) );

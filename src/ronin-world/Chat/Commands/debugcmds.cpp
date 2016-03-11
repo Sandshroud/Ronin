@@ -59,7 +59,7 @@ bool ChatHandler::HandleDistanceCommand(const char* args, WorldSession *m_sessio
         }
     }
 
-    SystemMessage(m_session, format("Distance: %f", m_session->GetPlayer()->CalcDistance(pUnit)).c_str());
+    SystemMessage(m_session, format("Distance: %f", sqrtf(m_session->GetPlayer()->GetDistanceSq(pUnit))).c_str());
     return true;
 }
 
@@ -71,7 +71,7 @@ bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_sessio
         return false;
 
     SystemMessage(m_session, "Move Info:");
-    GreenSystemMessage(m_session, format("Distance is: %f;", plr->CalcDistance(creature)).c_str());
+    GreenSystemMessage(m_session, format("Distance is: %f;", sqrtf(plr->GetDistanceSq(creature))).c_str());
     GreenSystemMessage(m_session, format("Mob Facing Player: %s; Player Facing Mob %s;", (creature->isTargetInFront(plr) ? "true" : "false"),
         (plr->isTargetInFront(creature) ? "true" : "false")).c_str());
     return true;

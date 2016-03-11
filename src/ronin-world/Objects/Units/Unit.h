@@ -7,6 +7,7 @@
 #define MAKE_ACTION_BUTTON(A,T) uint32(uint32(A) | (uint32(T) << 24))
 #define UF_TARGET_DIED  1
 #define UF_ATTACKING    2 // this unit is attacking it's selection
+#define UF_EVADING      4
 #define SPELL_GROUPS    96
 #define SPELL_MODIFIERS 30
 #define DIMINISH_GROUPS 13
@@ -323,6 +324,8 @@ public:
         else m_attackInterrupt = 0x7FFF;
     }
 
+    float ModAggroRange(Unit *target, float base);
+
     RONIN_INLINE void SetDualWield(bool enabled) { m_dualWield = enabled; }
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
@@ -465,7 +468,7 @@ public:
     bool UpdateAutoAttackState();
     void EventAttack(Unit *target, WeaponDamageType attackType);
     void EventAttackStart(WoWGuid guid);
-    void EventAttackStop();
+    virtual void EventAttackStop();
 
     void smsg_AttackStart(WoWGuid victimGuid);
     void smsg_AttackStop(WoWGuid victimGuid);
@@ -768,7 +771,6 @@ public:
     void Dismount();
     void SetWeaponDisplayId(uint8 slot, uint32 ItemId);
 
-    float GetDistanceToCombatEnter() { return 0.f; }
     LocationVector GetCombatEnterLoc() { return m_position; };
 
 public:

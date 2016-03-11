@@ -498,7 +498,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
     {
         if(GameObject *gob = plr->GetInRangeObject<GameObject>(*itr))
         {
-            if( (nDist = plr->CalcDistance(gob)) < cDist )
+            if( (nDist = plr->GetDistanceSq(gob)) < cDist )
             {
                 GObj = gob;
                 cDist = nDist;
@@ -700,7 +700,7 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
     default:                                        gottext << "Unknown.";  break;
     }
     GreenSystemMessage(m_session, "Type: %s%u|r -- %s", MSG_COLOR_LIGHTBLUE, type, gottext.str().c_str());
-    GreenSystemMessage(m_session, "Distance: %s%f|r", MSG_COLOR_LIGHTBLUE, GObj->CalcDistance(m_session->GetPlayer()));
+    GreenSystemMessage(m_session, "Distance: %s%f|r", MSG_COLOR_LIGHTBLUE, sqrtf(GObj->GetDistanceSq(m_session->GetPlayer())));
     GreenSystemMessage(m_session, "Size: %s%f|r", MSG_COLOR_LIGHTBLUE, GObj->GetFloatValue(OBJECT_FIELD_SCALE_X));
     if(GObj->GetInfo())
         GreenSystemMessage(m_session, "Name: %s%s|r", MSG_COLOR_LIGHTBLUE, GObj->GetInfo()->Name);

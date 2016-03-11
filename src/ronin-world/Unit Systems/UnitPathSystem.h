@@ -24,6 +24,7 @@ public: // Class functions
 
     bool Update(uint32 msTime, uint32 uiDiff);
 
+    bool hasDestination();
     bool GetDestination(float &x, float &y, float *z = NULL);
 
 private:

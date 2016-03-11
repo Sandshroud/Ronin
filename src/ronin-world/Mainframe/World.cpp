@@ -1217,6 +1217,7 @@ void World::Rehash(bool load)
     Collision = mainIni->ReadBoolean("PerformanceSettings", "Collision", false);
     PathFinding = mainIni->ReadBoolean("PerformanceSettings", "Pathfinding", false);
     AreaUpdateDistance = mainIni->ReadFloat("PerformanceSettings", "AreaUpdateDistance", false);
+    AreaUpdateDistance *= AreaUpdateDistance;
 
     // Server Configs
     StartGold = mainIni->ReadInteger("ServerSettings", "StartGold", 1);

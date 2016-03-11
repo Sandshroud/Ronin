@@ -504,17 +504,18 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
         }break;
     case 20: case 21: case 22:
         {
-            Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+(combatRating-20));
-            if(item)
+            if(Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+(combatRating-20)))
             {
-                AuraInterface::modifierMap ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING);
-                for(AuraInterface::modifierMap::iterator itr = ratingMod.begin(); itr != ratingMod.end(); itr++)
+                if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING))
                 {
-                    // Weapon ratings are 0x01, so skip them here
-                    if((itr->second->m_miscValue[0] & 0x1) == 0)
-                        continue;
-                    if(itr->second->m_spellInfo->EquippedItemSubClassMask & (1<<item->GetProto()->SubClass))
-                        val += itr->second->m_amount;
+                    for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+                    {
+                        // Weapon ratings are 0x01, so skip them here
+                        if((itr->second->m_miscValue[0] & 0x1) == 0)
+                            continue;
+                        if(itr->second->m_spellInfo->EquippedItemSubClassMask & (1<<item->GetProto()->SubClass))
+                            val += itr->second->m_amount;
+                    }
                 }
             }
         }break;
@@ -600,19 +601,22 @@ void Player::UpdatePlayerRatings()
     for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
     {
         int32 val = CalculatePlayerCombatRating(cr);
-        AuraInterface::modifierMap ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING);
-        for(AuraInterface::modifierMap::iterator itr = ratingMod.begin(); itr != ratingMod.end(); itr++)
+        if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING))
         {
-            // Weapon ratings are 0x01, so skip them here
-            if(itr->second->m_miscValue[0] & 0x1)
-                continue;
-            if(itr->second->m_miscValue[0] & (1<<cr))
-                val += itr->second->m_amount;
+            for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+            {
+                // Weapon ratings are 0x01, so skip them here
+                if(itr->second->m_miscValue[0] & 0x1)
+                    continue;
+                if(itr->second->m_miscValue[0] & (1<<cr))
+                    val += itr->second->m_amount;
+            }
         }
-        ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT);
-        for(AuraInterface::modifierMap::iterator itr = ratingMod.begin(); itr != ratingMod.end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<cr))
-                val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
+
+        if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT))
+            for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<cr))
+                    val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
 
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
@@ -2158,7 +2162,7 @@ void Player::_EventExploration()
         return;
     if(GetMapInstance()->GetCellByCoords(GetPositionX(),GetPositionY()) == NULL)
         return;
-    if(m_lastAreaUpdateMap == GetMapId() && m_lastAreaPosition.Distance(GetPosition()) < sWorld.AreaUpdateDistance)
+    if(m_lastAreaUpdateMap == GetMapId() && m_lastAreaPosition.DistanceSq(GetPosition()) < sWorld.AreaUpdateDistance)
         return;
     bool newMap = m_lastAreaUpdateMap != GetMapId();
     m_lastAreaUpdateMap = GetMapId();
@@ -4592,12 +4596,12 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
                 return;
             }
 
-            dist += CalcDistance(lastx, lasty, lastz, pn->LocX, pn->LocY, pn->LocZ);
+            dist += CalcDistanceSq(lastx, lasty, lastz, pn->LocX, pn->LocY, pn->LocZ);
             lastx = pn->LocX;
             lasty = pn->LocY;
             lastz = pn->LocZ;
         }
-        add_time = uint32( dist * TAXI_TRAVEL_SPEED );
+        add_time = uint32( sqrtf(dist) * TAXI_TRAVEL_SPEED );
         lastx = lasty = lastz = 0;
     }
     size_t endn = path->GetNodeCount();
@@ -4633,14 +4637,14 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
         }
         else
         {
-            traveldist += CalcDistance(lastx,lasty,lastz,pn->LocX,pn->LocY,pn->LocZ);
+            traveldist += CalcDistanceSq(lastx,lasty,lastz,pn->LocX,pn->LocY,pn->LocZ);
             lastx = pn->LocX;
             lasty = pn->LocY;
             lastz = pn->LocZ;
         }
     }
 
-    uint32 traveltime = uint32(traveldist * TAXI_TRAVEL_SPEED);
+    uint32 traveltime = uint32(sqrtf(traveldist) * TAXI_TRAVEL_SPEED);
 
     if( start_node > endn || (endn - start_node) > 200 )
         return;
@@ -5464,8 +5468,7 @@ void Player::RequestDuel(Player* pTarget)
     DuelingWith = pTarget;
 
     //Get Flags position
-    float dist = CalcDistance(pTarget);
-    dist = dist * 0.5f; //half way
+    float dist = sqrtf(GetDistanceSq(pTarget)) * 0.5f; //half way
     float x = (GetPositionX() + pTarget->GetPositionX()*dist)/(1+dist) + cos(GetOrientation()+(float(M_PI)/2))*2;
     float y = (GetPositionY() + pTarget->GetPositionY()*dist)/(1+dist) + sin(GetOrientation()+(float(M_PI)/2))*2;
     float z = (GetPositionZ() + pTarget->GetPositionZ()*dist)/(1+dist);

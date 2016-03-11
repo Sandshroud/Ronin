@@ -1088,7 +1088,7 @@ WorldObject* MapInstance::GetObjectClosestToCoords(uint32 entry, float x, float 
     MapCell::CellObjectSet::const_iterator iter;
     for(iter = pCell->Begin(); iter != pCell->End(); iter++)
     {
-        CurrentDist = (*iter)->CalcDistance(x, y, (z != 0.0f ? z : (*iter)->GetPositionZ()));
+        CurrentDist = (*iter)->GetDistanceSq(x, y, (z != 0.0f ? z : (*iter)->GetPositionZ()));
         if(CurrentDist < ClosestDist)
         {
             if(forcedtype > -1 && forcedtype != (*iter)->GetTypeId())

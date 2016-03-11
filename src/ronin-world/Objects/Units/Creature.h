@@ -192,6 +192,8 @@ public:
     /// Updates
     virtual void Update(uint32 msTime, uint32 uiDiff);
 
+    void EventAttackStop();
+
     float GetPowerMod() { return _creatureData->powerMod; }
     float GetHealthMod() { return _creatureData->healthMod; }
     int32 GetBonusMana() { return 0; }

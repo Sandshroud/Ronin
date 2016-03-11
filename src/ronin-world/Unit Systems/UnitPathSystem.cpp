@@ -50,9 +50,10 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
     return false;
 }
 
+bool UnitPathSystem::hasDestination() { return !(_destX == fInfinite && _destY == fInfinite); }
 bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
 {
-    if(_destX == fInfinite && _destY == fInfinite)
+    if(!hasDestination())
         return false;
     x = _destX;
     y = _destY;
@@ -82,7 +83,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     m_pathCounter++;
     m_pathStartTime = getMSTime();
     _destX = x, _destY = y, _destZ = z, _destO = o;
-    float speed = m_Unit->GetMoveSpeed(MOVE_SPEED_RUN), dist = m_Unit->CalcDistance(x, y, z);
+    float speed = m_Unit->GetMoveSpeed(MOVE_SPEED_RUN), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
 
     LocationVector currPos = m_Unit->GetPosition();
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), currPos.x, currPos.y))
@@ -112,7 +113,10 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
 void UnitPathSystem::StopMoving()
 {
-
+    _CleanupPath();
+    // Set destX/Y to infinite, zero out destZ and Orientation
+    _destX = _destY = fInfinite; _destZ = _destO  = 0.f;
+    BroadcastMovementPacket();
 }
 
 void UnitPathSystem::BroadcastMovementPacket()

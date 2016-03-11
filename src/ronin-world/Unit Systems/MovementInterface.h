@@ -249,6 +249,8 @@ public:
     MovementInterface(Unit *_unit);
     ~MovementInterface();
 
+    UnitPathSystem *GetPath() { return &m_path; }
+
     static void InitializeMovementHandlers();
     static uint16 GetInternalMovementCode(uint16 opcode);
     static uint16 GetSpeedTypeForMoveCode(uint16 moveCode);

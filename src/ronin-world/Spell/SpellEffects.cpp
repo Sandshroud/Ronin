@@ -590,7 +590,7 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
         {
             // try to get a selection
             pTarget = m_caster->GetMapInstance()->GetUnit(castPtr<Player>(m_caster)->GetSelection());
-            if( (pTarget == NULL ) || !sFactionSystem.isAttackable(m_caster, pTarget, !GetSpellProto()->isSpellStealthTargetCapable() ) || (pTarget->CalcDistance(m_caster) > 30.0f))
+            if( (pTarget == NULL ) || !sFactionSystem.isAttackable(m_caster, pTarget, !GetSpellProto()->isSpellStealthTargetCapable() ) || (pTarget->GetDistanceSq(m_caster) > 900.f))
                 return;
         }
 
@@ -1954,7 +1954,7 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
     if(dx == 0.0f || dy == 0.0f)
         return;
 
-    uint32 time = uint32( (m_caster->CalcDistance(x,y,z) / ((u_caster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
+    uint32 time = uint32( (sqrtf(m_caster->GetDistanceSq(x,y,z)) / ((u_caster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
     u_caster->SetPosition(x,y,z,0.0f);
 
     u_caster->addStateFlag(UF_ATTACKING);

@@ -2173,7 +2173,7 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
     if(m_spellInfo->speed > 0.0f)
     {
         // calculate spell incoming interval
-        float dist = m_caster->CalcDistance(target);
+        float dist = sqrtf(m_caster->GetDistanceSq(target));
         tgt.DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
         if(tgt.DestinationTime+m_MSTimeToAddToTravel < 200)
             tgt.DestinationTime = 0;

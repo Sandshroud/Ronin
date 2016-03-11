@@ -10,9 +10,9 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 
     WoWGuid guid;
     recv_data >> guid;
-    if(guid.empty() || _player->bGMTagOn)
+    if(guid.empty() || _player->bGMTagOn || _player->isDead())
     {
-        HandleAttackStopOpcode(recv_data);
+        _player->EventAttackStop();
         return;
     }
 
@@ -22,15 +22,10 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
         return;
 
     Unit* pEnemy = _player->GetMapInstance()->GetUnit(guid);
-    if(!pEnemy)
+    if(pEnemy == NULL || pEnemy->isDead())
     {
         sLog.outDebug("WORLD: "I64FMT" does not exist.", guid);
-        return;
-    }
-
-    if(pEnemy->isDead() || _player->isDead())       // haxors :(
-    {
-        HandleAttackStopOpcode(recv_data);
+        _player->EventAttackStop();
         return;
     }
 
@@ -44,7 +39,6 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     }
 
     _player->EventAttackStart(guid);
-    pEnemy->EventAttackStart(_player->GetGUID());
 }
 
 void WorldSession::HandleAttackStopOpcode( WorldPacket & recv_data )

@@ -323,7 +323,7 @@ public:
     RONIN_INLINE const float& GetPositionY( ) const { return m_position.y; }
     RONIN_INLINE const float& GetPositionZ( ) const { return m_position.z; }
     RONIN_INLINE const float& GetOrientation( ) const { return m_position.o; }
-    RONIN_INLINE void SetOrientation( float &o ) { m_position.o = NormAngle(o); }
+    RONIN_INLINE void SetOrientation( float o ) { m_position.o = NormAngle(o); }
 
     RONIN_INLINE float GetSpawnX() { return m_spawnLocation.x; }
     RONIN_INLINE float GetSpawnY() { return m_spawnLocation.y; }
@@ -339,13 +339,6 @@ public:
     RONIN_INLINE void GetPosition(float &x, float &y, float &z, float &o) { x = m_position.x; y = m_position.y; z = m_position.z; o = m_position.o; }
 
     bool IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta);
-
-    //Distance Calculation
-    float CalcDistance(WorldObject* Ob);
-    float CalcDistance(float ObX, float ObY, float ObZ);
-    float CalcDistance(WorldObject* Oa, WorldObject* Ob);
-    float CalcDistance(WorldObject* Oa, float ObX, float ObY, float ObZ);
-    float CalcDistance(float OaX, float OaY, float OaZ, float ObX, float ObY, float ObZ);
 
     RONIN_INLINE MapCell* GetMapCell() const { return m_mapCell; }
     RONIN_INLINE void SetMapCell(MapCell* cell) { m_mapCell = cell; }
@@ -381,7 +374,9 @@ public:
     /* converts to 360 > x > 0 */
     float getEasyAngle( float angle );
 
-    RONIN_INLINE float CalcDistance(LocationVector & comp) { return comp.Distance(m_position); }
+    float GetAngle(WorldObject *obj);
+    static float GetAngle(float x, float y, float tX, float tY);
+    static float CalcDistanceSq(float x1, float y1, float z1, float x2, float y2, float z2);
     RONIN_INLINE float GetDistanceSq(LocationVector & comp) { return comp.DistanceSq(m_position); }
     RONIN_INLINE const float GetDistanceSq(WorldObject* obj)
     {

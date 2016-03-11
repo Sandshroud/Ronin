@@ -10,7 +10,7 @@
 
 #define M_PI 3.14159265358979323846f
 
-Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data), m_aiInterface(this)
+Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data), m_aiInterface(this, m_movementInterface.GetPath())
 {
     SetEntry(data->entry);
 
@@ -75,7 +75,7 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
     m_AreaUpdateTimer += uiDiff;
     if(m_AreaUpdateTimer >= 5000)
     {
-        if(m_lastAreaPosition.Distance(GetPosition()) > sWorld.AreaUpdateDistance)
+        if(m_lastAreaPosition.DistanceSq(GetPosition()) > sWorld.AreaUpdateDistance)
         {
             // Update our area id and position
             UpdateAreaInfo();
@@ -109,6 +109,12 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
 
     if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
+}
+
+void Creature::EventAttackStop()
+{
+    Unit::EventAttackStop();
+    SetUInt64Value(UNIT_FIELD_TARGET, 0);
 }
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)
@@ -363,7 +369,6 @@ void Creature::OnPushToWorld()
 
     Unit::OnPushToWorld();
 
-    m_aiInterface.m_is_in_instance = !m_mapInstance->GetdbcMap()->IsContinent();
     if (HasItems())
     {
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
@@ -690,13 +695,13 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
 
     //use proto faction if spawn faction is unspecified
-    if(m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE)))
+    if(m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE)));/*
     {
         // not a neutral creature
         FactionEntry *faction = m_factionTemplate->GetFaction();
         if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
             GetAIInterface()->m_canCallForHelp = true;
-    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", GetEntry());
+    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", GetEntry());*/
 
     //SETUP NPC FLAGS
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);

@@ -146,7 +146,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     // we cannot attack sheathed units. Maybe checked in other places too ?
     // !! warning, this presumes that objA is attacking ObjB
     if( CheckStealth && objB->IsUnit() && castPtr<Unit>(objB)->IsStealthed() )
-        if(objA->CalcDistance(objB) > 5.0f)
+        if(objA->GetDistanceSq(objB) > 25.0f)
             return FI_STATUS_FRIENDLY;
     // Get players (or owners of pets/totems)
     Player* player_objA = GetPlayerFromObject(objA);

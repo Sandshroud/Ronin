@@ -181,8 +181,8 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
         source = m_targets.m_dest;
     }
 
-    //caster might be in the aoe LOL
-    if(m_caster->CalcDistance(source) <= r)
+    float range = r*r; //caster might be in the aoe LOL
+    if(m_caster->GetDistanceSq(source) <= range)
         AddTarget(i, TargetType, m_caster);
 
     WorldObject *wObj = NULL;
@@ -192,7 +192,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
             continue;
         if(maxtargets != 0 && m_effectTargetMaps[i].size() >= maxtargets)
             break;
-        if(wObj->CalcDistance(source) > r)
+        if(wObj->GetDistanceSq(source) > range)
             continue;
         AddTarget(i, TargetType, wObj);
     }
@@ -209,6 +209,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
     Player* p = castPtr<Player>(u);
     AddTarget(i, TargetType, p);
 
+    float range = radius*radius;
     WorldObject::InRangeSet::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
@@ -217,7 +218,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
             continue;
         if(!p->IsGroupMember(target))
             continue;
-        if(u->CalcDistance(target) > radius)
+        if(u->GetDistanceSq(target) > range)
             continue;
 
         AddTarget(i, TargetType, target);
@@ -235,6 +236,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
     Player* p = castPtr<Player>(u);
     AddTarget(i, TargetType, p);
 
+    float range = radius*radius;
     WorldObject::InRangeSet::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
@@ -243,7 +245,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
             continue;
         if(!p->IsGroupMember(target))
             continue;
-        if(u->CalcDistance(target) > radius)
+        if(u->GetDistanceSq(target) > range)
             continue;
 
         AddTarget(i, TargetType, target);
