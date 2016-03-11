@@ -22,7 +22,7 @@ void AchievementMgr::ParseAchievements()
         if(entry == NULL)
             continue;
         AchievementEntry *achievement = dbcAchievement.LookupEntry(entry->referredAchievement);
-        if(achievement == NULL || achievement->flags & ACHIEVEMENT_FLAG_GUILD)
+        if(achievement == NULL || achievement->flags & ACHIEVEMENT_FLAG_GUILD) // Guild achievements are hard coded(need impl)
             continue;
         m_criteriaByType.insert(std::make_pair(entry->requiredType, entry));
         m_criteriaByAchievement.insert(std::make_pair(entry->referredAchievement, entry));
@@ -51,6 +51,11 @@ void AchievementMgr::ParseAchievements()
         } else if(AchievementEntry *ref = dbcAchievement.LookupEntry(achievement->refAchievement))
             m_achievementsByReferrence.insert(std::make_pair(ref->ID, achievement));
 
+        // Process storage of achievements that are single get only
+        if(achievement->flags & (ACHIEVEMENT_FLAG_REALM_FIRST_REACH|ACHIEVEMENT_FLAG_REALM_FIRST_KILL|ACHIEVEMENT_FLAG_REALM_FIRST_GUILD))
+            m_realmFirstAchievements.insert(achievement->ID);
+
+        // Process realm first race and class requirements
         std::string achievementName = achievement->name;
         if(achievementName.find("Realm First! Level ") != std::string::npos)
         {
@@ -94,15 +99,38 @@ void AchievementMgr::ParseAchievements()
                     achievement->reqRaceMask = RACEMASK_GNOME;
                 else if(strcmp(subst.c_str(), "Troll") == 0)
                     achievement->reqRaceMask = RACEMASK_TROLL;
-                else if(strcmp(subst.c_str(), "Goblin") == 0)
-                    achievement->reqRaceMask = RACEMASK_GOBLIN;
+                /*else if(strcmp(subst.c_str(), "Goblin") == 0) No reealm firsts for goblins
+                    achievement->reqRaceMask = RACEMASK_GOBLIN;*/
                 else if(strcmp(subst.c_str(), "Blood Elf") == 0)
                     achievement->reqRaceMask = RACEMASK_BLOODELF;
                 else if(strcmp(subst.c_str(), "Draenei") == 0)
                     achievement->reqRaceMask = RACEMASK_DRAENEI;
-                else if(strcmp(subst.c_str(), "Worgen") == 0)
-                    achievement->reqRaceMask = RACEMASK_WORGEN;
+                /*else if(strcmp(subst.c_str(), "Worgen") == 0) No realm firsts for Worgen
+                    achievement->reqRaceMask = RACEMASK_WORGEN;*/
             }
+        }
+    }
+
+    // See if we have any realm firsts already completed in our database
+    if(m_realmFirstAchievements.size())
+    {
+        std::stringstream ss;
+        for(std::set<uint32>::iterator itr = m_realmFirstAchievements.begin(); itr != m_realmFirstAchievements.end(); itr++)
+        {
+            if(ss.str().length())
+                ss << ", ";
+            ss << *itr;
+        }
+
+        if(QueryResult *result = CharacterDatabase.Query("SELECT achievementId FROM character_achievements WHERE achievementId IN(%s);", ss.str().c_str()))
+        {
+            do
+            {
+                uint32 achievementId = result->Fetch()[0].GetUInt32();
+                if(m_realmFirstCompleted.find(achievementId) != m_realmFirstCompleted.end())
+                    continue;
+                m_realmFirstCompleted.insert(achievementId);
+            }while(result->NextRow());
         }
     }
 }
@@ -400,7 +428,7 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
     data << uint32(0);
     plr->SendMessageToSet(&data, true, true, 50.f);
 
-    if (entry->flags & ACHIEVEMENT_FLAG_REALM_FIRST_REACH)
+    if(m_realmFirstAchievements.find(achievementId) != m_realmFirstAchievements.end())
         m_realmFirstCompleted.insert(achievementId);
 }
 

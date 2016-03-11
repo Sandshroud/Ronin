@@ -75,7 +75,8 @@ protected:
 private:
     Mutex achieveDataLock;
     std::map<WoWGuid, AchieveDataContainer*> m_playerAchieveData;
-    std::set<uint32> m_realmFirstCompleted;
+
+    std::set<uint32> m_realmFirstAchievements, m_realmFirstCompleted;
 
     AchievementStorage m_achievementsByReferrence;
     CriteriaStorage m_criteriaByType, m_criteriaByAchievement;
