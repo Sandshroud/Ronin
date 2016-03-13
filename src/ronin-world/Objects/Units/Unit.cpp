@@ -1842,10 +1842,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         if( pVictim->GetTypeId() == TYPEID_UNIT )
         {
             Creature* c = castPtr<Creature>( pVictim );
-            if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS) )
-            {
-                victim_skill = std::max( victim_skill, ( (int32)getLevel() + 3 ) * 5 ); //used max to avoid situation when lowlvl hits boss.
-            }
+            if( c != NULL && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || (c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS)) )
+                victim_skill = std::max( victim_skill, ( (int32)pVictim->getLevel() + 3 ) * 5 ); //used max to avoid situation when lowlvl hits boss.
         }
     }
 //==========================================================================================
@@ -1920,9 +1918,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     float diffAcapped = (float)victim_skill;
     if(int32(getLevel()*5)>self_skill)
-        diffAcapped -=(float)self_skill;
-    else
-        diffAcapped -=(float)(getLevel()*5);
+        diffAcapped -= (float)self_skill;
+    else diffAcapped -= (float)(getLevel()*5);
     //<SHIT END>
 
 //--------------------------------crushing blow chance--------------------------------------
@@ -1935,12 +1932,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             crush = 0.0f;
     }
 //--------------------------------glancing blow chance--------------------------------------
-    if(IsPlayer()&&!pVictim->IsPlayer()&&!ability)
-    {
-        glanc = 10.0f + diffAcapped;
-        if(glanc<0)
-            glanc = 0.0f;
-    }
+    if(IsPlayer() && !pVictim->IsPlayer() && !ability)
+        glanc = std::max<float>(0.f, 10.0f + diffVcapped);
 //==========================================================================================
 //==============================Advanced Chances Modifications==============================
 //==========================================================================================
@@ -2196,7 +2189,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 dmg.full_damage += float2int32(dmg.full_damage * ( ( GetDummyAura(SPELL_HASH_REND_AND_TEAR)->RankNumber * 4 ) / 100.f ) );
             }
 
-
             if(dmg.full_damage < 0)
                 dmg.full_damage = 0;
 //--------------------------------check for special hits------------------------------------
@@ -2226,9 +2218,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
                     float damage_reduction = (high_dmg_mod + low_dmg_mod) / 2.0f;
                     if(damage_reduction > 0)
-                    {
-                            dmg.full_damage = float2int32(damage_reduction * float(dmg.full_damage));
-                    }
+                        dmg.full_damage = float2int32(damage_reduction * float(dmg.full_damage));
                     hit_status |= HITSTATUS_GLANCING;
                 }
                 break;
@@ -2321,6 +2311,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             default:
                 break;
             }
+
 //==========================================================================================
 //==============================Post Roll Damage Processing=================================
 //==========================================================================================

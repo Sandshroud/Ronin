@@ -326,6 +326,7 @@ public:
 
     float ModAggroRange(Unit *target, float base);
 
+    RONIN_INLINE bool ValidateAttackTarget(WoWGuid guid) { return m_attackTarget == guid; }
     RONIN_INLINE void SetDualWield(bool enabled) { m_dualWield = enabled; }
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack

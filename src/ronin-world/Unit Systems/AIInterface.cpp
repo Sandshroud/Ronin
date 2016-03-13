@@ -43,7 +43,8 @@ void AIInterface::Update(uint32 p_time)
             while(true)
             {
                 unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
-                if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
+                if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
+                    || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
                 {
                     m_path->StopMoving();
                     m_targetGuid.Clean();
@@ -81,7 +82,8 @@ void AIInterface::Update(uint32 p_time)
                 m_path->MoveToPoint(x, y, z, o);
             } else m_Unit->SetOrientation(m_Unit->GetAngle(unitTarget));
 
-            m_Unit->EventAttackStart(m_targetGuid);
+            if(!m_Unit->ValidateAttackTarget(m_targetGuid))
+                m_Unit->EventAttackStart(m_targetGuid);
         }break;
     case AI_STATE_SCRIPT:
         {
