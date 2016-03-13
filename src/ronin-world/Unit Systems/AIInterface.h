@@ -16,7 +16,7 @@ enum AI_State : uint8
     AI_STATE_DEAD   = 0,
     AI_STATE_IDLE   = 1,
     AI_STATE_COMBAT = 2,
-    AI_STATE_SCRIPT = 3
+    AI_STATE_SCRIPT = 0xFF
 };
 
 class SERVER_DECL AIInterface
@@ -25,8 +25,10 @@ public:
     AIInterface(Unit *unit, UnitPathSystem *unitPath, Unit *owner = NULL);
     ~AIInterface();
 
-	// Update
+    // Update
     void Update(uint32 p_time);
+
+    void OnDeath();
 
     bool FindTarget();
     void FindNextPoint();

@@ -86,6 +86,8 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
 
     Unit::Update(msTime, uiDiff);
 
+    m_aiInterface.Update(uiDiff);
+
     if(isDead())
     {
         if(IsTotem())
@@ -102,12 +104,7 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
 
             m_corpseEvent = false;
         }
-        return;
-    }
-
-    m_aiInterface.Update(uiDiff);
-
-    if(hasStateFlag(UF_ATTACKING))
+    } else if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
 }
 
@@ -333,6 +330,8 @@ void Creature::SetDeathState(DeathState s)
     Unit::SetDeathState(s);
     if(s == JUST_DIED)
     {
+        m_aiInterface.OnDeath();
+
         //despawn all summons we created
         SummonExpireAll(true);
 

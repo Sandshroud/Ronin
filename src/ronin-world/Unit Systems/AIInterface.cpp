@@ -39,13 +39,13 @@ void AIInterface::Update(uint32 p_time)
         }
     case AI_STATE_COMBAT:
         {
-	        Unit *unitTarget = NULL;
+            Unit *unitTarget = NULL;
             while(true)
             {
                 unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
-	            if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
-	            {
-		            m_path->StopMoving();
+                if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
+                {
+                    m_path->StopMoving();
                     m_targetGuid.Clean();
                     m_Unit->EventAttackStop();
                     if(FindTarget() == false)
@@ -56,29 +56,29 @@ void AIInterface::Update(uint32 p_time)
                         return;
                     }
                     continue;
-	            }
+                }
                 break;
             }
 
             m_AIState = AI_STATE_COMBAT;
-	        float attackRange = 0.f, x, y, z, o;
-	        if (m_Unit->validateAttackTarget(unitTarget))
-	        {
-		        SpellEntry *sp = NULL;
-		        float minRange = 0.f; attackRange = 5.f;
-		        if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, attackRange, sp))
-			        attackRange *= 0.8f;
-	        } else attackRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
-
-	        m_Unit->GetPosition(x, y, z);
-	        m_path->GetDestination(x, y);
-	        if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+            float attackRange = 0.f, x, y, z, o;
+            if (m_Unit->validateAttackTarget(unitTarget))
             {
-	            unitTarget->GetPosition(x, y, z);
-	            o = m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), x, y) * M_PI / 180.f;
-	            x -= attackRange * cosf(o);
-	            y -= attackRange * sinf(o);
-	            m_path->MoveToPoint(x, y, z, o);
+                SpellEntry *sp = NULL;
+                float minRange = 0.f; attackRange = 5.f;
+                if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, attackRange, sp))
+                    attackRange *= 0.8f;
+            } else attackRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
+
+            m_Unit->GetPosition(x, y, z);
+            m_path->GetDestination(x, y);
+            if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+            {
+                unitTarget->GetPosition(x, y, z);
+                o = m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), x, y) * M_PI / 180.f;
+                x -= attackRange * cosf(o);
+                y -= attackRange * sinf(o);
+                m_path->MoveToPoint(x, y, z, o);
             } else m_Unit->SetOrientation(m_Unit->GetAngle(unitTarget));
 
             m_Unit->EventAttackStart(m_targetGuid);
@@ -88,6 +88,14 @@ void AIInterface::Update(uint32 p_time)
 
         }break;
     }
+}
+
+void AIInterface::OnDeath()
+{
+    m_path->StopMoving();
+    m_AIState = AI_STATE_DEAD;
+    m_Unit->EventAttackStop();
+    m_Unit->clearStateFlag(UF_EVADING);
 }
 
 bool AIInterface::FindTarget()
@@ -144,34 +152,3 @@ void AIInterface::FindNextPoint()
     // Move back to our original spawn point
     m_path->MoveToPoint(m_Unit->GetSpawnX(), m_Unit->GetSpawnY(), m_Unit->GetSpawnZ(), m_Unit->GetSpawnO());
 }
-
-/*void AIInterface::_UpdateTargetLocation()
-{
-	Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_unitMoveTarget);
-	if (unitTarget == NULL || unitTarget->isDead())
-	{
-		m_path.StopMoving();
-		return;
-	}
-
-	float followRange = 0.f, x, y, z, o;
-	if (m_Unit->validateAttackTarget(unitTarget))
-	{
-		SpellEntry *sp = NULL;
-		float minRange = 0.f; followRange = 5.f;
-		if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, followRange, sp))
-			followRange *= 0.8f;
-	}
-	else followRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
-
-	m_Unit->GetPosition(x, y, z);
-	m_path.GetDestination(x, y);
-	if (unitTarget->GetDistance2dSq(x, y) < followRange*followRange)
-		return;
-
-	unitTarget->GetPosition(x, y, z);
-	o = m_Unit->calcAngle(m_serverLocation->x, m_serverLocation->y, x, y) * M_PI / 180.f;
-	x -= followRange * cosf(o);
-	y -= followRange * sinf(o);
-	m_path.MoveToPoint(x, y, z, o);
-}*/
