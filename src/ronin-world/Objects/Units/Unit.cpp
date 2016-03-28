@@ -328,6 +328,14 @@ void Unit::UpdateStatValues()
 
 void Unit::UpdateHealthValues()
 {
+    // Set critter HP to 5
+    if(IsCreature() && castPtr<Creature>(this)->GetCreatureData()->type == UT_CRITTER)
+    {
+        SetUInt32Value(UNIT_FIELD_BASE_HEALTH, 5);
+        SetUInt32Value(UNIT_FIELD_MAXHEALTH, 5);
+        return;
+    }
+
     uint32 HP = baseStats ? baseStats->baseHP : 20;
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, HP);
     if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_HEALTH_PCT))
@@ -1198,6 +1206,8 @@ void Unit::resetAttackDelay(uint8 typeMask)
         uint32 baseAttackTime = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i);
         if(baseAttackTime == 0)
         {
+            if(i == OFFHAND)
+                m_dualWield = false;
             m_attackDelay[i] = 0;
             continue;
         }
@@ -1759,14 +1769,15 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     if(!isTargetInFront(pVictim))
     {
-        if(IsPlayer())
-        {
-            if( !(ability && ability->isSpellBackAttackCapable()) )
-            {
-                castPtr<Player>(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
-                return;
-            }
-        }
+        if(IsPlayer() && !(ability && ability->isSpellBackAttackCapable()) )
+            castPtr<Player>(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
+        return;
+    }
+
+    if(pVictim->hasStateFlag(UF_EVADING))
+    {
+        SendAttackerStateUpdate(pVictim, NULL, 0, 0, 0, HITSTATUS_SWINGNOHITSOUND, EVADE);
+        return;
     }
 //==========================================================================================
 //==============================Variables Initialization====================================
@@ -1901,7 +1912,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         {
             Creature* c = castPtr<Creature>(this);
             if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
-                self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
+                self_skill = std::max<int32>(self_skill, (getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
         }
         crit = 5.0f; //will be modified later
     }
@@ -3477,7 +3488,7 @@ void Creature::Tag(Player* plr)
     if( m_taggingPlayer != 0 )
         return;
 
-    if(GetCreatureData() && GetCreatureData()->type == CRITTER)
+    if(GetCreatureData() && GetCreatureData()->type == UT_CRITTER)
         return;
 
     m_taggingPlayer = plr->GetLowGUID();

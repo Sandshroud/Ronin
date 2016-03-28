@@ -1798,9 +1798,7 @@ int8 PlayerInventory::CanReceiveItem(ItemPrototype * item, uint32 amount, ItemEx
     {
         int32 count = GetItemCount(item->ItemId, true);
         if(count == item->Unique || ((count + amount) > (uint32)item->Unique))
-        {
             return INV_ERR_ITEM_MAX_COUNT;
-        }
     }
     return 0;
 }
@@ -1810,6 +1808,9 @@ void PlayerInventory::BuyItem(ItemPrototype *item, uint32 total_amount, Creature
     if(item->BuyPrice)
     {
         uint64 itemprice = sItemMgr.CalculateBuyPrice(item->ItemId, total_amount, m_pOwner, pVendor);
+        if(item->BuyCount) // Divide our buy price by our buycount
+            itemprice /= item->BuyCount; 
+
         uint64 coinage = m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE);
         if(itemprice >= coinage)
             coinage = 0;

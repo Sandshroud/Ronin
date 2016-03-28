@@ -643,7 +643,6 @@ void ObjectMgr::LoadVendors()
             else items = itr->second;
 
             itm.itemid              = fields[1].GetUInt32();
-            itm.available_amount    = fields[2].GetUInt32();
             itm.max_amount          = fields[2].GetUInt32();
             itm.incrtime            = fields[3].GetUInt32();
             uint32 extendedCost     = fields[4].GetUInt32();

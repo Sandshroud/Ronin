@@ -15,7 +15,7 @@ class CreatureTemplate;
 struct CreatureItem
 {
     uint32 itemid;
-    uint32 available_amount, max_amount;
+    uint32 max_amount;
     uint32 incrtime;
     uint32 vendormask;
     ItemExtendedCostEntry *extended_cost;
@@ -70,20 +70,20 @@ struct Formation{
 
 enum UNIT_TYPE
 {
-    NOUNITTYPE      = 0,
-    BEAST           = 1,
-    DRAGONSKIN      = 2,
-    DEMON           = 3,
-    ELEMENTAL       = 4,
-    GIANT           = 5,
-    UNDEAD          = 6,
-    HUMANOID        = 7,
-    CRITTER         = 8,
-    MECHANICAL      = 9,
-    UNIT_TYPE_MISC  = 10,
-    UNIT_TYPE_TOTEM = 11,
-    UNIT_TYPE_NONCOMBAT_PET = 12,
-    UNIT_TYPE_GAS_CLOUD = 13,
+    UT_NOUNITTYPE       = 0,
+    UT_BEAST            = 1,
+    UT_DRAGONSKIN       = 2,
+    UT_DEMON            = 3,
+    UT_ELEMENTAL        = 4,
+    UT_GIANT            = 5,
+    UT_UNDEAD           = 6,
+    UT_HUMANOID         = 7,
+    UT_CRITTER          = 8,
+    UT_MECHANICAL       = 9,
+    UT_MISC             = 10,
+    UT_TOTEM            = 11,
+    UT_NONCOMBAT_PET    = 12,
+    UT_GAS_CLOUD        = 13,
 };
 
 enum FAMILY
@@ -247,12 +247,25 @@ public:
     }
 
     RONIN_INLINE CreatureItem *GetSellItemBySlot(uint32 slot) { return &m_SellItems->at(slot); }
-    RONIN_INLINE CreatureItem *GetSellItemByItemId(uint32 itemid)
+    RONIN_INLINE CreatureItem *GetSellItemByItemId(uint32 itemid, uint32 &slot)
     {
+        slot = 0;
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
+        {
             if(itr->second.itemid == itemid)
+            {
+                slot = itr->first;
                 return &itr->second;
+            }
+        }
         return NULL;
+    }
+
+    RONIN_INLINE int32 GetAvailableAmount(uint32 slot, int32 defaultVal)
+    {
+        if(m_limitedItems.find(slot) == m_limitedItems.end())
+            return defaultVal;
+        return m_limitedItems.at(slot).second;
     }
 
     void SendInventoryList(Player *plr);
@@ -273,8 +286,7 @@ public:
     }
 
     void AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec = 0);
-    void ModAvItemAmount(uint32 itemid, uint32 value);
-    void UpdateItemAmount(uint32 itemid);
+    int32 ModAvItemAmount(uint32 slot, uint32 value);
 
     /// Quests
     void _LoadQuests();
@@ -450,6 +462,7 @@ public:
 
     /// Vendor data
     std::map<uint32, CreatureItem> *m_SellItems;
+    std::map<uint32, std::pair<time_t, uint32> > m_limitedItems;
 
     /// Taxi data
     uint32 m_taxiNode[2];

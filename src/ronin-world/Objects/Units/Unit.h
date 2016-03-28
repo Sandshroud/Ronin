@@ -13,7 +13,7 @@
 #define DIMINISH_GROUPS 13
 #define NUM_MECHANIC 32
 
-#define UNIT_TYPE_HUMANOID_BIT (1 << (HUMANOID-1)) //should get computed by precompiler ;)
+#define UT_MASK_HUMANOID (1 << (UT_HUMANOID-1)) //should get computed by precompiler ;)
 
 class Aura;
 class Spell;
@@ -495,7 +495,6 @@ public:
     RONIN_INLINE bool isDead() { return  m_deathState != ALIVE; };
     RONIN_INLINE DeathState getDeathState() { return m_deathState; }
     virtual void SetDeathState(DeathState s);
-    void OnDamageTaken();
 
     bool IsFFAPvPFlagged();
     void SetFFAPvPFlag();

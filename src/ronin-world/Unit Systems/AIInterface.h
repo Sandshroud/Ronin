@@ -29,6 +29,7 @@ public:
     void Update(uint32 p_time);
 
     void OnDeath();
+    void OnTakeDamage(Unit *attacker, uint32 damage);
 
     bool FindTarget();
     void FindNextPoint();
@@ -37,6 +38,7 @@ public:
 
 protected:
     AI_State m_AIState;
+    void _HandleCombatAI();
 
 protected:
     uint32 m_waypointCounter;

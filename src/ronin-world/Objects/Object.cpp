@@ -1083,7 +1083,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
     bool isCritter = false;
     if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetCreatureData())
-        if(castPtr<Creature>(pVictim)->GetCreatureData()->type == CRITTER)
+        if(castPtr<Creature>(pVictim)->GetCreatureData()->type == UT_CRITTER)
             isCritter = true;
 
     /* -------------------------- HIT THAT CAUSES VICTIM TO DIE ---------------------------*/
@@ -1375,7 +1375,13 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         return health;
 	}   /* ---------- NOT DEAD YET --------- */
-	else pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
+	else
+    {
+        if(IsUnit() && pVictim->IsCreature())
+            castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(castPtr<Unit>(this), damage);
+
+        pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
+    }
     return damage;
 }
 
@@ -1739,26 +1745,24 @@ void WorldObject::PlaySoundToSet(uint32 sound_entry)
 
 void WorldObject::SendAttackerStateUpdate( Unit* Target, dealdamage *dmg, uint32 realdamage, uint32 abs, uint32 blocked_damage, uint32 hit_status, uint32 vstate )
 {
-    if (!Target || !dmg)
-        return;
-
-    uint32 overkill = Target->computeOverkill(realdamage);
-    uint32 schooldam = SchoolMask(dmg->school_type);
+    WoWGuid targetGuid = Target ? Target->GetGUID() : 0;
+    uint32 overkill = Target ? Target->computeOverkill(realdamage) : 0;
+    uint32 schooldam = dmg ? SchoolMask(dmg->school_type) : 0x01;
     WorldPacket data(SMSG_ATTACKERSTATEUPDATE, 108);
     data << uint32(hit_status);
     data << GetGUID().asPacked();
-    data << Target->GetGUID().asPacked();
+    data << targetGuid.asPacked();
     data << uint32(realdamage);                 // Realdamage;
     data << uint32(overkill);                   // Overkill
     data << uint8(1);                           // Damage type counter / swing type
     data << uint32(schooldam);                  // Damage school
-    data << float(dmg->full_damage);            // Damage float
-    data << uint32(dmg->full_damage);           // Damage amount
+    data << float(dmg ? dmg->full_damage : 0.f);// Damage float
+    data << uint32(dmg ? dmg->full_damage : 0); // Damage amount
 
     if(hit_status & (HITSTATUS_ABSORBED | HITSTATUS_ABSORBED2))
         data << (uint32)abs;                    // Damage absorbed
     if(hit_status & (HITSTATUS_RESIST | HITSTATUS_RESIST2))
-        data << uint32(dmg->resisted_damage);   // Damage resisted
+        data << uint32(dmg ? dmg->resisted_damage : 0);// Damage resisted
 
     data << uint8(vstate);                      // new victim state
     data << uint32(0);

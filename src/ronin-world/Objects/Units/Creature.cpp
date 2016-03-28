@@ -206,7 +206,7 @@ void Creature::GenerateLoot()
     else if(_creatureData->money == 0)
     {
         CreatureData *info = GetCreatureData();
-        if (info && info->type != BEAST)
+        if (info && info->type != UT_BEAST)
         {
             if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
                 GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
@@ -367,18 +367,6 @@ void Creature::OnPushToWorld()
             CastSpell(this, sp, true);
 
     Unit::OnPushToWorld();
-
-    if (HasItems())
-    {
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if (itr->second.max_amount == 0)
-                itr->second.available_amount=0;
-            else if (itr->second.available_amount < itr->second.max_amount)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, VENDOR_ITEMS_UPDATE_TIME, 1,0);
-        }
-    }
-
     if(GetAreaFlags() & OBJECT_AREA_FLAG_INSANCTUARY)
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_2);
 }
@@ -489,47 +477,69 @@ void Creature::SendInventoryList(Player *plr)
                 break;
             }
 
-            if(itr->second.itemid && (itr->second.max_amount == 0 || (itr->second.max_amount > 0 && itr->second.available_amount > 0)))
+            if(ItemPrototype *curItem = sItemMgr.LookupEntry(itr->second.itemid))
             {
-                if(ItemPrototype *curItem = sItemMgr.LookupEntry(itr->second.itemid))
+                if(!(itr->second.vendormask & GetVendorMask()))
+                    continue;
+
+                // Update code for available items
+                int32 availableAmount = -1;
+                if(int32 maxAmount = itr->second.max_amount)
                 {
-                    if(!(itr->second.vendormask & GetVendorMask()))
-                        continue;
-
-                    if(!plr->ignoreitemreq_cheat)
+                    availableAmount = maxAmount;
+                    if(m_limitedItems.find(itr->first) != m_limitedItems.end())
                     {
-                        if(itr->second.IsDependent)
-                        {
-                            if(curItem->AllowableClass && !(plr->getClassMask() & curItem->AllowableClass))
-                                continue;
-                            if(curItem->AllowableRace && !(plr->getRaceMask() & curItem->AllowableRace))
-                                continue;
+                        // Set available amount to the listed amount in mem
+                        availableAmount = m_limitedItems.at(itr->first).second;
 
-                            if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
-                                if(!(plr->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
-                                    continue; // Do not show relics to classes that can't use them.
+                        // Update item count based on incrementation time
+                        if((UNIXTIME-m_limitedItems.at(itr->first).first) >= itr->second.incrtime)
+                        {
+                            uint32 diff = uint32((UNIXTIME - m_limitedItems.at(itr->first).first) / itr->second.incrtime);
+                            m_limitedItems.at(itr->first).second += curItem->BuyCount*diff;
+                            // For now we just update our available amount and check against our max amount
+                            if((availableAmount = m_limitedItems.at(itr->first).second) >= maxAmount)
+                                availableAmount = maxAmount; // If we're over, just set us to our max amount
+                            m_limitedItems.at(itr->first).first = UNIXTIME;
                         }
 
-                        if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
+                        // Check to see if we've reached max value, if so then erase
+                        if(availableAmount == maxAmount)
+                            m_limitedItems.erase(itr->first);
+                    }
+                }
+
+                if(plr->ignoreitemreq_cheat == false)
+                {
+                    if(itr->second.IsDependent)
+                    {
+                        if(curItem->AllowableClass && !(plr->getClassMask() & curItem->AllowableClass))
                             continue;
+                        if(curItem->AllowableRace && !(plr->getRaceMask() & curItem->AllowableRace))
+                            continue;
+
+                        if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
+                            if(!(plr->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
+                                continue; // Do not show relics to classes that can't use them.
                     }
 
-                    dataBuff << (++counter);
-                    dataBuff << curItem->Durability;
-                    if(itr->second.extended_cost)
-                    {
-                        dataBuff << uint32(itr->second.extended_cost->Id);
-                        bitFlags.push_back(false);
-                    } else bitFlags.push_back(true);
-                    bitFlags.push_back(true);
-
-                    dataBuff << curItem->ItemId;
-                    dataBuff << uint32(1);
-                    dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this));
-                    dataBuff << uint32(curItem->DisplayInfoID);
-                    dataBuff << int32((itr->second.max_amount > 0) ? itr->second.available_amount : -1);
-                    dataBuff << uint32(curItem->BuyCount);
+                    if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
+                        continue;
                 }
+
+                dataBuff << (++counter);
+                dataBuff << curItem->Durability;
+                if(itr->second.extended_cost)
+                {
+                    dataBuff << uint32(itr->second.extended_cost->Id);
+                    bitFlags.push_back(false);
+                } else bitFlags.push_back(true);
+                bitFlags.push_back(true);
+
+                dataBuff << curItem->ItemId << uint32(1);
+                dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this));
+                dataBuff << uint32(curItem->DisplayInfoID) << availableAmount;
+                dataBuff << uint32(curItem->BuyCount);
             }
         }
     }
@@ -574,45 +584,18 @@ void Creature::AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec)
     m_SellItems->insert(std::make_pair(slot, ci));
 }
 
-void Creature::ModAvItemAmount(uint32 itemid, uint32 value)
+int32 Creature::ModAvItemAmount(uint32 slot, uint32 value)
 {
-    for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-    {
-        if(itr->second.itemid == itemid)
-        {
-            if(itr->second.available_amount)
-            {
-                if(value > itr->second.available_amount)    // shouldnt happen
-                {
-                    itr->second.available_amount=0;
-                    return;
-                }
-                else
-                    itr->second.available_amount -= value;
+    std::map<uint32, CreatureItem>::iterator itr;
+    if((itr = m_SellItems->find(slot)) == m_SellItems->end())
+        return 0;
 
-                if(!event_HasEvent(EVENT_ITEM_UPDATE))
-                    sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::UpdateItemAmount, itr->second.itemid, EVENT_ITEM_UPDATE, itr->second.incrtime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            }
-            return;
-        }
-    }
-}
-
-void Creature::UpdateItemAmount(uint32 itemid)
-{
-    for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-    {
-        if(itr->second.itemid == itemid)
-        {
-            if (itr->second.max_amount==0)      // shouldnt happen
-                itr->second.available_amount=0;
-            else
-            {
-                itr->second.available_amount = itr->second.max_amount;
-            }
-            return;
-        }
-    }
+    if(m_limitedItems.find(slot) == m_limitedItems.end())
+        m_limitedItems.insert(std::make_pair(slot, std::make_pair(UNIXTIME, (itr->second.max_amount>=value ? itr->second.max_amount-value : 0))));
+    else if(m_limitedItems.at(slot).second <= value)
+        m_limitedItems.at(slot).second = 0;
+    else m_limitedItems.at(slot).second -= value;
+    return m_limitedItems.at(slot).second;
 }
 
 bool Creature::isBoss()

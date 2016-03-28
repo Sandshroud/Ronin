@@ -2503,7 +2503,7 @@ bool TargetTypeCheck(WorldObject* obj,uint32 ReqCreatureTypeMask)
         CreatureData* inf = cr->GetCreatureData();
         if( inf == NULL || !( 1 << ( inf->type - 1 ) & ReqCreatureTypeMask ) )
             return false;
-    } else if(obj->IsPlayer() && !(UNIT_TYPE_HUMANOID_BIT & ReqCreatureTypeMask))
+    } else if(obj->IsPlayer() && !(UT_MASK_HUMANOID & ReqCreatureTypeMask))
         return false;
     return true;
 }

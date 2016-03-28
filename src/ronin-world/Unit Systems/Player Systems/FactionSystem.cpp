@@ -153,7 +153,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     Player* player_objB = GetPlayerFromObject(objB);
 
     // Always kill critters
-    if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == CRITTER && player_objA)
+    if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == UT_CRITTER && player_objA)
         return FI_STATUS_HOSTILE;
     // Disable GM attacking.
     if(player_objA && player_objB && player_objA->bGMTagOn)

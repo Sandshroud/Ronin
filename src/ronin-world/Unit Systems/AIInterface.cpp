@@ -39,55 +39,13 @@ void AIInterface::Update(uint32 p_time)
         }
     case AI_STATE_COMBAT:
         {
-            Unit *unitTarget = NULL;
-            while(true)
-            {
-                unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
-                if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
-                    || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
-                {
-                    m_path->StopMoving();
-                    m_targetGuid.Clean();
-                    m_Unit->EventAttackStop();
-                    if(FindTarget() == false)
-                    {
-                        m_Unit->addStateFlag(UF_EVADING);
-                        m_AIState = AI_STATE_IDLE;
-                        FindNextPoint();
-                        return;
-                    }
-                    continue;
-                }
-                break;
-            }
-
             m_AIState = AI_STATE_COMBAT;
-            float attackRange = 0.f, x, y, z, o;
-            if (m_Unit->validateAttackTarget(unitTarget))
-            {
-                SpellEntry *sp = NULL;
-                float minRange = 0.f; attackRange = 5.f;
-                if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, attackRange, sp))
-                    attackRange *= 0.8f;
-            } else attackRange = 5.f;//m_Unit->GetFollowRange(unitTarget);
-
-            m_Unit->GetPosition(x, y, z);
-            m_path->GetDestination(x, y);
-            if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
-            {
-                unitTarget->GetPosition(x, y, z);
-                o = m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), x, y) * M_PI / 180.f;
-                x -= attackRange * cosf(o);
-                y -= attackRange * sinf(o);
-                m_path->MoveToPoint(x, y, z, o);
-            } else m_Unit->SetOrientation(m_Unit->GetAngle(unitTarget));
-
-            if(!m_Unit->ValidateAttackTarget(m_targetGuid))
-                m_Unit->EventAttackStart(m_targetGuid);
+            _HandleCombatAI();
         }break;
     case AI_STATE_SCRIPT:
         {
-
+            if(!m_targetGuid.empty())
+                _HandleCombatAI();
         }break;
     }
 }
@@ -98,6 +56,22 @@ void AIInterface::OnDeath()
     m_AIState = AI_STATE_DEAD;
     m_Unit->EventAttackStop();
     m_Unit->clearStateFlag(UF_EVADING);
+}
+
+void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
+{
+    if(m_targetGuid.empty() || m_AIState == AI_STATE_IDLE)
+    {
+        // On enter combat
+
+    }
+
+    // Set into combat AI State
+    if(m_AIState <= AI_STATE_COMBAT)
+        m_AIState = AI_STATE_COMBAT;
+    // Set target guid for combat
+    if(attacker && m_targetGuid.empty())
+        m_targetGuid = attacker->GetGUID();
 }
 
 bool AIInterface::FindTarget()
@@ -117,7 +91,7 @@ bool AIInterface::FindTarget()
             float dist = m_Unit->GetDistanceSq(unitTarget);
             if(target && targetDist <= dist)
                 continue;
-            if(!sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
+            if(!sFactionSystem.isHostile(m_Unit, unitTarget))
                 continue;
 
             target = unitTarget;
@@ -126,8 +100,11 @@ bool AIInterface::FindTarget()
     }
 
     if(target)
+    {
         m_targetGuid = target->GetGUID();
-    return target != NULL;
+        return true;
+    }
+    return false;
 }
 
 void AIInterface::FindNextPoint()
@@ -153,4 +130,48 @@ void AIInterface::FindNextPoint()
 
     // Move back to our original spawn point
     m_path->MoveToPoint(m_Unit->GetSpawnX(), m_Unit->GetSpawnY(), m_Unit->GetSpawnZ(), m_Unit->GetSpawnO());
+}
+
+void AIInterface::_HandleCombatAI()
+{
+    Unit *unitTarget = NULL;
+    while(true)
+    {
+        unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
+        if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
+            || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
+        {
+            m_path->StopMoving();
+            m_targetGuid.Clean();
+            m_Unit->EventAttackStop();
+            if(FindTarget() == false)
+            {
+                m_Unit->addStateFlag(UF_EVADING);
+                m_AIState = AI_STATE_IDLE;
+                FindNextPoint();
+                return;
+            }
+            continue;
+        }
+        break;
+    }
+
+    SpellEntry *sp = NULL;
+    float attackRange = 0.f, minRange = 0.f, x, y, z, o;
+    if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, attackRange, sp))
+        attackRange *= 0.8f; // Cut our attack range down slightly to prevent range issues
+
+    m_Unit->GetPosition(x, y, z);
+    m_path->GetDestination(x, y);
+    if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+    {
+        unitTarget->GetPosition(x, y, z);
+        o = m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), x, y) * M_PI / 180.f;
+        x -= attackRange * cosf(o);
+        y -= attackRange * sinf(o);
+        m_path->MoveToPoint(x, y, z, o);
+    } else m_Unit->SetOrientation(m_Unit->GetAngle(unitTarget));
+
+    if(!m_Unit->ValidateAttackTarget(m_targetGuid))
+        m_Unit->EventAttackStart(m_targetGuid);
 }

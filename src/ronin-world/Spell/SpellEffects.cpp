@@ -1645,7 +1645,7 @@ void SpellEffectClass::SpellEffectPickpocket(uint32 i, WorldObject *target, int3
 
     //Show random loot based on roll,
     Creature* cTarget = castPtr<Creature>( unitTarget );
-    if(cTarget->IsPickPocketed() || (cTarget->GetCreatureData() && cTarget->GetCreatureData()->type != HUMANOID))
+    if(cTarget->IsPickPocketed() || (cTarget->GetCreatureData() && cTarget->GetCreatureData()->type != UT_HUMANOID))
     {
         SendCastResult(SPELL_FAILED_TARGET_NO_POCKETS);
         return;
@@ -1702,7 +1702,7 @@ void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 
 void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, int32 amount)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if(unitTarget == NULL || unitTarget->GetCreatureType() != MECHANICAL)
+    if(unitTarget == NULL || unitTarget->GetCreatureType() != UT_MECHANICAL)
         return;
 
     Heal(unitTarget, i, amount);

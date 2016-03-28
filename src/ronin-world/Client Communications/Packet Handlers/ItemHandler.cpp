@@ -583,8 +583,6 @@ void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
 {
     CHECK_INWORLD_RETURN();
     sLog.Debug( "WORLD"," Received CMSG_SELL_ITEM" );
-    if(!GetPlayer())
-        return;
 
     uint64 vendorguid=0, itemguid=0;
     int32 amount=0;
@@ -681,7 +679,105 @@ void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click on item
 {
+    CHECK_INWORLD_RETURN();
+    sLog.Debug( "WORLD"," Received CMSG_BUY_ITEM" );
 
+    WoWGuid vendorGuid, bagGuid;
+    uint32 itemid, slot, slot2, count;
+    uint8 type, batslot, error = 0;
+    recv_data >> vendorGuid >> type >> itemid >> slot >> count >> bagGuid >> batslot;
+
+    Creature* unit = _player->GetInRangeObject<Creature>(vendorGuid);
+    if (unit == NULL || !unit->HasItems())
+        return;
+
+    CreatureItem *item = unit->GetSellItemByItemId(itemid, slot2);
+    if(item == NULL || slot2 != slot)
+    {
+        // vendor does not sell this item. bitch about cheaters?
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
+        return;
+    }
+
+    int32 availableAmount = -1;
+    if (item->max_amount > 0 && (availableAmount = unit->GetAvailableAmount(slot, item->max_amount)) < count)
+    {
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_VENDOR_SOLD_OUT);
+        return;
+    }
+
+    ItemPrototype *it = sItemMgr.LookupEntry(itemid);
+    if(!it)
+    {
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
+        return;
+    }
+
+    if( it->MaxCount > 0 && count > it->MaxCount )
+    {
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_CANT_STACK);
+        return;
+    }
+
+    if((error = _player->GetInventory()->CanReceiveItem(it, count, item->extended_cost)))
+    {
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, error);
+        return;
+    }
+
+    if((error = _player->GetInventory()->CanAffordItem(it, count, unit, item->extended_cost)))
+    {
+        SendBuyFailed(vendorGuid, itemid, error);
+        return;
+    }
+
+    SlotResult slotresult;
+    // Find free slot and break if inv full
+    Item *add = NULL;
+    if ((add = _player->GetInventory()->FindItemLessMax(itemid, count, false)) == NULL)
+        slotresult = _player->GetInventory()->FindFreeInventorySlot(it);
+    if (!slotresult.Result && add == NULL)
+    {
+        //Our User doesn't have a free Slot in there bag
+        _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_INV_FULL);
+        return;
+    }
+
+    if(add == NULL)
+    {
+        Item* itm = objmgr.CreateItem(item->itemid, _player, count);
+        if(itm == NULL)
+        {
+            _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
+            return;
+        }
+
+        itm->m_isDirty = true;
+        if(slotresult.ContainerSlot == ITEM_NO_SLOT_AVAILABLE)
+        {
+            AddItemResult result = _player->GetInventory()->SafeAddItem(itm, INVENTORY_SLOT_NOT_SET, slotresult.Slot);
+            if(result == ADD_ITEM_RESULT_ERROR)
+                itm->Destruct();
+        } else if( Item* bag = _player->GetInventory()->GetInventoryItem(slotresult.ContainerSlot))
+            if( !castPtr<Container>(bag)->AddItem(slotresult.Slot, itm) )
+                itm->Destruct();
+    }
+    else
+    {
+        add->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, count);
+        add->m_isDirty = true;
+    }
+
+    if(int32(item->max_amount) > 0)
+        availableAmount = unit->ModAvItemAmount(slot, count);
+
+    WorldPacket data(SMSG_BUY_ITEM, 20);
+    data << vendorGuid << uint32(slot) << availableAmount << uint32(count);
+    SendPacket( &data );
+
+    _player->GetInventory()->BuyItem(it,count,unit, item->extended_cost);
+
+    _player->SaveToDB(false);
 }
 
 void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
