@@ -263,47 +263,29 @@ struct MH2O_liquid_header{
 
 struct adt_MCVT { float height_map[145]; };
 
-// This option allow limit minimum height to some value (Allow save some memory)
-bool  CONF_allow_height_limit = true;
-float CONF_use_minHeight = -500.0f;
-
-// This option allow use float to int conversion
-bool  CONF_allow_float_to_int   = true;
-float CONF_float_to_int8_limit  = 2.0f;      // Max accuracy = val/256
-float CONF_float_to_int16_limit = 2048.0f;   // Max accuracy = val/65536
-float CONF_flat_height_delta_limit = 0.005f; // If max - min less this value - surface is flat
-float CONF_flat_liquid_delta_limit = 0.001f; // If max - min less this value - liquid surface is flat
-
-float selectUInt8StepStore(float maxDiff)
-{
-    return 255 / maxDiff;
-}
-
-float selectUInt16StepStore(float maxDiff)
-{
-    return 65535 / maxDiff;
-}
+float selectUInt8StepStore(float maxDiff) { return 255 / maxDiff; }
+float selectUInt16StepStore(float maxDiff) { return 65535 / maxDiff; }
 
 extern uint16 *LiqType;
+
+struct chunk
+{
+    uint16 areaEntry;
+    float mapHeight, pointHeights[145];
+    uint32 holes;
+
+    uint16 liquidEntry;
+    float liquidHeight, L9[9*9];
+    bool L8[8*8];
+};
 
 bool ADTFile::parseCHNK(FILE *output)
 {
     if(ADT.isEof ())
         return false;
 
-    // Temporary grid data store
-    uint16 area_entry[16][16];
-    float V8[128][128], V9[129][129];
-    uint16 liquid_entry[16][16];
-    uint8 liquid_flags[16][16];
-    bool  liquid_show[128][128];
-    float liquid_height[129][129];
-    uint16 holes[16][16]; // map hole info
-    memset(liquid_show, 0, sizeof(liquid_show));
-    memset(liquid_flags, 0, sizeof(liquid_flags));
-    memset(liquid_entry, 0, sizeof(liquid_entry));
-    memset(liquid_height, -500, sizeof(liquid_height));
-
+    chunk _chunks[16][16];
+    memset(_chunks, 0, sizeof(chunk)*16*16);
     uint32 MCLQChunkOffsets[16][16], MH2OChunkOffsets[16][16];
     memset(MCLQChunkOffsets, 0, sizeof(MCLQChunkOffsets));
     memset(MH2OChunkOffsets, 0, sizeof(MH2OChunkOffsets));
@@ -328,41 +310,23 @@ bool ADTFile::parseCHNK(FILE *output)
             {
                 MapChunkHeader header;
                 ADT.read(&header, sizeof(MapChunkHeader));
-                area_entry[header.iy][header.ix] = header.areaid;
-                holes[header.iy][header.ix] = header.holes;
+                _chunks[header.iy][header.ix].areaEntry = header.areaid;
+                _chunks[header.iy][header.ix].mapHeight = header.ypos;
+                _chunks[header.iy][header.ix].holes = header.holes;
                 if(header.offsMCVT)
                 {
                     ADT.seek(currPos+header.offsMCVT);
-                    for(uint8 i = 0, idx = 0; i < 8+9; i++)
-                    {
-                        if(i%2 == 0)
-                            ADT.read(&V9[(header.iy*8)+idx][(header.ix*8)], sizeof(float)*9);
-                        else
-                        {
-                            ADT.read(&V8[(header.iy*8)+idx][(header.ix*8)], sizeof(float)*8);
-                            idx++;
-                        }
-                    }
-                    for(uint8 x = 0; x < 9; x++)
-                    {
-                        for(uint8 y = 0; y < 9; y++)
-                        {
-                            V9[(header.iy*8)+x][(header.ix*8)+y] += header.ypos;
-                            if(x == 8 || y == 8)
-                                continue;
-                            V8[(header.iy*8)+x][(header.ix*8)+y] += header.ypos;
-                        }
-                    }
+                    ADT.read(_chunks[header.iy][header.ix].pointHeights, 145*sizeof(float));
                 }
 
                 if(header.flags & 0x04)
-                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_WATER;
+                    _chunks[header.iy][header.ix].liquidEntry |= MAP_LIQUID_TYPE_WATER;
                 if(header.flags & 0x08)
-                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_OCEAN;
+                    _chunks[header.iy][header.ix].liquidEntry |= MAP_LIQUID_TYPE_OCEAN;
                 if(header.flags & 0x10)
-                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_MAGMA;
+                    _chunks[header.iy][header.ix].liquidEntry |= MAP_LIQUID_TYPE_MAGMA;
                 if(header.flags & 0x20)
-                    liquid_flags[header.iy][header.ix] |= MAP_LIQUID_TYPE_SLIME;
+                    _chunks[header.iy][header.ix].liquidEntry |= MAP_LIQUID_TYPE_SLIME;
                 MCLQChunkOffsets[header.iy][header.ix] = (header.sizeMCLQ > 8 && header.offsMCLQ ? currPos+header.offsMCLQ : 0);
             }
             else if (!strcmp(fourcc,"MFBO"))
@@ -394,10 +358,15 @@ bool ADTFile::parseCHNK(FILE *output)
         ADT.seek(nextpos);
     }
 
+    // Parse our liquid data outside of our chunk scanning
     for(uint8 cx = 0; cx < 16; cx++)
     {
         for(uint8 cy = 0; cy < 16; cy++)
         {
+            for(uint8 x = 0; x < 9; x++)
+                for(uint8 y = 0; y < 9; y++)
+                    _chunks[cx][cy].L9[x*9+y]=-50000.f;
+
             // MH2O chunks take priority over MCLQ so we handle them second in case of overrides
             if(mh2oBase && MH2OChunkOffsets[cx][cy])
             {
@@ -410,38 +379,49 @@ bool ADTFile::parseCHNK(FILE *output)
                     ADT.seek(mh2oBase+mh2oHeader.offsData2a);
                     ADT.read(&mask, sizeof(uint64));
                 }
+
                 bool readHeight = false;
                 if(readHeight = ((mh2oHeader.formatFlags&0x02) == 0 && mh2oHeader.offsData2b > 0))
                     ADT.seek(mh2oBase+mh2oHeader.offsData2b);
 
-                for(uint8 y = 0; y <= mh2oHeader.height; y++)
+                // Parse the 64bit liquid mask
+                for(uint8 x = 0; x < 8; x++)
                 {
-                    uint8 ci = (cy*8)+y+mh2oHeader.yOffset;
-                    for(uint8 x = 0; x <= mh2oHeader.width; x++)
+                    for(uint8 y = 0; y < 8; y++)
                     {
-                        uint8 cj = (cx*8)+x+mh2oHeader.xOffset;
-                        if(readHeight)
-                            ADT.read(&liquid_height[ci][cj], sizeof(float));
-                        else liquid_height[ci][cj] = mh2oHeader.heightLevel1;
-                        if(y == 8 || x == 8)
-                            continue;
-
                         if(mask & 1)
-                            liquid_show[ci][cj] = true;
+                            _chunks[cx][cy].L8[y*8+x] = true;
                         mask>>=1;
                     }
                 }
 
+                // Parse our liquid height data
+                _chunks[cx][cy].liquidHeight = mask ? mh2oHeader.heightLevel1 : -50000.f;
+                if(readHeight)
+                {
+                    for(uint8 y = 0; y <= mh2oHeader.height; y++)
+                    {
+                        uint8 ci = y+mh2oHeader.yOffset;
+                        for(uint8 x = 0; x <= mh2oHeader.width; x++)
+                        {
+                            uint8 cj = x+mh2oHeader.xOffset;
+                            ADT.read(&_chunks[cx][cy].L9[ci*9+cj], sizeof(float));
+                            // Subtract the height to get the diff from our base height
+                            _chunks[cx][cy].L9[ci*9+cj] -= mh2oHeader.heightLevel1;
+                        }
+                    }
+                }
+
+                // Grab our liquid type from the header and store it in the chunk
                 uint32 type = LiqType[mh2oHeader.liquidType];
                 switch(type)
                 {
-                case 0: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_WATER; break;
-                case 2: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_MAGMA; break;
-                case 3: liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_SLIME; break;
-                case 1:
-                    liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_OCEAN;
+                case 0: _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_WATER; break;
+                case 2: _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_MAGMA; break;
+                case 3: _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_SLIME; break;
+                case 1: _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_OCEAN;
                     if((mh2oHeader.formatFlags & 0x01) || !mh2oHeader.offsData2b)
-                        liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_DARK_WATER;
+                        _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_DARK_WATER;
                     break;
                 }
             }
@@ -455,14 +435,14 @@ bool ADTFile::parseCHNK(FILE *output)
                 {
                     for(uint8 y = 0; y < 9; y++)
                     {
-                        liquid_height[(cx*8)+x][(cy*8)+y] = mclqChunk.liquid[x][y].height;
+                        _chunks[cx][cy].L9[y*9+x] = mclqChunk.liquid[x][y].height;
                         if(x == 8 || y == 8)
                             continue;
                         if(mclqChunk.flags[x][y] != 0x0F)
                         {
-                            liquid_show[(cx*8)+x][(cy*8)+y] = true;
+                            _chunks[cx][cy].L8[y*8+x] = true;
                             if(mclqChunk.flags[x][y] & (1<<7))
-                                liquid_flags[cx][cy] |= MAP_LIQUID_TYPE_DARK_WATER;
+                                _chunks[cx][cy].liquidEntry |= MAP_LIQUID_TYPE_DARK_WATER;
                         }
                     }
                 }
@@ -470,300 +450,229 @@ bool ADTFile::parseCHNK(FILE *output)
         }
     }
 
-    // Prepare map header
-    map_fileheader map;
-    map.mapMagic = *(uint32 const*)MAP_MAGIC;
-    map.versionMagic = *(uint32 const*)MAP_VERSION_MAGIC;
-    map.buildMagic = 15595;
+    uint8 uint8_V8[8][8], uint8_V9[9][9];
+    uint16 uint16_V8[8][8], uint16_V9[9][9];
+    float float_V8[8][8], float_V9[9][9];
 
-    //============================================
-    // Try pack area data
-    //============================================
-    bool fullAreaData = false;
-    uint32 areaflag = area_entry[0][0];
-    for (int y=0;y<16;y++)
+    // Write our chunk data with compression
+    for(uint8 cx = 0; cx < 16; cx++)
     {
-        for(int x=0;x<16;x++)
+        for(uint8 cy = 0; cy < 16; cy++)
         {
-            if(area_entry[y][x]!=areaflag)
+            /////// Chunk begin
+            fwrite(&_chunks[cx][cy].areaEntry, sizeof(uint16), 1, output);
+
+            uint8 compressionFlags = 0;
+            float step=0, minHeight=50000.f, maxHeight=-50000.f;
+            for(uint8 i = 0; i < 145; i++)
             {
-                fullAreaData = true;
-                break;
+                float height = _chunks[cx][cy].pointHeights[i]+_chunks[cx][cy].mapHeight;
+                if(height < minHeight)
+                    minHeight = height;
+                if(height > maxHeight)
+                    maxHeight = height;
             }
-        }
-    }
 
-    map.areaMapOffset = sizeof(map);
-    map.areaMapSize   = sizeof(map_areaHeader);
-
-    map_areaHeader areaHeader;
-    areaHeader.fourcc = *(uint32 const*)MAP_AREA_MAGIC;
-    areaHeader.flags = 0;
-    if (fullAreaData)
-    {
-        areaHeader.gridArea = 0;
-        map.areaMapSize+=sizeof(area_entry);
-    }
-    else
-    {
-        areaHeader.flags |= MAP_AREA_NO_AREA;
-        areaHeader.gridArea = (uint16)areaflag;
-    }
-
-    //============================================
-    // Try pack height data
-    //============================================
-    float maxHeight = -20000, minHeight =  20000;
-    for (int y=0; y<129; y++)
-    {
-        for(int x=0;x<129;x++)
-        {
-            float h9 = V9[y][x];
-            if (maxHeight < h9) maxHeight = h9;
-            if (minHeight > h9) minHeight = h9;
-            if(y >= 128 || x >= 128)
-                continue;
-            float h8 = V8[y][x];
-            if (maxHeight < h8) maxHeight = h8;
-            if (minHeight > h8) minHeight = h8;
-        }
-    }
-
-    // Check for allow limit minimum height (not store height in deep ochean - allow save some memory)
-    if (CONF_allow_height_limit && minHeight < CONF_use_minHeight)
-    {
-        for (int y=0; y<129; y++)
-        {
-            for(int x=0;x<129;x++)
+            fwrite(&minHeight, sizeof(float), 1, output);
+            // Recalculate each height point based on the minimum height
+            for(uint8 i = 0; i < 145; i++)
             {
-                if (V9[y][x] < CONF_use_minHeight)
-                    V9[y][x] = CONF_use_minHeight;
-                if (V8[y][x] < CONF_use_minHeight)
-                    V8[y][x] = CONF_use_minHeight;
+                float height = _chunks[cx][cy].pointHeights[i]+_chunks[cx][cy].mapHeight;
+                // Since we have the minimum height, just grab the diff of the current height minus minimum
+                _chunks[cx][cy].pointHeights[i] = height-minHeight;
             }
-        }
-        if (minHeight < CONF_use_minHeight)
-            minHeight = CONF_use_minHeight;
-        if (maxHeight < CONF_use_minHeight)
-            maxHeight = CONF_use_minHeight;
-    }
 
-    map.heightMapOffset = map.areaMapOffset + map.areaMapSize;
-    map.heightMapSize = sizeof(map_heightHeader);
-
-    map_heightHeader heightHeader;
-    heightHeader.fourcc = *(uint32 const*)MAP_HEIGHT_MAGIC;
-    heightHeader.flags = 0;
-    heightHeader.gridHeight    = minHeight;
-    heightHeader.gridMaxHeight = maxHeight;
-
-    if (maxHeight == minHeight)
-        heightHeader.flags |= MAP_HEIGHT_NO_HEIGHT;
-
-    // Not need store if flat surface
-    if (CONF_allow_float_to_int && (maxHeight - minHeight) < CONF_flat_height_delta_limit)
-        heightHeader.flags |= MAP_HEIGHT_NO_HEIGHT;
-
-    uint8  uint8_V8[128][128], uint8_V9[129][129];
-    uint16 uint16_V8[128][128], uint16_V9[129][129];
-    // Try store as packed in uint16 or uint8 values
-    if (!(heightHeader.flags & MAP_HEIGHT_NO_HEIGHT))
-    {
-        float step = 0;
-        // Try Store as uint values
-        if (CONF_allow_float_to_int)
-        {
             float diff = maxHeight - minHeight;
-            if (diff < CONF_float_to_int8_limit)      // As uint8 (max accuracy = CONF_float_to_int8_limit/256)
+            if(diff < 0.01f)
             {
-                heightHeader.flags|=MAP_HEIGHT_AS_INT8;
-                step = selectUInt8StepStore(diff);
+                compressionFlags = 0x01;
+                fwrite(&compressionFlags, sizeof(uint8), 1, output);
             }
-            else if (diff<CONF_float_to_int16_limit)  // As uint16 (max accuracy = CONF_float_to_int16_limit/65536)
+            else
             {
-                heightHeader.flags|=MAP_HEIGHT_AS_INT16;
-                step = selectUInt16StepStore(diff);
-            }
-        }
-
-        // Pack it to int values if need
-        if (heightHeader.flags&MAP_HEIGHT_AS_INT8)
-        {
-            for (int y=0; y<129; y++)
-            {
-                for(int x=0;x<129;x++)
+                if (diff < 2.0f)
                 {
-                    uint8_V9[y][x] = uint8((V9[y][x] - minHeight) * step + 0.5f);
-                    if(x >= 128 || y >= 128)
-                        continue;
-                    uint8_V8[y][x] = uint8((V8[y][x] - minHeight) * step + 0.5f);
+                    compressionFlags|=MAP_HEIGHT_AS_INT8;
+                    step = selectUInt8StepStore(diff);
+                }
+                else if (diff<2048.0f)
+                {
+                    compressionFlags|=MAP_HEIGHT_AS_INT16;
+                    step = selectUInt16StepStore(diff);
+                }
+
+                // Height values for triangles stored in order:
+                // 1     2     3     4     5     6     7     8     9
+                //    10    11    12    13    14    15    16    17
+                // 18    19    20    21    22    23    24    25    26
+                //    27    28    29    30    31    32    33    34
+                // . . . . . . . .
+                // For better get height values merge it to V9 and V8 map
+                // V9 height map:
+                // 1     2     3     4     5     6     7     8     9
+                // 18    19    20    21    22    23    24    25    26
+                // . . . . . . . .
+                // V8 height map:
+                //    10    11    12    13    14    15    16    17
+                //    27    28    29    30    31    32    33    34
+                // . . . . . . . .
+                // get V9 height map
+                for (int y = 0; y <= 8; y++)
+                {
+                    for (int x = 0; x <= 8; x++)
+                    {
+                        float height = _chunks[cx][cy].pointHeights[y * (8 * 2 + 1) + x];
+                        if(compressionFlags & MAP_HEIGHT_AS_INT8)
+                            uint8_V9[y][x] = uint8(height * step + 0.5f);
+                        else if(compressionFlags & MAP_HEIGHT_AS_INT16)
+                            uint16_V9[y][x] = uint16(height * step + 0.5f);
+                        else float_V9[y][x] = height;
+                    }
+                }
+                // get V8 height map
+                for (int y = 0; y < 8; y++)
+                {
+                    for (int x = 0; x < 8; x++)
+                    {
+                        float height = _chunks[cx][cy].pointHeights[y * (8 * 2 + 1) + 8 + 1 + x];
+                        if(compressionFlags & MAP_HEIGHT_AS_INT8)
+                            uint8_V8[y][x] = uint8(height * step + 0.5f);
+                        else if(compressionFlags & MAP_HEIGHT_AS_INT16)
+                            uint16_V8[y][x] = uint16(height * step + 0.5f);
+                        else float_V8[y][x] = height;
+                    }
+                }
+
+                // Write compression flags and height data
+                fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                if(compressionFlags & MAP_HEIGHT_AS_INT8)
+                {
+                    step = diff / 255; // Update our step to our multiplier
+                    fwrite(uint8_V8, sizeof(uint8)*8*8, 1, output);
+                    fwrite(uint8_V9, sizeof(uint8)*9*9, 1, output);
+                    fwrite(&step, sizeof(float), 1, output);
+                }
+                else if(compressionFlags & MAP_HEIGHT_AS_INT16)
+                {
+                    step = diff / 65535; // Update our step to our multiplier
+                    fwrite(uint16_V8, sizeof(uint16)*8*8, 1, output);
+                    fwrite(uint16_V9, sizeof(uint16)*9*9, 1, output);
+                    fwrite(&step, sizeof(float), 1, output);
+                }
+                else
+                {
+                    // Uncompressed
+                    fwrite(float_V8, sizeof(float)*8*8, 1, output);
+                    fwrite(float_V9, sizeof(float)*9*9, 1, output);
                 }
             }
-            map.heightMapSize+= sizeof(uint8_V8)+sizeof(uint8_V9);
-        }
-        else if (heightHeader.flags&MAP_HEIGHT_AS_INT16)
-        {
-            for (int y=0; y<129; y++)
+            fwrite(&_chunks[cx][cy].holes, sizeof(uint32), 1, output);
+            fwrite(&_chunks[cx][cy].liquidEntry, sizeof(uint16), 1, output);
+
+            compressionFlags = 0;
+            step=0, minHeight=50000.f, maxHeight=-50000.f;
+            for(uint8 x = 0; x <= 8; x++)
             {
-                for(int x=0;x<129;x++)
+                for(uint8 y = 0; y <= 8; y++)
                 {
-                    uint16_V9[y][x] = uint16((V9[y][x] - minHeight) * step + 0.5f);
-                    if(x >= 128 || y >= 128)
+                    if(y <= 8 && x > 0 && _chunks[cx][cy].L8[(x-1)*8+y])
                         continue;
-                    uint16_V8[y][x] = uint16((V8[y][x] - minHeight) * step + 0.5f);
+                    if(y > 0 && x <= 8 && _chunks[cx][cy].L8[x*8+(y-1)])
+                        continue;
+                    if(y > 0 && x > 0 && _chunks[cx][cy].L8[(x-1)*8+(y-1)])
+                        continue;
+                    if(y <= 8 && x <= 8 && _chunks[cx][cy].L8[x*8+y])
+                        continue;
+                    _chunks[cx][cy].L9[x*9+y] = -50000.f;
                 }
             }
-            map.heightMapSize+= sizeof(uint16_V8)+sizeof(uint16_V9);
-        } else map.heightMapSize+= sizeof(V8)+sizeof(V9);
-    }
 
-    //============================================
-    // Pack liquid data
-    //============================================
-    uint8 type = liquid_flags[0][0];
-    bool fullType = false;
-    for (int y = 0; y < 16; y++)
-    {
-        for (int x = 0; x < 16; x++)
-        {
-            if (liquid_flags[y][x] != type)
+            bool hasHeight = false;
+            for(uint8 i = 0; i < 81; i++)
             {
-                fullType = true;
-                break;
+                if(_chunks[cx][cy].L9[i] == -50000.f)
+                    continue;
+                hasHeight = true;
+                float height = _chunks[cx][cy].liquidHeight+_chunks[cx][cy].L9[i];
+                if(height < minHeight)
+                    minHeight = height;
+                if(height > maxHeight)
+                    maxHeight = height;
             }
-        }
-        if(fullType)
-            break;
-    }
 
-    map_liquidHeader liquidHeader;
-
-    // no water data (if all grid have 0 liquid type)
-    if (type == 0 && !fullType)
-    {
-        // No liquid data
-        map.liquidMapOffset = 0;
-        map.liquidMapSize   = 0;
-    }
-    else
-    {
-        int minX = 255, minY = 255;
-        int maxX = 0, maxY = 0;
-        maxHeight = -20000, minHeight =  20000;
-        for (int y=0; y<128; y++)
-        {
-            for(int x=0; x<128; x++)
+            if(hasHeight == false)
             {
-                if (liquid_show[y][x])
+                compressionFlags = 0xFF;
+                fwrite(&compressionFlags, sizeof(uint8), 1, output);
+            }
+            else
+            {
+                // Recalculate each height point based on the minimum height
+                for(uint8 i = 0; i < 81; i++)
                 {
-                    if (minX > x) minX = x;
-                    if (maxX < x) maxX = x;
-                    if (minY > y) minY = y;
-                    if (maxY < y) maxY = y;
-                    float h = liquid_height[y][x];
-                    if (maxHeight < h) maxHeight = h;
-                    if (minHeight > h) minHeight = h;
-                } else liquid_height[y][x] = CONF_use_minHeight;
+                    if(_chunks[cx][cy].L9[i] == -50000.f)
+                        continue;
+
+                    float height = _chunks[cx][cy].liquidHeight+_chunks[cx][cy].L9[i];
+                    // Since we have the minimum height, just grab the diff of the current height minus minimum
+                    _chunks[cx][cy].L9[i] = height-minHeight;
+                }
+
+                float diff = maxHeight - minHeight;
+                if(diff < 0.01f)
+                {
+                    compressionFlags = 0x01;
+                    fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                    fwrite(&minHeight, sizeof(float), 1, output);
+                }
+                else
+                {
+                    if (diff < 2.0f)
+                    {
+                        compressionFlags|=MAP_HEIGHT_AS_INT8;
+                        step = selectUInt8StepStore(diff);
+                    }
+                    else if (diff<2048.0f)
+                    {
+                        compressionFlags|=MAP_HEIGHT_AS_INT16;
+                        step = selectUInt16StepStore(diff);
+                    }
+
+                    // get V9 height map
+                    for (int y = 0; y <= 8; y++)
+                    {
+                        for (int x = 0; x <= 8; x++)
+                        {
+                            float height = _chunks[cx][cy].L9[y*9+x];
+                            if(compressionFlags & MAP_HEIGHT_AS_INT8)
+                                uint8_V9[y][x] = (height == -50000.f ? 255 : uint8(height * step + 0.5f));
+                            else if(compressionFlags & MAP_HEIGHT_AS_INT16)
+                                uint16_V9[y][x] = (height == -50000.f ? 65535 : uint16(height * step + 0.5f));
+                            else float_V9[y][x] = height;
+                        }
+                    }
+
+                    // Write compression flags and height data
+                    fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                    fwrite(&minHeight, sizeof(float), 1, output);
+                    if(compressionFlags & MAP_HEIGHT_AS_INT8)
+                    {
+                        step = diff / 255; // Update our step to our multiplier
+                        fwrite(uint8_V9, sizeof(uint8)*9*9, 1, output);
+                        fwrite(&step, sizeof(float), 1, output);
+                    }
+                    else if(compressionFlags & MAP_HEIGHT_AS_INT16)
+                    {
+                        step = diff / 65535; // Update our step to our multiplier
+                        fwrite(uint16_V9, sizeof(uint16)*9*9, 1, output);
+                        fwrite(&step, sizeof(float), 1, output);
+                    } else fwrite(float_V9, sizeof(float)*9*9, 1, output); // Uncompressed
+                }
             }
-        }
-        map.liquidMapOffset = map.heightMapOffset + map.heightMapSize;
-        map.liquidMapSize = sizeof(map_liquidHeader);
-        liquidHeader.fourcc = *(uint32 const*)MAP_LIQUID_MAGIC;
-        liquidHeader.flags = 0;
-        liquidHeader.liquidType = 0;
-        liquidHeader.offsetX = minX;
-        liquidHeader.offsetY = minY;
-        liquidHeader.width   = maxX - minX + 1 + 1;
-        liquidHeader.height  = maxY - minY + 1 + 1;
-        liquidHeader.liquidLevel = minHeight;
 
-        if (maxHeight == minHeight)
-            liquidHeader.flags |= MAP_LIQUID_NO_HEIGHT;
-
-        // Not need store if flat surface
-        if (CONF_allow_float_to_int && (maxHeight - minHeight) < CONF_flat_liquid_delta_limit)
-            liquidHeader.flags |= MAP_LIQUID_NO_HEIGHT;
-
-        if (!fullType)
-            liquidHeader.flags |= MAP_LIQUID_NO_TYPE;
-
-        if (liquidHeader.flags & MAP_LIQUID_NO_TYPE)
-            liquidHeader.liquidType = type;
-        else map.liquidMapSize += sizeof(liquid_flags);
-
-        if (!(liquidHeader.flags & MAP_LIQUID_NO_HEIGHT))
-            map.liquidMapSize += sizeof(float)*liquidHeader.width*liquidHeader.height;
-    }
-
-    if (map.liquidMapOffset)
-        map.holesOffset = map.liquidMapOffset + map.liquidMapSize;
-    else map.holesOffset = map.heightMapOffset + map.heightMapSize;
-
-    bool hasHoles = false;
-    for (int i = 0; i < 16; ++i)
-    {
-        for (int j = 0; j < 16; ++j)
-        {
-            if(holes[i][j])
-            {
-                hasHoles = true;
-                break;
-            }
+            /////// Chunk end
         }
     }
-
-    // Set our hole size
-    map.holesSize = hasHoles ? sizeof(holes) : 0;
-
-    uint8 cFlag = areaHeader.flags | (hasHoles ? 0x02 : 0x00);
-    fwrite(&cFlag, 1, 1, output);
-    cFlag = heightHeader.flags;
-    fwrite(&cFlag, 1, 1, output);
-    cFlag = liquidHeader.flags;
-    fwrite(&cFlag, 1, 1, output);
-
-    // Store area data
-    if (!(areaHeader.flags&MAP_AREA_NO_AREA))
-        fwrite(area_entry, sizeof(area_entry), 1, output);
-    else fwrite(&areaHeader.gridArea, sizeof(uint16), 1, output);
-
-    // Store V8 height data
-    fwrite(&heightHeader.gridHeight, sizeof(float), 1, output);
-    if (!(heightHeader.flags & MAP_HEIGHT_NO_HEIGHT))
-    {
-        fwrite(&heightHeader.gridMaxHeight, sizeof(float), 1, output);
-        if (heightHeader.flags & MAP_HEIGHT_AS_INT16)
-        {
-            fwrite(uint16_V9, sizeof(uint16_V9), 1, output);
-            fwrite(uint16_V8, sizeof(uint16_V8), 1, output);
-        }
-        else if (heightHeader.flags & MAP_HEIGHT_AS_INT8)
-        {
-            fwrite(uint8_V9, sizeof(uint8_V9), 1, output);
-            fwrite(uint8_V8, sizeof(uint8_V8), 1, output);
-        }
-        else
-        {
-            fwrite(V9, sizeof(V9), 1, output);
-            fwrite(V8, sizeof(V8), 1, output);
-        }
-    }
-
-    if (!(liquidHeader.flags & MAP_LIQUID_NO_TYPE))
-    {
-        fwrite(liquid_entry, sizeof(liquid_entry), 1, output);
-        fwrite(liquid_flags, sizeof(liquid_flags), 1, output);
-    } else fwrite(&liquidHeader.liquidType, sizeof(uint8), 1, output);
-
-    if (!(liquidHeader.flags & MAP_LIQUID_NO_HEIGHT))
-    {
-        for (int y = 0; y < liquidHeader.height; y++)
-            fwrite(&liquid_height[y + liquidHeader.offsetY][liquidHeader.offsetX], sizeof(float), liquidHeader.width, output);
-    } else fwrite(&liquidHeader.liquidLevel, sizeof(float), 1, output);
-
-    // store hole data
-    if (hasHoles)
-        fwrite(holes, map.holesSize, 1, output);
 
     ADT.close();
     return true;

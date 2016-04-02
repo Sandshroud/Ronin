@@ -230,7 +230,7 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
 
     if(ItemPrototype* it = sItemMgr.LookupEntry(itemid))
     {
-        sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name1, chr->GetName());
+        sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name.c_str(), chr->GetName());
 
         if(!chr->GetInventory()->AddItemById(itemid, count, randomprop, false, m_session->GetPlayer()))
         {
@@ -238,17 +238,12 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
             return true;
         }
 
+        std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
         if(chr->GetSession() != m_session) // Since we get that You Recieved Item bullcrap, we don't need this.
         {
-            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
             SystemMessage(m_session, "Adding item %u %s to %s's inventory.", it->ItemId, itemlink.c_str(), chr->GetName());
             SystemMessageToPlr(chr, "%s added item %u %s to your inventory.", m_session->GetPlayer()->GetName(), itemid, itemlink.c_str());
-        }
-        else
-        {
-            std::string itemlink = it->ConstructItemLink(randomprop, it->RandomSuffixId, count);
-            SystemMessage(m_session, "Adding item %u %s to your inventory.", it->ItemId, itemlink.c_str());
-        }
+        } else SystemMessage(m_session, "Adding item %u %s to your inventory.", it->ItemId, itemlink.c_str());
         return true;
     }
 

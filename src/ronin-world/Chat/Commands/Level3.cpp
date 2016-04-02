@@ -1641,7 +1641,7 @@ bool ChatHandler::HandleLookupItemCommand(const char * args, WorldSession * m_se
     while(itr != sItemMgr.itemPrototypeEnd())
     {
         it = (*itr)->second;
-        if(RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(it->Name1)))
+        if(RONIN_UTIL::FindXinYString(x, it->lowercase_name))
         {
             // Print out the name in a cool highlighted fashion
             char messagetext[500];

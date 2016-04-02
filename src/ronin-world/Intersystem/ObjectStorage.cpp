@@ -111,9 +111,9 @@ void ObjectMgr::LoadExtraItemStuff()
                                 std::set<uint32>::iterator itr2 = itr->second[i].begin();
                                 IP = sItemMgr.LookupEntry(*itr2);
                                 size_t spot = 0;
-                                std::string name = IP->Name1, Prefix = "";
-                                if((spot = name.find(" ")) != std::string::npos)
-                                    Prefix = name.substr(0, spot);
+                                std::string Prefix = "";
+                                if((spot = IP->Name.find(" ")) != std::string::npos)
+                                    Prefix = IP->Name.substr(0, spot);
                                 if(strcmp(lastPrefix.c_str(), Prefix.c_str()))
                                 {
                                     while(UsedRanks.find(rank) != UsedRanks.end())
@@ -133,9 +133,9 @@ void ObjectMgr::LoadExtraItemStuff()
                     {
                         IP = sItemMgr.LookupEntry(*itr2);
                         size_t spot = 0;
-                        std::string name = IP->Name1, Prefix = "";
-                        if((spot = name.find(" ")) != std::string::npos)
-                            Prefix = name.substr(0, spot);
+                        std::string Prefix = "";
+                        if((spot = IP->Name.find(" ")) != std::string::npos)
+                            Prefix = IP->Name.substr(0, spot);
                         if(strcmp(lastPrefix.c_str(), Prefix.c_str()))
                         {
                             while(UsedRanks.find(rank) != UsedRanks.end())

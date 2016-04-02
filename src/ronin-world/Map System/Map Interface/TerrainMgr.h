@@ -7,45 +7,38 @@
 typedef struct
 {
     uint16 areaInfo;
-    float mapHeight[3]; float heightMultipier;
+    float mapHeight;
 
-    struct mAI { uint16 mask[16]; } *masked_AI;
-    struct sAI { uint16 AI[16*16]; } *short_AI;
+    struct bT { uint8  V8[8*8], V9[9*9]; float Mult; } *byteTH;
+    struct sT { uint16 V8[8*8], V9[9*9]; float Mult; } *shortTH;
+    struct fT { float  V8[8*8], V9[9*9]; } *floatTH;
 
-    struct bV8 { uint8 V8[128*128]; } *byte_V8;
-    struct sV8 { uint16 V8[128*128]; } *short_V8;
-    struct fV8 { float V8[128*128]; } *float_V8;
-
-    struct bV9 { uint8 V9[129*129]; } *byte_V9;
-    struct sV9 { uint16 V9[129*129]; } *short_V9;
-    struct fV9 { float V9[129*129]; } *float_V9;
-
-    struct sHI { uint16 HI[16*16]; } *short_HI;
-
-    struct sLE { uint16 LE[16*16]; } *short_LE;
-    struct bLI { uint8 LI[16*16]; } *byte_LI;
-    struct mLI { uint16 LI[16]; } *mask_LI;
-    float *m_liquidHeight;
-    uint8 liquidData[5];
+    uint16 liquidType;
+    float liquidHeight;
+    struct bL { uint8  L9[9*9]; float Mult; } *byteLH;
+    struct sL { uint16 L9[9*9]; float Mult; } *shortLH;
+    struct fL { float L9[9*9]; } *floatLH;
 
     void cleanup()
     {
-        // Area info cleanup
-        if(masked_AI) delete masked_AI; masked_AI = NULL;
-        if(short_AI) delete short_AI; short_AI = NULL;
-        // Packed V8 and V9 cleanup
-        if(byte_V8) delete byte_V8; byte_V8 = NULL;
-        if(byte_V9) delete byte_V9; byte_V9 = NULL;
-        if(short_V8) delete short_V8; short_V8 = NULL;
-        if(short_V9) delete short_V9; short_V9 = NULL;
-        if(float_V8) delete float_V8; float_V8 = NULL;
-        if(float_V9) delete float_V9; float_V9 = NULL;
-        // Packed liquid info cleanup
-        if(short_LE) delete short_LE; short_LE = NULL;
-        if(byte_LI) delete byte_LI; byte_LI = NULL;
-        // Packed hole info cleanup
-        if(short_HI) delete short_HI; short_HI = NULL;
-        if(m_liquidHeight) delete [] m_liquidHeight; m_liquidHeight = NULL;
+        if(byteTH) delete byteTH; byteTH = NULL;
+        if(shortTH) delete shortTH; shortTH = NULL;
+        if(floatTH) delete floatTH; floatTH = NULL;
+
+        if(byteLH) delete byteLH; byteLH = NULL;
+        if(shortLH) delete shortLH; shortLH = NULL;
+        if(floatLH) delete floatLH; floatLH = NULL;
+    }
+}ChunkTerrainInfo;
+
+typedef struct
+{
+    ChunkTerrainInfo _chunks[16][16];
+    void cleanup()
+    {
+        for(uint8 x = 0; x < 16; x++)
+            for(uint8 y = 0; y < 16; y++)
+                _chunks[x][y].cleanup();
     }
 }TileTerrainInformation;
 
@@ -53,6 +46,9 @@ static const uint32 terrainHeaderSize = sizeof(uint32)*64*64; // size of [64][64
 static const char *heightMapHeader = "HMAP434_1";
 #define NO_LAND_HEIGHT 999999.0f
 #define NO_WATER_HEIGHT -50000.0f
+#define TERRAIN_TILE_SIZE 533.33333f
+#define TERRAIN_CHUNK_SIZE 33.33333f
+#define TERRAIN_CHUNK_STEP  3.70370f
 
 /* @class TerrainMgr
 
@@ -167,6 +163,18 @@ public:
         return true;
     }
 
+    /* Converts a global x co-ordinate into a tile x co-ordinate.
+       Parameter 1: global x co-ordinate.
+       Returns the tile x co-ordinate.
+      */
+    RONIN_INLINE static uint32 ConvertGlobalXCoordinate(float x) { return int32(32-(x/TERRAIN_TILE_SIZE)); }
+
+    /* Converts a global y co-ordinate into a tile y co-ordinate.
+       Parameter 1: global y co-ordinate.
+       Returns the tile y co-ordinate.
+    */
+    RONIN_INLINE static uint32 ConvertGlobalYCoordinate(float y) { return int32(32-(y/TERRAIN_TILE_SIZE)); }
+
 protected:
     /* Retrieves the tile data for the specified co-ordinates from the file and sets it in
        the TileInformation array.
@@ -194,24 +202,6 @@ protected:
         if(tileInformation.find(tilePair) == tileInformation.end())
             return NULL;
         return &tileInformation.at(tilePair);
-    }
-
-    /* Converts a global x co-ordinate into a tile x co-ordinate.
-       Parameter 1: global x co-ordinate.
-       Returns the tile x co-ordinate.
-      */
-    RONIN_INLINE uint32 ConvertGlobalXCoordinate(float x)
-    {
-        return int32(32-(x/533.33333f));
-    }
-
-    /* Converts a global y co-ordinate into a tile y co-ordinate.
-       Parameter 1: global y co-ordinate.
-       Returns the tile y co-ordinate.
-    */
-    RONIN_INLINE uint32 ConvertGlobalYCoordinate(float y)
-    {
-        return int32(32-(y/533.33333f));
     }
 
     /* Checks whether a tile information is loaded or not.

@@ -370,7 +370,7 @@ bool ChatHandler::HandleQuestItemCommand(const char * args, WorldSession * m_ses
         recout += ": ";
         recout += itemcnt.c_str();
         recout += " -> ";
-        recout += tmpItem->Name1;
+        recout += tmpItem->Name.c_str();
         recout += "\n";
 
         SendMultilineMessage(m_session, recout.c_str());
@@ -480,7 +480,7 @@ bool ChatHandler::HandleQuestGiverCommand(const char * args, WorldSession * m_se
             recout += ", ";
             recout += spawnId2.c_str();
             recout += ", ";
-            recout += itemResult2->Name1;
+            recout += itemResult2->Name.c_str();
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }
@@ -1113,12 +1113,9 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
 
         delete objectResult2;
 
-        std::string itemName2 = "N/A";
         ItemPrototype *itemResult2 = sItemMgr.LookupEntry(atol(itemId2.c_str()));
         if (itemResult2)
         {
-            itemName2 = itemResult2->Name1;
-
             my_query2 = "SELECT id FROM gameobject_spawns WHERE entry = " + itemId2;
             QueryResult *spawnResult2 = WorldDatabase.Query(my_query2.c_str());
 
@@ -1139,7 +1136,7 @@ bool ChatHandler::HandleQuestFinisherCommand(const char * args, WorldSession * m
             recout += ", ";
             recout += spawnId2.c_str();
             recout += ", ";
-            recout += itemName2.c_str();
+            recout += itemResult2->Name.c_str();
             recout += "\n\n";
             SendMultilineMessage(m_session, recout.c_str());
         }

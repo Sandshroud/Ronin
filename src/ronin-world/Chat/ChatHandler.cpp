@@ -978,15 +978,15 @@ bool WorldSession::ValidateText2(std::string text)
         ItemPrototype* proto = sItemMgr.LookupEntry(itemid);
         if(proto == NULL)
             return false;
-        if(strlen(proto->Name1) != strlen(itemname))
+        if(proto->Name.length() != strlen(itemname))
         {
             if(std::string(itemname).find("of") != std::string::npos)
             {
-                length = strlen(proto->Name1);
+                length = proto->Name.length();
                 if(newstring.size() < length)
                     return false;
 
-                newstring = std::string(itemname).substr(strlen(proto->Name1), strlen(itemname));
+                newstring = std::string(itemname).substr(length, strlen(itemname));
                 if(!newstring.size())
                     return false; // Their fault
 

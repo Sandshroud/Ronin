@@ -549,16 +549,16 @@ std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_s
     if( Quality > ITEM_QUALITY_DBC_MAX )
         return "INVALID_ITEM";
 
-    char buf[1000];
-    char sbuf[50];
-    char rptxt[100];
-    char rstxt[100];
+    char buf[1000], sbuf[50], nbuf[255], rptxt[100], rstxt[100];
 
     // stack text
     if( stack > 1 )
         snprintf(sbuf, 50, "x%u", stack);
-    else
-        sbuf[0] = 0;
+    else sbuf[0] = 0;
+
+    if(Name.length() < 255)
+        snprintf(nbuf, 255, "%s", Name.c_str());
+    else nbuf[0] = 0;
 
     // null 'em
     rptxt[0] = 0;
@@ -581,8 +581,7 @@ std::string ItemPrototype::ConstructItemLink(uint32 random_prop, uint32 random_s
     }
 
     // construct full link
-    snprintf(buf, 1000, "%s|Hitem:%u:0:0:0:0:0:%d:0|h[%s%s%s]%s|h|r", ItemManager::g_itemQualityColours[Quality], ItemId, /* suffix/prop */ random_suffix ? (-(int32)random_suffix) : random_prop,
-        Name1, rstxt, rptxt, sbuf);
+    snprintf(buf, 1000, "%s|Hitem:%u:0:0:0:0:0:%d:0|h[%s%s%s]%s|h|r", ItemManager::g_itemQualityColours[Quality], ItemId, /* suffix/prop */ random_suffix ? (-(int32)random_suffix) : random_prop, nbuf, rstxt, rptxt, sbuf);
 
     return std::string(buf);
 }

@@ -336,10 +336,11 @@ namespace VMAP
         ManagedModel *retContainer = NULL;
         filenameMutexlock.lock();
         if(iModelNameLocks.find(filename) == iModelNameLocks.end())
-            iModelNameLocks[filename].first = 0;
+            iModelNameLocks.insert(std::make_pair(filename, std::make_pair(0, new G3D::GMutex())));
+        G3D::GMutex *lock = iModelNameLocks[filename].second;
         iModelNameLocks[filename].first++;
         filenameMutexlock.unlock();
-        iModelNameLocks[filename].second.lock();
+        lock->lock();
 
         LoadedModelFilesLock.lock();
         if(DisabledModels.find(filename) == DisabledModels.end())
@@ -374,9 +375,13 @@ namespace VMAP
         LoadedModelFilesLock.unlock();
 
         filenameMutexlock.lock();
-        iModelNameLocks[filename].second.unlock();
+        lock->unlock();
         if((--iModelNameLocks[filename].first) == 0)
+        {
+            iModelNameLocks[filename].second = NULL;
             iModelNameLocks.erase(filename);
+            delete lock;
+        }
         filenameMutexlock.unlock();
         return retContainer ? retContainer->getModel() : NULL;
     }
@@ -385,10 +390,11 @@ namespace VMAP
     {
         filenameMutexlock.lock();
         if(iModelNameLocks.find(filename) == iModelNameLocks.end())
-            iModelNameLocks[filename].first = 0;
+            iModelNameLocks.insert(std::make_pair(filename, std::make_pair(0, new G3D::GMutex())));
+        G3D::GMutex *lock = iModelNameLocks[filename].second;
         iModelNameLocks[filename].first++;
         filenameMutexlock.unlock();
-        iModelNameLocks[filename].second.lock();
+        lock->lock();
 
         //! Critical section, thread safe access to iLoadedModelFiles
         LoadedModelFilesLock.lock();
@@ -406,9 +412,13 @@ namespace VMAP
         LoadedModelFilesLock.unlock();
 
         filenameMutexlock.lock();
-        iModelNameLocks[filename].second.unlock();
+        lock->unlock();
         if((--iModelNameLocks[filename].first) == 0)
+        {
+            iModelNameLocks[filename].second = NULL;
             iModelNameLocks.erase(filename);
+            delete lock;
+        }
         filenameMutexlock.unlock();
     }
 

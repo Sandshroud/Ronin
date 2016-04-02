@@ -101,7 +101,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         {
             timeToMove += 500;
 
-            float p = float(timeToMove)/float(m_pathLength), px = currPos.x-((currPos.x-_destX)*p), py = currPos.y-((currPos.y-_destY)*p), pz = std::max<float>(currPos.z, z);//m_Unit->GetMapHeight(px, py, std::max<float>(currPos.z, z));
+            float p = float(timeToMove)/float(m_pathLength), px = currPos.x-((currPos.x-_destX)*p), py = currPos.y-((currPos.y-_destY)*p), pz = (m_Unit->canFly() ? std::max<float>(currPos.z, z) : m_Unit->GetMapHeight(px, py, std::max<float>(currPos.z, z)));
             m_movementPoints.push_back(new MovementPoint(timeToMove, px, py, pz));
         }
 

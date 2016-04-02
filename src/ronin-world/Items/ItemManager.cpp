@@ -101,7 +101,7 @@ void ItemManager::InitializeItemPrototypes()
         proto->Class = itemData->Class;
         proto->SubClass = itemData->SubClass;
         proto->subClassSound = itemData->SoundOverrideSubclass;
-        proto->Name1 = sparse->Name;
+        proto->Name = sparse->Name;
         proto->DisplayInfoID = itemData->DisplayId;
         proto->Quality = sparse->Quality;
         proto->Flags = sparse->Flags;
@@ -169,7 +169,7 @@ void ItemManager::InitializeItemPrototypes()
         proto->ItemLimitCategory = sparse->ItemLimitCategory;
         proto->HolidayId = sparse->HolidayId;
         proto->StatScalingFactor = sparse->StatScalingFactor;
-        proto->lowercase_name = std::string(proto->Name1);
+        proto->lowercase_name = proto->Name.c_str();
         for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
             proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
         m_itemPrototypeContainer.insert(std::make_pair(itemData->ID, proto));
@@ -208,7 +208,7 @@ void ItemManager::LoadItemOverrides()
                     proto->Class = 0;
                     proto->SubClass = 0;
                     proto->subClassSound = 0;
-                    proto->Name1 = "";
+                    proto->Name = "";
                     proto->DisplayInfoID = 0;
                     proto->Quality = 0;
                     proto->Flags = 0;
@@ -280,6 +280,7 @@ void ItemManager::LoadItemOverrides()
                     proto->ItemLimitCategory = 0;
                     proto->HolidayId = 0;
                     proto->StatScalingFactor = 0;
+                    proto->lowercase_name = "";
                     m_itemPrototypeContainer.insert(std::make_pair(entry, proto));
                     overrideFlags = 0x01 | 0x02;
                 } else proto = m_itemPrototypeContainer.at(entry);
@@ -288,14 +289,12 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, SubClass, GetUInt32, field_Count, 0x01);
                 CHECK_OVERRIDE_VALUE(proto, subClassSound, GetInt32, field_Count, 0x01);
                 // Avoid macro usage for name as we need to update lowercase as well
-                if(strcmp(proto->Name1, fields[field_Count].GetString()))
+                if(strcmp(proto->Name.c_str(), fields[field_Count].GetString()))
                 {
-                    proto->Name1 = strdup(fields[field_Count].GetString());
-                    overrideFlags |= 0x02;
-
-                    proto->lowercase_name = std::string(proto->Name1);
+                    proto->lowercase_name = (proto->Name = fields[field_Count].GetString()).c_str();
                     for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
                         proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
+                    overrideFlags |= 0x02;
                 }field_Count++;
                 CHECK_OVERRIDE_VALUE(proto, DisplayInfoID, GetUInt32, field_Count, 0x01);
                 CHECK_OVERRIDE_VALUE(proto, Quality, GetUInt32, field_Count, 0x02);
@@ -339,9 +338,9 @@ void ItemManager::LoadItemOverrides()
                 }
                 CHECK_OVERRIDE_VALUE(proto, Bonding, GetUInt32, field_Count, 0x02);
                 // Avoid macro for description as well, it needs to use strdup
-                if(strcmp(proto->Description, fields[field_Count].GetString()))
+                if(strcmp(proto->Description.c_str(), fields[field_Count].GetString()))
                 {
-                    proto->Description = strdup(fields[field_Count].GetString());
+                    proto->Description = fields[field_Count].GetString();
                     overrideFlags |= 0x02;
                 }field_Count++;
                 CHECK_OVERRIDE_VALUE(proto, PageId, GetUInt32, field_Count, 0x02);

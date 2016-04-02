@@ -564,7 +564,7 @@ void AuctionHouse::SendAuctionList(Player* plr, WorldPacket * packet)
             continue;
 
         // this is going to hurt. - name
-        if(auctionstring.length() > 0 && !RONIN_UTIL::FindXinYString(auctionstring, RONIN_UTIL::TOLOWER_RETURN(proto->Name1)))
+        if(auctionstring.length() > 0 && !RONIN_UTIL::FindXinYString(auctionstring, proto->lowercase_name))
             continue;
 
         // rarity

@@ -209,7 +209,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
             result = FindFreeInventorySlot(item->GetProto());
 
             // send message to player
-            sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.", item->GetProto()->Name1);
+            sChatHandler.BlueSystemMessageToPlr(m_pOwner, "A duplicated item, `%s` was found in your inventory. We've attempted to add it to a free slot in your inventory, if there is none this will fail. It will be attempted again the next time you log on.", item->GetProto()->Name.c_str());
             if(result.Result == true)
             {
                 // Found a new slot for that item.
@@ -1819,7 +1819,7 @@ void PlayerInventory::BuyItem(ItemPrototype *item, uint32 total_amount, Creature
     }
     if( ec != NULL )
     {
-        for(int i = 0;i<5;++i)
+        for(uint8 i = 0;i<5;++i)
         {
             if(ec->reqItem[i])
                 m_pOwner->GetInventory()->RemoveItemAmt( ec->reqItem[i], total_amount * ec->reqItemCount[i] );
@@ -1845,39 +1845,33 @@ enum CanAffordItem
 
 int8 PlayerInventory::CanAffordItem(ItemPrototype * item,uint32 amount, Creature* pVendor, ItemExtendedCostEntry *ec)
 {
+    if(item->RequiredFaction)
+    {
+        FactionEntry *faction = dbcFaction.LookupEntry(item->RequiredFaction);
+        if(!faction || faction->RepListId < 0)
+            return CAN_AFFORD_ITEM_ERROR_NO_MESSAGE;
+
+        if( Player::GetReputationRankFromStanding( m_pOwner->GetStanding( item->RequiredFaction )) < item->RequiredFactionStanding )
+            return CAN_AFFORD_ITEM_ERROR_REPUTATION;
+    }
+
+    if(ec && ec->reqPersonalRating && m_pOwner->GetMaxPersonalRating(ec->reqArenaSlot > 0) < ec->reqPersonalRating)
+        return CAN_AFFORD_ITEM_ERROR_NOT_REQUIRED_RANK;
+
     if( ec != NULL )
     {
-        for(int i = 0;i<5;++i)
+        for(uint8 i = 0; i < 5; ++i)
         {
-            if(ec->reqItem[i])
-            {
-                if(m_pOwner->GetInventory()->GetItemCount(ec->reqItem[i], false) < (ec->reqItemCount[i]*amount))
-                    return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
-            }
+            if(ec->reqItem[i] && (m_pOwner->GetInventory()->GetItemCount(ec->reqItem[i], false) < (ec->reqItemCount[i]*amount)))
+                return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
         }
-
-        if(m_pOwner->GetMaxPersonalRating(ec->reqArenaSlot > 0) < ec->reqPersonalRating)
-            return CAN_AFFORD_ITEM_ERROR_NOT_REQUIRED_RANK;
     }
 
     if(item->BuyPrice)
     {
         uint64 price = sItemMgr.CalculateBuyPrice(item->ItemId, amount, m_pOwner, pVendor);
         if(m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE) < price)
-        {
             return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
-        }
-    }
-    if(item->RequiredFaction)
-    {
-        FactionEntry *faction = dbcFaction.LookupEntry(item->RequiredFaction);
-        if(!faction || faction->RepListId < 0)
-            return (int8)NULL;
-
-        if( Player::GetReputationRankFromStanding( m_pOwner->GetStanding( item->RequiredFaction )) < (int32)item->RequiredFactionStanding )
-        {
-            return CAN_AFFORD_ITEM_ERROR_REPUTATION;
-        }
     }
     return 0;
 }

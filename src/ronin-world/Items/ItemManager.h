@@ -9,7 +9,7 @@ struct ItemPrototype
     uint32 Class;
     uint32 SubClass;
     int32  subClassSound;
-    char * Name1;
+    std::string Name;
     uint32 DisplayInfoID;
     uint32 Quality;
     uint32 Flags;
@@ -56,7 +56,7 @@ struct ItemPrototype
         int32 CategoryCooldown;
     } Spells[5];
     uint32 Bonding;
-    char * Description;
+    std::string Description;
     uint32 PageId;
     uint32 PageLanguage;
     uint32 PageMaterial;

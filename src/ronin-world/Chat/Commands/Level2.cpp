@@ -163,7 +163,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
 
         pCreature->AddVendorItem(item, vendormask, extendedcost);
 
-        sstext << "Item '" << item << "' '" << tmpItem->Name1 << "' Added to list" << '\0';
+        sstext << "Item '" << item << "' '" << tmpItem->Name.c_str() << "' Added to list" << '\0';
     } else sstext << "Item '" << item << "' Not Found in Database." << '\0';
 
     sWorld.LogGM(m_session, "added item %u to vendor %u", item, pCreature->GetEntry());
@@ -204,7 +204,7 @@ bool ChatHandler::HandleItemRemoveCommand(const char* args, WorldSession *m_sess
 
         pCreature->RemoveVendorItem(itemguid);
         if(ItemPrototype* tmpItem = sItemMgr.LookupEntry(itemguid))
-            sstext << "Item '" << itemguid << "' '" << tmpItem->Name1 << "' Deleted from list" << '\0';
+            sstext << "Item '" << itemguid << "' '" << tmpItem->Name.c_str() << "' Deleted from list" << '\0';
         else sstext << "Item '" << itemguid << "' Deleted from list" << '\0';
     }else sstext << "Item '" << itemguid << "' Not Found in List." << '\0';
 

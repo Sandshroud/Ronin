@@ -141,14 +141,22 @@ void AIInterface::_HandleCombatAI()
         if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
             || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
         {
-            m_path->StopMoving();
-            m_targetGuid.Clean();
-            m_Unit->EventAttackStop();
+            // If we already have a target but he doesn't qualify back us out of combat
+            if(unitTarget)
+            {
+                m_path->StopMoving();
+                m_targetGuid.Clean();
+                m_Unit->EventAttackStop();
+            }
+
             if(FindTarget() == false)
             {
-                m_Unit->addStateFlag(UF_EVADING);
                 m_AIState = AI_STATE_IDLE;
-                FindNextPoint();
+                if(!m_path->hasDestination())
+                {
+                    m_Unit->addStateFlag(UF_EVADING);
+                    FindNextPoint();
+                }
                 return;
             }
             continue;

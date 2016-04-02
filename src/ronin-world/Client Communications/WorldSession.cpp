@@ -323,7 +323,7 @@ void WorldSession::LogoutPlayer()
         }
 
         // send to gms
-        if( HasGMPermissions() && !bServerShutdown )
+        if(!bServerShutdown && HasGMPermissions() )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
 
         plr->m_AuraInterface.RemoveAllAuras();

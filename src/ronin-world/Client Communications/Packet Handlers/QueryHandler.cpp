@@ -333,11 +333,9 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
                     data << int32(proto->Spells[x].CategoryCooldown);
 
                 data << uint32(proto->Bonding);
-
-                std::string name = proto->Name1; // Item name
-                data << uint16(name.length());
-                if (name.length())
-                    data << name;
+                data << uint16(proto->Name.length());
+                if (proto->Name.length())
+                    data << proto->Name.c_str();
 
                 for (uint32 i = 0; i < 3; ++i) // Other 3 names
                     data << uint16(0);

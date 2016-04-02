@@ -496,7 +496,7 @@ void getGamePath()
 
 int main(int argc, char ** argv)
 {
-    bool success = true, hasBuildings = false, hasDBCs;
+    bool success = true, hasBuildings = false, hasDBCs = false;
     getGamePath();
 
     printf("Beginning work ....\n\n");
@@ -517,7 +517,7 @@ int main(int argc, char ** argv)
         return 0;
     }
 
-    for (int i = 0; i < LOCALES_COUNT; ++i)
+    for (uint8 i = 0; i < LOCALES_COUNT; ++i)
     {
         //Open MPQs
         if (!LoadLocaleMPQFile(i))

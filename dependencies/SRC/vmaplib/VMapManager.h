@@ -74,7 +74,7 @@ namespace VMAP
 
             // Mutex for iLoadedModelFiles
             G3D::GMutex LoadedModelFilesLock, filenameMutexlock;
-            std::map<std::string, std::pair<uint32, G3D::GMutex>> iModelNameLocks;
+            std::map<std::string, std::pair<uint32, G3D::GMutex*>> iModelNameLocks;
 
             bool _loadObject(DynamicMapTree* tree, G3D::uint64 guid, unsigned int mapId, G3D::uint32 DisplayID, float scale, float x, float y, float z, float o, G3D::int32 m_phase);
 

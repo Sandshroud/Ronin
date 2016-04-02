@@ -33,15 +33,6 @@ class Liquid;
 struct vec { float x, y, z; };
 struct triangle { vec corners[3]; };
 
-typedef struct
-{
-    uint8 headerFlag[16][16];
-    uint16 areaMask[16][16];
-
-    float v8[128][128], v9[144][144];
-    float waterV9[144][144];
-}mTile;
-
 struct MapChunkHeader
 {
     uint32 flags;
@@ -83,7 +74,6 @@ class ADTFile
 private:
     MPQFile ADT;
     std::string Adtfilename;
-    mTile m_chunkData;
 
 public:
     ADTFile(HANDLE mpqarchive, char* filename);
