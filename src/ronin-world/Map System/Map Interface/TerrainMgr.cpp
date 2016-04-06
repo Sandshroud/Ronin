@@ -121,8 +121,12 @@ float GetHeight(float x, float y, TileTerrainInformation* Tile)
         x -= x_int*TERRAIN_CHUNK_SIZE, y -= y_int*TERRAIN_CHUNK_SIZE;
         // Divide the left over value to see how far into our chunk we are
         x_int = x/TERRAIN_CHUNK_STEP, y_int = y/TERRAIN_CHUNK_STEP;
-        // Get the subdiff
-        x -= (int)x, y -= (int)y;
+        // Calculate our x subdifferential
+        x -= x_int*TERRAIN_CHUNK_STEP;
+        x = 1.f-(x/TERRAIN_CHUNK_STEP);
+        // Calculate our y subdifferential
+        y -= y_int*TERRAIN_CHUNK_STEP;
+        y = 1.f-(y/TERRAIN_CHUNK_STEP);
 
         retVal = info->mapHeight;
         if(info->byteTH)
@@ -222,7 +226,7 @@ bool TerrainMgr::LoadTerrainHeader()
     /* check file size */
     fseek(FileDescriptor, 0, SEEK_END);
     uint32 fileSize = ftell(FileDescriptor);
-    if(fileSize == (terrainHeaderSize + sizeof(uint32)))
+    if(fileSize == (10 + terrainHeaderSize + sizeof(uint32)))
     {
         sLog.outDebug("Map file %s Ignored.", file_name.c_str());
 
@@ -309,8 +313,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                             fread(&tile->_chunks[x][y].shortTH->V9, sizeof(uint16)*9*9, 1, input);
                             fread(&tile->_chunks[x][y].shortTH->Mult, sizeof(float), 1, input);
                             break;
-                        case 0x01: // Flat land
-                            break;
+                        case 0x01: break; // Flat land
                         default:
                             tile->_chunks[x][y].floatTH = new ChunkTerrainInfo::fT;
                             fread(&tile->_chunks[x][y].floatTH->V8, sizeof(float)*8*8, 1, input);
@@ -339,6 +342,7 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                                 fread(&tile->_chunks[x][y].shortLH->L9, sizeof(uint16)*9*9, 1, input);
                                 fread(&tile->_chunks[x][y].shortLH->Mult, sizeof(float), 1, input);
                                 break;
+                            case 0x01: break; // Flat water
                             default:
                                 tile->_chunks[x][y].floatLH = new ChunkTerrainInfo::fL;
                                 fread(&tile->_chunks[x][y].floatLH->L9, sizeof(float)*9*9, 1, input);

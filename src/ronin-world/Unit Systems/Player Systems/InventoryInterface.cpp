@@ -1817,6 +1817,7 @@ void PlayerInventory::BuyItem(ItemPrototype *item, uint32 total_amount, Creature
         else coinage -= itemprice;
         m_pOwner->SetUInt64Value(PLAYER_FIELD_COINAGE, coinage);
     }
+
     if( ec != NULL )
     {
         for(uint8 i = 0;i<5;++i)
@@ -1913,8 +1914,7 @@ int8 PlayerInventory::GetItemSlotByType(ItemPrototype* proto)
                 return EQUIPMENT_SLOT_FINGER1;
             else if (!GetInventoryItem(EQUIPMENT_SLOT_FINGER2))
                 return EQUIPMENT_SLOT_FINGER2;
-            else
-                return EQUIPMENT_SLOT_FINGER1; //auto equips always in finger 1
+            return EQUIPMENT_SLOT_FINGER1; //auto equips always in finger 1
         }
     case INVTYPE_TRINKET:
         {
@@ -1922,8 +1922,7 @@ int8 PlayerInventory::GetItemSlotByType(ItemPrototype* proto)
                 return EQUIPMENT_SLOT_TRINKET1;
             else if (!GetInventoryItem(EQUIPMENT_SLOT_TRINKET2))
                 return EQUIPMENT_SLOT_TRINKET2;
-            else
-                return EQUIPMENT_SLOT_TRINKET1; //auto equips always on trinket 1
+            return EQUIPMENT_SLOT_TRINKET1; //auto equips always on trinket 1
         }
     case INVTYPE_CLOAK:
             return EQUIPMENT_SLOT_BACK;
@@ -1933,8 +1932,7 @@ int8 PlayerInventory::GetItemSlotByType(ItemPrototype* proto)
                 return EQUIPMENT_SLOT_MAINHAND;
             else if(!GetInventoryItem(EQUIPMENT_SLOT_OFFHAND))
                 return EQUIPMENT_SLOT_OFFHAND;
-            else
-                return EQUIPMENT_SLOT_MAINHAND;
+            return EQUIPMENT_SLOT_MAINHAND;
         }
     case INVTYPE_SHIELD:
             return EQUIPMENT_SLOT_OFFHAND;
@@ -1946,8 +1944,7 @@ int8 PlayerInventory::GetItemSlotByType(ItemPrototype* proto)
                 return EQUIPMENT_SLOT_MAINHAND;
             else if(!GetInventoryItem(EQUIPMENT_SLOT_OFFHAND))
                 return EQUIPMENT_SLOT_OFFHAND;
-            else
-                return EQUIPMENT_SLOT_MAINHAND;
+            return EQUIPMENT_SLOT_MAINHAND;
         }
     case INVTYPE_TABARD:
             return EQUIPMENT_SLOT_TABARD;

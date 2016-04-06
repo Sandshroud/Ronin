@@ -790,8 +790,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
     //WorldPacket data;
     WorldPacket packet;
     int8 SrcInv=0, Slot=0, DstInv=0;
-    Item* srcitem = NULL;
-    Item* dstitem= NULL;
+    Item* srcitem = NULL, *dstitem= NULL;
     int8 NewSlot = 0;
     int8 error;
     AddItemResult result;
