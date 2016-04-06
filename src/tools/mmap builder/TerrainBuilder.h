@@ -45,12 +45,14 @@ namespace MMAP
         GRID_V9
     };
 
-    static const int V9_SIZE = 129;
+    static const int V9_SIZE = 9;
     static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
-    static const int V8_SIZE = 128;
+    static const int V8_SIZE = 8;
     static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
     static const float GRID_SIZE = 533.33333f;
-    static const float GRID_PART_SIZE = GRID_SIZE/V8_SIZE;
+    static const float CHUNK_SIZE = 33.33333f;
+    static const float GRID_PART_SIZE = GRID_SIZE/V9_SIZE;
+    static const float CHUNK_PART_SIZE = CHUNK_SIZE/V9_SIZE;
 
     // see contrib/extractor/system.cpp, CONF_use_minHeight
     static const float INVALID_MAP_LIQ_HEIGHT = -500.f;
@@ -83,8 +85,8 @@ namespace MMAP
             TerrainBuilder(bool skipLiquid);
             ~TerrainBuilder();
 
-            bool InitializeVMap(G3D::uint32 mapID, FILE *file);
-            void loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
+            bool InitializeMap(G3D::uint32 mapID);
+            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
             bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
             void loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath);
             void UnloadVMap(G3D::uint32 mapID);
@@ -103,7 +105,10 @@ namespace MMAP
             bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, Spot portion);
 
             /// Sets loop variables for selecting only certain parts of a map's terrain
-            void getLoopVars(Spot portion, int &loopStart, int &loopEnd, int &loopInc);
+            void getLoopVars(Spot portion, int &xStart, int &xEnd, int &yStart, int &yEnd);
+
+            /// Map offsets stored at the file header
+            G3D::uint32 offsets[64][64];
 
             /// Controls whether liquids are loaded
             bool m_skipLiquid;
@@ -114,11 +119,11 @@ namespace MMAP
             /// Load the map terrain from file
             bool loadHeightMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, G3D::Array<float> &vertices, G3D::Array<int> &triangles, Spot portion);
 
+            /// Get the triangle's vector indices for a specific position
+            void getHeightTriangle(int offset, int square, Spot triangle, int* indices, bool liquid = false);
+
             /// Get the vector coordinate for a specific position
             void getHeightCoord(int index, Grid grid, float xOffset, float yOffset, float* coord, float* v);
-
-            /// Get the triangle's vector indices for a specific position
-            void getHeightTriangle(int square, Spot triangle, int* indices, bool liquid = false);
 
             /// Get the liquid vector coordinate for a specific position
             void getLiquidCoord(int index, int index2, float xOffset, float yOffset, float* coord, float* v);

@@ -380,7 +380,7 @@ bool ADTFile::parseCHNK(FILE *output)
                     ADT.read(&mask, sizeof(uint64));
                 }
 
-                bool readHeight = false;
+                bool hasMask = (mask != 0), readHeight = false;
                 if(readHeight = ((mh2oHeader.formatFlags&0x02) == 0 && mh2oHeader.offsData2b > 0))
                     ADT.seek(mh2oBase+mh2oHeader.offsData2b);
 
@@ -389,14 +389,14 @@ bool ADTFile::parseCHNK(FILE *output)
                 {
                     for(uint8 y = 0; y < 8; y++)
                     {
-                        if(mask & 1)
+                        if(mask & 0x01)
                             _chunks[cx][cy].L8[y*8+x] = true;
                         mask>>=1;
                     }
                 }
 
                 // Parse our liquid height data
-                _chunks[cx][cy].liquidHeight = mask ? mh2oHeader.heightLevel1 : -50000.f;
+                _chunks[cx][cy].liquidHeight = hasMask ? mh2oHeader.heightLevel1 : -50000.f;
                 if(readHeight)
                 {
                     for(uint8 y = 0; y <= mh2oHeader.height; y++)
@@ -602,8 +602,17 @@ bool ADTFile::parseCHNK(FILE *output)
 
             if(hasHeight == false)
             {
-                compressionFlags = 0xFF;
-                fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                if(_chunks[cx][cy].liquidHeight != -50000.f)
+                {
+                    compressionFlags = 0x01;
+                    fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                    fwrite(&_chunks[cx][cy].liquidHeight, sizeof(float), 1, output);
+                }
+                else
+                {
+                    compressionFlags = 0xFF;
+                    fwrite(&compressionFlags, sizeof(uint8), 1, output);
+                }
             }
             else
             {

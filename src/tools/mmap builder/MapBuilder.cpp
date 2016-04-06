@@ -77,6 +77,7 @@ namespace MMAP
         delete m_rcContext;
     }
 
+    static const char *heightMapHeader = "HMAP434_1";
     /**************************************************************************/
     void MapBuilder::discoverTiles()
     {
@@ -85,19 +86,7 @@ namespace MMAP
         char filter[12];
 
         printf("Discovering maps... ");
-        getDirContents(files, "maps", ".bin");
-        for (G3D::uint32 i = 0; i < files.size(); ++i)
-        {
-            mapID = G3D::uint32(atoi(files[i].substr(4,3).c_str()));
-            if (m_tiles.find(mapID) == m_tiles.end())
-            {
-                m_tiles.insert(std::make_pair(mapID, new std::set<G3D::uint32>));
-                count++;
-            }
-        }
-
-        files.clear();
-        getDirContents(files, "vmaps", "*.vmtree");
+        getDirContents(files, "Tiles", "*.tiletree");
         for (G3D::uint32 i = 0; i < files.size(); ++i)
         {
             mapID = G3D::uint32(atoi(files[i].substr(0,3).c_str()));
@@ -107,6 +96,8 @@ namespace MMAP
                 count++;
             }
         }
+
+        files.clear();
         printf("found %u.\n", count);
 
         count = 0;
@@ -116,25 +107,18 @@ namespace MMAP
             mapID = (*itr).first;
             std::set<G3D::uint32>* tiles = itr->second;
 
-            sprintf(filter, "%03u*.vmtile", mapID);
-            files.clear();
-            getDirContents(files, "vmaps", filter);
-            for (G3D::uint32 i = 0; i < files.size(); ++i)
-            {
-                tileX = G3D::uint32(atoi(files[i].substr(7,2).c_str()));
-                tileY = G3D::uint32(atoi(files[i].substr(4,2).c_str()));
-                tileID = packTileID(tileY, tileX);
-
-                tiles->insert(tileID);
-                count++;
-            }
-
             char FileName[255];
-            sprintf(FileName, "maps/Map_%03u.bin", mapID);
+            sprintf(FileName, "Tiles/%03u.tiletree", mapID);
 
             FILE* mapFile = NULL;
             fopen_s(&mapFile, FileName, "rb");
             if(mapFile == NULL)
+                continue;
+
+            char identifier[10];
+            if(fread(identifier, 10, 1, mapFile) != 1)
+                continue;
+            if(strcmp(identifier, heightMapHeader))
                 continue;
 
             G3D::uint32 offsets[64][64];
@@ -321,7 +305,7 @@ namespace MMAP
             return;
         }
 
-        m_terrainBuilder->InitializeVMap(mapID, false);
+        m_terrainBuilder->InitializeMap(mapID);
         buildTile(mapID, tileX, tileY, navMesh);
         m_terrainBuilder->UnloadVMap(mapID);
         dtFreeNavMesh(navMesh);
@@ -331,7 +315,7 @@ namespace MMAP
     void MapBuilder::buildMap(G3D::uint32 mapID)
     {
         printf("Building map %03u:\n", mapID);
-        m_terrainBuilder->InitializeVMap(mapID, false);
+        m_terrainBuilder->InitializeMap(mapID);
 
         std::set<G3D::uint32>* tiles = getTileList(mapID);
 
@@ -386,11 +370,14 @@ namespace MMAP
 
         MeshData meshData;
 
+        bool res = true;
+
         // get heightmap data
-        m_terrainBuilder->loadMap(mapID, tileX, tileY, meshData);
+        res = m_terrainBuilder->loadMap(mapID, tileX, tileY, meshData);
 
         // get model data
-        m_terrainBuilder->loadVMap(mapID, tileY, tileX, meshData);
+        if(m_terrainBuilder->loadVMap(mapID, tileY, tileX, meshData) == false && res == false)
+            return;
 
         // if there is no data, give up now
         if (!meshData.solidVerts.size() && !meshData.liquidVerts.size())
