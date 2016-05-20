@@ -99,7 +99,7 @@ void AchievementMgr::ParseAchievements()
                     achievement->reqRaceMask = RACEMASK_GNOME;
                 else if(strcmp(subst.c_str(), "Troll") == 0)
                     achievement->reqRaceMask = RACEMASK_TROLL;
-                /*else if(strcmp(subst.c_str(), "Goblin") == 0) No reealm firsts for goblins
+                /*else if(strcmp(subst.c_str(), "Goblin") == 0) No realm firsts for goblins
                     achievement->reqRaceMask = RACEMASK_GOBLIN;*/
                 else if(strcmp(subst.c_str(), "Blood Elf") == 0)
                     achievement->reqRaceMask = RACEMASK_BLOODELF;
@@ -269,6 +269,8 @@ void AchievementMgr::SaveCriteriaData(WoWGuid guid, QueryBuffer *buff)
 void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data)
 {
     AchieveDataContainer *container = m_playerAchieveData.at(guid);
+    ASSERT(container != NULL);
+
     ByteBuffer criteriaData;
     data->WriteBits(container->m_criteriaProgress.size(), 21);
     for(auto it = container->m_criteriaProgress.begin(); it != container->m_criteriaProgress.end(); it++)
@@ -354,8 +356,10 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
     std::vector<std::pair<uint64, AchievementCriteriaEntry*>> processedCriteria;
     for(CriteriaStorage::iterator itr = cbounds.first; itr != cbounds.second; itr++)
     {
+        uint32 maxCounter = 0;
+        CriteriaCounterModifier modType = CCM_HIGHEST;
         AchievementCriteriaEntry *criteria = itr->second;
-        if(criteria == NULL || !_ValidateCriteriaRequirements(plr, criteria, misc1, misc2))
+        if(criteria == NULL || !_ValidateCriteriaRequirements(plr, criteria, modType, maxCounter, misc1, misc2))
             continue;
 
         // Update criteria value here
@@ -364,7 +368,21 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
         CriteriaData *data = container->m_criteriaProgress.at(criteria->ID);
         // store previous criteria value
         uint64 previous = data->criteriaCounter;
-        data->criteriaCounter = mod; // TODO: Process wether to add or set criteria
+        if(maxCounter && previous == maxCounter)
+            continue;
+
+        // See if we should update our criteria
+        if(modType == CCM_HIGHEST && data->criteriaCounter <= mod)
+            continue;
+
+        // Update our criteria counter, only total is accumulative
+        if(modType == CCM_TOTAL)
+            data->criteriaCounter += mod;
+        else data->criteriaCounter = mod;
+        if(maxCounter && data->criteriaCounter > maxCounter)
+            data->criteriaCounter = maxCounter;
+
+        // Also change our last criteria update timer
         data->timerData[1] = UNIXTIME;
         // Achievement handling
         if(criteria->referredAchievement == 0)
@@ -398,6 +416,16 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
             } else if(!_CheckAchievementRequirements(container, entry))
                 RemoveAchievement(plr, entry->ID);
         }
+
+        // Send our packet data
+        WorldPacket updateData(SMSG_CRITERIA_UPDATE, 20);
+        updateData << uint32(criteria->ID);
+        FastGUIDPack(updateData, data->criteriaCounter);
+        updateData << plr->GetGUID().asPacked();
+        updateData << uint32(0) << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
+        updateData << uint32(UNIXTIME-data->timerData[0]);
+        updateData << uint32(UNIXTIME-data->timerData[1]);
+        plr->SendPacket(&updateData);
     }
 }
 
@@ -452,8 +480,35 @@ void AchievementMgr::RemoveAchievement(Player *plr, uint32 achievementId)
     plr->GetSession()->OutPacket(SMSG_ACHIEVEMENT_DELETED, 4, &achievementId);
 }
 
-bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, uint32 misc1, uint32 misc2)
+bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &maxCounter, uint32 misc1, uint32 misc2)
 {
+    switch(entry->requiredType)
+    {
+    case ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE:
+        {
+            if(entry->kill_creature.creatureID != misc1)
+                return false;
+            modType = CCM_TOTAL;
+        }break;
+    case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST:
+        {
+            if (entry->complete_quest.questID != misc1)
+                return false;
+            modType = CCM_TOTAL;
+        }break;
+    case ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM:
+        {
+            if(entry->own_item.itemID != misc1)
+                return false;
+            modType = CCM_TOTAL;
+        }break;
+    case ACHIEVEMENT_CRITERIA_TYPE_EQUIP_ITEM:
+        {
+            if(entry->equip_item.itemID != misc1)
+                return false;
+            modType = CCM_CURRENT;
+        }break;
+    }
 
     return true;
 }

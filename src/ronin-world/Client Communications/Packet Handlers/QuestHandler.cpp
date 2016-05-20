@@ -47,7 +47,7 @@ void WorldSession::HandleQuestgiverStatusQueryOpcode( WorldPacket & recv_data )
 
     if (!qst_giver)
     {
-        sLog.outDebug("WORLD: Invalid questgiver GUID "I64FMT".", guid);
+        sLog.outDebug("WORLD: Invalid questgiver GUID %ull.", guid);
         return;
     }
 

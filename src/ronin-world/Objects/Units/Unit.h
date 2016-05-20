@@ -275,6 +275,9 @@ public:
     virtual void Update(uint32 msTime, uint32 uiDiff);
     virtual void UpdateFieldValues();
 
+    uint32 GetData(uint32 );
+    void SetData(uint32, uint32);
+
     void UpdateStatValues();
     void UpdateHealthValues();
     void UpdatePowerValues();

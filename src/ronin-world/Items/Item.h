@@ -51,6 +51,8 @@ public:
     virtual void Destruct();
     virtual void OnFieldUpdated(uint16 index);
 
+    void SetItemInWorld(bool res);
+
     //! DB Serialization
     void LoadFromDB( Field *fields );
     void SaveToDB( int8 containerslot, uint8 slot, bool firstsave, QueryBuffer* buf );

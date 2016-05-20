@@ -99,7 +99,7 @@ namespace RONIN_UTIL
     RONIN_INLINE std::string ConvertTimeStampToString(uint32 timestamp)
     {
         static int calcVal[5] = { 60, 60, 24, 30, 12};
-        int timeVals[6] = { timestamp, 0, 0, 0, 0, 0 };
+        uint32 timeVals[6] = { timestamp, 0, 0, 0, 0, 0 };
         for(uint8 i = 0; i < 5; i++)
         {
             if(timeVals[i+1] = timeVals[i]/calcVal[i])

@@ -1087,7 +1087,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             isCritter = true;
 
     /* -------------------------- HIT THAT CAUSES VICTIM TO DIE ---------------------------*/
-    if ((isCritter || health <= damage) )
+    if (isCritter || health <= damage)
     {
         if( pVictim->HasDummyAura(SPELL_HASH_GUARDIAN_SPIRIT) )
         {
@@ -1322,46 +1322,42 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 WorldPacket data(SMSG_PARTYKILLLOG, 16);
                 data << GetGUID() << victimGuid;
                 SendMessageToSet(&data, true);
-            }
 
-            // it Seems that pets some how dont get a name and cause a crash here
-            //bool isCritter = (pVictim->GetCreatureName() != NULL)? pVictim->GetCreatureName()->Type : 0;
+                AchieveMgr.UpdateCriteriaValue(castPtr<Player>(this), ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, 1, pVictim->GetEntry());
 
-            //---------------------------------looot-----------------------------------------
-            if( IsPlayer() && pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
-                pVictim->GetUInt64Value( UNIT_FIELD_SUMMONEDBY ) == 0 )
-            {
-                // TODO: lots of casts are bad make a temp member pointer to use for batches like this
-                // that way no local loadhitstore and its just one assignment
-
-                //Not all NPC's give XP, check for it in proto no_XP
-                bool can_give_xp = true;
-                if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetExtraInfo())
-                    can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
-                if(can_give_xp)
+                //---------------------------------looot-----------------------------------------
+                if( pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
+                    pVictim->GetUInt64Value( UNIT_FIELD_SUMMONEDBY ) == 0 )
                 {
-                    // Is this player part of a group
-                    if( castPtr<Player>(this)->InGroup() )
+                    //Not all NPC's give XP, check for it in proto no_XP
+                    bool can_give_xp = true;
+                    if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetExtraInfo())
+                        can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
+                    if(can_give_xp)
                     {
-                        //Calc Group XP
-                        castPtr<Player>(this)->GiveGroupXP( pVictim, castPtr<Player>(this) );
-                        //TODO: pet xp if player in group
-                    }
-                    else
-                    {
-                        uint32 xp = CalculateXpToGive( pVictim, castPtr<Unit>(this) );
-                        if( xp > 0 )
+                        // Is this player part of a group
+                        if( castPtr<Player>(this)->InGroup() )
                         {
-                            if(castPtr<Player>(this)->MobXPGainRate)
-                                xp += (xp*(castPtr<Player>(this)->MobXPGainRate/100));
+                            //Calc Group XP
+                            castPtr<Player>(this)->GiveGroupXP( pVictim, castPtr<Player>(this) );
+                            //TODO: pet xp if player in group
+                        }
+                        else
+                        {
+                            uint32 xp = CalculateXpToGive( pVictim, castPtr<Unit>(this) );
+                            if( xp > 0 )
+                            {
+                                if(castPtr<Player>(this)->MobXPGainRate)
+                                    xp += (xp*(castPtr<Player>(this)->MobXPGainRate/100));
 
-                            castPtr<Player>(this)->GiveXP( xp, victimGuid, true, false);
+                                castPtr<Player>(this)->GiveXP( xp, victimGuid, true, false);
+                            }
                         }
                     }
-                }
 
-                if( pVictim->GetTypeId() != TYPEID_PLAYER )
-                    sQuestMgr.OnPlayerKill( castPtr<Player>(this), castPtr<Creature>( pVictim ) );
+                    if( pVictim->GetTypeId() != TYPEID_PLAYER )
+                        sQuestMgr.OnPlayerKill( castPtr<Player>(this), castPtr<Creature>( pVictim ) );
+                }
             }
             else /* is Creature or GameObject* */
             {

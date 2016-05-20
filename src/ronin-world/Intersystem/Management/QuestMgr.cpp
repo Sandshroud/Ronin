@@ -546,7 +546,7 @@ uint32 QuestMgr::ActiveQuestsCount(Object* quest_giver, Player* plr)
 
     if(!bValid)
     {
-        sLog.outDebug("QUESTS: Warning, invalid NPC "I64FMT" specified for ActiveQuestsCount. TypeId: %d.", quest_giver->GetGUID(), quest_giver->GetTypeId());
+        sLog.outDebug("QUESTS: Warning, invalid NPC %llu specified for ActiveQuestsCount. TypeId: %d.", quest_giver->GetGUID(), quest_giver->GetTypeId());
         return 0;
     }
 
@@ -1260,9 +1260,9 @@ void QuestMgr::GiveQuestRewardReputation(Player* plr, Quest* qst, Object* qst_gi
             continue;
 
         int32 val = float2int32( float( qst->reward_repvalue[z] ) * sWorld.getRate( RATE_QUESTREPUTATION ) ); // reputation rewards
-        if(qst->reward_replimit && plr->GetStanding(qst->reward_repfaction[z])+val >= (int32)qst->reward_replimit)
+        if(qst->reward_replimit[z] && plr->GetStanding(qst->reward_repfaction[z])+val >= (int32)qst->reward_replimit[z])
         {
-            if((val = (int32)qst->reward_replimit - plr->GetStanding(qst->reward_repfaction[z])) < 0)
+            if((val = (int32)qst->reward_replimit[z] - plr->GetStanding(qst->reward_repfaction[z])) < 0)
                 val = 0; //prevent substraction when current_rep > limit (this quest should not be available?)
         }
 
@@ -1370,27 +1370,24 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         plr->ModUnsigned32Value(PLAYER_FIELD_COINAGE, GenerateRewardMoney(plr, qst));
 
         // cast learning spell
-        if(qst->reward_spell)
+        if(qst->reward_spell && !plr->HasSpell(qst->reward_spell))
         {
-            if(!plr->HasSpell(qst->reward_spell))
-            {
-                // "Teaching" effect
-                WorldPacket data(SMSG_SPELL_GO, 42);
-                data << qst_giver->GetGUID() << qst_giver->GetGUID();
-                data << uint8(0);
-                data << uint32(7763);   // spellID
-                data << uint32(256);    // flags
-                data << uint32(0) << uint32(0);
-                data << uint8(1);       // amount of targets
-                data << plr->GetGUID(); // target
-                data << uint8(0);
-                data << uint16(2);
-                data << plr->GetGUID().asPacked();
-                plr->GetSession()->SendPacket( &data );
+            // "Teaching" effect
+            WorldPacket data(SMSG_SPELL_GO, 42);
+            data << qst_giver->GetGUID() << qst_giver->GetGUID();
+            data << uint8(0);
+            data << uint32(7763);   // spellID
+            data << uint32(256);    // flags
+            data << uint32(0) << uint32(0);
+            data << uint8(1);       // amount of targets
+            data << plr->GetGUID(); // target
+            data << uint8(0);
+            data << uint16(2);
+            data << plr->GetGUID().asPacked();
+            plr->GetSession()->SendPacket( &data );
 
-                // Teach the spell
-                plr->addSpell(qst->reward_spell);
-            }
+            // Teach the spell
+            plr->addSpell(qst->reward_spell);
         }
 
         // cast Effect Spell
@@ -1410,12 +1407,19 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
     if(qst->qst_is_repeatable == REPEATABLE_DAILY)
         plr->AddToCompletedDailyQuests(qst->id);
     else if(!IsQuestRepeatable(qst))
+    {
         plr->AddToCompletedQuests(qst->id);
+
+        if(qst->qst_zone_id > 0)
+            AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUESTS_IN_ZONE, 1, qst->qst_zone_id);
+
+        AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST_COUNT, 1);
+        AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST, 1, qst->id);
+    }
 
     //Remove any timed events
     if (sEventMgr.HasEvent(plr,EVENT_TIMED_QUEST_EXPIRE))
-        sEventMgr.RemoveEvents(plr, EVENT_TIMED_QUEST_EXPIRE); 
-
+        sEventMgr.RemoveEvents(plr, EVENT_TIMED_QUEST_EXPIRE);
     plr->UpdateNearbyQuestGivers();
 }
 
@@ -1633,7 +1637,7 @@ bool QuestMgr::OnActivateQuestGiver(Object* qst_giver, Player* plr)
 
         if(!bValid)
         {
-            sLog.outDebug("QUESTS: Warning, invalid NPC "I64FMT" specified for OnActivateQuestGiver. TypeId: %d.", qst_giver->GetGUID(), qst_giver->GetTypeId());
+            sLog.outDebug("QUESTS: Warning, invalid NPC %llu specified for OnActivateQuestGiver. TypeId: %d.", qst_giver->GetGUID(), qst_giver->GetTypeId());
             return false;
         }
 

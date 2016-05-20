@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -609,6 +609,11 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode)
 
 void MovementInterface::HandleBreathing(uint32 diff)
 {
+    m_breathingUpdateTimer += diff;
+    if(m_breathingUpdateTimer < 500)
+        return;
+    m_breathingUpdateTimer = 0;
+
     uint8 old_underwaterState = m_underwaterState;
     uint16 WaterType = 0;
     float WaterHeight = NO_WATER_HEIGHT;

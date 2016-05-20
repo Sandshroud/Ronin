@@ -24,7 +24,7 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     Unit* pEnemy = _player->GetMapInstance()->GetUnit(guid);
     if(pEnemy == NULL || pEnemy->isDead())
     {
-        sLog.outDebug("WORLD: "I64FMT" does not exist.", guid);
+        sLog.outDebug("WORLD: %016llX does not exist.", guid);
         _player->EventAttackStop();
         return;
     }

@@ -101,7 +101,7 @@ public:
     ~ItemManager();
 
     uint32 GetSkillForItem(ItemPrototype *proto);
-    uint64 CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor);
+    uint64 CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor, ItemExtendedCostEntry *ec);
     uint64 CalculateSellPrice(uint32 itemId, uint32 count);
 
 public:

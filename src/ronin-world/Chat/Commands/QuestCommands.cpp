@@ -255,9 +255,7 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
 
     uint32 quest_id = atol(args);
     std::string recout = "|cff00ff00";
-
-    Quest * qst = sQuestMgr.GetQuestPointer(quest_id);
-    if(qst)
+    if(Quest * qst = sQuestMgr.GetQuestPointer(quest_id))
     {
         if (plr->HasFinishedQuest(quest_id) || plr->HasFinishedDailyQuest(quest_id))
             recout += "Player has already completed that quest.\n\n";
@@ -319,7 +317,16 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
 
             if(qst->qst_is_repeatable == REPEATABLE_DAILY)
                 plr->AddToCompletedDailyQuests(quest_id);
-            else plr->AddToCompletedQuests(quest_id);
+            else
+            {
+                plr->AddToCompletedQuests(quest_id);
+
+                if(qst->qst_zone_id > 0)
+                    AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUESTS_IN_ZONE, 1, qst->qst_zone_id);
+
+                AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST_COUNT, 1);
+                AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST, 1, quest_id);
+            }
         }
     }
     else

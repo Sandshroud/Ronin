@@ -1140,11 +1140,12 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
     {
         /*if(u_caster && isHostile(playerTarget, u_caster))
             return;*/
+        SpellEntry *spellinfo = dbcSpell.LookupEntry(GetSpellProto()->EffectTriggerSpell[i]);
+        if(spellinfo == NULL)
+            return;
 
-        uint32 spellToLearn = GetSpellProto()->EffectTriggerSpell[i];
-        playerTarget->addSpell(spellToLearn);
+        playerTarget->addSpell(spellinfo->Id);
         //smth is wrong here, first we add this spell to player then we may cast it on player...
-        SpellEntry *spellinfo = dbcSpell.LookupEntry(spellToLearn);
         //remove specializations
         switch(spellinfo->Id)
         {

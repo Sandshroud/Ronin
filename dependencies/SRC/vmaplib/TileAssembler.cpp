@@ -195,7 +195,7 @@ namespace VMAP
         uint32 index = 0;
         for (std::set<std::string>::iterator mfile = spawnedModelFiles.begin(); mfile != spawnedModelFiles.end(); ++mfile)
         {
-            printf("Converting model %05u of %05u\r", index++, spawnedModelFiles.size());
+            printf("Converting model %05u of %05u\r", index++, uint32(spawnedModelFiles.size()));
             if (!convertRawFile(*mfile))
             {
                 OUT_ERROR("error converting %s", (*mfile).c_str());

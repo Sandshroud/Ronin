@@ -17,7 +17,7 @@ bool ChatHandler::HandleAnnounceCommand(const char* args, WorldSession *m_sessio
     }
 
     char msg[1024];
-    snprintf(msg, 1024, "[Server Notice]"MSG_COLOR_GREEN" %s: %s|r", m_session->GetPlayer()->GetName(), args);
+    snprintf(msg, 1024, "[Server Notice]%s %s: %s|r", MSG_COLOR_GREEN, m_session->GetPlayer()->GetName(), args);
     sWorld.SendWorldText(msg); // send message
     sWorld.LogGM(m_session, "used announce command, [%s]", args);
     return true;
@@ -29,7 +29,7 @@ bool ChatHandler::HandleAdminAnnounceCommand(const char* args, WorldSession *m_s
         return false;
 
     char GMAnnounce[1024];
-    snprintf(GMAnnounce, 1024, MSG_COLOR_GOLD"[Admin] "MSG_COLOR_ORANGEY"|Hplayer:%s|h[%s]|h:"MSG_COLOR_LIGHTBLUE" %s", m_session->GetPlayer()->GetName(), m_session->GetPlayer()->GetName(), args);
+    snprintf(GMAnnounce, 1024, "%s[Admin] %s|Hplayer:%s|h[%s]|h:%s %s", MSG_COLOR_GOLD, MSG_COLOR_ORANGEY, m_session->GetPlayer()->GetName(), m_session->GetPlayer()->GetName(), MSG_COLOR_LIGHTBLUE, args);
     sWorld.SendGMWorldText(GMAnnounce, true);
     return true;
 }
@@ -40,7 +40,7 @@ bool ChatHandler::HandleGMAnnounceCommand(const char* args, WorldSession *m_sess
         return false;
 
     char GMAnnounce[1024];
-    snprintf(GMAnnounce, 1024, MSG_COLOR_GREEN"[GM] "MSG_COLOR_TORQUISEBLUE"|Hplayer:%s|h[%s]|h:"MSG_COLOR_YELLOW" %s", m_session->GetPlayer()->GetName(), m_session->GetPlayer()->GetName(), args);
+    snprintf(GMAnnounce, 1024, "%s[GM] %s|Hplayer:%s|h[%s]|h:%s %s", MSG_COLOR_GREEN, MSG_COLOR_TORQUISEBLUE, m_session->GetPlayer()->GetName(), m_session->GetPlayer()->GetName(), MSG_COLOR_YELLOW, args);
     sWorld.SendGMWorldText(GMAnnounce);
     return true;
 }

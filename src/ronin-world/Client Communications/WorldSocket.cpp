@@ -140,7 +140,7 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool co
         fopen_s(&codeLog, "rejectedOpcodes.txt", "a+b");
         if(codeLog)
         {
-            fprintf(codeLog, "Rejecting unset packet %u with size %u\r\n", opcode, len);
+            fprintf(codeLog, "Rejecting unset packet %u with size %zu\r\n", opcode, len);
             WorldPacket packet(opcode, len);
             packet.append((uint8*)data, len);
             packet.hexlike(codeLog);
@@ -562,7 +562,7 @@ void WorldSocket::OnRecvData()
                     fopen_s(&codeLog, "RecvOpcodeLog.txt", "a+b");
                     if(codeLog)
                     {
-                        fprintf(codeLog, "Received unhandled packet %u(0x%.4X) with size %u\r\n", mUnaltered, mUnaltered, Packet->size());
+                        fprintf(codeLog, "Received unhandled packet %u(0x%.4X) with size %zu\r\n", mUnaltered, mUnaltered, Packet->size());
                         Packet->hexlike(codeLog);
                         fclose(codeLog);
                     }

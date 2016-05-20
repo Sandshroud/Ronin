@@ -573,6 +573,7 @@ protected: // Movement information
     uint32 m_LastUnderwaterState;
     uint32 m_UnderwaterTime;
     uint8 m_underwaterState;
+    uint32 m_breathingUpdateTimer;
 
     float m_collisionHeight;
     bool m_isKnockBacked;

@@ -33,7 +33,7 @@ typedef union _WORD_AND_BYTE_ARRAY
 //-----------------------------------------------------------------------------
 // Tables necessary dor decompression
 
-static long Table1503F120[] =
+static unsigned long Table1503F120[] =
 {
     0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000004, 0xFFFFFFFF, 0x00000002, 0xFFFFFFFF, 0x00000006,
     0xFFFFFFFF, 0x00000001, 0xFFFFFFFF, 0x00000005, 0xFFFFFFFF, 0x00000003, 0xFFFFFFFF, 0x00000007,

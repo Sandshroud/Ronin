@@ -952,7 +952,7 @@ void Spell::cast(bool check)
                 }
             }
 
-            if(!m_projectileWait)
+            //if(!m_projectileWait)
             {
                 // if the spell is not reflected
                 for(uint8 i = 0; i < 3; i++)
@@ -997,7 +997,8 @@ void Spell::cast(bool check)
 
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
                 {
-                    if(itr->second.HitResult != SPELL_DID_HIT_SUCCESS)
+                    uint8 hitResult = itr->second.HitResult;
+                    if(hitResult != SPELL_DID_HIT_SUCCESS)
                         continue;
 
                     if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
@@ -1055,7 +1056,7 @@ void Spell::cast(bool check)
                         }break;
                     }
                 }
-            }
+            }// else CalcDestLocationHit();
 
             // we're much better to remove this here, because otherwise spells that change powers etc,
             // don't get applied.
@@ -2182,12 +2183,16 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
         tgt.DestinationTime += m_MSTimeToAddToTravel;
     } else tgt.DestinationTime = 0;
 
-    // work out hit result (always true if we are a GO)
-    tgt.HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt.ReflectResult) : SPELL_DID_HIT_SUCCESS;
-
     // add to the list
     m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
-    if(!found) m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
+    if(!found)
+    {
+        // work out hit result (always true if we are a GO)
+        tgt.HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt.ReflectResult) : SPELL_DID_HIT_SUCCESS;
+
+        // Store in our full targetting map
+        m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
+    }
 
     // add counter
     if( tgt.HitResult == SPELL_DID_HIT_SUCCESS )
@@ -2214,48 +2219,49 @@ void Spell::DamageGosAround(uint32 i)
 
 bool Spell::CanHandleSpellEffect(uint32 i)
 {
-    if(!castPtr<Unit>(m_caster))
-        return false;
-    switch(i)
+    if(m_caster->IsUnit())
     {
-    case 1:
+        switch(i)
         {
-            switch(m_spellInfo->NameHash)
+        case 1:
             {
-                case SPELL_HASH_FROSTBOLT:
+                switch(m_spellInfo->NameHash)
                 {
-                    if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FROSTBOLT ))
-                        return false;
+                    case SPELL_HASH_FROSTBOLT:
+                    {
+                        if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FROSTBOLT ))
+                            return false;
+                    }break;
                 }break;
             }break;
-        }break;
-    case 2:
-        {
-            switch(m_spellInfo->NameHash)
+        case 2:
             {
-                case SPELL_HASH_FIREBALL:
+                switch(m_spellInfo->NameHash)
                 {
-                    if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FIREBALL ))
-                        return false;
+                    case SPELL_HASH_FIREBALL:
+                    {
+                        if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FIREBALL ))
+                            return false;
+                    }break;
                 }break;
             }break;
-        }break;
-    case 3:
-        {
-            switch(m_spellInfo->NameHash)
+        case 3:
             {
-                case SPELL_HASH_BLAST_WAVE:
+                switch(m_spellInfo->NameHash)
                 {
-                    if(castPtr<Unit>(m_caster)->HasAura(62126))
-                        return false;
-                }break;     
-                case SPELL_HASH_THUNDERSTORM:
-                {
-                    if(castPtr<Unit>(m_caster)->HasAura(62132))
-                        return false;
+                    case SPELL_HASH_BLAST_WAVE:
+                    {
+                        if(castPtr<Unit>(m_caster)->HasAura(62126))
+                            return false;
+                    }break;     
+                    case SPELL_HASH_THUNDERSTORM:
+                    {
+                        if(castPtr<Unit>(m_caster)->HasAura(62132))
+                            return false;
+                    }break;
                 }break;
             }break;
-        }break;
+        }
     }
     return true;
 }

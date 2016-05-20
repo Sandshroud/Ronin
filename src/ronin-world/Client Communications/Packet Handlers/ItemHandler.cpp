@@ -218,11 +218,13 @@ void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
     {
         //source has items and dst is a backpack or bank
         if(castPtr<Container>(srcitem)->HasItems())
+        {
             if(!_player->GetInventory()->IsBagSlot(dstslot))
             {
                 _player->GetInventory()->BuildInventoryChangeError(srcitem,dstitem, INV_ERR_BAG_IN_BAG);
                 return;
             }
+        }
 
         if(dstitem)
         {

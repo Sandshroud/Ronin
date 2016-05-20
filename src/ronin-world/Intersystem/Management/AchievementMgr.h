@@ -9,6 +9,14 @@ struct CriteriaData
     time_t timerData[2];
     uint64 criteriaCounter;
     bool failedTimedState;
+
+};
+
+enum CriteriaCounterModifier : uint8
+{
+    CCM_HIGHEST,
+    CCM_CURRENT,
+    CCM_TOTAL
 };
 
 struct AchieveDataContainer
@@ -68,7 +76,7 @@ public:
 
 protected:
     // Check if criteria matches the info supplied
-    bool _ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, uint32 misc1, uint32 misc2);
+    bool _ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &maxCounter, uint32 misc1, uint32 misc2);
     bool _FinishedCriteria(AchieveDataContainer *container, AchievementCriteriaEntry *criteria, AchievementEntry *achievement);
     bool _CheckAchievementRequirements(AchieveDataContainer *container, AchievementEntry *achievement);
 

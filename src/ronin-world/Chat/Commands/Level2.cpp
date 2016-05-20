@@ -37,7 +37,7 @@ bool ChatHandler::CreateGuildCommand(const char* args, WorldSession *m_session)
     {
         // send message to user
         char buf[256];
-        snprintf((char*)buf,256,"The name was too long by %i", guildName.length()-75);
+        snprintf((char*)buf,256,"The name was too long by %zi", guildName.length()-75);
         SystemMessage(m_session, buf);
         return true;
     }
@@ -140,7 +140,7 @@ bool ChatHandler::HandleItemCommand(const char* args, WorldSession *m_session)
     }
 
     uint32 item = 0, extendedcost = 0, vendormask = 0;
-    if(sscanf(args, "%u %u %u %u", &item, &extendedcost, &vendormask) < 1)
+    if(sscanf(args, "%u %u %u", &item, &extendedcost, &vendormask) < 1)
     {
         // check for item link
         GetItemIDFromLink(args, &item);

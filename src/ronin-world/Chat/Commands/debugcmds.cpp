@@ -107,7 +107,7 @@ bool ChatHandler::HandleSetBytesCommand(const char* args, WorldSession *m_sessio
 
     uint32 BytesIndex, RealBytesIndex = 0;
     uint8 byte1, byte2, byte3, byte4;
-    if(sscanf(args, "%u %u %u %u %u", &BytesIndex, &byte1, &byte2, &byte3, &byte4) < 5)
+    if(sscanf(args, "%u %c %c %c %c", &BytesIndex, &byte1, &byte2, &byte3, &byte4) < 5)
         return false;
     uint32 bytevalue = uint32(uint32(byte1)|uint32(byte2 << 8)|uint32(byte3 << 16)|uint32(byte4 << 24));
 

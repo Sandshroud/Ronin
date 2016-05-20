@@ -120,12 +120,12 @@ float GetHeight(float x, float y, TileTerrainInformation* Tile)
         // Get the offset from the side of our chunk
         x -= x_int*TERRAIN_CHUNK_SIZE, y -= y_int*TERRAIN_CHUNK_SIZE;
         // Divide the left over value to see how far into our chunk we are
-        x_int = x/TERRAIN_CHUNK_STEP, y_int = y/TERRAIN_CHUNK_STEP;
+        x_int = x/4.16666f, y_int = y/4.16666f; // 4.1666 is the sub length of an 8th sectioned chunks
         // Calculate our x subdifferential
-        x -= x_int*TERRAIN_CHUNK_STEP;
+        x -= ((int)(x/TERRAIN_CHUNK_STEP))*TERRAIN_CHUNK_STEP;
         x = 1.f-(x/TERRAIN_CHUNK_STEP);
         // Calculate our y subdifferential
-        y -= y_int*TERRAIN_CHUNK_STEP;
+        y -= ((int)(y/TERRAIN_CHUNK_STEP))*TERRAIN_CHUNK_STEP;
         y = 1.f-(y/TERRAIN_CHUNK_STEP);
 
         retVal = info->mapHeight;

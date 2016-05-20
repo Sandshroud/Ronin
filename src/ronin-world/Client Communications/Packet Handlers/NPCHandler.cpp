@@ -286,8 +286,8 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
 
             for(int e = 0; e < 3; e++)
             {
-                data << uint32(pGossip->Infos[i].Delay);
-                data << uint32(pGossip->Infos[i].Emote);
+                data << uint32(pGossip->Infos[i].Delay[e]);
+                data << uint32(pGossip->Infos[i].Emote[e]);
             }
         }
     }

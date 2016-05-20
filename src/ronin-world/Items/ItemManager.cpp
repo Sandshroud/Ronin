@@ -37,12 +37,17 @@ uint32 ItemManager::GetSkillForItem(ItemPrototype *proto)
     return SKILL_UNARMED;
 }
 
-uint64 ItemManager::CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor)
+uint64 ItemManager::CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor, ItemExtendedCostEntry *ec)
 {
+    if(ec && !(ec->flags & 0x1000))
+        return 0; // Items with the right extended cost have no gold cost
+
     uint64 buyPrice = 0xFFFFFFFFFFFFFFFF;
     if(ItemPrototype *proto = LookupEntry(itemId))
     {
         buyPrice = proto->BuyPrice;
+        if(proto->BuyCount) // Divide our buy price by our buycount
+            buyPrice /= proto->BuyCount;
         buyPrice *= count;
     }
 

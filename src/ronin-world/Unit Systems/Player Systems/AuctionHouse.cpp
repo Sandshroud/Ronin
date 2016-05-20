@@ -12,14 +12,14 @@ void Auction::DeleteFromDB()
 
 void Auction::SaveToDB(uint32 AuctionHouseId)
 {
-    CharacterDatabase.Execute("INSERT INTO auctions VALUES(%u, %u, "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD", "UI64FMTD")",
+    CharacterDatabase.Execute("INSERT INTO auctions VALUES(%u, %u, %llu, %llu, %llu, %llu, %llu, %llu, %llu)",
         Id, AuctionHouseId, m_item->GetGUID().raw(), owner.raw(), buyoutPrice, expirationTime, highestBidder, highestBid, depositAmount);
 }
 
 void Auction::UpdateInDB()
 {
-    CharacterDatabase.Execute("UPDATE auctions SET bidder = "UI64FMTD" WHERE auctionId = %u", highestBidder.raw(), Id);
-    CharacterDatabase.Execute("UPDATE auctions SET bid = "UI64FMTD" WHERE auctionId = %u", highestBid, Id);
+    CharacterDatabase.Execute("UPDATE auctions SET bidder = %llu WHERE auctionId = %u", highestBidder.raw(), Id);
+    CharacterDatabase.Execute("UPDATE auctions SET bid = %llu WHERE auctionId = %u", highestBid, Id);
 }
 
 AuctionHouse::AuctionHouse(uint32 ID)
@@ -145,7 +145,7 @@ void AuctionHouse::RemoveAuction(Auction * auct)
             snprintf(subject, 100, "%u:0:1", (unsigned int)auct->m_item->GetGUID().getEntry());
 
             // <owner player guid>:bid:buyout
-            snprintf(body, 200, "%X:%u:%u", auct->owner.getLow(), auct->highestBid, auct->buyoutPrice);
+            snprintf(body, 200, "%u:%llu:%llu", auct->owner.getLow(), auct->highestBid, auct->buyoutPrice);
 
             // Auction won by highest bidder. He gets the item.
             sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->highestBidder, subject, body, 0, 0, auct->m_item->GetGUID(), STATIONERY_AUCTION, true);
@@ -161,8 +161,8 @@ void AuctionHouse::RemoveAuction(Auction * auct)
 
             // <hex player guid>:bid:0:deposit:cut
             if(auct->highestBid == auct->buyoutPrice)      // Buyout
-                snprintf(body, 200, "%X:%u:%u:%u:%u", (unsigned int)auct->highestBidder.getLow(), (unsigned int)auct->highestBid, (unsigned int)auct->buyoutPrice, (unsigned int)auct->depositAmount, (unsigned int)auction_cut);
-            else snprintf(body, 200, "%X:%u:0:%u:%u", (unsigned int)auct->highestBidder.getLow(), (unsigned int)auct->highestBid, (unsigned int)auct->depositAmount, (unsigned int)auction_cut);
+                snprintf(body, 200, "%u:%llu:%llu:%llu:%u", auct->highestBidder.getLow(), auct->highestBid, auct->buyoutPrice, auct->depositAmount, auction_cut);
+            else snprintf(body, 200, "%u:%llu:0:%llu:%u", auct->highestBidder.getLow(), auct->highestBid, auct->depositAmount, auction_cut);
 
             // send message away.
             sMailSystem.DeliverMessage(MAILTYPE_AUCTION, dbc->id, auct->owner, subject, body, amount, 0, 0, STATIONERY_AUCTION, true);

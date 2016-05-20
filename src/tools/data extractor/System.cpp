@@ -259,7 +259,7 @@ bool ExtractDBCFiles()
         }
         if(success == false)
             break;
-        printf("Found %i %s files\n", foundCount, fileType);
+        printf("Found %zu %s files\n", foundCount, fileType);
         foundCount = 0;
     }
 

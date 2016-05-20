@@ -217,7 +217,7 @@ void MapInstance::PushObject(WorldObject* obj)
     uint32 endX = (cx <= _sizeX) ? cx + 1 : (_sizeX-1), endY = (cy <= _sizeY) ? cy + 1 : (_sizeY-1);
     if(plObj && (count = plObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj)))
     {
-        sLog.Debug("MapInstance","Creating player "I64FMT" for himself.", obj->GetGUID());
+        sLog.Debug("MapInstance","Creating player %llu for himself.", obj->GetGUID().raw());
         plObj->PushUpdateBlock(&m_createBuffer, count);
     }
     m_createBuffer.clear();

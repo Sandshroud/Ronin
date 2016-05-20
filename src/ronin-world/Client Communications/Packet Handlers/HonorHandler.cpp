@@ -231,8 +231,7 @@ bool ChatHandler::HandlePVPCreditCommand(const char* args, WorldSession* m_sessi
         return true;
     }
 
-    BlueSystemMessage(m_session, "Building packet with Rank %u, Points %u, GUID "I64FMT".",
-        Rank, Points, Guid);
+    BlueSystemMessage(m_session, "Building packet with Rank %u, Points %u, GUID %llu.", Rank, Points, Guid);
 
     WorldPacket data(SMSG_PVP_CREDIT, 12);
     data << Points << Guid << Rank;

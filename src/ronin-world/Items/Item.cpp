@@ -41,6 +41,16 @@ void Item::OnFieldUpdated(uint16 field)
         m_owner->ItemFieldUpdated(this);
 }
 
+void Item::SetItemInWorld(bool res)
+{
+    Object::SetInWorld(res);
+    if(res == false || m_owner == NULL)
+        return;
+
+    // Update our item owned criteria when adding items to world
+    AchieveMgr.UpdateCriteriaValue(m_owner, ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM, m_owner->GetInventory()->GetItemCount(GetEntry()), GetEntry());
+}
+
 void Item::LoadFromDB(Field* fields)
 {
     SetUInt32Value(OBJECT_FIELD_ENTRY, fields[2].GetUInt32());

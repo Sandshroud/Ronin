@@ -1523,28 +1523,32 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     //==========================================================================================
     //==============================Attacker Skill Base Calculation=============================
     //==========================================================================================
-    if(IsPlayer())
+    self_skill = getLevel() * 5;
+    if(GetTypeId() == TYPEID_UNIT)
     {
-        self_skill = 0;
+        Creature* c = castPtr<Creature>(this);
+        if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
+            self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
+    }
+    else if(IsPlayer())
+    {
         Player* pr = castPtr<Player>(this);
-        hitmodifier = 0.f;
-
         switch( weapon_damage_type )
         {
         case MELEE:   // melee main hand weapon
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
+            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
             break;
         case OFFHAND: // melee offhand weapon (dualwield)
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
+            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
             break;
         case RANGED:  // ranged weapon
             it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
+            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
             break;
         }
 
@@ -1554,7 +1558,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         {
             it = pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
             hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
+            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
         }
 
         SubClassSkill = it ? sItemMgr.GetSkillForItem(it->GetProto()) : SKILL_UNARMED;
@@ -1573,16 +1577,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
 
         self_skill += pr->_GetSkillLineCurrent(SubClassSkill);
     }
-    else
-    {
-        self_skill = getLevel() * 5;
-        if(GetTypeId() == TYPEID_UNIT)
-        {
-            Creature* c = castPtr<Creature>(this);
-            if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
-                self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
-        }
-    }
+
     //==========================================================================================
     //==============================Special Chances Base Calculation============================
     //==========================================================================================
@@ -1862,47 +1857,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //==========================================================================================
     if( IsPlayer() )
     {
-        self_skill = 0;
-        Player* pr = castPtr<Player>(this);
-        hitmodifier = 0;
-
-        switch( weapon_damage_type )
-        {
-        case MELEE:   // melee main hand weapon
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
-            if (it && it->GetProto())
-                dmg.school_type = it->GetProto()->DamageType;
-            break;
-        case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
-            hit_status |= HITSTATUS_DUALWIELD;//animation
-            if (it && it->GetProto())
-                dmg.school_type = it->GetProto()->DamageType;
-            break;
-        case RANGED:  // ranged weapon
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
-            self_skill = float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
-            if (it && it->GetProto())
-                dmg.school_type = it->GetProto()->DamageType;
-            break;
-        }
-
-        SubClassSkill = it ? sItemMgr.GetSkillForItem(it->GetProto()) : SKILL_UNARMED;
-
-        //chances in feral form don't depend on weapon skill
-        if(pr->IsInFeralForm())
-        {
-            uint8 form = pr->GetShapeShift();
-            if(form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR)
-            {
-                SubClassSkill = SKILL_FERAL_COMBAT;
-                self_skill += pr->getLevel() * 5;
-            }
-        }
-
-        self_skill += pr->_GetSkillLineCurrent(SubClassSkill);
+        self_skill = getLevel() * 5;
         crit = GetFloatValue(PLAYER_CRIT_PERCENTAGE);
     }
     else

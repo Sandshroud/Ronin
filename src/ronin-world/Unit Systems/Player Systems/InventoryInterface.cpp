@@ -38,11 +38,11 @@ void PlayerInventory::AddToWorld()
             if(!m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
                 m_pOwner->ApplyItemMods(m_pItems[i], i, true, false);
 
-            m_pItems[i]->SetInWorld(true);
+            m_pItems[i]->SetItemInWorld(true);
             if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
                 for(uint8 e = 0; e < pContainer->GetSlotCount(); e++)
                     if(Item* pItem = pContainer->GetItem(e))
-                        pItem->SetInWorld(true);
+                        pItem->SetItemInWorld(true);
         }
     }
 }
@@ -55,12 +55,12 @@ void PlayerInventory::RemoveFromWorld()
         {
             if(m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
                 m_pOwner->ApplyItemMods(m_pItems[i], i, false, false);
-            m_pItems[i]->SetInWorld(false);
+            m_pItems[i]->SetItemInWorld(false);
 
             if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
                 for(uint8 e = 0; e < pContainer->GetSlotCount(); e++)
                     if(Item* pItem = pContainer->GetItem(e))
-                        pItem->SetInWorld(false);
+                        pItem->SetItemInWorld(false);
         }
     }
 }
@@ -226,7 +226,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
             item->Bind(ITEM_BIND_ON_PICKUP);
             if( m_pOwner->IsInWorld() && !item->IsInWorld())
             {
-                item->SetInWorld(true);
+                item->SetItemInWorld(true);
                 ByteBuffer buf(2500);
                 if(uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner ))
                     m_pOwner->PushUpdateBlock(&buf, count);
@@ -1386,6 +1386,15 @@ int16 PlayerInventory::GetInternalBankSlotFromPlayer(int16 islot)
     }
 }
 
+uint32 PlayerInventory::GetEquippedCountByItemID(uint32 itemID)
+{
+    uint32 count = 0;
+    for(uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x)
+        if(m_pItems[x] && m_pItems[x]->GetEntry() == itemID)
+            count++;
+    return count;
+}
+
 uint32 PlayerInventory::GetEquippedCountByItemLimit(uint32 LimitId)
 {
     uint32 count = 0;
@@ -1807,15 +1816,14 @@ void PlayerInventory::BuyItem(ItemPrototype *item, uint32 total_amount, Creature
 {
     if(item->BuyPrice)
     {
-        uint64 itemprice = sItemMgr.CalculateBuyPrice(item->ItemId, total_amount, m_pOwner, pVendor);
-        if(item->BuyCount) // Divide our buy price by our buycount
-            itemprice /= item->BuyCount; 
-
-        uint64 coinage = m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE);
-        if(itemprice >= coinage)
-            coinage = 0;
-        else coinage -= itemprice;
-        m_pOwner->SetUInt64Value(PLAYER_FIELD_COINAGE, coinage);
+        if(uint64 itemprice = sItemMgr.CalculateBuyPrice(item->ItemId, total_amount, m_pOwner, pVendor, ec))
+        {
+            uint64 coinage = m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE);
+            if(itemprice >= coinage)
+                coinage = 0;
+            else coinage -= itemprice;
+            m_pOwner->SetUInt64Value(PLAYER_FIELD_COINAGE, coinage);
+        }
     }
 
     if( ec != NULL )
@@ -1870,9 +1878,9 @@ int8 PlayerInventory::CanAffordItem(ItemPrototype * item,uint32 amount, Creature
 
     if(item->BuyPrice)
     {
-        uint64 price = sItemMgr.CalculateBuyPrice(item->ItemId, amount, m_pOwner, pVendor);
-        if(m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE) < price)
-            return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
+        if(uint64 price = sItemMgr.CalculateBuyPrice(item->ItemId, amount, m_pOwner, pVendor, ec))
+            if(m_pOwner->GetUInt64Value(PLAYER_FIELD_COINAGE) < price)
+                return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
     }
     return 0;
 }
@@ -2314,10 +2322,9 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
         uint32 TotalSlots = 0;
 
         // Determine the max amount of slots to swap
-        if ( SrcItem->GetProto()->ContainerSlots > DstItem->GetProto()->ContainerSlots )
+        if ( SrcItem->GetProto()->ContainerSlots <= DstItem->GetProto()->ContainerSlots )
             TotalSlots = SrcItem->GetProto()->ContainerSlots;
-        else
-            TotalSlots = DstItem->GetProto()->ContainerSlots;
+        else TotalSlots = DstItem->GetProto()->ContainerSlots;
 
         // swap items in the bags
         for( uint32 Slot = 0; Slot < TotalSlots; Slot++ )
@@ -2425,17 +2432,17 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
     }
 
     //src item is equiped now
-    if( srcslot < INVENTORY_SLOT_BAG_END )
+    if( srcslot < INVENTORY_SLOT_BAG_END && m_pItems[srcslot] != NULL )
     {
-        if( m_pItems[srcslot] != NULL )
-            m_pOwner->ApplyItemMods( m_pItems[srcslot], srcslot, true );
+        m_pOwner->ApplyItemMods( m_pItems[srcslot], srcslot, true );
+        AchieveMgr.UpdateCriteriaValue(m_pOwner, ACHIEVEMENT_CRITERIA_TYPE_EQUIP_ITEM, GetEquippedCountByItemID(m_pItems[srcslot]->GetEntry()), m_pItems[srcslot]->GetEntry());
     }
 
     //dst item is equiped now
-    if( dstslot < INVENTORY_SLOT_BAG_END )
+    if( dstslot < INVENTORY_SLOT_BAG_END && m_pItems[dstslot] != NULL )
     {
-        if( m_pItems[dstslot] != NULL )
-            m_pOwner->ApplyItemMods( m_pItems[dstslot], dstslot, true );
+        m_pOwner->ApplyItemMods( m_pItems[dstslot], dstslot, true );
+        AchieveMgr.UpdateCriteriaValue(m_pOwner, ACHIEVEMENT_CRITERIA_TYPE_EQUIP_ITEM, GetEquippedCountByItemID(m_pItems[dstslot]->GetEntry()), m_pItems[dstslot]->GetEntry());
     }
     return true;
 }

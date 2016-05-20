@@ -145,7 +145,7 @@ void Creature::OnRemoveCorpse()
     if (IsInWorld() && (int32)m_mapInstance->GetInstanceID() == m_instanceId)
     {
 
-        sLog.Debug("Creature","OnRemoveCorpse Removing corpse of "I64FMT"...", GetGUID());
+        sLog.Debug("Creature","OnRemoveCorpse Removing corpse of %llu...", GetGUID().raw());
 
         if(((_extraInfo && _extraInfo->isBoss) && GetMapInstance()->IsRaid()) || m_noRespawn)
             Respawn(false, true);
@@ -160,7 +160,7 @@ void Creature::OnRemoveCorpse()
 
 void Creature::OnRespawn( MapInstance* m)
 {
-    sLog.outDebug("Respawning "I64FMT"...", GetGUID());
+    sLog.outDebug("Respawning %llu...", GetGUID().raw());
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
@@ -523,7 +523,14 @@ void Creature::SendInventoryList(Player *plr)
                                 continue; // Do not show relics to classes that can't use them.
                     }
 
-                    if(itr->second.extended_cost == NULL && curItem->SellPrice > curItem->BuyPrice )
+                    if(itr->second.extended_cost)
+                    {
+                        if(itr->second.extended_cost->flags & 0x01)
+                        {
+                            // Calculate if we've reached the correct guild rank to view these items
+                            continue; // TODO
+                        }
+                    } else if(curItem->SellPrice > curItem->BuyPrice)
                         continue;
                 }
 
@@ -537,7 +544,7 @@ void Creature::SendInventoryList(Player *plr)
                 bitFlags.push_back(true);
 
                 dataBuff << curItem->ItemId << uint32(1);
-                dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this));
+                dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this, itr->second.extended_cost));
                 dataBuff << uint32(curItem->DisplayInfoID) << availableAmount;
                 dataBuff << uint32(curItem->BuyCount);
             }

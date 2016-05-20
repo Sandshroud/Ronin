@@ -807,7 +807,7 @@ namespace MMAP
             if (!file)
             {
                 char message[1024];
-                sprintf(message, "Failed to open %s for writing!\n", mapID, fileName);
+                sprintf(message, "Failed to open %s for writing!\n", fileName);
                 perror(message);
                 navMesh->removeTile(tileRef, NULL, NULL);
                 continue;

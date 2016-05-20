@@ -111,6 +111,7 @@ public:
     int16 FindFreeBackPackSlot();
     int16 FindSpecialBag(Item* item);
 
+    uint32 GetEquippedCountByItemID(uint32 itemID);
     uint32 GetEquippedCountByItemLimit(uint32 LimitId);
     int16 CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemPrototype* item, bool ignore_combat = false, bool skip_2h_check = false);
     int16 CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* item, bool ignore_combat = false, bool skip_2h_check = false);

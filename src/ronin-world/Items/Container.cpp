@@ -68,7 +68,7 @@ bool Container::AddItem(uint8 slot, Item* item)
     //new version to fix bag issues
     if(m_owner->IsInWorld() && !item->IsInWorld())
     {
-        item->SetInWorld(true);
+        item->SetItemInWorld(true);
 
         ByteBuffer buf(2500);
         if(uint32 count = item->BuildCreateUpdateBlockForPlayer(&buf, m_owner))
@@ -188,7 +188,7 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint8 *r_slot)
 
             if(m_owner->IsInWorld() && !pItem->IsInWorld())
             {
-                pItem->SetInWorld(true);
+                pItem->SetItemInWorld(true);
 
                 ByteBuffer buf(2500);
                 if(uint32 count = pItem->BuildCreateUpdateBlockForPlayer( &buf, m_owner ))

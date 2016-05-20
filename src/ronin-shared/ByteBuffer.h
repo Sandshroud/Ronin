@@ -93,7 +93,7 @@ public:
     void WriteGuidBitString(uint32 count, WoWGuid guid, ...)
     {
         va_list vl;
-        va_start(vl, guid);
+        va_start(vl, &guid);
         for(uint32 i = 0; i < count; i++)
             WriteBit(guid[va_arg(vl, uint32)]);
         va_end(vl);
@@ -129,7 +129,7 @@ public:
     void ReadGuidBitString(uint32 count, WoWGuid &guid, ...)
     {
         va_list vl;
-        va_start(vl, guid);
+        va_start(vl, &guid);
         for(uint32 i = 0; i < count; i++)
             guid[va_arg(vl, uint32)] = ReadBit();
         va_end(vl);
@@ -138,7 +138,7 @@ public:
     void ReadGuidByteString(uint32 count, WoWGuid &guid, ...)
     {
         va_list vl;
-        va_start(vl, guid);
+        va_start(vl, &guid);
         for(uint32 i = 0; i < count; i++)
             ReadByteSeq(guid[(va_arg(vl, uint32))]);
         va_end(vl);
@@ -161,7 +161,7 @@ public:
     void WriteSeqByteString(uint32 count, WoWGuid guid, ...)
     {
         va_list vl;
-        va_start(vl, guid);
+        va_start(vl, &guid);
         for(uint32 i = 0; i < count; i++)
             WriteByteSeq(guid[(va_arg(vl, uint32))]);
         va_end(vl);
@@ -502,7 +502,6 @@ public:
         if(cnt == 0 || src == 0)
             return;
 
-        ASSERT(size() < 1000000);
         FlushBits();
         if (_storage.size() < _wpos + cnt)
             _storage.resize(_wpos + cnt);
