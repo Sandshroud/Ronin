@@ -1373,7 +1373,7 @@ public:
 
     int32 rageFromDamageDealt;
     // GameObject commands
-    GameObject* m_GM_SelectedGO;
+    WoWGuid m_selectedGo;
 
     void _Relocate(uint32 mapid,const LocationVector & v, bool force_new_world, uint32 instance_id);
     void UpdateKnownCurrencies(uint32 itemId, bool apply);

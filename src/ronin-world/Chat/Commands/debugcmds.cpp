@@ -309,10 +309,11 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
 
 bool ChatHandler::HandleDebugGoDamage(const char* args, WorldSession *m_session)
 {
-    GameObject* GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
@@ -324,10 +325,11 @@ bool ChatHandler::HandleDebugGoDamage(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleDebugGoRepair(const char* args, WorldSession *m_session)
 {
-    GameObject* GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 

@@ -454,7 +454,7 @@ bool ADTFile::parseCHNK(FILE *output)
     uint16 uint16_V8[8][8], uint16_V9[9][9];
     float float_V8[8][8], float_V9[9][9];
 
-    // Write our chunk data with compression
+    // Parse and write our chunk data with compression
     for(uint8 cx = 0; cx < 16; cx++)
     {
         for(uint8 cy = 0; cy < 16; cy++)

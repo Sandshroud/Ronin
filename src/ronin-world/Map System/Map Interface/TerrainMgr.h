@@ -6,40 +6,11 @@
 
 typedef struct
 {
-    uint16 areaInfo;
-    float mapHeight;
+    uint16 areaInfo[16][16];
+    float mapHeight[16][16], V8[128][128], V9[129][129];
 
-    struct bT { uint8  V8[8*8], V9[9*9]; float Mult; } *byteTH;
-    struct sT { uint16 V8[8*8], V9[9*9]; float Mult; } *shortTH;
-    struct fT { float  V8[8*8], V9[9*9]; } *floatTH;
-
-    uint16 liquidType;
-    float liquidHeight;
-    struct bL { uint8  L9[9*9]; float Mult; } *byteLH;
-    struct sL { uint16 L9[9*9]; float Mult; } *shortLH;
-    struct fL { float L9[9*9]; } *floatLH;
-
-    void cleanup()
-    {
-        if(byteTH) delete byteTH; byteTH = NULL;
-        if(shortTH) delete shortTH; shortTH = NULL;
-        if(floatTH) delete floatTH; floatTH = NULL;
-
-        if(byteLH) delete byteLH; byteLH = NULL;
-        if(shortLH) delete shortLH; shortLH = NULL;
-        if(floatLH) delete floatLH; floatLH = NULL;
-    }
-}ChunkTerrainInfo;
-
-typedef struct
-{
-    ChunkTerrainInfo _chunks[16][16];
-    void cleanup()
-    {
-        for(uint8 x = 0; x < 16; x++)
-            for(uint8 y = 0; y < 16; y++)
-                _chunks[x][y].cleanup();
-    }
+    uint16 liquidType[16][16];
+    float liquidHeight[16][16], L9[144][144];
 }TileTerrainInformation;
 
 static const uint32 terrainHeaderSize = sizeof(uint32)*64*64; // size of [64][64] array.
@@ -47,8 +18,6 @@ static const char *heightMapHeader = "HMAP434_1";
 #define NO_LAND_HEIGHT 999999.0f
 #define NO_WATER_HEIGHT -50000.0f
 #define TERRAIN_TILE_SIZE 533.33333f
-#define TERRAIN_CHUNK_SIZE 33.33333f
-#define TERRAIN_CHUNK_STEP  3.70370f
 
 /* @class TerrainMgr
 

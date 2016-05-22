@@ -546,6 +546,8 @@ public:
     bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang, float r0 = 0.f, float r1 = 0.f, float r2 = 0.f, float r3 = 0.f);
 
     bool Load(uint32 mapId, GOSpawn *spawn, float angle = 0.f);
+
+    void BuildStopFrameData(ByteBuffer *buff);
     void UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3);
     static int64 PackRotation(GameObject::ObjectRotation *rotation);
 

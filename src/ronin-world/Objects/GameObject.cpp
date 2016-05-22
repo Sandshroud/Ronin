@@ -158,9 +158,6 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     {
         m_created = true;
         WorldObject::_Create( mapid, x, y, z, ang );
-        if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT || pInfo->Type == GAMEOBJECT_TYPE_MO_TRANSPORT)
-            m_updateFlags |= (UPDATEFLAG_DYN_MODEL|UPDATEFLAG_TRANSPORT);
-
         SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
         UpdateRotations(r0, r1, r2, r3);
         SetDisplayId(pInfo->DisplayID);
@@ -168,6 +165,12 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
         SetType(pInfo->Type);
         SetState(0x01);
         InitAI();
+
+        if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT)
+        {
+            SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
+            m_updateFlags |= UPDATEFLAG_TRANSPORT;
+        }
     }
     return true;
 }
@@ -367,13 +370,31 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
     SetFlags(spawn->flags);
     SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
-    if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
+    if(GetType() == GAMEOBJECT_TYPE_TRANSPORT)
+    {
+        SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
+        SetState(24);
+    }
+    else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
         SetAnimProgress(100);
 
     TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnCreate);
 
     _LoadQuests();
     return true;
+}
+
+void GameObject::BuildStopFrameData(ByteBuffer *buff)
+{
+    uint32 stopFrame = 0;
+    if((stopFrame = pInfo->data.transport.stopFrame1) > 0)
+        *buff << uint32(stopFrame);
+    if((stopFrame = pInfo->data.transport.stopFrame2) > 0)
+        *buff << uint32(stopFrame);
+    if((stopFrame = pInfo->data.transport.stopFrame3) > 0)
+        *buff << uint32(stopFrame);
+    if((stopFrame = pInfo->data.transport.stopFrame4) > 0)
+        *buff << uint32(stopFrame);
 }
 
 void GameObject::UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3)

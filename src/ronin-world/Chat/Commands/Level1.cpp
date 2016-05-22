@@ -144,14 +144,10 @@ bool ChatHandler::HandleToggleDevCommand(const char* args, WorldSession *m_sessi
 
 bool ChatHandler::HandleGPSCommand(const char* args, WorldSession *m_session)
 {
+    Player *plr = m_session->GetPlayer();
     WorldObject* obj = getSelectedUnit(m_session, false);
-    if(obj == NULL)
-    {
-        if(m_session->GetPlayer()->m_GM_SelectedGO)
-            obj = m_session->GetPlayer()->m_GM_SelectedGO;
-        else
-            obj = m_session->GetPlayer();
-    }
+    if(obj == NULL && (plr->m_selectedGo.empty() || (obj = plr->GetInRangeObject<WorldObject>(plr->m_selectedGo)) == NULL))
+        obj = plr;
 
     char buf[512];
     snprintf((char*)buf, 512, "|cff00ff00Current Position: |cffffffffMap: |cff00ff00%u |cffffffffInst: |cff00ff00%u |cffffffffPhase: |cff00ff00%u"

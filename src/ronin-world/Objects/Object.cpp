@@ -379,10 +379,9 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
-    ByteBuffer livingBuffer;
-    uint32 stopFrameCount = 0;
+    ByteBuffer livingBuffer, stopFrameBuffer;
     if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
-        stopFrameCount = 0; //castPtr<GameObject>(this)->GetInfo()->data.transport.;
+        castPtr<GameObject>(this)->BuildStopFrameData(&stopFrameBuffer);
 
     data->WriteBit(0);
     data->WriteBit(0);
@@ -392,7 +391,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_SELF);
     data->WriteBit(flags & UPDATEFLAG_VEHICLE);
     data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits(stopFrameCount, 24);
+    data->WriteBits((stopFrameBuffer.size()/4), 24);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
     data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
@@ -439,8 +438,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->FlushBits();
 
     // Now we do byte data
-    for(uint32 i = 0; i < stopFrameCount; i++)
-        *data << uint32(0);
+    data->append(stopFrameBuffer.contents(), stopFrameBuffer.size());
 
     if(flags & UPDATEFLAG_LIVING)
         data->append(livingBuffer.contents(), livingBuffer.size());

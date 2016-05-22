@@ -15,25 +15,26 @@ TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : file_name(MapPath), 
 
 TerrainMgr::~TerrainMgr()
 {
-    while(!tileInformation.empty())
-    {
-        (*tileInformation.begin()).second.cleanup();
-        tileInformation.erase(tileInformation.begin());
-    }
     tileInformation.clear();
     sVMapInterface.DeactivateMap(mapId);
 }
 
-template<typename T, typename T2> void getRawHeight(float x, float y, int tx, int ty, T &a, T &b, T &c, T2 *V8, T2 *V9)
+float getRawHeight(float x, float y, TileTerrainInformation* tile)
 {
+    x = 128 * (32 - x / TERRAIN_TILE_SIZE);
+    y = 128 * (32 - y / TERRAIN_TILE_SIZE);
+    int tx = (int)x; x -= tx; tx &= 127;
+    int ty = (int)y; y -= ty; ty &= 127;
+
+    float a, b, c;
     if (x + y < 1)
     {
         if (x > y)
         {
             // 1 triangle (h1, h2, h5 points)
-            T h1 = V9[tx*9+ty];
-            T h2 = V9[(tx+1)*9+ty];
-            T h5 = 2 * V8[tx*8+ty];
+            float h1 = tile->V9[tx][ty];
+            float h2 = tile->V9[tx+1][ty];
+            float h5 = 2 * tile->V8[tx][ty];
             a = h2 - h1;
             b = h5 - h1 - h2;
             c = h1;
@@ -41,9 +42,9 @@ template<typename T, typename T2> void getRawHeight(float x, float y, int tx, in
         else
         {
             // 2 triangle (h1, h3, h5 points)
-            T h1 = V9[tx*9+ty];
-            T h3 = V9[tx*9+(ty+1)];
-            T h5 = 2 * V8[tx*8+ty];
+            float h1 = tile->V9[tx][ty];
+            float h3 = tile->V9[tx][ty+1];
+            float h5 = 2 * tile->V8[tx][ty];
             a = h5 - h1 - h3;
             b = h3 - h1;
             c = h1;
@@ -54,9 +55,9 @@ template<typename T, typename T2> void getRawHeight(float x, float y, int tx, in
         if (x > y)
         {
             // 3 triangle (h2, h4, h5 points)
-            T h2 = V9[(tx+1)*9+ty];
-            T h4 = V9[(tx+1)*9+(ty+1)];
-            T h5 = 2 * V8[tx*8+ty];
+            float h2 = tile->V9[tx+1][ty];
+            float h4 = tile->V9[tx+1][ty+1];
+            float h5 = 2 * tile->V8[tx][ty];
             a = h2 + h4 - h5;
             b = h4 - h2;
             c = h5 - h4;
@@ -64,79 +65,15 @@ template<typename T, typename T2> void getRawHeight(float x, float y, int tx, in
         else
         {
             // 4 triangle (h3, h4, h5 points)
-            T h3 = V9[tx*9+(ty+1)];
-            T h4 = V9[(tx+1)*9+(ty+1)];
-            T h5 = 2 * V8[tx*8+ty];
+            float h3 = tile->V9[tx][ty+1];
+            float h4 = tile->V9[tx+1][ty+1];
+            float h5 = 2 * tile->V8[tx][ty];
             a = h4 - h3;
             b = h3 + h4 - h5;
             c = h5 - h4;
         }
     }
-}
-
-float getHeightF(float x, float y, int x_int, int y_int, ChunkTerrainInfo* chunk)
-{
-    float a, b, c;
-    getRawHeight<float, float>(x, y, x_int, y_int, a, b, c, chunk->floatTH->V8, chunk->floatTH->V9);
-    // Calculate height
     return a * x + b * y + c;
-}
-
-float getHeight16(float x, float y, int x_int, int y_int, uint16 *V8, uint16 *V9, float multiplier)
-{
-    int32 a, b, c; // Grab the raw height from the triangles
-    getRawHeight<int32, uint16>(x, y, x_int, y_int, a, b, c, V8, V9);
-    // Calculate height
-    return (float)((a * x) + (b * y) + c) * multiplier;
-}
-
-float getHeight8(float x, float y, int x_int, int y_int, uint8 *V8, uint8 *V9, float multiplier)
-{
-    int32 a, b, c; // Grab the raw height from the triangles
-    getRawHeight<int32, uint8>(x, y, x_int, y_int, a, b, c, V8, V9);
-    // Calculate height
-    return (float)((a * x) + (b * y) + c) * multiplier;
-}
-
-float GetHeight(float x, float y, TileTerrainInformation* Tile)
-{
-    // X and Y come from previous function with distance from edge of tile
-    float retVal = NO_LAND_HEIGHT;
-    if(Tile)
-    {
-        // Convert the co-ordinates to tiles.
-        uint32 TileX = TerrainMgr::ConvertGlobalXCoordinate(x);
-        uint32 TileY = TerrainMgr::ConvertGlobalYCoordinate(y);
-
-        // Convert tiles into positive values and get the distance into the tile
-        static float mid = 0.5f * 64.0f * 533.33333333f;
-        x = (mid-x)-TileX*TERRAIN_TILE_SIZE;
-        y = (mid-y)-TileY*TERRAIN_TILE_SIZE;
-
-        // Calculate what chunk we're currently in
-        int x_int = x/TERRAIN_CHUNK_SIZE, y_int = y/TERRAIN_CHUNK_SIZE;
-        // Grab the chunk pointer
-        ChunkTerrainInfo *info = &Tile->_chunks[x_int][y_int];
-        // Get the offset from the side of our chunk
-        x -= x_int*TERRAIN_CHUNK_SIZE, y -= y_int*TERRAIN_CHUNK_SIZE;
-        // Divide the left over value to see how far into our chunk we are
-        x_int = x/4.16666f, y_int = y/4.16666f; // 4.1666 is the sub length of an 8th sectioned chunks
-        // Calculate our x subdifferential
-        x -= ((int)(x/TERRAIN_CHUNK_STEP))*TERRAIN_CHUNK_STEP;
-        x = 1.f-(x/TERRAIN_CHUNK_STEP);
-        // Calculate our y subdifferential
-        y -= ((int)(y/TERRAIN_CHUNK_STEP))*TERRAIN_CHUNK_STEP;
-        y = 1.f-(y/TERRAIN_CHUNK_STEP);
-
-        retVal = info->mapHeight;
-        if(info->byteTH)
-            retVal += getHeight8(x, y, x_int, y_int, info->byteTH->V8, info->byteTH->V9, info->byteTH->Mult);
-        else if(info->shortTH)
-            retVal += getHeight16(x, y, x_int, y_int, info->shortTH->V8, info->shortTH->V9, info->shortTH->Mult);
-        else if(info->floatTH)
-            retVal += getHeightF(x, y, x_int, y_int, info);
-    }
-    return retVal;
 }
 
 float GetLiquidHeight(float x, float y, TileTerrainInformation* Tile)
@@ -144,31 +81,16 @@ float GetLiquidHeight(float x, float y, TileTerrainInformation* Tile)
     float retVal = NO_WATER_HEIGHT;
     if(Tile)
     {
-        // Convert the co-ordinates to tiles.
-        uint32 TileX = TerrainMgr::ConvertGlobalXCoordinate(x);
-        uint32 TileY = TerrainMgr::ConvertGlobalYCoordinate(y);
-
-        // Convert tiles into positive values and get the distance into the tile
-        static float mid = 0.5f * 64.0f * 533.33333333f;
-        x = (mid-x)-TileX*TERRAIN_TILE_SIZE;
-        y = (mid-y)-TileY*TERRAIN_TILE_SIZE;
-
-        // Calculate what chunk we're currently in
-        int x_int = x/TERRAIN_CHUNK_SIZE, y_int = y/TERRAIN_CHUNK_SIZE;
-        // Grab the chunk pointer
-        ChunkTerrainInfo *info = &Tile->_chunks[x_int][y_int];
-        // Get the offset from the side of our chunk
-        x -= x_int*TERRAIN_CHUNK_SIZE, y -= y_int*TERRAIN_CHUNK_SIZE;
-        // Divide the left over value to see how far into our chunk we are
-        x_int = x/TERRAIN_CHUNK_STEP, y_int = y/TERRAIN_CHUNK_STEP;
-
-        retVal = info->liquidHeight;
-        if(info->byteLH)
-            retVal += info->byteLH->L9[x_int*9+y_int]*info->byteLH->Mult;
-        else if(info->shortLH)
-            retVal += info->shortLH->L9[x_int*9+y_int]*info->shortLH->Mult;
-        else if(info->floatLH)
-            retVal += info->floatLH->L9[x_int*9+y_int];
+        int lx = (int)(16 * (32 - x / TERRAIN_TILE_SIZE)) & 15;
+        int ly = (int)(16 * (32 - y / TERRAIN_TILE_SIZE)) & 15;
+        if((retVal = Tile->liquidHeight[lx][ly]) != NO_WATER_HEIGHT)
+        {
+            lx = int(144 * (32 - x / TERRAIN_TILE_SIZE)) & 143;
+            ly = int(144 * (32 - y / TERRAIN_TILE_SIZE)) & 143;
+            if(Tile->L9[lx][ly] == NO_WATER_HEIGHT)
+                return NO_WATER_HEIGHT;
+            retVal += Tile->L9[lx][ly];
+        }
     }
     return retVal;
 }
@@ -180,7 +102,7 @@ uint8 GetLiquidType(float x, float y, TileTerrainInformation* Tile)
     {
         int lx = (int)(16 * (32 - x / TERRAIN_TILE_SIZE)) & 15;
         int ly = (int)(16 * (32 - y / TERRAIN_TILE_SIZE)) & 15;
-        retVal = Tile->_chunks[lx][ly].liquidType;
+        retVal = Tile->liquidType[lx][ly];
     }
     return retVal;
 }
@@ -192,7 +114,7 @@ uint16 GetAreaEntry(float x, float y, TileTerrainInformation* Tile)
     {
         int lx = (int)(16 * (32 - x / TERRAIN_TILE_SIZE)) & 15;
         int ly = (int)(16 * (32 - y / TERRAIN_TILE_SIZE)) & 15;
-        retVal = Tile->_chunks[lx][ly].areaInfo;
+        retVal = Tile->areaInfo[lx][ly];
     }
     return retVal;
 }
@@ -251,7 +173,7 @@ bool TerrainMgr::LoadTerrainHeader()
     {
         fseek(FileDescriptor, vmapOffset, SEEK_SET);
         if(!sVMapInterface.ActivateMap(mapId, FileDescriptor))
-            printf("Vmap failed %03u\n", mapId);
+            sLog.Error("TerrainMgr", "Failed to initialize vmap from map file %s", file_name.c_str());
     }
 
     fclose(FileDescriptor);
@@ -288,67 +210,155 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
             {
                 // Allocate the tile information.
                 TileTerrainInformation* tile = &tileInformation[offsetPair];
-                memset(&tile->_chunks, 0, sizeof(ChunkTerrainInfo)*16*16);
+                memset(tile, 0, sizeof(TileTerrainInformation));
 
+                // For below calculations, x is up and down, y is left and right(Fucking great right?)
                 for(uint8 x = 0; x < 16; x++)
                 {
                     for(uint8 y = 0; y < 16; y++)
                     {
-                        fread(&tile->_chunks[x][y].areaInfo, sizeof(uint16), 1, input);
-                        fread(&tile->_chunks[x][y].mapHeight, sizeof(float), 1, input);
+                        float mapHeight, floatV8[8][8], floatV9[9][9];
+                        fread(&tile->areaInfo[x][y], sizeof(uint16), 1, input);
+                        fread(&mapHeight, sizeof(float), 1, input);
+                        for(uint8 cx = 0; cx <= 8; cx++)
+                        {
+                            for(uint8 cy = 0; cy <= 8; cy++)
+                            {
+                                floatV9[cx][cy] = mapHeight;
+                                if(cx == 8 || cy == 8)
+                                    continue;
+                                floatV8[cx][cy] = mapHeight;
+                            }
+                        }
 
+                        float mult;
                         uint8 compFlags;
                         fread(&compFlags, sizeof(uint8), 1, input);
                         switch(compFlags)
                         {
                         case 0x04:
-                            tile->_chunks[x][y].byteTH = new ChunkTerrainInfo::bT;
-                            fread(&tile->_chunks[x][y].byteTH->V8, sizeof(uint8)*8*8, 1, input);
-                            fread(&tile->_chunks[x][y].byteTH->V9, sizeof(uint8)*9*9, 1, input);
-                            fread(&tile->_chunks[x][y].byteTH->Mult, sizeof(float), 1, input);
+                            uint8 uint8_V8[8*8], uint8_V9[9*9];
+                            fread(&uint8_V8, sizeof(uint8)*8*8, 1, input);
+                            fread(&uint8_V9, sizeof(uint8)*9*9, 1, input);
+                            fread(&mult, sizeof(float), 1, input);
+                            for(uint8 cx = 0; cx <= 8; cx++)
+                            {
+                                for(uint8 cy = 0; cy <= 8; cy++)
+                                {
+                                    floatV9[cx][cy] += mult*float(uint8_V9[cx*9+cy]);
+                                    if(cx == 8 || cy == 8)
+                                        continue;
+                                    floatV8[cx][cy] += mult*float(uint8_V8[cx*8+cy]);
+                                }
+                            }
                             break;
                         case 0x02:
-                            tile->_chunks[x][y].shortTH = new ChunkTerrainInfo::sT;
-                            fread(&tile->_chunks[x][y].shortTH->V8, sizeof(uint16)*8*8, 1, input);
-                            fread(&tile->_chunks[x][y].shortTH->V9, sizeof(uint16)*9*9, 1, input);
-                            fread(&tile->_chunks[x][y].shortTH->Mult, sizeof(float), 1, input);
+                            uint16 uint16V8[8*8], uint16V9[9*9];
+                            fread(&uint16V8, sizeof(uint16)*8*8, 1, input);
+                            fread(&uint16V9, sizeof(uint16)*9*9, 1, input);
+                            fread(&mult, sizeof(float), 1, input);
+                            for(uint8 cx = 0; cx <= 8; cx++)
+                            {
+                                for(uint8 cy = 0; cy <= 8; cy++)
+                                {
+                                    floatV9[cx][cy] += mult*float(uint16V9[cx*9+cy]);
+                                    if(cx == 8 || cy == 8)
+                                        continue;
+                                    floatV8[cx][cy] += mult*float(uint16V8[cx*8+cy]);
+                                }
+                            }
                             break;
-                        case 0x01: break; // Flat land
+                        case 0x01:
+                            break; // Flat land
                         default:
-                            tile->_chunks[x][y].floatTH = new ChunkTerrainInfo::fT;
-                            fread(&tile->_chunks[x][y].floatTH->V8, sizeof(float)*8*8, 1, input);
-                            fread(&tile->_chunks[x][y].floatTH->V9, sizeof(float)*9*9, 1, input);
+                            float V8[8*8], V9[9*9];
+                            fread(&V8, sizeof(float)*8*8, 1, input);
+                            fread(&V9, sizeof(float)*9*9, 1, input);
+                            for(uint8 cx = 0; cx <= 8; cx++)
+                            {
+                                for(uint8 cy = 0; cy <= 8; cy++)
+                                {
+                                    floatV9[cx][cy] += V9[cx*9+cy];
+                                    if(cx == 8 || cy == 8)
+                                        continue;
+                                    floatV8[cx][cy] += V8[cx*8+cy];
+                                }
+                            }
                             break;
                         }
 
+                        // Splice together chunks into our tile storage
+                        for(uint8 cx = 0; cx <= 8; cx++)
+                        {
+                            int i = x*8 + cx;
+                            for(uint8 cy = 0; cy <= 8; cy++)
+                            {
+                                int j = y*8 + cy;
+                                tile->V9[i][j] = floatV9[cx][cy];
+
+                                if(cx == 8 || cy == 8)
+                                    continue;
+                                tile->V8[i][j] = floatV8[cx][cy];
+                            }
+                        }
+
+                        // We don't use holes yet
                         uint32 holes;
                         fread(&holes, sizeof(uint32), 1, input);
 
                         // Liquid reading
-                        fread(&tile->_chunks[x][y].liquidType, sizeof(uint16), 1, input);
+                        fread(&tile->liquidType[x][y], sizeof(uint16), 1, input);
                         fread(&compFlags, sizeof(uint8), 1, input);
                         if(compFlags != 0xFF) // 0xFF is dry land
                         {
-                            fread(&tile->_chunks[x][y].liquidHeight, sizeof(float), 1, input);
+                            float liqMult;
+                            fread(&tile->liquidHeight[x][y], sizeof(float), 1, input);
                             switch(compFlags)
                             {
                             case 0x04:
-                                tile->_chunks[x][y].byteLH = new ChunkTerrainInfo::bL;
-                                fread(&tile->_chunks[x][y].byteLH->L9, sizeof(uint8)*9*9, 1, input);
-                                fread(&tile->_chunks[x][y].byteLH->Mult, sizeof(float), 1, input);
+                                uint8 uint8L9[9*9];
+                                fread(&uint8L9, sizeof(uint8)*9*9, 1, input);
+                                fread(&liqMult, sizeof(float), 1, input);
+                                for(uint8 cx = 0; cx <= 8; cx++)
+                                {
+                                    int i = x*9 + cx;
+                                    for(uint8 cy = 0; cy <= 8; cy++)
+                                    {
+                                        int j = y*9 + cy;
+                                        tile->L9[i][j] = liqMult*float(uint8L9[cx*9+cy]);
+                                    }
+                                }
                                 break;
                             case 0x02:
-                                tile->_chunks[x][y].shortLH = new ChunkTerrainInfo::sL;
-                                fread(&tile->_chunks[x][y].shortLH->L9, sizeof(uint16)*9*9, 1, input);
-                                fread(&tile->_chunks[x][y].shortLH->Mult, sizeof(float), 1, input);
+                                uint16 uint16L9[9*9];
+                                fread(&uint16L9, sizeof(uint16)*9*9, 1, input);
+                                fread(&liqMult, sizeof(float), 1, input);
+                                for(uint8 cx = 0; cx <= 8; cx++)
+                                {
+                                    int i = x*9 + cx;
+                                    for(uint8 cy = 0; cy <= 8; cy++)
+                                    {
+                                        int j = y*9 + cy;
+                                        tile->L9[i][j] = liqMult*float(uint16L9[cx*9+cy]);
+                                    }
+                                }
                                 break;
                             case 0x01: break; // Flat water
                             default:
-                                tile->_chunks[x][y].floatLH = new ChunkTerrainInfo::fL;
-                                fread(&tile->_chunks[x][y].floatLH->L9, sizeof(float)*9*9, 1, input);
+                                float L9[9*9];
+                                fread(&L9, sizeof(float)*9*9, 1, input);
+                                for(uint8 cx = 0; cx <= 8; cx++)
+                                {
+                                    int i = x*9 + cx;
+                                    for(uint8 cy = 0; cy <= 8; cy++)
+                                    {
+                                        int j = y*9 + cy;
+                                        tile->L9[i][j] = L9[cx*9+cy];
+                                    }
+                                }
                                 break;
                             }
-                        } else tile->_chunks[x][y].liquidHeight = NO_WATER_HEIGHT;
+                        } else tile->liquidHeight[x][y] = NO_WATER_HEIGHT;
                     }
                 }
             }
@@ -365,10 +375,7 @@ void TerrainMgr::UnloadTileInformation(uint32 x, uint32 y)
 
     std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
     if(tileInformation.find(tilePair) != tileInformation.end())
-    {
-        tileInformation.at(tilePair).cleanup();
         tileInformation.erase(tilePair);
-    }
     mutex.Release();
 
     sLog.Debug("TerrainMgr","Unloaded tile information for tile [%u][%u]", x, y);
@@ -449,7 +456,7 @@ bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
         {
             for(uint32 yc = (CellY%CellsPerTile)*16/CellsPerTile;yc<(CellY%CellsPerTile)*16/CellsPerTile+16/CellsPerTile;yc++)
             {
-                if(uint16 areaId = tile->_chunks[xc][yc].areaInfo)
+                if(uint16 areaId = tile->areaInfo[xc][yc])
                 {
                     AreaID = areaId;
                     Result = true;
@@ -476,7 +483,7 @@ float TerrainMgr::GetLandHeight(float x, float y)
     mutex.Acquire();
     float LandHeight = NO_LAND_HEIGHT;
     if(_TileInformationLoaded(TileX, TileY))
-        LandHeight = GetHeight(x, y, GetTileInformation(TileX, TileY));
+        LandHeight = getRawHeight(x, y, GetTileInformation(TileX, TileY));
     mutex.Release();
     return LandHeight;
 }

@@ -506,22 +506,26 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
         }
     }
 
-    if( (plr->m_GM_SelectedGO = GObj) == NULL )
+    if( GObj == NULL )
     {
         RedSystemMessage(m_session, "No inrange GameObject found.");
         return true;
     }
 
+    plr->m_selectedGo = GObj->GetGUID();
     GreenSystemMessage(m_session, "Selected GameObject [ %s ] which is %.3f meters away from you.", GameObjectNameStorage.LookupEntry(GObj->GetEntry())->Name, cDist);
     return true;
 }
 
 bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
 {
-    GameObject* GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    // Call a clean to selected gameobject even if it's not inrange
+    m_session->GetPlayer()->m_selectedGo.Clean();
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
@@ -563,10 +567,8 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
     GObj = NULL;
     if(foundonmap)
         BlueSystemMessage(m_session, "Deleted selected object and erased it from spawn map.");
-    else
-        BlueSystemMessage(m_session, "Deleted selected object.");
+    else BlueSystemMessage(m_session, "Deleted selected object.");
 
-    m_session->GetPlayer()->m_GM_SelectedGO = NULL;
     return true;
 }
 
@@ -638,12 +640,11 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
 bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
 {
     std::stringstream sstext;
-    GameObject *GObj = NULL;
-
-    GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
@@ -711,14 +712,14 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOEnable(const char *args, WorldSession *m_session)
 {
-    GameObject* GObj = NULL;
-
-    GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
+
     if(GObj->GetUInt32Value(GAMEOBJECT_DYNAMIC) == 1)
     {
         // Deactivate
@@ -733,12 +734,11 @@ bool ChatHandler::HandleGOEnable(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOActivate(const char* args, WorldSession *m_session)
 {
-    GameObject* GObj = NULL;
-
-    GObj = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !GObj )
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
@@ -760,12 +760,14 @@ bool ChatHandler::HandleGOActivate(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOScale(const char* args, WorldSession* m_session)
 {
-    GameObject* go = m_session->GetPlayer()->m_GM_SelectedGO;
+    Player *plr = m_session->GetPlayer();
+    GameObject *go = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
     if( go == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
+
     MapInstance* mgr = go->GetMapInstance();
     if(mgr == NULL)
     {
@@ -856,12 +858,16 @@ bool ChatHandler::HandleMountCommand(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOAnimProgress(const char * args, WorldSession * m_session)
 {
-    if(!m_session->GetPlayer()->m_GM_SelectedGO)
-        return false;
+    Player *plr = m_session->GetPlayer();
+    GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( GObj == NULL )
+    {
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
+        return true;
+    }
 
-    uint32 ap = atol(args);
-    m_session->GetPlayer()->m_GM_SelectedGO->SetAnimProgress(ap);
-    BlueSystemMessage(m_session, "Set ANIMPROGRESS to %u", ap);
+    GObj->SetAnimProgress(atol(args));
+    BlueSystemMessage(m_session, "Set ANIMPROGRESS to %u", GObj->GetAnimProgress());
     return true;
 }
 

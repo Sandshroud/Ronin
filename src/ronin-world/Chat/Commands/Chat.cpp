@@ -565,6 +565,7 @@ void ChatHandler::SendMultilineMessage(WorldSession *m_session, const char *str)
 
 bool ChatHandler::ExecuteCommandInTable(ChatCommand *table, const char* text, WorldSession *m_session)
 {
+    Player *plr = m_session->GetPlayer();
     std::string cmd = "";
 
     // get command
@@ -632,16 +633,12 @@ bool ChatHandler::ExecuteCommandInTable(ChatCommand *table, const char* text, Wo
             {
                 result = true;
                 GameObject* go = NULL;
-                if((go = m_session->GetPlayer()->m_GM_SelectedGO) != NULL)
+                if(!plr->m_selectedGo.empty() && (go = plr->GetInRangeObject<GameObject>(plr->m_selectedGo)) != NULL)
                 {
                     go->SetUInt32Value(table[i].NormalValueField, atoi(text));
                     go->SaveToDB();
-                }
-                else
-                    result = false;
-            }
-            else
-                result = CmdSetValueField(m_session, table[i].NormalValueField, table[i].MaxValueField, table[i].Name, text);
+                } else result = false;
+            } else result = CmdSetValueField(m_session, table[i].NormalValueField, table[i].MaxValueField, table[i].Name, text);
 
             if(!result)
                 RedSystemMessage(m_session, "Must be in the form of (command) <value>, or, (command) <value> <maxvalue>");

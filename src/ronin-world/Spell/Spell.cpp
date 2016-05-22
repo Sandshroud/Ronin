@@ -963,6 +963,9 @@ void Spell::cast(bool check)
                     FillTargetMap(i);
                     if(!m_effectTargetMaps[i].empty())
                         continue;
+                    // If for some reason we have a unitTarget but we aren't the target and map is empty, skip processing
+                    if(!m_targets.m_unitTarget.empty() && m_targets.m_unitTarget != m_caster->GetGUID())
+                        continue;
                     if(!CanHandleSpellEffect(i))
                         continue;
                     if(GetSpellProto()->Effect[i] == SPELL_EFFECT_SUMMON
@@ -1454,6 +1457,15 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_NOT_WHILE_GHOST;
         }
 
+        if(m_targets.m_unitTarget)
+        {
+            Unit *unitTarget = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget);
+            if(unitTarget == NULL || !sFactionSystem.isHostile(unitTarget, m_caster))
+                return SPELL_FAILED_BAD_TARGETS;
+
+            // Other target checks
+        }
+
         if (p_caster->GetMapInstance() && p_caster->GetMapInstance()->CanUseCollision(p_caster))
         {
             if (GetSpellProto()->MechanicsType == MECHANIC_MOUNTED)
@@ -1499,7 +1511,7 @@ uint8 Spell::CanCast(bool tolerate)
         }
 
         if(!castPtr<Unit>(m_caster)->IsInCombat() && GetSpellProto()->NameHash == SPELL_HASH_DISENGAGE)
-            return SPELL_FAILED_SPELL_UNAVAILABLE;;
+            return SPELL_FAILED_SPELL_UNAVAILABLE;
 
         // Disarm
         if( castPtr<Unit>(m_caster)!= NULL )

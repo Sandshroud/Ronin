@@ -1882,10 +1882,11 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
 
 bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
 {
-    GameObject* go = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !go )
+    Player *plr = m_session->GetPlayer();
+    GameObject *go = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( go == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
@@ -1900,10 +1901,11 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
 bool ChatHandler::HandleGOMove(const char * args, WorldSession * m_session)
 {
     // move the go to player's coordinates
-    GameObject* go = m_session->GetPlayer()->m_GM_SelectedGO;
-    if( !go )
+    Player *plr = m_session->GetPlayer();
+    GameObject *go = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
+    if( go == NULL )
     {
-        RedSystemMessage(m_session, "No selected GameObject...");
+        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 

@@ -122,7 +122,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_AutoShotDuration              = 0;
     m_AutoShotAttackTimer           = 0;
     m_AutoShotSpell                 = NULL;
-    m_GM_SelectedGO                 = NULL;
 
     m_regenTimerCount = 0;
     for (uint8 i = 0; i < 6; i++)
@@ -265,8 +264,7 @@ void Player::Destruct()
         m_tradeData = NULL;
     }
 
-    if (m_GM_SelectedGO)
-        m_GM_SelectedGO = NULL;
+    m_selectedGo.Clean();
 
     if(m_SummonedObject)
     {
@@ -2288,21 +2286,11 @@ void Player::_EventExploration()
 
     // Check for a restable area
     bool rest_on = restmap;
-    if(restinfo = sWorld.GetRestedAreaInfo(at->AreaId))
+    if((at->ZoneId && (restinfo = sWorld.GetRestedAreaInfo(at->ZoneId))) || (restinfo = sWorld.GetRestedAreaInfo(at->AreaId)))
     {
         if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
             rest_on = true;
         else rest_on = false;
-    }
-    else if(at->ZoneId) // Crow: Shouldn't have to do this.
-    {
-        //second AT check for subzones.
-        if(restinfo = sWorld.GetRestedAreaInfo(at->ZoneId))
-        {
-            if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
-                rest_on = true;
-            else rest_on = false;
-        }
     }
 
     HandleRestedCalculations(rest_on);

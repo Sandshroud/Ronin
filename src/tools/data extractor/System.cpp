@@ -449,7 +449,7 @@ void ParsMapFiles()
                             delete ADT;
                         }
 
-                        // Cut down on updates
+                        // Cut down on updates to prevent buffer refresh rate slowing down processing
                         if(y%16) continue;
 
                         dots[index++] = '.';
