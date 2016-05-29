@@ -314,7 +314,7 @@ public:
     RONIN_INLINE void SetSheatheForAttackType(uint8 type) { SetByte(UNIT_FIELD_BYTES_2, 0, type); }
     RONIN_INLINE bool isQuestGiver() { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ); };
 
-    void RegenerateHealth(bool isinterrupted);
+    void RegenerateHealth(bool inCombat);
     void RegenerateMana(bool isinterrupted);
 
     bool CanSee(Unit* obj) // * Invisibility & Stealth Detection - Partha *

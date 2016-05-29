@@ -346,10 +346,9 @@ void Player::Destruct()
 
 void Player::Update(uint32 msTime, uint32 diff)
 {
+    Unit::Update( msTime, diff );
     if(!IsInWorld())
         return;
-
-    Unit::Update( msTime, diff );
 
     // Autosave
     if(m_nextSave > diff)
@@ -2220,6 +2219,7 @@ void Player::_EventExploration()
         // Now remove all auras that are only usable outdoors (e.g. Travel form)
         m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
     }
+
     if(!m_areaId || m_areaId == 0xFFFF)
     {
         if(m_FlyingAura)
@@ -4824,25 +4824,39 @@ void Player::RegenerateHealth( bool inCombat )
     uint32 mh = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
     if(cur >= mh)
         return;
+    AuraInterface::modifierMap *modMap = NULL;
 
-    float Spirit = (float) GetUInt32Value(UNIT_FIELD_SPIRIT);
-    uint8 Class = getClass(), level = ((getLevel() > MAXIMUM_ATTAINABLE_LEVEL) ? MAXIMUM_ATTAINABLE_LEVEL : getLevel());
+    float amt = 0.f;
+    if(m_AuraInterface.HasAuraWithMechanic(MECHANIC_POLYMORPHED))
+        amt = float(mh)/3.f;
+    else if(!inCombat || m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_REGEN_DURING_COMBAT))
+    {
+        uint8 level = std::min<uint8>(getLevel(), MAXIMUM_ATTAINABLE_LEVEL);
+        amt = (level >= 15 ? 0.015f : 0.2f) * (float)mh;
+        if(level < 15) amt /= level;
 
-    // This has some bad naming. HPRegen* is actually out of combat base, while HPRegenBase* is mana per spirit.
-    float basespirit = ((Spirit > 50) ? 50 : Spirit);
-    float basespiritdiff = Spirit - basespirit;
-    float amt = ((basespiritdiff *0.2f)+basespirit);
+        float modifier = inCombat ? 0.f : 100.f;
+        if(modMap = m_AuraInterface.GetModMapByModType(inCombat ? SPELL_AURA_MOD_REGEN_DURING_COMBAT : SPELL_AURA_MOD_REGEN))
+            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
+                modifier += itr->second->m_amount;
+        amt *= modifier/100.f;
 
-    if(IsSitting())
-        amt *= 1.5f;
+        if(IsSitting())
+            amt *= 1.33f;
+    }
+
+    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT))
+        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
+            amt += itr->second->m_amount;
+
+    amt += GetBonusesFromItems(ITEM_STAT_HEALTH_REGEN);
 
     if(amt > 0)
     {
         if(amt <= 1.0f)//this fixes regen like 0.98
             cur++;
-        else
-            cur += float2int32(floor(amt)); // Crow: client always rounds down
-        SetUInt32Value(UNIT_FIELD_HEALTH,(cur>=mh) ? mh : cur);
+        else cur += float2int32(floor(amt));
+        SetUInt32Value(UNIT_FIELD_HEALTH, (cur >= mh) ? mh : cur);
     }
 }
 

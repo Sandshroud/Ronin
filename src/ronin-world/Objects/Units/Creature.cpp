@@ -409,9 +409,9 @@ bool Creature::RemoveEnslave()
     return RemoveAura(m_enslaveSpell);
 }
 
-void Creature::RegenerateHealth(bool isinterrupted)
+void Creature::RegenerateHealth(bool inCombat)
 {
-    if(m_limbostate || !m_canRegenerateHP || isinterrupted)
+    if(m_limbostate || !m_canRegenerateHP || inCombat)
         return;
 
     uint32 cur = GetUInt32Value(UNIT_FIELD_HEALTH);
@@ -419,17 +419,12 @@ void Creature::RegenerateHealth(bool isinterrupted)
     if(cur >= mh)
         return;
 
-	/*if(GetAIInterface()->getAIState() == STATE_EVADE)
+    if(hasStateFlag(UF_EVADING))
     {
-        //though creatures have their stats we use some wierd formula for amt
-        float amt = getLevel()*2.0f;
-        if(amt <= 1.0f)//this fixes regen like 0.98
-            cur++;
-        else cur += (uint32)amt;
-
+        cur += getLevel()*2; //though creatures have their stats we use some wierd formula for amt
         SetUInt32Value(UNIT_FIELD_HEALTH, (cur >= mh) ? mh : cur);
         return;
-    }*/
+    }
 
     cur += float2int32(ceil(float(mh)/3.f));
     if(cur >= mh || (mh-cur < mh/8)) cur = mh;
@@ -446,15 +441,12 @@ void Creature::RegenerateMana(bool isinterrupted)
     if(cur >= mm)
         return;
 
-/*  if(isinterrupted || GetAIInterface()->getAIState() == STATE_EVADE)
+    if(isinterrupted || hasStateFlag(UF_EVADING))
     {
-        float amt = (getLevel()+10);
-        if(amt <= 1.0)//this fixes regen like 0.98
-            cur++;
-        else cur += (uint32)amt;
+        cur += getLevel()+10;
         SetPower(POWER_TYPE_MANA, (cur>=mm)?mm:cur);
         return;
-    }*/
+    }
 
     cur += float2int32(ceil(float(mm)/10.f));
     if(cur >= mm || (mm-cur < mm/16)) cur = mm;

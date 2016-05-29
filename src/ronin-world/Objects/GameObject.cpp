@@ -384,17 +384,18 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
     return true;
 }
 
-void GameObject::BuildStopFrameData(ByteBuffer *buff)
+uint32 GameObject::BuildStopFrameData(ByteBuffer *buff)
 {
-    uint32 stopFrame = 0;
+    uint32 frameCount = 0, stopFrame = 0;
     if((stopFrame = pInfo->data.transport.stopFrame1) > 0)
-        *buff << uint32(stopFrame);
+        frameCount++, *buff << uint32(stopFrame);
     if((stopFrame = pInfo->data.transport.stopFrame2) > 0)
-        *buff << uint32(stopFrame);
+        frameCount++, *buff << uint32(stopFrame);
     if((stopFrame = pInfo->data.transport.stopFrame3) > 0)
-        *buff << uint32(stopFrame);
+        frameCount++, *buff << uint32(stopFrame);
     if((stopFrame = pInfo->data.transport.stopFrame4) > 0)
-        *buff << uint32(stopFrame);
+        frameCount++, *buff << uint32(stopFrame);
+    return frameCount;
 }
 
 void GameObject::UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3)

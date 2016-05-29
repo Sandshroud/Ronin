@@ -1459,11 +1459,15 @@ uint8 Spell::CanCast(bool tolerate)
 
         if(m_targets.m_unitTarget)
         {
-            Unit *unitTarget = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget);
-            if(unitTarget == NULL || !sFactionSystem.isHostile(unitTarget, m_caster))
-                return SPELL_FAILED_BAD_TARGETS;
-
-            // Other target checks
+            if(Unit *unitTarget = p_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
+            {
+                if(sFactionSystem.GetFactionsInteractStatus(p_caster, unitTarget) >= FI_STATUS_NEUTRAL)
+                {
+                    if(!sFactionSystem.CanEitherUnitAttack(p_caster, unitTarget, false))
+                        return SPELL_FAILED_BAD_TARGETS;
+                } else if(sFactionSystem.CanEitherUnitAttack(p_caster, unitTarget, false))
+                    return SPELL_FAILED_BAD_TARGETS;
+            } else return SPELL_FAILED_BAD_TARGETS;
         }
 
         if (p_caster->GetMapInstance() && p_caster->GetMapInstance()->CanUseCollision(p_caster))

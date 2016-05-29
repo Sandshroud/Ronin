@@ -379,9 +379,10 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 /// Fills the data with this object's movement/speed info
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
+    GameObject *tThis = NULL;
     ByteBuffer livingBuffer, stopFrameBuffer;
     if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
-        castPtr<GameObject>(this)->BuildStopFrameData(&stopFrameBuffer);
+        tThis = castPtr<GameObject>(this);
 
     data->WriteBit(0);
     data->WriteBit(0);
@@ -391,7 +392,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_SELF);
     data->WriteBit(flags & UPDATEFLAG_VEHICLE);
     data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits((stopFrameBuffer.size()/4), 24);
+    data->WriteBits(tThis ? tThis->BuildStopFrameData(&stopFrameBuffer) : 0, 24);
     data->WriteBit(0);
     data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POS);
     data->WriteBit(flags & UPDATEFLAG_STATIONARY_POS);
@@ -855,25 +856,19 @@ float WorldObject::calcRadAngle( float Position1X, float Position1Y, float Posit
             angle = 0.0;
         else if (dy > 0.0)
             angle = M_PI * 0.5/*/ 2.0*/;
-        else
-            angle = M_PI * 3.0 * 0.5/*/ 2.0*/;
+        else angle = M_PI * 3.0 * 0.5/*/ 2.0*/;
     }
     else if (dy == 0.0)
     {
         if (dx > 0.0)
             angle = 0.0;
-        else
-            angle = M_PI;
+        else angle = M_PI;
     }
-    else
-    {
-        if (dx < 0.0)
-            angle = atan(dy/dx) + M_PI;
-        else if (dy < 0.0)
-            angle = atan(dy/dx) + (2*M_PI);
-        else
-            angle = atan(dy/dx);
-    }
+    else if (dx < 0.0)
+        angle = atan(dy/dx) + M_PI;
+    else if (dy < 0.0)
+        angle = atan(dy/dx) + (2*M_PI);
+    else angle = atan(dy/dx);
 
     // Return
     return float(angle);

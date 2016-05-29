@@ -547,7 +547,7 @@ public:
 
     bool Load(uint32 mapId, GOSpawn *spawn, float angle = 0.f);
 
-    void BuildStopFrameData(ByteBuffer *buff);
+    uint32 BuildStopFrameData(ByteBuffer *buff);
     void UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3);
     static int64 PackRotation(GameObject::ObjectRotation *rotation);
 
