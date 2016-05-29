@@ -82,7 +82,7 @@ namespace VMAP
             // public for debug
             static G3D::Vector3 convertPositionToInternalRep(float x, float y, float z);
 
-            VMapManager(std::string objDir);
+            VMapManager(const char* objDir);
             ~VMapManager(void);
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }

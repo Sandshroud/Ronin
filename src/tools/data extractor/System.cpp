@@ -421,11 +421,10 @@ void ParsMapFiles()
             {
                 fwrite(szRawMAPMagic, 10, 1, mapFile);
 
-                size_t offPos = ftell(mapFile), offs2 = 0;
+                size_t offPos = ftell(mapFile);
                 uint32 offsets[64][64], vmapOffs = 0;
                 memset(offsets, 0, sizeof(uint32)*64*64);
                 fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
-                offs2 = ftell(mapFile);
                 fwrite(&vmapOffs, sizeof(uint32), 1, mapFile);
 
                 std::string dots = "........";
@@ -464,7 +463,6 @@ void ParsMapFiles()
                 vmapOffs = ftell(mapFile);
                 fseek(mapFile, offPos, SEEK_SET);
                 fwrite(offsets, sizeof(uint32)*64*64, 1, mapFile);
-                fseek(mapFile, offs2, SEEK_SET);
                 fwrite(&vmapOffs, sizeof(uint32), 1, mapFile);
                 fseek(mapFile, vmapOffs, SEEK_SET);
                 writeVMapData(mapFile, map_ids[i].id, &modelSpawns, &tileModelSpawnSets);

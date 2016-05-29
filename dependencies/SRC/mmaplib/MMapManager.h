@@ -33,7 +33,7 @@ typedef std::map<dtTileRef, uint32> ReverseReferenceMap;
 class MMapManager : public MMapManagerExt
 {
 public:
-    MMapManager(std::string dataPath, uint32 mapid);
+    MMapManager(const char* dataPath, uint32 mapid);
     ~MMapManager();
 
 private:

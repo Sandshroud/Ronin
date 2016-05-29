@@ -4717,13 +4717,19 @@ void Player::RegeneratePower(bool is_interrupted)
     uint32 m_regenTimer = m_P_regenTimer; //set next regen time
     m_regenTimerCount += m_regenTimer;
 
-    for(uint8 power = POWER_TYPE_MANA; power < POWER_TYPE_MAX; power++)
+    // Only runic power 
+    for(uint8 power = POWER_TYPE_MANA; power <= POWER_TYPE_RUNIC; power++)
     {
+        if(power == POWER_TYPE_RUNE || power == POWER_TYPE_FOCUS || power == POWER_TYPE_HAPPINESS)
+            continue;
+
         EUnitFields powerField = GetPowerFieldForType(power);
         if (powerField == UNIT_END)
             continue;
 
         uint32 curValue = GetPower(powerField), maxValue = GetMaxPower(EUnitFields(powerField+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS)));
+        if(curValue == 0 && (power == POWER_TYPE_RAGE || power == POWER_TYPE_RUNIC))
+            continue;
 
         float addvalue = 0.0f;
         switch (power)
@@ -4732,12 +4738,8 @@ void Player::RegeneratePower(bool is_interrupted)
             {
                 addvalue += GetFloatValue(is_interrupted ? UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER : UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER) * 0.001f * m_regenTimer;
             }break;
-
         case POWER_TYPE_RAGE:
             {
-                if(!curValue)
-                    continue;
-
                 if (!IsInCombat() && !is_interrupted)
                 {
                     addvalue += -20/0.05f;  // 2 rage by tick (= 2 seconds => 1 rage/sec)
@@ -4745,17 +4747,12 @@ void Player::RegeneratePower(bool is_interrupted)
                         addvalue /= m_regenTimer;
                 }
             }break;
-
         case POWER_TYPE_ENERGY:
             {
                 addvalue += 0.01f * m_regenTimer;
             }break;
-
         case POWER_TYPE_RUNIC:
             {
-                if(!curValue)
-                    continue;
-
                 if (!IsInCombat() && !is_interrupted)
                 {
                     addvalue += -30/0.3f;
@@ -4763,27 +4760,10 @@ void Player::RegeneratePower(bool is_interrupted)
                         addvalue /= m_regenTimer;
                 }
             }break;
+        }
 
-        case POWER_TYPE_RUNE:
-        case POWER_TYPE_FOCUS:
-        case POWER_TYPE_HAPPINESS:
+        if((addvalue < 0.f && curValue == 0) || (addvalue > 0.f && curValue == maxValue))
             continue;
-            break;
-
-        default:
-            break;
-        }
-
-        if (addvalue < 0.0f)
-        {
-            if (curValue == 0)
-                continue;
-        }
-        else if (addvalue > 0.0f)
-        {
-            if (curValue == maxValue)
-                continue;
-        }
 
         addvalue += m_powerFraction[power];
         float intval = 0.0f;

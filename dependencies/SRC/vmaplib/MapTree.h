@@ -37,6 +37,8 @@ namespace VMAP
             loadedSpawnMap iLoadedSpawns;
             // Sotred offsets for main map file
             fileOffsetMap iFileOffsets;
+            // Load mapping
+            std::map<G3D::uint32, std::vector<std::pair<uint32, std::string>>> loadedData;
 
         private:
             bool getIntersectionTime(const G3D::Ray& pRay, float &pMaxDist, bool pStopAtFirstHit) const;

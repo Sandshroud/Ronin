@@ -3,7 +3,7 @@
 #include <detour/Detour.h>
 #include "MMapManager.h"
 
-MMapManager::MMapManager(std::string dataPath, uint32 mapid) : m_dataPath(dataPath), ManagerMapId(mapid), m_navMesh(NULL), m_navMeshQuery(NULL), lastTileRef(0)
+MMapManager::MMapManager(const char* dataPath, uint32 mapid) : m_dataPath(dataPath), ManagerMapId(mapid), m_navMesh(NULL), m_navMeshQuery(NULL), lastTileRef(0)
 {
     // load and init dtNavMesh - read parameters from file
     uint32 pathLen = uint32(m_dataPath.length() + strlen("/000.mmap")+1);

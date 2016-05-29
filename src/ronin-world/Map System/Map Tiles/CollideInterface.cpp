@@ -16,7 +16,7 @@ void VMapInterface::Init()
     {
         // find version import
         if(vmap_manager_construction rcall = (vmap_manager_construction)GetProcAddress(hModule, "vmap_manager_construction"))
-            vMapMgr = rcall(sWorld.VObjPath);
+            vMapMgr = rcall(sWorld.VObjPath.c_str());
         else FreeLibrary(hModule);
     }
 

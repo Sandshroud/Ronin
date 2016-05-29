@@ -377,9 +377,12 @@ namespace VMAP
                     else if (iTreeValues[(*itr).first].name != (*itr).second.name)
                         OUT_DEBUG("StaticMapTree::LoadMapTile() : name collision on GUID=%u", (*itr).second.ID);
                 }
+
+                loadedData[packedTile].push_back(std::make_pair((*itr).first, (*itr).second.name));
             } else OUT_DEBUG("StaticMapTree::LoadMapTile() : could not acquire WorldModel pointer [%u, %u]", tileX, tileY);
         }
 
+        modelSpawns.clear();
         return result;
     }
 
@@ -395,25 +398,24 @@ namespace VMAP
             return;
         }
 
-        /*size_t count = modelSpawns.count(packedTile);
-        if(count == 0)
+        if(loadedData[packedTile].empty())
             return; /// Empty tile
 
-        while(!modelSpawns[packedTile].empty())
+        while(!loadedData[packedTile].empty())
         {
-            uint32 ref = modelSpawns[packedTile].begin()->first;
-            ModelSpawn spawn = modelSpawns[packedTile].begin()->second;
+            uint32 ref = loadedData[packedTile].begin()->first;
+            std::string spawnName = loadedData[packedTile].begin()->second;
             // release model instance
-            vm->releaseModelInstance(spawn.name);
+            vm->releaseModelInstance(spawnName);
             if (!iLoadedSpawns.count(ref))
-                OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s' (ID:%u)", spawn.name.c_str(), spawn.ID);
+                OUT_DEBUG("StaticMapTree::UnloadMapTile() : trying to unload non-referenced model '%s'", spawnName.c_str());
             else if (--iLoadedSpawns[ref] == 0)
             {
                 iTreeValues[ref].setUnloaded();
                 iLoadedSpawns.erase(ref);
             }
 
-            modelSpawns[packedTile].erase(modelSpawns[packedTile].begin());
-        }*/
+            loadedData[packedTile].erase(loadedData[packedTile].begin());
+        }
     }
 }

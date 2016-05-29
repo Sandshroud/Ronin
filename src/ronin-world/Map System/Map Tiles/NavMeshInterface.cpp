@@ -30,7 +30,7 @@ MMapManagerExt* CNavMeshInterface::GetOrCreateMMapManager(uint32 mapid)
         return NULL;
     if(m_maps.find(mapid) == m_maps.end())
     {
-        if(MMapManagerExt *mgr = allocator(sWorld.MNavPath, mapid))
+        if(MMapManagerExt *mgr = allocator(sWorld.MNavPath.c_str(), mapid))
             m_maps.insert(std::make_pair(mapid, mgr));
         else return NULL;
     }

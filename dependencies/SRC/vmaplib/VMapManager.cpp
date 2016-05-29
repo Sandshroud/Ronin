@@ -12,7 +12,7 @@ using G3D::Vector3;
 
 namespace VMAP
 {
-    VMapManager::VMapManager(std::string objDir) : vMapObjDir(objDir)
+    VMapManager::VMapManager(const char* objDir) : vMapObjDir(objDir)
     {
         if(vMapObjDir.length() > 0 && vMapObjDir.at(vMapObjDir.length()-1) != '\\' && vMapObjDir.at(vMapObjDir.length()-1) != '/')
             vMapObjDir.push_back('/');
