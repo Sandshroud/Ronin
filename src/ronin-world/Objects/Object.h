@@ -137,7 +137,7 @@ public:
     // Events are forced class so call virtual destruct through EventDestruct
     void EventDestruct() { Destruct(); }
 
-    virtual void Update ( uint32 msTime, uint32 diff ) { }
+    virtual void Update (uint32 msTime, uint32 diff);
 
     // Value fields
     void __fastcall SetByte(uint16 index, uint8 flag, uint8 value);

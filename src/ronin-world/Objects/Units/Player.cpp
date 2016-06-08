@@ -5993,7 +5993,6 @@ void Player::SoftLoadPlayer()
     // Initialize our talent info
     m_talentInterface.InitActiveSpec();
 
-    return;
     if(isDead()) // only add aura's to the living (death aura set elsewhere)
     {
         while(!m_loadAuras.empty())

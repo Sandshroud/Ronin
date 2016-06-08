@@ -57,36 +57,6 @@ FILE(GLOB client_coms_sources
 source_group("Client Comms\\Packet Handlers" FILES ${client_coms_sources})
 SET(group_sources ${group_sources} ${client_coms_sources})
 
-FILE(GLOB intersystem_sources
-"${prefix}/Intersystem/*.h"
-"${prefix}/Intersystem/*.cpp")
-source_group("Interserver" FILES ${intersystem_sources})
-SET(group_sources ${group_sources} ${intersystem_sources})
-
-FILE(GLOB intersystem_logon_sources
-"${prefix}/Intersystem/Logon/*.h"
-"${prefix}/Intersystem/Logon/*.cpp")
-source_group("Interserver\\Logon" FILES ${intersystem_logon_sources})
-SET(group_sources ${group_sources} ${intersystem_logon_sources})
-
-FILE(GLOB intersystem_management_sources
-"${prefix}/Intersystem/Management/*.h"
-"${prefix}/Intersystem/Management/*.cpp")
-source_group("Interserver\\Management" FILES ${intersystem_management_sources})
-SET(group_sources ${group_sources} ${intersystem_management_sources})
-
-FILE(GLOB intersystem_management_guild_sources
-"${prefix}/Intersystem/Management/Guild/*.h"
-"${prefix}/Intersystem/Management/Guild/*.cpp")
-source_group("Interserver\\Management\\Guild" FILES ${intersystem_management_guild_sources})
-SET(group_sources ${group_sources} ${intersystem_management_guild_sources})
-
-FILE(GLOB intersystem_voice_sources
-"${prefix}/Intersystem/Voice/*.h"
-"${prefix}/Intersystem/Voice/*.cpp")
-source_group("Interserver\\Voice Chat" FILES ${intersystem_voice_sources})
-SET(group_sources ${group_sources} ${intersystem_voice_sources})
-
 FILE(GLOB item_sources
 "${prefix}/Items/*.h"
 "${prefix}/Items/*.cpp")
@@ -98,6 +68,42 @@ FILE(GLOB mainframe_sources
 "${prefix}/Mainframe/*.cpp")
 source_group("Mainframe" FILES ${mainframe_sources})
 SET(group_sources ${group_sources} ${mainframe_sources})
+
+FILE(GLOB mainframe_interserver_sources
+"${prefix}/Mainframe/InterServer/*.h"
+"${prefix}/Mainframe/InterServer/*.cpp")
+source_group("Mainframe\\InterServer" FILES ${mainframe_interserver_sources})
+SET(group_sources ${group_sources} ${mainframe_interserver_sources})
+
+FILE(GLOB mainframe_interserver_logon_sources
+"${prefix}/Mainframe/InterServer/Logon/*.h"
+"${prefix}/Mainframe/InterServer/Logon/*.cpp")
+source_group("Mainframe\\Interserver\\Logon" FILES ${mainframe_interserver_logon_sources})
+SET(group_sources ${group_sources} ${mainframe_interserver_logon_sources})
+
+FILE(GLOB mainframe_interserver_voice_sources
+"${prefix}/Mainframe/InterServer/Voice/*.h"
+"${prefix}/Mainframe/InterServer/Voice/*.cpp")
+source_group("Mainframe\\Interserver\\Voice Chat" FILES ${mainframe_interserver_voice_sources})
+SET(group_sources ${group_sources} ${mainframe_interserver_voice_sources})
+
+FILE(GLOB mainframe_management_sources
+"${prefix}/Mainframe/Management/*.h"
+"${prefix}/Mainframe/Management/*.cpp")
+source_group("Mainframe\\Management" FILES ${mainframe_management_sources})
+SET(group_sources ${group_sources} ${mainframe_management_sources})
+
+FILE(GLOB mainframe_management_events_sources
+"${prefix}/Mainframe/Management/Events/*.h"
+"${prefix}/Mainframe/Management/Events/*.cpp")
+source_group("Mainframe\\Management\\Events" FILES ${mainframe_management_events_sources})
+SET(group_sources ${group_sources} ${mainframe_management_events_sources})
+
+FILE(GLOB mainframe_management_guild_sources
+"${prefix}/Mainframe/Management/Guild/*.h"
+"${prefix}/Mainframe/Management/Guild/*.cpp")
+source_group("Mainframe\\Management\\Guild" FILES ${mainframe_management_guild_sources})
+SET(group_sources ${group_sources} ${mainframe_management_guild_sources})
 
 FILE(GLOB mainframe_resouce_sources
 "${prefix}/Mainframe/Resources/*.*")

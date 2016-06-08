@@ -434,6 +434,8 @@ public:
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout = NULL);
+
+    float CalculateAdvantage(Unit *pVictim, float &hitchance, float &critChance, float &dodgechance, float &parrychance, float &blockchance, float &crushingBlow, float &glancingBlow);
     void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     int32 CalculateAttackPower();
