@@ -262,6 +262,8 @@ protected:
     bool m_inWorld;
     //! True if object was updated
     bool m_objectUpdated;
+    //! Event holder for processing delayed functions
+    //EventHolder m_eventHolder;
 
 public:
     RONIN_INLINE ObjectLoot* GetLoot() { return &m_loot; }

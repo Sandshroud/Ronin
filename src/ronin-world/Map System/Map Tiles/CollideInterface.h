@@ -54,6 +54,6 @@ public:
     void LoadCallback(VMAP::VMapManagerExt *mgr) { vMapMgr = mgr; };
 };
 
-typedef VMAP::VMapManagerExt *(*vmap_manager_construction)(std::string vmapDir);
+typedef VMAP::VMapManagerExt *(*vmap_manager_construction)(const char *vmapDir);
 
 #define sVMapInterface VMapInterface::getSingleton()

@@ -30,13 +30,13 @@ void Object::Init()
 
 void Object::Destruct()
 {
-//    m_eventHandler.Cleaup();
+//    m_eventHolder.Cleaup();
     delete this;
 }
 
 void Object::Update(uint32 msTime, uint32 diff)
 {
-//    m_eventHandler.Update(msTime);
+//    m_eventHolder.Update(msTime);
 }
 
 void Object::SetByte(uint16 index, uint8 flag, uint8 value)

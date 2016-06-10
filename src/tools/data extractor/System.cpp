@@ -316,28 +316,14 @@ bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname)
 {
     // Copy files from archive
     char szLocalFile[1024];
-    const char * plain_name = GetPlainName(fname.c_str());
-    sprintf(szLocalFile, "%s\\%s", szWorkDirWmo, plain_name);
+    std::string plain_name = GetPlainName(fname.c_str());
+    sprintf(szLocalFile, "%s\\%s", szWorkDirWmo, plain_name.c_str());
     FixNameCase(szLocalFile,strlen(szLocalFile));
     if (FileExists(szLocalFile))
         return true;
 
-    int p = 0;
-    // Select root wmo files
-    char const* rchr = strrchr(plain_name, '_');
-    if (rchr != NULL)
-    {
-        char cpy[4];
-        memcpy(cpy, rchr, 4);
-        for (int i = 0; i < 4; ++i)
-        {
-            int m = cpy[i];
-            if (isdigit(m))
-                p++;
-        }
-    }
-
-    if (p == 3)
+    std::string name_tail; // Cut off non root wmo(_xxx.wmo are subsections)
+    if(plain_name.length() > 8 && (name_tail = plain_name.substr(plain_name.size()-8)).length() && name_tail[0] == '_' && isdigit(name_tail[1]) && isdigit(name_tail[2]) && isdigit(name_tail[3]))
         return true;
 
     bool file_ok = true;
@@ -372,7 +358,7 @@ bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname)
             WMOGroup fgroup(s);
             if(!fgroup.open(mpqArchive))
             {
-                printf("Could not open all Group file for: %s\n", plain_name);
+                printf("Could not open all Group file for: %s\n", plain_name.c_str());
                 file_ok = false;
                 break;
             }

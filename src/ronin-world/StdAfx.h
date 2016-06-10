@@ -100,6 +100,7 @@
 #include "SpellDefines.h"
 #include "EventMgr.h"
 #include "EventableObject.h"
+#include "EventHolder.h"
 #include "LootMgr.h"
 #include "Object.h"
 #include "AIInterface.h"

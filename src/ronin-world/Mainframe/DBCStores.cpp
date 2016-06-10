@@ -360,8 +360,8 @@ int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboP
         float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
         basePoints = EffectBasePoints[effIndex];
         basePoints += int32(level * basePointsPerLevel);
-        int32 randomPoints = int32(EffectDieSides[basePoints]);
-        comboDamage = EffectPointsPerComboPoint[basePoints];
+        int32 randomPoints = int32(EffectDieSides[effIndex]);
+        comboDamage = EffectPointsPerComboPoint[effIndex];
 
         switch (randomPoints)
         {

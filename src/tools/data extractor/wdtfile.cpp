@@ -125,7 +125,7 @@ ADTFile* WDTFile::GetObjMap(HANDLE mpqarchive, int x, int y)
     if(!(x>=0 && y >= 0 && x<64 && y<64))
         return NULL;
     char name[512];
-    sprintf(name,"World\\Maps\\%s\\%s_%d_%d_obj0.adt", filename.c_str(), filename.c_str(), x, y);
+    sprintf(name,"World\\Maps\\%s\\%s_%d_%d_obj0.adt", filename.c_str(), filename.c_str(), y, x);
     if(!SFileHasFile(WorldMpq, name))
         return NULL;
     return new ADTFile(mpqarchive, name);

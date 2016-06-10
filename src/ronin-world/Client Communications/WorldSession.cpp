@@ -966,7 +966,7 @@ void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, uint32 gui
 
 void WorldSession::SendPacket(WorldPacket* packet)
 {
-    if(_socket == NULL)
+    if(bServerShutdown || _socket == NULL)
         return;
     if(!_socket->IsConnected())
         return;
