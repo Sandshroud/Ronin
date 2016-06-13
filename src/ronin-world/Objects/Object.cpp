@@ -700,7 +700,7 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    for(InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -724,7 +724,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     }
 
     float range = maxRange*maxRange;
-    for(InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -1608,12 +1608,26 @@ void WorldObject::Activate(MapInstance* mgr)
     switch(GetTypeId())
     {
     case TYPEID_UNIT:
-        mgr->activeCreatures.insert(castPtr<Creature>(this));
-        break;
+        {
+            Creature *cThis = castPtr<Creature>(this);
+            mgr->activeCreatures.insert(cThis);
+            uint32 pool = mgr->mActiveCreaturePoolAddCounter++;
+            if(mgr->mActiveCreaturePoolAddCounter == mgr->mActiveCreaturePoolSize)
+                mgr->mActiveCreaturePoolAddCounter = 0;
+            mgr->mActiveCreaturePools[pool].insert(cThis);
+            cThis->AssignCreaturePool(pool);
+        }break;
 
     case TYPEID_GAMEOBJECT:
-        mgr->activeGameObjects.insert(castPtr<GameObject>(this));
-        break;
+        {
+            GameObject *gThis = castPtr<GameObject>(this);
+            mgr->activeGameObjects.insert(gThis);
+            uint32 pool = mgr->mActiveGameObjectPoolAddCounter++;
+            if(mgr->mActiveGameObjectPoolAddCounter == mgr->mActiveGameObjectPoolSize)
+                mgr->mActiveGameObjectPoolAddCounter = 0;
+            mgr->mActiveGameObjectPools[pool].insert(gThis);
+            gThis->AssignGameObjectPool(pool);
+        }break;
     }
 
     Active = true;
@@ -1626,26 +1640,54 @@ void WorldObject::Deactivate(MapInstance* mgr)
     {
     case TYPEID_UNIT:
         {
+            Creature *cThis = castPtr<Creature>(this);
             MapInstance::CreatureSet::iterator itr;
-            if((itr = mgr->activeCreatures.find(castPtr<Creature>(this))) != mgr->activeCreatures.end())
+            if((itr = mgr->activeCreatures.find(cThis)) != mgr->activeCreatures.end())
             {
                 // check iterator
                 if( mgr->__creature_iterator == itr )
                     mgr->__creature_iterator = mgr->activeCreatures.erase(itr);
                 else mgr->activeCreatures.erase(itr);
             }
+
+            uint32 pool = cThis->GetCreaturePool();
+            if(pool != 0xFF)
+            {
+                if((itr = mgr->mActiveCreaturePools[pool].find(cThis)) != mgr->mActiveCreaturePools[pool].end())
+                {
+                    // check iterator
+                    if( mgr->__creature_iterator == itr )
+                        mgr->__creature_iterator = mgr->mActiveCreaturePools[pool].erase(itr);
+                    else mgr->mActiveCreaturePools[pool].erase(itr);
+                }
+            }
+            cThis->AssignCreaturePool(0xFF);
         }break;
 
     case TYPEID_GAMEOBJECT:
         {
+            GameObject *gThis = castPtr<GameObject>(this);
             MapInstance::GameObjectSet::iterator itr;
-            if((itr = mgr->activeGameObjects.find(castPtr<GameObject>(this))) != mgr->activeGameObjects.end())
+            if((itr = mgr->activeGameObjects.find(gThis)) != mgr->activeGameObjects.end())
             {
                 // check iterator
                 if( mgr->__gameobject_iterator == itr )
                     mgr->__gameobject_iterator = mgr->activeGameObjects.erase(itr);
                 else mgr->activeGameObjects.erase(itr);
             }
+
+            uint32 pool = gThis->GetGameObjectPool();
+            if(pool != 0xFF)
+            {
+                if((itr = mgr->mActiveGameObjectPools[pool].find(gThis)) != mgr->mActiveGameObjectPools[pool].end())
+                {
+                    // check iterator
+                    if( mgr->__gameobject_iterator == itr )
+                        mgr->__gameobject_iterator = mgr->mActiveGameObjectPools[pool].erase(itr);
+                    else mgr->mActiveGameObjectPools[pool].erase(itr);
+                }
+            }
+            gThis->AssignGameObjectPool(0xFF);
         }break;
     }
     Active = false;

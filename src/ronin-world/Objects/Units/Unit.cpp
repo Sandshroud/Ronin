@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this)
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this), m_unitTeam(TEAM_NONE)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
     m_objType = TYPEID_UNIT;
@@ -1219,34 +1219,17 @@ void Unit::resetAttackDelay(uint8 typeMask)
 
 float Unit::ModAggroRange(Unit *target, float base)
 {
-    int32 leveldif = std::max<int32>(-25, int32(target->getLevel()) - int32(getLevel()));
-
     // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 30 char has the same Aggro Radius of a level 5 char on a level 60 mob."
-    if (leveldif < -25)
-        leveldif = -25;
-
+    int32 leveldif = std::max<int32>(-25, int32(target->getLevel()) - int32(getLevel()));
     // "Aggro Radius varies with level difference at a rate of roughly 1 yard/level"
     // radius grow if playlevel < creaturelevel
-    base -= (float)leveldif;
-
-    if (getLevel() + 5 <= sWorld.GetMaxLevelStatCalc())
-    {
-        // detect range auras
-        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                base += itr->second->m_amount;
-
-        // detected range auras
-        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                base += itr->second->m_amount;
-    }
-
+    base -= ((float)leveldif)*0.985f;
+    // detected range auras that exist on target
+    if(AuraInterface::modifierMap *modMap = target->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECTED_RANGE))
+        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
+            base += itr->second->m_amount;
     // "Minimum Aggro Radius for a mob seems to be combat range (5 yards)"
-    if (base < 5)
-        base = 5;
-
-    return base;
+    return GetModelHalfSize()+std::max<float>(5.f, base);
 }
 
 void Unit::SetDiminishTimer(uint32 index)
@@ -3470,6 +3453,7 @@ void Unit::SetPvPFlag()
     if(IsPlayer())
         castPtr<Player>(this)->StopPvPTimer();
 
+    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
     SetByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
 
@@ -3478,6 +3462,7 @@ void Unit::RemovePvPFlag()
 {
     if(IsPlayer())
         castPtr<Player>(this)->StopPvPTimer();
+    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
     RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
 
@@ -3669,8 +3654,17 @@ void Unit::Dismount()
 void Unit::SetFaction(uint32 faction, bool save)
 {
     SetFactionTemplate(faction);
-    if(save && IsCreature() && castPtr<Creature>(this)->IsSpawn())
-        castPtr<Creature>(this)->SaveToDB();
+    if(IsCreature() && m_factionTemplate)
+    {
+        if(save && castPtr<Creature>(this)->IsSpawn())
+            castPtr<Creature>(this)->SaveToDB();
+
+        m_unitTeam = sFactionSystem.GetTeam(m_factionTemplate);
+        // Creature faction templates show what should be flagged for pvp
+        if(m_factionTemplate->FactionFlags & 0x800)
+            SetPvPFlag();
+        else RemovePvPFlag();
+    }
 }
 
 void Unit::ResetFaction()

@@ -94,9 +94,9 @@ StrandOfTheAncients::StrandOfTheAncients(MapInstance* instance, uint32 id, uint3
             return;
         }
 
-        if(Attackers == HORDE)
+        if(Attackers == TEAM_HORDE)
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
-        else if(Attackers == ALLIANCE)
+        else if(Attackers == TEAM_ALLIANCE)
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
 
         m_gates[gates]->PushToWorld(m_mapInstance);
@@ -133,7 +133,7 @@ StrandOfTheAncients::StrandOfTheAncients(MapInstance* instance, uint32 id, uint3
         return;
     }
     // No suicide
-    if(Attackers == HORDE)
+    if(Attackers == TEAM_HORDE)
         m_relic->SetUInt32Value(GAMEOBJECT_FACTION, 951);
     else
         m_relic->SetUInt32Value(GAMEOBJECT_FACTION, 954);
@@ -149,9 +149,9 @@ StrandOfTheAncients::StrandOfTheAncients(MapInstance* instance, uint32 id, uint3
             m_cannons[x]->PushToWorld(m_mapInstance);
 
             //Change Cannon Factions
-            if(Attackers == HORDE)
+            if(Attackers == TEAM_HORDE)
                 m_cannons[x]->SetFactionTemplate(1981);
-            else if(Attackers == ALLIANCE)
+            else if(Attackers == TEAM_ALLIANCE)
                 m_cannons[x]->SetFactionTemplate(1892);
         }
     }
@@ -168,11 +168,7 @@ StrandOfTheAncients::StrandOfTheAncients(MapInstance* instance, uint32 id, uint3
         }
 
         // Faction Change Two.
-        if(Attackers == HORDE)
-            m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
-        else
-            m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
-
+        m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, Attackers == TEAM_HORDE ? 951 : 954);
         m_gateTransporters[i]->PushToWorld(m_mapInstance);
     }
 }
@@ -263,19 +259,19 @@ bool StrandOfTheAncients::HookSlowLockOpen(GameObject* pGo, Player* pPlayer, Spe
             pPlayer->SetTeam(0);
             pPlayer->SafeTeleport(pPlayer->GetMapId(),pPlayer->GetInstanceID(),SOTAStartLocations[1][0],SOTAStartLocations[1][1],SOTAStartLocations[1][2],0.0f);
         }
-        if(Attackers == HORDE)
+        if(Attackers == TEAM_HORDE)
         {
             m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 1 );
             m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 0 );
             hordewins++;
-            Attackers = ALLIANCE;
+            Attackers = TEAM_ALLIANCE;
         }
-        else if(Attackers == ALLIANCE)
+        else if(Attackers == TEAM_ALLIANCE)
         {
             m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 1 );
             m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 0 );
             allywins++;
-            Attackers = HORDE;
+            Attackers = TEAM_HORDE;
         }
         BattleRound = 2;
         OnStart();
@@ -313,9 +309,9 @@ void StrandOfTheAncients::Respawn()
             m_cannons[x]->PushToWorld(m_mapInstance);
 
             //Change Cannon Factions
-            if(Attackers == HORDE)
+            if(Attackers == TEAM_HORDE)
                 m_cannons[x]->SetFactionTemplate(1981);
-            else if(Attackers == ALLIANCE)
+            else if(Attackers == TEAM_ALLIANCE)
                 m_cannons[x]->SetFactionTemplate(1892);
         }
     }
@@ -332,9 +328,9 @@ void StrandOfTheAncients::Respawn()
         }
 
         // Set Faction Two.
-        if(Attackers == HORDE)
+        if(Attackers == TEAM_HORDE)
             m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
-        else if(Attackers == ALLIANCE)
+        else if(Attackers == TEAM_ALLIANCE)
             m_gateTransporters[i]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
         m_gateTransporters[i]->PushToWorld(m_mapInstance);
     }
@@ -350,9 +346,9 @@ void StrandOfTheAncients::Respawn()
             return;
         }
 
-        if(Attackers == HORDE)
+        if(Attackers == TEAM_HORDE)
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 951);
-        else if(Attackers == ALLIANCE)
+        else if(Attackers == TEAM_ALLIANCE)
             m_gates[gates]->SetUInt32Value(GAMEOBJECT_FACTION, 954);
         m_gates[gates]->PushToWorld(m_mapInstance);
     }
@@ -365,9 +361,9 @@ void StrandOfTheAncients::Respawn()
         return;
     }
 
-    if(Attackers == HORDE)
+    if(Attackers == TEAM_HORDE)
         m_endgate->SetUInt32Value(GAMEOBJECT_FACTION, 951);
-    else if(Attackers == ALLIANCE)
+    else if(Attackers == TEAM_ALLIANCE)
         m_endgate->SetUInt32Value(GAMEOBJECT_FACTION, 954);
     m_endgate->PushToWorld(m_mapInstance);
 
@@ -471,12 +467,12 @@ void StrandOfTheAncients::SetTime(uint32 secs, uint32 WorldState)
 
 void StrandOfTheAncients::PrepareRound()
 {
-    if(Attackers == HORDE)
+    if(Attackers == TEAM_HORDE)
     {
         m_mapInstance->GetStateManager().CreateWorldState( WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 1 );
         m_mapInstance->GetStateManager().CreateWorldState( WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 0 );
     }
-    else if(Attackers == ALLIANCE)
+    else if(Attackers == TEAM_ALLIANCE)
     {
         m_mapInstance->GetStateManager().CreateWorldState( WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 0 );
         m_mapInstance->GetStateManager().CreateWorldState( WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 1 );
@@ -521,17 +517,17 @@ void StrandOfTheAncients::TimeTick()
 
             Respawn();
             OnStart();
-            if(Attackers == HORDE)
+            if(Attackers == TEAM_HORDE)
             {
                 m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 1 );
                 m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 0 );
-                Attackers = ALLIANCE;
+                Attackers = TEAM_ALLIANCE;
             }
-            else if(Attackers == ALLIANCE)
+            else if(Attackers == TEAM_ALLIANCE)
             {
                 m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_DEFENDER, 1 );
                 m_mapInstance->GetStateManager().UpdateWorldState(WORLDSTATE_SOTA_ALLIANCE_ATTACKER, 0 );
-                Attackers = HORDE;
+                Attackers = TEAM_HORDE;
             }
             BattleRound = 2;
             OnStart();
@@ -547,9 +543,9 @@ void StrandOfTheAncients::EndGame()
 {
     m_ended = true;
     if(hordewins > allywins)
-        m_losingteam = ALLIANCE;
+        m_losingteam = TEAM_ALLIANCE;
     else if(allywins > hordewins)
-        m_losingteam = HORDE;
+        m_losingteam = TEAM_HORDE;
     else if(allywins == hordewins)
         m_losingteam = 2;
     m_nextPvPUpdateTime = 0;

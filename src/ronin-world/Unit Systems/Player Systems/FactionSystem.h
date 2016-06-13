@@ -36,12 +36,13 @@ public:
     bool isHostile(WorldObject* objA, WorldObject* objB);
     bool isAttackable(WorldObject* objA, WorldObject* objB, bool CheckStealth = true);
     bool isCombatSupport(WorldObject* objA, WorldObject* objB); // B combat supports A?;
-    bool isAlliance(WorldObject* objA); // A is alliance?
+    UnitTeam GetTeam(FactionTemplateEntry *factionTemplate);
 
 //private:
     bool IsInteractionLocked(WorldObject *obj);
     FactionInteractionStatus GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB);
 
+    FactionInteractionStatus GetTeamBasedStatus(Unit *objA, Unit *objB);
     FactionInteractionStatus GetPlayerAttackStatus(Player *plrA, Player *plrB);
     FactionInteractionStatus GetUnitAreaInteractionStatus(Unit *unitA, Unit *unitB);
     FactionInteractionStatus GetAttackableStatus(WorldObject* objA, WorldObject* objB, bool CheckStealth);

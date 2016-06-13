@@ -328,9 +328,9 @@ bool AchievementMgr::IsValidAchievement(Player *plr, AchievementEntry *entry)
 {
     if(entry->factionFlag != ACHIEVEMENT_FACTION_FLAG_ANY)
     {
-        if(plr->GetTeam() == HORDE && entry->factionFlag == ACHIEVEMENT_FACTION_FLAG_ALLIANCE)
+        if(plr->GetTeam() == TEAM_HORDE && entry->factionFlag == ACHIEVEMENT_FACTION_FLAG_ALLIANCE)
             return false;
-        if(plr->GetTeam() == ALLIANCE && entry->factionFlag == ACHIEVEMENT_FACTION_FLAG_HORDE)
+        if(plr->GetTeam() == TEAM_ALLIANCE && entry->factionFlag == ACHIEVEMENT_FACTION_FLAG_HORDE)
             return false;
     }
 

@@ -383,9 +383,7 @@ void TaxiMgr::GetNearestTaxiNodes( uint32 mapid, float x, float y, float z, uint
             continue;
         }
 
-        uint8 team = ALLIANCE;
-        if(node->mountIdHorde && node->mountIdAlliance == 0)
-            team = HORDE;
+        uint8 team = (node->mountIdHorde && node->mountIdAlliance == 0) ? TEAM_HORDE : TEAM_ALLIANCE;
         if (taxiNodeOut[team])
         {
             if (dist < distance[team])

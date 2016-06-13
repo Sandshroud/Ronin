@@ -22,7 +22,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
     {
         if(timeWalked >= m_pathLength || m_movementPoints.empty())
         {
-            m_Unit->SetPosition(_destX,_destY,_destZ,_destO);
+            m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
             _CleanupPath();
             return true;
         }
@@ -34,7 +34,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
             {
                 if(nextPoint->timeStamp == timeWalked)
                 {   // 
-                    m_Unit->SetPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
+                    m_Unit->GetMovementInterface()->MoveClientPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
                     return false;
                 }
                 break;
@@ -45,7 +45,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
         uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
         float x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
         float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = z2-((z2-z)*p);
-        m_Unit->SetPosition(px, py, pz, m_Unit->calcAngle(px, py, x2, y2));
+        m_Unit->GetMovementInterface()->MoveClientPosition(px, py, pz, m_Unit->calcAngle(px, py, x2, y2));
     }
     return false;
 }

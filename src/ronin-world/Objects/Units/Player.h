@@ -19,9 +19,6 @@ struct PlayerCreateInfo;
 
 #define PLAYER_HONORLESS_TARGET_SPELL 2479
 
-#define ALLIANCE 0
-#define HORDE 1
-
 // gold cap
 #define PLAYER_MAX_GOLD 0x7FFFFFFF
 
@@ -780,6 +777,9 @@ public:
 
     void RecalculateHonor();
 
+    RONIN_INLINE uint8 GetBGTeam() { return m_bgTeam; }
+    RONIN_INLINE void SetBGTeam(uint8 t) { m_bgTeam = t; }
+
     LfgMatch * m_lfgMatch;
     uint32 m_lfgInviterGuid;
 
@@ -929,11 +929,6 @@ public:
     std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
 
     void EventPortToGM(uint32 guid);
-    RONIN_INLINE uint8 GetTeam() { return m_team; }
-    RONIN_INLINE void SetTeam(uint8 t) { m_team = t; m_bgTeam=t; }
-    RONIN_INLINE void ResetTeam() { m_team = myRace->TeamId; m_bgTeam=m_team; }
-    RONIN_INLINE uint8 GetBGTeam() { return m_bgTeam; }
-    RONIN_INLINE void SetBGTeam(uint8 t) { m_bgTeam = t; }
 
     uint32 GetMainMeleeDamage(uint32 AP_owerride); //i need this for windfury
 
@@ -1696,7 +1691,7 @@ protected:
     uint32 trigger_on_stun;         //bah, warrior talent but this will not get triggered on triggered spells if used on proc so i'm forced to used a special variable
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
 
-    uint8 m_team, m_bgTeam;
+    uint8 m_bgTeam;
 
     uint32 m_mountCheckTimer;
     void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);

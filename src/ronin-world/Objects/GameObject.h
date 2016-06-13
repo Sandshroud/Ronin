@@ -539,6 +539,9 @@ public:
 
     virtual void Update(uint32 p_time);
 
+    RONIN_INLINE uint32 GetGameObjectPool() { return m_gameobjectPool; }
+    RONIN_INLINE void AssignGameObjectPool(uint32 pool) { m_gameobjectPool = pool; }
+
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
@@ -603,7 +606,6 @@ public:
     bool initiated;
     bool m_created;
     float range;
-    uint8 checkrate;
     uint16 counter;
     int32 charges;//used for type==22,to limit number of usages.
     bool invisible;//invisible
@@ -679,6 +681,7 @@ public:
 protected:
     bool m_summonedGo, m_deleted;
     GameObjectInfo *pInfo;
+    uint32 m_gameobjectPool;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
     typedef std::map<uint32,uint64> ChairSlotAndUser;
     ChairSlotAndUser ChairListSlots;

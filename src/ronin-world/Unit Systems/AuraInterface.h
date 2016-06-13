@@ -174,8 +174,18 @@ public:
     typedef Loki::AssocVector<uint16, Modifier*> modifierMap;
     typedef Loki::AssocVector<uint32, modifierMap > modifierTypeMap;
 
-    modifierMap *GetModMapByModType(uint32 modType) { if(m_modifiersByModType.find(modType) != m_modifiersByModType.end()) return &m_modifiersByModType[modType]; return NULL; }
-    bool HasAurasWithModType(uint32 modType) { if(m_modifiersByModType.find(modType) == m_modifiersByModType.end()) return false; return m_modifiersByModType[modType].size(); }
+    bool HasAurasWithModType(uint32 modType)
+    {
+        if(m_modifiersByModType.empty() || m_modifiersByModType.find(modType) == m_modifiersByModType.end())
+            return false;
+        return !m_modifiersByModType[modType].empty();
+    }
+    modifierMap *GetModMapByModType(uint32 modType)
+    {
+        if(!HasAurasWithModType(modType))
+            return NULL;
+        return &m_modifiersByModType[modType];
+    }
 
     void SM_FIValue( uint32 modifier, int32* v, uint32* group );
     void SM_FFValue( uint32 modifier, float* v, uint32* group );

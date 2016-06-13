@@ -1457,7 +1457,7 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
         plr->GetGroup()->RemovePlayer( plr->m_playerInfo );
 
     // reset team
-    plr->ResetTeam();
+    plr->SetBGTeam(TEAM_NONE);
 
     /* revive the player if he is dead */
     if(!logout && !plr->isAlive())

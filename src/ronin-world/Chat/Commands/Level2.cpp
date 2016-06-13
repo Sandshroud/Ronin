@@ -574,29 +574,21 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
 
 bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
 {
-    if(!args)
+    uint32 entryID = 0, save = 0;
+    if(sscanf(args, "%u %u", &entryID, &save) == 0)
         return false;
 
-    char* pEntryID = strtok((char*)args, " ");
-    if (!pEntryID)
-        return false;
-
-    uint32 EntryID = atoi(pEntryID);
-    if((GameObjectNameStorage.LookupEntry(EntryID) == NULL) || (objmgr.SQLCheckExists("gameobject_names", "entry", EntryID) == NULL))
+    if((GameObjectNameStorage.LookupEntry(entryID) == NULL) || (objmgr.SQLCheckExists("gameobject_names", "entry", entryID) == NULL))
     {
-        RedSystemMessage(m_session, "Invalid Gameobject ID(%u).", EntryID);
+        RedSystemMessage(m_session, "Invalid Gameobject ID(%u).", entryID);
         return true;
     }
 
-    bool Save = m_session->HasGMPermissions() ? true : false;
-    char* pSave = strtok(NULL, " ");
-    if(pSave)
-        Save = (atoi(pSave) > 0 ? true : false);
-
-    GameObject* go = m_session->GetPlayer()->GetMapInstance()->CreateGameObject(EntryID);
+    bool Save = m_session->HasGMPermissions() && save ? true : false;
+    GameObject* go = m_session->GetPlayer()->GetMapInstance()->CreateGameObject(entryID);
     if(go == NULL)
     {
-        RedSystemMessage(m_session, "Spawn of Gameobject(%u) failed.", EntryID);
+        RedSystemMessage(m_session, "Spawn of Gameobject(%u) failed.", entryID);
         return true;
     }
     go->Init();
@@ -607,7 +599,7 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
     float y = chr->GetPositionY();
     float z = chr->GetPositionZ();
     float o = chr->GetOrientation();
-    BlueSystemMessage(m_session, "Spawning Gameobject(%u) at current position", EntryID);
+    BlueSystemMessage(m_session, "Spawning Gameobject(%u) at current position", entryID);
 
     if(Save == true) // If we're saving, create template and add index
     {
@@ -628,12 +620,12 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         uint32 cx = chr->GetMapInstance()->GetPosX(x);
         uint32 cy = chr->GetMapInstance()->GetPosY(y);
         chr->GetMapInstance()->AddGoSpawn(cx, cy, gs);
-    } else go->CreateFromProto(EntryID,mapid,x,y,z,o);
+    } else go->CreateFromProto(entryID,mapid,x,y,z,o);
 
     go->SetInstanceID(chr->GetInstanceID());
-    go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
+    go->PushToWorld(chr->GetMapInstance());
 
-    sWorld.LogGM(m_session, "Spawned gameobject %u at %f %f %f (%s)", EntryID, x, y, z, Save ? "Saved" : "Not Saved");
+    sWorld.LogGM(m_session, "Spawned gameobject %u at %f %f %f (%s)", entryID, x, y, z, Save ? "Saved" : "Not Saved");
     return true;
 }
 
@@ -880,6 +872,7 @@ bool ChatHandler::HandleNpcComeCommand(const char* args, WorldSession* m_session
         return true;
     }
 
+    unit->GetAIInterface()->m_pendingWaitTimer = 30000;
     unit->MoveTo(m_session->GetPlayer()->GetPositionX(), m_session->GetPlayer()->GetPositionY(), m_session->GetPlayer()->GetPositionZ(), m_session->GetPlayer()->GetOrientation());
     return true;
 }

@@ -23,7 +23,7 @@ namespace VMAP
 {
     bool readChunk(FILE *rf, char *dest, const char *compare, G3D::uint32 len)
     {
-        if (fread(dest, sizeof(char), len, rf) != len) return false;
+        if (fread_s(dest, len, sizeof(char), len, rf) != len) return false;
         return memcmp(dest, compare, len) == 0;
     }
 

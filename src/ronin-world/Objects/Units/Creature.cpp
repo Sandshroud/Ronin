@@ -35,6 +35,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_AreaUpdateTimer = 0;
     m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
 
+    m_creaturePool = 0xFF;
     m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
     m_noDeleteAfterDespawn = false; // 0x08
@@ -666,7 +667,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);
 
-    SetFactionTemplate(_creatureData->faction);
+    SetFaction(_creatureData->faction);
     //SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
     //SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
 

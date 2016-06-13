@@ -14,13 +14,11 @@ extern bool bServerShutdown;
 MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
 {
     m_mapPreloading = false;
-    m_UpdateDistance = MAX_VIEW_DISTANCE;
     iInstanceMode = 0;
 
     m_GOHighGuid = 0;
     m_CreatureHighGuid = 0;
     m_DynamicObjectHighGuid=0;
-    lastUnitUpdate = lastGameobjectUpdate = getMSTime();
     m_battleground = NULL;
 
     InactiveMoveTime = 0;
@@ -47,8 +45,27 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
 
-    __gameobject_iterator = activeGameObjects.end();
     __creature_iterator = activeCreatures.end();
+    mActiveCreaturePoolAddCounter = mActiveCreaturePoolCounter = 0;
+    mActiveCreaturePoolSize = pdbcMap && pdbcMap->IsContinent() ? 8 : 3;
+    mActiveCreaturePools = new CreatureSet[mActiveCreaturePoolSize];
+    mActiveCreaturePoolLastUpdate = new uint32[mActiveCreaturePoolSize];
+
+    __gameobject_iterator = activeGameObjects.end();
+    mActiveGameObjectPoolAddCounter = mActiveGameObjectPoolCounter = 0;
+    mActiveGameObjectPoolSize = pdbcMap && pdbcMap->IsContinent() ? 4 : 2;
+    mActiveGameObjectPools = new GameObjectSet[mActiveGameObjectPoolSize];
+    mActiveGameObjectPoolLastUpdate = new uint32[mActiveGameObjectPoolSize];
+}
+
+void MapInstance::Init()
+{
+    uint32 msTime = getMSTime();
+    for(size_t i = 0; i < mActiveCreaturePoolSize; i++)
+        mActiveCreaturePoolLastUpdate[i] = msTime;
+    for(size_t i = 0; i < mActiveGameObjectPoolSize; i++)
+        mActiveGameObjectPoolLastUpdate[i] = msTime;
+    lastCreatureUpdate = lastDynamicObjectUpdate = msTime;
 }
 
 void MapInstance::Destruct()
@@ -563,8 +580,10 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                                 continue;
 
                             // We only need to parse objects that are in range
-                            if (!IsInRange(m_UpdateDistance, obj, curObj))
+                            float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxUnitViewDistance);
+                            if (!IsInRange(updateRange, obj, curObj))
                                 continue;
+
                             // We've parsed the object here, erase from our other map
                             m_inRange.erase(curObj->GetGUID());
 
@@ -720,7 +739,8 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
             continue;
 
         // Add if we are not ourself and range == 0 or distance is withing range.
-        if (IsInRange(m_UpdateDistance, obj, curObj))
+        float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxUnitViewDistance);
+        if (IsInRange(updateRange, obj, curObj))
         {
             if( !obj->IsInRangeSet( curObj ) )
             {
@@ -1131,68 +1151,78 @@ void MapInstance::_ProcessInputQueue()
 void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 {
     ++mLoopCounter; // Inc loop counter
-    Player* ptr; // Update players.
-    for(__player_iterator = m_PlayerStorage.begin(); __player_iterator != m_PlayerStorage.end();)
+    if(!m_PlayerStorage.empty())
     {
-        ptr = __player_iterator->second;
-        ++__player_iterator;
-        ptr->Update( msTime, uiDiff );
+        Player* ptr; // Update players.
+        __player_iterator = m_PlayerStorage.begin();
+        while( __player_iterator != m_PlayerStorage.end())
+        {
+            ptr = __player_iterator->second;
+            ++__player_iterator;
+            ptr->Update( msTime, uiDiff );
+        }
     }
 }
 
 void MapInstance::_PerformCreatureUpdates(uint32 msTime)
 {
-    // Update our objects every 2 ticks(planned 200ms)
-    if(mLoopCounter % 2)
-        return;
+    if(++mActiveCreaturePoolCounter == mActiveCreaturePoolSize)
+        mActiveCreaturePoolCounter = 0;
 
-    uint32 diff = msTime - lastUnitUpdate;
+    uint32 diff = msTime - mActiveCreaturePoolLastUpdate[mActiveCreaturePoolCounter];
+    mActiveCreaturePoolLastUpdate[mActiveCreaturePoolCounter] = msTime;
+
     m_activeLock.Acquire();
-    if(activeCreatures.size())
+    if(!mActiveCreaturePools[mActiveCreaturePoolCounter].empty())
     {
         Creature* ptr;
-        for(__creature_iterator = activeCreatures.begin(); __creature_iterator != activeCreatures.end();)
+        __creature_iterator = mActiveCreaturePools[mActiveCreaturePoolCounter].begin();
+        while(__creature_iterator != mActiveCreaturePools[mActiveCreaturePoolCounter].end())
         {
             ptr = *__creature_iterator;
             ++__creature_iterator;
-
             ptr->Update(msTime, diff);
         }
     }
     m_activeLock.Release();
-    lastUnitUpdate = msTime;
 }
 
 void MapInstance::_PerformObjectUpdates(uint32 msTime)
 {
-    if(mLoopCounter % 4) // Update gameobjects every 4 ticks(planned 400ms)
-        return;
+    if(++mActiveGameObjectPoolCounter == mActiveGameObjectPoolSize)
+        mActiveGameObjectPoolCounter = 0;
 
-    uint32 diff = msTime - lastGameobjectUpdate;
-    lastGameobjectUpdate = msTime;
+    uint32 diff = msTime - mActiveGameObjectPoolLastUpdate[mActiveGameObjectPoolCounter];
+    mActiveGameObjectPoolLastUpdate[mActiveGameObjectPoolCounter] = msTime;
 
     m_activeLock.Acquire();
-    if(activeGameObjects.size())
+    if(!mActiveGameObjectPools[mActiveGameObjectPoolCounter].empty())
     {
         GameObject* ptr;
-        for(__gameobject_iterator = activeGameObjects.begin(); __gameobject_iterator != activeGameObjects.end(); )
+        __gameobject_iterator = mActiveGameObjectPools[mActiveGameObjectPoolCounter].begin();
+        while(__gameobject_iterator != mActiveGameObjectPools[mActiveGameObjectPoolCounter].end())
         {
             ptr = *__gameobject_iterator;
             ++__gameobject_iterator;
-
-            ptr->Update( diff );
+            ptr->Update(diff);
         }
     }
     m_activeLock.Release();
 
-    if(m_DynamicObjectStorage.size())
+    if(mLoopCounter % 2) // Update dynamic objects every other tick(planned 100ms)
+        return;
+
+    diff = msTime - lastDynamicObjectUpdate;
+    lastDynamicObjectUpdate = msTime;
+
+    if(!m_DynamicObjectStorage.empty())
     {
         DynamicObject* dynPtr;
-        for(DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.begin(); itr != m_DynamicObjectStorage.end(); )
+        DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.begin();
+        while(itr != m_DynamicObjectStorage.end())
         {
             dynPtr = itr->second;
             ++itr;
-
             dynPtr->UpdateTargets( diff );
         }
     }

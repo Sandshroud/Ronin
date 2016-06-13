@@ -37,6 +37,8 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
     m_LastUnderwaterState = 0;
     m_MirrorTimer[0] = m_MirrorTimer[1] = m_MirrorTimer[2] = -1;
     m_UnderwaterTime = 180000;
+    m_waterType = 0, m_waterHeight = NO_WATER_HEIGHT;
+    m_lastWaterUpdatePos.ChangeCoords(0.f, 0.f, 0.f, 0.f);
 
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
@@ -412,10 +414,17 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     UpdateMovementFlagMask();
     if(!UpdateAcknowledgementData(moveCode))
         return false;
-    if(!UpdateMovementData(moveCode))
+    if(!UpdateMovementData(moveCode, source != NULL))
         return false;
 
     m_Unit->SetPosition(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z, m_clientLocation.o);
+    // Inworld checks for post read after transfering between maps
+    if(m_Unit->IsInWorld() && m_lastWaterUpdatePos.DistanceSq(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z) > 2.f)
+    {
+        m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, m_waterHeight, m_waterType);
+        m_lastWaterUpdatePos.ChangeCoords(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z);
+    }
+
     switch(moveCode)
     {
     case MOVEMENT_CODE_ACK_FORCE_WALK_SPEED_CHANGE:
@@ -428,12 +437,15 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     case MOVEMENT_CODE_ACK_FORCE_TURN_RATE_CHANGE:
     case MOVEMENT_CODE_ACK_FORCE_PITCH_RATE_CHANGE:
         {
-            uint16 speedType;
-            if((speedType = GetSpeedTypeForMoveCode(moveCode)) != 0xFFFF)
+            if(source != NULL)
             {
-                WorldPacket data(movementSpeedToOpcode[speedType][2], source->size());
-                WriteFromServer(movementSpeedToOpcode[speedType][2], &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
-                m_Unit->SendMessageToSet(&data, false);
+                uint16 speedType;
+                if((speedType = GetSpeedTypeForMoveCode(moveCode)) != 0xFFFF)
+                {
+                    WorldPacket data(movementSpeedToOpcode[speedType][2], source->size());
+                    WriteFromServer(movementSpeedToOpcode[speedType][2], &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
+                    m_Unit->SendMessageToSet(&data, false);
+                }
             }
         }break;
     case MOVEMENT_CODE_ACK_TELEPORT:
@@ -555,7 +567,7 @@ bool MovementInterface::UpdateAcknowledgementData(uint16 moveCode)
     return true;
 }
 
-bool MovementInterface::UpdateMovementData(uint16 moveCode)
+bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
 {
     switch(moveCode)
     {
@@ -582,6 +594,10 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode)
     case MOVEMENT_CODE_SET_FACING:
     case MOVEMENT_CODE_SET_PITCH:
         break;
+    case MOVEMENT_CODE_ACK_TELEPORT: // Reset water data
+        m_waterType = 0, m_waterHeight = NO_WATER_HEIGHT;
+        m_lastWaterUpdatePos.ChangeCoords(0.f, 0.f, 0.f);
+        break;
     default:
         return true;
     }
@@ -601,6 +617,10 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode)
         flags |= AURA_INTERRUPT_ON_TURNING;
     m_Unit->m_AuraInterface.RemoveAllAurasByInterruptFlag( flags );
 
+    // Cut off before packet distribution
+    if(distribute == false)
+        return true;
+
     WorldPacket data(SMSG_PLAYER_MOVE, 500);
     WriteFromServer(SMSG_PLAYER_MOVE, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
     m_Unit->SendMessageToSet(&data, false);
@@ -615,35 +635,32 @@ void MovementInterface::HandleBreathing(uint32 diff)
     m_breathingUpdateTimer = 0;
 
     uint8 old_underwaterState = m_underwaterState;
-    uint16 WaterType = 0;
-    float WaterHeight = NO_WATER_HEIGHT;
-    m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, WaterHeight, WaterType);
-    if (WaterHeight == NO_WATER_HEIGHT)
+    if (m_waterHeight == NO_WATER_HEIGHT)
         m_underwaterState &= ~0xFF;
     else
     {
-        float HeightDelta = (WaterHeight-m_Unit->GetPositionZ())*10;
+        float HeightDelta = (m_waterHeight-m_Unit->GetPositionZ())*10;
 
         // All liquids type - check under water position
-        if(WaterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
+        if(m_waterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
             m_underwaterState |= UNDERWATERSTATE_UNDERWATER;
         else m_underwaterState &= ~UNDERWATERSTATE_UNDERWATER;
 
         if(!m_Unit->IsPlayer() || !castPtr<Player>(m_Unit)->GetTaxiPath())
         {
             // Allow travel in dark water on taxi or transport
-            if ((WaterType & 0x10) && m_transportGuid.empty())
+            if ((m_waterType & 0x10) && m_transportGuid.empty())
                 m_underwaterState |= UNDERWATERSTATE_FATIGUE;
             else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
         } else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
 
         // in lava check, anywhere in lava level
-        if (WaterType & 0x04 && HeightDelta > 0.f)
+        if (m_waterType & 0x04 && HeightDelta > 0.f)
             m_underwaterState |= UNDERWATERSTATE_LAVA;
         else m_underwaterState &= ~UNDERWATERSTATE_LAVA;
 
         // in slime check, anywhere in slime level
-        if (WaterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
+        if (m_waterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
             m_underwaterState |= UNDERWATERSTATE_SLIME;
         else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
     }
@@ -897,6 +914,13 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
 void MovementInterface::SetFacing(float orientation)
 {
     m_serverLocation->o = orientation;
+}
+
+void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
+{
+    m_clientLocation.ChangeCoords(x, y, z, o);
+    // Post read heartbeat call
+    UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }
 
 void MovementInterface::OnDeath()

@@ -530,9 +530,9 @@ bool World::SetInitialWorldSettings()
             {
                 int8 team = -1;
                 if(areaentry->category == AREAC_ALLIANCE_TERRITORY)
-                    team = ALLIANCE;
+                    team = TEAM_ALLIANCE;
                 if(areaentry->category == AREAC_HORDE_TERRITORY)
-                    team = HORDE;
+                    team = TEAM_HORDE;
                 SetRestedArea(areaentry->AreaId, team);
             }
         }

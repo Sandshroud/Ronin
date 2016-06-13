@@ -1258,13 +1258,13 @@ void SpellEffectClass::SpellEffectLanguage(uint32 i, WorldObject *target, int32 
 
     if(!pPlayer->GetSession()->HasGMPermissions())
     {
-        if(pPlayer->GetTeam() == ALLIANCE)
+        if(pPlayer->GetTeam() == TEAM_ALLIANCE)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_COMMON ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_COMMON, 300, 300 );
         } else pPlayer->_RemoveSkillLine( SKILL_LANG_COMMON );
 
-        if(pPlayer->GetTeam() == HORDE)
+        if(pPlayer->GetTeam() == TEAM_HORDE)
         {
             if( !pPlayer->_HasSkillLine( SKILL_LANG_ORCISH ) )
                 pPlayer->_AddSkillLine( SKILL_LANG_ORCISH, 300, 300 );
@@ -2011,7 +2011,7 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
         return;
 
     uint32 mount_entry = 0, modelid = 0;
-    if( playerTarget->GetTeam() )       // HORDE
+    if( playerTarget->GetTeam() )       // TEAM_HORDE
     {
         if((mount_entry = taxinode->mountIdHorde) == 0)
             mount_entry = taxinode->mountIdAlliance;
@@ -2022,7 +2022,7 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
         if((modelid = ctrData->displayInfo[1]) == 0)
             return;
     }
-    else                                // ALLIANCE
+    else                                // TEAM_ALLIANCE
     {
         if((mount_entry = taxinode->mountIdAlliance) == 0)
             mount_entry = taxinode->mountIdHorde;

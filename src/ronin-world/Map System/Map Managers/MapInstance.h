@@ -38,7 +38,9 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-#define MAX_VIEW_DISTANCE 38000
+static const uint32 MaxUnitViewDistance = 8100;
+static const uint32 MaxPlayerViewDistance = 38000;
+
 #define MAX_TRANSPORTERS_PER_MAP 25
 #define RESERVE_EXPAND_SIZE 1024
 
@@ -158,6 +160,7 @@ public:
     MapInstance(Map *map, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
+    void Init();
     void Destruct();
 
     void EventPushObjectToSelf(WorldObject *obj);
@@ -212,8 +215,7 @@ public:
     void _PerformPendingUpdates();
 
     uint32 mLoopCounter;
-    uint32 lastGameobjectUpdate;
-    uint32 lastUnitUpdate;
+    uint32 lastCreatureUpdate, lastDynamicObjectUpdate;
     void EventCorpseDespawn(uint64 guid);
 
     time_t InactiveMoveTime;
@@ -258,7 +260,6 @@ public:
     void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
     // Distance a Player can "see" other objects and receive updates from them (!! ALREADY dist*dist !!)
-    float m_UpdateDistance;
     bool m_mapPreloading;
 
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
@@ -278,8 +279,17 @@ protected:
 
 public:
     Mutex m_activeLock;
-    GameObjectSet activeGameObjects;
     CreatureSet activeCreatures;
+    uint32 mActiveCreaturePoolCounter, mActiveCreaturePoolAddCounter;
+    size_t mActiveCreaturePoolSize;
+    CreatureSet *mActiveCreaturePools;
+    uint32 *mActiveCreaturePoolLastUpdate;
+
+    GameObjectSet activeGameObjects;
+    uint32 mActiveGameObjectPoolCounter, mActiveGameObjectPoolAddCounter;
+    size_t mActiveGameObjectPoolSize;
+    GameObjectSet *mActiveGameObjectPools;
+    uint32 *mActiveGameObjectPoolLastUpdate;
 
     CBattleground* m_battleground;
     std::vector<Corpse* > m_corpses;

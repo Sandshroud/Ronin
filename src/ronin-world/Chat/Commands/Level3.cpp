@@ -288,6 +288,7 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
     if(factionTemplate)
         SystemMessage(m_session, "Faction: %u|%u", factionTemplate->ID, factionTemplate->Faction);
     SystemMessage(m_session, "NPCFlags %u", crt->GetUInt32Value(UNIT_NPC_FLAGS));
+    SystemMessage(m_session, "UnitFlags %u | %u", crt->GetUInt32Value(UNIT_FIELD_FLAGS), crt->GetUInt32Value(UNIT_FIELD_FLAGS_2));
     SystemMessage(m_session, "DisplayID %u", crt->GetUInt32Value(UNIT_FIELD_DISPLAYID));
     SystemMessage(m_session, "Scale %f", crt->GetFloatValue(OBJECT_FIELD_SCALE_X));
     SystemMessage(m_session, "EmoteState: %u", crt->GetUInt32Value(UNIT_NPC_EMOTESTATE));
@@ -301,6 +302,7 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
     GreenSystemMessage(m_session, "Phase: %i", crt->GetPhaseMask());
     if(crt->IsSpawn())
         GreenSystemMessage(m_session, "Vendor Mask: %i", crt->GetVendorMask());
+    GreenSystemMessage(m_session, "Team: %u", crt->GetTeam());
     ColorSystemMessage(m_session, MSG_COLOR_RED, "Entry ID: %u", crt->GetUInt32Value(OBJECT_FIELD_ENTRY));
     ColorSystemMessage(m_session, MSG_COLOR_RED, "SQL Entry ID: %u", crt->GetSQL_id());
 

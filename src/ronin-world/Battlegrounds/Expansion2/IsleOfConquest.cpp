@@ -250,7 +250,7 @@ void IsleOfConquest::OnPlatformTeleport(Player* plr)
     LocationVector dest;
     uint32 closest_platform = 0;
 
-    if(plr->GetTeam() == ALLIANCE)
+    if(plr->GetTeam() == TEAM_ALLIANCE)
     {
         for (uint32 i = 0; i < 6; i++)
         {
@@ -809,13 +809,13 @@ void IsleOfConquest::HookOnUnitKill(Player* plr, Unit* pVictim)
     {
         Herald("The 7th Legion General is dead!");
         RemoveReinforcements( 0, IOC_NUM_REINFORCEMENTS );  // Horde Win
-        GiveHonorToTeam(HORDE, m_bonusHonor * 4);
+        GiveHonorToTeam(TEAM_HORDE, m_bonusHonor * 4);
     }
     else if(pVictim->GetEntry() == 34922)   // Overlord Agmar (not sure this is the right general)
     {
         Herald("The Scarshield Legion General is dead!");
         RemoveReinforcements( 1, IOC_NUM_REINFORCEMENTS );  // Alliance Win
-        GiveHonorToTeam(ALLIANCE, m_bonusHonor * 4);
+        GiveHonorToTeam(TEAM_ALLIANCE, m_bonusHonor * 4);
     }
 }
 

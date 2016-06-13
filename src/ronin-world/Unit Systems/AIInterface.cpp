@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-AIInterface::AIInterface(Unit *unit, UnitPathSystem *unitPath, Unit *owner) : m_Unit(unit), m_path(unitPath), m_waypointCounter(0), m_waypointMap(NULL),
+AIInterface::AIInterface(Unit *unit, UnitPathSystem *unitPath, Unit *owner) : m_Unit(unit), m_path(unitPath), m_AISeed(RandomUInt()), m_findTargetLockout(1), m_waypointCounter(0), m_waypointMap(NULL),
 m_AIState(unit->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD) // Initialize AI state idle if unit is not dead
 {
 
@@ -20,6 +20,13 @@ void AIInterface::Update(uint32 p_time)
     if(m_AIState == AI_STATE_DEAD)
         return;
 
+    if(m_findTargetLockout)
+        --m_findTargetLockout;
+
+    if(m_waypointWaitTimer > p_time)
+        m_waypointWaitTimer -= p_time;
+    else m_waypointWaitTimer = 0;
+
     switch(m_AIState)
     {
     case AI_STATE_IDLE:
@@ -31,9 +38,18 @@ void AIInterface::Update(uint32 p_time)
                 return;
             }
 
-            if(!m_path->hasDestination() && FindTarget() == false)
+            if(FindTarget() == false)
             {
-                FindNextPoint();
+                if(!m_path->hasDestination())
+                {
+                    if(m_pendingWaitTimer)
+                    {
+                        m_waypointWaitTimer = m_pendingWaitTimer;
+                        m_pendingWaitTimer = 0;
+                    }
+                    else if(m_waypointWaitTimer == 0)
+                        FindNextPoint();
+                } // The update block should stop here
                 return;
             }
         }
@@ -52,10 +68,16 @@ void AIInterface::Update(uint32 p_time)
 
 void AIInterface::OnDeath()
 {
+    m_targetGuid.Clean();
     m_path->StopMoving();
     m_AIState = AI_STATE_DEAD;
     m_Unit->EventAttackStop();
     m_Unit->clearStateFlag(UF_EVADING);
+}
+
+void AIInterface::OnPathChange()
+{
+
 }
 
 void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
@@ -71,27 +93,46 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
         m_AIState = AI_STATE_COMBAT;
     // Set target guid for combat
     if(attacker && m_targetGuid.empty())
+    {
         m_targetGuid = attacker->GetGUID();
+        _HandleCombatAI();
+    }
 }
 
 bool AIInterface::FindTarget()
 {
-    if(m_Unit->hasStateFlag(UF_EVADING))
+    if(m_Unit->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Unit->HasInRangeObjects())
         return false;
+    if(m_findTargetLockout)
+        return false;
+    m_findTargetLockout = m_AISeed%3;
 
     Unit *target = NULL;
-    float targetDist = 0.f;
+    float baseAggro = 20.f, targetDist = 0.f;
+    // detect range auras
+    if(AuraInterface::modifierMap *modMap = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
+        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
+            baseAggro += itr->second->m_amount;
+
+    // Begin iterating through our inrange units
     for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
     {
         if(Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(*itr))
         {
-            float aggroRange = m_Unit->ModAggroRange(unitTarget, 20.f);
-            if(!m_Unit->isInRange(unitTarget, aggroRange))
+            if(unitTarget->isDead())
                 continue;
             float dist = m_Unit->GetDistanceSq(unitTarget);
+            float aggroRange = m_Unit->ModAggroRange(unitTarget, baseAggro);
+            if(dist > 50.f)
+                continue;
+            if(dist >= MAX_COMBAT_MOVEMENT_DIST || dist >= aggroRange)
+                continue;
             if(target && targetDist <= dist)
                 continue;
             if(!sFactionSystem.isHostile(m_Unit, unitTarget))
+                continue;
+            // LOS is a big system hit so do it last
+            if(!m_Unit->IsInLineOfSight(unitTarget))
                 continue;
 
             target = unitTarget;
@@ -109,6 +150,10 @@ bool AIInterface::FindTarget()
 
 void AIInterface::FindNextPoint()
 {
+    // Waiting before processing next waypoint
+    if(m_waypointWaitTimer)
+        return;
+
     if(m_waypointMap && !m_waypointMap->empty())
     {   // Process waypoint map travel
 
@@ -134,34 +179,28 @@ void AIInterface::FindNextPoint()
 
 void AIInterface::_HandleCombatAI()
 {
-    Unit *unitTarget = NULL;
-    while(true)
+    Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
+    if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
+        || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
     {
-        unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
-        if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
-            || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
+        // If we already have a target but he doesn't qualify back us out of combat
+        if(unitTarget)
         {
-            // If we already have a target but he doesn't qualify back us out of combat
-            if(unitTarget)
-            {
-                m_path->StopMoving();
-                m_targetGuid.Clean();
-                m_Unit->EventAttackStop();
-            }
-
-            if(FindTarget() == false)
-            {
-                m_AIState = AI_STATE_IDLE;
-                if(!m_path->hasDestination())
-                {
-                    m_Unit->addStateFlag(UF_EVADING);
-                    FindNextPoint();
-                }
-                return;
-            }
-            continue;
+            m_path->StopMoving();
+            m_targetGuid.Clean();
+            m_Unit->EventAttackStop();
         }
-        break;
+
+        if(FindTarget() == false)
+        {
+            m_AIState = AI_STATE_IDLE;
+            if(!m_path->hasDestination())
+            {
+                m_Unit->addStateFlag(UF_EVADING);
+                FindNextPoint();
+            }
+            return;
+        }
     }
 
     SpellEntry *sp = NULL;

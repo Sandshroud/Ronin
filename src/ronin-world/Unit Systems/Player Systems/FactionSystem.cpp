@@ -100,22 +100,63 @@ FactionInteractionStatus FactionSystem::GetUnitAreaInteractionStatus(Unit *unitA
     return FI_STATUS_HOSTILE;
 }
 
+FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *unitB)
+{
+    Player *player_objA = unitA->IsPlayer() ? castPtr<Player>(unitA) : NULL;
+    Player *player_objB = unitB->IsPlayer() ? castPtr<Player>(unitB) : NULL;
+    if( player_objA && player_objB )
+    {
+        return GetPlayerAttackStatus(player_objA, player_objB);
+    } // From this point on there is no pvp
+    else if(player_objA && unitB->IsSummon())
+    {
+        WorldObject* summoner = castPtr<Summon>(unitB)->GetSummonOwner();
+        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == player_objA)
+            return FI_STATUS_HOSTILE;
+    }
+    else if(player_objB && unitA->IsSummon())
+    {
+        WorldObject* summoner = castPtr<Summon>(unitA)->GetSummonOwner();
+        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == player_objB)
+            return FI_STATUS_HOSTILE;
+    } // Player attacking non player with team ID
+    else if(player_objA && unitB->GetTeam() != TEAM_NONE)
+    {
+        if(player_objA->GetTeam() == unitB->GetTeam())
+            return FI_STATUS_FRIENDLY;
+        if(!(unitB->IsPvPFlagged() && player_objA->IsPvPFlagged()))
+            return FI_STATUS_NONE;
+    } // Non Player with team ID attacking player
+    else if(player_objB && unitA->GetTeam() != TEAM_NONE)
+    {
+        uint8 team = unitA->GetTeam();
+        if(unitA->GetTeam() == player_objB->GetTeam())
+            return FI_STATUS_FRIENDLY;
+        if(!(unitA->IsPvPFlagged() && player_objB->IsPvPFlagged()))
+            return FI_STATUS_NONE;
+    }
+    else if(unitA->GetTeam() != TEAM_NONE && unitB->GetTeam() != TEAM_NONE)
+    {
+        // No initialization from these team units
+        if(unitA->GetTeam() == unitB->GetTeam())
+            return FI_STATUS_FRIENDLY;
+    }
+
+    // Return neutral because we don't know from the data we have
+    return FI_STATUS_NEUTRAL;
+}
+
 FactionInteractionStatus FactionSystem::GetPlayerAttackStatus(Player *plrA, Player *plrB)
 {
     if(plrA->DuelingWith == plrB && plrA->GetDuelState() == DUEL_STATE_STARTED)
         return FI_STATUS_HOSTILE;
-    if(plrB->IsFFAPvPFlagged())
-        return (plrA->IsFFAPvPFlagged() ? FI_STATUS_HOSTILE : FI_STATUS_NEUTRAL);
-    if(plrA->GetGroup() != plrB->GetGroup())
-    {
-        if(plrA->GetTeam() != plrB->GetTeam())
-        {
-            if(plrA->IsPvPFlagged() && plrB->IsPvPFlagged())
-                return FI_STATUS_HOSTILE;
-            return FI_STATUS_NEUTRAL;
-        }
-    }
-    return FI_STATUS_FRIENDLY;
+    if(plrB->IsFFAPvPFlagged() && plrA->IsFFAPvPFlagged())
+        return FI_STATUS_HOSTILE;
+    if(plrA->GetGroup() == plrB->GetGroup())
+        return FI_STATUS_FRIENDLY;
+    if(plrA->GetTeam() == plrB->GetTeam())
+        return FI_STATUS_FRIENDLY;
+    return FI_STATUS_NEUTRAL;
 }
 
 /// Where we check if we object A can attack object B. This is used in many feature's
@@ -168,29 +209,9 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     if(!player_objA && player_objB && player_objB->bGMTagOn)
         return FI_STATUS_NONE;
 
-    if( player_objA && player_objB )
-    {
-        if(player_objA->DuelingWith == player_objB && player_objA->GetDuelState() == DUEL_STATE_STARTED )
-            return FI_STATUS_HOSTILE;
-    }
-    else if(player_objA && objB->IsSummon())
-    {
-        WorldObject* summoner = castPtr<Summon>(objB)->GetSummonOwner();
-        if(summoner && summoner->IsPlayer())
-        {
-            if(castPtr<Player>(summoner)->DuelingWith == player_objA)
-                return FI_STATUS_HOSTILE;
-        }
-    }
-    else if(player_objB && objA->IsSummon())
-    {
-        WorldObject* summoner = castPtr<Summon>(objA)->GetSummonOwner();
-        if(summoner && summoner->IsPlayer())
-        {
-            if(castPtr<Player>(summoner)->DuelingWith == player_objB)
-                return FI_STATUS_HOSTILE;
-        }
-    }
+    FactionInteractionStatus status = (((player_objA || objA->IsUnit()) && (player_objB || objB->IsUnit())) ? GetTeamBasedStatus(player_objA ? player_objA : castPtr<Unit>(objA), player_objB ? player_objB : castPtr<Unit>(objB)) : FI_STATUS_NEUTRAL);
+    if(status != FI_STATUS_NEUTRAL)
+        return status;
 
     // Do not let units attack each other in sanctuary
     if(objA->HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY) || objB->HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY) )
@@ -304,27 +325,9 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
         return false;*/
     if(GetUnitAreaInteractionStatus(unitA, unitB) < FI_STATUS_NEUTRAL)
         return false;
-
-    if(unitA->IsPlayer() && unitB->IsPlayer())
-    {
-        if(GetPlayerAttackStatus(castPtr<Player>(unitA), castPtr<Player>(unitB)) >= FI_STATUS_NEUTRAL)
-            return true;
-    }
-    else if(unitA->IsPlayer() && unitB->IsSummon())
-    {
-        WorldObject *summoner = castPtr<Summon>(unitB)->GetSummonOwner();
-		if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == unitA)
-            return true;
-    }
-    else if(unitB->IsPlayer() && unitA->IsSummon())
-    {
-        WorldObject *summoner = castPtr<Summon>(unitA)->GetSummonOwner();
-		if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == unitB)
-            return true;
-    }
-    else /// Creature hate crimes
-    { } // Factions can handle this
-
+    FactionInteractionStatus status = GetTeamBasedStatus(unitA, unitB);
+    if(status != FI_STATUS_NEUTRAL)
+        return status;
     return (GetFactionsInteractStatus(unitA, unitB) >= FI_STATUS_NEUTRAL);
 }
 
@@ -390,35 +393,11 @@ bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B co
     return combatSupport;
 }
 
-bool FactionSystem::isAlliance(WorldObject* objA)// A is alliance?
+UnitTeam FactionSystem::GetTeam(FactionTemplateEntry *factionTemplate)
 {
-    if(!objA || objA->GetFactionTemplate() == NULL || objA->GetFaction() == NULL)
-        return true;
-
-    //Get stormwind faction frm dbc (11/72)
-    FactionTemplateEntry * m_sw_factionTemplate = dbcFactionTemplate.LookupEntry(11);
-    FactionEntry * m_sw_faction = dbcFaction.LookupEntry(72);
-
-    if(m_sw_factionTemplate == objA->GetFactionTemplate() || m_sw_faction == objA->GetFaction())
-        return true;
-
-    //Is StormWind hostile to ObjectA?
-    if(objA->GetFactionTemplate()->FactionMask & m_sw_factionTemplate->HostileMask)
-        return false;
-
-    //Is ObjectA hostile to StormWind?
-    if(objA->GetFactionTemplate()->HostileMask & m_sw_factionTemplate->FactionMask)
-        return false;
-
-    // check friend/enemy list
-    for(uint8 i = 0; i < 4; i++)
-    {
-        if(objA->GetFactionTemplate()->EnemyFactions[i] == m_sw_faction->ID)
-            return false;
-        if(m_sw_factionTemplate->EnemyFactions[i] == objA->GetFactionID())
-            return false;
-    }
-
-    //We're not hostile towards SW, so we are allied
-    return true;
+    if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_ALLIANCE)
+        return TEAM_ALLIANCE;
+    if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_HORDE)
+        return TEAM_HORDE;
+    return TEAM_NONE;
 }

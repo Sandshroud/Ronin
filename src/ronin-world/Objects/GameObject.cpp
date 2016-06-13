@@ -12,6 +12,7 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
 
     counter = 0;
+    m_gameobjectPool = 0xFF;
     bannerslot = bannerauraslot = -1;
     m_summonedGo = false;
     invisible = false;
@@ -96,49 +97,42 @@ void GameObject::Update(uint32 p_time)
         return;
     }
 
-    if(!IsInWorld())
-        return;
-
-    if(m_deleted)
+    if(m_deleted || !IsInWorld())
         return;
 
     if(spell != NULL && GetState() == 1 && GetType() != GAMEOBJECT_TYPE_AURA_GENERATOR)
     {
-        if(checkrate > 1)
-        {
-            if(counter++%checkrate)
-                return;
-        }
-
         for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
         {
-            Unit *pUnit = GetInRangeObject<Unit>(*itr);
-            if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
+            if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
             {
-                if(m_summonedGo)
+                if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
                 {
-                    if(!m_summoner)
+                    if(m_summonedGo)
+                    {
+                        if(!m_summoner)
+                        {
+                            ExpireAndDelete();
+                            return;
+                        }
+                        if(!sFactionSystem.isAttackable(m_summoner, pUnit))
+                            continue;
+                    }
+
+                    SpellCastTargets tgt(pUnit->GetGUID());
+                    tgt.m_dest = GetPosition();
+                    if(Spell* sp = new Spell(this, spell))
+                        sp->prepare(&tgt, true);
+
+                    if(m_summonedGo)
                     {
                         ExpireAndDelete();
                         return;
                     }
-                    if(!sFactionSystem.isAttackable(m_summoner, pUnit))
-                        continue;
+
+                    if(spell->isSpellAreaOfEffect())
+                        return;
                 }
-
-                SpellCastTargets tgt(pUnit->GetGUID());
-                tgt.m_dest = GetPosition();
-                if(Spell* sp = new Spell(this, spell))
-                    sp->prepare(&tgt, true);
-
-                if(m_summonedGo)
-                {
-                    ExpireAndDelete();
-                    return;
-                }
-
-                if(spell->isSpellAreaOfEffect())
-                    return;
             }
         }
     }
@@ -352,7 +346,6 @@ void GameObject::InitAI()
         r = spell->maxRange[0];
 
     range = r*r;//square to make code faster
-    checkrate = 20;//once in 2 seconds
 }
 
 bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)

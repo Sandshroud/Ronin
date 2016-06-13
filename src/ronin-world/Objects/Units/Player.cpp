@@ -1064,7 +1064,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         SetUInt32Value(PLAYER_GUILD_TIMESTAMP, UNIXTIME);
     }
 
-    m_bgTeam = m_team = myRace->TeamId;
+    SetTeam(myRace->TeamId);
 
     SetNoseLevel();
 
@@ -1954,7 +1954,7 @@ bool Player::Create(WorldPacket& data )
         return false;
     }
 
-    m_team = myRace->TeamId;
+    SetTeam(myRace->TeamId);
     uint8 powertype = uint8(myClass->powerType);
 
     setLevel(std::max<uint32>(class_ == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel));
@@ -4492,7 +4492,7 @@ void Player::InitTaxiNodes()
     case RACE_DRAENEI:  AddTaxiMask(94);                    break;
     }
     // team dependant taxi node
-    AddTaxiMask(100-m_team);
+    AddTaxiMask(100-GetTeam());
 
     if(getLevel() < 68)
         return;
@@ -4513,7 +4513,7 @@ void Player::EventTaxiInterpolate()
     if(x < _minX || x > _maxX || y < _minY || y > _maxX)
         return;
 
-    SetPosition(x,y,z,0);
+    SetPosition(x,y,z,0.f);
 }
 
 void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
@@ -5924,7 +5924,7 @@ void Player::PvPToggle()
     else
     {
         // This is where all the magic happens :P
-        if((at->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == ALLIANCE) || (at->category == AREAC_HORDE_TERRITORY && GetTeam() == HORDE))
+        if((at->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == TEAM_ALLIANCE) || (at->category == AREAC_HORDE_TERRITORY && GetTeam() == TEAM_HORDE))
         {
             if(m_pvpTimer > 0)
             {
@@ -7814,14 +7814,14 @@ uint8 Player::GetGuildMemberFlags()
 uint32 Player::GenerateShapeshiftModelId(uint32 form)
 {
     SpellShapeshiftFormEntry *ssEntry = dbcSpellShapeshiftForm.LookupEntry(form);
-    if(ssEntry && ssEntry->modelID_H && GetTeam() == HORDE)
+    if(ssEntry && ssEntry->modelID_H && GetTeam() == TEAM_HORDE)
         return ssEntry->modelID_H;
 
     switch(form)
     {
     case FORM_CAT:
         {
-            if (GetTeam() == ALLIANCE) // Based on Hair color
+            if (GetTeam() == TEAM_ALLIANCE) // Based on Hair color
             {
                 uint8 hairColor = GetByte(PLAYER_BYTES, 3);
                 switch (hairColor)

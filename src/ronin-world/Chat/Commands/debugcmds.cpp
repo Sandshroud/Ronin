@@ -59,7 +59,7 @@ bool ChatHandler::HandleDistanceCommand(const char* args, WorldSession *m_sessio
         }
     }
 
-    SystemMessage(m_session, format("Distance: %f", sqrtf(m_session->GetPlayer()->GetDistanceSq(pUnit))).c_str());
+    SystemMessage(m_session, "Distance: %f", m_session->GetPlayer()->GetDistanceSq(pUnit));
     return true;
 }
 

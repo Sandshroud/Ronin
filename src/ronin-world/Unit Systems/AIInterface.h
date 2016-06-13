@@ -29,6 +29,7 @@ public:
     void Update(uint32 p_time);
 
     void OnDeath();
+    void OnPathChange();
     void OnTakeDamage(Unit *attacker, uint32 damage);
 
     bool FindTarget();
@@ -36,8 +37,13 @@ public:
 
     AI_State GetAIState() { return m_AIState; }
 
+    uint32 m_pendingWaitTimer;
 protected:
     AI_State m_AIState;
+    uint32 m_AISeed;
+
+    uint32 m_waypointWaitTimer;
+    uint32 m_findTargetLockout;
     void _HandleCombatAI();
 
 protected:

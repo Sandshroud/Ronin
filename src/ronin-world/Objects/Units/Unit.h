@@ -52,6 +52,13 @@ enum DeathState
     DEAD        // Unit is dead and his corpse is gone from the world
 };
 
+enum UnitTeam
+{
+    TEAM_ALLIANCE = 0,
+    TEAM_HORDE = 1,
+    TEAM_NONE = 2
+};
+
 #define MAX_POWER_FIELDS 5
 
 enum PowerType : int8
@@ -343,6 +350,9 @@ public:
     RONIN_INLINE uint32 GetStamina() { return GetUInt32Value(UNIT_FIELD_STAMINA); }
     RONIN_INLINE uint32 GetIntellect() { return GetUInt32Value(UNIT_FIELD_INTELLECT); }
     RONIN_INLINE uint32 GetSpirit() { return GetUInt32Value(UNIT_FIELD_SPIRIT); }
+
+    RONIN_INLINE uint8 GetTeam() { return m_unitTeam; }
+    RONIN_INLINE void SetTeam(uint8 team) { m_unitTeam = team; }
 
     virtual void setLevel(uint32 level);
     RONIN_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
@@ -825,6 +835,9 @@ public:
     uint32 m_uAckCounter;
 
     float m_modelhalfsize; // used to calculate if something is in range of this unit
+
+    // Unit team
+    uint8 m_unitTeam;
 
     // Auras Modifiers
     int32 m_interruptRegen;

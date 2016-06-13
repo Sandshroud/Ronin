@@ -37,6 +37,8 @@ bool ContinentManager::run()
     while(GetThreadState() == THREADSTATE_PAUSED)
         Delay(50);
 
+    m_continent->Init();
+
     uint32 counter = 0, mstime = getMSTime(), lastUpdate = mstime; // Get our ms time
     do
     {
@@ -82,7 +84,9 @@ bool ContinentManager::run()
         if(!SetThreadState(THREADSTATE_SLEEPING))
             break;
 
-        Delay(std::max<int32>(5, MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate)));
+        diff = MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate);
+        if(diff < -50) printf("Map %03u overrunning by %i\n", m_mapId, abs(diff));
+        Delay(std::max<int32>(5, diff));
         counter++;
     }while(true);
 

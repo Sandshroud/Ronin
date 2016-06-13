@@ -268,6 +268,7 @@ public:
 
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
+    void MoveClientPosition(float x, float y, float z, float o);
 
     void OnDeath();
     void OnRepop();
@@ -409,7 +410,7 @@ public:
 
 private:
     bool UpdateAcknowledgementData(uint16 moveCode);
-    bool UpdateMovementData(uint16 moveCode);
+    bool UpdateMovementData(uint16 moveCode, bool distribute);
 
 public:
     void AppendSplineData(bool bits, ByteBuffer *buffer);
@@ -574,6 +575,9 @@ protected: // Movement information
     uint32 m_UnderwaterTime;
     uint8 m_underwaterState;
     uint32 m_breathingUpdateTimer;
+    uint16 m_waterType;
+    float m_waterHeight;
+    LocationVector m_lastWaterUpdatePos;
 
     float m_collisionHeight;
     bool m_isKnockBacked;
