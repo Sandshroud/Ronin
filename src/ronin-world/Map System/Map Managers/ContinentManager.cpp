@@ -85,7 +85,6 @@ bool ContinentManager::run()
             break;
 
         diff = MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate);
-        if(diff < -50) printf("Map %03u overrunning by %i\n", m_mapId, abs(diff));
         Delay(std::max<int32>(5, diff));
         counter++;
     }while(true);

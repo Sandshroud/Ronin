@@ -770,16 +770,20 @@ void ChatHandler::FillSystemMessageData(WorldPacket *data, const char *message)
     *data << uint8(0);
 }
 
-Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror)
+Player* ChatHandler::getSelectedChar(WorldSession *m_session, bool showerror, bool autoSelectSelf)
 {
     Player* chr = NULL;
     WoWGuid guid = m_session->GetPlayer()->GetSelection();
-    if (guid.empty() || guid.getHigh() != HIGHGUID_TYPE_PLAYER)
+    if (guid.empty())
     {
-        if(showerror)
-            GreenSystemMessage(m_session, "Auto-targeting self.");
-        chr = m_session->GetPlayer(); // autoselect
-    } else chr = m_session->GetPlayer()->GetInRangeObject<Player>(guid);
+        if(autoSelectSelf)
+        {
+            if(showerror)
+                GreenSystemMessage(m_session, "Auto-targeting self.");
+            chr = m_session->GetPlayer(); // autoselect
+        }
+    } else if(guid.getHigh() == HIGHGUID_TYPE_PLAYER)
+        chr = m_session->GetPlayer()->GetInRangeObject<Player>(guid);
 
     if(chr == NULL && showerror)
         RedSystemMessage(m_session, "This command requires that you select a player.");

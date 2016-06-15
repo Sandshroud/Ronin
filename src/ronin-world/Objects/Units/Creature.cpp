@@ -35,6 +35,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_AreaUpdateTimer = 0;
     m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
 
+    m_aggroRangeMod = 0.f;
     m_creaturePool = 0xFF;
     m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
@@ -107,6 +108,64 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
         }
     } else if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
+}
+
+void Creature::UpdateFieldValues()
+{
+    if(m_modQueuedModUpdates.find(100) != m_modQueuedModUpdates.end())
+    {
+        m_aggroRangeMod = 0.f;
+        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
+            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
+                m_aggroRangeMod += itr->second->m_amount;
+    }
+    Unit::UpdateFieldValues();
+}
+
+void Creature::OnAuraModChanged(uint32 modType)
+{
+    switch(modType)
+    {
+    case SPELL_AURA_MOD_DETECT_RANGE:
+        m_modQueuedModUpdates[100].push_back(modType);
+        break;
+    }
+}
+
+float Creature::GetAggroRange()
+{
+    float baseAggro = 20.f;
+    // detect range auras
+    baseAggro += m_aggroRangeMod;
+    // Modifying based on rank
+    baseAggro += _creatureData->rank*1.25f;
+    // Add half model size after modifiers
+    baseAggro += GetModelHalfSize();
+    return baseAggro;
+}
+
+void Creature::OnAddInRangeObject(WorldObject *pObj)
+{
+    if(pObj->IsUnit() && sFactionSystem.isHostile(this, pObj))
+        m_inRangeHostiles.push_back(pObj->GetGUID());
+    Unit::OnAddInRangeObject(pObj);
+}
+
+void Creature::OnRemoveInRangeObject(WorldObject *pObj)
+{
+    Unit::OnRemoveInRangeObject(pObj);
+    if(pObj->IsUnit())
+    {
+        WorldObject::InRangeSet::iterator itr;
+        if((itr = std::find(m_inRangeHostiles.begin(), m_inRangeHostiles.end(), pObj->GetGUID())) != m_inRangeHostiles.end())
+            m_inRangeHostiles.erase(itr);
+    }
+}
+
+void Creature::ClearInRangeSet()
+{
+    m_inRangeHostiles.clear();
+    Unit::ClearInRangeSet();
 }
 
 void Creature::EventAttackStop()

@@ -48,7 +48,7 @@ bool ChatHandler::HandleShowReactionCommand(const char* args, WorldSession *m_se
 
 bool ChatHandler::HandleDistanceCommand(const char* args, WorldSession *m_session)
 {
-    Unit* pUnit = getSelectedChar(m_session, false);
+    Unit* pUnit = getSelectedChar(m_session, false, false);
     if(pUnit == NULL)
     {
         pUnit = getSelectedCreature(m_session, false);

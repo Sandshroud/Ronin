@@ -120,14 +120,14 @@ FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *un
         if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == player_objB)
             return FI_STATUS_HOSTILE;
     } // Player attacking non player with team ID
-    else if(player_objA && unitB->GetTeam() != TEAM_NONE)
+    else if(player_objA && unitB->GetTeam() < TEAM_MONSTER)
     {
         if(player_objA->GetTeam() == unitB->GetTeam())
             return FI_STATUS_FRIENDLY;
         if(!(unitB->IsPvPFlagged() && player_objA->IsPvPFlagged()))
             return FI_STATUS_NONE;
     } // Non Player with team ID attacking player
-    else if(player_objB && unitA->GetTeam() != TEAM_NONE)
+    else if(player_objB && unitA->GetTeam() < TEAM_MONSTER)
     {
         uint8 team = unitA->GetTeam();
         if(unitA->GetTeam() == player_objB->GetTeam())
@@ -135,7 +135,7 @@ FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *un
         if(!(unitA->IsPvPFlagged() && player_objB->IsPvPFlagged()))
             return FI_STATUS_NONE;
     }
-    else if(unitA->GetTeam() != TEAM_NONE && unitB->GetTeam() != TEAM_NONE)
+    else if(unitA->GetTeam() < TEAM_MONSTER && unitB->GetTeam() < TEAM_MONSTER)
     {
         // No initialization from these team units
         if(unitA->GetTeam() == unitB->GetTeam())
@@ -395,9 +395,15 @@ bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B co
 
 UnitTeam FactionSystem::GetTeam(FactionTemplateEntry *factionTemplate)
 {
-    if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_ALLIANCE)
-        return TEAM_ALLIANCE;
+    // Check if we're a zone guard before assigning alliance or horde
+    if(factionTemplate && factionTemplate->FactionFlags & FACTION_FLAG_ZONE_GUARD)
+        return TEAM_GUARD;
+    // Force monster flag check before horde or alliance
+    if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_MONSTER)
+        return TEAM_MONSTER;
     if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_HORDE)
         return TEAM_HORDE;
+    if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_ALLIANCE)
+        return TEAM_ALLIANCE;
     return TEAM_NONE;
 }

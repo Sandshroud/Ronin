@@ -4,8 +4,8 @@
 
 #include "StdAfx.h"
 
-AIInterface::AIInterface(Unit *unit, UnitPathSystem *unitPath, Unit *owner) : m_Unit(unit), m_path(unitPath), m_AISeed(RandomUInt()), m_findTargetLockout(1), m_waypointCounter(0), m_waypointMap(NULL),
-m_AIState(unit->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD) // Initialize AI state idle if unit is not dead
+AIInterface::AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner) : m_Creature(creature), m_path(unitPath), m_AISeed(RandomUInt()), m_waypointCounter(0), m_waypointMap(NULL),
+m_AIState(creature->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD) // Initialize AI state idle if unit is not dead
 {
 
 }
@@ -20,9 +20,6 @@ void AIInterface::Update(uint32 p_time)
     if(m_AIState == AI_STATE_DEAD)
         return;
 
-    if(m_findTargetLockout)
-        --m_findTargetLockout;
-
     if(m_waypointWaitTimer > p_time)
         m_waypointWaitTimer -= p_time;
     else m_waypointWaitTimer = 0;
@@ -31,10 +28,10 @@ void AIInterface::Update(uint32 p_time)
     {
     case AI_STATE_IDLE:
         {
-            if(m_Unit->hasStateFlag(UF_EVADING))
+            if(m_Creature->hasStateFlag(UF_EVADING))
             {
                 if(!m_path->hasDestination())
-                    m_Unit->clearStateFlag(UF_EVADING);
+                    m_Creature->clearStateFlag(UF_EVADING);
                 return;
             }
 
@@ -71,8 +68,8 @@ void AIInterface::OnDeath()
     m_targetGuid.Clean();
     m_path->StopMoving();
     m_AIState = AI_STATE_DEAD;
-    m_Unit->EventAttackStop();
-    m_Unit->clearStateFlag(UF_EVADING);
+    m_Creature->EventAttackStop();
+    m_Creature->clearStateFlag(UF_EVADING);
 }
 
 void AIInterface::OnPathChange()
@@ -101,38 +98,30 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 
 bool AIInterface::FindTarget()
 {
-    if(m_Unit->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Unit->HasInRangeObjects())
+    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Creature->HasInRangeObjects())
         return false;
-    if(m_findTargetLockout)
-        return false;
-    m_findTargetLockout = m_AISeed%3;
 
     Unit *target = NULL;
-    float baseAggro = 20.f, targetDist = 0.f;
-    // detect range auras
-    if(AuraInterface::modifierMap *modMap = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            baseAggro += itr->second->m_amount;
+    float baseAggro = m_Creature->GetAggroRange(), targetDist = 0.f;
 
     // Begin iterating through our inrange units
-    for(WorldObject::InRangeSet::iterator itr = m_Unit->GetInRangeUnitSetBegin(); itr != m_Unit->GetInRangeUnitSetEnd(); itr++)
+    for(WorldObject::InRangeSet::iterator itr = m_Creature->GetInRangeHostileSetBegin(); itr != m_Creature->GetInRangeHostileSetEnd(); itr++)
     {
-        if(Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(*itr))
-        {
+        if(Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(*itr))
+        {   // Cut down on checks by skipping dead creatures
             if(unitTarget->isDead())
                 continue;
-            float dist = m_Unit->GetDistanceSq(unitTarget);
-            float aggroRange = m_Unit->ModAggroRange(unitTarget, baseAggro);
-            if(dist > 50.f)
-                continue;
+            float dist = m_Creature->GetDistanceSq(unitTarget);
+            float aggroRange = unitTarget->ModDetectedRange(m_Creature, baseAggro);
+            aggroRange *= aggroRange; // Distance is squared so square our range
             if(dist >= MAX_COMBAT_MOVEMENT_DIST || dist >= aggroRange)
                 continue;
             if(target && targetDist <= dist)
                 continue;
-            if(!sFactionSystem.isHostile(m_Unit, unitTarget))
+            if(!sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
                 continue;
             // LOS is a big system hit so do it last
-            if(!m_Unit->IsInLineOfSight(unitTarget))
+            if(!m_Creature->IsInLineOfSight(unitTarget))
                 continue;
 
             target = unitTarget;
@@ -160,9 +149,9 @@ void AIInterface::FindNextPoint()
         return;
     }
 
-    float distance = m_Unit->GetDistanceSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY(), m_Unit->GetSpawnZ());
+    float distance = m_Creature->GetDistanceSq(m_Creature->GetSpawnX(), m_Creature->GetSpawnY(), m_Creature->GetSpawnZ());
 
-    if(false)//m_Unit->HasRandomMovement())
+    if(false)//m_Creature->HasRandomMovement())
     {
         if(distance < MAX_RANDOM_MOVEMENT_DIST)
         {   // Process random movement point generation
@@ -174,29 +163,30 @@ void AIInterface::FindNextPoint()
         return;
 
     // Move back to our original spawn point
-    m_path->MoveToPoint(m_Unit->GetSpawnX(), m_Unit->GetSpawnY(), m_Unit->GetSpawnZ(), m_Unit->GetSpawnO());
+    m_path->MoveToPoint(m_Creature->GetSpawnX(), m_Creature->GetSpawnY(), m_Creature->GetSpawnZ(), m_Creature->GetSpawnO());
 }
 
 void AIInterface::_HandleCombatAI()
 {
-    Unit *unitTarget = m_Unit->GetInRangeObject<Unit>(m_targetGuid);
-    if (unitTarget == NULL || unitTarget->isDead() || (unitTarget->GetDistance2dSq(m_Unit->GetSpawnX(), m_Unit->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST)
-        || !sFactionSystem.CanEitherUnitAttack(m_Unit, unitTarget))
+    bool tooFarFromSpawn = false;
+    Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
+    if (unitTarget == NULL || unitTarget->isDead() || (tooFarFromSpawn = (unitTarget->GetDistance2dSq(m_Creature->GetSpawnX(), m_Creature->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
+        || !sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
     {
         // If we already have a target but he doesn't qualify back us out of combat
         if(unitTarget)
         {
             m_path->StopMoving();
             m_targetGuid.Clean();
-            m_Unit->EventAttackStop();
+            m_Creature->EventAttackStop();
         }
 
-        if(FindTarget() == false)
+        if(tooFarFromSpawn || FindTarget() == false)
         {
             m_AIState = AI_STATE_IDLE;
             if(!m_path->hasDestination())
             {
-                m_Unit->addStateFlag(UF_EVADING);
+                m_Creature->addStateFlag(UF_EVADING);
                 FindNextPoint();
             }
             return;
@@ -205,20 +195,20 @@ void AIInterface::_HandleCombatAI()
 
     SpellEntry *sp = NULL;
     float attackRange = 0.f, minRange = 0.f, x, y, z, o;
-    if (m_Unit->calculateAttackRange(m_Unit->GetPreferredAttackType(&sp), minRange, attackRange, sp))
+    if (m_Creature->calculateAttackRange(m_Creature->GetPreferredAttackType(&sp), minRange, attackRange, sp))
         attackRange *= 0.8f; // Cut our attack range down slightly to prevent range issues
 
-    m_Unit->GetPosition(x, y, z);
+    m_Creature->GetPosition(x, y, z);
     m_path->GetDestination(x, y);
     if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
     {
         unitTarget->GetPosition(x, y, z);
-        o = m_Unit->calcAngle(m_Unit->GetPositionX(), m_Unit->GetPositionY(), x, y) * M_PI / 180.f;
+        o = m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f;
         x -= attackRange * cosf(o);
         y -= attackRange * sinf(o);
         m_path->MoveToPoint(x, y, z, o);
-    } else m_Unit->SetOrientation(m_Unit->GetAngle(unitTarget));
+    } else m_Creature->SetOrientation(m_Creature->GetAngle(unitTarget));
 
-    if(!m_Unit->ValidateAttackTarget(m_targetGuid))
-        m_Unit->EventAttackStart(m_targetGuid);
+    if(!m_Creature->ValidateAttackTarget(m_targetGuid))
+        m_Creature->EventAttackStart(m_targetGuid);
 }

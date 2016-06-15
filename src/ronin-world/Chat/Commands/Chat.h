@@ -373,7 +373,7 @@ protected:
     //BG
     bool HandleSetBGScoreCommand(const char* args, WorldSession *m_session);
 
-    Player* getSelectedChar(WorldSession *m_session, bool showerror = true);
+    Player* getSelectedChar(WorldSession *m_session, bool showerror = true, bool autoSelectSelf = true);
     Creature* getSelectedCreature(WorldSession *m_session, bool showerror = true);
     Unit* getSelectedUnit(WorldSession *m_session, bool showerror = true);
     bool HandleGOScale(const char* args, WorldSession *m_session);

@@ -47,7 +47,7 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
 
     __creature_iterator = activeCreatures.end();
     mActiveCreaturePoolAddCounter = mActiveCreaturePoolCounter = 0;
-    mActiveCreaturePoolSize = pdbcMap && pdbcMap->IsContinent() ? 8 : 3;
+    mActiveCreaturePoolSize = pdbcMap && pdbcMap->IsContinent() ? 8 : 4;
     mActiveCreaturePools = new CreatureSet[mActiveCreaturePoolSize];
     mActiveCreaturePoolLastUpdate = new uint32[mActiveCreaturePoolSize];
 

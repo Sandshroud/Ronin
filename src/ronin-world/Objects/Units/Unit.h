@@ -56,7 +56,9 @@ enum UnitTeam
 {
     TEAM_ALLIANCE = 0,
     TEAM_HORDE = 1,
-    TEAM_NONE = 2
+    TEAM_GUARD = 2,
+    TEAM_MONSTER = 3,
+    TEAM_NONE
 };
 
 #define MAX_POWER_FIELDS 5
@@ -334,7 +336,7 @@ public:
         else m_attackInterrupt = 0x7FFF;
     }
 
-    float ModAggroRange(Unit *target, float base);
+    float ModDetectedRange(Unit *detector, float base);
 
     RONIN_INLINE bool ValidateAttackTarget(WoWGuid guid) { return m_attackTarget == guid; }
     RONIN_INLINE void SetDualWield(bool enabled) { m_dualWield = enabled; }
@@ -806,7 +808,7 @@ public:
     WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }
 
 public:
-    void OnAuraModChanged(uint32 modType);
+    virtual void OnAuraModChanged(uint32 modType);
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
     Loki::AssocVector<uint8, std::vector<uint32> > m_modQueuedModUpdates;

@@ -22,7 +22,7 @@ enum AI_State : uint8
 class SERVER_DECL AIInterface
 {
 public:
-    AIInterface(Unit *unit, UnitPathSystem *unitPath, Unit *owner = NULL);
+    AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner = NULL);
     ~AIInterface();
 
     // Update
@@ -38,12 +38,12 @@ public:
     AI_State GetAIState() { return m_AIState; }
 
     uint32 m_pendingWaitTimer;
+
 protected:
     AI_State m_AIState;
     uint32 m_AISeed;
 
     uint32 m_waypointWaitTimer;
-    uint32 m_findTargetLockout;
     void _HandleCombatAI();
 
 protected:
@@ -51,7 +51,7 @@ protected:
     std::map<uint32, Position> *m_waypointMap;
 
 private:
-    Unit* m_Unit;
+    Creature* m_Creature;
     UnitPathSystem *m_path;
 
     WoWGuid m_targetGuid;

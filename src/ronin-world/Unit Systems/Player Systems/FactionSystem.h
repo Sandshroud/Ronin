@@ -13,6 +13,12 @@ enum FactionMasks
     FACTION_MASK_MONSTER    = 8
 };
 
+enum FactionFlags
+{
+    FACTION_FLAG_PVP_TARGET     = 0x0800, // Auto flagged for pvp
+    FACTION_FLAG_ZONE_GUARD     = 0x1000, // Zone guard against players
+};
+
 enum FactionInteractionStatus
 {
     FI_STATUS_NONE      = 0, // Internal error, or not attackable

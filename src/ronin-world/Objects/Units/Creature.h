@@ -191,6 +191,12 @@ public:
 
     /// Updates
     virtual void Update(uint32 msTime, uint32 uiDiff);
+    virtual void UpdateFieldValues();
+    virtual void OnAuraModChanged(uint32 modType);
+
+    virtual void OnAddInRangeObject(WorldObject *pObj);
+    virtual void OnRemoveInRangeObject(WorldObject *pObj);
+    virtual void ClearInRangeSet();
 
     void EventAttackStop();
 
@@ -211,8 +217,14 @@ public:
     bool CanAddToWorld();
     void OnPushToWorld();
 
+    float GetAggroRange();
+
     RONIN_INLINE uint32 GetCreaturePool() { return m_creaturePool; }
     RONIN_INLINE void AssignCreaturePool(uint32 pool) { m_creaturePool = pool; }
+
+    RONIN_INLINE size_t GetInRangeHostileCount() { return m_inRangeHostiles.size(); }
+    RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetBegin() { return m_inRangeHostiles.begin(); }
+    RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }
 
     void Respawn(bool addrespawnevent, bool free_guid);
 
@@ -453,6 +465,8 @@ public: // values
 protected:
     uint32 m_AreaUpdateTimer;
 
+    float m_aggroRangeMod;
+
 public:
 
     CreatureSpawn * m_spawn;
@@ -480,4 +494,5 @@ public:
     uint32 m_enslaveCount;
     uint32 m_enslaveSpell;
 
+    WorldObject::InRangeSet m_inRangeHostiles;
 };

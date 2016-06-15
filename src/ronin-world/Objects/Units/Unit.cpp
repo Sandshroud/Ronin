@@ -1217,19 +1217,21 @@ void Unit::resetAttackDelay(uint8 typeMask)
     }
 }
 
-float Unit::ModAggroRange(Unit *target, float base)
+float Unit::ModDetectedRange(Unit *detector, float base)
 {
-    // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 30 char has the same Aggro Radius of a level 5 char on a level 60 mob."
-    int32 leveldif = std::max<int32>(-25, int32(target->getLevel()) - int32(getLevel()));
+    // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 35 char has the same Aggro Radius of a level 5 char on a level 60 mob."
+    uint32 lvl = getLevel(), dlvl = detector->getLevel(), lvlDiff = lvl < dlvl ? dlvl-lvl : lvl-dlvl;
     // "Aggro Radius varies with level difference at a rate of roughly 1 yard/level"
     // radius grow if playlevel < creaturelevel
-    base -= ((float)leveldif)*0.985f;
-    // detected range auras that exist on target
-    if(AuraInterface::modifierMap *modMap = target->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECTED_RANGE))
+    if(lvl < dlvl)
+        base += float(std::min<int32>(25, dlvl-lvl))*1.115f;
+    else base -= float(std::min<int32>(25, lvl-dlvl))*0.985f;
+    // Check detected modifiers auras that exist on us
+    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECTED_RANGE))
         for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
             base += itr->second->m_amount;
     // "Minimum Aggro Radius for a mob seems to be combat range (5 yards)"
-    return GetModelHalfSize()+std::max<float>(5.f, base);
+    return std::max<float>(5.f, base);
 }
 
 void Unit::SetDiminishTimer(uint32 index)

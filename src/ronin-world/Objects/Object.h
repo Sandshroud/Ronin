@@ -462,6 +462,7 @@ public:
     }
 
     RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
+    RONIN_INLINE bool HasInRangePlayers() { return !m_inRangePlayers.empty(); }
 
     RONIN_INLINE virtual void OnAddInRangeObject( WorldObject* pObj )
     {
@@ -480,7 +481,7 @@ public:
         InRangeSet::iterator itr;
         if((pObj->IsGameObject() || pObj->IsDynamicObj()) && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), pObj->GetGUID())) != m_inRangeGameObjects.end()))
             m_inRangeGameObjects.erase(itr);
-        else if(IsUnit())
+        else if(pObj->IsUnit())
         {
             if((itr = std::find(m_inRangeUnits.begin(), m_inRangeUnits.end(), pObj->GetGUID())) != m_inRangeUnits.end())
                 m_inRangeUnits.erase(itr);
