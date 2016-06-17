@@ -98,7 +98,7 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 
 bool AIInterface::FindTarget()
 {
-    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Creature->HasInRangeObjects())
+    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Creature->HasInrangeHostiles())
         return false;
 
     Unit *target = NULL;

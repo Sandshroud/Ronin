@@ -222,6 +222,7 @@ public:
     RONIN_INLINE uint32 GetCreaturePool() { return m_creaturePool; }
     RONIN_INLINE void AssignCreaturePool(uint32 pool) { m_creaturePool = pool; }
 
+    RONIN_INLINE bool HasInrangeHostiles() { return !m_inRangeHostiles.empty(); }
     RONIN_INLINE size_t GetInRangeHostileCount() { return m_inRangeHostiles.size(); }
     RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetBegin() { return m_inRangeHostiles.begin(); }
     RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }

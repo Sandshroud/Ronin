@@ -151,11 +151,15 @@ void AchievementMgr::CleanupPlayerData(WoWGuid guid)
     delete container;
 }
 
-void AchievementMgr::PlayerFinishedLoading(WoWGuid guid)
+void AchievementMgr::PlayerFinishedLoading(Player *plr)
 {
-    if(m_playerAchieveData.find(guid) == m_playerAchieveData.end())
+    if(m_playerAchieveData.find(plr->GetGUID()) == m_playerAchieveData.end())
         return;
-    m_playerAchieveData.at(guid)->_loading = false;
+
+    m_playerAchieveData.at(plr->GetGUID())->_loading = false;
+
+    // Update retroactive criteria
+    UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, plr->getLevel());
 }
 
 void AchievementMgr::LoadAchievementData(WoWGuid guid, PlayerInfo *info, QueryResult *result)
@@ -266,14 +270,14 @@ void AchievementMgr::SaveCriteriaData(WoWGuid guid, QueryBuffer *buff)
     }
 }
 
-void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data)
+void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool buildEmpty)
 {
     AchieveDataContainer *container = m_playerAchieveData.at(guid);
     ASSERT(container != NULL);
 
     ByteBuffer criteriaData;
-    data->WriteBits(container->m_criteriaProgress.size(), 21);
-    for(auto it = container->m_criteriaProgress.begin(); it != container->m_criteriaProgress.end(); it++)
+    data->WriteBits(buildEmpty ? 0 : container->m_criteriaProgress.size(), 21);
+    for(auto it = container->m_criteriaProgress.begin(); buildEmpty == false && it != container->m_criteriaProgress.end(); it++)
     {
         WoWGuid counter(it->second->criteriaCounter);
         // Append our bit data
@@ -312,12 +316,12 @@ void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data)
         criteriaData.WriteByteSeq(guid[1]);
     }
 
-    data->WriteBits(container->m_completedAchievements.size(), 23);
+    data->WriteBits(buildEmpty ? 0 : container->m_completedAchievements.size(), 23);
     data->FlushBits();
     // Append our criteria bytes
     data->append(criteriaData.contents(), criteriaData.size());
     // Append achievements earned and completion dates
-    for(auto it = container->m_completedAchievements.begin(); it != container->m_completedAchievements.end(); it++)
+    for(auto it = container->m_completedAchievements.begin(); buildEmpty == false && it != container->m_completedAchievements.end(); it++)
     {
         *data << uint32(it->first);
         *data << RONIN_UTIL::secsToTimeBitFields(it->second);
@@ -372,7 +376,7 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
             continue;
 
         // See if we should update our criteria
-        if(modType == CCM_HIGHEST && data->criteriaCounter <= mod)
+        if(modType == CCM_HIGHEST && data->criteriaCounter >= mod)
             continue;
 
         // Update our criteria counter, only total is accumulative

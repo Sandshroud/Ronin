@@ -1249,7 +1249,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     m_movementInterface.OnRelocate(m_position);
-    AchieveMgr.PlayerFinishedLoading(GetGUID());
+    AchieveMgr.PlayerFinishedLoading(this);
 }
 
 void Player::_LoadPlayerAuras(QueryResult *result)
@@ -4351,8 +4351,8 @@ void Player::SendInitialLogonPackets()
     smsg_InitialFactions();
 
     data.Initialize(SMSG_ALL_ACHIEVEMENT_DATA);
-    AchieveMgr.BuildAchievementData(GetGUID(), &data);
-    if(getLevel() > 9) GetSession()->SendPacket(&data);
+    AchieveMgr.BuildAchievementData(GetGUID(), &data, getLevel() <= 9);
+    GetSession()->SendPacket(&data);
 
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);

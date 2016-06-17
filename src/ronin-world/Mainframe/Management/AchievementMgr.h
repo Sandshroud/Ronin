@@ -49,7 +49,7 @@ public:
     // Pre load allocation and post logout deallocation
     void AllocatePlayerData(WoWGuid guid);
     void CleanupPlayerData(WoWGuid guid);
-    void PlayerFinishedLoading(WoWGuid guid);
+    void PlayerFinishedLoading(Player *plr);
 
     // Player loading of achievement and criteria
     void LoadAchievementData(WoWGuid guid, PlayerInfo *info, QueryResult *result);
@@ -60,7 +60,7 @@ public:
     void SaveCriteriaData(WoWGuid guid, QueryBuffer *buff);
 
     // Post loading packet builder
-    void BuildAchievementData(WoWGuid guid, WorldPacket *packet);
+    void BuildAchievementData(WoWGuid guid, WorldPacket *packet, bool buildEmpty = false);
 
     // Check if player can earn achievement
     bool IsValidAchievement(Player *plr, AchievementEntry *entry);

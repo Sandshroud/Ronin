@@ -84,8 +84,7 @@ bool ContinentManager::run()
         if(!SetThreadState(THREADSTATE_SLEEPING))
             break;
 
-        diff = MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate);
-        Delay(std::max<int32>(5, diff));
+        Delay(std::max<int32>(5, MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate)));
         counter++;
     }while(true);
 
