@@ -90,7 +90,7 @@ void CellHandler<Class>::UnloadCells()
     {
         Class * _class = _cells.begin()->second;
         _cells.erase(_cells.begin());
-        _class->RemoveObjects(true);
+        _class->UnloadCellData(true);
         delete _class;
     }
     _cells.clear();

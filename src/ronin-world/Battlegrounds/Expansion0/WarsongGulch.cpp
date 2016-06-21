@@ -131,7 +131,7 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
                 buff->prepare(&targets, true);
 
             /* despawn the gameobject (not delete!) */
-            m_buffs[buffslot]->Despawn(0, BUFF_RESPAWN_TIME);
+            m_buffs[buffslot]->Deactivate(BUFF_RESPAWN_TIME);
         }
         return;
     }
@@ -519,7 +519,7 @@ void WarsongGulch::OnStart()
     {
         (*itr)->SetUInt32Value(GAMEOBJECT_FLAGS, 64);
         (*itr)->SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_STATE, 0);
-        sEventMgr.AddEvent((*itr), &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_ITEM_SPAWN, 5000, 1, 0);
+        (*itr)->Deactivate(0);
     }
 
     /* add the flags to the world */

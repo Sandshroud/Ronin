@@ -10,8 +10,7 @@
 
 Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(new TerrainMgr(sWorld.MapPath, _mapId))
 {
-    //new stuff Load Spawns
-    LoadSpawns();
+
 }
 
 Map::~Map()
@@ -28,6 +27,19 @@ Map::~Map()
         itr->second.GOSpawns.clear();
     }
     m_spawns.clear();
+}
+
+void Map::Initialize()
+{
+    //new stuff Load Spawns
+    LoadSpawns();
+
+    // Initialize the terrain header
+    _terrain->LoadTerrainHeader();
+
+    // Load all the terrain from this map
+    if(sWorld.ServerPreloading >= 1)
+        _terrain->LoadAllTerrain();
 }
 
 static bool ctr_first_table_warning = true;

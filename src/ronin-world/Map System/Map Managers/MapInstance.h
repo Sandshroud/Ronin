@@ -21,16 +21,6 @@ class Corpse;
 class CBattleground;
 class Transporter;
 
-enum MapInstanceTimers
-{
-    MMUPDATE_OBJECTS = 0,
-    MMUPDATE_SESSIONS = 1,
-    MMUPDATE_FIELDS = 2,
-    MMUPDATE_IDLE_OBJECTS = 3,
-    MMUPDATE_ACTIVE_OBJECTS = 4,
-    MMUPDATE_COUNT = 5
-};
-
 enum ObjectActiveState
 {
     OBJECT_STATE_NONE    = 0,
@@ -38,7 +28,7 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-static const uint32 MaxUnitViewDistance = 8100;
+static const uint32 MaxObjectViewDistance = 8100;
 static const uint32 MaxPlayerViewDistance = 38000;
 
 #define MAX_TRANSPORTERS_PER_MAP 25
@@ -46,6 +36,118 @@ static const uint32 MaxPlayerViewDistance = 38000;
 
 #define TRIGGER_INSTANCE_EVENT( Mgr, Func )
 
+/// Storage pool used to store and dynamically update objects in our map
+template < class T > class StoragePool
+{
+public:
+    StoragePool() : mPoolCounter(0), mPoolAddCounter(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
+
+    void Initialize(uint32 poolSize)
+    {
+        mPoolSize = poolSize;
+        poolIterator = mPool.end();
+        mPoolCounter = mPoolAddCounter = 0;
+        if(mPoolSize == 1) // Don't initialize the single stack
+            return;
+        mPoolLastUpdateStack = new uint32[mPoolSize];
+        mPoolStack = new std::set<T*>[mPoolSize];
+    }
+
+    void Cleanup()
+    {
+        delete [] mPoolLastUpdateStack;
+        delete [] mPoolStack;
+    }
+
+    void Update(uint32 msTime, uint32 pDiff)
+    {
+        T* ptr = NULL;
+        uint32 diff = pDiff;
+        std::set<T*> *targetPool;
+        if(mPoolStack == NULL) // No stack so use our main pool
+            targetPool = &mPool;
+        else
+        {
+            // Select our next pool to update in the sequence
+            if(++mPoolCounter == mPoolSize)
+                mPoolCounter = 0;
+            // Recalculate the diff from the last time we updated this pool
+            diff = msTime - mPoolLastUpdateStack[mPoolCounter];
+            mPoolLastUpdateStack[mPoolCounter] = msTime;
+            // Set the target pool pointer
+            targetPool = &mPoolStack[mPoolCounter];
+        }
+
+        if(!targetPool->empty())
+        {
+            poolIterator = targetPool->begin();
+            while(poolIterator != targetPool->end())
+            {
+                ptr = *poolIterator;
+                ++poolIterator;
+
+                if(ptr->IsActiveObject() && !ptr->IsActivated())
+                    ptr->InactiveUpdate(msTime, diff);
+                else ptr->Update(msTime, diff);
+            }
+        }
+    }
+
+    void ResetTime(uint32 msTime)
+    {
+        // Times have to be reset for our pools so we don't have massive differences from currentms-0
+        for(uint32 i = 0; i < mPoolSize; i++)
+            mPoolLastUpdateStack[i] = msTime;
+    }
+
+    uint8 Add(T *obj)
+    {
+        uint8 pool = 0xFF;
+        mPool.insert(obj);
+        if(mPoolStack)
+        {
+            pool = mPoolAddCounter++;
+            if(mPoolAddCounter == mPoolSize)
+                mPoolAddCounter = 0;
+            mPoolStack[pool].insert(obj);
+        }
+        return pool;
+    }
+
+    void Remove(T *obj, uint8 poolId)
+    {
+        std::set<T*>::iterator itr;
+        if((itr = mPool.find(obj)) != mPool.end())
+        {
+            // check iterator
+            if( poolIterator == itr )
+                poolIterator = mPool.erase(itr);
+            else mPool.erase(itr);
+        }
+
+        if(mPoolStack && poolId != 0xFF)
+        {
+            if((itr = mPoolStack[poolId].find(obj)) != mPoolStack[poolId].end())
+            {
+                // check iterator
+                if( poolIterator == itr )
+                    poolIterator = mPoolStack[poolId].erase(itr);
+                else mPoolStack[poolId].erase(itr);
+            }
+        }
+    }
+
+    typename std::set<T*>::iterator begin() { return mPool.begin(); };
+    typename std::set<T*>::iterator end() { return mPool.end(); };
+
+private:
+
+    std::set<T*> mPool, *mPoolStack;
+    typename std::set<T*>::iterator poolIterator;
+    uint32 mPoolCounter, mPoolAddCounter, mPoolSize, *mPoolLastUpdateStack;
+};
+
+/// Map instance class for processing different map instances(duh)
 class SERVER_DECL MapInstance : public CellHandler <MapCell>, public EventableObject
 {
     friend class UpdateObjectThread;
@@ -160,12 +262,15 @@ public:
     MapInstance(Map *map, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
+    void Preload();
     void Init();
     void Destruct();
 
     void EventPushObjectToSelf(WorldObject *obj);
+
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
+
     void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
@@ -174,6 +279,10 @@ public:
     //! Mark object as updated
     void ObjectUpdated(WorldObject* obj);
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
+
+    // Call down to base map for cell activity
+    RONIN_INLINE void CellLoaded(uint32 x, uint32 y) { _map->CellLoaded(x,y); }
+    RONIN_INLINE void CellUnloaded(uint32 x,uint32 y) { _map->CellUnloaded(x,y); }
 
     // Terrain Functions
     void GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType);
@@ -209,13 +318,12 @@ public:
 
     void _ProcessInputQueue();
     void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
-    void _PerformCreatureUpdates(uint32 msTime);
-    void _PerformObjectUpdates(uint32 msTime);
+    void _PerformCreatureUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformObjectUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
 
-    uint32 mLoopCounter;
-    uint32 lastCreatureUpdate, lastDynamicObjectUpdate;
     void EventCorpseDespawn(uint64 guid);
 
     time_t InactiveMoveTime;
@@ -233,7 +341,6 @@ public:
 
     void UnloadCell(uint32 x,uint32 y);
     void EventRespawnCreature(Creature* ctr, MapCell * c);
-    void EventRespawnGameObject(GameObject* obj, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
     void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
     void BeginInstanceExpireCountdown();
@@ -259,7 +366,7 @@ protected:
 public:
     void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
-    // Distance a Player can "see" other objects and receive updates from them (!! ALREADY dist*dist !!)
+    // Map preloading to push back updating inrange objects
     bool m_mapPreloading;
 
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
@@ -278,18 +385,10 @@ protected:
     SessionSet MapSessions;
 
 public:
-    Mutex m_activeLock;
-    CreatureSet activeCreatures;
-    uint32 mActiveCreaturePoolCounter, mActiveCreaturePoolAddCounter;
-    size_t mActiveCreaturePoolSize;
-    CreatureSet *mActiveCreaturePools;
-    uint32 *mActiveCreaturePoolLastUpdate;
-
-    GameObjectSet activeGameObjects;
-    uint32 mActiveGameObjectPoolCounter, mActiveGameObjectPoolAddCounter;
-    size_t mActiveGameObjectPoolSize;
-    GameObjectSet *mActiveGameObjectPools;
-    uint32 *mActiveGameObjectPoolLastUpdate;
+    Mutex m_poolLock;
+    StoragePool<Creature> mCreaturePool;
+    StoragePool<GameObject> mGameObjectPool;
+    StoragePool<DynamicObject> mDynamicObjectPool;
 
     CBattleground* m_battleground;
     std::vector<Corpse* > m_corpses;
@@ -324,10 +423,4 @@ public:
 
     // stored iterators for safe checking
     PlayerStorageMap::iterator __player_iterator;
-
-    CreatureSet::iterator __creature_iterator;
-    GameObjectSet::iterator __gameobject_iterator;
-
-    SessionSet::iterator __session_iterator_1;
-    SessionSet::iterator __session_iterator_2;
 };

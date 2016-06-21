@@ -24,16 +24,15 @@ bool ContinentManager::Initialize()
 {
     sLog.Notice("ContinentManager", "Creating continent %u(%s).", m_mapId, m_mapEntry->name);
     if(m_continent = new MapInstance(m_mapData, m_mapId, 0))
-    {
-        if(sWorld.ServerPreloading >= 2)
-            m_continent->UpdateAllCells(true);
         return true;
-    }
     return false;
 }
 
 bool ContinentManager::run()
 {
+    // Preload all needed spawns etc
+    m_continent->Preload();
+    // Wait for our thread to be activated
     while(GetThreadState() == THREADSTATE_PAUSED)
         Delay(50);
 
@@ -63,12 +62,16 @@ bool ContinentManager::run()
         m_continent->_PerformPlayerUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Perform all dynamic object updates in sequence
+        m_continent->_PerformDynamicObjectUpdates(mstime, diff);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all creature updates in sequence
-        m_continent->_PerformCreatureUpdates(mstime);
+        m_continent->_PerformCreatureUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all object updates in sequence
-        m_continent->_PerformObjectUpdates(mstime);
+        m_continent->_PerformObjectUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all session updates in sequence

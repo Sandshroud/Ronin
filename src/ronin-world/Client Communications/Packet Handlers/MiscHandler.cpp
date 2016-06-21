@@ -198,7 +198,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                                             else
                                             {
                                                 pGO->CalcMineRemaining( true );
-                                                pGO->Despawn( 0, pGO->GetInfo()->RespawnTimer);
+                                                pGO->Deactivate(pGO->GetInfo()->RespawnTimer);
                                             }
                                             return;
                                         }
@@ -222,7 +222,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                                 return;
                             }
 
-                            pGO->Despawn(0, pGO->GetInfo()->RespawnTimer);
+                            pGO->Deactivate(pGO->GetInfo()->RespawnTimer);
                         }
                     }
                 }
@@ -1308,11 +1308,15 @@ void WorldSession::HandleGameobjReportUseOpCode( WorldPacket& recv_data )
         return;
     }
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
-    GameObject* gameobj = _player->GetMapInstance()->GetGameObject(guid);
-    if(gameobj != NULL && gameobj->GetInfo() && gameobj->CanActivate())
-        sQuestMgr.OnGameObjectActivate(_player, gameobj);
+    if(guid.getHigh() != HIGHGUID_TYPE_GAMEOBJECT)
+        return;
+
+    // Check and see if the gameobject is in range and if we can use it
+    if(GameObject* gameObject = _player->GetInRangeObject<GameObject>(guid))
+        if(gameObject->GetInfo() && true)//gameObject->CanBeUsed(_player))
+            sQuestMgr.OnGameObjectActivate(_player, gameObject);
 }
 
 void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )

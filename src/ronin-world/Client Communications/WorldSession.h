@@ -94,7 +94,7 @@ typedef struct Cords {
 extern OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 void CapitalizeString(std::string& arg);
 
-class SERVER_DECL WorldSession : public EventableObject
+class SERVER_DECL WorldSession
 {
     friend class WorldSocket;
 public:

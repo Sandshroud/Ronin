@@ -72,6 +72,11 @@ void Creature::Destruct()
     Unit::Destruct();
 }
 
+void Creature::Reactivate()
+{
+
+}
+
 void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
     m_AreaUpdateTimer += uiDiff;
@@ -422,12 +427,16 @@ bool Creature::CanAddToWorld()
 
 void Creature::OnPushToWorld()
 {
+    Unit::OnPushToWorld();
     for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
             CastSpell(this, sp, true);
+}
 
-    Unit::OnPushToWorld();
-    if(GetAreaFlags() & OBJECT_AREA_FLAG_INSANCTUARY)
+void Creature::UpdateAreaInfo(MapInstance *instance)
+{
+    Unit::UpdateAreaInfo(instance);
+    if(GetTeam() < TEAM_GUARD && GetAreaFlags() & OBJECT_AREA_FLAG_INSANCTUARY)
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_2);
 }
 
@@ -687,9 +696,13 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Set worldobject Create data
     _Create(mapId, x, y, z, o);
 
+    // Event objects should be spawned inactive
+    isActive = m_spawn->eventId ? false : true;
+
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 
+    // Grab our saved model spawn and check if it's valid from creature data
     uint32 model = m_spawn ? m_spawn->modelId : 0, gender=0;
     _creatureData->VerifyModelInfo(model, gender);
 

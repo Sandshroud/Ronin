@@ -265,7 +265,7 @@ void EyeOfTheStorm::HookOnAreaTrigger(Player* plr, uint32 id)
                 if(Spell* pSpell = new Spell(plr, sp))
                     pSpell->prepare(&targets, true);
             }
-            m_EOTSbuffs[x]->Despawn(0, EOTS_BUFF_RESPAWN_TIME);
+            m_EOTSbuffs[x]->Deactivate(EOTS_BUFF_RESPAWN_TIME);
         }
     }
 

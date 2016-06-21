@@ -424,7 +424,7 @@ void AVNode::Spawn()
         if( m_flag != NULL )
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning main flag", m_template->m_name);
-            m_flag->Despawn(0, 0);
+            m_flag->Deactivate(0);
             m_flag = NULL;
         }
     }
@@ -462,7 +462,7 @@ void AVNode::Spawn()
         if( m_aura != NULL )
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning secondary flag", m_template->m_name);
-            m_aura->Despawn(0, 0);
+            m_aura->Deactivate(0);
             m_aura = NULL;
         }
     }
@@ -504,7 +504,7 @@ void AVNode::Spawn()
         if( m_glow != NULL )
         {
             sLog.outDebug("AVNode::Spawn(%s) : Despawning glow", m_template->m_name);
-            m_glow->Despawn(0, 0);
+            m_glow->Deactivate(0);
             m_glow = NULL;
         }
     }
@@ -552,7 +552,7 @@ void AVNode::Spawn()
     {
         sLog.outDebug("AVNode::Spawn(%s) : despawning guards", m_template->m_name);
         for(std::vector<Creature*>::iterator itr = m_guards.begin(); itr != m_guards.end(); itr++)
-            (*itr)->Despawn(0, 0);
+            (*itr)->Deactivate(0);
 
         m_guards.clear();
 

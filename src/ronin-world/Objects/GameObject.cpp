@@ -89,8 +89,9 @@ void GameObject::Destruct()
     WorldObject::Destruct();
 }
 
-void GameObject::Update(uint32 p_time)
+void GameObject::Update(uint32 msTime, uint32 p_time)
 {
+    WorldObject::Update(msTime, p_time);
     if(m_event_MapId != m_mapId)
     {
         event_Relocate();
@@ -112,7 +113,7 @@ void GameObject::Update(uint32 p_time)
                     {
                         if(!m_summoner)
                         {
-                            ExpireAndDelete();
+                            Deactivate(0);
                             return;
                         }
                         if(!sFactionSystem.isAttackable(m_summoner, pUnit))
@@ -126,7 +127,7 @@ void GameObject::Update(uint32 p_time)
 
                     if(m_summonedGo)
                     {
-                        ExpireAndDelete();
+                        Deactivate(0);
                         return;
                     }
 
@@ -136,6 +137,37 @@ void GameObject::Update(uint32 p_time)
             }
         }
     }
+}
+
+void GameObject::OnPushToWorld()
+{
+    WorldObject::OnPushToWorld();
+}
+
+void GameObject::RemoveFromWorld()
+{
+    WorldObject::RemoveFromWorld();
+}
+
+void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
+{
+    WorldObject::OnRemoveInRangeObject(pObj);
+    if(m_summonedGo && m_summoner == pObj)
+    {
+        for(int i = 0; i < 4; i++)
+        {
+            if (m_summoner->m_ObjectSlots[i] == GetGUID())
+                m_summoner->m_ObjectSlots[i] = 0;
+        }
+
+        m_summoner = NULL;
+        Deactivate(0);
+    }
+}
+
+void GameObject::Reactivate()
+{
+    // Todo: Check spawn points and reset data for respawn event
 }
 
 bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang, float r0, float r1, float r2, float r3)
@@ -169,58 +201,6 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     return true;
 }
 
-void GameObject::TrapSearchTarget()
-{
-    Update(200);
-}
-
-void GameObject::Spawn( MapInstance* m)
-{
-    PushToWorld(m);
-    TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnSpawn);
-}
-
-void GameObject::Despawn( uint32 delay, uint32 respawntime)
-{
-    if(delay)
-    {
-        sEventMgr.AddEvent(this, &GameObject::Despawn, (uint32)0, respawntime, EVENT_GAMEOBJECT_EXPIRE, delay, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        return;
-    }
-
-    if(!IsInWorld())
-        return;
-
-    GetLoot()->gold = 0;
-    GetLoot()->items.clear();
-
-    //This is for go get deleted while looting
-    if( m_spawn != NULL )
-    {
-        SetState(m_spawn->state);
-        SetFlags(m_spawn->flags);
-    }
-
-    TRIGGER_GO_EVENT(this, OnDespawn);
-
-    if(respawntime)
-    {
-        /* Get our originiating mapcell */
-        MapCell * pCell = m_mapCell;
-        ASSERT(pCell);
-        pCell->AddRespawn( this );
-        sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnGameObject, castPtr<GameObject>(this), pCell, EVENT_GAMEOBJECT_ITEM_SPAWN, respawntime, 1, 0);
-        WorldObject::RemoveFromWorld();
-        m_respawnCell = pCell;
-    }
-    else
-    {
-        WorldObject::RemoveFromWorld();
-        ExpireAndDelete();
-    }
-}
-
 void GameObject::SaveToDB()
 {
     if(m_spawn == NULL)
@@ -238,11 +218,11 @@ void GameObject::SaveToDB()
         << m_rotation.y << ", "
         << m_rotation.z << ", "
         << m_rotation.w << ", "
-        << uint32( GetByte(GAMEOBJECT_BYTES_1, 0)? 1 : 0 ) << ","
+        << uint32(GetState()) << ","
         << GetFlags() << ","
         << GetUInt32Value(GAMEOBJECT_FACTION) << ","
         << GetFloatValue(OBJECT_FIELD_SCALE_X) << ","
-        << uint32(0x01) << ")";
+        << m_spawn->eventId << ")";
 
     WorldDatabase.Execute(ss.str().c_str());
 }
@@ -350,16 +330,24 @@ void GameObject::InitAI()
 
 bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
 {
+    // Create based on our proto data for overriding later with spawn data
     if(!CreateFromProto(spawn->entry, mapId, spawn->x, spawn->y, spawn->z, angle, spawn->r0, spawn->r1, spawn->r2, spawn->r3))
         return false;
 
+    // Set our spawn pointer
     m_spawn = spawn;
+
+    // Event objects should be spawned inactive
+    isActive = m_spawn->eventId ? false : true;
+
+    // Custom object faction setting per spawn
     if(spawn->faction)
     {
-        SetUInt32Value(GAMEOBJECT_FACTION,spawn->faction);
+        SetUInt32Value(GAMEOBJECT_FACTION, spawn->faction);
         m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
     }
 
+    // Load spawn data
     SetFlags(spawn->flags);
     SetState(spawn->state);
     SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
@@ -475,7 +463,7 @@ void GameObject::EndFishing(Player* player, bool abort )
         }
     }
 
-    ExpireAndDelete(abort ? 0 : 20000);
+    Deactivate(0);
 }
 
 void GameObject::FishHooked(Player* player)
@@ -587,63 +575,6 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
 
     return p;
 
-}
-
-void GameObject::_Expire()
-{
-    if(IsInWorld())
-        WorldObject::RemoveFromWorld();
-
-    Destruct();
-}
-
-void GameObject::ExpireAndDelete()
-{
-    ExpireAndDelete(1); // Defaults to 1, so set to 1 for non delay including calls.
-}
-
-void GameObject::ExpireAndDelete(uint32 delay)
-{
-    if(m_deleted)
-        return;
-
-    delay = delay <= 0 ? 1 : delay;
-
-    if(delay == 1)// we're to be deleted next loop, don't update go anymore.
-        m_deleted = true;
-
-    if(sEventMgr.HasEvent(this,EVENT_GAMEOBJECT_EXPIRE))
-        sEventMgr.ModifyEventTimeLeft(this, EVENT_GAMEOBJECT_EXPIRE, delay);
-    else sEventMgr.AddEvent(this, &GameObject::_Expire, EVENT_GAMEOBJECT_EXPIRE, delay, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-}
-
-void GameObject::OnPushToWorld()
-{
-    WorldObject::OnPushToWorld();
-}
-
-void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
-{
-    WorldObject::OnRemoveInRangeObject(pObj);
-    if(m_summonedGo && m_summoner == pObj)
-    {
-        for(int i = 0; i < 4; i++)
-        {
-            if (m_summoner->m_ObjectSlots[i] == GetGUID())
-                m_summoner->m_ObjectSlots[i] = 0;
-        }
-
-        m_summoner = NULL;
-        ExpireAndDelete();
-    }
-}
-
-void GameObject::RemoveFromWorld()
-{
-    WorldObject::RemoveFromWorld();
-    return;
-    sEventMgr.RemoveEvents(this, EVENT_GAMEOBJECT_TRAP_SEARCH_TARGET);
-    Despawn(0, 0);
 }
 
 uint32 GameObject::GetGOReqSkill()
@@ -824,7 +755,7 @@ void GameObject::Use(Player *p)
                 {
                     if (Player* ChairUser = objmgr.GetPlayer(itr->second))
                     {
-                        if (ChairUser->IsSitting() && sqrt(ChairUser->GetDistance2dSq(x_i, y_i)) < 0.1f)
+                        if (ChairUser->IsSitting() && ChairUser->GetDistance2dSq(x_i, y_i) < 0.1f)
                             continue;
                     }
                     itr->second = 0;
@@ -849,7 +780,7 @@ void GameObject::Use(Player *p)
                 if (itr != ChairListSlots.end())
                 {
                     itr->second = p->GetGUID();
-                    p->Teleport( x_lowest, y_lowest, GetPositionZ(), GetOrientation() );
+                    p->Teleport( x_lowest, y_lowest, GetPositionZ(), m_rotation.w );
                     p->SetStandState(STANDSTATE_SIT_LOW_CHAIR+goinfo->data.chair.height);
                     return;
                 }
@@ -934,7 +865,7 @@ void GameObject::Use(Player *p)
             if(Spell* spell = new Spell(p, info))
                 spell->prepare(&targets, false);
             if(charges > 0 && !--charges)
-                ExpireAndDelete();
+                Deactivate(0);
         }break;
     case GAMEOBJECT_TYPE_RITUAL:
         {
@@ -1030,7 +961,7 @@ void GameObject::Use(Player *p)
                             spell->prepare(&targets, true);
 
                         /* expire the GameObject* */
-                        ExpireAndDelete();
+                        Deactivate(0);
                     }break;
                 case 194108:// Ritual of Summoning portal for warlocks
                     {
@@ -1043,7 +974,7 @@ void GameObject::Use(Player *p)
                         if(Spell* spell = new Spell(pleader, info))
                             spell->prepare(&targets, true);
 
-                        ExpireAndDelete();
+                        Deactivate(0);
                         pleader->InterruptCurrentSpell();
                     }break;
                 case 186811://Ritual of Refreshment
@@ -1058,7 +989,7 @@ void GameObject::Use(Player *p)
                         if(Spell* spell = new Spell(pleader, info))
                             spell->prepare(&targets, true);
 
-                        ExpireAndDelete();
+                        Deactivate(0);
                         pleader->InterruptCurrentSpell();
                     }break;
                 case 181622://Ritual of Souls
@@ -1117,7 +1048,7 @@ void GameObject::Use(Player *p)
             // dont allow to spam them
             GameObject* gobj = castPtr<GameObject>(p->GetMapInstance()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
             if( gobj )
-                ExpireAndDelete();
+                Deactivate(0);
 
             pGo->SetGOui32Value(GO_UINT32_M_RIT_CASTER, p->GetLowGUID());
             pGo->SetGOui32Value(GO_UINT32_M_RIT_TARGET, pPlayer->GetLowGUID());
@@ -1130,7 +1061,7 @@ void GameObject::Use(Player *p)
             p->SetUInt32Value(UNIT_CHANNEL_SPELL, pGo->GetGOui32Value(GO_UINT32_RIT_SPELL));
 
             /* expire after 2mins*/
-            sEventMgr.AddEvent(pGo, &GameObject::_Expire, EVENT_GAMEOBJECT_EXPIRE, 120000, 1,0);
+            sEventMgr.AddEvent<GameObject, uint32>(pGo, &WorldObject::Deactivate, uint32(0), EVENT_GAMEOBJECT_EXPIRE, 120000, 1,0);
         }break;
     case GAMEOBJECT_TYPE_BARBER_CHAIR:
         {

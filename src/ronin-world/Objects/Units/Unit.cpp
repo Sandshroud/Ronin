@@ -2861,6 +2861,7 @@ void Unit::PlaySpellVisual(uint64 target, uint32 spellVisual)
 
 void Unit::OnPushToWorld()
 {
+    WorldObject::OnPushToWorld();
     m_AuraInterface.BuildAllAuraUpdates();
 }
 
@@ -3174,7 +3175,7 @@ void Unit::SummonExpireAll(bool clearowner)
     {
         if(IsInWorld() && !m_ObjectSlots[x].empty())
             if(GameObject* obj = m_mapInstance->GetGameObject(m_ObjectSlots[x]))
-                obj->ExpireAndDelete();
+                obj->Deactivate(0);
         m_ObjectSlots[x] = 0;
     }
 }

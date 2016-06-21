@@ -537,10 +537,18 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual void Update(uint32 p_time);
+    virtual void Update(uint32 msTime, uint32 p_time);
 
-    RONIN_INLINE uint32 GetGameObjectPool() { return m_gameobjectPool; }
-    RONIN_INLINE void AssignGameObjectPool(uint32 pool) { m_gameobjectPool = pool; }
+    virtual bool IsActiveObject() { return true; }
+
+    virtual void OnPushToWorld();
+    virtual void RemoveFromWorld();
+    virtual void OnRemoveInRangeObject(WorldObject* pObj);
+
+    virtual void Reactivate();
+
+    RONIN_INLINE uint8 GetGameObjectPool() { return m_gameobjectPool; }
+    RONIN_INLINE void AssignGameObjectPool(uint8 pool) { m_gameobjectPool = pool; }
 
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
@@ -553,10 +561,6 @@ public:
     uint32 BuildStopFrameData(ByteBuffer *buff);
     void UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3);
     static int64 PackRotation(GameObject::ObjectRotation *rotation);
-
-    void Spawn( MapInstance* m);
-    void Despawn( uint32 delay, uint32 respawntime);
-    void UpdateTrapState();
 
     // Serialization
     void SaveToDB();
@@ -589,10 +593,6 @@ public:
     Unit *GetSummoner() { return m_summoner; }
 
     Unit* CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot);
-    void _Expire();
-
-    void ExpireAndDelete();
-    void ExpireAndDelete(uint32 delay);
 
     /// Quest data
     std::list<QuestRelation *>* m_quests;
@@ -615,13 +615,8 @@ public:
     int8 bannerauraslot;
     CBattleground* m_battleground;
 
-    void TrapSearchTarget();    // Traps need to find targets faster :P
-
     RONIN_INLINE bool HasAI() { return spell != 0; }
     GOSpawn * m_spawn;
-    void OnPushToWorld();
-    void OnRemoveInRangeObject(WorldObject* pObj);
-    void RemoveFromWorld();
 
     RONIN_INLINE bool CanMine(){return (m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] > 0);}
     RONIN_INLINE void UseMine(){ if(m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]) m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]--;}
@@ -681,7 +676,7 @@ public:
 protected:
     bool m_summonedGo, m_deleted;
     GameObjectInfo *pInfo;
-    uint32 m_gameobjectPool;
+    uint8 m_gameobjectPool;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
     typedef std::map<uint32,uint64> ChairSlotAndUser;
     ChairSlotAndUser ChairListSlots;

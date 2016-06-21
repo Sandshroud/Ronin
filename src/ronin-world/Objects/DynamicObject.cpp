@@ -10,6 +10,7 @@ DynamicObject::DynamicObject(uint32 high, uint32 low, uint32 fieldCount) : World
     m_objType = TYPEID_DYNAMICOBJECT;
 
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS;
+    m_dynamicobjectPool = 0xFF;
 
     m_aliveDuration = 0;
     m_spellProto = NULL;

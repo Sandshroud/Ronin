@@ -302,7 +302,7 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
     GreenSystemMessage(m_session, "Phase: %i", crt->GetPhaseMask());
     if(crt->IsSpawn())
         GreenSystemMessage(m_session, "Vendor Mask: %i", crt->GetVendorMask());
-    GreenSystemMessage(m_session, "Team: %u", crt->GetTeam());
+    GreenSystemMessage(m_session, "Team: %s", crt->GetTeamName());
     ColorSystemMessage(m_session, MSG_COLOR_RED, "Entry ID: %u", crt->GetUInt32Value(OBJECT_FIELD_ENTRY));
     ColorSystemMessage(m_session, MSG_COLOR_RED, "SQL Entry ID: %u", crt->GetSQL_id());
 

@@ -515,7 +515,6 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         if(pUnit = _player->GetMapInstance()->GetUnit(guid))
             unitName = pUnit->GetName();
 
-        printf("Emote: %u, %u\n", emText->Id, emText->textId);
         switch(emText->textId)
         {
         case EMOTE_STATE_SLEEP:

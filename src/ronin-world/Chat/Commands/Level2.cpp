@@ -563,7 +563,8 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
             GObj->m_spawn = NULL;
         }
     }
-    GObj->Despawn(0, 0); // Deleted through ExpireAndDelete
+
+    GObj->Deactivate(0); // Deleted through ExpireAndDelete
     GObj = NULL;
     if(foundonmap)
         BlueSystemMessage(m_session, "Deleted selected object and erased it from spawn map.");

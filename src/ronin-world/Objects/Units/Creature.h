@@ -181,6 +181,19 @@ public:
     virtual ~Creature();
     virtual void Init();
     virtual void Destruct();
+    virtual void Reactivate();
+
+    virtual void Update(uint32 msTime, uint32 uiDiff);
+
+    virtual bool IsActiveObject() { return true; }
+
+    /// Updates
+    virtual void UpdateFieldValues();
+    virtual void OnAuraModChanged(uint32 modType);
+
+    virtual void OnAddInRangeObject(WorldObject *pObj);
+    virtual void OnRemoveInRangeObject(WorldObject *pObj);
+    virtual void ClearInRangeSet();
 
     const char* GetName()
     {
@@ -188,15 +201,6 @@ public:
             return _creatureData->femaleName.c_str();
         return _creatureData->maleName.c_str();
     }
-
-    /// Updates
-    virtual void Update(uint32 msTime, uint32 uiDiff);
-    virtual void UpdateFieldValues();
-    virtual void OnAuraModChanged(uint32 modType);
-
-    virtual void OnAddInRangeObject(WorldObject *pObj);
-    virtual void OnRemoveInRangeObject(WorldObject *pObj);
-    virtual void ClearInRangeSet();
 
     void EventAttackStop();
 
@@ -217,10 +221,12 @@ public:
     bool CanAddToWorld();
     void OnPushToWorld();
 
+    virtual void UpdateAreaInfo(MapInstance *instance = NULL);
+
     float GetAggroRange();
 
-    RONIN_INLINE uint32 GetCreaturePool() { return m_creaturePool; }
-    RONIN_INLINE void AssignCreaturePool(uint32 pool) { m_creaturePool = pool; }
+    RONIN_INLINE uint8 GetCreaturePool() { return m_creaturePool; }
+    RONIN_INLINE void AssignCreaturePool(uint8 pool) { m_creaturePool = pool; }
 
     RONIN_INLINE bool HasInrangeHostiles() { return !m_inRangeHostiles.empty(); }
     RONIN_INLINE size_t GetInRangeHostileCount() { return m_inRangeHostiles.size(); }
@@ -440,7 +446,7 @@ public:
     ItemPrototype *GetShieldProto() { return m_shieldProto; }
 
 public: // values
-    uint32 m_creaturePool;
+    uint8 m_creaturePool;
 
     bool m_isGuard;
     bool b_has_shield;

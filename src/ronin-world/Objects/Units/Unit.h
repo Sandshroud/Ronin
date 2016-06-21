@@ -61,6 +61,8 @@ enum UnitTeam
     TEAM_NONE
 };
 
+static char *teamNames[5] = { "Alliance", "Horde", "Guard", "Monster", "None" };
+
 #define MAX_POWER_FIELDS 5
 
 enum PowerType : int8
@@ -355,6 +357,7 @@ public:
 
     RONIN_INLINE uint8 GetTeam() { return m_unitTeam; }
     RONIN_INLINE void SetTeam(uint8 team) { m_unitTeam = team; }
+    RONIN_INLINE const char *GetTeamName() { return teamNames[std::min<uint8>(TEAM_NONE, m_unitTeam)]; }
 
     virtual void setLevel(uint32 level);
     RONIN_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }

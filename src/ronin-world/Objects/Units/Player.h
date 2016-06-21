@@ -662,6 +662,11 @@ public:
     virtual void Init();
     virtual void Destruct();
 
+    virtual void RemoveFromWorld();
+
+    // Reactivate is a function players don't need
+    virtual void Reactivate() {}
+
     void Update( uint32 msTime, uint32 diff );
 
     void ProcessPendingItemUpdates();
@@ -823,7 +828,6 @@ public:
 
     bool ok_to_remove;
 
-    void RemoveFromWorld();
     bool Create ( WorldPacket &data );
 
     void BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag);
@@ -1386,6 +1390,9 @@ public:
     bool vendorpass_cheat;
     bool triggerpass_cheat;
     bool ignoreitemreq_cheat;
+    uint8 gmSightType;
+    uint32 gmSightPhaseMask;
+    uint32 gmSightEventID;
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;

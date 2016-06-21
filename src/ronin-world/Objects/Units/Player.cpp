@@ -268,12 +268,9 @@ void Player::Destruct()
 
     if(m_SummonedObject)
     {
-        if(m_SummonedObject->GetInstanceID() == GetInstanceID())
-        {
-            if(m_SummonedObject->IsInWorld())
-                m_SummonedObject->RemoveFromWorld();
-            m_SummonedObject->Destruct();
-        } else sEventMgr.AddEvent(m_SummonedObject, &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
+        if(m_SummonedObject->IsInWorld())
+            m_SummonedObject->RemoveFromWorld();
+        m_SummonedObject->Destruct();
         m_SummonedObject = NULL;
     }
 
@@ -2962,7 +2959,7 @@ void Player::RemoveFromWorld()
             if(m_SummonedObject->IsInWorld())
                 m_SummonedObject->RemoveFromWorld();
             m_SummonedObject->Destruct();
-        } else sEventMgr.AddEvent(m_SummonedObject, &GameObject::Despawn, uint32(0), uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
+        } else sEventMgr.AddEvent<GameObject, uint32>(m_SummonedObject, &GameObject::Deactivate, uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
         m_SummonedObject = NULL;
     }
 
@@ -3611,10 +3608,6 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 
     if( !AreaCanInteract(obj) )
         return false;
-    // We can't see any objects in another phase
-    // unless they're in ALL_PHASES
-    if( !PhasedCanInteract(obj) )
-        return false;
 
     uint32 object_type = obj->GetTypeId();
     if(getDeathState() == CORPSE) // we are dead and we have released our spirit
@@ -3681,7 +3674,6 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
         case TYPEID_PLAYER:
             {
                 Player* pObj = castPtr<Player>(obj);
-
                 if( pObj->m_mageInvisibility )
                     return false;
 
@@ -3728,8 +3720,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 
                     if(GetGroup())
                     {
-                        Player * gplr = NULL;
-                        gplr = GetMapInstance()->GetPlayer((uint32)owner);
+                        Player * gplr = GetMapInstance()->GetPlayer((uint32)owner);
                         if(gplr != NULL && GetGroup()->HasMember(gplr))
                             return true;
                     }

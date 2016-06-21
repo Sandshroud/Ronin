@@ -94,6 +94,8 @@ FactionInteractionStatus FactionSystem::GetUnitAreaInteractionStatus(Unit *unitA
             allowedCombat = false;
         else if(unitB->IsSummon() && unitA->IsPlayer())
             allowedCombat = false;
+        else if(unitB->GetTeam() < TEAM_MONSTER && unitA->GetTeam() < TEAM_MONSTER)
+            allowedCombat = false;
         if(!allowedCombat)
             return FI_STATUS_FRIENDLY;
     }

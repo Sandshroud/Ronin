@@ -1725,7 +1725,6 @@ void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target
     GoSummon->SetState(0);
     GoSummon->PushToWorld(u_caster->GetMapInstance());
     GoSummon->SetSummoned(u_caster);
-    GoSummon->ExpireAndDelete(GetDuration());
 }
 
 void SpellEffectClass::SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount) // Script Effect

@@ -13,12 +13,12 @@ MapCell::MapCell()
 
 MapCell::~MapCell()
 {
-    RemoveObjects(true);
+    UnloadCellData(true);
 }
 
 void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 {
-    _mapmgr = instance;
+    _instance = instance;
     _active = false;
     _loaded = false;
     _playerCount = 0;
@@ -49,35 +49,97 @@ void MapCell::RemoveObject(WorldObject* obj)
 void MapCell::SetActivity(bool state)
 {
     uint32 x = _x/8, y = _y/8;
-    if(!_active && state)
-    {
-        // Move all objects to active set.
-        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
-        {
-            if(!(*itr)->Active && (*itr)->CanActivate())
-                (*itr)->Activate(_mapmgr);
-        }
-
-        if(_unloadpending)
-            CancelPendingUnload();
-    }
-    else if(_active && !state)
-    {
-        // Move all objects from active set.
-        for(CellObjectSet::iterator itr = _objects.begin(); itr != _objects.end(); itr++)
-        {
-            if((*itr)->Active)
-                (*itr)->Deactivate(_mapmgr);
-        }
-
-        if(!_unloadpending)
-            QueueUnloadPending();
-    }
-
+    if(state && _unloadpending)
+        CancelPendingUnload();
+    else if(!state && !_unloadpending)
+        QueueUnloadPending();
     _active = state;
 }
 
-void MapCell::RemoveObjects(bool preDestruction)
+void MapCell::AddRespawn(WorldObject* obj)
+{
+    _respawnObjects.push_back(obj);
+}
+
+void MapCell::RemoveRespawn(WorldObject* obj)
+{
+    CellObjectSet::iterator itr;
+    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
+        _respawnObjects.erase(itr);
+}
+
+bool MapCell::EventRespawn(WorldObject *obj)
+{
+    CellObjectSet::iterator itr;
+    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
+    {
+        _respawnObjects.erase(itr);
+        return true;
+    }
+    return false;
+}
+
+uint32 MapCell::LoadCellData(CellSpawns * sp)
+{
+    if(_loaded == true)
+        return 0;
+
+    // start calldown for cell map loading
+    _instance->CellLoaded(_x, _y);
+    _loaded = true;
+
+    // check if we have a spawn map, otherwise no use continuing
+    if(sp == NULL)
+        return 0;
+
+    uint32 loadCount = 0, mapId = _instance->GetMapId();
+    //MapInstance *pInstance = NULL;//_instance->IsInstance() ? castPtr<InstanceMgr>(_instance) : NULL;
+    if(sp->CreatureSpawns.size())//got creatures
+    {
+        for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
+        {
+            CreatureSpawn *spawn = *i;
+            /*if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
+                continue;*/
+
+            if(Creature *c = _instance->CreateCreature(spawn->entry))
+            {
+                c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
+                c->SetInstanceID(_instance->GetInstanceID());
+                if(!c->CanAddToWorld())
+                {
+                    c->Destruct();
+                    continue;
+                }
+
+                c->PushToWorld(_instance);
+                loadCount++;
+            }
+        }
+    }
+
+    if(sp->GOSpawns.size())//got GOs
+    {
+        for(GOSpawnList::iterator i = sp->GOSpawns.begin(); i != sp->GOSpawns.end(); i++)
+        {
+            GOSpawn *spawn = *i;
+            if(GameObject *go = _instance->CreateGameObject(spawn->entry))
+            {
+                if(!go->Load(mapId, spawn))
+                {
+                    go->Destruct();
+                    continue;
+                }
+                go->PushToWorld(_instance);
+                loadCount++;
+                TRIGGER_GO_EVENT(go, OnSpawn);
+            }
+        }
+    }
+    return loadCount;
+}
+
+void MapCell::UnloadCellData(bool preDestruction)
 {
     if(_loaded == false)
         return;
@@ -96,15 +158,15 @@ void MapCell::RemoveObjects(bool preDestruction)
             switch(pObject->GetTypeId())
             {
             case TYPEID_UNIT:
-                {
-                    castPtr<Creature>(pObject)->m_respawnCell = NULL;
-                    castPtr<Creature>(pObject)->Destruct();
-                }break;
+            {
+                castPtr<Creature>(pObject)->m_respawnCell = NULL;
+                castPtr<Creature>(pObject)->Destruct();
+            }break;
             case TYPEID_GAMEOBJECT:
-                {
-                    castPtr<GameObject>(pObject)->m_respawnCell = NULL;
-                    castPtr<GameObject>(pObject)->Destruct();
-                }break;
+            {
+                castPtr<GameObject>(pObject)->m_respawnCell = NULL;
+                castPtr<GameObject>(pObject)->Destruct();
+            }break;
             default:
                 pObject->Destruct();
                 break;
@@ -140,88 +202,9 @@ void MapCell::RemoveObjects(bool preDestruction)
         _objects.clear();
     }
 
+    // Start calldown for cell map unloading
+    _instance->CellUnloaded(_x, _y);
     _playerCount = 0;
-}
-
-void MapCell::AddRespawn(WorldObject* obj)
-{
-    _respawnObjects.push_back(obj);
-}
-
-void MapCell::RemoveRespawn(WorldObject* obj)
-{
-    CellObjectSet::iterator itr;
-    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
-        _respawnObjects.erase(itr);
-}
-
-bool MapCell::EventRespawn(WorldObject *obj)
-{
-    CellObjectSet::iterator itr;
-    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
-    {
-        _respawnObjects.erase(itr);
-        return true;
-    }
-    return false;
-}
-
-uint32 MapCell::LoadObjects(CellSpawns * sp)
-{
-    if(_loaded == true)
-        return 0;
-
-    _loaded = true;
-    uint32 loadCount = 0, mapId = _mapmgr->GetMapId();
-    //MapInstance *pInstance = NULL;//_mapmgr->IsInstance() ? castPtr<InstanceMgr>(_mapmgr) : NULL;
-    if(sp->CreatureSpawns.size())//got creatures
-    {
-        for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
-        {
-            CreatureSpawn *spawn = *i;
-            /*if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
-                continue;*/
-            if(spawn->eventId)
-                continue;
-
-            if(Creature *c = _mapmgr->CreateCreature(spawn->entry))
-            {
-                c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _mapmgr->iInstanceMode, spawn);
-                c->SetInstanceID(_mapmgr->GetInstanceID());
-                if(!c->CanAddToWorld())
-                {
-                    c->Destruct();
-                    continue;
-                }
-
-                c->PushToWorld(_mapmgr);
-                loadCount++;
-            }
-        }
-    }
-
-    if(sp->GOSpawns.size())//got GOs
-    {
-        for(GOSpawnList::iterator i = sp->GOSpawns.begin(); i != sp->GOSpawns.end(); i++)
-        {
-            GOSpawn *spawn = *i;
-            if(spawn->eventId)
-                continue;
-
-            if(GameObject *go = _mapmgr->CreateGameObject(spawn->entry))
-            {
-                if(!go->Load(mapId, spawn))
-                {
-                    go->Destruct();
-                    continue;
-                }
-                go->PushToWorld(_mapmgr);
-                loadCount++;
-                TRIGGER_GO_EVENT(go, OnSpawn);
-            }
-        }
-    }
-    return loadCount;
 }
 
 void MapCell::QueueUnloadPending()
@@ -231,7 +214,7 @@ void MapCell::QueueUnloadPending()
 
     _unloadpending = true;
     sLog.Debug("MapCell", "Queueing pending unload of cell %u %u", _x, _y);
-    sEventMgr.AddEvent(_mapmgr, &MapInstance::UnloadCell, (uint32)_x, (uint32)_y, MAKE_CELL_EVENT(_x,_y), 60000, 1, 0);
+    sEventMgr.AddEvent(_instance, &MapInstance::UnloadCell, (uint32)_x, (uint32)_y, MAKE_CELL_EVENT(_x,_y), 60000, 1, 0);
 }
 
 void MapCell::CancelPendingUnload()
@@ -240,16 +223,15 @@ void MapCell::CancelPendingUnload()
     if(!_unloadpending)
         return;
 
-    sEventMgr.RemoveEvents(_mapmgr, MAKE_CELL_EVENT(_x,_y));
+    sEventMgr.RemoveEvents(_instance, MAKE_CELL_EVENT(_x,_y));
 }
 
 void MapCell::Unload()
 {
-    sLog.Debug("MapCell", "Unloading cell %u %u", _x, _y);
-    ASSERT(_unloadpending);
     if(_active)
         return;
 
-    RemoveObjects(false);
+    sLog.Debug("MapCell", "Unloading cell %u %u", _x, _y);
+    UnloadCellData(false);
     _unloadpending = false;
 }

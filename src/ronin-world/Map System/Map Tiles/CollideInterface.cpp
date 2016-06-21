@@ -75,26 +75,27 @@ bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE 
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return false;
+    MapLoadData *loadData = m_mapLocks[mapId];
 
     // acquire write lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-    if( m_mapLocks[mapId]->m_tileLoadCount[tileX][tileY] == 0 )
+    loadData->m_lock.Acquire();
+    if( loadData->m_tileLoadCount[tileX][tileY] == 0 )
     {
         if(vMapMgr->loadMap(mapId, tileX, tileY, file))
             sLog.outDebug("Loading VMap [%u/%u] successful", tileX, tileY);
         else
         {
             sLog.outDebug("Loading VMap [%u/%u] unsuccessful", tileX, tileY);
-            m_mapLocks[mapId]->m_lock.Release();
+            loadData->m_lock.Release();
             return false;
         }
     }
 
     // increment count
-    m_mapLocks[mapId]->m_tileLoadCount[tileX][tileY]++;
+    loadData->m_tileLoadCount[tileX][tileY]++;
 
     // release lock
-    m_mapLocks[mapId]->m_lock.Release();
+    loadData->m_lock.Release();
     return true;
 }
 
@@ -102,14 +103,17 @@ void VMapInterface::DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
+    MapLoadData *loadData = m_mapLocks[mapId];
 
     // get write lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-    if( (--m_mapLocks[mapId]->m_tileLoadCount[tileX][tileY]) == 0 )
+    loadData->m_lock.Acquire();
+    if(loadData->m_tileLoadCount[tileX][tileY] == 1 )
         vMapMgr->unloadMap(mapId, tileX, tileY);
 
+    if(loadData->m_tileLoadCount[tileX][tileY])
+        --loadData->m_tileLoadCount[tileX][tileY];
     // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
+    loadData->m_lock.Release();
 }
 
 bool VMapInterface::IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY)

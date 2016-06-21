@@ -566,7 +566,7 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
     m_factionTemplate = NULL;
 
     m_instanceId = 0;
-    Active = false;
+    isActive = false;
 }
 
 WorldObject::~WorldObject( )
@@ -606,6 +606,98 @@ void WorldObject::Destruct()
     sEventMgr.RemoveEvents(this);
     EventableObject::Destruct(false);
     Object::Destruct();
+}
+
+void WorldObject::Update(uint32 msTime, uint32 diff)
+{
+
+}
+
+void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
+{
+    if(m_objDeactivationTimer == 0)
+        return;
+
+    // Handle respawn events
+    if(m_objDeactivationTimer > diff)
+        m_objDeactivationTimer -= diff;
+    else
+    {
+        m_objDeactivationTimer = 0;
+        isActive = true;
+        Reactivate();
+    }
+}
+
+//Unlike addtoworld it pushes it directly ignoring add pool
+//this can only be called from the thread of mapmgr!!!
+void WorldObject::PushToWorld(MapInstance* instance)
+{
+    ASSERT(instance != NULL);
+    if(instance == NULL)
+    {
+        // Reset these so session will get updated properly.
+        if(IsPlayer())
+        {
+            sLog.Error("WorldObject","Kicking Player %s due to empty MapMgr",castPtr<Player>(this)->GetName());
+            castPtr<Player>(this)->GetSession()->LogoutPlayer();
+        }
+        return; //instance add failed
+    }
+
+    m_mapId = instance->GetMapId();
+    m_instanceId = instance->GetInstanceID();
+    UpdateAreaInfo(instance);
+
+    OnPrePushToWorld();
+
+    // Set our map manager
+    m_mapInstance = instance;
+
+    instance->PushObject(this);
+
+    // correct incorrect instance id's
+    event_Relocate();
+
+    // call virtual function to handle stuff.. :P
+    OnPushToWorld();
+
+    // Set Object in world
+    Object::SetInWorld(true);
+}
+
+void WorldObject::RemoveFromWorld()
+{
+    // clear loot
+    ClearLoot();
+
+    ASSERT(m_mapInstance);
+    MapInstance* m = m_mapInstance;
+    m_mapInstance = NULL;
+
+    m->RemoveObject(this);
+
+    // remove any spells / free memory
+    sEventMgr.RemoveEvents(this, EVENT_UNIT_SPELL_HIT);
+
+    // update our event holder
+    event_Relocate();
+
+    // Set Object out of world
+    Object::SetInWorld(false);
+}
+
+void WorldObject::Deactivate(uint32 reactivationTime)
+{
+    if(IsPlayer())
+        return;
+
+    isActive = false;
+    WorldObject::RemoveFromWorld();
+    if(reactivationTime)
+    {
+
+    }
 }
 
 float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
@@ -737,64 +829,6 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
             plr->GetSession()->SendPacket(data);
         }
     }
-}
-
-//Unlike addtoworld it pushes it directly ignoring add pool
-//this can only be called from the thread of mapmgr!!!
-void WorldObject::PushToWorld(MapInstance* instance)
-{
-    ASSERT(instance != NULL);
-    if(instance == NULL)
-    {
-        // Reset these so session will get updated properly.
-        if(IsPlayer())
-        {
-            sLog.Error("WorldObject","Kicking Player %s due to empty MapMgr;",castPtr<Player>(this)->GetName());
-            castPtr<Player>(this)->GetSession()->LogoutPlayer();
-        }
-        return; //instance add failed
-    }
-
-    m_mapId = instance->GetMapId();
-    m_instanceId = instance->GetInstanceID();
-    UpdateAreaInfo(instance);
-
-    OnPrePushToWorld();
-
-    // Set our map manager
-    m_mapInstance = instance;
-
-    instance->PushObject(this);
-
-    // correct incorrect instance id's
-    event_Relocate();
-
-    // call virtual function to handle stuff.. :P
-    OnPushToWorld();
-
-    // Set Object in world
-    Object::SetInWorld(true);
-}
-
-void WorldObject::RemoveFromWorld()
-{
-    // clear loot
-    ClearLoot();
-
-    ASSERT(m_mapInstance);
-    MapInstance* m = m_mapInstance;
-    m_mapInstance = NULL;
-
-    m->RemoveObject(this);
-
-    // remove any spells / free memory
-    sEventMgr.RemoveEvents(this, EVENT_UNIT_SPELL_HIT);
-
-    // update our event holder
-    event_Relocate();
-
-    // Set Object out of world
-    Object::SetInWorld(false);
 }
 
 bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)
@@ -1593,107 +1627,6 @@ void WorldObject::EventSpellHit(Spell* pSpell)
     else pSpell->Destruct();
 }
 
-bool WorldObject::CanActivate()
-{
-    if(IsUnit())
-        return true;
-    else if(IsGameObject() && castPtr<GameObject>(this)->HasAI())
-        if(GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_TYPE_ID) != GAMEOBJECT_TYPE_TRAP)
-            return true;
-    return false;
-}
-
-void WorldObject::Activate(MapInstance* mgr)
-{
-    switch(GetTypeId())
-    {
-    case TYPEID_UNIT:
-        {
-            Creature *cThis = castPtr<Creature>(this);
-            mgr->activeCreatures.insert(cThis);
-            uint32 pool = mgr->mActiveCreaturePoolAddCounter++;
-            if(mgr->mActiveCreaturePoolAddCounter == mgr->mActiveCreaturePoolSize)
-                mgr->mActiveCreaturePoolAddCounter = 0;
-            mgr->mActiveCreaturePools[pool].insert(cThis);
-            cThis->AssignCreaturePool(pool);
-        }break;
-
-    case TYPEID_GAMEOBJECT:
-        {
-            GameObject *gThis = castPtr<GameObject>(this);
-            mgr->activeGameObjects.insert(gThis);
-            uint32 pool = mgr->mActiveGameObjectPoolAddCounter++;
-            if(mgr->mActiveGameObjectPoolAddCounter == mgr->mActiveGameObjectPoolSize)
-                mgr->mActiveGameObjectPoolAddCounter = 0;
-            mgr->mActiveGameObjectPools[pool].insert(gThis);
-            gThis->AssignGameObjectPool(pool);
-        }break;
-    }
-
-    Active = true;
-}
-
-void WorldObject::Deactivate(MapInstance* mgr)
-{
-    mgr->m_activeLock.Acquire();
-    switch(GetTypeId())
-    {
-    case TYPEID_UNIT:
-        {
-            Creature *cThis = castPtr<Creature>(this);
-            MapInstance::CreatureSet::iterator itr;
-            if((itr = mgr->activeCreatures.find(cThis)) != mgr->activeCreatures.end())
-            {
-                // check iterator
-                if( mgr->__creature_iterator == itr )
-                    mgr->__creature_iterator = mgr->activeCreatures.erase(itr);
-                else mgr->activeCreatures.erase(itr);
-            }
-
-            uint32 pool = cThis->GetCreaturePool();
-            if(pool != 0xFF)
-            {
-                if((itr = mgr->mActiveCreaturePools[pool].find(cThis)) != mgr->mActiveCreaturePools[pool].end())
-                {
-                    // check iterator
-                    if( mgr->__creature_iterator == itr )
-                        mgr->__creature_iterator = mgr->mActiveCreaturePools[pool].erase(itr);
-                    else mgr->mActiveCreaturePools[pool].erase(itr);
-                }
-            }
-            cThis->AssignCreaturePool(0xFF);
-        }break;
-
-    case TYPEID_GAMEOBJECT:
-        {
-            GameObject *gThis = castPtr<GameObject>(this);
-            MapInstance::GameObjectSet::iterator itr;
-            if((itr = mgr->activeGameObjects.find(gThis)) != mgr->activeGameObjects.end())
-            {
-                // check iterator
-                if( mgr->__gameobject_iterator == itr )
-                    mgr->__gameobject_iterator = mgr->activeGameObjects.erase(itr);
-                else mgr->activeGameObjects.erase(itr);
-            }
-
-            uint32 pool = gThis->GetGameObjectPool();
-            if(pool != 0xFF)
-            {
-                if((itr = mgr->mActiveGameObjectPools[pool].find(gThis)) != mgr->mActiveGameObjectPools[pool].end())
-                {
-                    // check iterator
-                    if( mgr->__gameobject_iterator == itr )
-                        mgr->__gameobject_iterator = mgr->mActiveGameObjectPools[pool].erase(itr);
-                    else mgr->mActiveGameObjectPools[pool].erase(itr);
-                }
-            }
-            gThis->AssignGameObjectPool(0xFF);
-        }break;
-    }
-    Active = false;
-    mgr->m_activeLock.Release();
-}
-
 void WorldObject::SetZoneId(uint32 newZone)
 {
     m_zoneId = newZone;
@@ -1845,12 +1778,30 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
     return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f), x, y, z) );
 }
 
+bool WorldObject::IsObjectBlocked(WorldObject *pObj)
+{
+    // Check if the object is set to inactive for culling
+    if((IsActiveObject() && !IsActivated()) || (pObj->IsActiveObject() && !pObj->IsActivated()))
+    {
+        if((IsPlayer() && castPtr<Player>(this)->bGMTagOn) || (pObj->IsPlayer() && castPtr<Player>(pObj)->bGMTagOn))
+        {
+
+        } else return true; // block the object from the player
+    }
+
+    // Some random code, need to figure it out
+    if(!AreaCanInteract(pObj))
+        return true;
+    // Objects in different phases shouldn't be inrange either
+    if(!PhasedCanInteract(pObj))
+        return true;
+    // Object is not blocked, we can interact
+    return false;
+}
+
 bool WorldObject::AreaCanInteract(WorldObject *pObj)
 {
-    if((GetAreaId() == 4551 || GetAreaId() == 4553) && pObj->GetAreaId() != 4553 && pObj->GetAreaId() != 4551)
-        return false;
-    if((pObj->GetAreaId() == 4551 || pObj->GetAreaId() == 4553) && GetAreaId() != 4553 && GetAreaId() != 4551)
-        return false;
+    // ???
     return true;
 }
 

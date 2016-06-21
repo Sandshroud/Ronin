@@ -227,11 +227,7 @@ void WorldManager::_CreateMap(MapEntry *mapEntry)
     Map *map = new Map(mapEntry->MapID, mapEntry->name);
     m_maps.insert(std::make_pair(mapEntry->MapID, map));
     if(mapEntry->IsContinent())
-    {
         _InitializeContinent(mapEntry, map);
-        if(sWorld.ServerPreloading)
-            map->LoadAllTerrain();
-    }
 }
 
 uint32 WorldManager::GenerateInstanceID()
@@ -341,7 +337,7 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
         return;
     }
 
-    map->GetMapTerrain()->LoadTerrainHeader();
+    map->Initialize();
 
     // Store the manager in the worldManager thread
     m_continentManagement.insert(std::make_pair(mapEntry->MapID, mgr));

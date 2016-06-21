@@ -653,7 +653,7 @@ void Arena::HookOnAreaTrigger(Player* plr, uint32 id)
             plr->CastSpell(plr, m_buffs[buffslot]->GetInfo()->GetSpellID(), true);
 
             /* despawn the gameobject (not delete!) */
-            m_buffs[buffslot]->Despawn(0, BUFF_RESPAWN_TIME);
+            m_buffs[buffslot]->Deactivate(BUFF_RESPAWN_TIME);
         }
     }
 }

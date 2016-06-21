@@ -28,7 +28,7 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
-    void RemoveObjects(bool preDestruction = false);
+
     bool HasObject(WorldObject* obj) { return std::find(_objects.begin(), _objects.end(), obj) != _objects.end(); }
     bool HasPlayers() { return ((_playerCount > 0) ? true : false); }
     RONIN_INLINE size_t GetObjectCount() { return _objects.size(); }
@@ -44,10 +44,11 @@ public:
 
     RONIN_INLINE bool IsActive() { return _active; }
     RONIN_INLINE bool IsLoaded() { return _loaded; }
+    RONIN_INLINE uint32 GetPlayerCount() { return _playerCount; }
 
     //WorldObject Loading Managing
-    uint32 LoadObjects(CellSpawns * sp);
-    RONIN_INLINE uint32 GetPlayerCount() { return _playerCount; }
+    uint32 LoadCellData(CellSpawns * sp);
+    void UnloadCellData(bool preDestruction);
 
     //ING Events
     void RemoveEventIdObjects(uint8 eventToRemove);
@@ -74,5 +75,5 @@ private:
     bool _unloadpending;
 
     uint16 _playerCount;
-    MapInstance* _mapmgr;
+    MapInstance* _instance;
 };

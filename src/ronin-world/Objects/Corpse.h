@@ -39,6 +39,8 @@ public:
     ~Corpse();
     virtual void Init();
     virtual void Destruct();
+    // Reactivate isn't code we need for corpse I think
+    virtual void Reactivate() {}
 
     // void Create();
     void Create (Player* owner, uint32 mapid, float x, float y, float z, float ang );

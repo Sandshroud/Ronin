@@ -52,6 +52,8 @@ public:
     Map(uint32 mapid, char *name);
     ~Map();
 
+    void Initialize();
+
     RONIN_INLINE std::string GetNameString() { return mapName; }
     RONIN_INLINE const char* GetName() { return mapName.c_str(); }
 
@@ -73,7 +75,6 @@ public:
     void LoadSpawns(bool reload = false);//set to true to make clean up
     TerrainMgr* GetMapTerrain() { return _terrain; };
 
-    RONIN_INLINE void LoadAllTerrain() { _terrain->LoadAllTerrain(); }
     RONIN_INLINE void UnloadAllTerrain(bool forced = false) { _terrain->UnloadAllTerrain(forced); }
 
     RONIN_INLINE float GetLandHeight(float x, float y) { return _terrain->GetLandHeight(x, y); }
@@ -85,8 +86,9 @@ public:
     RONIN_INLINE bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID) { return _terrain->CellHasAreaID(x, y, AreaID); }
 
     RONIN_INLINE bool IsCollisionEnabled() { return true; }
-    RONIN_INLINE void CellGoneActive(uint32 x, uint32 y) { _terrain->CellGoneActive(x,y); }
-    RONIN_INLINE void CellGoneIdle(uint32 x,uint32 y) { _terrain->CellGoneIdle(x,y); }
+
+    RONIN_INLINE void CellLoaded(uint32 x, uint32 y) { _terrain->CellGoneActive(x,y); }
+    RONIN_INLINE void CellUnloaded(uint32 x,uint32 y) { _terrain->CellGoneIdle(x,y); }
 
 private:
     uint32 _mapId;

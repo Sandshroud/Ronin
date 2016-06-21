@@ -12,7 +12,7 @@ extern bool bServerShutdown;
 #define WORLDSOCKET_TIMEOUT 80
 OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
 
-WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : EventableObject(), _socket(sock), _accountId(id), _accountName(Name),
+WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : _socket(sock), _accountId(id), _accountName(Name),
 _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
 {
     _player = NULL;

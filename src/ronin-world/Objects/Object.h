@@ -134,8 +134,6 @@ public:
     virtual ~Object();
     virtual void Init();
     virtual void Destruct();
-    // Events are forced class so call virtual destruct through EventDestruct
-    void EventDestruct() { Destruct(); }
 
     virtual void Update (uint32 msTime, uint32 diff);
 
@@ -295,14 +293,21 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual bool IsObject() { return true; }
+    virtual void Update(uint32 msTime, uint32 diff);
+    void InactiveUpdate(uint32 msTime, uint32 diff);
 
-    float GetMapHeight(float x, float y, float z, float maxDist = 10.f);
-    int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
+    virtual bool IsObject() { return true; }
+    virtual bool IsActiveObject() { return false; }
 
     //! True if object exists in world
     virtual bool IsInWorld() { return m_mapInstance != NULL; }
     virtual void RemoveFromWorld();
+
+    virtual void Reactivate() = 0;
+    virtual void Deactivate(uint32 reactivationTime);
+    bool IsActivated() { return isActive; }
+
+    RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 
     void PushToWorld(MapInstance* instance);
     virtual void OnPushToWorld() { }
@@ -312,6 +317,9 @@ public:
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
+
+    float GetMapHeight(float x, float y, float z, float maxDist = 10.f);
+    int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
 
     // Field values
     virtual uint32 getLevel() = 0;
@@ -350,7 +358,7 @@ public:
     RONIN_INLINE const uint32 GetMapId( ) const { return m_mapId; }
 
     void SetZoneId(uint32 newZone);
-    void UpdateAreaInfo(MapInstance *instance = NULL);
+    virtual void UpdateAreaInfo(MapInstance *instance = NULL);
     RONIN_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     RONIN_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
     RONIN_INLINE void SetLastMovementZone(uint32 zone) { m_lastMovementZone = zone; }
@@ -541,16 +549,11 @@ public:
     void DestroyForInrange(bool anim = false);
     WorldPacket *BuildTeleportAckMsg( const LocationVector & v);
 
-    bool Active;
-    bool CanActivate();
-    void Activate(MapInstance* instance);
-    void Deactivate(MapInstance* instance);
-    RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
-
     void PlaySoundToPlayer( Player* plr, uint32 sound_entry );
     void PlaySoundToSet(uint32 sound_entry);
     void EventSpellHit(Spell* pSpell);
 
+    bool IsObjectBlocked(WorldObject *pObj);
     bool AreaCanInteract(WorldObject *pObj);
     bool PhasedCanInteract(WorldObject* pObj);
 
@@ -578,6 +581,9 @@ protected:
     int32 m_instanceId;
     //! Last set Movement zone
     uint32 m_lastMovementZone;
+    //! Object deactivation
+    bool isActive;
+    uint32 m_objDeactivationTimer;
 
     //! Map manager
     MapInstance* m_mapInstance;
