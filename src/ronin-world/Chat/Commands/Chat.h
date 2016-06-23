@@ -253,6 +253,7 @@ protected:
     bool HandleTaxiCheatCommand(const char* args, WorldSession *m_session);
     bool HandleModifyTPsCommand(const char* args, WorldSession *m_session);
     bool HandleToggleDevCommand(const char* args, WorldSession *m_session);
+    bool HandleGMSightTypeCommand(const char* args, WorldSession *m_session);
 
     // Debug Commands
     bool HandleDebugGoDamage(const char* args, WorldSession *m_session);

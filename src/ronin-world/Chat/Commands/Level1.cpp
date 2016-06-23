@@ -144,6 +144,29 @@ bool ChatHandler::HandleToggleDevCommand(const char* args, WorldSession *m_sessi
     return true;
 }
 
+bool ChatHandler::HandleGMSightTypeCommand(const char *args, WorldSession *m_session)
+{
+    Player* gm = m_session->GetPlayer();
+    uint32 sightType = 0; uint32 arg1 = 0;
+    if(sscanf(args, "%u %u", &sightType, &arg1) < 1)
+        return false;
+
+    gm->gmSightEventID = gm->gmSightPhaseMask = 0;
+    static const char *sightNames[] = {"Disabled", "Event", "Phase", "Death"};
+    switch(sightType)
+    {
+    case 1: gm->gmSightEventID = arg1; break;
+    case 2: gm->gmSightPhaseMask = arg1; break;
+    case 3: break; // Death sight
+    default: sightType = 0; break;
+    }
+
+    gm->gmSightType = sightType;
+    GreenSystemMessage(m_session, "GM sight set to %s", sightNames[sightType]);
+    gm->GetMapInstance()->ChangeObjectLocation(gm);
+    return true;
+}
+
 bool ChatHandler::HandleGPSCommand(const char* args, WorldSession *m_session)
 {
     Player *plr = m_session->GetPlayer();

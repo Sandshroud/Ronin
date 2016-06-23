@@ -1068,19 +1068,15 @@ void MapInstance::BeginInstanceExpireCountdown()
     // send our sexy packet
     data << uint32(60000) << uint32(1);
 
-    // Update all players on map.
+    Player* ptr; // Update all players on map.
     __player_iterator = m_PlayerStorage.begin();
-    Player* ptr;
     for(; __player_iterator != m_PlayerStorage.end();)
     {
         ptr = __player_iterator->second;;
         ++__player_iterator;
 
-        if(ptr->GetSession())
-        {
-            if(!ptr->raidgrouponlysent)
-                ptr->GetSession()->SendPacket(&data);
-        }
+        if(!ptr->raidgrouponlysent && ptr->GetSession())
+            ptr->GetSession()->SendPacket(&data);
     }
 
     // set our expire time to 60 seconds.
@@ -1457,11 +1453,8 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * p
                 iend = cell->End();
                 for(; iter != iend; iter++)
                 {
-                    if((*iter)->IsPlayer())
-                    {
-                        if(originator->GetPlayer()->PhasedCanInteract((*iter))) // Matching phases.
-                            castPtr<Player>(*iter)->GetSession()->SendChatPacket(packet, langpos, guidPos, lang, originator);
-                    }
+                    if((*iter)->IsPlayer() && originator->GetPlayer()->PhasedCanInteract((*iter))) // Matching phases.
+                        castPtr<Player>(*iter)->GetSession()->SendChatPacket(packet, langpos, guidPos, lang, originator);
                 }
             }
         }
@@ -1550,13 +1543,13 @@ DynamicObject* MapInstance::CreateDynamicObject()
 
 void MapInstance::SendPacketToPlayers(int32 iZoneMask, int32 iFactionMask, WorldPacket *pData)
 {
-    // Update all players on map.
-    Player * ptr = NULL;
-    PlayerStorageMap::iterator itr1 = m_PlayerStorage.begin();
-    for(itr1 = m_PlayerStorage.begin(); itr1 != m_PlayerStorage.end();)
+    Player * ptr = NULL; // Update all players on map.
+    __player_iterator = m_PlayerStorage.begin();
+    while(__player_iterator != m_PlayerStorage.end())
     {
-        ptr = itr1->second;
-        itr1++;
+        ptr = __player_iterator->second;
+        ++__player_iterator;
+
         if(ptr->GetSession())
         {
             //Are we in the right zone?
@@ -1574,11 +1567,12 @@ void MapInstance::SendPacketToPlayers(int32 iZoneMask, int32 iFactionMask, World
 
 void MapInstance::RemoveAuraFromPlayers(int32 iFactionMask, uint32 uAuraId)
 {
-    // Update all players on map.
-    Player* ptr;
-    for(__player_iterator = m_PlayerStorage.begin(); __player_iterator != m_PlayerStorage.end();__player_iterator++)
+    Player* ptr; // Update all players on map.
+    __player_iterator = m_PlayerStorage.begin();
+    while(__player_iterator != m_PlayerStorage.end())
     {
-        ptr = __player_iterator->second;;
+        ptr = __player_iterator->second;
+        ++__player_iterator;
 
         if(ptr->GetSession())
         {
@@ -1592,11 +1586,12 @@ void MapInstance::RemoveAuraFromPlayers(int32 iFactionMask, uint32 uAuraId)
 
 void MapInstance::RemovePositiveAuraFromPlayers(int32 iFactionMask, uint32 uAuraId)
 {
-    // Update all players on map.
-    Player* ptr;
-    for(__player_iterator = m_PlayerStorage.begin(); __player_iterator != m_PlayerStorage.end();__player_iterator++)
+    Player* ptr; // Update all players on map.
+    __player_iterator = m_PlayerStorage.begin();
+    while(__player_iterator != m_PlayerStorage.end())
     {
-        ptr = __player_iterator->second;;
+        ptr = __player_iterator->second;
+        ++__player_iterator;
 
         if(ptr->GetSession())
         {
@@ -1613,11 +1608,12 @@ void MapInstance::CastSpellOnPlayers(int32 iFactionMask, uint32 uSpellId)
     if( !sp )
         return;
 
-    // Update all players on map.
-    Player* ptr;
-    for(__player_iterator = m_PlayerStorage.begin(); __player_iterator != m_PlayerStorage.end();__player_iterator++)
+    Player* ptr; // Update all players on map.
+    __player_iterator = m_PlayerStorage.begin();
+    while(__player_iterator != m_PlayerStorage.end())
     {
-        ptr = __player_iterator->second;;
+        ptr = __player_iterator->second;
+        ++__player_iterator;
 
         if(ptr->GetSession())
         {
@@ -1644,11 +1640,12 @@ void MapInstance::SendPvPCaptureMessage(int32 iZoneMask, uint32 ZoneId, const ch
     data << uint32(strlen(msgbuf)+1);
     data << msgbuf;
 
-    // Update all players on map.
-    Player* ptr;
-    for(__player_iterator = m_PlayerStorage.begin(); __player_iterator != m_PlayerStorage.end();__player_iterator++)
+    Player* ptr; // Update all players on map.
+    __player_iterator = m_PlayerStorage.begin();
+    while(__player_iterator != m_PlayerStorage.end())
     {
-        ptr = __player_iterator->second;;
+        ptr = __player_iterator->second;
+        ++__player_iterator;
 
         if(ptr->GetSession())
         {

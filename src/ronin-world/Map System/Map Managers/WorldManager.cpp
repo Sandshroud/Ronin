@@ -20,7 +20,13 @@ WorldManager::WorldManager()
 bool WorldManager::ValidateMapId(uint32 mapId)
 {
     if(ContinentManagerExists(mapId))
+    {
+        ContinentManager *mgr = GetContinentManager(mapId);
+        if(mgr->GetContinent()->IsPreloading())
+            return false;
         return true;
+    }
+
     return m_maps.find(mapId) != m_maps.end();
 }
 

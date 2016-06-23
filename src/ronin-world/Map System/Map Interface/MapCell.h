@@ -30,7 +30,7 @@ public:
     void RemoveObject(WorldObject* obj);
 
     bool HasObject(WorldObject* obj) { return std::find(_objects.begin(), _objects.end(), obj) != _objects.end(); }
-    bool HasPlayers() { return ((_playerCount > 0) ? true : false); }
+    bool HasPlayers() { return !_players.empty(); }
     RONIN_INLINE size_t GetObjectCount() { return _objects.size(); }
     RONIN_INLINE CellObjectSet::iterator Begin() { return _objects.begin(); }
     RONIN_INLINE CellObjectSet::iterator End() { return _objects.end(); }
@@ -44,16 +44,11 @@ public:
 
     RONIN_INLINE bool IsActive() { return _active; }
     RONIN_INLINE bool IsLoaded() { return _loaded; }
-    RONIN_INLINE uint32 GetPlayerCount() { return _playerCount; }
+    RONIN_INLINE uint32 GetPlayerCount() { return _players.size(); }
 
     //WorldObject Loading Managing
     uint32 LoadCellData(CellSpawns * sp);
     void UnloadCellData(bool preDestruction);
-
-    //ING Events
-    void RemoveEventIdObjects(uint8 eventToRemove);
-    void ModifyEventIdSetting(bool active, uint8 eventId);
-    void LoadEventIdObjects(CellSpawns * sp, uint8 eventId);
 
     RONIN_INLINE bool IsUnloadPending() { return _unloadpending; }
     RONIN_INLINE void SetUnloadPending(bool up) { _unloadpending = up; }
@@ -70,10 +65,10 @@ public:
 private:
     bool _forcedActive;
     uint16 _x,_y;
-    CellObjectSet _objects, _respawnObjects;
+    CellObjectSet _objects, _respawnObjects, _players;
     bool _active, _loaded;
     bool _unloadpending;
 
-    uint16 _playerCount;
     MapInstance* _instance;
+    Map *_mapData;
 };

@@ -307,6 +307,8 @@ public:
     virtual void Deactivate(uint32 reactivationTime);
     bool IsActivated() { return isActive; }
 
+    virtual uint32 getEventID() { return 0; }
+
     RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 
     void PushToWorld(MapInstance* instance);

@@ -186,6 +186,7 @@ public:
     virtual void Update(uint32 msTime, uint32 uiDiff);
 
     virtual bool IsActiveObject() { return true; }
+    virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
 
     /// Updates
     virtual void UpdateFieldValues();

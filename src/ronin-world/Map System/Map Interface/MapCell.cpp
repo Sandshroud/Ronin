@@ -18,30 +18,31 @@ MapCell::~MapCell()
 
 void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 {
+    _mapData = instance->GetBaseMap();
     _instance = instance;
     _active = false;
     _loaded = false;
-    _playerCount = 0;
     _x = x;
     _y = y;
     _unloadpending=false;
     _objects.clear();
+    _players.clear();
 }
 
 void MapCell::AddObject(WorldObject* obj)
 {
     if(obj->IsPlayer())
-        ++_playerCount;
+        _players.push_back(obj);
 
     _objects.push_back(obj);
 }
 
 void MapCell::RemoveObject(WorldObject* obj)
 {
-    if(obj->IsPlayer())
-        --_playerCount;
-
     CellObjectSet::iterator itr;
+    if(obj->IsPlayer() && (itr = std::find(_players.begin(), _players.end(), obj)) != _players.end())
+        _players.erase(itr);
+
     if((itr = std::find(_objects.begin(), _objects.end(), obj)) != _objects.end())
         _objects.erase(itr);
 }
@@ -85,7 +86,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         return 0;
 
     // start calldown for cell map loading
-    _instance->CellLoaded(_x, _y);
+    _mapData->CellLoaded(_x, _y);
     _loaded = true;
 
     // check if we have a spawn map, otherwise no use continuing
@@ -99,9 +100,6 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
-            /*if(pInstance && pInstance->m_killedNpcs.find(spawn->id) != pInstance->m_killedNpcs.end())
-                continue;*/
-
             if(Creature *c = _instance->CreateCreature(spawn->entry))
             {
                 c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
@@ -130,6 +128,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
                     go->Destruct();
                     continue;
                 }
+
                 go->PushToWorld(_instance);
                 loadCount++;
                 TRIGGER_GO_EVENT(go, OnSpawn);
@@ -203,8 +202,7 @@ void MapCell::UnloadCellData(bool preDestruction)
     }
 
     // Start calldown for cell map unloading
-    _instance->CellUnloaded(_x, _y);
-    _playerCount = 0;
+    _mapData->CellUnloaded(_x, _y);
 }
 
 void MapCell::QueueUnloadPending()

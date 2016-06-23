@@ -540,6 +540,7 @@ public:
     virtual void Update(uint32 msTime, uint32 p_time);
 
     virtual bool IsActiveObject() { return true; }
+    virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
 
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();

@@ -115,6 +115,9 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     CooldownCheat                   = false;
     CastTimeCheat                   = false;
     PowerCheat                      = false;
+    gmSightType                     = 0;
+    gmSightPhaseMask                = 0;
+    gmSightEventID                  = 0;
     m_weaponProficiency             = 0;
     m_armorProficiency              = 0;
     m_AutoShotTarget                = 0;

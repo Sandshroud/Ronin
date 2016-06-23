@@ -1391,8 +1391,8 @@ public:
     bool triggerpass_cheat;
     bool ignoreitemreq_cheat;
     uint8 gmSightType;
-    uint32 gmSightPhaseMask;
     uint32 gmSightEventID;
+    uint32 gmSightPhaseMask;
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;

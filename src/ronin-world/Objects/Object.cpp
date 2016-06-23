@@ -1780,20 +1780,41 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 
 bool WorldObject::IsObjectBlocked(WorldObject *pObj)
 {
+    bool ignoreDeath = false;
+    uint32 eventToIgnore = 0, phaseToIgnore = 0;
+
+    Player *gmPlr = NULL;
+    if(IsPlayer() && pObj->IsPlayer())
+    { } // Skip player and player interaction here
+    if((IsPlayer() && (gmPlr = castPtr<Player>(this))->bGMTagOn) || (pObj->IsPlayer() && (gmPlr = castPtr<Player>(pObj))->bGMTagOn))
+    {
+        switch(gmPlr->gmSightType)
+        {
+        case 1: eventToIgnore = gmPlr->gmSightEventID; break;
+        case 2: phaseToIgnore = gmPlr->gmSightPhaseMask; break;
+        case 3: ignoreDeath = true; break;
+        }
+    }
+
     // Check if the object is set to inactive for culling
     if((IsActiveObject() && !IsActivated()) || (pObj->IsActiveObject() && !pObj->IsActivated()))
     {
-        if((IsPlayer() && castPtr<Player>(this)->bGMTagOn) || (pObj->IsPlayer() && castPtr<Player>(pObj)->bGMTagOn))
-        {
-
-        } else return true; // block the object from the player
+        uint32 eventId0 = getEventID(), eventId1 = pObj->getEventID();
+        if(eventId0 && eventId1 && eventId0 != eventId1)
+            return true;
+        else if(eventId0 && eventId0 != eventToIgnore && eventToIgnore != 0xFFFFFFFF)
+            return true;
+        else if(eventId1 && eventId1 != eventToIgnore && eventToIgnore != 0xFFFFFFFF)
+            return true;
+        else if(eventId0 == 0 && eventId1 == 0 && ignoreDeath == false)
+            return true;
     }
 
+    // Objects in different phases shouldn't be inrange either
+    if(!PhasedCanInteract(pObj) && phaseToIgnore == 0)
+        return true;
     // Some random code, need to figure it out
     if(!AreaCanInteract(pObj))
-        return true;
-    // Objects in different phases shouldn't be inrange either
-    if(!PhasedCanInteract(pObj))
         return true;
     // Object is not blocked, we can interact
     return false;

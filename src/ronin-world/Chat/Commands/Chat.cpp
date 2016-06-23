@@ -281,6 +281,7 @@ void CommandTableStorage::Init()
         { "off",                    COMMAND_LEVEL_T, &ChatHandler::HandleGMOffCommand,          "Sets GM tag off",                                      NULL,                   0, 0, 0 },
         { "on",                     COMMAND_LEVEL_T, &ChatHandler::HandleGMOnCommand,           "Sets GM tag on",                                       NULL,                   0, 0, 0 },
         { "disabledev",             COMMAND_LEVEL_Z, &ChatHandler::HandleToggleDevCommand,      "Toggles <Dev> Tag",                                    NULL,                   0, 0, 0 },
+        { "sight",                  COMMAND_LEVEL_Z, &ChatHandler::HandleGMSightTypeCommand,    "Changes GM sight type",                                NULL,                   0, 0, 0 },
         { "announce",               COMMAND_LEVEL_U, &ChatHandler::HandleGMAnnounceCommand,     "Announce to GM's and Admin's",                         NULL,                   0, 0, 0 },
         { "allowwhispers",          COMMAND_LEVEL_C, &ChatHandler::HandleAllowWhispersCommand,  "Allows whispers from player <s> while in gmon mode.",  NULL,                   0, 0, 0 },
         { "blockwhispers",          COMMAND_LEVEL_C, &ChatHandler::HandleBlockWhispersCommand,  "Blocks whispers from player <s> while in gmon mode.",  NULL,                   0, 0, 0 },

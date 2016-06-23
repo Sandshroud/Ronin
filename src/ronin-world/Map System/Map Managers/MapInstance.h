@@ -59,6 +59,7 @@ public:
         delete [] mPoolStack;
     }
 
+    // Update our object stack, this includes inactivity timers
     void Update(uint32 msTime, uint32 pDiff)
     {
         T* ptr = NULL;
@@ -93,6 +94,7 @@ public:
         }
     }
 
+    // Resets the stack timers
     void ResetTime(uint32 msTime)
     {
         // Times have to be reset for our pools so we don't have massive differences from currentms-0
@@ -100,6 +102,7 @@ public:
             mPoolLastUpdateStack[i] = msTime;
     }
 
+    // Add our object to the stack, return value is a pool identifier
     uint8 Add(T *obj)
     {
         uint8 pool = 0xFF;
@@ -114,6 +117,7 @@ public:
         return pool;
     }
 
+    // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
     void Remove(T *obj, uint8 poolId)
     {
         std::set<T*>::iterator itr;
@@ -159,9 +163,13 @@ public:
     typedef std::set<Player*> PlayerSet;
     typedef std::set<Creature*> CreatureSet;
     typedef std::set<GameObject*> GameObjectSet;
-    typedef std::set<uint64> CombatProgressMap;
+    typedef std::set<WoWGuid> CombatProgressSet;
     typedef Loki::AssocVector<uint32, Creature*> CreatureSqlIdMap;
     typedef Loki::AssocVector<uint32, GameObject* > GameObjectSqlIdMap;
+
+    typedef Loki::AssocVector<WoWGuid, Creature*> CreatureStorageMap;
+    typedef Loki::AssocVector<WoWGuid, GameObject* > GameObjectStorageMap;
+    typedef Loki::AssocVector<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
 
     //This will be done in regular way soon
     Mutex m_objectinsertlock;
@@ -169,32 +177,10 @@ public:
     void AddObject(WorldObject*);
     WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 
-////////////////////////////////////////////////////////
-// Local (MapInstance) storage/generation of GameObjects
-/////////////////////////////////////////////
-    typedef Loki::AssocVector<WoWGuid, GameObject* > GameObjectMap;
-    GameObjectMap m_gameObjectStorage;
-    uint32 m_GOHighGuid;
-    GameObject* CreateGameObject(uint32 entry);
-
-    RONIN_INLINE uint32 GenerateGameobjectGuid()
-    {
-        m_GOHighGuid &= 0x00FFFFFF;
-        return ++m_GOHighGuid;
-    }
-
-    RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
-    {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
-        GameObjectMap::iterator itr = m_gameObjectStorage.find(guid);
-        return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
-    }
-
-/////////////////////////////////////////////////////////
-// Local (MapInstance) storage/generation of Creatures
-/////////////////////////////////////////////
+    /////////////////////////////////////////////////////////
+    // Local (MapInstance) storage/generation of Creatures
+    /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
-    typedef Loki::AssocVector<WoWGuid, Creature*> CreatureStorageMap;
     CreatureStorageMap m_CreatureStorage;
     Creature* CreateCreature(uint32 entry);
 
@@ -207,11 +193,31 @@ public:
 
     // Use a creature guid to create our summon.
     Summon* CreateSummon(uint32 entry);
+
+////////////////////////////////////////////////////////
+// Local (MapInstance) storage/generation of GameObjects
+/////////////////////////////////////////////
+    uint32 m_GOHighGuid;
+    GameObjectStorageMap m_gameObjectStorage;
+    GameObject* CreateGameObject(uint32 entry);
+
+    RONIN_INLINE uint32 GenerateGameobjectGuid()
+    {
+        m_GOHighGuid &= 0x00FFFFFF;
+        return ++m_GOHighGuid;
+    }
+
+    RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
+    {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
+        GameObjectStorageMap::iterator itr = m_gameObjectStorage.find(guid);
+        return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
+    }
+
 //////////////////////////////////////////////////////////
 // Local (MapInstance) storage/generation of DynamicObjects
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
-    typedef Loki::AssocVector<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
     DynamicObjectStorageMap m_DynamicObjectStorage;
     DynamicObject* CreateDynamicObject();
 
@@ -236,21 +242,15 @@ public:
 //////////////////////////////////////////////////////////
 // Local (MapInstance) storage of combats in progress
 ////////////////////////////////
-    CombatProgressMap _combatProgress;
-    void AddCombatInProgress(uint64 guid)
-    {
-        _combatProgress.insert(guid);
-    }
-    void RemoveCombatInProgress(uint64 guid)
-    {
-        _combatProgress.erase(guid);
-    }
+    CombatProgressSet _combatProgress;
+    RONIN_INLINE void AddCombatInProgress(WoWGuid guid) { _combatProgress.insert(guid); }
+    RONIN_INLINE void RemoveCombatInProgress(WoWGuid guid) { _combatProgress.erase(guid); }
     RONIN_INLINE bool IsCombatInProgress()
     {
-        //if all players are out, list should be empty.
-        if(!HasPlayers())
-            _combatProgress.clear();
-        return (_combatProgress.size() > 0);
+        // if all players are out, list should be empty.
+        if(HasPlayers() == false)
+            return false;
+        return !_combatProgress.empty();
     }
 
 //////////////////////////////////////////////////////////
@@ -259,6 +259,9 @@ public:
     Unit* GetUnit(WoWGuid guid);
     WorldObject* _GetObject(WoWGuid guid);
 
+//////////////////////////////////////////////////////////
+// Map initializers and functions
+///////////////////////////////////
     MapInstance(Map *map, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
@@ -279,10 +282,6 @@ public:
     //! Mark object as updated
     void ObjectUpdated(WorldObject* obj);
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
-
-    // Call down to base map for cell activity
-    RONIN_INLINE void CellLoaded(uint32 x, uint32 y) { _map->CellLoaded(x,y); }
-    RONIN_INLINE void CellUnloaded(uint32 x,uint32 y) { _map->CellUnloaded(x,y); }
 
     // Terrain Functions
     void GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType);
@@ -366,9 +365,7 @@ protected:
 public:
     void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
-    // Map preloading to push back updating inrange objects
-    bool m_mapPreloading;
-
+    bool IsPreloading() { return m_mapPreloading; }
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
     bool IsContinent() { return pdbcMap ? pdbcMap->IsContinent() : true; }
 protected:
@@ -383,6 +380,9 @@ protected:
 
     /* Sessions */
     SessionSet MapSessions;
+
+    // Map preloading to push back updating inrange objects
+    bool m_mapPreloading;
 
 public:
     Mutex m_poolLock;
