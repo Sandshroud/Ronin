@@ -338,7 +338,7 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
     m_spawn = spawn;
 
     // Event objects should be spawned inactive
-    isActive = m_spawn->eventId ? false : true;
+    isActive = ((m_spawn && m_spawn->eventId) ? false : true);
 
     // Custom object faction setting per spawn
     if(spawn->faction)

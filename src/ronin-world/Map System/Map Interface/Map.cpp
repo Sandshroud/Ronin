@@ -8,14 +8,14 @@
 
 #include "StdAfx.h"
 
-Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(new TerrainMgr(sWorld.MapPath, _mapId))
+Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(NULL)
 {
 
 }
 
 Map::~Map()
 {
-    delete _terrain;
+    if(_terrain) delete _terrain;
 
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
@@ -33,6 +33,8 @@ void Map::Initialize()
 {
     //new stuff Load Spawns
     LoadSpawns();
+
+    _terrain = new TerrainMgr(sWorld.MapPath, _mapId);
 
     // Initialize the terrain header
     _terrain->LoadTerrainHeader();

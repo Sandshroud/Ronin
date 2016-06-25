@@ -3182,8 +3182,8 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             plr->SetMapId(trans->GetMapId());
             plr->SetInstanceID(trans->GetInstanceID());
             plr->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-            if(trans->IsInWorld())
-                sWorldMgr.PushToWorldQueue(plr);
+            if(trans->IsInWorld() && !sWorldMgr.PushToWorldQueue(plr))
+                plr->TeleportToHomebind(); //trans->TeleportPlayerToDestination(plr);
         }
         else
         {
@@ -3196,7 +3196,8 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
             plr->SetInstanceID(m_destInstanceId);
             plr->SetPosition(m_teleportLocation);
             m_clientLocation.ChangeCoords(m_teleportLocation.x, m_teleportLocation.y, m_teleportLocation.z, m_teleportLocation.o);
-            sWorldMgr.PushToWorldQueue(plr);
+            if(!sWorldMgr.PushToWorldQueue(plr) && !plr->EjectFromInstance())
+                plr->TeleportToHomebind();
         }
     }
 }

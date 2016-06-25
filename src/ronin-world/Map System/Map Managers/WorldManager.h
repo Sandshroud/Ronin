@@ -8,6 +8,8 @@
 
 #pragma once
 
+extern const uint32 MapInstanceUpdatePeriod;
+
 enum INSTANCE_TYPE
 {
     INSTANCE_NULL,
@@ -81,55 +83,6 @@ class Player;
 class MapUpdaterThread;
 class Battleground;
 
-class InstanceData
-{
-public:
-    void LoadFromDB(Field * fields);
-    void SaveToDB();
-    void DeleteFromDB();
-
-    WoWGuid getCreatorGuid() { return m_creatorGuid; }
-    uint32 getCreatorGroupID() { return m_creatorGroup; }
-
-    time_t getCreationTime() { return m_creation; }
-
-    uint32 getDifficulty() { return m_difficulty; }
-
-    time_t getExpirationTime() { return m_expiration; }
-
-    bool isBattleground() { return m_isBattleground; }
-
-    void AcquireSaveLock() { m_savedLock.Acquire(); }
-    void ReleaseSaveLock() { m_savedLock.Release(); }
-    
-    void AddKilledNPC(uint32 counter) { m_killedNpcs.insert(counter); }
-    void AddSavedPlayer(uint32 counter) { m_SavedPlayers.insert(counter); }
-    void AddEnteredPlayer(uint32 counter) { m_EnteredPlayers.insert(counter); }
-
-    bool HasKilledNPC(uint32 counter) { return m_killedNpcs.find(counter) != m_killedNpcs.end(); }
-    bool HasSavedPlayer(uint32 counter) { return m_SavedPlayers.find(counter) != m_SavedPlayers.end(); }
-    bool HasEnteredPlayer(uint32 counter) { return m_EnteredPlayers.find(counter) != m_EnteredPlayers.end(); }
-
-private:
-
-    WoWGuid m_creatorGuid;
-    uint32 m_creatorGroup;
-    time_t m_creation;
-
-    uint32 m_difficulty;
-
-    time_t m_expiration;
-    bool m_isBattleground;
-
-    Mutex m_savedLock;
-    std::set<uint32> m_killedNpcs;
-    std::set<uint32> m_SavedPlayers;
-    std::set<uint32> m_EnteredPlayers;
-};
-
-// Each instance has it's own instance data linked to unique IDs
-typedef std::map<uint32, InstanceData*> InstanceDataMap;
-
 class ContinentManager;
 
 class SERVER_DECL WorldManager
@@ -147,13 +100,12 @@ public:
     }
 
     bool ValidateMapId(uint32 mapId);
-    uint32 PreTeleport(uint32 mapid, Player* plr, uint32 instanceid);
+    uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
 
     bool PushToWorldQueue(WorldObject *obj);
     MapInstance *GetInstance(WorldObject* obj);
     MapInstance *GetInstance(uint32 MapId, uint32 InstanceId);
 
-    uint32 GenerateInstanceID();
     void BuildXMLStats(char * m_file);
     void Load(TaskList * l);
 
@@ -290,23 +242,17 @@ public:
         return NULL;
     }
 
-    //Find saved instance for player at given mapid
-    MapInstance *GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty);
-    MapInstance *GetInstanceByIds(uint32 mapid, uint32 instanceId);
-
-    void _LoadInstances();
     void _CreateMap(MapEntry *map);
+    void _LoadInstances();
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
 private:
     void _InitializeContinent(MapEntry *mapEntry, Map *map);
+    void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
+    void _InitializeInstance(MapEntry *mapEntry, Map *map);
 
     Mutex m_mapLock;
     std::map<uint32, Map*> m_maps;
-
-    uint32 m_instanceCounter;
-    InstanceDataMap m_instances;
-
     std::map<uint32, ContinentManager*> m_continentManagement;
 };
 

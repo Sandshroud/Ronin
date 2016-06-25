@@ -50,9 +50,8 @@ void MapInstance::Preload()
         UpdateAllCells(true);
 }
 
-void MapInstance::Init()
+void MapInstance::Init(uint32 msTime)
 {
-    uint32 msTime = getMSTime();
     mCreaturePool.ResetTime(msTime);
     mGameObjectPool.ResetTime(msTime);
     mDynamicObjectPool.ResetTime(msTime);
@@ -1341,8 +1340,8 @@ void MapInstance::TeleportPlayers()
             ptr = __player_iterator->second;;
             ++__player_iterator;
 
-            if(ptr->GetSession())
-                ptr->EjectFromInstance();
+            if(ptr->GetSession() && !ptr->EjectFromInstance())
+                ptr->TeleportToHomebind();
         }
     }
     else

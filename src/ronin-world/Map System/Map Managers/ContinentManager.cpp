@@ -8,8 +8,6 @@
 
 #include "StdAfx.h"
 
-#define MAP_MGR_UPDATE_PERIOD 50
-
 ContinentManager::ContinentManager(MapEntry *mapEntry, Map *map) : ThreadContext(), m_mapEntry(mapEntry), m_mapId(mapEntry->MapID), m_mapData(map), eventHolder(m_mapId), m_continent(NULL)
 {
     SetThreadState(THREADSTATE_PAUSED);
@@ -36,9 +34,11 @@ bool ContinentManager::run()
     while(GetThreadState() == THREADSTATE_PAUSED)
         Delay(50);
 
-    m_continent->Init();
-
-    uint32 counter = 0, mstime = getMSTime(), lastUpdate = mstime; // Get our ms time
+    // Initialize the base continent timers
+    uint32 mstime = getMSTime();
+    m_continent->Init(mstime);
+    // Initialize our counter at 0 and our last update time for diff calculations
+    uint32 counter = 0, lastUpdate = mstime;
     do
     {
         if(!SetThreadState(THREADSTATE_BUSY))
@@ -87,7 +87,7 @@ bool ContinentManager::run()
         if(!SetThreadState(THREADSTATE_SLEEPING))
             break;
 
-        Delay(std::max<int32>(5, MAP_MGR_UPDATE_PERIOD-(getMSTime()-lastUpdate)));
+        Delay(std::max<int32>(5, MapInstanceUpdatePeriod-(getMSTime()-lastUpdate)));
         counter++;
     }while(true);
 

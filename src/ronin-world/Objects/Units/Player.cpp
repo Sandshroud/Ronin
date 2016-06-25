@@ -1227,7 +1227,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     OnlineTime = UNIXTIME;
     if( fields[PLAYERLOAD_FIELD_NEEDS_POSITION_RESET].GetBool() )
-        EjectFromInstance();
+        TeleportToHomebind();
     if( fields[PLAYERLOAD_FIELD_NEEDS_TALENT_RESET].GetBool() )
         m_talentInterface.ResetAllSpecs();
 
@@ -4125,6 +4125,44 @@ void Player::SendTalentResetConfirm()
     GetSession()->SendPacket(&data);
 }
 
+bool Player::CanCreateNewDungeon()
+{
+    if(!m_instanceLinkTimers.empty())
+    {
+        do
+        {
+            std::pair<uint32, time_t> timer = m_instanceLinkTimers.front();
+            if(timer.second+300 > UNIXTIME)
+                break;
+            m_instanceLinkTimers.pop_front();
+        }while(!m_instanceLinkTimers.empty());
+
+        if(m_instanceLinkTimers.size() >= 5)
+            return false;
+    }
+    return true;
+}
+
+bool Player::LinkToInstance(MapInstance *instance)
+{
+    if(m_instanceLinkTimers.size() >= 5)
+        return false;
+    uint32 mapId = instance->GetMapId(), instanceId = instance->GetInstanceID();
+    if(m_savedInstanceIDs.find(mapId) != m_savedInstanceIDs.end())
+        return false;
+
+    m_savedInstanceIDs.insert(std::make_pair(mapId, instanceId));
+    m_instanceLinkTimers.push_back(std::make_pair(instanceId, UNIXTIME));
+    return true;
+}
+
+uint32 Player::GetLinkedInstanceID(uint32 mapId)
+{
+    if(m_savedInstanceIDs.find(mapId) != m_savedInstanceIDs.end())
+        return m_savedInstanceIDs.at(mapId);
+    return 0;
+}
+
 int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot )
 {
     SpellEntry* spellinfo = dbcSpell.LookupEntry( autoshot ? 75 : spellid );
@@ -4840,6 +4878,9 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
     WorldPacket data(SMSG_TRANSFER_PENDING, 41);
     if(mapid != m_mapId && force_new_world)
     {
+        // Unk and transport transfer
+        data.WriteBitString(2, 0, 0);
+        data.FlushBits();
         data << mapid;
         GetSession()->SendPacket(&data);
     }
@@ -6885,7 +6926,15 @@ void Player::EventGroupFullUpdate()
     }
 }
 
-void Player::EjectFromInstance()
+bool Player::EjectFromInstance()
+{
+    if(m_bgEntryPointX && m_bgEntryPointY && m_bgEntryPointZ && !IS_INSTANCE(m_bgEntryPointMap))
+        if(SafeTeleport(m_bgEntryPointMap, m_bgEntryPointInstance, m_bgEntryPointX, m_bgEntryPointY, m_bgEntryPointZ, m_bgEntryPointO))
+            return true;
+    return false;
+}
+
+void Player::TeleportToHomebind()
 {
     if(m_bgEntryPointX && m_bgEntryPointY && m_bgEntryPointZ && !IS_INSTANCE(m_bgEntryPointMap))
         if(SafeTeleport(m_bgEntryPointMap, m_bgEntryPointInstance, m_bgEntryPointX, m_bgEntryPointY, m_bgEntryPointZ, m_bgEntryPointO))

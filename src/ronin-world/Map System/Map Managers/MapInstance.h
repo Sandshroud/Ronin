@@ -97,6 +97,9 @@ public:
     // Resets the stack timers
     void ResetTime(uint32 msTime)
     {
+        if(mPoolStack == NULL)
+            return;
+
         // Times have to be reset for our pools so we don't have massive differences from currentms-0
         for(uint32 i = 0; i < mPoolSize; i++)
             mPoolLastUpdateStack[i] = msTime;
@@ -266,7 +269,7 @@ public:
     ~MapInstance();
 
     void Preload();
-    void Init();
+    void Init(uint32 msTime);
     void Destruct();
 
     void EventPushObjectToSelf(WorldObject *obj);

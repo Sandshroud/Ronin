@@ -173,6 +173,7 @@
 #include "ContinentManager.h"
 #include "BattlegroundManager.h"
 #include "InstanceManager.h"
+#include "RaidManager.h"
 #include "WorldManager.h"
 #include "Channel.h"
 #include "ChannelMgr.h"

@@ -760,6 +760,13 @@ public:
 
     TalentInterface m_talentInterface;
 
+    // Instance system
+    bool CanCreateNewDungeon();
+    bool LinkToInstance(MapInstance *instance);
+    uint32 GetLinkedInstanceID(uint32 mapId);
+    std::map<uint32, uint32> m_savedInstanceIDs;
+    std::deque<std::pair<uint32, time_t>> m_instanceLinkTimers;
+
     /************************************************************************/
     /* Skill System                                                         */
     /************************************************************************/
@@ -1470,7 +1477,8 @@ public:
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec);
     void SafeTeleport(MapInstance* instance, LocationVector vec);
-    void EjectFromInstance();
+    bool EjectFromInstance();
+    void TeleportToHomebind();
     bool raidgrouponlysent;
 
     void EventSafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)

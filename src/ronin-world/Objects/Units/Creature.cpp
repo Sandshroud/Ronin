@@ -697,7 +697,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     _Create(mapId, x, y, z, o);
 
     // Event objects should be spawned inactive
-    isActive = m_spawn->eventId ? false : true;
+    isActive = ((m_spawn && m_spawn->eventId) ? false : true);
 
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());

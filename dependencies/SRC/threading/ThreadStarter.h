@@ -61,7 +61,7 @@ public:
     int GetThreadId() { return ThreadId; }
     time_t GetStartTime() { return start_time; }
 
-    virtual bool run() { return false; };
+    virtual bool run() = 0;
     virtual void OnShutdown()
     {
         SetThreadState(THREADSTATE_TERMINATE);

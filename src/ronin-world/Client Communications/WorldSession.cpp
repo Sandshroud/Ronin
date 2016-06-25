@@ -10,7 +10,8 @@
 
 extern bool bServerShutdown;
 #define WORLDSOCKET_TIMEOUT 80
-OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
+
+static OpcodeHandler *WorldPacketHandlers;
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : _socket(sock), _accountId(id), _accountName(Name),
 _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
@@ -150,7 +151,7 @@ int WorldSession::Update(int32 instanceId)
         while (!bDeleted && instanceId == m_eventInstanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
-            if(packet->GetOpcode() >= NUM_MSG_TYPES)
+            if(packet->GetOpcode() >= NUM_CLIENT_MSG)
                 sLog.Error("WorldSession", "Received out of range packet with opcode 0x%.4X", packet->GetOpcode());
             else
             {
@@ -457,8 +458,9 @@ void WorldSession::SendNotification(const char *message, ...)
 
 void WorldSession::InitPacketHandlerTable()
 {
+    WorldPacketHandlers = new OpcodeHandler[NUM_CLIENT_MSG];
     // Nullify Everything, default to STATUS_LOGGEDIN
-    for(uint32 i = 0; i < NUM_MSG_TYPES; i++)
+    for(uint32 i = 0; i < NUM_CLIENT_MSG; i++)
     {
         WorldPacketHandlers[i].status = STATUS_LOGGEDIN;
         WorldPacketHandlers[i].handler = NULL;
@@ -872,6 +874,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_EQUIPMENT_SET_DELETE].handler                  = &WorldSession::HandleEquipmentSetDelete;
     WorldPacketHandlers[CMSG_EQUIPMENT_SET_USE].handler                     = &WorldSession::HandleEquipmentSetUse;
     WorldPacketHandlers[CMSG_HEARTH_AND_RESURRECT].handler                  = &WorldSession::HandleHearthandResurrect;
+    WorldPacketHandlers[CMSG_AREATRIGGER].handler                           = &WorldSession::HandleAreaTriggerOpcode;
 
     // Arenas
     WorldPacketHandlers[CMSG_ARENA_TEAM_QUERY].handler                      = &WorldSession::HandleArenaTeamQueryOpcode;
@@ -922,6 +925,12 @@ void WorldSession::InitPacketHandlerTable()
 
     /// Empty packets
 }
+
+void WorldSession::DeInitPacketHandlerTable()
+{
+    delete [] WorldPacketHandlers;
+}
+
 ///
 void WorldSession::EmptyPacket(WorldPacket &recv_data)
 {

@@ -1089,7 +1089,6 @@ Task * TaskList::GetTask()
 
 void TaskList::spawn()
 {
-    ThreadContext();
     running = true;
     thread_count = 0;
 

@@ -18,3 +18,13 @@ uint32 timeGetTime()
 #endif
 
 RONIN_INLINE uint32 getMSTime() { return timeGetTime(); }
+RONIN_INLINE uint32 getMSTimeDiff(uint32 newVal, uint32 oldVal)
+{
+    if(oldVal>newVal)
+    {
+        // If our old timer was from previous overrun
+        if(newVal <= 0x0000FFFF && oldVal > 0xF0000000)
+            return (0xFFFFFFFF-oldVal)+newVal;
+        else return oldVal-newVal;
+    } else return newVal-oldVal;
+}

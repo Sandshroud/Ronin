@@ -91,7 +91,8 @@ typedef struct Cords {
 #define NOTIFICATION_MESSAGE_NO_PERMISSION "You do not have permission to perform that function."
 #define NOTIFICATION_MESSAGE_FAILURE "The requested action could not be performed."
 
-extern OpcodeHandler WorldPacketHandlers[NUM_MSG_TYPES];
+extern OpcodeHandler *WorldPacketHandlers;
+
 void CapitalizeString(std::string& arg);
 
 class SERVER_DECL WorldSession
@@ -306,6 +307,8 @@ protected:
     void HandleInspectOpcode( WorldPacket & recv_data );
     void HandleGameobjReportUseOpCode( WorldPacket& recv_data );
     void HandleTimeSyncResp(WorldPacket& recv_data);
+    void HandleAreaTriggerOpcode(WorldPacket& recv_data);
+    void _HandleAreaTriggerOpcode(uint32 id);
 
     /// Gm Ticket System in GMTicket.cpp:
     void HandleGMTicketCreateOpcode(WorldPacket& recvPacket);
@@ -738,7 +741,6 @@ public:
 
     bool ValidateText2(std::string text);
     uint8 CheckTeleportPrerequisites(WorldSession * pSession, Player* pPlayer, uint32 mapid);
-    static void InitPacketHandlerTable();
     uint32 floodLines;
     time_t floodTime;
     void SystemMessage(const char * format, ...);
@@ -752,6 +754,10 @@ protected:
     std::string m_repeatMessage;
     uint32 m_repeatEmoteTime;
     uint32 m_repeatEmoteId;
+
+public:
+    static void InitPacketHandlerTable();
+    static void DeInitPacketHandlerTable();
 };
 
 void BuildCorpseInfo(WorldPacket* data, Corpse* corpse);

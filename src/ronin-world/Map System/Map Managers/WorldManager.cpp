@@ -8,9 +8,9 @@
 
 #include "StdAfx.h"
 
-#define MAP_MGR_UPDATE_PERIOD 50
-
 SERVER_DECL WorldManager sWorldMgr;
+
+static const uint32 MapInstanceUpdatePeriod = 50;
 
 WorldManager::WorldManager()
 {
@@ -32,15 +32,11 @@ bool WorldManager::ValidateMapId(uint32 mapId)
 
 void WorldManager::Load(TaskList * l)
 {
-    new WorldStateTemplateManager;
+    new InstanceManager();
+    new WorldStateTemplateManager();
     sWorldStateTemplateManager.LoadFromDB();
 
-    // Create all non-instance type maps.
-    if( QueryResult *result = CharacterDatabase.Query( "SELECT MAX(id) FROM instances" ) )
-    {
-        m_instanceCounter = result->Fetch()[0].GetUInt32();
-        delete result;
-    } else m_instanceCounter = 0x3FF;
+    sInstanceMgr.Prepare();
 
     uint32 count = 0;
     // create maps for any we don't have yet.
@@ -58,11 +54,14 @@ void WorldManager::Load(TaskList * l)
         count++;
     }
     l->wait();
+
     for(auto itr = m_continentManagement.begin(); itr != m_continentManagement.end(); itr++)
         itr->second->SetThreadState(THREADSTATE_AWAITING);
 
     // load saved instances
     _LoadInstances();
+
+    sInstanceMgr.Launch();
 }
 
 WorldManager::~WorldManager()
@@ -77,10 +76,10 @@ void WorldManager::Shutdown()
     m_maps.clear();
 }
 
-uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
+uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
 {
     // preteleport is where all the magic happens :P instance creation, etc.
-    MapEntry* map = dbcMap.LookupEntry(mapid);
+    MapEntry* map = dbcMap.LookupEntry(mapId);
     if(map == NULL) //is the map vaild?
         return INSTANCE_ABORT_NOT_FOUND;
 
@@ -88,7 +87,7 @@ uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
     if(map->IsContinent())
     {
         // we can check if the destination world server is online or not and then cancel them before they load.
-        if(ContinentManagerExists(mapid))
+        if(ContinentManagerExists(mapId))
             return INSTANCE_OK;
         return INSTANCE_ABORT_NOT_FOUND;
     }
@@ -138,11 +137,16 @@ uint32 WorldManager::PreTeleport(uint32 mapid, Player* plr, uint32 instanceid)
     // so, first we have to check if they have an instance on this map already, if so, allow them to teleport to that.
     // next we check if there is a saved instance belonging to him.
     // otherwise, we can create them a new one.
-
-    m_mapLock.Acquire();
-
-    // instance created ok, i guess? return the ok for him to transport.
-    m_mapLock.Release();
+    if(instanceid == 0)
+        instanceid = plr->GetLinkedInstanceID(mapId);
+    bool canCreateNew = plr->CanCreateNewDungeon();
+    if(MapInstance *instance = sInstanceMgr.GetOrCreateInstance(mapId, instanceid, canCreateNew))
+    {
+        /*if(instance->PlayerBlocked(plr) || instance->IsClosed())
+            return INSTANCE_ABORT_NOT_FOUND;*/
+        plr->LinkToInstance(instance);
+        return INSTANCE_OK;
+    }
     return INSTANCE_OK_RESET_POS;
 }
 
@@ -195,8 +199,7 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
             p->m_beingPushed = true;
             if(WorldSession *sess = p->GetSession())
                 sess->SetEventInstanceId(mapMgr->GetInstanceID());
-        }
-        else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
+        } else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
             if(!c->CanAddToWorld())
                 return false;
 
@@ -206,42 +209,41 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
     return false;
 }
 
-MapInstance* WorldManager::GetInstance(WorldObject* obj)
+MapInstance *WorldManager::GetInstance(WorldObject* obj)
 {
     if(ContinentManager *manager = GetContinentManager(obj->GetMapId()))
         return manager->GetContinent();
-
+    /*else if(BattleGroundManager *manager = GetBattleGroundManager(obj->GetMapId()))
+        return manager->GetBattleground(obj->GetBGInstanceID());*/
+    else if(MapInstance *instance = sInstanceMgr.GetInstanceForObject(obj))
+        return instance;
     return NULL;
 }
 
-MapInstance* WorldManager::GetInstance(uint32 MapId, uint32 InstanceId)
+MapInstance *WorldManager::GetInstance(uint32 MapId, uint32 InstanceId)
 {
     if(ContinentManager *manager = GetContinentManager(MapId))
         return manager->GetContinent();
-
-    return NULL;
-}
-
-MapInstance * WorldManager::GetSavedInstance(uint32 map_id, uint32 guid, uint32 difficulty)
-{
-
+    /*else if(BattleGroundManager *manager = GetBattleGroundManager(MapId))
+        return manager->GetBattleground(InstanceId);*/
+    else if(MapInstance *instance = sInstanceMgr.GetOrCreateInstance(MapId, InstanceId))
+        return instance;
     return NULL;
 }
 
 void WorldManager::_CreateMap(MapEntry *mapEntry)
 {
+    m_mapLock.Acquire();
     Map *map = new Map(mapEntry->MapID, mapEntry->name);
     m_maps.insert(std::make_pair(mapEntry->MapID, map));
+    m_mapLock.Release();
     if(mapEntry->IsContinent())
         _InitializeContinent(mapEntry, map);
-}
-
-uint32 WorldManager::GenerateInstanceID()
-{
-    m_mapLock.Acquire();
-    uint32 iid = ++m_instanceCounter;
-    m_mapLock.Release();
-    return iid;
+    else if(mapEntry->IsBattleGround() || mapEntry->IsBattleArena())
+        _InitializeBattleGround(mapEntry, map);
+    else if(mapEntry->IsRaid() || mapEntry->IsDungeon())
+        _InitializeInstance(mapEntry, map);
+    else { m_mapLock.Acquire(); m_maps.erase(mapEntry->MapID); delete map; m_mapLock.Release(); }
 }
 
 void WorldManager::BuildXMLStats(char * m_file)
@@ -350,4 +352,20 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
 
     // Set manager to start it's internal thread
     ThreadPool.ExecuteTask(format("ContinentMgr - M%u", mapEntry->MapID).c_str(), mgr);
+}
+
+void WorldManager::_InitializeBattleGround(MapEntry *mapEntry, Map *map)
+{
+    // Temp: clean up the map for now
+    m_mapLock.Acquire();
+    m_maps.erase(mapEntry->MapID); delete map;
+    m_mapLock.Release();
+}
+
+void WorldManager::_InitializeInstance(MapEntry *mapEntry, Map *map)
+{
+    // Initialize the map data first
+    map->Initialize();
+    // Push map data to instance manager
+    sInstanceMgr.AddMapData(mapEntry, map);
 }

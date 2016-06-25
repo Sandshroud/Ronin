@@ -646,8 +646,8 @@ void WorldSession::FullLogin(Player* plr)
     if(Group *group = plr->GetGroup())
         group->Update();
 
-    if(enter_world && !plr->IsInWorld())
-        sWorldMgr.PushToWorldQueue(plr);
+    if(enter_world && !plr->IsInWorld() && !sWorldMgr.PushToWorldQueue(plr) && !plr->EjectFromInstance())
+        plr->TeleportToHomebind(); // If all else fails, send is back to homebind.
 
     sTracker.CheckPlayerForTracker(plr, true);
 
