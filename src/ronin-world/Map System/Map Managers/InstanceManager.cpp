@@ -42,16 +42,19 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
         // Check to see if we have the instance ID in storage
         if(mInstanceStorage.find(instanceId) != mInstanceStorage.end())
             ret = mInstanceStorage.at(instanceId).second;
+        else ret = _LoadInstance(mapId, instanceId);
         // If not, then we can return nothing
     }
     else if(obj->IsPlayer() && (mapData = GetMapData(mapId)))
     {
         Player *plr = castPtr<Player>(obj);
-        if(false)//instanceId = castPtr<Player>(obj)->GetLinkedInstanceID(mapId))
+        if(instanceId = castPtr<Player>(obj)->GetLinkedInstanceID(mapData->GetEntry()))
         {
-
+            if(mInstanceStorage.find(instanceId) != mInstanceStorage.end())
+                ret = mInstanceStorage.at(instanceId).second;
+            else ret = _LoadInstance(mapId, instanceId);
         }
-        else if(plr->CanCreateNewDungeon())
+        else if(plr->CanCreateNewDungeon(mapId))
         {
             // Instance ID generation occurs inside mutex
             uint32 instanceId = ++m_instanceCounter;
@@ -64,26 +67,39 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
     return ret;
 }
 
-MapInstance *InstanceManager::GetOrCreateInstance(uint32 mapId, uint32 instanceId, bool canCreate)
+uint32 InstanceManager::PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate)
 {
     Map *mapData = NULL;
-    MapInstance *ret = NULL;
+    uint32 ret = INSTANCE_OK;
     instanceStorageLock.Acquire();
     if(instanceId != 0)
     {
-        // Check to see if we have the instance ID in storage
+        // Instance exists, run checks before we return the OK
         if(mInstanceStorage.find(instanceId) != mInstanceStorage.end())
-            ret = mInstanceStorage.at(instanceId).second;
-        // If not, then we can return nothing
-    }
-    else if(canCreate && (mapData = GetMapData(mapId)))
-    {
-        // Instance ID generation occurs inside mutex
-        uint32 instanceId = ++m_instanceCounter;
-        ret = new MapInstance(mapData, mapId, instanceId);
-        _AddInstance(instanceId, ret);
-    }
-
+        {
+            MapInstance *instance = mInstanceStorage.at(instanceId).second;
+            if(instance->IsClosing())
+                ret = INSTANCE_ABORT_INSTANCE_CLOSING;
+            else if(instance->IsFull())
+                ret = INSTANCE_ABORT_FULL;
+            else if(instance->IsCombatInProgress())
+                ret = INSTANCE_ABORT_ENCOUNTER;
+            // else ret = instance_ok and we can enter our existing instance
+        }   // Check instance data for load preparation, if no data abort
+        else if(m_instanceData.find(instanceId) == m_instanceData.end())
+            ret = INSTANCE_ABORT_NOT_FOUND;
+        else // We have instance data, run checks on if we can access it
+        {
+            InstanceData *data = m_instanceData.at(instanceId);
+            if(data->GetMapId() != mapId) // Check if we're loading into a different instance to prevent abuse
+                ret = INSTANCE_ABORT_NOT_FOUND;
+            // Check if we're in the list of allowed players to load in(we need to have entered normally)
+            /*if(data->PlayerBlocked(plr) || data->IsExpired())
+                ret = INSTANCE_ABORT_NOT_FOUND;*/
+        }
+    } else if(canCreate && (mapData = GetMapData(mapId)))
+        ret = INSTANCE_ABORT_CREATE_NEW_INSTANCE;
+    else ret = canCreate ? INSTANCE_ABORT_NOT_FOUND : INSTANCE_ABORT_TOO_MANY;
     instanceStorageLock.Release();
     return ret;
 }
@@ -103,6 +119,18 @@ void InstanceManager::_AddInstance(uint32 instanceId, MapInstance *instance)
     container->ResetTimer(msTime);
     mInstancePool.push_back(container);
     instancePoolLock.Release();
+}
+
+MapInstance *InstanceManager::_LoadInstance(uint32 mapId, uint32 instanceId)
+{
+    MapInstance *ret = NULL;
+    if(Map *mapData = GetMapData(mapId))
+    {
+        ret = new MapInstance(mapData, mapId, instanceId);
+        //ret->LoadInstanceData();
+        _AddInstance(instanceId, ret);
+    }
+    return ret;
 }
 
 void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)

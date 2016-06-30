@@ -180,6 +180,9 @@ public:
     void AddObject(WorldObject*);
     WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 
+    bool IsClosing() { return false; }
+    bool IsFull() { return false; }
+
     /////////////////////////////////////////////////////////
     // Local (MapInstance) storage/generation of Creatures
     /////////////////////////////////////////////

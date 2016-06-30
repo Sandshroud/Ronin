@@ -869,11 +869,7 @@ void World::UpdateQueuedSessions(uint32 diff)
 
             // Welcome, sucker.
             if(QueuedSocket->GetSession())
-            {
-                QueuedSocket->GetSession()->deleteMutex.Acquire();
                 QueuedSocket->Authenticate();
-                QueuedSocket->GetSession()->deleteMutex.Release();
-            }
         }
 
         if(mQueuedSessions.size() == 0)

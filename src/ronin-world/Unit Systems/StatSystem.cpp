@@ -304,12 +304,10 @@ uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker)
     }
     else
     {
-        uint8 gray_level = getGrayLevel(pAttacker->getLevel());
-        if (pVictim->getLevel() > gray_level)
-        {
-            uint8 ZD = GetZeroDifference(pAttacker->getLevel());
+        uint8 gray_level = getGrayLevel(pAttacker->getLevel()), ZD = 0;
+        if (pVictim->getLevel() > gray_level && (ZD = GetZeroDifference(pAttacker->getLevel())))
             baseGain = (pAttacker->getLevel() * 5 + nBaseExp) * (ZD + pVictim->getLevel() - pAttacker->getLevel()) / ZD;
-        } else baseGain = 0;
+        else baseGain = 0;
     }
 
     return baseGain;

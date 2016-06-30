@@ -208,7 +208,7 @@ public:
     float GetPowerMod() { return _creatureData->powerMod; }
     float GetHealthMod() { return _creatureData->healthMod; }
     int32 GetBonusMana() { return 0; }
-    int32 GetBonusHealth() { return 5; }
+    int32 GetBonusHealth() { return 0; }
     int32 GetBonusStat(uint8 type) { return 0; };
     int32 GetBaseAttackTime(uint8 weaponType);
     int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->minDamage; }
@@ -224,6 +224,10 @@ public:
 
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
 
+    // Creature data based functions
+    bool isCritter() { return _creatureData->type == UT_CRITTER; }
+    bool isTrainingDummy() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_TRAINING_DUMMY; }
+
     float GetAggroRange();
 
     RONIN_INLINE uint8 GetCreaturePool() { return m_creaturePool; }
@@ -236,15 +240,15 @@ public:
 
     void Respawn(bool addrespawnevent, bool free_guid);
 
+    RONIN_INLINE uint32 GetSQL_id() { return IsSpawn() ? GetSpawn()->id : 0; };
+
     // AIInterface
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
-    /// Arena organizers
+    // Arena organizers
     RONIN_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
 
-    RONIN_INLINE uint32 GetSQL_id() { return IsSpawn() ? GetSpawn()->id : 0; };
-
-    /// Creature inventory
+    // Creature inventory
     RONIN_INLINE uint32 GetItemIdBySlot(uint32 slot) { return m_SellItems->at(slot).itemid; }
     RONIN_INLINE bool HasItems() { return ((m_SellItems != NULL) ? true : false); }
     RONIN_INLINE int32 GetVendorMask() { return (m_spawn ? m_spawn->vendormask : 0x01); }
@@ -339,7 +343,7 @@ public:
     RONIN_INLINE bool isQuestGiver() { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ); };
 
     void RegenerateHealth(bool inCombat);
-    void RegenerateMana(bool isinterrupted);
+    void RegeneratePower(bool isinterrupted);
 
     bool CanSee(Unit* obj) // * Invisibility & Stealth Detection - Partha *
     {

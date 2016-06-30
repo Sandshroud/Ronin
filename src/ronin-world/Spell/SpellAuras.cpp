@@ -2586,17 +2586,8 @@ void Aura::SpellAuraModFaction(bool apply)
         return;
 
     if(apply)
-    {
         m_target->SetFaction(GetSpellProto()->EffectMiscValue[mod->i]);
-        if(m_target->IsPlayer())
-            m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    }
-    else
-    {
-        m_target->ResetFaction();
-        if(m_target->IsPlayer())
-            m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-    }
+    else m_target->ResetFaction();
 }
 
 void Aura::SpellAuraComprehendLanguage(bool apply)
@@ -2606,8 +2597,7 @@ void Aura::SpellAuraComprehendLanguage(bool apply)
 
     if(apply)
         m_target->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_COMPREHEND_LANG);
-    else
-        m_target->RemoveFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_COMPREHEND_LANG);
+    else m_target->RemoveFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_COMPREHEND_LANG);
 }
 
 void Aura::SendPeriodicAuraLog(uint32 amt, uint32 Flags)

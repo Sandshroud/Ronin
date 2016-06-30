@@ -79,8 +79,8 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
         SetSummonedByGUID(m_owner->GetSummonedByGUID());
     else SetSummonedByGUID(m_owner->GetGUID());
 
-    if(m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
-        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
+    if(m_owner->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS))
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
 
     s_Owner = m_owner;
 

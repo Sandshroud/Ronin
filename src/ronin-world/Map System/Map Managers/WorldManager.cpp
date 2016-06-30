@@ -79,7 +79,7 @@ void WorldManager::Shutdown()
 uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
 {
     // preteleport is where all the magic happens :P instance creation, etc.
-    MapEntry* map = dbcMap.LookupEntry(mapId);
+    MapEntry *map = dbcMap.LookupEntry(mapId);
     if(map == NULL) //is the map vaild?
         return INSTANCE_ABORT_NOT_FOUND;
 
@@ -138,16 +138,16 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
     // next we check if there is a saved instance belonging to him.
     // otherwise, we can create them a new one.
     if(instanceid == 0)
-        instanceid = plr->GetLinkedInstanceID(mapId);
-    bool canCreateNew = plr->CanCreateNewDungeon();
-    if(MapInstance *instance = sInstanceMgr.GetOrCreateInstance(mapId, instanceid, canCreateNew))
+        instanceid = plr->GetLinkedInstanceID(map);
+
+    uint32 res = sInstanceMgr.PreTeleportInstanceCheck(plr->GetGUID(), mapId, instanceid, plr->CanCreateNewDungeon(mapId));
+    if(res == INSTANCE_ABORT_CREATE_NEW_INSTANCE)
     {
-        /*if(instance->PlayerBlocked(plr) || instance->IsClosed())
-            return INSTANCE_ABORT_NOT_FOUND;*/
-        plr->LinkToInstance(instance);
+        instanceid = 0;
         return INSTANCE_OK;
     }
-    return INSTANCE_OK_RESET_POS;
+
+    return res;
 }
 
 const uint32 GetBGForMapID(uint32 type)
@@ -178,32 +178,34 @@ const uint32 GetBGForMapID(uint32 type)
 
 bool WorldManager::PushToWorldQueue(WorldObject *obj)
 {
-    if(MapInstance* mapMgr = GetInstance(obj))
+    if(MapInstance* mapInstance = GetInstance(obj))
     {
         if(Player* p = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
         {
             // battleground checks
-            if( p->m_bg == NULL && mapMgr->m_battleground != NULL )
+            if( p->m_bg == NULL && mapInstance->m_battleground != NULL )
             {
                 // player hasn't been registered in the battleground, ok.
                 // that means we re-logged into one. if it's an arena, don't allow it!
                 // also, don't allow them in if the bg is full.
-                if( !mapMgr->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
+                if( !mapInstance->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
                     return false;
             }
 
             // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
-            if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapMgr->IsRaid() || mapMgr->GetdbcMap()->IsMultiDifficulty()))
+            if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapInstance->IsRaid() || mapInstance->GetdbcMap()->IsMultiDifficulty()))
                 return false;
 
             p->m_beingPushed = true;
             if(WorldSession *sess = p->GetSession())
-                sess->SetEventInstanceId(mapMgr->GetInstanceID());
+                sess->SetEventInstanceId(mapInstance->GetInstanceID());
+
+            if(!mapInstance->IsRaid()) p->LinkToInstance(mapInstance);
         } else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
             if(!c->CanAddToWorld())
                 return false;
 
-        mapMgr->AddObject(obj);
+        mapInstance->AddObject(obj);
         return true;
     }
     return false;
@@ -220,21 +222,10 @@ MapInstance *WorldManager::GetInstance(WorldObject* obj)
     return NULL;
 }
 
-MapInstance *WorldManager::GetInstance(uint32 MapId, uint32 InstanceId)
-{
-    if(ContinentManager *manager = GetContinentManager(MapId))
-        return manager->GetContinent();
-    /*else if(BattleGroundManager *manager = GetBattleGroundManager(MapId))
-        return manager->GetBattleground(InstanceId);*/
-    else if(MapInstance *instance = sInstanceMgr.GetOrCreateInstance(MapId, InstanceId))
-        return instance;
-    return NULL;
-}
-
 void WorldManager::_CreateMap(MapEntry *mapEntry)
 {
     m_mapLock.Acquire();
-    Map *map = new Map(mapEntry->MapID, mapEntry->name);
+    Map *map = new Map(mapEntry, mapEntry->name);
     m_maps.insert(std::make_pair(mapEntry->MapID, map));
     m_mapLock.Release();
     if(mapEntry->IsContinent())
@@ -273,11 +264,6 @@ void WorldManager::_LoadInstances()
 
         sLog.Success("WorldManager", "Loaded %u saved instance(s)." , count);
     } else sLog.Debug("WorldManager", "No saved instances found.");
-}
-
-void WorldManager::ResetSavedInstances(Player* plr)
-{
-
 }
 
 void WorldManager::ResetHeroicInstances()

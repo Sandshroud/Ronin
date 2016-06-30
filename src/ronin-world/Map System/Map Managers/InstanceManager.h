@@ -23,11 +23,13 @@ public:
 
     // Grab that instance stuff
     MapInstance *GetInstanceForObject(WorldObject *obj);
-    MapInstance *GetOrCreateInstance(uint32 mapId, uint32 instanceId, bool canCreate = true);
+    // Pre teleport check for instance creation 
+    uint32 PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate = true);
 
 private:
     Map *GetMapData(uint32 mapId) { return m_mapData.find(mapId) == m_mapData.end() ? NULL : m_mapData.at(mapId); }
     void _AddInstance(uint32 instanceId, MapInstance *instance);
+    MapInstance *_LoadInstance(uint32 mapId, uint32 instanceId);
 
     friend class InstanceManagerSlave;
     void HandleUpdateRequests(InstanceManagerSlave *slaveThis);
@@ -88,6 +90,9 @@ public:
     void SaveToDB();
     void DeleteFromDB();
 
+    uint32 GetInstanceId() { return m_instanceId; }
+    uint32 GetMapId() { return m_mapId; }
+
     WoWGuid getCreatorGuid() { return m_creatorGuid; }
     uint32 getCreatorGroupID() { return m_creatorGroup; }
 
@@ -111,6 +116,8 @@ public:
     bool HasEnteredPlayer(uint32 counter) { return m_EnteredPlayers.find(counter) != m_EnteredPlayers.end(); }
 
 private:
+    uint32 m_instanceId;
+    uint32 m_mapId;
 
     WoWGuid m_creatorGuid;
     uint32 m_creatorGroup;

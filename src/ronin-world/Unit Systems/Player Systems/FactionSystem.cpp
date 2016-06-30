@@ -126,16 +126,12 @@ FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *un
     {
         if(player_objA->GetTeam() == unitB->GetTeam())
             return FI_STATUS_FRIENDLY;
-        if(!(unitB->IsPvPFlagged() && player_objA->IsPvPFlagged()))
-            return FI_STATUS_NONE;
     } // Non Player with team ID attacking player
     else if(player_objB && unitA->GetTeam() < TEAM_MONSTER)
     {
         uint8 team = unitA->GetTeam();
         if(unitA->GetTeam() == player_objB->GetTeam())
             return FI_STATUS_FRIENDLY;
-        if(!(unitA->IsPvPFlagged() && player_objB->IsPvPFlagged()))
-            return FI_STATUS_NONE;
     }
     else if(unitA->GetTeam() < TEAM_MONSTER && unitB->GetTeam() < TEAM_MONSTER)
     {
@@ -176,13 +172,23 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     // Dead people can't attack anything.
     if( (objA->IsUnit() && !castPtr<Unit>(objA)->isAlive()) || (objB->IsUnit() && !castPtr<Unit>(objB)->isAlive()) )
         return FI_STATUS_NONE;
-    // Checks for untouchable, unattackable
-    if( objA->IsUnit() && (objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) ||
-        objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE)))
-        return FI_STATUS_NONE;
-    if( objB->IsUnit() && (objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) ||
-        objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE)))
-        return FI_STATUS_NONE;
+    // Flag checks start
+    if(objA->IsUnit())
+    {
+        if(objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+            return FI_STATUS_NONE;
+        if(objA->HasFlag(UNIT_FIELD_FLAGS, (objB->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objB->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
+            return FI_STATUS_NONE;
+    }
+
+    if(objB->IsUnit())
+    {
+        if(objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+            return FI_STATUS_NONE;
+        if(objB->HasFlag(UNIT_FIELD_FLAGS, (objA->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objA->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
+            return FI_STATUS_NONE;
+    }
+    // Flag checks end
     if(!objA->PhasedCanInteract(objB))
         return FI_STATUS_NONE;
 
@@ -297,7 +303,7 @@ bool FactionSystem::IsInteractionLocked(WorldObject *obj)
         Unit *uObj = castPtr<Unit>(obj);
         if(!uObj->isAlive())
             return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9)
+        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IGNORE_PC)
             || uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI)
             || uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
             return true;

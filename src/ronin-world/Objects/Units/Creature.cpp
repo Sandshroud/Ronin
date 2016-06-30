@@ -59,6 +59,8 @@ void Creature::Init()
 {
     Unit::Init();
 
+    m_aiInterface.Init();
+
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
         InitVehicleKit(vehicleKitId);
 }
@@ -171,6 +173,43 @@ void Creature::ClearInRangeSet()
 {
     m_inRangeHostiles.clear();
     Unit::ClearInRangeSet();
+}
+
+void Creature::UpdateLootAnimation(Player* Looter)
+{
+
+}
+
+void Creature::ClearTag()
+{
+    if( isAlive() )
+    {
+        ClearLoot();
+        m_taggingGroup = m_taggingPlayer = 0;
+        m_lootMethod = -1;
+
+        // if we are alive, means that we left combat
+        if( IsInWorld() )
+            UpdateLootAnimation(NULL);
+    }
+    // dead, don't clear tag
+}
+
+void Creature::Tag(Player* plr)
+{
+    // Tagging
+    if( m_taggingPlayer != 0 || isCritter() )
+        return;
+
+    m_taggingPlayer = plr->GetLowGUID();
+    m_taggingGroup = plr->m_playerInfo->m_Group ? plr->m_playerInfo->m_Group->GetID() : 0;
+
+    /* set loot method */
+    if( plr->GetGroup() != NULL )
+        m_lootMethod = plr->GetGroup()->GetMethod();
+
+    // update tag visual
+    UpdateLootAnimation(plr);
 }
 
 void Creature::EventAttackStop()
@@ -436,8 +475,15 @@ void Creature::OnPushToWorld()
 void Creature::UpdateAreaInfo(MapInstance *instance)
 {
     Unit::UpdateAreaInfo(instance);
-    if(GetTeam() < TEAM_GUARD && GetAreaFlags() & OBJECT_AREA_FLAG_INSANCTUARY)
-        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_2);
+
+    // Team based area code
+    uint8 team = TEAM_NONE;
+    if((team = GetTeam()) < TEAM_GUARD)
+    {
+        uint8 areaFlags = GetAreaFlags();
+        if(areaFlags & OBJECT_AREA_FLAG_INSANCTUARY)
+            SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+    }
 }
 
 void Creature::Respawn(bool addrespawnevent, bool free_guid)
@@ -500,7 +546,7 @@ void Creature::RegenerateHealth(bool inCombat)
     SetUInt32Value(UNIT_FIELD_HEALTH, cur);
 }
 
-void Creature::RegenerateMana(bool isinterrupted)
+void Creature::RegeneratePower(bool isinterrupted)
 {
     if (m_interruptRegen)
         return;
@@ -748,16 +794,11 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Max out health
     SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
 
-    //use proto faction if spawn faction is unspecified
-    if(m_factionTemplate = dbcFactionTemplate.LookupEntry(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE)));/*
-    {
-        // not a neutral creature
-        FactionEntry *faction = m_factionTemplate->GetFaction();
-        if(faction && (!(faction->RepListId == -1 && m_factionTemplate->HostileMask == 0 && m_factionTemplate->FriendlyMask == 0)))
-            GetAIInterface()->m_canCallForHelp = true;
-    } else sLog.Warning("Creature", "Creature is missing a valid faction template for entry %u.", GetEntry());*/
+    // Set our unit Flags from creature data
+    SetUInt32Value(UNIT_FIELD_FLAGS, _creatureData->flags);
+    SetUInt32Value(UNIT_FIELD_FLAGS_2, _creatureData->flags2);
 
-    //SETUP NPC FLAGS
+    // Set our npc flags and apply any variable data
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )

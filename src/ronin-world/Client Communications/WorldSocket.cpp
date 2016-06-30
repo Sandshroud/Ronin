@@ -361,8 +361,6 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     }
 
     mSession = pSession;
-    pSession->deleteMutex.Acquire();
-
     pSession->LoadTutorials();
     pSession->LoadAccountData();
 
@@ -381,8 +379,6 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
         // Send packet so we know what we're doing
         SendAuthResponse(AUTH_WAIT_QUEUE, true, Position);
     }
-
-    pSession->deleteMutex.Release();
 }
 
 void WorldSocket::Authenticate()

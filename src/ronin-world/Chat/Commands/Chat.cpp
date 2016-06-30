@@ -971,9 +971,7 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
             return false;
         else
             mv = atol(pvaluemax);
-    }
-    else
-        mv = 0;
+    } else mv = 0;
 
     //valid UNIT_FIELD?
     if(field <= OBJECT_END || field > UNIT_END )
@@ -981,9 +979,9 @@ bool ChatHandler::CmdSetValueField(WorldSession *m_session, uint32 field, uint32
         RedSystemMessage(m_session, "Specified field is not valid.");
         return true;
     }
-    if (av <= 0)
+    if (av < 0)
     {
-        RedSystemMessage(m_session, "Values are invalid. Value must be > 0.");
+        RedSystemMessage(m_session, "Values are invalid. Value must be >= 0.");
         return true;
     }
     if(fieldmax && (mv < av || mv <= 0))

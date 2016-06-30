@@ -328,15 +328,7 @@ void Unit::UpdateStatValues()
 
 void Unit::UpdateHealthValues()
 {
-    // Set critter HP to 5
-    if(IsCreature() && castPtr<Creature>(this)->GetCreatureData()->type == UT_CRITTER)
-    {
-        SetUInt32Value(UNIT_FIELD_BASE_HEALTH, 5);
-        SetUInt32Value(UNIT_FIELD_MAXHEALTH, 5);
-        return;
-    }
-
-    uint32 HP = baseStats ? baseStats->baseHP : 20;
+    uint32 HP = baseStats ? baseStats->baseHP*GetHealthMod() : 20;
     SetUInt32Value(UNIT_FIELD_BASE_HEALTH, HP);
     if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_HEALTH_PCT))
         for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
@@ -344,9 +336,10 @@ void Unit::UpdateHealthValues()
 
     int32 stam = GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
     stam = (stam <= baseStam ? 0 : stam-baseStam);
-    HP += GetBonusHealth() + baseStam;
+    HP += GetBonusHealth()+baseStam;
     if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1)))
-        HP += stam*HPPerStam->val;
+        HP += stam*HPPerStam->val*GetHealthMod();
+
     if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH))
         for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
             HP += itr->second->m_amount;
@@ -360,7 +353,6 @@ void Unit::UpdateHealthValues()
         for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
             HP *= float(abs(itr->second->m_amount))/100.f;
 
-    HP *= GetHealthMod();
     if(GetUInt32Value(UNIT_FIELD_HEALTH) > HP)
         SetUInt32Value(UNIT_FIELD_HEALTH, HP);
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
@@ -369,14 +361,14 @@ void Unit::UpdateHealthValues()
 static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
-    uint32 power = baseStats ? baseStats->basePower : 0;
+    uint32 power = baseStats ? baseStats->basePower*GetPowerMod() : 0;
     if(power)
     {
         SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
 
         int32 intellect = GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
         intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
-        power += GetBonusMana() + baseIntellect + intellect*15.0f;
+        power += GetBonusMana() + baseIntellect + intellect*15.f*GetPowerMod();
         if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY))
             for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
                 if(itr->second->m_miscValue[0] == 0) power += itr->second->m_amount;
@@ -384,7 +376,6 @@ void Unit::UpdatePowerValues()
             for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
                 if(itr->second->m_miscValue[0] == 0) power *= float(abs(itr->second->m_amount))/100.f;
 
-        power *= GetPowerMod();
         if(GetPower(POWER_TYPE_MANA) > power)
             SetPower(POWER_TYPE_MANA, power);
         SetMaxPower(POWER_TYPE_MANA, power);
@@ -3306,46 +3297,6 @@ void Unit::EventModelChange()
     if(CreatureBoundDataEntry *boundData = dbcCreatureBoundData.LookupEntry(GetUInt32Value(UNIT_FIELD_DISPLAYID)))
         m_modelhalfsize = boundData->High[2]/2.f;
     else m_modelhalfsize = 1.0f;
-}
-
-void Creature::UpdateLootAnimation(Player* Looter)
-{
-
-}
-
-void Creature::ClearTag()
-{
-    if( isAlive() )
-    {
-        ClearLoot();
-        m_taggingGroup = m_taggingPlayer = 0;
-        m_lootMethod = -1;
-
-        // if we are alive, means that we left combat
-        if( IsInWorld() )
-            UpdateLootAnimation(NULL);
-    }
-    // dead, don't clear tag
-}
-
-void Creature::Tag(Player* plr)
-{
-    // Tagging
-    if( m_taggingPlayer != 0 )
-        return;
-
-    if(GetCreatureData() && GetCreatureData()->type == UT_CRITTER)
-        return;
-
-    m_taggingPlayer = plr->GetLowGUID();
-    m_taggingGroup = plr->m_playerInfo->m_Group ? plr->m_playerInfo->m_Group->GetID() : 0;
-
-    /* set loot method */
-    if( plr->GetGroup() != NULL )
-        m_lootMethod = plr->GetGroup()->GetMethod();
-
-    // update tag visual
-    UpdateLootAnimation(plr);
 }
 
 //what is an Immobilize spell ? Have to add it later to spell effect handler

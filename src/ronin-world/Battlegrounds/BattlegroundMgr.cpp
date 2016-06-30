@@ -1620,7 +1620,7 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
 
     pCreature->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, 22802);
 
-    pCreature->SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PLUS_MOB | UNIT_FLAG_NOT_ATTACKABLE_9 | UNIT_FLAG_UNKNOWN_10); // 4928
+    pCreature->SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PLUS_MOB | UNIT_FLAG_IGNORE_PC | UNIT_FLAG_IGNORE_NPC); // 4928
 
     pCreature->SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, 2000);
     pCreature->SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME, 2000);

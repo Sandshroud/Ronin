@@ -52,8 +52,11 @@ enum INSTANCE_ABORT_ERROR
     INSTANCE_ABORT_NON_CLIENT_TYPE              = 6,
     INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE    = 7,
     INSTANCE_ABORT_NOT_IN_RAID_GROUP            = 8,
-    INSTANCE_OK_RESET_POS                       = 9,
-    INSTANCE_OK                                 = 10
+    INSTANCE_ABORT_MAX_CLIENT_IDS               = 8,
+
+    INSTANCE_ABORT_INSTANCE_CLOSING             = 9,
+    INSTANCE_ABORT_RESET_POS                    = 10,
+    INSTANCE_OK                                 = 11
 };
 
 enum OWNER_CHECK
@@ -104,13 +107,9 @@ public:
 
     bool PushToWorldQueue(WorldObject *obj);
     MapInstance *GetInstance(WorldObject* obj);
-    MapInstance *GetInstance(uint32 MapId, uint32 InstanceId);
 
     void BuildXMLStats(char * m_file);
     void Load(TaskList * l);
-
-    // deletes all instances owned by this player.
-    void ResetSavedInstances(Player* plr);
 
     // player left a group, boot him out of any instances he's not supposed to be in.
     void PlayerLeftGroup(Group * pGroup, Player* pPlayer);

@@ -239,7 +239,7 @@ void Player::Init()
     SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, 1.f);
 
     // We're players!
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
+    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
 }
 
 void Player::Destruct()
@@ -1131,7 +1131,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
 
-    SetFactionTemplate(info->factiontemplate);
+    SetFaction(info->factiontemplate);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId[getGender()]);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId[getGender()]);
     EventModelChange();
@@ -1356,7 +1356,7 @@ void Player::_LoadPlayerCooldowns(QueryResult *result)
         uint16 type = fields[2].GetUInt8();
         if( type >= NUM_COOLDOWN_TYPES )
             continue;
-        uint16 category = fields[3].GetUInt16();
+        uint32 category = fields[3].GetUInt32();
         time_t expireTime = fields[4].GetUInt64();
         if(expireTime <= UNIXTIME)
             continue;
@@ -4125,7 +4125,17 @@ void Player::SendTalentResetConfirm()
     GetSession()->SendPacket(&data);
 }
 
-bool Player::CanCreateNewDungeon()
+void Player::ResetAllInstanceLinks()
+{
+    while(m_savedInstanceIDs.size())
+    {
+        std::pair<std::pair<uint32, uint8>, uint32> mapDiffInstance = *m_savedInstanceIDs.begin();
+        m_savedInstanceIDs.erase(m_savedInstanceIDs.begin());
+        //sInstanceMgr.DelinkPlayer(this, mapDiffInstance.second);
+    }
+}
+
+bool Player::CanCreateNewDungeon(uint32 mapId)
 {
     if(!m_instanceLinkTimers.empty())
     {
@@ -4137,7 +4147,7 @@ bool Player::CanCreateNewDungeon()
             m_instanceLinkTimers.pop_front();
         }while(!m_instanceLinkTimers.empty());
 
-        if(m_instanceLinkTimers.size() >= 5)
+        if(m_instanceLinkTimers.size() >= 10)
             return false;
     }
     return true;
@@ -4145,30 +4155,38 @@ bool Player::CanCreateNewDungeon()
 
 bool Player::LinkToInstance(MapInstance *instance)
 {
-    if(m_instanceLinkTimers.size() >= 5)
-        return false;
-    uint32 mapId = instance->GetMapId(), instanceId = instance->GetInstanceID();
-    if(m_savedInstanceIDs.find(mapId) != m_savedInstanceIDs.end())
+    if(m_instanceLinkTimers.size() >= 10)
         return false;
 
-    m_savedInstanceIDs.insert(std::make_pair(mapId, instanceId));
+    uint8 difficulty = instance->IsRaid() ? iRaidType : iInstanceType;
+    uint32 mapId = instance->GetMapId(), instanceId = instance->GetInstanceID();
+    std::pair<uint32, uint8> mapDiffId = std::make_pair(mapId, difficulty);
+    if(m_savedInstanceIDs.find(mapDiffId) != m_savedInstanceIDs.end())
+        return m_savedInstanceIDs.at(mapDiffId) == instanceId;
+
+    m_savedInstanceIDs.insert(std::make_pair(mapDiffId, instanceId));
     m_instanceLinkTimers.push_back(std::make_pair(instanceId, UNIXTIME));
     return true;
 }
 
-uint32 Player::GetLinkedInstanceID(uint32 mapId)
+uint32 Player::GetLinkedInstanceID(MapEntry *mapEntry)
 {
-    if(m_savedInstanceIDs.find(mapId) != m_savedInstanceIDs.end())
-        return m_savedInstanceIDs.at(mapId);
+    uint8 difficulty = mapEntry->IsRaid() ? iRaidType : iInstanceType;
+    /*if(Group *group = GetGroup())
+        return group->GetLinkedInstanceID(mapEntry, difficulty);
+    else*/
+    {
+        std::pair<uint32, uint8> mapDiffId = std::make_pair(mapEntry->MapID, difficulty);
+        if(m_savedInstanceIDs.find(mapDiffId) != m_savedInstanceIDs.end())
+            return m_savedInstanceIDs.at(mapDiffId);
+    }
     return 0;
 }
 
 int32 Player::CanShootRangedWeapon( uint32 spellid, Unit* target, bool autoshot )
 {
     SpellEntry* spellinfo = dbcSpell.LookupEntry( autoshot ? 75 : spellid );
-    if( spellinfo == NULL )
-        return -1;
-    if( GetCurrentSpell() )
+    if( spellinfo == NULL || GetCurrentSpell() )
         return -1;
 
     uint8 fail = 0;
@@ -4892,7 +4910,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
     {
         //Preteleport will try to find an instance (saved or active), or create a new one if none found.
         uint32 status = sWorldMgr.PreTeleport(mapid, this, instance_id);
-        if(status != INSTANCE_OK && status != INSTANCE_OK_RESET_POS)
+        if(status != INSTANCE_OK && status <= INSTANCE_ABORT_MAX_CLIENT_IDS)
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
             data << mapid << status;
@@ -4900,10 +4918,10 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
             return;
         }
 
-        if(status == INSTANCE_OK_RESET_POS)
+        if(status != INSTANCE_OK)
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
-            data << mapid << status;
+            data << mapid << uint32(INSTANCE_ABORT_ERROR_ERROR);
             GetSession()->SendPacket(&data);
             return;
         }

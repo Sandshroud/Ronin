@@ -5,7 +5,8 @@
 #include "StdAfx.h"
 
 AIInterface::AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner) : m_Creature(creature), m_path(unitPath), m_AISeed(RandomUInt()), m_waypointCounter(0), m_waypointMap(NULL),
-m_AIState(creature->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD) // Initialize AI state idle if unit is not dead
+m_AIState(creature->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD), // Initialize AI state idle if unit is not dead
+m_AIFlags(AI_FLAG_NONE)
 {
 
 }
@@ -15,9 +16,15 @@ AIInterface::~AIInterface()
 
 }
 
+void AIInterface::Init()
+{
+    if(m_Creature->isTrainingDummy())
+        m_AIFlags |= AI_FLAG_DISABLED;
+}
+
 void AIInterface::Update(uint32 p_time)
 {
-    if(m_AIState == AI_STATE_DEAD)
+    if(m_AIState == AI_STATE_DEAD || m_AIFlags & AI_FLAG_DISABLED)
         return;
 
     if(m_waypointWaitTimer > p_time)
@@ -79,6 +86,9 @@ void AIInterface::OnPathChange()
 
 void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 {
+    if(m_AIFlags & AI_FLAG_DISABLED)
+        return;
+
     if(m_targetGuid.empty() || m_AIState == AI_STATE_IDLE)
     {
         // On enter combat
@@ -98,6 +108,8 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 
 bool AIInterface::FindTarget()
 {
+    if(m_AIFlags & AI_FLAG_DISABLED)
+        return false;
     if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Creature->HasInrangeHostiles())
         return false;
 

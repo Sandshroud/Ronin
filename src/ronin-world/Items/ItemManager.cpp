@@ -196,7 +196,7 @@ void ItemManager::LoadItemOverrides()
     if(QueryResult* result = WorldDatabase.Query("SELECT * FROM item_overrides"))
     {
         uint32 fieldCount = result->GetFieldCount();
-        if(fieldCount != 112)
+        if(fieldCount != 104)
             sLog.outError("Incorrect field count in item override table %u\n", fieldCount);
         else
         {
@@ -208,7 +208,7 @@ void ItemManager::LoadItemOverrides()
                 entry = fields[field_Count++].GetUInt32();
                 if(m_itemPrototypeContainer.find(entry) == m_itemPrototypeContainer.end())
                 {
-                    ItemPrototype* proto = new ItemPrototype();
+                    proto = new ItemPrototype();
                     proto->ItemId = entry;
                     proto->Class = 0;
                     proto->SubClass = 0;
@@ -477,15 +477,15 @@ void ItemManager::LoadItemOverrides()
         if(Damage)
         {
             float avgDamage = Damage->mod_DPS[Quality] * proto->Delay * 0.001f;
-            if(proto->ArmorDamageModifier) avgDamage *= proto->ArmorDamageModifier;
+            if(proto->ArmorDamageModifier) avgDamage += (proto->ArmorDamageModifier/proto->StatScalingFactor);
             proto->minDamage = (proto->StatScalingFactor * -0.5f + 1.0f) * avgDamage;
             proto->maxDamage = floor(float(avgDamage * (proto->StatScalingFactor * 0.5f + 1.0f) + 0.5f));
         }
 
         if(ArmorS)
-            proto->Armor = float2int32((proto->ArmorDamageModifier ? proto->ArmorDamageModifier : 1.f)*float(ArmorS->mod_Resist[Quality]));
+            proto->Armor = float2int32(float(ArmorS->mod_Resist[Quality]) + (proto->ArmorDamageModifier/proto->StatScalingFactor));
         else if(ArmorQ && ArmorT && ArmorE)
-            proto->Armor = float2int32((proto->ArmorDamageModifier ? proto->ArmorDamageModifier : 1.f)*(ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f));
+            proto->Armor = float2int32((ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f) + (proto->ArmorDamageModifier/proto->StatScalingFactor));
     }
 
     // Unload all DBC files

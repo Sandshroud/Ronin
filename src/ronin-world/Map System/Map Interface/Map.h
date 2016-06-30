@@ -49,7 +49,7 @@ typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;
 class SERVER_DECL Map
 {
 public:
-    Map(uint32 mapid, char *name);
+    Map(MapEntry *map, char *name);
     ~Map();
 
     void Initialize();
@@ -73,7 +73,8 @@ public:
     }
 
     void LoadSpawns(bool reload = false);//set to true to make clean up
-    TerrainMgr* GetMapTerrain() { return _terrain; };
+    RONIN_INLINE TerrainMgr* GetMapTerrain() { return _terrain; }
+    RONIN_INLINE MapEntry *GetEntry() { return _entry; }
 
     RONIN_INLINE void UnloadAllTerrain(bool forced = false) { _terrain->UnloadAllTerrain(forced); }
 
@@ -96,4 +97,5 @@ private:
 
     TerrainMgr *_terrain;
     SpawnsMap m_spawns;
+    MapEntry *_entry;
 };

@@ -8,7 +8,7 @@
 
 #include "StdAfx.h"
 
-Map::Map(uint32 mapid, char *name) : _mapId(mapid), mapName(name), _terrain(NULL)
+Map::Map(MapEntry *map, char *name) : _mapId(map->MapID), mapName(name), _terrain(NULL), _entry(map)
 {
 
 }

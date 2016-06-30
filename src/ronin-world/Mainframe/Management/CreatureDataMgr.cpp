@@ -92,6 +92,10 @@ void CreatureDataManager::LoadFromDB()
                     ctrData->Auras.insert( id );
         }
 
+        ctrData->extraFlags = CREATURE_DATA_EX_FLAGS_NONE;
+        if(RONIN_UTIL::FindXinYString("Training Dummy", ctrData->GetFullName()))
+            ctrData->extraFlags = CREATURE_DATA_EX_FLAG_TRAINING_DUMMY;
+
         m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());
 }

@@ -14,7 +14,7 @@ extern bool bServerShutdown;
 static OpcodeHandler *WorldPacketHandlers;
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : _socket(sock), _accountId(id), _accountName(Name),
-_logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
+_logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
 {
     _player = NULL;
     m_hasDeathKnight = false;
@@ -45,19 +45,13 @@ _logoutTime(0), permissions(NULL), permissioncount(0), _loggingOut(false), m_eve
 
 WorldSession::~WorldSession()
 {
-    deleteMutex.Acquire();
-
     if(_player != NULL)
     {
         printf("warning: logged out player in worldsession destructor");
         LogoutPlayer();
     }
 
-    if(permissions)
-        delete [] permissions;
-
     WorldPacket *packet;
-
     while((packet = _recvQueue.Pop()))
         delete packet;
 
@@ -83,11 +77,7 @@ WorldSession::~WorldSession()
     }
 
     if(_zlibStream)
-    {
         deflateEnd(_zlibStream);
-        delete _zlibStream;
-    }
-    deleteMutex.Release();
 }
 
 bool WorldSession::InitializeZLibCompression()
@@ -403,10 +393,10 @@ void WorldSession::LoadSecurity(std::string securitystring)
         }
     }
 
-    permissions = new char[tmp.size()+1];
-    memset(permissions, 0, tmp.size()+1);
-    permissioncount = (uint32)tmp.size();
     int k = 0;
+    permissions.clear();
+    permissions.resize(tmp.size()+1);
+    permissioncount = (uint32)tmp.size();
     for(std::list<char>::iterator itr = tmp.begin(); itr != tmp.end(); itr++)
         permissions[k++] = (*itr);
 
@@ -418,7 +408,6 @@ void WorldSession::LoadSecurity(std::string securitystring)
 
 void WorldSession::SetSecurity(std::string securitystring)
 {
-    delete [] permissions;
     LoadSecurity(securitystring);
 
     // update db

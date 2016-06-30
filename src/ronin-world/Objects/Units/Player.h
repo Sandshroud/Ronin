@@ -761,10 +761,11 @@ public:
     TalentInterface m_talentInterface;
 
     // Instance system
-    bool CanCreateNewDungeon();
+    void ResetAllInstanceLinks();
+    bool CanCreateNewDungeon(uint32 mapId);
     bool LinkToInstance(MapInstance *instance);
-    uint32 GetLinkedInstanceID(uint32 mapId);
-    std::map<uint32, uint32> m_savedInstanceIDs;
+    uint32 GetLinkedInstanceID(MapEntry *mapEntry);
+    std::map<std::pair<uint32, uint8>, uint32> m_savedInstanceIDs;
     std::deque<std::pair<uint32, time_t>> m_instanceLinkTimers;
 
     /************************************************************************/

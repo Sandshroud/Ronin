@@ -117,7 +117,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
     if(obj->IsItem() && !(TargetType & SPELL_TARGET_REQUIRE_ITEM) && !m_triggeredSpell)
         return false;
 
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_9) && (obj->IsPlayer() || m_caster->IsPlayer()))
+    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IGNORE_PC) && (obj->IsPlayer() || m_caster->IsPlayer()))
         return false;
 
     if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY && !sFactionSystem.isFriendly(m_caster, obj))
@@ -302,7 +302,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     for(itr = firstTarget->GetInRangeUnitSetBegin(); itr != firstTarget->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *target = m_caster->GetInRangeObject<Unit>(*itr);
-        if(!target->isAlive())
+        if(target == NULL || !target->isAlive())
             continue;
 
         if(RaidOnly)

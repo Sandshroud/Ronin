@@ -132,15 +132,15 @@ enum UnitFieldBytes2
 enum UnitFieldFlags // UNIT_FIELD_FLAGS #46 - these are client flags
 {   //                                     Hex    Bit     Decimal  Comments
     UNIT_FLAG_UNKNOWN_1                  = 0x1, // 1          1
-    UNIT_FLAG_NOT_ATTACKABLE_2           = 0x2, // 2          2  client won't let you attack them
+    UNIT_FLAG_NON_ATTACKABLE             = 0x2, // 2          2  client won't let you attack them
     UNIT_FLAG_LOCK_PLAYER                = 0x4, // 3          4  ? does nothing to client (probably wrong) - only taxi code checks this
-    UNIT_FLAG_PLAYER_CONTROLLED          = 0x8, // 4          8  makes players and NPCs attackable / not attackable
+    UNIT_FLAG_PLAYER_STATUS              = 0x8, // 4          8  makes players and NPCs attackable / not attackable
     UNIT_FLAG_UNKNOWN_5                  = 0x10, // 5         16  ? some NPCs have this
     UNIT_FLAG_PREPARATION                = 0x20, // 6         32  don't take reagents for spells with SPELL_ATTR_EX5_NO_REAGENT_WHILE_PREP
     UNIT_FLAG_PLUS_MOB                   = 0x40, // 7         64  ? some NPCs have this (Rare/Elite/Boss?)
     UNIT_FLAG_NOT_ATTACKABLE_1           = 0x80, // 8         128  ? can change attackable status (UNIT_FLAG_PLAYER_CONTROLLED | UNIT_FLAG_NOT_ATTACKABLE_1) is NON_PVP_ATTACKABLE
-    UNIT_FLAG_NOT_ATTACKABLE_9           = 0x100, // 9        256  changes attackable status
-    UNIT_FLAG_UNKNOWN_10                 = 0x200, // 10       512  3.0.3 - makes you unable to attack everything
+    UNIT_FLAG_IGNORE_PC                  = 0x100, // 9        256  disables combat with player characters
+    UNIT_FLAG_IGNORE_NPC                 = 0x200, // 10       512  disables combat with non player units
     UNIT_FLAG_LOOTING                    = 0x400, // 11       1024
     UNIT_FLAG_SELF_RES                   = 0x800, // 12       2048  ? some NPCs have this
     UNIT_FLAG_PVP                        = 0x1000, // 13      4096  sets PvP flag

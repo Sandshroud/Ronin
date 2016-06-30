@@ -1457,7 +1457,7 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_NOT_WHILE_GHOST;
         }
 
-        if(m_targets.m_unitTarget)
+        if(m_targets.m_unitTarget && m_targets.m_unitTarget != m_caster->GetGUID())
         {
             if(Unit *unitTarget = p_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
             {

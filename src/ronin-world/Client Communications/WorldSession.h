@@ -139,7 +139,7 @@ public:
     void LoadSecurity(std::string securitystring);
     void SetSecurity(std::string securitystring);
     RONIN_INLINE uint32 GetAccountFlags() { return _accountFlags; }
-    RONIN_INLINE char* GetPermissions() { return permissions; }
+    RONIN_INLINE const char* GetPermissions() { return permissions.c_str(); }
     RONIN_INLINE int GetPermissionCount() { return permissioncount; }
     RONIN_INLINE bool HasPermissions() { return (permissioncount > 0) ? true : false; }
     RONIN_INLINE bool HasGMPermissions()
@@ -147,7 +147,7 @@ public:
         if(!permissioncount)
             return false;
 
-        return (strchr(permissions,'a')!=NULL) ? true : false;
+        return (strchr(permissions.c_str(),'a')!=NULL) ? true : false;
     }
 
     bool CanUseCommand(char cmdstr);
@@ -227,7 +227,6 @@ public:
     RONIN_INLINE uint32 GetClientBuild() { return client_build; }
     RONIN_INLINE void SetClientBuild(uint32 build) { client_build = build; }
     bool bDeleted;
-    Mutex deleteMutex;
     int32 m_moveDelayTime;
     int32 m_clientTimeDelay;
 
@@ -708,7 +707,7 @@ private:
 
     z_stream *_zlibStream;
     FastQueue<WorldPacket*, Mutex> _recvQueue;
-    char *permissions;
+    std::string permissions;
     int permissioncount;
 
     bool _loggingOut;

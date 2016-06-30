@@ -428,8 +428,8 @@ public:
     RONIN_INLINE bool RemoveInRangeObject( WorldObject* obj )
     {
         ASSERT(obj);
-        m_inRangeObjects.erase(obj->GetGUID());
         OnRemoveInRangeObject(obj);
+        m_inRangeObjects.erase(obj->GetGUID());
         return true;
     }
 
@@ -476,26 +476,28 @@ public:
 
     RONIN_INLINE virtual void OnAddInRangeObject( WorldObject* pObj )
     {
+        WoWGuid guid = pObj->GetGUID();
         if(pObj->IsGameObject() || pObj->IsDynamicObj())
-            m_inRangeGameObjects.push_back(pObj->GetGUID());
+            m_inRangeGameObjects.push_back(guid);
         else if(pObj->IsUnit())
         {
-            m_inRangeUnits.push_back(pObj->GetGUID());
+            m_inRangeUnits.push_back(guid);
             if(pObj->IsPlayer())
-                m_inRangePlayers.push_back(pObj->GetGUID());
+                m_inRangePlayers.push_back(guid);
         }
     }
 
     RONIN_INLINE virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
         InRangeSet::iterator itr;
-        if((pObj->IsGameObject() || pObj->IsDynamicObj()) && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), pObj->GetGUID())) != m_inRangeGameObjects.end()))
+        WoWGuid guid = pObj->GetGUID();
+        if((pObj->IsGameObject() || pObj->IsDynamicObj()) && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), guid)) != m_inRangeGameObjects.end()))
             m_inRangeGameObjects.erase(itr);
         else if(pObj->IsUnit())
         {
-            if((itr = std::find(m_inRangeUnits.begin(), m_inRangeUnits.end(), pObj->GetGUID())) != m_inRangeUnits.end())
+            if((itr = std::find(m_inRangeUnits.begin(), m_inRangeUnits.end(), guid)) != m_inRangeUnits.end())
                 m_inRangeUnits.erase(itr);
-            if(pObj->IsPlayer() && ((itr = std::find(m_inRangePlayers.begin(), m_inRangePlayers.end(), pObj->GetGUID())) != m_inRangePlayers.end()))
+            if(pObj->IsPlayer() && ((itr = std::find(m_inRangePlayers.begin(), m_inRangePlayers.end(), guid)) != m_inRangePlayers.end()))
                 m_inRangePlayers.erase(itr);
         }
     }

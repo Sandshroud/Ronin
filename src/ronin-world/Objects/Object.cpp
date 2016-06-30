@@ -1114,13 +1114,18 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
     /*------------------------------------ DUEL HANDLERS END--------------------------*/
 
-    bool isCritter = false;
-    if(pVictim->GetTypeId() == TYPEID_UNIT && castPtr<Creature>(pVictim)->GetCreatureData())
-        if(castPtr<Creature>(pVictim)->GetCreatureData()->type == UT_CRITTER)
+    bool isCritter = false, isTrainingDummy = false;
+    if(pVictim->IsCreature())
+    {
+        Creature *cVictim = castPtr<Creature>(pVictim);
+        if(cVictim->isTrainingDummy())
+            isTrainingDummy = true;
+        else if(cVictim->isCritter())
             isCritter = true;
+    }
 
     /* -------------------------- HIT THAT CAUSES VICTIM TO DIE ---------------------------*/
-    if (isCritter || health <= damage)
+    if (!isTrainingDummy && (isCritter || health <= damage))
     {
         if( pVictim->HasDummyAura(SPELL_HASH_GUARDIAN_SPIRIT) )
         {
@@ -1404,12 +1409,14 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         return health;
 	}   /* ---------- NOT DEAD YET --------- */
-	else
+    else
     {
         if(IsUnit() && pVictim->IsCreature())
             castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(castPtr<Unit>(this), damage);
 
-        pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
+        if(isTrainingDummy && damage > health)
+            pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1 );
+        else pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
     }
     return damage;
 }
@@ -1508,7 +1515,7 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
                 }
 
                 pVictim->Emote( EMOTE_ONESHOT_WOUND_CRITICAL );
-            }
+            } else pVictim->Emote( EMOTE_ONESHOT_WOUND );
         }
     }
 //==========================================================================================

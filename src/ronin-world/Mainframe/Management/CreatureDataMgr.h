@@ -1,7 +1,14 @@
 
 #pragma once
 
+enum CreatureDataExtraFlags : uint16
+{
+    CREATURE_DATA_EX_FLAGS_NONE         = 0x0000,
+    CREATURE_DATA_EX_FLAG_TRAINING_DUMMY= 0x4000,
+};
+
 #pragma pack(PRAGMA_PACK)
+
 struct CreatureData
 {
     uint32 entry;
@@ -54,6 +61,8 @@ struct CreatureData
     uint32 movementMask;
     uint32 battleMasterType;
 
+    // Set on server load
+    uint32 extraFlags;
     std::set<uint32> Auras;
 
     bool HasValidModelData()
@@ -96,6 +105,7 @@ struct CreatureData
         return maleName.c_str();
     }
 };
+
 #pragma pack(PRAGMA_POP)
 
 class SERVER_DECL CreatureDataManager : public Singleton<CreatureDataManager>

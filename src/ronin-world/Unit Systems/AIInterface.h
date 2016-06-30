@@ -19,11 +19,20 @@ enum AI_State : uint8
     AI_STATE_SCRIPT = 0xFF
 };
 
+enum AI_Flags : uint16
+{
+    AI_FLAG_NONE        = 0x0000,
+    AI_FLAG_DISABLED    = 0x8000
+};
+
 class SERVER_DECL AIInterface
 {
 public:
     AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner = NULL);
     ~AIInterface();
+
+    // Post creation initialization call
+    void Init();
 
     // Update
     void Update(uint32 p_time);
@@ -42,6 +51,7 @@ public:
 protected:
     AI_State m_AIState;
     uint32 m_AISeed;
+    uint32 m_AIFlags;
 
     uint32 m_waypointWaitTimer;
     void _HandleCombatAI();
