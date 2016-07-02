@@ -62,22 +62,15 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
     // Inits, grab creature, check.
     uint64 guid;
     recv_data >> guid;
-    Creature* train = GetPlayer()->GetMapInstance()->GetCreature(guid);
-    if(train == NULL)
-        return;
+    if(Creature* train = GetPlayer()->GetMapInstance()->GetCreature(guid))
+    {
+        if(FactionEntry *faction = train->GetFaction())
+            _player->Reputation_OnTalk(faction);
 
-    if(FactionEntry *faction = train->GetFaction())
-        _player->Reputation_OnTalk(faction);
-    SendTrainerList(train);
-}
-
-void WorldSession::SendTrainerList(Creature* pCreature)
-{
-    WorldPacket data(SMSG_TRAINER_LIST, 5000);
-    data << pCreature->GetGUID();
-    data << uint32(0);
-    data << uint32(0);
-    SendPacket(&data);
+        WorldPacket data(SMSG_TRAINER_LIST, 5000);
+        train->BuildTrainerData(&data);
+        SendPacket(&data);
+    }
 }
 
 void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)

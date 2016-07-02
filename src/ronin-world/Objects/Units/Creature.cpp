@@ -17,6 +17,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_spawn = NULL;
     m_quests = NULL;
     m_SellItems = NULL;
+    m_trainerData = NULL;
     auctionHouse = NULL;
     m_respawnCell = NULL;
     m_shieldProto = NULL;
@@ -470,6 +471,56 @@ void Creature::OnPushToWorld()
     for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
             CastSpell(this, sp, true);
+}
+
+void Creature::BuildTrainerData(WorldPacket *data)
+{
+    *data << GetGUID();
+    *data << uint32(m_trainerData ? m_trainerData->type : 0);
+    *data << uint32(m_trainerData ? m_trainerData->trainerId : 0);
+    if(m_trainerData)
+    {
+        size_t dataPos = data->wpos();
+        uint32 count = 0;
+        *data << uint32(count);
+        for(std::vector<TrainerSpell*>::iterator itr = m_trainerData->cSpells.begin(); itr != m_trainerData->cSpells.end(); itr++)
+        {
+            TrainerSpell *spell = *itr;
+            *data << uint32(spell->entry->Id);
+            *data << uint8(0);
+            *data << uint32(spell->spellCost);
+            *data << uint8(spell->requiredLevel);
+            *data << uint32(spell->reqSkill);
+            *data << uint32(spell->reqSkillValue);
+            *data << uint32(0);
+            // Profession
+            *data << uint32(0);
+            // Chain spelling
+            *data << uint32(0);
+            *data << uint32(0);
+            count++;
+        }
+
+        for(std::vector<TrainerSpell*>::iterator itr = m_trainerData->lSpells.begin(); itr != m_trainerData->lSpells.end(); itr++)
+        {
+            TrainerSpell *spell = *itr;
+            *data << uint32(spell->entry->Id);
+            *data << uint8(0);
+            *data << uint32(spell->spellCost);
+            *data << uint8(spell->requiredLevel);
+            *data << uint32(spell->reqSkill);
+            *data << uint32(spell->reqSkillValue);
+            *data << uint32(0);
+            // Profession
+            *data << uint32(0);
+            // Chain spelling
+            *data << uint32(0);
+            *data << uint32(0);
+            count++;
+        }
+        data->put<uint32>(dataPos, count);
+        *data << m_trainerData->trainerTitle;
+    } else *data << uint32(0) << uint8(0);
 }
 
 void Creature::UpdateAreaInfo(MapInstance *instance)

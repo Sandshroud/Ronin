@@ -89,32 +89,76 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber) : 
     m_duration = -1;
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
     m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
-    m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
+    m_triggeredSpell = m_projectileWait = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
     m_hitTargetCount = m_missTargetCount = 0;
     m_triggeredByAura = NULL;
     m_missilePitch = 0.f;
     m_missileTravelTime = m_MSTimeToAddToTravel = 0;
+    m_timer = m_castTime = 0;
+}
 
-    if( !m_triggeredSpell && m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat )
-        m_timer = m_castTime = 0;
-    else
+BaseSpell::~BaseSpell()
+{
+}
+
+void BaseSpell::_Prepare()
+{
+    m_missilePitch = m_targets.missilepitch;
+    m_missileTravelTime = floor(m_targets.traveltime);
+
+    if(m_missileTravelTime || m_spellInfo->speed > 0.0f && !m_spellInfo->IsSpellChannelSpell() || m_spellInfo->Id == 14157)
+        m_projectileWait = true;
+
+    if((m_spellInfo->SpellScalingId || m_spellInfo->CastingTimeIndex) && !(m_triggeredSpell || (m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat)))
     {
-        m_castTime = m_spellInfo->castTimeMin;
-        if(GetSpellProto()->SpellGroupType && m_castTime && m_caster->IsUnit())
+        uint32 level = m_caster->getLevel();
+        if(m_spellInfo->SpellScalingId)
         {
-            castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
-            castPtr<Unit>(m_caster)->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, GetSpellProto()->SpellGroupType );
+            m_castTime = m_spellInfo->castTimeMin;
+            if(level > 1)
+            {
+                if(level < m_spellInfo->castScalingMaxLevel)
+                    m_castTime += ((level-1) * (m_spellInfo->castTimeMax-m_spellInfo->castTimeMin))/m_spellInfo->castScalingMaxLevel;
+                else m_castTime = m_spellInfo->castTimeMax;
+            }
+        }
+        else // Via cast time index
+        {
+            m_castTime = m_spellInfo->castTime;
+            if(m_spellInfo->SpellLevelsId)
+            {
+                if (m_spellInfo->spellLevelMaxLevel && level > m_spellInfo->spellLevelMaxLevel)
+                    level = m_spellInfo->spellLevelMaxLevel;
+                if(level < m_spellInfo->spellLevelBaseLevel)
+                    level = m_spellInfo->spellLevelBaseLevel;
+                level -= m_spellInfo->spellLevelBaseLevel;
+            }
+
+            // currently only profession spells have CastTimePerLevel data filled, always negative
+            m_castTime += m_spellInfo->castTimePerLevel * level;
+            if(m_castTime < m_spellInfo->baseCastTime)
+                m_castTime = m_spellInfo->baseCastTime;
+        }
+
+        if(m_castTime && m_caster->IsUnit())
+        {
+            if(m_spellInfo->SpellGroupType)
+            {
+                castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
+                castPtr<Unit>(m_caster)->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
+            }
+
+            if (!(m_spellInfo->isAbilitySpell() || m_spellInfo->isTradeSpell()))
+                m_castTime *= castPtr<Unit>(m_caster)->GetFloatValue(UNIT_MOD_CAST_SPEED);
+            /*else if(m_spellInfo->isSpellRangedSpell() && !m_spellInfo->isAutoRepeatSpell())
+            m_castTime *= castPtr<Unit>(m_caster)->getattacks[RANGED_ATTACK]);*/
         }
 
         //let us make sure cast_time is within decent range
         //this is a hax but there is no spell that has more then 10 minutes cast time
         m_timer = m_castTime = std::min<uint32>(10*60*1000, std::max<int32>(0, m_castTime));
     }
-}
-
-BaseSpell::~BaseSpell()
-{
 }
 
 void BaseSpell::Destruct()

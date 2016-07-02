@@ -41,7 +41,6 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
     m_reflectedParent = NULL;
     m_isCasting = false;
     m_magnetTarget = 0;
-    m_projectileWait = false;
 }
 
 Spell::~Spell()
@@ -605,11 +604,9 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 
     m_targets = *targets;
     m_triggeredSpell = triggered;
-    m_missileTravelTime = floor(m_targets.traveltime);
-    m_missilePitch = m_targets.missilepitch;
 
-    if(m_missileTravelTime || m_spellInfo->speed > 0.0f && !m_spellInfo->IsSpellChannelSpell() || m_spellInfo->Id == 14157)
-        m_projectileWait = true;
+    // Call base spell preparations
+    BaseSpell::_Prepare();
 
     if( m_triggeredSpell )
         cancastresult = SPELL_CANCAST_OK;
@@ -627,7 +624,8 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
         return ccr;
     }
 
-    if( m_triggeredSpell && !(GetSpellProto()->IsSpellChannelSpell() || m_castTime > 0))
+    // Handle triggered spells here that aren't channeled spells
+    if( m_triggeredSpell && !GetSpellProto()->IsSpellChannelSpell())
     {
         cast( false );
         return ccr;
@@ -655,7 +653,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     m_spellState = SPELL_STATE_PREPARING;
 
     // instant cast(or triggered) and not channeling
-    if( m_caster->IsUnit() && ( m_castTime > 0 || GetSpellProto()->IsSpellChannelSpell() ) && !m_triggeredSpell )
+    if( m_caster->IsUnit() && ( m_castTime > 0 || GetSpellProto()->IsSpellChannelSpell() ) && !m_triggeredSpell  )
     {
         m_castPositionX = m_caster->GetPositionX();
         m_castPositionY = m_caster->GetPositionY();
@@ -1431,16 +1429,21 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_ALREADY_AT_FULL_POWER;
         }
 
+        if(GetSpellProto()->isSpellCastableOnlyInOutlands() && m_caster->GetMapId() != 530)
+            return SPELL_FAILED_NOT_HERE;
+
         // flying auras
         if( GetSpellProto()->isSpellFlyingSpell() )
         {
-            if(!p_caster->CanFlyInCurrentZoneOrMap()) // Check our area
-                return SPELL_FAILED_NOT_HERE;
-        }
-        else
-        {
-            if(GetSpellProto()->isSpellCastableOnlyInOutlands() && m_caster->GetMapId() != 530)
-                return SPELL_FAILED_NOT_HERE;
+            for(uint8 i = 0; i < 3; i++)
+            {
+                if(m_spellInfo->EffectApplyAuraName[i] != SPELL_AURA_MOUNTED)
+                    continue;
+
+                if(p_caster->GetMountCapability(m_spellInfo->EffectMiscValueB[i]) == NULL)
+                    return SPELL_FAILED_SPELL_UNAVAILABLE;
+                break;
+            }
         }
 
         if( GetSpellProto()->Id == 53822 && p_caster->getClass()!=DEATHKNIGHT)          // DeathGate
@@ -1802,7 +1805,7 @@ uint8 Spell::CanCast(bool tolerate)
                 {
                     if( GetSpellProto()->EffectBasePoints[0])//got level req;
                     {
-                        if((int32)target->getLevel() > GetSpellProto()->EffectBasePoints[0]+1 + int32(castPtr<Player>(m_caster)->getLevel() - GetSpellProto()->spellLevel))
+                        if((int32)target->getLevel() > GetSpellProto()->EffectBasePoints[0]+1 + int32(castPtr<Player>(m_caster)->getLevel() - GetSpellProto()->spellLevelSpellLevel))
                             return SPELL_FAILED_HIGHLEVEL;
                         else if(target->GetTypeId() == TYPEID_UNIT)
                         {

@@ -788,6 +788,9 @@ public:
     void _AdvanceAllSkills(uint16 count, bool skipprof = false, uint16 max = 0);
     void _ModifySkillMaximum(uint16 SkillLine, uint16 NewMax);
 
+    // Get mount capability based on mount skill
+    SpellEntry *GetMountCapability(uint32 mountType);
+
     void RecalculateHonor();
 
     RONIN_INLINE uint8 GetBGTeam() { return m_bgTeam; }
@@ -795,8 +798,6 @@ public:
 
     LfgMatch * m_lfgMatch;
     uint32 m_lfgInviterGuid;
-
-    void EventTimeoutLfgInviter();
 
     static bool IsValidGender(uint8 Gender) { return Gender <= 1; }
     static bool IsValidClass(uint8 Class) { return ((1 << (Class - 1)) & CLASSMASK_ALL_PLAYABLE) != 0; }
@@ -960,8 +961,9 @@ public:
     uint32 FindSpellWithNamehash(uint32 namehash);
     uint32 FindHigherRankingSpellWithNamehash(uint32 namehash, uint32 minimumrank);
     uint32 FindHighestRankingSpellWithNamehash(uint32 namehash);
-    bool CanFlyInCurrentZoneOrMap();
     SpellEntry* FindLowerRankSpell(SpellEntry* sp, int32 rankdiff);
+    SpellEntry *FindHighestRankSpellBySkilline(SkillLineAbilityEntry *sk, SpellEntry* sp);
+
     uint32 forget;
 
     // PLEASE DO NOT INLINE!

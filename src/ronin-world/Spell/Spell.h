@@ -210,7 +210,6 @@ protected:
     uint8  cancastresult;
     bool   m_cancelled;
     bool   m_isCasting;
-    bool   m_projectileWait;
 
     void DamageGosAround(uint32 i);
     bool UseMissileDelay();

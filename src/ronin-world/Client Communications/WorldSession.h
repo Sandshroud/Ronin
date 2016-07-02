@@ -15,7 +15,6 @@ class WorldSocket;
 class WorldSession;
 class MapInstance;
 class Creature;
-struct TrainerSpell;
 
 //#define SESSION_CAP 5
 
@@ -244,11 +243,7 @@ public:
         return true;
     }
 
-    uint32 GetTutorialFlag(uint8 i)
-    {
-        ASSERT(i < 8);
-        return m_tutorials[i];
-    }
+    void AppendTutorialData(WorldPacket *packet) { packet->append(m_tutorials.GetMask(), m_tutorials.GetLength()); }
 
 protected:
     bool m_hasDeathKnight;
@@ -675,7 +670,6 @@ protected:
 
 public:
     void SendTradeStatus(uint32 TradeStatus);
-    void SendTrainerList(Creature* pCreature);
     void SendCharterRequest(Creature* pCreature);
     void SendInnkeeperBind(Creature* pCreature);
     void SendBattlegroundList(Creature* pCreature, uint32 type);
@@ -727,7 +721,7 @@ private:
     // Tutorials
     void LoadTutorials();
     void SaveTutorials();
-    uint32 m_tutorials[8];
+    UpdateMask m_tutorials;
 
 public:
     void ValidateText1(std::string text)

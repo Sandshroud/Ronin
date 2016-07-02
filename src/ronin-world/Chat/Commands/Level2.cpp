@@ -428,6 +428,26 @@ bool ChatHandler::HandleNPCSetVendorMaskCommand(const char * args, WorldSession 
     return true;
 }
 
+bool ChatHandler::HandleNPCGetSpeed(const char * args, WorldSession * m_session)
+{
+    Unit *unit = getSelectedUnit(m_session, false);
+    if(unit == NULL)
+    {
+        RedSystemMessage(m_session, "Please select a saved creature before using this command.");
+        return true;
+    }
+
+    int speedType = atoi(args);
+    if(speedType == -1)
+    {
+        for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
+            GreenSystemMessage(m_session, "Current speed %f for type %i", unit->GetMoveSpeed(MovementSpeedTypes(i)), i);
+    }
+    else if(speedType < MOVE_SPEED_MAX)
+        GreenSystemMessage(m_session, "Current speed %f for type %i", unit->GetMoveSpeed(MovementSpeedTypes(speedType)), speedType);
+    return true;
+}
+
 bool ChatHandler::HandleCastSpellNECommand(const char* args, WorldSession *m_session)
 {
     Unit* caster = m_session->GetPlayer();

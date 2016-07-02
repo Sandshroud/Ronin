@@ -38,8 +38,8 @@ void WorldManager::Load(TaskList * l)
 
     sInstanceMgr.Prepare();
 
-    uint32 count = 0;
     // create maps for any we don't have yet.
+    std::deque<MapEntry*> m_continent, m_otherMaps;
     for(uint32 i = 0; i < dbcMap.GetNumRows(); i++)
     {
         MapEntry *map = dbcMap.LookupRow(i);
@@ -50,8 +50,24 @@ void WorldManager::Load(TaskList * l)
         if(!map->IsContinent() && !map->Instanceable())
             continue;
 
-        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, map)));
-        count++;
+        if(map->IsContinent())
+            m_continent.push_back(map);
+        else m_otherMaps.push_back(map);
+    }
+
+    while(!m_continent.empty())
+    {
+        MapEntry *entry = m_continent.front();
+        m_continent.pop_front();
+        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, entry)));
+    }
+    l->wait();
+
+    while(!m_otherMaps.empty())
+    {
+        MapEntry *entry = m_otherMaps.front();
+        m_otherMaps.pop_front();
+        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, entry)));
     }
     l->wait();
 

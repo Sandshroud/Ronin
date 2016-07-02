@@ -14,7 +14,7 @@ extern bool bServerShutdown;
 static OpcodeHandler *WorldPacketHandlers;
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : _socket(sock), _accountId(id), _accountName(Name),
-_logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL)
+_logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL), m_tutorials(8*8)
 {
     _player = NULL;
     m_hasDeathKnight = false;
@@ -38,6 +38,7 @@ _logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _
     m_isJumping = false;
     m_isKnockedback = false;
     m_jumpHackChances = 5;
+    m_tutorials.Clear();
 
     for(uint32 x = 0; x < 8; x++)
         m_accountData[x] = NULL;
@@ -1112,7 +1113,7 @@ void WorldSession::LoadTutorials()
     if(result == NULL)
         return;
     for(uint32 ui = 0; ui < 8; ++ui)
-        m_tutorials[ui] = result->Fetch()[1+ui].GetUInt32();
+        m_tutorials.SetBlock(ui, result->Fetch()[1+ui].GetUInt8());
 }
 
 void WorldSession::SaveTutorials()
@@ -1124,7 +1125,7 @@ void WorldSession::SaveTutorials()
     {
         if(ui != 0)
             ss << ", ";
-        ss << "'" << m_tutorials[ui] << "'";
+        ss << "'" << uint32(m_tutorials.GetBlock(ui)) << "'";
     }
     ss << ");";
     CharacterDatabase.ExecuteNA(ss.str().c_str());

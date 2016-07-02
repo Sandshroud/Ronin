@@ -20,6 +20,9 @@ namespace VMAP
 
     VMapManager::~VMapManager(void)
     {
+        iDummyMaps.clear();
+        GOModelList.clear();
+
         for (InstanceTreeMap::iterator i = iInstanceMapTrees.begin(); i != iInstanceMapTrees.end(); ++i)
             delete i->second;
 

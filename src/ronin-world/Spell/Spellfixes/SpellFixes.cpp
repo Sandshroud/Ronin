@@ -74,6 +74,42 @@ void ApplyNormalFixes()
         SetProcFlags(sp);
     }
 
+    // Begin preprocessing max capacities for mount types to cut down on array scanning during runtime
+    sLog.Notice("World", "Processing %u mount types with %u capabilities...", dbcMountType.GetNumRows(), dbcMountCapability.GetNumRows());
+    for(uint32 x = 0; x < dbcMountType.GetNumRows(); x++)
+    {
+        if(MountTypeEntry *mountType = dbcMountType.LookupRow(x))
+        {
+            mountType->maxCapability[0] = mountType->maxCapability[1] = 24;
+            uint32 i = 24;
+            while(i > 0)
+            {
+                i--;
+                if(mountType->maxCapability[0] != 24 && mountType->maxCapability[1] != 24)
+                    break;
+
+                MountCapabilityEntry *entry = dbcMountCapability.LookupEntry(mountType->MountCapability[i]);
+                if(entry == NULL)
+                    continue;
+                if(mountType->maxCapability[0] == 24)
+                    mountType->maxCapability[0] = i;
+                if(entry->requiredRidingSkill > 150)
+                    continue;
+                if(mountType->maxCapability[1] == 24)
+                    mountType->maxCapability[1] = i;
+            }
+
+            // Increment changed max capacities
+            if(mountType->maxCapability[0] != 24)
+                mountType->maxCapability[0]++;
+            if(mountType->maxCapability[1] != 24)
+                mountType->maxCapability[1]++;
+            // Set our secondary max capacity to be less than or equal to our regular max capacity
+            if(mountType->maxCapability[1] > mountType->maxCapability[0])
+                mountType->maxCapability[1] = mountType->maxCapability[0];
+        }
+    }
+
     dbcSpellAuraOptions.Unload();
     dbcSpellAuraRestrictions.Unload();
     dbcSpellCastingRequirements.Unload();
@@ -126,7 +162,6 @@ SpellEntry* CreateDummySpell(uint32 id)
     sp->CastingTimeIndex = 1;
     sp->procChance = 75;
     sp->rangeIndex = 13;
-    sp->spellLevel = 0;
     sp->EquippedItemClass = uint32(-1);
     sp->Effect[0] = SPELL_EFFECT_DUMMY;
     sp->EffectImplicitTargetA[0] = 25;
@@ -269,6 +304,10 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     sp->MechanicsType = 0;
     sp->PreventionType = 0;
     sp->StartRecoveryCategory = 0;
+    // SpellCastTimeEntry
+    sp->castTime;
+    sp->castTimePerLevel;
+    sp->baseCastTime;
     // SpellClassOptionsEntry
     sp->SpellGroupType[0] = 0;
     sp->SpellGroupType[1] = 0;
@@ -314,9 +353,9 @@ void SetSingleSpellDefaults(SpellEntry *sp)
     sp->ChannelInterruptFlags = 0;
     sp->InterruptFlags = 0;
     // SpellLevelsEntry
-    sp->baseLevel = 0;
-    sp->maxLevel = 0;
-    sp->spellLevel = 0;
+    sp->spellLevelBaseLevel = 0;
+    sp->spellLevelMaxLevel = 0;
+    sp->spellLevelSpellLevel = 0;
     // SpellPowerEntry
     sp->ManaCost = 0;
     sp->ManaCostPerlevel = 0;
@@ -546,6 +585,13 @@ void PoolSpellData()
             spellInfo->StartRecoveryCategory = sCategory->StartRecoveryCategory;
         }
 
+        if(SpellCastTimeEntry *sCastTime = dbcSpellCastTime.LookupEntry(spellInfo->CastingTimeIndex))
+        {
+            spellInfo->castTime = sCastTime->castTime;
+            spellInfo->castTimePerLevel = sCastTime->castTimePerLevel;
+            spellInfo->baseCastTime = sCastTime->baseCastTime;
+        }
+
         //SpellCastingRequirementsEntry
         if(SpellCastingRequirementsEntry* CastRequirements = dbcSpellCastingRequirements.LookupEntry(spellInfo->SpellCastingRequirementsId))
         {
@@ -601,9 +647,9 @@ void PoolSpellData()
         //SpellLevelsEntry
         if(SpellLevelsEntry* sLevel = dbcSpellLevels.LookupEntry(spellInfo->SpellLevelsId))
         {
-            spellInfo->baseLevel = sLevel->baseLevel;
-            spellInfo->maxLevel = sLevel->maxLevel;
-            spellInfo->spellLevel = sLevel->spellLevel;
+            spellInfo->spellLevelBaseLevel = sLevel->baseLevel;
+            spellInfo->spellLevelMaxLevel = sLevel->maxLevel;
+            spellInfo->spellLevelSpellLevel = sLevel->spellLevel;
         }
 
         //SpellPowerEntry

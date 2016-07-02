@@ -352,36 +352,35 @@ int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboP
     }
     else
     {
-        if (maxLevel)
-            level = std::min<int32>(level, maxLevel);
-        level = std::max<int32>(level, baseLevel);
-        level = std::max<int32>(level, spellLevel) - spellLevel;
+        if (spellLevelMaxLevel)
+            level = std::min<int32>(level, spellLevelMaxLevel);
+        level = std::max<int32>(level, spellLevelBaseLevel);
+        level = std::max<int32>(level, spellLevelSpellLevel) - spellLevelSpellLevel;
 
         float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
         basePoints = EffectBasePoints[effIndex];
         basePoints += int32(level * basePointsPerLevel);
-        int32 randomPoints = int32(EffectDieSides[effIndex]);
         comboDamage = EffectPointsPerComboPoint[effIndex];
-
-        switch (randomPoints)
+        if(int32 randomPoints = int32(EffectDieSides[effIndex]))
         {
-            case 0:                                             // not used
+            switch (randomPoints)
+            {
             case 1: basePoints += 1; break;                     // range 1..1
             default:
-            {
-                // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
-                int32 randvalue = (randomPoints >= 1) ? (rand() % randomPoints) : -(rand() % -randomPoints);
-                basePoints += randvalue;
-                break;
+                {
+                    // range can have positive (1..rand) and negative (rand..1) values, so order its for irand
+                    int32 randvalue = (randomPoints >= 1) ? (rand() % randomPoints) : -(rand() % -randomPoints);
+                    basePoints += randvalue;
+                }break;
             }
         }
     }
 
     basePoints += int32(comboDamage * comboPoints);
 
-    if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
+    if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevelSpellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
         && (Effect[effIndex] != SPELL_EFFECT_APPLY_AURA || EffectApplyAuraName[effIndex] != SPELL_AURA_MOD_DECREASE_SPEED))
-        basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevel) / 1000.0f));
+        basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevelSpellLevel) / 1000.0f));
     return basePoints;
 }
 

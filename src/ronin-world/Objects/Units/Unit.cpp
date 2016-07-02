@@ -220,6 +220,31 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_RATING_FROM_STAT:
         index = IsPlayer() ? 12 : 0;
         break;
+        /// Movement handler opcodes
+        // Enabler opcodes
+    case SPELL_AURA_FLY:
+        // Speed opcodes
+    case SPELL_AURA_MOD_INCREASE_SPEED:
+    case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
+    case SPELL_AURA_MOD_DECREASE_SPEED:
+    case SPELL_AURA_MOD_INCREASE_SWIM_SPEED:
+    case SPELL_AURA_MOD_SPEED_ALWAYS:
+    case SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS:
+    case SPELL_AURA_MOD_SPEED_NOT_STACK:
+    case SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK:
+    case SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED:
+    case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
+    case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
+    case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
+    case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
+    case SPELL_AURA_MOD_SPEED_SLOW_ALL:
+    case SPELL_AURA_MOD_MINIMUM_SPEED:
+        index = 13;
+        break;
+    case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
+    case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
+        index = 255;
+        break;
     }
     if(index == 0)
         return;
@@ -258,6 +283,7 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     case 10: UpdatePowerCostValues(modMap); break;
     case 11: UpdateHoverValues(); break;
     case 12: castPtr<Player>(this)->UpdatePlayerRatings(); break;
+    case 13: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
     }
 }
 
@@ -335,6 +361,9 @@ void Unit::UpdateHealthValues()
             HP *= float(abs(itr->second->m_amount))/100.f;
 
     int32 stam = GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
+    if(IsCreature() && (castPtr<Creature>(this)->isCritter() || castPtr<Creature>(this)->isTrainingDummy()))
+        baseStam = 1;
+
     stam = (stam <= baseStam ? 0 : stam-baseStam);
     HP += GetBonusHealth()+baseStam;
     if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1)))
@@ -2582,13 +2611,13 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
 
 float Unit::CalculateLevelPenalty(SpellEntry* sp)
 {
-    if (sp->spellLevel <= 0 || sp->spellLevel >= sp->maxLevel || sp->maxLevel >= MAXIMUM_CEXPANSION_LEVEL)
+    if (sp->spellLevelSpellLevel <= 0 || sp->spellLevelSpellLevel >= sp->spellLevelMaxLevel || sp->spellLevelMaxLevel >= MAXIMUM_CEXPANSION_LEVEL)
         return 1.0f; // For custom content purposes, do not reduce damage done by the highest available teir of spells.
 
     float LvlPenalty = 0.0f;
-    if (sp->spellLevel < 20)
-        LvlPenalty = 20.0f - sp->spellLevel * 3.75f;
-    float LvlFactor = (float(sp->spellLevel) + 6.0f) / float(getLevel());
+    if (sp->spellLevelSpellLevel < 20)
+        LvlPenalty = 20.0f - sp->spellLevelSpellLevel * 3.75f;
+    float LvlFactor = (float(sp->spellLevelSpellLevel) + 6.0f) / float(getLevel());
     if (LvlFactor > 1.0f)
         LvlFactor = 1.0f;
 

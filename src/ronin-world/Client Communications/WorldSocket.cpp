@@ -413,8 +413,7 @@ void WorldSocket::Authenticate()
     SendPacket(&data);
 
     data.Initialize(SMSG_TUTORIAL_FLAGS, 4 * 8);
-    for (uint32 i = 0; i < 8; ++i)
-        data << uint32(mSession->GetTutorialFlag(i));
+    mSession->AppendTutorialData(&data);
     SendPacket(&data);
 
     pSession->_latency = _latency;

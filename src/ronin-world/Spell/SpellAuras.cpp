@@ -1707,26 +1707,40 @@ void Aura::SpellAuraMounted(bool apply)
             pPlayer->m_bg->HookOnMount(pPlayer);
         TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerMount )( pPlayer );
 
-        m_target->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
+        pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
 
         CreatureData* ctrData = sCreatureDataMgr.GetCreatureData(mod->m_miscValue[0]);
         if(ctrData == NULL || ctrData->displayInfo[0] == 0)
             return;
 
-        m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
+        pPlayer->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
         pPlayer->m_MountSpellId = m_spellProto->Id;
         pPlayer->m_FlyingAura = 0;
 
         if( pPlayer->GetShapeShift() && pPlayer->m_ShapeShifted != m_spellProto->Id && 
             !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
-            m_target->RemoveAura( pPlayer->m_ShapeShifted );
+            pPlayer->RemoveAura( pPlayer->m_ShapeShifted );
+
+        SpellEntry *mountCapability = pPlayer->GetMountCapability(mod->m_miscValue[1]);
+        if(mountCapability == NULL)
+            return;
+
+        SpellCastTargets targets(pPlayer->GetGUID());
+        if(Spell *mountAbility = new Spell(pPlayer, mountCapability))
+        {
+            mod->fixed_amount = mountCapability->Id;
+            mountAbility->prepare(&targets, true);
+        }
     }
     else
     {
+        if(mod->fixed_amount)
+            pPlayer->RemoveAura(mod->fixed_amount);
+
         pPlayer->m_bgFlagIneligible--;
         pPlayer->m_MountSpellId = 0;
         pPlayer->m_FlyingAura = 0;
-        m_target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
+        pPlayer->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
         pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip( AURA_INTERRUPT_ON_DISMOUNT, GetSpellId() );
     }
 }

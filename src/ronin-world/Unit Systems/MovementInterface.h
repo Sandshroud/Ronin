@@ -251,7 +251,6 @@ public:
 
     UnitPathSystem *GetPath() { return &m_path; }
 
-    static void InitializeMovementHandlers();
     static uint16 GetInternalMovementCode(uint16 opcode);
     static uint16 GetSpeedTypeForMoveCode(uint16 moveCode);
 
@@ -265,6 +264,8 @@ public:
 
     void TeleportToPosition(LocationVector destination);
     void TeleportToPosition(uint32 mapId, uint32 instanceId, LocationVector destination);
+
+    void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
@@ -411,6 +412,7 @@ public:
 private:
     bool UpdateAcknowledgementData(uint16 moveCode);
     bool UpdateMovementData(uint16 moveCode, bool distribute);
+    float _CalculateSpeed(MovementSpeedTypes speedType);
 
 public:
     void AppendSplineData(bool bits, ByteBuffer *buffer);

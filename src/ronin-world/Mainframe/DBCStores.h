@@ -636,6 +636,7 @@ struct MountTypeEntry
 {
     uint32 Id;
     uint32 MountCapability[24];
+    uint32 maxCapability[2];
 };
 
 struct NumTalentsAtLevelEntry
@@ -817,6 +818,11 @@ struct SpellEntry
     uint32 PreventionType;
     uint32 StartRecoveryCategory;
 
+    // SpellCastTimeEntry
+    uint32 castTime;
+    float castTimePerLevel;
+    uint32 baseCastTime;
+
     // SpellClassOptionsEntry
     //uint32 modalNextSpell;
     uint32 SpellGroupType[3];
@@ -864,9 +870,9 @@ struct SpellEntry
     uint32 InterruptFlags;
 
     // SpellLevelsEntry
-    uint32 baseLevel;
-    uint32 maxLevel;
-    uint32 spellLevel;
+    uint32 spellLevelBaseLevel;
+    uint32 spellLevelMaxLevel;
+    uint32 spellLevelSpellLevel;
 
     // SpellPowerEntry
     uint32 ManaCost;
@@ -1193,10 +1199,10 @@ struct SpellCastingRequirementsEntry
 
 struct SpellCastTimeEntry
 {
-    uint32 ID;
-    uint32 CastTime;
-    float CastTimePerLevel;
-    uint32 minCastTime;
+    uint32 Id;
+    uint32 castTime;
+    float castTimePerLevel;
+    uint32 baseCastTime;
 };
 
 // SpellCategories.dbc

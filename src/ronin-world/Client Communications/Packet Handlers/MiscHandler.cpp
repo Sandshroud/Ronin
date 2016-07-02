@@ -812,39 +812,28 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
     recv_data >> guid;
     sLog.outDebug("WORLD: CMSG_GAMEOBJ_USE: [GUID %d]", guid);
 
-    GameObject* obj = _player->GetMapInstance()->GetGameObject(guid);
-    if (!obj)
-        return;
-    obj->Use(_player);
+    if(GameObject* obj = _player->GetMapInstance()->GetGameObject(guid))
+        obj->Use(_player);
 }
 
 void WorldSession::HandleTutorialFlag( WorldPacket & recv_data )
 {
     uint32 iFlag;
     recv_data >> iFlag;
-
-    uint32 wInt = (iFlag / 32);
-    uint32 rInt = (iFlag % 32);
-    if(wInt >= 7)
-    {
-        Disconnect();
-        return;
-    }
-
-    m_tutorials[wInt] |= (1 << rInt);
+    m_tutorials.SetBit(iFlag);
     sLog.Debug("WorldSession","Received Tutorial Flag Set {%u}.", iFlag);
 }
 
 void WorldSession::HandleTutorialClear( WorldPacket & recv_data )
 {
     for ( uint32 iI = 0; iI < 8; iI++)
-        m_tutorials[iI] = 0xFFFFFFFF;
+        m_tutorials.SetBlock(iI, 0xFF);
 }
 
 void WorldSession::HandleTutorialReset( WorldPacket & recv_data )
 {
     for ( uint32 iI = 0; iI < 8; iI++)
-        m_tutorials[iI] = 0x00;
+        m_tutorials.SetBlock(iI, 0x00);
 }
 
 void WorldSession::HandleSetSheathedOpcode( WorldPacket & recv_data )

@@ -271,6 +271,7 @@ void CommandTableStorage::Init()
         { "setongameobject",        COMMAND_LEVEL_A, &ChatHandler::HandleNPCSetOnObjectCommand,     "Updates spawn information so that the creature does not fall through objects when spawning into world.",                                       NULL, 0, 0, 0 },
         { "save",                   COMMAND_LEVEL_Z, &ChatHandler::HandleNPCSaveCommand,            "",                                                                                                                                             NULL, 0, 0, 0 },
         { "setvendormask",          COMMAND_LEVEL_Z, &ChatHandler::HandleNPCSetVendorMaskCommand,   "",                                                                                                                                             NULL, 0, 0, 0 },
+        { "getspeed",               COMMAND_LEVEL_Z, &ChatHandler::HandleNPCGetSpeed,               "",                                                                                                                                             NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                                                                                                                             NULL, 0, 0, 0 }
     };
     dupe_command_table(NPCCommandTable, _NPCCommandTable);

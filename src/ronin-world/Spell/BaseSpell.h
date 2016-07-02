@@ -70,6 +70,8 @@ class BaseSpell
 public:
     BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber);
     ~BaseSpell();
+
+    void _Prepare();
     virtual void Destruct();
 
     RONIN_INLINE WorldObject *GetCaster() { return m_caster; }
@@ -144,6 +146,7 @@ protected:
     float  m_radius[2][3];
     bool   b_radSet[3], b_durSet;
     bool   m_AreaAura;
+    bool   m_projectileWait;
 
     uint32 m_castTime, m_timer;
     uint32 m_spellState;

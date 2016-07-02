@@ -22,6 +22,24 @@ struct CreatureItem
     bool IsDependent;
 };
 
+struct TrainerSpell
+{
+    SpellEntry *entry;
+    uint32 spellCost;
+    uint32 requiredLevel;
+    uint32 reqSkill;
+    uint32 reqSkillValue;
+    bool useSpellRequiredLevel;
+};
+
+struct TrainerData
+{
+    uint32 type;
+    uint32 trainerId;
+    std::string trainerTitle;
+    std::vector<TrainerSpell*> cSpells, lSpells;
+};
+
 #pragma pack(PRAGMA_PACK)
 struct SeatInfo
 {
@@ -221,6 +239,8 @@ public:
 
     bool CanAddToWorld();
     void OnPushToWorld();
+
+    void BuildTrainerData(WorldPacket *data);
 
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
 
@@ -490,11 +510,12 @@ public:
 
     MapCell *m_respawnCell;
 
-    void _LoadMovement();
-
     /// Vendor data
     std::map<uint32, CreatureItem> *m_SellItems;
     std::map<uint32, std::pair<time_t, uint32> > m_limitedItems;
+
+    /// Trainer data
+    TrainerData *m_trainerData;
 
     /// Taxi data
     uint32 m_taxiNode[2];

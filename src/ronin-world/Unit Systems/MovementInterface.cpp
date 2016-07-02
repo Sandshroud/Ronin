@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 8.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
+static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 7.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
 MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
 {
@@ -627,6 +627,54 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
     return true;
 }
 
+float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
+{
+    float baseSpeed = m_defaultSpeeds[speedType];
+    AuraInterface::modifierMap *speedIncrease = NULL, *speedDecrease = NULL;
+
+    switch(speedType)
+    {
+    case MOVE_SPEED_RUN:
+        {
+            if(m_Unit->GetVehicleKitId())
+                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS);
+            else if(m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0)
+                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED);
+            else speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_SPEED);
+
+            if(speedIncrease)
+            {
+                float speedModifier = 0.f;
+                for(AuraInterface::modifierMap::iterator itr = speedIncrease->begin(); itr != speedIncrease->end(); itr++)
+                    if(itr->second->m_amount > speedModifier)
+                        speedModifier = itr->second->m_amount;
+                baseSpeed *= (100.f+speedModifier)/100.f;
+            }
+        }break;
+    case MOVE_SPEED_FLIGHT:
+        {
+            if(m_Unit->GetVehicleKitId())
+                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED);
+            else if(m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0)
+                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED);
+            else speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED);
+
+            if(speedIncrease)
+            {
+                float speedModifier = 0.f;
+                for(AuraInterface::modifierMap::iterator itr = speedIncrease->begin(); itr != speedIncrease->end(); itr++)
+                    if(itr->second->m_amount > speedModifier)
+                        speedModifier = itr->second->m_amount;
+                baseSpeed *= (100.f+speedModifier)/100.f;
+            }
+        }break;
+    }
+
+    // SPEED OFFSETS, OFF WE GO TO SEE THE SET
+    baseSpeed += m_speedOffset[speedType];
+    return baseSpeed;
+}
+
 void MovementInterface::HandleBreathing(uint32 diff)
 {
     m_breathingUpdateTimer += diff;
@@ -909,6 +957,46 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
     data << destination.x << destination.o << destination.y;
     data << mapId << destination.z;
     castPtr<Player>(m_Unit)->SendPacket( &data );
+}
+
+void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
+{
+    bool updateFlight = false, canFly = false;
+    std::set<MovementSpeedTypes> speedsToUpdate;
+    for(std::vector<uint32>::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
+    {
+        switch(*itr)
+        {
+        case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
+            speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+        case SPELL_AURA_FLY:
+            updateFlight = true;
+            if(m_Unit->m_AuraInterface.HasAurasWithModType(*itr))
+                canFly = true;
+            break;
+        case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
+            speedsToUpdate.insert(MOVE_SPEED_RUN);
+            break;
+        default:
+            speedsToUpdate.insert(MOVE_SPEED_WALK);
+            speedsToUpdate.insert(MOVE_SPEED_RUN);
+            speedsToUpdate.insert(MOVE_SPEED_RUN_BACK);
+            speedsToUpdate.insert(MOVE_SPEED_SWIM);
+            speedsToUpdate.insert(MOVE_SPEED_SWIM_BACK);
+            speedsToUpdate.insert(MOVE_SPEED_TURNRATE);
+            speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+            speedsToUpdate.insert(MOVE_SPEED_FLIGHT_BACK);
+            speedsToUpdate.insert(MOVE_SPEED_PITCHRATE);
+            break;
+        }
+    }
+
+    // Update pending flight
+    if(updateFlight)
+        setCanFly(canFly);
+    // Update pending speeds
+    for(std::set<MovementSpeedTypes>::iterator itr = speedsToUpdate.begin(); itr != speedsToUpdate.end(); itr++)
+        SetMoveSpeed(*itr, _CalculateSpeed(*itr));
 }
 
 void MovementInterface::SetFacing(float orientation)

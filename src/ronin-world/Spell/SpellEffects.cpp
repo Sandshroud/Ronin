@@ -70,16 +70,6 @@ void SpellEffectClass::HandleAddAura(Unit *target)
     if(target == NULL)
         return;
 
-    // Applying an aura to a flagged target will cause you to get flagged.
-    // self casting doesnt flag himself.
-    if( m_caster->IsPlayer() && m_caster->GetGUID() != target->GetGUID() && target->IsPvPFlagged() )
-    {
-        Player *plr = castPtr<Player>(m_caster);
-        if( !plr->IsPvPFlagged() )
-            plr->PvPToggle();
-        else plr->SetPvPFlag();
-    }
-
     if( GetSpellProto()->MechanicsType == 31 )
         target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE);
 
@@ -1111,17 +1101,21 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
 
-    /*if( GetSpellProto()->Id == 483 || GetSpellProto()->Id == 55884 )        // "Learning"
+    if( GetSpellProto()->Id == 483 || GetSpellProto()->Id == 55884 )        // "Learning"
     {
-        if( i_caster == NULL || p_caster == NULL)
+        if(!m_caster->IsPlayer() || m_targets.m_itemTarget.empty())
+            return;
+        Player *p_caster = castPtr<Player>(m_caster);
+        Item *useItem = p_caster->GetInventory()->GetItemByGUID(m_targets.m_itemTarget);
+        if(useItem == NULL)
             return;
 
         uint32 spellid = 0;
         for(int i = 0; i < 5; i++)
         {
-            if( i_caster->GetProto()->Spells[i].Trigger == LEARNING && i_caster->GetProto()->Spells[i].Id != 0 )
+            if( useItem->GetProto()->Spells[i].Trigger == LEARNING && useItem->GetProto()->Spells[i].Id != 0 )
             {
-                spellid = i_caster->GetProto()->Spells[i].Id;
+                spellid = useItem->GetProto()->Spells[i].Id;
                 break;
             }
         }
@@ -1134,7 +1128,7 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
 
         // no normal handler
         return;
-    }*/
+    }
 
     if(playerTarget!=NULL)
     {

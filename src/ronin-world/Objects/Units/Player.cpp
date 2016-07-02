@@ -2436,20 +2436,35 @@ void Player::smsg_InitialSpells()
 
 SpellEntry* Player::FindLowerRankSpell(SpellEntry* sp, int32 rankdiff)
 {
-    SpellSet::iterator itr;
-    SpellEntry* spell = NULL;
-    if(sp->RankNumber)
+    if(sp->RankNumber <= 1)
+        return NULL;
+    for(SpellSet::iterator itr = mSpells.begin(); itr != mSpells.end(); itr++)
     {
-        for(itr = mSpells.begin(); itr != mSpells.end(); itr++)
+        if(SpellEntry* spell = dbcSpell.LookupEntry(*itr))
         {
-            spell = NULL;
-            if((spell = dbcSpell.LookupEntry(*itr)) != NULL)
+            if(spell->NameHash == sp->NameHash)
+                if((int32)sp->RankNumber + rankdiff == (int32)spell->RankNumber)
+                    return spell;
+        }
+    }
+
+    return NULL;
+}
+
+SpellEntry* Player::FindHighestRankSpellBySkilline(SkillLineAbilityEntry *sk, SpellEntry* sp)
+{
+    SpellEntry* spell = NULL;
+    for(SpellSet::iterator itr = mSpells.begin(); itr != mSpells.end(); itr++)
+    {
+        SkillLineAbilityEntry *ska;
+        if((ska = objmgr.GetSpellSkill(*itr)) && ska->skilline == sk->skilline)
+        {
+            if(SpellEntry *sp = dbcSpell.LookupEntry(*itr))
             {
-                if(spell->NameHash == sp->NameHash)
-                    if(sp->RankNumber + rankdiff == spell->RankNumber)
-                        return spell;
+                if(spell && sp->RankNumber < spell->RankNumber)
+                    continue;
+                spell = sp;
             }
-            spell = NULL;
         }
     }
 
@@ -2475,14 +2490,14 @@ void Player::addSpell(uint32 spell_id)
     if(sk && !_HasSkillLine(sk->skilline))
     {
         SkillLineEntry * skill = dbcSkillLine.LookupEntry(sk->skilline);
-        uint32 max = 1;
+        uint32 current = 1, max = 1;
         switch(skill->categoryId)
         {
         case SKILL_TYPE_PROFESSION:
-            max=75*((spell->RankNumber)+1);
+            max=75*spell->RankNumber;
             break;
         case SKILL_TYPE_SECONDARY:
-            max=75*((spell->RankNumber)+1);
+            max=75*spell->RankNumber;
             break;
         case SKILL_TYPE_WEAPON:
             max=5*getLevel();
@@ -2494,10 +2509,10 @@ void Player::addSpell(uint32 spell_id)
             break;
         }
 
-        if(sWorld.StartLevel > 1 && skill->categoryId != SKILL_TYPE_PROFESSION && skill->categoryId != SKILL_TYPE_SECONDARY)
-            _AddSkillLine(sk->skilline, sWorld.StartLevel*5, max);
-        else
-            _AddSkillLine(sk->skilline, 1, max);
+        if(sk->Id == SKILL_RIDING || (sWorld.StartLevel > 1 && skill->categoryId != SKILL_TYPE_PROFESSION && skill->categoryId != SKILL_TYPE_SECONDARY))
+            current = max;
+
+        _AddSkillLine(sk->skilline, current, max);
         _UpdateMaxSkillCounts();
     }
 
@@ -2727,25 +2742,6 @@ uint32 Player::FindHighestRankingSpellWithNamehash(uint32 namehash)
         }
     }
     return spellid;
-}
-
-// Use instead of cold weather flying
-bool Player::CanFlyInCurrentZoneOrMap()
-{
-    AreaTableEntry *area = dbcAreaTable.LookupEntry(GetAreaId());
-    if(area == NULL || !(area->AreaFlags & AREA_FLYING_PERMITTED))
-        return false; // can't fly in non-flying zones
-
-    if(GetMapId() == 530)
-        return true; // We can fly in outlands all the time
-
-    if(GetMapId() == 571)
-    {
-        if(HasDummyAura(SPELL_HASH_COLD_WEATHER_FLYING) || HasSpell(54197))
-            return true;
-    }
-
-    return false;
 }
 
 QuestLogEntry* Player::GetQuestLogForEntry(uint32 quest)
@@ -3022,10 +3018,8 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
                     if(apply)
                         AddShapeShiftSpell( spells->Id );
                     else RemoveShapeShiftSpell( spells->Id );
-                    continue;
                 }
-
-                if(apply == false)
+                else if(apply == false)
                     RemoveAura( item->GetProto()->Spells[k].Id );
                 else
                 {
@@ -4302,12 +4296,47 @@ void Player::removeSpellByNameHash(uint32 hash)
 
 bool Player::removeSpell(uint32 SpellID)
 {
+    SpellEntry *sp = dbcSpell.LookupEntry(SpellID);
+    if(sp == NULL)
+        return false;
+
     SpellSet::iterator iter = mSpells.find(SpellID);
     if(iter != mSpells.end())
     {
         mSpells.erase(iter);
         RemoveAura(SpellID,GetGUID());
     } else return false;
+
+    // Add the skill line for this spell if we don't already have it.
+    SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(SpellID);
+    if(sk && _HasSkillLine(sk->skilline))
+    {
+        SpellEntry* sp2 = FindHighestRankSpellBySkilline(sk, sp);
+        SkillLineEntry *skill = dbcSkillLine.LookupEntry(sk->skilline);
+        if(sp2 == NULL || (sp2 && skill->categoryId != SKILL_TYPE_WEAPON && skill->categoryId != SKILL_TYPE_CLASS && skill->categoryId != SKILL_TYPE_ARMOR))
+        {
+            uint16 current = _GetSkillLineCurrent(sk->skilline, false), bonus = _GetSkillLineCurrent(sk->skilline, true)-current;
+            _RemoveSkillLine(sk->skilline);
+            if(sp2 != NULL)
+            {
+                uint16 max = 1;
+                switch(skill->categoryId)
+                {
+                case SKILL_TYPE_SECONDARY:
+                case SKILL_TYPE_PROFESSION:
+                    max=75*sp2->RankNumber;
+                    break;
+                }
+
+                if(current > max || sk->Id == SKILL_RIDING || (sWorld.StartLevel > 1 && skill->categoryId != SKILL_TYPE_PROFESSION && skill->categoryId != SKILL_TYPE_SECONDARY))
+                    current = max;
+
+                _AddSkillLine(sk->skilline, current, max);
+                if(bonus) _ModifySkillBonus(sk->skilline, bonus);
+                _UpdateMaxSkillCounts();
+            }
+        }
+    }
 
     if(!IsInWorld())
         return true;
@@ -6601,10 +6630,11 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
     if (!CheckedSkill) //skill doesn't exist, exit here
         return;
 
-    uint16 maxSkillLevel = 50+GetUInt32Value(PLAYER_FIELD_MAX_LEVEL)*5;
+    uint16 maxSkillLevel = (SkillLine == SKILL_RIDING ? MAX_PREDEFINED_NEXTLEVELXP : GetUInt32Value(PLAYER_FIELD_MAX_LEVEL));
+    maxSkillLevel *= 5; // Multiply by 5
 
     // force to be within limits
-    Max_sk = std::min(Max_sk, maxSkillLevel);
+    Max_sk = std::min<uint16>(Max_sk, 50+maxSkillLevel);
     Curr_sk = std::max(std::min(Curr_sk, Max_sk), (uint16)1);
 
     ItemProf * prof;
@@ -6625,7 +6655,7 @@ void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
         inf.Skill = CheckedSkill;
         inf.SkillPos = skillPos;
         inf.MaximumValue = Max_sk;
-        inf.CurrentValue = ( inf.Skill->id != SKILL_RIDING ? Curr_sk : Max_sk );
+        inf.CurrentValue = Curr_sk;
         inf.BonusValue = inf.BonusTalent = 0;
         m_skills.insert( std::make_pair( SkillLine, inf ) );
         _UpdateSkillFields();
@@ -6928,6 +6958,77 @@ void Player::_ModifySkillMaximum(uint16 SkillLine, uint16 NewMax)
         itr->second.MaximumValue = NewMax;
         _UpdateSkillFields();
     }
+}
+
+// Use instead of cold weather flying
+bool CanFlyInCurrentZoneOrMap(Player *plr, uint32 ridingSkill)
+{
+    AreaTableEntry *area = dbcAreaTable.LookupEntry(plr->GetAreaId());
+    if(area == NULL || (area->AreaFlags & AREA_CANNOT_FLY))
+        return false; // can't fly in non-flying zones
+    switch(plr->GetMapId())
+    {
+    case 530: return ridingSkill > 150; // We can fly in outlands all the time
+    case 571:
+        {
+            if(plr->HasDummyAura(SPELL_HASH_COLD_WEATHER_FLYING) || plr->HasSpell(54197))
+                return ridingSkill > 150;
+        }break;
+    case 0:
+    case 1:
+    case 646:
+        {
+            if(plr->HasDummyAura(SPELL_HASH_FLIGHT_MASTER_S_LICENSE) || plr->HasSpell(90267))
+                return ridingSkill > 150;
+        }break;
+    }
+
+    return false;
+}
+
+SpellEntry *Player::GetMountCapability(uint32 mountType)
+{
+    SpellEntry *ret = NULL;
+    if(MountTypeEntry *mountTypeEntry = dbcMountType.LookupEntry(mountType))
+    {
+        bool canFly = false; // Flying capability check for use of flying mount capabilities
+        uint32 ridingSkill = _GetSkillLineCurrent(SKILL_RIDING, true), i = (canFly = CanFlyInCurrentZoneOrMap(this, ridingSkill)) ? mountTypeEntry->maxCapability[0] : mountTypeEntry->maxCapability[1];
+        while(i > 0)
+        {
+            i--;
+            MountCapabilityEntry *entry = dbcMountCapability.LookupEntry(mountTypeEntry->MountCapability[i]);
+            if(entry == NULL)
+                continue;
+            // We get a cutdown search if we can't fly, but we still need this check
+            if(!canFly && entry->requiredRidingSkill > 150)
+                continue;
+            // Check to see if we can even use this capability
+            if(ridingSkill < entry->requiredRidingSkill)
+                continue;
+            // Mount disables pitching
+            if (m_movementInterface.hasFlag(MOVEMENTFLAG_FULL_SPEED_PITCHING) && !(entry->flags & 0x04))
+                continue;
+            // Mount cannot swim
+            if (m_movementInterface.hasFlag(MOVEMENTFLAG_SWIMMING) && !(entry->flags & 0x08))
+                continue;
+            // Map requirements
+            if (entry->requiredMap >= 0 && GetMapId() != (uint32)entry->requiredMap)
+                continue;
+            // Zone or area requirements
+            if (entry->requiredArea && (entry->requiredArea != GetZoneId() && entry->requiredArea != GetAreaId()))
+                continue;
+            // Active aura requirements
+            if (entry->requiredAura && !HasAura(entry->requiredAura))
+                continue;
+            // Spell requirements
+            if (entry->requiredSpell && !HasSpell(entry->requiredSpell))
+                continue;
+
+            ret = dbcSpell.LookupEntry(entry->speedModSpell);
+            break;
+        }
+    }
+    return ret;
 }
 
 void Player::RecalculateHonor()
