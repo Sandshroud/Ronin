@@ -227,6 +227,21 @@ struct CreatureSpellDataEntry
     //uint32 Cooldowns[4];
 };
 
+struct CurrencyTypeEntry
+{
+    uint32 Id;              // 0        not used
+    uint32 Category;        // 1        may be category
+    char* name;             // 2
+    //char* iconName;       // 3
+    //uint32 unk4;          // 4        all 0
+    uint32 HasSubstitution; // 5        archaeology-related (?)
+    uint32 SubstitutionId;  // 6
+    uint32 TotalCap;        // 7
+    uint32 WeekCap;         // 8
+    uint32 Flags;           // 9
+    //char* description;    // 10
+};
+
 struct DestructibleModelDataEntry
 {
     uint32 m_id;
@@ -1758,6 +1773,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(CreatureDisplayInfoEntry, dbcCreatureDisplayInfo);
 DBC_STORAGE_EXTERN_DBC_MACRO(CreatureDisplayInfoExtraEntry, dbcCreatureDisplayInfoExtra);
 DBC_STORAGE_EXTERN_DBC_MACRO(CreatureFamilyEntry, dbcCreatureFamily);
 DBC_STORAGE_EXTERN_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
+DBC_STORAGE_EXTERN_DBC_MACRO(CurrencyTypeEntry, dbcCurrencyType);
 DBC_STORAGE_EXTERN_DBC_MACRO(DestructibleModelDataEntry, dbcDestructibleModelData);
 DBC_STORAGE_EXTERN_DBC_MACRO(DungeonEncounterEntry, dbcDungeonEncounter);
 DBC_STORAGE_EXTERN_DBC_MACRO(DurabilityCostsEntry, dbcDurabilityCosts);

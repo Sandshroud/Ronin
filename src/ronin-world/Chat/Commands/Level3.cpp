@@ -428,6 +428,17 @@ bool ChatHandler::HandleEarnAchievement(const char* args, WorldSession *m_sessio
     return true;
 }
 
+bool ChatHandler::HandleAddCurrency(const char* args, WorldSession *m_session)
+{
+    uint32 currency, amount;
+    if(sscanf(args, "%u %u", &currency, &amount) < 2)
+        return false;
+
+    if(Player* plr = getSelectedChar(m_session, false))
+        plr->GetCurrency()->AddCurrency(currency, amount);
+    return true;
+}
+
 bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = getSelectedChar(m_session);
@@ -1879,6 +1890,30 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
         BlueSystemMessage(m_session, "Title %03u: %s", entry->Id, format(entry->title, m_session->GetPlayer()->GetName()).c_str());
     }
     GreenSystemMessage(m_session, "End title find.");
+    return true;
+}
+
+bool ChatHandler::HandleLookupCurrencyCommand(const char *args, WorldSession *m_session)
+{
+    if(!*args)
+        return false;
+
+    std::string x = RONIN_UTIL::TOLOWER_RETURN(args);
+    if(x.length() < 3)
+    {
+        RedSystemMessage(m_session, "Your search string must be at least 3 characters long.");
+        return true;
+    }
+
+    GreenSystemMessage(m_session, "Initializing currency finder.");
+    for(uint32 i = 0; i < dbcCurrencyType.GetNumRows(); i++)
+    {
+        CurrencyTypeEntry *entry = dbcCurrencyType.LookupRow(i);
+        if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->name)))
+            continue;
+        BlueSystemMessage(m_session, "Currency %04u: %s", entry->Id, format(entry->name, m_session->GetPlayer()->GetName()).c_str());
+    }
+    GreenSystemMessage(m_session, "End currency find.");
     return true;
 }
 

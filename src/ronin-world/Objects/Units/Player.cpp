@@ -853,6 +853,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_movementInterface.GetTransportPosition(transx, transy, transz, transo);
     ss << uint32(m_CurrentTransporter ? m_CurrentTransporter->GetLowGUID() : 0) << ", ";
     ss << transx << ", " << transy << ", " << transz << ", ";
+    ss << uint64(sWorld.GetWeekStart()) << ", ";
     ss << uint32(iInstanceType) << ", "
     << uint32(iRaidType) << ", "
     << uint32(m_talentInterface.GetActiveSpec()) << ", "
@@ -986,6 +987,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_actions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_auras WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_bans WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_currency WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_cooldowns WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_achievements WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_criteria_data WHERE guid = '%u'", m_objGuid.getLow());
@@ -1174,6 +1176,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_X].GetFloat(), fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Y].GetFloat(),
         fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Z].GetFloat(), 0.f, 0);
 
+    time_t lastWeekReset = fields[PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME].GetUInt64();
+
     iInstanceType = fields[PLAYERLOAD_FIELD_INSTANCE_DIFFICULTY].GetUInt32();
     iRaidType = fields[PLAYERLOAD_FIELD_RAID_DIFFICULTY].GetUInt32();
 
@@ -1203,6 +1207,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
     _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
     _LoadPlayerCooldowns(results[PLAYER_LO_COOLDOWNS].result);
+    m_currency.LoadFromDB(lastWeekReset, results[PLAYER_LO_CURRENCY].result);
     AchieveMgr.LoadAchievementData(GetGUID(), m_playerInfo, results[PLAYER_LO_ACHIEVEMENT_DATA].result);
     AchieveMgr.LoadCriteriaData(GetGUID(), results[PLAYER_LO_CRITERIA_DATA].result);
     _LoadEquipmentSets(results[PLAYER_LO_EQUIPMENTSETS].result);

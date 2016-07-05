@@ -804,6 +804,17 @@ void WorldSession::HandleTogglePVPOpcode(WorldPacket& recv_data)
         sChatHandler.ColorSystemMessage(this, MSG_COLOR_WHITE, error.c_str());
 }
 
+void WorldSession::HandleSetCurrencyFlags(WorldPacket &recvPacket)
+{
+    CHECK_INWORLD_RETURN();
+
+    uint32 currencyId, flags;
+    recvPacket >> flags >> currencyId;
+
+    if(PlayerCurrency *currency = _player->GetCurrency())
+        currency->SetCurrencyFlags(currencyId, flags&0x0F);
+}
+
 void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();

@@ -433,6 +433,7 @@ public:
     void SetMotd(const char *motd) { m_motd = motd; }
     RONIN_INLINE const char* GetMotd() const { return m_motd.c_str(); }
     RONIN_INLINE time_t GetGameTime() const { return m_gameTime; }
+    RONIN_INLINE time_t GetWeekStart() const { return m_weekStart; }
 
     bool SetInitialWorldSettings();
 
@@ -628,8 +629,7 @@ protected:
     uint32 dayWatcherTimer;
     DayWatcherThread dayWatcher;
 
-    // update Stuff, FIXME: use diff
-    time_t _UpdateGameTime()
+    void _UpdateGameTime()
     {
         // Update Server time
         time_t thisTime = UNIXTIME;
@@ -638,7 +638,13 @@ protected:
             m_gameTime -= 86400;
 
         m_lastTick = thisTime;
-        return m_gameTime;
+    }
+
+    void _UpdateWeekStartTime()
+    {
+        if(UNIXTIME-m_weekStart < 604800)
+            return;
+        m_weekStart += 604800;
     }
     void FillSpellReplacementsTable();
 
@@ -657,7 +663,7 @@ protected:
     uint32 m_playerLimit;
     std::string m_motd, m_hashInfo;
 
-    time_t m_gameTime, m_lastTick;
+    time_t m_weekStart, m_gameTime, m_lastTick;
     uint32 m_StartTime, m_queueUpdateTimer;
 
     QueueSet mQueuedSessions;

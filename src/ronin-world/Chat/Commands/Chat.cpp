@@ -365,7 +365,8 @@ void CommandTableStorage::Init()
         { "spell",                  COMMAND_LEVEL_L, &ChatHandler::HandleLookupSpellCommand,        "Looks up spell string x.",                 NULL, 0, 0, 0 },
         { "spellspecific",          COMMAND_LEVEL_L, &ChatHandler::HandleLookupSpellSpecificCommand,"Looks up spell string x.",                 NULL, 0, 0, 0 },
         { "spellname",              COMMAND_LEVEL_L, &ChatHandler::HandleLookupSpellNameCommand,    "Looks up spell id x.",                     NULL, 0, 0, 0 },
-        { "title",                  COMMAND_LEVEL_L, &ChatHandler::HandleLookupTitleCommand,        "Looks up title based on inputted name.",   NULL, 0, 0, 0 },
+        { "title",                  COMMAND_LEVEL_L, &ChatHandler::HandleLookupTitleCommand,        "Looks up title based on entered name.",    NULL, 0, 0, 0 },
+        { "currency",               COMMAND_LEVEL_L, &ChatHandler::HandleLookupCurrencyCommand,     "Looks up currency based on entered name.", NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                         NULL, 0, 0, 0 },
     };
     dupe_command_table(lookupCommandTable, _lookupCommandTable);
@@ -444,6 +445,7 @@ void CommandTableStorage::Init()
         { "removeskill",            COMMAND_LEVEL_M, &ChatHandler::HandleRemoveSkillCommand,                        ".removeskill <skillid> - Removes skill",       NULL, 0, 0, 0 },
         { "increaseweaponskill",    COMMAND_LEVEL_M, &ChatHandler::HandleIncreaseWeaponSkill,                       ".increaseweaponskill <count> - Increase eqipped weapon skill x times (defaults to 1).", NULL, 0, 0, 0 },
         { "earnachievement",        COMMAND_LEVEL_M, &ChatHandler::HandleEarnAchievement,                           "Earns achievement for the target player", NULL, 0, 0, 0 },
+        { "addcurrency",            COMMAND_LEVEL_M, &ChatHandler::HandleAddCurrency,                               "Adds x amount of currency y to target player", NULL, 0, 0, 0 },
         { "playerinfo",             COMMAND_LEVEL_M, &ChatHandler::HandlePlayerInfo,                                ".playerinfo - Displays informations about the selected character (account...)", NULL, 0, 0, 0 },
 
         { "modify",                 COMMAND_LEVEL_M, NULL,                                                          "",                 modifyCommandTable, 0, 0, 0 },

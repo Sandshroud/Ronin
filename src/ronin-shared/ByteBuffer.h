@@ -701,6 +701,34 @@ protected:
     std::vector<uint8> _storage;
 };
 
+class SERVER_DECL BitBuffer
+{
+public:
+    void SetBit(bool bit) { _storage.push_back(bit); };
+    template <typename T> void SetBits(T value, size_t bits)
+    {
+        for (int32 i = bits-1; i >= 0; --i)
+            SetBit((value >> i) & 1);
+    }
+
+    void Append(ByteBuffer *buff, bool flushBits)
+    {
+        while(!_storage.empty())
+        {
+            bool res = _storage.front();
+            _storage.pop_front();
+            buff->WriteBit(res);
+        }
+
+        if(!flushBits)
+            return;
+        buff->FlushBits();
+    }
+
+private:
+    std::deque<bool> _storage;
+};
+
 RONIN_INLINE void FastGUIDPack(ByteBuffer & buf, const uint64 & oldguid)
 {
     uint8 guidmask = 0,  fieldcount = 1;

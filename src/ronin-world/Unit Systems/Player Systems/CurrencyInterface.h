@@ -17,7 +17,14 @@ enum PlayerCurrencyFlag
 
 struct CurrencyData
 {
-    CurrencyData(uint32 amount) : count(amount), weekCount(0), currencyFlags(0) {};
+    CurrencyData(uint32 amount, bool weekCap) : count(amount), weekCount(weekCap ? amount : 0), currencyFlags(0) {};
+    CurrencyData(Field *fields, bool loadWeekly)
+    {
+        count = fields[2].GetUInt32();
+        weekCount = loadWeekly ? fields[3].GetUInt32() : 0;
+        currencyFlags = fields[4].GetUInt8();
+    }
+
     uint32 count;
     uint32 weekCount;
     uint8 currencyFlags;
@@ -29,18 +36,23 @@ public:
     PlayerCurrency(Player *player);
     ~PlayerCurrency();
 
-    void LoadFromDB(QueryResult *result);
+    void Update();
+
+    void LoadFromDB(time_t lastSavedWeek, QueryResult *result);
     void SaveToDB(QueryBuffer *buff);
 
     void SendInitialCurrency();
 
     bool HasCurrency(uint32 currency, uint32 amount);
 
-    void AddCurrency(uint32 currency, uint32 amount);
+    void AddCurrency(uint32 currency, uint32 amount, bool silent = false);
     void RemoveCurrency(uint32 currency, uint32 amount);
+
+    void SetCurrencyFlags(uint32 currency, uint8 flags);
 
 private:
     Player *m_player;
 
+    time_t lastWeekStart;
     std::map<uint32, CurrencyData> m_currencies;
 };

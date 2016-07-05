@@ -292,6 +292,7 @@ protected:
     void HandleSetAtWarOpcode(WorldPacket& recvPacket);
     void HandleSetWatchedFactionIndexOpcode(WorldPacket& recvPacket);
     void HandleTogglePVPOpcode(WorldPacket& recvPacket);
+    void HandleSetCurrencyFlags(WorldPacket &recvPacket);
     void HandleGameObjectUse(WorldPacket& recvPacket);
     //void HandleJoinChannelOpcode(WorldPacket& recvPacket);
     //void HandleLeaveChannelOpcode(WorldPacket& recvPacket);

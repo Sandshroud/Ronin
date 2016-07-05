@@ -597,6 +597,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_SET_FACTION_ATWAR].handler                     = &WorldSession::HandleSetAtWarOpcode;
     WorldPacketHandlers[CMSG_SET_WATCHED_FACTION].handler                   = &WorldSession::HandleSetWatchedFactionIndexOpcode;
     WorldPacketHandlers[CMSG_TOGGLE_PVP].handler                            = &WorldSession::HandleTogglePVPOpcode;
+    WorldPacketHandlers[CMSG_SET_CURRENCY_FLAGS].handler                    = &WorldSession::HandleSetCurrencyFlags;
 
     // Player Interaction
     WorldPacketHandlers[CMSG_GAMEOBJ_USE].handler                           = &WorldSession::HandleGameObjectUse;

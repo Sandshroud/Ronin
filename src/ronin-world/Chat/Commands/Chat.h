@@ -351,6 +351,7 @@ protected:
     bool HandleGetSkillLevelCommand(const char* args, WorldSession * m_session);
     bool HandleGetSkillsInfoCommand(const char *args, WorldSession *m_session);
     bool HandleEarnAchievement(const char* args, WorldSession * m_session);
+    bool HandleAddCurrency(const char *args, WorldSession *m_session);
     bool HandlePlayerInfo(const char* args, WorldSession * m_session);
     bool HandleNPCGetSpeed(const char* args, WorldSession * m_session);
 
@@ -471,6 +472,7 @@ protected:
     bool HandleLookupSpellSpecificCommand(const char * args, WorldSession * m_session);
     bool HandleLookupSpellNameCommand(const char * args, WorldSession * m_session);
     bool HandleLookupTitleCommand(const char * args, WorldSession * m_session);
+    bool HandleLookupCurrencyCommand(const char * args, WorldSession * m_session);
 
     bool HandleNpcPossessCommand(const char * args, WorldSession * m_session);
     bool HandleNpcUnPossessCommand(const char * args, WorldSession * m_session);

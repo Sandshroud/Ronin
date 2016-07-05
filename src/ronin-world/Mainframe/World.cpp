@@ -352,12 +352,14 @@ bool World::SetInitialWorldSettings()
 
     // TODO: clean this
     time_t tiempo = UNIXTIME;
-    char hour[3], minute[3], second[3];
+    char day[3], hour[3], minute[3], second[3];
     struct tm *tmPtr = localtime(&tiempo);
+    strftime( day, 3, "%u", tmPtr );
     strftime( hour, 3, "%H", tmPtr );
     strftime( minute, 3, "%M", tmPtr );
     strftime( second, 3, "%S", tmPtr );
     m_gameTime = (3600*atoi(hour))+(atoi(minute)*60)+(atoi(second)); // server starts at noon
+    m_weekStart = tiempo-((86400*atoi(day))+m_gameTime);
     uint32 start_time = getMSTime();
 
     new DBCLoader();
@@ -545,7 +547,10 @@ bool World::SetInitialWorldSettings()
 
 void World::Update(uint32 diff)
 {
+    // Update our day based timer
     _UpdateGameTime();
+    // Update our week based timer
+    _UpdateWeekStartTime();
 
     if((dayWatcherTimer += diff) > 12000)
         dayWatcher.Update(dayWatcherTimer);

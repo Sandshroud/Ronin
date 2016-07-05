@@ -70,6 +70,9 @@ static const char *creaturefamilyFormat = "ufufuuuuuxsx";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
 static const char *creaturespelldataFormat = "uuuuuxxxx";
 
+DECLARE_CLASS_INTERNAL_DBC_MACRO(CurrencyTypeEntry, dbcCurrencyType);
+static const char *currencytypeFormat = "nisxxiiiiix";
+
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DestructibleModelDataEntry, dbcDestructibleModelData);
 static const char *destructiblemodeldataFormat = "uuxxxuxxxxuxxxxuxxxxuxxx";
 
@@ -420,6 +423,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/CreatureDisplayInfoExtra.dbc", datapath), creaturedisplayinfoextraFormat, dbcCreatureDisplayInfoExtra);
     ADD_LOAD_DB(format("%s/CreatureFamily.dbc", datapath), creaturefamilyFormat, dbcCreatureFamily);
     ADD_LOAD_DB(format("%s/CreatureSpellData.dbc", datapath), creaturespelldataFormat, dbcCreatureSpellData);
+    ADD_LOAD_DB(format("%s/CurrencyTypes.dbc", datapath), currencytypeFormat, dbcCurrencyType);
     ADD_LOAD_DB(format("%s/DestructibleModelData.dbc", datapath), destructiblemodeldataFormat, dbcDestructibleModelData);
     ADD_LOAD_DB(format("%s/DungeonEncounter.dbc", datapath), dungeonencounterFormat, dbcDungeonEncounter);
     ADD_LOAD_DB(format("%s/DurabilityCosts.dbc", datapath), durabilitycostsFormat, dbcDurabilityCosts);
