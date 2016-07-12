@@ -1070,7 +1070,9 @@ void MovementInterface::setCanFly(bool canFly)
 {
     if(!m_Unit->IsPlayer() || !m_Unit->IsInWorld())
     {
-        setServerFlag(MOVEMENTFLAG_CAN_FLY);
+        if(canFly)
+            setServerFlag(MOVEMENTFLAG_CAN_FLY);
+        else removeServerFlag(MOVEMENTFLAG_CAN_FLY);
         return;
     }
 

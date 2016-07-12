@@ -2719,9 +2719,6 @@ void Player::OnPushToWorld()
 
     m_movementInterface.OnPushToWorld();
 
-    // Login spell
-    CastSpell(this, 836, true);
-
     Unit::OnPushToWorld();
 
     // Item stats
@@ -2790,8 +2787,6 @@ void Player::OnPushToWorld()
         m_bg->OnPlayerPushed(this);
 
     m_changingMaps = false;
-
-    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, getLevel());
 }
 
 void Player::OnWorldLogin()
@@ -5873,9 +5868,6 @@ void Player::LoginPvPSetup()
 
     if(isAlive())
     {
-        // Honorless target at 1st entering world.
-        CastSpell(castPtr<Unit>(this), PLAYER_HONORLESS_TARGET_SPELL, true);
-
         //initialise BG
         if(GetMapInstance() && GetMapInstance()->m_battleground != NULL && !GetMapInstance()->m_battleground->HasStarted())
             GetMapInstance()->m_battleground->OnAddPlayer(this);
@@ -6014,8 +6006,14 @@ void Player::SoftLoadPlayer()
 
         // warrior has to have battle stance
         if( getClass() == WARRIOR && !HasAura(2457))
-            CastSpell(castPtr<Unit>(this), dbcSpell.LookupEntry(2457), true);
-    } // this needs to be after the cast of passive spells, because it will cast ghost form, after the remove making it in ghost alive, if no corpse.
+            CastSpell(this, 2457, true);
+
+        // Honorless target at 1st entering world.
+        CastSpell(this, PLAYER_HONORLESS_TARGET_SPELL, true);
+
+        // Login spell
+        CastSpell(this, 836, true);
+    }
 }
 
 void Player::CompleteLoading()
@@ -6042,6 +6040,8 @@ void Player::CompleteLoading()
     }
 
     sWorldMgr.BuildSavedInstancesForPlayer(this);
+
+    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, getLevel());
 }
 
 void Player::OnWorldPortAck()
