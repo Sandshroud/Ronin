@@ -557,7 +557,6 @@ enum PlayerLoadOrder : uint8
     PLAYER_LO_GLYPHS,
     PLAYER_LO_ITEMS,
     PLAYER_LO_KNOWN_TITLES,
-    PLAYER_LO_POWERS,
     PLAYER_LO_QUEST_LOG,
     PLAYER_LO_QUESTS_COMPLETED,
     PLAYER_LO_SKILLS,
@@ -583,6 +582,11 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS,
     PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
     PLAYERLOAD_FIELD_CURRENTHP,
+    PLAYERLOAD_FIELD_CURRENTPOWER1,
+    PLAYERLOAD_FIELD_CURRENTPOWER2,
+    PLAYERLOAD_FIELD_CURRENTPOWER3,
+    PLAYERLOAD_FIELD_CURRENTPOWER4,
+    PLAYERLOAD_FIELD_CURRENTPOWER5,
     PLAYERLOAD_FIELD_CURRENT_PVPRANK,
     PLAYERLOAD_FIELD_PLAYERBYTES,
     PLAYERLOAD_FIELD_PLAYERBYTES2,
@@ -725,9 +729,6 @@ public:
 
     void _LoadKnownTitles(QueryResult * result);
     void _SaveKnownTitles(QueryBuffer * buf);
-
-    void _LoadPlayerPowers(QueryResult * result);
-    void _SavePlayerPowers(QueryBuffer * buf);
 
     void _LoadPlayerQuestLog(QueryResult * result);
     void _SavePlayerQuestLog(QueryBuffer * buf);
@@ -1518,7 +1519,7 @@ public:
     RONIN_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     RONIN_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
-    uint32 load_health, load_power[POWER_TYPE_MAX];
+    uint32 load_health, load_power[POWER_FIELDS_MAX];
     std::set<SpellEntry *> castSpellAtLogin;
 
     /////

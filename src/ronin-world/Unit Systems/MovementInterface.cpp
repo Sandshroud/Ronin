@@ -460,7 +460,7 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
 
 void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
 {
-    if(m_Unit->IsPlayer())
+    if(m_Unit->IsPlayer() && m_Unit->IsInWorld())
     {
         if(m_currSpeeds[speedType] == speed || m_pendingSpeeds[speedType] == speed)
             return;
@@ -476,6 +476,9 @@ void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
     else
     {
         m_currSpeeds[speedType] = speed;
+        if(!m_Unit->IsInWorld())
+            return;
+
         WorldPacket data(movementSpeedToOpcode[speedType][0], 50);
         WriteFromServer(movementSpeedToOpcode[speedType][0], &data, m_Unit->GetGUID(), speed);
         m_Unit->SendMessageToSet(&data, false);
@@ -1011,6 +1014,23 @@ void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
     UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }
 
+void MovementInterface::OnPrePushToWorld()
+{
+    setCanFly(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY));
+    for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
+        SetMoveSpeed(MovementSpeedTypes(i), _CalculateSpeed(MovementSpeedTypes(i)));
+}
+
+void MovementInterface::OnPushToWorld()
+{
+    UnlockTransportData();
+
+    // Send our time sync request packet
+    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
+    data << uint32(0); // counter
+    castPtr<Player>(m_Unit)->SendPacket(&data);
+}
+
 void MovementInterface::OnDeath()
 {
 
@@ -1048,7 +1068,7 @@ void MovementInterface::OnRelocate(LocationVector destination)
 
 void MovementInterface::setCanFly(bool canFly)
 {
-    if(!m_Unit->IsPlayer())
+    if(!m_Unit->IsPlayer() || !m_Unit->IsInWorld())
     {
         setServerFlag(MOVEMENTFLAG_CAN_FLY);
         return;
@@ -1274,11 +1294,11 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_BYTES(bytes, uint32, getMSTime());
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
 }
 
 #undef DO_BIT

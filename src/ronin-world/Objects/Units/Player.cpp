@@ -64,7 +64,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     }
     OnlineTime                      = 0;
     load_health                     = 0;
-    for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
+    for(uint8 i = 0; i < POWER_FIELDS_MAX; i++)
         load_power[i]               = 0;
     m_Autojoin                      = false;
     m_AutoAddMem                    = false;
@@ -781,6 +781,11 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << GetUInt32Value(PLAYER_CHARACTER_POINTS) << ","
     << GetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX) << ","
     << GetUInt32Value(UNIT_FIELD_HEALTH) << ","
+    << GetUInt32Value(UNIT_FIELD_POWERS) << ","
+    << GetUInt32Value(UNIT_FIELD_POWERS+1) << ","
+    << GetUInt32Value(UNIT_FIELD_POWERS+2) << ","
+    << GetUInt32Value(UNIT_FIELD_POWERS+3) << ","
+    << GetUInt32Value(UNIT_FIELD_POWERS+4) << ","
     << uint32(GetPVPRank()) << ","
     << GetUInt32Value(PLAYER_BYTES) << ","
     << GetUInt32Value(PLAYER_BYTES_2) << ","
@@ -904,9 +909,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     // Known titles
     _SaveKnownTitles(buf);
 
-    // Powers
-    _SavePlayerPowers(buf);
-
     // Quest log
     _SavePlayerQuestLog(buf);
 
@@ -955,7 +957,7 @@ void Player::DeleteFromDB(WoWGuid guid)
     CharacterDatabase.Execute("DELETE FROM item_enchantments WHERE itemguid IN(SELECT itemguid FROM item_data WHERE ownerguid = %u)", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM item_data WHERE ownerguid = %u", guid.getLow());
 
-    CharacterDatabase.Execute("DELETE FROM character_achievements WHERE player = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_achievements WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_actions WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_auras WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_bans WHERE guid = %u", guid.getLow());
@@ -968,7 +970,6 @@ void Player::DeleteFromDB(WoWGuid guid)
     CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_inventory WHERE guid=%u",guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_known_titles WHERE guid = %u", guid.getLow());
-    CharacterDatabase.Execute("DELETE FROM character_powers WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_questlog WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_quests_completed WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_skills WHERE guid = %u", guid.getLow());
@@ -997,7 +998,6 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT character_inventory.guid,character_inventory.itemguid,item_data.itementry,item_data.containerguid,item_data.creatorguid,item_data.count,item_data.flags,item_data.randomseed,item_data.randomproperty,item_data.durability,item_data.textid,item_data.playedtime,item_data.spellcharges,item_data.giftitemid,item_data.giftcreatorguid,character_inventory.container,character_inventory.slot FROM character_inventory JOIN item_data ON character_inventory.guid = item_data.ownerguid AND character_inventory.itemguid = item_data.itemguid WHERE character_inventory.guid = '%u' ORDER BY container,slot", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_powers WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_quests_completed WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_skills WHERE guid = '%u'", m_objGuid.getLow());
@@ -1109,6 +1109,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetUInt32Value(PLAYER_CHARACTER_POINTS, fields[PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS].GetUInt32());
 
     load_health = fields[PLAYERLOAD_FIELD_CURRENTHP].GetUInt32();
+    for(uint8 i = 0; i < POWER_FIELDS_MAX; i++)
+        load_power[i] = fields[PLAYERLOAD_FIELD_CURRENTPOWER1+i].GetUInt32();
     uint8 pvprank = fields[PLAYERLOAD_FIELD_CURRENT_PVPRANK].GetUInt8();
     SetUInt32Value( PLAYER_BYTES, fields[PLAYERLOAD_FIELD_PLAYERBYTES].GetUInt32() );
     SetUInt32Value( PLAYER_BYTES_2, fields[PLAYERLOAD_FIELD_PLAYERBYTES2].GetUInt32() );
@@ -1215,7 +1217,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     //m_factionInterface.LoadFactionData(results[PLAYER_LO_FACTIONS].result);
     m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
     _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
-    _LoadPlayerPowers(results[PLAYER_LO_POWERS].result);
     _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
     _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result);
     _LoadSkills(results[PLAYER_LO_SKILLS].result);
@@ -1301,50 +1302,10 @@ void Player::_SavePlayerAuras(QueryBuffer * buf)
     else CharacterDatabase.Execute("DELETE FROM character_auras WHERE guid = '%u';", GetLowGUID());
 
     std::stringstream ss;
-    for(uint8 i = 0; i < TOTAL_AURAS; i++)
-    {
-        Aura *aur = m_AuraInterface.FindAuraBySlot(i);
-        if(aur == NULL)
-            continue;
-        uint8 auraMask=0;
-        for(uint8 x = 0; x < 3; x++)
-        {
-            if(aur->GetSpellProto()->Effect[i] != SPELL_EFFECT_APPLY_AURA)
-                continue;
-            auraMask |= 1<<x;
-        }
-        if(auraMask == 0)
-            continue;
-
-        if(ss.str().length())
-            ss << ", ";
-
-        Modifier *mods[3] = { aur->GetMod(0), aur->GetMod(1), aur->GetMod(2) };
-        ss << "(" << GetLowGUID()
-        << ", " << uint32(i)
-        << ", " << aur->GetSpellId()
-        << ", " << uint32(aur->GetAuraFlags())
-        << ", " << uint32(aur->GetAuraLevel())
-        << ", " << int32(aur->getStackSizeOrProcCharges())
-        << ", " << uint64(aur->GetCasterGUID())
-        << ", " << uint64(aur->GetExpirationTime())
-        << ", " << int32(mods[0] ? mods[0]->m_baseAmount : 0)
-        << ", " << int32(mods[1] ? mods[1]->m_baseAmount : 0)
-        << ", " << int32(mods[2] ? mods[2]->m_baseAmount : 0)
-        << ", " << uint32(mods[0] ? mods[0]->m_bonusAmount : 0)
-        << ", " << uint32(mods[1] ? mods[1]->m_bonusAmount : 0)
-        << ", " << uint32(mods[2] ? mods[2]->m_bonusAmount : 0)
-        << ", " << int32(mods[0] ? mods[0]->fixed_amount : 0)
-        << ", " << int32(mods[1] ? mods[1]->fixed_amount : 0)
-        << ", " << int32(mods[2] ? mods[2]->fixed_amount : 0)
-        << ", " << float(mods[0] ? mods[0]->fixed_float_amount : 0.f)
-        << ", " << float(mods[1] ? mods[1]->fixed_float_amount : 0.f)
-        << ", " << float(mods[2] ? mods[2]->fixed_float_amount : 0.f);
-        ss << ")";
-    }
-
+    m_AuraInterface.SavePlayerAuras(&ss);
     if(ss.str().empty())
         return;
+
     if(buf)buf->AddQuery("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
     else CharacterDatabase.Execute("REPLACE INTO character_auras VALUES %s;", ss.str().c_str());
 }
@@ -1495,47 +1456,6 @@ void Player::_SaveKnownTitles(QueryBuffer * buf)
     {
         if(buf)buf->AddQuery("REPLACE INTO character_known_titles VALUES %s;", ss.str().c_str());
         else CharacterDatabase.Execute("REPLACE INTO character_known_titles VALUES %s;", ss.str().c_str());
-    }
-}
-
-void Player::_LoadPlayerPowers(QueryResult *result)
-{
-    if(result == NULL)
-        return;
-
-    do
-    {
-        uint8 powerType = result->Fetch()[1].GetUInt8();
-        if(powerType >= POWER_TYPE_MAX)
-            continue;
-
-        load_power[powerType] = result->Fetch()[2].GetUInt32();
-    }while(result->NextRow());
-}
-
-void Player::_SavePlayerPowers(QueryBuffer * buf)
-{
-    if(buf)buf->AddQuery("DELETE FROM character_powers WHERE guid = '%u';", GetLowGUID());
-    else CharacterDatabase.Execute("DELETE FROM character_powers WHERE guid = '%u';", GetLowGUID());
-
-    std::stringstream ss;
-    for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
-    {
-        uint32 power = 0;
-        if((power = GetPower(PowerType(i))) == 0)
-            continue;
-        if(ss.str().length())
-            ss << ", ";
-        ss << "(" << GetLowGUID()
-        << ", " << uint32(i)
-        << ", " << power;
-        ss << ")";
-    }
-
-    if(ss.str().length())
-    {
-        if(buf)buf->AddQuery("REPLACE INTO character_powers VALUES %s;", ss.str().c_str());
-        else CharacterDatabase.Execute("REPLACE INTO character_powers VALUES %s;", ss.str().c_str());
     }
 }
 
@@ -1959,8 +1879,17 @@ bool Player::Create(WorldPacket& data )
         return false;
     }
 
-    SetTeam(myRace->TeamId);
+    SetByte(PLAYER_BYTES, 0, skin);
+    SetByte(PLAYER_BYTES, 1, face);
+    SetByte(PLAYER_BYTES, 2, hairStyle);
+    SetByte(PLAYER_BYTES, 3, hairColor);
+    SetByte(PLAYER_BYTES_2, 0, facialHair);
+    SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
+    SetByte(PLAYER_BYTES_3, 0, gender);
     uint8 powertype = uint8(myClass->powerType);
+    SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
+
+    SetTeam(myRace->TeamId);
 
     setLevel(std::max<uint32>(class_ == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel));
 
@@ -1970,21 +1899,12 @@ bool Player::Create(WorldPacket& data )
 
     InitTaxiNodes();
 
-    SetUInt32Value(UNIT_FIELD_BYTES_0, ( ( race ) | ( class_ << 8 ) | ( gender << 16 ) | ( powertype << 24 ) ) );
     if(class_ == WARRIOR)
         SetShapeShift(FORM_BATTLESTANCE);
     else if(class_ == DEATHKNIGHT)
         m_talentInterface.ModTalentPoints(-24);
 
     SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
-    SetByte(PLAYER_BYTES, 0, skin);
-    SetByte(PLAYER_BYTES, 1, face);
-    SetByte(PLAYER_BYTES, 2, hairStyle);
-    SetByte(PLAYER_BYTES, 3, hairColor);
-    SetByte(PLAYER_BYTES_2, 0, facialHair);
-    SetByte(PLAYER_BYTES_2, 3, 0x02); // No Recruit a friend flag
-    SetByte(PLAYER_BYTES_3, 0, gender);
-
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(this));
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 
@@ -2051,10 +1971,11 @@ bool Player::Create(WorldPacket& data )
         }
     }
     ignoreitemreq_cheat = false;
+    UpdateFieldValues();
 
-    load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
-    for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
-        load_power[i] = GetPower(i);
+    SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
+    for(uint8 i = 0; i < POWER_FIELDS_MAX; i++)
+        SetUInt32Value(UNIT_FIELD_POWERS, GetUInt32Value(UNIT_FIELD_MAXPOWERS+i));
     return true;
 }
 
@@ -2769,9 +2690,13 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
 
 void Player::OnPrePushToWorld()
 {
-    if(m_TeleportState == 1)        // First world enter
+    if(m_TeleportState == 1)
+    {   // First world enter after loginscreen
         SoftLoadPlayer();
-    SendInitialLogonPackets();
+        SendInitialLogonPackets();
+    }
+
+    m_movementInterface.OnPrePushToWorld();
 }
 
 void Player::OnPushToWorld()
@@ -2779,19 +2704,20 @@ void Player::OnPushToWorld()
     // Process create packet
     PopPendingUpdates();
 
-    if(m_TeleportState == 2)   // Worldport Ack
+    if(m_TeleportState == 2)    // Worldport Ack
         OnWorldPortAck();
     else if(m_TeleportState = 1)
         CompleteLoading();
 
+    WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
+    data.WriteGuidBitString(8, m_objGuid, 5, 7, 3, 6, 0, 4, 1, 2);
+    data.WriteSeqByteString(8, m_objGuid, 6, 2, 3, 0, 5, 7, 1, 4);
+    GetSession()->SendPacket( &data );
+
     m_beingPushed = false;
     sWorld.mInWorldPlayerCount++;
 
-    GetMovementInterface()->UnlockTransportData();
-
-    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-    data << uint32(0);
-    SendPacket(&data);
+    m_movementInterface.OnPushToWorld();
 
     // Login spell
     CastSpell(this, 836, true);
@@ -2847,13 +2773,11 @@ void Player::OnPushToWorld()
         else SetUInt32Value(UNIT_FIELD_HEALTH, load_health);
     }
 
-    for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
+    for(uint8 i = 0; i < POWER_FIELDS_MAX; i++)
     {
         if(load_power[i] == 0)
             continue;
-        if(load_power[i] > GetMaxPower(i))
-            SetUInt32Value(UNIT_FIELD_POWERS+i, GetMaxPower(i));
-        else SetUInt32Value(UNIT_FIELD_POWERS+i, load_power[i]);
+        SetUInt32Value(UNIT_FIELD_POWERS+i, std::min<uint32>(load_power[i], GetUInt32Value(UNIT_FIELD_MAXPOWERS+i)));
     }
 
     if( m_mapInstance != NULL && m_mapInstance->m_battleground != NULL && m_bg != m_mapInstance->m_battleground )
@@ -2934,8 +2858,8 @@ void Player::RemoveFromWorld()
     }
 
     load_health = GetUInt32Value(UNIT_FIELD_HEALTH);
-    for(uint8 i = 0; i < POWER_TYPE_MAX; i++)
-        load_power[i] = GetPower(i);
+    for(uint8 i = 0; i < POWER_FIELDS_MAX; i++)
+        load_power[i] = GetUInt32Value(UNIT_FIELD_POWERS+i);
 
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, 0, 0, GetAreaId() );
 
@@ -4391,9 +4315,9 @@ void Player::SendProficiency(bool armorProficiency)
     SendPacket(&data);
 }
 
+// Initial packets, these don't need to be sent when switching between maps
 void Player::SendInitialLogonPackets()
 {
-    // Initial Packets... they seem to be re-sent on port.
     WorldPacket data(SMSG_BINDPOINTUPDATE, 32);
     data << m_bind_pos_x << m_bind_pos_y << m_bind_pos_z;
     data << m_bind_mapid << m_bind_zoneid;
@@ -4406,19 +4330,18 @@ void Player::SendInitialLogonPackets()
     m_talentInterface.SendTalentInfo();
 
     data.Initialize(SMSG_WORLD_SERVER_INFO, 5);
-    data.WriteBit(0);                                               // HasRestrictedLevel
-    data.WriteBit(0);                                               // HasRestrictedMoney
-    data.WriteBit(0);                                               // IneligibleForLoot
+    data.WriteBit(0);                       // HasRestrictedLevel
+    data.WriteBit(0);                       // HasRestrictedMoney
+    data.WriteBit(0);                       // IneligibleForLoot
     data.FlushBits();
     //if (IneligibleForLoot)
-    //    data << uint32(0);                                        // EncounterMask
-    data << uint8(0);                                               // IsOnTournamentRealm
+    //    data << uint32(0);                // EncounterMask
+    data << uint8(0);                       // IsOnTournamentRealm
     //if (HasRestrictedMoney)
-    //    data << uint32(100000);                                   // RestrictedMoney (starter accounts)
+    //    data << uint32(100000);           // RestrictedMoney (starter accounts)
     //if (HasRestrictedLevel)
-    //    data << uint32(20);                                       // RestrictedLevel (starter accounts)
-    data << uint32(34600);   // LastWeeklyReset (not instance reset)
-    data << uint32(0);
+    //    data << uint32(20);               // RestrictedLevel (starter accounts)
+    data << uint64(sWorld.GetWeekStart());  // LastWeeklyReset (not instance reset)
     GetSession()->SendPacket(&data); 
 
     //Initial Spells
@@ -4445,11 +4368,6 @@ void Player::SendInitialLogonPackets()
     GetSession()->SendPacket( &data );
 
     m_currency.SendInitialCurrency();
-
-    data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
-    data.WriteGuidBitString(8, m_objGuid, 5, 7, 3, 6, 0, 4, 1, 2);
-    data.WriteSeqByteString(8, m_objGuid, 6, 2, 3, 0, 5, 7, 1, 4);
-    GetSession()->SendPacket( &data );
 
     sLog.Debug("WORLD","Sent initial logon packets for %s.", GetName());
 }
@@ -6060,18 +5978,14 @@ void Player::ResetPvPTimer()
 
 void Player::SoftLoadPlayer()
 {
-    SpellCastTargets targets(GetGUID());
+    SpellCastTargets targets(m_objGuid);
     for(SpellSet::iterator itr = mSpells.begin(); itr != mSpells.end(); itr++)
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
-        if( info  && info->isPassiveSpell() && !( info->isSpellExpiringWithPet() ))
+        if(info && info->isPassiveSpell() && !info->isSpellExpiringWithPet())
         {
-            if( info->RequiredShapeShift )
-            {
-                if( !( ((uint32)1 << (GetShapeShift()-1)) & info->RequiredShapeShift ) )
-                    continue;
-            }
-
+            if( info->RequiredShapeShift && !( ((uint32)1 << (GetShapeShift()-1)) & info->RequiredShapeShift ) )
+                continue;
             if(Spell* spell = new Spell(this, info))
                 spell->prepare(&targets, true);
         }
@@ -6101,8 +6015,7 @@ void Player::SoftLoadPlayer()
         // warrior has to have battle stance
         if( getClass() == WARRIOR && !HasAura(2457))
             CastSpell(castPtr<Unit>(this), dbcSpell.LookupEntry(2457), true);
-    }
-    // this needs to be after the cast of passive spells, because it will cast ghost form, after the remove making it in ghost alive, if no corpse.
+    } // this needs to be after the cast of passive spells, because it will cast ghost form, after the remove making it in ghost alive, if no corpse.
 }
 
 void Player::CompleteLoading()

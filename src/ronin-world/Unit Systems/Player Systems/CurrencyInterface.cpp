@@ -34,7 +34,10 @@ void PlayerCurrency::LoadFromDB(time_t lastSavedWeek, QueryResult *result)
     do
     {
         Field *fields = result->Fetch();
-        m_currencies.insert(std::make_pair(fields[1].GetUInt32(), CurrencyData(fields, loadWeekData)));
+        CurrencyTypeEntry *entry = dbcCurrencyType.LookupEntry(fields[1].GetUInt32());
+        if(entry == NULL)
+            continue;
+        m_currencies.insert(std::make_pair(entry->Id, CurrencyData(fields, entry->WeekCap && loadWeekData)));
     }while(result->NextRow());
 }
 
@@ -56,6 +59,7 @@ void PlayerCurrency::SaveToDB(QueryBuffer *buf)
             << ", " << uint32(itr->first)
             << ", " << uint32(itr->second.count)
             << ", " << uint32(itr->second.weekCount)
+            << ", " << uint32(itr->second.totalCount)
             << ", " << uint32(itr->second.currencyFlags);
         ss << ")";
     }
@@ -81,24 +85,25 @@ void PlayerCurrency::SendInitialCurrency()
 
         // Recalculate precision and weekly cap
         precision = (entry->Flags&0x08) ? 100.f : 1.f;
-        weekCap = entry->WeekCap / precision;
+        weekCap = entry->WeekCap;
 
         // Append bit compression data
         bitBuff.SetBit(weekCap && itr->second.weekCount);
         bitBuff.SetBits(itr->second.currencyFlags, 4);
-        bitBuff.SetBit(weekCap > precision);
-        bitBuff.SetBit(false); // SeasonTotal
+        bitBuff.SetBit(weekCap);
+        bitBuff.SetBit((entry->Flags & 0x300) && itr->second.totalCount);
 
         // Append byte data
         byteBuff << uint32(floor(itr->second.count / precision));
         // Weekly cap
-        if (weekCap > precision)
+        if (weekCap)
             byteBuff << uint32(floor(weekCap / precision));
         // Season total
-        if (false) byteBuff << uint32(0);
+        if ((entry->Flags & 0x300) && itr->second.totalCount)
+            byteBuff << uint32(itr->second.totalCount);
         byteBuff << uint32(itr->first);
         // Week count
-        if (itr->second.weekCount > precision)
+        if (weekCap && itr->second.weekCount)
             byteBuff << uint32(floor(itr->second.weekCount / precision));
         count++;
     }
@@ -118,49 +123,74 @@ bool PlayerCurrency::HasCurrency(uint32 currency, uint32 amount)
     return false;
 }
 
+bool PlayerCurrency::HasTotalCurrency(uint32 currency, uint32 amount)
+{
+    if(m_currencies.find(currency) != m_currencies.end())
+        if(m_currencies.at(currency).totalCount >= amount)
+            return true;
+    return false;
+}
+
 void PlayerCurrency::AddCurrency(uint32 currency, uint32 amount, bool silent)
 {
     CurrencyTypeEntry *entry = dbcCurrencyType.LookupEntry(currency);
     if(entry == NULL)
         return;
+    // Set amount to never exceed total cap
+    if(entry->TotalCap && amount > entry->TotalCap)
+        amount = entry->TotalCap;
+    // If weekly cap, set amount to never exceed weekly cap
     if(entry->WeekCap && amount > entry->WeekCap)
         amount = entry->WeekCap;
 
-    float precision = (entry->Flags&0x08) ? 100.f : 1.f;
+    // See if we already have currency data, if not insert new data
     if(m_currencies.find(currency) == m_currencies.end())
         m_currencies.insert(std::make_pair(currency, CurrencyData(amount, entry->WeekCap > 0)));
     else
-    {
-        uint32 current = m_currencies.at(currency).count, currentWeek = m_currencies.at(currency).weekCount;
+    {   // We have data already, just need to modify it
+        uint32 previous = m_currencies.at(currency).count;
+        if(entry->TotalCap)
+        {   // We have a total cap, we need to fit inside restraints
+            if(previous == entry->TotalCap)
+                return; // Return if we already broke total cap
+            // Check and get the distance from total cap if we're going to break it
+            if(previous+amount > entry->TotalCap)
+                amount = entry->TotalCap-previous;
+        }
+
         if(entry->WeekCap)
-        {
-            if(currentWeek = entry->WeekCap)
-                return;
+        {   // We have a weekly cap, we need to fit inside restraints
+            uint32 currentWeek = m_currencies.at(currency).weekCount;
+            if(currentWeek == entry->WeekCap)
+                return; // Return if we already broke weekly cap
+            // Check and get the distance from weekly cap if we're going to break it
             if((currentWeek+amount) > entry->WeekCap)
                 amount = entry->WeekCap-currentWeek;
+            // Update weekly amount since we have a weekly cap
             m_currencies.at(currency).weekCount += amount;
         }
+        // Current count needs to be updated
         m_currencies.at(currency).count += amount;
+        // Total count is overall tracker, so update when we add new amount
+        m_currencies.at(currency).totalCount += amount;
     }
 
-    WorldPacket data(SMSG_UPDATE_CURRENCY, 20);
-    data.WriteBit(entry->WeekCap);
-    data.WriteBit(0);
-    data.WriteBit(silent);
-    data << uint32(floor(m_currencies.at(currency).count/precision));
-    data << uint32(currency);
-    if(entry->WeekCap)
-        data << uint32(floor(m_currencies.at(currency).weekCount/precision));
-    m_player->SendPacket(&data);
+    // Send a packet containing the new currency value
+    _SendCurrencyUpdate(entry, &m_currencies.at(currency), silent);
 }
 
 void PlayerCurrency::RemoveCurrency(uint32 currency, uint32 amount)
 {
+    CurrencyTypeEntry *entry = dbcCurrencyType.LookupEntry(currency);
+    if(entry == NULL)
+        return;
     if(m_currencies.find(currency) == m_currencies.end())
         return;
-    if(m_currencies.at(currency).count >= amount)
+    if(m_currencies.at(currency).count < amount)
         m_currencies.at(currency).count = 0;
     else m_currencies.at(currency).count -= amount;
+
+    _SendCurrencyUpdate(entry, &m_currencies.at(currency), false);
 }
 
 void PlayerCurrency::SetCurrencyFlags(uint32 currency, uint8 flag)
@@ -168,4 +198,19 @@ void PlayerCurrency::SetCurrencyFlags(uint32 currency, uint8 flag)
     if(m_currencies.find(currency) == m_currencies.end())
         return;
     m_currencies.at(currency).currencyFlags = flag;
+}
+
+void PlayerCurrency::_SendCurrencyUpdate(CurrencyTypeEntry *entry, CurrencyData *data, bool silent)
+{
+    float precision = (entry->Flags&0x08) ? 100.f : 1.f;
+    WorldPacket packet(SMSG_UPDATE_CURRENCY, 20);
+    packet.WriteBit(entry->WeekCap);
+    packet.WriteBit(entry->Flags&0x300);
+    packet.WriteBit(silent);
+    if(entry->Flags&0x300) packet << uint32(floor(data->totalCount/precision));
+    packet << uint32(floor(data->count/precision));
+    packet << uint32(entry->Id);
+    if(entry->WeekCap)
+        packet << uint32(floor(data->weekCount/precision));
+    m_player->SendPacket(&packet);
 }

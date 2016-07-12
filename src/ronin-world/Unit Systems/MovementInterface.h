@@ -271,6 +271,8 @@ public:
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
     void MoveClientPosition(float x, float y, float z, float o);
 
+    void OnPrePushToWorld();
+    void OnPushToWorld();
     void OnDeath();
     void OnRepop();
     void OnRessurect();

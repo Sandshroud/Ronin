@@ -78,7 +78,7 @@ WorldSession::~WorldSession()
     }
 
     if(_zlibStream)
-        deflateEnd(_zlibStream);
+        deflateEnd(_zlibStream), _zlibStream = NULL;
 }
 
 bool WorldSession::InitializeZLibCompression()

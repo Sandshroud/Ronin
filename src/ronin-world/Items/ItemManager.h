@@ -37,8 +37,8 @@ struct ItemPrototype
         uint32 Type;
         int32 Value;
     } Stats[10];
-    uint32 minDamage;
-    uint32 maxDamage;
+    float  minDamage;
+    float  maxDamage;
     uint32 Armor;
     uint32 Durability;
 

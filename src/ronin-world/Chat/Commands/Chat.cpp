@@ -445,7 +445,8 @@ void CommandTableStorage::Init()
         { "removeskill",            COMMAND_LEVEL_M, &ChatHandler::HandleRemoveSkillCommand,                        ".removeskill <skillid> - Removes skill",       NULL, 0, 0, 0 },
         { "increaseweaponskill",    COMMAND_LEVEL_M, &ChatHandler::HandleIncreaseWeaponSkill,                       ".increaseweaponskill <count> - Increase eqipped weapon skill x times (defaults to 1).", NULL, 0, 0, 0 },
         { "earnachievement",        COMMAND_LEVEL_M, &ChatHandler::HandleEarnAchievement,                           "Earns achievement for the target player", NULL, 0, 0, 0 },
-        { "addcurrency",            COMMAND_LEVEL_M, &ChatHandler::HandleAddCurrency,                               "Adds x amount of currency y to target player", NULL, 0, 0, 0 },
+        { "addcurrency",            COMMAND_LEVEL_M, &ChatHandler::HandleAddCurrency,                               "(syntax: type/amount) Adds Y amount of currency X to target player", NULL, 0, 0, 0 },
+        { "removecurrency",         COMMAND_LEVEL_M, &ChatHandler::HandleRemoveCurrency,                            "(syntax: type/amount) Removes Y amount of currency X to target player", NULL, 0, 0, 0 },
         { "playerinfo",             COMMAND_LEVEL_M, &ChatHandler::HandlePlayerInfo,                                ".playerinfo - Displays informations about the selected character (account...)", NULL, 0, 0, 0 },
 
         { "modify",                 COMMAND_LEVEL_M, NULL,                                                          "",                 modifyCommandTable, 0, 0, 0 },

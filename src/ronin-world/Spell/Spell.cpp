@@ -952,6 +952,7 @@ void Spell::cast(bool check)
 
             //if(!m_projectileWait)
             {
+                std::pair<WorldObject*, bool> casterTarget = std::make_pair<WorldObject*, bool>(NULL, false);
                 // if the spell is not reflected
                 for(uint8 i = 0; i < 3; i++)
                 {
@@ -971,6 +972,8 @@ void Spell::cast(bool check)
                         || GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
                         continue;
                     HandleEffects(i, m_caster);
+                    casterTarget.first = m_caster;
+                    casterTarget.second = m_spellInfo->EffectApplyAuraName[i] > 0;
                 }
 
                 // Specific spells need to have effect 0 on all targets first, then the same for 1 and 2
@@ -1037,6 +1040,17 @@ void Spell::cast(bool check)
                             }
                         }
                     }
+                }
+
+                if(casterTarget.first && casterTarget.first->IsUnit())
+                {
+                    Unit *unitTarget = castPtr<Unit>(casterTarget.first);
+                    if(GetSpellProto()->TargetAuraState)
+                        unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
+
+                    // Add our aura after handling the effects
+                    if(casterTarget.second)
+                        HandleAddAura(unitTarget);
                 }
 
                 //Handle remaining effects for which we did not find targets.

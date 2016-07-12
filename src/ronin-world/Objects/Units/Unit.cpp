@@ -18,6 +18,7 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 
     baseStats = NULL;
     m_modQueuedModUpdates[1].empty();
+    m_modQueuedModUpdates[2].empty();
     m_modQueuedModUpdates[5].empty();
 
     m_state = 0;
@@ -3628,7 +3629,7 @@ void Unit::Dismount()
 
     m_movementInterface.OnDismount();
 
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
+    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI );
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
     EventModelChange();

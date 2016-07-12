@@ -63,8 +63,6 @@ enum UnitTeam
 
 static char *teamNames[5] = { "Alliance", "Horde", "Guard", "Monster", "None" };
 
-#define MAX_POWER_FIELDS 5
-
 enum PowerType : int8
 {
     POWER_TYPE_HEALTH       = -2,
@@ -80,7 +78,8 @@ enum PowerType : int8
     POWER_TYPE_HOLY_POWER   = 9,
     POWER_TYPE_ALTERNATE    = 10,
     POWER_TYPE_MAX          = 11,
-    POWER_TYPE_ALL          = 127
+    POWER_TYPE_ALL          = 127,
+    POWER_FIELDS_MAX        = 5
 };
 
 enum StandState

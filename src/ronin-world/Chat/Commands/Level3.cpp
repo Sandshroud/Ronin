@@ -439,6 +439,17 @@ bool ChatHandler::HandleAddCurrency(const char* args, WorldSession *m_session)
     return true;
 }
 
+bool ChatHandler::HandleRemoveCurrency(const char* args, WorldSession *m_session)
+{
+    uint32 currency, amount;
+    if(sscanf(args, "%u %u", &currency, &amount) < 2)
+        return false;
+
+    if(Player* plr = getSelectedChar(m_session, false))
+        plr->GetCurrency()->RemoveCurrency(currency, amount);
+    return true;
+}
+
 bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = getSelectedChar(m_session);
@@ -1881,15 +1892,18 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
         return true;
     }
 
-    GreenSystemMessage(m_session, "Initializing title finder.");
+    uint32 count = 0;
     for(uint32 i = 0; i < dbcCharTitle.GetNumRows(); i++)
     {
         CharTitleEntry *entry = dbcCharTitle.LookupRow(i);
         if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->title)))
             continue;
         BlueSystemMessage(m_session, "Title %03u: %s", entry->Id, format(entry->title, m_session->GetPlayer()->GetName()).c_str());
+        if(++count == 25)
+            break;
     }
-    GreenSystemMessage(m_session, "End title find.");
+
+    if(count == 0) RedSystemMessage(m_session, "Unable to find any titles with %s in the name", x.c_str());
     return true;
 }
 
@@ -1905,15 +1919,20 @@ bool ChatHandler::HandleLookupCurrencyCommand(const char *args, WorldSession *m_
         return true;
     }
 
-    GreenSystemMessage(m_session, "Initializing currency finder.");
+    uint32 count = 0;
     for(uint32 i = 0; i < dbcCurrencyType.GetNumRows(); i++)
     {
         CurrencyTypeEntry *entry = dbcCurrencyType.LookupRow(i);
+        if(entry->Flags > 100)
+            printf("");
         if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->name)))
             continue;
         BlueSystemMessage(m_session, "Currency %04u: %s", entry->Id, format(entry->name, m_session->GetPlayer()->GetName()).c_str());
+        if(++count == 25)
+            break;
     }
-    GreenSystemMessage(m_session, "End currency find.");
+
+    if(count == 0) RedSystemMessage(m_session, "Unable to find any titles with %s in the name", x.c_str());
     return true;
 }
 

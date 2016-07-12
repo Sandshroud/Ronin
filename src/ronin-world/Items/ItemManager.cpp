@@ -97,8 +97,8 @@ void ItemManager::InitializeItemPrototypes()
 
         ItemPrototype* proto = new ItemPrototype();
         // Non dbc data
-        proto->minDamage = 0;
-        proto->maxDamage = 0;
+        proto->minDamage = 0.f;
+        proto->maxDamage = 0.f;
         proto->Armor = 0;
         proto->Durability = 0;
         // These are set later.
@@ -236,8 +236,8 @@ void ItemManager::LoadItemOverrides()
                     proto->MaxCount = 0;
                     proto->Unique = 0;
                     proto->ContainerSlots = 0;
-                    proto->minDamage = 0;
-                    proto->maxDamage = 0;
+                    proto->minDamage = 0.f;
+                    proto->maxDamage = 0.f;
                     proto->Armor = 0;
                     proto->Durability = 0;
                     for(uint8 i = 0; i < 10; i++)
@@ -476,16 +476,22 @@ void ItemManager::LoadItemOverrides()
 
         if(Damage)
         {
-            float avgDamage = Damage->mod_DPS[Quality] * proto->Delay * 0.001f;
-            if(proto->ArmorDamageModifier) avgDamage += (proto->ArmorDamageModifier/proto->StatScalingFactor);
-            proto->minDamage = (proto->StatScalingFactor * -0.5f + 1.0f) * avgDamage;
-            proto->maxDamage = floor(float(avgDamage * (proto->StatScalingFactor * 0.5f + 1.0f) + 0.5f));
+            float middle = (float)proto->Delay * 0.001f * (Damage->mod_DPS[Quality]+proto->ArmorDamageModifier);
+            // Max damage should be floor'd to cut off anything above
+            proto->maxDamage = floor(middle * (1.f+proto->StatScalingFactor/2.f) + 0.5f);
+            // Min damage should be converted, to avoid 0 values when a fraction exists
+            proto->minDamage = float2int32(middle * (1.f-proto->StatScalingFactor/2.f) - 0.5f);
+            if(proto->ArmorDamageModifier)
+            {   // Armor damage modifiered items dps and damage range are affected by the modifier
+                proto->maxDamage -= float2int32(proto->ArmorDamageModifier*proto->StatScalingFactor);
+                proto->minDamage += float2int32(proto->ArmorDamageModifier*proto->StatScalingFactor);
+            }
         }
 
         if(ArmorS)
-            proto->Armor = float2int32(float(ArmorS->mod_Resist[Quality]) + (proto->ArmorDamageModifier/proto->StatScalingFactor));
+            proto->Armor = float2int32(float(ArmorS->mod_Resist[Quality]) + proto->ArmorDamageModifier);
         else if(ArmorQ && ArmorT && ArmorE)
-            proto->Armor = float2int32((ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f) + (proto->ArmorDamageModifier/proto->StatScalingFactor));
+            proto->Armor = float2int32((ArmorQ->mod_Resist[Quality] * ArmorT->mod_Resist[proto->SubClass-1] * ArmorE->Value[proto->SubClass-1] + 0.5f) + proto->ArmorDamageModifier);
     }
 
     // Unload all DBC files
@@ -502,6 +508,7 @@ void ItemManager::LoadItemOverrides()
     dbcDamageTwoHandCaster.Unload();
     dbcDamageDamageWand.Unload();
 }
+
 
 static float const qualityDurabilityMultipliers[ITEM_QUALITY_DBC_MAX] = { 1.0f, 1.0f, 1.0f, 1.17f, 1.37f, 1.68f, 0.0f };
 

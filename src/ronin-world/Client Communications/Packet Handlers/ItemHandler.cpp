@@ -57,7 +57,7 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
 
             if(SrcSlot < MAX_INVENTORY_SLOT)
             {
-                if((error = GetPlayer()->GetInventory()->CanEquipItemInSlot(SrcInvSlot, SrcSlot, DstItem->GetProto())))
+                if((error = GetPlayer()->GetInventory()->CanEquipItemInSlot(DstSlot, SrcInvSlot, SrcSlot, DstItem->GetProto())))
                 {
                     _player->GetInventory()->BuildInventoryChangeError(SrcItem, DstItem, error);
                     return;
@@ -75,7 +75,7 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
                 }
             }
 
-            if((error = GetPlayer()->GetInventory()->CanEquipItemInSlot(SrcInvSlot, SrcInvSlot, DstItem->GetProto())))
+            if((error = GetPlayer()->GetInventory()->CanEquipItemInSlot(DstSlot, SrcInvSlot, SrcInvSlot, DstItem->GetProto())))
             {
                 _player->GetInventory()->BuildInventoryChangeError(SrcItem, DstItem, error);
                 return;
@@ -101,7 +101,7 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
 
             if(DstSlot < MAX_INVENTORY_SLOT)
             {
-                if((error=GetPlayer()->GetInventory()->CanEquipItemInSlot(DstInvSlot, DstSlot, SrcItem->GetProto())))
+                if((error=GetPlayer()->GetInventory()->CanEquipItemInSlot(SrcSlot, DstInvSlot, DstSlot, SrcItem->GetProto())))
                 {
                     _player->GetInventory()->BuildInventoryChangeError(SrcItem, DstItem, error);
                     return;
@@ -119,7 +119,7 @@ void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
                 }
             }
 
-            if((error=GetPlayer()->GetInventory()->CanEquipItemInSlot(DstInvSlot, DstInvSlot, SrcItem->GetProto())))
+            if((error=GetPlayer()->GetInventory()->CanEquipItemInSlot(SrcSlot, DstInvSlot, DstInvSlot, SrcItem->GetProto())))
             {
                 _player->GetInventory()->BuildInventoryChangeError(SrcItem, DstItem, error);
                 return;
@@ -183,7 +183,7 @@ void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if( ( error = _player->GetInventory()->CanEquipItemInSlot( INVENTORY_SLOT_NOT_SET, dstslot, srcitem->GetProto(), skip_combat ) ) )
+    if( ( error = _player->GetInventory()->CanEquipItemInSlot( srcslot, INVENTORY_SLOT_NOT_SET, dstslot, srcitem->GetProto(), skip_combat ) ) )
     {
         if( dstslot < MAX_INVENTORY_SLOT )
         {
@@ -194,7 +194,7 @@ void WorldSession::HandleSwapInvItemOpcode( WorldPacket & recv_data )
 
     if(dstitem)
     {
-        if((error=_player->GetInventory()->CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, srcslot, dstitem->GetProto(), skip_combat)))
+        if((error=_player->GetInventory()->CanEquipItemInSlot(srcslot, INVENTORY_SLOT_NOT_SET, srcslot, dstitem->GetProto(), skip_combat)))
         {
             if(srcslot < MAX_INVENTORY_SLOT)
             {
@@ -377,7 +377,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
                 Slot = EQUIPMENT_SLOT_MAINHAND;
         }
 
-        if((error = _player->GetInventory()->CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto(), true, true)))
+        if((error = _player->GetInventory()->CanEquipItemInSlot(SrcSlot, INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto(), true, true)))
         {
             _player->GetInventory()->BuildInventoryChangeError(eitem,NULL, error);
             return;
@@ -444,7 +444,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
     }
     else
     {
-        if((error = _player->GetInventory()->CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto())))
+        if((error = _player->GetInventory()->CanEquipItemInSlot(SrcSlot, INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto())))
         {
             _player->GetInventory()->BuildInventoryChangeError(eitem,NULL, error);
             return;
@@ -453,7 +453,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
 
     if( Slot <= INVENTORY_SLOT_BAG_END )
     {
-        if((error = _player->GetInventory()->CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto(), false, false)))
+        if((error = _player->GetInventory()->CanEquipItemInSlot(SrcSlot, INVENTORY_SLOT_NOT_SET, Slot, eitem->GetProto(), false, false)))
         {
             _player->GetInventory()->BuildInventoryChangeError(eitem,NULL, error);
             return;
@@ -694,7 +694,7 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
         return;
 
     CreatureItem *item = unit->GetSellItemByItemId(itemid, slot2);
-    if(item == NULL || slot2 != slot)
+    if(item == NULL)// || slot2 != slot)
     {
         // vendor does not sell this item. bitch about cheaters?
         _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
@@ -840,7 +840,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
         }
         else
         {
-            if((error=_player->GetInventory()->CanEquipItemInSlot(DstInv,  DstInv, srcitem->GetProto())))
+            if((error=_player->GetInventory()->CanEquipItemInSlot(Slot, DstInv,  DstInv, srcitem->GetProto())))
             {
                 if(DstInv < MAX_INVENTORY_SLOT)
                 {

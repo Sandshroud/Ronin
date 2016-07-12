@@ -352,6 +352,7 @@ protected:
     bool HandleGetSkillsInfoCommand(const char *args, WorldSession *m_session);
     bool HandleEarnAchievement(const char* args, WorldSession * m_session);
     bool HandleAddCurrency(const char *args, WorldSession *m_session);
+    bool HandleRemoveCurrency(const char *args, WorldSession *m_session);
     bool HandlePlayerInfo(const char* args, WorldSession * m_session);
     bool HandleNPCGetSpeed(const char* args, WorldSession * m_session);
 

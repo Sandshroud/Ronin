@@ -327,11 +327,8 @@ pSpellAura SpellAuraHandler[SPELL_AURA_TOTAL] = {
 Unit* Aura::GetUnitCaster()
 {
     if( m_target == NULL && m_casterGuid && m_casterGuid.getHigh() == HIGHGUID_TYPE_PLAYER)
-    {
         if(Player* punit = objmgr.GetPlayer(m_casterGuid))
-            if(punit != NULL)
-                return punit;
-    }
+            return punit;
     if( m_target == NULL )
         return NULL;
 
@@ -343,7 +340,7 @@ Unit* Aura::GetUnitCaster()
 }
 
 Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
-    : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_expirationTime(0), m_casterGuid(caster->GetGUID()),
+    : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_duration(-1), m_expirationTime(0), m_casterGuid(caster->GetGUID()),
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
@@ -379,7 +376,7 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
 }
 
 Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
-    : m_target(target), m_spellProto(proto), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_expirationTime(0), m_casterGuid(casterGuid),
+    : m_target(target), m_spellProto(proto), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
@@ -388,7 +385,7 @@ Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, i
     {
         CalculateDuration();
         m_expirationTime = expirationTime;
-    } else m_duration = -1;
+    }
 
     m_modcount = 0;
     memset(m_modList, 0, sizeof(Modifier)*3);
@@ -415,20 +412,18 @@ void Aura::Update(uint32 diff)
 void Aura::CalculateDuration()
 {
     if(IsPassive())
-        m_duration = -1;
-    else
+        return;
+
+    int32 Duration = m_spellProto->CalculateSpellDuration(m_auraLevel, 0);
+    if(!m_positive && !m_spellProto->isPassiveSpell())
+        ::ApplyDiminishingReturnTimer(&Duration, m_target, GetSpellProto());
+    uint32 mechanic = GetMechanic();
+    if( m_target->IsPlayer() && mechanic < NUM_MECHANIC && Duration > 0 )
+        Duration *= m_target->GetMechanicDurationPctMod(mechanic);
+    if((m_duration = Duration) > 0)
     {
-        int32 Duration = m_spellProto->CalculateSpellDuration(m_auraLevel, 0);
-        if(!m_positive && !m_spellProto->isPassiveSpell())
-            ::ApplyDiminishingReturnTimer(&Duration, m_target, GetSpellProto());
-        uint32 mechanic = GetMechanic();
-        if( m_target->IsPlayer() && mechanic < NUM_MECHANIC && Duration > 0 )
-            Duration *= m_target->GetMechanicDurationPctMod(mechanic);
-        if((m_duration = Duration) > 0)
-        {
-            m_auraFlags |= AFLAG_HAS_DURATION;
-            m_expirationTime = UNIXTIME+(m_duration/1000);
-        }
+        m_auraFlags |= AFLAG_HAS_DURATION;
+        m_expirationTime = UNIXTIME+(m_duration/1000);
     }
 }
 
@@ -1721,6 +1716,11 @@ void Aura::SpellAuraMounted(bool apply)
             !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
             pPlayer->RemoveAura( pPlayer->m_ShapeShifted );
 
+        // If we already have a fixed amount, then this is a reapplication of the modifier
+        if(mod->fixed_amount)
+            return;
+
+        // Grab our mount capability spell
         SpellEntry *mountCapability = pPlayer->GetMountCapability(mod->m_miscValue[1]);
         if(mountCapability == NULL)
             return;

@@ -42,6 +42,7 @@ public:
     void Destruct();
 
     void Update(uint32 diff);
+    void SavePlayerAuras(std::stringstream *ss);
 
     void OnChangeLevel(uint32 newlevel);
     uint8 GetFreeSlot(bool ispositive);

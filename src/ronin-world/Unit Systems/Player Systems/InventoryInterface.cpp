@@ -1423,11 +1423,11 @@ uint32 PlayerInventory::GetEquippedCountByItemLimit(uint32 LimitId)
 //Description: checks if the item can be equipped on a specific slot
 //             this will check unique-equipped gems as well
 //-------------------------------------------------------------------//
-int16 PlayerInventory::CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* item, bool ignore_combat /* = false */, bool skip_2h_check /* = false */)
+int16 PlayerInventory::CanEquipItemInSlot2(int16 SrcSlot, int16 DstInvSlot, int16 slot, Item* item, bool ignore_combat /* = false */, bool skip_2h_check /* = false */)
 {
     ItemPrototype* proto = item->GetProto();
 
-    if(int8 ret = CanEquipItemInSlot(DstInvSlot, slot, proto, ignore_combat, skip_2h_check))
+    if(int8 ret = CanEquipItemInSlot(SrcSlot, DstInvSlot, slot, proto, ignore_combat, skip_2h_check))
         return ret;
 
     if((slot < INVENTORY_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET) || (slot >= BANK_SLOT_BAG_START && slot < BANK_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET))
@@ -1471,7 +1471,7 @@ int16 PlayerInventory::CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* ite
 //-------------------------------------------------------------------//
 //Description: checks if the item can be equiped on a specific slot
 //-------------------------------------------------------------------//
-int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemPrototype* proto, bool ignore_combat /* = false */, bool skip_2h_check /* = false */)
+int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16 slot, ItemPrototype* proto, bool ignore_combat /* = false */, bool skip_2h_check /* = false */)
 {
     uint32 type = proto->InventoryType;
     if(slot >= INVENTORY_SLOT_BAG_START && slot < INVENTORY_SLOT_BAG_END && DstInvSlot == -1)
@@ -1490,7 +1490,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
                     return INV_ERR_ITEM_MAX_LIMIT_CATEGORY_COUNT_EXCEEDED_IS;
         }
 
-        if(IsEquipped(proto->ItemId))
+        if(IsEquipped(proto->ItemId, SrcSlot))
         {
             if( proto->Unique == 1 ) //how did we end up here? We shouldn't have 2 of these...
                 return INV_ERR_ITEM_MAX_COUNT;
@@ -1524,7 +1524,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
         // Check to see if we have the correct level.
         if(!m_pOwner->ignoreitemreq_cheat && proto->RequiredLevel > 0)
         {
-            if((uint32)proto->RequiredLevel > m_pOwner->GetUInt32Value(UNIT_FIELD_LEVEL))
+            if(proto->RequiredLevel > m_pOwner->GetUInt32Value(UNIT_FIELD_LEVEL))
                 return INV_ERR_PURCHASE_LEVEL_TOO_LOW;
         }
 
@@ -1556,86 +1556,21 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
 
     switch(slot)
     {
-    case EQUIPMENT_SLOT_HEAD:
-        {
-            if(type == INVTYPE_HEAD)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_NECK:
-        {
-            if(type == INVTYPE_NECK)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_SHOULDERS:
-        {
-            if(type == INVTYPE_SHOULDERS)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_BODY:
-        {
-            if(type == INVTYPE_BODY)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_CHEST:
-        {
-            if(type == INVTYPE_CHEST || type == INVTYPE_ROBE)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_WAIST:
-        {
-            if(type == INVTYPE_WAIST)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_LEGS:
-        {
-            if(type == INVTYPE_LEGS)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_FEET:
-        {
-            if(type == INVTYPE_FEET)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_WRISTS:
-        {
-            if(type == INVTYPE_WRISTS)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_HANDS:
-        {
-            if(type == INVTYPE_HANDS)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
+    case EQUIPMENT_SLOT_HEAD: return type == INVTYPE_HEAD ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_NECK: return type == INVTYPE_NECK ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_SHOULDERS: return type == INVTYPE_SHOULDERS ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_BODY: return type == INVTYPE_BODY ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_CHEST: return (type == INVTYPE_CHEST || type == INVTYPE_ROBE) ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_WAIST: return type == INVTYPE_WAIST ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_LEGS: return type == INVTYPE_LEGS ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_FEET: return type == INVTYPE_FEET ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_WRISTS: return type == INVTYPE_WRISTS ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_HANDS: return type == INVTYPE_HANDS ? 0 : INV_ERR_WRONG_SLOT;
     case EQUIPMENT_SLOT_FINGER1:
-    case EQUIPMENT_SLOT_FINGER2:
-        {
-            if(type == INVTYPE_FINGER)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
+    case EQUIPMENT_SLOT_FINGER2: return type == INVTYPE_FINGER ? 0 : INV_ERR_WRONG_SLOT;
     case EQUIPMENT_SLOT_TRINKET1:
-    case EQUIPMENT_SLOT_TRINKET2:
-        {
-            if(type == INVTYPE_TRINKET)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
-    case EQUIPMENT_SLOT_BACK:
-        {
-            if(type == INVTYPE_CLOAK)
-                return 0;
-            return INV_ERR_WRONG_SLOT;
-        }break;
+    case EQUIPMENT_SLOT_TRINKET2: return type == INVTYPE_TRINKET ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_BACK: return type == INVTYPE_CLOAK ? 0 : INV_ERR_WRONG_SLOT;
     case EQUIPMENT_SLOT_MAINHAND:
         {
             if(proto->Class == ITEM_CLASS_WEAPON && proto->SubClass == ITEM_SUBCLASS_WEAPON_POLEARM)
@@ -1654,64 +1589,62 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
 
             if(type == INVTYPE_WEAPON || type == INVTYPE_WEAPONOFFHAND)
             {
-                Item* mainweapon = GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-                if(mainweapon) //item exists
+                if(Item* mainweapon = GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)) //item exists
                 {
-                    if(mainweapon->GetProto())
-                    {
-                        if(mainweapon->GetProto()->InventoryType != INVTYPE_2HWEAPON)
-                        {
-                            if(m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD))
-                                return 0;
-                            return INV_ERR_2HSKILLNOTFOUND;
-                        }
-                        else
-                        {
-                            if(!skip_2h_check)
-                                return INV_ERR_2HANDED_EQUIPPED;
-                            return 0;
-                        }
-                    }
-                }
-                else
-                {
-                    if(m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD))
-                        return 0;
-                    return INV_ERR_2HSKILLNOTFOUND;
-                }
+                    if(mainweapon->GetProto() && mainweapon->GetProto()->InventoryType != INVTYPE_2HWEAPON)
+                        return m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD) ? 0 : INV_ERR_2HSKILLNOTFOUND;
+                    return skip_2h_check ? 0 : INV_ERR_2HANDED_EQUIPPED;
+                } else if(m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD))
+                    return 0;
+                return INV_ERR_2HSKILLNOTFOUND;
             }
             else if(type == INVTYPE_SHIELD || type == INVTYPE_HOLDABLE)
             {
-                Item* mainweapon = GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
-                if(mainweapon) //item exists
+                if(Item* mainweapon = GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)) //item exists
                 {
-                    if(mainweapon->GetProto())
-                    {
-                        if(mainweapon->GetProto()->InventoryType != INVTYPE_2HWEAPON)
-                            return 0;
-                        else
-                        {
-                            if(!skip_2h_check)
-                                return INV_ERR_2HANDED_EQUIPPED;
-                            return 0;
-                        }
-                    }
+                    if(mainweapon->GetProto() && mainweapon->GetProto()->InventoryType != INVTYPE_2HWEAPON)\
+                        return 0;
+                    return skip_2h_check ? 0 : INV_ERR_2HANDED_EQUIPPED;
                 }
                 return 0;
             }
             return INV_ERR_WRONG_SLOT;
         }break;
-    case EQUIPMENT_SLOT_RANGED:
+    case EQUIPMENT_SLOT_RANGED: return (type == INVTYPE_RANGED || type == INVTYPE_THROWN || type == INVTYPE_RANGEDRIGHT || type == INVTYPE_RELIC) ? 0 : INV_ERR_WRONG_SLOT;
+    case EQUIPMENT_SLOT_TABARD: return type == INVTYPE_TABARD ? 0 : INV_ERR_WRONG_SLOT;
+    case INVENTORY_SLOT_BAG_1:
+    case INVENTORY_SLOT_BAG_2:
+    case INVENTORY_SLOT_BAG_3:
+    case INVENTORY_SLOT_BAG_4:
         {
-            if(type == INVTYPE_RANGED || type == INVTYPE_THROWN || type == INVTYPE_RANGEDRIGHT || type == INVTYPE_RELIC)
+            //this chunk of code will limit you to equip only 1 Ammo Bag. Later i found out that this is not blizzlike so i will remove it when it's blizzlike
+            //we are trying to equip an Ammo Bag
+            if(proto->Class == ITEM_CLASS_QUIVER)
+            {
+                //check if we already have an AB equiped
+                FindAmmoBag();
+
+                //we do have amo bag but we are not swaping them then we send error
+                if(result.Slot != ITEM_NO_SLOT_AVAILABLE && result.Slot != slot)
+                    return INV_ERR_ONLY_ONE_AMMO;
+            }
+
+            if(Item *item = GetInventoryItem(INVENTORY_SLOT_NOT_SET, slot))
+            {
+                if(item->GetProto()->BagFamily)
+                {
+                    if((IsBagSlot(slot) && DstInvSlot == INVENTORY_SLOT_NOT_SET))
+                        if(proto->InventoryType == INVTYPE_BAG )
+                            return 0;
+
+                    if(proto->BagFamily == GetInventoryItem(INVENTORY_SLOT_NOT_SET,slot)->GetProto()->BagFamily)
+                        return 0;
+                    return INV_ERR_WRONG_BAG_TYPE;
+                }
                 return 0;
-            return INV_ERR_WRONG_SLOT;//6;
-        }break;
-    case EQUIPMENT_SLOT_TABARD:
-        {
-            if(type == INVTYPE_TABARD)
+            } else if(type == INVTYPE_BAG)
                 return 0;
-            return INV_ERR_WRONG_SLOT; // 6;
+            return INV_ERR_NOT_A_BAG;
         }break;
     case BANK_SLOT_BAG_1:
     case BANK_SLOT_BAG_2:
@@ -1751,48 +1684,8 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemProt
             }
             return 0;
         }break;
-    case INVENTORY_SLOT_BAG_1:
-    case INVENTORY_SLOT_BAG_2:
-    case INVENTORY_SLOT_BAG_3:
-    case INVENTORY_SLOT_BAG_4:
-        {
-            //this chunk of code will limit you to equip only 1 Ammo Bag. Later i found out that this is not blizzlike so i will remove it when it's blizzlike
-            //we are trying to equip an Ammo Bag
-            if(proto->Class == ITEM_CLASS_QUIVER)
-            {
-                //check if we already have an AB equiped
-                FindAmmoBag();
-
-                //we do have amo bag but we are not swaping them then we send error
-                if(result.Slot != ITEM_NO_SLOT_AVAILABLE && result.Slot != slot)
-                    return INV_ERR_ONLY_ONE_AMMO;
-            }
-
-            if(GetInventoryItem(INVENTORY_SLOT_NOT_SET, slot))
-            {
-                if(GetInventoryItem(INVENTORY_SLOT_NOT_SET,slot)->GetProto()->BagFamily)
-                {
-                    if((IsBagSlot(slot) && DstInvSlot == INVENTORY_SLOT_NOT_SET))
-                        if(proto->InventoryType == INVTYPE_BAG )
-                            return 0;
-
-                    if(proto->BagFamily == GetInventoryItem(INVENTORY_SLOT_NOT_SET,slot)->GetProto()->BagFamily)
-                        return 0;
-                    return INV_ERR_WRONG_BAG_TYPE;
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-            else if(type == INVTYPE_BAG)
-                return 0;
-            return INV_ERR_NOT_A_BAG;
-        }break;
-    default:
-        return 0;
-        break;
     }
+    return 0;
 }
 
 //-------------------------------------------------------------------//
@@ -1832,8 +1725,8 @@ void PlayerInventory::BuyItem(ItemPrototype *item, uint32 total_amount, Creature
         {
             if(ec->reqItem[i])
                 m_pOwner->GetInventory()->RemoveItemAmt( ec->reqItem[i], total_amount * ec->reqItemCount[i] );
-            /*if(ec->reqCurrency[i])
-                m_pOwner->GetCurrencyInterface();*/
+            if(ec->reqCurrency[i])
+                m_pOwner->GetCurrency()->RemoveCurrency(ec->reqCurrency[i], ec->reqCurrencyCount[i]);
         }
     }
 }
@@ -1873,6 +1766,22 @@ int8 PlayerInventory::CanAffordItem(ItemPrototype * item,uint32 amount, Creature
         {
             if(ec->reqItem[i] && (m_pOwner->GetInventory()->GetItemCount(ec->reqItem[i], false) < (ec->reqItemCount[i]*amount)))
                 return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
+            if(ec->reqCurrency[i])
+            {
+                if(i < 4 && ec->reqCurrency[i] == ec->reqCurrency[i+1])
+                {
+                    if(!m_pOwner->GetCurrency()->HasTotalCurrency(ec->reqCurrency[i], ec->reqCurrencyCount[i+1]))
+                        return CAN_AFFORD_ITEM_ERROR_NOT_REQUIRED_RANK;
+                    else
+                    {
+                        if(!m_pOwner->GetCurrency()->HasCurrency(ec->reqCurrency[i], ec->reqCurrencyCount[i]))
+                            return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
+                        // Iterate index after we check if we have enough currency
+                        ++i;
+                    }
+                } else if(!m_pOwner->GetCurrency()->HasCurrency(ec->reqCurrency[i], ec->reqCurrencyCount[i]))
+                    return CAN_AFFORD_ITEM_ERROR_DONT_HAVE_ENOUGH_MONEY;
+            }
         }
     }
 
@@ -2516,7 +2425,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                 {
                     if(GetInventoryItem(slot) != NULL)
                         continue;
-                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                         continue;
                     if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                         return;
@@ -2528,7 +2437,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
                 {
                     if(GetInventoryItem(slot) != NULL)
                         continue;
-                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                    if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                         continue;
                     if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                         return;
@@ -2549,7 +2458,7 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
             {
                 if(GetInventoryItem(slot) != NULL)
                     continue;
-                if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
+                if(CanEquipItemInSlot(INVENTORY_SLOT_NOT_SET, INVENTORY_SLOT_NOT_SET, slot, proto, true, false) != INV_ERR_OK)
                     continue;
                 if(SafeAddItem((item ? item : (item=objmgr.CreateItem(proto->ItemId, m_pOwner, count))), INVENTORY_SLOT_NOT_SET, slot ) == ADD_ITEM_RESULT_OK)
                     return;
@@ -2839,11 +2748,11 @@ void PlayerInventory::ReduceItemDurability()
     }
 }
 
-bool PlayerInventory::IsEquipped(uint32 itemid)
+bool PlayerInventory::IsEquipped(uint32 itemid, int16 slotToSkip)
 {
     for( uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x )
     {
-        if( m_pItems[x] != NULL )
+        if( m_pItems[x] != NULL && x != slotToSkip)
             if( m_pItems[x]->GetProto()->ItemId == itemid )
                 return true;
     }

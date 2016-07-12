@@ -41,6 +41,59 @@ void AuraInterface::Update(uint32 diff)
             aur->Update(diff);
 }
 
+void AppendAuraAndModifierData(std::stringstream *ss, uint32 lowGuid, uint32 auraSlot, Aura *aur, Modifier **mods)
+{
+    *ss << "(" << lowGuid
+        << ", " << auraSlot
+        << ", " << aur->GetSpellId()
+        << ", " << uint32(aur->GetAuraFlags())
+        << ", " << uint32(aur->GetAuraLevel())
+        << ", " << int32(aur->getStackSizeOrProcCharges())
+        << ", " << uint64(aur->GetCasterGUID())
+        << ", " << uint64(aur->GetExpirationTime())
+        << ", " << int32(mods[0] ? mods[0]->m_baseAmount : 0)
+        << ", " << int32(mods[1] ? mods[1]->m_baseAmount : 0)
+        << ", " << int32(mods[2] ? mods[2]->m_baseAmount : 0)
+        << ", " << uint32(mods[0] ? mods[0]->m_bonusAmount : 0)
+        << ", " << uint32(mods[1] ? mods[1]->m_bonusAmount : 0)
+        << ", " << uint32(mods[2] ? mods[2]->m_bonusAmount : 0)
+        << ", " << int32(mods[0] ? mods[0]->fixed_amount : 0)
+        << ", " << int32(mods[1] ? mods[1]->fixed_amount : 0)
+        << ", " << int32(mods[2] ? mods[2]->fixed_amount : 0)
+        << ", " << float(mods[0] ? mods[0]->fixed_float_amount : 0.f)
+        << ", " << float(mods[1] ? mods[1]->fixed_float_amount : 0.f)
+        << ", " << float(mods[2] ? mods[2]->fixed_float_amount : 0.f);
+    *ss << ")";
+}
+
+void AuraInterface::SavePlayerAuras(std::stringstream *ss)
+{
+    for(uint8 i = 0; i < m_maxPosAuraSlot; i++)
+    {
+        Aura *aur = FindAuraBySlot(i);
+        if(aur == NULL || !aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
+            continue;
+        if(ss->str().length())
+            *ss << ", ";
+
+        Modifier *mods[3] = { aur->GetMod(0), aur->GetMod(1), aur->GetMod(2) };
+        AppendAuraAndModifierData(ss, m_Unit->GetLowGUID(), i, aur, mods);
+    }
+
+    for(uint8 i = MAX_POSITIVE_AURAS; i < m_maxNegAuraSlot; i++)
+    {
+        Aura *aur = FindAuraBySlot(i);
+        if(aur == NULL || !aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
+            continue;
+        if(ss->str().length())
+            *ss << ", ";
+
+        Modifier *mods[3] = { aur->GetMod(0), aur->GetMod(1), aur->GetMod(2) };
+        AppendAuraAndModifierData(ss, m_Unit->GetLowGUID(), i, aur, mods);
+    }
+
+}
+
 void AuraInterface::OnChangeLevel(uint32 newLevel)
 {
     // On target level change recalculate modifiers where caster is unit

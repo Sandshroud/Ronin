@@ -297,7 +297,6 @@ public:
     RONIN_INLINE CreatureItem *GetSellItemBySlot(uint32 slot) { return &m_SellItems->at(slot); }
     RONIN_INLINE CreatureItem *GetSellItemByItemId(uint32 itemid, uint32 &slot)
     {
-        slot = 0;
         for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
         {
             if(itr->second.itemid == itemid)
@@ -306,6 +305,7 @@ public:
                 return &itr->second;
             }
         }
+        slot = 0;
         return NULL;
     }
 

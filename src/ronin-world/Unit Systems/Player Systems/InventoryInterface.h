@@ -113,8 +113,8 @@ public:
 
     uint32 GetEquippedCountByItemID(uint32 itemID);
     uint32 GetEquippedCountByItemLimit(uint32 LimitId);
-    int16 CanEquipItemInSlot(int16 DstInvSlot, int16 slot, ItemPrototype* item, bool ignore_combat = false, bool skip_2h_check = false);
-    int16 CanEquipItemInSlot2(int8 DstInvSlot, int8 slot, Item* item, bool ignore_combat = false, bool skip_2h_check = false);
+    int16 CanEquipItemInSlot(int16 SrcInvSlot, int16 DstInvSlot, int16 slot, ItemPrototype* item, bool ignore_combat = false, bool skip_2h_check = false);
+    int16 CanEquipItemInSlot2(int16 SrcInvSlot, int16 DstInvSlot, int16 slot, Item* item, bool ignore_combat = false, bool skip_2h_check = false);
     int8 CanReceiveItem(ItemPrototype * item, uint32 amount, ItemExtendedCostEntry *ec);
     int8 CanAffordItem(ItemPrototype * item,uint32 amount, Creature* pVendor, ItemExtendedCostEntry *ec);
     int8 GetItemSlotByType(ItemPrototype* proto);
@@ -137,7 +137,7 @@ public:
     void AddBuyBackItem(Item* it, uint32 price);
     void RemoveBuyBackItem(uint32 index);
     void EmptyBuyBack();
-    bool IsEquipped(uint32 itemid);
+    bool IsEquipped(uint32 itemid, int16 slotToSkip = -1);
     void CheckAreaItems();
 
 public:
