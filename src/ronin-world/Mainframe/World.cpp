@@ -210,14 +210,6 @@ void World::Destruct()
     delete this;
 }
 
-void World::ParseFactionTemplate()
-{
-    sLog.Notice("World", "Setting %u faction pointers in template class", dbcFactionTemplate.GetNumRows());
-    for(uint32 i = 0; i < dbcFactionTemplate.GetNumRows(); i++)
-        if(FactionTemplateEntry *entry = dbcFactionTemplate.LookupRow(i))
-            entry->m_faction = dbcFaction.LookupEntry(entry->Faction);
-}
-
 WorldSession* World::FindSession(uint32 id)
 {
     m_sessionlock.AcquireReadLock();
@@ -417,7 +409,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(TaxiMgr, Initialize);
     MAKE_TASK(ItemManager, InitializeItemPrototypes);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
-    MAKE_TASK(World, ParseFactionTemplate);
+    MAKE_TASK(FactionSystem, LoadFactionInteractionData);
 
     tl.wait(); // Load all the storage first
 

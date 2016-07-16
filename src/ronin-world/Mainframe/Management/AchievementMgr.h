@@ -66,7 +66,7 @@ public:
     bool IsValidAchievement(Player *plr, AchievementEntry *entry);
 
     // Trigger criteria update and achievement earning
-    void UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint32 mod, uint32 misc1 = 0, uint32 misc2 = 0);
+    void UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint32 mod, uint32 misc1 = 0, uint32 misc2 = 0, bool onLoad = false);
 
     // Achievement earn function for scripts
     void EarnAchievement(Player *plr, uint32 achievementId);

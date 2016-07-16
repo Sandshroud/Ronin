@@ -1577,8 +1577,8 @@ bool ChatHandler::HandleGetStandingCommand(const char * args, WorldSession * m_s
     if(!plr)
         return true;
 
-    int32 standing = plr->GetStanding(faction);
-    int32 bstanding = plr->GetBaseStanding(faction);
+    int32 standing = plr->GetFactionInterface()->GetStanding(faction);
+    int32 bstanding = plr->GetFactionInterface()->GetBaseStanding(faction);
 
     GreenSystemMessage(m_session, "Reputation for faction %u:", faction);
     SystemMessage(m_session, "Base Standing: %d", bstanding);
@@ -1597,7 +1597,7 @@ bool ChatHandler::HandleSetStandingCommand(const char * args, WorldSession * m_s
         return true;
 
     BlueSystemMessage(m_session, "Setting standing of %u to %d on %s.", faction, standing, plr->GetName());
-    plr->SetStanding(faction, standing);
+    plr->GetFactionInterface()->SetStanding(faction, standing);
     GreenSystemMessageToPlr(plr, "%s set your standing of faction %u to %d.", m_session->GetPlayer()->GetName(), faction, standing);
     sWorld.LogGM(m_session, "set standing of faction %u to %u for %s", faction,standing,plr->GetName());
     return true;
@@ -2428,7 +2428,7 @@ bool ChatHandler::HandleFactionSetStanding(const char *args, WorldSession *m_ses
         return false;
 
     FactionEntry* RealFaction = dbcFaction.LookupEntry(faction);
-    if(RealFaction == NULL || RealFaction->RepListId < 0)
+    if(RealFaction == NULL || RealFaction->RepListIndex < 0)
     {
         std::stringstream ss;
         ss << "Incorrect faction, searching...";
@@ -2444,13 +2444,13 @@ bool ChatHandler::HandleFactionSetStanding(const char *args, WorldSession *m_ses
         BlueSystemMessage(m_session, ss.str().c_str());
     }
 
-    if(RealFaction->RepListId < 0)
+    if(RealFaction->RepListIndex < 0)
     {
         RedSystemMessage(m_session, "Not a valid faction!");
         return true;
     }
 
-    pPlayer->SetStanding(faction, standing);
+    pPlayer->GetFactionInterface()->SetStanding(faction, standing);
     return true;
 }
 
@@ -2466,7 +2466,7 @@ bool ChatHandler::HandleFactionModStanding(const char *args, WorldSession *m_ses
         return false;
 
     FactionEntry* RealFaction = dbcFaction.LookupEntry(faction);
-    if(RealFaction == NULL || RealFaction->RepListId < 0)
+    if(RealFaction == NULL || RealFaction->RepListIndex < 0)
     {
         std::stringstream ss;
         ss << "Incorrect faction, searching...";
@@ -2482,12 +2482,12 @@ bool ChatHandler::HandleFactionModStanding(const char *args, WorldSession *m_ses
         BlueSystemMessage(m_session, ss.str().c_str());
     }
 
-    if(RealFaction->RepListId < 0)
+    if(RealFaction->RepListIndex < 0)
     {
         RedSystemMessage(m_session, "Not a valid faction!");
         return true;
     }
 
-    pPlayer->ModStanding(RealFaction->ID, standing);
+    pPlayer->GetFactionInterface()->ModStanding(RealFaction->ID, standing);
     return true;
 }

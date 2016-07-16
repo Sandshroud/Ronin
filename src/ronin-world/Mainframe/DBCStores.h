@@ -317,7 +317,7 @@ struct EmoteTextEntry
 struct FactionEntry
 {
     uint32 ID;
-    int32  RepListId;
+    int32  RepListIndex;
     uint32 RaceMask[4];
     uint32 ClassMask[4];
     int32  baseRepValue[4];
@@ -342,6 +342,7 @@ struct FactionTemplateEntry
     uint32 HostileMask;
     uint32 EnemyFactions[4];
     uint32 FriendlyFactions[4];
+    uint32 FactionTeam;
 
     FactionEntry *m_faction;
     FactionEntry *GetFaction() { return m_faction; }

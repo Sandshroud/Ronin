@@ -54,7 +54,7 @@ uint64 ItemManager::CalculateBuyPrice(uint32 itemId, uint32 count, Player *playe
     // Prevent overflow of double conversions by only allowing 2^48
     if( (buyPrice&0xFFFF000000000000) == 0 && player != NULL && vendor != NULL )
     {
-        Standing plrstanding = player->GetStandingRank( vendor->GetFactionID() );
+        Standing plrstanding = player->GetFactionInterface()->GetStandingRank( vendor->GetFactionID() );
         if(plrstanding > STANDING_NEUTRAL)
             buyPrice = double2int64(double(buyPrice) * (1.f - (0.05f*uint8(plrstanding-STANDING_NEUTRAL))));
     }

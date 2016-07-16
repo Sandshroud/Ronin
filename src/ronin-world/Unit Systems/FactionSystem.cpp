@@ -16,6 +16,35 @@ FactionSystem::~FactionSystem()
 
 }
 
+void FactionSystem::LoadFactionInteractionData()
+{
+    sLog.Notice("FactionSystem", "Loading interaction and data for %u faction templates", dbcFactionTemplate.GetNumRows());
+    for(uint32 i = 0; i < dbcFactionTemplate.GetNumRows(); i++)
+    {
+        FactionTemplateEntry *entry = dbcFactionTemplate.LookupRow(i);
+        if(entry == NULL)
+            continue;
+        entry->FactionTeam = _GetTeam(entry);
+        entry->m_faction = dbcFaction.LookupEntry(entry->Faction);
+        if(entry->m_faction == NULL)
+            continue;
+
+        switch(entry->FactionTeam)
+        {
+        case TEAM_ALLIANCE:
+            m_allyFactions.insert(std::make_pair(entry->Faction, entry->m_faction));
+            break;
+        case TEAM_HORDE:
+            m_hordeFactions.insert(std::make_pair(entry->Faction, entry->m_faction));
+            break;
+        }
+
+        if(entry->m_faction->RepListIndex < 0)
+            continue;
+        m_factionByRepID.insert(std::make_pair(entry->m_faction->RepListIndex, entry->m_faction));
+    }
+}
+
 bool FactionSystem::AC_GetAttackableStatus(Player *plr, Unit *target)
 {
     return (GetAttackableStatus(plr, target, false) == FI_STATUS_NONE);
@@ -47,21 +76,21 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *o
     // Reputation System Checks
     if(objA->IsPlayer() && !objB->IsPlayer())
     {
-        if(factionB->RepListId >= 0)
+        if(factionB->RepListIndex >= 0)
         {
-            if(castPtr<Player>(objA)->IsHostileBasedOnReputation(factionB))
+            if(castPtr<Player>(objA)->GetFactionInterface()->IsHostileBasedOnReputation(factionB))
                 return FI_STATUS_HOSTILE;
-            if(castPtr<Player>(objA)->IsAtWar(factionB->ID))
+            if(castPtr<Player>(objA)->GetFactionInterface()->IsAtWar(factionB->ID))
                 return FI_STATUS_NEUTRAL;
         }
     }
     else if(objB->IsPlayer() && !objA->IsPlayer())
     {
-        if(factionB->RepListId >= 0)
+        if(factionB->RepListIndex >= 0)
         {
-            if(castPtr<Player>(objB)->IsHostileBasedOnReputation(factionB))
+            if(castPtr<Player>(objB)->GetFactionInterface()->IsHostileBasedOnReputation(factionB))
                 return FI_STATUS_HOSTILE;
-            if(castPtr<Player>(objB)->IsAtWar(factionB->ID))
+            if(castPtr<Player>(objB)->GetFactionInterface()->IsAtWar(factionB->ID))
                 return FI_STATUS_NEUTRAL;
         }
     }
@@ -401,7 +430,7 @@ bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B co
     return combatSupport;
 }
 
-UnitTeam FactionSystem::GetTeam(FactionTemplateEntry *factionTemplate)
+UnitTeam FactionSystem::_GetTeam(FactionTemplateEntry *factionTemplate)
 {
     // Check if we're a zone guard before assigning alliance or horde
     if(factionTemplate && factionTemplate->FactionFlags & FACTION_FLAG_ZONE_GUARD)
@@ -409,6 +438,9 @@ UnitTeam FactionSystem::GetTeam(FactionTemplateEntry *factionTemplate)
     // Force monster flag check before horde or alliance
     if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_MONSTER)
         return TEAM_MONSTER;
+    // If we're a combination of both functions then we are a neutral guard type
+    if(factionTemplate && factionTemplate->FactionMask == (FACTION_MASK_HORDE|FACTION_MASK_ALLIANCE))
+        return TEAM_GUARD;
     if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_HORDE)
         return TEAM_HORDE;
     if(factionTemplate && factionTemplate->FactionMask & FACTION_MASK_ALLIANCE)

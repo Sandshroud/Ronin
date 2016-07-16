@@ -146,28 +146,6 @@ enum LFGroleflags
     DAMAGE      = 8
 };
 
-/*
-Exalted         1,000    Access to racial mounts. Capped at 999.7
-Revered         21,000   Heroic mode keys for Outland dungeons
-Honored         12,000   10% discount from faction vendors
-Friendly        6,000
-Neutral         3,000
-Unfriendly      3,000    Cannot buy, sell or interact.
-Hostile         3,000    You will always be attacked on sight
-Hated           36,000
-*/
-enum Standing
-{
-    STANDING_HATED = 0,
-    STANDING_HOSTILE,
-    STANDING_UNFRIENDLY,
-    STANDING_NEUTRAL,
-    STANDING_FRIENDLY,
-    STANDING_HONORED,
-    STANDING_REVERED,
-    STANDING_EXALTED
-};
-
 enum PlayerFlags
 {
     PLAYER_FLAG_PARTY_LEADER        = 0x01,
@@ -303,15 +281,6 @@ enum RuneTypes
     RUNE_TYPE_RECHARGING    = 4
 };
 static const uint8 baseRunes[6] = {RUNE_TYPE_BLOOD,RUNE_TYPE_BLOOD,RUNE_TYPE_FROST,RUNE_TYPE_FROST,RUNE_TYPE_UNHOLY,RUNE_TYPE_UNHOLY};
-
-struct FactionReputation
-{
-    int32 standing;
-    uint8 flag;
-    int32 baseStanding;
-    RONIN_INLINE int32 CalcStanding() { return standing - baseStanding; }
-    RONIN_INLINE bool Positive() { return standing >= 0; }
-};
 
 struct PlayerInfo
 {
@@ -553,12 +522,12 @@ enum PlayerLoadOrder : uint8
     PLAYER_LO_CRITERIA_DATA,
     PLAYER_LO_EQUIPMENTSETS,
     PLAYER_LO_EXPLORATION,
-    PLAYER_LO_FACTIONS,
     PLAYER_LO_GLYPHS,
     PLAYER_LO_ITEMS,
     PLAYER_LO_KNOWN_TITLES,
     PLAYER_LO_QUEST_LOG,
     PLAYER_LO_QUESTS_COMPLETED,
+    PLAYER_LO_REPUTATIONS,
     PLAYER_LO_SKILLS,
     PLAYER_LO_SOCIAL,
     PLAYER_LO_SPELLS,
@@ -648,7 +617,6 @@ typedef std::list<classScriptOverride*>             ScriptOverrideList;
 typedef std::set<uint32>                            SaveSet;
 typedef std::map<uint32, ScriptOverrideList* >      SpellOverrideMap;
 typedef std::map<uint32, uint32>                    SpellOverrideExtraAuraMap;
-typedef std::map<uint32, FactionReputation*>        ReputationMap;
 typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
@@ -868,6 +836,7 @@ public:
     void                EventDismount(uint32 money, float x, float y, float z);
     void                EventTaxiInterpolate();
     void                InitTaxiNodes();
+    bool                HasNearbyTaxiNodes(uint32 from);
 
     RONIN_INLINE void         SetTaxiState    (bool state) { m_onTaxi = state; }
     RONIN_INLINE bool         HasTaxiNode(uint32 node) { return m_taxiMask.GetBit(node); }
@@ -881,7 +850,7 @@ public:
     std::vector<TaxiPath*>   m_taxiPaths;
     TaxiPath*           m_CurrentTaxiPath;
     uint32              taxi_model_id;
-    uint32              lastNode;
+    uint32              m_lastNode;
     uint32              m_taxi_ride_time;
     UpdateMask          m_taxiMask;
     float               m_taxi_pos_x;
@@ -1003,27 +972,15 @@ public:
     /************************************************************************/
     /* Reputation                                                           */
     /************************************************************************/
-    void                ModStanding(uint32 Faction, int32 Value);
-    int32               GetStanding(uint32 Faction);
-    int32               GetBaseStanding(uint32 Faction);
-    void                SetStanding(uint32 Faction, int32 Value);
-    void                SetAtWar(uint32 Faction, bool Set);
-    bool                IsAtWar(uint32 Faction);
-    Standing            GetStandingRank(uint32 Faction);
-    bool                IsHostileBasedOnReputation(FactionEntry *faction);
-    void                Reputation_OnKilledUnit(Unit* pUnit, bool InnerLoop);
-    void                Reputation_OnTalk(FactionEntry *faction);
-    bool                AddNewFaction( FactionEntry *faction, int32 standing, bool base );
-    void                OnModStanding( FactionEntry *faction, FactionReputation * rep );
-    static Standing     GetReputationRankFromStanding(int32 Standing_);
+    static Standing GetReputationRankFromStanding(int32 Standing_);
+    void Reputation_OnTalk(FactionEntry *faction) { m_factionInterface.Reputation_OnTalk(faction); }
 
     bool titanGrip;
 
     /************************************************************************/
     /* Factions                                                             */
     /************************************************************************/
-    void smsg_InitialFactions();
-    uint32 GetInitialFactionId();
+    FactionInterface *GetFactionInterface() { return &m_factionInterface; }
 
     /************************************************************************/
     /* PVP                                                                  */
@@ -1342,14 +1299,12 @@ public:
     uint32 GetBGQueueSlot();
 
     void EventRepeatSpell();
-    void EventCastRepeatedSpell(uint32 spellid, Unit* target);
     int32 CanShootRangedWeapon(uint32 spellid, Unit* target, bool autoshot);
     uint32 m_AutoShotDuration;
     uint32 m_AutoShotAttackTimer;
     bool m_onAutoShot;
     uint64 m_AutoShotTarget;
     SpellEntry *m_AutoShotSpell;
-    void _InitialReputation();
     void UpdateNearbyGameObjects();
     void UpdateNearbyQuestGivers();
     void EventMassSummonReset() { m_massSummonEnabled = false; }
@@ -1543,7 +1498,6 @@ public:
     uint32 AnnihilationProcChance;
     RONIN_INLINE void SetName(std::string& name) { m_name = name; }
     // spell to (delay, last time)
-    FactionReputation * reputationByListId[256];
     Channel* watchedchannel;
 
     uint32 m_speedChangeCounter;
@@ -1691,7 +1645,7 @@ protected:
     // Raid
     uint8 m_targetIcon;
     // Player Reputation
-    ReputationMap m_reputation;
+    FactionInterface m_factionInterface;
     // Pointer to this char's game client
     WorldSession *m_session;
     // Channels

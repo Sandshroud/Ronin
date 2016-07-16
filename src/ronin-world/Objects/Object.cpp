@@ -1301,11 +1301,26 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
             if( pVictim->IsPlayer() )
                 HonorHandler::OnPlayerKilled( plr, castPtr<Player>( pVictim ) );
-            else
+            else if(pVictim->IsCreature() && !pVictim->IsSummon() && !isCritter)
             {
-                // REPUTATION
-                if( !isCritter )
-                    plr->Reputation_OnKilledUnit( pVictim, false );
+                // add rep for on kill
+                if(FactionEntry *faction = pVictim->GetFaction())
+                {
+                    if (Group *m_Group = plr->GetGroup())
+                    {
+                        /* loop the rep for group members */
+                        m_Group->getLock().Acquire();
+                        GroupMembersSet::iterator it;
+                        for ( uint32 i = 0; i < m_Group->GetSubGroupCount(); i++ )
+                        {
+                            for ( it = m_Group->GetSubGroup(i)->GetGroupMembersBegin(); it != m_Group->GetSubGroup(i)->GetGroupMembersEnd(); ++it )
+                                if ( (*it)->m_loggedInPlayer && (*it)->m_loggedInPlayer != plr && (*it)->m_loggedInPlayer->IsInRangeSet(plr) )
+                                    (*it)->m_loggedInPlayer->GetFactionInterface()->Reputation_OnKill(pVictim);
+                        }
+                        m_Group->getLock().Release();
+                    }
+                    plr->GetFactionInterface()->Reputation_OnKill(pVictim);
+                }
             }
 
             if(plr->getLevel() <= (pVictim->getLevel() + 8) && plr->getClass() == WARRIOR)

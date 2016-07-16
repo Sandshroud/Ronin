@@ -159,7 +159,7 @@ void AchievementMgr::PlayerFinishedLoading(Player *plr)
     m_playerAchieveData.at(plr->GetGUID())->_loading = false;
 
     // Update retroactive criteria
-    UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, plr->getLevel());
+    UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, plr->getLevel(), 0, 0, true);
 }
 
 void AchievementMgr::LoadAchievementData(WoWGuid guid, PlayerInfo *info, QueryResult *result)
@@ -346,7 +346,7 @@ bool AchievementMgr::IsValidAchievement(Player *plr, AchievementEntry *entry)
     return true;
 }
 
-void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint32 mod, uint32 misc1, uint32 misc2)
+void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint32 mod, uint32 misc1, uint32 misc2, bool onLoad)
 {
     if(m_playerAchieveData.find(plr->GetGUID()) == m_playerAchieveData.end())
         return;
@@ -372,11 +372,11 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
         CriteriaData *data = container->m_criteriaProgress.at(criteria->ID);
         // store previous criteria value
         uint64 previous = data->criteriaCounter;
-        if(maxCounter && previous == maxCounter)
+        if(!onLoad && maxCounter && previous == maxCounter)
             continue;
 
         // See if we should update our criteria
-        if(modType == CCM_HIGHEST && data->criteriaCounter >= mod)
+        if(!onLoad && modType == CCM_HIGHEST && data->criteriaCounter >= mod)
             continue;
 
         // Update our criteria counter, only total is accumulative

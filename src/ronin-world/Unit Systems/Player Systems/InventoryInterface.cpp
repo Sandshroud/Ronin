@@ -1516,7 +1516,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
         // Check to see if we have the reqs for that reputation
         if(proto->RequiredFaction)
         {
-            Standing current_standing = Player::GetReputationRankFromStanding(m_pOwner->GetStanding(proto->RequiredFaction));
+            Standing current_standing = m_pOwner->GetFactionInterface()->GetStandingRank(proto->RequiredFaction);
             if(current_standing < (Standing)proto->RequiredFactionStanding)    // Not enough rep rankage..
                 return INV_ERR_CANT_EQUIP_REPUTATION;
         }
@@ -1750,10 +1750,10 @@ int8 PlayerInventory::CanAffordItem(ItemPrototype * item,uint32 amount, Creature
     if(item->RequiredFaction)
     {
         FactionEntry *faction = dbcFaction.LookupEntry(item->RequiredFaction);
-        if(!faction || faction->RepListId < 0)
+        if(!faction || faction->RepListIndex < 0)
             return CAN_AFFORD_ITEM_ERROR_NO_MESSAGE;
 
-        if( Player::GetReputationRankFromStanding( m_pOwner->GetStanding( item->RequiredFaction )) < item->RequiredFactionStanding )
+        if( Player::GetReputationRankFromStanding( m_pOwner->GetFactionInterface()->GetStanding( item->RequiredFaction )) < item->RequiredFactionStanding )
             return CAN_AFFORD_ITEM_ERROR_REPUTATION;
     }
 

@@ -2109,7 +2109,7 @@ void SpellEffectClass::SpellEffectReputation(uint32 i, WorldObject *target, int3
     if( playerTarget == NULL)
         return;
 
-    playerTarget->ModStanding(GetSpellProto()->EffectMiscValue[i], amount);
+    playerTarget->GetFactionInterface()->ModStanding(GetSpellProto()->EffectMiscValue[i], amount);
 }
 
 void SpellEffectClass::SpellEffectSummonObjectSlot(uint32 i, WorldObject *target, int32 amount)

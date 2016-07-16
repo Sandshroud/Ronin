@@ -923,15 +923,15 @@ void AlteracValley::OnAddPlayer(Player* plr)
     if(!m_started)
         plr->CastSpell(plr, BG_PREPARATION, true);
 
-    if( plr->GetTeam() )
+    if( plr->GetTeam() == TEAM_HORDE )
     {
-        plr->SetAtWar( 730, true );
-        plr->SetStanding( 730, -9000);
+        plr->GetFactionInterface()->SetAtWar( 730, true );
+        plr->GetFactionInterface()->SetStanding( 730, -9000);
     }
     else
     {
-        plr->SetAtWar( 729, true );
-        plr->SetStanding( 729, -9000);
+        plr->GetFactionInterface()->SetAtWar( 729, true );
+        plr->GetFactionInterface()->SetStanding( 729, -9000);
     }
 }
 

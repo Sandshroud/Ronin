@@ -3643,7 +3643,7 @@ void Unit::SetFaction(uint32 faction, bool save)
         if(save && castPtr<Creature>(this)->IsSpawn())
             castPtr<Creature>(this)->SaveToDB();
 
-        m_unitTeam = sFactionSystem.GetTeam(m_factionTemplate);
+        m_unitTeam = m_factionTemplate->FactionTeam;
         // Creature faction templates show what should be flagged for pvp
         if(m_factionTemplate->FactionFlags & 0x800)
             SetPvPFlag();
@@ -3673,7 +3673,7 @@ void Unit::Teleport(float x, float y, float z, float o)
     else
     {
         WorldPacket data(SMSG_MONSTER_MOVE, 50);
-        data << GetGUID();
+        data << GetGUID().asPacked();
         data << uint8(0);
         data << GetPositionX();
         data << GetPositionY();

@@ -30,6 +30,9 @@ enum FactionInteractionStatus
 class SERVER_DECL FactionSystem : public Singleton<FactionSystem>
 {
 public:
+    typedef std::map<uint32, FactionEntry*> FactionEntryMap;
+
+public:
     FactionSystem();
     ~FactionSystem();
 
@@ -42,7 +45,10 @@ public:
     bool isHostile(WorldObject* objA, WorldObject* objB);
     bool isAttackable(WorldObject* objA, WorldObject* objB, bool CheckStealth = true);
     bool isCombatSupport(WorldObject* objA, WorldObject* objB); // B combat supports A?;
-    UnitTeam GetTeam(FactionTemplateEntry *factionTemplate);
+
+    FactionEntryMap *GetAllianceFactions() { return &m_allyFactions; }
+    FactionEntryMap *GetHordeFactions() { return &m_hordeFactions; }
+    FactionEntryMap *GetRepIDFactions() { return &m_factionByRepID; }
 
 //private:
     bool IsInteractionLocked(WorldObject *obj);
@@ -65,6 +71,11 @@ public:
         return (objB->GetFaction() == objA->GetFaction());
     }
 
+protected:
+    // Only used on loadup to determine template team
+    UnitTeam _GetTeam(FactionTemplateEntry *factionTemplate);
+
+    FactionEntryMap m_factionByRepID, m_allyFactions, m_hordeFactions;
 };
 
 #define sFactionSystem FactionSystem::getSingleton()

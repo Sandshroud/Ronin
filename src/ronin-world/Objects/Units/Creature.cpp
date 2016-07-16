@@ -952,6 +952,8 @@ void Creature::SendTaxiList(Player *plr)
             data.Initialize(SMSG_TAXINODE_STATUS, 9);
             data << GetGUID() << uint8(1);
         }
+        else if(!plr->HasNearbyTaxiNodes(curloc))
+            data << uint32(2) << GetGUID();
         else
         {
             data << uint32(1) << GetGUID() << uint32(curloc);

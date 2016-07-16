@@ -389,7 +389,7 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
 
     // Check reputation
     if(qst->required_rep_faction && qst->required_rep_value)
-        if(plr->GetStanding(qst->required_rep_faction) < (int32)qst->required_rep_value)
+        if(plr->GetFactionInterface()->GetStanding(qst->required_rep_faction) < (int32)qst->required_rep_value)
             return QMGR_QUEST_NOT_AVAILABLE;
 
     //Do we just need to complete one, or all quest requisitions?
@@ -1260,13 +1260,13 @@ void QuestMgr::GiveQuestRewardReputation(Player* plr, Quest* qst, Object* qst_gi
             continue;
 
         int32 val = float2int32( float( qst->reward_repvalue[z] ) * sWorld.getRate( RATE_QUESTREPUTATION ) ); // reputation rewards
-        if(qst->reward_replimit[z] && plr->GetStanding(qst->reward_repfaction[z])+val >= (int32)qst->reward_replimit[z])
+        if(qst->reward_replimit[z] && plr->GetFactionInterface()->GetStanding(qst->reward_repfaction[z])+val >= (int32)qst->reward_replimit[z])
         {
-            if((val = (int32)qst->reward_replimit[z] - plr->GetStanding(qst->reward_repfaction[z])) < 0)
+            if((val = (int32)qst->reward_replimit[z] - plr->GetFactionInterface()->GetStanding(qst->reward_repfaction[z])) < 0)
                 val = 0; //prevent substraction when current_rep > limit (this quest should not be available?)
         }
 
-        plr->ModStanding(qst->reward_repfaction[z], val);
+        plr->GetFactionInterface()->ModStanding(qst->reward_repfaction[z], val);
     }
 }
 

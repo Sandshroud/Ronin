@@ -847,6 +847,13 @@ void WorldSession::HandleTutorialReset( WorldPacket & recv_data )
         m_tutorials.SetBlock(iI, 0x00);
 }
 
+void WorldSession::HandleSetAtWarOpcode(WorldPacket& recv_data)
+{
+    uint32 faction; uint8 state;
+    recv_data >> faction >> state;
+    _player->m_factionInterface.SetAtWar(faction, state);
+}
+
 void WorldSession::HandleSetSheathedOpcode( WorldPacket & recv_data )
 {
     uint32 active;

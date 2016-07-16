@@ -397,7 +397,6 @@ public:
     bool run();
 
     void Destruct();
-    void ParseFactionTemplate();
 
     uint32 GetMaxLevel(Player* plr);
     uint32 GetMaxLevelStatCalc();

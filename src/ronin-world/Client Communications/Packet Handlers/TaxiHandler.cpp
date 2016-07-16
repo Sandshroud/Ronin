@@ -56,7 +56,7 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
 
     // Check for known nodes
-    if (_player->HasTaxiNode(curloc))
+    if (!_player->HasTaxiNode(curloc))
     {
         data << uint32( 1 );
         SendPacket( &data );
@@ -165,7 +165,7 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
 
     // Check for known nodes
     WorldPacket data(SMSG_ACTIVATETAXIREPLY, 4);
-    if (_player->HasTaxiNode(curloc))
+    if (!_player->HasTaxiNode(curloc))
     {
         data << uint32( 1 );
         SendPacket( &data );

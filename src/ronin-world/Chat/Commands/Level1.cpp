@@ -429,7 +429,7 @@ bool ChatHandler::HandleTaxiCheatCommand(const char* args, WorldSession *m_sessi
         GreenSystemMessageToPlr(chr, "%s Unlocked all taxi nodes for you.", m_session->GetPlayer()->GetName());
     } else GreenSystemMessage(m_session, "Unlocking all taxi nodes.");
 
-    UpdateMask mask;
+    UpdateMask mask(8*114);
     if(flag) mask = *sTaxiMgr.GetAllTaxiMasks();
     chr->m_taxiMask = mask;
     return true;

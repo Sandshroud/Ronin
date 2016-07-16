@@ -282,12 +282,12 @@ public:
     void OnRelocate(LocationVector destination);
 
     // Aura related functions
-    bool isRooted() { return false; }
+    bool isRooted() { return hasFlag(MOVEMENTFLAG_TOGGLE_ROOT); }
     bool isAsleep() { return false; }
     bool isStunned() { return false; }
     bool canFly() { return hasFlag(MOVEMENTFLAG_CAN_FLY); }
 
-    void setRooted(bool root) {}
+    void setRooted(bool root);
     void setAsleep(bool sleep) {}
     void setStunned(bool stun) {}
     void setCanFly(bool canfly);
@@ -395,6 +395,7 @@ public:
         fly = &m_currSpeeds[MOVE_SPEED_FLIGHT];
     }
 
+    void RecalculateMoveSpeed(MovementSpeedTypes speedType);
     void SetMoveSpeed(MovementSpeedTypes speedType, float speed);
 
     void ClearMovementFlags(uint8 clearFlag, bool serverFlags)

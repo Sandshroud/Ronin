@@ -6,7 +6,7 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
-Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(guid))
+Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playerInfo(NULL), m_factionInterface(this), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(guid))
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
     m_objType = TYPEID_PLAYER;
@@ -165,7 +165,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     iInstanceType                   = 0;
     iRaidType                       = 0;
     m_XPoff                         = false;
-    memset(reputationByListId, 0, sizeof(FactionReputation*) * 256);
     AnnihilationProcChance          = 0;
 
     for(uint8 i = 0; i < 6; i++)
@@ -189,6 +188,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_setwaterwalk                  = false;
     m_areaSpiritHealer_guid         = 0;
     m_CurrentTaxiPath               = NULL;
+    m_lastNode                      = 0;
     m_lfgMatch                      = NULL;
     m_lfgInviterGuid                = 0;
     m_mountCheckTimer               = 0;
@@ -298,12 +298,6 @@ void Player::Destruct()
             delete m_questlog[i];
             m_questlog[i] = NULL;
         }
-    }
-
-    if(m_reputation.size())
-    {
-        for(ReputationMap::iterator itr = m_reputation.begin(); itr != m_reputation.end(); itr++)
-            delete itr->second;
     }
 
     if(m_playerInfo)
@@ -850,7 +844,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     // taxi
     if(m_onTaxi && m_CurrentTaxiPath) {
         ss << m_CurrentTaxiPath->GetID() << ", ";
-        ss << lastNode << ", ";
+        ss << m_lastNode << ", ";
         ss << GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) << ", ";
     } else ss << "0, 0, 0, ";
 
@@ -895,7 +889,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     _SaveExplorationData(buf);
 
     // Faction data
-    //_SaveFactionData(buf);
+    m_factionInterface.SaveFactionData(buf);
 
     // Glyphs
     m_talentInterface.SaveGlyphData(buf);
@@ -966,7 +960,7 @@ void Player::DeleteFromDB(WoWGuid guid)
     CharacterDatabase.Execute("DELETE FROM character_currency WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_equipmentsets WHERE ownerguid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_exploration WHERE guid = %u", guid.getLow());
-    CharacterDatabase.Execute("DELETE FROM character_factions WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_reputation WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_glyphs WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_inventory WHERE guid=%u",guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_known_titles WHERE guid = %u", guid.getLow());
@@ -994,12 +988,12 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_criteria_data WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_equipmentsets WHERE ownerguid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_factions WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT character_inventory.guid,character_inventory.itemguid,item_data.itementry,item_data.containerguid,item_data.creatorguid,item_data.count,item_data.flags,item_data.randomseed,item_data.randomproperty,item_data.durability,item_data.textid,item_data.playedtime,item_data.spellcharges,item_data.giftitemid,item_data.giftcreatorguid,character_inventory.container,character_inventory.slot FROM character_inventory JOIN item_data ON character_inventory.guid = item_data.ownerguid AND character_inventory.itemguid = item_data.itemguid WHERE character_inventory.guid = '%u' ORDER BY container,slot", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_quests_completed WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_reputation WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_skills WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_social WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_spells WHERE guid = '%u'", m_objGuid.getLow());
@@ -1167,7 +1161,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     uint32 taxipath = fields[PLAYERLOAD_FIELD_TAXI_PATH].GetUInt32();
     if(TaxiPath *path = sTaxiMgr.GetTaxiPath(taxipath))
     {
-        lastNode = fields[PLAYERLOAD_FIELD_TAXI_LASTNODE].GetUInt32();
+        m_lastNode = fields[PLAYERLOAD_FIELD_TAXI_LASTNODE].GetUInt32();
         SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, fields[PLAYERLOAD_FIELD_TAXI_MOUNTID].GetUInt32());
         SetTaxiPath(path);
         m_onTaxi = true;
@@ -1214,11 +1208,11 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     AchieveMgr.LoadCriteriaData(GetGUID(), results[PLAYER_LO_CRITERIA_DATA].result);
     _LoadEquipmentSets(results[PLAYER_LO_EQUIPMENTSETS].result);
     _LoadExplorationData(results[PLAYER_LO_EXPLORATION].result);
-    //m_factionInterface.LoadFactionData(results[PLAYER_LO_FACTIONS].result);
     m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
     _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
     _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
     _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result);
+    m_factionInterface.LoadFactionData(results[PLAYER_LO_REPUTATIONS].result);
     _LoadSkills(results[PLAYER_LO_SKILLS].result);
     _LoadSocial(results[PLAYER_LO_SOCIAL].result);
     _LoadSpells(results[PLAYER_LO_SPELLS].result);
@@ -1911,9 +1905,9 @@ bool Player::Create(WorldPacket& data )
     for(std::set<uint32>::iterator sp = info->spell_list.begin();sp!=info->spell_list.end();sp++)
         mSpells.insert(*sp);
 
-    _UpdateMaxSkillCounts();
+    m_factionInterface.CreateFactionData();
 
-    _InitialReputation();
+    _UpdateMaxSkillCounts();
 
     // Add actionbars
     for(std::list<CreateInfo_ActionBarStruct>::iterator itr = info->bars.begin();itr!=info->bars.end();itr++)
@@ -2050,9 +2044,10 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
     ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)money );
 
     SetPosition(x, y, z, true);
-    if(!m_taxiPaths.size())
+    if(m_taxiPaths.empty())
         SetTaxiState(false);
 
+    m_movementInterface.setRooted(m_AuraInterface.HasAuraWithMechanic(MECHANIC_STUNNED));
     SetTaxiPath(NULL);
     UnSetTaxiPos();
     m_taxi_ride_time = 0;
@@ -2069,7 +2064,7 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
     SaveToDB(false);
 
     // If we have multiple "trips" to do, "jump" on the next one :p
-    if(m_taxiPaths.size())
+    if(!m_taxiPaths.empty())
     {
         TaxiPath * p = *m_taxiPaths.begin();
         m_taxiPaths.erase(m_taxiPaths.begin());
@@ -2748,15 +2743,10 @@ void Player::OnPushToWorld()
     if(GetTaxiState())
     {
         if( m_taxiMapChangeNode != 0 )
-        {
-            lastNode = m_taxiMapChangeNode;
-        }
+            m_lastNode = m_taxiMapChangeNode;
 
         // Create HAS to be sent before this!
-        TaxiStart(GetTaxiPath(),
-            GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID),
-            lastNode);
-
+        TaxiStart(GetTaxiPath(), GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID), m_lastNode);
         m_taxiMapChangeNode = 0;
     }
 
@@ -4350,7 +4340,9 @@ void Player::SendInitialLogonPackets()
     m_talentInterface.SendInitialActions();
 
     //Factions
-    smsg_InitialFactions();
+    data.Initialize(SMSG_INITIALIZE_FACTIONS);
+    m_factionInterface.BuildInitialFactions(&data);
+    GetSession()->SendPacket(&data);
 
     data.Initialize(SMSG_ALL_ACHIEVEMENT_DATA);
     AchieveMgr.BuildAchievementData(GetGUID(), &data, getLevel() <= 9);
@@ -4496,6 +4488,23 @@ void Player::InitTaxiNodes()
     AddTaxiMask(213);
 }
 
+bool Player::HasNearbyTaxiNodes(uint32 from)
+{
+    bool ret = false;
+    if(std::vector<uint32> *pathTargets = sTaxiMgr.GetPathTargets(from))
+    {
+        for(std::vector<uint32>::iterator itr = pathTargets->begin(); itr != pathTargets->end(); itr++)
+        {
+            if(HasTaxiNode(*itr))
+            {
+                ret = true;
+                break;
+            }
+        }
+    }
+    return ret;
+}
+
 void Player::EventTaxiInterpolate()
 {
     if(!m_CurrentTaxiPath || m_mapInstance==NULL) return;
@@ -4505,7 +4514,7 @@ void Player::EventTaxiInterpolate()
     float z = 0.0f;
     uint32 ntime = getMSTime();
     if (ntime > m_taxi_ride_time)
-        m_CurrentTaxiPath->SetPosForTime(x, y, z, ntime - m_taxi_ride_time, &lastNode, m_mapId);
+        m_CurrentTaxiPath->SetPosForTime(x, y, z, ntime - m_taxi_ride_time, &m_lastNode, m_mapId);
 
     if(x < _minX || x > _maxX || y < _minY || y > _maxX)
         return;
@@ -4537,6 +4546,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, modelid );
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
+    m_movementInterface.setRooted(true);
 
     SetTaxiPath(path);
     SetTaxiPos();
@@ -4549,9 +4559,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
     }
 
     m_taxi_ride_time = getMSTime();
-
-    //uint32 traveltime = uint32(path->getLength() * TAXI_TRAVEL_SPEED); // 36.7407
-    float traveldist = 0;
+    uint32 traveltime = 1000 * (path->GetLength(GetMapId(), false)/m_movementInterface.GetMoveSpeed(MOVE_SPEED_RUN));
 
     // temporary workaround for taximodes with changing map
     if (   path->GetID() == 766 || path->GetID() == 767 || path->GetID() == 771 || path->GetID() == 772
@@ -4562,10 +4570,16 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
         return;
     }
 
-    float lastx = 0, lasty = 0, lastz = 0;
     TaxiPathNodeEntry *firstNode = path->GetPathNode(start_node);
+    if(firstNode == NULL)
+    {
+        JumpToEndTaxiNode(path);
+        return;
+    }
+
     uint32 add_time = 0;
-    if(start_node)
+    float lastx = 0, lasty = 0, lastz = 0;
+    if(firstNode && start_node)
     {
         TaxiPathNodeEntry *pn = path->GetPathNode(0);
         float dist = 0;
@@ -4588,68 +4602,39 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
         }
         add_time = uint32( sqrtf(dist) * TAXI_TRAVEL_SPEED );
         lastx = lasty = lastz = 0;
+        traveltime -= add_time;
     }
-    size_t endn = path->GetNodeCount();
-    if(m_taxiPaths.size())
-        endn-= 2;
 
-    for(uint32 i = start_node; i < endn; i++)
+    size_t endn = path->GetNodeCount()-1;
+    TaxiPathNodeEntry *endP = path->GetPathNode(endn);
+    if(!m_taxiPaths.empty())
+        endP = (*m_taxiPaths.begin())->GetPathNode(0);
+
+    if( endP == NULL || start_node > endn || (endn - start_node) > 200 )
     {
-        TaxiPathNodeEntry *pn = path->GetPathNode(i);
-        if(!pn)
-        {
-            JumpToEndTaxiNode(path);
-            return;
-        }
-
-        if( pn->ContinentID != m_mapId )
-        {
-            endn = (i - 1);
-            m_taxiMapChangeNode = i;
-
-            mapchangeid = (int32)pn->ContinentID;
-            mapchangex = pn->LocX;
-            mapchangey = pn->LocY;
-            mapchangez = pn->LocZ;
-            break;
-        }
-
-        if(!lastx || !lasty || !lastz)
-        {
-            lastx = pn->LocX;
-            lasty = pn->LocY;
-            lastz = pn->LocZ;
-        }
-        else
-        {
-            traveldist += CalcDistanceSq(lastx,lasty,lastz,pn->LocX,pn->LocY,pn->LocZ);
-            lastx = pn->LocX;
-            lasty = pn->LocY;
-            lastz = pn->LocZ;
-        }
-    }
-
-    uint32 traveltime = uint32(sqrtf(traveldist) * TAXI_TRAVEL_SPEED);
-
-    if( start_node > endn || (endn - start_node) > 200 )
+        JumpToEndTaxiNode(path);
         return;
+    }
 
     WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( (endn - start_node) * 12 ) );
-    data << GetGUID();
+    data << GetGUID().asPacked();
     data << uint8(0);
     data << firstNode->LocX << firstNode->LocY << firstNode->LocZ;
     data << m_taxi_ride_time;
     data << uint8( 0 );
-    data << uint32( 0 );
+    data << uint32( 0x00400000|0x00000800|0x00000200 );
     data << uint32( traveltime );
+    // Add an extra 2 seconds to travel timeout
+    if(m_taxiPaths.empty())
+        traveltime += 2000;
 
     if(!cn)
         m_taxi_ride_time -= add_time;
 
-    data << uint32( endn - start_node );
-//  uint32 timer = 0, nodecount = 0;
-//  TaxiPathNode *lastnode = NULL;
+    // Hardcoded last point
+    data << uint32( 1+(endn - start_node) );
 
+    uint32 i = start_node+1;
     for(uint32 i = start_node; i < endn; i++)
     {
         TaxiPathNodeEntry *pn = path->GetPathNode(i);
@@ -4661,24 +4646,18 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
 
         data << pn->LocX << pn->LocY << pn->LocZ;
     }
-
+    data << endP->LocX << endP->LocY << endP->LocZ;
     SendMessageToSet(&data, true);
 
     sEventMgr.AddEvent(castPtr<Player>(this), &Player::EventTaxiInterpolate, EVENT_PLAYER_TAXI_INTERPOLATE, 900, 0, 0);
     if( mapchangeid < 0 )
     {
-        TaxiPathNodeEntry *pn = path->GetPathNode((uint32)path->GetNodeCount() - 1);
-        sEventMgr.AddEvent(this, &Player::EventDismount, path->GetPrice(), pn->LocX, pn->LocY, pn->LocZ, EVENT_PLAYER_TAXI_DISMOUNT, traveltime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    } else sEventMgr.AddEvent(this, &Player::EventTeleport, (uint32)mapchangeid, mapchangex, mapchangey, mapchangez, orientation, EVENT_PLAYER_TELEPORT, traveltime, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+        sEventMgr.AddEvent(this, &Player::EventDismount, path->GetPrice(), endP->LocX, endP->LocY, endP->LocZ, EVENT_PLAYER_TAXI_DISMOUNT, traveltime, 1, 0);
+    } else sEventMgr.AddEvent(this, &Player::EventTeleport, (uint32)mapchangeid, mapchangex, mapchangey, mapchangez, orientation, EVENT_PLAYER_TELEPORT, traveltime, 1, 0);
 }
 
 void Player::JumpToEndTaxiNode(TaxiPath * path)
 {
-    // this should *always* be safe in case it cant build your position on the path!
-    TaxiPathNodeEntry * pathnode = path->GetPathNode((uint32)path->GetNodeCount()-1);
-    if(pathnode == NULL)
-        return;
-
     SetTaxiState(false);
     SetTaxiPath(NULL);
     UnSetTaxiPos();
@@ -4690,7 +4669,10 @@ void Player::JumpToEndTaxiNode(TaxiPath * path)
 
     m_movementInterface.OnTaxiEnd();
 
-    SafeTeleport(pathnode->ContinentID, 0, LocationVector(pathnode->LocX, pathnode->LocY, pathnode->LocZ));
+    // this should *always* be safe in case it cant build your position on the path!
+    uint32 endNode = (uint32)path->GetNodeCount();
+    if(TaxiPathNodeEntry * pathnode = path->GetPathNode(endNode-1))
+        SafeTeleport(pathnode->ContinentID, 0, LocationVector(pathnode->LocX, pathnode->LocY, pathnode->LocZ));
 }
 
 void Player::RemoveSpellsFromLine(uint16 skill_line)

@@ -458,6 +458,11 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     return true;
 }
 
+void MovementInterface::RecalculateMoveSpeed(MovementSpeedTypes speedType)
+{
+    SetMoveSpeed(speedType, _CalculateSpeed(speedType));
+}
+
 void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
 {
     if(m_Unit->IsPlayer() && m_Unit->IsInWorld())
@@ -999,7 +1004,7 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
         setCanFly(canFly);
     // Update pending speeds
     for(std::set<MovementSpeedTypes>::iterator itr = speedsToUpdate.begin(); itr != speedsToUpdate.end(); itr++)
-        SetMoveSpeed(*itr, _CalculateSpeed(*itr));
+        RecalculateMoveSpeed(*itr);
 }
 
 void MovementInterface::SetFacing(float orientation)
@@ -1018,7 +1023,7 @@ void MovementInterface::OnPrePushToWorld()
 {
     setCanFly(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY));
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
-        SetMoveSpeed(MovementSpeedTypes(i), _CalculateSpeed(MovementSpeedTypes(i)));
+        RecalculateMoveSpeed(MovementSpeedTypes(i));
 }
 
 void MovementInterface::OnPushToWorld()
@@ -1064,6 +1069,24 @@ void MovementInterface::OnTaxiEnd()
 void MovementInterface::OnRelocate(LocationVector destination)
 {
 
+}
+
+void MovementInterface::setRooted(bool root)
+{
+    if(!m_Unit->IsPlayer() || !m_Unit->IsInWorld())
+    {
+        if(root)
+            setServerFlag(MOVEMENTFLAG_TOGGLE_ROOT);
+        else removeServerFlag(MOVEMENTFLAG_TOGGLE_ROOT);
+        return;
+    }
+
+    if(root) m_pendingEnable[MOVEMENT_STATUS_ROOT] = true;
+    else m_pendingEnable[MOVEMENT_STATUS_UNROOT] = true;
+
+    WorldPacket data(root ? SMSG_MOVE_ROOT : SMSG_MOVE_UNROOT, 200);
+    WriteFromServer(data.GetOpcode(), &data);
+    castPtr<Player>(m_Unit)->SendPacket(&data);
 }
 
 void MovementInterface::setCanFly(bool canFly)
