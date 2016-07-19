@@ -454,8 +454,6 @@ public:
 
     // update the world server every frame
     void Update(uint32 diff);
-    void CheckForExpiredInstances();
-
     void UpdateSessions(uint32 diff);
 
     RONIN_INLINE void setRate(int index,float value) { regen_values[index] = value; }

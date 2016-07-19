@@ -15,11 +15,13 @@ public:
         memcpy(mUpdateMask, mask.mUpdateMask, mask.GetLength());
     }
 
-    ~UpdateMask() { delete[] mUpdateMask; }
+    ~UpdateMask() { CleanupMask(); }
 
-    RONIN_INLINE void SetBit(uint32 index) { mUpdateMask[index>>3] |= 1 << (index & 0x7); }
-    RONIN_INLINE void UnsetBit(uint32 index) { mUpdateMask[index>>3] &= ~(1 << (index & 0x7)); }
-    RONIN_INLINE bool GetBit(uint32 index) const { return (mUpdateMask[index>>3] & (1 << (index & 0x7))) != 0; }
+    RONIN_INLINE void CleanupMask() { if(mUpdateMask) delete[] mUpdateMask; mUpdateMask = NULL; }
+
+    RONIN_INLINE void SetBit(uint32 index) { if(mUpdateMask == NULL) return; mUpdateMask[index>>3] |= 1 << (index & 0x7); }
+    RONIN_INLINE void UnsetBit(uint32 index) { if(mUpdateMask == NULL) return; mUpdateMask[index>>3] &= ~(1 << (index & 0x7)); }
+    RONIN_INLINE bool GetBit(uint32 index) const { if(mUpdateMask == NULL) return false; return (mUpdateMask[index>>3] & (1 << (index & 0x7))) != 0; }
 
     RONIN_INLINE uint32 GetBlockCount() const { return mBlocks>>2; }
     RONIN_INLINE uint32 GetLength() const { return mBlocks; }

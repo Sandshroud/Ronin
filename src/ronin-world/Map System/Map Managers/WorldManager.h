@@ -95,6 +95,8 @@ public:
     WorldManager();
     ~WorldManager();
 
+    void Destruct();
+
     RONIN_INLINE Map* GetMap(uint32 mapid)
     {
         if(mapid > NUM_MAPS)

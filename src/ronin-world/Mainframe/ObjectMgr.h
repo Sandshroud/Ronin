@@ -113,8 +113,9 @@ public:
     // other objects
 
     // Set typedef's
-    typedef std::set<AchievementCriteriaEntry*>                             AchievementCriteriaSet;
-    typedef std::set<RecallLocation*>                                       RecallSet;
+    typedef std::set<AchievementCriteriaEntry*>                  AchievementCriteriaSet;
+    typedef std::set<RecallLocation*>                            RecallSet;
+    typedef std::map<uint32, TrainerSpell>                       TrainerSpellMap;
 
     // HashMap typedef's
     typedef std::map<uint64, Item* >                             ItemMap;
@@ -123,14 +124,16 @@ public:
     typedef std::map<uint16, PlayerCreateInfo*>                  PlayerCreateInfoMap;
     typedef std::map<uint32, SkillLineAbilityEntry*>             SLMap;
     typedef std::map<uint32, std::map<uint32, CreatureItem>* >   VendorMap;
+    typedef std::map<uint32, TrainerData >                       TrainerDataMap;
+    typedef std::map<std::pair<uint8, uint8>, TrainerSpellMap>   TrainerSpellStorage;
     typedef std::map<uint32, Transporter* >                      TransportMap;
     typedef std::map<uint32, Corpse* >                           CorpseMap;
     typedef std::map<uint32, Group*>                             GroupMap;
 
     // Map typedef's
-    typedef std::map<uint32, std::list<ItemPrototype*>* >                   ItemSetContentMap;
-    typedef std::map<uint32, uint32>                                        NpcToGossipTextMap;
-    typedef std::map<uint32, AchievementCriteriaSet*>                       AchievementCriteriaMap;
+    typedef std::map<uint32, std::list<ItemPrototype*>* >        ItemSetContentMap;
+    typedef std::map<uint32, uint32>                             NpcToGossipTextMap;
+    typedef std::map<uint32, AchievementCriteriaSet*>            AchievementCriteriaMap;
 
     // WMO tables
     typedef std::map<std::pair<uint32, std::pair<uint32, uint32> >, WMOAreaTableEntry*> WMOAreaTableMap;
@@ -228,6 +231,10 @@ public:
     std::map<uint32, CreatureItem> *AllocateVendorList(uint32 entry);
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
+    // Trainers
+    TrainerData *GetTrainerData(uint32 entry);
+    TrainerSpellMap *GetTrainerSpells(uint8 category, uint8 subcategory);
+
     uint32 m_hiArenaTeamId;
     uint32 GenerateArenaTeamId()
     {
@@ -255,11 +262,11 @@ public:
     void LoadPlayerCreateInfo();
     Corpse* LoadCorpse(uint32 guid);
     void LoadCorpses(MapInstance* instance);
-    void LoadAuctions();
-    void LoadAuctionItems();
     void LoadSpellSkills();
     void LoadVendors();
     void ReloadVendors();
+
+    void LoadTrainers();
 
     void SetHighestGuids();
     void ListGuidAmounts();
@@ -347,6 +354,10 @@ protected:
 
     // Map of all vendor goods
     VendorMap mVendors;
+
+    // Map of all trainer data
+    TrainerDataMap mTrainerData;
+    TrainerSpellStorage mTrainerSpellStorage;
 
     SLMap               mSpellSkills;
 

@@ -61,9 +61,14 @@ bool ChatHandler::HandleLearnCommand(const char* args, WorldSession *m_session)
         return false;
 
     if( stricmp( args, "all" ) == 0 )
-    {
-
-        //sWorld.LogGM(m_session, "taught %s all spells.", plr->GetName());
+    {   // Get our trainer spell map for our class and add all spells
+        if(ObjectMgr::TrainerSpellMap *map = objmgr.GetTrainerSpells(TRAINER_CATEGORY_TALENTS, plr->getClass()))
+        {
+            for(ObjectMgr::TrainerSpellMap::iterator itr = map->begin(); itr != map->end(); itr++)
+                if(plr->getLevel() >= itr->second.requiredLevel)
+                    plr->addSpell(itr->first);
+            sWorld.LogGM(m_session, "taught %s all spells.", plr->GetName());
+        }
         return true;
     }
 
@@ -2012,15 +2017,6 @@ bool ChatHandler::HandleRehashCommand(const char * args, WorldSession * m_sessio
     sWorld.Rehash(false);
     return true;
 }
-
-struct spell_thingo
-{
-    uint32 type;
-    uint32 target;
-};
-
-std::list<SpellEntry*> aiagent_spells;
-std::map<uint32, spell_thingo> aiagent_extra;
 
 bool ChatHandler::HandleGuildRemovePlayerCommand(const char* args, WorldSession *m_session)
 {

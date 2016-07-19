@@ -13,6 +13,11 @@ InstanceManager::~InstanceManager()
 
 }
 
+void InstanceManager::Destruct()
+{
+
+}
+
 void InstanceManager::Launch()
 {
     InstanceManagerSlave *worker = new InstanceManagerSlave();
@@ -28,7 +33,6 @@ void InstanceManager::Prepare()
         m_instanceCounter = result->Fetch()[0].GetUInt32();
         delete result;
     } else m_instanceCounter = 0x3FF;
-
 }
 
 MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)

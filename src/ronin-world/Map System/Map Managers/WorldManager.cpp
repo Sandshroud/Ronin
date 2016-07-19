@@ -12,9 +12,17 @@ SERVER_DECL WorldManager sWorldMgr;
 
 static const uint32 MapInstanceUpdatePeriod = 50;
 
-WorldManager::WorldManager()
-{
+WorldManager::WorldManager() { }
+WorldManager::~WorldManager() { }
 
+void WorldManager::Destruct()
+{
+    for(std::map<uint32, Map*>::iterator itr = m_maps.begin(); itr != m_maps.end(); itr++)
+        delete itr->second;
+    m_maps.clear();
+
+    delete WorldStateTemplateManager::getSingletonPtr();
+    sInstanceMgr.Destruct();
 }
 
 bool WorldManager::ValidateMapId(uint32 mapId)
@@ -32,7 +40,6 @@ bool WorldManager::ValidateMapId(uint32 mapId)
 
 void WorldManager::Load(TaskList * l)
 {
-    new InstanceManager();
     new WorldStateTemplateManager();
     sWorldStateTemplateManager.LoadFromDB();
 
@@ -80,16 +87,10 @@ void WorldManager::Load(TaskList * l)
     sInstanceMgr.Launch();
 }
 
-WorldManager::~WorldManager()
-{
-    delete WorldStateTemplateManager::getSingletonPtr();
-}
-
 void WorldManager::Shutdown()
 {
     // Map manager threads are self cleanup
     m_continentManagement.clear();
-    m_maps.clear();
 }
 
 uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)

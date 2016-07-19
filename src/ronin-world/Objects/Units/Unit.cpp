@@ -1466,182 +1466,13 @@ uint32 roll_results[5] =
 uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability )
 {
     Item* it = NULL;
-
-    float hitchance         = 0.0f;
-    float dodge             = 0.0f;
-    float parry             = 0.0f;
-    float block             = 0.0f;
-
-    float hitmodifier       = 0;
-    int32 self_skill        = 0;
-    int32 victim_skill      = 0;
-    uint32 SubClassSkill    = SKILL_UNARMED;
-
-    bool backAttack         = pVictim->isTargetInBack(this);
-    uint32 vskill           = 0;
-
-    //==========================================================================================
-    //==============================Victim Skill Base Calculation===============================
-    //==========================================================================================
-    if( pVictim->IsPlayer() )
-    {
-        vskill = castPtr<Player>( pVictim )->_GetSkillLineCurrent( SKILL_DEFENSE );
-        if( weapon_damage_type != RANGED )
-        {
-            if( !backAttack )
-            {
-//--------------------------------block chance----------------------------------------------
-                if( !pVictim->disarmedShield )
-                    block = pVictim->GetFloatValue(PLAYER_BLOCK_PERCENTAGE); //shield check already done in Update chances
-//--------------------------------dodge chance----------------------------------------------
-                if(!pVictim->IsStunned())
-                    dodge = pVictim->GetFloatValue( PLAYER_DODGE_PERCENTAGE );
-//--------------------------------parry chance----------------------------------------------
-                if(true && !disarmed)
-                    parry = pVictim->GetFloatValue( PLAYER_PARRY_PERCENTAGE );
-            }
-        }
-        victim_skill = float2int32( vskill + castPtr<Player>( pVictim )->CalcRating( PLAYER_RATING_MODIFIER_DEFENCE ) );
-    }
-    //--------------------------------mob defensive chances-------------------------------------
-    else if(pVictim->IsCreature())
-    {
-        Creature* c = castPtr<Creature>(pVictim);
-
-        if( weapon_damage_type != RANGED && !pVictim->IsStunned())
-            dodge = pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f; // what is this value?
-
-        victim_skill = pVictim->getLevel() * 5;
-        if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
-        {
-            victim_skill = std::max(victim_skill,((int32)getLevel()+3)*5); //used max to avoid situation when lowlvl hits boss.
-        }
-
-        if( !backAttack )
-        {
-            if( c->b_has_shield && !pVictim->disarmedShield && pVictim->GetUInt32Value(UNIT_FIELD_STRENGTH))
-                block = 5.0f+(victim_skill*0.04f)+(pVictim->GetUInt32Value(UNIT_FIELD_STRENGTH)/2);
-            if(true && !disarmed) // VictimSkill*0.04 per point
-                parry = (victim_skill*0.04f);
-        }
-    }
-    //==========================================================================================
-    //==============================Attacker Skill Base Calculation=============================
-    //==========================================================================================
-    self_skill = getLevel() * 5;
-    if(GetTypeId() == TYPEID_UNIT)
-    {
-        Creature* c = castPtr<Creature>(this);
-        if(c && c->GetCreatureData() && (c->GetCreatureData()->rank == ELITE_WORLDBOSS || c->GetCreatureData()->flags & CREATURE_FLAGS1_BOSS))
-            self_skill = std::max(self_skill,((int32)pVictim->getLevel()+3)*5);//used max to avoid situation when lowlvl hits boss.
-    }
-    else if(IsPlayer())
-    {
-        Player* pr = castPtr<Player>(this);
-        switch( weapon_damage_type )
-        {
-        case MELEE:   // melee main hand weapon
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
-            hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
-            break;
-        case OFFHAND: // melee offhand weapon (dualwield)
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
-            hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_OFF_HAND_SKILL ) );
-            break;
-        case RANGED:  // ranged weapon
-            it = disarmed ? NULL : pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_RANGED );
-            hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_RANGED_HIT );
-            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_WEAPON_SKILL ) );
-            break;
-        }
-
-        // erm. some spells don't use ranged weapon skill but are still a ranged spell and use melee stats instead
-        // i.e. hammer of wrath
-        if( ability && (ability->NameHash == SPELL_HASH_HAMMER_OF_WRATH || ability->NameHash == SPELL_HASH_AVENGER_S_SHIELD) )
-        {
-            it = pr->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_MAINHAND );
-            hitmodifier += pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_HIT );
-            self_skill += float2int32( pr->CalcRating( PLAYER_RATING_MODIFIER_MELEE_MAIN_HAND_SKILL ) );
-        }
-
-        SubClassSkill = it ? sItemMgr.GetSkillForItem(it->GetProto()) : SKILL_UNARMED;
-
-        //chances in feral form don't depend on weapon skill
-        if(castPtr<Player>(this)->IsInFeralForm())
-        {
-            uint8 form = castPtr<Player>(this)->GetShapeShift();
-            if(form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR)
-            {
-                SubClassSkill = SKILL_FERAL_COMBAT;
-                // Adjust skill for Level * 5 for Feral Combat
-                self_skill += pr->getLevel() * 5;
-            }
-        }
-
-        self_skill += pr->_GetSkillLineCurrent(SubClassSkill);
-    }
-
-    //==========================================================================================
-    //==============================Special Chances Base Calculation============================
-    //==========================================================================================
-    //<THE SHIT> to avoid Linux bug.
-    float diffVcapped = (float)self_skill;
-    if(int32(pVictim->getLevel()*5)>victim_skill)
-        diffVcapped -=(float)victim_skill;
-    else diffVcapped -=(float)(pVictim->getLevel()*5);
-
-    float diffAcapped = (float)victim_skill;
-    if(int32(getLevel()*5)>self_skill)
-        diffAcapped -=(float)self_skill;
-    else diffAcapped -=(float)(getLevel()*5);
-    //<SHIT END>
+    bool backAttack = pVictim->isTargetInBack(this);
+    float hitchance = 100.f, dodge = 0.f, parry = 0.f, block = 0.f;
+    float advantage = CalculateAdvantage(pVictim, hitchance, dodge, parry, block, NULL, NULL, NULL);
 
     //--------------------------------by victim state-------------------------------------------
     if(pVictim->IsPlayer()&&pVictim->GetStandState()) //every not standing state is >0
         hitchance = 100.0f;
-
-    //--------------------------------by damage type and by weapon type-------------------------
-    if( weapon_damage_type == RANGED )
-    {
-        dodge = 0.0f;
-        parry = 0.0f;
-    }
-    else if(IsPlayer())
-    {
-        it = castPtr<Player>(this)->GetInventory()->GetInventoryItem( EQUIPMENT_SLOT_OFFHAND );
-        if( it != NULL && (it->GetProto()->InventoryType == INVTYPE_WEAPON ||
-            it->GetProto()->InventoryType == INVTYPE_2HWEAPON) && !ability )//dualwield to-hit penalty
-        {
-            hitmodifier -= 19.0f;
-        }
-    }
-
-    //--------------------------------by skill difference---------------------------------------
-    float vsk = (float)self_skill - (float)victim_skill;
-    if( dodge )
-        dodge = std::max( 0.0f, dodge - vsk * 0.04f );
-    if( parry )
-        parry = std::max( 0.0f, parry - vsk * 0.04f );
-    if( block )
-        block = std::max( 0.0f, block - vsk * 0.04f );
-
-    if( pVictim->IsPlayer() )
-    {
-        if( vsk > 0 )
-            hitchance = std::max( hitchance, 95.0f + vsk * 0.02f);
-        else
-            hitchance = std::max( hitchance, 95.0f + vsk * 0.04f);
-    }
-    else
-    {
-        if(vsk >= -10 && vsk <= 10)
-            hitchance = std::max( hitchance, 95.0f + vsk * 0.1f);
-        else
-            hitchance = std::max( hitchance, 93.0f + (vsk - 10.0f) * 0.4f);
-    }
-    hitchance += hitmodifier;
 
     if( ability && ability->SpellGroupType )
     {
@@ -1651,11 +1482,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
 
     // overpower nana
     if( ability != NULL && ability->isUnstoppableForce() )
-    {
-        dodge = 0.0f;
-        parry = 0.0f;
-        block = 0.0f;
-    }
+        dodge = 0.0f, parry = 0.0f, block = 0.0f;
 
     //==========================================================================================
     //==============================One Roll Processing=========================================
@@ -1669,8 +1496,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
         chances[1] = chances[0]+dodge;
         chances[2] = chances[1]+parry;
         chances[3] = chances[2]+block;
-    }
-    else if(pVictim->IsCreature())
+    } else if(pVictim->IsCreature())
         chances[1] = chances[0]+dodge;
 
     //--------------------------------roll------------------------------------------------------
@@ -1759,13 +1585,21 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, u
     return res;
 }
 
-float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &critChance, float &dodgechance, float &parrychance, float &blockchance, float &crushingBlow, float &glancingBlow)
+static float hitModifierPerLevelDiff[21] = { /*-10 to -6*/-40.f, -35.f, -30.f, -25.f, -20.f, /*-5 to -1*/ -10.f, -5.f, -3.f, -1.f, -0.5f, /*0 and 1*/0.f, 0.f, /*2 to 5*/0.5f, 1.f, 2.5f, 5.f, /*5 to 10*/7.5f, 10.f, 12.5f, 15.f, 20.f };
+float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow)
 {
     float level = getLevel(), vLevel = pVictim->getLevel(), rawDiff = level-vLevel, advantage = vLevel/level;
+    rawDiff = floor(std::max<float>(-10.f, std::min<float>(10.f, rawDiff)));
     uint32 defense = pVictim->IsPlayer() ? castPtr<Player>(pVictim)->_GetSkillLineCurrent(SKILL_DEFENSE) : vLevel*5;
 
-    crushingBlow = std::max<float>(0.f, rawDiff >= 4 ? (-15.f+advantage*(1.f+RandomFloat(1.f))) : 0.f);
-    glancingBlow = std::max<float>(0.f, 10.f*advantage);
+    hitchance -= pVictim->GetDodgeChance();
+    hitchance += hitModifierPerLevelDiff[10+uint8(rawDiff)];
+    hitchance += GetHitChance();
+
+    if(crushingBlow)
+        *crushingBlow = std::max<float>(0.f, rawDiff >= 4 ? (-15.f+advantage*(1.f+RandomFloat(1.f))) : 0.f);
+    if(glancingBlow)
+        *glancingBlow = std::max<float>(0.f, 10.f*advantage);
     return std::min<float>(advantage, 5.f);
 /*
     //--------------------------------crushing blow chance--------------------------------------
@@ -1903,7 +1737,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     float armorreducepct    = 0.f;
 
-    float hitchance         = 0.0f;
+    float hitchance         = 100.f;
     float dodge             = 0.0f;
     float parry             = 0.0f;
     float glanc             = 0.0f;
@@ -1946,7 +1780,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         crit = IsPlayer() ? GetFloatValue(PLAYER_CRIT_PERCENTAGE) : pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f;
     } else crit = IsPlayer() ? GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE) : pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f;
 
-    float advantage = CalculateAdvantage(pVictim, hitchance, crit, dodge, parry, block, crush, glanc);
+    float advantage = CalculateAdvantage(pVictim, hitchance, dodge, parry, block, &crit, &crush, &glanc);
     // Crushing blows only from creatures and physical attacks
     if(IsPlayer() || ability || dmg.school_type)
         crush = 0.f;
@@ -2877,6 +2711,32 @@ void Unit::PlaySpellVisual(uint64 target, uint32 spellVisual)
 {
     WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 12);
     data << target << spellVisual;
+    SendMessageToSet(&data, true);
+}
+
+void Unit::SendPlaySpellVisualKit(uint32 id, uint32 unkParam)
+{
+    WorldPacket data(SMSG_PLAY_SPELL_VISUAL_KIT, 4 + 4+ 4 + 8);
+    data << uint32(0);
+    data << uint32(id); // SpellVisualKit.dbc index
+    data << uint32(unkParam);
+    data.WriteBit(m_objGuid[4]);
+    data.WriteBit(m_objGuid[7]);
+    data.WriteBit(m_objGuid[5]);
+    data.WriteBit(m_objGuid[3]);
+    data.WriteBit(m_objGuid[1]);
+    data.WriteBit(m_objGuid[2]);
+    data.WriteBit(m_objGuid[0]);
+    data.WriteBit(m_objGuid[6]);
+    data.FlushBits();
+    data.WriteByteSeq(m_objGuid[0]);
+    data.WriteByteSeq(m_objGuid[4]);
+    data.WriteByteSeq(m_objGuid[1]);
+    data.WriteByteSeq(m_objGuid[6]);
+    data.WriteByteSeq(m_objGuid[7]);
+    data.WriteByteSeq(m_objGuid[2]);
+    data.WriteByteSeq(m_objGuid[3]);
+    data.WriteByteSeq(m_objGuid[5]);
     SendMessageToSet(&data, true);
 }
 

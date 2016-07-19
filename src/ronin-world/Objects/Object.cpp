@@ -20,7 +20,7 @@ Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_up
 
 Object::~Object()
 {
-
+    delete [] m_uint32Values;
 }
 
 void Object::Init()

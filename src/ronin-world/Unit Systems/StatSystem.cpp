@@ -13,7 +13,11 @@ StatSystem::StatSystem()
 
 StatSystem::~StatSystem()
 {
-
+    while(m_UnitBaseStats.size())
+    {
+        delete m_UnitBaseStats.begin()->second;
+        m_UnitBaseStats.erase(m_UnitBaseStats.begin());
+    }
 }
 
 bool StatSystem::Load()

@@ -33,13 +33,13 @@ private:
     {
         ASSERT((x >= _minX) && (x <= _maxX));
         return (uint32)((_maxX-x)/_cellSize);
-    };
+    }
 
     uint32 GetPosY(float y)
     {
         ASSERT((y >= _minY) && (y <= _maxY));
         return (uint32)((_maxY-y)/_cellSize);
-    };
+    }
 
     bool AreCoordinatesValid(float x, float y)
     {
@@ -47,15 +47,16 @@ private:
             if((y >= _minY) && (y <= _maxY))
                 return true;
         return false;
-    };
+    }
 
     MMapManagerExt* GetMMap(uint32 mapid)
     {
         if(m_maps.find(mapid) != m_maps.end())
             return m_maps.at(mapid);
         return NULL;
-    };
+    }
 
+    Mutex mapLock;
     std::map<uint32, MMapManagerExt*> m_maps;
 };
 

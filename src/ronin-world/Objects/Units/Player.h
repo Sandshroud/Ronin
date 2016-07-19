@@ -774,6 +774,8 @@ public:
     static bool IsValidClass(uint8 Class) { return ((1 << (Class - 1)) & CLASSMASK_ALL_PLAYABLE) != 0; }
     static bool IsValidRace(uint8 Race) { return ((1 << (Race - 1)) & RACEMASK_ALL_PLAYABLE) != 0; }
 
+    uint8 GetTrainerSpellStatus(TrainerSpell *spell);
+
 public:
     void EventDBCChatUpdate(uint32 dbcID = 0xFFFFFFFF);
 protected:

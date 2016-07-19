@@ -68,7 +68,7 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
             _player->Reputation_OnTalk(faction);
 
         WorldPacket data(SMSG_TRAINER_LIST, 5000);
-        train->BuildTrainerData(&data);
+        train->BuildTrainerData(&data, _player);
         SendPacket(&data);
     }
 }
@@ -76,7 +76,34 @@ void WorldSession::HandleTrainerListOpcode( WorldPacket & recv_data )
 void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
+    WoWGuid Guid;
+    uint32 spellId, subCategory;
+    recvPacket >> Guid >> subCategory >> spellId;
+    if(Guid.getHigh() != HIGHGUID_TYPE_UNIT)
+        return;
+    Creature* pCreature = _player->GetInRangeObject<Creature>(Guid);
+    if(pCreature == NULL || !pCreature->CanTrainPlayer(_player))
+        return;
+    if(pCreature->GetTrainerSubCategory() != subCategory)
+        return;
+    uint8 trainerCategory = pCreature->GetTrainerCategory();
+    ObjectMgr::TrainerSpellMap *map = objmgr.GetTrainerSpells(trainerCategory, subCategory);
+    if(map->find(spellId) == map->end())
+        return;
+    TrainerSpell *tspell = &map->at(spellId);
+    if(_player->GetTrainerSpellStatus(tspell) != TRAINER_SPELL_AVAILABLE)
+        return;
+    _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -(int32)tspell->spellCost);
 
+    pCreature->SendPlaySpellVisualKit(179, 0);  // 53 SpellCastDirected
+    _player->SendPlaySpellVisualKit(362, 1);    // 113 EmoteSalute
+
+    _player->addSpell(spellId);
+
+    WorldPacket data(SMSG_TRAINER_BUY_SUCCEEDED, 12);
+    data << uint64(Guid);
+    data << uint32(spellId);
+    SendPacket(&data);
 }
 
 //////////////////////////////////////////////////////////////

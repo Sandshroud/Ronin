@@ -7,6 +7,33 @@ enum CreatureDataExtraFlags : uint16
     CREATURE_DATA_EX_FLAG_TRAINING_DUMMY= 0x4000,
 };
 
+enum TrainerServiceType
+{
+    TRAINER_SERVICE_AVAILABLE       =0x0,
+    TRAINER_SERVICE_UNAVAILABLE     =0x1,
+    TRAINER_SERVICE_USED            =0x2,
+    TRAINER_SERVICE_NOT_SHOWN       =0x3,
+    TRAINER_SERVICE_NEVER           =0x4,
+    TRAINER_SERVICE_NO_PET          =0x5
+};
+#define NUM_TRAINER_SERVICE_TYPES    0x6
+
+enum TrainerCategory : uint8
+{
+    TRAINER_CATEGORY_GENERAL        = 0,
+    TRAINER_CATEGORY_TALENTS        = 1,
+    TRAINER_CATEGORY_TRADESKILLS    = 2,
+    TRAINER_CATEGORY_PET            = 3
+};
+#define NUM_TRAINER_TYPES             4
+
+enum TrainerSpellState
+{
+    TRAINER_SPELL_KNOWN = 0,
+    TRAINER_SPELL_AVAILABLE = 1,
+    TRAINER_SPELL_UNAVAILABLE = 2
+};
+
 #pragma pack(PRAGMA_PACK)
 
 struct CreatureData

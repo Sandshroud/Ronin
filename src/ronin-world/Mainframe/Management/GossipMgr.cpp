@@ -80,6 +80,12 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
         break;
     case GOSSIP_OPT_INNKEEPER:
         break;
+    case GOSSIP_OPT_TRAINER:
+        {
+            WorldPacket data(SMSG_TRAINER_LIST, 5000);
+            ctrObj->BuildTrainerData(&data, plr);
+            plr->SendPacket(&data);
+        }break;
     }
 }
 
@@ -126,17 +132,42 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
                     _AddMenuItem(packet, result, GOSSIP_OPT_NEXT_MENU, GOSSIP_ICON_GOSSIP_NORMAL, "What can I do at an Inn.");
                 }
 
-                /*if((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr))
+                if((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr))
                 {
-                    _AddMenuItem(packet, result, GOSSIP_OPT_TRAINER, GOSSIP_ICON_GOSSIP_TRAINER, format("I seek %s training %s.", plr->getClassName().c_str(), pCreature->GetName()).c_str());
+                    std::string trainingType = "";
+                    if(pCreature->IsProfessionTrainer())
+                        trainingType = pCreature->GetName();
+                    else if(pCreature->IsClassTrainer())
+                        trainingType = plr->getClassName();
+                    else if(pCreature->IsPetTrainer())
+                        trainingType = "pet";
+
+                    // If our training type is not empty, append a space
+                    if(trainingType.empty() == false)
+                        trainingType.append(" ");
+
+                    _AddMenuItem(packet, result, GOSSIP_OPT_TRAINER, GOSSIP_ICON_GOSSIP_TRAINER, format("I seek %straining %s.", trainingType.c_str(), pCreature->GetName()).c_str());
                     if(pCreature->IsClassTrainer())
                     {
-                        _AddMenuItem(packet, result, GOSSIP_OPT_TALENT_RESET, GOSSIP_ICON_GOSSIP_NORMAL, "I would like to reset my talents.");
-                        if( plr->getLevel() >= 40 && plr->m_talentInterface.GetSpecCount() < 2)
-                            _AddMenuItem(packet, result, GOSSIP_OPT_NEXT_MENU, GOSSIP_ICON_GOSSIP_NORMAL, "Learn about Dual Talent Specialization.");
+                        if(pCreature->getLevel() > 10 && plr->getLevel() >= 10)
+                        {
+                            _AddMenuItem(packet, result, GOSSIP_OPT_TALENT_RESET, GOSSIP_ICON_GOSSIP_NORMAL, "I would like to reset my talents.");
+                            if( plr->getLevel() >= 40 && plr->m_talentInterface.GetSpecCount() < 2)
+                                _AddMenuItem(packet, result, GOSSIP_OPT_NEXT_MENU, GOSSIP_ICON_GOSSIP_NORMAL, "Learn about Dual Talent Specialization.");
+                        }
                     } else if(pCreature->IsPetTrainer())
                         _AddMenuItem(packet, result, GOSSIP_OPT_TALENT_RESET, GOSSIP_ICON_GOSSIP_NORMAL, "I would like to untrain my pet.");
-                }*/
+                }
+
+                if( pCreature->GetEntry() == 35364 || pCreature->GetEntry() == 35365 )
+                {
+                    if(plr->getLevel() >= 10 && plr->getLevel() < sWorld.GetMaxLevel(plr))
+                    {
+                        if(plr->m_XPoff)
+                            _AddMenuItem(packet, result, GOSSIP_OPT_TOGGLE_XPGAIN, GOSSIP_ICON_GOSSIP_NORMAL, "I wish to start gaining experience again.", false, 10000, "Are you certain you wish to start gaining experience?");
+                        else _AddMenuItem(packet, result, GOSSIP_OPT_TOGGLE_XPGAIN, GOSSIP_ICON_GOSSIP_NORMAL, "I no longer wish to gain experience.", false, 10000, "Are you certain you wish to stop gaining experience?");
+                    }
+                }
             }
         }break;
     }

@@ -89,6 +89,18 @@
 #include "../ronin-shared/PerfCounters.h"
 #include "../ronin-logonserver/LogonOpcodes.h"
 
+#ifdef NEW_ALLOCATION_TRACKING
+void record_alloc(void *data, const char *file, size_t line);
+void unrecord_alloc(void *data);
+
+void* operator new(size_t size);
+void operator delete(void *ptr);
+
+extern const char* __file__;
+extern size_t __line__;
+#define new (__file__=__FILE__,__line__=__LINE__) && 0 ? NULL : new
+#endif
+
 #include "DBCStores.h"
 #include "NameTables.h"
 #include "UpdateFields.h"

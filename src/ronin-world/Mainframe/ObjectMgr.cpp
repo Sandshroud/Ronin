@@ -69,6 +69,12 @@ ObjectMgr::~ObjectMgr()
     sLog.Notice("ObjectMgr", "Deleting Achievement Cache...");
     for(AchievementCriteriaMap::iterator itr = m_achievementCriteriaMap.begin(); itr != m_achievementCriteriaMap.end(); itr++)
         delete (itr->second);
+
+    while(mTransports.size())
+    {
+        delete mTransports.begin()->second;
+        mTransports.erase(mTransports.begin());
+    }
 }
 
 //
@@ -620,10 +626,7 @@ void ObjectMgr::LoadVendors()
 {
     std::map<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
     std::map<uint32, CreatureItem> *items;
-    CreatureItem itm;
-
-    QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_vendor ");
-    if( result != NULL )
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_vendor "))
     {
         if( result->GetFieldCount() < 7 )
         {
@@ -642,6 +645,7 @@ void ObjectMgr::LoadVendors()
                 mVendors[entry] = (items = new std::map<uint32, CreatureItem>);
             else items = itr->second;
 
+            CreatureItem itm;
             itm.itemid              = fields[1].GetUInt32();
             itm.max_amount          = fields[2].GetUInt32();
             itm.incrtime            = fields[3].GetUInt32();
@@ -668,6 +672,59 @@ void ObjectMgr::ReloadVendors()
 {
     mVendors.clear();
     LoadVendors();
+}
+
+void ObjectMgr::LoadTrainers()
+{
+    mTrainerData.clear();
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_trainerdata "))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            uint32 entry = fields[0].GetUInt32();
+
+            TrainerData &data = mTrainerData[entry];
+            data.category = fields[1].GetUInt8();
+            data.subCategory = fields[2].GetUInt8();
+            data.reqSkill = fields[3].GetUInt32();
+            data.reqSkillValue = fields[4].GetUInt32();
+            data.trainerTitle = fields[5].GetString();
+        }while( result->NextRow() );
+        delete result;
+    }
+    sLog.Notice("ObjectMgr", "%u trainers loaded.", mTrainerData.size());
+
+    uint32 count = 0;
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM trainer_spells "))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            uint8 category = fields[0].GetUInt8();
+            uint8 subCategory = fields[1].GetUInt8();
+            std::pair<uint8, uint8> catPair = std::make_pair(category, subCategory);
+
+            SpellEntry *sp;
+            if((sp = dbcSpell.LookupEntry(fields[2].GetUInt32())) == NULL)
+                continue;
+            ObjectMgr::TrainerSpellMap *map = &mTrainerSpellStorage[catPair];
+            if(map->find(sp->Id) != map->end())
+                continue;
+
+            TrainerSpell tSpell;
+            tSpell.entry = sp;
+            tSpell.spellCost = fields[3].GetUInt32();
+            tSpell.requiredLevel = fields[4].GetUInt32();
+            tSpell.reqSkill = fields[5].GetUInt32();
+            tSpell.reqSkillValue = fields[6].GetUInt32();
+            map->insert(std::make_pair(sp->Id, tSpell));
+            count++;
+        }while( result->NextRow() );
+        delete result;
+    }
+    sLog.Notice("ObjectMgr", "%u trainer spells loaded.", count);
 }
 
 std::map<uint32, CreatureItem>* ObjectMgr::GetVendorList(uint32 entry)
@@ -699,6 +756,21 @@ Item* ObjectMgr::CreateItem(uint32 entry,Player* owner, uint32 count)
     ret->SetCount(count);
     ret->SetOwner(owner);
     return ret;
+}
+
+TrainerData *ObjectMgr::GetTrainerData(uint32 entry)
+{
+    if(mTrainerData.find(entry) != mTrainerData.end())
+        return &mTrainerData.at(entry);
+    return NULL;
+}
+
+ObjectMgr::TrainerSpellMap *ObjectMgr::GetTrainerSpells(uint8 category, uint8 subCategory)
+{
+    std::pair<uint8, uint8> catPair = std::make_pair(category, subCategory);
+    if(mTrainerSpellStorage.find(catPair) != mTrainerSpellStorage.end())
+        return &mTrainerSpellStorage.at(catPair);
+    return NULL;
 }
 
 Item* ObjectMgr::LoadItem(uint64 guid)

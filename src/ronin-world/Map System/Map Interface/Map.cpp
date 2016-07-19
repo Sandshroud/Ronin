@@ -15,7 +15,7 @@ Map::Map(MapEntry *map, char *name) : _mapId(map->MapID), mapName(name), _terrai
 
 Map::~Map()
 {
-    if(_terrain) delete _terrain;
+    if(_terrain) delete _terrain, _terrain = NULL;
 
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {

@@ -15,7 +15,7 @@ ContinentManager::ContinentManager(MapEntry *mapEntry, Map *map) : ThreadContext
 
 ContinentManager::~ContinentManager()
 {
-
+    m_mapData = NULL;
 }
 
 bool ContinentManager::Initialize()
@@ -98,8 +98,6 @@ bool ContinentManager::run()
     // Unload all terrain
     if(sWorld.ServerPreloading)
         m_mapData->UnloadAllTerrain(true);
-    delete m_mapData;
-
     sLog.Debug("MapInstance", "Map %u shut down. (%s)", m_mapId, m_mapData->GetName());
     return true;
 }

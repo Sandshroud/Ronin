@@ -127,6 +127,8 @@ void MapInstance::Destruct()
     _sqlids_creatures.clear();
     _sqlids_gameobjects.clear();
     m_battleground = NULL;
+
+    delete this;
 }
 
 MapInstance::~MapInstance()

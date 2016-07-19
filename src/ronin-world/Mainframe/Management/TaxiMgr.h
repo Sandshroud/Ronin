@@ -82,6 +82,11 @@ public:
             m_taxiPaths.erase(m_taxiPaths.begin());
             delete p;
         }
+
+        m_taxiMasks.CleanupMask();
+        m_hordeTaxiMasks.CleanupMask();
+        m_allianceTaxiMasks.CleanupMask();
+        m_DKTaxiMasks.CleanupMask();
     }
 
     void Initialize();

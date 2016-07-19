@@ -15,6 +15,8 @@ public:
     InstanceManager();
     ~InstanceManager();
 
+    void Destruct();
+
     void Launch();
     void Prepare();
 

@@ -26,15 +26,18 @@ void CNavMeshInterface::DeInit()
 
 MMapManagerExt* CNavMeshInterface::GetOrCreateMMapManager(uint32 mapid)
 {
-    if(sWorld.PathFinding == false || allocator == NULL)
-        return NULL;
-    if(m_maps.find(mapid) == m_maps.end())
+    mapLock.Acquire();
+    MMapManagerExt* ret = NULL;
+    if(sWorld.PathFinding && allocator != NULL)
     {
-        if(MMapManagerExt *mgr = allocator(sWorld.MNavPath.c_str(), mapid))
-            m_maps.insert(std::make_pair(mapid, mgr));
-        else return NULL;
+        if(m_maps.find(mapid) == m_maps.end())
+        {
+            if(ret = allocator(sWorld.MNavPath.c_str(), mapid))
+                m_maps.insert(std::make_pair(mapid, ret));
+        } else ret = m_maps.at(mapid);
     }
-    return m_maps.at(mapid);
+    mapLock.Release();
+    return ret;
 }
 
 bool CNavMeshInterface::IsNavmeshLoaded(uint32 mapid, uint32 x, uint32 y)

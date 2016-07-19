@@ -154,8 +154,20 @@ World::~World()
 
 void World::Destruct()
 {
-    sVMapInterface.DeInit();
-    sNavMeshInterface.DeInit();
+    while(m_restedAreas.size())
+    {
+        delete m_restedAreas.begin()->second;
+        m_restedAreas.erase(m_restedAreas.begin());
+    }
+
+    sLog.Notice("AchievementMgr", "~AchievementMgr()");
+    delete AchievementMgr::getSingletonPtr();
+
+    sLog.Notice("AddonMgr", "~AddonMgr()");
+    delete AddonMgr::getSingletonPtr();
+
+    sLog.Notice("StatSystem", "~StatSystem()");
+    delete StatSystem::getSingletonPtr();
 
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
@@ -202,11 +214,24 @@ void World::Destruct()
     sLog.Notice("WorldStateTemplateManager", "~WorldStateTemplateManager()");
     delete WorldStateTemplateManager::getSingletonPtr();
 
-    sLog.Notice("InstanceMgr", "~InstanceMgr()");
-    sWorldMgr.Shutdown();
+    sLog.Notice("ItemManager", "~ItemManager()");
+    delete ItemManager::getSingletonPtr();
 
+    sLog.Notice("PacketHandler", "~PacketHandler()");
+    WorldSession::DeInitPacketHandlerTable();
+
+    sLog.Notice("WorldManager", "Destruct()");
+    sWorldMgr.Shutdown();
+    sWorldMgr.Destruct();
+
+    sLog.Notice("CreatureDataMgr", "~CreatureDataMgr()");
+    delete CreatureDataManager::getSingletonPtr();
     Storage_Cleanup();
 
+    sVMapInterface.DeInit();
+    sNavMeshInterface.DeInit();
+
+    delete eventHolder;
     delete this;
 }
 
@@ -430,6 +455,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(AchievementMgr, ParseAchievements);
     MAKE_TASK(ObjectMgr, LoadVendors);
+    MAKE_TASK(ObjectMgr, LoadTrainers);
     MAKE_TASK(TicketMgr, Load);
     MAKE_TASK(AddonMgr,  LoadFromDB);
     MAKE_TASK(ObjectMgr, SetHighestGuids);
@@ -532,8 +558,6 @@ bool World::SetInitialWorldSettings()
         }
     }
     sLog.Notice("World", "Hashed %u sanctuaries", m_sanctuaries.size());
-
-    sEventMgr.AddEvent(this, &World::CheckForExpiredInstances, EVENT_WORLD_UPDATEAUCTIONS, 120000, 0, 0);
     return true;
 }
 
@@ -1357,11 +1381,6 @@ void World::CharacterEnumProc(QueryResultVector& results, uint32 AccountId)
         return;
 
     s->CharacterEnumProc(results[0].result);
-}
-
-void World::CheckForExpiredInstances()
-{
-    sWorldMgr.CheckForExpiredInstances();
 }
 
 void World::DisconnectUsersWithAccount(const char * account, WorldSession * m_session)

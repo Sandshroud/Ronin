@@ -473,54 +473,59 @@ void Creature::OnPushToWorld()
             CastSpell(this, sp, true);
 }
 
-void Creature::BuildTrainerData(WorldPacket *data)
+void Creature::BuildTrainerData(WorldPacket *data, Player *plr)
 {
     *data << GetGUID();
-    *data << uint32(m_trainerData ? m_trainerData->type : 0);
-    *data << uint32(m_trainerData ? m_trainerData->trainerId : 0);
+    *data << uint32(m_trainerData ? m_trainerData->category : 0);
+    *data << uint32(m_trainerData ? m_trainerData->subCategory : 0);
     if(m_trainerData)
     {
         size_t dataPos = data->wpos();
         uint32 count = 0;
         *data << uint32(count);
-        for(std::vector<TrainerSpell*>::iterator itr = m_trainerData->cSpells.begin(); itr != m_trainerData->cSpells.end(); itr++)
+        if(ObjectMgr::TrainerSpellMap *trainerSpells = objmgr.GetTrainerSpells(m_trainerData->category, m_trainerData->subCategory))
         {
-            TrainerSpell *spell = *itr;
-            *data << uint32(spell->entry->Id);
-            *data << uint8(0);
-            *data << uint32(spell->spellCost);
-            *data << uint8(spell->requiredLevel);
-            *data << uint32(spell->reqSkill);
-            *data << uint32(spell->reqSkillValue);
-            *data << uint32(0);
-            // Profession
-            *data << uint32(0);
-            // Chain spelling
-            *data << uint32(0);
-            *data << uint32(0);
-            count++;
-        }
+            for(ObjectMgr::TrainerSpellMap::iterator itr = trainerSpells->begin(); itr != trainerSpells->end(); itr++)
+            {
+                TrainerSpell spell = itr->second;
+                // Creatures below 10 can only teach spells at or below their level
+                if(getLevel() < 10 && spell.requiredLevel > getLevel())
+                    continue;
 
-        for(std::vector<TrainerSpell*>::iterator itr = m_trainerData->lSpells.begin(); itr != m_trainerData->lSpells.end(); itr++)
-        {
-            TrainerSpell *spell = *itr;
-            *data << uint32(spell->entry->Id);
-            *data << uint8(0);
-            *data << uint32(spell->spellCost);
-            *data << uint8(spell->requiredLevel);
-            *data << uint32(spell->reqSkill);
-            *data << uint32(spell->reqSkillValue);
-            *data << uint32(0);
-            // Profession
-            *data << uint32(0);
-            // Chain spelling
-            *data << uint32(0);
-            *data << uint32(0);
-            count++;
+                *data << uint32(spell.entry->Id);
+                *data << uint8(plr->GetTrainerSpellStatus(&spell));
+                *data << uint32(spell.spellCost);
+                *data << uint8(spell.requiredLevel);
+                *data << uint32(spell.reqSkill);
+                *data << uint32(spell.reqSkillValue);
+                // Chain spelling
+                *data << uint32(0);
+                *data << uint32(0);
+                // Profession
+                *data << uint32(0);
+                *data << uint32(0);
+                count++;
+            }
         }
         data->put<uint32>(dataPos, count);
         *data << m_trainerData->trainerTitle;
     } else *data << uint32(0) << uint8(0);
+}
+
+bool Creature::CanTrainPlayer(Player *plr)
+{
+    if(m_trainerData == NULL)
+        return false;
+    if(m_trainerData->category == TRAINER_CATEGORY_TALENTS && m_trainerData->subCategory != plr->getClass())
+        return false;
+    if(uint16 skillLine = m_trainerData->reqSkill)
+    {
+        if(!plr->_HasSkillLine(skillLine))
+            return false;
+        if(plr->_GetSkillLineCurrent(skillLine) < m_trainerData->reqSkillValue)
+            return false;
+    }
+    return true;
 }
 
 void Creature::UpdateAreaInfo(MapInstance *instance)
@@ -836,7 +841,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);
 
-    SetFaction(_creatureData->faction);
+    SetFaction(_creatureData->faction, false);
     //SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, _creatureData->boundingRadius * _creatureData->scale);
     //SetFloatValue(UNIT_FIELD_COMBATREACH, _creatureData->combatReach * _creatureData->scale);
 
@@ -854,6 +859,9 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
         m_SellItems = objmgr.GetVendorList(GetEntry());
+
+    if(HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER|UNIT_NPC_FLAG_TRAINER_PROF))
+        m_trainerData = objmgr.GetTrainerData(GetEntry());
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR ) )
         sTaxiMgr.GetNearestTaxiNodes(mapId, x, y, z, m_taxiNode);
@@ -942,6 +950,7 @@ void Creature::SendTaxiList(Player *plr)
     WorldPacket data(SMSG_SHOWTAXINODES, 48);
     if(uint32 curloc = GetTaxiNode(plr->GetTeam()))
     {
+        TaxiNodeEntry *taxiNode = dbcTaxiNode.LookupEntry(curloc);
         if(!plr->HasTaxiNode(curloc)) // Check for known nodes
         {
             plr->AddTaxiMask(curloc);

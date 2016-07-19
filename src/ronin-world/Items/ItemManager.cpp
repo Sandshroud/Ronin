@@ -22,7 +22,11 @@ ItemManager::ItemManager()
 
 ItemManager::~ItemManager()
 {
-
+    while(!m_itemPrototypeContainer.empty())
+    {
+        delete m_itemPrototypeContainer.begin()->second;
+        m_itemPrototypeContainer.erase(m_itemPrototypeContainer.begin());
+    }
 }
 
 uint32 ItemManager::GetSkillForItem(ItemPrototype *proto)

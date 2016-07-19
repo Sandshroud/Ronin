@@ -394,6 +394,7 @@ void Transporter::Destruct()
 
 void ObjectMgr::LoadTransporters()
 {
+    return;
     sLog.Notice("ObjectMgr", "Loading Transports...");
     if(QueryResult * QR = WorldDatabase.Query("SELECT entry FROM gameobject_names WHERE type = %u", GAMEOBJECT_TYPE_MO_TRANSPORT))
     {

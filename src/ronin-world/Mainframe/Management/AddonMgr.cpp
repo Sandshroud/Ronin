@@ -30,17 +30,16 @@ static uint8 publicAddonKey[256] =
 
 AddonMgr::AddonMgr()
 {
-    KnownAddons.clear();
+
 }
 
 AddonMgr::~AddonMgr()
 {
-    std::map<std::string, AddonEntry*>::iterator itr;
-    for(itr = KnownAddons.begin(); itr!=KnownAddons.end(); itr++)
+    while(KnownAddons.size())
     {
-        delete itr->second;
+        delete KnownAddons.begin()->second;
+        KnownAddons.erase(KnownAddons.begin());
     }
-    KnownAddons.clear();
 }
 
 bool AddonMgr::IsAddonBanned(uint32 crc, std::string name)
@@ -70,8 +69,7 @@ bool AddonMgr::IsAddonBanned(std::string name, uint32 crc)
         ent->showinlist = (crc == 0x4C1C776D ? false : true);
 
         sLog.outDebug("Discovered new addon %s sent by client.", name.c_str());
-
-        KnownAddons[ent->name] = ent;
+        KnownAddons.insert(std::make_pair(ent->name, ent));
     }
 
     return false;
@@ -84,8 +82,7 @@ bool AddonMgr::ShouldShowInList(std::string name, uint32 crc)
     {
         if(i->second->showinlist)
             return true;
-        else
-            return false;
+        return false;
     }
     else
     {
@@ -98,8 +95,7 @@ bool AddonMgr::ShouldShowInList(std::string name, uint32 crc)
         ent->showinlist = (crc == 0x4C1C776D ? false : true);
 
         sLog.Debug("AddonMgr","Discovered new addon %s sent by client.", name.c_str());
-
-        KnownAddons[ent->name] = ent;
+        KnownAddons.insert(std::make_pair(ent->name, ent));
     }
 
     return true;
@@ -195,16 +191,19 @@ void AddonMgr::LoadFromDB()
     do
     {
         Field *field = result->Fetch();
-        AddonEntry *ent = new AddonEntry;
+        std::string name = field[1].GetString();
+        if(KnownAddons.find(name) != KnownAddons.end())
+            continue;
 
-        ent->name = field[1].GetString();
+        AddonEntry *ent = new AddonEntry;
+        ent->name = name;
         ent->crc = field[2].GetUInt64();
         ent->banned = (field[3].GetUInt32()>0? true:false);
         ent->isNew = false;
         if(result->GetFieldCount() == 5)                // To avoid crashes for stilly nubs who don't update table :P
             ent->showinlist = (field[4].GetUInt32()>0 ? true : false);
 
-        KnownAddons[ent->name] = ent;
+        KnownAddons.insert(std::make_pair(ent->name, ent));
     } while(result->NextRow());
 
     delete result;

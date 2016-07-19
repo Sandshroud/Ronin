@@ -2685,12 +2685,10 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
 
 void Player::OnPrePushToWorld()
 {
-    if(m_TeleportState == 1)
-    {   // First world enter after loginscreen
+    if(m_TeleportState == 1) // First world enter after loginscreen
         SoftLoadPlayer();
-        SendInitialLogonPackets();
-    }
 
+    SendInitialLogonPackets();
     m_movementInterface.OnPrePushToWorld();
 }
 
@@ -6934,6 +6932,39 @@ SpellEntry *Player::GetMountCapability(uint32 mountType)
 void Player::RecalculateHonor()
 {
     HonorHandler::RecalculateHonorFields(castPtr<Player>(this));
+}
+
+uint8 Player::GetTrainerSpellStatus(TrainerSpell *spell)
+{
+    if(HasSpell(spell->entry->Id))
+        return TRAINER_SPELL_KNOWN;
+    else if(spell->entry->HasEffect(SPELL_EFFECT_LEARN_SPELL))
+    {
+        bool hasSpell = true;
+        for(uint8 i = 0; i < 3; i++)
+        {
+            if(spell->entry->EffectTriggerSpell[i] && !HasSpell(spell->entry->EffectTriggerSpell[i]))
+            {
+                hasSpell = false;
+                break;
+            }
+        }
+
+        if(hasSpell)
+            return TRAINER_SPELL_KNOWN;
+    }
+
+    if(spell->reqSkill)
+    {
+        if(!_HasSkillLine(spell->reqSkill))
+            return TRAINER_SPELL_UNAVAILABLE;
+        if(_GetSkillLineCurrent(spell->reqSkill) < spell->reqSkillValue)
+            return TRAINER_SPELL_UNAVAILABLE;
+    }
+
+    if(spell->requiredLevel > getLevel())
+        return TRAINER_SPELL_UNAVAILABLE;
+    return TRAINER_SPELL_AVAILABLE;
 }
 
 void Player::EventGroupFullUpdate()

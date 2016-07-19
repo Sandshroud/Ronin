@@ -10,7 +10,7 @@ UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_pathCounter(0), m_p
 
 UnitPathSystem::~UnitPathSystem()
 {
-
+    _CleanupPath();
 }
 
 bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)

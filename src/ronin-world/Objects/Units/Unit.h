@@ -311,6 +311,8 @@ public:
     virtual int32 GetBonusAttackPower() = 0;
     virtual int32 GetBonusRangedAttackPower() = 0;
     virtual int32 GetBonusResistance(uint8 school) = 0;
+    virtual float GetDodgeChance() { return 5.f; }
+    virtual float GetHitChance() { return 0.f; }
 
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();
@@ -449,7 +451,7 @@ public:
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout = NULL);
 
-    float CalculateAdvantage(Unit *pVictim, float &hitchance, float &critChance, float &dodgechance, float &parrychance, float &blockchance, float &crushingBlow, float &glancingBlow);
+    float CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow);
     void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     int32 CalculateAttackPower();
@@ -650,6 +652,7 @@ public:
     RONIN_INLINE void SetCurrentSpell(Spell* cSpell) { m_currentSpell = cSpell; }
 
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
+    void SendPlaySpellVisualKit(uint32 id, uint32 unkParam);
 
     RONIN_INLINE bool IsSpiritHealer()
     {

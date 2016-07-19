@@ -188,7 +188,10 @@ void LootMgr::LoadLootProp()
 #define LOOT_CLEANUP_MACRO(lootstore) for(LootStore::iterator iter=lootstore.begin(); iter != lootstore.end(); iter++)\
     {\
         for(StoreLootList::iterator itr = iter->second.begin(); itr != iter->second.end(); itr++)\
+        {\
+            delete [] (*itr)->chance;\
             delete (*itr);\
+        }\
         iter->second.clear();\
     }
 

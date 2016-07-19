@@ -1173,7 +1173,7 @@ struct SpellEntry
     bool IsSpellAnyArmorBuffType() { return (isSpellMageArmorBuff() || isSpellWarlockArmorBuff()); }
     bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
-    bool IsSpellWeaponSpell() { return (IsSpellMeleeSpell() || reqAmmoForSpell() || reqWandForSpell()); }
+    bool IsSpellWeaponSpell() { return (IsSpellMeleeSpell() || reqAmmoForSpell() || reqWandForSpell() || (Spell_Dmg_Type >= 2)); }
 
 };
 

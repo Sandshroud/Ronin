@@ -43,9 +43,11 @@ GuildMgr::~GuildMgr()
         itr->second->MemberMap.clear();
         delete itr->second;
     }
+    m_GuildMemberMaps.clear();
 
     for(GuildInfoMap::iterator itr = m_Guilds.begin(); itr != m_Guilds.end(); itr++)
         delete itr->second;
+    m_Guilds.clear();
 
     for(GuildMemberMap::iterator itr = m_GuildMembers.begin(); itr != m_GuildMembers.end(); itr++)
     {
@@ -53,12 +55,16 @@ GuildMgr::~GuildMgr()
         itr->second->pPlayer = NULL;
         delete itr->second;
     }
+    m_GuildMembers.clear();
 
     for(GuildLogMap::iterator itr = m_GuildLogs.begin(); itr != m_GuildLogs.end(); itr++)
     {
+        for(std::vector<GuildLogEvent*>::iterator itr2 = itr->second->m_logs.begin(); itr2 != itr->second->m_logs.end(); itr2++)
+            delete (*itr2);
         itr->second->m_logs.clear();
         delete itr->second;
     }
+    m_GuildLogs.clear();
 
     for(GuildRankMap::iterator itr = m_GuildRanks.begin(); itr != m_GuildRanks.end(); itr++)
     {
@@ -72,6 +78,7 @@ GuildMgr::~GuildMgr()
         }
         delete itr->second;
     }
+    m_GuildRanks.clear();
 
     for(GuildBankTabMap::iterator itr = m_GuildTabs.begin(); itr != m_GuildTabs.end(); itr++)
     {
@@ -93,6 +100,7 @@ GuildMgr::~GuildMgr()
         }
         delete itr->second;
     }
+    m_GuildTabs.clear();
 }
 
 void GuildMgr::Update(uint32 p_time)
@@ -1174,10 +1182,8 @@ void GuildMgr::DestroyGuild(GuildInfo* guildInfo)
     m_GuildMemberMaps.erase(GuildId);
 
     // Logs
-    GuildLogStorage *LogStorage = m_GuildLogs.at(GuildId);
-    if(LogStorage != NULL)
+    if(GuildLogStorage *LogStorage = m_GuildLogs.at(GuildId))
         delete LogStorage;
-    LogStorage = NULL;
     m_GuildLogs.erase(GuildId);
 
     // BankTabs
