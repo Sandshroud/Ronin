@@ -7557,6 +7557,8 @@ void Player::SetKnownTitle( int32 title, bool set )
 
     if(set && GetUInt32Value(PLAYER_CHOSEN_TITLE) == 0)
         SetUInt32Value(PLAYER_CHOSEN_TITLE, entry->bit_index);
+
+    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_HAS_TITLE, set ? 1 : 0, title);
 }
 
 bool Player::HasBattlegroundQueueSlot()

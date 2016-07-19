@@ -98,6 +98,8 @@ void ItemManager::InitializeItemPrototypes()
         sparse = db2ItemSparse.LookupEntry(itemData->ID);
         if(sparse == NULL)
             continue;
+        if(m_itemPrototypeContainer.find(itemData->ID) != m_itemPrototypeContainer.end())
+            continue;
 
         ItemPrototype* proto = new ItemPrototype();
         // Non dbc data

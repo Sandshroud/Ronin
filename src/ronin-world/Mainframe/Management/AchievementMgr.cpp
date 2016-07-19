@@ -10,7 +10,19 @@ AchievementMgr::AchievementMgr()
 
 AchievementMgr::~AchievementMgr()
 {
-
+    while(!m_playerAchieveData.empty())
+    {
+        AchieveDataContainer *container = m_playerAchieveData.begin()->second;
+        m_playerAchieveData.erase(m_playerAchieveData.begin());
+        while(!container->m_criteriaProgress.empty())
+        {
+            delete container->m_criteriaProgress.begin()->second;
+            container->m_criteriaProgress.erase(container->m_criteriaProgress.begin());
+        }
+        container->m_criteriaProgress.clear();
+        delete container;
+    }
+    m_playerAchieveData.clear();
 }
 
 void AchievementMgr::ParseAchievements()
@@ -270,13 +282,15 @@ void AchievementMgr::SaveCriteriaData(WoWGuid guid, QueryBuffer *buff)
     }
 }
 
+static uint32 type = ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE-1;
+
 void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool buildEmpty)
 {
     AchieveDataContainer *container = m_playerAchieveData.at(guid);
     ASSERT(container != NULL);
 
     ByteBuffer criteriaData;
-    data->WriteBits(buildEmpty ? 0 : container->m_criteriaProgress.size(), 21);
+    data->WriteBits(buildEmpty ? 0 : container->m_criteriaProgress.size() + m_criteriaByType.count(type), 21);
     for(auto it = container->m_criteriaProgress.begin(); buildEmpty == false && it != container->m_criteriaProgress.end(); it++)
     {
         WoWGuid counter(it->second->criteriaCounter);
@@ -315,6 +329,46 @@ void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool 
 
         criteriaData.WriteByteSeq(guid[1]);
     }
+
+    for(CriteriaStorage::iterator itr = m_criteriaByType.lower_bound(type); itr != m_criteriaByType.upper_bound(type); itr++)
+    {
+        WoWGuid counter(itr->second->ID*100);
+        // Append our bit data
+        data->WriteBit(guid[4]);
+        data->WriteBit(counter[3]);
+        data->WriteBit(guid[5]);
+        data->WriteGuidBitString(2, counter, 0, 6);
+        data->WriteGuidBitString(2, guid, 3, 0);
+        data->WriteBit(counter[4]);
+        data->WriteBit(guid[2]);
+        data->WriteBit(counter[7]);
+        data->WriteBit(guid[7]);
+        data->WriteBits(0, 2);
+        data->WriteBit(guid[6]);
+        data->WriteGuidBitString(3, counter, 2, 1, 5);
+        data->WriteBit(guid[1]);
+
+        // Append byte data
+        criteriaData.WriteByteSeq(guid[3]);
+        criteriaData.WriteSeqByteString(2, counter, 5, 6);
+        criteriaData.WriteSeqByteString(2, guid, 4, 6);
+        criteriaData.WriteByteSeq(counter[2]);
+
+        criteriaData << uint32(UNIXTIME); // Timer 2
+        criteriaData.WriteByteSeq(guid[2]);
+        criteriaData << uint32(itr->second->ID);
+
+        criteriaData.WriteByteSeq(guid[5]);
+        criteriaData.WriteSeqByteString(4, counter, 0, 3, 1, 4);
+        criteriaData.WriteSeqByteString(2, guid, 0, 7);
+        criteriaData.WriteByteSeq(counter[7]);
+
+        criteriaData << uint32(UNIXTIME); // Timer 1
+        criteriaData << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
+
+        criteriaData.WriteByteSeq(guid[1]);
+    }
+    type++;
 
     data->WriteBits(buildEmpty ? 0 : container->m_completedAchievements.size(), 23);
     data->FlushBits();
@@ -360,10 +414,10 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
     std::vector<std::pair<uint64, AchievementCriteriaEntry*>> processedCriteria;
     for(CriteriaStorage::iterator itr = cbounds.first; itr != cbounds.second; itr++)
     {
-        uint32 maxCounter = 0;
+        uint32 maxCounter = 0, thisMod = mod;
         CriteriaCounterModifier modType = CCM_HIGHEST;
         AchievementCriteriaEntry *criteria = itr->second;
-        if(criteria == NULL || !_ValidateCriteriaRequirements(plr, criteria, modType, maxCounter, misc1, misc2))
+        if(criteria == NULL || !_ValidateCriteriaRequirements(plr, criteria, modType, thisMod, maxCounter, misc1, misc2))
             continue;
 
         // Update criteria value here
@@ -376,13 +430,13 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
             continue;
 
         // See if we should update our criteria
-        if(!onLoad && modType == CCM_HIGHEST && data->criteriaCounter >= mod)
+        if(!onLoad && modType == CCM_HIGHEST && data->criteriaCounter >= thisMod)
             continue;
 
         // Update our criteria counter, only total is accumulative
         if(modType == CCM_TOTAL)
-            data->criteriaCounter += mod;
-        else data->criteriaCounter = mod;
+            data->criteriaCounter += thisMod;
+        else data->criteriaCounter = thisMod;
         if(maxCounter && data->criteriaCounter > maxCounter)
             data->criteriaCounter = maxCounter;
 
@@ -410,6 +464,8 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
         {
             AchievementEntry *entry = itr2->second;
             if(entry == NULL || !IsValidAchievement(plr, entry) || entry->flags & ACHIEVEMENT_FLAG_COUNTER)
+                continue;
+            if(!_CheckCriteriaForAchievement(criteria, entry))
                 continue;
             if(data->criteriaCounter >= previous)
             {
@@ -484,7 +540,7 @@ void AchievementMgr::RemoveAchievement(Player *plr, uint32 achievementId)
     plr->GetSession()->OutPacket(SMSG_ACHIEVEMENT_DELETED, 4, &achievementId);
 }
 
-bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &maxCounter, uint32 misc1, uint32 misc2)
+bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &mod, uint32 &maxCounter, uint32 misc1, uint32 misc2)
 {
     switch(entry->requiredType)
     {
@@ -512,6 +568,29 @@ bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCrite
                 return false;
             modType = CCM_CURRENT;
         }break;
+    case ACHIEVEMENT_CRITERIA_TYPE_HAS_TITLE:
+        {
+            CharTitleEntry *titleEntry = dbcCharTitle.LookupEntry(misc1);
+            if(strcmp(entry->name, titleEntry->titleName.c_str()))
+                return false;
+            modType = CCM_CURRENT;
+        }break;
+    case ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE:
+        {
+            if(RONIN_UTIL::FindXinYString("NPC", entry->name) && misc1 != TYPEID_UNIT)
+                return false;
+            if((RONIN_UTIL::FindXinYString("XP", entry->name) || RONIN_UTIL::FindXinYString("Honor", entry->name)) && mod != 1)
+                return false;
+            for(uint8 i = 0; i < 14; i++)
+            {
+                if(!RONIN_UTIL::FindXinYString(unitTypeNames[i], entry->name))
+                    continue;
+                if(misc2 != i)
+                    return false;
+            }
+            modType = CCM_TOTAL;
+            mod = 1;
+        }break;
     }
 
     return true;
@@ -530,6 +609,19 @@ bool AchievementMgr::_FinishedCriteria(AchieveDataContainer *container, Achievem
         return false;
     uint64 criteriaCounter = container->m_criteriaProgress.at(criteria->ID)->criteriaCounter;
     return criteriaCounter >= criteria->getMaxCounter() || (achievement->flags & ACHIEVEMENT_FLAG_REQ_COUNT && criteriaCounter);
+}
+
+bool AchievementMgr::_CheckCriteriaForAchievement(AchievementCriteriaEntry *criteria, AchievementEntry *achievement)
+{
+    switch(criteria->requiredType)
+    {
+    case ACHIEVEMENT_CRITERIA_TYPE_HAS_TITLE:
+        {
+            if(strcmp(criteria->name, achievement->name))
+                return false;
+        }break;
+    }
+    return true;
 }
 
 bool AchievementMgr::_CheckAchievementRequirements(AchieveDataContainer *container, AchievementEntry *achievement)

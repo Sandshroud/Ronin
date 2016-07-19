@@ -352,11 +352,17 @@ bool Master::Run(int argc, char ** argv)
         WSACleanup();
     }
 
+    sLog.Notice("Config", "~Config()");
+    delete mainIni;
+
     sLog.Notice("LogonComm", "~LogonCommHandler()");
     delete LogonCommHandler::getSingletonPtr();
 
     sLog.Notice( "World", "~World()" );
     sWorld.Destruct();
+
+    sLog.Notice("OpcodeManager", "~OpcodeManager()");
+    delete OpcodeManager::getSingletonPtr();
 
     sLog.Notice( "EventMgr", "~EventMgr()" );
     delete EventMgr::getSingletonPtr();

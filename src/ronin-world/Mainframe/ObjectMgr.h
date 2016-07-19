@@ -265,6 +265,8 @@ public:
     void LoadSpellSkills();
     void LoadVendors();
     void ReloadVendors();
+    void ProcessTitles();
+    void ProcessCreatureFamilies();
 
     void LoadTrainers();
 
@@ -280,7 +282,8 @@ public:
     void AddTransport(Transporter* pTransporter);
 
     void LoadExtraItemStuff();
-    void CreateGossipMenuForPlayer(GossipMenu** Location, uint64 Guid, uint32 TextID, Player* Plr);
+
+    bool GetCreatureFamilyIDFromName(const char *name, uint32 &out);
 
     QueryResult* SQLCheckExists(const char* tablename, const char* columnname, uint64 columnvalue);
 
@@ -360,6 +363,8 @@ protected:
     TrainerSpellStorage mTrainerSpellStorage;
 
     SLMap               mSpellSkills;
+
+    std::map<std::string, uint32> m_creatureFamilyNameToID;
 
     //Corpse Collector
     CorpseCollectorMap mCorpseCollector;

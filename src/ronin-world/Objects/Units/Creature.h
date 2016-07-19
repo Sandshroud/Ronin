@@ -91,7 +91,7 @@ enum UNIT_TYPE
 {
     UT_NOUNITTYPE       = 0,
     UT_BEAST            = 1,
-    UT_DRAGONSKIN       = 2,
+    UT_DRAGONKIN        = 2,
     UT_DEMON            = 3,
     UT_ELEMENTAL        = 4,
     UT_GIANT            = 5,
@@ -99,11 +99,13 @@ enum UNIT_TYPE
     UT_HUMANOID         = 7,
     UT_CRITTER          = 8,
     UT_MECHANICAL       = 9,
-    UT_MISC             = 10,
+    UT_UNSPECIFIED      = 10,
     UT_TOTEM            = 11,
     UT_NONCOMBAT_PET    = 12,
     UT_GAS_CLOUD        = 13,
 };
+
+static const char *unitTypeNames[14] = { "NoType", "Beast", "Dragonkin", "Demon", "Elemental", "Giant", "Undead", "Humanoid", "Critter", "Mechanical", "Unspecified", "Totem", "NonCombatPet", "GasCloud" };
 
 enum FAMILY
 {
@@ -253,6 +255,7 @@ public:
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
 
     // Creature data based functions
+    uint32 getCreatureType() { return _creatureData->type; }
     bool isCritter() { return _creatureData->type == UT_CRITTER; }
     bool isTrainingDummy() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_TRAINING_DUMMY; }
 

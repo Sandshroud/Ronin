@@ -718,6 +718,7 @@ void WorldSession::HandleUpdateAccountData(WorldPacket& recv_data)
         memcpy(acctdata, recv_data.contents() + 12, uiDecompressedSize);
         SetAccountData(uiID, acctdata, uiDecompressedSize, _time);
     }SKIP_READ_PACKET(recv_data); // Spam cleanup for packet size checker... Because who cares about this dataz
+    delete [] acctdata;
 
     WorldPacket data(SMSG_UPDATE_ACCOUNT_DATA_COMPLETE, 4+4);
     data << uint32(uiID) << uint32(0);

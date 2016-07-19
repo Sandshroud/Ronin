@@ -152,9 +152,10 @@ enum AchievementCriteriaTypes : uint8
     ACHIEVEMENT_CRITERIA_TYPE_USE_GAMEOBJECT = 68,
     ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET2 = 69,
     ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL = 70,
+    // 71 does not exist in DBC
     ACHIEVEMENT_CRITERIA_TYPE_FISH_IN_GAMEOBJECT = 72,
-    // TODO: title id is not mentioned in dbc
-    ACHIEVEMENT_CRITERIA_TYPE_ON_LOGIN = 74,
+    // 73 is wotlk related
+    ACHIEVEMENT_CRITERIA_TYPE_HAS_TITLE = 74,
     ACHIEVEMENT_CRITERIA_TYPE_LEARN_SKILLLINE_SPELLS = 75,
     ACHIEVEMENT_CRITERIA_TYPE_WIN_DUEL = 76,
     ACHIEVEMENT_CRITERIA_TYPE_LOSE_DUEL = 77,
@@ -730,7 +731,7 @@ struct AchievementCriteriaEntry
         case ACHIEVEMENT_CRITERIA_TYPE_USE_GAMEOBJECT: return use_gameobject.useCount;
         case ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL: return special_pvp_kill.killCount;
         case ACHIEVEMENT_CRITERIA_TYPE_FISH_IN_GAMEOBJECT: return fish_in_gameobject.lootCount;
-        case ACHIEVEMENT_CRITERIA_TYPE_ON_LOGIN: return 1;
+        case ACHIEVEMENT_CRITERIA_TYPE_HAS_TITLE: return 1;
         case ACHIEVEMENT_CRITERIA_TYPE_LEARN_SKILLLINE_SPELLS: return learn_skillline_spell.spellCount;
         case ACHIEVEMENT_CRITERIA_TYPE_WIN_DUEL: return win_duel.duelCount;
         case ACHIEVEMENT_CRITERIA_TYPE_LOOT_TYPE: return loot_type.lootTypeCount;

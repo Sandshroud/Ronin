@@ -674,6 +674,54 @@ void ObjectMgr::ReloadVendors()
     LoadVendors();
 }
 
+void ObjectMgr::ProcessTitles()
+{
+    for(uint32 i = 0; i < dbcCharTitle.GetNumRows(); i++)
+    {
+        if(CharTitleEntry *entry = dbcCharTitle.LookupRow(i))
+        {
+            if(RONIN_UTIL::FindXinYString("%s", entry->titleFormat))
+            {
+                std::string title = entry->titleFormat;
+                size_t pos = title.find("%s"), cutoff = 2;
+                if(pos < title.size()/2)
+                {
+                    if(title.at(pos+cutoff) == ' ')
+                        cutoff++;
+                    else if(title.at(pos+cutoff+1) == ' ')
+                        cutoff += 2;
+                    entry->titleName = title.substr(pos+cutoff, title.length());
+                } else entry->titleName = title.substr(0, pos-1);
+            } else entry->titleName = entry->titleFormat;
+            printf("");
+        }
+    }
+    sLog.Notice("ObjectMgr", "Processed %u character titles", dbcCharTitle.GetNumRows());
+}
+
+void ObjectMgr::ProcessCreatureFamilies()
+{
+    for(uint32 i = 0; i < dbcCreatureFamily.GetNumRows(); i++)
+    {
+        if(CreatureFamilyEntry *entry = dbcCreatureFamily.LookupRow(i))
+        {
+            std::string name = entry->name;
+            m_creatureFamilyNameToID.insert(std::make_pair(name, entry->ID));
+        }
+    }
+    sLog.Notice("ObjectMgr", "Processed %u creature families", dbcCreatureFamily.GetNumRows());
+}
+
+bool ObjectMgr::GetCreatureFamilyIDFromName(const char *name, uint32 &out)
+{
+    if(m_creatureFamilyNameToID.find(name) != m_creatureFamilyNameToID.end())
+    {
+        out = m_creatureFamilyNameToID.at(name);
+        return true;
+    }
+    return false;
+}
+
 void ObjectMgr::LoadTrainers()
 {
     mTrainerData.clear();

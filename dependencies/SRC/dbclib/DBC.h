@@ -87,6 +87,7 @@ public:
         }
         uint32 pos = ftell(f);
 
+        uint32 dataSize = header.rows;
         if(header.fieldcount != header.cols*4)
         {
             size_t len = strlen(CFormat), forSize = 0;
@@ -105,12 +106,12 @@ public:
                 sLog.Error("DBC", "DBC %s has an incorrect extended format!(%u/%u)\n", filename, forSize, header.fieldcount);
                 return false;
             }
-        }
+            dataSize *= forSize;
+        } else dataSize *= header.cols*4;
 
-        uint32 valueMax = header.cols*header.rows;
         if(header.stringsize)
         {
-            fseek( f, (valueMax*4), SEEK_CUR );
+            fseek( f, dataSize, SEEK_CUR );
             m_stringData = new char[header.stringsize];
             fread( m_stringData, header.stringsize, 1, f );
         }

@@ -76,8 +76,9 @@ public:
 
 protected:
     // Check if criteria matches the info supplied
-    bool _ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &maxCounter, uint32 misc1, uint32 misc2);
+    bool _ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &mod, uint32 &maxCounter, uint32 misc1, uint32 misc2);
     bool _FinishedCriteria(AchieveDataContainer *container, AchievementCriteriaEntry *criteria, AchievementEntry *achievement);
+    bool _CheckCriteriaForAchievement(AchievementCriteriaEntry *criteria, AchievementEntry *achievement);
     bool _CheckAchievementRequirements(AchieveDataContainer *container, AchievementEntry *achievement);
 
 private:

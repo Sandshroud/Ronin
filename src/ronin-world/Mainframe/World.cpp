@@ -169,6 +169,9 @@ void World::Destruct()
     sLog.Notice("StatSystem", "~StatSystem()");
     delete StatSystem::getSingletonPtr();
 
+    sLog.Notice("GossipManager", "~GossipManager()");
+    delete GossipManager::getSingletonPtr();
+
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
 
@@ -448,6 +451,8 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, LoadSpellSkills);
+    MAKE_TASK(ObjectMgr, ProcessTitles);
+    MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
     tl.wait();
 
     ApplyNormalFixes();

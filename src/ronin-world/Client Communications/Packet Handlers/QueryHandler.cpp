@@ -384,6 +384,8 @@ void WorldSession::HandleItemHotfixQueryOpcode(WorldPacket & recvPacket)
         data2 << uint32(type);
         SendPacket(&data2);
     }
+
+    delete [] guids;
 }
 
 void WorldSession::HandleInrangeQuestgiverQuery(WorldPacket & recv_data)

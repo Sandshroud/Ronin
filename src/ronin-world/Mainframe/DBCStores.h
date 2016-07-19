@@ -157,10 +157,11 @@ struct CharTitleEntry
 {
     uint32 Id;
     //uint32 unk1;
-    char *title;
+    char *titleFormat;
     //char *title2;
     uint32 bit_index;
     //uint32 unk3;
+    std::string titleName;
 };
 
 struct ChatChannelEntry

@@ -52,6 +52,10 @@ int win32_main( int argc, char ** argv )
 #ifdef NEW_ALLOCATION_TRACKING
 #undef new
 
+Mutex *lock = NULL;
+bool trackAllocation = false;
+std::map<void *, std::pair<const char*, size_t> > allocationRecord;
+
 const char* __file__ = "unknown";
 size_t __line__ = 0;
 
@@ -94,9 +98,6 @@ void operator delete(void *ptr)
     std::free(ptr);
 }
 
-Mutex *lock = NULL;
-bool trackAllocation = false;
-std::map<void *, std::pair<const char*, size_t> > allocationRecord;
 #endif
 
 int main( int argc, char ** argv )

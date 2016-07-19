@@ -819,14 +819,17 @@ ChannelMgr::ChannelMgr()
 
 ChannelMgr::~ChannelMgr()
 {
+    m_idToChannel.clear();
     for(int i = 0; i < 2; i++)
     {
         ChannelList::iterator itr = Channels[i].begin();
         for(; itr != Channels[i].end(); itr++)
-        {
             delete itr->second;
-        }
         Channels[i].clear();
+        DBCChannelMap::iterator itr2 = DBCChannels[i].begin();
+        for(; itr2 != DBCChannels[i].end(); itr2++)
+            delete itr2->second.second;
+        DBCChannels[i].clear();
     }
 }
 

@@ -78,7 +78,13 @@ WorldSession::~WorldSession()
     }
 
     if(_zlibStream)
-        deflateEnd(_zlibStream), _zlibStream = NULL;
+    {
+        int result = Z_OK;
+        while(result != Z_STREAM_END)
+            result = deflate(_zlibStream, Z_FINISH);
+        deflateEnd(_zlibStream);
+        delete _zlibStream;
+    }
 }
 
 bool WorldSession::InitializeZLibCompression()

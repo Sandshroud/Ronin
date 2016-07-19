@@ -662,6 +662,8 @@ public:
     int32 GetBonusAttackPower();
     int32 GetBonusRangedAttackPower();
     int32 GetBonusResistance(uint8 school);
+    virtual float GetDodgeChance() { return GetFloatValue(PLAYER_DODGE_PERCENTAGE); }
+    virtual float GetHitChance() { return GetFloatValue(PLAYER_FIELD_UI_HIT_MODIFIER); }
 
     void UpdateCombatRating(uint8 combatRating, float value);
     float GetRatioForCombatRating(uint8 combatRating);

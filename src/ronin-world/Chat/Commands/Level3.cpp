@@ -893,7 +893,7 @@ bool ChatHandler::HandleAddTitleCommand(const char* args, WorldSession* m_sessio
         return true;
     }
 
-    std::string title = format(entry->title, plr->GetName());
+    std::string title = format(entry->titleFormat, plr->GetName());
     BlueSystemMessage(m_session, "Adding title %s", title.c_str());
     plr->SetKnownTitle(entry->Id, true);
     if(m_session->GetPlayer() != plr)
@@ -913,7 +913,7 @@ bool ChatHandler::HandleRemoveTitleCommand(const char* args, WorldSession* m_ses
         return true;
     }
 
-    std::string title = format(entry->title, plr->GetName());
+    std::string title = format(entry->titleFormat, plr->GetName());
     BlueSystemMessage(m_session, "Removing title %s.", title.c_str());
     plr->SetKnownTitle(entry->Id, false);
     if(m_session->GetPlayer() != plr)
@@ -936,7 +936,7 @@ bool ChatHandler::HandleGetKnownTitlesCommand(const char* args, WorldSession* m_
             continue;
         if(!plr->HasKnownTitleByIndex(entry->bit_index))
             continue;
-        BlueSystemMessage(m_session, entry->title, plr->GetName());
+        BlueSystemMessage(m_session, entry->titleFormat, plr->GetName());
     }
     GreenSystemMessage(m_session, "Finished title listing.");
     return true;
@@ -1901,9 +1901,9 @@ bool ChatHandler::HandleLookupTitleCommand(const char *args, WorldSession *m_ses
     for(uint32 i = 0; i < dbcCharTitle.GetNumRows(); i++)
     {
         CharTitleEntry *entry = dbcCharTitle.LookupRow(i);
-        if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->title)))
+        if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->titleFormat)))
             continue;
-        BlueSystemMessage(m_session, "Title %03u: %s", entry->Id, format(entry->title, m_session->GetPlayer()->GetName()).c_str());
+        BlueSystemMessage(m_session, "Title %03u: %s", entry->Id, format(entry->titleFormat, m_session->GetPlayer()->GetName()).c_str());
         if(++count == 25)
             break;
     }

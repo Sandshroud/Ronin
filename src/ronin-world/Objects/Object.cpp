@@ -1295,6 +1295,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         /* -------------------------------- HONOR + BATTLEGROUND CHECKS ------------------------ */
         if( plr != NULL)
         {
+            bool honorOrXPGain = false;
+
             if( plr->m_bg != NULL )
                 plr->m_bg->HookOnPlayerKill( plr, pVictim );
             TRIGGER_INSTANCE_EVENT( plr->GetMapInstance(), OnPlayerKillPlayer )( plr, pVictim );
@@ -1326,16 +1328,17 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             if(plr->getLevel() <= (pVictim->getLevel() + 8) && plr->getClass() == WARRIOR)
             {   // currently only warriors seem to use it (Victory Rush)
                 plr->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_VICTORIOUS );
-                if( !sEventMgr.HasEvent(castPtr<Unit>(plr), EVENT_VICTORIOUS_FLAG_EXPIRE ) )
+                if( !sEventMgr.HasEvent(plr, EVENT_VICTORIOUS_FLAG_EXPIRE ) )
                     sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventAurastateExpire, (uint32)AURASTATE_FLAG_VICTORIOUS, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000, 1, 0 );
-                else
-                    sEventMgr.ModifyEventTimeLeft( castPtr<Unit>(plr), EVENT_VICTORIOUS_FLAG_EXPIRE, 20000 , false );
+                else sEventMgr.ModifyEventTimeLeft( plr, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000 , false );
             }
+
+            AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE, honorOrXPGain ? 1 : 0, pVictim->GetTypeId(), pVictim->IsCreature() ? castPtr<Creature>(pVictim)->getCreatureType() : 0);
         }
         /* -------------------------------- HONOR + BATTLEGROUND CHECKS END------------------------ */
 
         uint64 victimGuid = pVictim->GetGUID();
-        SetFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_DEAD );
+        pVictim->SetFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_DEAD );
 
         // player loot for battlegrounds
         if( pVictim->IsPlayer() )
@@ -1370,13 +1373,13 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 }
             }
 
-            if(IsPlayer())
+            if(plr)
             {
                 WorldPacket data(SMSG_PARTYKILLLOG, 16);
                 data << GetGUID() << victimGuid;
                 SendMessageToSet(&data, true);
 
-                AchieveMgr.UpdateCriteriaValue(castPtr<Player>(this), ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, 1, pVictim->GetEntry());
+                AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, 1, pVictim->GetEntry());
 
                 //---------------------------------looot-----------------------------------------
                 if( pVictim->GetUInt64Value( UNIT_FIELD_CREATEDBY ) == 0 &&
@@ -1389,27 +1392,27 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     if(can_give_xp)
                     {
                         // Is this player part of a group
-                        if( castPtr<Player>(this)->InGroup() )
+                        if( plr->InGroup() )
                         {
                             //Calc Group XP
-                            castPtr<Player>(this)->GiveGroupXP( pVictim, castPtr<Player>(this) );
+                            plr->GiveGroupXP( pVictim, plr );
                             //TODO: pet xp if player in group
                         }
                         else
                         {
-                            uint32 xp = CalculateXpToGive( pVictim, castPtr<Unit>(this) );
+                            uint32 xp = CalculateXpToGive( pVictim, plr );
                             if( xp > 0 )
                             {
-                                if(castPtr<Player>(this)->MobXPGainRate)
-                                    xp += (xp*(castPtr<Player>(this)->MobXPGainRate/100));
+                                if(plr->MobXPGainRate)
+                                    xp += (xp*(plr->MobXPGainRate/100));
 
-                                castPtr<Player>(this)->GiveXP( xp, victimGuid, true, false);
+                                plr->GiveXP( xp, victimGuid, true, false);
                             }
                         }
                     }
 
                     if( pVictim->GetTypeId() != TYPEID_PLAYER )
-                        sQuestMgr.OnPlayerKill( castPtr<Player>(this), castPtr<Creature>( pVictim ) );
+                        sQuestMgr.OnPlayerKill( plr, castPtr<Creature>( pVictim ) );
                 }
             }
             else /* is Creature or GameObject* */

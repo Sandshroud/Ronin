@@ -27,6 +27,12 @@ void AuraInterface::Destruct()
     for(uint8 x = MAX_AURAS; x < m_maxPassiveAuraSlot; ++x)
         if(Aura *aur = m_auras[x])
             delete aur;
+    while(!m_modifierHolders.empty())
+    {
+        delete m_modifierHolders.begin()->second;
+        m_modifierHolders.erase(m_modifierHolders.begin());
+    }
+    m_modifierHolders.clear();
 }
 
 void AuraInterface::Update(uint32 diff)
