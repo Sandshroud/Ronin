@@ -398,7 +398,7 @@ void Player::Update(uint32 msTime, uint32 diff)
         }
         // Update out travel timer
         m_taxiTravelTime += taxiDiff;
-        if((m_taxiUpdateTimer+=diff) >= 500)
+        if((m_taxiUpdateTimer+=diff) >= 500 || m_taxiTravelTime >= m_taxiArrivalTime)
         {
             EventTaxiInterpolate();
             m_taxiUpdateTimer = 0;
@@ -1185,7 +1185,8 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         m_taxiArrivalTime = m_taxiMoveTime = fields[PLAYERLOAD_FIELD_TAXI_MOVETIME].GetUInt32();
         m_taxiTravelTime = fields[PLAYERLOAD_FIELD_TAXI_TRAVELTIME].GetUInt32();
         SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, (m_taxiModelId = fields[PLAYERLOAD_FIELD_TAXI_MOUNTID].GetUInt32()));
-        m_taxiArrivalTime += 2000;
+        if(path->HasMapChange(m_mapId))
+            m_taxiArrivalTime -= 2000;
         SetTaxiPath(path);
     }
 
@@ -4557,9 +4558,9 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
     m_taxiTravelTime = startOverride;
     m_taxiArrivalTime = m_taxiMoveTime = 1000 * (path->GetLength(GetMapId())/TAXI_TRAVEL_SPEED);
     path->SendMoveForTime(this, this, m_taxiTravelTime, m_taxiMoveTime);
-    // Add an extra 2 seconds to travel timeout
-    if(m_taxiPaths.empty())
-        m_taxiArrivalTime += (path->HasMapChange(GetMapId()) ? -2000 : 2000);
+    // Add or subtract an extra 2 seconds to travel timeout
+    if(path->HasMapChange(GetMapId()))
+        m_taxiArrivalTime -= 2000;
 }
 
 void Player::JumpToEndTaxiNode(TaxiPath * path)

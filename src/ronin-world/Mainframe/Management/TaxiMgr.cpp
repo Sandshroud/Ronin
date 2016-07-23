@@ -152,11 +152,7 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 m
         return;
 
     uint32 mapId = riding->GetMapId();
-    size_t startnode = GetNodeForTime(mapId, time), endn = GetStartNode(mapId)+GetNodeCount(mapId);
-    startnode++; // Remove the first node
-    endn--; // Appending the final point
-    uint32 count = (endn-startnode);
-
+    size_t startnode = 1+GetNodeForTime(mapId, time), endn = GetStartNode(mapId)+GetNodeCount(mapId);
     WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( endn * 12 ) + 12 );
     data << riding->GetGUID().asPacked();
     data << uint8(0);
@@ -165,19 +161,12 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 m
     data << uint8( 0 );
     data << uint32( 0x00400000|0x00000800|0x00000200 );
     data << uint32( maxTime-time );
-    // Hardcoded last point
-    size_t pos = data.wpos();
-    data << uint32(1+count);
+    data << uint32(endn-startnode);
     for(uint32 i = startnode; i < endn; i++)
     {
         TaxiPathNodeEntry *pn = GetPathNode(i);
         data << pn->LocX << pn->LocY << pn->LocZ;
     }
-
-    TaxiPathNodeEntry *endP = GetPathNode(endn);
-    if(!riding->m_taxiPaths.empty())
-        endP = (*riding->m_taxiPaths.begin())->GetPathNode(0);
-    data << endP->LocX << endP->LocY << endP->LocZ;
 
     if(riding != to)
         to->CopyAndSendDelayedPacket(&data);
