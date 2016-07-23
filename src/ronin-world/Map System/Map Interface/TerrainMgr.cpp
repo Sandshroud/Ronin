@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : file_name(MapPath), dummyMap(false), mapId(MapId)
+TerrainMgr::TerrainMgr(std::string MapPath, uint32 MapId) : file_name(MapPath), dummyMap(false), mapId(MapId), m_vmapOffset(0)
 {
     file_name.append('/'+format("%03u.tiletree", mapId));
 
@@ -125,7 +125,6 @@ bool TerrainMgr::LoadTerrainHeader()
     FILE *FileDescriptor = fopen(file_name.c_str(), "rb");
     if(FileDescriptor == NULL)
     {
-        sLog.Error("TerrainMgr", "Map load failed for %s. Missing file?", file_name.c_str());
         dummyMap = true;
         return false;
     }
@@ -134,12 +133,9 @@ bool TerrainMgr::LoadTerrainHeader()
     fread(&identifier, 10, 1, FileDescriptor);
     if(strcmp(identifier, heightMapHeader))
     {   // If we have no height data but a proper vmap header, then load the vmap header
-        sLog.Error("TerrainMgr", "Bad header for %s. Type %s", file_name.c_str(), identifier);
         if(strcmp(identifier, VMAP::RAW_VMAP_MAGIC) == 0)
-        {
-            fseek(FileDescriptor, 0, SEEK_SET);
-            sVMapInterface.ActivateMap(mapId, FileDescriptor);
-        }
+            m_vmapOffset = 0xFFFFFFFF;
+        else sLog.Error("TerrainMgr", "Bad header for %s. Type %s", file_name.c_str(), identifier);
         fclose(FileDescriptor);
         dummyMap = true;
         return false;
@@ -160,8 +156,8 @@ bool TerrainMgr::LoadTerrainHeader()
 
     // Read in the header.
     fseek(FileDescriptor, 10, SEEK_SET);
-    uint32 tileOffsets[64][64], vmapOffset = 0;
-    if(fread(tileOffsets, terrainHeaderSize, 1, FileDescriptor) != 1 || fread(&vmapOffset, sizeof(uint32), 1, FileDescriptor) != 1)
+    uint32 tileOffsets[64][64];
+    if(fread(tileOffsets, terrainHeaderSize, 1, FileDescriptor) != 1 || fread(&m_vmapOffset, sizeof(uint32), 1, FileDescriptor) != 1)
     {
         sLog.Error("TerrainMgr", "Terrain header read failed for %s!", file_name.c_str());
         fclose(FileDescriptor);
@@ -169,12 +165,8 @@ bool TerrainMgr::LoadTerrainHeader()
         return false;
     }
 
-    if(vmapOffset && fileSize != vmapOffset)
-    {
-        fseek(FileDescriptor, vmapOffset, SEEK_SET);
-        if(!sVMapInterface.ActivateMap(mapId, FileDescriptor))
-            sLog.Error("TerrainMgr", "Failed to initialize vmap from map file %s", file_name.c_str());
-    }
+    if(m_vmapOffset == fileSize)
+        m_vmapOffset = 0;
 
     fclose(FileDescriptor);
     for(uint8 x = 0; x < 64; ++x)
@@ -187,6 +179,30 @@ bool TerrainMgr::LoadTerrainHeader()
         }
     }
 
+    return true;
+}
+
+bool TerrainMgr::LoadVMapTerrain()
+{
+    if(m_vmapOffset == 0)
+        return false;
+
+    // Create the 
+    FILE *FileDescriptor = fopen(file_name.c_str(), "rb");
+    if(FileDescriptor == NULL)
+    {
+        sLog.Error("TerrainMgr", "Map load failed for %s. Missing file?", file_name.c_str());
+        return false;
+    }
+
+    if(m_vmapOffset != 0xFFFFFFFF)
+        fseek(FileDescriptor, m_vmapOffset, SEEK_SET);
+
+    if(!sVMapInterface.ActivateMap(mapId, FileDescriptor))
+    {
+        sLog.Error("TerrainMgr", "Failed to initialize vmap from map file %s", file_name.c_str());
+        return false;
+    }
     return true;
 }
 

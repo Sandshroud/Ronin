@@ -39,21 +39,43 @@ void savePathCatmullRom( std::vector<TaxiPath::posPoint> *path, std::vector<Taxi
     }
 }
 
+float TaxiPath::dist(posPoint a, posPoint b)
+{
+    float delta_x = fabs(a.x - b.x), delta_y = fabs(a.y - b.y), delta_z = fabs(a.z - b.z);
+    return sqrtf(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+}
+
+size_t TaxiPath::GetNodeForTime(uint32 mapId, uint32 time)
+{
+    std::vector<posPoint> *path = GetPath(mapId);
+    size_t i = 0;
+    if(time == 0 || path == NULL)
+        return i;
+    float dist = float(time/1000)*TAXI_TRAVEL_SPEED, len = 0.f;
+    std::vector<posPoint>::iterator itr;
+    for(itr = path->begin(); itr != path->end(); itr++)
+    {
+        if(len + (*itr).length > dist)
+            break;
+        len += (*itr).length;
+        i++;
+    }
+    return i;
+}
+
 void TaxiPath::ComputeLen()
 {
-    mapData[0].mapId = mapData[1].mapId = -1;
-    mapData[0].length = mapData[1].length = 0.f;
-    mapData[0].catrumLength = mapData[1].catrumLength = 0.f;
     std::map<uint32, TaxiPathNodeEntry*>::iterator itr = m_pathNodes.begin();
     if(itr == m_pathNodes.end())
         return;
 
     uint8 index = 0;
-    TaxiPath::posPoint lastPos(itr->second->LocX, itr->second->LocY, itr->second->LocZ);
+    posPoint lastPos(itr->second->LocX, itr->second->LocY, itr->second->LocZ);
     mapData[index].m_pathData.push_back(lastPos);
     mapData[index].mapId = itr->second->ContinentID;
     itr++;
 
+    uint32 lastNode = itr->first;
     for(; itr != m_pathNodes.end(); itr++)
     {
         TaxiPathNodeEntry *nodeEntry = itr->second;
@@ -65,117 +87,50 @@ void TaxiPath::ComputeLen()
             index++;
 
             mapData[index].mapId = nodeEntry->ContinentID;
+            mapStartX = nodeEntry->LocX;
+            mapStartY = nodeEntry->LocY;
+            mapStartZ = nodeEntry->LocZ;
         }
 
-        TaxiPath::posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
+        posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
+        pos.length = dist(pos, lastPos);
         mapData[index].m_pathData.push_back(pos);
-        mapData[index].length += pos.dist(lastPos);
+        mapData[index].length += pos.length;
+        lastNode = itr->first;
         lastPos = pos;
     }
 
-    mapData[0].length = mapData[0].length ? sqrt(mapData[0].length) : 0.f;
-    mapData[1].length = mapData[1].length ? sqrt(mapData[1].length) : 0.f;
-    savePathCatmullRom(&mapData[0].m_pathData, &mapData[0].m_catrumPathData);
-    savePathCatmullRom(&mapData[1].m_pathData, &mapData[1].m_catrumPathData);
-
-    if(!mapData[0].m_catrumPathData.empty())
-    {
-        std::vector<posPoint>::iterator posItr = mapData[0].m_catrumPathData.begin();
-        lastPos = TaxiPath::posPoint((*posItr).x, (*posItr).y, (*posItr).z);
-        posItr++;
-        for( ; posItr != mapData[0].m_catrumPathData.end(); posItr++)
-        {
-            TaxiPath::posPoint pos((*posItr).x, (*posItr).y, (*posItr).z);
-            mapData[0].catrumLength += pos.dist(lastPos);
-            lastPos = pos;
-        }
-    }
-
-    if(!mapData[1].m_catrumPathData.empty())
-    {
-        std::vector<posPoint>::iterator posItr = mapData[1].m_catrumPathData.begin();
-        lastPos = TaxiPath::posPoint((*posItr).x, (*posItr).y, (*posItr).z);
-        posItr++;
-        for( ; posItr != mapData[1].m_catrumPathData.end(); posItr++)
-        {
-            TaxiPath::posPoint pos((*posItr).x, (*posItr).y, (*posItr).z);
-            mapData[1].catrumLength += pos.dist(lastPos);
-            lastPos = pos;
-        }
-    }
-    mapData[0].catrumLength = mapData[0].catrumLength ? sqrt(mapData[0].catrumLength) : 0.f;
-    mapData[1].catrumLength = mapData[1].catrumLength ? sqrt(mapData[1].catrumLength) : 0.f;
+    endX = lastPos.x;
+    endY = lastPos.y;
+    endZ = lastPos.z;
 }
 
-void TaxiPath::SetPosForTime(float &x, float &y, float &z, uint32 time, uint32 *last_node, uint32 mapid)
+void TaxiPath::GetPosForTime(uint32 mapid, float &x, float &y, float &z, uint32 time)
 {
-    if (!time)
-        return;
-
-    float length = GetLength(mapid, false);
-    float traveled_len = (time/(length * TAXI_TRAVEL_SPEED))*length;
-    uint32 len = 0;
-
-    x = 0;
-    y = 0;
-    z = 0;
-
-    if (!m_pathNodes.size())
-        return;
-
-    std::map<uint32, TaxiPathNodeEntry*>::iterator itr;
-    itr = m_pathNodes.begin();
-
-    float nx = 0.0f;
-    float ny = 0.0f;
-    float nz = 0.0f;
-    bool set = false;
-    uint32 nodecounter = 0;
-
-    while (itr != m_pathNodes.end())
+    std::vector<posPoint> *path = GetPath(mapid);
+    uint32 traveltime = 1000 * (GetLength(mapid)/TAXI_TRAVEL_SPEED);
+    if(path == NULL || time >= traveltime)
+        x = endX, y = endY, z = endZ;
+    else
     {
-        if( itr->second->ContinentID != mapid )
+        float len = 0, dist = float(time/1000)*TAXI_TRAVEL_SPEED;
+        std::vector<posPoint>::iterator itr;
+        for(itr = path->begin(); itr != path->end(); itr++)
         {
-            ++itr;
-            nodecounter++;
-            continue;
+            x = (*itr).x, y = (*itr).y, z = (*itr).z;
+            if(len + (*itr).length > dist)
+                break;
+            else len += (*itr).length;
         }
-
-        if(!set)
+        if(itr != path->end() && (*itr).length)
         {
-            nx = itr->second->LocX;
-            ny = itr->second->LocY;
-            nz = itr->second->LocZ;
-            set = true;
-            continue;
+            posPoint next(*itr);
+            float p = ((dist-len)/next.length);
+            x = next.x-((next.x-x)*p);
+            y = next.y-((next.y-y)*p);
+            z = next.z-((next.z-z)*p);
         }
-
-        len = (uint32)sqrt((itr->second->LocX - nx)*(itr->second->LocX - nx) + (itr->second->LocY - ny)*(itr->second->LocY - ny) +
-            (itr->second->LocZ - nz)*(itr->second->LocZ - nz));
-
-        if (len >= traveled_len)
-        {
-            x = (itr->second->LocX - nx)*(traveled_len/len) + nx;
-            y = (itr->second->LocY - ny)*(traveled_len/len) + ny;
-            z = (itr->second->LocZ - nz)*(traveled_len/len) + nz;
-            *last_node = nodecounter;
-            return;
-        }
-        else
-        {
-            traveled_len -= len;
-        }
-
-        nx = itr->second->LocX;
-        ny = itr->second->LocY;
-        nz = itr->second->LocZ;
-        ++itr;
-        nodecounter++;
     }
-
-    x = nx;
-    y = ny;
-    z = nz;
 }
 
 TaxiPathNodeEntry* TaxiPath::GetPathNode(uint32 i)
@@ -185,98 +140,37 @@ TaxiPathNodeEntry* TaxiPath::GetPathNode(uint32 i)
     return NULL;
 }
 
-void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time)
+void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 maxTime)
 {
-    if (!time)
-        return;
+    size_t startnode = GetNodeForTime(riding->GetMapId(), time), endn = GetNodeCount()-1;
+    TaxiPathNodeEntry *endP = GetPathNode(endn);
+    if(!riding->m_taxiPaths.empty())
+        endP = (*riding->m_taxiPaths.begin())->GetPathNode(0);
+    std::vector<posPoint> *path = GetPath(riding->GetMapId());
 
-    uint32 mapid = riding->GetMapId();
-    float length = GetLength(mapid, false);
-    float traveled_len = (time/(length * TAXI_TRAVEL_SPEED))*length;
-    uint32 len = 0;
-    float x = 0,y = 0,z = 0;
-
-    if (!m_pathNodes.size())
-        return;
-
-    std::map<uint32, TaxiPathNodeEntry*>::iterator itr;
-    itr = m_pathNodes.begin();
-
-    float nx = 0.0f;
-    float ny = 0.0f;
-    float nz = 0.0f;
-    bool set = false;
-    uint32 nodecounter = 1;
-
-    while (itr != m_pathNodes.end())
-    {
-        if( itr->second->ContinentID != mapid )
-        {
-            ++itr;
-            nodecounter++;
-            continue;
-        }
-
-        if(!set)
-        {
-            nx = itr->second->LocX;
-            ny = itr->second->LocY;
-            nz = itr->second->LocZ;
-            set = true;
-            continue;
-        }
-
-        len = (uint32)sqrt((itr->second->LocX - nx)*(itr->second->LocX - nx) +
-            (itr->second->LocY - ny)*(itr->second->LocY - ny) +
-            (itr->second->LocZ - nz)*(itr->second->LocZ - nz));
-
-        if (len >= traveled_len)
-        {
-            x = (itr->second->LocX - nx)*(traveled_len/len) + nx;
-            y = (itr->second->LocY - ny)*(traveled_len/len) + ny;
-            z = (itr->second->LocZ - nz)*(traveled_len/len) + nz;
-            break;
-        }
-        else
-        {
-            traveled_len -= len;
-        }
-
-        nx = itr->second->LocX;
-        ny = itr->second->LocY;
-        nz = itr->second->LocZ;
-        ++itr;
-    }
-
-    if (itr == m_pathNodes.end())
-        return;
-
-    WorldPacket data(SMSG_MONSTER_MOVE, 500);
+    WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( endn * 12 ) + 12 );
     data << riding->GetGUID().asPacked();
     data << uint8(0);
     data << riding->GetPositionX() << riding->GetPositionY() << riding->GetPositionZ();
     data << getMSTime();
-    data << uint8(0);
+    data << uint8( 0 );
     data << uint32( 0x00400000|0x00000800|0x00000200 );
-    data << uint32(uint32(length * TAXI_TRAVEL_SPEED) - time);
+    data << uint32( maxTime-time );
+    // Hardcoded last point
     size_t pos = data.wpos();
-    data << uint32(nodecounter);
-    data << nx << ny << nz;
-
-    while (itr != m_pathNodes.end())
+    startnode++; // Remove the first node
+    data << uint32( endn-startnode );
+    for(uint32 i = startnode; i < endn; i++)
     {
-        TaxiPathNodeEntry *pn = itr->second;
-        ++itr;
-
-        if( pn->ContinentID != mapid )
-            break;
-
-        ++nodecounter;
+        TaxiPathNodeEntry *pn = GetPathNode(i);
         data << pn->LocX << pn->LocY << pn->LocZ;
     }
+    data << endP->LocX << endP->LocY << endP->LocZ;
+    data.put<uint32>(pos, endn);
 
-    data.put<uint32>(pos, nodecounter);
-    to->CopyAndSendDelayedPacket(&data);
+    if(riding != to)
+        to->CopyAndSendDelayedPacket(&data);
+    else riding->SendMessageToSet(&data, true);
 }
 
 /***********************
@@ -321,17 +215,13 @@ void TaxiMgr::Initialize()
                 TaxiPath *path;
                 if(m_taxiPaths.find(pathnode->PathId) == m_taxiPaths.end())
                 {
-                    path = new TaxiPath();
-                    path->from = pathEntry->from;
-                    path->to = pathEntry->to;
-                    path->id = pathEntry->id;
-                    path->price = pathEntry->price;
+                    path = new TaxiPath(pathEntry->id, pathEntry->to, pathEntry->from, pathEntry->price);
                     m_taxiPaths.insert(std::make_pair(pathnode->PathId, path));
-                    m_taxiPathTargets[path->from].push_back(path->to);
+                    m_taxiPathTargets[path->_From].push_back(path->_To);
                 } else path = m_taxiPaths.at(pathnode->PathId);
 
                 path->AddPathNode(pathnode->NodeIndex, pathnode);
-                m_taxiTargetsToIds.insert(std::make_pair(std::make_pair(path->from, path->to), pathnode->PathId));
+                m_taxiTargetsToIds.insert(std::make_pair(std::make_pair(path->_From, path->_To), pathnode->PathId));
             }
         }
     }

@@ -4,6 +4,8 @@
 
 #include "StdAfx.h"
 
+#define INC_INDEXORBLOCK_MACRO(x, skipNeg) ( (x < MAX_POSITIVE_AURAS && x+1 > m_maxPosAuraSlot) ? x = (skipNeg ? MAX_AURAS : MAX_POSITIVE_AURAS) : (x < MAX_AURAS && x+1 > m_maxNegAuraSlot) ? x = MAX_AURAS : x++)
+
 AuraInterface::AuraInterface(Unit *unit) : m_Unit(unit), m_maxPosAuraSlot(0), m_maxNegAuraSlot(MAX_POSITIVE_AURAS), m_maxPassiveAuraSlot(MAX_AURAS)
 {
     for(uint8 i = 0; i < TOTAL_AURAS; i++)
@@ -18,13 +20,7 @@ AuraInterface::~AuraInterface()
 void AuraInterface::Destruct()
 {
     m_Unit = NULL;
-    for(uint8 x = 0; x < m_maxPosAuraSlot; ++x)
-        if(Aura *aur = m_auras[x])
-            delete aur;
-    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
-        if(Aura *aur = m_auras[x])
-            delete aur;
-    for(uint8 x = MAX_AURAS; x < m_maxPassiveAuraSlot; ++x)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(Aura *aur = m_auras[x])
             delete aur;
     while(!m_modifierHolders.empty())
@@ -39,10 +35,7 @@ void AuraInterface::Update(uint32 diff)
 {
     // Passive auras don't expire so only update non passive auras
     // Do not use iterators because update can invalidate them when they're removed
-    for(uint8 x = 0; x < m_maxPosAuraSlot; ++x)
-        if(Aura *aur = m_auras[x])
-            aur->Update(diff);
-    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(Aura *aur = m_auras[x])
             aur->Update(diff);
 }
@@ -74,7 +67,7 @@ void AppendAuraAndModifierData(std::stringstream *ss, uint32 lowGuid, uint32 aur
 
 void AuraInterface::SavePlayerAuras(std::stringstream *ss)
 {
-    for(uint8 i = 0; i < m_maxPosAuraSlot; i++)
+    for(uint8 i = 0; i < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(i, false))
     {
         Aura *aur = FindAuraBySlot(i);
         if(aur == NULL || !aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
@@ -85,39 +78,12 @@ void AuraInterface::SavePlayerAuras(std::stringstream *ss)
         Modifier *mods[3] = { aur->GetMod(0), aur->GetMod(1), aur->GetMod(2) };
         AppendAuraAndModifierData(ss, m_Unit->GetLowGUID(), i, aur, mods);
     }
-
-    for(uint8 i = MAX_POSITIVE_AURAS; i < m_maxNegAuraSlot; i++)
-    {
-        Aura *aur = FindAuraBySlot(i);
-        if(aur == NULL || !aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
-            continue;
-        if(ss->str().length())
-            *ss << ", ";
-
-        Modifier *mods[3] = { aur->GetMod(0), aur->GetMod(1), aur->GetMod(2) };
-        AppendAuraAndModifierData(ss, m_Unit->GetLowGUID(), i, aur, mods);
-    }
-
 }
 
 void AuraInterface::OnChangeLevel(uint32 newLevel)
 {
     // On target level change recalculate modifiers where caster is unit
-    for(uint8 i = 0; i < m_maxPosAuraSlot; i++)
-    {
-        Aura *aur = m_auras[i];
-        if(aur == NULL)
-            continue;
-
-        // For now, we'll only update auras we've casted on ourself
-        if(m_Unit->GetGUID() != aur->GetCasterGUID())
-            continue;
-
-        aur->OnTargetChangeLevel(newLevel, m_Unit->GetGUID());
-    }
-
-    // Update our passive auras
-    for(uint8 i = MAX_AURAS; i < m_maxPassiveAuraSlot; i++)
+    for(uint8 i = 0; i < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(i, true))
     {
         Aura *aur = m_auras[i];
         if(aur == NULL)
@@ -150,16 +116,20 @@ void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
 {
     if(aura_slot > TOTAL_AURAS)
     {
-        for(uint8 x = 0; x < TOTAL_AURAS; ++x)
+        for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
             if(m_auras[x] == aura)
                 m_auras[x] = NULL;
     } else if(m_auras[aura_slot] == aura)
         m_auras[aura_slot] = NULL;
+
+    if(uint8 index = aura->GetSpellProto()->buffIndex)
+        if(m_buffIndexAuraSlots[index] == aura_slot)
+            m_buffIndexAuraSlots.erase(index);
 }
 
 bool AuraInterface::IsDazed()
 {
-    for(uint8 x = 0; x < MAX_AURAS; ++x)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -179,19 +149,18 @@ bool AuraInterface::IsDazed()
 
 bool AuraInterface::IsPoisoned()
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
+    uint8 buffIndex = BUFF_ROGUE_POISON_START;
+    while(BuffSets[buffIndex] != BUFF_NONE)
     {
-        if(Aura *aur = m_auras[x])
-            if( aur->GetSpellProto()->isSpellPoisonType() )
-                return true;
+        if(m_buffIndexAuraSlots.find(BuffSets[buffIndex]) != m_buffIndexAuraSlots.end())
+            return true;
     }
-
     return false;
 }
 
 void AuraInterface::UpdateDuelAuras()
 {
-    for( uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x )
+    for( uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x )
         if( Aura *aur = m_auras[x])
             if(aur->WasCastInDuel())
                 RemoveAuraBySlot(x);
@@ -199,7 +168,7 @@ void AuraInterface::UpdateDuelAuras()
 
 void AuraInterface::BuildAllAuraUpdates()
 {
-    for( uint8 x = 0; x < MAX_AURAS; ++x )
+    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
         if( Aura *aur = m_auras[x] )
             aur->BuildAuraUpdate();
 }
@@ -207,7 +176,7 @@ void AuraInterface::BuildAllAuraUpdates()
 bool AuraInterface::BuildAuraUpdateAllPacket(WorldPacket* data)
 {
     bool res = false;
-    for (uint8 i = 0; i < MAX_AURAS; i++)
+    for (uint8 i = 0; i < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(i, false))
     {
         Aura *aur = m_auras[i];
         if(aur == NULL)
@@ -221,7 +190,7 @@ bool AuraInterface::BuildAuraUpdateAllPacket(WorldPacket* data)
 void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
 {
     int32 spells_to_steal = MaxSteals > 1 ? MaxSteals : 1;
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -258,12 +227,12 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
 
 void AuraInterface::UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS)
 {
-    // TODO: Passive auras should not be removed, but deactivated.
-    for( uint8 x = 0; x < TOTAL_AURAS; x++ )
+    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
     {
         if( Aura *aur = m_auras[x] )
         {
-            uint32 reqss = aur->GetSpellProto()->RequiredShapeShift;
+            SpellEntry *sp = aur->GetSpellProto();
+            uint32 reqss = sp->RequiredShapeShift;
             if( reqss != 0 && aur->IsPositive() )
             {
                 if( oldSS > 0 && oldSS != 28)
@@ -277,27 +246,11 @@ void AuraInterface::UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS)
                 }
             }
 
-            if( m_Unit->getClass() == DRUID )
+            if( m_Unit->getClass() == DRUID && ( sp->AppliesAura(SPELL_AURA_MOD_ROOT)
+                || sp->AppliesAura(SPELL_AURA_MOD_DECREASE_SPEED) || sp->AppliesAura(SPELL_AURA_MOD_CONFUSE) ) )
             {
-                for (uint8 y = 0; y < 3; y++ )
-                {
-                    bool stopSearch = false;
-                    switch( aur->GetSpellProto()->EffectApplyAuraName[y])
-                    {
-                    case SPELL_AURA_MOD_ROOT: //Root
-                    case SPELL_AURA_MOD_DECREASE_SPEED: //Movement speed
-                    case SPELL_AURA_MOD_CONFUSE:  //Confuse (polymorph)
-                        {
-                            stopSearch = true;
-                            RemoveAuraBySlot(x);
-                        }break;
-                    default:
-                        break;
-                    }
-
-                    if(stopSearch)
-                        break;
-                }
+                RemoveAuraBySlot(x);
+                continue;
             }
         }
     }
@@ -308,7 +261,7 @@ void AuraInterface::AttemptDispel(Unit* caster, int32 Mechanic, bool hostile)
     SpellEntry *p = NULL;
     if( hostile )
     {
-        for( uint8 x = 0; x < MAX_POSITIVE_AURAS; x++ )
+        for( uint8 x = 0; x < m_maxPosAuraSlot; x++ )
         {
             if( Aura *aur = m_auras[x] )
             {
@@ -325,7 +278,7 @@ void AuraInterface::AttemptDispel(Unit* caster, int32 Mechanic, bool hostile)
     }
     else
     {
-        for( uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++ )
+        for( uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++ )
         {
             if( Aura *aur = m_auras[x] )
             {
@@ -396,31 +349,24 @@ void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispellin
 
 void AuraInterface::RemoveAllAurasWithDispelType(uint32 DispelType)
 {
-    for( uint8 x = 0; x < MAX_AURAS; x++ )
-    {
-        if(Aura *aur = m_auras[x])
-            if(aur->GetSpellProto()->DispelType == DispelType)
-                RemoveAuraBySlot(x);
-    }
+    Aura *aur = NULL;
+    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellProto()->DispelType == DispelType)
+            RemoveAuraBySlot(x);
 }
 
 void AuraInterface::RemoveAllAurasWithAttributes(uint8 index, uint32 attributeFlag)
 {
-    for(uint8 x=0;x<MAX_AURAS;x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellProto() && (aur->GetSpellProto()->Attributes[index] & attributeFlag))
-            {
-                RemoveAuraBySlot(x);
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellProto()->Attributes[index] & attributeFlag)
+            RemoveAuraBySlot(x);
 }
 
 void AuraInterface::RemoveAllAurasOfSchool(uint32 School, bool Positive, bool Immune)
 {
-    for(uint8 x = 0; x < MAX_AURAS; ++x)
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
     {
         if(Aura *aur = m_auras[x])
         {
@@ -434,7 +380,8 @@ void AuraInterface::RemoveAllAurasOfSchool(uint32 School, bool Positive, bool Im
 
 void AuraInterface::RemoveAllAurasByInterruptFlagButSkip(uint32 flag, uint32 skip)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
     {
         Aura *aur = m_auras[x];
         if(aur == NULL)
@@ -460,9 +407,41 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info, WoWGuid casterGuid)
     resp.Error = AURA_CHECK_RESULT_NONE;
     resp.Misc  = 0;
 
+    if(uint8 index = info->buffIndex)
+    {
+        uint8 indexStart = GetBuffSetStartForIndex(index);
+        if(indexStart != MAX_BUFFS)
+        {
+            std::map<uint8, uint8>::iterator itr;
+            while(BuffSets[++indexStart] != BUFF_NONE)
+            {
+                if((itr = m_buffIndexAuraSlots.find(BuffSets[indexStart])) != m_buffIndexAuraSlots.end())
+                {
+                    Aura *curAura = m_auras[itr->second];
+                    if(curAura->GetCasterGUID() == casterGuid)
+                    {
+                        resp.Error = AURA_CHECK_RESULT_LOWER_BUFF_PRESENT;
+                        resp.Misc = itr->second;
+                    }
+                    else if(BuffSets[indexStart] == index)
+                    {
+                        if(curAura->GetSpellProto()->Rank > info->Rank)
+                        {
+                            resp.Error = AURA_CHECK_RESULT_HIGHER_BUFF_PRESENT;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if(resp.Error != AURA_CHECK_RESULT_NONE)
+        return resp;
+
     // look for spells with same namehash
     bool stronger = false;
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; (x+1 == m_maxPosAuraSlot ? x = MAX_POSITIVE_AURAS : x++))
     {
         Aura *aur = m_auras[x];
         if(aur == NULL)
@@ -471,7 +450,7 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info, WoWGuid casterGuid)
             continue; // We can skip auras cast by ourself
 
         SpellEntry *currInfo = aur->GetSpellProto();
-        if(info->NameHash == currInfo->NameHash || info->isSpellBuffType() && currInfo->isSpellSameBuffType(info))
+        if(info->NameHash == currInfo->NameHash)
         {
             if(info->RankNumber < currInfo->RankNumber)
                 stronger = true;
@@ -496,207 +475,157 @@ AuraCheckResponse AuraInterface::AuraCheck(SpellEntry *info, WoWGuid casterGuid)
 
 uint32 AuraInterface::GetAuraSpellIDWithNameHash(uint32 name_hash)
 {
-    for(uint8 x = 0; x < MAX_AURAS; ++x)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellProto()->NameHash == name_hash)
-            {
-                return aur->GetSpellProto()->Id;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellProto()->NameHash == name_hash)
+            return aur->GetSpellProto()->Id;
     return 0;
 }
 
 bool AuraInterface::HasAura(uint32 spellid)
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellId() == spellid)
-            {
-                return true;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellId() == spellid)
+            return true;
     return false;
 }
 
 bool AuraInterface::HasAuraVisual(uint32 visualid)
 {
-    for(uint8 x = 0; x < MAX_AURAS; ++x)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellProto()->SpellVisual[0] == visualid || aur->GetSpellProto()->SpellVisual[1] == visualid)
-            {
-                return true;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && (aur->GetSpellProto()->SpellVisual[0] == visualid || aur->GetSpellProto()->SpellVisual[1] == visualid))
+            return true;
     return false;
 }
 
 bool AuraInterface::HasActiveAura(uint32 spellid)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellId() == spellid)
-            {
-                return true;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellId() == spellid)
+            return true;
     return false;
 }
 
 bool AuraInterface::HasNegativeAura(uint32 spell_id)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellProto()->Id == spell_id)
-            {
-                return true;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if((aur = m_auras[x]) && aur->GetSpellProto()->Id == spell_id)
+            return true;
     return false;
 }
 
 bool AuraInterface::HasAuraWithMechanic(uint32 mechanic)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetMechanic() == mechanic)
-            {
-                return true;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetMechanic() == mechanic)
+            return true;
     return false;
 }
 
 bool AuraInterface::HasActiveAura(uint32 spellid, WoWGuid guid)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellId() == spellid && (!guid || aur->GetCasterGUID() == guid))
-            {
-                return true;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellId() == spellid && (guid.empty() || aur->GetCasterGUID() == guid))
+            return true;
     return false;
 }
 
 bool AuraInterface::HasPosAuraWithMechanic(uint32 mechanic)
 {
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
-    {
-        if( Aura *aur = m_auras[x] )
-        {
-            if( aur->GetMechanic() == mechanic )
-            {
-                return true;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
+        if( (aur = m_auras[x] ) && aur->GetMechanic() == mechanic )
+            return true;
     return false;
 }
 
 bool AuraInterface::HasNegAuraWithMechanic(uint32 mechanic)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
-    {
-        if( Aura *aur = m_auras[x] )
-        {
-            if( aur->GetMechanic() == mechanic )
-            {
-                return true;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if((aur = m_auras[x]) && aur->GetMechanic() == mechanic )
+            return true;
     return false;
 }
 
 bool AuraInterface::HasNegativeAuraWithNameHash(uint32 name_hash)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; ++x)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            if(aur->GetSpellProto()->NameHash == name_hash)
-            {
-                return true;
-            }
-        }
-    }
-
+    Aura *aur = NULL;
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if((aur = m_auras[x]) && aur->GetSpellProto()->NameHash == name_hash)
+            return true;
     return false;
 }
 
 bool AuraInterface::HasCombatStatusAffectingAuras(WoWGuid checkGuid)
 {
-    for(uint8 i = MAX_POSITIVE_AURAS; i < MAX_AURAS; i++)
-    {
-        if( Aura *aur = m_auras[i] )
-        {
-            if(checkGuid == aur->GetCasterGUID() && aur->IsCombatStateAffecting())
-                return true;
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; ++x)
+        if((aur = m_auras[x]) && checkGuid == aur->GetCasterGUID() && aur->IsCombatStateAffecting())
+            return true;
     return false;
 }
 
 bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid casterguid)
 {
-    for(uint8 i = 0; i < MAX_AURAS; i++)
-    {
-        if( Aura *aur = m_auras[i] )
-        {
-            if(casterguid)
-            {
-                if(casterguid == aur->GetCasterGUID() && aur->GetSpellProto()->NameHash == namehash)
-                    return true;
-            }
-            else
-            {
-                if(aur->GetSpellProto()->NameHash == namehash)
-                    return true;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellProto()->NameHash == namehash && (casterguid.empty() || aur->GetCasterGUID() == casterguid))
+            return true;
     return false;
 }
 
 bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 {
+    std::set<uint8> m_aurasToRemove;
     uint32 maxStack = aur->GetSpellProto()->maxstack;
     if( maxStack && m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->stack_cheat )
         maxStack = 0xFF;
 
-    std::set<uint8> m_aurasToRemove;
     SpellEntry *info = aur->GetSpellProto();
-    for( uint8 x = 0; x < MAX_AURAS; x++ )
+    if(uint8 index = info->buffIndex)
+    {
+        uint8 indexStart = GetBuffSetStartForIndex(index);
+        if(indexStart != MAX_BUFFS)
+        {
+            std::map<uint8, uint8>::iterator itr;
+            while(BuffSets[++indexStart] != BUFF_NONE)
+            {
+                if((itr = m_buffIndexAuraSlots.find(BuffSets[indexStart])) != m_buffIndexAuraSlots.end())
+                {
+                    Aura *curAura = m_auras[itr->second];
+                    if(curAura->GetCasterGUID() == caster->GetGUID())
+                        m_aurasToRemove.insert(itr->second);
+                    else if(BuffSets[indexStart] == index)
+                    {
+                        if(curAura->GetSpellProto()->Rank > aur->GetSpellProto()->Rank)
+                            return false;
+                        for(uint8 i = 0; i < 3; i++)
+                        {
+                            if(curAura->GetMod(i)->m_amount > aur->GetMod(i)->m_amount)
+                                return false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Now we process our aura list
+    for( uint8 x = 0; x < m_maxNegAuraSlot; (x+1 == m_maxPosAuraSlot ? x = MAX_POSITIVE_AURAS : x++) )
     {
         Aura *curAura = m_auras[x];
         if(curAura == NULL || aur == curAura || curAura->IsDeleted())
             continue;
+        if(m_aurasToRemove.find(x) != m_aurasToRemove.end())
+            continue; // Don't waste time checking aura's we're removing
+
         SpellEntry *currSP = curAura->GetSpellProto();
         if(info->NameHash && info->NameHash == currSP->NameHash)
         {
@@ -725,47 +654,15 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
                         m_aurasToRemove.insert(x);
                         continue;
                     }
-                    else if(info->isSpellBuffType() && info->isSpellSameBuffType(currSP))
-                    {
-                        if(maxStack > 1 && curAura->getStackSize() > 1)
-                            return false;
-                        m_aurasToRemove.insert(x);
-                    }
                     else if(info->isUnique)
                     {
                         // Unique spells need to rebound, otherwise we can just apply
                         return false;
                     }
                 }
-            }
-            else if(curAura->IsPositive())
+            } else if(curAura->IsPositive())
                 m_aurasToRemove.insert(x);
             else return false;
-        }
-        else
-        {
-            if(info->isSpellBuffType() && currSP->isSpellBuffType() && info->isSpellSameBuffType(currSP))
-            {
-                if( currSP->isSpellAuraBuff() )
-                {
-                    if( curAura->GetUnitCaster() != aur->GetUnitCaster() )
-                        continue;
-                }
-                m_aurasToRemove.insert(x);
-            }
-            else if( info->isSpellPoisonType() && currSP->isSpellPoisonType() && info->isSpellSameBuffType(currSP) )
-            {
-                if( currSP->RankNumber < info->RankNumber || maxStack == 0)
-                {
-                    m_aurasToRemove.insert(x);
-                    continue;
-                }
-                else if( currSP->RankNumber > info->RankNumber )
-                {
-                    m_aurasToRemove.insert(x);
-                    break;
-                }
-            }
         }
     }
 
@@ -856,6 +753,8 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
     else if(aur->GetAuraSlot() < TOTAL_AURAS)
         m_maxPassiveAuraSlot = std::max<uint8>(m_maxPassiveAuraSlot, 1+aur->GetAuraSlot());
 
+    if(uint8 index = aur->GetSpellProto()->buffIndex)
+        m_buffIndexAuraSlots[index] = aur->GetAuraSlot();
     aur->ApplyModifiers(true);
 
     // Reaction from enemy AI
@@ -881,7 +780,7 @@ void AuraInterface::RemoveAura(Aura* aur)
     if(aur == NULL)
         return;
 
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(aur == m_auras[x])
             m_auras[x] = NULL;
     aur->Remove(); // Call remove once.
@@ -902,7 +801,7 @@ bool AuraInterface::RemoveAuras(uint32 * SpellIds)
         return false;
 
     bool res = false;
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -920,8 +819,8 @@ bool AuraInterface::RemoveAuras(uint32 * SpellIds)
 }
 
 void AuraInterface::RemoveAuraNoReturn(uint32 spellId)
-{   //this can be speed up, if we know passive \pos neg
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+{
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -932,12 +831,11 @@ void AuraInterface::RemoveAuraNoReturn(uint32 spellId)
             }
         }
     }
-    return;
 }
 
 bool AuraInterface::RemovePositiveAura(uint32 spellId)
 {
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
     {
         if( Aura *aur = m_auras[x])
         {
@@ -953,7 +851,7 @@ bool AuraInterface::RemovePositiveAura(uint32 spellId)
 
 bool AuraInterface::RemoveNegativeAura(uint32 spellId)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if( Aura *aur = m_auras[x])
         {
@@ -974,7 +872,7 @@ bool AuraInterface::RemoveAuraByNameHash(uint32 namehash)
 
 bool AuraInterface::RemoveAuraPosByNameHash(uint32 namehash)
 {
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -990,7 +888,7 @@ bool AuraInterface::RemoveAuraPosByNameHash(uint32 namehash)
 
 bool AuraInterface::RemoveAuraNegByNameHash(uint32 namehash)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1020,11 +918,11 @@ void AuraInterface::RemoveAuraBySlotOrRemoveStack(uint8 Slot)
 
 bool AuraInterface::RemoveAura(uint32 spellId, WoWGuid guid )
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
-            if(aur->GetSpellId() == spellId && (!guid || aur->GetCasterGUID() == guid))
+            if(aur->GetSpellId() == spellId && (guid.empty() || aur->GetCasterGUID() == guid))
             {
                 RemoveAuraBySlot(x);
                 return true;
@@ -1036,16 +934,14 @@ bool AuraInterface::RemoveAura(uint32 spellId, WoWGuid guid )
 
 void AuraInterface::RemoveAllAuras()
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(Aura *aur = m_auras[x])
             RemoveAuraBySlot(x);
-    }
 }
 
 void AuraInterface::RemoveAllExpiringAuras()
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1060,7 +956,7 @@ void AuraInterface::RemoveAllExpiringAuras()
 
 void AuraInterface::RemoveAllNegativeAuras()
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1073,30 +969,28 @@ void AuraInterface::RemoveAllNegativeAuras()
 
 void AuraInterface::RemoveAllNonPassiveAuras()
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(Aura *aur = m_auras[x])
             RemoveAuraBySlot(x);
-    }
 }
 
 void AuraInterface::RemoveAllAreaAuras(WoWGuid skipguid)
 {
-    for (uint8 i = 0; i < MAX_POSITIVE_AURAS; ++i)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
-        Aura *aur = m_auras[i];
+        Aura *aur = m_auras[x];
         if(aur == NULL)
             continue;
         if (aur->IsAreaAura() && aur->GetUnitCaster() && (!aur->GetUnitCaster()
             || (aur->GetUnitCaster()->IsPlayer() && (!skipguid || skipguid != aur->GetCasterGUID()))))
-            RemoveAuraBySlot(i);
+            RemoveAuraBySlot(x);
     }
 }
 
 bool AuraInterface::RemoveAllAurasFromGUID(WoWGuid guid)
 {
     bool res = false;
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1113,21 +1007,16 @@ bool AuraInterface::RemoveAllAurasFromGUID(WoWGuid guid)
 //ex:to remove morph spells
 void AuraInterface::RemoveAllAurasOfType(uint32 auratype)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        if(Aura *aur = m_auras[x])
-        {
-            SpellEntry *proto = aur->GetSpellProto();
-            if(proto != NULL && proto->EffectApplyAuraName[0] == auratype || proto->EffectApplyAuraName[1] == auratype || proto->EffectApplyAuraName[2] == auratype)
-                RemoveAura(aur->GetSpellId());//remove all morph auras containig to this spell (like wolf motph also gives speed)
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->AppliesAura(auratype))
+            RemoveAuraBySlot(x);
 }
 
 bool AuraInterface::RemoveAllPosAurasFromGUID(WoWGuid guid)
 {
     bool res = false;
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1144,7 +1033,7 @@ bool AuraInterface::RemoveAllPosAurasFromGUID(WoWGuid guid)
 bool AuraInterface::RemoveAllNegAurasFromGUID(WoWGuid guid)
 {
     bool res = false;
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1161,8 +1050,8 @@ bool AuraInterface::RemoveAllNegAurasFromGUID(WoWGuid guid)
 bool AuraInterface::RemoveAllAurasByNameHash(uint32 namehash, bool passive)
 {
     bool res = false;
-    uint8 max = (passive ? TOTAL_AURAS : MAX_AURAS);
-    for(uint8 x = 0; x < max; x++)
+    uint8 max = (passive ? m_maxPassiveAuraSlot : m_maxNegAuraSlot);
+    for(uint8 x = 0; x < max; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1178,65 +1067,40 @@ bool AuraInterface::RemoveAllAurasByNameHash(uint32 namehash, bool passive)
 
 void AuraInterface::RemoveAllAurasExpiringWithPet()
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
-        if(Aura *aur = m_auras[x])
-            if(aur->GetSpellProto()->isSpellExpiringWithPet())
-                RemoveAuraBySlot(x);
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->isSpellExpiringWithPet())
+            RemoveAuraBySlot(x);
 }
 
 void AuraInterface::RemoveAllAurasByInterruptFlag(uint32 flag)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
-    {
-        Aura *aur = m_auras[x];
-        if(aur == NULL)
-            continue;
-        //some spells do not get removed all the time only at specific intervals
-        if(aur->GetSpellProto()->AuraInterruptFlags & flag)
+    Aura *aur = NULL; //some spells do not get removed all the time only at specific intervals
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->AuraInterruptFlags & flag)
             RemoveAuraBySlot(x);
-    }
 }
 
 void AuraInterface::RemoveAllAurasWithAuraName(uint32 auraName)
 {
-    for(uint8 i = 0; i < TOTAL_AURAS; i++)
-    {
-        Aura *aur = m_auras[i];
-        if(aur == NULL)
-            continue;
-        for(uint32 x = 0; x < 3; x++)
-        {
-            if( aur->GetSpellProto()->EffectApplyAuraName[x] == auraName )
-            {
-                RemoveAuraBySlot(i);
-                break;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->AppliesAura(auraName))
+            RemoveAuraBySlot(x);
 }
 
 void AuraInterface::RemoveAllAurasWithSpEffect(uint32 EffectId)
 {
-    for(uint8 i = 0; i < TOTAL_AURAS; i++)
-    {
-        Aura *aur = m_auras[i];
-        if(aur == NULL)
-            continue;
-        for(uint32 x = 0; x < 3; x++)
-        {
-            if( aur->GetSpellProto()->Effect[x] == EffectId )
-            {
-                RemoveAuraBySlot(i);
-                break;
-            }
-        }
-    }
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->HasEffect(EffectId))
+            RemoveAuraBySlot(x);
 }
 
 bool AuraInterface::RemoveAllPosAurasByNameHash(uint32 namehash)
 {
     bool res = false;
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS;x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot;x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1253,7 +1117,7 @@ bool AuraInterface::RemoveAllPosAurasByNameHash(uint32 namehash)
 bool AuraInterface::RemoveAllNegAurasByNameHash(uint32 namehash)
 {
     bool res = false;
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1270,7 +1134,7 @@ bool AuraInterface::RemoveAllNegAurasByNameHash(uint32 namehash)
 bool AuraInterface::RemoveAllAuras(uint32 spellId, WoWGuid guid)
 {
     bool res = false;
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1287,7 +1151,7 @@ bool AuraInterface::RemoveAllAuras(uint32 spellId, WoWGuid guid)
 uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily, uint32 SkillLine)
 {
     uint32 count = 0;
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1295,9 +1159,7 @@ uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily,
             {
                 SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(aur->GetSpellId());
                 if(sk && sk->skilline == SkillLine)
-                {
                     count++;
-                }
             }
         }
     }
@@ -1318,8 +1180,8 @@ uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily,
 bool AuraInterface::RemoveAllAurasByMechanic( uint32 MechanicType, int32 MaxDispel, bool HostileOnly )
 {
     //sLog.outString( "Unit::MechanicImmunityMassDispel called, mechanic: %u" , MechanicType );
-    uint32 DispelCount = 0;
-    for(uint8 x = ( HostileOnly ? MAX_POSITIVE_AURAS : 0 ) ; x < MAX_AURAS ; x++ ) // If HostileOnly = 1, then we use aura slots 40-86 (hostile). Otherwise, we use 0-86 (all)
+    uint32 DispelCount = 0; // If HostileOnly = 1, then we use aura slots 40-86 (hostile). Otherwise, we use 0-86 (all)
+    for(uint8 x = ( HostileOnly ? MAX_POSITIVE_AURAS : 0 ); x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(MaxDispel > 0)
             if(DispelCount >= (uint32)MaxDispel)
@@ -1335,15 +1197,8 @@ bool AuraInterface::RemoveAllAurasByMechanic( uint32 MechanicType, int32 MaxDisp
             }
             else if( MechanicType == MECHANIC_ENSNARED ) // if got immunity for slow, remove some that are not in the mechanics
             {
-                for( int i = 0; i < 3; i++ )
-                {
-                    // SNARE + ROOT
-                    if( aur->GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_MOD_DECREASE_SPEED || aur->GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_MOD_ROOT )
-                    {
-                        RemoveAuraBySlot(x);
-                        break;
-                    }
-                }
+                if(aur->GetSpellProto()->AppliesAura(SPELL_AURA_MOD_DECREASE_SPEED) || aur->GetSpellProto()->AppliesAura(SPELL_AURA_MOD_ROOT))
+                    RemoveAuraBySlot(x);
             }
         }
     }
@@ -1357,11 +1212,11 @@ Aura* AuraInterface::FindAuraBySlot(uint8 auraSlot)
 
 Aura* AuraInterface::FindAura(uint32 spellId, WoWGuid guid)
 {
-    for(uint8 x = 0; x < TOTAL_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
-            if(aur->GetSpellId() == spellId && (!guid || aur->GetCasterGUID() == guid))
+            if(aur->GetSpellId() == spellId && (guid.empty() || aur->GetCasterGUID() == guid))
             {
                 return aur;
             }
@@ -1372,7 +1227,7 @@ Aura* AuraInterface::FindAura(uint32 spellId, WoWGuid guid)
 
 Aura* AuraInterface::FindPositiveAuraByNameHash(uint32 namehash)
 {
-    for(uint8 x = 0; x < MAX_POSITIVE_AURAS; x++)
+    for(uint8 x = 0; x < m_maxPosAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1387,7 +1242,7 @@ Aura* AuraInterface::FindPositiveAuraByNameHash(uint32 namehash)
 
 Aura* AuraInterface::FindNegativeAuraByNameHash(uint32 namehash)
 {
-    for(uint8 x = MAX_POSITIVE_AURAS; x < MAX_AURAS; x++)
+    for(uint8 x = MAX_POSITIVE_AURAS; x < m_maxNegAuraSlot; x++)
     {
         if(Aura *aur = m_auras[x])
         {
@@ -1402,11 +1257,11 @@ Aura* AuraInterface::FindNegativeAuraByNameHash(uint32 namehash)
 
 Aura* AuraInterface::FindActiveAura(uint32 spellId, WoWGuid guid)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
-            if(aur->GetSpellId()==spellId && (!guid || aur->GetCasterGUID() == guid))
+            if(aur->GetSpellId()==spellId && (guid.empty() || aur->GetCasterGUID() == guid))
             {
                 return aur;
             }
@@ -1417,11 +1272,11 @@ Aura* AuraInterface::FindActiveAura(uint32 spellId, WoWGuid guid)
 
 Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid)
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
-            if(aur->GetSpellProto()->NameHash == namehash && (!guid || aur->GetCasterGUID() == guid))
+            if(aur->GetSpellProto()->NameHash == namehash && (guid.empty() || aur->GetCasterGUID() == guid))
             {
                 return aur;
             }
@@ -1432,7 +1287,7 @@ Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid)
 
 void AuraInterface::EventDeathAuraRemoval()
 {
-    for(uint8 x = 0; x < MAX_AURAS; x++)
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {

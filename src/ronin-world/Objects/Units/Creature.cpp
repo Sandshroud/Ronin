@@ -547,7 +547,7 @@ void Creature::Respawn(bool addrespawnevent, bool free_guid)
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = 1;
 
-    m_AuraInterface.RemoveAllAuras();
+    m_AuraInterface.RemoveAllNonPassiveAuras();
 
     uint32 delay = 0;
     if(addrespawnevent && _creatureData->respawnTime > 0)

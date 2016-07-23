@@ -563,18 +563,24 @@ void Unit::UpdateAttackDamageValues()
 
         if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
         {
+            float modifier = 100.f;
             for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
             {
                 if(IsPlayer() && itr->second->m_spellInfo->EquippedItemClass != -1)
                 {
                     if(Item *item = castPtr<Player>(this)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
                         if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
-                            baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
+                            modifier += itr->second->m_amount;
                     continue;
                 }
+
                 if(itr->second->m_miscValue[0] & 0x01)
-                    baseMinDamage *= itr->second->m_amount, baseMaxDamage *= itr->second->m_amount;
+                    modifier += itr->second->m_amount;
             }
+
+            modifier /= 100.f;
+            baseMinDamage *= modifier;
+            baseMaxDamage *= modifier;
         }
 
         if(i == OFFHAND) // Offhand weapons do 50% of actual damage, dual wield spec they do 75%

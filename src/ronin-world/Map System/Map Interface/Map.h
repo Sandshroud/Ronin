@@ -22,20 +22,21 @@ typedef struct
     int32 vendormask;
     uint32 eventId;
 }CreatureSpawn;
-typedef std::vector<CreatureSpawn*> CreatureSpawnList;
 
 typedef struct
 {
     uint32  id;//spawn ID
     uint32  entry;
     float  x, y, z;
-    float  r0, r1, r2, r3;
+    float  rX, rY, rZ, rAngle;
     uint32  state;
     uint32  flags;
     uint32  faction;
     float   scale;
     uint32  eventId;
 } GOSpawn;
+
+typedef std::vector<CreatureSpawn*> CreatureSpawnList;
 typedef std::vector<GOSpawn*> GOSpawnList;
 
 typedef struct
@@ -52,7 +53,7 @@ public:
     Map(MapEntry *map, char *name);
     ~Map();
 
-    void Initialize();
+    void Initialize(CellSpawns *mapSpawns, bool continent);
 
     RONIN_INLINE std::string GetNameString() { return mapName; }
     RONIN_INLINE const char* GetName() { return mapName.c_str(); }
@@ -72,7 +73,7 @@ public:
         return &m_spawns.at(cellPair);
     }
 
-    void LoadSpawns(bool reload = false);//set to true to make clean up
+    void LoadSpawns(CellSpawns *mapSpawns);
     RONIN_INLINE TerrainMgr* GetMapTerrain() { return _terrain; }
     RONIN_INLINE MapEntry *GetEntry() { return _entry; }
 

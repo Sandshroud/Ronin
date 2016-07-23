@@ -236,14 +236,3 @@ public:
 void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * spell);
 void UnapplyDiminishingReturnTimer(Unit* Target, SpellEntry * spell);
 uint32 GetDiminishingGroup(uint32 NameHash);
-uint32 GetTriggerSpellFromDescription(std::string delimiter, std::string desc);
-SpellEntry* CreateDummySpell(uint32 id);
-uint32 GetSpellClass(SpellEntry *sp);
-uint32 fill( uint32* arr, ... );
-void GenerateNameHashesFile();
-void GenerateSpellCoeffFile();
-void CopyEffect(SpellEntry *fromSpell, uint8 fromEffect, SpellEntry *toSpell, uint8 toEffect);
-void ApplySingleSpellFixes(SpellEntry *sp);
-void ApplyCoeffSpellFixes(SpellEntry *sp);
-void SetProcFlags(SpellEntry *sp);
-void SetupSpellTargets();

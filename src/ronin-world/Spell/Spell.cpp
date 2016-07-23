@@ -1591,7 +1591,7 @@ uint8 Spell::CanCast(bool tolerate)
         }
 
         // check if spell is allowed while player is on a taxi
-        if(p_caster->m_onTaxi)
+        if(p_caster->GetTaxiState())
         {
             // This uses the same flag as ordinary mounts
             if(!GetSpellProto()->isCastableWhileMounted())

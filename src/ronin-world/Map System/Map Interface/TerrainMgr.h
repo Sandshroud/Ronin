@@ -108,12 +108,19 @@ private:
     /// Our storage array. This contains pointers to all allocated TileInfo's.
     std::map<std::pair<uint8, uint8>, TileTerrainInformation> tileInformation;
 
+    /// Our vmap management offset, stored for later activation
+    uint32 m_vmapOffset;
+
 public:
     /* Initializes the file descriptor and readys it for data retreival.
        No parameters taken.
        Returns true if the index was read successfully, false if not.
       */
     bool LoadTerrainHeader();
+
+    /* Initializes non terrain offset data
+      */
+    bool LoadVMapTerrain();
 
     /* Checks that the co-ordinates are within range.
       */

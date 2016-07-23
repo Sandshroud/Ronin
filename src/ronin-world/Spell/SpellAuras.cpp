@@ -1818,7 +1818,7 @@ void Aura::EventPeriodicHeal1(uint32 amount)
 
     if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
         m_target->Emote(EMOTE_ONESHOT_EAT);
-    else if(!m_spellProto->IsSpellAnyArmorBuffType())
+    else if(m_spellProto->buffIndex == 0)
         SendPeriodicAuraLog(amount, FLAG_PERIODIC_HEAL);
 }
 

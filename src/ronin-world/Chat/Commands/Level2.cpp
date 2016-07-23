@@ -633,14 +633,15 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         gs->x = x;
         gs->y = y;
         gs->z = z;
-        gs->r0 = gs->r1 = gs->r2 = gs->r3 = 0.f;
+        gs->rAngle = cos(o/2.f);
+        gs->rX = gs->rY = gs->rZ = 0.f;
         gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
-        go->Load(mapid, gs, o);
+        go->Load(mapid, gs);
         go->SaveToDB();
         uint32 cx = chr->GetMapInstance()->GetPosX(x);
         uint32 cy = chr->GetMapInstance()->GetPosY(y);
         chr->GetMapInstance()->AddGoSpawn(cx, cy, gs);
-    } else go->CreateFromProto(entryID,mapid,x,y,z,o);
+    } else go->CreateFromProto(entryID,mapid,x,y,z,0.f,0.f,0.f,cos(o/2.f));
 
     go->SetInstanceID(chr->GetInstanceID());
     go->PushToWorld(chr->GetMapInstance());

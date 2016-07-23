@@ -285,18 +285,13 @@ bool ChatHandler::HandleFullDismountCommand(const char * args, WorldSession *m_s
        return false;
     }
 
-    if(!p_target->m_taxiPaths.size())
-        p_target->SetTaxiState(false);
-
     p_target->SetTaxiPath(NULL);
     p_target->UnSetTaxiPos();
-    p_target->m_taxi_ride_time = 0;
 
     p_target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
     p_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     p_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
     p_target->Dismount();
-    sEventMgr.RemoveEvents(p_target, EVENT_PLAYER_TAXI_INTERPOLATE);
 
     if( p_target->m_taxiPaths.size() )
         p_target->m_taxiPaths.clear();

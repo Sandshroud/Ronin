@@ -1235,6 +1235,55 @@ enum MECHANICS
     MECHANIC_COUNT
 };
 
+enum BUFFS
+{
+    BUFF_NONE = 0,
+    // Warrior buffs
+    BUFF_WARRIOR_START,
+    BUFF_WARRIOR_SHOUT,
+    // Paladin buffs
+    BUFF_PALADIN_BLESSING_START,
+    BUFF_PMIGHT,
+    BUFF_PWISDOM,
+    BUFF_PKINGS,
+    BUFF_PALADIN_AURA_START,
+    BUFF_PDEVOTION,
+    BUFF_PRETRIBUTION,
+    BUFF_PCONCENTRATION,
+    BUFF_PRESISTANCE,
+    BUFF_PCRUSADER,
+    // Hunter buffs
+    BUFF_HUNTER_START,
+    // Rogue buffs
+    BUFF_ROGUE_POISON_START,
+    // Priest buffs
+    BUFF_PRIEST_START,
+    // Death Knight buffs
+    BUFF_DEATHKNIGHT_START,
+    BUFF_DKPRESENCE,
+    // Shaman buffs
+    BUFF_SHAMAN_START,
+    // Mage buffs
+    BUFF_MAGE_START,
+    // Warlock buffs
+    BUFF_WARLOCK_START,
+    // Druid buffs
+    BUFF_DRUID_START,
+
+    MAX_BUFFS
+};
+
+static BUFFS BuffSets[MAX_BUFFS] = { BUFF_NONE, BUFF_NONE, BUFF_WARRIOR_SHOUT, BUFF_NONE, BUFF_PMIGHT, BUFF_PWISDOM, BUFF_PKINGS, BUFF_NONE, BUFF_PDEVOTION, BUFF_PRETRIBUTION, BUFF_PCONCENTRATION, BUFF_PRESISTANCE, BUFF_PCRUSADER, BUFF_NONE, BUFF_NONE, BUFF_NONE, BUFF_NONE, BUFF_DKPRESENCE, BUFF_NONE, BUFF_NONE, BUFF_NONE, BUFF_NONE };
+RONIN_INLINE uint8 GetBuffSetStartForIndex(uint8 buffIndex)
+{
+    if(buffIndex == BUFF_NONE || buffIndex >= MAX_BUFFS)
+        return MAX_BUFFS;
+    uint8 ret = buffIndex;
+    while(BuffSets[ret] != BUFF_NONE)
+        ret--;
+    return ret;
+}
+
 typedef enum SpellEffectTarget
 {
     EFF_TARGET_NONE                                     = 0,

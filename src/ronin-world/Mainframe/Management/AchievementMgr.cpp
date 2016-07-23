@@ -282,15 +282,13 @@ void AchievementMgr::SaveCriteriaData(WoWGuid guid, QueryBuffer *buff)
     }
 }
 
-static uint32 type = ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE-1;
-
 void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool buildEmpty)
 {
     AchieveDataContainer *container = m_playerAchieveData.at(guid);
     ASSERT(container != NULL);
 
     ByteBuffer criteriaData;
-    data->WriteBits(buildEmpty ? 0 : container->m_criteriaProgress.size() + m_criteriaByType.count(type), 21);
+    data->WriteBits(buildEmpty ? 0 : container->m_criteriaProgress.size(), 21);
     for(auto it = container->m_criteriaProgress.begin(); buildEmpty == false && it != container->m_criteriaProgress.end(); it++)
     {
         WoWGuid counter(it->second->criteriaCounter);
@@ -329,46 +327,6 @@ void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool 
 
         criteriaData.WriteByteSeq(guid[1]);
     }
-
-    for(CriteriaStorage::iterator itr = m_criteriaByType.lower_bound(type); itr != m_criteriaByType.upper_bound(type); itr++)
-    {
-        WoWGuid counter(itr->second->ID*100);
-        // Append our bit data
-        data->WriteBit(guid[4]);
-        data->WriteBit(counter[3]);
-        data->WriteBit(guid[5]);
-        data->WriteGuidBitString(2, counter, 0, 6);
-        data->WriteGuidBitString(2, guid, 3, 0);
-        data->WriteBit(counter[4]);
-        data->WriteBit(guid[2]);
-        data->WriteBit(counter[7]);
-        data->WriteBit(guid[7]);
-        data->WriteBits(0, 2);
-        data->WriteBit(guid[6]);
-        data->WriteGuidBitString(3, counter, 2, 1, 5);
-        data->WriteBit(guid[1]);
-
-        // Append byte data
-        criteriaData.WriteByteSeq(guid[3]);
-        criteriaData.WriteSeqByteString(2, counter, 5, 6);
-        criteriaData.WriteSeqByteString(2, guid, 4, 6);
-        criteriaData.WriteByteSeq(counter[2]);
-
-        criteriaData << uint32(UNIXTIME); // Timer 2
-        criteriaData.WriteByteSeq(guid[2]);
-        criteriaData << uint32(itr->second->ID);
-
-        criteriaData.WriteByteSeq(guid[5]);
-        criteriaData.WriteSeqByteString(4, counter, 0, 3, 1, 4);
-        criteriaData.WriteSeqByteString(2, guid, 0, 7);
-        criteriaData.WriteByteSeq(counter[7]);
-
-        criteriaData << uint32(UNIXTIME); // Timer 1
-        criteriaData << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
-
-        criteriaData.WriteByteSeq(guid[1]);
-    }
-    type++;
 
     data->WriteBits(buildEmpty ? 0 : container->m_completedAchievements.size(), 23);
     data->FlushBits();

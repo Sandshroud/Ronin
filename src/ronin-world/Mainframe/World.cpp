@@ -175,6 +175,9 @@ void World::Destruct()
     sLog.Notice("Tracker", "~Tracker()");
     delete Tracker::getSingletonPtr();
 
+    sLog.Notice("SpellManager", "~SpellManager()");
+    delete SpellManager::getSingletonPtr();
+
     sLog.Notice("TicketMgr", "~TicketMgr()");
     delete TicketMgr::getSingletonPtr();
 
@@ -415,6 +418,7 @@ bool World::SetInitialWorldSettings()
     }
 
     new AchievementMgr();
+    new SpellManager();
     new ObjectMgr();
     new QuestMgr();
     new GossipManager();
@@ -430,6 +434,7 @@ bool World::SetInitialWorldSettings()
     new GuildMgr();
     new ItemManager();
     new CreatureDataManager();
+    new WorldManager();
 
     Storage_FillTaskList(tl);
 
@@ -438,11 +443,14 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ItemManager, InitializeItemPrototypes);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
     MAKE_TASK(FactionSystem, LoadFactionInteractionData);
+    MAKE_TASK(SpellManager, ParseSpellDBC);
 
     tl.wait(); // Load all the storage first
+    MAKE_TASK(SpellManager, LoadSpellFixes);
 
     MAKE_TASK(QuestMgr, LoadQuests);
     MAKE_TASK(LootMgr, LoadLoot);
+    MAKE_TASK(WorldManager, ParseMapDBC);
 
     Storage_LoadAdditionalTables();
 
@@ -455,7 +463,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
     tl.wait();
 
-    ApplyNormalFixes();
+    MAKE_TASK(SpellManager, PoolSpellData);
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(AchievementMgr, ParseAchievements);
@@ -472,6 +480,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadExtraItemStuff);
     MAKE_TASK(ObjectMgr, LoadArenaTeams);
     MAKE_TASK(GossipManager, LoadGossipData);
+    MAKE_TASK(WorldManager, LoadSpawnData);
 
 #undef MAKE_TASK
 
@@ -540,6 +549,43 @@ bool World::SetInitialWorldSettings()
             StoreCharacterStartingOutfit(startOutfit);
     sLog.Notice("World", "Hashed %u/%u starting outfits", m_startingOutfits.size(), dbcCharStartOutfit.GetNumRows());
 
+    // Begin preprocessing max capacities for mount types to cut down on array scanning during runtime
+    sLog.Notice("World", "Processing %u mount types with %u capabilities...", dbcMountType.GetNumRows(), dbcMountCapability.GetNumRows());
+    for(uint32 x = 0; x < dbcMountType.GetNumRows(); x++)
+    {
+        if(MountTypeEntry *mountType = dbcMountType.LookupRow(x))
+        {
+            mountType->maxCapability[0] = mountType->maxCapability[1] = 24;
+            uint32 i = 24;
+            while(i > 0)
+            {
+                i--;
+                if(mountType->maxCapability[0] != 24 && mountType->maxCapability[1] != 24)
+                    break;
+
+                MountCapabilityEntry *entry = dbcMountCapability.LookupEntry(mountType->MountCapability[i]);
+                if(entry == NULL)
+                    continue;
+                if(mountType->maxCapability[0] == 24)
+                    mountType->maxCapability[0] = i;
+                if(entry->requiredRidingSkill > 150)
+                    continue;
+                if(mountType->maxCapability[1] == 24)
+                    mountType->maxCapability[1] = i;
+            }
+
+            // Increment changed max capacities
+            if(mountType->maxCapability[0] != 24)
+                mountType->maxCapability[0]++;
+            if(mountType->maxCapability[1] != 24)
+                mountType->maxCapability[1]++;
+            // Set our secondary max capacity to be less than or equal to our regular max capacity
+            if(mountType->maxCapability[1] > mountType->maxCapability[0])
+                mountType->maxCapability[1] = mountType->maxCapability[0];
+        }
+    }
+
+    sLog.Notice("World", "Processing %u area table entries...", dbcAreaTable.GetNumRows());
     for(uint32 i = 0; i < dbcAreaTable.GetNumRows(); i++)
     {
         AreaTableEntry *areaentry = dbcAreaTable.LookupRow(i);
@@ -562,7 +608,7 @@ bool World::SetInitialWorldSettings()
             }
         }
     }
-    sLog.Notice("World", "Hashed %u sanctuaries", m_sanctuaries.size());
+
     return true;
 }
 

@@ -40,12 +40,18 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
     m_hasInRangeGuards              = 0;
+    m_CurrentTaxiPath               = NULL;
     m_lastShotTime                  = 0;
-    m_onTaxi                        = false;
-    m_taxi_pos_x                    = 0;
-    m_taxi_pos_y                    = 0;
-    m_taxi_pos_z                    = 0;
-    m_taxi_ride_time                = 0;
+    taxiX                           = 0;
+    taxiY                           = 0;
+    taxiZ                           = 0;
+    m_taxiModelId                   = 0;
+    m_taxiMapChangeNode             = 0;
+    m_lastTaxiTimeUpdate            = 0;
+    m_taxiMoveTime                  = 0;
+    m_taxiUpdateTimer               = 0;
+    m_taxiTravelTime                = 0;
+    m_taxiArrivalTime               = 0;
     m_meleeattackspeedmod           = 1.0f;
     m_rangedattackspeedmod          = 1.0f;
     m_cheatDeathRank                = 0;
@@ -187,12 +193,9 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     raidgrouponlysent               = false;
     m_setwaterwalk                  = false;
     m_areaSpiritHealer_guid         = 0;
-    m_CurrentTaxiPath               = NULL;
-    m_lastNode                      = 0;
     m_lfgMatch                      = NULL;
     m_lfgInviterGuid                = 0;
     m_mountCheckTimer               = 0;
-    m_taxiMapChangeNode             = 0;
     m_safeFall                      = 0;
     safefall                        = false;
     m_KickDelay                     = 0;
@@ -384,6 +387,23 @@ void Player::Update(uint32 msTime, uint32 diff)
 
     if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
+
+    if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI))
+    {
+        uint32 taxiDiff = diff;
+        if(m_lastTaxiTimeUpdate)
+        {   // Update from the last time we set our taxi time data
+            taxiDiff = getMSTimeDiff(getMSTime(), m_lastTaxiTimeUpdate);
+            m_lastTaxiTimeUpdate = 0;
+        }
+        // Update out travel timer
+        m_taxiTravelTime += taxiDiff;
+        if((m_taxiUpdateTimer+=diff) >= 200)
+        {
+            EventTaxiInterpolate();
+            m_taxiUpdateTimer = 0;
+        }
+    }
 }
 
 void Player::ProcessPendingItemUpdates()
@@ -842,11 +862,11 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     << m_bgEntryPointO      << ", ";
 
     // taxi
-    if(m_onTaxi && m_CurrentTaxiPath) {
+    if(GetTaxiState() && m_CurrentTaxiPath) {
         ss << m_CurrentTaxiPath->GetID() << ", ";
-        ss << m_lastNode << ", ";
+        ss << m_taxiMoveTime << ", " << m_taxiTravelTime << ", ";
         ss << GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) << ", ";
-    } else ss << "0, 0, 0, ";
+    } else ss << "0, 0, 0, 0, ";
 
     float transx, transy, transz, transo;
     m_movementInterface.GetTransportPosition(transx, transy, transz, transo);
@@ -1161,10 +1181,12 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     uint32 taxipath = fields[PLAYERLOAD_FIELD_TAXI_PATH].GetUInt32();
     if(TaxiPath *path = sTaxiMgr.GetTaxiPath(taxipath))
     {
-        m_lastNode = fields[PLAYERLOAD_FIELD_TAXI_LASTNODE].GetUInt32();
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
+        m_taxiArrivalTime = m_taxiMoveTime = fields[PLAYERLOAD_FIELD_TAXI_MOVETIME].GetUInt32();
+        m_taxiTravelTime = fields[PLAYERLOAD_FIELD_TAXI_TRAVELTIME].GetUInt32();
         SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, fields[PLAYERLOAD_FIELD_TAXI_MOUNTID].GetUInt32());
+        m_taxiArrivalTime += 2000;
         SetTaxiPath(path);
-        m_onTaxi = true;
     }
 
     uint32 transGuid = fields[PLAYERLOAD_FIELD_TRANSPORTERGUID].GetUInt32();
@@ -1338,6 +1360,9 @@ void Player::_SavePlayerCooldowns(QueryBuffer * buf)
     {
         for(PlayerCooldownMap::iterator itr = m_cooldownMap[i].begin(); itr != m_cooldownMap[i].end(); itr++)
         {
+            if(itr->second.ExpireTime <= UNIXTIME)
+                continue;
+
             if(ss.str().length())
                 ss << ", ";
 
@@ -2043,22 +2068,20 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
 {
     ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)money );
 
-    SetPosition(x, y, z, true);
-    if(m_taxiPaths.empty())
-        SetTaxiState(false);
+    m_taxiTravelTime = 0;
 
-    m_movementInterface.setRooted(m_AuraInterface.HasAuraWithMechanic(MECHANIC_STUNNED));
+    SetPosition(x, y, z, true);
     SetTaxiPath(NULL);
     UnSetTaxiPos();
-    m_taxi_ride_time = 0;
+    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
 
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
-    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
-    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
-
-    m_movementInterface.OnTaxiEnd();
-
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_TAXI_INTERPOLATE);
+    if(m_taxiPaths.empty())
+    {
+        m_movementInterface.setRooted(m_AuraInterface.HasAuraWithMechanic(MECHANIC_STUNNED));
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
+        m_movementInterface.OnTaxiEnd();
+    }
 
     // Save to database on dismount
     SaveToDB(false);
@@ -2068,7 +2091,7 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
     {
         TaxiPath * p = *m_taxiPaths.begin();
         m_taxiPaths.erase(m_taxiPaths.begin());
-        TaxiStart(p, taxi_model_id, 0);
+        TaxiStart(p, m_taxiModelId);
     }
 }
 
@@ -2222,9 +2245,6 @@ void Player::EventDeath()
     if (m_state & UF_ATTACKING)
         EventAttackStop();
 
-    if (m_onTaxi)
-        sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_TAXI_DISMOUNT);
-
     if(!IS_INSTANCE(GetMapId()) && !sEventMgr.HasEvent(castPtr<Player>(this),EVENT_PLAYER_FORCED_RESURECT)) //Should never be true
         sEventMgr.AddEvent(castPtr<Player>(this),&Player::EventRepopRequestedPlayer,EVENT_PLAYER_FORCED_RESURECT,PLAYER_FORCED_RESURECT_INTERVAL,1,0); //in case he forgets to release spirit (afk or something)
 }
@@ -2305,7 +2325,7 @@ void Player::smsg_InitialSpells()
     for (SpellSet::iterator sitr = mSpells.begin(); sitr != mSpells.end(); ++sitr)
         data << uint32(*sitr) << uint16(0x0000);
 
-    uint32 mstime = getMSTime();
+    time_t curr = UNIXTIME;
     size_t pos = data.wpos(), itemCount = 0;
     data << uint16(0);        // placeholder
     for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end(); )
@@ -2313,21 +2333,22 @@ void Player::smsg_InitialSpells()
         itr2 = itr++;
 
         // don't keep around expired cooldowns
-        if( itr2->second.ExpireTime < mstime || (itr2->second.ExpireTime - mstime) < 10000 )
+        if( itr2->second.ExpireTime <= curr || (itr2->second.ExpireTime - curr) < 5 )
         {
             m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr2 );
             continue;
         }
 
-        data << uint32( itr2->second.SpellId );             // spell id
-        data << uint32( itr2->second.ItemId );              // item id
-        data << uint16( 0 );                                // spell category
-        data << uint32( itr2->second.ExpireTime - mstime ); // cooldown remaining in ms (for spell)
-        data << uint32( 0 );                                // cooldown remaining in ms (for category)
+        uint32 msTimeLeft = (itr2->second.ExpireTime - curr)*1000;
+        data << uint32( itr2->second.SpellId ); // spell id
+        data << uint32( itr2->second.ItemId );  // item id
+        data << uint16( 0 );                    // spell category
+        data << uint32( msTimeLeft );           // cooldown remaining in ms (for spell)
+        data << uint32( 0 );                    // cooldown remaining in ms (for category)
 
         ++itemCount;
 
-        sLog.outDebug("sending spell cooldown for spell %u to %u ms", itr2->first, itr2->second.ExpireTime - mstime);
+        sLog.outDebug("sending spell cooldown for spell %u to %u ms", itr2->first, msTimeLeft);
     }
 
     for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end(); )
@@ -2335,20 +2356,21 @@ void Player::smsg_InitialSpells()
         itr2 = itr++;
 
         // don't keep around expired cooldowns
-        if( itr2->second.ExpireTime < mstime || (itr2->second.ExpireTime - mstime) < 10000 )
+        if( itr2->second.ExpireTime <= curr || (itr2->second.ExpireTime - curr) < 5 )
         {
             m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr2 );
             continue;
         }
 
-        data << uint32( itr2->second.SpellId );             // spell id
-        data << uint32( itr2->second.ItemId );              // item id
-        data << uint16( itr2->first );                      // spell category
-        data << uint32( 0 );                                // cooldown remaining in ms (for spell)
-        data << uint32( itr2->second.ExpireTime - mstime ); // cooldown remaining in ms (for category)
+        uint32 msTimeLeft = (itr2->second.ExpireTime - curr)*1000;
+        data << uint32( itr2->second.SpellId ); // spell id
+        data << uint32( itr2->second.ItemId );  // item id
+        data << uint16( itr2->first );          // spell category
+        data << uint32( 0 );                    // cooldown remaining in ms (for spell)
+        data << uint32( msTimeLeft );           // cooldown remaining in ms (for category)
         ++itemCount;
 
-        sLog.outDebug("InitialSpells", "sending category cooldown for cat %u to %u ms", itr2->first, itr2->second.ExpireTime - mstime);
+        sLog.outDebug("InitialSpells", "sending category cooldown for cat %u to %u ms", itr2->first, msTimeLeft);
     }
 
     data.put<uint16>(pos, itemCount);
@@ -2588,9 +2610,6 @@ bool Player::HasHigherSpellForSkillLine(SpellEntry* sp)
     if(sle->categoryId == SKILL_TYPE_PROFESSION)
         return false;
 
-    if(GetSpellClass(sp))
-        return false;
-
     SpellSet::iterator itr;
     SpellEntry* spell = NULL;
     if(_HasSkillLine(oskillline))
@@ -2738,15 +2757,8 @@ void Player::OnPushToWorld()
 
     m_TeleportState = 0;
 
-    if(GetTaxiState())
-    {
-        if( m_taxiMapChangeNode != 0 )
-            m_lastNode = m_taxiMapChangeNode;
-
-        // Create HAS to be sent before this!
-        TaxiStart(GetTaxiPath(), GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID), m_lastNode);
-        m_taxiMapChangeNode = 0;
-    }
+    if(GetTaxiState()) // Create HAS to be sent before this!
+        TaxiStart(GetTaxiPath(), GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID), m_taxiTravelTime);
 
     /* send weather */
     sWeatherMgr.SendWeather(castPtr<Player>(this));
@@ -2877,9 +2889,6 @@ void Player::RemoveFromWorld()
     Unit::RemoveFromWorld();
 
     sWorld.mInWorldPlayerCount--;
-
-    if(GetTaxiState())
-        event_RemoveEvents( EVENT_PLAYER_TAXI_INTERPOLATE );
 
     if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
     {
@@ -3651,14 +3660,7 @@ void Player::AddInRangeObject(WorldObject* pObj)
 {
     //Send taxi move if we're on a taxi
     if (m_CurrentTaxiPath && (pObj->IsPlayer()))
-    {
-        uint32 ntime = getMSTime();
-
-        if (ntime > m_taxi_ride_time)
-            m_CurrentTaxiPath->SendMoveForTime( castPtr<Player>(this), castPtr<Player>( pObj ), ntime - m_taxi_ride_time);
-        /*else
-            m_CurrentTaxiPath->SendMoveForTime( castPtr<Player>(this), castPtr<Player>( pObj ), m_taxi_ride_time - ntime);*/
-    }
+        m_CurrentTaxiPath->SendMoveForTime( castPtr<Player>(this), castPtr<Player>( pObj ), m_taxiTravelTime, m_taxiMoveTime);
 
     if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
         m_hasInRangeGuards++;
@@ -4395,7 +4397,7 @@ void Player::Reset_Spells()
 
 void Player::Reset_ToLevel1()
 {
-    m_AuraInterface.RemoveAllAuras();
+    m_AuraInterface.RemoveAllNonPassiveAuras();
 
     setLevel(1);
 }
@@ -4505,32 +4507,33 @@ bool Player::HasNearbyTaxiNodes(uint32 from)
 
 void Player::EventTaxiInterpolate()
 {
-    if(!m_CurrentTaxiPath || m_mapInstance==NULL) return;
-
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-    uint32 ntime = getMSTime();
-    if (ntime > m_taxi_ride_time)
-        m_CurrentTaxiPath->SetPosForTime(x, y, z, ntime - m_taxi_ride_time, &m_lastNode, m_mapId);
-
-    if(x < _minX || x > _maxX || y < _minY || y > _maxX)
+    if(!m_CurrentTaxiPath || m_mapInstance==NULL)
         return;
 
+    float x = 0.f, y = 0.f, z = 0.f;
+    if(m_taxiTravelTime >= m_taxiArrivalTime)
+    {
+        m_taxiTravelTime = 0;
+        if(m_CurrentTaxiPath->HasMapChange(GetMapId()))
+        {
+            uint32 map = 0;
+            m_CurrentTaxiPath->GetMapTargetPos(x, y, z, &map);
+            SafeTeleport(map, 0, x, y, z, 0.f);
+        }
+        else
+        {
+            m_CurrentTaxiPath->GetEndPos(x, y, z);
+            EventDismount(m_CurrentTaxiPath->GetPrice(), x, y, z);
+        }
+        return;
+    }
+
+    m_CurrentTaxiPath->GetPosForTime(m_mapId, x, y, z, m_taxiTravelTime);
     SetPosition(x,y,z,0.f);
 }
 
-void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
+void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
 {
-    int32 mapchangeid = -1;
-    float mapchangex = 0.0f;
-    float mapchangey = 0.0f;
-    float mapchangez = 0.0f;
-    float orientation = 0;
-    uint32 cn = m_taxiMapChangeNode;
-
-    m_taxiMapChangeNode = 0;
-
     if( IsMounted() )
         Dismount();
 
@@ -4548,7 +4551,6 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
 
     SetTaxiPath(path);
     SetTaxiPos();
-    SetTaxiState(true);
     if(GetSession())
     {
         GetSession()->m_isFalling = false;
@@ -4556,121 +4558,32 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 start_node)
         GetSession()->m_isKnockedback = false;
     }
 
-    m_taxi_ride_time = getMSTime();
-    uint32 traveltime = 1000 * (path->GetLength(GetMapId(), false)/m_movementInterface.GetMoveSpeed(MOVE_SPEED_RUN));
-
-    // temporary workaround for taximodes with changing map
-    if (   path->GetID() == 766 || path->GetID() == 767 || path->GetID() == 771 || path->GetID() == 772
-        || path->GetID() == 775 || path->GetID() == 776 || path->GetID() == 796 || path->GetID() == 797
-        || path->GetID() == 807)
-    {
-        JumpToEndTaxiNode(path);
-        return;
-    }
-
-    TaxiPathNodeEntry *firstNode = path->GetPathNode(start_node);
-    if(firstNode == NULL)
-    {
-        JumpToEndTaxiNode(path);
-        return;
-    }
-
-    uint32 add_time = 0;
-    float lastx = 0, lasty = 0, lastz = 0;
-    if(firstNode && start_node)
-    {
-        TaxiPathNodeEntry *pn = path->GetPathNode(0);
-        float dist = 0;
-        lastx = pn->LocX;
-        lasty = pn->LocY;
-        lastz = pn->LocZ;
-        for(uint32 i = 1; i <= start_node; i++)
-        {
-            pn = path->GetPathNode(i);
-            if(!pn)
-            {
-                JumpToEndTaxiNode(path);
-                return;
-            }
-
-            dist += CalcDistanceSq(lastx, lasty, lastz, pn->LocX, pn->LocY, pn->LocZ);
-            lastx = pn->LocX;
-            lasty = pn->LocY;
-            lastz = pn->LocZ;
-        }
-        add_time = uint32( sqrtf(dist) * TAXI_TRAVEL_SPEED );
-        lastx = lasty = lastz = 0;
-        traveltime -= add_time;
-    }
-
-    size_t endn = path->GetNodeCount()-1;
-    TaxiPathNodeEntry *endP = path->GetPathNode(endn);
-    if(!m_taxiPaths.empty())
-        endP = (*m_taxiPaths.begin())->GetPathNode(0);
-
-    if( endP == NULL || start_node > endn || (endn - start_node) > 200 )
-    {
-        JumpToEndTaxiNode(path);
-        return;
-    }
-
-    WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( (endn - start_node) * 12 ) );
-    data << GetGUID().asPacked();
-    data << uint8(0);
-    data << firstNode->LocX << firstNode->LocY << firstNode->LocZ;
-    data << m_taxi_ride_time;
-    data << uint8( 0 );
-    data << uint32( 0x00400000|0x00000800|0x00000200 );
-    data << uint32( traveltime );
+    m_lastTaxiTimeUpdate = getMSTime();
+    m_taxiUpdateTimer = 0;
+    m_taxiTravelTime = startOverride;
+    m_taxiArrivalTime = m_taxiMoveTime = 1000 * (path->GetLength(GetMapId())/TAXI_TRAVEL_SPEED);
+    path->SendMoveForTime(this, this, m_taxiTravelTime, m_taxiMoveTime);
     // Add an extra 2 seconds to travel timeout
     if(m_taxiPaths.empty())
-        traveltime += 2000;
-
-    if(!cn)
-        m_taxi_ride_time -= add_time;
-
-    // Hardcoded last point
-    data << uint32( 1+(endn - start_node) );
-
-    uint32 i = start_node+1;
-    for(uint32 i = start_node; i < endn; i++)
-    {
-        TaxiPathNodeEntry *pn = path->GetPathNode(i);
-        if(pn == NULL)
-        {
-            JumpToEndTaxiNode(path);
-            return;
-        }
-
-        data << pn->LocX << pn->LocY << pn->LocZ;
-    }
-    data << endP->LocX << endP->LocY << endP->LocZ;
-    SendMessageToSet(&data, true);
-
-    sEventMgr.AddEvent(castPtr<Player>(this), &Player::EventTaxiInterpolate, EVENT_PLAYER_TAXI_INTERPOLATE, 900, 0, 0);
-    if( mapchangeid < 0 )
-    {
-        sEventMgr.AddEvent(this, &Player::EventDismount, path->GetPrice(), endP->LocX, endP->LocY, endP->LocZ, EVENT_PLAYER_TAXI_DISMOUNT, traveltime, 1, 0);
-    } else sEventMgr.AddEvent(this, &Player::EventTeleport, (uint32)mapchangeid, mapchangex, mapchangey, mapchangez, orientation, EVENT_PLAYER_TELEPORT, traveltime, 1, 0);
+        m_taxiArrivalTime += 2000;
 }
 
 void Player::JumpToEndTaxiNode(TaxiPath * path)
 {
-    SetTaxiState(false);
     SetTaxiPath(NULL);
     UnSetTaxiPos();
-    m_taxi_ride_time = 0;
 
-    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
+    m_movementInterface.setRooted(m_AuraInterface.HasAuraWithMechanic(MECHANIC_STUNNED));
+    SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
 
     m_movementInterface.OnTaxiEnd();
 
     // this should *always* be safe in case it cant build your position on the path!
-    uint32 endNode = (uint32)path->GetNodeCount();
-    if(TaxiPathNodeEntry * pathnode = path->GetPathNode(endNode-1))
-        SafeTeleport(pathnode->ContinentID, 0, LocationVector(pathnode->LocX, pathnode->LocY, pathnode->LocZ));
+    float x, y, z; uint32 map;
+    path->GetEndPos(x, y, z, &map);
+    SafeTeleport(map, 0, x, y, z, 0.f);
 }
 
 void Player::RemoveSpellsFromLine(uint16 skill_line)
@@ -7081,7 +6994,7 @@ void Player::RemoveShapeShiftSpell(uint32 id)
 }
 
 // COOLDOWNS
-void Player::_Cooldown_Add(uint32 Type, uint32 Misc, uint32 Time, uint32 SpellId, uint32 ItemId)
+void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId, uint32 ItemId)
 {
     PlayerCooldownMap::iterator itr = m_cooldownMap[Type].find( Misc );
     if( itr != m_cooldownMap[Type].end( ) )
@@ -7144,7 +7057,6 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
         return;
 
-    uint32 mstime = getMSTime();
     int32 atime = pSpell->StartRecoveryTime;
     if( GetFloatValue(UNIT_MOD_CAST_SPEED) < 1.0f )
         atime *= GetFloatValue(UNIT_MOD_CAST_SPEED);
@@ -7158,9 +7070,10 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( atime <= 0 )
         return;
 
+    time_t expireTime = UNIXTIME + (atime < 2000 ? 1 : (atime/1000));
     if( pSpell->StartRecoveryCategory )
-        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, mstime + atime, pSpell->Id, 0 );
-    else m_globalCooldown = mstime + atime;
+        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, expireTime, pSpell->Id, 0 );
+    else m_globalCooldown = expireTime;
 }
 
 void Player::Cooldown_OnCancel(SpellEntry *pSpell)
@@ -7177,7 +7090,7 @@ void Player::Cooldown_OnCancel(SpellEntry *pSpell)
     uint32 mstime = getMSTime();
     if( pSpell->StartRecoveryCategory )
         m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase(pSpell->StartRecoveryCategory);
-    else m_globalCooldown = mstime;
+    else m_globalCooldown = UNIXTIME;
 }
 
 bool Player::Cooldown_CanCast(SpellEntry * pSpell)
@@ -7189,13 +7102,13 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
         return true;
 
     PlayerCooldownMap::iterator itr;
-    uint32 mstime = getMSTime();
+    time_t now = UNIXTIME;
     if( pSpell->Category )
     {
         itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].find( pSpell->Category );
         if( itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end( ) )
         {
-            if( mstime < itr->second.ExpireTime )
+            if( now <= itr->second.ExpireTime )
                 return false;
             m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
         }
@@ -7204,14 +7117,14 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
     itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find( pSpell->Id );
     if( itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end( ) )
     {
-        if( mstime < itr->second.ExpireTime )
+        if( now <= itr->second.ExpireTime )
             return false;
         m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
     }
 
     if( pSpell->StartRecoveryTime && m_globalCooldown )         /* gcd doesn't affect spells without a cooldown it seems */
     {
-        if( mstime < m_globalCooldown )
+        if( now <= m_globalCooldown )
             return false;
         m_globalCooldown = 0;
     }
@@ -7238,14 +7151,14 @@ bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)
 {
     PlayerCooldownMap::iterator itr;
     ItemPrototype::ItemSpell* isp = &pProto->Spells[x];
-    uint32 mstime = getMSTime();
+    time_t now = UNIXTIME;
 
     if( isp->Category )
     {
         itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].find( isp->Category );
         if( itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end( ) )
         {
-            if( mstime < itr->second.ExpireTime )
+            if( now <= itr->second.ExpireTime )
                 return false;
             m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
         }
@@ -7254,7 +7167,7 @@ bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)
     itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find( isp->Id );
     if( itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end( ) )
     {
-        if( mstime < itr->second.ExpireTime )
+        if( now <= itr->second.ExpireTime )
             return false;
         m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
     }

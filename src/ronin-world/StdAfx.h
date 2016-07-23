@@ -99,6 +99,7 @@
 
 #include "SpellNameHashes.h"
 #include "SpellDefines.h"
+#include "SpellManager.h"
 #include "EventMgr.h"
 #include "EventableObject.h"
 #include "EventHolder.h"

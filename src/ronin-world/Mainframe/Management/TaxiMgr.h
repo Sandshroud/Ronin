@@ -12,62 +12,80 @@ class SERVER_DECL TaxiPath
 {
     friend class TaxiMgr;
 public:
-    TaxiPath() {}
+    TaxiPath(uint32 id, uint32 to, uint32 from, uint32 price) : _Id(id), _To(to), _From(from), _Price(price), endX(0.f), endY(0.f), endZ(0.f), mapStartX(0.f), mapStartY(0.f), mapStartZ(0.f)
+    {
+        mapData[0].mapId = mapData[1].mapId = -1;
+        mapData[0].length = mapData[1].length = 0.f;
+    }
+
     ~TaxiPath() { m_pathNodes.clear(); }
 
     void ComputeLen();
-    void SetPosForTime(float &x, float &y, float &z, uint32 time, uint32* lastnode, uint32 mapid);
-    RONIN_INLINE uint32 GetID() { return id; }
-    void SendMoveForTime(Player* riding, Player* to, uint32 time);
+    void GetPosForTime(uint32 mapid, float &x, float &y, float &z, uint32 time);
+    RONIN_INLINE uint32 GetID() { return _Id; }
+    void SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 maxTime);
     void AddPathNode(uint32 index, TaxiPathNodeEntry* pn) { m_pathNodes.insert(std::make_pair(index, pn)); }
     RONIN_INLINE size_t GetNodeCount() { return m_pathNodes.size(); }
     TaxiPathNodeEntry* GetPathNode(uint32 i);
-    RONIN_INLINE uint32 GetPrice() { return price; }
-    RONIN_INLINE uint32 GetSourceNode() { return from; }
-    RONIN_INLINE uint32 GetLength(uint32 mapId, bool catrum)
+    RONIN_INLINE uint32 GetPrice() { return _Price; }
+    RONIN_INLINE uint32 GetSourceNode() { return _From; }
+    RONIN_INLINE uint32 GetEndNode() { return _To; }
+    RONIN_INLINE uint32 GetLength(uint32 mapId)
     {
         if(mapId == mapData[0].mapId)
-            return catrum ? mapData[0].catrumLength : mapData[0].length;
+            return mapData[0].length;
         else if(mapId == mapData[1].mapId)
-            return catrum ? mapData[1].catrumLength : mapData[1].length;
+            return mapData[1].length;
         return 0;
+    }
+
+    void GetMapTargetPos(float &x, float &y, float &z, uint32 *mapId = NULL) { x = mapStartX, y = mapStartY, z = mapStartZ; if(mapId) *mapId = mapData[1].mapId; }
+    void GetEndPos(float &x, float &y, float &z, uint32 *mapId = NULL)
+    {
+        x = endX, y = endY, z = endZ;
+        if(mapId) *mapId = mapData[1].mapId != -1 ? mapData[1].mapId : mapData[0].mapId;
+    }
+
+    bool HasMapChange(uint32 mapId)
+    {
+        if(mapId != mapData[0].mapId)
+            return false;
+        return mapData[1].mapId != -1;
     }
 
     struct posPoint
     {
-        posPoint(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+        posPoint(float _x, float _y, float _z) : x(_x), y(_y), z(_z), length(0.f) {}
         float x, y, z;
-
-        float dist(posPoint point)
-        {
-            float delta_x = fabs(x - point.x);
-            float delta_y = fabs(y - point.y);
-            float delta_z = fabs(z - point.z);
-            return (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
-        }
+        float length;
     };
 
-    RONIN_INLINE std::vector<posPoint> *GetPath(uint32 mapId, bool catrum)
+    RONIN_INLINE std::vector<posPoint> *GetPath(uint32 mapId)
     {
         if(mapId == mapData[0].mapId)
-            return catrum ? &mapData[0].m_catrumPathData : &mapData[0].m_pathData;
+            return &mapData[0].m_pathData;
         else if(mapId == mapData[1].mapId)
-            return catrum ? &mapData[1].m_catrumPathData : &mapData[1].m_pathData;
+            return &mapData[1].m_pathData;
         return NULL;
     }
 
 protected:
-
     std::map<uint32, TaxiPathNodeEntry*> m_pathNodes;
 
     struct MapPointStorage
     {
         int32 mapId;
-        float length, catrumLength;
-        std::vector<posPoint> m_pathData, m_catrumPathData;
+        float length;
+        std::vector<posPoint> m_pathData;
     } mapData[2];
 
-    uint32 id, to, from, price;
+    uint32 _Id, _To, _From, _Price;
+    float endX, endY, endZ;
+    float mapStartX, mapStartY, mapStartZ;
+
+    // Not for calling during runtime
+    static float dist(posPoint a, posPoint b);
+    size_t GetNodeForTime(uint32 mapId, uint32 time);
 };
 
 class SERVER_DECL TaxiMgr :  public Singleton < TaxiMgr >

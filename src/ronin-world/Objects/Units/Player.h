@@ -586,7 +586,8 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_ENTRYPOINT_Z,
     PLAYERLOAD_FIELD_ENTRYPOINT_O,
     PLAYERLOAD_FIELD_TAXI_PATH,
-    PLAYERLOAD_FIELD_TAXI_LASTNODE,
+    PLAYERLOAD_FIELD_TAXI_MOVETIME,
+    PLAYERLOAD_FIELD_TAXI_TRAVELTIME,
     PLAYERLOAD_FIELD_TAXI_MOUNTID,
     PLAYERLOAD_FIELD_TRANSPORTERGUID,
     PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_X,
@@ -794,7 +795,7 @@ protected:
 
     // COOLDOWNS
     PlayerCooldownMap m_cooldownMap[NUM_COOLDOWN_TYPES];
-    uint32 m_globalCooldown;
+    time_t m_globalCooldown;
 
 public:
     void Cooldown_OnCancel(SpellEntry *pSpell);
@@ -805,7 +806,7 @@ public:
     bool Cooldown_CanCast(ItemPrototype * pProto, uint32 x);
 
 protected:
-    void _Cooldown_Add(uint32 Type, uint32 Misc, uint32 Time, uint32 SpellId, uint32 ItemId);
+    void _Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId, uint32 ItemId);
     // END COOLDOWNS
 
 public:
@@ -832,36 +833,33 @@ public:
     /************************************************************************/
     /* Taxi                                                                 */
     /************************************************************************/
-    RONIN_INLINE TaxiPath*    GetTaxiPath() { return m_CurrentTaxiPath; }
-    RONIN_INLINE bool         GetTaxiState() { return m_onTaxi; }
-    UpdateMask*         GetTaximask() { return &m_taxiMask; }
-    void                TaxiStart(TaxiPath* path, uint32 modelid, uint32 start_node);
-    void                JumpToEndTaxiNode(TaxiPath * path);
-    void                EventDismount(uint32 money, float x, float y, float z);
-    void                EventTaxiInterpolate();
-    void                InitTaxiNodes();
-    bool                HasNearbyTaxiNodes(uint32 from);
+    UpdateMask* GetTaximask() { return &m_taxiMask; }
 
-    RONIN_INLINE void         SetTaxiState    (bool state) { m_onTaxi = state; }
-    RONIN_INLINE bool         HasTaxiNode(uint32 node) { return m_taxiMask.GetBit(node); }
-    RONIN_INLINE void         AddTaxiMask     (uint32 index) { m_taxiMask.SetBit(index); }
-    RONIN_INLINE void         RemoveTaxiMask  (uint32 index) { m_taxiMask.UnsetBit(index); }
-    RONIN_INLINE void         SetTaxiPath     (TaxiPath *path) { m_CurrentTaxiPath = path; }
-    RONIN_INLINE void         SetTaxiPos()    {m_taxi_pos_x = m_position.x; m_taxi_pos_y = m_position.y; m_taxi_pos_z = m_position.z;}
-    RONIN_INLINE void         UnSetTaxiPos()  {m_taxi_pos_x = 0; m_taxi_pos_y = 0; m_taxi_pos_z = 0; }
+    RONIN_INLINE TaxiPath* GetTaxiPath() { return m_CurrentTaxiPath; }
+    RONIN_INLINE bool GetTaxiState() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI); }
+    void TaxiStart(TaxiPath* path, uint32 modelid, uint32 startOverride = 0);
+    void JumpToEndTaxiNode(TaxiPath * path);
+    void EventDismount(uint32 money, float x, float y, float z);
+    void EventTaxiInterpolate();
+    void InitTaxiNodes();
+    bool HasNearbyTaxiNodes(uint32 from);
+
+    RONIN_INLINE bool HasTaxiNode(uint32 node) { return m_taxiMask.GetBit(node); }
+    RONIN_INLINE void AddTaxiMask(uint32 index) { m_taxiMask.SetBit(index); }
+    RONIN_INLINE void RemoveTaxiMask(uint32 index) { m_taxiMask.UnsetBit(index); }
+    RONIN_INLINE void SetTaxiPath(TaxiPath *path) { m_CurrentTaxiPath = path; }
+    RONIN_INLINE void SetTaxiPos() {taxiX = m_position.x; taxiY = m_position.y; taxiZ = m_position.z;}
+    RONIN_INLINE void UnSetTaxiPos() {taxiX = 0; taxiY = 0; taxiZ = 0; }
+
+    // Taxi mask data
+    UpdateMask m_taxiMask;
 
     // Taxi related variables
-    std::vector<TaxiPath*>   m_taxiPaths;
-    TaxiPath*           m_CurrentTaxiPath;
-    uint32              taxi_model_id;
-    uint32              m_lastNode;
-    uint32              m_taxi_ride_time;
-    UpdateMask          m_taxiMask;
-    float               m_taxi_pos_x;
-    float               m_taxi_pos_y;
-    float               m_taxi_pos_z;
-    bool                m_onTaxi;
-    uint32              m_taxiMapChangeNode;
+    TaxiPath* m_CurrentTaxiPath;
+    std::vector<TaxiPath*> m_taxiPaths;
+    uint32 m_taxiModelId, m_taxiMapChangeNode;
+    uint32 m_lastTaxiTimeUpdate, m_taxiUpdateTimer, m_taxiTravelTime, m_taxiMoveTime, m_taxiArrivalTime;
+    float taxiX, taxiY, taxiZ;
 
     /************************************************************************/
     /* Quests                                                               */

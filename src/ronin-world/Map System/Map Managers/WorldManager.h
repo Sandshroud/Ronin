@@ -88,7 +88,7 @@ class Battleground;
 
 class ContinentManager;
 
-class SERVER_DECL WorldManager
+class SERVER_DECL WorldManager :  public Singleton < WorldManager >
 {
     friend class MapInstance;
 public:
@@ -103,6 +103,9 @@ public:
             return NULL;
         return m_maps[mapid];
     }
+
+    void ParseMapDBC();
+    void LoadSpawnData();
 
     bool ValidateMapId(uint32 mapId);
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
@@ -252,9 +255,14 @@ private:
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
     void _InitializeInstance(MapEntry *mapEntry, Map *map);
 
+    std::map<uint32, MapEntry*> m_loadedMaps;
+
     Mutex m_mapLock;
     std::map<uint32, Map*> m_maps;
     std::map<uint32, ContinentManager*> m_continentManagement;
+
+    CellSpawns *GetSpawn(uint32 mapId) { if(m_SpawnStorageMap.find(mapId) == m_SpawnStorageMap.end()) return NULL; return &m_SpawnStorageMap[mapId]; };
+    std::map<uint32, CellSpawns> m_SpawnStorageMap;
 };
 
-extern SERVER_DECL WorldManager sWorldMgr;
+#define sWorldMgr WorldManager::getSingleton()

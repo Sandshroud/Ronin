@@ -529,7 +529,17 @@ struct GameObjectInfo
 
 class SERVER_DECL GameObject : public WorldObject
 {
-    struct ObjectRotation { float x, y, z, w; };
+    struct ObjectRotation
+    {
+        float x, y, z, w;
+
+        float toAxisAngleRotation() const
+        {
+            // Decompose the quaternion into an angle
+            float modifier = 2 * acosf(w);
+            return z > 0 ? modifier : 6.28318531-modifier;
+        }
+    };
 
 public:
     GameObject(uint64 guid, uint32 fieldCount = GAMEOBJECT_END);
@@ -538,6 +548,7 @@ public:
     virtual void Destruct();
 
     virtual void Update(uint32 msTime, uint32 p_time);
+    virtual void OnFieldUpdated(uint16 index);
 
     virtual bool IsActiveObject() { return true; }
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
@@ -554,13 +565,13 @@ public:
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
-    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang, float r0 = 0.f, float r1 = 0.f, float r2 = 0.f, float r3 = 0.f);
-    bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang, float r0 = 0.f, float r1 = 0.f, float r2 = 0.f, float r3 = 0.f);
+    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float rAngle, float rX = 0.f, float rY = 0.f, float rZ = 0.f);
+    bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float rAngle, float rX = 0.f, float rY = 0.f, float rZ = 0.f);
 
-    bool Load(uint32 mapId, GOSpawn *spawn, float angle = 0.f);
+    bool Load(uint32 mapId, GOSpawn *spawn);
 
     uint32 BuildStopFrameData(ByteBuffer *buff);
-    void UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3);
+    void UpdateRotations(float rotX, float rotY, float rotZ, float rotAngle);
     static int64 PackRotation(GameObject::ObjectRotation *rotation);
 
     // Serialization
@@ -679,6 +690,14 @@ protected:
     GameObjectInfo *pInfo;
     uint8 m_gameobjectPool;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
-    typedef std::map<uint32,uint64> ChairSlotAndUser;
-    ChairSlotAndUser ChairListSlots;
+
+    struct seatData
+    {
+        WoWGuid user;
+        float x, y, z;
+    };
+    typedef std::map<uint32, seatData> ChairSlotAndUser;
+
+    ChairSlotAndUser m_chairData;
+    void _recalculateChairSeats();
 };

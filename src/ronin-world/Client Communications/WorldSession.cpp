@@ -285,6 +285,10 @@ void WorldSession::LogoutPlayer()
             plr->GetMovementInterface()->ClearTransportData();
         }
 
+        // Update taxi position before we log out
+        if(plr->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI))
+            plr->EventTaxiInterpolate();
+
         // cancel current spell
         if( plr->m_currentSpell != NULL )
             plr->m_currentSpell->cancel();
@@ -334,8 +338,7 @@ void WorldSession::LogoutPlayer()
                 // Remove player from the group if he is in a group and not in a raid.
                 if(!(plr->GetGroup()->GetGroupType() & GROUP_TYPE_RAID) && _socket && (plr->GetGroup()->GetOnlineMemberCount() == 0))
                     plr->GetGroup()->Disband();
-                else
-                    plr->m_playerInfo->m_Group->Update();
+                else plr->m_playerInfo->m_Group->Update();
             }
         }
 

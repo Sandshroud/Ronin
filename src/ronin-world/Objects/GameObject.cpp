@@ -32,7 +32,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     initiated = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
-    ChairListSlots.clear();
 }
 
 GameObject::~GameObject()
@@ -139,6 +138,12 @@ void GameObject::Update(uint32 msTime, uint32 p_time)
     }
 }
 
+void GameObject::OnFieldUpdated(uint16 index)
+{
+    if(GetType() == GAMEOBJECT_TYPE_CHAIR && index == OBJECT_FIELD_SCALE_X)
+        _recalculateChairSeats();
+}
+
 void GameObject::OnPushToWorld()
 {
     WorldObject::OnPushToWorld();
@@ -170,12 +175,12 @@ void GameObject::Reactivate()
     // Todo: Check spawn points and reset data for respawn event
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float ang, float r0, float r1, float r2, float r3)
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float rAngle, float rX, float rY, float rZ)
 {
-    return CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, ang, r0, r1, r2, r3);
+    return CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, rAngle, rX, rY, rZ);
 }
 
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float ang, float r0, float r1, float r2, float r3)
+bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float rAngle, float rX, float rY, float rZ)
 {
     if((pInfo = GameObjectNameStorage.LookupEntry(entry)) == NULL)
         return false;
@@ -183,9 +188,9 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
     if(m_created == false)
     {
         m_created = true;
-        WorldObject::_Create( mapid, x, y, z, ang );
+        WorldObject::_Create( mapid, x, y, z, 0.f );
         SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-        UpdateRotations(r0, r1, r2, r3);
+        UpdateRotations(rX, rY, rZ, rAngle);
         SetDisplayId(pInfo->DisplayID);
         SetFlags(pInfo->DefaultFlags);
         SetType(pInfo->Type);
@@ -197,8 +202,43 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, fl
             SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
             m_updateFlags |= UPDATEFLAG_TRANSPORT;
         }
+
+        if(pInfo->Type == GAMEOBJECT_TYPE_CHAIR && m_chairData.empty())
+            _recalculateChairSeats();
     }
     return true;
+}
+
+void GameObject::_recalculateChairSeats()
+{
+    bool newData = m_chairData.empty();
+    if (pInfo->data.chair.slots > 1)
+    {
+        float size = GetFloatValue(OBJECT_FIELD_SCALE_X)*pInfo->sizeMod;
+        float x_i = GetPositionX(), y_i = GetPositionY();
+        float orthogonalOrientation = GetOrientation()+M_PI*0.5f;
+        float relativeDistance = (pInfo->sizeMod*(pInfo->data.chair.slots-1)/1.25f);
+        x_i += relativeDistance * cos(orthogonalOrientation);
+        y_i += relativeDistance * sin(orthogonalOrientation);
+
+        float step = pInfo->sizeMod*(pInfo->data.chair.slots/1.25f);
+        for (uint32 i = 0; i < pInfo->data.chair.slots; ++i)
+        {
+            if(newData) m_chairData[i].user = 0;
+            m_chairData[i].x = x_i;
+            m_chairData[i].y = y_i;
+            m_chairData[i].z = GetPositionZ();
+            x_i -= step * cos(orthogonalOrientation);
+            y_i -= step * sin(orthogonalOrientation);
+        }
+    }
+    else
+    {
+        if(newData) m_chairData[0].user = 0;
+        m_chairData[0].x = GetPositionX();
+        m_chairData[0].y = GetPositionY();
+        m_chairData[0].z = GetPositionZ();
+    }
 }
 
 void GameObject::SaveToDB()
@@ -328,10 +368,10 @@ void GameObject::InitAI()
     range = r*r;//square to make code faster
 }
 
-bool GameObject::Load(uint32 mapId, GOSpawn *spawn, float angle)
+bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
 {
     // Create based on our proto data for overriding later with spawn data
-    if(!CreateFromProto(spawn->entry, mapId, spawn->x, spawn->y, spawn->z, angle, spawn->r0, spawn->r1, spawn->r2, spawn->r3))
+    if(!CreateFromProto(spawn->entry, mapId, spawn->x, spawn->y, spawn->z, spawn->rAngle, spawn->rX, spawn->rY, spawn->rZ))
         return false;
 
     // Set our spawn pointer
@@ -379,20 +419,13 @@ uint32 GameObject::BuildStopFrameData(ByteBuffer *buff)
     return frameCount;
 }
 
-void GameObject::UpdateRotations(float rotation0, float rotation1, float rotation2, float rotation3)
+void GameObject::UpdateRotations(float rX, float rY, float rZ, float rAngle)
 {
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = rotation0));
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = rotation1));
-    if (rotation2 || rotation3)
-    {
-        SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = rotation2));
-        SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = rotation3));
-    }
-    else if(!RONIN_UTIL::fuzzyEq(GetOrientation(), 0.f))
-    {
-        SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = std::sin(GetOrientation() / 2.f)));
-        SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = std::cos(GetOrientation() / 2.f)));
-    }
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = rX));
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = rY));
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = rZ));
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = rAngle));
+    SetOrientation(m_rotation.toAxisAngleRotation());
 }
 
 int64 GameObject::PackRotation(ObjectRotation *rotation)
@@ -719,68 +752,43 @@ void GameObject::Use(Player *p)
     {
     case GAMEOBJECT_TYPE_CHAIR:
         {
-            if(goinfo->data.chair.onlyCreatorUse)
-            {
-                if(p->GetGUID() != GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
-                    return;
-            }
+            if(m_chairData.empty())
+                return;
+            if(goinfo->data.chair.onlyCreatorUse && p->GetGUID() != GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
+                return;
 
             if( p->IsMounted() )
                 p->RemoveAura( p->m_MountSpellId );
 
-            if (!ChairListSlots.size())
+            float lowestDist = 90.f;
+            uint32 nearest_slot = 0xFF;
+            for (ChairSlotAndUser::iterator itr = m_chairData.begin(); itr != m_chairData.end(); ++itr)
             {
-                if (goinfo->data.chair.slots > 0)
+                if(!itr->second.user.empty())
                 {
-                    for (uint32 i = 0; i < goinfo->data.chair.slots; ++i)
-                        ChairListSlots[i] = 0;
-                } else ChairListSlots[0] = 0;
-            }
-
-            uint32 nearest_slot = 0;
-            float lowestDist = 90.0f;
-            bool found_free_slot = false;
-            float x_lowest = GetPositionX();
-            float y_lowest = GetPositionY();
-            float orthogonalOrientation = GetOrientation()+M_PI*0.5f;
-            for (ChairSlotAndUser::iterator itr = ChairListSlots.begin(); itr != ChairListSlots.end(); ++itr)
-            {
-                float size = GetFloatValue(OBJECT_FIELD_SCALE_X);
-                float relativeDistance = (size*itr->first)-(size*(goinfo->data.chair.slots-1)/2.0f);
-
-                float x_i = GetPositionX() + relativeDistance * cos(orthogonalOrientation);
-                float y_i = GetPositionY() + relativeDistance * sin(orthogonalOrientation);
-
-                if (itr->second)
-                {
-                    if (Player* ChairUser = objmgr.GetPlayer(itr->second))
+                    if (Player* ChairUser = objmgr.GetPlayer(itr->second.user))
                     {
-                        if (ChairUser->IsSitting() && ChairUser->GetDistance2dSq(x_i, y_i) < 0.1f)
+                        if (ChairUser->IsSitting() && ChairUser->GetDistance2dSq(itr->second.x, itr->second.y) < 0.1f)
                             continue;
                     }
-                    itr->second = 0;
+                    itr->second.user.Clean();
                 }
 
-                found_free_slot = true;
-
-                float thisDistance = p->GetDistance2dSq(x_i, y_i);
-
+                float thisDistance = p->GetDistance2dSq(itr->second.x, itr->second.y);
                 if (thisDistance <= lowestDist)
                 {
                     nearest_slot = itr->first;
                     lowestDist = thisDistance;
-                    x_lowest = x_i;
-                    y_lowest = y_i;
                 }
             }
 
-            if (found_free_slot)
+            if (nearest_slot != 0xFF)
             {
-                ChairSlotAndUser::iterator itr = ChairListSlots.find(nearest_slot);
-                if (itr != ChairListSlots.end())
+                ChairSlotAndUser::iterator itr = m_chairData.find(nearest_slot);
+                if (itr != m_chairData.end())
                 {
-                    itr->second = p->GetGUID();
-                    p->Teleport( x_lowest, y_lowest, GetPositionZ(), m_rotation.w );
+                    itr->second.user = p->GetGUID();
+                    p->Teleport( itr->second.x, itr->second.y, itr->second.z, GetOrientation() );
                     p->SetStandState(STANDSTATE_SIT_LOW_CHAIR+goinfo->data.chair.height);
                     return;
                 }
@@ -1042,7 +1050,7 @@ void GameObject::Use(Player *p)
 
             /* Create the summoning portal */
             GameObject* pGo = p->GetMapInstance()->CreateGameObject(179944);
-            if( pGo == NULL || !pGo->CreateFromProto(179944, p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 0.0f))
+            if( pGo == NULL || !pGo->CreateFromProto(179944, p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), cos(p->GetOrientation()/2.f)))
                 return;
 
             // dont allow to spam them

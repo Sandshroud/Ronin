@@ -2027,7 +2027,7 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
             return;
     }
 
-    playerTarget->TaxiStart( taxipath, modelid, 0 );
+    playerTarget->TaxiStart( taxipath, modelid );
 }
 
 void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amount)

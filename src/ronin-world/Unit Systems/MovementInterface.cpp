@@ -1073,16 +1073,34 @@ void MovementInterface::OnRelocate(LocationVector destination)
 
 void MovementInterface::setRooted(bool root)
 {
+    if(root)
+    {
+        if(hasFlag(MOVEMENTFLAG_TOGGLE_ROOT))
+            return;
+        else if(m_Unit->IsPlayer() && m_Unit->IsInWorld() && m_pendingEnable[MOVEMENT_STATUS_ROOT])
+            return;
+    }
+    else if(root == false)
+    {
+        if(!hasFlag(MOVEMENTFLAG_TOGGLE_ROOT))
+            return;
+        else if(m_Unit->IsPlayer() && m_Unit->IsInWorld() && m_pendingEnable[MOVEMENT_STATUS_UNROOT])
+            return;
+    }
+
     if(!m_Unit->IsPlayer() || !m_Unit->IsInWorld())
     {
         if(root)
             setServerFlag(MOVEMENTFLAG_TOGGLE_ROOT);
         else removeServerFlag(MOVEMENTFLAG_TOGGLE_ROOT);
+        m_pendingEnable[MOVEMENT_STATUS_ROOT] = false;
+        m_pendingEnable[MOVEMENT_STATUS_UNROOT] = false;
         return;
     }
 
-    if(root) m_pendingEnable[MOVEMENT_STATUS_ROOT] = true;
-    else m_pendingEnable[MOVEMENT_STATUS_UNROOT] = true;
+    if(root)
+        m_pendingEnable[MOVEMENT_STATUS_UNROOT] = !(m_pendingEnable[MOVEMENT_STATUS_ROOT] = true);
+    else m_pendingEnable[MOVEMENT_STATUS_ROOT] = !(m_pendingEnable[MOVEMENT_STATUS_UNROOT] = true);
 
     WorldPacket data(root ? SMSG_MOVE_ROOT : SMSG_MOVE_UNROOT, 200);
     WriteFromServer(data.GetOpcode(), &data);

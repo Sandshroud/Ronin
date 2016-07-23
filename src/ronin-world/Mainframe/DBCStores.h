@@ -948,12 +948,13 @@ struct SpellEntry
 
     // Custom
     uint8 Class;
+    uint8 buffIndex;
     uint32 School;
     uint32 NameHash;
     uint32 RankNumber;
     uint32 GeneratedThreat;
     uint32 SpellSkillLine;
-    uint32 CustomAttributes[3];
+    uint32 CustomAttributes[2];
     bool isUnique, always_apply, inline_effects;
 
     // Calculations
@@ -1132,46 +1133,7 @@ struct SpellEntry
     bool isSpellFinishingMove() { return HasCustomAttribute(1, 0x20); }
     bool isSpellFlyingSpell() { return HasCustomAttribute(1, 0x40); }
 
-    // Custom attribute 3 is buff types
-    bool isSpellBuffType() { return HasCustomAttribute(2, 0x01); }
-    bool isSpellPoisonType() { return HasCustomAttribute(2, 0x02); }
-
-    // Mage buffs
-    bool isSpellMageArmorBuff() { return (SpellFamilyName == 3 && HasCustomAttribute(2, 0x0100)); }
-
-    // Warrior buffs
-
-    // Warlock buffs
-    bool isSpellWarlockArmorBuff() { return (SpellFamilyName == 5 && HasCustomAttribute(2, 0x0100)); }
-
-    // Priest buffs
-
-    // Druid buffs
-
-    // Rogue buffs
-
-    // Hunter buffs
-    bool isSpellAspectBuff() { return (SpellFamilyName == 9 && HasCustomAttribute(2, 0x0100)); }
-
-    // Paladin buffs
-    bool isSpellSealBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0100)); }
-    bool isSpellAuraBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0200)); }
-    bool isSpellBlessingBuff() { return (SpellFamilyName == 10 && HasCustomAttribute(2, 0x0400)); }
-
-    // Shaman buffs
-
-    // Deathknight buffs
-
-    bool isSpellSameBuffType(SpellEntry *sp)
-    {
-        if(SpellFamilyName != sp->SpellFamilyName)
-            return false;
-        return ((CustomAttributes[2]&0xFF00) & (sp->CustomAttributes[2]&0xFF00));
-    }
-
-
     // Combo
-    bool IsSpellAnyArmorBuffType() { return (isSpellMageArmorBuff() || isSpellWarlockArmorBuff()); }
     bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
     bool IsSpellWeaponSpell() { return (IsSpellMeleeSpell() || reqAmmoForSpell() || reqWandForSpell() || (Spell_Dmg_Type >= 2)); }

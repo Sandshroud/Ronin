@@ -144,6 +144,7 @@ private:
     Unit* m_Unit;
     Aura *m_auras[TOTAL_AURAS];
     uint8 m_maxPosAuraSlot, m_maxNegAuraSlot, m_maxPassiveAuraSlot;
+    std::map<uint8, uint8> m_buffIndexAuraSlots;
 
     /*******************
     **** Modifiers

@@ -8,7 +8,7 @@
 
 #include "StdAfx.h"
 
-SERVER_DECL WorldManager sWorldMgr;
+initialiseSingleton( WorldManager );
 
 static const uint32 MapInstanceUpdatePeriod = 50;
 
@@ -17,16 +17,105 @@ WorldManager::~WorldManager() { }
 
 void WorldManager::Destruct()
 {
+    m_loadedMaps.clear();
     for(std::map<uint32, Map*>::iterator itr = m_maps.begin(); itr != m_maps.end(); itr++)
         delete itr->second;
     m_maps.clear();
+    for(std::map<uint32, CellSpawns>::iterator itr = m_SpawnStorageMap.begin(); itr != m_SpawnStorageMap.end(); itr++)
+    {
+        for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(); i != itr->second.CreatureSpawns.end(); i++)
+            delete (*i);
+        itr->second.CreatureSpawns.clear();
+        for(GOSpawnList::iterator i = itr->second.GOSpawns.begin(); i != itr->second.GOSpawns.end(); i++)
+            delete (*i);
+        itr->second.GOSpawns.clear();
+    }
+    m_SpawnStorageMap.clear();
 
     delete WorldStateTemplateManager::getSingletonPtr();
     sInstanceMgr.Destruct();
+    delete this;
+}
+
+void WorldManager::ParseMapDBC()
+{
+    for(uint32 i = 0; i < dbcMap.GetNumRows(); i++)
+    {
+        MapEntry *map = dbcMap.LookupRow(i);
+        if(map == NULL)
+            continue;
+        if(m_loadedMaps.find(map->MapID) != m_loadedMaps.end())
+            continue;
+        if(!map->IsContinent() && !map->Instanceable())
+            continue;
+
+        m_loadedMaps.insert(std::make_pair(map->MapID, map));
+    }
+}
+
+void WorldManager::LoadSpawnData()
+{
+    std::stringstream ss;
+    for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
+    {
+        if(!ss.str().empty())
+            ss << ", ";
+        ss << itr->first;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss.str().c_str()))
+    {
+        do
+        {
+            Field * fields = result->Fetch();
+            uint32 mapId = fields[0].GetUInt32();
+            CreatureSpawn *cspawn = new CreatureSpawn();
+            cspawn->id = fields[1].GetUInt32();
+            cspawn->entry = fields[2].GetUInt32();
+            cspawn->x = fields[3].GetFloat();
+            cspawn->y = fields[4].GetFloat();
+            cspawn->z = fields[5].GetFloat();
+            cspawn->o = NormAngle(fields[6].GetFloat());
+            cspawn->modelId = fields[7].GetUInt32();
+            cspawn->vendormask = fields[8].GetUInt32();
+            cspawn->eventId = 0;
+            m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
+        }while(result->NextRow());
+        delete result;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, eventId FROM gameobject_spawns WHERE map IN(%s)", ss.str().c_str()))
+    {
+        do
+        {
+            Field * fields = result->Fetch();
+            uint32 mapId = fields[0].GetUInt32();
+            GOSpawn *gspawn = new GOSpawn();
+            gspawn->id = fields[1].GetUInt32();
+            gspawn->entry = fields[2].GetUInt32();
+            gspawn->x = fields[3].GetFloat();
+            gspawn->y = fields[4].GetFloat();
+            gspawn->z = fields[5].GetFloat();
+            gspawn->rX = fields[6].GetFloat();
+            gspawn->rY = fields[7].GetFloat();
+            gspawn->rZ = fields[8].GetFloat();
+            gspawn->rAngle = fields[9].GetFloat();
+            gspawn->state = fields[10].GetUInt32();
+            gspawn->flags = fields[11].GetUInt32();
+            gspawn->faction = fields[12].GetUInt32();
+            gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
+            gspawn->eventId = fields[14].GetUInt32();
+            m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
+        }while(result->NextRow());
+        delete result;
+    }
 }
 
 bool WorldManager::ValidateMapId(uint32 mapId)
 {
+    if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
+        return false;
+
     if(ContinentManagerExists(mapId))
     {
         ContinentManager *mgr = GetContinentManager(mapId);
@@ -46,36 +135,9 @@ void WorldManager::Load(TaskList * l)
     sInstanceMgr.Prepare();
 
     // create maps for any we don't have yet.
-    std::deque<MapEntry*> m_continent, m_otherMaps;
-    for(uint32 i = 0; i < dbcMap.GetNumRows(); i++)
-    {
-        MapEntry *map = dbcMap.LookupRow(i);
-        if(map == NULL)
-            continue;
-        if(m_maps.find(map->MapID) != m_maps.end())
-            continue;
-        if(!map->IsContinent() && !map->Instanceable())
-            continue;
+    for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
+        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, itr->second)));
 
-        if(map->IsContinent())
-            m_continent.push_back(map);
-        else m_otherMaps.push_back(map);
-    }
-
-    while(!m_continent.empty())
-    {
-        MapEntry *entry = m_continent.front();
-        m_continent.pop_front();
-        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, entry)));
-    }
-    l->wait();
-
-    while(!m_otherMaps.empty())
-    {
-        MapEntry *entry = m_otherMaps.front();
-        m_otherMaps.pop_front();
-        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, entry)));
-    }
     l->wait();
 
     for(auto itr = m_continentManagement.begin(); itr != m_continentManagement.end(); itr++)
@@ -348,11 +410,10 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
         return;
     }
 
-    map->Initialize();
-
+    // Initialize the map data first
+    map->Initialize(GetSpawn(mapEntry->MapID), true);
     // Store the manager in the worldManager thread
     m_continentManagement.insert(std::make_pair(mapEntry->MapID, mgr));
-
     // Set manager to start it's internal thread
     ThreadPool.ExecuteTask(format("ContinentMgr - M%u", mapEntry->MapID).c_str(), mgr);
 }
@@ -368,7 +429,7 @@ void WorldManager::_InitializeBattleGround(MapEntry *mapEntry, Map *map)
 void WorldManager::_InitializeInstance(MapEntry *mapEntry, Map *map)
 {
     // Initialize the map data first
-    map->Initialize();
+    map->Initialize(GetSpawn(mapEntry->MapID), false);
     // Push map data to instance manager
     sInstanceMgr.AddMapData(mapEntry, map);
 }
