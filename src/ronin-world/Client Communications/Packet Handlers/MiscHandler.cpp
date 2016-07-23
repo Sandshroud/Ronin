@@ -1657,6 +1657,9 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     // Are we REALLY here?
     CHECK_INWORLD_RETURN();
 
+    if(_player->GetTaxiState())
+        return;
+
     // Search quest log, find any exploration quests
     sQuestMgr.OnPlayerExploreArea(GetPlayer(),id);
 

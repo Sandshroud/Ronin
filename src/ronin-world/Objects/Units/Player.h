@@ -836,7 +836,7 @@ public:
     UpdateMask* GetTaximask() { return &m_taxiMask; }
 
     RONIN_INLINE TaxiPath* GetTaxiPath() { return m_CurrentTaxiPath; }
-    RONIN_INLINE bool GetTaxiState() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI); }
+    RONIN_INLINE bool GetTaxiState() { return m_CurrentTaxiPath != NULL; }
     void TaxiStart(TaxiPath* path, uint32 modelid, uint32 startOverride = 0);
     void JumpToEndTaxiNode(TaxiPath * path);
     void EventDismount(uint32 money, float x, float y, float z);
@@ -857,7 +857,7 @@ public:
     // Taxi related variables
     TaxiPath* m_CurrentTaxiPath;
     std::vector<TaxiPath*> m_taxiPaths;
-    uint32 m_taxiModelId, m_taxiMapChangeNode;
+    uint32 m_taxiModelId, m_taxiMapChangeNode, m_taxiDisplayId;
     uint32 m_lastTaxiTimeUpdate, m_taxiUpdateTimer, m_taxiTravelTime, m_taxiMoveTime, m_taxiArrivalTime;
     float taxiX, taxiY, taxiZ;
 

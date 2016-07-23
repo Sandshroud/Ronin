@@ -1184,7 +1184,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
         m_taxiArrivalTime = m_taxiMoveTime = fields[PLAYERLOAD_FIELD_TAXI_MOVETIME].GetUInt32();
         m_taxiTravelTime = fields[PLAYERLOAD_FIELD_TAXI_TRAVELTIME].GetUInt32();
-        SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, fields[PLAYERLOAD_FIELD_TAXI_MOUNTID].GetUInt32());
+        SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, (m_taxiModelId = fields[PLAYERLOAD_FIELD_TAXI_MOUNTID].GetUInt32()));
         m_taxiArrivalTime += 2000;
         SetTaxiPath(path);
     }
@@ -2758,7 +2758,7 @@ void Player::OnPushToWorld()
     m_TeleportState = 0;
 
     if(GetTaxiState()) // Create HAS to be sent before this!
-        TaxiStart(GetTaxiPath(), GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID), m_taxiTravelTime);
+        TaxiStart(GetTaxiPath(), m_taxiModelId, m_taxiTravelTime);
 
     /* send weather */
     sWeatherMgr.SendWeather(castPtr<Player>(this));
@@ -4559,7 +4559,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
     path->SendMoveForTime(this, this, m_taxiTravelTime, m_taxiMoveTime);
     // Add an extra 2 seconds to travel timeout
     if(m_taxiPaths.empty())
-        m_taxiArrivalTime += 2000;
+        m_taxiArrivalTime += (path->HasMapChange(GetMapId()) ? -2000 : 2000);
 }
 
 void Player::JumpToEndTaxiNode(TaxiPath * path)
@@ -4997,6 +4997,9 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 
 void Player::PopPendingUpdates()
 {
+    if(m_session == NULL)
+        return;
+
     _bufferS.Acquire();
     if(m_updateDataCount || m_OutOfRangeIdCount)
     {

@@ -244,6 +244,7 @@ public:
         PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
         return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULL;
     }
+    std::queue<Player*> m_removeQueue;
 
 //////////////////////////////////////////////////////////
 // Local (MapInstance) storage of combats in progress

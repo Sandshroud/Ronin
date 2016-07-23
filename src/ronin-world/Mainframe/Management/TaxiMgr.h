@@ -16,6 +16,7 @@ public:
     {
         mapData[0].mapId = mapData[1].mapId = -1;
         mapData[0].length = mapData[1].length = 0.f;
+        mapData[0].startNode = mapData[1].startNode = 0;
     }
 
     ~TaxiPath() { m_pathNodes.clear(); }
@@ -25,7 +26,6 @@ public:
     RONIN_INLINE uint32 GetID() { return _Id; }
     void SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 maxTime);
     void AddPathNode(uint32 index, TaxiPathNodeEntry* pn) { m_pathNodes.insert(std::make_pair(index, pn)); }
-    RONIN_INLINE size_t GetNodeCount() { return m_pathNodes.size(); }
     TaxiPathNodeEntry* GetPathNode(uint32 i);
     RONIN_INLINE uint32 GetPrice() { return _Price; }
     RONIN_INLINE uint32 GetSourceNode() { return _From; }
@@ -37,6 +37,24 @@ public:
         else if(mapId == mapData[1].mapId)
             return mapData[1].length;
         return 0.f;
+    }
+
+    RONIN_INLINE size_t GetStartNode(uint32 mapId)
+    {
+        if(mapId == mapData[0].mapId)
+            return mapData[0].startNode;
+        else if(mapId == mapData[1].mapId)
+            return mapData[1].startNode;
+        return m_pathNodes.size();
+    }
+
+    RONIN_INLINE size_t GetNodeCount(uint32 mapId)
+    {
+        if(mapId == mapData[0].mapId)
+            return mapData[0].m_pathData.size();
+        else if(mapId == mapData[1].mapId)
+            return mapData[1].m_pathData.size();
+        return 0;
     }
 
     void GetMapTargetPos(float &x, float &y, float &z, uint32 *mapId = NULL) { x = mapStartX, y = mapStartY, z = mapStartZ; if(mapId) *mapId = mapData[1].mapId; }
@@ -76,6 +94,7 @@ protected:
     {
         int32 mapId;
         float length;
+        uint32 startNode;
         std::vector<posPoint> m_pathData;
     } mapData[2];
 

@@ -285,10 +285,6 @@ void WorldSession::LogoutPlayer()
             plr->GetMovementInterface()->ClearTransportData();
         }
 
-        // Update taxi position before we log out
-        if(plr->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI))
-            plr->EventTaxiInterpolate();
-
         // cancel current spell
         if( plr->m_currentSpell != NULL )
             plr->m_currentSpell->cancel();
@@ -324,6 +320,12 @@ void WorldSession::LogoutPlayer()
             plr->RemoveFromWorld();
         }
 
+        plr->SetSession(NULL);
+
+        // We have to transfer to our global sessions
+        SetEventInstanceId(-1);
+        sWorld.AddGlobalSession(this);
+
         // send to gms
         if(!bServerShutdown && HasGMPermissions() )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
@@ -353,8 +355,6 @@ void WorldSession::LogoutPlayer()
 
         // Save our account data, if we have any
         SaveAccountData();
-
-        plr->Destruct();
 
         OutPacket(SMSG_LOGOUT_COMPLETE, 0, NULL);
         sLog.Debug( "WorldSession","Sent SMSG_LOGOUT_COMPLETE Message" );

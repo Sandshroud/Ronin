@@ -48,9 +48,10 @@ float TaxiPath::dist(posPoint a, posPoint b)
 size_t TaxiPath::GetNodeForTime(uint32 mapId, uint32 time)
 {
     std::vector<posPoint> *path = GetPath(mapId);
-    size_t i = 0;
+    size_t i = GetStartNode(mapId);
     if(time == 0 || path == NULL)
         return i;
+
     float dist = (float(time)/1000.f)*TAXI_TRAVEL_SPEED, len = 0.f;
     std::vector<posPoint>::iterator itr;
     for(itr = path->begin(); itr != path->end(); itr++)
@@ -73,9 +74,9 @@ void TaxiPath::ComputeLen()
     posPoint lastPos(itr->second->LocX, itr->second->LocY, itr->second->LocZ);
     mapData[index].m_pathData.push_back(lastPos);
     mapData[index].mapId = itr->second->ContinentID;
+    mapData[index].startNode = itr->second->NodeIndex;
     itr++;
 
-    uint32 lastNode = itr->first;
     for(; itr != m_pathNodes.end(); itr++)
     {
         TaxiPathNodeEntry *nodeEntry = itr->second;
@@ -86,17 +87,21 @@ void TaxiPath::ComputeLen()
                 break;
             index++;
 
+            mapData[index].startNode = nodeEntry->NodeIndex;
             mapData[index].mapId = nodeEntry->ContinentID;
             mapStartX = nodeEntry->LocX;
             mapStartY = nodeEntry->LocY;
             mapStartZ = nodeEntry->LocZ;
+            posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
+            mapData[index].m_pathData.push_back(pos);
+            lastPos = pos;
+            continue;
         }
 
         posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
         pos.length = dist(pos, lastPos);
         mapData[index].m_pathData.push_back(pos);
         mapData[index].length += pos.length;
-        lastNode = itr->first;
         lastPos = pos;
     }
 
@@ -143,10 +148,14 @@ TaxiPathNodeEntry* TaxiPath::GetPathNode(uint32 i)
 
 void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 maxTime)
 {
-    size_t startnode = GetNodeForTime(riding->GetMapId(), time), endn = GetNodeCount()-1;
-    TaxiPathNodeEntry *endP = GetPathNode(endn);
-    if(!riding->m_taxiPaths.empty())
-        endP = (*riding->m_taxiPaths.begin())->GetPathNode(0);
+    if(time >= maxTime)
+        return;
+
+    uint32 mapId = riding->GetMapId();
+    size_t startnode = GetNodeForTime(mapId, time), endn = GetStartNode(mapId)+GetNodeCount(mapId);
+    startnode++; // Remove the first node
+    endn--; // Appending the final point
+    uint32 count = (endn-startnode);
 
     WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( endn * 12 ) + 12 );
     data << riding->GetGUID().asPacked();
@@ -158,15 +167,17 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 m
     data << uint32( maxTime-time );
     // Hardcoded last point
     size_t pos = data.wpos();
-    startnode++; // Remove the first node
-    data << uint32( endn-startnode );
+    data << uint32(1+count);
     for(uint32 i = startnode; i < endn; i++)
     {
         TaxiPathNodeEntry *pn = GetPathNode(i);
         data << pn->LocX << pn->LocY << pn->LocZ;
     }
+
+    TaxiPathNodeEntry *endP = GetPathNode(endn);
+    if(!riding->m_taxiPaths.empty())
+        endP = (*riding->m_taxiPaths.begin())->GetPathNode(0);
     data << endP->LocX << endP->LocY << endP->LocZ;
-    data.put<uint32>(pos, endn);
 
     if(riding != to)
         to->CopyAndSendDelayedPacket(&data);

@@ -406,13 +406,6 @@ void MapInstance::RemoveObject(WorldObject* obj)
             TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
             sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
         }break;
-
-    case HIGHGUID_TYPE_PLAYER:
-        {
-            // check iterator
-            if( __player_iterator != m_PlayerStorage.end() && __player_iterator->second == castPtr<Player>(obj) )
-                ++__player_iterator;
-        }break;
     }
 
     // That object types are not map objects. TODO: add AI groups here?
@@ -460,30 +453,10 @@ void MapInstance::RemoveObject(WorldObject* obj)
     // Clear object's in-range set
     obj->ClearInRangeSet();
 
+    m_updateMutex.Acquire();
     if(plObj)
-    {
-        // Clear any updates pending
-        _processQueue.erase(plObj);
-        plObj->PopPendingUpdates();
-
-        // If it's a player and he's inside boundaries - update his nearby cells
-        if(obj->GetPositionX() <= _maxX && obj->GetPositionX() >= _minX &&
-            obj->GetPositionY() <= _maxY && obj->GetPositionY() >= _minY)
-        {
-            uint32 x = GetPosX(obj->GetPositionX());
-            uint32 y = GetPosY(obj->GetPositionY());
-            UpdateCellActivity(x, y, 2);
-        }
-        m_PlayerStorage.erase( castPtr<Player>( obj )->GetGUID() );
-
-        // Setting an instance ID here will trigger the session to be removed
-        // by MapInstance::run(). :)
-        plObj->GetSession()->SetEventInstanceId(-1);
-
-        // Add it to the global session set (if it's not being deleted).
-        if(!plObj->GetSession()->bDeleted)
-            sWorld.AddGlobalSession(plObj->GetSession());
-    }
+        m_removeQueue.push(plObj);
+    m_updateMutex.Release();
 }
 
 void MapInstance::ChangeObjectLocation( WorldObject* obj )
@@ -1180,6 +1153,42 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
             ptr->Update( msTime, uiDiff );
         }
     }
+
+    m_updateMutex.Acquire();
+    if(!m_removeQueue.empty())
+    {
+        Player *plObj = m_removeQueue.front();
+        m_removeQueue.pop();
+
+        // Clear any updates pending
+        _processQueue.erase(plObj);
+        plObj->PopPendingUpdates();
+
+        // If it's a player and he's inside boundaries - update his nearby cells
+        if(plObj->GetPositionX() <= _maxX && plObj->GetPositionX() >= _minX &&
+            plObj->GetPositionY() <= _maxY && plObj->GetPositionY() >= _minY)
+        {
+            uint32 x = GetPosX(plObj->GetPositionX());
+            uint32 y = GetPosY(plObj->GetPositionY());
+            UpdateCellActivity(x, y, 2);
+        }
+        m_PlayerStorage.erase( plObj->GetGUID() );
+
+        // If we have no session, then clean up the player pointer
+        if(plObj->GetSession() == NULL)
+            plObj->Destruct();
+        else
+        {
+            // Setting an instance ID here will trigger the session to be removed
+            // by MapInstance::run(). :)
+            plObj->GetSession()->SetEventInstanceId(-1);
+
+            // Add it to the global session set (if it's not being deleted).
+            if(!plObj->GetSession()->bDeleted)
+                sWorld.AddGlobalSession(plObj->GetSession());
+        }
+    }
+    m_updateMutex.Release();
 }
 
 void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
