@@ -398,7 +398,7 @@ void Player::Update(uint32 msTime, uint32 diff)
         }
         // Update out travel timer
         m_taxiTravelTime += taxiDiff;
-        if((m_taxiUpdateTimer+=diff) >= 200)
+        if((m_taxiUpdateTimer+=diff) >= 500)
         {
             EventTaxiInterpolate();
             m_taxiUpdateTimer = 0;
@@ -3656,31 +3656,25 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
     }
 }
 
-void Player::AddInRangeObject(WorldObject* pObj)
+void Player::OnAddInRangeObject(WorldObject* pObj)
 {
     //Send taxi move if we're on a taxi
     if (m_CurrentTaxiPath && (pObj->IsPlayer()))
-        m_CurrentTaxiPath->SendMoveForTime( castPtr<Player>(this), castPtr<Player>( pObj ), m_taxiTravelTime, m_taxiMoveTime);
+        m_CurrentTaxiPath->SendMoveForTime(this, castPtr<Player>( pObj ), m_taxiTravelTime, m_taxiMoveTime);
 
     if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
         m_hasInRangeGuards++;
 
-    Unit::AddInRangeObject(pObj);
+    Unit::OnAddInRangeObject(pObj);
 
     //unit based objects, send aura data
-    if (pObj->IsUnit())
+    if (pObj->IsUnit() && GetSession())
     {
-        Unit* pUnit=castPtr<Unit>(pObj);
-        Aura* aur = NULL;
-
-        if (GetSession() != NULL)
-        {
-            WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
-            *data << pUnit->GetGUID().asPacked();
-            if(pUnit->m_AuraInterface.BuildAuraUpdateAllPacket(data))
-                SendPacket(data);
-            else delete data;
-        }
+        WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
+        *data << pObj->GetGUID().asPacked();
+        if(castPtr<Unit>(pObj)->m_AuraInterface.BuildAuraUpdateAllPacket(data))
+            SendPacket(data);
+        else delete data;
     }
 }
 

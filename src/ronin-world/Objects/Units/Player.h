@@ -1238,7 +1238,7 @@ public:
     // Visible objects
     bool CanSee(WorldObject* obj);
     RONIN_INLINE bool IsVisible(WorldObject* pObj) { return !(m_visibleObjects.find(pObj) == m_visibleObjects.end()); }
-    void AddInRangeObject(WorldObject* pObj);
+    void OnAddInRangeObject(WorldObject* pObj);
     void OnRemoveInRangeObject(WorldObject* pObj);
     virtual void ClearInRangeSet();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }

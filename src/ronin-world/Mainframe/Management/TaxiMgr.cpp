@@ -51,11 +51,11 @@ size_t TaxiPath::GetNodeForTime(uint32 mapId, uint32 time)
     size_t i = 0;
     if(time == 0 || path == NULL)
         return i;
-    float dist = float(time/1000)*TAXI_TRAVEL_SPEED, len = 0.f;
+    float dist = (float(time)/1000.f)*TAXI_TRAVEL_SPEED, len = 0.f;
     std::vector<posPoint>::iterator itr;
     for(itr = path->begin(); itr != path->end(); itr++)
     {
-        if(len + (*itr).length > dist)
+        if(len + (*itr).length >= dist)
             break;
         len += (*itr).length;
         i++;
@@ -113,22 +113,23 @@ void TaxiPath::GetPosForTime(uint32 mapid, float &x, float &y, float &z, uint32 
         x = endX, y = endY, z = endZ;
     else
     {
-        float len = 0, dist = float(time/1000)*TAXI_TRAVEL_SPEED;
+        float len = 0, dist = (float(time)/1000.f)*TAXI_TRAVEL_SPEED;
         std::vector<posPoint>::iterator itr;
         for(itr = path->begin(); itr != path->end(); itr++)
         {
-            x = (*itr).x, y = (*itr).y, z = (*itr).z;
             if(len + (*itr).length > dist)
                 break;
             else len += (*itr).length;
+            x = (*itr).x, y = (*itr).y, z = (*itr).z;
         }
+
         if(itr != path->end() && (*itr).length)
         {
             posPoint next(*itr);
             float p = ((dist-len)/next.length);
-            x = next.x-((next.x-x)*p);
-            y = next.y-((next.y-y)*p);
-            z = next.z-((next.z-z)*p);
+            x -= ((x-next.x)*p);
+            y -= ((y-next.y)*p);
+            z -= ((z-next.z)*p);
         }
     }
 }
@@ -146,7 +147,6 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 m
     TaxiPathNodeEntry *endP = GetPathNode(endn);
     if(!riding->m_taxiPaths.empty())
         endP = (*riding->m_taxiPaths.begin())->GetPathNode(0);
-    std::vector<posPoint> *path = GetPath(riding->GetMapId());
 
     WorldPacket data(SMSG_MONSTER_MOVE, 38 + ( endn * 12 ) + 12 );
     data << riding->GetGUID().asPacked();

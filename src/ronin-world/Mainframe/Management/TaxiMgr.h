@@ -4,7 +4,7 @@
 
 #pragma once
 
-#define TAXI_TRAVEL_SPEED 32
+#define TAXI_TRAVEL_SPEED 32.f
 
 class Player;
 
@@ -30,13 +30,13 @@ public:
     RONIN_INLINE uint32 GetPrice() { return _Price; }
     RONIN_INLINE uint32 GetSourceNode() { return _From; }
     RONIN_INLINE uint32 GetEndNode() { return _To; }
-    RONIN_INLINE uint32 GetLength(uint32 mapId)
+    RONIN_INLINE float GetLength(uint32 mapId)
     {
         if(mapId == mapData[0].mapId)
             return mapData[0].length;
         else if(mapId == mapData[1].mapId)
             return mapData[1].length;
-        return 0;
+        return 0.f;
     }
 
     void GetMapTargetPos(float &x, float &y, float &z, uint32 *mapId = NULL) { x = mapStartX, y = mapStartY, z = mapStartZ; if(mapId) *mapId = mapData[1].mapId; }
