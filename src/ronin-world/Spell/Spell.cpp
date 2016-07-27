@@ -2461,13 +2461,13 @@ bool IsHealingSpell(SpellEntry *sp)
             break;
 
         case SPELL_EFFECT_HEAL:
-        case SPELL_EFFECT_HEALTH_FUNNEL:
         case SPELL_EFFECT_HEAL_MAX_HEALTH:
             return true;
             break;
 
         case SPELL_EFFECT_APPLY_AURA:
         case SPELL_EFFECT_APPLY_AREA_AURA:
+        case SPELL_EFFECT_APPLY_RAID_AURA:
             {
                 switch( sp->EffectApplyAuraName[i] )
                 {

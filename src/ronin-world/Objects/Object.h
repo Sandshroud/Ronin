@@ -312,8 +312,10 @@ public:
     RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 
     void PushToWorld(MapInstance* instance);
-    virtual void OnPushToWorld() { }
+
+    virtual void OnPreSetInWorld() { }
     virtual void OnPrePushToWorld() { }
+    virtual void OnPushToWorld() { }
 
     virtual void OnFieldUpdated(uint16 index);
 
@@ -565,7 +567,7 @@ public:
     bool HasAreaFlag(uint8 areaFlag) { return (m_areaFlags & areaFlag); };
     uint8 const GetAreaFlags() { return m_areaFlags; };
 
-    int32 GetPhaseMask() { return 0x01; }
+    uint16 GetPhaseMask() { return m_phaseMask; }
 
 protected:
     void _Create( uint32 mapid, float x, float y, float z, float ang);
@@ -577,6 +579,8 @@ protected:
     uint32 m_zoneId;
     //! Area id.
     uint32 m_areaId;
+    //! Phase mask.
+    uint16 m_phaseMask;
     //! Area Flags.
     uint8 m_areaFlags;
     //! Continent/map id.

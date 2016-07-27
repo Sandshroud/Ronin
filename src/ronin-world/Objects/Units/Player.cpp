@@ -123,7 +123,7 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     PowerCheat                      = false;
     gmSightType                     = 0;
     gmSightPhaseMask                = 0;
-    gmSightEventID                  = 0;
+    gmSightEventID                  = 0xFFFFFFFF;
     m_weaponProficiency             = 0;
     m_armorProficiency              = 0;
     m_AutoShotTarget                = 0;
@@ -2703,13 +2703,17 @@ void Player::SetQuestLogSlot(QuestLogEntry *entry, uint32 slot)
     m_questlog[slot] = entry;
 }
 
-void Player::OnPrePushToWorld()
+void Player::OnPreSetInWorld()
 {
     if(m_TeleportState == 1) // First world enter after loginscreen
         SoftLoadPlayer();
+    Unit::OnPreSetInWorld();
+}
 
+void Player::OnPrePushToWorld()
+{
+    Unit::OnPrePushToWorld();
     SendInitialLogonPackets();
-    m_movementInterface.OnPrePushToWorld();
 }
 
 void Player::OnPushToWorld()
@@ -2729,8 +2733,6 @@ void Player::OnPushToWorld()
 
     m_beingPushed = false;
     sWorld.mInWorldPlayerCount++;
-
-    m_movementInterface.OnPushToWorld();
 
     Unit::OnPushToWorld();
 
@@ -3524,9 +3526,6 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 {
     if (obj == castPtr<Player>(this))
        return true;
-
-    if( !AreaCanInteract(obj) )
-        return false;
 
     uint32 object_type = obj->GetTypeId();
     if(getDeathState() == CORPSE) // we are dead and we have released our spirit

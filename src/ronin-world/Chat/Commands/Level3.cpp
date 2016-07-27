@@ -1880,6 +1880,25 @@ bool ChatHandler::HandleLookupCreatureCommand(const char * args, WorldSession * 
 
     GreenSystemMessage(m_session, "Starting search of creature `%s`...", x.c_str());
     uint32 t = getMSTime(), count = 0;
+    CreatureData *data = NULL;
+    CreatureDataManager::iterator itr = sCreatureDataMgr.begin();
+    while(itr != sCreatureDataMgr.end())
+    {
+        data = (*itr)->second;
+        if(RONIN_UTIL::FindXinYString(x, data->maleName.c_str()))
+        {
+            char messagetext[500];
+            snprintf(messagetext, 500, "Creature[%05u]: %s", data->entry, data->maleName.c_str());
+            SystemMessage(m_session, messagetext);
+        }
+        else if(RONIN_UTIL::FindXinYString(x, data->femaleName.c_str()))
+        {
+            char messagetext[500];
+            snprintf(messagetext, 500, "Creature[%05u]: %s", data->entry, data->femaleName.c_str());
+            SystemMessage(m_session, messagetext);
+        }
+        ++itr;
+    }
 
     GreenSystemMessage(m_session, "Search completed in %u ms.", getMSTime() - t);
     return true;

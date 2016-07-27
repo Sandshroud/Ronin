@@ -18,9 +18,11 @@ typedef struct
     uint32 id;//spawn ID
     uint32 entry;
     float x, y, z, o;
+    uint32 spawnFlags;
     uint32 modelId;
-    int32 vendormask;
+    uint16 phaseMask;
     uint32 eventId;
+    int32 vendormask;
 }CreatureSpawn;
 
 typedef struct
@@ -33,6 +35,7 @@ typedef struct
     uint32  flags;
     uint32  faction;
     float   scale;
+    uint16 phaseMask;
     uint32  eventId;
 } GOSpawn;
 

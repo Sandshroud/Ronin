@@ -588,6 +588,16 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
 
     switch(sp->NameHash)
     {
+    case SPELL_HASH_BATTLE_SHOUT: sp->buffIndex = BUFF_WARRIOR_BATTLE_SHOUT; break;
+    case SPELL_HASH_COMMANDING_SHOUT: sp->buffIndex = BUFF_WARRIOR_COMMANDING_SHOUT; break;
+    case SPELL_HASH_BLESSING_OF_MIGHT: sp->buffIndex = BUFF_PALADIN_MIGHT; break;
+    case SPELL_HASH_BLESSING_OF_WISDOM: sp->buffIndex = BUFF_PALADIN_WISDOM; break;
+    case SPELL_HASH_BLESSING_OF_KINGS: sp->buffIndex = BUFF_PALADIN_KINGS; break;
+    case SPELL_HASH_DEVOTION_AURA: sp->buffIndex = BUFF_PALADIN_DEVOTION; break;
+    case SPELL_HASH_RETRIBUTION_AURA: sp->buffIndex = BUFF_PALADIN_RETRIBUTION; break;
+    case SPELL_HASH_CONCENTRATION_AURA: sp->buffIndex = BUFF_PALADIN_CONCENTRATION; break;
+    case SPELL_HASH_RESISTANCE_AURA: sp->buffIndex = BUFF_PALADIN_RESISTANCE; break;
+    case SPELL_HASH_CRUSADER_AURA: sp->buffIndex = BUFF_PALADIN_CRUSADER; break;
     case SPELL_HASH_BLOOD_PRESENCE:
     case SPELL_HASH_FROST_PRESENCE:
     case SPELL_HASH_UNHOLY_PRESENCE:

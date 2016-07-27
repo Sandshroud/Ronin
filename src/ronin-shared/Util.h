@@ -295,6 +295,24 @@ namespace RONIN_UTIL
         return true;
     }
 
+    RONIN_INLINE bool fuzzyGt(double a, double b)
+    {
+        double eps, aa = abs(a) + 1.0;
+        if (aa == std::numeric_limits<double>::infinity())
+            eps = 0.00001f;
+        else eps = (0.00001f * aa);
+        return a > b + eps;
+    }
+
+    RONIN_INLINE bool fuzzyLt(double a, double b)
+    {
+        double eps, aa = abs(a) + 1.0;
+        if (aa == std::numeric_limits<double>::infinity())
+            eps = 0.00001f;
+        else eps = (0.00001f * aa);
+        return a < b - eps;
+    }
+
     RONIN_INLINE unsigned int getRBitOffset(uint32 value)
     {
         unsigned int ret = 0;

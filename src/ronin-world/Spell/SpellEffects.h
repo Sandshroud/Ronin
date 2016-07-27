@@ -75,7 +75,6 @@ protected: // Effect Handlers
     void SpellEffectPowerBurn(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectThreat(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectTriggerSpell(uint32 i, WorldObject *target, int32 amount);
-    void SpellEffectHealthFunnel(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectPowerFunnel(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectHealMaxHealth(uint32 i, WorldObject *target, int32 amount);
     void SpellEffectInterruptCast(uint32 i, WorldObject *target, int32 amount);

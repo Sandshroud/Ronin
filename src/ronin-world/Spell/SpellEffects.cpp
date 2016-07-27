@@ -6,6 +6,8 @@
 
 #include "StdAfx.h"
 
+std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectMap;
+
 SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber) : BaseSpell(caster, info, castNumber)
 {
 
@@ -272,8 +274,6 @@ void SpellEffectClass::DetermineSkillUp(Player *target, uint32 skillid)
         target->_AdvanceSkillLine(skillid, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
 }
 
-std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectMap;
-
 void SpellEffectClass::InitializeSpellEffectClass()
 {
     m_spellEffectMap[SPELL_EFFECT_NULL]                         = &SpellEffectClass::SpellEffectNULL;
@@ -327,7 +327,7 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_POWER_BURN]                   = &SpellEffectClass::SpellEffectPowerBurn; // 62
     m_spellEffectMap[SPELL_EFFECT_THREAT]                       = &SpellEffectClass::SpellEffectThreat; // 63
     m_spellEffectMap[SPELL_EFFECT_TRIGGER_SPELL]                = &SpellEffectClass::SpellEffectTriggerSpell; // 64
-    m_spellEffectMap[SPELL_EFFECT_HEALTH_FUNNEL]                = &SpellEffectClass::SpellEffectHealthFunnel; // 65
+    m_spellEffectMap[SPELL_EFFECT_APPLY_RAID_AURA]              = &SpellEffectClass::SpellEffectApplyAA; // 65
     m_spellEffectMap[SPELL_EFFECT_POWER_FUNNEL]                 = &SpellEffectClass::SpellEffectPowerFunnel; // 66
     m_spellEffectMap[SPELL_EFFECT_HEAL_MAX_HEALTH]              = &SpellEffectClass::SpellEffectHealMaxHealth; // 67
     m_spellEffectMap[SPELL_EFFECT_INTERRUPT_CAST]               = &SpellEffectClass::SpellEffectInterruptCast; // 68
@@ -1093,7 +1093,23 @@ void SpellEffectClass::SpellEffectSendEvent(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectApplyAA(uint32 i, WorldObject *target, int32 amount) // Apply Area Aura
 {
+    if(!target->IsUnit() || m_caster != target)
+        return;
 
+    Unit *unitTarget = castPtr<Unit>(target);
+    if(!unitTarget->isAlive())
+        return;
+
+    Aura* pAura = NULL;
+    if(m_tempAuras.find(unitTarget->GetGUID()) == m_tempAuras.end())
+    {
+        if(m_caster->IsGameObject() && m_caster->GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY) && castPtr<GameObject>(m_caster)->m_summoner)
+            pAura = new Aura(GetSpellProto(), castPtr<GameObject>(m_caster)->m_summoner, unitTarget);
+        else pAura = new Aura(GetSpellProto(), m_caster, unitTarget);
+        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
+    } else pAura = m_tempAuras.at(unitTarget->GetGUID());
+
+    pAura->AddMod(i, GetSpellProto()->EffectApplyAuraName[i], amount);
 }
 
 void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int32 amount) // Learn Spell
@@ -1555,11 +1571,6 @@ void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, in
     SpellCastTargets tgt(spe->isNotSelfTargettable() ? unitTarget->GetGUID() : m_caster->GetGUID());
     if(Spell* sp = new Spell(m_caster, spe))
         sp->prepare(&tgt, true);
-}
-
-void SpellEffectClass::SpellEffectHealthFunnel(uint32 i, WorldObject *target, int32 amount) // Health Funnel
-{
-
 }
 
 void SpellEffectClass::SpellEffectPowerFunnel(uint32 i, WorldObject *target, int32 amount) // Power Funnel

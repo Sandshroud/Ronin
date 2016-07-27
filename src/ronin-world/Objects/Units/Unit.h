@@ -314,6 +314,8 @@ public:
     virtual float GetDodgeChance() { return 5.f; }
     virtual float GetHitChance() { return 0.f; }
 
+    virtual void OnPreSetInWorld();
+    virtual void OnPrePushToWorld();
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();
 

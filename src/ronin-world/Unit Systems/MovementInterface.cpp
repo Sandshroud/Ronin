@@ -637,45 +637,84 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
 
 float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
 {
-    float baseSpeed = m_defaultSpeeds[speedType];
-    AuraInterface::modifierMap *speedIncrease = NULL, *speedDecrease = NULL;
+    if(!m_Unit->IsPlayer())
+        return m_defaultSpeeds[speedType];
+
+    bool mounted = m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0;
+    float baseSpeed = m_defaultSpeeds[speedType], speedMod = 0.f, speedStack = 0.f, speedNonStack = 0.f;
+    AuraInterface::modifierMap *speedBonus = NULL, *speedStackInc = NULL, *speedNonStackInc = NULL, *normalizer = NULL;
 
     switch(speedType)
     {
     case MOVE_SPEED_RUN:
         {
+            normalizer = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED);
             if(m_Unit->GetVehicleKitId())
-                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS);
-            else if(m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0)
-                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED);
-            else speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_SPEED);
-
-            if(speedIncrease)
+                speedBonus = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS);
+            else
             {
-                float speedModifier = 0.f;
-                for(AuraInterface::modifierMap::iterator itr = speedIncrease->begin(); itr != speedIncrease->end(); itr++)
-                    if(itr->second->m_amount > speedModifier)
-                        speedModifier = itr->second->m_amount;
-                baseSpeed *= (100.f+speedModifier)/100.f;
+                speedBonus = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_SPEED + (mounted ? 1 : 0));
+                speedNonStackInc = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPEED_NOT_STACK + (mounted ? 1 : 0));
             }
+
+        }break;
+    case MOVE_SPEED_SWIM:
+        {
+            normalizer = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED);
+            speedBonus = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_SWIM_SPEED);
         }break;
     case MOVE_SPEED_FLIGHT:
         {
+            normalizer = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED);
             if(m_Unit->GetVehicleKitId())
-                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED);
-            else if(m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0)
-                speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED);
-            else speedIncrease = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED);
-
-            if(speedIncrease)
+                speedBonus = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED);
+            else
             {
-                float speedModifier = 0.f;
-                for(AuraInterface::modifierMap::iterator itr = speedIncrease->begin(); itr != speedIncrease->end(); itr++)
-                    if(itr->second->m_amount > speedModifier)
-                        speedModifier = itr->second->m_amount;
-                baseSpeed *= (100.f+speedModifier)/100.f;
+                speedBonus = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED - (mounted ? 1 : 0));
+                if(mounted) speedNonStackInc = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK);
             }
         }break;
+    }
+
+    if(speedBonus)
+    {   // Non base speed modifier
+        for(AuraInterface::modifierMap::iterator itr = speedBonus->begin(); itr != speedBonus->end(); itr++)
+            if(itr->second->m_amount > speedMod)
+                speedMod = itr->second->m_amount;
+    }
+
+    if(speedStackInc)
+    {   // Stacking speed modifiers
+        for(AuraInterface::modifierMap::iterator itr = speedStackInc->begin(); itr != speedStackInc->end(); itr++)
+            speedStack += itr->second->m_amount;
+    }
+
+    if(speedNonStackInc)
+    {   // Non stacking speed modifiers
+        for(AuraInterface::modifierMap::iterator itr = speedNonStackInc->begin(); itr != speedNonStackInc->end(); itr++)
+            if(itr->second->m_amount > speedNonStack)
+                speedNonStack = itr->second->m_amount;
+    }
+
+    // Modify our base speed by our modifier
+    baseSpeed *= (100.f+speedMod)/100.f * (100.f+std::max<float>(speedStack, speedNonStack))/100.f;
+
+    if(normalizer)
+    {   // Normalization aura creates a speed cap based on highest modifier(though it might be lowest, not sure)
+        for(AuraInterface::modifierMap::iterator itr = speedNonStackInc->begin(); itr != speedNonStackInc->end(); itr++)
+            if(itr->second->m_amount > speedNonStack)
+                speedMod = itr->second->m_amount;
+        float maxSpeed = speedMod/m_defaultSpeeds[speedType];
+        if(baseSpeed > maxSpeed) speedMod = maxSpeed;
+    }
+
+    // Reduce speed based on lowest value to create our multiplier
+    if(AuraInterface::modifierMap *slowSpeed = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED))
+    {
+        for(AuraInterface::modifierMap::iterator itr = speedNonStackInc->begin(); itr != speedNonStackInc->end(); itr++)
+            if(itr->second->m_amount < speedNonStack)
+                speedMod = itr->second->m_amount;
+        baseSpeed *= (100.f+speedMod)/100.f;
     }
 
     // SPEED OFFSETS, OFF WE GO TO SEE THE SET
@@ -974,27 +1013,44 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
     for(std::vector<uint32>::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
     {
         switch(*itr)
-        {
-        case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
-            speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+        {   // Can fly enabling aura
         case SPELL_AURA_FLY:
             updateFlight = true;
-            if(m_Unit->m_AuraInterface.HasAurasWithModType(*itr))
+            if(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
                 canFly = true;
             break;
+            // Speed modifiers
+        case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
+        case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
+        case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
+        case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
+        case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
+            speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+            break;
+        case SPELL_AURA_MOD_INCREASE_SPEED:
+        case SPELL_AURA_MOD_SPEED_ALWAYS:
+        case SPELL_AURA_MOD_SPEED_NOT_STACK:
         case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
             speedsToUpdate.insert(MOVE_SPEED_RUN);
             break;
+        case SPELL_AURA_MOD_INCREASE_SWIM_SPEED:
+            speedsToUpdate.insert(MOVE_SPEED_SWIM);
+            break;
+        case SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS:
+        case SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK:
+            speedsToUpdate.insert(MOVE_SPEED_RUN);
+            speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+            break;
+        case SPELL_AURA_MOD_MINIMUM_SPEED:
+        case SPELL_AURA_MOD_DECREASE_SPEED:
+        case SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED:
         default:
-            speedsToUpdate.insert(MOVE_SPEED_WALK);
             speedsToUpdate.insert(MOVE_SPEED_RUN);
             speedsToUpdate.insert(MOVE_SPEED_RUN_BACK);
             speedsToUpdate.insert(MOVE_SPEED_SWIM);
             speedsToUpdate.insert(MOVE_SPEED_SWIM_BACK);
-            speedsToUpdate.insert(MOVE_SPEED_TURNRATE);
             speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
             speedsToUpdate.insert(MOVE_SPEED_FLIGHT_BACK);
-            speedsToUpdate.insert(MOVE_SPEED_PITCHRATE);
             break;
         }
     }
@@ -1019,21 +1075,32 @@ void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
     UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }
 
-void MovementInterface::OnPrePushToWorld()
+void MovementInterface::OnPreSetInWorld()
 {
-    setCanFly(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY));
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
         RecalculateMoveSpeed(MovementSpeedTypes(i));
+}
+
+void MovementInterface::OnPrePushToWorld()
+{
+    setCanFly(m_Unit->canFly());
+
+    if(hasFlag(MOVEMENTFLAG_CAN_FLY) && isInAir())
+    { m_Unit->IsPlayer() ? setServerFlag(MOVEMENTFLAG_FLYING) : setServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY); }
+    else { removeServerFlag(MOVEMENTFLAG_FLYING); removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY); }
 }
 
 void MovementInterface::OnPushToWorld()
 {
     UnlockTransportData();
 
-    // Send our time sync request packet
-    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-    data << uint32(0); // counter
-    castPtr<Player>(m_Unit)->SendPacket(&data);
+    if(m_Unit->IsPlayer())
+    {
+        // Send our time sync request packet
+        WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
+        data << uint32(0); // counter
+        castPtr<Player>(m_Unit)->SendPacket(&data);
+    }
 }
 
 void MovementInterface::OnDeath()
@@ -1105,6 +1172,12 @@ void MovementInterface::setRooted(bool root)
     WorldPacket data(root ? SMSG_MOVE_ROOT : SMSG_MOVE_UNROOT, 200);
     WriteFromServer(data.GetOpcode(), &data);
     castPtr<Player>(m_Unit)->SendPacket(&data);
+}
+
+bool MovementInterface::isInAir()
+{
+    float ground = m_Unit->GetMapHeight(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, UnitPathSystem::fInfinite);
+    return (RONIN_UTIL::fuzzyGt(m_serverLocation->z, ground+0.5f) || RONIN_UTIL::fuzzyLt(m_serverLocation->z, ground-0.5f));
 }
 
 void MovementInterface::setCanFly(bool canFly)
@@ -1260,6 +1333,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
 
+    float runSpeed = GetMoveSpeed(MOVE_SPEED_RUN);
     // Append our bits
     DO_BIT(bits, !hasMovementFlags);
     DO_BIT(bits, !hasOrientation);
@@ -1339,7 +1413,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
-    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
+    DO_BYTES(bytes, float, runSpeed);
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
 }

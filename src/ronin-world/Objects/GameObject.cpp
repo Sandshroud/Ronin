@@ -380,6 +380,9 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     // Event objects should be spawned inactive
     isActive = ((m_spawn && m_spawn->eventId) ? false : true);
 
+    // Set our phase mask
+    m_phaseMask = spawn->phaseMask;
+
     // Custom object faction setting per spawn
     if(spawn->faction)
     {

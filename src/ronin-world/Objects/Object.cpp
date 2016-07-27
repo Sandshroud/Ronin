@@ -557,6 +557,7 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
 {
     m_mapId = -1;
     m_areaId = m_zoneId = 0;
+    m_phaseMask = 0xFFFF;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
 
@@ -645,15 +646,19 @@ void WorldObject::PushToWorld(MapInstance* instance)
         return; //instance add failed
     }
 
+    OnPreSetInWorld();
+
     m_mapId = instance->GetMapId();
     m_instanceId = instance->GetInstanceID();
     UpdateAreaInfo(instance);
 
-    OnPrePushToWorld();
-
     // Set our map manager
     m_mapInstance = instance;
 
+    // Call prepush after setting map pointer
+    OnPrePushToWorld();
+
+    // Push into our map pool
     instance->PushObject(this);
 
     // correct incorrect instance id's
@@ -708,7 +713,7 @@ float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
         float mapHeight = sVMapInterface.GetHeight(m_mapId, m_instanceId, 0, x, y, z);
         if(mapHeight == NO_WMO_HEIGHT)
         {
-            if((mapHeight = m_mapInstance->GetLandHeight(x, y)) != NO_LAND_HEIGHT && mapHeight+maxDist >= retVal)
+            if((mapHeight = m_mapInstance->GetLandHeight(x, y)) != NO_LAND_HEIGHT && (maxDist == UnitPathSystem::fInfinite || mapHeight+maxDist >= retVal))
                 retVal = mapHeight;
         } else retVal = mapHeight;
     }
@@ -1806,7 +1811,7 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 bool WorldObject::IsObjectBlocked(WorldObject *pObj)
 {
     bool ignoreDeath = false;
-    uint32 eventToIgnore = 0, phaseToIgnore = 0;
+    uint32 eventSight = 0, phaseSight = 0;
 
     Player *gmPlr = NULL;
     if(IsPlayer() && pObj->IsPlayer())
@@ -1815,8 +1820,8 @@ bool WorldObject::IsObjectBlocked(WorldObject *pObj)
     {
         switch(gmPlr->gmSightType)
         {
-        case 1: eventToIgnore = gmPlr->gmSightEventID; break;
-        case 2: phaseToIgnore = gmPlr->gmSightPhaseMask; break;
+        case 1: eventSight = gmPlr->gmSightEventID; break;
+        case 2: phaseSight = gmPlr->gmSightPhaseMask; break;
         case 3: ignoreDeath = true; break;
         }
     }
@@ -1827,16 +1832,16 @@ bool WorldObject::IsObjectBlocked(WorldObject *pObj)
         uint32 eventId0 = getEventID(), eventId1 = pObj->getEventID();
         if(eventId0 && eventId1 && eventId0 != eventId1)
             return true;
-        else if(eventId0 && eventId0 != eventToIgnore && eventToIgnore != 0xFFFFFFFF)
+        else if(eventId0 && eventId0 != eventSight && eventSight != 0xFFFFFFFF)
             return true;
-        else if(eventId1 && eventId1 != eventToIgnore && eventToIgnore != 0xFFFFFFFF)
+        else if(eventId1 && eventId1 != eventSight && eventSight != 0xFFFFFFFF)
             return true;
         else if(eventId0 == 0 && eventId1 == 0 && ignoreDeath == false)
             return true;
     }
 
     // Objects in different phases shouldn't be inrange either
-    if(!PhasedCanInteract(pObj) && phaseToIgnore == 0)
+    if(!PhasedCanInteract(pObj) && ((gmPlr == pObj) ? (phaseSight & GetPhaseMask()) : (phaseSight & pObj->GetPhaseMask())) == 0)
         return true;
     // Some random code, need to figure it out
     if(!AreaCanInteract(pObj))
@@ -1853,7 +1858,11 @@ bool WorldObject::AreaCanInteract(WorldObject *pObj)
 
 bool WorldObject::PhasedCanInteract(WorldObject* pObj)
 {
-    return true;
+    if(GetPhaseMask() == 0xFFFF || pObj->GetPhaseMask() == 0xFFFF)
+        return true;
+    if(GetPhaseMask() & pObj->GetPhaseMask())
+        return true;
+    return false;
 }
 
 // Returns the base cost of a spell

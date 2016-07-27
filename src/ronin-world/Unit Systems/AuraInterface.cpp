@@ -70,8 +70,14 @@ void AuraInterface::SavePlayerAuras(std::stringstream *ss)
     for(uint8 i = 0; i < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(i, false))
     {
         Aura *aur = FindAuraBySlot(i);
-        if(aur == NULL || !aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
+        if(aur == NULL)
             continue;
+        if(aur->GetCasterGUID() != m_Unit->GetGUID())
+        {   // Only save apply aura spells, area auras should be ignored
+            if(!aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
+                continue;
+        }
+
         if(ss->str().length())
             *ss << ", ";
 

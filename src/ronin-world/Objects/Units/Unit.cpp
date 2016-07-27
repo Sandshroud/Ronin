@@ -238,7 +238,6 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
     case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
     case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
-    case SPELL_AURA_MOD_SPEED_SLOW_ALL:
     case SPELL_AURA_MOD_MINIMUM_SPEED:
         index = 13;
         break;
@@ -1123,6 +1122,9 @@ bool Unit::canFly()
         if(plr->m_FlyingAura)
             return true;
     }
+
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
+        return true;
 
     return false;
 }
@@ -2746,9 +2748,22 @@ void Unit::SendPlaySpellVisualKit(uint32 id, uint32 unkParam)
     SendMessageToSet(&data, true);
 }
 
+void Unit::OnPreSetInWorld()
+{
+    m_movementInterface.OnPreSetInWorld();
+}
+
+void Unit::OnPrePushToWorld()
+{
+    m_movementInterface.OnPrePushToWorld();
+}
+
 void Unit::OnPushToWorld()
 {
     WorldObject::OnPushToWorld();
+
+    m_movementInterface.OnPushToWorld();
+
     m_AuraInterface.BuildAllAuraUpdates();
 }
 

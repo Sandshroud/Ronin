@@ -804,6 +804,9 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
 
+    // Set our phase mask
+    m_phaseMask = m_spawn ? m_spawn->phaseMask : m_phaseMask;
+
     // Grab our saved model spawn and check if it's valid from creature data
     uint32 model = m_spawn ? m_spawn->modelId : 0, gender=0;
     _creatureData->VerifyModelInfo(model, gender);

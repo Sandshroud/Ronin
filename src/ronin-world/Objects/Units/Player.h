@@ -1480,8 +1480,9 @@ public:
     std::set<SpellEntry *> castSpellAtLogin;
 
     /////
-    void OnPushToWorld();
+    void OnPreSetInWorld();
     void OnPrePushToWorld();
+    void OnPushToWorld();
     void OnWorldPortAck();
     void OnWorldLogin();
     void SoftLoadPlayer();

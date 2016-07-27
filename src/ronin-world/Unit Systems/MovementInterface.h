@@ -271,6 +271,7 @@ public:
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
     void MoveClientPosition(float x, float y, float z, float o);
 
+    void OnPreSetInWorld();
     void OnPrePushToWorld();
     void OnPushToWorld();
     void OnDeath();
@@ -280,6 +281,8 @@ public:
     void OnDismount();
     void OnTaxiEnd();
     void OnRelocate(LocationVector destination);
+
+    bool isInAir();
 
     // Aura related functions
     bool isRooted() { return hasFlag(MOVEMENTFLAG_TOGGLE_ROOT); }
@@ -302,19 +305,19 @@ public:
     bool hasFlag(MovementFlagsE flag) { return GetFlags(4)&flag; };
     bool hasFlag(MovementFlagsF flag) { return GetFlags(5)&flag; };
 
-    void setServerFlag(MovementFlagsA flag) { m_serverFlags[0] |= flag; }
-    void setServerFlag(MovementFlagsB flag) { m_serverFlags[1] |= flag; }
-    void setServerFlag(MovementFlagsC flag) { m_serverFlags[2] |= flag; }
-    void setServerFlag(MovementFlagsD flag) { m_serverFlags[3] |= flag; }
-    void setServerFlag(MovementFlagsE flag) { m_serverFlags[4] |= flag; }
-    void setServerFlag(MovementFlagsF flag) { m_serverFlags[5] |= flag; }
+    void setServerFlag(MovementFlagsA flag) { m_serverFlags[0] |= flag; UpdateMovementFlagMask(0); }
+    void setServerFlag(MovementFlagsB flag) { m_serverFlags[1] |= flag; UpdateMovementFlagMask(1); }
+    void setServerFlag(MovementFlagsC flag) { m_serverFlags[2] |= flag; UpdateMovementFlagMask(2); }
+    void setServerFlag(MovementFlagsD flag) { m_serverFlags[3] |= flag; UpdateMovementFlagMask(3); }
+    void setServerFlag(MovementFlagsE flag) { m_serverFlags[4] |= flag; UpdateMovementFlagMask(4); }
+    void setServerFlag(MovementFlagsF flag) { m_serverFlags[5] |= flag; UpdateMovementFlagMask(5); }
 
-    void removeServerFlag(MovementFlagsA flag) { m_serverFlags[0] &= ~flag; }
-    void removeServerFlag(MovementFlagsB flag) { m_serverFlags[1] &= ~flag; }
-    void removeServerFlag(MovementFlagsC flag) { m_serverFlags[2] &= ~flag; }
-    void removeServerFlag(MovementFlagsD flag) { m_serverFlags[3] &= ~flag; }
-    void removeServerFlag(MovementFlagsE flag) { m_serverFlags[4] &= ~flag; }
-    void removeServerFlag(MovementFlagsF flag) { m_serverFlags[5] &= ~flag; }
+    void removeServerFlag(MovementFlagsA flag) { m_serverFlags[0] &= ~flag; UpdateMovementFlagMask(0); }
+    void removeServerFlag(MovementFlagsB flag) { m_serverFlags[1] &= ~flag; UpdateMovementFlagMask(1); }
+    void removeServerFlag(MovementFlagsC flag) { m_serverFlags[2] &= ~flag; UpdateMovementFlagMask(2); }
+    void removeServerFlag(MovementFlagsD flag) { m_serverFlags[3] &= ~flag; UpdateMovementFlagMask(3); }
+    void removeServerFlag(MovementFlagsE flag) { m_serverFlags[4] &= ~flag; UpdateMovementFlagMask(4); }
+    void removeServerFlag(MovementFlagsF flag) { m_serverFlags[5] &= ~flag; UpdateMovementFlagMask(5); }
 
     bool isMoving() { return hasFlag(MOVEMENTFLAG_MASK_MOVING); }
     bool isTurning() { return hasFlag(MOVEMENTFLAG_MASK_TURNING); }
@@ -540,8 +543,17 @@ public:
 
 private:
     // Internal functions
-    void UpdateMovementFlagMask()
+    void UpdateMovementFlagMask(uint8 flag = 0xFF)
     {
+        if(flag != 0xFF && flag < 6)
+        {
+            m_movementFlagMask &= 1<<flag;
+            if(GetFlags(flag) == 0)
+                return;
+            m_movementFlagMask |= 1<<flag;
+            return;
+        }
+
         m_movementFlagMask = 0;
         for(uint8 i = 0; i < 6; i++)
         {

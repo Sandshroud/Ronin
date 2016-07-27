@@ -178,8 +178,8 @@ void TotemSummon::SetupSpells()
 
     if((TotemSpell->HasEffect(SPELL_EFFECT_SUMMON)
         || TotemSpell->HasEffect(SPELL_EFFECT_APPLY_AURA)
-        || TotemSpell->HasEffect(SPELL_EFFECT_HEALTH_FUNNEL)
         || TotemSpell->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA)
+        || TotemSpell->HasEffect(SPELL_EFFECT_APPLY_RAID_AURA)
         || TotemSpell->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA))
         && TotemSpell->AppliesAura(SPELL_AURA_PERIODIC_TRIGGER_SPELL))
         castingtotem = false;

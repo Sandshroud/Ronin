@@ -63,7 +63,7 @@ void WorldManager::LoadSpawnData()
         ss << itr->first;
     }
 
-    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss.str().c_str()))
+    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss.str().c_str()))
     {
         do
         {
@@ -77,14 +77,15 @@ void WorldManager::LoadSpawnData()
             cspawn->z = fields[5].GetFloat();
             cspawn->o = NormAngle(fields[6].GetFloat());
             cspawn->modelId = fields[7].GetUInt32();
-            cspawn->vendormask = fields[8].GetUInt32();
-            cspawn->eventId = 0;
+            cspawn->phaseMask = fields[8].GetUInt16();
+            cspawn->eventId = fields[9].GetUInt32();
+            cspawn->vendormask = fields[10].GetInt32();
             m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
         }while(result->NextRow());
         delete result;
     }
 
-    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, eventId FROM gameobject_spawns WHERE map IN(%s)", ss.str().c_str()))
+    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId FROM gameobject_spawns WHERE map IN(%s)", ss.str().c_str()))
     {
         do
         {
@@ -104,7 +105,8 @@ void WorldManager::LoadSpawnData()
             gspawn->flags = fields[11].GetUInt32();
             gspawn->faction = fields[12].GetUInt32();
             gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
-            gspawn->eventId = fields[14].GetUInt32();
+            gspawn->phaseMask = fields[14].GetUInt16();
+            gspawn->eventId = fields[15].GetUInt32();
             m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
         }while(result->NextRow());
         delete result;
