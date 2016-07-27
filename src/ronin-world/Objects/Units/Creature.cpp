@@ -138,6 +138,7 @@ void Creature::OnAuraModChanged(uint32 modType)
         m_modQueuedModUpdates[100].push_back(modType);
         break;
     }
+    Unit::OnAuraModChanged(modType);
 }
 
 float Creature::GetAggroRange()

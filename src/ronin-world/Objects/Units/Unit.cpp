@@ -131,12 +131,15 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
         else m_attackTimer[i] = 0;
     }
 
-    if(!m_instanceInCombat && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
+    if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
     {
         if(m_combatStopTimer <= uiDiff)
         {
-            m_combatStopTimer = 0;
-            RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+            if(!m_instanceInCombat && m_attackTarget.empty())
+            {
+                m_combatStopTimer = 0;
+                RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+            } else m_combatStopTimer = 5000;
         } else m_combatStopTimer -= uiDiff;
     }
 

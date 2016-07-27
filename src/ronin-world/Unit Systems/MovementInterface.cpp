@@ -637,9 +637,6 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
 
 float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
 {
-    if(!m_Unit->IsPlayer())
-        return m_defaultSpeeds[speedType];
-
     bool mounted = m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0;
     float baseSpeed = m_defaultSpeeds[speedType], speedMod = 0.f, speedStack = 0.f, speedNonStack = 0.f;
     AuraInterface::modifierMap *speedBonus = NULL, *speedStackInc = NULL, *speedNonStackInc = NULL, *normalizer = NULL;
@@ -701,20 +698,27 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
 
     if(normalizer)
     {   // Normalization aura creates a speed cap based on highest modifier(though it might be lowest, not sure)
-        for(AuraInterface::modifierMap::iterator itr = speedNonStackInc->begin(); itr != speedNonStackInc->end(); itr++)
-            if(itr->second->m_amount > speedNonStack)
+        for(AuraInterface::modifierMap::iterator itr = normalizer->begin(); itr != normalizer->end(); itr++)
+            if(itr->second->m_amount > speedMod)
                 speedMod = itr->second->m_amount;
         float maxSpeed = speedMod/m_defaultSpeeds[speedType];
         if(baseSpeed > maxSpeed) speedMod = maxSpeed;
     }
 
     // Reduce speed based on lowest value to create our multiplier
-    if(AuraInterface::modifierMap *slowSpeed = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED))
+    if(AuraInterface::modifierMap *slowSpeed = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DECREASE_SPEED))
     {
-        for(AuraInterface::modifierMap::iterator itr = speedNonStackInc->begin(); itr != speedNonStackInc->end(); itr++)
-            if(itr->second->m_amount < speedNonStack)
+        for(AuraInterface::modifierMap::iterator itr = slowSpeed->begin(); itr != slowSpeed->end(); itr++)
+            if(itr->second->m_amount < speedMod)
                 speedMod = itr->second->m_amount;
         baseSpeed *= (100.f+speedMod)/100.f;
+        if(slowSpeed = m_Unit->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MINIMUM_SPEED))
+        {
+            for(AuraInterface::modifierMap::iterator itr = slowSpeed->begin(); itr != slowSpeed->end(); itr++)
+                if(itr->second->m_amount > speedMod)
+                    speedMod = itr->second->m_amount;
+            baseSpeed = std::max<float>(baseSpeed, speedMod/100.f);
+        }
     }
 
     // SPEED OFFSETS, OFF WE GO TO SEE THE SET
