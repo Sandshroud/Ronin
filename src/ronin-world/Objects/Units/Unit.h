@@ -8,6 +8,7 @@
 #define UF_TARGET_DIED  1
 #define UF_ATTACKING    2 // this unit is attacking it's selection
 #define UF_EVADING      4
+#define UF_DESPAWNING   8
 #define SPELL_GROUPS    96
 #define SPELL_MODIFIERS 30
 #define DIMINISH_GROUPS 13

@@ -520,6 +520,7 @@ public:
     AuctionHouse *auctionHouse;
 
     MapCell *m_respawnCell;
+    uint32 m_despawnTimer, m_respawnTimer;
 
     /// Vendor data
     std::map<uint32, CreatureItem> *m_SellItems;

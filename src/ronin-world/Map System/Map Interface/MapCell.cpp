@@ -57,29 +57,6 @@ void MapCell::SetActivity(bool state)
     _active = state;
 }
 
-void MapCell::AddRespawn(WorldObject* obj)
-{
-    _respawnObjects.push_back(obj);
-}
-
-void MapCell::RemoveRespawn(WorldObject* obj)
-{
-    CellObjectSet::iterator itr;
-    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
-        _respawnObjects.erase(itr);
-}
-
-bool MapCell::EventRespawn(WorldObject *obj)
-{
-    CellObjectSet::iterator itr;
-    if((itr = std::find(_respawnObjects.begin(), _respawnObjects.end(), obj)) != _respawnObjects.end())
-    {
-        _respawnObjects.erase(itr);
-        return true;
-    }
-    return false;
-}
-
 uint32 MapCell::LoadCellData(CellSpawns * sp)
 {
     if(_loaded == true)
@@ -144,36 +121,6 @@ void MapCell::UnloadCellData(bool preDestruction)
         return;
 
     _loaded = false;
-    if(_respawnObjects.size())
-    {
-        /* delete objects in pending respawn state */
-        CellObjectSet set(_respawnObjects);
-        for(CellObjectSet::iterator itr = set.begin(); itr != set.end(); itr++)
-        {
-            WorldObject* pObject = *itr;
-            if(pObject == NULL)
-                continue;
-
-            switch(pObject->GetTypeId())
-            {
-            case TYPEID_UNIT:
-            {
-                castPtr<Creature>(pObject)->m_respawnCell = NULL;
-                castPtr<Creature>(pObject)->Destruct();
-            }break;
-            case TYPEID_GAMEOBJECT:
-            {
-                castPtr<GameObject>(pObject)->m_respawnCell = NULL;
-                castPtr<GameObject>(pObject)->Destruct();
-            }break;
-            default:
-                pObject->Destruct();
-                break;
-            }
-        }
-        _respawnObjects.clear();
-    }
-
     if(_objects.size())
     {
         //This time it's simpler! We just remove everything :)

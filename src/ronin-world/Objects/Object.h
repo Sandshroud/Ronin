@@ -101,6 +101,14 @@ enum ObjectAreaFlags
     OBJECT_AREA_FLAG_ARENA_ZONE     = 0x40,
 };
 
+enum ObjectInactiveFlags
+{
+    OBJECT_INACTIVE_FLAG_INACTIVE   = 0x01,
+    OBJECT_INACTIVE_FLAG_DESPAWNED  = 0x02,
+    OBJECT_INACTIVE_FLAG_EVENTS     = 0x08,
+    OBJECT_ACTIVE_FLAG_MASK         = 0x0F,
+};
+
 typedef struct
 {
     uint32 school_type;
@@ -305,7 +313,9 @@ public:
 
     virtual void Reactivate() = 0;
     virtual void Deactivate(uint32 reactivationTime);
-    bool IsActivated() { return isActive; }
+
+    bool IsActivated() { return (m_inactiveFlags & OBJECT_INACTIVE_FLAG_INACTIVE) == 0; }
+    bool hasInactiveFlag(uint16 flag) { return m_inactiveFlags & flag; }
 
     virtual uint32 getEventID() { return 0; }
 
@@ -583,14 +593,14 @@ protected:
     uint16 m_phaseMask;
     //! Area Flags.
     uint8 m_areaFlags;
+    //! Object deactivation
+    uint16 m_inactiveFlags;
     //! Continent/map id.
     int32 m_mapId;
     //! Instance Id
     int32 m_instanceId;
     //! Last set Movement zone
     uint32 m_lastMovementZone;
-    //! Object deactivation
-    bool isActive;
     uint32 m_objDeactivationTimer;
 
     //! Map manager

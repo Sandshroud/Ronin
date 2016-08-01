@@ -35,10 +35,6 @@ public:
     RONIN_INLINE CellObjectSet::iterator Begin() { return _objects.begin(); }
     RONIN_INLINE CellObjectSet::iterator End() { return _objects.end(); }
 
-    void AddRespawn(WorldObject* obj);
-    void RemoveRespawn(WorldObject* obj);
-    bool EventRespawn(WorldObject *obj);
-
     //State Related
     void SetActivity(bool state);
 
@@ -65,7 +61,7 @@ public:
 private:
     bool _forcedActive;
     uint16 _x,_y;
-    CellObjectSet _objects, _respawnObjects, _players;
+    CellObjectSet _objects, _players;
     bool _active, _loaded;
     bool _unloadpending;
 

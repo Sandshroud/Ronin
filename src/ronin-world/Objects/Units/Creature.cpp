@@ -80,6 +80,29 @@ void Creature::Reactivate()
 
 }
 
+void Creature::Despawn(uint32 delay, uint32 respawntime)
+{
+    m_respawnTimer = respawntime;
+    if(m_despawnTimer = delay)
+    {
+        addStateFlag(UF_DESPAWNING);
+        return;
+    }
+
+    // Empty items
+    GetLoot()->items.clear();
+
+    //Better make sure all summoned totems/summons/GO's created by this creature spawned removed.
+    SummonExpireAll(true);
+
+    // Reset position to spawn loc
+    SetPosition(m_spawnLocation);
+    clearStateFlag(UF_DESPAWNING);
+    m_inactiveFlags |= OBJECT_INACTIVE_FLAG_DESPAWNED;
+    WorldObject::Deactivate(m_respawnTimer);
+    m_respawnTimer = 0;
+}
+
 void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
     m_AreaUpdateTimer += uiDiff;
@@ -116,6 +139,13 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
         }
     } else if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
+
+    if(hasStateFlag(UF_DESPAWNING))
+    {
+        if(m_despawnTimer > uiDiff)
+            m_despawnTimer -= uiDiff;
+        else Despawn(0, m_respawnTimer);
+    }
 }
 
 void Creature::UpdateFieldValues()
@@ -800,7 +830,12 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     _Create(mapId, x, y, z, o);
 
     // Event objects should be spawned inactive
-    isActive = ((m_spawn && m_spawn->eventId) ? false : true);
+    if(m_spawn && m_spawn->eventId)
+    {
+        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
+        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
+        m_objDeactivationTimer = 5000;
+    }
 
     // Set our extra data pointer
     _extraInfo = CreatureInfoExtraStorage.LookupEntry(GetEntry());
@@ -905,39 +940,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
                 b_has_shield = (m_shieldProto = sItemMgr.LookupEntry(tmpitemid)) != NULL;
         }
     }
-}
-
-void Creature::Despawn(uint32 delay, uint32 respawntime)
-{
-    if(delay)
-    {
-        sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::Despawn, (uint32)0, respawntime, EVENT_CREATURE_RESPAWN, delay, 1,0);
-        return;
-    }
-
-    GetLoot()->items.clear();
-
-    if(!IsInWorld())
-        return;
-
-    //Better make sure all summoned totems/summons/GO's created by this creature spawned removed.
-    SummonExpireAll(true);
-
-    if(respawntime)
-    {
-        /* get the cell with our SPAWN location. if we've moved cell this might break :P */
-        MapCell * pCell = m_mapInstance->GetCellByCoords(m_spawnLocation.x, m_spawnLocation.y);
-        if(!pCell)
-            pCell = m_mapCell;
-
-        ASSERT(pCell);
-        pCell->AddRespawn(this);
-        sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(m_mapInstance, &MapInstance::EventRespawnCreature, castPtr<Creature>(this), pCell, EVENT_CREATURE_RESPAWN, respawntime, 1, 0);
-        Unit::RemoveFromWorld();
-        SetPosition( m_spawnLocation);
-        m_respawnCell = pCell;
-    } else Unit::RemoveFromWorld();
 }
 
 void Creature::RemoveLimboState(Unit* healer)

@@ -567,7 +567,8 @@ WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCou
     m_factionTemplate = NULL;
 
     m_instanceId = 0;
-    isActive = false;
+    m_inactiveFlags = 0;
+    m_objDeactivationTimer = 0;
 }
 
 WorldObject::~WorldObject( )
@@ -616,18 +617,37 @@ void WorldObject::Update(uint32 msTime, uint32 diff)
 
 void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
 {
-    if(m_objDeactivationTimer == 0)
+    if((m_inactiveFlags & OBJECT_INACTIVE_FLAG_INACTIVE) == 0)
         return;
 
-    // Handle respawn events
-    if(m_objDeactivationTimer > diff)
-        m_objDeactivationTimer -= diff;
-    else
+    if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_DESPAWNED)
     {
-        m_objDeactivationTimer = 0;
-        isActive = true;
-        Reactivate();
+        if(m_objDeactivationTimer <= diff)
+            m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_DESPAWNED;
+        else
+        {
+            m_objDeactivationTimer -= diff;
+            return;
+        }
     }
+
+    if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_EVENTS)
+    {
+        if(m_objDeactivationTimer > diff)
+        {
+            m_objDeactivationTimer -= diff;
+            return;
+        }
+        else if(false)//!sWorld.HasActiveEvents(this))
+        {
+            m_objDeactivationTimer = 5000;
+            return;
+        }
+    }
+
+    m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_INACTIVE;
+    m_objDeactivationTimer = 0;
+    Reactivate();
 }
 
 //Unlike addtoworld it pushes it directly ignoring add pool
@@ -697,12 +717,11 @@ void WorldObject::Deactivate(uint32 reactivationTime)
     if(IsPlayer())
         return;
 
-    isActive = false;
+    m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
     WorldObject::RemoveFromWorld();
     if(reactivationTime)
-    {
-
-    }
+        m_objDeactivationTimer = reactivationTime;
+    else m_objDeactivationTimer = 0;
 }
 
 float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
@@ -1810,35 +1829,20 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 
 bool WorldObject::IsObjectBlocked(WorldObject *pObj)
 {
-    bool ignoreDeath = false;
-    uint32 eventSight = 0, phaseSight = 0;
+    uint32 phaseSight = 0;
+    Player *gmPlr = NULL; // Quick GM player pointer grab
+    if(!(IsPlayer() && pObj->IsPlayer()) && ((IsPlayer() && (gmPlr = castPtr<Player>(this))->bGMTagOn) || (pObj->IsPlayer() && (gmPlr = castPtr<Player>(pObj))->bGMTagOn)));
+    WorldObject *wObj = gmPlr == NULL ? NULL : (gmPlr == this ? pObj : this);
 
-    Player *gmPlr = NULL;
-    if(IsPlayer() && pObj->IsPlayer())
-    { } // Skip player and player interaction here
-    if((IsPlayer() && (gmPlr = castPtr<Player>(this))->bGMTagOn) || (pObj->IsPlayer() && (gmPlr = castPtr<Player>(pObj))->bGMTagOn))
+    if(gmPlr && wObj && !wObj->IsActivated())
     {
-        switch(gmPlr->gmSightType)
-        {
-        case 1: eventSight = gmPlr->gmSightEventID; break;
-        case 2: phaseSight = gmPlr->gmSightPhaseMask; break;
-        case 3: ignoreDeath = true; break;
-        }
-    }
+        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS) && gmPlr->gmSightType == 1)
+            if(wObj->getEventID() != gmPlr->gmSightEventID)
+                return true;
 
-    // Check if the object is set to inactive for culling
-    if((IsActiveObject() && !IsActivated()) || (pObj->IsActiveObject() && !pObj->IsActivated()))
-    {
-        uint32 eventId0 = getEventID(), eventId1 = pObj->getEventID();
-        if(eventId0 && eventId1 && eventId0 != eventId1)
+        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED) && gmPlr->gmSightType != 3)
             return true;
-        else if(eventId0 && eventId0 != eventSight && eventSight != 0xFFFFFFFF)
-            return true;
-        else if(eventId1 && eventId1 != eventSight && eventSight != 0xFFFFFFFF)
-            return true;
-        else if(eventId0 == 0 && eventId1 == 0 && ignoreDeath == false)
-            return true;
-    }
+    } else if(gmPlr) phaseSight = pObj->GetPhaseMask();
 
     // Objects in different phases shouldn't be inrange either
     if(!PhasedCanInteract(pObj) && ((gmPlr == pObj) ? (phaseSight & GetPhaseMask()) : (phaseSight & pObj->GetPhaseMask())) == 0)

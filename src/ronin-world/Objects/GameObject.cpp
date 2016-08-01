@@ -378,7 +378,12 @@ bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
     m_spawn = spawn;
 
     // Event objects should be spawned inactive
-    isActive = ((m_spawn && m_spawn->eventId) ? false : true);
+    if(m_spawn && m_spawn->eventId)
+    {
+        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
+        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
+        m_objDeactivationTimer = 5000;
+    }
 
     // Set our phase mask
     m_phaseMask = spawn->phaseMask;
