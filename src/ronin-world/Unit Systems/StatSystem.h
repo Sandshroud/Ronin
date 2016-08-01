@@ -31,8 +31,6 @@ enum Resistances : uint8
 
 struct UnitBaseStats
 {
-    uint8 race;
-    uint8 class_;
     uint16 level;
 
     uint32 baseHP;
@@ -67,6 +65,7 @@ public:
     bool Load();
     uint32 GetXPToNextLevel(uint32 level) { return xpPerLevel[std::min<uint32>(level, MAXIMUM_ATTAINABLE_LEVEL)]; }
 
+    UnitBaseStats *GetMaxUnitBaseStats(uint8 race, uint8 _class);
     UnitBaseStats *GetUnitBaseStats(uint8 race, uint8 _class, uint16 level);
     EUnitFields GetPowerFieldForClassAndType(uint8 _class, uint8 powerType);
 
@@ -79,6 +78,7 @@ protected:
 private:
     std::map<uint32, UnitBaseStats*> m_UnitBaseStats;
     std::map<std::pair<uint8, uint8>, EUnitFields> m_unitPowersByClass;
+    std::map<std::pair<uint8, uint8>, UnitBaseStats*> m_maxBaseStats;
 };
 
 #define sStatSystem StatSystem::getSingleton()

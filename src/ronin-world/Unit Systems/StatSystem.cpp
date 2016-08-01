@@ -74,6 +74,7 @@ bool StatSystem::LoadUnitStats()
         uint16 level = fields[2].GetUInt16();
         uint32 index = uint32(level) | uint32(uint32(race)<<16) | uint32(uint32(_class)<<24);
         UnitBaseStats *baseStats = new UnitBaseStats();
+        baseStats->level = level;
         baseStats->baseHP = fields[3].GetUInt32();
         baseStats->basePower = fields[4].GetUInt32();
         baseStats->baseStat[0] = fields[5].GetUInt32();
@@ -82,8 +83,22 @@ bool StatSystem::LoadUnitStats()
         baseStats->baseStat[3] = fields[8].GetUInt32();
         baseStats->baseStat[4] = fields[9].GetUInt32();
         m_UnitBaseStats.insert(std::make_pair(index, baseStats));
+        std::pair<uint8, uint8> pair = std::make_pair(race, _class);
+
+        if(m_maxBaseStats.find(pair) == m_maxBaseStats.end())
+            m_maxBaseStats.insert(std::make_pair(pair, baseStats));
+        else if(m_maxBaseStats.at(pair)->level < level)
+            m_maxBaseStats[pair] = baseStats;
     }while(result->NextRow());
     return true;
+}
+
+UnitBaseStats *StatSystem::GetMaxUnitBaseStats(uint8 race, uint8 _class)
+{
+    std::pair<uint8, uint8> pair = std::make_pair(race, _class);
+    if(m_maxBaseStats.find(pair) == m_maxBaseStats.end())
+        return NULL;
+    return m_maxBaseStats.at(pair);
 }
 
 UnitBaseStats *StatSystem::GetUnitBaseStats(uint8 race, uint8 _class, uint16 level)

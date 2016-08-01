@@ -232,8 +232,8 @@ public:
     int32 GetBonusHealth() { return 0; }
     int32 GetBonusStat(uint8 type) { return 0; };
     int32 GetBaseAttackTime(uint8 weaponType);
-    int32 GetBaseMinDamage(uint8 weaponType) { return _creatureData->minDamage; }
-    int32 GetBaseMaxDamage(uint8 weaponType) { return _creatureData->maxDamage; }
+    int32 GetBaseMinDamage(uint8 weaponType) { return 1.0f; }
+    int32 GetBaseMaxDamage(uint8 weaponType) { return 2.0f; }
     int32 GetBonusAttackPower() { return 0; };
     int32 GetBonusRangedAttackPower() { return 0; };
     int32 GetBonusResistance(uint8 school) { return _creatureData->resistances[school]; }

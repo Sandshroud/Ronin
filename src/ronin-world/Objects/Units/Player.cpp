@@ -6021,6 +6021,7 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     switch(slot)
     {
     case MOD_SLOT_ARMOR:
+        m_modQueuedModUpdates[6].empty();
         break;
     case MOD_SLOT_MINDAMAGE:
     case MOD_SLOT_MAXDAMAGE:
@@ -6996,7 +6997,7 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
     PlayerCooldownMap::iterator itr = m_cooldownMap[Type].find( Misc );
     if( itr != m_cooldownMap[Type].end( ) )
     {
-        if( itr->second.ExpireTime < Time )
+        if( itr->second.ExpireTime <= Time )
         {
             itr->second.ExpireTime = Time;
             itr->second.ItemId = ItemId;
@@ -7018,34 +7019,32 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
 
 void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
 {
-    uint32 mstime = getMSTime();
-    int32 cool_time;
-
     if( CooldownCheat )
         return;
 
+    time_t currTime = UNIXTIME;
     if( pSpell->CategoryRecoveryTime > 0 && pSpell->Category )
     {
-        cool_time = pSpell->CategoryRecoveryTime;
+        int32 recover = pSpell->CategoryRecoveryTime;
         if( pSpell->SpellGroupType )
         {
-            SM_FIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
-            SM_PIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &recover, pSpell->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &recover, pSpell->SpellGroupType);
         }
 
-        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->Category, mstime + cool_time, pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
+        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->Category, currTime+time_t(recover < 2000 ? 1 : (recover/1000)), pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
     }
 
     if( pSpell->RecoveryTime > 0 )
     {
-        cool_time = pSpell->RecoveryTime;
+        int32 recover = pSpell->RecoveryTime;
         if( pSpell->SpellGroupType )
         {
-            SM_FIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
-            SM_PIValue(SMT_COOLDOWN_DECREASE, &cool_time, pSpell->SpellGroupType);
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &recover, pSpell->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &recover, pSpell->SpellGroupType);
         }
 
-        _Cooldown_Add( COOLDOWN_TYPE_SPELL, pSpell->Id, mstime + cool_time, pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
+        _Cooldown_Add( COOLDOWN_TYPE_SPELL, pSpell->Id, currTime+time_t(recover < 2000 ? 1 : (recover/1000)), pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
     }
 }
 
@@ -7067,10 +7066,10 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
     if( atime <= 0 )
         return;
 
-    time_t expireTime = UNIXTIME + (atime < 2000 ? 1 : (atime/1000));
+    time_t expireTime = UNIXTIME + time_t(atime < 2000 ? 1 : (atime/1000));
     if( pSpell->StartRecoveryCategory )
         _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, pSpell->StartRecoveryCategory, expireTime, pSpell->Id, 0 );
-    else m_globalCooldown = expireTime;
+    else m_globalCooldown = UNIXTIME;
 }
 
 void Player::Cooldown_OnCancel(SpellEntry *pSpell)
@@ -7084,7 +7083,6 @@ void Player::Cooldown_OnCancel(SpellEntry *pSpell)
     if( atime <= 0 )
         return;
 
-    uint32 mstime = getMSTime();
     if( pSpell->StartRecoveryCategory )
         m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase(pSpell->StartRecoveryCategory);
     else m_globalCooldown = UNIXTIME;
@@ -7134,14 +7132,12 @@ void Player::Cooldown_AddItem(ItemPrototype * pProto, uint32 x)
     if( pProto->Spells[x].CategoryCooldown <= 0 && pProto->Spells[x].Cooldown <= 0 )
         return;
 
+    time_t currTime = UNIXTIME;
     ItemPrototype::ItemSpell* isp = &pProto->Spells[x];
-    uint32 mstime = getMSTime();
-
     if( isp->CategoryCooldown > 0)
-        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, isp->Category, isp->CategoryCooldown + mstime, isp->Id, pProto->ItemId );
-
+        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, isp->Category, currTime+time_t(isp->CategoryCooldown < 2000 ? 1 : (isp->CategoryCooldown/1000)), isp->Id, pProto->ItemId );
     if( isp->Cooldown > 0 )
-        _Cooldown_Add( COOLDOWN_TYPE_SPELL, isp->Id, isp->Cooldown + mstime, isp->Id, pProto->ItemId );
+        _Cooldown_Add( COOLDOWN_TYPE_SPELL, isp->Id, currTime+time_t(isp->Cooldown < 2000 ? 1 : (isp->Cooldown/1000)), isp->Id, pProto->ItemId );
 }
 
 bool Player::Cooldown_CanCast(ItemPrototype * pProto, uint32 x)

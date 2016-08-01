@@ -296,9 +296,12 @@ void Unit::UpdateStatValues()
     AuraInterface::modifierMap *statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
         *statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
         *totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
+
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
-        basepos = baseStats ? baseStats->baseStat[s] : getLevel()*15;
+        basepos = baseStats ? baseStats->baseStat[s] : getLevel()*25;
+        if(baseStats && baseStats->level < getLevel())
+            basepos += getLevel()*15;
 
         pos=GetBonusStat(s), neg=0;
         if(statMod)
@@ -346,6 +349,7 @@ void Unit::UpdateStatValues()
         SetUInt32Value(UNIT_FIELD_POSSTATS+s, pos);
         SetUInt32Value(UNIT_FIELD_NEGSTATS+s, neg);
     }
+
     // Set stat values as updated to update affected auras
     m_modQueuedModUpdates[2].empty();
     m_modQueuedModUpdates[3].empty();
@@ -549,20 +553,42 @@ void Unit::UpdateAttackDamageValues()
 
         float apBonus = float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))/1000.f;
         float baseMinDamage = GetBaseMinDamage(i), baseMaxDamage = GetBaseMaxDamage(i);
-        if(IsInFeralForm())
-        {
-            uint32 level = std::min(getLevel(), uint32(60));
-            baseMinDamage = level*0.85f*apBonus;
-            baseMaxDamage = level*1.25f*apBonus;
+        if(IsCreature())
+        {   // Creature damage is AP times healthmod, with 1.5+rank times being the max damage
+            float modifier = ((float(getLevel())*0.01f + 0.005f)*getLevel()) - 1.25*(getLevel()/MAXIMUM_ATTAINABLE_LEVEL);
+            if(getLevel() >= 80) modifier *= 0.6f; else if(getLevel() >= 70) modifier *= 0.35f; else if(getLevel() >= 60) modifier *= 0.1f;
+            baseMinDamage = ((apBonus * modifier) * floor(attackPower/14.f) * castPtr<Creature>(this)->GetCreatureData()->healthMod) - (apBonus ? modifier : 0);
+            baseMaxDamage = baseMinDamage * (1.5f + castPtr<Creature>(this)->GetCreatureData()->rank);
         }
-        if(i != RANGED) apBonus *= attackPower/14.f;
-        else apBonus *= rangedAttackPower/14.f;
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & 0x01)
-                    baseMinDamage += itr->second->m_amount, baseMaxDamage += itr->second->m_amount;
-        baseMinDamage += apBonus, baseMaxDamage += apBonus;
+        else
+        {
+            if(IsInFeralForm())
+            {
+                uint32 level = std::min<uint32>(getLevel(), 60);
+                baseMinDamage = level*0.85f*apBonus;
+                baseMaxDamage = level*1.25f*apBonus;
+            }
 
+            if(i != RANGED) apBonus *= attackPower/14.f;
+            else apBonus *= rangedAttackPower/14.f;
+            // Add our AP bonus
+            baseMinDamage += apBonus;
+            baseMaxDamage += apBonus;
+        }
+
+        // Add up our damage done modificiation auras
+        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
+        {
+            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            {
+                if((itr->second->m_miscValue[0] & 0x01) == 0)
+                    continue;
+                baseMinDamage += itr->second->m_amount;
+                baseMaxDamage += itr->second->m_amount;
+            }
+        }
+
+        // Percentage based damage done auras
         if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
         {
             float modifier = 100.f;
@@ -702,8 +728,9 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
         SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, val/100.0f);
     }
 
+    uint8 _class = getClass();
     int32 attackPower = GetBonusAttackPower();
-    switch(getClass())
+    switch(_class)
     {
     case DRUID: { attackPower += GetStrength() * 2 - 20; }break;
     case HUNTER: case ROGUE: case SHAMAN: { attackPower += GetStrength()+GetAgility()+getLevel()*2-20; }break;
@@ -1277,7 +1304,10 @@ void Unit::setLevel(uint32 level)
     m_modQueuedModUpdates[1].empty();
     m_AuraInterface.OnChangeLevel(level);
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
-    baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level);
+    if((baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level)) == NULL)
+        if(baseStats = sStatSystem.GetMaxUnitBaseStats(getRace(), getClass()))
+            if(baseStats->level > level)
+                baseStats = NULL;
 }
 
 void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
