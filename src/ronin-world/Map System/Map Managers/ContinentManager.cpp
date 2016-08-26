@@ -8,7 +8,7 @@
 
 #include "StdAfx.h"
 
-ContinentManager::ContinentManager(MapEntry *mapEntry, Map *map) : ThreadContext(), m_mapEntry(mapEntry), m_mapId(mapEntry->MapID), m_mapData(map), eventHolder(m_mapId), m_continent(NULL)
+ContinentManager::ContinentManager(MapEntry *mapEntry, Map *map) : ThreadContext(), m_mapEntry(mapEntry), m_mapId(mapEntry->MapID), m_mapData(map)
 {
     SetThreadState(THREADSTATE_PAUSED);
 }
@@ -34,6 +34,8 @@ bool ContinentManager::run()
     while(GetThreadState() == THREADSTATE_PAUSED)
         Delay(50);
 
+    sWorldMgr.MapLoaded(m_mapId);
+
     // Initialize the base continent timers
     uint32 mstime = getMSTime();
     m_continent->Init(mstime);
@@ -50,9 +52,6 @@ bool ContinentManager::run()
 
         // Update our collision system via singular map system
         sVMapInterface.UpdateSingleMap(m_mapId, diff);
-
-        // Update any events.
-        eventHolder.Update(diff);
 
         // Process all pending inputs in sequence
         m_continent->_ProcessInputQueue();

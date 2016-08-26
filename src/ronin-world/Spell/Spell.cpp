@@ -23,7 +23,7 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, Aura* aur)
 	if (!(duelSpell = (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() == DUEL_STATE_STARTED)))
 		duelSpell = (m_caster->IsItem() && castPtr<Item>(m_caster)->GetOwner() && castPtr<Item>(m_caster)->GetOwner()->GetDuelState() == DUEL_STATE_STARTED);
 
-    m_castPositionX = m_castPositionY = m_castPositionZ = 0;
+    m_castPositionX = m_castPositionY = m_castPositionZ = 0.f;
     m_AreaAura = false;
 
     m_triggeredByAura = aur;
@@ -634,6 +634,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     if( !HasPower() )
     {
         SendCastResult(SPELL_FAILED_NO_POWER);
+        finish();
         return SPELL_FAILED_NO_POWER;
     }
 
@@ -988,20 +989,17 @@ void Spell::cast(bool check)
                             || GetSpellProto()->Effect[i] == SPELL_EFFECT_TRIGGER_SPELL
                             || GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
                             continue;
-                        for(SpellTargetMap::iterator itr = m_effectTargetMaps[i].begin(); itr != m_effectTargetMaps[i].end(); itr++)
-                        {
-                            if(itr->second.HitResult != SPELL_DID_HIT_SUCCESS)
-                                continue;
 
+                        // Process our effect target maps
+                        for(SpellTargetMap::iterator itr = m_effectTargetMaps[i].begin(); itr != m_effectTargetMaps[i].end(); itr++)
                             if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
                                 HandleEffects(i, target);
-                        }
                     }
                 }
 
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
                 {
-                    uint8 hitResult = itr->second.HitResult;
+                    uint8 hitResult = itr->second->HitResult;
                     if(hitResult != SPELL_DID_HIT_SUCCESS)
                         continue;
 
@@ -1012,7 +1010,7 @@ void Spell::cast(bool check)
                         {
                             for(uint8 i = 0; i < 3; i++)
                             {
-                                if((itr->second.EffectMask & uint8(1<<i)) == 0)
+                                if((itr->second->EffectMask & uint8(1<<i)) == 0)
                                     continue;
                                 if(!CanHandleSpellEffect(i))
                                     continue;
@@ -1033,7 +1031,7 @@ void Spell::cast(bool check)
                         // Add our aura after handling the effects
                         for(uint8 i = 0; i < 3; i++)
                         {
-                            if(m_spellInfo->EffectApplyAuraName[i] && (itr->second.EffectMask & uint8(1<<i)) > 0)
+                            if(m_spellInfo->EffectApplyAuraName[i] && (itr->second->EffectMask & uint8(1<<i)) > 0)
                             {
                                 HandleAddAura(unitTarget);
                                 break;
@@ -1063,8 +1061,8 @@ void Spell::cast(bool check)
 
                     switch (GetSpellProto()->Effect[x])
                     {   // Target ourself for these effects
-                    case SPELL_EFFECT_TRIGGER_SPELL:
                     case SPELL_EFFECT_SUMMON:
+                    case SPELL_EFFECT_TRIGGER_SPELL:
                     case SPELL_EFFECT_PERSISTENT_AREA_AURA:
                         {
                             HandleEffects(x, m_caster);
@@ -1082,6 +1080,8 @@ void Spell::cast(bool check)
 
             if(m_spellState != SPELL_STATE_CASTING)
                 finish();
+            else if(m_caster->IsGameObject())
+                printf("");
         }
         else //this shit has nothing to do with instant, this only means it will be on NEXT melee hit
         {
@@ -1276,15 +1276,15 @@ void Spell::finish()
             RemoveItems();
     }
 
-    if(!m_projectileWait)
+    //if(!m_projectileWait)
         Destruct();
 }
 
 bool Spell::HasPower()
 {
     int32 powerField = 0, cost = CalculateCost(powerField);
-    if(powerField == -1)
-        return false;
+    if(powerField <= 0)
+        return powerField == 0;
     if (cost <= 0)
     {
         m_usesMana = false; // no mana regen interruption for free spells
@@ -2193,44 +2193,46 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
     if(m_effectTargetMaps[effIndex].find(target->GetGUID()) != m_effectTargetMaps[effIndex].end())
         return;
 
-    bool found = false;
+    SpellTarget *tgt = NULL;
     // look for the target in the list already
     SpellTargetMap::iterator itr = m_fullTargetMap.find(target->GetGUID());
-    if(found = (itr != m_fullTargetMap.end()))
-        itr->second.EffectMask |= (1 << effIndex);
-
-    // setup struct
-    SpellTarget tgt;
-    tgt.Guid = target->GetGUID();
-    tgt.EffectMask = (1<<effIndex);
-
-    if(m_spellInfo->speed > 0.0f)
+    if(itr != m_fullTargetMap.end())
+        tgt = itr->second;
+    else
     {
-        // calculate spell incoming interval
-        float dist = sqrtf(m_caster->GetDistanceSq(target));
-        tgt.DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
-        if(tgt.DestinationTime+m_MSTimeToAddToTravel < 200)
-            tgt.DestinationTime = 0;
-        if (m_missileTravelTime == 0 || tgt.DestinationTime > m_missileTravelTime)
-            m_missileTravelTime = tgt.DestinationTime;
-        tgt.DestinationTime += m_MSTimeToAddToTravel;
-    } else tgt.DestinationTime = 0;
+        tgt = new SpellTarget();
+        tgt->Guid = target->GetGUID();
+        if(m_spellInfo->speed > 0.0f)
+        {
+            // calculate spell incoming interval
+            float dist = sqrtf(m_caster->GetDistanceSq(target));
+            tgt->DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
+            if(tgt->DestinationTime+m_MSTimeToAddToTravel < 200)
+                tgt->DestinationTime = 0;
+            if (m_missileTravelTime == 0 || tgt->DestinationTime > m_missileTravelTime)
+                m_missileTravelTime = tgt->DestinationTime;
+            tgt->DestinationTime += m_MSTimeToAddToTravel;
+        } else tgt->DestinationTime = 0;
 
-    // add to the list
-    m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
-    if(!found)
-    {
-        // work out hit result (always true if we are a GO)
-        tgt.HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt.ReflectResult) : SPELL_DID_HIT_SUCCESS;
+        tgt->HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
-        // Store in our full targetting map
+        // add counter
+        if( tgt->HitResult == SPELL_DID_HIT_SUCCESS )
+            ++m_hitTargetCount;
+        else ++m_missTargetCount;
+
+        // Add us to the full target map
         m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
     }
 
-    // add counter
-    if( tgt.HitResult == SPELL_DID_HIT_SUCCESS )
-        ++m_hitTargetCount;
-    else ++m_missTargetCount;
+    if(tgt->HitResult != SPELL_DID_HIT_SUCCESS)
+        return;
+
+    // Add effect mask
+    tgt->EffectMask |= (1<<effIndex);
+
+    // add to the effect target map
+    m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
 }
 
 void Spell::DamageGosAround(uint32 i)

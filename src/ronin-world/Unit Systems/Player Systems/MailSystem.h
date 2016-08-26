@@ -113,7 +113,7 @@ public:
 };
 
 
-class SERVER_DECL MailSystem : public Singleton<MailSystem>, public EventableObject
+class SERVER_DECL MailSystem : public Singleton<MailSystem>
 {
 public:
     MailSystem() { update_timer = config_flags = 0; };

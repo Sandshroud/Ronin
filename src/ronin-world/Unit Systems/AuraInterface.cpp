@@ -120,6 +120,9 @@ uint8 AuraInterface::GetFreeSlot(bool ispositive)
 
 void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
 {
+    if(aura_slot == 0xFF)
+        return;
+
     if(aura_slot > TOTAL_AURAS)
     {
         for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
@@ -587,7 +590,7 @@ bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid caster
     return false;
 }
 
-bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
+bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
 {
     std::set<uint8> m_aurasToRemove;
     uint32 maxStack = aur->GetSpellProto()->maxstack;
@@ -680,17 +683,17 @@ bool AuraInterface::OverrideSimilarAuras(Unit *caster, Aura *aur)
 
 void AuraInterface::AddAura(Aura* aur, uint8 slot)
 {
-    Unit* pCaster = NULL;
-    if(aur->GetUnitTarget() != NULL)
-        pCaster = aur->GetUnitCaster();
-    else if( m_Unit->GetGUID() == aur->GetCasterGUID() )
-        pCaster = m_Unit;
-    else if( m_Unit->GetMapInstance() && aur->GetCasterGUID())
-        pCaster = m_Unit->GetMapInstance()->GetUnit( aur->GetCasterGUID());
-    if(pCaster == NULL)
-        return;
+    WorldObject *caster = NULL;
+    if((caster = aur->GetUnitCaster()) == NULL)
+    {
+        WoWGuid guid = aur->GetCasterGUID();
+        if( m_Unit->GetGUID() == guid )
+            caster = m_Unit;
+        else if(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT)
+            caster = m_Unit->GetMapInstance()->GetGameObject(guid);
+    }
 
-    if(!aur->IsPassive() && !OverrideSimilarAuras(pCaster, aur))
+    if(caster == NULL || !aur->IsPassive() && !OverrideSimilarAuras(caster, aur))
     {
         RemoveAura(aur);
         return;
@@ -705,10 +708,6 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
         if(slot != 0xFF && slot < TOTAL_AURAS && m_auras[slot] != NULL)
             RemoveAuraBySlot(slot);
     }
-
-    Unit* target = aur->GetUnitTarget();
-    if(target == NULL)
-        return; // Should never happen.
 
     if(aur->IsPassive())
     {
@@ -765,19 +764,17 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
 
     // Reaction from enemy AI
 	if( !aur->IsPositive() && CanAgroHash( aur->GetSpellProto()->NameHash ) )
-		if(pCaster != NULL && m_Unit->isAlive())
-			m_Unit->SetInCombat(pCaster);
+		if(caster->IsUnit() && m_Unit->isAlive())
+			m_Unit->SetInCombat(castPtr<Unit>(caster));
 
-    if (aur->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_ON_INVINCIBLE)
+    if (aur->GetSpellProto()->AuraInterruptFlags & AURA_INTERRUPT_ON_INVINCIBLE && caster->IsUnit() )
     {
-        if( pCaster != NULL )
-        {
-            /*pCaster->RemoveStealth();
-            pCaster->RemoveInvisibility();*/
-            pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_ICE_BLOCK, false);
-            pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
-            pCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
-        }
+        Unit *uCaster = castPtr<Unit>(caster);
+        /*uCaster->RemoveStealth();
+        uCaster->RemoveInvisibility();*/
+        uCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_ICE_BLOCK, false);
+        uCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
+        uCaster->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
     }
 }
 

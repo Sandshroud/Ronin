@@ -9,7 +9,10 @@ void WorldSession::HandleRepopRequestOpcode( WorldPacket & recv_data )
     sLog.Debug( "WORLD"," Recvd CMSG_REPOP_REQUEST Message" );
     uint8 popcheck;
     recv_data >> popcheck;
+
     // Todo: Death checks and whatnot.
+    if(!_player->isDead() || _player->isSpirit())
+        return;
 
     if(_player->m_CurrentTransporter)
         _player->m_CurrentTransporter->RemovePlayer(_player);

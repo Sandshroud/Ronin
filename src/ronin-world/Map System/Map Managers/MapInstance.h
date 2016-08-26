@@ -155,7 +155,7 @@ private:
 };
 
 /// Map instance class for processing different map instances(duh)
-class SERVER_DECL MapInstance : public CellHandler <MapCell>, public EventableObject
+class SERVER_DECL MapInstance : public CellHandler <MapCell>
 {
     friend class UpdateObjectThread;
     friend class ObjectUpdaterThread;
@@ -287,7 +287,8 @@ public:
     bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj);
 
     //! Mark object as updated
-    void ObjectUpdated(WorldObject* obj);
+    bool UpdateQueued(WorldObject *obj);
+    void ObjectUpdated(WorldObject *obj);
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Terrain Functions
@@ -346,7 +347,6 @@ public:
     }
 
     void UnloadCell(uint32 x,uint32 y);
-    void EventRespawnCreature(Creature* ctr, MapCell * c);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
     void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
     void BeginInstanceExpireCountdown();

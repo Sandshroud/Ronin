@@ -100,6 +100,7 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber) : 
 
 BaseSpell::~BaseSpell()
 {
+
 }
 
 void BaseSpell::_Prepare()
@@ -163,8 +164,20 @@ void BaseSpell::_Prepare()
 
 void BaseSpell::Destruct()
 {
+    m_effectTargetMaps[0].clear();
+    m_effectTargetMaps[1].clear();
+    m_effectTargetMaps[2].clear();
+    while(!m_fullTargetMap.empty())
+    {
+        SpellTarget *tgt = m_fullTargetMap.begin()->second;
+        m_fullTargetMap.erase(m_fullTargetMap.begin());
+        delete tgt;
+    }
+    m_fullTargetMap.clear();
+
     m_caster = NULL;
     m_spellInfo = NULL;
+
     delete this;
 }
 
@@ -182,7 +195,7 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
         counter = 0;
         for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
         {
-            if( itr->second.HitResult == SPELL_DID_HIT_SUCCESS )
+            if( itr->second->HitResult == SPELL_DID_HIT_SUCCESS )
             {
                 *data << itr->first;
                 ++counter;
@@ -196,12 +209,12 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
         counter = 0;
         for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
         {
-            if( itr->second.HitResult != SPELL_DID_HIT_SUCCESS )
+            if( itr->second->HitResult != SPELL_DID_HIT_SUCCESS )
             {
                 *data << itr->first;
-                *data << uint8(itr->second.HitResult);
-                if (itr->second.HitResult == SPELL_DID_HIT_REFLECT)
-                    *data << uint8(itr->second.ReflectResult);
+                *data << uint8(itr->second->HitResult);
+                if (itr->second->HitResult == SPELL_DID_HIT_REFLECT)
+                    *data << uint8(itr->second->ReflectResult);
                 ++counter;
             }
         }

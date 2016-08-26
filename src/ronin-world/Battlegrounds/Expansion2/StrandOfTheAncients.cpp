@@ -246,7 +246,6 @@ bool StrandOfTheAncients::HookSlowLockOpen(GameObject* pGo, Player* pPlayer, Spe
     OnStart();
     if(BattleRound == 1)
     {
-        sEventMgr.RemoveEvents(this, EVENT_SOTA_TIMER);
         PlaySoundToAll( 8212 );
         pPlayer->CastSpell(pPlayer,52459,true);
         if(pPlayer->GetTeam() == Attackers)
@@ -432,7 +431,6 @@ void StrandOfTheAncients::OnStart()
 {
     m_started = true;
     SetTime(ROUND_LENGTH, 0);
-    sEventMgr.AddEvent( this, &StrandOfTheAncients::TimeTick, EVENT_SOTA_TIMER, MSTIME_SECOND * 5, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 }
 
 void StrandOfTheAncients::HookGenerateLoot(Player* plr, Corpse* pCorpse)
@@ -489,7 +487,6 @@ void StrandOfTheAncients::TimeTick()
     SetTime(GetRoundTime() - 1,0);
     if(GetRoundTime() == 0)
     {
-        sEventMgr.RemoveEvents(this, EVENT_SOTA_TIMER);
         if(BattleRound == 1)
         {
             Player* pPlayer;
@@ -549,7 +546,4 @@ void StrandOfTheAncients::EndGame()
     else if(allywins == hordewins)
         m_losingteam = 2;
     m_nextPvPUpdateTime = 0;
-
-    sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent( (CBattleground*)this, &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
 }

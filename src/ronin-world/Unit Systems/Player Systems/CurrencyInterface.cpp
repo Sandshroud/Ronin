@@ -23,6 +23,8 @@ void PlayerCurrency::Update()
     for(std::map<uint32, CurrencyData>::iterator itr = m_currencies.begin(); itr != m_currencies.end(); itr++)
         itr->second.weekCount = 0;
     m_player->SendPacket(&WorldPacket(SMSG_WEEKLY_RESET_CURRENCY));
+
+    lastWeekStart = sWorld.GetWeekStart();
 }
 
 void PlayerCurrency::LoadFromDB(time_t lastSavedWeek, QueryResult *result)

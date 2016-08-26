@@ -27,7 +27,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
-    m_respawnCell = NULL;
     m_battleground = NULL;
     initiated = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
@@ -61,9 +60,6 @@ void GameObject::Destruct()
             m_summoner = NULL;
     }
 
-    if(m_respawnCell!=NULL)
-        m_respawnCell->RemoveRespawn(this);
-
     if (m_summonedGo && m_summoner)
     {
         for(int i = 0; i < 4; i++)
@@ -91,48 +87,45 @@ void GameObject::Destruct()
 void GameObject::Update(uint32 msTime, uint32 p_time)
 {
     WorldObject::Update(msTime, p_time);
-    if(m_event_MapId != m_mapId)
+}
+
+void GameObject::SearchNearbyUnits()
+{
+    if(GetState() != 1)
+        return;
+    if(m_summonedGo && !(m_summoner && m_summoner->isAlive()))
     {
-        event_Relocate();
+        Deactivate(0);
         return;
     }
 
-    if(m_deleted || !IsInWorld())
-        return;
+    SpellCastTargets tgt;
+    tgt.m_targetMask |= 0x02;
+    tgt.m_dest = GetPosition();
 
-    if(spell != NULL && GetState() == 1 && GetType() != GAMEOBJECT_TYPE_AURA_GENERATOR)
+    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
     {
-        for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+        if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
         {
-            if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
+            if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
             {
-                if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
+                if(m_summonedGo && !sFactionSystem.isAttackable(m_summoner, pUnit))
+                    continue;
+                if(spell->HasEffect(SPELL_EFFECT_APPLY_AURA) && pUnit->HasAura(spell->Id))
+                    continue;
+
+                tgt.m_unitTarget = *itr;
+                if(Spell* sp = new Spell(this, spell))
+                    sp->prepare(&tgt, true);
+
+                if(m_summonedGo)
                 {
-                    if(m_summonedGo)
-                    {
-                        if(!m_summoner)
-                        {
-                            Deactivate(0);
-                            return;
-                        }
-                        if(!sFactionSystem.isAttackable(m_summoner, pUnit))
-                            continue;
-                    }
-
-                    SpellCastTargets tgt(pUnit->GetGUID());
-                    tgt.m_dest = GetPosition();
-                    if(Spell* sp = new Spell(this, spell))
-                        sp->prepare(&tgt, true);
-
-                    if(m_summonedGo)
-                    {
-                        Deactivate(0);
-                        return;
-                    }
-
-                    if(spell->isSpellAreaOfEffect())
-                        return;
+                    Deactivate(0);
+                    return;
                 }
+
+                if(spell->isSpellAreaOfEffect())
+                    return;
             }
         }
     }
@@ -183,7 +176,10 @@ bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector
 bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float rAngle, float rX, float rY, float rZ)
 {
     if((pInfo = GameObjectNameStorage.LookupEntry(entry)) == NULL)
+    {
+        Destruct();
         return false;
+    }
 
     if(m_created == false)
     {
@@ -330,28 +326,19 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_AURA_GENERATOR:
         {
-            spellid = GetInfo()->data.auraGenerator.auraID1;
-            sEventMgr.AddEvent(this, &GameObject::AuraGenSearchTarget, EVENT_GAMEOBJECT_TRAP_SEARCH_TARGET, 1000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+            spell = dbcSpell.LookupEntry(GetInfo()->data.auraGenerator.auraID1);
             return;
         }break;
     }
 
-    if(!spellid)
+    SpellEntry *sp;
+    if(spellid == 0 || (sp = dbcSpell.LookupEntry(spellid)) == NULL)
         return;
-
-    if(SpellEntry *sp = dbcSpell.LookupEntry(spellid))
-        spell = sp;
-    else
-    {
-        spell = NULL;
-        spellid = 0;
-        return;
-    }
+    spell = sp;
 
     //ok got valid spell that will be casted on target when it comes close enough
     //get the range for that
     float r = 0;
-
     for(uint32 i = 0; i < 3; ++i)
     {
         if(spell->Effect[i])
@@ -362,10 +349,12 @@ void GameObject::InitAI()
         }
     }
 
-    if(r < 0.1)//no range
+    if(r < 0.1f)//no range
         r = spell->maxRange[0];
-
     range = r*r;//square to make code faster
+
+    if(GetType() != GAMEOBJECT_TYPE_AURA_GENERATOR)
+        m_eventHandler.AddStaticEvent(this, &GameObject::SearchNearbyUnits, pInfo->GetSequenceTimer());
 }
 
 bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
@@ -458,7 +447,6 @@ void GameObject::EventCloseDoor()
 
 void GameObject::UseFishingNode(Player* player)
 {
-    sEventMgr.RemoveEvents( this );
     if( GetUInt32Value( GAMEOBJECT_FLAGS ) != 32 ) // Clicking on the bobber before something is hooked
     {
         player->GetSession()->OutPacket( SMSG_FISH_NOT_HOOKED );
@@ -610,10 +598,6 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->SetZoneId(GetZoneId());
     p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     p->PushToWorld(GetMapInstance());
-
-    if(duration)
-        sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::SummonExpireSlot,Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
-
     return p;
 
 }
@@ -701,12 +685,6 @@ void GameObject::SetStatusRebuilt()
 
 void GameObject::AuraGenSearchTarget()
 {
-    if(m_event_MapId != m_mapId)
-    {
-        event_Relocate();
-        return;
-    }
-
     if(!IsInWorld() || m_deleted || !spell)
         return;
 
@@ -822,7 +800,6 @@ void GameObject::Use(Player *p)
             {
                 SetFlags(33);
                 SetState(0);
-                sEventMgr.AddEvent(this,&GameObject::EventCloseDoor,EVENT_GAMEOBJECT_DOOR_CLOSE,20000,1,0);
             }
         }break;
     case GAMEOBJECT_TYPE_FLAGSTAND:
@@ -1075,9 +1052,6 @@ void GameObject::Use(Player *p)
             pGo->m_ritualmembers[0] = p->GetLowGUID();
             p->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, pGo->GetGUID());
             p->SetUInt32Value(UNIT_CHANNEL_SPELL, pGo->GetGOui32Value(GO_UINT32_RIT_SPELL));
-
-            /* expire after 2mins*/
-            sEventMgr.AddEvent<GameObject, uint32>(pGo, &WorldObject::Deactivate, uint32(0), EVENT_GAMEOBJECT_EXPIRE, 120000, 1,0);
         }break;
     case GAMEOBJECT_TYPE_BARBER_CHAIR:
         {

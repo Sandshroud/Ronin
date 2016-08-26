@@ -296,8 +296,6 @@ bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)
 
         if(plr->GetMapInstance() == chr->GetMapInstance())
             chr->_Relocate(plr->GetMapId(),plr->GetPosition(),false,plr->GetInstanceID());
-        else
-            sEventMgr.AddEvent(chr,&Player::EventPortToGM,plr->GetLowGUID(),0,1,1,0);
         sWorld.LogGM(m_session, "Summoned player %s", plr->GetName());
     }
     else

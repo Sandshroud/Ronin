@@ -23,12 +23,6 @@ void WorldSession::HandleMovementOpcodes( WorldPacket & recv_data )
     }
 
     uint32 mstime = getMSTime();
-    if(sEventMgr.HasEvent(_player, EVENT_PLAYER_FORCE_LOGOUT))
-    {
-        if(_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
-            sEventMgr.ModifyEventTimeAndTimeLeft(_player, EVENT_PLAYER_FORCE_LOGOUT, 1800000);
-        else sEventMgr.RemoveEvents(_player, EVENT_PLAYER_FORCE_LOGOUT);
-    }
 
     MovementInterface *moveInterface = _player->GetMovementInterface();
     if(!moveInterface->ReadFromClient(recv_data.GetOpcode(), &recv_data))
@@ -3162,7 +3156,6 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
 {
     Player *plr = castPtr<Player>(m_Unit);
     plr->SetPlayerStatus(NONE);
-    sEventMgr.RemoveEvents(plr, EVENT_PLAYER_CHECK_STATUS_Transfer);
     if(!plr->IsInWorld())
     {
         Transporter *trans = NULL;

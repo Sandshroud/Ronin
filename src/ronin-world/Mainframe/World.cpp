@@ -8,7 +8,7 @@
 
 initialiseSingleton( World );
 
-World::World() : eventHolder(new EventableObjectHolder(-1))
+World::World() : m_eventHandler(NULL)
 {
     SendServerData = 1;
     m_hashInfo = format("%s-%s-%s", RONIN_UTIL::TOUPPER_RETURN(BUILD_HASH_STR).c_str(), ARCH, CONFIG);
@@ -237,7 +237,6 @@ void World::Destruct()
     sVMapInterface.DeInit();
     sNavMeshInterface.DeInit();
 
-    delete eventHolder;
     delete this;
 }
 
@@ -363,7 +362,14 @@ bool BasicTaskExecutor::run()
     return true;
 }
 
-void ApplyNormalFixes();
+uint32 World::GetWeekDay()
+{
+    uint32 ret = 0;
+    m_timeDataLock.Acquire();
+    ret = m_currentTimeData.tm_wday;
+    m_timeDataLock.Release();
+    return ret;
+}
 
 bool World::SetInitialWorldSettings()
 {
@@ -374,15 +380,9 @@ bool World::SetInitialWorldSettings()
     m_lastTick = UNIXTIME;
 
     // TODO: clean this
-    time_t tiempo = UNIXTIME;
-    char day[3], hour[3], minute[3], second[3];
-    struct tm *tmPtr = localtime(&tiempo);
-    strftime( day, 3, "%u", tmPtr );
-    strftime( hour, 3, "%H", tmPtr );
-    strftime( minute, 3, "%M", tmPtr );
-    strftime( second, 3, "%S", tmPtr );
-    m_gameTime = (3600*atoi(hour))+(atoi(minute)*60)+(atoi(second)); // server starts at noon
-    m_weekStart = tiempo-((86400*atoi(day))+m_gameTime);
+    localtime_s(&m_currentTimeData, &m_lastTick);
+    m_gameTime = (3600*m_currentTimeData.tm_hour)+(60*m_currentTimeData.tm_min)+m_currentTimeData.tm_sec; // server starts at noon
+    m_weekStart = m_lastTick-((86400*m_currentTimeData.tm_wday)+m_gameTime);
     uint32 start_time = getMSTime();
 
     new DBCLoader();
@@ -515,8 +515,6 @@ bool World::SetInitialWorldSettings()
     sLog.Notice("World","Starting Transport System...");
     objmgr.LoadTransporters();
 
-    dayWatcher.load_settings();
-
     if(mainIni->ReadBoolean("Startup", "BackgroundLootLoading", true))
     {
         sLog.Notice("World", "Background loot loading...");
@@ -614,30 +612,77 @@ bool World::SetInitialWorldSettings()
 
 void World::Update(uint32 diff)
 {
-    // Update our day based timer
-    _UpdateGameTime();
-    // Update our week based timer
-    _UpdateWeekStartTime();
+    // Through main thread, we calculate our timers for weekday and event timers etc
+    UpdateServerTimers(diff);
 
-    if((dayWatcherTimer += diff) > 12000)
-        dayWatcher.Update(dayWatcherTimer);
-
+    // Update our queued sessions
     UpdateQueuedSessions(diff);
 
+    // Auction updates
     if(AuctionMgr::getSingletonPtr() != NULL)
         sAuctionMgr.Update();
 
+    // Mail updates
     if(MailSystem::getSingletonPtr() != NULL)
         sMailSystem.UpdateMessages(diff);
 
+    // Guild updates
     if(GuildMgr::getSingletonPtr() != NULL)
         guildmgr.Update(diff);
 
-    // Update event holder
-    eventHolder->Update(diff);
-
     // Update sessions
     UpdateSessions(diff);
+
+    UpdateShutdownStatus();
+}
+
+void World::UpdateServerTimers(uint32 diff)
+{
+    // Grab our current time
+    time_t thisTime = UNIXTIME;
+    localtime_s(&m_currentTimeData, &thisTime);
+
+    // Update weekly start timer
+    if(thisTime-m_weekStart >= 604800)      // One week has passed
+        m_weekStart += 604800;
+
+    // Update Server time
+    m_gameTime += thisTime - m_lastTick;    //in seconds
+    if(m_gameTime >= 86400) // One day has passed
+        m_gameTime -= 86400;
+    m_lastTick = thisTime;
+
+    // Update our daily reset timers
+    if(m_gameTime >= 12600 && m_dailyReset == true)
+        m_dailyReset = false;
+    else if(m_gameTime >= 10800 && m_gameTime < 12600 && m_dailyReset == false)
+    {
+        m_lastDailyReset = thisTime;
+        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_dailies_reset_time\", \'%ull\')", thisTime);
+        sLog.Notice("World", "Running Daily Quest Reset...");
+        objmgr.ResetDailies();
+        m_dailyReset = true;
+    }
+
+    // Update timers for heroic instance resets
+    if(m_gameTime >= 34200 && m_heroicReset == true)
+        m_heroicReset = false;
+    else if(m_gameTime >= 32400 && m_gameTime < 34200 && m_heroicReset == false)
+    {
+        m_lastHeroicReset = thisTime;
+        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_heroic_reset_time\", \'%ull\')", thisTime);
+        sLog.Notice("World", "Reseting heroic instances...");
+        sWorldMgr.ResetHeroicInstances();
+        m_heroicReset = true;
+    }
+
+    // Update world events
+    //sWorldEvents.Update(1900+m_currentTimeData.tm_year, 1+m_currentTimeData.tm_mon, m_currentTimeData.tm_mday, 1+m_currentTimeData.tm_wday, m_currentTimeData.tm_hour);
+}
+
+bool World::HasActiveEvents(WorldObject *obj)
+{
+    return false;
 }
 
 void World::SendMessageToGMs(WorldSession *self, const char * text, ...)
@@ -1516,6 +1561,9 @@ std::string World::GetUptimeString()
 
 void World::UpdateShutdownStatus()
 {
+    if(m_shutdownTime == 0)
+        return;
+
     uint32 time_left = ((uint32)UNIXTIME > m_shutdownTime) ? 0 : m_shutdownTime - (uint32)UNIXTIME;
     uint32 time_period = 1;
 
@@ -1561,7 +1609,6 @@ void World::UpdateShutdownStatus()
     else
     {
         // shutting down?
-        sEventMgr.RemoveEvents(this, EVENT_WORLD_SHUTDOWN);
         if( m_shutdownTime )
         {
             SendWorldText("Server is saving and shutting down. You will be disconnected shortly.", NULL);
@@ -1594,9 +1641,6 @@ void World::QueueShutdown(uint32 delay, uint32 type)
     m_shutdownLastTime = 0;
     m_shutdownTime = (uint32)UNIXTIME + delay;
     m_shutdownType = type;
-
-    // add event
-    sEventMgr.AddEvent(this, &World::UpdateShutdownStatus, EVENT_WORLD_SHUTDOWN, 50, 0, 0);
 
     // send message
     char buf[1000];
@@ -1778,70 +1822,4 @@ void World::LogChat(WorldSession* session, std::string message, ...)
 
         LogDatabase.Execute(LogDatabase.EscapeString(execute).c_str());
     }
-}
-
-void DayWatcherThread::load_settings()
-{
-    bheroic_reset = false;
-
-    QueryResult *result = NULL;
-    if(result = CharacterDatabase.Query("SELECT setting_value FROM server_settings WHERE setting_id = \"last_dailies_reset_time\""))
-    {
-        last_daily_reset_time = result->Fetch()[0].GetUInt64();
-        local_last_daily_reset_time = *localtime(&last_daily_reset_time);
-        delete result;
-    }
-    else
-    {
-        tm *now_time = localtime(&UNIXTIME);
-        now_time->tm_hour = 0;
-        last_daily_reset_time = mktime(now_time);
-        local_last_daily_reset_time = *now_time;
-    }
-}
-
-bool DayWatcherThread::has_timeout_expired(tm *now_time, tm *last_time, uint32 timeoutval)
-{
-    switch(timeoutval)
-    {
-    case DW_MINUTELY: return ((now_time->tm_min != last_time->tm_min) || (now_time->tm_hour != last_time->tm_hour) || (now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
-    case DW_HOURLY: return ((now_time->tm_hour != last_time->tm_hour) || (now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
-    case DW_DAILY: return ((now_time->tm_mday != last_time->tm_mday) || (now_time->tm_mon != last_time->tm_mon));
-    case DW_WEEKLY: return ( (now_time->tm_mday / 7) != (last_time->tm_mday / 7) || (now_time->tm_mon != last_time->tm_mon) );
-    case DW_MONTHLY: return (now_time->tm_mon != last_time->tm_mon);
-    }
-    return false;
-}
-
-void DayWatcherThread::Update(uint32 diff)
-{
-    if(has_timeout_expired(&g_localTime, &local_last_daily_reset_time, DW_DAILY))
-        update_daily();
-
-    // reset will occur daily between 07:59:00 CET and 08:01:30 CET (players inside will get 60 sec countdown)
-    // 8AM = 25200s
-    uint32 umod = uint32(UNIXTIME + 3600) % 86400;
-    if(bheroic_reset == false && umod >= 25140 && umod <= 25140 + (diff/1000) + 30 )
-    {   // It's approx 8AM, let's reset (if not done so already)
-        Reset_Heroic_Instances();
-        bheroic_reset = true;
-    }
-
-    if(bheroic_reset && umod > 25140 + (diff/1000) + 30 )
-        bheroic_reset = false;
-}
-
-void DayWatcherThread::update_daily()
-{
-    sLog.Notice("DayWatcherThread", "Running Daily Quest Reset...");
-    objmgr.ResetDailies();
-    last_daily_reset_time = UNIXTIME;
-    local_last_daily_reset_time = g_localTime;
-    CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_dailies_reset_time\", %u)", last_daily_reset_time);
-}
-
-void DayWatcherThread::Reset_Heroic_Instances()
-{
-    sLog.Notice("DayWatcherThread", "Reseting heroic instances...");
-    sWorldMgr.ResetHeroicInstances();
 }

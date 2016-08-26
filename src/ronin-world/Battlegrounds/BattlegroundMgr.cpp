@@ -93,7 +93,7 @@ const static uint32 GetBGPvPDataCount(uint32 type)
 
 #define IS_ARENA(x) ( (x) >= BATTLEGROUND_ARENA_2V2 && (x) <= BATTLEGROUND_ARENA_5V5 )
 
-CBattlegroundManager::CBattlegroundManager() : EventableObject()
+CBattlegroundManager::CBattlegroundManager()
 {
     int i, j;
 
@@ -115,7 +115,7 @@ CBattlegroundManager::CBattlegroundManager() : EventableObject()
 
 void CBattlegroundManager::Init()
 {
-    //sEventMgr.AddEvent(this, &CBattlegroundManager::EventQueueUpdate, false, EVENT_BATTLEGROUNDMGR_QUEUE_UPDATE, 5000, 0,0);
+
 }
 
 CBattlegroundManager::~CBattlegroundManager()
@@ -897,12 +897,11 @@ CBattleground::CBattleground( MapInstance* instance, uint32 id, uint32 levelgrou
 
 void CBattleground::Init()
 {
-    sEventMgr.AddEvent(this, &CBattleground::EventResurrectPlayers, EVENT_BATTLEGROUNDMGR_QUEUE_UPDATE, 30000, 0,0);
+
 }
 
 CBattleground::~CBattleground()
 {
-    sEventMgr.RemoveEvents(this);
     for(uint32 i = 0; i < 2; i++)
     {
         PlayerInfo *inf;
@@ -1044,9 +1043,6 @@ void CBattleground::AddPlayer(Player* plr, uint32 team)
         return;
     }
 
-    /* Add an event to remove them in 2 minutes time. */
-    sEventMgr.AddEvent(plr, &Player::RemoveFromBattlegroundQueue, queueSlot, true, EVENT_BATTLEGROUND_QUEUE_UPDATE_SLOT_1 + queueSlot, 120000, 1,0);
-
     plr->m_pendingBattleground[queueSlot] = this;
     plr->m_bgIsQueued[queueSlot] = false;
 
@@ -1152,7 +1148,6 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     }
 
     /* remove from any auto queue remove events */
-    sEventMgr.RemoveEvents(plr, EVENT_BATTLEGROUND_QUEUE_UPDATE_SLOT_1 + plr->m_bgSlot);
 
     if(!plr->IsPvPFlagged())
         plr->SetPvPFlag();
@@ -1176,13 +1171,9 @@ void CBattleground::PortPlayer(Player* plr, bool skip_teleport /* = false*/)
     if(!m_countdownStage)
     {
         m_countdownStage = 1;
-        sEventMgr.AddEvent(this, &CBattleground::EventCountdown, EVENT_BATTLEGROUND_COUNTDOWN, 60000, 0,0);
-        sEventMgr.ModifyEventTimeLeft(this, EVENT_BATTLEGROUND_COUNTDOWN, 10000);
     }
 
     plr->m_bg = this;
-
-    sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
     if(!skip_teleport)
     {
         /* This is where we actually teleport the player to the battleground. */
@@ -1242,7 +1233,6 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
         bg->Init();
         mgr->m_battleground = bg;
         sLog.Success("BattlegroundManager", "Created arena battleground type %u for level group %u on map %u.", Type, LevelGroup, mapid);
-        sEventMgr.AddEvent(bg, &CBattleground::EventCreate, EVENT_BATTLEGROUNDMGR_QUEUE_UPDATE, 1, 1,0);
         m_instanceLock.Acquire();
         m_instances[Type].insert( std::make_pair(iid, bg) );
         m_instanceLock.Release();
@@ -1291,7 +1281,6 @@ CBattleground* CBattlegroundManager::CreateInstance(uint32 Type, uint32 LevelGro
     bg->Init();
     bg->SetIsWeekend(isWeekend);
     mgr->m_battleground = bg;
-    sEventMgr.AddEvent(bg, &CBattleground::EventCreate, EVENT_BATTLEGROUNDMGR_QUEUE_UPDATE, 1, 1,0);
     sLog.Success("BattlegroundManager", "Created battleground type %u for level group %u.", Type, LevelGroup);
 
     m_instanceLock.Acquire();
@@ -1435,8 +1424,6 @@ void CBattlegroundManager::SendBattlegroundQueueStatus(Player* plr, uint32 queue
 
 void CBattleground::RemovePlayer(Player* plr, bool logout)
 {
-    sEventMgr.RemoveEvents(plr, EVENT_PLAYER_BG_KICK);
-
     WorldPacket data(SMSG_BATTLEGROUND_PLAYER_LEFT, 30);
     data << plr->GetGUID();
 
@@ -1503,8 +1490,6 @@ void CBattleground::RemovePlayer(Player* plr, bool logout)
     if(!m_ended && m_players[0].size() == 0 && m_players[1].size() == 0)
     {
         /* create an inactive event */
-        sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);                 // 2mins
-        sEventMgr.AddEvent(this, &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     }
 
     plr->SetBGTeam(plr->GetTeam());
@@ -1548,7 +1533,6 @@ void CBattleground::EventCountdown()
     {
         m_countdownStage = 3;
         SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "The battle for %s begins in 1 minute.", GetName() );
-        sEventMgr.ModifyEventTimeAndTimeLeft(this, EVENT_BATTLEGROUND_COUNTDOWN, 30000);
     }
     else if(m_countdownStage == 3)
     {
@@ -1558,7 +1542,6 @@ void CBattleground::EventCountdown()
     else
     {
         SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "Let the battle for %s begin!", GetName() );
-        sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_COUNTDOWN);
         Start();
     }
 }
@@ -1909,7 +1892,6 @@ void CBattleground::QueueAtNearestSpiritGuide(Player* plr, Creature* old)
     float dist = 999999.0f;
     Creature* cl = NULL;
     std::set<WoWGuid> *closest = NULL;
-    m_lock.Acquire();
     std::map<Creature*, std::set<WoWGuid> >::iterator itr = m_resurrectMap.begin();
     for(; itr != m_resurrectMap.end(); itr++)
     {
@@ -1931,8 +1913,6 @@ void CBattleground::QueueAtNearestSpiritGuide(Player* plr, Creature* old)
         plr->m_areaSpiritHealer_guid=cl->GetGUID();
         plr->CastSpell(plr,2584,true);
     }
-
-    m_lock.Release();
 }
 
 void CBattleground::GiveHonorToTeam(uint32 team, uint32 amt)

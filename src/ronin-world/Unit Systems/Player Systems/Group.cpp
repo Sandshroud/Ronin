@@ -135,9 +135,6 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
 
         if(subgroup->AddPlayer(info))
         {
-            if(pPlayer)
-                sEventMgr.AddEvent(pPlayer,&Player::EventGroupFullUpdate,EVENT_PLAYER_UPDATE,1500,1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-
             m_dirty=true;
             ++m_MemberCount;
             Update();   // Send group update
@@ -874,7 +871,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
         uint8 member_flags = 0x01;
         if( pPlayer->IsPvPFlagged() )
             member_flags |= 0x02;
-        if( pPlayer->getDeathState() == CORPSE )
+        if( pPlayer->hasStateFlag(UF_CORPSE) )
             member_flags |= 0x08;
         else if( pPlayer->isDead() )
             member_flags |= 0x10;

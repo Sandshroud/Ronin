@@ -79,6 +79,11 @@ void AIInterface::OnDeath()
     m_Creature->clearStateFlag(UF_EVADING);
 }
 
+void AIInterface::OnRespawn()
+{
+    m_AIState = AI_STATE_IDLE;
+}
+
 void AIInterface::OnPathChange()
 {
 

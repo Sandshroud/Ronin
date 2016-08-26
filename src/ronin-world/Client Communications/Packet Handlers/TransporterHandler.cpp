@@ -313,8 +313,6 @@ void Transporter::UpdatePosition()
 
 void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, float y, float z)
 {
-    sEventMgr.RemoveEvents(this, EVENT_TRANSPORTER_NEXT_WAYPOINT);
-
     if(mPassengers.size() > 0)
     {
         LocationVector v;
@@ -388,7 +386,6 @@ void Transporter::Init()
 
 void Transporter::Destruct()
 {
-    sEventMgr.RemoveEvents(this);
     GameObject::Destruct();
 }
 

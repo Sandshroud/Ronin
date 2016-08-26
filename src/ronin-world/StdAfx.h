@@ -90,6 +90,20 @@
 #include "../ronin-logonserver/LogonOpcodes.h"
 #include "../ronin-shared/MemAllocator.h"
 
+#ifdef NEW_ALLOCATION_TRACKING
+
+void record_alloc(void *data, const char *file, size_t line);
+void unrecord_alloc(void *data);
+
+void* operator new(size_t size);
+void operator delete(void *ptr);
+
+extern const char* __file__;
+extern size_t __line__;
+#define new (__file__=__FILE__,__line__=__LINE__) && 0 ? NULL : new
+
+#endif
+
 #include "DBCStores.h"
 #include "NameTables.h"
 #include "UpdateFields.h"
@@ -100,9 +114,7 @@
 #include "SpellNameHashes.h"
 #include "SpellDefines.h"
 #include "SpellManager.h"
-#include "EventMgr.h"
-#include "EventableObject.h"
-#include "EventHolder.h"
+#include "EventHandler.h"
 #include "LootMgr.h"
 #include "Object.h"
 #include "AIInterface.h"

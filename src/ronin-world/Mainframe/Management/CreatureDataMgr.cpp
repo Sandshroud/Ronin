@@ -12,8 +12,8 @@ CreatureDataManager::~CreatureDataManager()
 
 static const char * tableColumns = "maleName, femaleName, subname, iconName, flags, flags2, type, family, rank, killCredit, killCreditSpellId, maleDisplayId, femaleDisplayId, "
     "maleDisplayId2, femaleDisplayId2, healthMod, powerMod, leader, questItem1, questItem2, questItem3, questItem4, questItem5, questItem6, movementId, expansionId, "
-    "class, minlevel, maxlevel, faction, powertype, scale, lootType, npcflags, attacktime, attacktype, mindamage, maxdamage, "
-    "rangedattacktime, rangedmindamage, rangedmaxdamage, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
+    "class, minlevel, maxlevel, faction, powertype, scale, lootType, npcflags, attacktype, damagemod, damagerangemod, meleeattacktime, "
+    "rangedattacktime, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
     "combatReach, boundingRadius, money, invisibilityType, walkSpeed, runSpeed, flySpeed, auraimmune_flag, vehicle_entry, spellclickid, canmove, battlemastertype, auras";
 
 void CreatureDataManager::LoadFromDB()
@@ -57,13 +57,13 @@ void CreatureDataManager::LoadFromDB()
         ctrData->scale = feilds[field_count++].GetFloat();
         ctrData->lootType = feilds[field_count++].GetUInt32();
         ctrData->NPCFLags = feilds[field_count++].GetUInt32();
-        ctrData->attackTime = feilds[field_count++].GetUInt32();
+        // Limit attack type to arcane or lower
         ctrData->attackType = std::min<uint32>(SCHOOL_ARCANE, feilds[field_count++].GetUInt32());
-        ctrData->minDamage = feilds[field_count++].GetFloat();
-        ctrData->maxDamage = feilds[field_count++].GetFloat();
+        ctrData->damageMod = feilds[field_count++].GetFloat();
+        // Limit or damage range modifier to prevent bad code from crashing server
+        ctrData->damageRangeMod = std::max<float>(-5.f, std::min<float>(2.f, feilds[field_count++].GetFloat()));
+        ctrData->meleeAttackTime = feilds[field_count++].GetUInt32();
         ctrData->rangedAttackTime = feilds[field_count++].GetUInt32();
-        ctrData->rangedMinDamage = feilds[field_count++].GetFloat();
-        ctrData->rangedMaxDamage = feilds[field_count++].GetFloat();
         ctrData->inventoryItem[0] = feilds[field_count++].GetUInt32();
         ctrData->inventoryItem[1] = feilds[field_count++].GetUInt32();
         ctrData->inventoryItem[2] = feilds[field_count++].GetUInt32();

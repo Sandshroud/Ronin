@@ -196,11 +196,7 @@ public:
     virtual void DestroyForPlayer( Player* target, bool anim = false );
 
     ////////////////////////////////////////
-    void ClearUpdateMask()
-    {
-        m_updateMask.Clear();
-        m_objectUpdated = false;
-    }
+    void ClearUpdateMask() { m_updateMask.Clear(); }
 
     // guid always comes first
     RONIN_INLINE WoWGuid& GetGUID() { return m_objGuid; }
@@ -266,10 +262,8 @@ protected:
     UpdateMask m_updateMask;
     //! True if object is in world
     bool m_inWorld;
-    //! True if object was updated
-    bool m_objectUpdated;
-    //! Event holder for processing delayed functions
-    //EventHolder m_eventHolder;
+    //! Event handler for processing delayed functions
+    EventHandler m_eventHandler;
 
 public:
     RONIN_INLINE ObjectLoot* GetLoot() { return &m_loot; }
@@ -288,7 +282,7 @@ private:
 //===============================================
 //===============================================
 //===============================================
-class SERVER_DECL WorldObject : public Object, public EventableObject
+class SERVER_DECL WorldObject : public Object
 {
 public:
     typedef std::vector<WoWGuid> InRangeSet;
@@ -311,6 +305,7 @@ public:
     virtual bool IsInWorld() { return m_mapInstance != NULL; }
     virtual void RemoveFromWorld();
 
+    virtual bool CanReactivate() { return true; }
     virtual void Reactivate() = 0;
     virtual void Deactivate(uint32 reactivationTime);
 
@@ -514,7 +509,7 @@ public:
         }
     }
 
-    RONIN_INLINE virtual void ClearInRangeSet()
+    RONIN_INLINE virtual void ClearInRangeObjects()
     {
         m_inRangeObjects.clear();
         m_inRangeGameObjects.clear();
@@ -559,8 +554,6 @@ public:
 
     RONIN_INLINE void SetInstanceID(int32 instance) { m_instanceId = instance; }
     RONIN_INLINE int32 GetInstanceID() { return m_instanceId; }
-
-    int32 event_GetInstanceID();
 
     void DestroyForInrange(bool anim = false);
     WorldPacket *BuildTeleportAckMsg( const LocationVector & v);

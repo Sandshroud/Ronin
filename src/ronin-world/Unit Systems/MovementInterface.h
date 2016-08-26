@@ -275,6 +275,7 @@ public:
     void OnPrePushToWorld();
     void OnPushToWorld();
     void OnDeath();
+    void OnRespawn();
     void OnRepop();
     void OnRessurect();
     void OnRevive();

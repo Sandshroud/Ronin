@@ -53,11 +53,19 @@ int win32_main( int argc, char ** argv )
 #undef new
 
 Mutex *lock = NULL;
-bool trackAllocation = false;
-std::map<void *, std::pair<const char*, size_t> > allocationRecord;
+size_t identifier = 0;
+bool trackAllocation = false, controlledDestruct = false;
+std::map<size_t, std::pair<const char*, size_t> > allocationRecord;
 
 const char* __file__ = "unknown";
 size_t __line__ = 0;
+
+char ptr_buff[16+2+1];
+void getPointerAddress(void *ptr)
+{
+    sprintf_s(ptr_buff, "0x%p", ptr);
+    identifier = std::stoull(ptr_buff, nullptr, 16);
+}
 
 void record_alloc(void *ptr, const char *file, size_t line)
 {
@@ -66,13 +74,21 @@ void record_alloc(void *ptr, const char *file, size_t line)
     if(trackAllocation == false)
         return;
     trackAllocation = false;
-    allocationRecord.insert(std::make_pair(ptr, std::make_pair(file, line)));
+    getPointerAddress(ptr);
+    allocationRecord.insert(std::make_pair(identifier, std::make_pair(file, line)));
     trackAllocation = true;
 }
 
 void unrecord_alloc(void *ptr)
 {
-    allocationRecord.erase(ptr);
+    if(ptr == NULL || trackAllocation == false)
+        return;
+
+    bool res = trackAllocation;
+    trackAllocation = false;
+    getPointerAddress(ptr);
+    trackAllocation = res;
+    allocationRecord.erase(identifier);
 }
 
 void* operator new(size_t size)

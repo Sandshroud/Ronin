@@ -147,7 +147,6 @@ WeatherInfo::WeatherInfo()
 WeatherInfo::~WeatherInfo()
 {
     m_effectValues.clear();
-    sEventMgr.RemoveEvents(this);
 }
 
 void WeatherInfo::_GenerateWeather()
@@ -178,7 +177,6 @@ void WeatherInfo::_GenerateWeather()
 
     SendUpdate();
 
-    sEventMgr.AddEvent(this, &WeatherInfo::BuildUp, EVENT_WEATHER_UPDATE, (uint32)(m_totalTime/ceil(m_maxDensity/WEATHER_DENSITY_UPDATE)*2), 0,0);
     sLog.Debug("WeatherMgr", "Forecast for zone:%d new type:%d new interval:%d ms",m_zoneId,m_currentEffect,(uint32)(m_totalTime/ceil(m_maxDensity/WEATHER_DENSITY_UPDATE)*2));
 }
 
@@ -187,8 +185,6 @@ void WeatherInfo::BuildUp()
     // Increase until 0.5, start random counter when reached
     if (m_currentDensity >= 0.50f)
     {
-        sEventMgr.RemoveEvents(this, EVENT_WEATHER_UPDATE);
-        sEventMgr.AddEvent(this, &WeatherInfo::Update, EVENT_WEATHER_UPDATE, (uint32)(m_totalTime/ceil(m_maxDensity/WEATHER_DENSITY_UPDATE)*4), 0,0);
 //      sLog.outDebug("Weather starting random for zone:%d type:%d new interval:%d ms",m_zoneId,m_currentEffect,(uint32)(m_totalTime/ceil(m_maxDensity/WEATHER_DENSITY_UPDATE)*4));
     }
     else
@@ -208,7 +204,6 @@ void WeatherInfo::Update()
         {
             m_currentDensity = 0.0f;
             m_currentEffect = 0;
-            sEventMgr.RemoveEvents(this, EVENT_WEATHER_UPDATE);
             _GenerateWeather();
             return;
         }

@@ -473,9 +473,6 @@ void Arena::Finish()
     UpdatePvPData();
     PlaySoundToAll(m_losingteam ? SOUND_ALLIANCEWINS : SOUND_HORDEWINS);
 
-    sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
-    sEventMgr.RemoveEvents(this, EVENT_ARENA_SHADOW_SIGHT);
-    sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This arena will close in 2 minutes.");
 
     for(int i = 0; i < 2; i++)

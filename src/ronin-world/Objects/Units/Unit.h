@@ -8,7 +8,8 @@
 #define UF_TARGET_DIED  1
 #define UF_ATTACKING    2 // this unit is attacking it's selection
 #define UF_EVADING      4
-#define UF_DESPAWNING   8
+#define UF_CORPSE       8
+
 #define SPELL_GROUPS    96
 #define SPELL_MODIFIERS 30
 #define DIMINISH_GROUPS 13
@@ -48,9 +49,8 @@ typedef struct
 enum DeathState
 {
     ALIVE = 0,  // Unit is alive and well
-    JUST_DIED,  // Unit has JUST died
-    CORPSE,     // Unit has died but remains in the world as a corpse
-    DEAD        // Unit is dead and his corpse is gone from the world
+    DEAD,       // Unit is dead and his corpse is gone from the world
+    JUST_DIED   // Unit has JUST died
 };
 
 enum UnitTeam
@@ -517,6 +517,7 @@ public:
     /// Combat / Death Status
     RONIN_INLINE bool isAlive() { return m_deathState == ALIVE; };
     RONIN_INLINE bool isDead() { return  m_deathState != ALIVE; };
+    RONIN_INLINE bool isSpirit() { return  m_deathState == DEAD && !hasStateFlag(UF_CORPSE); };
     RONIN_INLINE DeathState getDeathState() { return m_deathState; }
     virtual void SetDeathState(DeathState s);
 

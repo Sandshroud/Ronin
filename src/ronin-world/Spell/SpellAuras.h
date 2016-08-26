@@ -120,7 +120,6 @@ public:
     void SetPositive() { m_positive = true; }
 
     Unit* GetUnitCaster();
-    RONIN_INLINE WorldObject* GetCaster() { return GetUnitCaster(); }
     RONIN_INLINE WoWGuid GetCasterGUID() { return m_casterGuid; }
 
     RONIN_INLINE Unit* GetUnitTarget() { return m_target; }

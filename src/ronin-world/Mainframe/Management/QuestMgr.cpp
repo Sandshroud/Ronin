@@ -1419,9 +1419,6 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST, 1, qst->id);
     }
 
-    //Remove any timed events
-    if (sEventMgr.HasEvent(plr,EVENT_TIMED_QUEST_EXPIRE))
-        sEventMgr.RemoveEvents(plr, EVENT_TIMED_QUEST_EXPIRE);
     plr->UpdateNearbyQuestGivers();
 }
 

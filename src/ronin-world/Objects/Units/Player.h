@@ -1039,11 +1039,6 @@ public:
     RONIN_INLINE std::string GetBanReason() {return m_banreason;}
 
     void SetGuardHostileFlag(bool val) { if(val) SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); else RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
-    void CreateResetGuardHostileFlagEvent()
-    {
-        event_RemoveEvents( EVENT_GUARD_HOSTILE );
-        sEventMgr.AddEvent(this, &Player::SetGuardHostileFlag, false, EVENT_GUARD_HOSTILE, 10000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    }
 
     uint32 m_hasInRangeGuards;
 
@@ -1240,7 +1235,7 @@ public:
     RONIN_INLINE bool IsVisible(WorldObject* pObj) { return !(m_visibleObjects.find(pObj) == m_visibleObjects.end()); }
     void OnAddInRangeObject(WorldObject* pObj);
     void OnRemoveInRangeObject(WorldObject* pObj);
-    virtual void ClearInRangeSet();
+    virtual void ClearInRangeObjects();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
     RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjSet::iterator itr) { m_visibleObjects.erase(itr); }

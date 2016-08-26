@@ -9,7 +9,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     CHECK_INWORLD_RETURN();
 
     //can't use items while dead.
-    if(_player->getDeathState()==CORPSE)
+    if(_player->isDead())
         return;
 
     uint8 bagIndex, slot, castCount;

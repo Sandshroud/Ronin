@@ -1087,9 +1087,10 @@ void MovementInterface::OnPreSetInWorld()
 
 void MovementInterface::OnPrePushToWorld()
 {
-    setCanFly(m_Unit->canFly());
+    bool canFly = m_Unit->canFly();
+    setCanFly(canFly);
 
-    if(hasFlag(MOVEMENTFLAG_CAN_FLY) && isInAir())
+    if(canFly && isInAir())
     { m_Unit->IsPlayer() ? setServerFlag(MOVEMENTFLAG_FLYING) : setServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY); }
     else { removeServerFlag(MOVEMENTFLAG_FLYING); removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY); }
 }
@@ -1108,6 +1109,11 @@ void MovementInterface::OnPushToWorld()
 }
 
 void MovementInterface::OnDeath()
+{
+
+}
+
+void MovementInterface::OnRespawn()
 {
 
 }
@@ -1186,7 +1192,10 @@ bool MovementInterface::isInAir()
 
 void MovementInterface::setCanFly(bool canFly)
 {
-    if(!m_Unit->IsPlayer() || !m_Unit->IsInWorld())
+    // Only players can have the canfly flag, because only players use the flying flag
+    if(!m_Unit->IsPlayer())
+        return;
+    if(!m_Unit->IsInWorld())
     {
         if(canFly)
             setServerFlag(MOVEMENTFLAG_CAN_FLY);
@@ -1337,7 +1346,6 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     hasPitch = (hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_FLYING) || hasFlag(MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING)),
     hasFallDirection = hasFlag(MOVEMENTFLAG_TOGGLE_FALLING), hasFallData = (hasFallDirection || m_jumpTime != 0), hasSplineElevation = hasFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
 
-    float runSpeed = GetMoveSpeed(MOVE_SPEED_RUN);
     // Append our bits
     DO_BIT(bits, !hasMovementFlags);
     DO_BIT(bits, !hasOrientation);
@@ -1417,7 +1425,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));
     DO_COND_BYTES(bytes, hasOrientation, float, m_serverLocation->o);
-    DO_BYTES(bytes, float, runSpeed);
+    DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_RUN));
     DO_COND_BYTES(bytes, hasPitch, float, pitching);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT_BACK));
 }

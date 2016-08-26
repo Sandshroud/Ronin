@@ -215,7 +215,7 @@ public:
 
     virtual void OnAddInRangeObject(WorldObject *pObj);
     virtual void OnRemoveInRangeObject(WorldObject *pObj);
-    virtual void ClearInRangeSet();
+    virtual void ClearInRangeObjects();
 
     const char* GetName()
     {
@@ -383,7 +383,7 @@ public:
 
         if(obj->IsInvisible()) // Invisibility - Detection of Players and Units
         {
-            if(obj->getDeathState() == CORPSE) // can't see dead players' spirits
+            if(obj->getDeathState()) // can't see dead players' spirits
                 return false;
 
             if(m_invisDetect[obj->m_invisFlag] < 1) // can't see invisible without proper detection
@@ -442,7 +442,7 @@ public:
 
     void FormationLinkUp(uint32 SqlId);
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
-    void Despawn(uint32 delay, uint32 respawntime);
+    void Despawn(uint32 respawntime);
 
     void DeleteMe();
     bool IsInLimboState() { return m_limbostate; }
@@ -515,12 +515,10 @@ public:
     CreatureSpawn * m_spawn;
     CreatureData *_creatureData;
     CreatureInfoExtra * _extraInfo;
-
     CreatureFamilyEntry *myFamily;
     AuctionHouse *auctionHouse;
 
-    MapCell *m_respawnCell;
-    uint32 m_despawnTimer, m_respawnTimer;
+    uint32 m_despawnTimer;
 
     /// Vendor data
     std::map<uint32, CreatureItem> *m_SellItems;

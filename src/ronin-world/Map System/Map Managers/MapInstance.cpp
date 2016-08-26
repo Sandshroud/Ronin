@@ -59,9 +59,6 @@ void MapInstance::Init(uint32 msTime)
 
 void MapInstance::Destruct()
 {
-    sEventMgr.RemoveEvents(this);
-    sEventMgr.RemoveEventHolder(m_instanceID);
-
     if( m_stateManager != NULL )
     {
         delete m_stateManager;
@@ -148,7 +145,7 @@ void MapInstance::PushObject(WorldObject* obj)
     /////////////
     ASSERT(obj);
 
-    obj->ClearInRangeSet();
+    obj->ClearInRangeObjects();
 
     Player* plObj = NULL;
     if(obj->IsPlayer())
@@ -194,13 +191,13 @@ void MapInstance::PushObject(WorldObject* obj)
             if(plObj->GetBindMapId() != GetMapId())
             {
                 plObj->SafeTeleport(plObj->GetBindMapId(),0,plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
-                plObj->GetSession()->SystemMessage("Teleported you to your ronin location as you ended up on the wrong map.");
+                plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you ended up on the wrong map.");
                 return;
             }
             else
             {
                 obj->GetPositionV()->ChangeCoords(plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
-                plObj->GetSession()->SystemMessage("Teleported you to your ronin location as you were out of the map boundaries.");
+                plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                 WorldPacket * data = plObj->BuildTeleportAckMsg(plObj->GetPosition());
                 plObj->GetSession()->SendPacket(data);
                 delete data;
@@ -451,7 +448,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
     }
 
     // Clear object's in-range set
-    obj->ClearInRangeSet();
+    obj->ClearInRangeObjects();
 
     m_updateMutex.Acquire();
     if(plObj)
@@ -524,13 +521,13 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 if(plr->GetBindMapId() != GetMapId())
                 {
                     plr->SafeTeleport(plr->GetBindMapId(),0,plr->GetBindPositionX(),plr->GetBindPositionY(),plr->GetBindPositionZ(),0);
-                    plr->GetSession()->SystemMessage("Teleported you to your ronin location as you were out of the map boundaries.");
+                    plr->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                     return;
                 }
                 else
                 {
                     obj->GetPositionV()->ChangeCoords(plr->GetBindPositionX(),plr->GetBindPositionY(),plr->GetBindPositionZ(),0);
-                    plr->GetSession()->SystemMessage("Teleported you to your ronin location as you were out of the map boundaries.");
+                    plr->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                     WorldPacket * data = plr->BuildTeleportAckMsg(plr->GetPosition());
                     plr->GetSession()->SendPacket(data);
                     delete data;
@@ -1008,7 +1005,17 @@ bool MapInstance::_CellActive(uint32 x, uint32 y)
     return false;
 }
 
-void MapInstance::ObjectUpdated(WorldObject* obj)
+bool MapInstance::UpdateQueued(WorldObject *obj)
+{
+    bool res = false;
+    m_updateMutex.Acquire();
+    if(_updates.find(obj) != _updates.end())
+        res = true;
+    m_updateMutex.Release();
+    return res;
+}
+
+void MapInstance::ObjectUpdated(WorldObject *obj)
 {
     // Only process object update calls if we're a player or have players inrange
     if(!(obj->IsPlayer() || obj->HasInRangePlayers()))
@@ -1387,15 +1394,6 @@ void MapInstance::UnloadCell(uint32 x, uint32 y)
     c->Unload();
 }
 
-void MapInstance::EventRespawnCreature(Creature* ctr, MapCell * c)
-{
-    if(c->EventRespawn(ctr))
-    {
-        ctr->m_respawnCell=NULL;
-        ctr->OnRespawn(this);
-    }
-}
-
 bool MapInstance::IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj)
 {
     // First distance check, are we in range?
@@ -1629,9 +1627,6 @@ void MapInstance::CastSpellOnPlayers(int32 iFactionMask, uint32 uSpellId)
         {
             if( iFactionMask != FACTION_MASK_ALL && ptr->GetTeam() != (uint32)iFactionMask )
                 continue;
-
-            if(sp != NULL)
-                sEventMgr.AddEvent(castPtr<Unit>(ptr), &Unit::EventCastSpell, castPtr<Unit>(__player_iterator->second), sp, EVENT_AURA_APPLY, 250, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
         }
     }
 }

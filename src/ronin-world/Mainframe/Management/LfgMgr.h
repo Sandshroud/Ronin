@@ -62,7 +62,7 @@ struct LfgReward
 typedef std::set<uint32> DungeonSet;
 
 class LfgMatch;
-class LfgMgr : public Singleton < LfgMgr >, EventableObject
+class LfgMgr : public Singleton < LfgMgr >
 {
 public:
     typedef std::list<Player*> LfgPlayerList;

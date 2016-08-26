@@ -250,6 +250,16 @@ public:
     void _LoadInstances();
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
+    bool HasLoadingMaps() { return !m_loadingMaps.empty(); }
+    void MapLoaded(uint32 mapId)
+    {
+        if(m_loadingMaps.find(mapId) == m_loadingMaps.end())
+            return;
+        if(--m_loadingMaps[mapId])
+            return;
+        m_loadingMaps.erase(mapId);
+    }
+
 private:
     void _InitializeContinent(MapEntry *mapEntry, Map *map);
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
@@ -263,6 +273,8 @@ private:
 
     CellSpawns *GetSpawn(uint32 mapId) { if(m_SpawnStorageMap.find(mapId) == m_SpawnStorageMap.end()) return NULL; return &m_SpawnStorageMap[mapId]; };
     std::map<uint32, CellSpawns> m_SpawnStorageMap;
+
+    std::map<uint32, uint32> m_loadingMaps;
 };
 
 #define sWorldMgr WorldManager::getSingleton()

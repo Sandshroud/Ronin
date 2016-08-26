@@ -334,10 +334,6 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
         if( qPtr->required_item[y] && qPtr->required_item[y] != srcItem )
             _player->GetInventory()->RemoveItemAmt(qPtr->required_item[y], qPtr->required_itemcount[y]);
 
-    if(qPtr->required_timelimit > 0)
-        if(sEventMgr.HasEvent(_player,EVENT_TIMED_QUEST_EXPIRE))
-            sEventMgr.RemoveEvents(_player, EVENT_TIMED_QUEST_EXPIRE);
-
     _player->UpdateNearbyQuestGivers();
     _player->UpdateNearbyGameObjects();
 

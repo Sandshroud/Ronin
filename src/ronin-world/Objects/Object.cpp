@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false), m_objectUpdated(false)
+Object::Object(uint64 guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
 {
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
@@ -25,18 +25,17 @@ Object::~Object()
 
 void Object::Init()
 {
-
+    m_eventHandler.Init();
 }
 
 void Object::Destruct()
 {
-//    m_eventHolder.Cleaup();
     delete this;
 }
 
 void Object::Update(uint32 msTime, uint32 diff)
 {
-//    m_eventHolder.Update(msTime);
+    m_eventHandler.Update(diff, UNIXTIME);
 }
 
 void Object::SetByte(uint16 index, uint8 flag, uint8 value)
@@ -540,7 +539,6 @@ void Object::ClearLoot()
     {
         if( itr->roll != NULL )
         {
-            sEventMgr.RemoveEvents(itr->roll);
             itr->roll = NULL; // buh-bye!
         }
     }
@@ -595,7 +593,7 @@ void WorldObject::Destruct()
         SetMapCell(NULL);
     }
 
-    ClearInRangeSet();
+    ClearInRangeObjects();
 
     m_factionTemplate = NULL;
 
@@ -605,14 +603,12 @@ void WorldObject::Destruct()
     m_lastMovementZone = 0;
     m_instanceId = -1;
 
-    sEventMgr.RemoveEvents(this);
-    EventableObject::Destruct(false);
     Object::Destruct();
 }
 
 void WorldObject::Update(uint32 msTime, uint32 diff)
 {
-
+    Object::Update(msTime, diff);
 }
 
 void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
@@ -638,15 +634,27 @@ void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
             m_objDeactivationTimer -= diff;
             return;
         }
-        else if(false)//!sWorld.HasActiveEvents(this))
+        else if(!sWorld.HasActiveEvents(this))
         {
             m_objDeactivationTimer = 5000;
             return;
-        }
+        } else m_objDeactivationTimer = 0;
     }
 
-    m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_INACTIVE;
+    if(m_objDeactivationTimer > diff)
+    {
+        m_objDeactivationTimer -= diff;
+        return;
+    }
+
+    if(!CanReactivate())
+    {   // Try again in 5 seconds
+        m_objDeactivationTimer = 5000;
+        return;
+    }
+
     m_objDeactivationTimer = 0;
+    m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_INACTIVE;
     Reactivate();
 }
 
@@ -681,9 +689,6 @@ void WorldObject::PushToWorld(MapInstance* instance)
     // Push into our map pool
     instance->PushObject(this);
 
-    // correct incorrect instance id's
-    event_Relocate();
-
     // call virtual function to handle stuff.. :P
     OnPushToWorld();
 
@@ -702,12 +707,6 @@ void WorldObject::RemoveFromWorld()
 
     m->RemoveObject(this);
 
-    // remove any spells / free memory
-    sEventMgr.RemoveEvents(this, EVENT_UNIT_SPELL_HIT);
-
-    // update our event holder
-    event_Relocate();
-
     // Set Object out of world
     Object::SetInWorld(false);
 }
@@ -718,10 +717,14 @@ void WorldObject::Deactivate(uint32 reactivationTime)
         return;
 
     m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
-    WorldObject::RemoveFromWorld();
     if(reactivationTime)
         m_objDeactivationTimer = reactivationTime;
     else m_objDeactivationTimer = 0;
+
+    DestroyForInrange(IsGameObject());
+    for(InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
+        itr->second->RemoveInRangeObject(this);
+    ClearInRangeObjects();
 }
 
 float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
@@ -774,11 +777,8 @@ WorldPacket * WorldObject::BuildTeleportAckMsg(const LocationVector & v)
 
 void WorldObject::OnFieldUpdated(uint16 index)
 {
-    if(IsInWorld() && !m_objectUpdated)
-    {
+    if(IsInWorld() && !m_mapInstance->UpdateQueued(this))
         m_mapInstance->ObjectUpdated(this);
-        m_objectUpdated = true;
-    }
 
     Object::OnFieldUpdated(index);
 }
@@ -1075,7 +1075,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && castPtr<Player>(this)->m_hasInRangeGuards )
         {
             castPtr<Player>(this)->SetGuardHostileFlag(true);
-            castPtr<Player>(this)->CreateResetGuardHostileFlagEvent();
+            //castPtr<Player>(this)->CreateResetGuardHostileFlagEvent();
         }
 
         if(plr != NULL && pVictim->IsCreature())
@@ -1246,20 +1246,18 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 Spell* spl = pVictim->GetCurrentSpell();
                 for(int i = 0; i < 3; i++)
                 {
-                    if(spl->GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
+                    if(spl->GetSpellProto()->Effect[i] != SPELL_EFFECT_PERSISTENT_AREA_AURA)
+                        continue;
+                    if(DynamicObject* dObj = GetMapInstance()->GetDynamicObject(pVictim->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT)))
                     {
-                        DynamicObject* dObj = GetMapInstance()->GetDynamicObject(pVictim->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
-                        if(dObj != NULL)
-                        {
-                            WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
-                            data << dObj->GetGUID();
-                            dObj->SendMessageToSet(&data, false);
-                            dObj->RemoveFromWorld();
-                            dObj->Destruct();
-                            dObj = NULL;
-                        }
+                        WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
+                        data << dObj->GetGUID();
+                        dObj->SendMessageToSet(&data, false);
+                        dObj->RemoveFromWorld();
+                        dObj->Destruct();
                     }
                 }
+
                 if(spl->GetSpellProto()->ChannelInterruptFlags == 48140)
                     spl->cancel();
             }
@@ -1352,9 +1350,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             if(plr->getLevel() <= (pVictim->getLevel() + 8) && plr->getClass() == WARRIOR)
             {   // currently only warriors seem to use it (Victory Rush)
                 plr->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_VICTORIOUS );
-                if( !sEventMgr.HasEvent(plr, EVENT_VICTORIOUS_FLAG_EXPIRE ) )
-                    sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventAurastateExpire, (uint32)AURASTATE_FLAG_VICTORIOUS, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000, 1, 0 );
-                else sEventMgr.ModifyEventTimeLeft( plr, EVENT_VICTORIOUS_FLAG_EXPIRE, 20000 , false );
             }
 
             AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE, honorOrXPGain ? 1 : 0, pVictim->GetTypeId(), pVictim->IsCreature() ? castPtr<Creature>(pVictim)->getCreatureType() : 0);
@@ -1660,15 +1655,6 @@ void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target,
     Caster->SendMessageToSet( &data, bToset );
 }
 
-int32 WorldObject::event_GetInstanceID()
-{
-    // return -1 for non-inworld.. so we get our shit moved to the right thread
-    if(!IsInWorld())
-        return -1;
-    else
-        return m_instanceId;
-}
-
 void WorldObject::EventSpellHit(Spell* pSpell)
 {
     if( IsInWorld() && pSpell->GetCaster() != NULL )
@@ -1829,23 +1815,30 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 
 bool WorldObject::IsObjectBlocked(WorldObject *pObj)
 {
-    uint32 phaseSight = 0;
-    Player *gmPlr = NULL; // Quick GM player pointer grab
-    if(!(IsPlayer() && pObj->IsPlayer()) && ((IsPlayer() && (gmPlr = castPtr<Player>(this))->bGMTagOn) || (pObj->IsPlayer() && (gmPlr = castPtr<Player>(pObj))->bGMTagOn)));
+    Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->bGMTagOn) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->bGMTagOn) ? castPtr<Player>(pObj) : NULL);
     WorldObject *wObj = gmPlr == NULL ? NULL : (gmPlr == this ? pObj : this);
 
     if(gmPlr && wObj && !wObj->IsActivated())
     {
-        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS) && gmPlr->gmSightType == 1)
-            if(wObj->getEventID() != gmPlr->gmSightEventID)
+        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS))
+        {
+            if(gmPlr->gmSightType != 1)
                 return true;
+            else if(wObj->getEventID() != gmPlr->gmSightEventID)
+                return true;
+        }
 
-        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED) && gmPlr->gmSightType != 3)
-            return true;
-    } else if(gmPlr) phaseSight = pObj->GetPhaseMask();
+        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED))
+        {
+            if(gmPlr->gmSightType != 3)
+                return true;
+        }
+
+    } else if(!IsActivated() || !pObj->IsActivated())
+        return true;
 
     // Objects in different phases shouldn't be inrange either
-    if(!PhasedCanInteract(pObj) && ((gmPlr == pObj) ? (phaseSight & GetPhaseMask()) : (phaseSight & pObj->GetPhaseMask())) == 0)
+    if(!PhasedCanInteract(pObj))
         return true;
     // Some random code, need to figure it out
     if(!AreaCanInteract(pObj))
@@ -1866,6 +1859,13 @@ bool WorldObject::PhasedCanInteract(WorldObject* pObj)
         return true;
     if(GetPhaseMask() & pObj->GetPhaseMask())
         return true;
+    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->gmSightType == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->gmSightType == 2) ? castPtr<Player>(pObj) : NULL))
+    {
+        if(this == gmPlr && gmPlr->gmSightPhaseMask & pObj->GetPhaseMask())
+            return true;
+        else if(pObj == gmPlr && gmPlr->gmSightPhaseMask & GetPhaseMask())
+            return true;
+    }
     return false;
 }
 

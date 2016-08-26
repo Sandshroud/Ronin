@@ -57,7 +57,7 @@ public:
     void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);
     void AttemptDispel(Unit* caster, int32 Mechanic, bool hostile);
     void MassDispel(Unit* caster, uint32 index, SpellEntry* Dispelling, uint32 MaxDispel, uint8 start, uint8 end);
-    bool OverrideSimilarAuras(Unit *caster, Aura *aura);
+    bool OverrideSimilarAuras(WorldObject *caster, Aura *aura);
 
     /*****************************
     ************ Info ************

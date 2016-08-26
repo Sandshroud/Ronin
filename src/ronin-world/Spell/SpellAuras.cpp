@@ -466,13 +466,6 @@ void Aura::Remove()
             m_target->RemoveAura(m_spellProto->EffectTriggerSpell[x]);
     }
 
-    int32 proccharges = m_spellProto->procCharges;
-    if( m_caster != NULL && m_spellProto->SpellGroupType )
-    {
-        m_caster->SM_FIValue(SMT_CHARGES,&proccharges, m_spellProto->SpellGroupType);
-        m_caster->SM_PIValue(SMT_CHARGES,&proccharges, m_spellProto->SpellGroupType);
-    }
-
     if( m_spellProto->MechanicsType == MECHANIC_ENRAGED )
         m_target->RemoveFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE );
     else if( m_spellProto->Id == 642 )
@@ -1536,9 +1529,6 @@ void Aura::SpellAuraFeignDeath(bool apply)
                         {
                             castPtr<Player>(pObject)->SetSelection(0); //lose selection
                             castPtr<Player>(pObject)->SetUInt64Value(UNIT_FIELD_TARGET, 0);
-
-                            if( castPtr<Player>( pObject )->isCasting() && castPtr<Player>( pObject )->GetCurrentSpell() )
-                                sEventMgr.AddEvent(castPtr<Unit>(pObject), &Unit::EventCancelSpell, castPtr<Player>( pObject )->GetCurrentSpell(), EVENT_UNK, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
                         }
 
                         castPtr<Player>( pObject )->GetSession()->SendPacket( &data );

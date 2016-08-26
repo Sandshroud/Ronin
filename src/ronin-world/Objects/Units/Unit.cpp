@@ -91,8 +91,6 @@ void Unit::Init()
 
 void Unit::Destruct()
 {
-    sEventMgr.RemoveEvents(this);
-
     m_AuraInterface.Destruct();
 
     if (IsInWorld())
@@ -538,9 +536,19 @@ void Unit::UpdateAttackTimeValues()
     }
 }
 
+static float fMaxLevelSqrt = sqrt<uint32>(MAXIMUM_ATTAINABLE_LEVEL);
 static uint32 minAttackPowers[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
 void Unit::UpdateAttackDamageValues()
 {
+    float fMaxLevel = MAXIMUM_ATTAINABLE_LEVEL, fLevel = std::max<float>(0.f, std::min<float>(fMaxLevel-1, getLevel()-1));
+
+    float hpPerStamVal = fMaxLevelSqrt;
+    if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*fMaxLevel+fLevel))
+        hpPerStamVal = HPPerStam->val;
+    if(fLevel > 60)
+        hpPerStamVal *= 1.f + (fLevel-60.f)/30.f;
+    else fLevel += 1;
+
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
     for(uint8 i = 0; i < 3; i++)
     {
@@ -551,27 +559,23 @@ void Unit::UpdateAttackDamageValues()
             continue;
         }
 
-        float apBonus = float(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))/1000.f;
+        float apBonus = ((float)GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))/1000.f * ((float)(i == RANGED ? rangedAttackPower/14.f : attackPower/14.f));
         float baseMinDamage = GetBaseMinDamage(i), baseMaxDamage = GetBaseMaxDamage(i);
         if(IsCreature())
         {   // Creature damage is AP times healthmod, with 1.5+rank times being the max damage
-            float modifier = ((float(getLevel())*0.01f + 0.005f)*getLevel()) - 1.25*(getLevel()/MAXIMUM_ATTAINABLE_LEVEL);
-            if(getLevel() >= 80) modifier *= 0.6f; else if(getLevel() >= 70) modifier *= 0.35f; else if(getLevel() >= 60) modifier *= 0.1f;
-            baseMinDamage = ((apBonus * modifier) * floor(attackPower/14.f) * castPtr<Creature>(this)->GetCreatureData()->healthMod) - (apBonus ? modifier : 0);
-            baseMaxDamage = baseMinDamage * (1.5f + castPtr<Creature>(this)->GetCreatureData()->rank);
+            CreatureData *data = castPtr<Creature>(this)->GetCreatureData();
+            baseMaxDamage = std::max<float>(2.f, (apBonus * hpPerStamVal * ((fLevel/fMaxLevelSqrt)/fMaxLevelSqrt))) * (1.f + (((float)data->rank) * 0.5f));
+            baseMaxDamage = ceil(baseMaxDamage * data->damageMod);
+            baseMinDamage = std::max<float>(1.f, floor(baseMaxDamage * ((6.5f + ((float)data->rank+1) + data->damageRangeMod)/10.f)));
         }
-        else
+        else if(IsInFeralForm())
         {
-            if(IsInFeralForm())
-            {
-                uint32 level = std::min<uint32>(getLevel(), 60);
-                baseMinDamage = level*0.85f*apBonus;
-                baseMaxDamage = level*1.25f*apBonus;
-            }
-
-            if(i != RANGED) apBonus *= attackPower/14.f;
-            else apBonus *= rangedAttackPower/14.f;
-            // Add our AP bonus
+            uint32 level = std::min<uint32>(getLevel(), 60);
+            baseMinDamage = level*0.85f*apBonus;
+            baseMaxDamage = level*1.25f*apBonus;
+        }
+        else // Add our AP bonus
+        {
             baseMinDamage += apBonus;
             baseMaxDamage += apBonus;
         }
@@ -2006,9 +2010,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
                         {
                             pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
-                            if(!sEventMgr.HasEvent(pVictim,EVENT_DODGE_BLOCK_FLAG_EXPIRE))
-                                sEventMgr.AddEvent(pVictim,&Unit::EventAurastateExpire,(uint32)AURASTATE_FLAG_DODGE_BLOCK,EVENT_DODGE_BLOCK_FLAG_EXPIRE,5000,1,0);
-                            else sEventMgr.ModifyEventTimeLeft(pVictim,EVENT_DODGE_BLOCK_FLAG_EXPIRE,5000);
                         }
                     }
                 }
@@ -2024,10 +2025,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     if( IsPlayer() )
                     {
                         SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_CRITICAL);  //SB@L: Enables spells requiring critical strike
-                        if(!sEventMgr.HasEvent( this ,EVENT_CRIT_FLAG_EXPIRE))
-                            sEventMgr.AddEvent( castPtr<Unit>( this ),&Unit::EventAurastateExpire,(uint32)AURASTATE_FLAG_CRITICAL,EVENT_CRIT_FLAG_EXPIRE,5000,1,0);
-                        else
-                            sEventMgr.ModifyEventTimeLeft( this ,EVENT_CRIT_FLAG_EXPIRE,5000);
                     }
 
                     // SpellAuraReduceCritRangedAttackDmg
@@ -2380,9 +2377,8 @@ void Unit::_UpdateSpells( uint32 time )
 
 void Unit::CastSpell( Spell* pSpell )
 {
-    // check if we have a spell already casting etc
-    if(m_currentSpell && pSpell != m_currentSpell)
-        sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::EventCancelSpell, m_currentSpell, EVENT_UNK, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    if(m_currentSpell)
+        m_currentSpell->Destruct();
 
     m_currentSpell = pSpell;
     pLastSpell = pSpell->GetSpellProto();
@@ -2574,7 +2570,6 @@ void Unit::EventAddEmote(EmoteType emote, uint32 time)
 {
     m_oldEmote = GetUInt32Value(UNIT_NPC_EMOTESTATE);
     SetUInt32Value(UNIT_NPC_EMOTESTATE,emote);
-    sEventMgr.AddEvent(castPtr<Unit>(this), &Unit::EmoteExpire, EVENT_UNIT_EMOTE, time, 1,0);
 }
 
 void Unit::EventAllowCombat(bool allow)
@@ -2585,7 +2580,6 @@ void Unit::EventAllowCombat(bool allow)
 void Unit::EmoteExpire()
 {
     SetUInt32Value(UNIT_NPC_EMOTESTATE, m_oldEmote);
-    sEventMgr.RemoveEvents(this, EVENT_UNIT_EMOTE);
 }
 
 // grep: Remove any AA spells that aren't owned by this player.
@@ -2690,7 +2684,6 @@ void Unit::EventSummonPetExpire()
             summonPet = NULL;
         }
     }*/
-    sEventMgr.RemoveEvents(this, EVENT_SUMMON_PET_EXPIRE);
 }
 
 void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forcedCastTime)
@@ -3078,10 +3071,6 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->SetZoneId(GetZoneId());
         p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
         p->PushToWorld(GetMapInstance());
-
-        if(duration)
-            sEventMgr.AddEvent(this, &Unit::SummonExpireSlot, Slot, EVENT_SUMMON_EXPIRE_0+Slot, duration, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
-
         return p;
     }
     return NULL;
@@ -3174,7 +3163,6 @@ void Unit::SummonExpireSlot(uint8 Slot)
             m_Summons.erase(Slot);
         }
     }
-    sEventMgr.RemoveEvents(this, EVENT_SUMMON_EXPIRE_0+Slot);
 }
 
 float Unit::CalculateDazeCastChance(Unit* target)
@@ -3493,6 +3481,10 @@ EUnitFields Unit::GetMaxPowerFieldForType(uint8 type)
 void Unit::SetDeathState(DeathState s)
 {
     m_deathState = s;
+    if(s == DEAD && !hasStateFlag(UF_CORPSE))
+        addStateFlag(UF_CORPSE);
+    else if(s != DEAD)
+        clearStateFlag(UF_CORPSE);
 }
 
 //  custom functions for scripting

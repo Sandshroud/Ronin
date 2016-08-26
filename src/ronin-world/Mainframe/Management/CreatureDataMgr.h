@@ -65,13 +65,11 @@ struct CreatureData
     float  scale;
     uint32 lootType;
     uint32 NPCFLags;
-    uint32 attackTime;
     uint32 attackType;
-    float  minDamage;
-    float  maxDamage;
+    float  damageMod;
+    float  damageRangeMod;
+    uint32 meleeAttackTime;
     uint32 rangedAttackTime;
-    float  rangedMinDamage;
-    float  rangedMaxDamage;
     uint32 inventoryItem[3];
     uint32 respawnTime;
     uint32 resistances[7];

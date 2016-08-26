@@ -62,7 +62,7 @@ struct SpellTarget
     uint8 ReflectResult;
     uint32 DestinationTime;
 };
-typedef std::map<WoWGuid, SpellTarget> SpellTargetMap;
+typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
 
 // Spell instance
 class BaseSpell

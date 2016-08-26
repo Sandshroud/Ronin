@@ -24,7 +24,6 @@
 void WarnSystem::Punishment_Kick(Player * Warner, Player * Warned, uint32 NewWarnCnt, std::string reason)
 {
     BroadcastToWorld("User will now be kicked from the server.");
-    sEventMgr.AddEvent(Warned, &Player::SoftDisconnect, EVENT_PLAYER_SOFT_DISCONNECT, 5000, 1, 0);
 }
 
 void WarnSystem::Punishment_PermBanAccount(Player * Warner, Player * Warned, uint32 NewWarnCnt, std::string reason)
@@ -67,8 +66,6 @@ void WarnSystem::Punishment_BanCharacter(Player * Warner, Player * Warned, uint3
     std::string reasonTagged = "[WarnSystem] " + reason;
     Warned->SetBanned(uBanTime, reasonTagged);
     Warned->SaveToDB(false);
-
-    sEventMgr.AddEvent(Warned, &Player::SoftDisconnect, EVENT_PLAYER_SOFT_DISCONNECT, 5000, 1, 0);
 }
 
 void WarnSystem::Punishment_None()

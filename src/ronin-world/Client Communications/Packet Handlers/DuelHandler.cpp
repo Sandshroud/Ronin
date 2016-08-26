@@ -30,8 +30,6 @@ void WorldSession::HandleDuelAccepted(WorldPacket & recv_data)
     _player->DuelingWith->m_session->SendPacket( &data );
 
     _player->m_duelCountdownTimer = 3000;
-
-    sEventMgr.AddEvent(_player, &Player::DuelCountdown, EVENT_PLAYER_DUEL_COUNTDOWN, 1000, 3,0);
 }
 
 void WorldSession::HandleDuelCancelled(WorldPacket & recv_data)

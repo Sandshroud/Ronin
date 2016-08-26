@@ -34,7 +34,8 @@ public:
     virtual void GetSpellDestination(LocationVector &dest) { m_caster->GetPosition(dest); }
 
 private:
-    std::map<uint64, Aura*> m_tempAuras;
+    typedef Loki::AssocVector<WoWGuid, Aura*> AuraTargetMap;
+    AuraTargetMap m_tempAuras;
 
 protected: // Effect Handlers
     void SpellEffectNULL(uint32 i, WorldObject *target, int32 amount);

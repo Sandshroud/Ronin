@@ -112,6 +112,8 @@ void ItemManager::InitializeItemPrototypes()
         proto->Class = itemData->Class;
         proto->SubClass = itemData->SubClass;
         proto->subClassSound = itemData->SoundOverrideSubclass;
+        proto->f_unk[0] = sparse->f_unk[0];
+        proto->f_unk[1] = sparse->f_unk[1];
         proto->Name = sparse->Name;
         proto->DisplayInfoID = itemData->DisplayId;
         proto->Quality = sparse->Quality;
@@ -219,6 +221,8 @@ void ItemManager::LoadItemOverrides()
                     proto->Class = 0;
                     proto->SubClass = 0;
                     proto->subClassSound = 0;
+                    proto->f_unk[0] = 0.f;
+                    proto->f_unk[1] = 0.f;
                     proto->Name = "";
                     proto->DisplayInfoID = 0;
                     proto->Quality = 0;
@@ -482,15 +486,29 @@ void ItemManager::LoadItemOverrides()
 
         if(Damage)
         {
-            float middle = (float)proto->Delay * 0.001f * (Damage->mod_DPS[Quality]+proto->ArmorDamageModifier);
-            // Max damage should be floor'd to cut off anything above
-            proto->maxDamage = floor(middle * (1.f+proto->StatScalingFactor/2.f) + 0.5f);
-            // Min damage should be converted, to avoid 0 values when a fraction exists
-            proto->minDamage = float2int32(middle * (1.f-proto->StatScalingFactor/2.f) - 0.5f);
+            // Grab our values and convert to double for accurate precision calculations
+            float statScalingFactor = proto->StatScalingFactor/2.f, ADMod = proto->ArmorDamageModifier, mod_dps = Damage->mod_DPS[Quality] + ADMod;
+            float calc_dps = mod_dps * 10.f;
             if(proto->ArmorDamageModifier)
-            {   // Armor damage modifiered items dps and damage range are affected by the modifier
-                proto->maxDamage -= float2int32(proto->ArmorDamageModifier*proto->StatScalingFactor);
-                proto->minDamage += float2int32(proto->ArmorDamageModifier*proto->StatScalingFactor);
+            {   // Behold, armor damage modifier has changed our DPS and now it threatens to change our damage range as well!
+                float middle = (((float)proto->Delay) * 0.001f * mod_dps);
+                float modifier = middle * statScalingFactor, adMod = ADMod * statScalingFactor *2.f;
+                proto->minDamage = floor((middle - modifier) + adMod);
+                proto->maxDamage = ceil((middle + modifier) - adMod);
+
+                // Cancle these calculations for now
+                proto->minDamage = 1; proto->maxDamage = proto->minDamage+1;
+            }
+            else
+            {
+                // ceil and then divide by 10 and add a small value to equal out precision errors
+                calc_dps = ceil(calc_dps)/10.f + 0.000001f;
+                // Middle point is our dps plus our armor damage modifier
+                float middle = (((float)proto->Delay) * 0.001f * calc_dps);
+                // Max damage should be floor'd to cut off anything above
+                proto->maxDamage = ceil(middle * (1.+statScalingFactor) - 0.5f);
+                // Min damage should be converted, to avoid 0 values when a fraction exists
+                proto->minDamage = floor(middle * (1.-statScalingFactor));
             }
         }
 

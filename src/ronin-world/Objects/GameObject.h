@@ -461,21 +461,11 @@ struct GameObjectInfo
         uint32 spellid = 0;
         switch(Type)
         {
-        case GAMEOBJECT_TYPE_TRAP:
-            spellid = data.trap.spellId;
-            break;
-        case GAMEOBJECT_TYPE_GOOBER:
-            spellid = data.goober.spellId;
-            break;
-        case GAMEOBJECT_TYPE_RITUAL:
-            spellid = data.ritual.spellId;
-            break;
-        case GAMEOBJECT_TYPE_SPELLCASTER:
-            spellid = data.spellcaster.spellId;
-            break;
-        case GAMEOBJECT_TYPE_CAPTURE_POINT:
-            spellid = data.capturePoint.spell;
-            break;
+        case GAMEOBJECT_TYPE_TRAP: spellid = data.trap.spellId; break;
+        case GAMEOBJECT_TYPE_GOOBER: spellid = data.goober.spellId; break;
+        case GAMEOBJECT_TYPE_RITUAL: spellid = data.ritual.spellId; break;
+        case GAMEOBJECT_TYPE_SPELLCASTER: spellid = data.spellcaster.spellId; break;
+        case GAMEOBJECT_TYPE_CAPTURE_POINT: spellid = data.capturePoint.spell; break;
         }
         return spellid;
     }
@@ -485,41 +475,31 @@ struct GameObjectInfo
         uint32 lockid = 0;
         switch(Type)
         {
-        case GAMEOBJECT_TYPE_DOOR:
-            lockid = data.door.lockId;
-            break;
-        case GAMEOBJECT_TYPE_BUTTON:
-            lockid = data.button.lockId;
-            break;
-        case GAMEOBJECT_TYPE_QUESTGIVER:
-            lockid = data.questgiver.lockId;
-            break;
-        case GAMEOBJECT_TYPE_CHEST:
-            lockid = data.chest.lockId;
-            break;
-        case GAMEOBJECT_TYPE_TRAP:
-            lockid = data.trap.lockId;
-            break;
-        case GAMEOBJECT_TYPE_GOOBER:
-            lockid = data.goober.lockId;
-            break;
-        case GAMEOBJECT_TYPE_AREADAMAGE:
-            lockid = data.areadamage.lockId;
-            break;
-        case GAMEOBJECT_TYPE_CAMERA:
-            lockid = data.camera.lockId;
-            break;
-        case GAMEOBJECT_TYPE_FLAGSTAND:
-            lockid = data.flagstand.lockId;
-            break;
-        case GAMEOBJECT_TYPE_FISHINGHOLE:
-            lockid = data.fishinghole.lockId;
-            break;
-        case GAMEOBJECT_TYPE_FLAGDROP:
-            lockid = data.flagdrop.lockId;
-            break;
+        case GAMEOBJECT_TYPE_DOOR: lockid = data.door.lockId; break;
+        case GAMEOBJECT_TYPE_BUTTON: lockid = data.button.lockId; break;
+        case GAMEOBJECT_TYPE_QUESTGIVER: lockid = data.questgiver.lockId; break;
+        case GAMEOBJECT_TYPE_CHEST: lockid = data.chest.lockId; break;
+        case GAMEOBJECT_TYPE_TRAP: lockid = data.trap.lockId; break;
+        case GAMEOBJECT_TYPE_GOOBER: lockid = data.goober.lockId; break;
+        case GAMEOBJECT_TYPE_AREADAMAGE: lockid = data.areadamage.lockId; break;
+        case GAMEOBJECT_TYPE_CAMERA: lockid = data.camera.lockId; break;
+        case GAMEOBJECT_TYPE_FLAGSTAND: lockid = data.flagstand.lockId; break;
+        case GAMEOBJECT_TYPE_FISHINGHOLE: lockid = data.fishinghole.lockId; break;
+        case GAMEOBJECT_TYPE_FLAGDROP: lockid = data.flagdrop.lockId; break;
         }
         return lockid;
+    }
+
+    uint32 GetSequenceTimer()
+    {
+        uint32 timer = 2;
+        switch(Type)
+        {
+        case GAMEOBJECT_TYPE_TRAP:          timer = (data.trap.cooldown ? data.trap.cooldown : 4) * 1000; break;
+        case GAMEOBJECT_TYPE_GOOBER:        timer = (data.goober.cooldown ? data.goober.cooldown : 4) * 1000; break;
+        case GAMEOBJECT_TYPE_AREADAMAGE:    timer = data.areadamage.autoCloseTime; break;
+        }
+        return std::max<uint32>(1000, timer);
     }
 };
 
@@ -558,6 +538,8 @@ public:
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
 
     virtual void Reactivate();
+
+    void SearchNearbyUnits();
 
     RONIN_INLINE uint8 GetGameObjectPool() { return m_gameobjectPool; }
     RONIN_INLINE void AssignGameObjectPool(uint8 pool) { m_gameobjectPool = pool; }
@@ -638,7 +620,6 @@ public:
     }
 
     uint32 GetGOReqSkill();
-    MapCell * m_respawnCell;
 
     // loooot
     void GenerateLoot();

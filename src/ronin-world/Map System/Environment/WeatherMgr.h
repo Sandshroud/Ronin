@@ -25,7 +25,7 @@ private:
     std::map<uint32, WeatherInfo* > m_zoneWeathers;
 };
 
-class WeatherInfo : public EventableObject
+class WeatherInfo
 {
     friend class WeatherMgr;
 public:

@@ -247,7 +247,6 @@ void Player::Init()
 
 void Player::Destruct()
 {
-    sEventMgr.RemoveEvents(castPtr<Player>(this));
     objmgr.RemovePlayer(this);
     AchieveMgr.CleanupPlayerData(GetGUID());
 
@@ -344,16 +343,11 @@ void Player::Destruct()
 void Player::Update(uint32 msTime, uint32 diff)
 {
     Unit::Update( msTime, diff );
-    if(!IsInWorld())
-        return;
 
     // Autosave
     if(m_nextSave > diff)
         m_nextSave -= diff;
     else SaveToDB(false);
-
-    if(!IsInWorld())
-        return;
 
     if(m_pvpTimer)
     {
@@ -421,11 +415,9 @@ void Player::ProcessPendingItemUpdates()
         buff.clear();
     }
 
-    if(IsInWorld())
-    {
-        m_mapInstance->ObjectUpdated(this);
-        m_objectUpdated = true;
-    }
+    if(!IsInWorld())
+        return;
+    m_mapInstance->ObjectUpdated(this);
 }
 
 void Player::ItemFieldUpdated(Item *item)
@@ -1165,9 +1157,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
 
     m_deathState = DeathState(fields[PLAYERLOAD_FIELD_DEATHSTATE].GetUInt32());
-    if(load_health && m_deathState == JUST_DIED)
+    if(load_health && m_deathState == DEAD)
     {
-        m_deathState = CORPSE;
+        addStateFlag(UF_CORPSE);
         load_health = 0;
     }
 
@@ -2245,9 +2237,6 @@ void Player::EventDeath()
 {
     if (m_state & UF_ATTACKING)
         EventAttackStop();
-
-    if(!IS_INSTANCE(GetMapId()) && !sEventMgr.HasEvent(castPtr<Player>(this),EVENT_PLAYER_FORCED_RESURECT)) //Should never be true
-        sEventMgr.AddEvent(castPtr<Player>(this),&Player::EventRepopRequestedPlayer,EVENT_PLAYER_FORCED_RESURECT,PLAYER_FORCED_RESURECT_INTERVAL,1,0); //in case he forgets to release spirit (afk or something)
 }
 
 ///  This function sends the message displaying the purple XP gain for the char
@@ -2800,26 +2789,15 @@ void Player::OnWorldLogin()
 void Player::SendObjectUpdate(WoWGuid guid)
 {
     uint32 count = 1;
+    WorldObject *obj = NULL;
     WorldPacket data(SMSG_UPDATE_OBJECT, 200);
     data << uint16(GetMapId());
     data << count;
     if(guid == GetGUID())
-    {
-        count += WorldObject::BuildCreateUpdateBlockForPlayer(&data, this);
-    }
-    else if(IsInWorld())
-    {
-        WorldObject* obj = GetMapInstance()->_GetObject(guid);
-        if(obj != NULL)
-        {
-            count += obj->BuildCreateUpdateBlockForPlayer(&data, this);
-        }
-    }
-    else
-    {
-        // We aren't pushed yet.
-        return;
-    }
+        count = WorldObject::BuildCreateUpdateBlockForPlayer(&data, this);
+    else if(IsInWorld() && (obj = GetMapInstance()->_GetObject(guid)))
+        count = obj->BuildCreateUpdateBlockForPlayer(&data, this);
+    else return;
 
     data.put<uint32>(2, count);
     // send uncompressed because it's specified
@@ -2851,7 +2829,6 @@ void Player::RemoveFromWorld()
     //Cancel any forced teleport pending.
     if(raidgrouponlysent)
     {
-        event_RemoveEvents(EVENT_PLAYER_EJECT_FROM_INSTANCE);
         raidgrouponlysent = false;
     }
 
@@ -2885,7 +2862,7 @@ void Player::RemoveFromWorld()
             if(m_SummonedObject->IsInWorld())
                 m_SummonedObject->RemoveFromWorld();
             m_SummonedObject->Destruct();
-        } else sEventMgr.AddEvent<GameObject, uint32>(m_SummonedObject, &GameObject::Deactivate, uint32(0), EVENT_GAMEOBJECT_EXPIRE, 100, 1,0);
+        }
         m_SummonedObject = NULL;
     }
 
@@ -3004,10 +2981,8 @@ Corpse* Player::RepopRequestedPlayer()
         return NULL;
     }
 
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_FORCED_RESURECT ); //in case somebody resurrected us before this event happened
-
-    // Set death state to corpse, that way players will lose visibility
-    SetDeathState( CORPSE );
+    // Remove corpse flag, so we have spirit state
+    clearStateFlag(UF_CORPSE);
 
     // Update visibility, that way people wont see running corpses :P
     UpdateVisibility();
@@ -3015,7 +2990,7 @@ Corpse* Player::RepopRequestedPlayer()
     // If we're in battleground, remove the skinnable flag.. has bad effects heheh
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE );
 
-    bool corpse = (m_bg != NULL) ? m_bg->CreateCorpse( castPtr<Player>(this) ) : true;
+    bool corpse = (m_bg != NULL) ? m_bg->CreateCorpse(this) : true;
     Corpse* ret = corpse ? CreateCorpse() : NULL;
     BuildPlayerRepop();
 
@@ -3028,9 +3003,9 @@ Corpse* Player::RepopRequestedPlayer()
         m_session->SendPacket( &data );
 
         /* Corpse reclaim delay */
-        WorldPacket data2( SMSG_CORPSE_RECLAIM_DELAY, 4 );
-        data2 << uint32((ReclaimCount*15) * 1000);
-        GetSession()->SendPacket( &data2 );
+        data.Initialize( SMSG_CORPSE_RECLAIM_DELAY, 4 );
+        data << uint32(ReclaimCount*15 * 1000);
+        m_session->SendPacket( &data );
     }
 
     if( myCorpse != NULL )
@@ -3045,7 +3020,6 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     if (PreventRes)
         return;
 
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_FORCED_RESURECT); //in case somebody resurected us before this event happened
     if( m_resurrectHealth ) SetUInt32Value(UNIT_FIELD_HEALTH, std::min( m_resurrectHealth, GetUInt32Value(UNIT_FIELD_MAXHEALTH) ) );
     else SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     if( m_resurrectMana ) SetPower(POWER_TYPE_MANA, std::min( m_resurrectMana, GetMaxPower(POWER_TYPE_MANA) ) );
@@ -3200,7 +3174,7 @@ void Player::SpawnCorpseBones()
         {
             if(pCorpse->GetInstanceID() != GetInstanceID())
             {
-                sEventMgr.AddEvent(pCorpse, &Corpse::SpawnBones, EVENT_CORPSE_SPAWN_BONES, 100, 1,0);
+
             } else pCorpse->SpawnBones();
         }
     }
@@ -3528,14 +3502,14 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
        return true;
 
     uint32 object_type = obj->GetTypeId();
-    if(getDeathState() == CORPSE) // we are dead and we have released our spirit
+    if(isSpirit()) // we are dead and we have released our spirit
     {
         if(object_type == TYPEID_PLAYER)
         {
             Player* pObj = castPtr<Player>(obj);
 
             if(myCorpse && myCorpse->GetDistanceSq(obj) > CORPSE_VIEW_DISTANCE)
-                if(pObj->IsPlayer() && pObj->getDeathState() == CORPSE)
+                if(pObj->IsPlayer() && pObj->isSpirit())
                     return true; // we can see all players within range of our corpse except invisible GMs
 
             if(myCorpse && myCorpse->GetDistanceSq(obj) <= CORPSE_VIEW_DISTANCE)
@@ -3544,7 +3518,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
             if(m_deathVision) // if we have arena death-vision we can see all players except invisible GMs
                 return true;
 
-            return (pObj->getDeathState() == CORPSE); // we can only see players that are spirits
+            return pObj->isSpirit(); // we can only see players that are spirits
         }
 
         if(myCorpse)
@@ -3597,7 +3571,7 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 
                 if(pObj->IsInvisible()) // Invisibility - Detection of Players
                 {
-                    if(pObj->getDeathState() == CORPSE)
+                    if(pObj->isSpirit())
                         return bGMTagOn; // only GM can see players that are spirits
 
                     if(GetGroup() && pObj->GetGroup() == GetGroup() // can see invisible group members except when dueling them
@@ -3709,15 +3683,12 @@ void Player::OnRemoveInRangeObject(WorldObject* pObj)
             m_currentSpell->cancel();      // cancel the spell
         m_CurrentCharm=NULL;
     }
-
-    if( pObj == DuelingWith )
-        sEventMgr.AddEvent(this, &Player::EndDuel, (uint8)DUEL_WINNER_RETREAT, EVENT_PLAYER_DUEL_COUNTDOWN, 1, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
-void Player::ClearInRangeSet()
+void Player::ClearInRangeObjects()
 {
     m_visibleObjects.clear();
-    WorldObject::ClearInRangeSet();
+    WorldObject::ClearInRangeObjects();
 }
 
 void Player::SetDrunk(uint16 value, uint32 itemId)
@@ -3727,11 +3698,6 @@ void Player::SetDrunk(uint16 value, uint32 itemId)
     m_drunk = value;
     SetUInt16Value(PLAYER_BYTES_3, 0, (m_drunk & 0xFFFE));
     uint32 newDrunkenState = GetDrunkenstateByValue(m_drunk);
-    /*if(newDrunkenState == DRUNKEN_VOMIT)
-    {
-        sEventMgr.AddEvent(this, &Player::EventDrunkenVomit, EVENT_DRUNKEN_VOMIT, 5000, 0,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-        return;
-    }*/
     UpdateVisibility();
     if (newDrunkenState == oldDrunkenState)
         return;
@@ -4801,8 +4767,7 @@ void Player::_Warn(const char *message)
 
 void Player::Kick(uint32 delay /* = 0 */)
 {
-    if(m_KickDelay = delay)
-        sEventMgr.AddEvent(castPtr<Player>(this), &Player::_Kick, EVENT_PLAYER_KICK, 1000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
+    if(m_KickDelay = delay);
     else _Kick();
 }
 
@@ -4818,7 +4783,6 @@ void Player::_Kick()
             return;
     }
 
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_KICK);
     m_session->Disconnect();
 }
 
@@ -5390,9 +5354,6 @@ void Player::DuelCountdown()
 
         SetDuelState( DUEL_STATE_STARTED );
         DuelingWith->SetDuelState( DUEL_STATE_STARTED );
-
-        sEventMgr.AddEvent(castPtr<Player>(this), &Player::DuelBoundaryTest, EVENT_PLAYER_DUEL_BOUNDARY_CHECK, 500, 0, 0 );
-        sEventMgr.AddEvent( DuelingWith, &Player::DuelBoundaryTest, EVENT_PLAYER_DUEL_BOUNDARY_CHECK, 500, 0, 0 );
     }
 }
 
@@ -5452,21 +5413,11 @@ void Player::EndDuel(uint8 WinCondition)
     if( m_duelState == DUEL_STATE_FINISHED )
         return;
 
-    // Remove the events
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_DUEL_COUNTDOWN );
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_DUEL_BOUNDARY_CHECK );
-
     m_AuraInterface.UpdateDuelAuras();
 
     m_duelState = DUEL_STATE_FINISHED;
     if( DuelingWith == NULL )
         return;
-
-    sEventMgr.RemoveEvents( DuelingWith, EVENT_PLAYER_DUEL_BOUNDARY_CHECK );
-    sEventMgr.RemoveEvents( DuelingWith, EVENT_PLAYER_DUEL_COUNTDOWN );
-
-    // spells waiting to hit
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_SPELL_DAMAGE_HIT);
 
     DuelingWith->m_AuraInterface.UpdateDuelAuras();
     DuelingWith->m_duelState = DUEL_STATE_FINISHED;
@@ -5525,7 +5476,6 @@ void Player::StopMirrorTimer(uint32 Type)
 void Player::EventTeleport(uint32 mapid, float x, float y, float z, float o)
 {
     SafeTeleport(mapid, 0, LocationVector(x, y, z, o));
-    sEventMgr.RemoveEvents(this,EVENT_PLAYER_TELEPORT);
 }
 
 void Player::BroadcastMessage(const char* Format, ...)
@@ -5914,12 +5864,7 @@ void Player::CompleteLoading()
         const char * message = ("This character is banned for  %s.\n You will be kicked in 30 secs.", GetBanReason().c_str());
 
         // Send warning after 30sec, as he might miss it if it's send inmedeately.
-        sEventMgr.AddEvent(this, &Player::_Warn, message, EVENT_UNIT_SENDMESSAGE, 30000, 1, 0);
-        sEventMgr.AddEvent(this, &Player::_Kick, EVENT_PLAYER_KICK, 60000, 1, 0 );
     }
-
-    if(m_playerInfo->m_Group)
-        sEventMgr.AddEvent(this, &Player::EventGroupFullUpdate, EVENT_UNK, 100, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     if(raidgrouponlysent)
     {
@@ -6427,7 +6372,6 @@ void Player::RemoveFromBattlegroundQueue(uint32 queueSlot, bool forced)
     m_bgQueueInstanceId[queueSlot] = 0;
 
     BattlegroundManager.SendBattlegroundQueueStatus(castPtr<Player>(this), queueSlot);
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_BATTLEGROUND_QUEUE_UPDATE_SLOT_1 + queueSlot);
 
     if(forced)
         sChatHandler.SystemMessage(m_session, "You were removed from the queue for the battleground for not joining after 2 minutes.");
@@ -7432,8 +7376,6 @@ uint32 Player::GetMaxPersonalRating(bool Ignore2v2)
 
 void Player::FullHPMP()
 {
-    sEventMgr.RemoveEvents(this, EVENT_PLAYER_FULL_HPMP);
-
     if( isDead() )
         ResurrectPlayer();
 
@@ -7554,8 +7496,7 @@ bool Player::CanUseRunes(uint8 blood, uint8 frost, uint8 unholy)
 
 void Player::ScheduleRuneRefresh(uint8 index, bool forceDeathRune)
 {
-    sEventMgr.RemoveEvents(castPtr<Player>(this), EVENT_PLAYER_RUNE_REGEN + index);
-    sEventMgr.AddEvent(castPtr<Player>(this), &Player::ConvertRune, (uint8)index, (forceDeathRune ? uint8(RUNE_TYPE_DEATH) : baseRunes[index]), EVENT_PLAYER_RUNE_REGEN + index, 10000, 0, 0);
+
 }
 
 void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell)
@@ -8045,5 +7986,4 @@ void Player::EventDrunkenVomit()
 {
     CastSpell(this, 67468, false);
     m_drunk -= 2560;
-    sEventMgr.RemoveEvents(this, EVENT_DRUNKEN_VOMIT);
 }

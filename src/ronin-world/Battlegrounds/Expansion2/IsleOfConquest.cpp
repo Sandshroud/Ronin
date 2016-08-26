@@ -395,7 +395,7 @@ void IsleOfConquest::CaptureControlPoint(uint32 Id, uint8 Team)
     if(m_spiritGuides[Id] != NULL)
     {
         RemoveSpiritGuide(m_spiritGuides[Id]);
-        m_spiritGuides[Id]->Despawn(0,0);
+        m_spiritGuides[Id]->Despawn(0);
     }
 
     // spawn the spirit guide for our faction
@@ -424,7 +424,7 @@ void IsleOfConquest::CaptureControlPoint(uint32 Id, uint8 Team)
 void IsleOfConquest::Updateworkshop(uint8 Team)
 {
     if(m_salesman != NULL)
-        m_salesman->Despawn(0,0);
+        m_salesman->Despawn(0);
 
     m_salesman = SpawnCreature(demolisherSalesmen[Team][0], demolisherSalesmen[Team][1], demolisherSalesmen[Team][2], demolisherSalesmen[Team][3], demolisherSalesmen[Team][4]);
 
@@ -475,7 +475,7 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
                 }
             }
             m_resurrectMap.erase( itr );
-            m_spiritGuides[Id]->Despawn( 0, 0 );
+            m_spiritGuides[Id]->Despawn(0);
             m_spiritGuides[Id] = NULL;
         }
 
@@ -483,17 +483,12 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
 
         // modify the resource update time period
-        if(m_capturedBases[Owner]==0)
-            event_RemoveEvents(EVENT_IOC_RESOURCES_UPDATE_TEAM_0+Owner);
-        else
-            event_ModifyTime(EVENT_IOC_RESOURCES_UPDATE_TEAM_0 + Owner, ResourceUpdateIntervals[m_capturedBases[Owner]]);
     }
 
     // Contested Flag, not ours, and is not virgin
     if( !isVirgin && m_basesLastOwnedBy[Id] == int32(Team) && m_basesOwnedBy[Id] == -1 )
     {
         m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
-        event_RemoveEvents(EVENT_IOC_CAPTURE_CP_1 + Id);
         SendChatMessage(Team ? CHAT_MSG_BG_SYSTEM_HORDE : CHAT_MSG_BG_SYSTEM_ALLIANCE, pPlayer->GetGUID(), "$N has defended the %s!", ControlPointNames[Id]);
         m_basesAssaultedBy[Id] = Team;
         CaptureControlPoint( Id, Team );
@@ -510,7 +505,6 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
         m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
 
         // make sure the event does not trigger
-        sEventMgr.RemoveEvents(this, EVENT_IOC_CAPTURE_CP_1 + Id);
 
         // no need to remove the spawn, SpawnControlPoint will do this.
     }
@@ -531,17 +525,13 @@ void IsleOfConquest::AssaultControlPoint(Player* pPlayer, uint32 Id)
     m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
 
     // create the 60 second event.
-    sEventMgr.AddEvent(this, &IsleOfConquest::CaptureControlPoint, Id, Team, EVENT_IOC_CAPTURE_CP_1 + Id, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     // update players info
     pPlayer->m_bgScore.MiscData[BG_SCORE_IOC_BASE_ASSAULTED]++;
     UpdatePvPData();
 
-    if(Id == 5)
-    {
-        if(m_salesman != NULL)
-            m_salesman->Despawn(0,0);
-    }
+    if(Id == 5 && m_salesman != NULL)
+        m_salesman->Despawn(0);
 }
 
 void IsleOfConquest::HookOnAreaTrigger(Player* plr, uint32 id)
@@ -850,8 +840,6 @@ void IsleOfConquest::Finish(uint8 losingTeam)
 
     m_ended = true;
     m_losingteam = losingTeam;
-    sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
 
     UpdatePvPData();
 }

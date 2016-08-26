@@ -355,8 +355,6 @@ void EyeOfTheStorm::HookFlagDrop(Player* plr, GameObject* obj)
     PlaySoundToAll( 8212 );
     SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE + plr->GetTeam(), plr->GetGUID(), "$n has taken the flag!" );
     m_flagHolder = plr->GetLowGUID();
-
-    event_RemoveEvents( EVENT_EOTS_RESET_FLAG );
 }
 
 void EyeOfTheStorm::HookFlagStand(Player* plr, GameObject* obj)
@@ -419,8 +417,6 @@ void EyeOfTheStorm::DropFlag(Player* plr)
 
     plr->CastSpell(plr, BG_RECENTLY_DROPPED_FLAG, true);
     m_flagHolder = 0;
-
-    sEventMgr.AddEvent( castPtr<EyeOfTheStorm>(this), &EyeOfTheStorm::EventResetFlag, EVENT_EOTS_RESET_FLAG, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
 }
 
 void EyeOfTheStorm::EventResetFlag()
@@ -674,7 +670,7 @@ void EyeOfTheStorm::UpdateCPs()
                 if( m_spiritGuides[i] != NULL )
                 {
                     RepopPlayersOfTeam( 0, m_spiritGuides[i] );
-                    m_spiritGuides[i]->Despawn( 0, 0 );
+                    m_spiritGuides[i]->Despawn(0);
                     RemoveSpiritGuide( m_spiritGuides[i] );
                     m_spiritGuides[i] = NULL;
                 }
@@ -701,7 +697,7 @@ void EyeOfTheStorm::UpdateCPs()
                 if( m_spiritGuides[i] != NULL )
                 {
                     RepopPlayersOfTeam( 1, m_spiritGuides[i] );
-                    m_spiritGuides[i]->Despawn( 0, 0 );
+                    m_spiritGuides[i]->Despawn(0);
                     RemoveSpiritGuide( m_spiritGuides[i] );
                     m_spiritGuides[i] = NULL;
                 }
@@ -756,7 +752,7 @@ void EyeOfTheStorm::UpdateCPs()
                     if( m_spiritGuides[i] != NULL )
                     {
                         RepopPlayersOfTeam( -1, m_spiritGuides[i] );
-                        m_spiritGuides[i]->Despawn( 0, 0 );
+                        m_spiritGuides[i]->Despawn(0);
                         RemoveSpiritGuide( m_spiritGuides[i] );
                         m_spiritGuides[i] = NULL;
                     }
@@ -888,9 +884,6 @@ bool EyeOfTheStorm::GivePoints(uint32 team, uint32 points)
         m_ended = true;
         m_losingteam = (team) ? 0 : 1;
         m_nextPvPUpdateTime = 0;
-
-        sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
         SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
         UpdatePvPData();
         return true;
@@ -960,8 +953,6 @@ void EyeOfTheStorm::OnStart()
     uint32 i;
 
     /* start the events */
-    sEventMgr.AddEvent(this, &EyeOfTheStorm::GeneratePoints, EVENT_EOTS_GIVE_POINTS, 1600, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    sEventMgr.AddEvent(this, &EyeOfTheStorm::UpdateCPs, EVENT_EOTS_CHECK_CAPTURE_POINT_STATUS, 5000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     /* spirit guides */
     AddSpiritGuide(SpawnSpiritGuide( EOTSStartLocations[0][0], EOTSStartLocations[0][1], EOTSStartLocations[0][2], 0, false ));

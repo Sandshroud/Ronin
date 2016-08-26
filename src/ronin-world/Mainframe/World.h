@@ -351,44 +351,13 @@ public:
     bool run();
 };
 
-class DayWatcherThread
-{
-    enum DAYWATCHERSETTINGS
-    {
-        DW_MINUTELY    = 0,
-        DW_HOURLY      = 1,
-        DW_DAILY       = 2,
-        DW_WEEKLY      = 3,
-        DW_MONTHLY     = 4,
-    };
-
-public:
-    void load_settings();
-
-    void Update(uint32 diff);
-    time_t GetLastDailyResetTime() { return last_daily_reset_time; }
-
-protected:
-    void set_tm_pointers();
-
-    void update_daily();
-
-    void Reset_Heroic_Instances();
-    bool has_timeout_expired(tm *now_time, tm *last_time, uint32 timeoutval);
-
-private:
-    bool bheroic_reset;
-    time_t last_daily_reset_time;
-    tm local_last_daily_reset_time;
-};
-
 class WorldSocket;
 
 // Slow for remove in middle, oh well, wont get done much.
 typedef std::list<WorldSocket*> QueueSet;
 typedef std::set<WorldSession*> SessionSet;
 
-class SERVER_DECL World : public ThreadContext, public Singleton<World>, public EventableObject
+class SERVER_DECL World : public ThreadContext, public Singleton<World>
 {
 public:
     World();
@@ -404,8 +373,8 @@ public:
     /** Reloads the config and sets all of the setting variables
      */
     void Rehash(bool load);
+    bool HasActiveEvents(WorldObject *obj);
 
-    void CleanupCheaters();
     WorldSession* FindSession(uint32 id);
     WorldSession* FindSessionByName(const char *);
     void AddSession(WorldSession *s);
@@ -433,6 +402,8 @@ public:
     RONIN_INLINE const char* GetMotd() const { return m_motd.c_str(); }
     RONIN_INLINE time_t GetGameTime() const { return m_gameTime; }
     RONIN_INLINE time_t GetWeekStart() const { return m_weekStart; }
+
+    RONIN_INLINE uint32 GetWeekDay();
 
     bool SetInitialWorldSettings();
 
@@ -620,30 +591,10 @@ public:
     void LogPlayer(WorldSession* session, std::string message, ...);
     void LogChat(WorldSession* session, std::string message, ...);
 
-    time_t GetLastDailyResetTime() { return dayWatcher.GetLastDailyResetTime(); }
+    time_t GetLastDailyResetTime() { return m_lastDailyReset; }
 
 protected:
-    uint32 dayWatcherTimer;
-    DayWatcherThread dayWatcher;
-
-    void _UpdateGameTime()
-    {
-        // Update Server time
-        time_t thisTime = UNIXTIME;
-        m_gameTime += thisTime - m_lastTick; //in seconds
-        if(m_gameTime >= 86400)         // One day has passed
-            m_gameTime -= 86400;
-
-        m_lastTick = thisTime;
-    }
-
-    void _UpdateWeekStartTime()
-    {
-        if(UNIXTIME-m_weekStart < 604800)
-            return;
-        m_weekStart += 604800;
-    }
-    void FillSpellReplacementsTable();
+    void UpdateServerTimers(uint32 diff);
 
 private:
     //! Timers
@@ -660,12 +611,16 @@ protected:
     uint32 m_playerLimit;
     std::string m_motd, m_hashInfo;
 
-    time_t m_weekStart, m_gameTime, m_lastTick;
+    Mutex m_timeDataLock;
+    tm m_currentTimeData;
+    time_t m_weekStart, m_gameTime, m_lastTick, m_lastDailyReset, m_lastHeroicReset;
+
+    bool m_heroicReset, m_dailyReset;
     uint32 m_StartTime, m_queueUpdateTimer;
 
     QueueSet mQueuedSessions;
 
-    EventableObjectHolder* eventHolder;
+    EventHandler m_eventHandler;
 
 public:
     bool GuildsLoading;

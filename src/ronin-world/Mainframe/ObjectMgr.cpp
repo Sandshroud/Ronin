@@ -426,7 +426,6 @@ void ObjectMgr::DelinkPlayerCorpses(Player* pOwner)
     Corpse* c = GetCorpseByOwner(pOwner->GetLowGUID());
     if(c == NULL)
         return;
-    sEventMgr.AddEvent(c, &Corpse::Delink, EVENT_CORPSE_SPAWN_BONES, 1, 1, 0);
     CorpseAddEventDespawn(c);
 }
 
@@ -886,7 +885,6 @@ void ObjectMgr::CorpseAddEventDespawn(Corpse* pCorpse)
         pCorpse->Destruct();
         return;
     }
-    sEventMgr.AddEvent(pCorpse->GetMapInstance(), &MapInstance::EventCorpseDespawn, (uint64)pCorpse->GetGUID(), EVENT_CORPSE_DESPAWN, 600000, 1,0);
 }
 
 void ObjectMgr::DespawnCorpse(uint64 Guid)
@@ -1196,9 +1194,6 @@ void ObjectMgr::ResetDailies()
     {
         Player* pPlayer = itr->second;
         uint8 eflags = 0;
-        if( pPlayer->IsInWorld() )
-            eflags = EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT;
-        sEventMgr.AddEvent(pPlayer, &Player::ResetDailyQuests, EVENT_PLAYER_UPDATE, 100, 0, eflags);
     }
     _playerslock.ReleaseReadLock();
 }

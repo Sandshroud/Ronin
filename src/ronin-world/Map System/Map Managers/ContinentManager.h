@@ -33,7 +33,4 @@ private:
 
     // Our continent instance
     MapInstance *m_continent;
-
-    // Process events in the manager not individual maps
-    EventableObjectHolder eventHolder;
 };

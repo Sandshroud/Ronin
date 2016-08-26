@@ -177,7 +177,7 @@ void LogonCommHandler::Connect()
         Delay(50);
     }
 
-    if(!server->Registered)
+    if(logon == NULL || !server->Registered)
     {
         mapLock.Release();
         return;

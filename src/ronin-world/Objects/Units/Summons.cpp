@@ -43,11 +43,8 @@ void Summon::OnRemoveInRangeObject(WorldObject* object)
 {
     if(m_Internal != NULL)
         m_Internal->OnRemoveInRangeObject(object);
-    if(IsTotem())
-    {
-        if(s_Owner == NULL || s_Owner->GetGUID() == object->GetGUID())
-            event_ModifyTimeLeft(EVENT_SUMMON_EXPIRE_0+summonslot, 1);
-    }
+    /*if(IsTotem() && s_Owner == NULL || s_Owner->GetGUID() == object->GetGUID())
+        event_ModifyTimeLeft(EVENT_SUMMON_EXPIRE_0+summonslot, 1);*/
 
     WorldObject::OnRemoveInRangeObject(object);
 }
@@ -348,9 +345,6 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
             }
         }
     }
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
@@ -388,10 +382,6 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
         data << uint32(m_spellInfo->Id);
         castPtr<Player>(u_caster)->SendPacket(&data);
     }
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-    else sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, 60 * 60 * 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v) // Summon Guardian
@@ -446,9 +436,6 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
             }
         }
     }
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonTemporaryPet(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
@@ -475,9 +462,6 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
     if(u_caster->IsPlayer())
         castPtr<Player>(u_caster)->Possess(s);
     //else s->SetPossessedBy(u_caster);
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
@@ -506,9 +490,6 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
     s->SetCreatedBySpell(m_spellInfo->Id);
     s->PushToWorld(u_caster->GetMapInstance());
     u_caster->SetSummonedCritterGUID(s->GetGUID());
-
-    if(duration > 0)
-        sEventMgr.AddEvent(u_caster, &Unit::SummonExpireSlot, uint8(slot), EVENT_SUMMON_EXPIRE_0+slot, duration, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void SpellEffectClass::SummonVehicle(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)

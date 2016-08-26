@@ -170,7 +170,6 @@ bool Master::Run(int argc, char ** argv)
     sLog.Line();
     sLog.outString("");
 
-    new EventMgr();
     new OpcodeManager();
     new World();
 
@@ -278,7 +277,7 @@ bool Master::Run(int argc, char ** argv)
         /* UPDATE */
         last_time = getMSTime();
         etime = last_time - start;
-        if( 25 > etime )
+        if( etime < 25 )
         {
 #if PLATFORM == PLATFORM_WIN
             WaitForSingleObject( hThread, 25 - etime );
@@ -297,6 +296,9 @@ bool Master::Run(int argc, char ** argv)
         while( lootmgr.is_loading )
             Sleep( 100 );
     }
+
+    while( sWorldMgr.HasLoadingMaps() )
+        Sleep( 100 );
 
     sDBEngine.EndThreads();
 
@@ -363,9 +365,6 @@ bool Master::Run(int argc, char ** argv)
 
     sLog.Notice("OpcodeManager", "~OpcodeManager()");
     delete OpcodeManager::getSingletonPtr();
-
-    sLog.Notice( "EventMgr", "~EventMgr()" );
-    delete EventMgr::getSingletonPtr();
 
     // Wait for cleanup thread to exit
     ThreadPool.Shutdown();

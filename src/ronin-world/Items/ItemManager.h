@@ -9,6 +9,7 @@ struct ItemPrototype
     uint32 Class;
     uint32 SubClass;
     int32  subClassSound;
+    float f_unk[2];
     std::string Name;
     uint32 DisplayInfoID;
     uint32 Quality;

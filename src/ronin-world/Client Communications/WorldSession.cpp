@@ -263,8 +263,6 @@ void WorldSession::LogoutPlayer()
     {
         _player = NULL;
 
-        sEventMgr.RemoveEvents(plr);
-
         //Duel Cancel on Leave
         if( plr->DuelingWith != NULL )
             plr->EndDuel( DUEL_WINNER_RETREAT );

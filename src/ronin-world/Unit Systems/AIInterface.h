@@ -38,6 +38,7 @@ public:
     void Update(uint32 p_time);
 
     void OnDeath();
+    void OnRespawn();
     void OnPathChange();
     void OnTakeDamage(Unit *attacker, uint32 damage);
 

@@ -1081,7 +1081,6 @@ bool ChatHandler::HandleMassSummonCommand(const char* args, WorldSession* m_sess
         m_session->GetPlayer()->BroadcastMessage("Please re-enter the command to confirm you wish to summon all players online to your position.");
         m_session->GetPlayer()->BroadcastMessage("This will reset in 30 seconds.");
         m_session->GetPlayer()->m_massSummonEnabled = true;
-        sEventMgr.AddEvent( m_session->GetPlayer(), &Player::EventMassSummonReset, EVENT_RESET_CHAT_COMMAND, 30000, 0, 0);
     }
 
     ObjectMgr::PlayerStorageMap::const_iterator itr;
@@ -1103,7 +1102,6 @@ bool ChatHandler::HandleMassSummonCommand(const char* args, WorldSession* m_sess
     sWorld.LogGM(m_session, "requested a mass summon of %u players.", c);
     objmgr._playerslock.ReleaseReadLock();
     m_session->GetPlayer()->m_massSummonEnabled = false;
-    sEventMgr.RemoveEvents(m_session->GetPlayer(), EVENT_RESET_CHAT_COMMAND);
     return true;
 }
 
@@ -1148,7 +1146,7 @@ bool ChatHandler::HandleCastAllCommand(const char* args, WorldSession* m_session
         {
             if(plr->GetMapInstance() != m_session->GetPlayer()->GetMapInstance())
             {
-                sEventMgr.AddEvent( castPtr<Unit>(plr), &Unit::EventCastSpell, castPtr<Unit>(plr), info, EVENT_PLAYER_CHECKFORCHEATS, 100, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
+
             }
             else
             {
@@ -1490,18 +1488,17 @@ bool ChatHandler::HandleCreatureRespawnCommand(const char *args, WorldSession *m
     if(!cCorpse->IsCreature())
         return false;
 
-    if(cCorpse->getDeathState() != CORPSE)
+    if(!cCorpse->hasStateFlag(UF_CORPSE))
     {
-        RedSystemMessage( m_session, "You must select a corpse to respawn a creature.(%u)", uint32(cCorpse->getDeathState()));
+        RedSystemMessage( m_session, "You must select a corpse to respawn a creature.");
         return true;
     }
 
     if(cCorpse->GetSQL_id() != 0)
     {
-        sEventMgr.RemoveEvents( cCorpse, EVENT_CREATURE_RESPAWN );
         BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
         sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
-        cCorpse->Despawn(0, 1);
+        cCorpse->Respawn(false, false);
         return true;
     }
 

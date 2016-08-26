@@ -391,10 +391,6 @@ void AVNode::Assault(Player* plr)
         return;
     }
 
-    // start timer blablabla
-    sEventMgr.RemoveEvents(m_bg, EVENT_AV_CAPTURE_CP_0 + m_nodeId);
-    sEventMgr.AddEvent(m_bg, &AlteracValley::EventAssaultControlPoint, m_nodeId, EVENT_AV_CAPTURE_CP_0 + m_nodeId, TIME_MINUTE * 4 * 1000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-
     // update state
     ChangeState(plr->GetTeam() ? AV_NODE_STATE_HORDE_ASSAULTING : AV_NODE_STATE_ALLIANCE_ASSAULTING);
 
@@ -602,7 +598,7 @@ void AVNode::Spawn()
                 itr->second.clear();
             }
             m_bg->RemoveSpiritGuide(m_spiritGuide);
-            m_spiritGuide->Despawn(0, 0);
+            m_spiritGuide->Despawn(0);
             m_spiritGuide = NULL;
         }
 
@@ -655,11 +651,9 @@ void AVNode::Capture()
     sLog.outDebug("AVNode::Capture(%s) : entering", m_template->m_name);
 
     // sooo easy
-    sEventMgr.RemoveEvents(m_bg, EVENT_AV_CAPTURE_CP_0 + m_nodeId);
     if( m_state == AV_NODE_STATE_HORDE_ASSAULTING )
         ChangeState(AV_NODE_STATE_HORDE_CONTROLLED);
-    else
-        ChangeState(AV_NODE_STATE_ALLIANCE_CONTROLLED);
+    else ChangeState(AV_NODE_STATE_ALLIANCE_CONTROLLED);
 
     // were we destroyed?
     if( !m_template->m_capturable )
@@ -703,7 +697,7 @@ void AVNode::Capture()
 
             // the npc at our home has to change.
             if( m_homeNPC != NULL )
-                m_homeNPC->Despawn(0, 0);
+                m_homeNPC->Despawn(0);
 
             // respawn if we have one
             if( g_HomeNpcInfo[m_nodeId].id_a != 0 )
@@ -914,8 +908,6 @@ void AlteracValley::OnStart()
     PlaySoundToAll(SOUND_BATTLEGROUND_BEGIN);
 
     m_started = true;
-
-    sEventMgr.AddEvent(this, &AlteracValley::EventUpdateResources, EVENT_BATTLEGROUND_RESOURCEUPDATE, AV_REINFORCEMENT_ADD_INTERVAL, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 }
 
 void AlteracValley::OnAddPlayer(Player* plr)
@@ -1026,8 +1018,6 @@ void AlteracValley::Finish(uint32 losingTeam)
 
     m_ended = true;
     m_losingteam = losingTeam;
-    sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(castPtr<CBattleground>(this), &AlteracValley::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
     SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
 
     UpdatePvPData();
@@ -1099,8 +1089,7 @@ void AlteracValley::EventUpdateResources()
 /*  for(uint32 i = 0; i < 2; i++)
     {
         AddReinforcements( i, m_mineControl[i] );
-    }
-    sEventMgr.AddEvent(this, &AlteracValley::EventUpdateResources, EVENT_BATTLEGROUND_RESOURCEUPDATE, 45000, 0, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);*/
+    }*/
 }
 
 void AlteracValley::EventAssaultControlPoint(uint32 x)

@@ -122,7 +122,7 @@ static inline uint32 GetLevelGrouping(uint32 level)
 #define MAX_LEVEL_GROUP 9
 #define LEVEL_GROUP_RATED_ARENA 8
 
-class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>, public EventableObject
+class SERVER_DECL CBattlegroundManager : public Singleton<CBattlegroundManager>
 {
     /* Battleground Instance Map */
     std::map<uint32, CBattleground* > m_instances[BATTLEGROUND_NUM_TYPES];
@@ -205,7 +205,7 @@ public:
     uint32 GenerateRandomBGType();
 };
 
-class CBattleground : public EventableObject
+class CBattleground
 {
 protected:
     /* Groups */

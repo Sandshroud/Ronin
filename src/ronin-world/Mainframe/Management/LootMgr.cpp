@@ -532,14 +532,13 @@ void LootMgr::AddLoot(ObjectLoot* loot, uint32 itemid, uint32 mincount, uint32 m
     }
 }
 
-LootRoll::LootRoll() : EventableObject()
+LootRoll::LootRoll()
 {
 }
 
 void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randProp, uint32 randSeed, MapInstance* instance)
 {
     _instance = instance;
-    sEventMgr.AddEvent(this, &LootRoll::Finalize, EVENT_LOOT_ROLL_FINALIZE, 60000, 1,0);
     _groupcount = groupcount;
     _guid = guid;
     _slotid = slotid;
@@ -557,12 +556,7 @@ LootRoll::~LootRoll()
 void LootRoll::Finalize()
 {
     if( !mLootLock.AttemptAcquire() ) // only one finalization, please. players on different maps can roll, too, so this is needed.
-    {
-        sEventMgr.RemoveEvents(this);
         return;
-    }
-
-    sEventMgr.RemoveEvents(this);
 
     // this we will have to finalize with groups types.. for now
     // we'll just assume need before greed. person with highest roll
@@ -791,7 +785,6 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     {
         mLootLock.Release(); // so we can call the other lock in a sec.
         // kill event early
-        //sEventMgr.RemoveEvents(this);
         Finalize();
         return;
     }

@@ -395,7 +395,7 @@ struct ItemSparseEntry
     uint32 Quality;
     uint32 Flags;
     uint32 Flags2;
-    //float f_unk[2]; // 4.3.x
+    float f_unk[2]; // 4.3.x
     uint32 BuyCount;
     uint32 BuyPrice;
     uint32 SellPrice;

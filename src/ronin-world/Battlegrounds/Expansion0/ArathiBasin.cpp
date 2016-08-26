@@ -472,8 +472,6 @@ void ArathiBasin::EventUpdateResources(uint32 Team)
         m_losingteam = (Team) ? 0 : 1;
         m_nextPvPUpdateTime = 0;
 
-        sEventMgr.RemoveEvents(this);
-        sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
         SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
     }
 
@@ -586,7 +584,6 @@ void ArathiBasin::HookOnAreaTrigger(Player* plr, uint32 id)
         m_buffs[x]->RemoveFromWorld();
 
         // respawn it in buffrespawntime
-        sEventMgr.AddEvent(castPtr<ArathiBasin>(this),&ArathiBasin::SpawnBuff,x,EVENT_AB_RESPAWN_BUFF,AB_BUFF_RESPAWN_TIME,1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
         // cast the spell on the player
         if(SpellEntry * sp = dbcSpell.LookupEntry(spellid))
@@ -648,7 +645,7 @@ void ArathiBasin::CaptureControlPoint(uint32 Id, uint8 Team)
     if(m_spiritGuides[Id] != NULL)
     {
         RemoveSpiritGuide(m_spiritGuides[Id]);
-        m_spiritGuides[Id]->Despawn(0,0);
+        m_spiritGuides[Id]->Despawn(0);
     }
 
     // spawn the spirit guide for our faction
@@ -674,13 +671,10 @@ void ArathiBasin::CaptureControlPoint(uint32 Id, uint8 Team)
     if(m_capturedBases[Team]==1)
     {
         // first
-        sEventMgr.AddEvent(castPtr<ArathiBasin>(this),&ArathiBasin::EventUpdateResources, (uint32)Team, EVENT_AB_RESOURCES_UPDATE_TEAM_0+Team, ResourceUpdateIntervals[1], 0,
-            EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
     }
     else
     {
         // not first
-        event_ModifyTime(EVENT_AB_RESOURCES_UPDATE_TEAM_0+Team, ResourceUpdateIntervals[m_capturedBases[Team]]);
     }
 }
 
@@ -727,7 +721,7 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
                 }
             }
             m_resurrectMap.erase( itr );
-            m_spiritGuides[Id]->Despawn( 0, 0 );
+            m_spiritGuides[Id]->Despawn(0);
             m_spiritGuides[Id] = NULL;
         }
 
@@ -739,17 +733,12 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
         m_mapInstance->GetStateManager().UpdateWorldState(OwnedFields[Id][Owner], 0);
 
         // modify the resource update time period
-        if(m_capturedBases[Owner]==0)
-            event_RemoveEvents(EVENT_AB_RESOURCES_UPDATE_TEAM_0+Owner);
-        else
-            event_ModifyTime(EVENT_AB_RESOURCES_UPDATE_TEAM_0 + Owner, ResourceUpdateIntervals[m_capturedBases[Owner]]);
     }
 
     // Contested Flag, not ours, and is not virgin
     if( !isVirgin && m_basesLastOwnedBy[Id] == int32(Team) && m_basesOwnedBy[Id] == -1 )
     {
         m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team ? 0 : 1], 0);
-        event_RemoveEvents(EVENT_AB_CAPTURE_CP_1 + Id);
         SendChatMessage(Team ? CHAT_MSG_BG_SYSTEM_HORDE : CHAT_MSG_BG_SYSTEM_ALLIANCE, pPlayer->GetGUID(), "$N has defended the %s!", ControlPointNames[Id]);
         m_basesAssaultedBy[Id] = Team;
         CaptureControlPoint( Id, Team );
@@ -766,7 +755,6 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
         m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Owner], 0);
 
         // make sure the event does not trigger
-        sEventMgr.RemoveEvents(this, EVENT_AB_CAPTURE_CP_1 + Id);
 
         // no need to remove the spawn, SpawnControlPoint will do this.
     }
@@ -787,7 +775,6 @@ void ArathiBasin::AssaultControlPoint(Player* pPlayer, uint32 Id)
     m_mapInstance->GetStateManager().UpdateWorldState(AssaultFields[Id][Team], 1);
 
     // create the 60 second event.
-    sEventMgr.AddEvent(castPtr<ArathiBasin>(this), &ArathiBasin::CaptureControlPoint, Id, Team, EVENT_AB_CAPTURE_CP_1 + Id, 60000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
 
     // update players info
     pPlayer->m_bgScore.MiscData[BG_SCORE_AB_BASE_ASSAULTED]++;

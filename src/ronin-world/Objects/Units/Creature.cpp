@@ -19,7 +19,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_SellItems = NULL;
     m_trainerData = NULL;
     auctionHouse = NULL;
-    m_respawnCell = NULL;
     m_shieldProto = NULL;
     myFamily = NULL;
 
@@ -68,27 +67,29 @@ void Creature::Init()
 
 void Creature::Destruct()
 {
-    sEventMgr.RemoveEvents(this);
-
-    if(m_respawnCell != NULL)
-        m_respawnCell->RemoveRespawn(this);
     Unit::Destruct();
 }
 
 void Creature::Reactivate()
 {
+    if(m_deathState == DEAD)
+    {
+        m_aiInterface.OnRespawn();
 
+        m_movementInterface.OnRespawn();
+
+        m_deathState = ALIVE;
+
+        // Reload from proto and respawn at spawn loc
+        Load(m_mapId, m_spawnLocation.x, m_spawnLocation.y, m_spawnLocation.z, m_spawnLocation.o, m_mapInstance->iInstanceMode, m_spawn);
+
+        // Update position on map for inrange calls
+        m_mapInstance->ChangeObjectLocation(this);
+    }
 }
 
-void Creature::Despawn(uint32 delay, uint32 respawntime)
+void Creature::Despawn(uint32 respawntime)
 {
-    m_respawnTimer = respawntime;
-    if(m_despawnTimer = delay)
-    {
-        addStateFlag(UF_DESPAWNING);
-        return;
-    }
-
     // Empty items
     GetLoot()->items.clear();
 
@@ -97,10 +98,10 @@ void Creature::Despawn(uint32 delay, uint32 respawntime)
 
     // Reset position to spawn loc
     SetPosition(m_spawnLocation);
-    clearStateFlag(UF_DESPAWNING);
+    clearStateFlag(UF_CORPSE);
     m_inactiveFlags |= OBJECT_INACTIVE_FLAG_DESPAWNED;
-    WorldObject::Deactivate(m_respawnTimer);
-    m_respawnTimer = 0;
+    WorldObject::Deactivate(respawntime);
+    m_despawnTimer = 0;
 }
 
 void Creature::Update(uint32 msTime, uint32 uiDiff)
@@ -119,33 +120,16 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
 
     Unit::Update(msTime, uiDiff);
 
-    m_aiInterface.Update(uiDiff);
-
-    if(isDead())
-    {
-        if(IsTotem())
-            Respawn(false, true);
-
-        if(m_corpseEvent)
-        {
-            sEventMgr.RemoveEvents(this);
-            if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_BOSSCORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            else if ( _creatureData->rank == ELITE_RAREELITE || _creatureData->rank == ELITE_RARE)
-                sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_RARECORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-            else sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::OnRemoveCorpse, EVENT_CREATURE_REMOVE_CORPSE, TIME_CREATURE_REMOVE_CORPSE, 1,EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT);
-
-            m_corpseEvent = false;
-        }
-    } else if(hasStateFlag(UF_ATTACKING))
-        UpdateAutoAttackState();
-
-    if(hasStateFlag(UF_DESPAWNING))
+    if(hasStateFlag(UF_CORPSE))
     {
         if(m_despawnTimer > uiDiff)
             m_despawnTimer -= uiDiff;
-        else Despawn(0, m_respawnTimer);
+        else Despawn(UF_CORPSE);
     }
+
+    m_aiInterface.Update(uiDiff);
+    if(hasStateFlag(UF_ATTACKING))
+        UpdateAutoAttackState();
 }
 
 void Creature::UpdateFieldValues()
@@ -201,10 +185,10 @@ void Creature::OnRemoveInRangeObject(WorldObject *pObj)
     }
 }
 
-void Creature::ClearInRangeSet()
+void Creature::ClearInRangeObjects()
 {
     m_inRangeHostiles.clear();
-    Unit::ClearInRangeSet();
+    Unit::ClearInRangeObjects();
 }
 
 void Creature::UpdateLootAnimation(Player* Looter)
@@ -252,19 +236,19 @@ void Creature::EventAttackStop()
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)
 {
+    uint32 weaponDisplay = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+weaponType);
     switch(weaponType)
     {
-    case 0: return _creatureData->attackTime;
-    case 1: return 0;
-    case 2: return _creatureData->rangedAttackTime;
+    case 0: return _creatureData->meleeAttackTime;
+    case 1: return weaponDisplay ? _creatureData->meleeAttackTime : 0;
+    case 2: return weaponDisplay ? _creatureData->rangedAttackTime : 0;
     }
     return 2000;
 }
 
 void Creature::SafeDelete()
 {
-    sEventMgr.RemoveEvents(this);
-    sEventMgr.AddEvent(castPtr<Creature>(this), &Creature::DeleteMe, EVENT_CREATURE_SAFE_DELETE, 1000, 1, 0);
+
 }
 
 void Creature::DeleteMe()
@@ -463,7 +447,7 @@ void Creature::_LoadQuests()
 
 void Creature::SetDeathState(DeathState s)
 {
-    Unit::SetDeathState(s);
+    Unit::SetDeathState(s == JUST_DIED ? DEAD : s);
     if(s == JUST_DIED)
     {
         m_aiInterface.OnDeath();
@@ -474,11 +458,16 @@ void Creature::SetDeathState(DeathState s)
         if(m_enslaveSpell)
             RemoveEnslave();
 
-        if(m_currentSpell)
-            m_currentSpell->cancel();
+        if(Spell *currentSpell = m_currentSpell)
+            currentSpell->cancel();
+        m_currentSpell = NULL;
 
-        m_deathState = CORPSE;
-        m_corpseEvent = true;
+        if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
+            m_despawnTimer = TIME_CREATURE_REMOVE_BOSSCORPSE;
+        else if ( _creatureData->rank == ELITE_RAREELITE || _creatureData->rank == ELITE_RARE)
+            m_despawnTimer = TIME_CREATURE_REMOVE_RARECORPSE;
+        else m_despawnTimer = TIME_CREATURE_REMOVE_CORPSE;
+
         if ( lootmgr.IsSkinnable(GetEntry()))
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
     }
@@ -583,7 +572,7 @@ void Creature::Respawn(bool addrespawnevent, bool free_guid)
     uint32 delay = 0;
     if(addrespawnevent && _creatureData->respawnTime > 0)
         delay = _creatureData->respawnTime;
-    Despawn(0, delay);
+    Despawn(delay);
 }
 
 void Creature::EnslaveExpire()
@@ -815,10 +804,7 @@ void Creature::FormationLinkUp(uint32 SqlId)
         return;
 
     if( Creature *creature = m_mapInstance->GetSqlIdCreature(SqlId) )
-    {
         haslinkupevent = false;
-        event_RemoveEvents(EVENT_CREATURE_FORMATION_LINKUP);
-    }
 }
 
 void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn)
@@ -832,9 +818,8 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Event objects should be spawned inactive
     if(m_spawn && m_spawn->eventId)
     {
-        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
         m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
-        m_objDeactivationTimer = 5000;
+        WorldObject::Deactivate(5000);
     }
 
     // Set our extra data pointer
@@ -869,12 +854,8 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     setLevel(level);
     SetFloatValue(OBJECT_FIELD_SCALE_X, _creatureData->scale);
-    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, _creatureData->attackTime);
-    SetFloatValue(UNIT_FIELD_MINDAMAGE, _creatureData->minDamage);
-    SetFloatValue(UNIT_FIELD_MAXDAMAGE, _creatureData->maxDamage);
+    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, _creatureData->meleeAttackTime);
     SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME, _creatureData->rangedAttackTime);
-    SetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE, _creatureData->rangedMinDamage);
-    SetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE, _creatureData->rangedMaxDamage);
 
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, _creatureData->inventoryItem[0]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);

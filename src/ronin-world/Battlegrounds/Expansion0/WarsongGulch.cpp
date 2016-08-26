@@ -178,9 +178,6 @@ void WarsongGulch::HookOnAreaTrigger(Player* plr, uint32 id)
             m_ended = true;
             m_losingteam = plr->GetTeam() ? 0 : 1;
             m_nextPvPUpdateTime = 0;
-
-            sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_CLOSE);
-            sEventMgr.AddEvent(castPtr<CBattleground>(this), &CBattleground::Close, EVENT_BATTLEGROUND_CLOSE, 120000, 1,0);
             SendChatMessage( CHAT_MSG_BG_SYSTEM_NEUTRAL, 0, "|cffffff00This battleground will close in 2 minutes.");
         }
 
@@ -209,8 +206,6 @@ void WarsongGulch::DropFlag(Player* plr)
 
     plr->CastSpell(plr, BG_RECENTLY_DROPPED_FLAG, true);
 
-    sEventMgr.AddEvent( castPtr<WarsongGulch>(this), &WarsongGulch::ReturnFlag, plr->GetTeam(), EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam(), 10000, 1, EVENT_FLAG_DO_NOT_EXECUTE_IN_WORLD_CONTEXT );
-
     if( plr->GetTeam() == 1 )
         SendChatMessage( CHAT_MSG_BG_SYSTEM_ALLIANCE, plr->GetGUID(), "The Alliance flag was dropped by %s!", plr->GetName() );
     else
@@ -227,7 +222,6 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
             (obj->GetEntry() == 179786 && plr->GetTeam() == 1) )
         {
             uint32 x = plr->GetTeam() ? 0 : 1;
-            sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + plr->GetTeam());
 
             if( m_dropFlags[x]->IsInWorld() )
                 m_dropFlags[x]->RemoveFromWorld();
@@ -254,11 +248,6 @@ void WarsongGulch::HookFlagDrop(Player* plr, GameObject* obj)
     if (itr != plr->m_forcedReactions.end()) {
         return;
     }
-
-    if( plr->GetTeam() == 0 )
-        sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG);
-    else
-        sEventMgr.RemoveEvents(this, EVENT_BATTLEGROUND_WSG_AUTO_RETURN_FLAG + 1);
 
     if( m_dropFlags[plr->GetTeam()]->IsInWorld() )
         m_dropFlags[plr->GetTeam()]->RemoveFromWorld();

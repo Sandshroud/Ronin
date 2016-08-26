@@ -110,7 +110,7 @@ DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemDataEntry, db2Item);
 static const char *itemFormat = "uuuiiuuu";
 
 DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemSparseEntry, db2ItemSparse);
-static const char *itemsparseFormat = "uuuuxxuuuuiiuiuuuuuuuuuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
+static const char *itemsparseFormat = "uuuuffuuuuiiuiuuuuuuuuuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ArmorLocationEntry, dbcArmorLocation);
 static const char *armorlocationFormat = "ufffff";

@@ -16,7 +16,7 @@ class MapInstance;
 class Player;
 struct PlayerInfo;
 
-class LootRoll : public EventableObject
+class LootRoll
 {
 public:
     LootRoll();
