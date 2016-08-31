@@ -230,6 +230,8 @@ public:
     int32 m_clientTimeDelay;
 
     void CharacterEnumProc(QueryResult * result);
+    void PlayerLoginProc(WoWGuid guid);
+
     RONIN_INLINE bool IsLoggingOut() { return _loggingOut; }
 
     bool CanCreateDeathKnight()

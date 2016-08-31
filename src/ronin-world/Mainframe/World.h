@@ -455,8 +455,7 @@ public:
     bool AHEnabled, DisableBufferSaving;
     bool Collision, PathFinding;
     bool LogCheaters, LogCommands, LogPlayers, bLogChat;
-    uint32 ServerPreloading, mInWorldPlayerCount, mAcceptedConnections;
-    uint32 mQueueUpdateInterval, trade_world_chat, m_deathKnightReqLevel;
+    uint32 ServerPreloading, mInWorldPlayerCount, mAcceptedConnections, trade_world_chat, m_deathKnightReqLevel;
     bool cross_faction_world, m_deathKnightOnePerAccount, EnableFatigue, NumericCommandGroups;
 
     void SaveAllPlayers();
@@ -578,6 +577,10 @@ public:
 
     void CharacterEnumProc(QueryResultVector& results, uint32 AccountId);
 
+    bool HasPendingWorldPush(WorldSession *session);
+    void QueueWorldPush(WorldSession *session, WoWGuid guid, uint32 mapId);
+    void CancelWorldPush(WorldSession *session);
+
     void DisconnectUsersWithAccount(const char * account, WorldSession * session);
     void DisconnectUsersWithIP(const char * ip, WorldSession * session);
     void DisconnectUsersWithPlayerName(const char * plr, WorldSession * session);
@@ -602,6 +605,10 @@ private:
     SessionMap m_sessions;
     RWLock m_sessionlock;
 
+    // Push to world queue
+    Mutex m_worldPushLock;
+    std::map<WorldSession*, std::pair<WoWGuid, uint32> > m_worldPushQueue;
+
 protected:
     Mutex SessionsMutex;//FOR GLOBAL !
     SessionSet GlobalSessions;
@@ -616,7 +623,7 @@ protected:
     time_t m_weekStart, m_gameTime, m_lastTick, m_lastDailyReset, m_lastHeroicReset;
 
     bool m_heroicReset, m_dailyReset;
-    uint32 m_StartTime, m_queueUpdateTimer;
+    uint32 m_StartTime, m_queueUpdateTimer, m_pushUpdateTimer;
 
     QueueSet mQueuedSessions;
 

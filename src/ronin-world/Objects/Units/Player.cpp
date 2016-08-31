@@ -5590,19 +5590,15 @@ void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
     if(IsInWorld())
         RemoveFromWorld();
 
-    m_mapId = mgr->GetMapId();
-    m_instanceId = mgr->GetInstanceID();
+    uint32 mapId = mgr->GetMapId(), instanceId = mgr->GetInstanceID();
     WorldPacket data(SMSG_TRANSFER_PENDING, 20);
-    data << mgr->GetMapId();
+    data.WriteBitString(2, 0, 0); // Unk and transport transfer
+    data.append<uint32>(mapId);
     GetSession()->SendPacket(&data);
 
-    data.Initialize(SMSG_NEW_WORLD, 20);
-    data << vec.x << vec.o << vec.y;
-    data << mgr->GetMapId() << vec.z;
-    GetSession()->SendPacket(&data);
-
+    // Send transfers via movement interface to set target location and avoid issues with return data
+    m_movementInterface.TeleportToPosition(mapId, instanceId, vec);
     SetPlayerStatus(TRANSFER_PENDING);
-    SetPosition(vec);
 
     if(uint8 ss = GetShapeShift()) // Extra Check
         SetShapeShift(ss);

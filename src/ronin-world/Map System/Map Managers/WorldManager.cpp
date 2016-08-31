@@ -113,20 +113,20 @@ void WorldManager::LoadSpawnData()
     }
 }
 
-bool WorldManager::ValidateMapId(uint32 mapId)
+uint8 WorldManager::ValidateMapId(uint32 mapId)
 {
     if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
-        return false;
+        return 1;
 
     if(ContinentManagerExists(mapId))
     {
         ContinentManager *mgr = GetContinentManager(mapId);
         if(mgr->GetContinent()->IsPreloading())
-            return false;
-        return true;
+            return 2;
+        return 0;
     }
 
-    return m_maps.find(mapId) != m_maps.end();
+    return (m_maps.find(mapId) == m_maps.end()) ? 1 : 0;
 }
 
 void WorldManager::Load(TaskList * l)

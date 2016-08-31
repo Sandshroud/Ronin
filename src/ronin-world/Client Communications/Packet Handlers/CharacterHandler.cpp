@@ -467,35 +467,27 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     sLog.Debug( "WorldSession"," Recvd Player Logon Message" );
 
     WoWGuid guid;
-    guid[2] = recv_data.ReadBit();
-    guid[3] = recv_data.ReadBit();
-    guid[0] = recv_data.ReadBit();
-    guid[6] = recv_data.ReadBit();
-    guid[4] = recv_data.ReadBit();
-    guid[5] = recv_data.ReadBit();
-    guid[1] = recv_data.ReadBit();
-    guid[7] = recv_data.ReadBit();
-    recv_data.ReadByteSeq(guid[2]);
-    recv_data.ReadByteSeq(guid[7]);
-    recv_data.ReadByteSeq(guid[0]);
-    recv_data.ReadByteSeq(guid[3]);
-    recv_data.ReadByteSeq(guid[5]);
-    recv_data.ReadByteSeq(guid[6]);
-    recv_data.ReadByteSeq(guid[1]);
-    recv_data.ReadByteSeq(guid[4]);
+    recv_data.ReadGuidBitString(8, guid, 2, 3, 0, 6, 4, 5, 1, 7);
+    recv_data.ReadGuidByteString(8, guid, 2, 7, 0, 3, 5, 6, 1, 4);
 
-    //Better validate this Guid before we create an invalid _player.
-    uint8 response = CHAR_LOGIN_NO_CHARACTER;
-
+    uint8 response = CHAR_LOGIN_SUCCESS;
     //already active?
-    if(m_characterMapIds.find(guid) == m_characterMapIds.end())
+    if (m_loggingInPlayer || _player || sWorld.HasPendingWorldPush(this))
+        response = CHAR_LOGIN_IN_PROGRESS;
+    //Better validate this Guid before we create an invalid _player.
+    else if(m_characterMapIds.find(guid) == m_characterMapIds.end() || objmgr.GetPlayerInfo(guid) == NULL)
         response = CHAR_LOGIN_NO_CHARACTER;
-    else if(!sWorldMgr.ValidateMapId(m_characterMapIds.at(guid)))
-        response = CHAR_LOGIN_NO_WORLD;
-    else if(objmgr.GetPlayer(guid) != NULL || m_loggingInPlayer || _player)
+    else if(objmgr.GetPlayer(guid) != NULL)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
-    else if( PlayerInfo * plrInfo = objmgr.GetPlayerInfo(guid) )
-        response = CHAR_LOGIN_SUCCESS;
+    else if (uint8 vError = sWorldMgr.ValidateMapId(m_characterMapIds.at(guid)))
+    {
+        if (vError == 2)
+        {
+            sWorld.QueueWorldPush(this, guid, m_characterMapIds.at(guid));
+            return;
+        }
+        response = CHAR_LOGIN_NO_WORLD;
+    }
 
     if(response != CHAR_LOGIN_SUCCESS)
     {
@@ -503,6 +495,11 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
         return;
     }
 
+    PlayerLoginProc(guid);
+}
+
+void WorldSession::PlayerLoginProc(WoWGuid guid)
+{
     //We have a valid Guid so let's create the player and login
     Player* plr = new Player(guid);
     plr->Init();

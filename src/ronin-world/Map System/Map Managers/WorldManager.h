@@ -107,7 +107,7 @@ public:
     void ParseMapDBC();
     void LoadSpawnData();
 
-    bool ValidateMapId(uint32 mapId);
+    uint8 ValidateMapId(uint32 mapId);
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
 
     bool PushToWorldQueue(WorldObject *obj);

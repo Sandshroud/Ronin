@@ -17,7 +17,6 @@ World::World() : m_eventHandler(NULL)
     m_playerLimit = 0;
     GmClientChannel = "";
     GuildsLoading = false;
-    mQueueUpdateInterval = 180000;
     PeakSessionCount = 0;
     mInWorldPlayerCount = 0;
     mAcceptedConnections = 0;
@@ -28,6 +27,9 @@ World::World() : m_eventHandler(NULL)
     IsPvPRealm = true;
     authSeed1.SetRand(16 * 8);
     authSeed2.SetRand(16 * 8);
+
+    m_queueUpdateTimer = 180000;
+    m_pushUpdateTimer = 0;
 
 #ifdef WIN32
     m_bFirstTime = true;
@@ -965,49 +967,73 @@ void World::UpdateQueuedSessions(uint32 diff)
 {
     if(diff >= m_queueUpdateTimer)
     {
-        m_queueUpdateTimer = 180000;
+        m_queueUpdateTimer = 60000;
         queueMutex.Acquire();
-
-        if(mQueuedSessions.size() == 0)
+        if (!mQueuedSessions.empty())
         {
-            queueMutex.Release();
-            return;
-        }
+            while (m_sessions.size() < m_playerLimit && mQueuedSessions.size())
+            {
+                // Yay. We can let another player in now.
+                // Grab the first fucker from the queue, but guard of course, since
+                // this is in a different thread again.
 
-        while(m_sessions.size() < m_playerLimit && mQueuedSessions.size())
-        {
-            // Yay. We can let another player in now.
-            // Grab the first fucker from the queue, but guard of course, since
-            // this is in a different thread again.
+                QueueSet::iterator iter = mQueuedSessions.begin();
+                WorldSocket * QueuedSocket = *iter;
+                mQueuedSessions.erase(iter);
 
-            QueueSet::iterator iter = mQueuedSessions.begin();
-            WorldSocket * QueuedSocket = *iter;
-            mQueuedSessions.erase(iter);
+                // Welcome, sucker.
+                if (QueuedSocket->GetSession())
+                    QueuedSocket->Authenticate();
+            }
 
-            // Welcome, sucker.
-            if(QueuedSocket->GetSession())
-                QueuedSocket->Authenticate();
-        }
-
-        if(mQueuedSessions.size() == 0)
-        {
-            queueMutex.Release();
-            return;
-        }
-
-        // Update the remaining queue members.
-        QueueSet::iterator iter = mQueuedSessions.begin();
-        uint32 Position = 1;
-        while(iter != mQueuedSessions.end())
-        {
-            (*iter)->SendAuthResponse(AUTH_WAIT_QUEUE, true, Position++);
-            ++iter;
+            if (!mQueuedSessions.empty())
+            {
+                // Update the remaining queue members.
+                QueueSet::iterator iter = mQueuedSessions.begin();
+                uint32 Position = 1;
+                while (iter != mQueuedSessions.end())
+                {
+                    (*iter)->SendAuthResponse(AUTH_WAIT_QUEUE, true, Position++);
+                    ++iter;
+                }
+            }
         }
         queueMutex.Release();
-    }
-    else
+    } else m_queueUpdateTimer -= diff;
+
+    m_pushUpdateTimer += diff;
+    if(m_pushUpdateTimer > 15000)
     {
-        m_queueUpdateTimer -= diff;
+        // Reset our update timer
+        m_pushUpdateTimer = 0;
+        // Now we process each queued world push and do a delayed removal from map inside our wrapped mutex
+        uint8 vError;
+        std::set<std::pair<uint8, WorldSession*>> sessions;
+        m_worldPushLock.Acquire();
+        for(std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator itr = m_worldPushQueue.begin(); itr != m_worldPushQueue.end(); itr++)
+        {
+            if((vError = sWorldMgr.ValidateMapId(itr->second.second)) == 2)
+                continue;
+            sessions.insert(std::make_pair(vError, itr->first));
+        }
+
+        // Process delayed removals and process calls
+        for(std::set<std::pair<uint8, WorldSession*>>::iterator itr = sessions.begin(); itr != sessions.end(); itr++)
+        {
+            std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator sessItr = m_worldPushQueue.find((*itr).second);
+            ASSERT("FUCK" && sessItr != m_worldPushQueue.end());
+            WorldSession *sess = sessItr->first;
+            WoWGuid guid = sessItr->second.first;
+            m_worldPushQueue.erase(sessItr);
+            if((*itr).first)
+            {
+                sess->Disconnect();
+                continue;
+            }
+
+            sess->PlayerLoginProc(guid);
+        }
+        m_worldPushLock.Release();
     }
 }
 
@@ -1017,10 +1043,9 @@ void World::SaveAllPlayers()
         return;
 
     sLog.outString("Saving all players to database...");
-    uint32 count = 0;
+    uint32 count = 0, mt;
     ObjectMgr::PlayerStorageMap::const_iterator itr;
-        // Servers started and obviously runing. lets save all players.
-    uint32 mt;
+    // Servers started and obviously runing. lets save all players.
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
@@ -1477,6 +1502,30 @@ void World::CharacterEnumProc(QueryResultVector& results, uint32 AccountId)
         return;
 
     s->CharacterEnumProc(results[0].result);
+}
+
+bool World::HasPendingWorldPush(WorldSession *session)
+{
+    m_worldPushLock.Acquire();
+    bool res = m_worldPushQueue.find(session) != m_worldPushQueue.end();
+    m_worldPushLock.Release();
+    return res;
+}
+
+void World::QueueWorldPush(WorldSession *session, WoWGuid guid, uint32 mapId)
+{
+    m_worldPushLock.Acquire();
+    m_worldPushQueue.insert(std::make_pair(session, std::make_pair(guid, mapId)));
+    m_worldPushLock.Release();
+}
+
+void World::CancelWorldPush(WorldSession *session)
+{
+    std::map<WorldSession*, std::pair<WoWGuid, uint32>>::iterator itr;
+    m_worldPushLock.Acquire();
+    if((itr = m_worldPushQueue.find(session)) != m_worldPushQueue.end())
+        m_worldPushQueue.erase(itr);
+    m_worldPushLock.Release();
 }
 
 void World::DisconnectUsersWithAccount(const char * account, WorldSession * m_session)

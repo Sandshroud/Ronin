@@ -39,6 +39,7 @@ WorldSocket::~WorldSocket()
 
     if(mSession)
     {
+        sWorld.CancelWorldPush(mSession);
         mSession->SetSocket(NULL);
         mSession=NULL;
     }
@@ -54,6 +55,7 @@ void WorldSocket::OnDisconnect()
 {
     if(mSession)
     {
+        sWorld.CancelWorldPush(mSession);
         mSession->SetSocket(0);
         mSession = NULL;
     }

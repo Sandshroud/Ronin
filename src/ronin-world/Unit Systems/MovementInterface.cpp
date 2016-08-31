@@ -731,6 +731,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
     m_breathingUpdateTimer += diff;
     if(m_breathingUpdateTimer < 500)
         return;
+    uint32 uiDiff = m_breathingUpdateTimer;
     m_breathingUpdateTimer = 0;
 
     uint8 old_underwaterState = m_underwaterState;
@@ -779,7 +780,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
         }
         else
         {
-            m_MirrorTimer[BREATH_TIMER] -= diff;
+            m_MirrorTimer[BREATH_TIMER] -= uiDiff;
 
             // Timer limit - need deal damage
             if (m_MirrorTimer[BREATH_TIMER] < 0)
@@ -799,7 +800,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
         int32 UnderWaterTime = m_UnderwaterTime;
 
         // Need breath regen
-        m_MirrorTimer[BREATH_TIMER] += 10*diff;
+        m_MirrorTimer[BREATH_TIMER] += 10* uiDiff;
         if (m_MirrorTimer[BREATH_TIMER] >= UnderWaterTime || !plr->isAlive())
             plr->StopMirrorTimer(BREATH_TIMER);
         else if (m_LastUnderwaterState & UNDERWATERSTATE_UNDERWATER)
@@ -819,7 +820,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
             }
             else
             {
-                m_MirrorTimer[FATIGUE_TIMER] -= diff;
+                m_MirrorTimer[FATIGUE_TIMER] -= uiDiff;
                 // Timer limit - need deal damage or teleport ghost to graveyard
                 if (m_MirrorTimer[FATIGUE_TIMER] < 0)
                 {
@@ -838,7 +839,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
         else if (m_MirrorTimer[FATIGUE_TIMER] != -1)       // Regen timer
         {
             int32 DarkWaterTime = 60000;
-            m_MirrorTimer[FATIGUE_TIMER]+=10*diff;
+            m_MirrorTimer[FATIGUE_TIMER]+=10* uiDiff;
             if (m_MirrorTimer[FATIGUE_TIMER] >= DarkWaterTime || !plr->isAlive())
                 plr->StopMirrorTimer(FATIGUE_TIMER);
             else if (m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE)
@@ -853,7 +854,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
             m_MirrorTimer[FIRE_TIMER] = 3000;
         else
         {
-            m_MirrorTimer[FIRE_TIMER] -= diff;
+            m_MirrorTimer[FIRE_TIMER] -= uiDiff;
             if (m_MirrorTimer[FIRE_TIMER] < 0)
             {
                 m_MirrorTimer[FIRE_TIMER] += 3000;
