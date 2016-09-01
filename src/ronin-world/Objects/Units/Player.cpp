@@ -245,7 +245,6 @@ void Player::Init()
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
 
     m_eventHandler.AddStaticEvent(this, &Player::_EventExploration, 1500);
-    m_eventHandler.AddStaticEvent(this, &Player::ProcessPendingItemUpdates, 250);
 }
 
 void Player::Destruct()
@@ -391,6 +390,8 @@ void Player::Update(uint32 msTime, uint32 diff)
             m_taxiUpdateTimer = 0;
         }
     }
+
+    ProcessPendingItemUpdates();
 }
 
 void Player::ProcessImmediateItemUpdate(Item *item)
@@ -410,25 +411,16 @@ void Player::ProcessPendingItemUpdates()
     if(m_pendingUpdates.empty() || !IsInWorld() || m_session == NULL)
         return;
 
-    WorldPacket data(SMSG_UPDATE_OBJECT, 0x1000);
-    data << uint16(m_mapId) << uint32(0);
-    uint32 counter = 0;
+    ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
     while(m_pendingUpdates.size())
     {
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
-        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&m_itemUpdateData, 0xFFFF))
-        {
-            data.append(m_itemUpdateData.contents(), m_itemUpdateData.size());
-            counter += count;
-        }
-        m_itemUpdateData.clear();
+        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
+            PushUpdateBlock(&buff, count);
+        buff.clear();
     }
-    if(counter == 0)
-        return;
-
-    data.put<uint32>(2, counter);
-    m_session->SendPacket(&data);
+    m_mapInstance->PushToProcessed(this);
 }
 
 void Player::ItemFieldUpdated(Item *item)
