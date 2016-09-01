@@ -1666,8 +1666,6 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     // Search quest log, find any exploration quests
     sQuestMgr.OnPlayerExploreArea(GetPlayer(),id);
 
-    QueryResult *res = WorldDatabase.Query("SELECT type, requiredteam, map, position_x, position_y, position_z, orientation FROM areatriggers WHERE entry = %u", id);
-
     // if in BG handle is triggers
     if( _player->m_bg )
     {
@@ -1681,6 +1679,7 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     if( _player->GetSession()->CanUseCommand('z') )
         sChatHandler.BlueSystemMessage( this, "[%sSystem%s] |rEntered areatrigger: %s%u", MSG_COLOR_WHITE, MSG_COLOR_LIGHTBLUE, MSG_COLOR_SUBWHITE, id);
 
+    QueryResult *res = WorldDatabase.Query("SELECT type, requiredteam, map, position_x, position_y, position_z, orientation FROM areatriggers WHERE entry = %u", id);
     if(res == NULL)
     {
         sLog.outDebug("Missing AreaTrigger: %u", id);
@@ -1688,18 +1687,20 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     }
 
     Field *fields = res->Fetch();
-    if(fields[0].GetUInt32() != 1)
+    if(fields[0].GetUInt32() != 1 || (fields[1].GetInt32() != -1 && fields[1].GetInt32() != _player->GetTeam()))
+    {
+        delete res;
         return;
-
-    if(fields[1].GetInt32() != -1)
-        if(fields[1].GetInt32() != _player->GetTeam())
-            return;
+    }
 
     if(_player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
     {
         MapEntry* map = dbcMap.LookupEntry(fields[2].GetUInt32());
         if(map == NULL)
+        {
+            delete res;
             return;
+        }
 
         //do we meet the map requirements?
         uint8 reason = CheckTeleportPrerequisites(this, _player, fields[2].GetUInt32());
@@ -1772,4 +1773,5 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
         // teleport to our instance
         _player->SafeTeleport(fields[2].GetUInt32(), 0, LocationVector(fields[3].GetFloat(), fields[4].GetFloat(), fields[5].GetFloat(), fields[6].GetFloat()));
     }
+    delete res;
 }

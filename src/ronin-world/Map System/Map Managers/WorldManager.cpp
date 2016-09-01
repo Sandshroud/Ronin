@@ -412,10 +412,11 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
         return;
     }
 
-    // Mark as loading
+    mapLoadLock.Acquire(); // Mark as loading 
     if(m_loadingMaps.find(mapEntry->MapID) == m_loadingMaps.end())
         m_loadingMaps.insert(std::make_pair(mapEntry->MapID, 1));
     else m_loadingMaps[mapEntry->MapID] += 1;
+    mapLoadLock.Release();
 
     // Initialize the map data first
     map->Initialize(GetSpawn(mapEntry->MapID), true);

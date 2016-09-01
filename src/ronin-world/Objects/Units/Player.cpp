@@ -146,7 +146,8 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_updateDataCount               = 0;
     m_OutOfRangeIdCount             = 0;
     m_updateDataBuff.reserve(0xAFFF);
-    m_OutOfRangeIds.reserve(0xFFFF);
+    m_OutOfRangeIds.reserve(0x1000);
+    m_itemUpdateData.reserve(0x1000);
     bProcessPending                 = false;
 
     for(uint8 i = 0; i < QUEST_LOG_COUNT; i++)
@@ -157,7 +158,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     myCorpse                        = NULL;
     blinked                         = false;
     blinktimer                      = getMSTime();
-    m_explorationTimer              = getMSTime();
     linkTarget                      = NULL;
     stack_cheat                     = false;
     triggerpass_cheat               = false;
@@ -243,6 +243,9 @@ void Player::Init()
 
     // We're players!
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
+
+    m_eventHandler.AddStaticEvent(this, &Player::_EventExploration, 1500);
+    m_eventHandler.AddStaticEvent(this, &Player::ProcessPendingItemUpdates, 250);
 }
 
 void Player::Destruct()
@@ -362,22 +365,12 @@ void Player::Update(uint32 msTime, uint32 diff)
         }
     }
 
-    // Exploration
-    m_explorationTimer += diff;
-    if(m_explorationTimer >= 1500)
-    {
-        _EventExploration();
-        m_explorationTimer = 0;
-    }
-
     if (m_drunk)
     {
         m_drunkTimer += diff;
         if (m_drunkTimer > 10*1000)
             EventHandleSobering();
     }
-
-    ProcessPendingItemUpdates();
 
     if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();
@@ -400,24 +393,42 @@ void Player::Update(uint32 msTime, uint32 diff)
     }
 }
 
-void Player::ProcessPendingItemUpdates()
+void Player::ProcessImmediateItemUpdate(Item *item)
 {
-    if(m_pendingUpdates.empty() || !IsInWorld())
+    if(!IsInWorld())
         return;
 
     ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
+    if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
+        PushUpdateBlock(&buff, count);
+    buff.clear();
+    m_mapInstance->PushToProcessed(this);
+}
+
+void Player::ProcessPendingItemUpdates()
+{
+    if(m_pendingUpdates.empty() || !IsInWorld() || m_session == NULL)
+        return;
+
+    WorldPacket data(SMSG_UPDATE_OBJECT, 0x1000);
+    data << uint16(m_mapId) << uint32(0);
+    uint32 counter = 0;
     while(m_pendingUpdates.size())
     {
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
-        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
-            PushUpdateBlock(&buff, count);
-        buff.clear();
+        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&m_itemUpdateData, 0xFFFF))
+        {
+            data.append(m_itemUpdateData.contents(), m_itemUpdateData.size());
+            counter += count;
+        }
+        m_itemUpdateData.clear();
     }
-
-    if(!IsInWorld())
+    if(counter == 0)
         return;
-    m_mapInstance->ObjectUpdated(this);
+
+    data.put<uint32>(2, counter);
+    m_session->SendPacket(&data);
 }
 
 void Player::ItemFieldUpdated(Item *item)
@@ -2137,21 +2148,8 @@ void Player::_EventExploration()
     if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
     {
         //Mount expired?
-        if(IsMounted())
-        {
-            switch(m_mapId)
-            {
-            case 531:
-                {
-                    // Qiraj battletanks work everywhere on map 531
-                    if(m_MountSpellId == 25953 || m_MountSpellId == 26054 || m_MountSpellId == 26055 || m_MountSpellId == 26056)
-                        break;
-                }
-            default:
-                Dismount();
-                break;
-            }
-        }
+        if(IsMounted() && !(m_mapId == 531 && (m_MountSpellId == 25953 || m_MountSpellId == 26054 || m_MountSpellId == 26055 || m_MountSpellId == 26056)))
+            Dismount();
 
         // Now remove all auras that are only usable outdoors (e.g. Travel form)
         m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
@@ -4921,6 +4919,10 @@ void Player::ResetAllCooldowns()
 void Player::PushOutOfRange(WoWGuid guid)
 {
     _bufferS.Acquire();
+    // Set data size for limiting update blocks to 4Kb
+    if( (guid.pLen() + m_OutOfRangeIds.size()) >= 0x1000 )
+        PopPendingUpdates();
+
     ++m_OutOfRangeIdCount;
     m_OutOfRangeIds << guid.asPacked();
 

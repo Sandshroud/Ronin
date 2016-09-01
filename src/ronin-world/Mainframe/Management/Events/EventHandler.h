@@ -16,8 +16,15 @@ public:
     void Update(uint32 msDiff, time_t curTime);
 
 protected:
+    // Event internal handlers
+    bool _HasEvent(size_t hash);
+    void _RemoveEvent(size_t hash);
     void _AddEvent(size_t hash, CallbackBase *eventCallback, time_t occurTimer);
     void _AddEvent(size_t hash, CallbackBase *eventCallback, uint32 occurTimer);
+
+    // Static event internal handlers
+    bool _HasStaticEvent(size_t hash);
+    void _RemoveStaticEvent(size_t hash);
     void _AddStaticEvent(size_t hash, CallbackBase *eventCallback, uint32 occurTimer);
 
 private:
@@ -30,6 +37,22 @@ private:
     Object *_object;
 
 public:
+    template <class Class> bool HasEvent(Class *obj, void (Class::*method)(void)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1> bool HasEvent(Class *obj, void (Class::*method)(P1)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1, typename P2> bool HasEvent(Class *obj, void (Class::*method)(P1,P2)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3> bool HasEvent(Class *obj, void (Class::*method)(P1,P2,P3)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4> bool HasEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5> bool HasEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5)) { GEN_METH_ID(method); return _HasEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6> bool HasEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5,P6)) { GEN_METH_ID(method); return _HasEvent(hash); }
+
+    template <class Class> void RemoveEvent(Class *obj, void (Class::*method)(void)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1> void RemoveEvent(Class *obj, void (Class::*method)(P1)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1, typename P2> void RemoveEvent(Class *obj, void (Class::*method)(P1,P2)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3> void RemoveEvent(Class *obj, void (Class::*method)(P1,P2,P3)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4> void RemoveEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5> void RemoveEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6> void RemoveEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5,P6)) { GEN_METH_ID(method); _RemoveEvent(hash); }
+
     template <class Class> void AddEvent(Class* obj, void (Class::*method)(void), time_t occurTimer)
     {
         GEN_METH_ID(method); // We need to generate a static identifier for our method
@@ -127,6 +150,22 @@ public:
         // Now push dynamic event to be handled once when timer ends
         _AddEvent(hash, new CallbackP6<Class, P1, P2, P3, P4, P5, P6>(obj, method, p1, p2, p3, p4, p5, p6), occurTimer);
     }
+
+    template <class Class> bool HasStaticEvent(Class *obj, void (Class::*method)(void)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1> bool HasStaticEvent(Class *obj, void (Class::*method)(P1)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1, typename P2> bool HasStaticEvent(Class *obj, void (Class::*method)(P1,P2)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3> bool HasStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4> bool HasStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5> bool HasStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6> bool HasStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5,P6)) { GEN_METH_ID(method); return _HasStaticEvent(hash); }
+
+    template <class Class> void RemoveStaticEvent(Class *obj, void (Class::*method)(void)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1, typename P2> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1,P2)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
+    template <class Class, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6> void RemoveStaticEvent(Class *obj, void (Class::*method)(P1,P2,P3,P4,P5,P6)) { GEN_METH_ID(method); _RemoveStaticEvent(hash); }
 
     template <class Class> void AddStaticEvent(Class* obj, void (Class::*method)(void), uint32 occurTimer)
     {

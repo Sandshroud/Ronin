@@ -250,14 +250,17 @@ public:
     void _LoadInstances();
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
-    bool HasLoadingMaps() { return !m_loadingMaps.empty(); }
+    bool HasLoadingMaps() { mapLoadLock.Acquire(); bool ret = !m_loadingMaps.empty(); mapLoadLock.Release(); return ret; }
     void MapLoaded(uint32 mapId)
     {
-        if(m_loadingMaps.find(mapId) == m_loadingMaps.end())
+        mapLoadLock.Acquire();
+        if(m_loadingMaps.find(mapId) == m_loadingMaps.end() || (--m_loadingMaps[mapId]) >= 1)
+        {
+            mapLoadLock.Release();
             return;
-        if(--m_loadingMaps[mapId])
-            return;
+        }
         m_loadingMaps.erase(mapId);
+        mapLoadLock.Release();
     }
 
 private:
@@ -265,6 +268,7 @@ private:
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
     void _InitializeInstance(MapEntry *mapEntry, Map *map);
 
+    Mutex mapLoadLock;
     std::map<uint32, MapEntry*> m_loadedMaps;
 
     Mutex m_mapLock;

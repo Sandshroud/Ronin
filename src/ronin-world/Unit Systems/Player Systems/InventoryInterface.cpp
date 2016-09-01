@@ -290,9 +290,8 @@ Item* PlayerInventory::SafeRemoveAndRetreiveItemFromSlot(int16 ContainerSlot, in
 
     if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
     {
-        pItem = GetInventoryItem(ContainerSlot,slot);
-
-        if (pItem == NULL) { return NULL; }
+        if((pItem = GetInventoryItem(ContainerSlot,slot)) == NULL)
+            return NULL;
 
         if(pItem->GetProto()->ContainerSlots > 0 && pItem->GetTypeId() == TYPEID_CONTAINER && castPtr<Container>(pItem)->HasItems())
         {
@@ -314,8 +313,7 @@ Item* PlayerInventory::SafeRemoveAndRetreiveItemFromSlot(int16 ContainerSlot, in
                 int VisibleBase = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, 0 );
                 m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
-            }
-            else if ( slot < INVENTORY_SLOT_BAG_END )
+            } else if ( slot < INVENTORY_SLOT_BAG_END )
                 m_pOwner->ApplyItemMods( pItem, slot, false );
 
             if(destroy)
@@ -324,9 +322,7 @@ Item* PlayerInventory::SafeRemoveAndRetreiveItemFromSlot(int16 ContainerSlot, in
                     pItem->RemoveFromWorld();
                 pItem->DeleteFromDB();
             }
-        }
-        else
-            pItem = NULL;
+        } else pItem = NULL;
     }
     else
     {

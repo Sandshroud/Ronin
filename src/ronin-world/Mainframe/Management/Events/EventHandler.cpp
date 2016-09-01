@@ -33,6 +33,27 @@ void EventHandler::Init()
 
 }
 
+bool EventHandler::_HasEvent(size_t hash)
+{
+    m_lock.Acquire();
+    bool ret = m_dynamicEvents.find(hash) != m_dynamicEvents.end();
+    m_lock.Release();
+    return ret;
+}
+
+void EventHandler::_RemoveEvent(size_t hash)
+{
+    Loki::AssocVector<size_t, EventBaseClass*>::iterator itr;
+    m_lock.Acquire();
+    if((itr = m_dynamicEvents.find(hash)) != m_dynamicEvents.end())
+    {
+        EventBaseClass *bClass = itr->second;
+        m_dynamicEvents.erase(itr);
+        delete bClass;
+    }
+    m_lock.Release();
+}
+
 void EventHandler::_AddEvent(size_t hash, CallbackBase *eventCallback, time_t occurTimer)
 {
     m_lock.Acquire();
@@ -44,6 +65,39 @@ void EventHandler::_AddEvent(size_t hash, CallbackBase *eventCallback, uint32 oc
 {
     m_lock.Acquire();
     m_eventQueue.push_back(new DelayedEvent(eventCallback, hash, occurTimer));
+    m_lock.Release();
+}
+
+bool EventHandler::_HasStaticEvent(size_t hash)
+{
+    m_lock.Acquire();
+    for(std::vector<EventBaseClass*>::iterator itr = m_staticEvents.begin(); itr != m_staticEvents.end(); itr++)
+    {
+        if(hash == (*itr)->getFuncHash())
+        {
+            m_lock.Release();
+            return true;
+        }
+    }
+    m_lock.Release();
+    return false;
+}
+
+void EventHandler::_RemoveStaticEvent(size_t hash)
+{
+    Loki::AssocVector<size_t, EventBaseClass*>::iterator itr;
+    m_lock.Acquire();
+    for(std::vector<EventBaseClass*>::iterator itr2, itr = m_staticEvents.begin(); itr != m_staticEvents.end();)
+    {
+        itr2 = itr;
+        itr++;
+        if(hash == (*itr2)->getFuncHash())
+        {
+            EventBaseClass *bClass = (*itr2);
+            m_staticEvents.erase(itr2);
+            delete bClass;
+        }
+    }
     m_lock.Release();
 }
 

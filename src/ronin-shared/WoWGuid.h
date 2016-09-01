@@ -68,6 +68,8 @@ public:
     bool operator >( const uint64 val ) const { return ((uint64)*this) > val; }
     bool operator <( const uint64 val ) const { return (uint64)*this < val; }
 
+    uint8 len() { return sizeof(uint64); }
+    uint8 pLen() { uint8 len = 0; for(uint8 i = 0; i < 8; i++) { if(blocks[i]) len++; } return len; }
     bool empty() { return operator !(); };
     bool count() { return !empty(); }
     WGuidPacked *asPacked() { return new WGuidPacked(this); }

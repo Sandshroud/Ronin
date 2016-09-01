@@ -13,6 +13,7 @@ public:
     Container(ItemPrototype *proto, uint32 counter);
     ~Container();
 
+    virtual void OnFieldUpdated(uint16 field);
     virtual bool IsContainer() { return true; }
 
     void LoadFromDB( Field*fields);

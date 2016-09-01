@@ -424,19 +424,18 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
         }
     }
 
-    QueryResult * result2 = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str());
-    if(result2)
+    if(result = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str()))
     {
-        if(result2->Fetch()[0].GetUInt32() > 0)
+        if(result->Fetch()[0].GetUInt32() > 0)
         {
             // That name is banned!
             data << uint8(CHAR_NAME_PROFANE);
             data << guid << name;
             SendPacket(&data);
-            delete result2;
+            delete result;
             return;
         }
-        delete result2;
+        delete result;
     }
 
     // Check if name is in use.

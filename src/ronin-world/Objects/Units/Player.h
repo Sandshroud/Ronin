@@ -644,6 +644,7 @@ public:
 
     void Update( uint32 msTime, uint32 diff );
 
+    void ProcessImmediateItemUpdate(Item *item);
     void ProcessPendingItemUpdates();
     std::set<Item*> m_pendingUpdates;
     void ItemFieldUpdated(Item *item);
@@ -1425,7 +1426,6 @@ public:
     LocationVector m_resurrectLoction;
     uint32 blinktimer;
     bool blinked;
-    uint32 m_explorationTimer;
 
     // DBC stuff
     CharRaceEntry * myRace;
@@ -1588,7 +1588,7 @@ protected:
     Mutex _bufferS;
     bool bProcessPending;
     uint32 m_updateDataCount, m_OutOfRangeIdCount;
-    ByteBuffer m_updateDataBuff, m_OutOfRangeIds;
+    ByteBuffer m_updateDataBuff, m_OutOfRangeIds, m_itemUpdateData;
     /* End update system */
 
     void _EventExploration();

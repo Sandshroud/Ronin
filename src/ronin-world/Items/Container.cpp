@@ -24,6 +24,12 @@ Container::~Container( )
     delete [] m_itemSlots;
 }
 
+void Container::OnFieldUpdated(uint16 field)
+{
+    if(m_owner && IsInWorld())
+        m_owner->ProcessImmediateItemUpdate(this);
+}
+
 void Container::LoadFromDB( Field *fields )
 {
     Item::LoadFromDB(fields);
