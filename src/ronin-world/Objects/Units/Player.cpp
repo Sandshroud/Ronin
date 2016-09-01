@@ -244,6 +244,15 @@ void Player::Init()
     // We're players!
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
 
+    // Default fields
+    for(uint32 x = 0; x < MAX_RESISTANCE; x++)
+        SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_HEALING_DONE_PCT, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_SPELL_POWER_PCT, 1.f);
+    SetFloatValue(PLAYER_FIELD_WEAPON_DMG_MULTIPLIERS, 1.f);
+    SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
+
     m_eventHandler.AddStaticEvent(this, &Player::_EventExploration, 1500);
 }
 
@@ -1136,10 +1145,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_instanceId    = fields[PLAYERLOAD_FIELD_INSTANCE_ID].GetUInt32();
     m_zoneId        = fields[PLAYERLOAD_FIELD_ZONEID].GetUInt32();
 
-    // Calculate the base stats now they're all loaded
-    for(uint32 x = 0; x < 7; x++)
-        SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+x, 1.f);
-
     // Initialize 'normal' fields
     if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
         CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
@@ -1919,7 +1924,6 @@ bool Player::Create(WorldPacket& data )
     else if(class_ == DEATHKNIGHT)
         m_talentInterface.ModTalentPoints(-24);
 
-    SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
     SetUInt32Value(PLAYER_FIELD_MAX_LEVEL, sWorld.GetMaxLevel(this));
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 

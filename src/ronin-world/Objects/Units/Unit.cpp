@@ -84,6 +84,7 @@ void Unit::Init()
 
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
     SetFloatValue(UNIT_FIELD_COMBATREACH, 5.f );
+    SetFloatValue(UNIT_FIELD_BASEATTACKTIME, 2000.0f);
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
@@ -779,7 +780,7 @@ void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
         {
             for(uint8 s = 0; s < MAX_RESISTANCE; s++)
             {
-                int32 val = 0;
+                float val = 1.f;
                 for(AuraInterface::modifierMap::iterator itr = powerCostMods->begin(); itr != powerCostMods->end(); itr++)
                 {
                     if(itr->second->m_miscValue[0] & (1 << s))
