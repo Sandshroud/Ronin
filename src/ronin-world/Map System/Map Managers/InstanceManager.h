@@ -21,7 +21,7 @@ public:
     void Prepare();
 
     // Quick storage of map data for checking instance allocation later
-    void AddMapData(MapEntry *entry, Map *map) { m_mapData.insert(std::make_pair(entry->MapID, map)); }
+    void AddMapData(MapEntry *entry, Map *map) { mapDataLock.Acquire(); m_mapData.insert(std::make_pair(entry->MapID, map)); mapDataLock.Release(); }
 
     // Grab that instance stuff
     MapInstance *GetInstanceForObject(WorldObject *obj);
@@ -29,7 +29,7 @@ public:
     uint32 PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate = true);
 
 private:
-    Map *GetMapData(uint32 mapId) { return m_mapData.find(mapId) == m_mapData.end() ? NULL : m_mapData.at(mapId); }
+    Map *GetMapData(uint32 mapId) { Map *ret = NULL; mapDataLock.Acquire(); ret = m_mapData.find(mapId) == m_mapData.end() ? NULL : m_mapData.at(mapId); mapDataLock.Release(); return ret; }
     void _AddInstance(uint32 instanceId, MapInstance *instance);
     MapInstance *_LoadInstance(uint32 mapId, uint32 instanceId);
 
@@ -50,6 +50,7 @@ private:
     InstanceDataMap m_instanceData;
 
     // Map data storage
+    Mutex mapDataLock;
     std::map<uint32, Map*> m_mapData;
 };
 

@@ -55,61 +55,70 @@ void WorldManager::ParseMapDBC()
 
 void WorldManager::LoadSpawnData()
 {
-    std::stringstream ss;
+    std::stringstream ss[2];
     for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
     {
-        if(!ss.str().empty())
-            ss << ", ";
-        ss << itr->first;
+        uint8 index = itr->second->IsContinent() ? 0 : 1;
+        if(!ss[index].str().empty())
+            ss[index] << ", ";
+        ss[index] << itr->first;
     }
 
-    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss.str().c_str()))
+    for(uint8 i = 0; i < 2; i++)
     {
-        do
+        uint32 count = 0;
+        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss[i].str().c_str()))
         {
-            Field * fields = result->Fetch();
-            uint32 mapId = fields[0].GetUInt32();
-            CreatureSpawn *cspawn = new CreatureSpawn();
-            cspawn->id = fields[1].GetUInt32();
-            cspawn->entry = fields[2].GetUInt32();
-            cspawn->x = fields[3].GetFloat();
-            cspawn->y = fields[4].GetFloat();
-            cspawn->z = fields[5].GetFloat();
-            cspawn->o = NormAngle(fields[6].GetFloat());
-            cspawn->modelId = fields[7].GetUInt32();
-            cspawn->phaseMask = fields[8].GetUInt16();
-            cspawn->eventId = fields[9].GetUInt32();
-            cspawn->vendormask = fields[10].GetInt32();
-            m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
-        }while(result->NextRow());
-        delete result;
-    }
+            do
+            {
+                count++;
+                Field * fields = result->Fetch();
+                uint32 mapId = fields[0].GetUInt32();
+                CreatureSpawn *cspawn = new CreatureSpawn();
+                cspawn->id = fields[1].GetUInt32();
+                cspawn->entry = fields[2].GetUInt32();
+                cspawn->x = fields[3].GetFloat();
+                cspawn->y = fields[4].GetFloat();
+                cspawn->z = fields[5].GetFloat();
+                cspawn->o = NormAngle(fields[6].GetFloat());
+                cspawn->modelId = fields[7].GetUInt32();
+                cspawn->phaseMask = fields[8].GetUInt16();
+                cspawn->eventId = fields[9].GetUInt32();
+                cspawn->vendormask = fields[10].GetInt32();
+                m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
+            }while(result->NextRow());
+            delete result;
+        }
 
-    if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId FROM gameobject_spawns WHERE map IN(%s)", ss.str().c_str()))
-    {
-        do
+        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId FROM gameobject_spawns WHERE map IN(%s)", ss[i].str().c_str()))
         {
-            Field * fields = result->Fetch();
-            uint32 mapId = fields[0].GetUInt32();
-            GOSpawn *gspawn = new GOSpawn();
-            gspawn->id = fields[1].GetUInt32();
-            gspawn->entry = fields[2].GetUInt32();
-            gspawn->x = fields[3].GetFloat();
-            gspawn->y = fields[4].GetFloat();
-            gspawn->z = fields[5].GetFloat();
-            gspawn->rX = fields[6].GetFloat();
-            gspawn->rY = fields[7].GetFloat();
-            gspawn->rZ = fields[8].GetFloat();
-            gspawn->rAngle = fields[9].GetFloat();
-            gspawn->state = fields[10].GetUInt32();
-            gspawn->flags = fields[11].GetUInt32();
-            gspawn->faction = fields[12].GetUInt32();
-            gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
-            gspawn->phaseMask = fields[14].GetUInt16();
-            gspawn->eventId = fields[15].GetUInt32();
-            m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
-        }while(result->NextRow());
-        delete result;
+            do
+            {
+                count++;
+                Field * fields = result->Fetch();
+                uint32 mapId = fields[0].GetUInt32();
+                GOSpawn *gspawn = new GOSpawn();
+                gspawn->id = fields[1].GetUInt32();
+                gspawn->entry = fields[2].GetUInt32();
+                gspawn->x = fields[3].GetFloat();
+                gspawn->y = fields[4].GetFloat();
+                gspawn->z = fields[5].GetFloat();
+                gspawn->rX = fields[6].GetFloat();
+                gspawn->rY = fields[7].GetFloat();
+                gspawn->rZ = fields[8].GetFloat();
+                gspawn->rAngle = fields[9].GetFloat();
+                gspawn->state = fields[10].GetUInt32();
+                gspawn->flags = fields[11].GetUInt32();
+                gspawn->faction = fields[12].GetUInt32();
+                gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
+                gspawn->phaseMask = fields[14].GetUInt16();
+                gspawn->eventId = fields[15].GetUInt32();
+                m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
+            }while(result->NextRow());
+            delete result;
+        }
+
+        sLog.Notice("WorldManager", "%u %s spawns loaded into storage.", count, i == 0 ? "Continent" : "Instance");
     }
 }
 
@@ -438,6 +447,7 @@ void WorldManager::_InitializeInstance(MapEntry *mapEntry, Map *map)
 {
     // Initialize the map data first
     map->Initialize(GetSpawn(mapEntry->MapID), false);
+
     // Push map data to instance manager
     sInstanceMgr.AddMapData(mapEntry, map);
 }

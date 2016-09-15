@@ -313,7 +313,7 @@ public:
     RONIN_INLINE bool HasPlayers() { return (m_PlayerStorage.size() > 0); }
     void TeleportPlayers();
 
-    RONIN_INLINE virtual bool IsInstance() { return false; }
+    RONIN_INLINE virtual bool IsInstance() { return pdbcMap && (pdbcMap->IsDungeon() || pdbcMap->IsRaid()); }
     RONIN_INLINE uint32 GetInstanceID() { return m_instanceID; }
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
     bool CanUseCollision(WorldObject* obj);

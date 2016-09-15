@@ -7,6 +7,9 @@
 #define MAXIMUM_CEXPANSION_LEVEL 85 // Current expansion's max level
 #define MAXIMUM_ATTAINABLE_LEVEL 100 // Crow: Lets use 100, since its the highest the DBCs will support
 
+//Crow: SQRT is a resource heavy function, so we calculate it at startup
+static float fMaxLevelSqrt = sqrt<uint32>(MAXIMUM_ATTAINABLE_LEVEL);
+
 enum Stats : uint8
 {
     STAT_STRENGTH=0,

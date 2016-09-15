@@ -292,15 +292,22 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
 void Unit::UpdateStatValues()
 {
     int32 basepos,pos,neg;
+    uint32 _class = getClass(), Level = getLevel();
+    float ctrMod = ((float)Level)/fMaxLevelSqrt;
+    bool strClass = _class == WARRIOR || _class == PALADIN || _class == DEATHKNIGHT;
     AuraInterface::modifierMap *statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
         *statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
         *totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
 
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
-        basepos = baseStats ? baseStats->baseStat[s] : getLevel()*25;
-        if(baseStats && baseStats->level < getLevel())
-            basepos += getLevel()*15;
+        basepos = baseStats ? baseStats->baseStat[s] : Level*25;
+        if(baseStats && baseStats->level < Level)
+            basepos += (Level-baseStats->level)*15;
+        if(IsCreature() && s == STAT_STRENGTH)
+            basepos *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
+        else if(IsCreature() && s == STAT_AGILITY)
+            basepos *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
 
         pos=GetBonusStat(s), neg=0;
         if(statMod)
@@ -537,19 +544,9 @@ void Unit::UpdateAttackTimeValues()
     }
 }
 
-static float fMaxLevelSqrt = sqrt<uint32>(MAXIMUM_ATTAINABLE_LEVEL);
 static uint32 minAttackPowers[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
 void Unit::UpdateAttackDamageValues()
 {
-    float fMaxLevel = MAXIMUM_ATTAINABLE_LEVEL, fLevel = std::max<float>(0.f, std::min<float>(fMaxLevel-1, getLevel()-1));
-
-    float hpPerStamVal = fMaxLevelSqrt;
-    if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*fMaxLevel+fLevel))
-        hpPerStamVal = HPPerStam->val;
-    if(fLevel > 60)
-        hpPerStamVal *= 1.f + (fLevel-60.f)/30.f;
-    else fLevel += 1;
-
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
     for(uint8 i = 0; i < 3; i++)
     {
@@ -565,7 +562,7 @@ void Unit::UpdateAttackDamageValues()
         if(IsCreature())
         {   // Creature damage is AP times healthmod, with 1.5+rank times being the max damage
             CreatureData *data = castPtr<Creature>(this)->GetCreatureData();
-            baseMaxDamage = std::max<float>(2.f, (apBonus * hpPerStamVal * ((fLevel/fMaxLevelSqrt)/fMaxLevelSqrt))) * (1.f + (((float)data->rank) * 0.5f));
+            baseMaxDamage = std::max<float>(2.f, apBonus * (1.f + (((float)data->rank) * 0.5f)));
             baseMaxDamage = ceil(baseMaxDamage * data->damageMod);
             baseMinDamage = std::max<float>(1.f, floor(baseMaxDamage * ((6.5f + ((float)data->rank+1) + data->damageRangeMod)/10.f)));
         }
@@ -742,6 +739,10 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     case WARRIOR: case DEATHKNIGHT: case PALADIN: { attackPower += GetStrength()*2+getLevel()*3-20; }break;
     default: { attackPower += GetAgility() - 10; }break;
     }
+
+    gtFloat *HPPerStam = NULL;
+    if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
+        attackPower *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
 
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, attackPower);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
@@ -1412,6 +1413,8 @@ bool Unit::isCasting()
 
 bool Unit::IsInInstance()
 {
+    if(m_mapInstance && m_mapInstance->IsInstance())
+        return true;
     return false;
 }
 
@@ -1922,7 +1925,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------------base damage calculation-----------------------------------
             if(exclusive_damage)
                 dmg.full_damage = exclusive_damage;
-            else dmg.full_damage = sStatSystem.CalculateDamage( castPtr<Unit>(this), pVictim, weapon_damage_type, ability );
+            else dmg.full_damage = sStatSystem.CalculateDamage( this, pVictim, weapon_damage_type, ability );
 
             if( weapon_damage_type == RANGED )
                 dmg.full_damage += pVictim->GetRangedDamageTakenMod();

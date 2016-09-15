@@ -236,14 +236,14 @@ void Creature::EventAttackStop()
 
 int32 Creature::GetBaseAttackTime(uint8 weaponType)
 {
-    uint32 weaponDisplay = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+weaponType);
-    switch(weaponType)
+    if(uint32 weaponDisplay = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+weaponType))
     {
-    case 0: return _creatureData->meleeAttackTime;
-    case 1: return weaponDisplay ? _creatureData->meleeAttackTime : 0;
-    case 2: return weaponDisplay ? _creatureData->rangedAttackTime : 0;
+        ItemPrototype *proto = sItemMgr.LookupEntry(weaponDisplay);
+        if(proto == NULL || proto->Class != ITEM_CLASS_WEAPON)
+            return 0;
+        return proto->Delay;//weaponType == RANGED ? _creatureData->rangedAttackTime : _creatureData->meleeAttackTime;
     }
-    return 2000;
+    return weaponType == MELEE ? 2000 : 0;
 }
 
 void Creature::SafeDelete()
