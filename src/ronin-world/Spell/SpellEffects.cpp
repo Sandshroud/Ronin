@@ -528,6 +528,7 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
     if(!target->IsUnit() || !castPtr<Unit>(target)->isAlive())
         return;
 
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     Unit *unitTarget = castPtr<Unit>(target);
     if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
     {
@@ -542,13 +543,11 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
         return;
 
     if(GetSpellProto()->speed > 0)
-        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, false, false);
+        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, spTarget ? spTarget->resistMod : 0.f, false, false);
     else
     {
-        if(false)
-        {
-            m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, false, false);
-        }
+        if(!m_spellInfo->IsSpellMeleeSpell())
+            m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, spTarget ? spTarget->resistMod : 0.f, false, false);
         else if (m_caster->IsUnit())
         {
             uint32 _type = MELEE;
@@ -2347,7 +2346,7 @@ void SpellEffectClass::SpellEffectEnvironmentalDamage(uint32 i, WorldObject *tar
     }
 
     //this is GO, not unit
-    m_caster->SpellNonMeleeDamageLog(playerTarget, GetSpellProto()->Id, amount, true);
+    m_caster->SpellNonMeleeDamageLog(playerTarget, GetSpellProto()->Id, amount, 0.f, true);
 
     WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
     data << playerTarget->GetGUID();

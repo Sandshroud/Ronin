@@ -61,6 +61,7 @@ struct SpellTarget
     uint8 EffectMask;
     uint8 ReflectResult;
     uint32 DestinationTime;
+    float resistMod;
 };
 typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
 
@@ -135,6 +136,15 @@ public:
         if (b_radSet[i] == false)
             SetInternalRadius(i);
         return m_radius[1][i];
+    }
+
+protected:
+    SpellTarget *GetSpellTarget(WoWGuid guid)
+    {
+        SpellTargetMap::iterator itr;
+        if((itr = m_fullTargetMap.find(guid)) == m_fullTargetMap.end())
+            return NULL;
+        return itr->second;
     }
 
 protected:

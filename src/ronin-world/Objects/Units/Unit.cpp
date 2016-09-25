@@ -1500,7 +1500,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     return roll_results[r];
 }
 
-uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout )
+uint32 Unit::GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout )
 {
     SpellEntry* m_spellEntry = pSpell->GetSpellProto();
     int32 levelDiff = pVictim->getLevel() - getLevel();
@@ -1537,42 +1537,64 @@ uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, f
         return SPELL_DID_HIT_SUCCESS;
     if( m_spellEntry->isIgnorantOfHitResult() )
         return SPELL_DID_HIT_SUCCESS;
-
-    float resistChance = 0.f;
-    if(uint32 targetResist = pVictim->GetResistance(m_spellEntry->School))
-        resistChance += (100.f * ((float)targetResist)/(std::max<float>(20.f, getLevel()) * 5.f) * 0.75f);
-    bool resisted = Rand(std::min<float>(75.f, resistChance)); // You have about a 5% chance to resist 100% of damage at resist cap
-    if(resisted && (Spell::IsBinary(m_spellEntry) || Rand(5.f * std::min<float>(75.f, resistChance)/75.f)) && !(m_spellEntry->isUnstoppableForce2() || m_spellEntry->isSpellResistanceIgnorant()))
-        return SPELL_DID_HIT_RESIST;
-
+    // Spell reflect chance occurs before full and partial resist
     if(pSpell->Reflect(pVictim))
     {
         if(reflectout) *reflectout = SPELL_DID_HIT_SUCCESS;
         return SPELL_DID_HIT_REFLECT;
     }
 
-    if(resisted && resistOut)
+    float resistChance = 0.f;
+    if(uint32 targetResist = pVictim->GetResistance(m_spellEntry->School))
     {
-        int stack = 0;
-        int sevenfiveChance = floor(resistChance/18.f);
-        if(resistChance > 100.f) stack += sevenfiveChance;
-        int fivezeroChance = floor(resistChance/(12.f + stack));
-        if(resistChance > 100.f) stack += fivezeroChance;
-        int twentyfiveChance = floor(resistChance/(7.f + stack));
-        int zeroChance = 5 * std::max<float>(1.f, ((75.f - resistChance) * 0.25));
-        int chanceCount = sevenfiveChance + fivezeroChance + twentyfiveChance + zeroChance;
+        // targetResist -= std::min<uint32>(targetResist, GetSpellPenetration());
+        // SPELL_AURA_MOD_TARGET_RESISTANCE
+        resistChance += (100.f * ((float)targetResist)/(std::max<float>(20.f, getLevel()) * 5.f) * 0.75f);
+    }
 
+    // We get a resist chance to get our partial resist off, and if we pass that we also have a small chance to 100% resist depending on cap
+    bool resisted = Rand(std::min<float>(75.f, resistChance)); // You have about a 5% chance to resist 100% of damage at resist cap
+    if(resisted && (Spell::IsBinary(m_spellEntry) || Rand(5.f * std::min<float>(75.f, resistChance)/75.f)) && !(m_spellEntry->isUnstoppableForce2() || m_spellEntry->isSpellResistanceIgnorant()))
+        return SPELL_DID_HIT_RESIST;
+
+    // In cataclysm, partial resists no longer occur against bosses
+    if(resisted && resistOut && !(IsCreature() && castPtr<Creature>(this)->isBoss()))
+    {
+        // Resist chance is from a pool of 4 values, so calculate our chance to get one of these values leaning heavier towards the cap above our 100%
+        int stack = 0, chanceStack[4];
+        chanceStack[3] = floor(resistChance/18.f);
+        if(resistChance > 100.f) stack += chanceStack[3];
+        chanceStack[2] = floor(resistChance/(12.f + stack));
+        if(resistChance > 100.f) stack += chanceStack[2];
+        chanceStack[1] = floor(resistChance/(7.f + stack));
+        chanceStack[0] = std::max<int>(2, 2*(75.f/resistChance));
+        int chanceCount = chanceStack[3] + chanceStack[2] + chanceStack[1] + chanceStack[0];
+        // We have our slots for each roll allocated, but convert into chance blocks to reduce calculation overhead
         float chances[4];
-        chances[0] = 100.f*((float)zeroChance)/((float)chanceCount);
-        chances[1]=chances[0]+100.f*((float)twentyfiveChance)/((float)chanceCount);
-        chances[2]=chances[1]+100.f*((float)fivezeroChance)/((float)chanceCount);
-        chances[3]=chances[2]+100.f*((float)sevenfiveChance)/((float)chanceCount);
+        chances[0] = 100.f*((float)chanceStack[0])/((float)chanceCount);
+        chances[1]=chances[0]+100.f*((float)chanceStack[1])/((float)chanceCount);
+        chances[2]=chances[1]+100.f*((float)chanceStack[2])/((float)chanceCount);
+        chances[3]=chances[2]+100.f*((float)chanceStack[3])/((float)chanceCount);
+        // Roll against our chance blocks to see what we got
         float Roll = RandomFloat(100.0f);
         uint32 r = 3;
         while (r > 0 && Roll < chances[r-1])
             r--;
 
-        static float result[4] = { 0.f, 25.f, 50.f, 75.f };
+        // Since we have our results, now we calculate what partial resist % we got
+        float result[4] = { 0.f, 0.f, 0.f, 0.f }; // { 0.f, 25.f, 50.f, 75.f }; 
+        if(true) // Wotlk+ chances
+        {
+            float cap = std::min<float>(75.f, resistChance);
+            float mitStep = ceil(cap/10.f), mitModifier = ceil((cap-5.f)/10.f);
+            if(mitStep == mitModifier)
+                mitStep += 1.f;
+            result[3] = 10.f * (std::min<float>(10, mitStep));
+            result[2] = result[3] - 10.f;
+            result[1] = result[2] - 10.f;
+            result[0] = result[1] - 10.f;
+        } // Burning Crusade chances
+        else result[1] = 25.f, result[2] = 50.f, result[3] = 75.f;
         *resistOut = result[r];
     }
 
@@ -2093,7 +2115,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 dmg = min_dmg;
                 if(range) range += RandomUInt(range);
 
-                SpellNonMeleeDamageLog(pVictim, itr->second.spellid, dmg, true);
+                SpellNonMeleeDamageLog(pVictim, itr->second.spellid, dmg, 0.f, true);
             }
         }
     }

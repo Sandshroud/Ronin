@@ -227,7 +227,7 @@ private:
     void _AddTarget(WorldObject* target, const uint32 effIndex);
 
     // didhit checker
-    uint8 _DidHit(uint32 index, Unit* target, uint8 *reflectout = NULL);
+    uint8 _DidHit(Unit* target, float *resistOut = NULL, uint8 *reflectout = NULL);
 
 public:
     static std::map<uint8, uint32> m_implicitTargetFlags;

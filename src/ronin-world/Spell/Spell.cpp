@@ -311,7 +311,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
             continue;
         if(!sFactionSystem.isAttackable(m_caster, unit,!GetSpellProto()->isSpellStealthTargetCapable()))
             continue;
-        if(_DidHit(i, unit) != SPELL_DID_HIT_SUCCESS)
+        if(_DidHit(unit) != SPELL_DID_HIT_SUCCESS)
             continue;
         return unit->GetGUID();
     }
@@ -343,14 +343,14 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
             continue;
         if(!sFactionSystem.isFriendly(m_caster, unit))
             continue;
-        if(_DidHit(i, unit) != SPELL_DID_HIT_SUCCESS)
+        if(_DidHit(unit) != SPELL_DID_HIT_SUCCESS)
             continue;
         return unit->GetGUID();
     }
     return 0;
 }
 
-uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
+uint8 Spell::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
 {
     //note resistchance is vise versa, is full hit chance
     if( target == NULL )
@@ -401,12 +401,11 @@ uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
         else if (GetSpellProto()->reqOffHandWeapon())
             _type = OFFHAND;
 
-        if(uint32 melee_test_result = castPtr<Unit>(m_caster)->GetSpellDidHitResult( (Unit*)target, _type, m_spellInfo ))
+        if(uint32 melee_test_result = castPtr<Unit>(m_caster)->GetSpellDidHitResult( target, _type, m_spellInfo ))
             return uint8(melee_test_result & 0xFF);
     }
 
-    float resistAmount = 0.f;
-    return castPtr<Unit>(m_caster)->GetSpellDidHitResult(index, (Unit*)target, this, &resistAmount, reflectout);
+    return castPtr<Unit>(m_caster)->GetSpellDidHitResult(target, this, resistOut, reflectout);
 }
 
 bool Spell::GenerateTargets(SpellCastTargets *t)
@@ -1081,8 +1080,6 @@ void Spell::cast(bool check)
 
             if(m_spellState != SPELL_STATE_CASTING)
                 finish();
-            else if(m_caster->IsGameObject())
-                printf("");
         }
         else //this shit has nothing to do with instant, this only means it will be on NEXT melee hit
         {
@@ -2215,7 +2212,7 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
             tgt->DestinationTime += m_MSTimeToAddToTravel;
         } else tgt->DestinationTime = 0;
 
-        tgt->HitResult = target->IsUnit() ? _DidHit(effIndex, castPtr<Unit>(target), &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
+        tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
         // add counter
         if( tgt->HitResult == SPELL_DID_HIT_SUCCESS )

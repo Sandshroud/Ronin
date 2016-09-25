@@ -1458,7 +1458,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     return damage;
 }
 
-void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, bool allowProc, bool no_remove_auras)
+void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct, bool allowProc, bool no_remove_auras)
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
@@ -1566,12 +1566,12 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     dealdamage dmg;
     dmg.school_type = school;
     dmg.full_damage = res;
-    dmg.resisted_damage = abs_dmg;
+    dmg.resisted_damage = 0;
 
     //------------------------------resistance reducing-----------------------------------------
     if(res > 0 && IsUnit())
     {
-        //castPtr<Unit>(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
+        dmg.resisted_damage += float2int32((((float)dmg.full_damage) * resistPct)/100.f);
         if((int32)dmg.resisted_damage >= dmg.full_damage)
             res = 0;
         else res = float(dmg.full_damage - dmg.resisted_damage);
@@ -1587,13 +1587,13 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
 //==============================Data Sending ProcHandling===================================
 //==========================================================================================
 
-    int32 ires = float2int32(res);
+    int32 ires = std::max<int32>(0, float2int32(res));
 
 //--------------------------split damage-----------------------------------------------
     SendSpellNonMeleeDamageLog(this, pVictim, spellID, ires, school, abs_dmg, dmg.resisted_damage, false, 0, critical, IsPlayer());
 
     if( ires > 0 ) // only deal damage if its >0
-        DealDamage( pVictim, float2int32( res ), 2, 0, spellID );
+        DealDamage( pVictim, ires, 2, 0, spellID );
     else if(IsUnit()) // we still have to tell the combat status handler we did damage so we're put in combat
         castPtr<Unit>(this)->SetInCombat(pVictim);
 
@@ -1624,7 +1624,7 @@ void WorldObject::SendSpellLog(WorldObject* Caster, WorldObject* Target, uint32 
     Caster->SendMessageToSet(&data, true);
 }
 
-void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target, uint32 SpellID, uint32 Damage, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToset )
+void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target, uint32 SpellID, uint32 damageDone, uint8 School, uint32 AbsorbedDamage, uint32 ResistedDamage, bool PhysicalDamage, uint32 BlockedDamage, bool CriticalHit, bool bToset )
 {
     if ( !Caster || !Target )
         return;
@@ -1632,17 +1632,16 @@ void WorldObject::SendSpellNonMeleeDamageLog( WorldObject* Caster, Unit* Target,
     if( !sp )
         return;
 
-    uint32 overkill = Target->computeOverkill(Damage);
+    uint32 overkill = Target->computeOverkill(damageDone);
     uint32 Hit_flags = (0x00001|0x00004|0x00020);
     if(CriticalHit)
         Hit_flags |= 0x00002;
 
-    uint32 dmg = Damage-AbsorbedDamage-ResistedDamage-BlockedDamage;
     WorldPacket data(SMSG_SPELLNONMELEEDAMAGELOG, 16+4+4+4+1+4+4+1+1+4+4+1);
     data << Target->GetGUID().asPacked();
     data << Caster->GetGUID().asPacked();
     data << uint32(SpellID);                // SpellID / AbilityID
-    data << uint32(dmg);                    // All Damage
+    data << uint32(damageDone);             // All Damage
     data << uint32(overkill);               // Overkill
     data << uint8(SchoolMask(School));      // School
     data << uint32(AbsorbedDamage);         // Absorbed Damage
