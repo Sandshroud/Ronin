@@ -221,8 +221,8 @@ void Creature::Tag(Player* plr)
     m_taggingGroup = plr->m_playerInfo->m_Group ? plr->m_playerInfo->m_Group->GetID() : 0;
 
     /* set loot method */
-    if( plr->GetGroup() != NULL )
-        m_lootMethod = plr->GetGroup()->GetMethod();
+    if( Group *grp = plr->GetGroup() )
+        m_lootMethod = grp->GetMethod();
 
     // update tag visual
     UpdateLootAnimation(plr);

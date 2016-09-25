@@ -272,6 +272,7 @@ void CommandTableStorage::Init()
         { "save",                   COMMAND_LEVEL_Z, &ChatHandler::HandleNPCSaveCommand,            "",                                                                                                                                             NULL, 0, 0, 0 },
         { "setvendormask",          COMMAND_LEVEL_Z, &ChatHandler::HandleNPCSetVendorMaskCommand,   "",                                                                                                                                             NULL, 0, 0, 0 },
         { "getspeed",               COMMAND_LEVEL_Z, &ChatHandler::HandleNPCGetSpeed,               "",                                                                                                                                             NULL, 0, 0, 0 },
+        { "getresist",              COMMAND_LEVEL_Z, &ChatHandler::HandleNPCGetResist,              "",                                                                                                                                             NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                          "",                                                                                                                                             NULL, 0, 0, 0 }
     };
     dupe_command_table(NPCCommandTable, _NPCCommandTable);

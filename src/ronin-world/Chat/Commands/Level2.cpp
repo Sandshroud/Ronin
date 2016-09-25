@@ -432,7 +432,7 @@ bool ChatHandler::HandleNPCGetSpeed(const char * args, WorldSession * m_session)
     Unit *unit = getSelectedUnit(m_session, false);
     if(unit == NULL)
     {
-        RedSystemMessage(m_session, "Please select a saved creature before using this command.");
+        RedSystemMessage(m_session, "Please select a unit before using this command.");
         return true;
     }
 
@@ -444,6 +444,22 @@ bool ChatHandler::HandleNPCGetSpeed(const char * args, WorldSession * m_session)
     }
     else if(speedType < MOVE_SPEED_MAX)
         GreenSystemMessage(m_session, "Current speed %f for type %i", unit->GetMoveSpeed(MovementSpeedTypes(speedType)), speedType);
+    return true;
+}
+
+bool ChatHandler::HandleNPCGetResist(const char * args, WorldSession * m_session)
+{
+    Player *plr = m_session->GetPlayer();
+    Unit *unit = getSelectedUnit(m_session, false);
+    if(unit == NULL || plr == NULL || !plr->IsInWorld())
+    {
+        RedSystemMessage(m_session, "Please select a unit before using this command.");
+        return true;
+    }
+
+    int resistType = atoi(args);
+    float reduction = 0.f;
+    GreenSystemMessage(m_session, "Current resistance %f for type %i", reduction, resistType);
     return true;
 }
 

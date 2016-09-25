@@ -452,7 +452,7 @@ public:
     bool canFly();
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
-    uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout = NULL);
+    uint32 GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout);
 
     float CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow);
     void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
@@ -471,8 +471,6 @@ public:
 
     bool isCasting();
     bool IsInInstance();
-    double GetResistanceReducion(Unit* pVictim, uint32 type, float armorReducePct);
-    void CalculateResistanceReduction(Unit* pVictim,dealdamage *dmg,SpellEntry* ability, float armorreducepct) ;
     virtual void RegenerateHealth(bool inCombat) = 0;
     virtual void RegeneratePower(bool isinterrupted) {};
     void RegenerateEnergy();

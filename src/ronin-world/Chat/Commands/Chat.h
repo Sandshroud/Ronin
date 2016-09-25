@@ -355,6 +355,7 @@ protected:
     bool HandleRemoveCurrency(const char *args, WorldSession *m_session);
     bool HandlePlayerInfo(const char* args, WorldSession * m_session);
     bool HandleNPCGetSpeed(const char* args, WorldSession * m_session);
+    bool HandleNPCGetResist(const char* args, WorldSession * m_session);
 
     // Tickets
 #ifndef GM_TICKET_MY_MASTER_COMPATIBLE

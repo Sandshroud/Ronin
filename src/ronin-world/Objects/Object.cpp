@@ -1571,7 +1571,7 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     //------------------------------resistance reducing-----------------------------------------
     if(res > 0 && IsUnit())
     {
-        castPtr<Unit>(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
+        //castPtr<Unit>(this)->CalculateResistanceReduction(pVictim,&dmg,spellInfo,0.0f);
         if((int32)dmg.resisted_damage >= dmg.full_damage)
             res = 0;
         else res = float(dmg.full_damage - dmg.resisted_damage);

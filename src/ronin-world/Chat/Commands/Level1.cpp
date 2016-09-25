@@ -294,8 +294,10 @@ bool ChatHandler::HandleSummonCommand(const char* args, WorldSession *m_session)
 
         Player* plr = m_session->GetPlayer();
 
-        if(plr->GetMapInstance() == chr->GetMapInstance())
-            chr->_Relocate(plr->GetMapId(),plr->GetPosition(),false,plr->GetInstanceID());
+        if ( plr->GetMapId() == chr->GetMapId() && plr->GetInstanceID() == chr->GetInstanceID() )
+            chr->SafeTeleport(plr->GetMapId(),plr->GetInstanceID(),plr->GetPosition());
+        else chr->SafeTeleport(plr->GetMapInstance(), plr->GetPosition());
+
         sWorld.LogGM(m_session, "Summoned player %s", plr->GetName());
     }
     else

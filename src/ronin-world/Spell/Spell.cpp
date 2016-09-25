@@ -405,7 +405,8 @@ uint8 Spell::_DidHit(uint32 index, Unit* target, uint8 *reflectout)
             return uint8(melee_test_result & 0xFF);
     }
 
-    return castPtr<Unit>(m_caster)->GetSpellDidHitResult(index, (Unit*)target, this, reflectout);
+    float resistAmount = 0.f;
+    return castPtr<Unit>(m_caster)->GetSpellDidHitResult(index, (Unit*)target, this, &resistAmount, reflectout);
 }
 
 bool Spell::GenerateTargets(SpellCastTargets *t)

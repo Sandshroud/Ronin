@@ -768,8 +768,12 @@ void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
     default: { rangedAttackPower += GetAgility()-10; }break;
     }
 
+    gtFloat *HPPerStam = NULL;
+    if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
+        rangedAttackPower *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
+
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER, rangedAttackPower);
-    SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, rangedAttackPower);
+    SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
 }
 
@@ -1444,65 +1448,6 @@ void Unit::RegenerateFocus()
     SetPower(POWER_TYPE_FOCUS, (cur >= mp)? mp : cur);
 }
 
-double Unit::GetResistanceReducion(Unit* pVictim, uint32 school, float armorReducePct)
-{
-    double reduction = 0.0;
-    if(school == 0) // physical
-    {
-        float armor = pVictim->GetResistance(0);
-        if(IsPlayer()) // apply armor penetration
-        {
-            float maxArmorPen = 0;
-            if (pVictim->getLevel() < 60)
-                maxArmorPen = float(400 + 85 * pVictim->getLevel());
-            else
-                maxArmorPen = 400 + 85 * pVictim->getLevel() + 4.5f * 85 * (pVictim->getLevel() - 59);
-
-            // Cap armor penetration to this number
-            maxArmorPen = std::min((armor + maxArmorPen) / 3, armor);
-
-            // Figure out how much armor we ignore
-            float armorPen = armorReducePct+castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING);
-
-            // Apply armor pen cap to our calculated armor penetration
-            armor -= std::min(armorPen, maxArmorPen);
-        }
-
-        if (armor < 0.0f)
-            armor = 0.0f;
-
-        float levelModifier = getLevel();
-        if (levelModifier > 59)
-            levelModifier = levelModifier + (4.5f * (levelModifier - 59));
-        reduction = 0.1f * armor / (8.5f * levelModifier + 40);
-        reduction = reduction / (1.0f + reduction);
-    }
-    else 
-    {   // non-physical
-        float resistance = (float) pVictim->GetResistance(school);
-        double RResist = resistance + float((pVictim->getLevel() > getLevel()) ? (pVictim->getLevel() - getLevel()) * 5 : 0);
-        reduction = RResist / (double)(getLevel() * 5) * 0.75f;
-    }
-
-    if(reduction > 0.75)
-        reduction = 0.75;
-    else if(reduction < 0)
-        reduction = 0;
-    return reduction;
-}
-
-void Unit::CalculateResistanceReduction(Unit* pVictim,dealdamage * dmg, SpellEntry* ability, float armorReducePct)
-{
-    if( (dmg->school_type && ability && Spell::IsBinary(ability)) || dmg->school_type == SCHOOL_HOLY )  // damage isn't reduced for binary spells
-        return;
-    double reduction = GetResistanceReducion(pVictim, dmg->school_type, armorReducePct);
-    if(reduction <= 0)
-        return;
-
-    // only for physical or non binary spells
-    (*dmg).resisted_damage = (uint32)(((*dmg).full_damage)*reduction);
-}
-
 uint32 roll_results[5] =
 {
     SPELL_DID_HIT_MISS,
@@ -1539,7 +1484,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     //--------------------------------cummulative chances generation----------------------------
     uint32 r = 0;
     float chances[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    chances[0] = std::max(0.0f, 100.0f-hitchance);
+    chances[0] = std::max(0.0f, 100.0f-std::max(0.0f, 100.0f-std::min<float>(100.f, hitchance)));
     if(!backAttack)
     {
         chances[1] = chances[0]+dodge;
@@ -1555,83 +1500,83 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     return roll_results[r];
 }
 
-uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, uint8 *reflectout )
+uint32 Unit::GetSpellDidHitResult( uint32 index, Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout )
 {
-    if(reflectout) *reflectout = SPELL_DID_HIT_MISS;
-    //
-    float baseresist[3] = { 4.0f, 5.0f, 6.0f };
-    int32 lvldiff           = 0;
-    float hitchance         = 0.0f;
-    float resistchance      = 0.0f;
     SpellEntry* m_spellEntry = pSpell->GetSpellProto();
-    lvldiff = pVictim->getLevel() - getLevel();
-    if(lvldiff > 5) // Crow: This has to be capped, in retail level 50's hit level 80's in dungeons with spells a lot.
-        lvldiff = 5;
-    if (lvldiff < 3)
-        hitchance = 96 - lvldiff;
-    else
-        hitchance = 94 - (lvldiff - 2) * (pVictim->IsPlayer() ? 7 : 11);
+    int32 levelDiff = pVictim->getLevel() - getLevel();
+    if(resistOut) *resistOut = 0.f;
+    if(reflectout) *reflectout = SPELL_DID_HIT_MISS;
+
+    // Calculate our spell miss chance
+    float hitChance = 100.f, baseMiss[3] = { 4.0f, 5.0f, 6.0f };
+    if(levelDiff >= 3)
+        hitChance -= baseMiss[2] + ((levelDiff-2) * 11.f);
+    else if(levelDiff >= 0.f)
+        hitChance -= baseMiss[levelDiff];
 
     if(m_spellEntry->SpellGroupType)
     {
-        SM_FFValue(SMT_HITCHANCE, &hitchance, m_spellEntry->SpellGroupType);
-        SM_PFValue(SMT_HITCHANCE, &hitchance, m_spellEntry->SpellGroupType);
+        SM_FFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
+        SM_PFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
     }
 
     //rating bonus
     if( IsPlayer() )
-        hitchance += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
+        hitChance += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
 
     // 160: Mod AOE avoidance implementation needed.
 
-    if(!Rand(hitchance))
+    // Roll our hit chance
+    if(Rand(hitChance) == false)
         return SPELL_DID_HIT_MISS;
 
     /************************************************************************/
     /* Check if the spell is resisted.                                    */
     /************************************************************************/
-    if( m_spellEntry->School == SCHOOL_NORMAL  || m_spellEntry->isSpellRangedSpell() ) // all ranged spells are physical too...
+    if( m_spellEntry->School == SCHOOL_NORMAL || m_spellEntry->isSpellRangedSpell() ) // all ranged spells are physical too...
         return SPELL_DID_HIT_SUCCESS;
     if( m_spellEntry->isIgnorantOfHitResult() )
         return SPELL_DID_HIT_SUCCESS;
 
-    resistchance = 100.0f-hitchance;
-    if (m_spellEntry->DispelType < NUM_DISPELS)
-        resistchance += pVictim->GetDispelResistancesPCT(m_spellEntry->DispelType);
+    float resistChance = 0.f;
+    if(uint32 targetResist = pVictim->GetResistance(m_spellEntry->School))
+        resistChance += (100.f * ((float)targetResist)/(std::max<float>(20.f, getLevel()) * 5.f) * 0.75f);
+    bool resisted = Rand(std::min<float>(75.f, resistChance)); // You have about a 5% chance to resist 100% of damage at resist cap
+    if(resisted && (Spell::IsBinary(m_spellEntry) || Rand(5.f * std::min<float>(75.f, resistChance)/75.f)) && !(m_spellEntry->isUnstoppableForce2() || m_spellEntry->isSpellResistanceIgnorant()))
+        return SPELL_DID_HIT_RESIST;
 
-    // Our resist to dispel
-    if( m_spellEntry->Effect[index] == SPELL_EFFECT_DISPEL && m_spellEntry->SpellGroupType)
+    if(pSpell->Reflect(pVictim))
     {
-        pVictim->SM_FFValue(SMT_RESIST_DISPEL, &resistchance, m_spellEntry->SpellGroupType);
-        pVictim->SM_PFValue(SMT_RESIST_DISPEL, &resistchance, m_spellEntry->SpellGroupType);
-    }
-
-    if(Spell::IsBinary(m_spellEntry))
-    { // need to apply resistance mitigation
-        float mitigation = 1.0f - float (GetResistanceReducion(pVictim, m_spellEntry->School, 0.0f));
-        resistchance = 100 - (100 - resistchance) * mitigation; // meaning hitchance * mitigation
-    }
-
-    if(resistchance < 1.0f)
-        resistchance = 1.0f;
-
-    if(resistchance > 99.0f)
-        resistchance = 99.0f;
-
-    if (m_spellEntry->isUnstoppableForce2())
-        resistchance = 0.0f;
-
-    if( m_spellEntry->isSpellResistanceIgnorant() )
-        resistchance = 0.0f;
-
-    uint32 res = Rand(resistchance) ? SPELL_DID_HIT_RESIST : SPELL_DID_HIT_SUCCESS;
-    if(res == SPELL_DID_HIT_SUCCESS && pSpell->Reflect(pVictim))
-    {
-        res = SPELL_DID_HIT_REFLECT;
         if(reflectout) *reflectout = SPELL_DID_HIT_SUCCESS;
+        return SPELL_DID_HIT_REFLECT;
     }
 
-    return res;
+    if(resisted && resistOut)
+    {
+        int stack = 0;
+        int sevenfiveChance = floor(resistChance/18.f);
+        if(resistChance > 100.f) stack += sevenfiveChance;
+        int fivezeroChance = floor(resistChance/(12.f + stack));
+        if(resistChance > 100.f) stack += fivezeroChance;
+        int twentyfiveChance = floor(resistChance/(7.f + stack));
+        int zeroChance = 5 * std::max<float>(1.f, ((75.f - resistChance) * 0.25));
+        int chanceCount = sevenfiveChance + fivezeroChance + twentyfiveChance + zeroChance;
+
+        float chances[4];
+        chances[0] = 100.f*((float)zeroChance)/((float)chanceCount);
+        chances[1]=chances[0]+100.f*((float)twentyfiveChance)/((float)chanceCount);
+        chances[2]=chances[1]+100.f*((float)fivezeroChance)/((float)chanceCount);
+        chances[3]=chances[2]+100.f*((float)sevenfiveChance)/((float)chanceCount);
+        float Roll = RandomFloat(100.0f);
+        uint32 r = 3;
+        while (r > 0 && Roll < chances[r-1])
+            r--;
+
+        static float result[4] = { 0.f, 25.f, 50.f, 75.f };
+        *resistOut = result[r];
+    }
+
+    return SPELL_DID_HIT_SUCCESS;
 }
 
 static float hitModifierPerLevelDiff[21] = { /*-10 to -6*/-40.f, -35.f, -30.f, -25.f, -20.f, /*-5 to -1*/ -10.f, -5.f, -3.f, -1.f, -0.5f, /*0 and 1*/0.f, 0.f, /*2 to 5*/0.5f, 1.f, 2.5f, 5.f, /*5 to 10*/7.5f, 10.f, 12.5f, 15.f, 20.f };
@@ -1645,6 +1590,8 @@ float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechan
     hitchance += hitModifierPerLevelDiff[10+uint8(rawDiff)];
     hitchance += GetHitChance();
 
+    if(critChance)
+        *critChance += (-rawDiff/2.f);
     if(crushingBlow)
         *crushingBlow = std::max<float>(0.f, rawDiff >= 4 ? (-15.f+advantage*(1.f+RandomFloat(1.f))) : 0.f);
     if(glancingBlow)
@@ -1791,7 +1738,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     float parry             = 0.0f;
     float glanc             = 0.0f;
     float block             = 0.0f;
-    float crit              = IsPlayer() ? GetFloatValue(PLAYER_CRIT_PERCENTAGE) : 5.f;
+    float crit              = 5.f;
     float crush             = 0.0f;
 
     uint32 targetEvent      = 0;
@@ -1826,8 +1773,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         //--------------------------------parry chance----------------------------------------------
         if (!disarmed)
             parry = pVictim->IsPlayer() ? pVictim->GetFloatValue(PLAYER_PARRY_PERCENTAGE) : 0.f;
-        crit = IsPlayer() ? GetFloatValue(PLAYER_CRIT_PERCENTAGE) : pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f;
-    } else crit = IsPlayer() ? GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE) : pVictim->GetUInt32Value(UNIT_FIELD_AGILITY) / 14.5f;
+        crit = IsPlayer() ? GetFloatValue(PLAYER_CRIT_PERCENTAGE) : (pVictim->GetUInt32Value(UNIT_FIELD_AGILITY)/std::max<float>(50.f, (pVictim->getLevel()*1.5f)));
+    } else crit = IsPlayer() ? GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE) : (pVictim->GetUInt32Value(UNIT_FIELD_AGILITY)/std::max<float>(50.f, (pVictim->getLevel()*1.5f)));
 
     float advantage = CalculateAdvantage(pVictim, hitchance, dodge, parry, block, &crit, &crush, &glanc);
     // Crushing blows only from creatures and physical attacks
@@ -1989,6 +1936,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     if( shield != NULL && !pVictim->disarmedShield )
                     {
                         targetEvent = 2;
+                        blocked_damage = 0;
                         pVictim->Emote(EMOTE_ONESHOT_PARRY_SHIELD);// Animation
 
                         if( shield->GetProto()->InventoryType == INVTYPE_SHIELD )
@@ -2000,10 +1948,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                             blocked_damage = pVictim->GetUInt32Value(PLAYER_SHIELD_BLOCK);
                             hit_status |= HITSTATUS_BLOCK;
                         }
-                        else
-                        {
-                            blocked_damage = 0;
-                        }
 
                         if(dmg.full_damage <= (int32)blocked_damage)
                         {
@@ -2011,10 +1955,9 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                             TRIGGER_AI_EVENT(castPtr<Unit>(this), OnBlocked)(pVictim, blocked_damage);
                             vstate = BLOCK;
                         }
+
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
-                        {
                             pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
-                        }
                     }
                 }
                 break;
@@ -2027,9 +1970,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                         SM_PFValue(SMT_CRITICAL_DAMAGE,&dmg_bonus_pct,ability->SpellGroupType);
 
                     if( IsPlayer() )
-                    {
                         SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_CRITICAL);  //SB@L: Enables spells requiring critical strike
-                    }
 
                     // SpellAuraReduceCritRangedAttackDmg
                     if( weapon_damage_type == RANGED )
@@ -2071,8 +2012,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------absorption------------------------------------------------------
             abs = pVictim->AbsorbDamage(this, dmg.school_type, dmg.full_damage, ability);
 //--------------------------armor reducing--------------------------------------------------
-            if(dmg.full_damage > (int32)blocked_damage && !disable_dR)
-                CalculateResistanceReduction(pVictim,&dmg, ability,armorreducepct);
+            if(dmg.full_damage > (int32)blocked_damage && !disable_dR);// CalculateResistanceReduction(pVictim,&dmg, ability,armorreducepct);
 
             if (dmg.school_type == SCHOOL_NORMAL)
             {
