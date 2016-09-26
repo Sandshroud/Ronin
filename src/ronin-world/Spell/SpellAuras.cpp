@@ -1017,7 +1017,6 @@ void Aura::SpellAuraModShapeshift(bool apply)
         if( modelId != 0 )
         {
             m_target->SetUInt32Value( UNIT_FIELD_DISPLAYID, modelId );
-            m_target->EventModelChange();
         }
 
         p->SetShapeShift( mod->m_miscValue[0] );
@@ -1025,7 +1024,6 @@ void Aura::SpellAuraModShapeshift(bool apply)
     else
     {
         m_target->SetUInt32Value(UNIT_FIELD_DISPLAYID, m_target->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID));
-        m_target->EventModelChange();
 
         p->m_ShapeShifted = 0;
         p->SetShapeShift(0);
@@ -1382,8 +1380,6 @@ void Aura::SpellAuraTransform(bool apply)
                 }
         }break;
     };
-
-    m_target->EventModelChange();
 }
 
 void Aura::SpellAuraModSpellCritChance(bool apply)

@@ -331,6 +331,14 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFl
     return 0;
 }
 
+void Object::OnUpdateProcess()
+{
+    if(IsUnit() && HasUpdateField(UNIT_FIELD_HEALTH))
+        castPtr<Unit>(this)->EventHealthChangeSinceLastUpdate();
+    if(IsUnit() && HasUpdateField(UNIT_FIELD_DISPLAYID))
+        castPtr<Unit>(this)->EventModelChange();
+}
+
 //=======================================================================================
 //  Creates an update block containing all data needed for a new object
 //=======================================================================================

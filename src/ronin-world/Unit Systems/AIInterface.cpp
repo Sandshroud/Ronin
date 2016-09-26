@@ -70,6 +70,11 @@ void AIInterface::Update(uint32 p_time)
     }
 }
 
+void AIInterface::OnAttackStop()
+{
+    m_targetGuid.Clean();
+}
+
 void AIInterface::OnDeath()
 {
     m_targetGuid.Clean();

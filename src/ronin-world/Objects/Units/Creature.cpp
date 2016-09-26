@@ -74,6 +74,13 @@ void Creature::Reactivate()
 {
     if(m_deathState == DEAD)
     {
+        // Reset after death specifics
+        m_skinned = false;
+        m_taggingGroup = m_taggingPlayer = 0;
+        m_lootMethod = -1;
+        m_pickPocketed = false;
+
+        // Other interface hooks
         m_aiInterface.OnRespawn();
 
         m_movementInterface.OnRespawn();
@@ -176,6 +183,9 @@ void Creature::OnAddInRangeObject(WorldObject *pObj)
 
 void Creature::OnRemoveInRangeObject(WorldObject *pObj)
 {
+    if(pObj->GetGUID() == m_attackTarget)
+        m_aiInterface.OnAttackStop();
+
     Unit::OnRemoveInRangeObject(pObj);
     if(pObj->IsUnit())
     {
@@ -276,22 +286,6 @@ void Creature::OnRemoveCorpse()
         SetDeathState(DEAD);
         SetPosition(GetSpawnX(), GetSpawnY(), GetSpawnZ(), GetSpawnO());
     }
-}
-
-void Creature::OnRespawn( MapInstance* m)
-{
-    sLog.outDebug("Respawning %llu...", GetGUID().raw());
-    SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-    SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
-    SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
-
-    m_skinned = false;
-    m_taggingGroup = m_taggingPlayer = 0;
-    m_lootMethod = -1;
-
-    SetDeathState(ALIVE);
-    m_pickPocketed = false;
-    PushToWorld(m);
 }
 
 ///////////
@@ -850,7 +844,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetByte(UNIT_FIELD_BYTES_0, 2, gender);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, model);
-    EventModelChange();
 
     setLevel(level);
     SetFloatValue(OBJECT_FIELD_SCALE_X, _creatureData->scale);
@@ -874,8 +867,14 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     SetUInt32Value(UNIT_FIELD_FLAGS, _creatureData->flags);
     SetUInt32Value(UNIT_FIELD_FLAGS_2, _creatureData->flags2);
 
+    // Reset aurastate
+    SetUInt32Value(UNIT_FIELD_AURASTATE, 0);
+
     // Set our npc flags and apply any variable data
     SetUInt32Value(UNIT_NPC_FLAGS, _creatureData->NPCFLags);
+
+    // Reset dynamic flags
+    SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
 
     if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
         m_SellItems = objmgr.GetVendorList(GetEntry());

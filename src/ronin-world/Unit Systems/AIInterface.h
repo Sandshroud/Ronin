@@ -37,6 +37,7 @@ public:
     // Update
     void Update(uint32 p_time);
 
+    void OnAttackStop();
     void OnDeath();
     void OnRespawn();
     void OnPathChange();

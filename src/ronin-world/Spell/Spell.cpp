@@ -1476,7 +1476,7 @@ uint8 Spell::CanCast(bool tolerate)
         {
             if(Unit *unitTarget = p_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
             {
-                if(sFactionSystem.GetFactionsInteractStatus(p_caster, unitTarget) >= FI_STATUS_NEUTRAL)
+                if(sFactionSystem.GetFactionsInteractStatus(p_caster, unitTarget, true) >= FI_STATUS_NEUTRAL)
                 {
                     if(!sFactionSystem.CanEitherUnitAttack(p_caster, unitTarget, false))
                         return SPELL_FAILED_BAD_TARGETS;

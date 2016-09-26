@@ -50,7 +50,7 @@ bool FactionSystem::AC_GetAttackableStatus(Player *plr, Unit *target)
     return (GetAttackableStatus(plr, target, false) == FI_STATUS_NONE);
 }
 
-FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB)
+FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB, bool oneSided)
 {
     FactionTemplateEntry *factionTemplateA = objA->GetFactionTemplate(), *factionTemplateB = objB->GetFactionTemplate();
     FactionEntry *factionA = objA->GetFaction(), *factionB = objB->GetFaction();
@@ -64,13 +64,13 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *o
     // Check friendly masks
     if(factionTemplateA->FriendlyMask & factionTemplateB->FactionMask)
         return FI_STATUS_FRIENDLY;
-    if(factionTemplateB->FriendlyMask & factionTemplateA->FactionMask)
+    if(oneSided == false && (factionTemplateB->FriendlyMask & factionTemplateA->FactionMask))
         return FI_STATUS_FRIENDLY;
 
     // Check hostile masks
     if(factionTemplateA->HostileMask & factionTemplateB->FactionMask)
         return FI_STATUS_HOSTILE;
-    if(factionTemplateB->HostileMask & factionTemplateA->FactionMask)
+    if(oneSided == false && (factionTemplateB->HostileMask & factionTemplateA->FactionMask))
         return FI_STATUS_HOSTILE;
 
     // Reputation System Checks
@@ -84,7 +84,7 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *o
                 return FI_STATUS_NEUTRAL;
         }
     }
-    else if(objB->IsPlayer() && !objA->IsPlayer())
+    else if(oneSided == false && objB->IsPlayer() && !objA->IsPlayer())
     {
         if(factionB->RepListIndex >= 0)
         {
@@ -100,11 +100,11 @@ FactionInteractionStatus FactionSystem::GetFactionsInteractStatus(WorldObject *o
     {
         if(factionTemplateA->EnemyFactions[i] && factionTemplateA->EnemyFactions[i] == factionTemplateB->Faction)
             return FI_STATUS_HOSTILE;
-        if(factionTemplateB->EnemyFactions[i] && factionTemplateB->EnemyFactions[i] == factionTemplateA->Faction)
+        if(oneSided == false && (factionTemplateB->EnemyFactions[i] && factionTemplateB->EnemyFactions[i] == factionTemplateA->Faction))
             return FI_STATUS_HOSTILE;
-        if(factionTemplateB->FriendlyFactions[i] && factionTemplateB->FriendlyFactions[i] == factionTemplateA->Faction)
+        if(factionTemplateA->FriendlyFactions[i] && factionTemplateA->FriendlyFactions[i] == factionTemplateB->Faction)
             return FI_STATUS_FRIENDLY;
-        if(factionTemplateB->FriendlyFactions[i] && factionTemplateB->FriendlyFactions[i] == factionTemplateA->Faction)
+        if(oneSided == false && (factionTemplateB->FriendlyFactions[i] && factionTemplateB->FriendlyFactions[i] == factionTemplateA->Faction))
             return FI_STATUS_FRIENDLY;
     }
 
@@ -315,7 +315,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
         return FI_STATUS_HOSTILE; // Skip the rest of this, it's all faction shit.
     }
 
-    return GetFactionsInteractStatus(castPtr<Unit>(objA), castPtr<Unit>(objB));
+    return GetFactionsInteractStatus(castPtr<Unit>(objA), castPtr<Unit>(objB), true);
 }
 
 bool FactionSystem::IsInteractionLocked(WorldObject *obj)
@@ -365,7 +365,7 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
     FactionInteractionStatus status = GetTeamBasedStatus(unitA, unitB);
     if(status != FI_STATUS_NEUTRAL)
         return status;
-    return (GetFactionsInteractStatus(unitA, unitB) >= FI_STATUS_NEUTRAL);
+    return (GetFactionsInteractStatus(unitA, unitB, false) >= FI_STATUS_NEUTRAL);
 }
 
 bool FactionSystem::isAttackable(WorldObject* objA, WorldObject* objB, bool CheckStealth)// A can attack B?

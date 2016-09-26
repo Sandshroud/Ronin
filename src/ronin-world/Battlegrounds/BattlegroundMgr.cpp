@@ -1612,7 +1612,6 @@ Creature* CBattleground::SpawnSpiritGuide(float x, float y, float z, float o, bo
 
     pCreature->SetUInt32Value(UNIT_FIELD_DISPLAYID, 13337 + horde);
     pCreature->SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, 13337 + horde);
-    pCreature->EventModelChange();
 
     pCreature->SetUInt32Value(UNIT_CHANNEL_SPELL, 22011);
     pCreature->SetUInt32Value(UNIT_MOD_CAST_SPEED, 1065353216);

@@ -1152,7 +1152,6 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetFaction(info->factiontemplate);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, info->displayId[getGender()]);
     SetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID, info->displayId[getGender()]);
-    EventModelChange();
 
     m_bind_mapid = fields[PLAYERLOAD_FIELD_BINDMAPID].GetUInt32();
     m_bind_pos_x = fields[PLAYERLOAD_FIELD_BINDPOSITION_X].GetFloat();

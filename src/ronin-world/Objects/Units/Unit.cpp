@@ -1586,13 +1586,13 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOu
         if(true) // Wotlk+ chances
         {
             float cap = std::min<float>(75.f, resistChance);
-            float mitStep = ceil(cap/10.f), mitModifier = ceil((cap-5.f)/10.f);
+            float mitStep = ceil(cap/10.f), mitModifier = ceil(std::max(1.f, cap-5.f)/10.f);
             if(mitStep == mitModifier)
                 mitStep += 1.f;
             result[3] = 10.f * (std::min<float>(10, mitStep));
-            result[2] = result[3] - 10.f;
-            result[1] = result[2] - 10.f;
-            result[0] = result[1] - 10.f;
+            result[2] = std::max(0.f, result[3] - 10.f);
+            result[1] = std::max(0.f, result[2] - 10.f);
+            result[0] = std::max(0.f, result[1] - 10.f);
         } // Burning Crusade chances
         else result[1] = 25.f, result[2] = 50.f, result[3] = 75.f;
         *resistOut = result[r];
@@ -2473,7 +2473,6 @@ void Unit::DeMorph()
     // hope it solves it :)
     uint32 displayid = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, displayid);
-    EventModelChange();
 }
 
 void Unit::Emote(EmoteType emote)
@@ -2522,6 +2521,9 @@ void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
 
 void Unit::OnRemoveInRangeObject(WorldObject* pObj)
 {
+    if(pObj->GetGUID() == m_attackTarget)
+        EventAttackStop();
+
     if(pObj->IsUnit())
     {
         Unit* pUnit = castPtr<Unit>(pObj);
@@ -2949,19 +2951,19 @@ void Unit::EventHealthChangeSinceLastUpdate()
     uint8 pct = GetHealthPct();
 
     uint32 toSet = 0, toRemove = 0;
-    if( pct <= 35 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
-        toSet |= AURASTATE_FLAG_HEALTH35;
-    else if( pct > 35 && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
-        toRemove |= AURASTATE_FLAG_HEALTH35;
-
-    if( pct <= 20 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH20) )
+    if( isAlive() && pct <= 20 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH20) )
         toSet |= AURASTATE_FLAG_HEALTH20;
-    else if(pct > 20 && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH20))
+    else if((isDead() || pct > 20) && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH20))
         toRemove |= AURASTATE_FLAG_HEALTH20;
 
-    if( pct >= 75 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTHABOVE75) )
+    if( isAlive() && pct <= 35 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
+        toSet |= AURASTATE_FLAG_HEALTH35;
+    else if((isDead() || pct > 35) && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH35) )
+        toRemove |= AURASTATE_FLAG_HEALTH35;
+
+    if( isAlive() && pct >= 75 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTHABOVE75) )
         toSet |= AURASTATE_FLAG_HEALTHABOVE75;
-    else if(pct < 75 && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTHABOVE75))
+    else if((isDead() || pct < 75) && HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTHABOVE75))
         toRemove |= AURASTATE_FLAG_HEALTHABOVE75;
 
     if(toSet)
@@ -3504,7 +3506,6 @@ void Unit::Dismount()
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI );
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
-    EventModelChange();
 }
 
 void Unit::SetFaction(uint32 faction, bool save)

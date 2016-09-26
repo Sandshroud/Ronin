@@ -322,6 +322,12 @@ void MapInstance::PushObject(WorldObject* obj)
         }
     }
 
+    // Push to our update queue
+    m_updateMutex.Acquire();
+    if(_updates.find(obj) == _updates.end())
+        _updates.insert(obj);
+    m_updateMutex.Release();
+
     //////////////////////
     // Build in-range data
     //////////////////////
@@ -1289,9 +1295,7 @@ void MapInstance::_PerformPendingUpdates()
                 m_updateBuffer.clear();
             }
 
-            if( wObj->IsUnit() && wObj->HasUpdateField( UNIT_FIELD_HEALTH ) )
-                castPtr<Unit>( wObj )->EventHealthChangeSinceLastUpdate();
-
+            wObj->OnUpdateProcess();
             if(wObj->HasInRangePlayers())
             {
                 // build the update

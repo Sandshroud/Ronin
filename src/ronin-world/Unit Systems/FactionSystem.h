@@ -52,7 +52,7 @@ public:
 
 //private:
     bool IsInteractionLocked(WorldObject *obj);
-    FactionInteractionStatus GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB);
+    FactionInteractionStatus GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB, bool oneSided);
 
     FactionInteractionStatus GetTeamBasedStatus(Unit *objA, Unit *objB);
     FactionInteractionStatus GetPlayerAttackStatus(Player *plrA, Player *plrB);

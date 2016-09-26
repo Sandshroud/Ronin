@@ -186,6 +186,9 @@ public:
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, uint32 updateFlags, uint32 expectedField = 0);
 
+    // Data field updates
+    virtual void OnUpdateProcess();
+
 private:
     void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
     void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask );

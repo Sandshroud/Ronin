@@ -410,13 +410,9 @@ public:
 
     // Serialization
     void SaveToDB(bool saveposition = false);
-    void LoadAIAgents(CreatureTemplate * t);
-    void LoadAIAgents();
     void DeleteFromDB();
 
-    void OnJustDied();
     void OnRemoveCorpse();
-    void OnRespawn(MapInstance* m);
     void SafeDelete();
 
     // Demon
