@@ -51,7 +51,7 @@ public:
     //get single Enemy as target
     uint64 GetSinglePossibleFriend(uint32 i, float prange=0);
     //generate possible target list for a spell. Use as last resort since it is not acurate
-    bool GenerateTargets(SpellCastTargets *t);
+    bool GenerateTargets(SpellCastTargets *);
     // Fills the target map of the spell packet
     void FillTargetMap(uint32);
     // Prepares the spell thats going to cast to targets

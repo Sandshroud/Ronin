@@ -73,6 +73,7 @@ public:
     EUnitFields GetPowerFieldForClassAndType(uint8 _class, uint8 powerType);
 
     uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability);
+    std::vector<uint8> *GetUnitPowersForClass(uint8 _class) { if(m_unitPowersForClass.find(_class) == m_unitPowersForClass.end()) return NULL; return &m_unitPowersForClass.at(_class); }
 
 protected:
     void LoadClassPowers();
@@ -80,6 +81,7 @@ protected:
 
 private:
     std::map<uint32, UnitBaseStats*> m_UnitBaseStats;
+    std::map<uint8, std::vector<uint8>> m_unitPowersForClass;
     std::map<std::pair<uint8, uint8>, EUnitFields> m_unitPowersByClass;
     std::map<std::pair<uint8, uint8>, UnitBaseStats*> m_maxBaseStats;
 };

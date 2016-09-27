@@ -176,11 +176,11 @@ FILE(GLOB spell_sources
 source_group("Spell" FILES ${spell_sources})
 SET(group_sources ${group_sources} ${spell_sources})
 
-FILE(GLOB spell_fixes_sources
-"${prefix}/Spell/Spellfixes/*.h"
-"${prefix}/Spell/Spellfixes/*.cpp")
-source_group("Spell\\Spell Fixes" FILES ${spell_fixes_sources})
-SET(group_sources ${group_sources} ${spell_fixes_sources})
+FILE(GLOB spell_hooks_sources
+"${prefix}/Spell/SpellHooks/*.h"
+"${prefix}/Spell/SpellHooks/*.cpp")
+source_group("Spell\\Spell Hooks" FILES ${spell_hooks_sources})
+SET(group_sources ${group_sources} ${spell_hooks_sources})
 
 FILE(GLOB sources "${prefix}/*.h" "${prefix}/*.cpp"
 "${ROOT_PATH}/src/ronin-shared/MemAllocator.*")

@@ -949,6 +949,8 @@ struct SpellEntry
     // Custom
     uint8 Class;
     uint8 buffIndex;
+    uint8 spellType;
+
     uint32 School;
     uint32 NameHash;
     uint32 RankNumber;
@@ -1136,7 +1138,7 @@ struct SpellEntry
     // Combo
     bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
-    bool IsSpellWeaponSpell() { return (IsSpellMeleeSpell() || reqAmmoForSpell() || reqWandForSpell() || (Spell_Dmg_Type >= 2)); }
+    bool IsSpellWeaponSpell() { return spellType <= 3; }
 
 };
 

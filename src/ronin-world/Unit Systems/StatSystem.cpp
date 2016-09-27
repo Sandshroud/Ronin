@@ -52,6 +52,7 @@ void StatSystem::LoadClassPowers()
         {
             if(PowersByClass[i][j] == POWER_TYPE_MAX)
                 continue;
+            m_unitPowersForClass[i].push_back(j);
             m_unitPowersByClass.insert(std::make_pair(std::make_pair(i, j), EUnitFields(PowersByClass[i][j])));
         }
     }

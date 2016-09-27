@@ -79,6 +79,18 @@ void SpellManager::LoadSpellFixes()
         ApplyCoeffSpellFixes(sp);
         SetProcFlags(sp);
     }
+
+    // Register class specific fixes
+    _RegisterWarriorFixes();
+    _RegisterPaladinFixes();
+    _RegisterHunterFixes();
+    _RegisterRogueFixes();
+    _RegisterPriestFixes();
+    _RegisterDeathKnightFixes();
+    _RegisterShamanFixes();
+    _RegisterMageFixes();
+    _RegisterWarlockFixes();
+    _RegisterDruidFixes();
 }
 
 bool validateSpellFamily(SpellEntry *sp, uint8 &outClass)
@@ -334,6 +346,57 @@ void SpellManager::PoolSpellData()
     dbcSpellShapeshift.Unload();
     dbcSpellTargetRestrictions.Unload();
     dbcSpellTotems.Unload();
+}
+
+bool SpellManager::HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    if(sp->NameHash == SPELL_HASH_ZEALOTRY)
+        cost = 0;
+    else if(sp->SpellFamilyName == SPELLFAMILY_PALADIN && powerField == POWER_TYPE_HOLY_POWER)
+    {
+        switch(cost = unitCaster->GetPower(powerField))
+        {
+        case 3: spell->AddWeaponPctMod(205); break; // 3 holy power gives 235%
+        case 2: spell->AddWeaponPctMod(60); break; // 2 holy power gives 90%
+        }
+    }
+
+    return false;
+}
+
+bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 amount)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
+    if(m_dummyEffectHandlers.find(spEff) != m_dummyEffectHandlers.end())
+        return (*m_dummyEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+    return false;
+}
+
+bool SpellManager::HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 amount)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    switch(sp->NameHash)
+    {
+    case SPELL_HASH_OVERPOWER:
+        break;
+    case SPELL_HASH_HEMORRHAGE:
+        break;
+    case SPELL_HASH_DEVASTATE:
+        if(Aura* aura = caster->m_AuraInterface.FindActiveAura(58567))
+        {
+            aura->AddStackSize(caster->HasAura(58388) ? 2 : 1);
+            amount *= aura->getStackSize();
+        } else caster->CastSpell(target, 58567, true);
+        break;
+    case SPELL_HASH_MUTILATE:
+        amount *= 2;
+        amount += sStatSystem.CalculateDamage(caster, target, MELEE, sp);
+        amount += sStatSystem.CalculateDamage(caster, target, OFFHAND, sp);
+        break;
+    }
+    return true;
 }
 
 std::map<uint8, uint32> Spell::m_implicitTargetFlags;
@@ -604,6 +667,12 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
         sp->buffIndex = BUFF_DKPRESENCE;
         break;
     }
+
+    sp->spellType = NON_WEAPON;
+    if(sp->IsSpellMeleeSpell() || (sp->Spell_Dmg_Type == SPELL_DMG_TYPE_MELEE))
+        sp->spellType = sp->reqOffHandWeapon() ? OFFHAND : MELEE;
+    else if(sp->reqAmmoForSpell() || sp->reqWandForSpell() || (sp->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED))
+        sp->spellType = RANGED;
 
     /*    if( IsTargetingStealthed( sp ) )
     sp->c_is_flags |= SPELL_FLAG_IS_TARGETINGSTEALTHED;

@@ -448,7 +448,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(SpellManager, ParseSpellDBC);
 
     tl.wait(); // Load all the storage first
-    MAKE_TASK(SpellManager, LoadSpellFixes);
+    MAKE_TASK(SpellManager, PoolSpellData);
 
     MAKE_TASK(QuestMgr, LoadQuests);
     MAKE_TASK(LootMgr, LoadLoot);
@@ -465,7 +465,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
     tl.wait();
 
-    MAKE_TASK(SpellManager, PoolSpellData);
+    MAKE_TASK(SpellManager, LoadSpellFixes);
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(AchievementMgr, ParseAchievements);

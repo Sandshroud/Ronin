@@ -10,7 +10,7 @@ std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectM
 
 SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber) : BaseSpell(caster, info, castNumber)
 {
-
+    weaponPctMod = 0;
 }
 
 SpellEffectClass::~SpellEffectClass()
@@ -68,7 +68,7 @@ int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
 
 void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
 {
-    uint32 effect = GetSpellProto()->Effect[i];
+    uint32 effect = m_spellInfo->Effect[i];
     if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
         (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, CalculateEffect(i, target));
     else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
@@ -562,6 +562,9 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount) // Dummy(Scripted events)
 {
+    if(sSpellMgr.HandleDummyEffect(this, i, m_caster, target, amount))
+        return;
+
     sLog.outDebug("Dummy spell not handled: %u\n", m_spellInfo->Id);
 }
 
@@ -1022,18 +1025,13 @@ void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, i
     if( unitTarget == NULL || !m_caster->IsUnit() )
         return;
 
-    uint32 _type = MELEE;
-    if( m_spellInfo->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED )
-        _type = RANGED;
-    else if (GetSpellProto()->reqOffHandWeapon())
-        _type = OFFHAND;
-
-    if( m_spellInfo->Spell_Dmg_Type == SPELL_DMG_TYPE_MAGIC )
+    weaponPctMod += amount;
+    if(m_spellInfo->spellType == NON_WEAPON)
     {
-        float fdmg = (float)sStatSystem.CalculateDamage( castPtr<Unit>(m_caster), unitTarget, _type, GetSpellProto() );
+        float fdmg = (float)sStatSystem.CalculateDamage( castPtr<Unit>(m_caster), unitTarget, MELEE, GetSpellProto() );
         uint32 dmg = float2int32(fdmg*(float(amount/100.0f)));
         castPtr<Unit>(m_caster)->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, dmg, false, false);
-    } else castPtr<Unit>(m_caster)->Strike( unitTarget, _type, GetSpellProto(), i, 0, amount, 0, false, false );
+    } else castPtr<Unit>(m_caster)->Strike( unitTarget, m_spellInfo->spellType, GetSpellProto(), i, 0, weaponPctMod, 0, false, false );
 }
 
 void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, int32 amount) // Trigger Missile
@@ -2250,40 +2248,23 @@ void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amo
 
 void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount) // Normalized Weapon damage +
 {
-    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
-    if( unitTarget == NULL || u_caster == NULL )
+    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL, *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
+    if( u_caster == NULL || unitTarget == NULL )
+        return;
+    if(m_spellInfo->spellType == NON_WEAPON)
+    {   // If we're not a weapon type spell, just trigger dummy
+        SpellEffectDummy(i, target, amount);
+        return;
+    }
+
+    if(!sSpellMgr.HandleDummyMeleeEffect(this, i, u_caster, unitTarget, amount))
         return;
 
-    uint32 pct_dmg_mod = 100;
-    if( u_caster->IsPlayer() && GetSpellProto()->NameHash == SPELL_HASH_OVERPOWER) //warrior : overpower - let us clear the event and the combopoint count
-    {
-        //castPtr<Player>(m_caster)->NullComboPoints(); //some say that we should only remove 1 point per dodge. Due to cooldown you can't cast it twice anyway..
-    }
-    else if( GetSpellProto()->NameHash == SPELL_HASH_DEVASTATE)
-    {
-        // Player can apply only 58567 Sunder Armor effect.
-        if(Aura* aura = u_caster->m_AuraInterface.FindActiveAura(58567))
-        {
-            aura->AddStackSize(u_caster->HasAura(58388) ? 2 : 1);
-            amount *= aura->getStackSize();
-        } else u_caster->CastSpell(unitTarget, 58567, true);
-    }
-    // rogue - mutilate ads dmg if target is poisoned
-    // pure hax (damage join)
-    else if( GetSpellProto()->NameHash == SPELL_HASH_MUTILATE )
-    {
-        amount *= 2;
-        amount += sStatSystem.CalculateDamage(u_caster, unitTarget, MELEE, GetSpellProto());
-        amount += sStatSystem.CalculateDamage(u_caster, unitTarget, OFFHAND, GetSpellProto());
+    weaponPctMod += amount;
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE))
+        return;
 
-        if( unitTarget->IsPoisoned() )
-            pct_dmg_mod = 120;
-    } //Hemorrhage
-    else if( u_caster->IsPlayer() && GetSpellProto()->NameHash == SPELL_HASH_HEMORRHAGE )
-        ;//p_caster->AddComboPoints(p_caster->GetSelection(), 1);
-
-    uint32 _type = m_spellInfo->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED ? RANGED : GetSpellProto()->reqOffHandWeapon() ? OFFHAND : MELEE;
-    u_caster->Strike( unitTarget, _type, GetSpellProto(), i, amount, pct_dmg_mod, 0, false, false );
+    u_caster->Strike( unitTarget, m_spellInfo->spellType, m_spellInfo, i, amount, weaponPctMod, 0, false, false );
 }
 
 void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount)

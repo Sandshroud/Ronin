@@ -4,6 +4,10 @@
 
 #pragma once
 
+class SpellEffectClass;
+
+typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 amount);
+
 class SERVER_DECL SpellManager : public Singleton<SpellManager>
 {
 public:
@@ -15,6 +19,25 @@ public:
 
     void LoadSpellFixes();
     void PoolSpellData();
+
+    bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
+    bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 amount);
+    bool HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 amount);
+
+private:    // Spell fixes, start with class then continue to zones, items, quests
+    void _RegisterWarriorFixes();
+    void _RegisterPaladinFixes();
+    void _RegisterHunterFixes();
+    void _RegisterRogueFixes();
+    void _RegisterPriestFixes();
+    void _RegisterDeathKnightFixes();
+    void _RegisterShamanFixes();
+    void _RegisterMageFixes();
+    void _RegisterWarlockFixes();
+    void _RegisterDruidFixes();
+
+    // Register handler
+    RONIN_INLINE void _RegisterDummyEffect(uint32 spellId, uint32 effIndex, tSpellDummyEffect dummyHandler) { m_dummyEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
 
 private:
     // Sets default values for custom fields
@@ -37,6 +60,9 @@ private:
 
     // Dumy spell id storage
     std::set<uint32> m_dummySpells;
+
+    // Dummy effect handler storage
+    std::map<std::pair<uint32, uint32>, tSpellDummyEffect> m_dummyEffectHandlers;
 };
 
 #define sSpellMgr SpellManager::getSingleton()

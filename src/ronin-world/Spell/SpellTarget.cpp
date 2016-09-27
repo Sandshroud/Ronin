@@ -40,7 +40,7 @@ void Spell::FillTargetMap(uint32 i)
 
     //always add this guy :P
     if(!(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
-        if(WorldObject* target = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget))
+        if(Unit* target = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
             AddTarget(i, TargetType, target);
 
     if(TargetType & SPELL_TARGET_OBJECT_SELF)

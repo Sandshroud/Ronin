@@ -393,18 +393,9 @@ uint8 Spell::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
     /************************************************************************/
     /* Check if the spell is a melee attack and if it was missed/parried    */
     /************************************************************************/
-    if( GetSpellProto()->IsSpellWeaponSpell() )
-    {
-        uint32 _type = MELEE;
-        if( GetType() == SPELL_DMG_TYPE_RANGED )
-            _type = RANGED;
-        else if (GetSpellProto()->reqOffHandWeapon())
-            _type = OFFHAND;
-
-        if(uint32 melee_test_result = castPtr<Unit>(m_caster)->GetSpellDidHitResult( target, _type, m_spellInfo ))
-            return uint8(melee_test_result & 0xFF);
-    }
-
+    uint32 meleeResult = 0;
+    if( GetSpellProto()->IsSpellWeaponSpell() && (meleeResult = castPtr<Unit>(m_caster)->GetSpellDidHitResult(target, m_spellInfo->spellType, m_spellInfo)) )
+        return meleeResult;
     return castPtr<Unit>(m_caster)->GetSpellDidHitResult(target, this, resistOut, reflectout);
 }
 
@@ -1297,16 +1288,21 @@ bool Spell::TakePower()
     if(!m_caster->IsUnit())
         return true;
 
+    Unit *u_caster = castPtr<Unit>(m_caster);
     int32 powerField = 0, cost = CalculateCost(powerField);
     if(powerField == -1)
         return false;
+
+    bool result = false;
+    if(sSpellMgr.HandleTakePower(this, u_caster, GetSpellProto()->powerType, cost, result))
+        return result;
+
     if (cost <= 0)
     {
         m_usesMana = false; // no mana regen interruption for free spells
         return true;
     }
 
-    Unit *u_caster = castPtr<Unit>(m_caster);
     if(GetSpellProto()->powerType == POWER_TYPE_RUNIC)
     {
         if(u_caster->IsPlayer())

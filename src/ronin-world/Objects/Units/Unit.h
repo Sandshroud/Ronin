@@ -202,7 +202,8 @@ enum WeaponDamageType // this is NOT the same as SPELL_ENTRY_Spell_Dmg_Type, or 
     MELEE           = 0,
     OFFHAND         = 1,
     RANGED          = 2,
-    RANGED_AUTOSHOT = 3
+    RANGED_AUTOSHOT = 3,
+    NON_WEAPON
 };
 
 enum VisualState

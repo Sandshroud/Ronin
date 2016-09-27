@@ -403,37 +403,30 @@ void Unit::UpdateHealthValues()
 static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
-    uint32 power = baseStats ? baseStats->basePower*GetPowerMod() : 0;
-    if(power)
+    std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
+    for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
-        SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
+        uint8 powerType = *itr;
+        uint32 power = basePowerValues[powerType];
+        if(powerType == POWER_TYPE_MANA)
+        {
+            if(baseStats)
+                power += baseStats->basePower*GetPowerMod();
+            SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
 
-        int32 intellect = GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
-        intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
-        power += GetBonusMana() + baseIntellect + intellect*15.f*GetPowerMod();
-        if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY))
-            for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
-                if(itr->second->m_miscValue[0] == 0) power += itr->second->m_amount;
-        if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT))
-            for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
-                if(itr->second->m_miscValue[0] == 0) power *= float(abs(itr->second->m_amount))/100.f;
+            int32 intellect = GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
+            intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
+            power += GetBonusMana() + baseIntellect + intellect*15.f*GetPowerMod();
+        }
 
-        if(GetPower(POWER_TYPE_MANA) > power)
-            SetPower(POWER_TYPE_MANA, power);
-        SetMaxPower(POWER_TYPE_MANA, power);
-    }
-
-    if(uint8 powerType = getPowerType())
-    {
-        power = basePowerValues[powerType];
         if(powerType <= POWER_TYPE_RUNIC)
         {
             if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY))
-                for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
-                    if(itr->second->m_miscValue[0] == powerType) power += itr->second->m_amount;
+                for(AuraInterface::modifierMap::iterator itr2 = increaseEnergyMod->begin(); itr2 != increaseEnergyMod->end(); itr2++)
+                    if(itr2->second->m_miscValue[0] == powerType) power += itr2->second->m_amount;
             if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT))
-                for(AuraInterface::modifierMap::iterator itr = increaseEnergyMod->begin(); itr != increaseEnergyMod->end(); itr++)
-                    if(itr->second->m_miscValue[0] == powerType) power *= float(abs(itr->second->m_amount))/100.f;
+                for(AuraInterface::modifierMap::iterator itr2 = increaseEnergyMod->begin(); itr2 != increaseEnergyMod->end(); itr2++)
+                    if(itr2->second->m_miscValue[0] == powerType) power *= float(abs(itr2->second->m_amount))/100.f;
         }
 
         if(GetPower(powerType) > power)
@@ -747,6 +740,8 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, attackPower);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
+
+    m_modQueuedModUpdates[9].empty();
 }
 
 void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
@@ -775,6 +770,8 @@ void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER, rangedAttackPower);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
+
+    m_modQueuedModUpdates[9].empty();
 }
 
 void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
@@ -1484,7 +1481,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     //--------------------------------cummulative chances generation----------------------------
     uint32 r = 0;
     float chances[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    chances[0] = std::max(0.0f, 100.0f-std::max(0.0f, 100.0f-std::min<float>(100.f, hitchance)));
+    chances[0] = std::max(0.0f, std::max(0.0f, 100.0f-std::min<float>(100.f, hitchance)));
     if(!backAttack)
     {
         chances[1] = chances[0]+dodge;
@@ -1507,33 +1504,38 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOu
     if(resistOut) *resistOut = 0.f;
     if(reflectout) *reflectout = SPELL_DID_HIT_MISS;
 
-    // Calculate our spell miss chance
-    float hitChance = 100.f, baseMiss[3] = { 4.0f, 5.0f, 6.0f };
-    if(levelDiff >= 3)
-        hitChance -= baseMiss[2] + ((levelDiff-2) * 11.f);
-    else if(levelDiff >= 0.f)
-        hitChance -= baseMiss[levelDiff];
-
-    if(m_spellEntry->SpellGroupType)
+    // Melee spells ignore hit checks because of previously called melee hit checks
+    if(!m_spellEntry->IsSpellMeleeSpell())
     {
-        SM_FFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
-        SM_PFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
+        // Calculate our spell miss chance
+        float hitChance = 100.f, baseMiss[3] = { 4.0f, 5.0f, 6.0f };
+        if(levelDiff >= 3)
+            hitChance -= baseMiss[2] + ((levelDiff-2) * 11.f);
+        else if(levelDiff >= 0.f)
+            hitChance -= baseMiss[levelDiff];
+
+        if(m_spellEntry->SpellGroupType)
+        {
+            SM_FFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
+            SM_PFValue(SMT_HITCHANCE, &hitChance, m_spellEntry->SpellGroupType);
+        }
+
+        //rating bonus
+        if( IsPlayer() )
+            hitChance += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
+
+        // 160: Mod AOE avoidance implementation needed.
+
+        // Roll our hit chance
+        if(Rand(hitChance) == false)
+            return SPELL_DID_HIT_MISS;
     }
-
-    //rating bonus
-    if( IsPlayer() )
-        hitChance += castPtr<Player>(this)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_HIT );
-
-    // 160: Mod AOE avoidance implementation needed.
-
-    // Roll our hit chance
-    if(Rand(hitChance) == false)
-        return SPELL_DID_HIT_MISS;
 
     /************************************************************************/
     /* Check if the spell is resisted.                                    */
     /************************************************************************/
-    if( m_spellEntry->School == SCHOOL_NORMAL || m_spellEntry->isSpellRangedSpell() ) // all ranged spells are physical too...
+    // Holy and physical spells cannot be resisted, ranged spells are always considered physical
+    if( m_spellEntry->School == SCHOOL_HOLY || m_spellEntry->School == SCHOOL_NORMAL || m_spellEntry->isSpellRangedSpell() )
         return SPELL_DID_HIT_SUCCESS;
     if( m_spellEntry->isIgnorantOfHitResult() )
         return SPELL_DID_HIT_SUCCESS;
@@ -2949,7 +2951,6 @@ void Unit::SetMeleeAnimKitId(uint16 animKitId)
 void Unit::EventHealthChangeSinceLastUpdate()
 {
     uint8 pct = GetHealthPct();
-
     uint32 toSet = 0, toRemove = 0;
     if( isAlive() && pct <= 20 && !HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_HEALTH20) )
         toSet |= AURASTATE_FLAG_HEALTH20;
