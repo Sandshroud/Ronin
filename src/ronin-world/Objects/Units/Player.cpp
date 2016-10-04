@@ -611,6 +611,21 @@ float Player::GetRatioForCombatRating(uint8 cr)
     return 1.f;
 }
 
+void Player::UpdateMasteryValues()
+{
+    if(!m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
+    {
+        SetFloatValue(PLAYER_MASTERY, 0.0f);
+        return;
+    }
+
+    float baseValue = 0.f;
+    if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MASTERY))
+        for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+            baseValue += itr->second->m_amount;
+    SetFloatValue(PLAYER_MASTERY, baseValue + GetRatioForCombatRating(PLAYER_RATING_MODIFIER_MASTERY));
+}
+
 void Player::UpdatePlayerRatings()
 {
     for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
@@ -2463,6 +2478,9 @@ void Player::addSpell(uint32 spell_id)
         data << spell_id << uint16(0);
         m_session->SendPacket(&data);
     }
+
+    if(spell->isPassiveSpell())
+        CastSpell(this, spell, true);
 }
 
 void Player::DestroyForPlayer( Player* target, bool anim )

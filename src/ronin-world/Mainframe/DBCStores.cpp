@@ -285,7 +285,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentEntry, dbcTalent);
 static const char *talentFormat = "uuuuuuuuuuxxuxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentTabEntry, dbcTalentTab);
-static const char *talenttabFormat = "uxxuxuxxxxx";
+static const char *talenttabFormat = "uxxuuuxxuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(TalentTreePrimarySpellsEntry, dbcTreePrimarySpells);
 static const char *talenttreeFormat = "uuux";

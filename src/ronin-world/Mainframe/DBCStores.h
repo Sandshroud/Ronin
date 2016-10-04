@@ -1469,6 +1469,9 @@ struct TalentTabEntry
     //char *description;
     uint32 roleMask;
     uint32 masterySpells[2];
+
+    // Custom
+    std::vector<uint8> affectedClasses;
 };
 
 struct TalentTreePrimarySpellsEntry

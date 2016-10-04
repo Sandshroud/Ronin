@@ -652,6 +652,8 @@ public:
     void ItemDestructed(Item *item);
 
     void OnFieldUpdated(uint16 index);
+
+    void UpdateMasteryValues();
     void UpdatePlayerRatings();
 
     float GetPowerMod() { return 1.f; }

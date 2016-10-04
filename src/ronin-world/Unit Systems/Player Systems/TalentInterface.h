@@ -61,7 +61,7 @@ public:
     int32 CalculateSpentPoints(uint8 spec, int32 talentTree = -1);
 
     uint8 GetActiveTalentTab() { return m_specs[m_activeSpec].ActiveTalentTab; }
-    void SetActiveTalentTab(uint8 talentTree) { m_specs[m_activeSpec].ActiveTalentTab = talentTree; }
+    void SetActiveTalentTab(uint8 talentTree) { m_specs[m_activeSpec].ActiveTalentTab = talentTree; InitActiveSpec(); }
     void GetActiveTalentTabStack(uint32 &output);
 
     uint8 GetSpecCount() { return m_specCount; }

@@ -76,8 +76,18 @@ public:
     uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability);
     std::vector<uint8> *GetUnitPowersForClass(uint8 _class) { if(m_unitPowersForClass.find(_class) == m_unitPowersForClass.end()) return NULL; return &m_unitPowersForClass.at(_class); }
 
+    // Talent data acquisition
+    typedef std::multimap<std::pair<uint8, uint8>, uint32> TalentSpellStorage;
+    typedef std::pair<TalentSpellStorage::iterator, TalentSpellStorage::iterator> TalentSpellPair;
+
+    // Primary spells for talent tabs
+    TalentSpellPair GetTalentPrimarySpells(uint8 classId, uint8 tabId) { return m_talentPrimarySpells.equal_range(std::make_pair(classId, tabId)); }
+    // Mastery spells for talent tabs
+    TalentSpellPair GetTalentMasterySpells(uint8 classId, uint8 tabId) { return m_talentMasterySpells.equal_range(std::make_pair(classId, tabId)); }
+
 protected:
     void LoadClassPowers();
+    void LoadClassTalentData();
     bool LoadUnitStats();
 
 private:
@@ -85,6 +95,10 @@ private:
     std::map<uint8, std::vector<uint8>> m_unitPowersForClass;
     std::map<std::pair<uint8, uint8>, EUnitFields> m_unitPowersByClass;
     std::map<std::pair<uint8, uint8>, UnitBaseStats*> m_maxBaseStats;
+
+    // Talent handling
+    TalentSpellStorage m_talentMasterySpells, m_talentPrimarySpells;
+    std::map<std::pair<uint8, uint8>, uint32> m_talentRoleMasks;
 };
 
 #define sStatSystem StatSystem::getSingleton()

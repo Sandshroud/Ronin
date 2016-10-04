@@ -83,6 +83,7 @@ WorldSession::~WorldSession()
             result = deflate(_zlibStream, Z_FINISH);
         deflateEnd(_zlibStream);
         delete _zlibStream;
+        _zlibStream = NULL;
     }
 }
 

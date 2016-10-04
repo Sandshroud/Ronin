@@ -27,7 +27,6 @@ void WorldSession::HandleLearnPreviewTalents( WorldPacket & recv_data )
         if(tabPage != activeTab && activeTab != 0xFF)
             return;
 
-        printf("TabPage: %i count %i\n", tabPage, count);
         _player->m_talentInterface.SetActiveTalentTab(tabPage);
     }
 
@@ -35,10 +34,8 @@ void WorldSession::HandleLearnPreviewTalents( WorldPacket & recv_data )
     for(uint32 i = 0; i < count; i++)
     {
         recv_data >> talent_id >> requested_rank;
-        printf("Attempting talent %u rank %u\n", talent_id, requested_rank);
         if(!_player->LearnTalent(talent_id, requested_rank))
             break;
-        printf("Talent learned\n");
     }
     _player->m_talentInterface.SendTalentInfo();
 }

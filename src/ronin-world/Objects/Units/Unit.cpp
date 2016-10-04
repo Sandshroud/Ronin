@@ -219,9 +219,13 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_HOVER:
         index = 11;
         break;
+        // Player opcode handling
+    case SPELL_AURA_MASTERY:
+        index = IsPlayer() ? 50 : 0;
+        break;
     case SPELL_AURA_MOD_RATING:
     case SPELL_AURA_MOD_RATING_FROM_STAT:
-        index = IsPlayer() ? 12 : 0;
+        index = IsPlayer() ? 51 : 0;
         break;
         /// Movement handler opcodes
         // Enabler opcodes
@@ -241,7 +245,7 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
     case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
     case SPELL_AURA_MOD_MINIMUM_SPEED:
-        index = 13;
+        index = 52;
         break;
     case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
     case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
@@ -284,8 +288,9 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     case 9: UpdateAttackDamageValues(); break;
     case 10: UpdatePowerCostValues(modMap); break;
     case 11: UpdateHoverValues(); break;
-    case 12: castPtr<Player>(this)->UpdatePlayerRatings(); break;
-    case 13: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
+    case 50: castPtr<Player>(this)->UpdateMasteryValues(); break;
+    case 51: castPtr<Player>(this)->UpdatePlayerRatings(); break;
+    case 52: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
     }
 }
 

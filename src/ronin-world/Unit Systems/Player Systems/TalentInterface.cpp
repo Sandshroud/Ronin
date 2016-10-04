@@ -87,7 +87,7 @@ void TalentInterface::SetTalentData(uint8 activeSpec, uint8 specCount, uint32 re
 
 void TalentInterface::InitActiveSpec()
 {
-    m_availableTalentPoints = dbcNumTalents.LookupEntry(std::min<uint32>(100, m_Player->getLevel()))->talentPoints;
+    m_availableTalentPoints = dbcNumTalents.LookupEntry(std::min<uint32>(MAXIMUM_ATTAINABLE_LEVEL, m_Player->getLevel()))->talentPoints;
 
     // We could use the pre-created function but we need to apply the talents
     uint32 spentPoints = 0;//CalculateSpentPoints(m_activeSpec);
@@ -106,6 +106,18 @@ void TalentInterface::InitActiveSpec()
     if(m_currentTalentPoints <= spentPoints)
         m_currentTalentPoints = 0;
     else m_currentTalentPoints -= spentPoints;
+
+    // Add our spec primary spells
+    StatSystem::TalentSpellPair talentPair = sStatSystem.GetTalentPrimarySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+    if(talentPair.first != talentPair.second)
+        for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+            m_Player->addSpell(itr->second);
+
+    // Add our spec mastery spells(usually 1)
+    talentPair = sStatSystem.GetTalentMasterySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+    if(talentPair.first != talentPair.second)
+        for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+            m_Player->addSpell(itr->second);
 
     // Apply glyphs
     for(uint8 i = 0; i < GLYPHS_COUNT; i++)
@@ -186,6 +198,18 @@ void TalentInterface::ResetSpec(uint8 spec, bool silent)
             if(TalentEntry *te = dbcTalent.LookupEntry(itr->first))
                 RemoveTalent(te->RankID[itr->second]);
 
+        // Remove our spec primary spells
+        StatSystem::TalentSpellPair talentPair = sStatSystem.GetTalentPrimarySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+        if(talentPair.first != talentPair.second)
+            for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+                m_Player->removeSpell(itr->second);
+
+        // Remove our spec mastery spells(usually 1)
+        talentPair = sStatSystem.GetTalentMasterySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+        if(talentPair.first != talentPair.second)
+            for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+                m_Player->removeSpell(itr->second);
+
         // The dual wield skill for shamans can only be added by talents.
         // so when reset, the dual wield skill should be removed too.
         // (see also Spell::SpellEffectDualWield)
@@ -229,13 +253,25 @@ void TalentInterface::ApplySpec(uint8 spec)
     for(uint8 i = 0; i < GLYPHS_COUNT; i++)
         UnapplyGlyph(i);
 
+    // Remove our spec primary spells
+    StatSystem::TalentSpellPair talentPair = sStatSystem.GetTalentPrimarySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+    if(talentPair.first != talentPair.second)
+        for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+            m_Player->removeSpell(itr->second);
+
+    // Remove our spec mastery spells(usually 1)
+    talentPair = sStatSystem.GetTalentMasterySpells(m_Player->getClass(), m_specs[m_activeSpec].ActiveTalentTab);
+    if(talentPair.first != talentPair.second)
+        for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+            m_Player->removeSpell(itr->second);
+
     m_activeSpec = spec;
     InitActiveSpec();
 }
 
 void TalentInterface::RecalculateAvailableTalentPoints()
 {
-    uint32 availableTalents = dbcNumTalents.LookupEntry(std::min<uint32>(100, m_Player->getLevel()))->talentPoints;
+    uint32 availableTalents = dbcNumTalents.LookupEntry(std::min<uint32>(MAXIMUM_ATTAINABLE_LEVEL, m_Player->getLevel()))->talentPoints;
     bool reset = availableTalents < m_availableTalentPoints;
     m_availableTalentPoints = availableTalents;
     availableTalents += m_bonusTalentPoints;

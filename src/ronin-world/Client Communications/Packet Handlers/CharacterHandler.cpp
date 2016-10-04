@@ -345,18 +345,20 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pNewChar->UnSetBanned();
     pNewChar->addSpell(22027);    // Remove Insignia
 
-    pNewChar->SaveToDB(true);
-
-    // Create new player info
     PlayerInfo *pn = new PlayerInfo(pNewChar->GetGUID());
     pn->charName = pNewChar->GetName();
-    pn->charClass = pNewChar->getClass();
     pn->charRace = pNewChar->getRace();
+    pn->charClass = pNewChar->getClass();
     pn->charGender = pNewChar->getGender();
     pn->charTeam = pNewChar->GetTeam();
-    pn->lastLevel = pNewChar->getLevel();
-    pn->lastZone = pNewChar->GetZoneId();
-    pn->lastOnline = UNIXTIME;
+    pn->charAppearance = pNewChar->GetUInt32Value(PLAYER_FIELD_BYTES);
+    pn->charAppearance2 = pNewChar->GetUInt32Value(PLAYER_FIELD_BYTES2);
+
+    // Set player info so data gets cached
+    pNewChar->m_playerInfo = pn;
+    pNewChar->SaveToDB(true);
+
+    // Store new player info
     objmgr.AddPlayerInfo(pn);
 
     pNewChar->ok_to_remove = true;
@@ -382,6 +384,8 @@ void WorldSession::HandleCharDeleteOpcode( WorldPacket & recv_data )
     uint8 fail = CHAR_DELETE_SUCCESS;
     if(objmgr.GetPlayer(guid) != NULL)
         fail = CHAR_DELETE_FAILED; // "Char deletion failed"
+    else if(!HasCharacterData(guid))
+        fail = CHAR_DELETE_FAILED;
     else fail = DeleteCharacter(guid);
 
     OutPacket(SMSG_CHARACTER_DELETE, 1, &fail);
@@ -394,12 +398,6 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
     PlayerInfo * inf = objmgr.GetPlayerInfo(guid);
     if( inf != NULL && inf->m_loggedInPlayer == NULL )
     {
-        QueryResult * result = CharacterDatabase.Query("SELECT name FROM character_data WHERE guid = %u AND acct = %u", guid, _accountId);
-        if(result == NULL)
-            return CHAR_DELETE_FAILED;
-        std::string name = result->Fetch()[0].GetString();
-        delete result;
-
         GuildMember* gMember = inf->GuildId ? guildmgr.GetGuildMember(inf->charGuid) : NULL;
         if(gMember != NULL && gMember->pRank->iId == 0)
             return CHAR_DELETE_FAILED_GUILD_LEADER;
@@ -436,7 +434,7 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
             if( ArenaTeam *arTeam = inf->arenaTeam[i] )
                 arTeam->RemoveMember(inf);
 
-        sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", name.c_str(), guid.getLow());
+        sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", inf->charName.c_str(), guid.getLow());
         Player::DeleteFromDB(guid);
 
         /* remove player info */
