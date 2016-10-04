@@ -1394,6 +1394,9 @@ uint8 Spell::CanCast(bool tolerate)
         if((GetSpellProto()->InterruptFlags & CAST_INTERRUPT_ON_MOVEMENT) || m_spellInfo->ChannelInterruptFlags & CHANNEL_INTERRUPT_ON_MOVEMENT)
             return SPELL_FAILED_MOVING;
 
+    if(m_caster->IsUnit() && m_spellInfo->Id == 20271 && !m_caster->HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_JUDGEMENT))
+        return SPELL_FAILED_SPELL_UNAVAILABLE;
+
     if(m_caster->IsInWorld())
     {
         if( Unit *target = m_caster->GetMapInstance()->GetUnit( m_targets.m_unitTarget ) )

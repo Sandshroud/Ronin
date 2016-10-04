@@ -365,7 +365,15 @@ bool SpellManager::HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, in
     return false;
 }
 
-bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 amount)
+void SpellManager::HandleEffectSchoolDMG(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, Unit *target, int32 &amount)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
+    if(m_damageEffectHandlers.find(spEff) != m_damageEffectHandlers.end())
+        (*m_damageEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+}
+
+bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
@@ -374,7 +382,7 @@ bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, W
     return false;
 }
 
-bool SpellManager::HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 amount)
+bool SpellManager::HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     switch(sp->NameHash)
@@ -651,16 +659,23 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
 
     switch(sp->NameHash)
     {
-    case SPELL_HASH_BATTLE_SHOUT: sp->buffIndex = BUFF_WARRIOR_BATTLE_SHOUT; break;
-    case SPELL_HASH_COMMANDING_SHOUT: sp->buffIndex = BUFF_WARRIOR_COMMANDING_SHOUT; break;
-    case SPELL_HASH_BLESSING_OF_MIGHT: sp->buffIndex = BUFF_PALADIN_MIGHT; break;
-    case SPELL_HASH_BLESSING_OF_WISDOM: sp->buffIndex = BUFF_PALADIN_WISDOM; break;
-    case SPELL_HASH_BLESSING_OF_KINGS: sp->buffIndex = BUFF_PALADIN_KINGS; break;
-    case SPELL_HASH_DEVOTION_AURA: sp->buffIndex = BUFF_PALADIN_DEVOTION; break;
-    case SPELL_HASH_RETRIBUTION_AURA: sp->buffIndex = BUFF_PALADIN_RETRIBUTION; break;
-    case SPELL_HASH_CONCENTRATION_AURA: sp->buffIndex = BUFF_PALADIN_CONCENTRATION; break;
-    case SPELL_HASH_RESISTANCE_AURA: sp->buffIndex = BUFF_PALADIN_RESISTANCE; break;
-    case SPELL_HASH_CRUSADER_AURA: sp->buffIndex = BUFF_PALADIN_CRUSADER; break;
+    case SPELL_HASH_BATTLE_SHOUT: if(sp->Class == WARRIOR) sp->buffIndex = BUFF_WARRIOR_BATTLE_SHOUT; break;
+    case SPELL_HASH_COMMANDING_SHOUT: if(sp->Class == WARRIOR) sp->buffIndex = BUFF_WARRIOR_COMMANDING_SHOUT; break;
+    case SPELL_HASH_BLESSING_OF_MIGHT: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_MIGHT; break;
+    case SPELL_HASH_BLESSING_OF_KINGS: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_KINGS; break;
+    case SPELL_HASH_DEVOTION_AURA: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_DEVOTION; break;
+    case SPELL_HASH_RETRIBUTION_AURA: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_RETRIBUTION; break;
+    case SPELL_HASH_CONCENTRATION_AURA: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_CONCENTRATION; break;
+    case SPELL_HASH_RESISTANCE_AURA: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_RESISTANCE; break;
+    case SPELL_HASH_CRUSADER_AURA: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_CRUSADER; break;
+    case SPELL_HASH_SEAL_OF_INSIGHT: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_INSIGHT; break;
+    case SPELL_HASH_SEAL_OF_JUSTICE: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_JUSTICE; break;
+    case SPELL_HASH_SEAL_OF_RIGHTEOUSNESS: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_RIGHTEOUSNESS; break;
+    case SPELL_HASH_SEAL_OF_TRUTH: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_TRUTH; break;
+    case SPELL_HASH_HAND_OF_FREEDOM: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_FREEDOM; break;
+    case SPELL_HASH_HAND_OF_PROTECTION: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_PROTECTION; break;
+    case SPELL_HASH_HAND_OF_SACRIFICE: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_SACRIFICE; break;
+    case SPELL_HASH_HAND_OF_SALVATION: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_SALVATION; break;
     case SPELL_HASH_BLOOD_PRESENCE:
     case SPELL_HASH_FROST_PRESENCE:
     case SPELL_HASH_UNHOLY_PRESENCE:

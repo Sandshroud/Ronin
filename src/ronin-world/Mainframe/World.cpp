@@ -1495,15 +1495,6 @@ void World::LoadNameGenData()
     }
 }
 
-void World::CharacterEnumProc(QueryResultVector& results, uint32 AccountId)
-{
-    WorldSession * s = FindSession(AccountId);
-    if(s == NULL)
-        return;
-
-    s->CharacterEnumProc(results[0].result);
-}
-
 bool World::HasPendingWorldPush(WorldSession *session)
 {
     m_worldPushLock.Acquire();

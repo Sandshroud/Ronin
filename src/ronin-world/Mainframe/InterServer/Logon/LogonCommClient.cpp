@@ -225,7 +225,7 @@ void LogonCommClientSocket::HandleRequestAccountMapping(WorldPacket & recvData)
     recvData >> realm_id;
 
     // fetch the character mapping
-    result = CharacterDatabase.Query("SELECT acct FROM character_data");
+    result = CharacterDatabase.Query("SELECT accountId FROM account_characters");
 
     if(result)
     {

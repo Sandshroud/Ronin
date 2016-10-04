@@ -1459,7 +1459,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         if(IsUnit() && pVictim->IsCreature())
             castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(castPtr<Unit>(this), damage);
 
-        if(isTrainingDummy && damage > health)
+        if(isTrainingDummy && damage >= health)
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1 );
         else pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, health - damage );
     }

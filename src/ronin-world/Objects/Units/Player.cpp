@@ -787,7 +787,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     std::stringstream ss;
     ss << "REPLACE INTO character_data VALUES ("
     << GetLowGUID() << ", "
-    << GetSession()->GetAccountId() << ","
     << "'" << m_name.c_str() << "', "
     << uint32(getRace()) << ","
     << uint32(getClass()) << ","
@@ -832,6 +831,9 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         m_playerInfo->lastPositionY = posy;
         m_playerInfo->lastPositionZ = posz;
         m_playerInfo->lastOrientation = poso;
+        m_playerInfo->lastZone = m_zoneId;
+        m_playerInfo->lastLevel = getLevel();
+        m_playerInfo->lastOnline = UNIXTIME;
     }
 
     ss << mapid << ", "
@@ -968,6 +970,8 @@ void Player::DeleteFromDB(WoWGuid guid)
 {
     if(Corpse* c = objmgr.GetCorpseByOwner(guid.getLow()))
         CharacterDatabase.Execute("DELETE FROM corpses WHERE guid = %u", c->GetLowGUID());
+
+    CharacterDatabase.Execute("DELETE FROM account_characters WHERE charGuid = '%u';", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM auctions WHERE owner = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM charters WHERE leaderGuid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM mailbox WHERE player_guid = %u", guid.getLow());
@@ -1051,7 +1055,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     Field *fields = results[PLAYER_LO_DATA].result->Fetch();
-    if(fields[PLAYERLOAD_FIELD_ACCOUNT_ID].GetUInt32() != m_session->GetAccountId())
+    if(!m_session->HasCharacterData(fields[PLAYERLOAD_FIELD_LOW_GUID].GetUInt32()))
     {
         sWorld.LogCheater(m_session, "player tried to load character not belonging to them (guid %u, on account %u)", fields[0].GetUInt32(), fields[1].GetUInt32());
         RemovePendingPlayer();
@@ -2708,7 +2712,16 @@ void Player::OnPushToWorld()
     else if(m_TeleportState = 1)
         CompleteLoading();
 
-    WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
+    // Send our server tick timer
+    WorldPacket data(SMSG_TIME_SYNC_REQ);
+    data << uint32(0);
+    GetSession()->SendPacket(&data);
+
+    // Cast our login effect spell
+    CastSpell(this, 836, true);
+
+    // Set our client active mover
+    data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
     data.WriteGuidBitString(8, m_objGuid, 5, 7, 3, 6, 0, 4, 1, 2);
     data.WriteSeqByteString(8, m_objGuid, 6, 2, 3, 0, 5, 7, 1, 4);
     GetSession()->SendPacket( &data );
@@ -5843,9 +5856,6 @@ void Player::SoftLoadPlayer()
 
         // Honorless target at 1st entering world.
         CastSpell(this, PLAYER_HONORLESS_TARGET_SPELL, true);
-
-        // Login spell
-        CastSpell(this, 836, true);
     }
 }
 
@@ -6868,7 +6878,6 @@ void Player::RemoveQuestMob(uint32 entry) //Only for Kill Quests
 PlayerInfo::PlayerInfo(WoWGuid _guid)
 {
     charGuid = _guid;
-    accountId = 0;
     charName = "";
     charRace = charClass = charGender = 0;
     charTeam = lastInstanceID = lastMapID = 0;

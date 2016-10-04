@@ -229,7 +229,6 @@ public:
     int32 m_moveDelayTime;
     int32 m_clientTimeDelay;
 
-    void CharacterEnumProc(QueryResult * result);
     void PlayerLoginProc(WoWGuid guid);
 
     RONIN_INLINE bool IsLoggingOut() { return _loggingOut; }
@@ -251,10 +250,10 @@ protected:
     bool m_hasDeathKnight;
     uint8 m_highestLevel;
     uint8 DeleteCharacter(WoWGuid guid);
-    std::map<WoWGuid, uint32> m_characterMapIds;
 
     /// Login screen opcodes (PlayerHandler.cpp):
     void HandleCharEnumOpcode(WorldPacket& recvPacket);
+    void HandleCharReorderOpcode(WorldPacket& recvPacket);
     void HandleCharDeleteOpcode(WorldPacket& recvPacket);
     void HandleCharCreateOpcode(WorldPacket& recvPacket);
     void HandleCharCustomizeOpcode(WorldPacket& recvPacket);
@@ -721,6 +720,14 @@ private:
     void SaveAccountData();
     AccountDataEntry *m_accountData[8];
 
+    // Characters
+    void LoadCharacterData();
+    bool HasCharacterData(WoWGuid lowGuid);
+
+    Mutex charDataLock;
+    // First: Char index, Second: Pair<First: Player guid, Second: Player Map>;
+    Loki::AssocVector<uint8, PlayerInfo*> m_charData;
+
     // Tutorials
     void LoadTutorials();
     void SaveTutorials();
@@ -743,7 +750,6 @@ public:
     WorldPacket* BuildQuestQueryResponse(Quest *qst);
     uint32 m_muted;
     uint32 m_lastWhoTime;
-    bool m_asyncQuery;
 
 protected:
     uint32 m_repeatTime;

@@ -46,14 +46,10 @@ void CapitalizeString(std::string& arg)
         arg[x] = tolower(arg[x]);
 }
 
-void WorldSession::CharacterEnumProc(QueryResult * result)
+void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
 {
-    uint32 num = 0;
-    m_asyncQuery = false;
-
     //Erm, reset it here in case player deleted his DK.
     m_hasDeathKnight = false;
-    m_characterMapIds.clear();
 
     ByteBuffer bitBuff, byteBuff;
     bitBuff.WriteBits(0, 23);
@@ -61,7 +57,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
     // parse m_characters and build a mighty packet of
     // characters to send to the client.
-    if( result )
+    if( !m_charData.empty() )
     {
         struct
         {
@@ -71,52 +67,45 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
             uint32 enchantment;
         } items[19];
 
-        num = result->GetRowCount();
+        uint32 count = 0, num = std::min<uint32>(MAXIMUM_CHAR_PER_ENUM, m_charData.size());
         bitBuff.reserve(num * 3);
         byteBuff.reserve(num * 381);
         bitBuff.WriteBits(num, 17);
 
-        do
+        for(auto itr = m_charData.begin(); itr != m_charData.end() && count < num; itr++, count++)
         {
             for(uint8 i = 0; i < 19; i++)
                 items[i].clear();
 
-            Field *fields = result->Fetch();
-            std::string name = fields[7].GetString();
-            WoWGuid charGuid = fields[0].GetUInt64();
-            WoWGuid guildGuid = fields[14].GetUInt32() ? MAKE_NEW_GUID(fields[14].GetUInt32(), 0, HIGHGUID_TYPE_GUILD) : 0;
-            uint8 _race = fields[2].GetUInt8(), _class = fields[3].GetUInt8(), _level = fields[1].GetUInt8();
-            uint32 flags = 0, _bytes1 = fields[5].GetUInt32(), _bytes2 = fields[6].GetUInt32();
-            uint32 mapId = fields[11].GetUInt32(), zoneId = fields[12].GetUInt32();
-            float x = fields[8].GetFloat(), y = fields[9].GetFloat(), z = fields[10].GetFloat();
-            uint8 hairStyle = ((_bytes1>>16)&0xFF), hairColor = ((_bytes1>>24)&0xFF), facialHair = (_bytes2&0xFF), face = ((_bytes1>>8)&0xFF), skin = (_bytes1&0xFF);
-            m_characterMapIds.insert(std::make_pair(charGuid, mapId));
+            uint32 flags = 0;
+            PlayerInfo *info = itr->second;
+            WoWGuid guildGuid(MAKE_NEW_GUID(info->GuildId, 0, HIGHGUID_TYPE_GUILD));
+            uint8 hairStyle = ((info->charAppearance>>16)&0xFF), hairColor = ((info->charAppearance>>24)&0xFF), facialHair = (info->charAppearance2&0xFF), face = ((info->charAppearance>>8)&0xFF), skin = (info->charAppearance&0xFF);
 
             uint32 customizationFlag = 0;
             if (false) customizationFlag = 0x01;
             else if (false) customizationFlag = 0x10000;
             else if (false) customizationFlag = 0x100000;
 
-            if( _level > m_highestLevel )
-                m_highestLevel = _level;
-            if( _class == DEATHKNIGHT )
+            if( info->lastLevel > m_highestLevel )
+                m_highestLevel = info->lastLevel;
+            if( info->charClass == DEATHKNIGHT )
                 m_hasDeathKnight = true;
             uint32 player_flags = 0;
             if(flags & PLAYER_FLAG_NOHELM)
                 player_flags |= 0x400;
             if(flags & PLAYER_FLAG_NOCLOAK)
                 player_flags |= 0x800;
-            if(fields[13].GetUInt32() != 0)
-                player_flags |= 0x2000;
+            /*if(fields[13].GetUInt32() != 0)
+                player_flags |= 0x2000;*/
             /*if(fields[14].GetUInt32() != 0)
-                player_flags |= 0x4000;
+            player_flags |= 0x4000;
             uint64 banned = fields[13].GetUInt64();
             if(banned && (banned < 10 || banned > UNIXTIME))
-                player_flags |= 0x1000000;*/
+            player_flags |= 0x1000000;*/
 
-            QueryResult *res = NULL;
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(res = CharacterDatabase.Query("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", charGuid.getLow()))
+            if(QueryResult *res = CharacterDatabase.Query("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", info->charGuid.getLow()))
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -127,7 +116,7 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
                 delete res;
             }
 
-            if(res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", charGuid.getLow()))
+            if(QueryResult *res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", info->charGuid.getLow()))
             {
                 do
                 {
@@ -147,13 +136,13 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
             // Packet content flags
             bool firstLogin = false;
-            bitBuff.WriteBitString(4, charGuid[3], guildGuid[1], guildGuid[7], guildGuid[2]);
-            bitBuff.WriteBits(uint32(name.length()), 7);
-            bitBuff.WriteBitString(4, charGuid[4], charGuid[7], guildGuid[3], charGuid[5]);
-            bitBuff.WriteBitString(4, guildGuid[6], charGuid[1], guildGuid[5], guildGuid[4]);
-            bitBuff.WriteBitString(5, firstLogin, charGuid[0], charGuid[2], charGuid[6], guildGuid[0]);
+            bitBuff.WriteBitString(4, info->charGuid[3], guildGuid[1], guildGuid[7], guildGuid[2]);
+            bitBuff.WriteBits(uint32(info->charName.length()), 7);
+            bitBuff.WriteBitString(4, info->charGuid[4], info->charGuid[7], guildGuid[3], info->charGuid[5]);
+            bitBuff.WriteBitString(4, guildGuid[6], info->charGuid[1], guildGuid[5], guildGuid[4]);
+            bitBuff.WriteBitString(5, firstLogin, info->charGuid[0], info->charGuid[2], info->charGuid[6], guildGuid[0]);
 
-            byteBuff << uint8(_class);
+            byteBuff << uint8(info->charClass);
             for( uint8 i = 0; i < EQUIPMENT_SLOT_END; i++ )
                 byteBuff << items[i].invtype << items[i].displayid << uint32(items[i].enchantment);
             for( uint8 i = 0; i < 4; i++)
@@ -161,41 +150,41 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
 
             byteBuff << uint32(petFamily);                  // Pet family
             byteBuff.WriteByteSeq(guildGuid[2]);
-            byteBuff << uint8(0);                           // List order
+            byteBuff << uint8(itr->first);                  // List order
             byteBuff << uint8(hairStyle);                   // Hair style
             byteBuff.WriteByteSeq(guildGuid[3]);
             byteBuff << uint32(petDisplay);                 // Pet DisplayID
             byteBuff << uint32(player_flags);               // Character flags
             byteBuff << uint8(hairColor);                   // Hair color
-            byteBuff.WriteByteSeq(charGuid[4]);
-            byteBuff << uint32(mapId);                      // Map Id
+            byteBuff.WriteByteSeq(info->charGuid[4]);
+            byteBuff << uint32(info->lastMapID);            // Map Id
             byteBuff.WriteByteSeq(guildGuid[5]);
-            byteBuff << float(z);                           // Z
+            byteBuff << float(info->lastPositionZ);         // Z
             byteBuff.WriteByteSeq(guildGuid[6]);
             byteBuff << uint32(petLevel);                   // Pet level
-            byteBuff.WriteByteSeq(charGuid[3]);
-            byteBuff << float(y);                           // Y
+            byteBuff.WriteByteSeq(info->charGuid[3]);
+            byteBuff << float(info->lastPositionY);         // Y
             byteBuff << uint32(customizationFlag);          // Character customization flags
             byteBuff << uint8(facialHair);                  // Facial hair
-            byteBuff.WriteByteSeq(charGuid[7]);
-            byteBuff << uint8(fields[4].GetUInt8());        // Gender
-            byteBuff.append(name.c_str(), name.length());   // Name
+            byteBuff.WriteByteSeq(info->charGuid[7]);
+            byteBuff << uint8(info->charGender);            // Gender
+            byteBuff.append(info->charName.c_str(), info->charName.length()); // Name
             byteBuff << uint8(face);                        // Face
-            byteBuff.WriteByteSeq(charGuid[0]);
-            byteBuff.WriteByteSeq(charGuid[2]);
+            byteBuff.WriteByteSeq(info->charGuid[0]);
+            byteBuff.WriteByteSeq(info->charGuid[2]);
             byteBuff.WriteByteSeq(guildGuid[1]);
             byteBuff.WriteByteSeq(guildGuid[7]);
-            byteBuff << float(x);                           // X
+            byteBuff << float(info->lastPositionX);         // X
             byteBuff << uint8(skin);                        // Skin
-            byteBuff << uint8(_race);                       // Race
-            byteBuff << uint8(_level);                      // Level
-            byteBuff.WriteByteSeq(charGuid[6]);
+            byteBuff << uint8(info->charRace);              // Race
+            byteBuff << uint8(info->lastLevel);             // Level
+            byteBuff.WriteByteSeq(info->charGuid[6]);
             byteBuff.WriteByteSeq(guildGuid[4]);
             byteBuff.WriteByteSeq(guildGuid[0]);
-            byteBuff.WriteByteSeq(charGuid[5]);
-            byteBuff.WriteByteSeq(charGuid[1]);
-            byteBuff << uint32(zoneId);                     // Zone id
-        } while( result->NextRow() );
+            byteBuff.WriteByteSeq(info->charGuid[5]);
+            byteBuff.WriteByteSeq(info->charGuid[1]);
+            byteBuff << uint32(info->lastZone);             // Zone id
+        } // loop finish for character data
     } else bitBuff.WriteBits(0, 17);
     bitBuff.FlushBits();
 
@@ -205,15 +194,69 @@ void WorldSession::CharacterEnumProc(QueryResult * result)
     SendPacket( &data );
 }
 
-void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
+void WorldSession::HandleCharReorderOpcode( WorldPacket & recv_data )
 {
-    if( m_asyncQuery )      // should be enough
+    uint8 count = recv_data.ReadBits(10);
+    // Limit count to 10, or character size
+    if(count > m_charData.size() || count > MAXIMUM_CHAR_PER_ENUM)
+    {
+        SKIP_READ_PACKET(recv_data);
         return;
+    }
 
-    AsyncQuery * q = new AsyncQuery( new SQLClassCallbackP1<World, uint32>(World::getSingletonPtr(), &World::CharacterEnumProc, GetAccountId()) );
-    q->AddQuery("SELECT guid, level, race, class, gender, bytes, bytes2, name, positionX, positionY, positionZ, mapId, zoneId, deathstate, guild_members.guildid FROM character_data LEFT JOIN guild_members ON character_data.guid = guild_members.playerid WHERE acct=%u ORDER BY guid ASC LIMIT 10", GetAccountId());
-    m_asyncQuery = true;
-    CharacterDatabase.QueueAsyncQuery(q);
+    std::vector<WoWGuid> guidSet;
+    for(uint8 i = 0; i < count; i++)
+    {
+        WoWGuid guid;
+        recv_data.ReadGuidBitString(8, guid, 1, 4, 5, 3, 0, 7, 6, 2);
+        guidSet.push_back(guid);
+    }
+
+    charDataLock.Acquire();
+    // Get the amount of characters in our pool
+    uint8 maxCount = m_charData.size();
+    std::map<WoWGuid, PlayerInfo*> charData;
+    for(auto itr = m_charData.begin(); itr != m_charData.end(); itr++)
+        charData.insert(std::make_pair(itr->second->charGuid, itr->second));
+    m_charData.clear();
+
+    uint8 maxSlot = 0;
+    std::stringstream ss;
+    for(uint8 i = 0; i < count; i++)
+    {
+        recv_data.ReadGuidByteString(6, guidSet[i], 6, 5, 1, 4, 0, 3);
+        uint8 slot = recv_data.read<uint8>()/10;
+        recv_data.ReadGuidByteString(2, guidSet[i], 2, 7);
+        maxSlot = std::max<uint8>(maxSlot, slot);
+
+        PlayerInfo *info = NULL;
+        if(charData.find(guidSet[i]) == charData.end())
+            continue;
+        info = charData.at(guidSet[i]);
+        charData.erase(guidSet[i]);
+
+        if(!ss.str().empty())
+            ss << ", ";
+        ss << "('" << GetAccountId() << "', '" << guidSet[i].getLow() << "', '" << uint32(slot) << "')";
+        m_charData.insert(std::make_pair(slot, info));
+    }
+
+    // Clean up any extra data by appending it
+    while(!charData.empty())
+    {
+        WoWGuid guid = charData.begin()->first;
+        PlayerInfo *info = charData.begin()->second;
+        charData.erase(charData.begin());
+
+        if(!ss.str().empty())
+            ss << ", ";
+        uint32 slot = ++maxSlot;
+        ss << "('" << GetAccountId() << "', '" << guid.getLow() << "', '" << slot << "')";
+        m_charData.insert(std::make_pair(slot, info));
+    }
+
+    charDataLock.Release();
+    CharacterDatabase.Execute("REPLACE INTO account_characters VALUES %s;", ss.str().c_str());
 }
 
 void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
@@ -225,6 +268,13 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     recv_data.rpos(0);
 
     WorldPacket data(SMSG_CHARACTER_CREATE, 1);
+    if(m_charData.size() >= 10)
+    {
+        data << uint8(CHAR_CREATE_ACCOUNT_LIMIT);
+        SendPacket(&data);
+        return;
+    }
+
     if(!sWorld.VerifyName(name.c_str(), name.length()))
     {
         data << uint8(CHAR_CREATE_NAME_IN_USE);
@@ -297,8 +347,8 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
 
     pNewChar->SaveToDB(true);
 
+    // Create new player info
     PlayerInfo *pn = new PlayerInfo(pNewChar->GetGUID());
-    pn->accountId = GetAccountId();
     pn->charName = pNewChar->GetName();
     pn->charClass = pNewChar->getClass();
     pn->charRace = pNewChar->getRace();
@@ -312,6 +362,10 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pNewChar->ok_to_remove = true;
     pNewChar->Destruct();
     pNewChar = NULL;
+
+    uint8 newIndex = m_charData.size()+1; // Add new character data
+    m_charData.insert(std::make_pair(newIndex, pn));
+    CharacterDatabase.Execute("INSERT INTO account_characters VALUES('%u', '%u', '%u');", GetAccountId(), pn->charGuid, newIndex);
 
     // CHAR_CREATE_SUCCESS
     data << uint8(CHAR_CREATE_SUCCESS);
@@ -368,6 +422,16 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
             }
         }
 
+        charDataLock.Acquire();
+        for(auto itr = m_charData.begin(); itr != m_charData.end(); itr++)
+        {
+            if(itr->second->charGuid == guid)
+            {
+                m_charData.erase(itr);
+                break;
+            }
+        }
+        charDataLock.Release();
         for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
             if( ArenaTeam *arTeam = inf->arenaTeam[i] )
                 arTeam->RemoveMember(inf);
@@ -469,20 +533,31 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     recv_data.ReadGuidBitString(8, guid, 2, 3, 0, 6, 4, 5, 1, 7);
     recv_data.ReadGuidByteString(8, guid, 2, 7, 0, 3, 5, 6, 1, 4);
 
+    PlayerInfo *pInfo = NULL;
+    // Check to see if we have data for this character
+    for(auto itr = m_charData.begin(); itr != m_charData.end(); itr++)
+    {
+        if(itr->second->charGuid == guid)
+        {
+            pInfo = itr->second;
+            break;
+        }
+    }
+
     uint8 response = CHAR_LOGIN_SUCCESS;
     //already active?
     if (m_loggingInPlayer || _player || sWorld.HasPendingWorldPush(this))
         response = CHAR_LOGIN_IN_PROGRESS;
     //Better validate this Guid before we create an invalid _player.
-    else if(m_characterMapIds.find(guid) == m_characterMapIds.end() || objmgr.GetPlayerInfo(guid) == NULL)
+    else if(pInfo == NULL)
         response = CHAR_LOGIN_NO_CHARACTER;
     else if(objmgr.GetPlayer(guid) != NULL)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
-    else if (uint8 vError = sWorldMgr.ValidateMapId(m_characterMapIds.at(guid)))
+    else if (uint8 vError = sWorldMgr.ValidateMapId(pInfo->lastMapID))
     {
         if (vError == 2)
         {
-            sWorld.QueueWorldPush(this, guid, m_characterMapIds.at(guid));
+            sWorld.QueueWorldPush(this, guid, pInfo->lastMapID);
             return;
         }
         response = CHAR_LOGIN_NO_WORLD;

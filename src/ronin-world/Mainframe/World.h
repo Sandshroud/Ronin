@@ -574,9 +574,6 @@ public:
     bool Start_With_All_Taximasks;
 
     // could add configs for every expansion..
-
-    void CharacterEnumProc(QueryResultVector& results, uint32 AccountId);
-
     bool HasPendingWorldPush(WorldSession *session);
     void QueueWorldPush(WorldSession *session, WoWGuid guid, uint32 mapId);
     void CancelWorldPush(WorldSession *session);

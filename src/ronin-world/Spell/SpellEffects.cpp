@@ -528,6 +528,7 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
     if(!target->IsUnit() || !castPtr<Unit>(target)->isAlive())
         return;
 
+    int32 damage = amount;
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     Unit *unitTarget = castPtr<Unit>(target);
     if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
@@ -538,26 +539,15 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
             castPtr<Player>(m_caster)->SetFFAPvPFlag();
     }
 
+    sSpellMgr.HandleEffectSchoolDMG(this, i, m_caster, unitTarget, damage);
+
     // check for no more damage left (chains)
-    if (amount < 0)
+    if (damage < 0)
         return;
 
-    if(GetSpellProto()->speed > 0)
-        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, spTarget ? spTarget->resistMod : 0.f, false, false);
-    else
-    {
-        if(!m_spellInfo->IsSpellMeleeSpell())
-            m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, amount, spTarget ? spTarget->resistMod : 0.f, false, false);
-        else if (m_caster->IsUnit())
-        {
-            uint32 _type = MELEE;
-            if( false )
-                _type = RANGED;
-            else if (GetSpellProto()->reqOffHandWeapon())
-                _type =  OFFHAND;
-            castPtr<Unit>(m_caster)->Strike(unitTarget, _type, GetSpellProto(), i, 0, 0, amount, false, true);
-        }
-    }
+    if(GetSpellProto()->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
+        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, damage, spTarget ? spTarget->resistMod : 0.f, false, false);
+    else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, GetSpellProto(), i, 0, 0, damage, false, true);
 }
 
 void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount) // Dummy(Scripted events)

@@ -303,7 +303,6 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     {
         if(session->IsHighPriority())
         {
-            printf("High priority\n");
             // Fail authentification until the player is finally added to world
             SendAuthResponse(AUTH_ALREADY_LOGGING_IN, false);
             return;
@@ -365,6 +364,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     mSession = pSession;
     pSession->LoadTutorials();
     pSession->LoadAccountData();
+    pSession->LoadCharacterData();
 
     sLog.Debug("Auth", "%s from %s:%u [%ums]", AccountName.c_str(), GetIP(), GetPort(), _latency);
 

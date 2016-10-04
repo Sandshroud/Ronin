@@ -281,7 +281,6 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     MemberMapStorage->MemberMapLock.Acquire();
 
     ByteBuffer buffer;
-    std::set<uint32> accountIds;
     uint32 weeklyRepCap = GetWeeklyRepCap();
     WorldPacket data(SMSG_GUILD_ROSTER, (4 + gInfo->m_motd.length() + 1 + gInfo->m_guildInfo.length() + 1 + 4 + MemberMapStorage->MemberMap.size() * 50));
     data.WriteBits(gInfo->m_motd.length(), 11);
@@ -337,9 +336,6 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         buffer.WriteString(gMember->szOfficerNote);
         buffer.WriteByteSeq(guid[6]);
         buffer.WriteString(pInfo->charName);
-
-        if(accountIds.find(pInfo->accountId) == accountIds.end())
-            accountIds.insert(pInfo->accountId);
     }
 
     data.WriteBits(gInfo->m_guildInfo.length(), 12);
@@ -349,7 +345,7 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
     data.WriteString(gInfo->m_guildInfo);
     data.WriteString(gInfo->m_motd);
 
-    data << uint32(accountIds.size());
+    data << uint32(MemberMapStorage->MemberMap.size());
     data << uint32(weeklyRepCap);  // weekly rep cap
     data << uint32(RONIN_UTIL::secsToTimeBitFields(gInfo->m_creationTimeStamp));
     data << uint32(0);

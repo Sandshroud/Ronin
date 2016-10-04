@@ -286,15 +286,17 @@ struct PlayerInfo
 {
     PlayerInfo(WoWGuid _guid);
     ~PlayerInfo();
+
     WoWGuid charGuid;
-    uint32 accountId;
     std::string charName;
     uint8 charRace;
     uint8 charClass;
     uint8 charGender;
     uint32 charTeam;
+    uint32 charAppearance;
+    uint32 charAppearance2;
 
-    // Location information
+    // Cached information
     uint32 lastMapID;
     uint32 lastInstanceID;
     float lastPositionX;
@@ -539,7 +541,6 @@ enum PlayerLoadOrder : uint8
 enum PlayerLoadFields
 {
     PLAYERLOAD_FIELD_LOW_GUID = 0,
-    PLAYERLOAD_FIELD_ACCOUNT_ID,
     PLAYERLOAD_FIELD_NAME,
     PLAYERLOAD_FIELD_RACE,
     PLAYERLOAD_FIELD_CLASS,

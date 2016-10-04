@@ -202,7 +202,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 
 void ObjectMgr::LoadPlayersInfo()
 {
-    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,acct,name,race,class,gender,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data"))
+    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,bytes,bytes2,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data"))
     {
         uint32 period = (result->GetRowCount() / 20) + 1, c = 0;
 
@@ -210,19 +210,20 @@ void ObjectMgr::LoadPlayersInfo()
         {
             Field *fields = result->Fetch();
             PlayerInfo *pn = new PlayerInfo(fields[0].GetUInt64());
-            pn->accountId = fields[1].GetUInt32();
-            pn->charName = strdup(fields[2].GetString());
-            pn->charRace = fields[3].GetUInt8();
-            pn->charClass = fields[4].GetUInt8();
-            pn->charGender = fields[5].GetUInt8();
-            pn->lastLevel = fields[6].GetUInt32();
-            pn->lastZone = fields[7].GetUInt32();
-            pn->lastInstanceID = fields[8].GetUInt32();
-            pn->lastMapID = fields[9].GetUInt32();
-            pn->lastPositionX = fields[10].GetFloat();
-            pn->lastPositionY = fields[11].GetFloat();
-            pn->lastPositionZ = fields[12].GetFloat();
-            pn->lastOrientation = fields[13].GetFloat();
+            pn->charName = fields[1].GetString();
+            pn->charRace = fields[2].GetUInt8();
+            pn->charClass = fields[3].GetUInt8();
+            pn->charGender = fields[4].GetUInt8();
+            pn->charAppearance = fields[5].GetUInt32();
+            pn->charAppearance2 = fields[6].GetUInt32();
+            pn->lastLevel = fields[7].GetUInt32();
+            pn->lastZone = fields[8].GetUInt32();
+            pn->lastInstanceID = fields[9].GetUInt32();
+            pn->lastMapID = fields[10].GetUInt32();
+            pn->lastPositionX = fields[11].GetFloat();
+            pn->lastPositionY = fields[12].GetFloat();
+            pn->lastPositionZ = fields[13].GetFloat();
+            pn->lastOrientation = fields[14].GetFloat();
             if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
                 pn->charTeam = race->TeamId;
 

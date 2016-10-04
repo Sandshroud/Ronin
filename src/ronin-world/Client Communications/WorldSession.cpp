@@ -19,7 +19,6 @@ _logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _
     _player = NULL;
     m_hasDeathKnight = false;
     m_highestLevel = sWorld.StartLevel;
-    m_asyncQuery = false;
     m_currMsTime = getMSTime();
     bDeleted = false;
     m_bIsWLevelSet = false;
@@ -466,6 +465,9 @@ void WorldSession::InitPacketHandlerTable()
     // Login
     WorldPacketHandlers[CMSG_CHARACTER_ENUM].handler                        = &WorldSession::HandleCharEnumOpcode;
     WorldPacketHandlers[CMSG_CHARACTER_ENUM].status                         = STATUS_AUTHED;
+
+    WorldPacketHandlers[CMSG_REORDER_CHARACTERS].handler                    = &WorldSession::HandleCharReorderOpcode;
+    WorldPacketHandlers[CMSG_REORDER_CHARACTERS].status                     = STATUS_AUTHED;
 
     WorldPacketHandlers[CMSG_CHARACTER_CREATE].handler                      = &WorldSession::HandleCharCreateOpcode;
     WorldPacketHandlers[CMSG_CHARACTER_CREATE].status                       = STATUS_AUTHED;
@@ -1113,6 +1115,51 @@ void WorldSession::SaveAccountData()
 
         CharacterDatabase.Execute("REPLACE INTO account_data(%s) VALUES(%s);", fieldName.str().c_str(), datastring.str().c_str());
     }
+}
+
+void WorldSession::LoadCharacterData()
+{
+    QueryResult *res = CharacterDatabase.Query("SELECT orderId, charGuid FROM account_characters WHERE accountId = '%u';", GetAccountId());
+    if(res == NULL)
+        return;
+
+    charDataLock.Acquire();
+    m_charData.clear();
+
+    do
+    {
+        Field *fields = res->Fetch();
+        uint8 index = fields[0].GetUInt8();
+        if(m_charData.find(index) != m_charData.end())
+        {
+            sLog.outDebug("Account %u has dual indexed characters for index %u", index);
+            continue;
+        }
+
+        PlayerInfo *info = objmgr.GetPlayerInfo(fields[1].GetUInt32());
+        if(info == NULL)
+            continue;
+
+        m_charData.insert(std::make_pair(index, info));
+    }while(res->NextRow());
+    charDataLock.Release();
+    delete res;
+}
+
+bool WorldSession::HasCharacterData(WoWGuid guid)
+{
+    bool res = false;
+    charDataLock.Acquire();
+    for(auto itr = m_charData.begin(); itr != m_charData.end(); itr++)
+    {
+        if(itr->second->charGuid == guid)
+        {
+            res = true;
+            break;
+        }
+    }
+    charDataLock.Release();
+    return res;
 }
 
 void WorldSession::LoadTutorials()

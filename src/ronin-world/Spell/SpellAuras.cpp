@@ -553,6 +553,14 @@ void Aura::ApplyModifiers( bool apply )
         return;
     }
 
+    if(m_spellProto->buffIndex > BUFF_PALADIN_SEAL_START && m_spellProto->buffIndex < BUFF_PALADIN_HAND_START)
+    {
+        if(apply && !m_target->HasFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_JUDGEMENT))
+            m_target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_JUDGEMENT);
+        else if(apply == false)
+            m_target->RemoveFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_JUDGEMENT);
+    }
+
     for( uint32 x = 0; x < m_modcount; x++ )
     {
         mod = &m_modList[x];
