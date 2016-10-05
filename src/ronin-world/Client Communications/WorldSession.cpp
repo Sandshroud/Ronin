@@ -1138,7 +1138,7 @@ void WorldSession::LoadCharacterData()
         }
 
         PlayerInfo *info = objmgr.GetPlayerInfo(fields[1].GetUInt32());
-        if(info == NULL)
+        if(info == NULL && (info = objmgr.LoadPlayerInfo(fields[1].GetUInt32())) == NULL)
             continue;
 
         m_charData.insert(std::make_pair(index, info));

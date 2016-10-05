@@ -56,6 +56,8 @@ static uint32 xpPerLevel[MAXIMUM_ATTAINABLE_LEVEL] =
     35430000, 39880000, 41150000, 46800000, 52250000, 58150000, 65500000, 71250000, 79800000, 88050000
 };
 
+static uint32 classMasterySpells[12-1] = { 86479, 86474, 86472, 86476, 86475, 86471, 86477, 86473, 86478, 0, 86470 };
+
 class Unit;
 class Player;
 class Creature;

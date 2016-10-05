@@ -168,6 +168,60 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
     playernamelock.ReleaseWriteLock();
 }
 
+PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
+{
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,bytes,bytes2,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
+    if(result == NULL)
+        return NULL;
+
+    Field *fields = result->Fetch();
+    PlayerInfo *pn = new PlayerInfo(fields[0].GetUInt64());
+    pn->charName = fields[1].GetString();
+    pn->charRace = fields[2].GetUInt8();
+    pn->charClass = fields[3].GetUInt8();
+    pn->charGender = fields[4].GetUInt8();
+    pn->charAppearance = fields[5].GetUInt32();
+    pn->charAppearance2 = fields[6].GetUInt32();
+    pn->lastLevel = fields[7].GetUInt32();
+    pn->lastZone = fields[8].GetUInt32();
+    pn->lastInstanceID = fields[9].GetUInt32();
+    pn->lastMapID = fields[10].GetUInt32();
+    pn->lastPositionX = fields[11].GetFloat();
+    pn->lastPositionY = fields[12].GetFloat();
+    pn->lastPositionZ = fields[13].GetFloat();
+    pn->lastOrientation = fields[14].GetFloat();
+    delete result;
+
+    if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
+        pn->charTeam = race->TeamId;
+
+    if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
+    {
+        // gotta rename him
+        char temp[300];
+        snprintf(temp, 300, "%s__%X__", pn->charName.c_str(), pn->charGuid.getLow());
+        sLog.Notice("ObjectMgr", "Renaming duplicate player %s to %s. (%u)", pn->charName.c_str(), temp, pn->charGuid.getLow());
+        CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s', forced_rename_pending = 1 WHERE guid = %u", CharacterDatabase.EscapeString(temp).c_str(), pn->charGuid.getLow());
+        pn->charName = temp;
+    }
+
+    if(GuildMember *member = guildmgr.GetGuildMember(pn->charGuid))
+    {
+        pn->GuildId = member->guildId;
+        pn->GuildRank = member->pRank->iId;
+    }
+
+    std::string lpn = RONIN_UTIL::TOLOWER_RETURN(pn->charName);
+
+    playernamelock.AcquireWriteLock();
+    // Store playerinfo by name
+    m_playersInfoByName[lpn] = pn;
+    // Store playerinfo by guid
+    m_playersinfo[pn->charGuid] = pn;
+    playernamelock.ReleaseWriteLock();
+    return pn;
+}
+
 void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname)
 {
     playernamelock.AcquireWriteLock();
@@ -757,6 +811,8 @@ void ObjectMgr::LoadTrainers()
             SpellEntry *sp;
             if((sp = dbcSpell.LookupEntry(fields[2].GetUInt32())) == NULL)
                 continue;
+            if(sp->NameHash == SPELL_HASH_MASTERY)
+                continue;
             ObjectMgr::TrainerSpellMap *map = &mTrainerSpellStorage[catPair];
             if(map->find(sp->Id) != map->end())
                 continue;
@@ -773,6 +829,29 @@ void ObjectMgr::LoadTrainers()
         delete result;
     }
     sLog.Notice("ObjectMgr", "%u trainer spells loaded.", count);
+
+    // Ensure we have hardcoded mastery spells stored for level 80
+    for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
+    {
+        uint32 spellId;
+        if((spellId = classMasterySpells[i-1]) == 0)
+            continue;
+        SpellEntry *sp;
+        if((sp = dbcSpell.LookupEntry(spellId)) == NULL)
+            continue;
+
+        std::pair<uint8, uint8> catPair = std::make_pair(0x01, i);
+        ObjectMgr::TrainerSpellMap *map = &mTrainerSpellStorage[catPair];
+        if(map->find(spellId) != map->end())
+            continue;
+
+        TrainerSpell tSpell;
+        tSpell.entry = sp;
+        tSpell.spellCost = 222000;
+        tSpell.requiredLevel = sp->spellLevelBaseLevel;
+        tSpell.reqSkill = tSpell.reqSkillValue = 0;
+        map->insert(std::make_pair(sp->Id, tSpell));
+    }
 }
 
 std::map<uint32, CreatureItem>* ObjectMgr::GetVendorList(uint32 entry)

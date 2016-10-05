@@ -351,8 +351,8 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pn->charClass = pNewChar->getClass();
     pn->charGender = pNewChar->getGender();
     pn->charTeam = pNewChar->GetTeam();
-    pn->charAppearance = pNewChar->GetUInt32Value(PLAYER_FIELD_BYTES);
-    pn->charAppearance2 = pNewChar->GetUInt32Value(PLAYER_FIELD_BYTES2);
+    pn->charAppearance = pNewChar->GetUInt32Value(PLAYER_BYTES);
+    pn->charAppearance2 = pNewChar->GetUInt32Value(PLAYER_BYTES_2);
 
     // Set player info so data gets cached
     pNewChar->m_playerInfo = pn;

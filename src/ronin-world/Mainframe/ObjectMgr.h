@@ -191,6 +191,8 @@ public:
 
     // player names
     void AddPlayerInfo(PlayerInfo *pn);
+    PlayerInfo *LoadPlayerInfo(WoWGuid guid);
+
     PlayerInfo *GetPlayerInfo(WoWGuid guid );
     PlayerInfo *GetPlayerInfoByName(const char * name);
     void RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname);

@@ -47,9 +47,9 @@ void StatSystem::LoadClassPowers()
         }
     }
 
-    for (uint8 i = 0; i < CLASS_MAX; ++i)
+    for (uint8 i = WARRIOR; i < CLASS_MAX; ++i)
     {
-        for (uint8 j = 0; j < POWER_TYPE_MAX; ++j)
+        for (uint8 j = POWER_TYPE_MANA; j < POWER_TYPE_MAX; ++j)
         {
             if(PowersByClass[i][j] == POWER_TYPE_MAX)
                 continue;

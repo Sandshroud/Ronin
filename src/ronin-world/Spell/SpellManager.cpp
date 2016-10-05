@@ -659,6 +659,7 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
 
     switch(sp->NameHash)
     {
+        // Set our buff index's here
     case SPELL_HASH_BATTLE_SHOUT: if(sp->Class == WARRIOR) sp->buffIndex = BUFF_WARRIOR_BATTLE_SHOUT; break;
     case SPELL_HASH_COMMANDING_SHOUT: if(sp->Class == WARRIOR) sp->buffIndex = BUFF_WARRIOR_COMMANDING_SHOUT; break;
     case SPELL_HASH_BLESSING_OF_MIGHT: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_MIGHT; break;
@@ -676,11 +677,49 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
     case SPELL_HASH_HAND_OF_PROTECTION: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_PROTECTION; break;
     case SPELL_HASH_HAND_OF_SACRIFICE: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_SACRIFICE; break;
     case SPELL_HASH_HAND_OF_SALVATION: if(sp->Class == PALADIN) sp->buffIndex = BUFF_PALADIN_SALVATION; break;
-    case SPELL_HASH_BLOOD_PRESENCE:
-    case SPELL_HASH_FROST_PRESENCE:
-    case SPELL_HASH_UNHOLY_PRESENCE:
-        sp->buffIndex = BUFF_DKPRESENCE;
-        break;
+    case SPELL_HASH_BLOOD_PRESENCE: case SPELL_HASH_FROST_PRESENCE: case SPELL_HASH_UNHOLY_PRESENCE: sp->buffIndex = BUFF_DKPRESENCE; break;
+
+        // Handle our mastery spells, can be a bit complicated but we have our top trigger and our underlying trigger to hash
+    case SPELL_HASH_MASTERY:
+        {
+            uint8 targetClass = 0;
+            for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
+            {
+                StatSystem::TalentSpellPair talentPair = sStatSystem.GetTalentMasterySpells(i, 0x00);
+                if(talentPair.first != talentPair.second)
+                {
+                    for(StatSystem::TalentSpellStorage::iterator itr = talentPair.first; itr != talentPair.second; itr++)
+                    {
+                        if(SpellEntry *talentSpell = dbcSpell.LookupEntry(itr->second))
+                        {
+                            if(RONIN_UTIL::FindXinYString(talentSpell->Name, sp->Description))
+                            {
+                                targetClass = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if(targetClass == 0)
+            {   // We have a hardcoded list so we can just parse through it for the class, also earlier in execution for trainer list forcing
+                for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
+                {
+                    if(classMasterySpells[i-1] == sp->Id)
+                    {
+                        targetClass = i;
+                        break;
+                    }
+                }
+
+                if(targetClass == 0)
+                    break;
+            }
+
+            // TODO: store for later trigger on talent spec change for base recalc
+            sp->Class = targetClass;
+        }break;
     }
 
     sp->spellType = NON_WEAPON;
