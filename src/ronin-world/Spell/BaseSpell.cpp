@@ -416,14 +416,14 @@ void BaseSpell::SendInterrupted(uint8 result)
         return;
 
     WorldPacket data(SMSG_SPELL_FAILURE, 13);
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(m_spellInfo->Id);
     data << uint8(result);
     m_caster->SendMessageToSet(&data, true);
 
     data.Initialize(SMSG_SPELL_FAILED_OTHER);
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(m_spellInfo->Id);
     data << uint8(result);
@@ -436,7 +436,7 @@ void BaseSpell::SendChannelStart(int32 duration)
         return;
 
     WorldPacket data(MSG_CHANNEL_START, 16);
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
     data << m_spellInfo->Id;
     data << duration;
     m_caster->SendMessageToSet(&data, true);
@@ -448,7 +448,7 @@ void BaseSpell::SendChannelUpdate(uint32 time)
         return;
 
     WorldPacket data(MSG_CHANNEL_UPDATE, 12);
-    data << m_caster->GetGUID();
+    data << m_caster->GetGUID().asPacked();
     data << time;
     m_caster->SendMessageToSet(&data, true);
 }
@@ -459,8 +459,8 @@ void BaseSpell::SendHealSpellOnPlayer( WorldObject* caster, WorldObject* target,
         return;
 
     WorldPacket data(SMSG_SPELLHEALLOG, 34);
-    data << target->GetGUID();
-    data << caster->GetGUID();
+    data << target->GetGUID().asPacked();
+    data << caster->GetGUID().asPacked();
     data << uint32(spellid);
     data << uint32(dmg);
     data << uint32(overheal);
@@ -476,8 +476,8 @@ void BaseSpell::SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* targ
         return;
 
     WorldPacket data(SMSG_SPELLENERGIZELOG, 29);
-    data << target->GetGUID();
-    data << caster->GetGUID();
+    data << target->GetGUID().asPacked();
+    data << caster->GetGUID().asPacked();
     data << uint32(spellid);
     data << uint32(powertype);
     data << uint32(dmg);

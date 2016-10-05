@@ -2442,7 +2442,7 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
         summaryPCTmod += pVictim->GetDamageTakenByMechPCTMod(Spell::GetMechanic(spellInfo));
     }
 
-    int32 res = float2int32((bonus_damage) * summaryPCTmod) + bonus_damage;
+    int32 res = float2int32(((float)bonus_damage) * summaryPCTmod) + bonus_damage;
     if( res < 0 )
         res = 0;
     return res;

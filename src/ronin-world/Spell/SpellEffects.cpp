@@ -79,11 +79,11 @@ void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
 
 void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
 {
-    SpellTarget *target = GetSpellTarget(unitTarget->GetGUID());
-    if(target == NULL) // Not possible but whatever
+    SpellTarget *spTarget = GetSpellTarget(unitTarget->GetGUID());
+    if(spTarget == NULL) // Not possible but whatever
         return;
 
-    if(target->accumAmount && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
+    if(spTarget->accumAmount && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
         || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, effectMask)
         || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, effectMask)))
     {
@@ -96,8 +96,8 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
         }
 
         if(!m_caster->IsUnit() || m_spellInfo->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
-            m_caster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, target->accumAmount, target->resistMod, false, false);
-        else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, target->accumAmount, false, true);
+            m_caster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod, false, false);
+        else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, spTarget->accumAmount, false, true);
     }
 
     if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask))
@@ -105,9 +105,12 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
         WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
         data << unitTarget->GetGUID();
         data << uint8(DAMAGE_FIRE);
-        data << uint32(target->accumAmount);
+        data << uint32(spTarget->accumAmount);
         unitTarget->SendMessageToSet( &data, true );
     }
+
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL))
+        Heal(unitTarget, effectMask, spTarget->accumAmount);
 }
 
 void SpellEffectClass::HandleAddAura(Unit *target)
@@ -743,11 +746,12 @@ void SpellEffectClass::SpellEffectHealthLeech(uint32 i, WorldObject *target, int
 
 void SpellEffectClass::SpellEffectHeal(uint32 i, WorldObject *target, int32 amount) // Heal
 {
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( unitTarget == NULL || !unitTarget->isAlive() )
+    if( spTarget == NULL || unitTarget == NULL || !unitTarget->isAlive() )
         return;
-
-    Heal(unitTarget, i, amount);
+    // Add healing amount to accumulated data
+    spTarget->accumAmount += amount;
 }
 
 void SpellEffectClass::SpellEffectBind(uint32 i, WorldObject *target, int32 amount) // Innkeeper Bind

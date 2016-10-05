@@ -1081,7 +1081,7 @@ void Spell::AddTime(uint32 type)
             }
 
             WorldPacket data(SMSG_SPELL_DELAYED, 13);
-            data << p_caster->GetGUID();
+            data << p_caster->GetGUID().asPacked();
             data << uint32(delay);
             p_caster->SendMessageToSet(&data, true);
             p_caster->interruptAttackTimer(delay);
