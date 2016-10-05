@@ -6,7 +6,7 @@
 
 class SpellEffectClass;
 
-typedef void(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 
 class SERVER_DECL SpellManager : public Singleton<SpellManager>
@@ -23,7 +23,7 @@ public:
 
     bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
     // Modifiers for effect amounts and dummy effect handlers
-    void ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
+    bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
     bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 
 private:    // Spell fixes, start with class then continue to zones, items, quests

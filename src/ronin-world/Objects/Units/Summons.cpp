@@ -202,7 +202,7 @@ void WildSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, in
     SummonHandler::Load(owner, position, spellid, summonslot);
 }
 
-void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(!m_caster->IsUnit())
         return;

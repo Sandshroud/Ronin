@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-void DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -14,6 +14,7 @@ void DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject
         case 45477: amount += float2int32(((float)unitCaster->GetAttackPower())*0.2f); break;
         }
     }
+    return true;
 }
 
 void SpellManager::_RegisterDeathKnightFixes()

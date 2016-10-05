@@ -70,10 +70,10 @@ void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
 {
     uint32 effect = m_spellInfo->Effect[i];
     int32 amount = CalculateEffect(i, target);
-    sSpellMgr.ModifyEffectAmount(this, i, m_caster, target, amount);
+    bool moddedAmt = sSpellMgr.ModifyEffectAmount(this, i, m_caster, target, amount);
 
     if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
-        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, amount);
+        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, amount, moddedAmt == false);
     else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
 }
 
@@ -451,12 +451,12 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_REMOVE_TARGET_AURA]           = &SpellEffectClass::SpellEffectRemoveAura;
 }
 
-void SpellEffectClass::SpellEffectNULL(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectNULL(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     sLog.Debug("Spell","Unhandled spell effect %u in spell %u.", m_spellInfo->Effect[i], m_spellInfo->Id);
 }
 
-void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(!target->IsUnit() || castPtr<Unit>(target)->isAlive())
         return;
@@ -562,7 +562,7 @@ void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int
     m_caster->SendMessageToSet(&data, true);
 }
 
-void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32 amount) // dmg school
+void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // dmg school
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if((target->IsUnit() && !castPtr<Unit>(target)->isAlive()) || spTarget == NULL)
@@ -570,14 +570,14 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
 
     Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if(u_caster && unitTarget)
+    if(u_caster && unitTarget && rawAmt)
         amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, i, amount, false);
 
     // Add to our accumulative damage
     spTarget->accumAmount += amount;
 }
 
-void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount) // Dummy(Scripted events)
+void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Dummy(Scripted events)
 {
     if(sSpellMgr.HandleDummyEffect(this, i, m_caster, target, amount))
         return;
@@ -585,7 +585,7 @@ void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amo
     sLog.outDebug("Dummy spell not handled: %u\n", m_spellInfo->Id);
 }
 
-void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount)  // Teleport Units
+void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Teleport Units
 {
     uint32 spellId = GetSpellProto()->Id;
 
@@ -643,7 +643,7 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
         HandleTeleport(spellId, castPtr<Player>(target));
 }
 
-void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount)  // Apply Aura
+void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Apply Aura
 {
     if(!target->IsUnit())
         return;
@@ -687,7 +687,7 @@ void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32
     pAura->AddMod(i, GetSpellProto()->EffectApplyAuraName[i], amount);
 }
 
-void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount)  // Power Drain
+void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Power Drain
 {
     Unit *uCaster = castPtr<Unit>(m_caster);
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
@@ -711,7 +711,7 @@ void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int3
     unitTarget->SendPowerUpdate();
 }
 
-void SpellEffectClass::SpellEffectHealthLeech(uint32 i, WorldObject *target, int32 amount) // Health Leech
+void SpellEffectClass::SpellEffectHealthLeech(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Health Leech
 {
     Unit *u_caster = castPtr<Unit>(m_caster);
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
@@ -744,26 +744,27 @@ void SpellEffectClass::SpellEffectHealthLeech(uint32 i, WorldObject *target, int
     SendHealSpellOnPlayer(m_caster, m_caster, amt, false, overheal, GetSpellProto()->Id);
 }
 
-void SpellEffectClass::SpellEffectHeal(uint32 i, WorldObject *target, int32 amount) // Heal
+void SpellEffectClass::SpellEffectHeal(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Heal
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
+    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( spTarget == NULL || unitTarget == NULL || !unitTarget->isAlive() )
         return;
-    if(Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL)
-        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, i, amount, false);
+    if(u_caster != NULL && rawAmt == true)
+        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, i, amount, true);
     // Add healing amount to accumulated data
     spTarget->accumAmount += amount;
 }
 
-void SpellEffectClass::SpellEffectBind(uint32 i, WorldObject *target, int32 amount) // Innkeeper Bind
+void SpellEffectClass::SpellEffectBind(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Innkeeper Bind
 {
     if(!target->IsPlayer())
         return;
     castPtr<Player>(target)->SetBindPoint(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetMapId(), target->GetZoneId());
 }
 
-void SpellEffectClass::SpellEffectQuestComplete(uint32 i, WorldObject *target, int32 amount) // Quest Complete
+void SpellEffectClass::SpellEffectQuestComplete(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Quest Complete
 {
     if(!target->IsPlayer())
         return;
@@ -776,22 +777,22 @@ void SpellEffectClass::SpellEffectQuestComplete(uint32 i, WorldObject *target, i
     }
 }
 
-void SpellEffectClass::SpellEffectWeaponDamageNoSchool(uint32 i, WorldObject *target, int32 amount) // Weapon damage + (no School)
+void SpellEffectClass::SpellEffectWeaponDamageNoSchool(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Weapon damage + (no School)
 {
 
 }
 
-void SpellEffectClass::SpellEffectAddExtraAttacks(uint32 i, WorldObject *target, int32 amount) // Add Extra Attacks
+void SpellEffectClass::SpellEffectAddExtraAttacks(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Add Extra Attacks
 {
 
 }
 
-void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int32 amount) // Create item
+void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Create item
 {
 
 }
 
-void SpellEffectClass::SpellEffectWeapon(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectWeapon(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !target->IsPlayer() )
         return;
@@ -901,7 +902,7 @@ void SpellEffectClass::SpellEffectWeapon(uint32 i, WorldObject *target, int32 am
     }
 }
 
-void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, int32 amount) // Persistent Area Aura
+void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Persistent Area Aura
 {
     Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
@@ -960,7 +961,7 @@ void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, in
     m_AreaAura = true;
 }
 
-void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amount) // Leap
+void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Leap
 {
     //FIXME: check for obstacles
     if(!m_caster->IsPlayer())
@@ -1025,7 +1026,7 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
     p_caster->GetSession()->SendPacket(&data);
 }
 
-void SpellEffectClass::SpellEffectEnergize(uint32 i, WorldObject *target, int32 amount) // Energize
+void SpellEffectClass::SpellEffectEnergize(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Energize
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive())
@@ -1034,7 +1035,7 @@ void SpellEffectClass::SpellEffectEnergize(uint32 i, WorldObject *target, int32 
     castPtr<Unit>(m_caster)->Energize(unitTarget, GetSpellProto()->Id, amount, GetSpellProto()->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, int32 amount) // Weapon Percent damage
+void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Weapon Percent damage
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
@@ -1071,7 +1072,7 @@ void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, i
     }
 }
 
-void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, int32 amount) // Trigger Missile
+void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Trigger Missile
 {
     //Used by mortar team
     //Triggers area affect spell at destinatiom
@@ -1090,17 +1091,17 @@ void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, 
     castPtr<Unit>(m_caster)->CastSpellAoF(m_targets.m_dest.x, m_targets.m_dest.y, m_targets.m_dest.z, spInfo, true);
 }
 
-void SpellEffectClass::SpellEffectOpenLock(uint32 i, WorldObject *target, int32 amount) // Open Lock
+void SpellEffectClass::SpellEffectOpenLock(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Open Lock
 {
 
 }
 
-void SpellEffectClass::SpellEffectOpenLockItem(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectOpenLockItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectProficiency(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectProficiency(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(!target->IsPlayer())
         return;
@@ -1124,12 +1125,12 @@ void SpellEffectClass::SpellEffectProficiency(uint32 i, WorldObject *target, int
     playerTarget->SendProficiency(m_spellInfo->EquippedItemClass == ITEM_CLASS_ARMOR);
 }
 
-void SpellEffectClass::SpellEffectSendEvent(uint32 i, WorldObject *target, int32 amount) //Send Event
+void SpellEffectClass::SpellEffectSendEvent(uint32 i, WorldObject *target, int32 amount, bool rawAmt) //Send Event
 {
     sLog.outDebug("Event spell not handled: %u\n", m_spellInfo->Id);
 }
 
-void SpellEffectClass::SpellEffectApplyAA(uint32 i, WorldObject *target, int32 amount) // Apply Area Aura
+void SpellEffectClass::SpellEffectApplyAA(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Apply Area Aura
 {
     if(!target->IsUnit() || m_caster != target)
         return;
@@ -1151,7 +1152,7 @@ void SpellEffectClass::SpellEffectApplyAA(uint32 i, WorldObject *target, int32 a
     pAura->AddMod(i, GetSpellProto()->EffectApplyAuraName[i], amount);
 }
 
-void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int32 amount) // Learn Spell
+void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Learn Spell
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
@@ -1276,15 +1277,15 @@ void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int3
     }
 
     // if we got here... try via pet spells..
-    SpellEffectLearnPetSpell(i, target, amount);
+    SpellEffectLearnPetSpell(i, target, amount, rawAmt);
 }
 
-void SpellEffectClass::SpellEffectLearnPetSpell(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectLearnPetSpell(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 amount) // Dispel
+void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Dispel
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(!m_caster->IsUnit() || unitTarget == NULL )
@@ -1298,7 +1299,7 @@ void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 am
     unitTarget->m_AuraInterface.MassDispel(u_caster, i, GetSpellProto(), amount, start, end);
 }
 
-void SpellEffectClass::SpellEffectLanguage(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectLanguage(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(m_caster->GetTypeId() != TYPEID_PLAYER)
         return;
@@ -1369,7 +1370,7 @@ void SpellEffectClass::SpellEffectLanguage(uint32 i, WorldObject *target, int32 
     }
 }
 
-void SpellEffectClass::SpellEffectDualWield(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDualWield(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(!m_caster->IsPlayer())
         return;
@@ -1379,7 +1380,7 @@ void SpellEffectClass::SpellEffectDualWield(uint32 i, WorldObject *target, int32
          p_caster->_AddSkillLine( SKILL_DUAL_WIELD, 1, 1 );
 }
 
-void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32 amount) // Skill Step
+void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Skill Step
 {
     if(!target->IsPlayer())
         return;
@@ -1494,27 +1495,27 @@ void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32
     }
 }
 
-void SpellEffectClass::SpellEffectDetect(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDetect(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectSummonObject(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonObject(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectEnchantItem(uint32 i, WorldObject *target, int32 amount) // Enchant Item Permanent
+void SpellEffectClass::SpellEffectEnchantItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Enchant Item Permanent
 {
 
 }
 
-void SpellEffectClass::SpellEffectEnchantItemTemporary(uint32 i, WorldObject *target, int32 amount)  // Enchant Item Temporary
+void SpellEffectClass::SpellEffectEnchantItemTemporary(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Enchant Item Temporary
 {
 
 }
 
-void SpellEffectClass::SpellEffectAddPrismaticSocket(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectAddPrismaticSocket(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
@@ -1535,17 +1536,17 @@ bool isExotic(uint32 family)
     return false;
 }
 
-void SpellEffectClass::SpellEffectTameCreature(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectTameCreature(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectSummonPet(uint32 i, WorldObject *target, int32 amount) //summon - pet
+void SpellEffectClass::SpellEffectSummonPet(uint32 i, WorldObject *target, int32 amount, bool rawAmt) //summon - pet
 {
 
 }
 
-void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, int32 amount) // Weapon damage +
+void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Weapon damage +
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if(spTarget == NULL || (target->IsUnit() && !castPtr<Unit>(target)->isAlive()))
@@ -1553,7 +1554,7 @@ void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, in
     spTarget->accumAmount += amount;
 }
 
-void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32 amount) // power burn
+void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // power burn
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL ||!unitTarget->isAlive() )
@@ -1584,12 +1585,12 @@ void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32
     m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, mana, 0.f, true,true);
 }
 
-void SpellEffectClass::SpellEffectThreat(uint32 i, WorldObject *target, int32 amount) // Threat
+void SpellEffectClass::SpellEffectThreat(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Threat
 {
 
 }
 
-void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, int32 amount) // Trigger Spell
+void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Trigger Spell
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL || m_caster == NULL )
@@ -1607,12 +1608,12 @@ void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, in
         sp->prepare(&tgt, true);
 }
 
-void SpellEffectClass::SpellEffectPowerFunnel(uint32 i, WorldObject *target, int32 amount) // Power Funnel
+void SpellEffectClass::SpellEffectPowerFunnel(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Power Funnel
 {
 
 }
 
-void SpellEffectClass::SpellEffectHealMaxHealth(uint32 i, WorldObject *target, int32 amount)   // Heal Max Health
+void SpellEffectClass::SpellEffectHealMaxHealth(uint32 i, WorldObject *target, int32 amount, bool rawAmt)   // Heal Max Health
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive() )
@@ -1630,7 +1631,7 @@ void SpellEffectClass::SpellEffectHealMaxHealth(uint32 i, WorldObject *target, i
     unitTarget->ModUnsigned32Value( UNIT_FIELD_HEALTH, dif );
 }
 
-void SpellEffectClass::SpellEffectInterruptCast(uint32 i, WorldObject *target, int32 amount) // Interrupt Cast
+void SpellEffectClass::SpellEffectInterruptCast(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Interrupt Cast
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive() )
@@ -1655,7 +1656,7 @@ void SpellEffectClass::SpellEffectInterruptCast(uint32 i, WorldObject *target, i
     }
 }
 
-void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 amount) // Distract
+void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Distract
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive() )
@@ -1677,7 +1678,7 @@ void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 
     //Unit Field Target of
 }
 
-void SpellEffectClass::SpellEffectPickpocket(uint32 i, WorldObject *target, int32 amount) // pickpocket
+void SpellEffectClass::SpellEffectPickpocket(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // pickpocket
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !m_caster->IsPlayer() || unitTarget->GetTypeId() != TYPEID_UNIT)
@@ -1700,7 +1701,7 @@ void SpellEffectClass::SpellEffectPickpocket(uint32 i, WorldObject *target, int3
     cTarget->SetPickPocketed(true);
 }
 
-void SpellEffectClass::SpellEffectAddFarsight(uint32 i, WorldObject *target, int32 amount) // Add Farsight
+void SpellEffectClass::SpellEffectAddFarsight(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Add Farsight
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if( p_caster == NULL )
@@ -1719,7 +1720,7 @@ void SpellEffectClass::SpellEffectAddFarsight(uint32 i, WorldObject *target, int
     p_caster->GetMapInstance()->ChangeFarsightLocation(p_caster, m_targets.m_dest.x, m_targets.m_dest.y, true);
 }
 
-void SpellEffectClass::SpellEffectResetTalents(uint32 i, WorldObject *target, int32 amount) // Used by Trainers.
+void SpellEffectClass::SpellEffectResetTalents(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Used by Trainers.
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( !playerTarget )
@@ -1728,7 +1729,7 @@ void SpellEffectClass::SpellEffectResetTalents(uint32 i, WorldObject *target, in
     playerTarget->ResetSpec(playerTarget->m_talentInterface.GetActiveSpec());
 }
 
-void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if( p_caster == NULL )
@@ -1739,7 +1740,7 @@ void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 
     else p_caster->m_talentInterface.SendTalentInfo();
 }
 
-void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL || unitTarget->GetCreatureType() != UT_MECHANICAL)
@@ -1748,7 +1749,7 @@ void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, 
     Heal(unitTarget, i, amount);
 }
 
-void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if(u_caster == NULL )
@@ -1766,12 +1767,12 @@ void SpellEffectClass::SpellEffectSummonObjectWild(uint32 i, WorldObject *target
     GoSummon->SetSummoned(u_caster);
 }
 
-void SpellEffectClass::SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount) // Script Effect
+void SpellEffectClass::SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Script Effect
 {
     sLog.outDebug("Unhandled Scripted Effect In Spell %u", m_spellInfo->Id);
 }
 
-void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32 amount) // Stop all attacks made to you
+void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Stop all attacks made to you
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL )
@@ -1786,12 +1787,12 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
         castPtr<Player>(unitTarget)->EventAttackStop();
 }
 
-void SpellEffectClass::SpellEffectAddComboPoints(uint32 i, WorldObject *target, int32 amount) // Add Combo Points
+void SpellEffectClass::SpellEffectAddComboPoints(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Add Combo Points
 {
 
 }
 
-void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amount) // Duel
+void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Duel
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL, *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( p_caster == NULL  || !p_caster->isAlive() || playerTarget == p_caster )
@@ -1840,7 +1841,7 @@ void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amou
     p_caster->RequestDuel(playerTarget);
 }
 
-void SpellEffectClass::SpellEffectStuck(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectStuck(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL, *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( playerTarget == NULL || playerTarget != p_caster)
@@ -1853,7 +1854,7 @@ void SpellEffectClass::SpellEffectStuck(uint32 i, WorldObject *target, int32 amo
     float orientation = 0.f;
 }
 
-void SpellEffectClass::SpellEffectSummonPlayer(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonPlayer(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( playerTarget == NULL)
@@ -1865,27 +1866,27 @@ void SpellEffectClass::SpellEffectSummonPlayer(uint32 i, WorldObject *target, in
     playerTarget->SummonRequest(m_caster, m_caster->GetZoneId(), m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPosition());
 }
 
-void SpellEffectClass::SpellEffectActivateObject(uint32 i, WorldObject *target, int32 amount) // Activate WorldObject
+void SpellEffectClass::SpellEffectActivateObject(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Activate WorldObject
 {
 
 }
 
-void SpellEffectClass::SpellEffectWMODamage(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectWMODamage(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectWMORepair(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectWMORepair(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectChangeWMOState(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectChangeWMOState(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectSelfResurrect(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSelfResurrect(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL, *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( p_caster == NULL || playerTarget == NULL || playerTarget->isAlive() || playerTarget->PreventRes)
@@ -1931,7 +1932,7 @@ void SpellEffectClass::SpellEffectSelfResurrect(uint32 i, WorldObject *target, i
     playerTarget->SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
 }
 
-void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsPlayer() ? castPtr<Unit>(target) : NULL;
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
@@ -1958,7 +1959,7 @@ void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 
     } else SendCastResult(SPELL_FAILED_TARGET_UNSKINNABLE);
 }
 
-void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
@@ -1999,7 +2000,7 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
         u_caster->EventAttackStart(guid);
 }
 
-void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if(!p_caster)
@@ -2029,7 +2030,7 @@ void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target
     }
 }
 
-void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if ( playerTarget == NULL || !playerTarget->isAlive() )
@@ -2073,7 +2074,7 @@ void SpellEffectClass::SpellEffectSendTaxi(uint32 i, WorldObject *target, int32 
     playerTarget->TaxiStart( taxipath, modelid );
 }
 
-void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL && m_caster->IsUnit() )
@@ -2112,7 +2113,7 @@ void SpellEffectClass::SpellEffectPull(uint32 i, WorldObject *target, int32 amou
     }
 }
 
-void SpellEffectClass::SpellEffectKnockBack(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectKnockBack(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL || !unitTarget->isAlive())
@@ -2121,12 +2122,12 @@ void SpellEffectClass::SpellEffectKnockBack(uint32 i, WorldObject *target, int32
     unitTarget->knockback(GetSpellProto()->EffectBasePoints[i]+1, GetSpellProto()->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectDisenchant(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDisenchant(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectInebriate(uint32 i, WorldObject *target, int32 amount) // lets get drunk!
+void SpellEffectClass::SpellEffectInebriate(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // lets get drunk!
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( playerTarget == NULL )
@@ -2141,12 +2142,12 @@ void SpellEffectClass::SpellEffectInebriate(uint32 i, WorldObject *target, int32
     playerTarget->SetDrunk(currentDrunk, 0);
 }
 
-void SpellEffectClass::SpellEffectFeedPet(uint32 i, WorldObject *target, int32 amount)  // Feed Pet
+void SpellEffectClass::SpellEffectFeedPet(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Feed Pet
 {
 
 }
 
-void SpellEffectClass::SpellEffectReputation(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectReputation(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( playerTarget == NULL)
@@ -2155,12 +2156,12 @@ void SpellEffectClass::SpellEffectReputation(uint32 i, WorldObject *target, int3
     playerTarget->GetFactionInterface()->ModStanding(GetSpellProto()->EffectMiscValue[i], amount);
 }
 
-void SpellEffectClass::SpellEffectSummonObjectSlot(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonObjectSlot(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectDispelMechanic(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDispelMechanic(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive() )
@@ -2173,7 +2174,7 @@ void SpellEffectClass::SpellEffectDispelMechanic(uint32 i, WorldObject *target, 
         castPtr<Player>(unitTarget)->Dismount();
 }
 
-void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if(p_caster == NULL )
@@ -2182,7 +2183,7 @@ void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, i
 
 uint32 TotemSpells[4] = { 63, 81, 82, 83 };
 
-void SpellEffectClass::SpellEffectDestroyAllTotems(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDestroyAllTotems(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if(p_caster == NULL || !p_caster->IsInWorld())
@@ -2220,7 +2221,7 @@ void SpellEffectClass::SpellEffectDestroyAllTotems(uint32 i, WorldObject *target
         p_caster->Energize(p_caster, GetSpellProto()->Id, energize_amt, POWER_TYPE_MANA);
 }
 
-void SpellEffectClass::SpellEffectSummonDemonOld(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSummonDemonOld(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *p_caster = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
     if(p_caster == NULL ) //p_caster->getClass() != WARLOCK ) //summoning a demon shouldn't be warlock only, see spells 25005, 24934, 24810 etc etc
@@ -2231,7 +2232,7 @@ void SpellEffectClass::SpellEffectSummonDemonOld(uint32 i, WorldObject *target, 
         return;
 }
 
-void SpellEffectClass::SpellEffectResurrect(uint32 i, WorldObject *target, int32 amount) // Resurrect (Flat)
+void SpellEffectClass::SpellEffectResurrect(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Resurrect (Flat)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(playerTarget == NULL || playerTarget->isAlive() || !playerTarget->IsInWorld() || playerTarget->PreventRes)
@@ -2246,7 +2247,7 @@ void SpellEffectClass::SpellEffectResurrect(uint32 i, WorldObject *target, int32
     SendResurrectRequest(playerTarget);
 }
 
-void SpellEffectClass::SpellEffectAttackMe(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectAttackMe(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(!m_caster->IsUnit() || unitTarget == NULL || !unitTarget->isAlive())
@@ -2255,12 +2256,12 @@ void SpellEffectClass::SpellEffectAttackMe(uint32 i, WorldObject *target, int32 
     //castPtr<Creature>(unitTarget)->GetAIInterface()->AttackReaction(castPtr<Unit>(m_caster), 1, 0);
 }
 
-void SpellEffectClass::SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     // Used by professions only
     // Effect should be renamed in RequireSkill
@@ -2278,7 +2279,7 @@ void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amo
     else castPtr<Player>(m_caster)->_AddSkillLine( GetSpellProto()->EffectMiscValue[i], 1, val);
 }
 
-void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount) // Normalized Weapon damage +
+void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Normalized Weapon damage +
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if(spTarget == NULL)
@@ -2287,7 +2288,7 @@ void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int3
     spTarget->accumAmount += amount;    
 }
 
-void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if ( unitTarget  == NULL ||  u_caster  == NULL || !unitTarget->isAlive())
@@ -2303,12 +2304,12 @@ void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int3
     unitTarget->m_AuraInterface.SpellStealAuras(u_caster, amount);
 }
 
-void SpellEffectClass::SpellEffectProspecting(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectProspecting(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectResurrectNew(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectResurrectNew(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
@@ -2329,12 +2330,12 @@ void SpellEffectClass::SpellEffectResurrectNew(uint32 i, WorldObject *target, in
     SendResurrectRequest(playerTarget);
 }
 
-void SpellEffectClass::SpellEffectTranformItem(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectTranformItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectEnvironmentalDamage(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectEnvironmentalDamage(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if(!target->IsUnit() || spTarget == NULL)
@@ -2344,7 +2345,7 @@ void SpellEffectClass::SpellEffectEnvironmentalDamage(uint32 i, WorldObject *tar
 
 }
 
-void SpellEffectClass::SpellEffectDismissPet(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDismissPet(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     // remove pet.. but don't delete so it can be called later
     if( m_caster->IsPlayer() )
@@ -2352,12 +2353,12 @@ void SpellEffectClass::SpellEffectDismissPet(uint32 i, WorldObject *target, int3
 
 }
 
-void SpellEffectClass::SpellEffectEnchantHeldItem(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectEnchantHeldItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectAddHonor(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectAddHonor(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !target->IsPlayer() )
         return;
@@ -2365,17 +2366,17 @@ void SpellEffectClass::SpellEffectAddHonor(uint32 i, WorldObject *target, int32 
     HonorHandler::AddHonorPointsToPlayer( castPtr<Player>(target), GetSpellProto()->EffectBasePoints[i] );
 }
 
-void SpellEffectClass::SpellEffectSpawn(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSpawn(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectRedirectThreat(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectRedirectThreat(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectPlayMusic(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectPlayMusic(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(!unitTarget)
@@ -2384,7 +2385,7 @@ void SpellEffectClass::SpellEffectPlayMusic(uint32 i, WorldObject *target, int32
     unitTarget->PlaySoundToSet(m_spellInfo->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectKillCredit(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectKillCredit(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(playerTarget == NULL)
@@ -2394,7 +2395,7 @@ void SpellEffectClass::SpellEffectKillCredit(uint32 i, WorldObject *target, int3
         sQuestMgr._OnPlayerKill( playerTarget, GetSpellProto()->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectRestoreManaPct(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectRestoreManaPct(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if( u_caster == NULL || unitTarget == NULL || !unitTarget->isAlive())
@@ -2406,7 +2407,7 @@ void SpellEffectClass::SpellEffectRestoreManaPct(uint32 i, WorldObject *target, 
     u_caster->Energize(unitTarget, GetSpellProto()->Id, modMana, POWER_TYPE_MANA);
 }
 
-void SpellEffectClass::SpellEffectRestoreHealthPct(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectRestoreHealthPct(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if( u_caster == NULL || unitTarget == NULL || !unitTarget->isAlive())
@@ -2418,7 +2419,7 @@ void SpellEffectClass::SpellEffectRestoreHealthPct(uint32 i, WorldObject *target
     u_caster->Heal(unitTarget, GetSpellProto()->Id, modHp);
 }
 
-void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL )
@@ -2434,7 +2435,7 @@ void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32
     unitTarget->CastSpell( unitTarget, TriggeredSpell, true );
 }
 
-void SpellEffectClass::SpellEffectTriggerSpellWithValue(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectTriggerSpellWithValue(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL )
@@ -2452,7 +2453,7 @@ void SpellEffectClass::SpellEffectTriggerSpellWithValue(uint32 i, WorldObject *t
         sp->prepare(&tgt, true);
 }
 
-void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if(!m_caster->IsUnit())
         return;
@@ -2498,7 +2499,7 @@ void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amou
 
 }
 
-void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL, *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if(!u_caster || !unitTarget)
@@ -2509,17 +2510,17 @@ void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target
     unitTarget->Teleport(x,y,z,u_caster->GetOrientation());
 }
 
-void SpellEffectClass::SpellEffectMilling(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectMilling(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectAllowPetRename(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectAllowPetRename(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectStartQuest(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectStartQuest(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( !playerTarget )
@@ -2528,7 +2529,7 @@ void SpellEffectClass::SpellEffectStartQuest(uint32 i, WorldObject *target, int3
     playerTarget->StartQuest(GetSpellProto()->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectCreatePet(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectCreatePet(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if( !playerTarget )
@@ -2542,17 +2543,17 @@ void SpellEffectClass::SpellEffectCreatePet(uint32 i, WorldObject *target, int32
 		return;
 }
 
-void SpellEffectClass::SpellEffectTitanGrip(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectTitanGrip(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectCreateRandomItem(uint32 i, WorldObject *target, int32 amount) // Create Random Item
+void SpellEffectClass::SpellEffectCreateRandomItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Create Random Item
 {
 
 }
 
-void SpellEffectClass::SpellEffectSetTalentSpecsCount(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectSetTalentSpecsCount(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !m_caster->IsPlayer() )
         return;
@@ -2560,7 +2561,7 @@ void SpellEffectClass::SpellEffectSetTalentSpecsCount(uint32 i, WorldObject *tar
     castPtr<Player>(m_caster)->m_talentInterface.UnlockSpec(amount);
 }
 
-void SpellEffectClass::SpellEffectActivateTalentSpec(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectActivateTalentSpec(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !m_caster->IsPlayer() )
         return;
@@ -2578,7 +2579,7 @@ void SpellEffectClass::SpellEffectActivateTalentSpec(uint32 i, WorldObject *targ
     p_caster->SetPower(p_caster->getPowerType(), 0);
 }
 
-void SpellEffectClass::SpellEffectDisengage(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectDisengage(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL || !unitTarget->isAlive())
@@ -2587,7 +2588,7 @@ void SpellEffectClass::SpellEffectDisengage(uint32 i, WorldObject *target, int32
     unitTarget->knockback(GetSpellProto()->EffectBasePoints[i]+1, GetSpellProto()->EffectMiscValue[i], true);
 }
 
-void SpellEffectClass::SpellEffectClearFinishedQuest(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectClearFinishedQuest(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if (playerTarget == NULL)
@@ -2596,12 +2597,12 @@ void SpellEffectClass::SpellEffectClearFinishedQuest(uint32 i, WorldObject *targ
     playerTarget->m_completedQuests.erase(GetSpellProto()->EffectMiscValue[i]);
 }
 
-void SpellEffectClass::SpellEffectApplyDemonAura(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectApplyDemonAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
 
 }
 
-void SpellEffectClass::SpellEffectRemoveAura(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectRemoveAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if (!unitTarget)
@@ -2610,7 +2611,7 @@ void SpellEffectClass::SpellEffectRemoveAura(uint32 i, WorldObject *target, int3
     unitTarget->RemoveAura(GetSpellProto()->EffectTriggerSpell[i], unitTarget->GetGUID());
 }
 
-void SpellEffectClass::SpellEffectActivateRune(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectActivateRune(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !m_caster->IsPlayer() )
         return;
@@ -2629,7 +2630,7 @@ void SpellEffectClass::SpellEffectActivateRune(uint32 i, WorldObject *target, in
     }
 }
 
-void SpellEffectClass::SpellEffectFailQuest(uint32 i, WorldObject *target, int32 amount)
+void SpellEffectClass::SpellEffectFailQuest(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
     if( !m_caster->IsPlayer() )
         return;

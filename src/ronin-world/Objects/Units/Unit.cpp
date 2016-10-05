@@ -168,64 +168,73 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
 
 void Unit::OnAuraModChanged(uint32 modType)
 {
-    uint8 index = 0;
+    std::vector<uint8> pendingIndex;
     switch(modType)
     {
     case SPELL_AURA_MOD_STAT:
     case SPELL_AURA_MOD_PERCENT_STAT:
     case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
-        index = 1;
+        pendingIndex.push_back(1);
         break;
     case SPELL_AURA_MOD_BASE_HEALTH_PCT:
     case SPELL_AURA_MOD_INCREASE_HEALTH:
     case SPELL_AURA_MOD_INCREASE_MAX_HEALTH:
     case SPELL_AURA_MOD_INCREASE_HEALTH_2:
     case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
-        index = 2;
+        pendingIndex.push_back(2);
         break;
     case SPELL_AURA_MOD_INCREASE_ENERGY:
     case SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT:
-        index = 3;
+        pendingIndex.push_back(3);
         break;
     case SPELL_AURA_MOD_POWER_REGEN:
     case SPELL_AURA_MOD_POWER_REGEN_PERCENT:
     case SPELL_AURA_MOD_MANA_REGEN_INTERRUPT:
-        index = 4;
+        pendingIndex.push_back(4);
         break;
     case SPELL_AURA_MOD_ATTACKSPEED:
-        index = 5;
+        pendingIndex.push_back(5);
         break;
     case SPELL_AURA_MOD_RESISTANCE:
     case SPELL_AURA_MOD_RESISTANCE_PCT:
     case SPELL_AURA_MOD_BASE_RESISTANCE:
     case SPELL_AURA_MOD_BASE_RESISTANCE_PCT:
     case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
-        index = 6;
+        pendingIndex.push_back(6);
         break;
     case SPELL_AURA_MOD_ATTACK_POWER_PCT:
-        index = 7;
+        pendingIndex.push_back(7);
         break;
     case SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT:
-        index = 8;
+        pendingIndex.push_back(8);
         break;
     case SPELL_AURA_MOD_DAMAGE_DONE:
     case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
-        index = 9;
+        pendingIndex.push_back(9);
+        if(IsPlayer()) pendingIndex.push_back(51);
         break;
     case SPELL_AURA_MOD_POWER_COST_SCHOOL:
     case SPELL_AURA_MOD_POWER_COST:
-        index = 10;
+        pendingIndex.push_back(10);
         break;
     case SPELL_AURA_HOVER:
-        index = 11;
+        pendingIndex.push_back(11);
         break;
         // Player opcode handling
     case SPELL_AURA_MASTERY:
-        index = IsPlayer() ? 50 : 0;
+        if(IsPlayer()) pendingIndex.push_back(50);
+        break;
+    case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
+    case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
+    case SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER:
+    case SPELL_AURA_MOD_HEALING_DONE:
+    case SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT:
+    case SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER:
+        if(IsPlayer()) pendingIndex.push_back(51);
         break;
     case SPELL_AURA_MOD_RATING:
     case SPELL_AURA_MOD_RATING_FROM_STAT:
-        index = IsPlayer() ? 51 : 0;
+        if(IsPlayer()) pendingIndex.push_back(52);
         break;
         /// Movement handler opcodes
         // Enabler opcodes
@@ -245,17 +254,22 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
     case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
     case SPELL_AURA_MOD_MINIMUM_SPEED:
-        index = 100;
+        pendingIndex.push_back(100);
         break;
     case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
     case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
-        index = 255;
+        pendingIndex.push_back(255);
         break;
     }
-    if(index == 0)
+    if(pendingIndex.empty())
         return;
 
-    m_modQueuedModUpdates[index].push_back(modType);
+    while(pendingIndex.size())
+    {
+        uint8 index = *pendingIndex.begin();
+        pendingIndex.erase(pendingIndex.begin());
+        m_modQueuedModUpdates[index].push_back(modType);
+    }
 }
 
 void Unit::UpdateFieldValues()

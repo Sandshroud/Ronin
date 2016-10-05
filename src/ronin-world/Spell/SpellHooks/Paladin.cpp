@@ -42,7 +42,7 @@ bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, WorldObject *
     return true;
 }
 
-void PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -60,9 +60,18 @@ void PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, Worl
     Aura *censure = NULL;
     if(sp->Id == 31804 && target->IsUnit() && (censure = castPtr<Unit>(target)->m_AuraInterface.FindActiveAuraWithNameHash(SPELL_HASH_CENSURE)))
         amount += ((float)amount) * 0.2f * censure->getStackSize();
+    return true;
 }
 
-void PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+{
+    // Exorcism gets a raw attack power increase of 0.315-0.325%, not sure yet which
+    if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
+        amount += float2int32(unitCaster->GetAttackPower() * 0.325f);
+    return true;
+}
+
+bool PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -74,6 +83,7 @@ void PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, World
         }
         unitCaster->SetPower(POWER_TYPE_HOLY_POWER, 0);
     }
+    return true;
 }
 
 void SpellManager::_RegisterPaladinFixes()
@@ -89,6 +99,9 @@ void SpellManager::_RegisterPaladinFixes()
     _RegisterAmountModifier(20187, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
     _RegisterAmountModifier(31804, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
     _RegisterAmountModifier(54158, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
+
+    // Register the damage modifier based off attack power for exorcism
+    _RegisterAmountModifier(879, SP_EFF_INDEX_0, PaladinExorcismAmountModifier);
 
     // Register the damage increase for templar's verdict based off holy power available
     _RegisterAmountModifier(85256, SP_EFF_INDEX_0, PaladinTemplarsVerdictAmountModifier);
