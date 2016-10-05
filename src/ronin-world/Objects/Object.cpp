@@ -1496,33 +1496,35 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     {
         caster->m_AuraInterface.RemoveAllAurasByInterruptFlag( AURA_INTERRUPT_ON_START_ATTACK );
 
-        res = caster->GetSpellBonusDamage( pVictim, spellInfo, 0, ( int )res, false );
-
 //==========================================================================================
 //==============================Post +SpellDamage Bonus Modifications=======================
 //==========================================================================================
-        if( res < 0 )
-            res = 0;
-        else if( !spellInfo->isUncrittableSpell() )
+        if( res > 0 && !spellInfo->isUncrittableSpell() )
         {
 //------------------------------critical strike chance--------------------------------------
             // lol ranged spells were using spell crit chance
             float CritChance;
-            if( spellInfo->IsSpellWeaponSpell() )
+            if(IsPlayer())
             {
-                CritChance = GetFloatValue( PLAYER_RANGED_CRIT_PERCENTAGE );
-                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
-            }
-            else
-            {
-                if( spellInfo->SpellGroupType )
+                switch(spellInfo->spellType)
                 {
-                    caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
-                    caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                case MELEE: CritChance = GetFloatValue(PLAYER_CRIT_PERCENTAGE); break;
+                case OFFHAND: CritChance = GetFloatValue(PLAYER_OFFHAND_CRIT_PERCENTAGE); break;
+                case RANGED: case RANGED_AUTOSHOT: CritChance = GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE); break;
+                case NON_WEAPON:
+                    {
+                        CritChance = GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE);
+                        if( spellInfo->SpellGroupType )
+                        {
+                            caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                            caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                        }
+                        CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
+                    }break;
                 }
-
-                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
-            }
+            } else CritChance = 5.f;
+            if( spellInfo->IsSpellWeaponSpell() )
+                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
 
             if( CritChance > 0.f )
             {

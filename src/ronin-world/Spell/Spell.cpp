@@ -944,7 +944,7 @@ void Spell::cast(bool check)
 
             //if(!m_projectileWait)
             {
-                std::pair<WorldObject*, bool> casterTarget = std::make_pair<WorldObject*, bool>(NULL, false);
+                std::pair<WorldObject*, std::pair<uint8, bool>> casterTarget = std::make_pair<WorldObject*, std::pair<uint8, bool>>(NULL, std::make_pair(0x00, false));
                 // if the spell is not reflected
                 for(uint8 i = 0; i < 3; i++)
                 {
@@ -957,35 +957,10 @@ void Spell::cast(bool check)
                     // If for some reason we have a unitTarget but we aren't the target and map is empty, skip processing
                     if(!m_targets.m_unitTarget.empty() && m_targets.m_unitTarget != m_caster->GetGUID())
                         continue;
-                    if(!CanHandleSpellEffect(i))
-                        continue;
-                    if(GetSpellProto()->Effect[i] == SPELL_EFFECT_SUMMON
-                        || GetSpellProto()->Effect[i] == SPELL_EFFECT_TRIGGER_SPELL
-                        || GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                        continue;
                     HandleEffects(i, m_caster);
                     casterTarget.first = m_caster;
-                    casterTarget.second = m_spellInfo->EffectApplyAuraName[i] > 0;
-                }
-
-                // Specific spells need to have effect 0 on all targets first, then the same for 1 and 2
-                bool inlineEffects = m_spellInfo->inline_effects;
-                if(inlineEffects == true)
-                {
-                    for(uint8 i = 0; i < 3; i++)
-                    {
-                        if(!CanHandleSpellEffect(i))
-                            continue;
-                        if(GetSpellProto()->Effect[i] == SPELL_EFFECT_SUMMON
-                            || GetSpellProto()->Effect[i] == SPELL_EFFECT_TRIGGER_SPELL
-                            || GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                            continue;
-
-                        // Process our effect target maps
-                        for(SpellTargetMap::iterator itr = m_effectTargetMaps[i].begin(); itr != m_effectTargetMaps[i].end(); itr++)
-                            if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
-                                HandleEffects(i, target);
-                    }
+                    casterTarget.second.first |= uint8(1<<i);
+                    casterTarget.second.second = (casterTarget.second.second || m_spellInfo->EffectApplyAuraName[i] > 0);
                 }
 
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
@@ -996,21 +971,11 @@ void Spell::cast(bool check)
 
                     if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
                     {
-                        // If we're not inline effect handling, do the effects here
-                        if(inlineEffects == false)
+                        for(uint8 i = 0; i < 3; i++)
                         {
-                            for(uint8 i = 0; i < 3; i++)
-                            {
-                                if((itr->second->EffectMask & uint8(1<<i)) == 0)
-                                    continue;
-                                if(!CanHandleSpellEffect(i))
-                                    continue;
-                                if(GetSpellProto()->Effect[i] == SPELL_EFFECT_SUMMON
-                                    || GetSpellProto()->Effect[i] == SPELL_EFFECT_TRIGGER_SPELL
-                                    || GetSpellProto()->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                                    continue;
-                                HandleEffects(i, target);
-                            }
+                            if((itr->second->EffectMask & uint8(1<<i)) == 0)
+                                continue;
+                            HandleEffects(i, target);
                         }
 
                         if(!target->IsUnit())
@@ -1028,6 +993,8 @@ void Spell::cast(bool check)
                                 break;
                             }
                         }
+
+                        HandleDelayedEffects(unitTarget, itr->second->EffectMask);
                     }
                 }
 
@@ -1038,27 +1005,9 @@ void Spell::cast(bool check)
                         unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
 
                     // Add our aura after handling the effects
-                    if(casterTarget.second)
+                    if(casterTarget.second.second)
                         HandleAddAura(unitTarget);
-                }
-
-                //Handle remaining effects for which we did not find targets.
-                for( uint8 x = 0; x < 3; ++x )
-                {
-                    if(GetSpellProto()->Effect[x] == 0)
-                        continue;
-                    if(!CanHandleSpellEffect(x))
-                        continue;
-
-                    switch (GetSpellProto()->Effect[x])
-                    {   // Target ourself for these effects
-                    case SPELL_EFFECT_SUMMON:
-                    case SPELL_EFFECT_TRIGGER_SPELL:
-                    case SPELL_EFFECT_PERSISTENT_AREA_AURA:
-                        {
-                            HandleEffects(x, m_caster);
-                        }break;
-                    }
+                    HandleDelayedEffects(unitTarget, casterTarget.second.first);
                 }
             }// else CalcDestLocationHit();
 
@@ -2203,14 +2152,15 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
         {
             // calculate spell incoming interval
             float dist = sqrtf(m_caster->GetDistanceSq(target));
-            tgt->DestinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
-            if(tgt->DestinationTime+m_MSTimeToAddToTravel < 200)
-                tgt->DestinationTime = 0;
-            if (m_missileTravelTime == 0 || tgt->DestinationTime > m_missileTravelTime)
-                m_missileTravelTime = tgt->DestinationTime;
-            tgt->DestinationTime += m_MSTimeToAddToTravel;
-        } else tgt->DestinationTime = 0;
+            tgt->destinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
+            if(tgt->destinationTime+m_MSTimeToAddToTravel < 200)
+                tgt->destinationTime = 0;
+            if (m_missileTravelTime == 0 || tgt->destinationTime > m_missileTravelTime)
+                m_missileTravelTime = tgt->destinationTime;
+            tgt->destinationTime += m_MSTimeToAddToTravel;
+        } else tgt->destinationTime = 0;
 
+        tgt->ReflectResult = tgt->accumAmount = 0; tgt->resistMod = 0.f;
         tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
         // add counter
@@ -2247,55 +2197,6 @@ void Spell::DamageGosAround(uint32 i)
             gObj->TakeDamage(damage,m_caster,m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL,spell_id);
         }
     }
-}
-
-bool Spell::CanHandleSpellEffect(uint32 i)
-{
-    if(m_caster->IsUnit())
-    {
-        switch(i)
-        {
-        case 1:
-            {
-                switch(m_spellInfo->NameHash)
-                {
-                    case SPELL_HASH_FROSTBOLT:
-                    {
-                        if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FROSTBOLT ))
-                            return false;
-                    }break;
-                }break;
-            }break;
-        case 2:
-            {
-                switch(m_spellInfo->NameHash)
-                {
-                    case SPELL_HASH_FIREBALL:
-                    {
-                        if(castPtr<Unit>(m_caster)->HasDummyAura( SPELL_HASH_GLYPH_OF_FIREBALL ))
-                            return false;
-                    }break;
-                }break;
-            }break;
-        case 3:
-            {
-                switch(m_spellInfo->NameHash)
-                {
-                    case SPELL_HASH_BLAST_WAVE:
-                    {
-                        if(castPtr<Unit>(m_caster)->HasAura(62126))
-                            return false;
-                    }break;     
-                    case SPELL_HASH_THUNDERSTORM:
-                    {
-                        if(castPtr<Unit>(m_caster)->HasAura(62132))
-                            return false;
-                    }break;
-                }break;
-            }break;
-        }
-    }
-    return true;
 }
 
 bool Spell::UseMissileDelay()

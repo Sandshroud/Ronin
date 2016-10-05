@@ -957,7 +957,7 @@ struct SpellEntry
     uint32 GeneratedThreat;
     uint32 SpellSkillLine;
     uint32 CustomAttributes[2];
-    bool isUnique, always_apply, inline_effects;
+    bool isUnique, always_apply;
 
     // Calculations
     int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints);
@@ -991,14 +991,14 @@ struct SpellEntry
     // Functions
     bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 11) return false; return (Attributes[index] & attributeFlag); }
     bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
-    bool HasEffect(uint32 spellEffect) { return (Effect[0] == spellEffect || Effect[1] == spellEffect || Effect[2] == spellEffect); }
     bool AppliesAura(uint32 auraName) { return (EffectApplyAuraName[0] == auraName || EffectApplyAuraName[1] == auraName || EffectApplyAuraName[2] == auraName); }
-    int8 GetEffectIndex(uint32 spellEffect)
+    bool HasEffect(uint32 spellEffect, uint8 effectMask = 0xFF) { return ((Effect[0] == spellEffect && effectMask&0x01) || (Effect[1] == spellEffect && effectMask&0x02) || (Effect[2] == spellEffect && effectMask&0x04)); }
+    bool GetEffectIndex(uint32 spellEffect, uint8 &index)
     {
-        if(Effect[0] == spellEffect) return 0;
-        if(Effect[1] == spellEffect) return 1;
-        if(Effect[2] == spellEffect) return 2;
-        return -1;
+        if(Effect[0] == spellEffect) { index = 0; return true; }
+        if(Effect[1] == spellEffect) { index = 1; return true; }
+        if(Effect[2] == spellEffect) { index = 2; return true; }
+        return false;
     }
 
     // Attribute parsing

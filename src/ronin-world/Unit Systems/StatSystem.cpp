@@ -262,30 +262,8 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
                 int32 apall = pAttacker->CalculateAttackPower();
                 ap = float(apall);
             }
-        } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
 
-        //Normalized weapon damage checks.
-        if(pAttacker->IsPlayer() && ability)
-        {
-            if(ability->Effect[0] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[1] == SPELL_EFFECT_DUMMYMELEE || ability->Effect[2] == SPELL_EFFECT_DUMMYMELEE)
-            {
-                if(it = castPtr<Player>(pAttacker)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND))
-                {
-                    if(it->GetProto()->Class == ITEM_CLASS_WEAPON) //weapon
-                    {
-                        if(it->GetProto()->InventoryType == INVTYPE_2HWEAPON)
-                            wspeed = 3300;
-                        else if(it->GetProto()->SubClass == 15)
-                            wspeed = 1700;
-                        else wspeed = 2400;
-                    }
-                }
-            }
-        }
-
-        //Weapon speed constant in feral forms
-        if(pAttacker->IsPlayer())
-        {
+            //Weapon speed constant in feral forms
             if(castPtr<Player>(pAttacker)->IsInFeralForm())
             {
                 uint8 ss = castPtr<Player>(pAttacker)->GetShapeShift();
@@ -295,14 +273,13 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
                 else if(ss == FORM_DIREBEAR || ss == FORM_BEAR)
                     wspeed = 2500.0;
             }
-        }
+        } else wspeed = (float)pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME);
 
         if (offset == UNIT_FIELD_MINDAMAGE)
             bonus = (wspeed-pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME))/14000.0f*ap;
         else if( offset == UNIT_FIELD_MINOFFHANDDAMAGE )
             bonus = (wspeed-pAttacker->GetUInt32Value(UNIT_FIELD_BASEATTACKTIME + 1)) / 14000.0f*ap;
-        else
-            bonus = (wspeed-pAttacker->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME))/14000.0f*ap;
+        else bonus = (wspeed-pAttacker->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME))/14000.0f*ap;
         min_damage += bonus;
         max_damage += bonus;
     }

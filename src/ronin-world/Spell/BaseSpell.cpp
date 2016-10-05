@@ -252,11 +252,12 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
     
     if(cast_flags & SPELL_CASTFLAG_HEAL_UPDATE)
     {
+        uint8 effIndex = 0;
         uint32 amount = 0, type = 0;
-        if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL))
-            amount = m_spellInfo->CalculateSpellPoints(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL), m_caster->getLevel(), 0);
-        else if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL_PCT))
-            type = 1, amount = m_spellInfo->CalculateSpellPoints(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT), m_caster->getLevel(), 0);
+        if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL, effIndex))
+            amount = m_spellInfo->CalculateSpellPoints(effIndex, m_caster->getLevel(), 0);
+        else if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT, effIndex))
+            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, m_caster->getLevel(), 0);
         //else if(m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)) {}// TODO
 
         *data << uint32(amount) << uint8(type);

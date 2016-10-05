@@ -42,7 +42,7 @@ bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, WorldObject *
     return true;
 }
 
-void PaladinJudgementTriggerDamageHandler(SpellEntry *sp, uint32 effIndex, WorldObject *caster, Unit *target, int32 &amount)
+void PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -58,8 +58,22 @@ void PaladinJudgementTriggerDamageHandler(SpellEntry *sp, uint32 effIndex, World
     }
 
     Aura *censure = NULL;
-    if(sp->Id == 31804 && (censure = target->m_AuraInterface.FindActiveAuraWithNameHash(SPELL_HASH_CENSURE)))
+    if(sp->Id == 31804 && target->IsUnit() && (censure = castPtr<Unit>(target)->m_AuraInterface.FindActiveAuraWithNameHash(SPELL_HASH_CENSURE)))
         amount += ((float)amount) * 0.2f * censure->getStackSize();
+}
+
+void PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+{
+    if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
+    {
+        switch(unitCaster->GetPower(POWER_TYPE_HOLY_POWER))
+        {   // Add wpn pct based on left over holy power after we remove 1
+        case 1: amount += 60; break;
+        case 2: amount += 205; break;
+        default:break;
+        }
+        unitCaster->SetPower(POWER_TYPE_HOLY_POWER, 0);
+    }
 }
 
 void SpellManager::_RegisterPaladinFixes()
@@ -72,7 +86,10 @@ void SpellManager::_RegisterPaladinFixes()
     _RegisterDummyEffect(20271, SP_EFF_INDEX_0, PaladinJudgementDummyHandler);
 
     // Register the damage modifier for judgement triggers
-    _RegisterDamageEffect(20187, SP_EFF_INDEX_0, PaladinJudgementTriggerDamageHandler);
-    _RegisterDamageEffect(31804, SP_EFF_INDEX_0, PaladinJudgementTriggerDamageHandler);
-    _RegisterDamageEffect(54158, SP_EFF_INDEX_0, PaladinJudgementTriggerDamageHandler);
+    _RegisterAmountModifier(20187, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
+    _RegisterAmountModifier(31804, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
+    _RegisterAmountModifier(54158, SP_EFF_INDEX_0, PaladinJudgementTriggerAmountModifier);
+
+    // Register the damage increase for templar's verdict based off holy power available
+    _RegisterAmountModifier(85256, SP_EFF_INDEX_0, PaladinTemplarsVerdictAmountModifier);
 }

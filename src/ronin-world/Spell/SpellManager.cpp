@@ -353,24 +353,16 @@ bool SpellManager::HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, in
     SpellEntry *sp = spell->GetSpellProto();
     if(sp->NameHash == SPELL_HASH_ZEALOTRY)
         cost = 0;
-    else if(sp->SpellFamilyName == SPELLFAMILY_PALADIN && powerField == POWER_TYPE_HOLY_POWER)
-    {
-        switch(cost = unitCaster->GetPower(powerField))
-        {
-        case 3: spell->AddWeaponPctMod(205); break; // 3 holy power gives 235%
-        case 2: spell->AddWeaponPctMod(60); break; // 2 holy power gives 90%
-        }
-    }
 
     return false;
 }
 
-void SpellManager::HandleEffectSchoolDMG(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, Unit *target, int32 &amount)
+void SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
-    if(m_damageEffectHandlers.find(spEff) != m_damageEffectHandlers.end())
-        (*m_damageEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+    if(m_amountModifierHandlers.find(spEff) != m_amountModifierHandlers.end())
+        (*m_amountModifierHandlers.at(spEff))(sp, effIndex, caster, target, amount);
 }
 
 bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
@@ -380,31 +372,6 @@ bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, W
     if(m_dummyEffectHandlers.find(spEff) != m_dummyEffectHandlers.end())
         return (*m_dummyEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
     return false;
-}
-
-bool SpellManager::HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 &amount)
-{
-    SpellEntry *sp = spell->GetSpellProto();
-    switch(sp->NameHash)
-    {
-    case SPELL_HASH_OVERPOWER:
-        break;
-    case SPELL_HASH_HEMORRHAGE:
-        break;
-    case SPELL_HASH_DEVASTATE:
-        if(Aura* aura = caster->m_AuraInterface.FindActiveAura(58567))
-        {
-            aura->AddStackSize(caster->HasAura(58388) ? 2 : 1);
-            amount *= aura->getStackSize();
-        } else caster->CastSpell(target, 58567, true);
-        break;
-    case SPELL_HASH_MUTILATE:
-        amount *= 2;
-        amount += sStatSystem.CalculateDamage(caster, target, MELEE, sp);
-        amount += sStatSystem.CalculateDamage(caster, target, OFFHAND, sp);
-        break;
-    }
-    return true;
 }
 
 std::map<uint8, uint32> Spell::m_implicitTargetFlags;
@@ -629,7 +596,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->NameHash = crc32((const unsigned char*)sp->Name, (unsigned int)strlen(sp->Name)); //need these set before we start processing spells
     sp->RankNumber = sp->GeneratedThreat = sp->SpellSkillLine = 0;
     sp->CustomAttributes[0] = sp->CustomAttributes[1] = 0;
-    sp->isUnique = sp->always_apply = sp->inline_effects = false;
+    sp->isUnique = sp->always_apply = false;
 
     // parse rank text
     if( !sscanf( sp->Rank, "Rank %d", (unsigned int*)&sp->RankNumber) )

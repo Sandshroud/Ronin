@@ -245,7 +245,7 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
     case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
     case SPELL_AURA_MOD_MINIMUM_SPEED:
-        index = 52;
+        index = 100;
         break;
     case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
     case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
@@ -289,8 +289,9 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     case 10: UpdatePowerCostValues(modMap); break;
     case 11: UpdateHoverValues(); break;
     case 50: castPtr<Player>(this)->UpdateMasteryValues(); break;
-    case 51: castPtr<Player>(this)->UpdatePlayerRatings(); break;
-    case 52: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
+    case 51: castPtr<Player>(this)->UpdatePlayerDamageDoneMods(); break;
+    case 52: castPtr<Player>(this)->UpdatePlayerRatings(); break;
+    case 100: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
     }
 }
 
@@ -1733,7 +1734,7 @@ float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechan
     hitchance += hitmodifier;*/
 }
 
-void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
+void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
@@ -1909,16 +1910,9 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             if( ability && ability->MechanicsType == MECHANIC_BLEEDING )
                 disable_dR = true;
 
-            if( pct_dmg_mod > 0 )
-                dmg.full_damage = float2int32( dmg.full_damage *  ( float( pct_dmg_mod) / 100.0f ) );
-
-            dmg.full_damage += add_damage;
-
             // Bonus damage
-            if( ability )
-                dmg.full_damage = GetSpellBonusDamage(pVictim, ability, abEffindex, dmg.full_damage, false);
-            else
-            {
+            if( ability == NULL )
+            {   // Bonus 
                 dmg.full_damage += GetDamageDoneMod(SCHOOL_NORMAL);
                 dmg.full_damage *= pVictim->GetDamageTakenModPct(SCHOOL_NORMAL);
             }
@@ -2298,7 +2292,7 @@ void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
     m_combatStopTimer = std::max<uint32>(m_combatStopTimer, 5000);
     if (!GetOnMeleeSpell() || attackType == OFFHAND)
-        Strike( target, attackType, NULL, 0, 0, 0, false, false, true);
+        Strike( target, attackType, NULL, 0, false, false, true);
     else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
     {
         SpellCastTargets targets(target->GetGUID());

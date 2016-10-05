@@ -798,6 +798,30 @@ void ObjectMgr::LoadTrainers()
     }
     sLog.Notice("ObjectMgr", "%u trainers loaded.", mTrainerData.size());
 
+    for(CreatureDataManager::iterator itr = sCreatureDataMgr.begin(); itr != sCreatureDataMgr.end(); ++itr)
+    {
+        CreatureData *data = (*itr)->second;
+        if((data->NPCFLags & (UNIT_NPC_FLAG_TRAINER|UNIT_NPC_FLAG_TRAINER_PROF)) == 0)
+            continue;
+
+        for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
+        {
+            if(i == 10)
+                continue;
+            std::string className = classNames[i-1];
+            className.append(" Trainer");
+            if(strcmp(className.c_str(), data->subName.c_str()))
+                continue;
+
+            TrainerData &tdata = mTrainerData[data->entry];
+            tdata.category = 0x01;
+            tdata.subCategory = i;
+            tdata.reqSkill = tdata.reqSkillValue = 0;
+            tdata.trainerTitle = className.c_str();
+            break;
+        }
+    }
+
     uint32 count = 0;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM trainer_spells "))
     {

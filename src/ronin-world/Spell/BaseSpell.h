@@ -60,8 +60,10 @@ struct SpellTarget
     uint8 HitResult;
     uint8 EffectMask;
     uint8 ReflectResult;
-    uint32 DestinationTime;
+
     float resistMod;
+    uint32 accumAmount;
+    uint32 destinationTime;
 };
 typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
 

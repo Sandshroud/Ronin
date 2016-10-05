@@ -539,41 +539,6 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
     return val;
 }
 
-/*bool Player::CombatRatingUpdateRequired(uint32 combatRating)
-{
-    bool res = m_needRecalculateAllFields|(m_statValuesChanged && m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT).size());
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RATING);
-    res |= m_AuraInterface.GetModMaskBit(SPELL_AURA_MOD_RATING_FROM_STAT);
-    if(ratingsToModBonus[combatRating])
-        res |= itemBonusMask.GetBit(ratingsToModBonus[combatRating]);
-    switch(combatRating)
-    {
-    case 5: case 6: case 7:
-        {
-            res |= itemBonusMask.GetBit(ITEM_STAT_HIT_RATING);
-        }break;
-    case 8: case 9: case 10:
-        {
-            res |= itemBonusMask.GetBit(ITEM_STAT_CRITICAL_STRIKE_RATING);
-        }break;
-    case 11: case 12: case 13:
-        {
-            res |= itemBonusMask.GetBit(ITEM_STAT_HIT_REDUCTION_RATING);
-        }break;
-    case 14: case 15: case 16:
-        {
-            res |= itemBonusMask.GetBit(ITEM_STAT_RESILIENCE_RATING);
-            res |= itemBonusMask.GetBit(ITEM_STAT_CRITICAL_REDUCTION_RATING);
-        }break;
-    case 17: case 18: case 19:
-        {
-            res |= itemBonusMask.GetBit(ITEM_STAT_HASTE_RATING);
-        }break;
-    }
-
-    return res;
-}*/
-
 void Player::UpdateCombatRating(uint8 combatRating, float value)
 {
     switch(combatRating)
@@ -655,6 +620,19 @@ void Player::UpdatePlayerRatings()
     }
 }
 
+void Player::UpdatePlayerDamageDoneMods()
+{
+    uint32 itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER);
+    for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
+    {
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, itemBonus);
+
+    }
+
+    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, itemBonus);
+
+}
+
 static uint32 statToModBonus[MAX_STAT] = 
 {
     ITEM_STAT_STRENGTH,
@@ -663,51 +641,6 @@ static uint32 statToModBonus[MAX_STAT] =
     ITEM_STAT_INTELLECT,
     ITEM_STAT_SPIRIT
 };
-
-/*bool Player::StatUpdateRequired()
-{
-    bool res = false;
-    for(uint8 i = 0; i < MAX_STAT; i++)
-        res |= itemBonusMask.GetBit(statToModBonus[i]);
-    return res || Unit::StatUpdateRequired();
-}
-
-bool Player::HealthUpdateRequired()
-{
-    bool res = false;
-    res |= itemBonusMask.GetBit(ITEM_STAT_HEALTH);
-    return res || Unit::HealthUpdateRequired();
-}
-
-bool Player::PowerUpdateRequired()
-{
-    bool res = false;
-    res |= itemBonusMask.GetBit(ITEM_STAT_POWER);
-    return res || Unit::PowerUpdateRequired();
-}
-
-bool Player::AttackTimeUpdateRequired(uint8 weaponType)
-{
-    bool res = false;
-    res |= itemBonusMask.GetBit(ITEM_STAT_CUSTOM_WEAPON_DELAY);
-    res |= itemBonusMask.GetBit(ITEM_STAT_MELEE_HASTE_RATING);
-    return res || Unit::AttackTimeUpdateRequired(weaponType);
-}
-
-bool Player::APUpdateRequired()
-{
-    bool res = false;
-    res |= itemBonusMask.GetBit(ITEM_STAT_ATTACK_POWER);
-    return res || Unit::APUpdateRequired();
-}
-
-bool Player::RAPUpdateRequired()
-{
-    bool res = false;
-    res |= itemBonusMask.GetBit(ITEM_STAT_RANGED_ATTACK_POWER);
-    res |= itemBonusMask.GetBit(ITEM_STAT_ATTACK_POWER);
-    return res || Unit::RAPUpdateRequired();
-}*/
 
 static uint32 schooltoResModBonus[MAX_RESISTANCE] =
 {
@@ -719,14 +652,6 @@ static uint32 schooltoResModBonus[MAX_RESISTANCE] =
     ITEM_STAT_SHADOW_RESISTANCE,
     ITEM_STAT_ARCANE_RESISTANCE
 };
-
-/*bool Player::ResUpdateRequired()
-{
-    bool res = false;
-    for(uint8 i = 0; i < MAX_RESISTANCE; i++)
-        res |= itemBonusMask.GetBit(schooltoResModBonus[i]);
-    return res || Unit::ResUpdateRequired();
-}*/
 
 int32 Player::GetBonusMana()
 {
@@ -6015,14 +5940,6 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         case ITEM_STAT_STAMINA:
             m_modQueuedModUpdates[1].empty();
             break;
-        case ITEM_STAT_HIT_RATING:
-        case ITEM_STAT_CRITICAL_STRIKE_RATING:
-        case ITEM_STAT_HIT_REDUCTION_RATING:
-        case ITEM_STAT_RESILIENCE_RATING:
-        case ITEM_STAT_CRITICAL_REDUCTION_RATING:
-        case ITEM_STAT_HASTE_RATING:
-            m_modQueuedModUpdates[12].empty();
-            break;
         case ITEM_STAT_PHYSICAL_RESISTANCE:
         case ITEM_STAT_FIRE_RESISTANCE:
         case ITEM_STAT_FROST_RESISTANCE:
@@ -6031,6 +5948,20 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         case ITEM_STAT_NATURE_RESISTANCE:
         case ITEM_STAT_ARCANE_RESISTANCE:
             m_modQueuedModUpdates[6].empty();
+            break;
+        case ITEM_STAT_MASTERY_RATING:
+            m_modQueuedModUpdates[50].empty();
+            break;
+        case ITEM_STAT_SPELL_POWER:
+            m_modQueuedModUpdates[51].empty();
+            break;
+        case ITEM_STAT_HIT_RATING:
+        case ITEM_STAT_CRITICAL_STRIKE_RATING:
+        case ITEM_STAT_HIT_REDUCTION_RATING:
+        case ITEM_STAT_RESILIENCE_RATING:
+        case ITEM_STAT_CRITICAL_REDUCTION_RATING:
+        case ITEM_STAT_HASTE_RATING:
+            m_modQueuedModUpdates[52].empty();
             break;
         }
         break;
@@ -7668,28 +7599,6 @@ uint16 Player::FindQuestSlot( uint32 questid )
             return i;
 
     return 50;
-}
-
-void Player::UpdateKnownCurrencies(uint32 itemId, bool apply)
-{
-/*    if(CurrencyTypesEntry const* ctEntry = dbcCurrencyTypes.LookupEntry(itemId))
-    {
-        if(ctEntry)
-        {
-            if(apply)
-            {
-                uint64 oldval = GetUInt64Value( PLAYER_FIELD_KNOWN_CURRENCIES );
-                uint64 newval = oldval | ( uint64((( uint32 )1) << (ctEntry->BitIndex-1)));
-                SetUInt64Value( PLAYER_FIELD_KNOWN_CURRENCIES, newval );
-            }
-            else
-            {
-                uint64 oldval = GetUInt64Value( PLAYER_FIELD_KNOWN_CURRENCIES );
-                uint64 newval = oldval & ~( uint64((( uint32 )1) << (ctEntry->BitIndex-1)));
-                SetUInt64Value( PLAYER_FIELD_KNOWN_CURRENCIES, newval );
-            }
-        }
-    }*/
 }
 
 uint32 Player::GetTotalItemLevel()

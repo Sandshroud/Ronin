@@ -10,7 +10,7 @@ std::map<uint8, SpellEffectClass::pSpellEffect> SpellEffectClass::m_spellEffectM
 
 SpellEffectClass::SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber) : BaseSpell(caster, info, castNumber)
 {
-    weaponPctMod = 0;
+
 }
 
 SpellEffectClass::~SpellEffectClass()
@@ -69,9 +69,45 @@ int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
 void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
 {
     uint32 effect = m_spellInfo->Effect[i];
+    int32 amount = CalculateEffect(i, target);
+    sSpellMgr.ModifyEffectAmount(this, i, m_caster, target, amount);
+
     if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
-        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, CalculateEffect(i, target));
+        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, amount);
     else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
+}
+
+void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
+{
+    SpellTarget *target = GetSpellTarget(unitTarget->GetGUID());
+    if(target == NULL) // Not possible but whatever
+        return;
+
+    if(target->accumAmount && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, effectMask)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, effectMask)))
+    {
+        if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
+        {
+            if( unitTarget->IsPvPFlagged() )
+                castPtr<Player>(m_caster)->SetPvPFlag();
+            if( unitTarget->IsFFAPvPFlagged() )
+                castPtr<Player>(m_caster)->SetFFAPvPFlag();
+        }
+
+        if(!m_caster->IsUnit() || m_spellInfo->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
+            m_caster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, target->accumAmount, target->resistMod, false, false);
+        else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, target->accumAmount, false, true);
+    }
+
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask))
+    {
+        WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
+        data << unitTarget->GetGUID();
+        data << uint8(DAMAGE_FIRE);
+        data << uint32(target->accumAmount);
+        unitTarget->SendMessageToSet( &data, true );
+    }
 }
 
 void SpellEffectClass::HandleAddAura(Unit *target)
@@ -525,29 +561,17 @@ void SpellEffectClass::SpellEffectInstantKill(uint32 i, WorldObject *target, int
 
 void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32 amount) // dmg school
 {
-    if(!target->IsUnit() || !castPtr<Unit>(target)->isAlive())
-        return;
-
-    int32 damage = amount;
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
-    Unit *unitTarget = castPtr<Unit>(target);
-    if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
-    {
-        if( unitTarget->IsPvPFlagged() )
-            castPtr<Player>(m_caster)->SetPvPFlag();
-        if( unitTarget->IsFFAPvPFlagged() )
-            castPtr<Player>(m_caster)->SetFFAPvPFlag();
-    }
-
-    sSpellMgr.HandleEffectSchoolDMG(this, i, m_caster, unitTarget, damage);
-
-    // check for no more damage left (chains)
-    if (damage < 0)
+    if((target->IsUnit() && !castPtr<Unit>(target)->isAlive()) || spTarget == NULL)
         return;
 
-    if(GetSpellProto()->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
-        m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, damage, spTarget ? spTarget->resistMod : 0.f, false, false);
-    else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, GetSpellProto(), i, 0, 0, damage, false, true);
+    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
+    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
+    if(u_caster && unitTarget)
+        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, i, amount, false);
+
+    // Add to our accumulative damage
+    spTarget->accumAmount += amount;
 }
 
 void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount) // Dummy(Scripted events)
@@ -748,12 +772,7 @@ void SpellEffectClass::SpellEffectQuestComplete(uint32 i, WorldObject *target, i
 
 void SpellEffectClass::SpellEffectWeaponDamageNoSchool(uint32 i, WorldObject *target, int32 amount) // Weapon damage + (no School)
 {
-    Unit *u_caster = castPtr<Unit>(m_caster);
-    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( unitTarget == NULL  || u_caster == NULL )
-        return;
 
-    u_caster->Strike( unitTarget, (m_spellInfo->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED ? RANGED : MELEE), GetSpellProto(), i, 0, 0, 0, false, true );
 }
 
 void SpellEffectClass::SpellEffectAddExtraAttacks(uint32 i, WorldObject *target, int32 amount) // Add Extra Attacks
@@ -1011,17 +1030,39 @@ void SpellEffectClass::SpellEffectEnergize(uint32 i, WorldObject *target, int32 
 
 void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, int32 amount) // Weapon Percent damage
 {
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( unitTarget == NULL || !m_caster->IsUnit() )
+    if(unitTarget == NULL || target == NULL || !m_caster->IsUnit() || m_spellInfo->spellType == NON_WEAPON)
         return;
 
-    weaponPctMod += amount;
-    if(m_spellInfo->spellType == NON_WEAPON)
+    float minDamage = 0.f, damageDiff = 1.f;
+    if(m_caster->IsCreature())
+    {   // Creatures we don't have weapons so just grab our actual min and max damage
+        minDamage = m_caster->GetUInt32Value(UNIT_FIELD_MINDAMAGE);
+        damageDiff = m_caster->GetUInt32Value(UNIT_FIELD_MAXDAMAGE)-minDamage;
+    }
+    else // Players we grab actual weapon damage values
     {
-        float fdmg = (float)sStatSystem.CalculateDamage( castPtr<Unit>(m_caster), unitTarget, MELEE, GetSpellProto() );
-        uint32 dmg = float2int32(fdmg*(float(amount/100.0f)));
-        castPtr<Unit>(m_caster)->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, dmg, false, false);
-    } else castPtr<Unit>(m_caster)->Strike( unitTarget, m_spellInfo->spellType, GetSpellProto(), i, 0, weaponPctMod, 0, false, false );
+        Player *p_caster = castPtr<Player>(m_caster);
+        Item *equippedWeapon = NULL;
+        if(m_spellInfo->spellType >= RANGED)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+        else if(m_spellInfo->spellType == OFFHAND)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+        else equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        if(equippedWeapon == NULL)
+            return;
+        minDamage = equippedWeapon->GetProto()->minDamage;
+        damageDiff = equippedWeapon->GetProto()->maxDamage-minDamage;
+    }
+
+    spTarget->accumAmount += float2int32(((minDamage + (damageDiff ? ((float)(rand()%float2int32(damageDiff))) : 0.f)) * ((float)amount))/100.f);
+
+    // Double down and do offhand strike
+    if(m_spellInfo->NameHash == SPELL_HASH_MUTILATE)
+    {
+
+    }
 }
 
 void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, int32 amount) // Trigger Missile
@@ -1500,15 +1541,10 @@ void SpellEffectClass::SpellEffectSummonPet(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, int32 amount) // Weapon damage +
 {
-    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
-    Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( unitTarget == NULL || u_caster == NULL )
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
+    if(spTarget == NULL || (target->IsUnit() && !castPtr<Unit>(target)->isAlive()))
         return;
-
-    uint32 _type = GetSpellProto()->reqOffHandWeapon() ? OFFHAND : MELEE;
-    if( m_spellInfo->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED )
-        _type = RANGED;
-    u_caster->Strike( unitTarget, _type, GetSpellProto(), i, amount, 0, 0, false, true );
+    spTarget->accumAmount += amount;
 }
 
 void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32 amount) // power burn
@@ -1539,7 +1575,7 @@ void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32
     }
     mana = float2int32((float)mana * coef);
 
-    m_caster->SpellNonMeleeDamageLog(unitTarget,GetSpellProto()->Id, mana, true,true);
+    m_caster->SpellNonMeleeDamageLog(unitTarget, GetSpellProto()->Id, mana, 0.f, true,true);
 }
 
 void SpellEffectClass::SpellEffectThreat(uint32 i, WorldObject *target, int32 amount) // Threat
@@ -2238,23 +2274,11 @@ void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amo
 
 void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount) // Normalized Weapon damage +
 {
-    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL, *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if( u_caster == NULL || unitTarget == NULL )
-        return;
-    if(m_spellInfo->spellType == NON_WEAPON)
-    {   // If we're not a weapon type spell, just trigger dummy
-        SpellEffectDummy(i, target, amount);
-        return;
-    }
-
-    if(!sSpellMgr.HandleDummyMeleeEffect(this, i, u_caster, unitTarget, amount))
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
+    if(spTarget == NULL)
         return;
 
-    weaponPctMod += amount;
-    if(m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE))
-        return;
-
-    u_caster->Strike( unitTarget, m_spellInfo->spellType, m_spellInfo, i, amount, weaponPctMod, 0, false, false );
+    spTarget->accumAmount += amount;    
 }
 
 void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount)
@@ -2306,24 +2330,12 @@ void SpellEffectClass::SpellEffectTranformItem(uint32 i, WorldObject *target, in
 
 void SpellEffectClass::SpellEffectEnvironmentalDamage(uint32 i, WorldObject *target, int32 amount)
 {
-    Player *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
-    if(playerTarget == NULL)
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
+    if(!target->IsUnit() || spTarget == NULL)
         return;
 
-    if(false)//playerTarget->SchoolImmunityList[GetSpellProto()->School])
-    {
-        SendCastResult(SPELL_FAILED_IMMUNE);
-        return;
-    }
+    spTarget->accumAmount += amount;
 
-    //this is GO, not unit
-    m_caster->SpellNonMeleeDamageLog(playerTarget, GetSpellProto()->Id, amount, 0.f, true);
-
-    WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
-    data << playerTarget->GetGUID();
-    data << uint8(DAMAGE_FIRE);
-    data << uint32(amount);
-    playerTarget->SendMessageToSet( &data, true );
 }
 
 void SpellEffectClass::SpellEffectDismissPet(uint32 i, WorldObject *target, int32 amount)

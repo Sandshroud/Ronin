@@ -6,7 +6,7 @@
 
 class SpellEffectClass;
 
-typedef void(*tSpellDamageEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, Unit *target, int32 &amount);
+typedef void(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 
 class SERVER_DECL SpellManager : public Singleton<SpellManager>
@@ -22,9 +22,9 @@ public:
     void PoolSpellData();
 
     bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
-    void HandleEffectSchoolDMG(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, Unit *target, int32 &amount);
+    // Modifiers for effect amounts and dummy effect handlers
+    void ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
     bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
-    bool HandleDummyMeleeEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, Unit *target, int32 &amount);
 
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();
@@ -39,8 +39,8 @@ private:    // Spell fixes, start with class then continue to zones, items, ques
     void _RegisterDruidFixes();
 
     // Register handler
+    RONIN_INLINE void _RegisterAmountModifier(uint32 spellId, uint32 effIndex, tSpellAmountModifier amountHandler) { m_amountModifierHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), amountHandler)); }
     RONIN_INLINE void _RegisterDummyEffect(uint32 spellId, uint32 effIndex, tSpellDummyEffect dummyHandler) { m_dummyEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
-    RONIN_INLINE void _RegisterDamageEffect(uint32 spellId, uint32 effIndex, tSpellDamageEffect damageHandler) { m_damageEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), damageHandler)); }
 
 private:
     // Sets default values for custom fields
@@ -65,7 +65,7 @@ private:
     std::set<uint32> m_dummySpells;
 
     // Dummy effect handler storage
-    std::map<std::pair<uint32, uint32>, tSpellDamageEffect> m_damageEffectHandlers;
+    std::map<std::pair<uint32, uint32>, tSpellAmountModifier> m_amountModifierHandlers;
     std::map<std::pair<uint32, uint32>, tSpellDummyEffect> m_dummyEffectHandlers;
 };
 

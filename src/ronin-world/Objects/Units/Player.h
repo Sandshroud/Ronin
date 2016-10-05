@@ -28,72 +28,6 @@ struct PlayerCreateInfo;
 //  a character's inventory
 //====================================================================
 
-enum Classes
-{
-    WARRIOR = 1,
-    PALADIN = 2,
-    HUNTER = 3,
-    ROGUE = 4,
-    PRIEST = 5,
-    DEATHKNIGHT = 6,
-    SHAMAN = 7,
-    MAGE = 8,
-    WARLOCK = 9,
-    DRUID = 11,
-    CLASS_MAX = 12
-};
-
-enum ClassMasks
-{
-    CLASSMASK_WARRIOR       = 0x0001, // 1
-    CLASSMASK_PALADIN       = 0x0002, // 2
-    CLASSMASK_HUNTER        = 0x0004, // 4
-    CLASSMASK_ROGUE         = 0x0008, // 8
-    CLASSMASK_PRIEST        = 0x0010, // 16
-    CLASSMASK_DEATHKNIGHT   = 0x0020, // 32
-    CLASSMASK_SHAMAN        = 0x0040, // 64
-    CLASSMASK_MAGE          = 0x0080, // 128
-    CLASSMASK_WARLOCK       = 0x0100, // 256
-    CLASSMASK_NONE          = 0x0200, // 512
-    CLASSMASK_DRUID         = 0x0400, // 1024
-    CLASSMASK_ALL_PLAYABLE   = CLASSMASK_WARRIOR | CLASSMASK_PALADIN | CLASSMASK_HUNTER | CLASSMASK_ROGUE | CLASSMASK_PRIEST | CLASSMASK_DEATHKNIGHT
-    | CLASSMASK_SHAMAN | CLASSMASK_MAGE | CLASSMASK_WARLOCK | CLASSMASK_DRUID
-};
-
-enum Races
-{
-    RACE_HUMAN = 1,
-    RACE_ORC = 2,
-    RACE_DWARF = 3,
-    RACE_NIGHTELF = 4,
-    RACE_UNDEAD = 5,
-    RACE_TAUREN = 6,
-    RACE_GNOME = 7,
-    RACE_TROLL = 8,
-    RACE_GOBLIN = 9,
-    RACE_BLOODELF = 10,
-    RACE_DRAENEI = 11,
-    RACE_WORGEN = 22
-};
-
-enum RaceMasks
-{
-    RACEMASK_HUMAN      = 0x000001,
-    RACEMASK_ORC        = 0x000002,
-    RACEMASK_DWARF      = 0x000004,
-    RACEMASK_NIGHTELF   = 0x000008,
-    RACEMASK_UNDEAD     = 0x000010,
-    RACEMASK_TAUREN     = 0x000020,
-    RACEMASK_GNOME      = 0x000040,
-    RACEMASK_TROLL      = 0x000080,
-    RACEMASK_GOBLIN     = 0x000100,
-    RACEMASK_BLOODELF   = 0x000200,
-    RACEMASK_DRAENEI    = 0x000400,
-    RACEMASK_WORGEN     = 0x200000,
-    RACEMASK_ALL_PLAYABLE   = RACEMASK_HUMAN | RACEMASK_ORC | RACEMASK_DWARF | RACEMASK_NIGHTELF | RACEMASK_UNDEAD | RACEMASK_TAUREN
-    | RACEMASK_GNOME | RACEMASK_TROLL | RACEMASK_GOBLIN | RACEMASK_BLOODELF | RACEMASK_DRAENEI | RACEMASK_WORGEN
-};
-
 static const uint32 TalentTreesPerClass[DRUID+1][3] =  {
     { 409, 410, 411 },  // PETS
     { 746, 815, 845 },  // WARRIOR
@@ -655,6 +589,7 @@ public:
 
     void UpdateMasteryValues();
     void UpdatePlayerRatings();
+    void UpdatePlayerDamageDoneMods();
 
     float GetPowerMod() { return 1.f; }
     float GetHealthMod() { return 1.f; }
@@ -1343,8 +1278,6 @@ public:
     // GameObject commands
     WoWGuid m_selectedGo;
 
-    void _Relocate(uint32 mapid,const LocationVector & v, bool force_new_world, uint32 instance_id);
-    void UpdateKnownCurrencies(uint32 itemId, bool apply);
     uint32 GetTotalItemLevel();
     uint32 GetAverageItemLevel(bool skipmissing = false);
 
@@ -1435,6 +1368,7 @@ public:
     CharClassEntry * myClass;
 
     Unit* linkTarget;
+    void _Relocate(uint32 mapid,const LocationVector & v, bool force_new_world, uint32 instance_id);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec);
     void SafeTeleport(MapInstance* instance, LocationVector vec);

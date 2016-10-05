@@ -318,6 +318,8 @@ void WorldSession::LogoutPlayer()
             plr->RemoveFromWorld();
         }
 
+        plr->m_AuraInterface.RemoveAllAuras();
+        plr->m_playerInfo->m_loggedInPlayer = NULL;
         plr->SetSession(NULL);
 
         // We have to transfer to our global sessions
@@ -327,9 +329,6 @@ void WorldSession::LogoutPlayer()
         // send to gms
         if(!bServerShutdown && HasGMPermissions() )
             sWorld.SendMessageToGMs(this, "GM %s (%s) is now offline. (Permissions: [%s])", plr->GetName(), GetAccountNameS(), GetPermissions());
-
-        plr->m_AuraInterface.RemoveAllAuras();
-        plr->m_playerInfo->m_loggedInPlayer = NULL;
 
         if(!bServerShutdown) // Save our groups for the next startup.
         {

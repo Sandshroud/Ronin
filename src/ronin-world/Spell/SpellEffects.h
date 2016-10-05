@@ -24,6 +24,7 @@ public:
 
     // Handle the Effects of the Spell
     void HandleEffects(uint32 i, WorldObject *target);
+    void HandleDelayedEffects(Unit *unitTarget, uint8 effectMask);
     // Add auras after handling effects
     void HandleAddAura(Unit *target);
     // Handles Teleport function
@@ -33,8 +34,6 @@ public:
     // Handles skill up
     void DetermineSkillUp(Player *target, uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
     void DetermineSkillUp(Player *target, uint32 skillid);
-    // Chance our weapon pct modifier
-    void AddWeaponPctMod(uint32 val) { weaponPctMod += val; }
 
     static void InitializeSpellEffectClass();
     typedef void (SpellEffectClass::*pSpellEffect)(uint32 i, WorldObject *target, int32 amount);
@@ -46,8 +45,6 @@ public:
 private:
     typedef Loki::AssocVector<WoWGuid, Aura*> AuraTargetMap;
     AuraTargetMap m_tempAuras;
-
-    uint32 weaponPctMod;
 
 protected: // Effect Handlers
     void SpellEffectNULL(uint32 i, WorldObject *target, int32 amount);

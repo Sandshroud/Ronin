@@ -64,6 +64,74 @@ enum UnitTeam
 
 static char *teamNames[5] = { "Alliance", "Horde", "Guard", "Monster", "None" };
 
+enum Classes
+{
+    WARRIOR = 1,
+    PALADIN = 2,
+    HUNTER = 3,
+    ROGUE = 4,
+    PRIEST = 5,
+    DEATHKNIGHT = 6,
+    SHAMAN = 7,
+    MAGE = 8,
+    WARLOCK = 9,
+    DRUID = 11,
+    CLASS_MAX = 12
+};
+
+static char *classNames[CLASS_MAX-1] = { "Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Death Knight", "Shaman", "Mage", "Warlock", "", "Druid" };
+
+enum ClassMasks
+{
+    CLASSMASK_WARRIOR       = 0x0001, // 1
+    CLASSMASK_PALADIN       = 0x0002, // 2
+    CLASSMASK_HUNTER        = 0x0004, // 4
+    CLASSMASK_ROGUE         = 0x0008, // 8
+    CLASSMASK_PRIEST        = 0x0010, // 16
+    CLASSMASK_DEATHKNIGHT   = 0x0020, // 32
+    CLASSMASK_SHAMAN        = 0x0040, // 64
+    CLASSMASK_MAGE          = 0x0080, // 128
+    CLASSMASK_WARLOCK       = 0x0100, // 256
+    CLASSMASK_NONE          = 0x0200, // 512
+    CLASSMASK_DRUID         = 0x0400, // 1024
+    CLASSMASK_ALL_PLAYABLE   = CLASSMASK_WARRIOR | CLASSMASK_PALADIN | CLASSMASK_HUNTER | CLASSMASK_ROGUE | CLASSMASK_PRIEST | CLASSMASK_DEATHKNIGHT
+    | CLASSMASK_SHAMAN | CLASSMASK_MAGE | CLASSMASK_WARLOCK | CLASSMASK_DRUID
+};
+
+enum Races
+{
+    RACE_HUMAN = 1,
+    RACE_ORC = 2,
+    RACE_DWARF = 3,
+    RACE_NIGHTELF = 4,
+    RACE_UNDEAD = 5,
+    RACE_TAUREN = 6,
+    RACE_GNOME = 7,
+    RACE_TROLL = 8,
+    RACE_GOBLIN = 9,
+    RACE_BLOODELF = 10,
+    RACE_DRAENEI = 11,
+    RACE_WORGEN = 22
+};
+
+enum RaceMasks
+{
+    RACEMASK_HUMAN      = 0x000001,
+    RACEMASK_ORC        = 0x000002,
+    RACEMASK_DWARF      = 0x000004,
+    RACEMASK_NIGHTELF   = 0x000008,
+    RACEMASK_UNDEAD     = 0x000010,
+    RACEMASK_TAUREN     = 0x000020,
+    RACEMASK_GNOME      = 0x000040,
+    RACEMASK_TROLL      = 0x000080,
+    RACEMASK_GOBLIN     = 0x000100,
+    RACEMASK_BLOODELF   = 0x000200,
+    RACEMASK_DRAENEI    = 0x000400,
+    RACEMASK_WORGEN     = 0x200000,
+    RACEMASK_ALL_PLAYABLE   = RACEMASK_HUMAN | RACEMASK_ORC | RACEMASK_DWARF | RACEMASK_NIGHTELF | RACEMASK_UNDEAD | RACEMASK_TAUREN
+    | RACEMASK_GNOME | RACEMASK_TROLL | RACEMASK_GOBLIN | RACEMASK_BLOODELF | RACEMASK_DRAENEI | RACEMASK_WORGEN
+};
+
 enum PowerType : int8
 {
     POWER_TYPE_HEALTH       = -2,
@@ -381,16 +449,9 @@ public:
 
     RONIN_INLINE std::string getClassName(bool FullCaps = false)
     {
-        std::string _class = "UNKNOWN";
-        switch(getClass()) {
-        case 1: { _class = "Warrior"; }break; case 2: { _class = "Paladin"; }break;
-        case 3: { _class = "Hunter"; }break; case 4: { _class = "Rogue"; }break;
-        case 5: { _class = "Priest"; }break; case 6: { _class = "Death Knight"; }break;
-        case 7: { _class = "Shaman"; }break; case 8: { _class = "Mage"; }break;
-        case 9: { _class = "Warlock"; }break; case 11: { _class = "Druid"; }break; }
-        if(FullCaps)
-            RONIN_UTIL::TOUPPER(_class);
-        return _class;
+        std::string className = classNames[getClass()-1];
+        if(FullCaps) RONIN_UTIL::TOUPPER(className);
+        return className;
     };
 
     RONIN_INLINE std::string getRaceName(bool FullCaps = false)
@@ -456,7 +517,7 @@ public:
     uint32 GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout);
 
     float CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow);
-    void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 abEffindex, int32 add_damage, int32 pct_dmg_mod, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
+    void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     int32 CalculateAttackPower();
     int32 CalculateRangedAttackPower();

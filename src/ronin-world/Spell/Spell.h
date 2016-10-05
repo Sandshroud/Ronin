@@ -66,8 +66,6 @@ public:
     void cast(bool);
     // Finishes the casted spell
     void finish();
-    // Cancel spell effect due to things like a glyph
-    bool CanHandleSpellEffect(uint32 i);
     // Take Power from the caster based on spell power usage
     bool TakePower();
     // Has power?
