@@ -623,14 +623,69 @@ void Player::UpdatePlayerRatings()
 void Player::UpdatePlayerDamageDoneMods()
 {
     uint32 itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER);
+
+    uint32 spellPowerOverride = itemBonus;
+    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))
+    {
+        float attackPowerMod = 0.0f;
+        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            attackPowerMod += float(itr->second->m_amount)/100.f;
+        spellPowerOverride = float2int32(float(CalculateAttackPower())*attackPowerMod);
+    }
+
     for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
     {
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, itemBonus);
+        uint32 amount = itemBonus;
+        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
+            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<school))
+                    amount += itr->second->m_amount;
+        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT))
+        {
+            float statMods[5] = {0,0,0,0,0};
+            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<school))
+                    statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
+            for(uint8 i = 0; i < 5; i++)
+                if(statMods[i])
+                    amount += statMods[i]*GetStat(i);
+        }
+
+        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER))
+        {
+            float attackPowerMod = 0.0f;
+            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+                if(itr->second->m_miscValue[0] & (1<<school))
+                    attackPowerMod += float(itr->second->m_amount)/100.f;
+            amount += float2int32(float(CalculateAttackPower())*attackPowerMod);
+        }
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, amount));
 
     }
 
-    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, itemBonus);
+    uint32 amount = itemBonus;
+    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE))
+        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            amount += itr->second->m_amount;
+    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT))
+    {
+        float statMods[5] = {0,0,0,0,0};
+        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
 
+        for(uint8 i = 0; i < 5; i++)
+            if(statMods[i])
+                amount += statMods[i]*GetStat(i);
+    }
+
+    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER))
+    {
+        float attackPowerMod = 0.0f;
+        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            attackPowerMod += float(itr->second->m_amount)/100.f;
+        amount += float2int32(float(CalculateAttackPower())*attackPowerMod);
+    }
+    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, amount));
 }
 
 static uint32 statToModBonus[MAX_STAT] = 

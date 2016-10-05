@@ -231,7 +231,7 @@ void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
 
 void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
 {
-    Unit *u_caster = castPtr<Unit>(m_caster);
+    Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
     if( u_caster == NULL || target == NULL || !target->isAlive() )
         return;
 
@@ -249,16 +249,16 @@ void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
 
     //Make it critical
     bool critical = false;
-    //int32 bonus = 0;
-    if( m_caster->IsUnit() )
+    if(!m_spellInfo->isUncrittableSpell())
     {
-        // All calculations are done in getspellbonusdamage
-        // 3.0.2 Spellpower change: In order to keep the effective amount healed for a given spell the same, we’d expect the original coefficients to be multiplied by 1/0.532 or 1.88.
-        amount = u_caster->GetSpellBonusDamage(target, m_spellInfo, effIndex, amount, true);
+        float critChance = u_caster->IsPlayer() ? castPtr<Player>(u_caster)->GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE) : 5.f;
+        if( m_spellInfo->SpellGroupType )
+        {
+            u_caster->SM_FFValue(SMT_CRITICAL, &critChance, m_spellInfo->SpellGroupType);
+            u_caster->SM_PFValue(SMT_CRITICAL, &critChance, m_spellInfo->SpellGroupType);
+        }
+        critical = critChance > 0.f ? Rand(std::min<float>(critChance, 95.f)) : false;
     }
-
-    if(amount < 0)
-        amount = 0;
 
     uint32 overheal = 0;
     uint32 curHealth = target->GetUInt32Value(UNIT_FIELD_HEALTH);
@@ -750,6 +750,8 @@ void SpellEffectClass::SpellEffectHeal(uint32 i, WorldObject *target, int32 amou
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( spTarget == NULL || unitTarget == NULL || !unitTarget->isAlive() )
         return;
+    if(Unit *u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL)
+        amount = u_caster->GetSpellBonusDamage(unitTarget, m_spellInfo, i, amount, false);
     // Add healing amount to accumulated data
     spTarget->accumAmount += amount;
 }

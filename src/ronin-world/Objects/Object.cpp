@@ -1511,20 +1511,21 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
                 case MELEE: CritChance = GetFloatValue(PLAYER_CRIT_PERCENTAGE); break;
                 case OFFHAND: CritChance = GetFloatValue(PLAYER_OFFHAND_CRIT_PERCENTAGE); break;
                 case RANGED: case RANGED_AUTOSHOT: CritChance = GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE); break;
-                case NON_WEAPON:
-                    {
-                        CritChance = GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE);
-                        if( spellInfo->SpellGroupType )
-                        {
-                            caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
-                            caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
-                        }
-                        CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
-                    }break;
+                case NON_WEAPON: CritChance = GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE); break;
                 }
             } else CritChance = 5.f;
-            if( spellInfo->IsSpellWeaponSpell() )
+
+            if( spellInfo->IsSpellWeaponSpell() ) // Check our target's melee resilience for crit reduction
                 CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_MELEE_RESILIENCE ) : 0.0f;
+            else
+            {   // Spells have modifiers that can change crit chance, as well as spell resilience for target
+                if( spellInfo->SpellGroupType )
+                {
+                    caster->SM_FFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                    caster->SM_PFValue(SMT_CRITICAL, &CritChance, spellInfo->SpellGroupType);
+                }
+                CritChance -= pVictim->IsPlayer() ? castPtr<Player>(pVictim)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) : 0.0f;
+            }
 
             if( CritChance > 0.f )
             {

@@ -369,6 +369,7 @@ void Unit::UpdateStatValues()
     m_modQueuedModUpdates[7].empty();
     m_modQueuedModUpdates[8].empty();
     m_modQueuedModUpdates[9].empty();
+    if(IsPlayer()) m_modQueuedModUpdates[51].empty();
 }
 
 void Unit::UpdateHealthValues()
@@ -748,6 +749,7 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
 
     m_modQueuedModUpdates[9].empty();
+    if(IsPlayer()) m_modQueuedModUpdates[51].empty();
 }
 
 void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
