@@ -1882,15 +1882,29 @@ bool WorldObject::PhasedCanInteract(WorldObject* pObj)
 // Returns the base cost of a spell
 int32 WorldObject::GetSpellBaseCost(SpellEntry *sp)
 {
-    float cost = 0.0f;
-    if( sp->ManaCostPercentage && IsUnit() )//Percentage spells cost % of !!!BASE!!! mana
+    if(sp->powerType == POWER_TYPE_RUNE)
+    {
+        uint8 runeMask = 0x00;
+        if(sp->runeCost[2] >= 2)
+            runeMask |= (0x10|0x20);
+        else if(sp->runeCost[2])
+            runeMask |= 0x10;
+        if(sp->runeCost[1] >= 2)
+            runeMask |= (0x04|0x08);
+        else if(sp->runeCost[1])
+            runeMask |= 0x04;
+        if(sp->runeCost[0] >= 2)
+            runeMask |= (0x01|0x02);
+        else if(sp->runeCost[0])
+            runeMask |= 0x01;
+        return runeMask;
+    }
+    else if( sp->ManaCostPercentage && IsUnit() )//Percentage spells cost % of !!!BASE!!! mana
     {
         if( sp->powerType == POWER_TYPE_MANA)
-            cost = GetUInt32Value(UNIT_FIELD_BASE_MANA) * (sp->ManaCostPercentage / 100.0f);
-        else cost = GetUInt32Value(UNIT_FIELD_BASE_HEALTH) * (sp->ManaCostPercentage / 100.0f);
-    } else cost = (float)sp->ManaCost;
-
-    return float2int32(cost); // Truncate zeh decimals!
+            return float2int32(((float)GetUInt32Value(UNIT_FIELD_BASE_MANA)) * (((float)sp->ManaCostPercentage) / 100.f));
+        return float2int32(((float)GetUInt32Value(UNIT_FIELD_BASE_HEALTH)) * (((float)sp->ManaCostPercentage) / 100.f));
+    } else return sp->ManaCost;
 }
 
 void WorldObject::CastSpell( WorldObject* Target, SpellEntry* Sp, bool triggered )

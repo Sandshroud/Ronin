@@ -3069,34 +3069,7 @@ void Aura::SpellAuraHealAndJump(bool apply)
 
 void Aura::SpellAuraConvertRune(bool apply)
 {
-    if( !m_target || !m_target->IsPlayer() )
-        return;
 
-    Player *plr = castPtr<Player>(m_target);
-
-    if( plr->getClass() != DEATHKNIGHT )
-        return;
-    uint32 runes = mod->m_amount;
-    if( apply )
-    {
-        for(uint32 j = 0; j < 6 && runes; ++j)
-        {
-            if((uint8)GetSpellProto()->EffectMiscValue[mod->i] != plr->GetRune(j))
-                continue;
-            plr->ConvertRune((uint8)j,(uint8)GetSpellProto()->EffectMiscValueB[mod->i]);
-            break;
-        }
-    }
-    else
-    {
-        for(uint32 j = 0; j < 6 && runes; ++j)
-        {
-            if((uint8)GetSpellProto()->EffectMiscValueB[mod->i] != plr->GetRune(j))
-                continue;
-            plr->ConvertRune((uint8)j, (uint8)GetSpellProto()->EffectMiscValue[mod->i]);
-            break;
-        }
-    }
 }
 
 void Aura::SpellAuraModWalkSpeed(bool apply)

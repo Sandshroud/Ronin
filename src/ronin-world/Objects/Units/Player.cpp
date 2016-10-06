@@ -11,10 +11,8 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
     m_objType = TYPEID_PLAYER;
 
-    m_runemask = 0x3F;
     m_bgRatedQueue = false;
     m_massSummonEnabled = false;
-    m_deathRuneMasteryChance = 0;
     m_taxiMask.SetCount(8*114);
 
     m_lastSwingError= 0;
@@ -172,9 +170,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     iRaidType                       = 0;
     m_XPoff                         = false;
     AnnihilationProcChance          = 0;
-
-    for(uint8 i = 0; i < 6; i++)
-        m_runes[i] = baseRunes[i];
 
     JudgementSpell                  = 0;
     ok_to_remove                    = false;
@@ -4571,14 +4566,12 @@ void Player::RegeneratePower(bool is_interrupted)
     uint32 m_regenTimer = m_P_regenTimer; //set next regen time
     m_regenTimerCount += m_regenTimer;
 
-    // Only runic power 
-    for(uint8 power = POWER_TYPE_MANA; power <= POWER_TYPE_RUNIC; power++)
+    std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
+    for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
-        if(power == POWER_TYPE_RUNE || power == POWER_TYPE_FOCUS || power == POWER_TYPE_HAPPINESS)
-            continue;
-
+        uint8 power = *itr;
         EUnitFields powerField = GetPowerFieldForType(power);
-        if (powerField == UNIT_END)
+        if (powerField == UNIT_END || power == POWER_TYPE_RUNE)
             continue;
 
         uint32 curValue = GetPower(powerField), maxValue = GetMaxPower(EUnitFields(powerField+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS)));
@@ -7461,160 +7454,6 @@ void Player::RetroactiveCompleteQuests()
 
 }
 
-void Player::ConvertRune(uint8 index, uint8 value)
-{
-    ASSERT(index < 6);
-    m_runemask |= (1 << index);
-    SetRune(index, value);
-    SetRuneCooldown(index, 0);
-
-    WorldPacket data(SMSG_CONVERT_RUNE, 2);
-    data << (uint8)index;
-    data << (uint8)value;
-    GetSession()->SendPacket(&data);
-}
-
-bool Player::CanUseRunes(uint8 blood, uint8 frost, uint8 unholy)
-{
-    uint8 death = 0;
-    for(uint8 i = 0; i < 6; i++)
-    {
-        if( m_runes[i] == RUNE_TYPE_BLOOD && blood )
-            blood--;
-        if( m_runes[i] == RUNE_TYPE_FROST && frost )
-            frost--;
-        if( m_runes[i] == RUNE_TYPE_UNHOLY && unholy )
-            unholy--;
-
-        if( m_runes[i] == RUNE_TYPE_DEATH )
-            death++;
-    }
-
-    uint8 res = blood + frost + unholy;
-    if( res == 0 )
-        return true;
-
-    if( death >= (blood + frost + unholy) )
-        return true;
-
-    return false;
-}
-
-void Player::ScheduleRuneRefresh(uint8 index, bool forceDeathRune)
-{
-
-}
-
-void Player::UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry* pSpell)
-{
-    uint8 death = 0;
-    for(uint8 i = 0; i < 6; i++)
-    {
-        if( m_runes[i] == RUNE_TYPE_BLOOD && blood )
-        {
-            blood--;
-            m_runemask &= ~(1 << i);
-            m_runes[i] = RUNE_TYPE_RECHARGING;
-            ScheduleRuneRefresh(i);
-            continue;
-        }
-        if( m_runes[i] == RUNE_TYPE_FROST && frost )
-        {
-            frost--;
-            m_runemask &= ~(1 << i);
-            m_runes[i] = RUNE_TYPE_RECHARGING;
-
-            if( pSpell && pSpell->NameHash == SPELL_HASH_DEATH_STRIKE || pSpell->NameHash == SPELL_HASH_OBLITERATE && Rand(pSpell->procChance) )
-                ScheduleRuneRefresh(i, true);
-            else
-                ScheduleRuneRefresh(i);
-            continue;
-        }
-        if( m_runes[i] == RUNE_TYPE_UNHOLY && unholy )
-        {
-            unholy--;
-            m_runemask &= ~(1 << i);
-            m_runes[i] = RUNE_TYPE_RECHARGING;
-
-            if( pSpell && pSpell->NameHash == SPELL_HASH_DEATH_STRIKE || pSpell->NameHash == SPELL_HASH_OBLITERATE && Rand(pSpell->procChance) )
-                ScheduleRuneRefresh(i, true);
-            else
-                ScheduleRuneRefresh(i);
-            continue;
-        }
-
-        if( m_runes[i] == RUNE_TYPE_DEATH )
-            death++;
-    }
-
-    uint8 res = blood + frost + unholy;
-
-    if( res == 0 )
-        return;
-
-    for(uint8 i = 0; i < 6; i++)
-    {
-        if( m_runes[i] == RUNE_TYPE_DEATH && res )
-        {
-            res--;
-            m_runemask &= ~(1 << i);
-            m_runes[i] = RUNE_TYPE_RECHARGING;
-            ScheduleRuneRefresh(i);
-        }
-    }
-}
-
-uint8 Player::TheoreticalUseRunes(uint32 *runes)
-{
-    uint8 runemask = m_runemask, blood = runes[0] & 0xFF, frost = runes[1] & 0xFF, unholy = runes[2] & 0xFF, death = 0;
-    for(uint8 i = 0; i < 6; i++)
-    {
-        if(blood == 0 && frost == 0 && unholy == 0)
-            break;
-
-        bool usedRunes = false;
-        switch(m_runes[i])
-        {
-        case RUNE_TYPE_DEATH:
-        {
-            usedRunes = true;
-            if(blood)
-                blood--;
-            else if(frost)
-                frost--;
-            else if(unholy)
-                unholy--;
-            else usedRunes = false;
-        }break;
-        case RUNE_TYPE_BLOOD:
-            if(blood == 0)
-                continue;
-            usedRunes = true;
-            blood--;
-            break;
-        case RUNE_TYPE_FROST:
-            if(frost == 0)
-                continue;
-            usedRunes = true;
-            frost--;
-            break;
-        case RUNE_TYPE_UNHOLY:
-            if(unholy == 0)
-                continue;
-            usedRunes = true;
-            unholy--;
-            break;
-        }
-        if(!usedRunes)
-            continue;
-
-        runemask &= ~(1 << i);
-        SetRuneCooldown(i, 10000);
-    }
-
-    return runemask;
-}
-
 void Player::GroupUninvite(Player* targetPlayer, PlayerInfo *targetInfo)
 {
     if ( targetPlayer == NULL && targetInfo == NULL )
@@ -7919,13 +7758,6 @@ uint32 Player::GenerateShapeshiftModelId(uint32 form)
         return 16031;
     }
     return ssEntry ? ssEntry->modelID_A : 0;
-}
-
-void Player::ClearRuneCooldown(uint8 index)
-{
-    WorldPacket data(SMSG_ADD_RUNE_POWER, 4);
-    data << uint32(1 << index);
-    GetSession()->SendPacket(&data);
 }
 
 void Player::StartQuest(uint32 Id)

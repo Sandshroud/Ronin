@@ -944,7 +944,7 @@ void Spell::cast(bool check)
 
             //if(!m_projectileWait)
             {
-                std::pair<WorldObject*, std::pair<uint8, bool>> casterTarget = std::make_pair<WorldObject*, std::pair<uint8, bool>>(NULL, std::make_pair(0x00, false));
+                std::pair<WorldObject*, uint8> casterTarget = std::make_pair<WorldObject*, uint8>(NULL, 0x00);
                 // if the spell is not reflected
                 for(uint8 i = 0; i < 3; i++)
                 {
@@ -959,18 +959,21 @@ void Spell::cast(bool check)
                         continue;
                     HandleEffects(i, m_caster);
                     casterTarget.first = m_caster;
-                    casterTarget.second.first |= uint8(1<<i);
-                    casterTarget.second.second = (casterTarget.second.second || m_spellInfo->EffectApplyAuraName[i] > 0);
+                    casterTarget.second |= uint8(1<<i);
                 }
 
+                std::vector<std::pair<WoWGuid, uint8>> m_spellMisses;
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
                 {
-                    uint8 hitResult = itr->second->HitResult;
-                    if(hitResult != SPELL_DID_HIT_SUCCESS)
-                        continue;
-
                     if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
                     {
+                        uint8 hitResult = itr->second->HitResult;
+                        if(hitResult != SPELL_DID_HIT_SUCCESS)
+                        {
+                            m_spellMisses.push_back(std::make_pair(itr->first, hitResult));
+                            continue;
+                        }
+
                         for(uint8 i = 0; i < 3; i++)
                         {
                             if((itr->second->EffectMask & uint8(1<<i)) == 0)
@@ -983,31 +986,17 @@ void Spell::cast(bool check)
                         Unit *unitTarget = castPtr<Unit>(target);
                         if(GetSpellProto()->TargetAuraState)
                             unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
-
-                        // Add our aura after handling the effects
-                        for(uint8 i = 0; i < 3; i++)
-                        {
-                            if(m_spellInfo->EffectApplyAuraName[i] && (itr->second->EffectMask & uint8(1<<i)) > 0)
-                            {
-                                HandleAddAura(unitTarget);
-                                break;
-                            }
-                        }
-
                         HandleDelayedEffects(unitTarget, itr->second->EffectMask);
                     }
                 }
 
+                SendSpellMisses(m_caster, &m_spellMisses, m_spellInfo->Id);
                 if(casterTarget.first && casterTarget.first->IsUnit())
                 {
                     Unit *unitTarget = castPtr<Unit>(casterTarget.first);
                     if(GetSpellProto()->TargetAuraState)
                         unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
-
-                    // Add our aura after handling the effects
-                    if(casterTarget.second.second)
-                        HandleAddAura(unitTarget);
-                    HandleDelayedEffects(unitTarget, casterTarget.second.first);
+                    HandleDelayedEffects(unitTarget, casterTarget.second);
                 }
             }// else CalcDestLocationHit();
 
@@ -1228,6 +1217,13 @@ bool Spell::HasPower()
         m_usesMana = false; // no mana regen interruption for free spells
         return true;
     }
+
+    if(m_spellInfo->powerType == POWER_TYPE_RUNE)
+    {
+        uint8 runeMask = m_caster->GetUInt32Value(powerField);
+        return (runeMask & cost) == cost;
+    }
+
     // Unit has enough power (needed for creatures)
     return (cost <= m_caster->GetUInt32Value(powerField));
 }
@@ -1243,45 +1239,38 @@ bool Spell::TakePower()
         return false;
 
     bool result = false;
-    if(sSpellMgr.HandleTakePower(this, u_caster, GetSpellProto()->powerType, cost, result))
+    if(sSpellMgr.HandleTakePower(this, u_caster, m_spellInfo->powerType, cost, result))
         return result;
-
     if (cost <= 0)
     {
         m_usesMana = false; // no mana regen interruption for free spells
         return true;
     }
 
-    if(GetSpellProto()->powerType == POWER_TYPE_RUNIC)
+    if(m_spellInfo->powerType == POWER_TYPE_RUNE)
     {
-        if(u_caster->IsPlayer())
-            castPtr<Player>(u_caster)->UseRunes(m_spellInfo->runeCost[0], m_spellInfo->runeCost[1], m_spellInfo->runeCost[2]);
-        if(uint32 runePowerGain = m_spellInfo->runeGain)
-            u_caster->SetPower(POWER_TYPE_RUNIC, u_caster->GetPower(POWER_TYPE_RUNIC) + runePowerGain);
+        if(uint32 runicGain = m_spellInfo->runicGain)
+            u_caster->ModPower(POWER_TYPE_RUNIC, runicGain);
+        return true;
     }
-    else
-    {
-        int32 currentPower = m_caster->GetUInt32Value(powerField);
-        if(powerField == UNIT_FIELD_HEALTH)
-        {
-            if(cost <= currentPower) // Unit has enough power (needed for creatures)
-            {
-                m_caster->DealDamage(u_caster, cost, 0, 0, 0,true);
-                return true;
-            }
-        }
-        else
-        {
-            if(cost <= currentPower) // Unit has enough power (needed for creatures)
-            {
-                if( GetSpellProto()->powerType == POWER_TYPE_MANA )
-                    if(m_spellInfo->IsSpellChannelSpell()) // Client only accepts channels
-                        u_caster->DelayPowerRegeneration(GetDuration());
 
-                u_caster->SetPower(GetSpellProto()->powerType, currentPower - cost);
-                return true;
-            }
+    int32 currentPower = m_caster->GetUInt32Value(powerField);
+    if(powerField == UNIT_FIELD_HEALTH)
+    {
+        if(cost <= currentPower) // Unit has enough power (needed for creatures)
+        {
+            m_caster->DealDamage(u_caster, cost, 0, 0, 0,true);
+            return true;
         }
+    }
+    else if(cost <= currentPower) // Unit has enough power (needed for creatures)
+    {
+        if( GetSpellProto()->powerType == POWER_TYPE_MANA )
+            if(m_spellInfo->IsSpellChannelSpell()) // Client only accepts channels
+                u_caster->DelayPowerRegeneration(GetDuration());
+
+        u_caster->SetPower(GetSpellProto()->powerType, currentPower - cost);
+        return true;
     }
     return false;
 }
@@ -1296,12 +1285,16 @@ int32 Spell::CalculateCost(int32 &powerField)
     // Trainers can always cast, same with players with powercheat
     if(castPtr<Unit>(m_caster)->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER))
         return (powerField = 0);
-    if((powerField = castPtr<Unit>(m_caster)->GetPowerFieldForType(GetSpellProto()->powerType)) == UNIT_END)
+    uint32 powerType = m_spellInfo->powerType;
+    if((powerField = castPtr<Unit>(m_caster)->GetPowerFieldForType(powerType)) == UNIT_END)
         return -1;
     else if(GetSpellProto()->powerType == POWER_TYPE_MANA)
         m_usesMana = true;
 
     int32 cost = m_caster->GetSpellBaseCost(m_spellInfo);
+    if(powerType == POWER_TYPE_RUNE) // Rune cost is a mask
+        return cost;
+
     int32 currentPower = m_caster->GetUInt32Value(powerField);
     if( m_caster->IsUnit() )
     {

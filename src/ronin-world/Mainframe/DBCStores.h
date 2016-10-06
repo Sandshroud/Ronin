@@ -780,7 +780,7 @@ struct SpellEntry
     char*  Description;
     char*  BuffDescription;
     uint32 SchoolMask;
-    uint32 RuneCostID;
+    uint32 SpellRuneCostID;
     //uint32 SpellMissileID;
     //uint32 spellDescriptionVariableID;
     uint32 SpellDifficulty;
@@ -906,7 +906,7 @@ struct SpellEntry
 
     // SpellRuneCostEntry
     uint32 runeCost[3];
-    uint32 runeGain;
+    uint32 runicGain;
 
     // SpellScalingEntry
     uint32 castTimeMin;
@@ -1321,7 +1321,7 @@ struct SpellRuneCostEntry
     uint32 bloodRuneCost;
     uint32 frostRuneCost;
     uint32 unholyRuneCost;
-    uint32 runePowerGain;
+    uint32 runicPowerGain;
 };
 
 // SpellScaling.dbc

@@ -228,14 +228,8 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
 
     if( cast_flags & SPELL_CASTFLAG_RUNE_UPDATE ) //send new runes
     {
-        uint8 runeMask = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->GetRuneMask() : 0x3F, theoretical = m_caster->IsPlayer() ? castPtr<Player>(m_caster)->TheoreticalUseRunes(m_spellInfo->runeCost) : 0;
-        *data << runeMask << theoretical;
-        for (uint8 i = 0; i < 6; i++)
-        {
-            uint8 mask = (1 << i);
-            if (mask & runeMask && !(mask & theoretical))
-                *data << uint8(0);
-        }
+        *data << uint8(0xFF) << uint8(0xFF);
+        // Runemask current, theoretical after, then 6 bytes detailing the rune data, one byte for each (mask & runeMask && !(mask & theoretical))
     }
 
     if (cast_flags & SPELL_CASTFLAG_MISSILE_INFO)
@@ -281,7 +275,7 @@ void BaseSpell::SendSpellStart()
         cast_flags |= SPELL_CASTFLAG_NO_VISUAL;
     if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
         cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
-    if (m_spellInfo->RuneCostID && m_spellInfo->powerType == POWER_TYPE_RUNE)
+    if (m_spellInfo->SpellRuneCostID && m_spellInfo->powerType == POWER_TYPE_RUNE)
         cast_flags |= SPELL_CASTFLAG_NO_GCD;
     if(m_castTime && (m_spellInfo->HasEffect(SPELL_EFFECT_HEAL) || m_spellInfo->HasEffect(SPELL_EFFECT_HEAL_PCT) || m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)))
         cast_flags |= SPELL_CASTFLAG_HEAL_UPDATE;
@@ -312,7 +306,7 @@ void BaseSpell::SendSpellGo()
         cast_flags |= SPELL_CASTFLAG_NO_VISUAL;
     if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
         cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT && (GetSpellProto()->RuneCostID || m_spellInfo->HasEffect(SPELL_EFFECT_ACTIVATE_RUNE)))
+    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT && (GetSpellProto()->SpellRuneCostID || m_spellInfo->HasEffect(SPELL_EFFECT_ACTIVATE_RUNE)))
         cast_flags |= (SPELL_CASTFLAG_NO_GCD | SPELL_CASTFLAG_RUNE_UPDATE);
     else if(m_spellInfo->StartRecoveryTime == 0)
         cast_flags |= SPELL_CASTFLAG_NO_GCD;
@@ -451,6 +445,21 @@ void BaseSpell::SendChannelUpdate(uint32 time)
     data << m_caster->GetGUID().asPacked();
     data << time;
     m_caster->SendMessageToSet(&data, true);
+}
+
+void BaseSpell::SendSpellMisses(WorldObject* caster, std::vector<std::pair<WoWGuid, uint8>> *dataPool, uint32 spellid)
+{
+    if( caster == NULL || dataPool->empty() )
+        return;
+
+    WorldPacket data(SMSG_SPELLLOGMISS, 29);
+    data << uint32(spellid);
+    data << caster->GetGUID();
+    data << uint8(0);
+    data << uint32(dataPool->size());
+    for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = dataPool->begin(); itr != dataPool->end(); itr++)
+        data << (*itr).first << (*itr).second;
+    caster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendHealSpellOnPlayer( WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid)

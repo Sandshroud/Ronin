@@ -278,6 +278,15 @@ void SpellManager::PoolSpellData()
             }
         }
 
+        //SpellReagentsEntry
+        if(SpellRuneCostEntry* sRuneCost = dbcSpellRuneCost.LookupEntry(spellInfo->SpellRuneCostID))
+        {
+            spellInfo->runeCost[0] = sRuneCost->bloodRuneCost;
+            spellInfo->runeCost[1] = sRuneCost->frostRuneCost;
+            spellInfo->runeCost[2] = sRuneCost->unholyRuneCost;
+            spellInfo->runicGain = sRuneCost->runicPowerGain;
+        }
+
         //SpellScalingEntry
         if(SpellScalingEntry *scalingEntry = dbcSpellScaling.LookupEntry(spellInfo->SpellScalingId))
         {
@@ -559,6 +568,10 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
         sp->Reagent[i] = 0;
         sp->ReagentCount[i] = 0;
     }
+    sp->runeCost[0] = 0;
+    sp->runeCost[1] = 0;
+    sp->runeCost[2] = 0;
+    sp->runicGain = 0;
     // SpellScalingEntry
     sp->castTimeMin = 0;
     sp->castTimeMax = 0;

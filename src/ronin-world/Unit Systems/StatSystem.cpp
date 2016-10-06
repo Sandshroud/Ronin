@@ -53,6 +53,18 @@ void StatSystem::LoadClassPowers()
         {
             if(PowersByClass[i][j] == POWER_TYPE_MAX)
                 continue;
+            if(j == POWER_TYPE_ALTERNATE)
+            {
+                switch(i)
+                {
+                case DEATHKNIGHT:
+                    m_unitPowersForClass[i].push_back(POWER_TYPE_RUNE);
+                    m_unitPowersByClass.insert(std::make_pair(std::make_pair(i, POWER_TYPE_RUNE), EUnitFields(PowersByClass[i][j])));
+                    break;
+                };
+                continue;
+            }
+
             m_unitPowersForClass[i].push_back(j);
             m_unitPowersByClass.insert(std::make_pair(std::make_pair(i, j), EUnitFields(PowersByClass[i][j])));
         }

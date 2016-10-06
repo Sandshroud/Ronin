@@ -421,7 +421,7 @@ void Unit::UpdateHealthValues()
     SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
 }
 
-static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 1000, 6, 3, 100, 3 };
+static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 0xFF, 1000, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
@@ -440,7 +440,9 @@ void Unit::UpdatePowerValues()
             power += GetBonusMana() + baseIntellect + intellect*15.f*GetPowerMod();
         }
 
-        if(powerType <= POWER_TYPE_RUNIC)
+        if(powerType == POWER_TYPE_RUNE)
+            SetPower(powerType, power);
+        else if(powerType <= POWER_TYPE_RUNIC)
         {
             if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY))
                 for(AuraInterface::modifierMap::iterator itr2 = increaseEnergyMod->begin(); itr2 != increaseEnergyMod->end(); itr2++)
@@ -3341,12 +3343,8 @@ void Unit::SetPowerType(uint8 type)
     SetByte(UNIT_FIELD_BYTES_0, 3, type);
 
     if(type == POWER_TYPE_RUNIC && IsPlayer())
-    {
-        SetFloatValue(PLAYER_RUNE_REGEN_1, 0.100000f);
-        SetFloatValue(PLAYER_RUNE_REGEN_1+1, 0.100000f);
-        SetFloatValue(PLAYER_RUNE_REGEN_1+2, 0.100000f);
-        SetFloatValue(PLAYER_RUNE_REGEN_1+3, 0.100000f);
-    }
+        for(uint8 i = 0; i < 4; i++)
+            SetFloatValue(PLAYER_RUNE_REGEN_1 + i, 0.1f);
 }
 
 int32 Unit::GetPowerPct(uint8 type)

@@ -95,6 +95,7 @@ public:
     void SendInterrupted(uint8 result);
     void SendChannelStart(int32 duration);
     void SendChannelUpdate(uint32 time);
+    static void SendSpellMisses(WorldObject* caster, std::vector<std::pair<WoWGuid, uint8>> *dataPool, uint32 spellid);
     static void SendHealSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
     static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
     void SendResurrectRequest(Player* target);

@@ -1670,29 +1670,12 @@ public:
     static DrunkenState GetDrunkenstateByValue(uint16 value);
     void EventDrunkenVomit();
 
-public:
-    void ClearRuneCooldown(uint8 index);
-    void ConvertRune(uint8 index, uint8 value);
-    void ScheduleRuneRefresh(uint8 index, bool forceDeathRune = false);
-
-    bool CanUseRunes(uint8 blood, uint8 frost, uint8 unholy);
-    void UseRunes(uint8 blood, uint8 frost, uint8 unholy, SpellEntry * pSpell = NULL);
-    uint8 TheoreticalUseRunes(uint32 *runeCost);
-
-    uint8 GetRuneMask() { return m_runemask; }
-    uint8 GetRune(uint32 index) { ASSERT(index < 6); return m_runes[index]; }
-    uint8 GetBaseRune(uint8 index) { ASSERT(index < 6); return baseRunes[index]; }
-    uint32 GetRuneCooldown(uint32 index) { return m_runeCD[index]; }
-    void SetRune(uint8 index, uint8 value) { m_runes[index] = value; }
-    void SetRuneCooldown(uint8 index, uint32 cooldown) { m_runeCD[index] = cooldown; }
-    void SetDeathRuneChance(uint32 chance) { m_deathRuneMasteryChance = chance; }
-
 private:
-    // Runes
-    uint8 m_runemask;
-    uint8 m_runes[6];
-    uint32 m_runeCD[6];
-
-    uint32 m_deathRuneMasteryChance;
-
+    struct RuneData
+    {
+        // Runes
+        uint8 m_runemask;
+        uint8 m_runes[6];
+        uint32 m_runeCD[6];
+    } *m_runeData;
 };

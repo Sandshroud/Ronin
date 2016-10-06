@@ -26,7 +26,7 @@ public:
     void HandleEffects(uint32 i, WorldObject *target);
     void HandleDelayedEffects(Unit *unitTarget, uint8 effectMask);
     // Add auras after handling effects
-    void HandleAddAura(Unit *target);
+    void HandleAddAura(Unit *target, uint8 effectMask);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Handles healing function

@@ -83,7 +83,7 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
     if(spTarget == NULL) // Not possible but whatever
         return;
 
-    if(spTarget->accumAmount && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
+    if(spTarget->accumAmount && unitTarget->isAlive() && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
         || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, effectMask)
         || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, effectMask)))
     {
@@ -98,46 +98,46 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
         if(!m_caster->IsUnit() || m_spellInfo->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
             m_caster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod, false, false);
         else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, spTarget->accumAmount, false, true);
+
+        if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask))
+        {
+            WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
+            data << unitTarget->GetGUID();
+            data << uint8(DAMAGE_FIRE);
+            data << uint32(spTarget->accumAmount);
+            unitTarget->SendMessageToSet( &data, true );
+        }
     }
 
-    if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask))
-    {
-        WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
-        data << unitTarget->GetGUID();
-        data << uint8(DAMAGE_FIRE);
-        data << uint32(spTarget->accumAmount);
-        unitTarget->SendMessageToSet( &data, true );
-    }
-
-    if(m_spellInfo->HasEffect(SPELL_EFFECT_HEAL))
+    if(unitTarget->isAlive() && m_spellInfo->HasEffect(SPELL_EFFECT_HEAL, effectMask))
         Heal(unitTarget, effectMask, spTarget->accumAmount);
+
+    // Target alive check then trigger spell/apply aura
+    HandleAddAura(unitTarget, effectMask);
 }
 
-void SpellEffectClass::HandleAddAura(Unit *target)
+void SpellEffectClass::HandleAddAura(Unit *target, uint8 effectMask)
 {
-    if(target == NULL)
+    AuraTargetMap::iterator itr;
+    if(target == NULL || (itr = m_tempAuras.find(target->GetGUID())) == m_tempAuras.end())
         return;
 
     if( GetSpellProto()->MechanicsType == 31 )
         target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE);
 
-    AuraTargetMap::iterator itr;
-    if((itr = m_tempAuras.find(target->GetGUID())) != m_tempAuras.end())
+    Aura *aur = itr->second;
+    m_tempAuras.erase(itr);
+
+    // did our effects kill the target?
+    if( target->isDead() && !GetSpellProto()->isDeathPersistentAura())
     {
-        Aura *aur = itr->second;
-        m_tempAuras.erase(itr);
-
-        // did our effects kill the target?
-        if( target->isDead() && !GetSpellProto()->isDeathPersistentAura())
-        {
-            // free pointer
-            target->RemoveAura(aur);
-            return;
-        }
-
-        // Add the aura to our target
-        target->AddAura(aur);
+        // free pointer
+        target->RemoveAura(aur);
+        return;
     }
+
+    // Add the aura to our target
+    target->AddAura(aur);
 }
 
 void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
@@ -582,6 +582,7 @@ void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amo
     if(sSpellMgr.HandleDummyEffect(this, i, m_caster, target, amount))
         return;
 
+    // Heal: 47633, 47632
     sLog.outDebug("Dummy spell not handled: %u\n", m_spellInfo->Id);
 }
 
@@ -2613,21 +2614,7 @@ void SpellEffectClass::SpellEffectRemoveAura(uint32 i, WorldObject *target, int3
 
 void SpellEffectClass::SpellEffectActivateRune(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
-    if( !m_caster->IsPlayer() )
-        return;
 
-    Player *p_caster = castPtr<Player>(m_caster);
-    if( p_caster->getClass() != DEATHKNIGHT )
-        return;
-
-    for( uint8 j = 0; j < 6; ++j )
-    {
-        if( p_caster->GetRune(j) == RUNE_TYPE_RECHARGING && p_caster->GetBaseRune(j) == GetSpellProto()->EffectMiscValue[i] )
-        {
-            p_caster->SetRune(j, p_caster->GetBaseRune(j));
-            p_caster->ClearRuneCooldown(j);
-        }
-    }
 }
 
 void SpellEffectClass::SpellEffectFailQuest(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
