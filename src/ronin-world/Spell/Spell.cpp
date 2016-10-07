@@ -1100,7 +1100,6 @@ void Spell::Update(uint32 difftime)
         return;
     }
 
-//  printf("spell::update m_timer %u, difftime %d, newtime %d\n", m_timer, difftime, m_timer-difftime);
     switch(m_spellState)
     {
     case SPELL_STATE_PREPARING:

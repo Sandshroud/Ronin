@@ -18,41 +18,41 @@ public:
     // (dx * dx + dy * dy + dz * dz)
     float DistanceSq(const LocationVector & comp)
     {
-        float delta_x = fabs(comp.x - x);
-        float delta_y = fabs(comp.y - y);
-        float delta_z = fabs(comp.z - z);
+        float delta_x = RONIN_UTIL::Diff(comp.x, x);//fabs(comp.x - x);
+        float delta_y = RONIN_UTIL::Diff(comp.y, y);//fabs(comp.y - y);
+        float delta_z = RONIN_UTIL::Diff(comp.z, z);//fabs(comp.z - z);
 
         return (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
     }
 
     float DistanceSq(const float &X, const float &Y, const float &Z)
     {
-        float delta_x = fabs(X - x);
-        float delta_y = fabs(Y - y);
-        float delta_z = fabs(Z - z);
+        float delta_x = RONIN_UTIL::Diff(X, x);
+        float delta_y = RONIN_UTIL::Diff(Y, y);
+        float delta_z = RONIN_UTIL::Diff(Z, z);
 
         return (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
     }
 
     float Distance2DSq(const LocationVector & comp)
     {
-        float delta_x = fabs(comp.x - x);
-        float delta_y = fabs(comp.y - y);
+        float delta_x = RONIN_UTIL::Diff(comp.x, x);
+        float delta_y = RONIN_UTIL::Diff(comp.y, y);
         return (delta_x*delta_x + delta_y*delta_y);
     }
 
     float Distance2DSq(const float & X, const float & Y)
     {
-        float delta_x = fabs(X - x);
-        float delta_y = fabs(Y - y);
+        float delta_x = RONIN_UTIL::Diff(X, x);
+        float delta_y = RONIN_UTIL::Diff(Y, y);
         return (delta_x*delta_x + delta_y*delta_y);
     }
 
     // atan2(dx / dy)
     float CalcAngTo(const LocationVector & dest)
     {
-        float dx = fabs(dest.x - x);
-        float dy = fabs(dest.y - y);
+        float dx = dest.x - x;
+        float dy = dest.y - y;
         if(dy != 0.0f)
             return atan2(dy, dx);
         return 0.0f;
@@ -60,8 +60,8 @@ public:
 
     float CalcAngFrom(const LocationVector & src)
     {
-        float dx = fabs(x - src.x);
-        float dy = fabs(y - src.y);
+        float dx = x - src.x;
+        float dy = y - src.y;
         if(dy != 0.0f)
             return atan2(dy, dx);
         return 0.0f;

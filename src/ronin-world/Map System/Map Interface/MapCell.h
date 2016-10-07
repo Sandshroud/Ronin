@@ -13,6 +13,8 @@ class Map;
 #define MAKE_CELL_EVENT(x,y) ( ((x) * 1000) + 200 + y )
 #define DECODE_CELL_EVENT(dest_x, dest_y, ev) (dest_x) = ((ev-200)/1000); (dest_y) = ((ev-200)%1000);
 
+class MapCellObjectStorage;
+
 class SERVER_DECL MapCell
 {
     friend class CellHandler<MapCell>;
@@ -28,19 +30,16 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
+    bool HasPlayers(uint16 phaseMask = 0xFFFF);
 
-    bool HasObject(WorldObject* obj) { return std::find(_objects.begin(), _objects.end(), obj) != _objects.end(); }
-    bool HasPlayers() { return !_players.empty(); }
-    RONIN_INLINE size_t GetObjectCount() { return _objects.size(); }
-    RONIN_INLINE CellObjectSet::iterator Begin() { return _objects.begin(); }
-    RONIN_INLINE CellObjectSet::iterator End() { return _objects.end(); }
+    // Iterating through different phases of sets
+    MapCell::CellObjectSet *GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &eventAccess, bool &handledAllPhases);
 
     //State Related
     void SetActivity(bool state);
 
     RONIN_INLINE bool IsActive() { return _active; }
     RONIN_INLINE bool IsLoaded() { return _loaded; }
-    RONIN_INLINE uint32 GetPlayerCount() { return _players.size(); }
 
     //WorldObject Loading Managing
     uint32 LoadCellData(CellSpawns * sp);
@@ -61,10 +60,38 @@ public:
 private:
     bool _forcedActive;
     uint16 _x,_y;
-    CellObjectSet _objects, _players;
+
     bool _active, _loaded;
     bool _unloadpending;
 
+    uint32 objectCount;
     MapInstance* _instance;
     Map *_mapData;
+
+    MapCell::CellObjectSet m_objectSet, m_playerSet;
+    Loki::AssocVector<uint8, MapCellObjectStorage*> m_phaseStorage, m_eventStorage;
+};
+
+class MapCellObjectStorage
+{
+    MapCell::CellObjectSet m_objectSet;
+public:
+    MapCellObjectStorage(uint32 identifier) : m_identifier(identifier) {}
+    ~MapCellObjectStorage() { m_objectSet.clear(); }
+
+    void AddObject(WorldObject *obj);
+    void RemoveObject(WorldObject *obj);
+
+    MapCell::CellObjectSet *GetObjectSet() { return &m_objectSet; }
+    void UnloadCellData(bool pendingUnload, bool preDestruction);
+
+    bool isEmpty() { return m_objectSet.empty(); }
+    MapCell::CellObjectSet::iterator begin() { return m_objectSet.begin(); }
+    MapCell::CellObjectSet::iterator end() { return m_objectSet.end(); }
+    RONIN_INLINE uint32 GetObjectCount() { return m_objectSet.size(); }
+
+    uint8 GetIdentifier() { return m_identifier; }
+
+private:
+    uint8 m_identifier;
 };

@@ -36,8 +36,8 @@ bool DeathKnightUnholyAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObjec
     {
         switch(sp->Id)
         {
-            // Icy Touch has an AP modifier of 0.2
-        case 47632: amount += float2int32(((float)unitCaster->GetAttackPower())*0.15); break;
+            // Death Coil has an AP modifier of 0.2
+        case 47632: amount += float2int32(((float)unitCaster->GetAttackPower())*0.288f); break;
         }
     }
     return true;

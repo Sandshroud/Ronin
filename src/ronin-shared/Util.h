@@ -264,7 +264,9 @@ namespace RONIN_UTIL
         return res;
     }
 
-    template<typename T> RONIN_INLINE T FirstBitValue(T value)
+    template<typename T> RONIN_INLINE T Diff(T val, T val2) { return std::max<T>(val, val2)-std::min<T>(val, val2); }
+
+    template<typename T> RONIN_INLINE uint8 FirstBitValue(T value)
     {
         assert(sizeof(T)<=8); // Limit to 8 bytes
         if(value)
@@ -272,7 +274,7 @@ namespace RONIN_UTIL
             for(T i = 0; i < sizeof(T)*8; i++)
                 if(value & (T(1)<<i))
                     return i;
-        } return static_cast<T>(NULL);
+        } return 0xFF;
     }
 
     RONIN_INLINE float PercentFloatVar(float val)

@@ -28,6 +28,7 @@ World::World() : m_eventHandler(NULL)
     authSeed1.SetRand(16 * 8);
     authSeed2.SetRand(16 * 8);
 
+    m_shutdownTime = 0;
     m_queueUpdateTimer = 180000;
     m_pushUpdateTimer = 0;
 
@@ -680,6 +681,11 @@ void World::UpdateServerTimers(uint32 diff)
 
     // Update world events
     //sWorldEvents.Update(1900+m_currentTimeData.tm_year, 1+m_currentTimeData.tm_mon, m_currentTimeData.tm_mday, 1+m_currentTimeData.tm_wday, m_currentTimeData.tm_hour);
+}
+
+void World::GetActiveEvents(std::vector<uint32> &activeEvents)
+{
+
 }
 
 bool World::HasActiveEvents(WorldObject *obj)

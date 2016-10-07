@@ -1254,7 +1254,8 @@ public:
     float CalcPercentForRating(uint32 index, uint32 rating);
     void RecalcAllRatings();
 
-    uint32 m_regenTimerCount;
+    std::map<uint8, uint32> m_regenTimerCounters;
+
     float m_powerFraction[6];
     void RegeneratePower(bool isinterrupted);
     void RegenerateHealth(bool inCombat);

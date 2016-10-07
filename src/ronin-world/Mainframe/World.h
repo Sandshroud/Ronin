@@ -373,6 +373,8 @@ public:
     /** Reloads the config and sets all of the setting variables
      */
     void Rehash(bool load);
+
+    void GetActiveEvents(std::vector<uint32> &activeEvents);
     bool HasActiveEvents(WorldObject *obj);
 
     WorldSession* FindSession(uint32 id);

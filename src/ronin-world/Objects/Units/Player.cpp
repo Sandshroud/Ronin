@@ -130,7 +130,6 @@ Player::Player(uint64 guid, uint32 fieldCount) : Unit(guid, fieldCount), m_playe
     m_AutoShotAttackTimer           = 0;
     m_AutoShotSpell                 = NULL;
 
-    m_regenTimerCount = 0;
     for (uint8 i = 0; i < 6; i++)
         m_powerFraction[i] = 0;
     m_targetIcon                    = 0;
@@ -4564,8 +4563,8 @@ void Player::RemoveSpellsFromLine(uint16 skill_line)
 void Player::RegeneratePower(bool is_interrupted)
 {
     uint32 m_regenTimer = m_P_regenTimer; //set next regen time
-    m_regenTimerCount += m_regenTimer;
 
+    bool isInCombat = IsInCombat();
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
     for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
@@ -4575,8 +4574,12 @@ void Player::RegeneratePower(bool is_interrupted)
             continue;
 
         uint32 curValue = GetPower(powerField), maxValue = GetMaxPower(EUnitFields(powerField+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS)));
-        if(curValue == 0 && (power == POWER_TYPE_RAGE || power == POWER_TYPE_RUNIC))
+        if(curValue == 0 && (power == POWER_TYPE_RAGE || power == POWER_TYPE_RUNIC || power == POWER_TYPE_HOLY_POWER))
             continue;
+
+        if(m_regenTimerCounters.find(power) == m_regenTimerCounters.end())
+            m_regenTimerCounters[power] = m_regenTimer;
+        else m_regenTimerCounters[power] += m_regenTimer;
 
         float addvalue = 0.0f;
         switch (power)
@@ -4587,7 +4590,7 @@ void Player::RegeneratePower(bool is_interrupted)
             }break;
         case POWER_TYPE_RAGE:
             {
-                if (!IsInCombat() && !is_interrupted)
+                if (!isInCombat && !is_interrupted)
                 {
                     addvalue += -20/0.05f;  // 2 rage by tick (= 2 seconds => 1 rage/sec)
                     if(m_regenTimer)
@@ -4600,12 +4603,20 @@ void Player::RegeneratePower(bool is_interrupted)
             }break;
         case POWER_TYPE_RUNIC:
             {
-                if (!IsInCombat() && !is_interrupted)
+                if (!isInCombat && !is_interrupted)
                 {
                     addvalue += -30/0.3f;
                     if(m_regenTimer)
                         addvalue /= m_regenTimer;
                 }
+            }break;
+        case POWER_TYPE_HOLY_POWER:
+            {
+                addvalue = -1;
+                if (isInCombat || is_interrupted) // If we're in combat, interrupted, or below our regen timer, just set current value to 0
+                    m_regenTimerCounters[power] = 0;
+                if(m_regenTimerCounters[power] < 10000)
+                    curValue = 0;
             }break;
         }
 
@@ -4636,10 +4647,10 @@ void Player::RegeneratePower(bool is_interrupted)
             }
         }
 
-        if (m_regenTimerCount >= 2000 || m_powerFraction[power] == 0 || curValue == maxValue)
+        if (m_regenTimerCounters[power] >= 2000 || m_powerFraction[power] == 0 || curValue == maxValue)
         {
-            m_regenTimerCount = 0;
             SetPower(powerField, curValue);
+            m_regenTimerCounters[power] = 0;
         } else m_uint32Values[powerField] = curValue;
         continue;
     }

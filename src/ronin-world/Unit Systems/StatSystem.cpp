@@ -78,26 +78,24 @@ void StatSystem::LoadClassTalentData()
     {
         if(TalentTabEntry *entry = dbcTalentTab.LookupRow(i))
         {
+            uint8 affectedClass = 0;
             for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
             {
                 if(entry->ClassMask & (1<<(i-1)))
                 {
-                    entry->affectedClasses.push_back(i);
+                    affectedClass = i;
                     break;
                 }
             }
 
-            if(entry->affectedClasses.empty())
+            if(affectedClass == 0)
                 continue;
 
-            for(std::vector<uint8>::iterator itr = entry->affectedClasses.begin(); itr != entry->affectedClasses.end(); itr++)
-            {
-                for(uint8 i = 0; i < 2; i++)
-                    if(entry->masterySpells[i] && (sp = dbcSpell.LookupEntry(entry->masterySpells[i])))
-                        m_talentMasterySpells.insert(std::make_pair(std::make_pair(*itr, entry->TabPage), sp->Id));
+            for(uint8 i = 0; i < 2; i++)
+                if(entry->masterySpells[i] && (sp = dbcSpell.LookupEntry(entry->masterySpells[i])))
+                    m_talentMasterySpells.insert(std::make_pair(std::make_pair(affectedClass, entry->TabPage), sp->Id));
 
-                m_talentRoleMasks.insert(std::make_pair(std::make_pair(*itr, entry->TabPage), entry->roleMask));
-            }
+            m_talentRoleMasks.insert(std::make_pair(std::make_pair(affectedClass, entry->TabPage), entry->roleMask));
         }
     }
 
@@ -105,8 +103,7 @@ void StatSystem::LoadClassTalentData()
     for(uint32 i = 0; i < dbcTreePrimarySpells.GetNumRows(); i++)
         if((entry = dbcTreePrimarySpells.LookupRow(i)) && (sp = dbcSpell.LookupEntry(entry->SpellID)))
             if(TalentTabEntry *talentTab = dbcTalentTab.LookupEntry(entry->TalentTabID))
-                for(auto itr = talentTab->affectedClasses.begin(); itr != talentTab->affectedClasses.end(); itr++)
-                    m_talentPrimarySpells.insert(std::make_pair(std::make_pair(*itr, talentTab->TabPage), sp->Id));
+                m_talentPrimarySpells.insert(std::make_pair(std::make_pair(0, talentTab->TabPage), sp->Id));
 }
 
 bool StatSystem::LoadUnitStats()

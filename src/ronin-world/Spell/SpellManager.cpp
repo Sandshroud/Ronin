@@ -606,7 +606,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
 
     /// Defaults
     sp->Class = sp->buffIndex = 0;
-    sp->School = RONIN_UTIL::FirstBitValue(sp->SchoolMask);
+    sp->School = sp->SchoolMask ? RONIN_UTIL::FirstBitValue(sp->SchoolMask) : 0;
     sp->NameHash = crc32((const unsigned char*)sp->Name, (unsigned int)strlen(sp->Name)); //need these set before we start processing spells
     sp->RankNumber = sp->GeneratedThreat = sp->SpellSkillLine = 0;
     sp->CustomAttributes[0] = sp->CustomAttributes[1] = 0;
