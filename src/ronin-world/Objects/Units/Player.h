@@ -587,7 +587,6 @@ public:
 
     void OnFieldUpdated(uint16 index);
 
-    void UpdateMasteryValues();
     void UpdatePlayerRatings();
     void UpdatePlayerDamageDoneMods();
 
@@ -1410,7 +1409,7 @@ public:
     RONIN_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
     uint32 OnlineTime;
     uint32 load_health, load_power[POWER_FIELDS_MAX];
-    std::set<SpellEntry *> castSpellAtLogin;
+    std::vector<SpellEntry *> castSpellAtLogin;
 
     /////
     void OnPreSetInWorld();

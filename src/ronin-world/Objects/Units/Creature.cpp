@@ -135,8 +135,7 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
     }
 
     m_aiInterface.Update(uiDiff);
-    if(hasStateFlag(UF_ATTACKING))
-        UpdateAutoAttackState();
+    EventUpdateCombat();
 }
 
 void Creature::UpdateFieldValues()
@@ -236,6 +235,16 @@ void Creature::Tag(Player* plr)
 
     // update tag visual
     UpdateLootAnimation(plr);
+}
+
+void Creature::EventUpdateCombat()
+{
+    if(!hasStateFlag(UF_ATTACKING))
+        return;
+    // Check spell casting
+
+    // Update our auto attack states
+    UpdateAutoAttackState();
 }
 
 void Creature::EventAttackStop()

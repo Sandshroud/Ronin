@@ -944,23 +944,9 @@ void Spell::cast(bool check)
 
             //if(!m_projectileWait)
             {
-                std::pair<WorldObject*, uint8> casterTarget = std::make_pair<WorldObject*, uint8>(NULL, 0x00);
-                // if the spell is not reflected
                 for(uint8 i = 0; i < 3; i++)
-                {
-                    if(GetSpellProto()->Effect[i] == 0)
-                        continue;
-
-                    FillTargetMap(i);
-                    if(!m_effectTargetMaps[i].empty())
-                        continue;
-                    // If for some reason we have a unitTarget but we aren't the target and map is empty, skip processing
-                    if(!m_targets.m_unitTarget.empty() && m_targets.m_unitTarget != m_caster->GetGUID())
-                        continue;
-                    HandleEffects(i, m_caster);
-                    casterTarget.first = m_caster;
-                    casterTarget.second |= uint8(1<<i);
-                }
+                    if(m_spellInfo->Effect[i])
+                        FillTargetMap(i);
 
                 std::vector<std::pair<WoWGuid, uint8>> m_spellMisses;
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
@@ -986,18 +972,11 @@ void Spell::cast(bool check)
                         Unit *unitTarget = castPtr<Unit>(target);
                         if(GetSpellProto()->TargetAuraState)
                             unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
-                        HandleDelayedEffects(unitTarget, itr->second->EffectMask);
+                        HandleDelayedEffects(unitTarget, itr->second);
                     }
                 }
 
                 SendSpellMisses(m_caster, &m_spellMisses, m_spellInfo->Id);
-                if(casterTarget.first && casterTarget.first->IsUnit())
-                {
-                    Unit *unitTarget = castPtr<Unit>(casterTarget.first);
-                    if(GetSpellProto()->TargetAuraState)
-                        unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (GetSpellProto()->TargetAuraState - 1) );
-                    HandleDelayedEffects(unitTarget, casterTarget.second);
-                }
             }// else CalcDestLocationHit();
 
             // we're much better to remove this here, because otherwise spells that change powers etc,

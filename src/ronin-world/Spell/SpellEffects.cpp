@@ -77,15 +77,11 @@ void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
     else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, GetSpellProto()->Id);
 }
 
-void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
+void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget)
 {
-    SpellTarget *spTarget = GetSpellTarget(unitTarget->GetGUID());
-    if(spTarget == NULL) // Not possible but whatever
-        return;
-
-    if(spTarget->accumAmount && unitTarget->isAlive() && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask)
-        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, effectMask)
-        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, effectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, effectMask)))
+    if(spTarget->accumAmount && unitTarget->isAlive() && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, spTarget->EffectMask)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, spTarget->EffectMask)))
     {
         if(m_caster->IsPlayer() && unitTarget->IsPlayer() && m_caster != unitTarget)
         {
@@ -99,7 +95,7 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
             m_caster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod, false, false);
         else castPtr<Unit>(m_caster)->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, spTarget->accumAmount, false, true);
 
-        if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, effectMask))
+        if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask))
         {
             WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 13);
             data << unitTarget->GetGUID();
@@ -109,14 +105,14 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, uint8 effectMask)
         }
     }
 
-    if(unitTarget->isAlive() && m_spellInfo->HasEffect(SPELL_EFFECT_HEAL, effectMask))
-        Heal(unitTarget, effectMask, spTarget->accumAmount);
+    if(unitTarget->isAlive() && m_spellInfo->HasEffect(SPELL_EFFECT_HEAL, spTarget->EffectMask))
+        Heal(unitTarget, spTarget->EffectMask, spTarget->accumAmount);
 
     // Target alive check then trigger spell/apply aura
-    HandleAddAura(unitTarget, effectMask);
+    HandleAddAura(unitTarget);
 }
 
-void SpellEffectClass::HandleAddAura(Unit *target, uint8 effectMask)
+void SpellEffectClass::HandleAddAura(Unit *target)
 {
     AuraTargetMap::iterator itr;
     if(target == NULL || (itr = m_tempAuras.find(target->GetGUID())) == m_tempAuras.end())
@@ -136,6 +132,8 @@ void SpellEffectClass::HandleAddAura(Unit *target, uint8 effectMask)
         return;
     }
 
+    if(target->IsPlayer())
+        printf("");
     // Add the aura to our target
     target->AddAura(aur);
 }

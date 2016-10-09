@@ -575,7 +575,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         else if(m_rangelessObjects.find(obj) == m_rangelessObjects.end())
         {
             // Construct set of inrange objs
-            //WorldObject::InRangeMap m_inRange(*obj->GetInRangeMap());
+            WorldObject::InRangeMap m_inRange(*obj->GetInRangeMap());
 
             MapCell* cell;
             Player* plObj2;
@@ -587,67 +587,76 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 {
                     if (cell = GetCell(posX, posY))
                     {
-                        UpdateInRangeSet(obj, plObj, cell);
-                        /*MapCell::CellObjectSet::iterator iter = cell->Begin();
-                        for(MapCell::CellObjectSet::iterator iter = cell->Begin(); iter != cell->End(); iter++)
+                        std::vector<uint32> eventAccess;
+                        sWorld.GetActiveEvents(eventAccess);
+                        if(plObj && plObj->bGMTagOn && plObj->gmSightType == 1)
+                            eventAccess.push_back(plObj->gmSightEventID);
+
+                        bool handledAllPhases = false;
+                        MapCell::CellObjectSet *objectSet;
+                        uint16 phaseMask = obj->GetPhaseMask(), count = 0;
+                        while(objectSet = cell->GetNextObjectSet(phaseMask, eventAccess, handledAllPhases))
                         {
-                            curObj = *iter;
-                            if( curObj == NULL || curObj == obj )
-                                continue;
-                            if(obj->IsObjectBlocked(curObj))
-                                continue;
-
-                            // We only need to parse objects that are in range
-                            float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
-                            if (!IsInRange(updateRange, obj, curObj))
-                                continue;
-
-                            // We've parsed the object here, erase from our other map
-                            m_inRange.erase(curObj->GetGUID());
-
-                            if(obj->IsInRangeSet(curObj))
+                            for(MapCell::CellObjectSet::iterator iter = objectSet->begin(); iter != objectSet->end(); iter++)
                             {
-                                // Check visiblility
-                                if( curObj->IsPlayer() )
-                                    UpdateObjectVisibility(castPtr<Player>(curObj), obj);
+                                curObj = *iter;
+                                if( curObj == NULL || curObj == obj )
+                                    continue;
+                                if(obj->IsObjectBlocked(curObj))
+                                    continue;
 
-                                if( plObj ) UpdateObjectVisibility(plObj, curObj);
-                            }
-                            else
-                            {
-                                // WorldObject in range, add to set
-                                obj->AddInRangeObject( curObj );
-                                curObj->AddInRangeObject( obj );
+                                // We only need to parse objects that are in range
+                                float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
+                                if (!IsInRange(updateRange, obj, curObj))
+                                    continue;
 
-                                if( curObj->IsPlayer() )
+                                // We've parsed the object here, erase from our other map
+                                m_inRange.erase(curObj->GetGUID());
+
+                                if(obj->IsInRangeSet(curObj))
                                 {
-                                    plObj2 = castPtr<Player>( curObj );
-                                    if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
+                                    // Check visiblility
+                                    if( curObj->IsPlayer() )
+                                        UpdateObjectVisibility(castPtr<Player>(curObj), obj);
+
+                                    if( plObj ) UpdateObjectVisibility(plObj, curObj);
+                                }
+                                else
+                                {
+                                    // WorldObject in range, add to set
+                                    obj->AddInRangeObject( curObj );
+                                    curObj->AddInRangeObject( obj );
+
+                                    if( curObj->IsPlayer() )
                                     {
-                                        plObj2->AddVisibleObject(obj);
-                                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                                            plObj2->PushUpdateBlock(&m_createBuffer, count);
-                                        m_createBuffer.clear();
+                                        plObj2 = castPtr<Player>( curObj );
+                                        if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
+                                        {
+                                            plObj2->AddVisibleObject(obj);
+                                            if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                                                plObj2->PushUpdateBlock(&m_createBuffer, count);
+                                            m_createBuffer.clear();
+                                        }
+                                    }
+
+                                    if( plObj != NULL )
+                                    {
+                                        if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+                                        {
+                                            plObj->AddVisibleObject( curObj );
+                                            if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                                                plObj->PushUpdateBlock(&m_createBuffer, count);
+                                            m_createBuffer.clear();
+                                        }
                                     }
                                 }
-
-                                if( plObj != NULL )
-                                {
-                                    if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-                                    {
-                                        plObj->AddVisibleObject( curObj );
-                                        if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                                            plObj->PushUpdateBlock(&m_createBuffer, count);
-                                        m_createBuffer.clear();
-                                    }
-                                }
                             }
-                        }*/
+                        }
                     }
                 }
             }
 
-            /*for(WorldObject::InRangeMap::iterator itr = m_inRange.begin(); itr != m_inRange.end(); itr++)
+            for(WorldObject::InRangeMap::iterator itr = m_inRange.begin(); itr != m_inRange.end(); itr++)
             {
                 if((curObj = itr->second) == NULL)
                     continue;
@@ -666,7 +675,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
 
                 curObj->RemoveInRangeObject(obj);
                 obj->RemoveInRangeObject(curObj);
-            }*/
+            }
         }
     }
 

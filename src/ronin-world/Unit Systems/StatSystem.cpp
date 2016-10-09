@@ -78,24 +78,24 @@ void StatSystem::LoadClassTalentData()
     {
         if(TalentTabEntry *entry = dbcTalentTab.LookupRow(i))
         {
-            uint8 affectedClass = 0;
+            entry->affectedClass = 0;
             for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
             {
                 if(entry->ClassMask & (1<<(i-1)))
                 {
-                    affectedClass = i;
+                    entry->affectedClass = i;
                     break;
                 }
             }
 
-            if(affectedClass == 0)
+            if(entry->affectedClass == 0)
                 continue;
 
             for(uint8 i = 0; i < 2; i++)
                 if(entry->masterySpells[i] && (sp = dbcSpell.LookupEntry(entry->masterySpells[i])))
-                    m_talentMasterySpells.insert(std::make_pair(std::make_pair(affectedClass, entry->TabPage), sp->Id));
+                    m_talentMasterySpells.insert(std::make_pair(std::make_pair(entry->affectedClass, entry->TabPage), sp->Id));
 
-            m_talentRoleMasks.insert(std::make_pair(std::make_pair(affectedClass, entry->TabPage), entry->roleMask));
+            m_talentRoleMasks.insert(std::make_pair(std::make_pair(entry->affectedClass, entry->TabPage), entry->roleMask));
         }
     }
 
@@ -103,7 +103,7 @@ void StatSystem::LoadClassTalentData()
     for(uint32 i = 0; i < dbcTreePrimarySpells.GetNumRows(); i++)
         if((entry = dbcTreePrimarySpells.LookupRow(i)) && (sp = dbcSpell.LookupEntry(entry->SpellID)))
             if(TalentTabEntry *talentTab = dbcTalentTab.LookupEntry(entry->TalentTabID))
-                m_talentPrimarySpells.insert(std::make_pair(std::make_pair(0, talentTab->TabPage), sp->Id));
+                m_talentPrimarySpells.insert(std::make_pair(std::make_pair(talentTab->affectedClass, talentTab->TabPage), sp->Id));
 }
 
 bool StatSystem::LoadUnitStats()

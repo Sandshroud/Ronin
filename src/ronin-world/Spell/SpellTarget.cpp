@@ -21,9 +21,6 @@ uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
 /// the targets are specified with numbers and handled accordingly
 void Spell::FillTargetMap(uint32 i)
 {
-    if(!m_caster->IsInWorld())
-        return;
-
     // Get our info from A regardless of nullity
     uint32 TargetType = GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
 
@@ -38,48 +35,56 @@ void Spell::FillTargetMap(uint32 i)
         return;
     }
 
-    //always add this guy :P
-    if(!(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
+    bool inWorld = m_caster->IsInWorld(); //always add this guy :P
+    if(inWorld && !(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
         if(Unit* target = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
             AddTarget(i, TargetType, target);
 
+    // We can always push self to our target map
     if(TargetType & SPELL_TARGET_OBJECT_SELF)
         AddTarget(i, TargetType, m_caster);
 
-    if(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
-        AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-    if (TargetType & SPELL_TARGET_OBJECT_CURTOTEMS && m_caster->IsUnit())
-    {
-        std::vector<Creature*> m_totemList;
-        castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
-        for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
-            AddTarget(i, TargetType, *itr);
+    if(inWorld)
+    {   // These require that we're in world with people around us
+        if(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
+            AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
+        if (m_caster->IsUnit() && (TargetType & SPELL_TARGET_OBJECT_CURTOTEMS))
+        {
+            std::vector<Creature*> m_totemList;
+            castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
+            for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
+                AddTarget(i, TargetType, *itr);
+        }
+
+        //targets party, not raid
+        if((TargetType & SPELL_TARGET_AREA_PARTY) && !(TargetType & SPELL_TARGET_AREA_RAID))
+        {
+            if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
+                AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
+            else AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
+        }
+
+        if(TargetType & SPELL_TARGET_AREA_RAID)
+        {
+            if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
+                AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
+            else AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
+        }
+
+        if(TargetType & SPELL_TARGET_AREA_CHAIN)
+            AddChainTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
+
+        //target cone
+        if(TargetType & SPELL_TARGET_AREA_CONE)
+            AddConeTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
+
+        if(TargetType & SPELL_TARGET_OBJECT_SCRIPTED)
+            AddScriptedOrSpellFocusTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
     }
 
-    //targets party, not raid
-    if((TargetType & SPELL_TARGET_AREA_PARTY) && !(TargetType & SPELL_TARGET_AREA_RAID))
-    {
-        if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-            AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-        else AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
-    }
-
-    if(TargetType & SPELL_TARGET_AREA_RAID)
-    {
-        if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-            AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-        else AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
-    }
-
-    if(TargetType & SPELL_TARGET_AREA_CHAIN)
-        AddChainTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-
-    //target cone
-    if(TargetType & SPELL_TARGET_AREA_CONE)
-        AddConeTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-
-    if(TargetType & SPELL_TARGET_OBJECT_SCRIPTED)
-        AddScriptedOrSpellFocusTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
+    // Allow auto self target, especially when map is empty
+    if(m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == m_caster->GetGUID()))
+        AddTarget(i, SPELL_TARGET_NONE, m_caster);
 }
 
 void Spell::HandleTargetNoObject()
@@ -103,7 +108,7 @@ void Spell::HandleTargetNoObject()
 
 bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
 {
-    if(obj == NULL || !obj->IsInWorld())
+    if(obj == NULL || (obj != m_caster && !obj->IsInWorld()))
         return false;
 
     //GO target, not item
@@ -126,8 +131,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         return false;
     if(TargetType & SPELL_TARGET_OBJECT_TARCLASS)
     {
-        WorldObject* originaltarget = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
-
+        WorldObject* originaltarget = m_caster->GetInRangeObject(m_targets.m_unitTarget);
         if(originaltarget == NULL || (originaltarget->IsPlayer() && obj->IsPlayer() && castPtr<Player>(originaltarget)->getClass() != castPtr<Player>(obj)->getClass()) || (originaltarget->IsPlayer() && !obj->IsPlayer()) || (!originaltarget->IsPlayer() && obj->IsPlayer()))
             return false;
     }
@@ -169,7 +173,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     if(TargetType & (SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID) && !(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem())))
         return;
 
-    WorldObject* tarobj = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
+    WorldObject* tarobj = m_caster->GetInRangeObject(m_targets.m_unitTarget);
 
     if(TargetType & SPELL_TARGET_AREA_SELF)
         source = m_caster->GetPosition();
@@ -227,7 +231,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
 
 void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets, bool partylimit)
 {
-    WorldObject* u = m_caster->GetMapInstance()->_GetObject(m_targets.m_unitTarget);
+    WorldObject* u = m_caster->GetInRangeObject(m_targets.m_unitTarget);
     if(u == NULL && (u = m_caster) == NULL)
         return;
     if(!u->IsPlayer())

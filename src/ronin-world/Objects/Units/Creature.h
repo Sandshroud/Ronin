@@ -224,6 +224,7 @@ public:
         return _creatureData->maleName.c_str();
     }
 
+    void EventUpdateCombat();
     void EventAttackStop();
 
     float GetPowerMod() { return _creatureData->powerMod; }

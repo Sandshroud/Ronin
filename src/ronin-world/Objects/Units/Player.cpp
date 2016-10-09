@@ -528,6 +528,12 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
                 }
             }
         }break;
+    case 24:
+        {
+            if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MASTERY))
+                for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+                    val += itr->second->m_amount;
+        }break;
     }
 
     return val;
@@ -557,6 +563,13 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
     case 19:
         SetFloatValue(UNIT_MOD_CAST_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
         break;
+    case 23:
+        SetUInt32Value(PLAYER_EXPERTISE, floor(value));
+        SetUInt32Value(PLAYER_OFFHAND_EXPERTISE, floor(value));
+        break;
+    case 25:
+        SetFloatValue(PLAYER_MASTERY, value);
+        break;
     }
 }
 
@@ -568,21 +581,6 @@ float Player::GetRatioForCombatRating(uint8 cr)
     if(combatRating && scalingCombatRating && combatRating->val > 0.f)
         return scalingCombatRating->val / combatRating->val;
     return 1.f;
-}
-
-void Player::UpdateMasteryValues()
-{
-    if(!m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
-    {
-        SetFloatValue(PLAYER_MASTERY, 0.0f);
-        return;
-    }
-
-    float baseValue = 0.f;
-    if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MASTERY))
-        for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
-            baseValue += itr->second->m_amount;
-    SetFloatValue(PLAYER_MASTERY, baseValue + GetRatioForCombatRating(PLAYER_RATING_MODIFIER_MASTERY));
 }
 
 void Player::UpdatePlayerRatings()
@@ -606,6 +604,9 @@ void Player::UpdatePlayerRatings()
             for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
                 if(itr->second->m_miscValue[0] & (1<<cr))
                     val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
+
+        if(index == PLAYER_RATING_MODIFIER_MASTERY && !m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
+            val = 0.f; // Mastery requires the aura before the rating can come into effect, so nullify it here
 
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
@@ -6008,9 +6009,8 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         case ITEM_STAT_ARCANE_RESISTANCE:
             m_modQueuedModUpdates[6].empty();
             break;
-        case ITEM_STAT_MASTERY_RATING:
-            m_modQueuedModUpdates[50].empty();
-            break;
+        case ITEM_STAT_SPELL_HEALING_DONE:
+        case ITEM_STAT_SPELL_DAMAGE_DONE:
         case ITEM_STAT_SPELL_POWER:
             m_modQueuedModUpdates[51].empty();
             break;
@@ -6020,6 +6020,10 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
         case ITEM_STAT_RESILIENCE_RATING:
         case ITEM_STAT_CRITICAL_REDUCTION_RATING:
         case ITEM_STAT_HASTE_RATING:
+        case ITEM_STAT_EXPERTISE_RATING:
+        case ITEM_STAT_ARMOR_PENETRATION_RATING:
+        case ITEM_STAT_SPELL_PENETRATION:
+        case ITEM_STAT_MASTERY_RATING:
             m_modQueuedModUpdates[52].empty();
             break;
         }

@@ -221,9 +221,6 @@ void Unit::OnAuraModChanged(uint32 modType)
         pendingIndex.push_back(11);
         break;
         // Player opcode handling
-    case SPELL_AURA_MASTERY:
-        if(IsPlayer()) pendingIndex.push_back(50);
-        break;
     case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
     case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
     case SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER:
@@ -232,6 +229,7 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER:
         if(IsPlayer()) pendingIndex.push_back(51);
         break;
+    case SPELL_AURA_MASTERY:
     case SPELL_AURA_MOD_RATING:
     case SPELL_AURA_MOD_RATING_FROM_STAT:
         if(IsPlayer()) pendingIndex.push_back(52);
@@ -302,7 +300,6 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     case 9: UpdateAttackDamageValues(); break;
     case 10: UpdatePowerCostValues(modMap); break;
     case 11: UpdateHoverValues(); break;
-    case 50: castPtr<Player>(this)->UpdateMasteryValues(); break;
     case 51: castPtr<Player>(this)->UpdatePlayerDamageDoneMods(); break;
     case 52: castPtr<Player>(this)->UpdatePlayerRatings(); break;
     case 100: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;

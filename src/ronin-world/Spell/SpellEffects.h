@@ -24,9 +24,9 @@ public:
 
     // Handle the Effects of the Spell
     void HandleEffects(uint32 i, WorldObject *target);
-    void HandleDelayedEffects(Unit *unitTarget, uint8 effectMask);
+    void HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget);
     // Add auras after handling effects
-    void HandleAddAura(Unit *target, uint8 effectMask);
+    void HandleAddAura(Unit *target);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Handles healing function

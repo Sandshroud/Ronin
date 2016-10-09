@@ -1469,6 +1469,8 @@ struct TalentTabEntry
     //char *description;
     uint32 roleMask;
     uint32 masterySpells[2];
+
+    uint32 affectedClass;
 };
 
 struct TalentTreePrimarySpellsEntry
