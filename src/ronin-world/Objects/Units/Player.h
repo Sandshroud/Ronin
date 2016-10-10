@@ -201,10 +201,13 @@ const float BaseRegen[100] =
 };
 
 // Dodge ( class base ) - UNUSED, Warrior, Paladin, Hunter, Rogue,   Priest, Death Knight, Shaman, Mage, Warlock, UNUSED, Druid
-const float baseDodge[12] = { 0.0f, 3.664f, 3.4943f, -4.0873f, 2.0957f, 3.4178f, 3.66400f, 2.108f, 3.66f, 2.4211f, 0.0f, 5.6097f };
+const float baseDodge[CLASS_MAX] = { 0.0f, 3.664f, 3.4943f, -4.0873f, 2.0957f, 3.4178f, 3.66400f, 2.108f, 3.66f, 2.4211f, 0.0f, 5.6097f };
+
+// Crit/agility to dodge/agility coefficient multipliers; 3.2.0 increased required agility by 15%
+static const float crit_to_dodge[CLASS_MAX] = { 0.f, 0.85f / 1.15f, 1.00f / 1.15f, 1.11f / 1.15f, 2.00f / 1.15f, 1.00f / 1.15f, 0.85f / 1.15f, 1.60f / 1.15f, 1.00f / 1.15f, 0.97f / 1.15f, 0.0f, 2.00f / 1.15f };
 
 // Dodge ( class Cap )      UNUSED  War Paladin hunter  rogue   priest  DK  Shaman  Mage    Lock UNUSED Druid
-const float DodgeCap[12] = { 0.0f, 84.8f, 59.9f, 86.2f, 47.8f, 59.9f, 84.7f, 59.9f, 58.8f, 59.9f, 0.0f, 47.8f };
+const float DodgeCap[CLASS_MAX] = { 0.0f, 84.8f, 59.9f, 86.2f, 47.8f, 59.9f, 84.7f, 59.9f, 58.8f, 59.9f, 0.0f, 47.8f };
 
 enum RuneTypes
 {
@@ -960,11 +963,14 @@ public:
         m_onStrikeSpellDmg.erase(spellid);
     }
 
+    bool HasSpellWithEffect(uint8 spellEff) { return !m_spellsByEffect[spellEff].empty(); }
+
     //Spells variables
     StrikeSpellMap      m_onStrikeSpells;
     StrikeSpellDmgMap   m_onStrikeSpellDmg;
     SpellSet            mSpells;
     SpellSet            mShapeShiftSpells;
+    Loki::AssocVector<uint8, std::set<uint32>> m_spellsByEffect;
 
     void AddShapeShiftSpell(uint32 id);
     void RemoveShapeShiftSpell(uint32 id);
@@ -1177,8 +1183,12 @@ public:
     //Note:ModSkillLine -> value+=amt;ModSkillMax -->value=amt; --wierd
     float GetSkillUpChance(uint32 id);
     float SpellCrtiticalStrikeRatingBonus;
+
+    float GetBaseDodge();
+    float GetBaseParry();
+    float GetBaseBlock();
+
     float CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level);
-    float CalculateDefenseFromAgilForClassAndLevel(uint32 _class, uint32 _level);
     float SpellHasteRatingBonus;
 
     bool canCast(SpellEntry *m_spellInfo);

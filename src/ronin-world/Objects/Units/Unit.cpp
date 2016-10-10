@@ -78,6 +78,7 @@ void Unit::Init()
 
     // Trigger a stat update
     TriggerModUpdate(UF_UTYPE_STATS);
+    TriggerModUpdate(UF_UTYPE_ATTACKTIME);
 
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );

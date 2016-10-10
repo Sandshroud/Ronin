@@ -488,6 +488,15 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
         val += GetBonusesFromItems(ratingsToModBonus[combatRating]);
     switch(combatRating)
     {
+    case 2:
+        {
+            gtFloat *dodgeRatio;
+            if (getClass() != WARRIOR && getClass() != PALADIN && getClass() != DEATHKNIGHT && (dodgeRatio = dbcMeleeCrit.LookupEntry((getClass()-1)*100+(std::min<uint32>(MAXIMUM_ATTAINABLE_LEVEL, getLevel()) - 1))))
+                val += ((float)((GetAgility() - baseStats->baseStat[STAT_AGILITY]) * (dodgeRatio->val * 100.f) * crit_to_dodge[getClass()]))/GetRatioForCombatRating(2);
+        }break;
+    case 3:
+        val += (GetStrength() - baseStats->baseStat[STAT_STRENGTH]) * 0.27f;
+        break;
     case 5: case 6: case 7:
         {   // Add base hit to our individual ratings
             val += GetBonusesFromItems(ITEM_STAT_HIT_RATING);
@@ -543,6 +552,15 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
 {
     switch(combatRating)
     {
+    case 2:
+        SetFloatValue(PLAYER_DODGE_PERCENTAGE, GetBaseDodge()+value);
+        break;
+    case 3:
+        SetFloatValue(PLAYER_PARRY_PERCENTAGE, GetBaseParry()+value);
+        break;
+    case 4:
+        SetFloatValue(PLAYER_BLOCK_PERCENTAGE, GetBaseBlock()+value);
+        break;
     case 8:
         SetFloatValue(PLAYER_CRIT_PERCENTAGE, value);
         SetFloatValue(PLAYER_OFFHAND_CRIT_PERCENTAGE, value);
@@ -2405,6 +2423,9 @@ void Player::addSpell(uint32 spell_id)
         return;
 
     mSpells.insert(spell_id);
+    for(uint8 i = 0; i < 3; i++)
+        if(uint8 effect = spell->Effect[i])
+            m_spellsByEffect[effect].insert(spell_id);
 
     // Add the skill line for this spell if we don't already have it.
     SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(spell_id);
@@ -3362,6 +3383,45 @@ bool Player::HasFinishedDailyQuest(uint32 quest_id)
     return m_completedDailyQuests.find(quest_id) != m_completedDailyQuests.end();
 }
 
+float Player::GetBaseDodge()
+{
+    // 4.2.0: these classes no longer receive dodge from agility and have 5% base
+    if (getClass() == WARRIOR || getClass() == PALADIN || getClass() == DEATHKNIGHT)
+        return 5.f;
+
+    gtFloat *dodgeRatio = dbcMeleeCrit.LookupEntry((getClass()-1)*100+(std::min<uint32>(MAXIMUM_ATTAINABLE_LEVEL, getLevel()) - 1));
+    if(dodgeRatio == NULL)
+        return baseDodge[getClass()]+5.f; // Shouldn't happen
+    return (baseDodge[getClass()]/100.f) + (baseStats->baseStat[STAT_AGILITY] * (dodgeRatio->val * 100.f) * crit_to_dodge[getClass()]);
+}
+
+float Player::GetBaseParry()
+{
+    if(getClass() == PRIEST || getClass() >= MAGE)
+        return 0.f;
+    if(!HasSpellWithEffect(SPELL_EFFECT_PARRY))
+        return 0.f;
+    return 5.f + (baseStats->baseStat[STAT_STRENGTH] * 0.27f * GetRatioForCombatRating(3));
+}
+
+float Player::GetBaseBlock()
+{
+    if(!HasSpellWithEffect(SPELL_EFFECT_BLOCK))
+        return 0.f;
+    Item *item = NULL;
+    if(item = m_inventory.GetInventoryItem(EQUIPMENT_SLOT_OFFHAND))
+    {
+        if(item->GetProto()->Class != ITEM_CLASS_ARMOR && item->GetProto()->SubClass != ITEM_SUBCLASS_ARMOR_SHIELD)
+            return 0.f;
+    } else return 0.f;
+
+    float val = 5.f;
+    if(AuraInterface::modifierMap *increaseBlockMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BLOCK_PERCENT))
+        for(AuraInterface::modifierMap::iterator itr = increaseBlockMod->begin(); itr != increaseBlockMod->end(); itr++)
+            val += itr->second->m_amount;
+    return val;
+}
+
 float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level)
 {
     gtFloat* baseCrit = dbcMeleeCritBase.LookupEntry(_class-1);
@@ -3372,17 +3432,6 @@ float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level
     float base = 100*baseCrit->val, ratio = 100*CritPerAgi->val;
     if(ratio < 0.0f) ratio = 0.00001f;
     return (base + float(agility*ratio));
-}
-
-float Player::CalculateDefenseFromAgilForClassAndLevel(uint32 _class, uint32 _level)
-{
-    gtFloat* CritPerAgi = dbcMeleeCrit.LookupEntry((_class-1)*100+(_level - 1));
-    if(CritPerAgi == NULL)
-        return 0.0f;
-    float class_multiplier = (_class == WARRIOR ? 1.1f : _class == HUNTER ? 1.6f : _class == ROGUE ? 2.0f : _class == DRUID ? 1.7f : 1.0f);
-    uint32 agility = GetUInt32Value(UNIT_FIELD_AGILITY)*class_multiplier;
-    float base = baseDodge[_class], ratio = 100*CritPerAgi->val;
-    return (base + (agility*ratio));
 }
 
 void Player::HandleRestedCalculations(bool rest_on)
@@ -4178,6 +4227,9 @@ void Player::removeSpellByNameHash(uint32 hash)
             RemoveAura(SpellID,GetGUID());
             m_session->OutPacket(SMSG_REMOVED_SPELL, 4, &SpellID);
             mSpells.erase(it);
+            for(uint8 i = 0; i < 3; i++)
+                if(uint8 effect = e->Effect[i])
+                    m_spellsByEffect[effect].erase(e->Id);
         }
     }
 }
@@ -4192,6 +4244,10 @@ bool Player::removeSpell(uint32 SpellID)
     if(iter != mSpells.end())
     {
         mSpells.erase(iter);
+        for(uint8 i = 0; i < 3; i++)
+            if(uint8 effect = sp->Effect[i])
+                m_spellsByEffect[effect].erase(sp->Id);
+
         RemoveAura(SpellID,GetGUID());
     } else return false;
 
@@ -6120,7 +6176,8 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
             {
                 if(ItemPrototype *proto = sItemMgr.LookupEntry(val))
                     for(uint8 i = 0; i < 3; i++)
-                        ModifyBonuses(apply, guid, slot+1+i, proto->Stats[i].Type, proto->Stats[i].Value);
+                        if(proto->Stats[i].Value)
+                            ModifyBonuses(apply, guid, slot+1+i, proto->Stats[i].Type, proto->Stats[i].Value);
                 break;
             }
 
@@ -6137,6 +6194,7 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
                     case 1: // Trigger on melee
                         break;
                     case 2: // Damage done modifier
+                        ModifyBonuses(apply, guid, slot+1+i, ITEM_STAT_MOD_DAMAGE_PHYSICAL+enchant->spell[i], value);
                         break;
                     case 3: // cast spell
                         {
