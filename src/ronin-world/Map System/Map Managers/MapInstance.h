@@ -289,6 +289,7 @@ public:
     //! Mark object as updated
     bool UpdateQueued(WorldObject *obj);
     void ObjectUpdated(WorldObject *obj);
+    void ObjectLocationChange(WorldObject *obj);
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Terrain Functions
@@ -382,7 +383,7 @@ protected:
 
     /* Update System */
     Mutex m_updateMutex;
-    ObjectSet _updates;
+    ObjectSet _updates, _movedObjects;
     PlayerSet _processQueue;
 
     /* Sessions */

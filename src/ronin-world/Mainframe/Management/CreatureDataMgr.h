@@ -89,6 +89,7 @@ struct CreatureData
     // Set on server load
     uint32 extraFlags;
     std::set<uint32> Auras;
+    std::vector<uint32> combatSpells, supportSpells;
 
     bool HasValidModelData()
     {
@@ -157,6 +158,7 @@ public:
     ~CreatureDataManager();
 
     void LoadFromDB();
+    void LoadCreatureSpells();
     void Reload();
 
     CreatureData *GetCreatureData(uint32 entry)

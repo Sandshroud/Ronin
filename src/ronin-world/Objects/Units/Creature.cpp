@@ -54,7 +54,12 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
 
 Creature::~Creature()
 {
-
+    while(!m_combatSpells.empty())
+    {
+        CreatureSpell *spell = *m_combatSpells.begin();
+        m_combatSpells.erase(m_combatSpells.begin());
+        delete spell;
+    }
 }
 
 void Creature::Init()
@@ -62,6 +67,19 @@ void Creature::Init()
     Unit::Init();
 
     m_aiInterface.Init();
+
+    for(std::vector<uint32>::iterator itr = _creatureData->combatSpells.begin(); itr != _creatureData->combatSpells.end(); itr++)
+    {
+        CreatureSpell *spell = new CreatureSpell();
+        if(spell->spellEntry = dbcSpell.LookupEntry(*itr))
+        {
+            spell->castTimer = std::min<uint32>(spell->spellEntry->StartRecoveryTime, std::min<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime));
+            spell->cooldownTimer = std::max<uint32>(spell->spellEntry->StartRecoveryTime, std::max<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime));
+            if(spell->castTimer == 0 || spell->castTimer == spell->cooldownTimer)
+                spell->castTimer = 5000;
+            m_combatSpells.push_back(spell);
+        } else delete spell;
+    }
 
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
         InitVehicleKit(vehicleKitId);
@@ -199,6 +217,20 @@ void Creature::OnRemoveInRangeObject(WorldObject *pObj)
     }
 }
 
+void Creature::UpdateInRangeObject(WorldObject *pObj)
+{
+    if(!pObj->IsUnit())
+        return;
+
+    WorldObject::InRangeSet::iterator itr;
+    bool isHostile = sFactionSystem.isHostile(this, pObj);
+    if((itr = std::find(m_inRangeHostiles.begin(), m_inRangeHostiles.end(), pObj->GetGUID())) != m_inRangeHostiles.end())
+    {
+        if(!isHostile) m_inRangeHostiles.erase(itr);
+    } else if(isHostile)
+        m_inRangeHostiles.push_back(pObj->GetGUID());
+}
+
 void Creature::ClearInRangeObjects()
 {
     m_inRangeHostiles.clear();
@@ -262,7 +294,7 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
             if(!sSpellMgr.CanCastCreatureCombatSpell(cSpell->spellEntry, this))
                 continue;
 
-            cSpell->castTimer = std::max<uint32>(5000, cSpell->spellEntry->RecoveryTime);
+            cSpell->castTimer = cSpell->cooldownTimer;
             if(Spell *spell = new Spell(this, cSpell->spellEntry))
             {
                 SpellCastTargets targets(m_attackTarget);

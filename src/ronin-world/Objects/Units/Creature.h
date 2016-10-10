@@ -190,6 +190,7 @@ struct PetSpellCooldown
 struct CreatureSpell
 {
     uint32 castTimer;
+    uint32 cooldownTimer;
     SpellEntry *spellEntry;
 };
 
@@ -221,6 +222,7 @@ public:
 
     virtual void OnAddInRangeObject(WorldObject *pObj);
     virtual void OnRemoveInRangeObject(WorldObject *pObj);
+    virtual void UpdateInRangeObject(WorldObject *pObj);
     virtual void ClearInRangeObjects();
 
     const char* GetName()

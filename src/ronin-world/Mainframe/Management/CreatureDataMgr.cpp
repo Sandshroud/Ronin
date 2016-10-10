@@ -100,6 +100,44 @@ void CreatureDataManager::LoadFromDB()
     }while(result->NextRow());
 }
 
+void CreatureDataManager::LoadCreatureSpells()
+{
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_spells_combat"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 entry = fields[0].GetUInt32();
+            if(m_creatureData.find(entry) == m_creatureData.end())
+                continue;
+            CreatureData *data = m_creatureData.at(entry);
+            for(uint8 i = 1; i < 11; i++)
+                if(uint32 spellId = fields[i].GetUInt32())
+                    data->combatSpells.push_back(spellId);
+        }while(result->NextRow());
+        delete result;
+    }
+
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_spells_support"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 entry = fields[0].GetUInt32();
+            if(m_creatureData.find(entry) == m_creatureData.end())
+                continue;
+            CreatureData *data = m_creatureData.at(entry);
+            if(uint32 spellId = fields[1].GetUInt32())
+                data->supportSpells.push_back(spellId);
+            if(uint32 spellId = fields[2].GetUInt32())
+                data->supportSpells.push_back(spellId);
+            if(uint32 spellId = fields[3].GetUInt32())
+                data->supportSpells.push_back(spellId);
+        }while(result->NextRow());
+        delete result;
+    }
+}
+
 void CreatureDataManager::Reload()
 {
 

@@ -512,6 +512,9 @@ public:
         }
     }
 
+    // For when we're remapping an object that's already in our set
+    RONIN_INLINE virtual void UpdateInRangeObject(WorldObject *obj) { }
+
     RONIN_INLINE virtual void ClearInRangeObjects()
     {
         m_inRangeObjects.clear();

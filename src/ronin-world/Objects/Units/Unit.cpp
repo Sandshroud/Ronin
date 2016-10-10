@@ -1118,7 +1118,7 @@ float Unit::GetDamageTakenModPct(uint32 school)
     if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN))
         for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
             if (itr->second->m_miscValue[0] & (1<<school))
-                mod *= float(itr->second->m_amount)/100.f;
+                mod += float(itr->second->m_amount)/100.f;
     if(school == 0)
     {
         if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT))

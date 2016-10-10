@@ -465,6 +465,7 @@ bool World::SetInitialWorldSettings()
 
     ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
+    MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, LoadSpellSkills);

@@ -1453,7 +1453,10 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         sp->y = plr->GetPositionY();
         sp->z = plr->GetPositionZ();
         sp->o = plr->GetOrientation();
+        sp->spawnFlags = 0;
         sp->modelId = p->GetNativeDisplayId();
+        sp->phaseMask = 0xFFFF;
+        sp->eventId = 0;
         sp->vendormask = 1;
     }
 

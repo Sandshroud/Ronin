@@ -801,7 +801,7 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     if (IsInWorld() && updateMap)
     {
         m_lastMapUpdatePosition = m_position;
-        m_mapInstance->ChangeObjectLocation(this);
+        m_mapInstance->ObjectLocationChange(this);
 
         if( IsPlayer() && castPtr<Player>(this)->GetGroup() && castPtr<Player>(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
             castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, castPtr<Player>(this) );

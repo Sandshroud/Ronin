@@ -619,6 +619,10 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                                     if( curObj->IsPlayer() )
                                         UpdateObjectVisibility(castPtr<Player>(curObj), obj);
 
+                                    // Check our virtual callups for inrange shenanigans
+                                    obj->UpdateInRangeObject(curObj);
+                                    curObj->UpdateInRangeObject(obj);
+
                                     if( plObj ) UpdateObjectVisibility(plObj, curObj);
                                 }
                                 else
@@ -1044,6 +1048,14 @@ void MapInstance::ObjectUpdated(WorldObject *obj)
     m_updateMutex.Release();
 }
 
+void MapInstance::ObjectLocationChange(WorldObject *obj)
+{
+    m_updateMutex.Acquire();
+    if(_movedObjects.find(obj) == _movedObjects.end())
+        _movedObjects.insert(obj);
+    m_updateMutex.Release();
+}
+
 void MapInstance::PushToProcessed(Player* plr)
 {
     _processQueue.insert(plr);
@@ -1278,7 +1290,7 @@ void MapInstance::_PerformSessionUpdates()
 void MapInstance::_PerformPendingUpdates()
 {
     m_updateMutex.Acquire();
-    if(!_updates.size() && !_processQueue.size())
+    if(!_updates.size() && !_processQueue.size() && !_movedObjects.size())
     {
         m_updateMutex.Release();
         return;
@@ -1343,6 +1355,14 @@ void MapInstance::_PerformPendingUpdates()
         wObj->ClearUpdateMask();
     }
     _updates.clear();
+
+    while(!_movedObjects.empty())
+    {
+        WorldObject *obj = *_movedObjects.begin();
+        _movedObjects.erase(_movedObjects.begin());
+        ChangeObjectLocation(obj);
+    }
+    _movedObjects.clear();
 
     Player* plyr;
     // generate pending a9packets and send to clients.
